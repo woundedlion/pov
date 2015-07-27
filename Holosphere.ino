@@ -1,5 +1,6 @@
 #include <FastLED.h>
 #include "led.h"
+#include "images.h"
 
 namespace {
   const uint32_t RPM = 240;
