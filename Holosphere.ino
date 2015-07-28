@@ -30,7 +30,7 @@ void loop() {
   unsigned int i = 0;
   while (true) { 
     pov.show(*effects[i], 5000);
-    i = (i + 1) % (sizeof(effects) / sizeof(Effect *)); 
+    i = addmod8(i, 1, sizeof(effects) / sizeof(Effect *));
   }
 }
 

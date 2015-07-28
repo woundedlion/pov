@@ -93,24 +93,27 @@ class TheMatrix : public Effect
 {
   public:
     TheMatrix() :
-      drop_timer_(500)
+      drop_timer_(10)
     {
+      random16_add_entropy(micros());
       reset();
     }
     
     CRGB get_pixel(int x, int y) const {
-      if (y == pos_[x]) {
-        return HeatColor(scale8(H - y, min(255, 255 - (255 * 2 * y / H))));
+      uint8_t dist = static_cast<int>(pos_[x]) - y;
+      if (dist >= 0 && dist <= 5) {
+        // trails fade to black
+        return blend(CRGB::Green, CRGB::Black, 255 * dist / 5);
       } else {
         return CRGB::Black; 
       }
     }
    
     void reset() {
-      random16_add_entropy(random());
       memset8(&pos_[0], 0, sizeof(pos_));
       for (int i = 0; i < W; ++i) {
-         rate_[i] = random8(1, 255);
+         // random fall rate from 0.1 to 1.0
+         rate_[i] = static_cast<float>(random16(6554, 65535)) / 65536;
       }
     }
     
@@ -127,13 +130,12 @@ class TheMatrix : public Effect
    
     void fall() {
       for (int i = 0; i < W; ++i) {
-        pos_[i] += rate_[i] * 5 / 255;
+        pos_[i] += rate_[i];
       }  
     }
     
     CEveryNMillis drop_timer_; 
-    int pos_[W];
-    uint8_t rate_[W];
+    float pos_[W];
+    float rate_[W];
 };
-
 
