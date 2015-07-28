@@ -6,12 +6,16 @@ namespace {
   const uint32_t RPM = 240;
   const uint32_t NUM_PIXELS = 40;
  
-  Spinner<40, 20> spinner;
+  Spiral<60, 20> spiral;
   Grid<40, 20, 4> grid;
+  Stars<40, 20> stars;
+  TheMatrix<40, 20> the_matrix;
   
-  const Effect* effects[] = {
-    &spinner, 
+  Effect* effects[] = {
     &grid,
+    &spiral, 
+    &stars,
+//      &the_matrix,
   };
   
   CRGB leds[NUM_PIXELS];
@@ -23,7 +27,7 @@ void setup() {
 }
 
 void loop() {
-  unsigned long i = 0;
+  unsigned int i = 0;
   while (true) { 
     pov.show(*effects[i], 5000);
     i = (i + 1) % (sizeof(effects) / sizeof(Effect *)); 
