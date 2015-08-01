@@ -12,10 +12,11 @@ class POVDisplay
       FastLED.addLeds<WS2801, 11, 13, RGB, DATA_RATE_MHZ(4)>(leds, S);
     }
 
-  void show(Effect& effect, unsigned long duration)
+  template <typename Effect>
+  void show(unsigned long duration)
   { 
     unsigned long show_start = millis();
-    effect.reset();
+    Effect effect;
     while (millis() - show_start < duration) {
       unsigned long elapsed_us = micros();
       for (int x = 0; x < effect.width(); ++x) {

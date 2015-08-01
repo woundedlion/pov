@@ -3,20 +3,8 @@
 #include "images.h"
 
 namespace {
-  const uint32_t RPM = 240;
-  const uint32_t NUM_PIXELS = 40;
- 
-  Spiral<60, 20> spiral;
-  Grid<40, 20, 4> grid;
-  Stars<40, 20> stars;
-  TheMatrix<40, 20> the_matrix;
-  
-  Effect* effects[] = {
-    &grid,
-    &spiral, 
-    &stars,
-//      &the_matrix,
-  };
+  const unsigned int RPM = 240;
+  const uint8_t NUM_PIXELS = 40;
   
   CRGB leds[NUM_PIXELS];
   POVDisplay<NUM_PIXELS> pov(leds, RPM);
@@ -27,10 +15,13 @@ void setup() {
 }
 
 void loop() {
-  unsigned int i = 0;
   while (true) { 
-    pov.show(*effects[i], 5000);
-    i = addmod8(i, 1, sizeof(effects) / sizeof(Effect *));
+    pov.show<Grid<40, 20, 4> >(10000);
+    pov.show<Spiral<60, 20> >(10000);
+    pov.show<Stars<40, 20> >(10000);
+    pov.show<TheMatrix<40, 20, 5, RPM> >(10000);
+    pov.show<Spinner<40, 20, 16> >(10000);
+    pov.show<Fire<40, 20, 55, 120> >(10000);
   }
 }
 
