@@ -172,8 +172,7 @@ class Fire
     }
   
     CRGB get_pixel(int x, int y) const {   
-      uint8_t i = scale8(heat_[x][y], 240);
-      return HeatColor(i);
+      return HeatColor(heat_[x][y]);
     }
 
     void advance_col(uint8_t x) {

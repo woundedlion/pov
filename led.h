@@ -18,7 +18,7 @@ class POVDisplay
     unsigned long show_start = millis();
     Effect effect;
     while (millis() - show_start < duration) {
-//      unsigned long elapsed_us = micros();
+      unsigned long elapsed_us = micros();
       for (int x = 0; x < effect.width(); ++x) {
         unsigned long col_us = micros();
         for (int y = 0; y < S / 2; ++y) {
@@ -33,8 +33,8 @@ class POVDisplay
         delay(d_us / 1000);
         delayMicroseconds(d_us % 1000);
       }
-//      elapsed_us = micros() - elapsed_us;
-//      Serial.println(elapsed_us);
+      elapsed_us = micros() - elapsed_us;
+      Serial.println(elapsed_us);
     }    
   }
 
