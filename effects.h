@@ -13,10 +13,10 @@ class Image
       return CRGB((c & 0xff) << 16, c & 0xff00, (c & 0xff0000) >> 16);
     }
     
+    void advance_col(uint8_t x) {} 
+
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
-
-    void advance_frame() {} 
 
   private:
     const unsigned char (*data_)[H][3];  
@@ -36,11 +36,12 @@ class Grid
       } 
       return c;
     }
+        
+    void advance_col(uint8_t x) {} 
     
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
-    
-    void advance_frame() {} 
+
 };
 
 template <uint8_t W, uint8_t H>
@@ -56,10 +57,10 @@ class Spiral
       return palette_[(x + y) % 15];
     }
         
+    void advance_col(uint8_t x) {} 
+    
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
-
-    void advance_frame() {} 
 
   private:
         
@@ -77,10 +78,10 @@ class Stars
       return random8() > 250 ? CRGB::Goldenrod : CRGB::Black;
     }
         
+    void advance_col(uint8_t x) {} 
+    
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
-
-    void advance_frame() {} 
 };
 
 template <uint8_t W, uint8_t H, uint8_t T, uint8_t RPM>
@@ -108,19 +109,17 @@ class TheMatrix
       }
     }
                
+    void advance_col(uint8_t x) {
+      fall(x);    
+    } 
+    
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
 
-    void advance_frame() {
-      fall();
-    } 
-
   private:
    
-    void fall() {
-      for (int i = 0; i < W; ++i) {
-        pos_[i] += rate_[i] * 60 / RPM;
-      }  
+    inline void fall(uint8_t x) {
+      pos_[x] += rate_[x] * 60 / RPM;
     }
     
     float pos_[W];
@@ -147,7 +146,7 @@ class Spinner
       }
     }
 
-    void advance_frame() {
+    void advance_col(uint8_t x) {
       if (spin_timer_) {
         pos_ = addmod8(pos_, 1, 16);
       }
@@ -177,14 +176,12 @@ class Fire
       return HeatColor(i);
     }
 
-    void advance_frame() {
-      for (uint8_t x = 0; x < W; ++x) {
-        cool(x);
-        rise(x);
-        spark(x);
-      }
-    }
-  
+    void advance_col(uint8_t x) {
+      cool(x);
+      rise(x);
+      spark(x);    
+    } 
+
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }    
   
