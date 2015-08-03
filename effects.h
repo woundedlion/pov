@@ -188,20 +188,20 @@ class Fire
   
     inline void cool(uint8_t x) {
        for (uint8_t y = 0; y < H; ++y) {
-        heat_[x][y] = qsub8(heat_[x][y], random(0, ((COOL * 10) / H) + 2));          
+         heat_[x][y] = qsub8(heat_[x][y], random(0, ((COOL * 10) / H) + 2));          
       }
     }
 
     inline void rise(uint8_t x) {
       for (uint8_t y = H; y >= 2; --y) {
-        heat_[x][y] = (heat_[x][y - 1] + heat_[x][y - 2] + heat_[x][y - 2]) / 3;
+        heat_[x][H - y] = (heat_[x][H - y + 1] + heat_[x][H - y + 2] + heat_[x][H - y + 2]) / 3;
       }       
     }
  
     inline void spark(uint8_t x) {
       if (random8() < SPARK) {
         uint8_t y = random8(7);
-        heat_[x][y] = qadd8(heat_[x][y], random8(160, 255));
+        heat_[x][H - y] = qadd8(heat_[x][H - y], random8(160, 255));
       }
     }
     
