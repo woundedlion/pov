@@ -27,7 +27,9 @@ class POVDisplay
             effect.get_pixel((x + (effect.width() / 2)) % effect.width(), y);
         }
         FastLED.show();
-        FastLED.showColor(CRGB::Black);
+        if (effect.show_bg()) {
+          FastLED.showColor(effect.bg_color());
+        }
         effect.advance_col(x);
         unsigned long d_us = max(0, (1000000 / (effect.width() * static_cast<double>(rpm_ / 60))) - (micros() - col_us));
         delay(d_us / 1000);

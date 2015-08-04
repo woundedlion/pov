@@ -1,26 +1,31 @@
 #include <FastLED.h>
 
-template <uint8_t W, uint8_t H>
+template <uint8_t W, uint8_t H, const unsigned char (*DATA)[20][3]>
 class Image
 {
   public:
-    Image(const unsigned char (*data)[H][3]) :
-      data_(data)
+    
+    Image()
     {}
     
     CRGB get_pixel(int x, int y) const {
-      uint32_t c = pgm_read_dword(&data_[x][y][0]);
-      return CRGB((c & 0xff) << 16, c & 0xff00, (c & 0xff0000) >> 16);
+      uint32_t c = pgm_read_dword(&DATA[x][y][0]);
+      return CRGB(c & 0xff, (c & 0xff00) >> 8, (c & 0xff0000) >> 16);
     }
-    
+
+    static bool show_bg() { return false; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
     void advance_col(uint8_t x) {} 
 
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
 
   private:
+
     const unsigned char (*data_)[H][3];  
 };
+
 
 template <uint8_t W, uint8_t H, uint8_t S>
 class Grid
@@ -37,6 +42,9 @@ class Grid
       return c;
     }
         
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
     void advance_col(uint8_t x) {} 
     
     uint8_t width() const { return W; }
@@ -57,6 +65,9 @@ class Spiral
       return palette_[(x + y) % 15];
     }
         
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+   
     void advance_col(uint8_t x) {} 
     
     uint8_t width() const { return W; }
@@ -78,6 +89,9 @@ class Stars
       return random8() > 250 ? CRGB::Goldenrod : CRGB::Black;
     }
         
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
     void advance_col(uint8_t x) {} 
     
     uint8_t width() const { return W; }
@@ -109,6 +123,9 @@ class TheMatrix
       }
     }
                
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
     void advance_col(uint8_t x) {
       fall(x);    
     } 
@@ -119,7 +136,7 @@ class TheMatrix
   private:
    
     inline void fall(uint8_t x) {
-      pos_[x] += rate_[x] * 60 / RPM;
+      pos_[x] += static_cast<float>(rate_[x]) * 60 / RPM;
     }
     
     float pos_[W];
@@ -145,6 +162,9 @@ class Spinner
         return palette_[P - 1 - addmod8(x, pos_, P)];        
       }
     }
+
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
       if (spin_timer_) {
@@ -175,6 +195,9 @@ class Fire
       return HeatColor(heat_[x][y]);
     }
 
+    static bool show_bg() { return false; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
     void advance_col(uint8_t x) {
       cool(x);
       rise(x);
@@ -193,17 +216,46 @@ class Fire
     }
 
     inline void rise(uint8_t x) {
-      for (uint8_t y = H; y >= 2; --y) {
-        heat_[x][H - y] = (heat_[x][H - y + 1] + heat_[x][H - y + 2] + heat_[x][H - y + 2]) / 3;
+      for (uint8_t y = H - 1; y >= 2; --y) {
+        heat_[x][H - 1 - y] = (heat_[x][H - 1 - y + 1] + heat_[x][H - 1 - y + 2] + heat_[x][H - 1 - y + 2]) / 3;
       }       
     }
  
     inline void spark(uint8_t x) {
       if (random8() < SPARK) {
-        uint8_t y = random8(7);
-        heat_[x][H - y] = qadd8(heat_[x][H - y], random8(160, 255));
+        uint8_t y = random8(3);
+        heat_[x][H - 1 - y] = qadd8(heat_[x][H - 1 - y], random8(160, 255));
       }
     }
     
     uint8_t heat_[W][H];
+};
+
+template <uint8_t W, uint8_t H, uint8_t BPM, uint8_t PERIOD>
+class WaveBall
+{
+  public:
+  
+    WaveBall() : palette_(CRGB::Blue, CRGB::Yellow)
+    {}
+  
+    CRGB get_pixel(int x, int y) const {   
+      uint8_t brightness = scale16by8(
+        beatsin8(BPM, 0, 255, 0, (x % PERIOD) * 256 / PERIOD) 
+       +  beatsin8(BPM, 0, 255, 0, (y % PERIOD) * 256 / PERIOD), 128);
+      return ColorFromPalette(palette_, brightness); 
+    }
+
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {} 
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+    
+  private:
+    
+      CRGBPalette16 palette_;
+     
 };
