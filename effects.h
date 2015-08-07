@@ -144,7 +144,7 @@ class TheMatrix
     CRGB c_;
 };
 
-template <uint8_t W, uint8_t H, uint8_t P>
+template <uint8_t W, uint8_t H, uint8_t P, bool swap = false>
 class Spinner
 {
   public:
@@ -152,18 +152,43 @@ class Spinner
       spin_timer_(125),
       pos_(0)
     {
-      fill_rainbow(palette_.entries, P, 0, 256 / P);
+      for (int i = 0; i < 9; i += 8) {
+        palette1_[i] = CRGB::Red;
+        palette1_[i+1] = CRGB::Yellow;
+        palette1_[i+2] = CRGB::Black;
+        palette1_[i+3] = CRGB::Black;
+        palette1_[i+4] = CRGB::Black;
+        palette1_[i+5] = CRGB::Black;
+        palette1_[i+6] = CRGB::Black;
+        palette1_[i+7] = CRGB::Black;
+        palette2_[i] = CRGB::Cyan;
+        palette2_[i+1] = CRGB::Blue;
+        palette2_[i+2] = CRGB::Black;
+        palette2_[i+3] = CRGB::Black;
+        palette2_[i+4] = CRGB::Black;
+        palette2_[i+5] = CRGB::Black;
+        palette2_[i+6] = CRGB::Black;
+        palette2_[i+7] = CRGB::Black;
+      } 
     }
     
-    CRGB get_pixel(int x, int y) const {    
-      if (mod8(y, 2) == 0) {
-        return palette_[addmod8(x, pos_, P)];
+    CRGB get_pixel(int x, int y) const {
+      if (!swap) {
+        if (y % (P * 2) < P ) {
+          return palette1_[addmod8(x, pos_, 16)];
+        } else {
+          return palette2_[(uint8_t)(pos_ - x) % 16];
+        }
       } else {
-        return palette_[P - 1 - addmod8(x, pos_, P)];        
+        if (y % (P * 2) < P ) {
+          return palette2_[(uint8_t)(pos_ - x) % 16];
+        } else {
+          return palette1_[addmod8(x, pos_, 16)];
+        }
       }
     }
-
-    static bool show_bg() { return true; }    
+   
+    static bool show_bg() { return false; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
@@ -171,14 +196,15 @@ class Spinner
         pos_ = addmod8(pos_, 1, 16);
       }
     } 
-       
+           
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
            
   private:
        
+    CRGBPalette16 palette1_;
+    CRGBPalette16 palette2_;
     CEveryNMillis spin_timer_;
-    CRGBPalette16 palette_;
     uint8_t pos_;
 };
 
@@ -257,5 +283,31 @@ class WaveBall
   private:
     
       CRGBPalette16 palette_;
-     
 };
+
+//template <uint8_t W, uint8_t H>
+//class Tadpoles
+//{
+//  public:
+//  
+//    Tadpoles()
+//    {
+//      fill_rainbow(palette_.entries, 16, 0, 256/16);
+//    }
+//  
+//    CRGB get_pixel(int x, int y) const {   
+//    }
+//
+//    static bool show_bg() { return true; }    
+//    static CRGB bg_color() { return CRGB::Black; }    
+//
+//    void advance_col(uint8_t x) {} 
+//
+//    uint8_t width() const { return W; }
+//    uint8_t height() const { return H; }
+//    
+//  private:
+//    
+//      CRGBPalette16 palette_;
+//      uint8_t pixels_[W][H];
+//};

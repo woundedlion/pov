@@ -36,7 +36,7 @@ class POVDisplay
         delayMicroseconds(d_us % 1000);
       }
       elapsed_us = micros() - elapsed_us;
-      Serial.println(elapsed_us);
+//      Serial.println(elapsed_us);
     }    
   }
 
