@@ -15,11 +15,10 @@ void setup() {
 }
 
 void loop() {
-//    pov.show<Grid<40, 20, 4> >(10000);
   while (true) { 
 //    pov.show<Grid<40, 20, 4> >(5000);
 //    pov.show<Image<26, 20, world> >(10000);
-    pov.show<Spiral<60, 20> >(10000);
+//    pov.show<Spiral<60, 20> >(10000);
     pov.show<Stars<40, 20> >(10000);
 //    pov.show<TheMatrix<40, 20, 5, RPM> >(10000);
 

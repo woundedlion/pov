@@ -152,24 +152,12 @@ class Spinner
       spin_timer_(125),
       pos_(0)
     {
-      for (int i = 0; i < 9; i += 8) {
-        palette1_[i] = CRGB::Red;
-        palette1_[i+1] = CRGB::Yellow;
-        palette1_[i+2] = CRGB::Black;
-        palette1_[i+3] = CRGB::Black;
-        palette1_[i+4] = CRGB::Black;
-        palette1_[i+5] = CRGB::Black;
-        palette1_[i+6] = CRGB::Black;
-        palette1_[i+7] = CRGB::Black;
-        palette2_[i] = CRGB::Cyan;
-        palette2_[i+1] = CRGB::Blue;
-        palette2_[i+2] = CRGB::Black;
-        palette2_[i+3] = CRGB::Black;
-        palette2_[i+4] = CRGB::Black;
-        palette2_[i+5] = CRGB::Black;
-        palette2_[i+6] = CRGB::Black;
-        palette2_[i+7] = CRGB::Black;
-      } 
+      memset(palette1_, 0, sizeof(palette1_);
+      memset(palette2_, 0, sizeof(palette1_);
+      palette1_[0] = palette1_[8] = CRGB::Red;
+      palette1_[1] = palette1_[9] = CRGB::Yellow;
+      palette2_[0] = palette2_[8] = CRGB::Cyan;
+      palette2_[1] = palette2_[9] = CRGB::Blue; 
     }
     
     CRGB get_pixel(int x, int y) const {
