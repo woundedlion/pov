@@ -152,8 +152,8 @@ class Spinner
       spin_timer_(125),
       pos_(0)
     {
-      memset(palette1_, 0, sizeof(palette1_);
-      memset(palette2_, 0, sizeof(palette1_);
+      memset(palette1_, 0, sizeof(palette1_));
+      memset(palette2_, 0, sizeof(palette1_));
       palette1_[0] = palette1_[8] = CRGB::Red;
       palette1_[1] = palette1_[9] = CRGB::Yellow;
       palette2_[0] = palette2_[8] = CRGB::Cyan;
