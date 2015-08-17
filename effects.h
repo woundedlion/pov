@@ -249,126 +249,20 @@ class Fire
     uint8_t heat_[W][H];
 };
 
-template <uint8_t W, uint8_t H>
+template <uint8_t W, uint8_t H, uint8_t WAVE_HEIGHT>
 class Water
 {
   public:
   
-    Water() :
-      palette_(OceanColors_p)
-    {
-      random16_add_entropy(random());    
-    }
-  
-    CRGB get_pixel(int x, int y) const {   
-      uint16_t r = random16();
-      if (r < 64) {
-        return ColorFromPalette(palette_, r), 255;
-      }
-      return CRGB::Blue;
-    }
-
-    static bool show_bg() { return false; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-    } 
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }    
-  
-  private:
-      
-    CRGBPalette16 palette_;
-};
-
-
-template <uint8_t W, uint8_t H, uint8_t SCALE, uint8_t SPEED, uint8_t OCTAVES>
-class Air
-{
-  public:
-    Air() :
-      palette_(CloudColors_p)
-    {
-      random16_add_entropy(random());    
-      noise_x_ = random16();
-      noise_y_ = random16();
-      noise_time_ = random16();
-    }
-  
-    CRGB get_pixel(int x, int y) const {   
-      uint8_t v = 0;
-      for (uint8_t o = 0; o < OCTAVES - 1; ++o) {
-        v = qadd8(v, inoise8(noise_x_ + (x * (SCALE << o)), noise_y_ + (y * (SCALE << o)), noise_time_) >> o);
-      }
-      return ColorFromPalette(palette_, v, 255);
-    }
-
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-      static int t = 1;
-      if ((t % W) == 0) {
-        noise_time_ += SPEED;  
-      }
-    } 
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }    
-  
-  private:
-    uint16_t noise_x_;
-    uint16_t noise_y_;
-    uint16_t noise_time_;
-    CRGBPalette16 palette_;
-};
-
-template <uint8_t W, uint8_t H, uint8_t BPM, uint8_t PERIOD>
-class WaveBall
-{
-  public:
-  
-    WaveBall() : palette_(CRGB::Blue, CRGB::Yellow)
-    {}
-  
-    CRGB get_pixel(int x, int y) const {   
-      uint8_t brightness = scale16by8(
-        beatsin8(BPM, 0, 255, 0, (x % PERIOD) * 256 / PERIOD) 
-       +  beatsin8(BPM, 0, 255, 0, (y % PERIOD) * 256 / PERIOD), 128);
-      return ColorFromPalette(palette_, brightness); 
-    }
-
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {} 
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-    
-  private:
-    
-      CRGBPalette16 palette_;
-};
-
-
-template <uint8_t W, uint8_t H, uint8_t BORDER>
-class Tadpoles
-{
-  public:
-  
-    Tadpoles() : 
-      timer_(100),
-      palette_(CRGB::Turquoise, CRGB::Blue, CRGB::Black),
-      x_(0)
+    Water() : 
+      palette_(CRGB::Turquoise, CRGB::Blue, CRGB::Black)
     {
     }
   
     CRGB get_pixel(int x, int y) const {   
-      uint8_t w = beatsin8(30, H / 2 - 1, H / 2 + 2, 0, 4 * x * (255 / (W - 1)));
-      if (y >= w) {
-        return ColorFromPalette(palette_, y * (255 / (H - 1)), 255);
+      uint8_t water_level = get_water_level(x);
+      if (y >= water_level) {
+        return ColorFromPalette(palette_, map(y, (H / 2) - WAVE_HEIGHT, H - 1, 0, 255), 255);
       }
       return CRGB::Black;
     }
@@ -377,19 +271,91 @@ class Tadpoles
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
-      if (timer_) {
-       ++x_; 
-      }
     } 
 
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
     
   private:
-    CEveryNMillis timer_;         
+  
+    uint8_t get_water_level(int x) const {
+      uint8_t phase = beatsin8(120, 0, 128);
+      return (H / 2) + map8(sin8(x + phase), -WAVE_HEIGHT, WAVE_HEIGHT);
+    }
+    
     CRGBPalette16 palette_;
-    uint8_t x_;
 };
+
+
+//template <uint8_t W, uint8_t H, uint8_t NUM>
+//class Flies
+//{
+//  public:
+//  
+//    Flies()
+//    {
+//    }
+//  
+//    CRGB get_pixel(int x, int y) const {      
+//      for (uint8_t i = 0; i < NUM; ++i) {
+//        if (pix
+//      }
+//      if (x == map8(
+//      return CRGB::Black;
+//    }
+//
+//    static bool show_bg() { return true; }    
+//    static CRGB bg_color() { return CRGB::Black; }    
+//
+//    void advance_col(uint8_t x) {
+//      for (uint8_t i = 0; i < NUM; ++i) {
+//        uint8_t r = random8(0, 7);
+//        switch (r) {
+//         case 0:
+//          flies_[i].x++;
+//          break;
+//         case 1:
+//          flies_[i].x++;
+//          flies_[i].y++;
+//          break;
+//         case 2:
+//          flies_[i].y++;
+//          break;
+//         case 3:
+//          flies_[i].x--;
+//          flies_[i].y++;
+//          break; 
+//         case 4:
+//          flies_[i].x--;
+//          break;
+//         case 5:
+//          flies_[i].x--;
+//          flies_[i].y--;
+//          break;
+//         case 6:
+//          flies_[i].y--;
+//          break;
+//         case 7:
+//          flies_[i].x++;
+//          flies_[i].y--;
+//          break;
+//        }
+//      }
+//    } 
+//
+//    uint8_t width() const { return W; }
+//    uint8_t height() const { return H; }
+//    
+//  private:
+//
+//  struct Fly
+//  {
+//    uint8_t x_;
+//    uint8_t y_;
+//  };
+//
+//  Fly flies_[NUM];  
+//};
 
 
 //template <uint8_t W, uint8_t H, uint8_t BORDER>

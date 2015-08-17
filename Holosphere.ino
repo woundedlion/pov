@@ -23,8 +23,8 @@ void loop() {
 //    pov.show<WaveBall<40, 20, 8, 4> >(10000);
 //    pov.show<TheMatrix<40, 20, 5, RPM> >(10000);
     
-//    pov.show<Water<40, 20> >(10000);
-//    pov.show<Air<40, 20, 30, 120, 1> >(10000);
+    pov.show<Water<40, 20, 3> >(10000);
+//    pov.show<Flies<40, 20, 1> >(10000);
 
 //    pov.show<Grid<40, 20, 4> >(5000);
 
