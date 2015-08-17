@@ -9,11 +9,11 @@ class Image
     {}
     
     CRGB get_pixel(int x, int y) const {
-      uint32_t c = pgm_read_dword(&DATA[x][y][0]);
+      uint32_t c = pgm_read_dword(&DATA[x][y][0]); 
       return CRGB(c & 0xff, (c & 0xff00) >> 8, (c & 0xff0000) >> 16);
     }
 
-    static bool show_bg() { return false; }    
+    static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {} 
@@ -52,7 +52,7 @@ class Grid
 
 };
 
-template <uint8_t W, uint8_t H>
+template <uint8_t W, uint8_t H, uint8_t SPREAD>
 class Spiral
 {
   public:
@@ -62,14 +62,18 @@ class Spiral
     }
     
     CRGB get_pixel(int x, int y) const {
-      return palette_[(x + y) % 15];
+      if ((x + y) % (SPREAD + 1) == 0) {
+        return palette_[(x + y) % 16];
+      }
+      return CRGB::Black;
     }
         
     static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
    
-    void advance_col(uint8_t x) {} 
-    
+    void advance_col(uint8_t x) {
+    } 
+  
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
 
@@ -278,6 +282,48 @@ class Water
     CRGBPalette16 palette_;
 };
 
+
+template <uint8_t W, uint8_t H, uint8_t SCALE, uint8_t SPEED, uint8_t OCTAVES>
+class Air
+{
+  public:
+    Air() :
+      palette_(CloudColors_p)
+    {
+      random16_add_entropy(random());    
+      noise_x_ = random16();
+      noise_y_ = random16();
+      noise_time_ = random16();
+    }
+  
+    CRGB get_pixel(int x, int y) const {   
+      uint8_t v = 0;
+      for (uint8_t o = 0; o < OCTAVES - 1; ++o) {
+        v = qadd8(v, inoise8(noise_x_ + (x * (SCALE << o)), noise_y_ + (y * (SCALE << o)), noise_time_) >> o);
+      }
+      return ColorFromPalette(palette_, v, 255);
+    }
+
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      static int t = 1;
+      if ((t % W) == 0) {
+        noise_time_ += SPEED;  
+      }
+    } 
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }    
+  
+  private:
+    uint16_t noise_x_;
+    uint16_t noise_y_;
+    uint16_t noise_time_;
+    CRGBPalette16 palette_;
+};
+
 template <uint8_t W, uint8_t H, uint8_t BPM, uint8_t PERIOD>
 class WaveBall
 {
@@ -306,97 +352,153 @@ class WaveBall
       CRGBPalette16 palette_;
 };
 
+
 template <uint8_t W, uint8_t H, uint8_t BORDER>
 class Tadpoles
 {
   public:
   
-    Tadpoles() {
-            fill_rainbow(palette_.entries, 16, 0, 256 / 16);
+    Tadpoles() : 
+      timer_(100),
+      palette_(CRGB::Turquoise, CRGB::Blue, CRGB::Black),
+      x_(0)
+    {
     }
   
     CRGB get_pixel(int x, int y) const {   
-      return CRGB(palette_[x + y]).nscale8_video(pixels_[x][y]);
+      uint8_t w = beatsin8(30, H / 2 - 1, H / 2 + 2, 0, 4 * x * (255 / (W - 1)));
+      if (y >= w) {
+        return ColorFromPalette(palette_, y * (255 / (H - 1)), 255);
+      }
+      return CRGB::Black;
     }
 
     static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
-      static uint8_t n = 1;
-      if ((n % W) == 0) {
-        n = 1;
-        blur(172);
-        swim();
-      }      
+      if (timer_) {
+       ++x_; 
+      }
     } 
 
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
     
   private:
-
-    void swim() {
-      uint8_t s = min(W, H);
-      
-      uint8_t x = beatsin8(27, BORDER, s - BORDER);
-      uint8_t y = beatsin8(41, BORDER, s - BORDER);
-      uint8_t nx = s - 1 - x;
-      uint8_t ny = s - 1 - y;
-      
-      pixels_[x][y] = 255;
-      pixels_[y][x] = 255;
-      pixels_[nx][ny] = 255;
-      pixels_[ny][nx] = 255;
-      pixels_[nx][y] = 255;
-      pixels_[ny][x] = 255;
-    }
-  
-    void blur(fract8 blur_amount) {
-      for (uint8_t i = 0; i < H; ++i) {
-        blurRow(i, blur_amount);
-      }
-      for (uint8_t i = 0; i < W; ++i) {
-        blurCol(i, blur_amount);
-      }      
-    }
-
-    void blurRow(uint8_t row, fract8 blur_amount) {
-      uint8_t keep = 255 - blur_amount;
-      uint8_t seep = blur_amount >> 1;
-      byte carryover = 0;
-      for(uint8_t i = 0; i < W; ++i) {
-          byte cur = pixels_[i][row];
-          byte part = cur;
-          part = scale8(part, seep);
-          cur = scale8(cur, keep);
-          cur += carryover;
-          if (i) {
-            pixels_[i-1][row] += part;
-          }
-          pixels_[i][row] = cur;
-          carryover = part;
-      }
-    }
-    
-    void blurCol(uint8_t col, fract8 blur_amount) {
-      uint8_t keep = 255 - blur_amount;
-      uint8_t seep = blur_amount >> 1;
-      byte carryover = 0;
-      for(uint8_t i = 0; i < H; ++i) {
-          byte cur = pixels_[col][i];
-          byte part = cur;
-          part = scale8(part, seep);
-          cur = scale8(cur, keep);
-          cur += carryover;
-          if (i) {
-            pixels_[col][i - 1] += part;
-          }
-          pixels_[col][i] = cur;
-          carryover = part;
-      }      
-    }
-         
+    CEveryNMillis timer_;         
     CRGBPalette16 palette_;
-    uint8_t pixels_[W][H];
+    uint8_t x_;
 };
+
+
+//template <uint8_t W, uint8_t H, uint8_t BORDER>
+//class Tadpoles
+//{
+//  public:
+//  
+//    Tadpoles() : 
+//      swim_timer_(10),
+//      x_(0),
+//      y_(0),
+//      nx_(0),
+//      ny_(0)
+//    {
+//      fill_rainbow(palette_.entries, 16, 0, 256 / 16);
+//      memset(pixels_, 0, sizeof(pixels_));
+//    }
+//  
+//    CRGB get_pixel(int x, int y) const {   
+//      return CRGB(CRGB::White).nscale8_video(pixels_[x][y]);
+//    }
+//
+//    static bool show_bg() { return true; }    
+//    static CRGB bg_color() { return CRGB::Black; }    
+//
+//    void advance_col(uint8_t x) {
+//      if (swim_timer_) {
+// //      blur(16);
+//        swim();
+//      }
+//    } 
+//
+//    uint8_t width() const { return W; }
+//    uint8_t height() const { return H; }
+//    
+//  private:
+//
+//    void swim() {
+//      uint8_t s = min(W, H);
+//
+//      pixels_[x_][y_] = 0;
+//      pixels_[y_][x_] = 0;
+//      pixels_[nx_][ny_] = 0;
+//      pixels_[ny_][nx_] = 0;
+//      pixels_[nx_][y_] = 0;
+//      pixels_[ny_][x_] = 0;
+//      
+//        
+//      x_ = beatsin8(27, BORDER, s - BORDER);
+//      y_ = beatsin8(41, BORDER, s - BORDER);
+//      nx_ = s - 1 - x_;
+//      ny_ = s - 1 - y_;
+//      
+//      pixels_[x_][y_] = 255;
+//      pixels_[y_][x_] = 255;
+//      pixels_[nx_][ny_] = 255;
+//      pixels_[ny_][nx_] = 255;
+//      pixels_[nx_][y_] = 255;
+//      pixels_[ny_][x_] = 255;
+//    }
+//  
+//    void blur(fract8 blur_amount) {
+//      for (uint8_t i = 0; i < H; ++i) {
+//        blurRow(i, blur_amount);
+//      }
+//      for (uint8_t i = 0; i < W; ++i) {
+//        blurCol(i, blur_amount);
+//      }      
+//    }
+//
+//    void blurRow(uint8_t row, fract8 blur_amount) {
+//      uint8_t keep = 255 - blur_amount;
+//      uint8_t seep = blur_amount >> 1;
+//      byte carryover = 0;
+//      for(uint8_t i = 0; i < W; ++i) {
+//          byte cur = pixels_[i][row];
+//          byte part = cur;
+//          part = scale8(part, seep);
+//          cur = scale8(cur, keep);
+//          cur += carryover;
+//          if (i) {
+//            pixels_[i-1][row] += part;
+//          }
+//          pixels_[i][row] = cur;
+//          carryover = part;
+//      }
+//    }
+//    
+//    void blurCol(uint8_t col, fract8 blur_amount) {
+//      uint8_t keep = 255 - blur_amount;
+//      uint8_t seep = blur_amount >> 1;
+//      byte carryover = 0;
+//      for(uint8_t i = 0; i < H; ++i) {
+//          byte cur = pixels_[col][i];
+//          byte part = cur;
+//          part = scale8(part, seep);
+//          cur = scale8(cur, keep);
+//          cur += carryover;
+//          if (i) {
+//            pixels_[col][i - 1] += part;
+//          }
+//          pixels_[col][i] = cur;
+//          carryover = part;
+//      }      
+//    }
+//         
+//    CRGBPalette16 palette_;
+//    uint8_t pixels_[W][H];
+//    CEveryNMillis swim_timer_;
+//    uint8_t x_, y_, nx_, ny_;
+//
+//};

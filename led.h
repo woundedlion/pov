@@ -32,11 +32,13 @@ class POVDisplay
         }
         effect.advance_col(x);
         unsigned long d_us = max(0, (1000000 / (effect.width() * static_cast<double>(rpm_ / 60))) - (micros() - col_us));
-        delay(d_us / 1000);
-        delayMicroseconds(d_us % 1000);
+        if (d_us) {
+          delay(d_us / 1000);
+          delayMicroseconds(d_us % 1000);
+        }
       }
       elapsed_us = micros() - elapsed_us;
-//      Serial.println(elapsed_us);
+      Serial.println(elapsed_us);
     }    
   }
 
