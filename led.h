@@ -17,6 +17,7 @@ class POVDisplay
   { 
     unsigned long show_start = millis();
     Effect effect;
+    unsigned long col_delay_us = 1000000 / (rpm_ / 60) / effect.width();
     while (millis() - show_start < duration) {
       unsigned long elapsed_us = micros();
       for (int x = 0; x < effect.width(); ++x) {
@@ -31,12 +32,13 @@ class POVDisplay
           FastLED.showColor(effect.bg_color());
         }
         effect.advance_col(x);
-        unsigned long d_us = max(0, (1000000 / (effect.width() * static_cast<double>(rpm_ / 60))) - (micros() - col_us));
-        if (d_us) {
-          delay(d_us / 1000);
-          delayMicroseconds(d_us % 1000);
+        col_us = micros() - col_us;
+        if (col_us < col_delay_us) {
+          delay((col_delay_us - col_us) / 1000);
+          delayMicroseconds((col_delay_us - col_us) % 1000);
         }
       }
+      effect.advance_frame();
       elapsed_us = micros() - elapsed_us;
       Serial.println(elapsed_us);
     }    

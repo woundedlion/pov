@@ -17,6 +17,7 @@ class Image
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {} 
+    void advance_frame() {} 
 
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
@@ -25,7 +26,6 @@ class Image
 
     const unsigned char (*data_)[H][3];  
 };
-
 
 template <uint8_t W, uint8_t H, uint8_t S>
 class Grid
@@ -46,6 +46,7 @@ class Grid
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {} 
+    void advance_frame() {} 
     
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
@@ -71,8 +72,8 @@ class Spiral
     static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
    
-    void advance_col(uint8_t x) {
-    } 
+    void advance_col(uint8_t x) {} 
+    void advance_frame() {} 
   
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
@@ -97,55 +98,10 @@ class Stars
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {} 
+    void advance_frame() {} 
     
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
-};
-
-template <uint8_t W, uint8_t H, uint8_t T, uint8_t RPM>
-class TheMatrix
-{
-  public:
-    TheMatrix()
-    {
-      random16_add_entropy(random());
-      c_.setHue(random8());
-      memset8(&pos_[0], 0, sizeof(pos_));
-      for (int i = 0; i < W; ++i) {
-         // random fall rate in pix/sec
-         rate_[i] = random8(1,5);
-      }
-    }
-    
-    CRGB get_pixel(int x, int y) const {
-      uint8_t dist = static_cast<uint8_t>(pos_[x]) - y;
-      if (dist >= 0 && dist <= T) {
-        // trails fade to black
-        return CRGB(c_).fadeLightBy(255 * dist / T);
-      } else {
-        return CRGB::Black; 
-      }
-    }
-               
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-      fall(x);    
-    } 
-    
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
-  private:
-   
-    inline void fall(uint8_t x) {
-      pos_[x] += static_cast<float>(rate_[x]) * 60 / RPM;
-    }
-    
-    float pos_[W];
-    uint8_t rate_[W];
-    CRGB c_;
 };
 
 template <uint8_t W, uint8_t H, uint8_t P, bool swap = false>
@@ -153,7 +109,7 @@ class Spinner
 {
   public:
     Spinner() :
-      spin_timer_(125),
+      spin_timer_(75),
       pos_(0)
     {
       memset(palette1_, 0, sizeof(palette1_));
@@ -185,8 +141,11 @@ class Spinner
 
     void advance_col(uint8_t x) {
       if (spin_timer_) {
-        pos_ = addmod8(pos_, 1, 16);
+        pos_ = addmod8(pos_, 1, W);
       }
+    } 
+
+    void advance_frame() {
     } 
            
     uint8_t width() const { return W; }
@@ -222,6 +181,8 @@ class Fire
       spark(x);    
     } 
 
+    void advance_frame() {} 
+
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }    
   
@@ -249,20 +210,37 @@ class Fire
     uint8_t heat_[W][H];
 };
 
-template <uint8_t W, uint8_t H, uint8_t WAVE_HEIGHT>
+template <uint8_t W, uint8_t H, uint8_t SPEED>
 class Water
 {
   public:
   
     Water() : 
-      palette_(CRGB::Turquoise, CRGB::Blue, CRGB::Black)
+      palette_(CRGB::Blue, CRGB::Black),
+      frame_(0)
     {
+      for (uint8_t i = 0; i < W; ++i) {
+        if (i % 3 == 0) {
+          water_[i] = 0;
+          continue;
+        } 
+        uint8_t j = (i + 5) % 6;
+        if (j == 0 || j == 1) {
+           water_[i] = 1;
+           continue;
+        } 
+        uint8_t k = (i + 2) % 6;
+        if (k == 0 || k == 1) {
+           water_[i] = -1;
+           continue;
+        } 
+      }
     }
   
-    CRGB get_pixel(int x, int y) const {   
+    CRGB get_pixel(int x, int y) const {
       uint8_t water_level = get_water_level(x);
       if (y >= water_level) {
-        return ColorFromPalette(palette_, map(y, (H / 2) - WAVE_HEIGHT, H - 1, 0, 255), 255);
+        return palette_[max(0, y - (H - 16))];
       }
       return CRGB::Black;
     }
@@ -271,7 +249,13 @@ class Water
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
+      frame_ = (millis() / SPEED) % 4;
+      if (frame_ == 3) {
+        frame_ = 1;
+      } 
     } 
+
+    void advance_frame() {} 
 
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
@@ -279,192 +263,229 @@ class Water
   private:
   
     uint8_t get_water_level(int x) const {
-      uint8_t phase = beatsin8(120, 0, 128);
-      return (H / 2) + map8(sin8(x + phase), -WAVE_HEIGHT, WAVE_HEIGHT);
+      switch (frame_) {
+        case 0:
+         return H/2 + water_[x]; 
+        case 1:
+         return H/2;
+        case 2:
+         return H/2 - water_[x]; 
+      }
     }
-    
+
+    int8_t water_[W];
+    uint8_t frame_;
     CRGBPalette16 palette_;
 };
 
+template <uint8_t W, uint8_t H, uint16_t DURATION, bool BG>
+class PaletteFall
+{
+  public:
 
-//template <uint8_t W, uint8_t H, uint8_t NUM>
-//class Flies
+    PaletteFall() :
+      timer_(DURATION),
+      palette_idx_(0),
+      palette_(RainbowColors_p),
+      palette_offset_(0)
+    {
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      return palette_[((H - 1 - y) + palette_offset_) % 16];
+    }
+
+    static bool show_bg() { return BG; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+    }
+    
+    void advance_frame() {
+      palette_offset_ = addmod8(palette_offset_, 1, 16);
+      if (timer_) {
+        switch_palette();
+      }
+    } 
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+
+    void switch_palette() {
+      switch (palette_idx_) {
+        case 0:
+          palette_ = RainbowColors_p;
+          break;
+        case 2:
+          palette_ = PartyColors_p;
+          break;
+        case 3:
+          palette_ = HeatColors_p;
+          break;
+        case 4:
+          palette_ = RainbowStripeColors_p;
+          break;
+      }
+      palette_idx_ = addmod8(palette_idx_, 1, 5);
+    }
+
+    CEveryNMillis timer_;
+    uint8_t palette_idx_;
+    CRGBPalette16 palette_;
+    uint8_t palette_offset_;
+};
+
+template <uint8_t W, uint8_t H, uint16_t DURATION>
+class PaletteGrid
+{
+  public:
+
+    PaletteGrid() :
+      timer_(DURATION),
+      palette_idx_(0),
+      palette_(RainbowColors_p),
+      palette_offset_(0)
+    {
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      x = x % 4;
+      y = y % 4;
+      if (x == 2 && y == 2) {
+        return CRGB::Red;
+//        return palette_[(palette_offset_ * 4 + 2) % 16];        
+      };
+      if (x == 0 || y == 0) {
+        return CRGB::Blue;
+//        return palette_[(palette_offset_ * 4 + 1) % 16];                
+      }
+      return CRGB::Red;
+//      return palette_[palette_offset_ * 4];
+    }
+
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+    }
+    
+    void advance_frame() {
+//      palette_offset_ = addmod8(palette_offset_, 1, 16);
+//      if (timer_) {
+//        switch_palette();
+//      }
+    } 
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+
+    void switch_palette() {
+      switch (palette_idx_) {
+        case 0:
+          palette_ = RainbowColors_p;
+          break;
+        case 2:
+          palette_ = PartyColors_p;
+          break;
+        case 3:
+          palette_ = HeatColors_p;
+          break;
+        case 4:
+          palette_ = RainbowStripeColors_p;
+          break;
+      }
+      palette_idx_ = addmod8(palette_idx_, 1, 5);
+    }
+
+    CEveryNMillis timer_;
+    uint8_t palette_idx_;
+    CRGBPalette16 palette_;
+    uint8_t palette_offset_;
+};
+
+template <uint8_t W, uint8_t H, uint8_t HUE>
+class TheMatrix
+{
+  public:
+
+    TheMatrix() :
+      bgcolor_(CHSV(HUE, 255, 20)),
+      fgcolor_(CHSV(HUE, 255, 255))
+    {
+      memset8(pixels_, 0, sizeof(pixels_));
+      random16_add_entropy(random());
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      return blend(bgcolor_, fgcolor_, pixels_[x][y]);
+    }
+
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      fall(x);
+      generate(x);
+    }
+    
+    void advance_frame() {
+    } 
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+
+    void fall(int x) {
+      memmove8(&pixels_[x][1], &pixels_[x][0], H - 1);
+      pixels_[x][0] = 0;
+    }
+    
+    void generate(int x) {
+      if (random8() < 20) {
+        pixels_[x][2] = 255;
+        pixels_[x][1] = 128;
+        pixels_[x][0] = 50;
+      }
+    }
+    
+    uint8_t pixels_[W][H];
+    CRGB bgcolor_;
+    CRGB fgcolor_;
+};
+
+
+//
+//template <uint8_t W, uint8_t H>
+//class Plaid
 //{
 //  public:
-//  
-//    Flies()
-//    {
-//    }
-//  
-//    CRGB get_pixel(int x, int y) const {      
-//      for (uint8_t i = 0; i < NUM; ++i) {
-//        if (pix
-//      }
-//      if (x == map8(
-//      return CRGB::Black;
+//    
+//    Plaid()
+//    {}
+//    
+//    CRGB get_pixel(int x, int y) const {
+//      
 //    }
 //
 //    static bool show_bg() { return true; }    
 //    static CRGB bg_color() { return CRGB::Black; }    
 //
-//    void advance_col(uint8_t x) {
-//      for (uint8_t i = 0; i < NUM; ++i) {
-//        uint8_t r = random8(0, 7);
-//        switch (r) {
-//         case 0:
-//          flies_[i].x++;
-//          break;
-//         case 1:
-//          flies_[i].x++;
-//          flies_[i].y++;
-//          break;
-//         case 2:
-//          flies_[i].y++;
-//          break;
-//         case 3:
-//          flies_[i].x--;
-//          flies_[i].y++;
-//          break; 
-//         case 4:
-//          flies_[i].x--;
-//          break;
-//         case 5:
-//          flies_[i].x--;
-//          flies_[i].y--;
-//          break;
-//         case 6:
-//          flies_[i].y--;
-//          break;
-//         case 7:
-//          flies_[i].x++;
-//          flies_[i].y--;
-//          break;
-//        }
-//      }
-//    } 
+//    void advance_col(uint8_t x) {} 
+//    void advance_frame() {} 
 //
 //    uint8_t width() const { return W; }
 //    uint8_t height() const { return H; }
-//    
+//
 //  private:
 //
-//  struct Fly
-//  {
-//    uint8_t x_;
-//    uint8_t y_;
-//  };
-//
-//  Fly flies_[NUM];  
+//  const CRGB c1_ = CRGB::Red;
+//  const CRGB c2_ = CRGB::Green;
+//  const CRGB c3_ = CRGB::Blue;
 //};
 
 
-//template <uint8_t W, uint8_t H, uint8_t BORDER>
-//class Tadpoles
-//{
-//  public:
-//  
-//    Tadpoles() : 
-//      swim_timer_(10),
-//      x_(0),
-//      y_(0),
-//      nx_(0),
-//      ny_(0)
-//    {
-//      fill_rainbow(palette_.entries, 16, 0, 256 / 16);
-//      memset(pixels_, 0, sizeof(pixels_));
-//    }
-//  
-//    CRGB get_pixel(int x, int y) const {   
-//      return CRGB(CRGB::White).nscale8_video(pixels_[x][y]);
-//    }
-//
-//    static bool show_bg() { return true; }    
-//    static CRGB bg_color() { return CRGB::Black; }    
-//
-//    void advance_col(uint8_t x) {
-//      if (swim_timer_) {
-// //      blur(16);
-//        swim();
-//      }
-//    } 
-//
-//    uint8_t width() const { return W; }
-//    uint8_t height() const { return H; }
-//    
-//  private:
-//
-//    void swim() {
-//      uint8_t s = min(W, H);
-//
-//      pixels_[x_][y_] = 0;
-//      pixels_[y_][x_] = 0;
-//      pixels_[nx_][ny_] = 0;
-//      pixels_[ny_][nx_] = 0;
-//      pixels_[nx_][y_] = 0;
-//      pixels_[ny_][x_] = 0;
-//      
-//        
-//      x_ = beatsin8(27, BORDER, s - BORDER);
-//      y_ = beatsin8(41, BORDER, s - BORDER);
-//      nx_ = s - 1 - x_;
-//      ny_ = s - 1 - y_;
-//      
-//      pixels_[x_][y_] = 255;
-//      pixels_[y_][x_] = 255;
-//      pixels_[nx_][ny_] = 255;
-//      pixels_[ny_][nx_] = 255;
-//      pixels_[nx_][y_] = 255;
-//      pixels_[ny_][x_] = 255;
-//    }
-//  
-//    void blur(fract8 blur_amount) {
-//      for (uint8_t i = 0; i < H; ++i) {
-//        blurRow(i, blur_amount);
-//      }
-//      for (uint8_t i = 0; i < W; ++i) {
-//        blurCol(i, blur_amount);
-//      }      
-//    }
-//
-//    void blurRow(uint8_t row, fract8 blur_amount) {
-//      uint8_t keep = 255 - blur_amount;
-//      uint8_t seep = blur_amount >> 1;
-//      byte carryover = 0;
-//      for(uint8_t i = 0; i < W; ++i) {
-//          byte cur = pixels_[i][row];
-//          byte part = cur;
-//          part = scale8(part, seep);
-//          cur = scale8(cur, keep);
-//          cur += carryover;
-//          if (i) {
-//            pixels_[i-1][row] += part;
-//          }
-//          pixels_[i][row] = cur;
-//          carryover = part;
-//      }
-//    }
-//    
-//    void blurCol(uint8_t col, fract8 blur_amount) {
-//      uint8_t keep = 255 - blur_amount;
-//      uint8_t seep = blur_amount >> 1;
-//      byte carryover = 0;
-//      for(uint8_t i = 0; i < H; ++i) {
-//          byte cur = pixels_[col][i];
-//          byte part = cur;
-//          part = scale8(part, seep);
-//          cur = scale8(cur, keep);
-//          cur += carryover;
-//          if (i) {
-//            pixels_[col][i - 1] += part;
-//          }
-//          pixels_[col][i] = cur;
-//          carryover = part;
-//      }      
-//    }
-//         
-//    CRGBPalette16 palette_;
-//    uint8_t pixels_[W][H];
-//    CEveryNMillis swim_timer_;
-//    uint8_t x_, y_, nx_, ny_;
-//
-//};
