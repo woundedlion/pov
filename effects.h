@@ -87,21 +87,28 @@ template <uint8_t W, uint8_t H>
 class Stars
 {
   public:
-    Stars()
+    Stars() :
+    hue_(0)
     {}
     
     CRGB get_pixel(int x, int y) const {
-      return random8() > 250 ? CRGB::Goldenrod : CRGB::Black;
+      return random8() > 250 ? CRGB(CHSV(hue_, 255, 255)) : CRGB::Black;
     }
         
     static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {} 
-    void advance_frame() {} 
+    void advance_frame() {
+      hue_++;
+    } 
     
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
+    
+    private:
+    
+      uint8_t hue_;
 };
 
 template <uint8_t W, uint8_t H, uint8_t P, bool swap = false>
@@ -337,93 +344,83 @@ class PaletteFall
     uint8_t palette_offset_;
 };
 
-template <uint8_t W, uint8_t H, uint16_t DURATION>
-class PaletteGrid
-{
-  public:
-
-    PaletteGrid() :
-      timer_(DURATION),
-      palette_idx_(0),
-      palette_(RainbowColors_p),
-      palette_offset_(0)
-    {
-    }
-
-    CRGB get_pixel(int x, int y) const {
-      x = x % 4;
-      y = y % 4;
-      if (x == 2 && y == 2) {
-        return CRGB::Red;
-//        return palette_[(palette_offset_ * 4 + 2) % 16];        
-      };
-      if (x == 0 || y == 0) {
-        return CRGB::Blue;
-//        return palette_[(palette_offset_ * 4 + 1) % 16];                
-      }
-      return CRGB::Red;
-//      return palette_[palette_offset_ * 4];
-    }
-
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-    }
-    
-    void advance_frame() {
-//      palette_offset_ = addmod8(palette_offset_, 1, 16);
-//      if (timer_) {
-//        switch_palette();
+//template <uint8_t W, uint8_t H, uint16_t DURATION>
+//class PaletteGrid
+//{
+//  public:
+//
+//    PaletteGrid() :
+//      timer_(DURATION),
+//      palette_idx_(0),
+//      palette_(CRGB::Black),
+//      palette_offset_(0)
+//    {
+//      palette_[0] = CRGB::Red;
+//      palette_[1] = CRGB::Gold;
+//      palette_[2] = CRGB::Green;
+//    }
+//
+//    CRGB get_pixel(int x, int y) const {
+//      x = x % 4;
+//      y = y % 4;
+//      if (x == 2 && y == 2) {
+//        return palette_[(palette_offset_ + 2) % 3];        
+//      };
+//      if (x == 0 || y == 0) {
+//        return palette_[(palette_offset_ + 1) % 3];                
 //      }
-    } 
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
-  private:
-
-    void switch_palette() {
-      switch (palette_idx_) {
-        case 0:
-          palette_ = RainbowColors_p;
-          break;
-        case 2:
-          palette_ = PartyColors_p;
-          break;
-        case 3:
-          palette_ = HeatColors_p;
-          break;
-        case 4:
-          palette_ = RainbowStripeColors_p;
-          break;
-      }
-      palette_idx_ = addmod8(palette_idx_, 1, 5);
-    }
-
-    CEveryNMillis timer_;
-    uint8_t palette_idx_;
-    CRGBPalette16 palette_;
-    uint8_t palette_offset_;
-};
+//      return palette_[palette_offset_];
+//    }
+//
+//    static bool show_bg() { return true; }    
+//    static CRGB bg_color() { return CRGB::Black; }    
+//
+//    void advance_col(uint8_t x) {
+//    }
+//    
+//    void advance_frame() {
+//      if (timer_) {
+//      palette_offset_ = addmod8(palette_offset_, 1, 3);
+////        switch_palette();
+//      }
+//    } 
+//
+//    uint8_t width() const { return W; }
+//    uint8_t height() const { return H; }
+//
+//  private:
+//
+//    void switch_palette() {
+//      switch (palette_idx_) {
+//        case 0:
+//          palette_ = RainbowStripeColors_p;
+//          break;
+//      }
+//      palette_idx_ = addmod8(palette_idx_, 1, 1);
+//    }
+//
+//    CEveryNMillis timer_;
+//    uint8_t palette_idx_;
+//    CRGBPalette16 palette_;
+//    uint8_t palette_offset_;
+//};
 
 template <uint8_t W, uint8_t H, uint8_t HUE>
 class TheMatrix
 {
   public:
 
-    TheMatrix() :
-      bgcolor_(CHSV(HUE, 255, 20)),
-      fgcolor_(CHSV(HUE, 255, 255))
+    TheMatrix()
     {
       memset8(pixels_, 0, sizeof(pixels_));
       random16_add_entropy(random());
     }
 
     CRGB get_pixel(int x, int y) const {
-      return blend(bgcolor_, fgcolor_, pixels_[x][y]);
+      return blend(CHSV(HUE + (3 * y), 255, 40), 
+                        CHSV(HUE + (3 * (H - 1 - y)), 255, 255),
+                        pixels_[x][y]);
     }
-
     static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
@@ -446,46 +443,14 @@ class TheMatrix
     }
     
     void generate(int x) {
-      if (random8() < 20) {
+      if (random8() < 15) {
         pixels_[x][2] = 255;
-        pixels_[x][1] = 128;
-        pixels_[x][0] = 50;
+        pixels_[x][1] = 100;
+        pixels_[x][0] = 30;
       }
     }
     
     uint8_t pixels_[W][H];
-    CRGB bgcolor_;
-    CRGB fgcolor_;
 };
-
-
-//
-//template <uint8_t W, uint8_t H>
-//class Plaid
-//{
-//  public:
-//    
-//    Plaid()
-//    {}
-//    
-//    CRGB get_pixel(int x, int y) const {
-//      
-//    }
-//
-//    static bool show_bg() { return true; }    
-//    static CRGB bg_color() { return CRGB::Black; }    
-//
-//    void advance_col(uint8_t x) {} 
-//    void advance_frame() {} 
-//
-//    uint8_t width() const { return W; }
-//    uint8_t height() const { return H; }
-//
-//  private:
-//
-//  const CRGB c1_ = CRGB::Red;
-//  const CRGB c2_ = CRGB::Green;
-//  const CRGB c3_ = CRGB::Blue;
-//};
 
 
