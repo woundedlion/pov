@@ -53,6 +53,115 @@ class Grid
 
 };
 
+template <uint8_t W, uint8_t H, uint8_t S>
+class Snake
+{
+  public:
+    Snake() : 
+    head_x_(0),
+    head_y_(0),
+    head_x2_(W / 2),
+    head_y2_(H / 2),
+    x_timer_(100),
+    y_timer_(100)
+    {}
+    
+    CRGB get_pixel(int x, int y) const {
+       uint8_t x2 = W + 1 - x;
+       uint8_t y2 = H + 1 - y;
+       if (   
+              (x == head_x_ && y == head_y_)
+           || (x2 == head_x_ && y2 == head_y_)
+           || (x == head_x_ && y2 == head_y_)
+           || (x2 == head_x_ && y == head_y_)
+           || (x == head_x2_ && y == head_y2_)
+           || (x2 == head_x2_ && y2 == head_y2_)
+           || (x == head_x2_ && y2 == head_y2_)
+           || (x2 == head_x2_ && y == head_y2_)
+           
+          )
+       {
+          return CRGB::Red;
+       }
+       return CRGB::Black;
+    }
+        
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      if (x_timer_) {
+        head_x_ = addmod8(head_x_, 1, W);
+        head_x2_ = addmod8(head_x2_, 1, W);
+      }
+      if (y_timer_) {
+        head_y_ = addmod8(head_y_, 1, H);
+        head_y2_ = addmod8(head_y2_, 1, H);
+      }
+    } 
+    void advance_frame() {} 
+    
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+private:
+
+    uint8_t head_x_;
+    uint8_t head_y_;
+    uint8_t head_x2_;
+    uint8_t head_y2_;
+    CEveryNMillis x_timer_;
+    CEveryNMillis y_timer_;
+};
+
+template <uint8_t W, uint8_t H, uint8_t S>
+class Plaid
+{
+  public:
+    Plaid() :
+    color_shift_timer_(100),
+    c1_(CHSV(random8(), 255, 255)),
+    c2_(CHSV(random8(), 255, 255)),
+    c3_(CHSV(HUE_RED, 0, 0))
+    {}
+    
+    CRGB get_pixel(int x, int y) const {
+      CHSV c(c3_);
+      if (x % 4 == 0) {
+        c = c1_;
+        if (y % 4 == 0) {
+          return blend(c, c2_, 128);
+        }
+      } else if (y % 4 == 0) {
+        return c2_;
+      }
+      return c;
+    }
+        
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {} 
+    
+    void advance_frame() {
+      if (color_shift_timer_) {
+        c1_.hue += 1;
+        c2_.hue += 1;
+//        c3_.hue += 1;
+      }
+    } 
+    
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+private:
+
+  CEveryNMillis color_shift_timer_;
+  CHSV c1_;
+  CHSV c2_;
+  CHSV c3_;
+};
+
 template <uint8_t W, uint8_t H, uint8_t SPREAD>
 class Spiral
 {
@@ -217,74 +326,6 @@ class Fire
     uint8_t heat_[W][H];
 };
 
-template <uint8_t W, uint8_t H, uint8_t SPEED>
-class Water
-{
-  public:
-  
-    Water() : 
-      palette_(CRGB::Blue, CRGB::Black),
-      frame_(0)
-    {
-      for (uint8_t i = 0; i < W; ++i) {
-        if (i % 3 == 0) {
-          water_[i] = 0;
-          continue;
-        } 
-        uint8_t j = (i + 5) % 6;
-        if (j == 0 || j == 1) {
-           water_[i] = 1;
-           continue;
-        } 
-        uint8_t k = (i + 2) % 6;
-        if (k == 0 || k == 1) {
-           water_[i] = -1;
-           continue;
-        } 
-      }
-    }
-  
-    CRGB get_pixel(int x, int y) const {
-      uint8_t water_level = get_water_level(x);
-      if (y >= water_level) {
-        return palette_[max(0, y - (H - 16))];
-      }
-      return CRGB::Black;
-    }
-
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-      frame_ = (millis() / SPEED) % 4;
-      if (frame_ == 3) {
-        frame_ = 1;
-      } 
-    } 
-
-    void advance_frame() {} 
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-    
-  private:
-  
-    uint8_t get_water_level(int x) const {
-      switch (frame_) {
-        case 0:
-         return H/2 + water_[x]; 
-        case 1:
-         return H/2;
-        case 2:
-         return H/2 - water_[x]; 
-      }
-    }
-
-    int8_t water_[W];
-    uint8_t frame_;
-    CRGBPalette16 palette_;
-};
-
 template <uint8_t W, uint8_t H, uint16_t DURATION, bool BG>
 class PaletteFall
 {
@@ -343,67 +384,6 @@ class PaletteFall
     CRGBPalette16 palette_;
     uint8_t palette_offset_;
 };
-
-//template <uint8_t W, uint8_t H, uint16_t DURATION>
-//class PaletteGrid
-//{
-//  public:
-//
-//    PaletteGrid() :
-//      timer_(DURATION),
-//      palette_idx_(0),
-//      palette_(CRGB::Black),
-//      palette_offset_(0)
-//    {
-//      palette_[0] = CRGB::Red;
-//      palette_[1] = CRGB::Gold;
-//      palette_[2] = CRGB::Green;
-//    }
-//
-//    CRGB get_pixel(int x, int y) const {
-//      x = x % 4;
-//      y = y % 4;
-//      if (x == 2 && y == 2) {
-//        return palette_[(palette_offset_ + 2) % 3];        
-//      };
-//      if (x == 0 || y == 0) {
-//        return palette_[(palette_offset_ + 1) % 3];                
-//      }
-//      return palette_[palette_offset_];
-//    }
-//
-//    static bool show_bg() { return true; }    
-//    static CRGB bg_color() { return CRGB::Black; }    
-//
-//    void advance_col(uint8_t x) {
-//    }
-//    
-//    void advance_frame() {
-//      if (timer_) {
-//      palette_offset_ = addmod8(palette_offset_, 1, 3);
-////        switch_palette();
-//      }
-//    } 
-//
-//    uint8_t width() const { return W; }
-//    uint8_t height() const { return H; }
-//
-//  private:
-//
-//    void switch_palette() {
-//      switch (palette_idx_) {
-//        case 0:
-//          palette_ = RainbowStripeColors_p;
-//          break;
-//      }
-//      palette_idx_ = addmod8(palette_idx_, 1, 1);
-//    }
-//
-//    CEveryNMillis timer_;
-//    uint8_t palette_idx_;
-//    CRGBPalette16 palette_;
-//    uint8_t palette_offset_;
-//};
 
 template <uint8_t W, uint8_t H, uint8_t HUE>
 class TheMatrix
