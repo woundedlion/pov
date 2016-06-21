@@ -19,8 +19,23 @@ class POVDisplay
     Effect effect;
     unsigned long col_delay_us = 1000000 / (rpm_ / 60) / effect.width();
     while (millis() - show_start < duration) {
-      unsigned long elapsed_us = micros();
-      for (int x = 0; x < effect.width(); ++x) {
+      unsigned long frame_start = micros();
+      for (int x = 0; x < effect.width() / 2; ++x) {
+        show_col(effect, x, col_delay_us);
+      }
+      effect.advance_frame();
+      for (int x = effect.width() / 2; x < effect.width(); ++x) {
+        show_col(effect, x, col_delay_us);
+      }
+      effect.advance_frame();
+      Serial.println(micros() - frame_start);
+    }    
+  }
+
+  private:
+
+    template <typename Effect>
+    inline void show_col(Effect& effect, int x, unsigned long col_delay_us) {
         unsigned long col_us = micros();
         for (int y = 0; y < S / 2; ++y) {
           leds_[S / 2 - y - 1] = effect.get_pixel(x, y);
@@ -34,17 +49,13 @@ class POVDisplay
         effect.advance_col(x);
         col_us = micros() - col_us;
         if (col_us < col_delay_us) {
+          noInterrupts();
           delay((col_delay_us - col_us) / 1000);
           delayMicroseconds((col_delay_us - col_us) % 1000);
+          interrupts();
         }
-      }
-      effect.advance_frame();
-      elapsed_us = micros() - elapsed_us;
-      Serial.println(elapsed_us);
-    }    
-  }
-
-  private:
+    }
+  
     CRGB *leds_;
     size_t rpm_;
 };

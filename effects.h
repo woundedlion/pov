@@ -67,21 +67,26 @@ class Snake
     {}
     
     CRGB get_pixel(int x, int y) const {
-       uint8_t x2 = W + 1 - x;
-       uint8_t y2 = H + 1 - y;
-       if (   
-              (x == head_x_ && y == head_y_)
-           || (x2 == head_x_ && y2 == head_y_)
-           || (x == head_x_ && y2 == head_y_)
-           || (x2 == head_x_ && y == head_y_)
-           || (x == head_x2_ && y == head_y2_)
-           || (x2 == head_x2_ && y2 == head_y2_)
-           || (x == head_x2_ && y2 == head_y2_)
-           || (x2 == head_x2_ && y == head_y2_)
-           
-          )
-       {
+       if (is_snake(x, y, 0, 0)) {
           return CRGB::Red;
+       }
+       else if (is_snake(x, y, 5, 10)) {
+          return CRGB::Purple;
+       }
+       else if (is_snake(x, y, 10, 5)) {
+          return CRGB::Pink;
+       }
+       else if (is_snake(x, y, 5, 15)) {
+          return CRGB::Yellow;
+       }
+       else if (is_snake(x, y, 15, 5)) {
+          return CRGB::Blue;
+       }
+       else if (is_snake(x, y, 10, 15)) {
+          return CRGB::Yellow;
+       }
+       else if (is_snake(x, y, 15, 10)) {
+          return CRGB::Blue;
        }
        return CRGB::Black;
     }
@@ -106,12 +111,93 @@ class Snake
 
 private:
 
+    bool is_snake(int x, int y, int x_offset, int y_offset) const {
+       int head_x = (head_x_ + x_offset) % W;
+       int head_y = (head_y_ + y_offset) % H;
+       int head_x2 = (head_x2_ + x_offset) % W;
+       int head_y2 = (head_y2_ + y_offset) % H;
+       uint8_t x2 = W + 1 - x;
+       uint8_t y2 = H + 1 - y;
+       return (
+              (x == head_x && y == head_y)
+           || (x2 == head_x && y2 == head_y)
+           || (x == head_x && y2 == head_y)
+           || (x2 == head_x && y == head_y)
+           || (x == head_x2 && y == head_y2)
+           || (x2 == head_x2 && y2 == head_y2)
+           || (x == head_x2 && y2 == head_y2)
+           || (x2 == head_x2 && y == head_y2)
+           
+          );  
+    }
+  
     uint8_t head_x_;
     uint8_t head_y_;
     uint8_t head_x2_;
     uint8_t head_y2_;
     CEveryNMillis x_timer_;
     CEveryNMillis y_timer_;
+};
+
+template <uint8_t W, uint8_t H, uint8_t S>
+class Kaleidoscope
+{
+  public:
+    Kaleidoscope() {
+      memset(leds_, 0, sizeof(leds_));
+      fill_rainbow(palette_.entries, 16, 0, 256 / 16);
+    }
+    
+    CRGB get_pixel(int x, int y) const {
+      return leds_[x][y];
+    }
+        
+    static bool show_bg() { return false; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {  
+      nscale8(&leds_[x][0], H, 60);      
+    }
+    
+    void advance_frame() {
+      for (uint8_t i = 0; i < counts_[count_]; ++i) {
+        uint8_t x = addmod8(i * offset_, tx_, W); 
+        uint8_t y = ty_;
+        uint8_t x2 = W - 1 - x;
+        uint8_t y2 =  H - 1 - y;
+        leds_[x][y] = palette_[addmod8(palette_offset_, i * (16 / counts_[count_]), 16)];
+        leds_[x2][y2] = leds_[x][y], palette_[addmod8(palette_offset_ , 16 - (i * (16 / counts_[count_])), 16)];
+      }
+      tx_ = addmod8(tx_, 2 , W); 
+      ty_ = addmod8(ty_, inc_y_, H);
+      if (ty_ == H - 1 || ty_ == 0) {
+        inc_y_ = 0 - inc_y_;
+        tx_ = addmod8(tx_,2, W); 
+      }
+
+      EVERY_N_MILLISECONDS(100) {
+         palette_offset_ = addmod8(palette_offset_, 1, 16);
+      }
+      EVERY_N_MILLISECONDS(3000) {
+        count_ = addmod8(count_, 1, sizeof(counts_));
+        offset_ = W / counts_[count_];
+      }
+    }
+    
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+private:
+  
+  CRGB leds_[W][H];
+  uint8_t counts_[9] = {1, 2, 4, 5, 6, 8, 10, 12, 20};
+  uint8_t count_ = 0;
+  uint8_t offset_ = W / counts_[count_];
+  uint8_t tx_ = 0;
+  uint8_t ty_ = 0;
+  int inc_y_ = 1;
+  CRGBPalette16 palette_;
+  uint8_t palette_offset_ = 0;
 };
 
 template <uint8_t W, uint8_t H, uint8_t S>
@@ -340,7 +426,7 @@ class PaletteFall
     }
 
     CRGB get_pixel(int x, int y) const {
-      return palette_[((H - 1 - y) + palette_offset_) % 16];
+      return palette_[addmod8(H - 1 - y, palette_offset_, 16)];
     }
 
     static bool show_bg() { return BG; }    
@@ -431,6 +517,160 @@ class TheMatrix
     }
     
     uint8_t pixels_[W][H];
+};
+
+template <uint8_t W, uint8_t H, uint8_t HUE, uint8_t BURNRATE>
+class Burnout
+{
+  public:
+
+    Burnout() :
+    timer_(30),
+    burn_idx_(0)
+    {
+      random16_add_entropy(random());
+      memset8(pixels_, INIT, sizeof(pixels_));
+      fill_seq(burn_, W * H);
+      shuffle(burn_, W * H);
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      if (pixels_[x][y] & BURN) {
+          return CHSV(HUE + (3 * y), 255, 255);
+      }
+      if (pixels_[x][y] == INIT) {
+          return CHSV(HUE + (3 * y), 255, 40);
+      }
+      return CRGB::Black;
+    }
+    
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      if (timer_) {
+        burnout();
+      }
+      fall(x);
+    }
+    
+    void advance_frame() {
+    } 
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+
+    enum State {
+      NONE,
+      INIT,
+      BURN = 0x80,
+    };
+    
+    void burnout() {
+      if (burn_idx_ < W * H) {
+        *((uint8_t *)pixels_ + burn_[burn_idx_++]) = BURN;
+      }
+    }
+
+    void fall(int x) {
+      for (int y = 0; y < H; ++y) {
+        if (pixels_[x][y] & BURN) {
+          pixels_[x][y] ^= BURN;
+          if (y < (H - 1)) {
+            pixels_[x][y + 1] |= BURN;
+            ++y;          
+          }
+        }
+      }
+    }
+
+    void fill_seq(short *arr, int len) {
+      for (int i = 0; i < len; ++i) {
+        arr[i] = i;
+      } 
+    }
+
+    void shuffle(short *arr, int len) {
+      for (int i = 0; i < len - 1; ++i) {
+        short j = random(i, len);
+        short temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+      }
+    }
+    
+    CEveryNMillis timer_;
+    
+    uint8_t pixels_[W][H];
+    short burn_[W * H];
+    int burn_idx_;
+};
+
+
+
+struct XY
+{
+  XY(uint8_t x, uint8_t y) :
+  x_(x),
+  y_(y)
+  {}
+
+  uint8_t x_;
+  uint8_t y_;
+};
+
+template <uint8_t W, uint8_t H>
+XY& rotate(XY& p, uint8_t tx, uint8_t ty) {
+  p.x_ = addmod8(p.x_, tx, W);
+  if (p.x_ < W / 2) {
+    if (p.y_ + ty > H) {
+          
+    }
+  } else {
+    
+  }
+  return p;
+}
+
+template <uint8_t W, uint8_t H>
+class Gyro
+{
+  public:
+
+    Gyro()
+    {
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      XY p(x, y);
+      rotate<W, H>(p, tx_, ty_);
+      if (p.x_ == 10 || p.x_ == addmod8(10, W / 2, W)) {
+        return CRGB::Green;
+      }
+      return CRGB::Black;
+    }
+
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+    }
+    
+    void advance_frame() {
+      EVERY_N_MILLIS(100) {
+        ty_ = addmod8(ty_, 1, H * 2);
+      }
+    } 
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+
+    uint8_t tx_ = 0;
+    uint8_t ty_ = 0;
 };
 
 
