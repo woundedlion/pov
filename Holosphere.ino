@@ -17,7 +17,9 @@ void setup() {
 void loop() {
   while (true) { 
 
-    pov.show<Kaleidoscope<100, 20, 1> >(60000);
+    pov.show<Spirograph<40, 20> >(600000);
+
+    pov.show<Kaleidoscope<100, 20> >(60000);
 
     pov.show<TheMatrix<40, 20, 135> >(30000);
      
@@ -46,7 +48,7 @@ void loop() {
 
     pov.show<Snake<40, 20, 1> >(30000);
     pov.show<Stars<40, 20> >(30000);
-        pov.show<Fire<40, 20, 150, 120> >(30000);
+    pov.show<Fire<40, 20, 150, 120> >(30000);
 
     pov.show<Burnout<40, 20, 0, 5> >(30000);
 

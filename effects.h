@@ -1,4 +1,5 @@
 #include <FastLED.h>
+#include "rotate.h"
 
 template <uint8_t W, uint8_t H, const unsigned char (*DATA)[20][3]>
 class Image
@@ -139,7 +140,7 @@ private:
     CEveryNMillis y_timer_;
 };
 
-template <uint8_t W, uint8_t H, uint8_t S>
+template <uint8_t W, uint8_t H>
 class Kaleidoscope
 {
   public:
@@ -610,67 +611,55 @@ class Burnout
 
 
 
-struct XY
-{
-  XY(uint8_t x, uint8_t y) :
-  x_(x),
-  y_(y)
-  {}
-
-  uint8_t x_;
-  uint8_t y_;
-};
 
 template <uint8_t W, uint8_t H>
-XY& rotate(XY& p, uint8_t tx, uint8_t ty) {
-  p.x_ = addmod8(p.x_, tx, W);
-  if (p.x_ < W / 2) {
-    if (p.y_ + ty > H) {
-          
-    }
-  } else {
-    
-  }
-  return p;
-}
-
-template <uint8_t W, uint8_t H>
-class Gyro
+class Spirograph
 {
   public:
 
-    Gyro()
-    {
+    Spirograph() {
+      memset(buf, 0, sizeof(buf));
+      fill_rainbow(pal.entries, 16, 0, 256 / 16);
     }
 
     CRGB get_pixel(int x, int y) const {
-      XY p(x, y);
-      rotate<W, H>(p, tx_, ty_);
-      if (p.x_ == 10 || p.x_ == addmod8(10, W / 2, W)) {
-        return CRGB::Green;
-      }
-      return CRGB::Black;
+      return buf[curbuf][x][y];
     }
 
-    static bool show_bg() { return true; }    
+    static bool show_bg() { return false; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
-    }
+      if (x != 0) {
+        for (int y = 0; y < H; ++y) {
+          typename Projection<W, H>::Point p = projection.project(x, y);
+
+          if (p.y == 10) {
+            buf[!curbuf][x][y] = CRGB::Red;
+          } else {
+            buf[!curbuf][x][y] = CRGB::Black;        
+          }
+          color = addmod8(color, 1, 16);
+        }      
+      } else {
+        curbuf = !curbuf;
+        projection.rotate(0, 10, 0);
+      }
+  }
     
     void advance_frame() {
-      EVERY_N_MILLIS(100) {
-        ty_ = addmod8(ty_, 1, H * 2);
-      }
-    } 
+    }
 
     uint8_t width() const { return W; }
     uint8_t height() const { return H; }
 
   private:
 
-    uint8_t tx_ = 0;
-    uint8_t ty_ = 0;
+    CRGB buf[2][W][H];
+    int curbuf = 0;
+    Projection<W, H> projection;
+    CRGBPalette16 pal;
+    uint8_t color = 0;
 };
 
 

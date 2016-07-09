@@ -50,8 +50,8 @@ class POVDisplay
         col_us = micros() - col_us;
         if (col_us < col_delay_us) {
           noInterrupts();
-          delay((col_delay_us - col_us) / 1000);
-          delayMicroseconds((col_delay_us - col_us) % 1000);
+ //         delay((col_delay_us - col_us) / 1000);
+ //         delayMicroseconds((col_delay_us - col_us) % 1000);
           interrupts();
         }
     }
