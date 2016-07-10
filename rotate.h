@@ -52,15 +52,10 @@ class Projection
       }
     
       // convert to spherical x, y, z
-/*
-      float x = cosf(p.lambda) * cosf(p.phi);
-      float y = sinf(p.lambda) * cosf(p.phi);
-      float z = sinf(p.phi);
-      float k = z * cosf(delta_phi) + x * sinf(delta_phi);
-  */  
-
-      float x = cosf(p.lambda) * cosf(p.phi);
-      float y = sinf(p.lambda) * cosf(p.phi);
+      float cos_p = cosf(p.phi);
+  
+      float x = cosf(p.lambda) * cos_p;
+      float y = sinf(p.lambda) * cos_p;
       float z = sinf(p.phi);
 
       // rotate phi gamma

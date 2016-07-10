@@ -619,35 +619,29 @@ class Spirograph
 
     Spirograph() {
       memset(buf, 0, sizeof(buf));
-      fill_rainbow(pal.entries, 16, 0, 256 / 16);
     }
 
     CRGB get_pixel(int x, int y) const {
-      return buf[curbuf][x][y];
+      return buf[x][y];
     }
 
     static bool show_bg() { return false; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
-      if (x != 0) {
-        for (int y = 0; y < H; ++y) {
-          typename Projection<W, H>::Point p = projection.project(x, y);
+      for (int y = 0; y < H; ++y) {
+        typename Projection<W, H>::Point p = projection.project(x, y);
+        if (p.y == 10) {
+          buf[x][y] = CRGB::Red;
+        } else {
+          buf[x][y] = CRGB::Black;
 
-          if (p.y == 10) {
-            buf[!curbuf][x][y] = CRGB::Red;
-          } else {
-            buf[!curbuf][x][y] = CRGB::Black;        
-          }
-          color = addmod8(color, 1, 16);
-        }      
-      } else {
-        curbuf = !curbuf;
-        projection.rotate(0, 10, 0);
-      }
-  }
+        }
+      }      
+    }
     
     void advance_frame() {
+        projection.rotate(0, 5, 00);
     }
 
     uint8_t width() const { return W; }
@@ -655,11 +649,8 @@ class Spirograph
 
   private:
 
-    CRGB buf[2][W][H];
-    int curbuf = 0;
+    CRGB buf[W][H];
     Projection<W, H> projection;
-    CRGBPalette16 pal;
-    uint8_t color = 0;
 };
 
 
