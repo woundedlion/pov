@@ -17,7 +17,7 @@ void setup() {
 void loop() {
   while (true) { 
 
-    pov.show<Spirograph<40, 20> >(600000);
+    pov.show<Rotate<40, 20> >(600000);
 
     pov.show<Kaleidoscope<100, 20> >(60000);
 

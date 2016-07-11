@@ -613,12 +613,60 @@ class Burnout
 
 
 template <uint8_t W, uint8_t H>
-class Spirograph
+class Rotate
 {
   public:
 
-    Spirograph() {
+    Rotate() {
       memset(buf, 0, sizeof(buf));
+      fill_rainbow(pal.entries, 16, 0, 256 / 16);
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      return buf[x][y];
+    }
+
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      if (x == 0 || x == W / 2) {
+        projection.rotate(0, 5, 0);
+      }
+      for (int y = 0; y < H; ++y) {
+        typename Projection<W, H>::Point p = projection.project(x, y);
+        if (p.y == 2 || p.y == 10 || p.y == 18) {
+          buf[x][y] = ColorFromPalette(pal, (p.x + c_off) * 255 / W);
+        } else {
+          buf[x][y] = CRGB::Black;
+        }
+      }      
+    }
+    
+    void advance_frame() {
+        ++c_off;
+    }
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+
+    CRGB buf[W][H];
+    CRGBPalette16 pal;
+    uint8_t c_off = 0;
+    uint8_t out = 2;
+    Projection<W, H> projection;
+};
+
+template <uint8_t W, uint8_t H>
+class ChasingDots
+{
+  public:
+
+    ChasingDots() {
+      memset(buf, 0, sizeof(buf));
+      fill_rainbow(pal.entries, 16, 0, 256 / 16);
     }
 
     CRGB get_pixel(int x, int y) const {
@@ -631,17 +679,18 @@ class Spirograph
     void advance_col(uint8_t x) {
       for (int y = 0; y < H; ++y) {
         typename Projection<W, H>::Point p = projection.project(x, y);
-        if (p.y == 10) {
-          buf[x][y] = CRGB::Red;
+//        if (((p.y >= 6 && p.y <= 14) && (p.x == W - 4 || p.x == 4)) || ((p.x >= W - 4 || p.x <= 4) && (p.y == 6 || p.y == 14))) {
+          if ((p.x == 4 || p.x == W - 4) && p.y == 10) {
+          buf[x][y] = CRGB::Red; // ColorFromPalette(pal, (p.x + c_off) * 255 / W);
         } else {
-          buf[x][y] = CRGB::Black;
-
+          buf[x][y].nscale8(100);
         }
       }      
     }
     
     void advance_frame() {
-        projection.rotate(0, 5, 00);
+        projection.rotate(0, 2, 8);
+        ++c_off;
     }
 
     uint8_t width() const { return W; }
@@ -650,6 +699,65 @@ class Spirograph
   private:
 
     CRGB buf[W][H];
+    CRGBPalette16 pal;
+    uint8_t c_off = 0;
+    uint8_t out = 2;
+    Projection<W, H> projection;
+};
+
+template <uint8_t W, uint8_t H>
+class Spirograph
+{
+  public:
+
+    Spirograph() {
+      random16_add_entropy(random());
+      for (uint8_t x = 0; x < W; ++x) {
+        for (uint8_t y = 0; y < H; ++y) {
+          if (random8() > 250) {
+            buf2[x][y] = CRGB::Blue;
+          } else {
+            buf2[x][y] = CRGB::Black;
+          }
+        }
+      }
+      memset(buf, 0, sizeof(buf));
+      fill_rainbow(pal.entries, 16, 0, 256 / 16);
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      return buf[x][y];
+    }
+
+    static bool show_bg() { return false; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      for (int y = 0; y < H; ++y) {
+        typename Projection<W, H>::Point p = projection.project(x, y);
+          if (buf2[p.x][p.y] != CRGB(CRGB::Black)) {
+          buf[x][y] = buf2[p.x][p.y];
+        } else {
+          buf[x][y] = CRGB::Black;
+        }
+      }      
+    }
+    
+    void advance_frame() {
+        projection.rotate(0, 5, 0);
+        ++c_off;
+    }
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+
+    CRGB buf[W][H];
+    CRGB buf2[W][H];
+    CRGBPalette16 pal;
+    uint8_t c_off = 0;
+    uint8_t out = 2;
     Projection<W, H> projection;
 };
 
