@@ -307,6 +307,43 @@ class Stars
       uint8_t hue_;
 };
 
+template <uint8_t W, uint8_t H>
+class StarsFade
+{
+  public:
+    StarsFade() :
+    hue_(0)
+    {}
+    
+    CRGB get_pixel(int x, int y) const {
+      return leds_[x][y];
+    }
+        
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      nscale8(&leds_[x][0], H, 100);      
+    }
+    
+    void advance_frame() {
+      EVERY_N_MILLISECONDS(100) {
+        uint8_t x = map8(random8(), 0, W - 1);
+        uint8_t y = map8(random8(), 0, H - 1);
+        leds_[x][y] = CRGB(CHSV(hue_, 255, 255));
+      }
+      hue_++;
+    } 
+    
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+    
+    private:
+
+      CRGB leds_[W][H];
+      uint8_t hue_;
+};
+
 template <uint8_t W, uint8_t H, uint8_t P, bool swap = false>
 class Spinner
 {
@@ -609,9 +646,6 @@ class Burnout
     int burn_idx_;
 };
 
-
-
-
 template <uint8_t W, uint8_t H>
 class Rotate
 {
@@ -626,7 +660,7 @@ class Rotate
       return buf[x][y];
     }
 
-    static bool show_bg() { return true; }    
+    bool show_bg() { return bg; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
@@ -634,9 +668,61 @@ class Rotate
         projection.rotate(0, 5, 0);
       }
       for (int y = 0; y < H; ++y) {
-        typename Projection<W, H>::Point p = projection.project(x, y);
-        if (p.y == 2 || p.y == 10 || p.y == 18) {
-          buf[x][y] = ColorFromPalette(pal, (p.x + c_off) * 255 / W);
+        Point p = projection.project(x, y);
+        if (p.y == 3 || p.y == 10 || p.y == 17) {
+          buf[x][y] =  ColorFromPalette(pal, (p.x + c_off) * 255 / W);
+        } else {
+          buf[x][y] = CRGB::Black;
+        }
+      }      
+    }
+    
+    void advance_frame() {
+        ++c_off;
+        EVERY_N_SECONDS(10) {
+          bg = !bg;
+        }
+    }
+
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+  private:
+  
+    typedef typename Projection<W, H>::Point Point;
+
+    CRGB buf[W][H];
+    CRGBPalette16 pal;
+    uint8_t c_off = 0;
+    bool bg = 0;
+    Projection<W, H> projection;
+};
+
+template <uint8_t W, uint8_t H>
+class RotateWave
+{
+  public:
+
+    RotateWave() {
+      memset(buf, 0, sizeof(buf));
+      fill_rainbow(pal.entries, 16, 0, 256 / 16);
+    }
+
+    CRGB get_pixel(int x, int y) const {
+      return buf[x][y];
+    }
+
+    bool show_bg() { return false; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      if (x == 0 || x == W / 2) {
+        projection.rotate(0, 5, 0);
+      }
+      for (int y = 0; y < H; ++y) {
+        Point p = projection.project(x, y);
+        if (p.y == 2 || p.y == 18 || equals_wave(p)) {
+          buf[x][y] =  ColorFromPalette(pal, (p.x + c_off) * 255 / W);
         } else {
           buf[x][y] = CRGB::Black;
         }
@@ -651,13 +737,22 @@ class Rotate
     uint8_t height() const { return H; }
 
   private:
+  
+    typedef typename Projection<W, H>::Point Point;
+
+    bool equals_wave(const Point& p) const {
+      uint8_t freq = W / 3;
+      int amp = beatsin8(5, 0, 3);
+      uint8_t origin = H / 2;
+      return p.y == map8(triwave8(map(mod8(p.x, freq), 0, freq - 1 , 0, 255)), origin - amp, origin + amp);
+    }
 
     CRGB buf[W][H];
     CRGBPalette16 pal;
     uint8_t c_off = 0;
-    uint8_t out = 2;
     Projection<W, H> projection;
 };
+
 
 template <uint8_t W, uint8_t H>
 class ChasingDots
@@ -666,85 +761,32 @@ class ChasingDots
 
     ChasingDots() {
       memset(buf, 0, sizeof(buf));
-      fill_rainbow(pal.entries, 16, 0, 256 / 16);
+//      fill_rainbow(pal.entries, 16, 0, 256 / 16);
     }
 
     CRGB get_pixel(int x, int y) const {
       return buf[x][y];
     }
 
-    static bool show_bg() { return false; }    
+    static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
+      if (x == 0 || x == W / 2) {
+        projection.rotate(15, 0, 5);
+      }
+      
       for (int y = 0; y < H; ++y) {
-        typename Projection<W, H>::Point p = projection.project(x, y);
-//        if (((p.y >= 6 && p.y <= 14) && (p.x == W - 4 || p.x == 4)) || ((p.x >= W - 4 || p.x <= 4) && (p.y == 6 || p.y == 14))) {
-          if ((p.x == 4 || p.x == W - 4) && p.y == 10) {
-          buf[x][y] = CRGB::Red; // ColorFromPalette(pal, (p.x + c_off) * 255 / W);
+        Point p = projection.project(x, y);
+        if (p.x == 10 && p.y == 10) {
+          buf[x][y] = ColorFromPalette(pal, c_off);    
         } else {
-          buf[x][y].nscale8(100);
-        }
-      }      
-    }
-    
-    void advance_frame() {
-        projection.rotate(0, 2, 8);
-        ++c_off;
-    }
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
-  private:
-
-    CRGB buf[W][H];
-    CRGBPalette16 pal;
-    uint8_t c_off = 0;
-    uint8_t out = 2;
-    Projection<W, H> projection;
-};
-
-template <uint8_t W, uint8_t H>
-class Spirograph
-{
-  public:
-
-    Spirograph() {
-      random16_add_entropy(random());
-      for (uint8_t x = 0; x < W; ++x) {
-        for (uint8_t y = 0; y < H; ++y) {
-          if (random8() > 250) {
-            buf2[x][y] = CRGB::Blue;
-          } else {
-            buf2[x][y] = CRGB::Black;
-          }
+          buf[x][y].nscale8(150);
         }
       }
-      memset(buf, 0, sizeof(buf));
-      fill_rainbow(pal.entries, 16, 0, 256 / 16);
-    }
-
-    CRGB get_pixel(int x, int y) const {
-      return buf[x][y];
-    }
-
-    static bool show_bg() { return false; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-      for (int y = 0; y < H; ++y) {
-        typename Projection<W, H>::Point p = projection.project(x, y);
-          if (buf2[p.x][p.y] != CRGB(CRGB::Black)) {
-          buf[x][y] = buf2[p.x][p.y];
-        } else {
-          buf[x][y] = CRGB::Black;
-        }
-      }      
     }
     
     void advance_frame() {
-        projection.rotate(0, 5, 0);
         ++c_off;
     }
 
@@ -753,12 +795,15 @@ class Spirograph
 
   private:
 
+    typedef typename Projection<W, H>::Point Point;
+
     CRGB buf[W][H];
-    CRGB buf2[W][H];
-    CRGBPalette16 pal;
+    CRGBPalette16 pal = PartyColors_p;
     uint8_t c_off = 0;
-    uint8_t out = 2;
+    uint8_t head_x = 0;
+    uint8_t head_y = 0;
     Projection<W, H> projection;
 };
+
 
 

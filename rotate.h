@@ -52,27 +52,17 @@ class Projection
       }
     
       // convert to spherical x, y, z
-
       uint16_t lambda16 = static_cast<int>((p.lambda + pi) * 65535.0f / tau + 0.5f);
       uint16_t phi16 = static_cast<int>((p.phi + pi) / 2.0f * 65535.0f / pi + 0.5f);
-
-
       float cos_p = cos16(phi16) / 32767.0;
       float x = cos16(lambda16) / 32767.0 * cos_p;
       float y = sin16(lambda16) / 32767.0 * cos_p;
       float z = sin16(phi16) / 32767.0;
 
-
-/*
-      float cos_p = cosf(p.phi);
-      float x = cosf(p.lambda) * cos_p;
-      float y = sinf(p.lambda) * cos_p;
-      float z = sinf(p.phi);
-*/
       // rotate phi gamma
       float k = z * cos_dp + x * sin_dp;
-      p.lambda = atan2f(y * cos_dg - k * sin_dg, x * cos_dp - z * sin_dp);
-      p.phi = asinf(k * cos_dg + y * sin_dg);
+      p.lambda = fix16_to_float(fix16_atan2(fix16_from_float(y * cos_dg - k * sin_dg), fix16_from_float(x * cos_dp - z * sin_dp)));
+      p.phi = fix16_to_float(fix16_asin(fix16_from_float(k * cos_dg + y * sin_dg)));
     
       // convert to equirectangular x, y
       p.x = static_cast<int>((p.lambda + pi) * W / tau + 0.5f) % W;
@@ -99,9 +89,9 @@ class Projection
     float delta_lambda = 0;
     float delta_phi = 0;
     float delta_gamma = 0;
-    float cos_dp = 0;
-    float sin_dp = 0;
-    float cos_dg = 0;
-    float sin_dg = 0;
+    float cos_dp = cosf(delta_phi);
+    float sin_dp = sinf(delta_phi);
+    float cos_dg = cosf(delta_gamma);
+    float sin_dg = sinf(delta_gamma);
 };
 
