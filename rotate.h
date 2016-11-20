@@ -54,11 +54,19 @@ class Projection
       // convert to spherical x, y, z
       uint16_t lambda16 = static_cast<int>((p.lambda + pi) * 65535.0f / tau + 0.5f);
       uint16_t phi16 = static_cast<int>((p.phi + pi) / 2.0f * 65535.0f / pi + 0.5f);
+
+
       float cos_p = cos16(phi16) / 32767.0;
       float x = cos16(lambda16) / 32767.0 * cos_p;
       float y = sin16(lambda16) / 32767.0 * cos_p;
       float z = sin16(phi16) / 32767.0;
 
+/*
+      float cos_p = fix16_cos(phi16) / 32767.0;
+      float x = fix16_cos(lambda16) / 32767.0 * cos_p;
+      float y = fix16_sin(lambda16) / 32767.0 * cos_p;
+      float z = fix16_sin(phi16) / 32767.0;
+*/
       // rotate phi gamma
       float k = z * cos_dp + x * sin_dp;
       p.lambda = fix16_to_float(fix16_atan2(fix16_from_float(y * cos_dg - k * sin_dg), fix16_from_float(x * cos_dp - z * sin_dp)));

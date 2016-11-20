@@ -1,6 +1,177 @@
 #include <FastLED.h>
 #include "rotate.h"
 
+void trail_rainbow(CHSV& p, uint8_t falloff = 32) {
+  CHSV& c = p;
+  c.h += falloff;
+  c.s = 255;
+  c.v = qsub8(c.v, falloff);
+}
+
+template <uint8_t W, uint8_t H>
+class DotTrails {
+  public:
+    DotTrails() {
+      random16_add_entropy(random());    
+      memset(leds, 0, sizeof(leds));
+      for (int i = 0; i < H - 1; ++i) {
+        bool rev = i % 2 == 0;
+        uint8_t x = random8() % W;
+        dots[i] = Dot(x, rev, (random8() % 30) + 20);
+      }
+    }
+    
+    CRGB get_pixel(int x, int y) const {
+      return leds[x][y];
+    }
+        
+    static bool show_bg() { return false; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      for (int y = 0; y < H; ++y) {
+        if (dots[y].x == x) {
+          if (dots[y].drawn) {
+            dots[y].drawn = false;
+          } else {
+            leds[x][y] = CHSV(hue - 12, 0, 255);
+            move(dots[y]);
+          }
+        } else {
+          trail_rainbow(leds[x][y], 12);
+        }
+      }
+    } 
+
+    void advance_frame() {
+    }
+    
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+private:
+
+  struct Dot {
+    Dot() : 
+      x(0),
+      rev(0),
+      ttl(0),
+      drawn(0){}
+
+    Dot(uint8_t x, bool rev, int ttl) : 
+      x(x),
+      rev(rev),
+      ttl(ttl),
+      drawn(0){}
+ 
+    uint8_t x;
+    bool rev;
+    int ttl;
+    bool drawn;
+  };
+
+  void move(Dot& dot) {
+    if (dot.ttl == 0) {
+      dot.x = random8() % W;
+      dot.ttl = (random8() % 30) + 20;
+    } else if (dot.rev) {
+      dot.x = (dot.x - 1 + W) % W;
+      dot.ttl--;
+    } else {
+      dot.x = addmod8(dot.x, 1, W);
+      dot.drawn = true;
+      dot.ttl--;
+    }
+  }
+
+  CHSV leds[W][H];
+  Dot dots[H];
+  uint8_t hue = HUE_RED;
+};
+
+template <uint8_t W, uint8_t H>
+class RingTrails {
+  public:
+    RingTrails() {
+      memset(leds, 0, sizeof(leds));
+    }
+    
+    CRGB get_pixel(int x, int y) const {
+      return leds[x][y];
+    }
+        
+    static bool show_bg() { return false; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {
+      if (x == 0 || x == W /2 ) {
+        uint8_t dl = beatsin8(8, 1, 2);
+        uint8_t dg = beatsin8(7, 1, 2, 16384);
+        uint8_t dp = beatsin8(9, 1, 2, 32768);
+        projection.rotate(dl, dg, dp);    
+      }
+
+      for (int y = 0; y < H; ++y) {
+        Point p = projection.project(x, y);
+        if (p.y == 9) {
+          leds[x][y] = CHSV(hue - 32, 0, 255);
+        } else {
+          trail_rainbow(leds[x][y]);
+        }
+      }
+    } 
+
+    void advance_frame() {
+    }
+    
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+private:
+
+  typedef typename Projection<W, H>::Point Point;
+  Projection<W, H> projection;
+
+  CHSV leds[W][H];
+  uint8_t hue = HUE_RED;
+};
+
+template <uint8_t W, uint8_t H>
+class Spirograph {
+  public:
+    Spirograph() {
+      memset(leds, 0, sizeof(leds));
+    }
+    
+    CRGB get_pixel(int x, int y) const {
+      return leds[x][y];
+    }
+        
+    static bool show_bg() { return true; }    
+    static CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(uint8_t x) {} 
+    void advance_frame() {
+      int d = 5;
+      int r = 2;
+      int p = 5;
+      int x = 10 + (d * (cos8(t) - 128) / 128 + p * (cos8(d * t / r) - 128) / 128);
+      int y = 10 + (d * (sin8(t) - 128) / 128 - p * (sin8(d * t/ r) - 128) / 128);
+      Serial.println(x);
+      Serial.println(y);
+      leds[x][y] = CRGB::Blue;
+      t++;
+    }
+    
+    uint8_t width() const { return W; }
+    uint8_t height() const { return H; }
+
+private:
+
+  CRGB leds[W][H];
+  uint8_t t = 0;
+};
+
 template <uint8_t W, uint8_t H, const unsigned char (*DATA)[20][3]>
 class Image
 {
@@ -344,7 +515,7 @@ class StarsFade
       uint8_t hue_;
 };
 
-template <uint8_t W, uint8_t H, uint8_t P, bool swap = false>
+template <uint8_t W, uint8_t H>
 class Spinner
 {
   public:
@@ -362,13 +533,13 @@ class Spinner
     
     CRGB get_pixel(int x, int y) const {
       if (!swap) {
-        if (y % (P * 2) < P ) {
+        if (y % (p[i] * 2) < p[i] ) {
           return palette1_[addmod8(x, pos_, 16)];
         } else {
           return palette2_[(uint8_t)(pos_ - x) % 16];
         }
       } else {
-        if (y % (P * 2) < P ) {
+        if (y % (p[i] * 2) < p[i] ) {
           return palette2_[(uint8_t)(pos_ - x) % 16];
         } else {
           return palette1_[addmod8(x, pos_, 16)];
@@ -386,6 +557,14 @@ class Spinner
     } 
 
     void advance_frame() {
+      EVERY_N_SECONDS(5) {
+        if ((!swap && (i == sizeof(p) - 1)) 
+        || (swap && (i == 0)) ) {
+          swap = !swap;
+        } else {
+          i += swap ? -1 : 1;
+        }
+      }
     } 
            
     uint8_t width() const { return W; }
@@ -397,6 +576,9 @@ class Spinner
     CRGBPalette16 palette2_;
     CEveryNMillis spin_timer_;
     uint8_t pos_;
+    bool swap = false;
+    uint8_t p[5] = { 20, 10, 4, 2, 1 };
+    uint8_t i = 0;
 };
 
 template <uint8_t W, uint8_t H, uint8_t COOL, uint8_t SPARK>
@@ -690,12 +872,12 @@ class Rotate
   private:
   
     typedef typename Projection<W, H>::Point Point;
+    Projection<W, H> projection;
 
     CRGB buf[W][H];
     CRGBPalette16 pal;
     uint8_t c_off = 0;
     bool bg = 0;
-    Projection<W, H> projection;
 };
 
 template <uint8_t W, uint8_t H>
@@ -750,58 +932,6 @@ class RotateWave
     CRGB buf[W][H];
     CRGBPalette16 pal;
     uint8_t c_off = 0;
-    Projection<W, H> projection;
-};
-
-
-template <uint8_t W, uint8_t H>
-class ChasingDots
-{
-  public:
-
-    ChasingDots() {
-      memset(buf, 0, sizeof(buf));
-//      fill_rainbow(pal.entries, 16, 0, 256 / 16);
-    }
-
-    CRGB get_pixel(int x, int y) const {
-      return buf[x][y];
-    }
-
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-      if (x == 0 || x == W / 2) {
-        projection.rotate(15, 0, 5);
-      }
-      
-      for (int y = 0; y < H; ++y) {
-        Point p = projection.project(x, y);
-        if (p.x == 10 && p.y == 10) {
-          buf[x][y] = ColorFromPalette(pal, c_off);    
-        } else {
-          buf[x][y].nscale8(150);
-        }
-      }
-    }
-    
-    void advance_frame() {
-        ++c_off;
-    }
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
-  private:
-
-    typedef typename Projection<W, H>::Point Point;
-
-    CRGB buf[W][H];
-    CRGBPalette16 pal = PartyColors_p;
-    uint8_t c_off = 0;
-    uint8_t head_x = 0;
-    uint8_t head_y = 0;
     Projection<W, H> projection;
 };
 
