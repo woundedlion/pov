@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "effects.h"
 
-template <size_t S>
+template <int S>
 class POVDisplay
 {
   public:

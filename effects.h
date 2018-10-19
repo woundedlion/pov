@@ -7,7 +7,53 @@ void trail_rainbow(CHSV& p, uint8_t falloff = 32) {
   c.s = 255;
   c.v = qsub8(c.v, falloff);
 }
+void trail_rainbow2(CHSV& p, uint8_t hue_falloff = 32, uint8_t dim_falloff = 32) {
+  CHSV& c = p;
+  c.h += hue_falloff;
+  c.s = 255;
+  c.v = qsub8(c.v, dim_falloff);
+}
 
+template <int W, int H>
+class WaveTrails {
+  public:
+    WaveTrails() {
+      random16_add_entropy(random());    
+      memset(leds, 0, sizeof(leds));
+    }
+    
+    CRGB get_pixel(int x, int y) const {
+      return leds[x][y];
+    }
+        
+    bool show_bg() { return false; }    
+    CRGB bg_color() { return CRGB::Black; }    
+
+    void advance_col(int x) {
+      for (int y = 0; y < H; ++y) {
+        trail_rainbow2(leds[x][y], 5, 24);
+      }
+      leds[x][beatsin16(5, H/15, H*14/15, 0, 
+        map(x, 0, W-1, 0, 65535))] = CHSV(HUE_BLUE, 0, 255); 
+      leds[x][beatsin16(5, 0, H-1, 0, 
+        map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_GREEN, 0, 255); 
+//      leds[x][beatsin16(5, H/15, H*14/15, 32767, 
+ //       map(x, 0, W-1, 0, 65535))] = CHSV(HUE_BLUE, 0, 255); 
+      leds[x][beatsin16(5, 0, H-1, 32767, 
+        map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_GREEN, 0, 255); 
+    } 
+
+    void advance_frame() {
+      
+    }
+    
+    int width() const { return W; }
+    int height() const { return H; }
+
+private:
+
+  CHSV leds[W][H];
+};
 template <uint8_t W, uint8_t H>
 class DotTrails {
   public:
@@ -234,31 +280,31 @@ class Snake
     head_y_(0),
     head_x2_(W / 2),
     head_y2_(H / 2),
-    x_timer_(100),
-    y_timer_(100)
+    x_timer_(125),
+    y_timer_(125)
     {}
     
     CRGB get_pixel(int x, int y) const {
        if (is_snake(x, y, 0, 0)) {
-          return CRGB::Red;
+          return CRGB::Green;
        }
        else if (is_snake(x, y, 5, 10)) {
-          return CRGB::Purple;
+          return CRGB::Lime;
        }
        else if (is_snake(x, y, 10, 5)) {
-          return CRGB::Pink;
+          return CRGB::DarkGreen;
        }
        else if (is_snake(x, y, 5, 15)) {
-          return CRGB::Yellow;
+          return CRGB::Lime;
        }
        else if (is_snake(x, y, 15, 5)) {
-          return CRGB::Blue;
+          return CRGB::Green;
        }
        else if (is_snake(x, y, 10, 15)) {
-          return CRGB::Yellow;
+          return CRGB::DarkGreen;
        }
        else if (is_snake(x, y, 15, 10)) {
-          return CRGB::Blue;
+          return CRGB::Violet;
        }
        return CRGB::Black;
     }
@@ -640,7 +686,7 @@ class PaletteFall
     PaletteFall() :
       timer_(DURATION),
       palette_idx_(0),
-      palette_(RainbowColors_p),
+      palette_(HeatColors_p),
       palette_offset_(0)
     {
     }
@@ -670,16 +716,16 @@ class PaletteFall
     void switch_palette() {
       switch (palette_idx_) {
         case 0:
-          palette_ = RainbowColors_p;
+          palette_ = HeatColors_p;
           break;
         case 2:
-          palette_ = PartyColors_p;
+          palette_ = HeatColors_p;
           break;
         case 3:
           palette_ = HeatColors_p;
           break;
         case 4:
-          palette_ = RainbowStripeColors_p;
+          palette_ = HeatColors_p;
           break;
       }
       palette_idx_ = addmod8(palette_idx_, 1, 5);
