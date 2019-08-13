@@ -1,13 +1,7 @@
 #include <FastLED.h>
 #include "rotate.h"
 
-void trail_rainbow(CHSV& p, uint8_t falloff = 32) {
-  CHSV& c = p;
-  c.h += falloff;
-  c.s = 255;
-  c.v = qsub8(c.v, falloff);
-}
-void trail_rainbow2(CHSV& p, uint8_t hue_falloff = 32, uint8_t dim_falloff = 32) {
+void trail_rainbow(CHSV& p, uint8_t hue_falloff = 32, uint8_t dim_falloff = 32) {
   CHSV& c = p;
   c.h += hue_falloff;
   c.s = 255;
@@ -99,7 +93,7 @@ private:
 		if (y < H - 1) {
 //			leds_[x][y + 1] = leds_[x][y];
 		}
-//		trail_rainbow2(leds_[x][y]);
+//		trail_rainbow(leds_[x][y]);
 	}
 
 	int offset_ = 0;
@@ -127,11 +121,11 @@ public:
 	}
 
 	bool show_bg() { return false; }
-	CRGB bg_color() { return CRGB::Black; }
+	CRGB bg_color() { return CHSV(0, 0, 24); }
 
 	void advance_col(int x) {
 		for (int y = 0; y < H; ++y) {
-			trail_rainbow2(leds_[x][y], 48, 64);// = CHSV(0, 0, 0);
+			trail_rainbow(leds_[x][y], 48, 64);// = CHSV(0, 0, 0);
 		}
 		EVERY_N_MILLIS(150) {
 			offset_ = (offset_ + 1) % W;
@@ -166,123 +160,6 @@ private:
 	CHSVPalette256 palette_;
 };
 
-template <int W, int H>
-class Burst {
-public:
-	Burst() {
-		random16_add_entropy(random());
-	}
-
-	CRGB get_pixel(int x, int y) const {
-		return leds_[x][y].color_;
-	}
-
-	bool show_bg() { return true; }
-	CRGB bg_color() { return CRGB::Black; }
-
-	void advance_col(int x) {
-		for (int y = 0; y < H; ++y) {
-			decay(leds_[x][y]);
-			move(x, y);
-		}
-	}
-
-	void advance_frame() {
-		if (random8() < 100) {
-			new_seed();
-		}	
-	}
-
-	int width() const { return W; }
-	int height() const { return H; }
-
-private:
-	
-	enum Dir { NORTH = 1, SOUTH = 2, EAST = 4, WEST = 8, NONE = 0 };
-
-	struct Dot {
-		Dot() :
-			dir_(NONE),
-			color_(CHSV(0, 0, 0))
-		{}
-
-		Dot(CHSV color, Dir dir) :
-			dir_(dir),
-			color_(color)
-		{}
-
-		Dot& operator=(const Dot& d) {
-			dir_ = d.dir_;
-			color_ = d.color_;
-			return *this;
-		}
-
-		Dot& operator|=(const Dot& d) {
-			dir_ |= d.dir_;
-			if (color_.v == 0) {
-				color_ = d.color_;
-			}
-			else {
-				color_ = blend(color_, d.color_, 128);
-			}
-			return *this;
-		}
-
-		int dir_;
-		CHSV color_;
-	};
-
-	void new_seed() {
-		int x = random(W / 2) * 2;
-		int y = random(H / 2) * 2;
-		leds_[x][y] = Dot(CHSV(0, 0, 255), NONE);
-		leds_[(x - 1) % W + (x ? 0 : W)][y] = Dot(CHSV(0, 255, 255), WEST);
-		leds_[(x + 1) % W][y] = Dot(CHSV(0, 255, 255), EAST);
-		if (y > 0) {
-			leds_[x][y - 1] = Dot(CHSV(0, 255, 255), NORTH);
-		}
-		if (y < H - 1) {
-			leds_[x][y + 1] = Dot(CHSV(0, 255, 255), SOUTH);
-		}
-	}
-
-	void decay(Dot& dot) {
-		CHSV& c = dot.color_;
-		c.h += 15;
-		c.s = 255;
-		c.v = qsub8(c.v, 10);
-	}
-
-	void move(int x, int y) {
-		Dot& dot = leds_[x][y];
-		if (dot.color_.v == 0) {
-			dot.dir_ = NONE;
-			return;
-		}
-		if (dot.dir_ & NORTH) {
-			if (y > 0) {
-				leds_[x][y - 1] |= dot;
-			}
-			dot.dir_ ^= NORTH;
-		}
-		if (dot.dir_ & SOUTH) {
-			if (y < H - 1) {
-				leds_[x][y + 1] |= dot;
-			}
-			dot.dir_ ^= SOUTH;
-		}
-		if (dot.dir_ & EAST) {
-			leds_[(x + 1) % W][y] |= dot;
-			dot.dir_ ^= EAST;
-		}
-		if (dot.dir_ & WEST) {
-			leds_[(x - 1) % W + (x ? 0 : W)][y] |= dot;
-			dot.dir_ ^= WEST;
-}
-	}
-
-	Dot leds_[W][H];
-};
 
 template <int W, int H>
 class WaveTrails {
@@ -301,14 +178,12 @@ class WaveTrails {
 
     void advance_col(int x) {
       for (int y = 0; y < H; ++y) {
-        trail_rainbow2(leds[x][y], 5, 24);
+        trail_rainbow(leds[x][y], 5, 24);
       }
       leds[x][beatsin16(5, H/15, H*14/15, 0, 
         map(x, 0, W-1, 0, 65535))] = CHSV(HUE_BLUE, 0, 255); 
       leds[x][beatsin16(5, 0, H-1, 0, 
         map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_GREEN, 0, 255); 
-//      leds[x][beatsin16(5, H/15, H*14/15, 32767, 
- //       map(x, 0, W-1, 0, 65535))] = CHSV(HUE_BLUE, 0, 255); 
       leds[x][beatsin16(5, 0, H-1, 32767, 
         map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_GREEN, 0, 255); 
     } 
@@ -355,7 +230,7 @@ class DotTrails {
             move(dots[y]);
           }
         } else {
-          trail_rainbow(leds[x][y], 12);
+          trail_rainbow(leds[x][y], 12, 12);
         }
       }
     } 
@@ -433,7 +308,7 @@ class RingTrails {
         if (p.y == 9) {
           leds[x][y] = CHSV(hue - 32, 0, 255);
         } else {
-          trail_rainbow(leds[x][y]);
+          trail_rainbow(leds[x][y], 32, 32);
         }
       }
     } 
@@ -815,7 +690,7 @@ class StarsFade
 
     void advance_col(uint8_t x) {
         for (int y = 0; y < H; ++y) {
-          trail_rainbow2(leds_[x][y], 16, 32);
+          trail_rainbow(leds_[x][y], 16, 32);
         } 
     }
     
