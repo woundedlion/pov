@@ -14,6 +14,276 @@ void trail_rainbow2(CHSV& p, uint8_t hue_falloff = 32, uint8_t dim_falloff = 32)
   c.v = qsub8(c.v, dim_falloff);
 }
 
+int wrap_x(int x, int m) {
+	return (x >= 0 ? 
+		x % m : 
+		((x % m) + m) % m);
+}
+
+Fix16 wrap_x(const Fix16& x, const Fix16& m) {
+	return (x > int16_t(0) ? 
+		fix16_mod(x, m) : 
+		fix16_mod(Fix16(fix16_mod(x, m)) + m, m));
+}
+
+template <int W, int H>
+void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y, const CHSV& c) {
+	int16_t x_i = fix16_to_int(fix16_floor(x));
+	int16_t y_i = fix16_to_int(fix16_floor(y));
+	Fix16 x_m = x - x_i;
+	Fix16 y_m = y - y_i;
+	const Fix16 one(fix16_one);
+	const int16_t FULL = 255;
+	int v = fix16_to_int((one - x_m) * (one - y_m) * FULL);
+	leds[x_i][y_i] = CHSV(c.h, c.s, dim8_lin(qadd8(leds[x_i][y_i].v, v)));
+	v = fix16_to_int(x_m * (one - y_m) * FULL);
+	leds[(x_i + 1) % W][y_i] = CHSV(c.h, c.s, dim8_lin(qadd8(leds[(x_i + 1) % W][y_i].v, v)));
+	if (y_i < H - 1) {
+		v = fix16_to_int((one - x_m) * y_m * FULL);
+		leds[x_i][y_i + 1] = CHSV(c.h, c.s, dim8_lin(qadd8(leds[x_i][y_i + 1].v, v)));
+		v = fix16_to_int(x_m * y_m * FULL);
+		leds[(x_i + 1) % W][y_i + 1] = CHSV(c.h, c.s, dim8_lin(qadd8(leds[(x_i + 1) % W][y_i + 1].v, v)));
+	}
+}
+
+template <int W, int H>
+class CurvesAA {
+public:
+	CurvesAA() 
+		: t_(int16_t(0)) 
+	{
+		memset(leds_, 0, sizeof(leds_));
+		fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
+			CHSV(0, 255, 255),
+			CHSV(48, 255, 255));
+	}
+
+	CRGB get_pixel(int x, int y) const {
+		return leds_[x][y];
+	}
+
+	bool show_bg() { return true; }
+	CRGB bg_color() { return CRGB::Black; }
+
+	void advance_col(int x) {
+		for (int y = H - 1; y >= 0; --y) {
+			decay(x, y);
+		}
+		EVERY_N_MILLIS(100) {
+			color_offset_++;
+		}
+		EVERY_N_MILLIS(100) {
+		}
+	}
+
+	void advance_frame() {
+		EVERY_N_MILLIS(1000) {
+			plot(CHSV(0, 0, 255));
+		}
+	}
+
+	int width() const { return W; }
+	int height() const { return H; }
+
+private:
+
+	void plot(const CHSV& color) {
+		for (Fix16 x = int16_t(0); x < int16_t(W); x += T_STEP_) {
+			uint16_t t = static_cast<uint16_t>(fix16_to_float((Fix16(fix16_mod(PI_ * x / int16_t(4), TAU_)) / TAU_)) * 65536);
+			Fix16 y = Fix16(int16_t(2)) * Fix16(int16_t(sin16(t))) / int16_t(32768) + int16_t(10);
+			plot_aa(leds_, x, y, color);
+		}
+	}
+
+	void decay(int x, int y) {
+		if (y < H - 1) {
+//			leds_[x][y + 1] = leds_[x][y];
+		}
+//		trail_rainbow2(leds_[x][y]);
+	}
+
+	int offset_ = 0;
+	Fix16 t_;
+	const Fix16 PI_ = fix16_pi;
+	const Fix16 TAU_ = PI_ * 2.0;
+	const Fix16 T_STEP_ = 0.5;
+	uint8_t color_offset_ = 0;
+	CHSV leds_[W][H];
+	CHSVPalette256 palette_;
+};
+
+template <int W, int H>
+class Curves {
+public:
+	Curves() {
+		memset(leds_, 0, sizeof(leds_));
+		fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV), 
+			CHSV(0, 255, 255), 
+			CHSV(48, 255, 255));
+	}
+
+	CRGB get_pixel(int x, int y) const {
+		return leds_[x][y];
+	}
+
+	bool show_bg() { return false; }
+	CRGB bg_color() { return CRGB::Black; }
+
+	void advance_col(int x) {
+		for (int y = 0; y < H; ++y) {
+			trail_rainbow2(leds_[x][y], 48, 64);// = CHSV(0, 0, 0);
+		}
+		EVERY_N_MILLIS(150) {
+			offset_ = (offset_ + 1) % W;
+		}
+		EVERY_N_MILLIS(100) {
+			color_offset_++;
+		}
+	}
+
+	void advance_frame() {
+		for (int i = 0; i < COUNT; ++i) {
+			plot(-12, 5, (i * W / COUNT + offset_) % W, palette_[triwave8(color_offset_)]);
+			plot(12, 5, (i * W / COUNT + W - 1 - offset_) % W, palette_[triwave8(color_offset_)]);
+		}
+	}
+
+	int width() const { return W; }
+	int height() const { return H; }
+
+private:
+
+	void plot(int n, int d, int c, const CHSV& color) {
+		for (int y = 0; y < H; ++y) {
+			leds_[wrap_x(y * n / d + c, W)][y] = color;
+		}
+	}
+
+	int COUNT = 4;
+	int offset_ = 0;
+	uint8_t color_offset_ = 0;
+	CHSV leds_[W][H];
+	CHSVPalette256 palette_;
+};
+
+template <int W, int H>
+class Burst {
+public:
+	Burst() {
+		random16_add_entropy(random());
+	}
+
+	CRGB get_pixel(int x, int y) const {
+		return leds_[x][y].color_;
+	}
+
+	bool show_bg() { return true; }
+	CRGB bg_color() { return CRGB::Black; }
+
+	void advance_col(int x) {
+		for (int y = 0; y < H; ++y) {
+			decay(leds_[x][y]);
+			move(x, y);
+		}
+	}
+
+	void advance_frame() {
+		if (random8() < 100) {
+			new_seed();
+		}	
+	}
+
+	int width() const { return W; }
+	int height() const { return H; }
+
+private:
+	
+	enum Dir { NORTH = 1, SOUTH = 2, EAST = 4, WEST = 8, NONE = 0 };
+
+	struct Dot {
+		Dot() :
+			dir_(NONE),
+			color_(CHSV(0, 0, 0))
+		{}
+
+		Dot(CHSV color, Dir dir) :
+			dir_(dir),
+			color_(color)
+		{}
+
+		Dot& operator=(const Dot& d) {
+			dir_ = d.dir_;
+			color_ = d.color_;
+			return *this;
+		}
+
+		Dot& operator|=(const Dot& d) {
+			dir_ |= d.dir_;
+			if (color_.v == 0) {
+				color_ = d.color_;
+			}
+			else {
+				color_ = blend(color_, d.color_, 128);
+			}
+			return *this;
+		}
+
+		int dir_;
+		CHSV color_;
+	};
+
+	void new_seed() {
+		int x = random(W / 2) * 2;
+		int y = random(H / 2) * 2;
+		leds_[x][y] = Dot(CHSV(0, 0, 255), NONE);
+		leds_[(x - 1) % W + (x ? 0 : W)][y] = Dot(CHSV(0, 255, 255), WEST);
+		leds_[(x + 1) % W][y] = Dot(CHSV(0, 255, 255), EAST);
+		if (y > 0) {
+			leds_[x][y - 1] = Dot(CHSV(0, 255, 255), NORTH);
+		}
+		if (y < H - 1) {
+			leds_[x][y + 1] = Dot(CHSV(0, 255, 255), SOUTH);
+		}
+	}
+
+	void decay(Dot& dot) {
+		CHSV& c = dot.color_;
+		c.h += 15;
+		c.s = 255;
+		c.v = qsub8(c.v, 10);
+	}
+
+	void move(int x, int y) {
+		Dot& dot = leds_[x][y];
+		if (dot.color_.v == 0) {
+			dot.dir_ = NONE;
+			return;
+		}
+		if (dot.dir_ & NORTH) {
+			if (y > 0) {
+				leds_[x][y - 1] |= dot;
+			}
+			dot.dir_ ^= NORTH;
+		}
+		if (dot.dir_ & SOUTH) {
+			if (y < H - 1) {
+				leds_[x][y + 1] |= dot;
+			}
+			dot.dir_ ^= SOUTH;
+		}
+		if (dot.dir_ & EAST) {
+			leds_[(x + 1) % W][y] |= dot;
+			dot.dir_ ^= EAST;
+		}
+		if (dot.dir_ & WEST) {
+			leds_[(x - 1) % W + (x ? 0 : W)][y] |= dot;
+			dot.dir_ ^= WEST;
+}
+	}
+
+	Dot leds_[W][H];
+};
+
 template <int W, int H>
 class WaveTrails {
   public:
@@ -54,6 +324,7 @@ private:
 
   CHSV leds[W][H];
 };
+
 template <uint8_t W, uint8_t H>
 class DotTrails {
   public:
@@ -203,8 +474,6 @@ class Spirograph {
       int p = 5;
       int x = 10 + (d * (cos8(t) - 128) / 128 + p * (cos8(d * t / r) - 128) / 128);
       int y = 10 + (d * (sin8(t) - 128) / 128 - p * (sin8(d * t/ r) - 128) / 128);
-      Serial.println(x);
-      Serial.println(y);
       leds[x][y] = CRGB::Blue;
       t++;
     }
@@ -530,25 +799,27 @@ class StarsFade
   public:
     StarsFade() :
     hue_(0)
-    {}
+    {
+      memset(leds_, 0, sizeof(leds_));
+    }
     
-    CRGB get_pixel(int x, int y) const {
-      return leds_[x][y];
+    CRGB get_pixel(int x, int y) {
+        if (random8() < 3) {
+          leds_[x][y] = CHSV(hue_, 255, 255);
+        }
+        return leds_[x][y];
     }
         
     static bool show_bg() { return true; }    
     static CRGB bg_color() { return CRGB::Black; }    
 
     void advance_col(uint8_t x) {
-      nscale8(&leds_[x][0], H, 100);      
+        for (int y = 0; y < H; ++y) {
+          trail_rainbow2(leds_[x][y], 16, 32);
+        } 
     }
     
     void advance_frame() {
-      EVERY_N_MILLISECONDS(100) {
-        uint8_t x = map8(random8(), 0, W - 1);
-        uint8_t y = map8(random8(), 0, H - 1);
-        leds_[x][y] = CRGB(CHSV(hue_, 255, 255));
-      }
       hue_++;
     } 
     
@@ -557,7 +828,7 @@ class StarsFade
     
     private:
 
-      CRGB leds_[W][H];
+      CHSV leds_[W][H];
       uint8_t hue_;
 };
 

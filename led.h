@@ -16,7 +16,7 @@ class POVDisplay
   void show(unsigned long duration)
   { 
     unsigned long show_start = millis();
-    Effect effect;
+	Effect effect;
     unsigned long col_delay_us = 1000000 / (rpm_ / 60) / effect.width();
     while (millis() - show_start < duration) {
       unsigned long frame_start = micros();
@@ -29,7 +29,7 @@ class POVDisplay
       }
       effect.advance_frame();
       Serial.println(micros() - frame_start);
-    }    
+    }
   }
 
   private:
