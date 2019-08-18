@@ -95,7 +95,7 @@ private:
 	int dir_;
 };
 
-/*
+
 template <int W, int H>
 class Test3
 {
@@ -123,12 +123,7 @@ public:
 	}
 
 	void advance_frame() {
-		for (int y = 0; y < H; ++y) {
-			if (pos[y] == stop_ || (y > 0 && (pos[y-1] != stop_  && //TODO pos[y] - pos[y] <= 1)) {
-				continue;
-			}
-			pos[y] = wrap(pos_[y] + dir_, W);
-		}
+		pull(leader_);
 	}
 
 	int width() const { return W; }
@@ -140,6 +135,38 @@ private:
 		trail_rainbow(leds_[x][y], 8, 24);
 	}
 
+	void pull(int y) {
+		if (pos_[y] == stop_) {
+			block(y);
+			return;
+		}
+		pos_[y] = wrap(pos_[y] + dir_);
+		for (int i = y - 1; i >= 0; --i) {
+			if (distance(pos_[i], pos_[i + 1], dir_) > 1) {
+				pos_[i] = wrap(pos_[i + 1] - dir_);
+			}
+		}
+		for (int i = y + 1; i < H; ++i) {
+			if (distance(pos_[i], pos_[i - 1], dir_) > 1) {
+				pos_[i] = wrap(pos_[i - 1] - dir_);
+			}
+		}
+	}
+
+	void block(int y) {
+		for (int i = 0; i < H; ++i) {
+			if (distance(pos_[i], pos_[y], dir_) != 0) {
+				pos_[i] = wrap(pos_[i] + dir_);
+			}
+		}
+	}
+
+	int distance(int a, int b, int dir) {
+		return dir > 0 ?
+			wrap(b - a, W) :
+			wrap(a - b, W);
+	}
+
 	const CHSV seed_;
 	const int COUNT_ = 2;
 	CHSV leds_[W][H];
@@ -148,7 +175,7 @@ private:
 	int dir_ = 1;
 	int stop_ = -1;
 };
-*/
+
 template <int W, int H>
 class RingTwist
 {
