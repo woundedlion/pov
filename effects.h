@@ -3,21 +3,35 @@
 
 void trail_rainbow(CHSV& p, uint8_t hue_falloff = 32, uint8_t dim_falloff = 32) {
   CHSV& c = p;
-  c.h += hue_falloff;
   c.s = 255;
+  c.h += hue_falloff;
   c.v = qsub8(c.v, dim_falloff);
 }
 
-int wrap_x(int x, int m) {
+void trail_rainbow_lin(CHSV& p, uint8_t hue_falloff = 32, uint8_t dim_falloff = 32) {
+	CHSV& c = p;
+	c.s = 255;
+	if (c.v < 128) {
+		c.h += hue_falloff / 2;
+		c.v = qsub8(c.v, dim_falloff / 2);
+	}
+	else {
+		c.h += hue_falloff;
+		c.v = qsub8(c.v, dim_falloff);
+	}
+}
+
+int wrap(int x, int m) {
 	return (x >= 0 ? 
 		x % m : 
 		((x % m) + m) % m);
 }
 
-Fix16 wrap_x(const Fix16& x, const Fix16& m) {
+Fix16 wrap(const Fix16& x, int m) {
+	Fix16 m_fix = fix16_from_int(m);
 	return (x > int16_t(0) ? 
-		fix16_mod(x, m) : 
-		fix16_mod(Fix16(fix16_mod(x, m)) + m, m));
+		fix16_mod(x, m_fix) : 
+		fix16_mod(Fix16(fix16_mod(x, m_fix)) + m_fix, m_fix));
 }
 
 template <int W, int H>
@@ -40,19 +54,180 @@ void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y, const CHSV& c) 
 	}
 }
 
-template <int W, int H>
-class CurvesAA {
+class Oscillator
+{
 public:
-	CurvesAA() 
-		: t_(int16_t(0)) 
-	{
-		memset(leds_, 0, sizeof(leds_));
-		fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
-			CHSV(0, 255, 255),
-			CHSV(48, 255, 255));
+	
+	Oscillator(int min, int max, int end_delay = 0) :
+		t_(min),
+		min_(min),
+		max_(max),
+		end_delay_(end_delay),
+		end_count_(0),
+		dir_(1)
+	{}
+
+	int get() {
+		int r = t_;
+		if ((t_ == max_ + 1  && dir_ == 1) || (t_ == 0 && dir_ == -1)) {
+			if (end_count_++ >= end_delay_) {
+				dir_ = dir_ * -1;
+				end_count_ = 0;
+			}
+			else {
+				return r;
+			}
+		}
+		t_ += dir_;
+		return r;
 	}
 
-	CRGB get_pixel(int x, int y) const {
+	int dir() { return dir_; }
+	void set_delay(int d) { end_delay_ = d; }
+
+private:
+
+	int t_;
+	int min_;
+	int max_;
+	int end_delay_;
+	int end_count_;
+	int dir_;
+};
+
+/*
+template <int W, int H>
+class Test3
+{
+public:
+	Test3() :
+		seed_(104, 0, 255)
+	{
+		memset(leds_, 0, sizeof(leds_));
+		for (int x = 0; x < W; x += W / COUNT_) {
+			for (int y = 0; y < H; --y) {
+				leds_[x][y] = seed_;
+			}
+		}
+	}
+
+	CRGB get_pixel(int x, int y) {
+		return leds_[wrap(x + pos_[y], W)][y];
+	}
+
+	bool show_bg() { return true; }
+	CRGB bg_color() { return CRGB::Black; }
+
+	void advance_col(int x) {
+
+	}
+
+	void advance_frame() {
+		for (int y = 0; y < H; ++y) {
+			if (pos[y] == stop_ || (y > 0 && (pos[y-1] != stop_  && //TODO pos[y] - pos[y] <= 1)) {
+				continue;
+			}
+			pos[y] = wrap(pos_[y] + dir_, W);
+		}
+	}
+
+	int width() const { return W; }
+	int height() const { return H; }
+
+private:
+
+	void decay(int x, int y) {
+		trail_rainbow(leds_[x][y], 8, 24);
+	}
+
+	const CHSV seed_;
+	const int COUNT_ = 2;
+	CHSV leds_[W][H];
+	int pos_[H] = { 0 };
+	int leader_ = 0;
+	int dir_ = 1;
+	int stop_ = -1;
+};
+*/
+template <int W, int H>
+class RingTwist
+{
+public:
+	RingTwist() :
+		seed_(120, 0, 255),
+		osc_(0, H - 1, random(0, W))
+	{
+		memset(leds_, 0, sizeof(leds_));
+		for (int x = 0; x < W; x += W / COUNT_) {
+			for (int y = H - 1; y >= 0; --y) {
+				leds_[x][y] = seed_;
+			}
+		}
+	}
+
+	CRGB get_pixel(int x, int y) {
+		return leds_[x][y];
+	}
+
+	bool show_bg() { return false; }
+	CRGB bg_color() { return CRGB::Black; }
+
+	void advance_col(int x) {
+		if (x == 0) {
+			t_ = osc_.get();
+		}
+		if (osc_.dir() > 0) {
+			for (int y = 0; y < H; ++y) {
+				if (y < t_ && leds_[x][y] == seed_) {
+					leds_[wrap(x - 1, W)][y] = leds_[x][y];
+					decay(x, y);
+				} else if (leds_[x][y].v < seed_.v) {
+					decay(x, y);
+				}
+			}
+		} else {
+			for (int y = H - 1; y >= 0; --y) {
+				if (y >= t_ && leds_[x][y] == seed_) {
+					leds_[wrap(x - 1, W)][y] = leds_[x][y];
+					decay(x, y);
+				} else if (leds_[x][y].v < seed_.v) {
+					decay(x, y);
+				}
+			}
+		}
+	}
+		
+	void advance_frame() {
+		osc_.set_delay(random(0, W));
+	}
+
+	int width() const { return W; }
+	int height() const { return H; }
+
+private:
+
+	void decay(int x, int y, int n = 1) {
+		trail_rainbow(leds_[x][y], 8 * n, 24 * n);
+	}
+
+	const CHSV seed_;
+	const int COUNT_ = 2;
+	Oscillator osc_;
+	int t_ = 0;
+	CHSV leds_[W][H];
+};
+
+/*
+template <int W, int H>
+class Test {
+public:
+	Test() 
+	{
+		memset(leds_, 0, sizeof(leds_));
+	}
+
+	CRGB get_pixel(int x, int y) {
+		meta_[x][y].shows_++;
 		return leds_[x][y];
 	}
 
@@ -63,17 +238,11 @@ public:
 		for (int y = H - 1; y >= 0; --y) {
 			decay(x, y);
 		}
-		EVERY_N_MILLIS(100) {
-			color_offset_++;
-		}
-		EVERY_N_MILLIS(100) {
-		}
 	}
 
 	void advance_frame() {
-		EVERY_N_MILLIS(1000) {
-			plot(CHSV(0, 0, 255));
-		}
+		t_ = t_ + T_STEP_;
+		plot(t_);
 	}
 
 	int width() const { return W; }
@@ -81,30 +250,47 @@ public:
 
 private:
 
-	void plot(const CHSV& color) {
-		for (Fix16 x = int16_t(0); x < int16_t(W); x += T_STEP_) {
-			uint16_t t = static_cast<uint16_t>(fix16_to_float((Fix16(fix16_mod(PI_ * x / int16_t(4), TAU_)) / TAU_)) * 65536);
-			Fix16 y = Fix16(int16_t(2)) * Fix16(int16_t(sin16(t))) / int16_t(32768) + int16_t(10);
-			plot_aa(leds_, x, y, color);
+	class Dot {
+	public:
+		uint32_t shows_ = 0;
+		int ttl_ = 40;
+	};
+
+	void plot(const Fix16& t) {
+		Fix16 s = F16(3);
+		for (int i = 0; i < COUNT; ++i) {
+			Fix16 x = wrap(t_, W);
+			Fix16 y = wrap(s * x , H);
+			// offset
+			x = wrap(x + fix16_from_int(i * W / COUNT), W);
+			plot_aa(leds_, x, y, CHSV(0, 255, 255));
+			meta_[x][y].shows_ = 0;
+			for (int j = 1; j < 4; ++j) {
+
+			}
 		}
 	}
 
 	void decay(int x, int y) {
-		if (y < H - 1) {
-//			leds_[x][y + 1] = leds_[x][y];
+		CHSV& p = leds_[x][y];
+		Dot& d = meta_[x][y];
+		if (d.ttl_ >= 0) {
+			if (static_cast<int>(d.shows_) >= d.ttl_) {
+				p = CHSV(0, 0, 0);
+				return;
+			}
+			p.v = min(p.v, (d.ttl_ - d.shows_) * 255 / d.ttl_);
 		}
-//		trail_rainbow(leds_[x][y]);
 	}
 
-	int offset_ = 0;
-	Fix16 t_;
-	const Fix16 PI_ = fix16_pi;
-	const Fix16 TAU_ = PI_ * 2.0;
-	const Fix16 T_STEP_ = 0.5;
-	uint8_t color_offset_ = 0;
+	Fix16 t_ = F16(0);
+	const Fix16 T_STEP_ = F16(0.5);
+	const int COUNT = 4;
 	CHSV leds_[W][H];
+	Dot meta_[W][H];
 	CHSVPalette256 palette_;
 };
+*/
 
 template <int W, int H>
 class Curves {
@@ -125,21 +311,20 @@ public:
 
 	void advance_col(int x) {
 		for (int y = 0; y < H; ++y) {
-			trail_rainbow(leds_[x][y], 48, 64);// = CHSV(0, 0, 0);
-		}
-		EVERY_N_MILLIS(150) {
-			offset_ = (offset_ + 1) % W;
-		}
-		EVERY_N_MILLIS(100) {
-			color_offset_++;
+			trail_rainbow_lin(leds_[x][y], 24, 32);			
 		}
 	}
 
 	void advance_frame() {
 		for (int i = 0; i < COUNT; ++i) {
-			plot(-12, 5, (i * W / COUNT + offset_) % W, palette_[triwave8(color_offset_)]);
-			plot(12, 5, (i * W / COUNT + W - 1 - offset_) % W, palette_[triwave8(color_offset_)]);
+			plot(num_, 255, (i * W / COUNT + offset_) % W, palette_[triwave8(color_offset_)]);
+			plot(-num_, 255, (i * W / COUNT + W - 1 - offset_) % W, palette_[triwave8(color_offset_)]);
 		}
+		EVERY_N_MILLIS(150) {
+			offset_ = (offset_ + 1) % W;
+		}
+		num_ = wrap(num_ - 1, 1024);
+		color_offset_++;
 	}
 
 	int width() const { return W; }
@@ -149,13 +334,15 @@ private:
 
 	void plot(int n, int d, int c, const CHSV& color) {
 		for (int y = 0; y < H; ++y) {
-			leds_[wrap_x(y * n / d + c, W)][y] = color;
+			leds_[wrap(y * n / d + c, W)][y] = color;
 		}
 	}
 
 	int COUNT = 4;
 	int offset_ = 0;
 	uint8_t color_offset_ = 0;
+	uint16_t num_ = 1024;
+	uint8_t falloff_ = 48;
 	CHSV leds_[W][H];
 	CHSVPalette256 palette_;
 };
@@ -283,49 +470,50 @@ private:
 
 template <uint8_t W, uint8_t H>
 class RingTrails {
-  public:
-    RingTrails() {
-      memset(leds, 0, sizeof(leds));
-    }
-    
-    CRGB get_pixel(int x, int y) const {
-      return leds[x][y];
-    }
-        
-    static bool show_bg() { return false; }    
-    static CRGB bg_color() { return CRGB::Black; }    
+public:
+	RingTrails() {
+		memset(leds, 0, sizeof(leds));
+		memset(led_shown, 0, sizeof(led_shown));
+	}
 
-    void advance_col(uint8_t x) {
-      if (x == 0 || x == W /2 ) {
-        uint8_t dl = beatsin8(8, 1, 2);
-        uint8_t dg = beatsin8(7, 1, 2, 16384);
-        uint8_t dp = beatsin8(9, 1, 2, 32768);
-        projection.rotate(dl, dg, dp);    
-      }
+	CRGB get_pixel(int x, int y)  {
+		led_shown[x][y]++;
+		return leds[x][y];
+	}
 
-      for (int y = 0; y < H; ++y) {
-        Point p = projection.project(x, y);
-        if (p.y == 9) {
-          leds[x][y] = CHSV(hue - 32, 0, 255);
-        } else {
-          trail_rainbow(leds[x][y], 32, 32);
-        }
-      }
-    } 
+	static bool show_bg() { return false; }
+	static CRGB bg_color() { return CRGB::Black; }
 
-    void advance_frame() {
-    }
-    
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
+	void advance_col(uint8_t x) {
+		Point p = projection.project(x, (H - 1) / 2);
+		leds[p.x][p.y] = CHSV(hue - 32, 0, 255);
+		led_shown[p.x][p.y] = 0;
+
+		for (int y = 0; y < H; ++y) {
+			if (led_shown[x][y] > 1) {
+				trail_rainbow(leds[x][y], 32, 32);
+			}
+		}
+	}
+
+	void advance_frame() {
+		uint8_t dl = beatsin8(5, 1, 2);
+		uint8_t dg = beatsin8(7, 1, 2, 16384);
+		uint8_t dp = beatsin8(11, 1, 2, 32768);
+		projection.rotate(dl, dg, dp);
+	}
+
+	uint8_t width() const { return W; }
+	uint8_t height() const { return H; }
 
 private:
 
-  typedef typename Projection<W, H>::Point Point;
-  Projection<W, H> projection;
+	typedef typename Projection<W, H>::Point Point;
+	Projection<W, H> projection;
 
-  CHSV leds[W][H];
-  uint8_t hue = HUE_RED;
+	CHSV leds[W][H];
+	unsigned int led_shown[W][H];
+	uint8_t hue = HUE_RED;
 };
 
 template <uint8_t W, uint8_t H>
@@ -822,65 +1010,6 @@ class Fire
     }
     
     uint8_t heat_[W][H];
-};
-
-template <uint8_t W, uint8_t H, uint16_t DURATION, bool BG>
-class PaletteFall
-{
-  public:
-
-    PaletteFall() :
-      timer_(DURATION),
-      palette_idx_(0),
-      palette_(HeatColors_p),
-      palette_offset_(0)
-    {
-    }
-
-    CRGB get_pixel(int x, int y) const {
-      return palette_[addmod8(H - 1 - y, palette_offset_, 16)];
-    }
-
-    static bool show_bg() { return BG; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {
-    }
-    
-    void advance_frame() {
-      palette_offset_ = addmod8(palette_offset_, 1, 16);
-      if (timer_) {
-        switch_palette();
-      }
-    } 
-
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
-  private:
-
-    void switch_palette() {
-      switch (palette_idx_) {
-        case 0:
-          palette_ = HeatColors_p;
-          break;
-        case 2:
-          palette_ = HeatColors_p;
-          break;
-        case 3:
-          palette_ = HeatColors_p;
-          break;
-        case 4:
-          palette_ = HeatColors_p;
-          break;
-      }
-      palette_idx_ = addmod8(palette_idx_, 1, 5);
-    }
-
-    CEveryNMillis timer_;
-    uint8_t palette_idx_;
-    CRGBPalette16 palette_;
-    uint8_t palette_offset_;
 };
 
 template <uint8_t W, uint8_t H, uint8_t HUE>

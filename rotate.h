@@ -32,6 +32,8 @@ class Projection
     
       uint8_t x;
       uint8_t y;
+	  float x_f;
+	  float y_f;
       float lambda;
       float phi;
     };
@@ -61,20 +63,18 @@ class Projection
       float y = sin16(lambda16) / 32767.0 * cos_p;
       float z = sin16(phi16) / 32767.0;
 
-/*
-      float cos_p = fix16_cos(phi16) / 32767.0;
-      float x = fix16_cos(lambda16) / 32767.0 * cos_p;
-      float y = fix16_sin(lambda16) / 32767.0 * cos_p;
-      float z = fix16_sin(phi16) / 32767.0;
-*/
       // rotate phi gamma
       float k = z * cos_dp + x * sin_dp;
       p.lambda = fix16_to_float(fix16_atan2(fix16_from_float(y * cos_dg - k * sin_dg), fix16_from_float(x * cos_dp - z * sin_dp)));
       p.phi = fix16_to_float(fix16_asin(fix16_from_float(k * cos_dg + y * sin_dg)));
     
       // convert to equirectangular x, y
-      p.x = static_cast<int>((p.lambda + pi) * W / tau + 0.5f) % W;
-      p.y = H - static_cast<int>((p.phi + pi / 2) * H / pi + 0.5f);
+	  p.x_f = (p.lambda + pi) * W / tau + 0.5f;
+	  int x_i = static_cast<int>(p.x_f);
+	  p.x_f = (x_i % W) + p.x_f - x_i;
+	  p.y_f = (p.phi + pi / 2) * H / pi + 0.5f;
+      p.x = static_cast<int>(p.x_f);
+      p.y = H - static_cast<int>(p.y_f);
 
       return p;
     }
