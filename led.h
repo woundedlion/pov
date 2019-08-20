@@ -23,11 +23,9 @@ class POVDisplay
       for (int x = 0; x < effect.width() / 2; ++x) {
         show_col(effect, x, col_delay_us);
       }
-      effect.advance_frame();
       for (int x = effect.width() / 2; x < effect.width(); ++x) {
         show_col(effect, x, col_delay_us);
       }
-      effect.advance_frame();
       Serial.println(micros() - frame_start);
     }
   }
@@ -47,6 +45,9 @@ class POVDisplay
           FastLED.showColor(effect.bg_color());
         }
         effect.advance_col(x);
+		if (x == effect.width() / 2 - 1 || x == effect.width() - 1) {
+			effect.advance_frame();
+		}
         col_us = micros() - col_us;
         if (col_us < col_delay_us) {
           noInterrupts();

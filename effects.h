@@ -97,33 +97,43 @@ private:
 
 
 template <int W, int H>
-class Test3
+class RingTwist
 {
 public:
-	Test3() :
+	RingTwist() :
 		seed_(104, 0, 255)
 	{
+		randomSeed(analogRead(PIN_RANDOM_));
 		memset(leds_, 0, sizeof(leds_));
 		for (int x = 0; x < W; x += W / COUNT_) {
-			for (int y = 0; y < H; --y) {
+			for (int y = 0; y < H; ++y) {
 				leds_[x][y] = seed_;
 			}
 		}
 	}
 
 	CRGB get_pixel(int x, int y) {
-		return leds_[wrap(x + pos_[y], W)][y];
+		return leds_[wrap(x - pos_[y], W)][y];
 	}
 
-	bool show_bg() { return true; }
+	bool show_bg() { return false; }
 	CRGB bg_color() { return CRGB::Black; }
 
 	void advance_col(int x) {
-
+		for (int y = 0; y < H; ++y) {
+			if (leds_[x][y] != seed_) {
+				decay(x, y);
+			}
+		}
 	}
 
 	void advance_frame() {
 		pull(leader_);
+		EVERY_N_MILLISECONDS(10000) {
+			if (stop_ < 0) {
+				stop_ = pos_[leader_];
+			}
+		}
 	}
 
 	int width() const { return W; }
@@ -136,28 +146,36 @@ private:
 	}
 
 	void pull(int y) {
-		if (pos_[y] == stop_) {
+		if (stop_ != -1 && pos_[y] == stop_) {
 			block(y);
 			return;
 		}
-		pos_[y] = wrap(pos_[y] + dir_);
+		move(y, pos_[y], wrap(pos_[y] + dir_, W), dir_);
 		for (int i = y - 1; i >= 0; --i) {
-			if (distance(pos_[i], pos_[i + 1], dir_) > 1) {
-				pos_[i] = wrap(pos_[i + 1] - dir_);
+			if (distance(pos_[i], pos_[i + 1], dir_) > lead_length_) {
+				move(i, pos_[i], wrap(pos_[i + 1] - lead_length_ * dir_, W), dir_);
 			}
 		}
 		for (int i = y + 1; i < H; ++i) {
-			if (distance(pos_[i], pos_[i - 1], dir_) > 1) {
-				pos_[i] = wrap(pos_[i - 1] - dir_);
+			if (distance(pos_[i], pos_[i - 1], dir_) > lead_length_) {
+				move(i, pos_[i], wrap(pos_[i - 1] - lead_length_ * dir_, W), dir_);
 			}
 		}
 	}
 
 	void block(int y) {
+		bool all_stop = true;
 		for (int i = 0; i < H; ++i) {
 			if (distance(pos_[i], pos_[y], dir_) != 0) {
-				pos_[i] = wrap(pos_[i] + dir_);
+				move(i, pos_[i], wrap(pos_[i] + dir_, W), dir_);
+				all_stop = false;
 			}
+		}
+		if (all_stop) {
+			stop_ = -1;
+			dir_ = random(2) < 1 ? 1 : -1;
+			leader_ = random(0, H);
+			lead_length_ = random(1, 5);
 		}
 	}
 
@@ -167,157 +185,34 @@ private:
 			wrap(a - b, W);
 	}
 
+	void move (int y, int x0, int x1, int dir) {
+		pos_[y] = x1;
+		for (int x = 0; x < W; x += W / COUNT_) {
+			for (int d = 0; d < distance(x0, x1, dir); ++d) {
+				add_trail(y, wrap(x - dir, W), dir);
+			}
+		}
+	}
+
+	void add_trail(int y, int x, int dir) {
+		if (leds_[wrap(x + dir, W)][y].v == 0 || leds_[x][y] == seed_) {
+			return;
+		}
+		add_trail(y, wrap(x - dir, W), dir);
+		leds_[x][y] = leds_[wrap(x + dir, W)][y];
+		decay(x, y);
+	}
+
 	const CHSV seed_;
 	const int COUNT_ = 2;
+	const int PIN_RANDOM_ = 15;
 	CHSV leds_[W][H];
 	int pos_[H] = { 0 };
 	int leader_ = 0;
 	int dir_ = 1;
 	int stop_ = -1;
+	int lead_length_ = 1;
 };
-
-template <int W, int H>
-class RingTwist
-{
-public:
-	RingTwist() :
-		seed_(120, 0, 255),
-		osc_(0, H - 1, random(0, W))
-	{
-		memset(leds_, 0, sizeof(leds_));
-		for (int x = 0; x < W; x += W / COUNT_) {
-			for (int y = H - 1; y >= 0; --y) {
-				leds_[x][y] = seed_;
-			}
-		}
-	}
-
-	CRGB get_pixel(int x, int y) {
-		return leds_[x][y];
-	}
-
-	bool show_bg() { return false; }
-	CRGB bg_color() { return CRGB::Black; }
-
-	void advance_col(int x) {
-		if (x == 0) {
-			t_ = osc_.get();
-		}
-		if (osc_.dir() > 0) {
-			for (int y = 0; y < H; ++y) {
-				if (y < t_ && leds_[x][y] == seed_) {
-					leds_[wrap(x - 1, W)][y] = leds_[x][y];
-					decay(x, y);
-				} else if (leds_[x][y].v < seed_.v) {
-					decay(x, y);
-				}
-			}
-		} else {
-			for (int y = H - 1; y >= 0; --y) {
-				if (y >= t_ && leds_[x][y] == seed_) {
-					leds_[wrap(x - 1, W)][y] = leds_[x][y];
-					decay(x, y);
-				} else if (leds_[x][y].v < seed_.v) {
-					decay(x, y);
-				}
-			}
-		}
-	}
-		
-	void advance_frame() {
-		osc_.set_delay(random(0, W));
-	}
-
-	int width() const { return W; }
-	int height() const { return H; }
-
-private:
-
-	void decay(int x, int y, int n = 1) {
-		trail_rainbow(leds_[x][y], 8 * n, 24 * n);
-	}
-
-	const CHSV seed_;
-	const int COUNT_ = 2;
-	Oscillator osc_;
-	int t_ = 0;
-	CHSV leds_[W][H];
-};
-
-/*
-template <int W, int H>
-class Test {
-public:
-	Test() 
-	{
-		memset(leds_, 0, sizeof(leds_));
-	}
-
-	CRGB get_pixel(int x, int y) {
-		meta_[x][y].shows_++;
-		return leds_[x][y];
-	}
-
-	bool show_bg() { return true; }
-	CRGB bg_color() { return CRGB::Black; }
-
-	void advance_col(int x) {
-		for (int y = H - 1; y >= 0; --y) {
-			decay(x, y);
-		}
-	}
-
-	void advance_frame() {
-		t_ = t_ + T_STEP_;
-		plot(t_);
-	}
-
-	int width() const { return W; }
-	int height() const { return H; }
-
-private:
-
-	class Dot {
-	public:
-		uint32_t shows_ = 0;
-		int ttl_ = 40;
-	};
-
-	void plot(const Fix16& t) {
-		Fix16 s = F16(3);
-		for (int i = 0; i < COUNT; ++i) {
-			Fix16 x = wrap(t_, W);
-			Fix16 y = wrap(s * x , H);
-			// offset
-			x = wrap(x + fix16_from_int(i * W / COUNT), W);
-			plot_aa(leds_, x, y, CHSV(0, 255, 255));
-			meta_[x][y].shows_ = 0;
-			for (int j = 1; j < 4; ++j) {
-
-			}
-		}
-	}
-
-	void decay(int x, int y) {
-		CHSV& p = leds_[x][y];
-		Dot& d = meta_[x][y];
-		if (d.ttl_ >= 0) {
-			if (static_cast<int>(d.shows_) >= d.ttl_) {
-				p = CHSV(0, 0, 0);
-				return;
-			}
-			p.v = min(p.v, (d.ttl_ - d.shows_) * 255 / d.ttl_);
-		}
-	}
-
-	Fix16 t_ = F16(0);
-	const Fix16 T_STEP_ = F16(0.5);
-	const int COUNT = 4;
-	CHSV leds_[W][H];
-	Dot meta_[W][H];
-	CHSVPalette256 palette_;
-};
-*/
 
 template <int W, int H>
 class Curves {
@@ -338,7 +233,7 @@ public:
 
 	void advance_col(int x) {
 		for (int y = 0; y < H; ++y) {
-			trail_rainbow_lin(leds_[x][y], 24, 32);			
+			trail_rainbow_lin(leds_[x][y], 32, 48);			
 		}
 	}
 
@@ -543,40 +438,6 @@ private:
 	uint8_t hue = HUE_RED;
 };
 
-template <uint8_t W, uint8_t H>
-class Spirograph {
-  public:
-    Spirograph() {
-      memset(leds, 0, sizeof(leds));
-    }
-    
-    CRGB get_pixel(int x, int y) const {
-      return leds[x][y];
-    }
-        
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {} 
-    void advance_frame() {
-      int d = 5;
-      int r = 2;
-      int p = 5;
-      int x = 10 + (d * (cos8(t) - 128) / 128 + p * (cos8(d * t / r) - 128) / 128);
-      int y = 10 + (d * (sin8(t) - 128) / 128 - p * (sin8(d * t/ r) - 128) / 128);
-      leds[x][y] = CRGB::Blue;
-      t++;
-    }
-    
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
-private:
-
-  CRGB leds[W][H];
-  uint8_t t = 0;
-};
-
 template <uint8_t W, uint8_t H, const unsigned char (*DATA)[20][3]>
 class Image
 {
@@ -602,32 +463,6 @@ class Image
   private:
 
     const unsigned char (*data_)[H][3];  
-};
-
-template <uint8_t W, uint8_t H, uint8_t S>
-class Grid
-{
-  public:
-    Grid()
-    {}
-    
-    CRGB get_pixel(int x, int y) const {
-      unsigned long c = 0;
-      if (x % S == 0 || y % S == 0) {
-        c = CRGB::Green;
-      } 
-      return c;
-    }
-        
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {} 
-    void advance_frame() {} 
-    
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
 };
 
 template <uint8_t W, uint8_t H, uint8_t S>
@@ -777,54 +612,6 @@ private:
   uint8_t palette_offset_ = 0;
 };
 
-template <uint8_t W, uint8_t H, uint8_t S>
-class Plaid
-{
-  public:
-    Plaid() :
-    color_shift_timer_(100),
-    c1_(CHSV(random8(), 255, 255)),
-    c2_(CHSV(random8(), 255, 255)),
-    c3_(CHSV(HUE_RED, 0, 0))
-    {}
-    
-    CRGB get_pixel(int x, int y) const {
-      CHSV c(c3_);
-      if (x % 4 == 0) {
-        c = c1_;
-        if (y % 4 == 0) {
-          return blend(c, c2_, 128);
-        }
-      } else if (y % 4 == 0) {
-        return c2_;
-      }
-      return c;
-    }
-        
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {} 
-    
-    void advance_frame() {
-      if (color_shift_timer_) {
-        c1_.hue += 1;
-        c2_.hue += 1;
-//        c3_.hue += 1;
-      }
-    } 
-    
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-
-private:
-
-  CEveryNMillis color_shift_timer_;
-  CHSV c1_;
-  CHSV c2_;
-  CHSV c3_;
-};
-
 template <uint8_t W, uint8_t H, uint8_t SPREAD>
 class Spiral
 {
@@ -853,34 +640,6 @@ class Spiral
   private:
         
     CRGBPalette16 palette_;
-};
-
-template <uint8_t W, uint8_t H>
-class Stars
-{
-  public:
-    Stars() :
-    hue_(0)
-    {}
-    
-    CRGB get_pixel(int x, int y) const {
-      return random8() > 250 ? CRGB(CHSV(hue_, 255, 255)) : CRGB::Black;
-    }
-        
-    static bool show_bg() { return true; }    
-    static CRGB bg_color() { return CRGB::Black; }    
-
-    void advance_col(uint8_t x) {} 
-    void advance_frame() {
-      hue_++;
-    } 
-    
-    uint8_t width() const { return W; }
-    uint8_t height() const { return H; }
-    
-    private:
-    
-      uint8_t hue_;
 };
 
 template <uint8_t W, uint8_t H>
