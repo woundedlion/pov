@@ -129,7 +129,7 @@ public:
 
 	void advance_frame() {
 		pull(leader_);
-		EVERY_N_MILLISECONDS(10000) {
+		EVERY_N_MILLISECONDS(STOP_TIMER_) {
 			if (stop_ < 0) {
 				stop_ = pos_[leader_];
 			}
@@ -175,7 +175,7 @@ private:
 			stop_ = -1;
 			dir_ = random(2) < 1 ? 1 : -1;
 			leader_ = random(0, H);
-			lead_length_ = random(1, 5);
+			lead_length_ = lead_lengths_[random(1, sizeof(lead_lengths_) / sizeof(int))];
 		}
 	}
 
@@ -205,6 +205,7 @@ private:
 
 	const CHSV seed_;
 	const int COUNT_ = 2;
+	const int STOP_TIMER_ = 20000;
 	const int PIN_RANDOM_ = 15;
 	CHSV leds_[W][H];
 	int pos_[H] = { 0 };
@@ -212,6 +213,7 @@ private:
 	int dir_ = 1;
 	int stop_ = -1;
 	int lead_length_ = 1;
+	int lead_lengths_[7] = { 1, 2, 3, 4, 6, 12, 16 };
 };
 
 template <int W, int H>
@@ -290,11 +292,11 @@ class WaveTrails {
         trail_rainbow(leds[x][y], 5, 24);
       }
       leds[x][beatsin16(5, H/15, H*14/15, 0, 
-        map(x, 0, W-1, 0, 65535))] = CHSV(HUE_BLUE, 0, 255); 
+        map(x, 0, W-1, 0, 65535))] = CHSV(HUE_BLUE, 100, 255); 
       leds[x][beatsin16(5, 0, H-1, 0, 
-        map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_GREEN, 0, 255); 
+        map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_GREEN, 100, 255); 
       leds[x][beatsin16(5, 0, H-1, 32767, 
-        map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_GREEN, 0, 255); 
+        map(W - 1 - x, 0, W-1, 0, 65535))] = CHSV(HUE_AQUA, 100, 255); 
     } 
 
     void advance_frame() {
