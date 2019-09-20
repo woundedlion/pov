@@ -39,7 +39,37 @@ class Projection
     Projection()
     {}
 
-    Point project(uint8_t bx, uint8_t by) const {
+	Point project(uint8_t bx, uint8_t by) const {
+		Point p(bx, by);
+
+		// rotate lambda
+		p.lambda += delta_lambda;
+		if (p.lambda > pi) {
+			p.lambda -= tau;
+		}
+		else if (p.lambda < -pi) {
+			p.lambda += tau;
+		}
+
+		// convert to spherical x, y, z
+		float cos_p = cosf(p.phi);
+		float x = cosf(p.lambda) * cos_p;
+		float y = sinf(p.lambda) * cos_p;
+		float z = sinf(p.phi);
+
+		// rotate phi gamma
+		float k = z * cos_dp + x * sin_dp;
+		p.lambda = atan2(y * cos_dg - k * sin_dg, x * cos_dp - z * sin_dp);
+		p.phi = asinf(k * cos_dg + y * sin_dg);
+
+		// convert to equirectangular x, y
+		p.x = static_cast<int>((p.lambda + pi) * W / tau + 0.5f) % W;
+		p.y = H - static_cast<int>((p.phi + pi / 2) * H / pi + 0.5f);
+
+		return p;
+	}
+
+    Point project_fixed_point(uint8_t bx, uint8_t by) const {
       Point p(bx, by);
 
       // rotate lambda
@@ -54,7 +84,6 @@ class Projection
       // convert to spherical x, y, z
       uint16_t lambda16 = static_cast<int>((p.lambda + pi) * 65535.0f / tau + 0.5f);
       uint16_t phi16 = static_cast<int>((p.phi + pi) / 2.0f * 65535.0f / pi + 0.5f);
-
 
       float cos_p = cos16(phi16) / 32767.0;
       float x = cos16(lambda16) / 32767.0 * cos_p;

@@ -20,6 +20,7 @@ void loop() {
 //    pov.show<RotateWave<64, 20> >(900000);
 //    pov.show<Snake<40, 20, 1> >(30000);
 
+		pov.show<Rotate<40, 20> >(900 * K);
 		pov.show<RingTrails<80, 20> >(900 * K);
 
 		pov.show<TheMatrix<40, 20, 135> >(90 * K);
