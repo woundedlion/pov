@@ -4,11 +4,9 @@
 #include "images.h"
 
 namespace {
-  const unsigned int RPM = 480;
-  const uint8_t NUM_PIXELS = 40;
-  
-  CRGB leds[NUM_PIXELS];
-  POVDisplay<NUM_PIXELS> pov(leds, RPM);
+	const unsigned int RPM = 480;
+	const uint8_t NUM_PIXELS = 40;
+	POVDisplay<NUM_PIXELS, RPM> pov;
 }
 
 void setup() {
@@ -21,6 +19,8 @@ void loop() {
 	while (true) { 
 //    pov.show<RotateWave<64, 20> >(900000);
 //    pov.show<Snake<40, 20, 1> >(30000);
+
+		pov.show<RingTrails<80, 20> >(900 * K);
 
 		pov.show<TheMatrix<40, 20, 135> >(90 * K);
 		pov.show<DotTrails<96, 20> >(120 * K);
