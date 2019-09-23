@@ -4,8 +4,6 @@
 #include "images.h"
 
 namespace {
-	const unsigned int RPM = 480;
-	const uint8_t NUM_PIXELS = 40;
 	POVDisplay<NUM_PIXELS, RPM> pov;
 }
 
@@ -17,12 +15,17 @@ void setup() {
 const int K = 1000;
 void loop() {
 	while (true) { 
-//    pov.show<RotateWave<64, 20> >(900000);
+		pov.show<Spiral<4, 0> >(10 * K);
+		pov.show<Spiral<8, 0> >(10 * K);
+		pov.show<Spiral<16, 0> >(10 * K);
+		pov.show<Spiral<48, 0> >(60 * K);
+		pov.show<Spiral<48, 1> >(30 * K);
+		pov.show<Spiral<48, 2> >(15 * K);
+
+		//    pov.show<RotateWave<64, 20> >(900000);
 //    pov.show<Snake<40, 20, 1> >(30000);
 
-		pov.show<Rotate<40, 20> >(900 * K);
-		pov.show<RingTrails<80, 20> >(900 * K);
-
+		/*
 		pov.show<TheMatrix<40, 20, 135> >(90 * K);
 		pov.show<DotTrails<96, 20> >(120 * K);
 		pov.show<RingTwist<96, 20> >(120 * K);
@@ -43,6 +46,8 @@ void loop() {
 		pov.show<StarsFade<40, 20> >(60 * K);
 		pov.show<Burnout<40, 20, 0, 5> >(30 * K);
 		pov.show<Fire<40, 20, 150, 120> >(90 * K);
+				*/
+
 	}
 }
 

@@ -1,4 +1,11 @@
 #include <Arduino.h>
+
+namespace {
+	const unsigned int RPM = 480;
+	const int NUM_PIXELS = 40;
+	const int H = NUM_PIXELS / 2;
+}
+
 #include "effects.h"
 
 template <int S, int RPM>
@@ -14,11 +21,14 @@ class POVDisplay
 	template <typename E>
 	void show(unsigned long duration)
 	{
+		long start = millis();
 		effect_ = new E();
 		x_ = 0;
 		IntervalTimer timer;
 		timer.begin(show_col, 1000000 / (RPM / 60) / effect_->width());
-		delay(duration);
+		while (millis() - start < duration) {
+			effect_->draw_frame();
+		}
 		timer.end();
 		delete effect_;
 		effect_ = NULL;
@@ -27,22 +37,20 @@ class POVDisplay
   private:
 
     static inline void show_col() {
-        for (int y = 0; y < S / 2; ++y) {
-          leds_[S / 2 - y - 1] = effect_->get_pixel(x_, y);
-          leds_[S/2 + y] =  
-            effect_->get_pixel((x_ + (effect_->width() / 2)) % effect_->width(), y);
+		for (int y = 0; y < S / 2; ++y) {
+          leds_[S / 2 - y - 1] = effect_->column(x_)[y];
+          leds_[S / 2 + y] =  
+            effect_->column((x_ + (effect_->width() / 2)) % effect_->width())[y];
         }
-        FastLED.show();
+
+		FastLED.show();
         if (effect_->show_bg()) {
-          FastLED.showColor(effect_->bg_color());
+          FastLED.showColor(CRGB::Black);
         }
-        effect_->advance_col(x_++);
-		if (x_ == effect_->width() / 2) {
-			effect_->advance_frame();
-		}
-		else if (x_ == effect_->width()) {
-			x_ = 0;
-			effect_->advance_frame();
+
+		x_ = (x_ + 1) % effect_->width();
+		if (x_ == 0 ) {
+			effect_->advance_display();
 		}
     }
   
@@ -51,11 +59,11 @@ class POVDisplay
 	static int x_;
 };
 
-template<int NUM_PIXELS, int RPM>
-int POVDisplay<NUM_PIXELS, RPM>::x_ = 0;
+template<int S, int RPM>
+int POVDisplay<S, RPM>::x_ = 0;
 
-template<int NUM_PIXELS, int RPM>
-Effect* POVDisplay<NUM_PIXELS, RPM>::effect_ = NULL;
+template<int S, int RPM>
+Effect* POVDisplay<S, RPM>::effect_ = NULL;
 
-template<int NUM_PIXELS, int RPM>
-CRGB POVDisplay<NUM_PIXELS, RPM>::leds_[NUM_PIXELS];
+template<int S, int RPM>
+CRGB POVDisplay<S, RPM>::leds_[S];

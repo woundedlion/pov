@@ -1,6 +1,121 @@
 #include <FastLED.h>
 #include "rotate.h"
 
+class Canvas;
+
+int XY(int x, int y) { return x * H + y; }
+
+class Effect
+{
+	friend class Canvas;
+
+public:
+
+	Effect(int W) : 
+		width_(W)
+	{
+		bufs_[0] = new CRGB[W * H];
+		memset(bufs_[0], 0, sizeof(CRGB) * W * H);
+		bufs_[1] = new CRGB[W * H];
+		memset(bufs_[1], 0, sizeof(CRGB) * W * H);
+	}
+
+	virtual ~Effect() {
+		delete[] bufs_[0];
+		delete[] bufs_[1];
+	};
+
+	virtual void draw_frame() = 0;
+	virtual bool show_bg() = 0;
+
+	inline int width() { return width_; }
+
+	inline CRGB* column(int x) {
+		return bufs_[prev_] + XY(x, 0);
+	}
+
+	inline bool buffer_free() {
+		return prev_ == next_;
+	}
+
+	inline void advance_display() {
+		prev_ = next_;
+	}
+
+	inline void advance_buffer() {
+		cur_ = !cur_;
+	}
+
+	inline void queue_frame() {
+		next_ = cur_;
+	}
+
+private:
+
+	volatile int prev_ = 0, cur_ = 0, next_ = 0;
+	int width_;
+	CRGB *bufs_[2];
+};
+
+class Canvas
+{
+public:
+
+	Canvas(Effect& effect) :
+		effect_(effect)
+	{
+		while (!effect_.buffer_free()) {}
+		effect_.advance_buffer();
+	}
+
+	~Canvas() {
+		effect_.queue_frame();
+	}
+
+	inline CRGB* operator()() {
+		return effect_.bufs_[effect_.cur_];
+	}
+
+private:
+
+	Effect& effect_;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <int W, int SPREAD>
+class Spiral : public Effect
+{
+private:
+
+	CRGBPalette16 palette_;
+
+public:
+
+	Spiral() : Effect(W) {
+		fill_rainbow(palette_.entries, 16, 0, 256 / 16);
+		draw_frame();
+	}
+
+	bool show_bg() { return true; }
+
+	FASTRUN	void draw_frame() {
+		Canvas buf(*this);
+		for (int x = 0; x < W; ++x) {
+			for (int y = 0; y < H; ++y) {
+				if ((x + y) % (SPREAD + 1) == 0) {
+					buf()[XY(x, y)] = palette_[(x + y) % 16];
+				}
+				else {
+					buf()[XY(x, y)] = CRGB::Black;
+				}
+			}
+		}
+	}
+};
+
+/*
+
 class Effect {
 public:
 	virtual ~Effect() {};
@@ -1056,5 +1171,5 @@ class RotateWave : public Effect
     Projection<W, H> projection;
 };
 
-
+*/
 
