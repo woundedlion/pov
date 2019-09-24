@@ -38,9 +38,9 @@ class POVDisplay
 
     static inline void show_col() {
 		for (int y = 0; y < S / 2; ++y) {
-          leds_[S / 2 - y - 1] = effect_->column(x_)[y];
+          leds_[S / 2 - y - 1] = effect_->get_pixel(x_, y);
           leds_[S / 2 + y] =  
-            effect_->column((x_ + (effect_->width() / 2)) % effect_->width())[y];
+            effect_->get_pixel((x_ + (effect_->width() / 2)) % effect_->width(), y);
         }
 
 		FastLED.show();
@@ -49,7 +49,7 @@ class POVDisplay
         }
 
 		x_ = (x_ + 1) % effect_->width();
-		if (x_ == 0 ) {
+		if (x_ == 0 || x_ == effect_->width() / 2) {
 			effect_->advance_display();
 		}
     }
