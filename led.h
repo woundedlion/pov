@@ -15,7 +15,7 @@ class POVDisplay
 
 	POVDisplay()
 	{
-		FastLED.addLeds<WS2801, 11, 13, RGB, DATA_RATE_MHZ(4)>(leds_, S);
+		FastLED.addLeds<WS2801, 11, 13, RGB, DATA_RATE_MHZ(6)>(leds_, S);
 	}
 
 	template <typename E>

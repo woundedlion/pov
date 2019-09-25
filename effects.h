@@ -553,20 +553,17 @@ public:
 		if (ty_ == H - 1 || ty_ == 0) {
 			inc_y_ = 0 - inc_y_;
 			tx_ = addmod8(tx_, 2, W);
+			EVERY_N_MILLISECONDS(3000) {
+				count_ = addmod8(count_, 1, sizeof(counts_));
+				offset_ = W / counts_[count_];
+			}
 		}
-
-		EVERY_N_MILLISECONDS(100) {
-			palette_offset_ = addmod8(palette_offset_, 1, 16);
-		}
-		EVERY_N_MILLISECONDS(3000) {
-			count_ = addmod8(count_, 1, sizeof(counts_));
-			offset_ = W / counts_[count_];
-		}
+		palette_offset_ = addmod8(palette_offset_, 1, 16);
 	}
 
 private:
 
-	uint8_t counts_[9] = { 1, 2, 4, 5, 6, 8, 10, 12, 20 };
+	uint8_t counts_[9] = { 1, 2, 3, 4, 6, 8, 12, 16, 20 };
 	uint8_t count_ = 0;
 	uint8_t offset_ = W / counts_[count_];
 	uint8_t tx_ = 0;
@@ -721,13 +718,15 @@ public:
 	bool show_bg() { return false; }
 
 	void draw_frame() {
-		Canvas c(*this);
-		for (int x = 0; x < W; ++x) {
-			cool(x);
-			rise(x);
-			spark(x);
-			for (int y = 0; y < H; ++y) {
-				c(x, y) = rgb2hsv_approximate(HeatColor(heat_[x][y]));
+		EVERY_N_MILLIS(125) {
+			Canvas c(*this);
+			for (int x = 0; x < W; ++x) {
+				cool(x);
+				rise(x);
+				spark(x);
+				for (int y = 0; y < H; ++y) {
+					c(x, y) = rgb2hsv_approximate(HeatColor(heat_[x][y]));
+				}
 			}
 		}
 	}
@@ -774,20 +773,22 @@ class DotTrails : public Effect {
     bool show_bg() { return false; }    
 
 	void draw_frame() {
-		Canvas c(*this);
-		for (int x = 0; x < W; ++x) {
-			for (int y = 0; y < H; ++y) {
-				if (dots[y].x == x) {
-					if (dots[y].drawn) {
-						dots[y].drawn = false;
+		EVERY_N_MILLIS(50) {
+			Canvas c(*this);
+			for (int x = 0; x < W; ++x) {
+				for (int y = 0; y < H; ++y) {
+					if (dots[y].x == x) {
+						if (dots[y].drawn) {
+							dots[y].drawn = false;
+						}
+						else {
+							c(x, y) = CHSV(hue - 12, 0, 255);
+							move(dots[y]);
+						}
 					}
 					else {
-						c(x, y) = CHSV(hue - 12, 0, 255);
-						move(dots[y]);
+						trail_rainbow(c(x, y), 12, 12);
 					}
-				}
-				else {
-					trail_rainbow(c(x, y), 12, 12);
 				}
 			}
 		}
