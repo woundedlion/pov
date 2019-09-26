@@ -78,6 +78,7 @@ public:
 		return effect_.bufs_[effect_.cur_][XY(x, y)];
 	}
 
+	const int width() { return effect_.width(); }
 private:
 
 	Effect& effect_;
@@ -135,6 +136,29 @@ void plot_aa(CHSV(&leds)[W][H], const Fix16& x, const Fix16& y, const CHSV& c) {
 		leds[x_i][y_i + 1] = CHSV(c.h, c.s, dim8_lin(qadd8(leds[x_i][y_i + 1].v, v)));
 		v = fix16_to_int(x_m * y_m * FULL);
 		leds[(x_i + 1) % W][y_i + 1] = CHSV(c.h, c.s, dim8_lin(qadd8(leds[(x_i + 1) % W][y_i + 1].v, v)));
+	}
+}
+
+void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
+	int x_i = floor(x);
+	int y_i = floor(y);
+	float x_m = x - x_i;
+	float y_m = y - y_i;
+
+	const int FULL = 255;
+
+	int v = static_cast<int>(((1 - x_m) * (1 - y_m) * FULL) + 0.5f);
+	cv(x_i, y_i) = CHSV(c.h, c.s, dim8_lin(qadd8(cv(x_i, y_i).v, v)));
+
+	v = static_cast<int>((x_m * (1 - y_m) * FULL) + 0.5f);
+	cv((x_i + 1) % cv.width(), y_i) = CHSV(c.h, c.s, dim8_lin(qadd8(cv((x_i + 1) % cv.width(), y_i).v, v)));
+
+	if (y_i < H - 1) {
+		v = static_cast<int>(((1 - x_m) * y_m * FULL) + 0.5f);
+		cv(x_i, y_i + 1) = CHSV(c.h, c.s, dim8_lin(qadd8(cv(x_i, y_i + 1).v, v)));
+
+		v = static_cast<int>((x_m * y_m * FULL) + 0.5f);
+		cv((x_i + 1) % cv.width(), y_i + 1) = CHSV(c.h, c.s, dim8_lin(qadd8(cv((x_i + 1) % cv.width(), y_i + 1).v, v)));
 	}
 }
 
@@ -357,19 +381,22 @@ public:
 		Effect(W)
 	{
 		random16_add_entropy(random());
+		memset(pixels_, 0, sizeof(pixels_));
 	}
 
 	bool show_bg() { return true; }
 
 	void draw_frame() {
 		Canvas c(*this);
-		for (int x = 0; x < W; ++x) {
-			fall(x);
-			generate(x);
-			for (int y = 0; y < H; ++y) {
-				c(x, y) = blend(CHSV(HUE + (3 * y), 255, 40),
-								CHSV(HUE + (3 * (H - 1 - y)), 255, 255),
-								pixels_[x][y]);
+		EVERY_N_MILLIS(125) {
+			for (int x = 0; x < W; ++x) {
+				fall(x);
+				generate(x);
+				for (int y = 0; y < H; ++y) {
+					c(x, y) = blend(CHSV(HUE + (3 * y), 255, 40),
+						CHSV(HUE + (3 * (H - 1 - y)), 255, 255),
+						pixels_[x][y]);
+				}
 			}
 		}
 	}
@@ -502,7 +529,7 @@ public:
 		
 		for (int x = 0; x < W; ++x) {
 			Point p = projection.project(x, (H - 1) / 2);
-			c(p.x, p.y) = CHSV(hue - 32, 0, 255);
+			c(p.xi(), p.yi()) = CHSV(hue - 32, 0, 255);
 		}
 
 		uint8_t dl = beatsin8(5, 1, 2);
@@ -581,42 +608,74 @@ public:
 	Rotate() : 
 		Effect(W)
 	{
-		fill_rainbow(pal.entries, 16, 0, 256 / 16);
+		fill_rainbow(pal.entries, 256, HUE_RED, 1);
 	}
 
 
-	bool show_bg() { return bg; }
+	bool show_bg() { return false; }
 
 	void draw_frame() {
 		Canvas c(*this);
 		for (int x = 0; x < W; ++x) {
 			for (int y = 0; y < H; ++y) {
-				Point p = projection.project(x, y);
-				if (p.y == 3 || p.y == 10 || p.y == 17) {
-					c(x, y)  = ColorFromPalette(pal, (p.x + c_off) * 255 / W);
-				}
-				else {
-					c(x, y) = CHSV(0, 0, 0); 
-				}
+				c(x, y) = CHSV(0, 0, 0);
 			}
 		}
 
-		projection.rotate(0, 5, 0);
-
-		++c_off;
-		EVERY_N_SECONDS(10) {
-			bg = !bg;
+		const float rings[] = { 4.5, 9.5, 15.5 };
+		for (size_t i = 0; i < sizeof(rings) / sizeof(float); ++i) {
+			float y = rings[i];
+			for (float x = 0; x < W; ++x) {
+				Point p(x, y);
+				int dir = 1;
+				if (i % 2 == 0) {
+					dir = 0;
+					p = projection.project(p);
+				}
+				else {
+					p = projection2.project(p);
+				}
+				CHSV color = pal[(static_cast<uint8_t>(x) + c_off * dir) * 255 / W];
+				plot_aa(c, p.x, p.y, color);
+			}
 		}
+
+		EVERY_N_SECONDS(10) {
+			r_off = (r_off + 1) % (sizeof(rotations) / sizeof(uint16_t) / 3 / 2);
+		}
+
+		projection.rotate(
+			rotations[r_off][0][0],
+			rotations[r_off][0][1],
+			rotations[r_off][0][2]);
+
+		projection2.rotate(
+			rotations[r_off][1][0],
+			rotations[r_off][1][1],
+			rotations[r_off][1][2]);
+
+		c_off += 2;
 	}
 
 private:
 
 	typedef typename Projection<W, H>::Point Point;
 	Projection<W, H> projection;
+	Projection<W, H> projection2;
 
-	CHSVPalette16 pal;
+	CHSVPalette256 pal;
 	uint8_t c_off = 0;
 	bool bg = 0;
+
+	uint16_t rotations[4]
+		[2][3]  = {
+		{{0, 5, 0}, {0, 5, 0}},
+		{{0, 1, 3}, {0, 2, 5}},
+		{{0, 5, 0}, {0, 355, 0}},
+		{{0, 355, 0}, {0, 3, 0}},
+	};
+
+	uint8_t r_off = 0;
 };
 
 template <uint8_t W, uint8_t HUE, uint8_t BURNRATE>
