@@ -206,6 +206,118 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
+class RingWiggle : public Effect
+{
+public:
+
+	RingWiggle() :
+		Effect(W)
+	{
+		for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
+			dots[i] = Dot(0, i, 0);
+		}
+		dots[0].v = 1;
+	}
+
+	bool show_bg() { return false; }
+
+	void draw_frame() {
+		Canvas c(*this);
+		for (int x = 0; x < W; ++x) {
+			for (int y = 0; y < H; ++y) {
+				trail_rainbow_lin(c(x, y), 24, 24);
+			}
+		}
+		
+		EVERY_N_MILLIS(1000) {
+			reverse(dots, 0);
+		}
+		EVERY_N_MILLIS(4000) {
+			gap = random(1, 4);
+			Serial.println(gap);
+		}
+		pull(dots, 0);
+
+		for (size_t i = 0; i < sizeof(dots) / sizeof(Dot); ++i) {
+			replicate(c, dots[i].x, dots[i].y, CHSV(dots[i].hue, 255, 255), replicas);
+		}
+
+	};
+
+private:
+
+	struct Dot {
+		Dot() :
+			x(0),
+			y(0),
+			v(0),
+			hue(HUE_RED)
+		{}
+
+		Dot(int x, int y, int v) :
+			x(x),
+			y(y),
+			v(v),
+			hue(HUE_RED)
+		{}
+
+		Dot(const Dot&d) :
+			x(d.x),
+			y(d.y),
+			v(d.v),
+			hue(HUE_RED)
+		{}
+
+		int x;
+		int y;
+		int v;
+		uint8_t hue;
+	};
+
+	void replicate(Canvas& c, int x, int y, const CHSV& color, int n) {
+		for (int i = 0; i < W; i+= W / n) {
+			c(wrap(x + i, W), y) = color;
+		}
+	}
+
+	int distance(int a, int b, int m) {
+		return min(wrap(b - a, m), wrap(a - b, m));
+	}
+
+	int dir(int v) {
+		return v < 0 ? -1 : v == 0 ? 0 : 1;
+	}
+
+	void reverse(Dot *dots, int y) {
+		dots[y].v *= -1;
+	}
+
+	void pull(Dot *dots, int y) {
+		dots[y].x = wrap(dots[y].x + dots[y].v, W);
+		for (int i = y - 1; i >= 0; --i) {
+			drag(dots[i + 1], dots[i]);
+		}
+		for (int i = y + 1; i < H; ++i) {
+			drag(dots[i - 1], dots[i]);
+		}
+	}
+
+	void drag(Dot& leader, Dot& follower) {
+		int dst = wrap(follower.x + follower.v, W);
+		if (distance(dst, leader.x, W) > gap) {
+			follower.v = leader.v;
+			follower.x = wrap(follower.x + follower.v, W);
+		} else {
+			follower.x = dst;
+		} 
+	}
+
+	Dot dots[H];
+	int gap = 1;
+	int replicas = 2;
+};
+
+template <int W>
 class RingTwist : public Effect
 {
 public:
@@ -238,6 +350,7 @@ public:
 				}
 			}
 		}
+
 		pull(leader_);
 		EVERY_N_MILLISECONDS(STOP_TIMER_) {
 			if (stop_ < 0) {
@@ -601,11 +714,11 @@ private:
 };
 
 template <uint8_t W>
-class Rotate : public Effect
+class RingRotate : public Effect
 {
 public:
 
-	Rotate() : 
+	RingRotate() :
 		Effect(W)
 	{
 		fill_rainbow(pal.entries, 256, HUE_RED, 1);
