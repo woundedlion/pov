@@ -216,7 +216,6 @@ public:
 		for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
 			dots[i] = Dot(0, i, 0);
 		}
-		dots[0].v = 1;
 	}
 
 	bool show_bg() { return false; }
@@ -230,18 +229,15 @@ public:
 		}
 		
 		EVERY_N_MILLIS(1000) {
-			reverse(dots, 0);
+			speed *= -1;
 		}
+
 		EVERY_N_MILLIS(4000) {
 			gap = random(1, 4);
-			Serial.println(gap);
-		}
-		pull(dots, 0);
-
-		for (size_t i = 0; i < sizeof(dots) / sizeof(Dot); ++i) {
-			replicate(c, dots[i].x, dots[i].y, CHSV(dots[i].hue, 255, 255), replicas);
+			speed = dir(speed) * random(1, 2);
 		}
 
+		pull(c, dots, 0, speed);
 	};
 
 private:
@@ -281,39 +277,64 @@ private:
 	}
 
 	int distance(int a, int b, int m) {
-		return min(wrap(b - a, m), wrap(a - b, m));
+		int fwd = wrap(b - a, m);
+		int rev = wrap(a - b, m);
+		if (fwd <= rev) {
+			return fwd;
+		}
+		return -rev;
 	}
 
 	int dir(int v) {
-		return v < 0 ? -1 : v == 0 ? 0 : 1;
+		return v < 0 ? -1 : 1;
 	}
 
 	void reverse(Dot *dots, int y) {
 		dots[y].v *= -1;
 	}
 
-	void pull(Dot *dots, int y) {
-		dots[y].x = wrap(dots[y].x + dots[y].v, W);
+	void pull(Canvas& c, Dot *dots, int y, int v) {
+		dots[y].v = v;
+		move(c, dots[y]);
 		for (int i = y - 1; i >= 0; --i) {
-			drag(dots[i + 1], dots[i]);
+			drag(c, dots[i + 1], dots[i]);
 		}
 		for (int i = y + 1; i < H; ++i) {
-			drag(dots[i - 1], dots[i]);
+			drag(c, dots[i - 1], dots[i]);
 		}
 	}
 
-	void drag(Dot& leader, Dot& follower) {
-		int dst = wrap(follower.x + follower.v, W);
-		if (distance(dst, leader.x, W) > gap) {
+	void drag(Canvas& c, Dot& leader, Dot& follower) {
+		int dest = wrap(follower.x + follower.v, W);
+		if (abs(distance(dest, leader.x, W)) > gap) {
+			// Move to furthest extent based on leader's prior path
+			dest = wrap(leader.x - dir(leader.v) * (abs(leader.v) - 1 + gap) , W);
+			follower.v = distance(follower.x, dest, W);
+			move(c, follower);
+			// Move to gap's length behind leader
+			dest = wrap(leader.x - dir(leader.v) * gap, W);
+			follower.v = distance(follower.x, dest, W);
+			move(c, follower);
+		    // Adjust speed to match leader			
 			follower.v = leader.v;
-			follower.x = wrap(follower.x + follower.v, W);
-		} else {
-			follower.x = dst;
-		} 
+		}
+		else {
+			move(c, follower);
+		}
+	}
+
+	void move(Canvas& c, Dot& dot) {
+		int dest = wrap(dot.x + dot.v, W);
+		for (int i = dot.x;; i = wrap(i + dir(dot.v), W)) {
+			replicate(c, i, dot.y, CHSV(dot.hue, 255, 255), replicas);
+			if (i == dest) break;
+		}
+		dot.x = dest;
 	}
 
 	Dot dots[H];
 	int gap = 1;
+	int speed = 1;
 	int replicas = 2;
 };
 

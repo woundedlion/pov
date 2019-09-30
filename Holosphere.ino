@@ -14,7 +14,7 @@ void setup() {
 }
 
 void loop() {
-	pov.show<RingWiggle<96> >(1200 * K);
+	pov.show<RingWiggle<96> >(120 * K);
 	pov.show<RingRotate<96> >(120 * K);
 	pov.show<RingTwist<96> >(120 * K);
 	pov.show<TheMatrix<40, 135> >(90 * K);
