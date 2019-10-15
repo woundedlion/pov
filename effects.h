@@ -1,9 +1,11 @@
 #include <FastLED.h>
 #include "rotate.h"
+#include "particle.h"
 #include "fixmath.h"
 
 class Canvas;
 
+const int PIN_RANDOM = 15;
 inline int XY(int x, int y) { return x * H + y; }
 
 class Effect
@@ -27,7 +29,7 @@ public:
 	};
 
 	virtual void draw_frame() = 0;
-	virtual bool show_bg() = 0;
+	virtual bool show_bg() const = 0;
 
 	virtual const CHSV& get_pixel(int x, int y) const {
 		return bufs_[prev_][XY(x, y)];
@@ -103,6 +105,12 @@ void trail_rainbow_lin(CHSV& p, uint8_t hue_falloff = 32, uint8_t dim_falloff = 
 	else {
 		c.h += hue_falloff;
 		c.v = qsub8(c.v, dim_falloff);
+	}
+}
+
+void disintegrate(CHSV& p, int prob) {
+	if (random8() <= prob) {
+		p = CHSV(p.h, p.s, 0);
 	}
 }
 
@@ -203,14 +211,166 @@ private:
 	int dir_;
 };
 
+class RandomTimer {
+public:
+	RandomTimer(uint32_t min_ms, uint32_t max_ms) :
+		min_ms(min_ms),
+		max_ms(max_ms)
+	{
+		randomSeed(analogRead(PIN_RANDOM));
+		next = millis() + random(min_ms, max_ms);
+	}
+
+	bool elapsed() {
+		if (millis() >= next) {
+			next = millis() + random(min_ms, max_ms);
+			return true;
+		}
+		return false;
+	}
+
+private:
+	uint32_t min_ms;
+	uint32_t max_ms;
+	uint32_t next;
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
-class RingWiggle : public Effect
+class Temari : public Effect
 {
 public:
 
-	RingWiggle() :
+	Temari() :
+		Effect(W),
+		new_ring_timer(125, 125)
+	{
+		randomSeed(analogRead(PIN_RANDOM));
+	}
+
+	bool show_bg() const { return false; }
+
+	void draw_frame() {
+		Canvas c(*this);
+		for (int x = 0; x < W; ++x) {
+			for (int y = 0; y < H; ++y) {
+				trail_rainbow_lin(c(x, y), 0, 24);
+			}
+		}
+
+		if (new_ring_timer.elapsed()) {
+			draw_ring(c);
+			move_ring(c);
+		}
+	}
+
+private:
+
+	void draw_ring(Canvas& c) {
+		for (float x = 0; x < W; x += 1) {
+			Point p = rotation.project(Point(x, (H / 2) + 0.5));
+			plot_aa(c, p.x, p.y, CHSV(HUE_GREEN, 255, 255));
+		}
+	}
+
+	void move_ring(Canvas& c) {
+		rotation.rotate(20, 0, 20);
+	}
+
+	typedef typename Projection<W, H>::Point Point;
+	RandomTimer new_ring_timer;
+	unsigned long t = 0;
+	Projection<W, H> rotation;
+};
+
+template <int W>
+class RingShower : public Effect
+{
+public:
+
+	RingShower() :
+		Effect(W),
+		new_ring_timer(62, 2000)
+	{
+		randomSeed(analogRead(PIN_RANDOM));
+	}
+
+	bool show_bg() const { return false; }
+
+	void draw_frame() {
+		Canvas c(*this);
+		for (int x = 0; x < W; ++x) {
+			for (int y = 0; y < H; ++y) {
+				c(x, y) = CHSV(0, 0, 0);
+			}
+		}
+
+		if (new_ring_timer.elapsed()) {
+			new_ring();
+		}
+		draw_rings(c);
+		move_rings(c);
+	}
+
+private:
+
+	struct Ring {
+		Ring() :
+			position(H),
+			speed(0),
+			color(CHSV(0, 0, 0))
+		{}
+
+		float position;
+		float speed;
+		Projection<W, H> rotation;
+		CHSV color;
+	};
+
+	void new_ring() {
+		for (size_t i = 0; i < sizeof(rings) / sizeof(Ring); ++i) {
+			if (rings[i].position >= H) {
+				rings[i].position = 0;
+				rings[i].speed = random(30, 100) / 100.0;
+				rings[i].color = CHSV(random8(), random(128, 255), 255);
+				rings[i].rotation.rotate(random(360), random(360), random(360));
+				break;
+			}
+		}
+	}
+
+	void draw_rings(Canvas& c) {
+		for (size_t i = 0; i < sizeof(rings) / sizeof(Ring); ++i) {
+			if (rings[i].position < H) {
+				for (float x = 0; x < W; x += 1) {
+					Point p = rings[i].rotation.project(Point(x, rings[i].position));
+					plot_aa(c, p.x, p.y, rings[i].color);
+				}
+			}
+		}
+	}
+
+	void move_rings(Canvas& c) {
+		for (size_t i = 0; i < sizeof(rings) / sizeof(Ring); ++i) {
+			if (rings[i].position < H) {
+				rings[i].position += rings[i].speed;
+			}
+		}
+	}
+
+	typedef typename Projection<W, H>::Point Point;
+	RandomTimer new_ring_timer;
+	Ring rings[8];
+	unsigned long t = 0;
+};
+
+template <int W>
+class ChainWiggle : public Effect
+{
+public:
+
+	ChainWiggle() :
 		Effect(W)
 	{
 		for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
@@ -218,7 +378,7 @@ public:
 		}
 	}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	void draw_frame() {
 		Canvas c(*this);
@@ -346,7 +506,7 @@ public:
 		Effect(W),
 		seed_(104, 0, 255)
 	{
-		randomSeed(analogRead(PIN_RANDOM_));
+		randomSeed(analogRead(PIN_RANDOM));
 		Canvas c(*this);
 		for (int x = 0; x < W; x += W / COUNT_) {
 			for (int y = 0; y < H; ++y) {
@@ -355,7 +515,7 @@ public:
 		}
 	}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	const CHSV& get_pixel(int x, int y) const {
 		return Effect::get_pixel(wrap(x - pos_[y], W), y);
@@ -447,7 +607,6 @@ private:
 	const CHSV seed_;
 	const int COUNT_ = 2;
 	const int STOP_TIMER_ = 20000;
-	const int PIN_RANDOM_ = 15;
 	int pos_[H] = { 0 };
 	int leader_ = 0;
 	int dir_ = 1;
@@ -464,17 +623,19 @@ public:
 		Effect(W) 
 	{
 		fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
-			CHSV(0, 255, 255),
-			CHSV(48, 255, 255));
+			rgb2hsv_approximate(CRGB(6, 4, 47)),
+			rgb2hsv_approximate(CRGB(162, 84, 84)),
+			rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
 	}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	void draw_frame() {
 		Canvas c(*this);
 		for (int x = 0; x < W; ++x) {
 			for (int y = 0; y < H; ++y) {
-				trail_rainbow_lin(c(x, y), 32, 48);
+				trail_rainbow_lin(c(x, y), 0, 32);
+				c(x, y).h = palette_[c(x, y).v].h;
 			}
 		}
 
@@ -485,9 +646,9 @@ public:
 
 		num_ = wrap(num_ - 1, 1024);
 		color_offset_++;
-		EVERY_N_MILLIS(150) {
+//		EVERY_N_MILLIS(63) {
 			offset_ = (offset_ + 1) % W;
-		}
+//		}
 	}
 
 private:
@@ -518,7 +679,7 @@ public:
 		memset(pixels_, 0, sizeof(pixels_));
 	}
 
-	bool show_bg() { return true; }
+	bool show_bg() const { return true; }
 
 	void draw_frame() {
 		Canvas c(*this);
@@ -567,7 +728,7 @@ public:
 		hue_(0)
 	{}
 
-	bool show_bg() { return true; }
+	bool show_bg() const { return true; }
 
 	void draw_frame() {
 		Canvas c(*this);
@@ -599,7 +760,7 @@ public:
 		draw_frame();
 	}
 
-	bool show_bg() { return true; }
+	bool show_bg() const { return true; }
 
 	FASTRUN	void draw_frame() {
 		Canvas c(*this);
@@ -625,7 +786,7 @@ public:
 		Effect(W)
 	{}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	void draw_frame() {
 		Canvas c(*this);
@@ -651,18 +812,18 @@ public:
 		Effect(W)
 	{}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	void draw_frame() {
 		Canvas c(*this);
 		for (int x = 0; x < W; ++x) {
 			for (int y = 0; y < H; ++y) {
-				trail_rainbow(c(x, y), 32, 32);
+				trail_rainbow_lin(c(x, y), 24, 24);
 			}
 		}
 		
-		for (int x = 0; x < W; ++x) {
-			Point p = projection.project(x, (H - 1) / 2);
+		for (float x = 0; x < W; x += 0.5) {
+			Point p = projection.project(x, H / 2);
 			c(p.xi(), p.yi()) = CHSV(hue - 32, 0, 255);
 		}
 
@@ -690,7 +851,7 @@ public:
 		fill_rainbow(palette_.entries, 16, 0, 256 / 16);
 	}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 	
 	void draw_frame() {
 		Canvas c(*this);
@@ -746,7 +907,7 @@ public:
 	}
 
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	void draw_frame() {
 		Canvas c(*this);
@@ -847,7 +1008,7 @@ public:
 		}
 	}
 
-	bool show_bg() { return true; }
+	bool show_bg() const { return true; }
 
 private:
 
@@ -908,7 +1069,7 @@ public:
 		random16_add_entropy(random());
 	}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	void draw_frame() {
 		EVERY_N_MILLIS(125) {
@@ -963,7 +1124,7 @@ class DotTrails : public Effect {
       }
     }
     
-    bool show_bg() { return false; }    
+    bool show_bg() const { return false; }    
 
 	void draw_frame() {
 		EVERY_N_MILLIS(50) {
@@ -1044,7 +1205,7 @@ public:
 		palette2_[1] = palette2_[9] = CHSV(HUE_BLUE, 255, 255);
 	}
 
-	bool show_bg() { return false; }
+	bool show_bg() const { return false; }
 
 	void draw_frame() {
 		Canvas c(*this);

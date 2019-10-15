@@ -108,6 +108,19 @@ public:
 		return *this;
 	}
 
+	Projection& reset() {
+		delta_lambda = 0;
+		delta_phi = 0;
+		delta_gamma = 0;
+
+		cos_dp = cosf(delta_phi);
+		sin_dp = sinf(delta_phi);
+		cos_dg = cosf(delta_gamma);
+		sin_dg = sinf(delta_gamma);
+
+		return *this;
+	}
+
 private:
 
 	float delta_lambda = 0;

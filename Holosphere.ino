@@ -14,8 +14,13 @@ void setup() {
 }
 
 void loop() {
-	pov.show<RingWiggle<96> >(120 * K);
+//	pov.show<Temari<96> >(120 * K);
+	pov.show<TheMatrix<40, 135> >(10 * K);
+
+	pov.show<ChainWiggle<96> >(120 * K);
 	pov.show<RingRotate<96> >(120 * K);
+	pov.show<RingShower<96> >(120 * K);
+	pov.show<Curves<96> >(90 * K);
 	pov.show<RingTwist<96> >(120 * K);
 	pov.show<TheMatrix<40, 135> >(90 * K);
 	pov.show<Curves<96> >(90 * K);
@@ -25,8 +30,8 @@ void loop() {
 	pov.show<Fire<40, 150, 120> >(90 * K);
 	pov.show<Kaleidoscope<96> >(120 * K);
 	pov.show<WaveTrails<96> >(120 * K);
-	pov.show<StarsFade<40>>(60 * K);
-	pov.show<RingTrails<80> >(90 * K);
+	pov.show<StarsFade<40> >(60 * K);
+	pov.show<RingTrails<96> >(90 * K);
 	pov.show<Spiral<4, 0> >(10 * K);
 	pov.show<Spiral<8, 0> >(10 * K);
 	pov.show<Spiral<16, 0> >(10 * K);
