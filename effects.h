@@ -185,7 +185,7 @@ public:
 
 	int get() {
 		int r = t_;
-		if ((t_ == max_ + 1 && dir_ == 1) || (t_ == 0 && dir_ == -1)) {
+		if ((t_ == max_ && dir_ == 1) || (t_ == min_ && dir_ == -1)) {
 			if (end_count_++ >= end_delay_) {
 				dir_ = dir_ * -1;
 				end_count_ = 0;
@@ -238,50 +238,31 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
-class Temari : public Effect
+class Test : public Effect
 {
 public:
 
-	Temari() :
-		Effect(W),
-		new_ring_timer(125, 125)
+	Test() :
+		Effect(W)
 	{
 		randomSeed(analogRead(PIN_RANDOM));
 	}
 
-	bool show_bg() const { return false; }
+	bool show_bg() const { return true; }
 
 	void draw_frame() {
 		Canvas c(*this);
 		for (int x = 0; x < W; ++x) {
 			for (int y = 0; y < H; ++y) {
-				trail_rainbow_lin(c(x, y), 0, 24);
+				c(x, y) = CHSV(0, 0, 0);
 			}
-		}
-
-		if (new_ring_timer.elapsed()) {
-			draw_ring(c);
-			move_ring(c);
 		}
 	}
 
 private:
 
-	void draw_ring(Canvas& c) {
-		for (float x = 0; x < W; x += 1) {
-			Point p = rotation.project(Point(x, (H / 2) + 0.5));
-			plot_aa(c, p.x, p.y, CHSV(HUE_GREEN, 255, 255));
-		}
-	}
-
-	void move_ring(Canvas& c) {
-		rotation.rotate(20, 0, 20);
-	}
-
-	typedef typename Projection<W, H>::Point Point;
-	RandomTimer new_ring_timer;
 	unsigned long t = 0;
-	Projection<W, H> rotation;
+	ParticleSystem<W, H, 100> dots;
 };
 
 template <int W>
@@ -371,7 +352,8 @@ class ChainWiggle : public Effect
 public:
 
 	ChainWiggle() :
-		Effect(W)
+		Effect(W),
+		osc(1, 4)
 	{
 		for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
 			dots[i] = Dot(0, i, 0);
@@ -393,7 +375,7 @@ public:
 		}
 
 		EVERY_N_MILLIS(4000) {
-			gap = random(1, 4);
+			gap = osc.get(); // random(1, 4);
 			speed = dir(speed) * random(1, 2);
 		}
 
@@ -493,6 +475,7 @@ private:
 	}
 
 	Dot dots[H];
+	Oscillator osc;
 	int gap = 1;
 	int speed = 1;
 	int replicas = 2;
@@ -1127,22 +1110,20 @@ class DotTrails : public Effect {
     bool show_bg() const { return false; }    
 
 	void draw_frame() {
-		EVERY_N_MILLIS(50) {
-			Canvas c(*this);
-			for (int x = 0; x < W; ++x) {
-				for (int y = 0; y < H; ++y) {
-					if (dots[y].x == x) {
-						if (dots[y].drawn) {
-							dots[y].drawn = false;
-						}
-						else {
-							c(x, y) = CHSV(hue - 12, 0, 255);
-							move(dots[y]);
-						}
+		Canvas c(*this);
+		for (int x = 0; x < W; ++x) {
+			for (int y = 0; y < H; ++y) {
+				if (dots[y].x == x) {
+					if (dots[y].drawn) {
+						dots[y].drawn = false;
 					}
 					else {
-						trail_rainbow(c(x, y), 12, 12);
+						c(x, y) = CHSV(hue - 12, 0, 255);
+						move(dots[y]);
 					}
+				}
+				else {
+					trail_rainbow(c(x, y), 12, 12);
 				}
 			}
 		}
