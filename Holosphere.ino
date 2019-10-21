@@ -14,7 +14,7 @@ void setup() {
 }
 
 void loop() {
-//	pov.show<Test<40> >(120 * K);
+	pov.show<Test<40> >(120 * K);
 	pov.show<TheMatrix<40, 135> >(90 * K);
 
 	pov.show<ChainWiggle<96> >(120 * K);

@@ -1,4 +1,5 @@
 #include <FastLED.h>
+#include "util.h"
 #include "rotate.h"
 #include "particle.h"
 #include "fixmath.h"
@@ -114,19 +115,6 @@ void disintegrate(CHSV& p, int prob) {
 	}
 }
 
-int wrap(int x, int m) {
-	return (x >= 0 ?
-		x % m :
-		((x % m) + m) % m);
-}
-
-Fix16 wrap(const Fix16& x, int m) {
-	Fix16 m_fix = fix16_from_int(m);
-	return (x > int16_t(0) ?
-		fix16_mod(x, m_fix) :
-		fix16_mod(Fix16(fix16_mod(x, m_fix)) + m_fix, m_fix));
-}
-
 template <int W, int H>
 void plot_aa(CHSV(&leds)[W][H], const Fix16& x, const Fix16& y, const CHSV& c) {
 	int16_t x_i = fix16_to_int(fix16_floor(x));
@@ -170,47 +158,6 @@ void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
 	}
 }
 
-class Oscillator
-{
-public:
-
-	Oscillator(int min, int max, int end_delay = 0) :
-		t_(min),
-		min_(min),
-		max_(max),
-		end_delay_(end_delay),
-		end_count_(0),
-		dir_(1)
-	{}
-
-	int get() {
-		int r = t_;
-		if ((t_ == max_ && dir_ == 1) || (t_ == min_ && dir_ == -1)) {
-			if (end_count_++ >= end_delay_) {
-				dir_ = dir_ * -1;
-				end_count_ = 0;
-			}
-			else {
-				return r;
-			}
-		}
-		t_ += dir_;
-		return r;
-	}
-
-	int dir() { return dir_; }
-	void set_delay(int d) { end_delay_ = d; }
-
-private:
-
-	int t_;
-	int min_;
-	int max_;
-	int end_delay_;
-	int end_count_;
-	int dir_;
-};
-
 class RandomTimer {
 public:
 	RandomTimer(uint32_t min_ms, uint32_t max_ms) :
@@ -246,6 +193,13 @@ public:
 		Effect(W)
 	{
 		randomSeed(analogRead(PIN_RANDOM));
+		int i = 0;
+		for (int y = 0; y < H && i < N; ++y) {
+			for (int x = 0; x < W && i < N; ++x) {
+				dots.add_particle(Particle(x, y, Vector(0, 0)));
+				++i;
+			}
+		}
 	}
 
 	bool show_bg() const { return true; }
@@ -257,12 +211,23 @@ public:
 				c(x, y) = CHSV(0, 0, 0);
 			}
 		}
+		for (int i = 0; i < dots.size(); ++i) {
+			Particle& p = dots[i];
+			plot_aa(c, p.x, p.y, CHSV(HUE_BLUE, 255, 255));
+		}
+
+		Serial.printf("frame %d\n", millis());
+		dots.step(1);
 	}
 
 private:
 
-	unsigned long t = 0;
-	ParticleSystem<W, H, 100> dots;
+	static const int N = 160;
+
+	typedef typename ParticleSystem<W, H, N>::Particle Particle;
+	typedef typename ParticleSystem<W, H, N>::Vector Vector;
+
+	ParticleSystem<W, H, N> dots;
 };
 
 template <int W>
@@ -1175,7 +1140,7 @@ public:
 
 	Spinner() :
 		Effect(W),
-		spin_timer_(75),
+		spin_timer_(62),
 		pos_(0)
 	{
 		memset(palette1_, 0, sizeof(palette1_));
