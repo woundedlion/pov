@@ -2,6 +2,7 @@
 const float pi = 3.1415926535897f;
 const float tau = 2 * pi;
 const float radians = pi / 180;
+const float degrees = 180 / pi;
 
 inline float mod_tau(float n) {
 	if (n > tau) return n - tau;
