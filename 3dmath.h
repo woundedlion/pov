@@ -2,28 +2,17 @@
 
 #include <cmath>
 #include <cfloat>
+#include <cassert>
 
-static const float pi = 3.1415926535897f;
-static const float tau = 2 * pi;
+static constexpr float pi = 3.14159265358979323846f;
+static constexpr float tau = 2 * pi;
 
-inline float mod_tau(float n) {
-  if (n > tau)
-    return n - tau;
-  else if (n < 0)
-    return n + tau;
-  return n;
-}
-
-inline float modf(float x, int m) {
-  return (static_cast<int>(x) % m) + (x - static_cast<int>(x));
-}
-
-float degrees_to_radians(uint32_t deg) {
-  return (deg % 360) * pi / 180;
+float degrees_to_radians(float deg) {
+  return fmodf(deg, 360) * pi / 180;
 }
 
 float radians_to_degrees(float rad) {
-  return mod_tau(rad) * 180 / pi;
+  return fmodf(rad, tau) * 180 / pi;
 }
 
 struct Vector {
@@ -146,9 +135,15 @@ float angle_between(const Quaternion& q1, const Quaternion& q2) {
   return acosf(dot(q1, q2));
 }
 
+Quaternion make_rotation(const Vector& axis, float angle) {
+  assert(axis.length() == 1);
+  float theta = degrees_to_radians(angle);
+  return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis);
+}
+
 Quaternion slerp(const Quaternion& q1, const Quaternion& q2, float t) {
   float theta = angle_between(q1, q2);
-  return(((sinf(1 - t) * theta) / sinf(theta)) * q1)
-    + (((sinf(t) * theta) / sinf(theta)) * q2);
+  return((sinf((1 - t) * theta) / sinf(theta)) * q1)
+    + ((sinf(t * theta) / sinf(theta)) * q2);
 }
 
