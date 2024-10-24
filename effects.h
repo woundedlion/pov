@@ -1,13 +1,12 @@
 #include <FastLED.h>
 
-#include "fixmath.h"
+//#include "fixmath.h"
 #include "particle.h"
 #include "rotate.h"
 #include "util.h"
 
 class Canvas;
 
-const int PIN_RANDOM = 15;
 inline int XY(int x, int y) { return x * H + y; }
 
 class Effect {
@@ -33,14 +32,11 @@ class Effect {
     return bufs_[prev_][XY(x, y)];
   }
 
-  inline int width() { return width_; }
-
-  inline bool buffer_free() { return prev_ == next_; }
-
+  inline int width() const { return width_; }
+  inline bool buffer_free() const { return prev_ == next_; }
   inline void advance_display() { prev_ = next_; }
-
   inline void advance_buffer() {
-    cur_ = !cur_;
+    cur_ = cur_ ? 0 : 1;
     memcpy(bufs_[cur_], bufs_[prev_], sizeof(CHSV) * width_ * H);
   }
 
@@ -55,8 +51,7 @@ class Effect {
 class Canvas {
  public:
   Canvas(Effect& effect) : effect_(effect) {
-    while (!effect_.buffer_free()) {
-    }
+    while (!effect_.buffer_free()) {}
     effect_.advance_buffer();
   }
 
@@ -66,6 +61,10 @@ class Canvas {
     return effect_.bufs_[effect_.cur_][XY(x, y)];
   }
 
+  inline CHSV& operator()(int xy) {
+    return effect_.bufs_[effect_.cur_][xy];
+  }
+
   const int width() { return effect_.width(); }
 
  private:
@@ -73,6 +72,7 @@ class Canvas {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+
 template <int TTL>
 void trail_ttl(CHSV& p, uint8_t& ttl, const CHSVPalette256& palette) {
   if (ttl == 0) {
@@ -109,6 +109,7 @@ void disintegrate(CHSV& p, int prob) {
   }
 }
 
+/*
 template <int W, int H>
 void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y,
              const CHSV& c) {
@@ -132,6 +133,7 @@ void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y,
         CHSV(c.h, c.s, dim8_lin(qadd8(leds[(x_i + 1) % W][y_i + 1].v, v)));
   }
 }
+*/
 
 void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
   int x_i = floor(x);
@@ -180,50 +182,6 @@ class RandomTimer {
   uint32_t next;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-
-template <int W>
-class Test : public Effect {
- public:
-  Test() : Effect(W), t(0) {}
-
-  bool show_bg() const { return true; }
-
-  void draw_frame() {
-    Canvas c(*this);
-
-    for (int x = 0; x < W; ++x) {
-      for (int y = 0; y < H; ++y) {
-        trail_rainbow(c(x, y), 5, 255);
-      }
-    }
-
-    float R = 1;
-    float r = 0.5;
-    float d = 0;
-
-    float dl = t;
-    // 3 * t;
-    //(R - r) * cosf(t) + d* cosf(((R - r) / r) * t);
-    float dp = 3 * t;
-    //(R - r) * sinf(t) - d* sinf(((R - r) / r) * t);
-    float dg = 0;
-    v.reset();
-    v.rotate(dl * degrees, dp * degrees, dg * degrees);
-    Point p = v.project(0, 0);
-    Serial.println(t * degrees);
-    plot_aa(c, p.x, p.y, CHSV(HUE_GREEN, 255, 255));
-    t = t + tau / 360;
-    if (t > tau) {
-      t = 0;
-    }
-  }
-
- private:
-  typedef typename Projection<W, H>::Point Point;
-  Projection<W, H> v;
-  float t;
-};
 
 /*
 template <int W>
@@ -273,11 +231,126 @@ private:
 };
 */
 
+class ComplementaryColorSequence {
+public:
+  ComplementaryColorSequence() : last(0, random(128, 255), 255) {}
+
+  CHSV get() {
+    CHSV r;
+    if (random8() < 32) {
+      last = CHSV(last.h + random(16, 32), random(128, 255), 255);
+      return last;
+    }
+    else if (random8() < 64) {
+      last = CHSV(last.h - random(16, 32), random(128, 255), 255);
+      return last;
+    }
+    r = CHSV(last.h + 64, last.s, last.v);
+    last = r;
+    return r;
+  }
+
+private: 
+  CHSV last;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+template <int W>
+class Hoops : public Effect {
+public:
+  Hoops() : Effect(W), osc(1, 4) {
+    for (size_t i = 0; i < (sizeof(hoops) / sizeof(Hoop)); ++i) {
+      hoops[i] = Hoop(0, i, 0);
+    }
+  }
+
+  bool show_bg() const { return false; }
+
+  void draw_frame() {
+    Canvas c(*this);
+
+    EVERY_N_MILLIS(1000) { speed *= -1; }
+    EVERY_N_MILLIS(4000) {
+      gap = osc.get();
+      speed = dir(speed) * random(1, 2);
+    }
+
+    pull(c, dots, 0, speed);
+  };
+
+private:
+  struct Hoop {
+    Hoop() : x(0), y(0), v(0), hue(HUE_RED) {}
+
+    Hoop(int x, int y, int v) : x(x), y(y), v(v), hue(HUE_RED) {}
+
+    Hoop(const Hoop& d) : x(d.x), y(d.y), v(d.v), hue(d.hue) {}
+
+    int x;
+    int y;
+    int v;
+    uint8_t hue;
+  };
+
+  int distance(int a, int b, int m) {
+    int fwd = wrap(b - a, m);
+    int rev = wrap(a - b, m);
+    if (fwd <= rev) {
+      return fwd;
+    }
+    return -rev;
+  }
+
+  int dir(int v) { return v < 0 ? -1 : 1; }
+
+  void pull(Canvas& c, Hoop* hoops, int y, int v) {
+    hoops[y].v = v;
+    move(c, hoops[y]);
+    for (int i = y - 1; i >= 0; --i) {
+      drag(c, hoops[i + 1], hoops[i]);
+    }
+    for (int i = y + 1; i < H; ++i) {
+      drag(c, hoops[i - 1], hoops[i]);
+    }
+  }
+
+  void drag(Canvas& c, Hoop& leader, Hoop& follower) {
+    int dest = wrap(follower.x + follower.v, W);
+    if (abs(distance(dest, leader.x, W)) > gap) {
+      // Move to furthest extent based on leader's prior path
+      dest = wrap(leader.x - dir(leader.v) * (abs(leader.v) - 1 + gap), W);
+      follower.v = distance(follower.x, dest, W);
+      move(c, follower);
+      // Move to gap's length behind leader
+      dest = wrap(leader.x - dir(leader.v) * gap, W);
+      follower.v = distance(follower.x, dest, W);
+      move(c, follower);
+      // Adjust speed to match leader
+      follower.v = leader.v;
+    }
+    else {
+      move(c, follower);
+    }
+  }
+
+  void move(Canvas& c, Hoop& hoop) {
+    hoop.x = wrap(dot.x + dot.v, W);
+  }
+
+  Hoop hoops[H];
+  Oscillator osc;
+  int gap = 1;
+  int speed = 1;
+};
+
+*/
+
 template <int W>
 class RingShower : public Effect {
  public:
   RingShower() : Effect(W), new_ring_timer(62, 2000) {
-    randomSeed(analogRead(PIN_RANDOM));
   }
 
   bool show_bg() const { return false; }
@@ -312,7 +385,7 @@ class RingShower : public Effect {
       if (rings[i].position >= H) {
         rings[i].position = 0;
         rings[i].speed = random(30, 100) / 100.0;
-        rings[i].color = CHSV(random8(), random(128, 255), 255);
+        rings[i].color = colors.get();
         rings[i].rotation.rotate(random(360), random(360), random(360));
         break;
       }
@@ -342,6 +415,7 @@ class RingShower : public Effect {
   RandomTimer new_ring_timer;
   Ring rings[8];
   unsigned long t = 0;
+  ComplementaryColorSequence colors;
 };
 
 template <int W>
@@ -366,7 +440,7 @@ class ChainWiggle : public Effect {
     EVERY_N_MILLIS(1000) { speed *= -1; }
 
     EVERY_N_MILLIS(4000) {
-      gap = osc.get();  // random(1, 4);
+      gap = osc.get();
       speed = dir(speed) * random(1, 2);
     }
 
@@ -379,7 +453,7 @@ class ChainWiggle : public Effect {
 
     Dot(int x, int y, int v) : x(x), y(y), v(v), hue(HUE_RED) {}
 
-    Dot(const Dot& d) : x(d.x), y(d.y), v(d.v), hue(HUE_RED) {}
+    Dot(const Dot& d) : x(d.x), y(d.y), v(d.v), hue(d.hue) {}
 
     int x;
     int y;
@@ -551,7 +625,7 @@ class RingTwist : public Effect {
 
   const CHSV seed_;
   const int COUNT_ = 2;
-  const int STOP_TIMER_ = 20000;
+  const int STOP_TIMER_ = 15000;
   int pos_[H] = {0};
   int leader_ = 0;
   int dir_ = 1;
@@ -583,17 +657,14 @@ class Curves : public Effect {
     }
 
     for (int i = 0; i < COUNT; ++i) {
-      plot(c, num_, 255, (i * W / COUNT + offset_) % W,
-           palette_[triwave8(color_offset_)]);
-      plot(c, -num_, 255, (i * W / COUNT + W - 1 - offset_) % W,
-           palette_[triwave8(color_offset_)]);
+      CHSV color = palette_[map8(triwave8(color_offset_), 100, 140)];
+      plot(c, num_, 255, (i * W / COUNT + offset_) % W, color);
+      plot(c, -num_, 255, (i * W / COUNT + W - 1 - offset_) % W, color);
     }
 
     num_ = wrap(num_ - 1, 1024);
     color_offset_++;
-    //		EVERY_N_MILLIS(63) {
     offset_ = (offset_ + 1) % W;
-    //		}
   }
 
  private:

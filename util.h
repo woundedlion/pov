@@ -46,7 +46,7 @@ public:
 		return r;
 	}
 
-	int dir() { return dir_; }
+	int dir() const { return dir_; }
 	void set_delay(int d) { end_delay_ = d; }
 
 private:
