@@ -125,7 +125,7 @@ private:
           canvas(i) = CHSV(0, 0, 0);
         }
 
-        // Draw ring trail into polymgon mask
+        // Draw ring trail into polygon mask
         auto n = ring_orientation.length();
         for (int i = 0; i < n; ++i) {
           auto normal = ring_orientation.orient(ring, i);
@@ -151,7 +151,6 @@ private:
 
         // Draw current ring position
         dots = draw_ring(normal, 1, [](auto& v) { return CHSV(HUE_BLUE, 0, 64); });
-
         pixels = plot_dots(output, dots);
         for (auto& [xy, p] : pixels) {
           canvas(xy) = blend_over(canvas(xy), p.color);
