@@ -400,14 +400,11 @@ public:
     double angle = fabs(to - from);
     if (angle > std::numeric_limits<double>::epsilon()) {
       Quaternion origin = orientation.get();
-//      Serial.printf("rotate orientation : (%f, %f, %f, %f)\n", orientation.get().r, orientation.get().v.i, orientation.get().v.j, orientation.get().v.k);
       orientation.clear();
       for (double a = MAX_ANGLE; a < angle; a += MAX_ANGLE) {
         orientation.push(make_rotation(axis, a) * origin);
       }
-//      Serial.printf("rotate axis angle : (%f, %f, %f) -> %f\n", axis.i, axis.j, axis.k, angle);
       orientation.push(make_rotation(axis, angle) * origin);
-//      Serial.printf("rotate orientation : (%f, %f, %f, %f)\n", orientation.get().r, orientation.get().v.i, orientation.get().v.j, orientation.get().v.k);
     }
     ++t;
   }
