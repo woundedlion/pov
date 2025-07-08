@@ -35,7 +35,6 @@ public:
   PolyRot() :
     Effect(W),
     poly_mask_mask(4),
-    trails(5, RainbowColors_p)
   {
     poly_mask.chain(poly_mask_mask);
     transition();
@@ -80,7 +79,6 @@ private:
   FilterAntiAlias<W, H> poly_mask;
   FilterDecayMask<W, H> poly_mask_mask;
   FilterAntiAlias<W, H> output;
-  FilterDecayTrails<W, H> trails;
 
   void transition() {
     state_index = (state_index + 1) % sequence.size();
@@ -361,3 +359,81 @@ private:
   };
 
 };
+
+typedef ()
+
+class Thruster {
+public:
+
+  Thruster(DrawFn drawFn, const Orientation& orientation, const Vector& thrustPoint) :
+    drawFn(drawFn),
+    orientation(orientation),
+    thrustPoint(thrustPoint),
+    exhaustRadius(0),
+    exhaustMotion(exhaustRadius, 0.3, 8, easeMid),
+    exhaustSprite(drawFn, 16, 0, easeMid, 16, easeOutExpo)
+  {
+  }
+
+  done() {
+    return exhaustMotion.done()
+      && exhaustSprite.done();
+    ;
+  }
+
+  step() {
+    exhaustSprite.step();
+    exhaustMotion.step();
+  }
+
+private:
+
+  DrawFn drawFn;
+  Orientation orientation;
+  Vector thrustPoint;
+  double exhaustRadius;
+  Transition exhaustMotion;
+  Sprite exhaustSprite;
+}
+
+template <int W>
+class Thruster : public Effect {
+public:
+  Thrusters() :
+    Effect(W),
+    palette(
+      [0.5, 0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [0.3, 0.3, 0.3],
+      [0.0, 0.2, 0.6]),
+
+  {
+    ringOutput.chain(new FilterAntiAlias());
+    timeline.add(0,
+      new Sprite(this.drawRing.bind(this), -1,
+        16, easeInSin,
+        16, easeOutSin)
+    );
+  }
+
+  bool show_bg() const { return false; }
+
+  void draw_frame() {
+  }
+
+private:
+
+  ProceduralPalette palette;
+  FilterRaw ringOutput;
+  int t = 0;
+  Vector ring;
+  Orientation orientation;
+  Orientation to;
+  std::vector<Thruster> thrusters;
+  double amplitude = 0;
+  double warp_phase = 0;
+  double radius = 1;
+
+  Timeline timeline;
+
+}

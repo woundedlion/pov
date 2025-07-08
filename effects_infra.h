@@ -16,9 +16,13 @@ typedef std::function<CHSV(const Vector&)> ColorFn;
 typedef std::function<double (double)> EasingFn;
 typedef std::function<Vector(double)> PlotFn;
 typedef std::function<CHSV(const CHSV&, const CHSV&)> BlendFn;
+typedef std::function<Vector(double)> PlotFn;
+typedef std::function<Vector(double)> DrawFn;
 
 
 // inline int XY(int x, int y) { return x * H + y; }
+
+static const int FPS = 16;
 
 struct Dodecahedron {
   VertexList vertices = {
@@ -462,74 +466,6 @@ CHSV distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1,
   }
 }
 
-
-///////////////////////////////////////////////////////////////////////////////
-/*
-class Canvas;
-
-class Effect {
-  friend class Canvas;
-
-public:
-  Effect(int W) : width_(W) {
-    bufs_[0] = new CHSV[W * H];
-    memset(bufs_[0], 0, sizeof(CHSV) * W * H);
-    bufs_[1] = new CHSV[W * H];
-    memset(bufs_[1], 0, sizeof(CHSV) * W * H);
-  }
-
-  virtual ~Effect() {
-    delete[] bufs_[0];
-    delete[] bufs_[1];
-  };
-
-  virtual void draw_frame() = 0;
-  virtual bool show_bg() const = 0;
-
-  virtual const CHSV& get_pixel(int x, int y) const {
-    return bufs_[prev_][XY(x, y)];
-  }
-
-  inline int width() const { return width_; }
-  inline bool buffer_free() const { return prev_ == next_; }
-  inline void advance_display() { prev_ = next_; }
-  inline void advance_buffer() {
-    cur_ = cur_ ? 0 : 1;
-    memcpy(bufs_[cur_], bufs_[prev_], sizeof(CHSV) * width_ * H);
-  }
-
-  inline void queue_frame() { next_ = cur_; }
-
-private:
-  volatile int prev_ = 0, cur_ = 0, next_ = 0;
-  int width_;
-  CHSV* bufs_[2];
-};
-
-class Canvas {
-public:
-  Canvas(Effect& effect) : effect_(effect) {
-    while (!effect_.buffer_free()) {}
-    effect_.advance_buffer();
-  }
-
-  ~Canvas() { effect_.queue_frame(); }
-
-  inline CHSV& operator()(int x, int y) {
-    return operator()(XY(x, y));
-  }
-
-  inline CHSV& operator()(int xy) {
-    return effect_.bufs_[effect_.cur_][xy];
-  }
-
-  const int width() { return effect_.width(); }
-
-private:
-  Effect& effect_;
-};
-*/
-
 template <uint8_t W, uint8_t H>
 class Filter {
 public:
@@ -679,3 +615,298 @@ private:
   int lifetime;
   CRGBPalette256 palette;
 };
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+class Animation {
+public:
+
+  Animation(int duration, bool repeat) :
+    duration(duration),
+    repeat(repeat),
+    canceled(false)
+  {
+
+  }
+
+  void cancel() { canceled = true; }
+  bool done() { return canceled || (duration >= 0 && t >= duration); }
+
+  step() {
+    t++;
+    if (done()) {
+      if (repeat) {
+        t = 0;
+      }
+    }
+  }
+
+private:
+
+  int t = 0;
+  int duration;
+  bool repeat;
+  bool canceled;
+};
+
+struct TimelineEntry {
+  double start;
+  std::unique_ptr<Animation> animation;
+};
+
+class Timeline {
+public:
+
+  Timeline() {}
+
+  Timeline& add(double inSecs, std::unique_ptr<Animation> animation) {
+    auto start = t + static_cast<int>(std::round(inSecs * FPS));
+    for (auto a = animations.begin(); a != animations.end(); ++a) {
+      if (a->start > start) {
+        animations.insert(a, TimelineEntry(start, animation));
+        return *this;
+      }
+    }
+    animations.push_back(TimelineEntry(start, animation));
+    return *this;
+  }
+
+  step() {
+    t++;
+    for (auto a = animations.begin(); a != animations.end(); ++a) {
+      if (t >= a->start) {
+        if (a->done()) {
+          a = animations.erase(a);
+          continue;
+        }
+        a->step();
+      }
+    }
+  }
+
+private:
+
+  int t = 0;
+  std::vector<TimelineEntry> animations;
+};
+
+class RandomTimer : public Animation {
+  RandomTimer(int min, int max, std::function<void ()> f, bool repeat = false) :
+    Animation(-1, repeat),
+    min(min),
+    max(max),
+    f(f),
+    next(0)
+  {
+    reset();
+  }
+
+  void reset(t) {
+    next = t + static_cast<int>(std::round(std::rand() * (max - min) + min));
+  }
+
+  void step() {
+    if (t >= next) {
+      f();
+      if (repeat) {
+        reset();
+      }
+      else {
+        cancel();
+      }
+    }
+    Animation::step();
+  }
+  
+  private:
+
+    int min;
+    int max;
+    std::function<void()> f;
+    int next;
+};
+
+class PeriodicTimer : public Animation {
+public:
+  PeriodicTimer(int period, std::function<void()> f, bool repeat = false) :
+    Animation(-1, repeat),
+    period(period),
+    f(f)
+  {
+    reset();
+  }
+
+  void reset() {
+    next = t + period;
+  }
+
+  step() {
+    if (t >= next) {
+      f();
+      if (repeat) {
+        reset();
+      }
+      else {
+        cancel();
+      }
+    }
+    Animation::step();
+  }
+
+private:
+
+  int period;
+  std::function<void()> f;
+  int next;
+};
+
+class Transition : public Animation {
+  Transition(double& mutable, T to, int duration, 
+    EasingFn easingFn, bool quantized = false, bool repeat = false) :
+    Animation(duration, repeat),
+    mutable(mutable),
+    to(to),
+    easingFn(easingFn),
+    quantized(quantized)
+  {
+  }
+
+  void step() {
+    if (t == 0) {
+      from = *mutable;
+    }
+    Animation::step();
+    auto t = std::min(1, t / duration);
+    auto n = easingFn(t) * (to - from) + from;
+    if (quantized) {
+      n = std::floor(n);
+    }
+    *mutable = n;
+  }
+
+private:
+
+  double& mutable;
+  double from;
+  double to;
+  EasingFn easingFn;
+  bool quantized;
+};
+
+
+class Sprite : public Animation {
+public:
+
+  Sprite(DrawFn drawFn, int duration,
+    int fadeInDuration = 0, EasingFn fadeInEasingFn = easeMid,
+    int fadeOutDuration = 0, EasingFn fadeOutEasingFn = easeMid) :
+    Animation(duration, false),
+    drawFn(drawFn),
+    fadeInDuration(fadeInDuration),
+    fadeOutDuration(fadeOutDuration),
+    fader(fadeInDuration > 0 ? 0 : 1)
+  {
+    this.fadeIn = new Transition(this.fader, 1, fadeInDuration, fadeInEasingFn);
+    this.fadeOut = new Transition(this.fader, 0, fadeOutDuration, fadeOutEasingFn);
+  }
+
+  void step() {
+    if (!fadeIn.done()) {
+      fadeIn.step();
+    }
+    else if (duration >= 0 && t >= (duration - fadeOutDuration)) {
+      fadeOut.step();
+    }
+    drawFn(fader);
+    Animation::step();
+  }
+
+private:
+
+  DrawFn drawFn;
+  double fader;
+  int fadeInDuration;
+
+};
+
+class Motion extends Animation {
+  static MAX_ANGLE = 2 * Math.PI / Daydream.W;
+
+  constructor(orientation, path, duration, repeat = false) {
+    super(duration, repeat);
+    this.orientation = orientation;
+    this.path = path;
+    this.to = this.path.getPoint(0);
+  }
+
+  step() {
+    this.from = this.to;
+    this.to = this.path.getPoint(this.t / this.duration);
+    if (!this.from.equals(this.to)) {
+      let axis = new THREE.Vector3().crossVectors(this.from, this.to).normalize();
+      let angle = angleBetween(this.from, this.to);
+      let origin = this.orientation.get();
+      this.orientation.clear();
+      for (let a = Motion.MAX_ANGLE; angle - a > 0.0001; a += Motion.MAX_ANGLE) {
+        let r = new THREE.Quaternion().setFromAxisAngle(axis, a);
+        this.orientation.push(origin.clone().premultiply(r));
+      }
+      let r = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+      this.orientation.push(origin.clone().premultiply(r));
+    }
+    super.step();
+  }
+}
+
+
+class MutateFn extends Animation {
+  constructor(mutable, fn, duration, easingFn, repeat = false) {
+    super(duration, repeat);
+    this.mutable = mutable;
+    this.fn = fn;
+    this.duration = duration;
+    this.easingFn = easingFn;
+  }
+
+  step() {
+    if (this.t == 0) {
+      this.from = this.mutable.get();
+    }
+    let t = Math.min(1, this.t / (this.duration - 1));
+    this.mutable.set(this.fn(this.easingFn(t), this.mutable.get()));
+    super.step();
+  }
+}
+
+class Rotation extends Animation {
+  static MAX_ANGLE = 2 * Math.PI / Daydream.W;
+
+  constructor(orientation, axis, angle, duration, easingFn, repeat = false) {
+    super(duration, repeat);
+    this.orientation = orientation;
+    this.axis = axis;
+    this.totalAngle = angle;
+    this.easingFn = easingFn;
+    this.from = 0;
+    this.to = 0;
+  }
+
+  step() {
+    this.from = this.to;
+    this.to = this.easingFn((this.t) / this.duration) * this.totalAngle;
+    let angle = distance(this.from, this.to, this.totalAngle);
+    if (angle > 0.0001) {
+      let origin = this.orientation.get();
+      for (let a = Rotation.MAX_ANGLE; angle - a > 0.0001; a += Rotation.MAX_ANGLE) {
+        let r = new THREE.Quaternion().setFromAxisAngle(this.axis, a);
+        this.orientation.push(origin.clone().premultiply(r));
+      }
+      let r = new THREE.Quaternion().setFromAxisAngle(this.axis, angle);
+      this.orientation.push(origin.clone().premultiply(r));
+    }
+    super.step();
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
