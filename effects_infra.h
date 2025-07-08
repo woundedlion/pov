@@ -353,48 +353,6 @@ Dots draw_path(const Path& path, ColorFn color) {
   return dots;
 }
 
-class Rotation {
-public:
-  Rotation(const Vector& axis, double angle, double duration) :
-    axis(axis),
-    total_angle(angle),
-    duration(duration)
-  {}
-
-  bool done() const { return t >= duration; }
-
-  void rotate(Orientation& orientation, EasingFn easing) {
-    from = to;
-    to = easing(t / duration) * total_angle;
-    double angle = fabs(to - from);
-    if (angle > std::numeric_limits<double>::epsilon()) {
-      Quaternion origin = orientation.get();
-      orientation.clear();
-      for (double a = MAX_ANGLE; a < angle; a += MAX_ANGLE) {
-        orientation.push(make_rotation(axis, a) * origin);
-      }
-      orientation.push(make_rotation(axis, angle) * origin);
-    }
-    ++t;
-  }
-
-  Rotation& set_axis(const Vector& v) {
-    axis = v;
-    return *this;
-  }
-
-private:
-  // TODO: Optimize MAX_ANGLE
-  const double MAX_ANGLE = 2 * PI / 96;
-  Vector axis;
-  double total_angle;
-  double duration;
-  double from = 0;
-  double to = 0;
-  double t = 0;
-};
-
-
 template <typename Poly>
 void bisect(Poly& poly, const Orientation& orientation, const Vector& normal) {
   auto num_edges = poly.euler_path.size();
@@ -875,6 +833,7 @@ private:
   Vector to;
 };
 
+template <int W>
 class Rotation : public Animation {
 public:
 
@@ -904,7 +863,7 @@ public:
 
 private:
 
-  static constexpr double MAX_ANGLE = 2 * PI / 96;
+  static constexpr double MAX_ANGLE = 2 * PI / W;
   Orientation& orientation;
   Vector axis;
   double total_angle;
