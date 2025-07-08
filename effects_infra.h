@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cassert>
 #include <array>
+#include <memory>
 #include <FastLED.h>
 #include "3dmath.h"
 
@@ -16,8 +17,9 @@ typedef std::function<CHSV(const Vector&)> ColorFn;
 typedef std::function<double (double)> EasingFn;
 typedef std::function<Vector(double)> PlotFn;
 typedef std::function<CHSV(const CHSV&, const CHSV&)> BlendFn;
-typedef std::function<Vector(double)> PlotFn;
 typedef std::function<Vector(double)> DrawFn;
+typedef std::function<void()> TimerFn;
+typedef std::function<double (double, double&)> MutateFn;
 
 
 // inline int XY(int x, int y) { return x * H + y; }
@@ -341,43 +343,6 @@ private:
   std::vector<Vector> points;
 };
 
-class Motion {
-public:
-  Motion(const Path& path, double duration) :
-    path(path),
-    duration(duration),
-    to(path.get_point(0)),
-    from(to)
-  {}
-
-  bool done() const { return t >= duration; }
-
-  void move(Orientation& orientation) {
-    to = path.get_point(t / duration);
-    if (from != to) {
-      Vector axis = cross(from, to).normalize();
-      double angle = angle_between(from, to);
-      Quaternion origin = orientation.get();
-      orientation.clear();
-      for (double a = MAX_ANGLE; a < angle; a += MAX_ANGLE) {
-        orientation.push(make_rotation(axis, a) * origin);
-      }
-      orientation.push(make_rotation(axis, angle) * origin);
-    }
-    from = to;
-    ++t;
-  }
-
-private:
-  // TODO: Optimize MAX_ANGLE
-  const double MAX_ANGLE = 2 * PI / 96;
-  const Path& path;
-  double duration;
-  Vector to;
-  Vector from;
-  double t = 0;
-};
-
 Dots draw_path(const Path& path, ColorFn color) {
   Dots dots;
   size_t samples = path.num_points();
@@ -511,6 +476,14 @@ Pixels plot_dots(Filter<W, H>& filter, const Dots& dots, double age = 0) {
 }
 
 template <uint8_t W, uint8_t H>
+class FilterRaw : public Filter<W, H> {
+  void plot(Pixels& pixels, double x, double y, const CHSV& c, double age, BlendFn blend_mode) {
+      this->pass(pixels, x, y, c, age, blend_mode);
+    }
+};
+
+
+template <uint8_t W, uint8_t H>
 class FilterAntiAlias : public Filter<W, H> {
 public:
   FilterAntiAlias() {}
@@ -633,7 +606,7 @@ public:
   void cancel() { canceled = true; }
   bool done() { return canceled || (duration >= 0 && t >= duration); }
 
-  step() {
+  void step() {
     t++;
     if (done()) {
       if (repeat) {
@@ -642,17 +615,24 @@ public:
     }
   }
 
-private:
+protected:
 
   int t = 0;
-  int duration;
   bool repeat;
+  int duration;
+
+private:
+
   bool canceled;
 };
 
-struct TimelineEntry {
-  double start;
-  std::unique_ptr<Animation> animation;
+struct TimelineEvent {
+  TimelineEvent(int start, std::shared_ptr<Animation> animation) :
+    start(start),
+    animation(animation) {}
+  
+  int start;
+  std::shared_ptr<Animation> animation;
 };
 
 class Timeline {
@@ -660,27 +640,27 @@ public:
 
   Timeline() {}
 
-  Timeline& add(double inSecs, std::unique_ptr<Animation> animation) {
+  Timeline& add(double inSecs, std::shared_ptr<Animation> animation) {
     auto start = t + static_cast<int>(std::round(inSecs * FPS));
-    for (auto a = animations.begin(); a != animations.end(); ++a) {
-      if (a->start > start) {
-        animations.insert(a, TimelineEntry(start, animation));
+    for (auto e = events.begin(); e != events.end(); ++e) {
+      if (e->start > start) {
+        events.insert(e, TimelineEvent(start, animation));
         return *this;
       }
     }
-    animations.push_back(TimelineEntry(start, animation));
+    events.push_back(TimelineEvent(start, animation));
     return *this;
   }
 
-  step() {
+  void step() {
     t++;
-    for (auto a = animations.begin(); a != animations.end(); ++a) {
-      if (t >= a->start) {
-        if (a->done()) {
-          a = animations.erase(a);
+    for (auto e = events.begin(); e != events.end(); ++e) {
+      if (t >= e->start) {
+        if (e->animation->done()) {
+          e = events.erase(e);
           continue;
         }
-        a->step();
+        e->animation->step();
       }
     }
   }
@@ -688,11 +668,11 @@ public:
 private:
 
   int t = 0;
-  std::vector<TimelineEntry> animations;
+  std::vector<TimelineEvent> events;
 };
 
 class RandomTimer : public Animation {
-  RandomTimer(int min, int max, std::function<void ()> f, bool repeat = false) :
+  RandomTimer(int min, int max, TimerFn f, bool repeat = false) :
     Animation(-1, repeat),
     min(min),
     max(max),
@@ -702,7 +682,7 @@ class RandomTimer : public Animation {
     reset();
   }
 
-  void reset(t) {
+  void reset() {
     next = t + static_cast<int>(std::round(std::rand() * (max - min) + min));
   }
 
@@ -723,7 +703,7 @@ class RandomTimer : public Animation {
 
     int min;
     int max;
-    std::function<void()> f;
+    TimerFn f;
     int next;
 };
 
@@ -741,7 +721,7 @@ public:
     next = t + period;
   }
 
-  step() {
+  void step() {
     if (t >= next) {
       f();
       if (repeat) {
@@ -762,151 +742,175 @@ private:
 };
 
 class Transition : public Animation {
-  Transition(double& mutable, T to, int duration, 
-    EasingFn easingFn, bool quantized = false, bool repeat = false) :
+public:
+  Transition(double& mutant, double to, int duration, EasingFn easing_fn, bool quantized = false, bool repeat = false) :
     Animation(duration, repeat),
-    mutable(mutable),
+    mutant(mutant),
     to(to),
-    easingFn(easingFn),
+    easing_fn(easing_fn),
     quantized(quantized)
   {
   }
 
   void step() {
     if (t == 0) {
-      from = *mutable;
+      from = mutant;
     }
     Animation::step();
-    auto t = std::min(1, t / duration);
-    auto n = easingFn(t) * (to - from) + from;
+    auto t = std::min(1, this->t / duration);
+    auto n = easing_fn(t) * (to - from) + from;
     if (quantized) {
       n = std::floor(n);
     }
-    *mutable = n;
+    mutant = n;
   }
 
 private:
 
-  double& mutable;
+  double& mutant;
   double from;
   double to;
-  EasingFn easingFn;
+  EasingFn easing_fn;
   bool quantized;
+};
+
+class Mutation : public Animation {
+public:
+
+  Mutation(double& mutant, MutateFn f, int duration, EasingFn easing_fn, bool repeat = false) :
+    Animation(duration, repeat),
+    mutant(mutant),
+    from(mutant),
+    f(f),
+    easing_fn(easing_fn)
+  {}
+
+  void step() {
+    if (t == 0) {
+      from = mutant;
+    }
+    auto t = std::min(1, this->t / (duration - 1));
+    mutant = f(easing_fn(t), mutant);
+    Animation::step();
+  }
+
+private:
+
+  double& mutant;
+  double from;
+  MutateFn f;
+  EasingFn easing_fn;
 };
 
 
 class Sprite : public Animation {
 public:
 
-  Sprite(DrawFn drawFn, int duration,
-    int fadeInDuration = 0, EasingFn fadeInEasingFn = easeMid,
-    int fadeOutDuration = 0, EasingFn fadeOutEasingFn = easeMid) :
+  Sprite(DrawFn draw_fn, int duration,
+    int fade_in_duration = 0, EasingFn fade_in_easing_fn = ease_mid,
+    int fade_out_duration = 0, EasingFn fade_out_easing_fn = ease_mid) :
     Animation(duration, false),
-    drawFn(drawFn),
-    fadeInDuration(fadeInDuration),
-    fadeOutDuration(fadeOutDuration),
-    fader(fadeInDuration > 0 ? 0 : 1)
-  {
-    this.fadeIn = new Transition(this.fader, 1, fadeInDuration, fadeInEasingFn);
-    this.fadeOut = new Transition(this.fader, 0, fadeOutDuration, fadeOutEasingFn);
-  }
+    draw_fn(draw_fn),
+    fader(fade_in_duration > 0 ? 0 : 1),
+    fade_in_duration(fade_in_duration),
+    fade_out_duration(fade_out_duration),
+    fade_in(fader, 1, fade_in_duration, fade_in_easing_fn),
+    fade_out(fader, 0, fade_out_duration, fade_out_easing_fn)
+  {}
 
   void step() {
-    if (!fadeIn.done()) {
-      fadeIn.step();
+    if (!fade_in.done()) {
+      fade_in.step();
     }
-    else if (duration >= 0 && t >= (duration - fadeOutDuration)) {
-      fadeOut.step();
+    else if (duration >= 0 && t >= (duration - fade_out_duration)) {
+      fade_out.step();
     }
-    drawFn(fader);
+    draw_fn(fader);
     Animation::step();
   }
 
 private:
 
-  DrawFn drawFn;
+  DrawFn draw_fn;
   double fader;
-  int fadeInDuration;
-
+  int fade_in_duration;
+  int fade_out_duration;
+  Transition fade_in;
+  Transition fade_out;
 };
 
-class Motion extends Animation {
-  static MAX_ANGLE = 2 * Math.PI / Daydream.W;
+template <uint8_t W>
+class Motion : public Animation {
+public:
 
-  constructor(orientation, path, duration, repeat = false) {
-    super(duration, repeat);
-    this.orientation = orientation;
-    this.path = path;
-    this.to = this.path.getPoint(0);
-  }
+  Motion(Orientation& orientation, std::shared_ptr<Path> path, int duration, bool repeat = false) :
+    Animation(duration, repeat),
+    orientation(orientation),
+    path(path),
+    to(path->get_point(0))
+  {}
 
-  step() {
-    this.from = this.to;
-    this.to = this.path.getPoint(this.t / this.duration);
-    if (!this.from.equals(this.to)) {
-      let axis = new THREE.Vector3().crossVectors(this.from, this.to).normalize();
-      let angle = angleBetween(this.from, this.to);
-      let origin = this.orientation.get();
-      this.orientation.clear();
-      for (let a = Motion.MAX_ANGLE; angle - a > 0.0001; a += Motion.MAX_ANGLE) {
-        let r = new THREE.Quaternion().setFromAxisAngle(axis, a);
-        this.orientation.push(origin.clone().premultiply(r));
+  void step() {
+    from = to;
+    to = path->get_point(t / duration);
+    if (from != to) {
+      auto axis = cross(from, to).normalize();
+      auto angle = angle_between(from, to);
+      auto origin = orientation.get();
+      orientation.clear();
+      for (auto a = MAX_ANGLE; angle - a > 0.0001; a += MAX_ANGLE) {
+        orientation.push(make_rotation(axis, a) * origin);
       }
-      let r = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-      this.orientation.push(origin.clone().premultiply(r));
+      orientation.push(make_rotation(axis, angle) * origin);
     }
-    super.step();
-  }
-}
-
-
-class MutateFn extends Animation {
-  constructor(mutable, fn, duration, easingFn, repeat = false) {
-    super(duration, repeat);
-    this.mutable = mutable;
-    this.fn = fn;
-    this.duration = duration;
-    this.easingFn = easingFn;
+    Animation::step();
   }
 
-  step() {
-    if (this.t == 0) {
-      this.from = this.mutable.get();
-    }
-    let t = Math.min(1, this.t / (this.duration - 1));
-    this.mutable.set(this.fn(this.easingFn(t), this.mutable.get()));
-    super.step();
-  }
-}
+private:
 
-class Rotation extends Animation {
-  static MAX_ANGLE = 2 * Math.PI / Daydream.W;
+  static constexpr double MAX_ANGLE = 2 * PI / W;
+  Orientation& orientation;
+  std::shared_ptr<Path> path;
+  Vector from;
+  Vector to;
+};
 
-  constructor(orientation, axis, angle, duration, easingFn, repeat = false) {
-    super(duration, repeat);
-    this.orientation = orientation;
-    this.axis = axis;
-    this.totalAngle = angle;
-    this.easingFn = easingFn;
-    this.from = 0;
-    this.to = 0;
-  }
+class Rotation : public Animation {
+public:
 
-  step() {
-    this.from = this.to;
-    this.to = this.easingFn((this.t) / this.duration) * this.totalAngle;
-    let angle = distance(this.from, this.to, this.totalAngle);
+  Rotation(Orientation& orientation, const Vector& axis, double angle, int duration, EasingFn easing_fn, bool repeat = false) :
+    Animation(duration, repeat),
+    orientation(orientation),
+    axis(axis),
+    total_angle(angle),
+    easing_fn(easing_fn),
+    from(0),
+    to(0)
+  {}
+
+  void step() {
+    from = to;
+    to = easing_fn(t / duration) * total_angle;
+    auto angle = distance(from, to, total_angle);
     if (angle > 0.0001) {
-      let origin = this.orientation.get();
-      for (let a = Rotation.MAX_ANGLE; angle - a > 0.0001; a += Rotation.MAX_ANGLE) {
-        let r = new THREE.Quaternion().setFromAxisAngle(this.axis, a);
-        this.orientation.push(origin.clone().premultiply(r));
+      auto origin = orientation.get();
+      for (auto a = MAX_ANGLE; angle - a > 0.0001; a += MAX_ANGLE) {
+        orientation.push(make_rotation(axis, a) * origin);
       }
-      let r = new THREE.Quaternion().setFromAxisAngle(this.axis, angle);
-      this.orientation.push(origin.clone().premultiply(r));
+      orientation.push(make_rotation(axis, angle) * origin);
     }
-    super.step();
+    Animation::step();
   }
-}
+
+private:
+
+  static constexpr double MAX_ANGLE = 2 * PI / 96;
+  Orientation& orientation;
+  Vector axis;
+  double total_angle;
+  EasingFn easing_fn;
+  double from;
+  double to;
+};
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -18,6 +18,10 @@ int wrap(float x, float m) {
 		fmod(fmod(x, m) + m, m);
 }
 
+double distance(double a, double b, int m) {
+	return std::min(abs(b - a), m - abs(a - b));
+}
+
 class Oscillator
 {
 public:
