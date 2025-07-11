@@ -9,8 +9,20 @@ namespace {
 	const int PIN_RANDOM = 15;
 }
 
+namespace hs {
+	double rand_dbl() {
+		return ::random(0, std::numeric_limits<int32_t>::max())
+			/ std::numeric_limits<int32_t>::max();
+	}
+
+	int rand_int(int min, int max) {
+		return ::random(min, max);
+	}
+}
+
 #include "effects.h"
 #include "effects2.h"
+
 
 template <int S, int RPM>
 class POVDisplay

@@ -160,9 +160,9 @@ void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
   }
 }
 
-class RandomTimer {
+class PollingRandomTimer {
  public:
-  RandomTimer(uint32_t min_ms, uint32_t max_ms)
+   PollingRandomTimer(uint32_t min_ms, uint32_t max_ms)
       : min_ms(min_ms), max_ms(max_ms) {
     randomSeed(analogRead(PIN_RANDOM));
     next = millis() + random(min_ms, max_ms);
@@ -412,7 +412,7 @@ class RingShower : public Effect {
   }
 
   typedef typename Projection<W, H>::Point Point;
-  RandomTimer new_ring_timer;
+  PollingRandomTimer new_ring_timer;
   Ring rings[8];
   unsigned long t = 0;
   ComplementaryColorSequence colors;

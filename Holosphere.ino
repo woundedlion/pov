@@ -16,6 +16,9 @@ void setup() {
 }
 
 void loop() {
+	pov->show<Thrusters<96>>(145);
+
+	/*
 	pov->show<TheMatrix<40, 135> >(60);
 	pov->show<ChainWiggle<96> >(150);
 	pov->show<RingRotate<96> >(120);
@@ -36,6 +39,8 @@ void loop() {
 	pov->show<Spiral<48, 0> >(30);
 	pov->show<Spiral<48, 1> >(20);
 	pov->show<PolyRot<96>>(45);
+*/
+
 
 
 	//	pov->show<Fire<40, 150, 120> >(45);

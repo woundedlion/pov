@@ -13,18 +13,23 @@
 
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
-typedef std::function<CHSV(const Vector&)> ColorFn;
+typedef std::function<CHSV(const Vector&, double)> ColorFn;
 typedef std::function<double (double)> EasingFn;
-typedef std::function<Vector(double)> PlotFn;
+typedef std::function<Vector (double)> PlotFn;
+typedef std::function<double (double)> ShiftFn;
 typedef std::function<CHSV(const CHSV&, const CHSV&)> BlendFn;
-typedef std::function<Vector(double)> DrawFn;
-typedef std::function<void()> TimerFn;
-typedef std::function<double (double, double&)> MutateFn;
+typedef std::function<void (double)> SpriteFn;
+typedef std::function<void ()> TimerFn;
+typedef std::function<double (double, double)> MutateFn;
+typedef std::function<double(double)> WaveFn;
 
 
 // inline int XY(int x, int y) { return x * H + y; }
 
 static const int FPS = 16;
+static const Vector X_AXIS(1, 0, 0);
+static const Vector Y_AXIS(0, 1, 0);
+static const Vector Z_AXIS(0, 0, 1);
 
 struct Dodecahedron {
   VertexList vertices = {
@@ -118,6 +123,8 @@ struct Dodecahedron {
   }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 struct Dot {
   Dot(const Vector& v, const CHSV& color) :
     position(v),
@@ -152,93 +159,46 @@ CHSV blend_over_add(const CHSV& c1, const CHSV& c2) {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way = false) {
-  Dots dots;
-  Vector u(v1);
-  Vector v(v2);
-  u.normalize();
-  v.normalize();
-  double a = angle_between(u, v);
-  Vector w = cross(v, u);
-  if (long_way) {
-    a = 2 * PI - a;
-    w = (-w).normalize();
-  }
-  v = cross(u, w).normalize();
-
-  // TODO: Optimize angle step
-  double step = 2.0 / 30;
-  for (double t = 0; t < a; t += step) {
-    Vector vi(
-      u.i * cos(t) + v.i * sin(t),
-      u.j * cos(t) + v.j * sin(t),
-      u.k * cos(t) + v.k * sin(t)
-    );
-    dots.emplace_back(Dot(vi, color(vi)));
-  }
-  return dots;
+double lerp(double from, double to, double t) {
+  return ((to - from) * t) + from;
 }
 
-Dots draw_vertices(const VertexList& vertices, ColorFn color) {
-  Dots dots;
-  for (Vector v : vertices) {
-    dots.emplace_back(Dot(v.normalize(), color(v)));
-  }
-  return dots;
+WaveFn sin_wave(double from, double to, double freq, double phase) {
+  return [=](double t) -> double {
+    auto w = (sin(freq * t * 2 * PI - (PI / 2) + PI - (2 * phase)) + 1) / 2;
+    return lerp(from, to, w);
+  };
 }
 
-Dots draw_polyhedron(const VertexList& vertices, const AdjacencyList& edges, ColorFn color) {
-  Dots dots;
-  
-  for (size_t i = 0; i < edges.size(); ++i) {
-    Vector a(vertices[i]);
-    for (auto j : edges[i]) {
-      Vector b(vertices[j]);
-      auto seg = draw_line(a, b, color);
-      dots.insert(dots.end(), seg.begin(), seg.end());
+WaveFn tri_wave(double from, double to, double freq, double phase) {
+  return [=](double t) -> double {
+    double w;
+    if (t < 0.5) {
+      w = 2 * t;
+    } else {
+      w = 2 - 2 * t;
     }
-  }
-  
-  return dots;
+    return lerp(from, to, w);
+  };
 }
 
-Dots draw_ring(const Vector& normal, double radius, ColorFn color) {
-  Dots dots;
-  Vector u(0, 0, 0);
-  Vector v(normal);
-  Vector x_axis(1, 0, 0);
-  Vector z_axis(0, 0, 1);
-  if (radius > 1) {
-    v = -v;
-    radius = 2 - radius;
-  }
-  if (v.i == 0 && v.j == 0) {
-    u = cross(v, x_axis);
-  }
-  else {
-    u = cross(v, z_axis);
-  }
-  u.normalize();
-  Vector w(cross(v, u));
-  double d = sqrt(pow(1 - radius, 2));
+WaveFn square_wave(double from, double to, double freq, double dutyCycle, double phase) {
+  return [=](double t) -> double {
+    if (fmod(t * freq + phase, 1) < dutyCycle) {
+      return to;
+    }
+    return from;
+  };
+}
 
-  // TODO: optimize angle step
-  double step = 2 * PI / 96;
-  for (double t = 0; t < 2 * PI; t += step) {
-    Vector vi(
-      d * v.i + radius * u.i * cos(t) + radius * w.i * sin(t),
-      d * v.j + radius * u.j * cos(t) + radius * w.j * sin(t),
-      d * v.k + radius * u.k * cos(t) + radius * w.k * sin(t)
-    );
-    dots.emplace_back(Dot(vi, color(vi)));
-  }
-
-  return dots;
-};
+///////////////////////////////////////////////////////////////////////////////
 
 class Orientation {
 public:
   Orientation() : orientations{ Quaternion() } {}
+  Orientation(const Quaternion& q) {
+    set(q);
+  }
 
   int length() const { return orientations.size(); }
  
@@ -308,6 +268,8 @@ private:
   std::vector<Quaternion> orientations;
 };
 
+Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way = false);
+
 class Path {
 public:
   Path() {}
@@ -316,7 +278,7 @@ public:
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }
-    Dots seg = draw_line(v1, v2, [](auto& v) { return CHSV(); }, long_way);
+    Dots seg = draw_line(v1, v2, [](auto& , auto) { return CHSV(); }, long_way);
     std::transform(seg.begin(), seg.end(), std::back_inserter(points), 
       [](auto& d) { return d.position; });
     return *this;
@@ -348,7 +310,7 @@ Dots draw_path(const Path& path, ColorFn color) {
   size_t samples = path.num_points();
   for (size_t i = 0; i < samples; ++i) {
     auto v = path.get_point(static_cast<double>(i) / samples);
-    dots.push_back(Dot(v, color(v)));
+    dots.push_back(Dot(v, color(v, i / (samples - 1))));
   }
   return dots;
 }
@@ -388,6 +350,177 @@ CHSV distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1,
     return rgb2hsv_approximate(p2[static_cast<int>(-d * 255)]);
   }
 }
+///////////////////////////////////////////////////////////////////////////////
+
+Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way /* = false*/) {
+  Dots dots;
+  Vector u(v1);
+  Vector v(v2);
+  u.normalize();
+  v.normalize();
+  double a = angle_between(u, v);
+  Vector w = cross(v, u);
+  if (long_way) {
+    a = 2 * PI - a;
+    w = (-w).normalize();
+  }
+  v = cross(u, w).normalize();
+
+  // TODO: Optimize angle step
+  double step = 2.0 / 30;
+  for (double t = 0; t < a; t += step) {
+    Vector vi(
+      u.i * cos(t) + v.i * sin(t),
+      u.j * cos(t) + v.j * sin(t),
+      u.k * cos(t) + v.k * sin(t)
+    );
+    dots.emplace_back(Dot(vi, color(vi, t)));
+  }
+  return dots;
+}
+
+Dots draw_vertices(const VertexList& vertices, ColorFn color_fn) {
+  Dots dots;
+  for (Vector v : vertices) {
+    dots.emplace_back(Dot(v.normalize(), color_fn(v, 0)));
+  }
+  return dots;
+}
+
+Dots draw_polyhedron(const VertexList& vertices, const AdjacencyList& edges, ColorFn color_fn) {
+  Dots dots;
+
+  for (size_t i = 0; i < edges.size(); ++i) {
+    Vector a(vertices[i]);
+    for (auto j : edges[i]) {
+      Vector b(vertices[j]);
+      auto seg = draw_line(a, b, color_fn);
+      dots.insert(dots.end(), seg.begin(), seg.end());
+    }
+  }
+
+  return dots;
+}
+
+Vector calc_ring_point(double a, double radius, const Vector& u, const Vector& v, const Vector& w) {
+  auto d = sqrt(pow(1 - radius, 2));
+  return Vector(
+    d * v.i + radius * u.i * cos(a) + radius * w.i * sin(a),
+    d * v.j + radius * u.j * cos(a) + radius * w.j * sin(a),
+    d * v.k + radius * u.k * cos(a) + radius * w.k * sin(a)
+  ).normalize();
+}
+
+Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
+  Vector v(normal);
+  if (radius > 1) {
+    v = -v;
+    radius = 2 - radius;
+  }
+  Vector u;
+  if (v.i == 0 && v.j == 0) {
+    u = cross(v, X_AXIS).normalize();
+  }
+  else {
+    u = cross(v, Z_AXIS).normalize();
+  }
+  Vector w(cross(v, u));
+
+  auto vi = calc_ring_point(angle, radius, u, v, w);
+  auto vp = calc_ring_point(angle, 1, u, v, w);
+  auto axis = cross(v, vp).normalize();
+  auto shift = make_rotation(axis, f(angle * PI / 2));
+  return rotate(vi, shift);
+};
+
+template <int W>
+Dots draw_fn(const Orientation& orientation, const Vector& normal, double radius, ShiftFn shift_fn, ColorFn color_fn) {
+  Dots dots;
+  Vector v(orientation.orient(normal));
+  if (radius > 1) {
+    v = -v;
+    radius = 2 - radius;
+  }
+  Vector u;
+  if (v.i == 0 && v.j == 0) {
+    u = cross(v, X_AXIS).normalize();
+  }
+  else {
+    u = cross(v, Z_AXIS).normalize();
+  }
+  Vector w(cross(v, u));
+
+  bool first = true;
+  Vector start, from, to;
+  double step = 1 / W;
+  for (double t = 0; t < 1; t += step) {
+    auto vi = calc_ring_point(t * 2 * PI, radius, u, v, w);
+    auto vp = calc_ring_point(t * 2 * PI, 1, u, v, w);
+    Vector axis = cross(v, vp).normalize();
+    auto shift = make_rotation(axis, shift_fn(t));
+    auto to = rotate(vi, shift);
+    if (first) {
+      dots.emplace_back(Dot(to, color_fn(to, t)));
+      first = false;
+      start = to;
+    }
+    else {
+      auto seg = draw_line(from, to, color_fn);
+      dots.insert(dots.begin(), seg.begin(), seg.end());
+    }
+    from = to;
+  }
+  auto seg = draw_line(from, start, color_fn);
+  dots.insert(dots.begin(), seg.begin(), seg.end());
+
+  return dots;
+};
+
+
+Vector ring_point(const Vector& normal, double radius, double angle, double phase = 0) {
+  Vector v(normal);
+  if (radius > 1) {
+    v = -v;
+    radius = 2 - radius;
+  }
+  Vector u;
+  if (v.i == 0 && v.j == 0) {
+    u = cross(v, X_AXIS).normalize();
+  }
+  else {
+    u = cross(v, Z_AXIS).normalize();
+  }
+  Vector w(cross(v, u));
+  return calc_ring_point(angle + phase, radius, u, v, w);
+};
+
+template<int W>
+Dots draw_ring(const Orientation& orientation, const Vector& normal, double radius, ColorFn color_fn, double phase = 0) {
+  Dots dots;
+  Vector v(normal);
+  if (radius > 1) {
+    v = -v;
+    radius = 2 - radius;
+  }
+  Vector u;
+  if (v.i == 0 && v.j == 0) {
+    u = cross(v, X_AXIS).normalize();
+  }
+  else {
+    u = cross(v, Z_AXIS).normalize();
+  }
+  Vector w(cross(v, u));
+
+  double step = 2 * PI / W;
+  for (double a = 0; a < 2 * PI; a += step) {
+    auto vi = calc_ring_point(fmod((a + phase), (2 * PI)), radius, u, v, w);
+    dots.emplace_back(Dot(vi, color_fn(vi, a / (2 * PI))));
+  }
+
+  return dots;
+};
+
+///////////////////////////////////////////////////////////////////////////////
 
 template <uint8_t W, uint8_t H>
 class Filter {
@@ -419,8 +552,7 @@ protected:
 };
 
 template<uint8_t W, uint8_t H>
-Pixels plot_dots(Filter<W, H>& filter, const Dots& dots, double age = 0) {
-  Pixels pixels;
+void plot_dots(const Dots& dots, Filter<W, H>& filters, Pixels& pixels, double age = 0) {
   for (auto& dot : dots) {
     Spherical s(dot.position);
     double y = (s.phi * H) / PI;
@@ -428,9 +560,8 @@ Pixels plot_dots(Filter<W, H>& filter, const Dots& dots, double age = 0) {
       continue;
     }
     double x = fmod(((s.theta + PI) * W) / (2 * PI), W);
-    filter.plot(pixels, x, y, dot.color, age, blend_over_add);
+    filters.plot(pixels, x, y, dot.color, age, blend_over_add);
   }
-  return pixels;
 }
 
 template <uint8_t W, uint8_t H>
@@ -547,6 +678,39 @@ private:
   CRGBPalette256 palette;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
+class ProceduralPalette {
+public:
+
+  ProceduralPalette(
+    std::array<double, 4> a, 
+    std::array<double, 4> b,
+    std::array<double, 4> c,
+    std::array<double, 4> d) :
+    a(a),
+    b(b),
+    c(c),
+    d(d)
+  {}
+
+  CHSV get(double t) {
+    return rgb2hsv_approximate(
+      CRGB(
+        a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0])),
+        a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1])),
+        a[2] + b[2] * cos(2 * PI * (c[2] * t + d[2]))
+    ));
+  }
+
+private:
+
+  std::array<double, 4> a;
+  std::array<double, 4> b;
+  std::array<double, 4> c;
+  std::array<double, 4> d;
+
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -562,9 +726,9 @@ public:
   }
 
   void cancel() { canceled = true; }
-  bool done() { return canceled || (duration >= 0 && t >= duration); }
+  virtual bool done() { return canceled || (duration >= 0 && t >= duration); }
 
-  void step() {
+  virtual void step() {
     t++;
     if (done()) {
       if (repeat) {
@@ -575,9 +739,9 @@ public:
 
 protected:
 
-  int t = 0;
-  bool repeat;
   int duration;
+  bool repeat;
+  int t = 0;
 
 private:
 
@@ -623,13 +787,16 @@ public:
     }
   }
 
+  int t = 0;
+
 private:
 
-  int t = 0;
   std::vector<TimelineEvent> events;
 };
 
 class RandomTimer : public Animation {
+public:
+
   RandomTimer(int min, int max, TimerFn f, bool repeat = false) :
     Animation(-1, repeat),
     min(min),
@@ -641,7 +808,7 @@ class RandomTimer : public Animation {
   }
 
   void reset() {
-    next = t + static_cast<int>(std::round(std::rand() * (max - min) + min));
+    next = t + static_cast<int>(std::round(hs::rand_int(min, max)));
   }
 
   void step() {
@@ -764,7 +931,7 @@ private:
 class Sprite : public Animation {
 public:
 
-  Sprite(DrawFn draw_fn, int duration,
+  Sprite(SpriteFn draw_fn, int duration,
     int fade_in_duration = 0, EasingFn fade_in_easing_fn = ease_mid,
     int fade_out_duration = 0, EasingFn fade_out_easing_fn = ease_mid) :
     Animation(duration, false),
@@ -789,7 +956,7 @@ public:
 
 private:
 
-  DrawFn draw_fn;
+  SpriteFn draw_fn;
   double fader;
   int fade_in_duration;
   int fade_out_duration;
@@ -871,5 +1038,18 @@ private:
   double from;
   double to;
 };
+
+template <int W>
+void rotate_between(Orientation& from, const Orientation& to) {
+  auto diff = to.get() * from.get().inverse();
+  auto angle = 2 * acos(diff.r);
+  if (angle == 0) {
+    return;
+  }
+  auto axis = Vector(diff.v.i, diff.v.j, diff.v.k).normalize();
+  // TODO: ease_out_circ?
+  Rotation<W>(from, axis, angle, 1, ease_mid).step();
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////

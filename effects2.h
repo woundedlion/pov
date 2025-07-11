@@ -22,6 +22,8 @@ DEFINE_GRADIENT_PALETTE(blue_purple_p) {
   255, 135, 0, 135
 };
 
+/*
+
 struct EventHandlers {
   std::function<void()> enter;
   std::function<void()> draw;
@@ -359,81 +361,176 @@ private:
   };
 
 };
+*/
 
-typedef ()
+template <int>
+class Thrusters;
 
-class Thruster {
+template <int W>
+class Thruster : public Animation {
 public:
 
-  Thruster(DrawFn drawFn, const Orientation& orientation, const Vector& thrustPoint) :
-    drawFn(drawFn),
+  Thruster(Thrusters<W>& parent, const Orientation& orientation, const Vector& thrust_point) :
+    Animation(0, false),
     orientation(orientation),
-    thrustPoint(thrustPoint),
-    exhaustRadius(0),
-    exhaustMotion(exhaustRadius, 0.3, 8, easeMid),
-    exhaustSprite(drawFn, 16, 0, easeMid, 16, easeOutExpo)
+    thrust_point(thrust_point),
+    exhaust_radius(0),
+    exhaust_motion(exhaust_radius, 0.3, 8, ease_mid),
+    exhaust_sprite([this, &parent](auto opacity) {
+        parent.draw_thruster(this->orientation, this->thrust_point, this->exhaust_radius, opacity); 
+      },
+      16, 0, ease_mid, 16, ease_out_expo)
   {
   }
 
-  done() {
-    return exhaustMotion.done()
-      && exhaustSprite.done();
+  bool done() {
+    return exhaust_motion.done()
+      && exhaust_sprite.done();
     ;
   }
 
-  step() {
-    exhaustSprite.step();
-    exhaustMotion.step();
+  void step() {
+    exhaust_sprite.step();
+    exhaust_motion.step();
   }
 
 private:
 
-  DrawFn drawFn;
   Orientation orientation;
-  Vector thrustPoint;
-  double exhaustRadius;
-  Transition exhaustMotion;
-  Sprite exhaustSprite;
-}
+  Vector thrust_point;
+  double exhaust_radius;
+  Transition exhaust_motion;
+  Sprite exhaust_sprite;
+};
 
 template <int W>
-class Thruster : public Effect {
+class Thrusters : public Effect {
 public:
   Thrusters() :
     Effect(W),
     palette(
-      [0.5, 0.5, 0.5],
-      [0.5, 0.5, 0.5],
-      [0.3, 0.3, 0.3],
-      [0.0, 0.2, 0.6]),
-
+      { 0.5, 0.5, 0.5 },
+      { 0.5, 0.5, 0.5 },
+      { 0.3, 0.3, 0.3 },
+      { 0.0, 0.2, 0.6 }),
+    ring(Vector(0.5, 0.5, 0.5).normalize())
   {
-    ringOutput.chain(new FilterAntiAlias());
-    timeline.add(0,
-      new Sprite(this.drawRing.bind(this), -1,
-        16, easeInSin,
-        16, easeOutSin)
-    );
+    timeline
+      .add(0,
+        std::make_shared<Sprite>(
+          [this](auto o) { return draw_ring(o); },
+          -1,
+          16, ease_in_sin,
+          16, ease_out_sin)
+      )
+      .add(0,
+        std::make_shared<RandomTimer>(
+          8, 48,
+          [this]() {  this->on_fire_thruster(); },
+          true)
+      );
   }
 
   bool show_bg() const { return false; }
 
+  void draw_thruster(const Orientation& orientation, const Vector& thrust_point, double radius, double opacity) {
+    auto dots = ::draw_ring<W>(orientation, thrust_point, radius,
+      [opacity](auto&, auto) { return CHSV(255, 255, 255 * opacity); });
+    plot_dots(dots, filters, pixels);
+  }
+
+  void on_fire_thruster() {
+    auto warp_phase = hs::rand_dbl() * 2 * PI;
+    auto thrust_point = fn_point(
+      [this](auto t) { return ring_fn(t); },
+      ring, 1, warp_phase);
+    auto thrust_opp = fn_point(
+      [this](auto t) { return ring_fn(t); },
+      ring, 1, 
+      warp_phase + PI);
+
+    // warp ring
+    if (warp && !warp->done()) {
+      warp->cancel();
+    }
+    warp.reset(new Mutation(
+      amplitude, 
+      [](double t, double m) { return 0.7 * exp(-2 * t); },
+      32, 
+      ease_mid));
+    timeline.add(1 / 16,
+      warp
+    );
+
+    // Spin ring
+    auto thrust_axis = cross(
+      orientation.orient(thrust_point),
+      orientation.orient(ring))
+      .normalize();
+    timeline.add(0,
+      std::make_shared<Rotation<W>>(
+        orientation, thrust_axis, 2 * PI, 8 * 16, ease_out_expo)
+    );
+
+    // show thruster
+    timeline.add(0,
+      std::make_shared<Thruster<W>>(
+        *this,
+        orientation,
+        thrust_point));
+    timeline.add(0,
+      std::make_shared<Thruster<W>>(
+        *this,
+        orientation,
+        thrust_opp));
+  }
+
+  double ring_fn(double t) {
+    return sin_wave(-1, 1, 2, warp_phase)(t) // ring
+      * sin_wave(-1, 1, 3, 0)((this->timeline.t % 32) / 32) // oscillation
+      * amplitude;
+  }
+
+  void draw_ring(double opacity) {
+    rotate_between<W>(orientation, to);
+    orientation.collapse();
+    to.collapse();
+    auto dots = draw_fn<W>(orientation, ring, radius,
+      [this](auto t) -> auto { 
+        return this->ring_fn(t); 
+      },
+      [this, opacity](auto& v, auto t) -> auto {
+        auto z = orientation.orient(X_AXIS);
+        auto color = palette.get(angle_between(z, v) / PI);
+        color.v = dim8_lin(color.v * opacity);
+        return color;
+      }
+    );
+    plot_dots(dots, filters, pixels);
+  }
+
   void draw_frame() {
+      pixels.clear();
+      timeline.step();
+
+      Canvas canvas(*this);
+      for (auto& [xy, p] : pixels) {
+        canvas(xy) = blend_over(canvas(xy), p.color);
+      }
   }
 
 private:
 
   ProceduralPalette palette;
-  FilterRaw ringOutput;
-  int t = 0;
+  FilterAntiAlias<W, H> filters;
   Vector ring;
   Orientation orientation;
   Orientation to;
-  std::vector<Thruster> thrusters;
+  std::vector<Thruster<W>> thrusters;
   double amplitude = 0;
   double warp_phase = 0;
   double radius = 1;
-
+  std::shared_ptr<Mutation> warp;
   Timeline timeline;
-
-}
+  Pixels pixels;
+};
