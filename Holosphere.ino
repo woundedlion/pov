@@ -17,6 +17,7 @@ void setup() {
 
 void loop() {
 	pov->show<Thrusters<96>>(145);
+	pov->show<Wormhole<96>>(145);
 
 	/*
 	pov->show<TheMatrix<40, 135> >(60);

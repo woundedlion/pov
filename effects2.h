@@ -78,9 +78,9 @@ private:
   std::unique_ptr<Rotation> rotation;
   std::unique_ptr<Rotation> rotation_rev;
 
-  FilterAntiAlias<W, H> poly_mask;
-  FilterDecayMask<W, H> poly_mask_mask;
-  FilterAntiAlias<W, H> output;
+  FilterAntiAlias<W> poly_mask;
+  FilterDecayMask<W> poly_mask_mask;
+  FilterAntiAlias<W> output;
 
   void transition() {
     state_index = (state_index + 1) % sequence.size();
@@ -431,12 +431,10 @@ public:
       );
   }
 
-  bool show_bg() const { return false; }
-
   void draw_thruster(const Orientation& orientation, const Vector& thrust_point, double radius, double opacity) {
     auto dots = ::draw_ring<W>(orientation, thrust_point, radius,
       [opacity](auto&, auto) { return CHSV(255, 255, 255 * opacity); });
-    plot_dots(dots, filters, pixels);
+    plot_dots<W>(dots, filters, pixels);
   }
 
   void on_fire_thruster() {
@@ -455,7 +453,7 @@ public:
     }
     warp.reset(new Mutation(
       amplitude, 
-      [](double t, double m) { return 0.7 * exp(-2 * t); },
+      [](auto t) { return 0.7 * exp(-2 * t); },
       32, 
       ease_mid));
     timeline.add(1 / 16,
@@ -506,23 +504,24 @@ public:
         return color;
       }
     );
-    plot_dots(dots, filters, pixels);
+    plot_dots<W>(dots, filters, pixels);
   }
 
   void draw_frame() {
-      pixels.clear();
-      timeline.step();
-
-      Canvas canvas(*this);
-      for (auto& [xy, p] : pixels) {
-        canvas(xy) = blend_over(canvas(xy), p.color);
-      }
+    pixels.clear();
+    timeline.step();
+    Canvas canvas(*this);
+    for (auto& [xy, p] : pixels) {
+      canvas(xy) = blend_over(canvas(xy), p.color);
+    }
   }
+
+  bool show_bg() const { return false; }
 
 private:
 
   ProceduralPalette palette;
-  FilterAntiAlias<W, H> filters;
+  FilterAntiAlias<W> filters;
   Vector ring;
   Orientation orientation;
   Orientation to;
@@ -533,4 +532,124 @@ private:
   std::shared_ptr<Mutation> warp;
   Timeline timeline;
   Pixels pixels;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+template <int W>
+class Wormhole : public Effect {
+public:
+
+  Wormhole() :
+    Effect(W),
+    palette(
+      { 0.5, 0.5, 0.5 },
+      { 1.0, 0.2, 0.5 },
+      { 0.5, 0.5, 0.5 },
+      { 0.3, 0.5, 0.0 })
+  {
+   
+    timeline.add(0,
+      std::make_shared<Sprite>([this](double opacity) { this->draw_rings(opacity); },
+        -1, 8, ease_mid, 0, ease_mid)
+    );
+
+    // T1: Spin everything
+    on_thrust_rings(1);
+    on_spin_rings(1);
+    on_mutate_duty_cyle(1);
+    on_mutate_twist(1);
+  }
+
+  void on_mutate_duty_cyle(double in_secs = 0) {
+    timeline.add(in_secs,
+      std::make_shared<Mutation>(duty_cycle, sin_wave((2 * PI) / W, (8 * 2 * PI) / W, 1, PI / 2),
+        160, ease_mid, true)
+    );
+  }
+
+  void on_mutate_twist(double in_secs = 0) {
+    timeline.add(in_secs,
+      std::make_shared<Mutation>(twist, sin_wave(3 / W, 10 / W, 1, PI / 2),
+        64, ease_mid, true)
+    );
+  }
+
+  void on_thrust_rings(double in_secs = 0) {
+    timeline.add(in_secs,
+      std::make_shared<Rotation<W>>(
+        orientation,
+        ring_point(normal, 1, hs::rand_dbl() * 2 * PI),
+        4 * PI,
+        96, ease_in_out_sin)
+    );
+
+    timeline.add(in_secs,
+      std::make_shared<RandomTimer>(48, 70, [this]() { this->on_thrust_rings(); })
+    );
+  }
+
+  void on_spin_rings(double in_secs = 0) {
+    timeline.add(in_secs,
+      std::make_shared<Transition>(phase, 2 * PI, 16, ease_mid, false, true)
+    );
+  }
+
+  void calc_ring_spread() {
+    radii.resize(num_rings);
+    for (int i = 0; i < num_rings; ++i) {
+      double x = ((i + 1) / (num_rings + 1)) * 2 - 1;
+      double r = sqrt(pow(1 - x, 2));
+      radii[i] = lerp(home_radius, r, spread_factor);
+    }
+  }
+
+ void draw_rings(double opacity) {
+    calc_ring_spread();
+    orientation.collapse();
+    for (unsigned int i = 0; i < radii.size(); ++i) {
+      auto dots = draw_ring<W>(orientation, normal, radii[i],
+        [=](auto& v, auto t) {
+          double idx = num_rings == 1 ? 0 : (1 - (i / (num_rings - 1)));
+          double darken = pow(1 - abs(radii[i] - 1), 3);
+          CHSV color = dim(palette.get(idx), darken);
+          auto r = dotted_brush(dim(color, opacity), freq,
+            duty_cycle, twist, t);
+          return r;
+        },
+        twist * i + phase);
+      plot_dots(dots, filters, pixels);
+    }
+  }
+
+  void draw_frame() {
+    pixels.clear();
+    timeline.step();
+    Canvas canvas(*this);
+    for (auto& [xy, p] : pixels) {
+      canvas(xy) = blend_over(canvas(xy), p.color);
+    }
+  }
+
+  bool show_bg() const { return false; }
+
+  private:
+
+    ProceduralPalette palette;
+    FilterAntiAlias<W> filters;
+    Vector normal;
+    Orientation orientation;
+
+    // TODO: int template for Mutation
+    double num_rings = W;
+    double spread_factor = 1;
+    double home_radius = 1;
+    double duty_cycle = (2 * PI) / W;
+    double freq = 2;
+    double twist = 7 / W;
+    double phase = 0;
+    std::vector<double> radii;
+
+    Timeline timeline;
+    Pixels pixels;
 };

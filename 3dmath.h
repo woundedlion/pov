@@ -279,6 +279,10 @@ double ease_out_expo(double t) {
   return t == 1 ? 1 : 1 - pow(2, -10 * t);
 }
 
+double ease_out_circ(double t) {
+  return sqrt(1 - pow(t - 1, 2));
+}
+
 Vector lissajous(double m1, double m2, double a, double t) {
 
   Vector v(

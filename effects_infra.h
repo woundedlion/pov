@@ -20,7 +20,7 @@ typedef std::function<double (double)> ShiftFn;
 typedef std::function<CHSV(const CHSV&, const CHSV&)> BlendFn;
 typedef std::function<void (double)> SpriteFn;
 typedef std::function<void ()> TimerFn;
-typedef std::function<double (double, double)> MutateFn;
+typedef std::function<double (double)> MutateFn;
 typedef std::function<double(double)> WaveFn;
 
 
@@ -145,6 +145,10 @@ struct Pixel {
 typedef std::vector<Dot> Dots;
 typedef std::unordered_map<int, Pixel> Pixels;
 
+CHSV dim(const CHSV& c, double s) {
+  return CHSV(c.h, c.s, dim8_lin(s * c.v));
+}
+
 CHSV blend_over(const CHSV& c1, const CHSV& c2) {
   return CHSV(c2.h, c2.s, c2.v);
 }
@@ -268,8 +272,10 @@ private:
   std::vector<Quaternion> orientations;
 };
 
+template <int W>
 Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way = false);
 
+template <int W>
 class Path {
 public:
   Path() {}
@@ -278,7 +284,7 @@ public:
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }
-    Dots seg = draw_line(v1, v2, [](auto& , auto) { return CHSV(); }, long_way);
+    Dots seg = draw_line<W>(v1, v2, [](auto& , auto) { return CHSV(); }, long_way);
     std::transform(seg.begin(), seg.end(), std::back_inserter(points), 
       [](auto& d) { return d.position; });
     return *this;
@@ -305,7 +311,8 @@ private:
   std::vector<Vector> points;
 };
 
-Dots draw_path(const Path& path, ColorFn color) {
+template <int W>
+Dots draw_path(const Path<W>& path, ColorFn color) {
   Dots dots;
   size_t samples = path.num_points();
   for (size_t i = 0; i < samples; ++i) {
@@ -352,6 +359,7 @@ CHSV distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1,
 }
 ///////////////////////////////////////////////////////////////////////////////
 
+template <int W>
 Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way /* = false*/) {
   Dots dots;
   Vector u(v1);
@@ -366,8 +374,7 @@ Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way 
   }
   v = cross(u, w).normalize();
 
-  // TODO: Optimize angle step
-  double step = 2.0 / 30;
+  double step = 2 * PI / W;
   for (double t = 0; t < a; t += step) {
     Vector vi(
       u.i * cos(t) + v.i * sin(t),
@@ -387,6 +394,7 @@ Dots draw_vertices(const VertexList& vertices, ColorFn color_fn) {
   return dots;
 }
 
+template <int W>
 Dots draw_polyhedron(const VertexList& vertices, const AdjacencyList& edges, ColorFn color_fn) {
   Dots dots;
 
@@ -394,7 +402,7 @@ Dots draw_polyhedron(const VertexList& vertices, const AdjacencyList& edges, Col
     Vector a(vertices[i]);
     for (auto j : edges[i]) {
       Vector b(vertices[j]);
-      auto seg = draw_line(a, b, color_fn);
+      auto seg = draw_line<W>(a, b, color_fn);
       dots.insert(dots.end(), seg.begin(), seg.end());
     }
   }
@@ -465,12 +473,12 @@ Dots draw_fn(const Orientation& orientation, const Vector& normal, double radius
       start = to;
     }
     else {
-      auto seg = draw_line(from, to, color_fn);
+      auto seg = draw_line<W>(from, to, color_fn);
       dots.insert(dots.begin(), seg.begin(), seg.end());
     }
     from = to;
   }
-  auto seg = draw_line(from, start, color_fn);
+  auto seg = draw_line<W>(from, start, color_fn);
   dots.insert(dots.begin(), seg.begin(), seg.end());
 
   return dots;
@@ -522,7 +530,7 @@ Dots draw_ring(const Orientation& orientation, const Vector& normal, double radi
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template <uint8_t W, uint8_t H>
+template <int W>
 class Filter {
 public:
   Filter() : next(nullptr) {}
@@ -551,29 +559,15 @@ protected:
   Filter* next;
 };
 
-template<uint8_t W, uint8_t H>
-void plot_dots(const Dots& dots, Filter<W, H>& filters, Pixels& pixels, double age = 0) {
-  for (auto& dot : dots) {
-    Spherical s(dot.position);
-    double y = (s.phi * H) / PI;
-    if (fabs(H - y) < 0.0001) {
-      continue;
-    }
-    double x = fmod(((s.theta + PI) * W) / (2 * PI), W);
-    filters.plot(pixels, x, y, dot.color, age, blend_over_add);
-  }
-}
-
-template <uint8_t W, uint8_t H>
-class FilterRaw : public Filter<W, H> {
+template <int W>
+class FilterRaw : public Filter<W> {
   void plot(Pixels& pixels, double x, double y, const CHSV& c, double age, BlendFn blend_mode) {
       this->pass(pixels, x, y, c, age, blend_mode);
     }
 };
 
-
-template <uint8_t W, uint8_t H>
-class FilterAntiAlias : public Filter<W, H> {
+template <int W>
+class FilterAntiAlias : public Filter<W> {
 public:
   FilterAntiAlias() {}
   
@@ -599,8 +593,8 @@ public:
   }
 };
 
-template <uint8_t W, uint8_t H>
-class FilterDecayMask : public Filter<W, H> {
+template <int W>
+class FilterDecayMask : public Filter<W> {
 public:
   FilterDecayMask(int lifetime) : lifetime(lifetime) {}
 
@@ -636,8 +630,8 @@ private:
 };
 
 
-template <uint8_t W, uint8_t H>
-class FilterDecayTrails : public Filter<W, H> {
+template <int W>
+class FilterDecayTrails : public Filter<W> {
 public:
 
   FilterDecayTrails(int lifetime, CRGBPalette256 palette) :
@@ -709,8 +703,11 @@ private:
   std::array<double, 4> b;
   std::array<double, 4> c;
   std::array<double, 4> d;
-
 };
+
+CHSV dotted_brush(const CHSV& color, double freq, double duty_cycle, double phase, double t) {
+  return dim(color, square_wave(0, 1, freq, duty_cycle, phase)(t));
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -770,7 +767,7 @@ public:
         return *this;
       }
     }
-    events.push_back(TimelineEvent(start, animation));
+    events.emplace_back(TimelineEvent(start, animation));
     return *this;
   }
 
@@ -915,7 +912,7 @@ public:
       from = mutant;
     }
     auto t = std::min(1, this->t / (duration - 1));
-    mutant = f(easing_fn(t), mutant);
+    mutant = f(easing_fn(t));
     Animation::step();
   }
 
@@ -964,11 +961,11 @@ private:
   Transition fade_out;
 };
 
-template <uint8_t W>
+template <int W>
 class Motion : public Animation {
 public:
 
-  Motion(Orientation& orientation, std::shared_ptr<Path> path, int duration, bool repeat = false) :
+  Motion(Orientation& orientation, std::shared_ptr<Path<W>> path, int duration, bool repeat = false) :
     Animation(duration, repeat),
     orientation(orientation),
     path(path),
@@ -995,7 +992,7 @@ private:
 
   static constexpr double MAX_ANGLE = 2 * PI / W;
   Orientation& orientation;
-  std::shared_ptr<Path> path;
+  std::shared_ptr<Path<W>> path;
   Vector from;
   Vector to;
 };
@@ -1047,9 +1044,20 @@ void rotate_between(Orientation& from, const Orientation& to) {
     return;
   }
   auto axis = Vector(diff.v.i, diff.v.j, diff.v.k).normalize();
-  // TODO: ease_out_circ?
-  Rotation<W>(from, axis, angle, 1, ease_mid).step();
+  Rotation<W>(from, axis, angle, 1, ease_out_circ).step();
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
+
+template<int W>
+void plot_dots(const Dots& dots, Filter<W>& filters, Pixels& pixels, double age = 0) {
+  for (auto& dot : dots) {
+    Spherical s(dot.position);
+    double y = (s.phi * H) / PI;
+    if (fabs(H - y) < 0.0001) {
+      continue;
+    }
+    double x = fmod(((s.theta + PI) * W) / (2 * PI), W);
+    filters.plot(pixels, x, y, dot.color, age, blend_over_add);
+  }
+}
