@@ -66,6 +66,10 @@ class Canvas {
   }
 
   const int width() { return effect_.width(); }
+  
+  void clear_buffer() {
+    memset(effect_.bufs_[effect_.cur_], 0, sizeof(CHSV) * effect_.width_ * H);
+  }
 
  private:
   Effect& effect_;

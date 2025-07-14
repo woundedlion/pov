@@ -381,6 +381,11 @@ public:
       },
       16, 0, ease_mid, 16, ease_out_expo)
   {
+    Serial.println("Thruster() Create");
+  }
+
+  ~Thruster() {
+    Serial.println("Thruster() Destroy");
   }
 
   bool done() {
@@ -423,21 +428,24 @@ public:
           16, ease_in_sin,
           16, ease_out_sin)
       )
+      
       .add(0,
         std::make_shared<RandomTimer>(
           8, 48,
           [this]() {  this->on_fire_thruster(); },
           true)
       );
+    Serial.println("Thrusters()");
   }
 
   void draw_thruster(const Orientation& orientation, const Vector& thrust_point, double radius, double opacity) {
     auto dots = ::draw_ring<W>(orientation, thrust_point, radius,
-      [opacity](auto&, auto) { return CHSV(255, 255, 255 * opacity); });
+      [opacity](auto&, auto) { return CHSV(0, 0, 255 * opacity); });
     plot_dots<W>(dots, filters, pixels);
   }
 
   void on_fire_thruster() {
+    Serial.println("on_fire_thruster()");
     auto warp_phase = hs::rand_dbl() * 2 * PI;
     auto thrust_point = fn_point(
       [this](auto t) { return ring_fn(t); },
@@ -481,6 +489,7 @@ public:
         *this,
         orientation,
         thrust_opp));
+    Serial.println("end on_fire_thruster()");
   }
 
   double ring_fn(double t) {
@@ -490,6 +499,7 @@ public:
   }
 
   void draw_ring(double opacity) {
+    Serial.println("draw_ring");
     rotate_between<W>(orientation, to);
     orientation.collapse();
     to.collapse();
@@ -499,18 +509,20 @@ public:
       },
       [this, opacity](auto& v, auto t) -> auto {
         auto z = orientation.orient(X_AXIS);
-        auto color = palette.get(angle_between(z, v) / PI);
+        auto color = rgb2hsv_approximate((palette.get(angle_between(z, v) / PI)));
         color.v = dim8_lin(color.v * opacity);
         return color;
       }
     );
     plot_dots<W>(dots, filters, pixels);
+    Serial.println("end draw_ring");
   }
 
   void draw_frame() {
     pixels.clear();
     timeline.step();
     Canvas canvas(*this);
+    canvas.clear_buffer();
     for (auto& [xy, p] : pixels) {
       canvas(xy) = blend_over(canvas(xy), p.color);
     }
@@ -546,9 +558,9 @@ public:
       { 0.5, 0.5, 0.5 },
       { 1.0, 0.2, 0.5 },
       { 0.5, 0.5, 0.5 },
-      { 0.3, 0.5, 0.0 })
+      { 0.3, 0.5, 0.0 }),
+    normal(Z_AXIS)
   {
-   
     timeline.add(0,
       std::make_shared<Sprite>([this](double opacity) { this->draw_rings(opacity); },
         -1, 8, ease_mid, 0, ease_mid)
@@ -562,6 +574,7 @@ public:
   }
 
   void on_mutate_duty_cyle(double in_secs = 0) {
+    return;
     timeline.add(in_secs,
       std::make_shared<Mutation>(duty_cycle, sin_wave((2 * PI) / W, (8 * 2 * PI) / W, 1, PI / 2),
         160, ease_mid, true)
@@ -569,8 +582,9 @@ public:
   }
 
   void on_mutate_twist(double in_secs = 0) {
+    return;
     timeline.add(in_secs,
-      std::make_shared<Mutation>(twist, sin_wave(3 / W, 10 / W, 1, PI / 2),
+      std::make_shared<Mutation>(twist, sin_wave(3.0 / W, 10.0 / W, 1, PI / 2),
         64, ease_mid, true)
     );
   }
@@ -581,17 +595,18 @@ public:
         orientation,
         ring_point(normal, 1, hs::rand_dbl() * 2 * PI),
         4 * PI,
-        96, ease_in_out_sin)
+        96, ease_in_out_sin, false)
     );
 
     timeline.add(in_secs,
-      std::make_shared<RandomTimer>(48, 70, [this]() { this->on_thrust_rings(); })
+      std::make_shared<RandomTimer>(48, 70, [this]() { this->on_thrust_rings(); }, false)
     );
   }
 
   void on_spin_rings(double in_secs = 0) {
+    return;
     timeline.add(in_secs,
-      std::make_shared<Transition>(phase, 2 * PI, 16, ease_mid, false, true)
+      std::make_shared<Transition>(phase, 2 * PI, 4 * 16, ease_mid, false, true)
     );
   }
 
@@ -612,7 +627,7 @@ public:
         [=](auto& v, auto t) {
           double idx = num_rings == 1 ? 0 : (1 - (i / (num_rings - 1)));
           double darken = pow(1 - abs(radii[i] - 1), 3);
-          CHSV color = dim(palette.get(idx), darken);
+          CHSV color = dim(rgb2hsv_approximate(palette.get(idx)), darken);
           auto r = dotted_brush(dim(color, opacity), freq,
             duty_cycle, twist, t);
           return r;
@@ -646,10 +661,75 @@ public:
     double home_radius = 1;
     double duty_cycle = (2 * PI) / W;
     double freq = 2;
-    double twist = 7 / W;
+    double twist = 7.0 / W;
     double phase = 0;
     std::vector<double> radii;
 
     Timeline timeline;
     Pixels pixels;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+template <int W>
+class Test : public Effect {
+public:
+  Test() :
+    Effect(W),
+    normal(Z_AXIS)
+  {
+    Serial.println("Test");
+    timeline.add(0, 
+      std::make_shared<Sprite>(
+        [this](auto opacity) {
+          this->draw_ring(opacity);
+        }, -1));
+    on_spin_ring();
+  }
+
+  bool show_bg() const { return false; }
+
+  void on_spin_ring(double in_secs = 0) {
+    timeline.add(in_secs,
+      std::make_shared<Rotation<W>>(
+        orientation,
+        orientation.orient(ring_point(normal, 1, hs::rand_dbl() * 2 * PI)),
+        4 * PI,
+        96, ease_in_out_sin, false)
+    );
+
+    timeline.add(in_secs,
+      std::make_shared<RandomTimer>(48, 70, [this]() { this->on_spin_ring(); }, false)
+    );
+
+  }
+
+  void draw_ring(double opacity) {
+    orientation.collapse();
+    auto dots = ::draw_ring<W>(orientation, normal, 1,
+      [opacity](auto&, auto) {
+        return CHSV(0, 0, dim8_lin(opacity * 255));
+      }
+    );
+    plot_dots(dots, filters, pixels);
+  }
+
+  void draw_frame() {
+    pixels.clear();
+    timeline.step();
+    Canvas canvas(*this);
+    canvas.clear_buffer();
+    for (auto& [xy, p] : pixels) {
+      canvas(xy) = p.color;
+    }
+  }
+
+private:
+
+  FilterAntiAlias<W> filters;
+  Vector normal;
+  Orientation orientation;
+  Timeline timeline;
+  Pixels pixels;
+
 };

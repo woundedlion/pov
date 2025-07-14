@@ -423,7 +423,6 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
   Vector v(normal);
   if (radius > 1) {
     v = -v;
-    radius = 2 - radius;
   }
   Vector u;
   if (v.i == 0 && v.j == 0) {
@@ -433,6 +432,10 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
     u = cross(v, Z_AXIS).normalize();
   }
   Vector w(cross(v, u));
+  if (radius > 1) {
+    w = -w;
+    radius = 2 - radius;
+  }
 
   auto vi = calc_ring_point(angle, radius, u, v, w);
   auto vp = calc_ring_point(angle, 1, u, v, w);
@@ -443,11 +446,9 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
 
 template <int W>
 Dots draw_fn(const Orientation& orientation, const Vector& normal, double radius, ShiftFn shift_fn, ColorFn color_fn) {
-  Dots dots;
   Vector v(orientation.orient(normal));
   if (radius > 1) {
     v = -v;
-    radius = 2 - radius;
   }
   Vector u;
   if (v.i == 0 && v.j == 0) {
@@ -457,10 +458,15 @@ Dots draw_fn(const Orientation& orientation, const Vector& normal, double radius
     u = cross(v, Z_AXIS).normalize();
   }
   Vector w(cross(v, u));
+  if (radius > 1) {
+    w = -w;
+    radius = 2 - radius;
+  }
 
   bool first = true;
   Vector start, from, to;
-  double step = 1 / W;
+  double step = 1.0 / W;
+  Dots dots;
   for (double t = 0; t < 1; t += step) {
     auto vi = calc_ring_point(t * 2 * PI, radius, u, v, w);
     auto vp = calc_ring_point(t * 2 * PI, 1, u, v, w);
@@ -489,7 +495,6 @@ Vector ring_point(const Vector& normal, double radius, double angle, double phas
   Vector v(normal);
   if (radius > 1) {
     v = -v;
-    radius = 2 - radius;
   }
   Vector u;
   if (v.i == 0 && v.j == 0) {
@@ -499,16 +504,19 @@ Vector ring_point(const Vector& normal, double radius, double angle, double phas
     u = cross(v, Z_AXIS).normalize();
   }
   Vector w(cross(v, u));
+  if (radius > 1) {
+    w = -w;
+    radius = 2 - radius;
+  }
   return calc_ring_point(angle + phase, radius, u, v, w);
 };
 
 template<int W>
 Dots draw_ring(const Orientation& orientation, const Vector& normal, double radius, ColorFn color_fn, double phase = 0) {
   Dots dots;
-  Vector v(normal);
+  Vector v(orientation.orient(normal));
   if (radius > 1) {
     v = -v;
-    radius = 2 - radius;
   }
   Vector u;
   if (v.i == 0 && v.j == 0) {
@@ -518,6 +526,10 @@ Dots draw_ring(const Orientation& orientation, const Vector& normal, double radi
     u = cross(v, Z_AXIS).normalize();
   }
   Vector w(cross(v, u));
+  if (radius > 1) {
+    w = -w;
+    radius = 2 - radius;
+  }
 
   double step = 2 * PI / W;
   for (double a = 0; a < 2 * PI; a += step) {
@@ -678,31 +690,31 @@ class ProceduralPalette {
 public:
 
   ProceduralPalette(
-    std::array<double, 4> a, 
-    std::array<double, 4> b,
-    std::array<double, 4> c,
-    std::array<double, 4> d) :
+    std::array<double, 3> a, 
+    std::array<double, 3> b,
+    std::array<double, 3> c,
+    std::array<double, 3> d) :
     a(a),
     b(b),
     c(c),
     d(d)
-  {}
+  {
+  }
 
-  CHSV get(double t) {
-    return rgb2hsv_approximate(
-      CRGB(
-        a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0])),
-        a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1])),
-        a[2] + b[2] * cos(2 * PI * (c[2] * t + d[2]))
-    ));
+  CRGB get(double t) {
+      return CRGB(
+        255 * (a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0]))),
+        255 * (a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1]))),
+        255 * (a[2] + b[2] * cos(2 * PI * (c[2] * t + d[2])))
+    );
   }
 
 private:
 
-  std::array<double, 4> a;
-  std::array<double, 4> b;
-  std::array<double, 4> c;
-  std::array<double, 4> d;
+  std::array<double, 3> a;
+  std::array<double, 3> b;
+  std::array<double, 3> c;
+  std::array<double, 3> d;
 };
 
 CHSV dotted_brush(const CHSV& color, double freq, double duty_cycle, double phase, double t) {
@@ -719,7 +731,6 @@ public:
     repeat(repeat),
     canceled(false)
   {
-
   }
 
   void cancel() { canceled = true; }
@@ -749,6 +760,10 @@ struct TimelineEvent {
   TimelineEvent(int start, std::shared_ptr<Animation> animation) :
     start(start),
     animation(animation) {}
+
+  TimelineEvent(const TimelineEvent& e) :
+  start(e.start),
+  animation(e.animation) {}
   
   int start;
   std::shared_ptr<Animation> animation;
@@ -773,12 +788,12 @@ public:
 
   void step() {
     t++;
-    for (auto e = events.begin(); e != events.end(); ++e) {
+    Serial.printf("T %d: scanning %d events\n", t, events.size());
+    events.erase(std::remove_if(events.begin(), events.end(), [](auto& e) { return e.animation->done(); }), events.end());
+    auto snapshot(events);
+    for (auto e = snapshot.begin(); e != snapshot.end(); ++e) {
       if (t >= e->start) {
-        if (e->animation->done()) {
-          e = events.erase(e);
-          continue;
-        }
+        Serial.println("event step");
         e->animation->step();
       }
     }
@@ -809,6 +824,7 @@ public:
   }
 
   void step() {
+    Serial.println("step RandomTimer");
     if (t >= next) {
       f();
       if (repeat) {
@@ -875,11 +891,12 @@ public:
   }
 
   void step() {
+    Serial.println("step Transition");
     if (t == 0) {
       from = mutant;
     }
     Animation::step();
-    auto t = std::min(1, this->t / duration);
+    auto t = std::min(1.0, static_cast<double>(this->t) / duration);
     auto n = easing_fn(t) * (to - from) + from;
     if (quantized) {
       n = std::floor(n);
@@ -908,10 +925,11 @@ public:
   {}
 
   void step() {
+    Serial.println("step Mutation");
     if (t == 0) {
       from = mutant;
     }
-    auto t = std::min(1, this->t / (duration - 1));
+    auto t = std::min(1.0, static_cast<double>(this->t) / (duration - 1));
     mutant = f(easing_fn(t));
     Animation::step();
   }
@@ -941,6 +959,7 @@ public:
   {}
 
   void step() {
+    Serial.println("step Sprite");
     if (!fade_in.done()) {
       fade_in.step();
     }
@@ -974,7 +993,7 @@ public:
 
   void step() {
     from = to;
-    to = path->get_point(t / duration);
+    to = path->get_point(static_cast<double>(t) / duration);
     if (from != to) {
       auto axis = cross(from, to).normalize();
       auto angle = angle_between(from, to);
@@ -1009,15 +1028,17 @@ public:
     easing_fn(easing_fn),
     from(0),
     to(0)
-  {}
+  {
+  }
 
   void step() {
+    Serial.println("step Rotation");
     from = to;
-    to = easing_fn(t / duration) * total_angle;
+    to = easing_fn(static_cast<double>(t) / duration) * total_angle;
     auto angle = distance(from, to, total_angle);
-    if (angle > 0.0001) {
+    if (angle > 0.00001) {
       auto origin = orientation.get();
-      for (auto a = MAX_ANGLE; angle - a > 0.0001; a += MAX_ANGLE) {
+      for (auto a = MAX_ANGLE; angle - a > 0.00001; a += MAX_ANGLE) {
         orientation.push(make_rotation(axis, a) * origin);
       }
       orientation.push(make_rotation(axis, angle) * origin);

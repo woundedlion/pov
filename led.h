@@ -11,7 +11,7 @@ namespace {
 
 namespace hs {
 	double rand_dbl() {
-		return ::random(0, std::numeric_limits<int32_t>::max())
+		return static_cast<double>(::random(0, std::numeric_limits<int32_t>::max()))
 			/ std::numeric_limits<int32_t>::max();
 	}
 
