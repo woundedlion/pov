@@ -32,6 +32,8 @@ class POVDisplay
 	POVDisplay()
 	{
      randomSeed(analogRead(PIN_RANDOM));
+		 FastLED.setCorrection(TypicalLEDStrip);
+		 FastLED.setTemperature(Candle);
 		 FastLED.addLeds<WS2801, 11, 13, RGB, DATA_RATE_MHZ(6)>(leds_, S);
 	}
 

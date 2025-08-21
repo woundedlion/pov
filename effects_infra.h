@@ -11,20 +11,23 @@
 #include <FastLED.h>
 #include "3dmath.h"
 
+typedef CRGB Pixel;
+typedef std::unordered_map<int, Pixel> Pixels;
+
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
-typedef std::function<CHSV(const Vector&, double)> ColorFn;
+typedef std::function<Pixel(const Vector&, double)> ColorFn;
 typedef std::function<double (double)> EasingFn;
 typedef std::function<Vector (double)> PlotFn;
 typedef std::function<double (double)> ShiftFn;
-typedef std::function<CHSV(const CHSV&, const CHSV&)> BlendFn;
+typedef std::function<Pixel(const Pixel&, const Pixel&)> BlendFn;
 typedef std::function<void (double)> SpriteFn;
 typedef std::function<void ()> TimerFn;
 typedef std::function<double (double)> MutateFn;
 typedef std::function<double(double)> WaveFn;
 
 
-// inline int XY(int x, int y) { return x * H + y; }
+ inline int XY(int x, int y) { return x * H + y; }
 
 static const int FPS = 16;
 static const Vector X_AXIS(1, 0, 0);
@@ -126,39 +129,33 @@ struct Dodecahedron {
 ///////////////////////////////////////////////////////////////////////////////
 
 struct Dot {
-  Dot(const Vector& v, const CHSV& color) :
+  Dot(const Vector& v, const Pixel& color) :
     position(v),
     color(color)
   {}
 
-  Dot(const Dot& p)
-    : position(p.position), color(p.color) {}
+  Dot(const Dot& d)
+    : position(d.position), color(d.color) {}
 
   Vector position;
-  CHSV color;
-};
-
-struct Pixel {
-  CHSV color = { 0, 0, 0 };
+  Pixel color;
 };
 
 typedef std::vector<Dot> Dots;
-typedef std::unordered_map<int, Pixel> Pixels;
 
-CHSV dim(const CHSV& c, double s) {
-  return CHSV(c.h, c.s, dim8_lin(s * c.v));
+Pixel dim(const Pixel c, double s) {
+  if (s < 0.5) s = s * s;
+  return Pixel(
+    static_cast<uint8_t>(c.r * s), 
+    static_cast<uint8_t>(c.g * s),
+    static_cast<uint8_t>(c.b * s));
 }
 
-CHSV blend_over(const CHSV& c1, const CHSV& c2) {
-  return CHSV(c2.h, c2.s, c2.v);
-}
-
-CHSV blend_over_max(const CHSV& c1, const CHSV& c2) {
-  return CHSV(c2.h, c2.s, std::max(c1.v, c2.v));
-}
-
-CHSV blend_over_add(const CHSV& c1, const CHSV& c2) {
-  return CHSV(c2.h, c2.s, qadd8(c1.v, c2.v));
+Pixel blend_over_add(const Pixel& c1, const Pixel& c2) {
+  return Pixel(
+    qadd8(c1.r, c2.r),
+    qadd8(c1.g, c2.g),
+    qadd8(c1.b, c2.b));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -284,7 +281,7 @@ public:
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }
-    Dots seg = draw_line<W>(v1, v2, [](auto& , auto) { return CHSV(); }, long_way);
+    Dots seg = draw_line<W>(v1, v2, [](auto& , auto) { return Pixel(); }, long_way);
     std::transform(seg.begin(), seg.end(), std::back_inserter(points), 
       [](auto& d) { return d.position; });
     return *this;
@@ -349,12 +346,12 @@ void bisect(Poly& poly, const Orientation& orientation, const Vector& normal) {
   }
 }
 
-CHSV distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1, CRGBPalette256 p2) {
+Pixel distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1, CRGBPalette256 p2) {
   auto d = dot(v, normal);
   if (d > 0) {
-    return rgb2hsv_approximate(p1[static_cast<int>(d * 255)]);
+    return p1[static_cast<int>(d * 255)];
   } else {
-    return rgb2hsv_approximate(p2[static_cast<int>(-d * 255)]);
+    return p2[static_cast<int>(-d * 255)];
   }
 }
 ///////////////////////////////////////////////////////////////////////////////
@@ -552,16 +549,16 @@ public:
     return *this;
   }
 
-  virtual void plot(Pixels& pixes, double x, double y, 
-    const CHSV& c, double age, BlendFn blend_mode) = 0;
+  virtual void plot(Pixels& pixels, double x, double y, 
+    const Pixel& c, double age, BlendFn blend_mode) = 0;
 
 protected:
   
   void pass(Pixels& pixels, double x, double y,
-    const CHSV& c, double age, BlendFn blend_mode)
+    const Pixel& c, double age, BlendFn blend_mode)
   {
     if (next == nullptr) {
-      pixels[XY(x, y)] = { blend_mode(pixels[XY(x, y)].color, c) };
+      pixels[XY(x, y)] = { blend_mode(pixels[XY(x, y)], c) };
     }
     else {
       next->plot(pixels, x, y, c, age, blend_mode);
@@ -573,7 +570,7 @@ protected:
 
 template <int W>
 class FilterRaw : public Filter<W> {
-  void plot(Pixels& pixels, double x, double y, const CHSV& c, double age, BlendFn blend_mode) {
+  void plot(Pixels& pixels, double x, double y, const Pixel& c, double age, BlendFn blend_mode) {
       this->pass(pixels, x, y, c, age, blend_mode);
     }
 };
@@ -583,24 +580,24 @@ class FilterAntiAlias : public Filter<W> {
 public:
   FilterAntiAlias() {}
   
-  void plot(Pixels& pixels, double x, double y, const CHSV& c, double age, BlendFn blend_mode) {
+  void plot(Pixels& pixels, double x, double y, const Pixel& c, double age, BlendFn blend_mode) {
     double x_i = 0;
     double x_m = modf(x, &x_i);
     double y_i = 0;
     double y_m = modf(y, &y_i);
 
-    uint8_t v = static_cast<uint8_t>(((1 - x_m) * (1 - y_m) * c.v) + 0.5f);
-    this->pass(pixels, x_i, y_i, CHSV(c.h, c.s, v), age, blend_mode);
+    double v = (1 - x_m) * (1 - y_m);
+    this->pass(pixels, x_i, y_i, dim(c, v), age, blend_mode);
 
-    v = static_cast<uint8_t>((x_m * (1 - y_m) * c.v) + 0.5f);
-    this->pass(pixels, (static_cast<int>(x_i + 1)) % W, y_i, CHSV(c.h, c.s, v), age, blend_mode);
+    v = x_m * (1 - y_m);
+    this->pass(pixels, (static_cast<int>(x_i + 1)) % W, y_i, dim(c, v), age, blend_mode);
 
     if (y_i < H - 1) {
-      v = static_cast<uint8_t>(((1 - x_m) * y_m * c.v) + 0.5f);
-      this->pass(pixels, x_i, y_i + 1, CHSV(c.h, c.s, v), age, blend_mode);
+      v = (1 - x_m) * y_m;
+      this->pass(pixels, x_i, y_i + 1, dim(c, v), age, blend_mode);
 
-      v = static_cast<uint8_t>((x_m * y_m * c.v) + 0.5f);
-      this->pass(pixels, static_cast<int>(x_i + 1) % W, y_i + 1, CHSV(c.h, c.s, v), age, blend_mode);
+      v = x_m * y_m;
+      this->pass(pixels, static_cast<int>(x_i + 1) % W, y_i + 1, dim(c, v), age, blend_mode);
     }
   }
 };
@@ -621,17 +618,15 @@ public:
     }
   }
 
-  CHSV mask(int xy, const CHSV& c) {
-    CHSV r(c);
+  Pixel mask(int xy, const Pixel& c) {
     if (ttls.find(xy) != ttls.end()) {
-      r.v = dim8_lin(r.v * ttls[xy] / lifetime);
+      return dim(c, ttls[xy] / lifetime);
     } else {
-      r.v = 0;
+      return CRGB(0, 0, 0);
     }
-    return r;
   }
 
-  void plot(Pixels& pixels, double x, double y, const CHSV& c, double age, BlendFn blend_mode) {
+  void plot(Pixels& pixels, double x, double y, const Pixel& c, double age, BlendFn blend_mode) {
     ttls[XY(x, y)] = std::max(0.0, lifetime - age);;
     this->pass(pixels, x, y, c, age, blend_mode);
   }
@@ -665,11 +660,11 @@ public:
     }
   }
 
-  void plot(Pixels& pixels, double x, double y, const CHSV& c, double age, BlendFn blend_mode) {
+  void plot(Pixels& pixels, double x, double y, const Pixel& c, double age, BlendFn blend_mode) {
     int xy = XY(x, y);
     ttls[xy] = std::max(0.0, lifetime - age);
-    trail_pixels[xy] = rgb2hsv_approximate(
-      palette[static_cast<int>(ttls[xy] * 255.0 / lifetime)]);
+    trail_pixels[xy] =
+      palette[static_cast<int>(ttls[xy] * 255.0 / lifetime)];
     for (auto& [xy, color] : trail_pixels) {
       pixels[xy] = { color };
     }
@@ -679,9 +674,28 @@ public:
 private:
 
   std::unordered_map<int, double> ttls;
-  std::unordered_map<int, CHSV> trail_pixels;
+  std::unordered_map<int, Pixel> trail_pixels;
   int lifetime;
   CRGBPalette256 palette;
+};
+
+template<int W>
+class FilterChromaticShift : public Filter<W> {
+public:
+
+  FilterChromaticShift()
+  {
+  }
+
+  void plot(Pixels& pixels, double x, double y, const Pixel& color, double age, BlendFn blendFn) {
+    CRGB r(color.r, 0, 0);
+    CRGB g(0, color.g, 0);
+    CRGB b(0, 0, color.b);
+    pass(pixels, x, y, color, age, blendFn);
+    pass(pixels, wrap(x + 1, W), y, r, age, blendFn);
+    pass(pixels, wrap(x + 2, W), y, g, age, blendFn);
+    pass(pixels, wrap(x + 3, W), y, b, age, blendFn);
+  }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -701,8 +715,8 @@ public:
   {
   }
 
-  CRGB get(double t) {
-      return CRGB(
+  Pixel get(double t) {
+      return Pixel(
         255 * (a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0]))),
         255 * (a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1]))),
         255 * (a[2] + b[2] * cos(2 * PI * (c[2] * t + d[2])))
@@ -717,7 +731,7 @@ private:
   std::array<double, 3> d;
 };
 
-CHSV dotted_brush(const CHSV& color, double freq, double duty_cycle, double phase, double t) {
+Pixel dotted_brush(const Pixel& color, double freq, double duty_cycle, double phase, double t) {
   return dim(color, square_wave(0, 1, freq, duty_cycle, phase)(t));
 }
 

@@ -379,7 +379,7 @@ public:
     exhaust_sprite([this, &parent](auto opacity) {
         parent.draw_thruster(this->orientation, this->thrust_point, this->exhaust_radius, opacity); 
       },
-      16, 0, ease_mid, 16, ease_out_expo)
+      32, 0, ease_mid, 32, ease_out_expo)
   {
     Serial.println("Thruster() Create");
   }
@@ -459,15 +459,16 @@ public:
     if (warp && !warp->done()) {
       warp->cancel();
     }
+    
     warp.reset(new Mutation(
       amplitude, 
-      [](auto t) { return 0.7 * exp(-2 * t); },
+      [](auto t) { return 0.7 * exp(-2.0 * t); },
       32, 
       ease_mid));
-    timeline.add(1 / 16,
+    timeline.add(1.0 / 16,
       warp
     );
-
+   
     // Spin ring
     auto thrust_axis = cross(
       orientation.orient(thrust_point),
@@ -477,7 +478,7 @@ public:
       std::make_shared<Rotation<W>>(
         orientation, thrust_axis, 2 * PI, 8 * 16, ease_out_expo)
     );
-
+    
     // show thruster
     timeline.add(0,
       std::make_shared<Thruster<W>>(
@@ -494,7 +495,7 @@ public:
 
   double ring_fn(double t) {
     return sin_wave(-1, 1, 2, warp_phase)(t) // ring
-      * sin_wave(-1, 1, 3, 0)((this->timeline.t % 32) / 32) // oscillation
+      * sin_wave(-1, 1, 3, 0)((this->timeline.t % 32) / 32.0) // oscillation
       * amplitude;
   }
 
@@ -524,7 +525,7 @@ public:
     Canvas canvas(*this);
     canvas.clear_buffer();
     for (auto& [xy, p] : pixels) {
-      canvas(xy) = blend_over(canvas(xy), p.color);
+      canvas(xy) = p;
     }
   }
 
@@ -593,27 +594,26 @@ public:
     timeline.add(in_secs,
       std::make_shared<Rotation<W>>(
         orientation,
-        ring_point(normal, 1, hs::rand_dbl() * 2 * PI),
+        ring_point(orientation.orient(normal), 1, hs::rand_dbl() * 2 * PI),
         4 * PI,
-        96, ease_in_out_sin, false)
+        16 * 16, ease_in_out_sin, false)
     );
 
     timeline.add(in_secs,
-      std::make_shared<RandomTimer>(48, 70, [this]() { this->on_thrust_rings(); }, false)
+      std::make_shared<RandomTimer>(4 * 16, 8 * 16, [this]() { this->on_thrust_rings(); }, false)
     );
   }
 
   void on_spin_rings(double in_secs = 0) {
-    return;
     timeline.add(in_secs,
-      std::make_shared<Transition>(phase, 2 * PI, 4 * 16, ease_mid, false, true)
+      std::make_shared<Transition>(phase, 2 * PI, 32, ease_mid, false, true)
     );
   }
 
   void calc_ring_spread() {
     radii.resize(num_rings);
     for (int i = 0; i < num_rings; ++i) {
-      double x = ((i + 1) / (num_rings + 1)) * 2 - 1;
+      double x = (static_cast<double>(i + 1) / (num_rings + 1)) * 2 - 1;
       double r = sqrt(pow(1 - x, 2));
       radii[i] = lerp(home_radius, r, spread_factor);
     }
@@ -621,13 +621,14 @@ public:
 
  void draw_rings(double opacity) {
     calc_ring_spread();
+    Serial.println(phase);
     orientation.collapse();
     for (unsigned int i = 0; i < radii.size(); ++i) {
       auto dots = draw_ring<W>(orientation, normal, radii[i],
         [=](auto& v, auto t) {
-          double idx = num_rings == 1 ? 0 : (1 - (i / (num_rings - 1)));
+          double idx = num_rings == 1 ? 0 : (1 - (static_cast<double>(i) / (num_rings - 1)));
           double darken = pow(1 - abs(radii[i] - 1), 3);
-          CHSV color = dim(rgb2hsv_approximate(palette.get(idx)), darken);
+          auto color = dim(palette.get(idx), darken);
           auto r = dotted_brush(dim(color, opacity), freq,
             duty_cycle, twist, t);
           return r;
@@ -642,7 +643,7 @@ public:
     timeline.step();
     Canvas canvas(*this);
     for (auto& [xy, p] : pixels) {
-      canvas(xy) = blend_over(canvas(xy), p.color);
+      canvas(xy) = p;
     }
   }
 
@@ -661,7 +662,7 @@ public:
     double home_radius = 1;
     double duty_cycle = (2 * PI) / W;
     double freq = 2;
-    double twist = 7.0 / W;
+    double twist = 10.0 / W;
     double phase = 0;
     std::vector<double> radii;
 
@@ -678,6 +679,7 @@ public:
     Effect(W),
     normal(Z_AXIS)
   {
+    filters.chain(aa);
     Serial.println("Test");
     timeline.add(0, 
       std::make_shared<Sprite>(
@@ -720,13 +722,14 @@ public:
     Canvas canvas(*this);
     canvas.clear_buffer();
     for (auto& [xy, p] : pixels) {
-      canvas(xy) = p.color;
+      canvas(xy) = p;
     }
   }
 
 private:
 
-  FilterAntiAlias<W> filters;
+  FilterAntiAlias<W> aa;
+  FilterChromaticShift<W> filters;
   Vector normal;
   Orientation orientation;
   Timeline timeline;

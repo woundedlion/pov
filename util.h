@@ -6,13 +6,13 @@ int wrap(int x, int m) {
 		((x % m) + m) % m);
 }
 
-int wrap(float x, int m) {
+int wrap(double x, int m) {
 	return x >= 0 ?
 		fmod(x, m) :
 		fmod(fmod(x, m) + m, m);
 }
 
-int wrap(float x, float m) {
+int wrap(double x, double m) {
 	return x >= 0 ?
 		fmod(x, m) :
 		fmod(fmod(x, m) + m, m);

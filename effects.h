@@ -4,20 +4,20 @@
 #include "particle.h"
 #include "rotate.h"
 #include "util.h"
+#include "effects_infra.h"
+
 
 class Canvas;
-
-inline int XY(int x, int y) { return x * H + y; }
 
 class Effect {
   friend class Canvas;
 
  public:
   Effect(int W) : width_(W) {
-    bufs_[0] = new CHSV[W * H];
-    memset(bufs_[0], 0, sizeof(CHSV) * W * H);
-    bufs_[1] = new CHSV[W * H];
-    memset(bufs_[1], 0, sizeof(CHSV) * W * H);
+    bufs_[0] = new CRGB[W * H];
+    memset(bufs_[0], 0, sizeof(CRGB) * W * H);
+    bufs_[1] = new CRGB[W * H];
+    memset(bufs_[1], 0, sizeof(CRGB) * W * H);
   }
 
   virtual ~Effect() {
@@ -28,7 +28,7 @@ class Effect {
   virtual void draw_frame() = 0;
   virtual bool show_bg() const = 0;
 
-  virtual const CHSV& get_pixel(int x, int y) const {
+  virtual const CRGB& get_pixel(int x, int y) const {
     return bufs_[prev_][XY(x, y)];
   }
 
@@ -37,7 +37,7 @@ class Effect {
   inline void advance_display() { prev_ = next_; }
   inline void advance_buffer() {
     cur_ = cur_ ? 0 : 1;
-    memcpy(bufs_[cur_], bufs_[prev_], sizeof(CHSV) * width_ * H);
+    memcpy(bufs_[cur_], bufs_[prev_], sizeof(CRGB) * width_ * H);
   }
 
   inline void queue_frame() { next_ = cur_; }
@@ -45,7 +45,7 @@ class Effect {
  private:
   volatile int prev_ = 0, cur_ = 0, next_ = 0;
   int width_;
-  CHSV* bufs_[2];
+  CRGB* bufs_[2];
 };
 
 class Canvas {
@@ -57,11 +57,11 @@ class Canvas {
 
   ~Canvas() { effect_.queue_frame(); }
 
-  inline CHSV& operator()(int x, int y) {
+  inline CRGB& operator()(int x, int y) {
     return effect_.bufs_[effect_.cur_][XY(x, y)];
   }
 
-  inline CHSV& operator()(int xy) {
+  inline CRGB& operator()(int xy) {
     return effect_.bufs_[effect_.cur_][xy];
   }
 
@@ -77,26 +77,19 @@ class Canvas {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template <int TTL>
-void trail_ttl(CHSV& p, uint8_t& ttl, const CHSVPalette256& palette) {
-  if (ttl == 0) {
-    return;
-  }
-  uint8_t i = 255 * (TTL - ttl) / TTL;
-  p.h = palette[i].h;
-  p.s = palette[i].s;
-  p.v = qsub8(p.v, p.v / ttl);
-}
 
-void trail_rainbow(CHSV& p, uint8_t hue_falloff = 32,
+void trail_rainbow(CRGB& c, uint8_t hue_falloff = 32,
                    uint8_t dim_falloff = 32) {
+  auto p = rgb2hsv_approximate(c);
   p.s = 255;
   p.h += hue_falloff;
   p.v = qsub8(p.v, dim_falloff);
+  c = p;
 }
 
-void trail_rainbow_lin(CHSV& p, uint8_t hue_falloff = 32,
+void trail_rainbow_lin(CRGB& c, uint8_t hue_falloff = 32,
                        uint8_t dim_falloff = 32) {
+  auto p = rgb2hsv_approximate(c);
   p.s = 255;
   if (p.v < 128) {
     p.h += hue_falloff / 2;
@@ -105,6 +98,7 @@ void trail_rainbow_lin(CHSV& p, uint8_t hue_falloff = 32,
     p.h += hue_falloff;
     p.v = qsub8(p.v, dim_falloff);
   }
+  c = p;
 }
 
 void disintegrate(CHSV& p, int prob) {
@@ -139,28 +133,24 @@ void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y,
 }
 */
 
-void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
+void plot_aa(Canvas& cv, const float& x, const float& y, const CRGB& c) {
   int x_i = floor(x);
   int y_i = floor(y);
-  float x_m = x - x_i;
-  float y_m = y - y_i;
+  double x_m = x - x_i;
+  double y_m = y - y_i;
 
-  const int FULL = 255;
+  double v = (1 - x_m) * (1 - y_m);
+  cv(x_i, y_i) = dim(c, v);
 
-  int v = static_cast<int>(((1 - x_m) * (1 - y_m) * FULL) + 0.5f);
-  cv(x_i, y_i) = CHSV(c.h, c.s, dim8_lin(qadd8(cv(x_i, y_i).v, v)));
-
-  v = static_cast<int>((x_m * (1 - y_m) * FULL) + 0.5f);
-  cv((x_i + 1) % cv.width(), y_i) =
-      CHSV(c.h, c.s, dim8_lin(qadd8(cv((x_i + 1) % cv.width(), y_i).v, v)));
+  v = x_m * (1 - y_m);
+  cv((x_i + 1) % cv.width(), y_i) = dim(c, v);
 
   if (y_i < H - 1) {
-    v = static_cast<int>(((1 - x_m) * y_m * FULL) + 0.5f);
-    cv(x_i, y_i + 1) = CHSV(c.h, c.s, dim8_lin(qadd8(cv(x_i, y_i + 1).v, v)));
+    v = (1 - x_m) * y_m;
+    cv(x_i, y_i + 1) = dim(c, v);
 
-    v = static_cast<int>((x_m * y_m * FULL) + 0.5f);
-    cv((x_i + 1) % cv.width(), y_i + 1) = CHSV(
-        c.h, c.s, dim8_lin(qadd8(cv((x_i + 1) % cv.width(), y_i + 1).v, v)));
+    v = x_m * y_m;
+    cv((x_i + 1) % cv.width(), y_i + 1) = dim(c, v);
   }
 }
 
@@ -532,7 +522,7 @@ class ChainWiggle : public Effect {
 template <int W>
 class RingTwist : public Effect {
  public:
-  RingTwist() : Effect(W), seed_(104, 0, 255) {
+  RingTwist() : Effect(W), seed_(CHSV(104, 0, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
     for (int x = 0; x < W; x += W / COUNT_) {
@@ -544,7 +534,7 @@ class RingTwist : public Effect {
 
   bool show_bg() const { return false; }
 
-  const CHSV& get_pixel(int x, int y) const {
+  const CRGB& get_pixel(int x, int y) const {
     return Effect::get_pixel(wrap(x - pos_[y], W), y);
   }
 
@@ -568,7 +558,7 @@ class RingTwist : public Effect {
   }
 
  private:
-  void decay(CHSV& p) { trail_rainbow(p, 8, 24); }
+  void decay(CRGB& p) { trail_rainbow(p, 8, 24); }
 
   void pull(int y) {
     if (stop_ != -1 && pos_[y] == stop_) {
@@ -619,7 +609,7 @@ class RingTwist : public Effect {
   }
 
   void add_trail(Canvas& c, int y, int x, int dir) {
-    if (c(wrap(x + dir, W), y).v == 0 || c(x, y) == seed_) {
+    if (c(wrap(x + dir, W), y) == CRGB(0, 0, 0) || c(x, y) == seed_) {
       return;
     }
     add_trail(c, y, wrap(x - dir, W), dir);
@@ -627,7 +617,7 @@ class RingTwist : public Effect {
     decay(c(x, y));
   }
 
-  const CHSV seed_;
+  const CRGB seed_;
   const int COUNT_ = 2;
   const int STOP_TIMER_ = 15000;
   int pos_[H] = {0};
@@ -639,6 +629,7 @@ class RingTwist : public Effect {
   Canvas* canvas_ = NULL;
 };
 
+/*
 template <int W>
 class Curves : public Effect {
  public:
@@ -685,6 +676,7 @@ class Curves : public Effect {
   uint8_t falloff_ = 48;
   CHSVPalette256 palette_;
 };
+*/
 
 template <uint8_t W, uint8_t HUE>
 class TheMatrix : public Effect {
@@ -742,10 +734,10 @@ class StarsFade : public Effect {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
-        if (c(x, y).v) {
+        if (c(x, y) != CRGB(0, 0, 0)) {
           trail_rainbow(c(x, y), 16, 32);
         } else if (random8() < 3) {
-          c(x, y) = CHSV(hue_, 255, 255);
+          c(x, y) = CRGB(CHSV(hue_, 255, 255));
         }
       }
     }
