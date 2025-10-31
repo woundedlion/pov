@@ -363,6 +363,7 @@ private:
 };
 */
 
+/*
 template <int>
 class Thrusters;
 
@@ -673,9 +674,29 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
-class Test : public Effect {
+class RingSpin : public Effect {
 public:
-  Test() :
+
+  struct Ring {
+    Ring(const Vector& normal, const Filter& filters, const Palette& palette, uint8_t trail_length) :
+      normal(normal),
+      palette(palette)
+    {
+    
+    this.orientation = new Orientation();
+      this.walk = new RandomWalk(this.orientation, this.normal);
+      this.trails = new FilterDecayTrails(trailLength);
+      this.trails.chain(filters);
+    }
+
+    Vector normal;
+    Palette palette;
+    Orientation orientation;
+    RandomWalk walk;
+    FilterDecayTrails trails;
+  };
+
+  RingSpin() :
     Effect(W),
     normal(Z_AXIS)
   {
@@ -735,4 +756,80 @@ private:
   Timeline timeline;
   Pixels pixels;
 
+};
+
+*/
+
+template <int W>
+class Dynamo {
+public:
+
+  struct Node {
+    Node(double y) :
+      x(0), y(y), v(0)
+    {
+      double x;
+      double y;
+      double v;
+    }
+  };
+
+  Dynamo() :
+    palette_normal(X_AXIS),
+    speed(2),
+    gap(4),
+    trail_length(10),
+    replicate(4),
+    trails(trail_length),
+    orient(orientation)
+  {
+    palettes.emplace_back(std::make_shared<GenerativePalette>());
+    for (int i = 0; i < H; ++i) {
+      nodes.emplace_back(i)
+    }
+
+    filters
+      .chain(trails)
+      .chain(orient)
+      .chain(aa);
+
+    timeline
+      .add(0,
+        std::make_shared<RandomTimer>(4, 64, [=]() { reverse(); }, true))
+      .add(0,
+        std::make_shared<RandomTimer>(20, 64, [=]() { color_wipe(); }, true))
+      .add(0,
+        std::make_shared<RandomTimer>(80, 150, [=]() { rotate(); }, true));
+  }
+
+  void reverse() {
+    speed *= -1;
+  }
+
+  void rotate() {
+    timeline.add(0,
+      std::make_shared<Rotation<W>>(
+        orientation, random_vector(), PI, 40, ease_in_out_sin, false));
+  }
+
+  void color_wipe() {
+  }
+
+private:
+
+  Pixels pixels;
+  Timeline timeline;
+  std::vector<std::shared_ptr<Palette>> Palettes;
+  std::vector<double> palette_boundaries;
+  Vector palette_normal;
+  std::vector<Node> nodes;
+  double speed;
+  double gap;
+  uint32_t trail_length;
+  Orientation orientation;
+  
+  FilterReplicate filters;
+  FilterDecayTrails trails;
+  FilterOrient orient;
+  FilterAntiAlias aa;
 };

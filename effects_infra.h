@@ -700,7 +700,12 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-class ProceduralPalette {
+class Palette {
+public:
+  Pixel get(double t) = 0;
+};
+
+class ProceduralPalette : public Palette {
 public:
 
   ProceduralPalette(
