@@ -14,15 +14,13 @@ class Effect {
 
  public:
   Effect(int W) : width_(W) {
-    bufs_[0] = new CRGB[W * H];
+    bufs_[0] = buffer_a;
     memset(bufs_[0], 0, sizeof(CRGB) * W * H);
-    bufs_[1] = new CRGB[W * H];
+    bufs_[1] = buffer_b;
     memset(bufs_[1], 0, sizeof(CRGB) * W * H);
   }
 
   virtual ~Effect() {
-    delete[] bufs_[0];
-    delete[] bufs_[1];
   };
 
   virtual void draw_frame() = 0;
@@ -36,15 +34,23 @@ class Effect {
   inline bool buffer_free() const { return prev_ == next_; }
   inline void advance_display() { prev_ = next_; }
   inline void advance_buffer() {
+    noInterrupts();
     cur_ = cur_ ? 0 : 1;
+    interrupts();
     memcpy(bufs_[cur_], bufs_[prev_], sizeof(CRGB) * width_ * H);
   }
 
-  inline void queue_frame() { next_ = cur_; }
+  inline void queue_frame() { 
+    noInterrupts();
+    next_ = cur_; 
+    interrupts();
+  }
 
  private:
   volatile int prev_ = 0, cur_ = 0, next_ = 0;
   int width_;
+  inline static CRGB buffer_a[MAX_W * H];
+  inline static CRGB buffer_b[MAX_W * H];
   CRGB* bufs_[2];
 };
 
@@ -68,7 +74,7 @@ class Canvas {
   const int width() { return effect_.width(); }
   
   void clear_buffer() {
-    memset(effect_.bufs_[effect_.cur_], 0, sizeof(CHSV) * effect_.width_ * H);
+    memset(effect_.bufs_[effect_.cur_], 0, sizeof(CRGB) * effect_.width_ * H);
   }
 
  private:

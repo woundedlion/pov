@@ -6,6 +6,7 @@ namespace {
 	const unsigned int RPM = 480;
 	const int NUM_PIXELS = 40;
 	const int H = NUM_PIXELS / 2;
+	const int MAX_W = 96;
 	const int PIN_RANDOM = 15;
 }
 

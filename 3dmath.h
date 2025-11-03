@@ -5,7 +5,8 @@
 #include <limits>
 #include <cassert>
 
-static constexpr double g = 1.6180339887498948482045868343656;
+static constexpr double PHI = 1.6180339887498948482045868343656;
+static constexpr double G = 1 / PHI;
 
 struct Vector;
 struct Spherical {
@@ -103,7 +104,7 @@ struct Quaternion {
   }
 
   double magnitude() const {
-    return r * r + v.i * v.i + v.j * v.j + v.k * v.k;
+    return sqrt(r * r + v.i * v.i + v.j * v.j + v.k * v.k);
   }
 
   Quaternion& normalize() {
@@ -156,7 +157,7 @@ Vector cross(const Vector& v1, const Vector& v2) {
 }
 
 double distance_between(const Vector& a, const Vector& b) {
-  return pow(b.i - a.i, 2)
+  return sqrt(pow(b.i - a.i, 2)
     + pow(b.j - a.j, 2)
     + pow(b.k - a.k, 2);
 }

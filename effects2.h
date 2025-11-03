@@ -670,7 +670,7 @@ public:
     Timeline timeline;
     Pixels pixels;
 };
-
+*/
 ///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
@@ -678,87 +678,90 @@ class RingSpin : public Effect {
 public:
 
   struct Ring {
-    Ring(const Vector& normal, const Filter& filters, const Palette& palette, uint8_t trail_length) :
+    Ring(const Vector& normal, Filter& filters, const Palette& palette, uint8_t trail_length) :
       normal(normal),
-      palette(palette)
-    {
-    
-    this.orientation = new Orientation();
-      this.walk = new RandomWalk(this.orientation, this.normal);
-      this.trails = new FilterDecayTrails(trailLength);
-      this.trails.chain(filters);
+      palette(palette),
+      trails(trail_length)
+    {    
+      trails.chain(filters);
     }
 
     Vector normal;
     Palette palette;
     Orientation orientation;
-    RandomWalk walk;
-    FilterDecayTrails trails;
+    FilterDecay<W> trails;
   };
 
   RingSpin() :
     Effect(W),
-    normal(Z_AXIS)
+    alpha(0.2),
+    trail_length(15),
+    palettes({ richSunset, undersea, mangoPeel, lemonLime, algae, lateSunset })
   {
-    filters.chain(aa);
-    Serial.println("Test");
-    timeline.add(0, 
-      std::make_shared<Sprite>(
-        [this](auto opacity) {
-          this->draw_ring(opacity);
-        }, -1));
-    on_spin_ring();
+    spawn_ring(X_AXIS, palettes[0]);
+    spawn_ring(Y_AXIS, palettes[1]);
+    spawn_ring(Z_AXIS, palettes[2]);
+    spawn_ring(X_AXIS, palettes[3]);
+    spawn_ring(Y_AXIS, palettes[4]);
+    spawn_ring(Z_AXIS, palettes[5]);
   }
 
   bool show_bg() const { return false; }
 
-  void on_spin_ring(double in_secs = 0) {
-    timeline.add(in_secs,
-      std::make_shared<Rotation<W>>(
-        orientation,
-        orientation.orient(ring_point(normal, 1, hs::rand_dbl() * 2 * PI)),
-        4 * PI,
-        96, ease_in_out_sin, false)
-    );
-
-    timeline.add(in_secs,
-      std::make_shared<RandomTimer>(48, 70, [this]() { this->on_spin_ring(); }, false)
-    );
-
+  void spawn_ring(const Vector& normal, Palette& palette) {
+    auto ring_index = rings.size();
+    rings.emplace_back(normal, filters, palette, trail_length);
+    timeline.add(0,
+      std::make_unique<Sprite>(
+        [=](double opacity) { draw_ring(opacity, ring_index); },
+        -1,
+        4, easeMid,
+        0, easeMid
+      ));
+    timeline.add(0,
+      std::make_unique<RandomWalk<W>(ring.orientation, ring.normal));
   }
 
-  void draw_ring(double opacity) {
-    orientation.collapse();
-    auto dots = ::draw_ring<W>(orientation, normal, 1,
-      [opacity](auto&, auto) {
-        return CHSV(0, 0, dim8_lin(opacity * 255));
-      }
-    );
-    plot_dots(dots, filters, pixels);
+  void draw_ring(double opacity, size_t ring_index) {
+    Dots dots;
+    auto& ring = rings[ring_index];
+    double s = ring.orientation.length();
+    for (int i = 0; i < s; ++i) {
+      dots = draw_ring(ring.orientation.orient(ring.normal, i), 1,
+        [=](auto& v, auto t) { return ring.palette.get(0); });
+      plot_dots(dots, ring.trails, pixels, 
+       (s - 1 - i) / s,
+       alpha * opacity);
+    }
+    ring.trails.trail(pixels,
+      [=](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
+      alpha * opacity);
+    ring.trails.decay();
+    ring.orientation.collapse();
   }
 
   void draw_frame() {
-    pixels.clear();
+    std::fill(pixels.begin(), pixels.end(), Pixel(0, 0, 0));
     timeline.step();
     Canvas canvas(*this);
     canvas.clear_buffer();
-    for (auto& [xy, p] : pixels) {
-      canvas(xy) = p;
+    for (int i = 0; i < pixels.size(); ++i) {
+      canvas(i) = p;
     }
   }
 
 private:
 
-  FilterAntiAlias<W> aa;
-  FilterChromaticShift<W> filters;
-  Vector normal;
-  Orientation orientation;
-  Timeline timeline;
   Pixels pixels;
-
+  std::vector<Ring> rings;
+  double alpha;
+  double trail_length;
+  FilterAntiAlias<W> filters;
+  std::vector<Palette&> palettes;
+  Timeline timeline;
 };
 
-*/
+/*
 
 template <int W>
 class Dynamo {
@@ -829,7 +832,9 @@ private:
   Orientation orientation;
   
   FilterReplicate filters;
-  FilterDecayTrails trails;
+  FilterDecay trails;
   FilterOrient orient;
   FilterAntiAlias aa;
 };
+
+*/
