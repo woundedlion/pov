@@ -206,14 +206,16 @@ Quaternion make_rotation(const Vector& axis, double theta) {
 
 Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long_way = false) {
   double d = dot(q1, q2);
+  Quaternion p(q1);
+  Quaternion q(q2);
 
   if ((long_way && d > 0) || (!long_way && d < 0)) {
-    q2 = -q2;
+    p = -p;
     d = -d;
   }
 
   if (d > 0.99995) {
-    Quaternion r = q1 + t * (q2 - q1);
+    Quaternion r = p + t * (q - p);
     return r.normalize();
   }
 
@@ -221,7 +223,7 @@ Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long
   double sin_theta = sin(theta);
   double s1 = sin((1 - t) * theta) / sin_theta;
   double s2 = sin(t * theta) / sin_theta;
-  return (s1 * q1) + (s2 * q2);
+  return (s1 * p) + (s2 * q);
 }
 
 bool is_over(const Vector& v, const Vector& normal) {

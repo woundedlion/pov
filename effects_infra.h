@@ -9,6 +9,8 @@
 #include <array>
 #include <memory>
 #include <FastLED.h>
+#include <variant>
+#include <array>
 #include "3dmath.h"
 #include "FastNoiseLite.h"
 
@@ -37,21 +39,35 @@ typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
 typedef std::function<Pixel(const Vector&, double)> ColorFn;
 typedef std::function<Pixel(double x, double y, double t)> TrailFn;
-typedef std::function<double (double)> EasingFn;
-typedef std::function<Vector (double)> PlotFn;
-typedef std::function<double (double)> ShiftFn;
-typedef std::function<void (Canvas&, double)> SpriteFn;
-typedef std::function<void (Canvas&)> TimerFn;
-typedef std::function<double (double)> MutateFn;
-typedef std::function<double (double)> WaveFn;
-
-
-inline int XY(int x, int y) { return x * H + y; }
+typedef std::function<double(double)> EasingFn;
+typedef std::function<Vector(double)> PlotFn;
+typedef std::function<double(double)> ShiftFn;
+typedef std::function<void(Canvas&, double)> SpriteFn;
+typedef std::function<void(Canvas&)> TimerFn;
+typedef std::function<double(double)> MutateFn;
+typedef std::function<double(double)> WaveFn;
 
 static const int FPS = 16;
 static const Vector X_AXIS(1, 0, 0);
 static const Vector Y_AXIS(0, 1, 0);
 static const Vector Z_AXIS(0, 0, 1);
+
+
+template <int W>
+Vector pixel_to_vector(double x, double y) {
+  return Vector(
+    Spherical(
+      (x * 2 * PI) / W,
+      (y * PI) / (H - 1)
+      )
+  );
+}
+
+template <int W>
+PixelCoords vector_to_pixel(const Vector& v) {
+  auto s = Spherical(v);
+  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H - 1)) / PI });
+}
 
 Vector random_vector() {
   return Vector(
@@ -155,14 +171,6 @@ struct Dodecahedron {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-
-Pixel dim(const Pixel c, double s) {
-  if (s < 0.5) s = s * s;
-  return Pixel(
-    static_cast<uint8_t>(c.r * s), 
-    static_cast<uint8_t>(c.g * s),
-    static_cast<uint8_t>(c.b * s));
-}
 
 auto blend_alpha(double a) {
   return [a](const Pixel& c1, const Pixel& c2) {
@@ -382,7 +390,8 @@ Pixel distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1
 ///////////////////////////////////////////////////////////////////////////////
 
 Dots draw_vector(const Vector& v, ColorFn color_fn) {
-  auto u = v.normalize();
+  Vector u(v);
+  u.normalize();
   return { Dot(u, color_fn(u, 0)) };
 }
 
@@ -466,7 +475,7 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
 
   auto vi = calc_ring_point(angle, radius, u, v, w);
   auto vp = calc_ring_point(angle, 1, u, v, w);
-  auto axis = cross(v, vp).normalize();
+  Vector axis = cross(v, vp).normalize();
   auto shift = make_rotation(axis, f(angle * PI / 2));
   return rotate(vi, shift);
 };
@@ -539,9 +548,9 @@ Vector ring_point(const Vector& normal, double radius, double angle, double phas
 };
 
 template<int W>
-Dots draw_ring(const Orientation& orientation, const Vector& normal, double radius, ColorFn color_fn, double phase = 0) {
+Dots draw_ring(const Vector& normal, double radius, ColorFn color_fn, double phase = 0) {
   Dots dots;
-  Vector v(orientation.orient(normal));
+  Vector v(normal);
   if (radius > 1) {
     v = -v;
   }
@@ -632,7 +641,7 @@ public:
   }
 };
 
-template <int W, size_t MAX_PIXELS>
+template <int W, int MAX_PIXELS>
 class FilterDecay : public Filter<W> {
 public:
 
@@ -656,20 +665,20 @@ public:
   void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
-        ttls[num_pixels++] = { static_cast<float>(x), static_cast<float>(y), lifetime - age };
+        ttls[num_pixels++] = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(lifetime - age) };
       } else {
         Serial.println("FilterDecay full!");
       }
     }
     if (age <= 0) {
-      pass(canvas, x, y, color, age, alpha);
+      this->pass(canvas, x, y, color, age, alpha);
     }
   }
 
   void trail(Canvas& canvas, TrailFn trailFn, double alpha) {
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
-      pass(canvas, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
+      this->pass(canvas, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
     }
   }
 
@@ -683,7 +692,7 @@ private:
 
   int lifetime;
   std::array<DecayPixel, MAX_PIXELS> ttls;
-  size_t num_pixels;
+  int num_pixels;
 };
 
 template<int W>
@@ -698,10 +707,10 @@ public:
     CRGB r(color.r, 0, 0);
     CRGB g(0, color.g, 0);
     CRGB b(0, 0, color.b);
-    pass(canvas, x, y, color, age, alpha);
-    pass(canvas, wrap(x + 1, W), y, r, age, alpha);
-    pass(canvas, wrap(x + 2, W), y, g, age, alpha);
-    pass(canvas, wrap(x + 3, W), y, b, age, alpha);
+    this->pass(canvas, x, y, color, age, alpha);
+    this->pass(canvas, wrap(x + 1, W), y, r, age, alpha);
+    this->pass(canvas, wrap(x + 2, W), y, g, age, alpha);
+    this->pass(canvas, wrap(x + 3, W), y, b, age, alpha);
   }
 };
 
@@ -722,50 +731,37 @@ public:
 private:
 
   Orientation& orientation;
-}
+};
 
 template <int W>
 class FilterReplicate : public Filter<W> {
 public:
 
-  FilterReplicate(size_t count) :
-    count(std::max(1, std::min(W, count)))
+  FilterReplicate(int count) :
+    count(std::clamp(1, W, count))
   {}
 
   void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
     for (int i = 0; i < W; i += W / count) {
-      pass(canvas, wrap(x + i, W), y, color, age, alpha);
+      this->pass(canvas, wrap(x + i, W), y, color, age, alpha);
     }
   }
 
 private:
 
-  size_t count;
-}
+  int count;
+};
 ///////////////////////////////////////////////////////////////////////////////
 
 uint16_t to_short(double zero_to_one) {
-  return std::max(0, std::min(65535, std::round(zero_to_one * 65535)));
+  return std::clamp(0.0, 65535.0, std::round(zero_to_one * 65535));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-auto vignette(const Palette& palette) {
-  CRGB vignette_color(0, 0, 0);
-  return [=](double t) {
-    if (t < 0.2) {
-      return vignette_color.lerp16(palette.get(0), to_short(t / 0.2));
-    } else if (t >= 0.8) {
-      return palette.get(1).lerp16(vignette_color, to_short((t - 0.8) / 0.2));
-    } else {
-      return palette.get((t - 0.2) / 0.6);
-    }
-  }
-}
-
 class Palette {
 public:
-  Pixel get(double t) const  = 0;
+  virtual Pixel get(double t) const = 0;
 };
 
 enum class HarmonyType {
@@ -782,11 +778,11 @@ enum class GradientShape {
   FALLOFF
 };
 
-class GenerativePalette {
+class GenerativePalette : public Palette {
 public:
 
-  GenerativePalette(GradientShape shape, HarmonyType harmony_type) :
-    gradient_shape(shape),
+  GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type) :
+    gradient_shape(gradient_shape),
     harmony_type(harmony_type),
     seed_hue(static_cast<uint8_t>(hs::rand_int(0, 256)))
   {
@@ -809,49 +805,50 @@ public:
     a = CHSV(h1, s1, v1);
     b = CHSV(h2, s2, v2);
     c = CHSV(h3, s3, v3);
-  }
 
-  Pixel get(double t) const {
-    std::array<double> shape;
-    std::array<Pixel> colors;
     const Pixel vignette_color(0, 0, 0);
-
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
       shape = { 0, 0.1, 0.5, 0.9, 1 };
       colors = { vignette_color, a, b, c, vignette_color };
+      size = 5;
       break;
     case GradientShape::STRAIGHT:
       shape = { 0, 0.5, 1 };
       colors = { a, b, c };
+      size = 3;
       break;
     case GradientShape::CIRCULAR:
       shape = { 0, 0.33, 0.66, 1 };
       colors = { a, b, c, a };
+      size = 4;
       break;
     case GradientShape::FALLOFF:
       shape = { 0, 0.33, 0.66, 0.9, 1 };
       colors = { a, b, c, vignette_color };
+      size = 4;
       break;
     }
+  }
 
+  Pixel get(double t) const override {
     int seg = -1;
-    for (int i = 0; i < shape.size() - 1; ++i) {
+    for (int i = 0; i < size - 1; ++i) {
       if (t >= shape[i] && t < shape[i + 1]) {
         seg = i;
         break;
       }
     }
     if (seg < 0) {
-      seg = shape.size() - 2;
+      seg = size - 2;
     }
 
     auto start = shape[seg];
     auto end = shape[seg + 1];
-    auto c1 = colors[seg];
-    auto c2 = colors[seg + 1];
+    Pixel c1 = colors[seg];
+    Pixel c2 = colors[seg + 1];
 
-    return c1.lerp16(c2, std::max(0, std::min(65535, (t - start) / (end - start) * 65535)));
+    return c1.lerp16(c2, std::clamp(0.0, 65535.0, (t - start) / (end - start) * 65535));
   }
 
   private:
@@ -901,7 +898,10 @@ public:
     HarmonyType harmony_type;
     uint8_t seed_hue;
     Pixel a, b, c;
-}
+    std::array<double, 5> shape;
+    std::array<Pixel, 5> colors;
+    int size;
+};
 
 class ProceduralPalette : public Palette {
 public:
@@ -918,7 +918,7 @@ public:
   {
   }
 
-  Pixel get(double t) const {
+  Pixel get(double t) const override {
       return Pixel(
         255 * (a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0]))),
         255 * (a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1]))),
@@ -940,6 +940,22 @@ std::variant<
   ProceduralPalette
 >;
 
+auto vignette(const Palette& palette) {
+  CRGB vignette_color(0, 0, 0);
+  return [&](double t) {
+    if (t < 0.2) {
+      return vignette_color.lerp16(palette.get(0), to_short(t / 0.2));
+    }
+    else if (t >= 0.8) {
+      return palette.get(1).lerp16(vignette_color, to_short((t - 0.8) / 0.2));
+    }
+    else {
+      return palette.get((t - 0.2) / 0.6);
+    }
+  };
+}
+
+
 static const ProceduralPalette richSunset(
   { 0.309, 0.500, 0.500 }, // A
   { 1.000, 1.000, 0.500 }, // B
@@ -947,7 +963,7 @@ static const ProceduralPalette richSunset(
   { 0.132, 0.222, 0.521 }  // D
 );
 
-static const ProceduralPalette underSea(
+static const ProceduralPalette undersea(
   { 0.000, 0.000, 0.000 }, // A
   { 0.500, 0.276, 0.423 }, // B
   { 0.296, 0.296, 0.296 }, // C
@@ -982,6 +998,8 @@ static const ProceduralPalette algae(
   { 0.328, 0.658, 0.948 }  // D
 );
 
+
+
 Pixel dotted_brush(const Pixel& color, double freq, double duty_cycle, double phase, double t) {
   return dim(color, square_wave(0, 1, freq, duty_cycle, phase)(t));
 }
@@ -990,6 +1008,13 @@ Pixel dotted_brush(const Pixel& color, double freq, double duty_cycle, double ph
 
 class Animation {
 public:
+
+  Animation() :
+    duration(-1),
+    repeat(false),
+    canceled(false),
+    post([]() {})
+  {}
 
   Animation(int duration, bool repeat) :
     duration(duration),
@@ -1131,7 +1156,7 @@ public:
 
 private:
 
-  double& mutant;
+  std::reference_wrapper<double> mutant;
   double from;
   double to;
   EasingFn easing_fn;
@@ -1155,13 +1180,13 @@ public:
       from = mutant;
     }
     auto t = std::min(1.0, static_cast<double>(this->t) / (duration - 1));
-    mutant = f(easing_fn(t));
+    mutant.get() = f(easing_fn(t));
     Animation::step(canvas);
   }
 
 private:
 
-  double& mutant;
+  std::reference_wrapper<double> mutant;
   double from;
   MutateFn f;
   EasingFn easing_fn;
@@ -1209,25 +1234,25 @@ template <int W>
 class Motion : public Animation {
 public:
 
-  Motion(Orientation& orientation, std::unique_ptr<Path<W>> path, int duration, bool repeat = false) :
+  Motion(Orientation& orientation, const Path<W>& path, int duration, bool repeat = false) :
     Animation(duration, repeat),
     orientation(orientation),
-    path(std::move(path)),
-    to(this->path->get_point(0))
+    path(path),
+    to(this->path.get_point(0))
   {}
 
   void step(Canvas& canvas) {
     from = to;
-    to = path->get_point(static_cast<double>(t) / duration);
+    to = path.get().get_point(static_cast<double>(t) / duration);
     if (from != to) {
-      auto axis = cross(from, to).normalize();
+      Vector axis = cross(from, to).normalize();
       auto angle = angle_between(from, to);
-      auto origin = orientation.get();
-      orientation.collapse();
+      auto& origin = orientation.get().get();
+      orientation.get().collapse();
       for (auto a = MAX_ANGLE; angle - a > 0.0001; a += MAX_ANGLE) {
-        orientation.push(make_rotation(axis, a) * origin);
+        orientation.get().push(make_rotation(axis, a) * origin);
       }
-      orientation.push(make_rotation(axis, angle) * origin);
+      orientation.get().push(make_rotation(axis, angle) * origin);
     }
     Animation::step(canvas);
   }
@@ -1235,8 +1260,8 @@ public:
 private:
 
   static constexpr double MAX_ANGLE = 2 * PI / W;
-  Orientation& orientation;
-  std::unique_ptr<Path<W>> path;
+  std::reference_wrapper<Orientation> orientation;
+  std::reference_wrapper<const Path<W>> path;
   Vector from;
   Vector to;
 };
@@ -1256,7 +1281,6 @@ public:
   {
   }
 
-  template <int W>
   static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, double angle, EasingFn easing_fn) {
     Rotation<W> r(orientation, axis, angle, 2, easing_fn, false);
     r.step(canvas);
@@ -1264,16 +1288,16 @@ public:
   }
 
   void step(Canvas& canvas) {
-    orientation.collapse();
+    orientation.get().collapse();
     from = to;
     to = easing_fn(static_cast<double>(t) / duration) * total_angle;
     auto angle = distance(from, to, total_angle);
     if (angle > 0.00001) {
-      auto origin = orientation.get();
+      auto& origin = orientation.get().get();
       for (auto a = MAX_ANGLE; angle - a > 0.00001; a += MAX_ANGLE) {
-        orientation.push(make_rotation(axis, a) * origin);
+        orientation.get().push(make_rotation(axis, a) * origin);
       }
-      orientation.push(make_rotation(axis, angle) * origin);
+      orientation.get().push(make_rotation(axis, angle) * origin);
     }
     Animation::step(canvas);
   }
@@ -1281,7 +1305,7 @@ public:
 private:
 
   static constexpr double MAX_ANGLE = 2 * PI / W;
-  Orientation& orientation;
+  std::reference_wrapper<Orientation> orientation;
   Vector axis;
   double total_angle;
   EasingFn easing_fn;
@@ -1295,14 +1319,13 @@ public:
   RandomWalk(Orientation& orientation, const Vector& v_start) :
     Animation(-1, false),
     orientation(orientation),
-    v(v_start.normalize())
+    v(Vector(v_start).normalize())
   {
     
     Vector u;
-    if (std::abs(this->v.dot(X_AXIS)) > 0.9) {
+    if (std::abs(dot(v, X_AXIS)) > 0.9) {
       u = Y_AXIS;
-    }
-    else {
+    } else {
       u = X_AXIS;
     }
     direction = cross(v, u).normalize();
@@ -1313,12 +1336,12 @@ public:
 
   void step(Canvas& canvas) override {
     Animation::step(canvas);
-    double pivotAngle = noiseGenerator.GetNoise(t * NOISE_SCALE) * PIVOT_STRENGTH;
+    double pivotAngle = noiseGenerator.GetNoise(t * NOISE_SCALE, 0.0) * PIVOT_STRENGTH;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
-    auto walk_axis = cross(v, direction).normalize();
+    Vector walk_axis = cross(v, direction).normalize();
     v = rotate(v, make_rotation(walk_axis, WALK_SPEED)).normalize();
     direction = rotate(direction, make_rotation(walk_axis, WALK_SPEED)).normalize();
-    Rotation::animate<W>(canvas, orientation, walk_axis, WALK_SPEED, ease_mid);
+    Rotation<W>::animate(canvas, orientation, walk_axis, WALK_SPEED, ease_mid);
   }
 
 private:
@@ -1327,7 +1350,7 @@ private:
   static constexpr double NOISE_SCALE = 0.05;
 
   FastNoiseLite noiseGenerator;
-  Orientation& orientation;
+  std::reference_wrapper<Orientation> orientation;
   Vector v; 
   Vector direction;
 };
@@ -1335,6 +1358,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 using AnimationVariant = std::variant<
+  Animation,
   Sprite,
   Transition,
   Mutation,
@@ -1360,7 +1384,7 @@ public:
   template <typename A>
   Timeline& add(double in_frames, A animation) {
     if (num_events >= MAX_EVENTS) {
-      Serial.println("Timeline full, failed to add animation!")
+      Serial.println("Timeline full, failed to add animation!");
       return *this;
     }
     TimelineEvent& e = events[num_events++];
@@ -1375,10 +1399,10 @@ public:
       if (t < events[i].start) {
         continue;
       }
-      std::visit([=](auto& a) { a.step(canvas); }, events[i].animation);
+      std::visit([&](auto& a) { a.step(canvas); }, events[i].animation);
       bool done = std::visit([](auto& a) { return a.done(); }, events[i].animation);
       if (done) {
-        std::visit([](auto& a) { a.post_callback(); }, events[i].animation)
+        std::visit([](auto& a) { a.post_callback(); }, events[i].animation);
         num_events--;
         if (i < num_events) {
           events[i] = std::move(events[num_events]);
@@ -1392,9 +1416,9 @@ public:
 
 private:
 
-  static constexpr MAX_EVENTS = 32;
+  static constexpr int MAX_EVENTS = 32;
   std::array<TimelineEvent, MAX_EVENTS> events;
-  size_t num_events;
+  int num_events;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1403,27 +1427,12 @@ template<int W>
 void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, double age, double alpha) {
   for (auto& dot : dots) {
     Spherical s(dot.position);
-    double y = std::max(0, std::min(H - 1, (s.phi * H) / PI));
-    double x = std::max(0, std::min(W - 1, fmod(((s.theta + PI) * W) / (2 * PI), W)));
+    double y = std::clamp(0.0, static_cast<double>(H - 1), (s.phi * H) / PI);
+    double x = std::clamp(0.0, static_cast<double>(W - 1), fmod(((s.theta + PI) * W) / (2 * PI), W));
     filters.plot(canvas, x, y, dot.color, age, alpha);
   }
 }
 
-template <int W>
-Vector pixel_to_vector(double x, double y) {
-  return Vector(
-    Spherical(
-      (x * 2 * PI) / W,
-      (y * PI) / (H - 1),
-    )
-  );
-}
-
-template <int W>
-PixelCoords vector_to_pixel(const Vector& v) {
-  auto s = Spherical(v);
-  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H - 1)) / PI });
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 

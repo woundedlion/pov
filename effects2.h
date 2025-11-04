@@ -323,7 +323,7 @@ class RingSpin : public Effect {
 public:
 
   struct Ring {
-    Ring(const Vector& normal, Filter& filters, const Palette& palette, uint8_t trail_length) :
+    Ring(const Vector& normal, Filter<W>& filters, const Palette& palette, uint8_t trail_length) :
       normal(normal),
       palette(palette),
       trails(trail_length)
@@ -353,15 +353,15 @@ public:
 
   bool show_bg() const { return false; }
 
-  void spawn_ring(const Vector& normal, Palette& palette) {
+  void spawn_ring(const Vector& normal, const Palette& palette) {
     auto ring_index = rings.size();
     rings.emplace_back(normal, filters, palette, trail_length);
     timeline.add(0,
       Sprite(
         [=](Canvas& canvas, double opacity) { draw_ring(canvas, opacity, ring_index); },
         -1,
-        4, easeMid,
-        0, easeMid
+        4, ease_mid,
+        0, ease_mid
       ));
     timeline.add(0,
       RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
@@ -372,14 +372,14 @@ public:
     auto& ring = rings[ring_index];
     double s = ring.orientation.length();
     for (int i = 0; i < s; ++i) {
-      dots = draw_ring(ring.orientation.orient(ring.normal, i), 1,
-        [=](auto& v, auto t) { return ring.palette.get(0); });
+      dots = ::draw_ring<W>(ring.orientation.orient(ring.normal, i), 1,
+        [&](auto& v, auto t) { return ring.palette.get(0); });
       plot_dots(dots, ring.trails, canvas, 
        (s - 1 - i) / s,
        alpha * opacity);
     }
     ring.trails.trail(canvas,
-      [=](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
+      [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
     ring.trails.decay();
     ring.orientation.collapse();
@@ -396,7 +396,7 @@ private:
   double alpha;
   double trail_length;
   FilterAntiAlias<W> filters;
-  std::array<const Palette*> palettes = { &richSunset, &undersea, &mangoPeel, &lemonLime, &algae, &lateSunset };
+  std::array<const Palette*, 6> palettes = { &richSunset, &undersea, &mangoPeel, &lemonLime, &algae, &lateSunset };
   Timeline timeline;
 };
 
@@ -463,9 +463,10 @@ public:
     timeline.add(0,
       Transition(palette_boundaries[0], PI, 20, ease_mid)
       .then([this]() {
-          palette_boundaries.pop();
-          palettes.pop();
-        });
+        palette_boundaries.pop();
+        palettes.pop();
+        })
+    );
   }
 
   Pixel color(const Vector& v, double t) {
@@ -483,7 +484,7 @@ public:
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
-        auto clamped_blend_factor = std::max(0, std::min(blend_factor, 1));
+        auto clamped_blend_factor = std::clamp(0.0, 1.0, blend_factor);
         auto c1 = std::visit([=](auto& p) { return p.get(t); }, palettes[i]);
         auto c2 = std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
         return c1.lerp16(c2, to_short(clamped_blend_factor));
@@ -509,7 +510,7 @@ public:
     }
     trails.trail(
       canvas,
-      [this](double x, double y, double t) { return color(pixel_to_vector(x, y), t); },
+      [this](double x, double y, double t) { return color(pixel_to_vector<W>(x, y), t); },
       0.5
     );
 
@@ -573,8 +574,8 @@ private:
 
   Timeline timeline;
  
-  static constexpr MAX_PALETTES = 16;
-  static constexpr NUM_NODES = H;
+  static constexpr size_t MAX_PALETTES = 16;
+  static constexpr size_t NUM_NODES = H;
   StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
   StaticCircularBuffer <double, MAX_PALETTES - 1> palette_boundaries; 
 

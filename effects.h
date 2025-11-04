@@ -4,7 +4,9 @@
 #include "particle.h"
 #include "rotate.h"
 #include "util.h"
-#include "effects_infra.h"
+//#include "effects_infra.h"
+
+inline int XY(int x, int y) { return x * H + y; }
 
 
 class Canvas;
@@ -14,8 +16,8 @@ class Effect {
 
  public:
    Effect(int W) :
-     width_(W),
-     persist_pixels(true)
+     persist_pixels(true),
+     width_(W)
   {
     bufs_[0] = buffer_a;
     memset(bufs_[0], 0, sizeof(CRGB) * W * H);
@@ -51,10 +53,12 @@ class Effect {
     interrupts();
   }
 
+protected:
+  bool persist_pixels;
+
  private:
   volatile int prev_ = 0, cur_ = 0, next_ = 0;
   int width_;
-  bool persist_pixels;
   inline static CRGB buffer_a[MAX_W * H];
   inline static CRGB buffer_b[MAX_W * H];
   CRGB* bufs_[2];
@@ -92,6 +96,13 @@ class Canvas {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+CRGB dim(const CRGB& c, double s) {
+  if (s < 0.5) s = s * s;
+  return CRGB(
+    static_cast<uint8_t>(c.r * s),
+    static_cast<uint8_t>(c.g * s),
+    static_cast<uint8_t>(c.b * s));
+}
 
 void trail_rainbow(CRGB& c, uint8_t hue_falloff = 32,
                    uint8_t dim_falloff = 32) {
