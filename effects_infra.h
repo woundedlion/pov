@@ -656,7 +656,7 @@ public:
   void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
-        ttls[num_pixels++] = { x, y, lifetime - age };
+        ttls[num_pixels++] = { static_cast<float>(x), static_cast<float>(y), lifetime - age };
       }
     }
     if (age <= 0) {
@@ -674,8 +674,8 @@ public:
 private:
 
   struct DecayPixel {
-    double x;
-    double y;
+    float x;
+    float y;
     float ttl;
   };
 
@@ -842,7 +842,7 @@ public:
       }
     }
     if (seg < 0) {
-      seg = shape.size() - 1;
+      seg = shape.size() - 2;
     }
 
     auto start = shape[seg];
@@ -1391,7 +1391,7 @@ public:
 
 private:
 
-  static constexpr MAX_EVENTS = 256;
+  static constexpr MAX_EVENTS = 32;
   std::array<TimelineEvent, MAX_EVENTS> events;
   size_t num_events;
 };

@@ -61,10 +61,6 @@ struct Vector {
     return *this;
   }
 
-  Vector inverse() {
-    return Vector(-i, -j, -k);
-  }
-
   double i = 0;
   double j = 0;
   double k = 0;
@@ -103,6 +99,10 @@ struct Quaternion {
   Quaternion inverse() const { 
     double n = (r * r) + (v.i * v.i) + (v.j * v.j) + (v.k * v.k);
     return Quaternion(r / n, (-v) / n);
+  }
+
+  Quaternion operator-() const {
+    return Quaternion(-r, -v);
   }
 
   double magnitude() const {
@@ -204,10 +204,24 @@ Quaternion make_rotation(const Vector& axis, double theta) {
   return Quaternion(cos(theta / 2), sin(theta / 2) * axis);
 }
 
-Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t) {
-  double theta = angle_between(q1, q2);
-  return((sin((1 - t) * theta) / sin(theta)) * q1)
-    + ((sin(t * theta) / sin(theta)) * q2);
+Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long_way = false) {
+  double d = dot(q1, q2);
+
+  if ((long_way && d > 0) || (!long_way && d < 0)) {
+    q2 = -q2;
+    d = -d;
+  }
+
+  if (d > 0.99995) {
+    Quaternion r = q1 + t * (q2 - q1);
+    return r.normalize();
+  }
+
+  double theta = acos(d);
+  double sin_theta = sin(theta);
+  double s1 = sin((1 - t) * theta) / sin_theta;
+  double s2 = sin(t * theta) / sin_theta;
+  return (s1 * q1) + (s2 * q2);
 }
 
 bool is_over(const Vector& v, const Vector& normal) {

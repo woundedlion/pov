@@ -491,7 +491,7 @@ public:
 
       auto next_boundary_lower_edge = (i + 1 < palette_boundaries.size()
         ? palette_boundaries[i + 1] - blend_width
-        : PI;
+        : PI);
       if (a > upper_edge && a < next_boundary_lower_edge) {
         return std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
       }
