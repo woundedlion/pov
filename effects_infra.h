@@ -13,7 +13,6 @@
 #include "FastNoiseLite.h"
 
 typedef CRGB Pixel;
-typedef std::array<Pixel, MAX_W * H> Pixels;
 
 struct Dot {
   Dot(const Vector& v, const Pixel& color) :
@@ -28,6 +27,11 @@ struct Dot {
   Pixel color;
 };
 
+struct PixelCoords {
+  double x;
+  double y;
+};
+
 typedef std::vector<Dot> Dots;
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
@@ -36,10 +40,10 @@ typedef std::function<Pixel(double x, double y, double t)> TrailFn;
 typedef std::function<double (double)> EasingFn;
 typedef std::function<Vector (double)> PlotFn;
 typedef std::function<double (double)> ShiftFn;
-typedef std::function<void (double)> SpriteFn;
-typedef std::function<void ()> TimerFn;
+typedef std::function<void (Canvas&, double)> SpriteFn;
+typedef std::function<void (Canvas&)> TimerFn;
 typedef std::function<double (double)> MutateFn;
-typedef std::function<double(double)> WaveFn;
+typedef std::function<double (double)> WaveFn;
 
 
 inline int XY(int x, int y) { return x * H + y; }
@@ -48,6 +52,14 @@ static const int FPS = 16;
 static const Vector X_AXIS(1, 0, 0);
 static const Vector Y_AXIS(0, 1, 0);
 static const Vector Z_AXIS(0, 0, 1);
+
+Vector random_vector() {
+  return Vector(
+    hs::rand_dbl(),
+    hs::rand_dbl(),
+    hs::rand_dbl()
+  ).normalize();
+}
 
 struct Dodecahedron {
   VertexList vertices = {
@@ -277,7 +289,7 @@ public:
   }
 
 private:
-  static constexpr MAX_FRAMES = MAX_W;
+  static constexpr int MAX_FRAMES = MAX_W;
   std::array<Quaternion, MAX_FRAMES> orientations;
   size_t num_frames;
 };
@@ -368,6 +380,11 @@ Pixel distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1
   }
 }
 ///////////////////////////////////////////////////////////////////////////////
+
+Dots draw_vector(const Vector& v, ColorFn color_fn) {
+  auto u = v.normalize();
+  return { Dot(u, color_fn(u, 0)) };
+}
 
 template <int W>
 Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way /* = false*/) {
@@ -562,19 +579,19 @@ public:
     return *this;
   }
 
-  virtual void plot(Pixels& pixels, double x, double y, 
+  virtual void plot(Canvas& canvas, double x, double y, 
     const Pixel& c, double age, double alpha) = 0;
 
 protected:
   
-  void pass(Pixels& pixels, double x, double y,
+  void pass(Canvas& canvas, double x, double y,
     const Pixel& c, double age, double alpha)
   {
     if (next == nullptr) {
-      pixels[XY(x, y)] = { blend_alpha(alpha)(pixels[XY(x, y)], c) };
+      canvas(XY(x, y)) = { blend_alpha(alpha)(canvas(XY(x, y)), c) };
     }
     else {
-      next->plot(pixels, x, y, c, age, alpha);
+      next->plot(canvas, x, y, c, age, alpha);
     }
   }
 
@@ -583,8 +600,8 @@ protected:
 
 template <int W>
 class FilterRaw : public Filter<W> {
-  void plot(Pixels& pixels, double x, double y, const Pixel& c, double age, double alpha) {
-      this->pass(pixels, x, y, c, age, alpha);
+  void plot(Canvas& canvas, double x, double y, const Pixel& c, double age, double alpha) {
+      this->pass(canvas, x, y, c, age, alpha);
     }
 };
 
@@ -593,24 +610,24 @@ class FilterAntiAlias : public Filter<W> {
 public:
   FilterAntiAlias() {}
   
-  void plot(Pixels& pixels, double x, double y, const Pixel& c, double age, double alpha) {
+  void plot(Canvas& canvas, double x, double y, const Pixel& c, double age, double alpha) {
     double x_i = 0;
     double x_m = modf(x, &x_i);
     double y_i = 0;
     double y_m = modf(y, &y_i);
 
     double v = (1 - x_m) * (1 - y_m);
-    this->pass(pixels, x_i, y_i, dim(c, v), age, alpha);
+    this->pass(canvas, x_i, y_i, dim(c, v), age, alpha);
 
     v = x_m * (1 - y_m);
-    this->pass(pixels, (static_cast<int>(x_i + 1)) % W, y_i, dim(c, v), age, alpha);
+    this->pass(canvas, (static_cast<int>(x_i + 1)) % W, y_i, dim(c, v), age, alpha);
 
     if (y_i < H - 1) {
       v = (1 - x_m) * y_m;
-      this->pass(pixels, x_i, y_i + 1, dim(c, v), age, alpha);
+      this->pass(canvas, x_i, y_i + 1, dim(c, v), age, alpha);
 
       v = x_m * y_m;
-      this->pass(pixels, static_cast<int>(x_i + 1) % W, y_i + 1, dim(c, v), age, alpha);
+      this->pass(canvas, static_cast<int>(x_i + 1) % W, y_i + 1, dim(c, v), age, alpha);
     }
   }
 };
@@ -636,21 +653,21 @@ public:
     }
   }
 
-  void plot(Pixels& pixels, double x, double y, const Pixel& color, double age, double alpha) {
+  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
         ttls[num_pixels++] = { x, y, lifetime - age };
       }
     }
     if (age <= 0) {
-      pass(pixels, x, y, color, age, alpha);
+      pass(canvas, x, y, color, age, alpha);
     }
   }
 
-  void trail(Pixels& pixels, TrailFn trailFn, double alpha) {
+  void trail(Canvas& canvas, TrailFn trailFn, double alpha) {
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
-      pass(pixels, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
+      pass(canvas, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
     }
   }
 
@@ -659,11 +676,11 @@ private:
   struct DecayPixel {
     double x;
     double y;
-    double ttl;
+    float ttl;
   };
 
   int lifetime;
-  static constexpr MAX_PIXELS = 10 * 1024;
+  static constexpr MAX_PIXELS = 6 * 1024;
   std::array<DecayPixel, MAX_PIXELS> ttls;
   size_t num_pixels;
 };
@@ -676,21 +693,58 @@ public:
   {
   }
 
-  void plot(Pixels& pixels, double x, double y, const Pixel& color, double age, double alpha) {
+  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
     CRGB r(color.r, 0, 0);
     CRGB g(0, color.g, 0);
     CRGB b(0, 0, color.b);
-    pass(pixels, x, y, color, age, alpha);
-    pass(pixels, wrap(x + 1, W), y, r, age, alpha);
-    pass(pixels, wrap(x + 2, W), y, g, age, alpha);
-    pass(pixels, wrap(x + 3, W), y, b, age, alpha);
+    pass(canvas, x, y, color, age, alpha);
+    pass(canvas, wrap(x + 1, W), y, r, age, alpha);
+    pass(canvas, wrap(x + 2, W), y, g, age, alpha);
+    pass(canvas, wrap(x + 3, W), y, b, age, alpha);
   }
 };
 
+template <int W>
+class FilterOrient : public Filter<W> {
+public:
+  FilterOrient(Orientation& orientation) :
+    orientation(orientation)
+  {}
+
+  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
+    auto v = pixel_to_vector<W>(x, y);
+    auto r = vector_to_pixel<W>(orientation.orient(v));
+    orientation.collapse();
+    pass(canvas, r.x, r.y, color, age, alpha);
+  }
+
+private:
+
+  Orientation& orientation;
+}
+
+template <int W>
+class FilterReplicate : public Filter<W> {
+public:
+
+  FilterReplicate(size_t count) :
+    count(std::max(1, std::min(W, count)))
+  {}
+
+  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
+    for (int i = 0; i < W; i += W / count) {
+      pass(canvas, wrap(x + i, W), y, color, age, alpha);
+    }
+  }
+
+private:
+
+  size_t count;
+}
 ///////////////////////////////////////////////////////////////////////////////
 
-uint8_t to_byte(double zero_to_one) {
-  return std::max(0, std::min(255, std::round(zero_to_one * 255)));
+uint16_t to_short(double zero_to_one) {
+  return std::max(0, std::min(65535, std::round(zero_to_one * 65535)));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -699,12 +753,10 @@ auto vignette(const Palette& palette) {
   CRGB vignette_color(0, 0, 0);
   return [=](double t) {
     if (t < 0.2) {
-      return fadetowardcolor(vignetteColor, palette.get(0), to_byte(t / 0.2));
-    }
-    else if (t >= 0.8) {
-      return fadetowardcolor(palette.get(1), vignetteColor, to_byte((t - 0.8) / 0.2));
-    }
-    else {
+      return vignette_color.lerp16(palette.get(0), to_short(t / 0.2));
+    } else if (t >= 0.8) {
+      return palette.get(1).lerp16(vignette_color, to_short((t - 0.8) / 0.2));
+    } else {
       return palette.get((t - 0.2) / 0.6);
     }
   }
@@ -712,14 +764,14 @@ auto vignette(const Palette& palette) {
 
 class Palette {
 public:
-  Pixel get(double t) = 0;
+  Pixel get(double t) const  = 0;
 };
 
 enum class HarmonyType {
   TRIADIC,
   SPLIT_COMPLEMENTARY,
   COMPLEMENTARY,
-  ANALAGOUS
+  ANALOGOUS
 };
 
 enum class GradientShape {
@@ -735,13 +787,14 @@ public:
   GenerativePalette(GradientShape shape, HarmonyType harmony_type) :
     gradient_shape(shape),
     harmony_type(harmony_type),
-    seed_hue(hs::rand_int(0, 256))
+    seed_hue(static_cast<uint8_t>(hs::rand_int(0, 256)))
   {
     uint8_t h1 = seed_hue;
     uint8_t h2;
     uint8_t h3;
 
-    seed_hue = (seed_hue + G) % 256;
+    seed_hue = static_cast<uint8_t>(
+      (static_cast<uint32_t>(seed_hue) + static_cast<uint32_t>(G * 255.0)) % 256);
     calc_hues(h1, h2, h3, harmony_type);
 
     const uint8_t s1 = hs::rand_int(255 * 0.4, 255 * 0.8);
@@ -757,7 +810,7 @@ public:
     c = CHSV(h3, s3, v3);
   }
 
-  Pixel get(double t) {
+  Pixel get(double t) const {
     std::array<double> shape;
     std::array<Pixel> colors;
     const Pixel vignette_color(0, 0, 0);
@@ -789,7 +842,7 @@ public:
       }
     }
     if (seg < 0) {
-      seg = shape[shape.size() - 1];
+      seg = shape.size() - 1;
     }
 
     auto start = shape[seg];
@@ -797,7 +850,7 @@ public:
     auto c1 = colors[seg];
     auto c2 = colors[seg + 1];
 
-    return fadeTowardColor(c1, c2, std::max(0, std::min(255, (t - start) / (end - start) * 255)));
+    return c1.lerp16(c2, std::max(0, std::min(65535, (t - start) / (end - start) * 65535)));
   }
 
   private:
@@ -849,7 +902,6 @@ public:
     Pixel a, b, c;
 }
 
-
 class ProceduralPalette : public Palette {
 public:
 
@@ -865,7 +917,7 @@ public:
   {
   }
 
-  Pixel get(double t) {
+  Pixel get(double t) const {
       return Pixel(
         255 * (a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0]))),
         255 * (a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1]))),
@@ -881,6 +933,54 @@ private:
   std::array<double, 3> d;
 };
 
+using PaletteVariant =
+std::variant<
+  GenerativePalette,
+  ProceduralPalette
+>;
+
+static const ProceduralPalette richSunset(
+  { 0.309, 0.500, 0.500 }, // A
+  { 1.000, 1.000, 0.500 }, // B
+  { 0.149, 0.148, 0.149 }, // C
+  { 0.132, 0.222, 0.521 }  // D
+);
+
+static const ProceduralPalette underSea(
+  { 0.000, 0.000, 0.000 }, // A
+  { 0.500, 0.276, 0.423 }, // B
+  { 0.296, 0.296, 0.296 }, // C
+  { 0.374, 0.941, 0.000 }  // D
+);
+
+static const ProceduralPalette lateSunset(
+  { 0.337, 0.500, 0.096 }, // A
+  { 0.500, 1.000, 0.176 }, // B
+  { 0.261, 0.261, 0.261 }, // C
+  { 0.153, 0.483, 0.773 }  // D
+);
+
+static const ProceduralPalette mangoPeel(
+  { 0.500, 0.500, 0.500 }, // A
+  { 0.500, 0.080, 0.500 }, // B
+  { 0.431, 0.431, 0.431 }, // C
+  { 0.566, 0.896, 0.236 }  // D
+);
+
+static const ProceduralPalette lemonLime(
+  { 0.455, 0.455, 0.455 }, // A
+  { 0.571, 0.151, 0.571 }, // B
+  { 0.320, 0.320, 0.320 }, // C
+  { 0.087, 0.979, 0.319 }  // D
+);
+
+static const ProceduralPalette algae(
+  { 0.337, 0.500, 0.096 }, // A
+  { 0.500, 1.000, 0.176 }, // B
+  { 0.134, 0.134, 0.134 }, // C
+  { 0.328, 0.658, 0.948 }  // D
+);
+
 Pixel dotted_brush(const Pixel& color, double freq, double duty_cycle, double phase, double t) {
   return dim(color, square_wave(0, 1, freq, duty_cycle, phase)(t));
 }
@@ -893,20 +993,30 @@ public:
   Animation(int duration, bool repeat) :
     duration(duration),
     repeat(repeat),
-    canceled(false)
+    canceled(false),
+    post([](){})
   {
   }
 
   void cancel() { canceled = true; }
   virtual bool done() { return canceled || (duration >= 0 && t >= duration); }
 
-  virtual void step() {
+  virtual void step(Canvas& canvas) {
     t++;
     if (done()) {
       if (repeat) {
         t = 0;
       }
     }
+  }
+
+  Animation& then(std::function<void()> callback) {
+    post = callback;
+    return *this;
+  }
+
+  void post_callback() {
+    post();
   }
 
 protected:
@@ -918,6 +1028,7 @@ protected:
 private:
 
   bool canceled;
+  std::function<void()> post;
 };
 
 class RandomTimer : public Animation {
@@ -937,10 +1048,10 @@ public:
     next = t + static_cast<int>(std::round(hs::rand_int(min, max)));
   }
 
-  void step() {
+  void step(Canvas& canvas) {
     Serial.println("step RandomTimer");
     if (t >= next) {
-      f();
+      f(canvas);
       if (repeat) {
         reset();
       }
@@ -948,7 +1059,7 @@ public:
         cancel();
       }
     }
-    Animation::step();
+    Animation::step(canvas);
   }
   
   private:
@@ -961,7 +1072,7 @@ public:
 
 class PeriodicTimer : public Animation {
 public:
-  PeriodicTimer(int period, std::function<void()> f, bool repeat = false) :
+  PeriodicTimer(int period, TimerFn f, bool repeat = false) :
     Animation(-1, repeat),
     period(period),
     f(f)
@@ -973,9 +1084,9 @@ public:
     next = t + period;
   }
 
-  void step() {
+  void step(Canvas& canvas) {
     if (t >= next) {
-      f();
+      f(canvas);
       if (repeat) {
         reset();
       }
@@ -983,13 +1094,13 @@ public:
         cancel();
       }
     }
-    Animation::step();
+    Animation::step(canvas);
   }
 
 private:
 
   int period;
-  std::function<void()> f;
+  TimerFn f;
   int next;
 };
 
@@ -1004,12 +1115,11 @@ public:
   {
   }
 
-  void step() {
-    Serial.println("step Transition");
+  void step(Canvas& canvas) {
     if (t == 0) {
       from = mutant;
     }
-    Animation::step();
+    Animation::step(canvas);
     auto t = std::min(1.0, static_cast<double>(this->t) / duration);
     auto n = easing_fn(t) * (to - from) + from;
     if (quantized) {
@@ -1038,14 +1148,14 @@ public:
     easing_fn(easing_fn)
   {}
 
-  void step() {
+  void step(Canvas& canvas) {
     Serial.println("step Mutation");
     if (t == 0) {
       from = mutant;
     }
     auto t = std::min(1.0, static_cast<double>(this->t) / (duration - 1));
     mutant = f(easing_fn(t));
-    Animation::step();
+    Animation::step(canvas);
   }
 
 private:
@@ -1072,16 +1182,16 @@ public:
     fade_out(fader, 0, fade_out_duration, fade_out_easing_fn)
   {}
 
-  void step() {
+  void step(Canvas& canvas) {
     Serial.println("step Sprite");
     if (!fade_in.done()) {
-      fade_in.step();
+      fade_in.step(canvas);
     }
     else if (duration >= 0 && t >= (duration - fade_out_duration)) {
-      fade_out.step();
+      fade_out.step(canvas);
     }
-    draw_fn(fader);
-    Animation::step();
+    draw_fn(canvas, fader);
+    Animation::step(canvas);
   }
 
 private:
@@ -1101,11 +1211,11 @@ public:
   Motion(Orientation& orientation, std::unique_ptr<Path<W>> path, int duration, bool repeat = false) :
     Animation(duration, repeat),
     orientation(orientation),
-    path(path),
-    to(path->get_point(0))
+    path(std::move(path)),
+    to(this->path->get_point(0))
   {}
 
-  void step() {
+  void step(Canvas& canvas) {
     from = to;
     to = path->get_point(static_cast<double>(t) / duration);
     if (from != to) {
@@ -1118,7 +1228,7 @@ public:
       }
       orientation.push(make_rotation(axis, angle) * origin);
     }
-    Animation::step();
+    Animation::step(canvas);
   }
 
 private:
@@ -1146,13 +1256,13 @@ public:
   }
 
   template <int W>
-  static void animate(Orientation& orientation, const Vector& axis, double angle, EasingFn easing_fn) {
+  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, double angle, EasingFn easing_fn) {
     Rotation<W> r(orientation, axis, angle, 2, easing_fn, false);
-    r.step();
-    r.step();
+    r.step(canvas);
+    r.step(canvas);
   }
 
-  void step() {
+  void step(Canvas& canvas) {
     orientation.collapse();
     from = to;
     to = easing_fn(static_cast<double>(t) / duration) * total_angle;
@@ -1164,7 +1274,7 @@ public:
       }
       orientation.push(make_rotation(axis, angle) * origin);
     }
-    Animation::step();
+    Animation::step(canvas);
   }
 
 private:
@@ -1177,17 +1287,6 @@ private:
   double from;
   double to;
 };
-
-template <int W>
-void rotate_between(Orientation& from, const Orientation& to) {
-  auto diff = to.get() * from.get().inverse();
-  auto angle = 2 * acos(diff.r);
-  if (angle == 0) {
-    return;
-  }
-  auto axis = Vector(diff.v.i, diff.v.j, diff.v.k).normalize();
-  Rotation<W>(from, axis, angle, 1, ease_out_circ).step();
-}
 
 template<int W>
 class RandomWalk : public Animation {
@@ -1208,20 +1307,17 @@ public:
     direction = cross(v, u).normalize();
 
     noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-//    noiseGenerator.SetSeed(1337);       // Set a seed for consistent results
-    noiseGenerator.SetFrequency(NOISE_SCALE);  // Controls the "zoom" level of the noise
-//    noiseGenerator.SetFractalOctaves(0); // Makes the noise more detailed
-
+    noiseGenerator.SetFrequency(NOISE_SCALE);
   }
 
-  void step() override {
-    Animation::step();
+  void step(Canvas& canvas) override {
+    Animation::step(canvas);
     double pivotAngle = noiseGenerator.GetNoise(t * NOISE_SCALE) * PIVOT_STRENGTH;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     auto walk_axis = cross(v, direction).normalize();
     v = rotate(v, make_rotation(walk_axis, WALK_SPEED)).normalize();
     direction = rotate(direction, make_rotation(walk_axis, WALK_SPEED)).normalize();
-    Rotation::animate<W>(orientation, walk_axis, WALK_SPEED, ease_mid);
+    Rotation::animate<W>(canvas, orientation, walk_axis, WALK_SPEED, ease_mid);
   }
 
 private:
@@ -1272,15 +1368,16 @@ public:
     return *this;
   }
 
-  void step() {
+  void step(Canvas& canvas) {
     t++;
     for (int i = 0; i < num_events; ++i) {
       if (t < events[i].start) {
         continue;
       }
-      std::visit([](auto& a) { a.step(); }, events[i].animation);
+      std::visit([=](auto& a) { a.step(canvas); }, events[i].animation);
       bool done = std::visit([](auto& a) { return a.done(); }, events[i].animation);
       if (done) {
+        std::visit([](auto& a) { a.post_callback(); }, events[i].animation)
         num_events--;
         if (i < num_events) {
           events[i] = std::move(events[num_events]);
@@ -1302,14 +1399,116 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 template<int W>
-void plot_dots(const Dots& dots, Filter<W>& filters, Pixels& pixels, double age, double alpha) {
+void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, double age, double alpha) {
   for (auto& dot : dots) {
     Spherical s(dot.position);
-    double y = (s.phi * H) / PI;
-    if (fabs(H - y) < 0.0001) {
-      continue;
-    }
-    double x = fmod(((s.theta + PI) * W) / (2 * PI), W);
-    filters.plot(pixels, x, y, dot.color, age, alpha);
+    double y = std::max(0, std::min(H - 1, (s.phi * H) / PI));
+    double x = std::max(0, std::min(W - 1, fmod(((s.theta + PI) * W) / (2 * PI), W)));
+    filters.plot(canvas, x, y, dot.color, age, alpha);
   }
 }
+
+template <int W>
+Vector pixel_to_vector(double x, double y) {
+  return Vector(
+    Spherical(
+      (x * 2 * PI) / W,
+      (y * PI) / (H - 1),
+    )
+  );
+}
+
+template <int W>
+PixelCoords vector_to_pixel(const Vector& v) {
+  auto s = Spherical(v);
+  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H - 1)) / PI });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+template <typename T, size_t N>
+class StaticCircularBuffer {
+public:
+
+  StaticCircularBuffer() : 
+    head(0), tail(0), count(0) 
+  {}
+
+  StaticCircularBuffer(std::initializer_list<T> items) 
+    : head(0), tail(0), count(0) {
+    assert(items.size() <= N && "Initializer list is larger than buffer capacity.");
+
+    for (const T& item : items) {
+      push(item);
+    }
+  }
+
+  void push(const T& item) {
+    assert(!is_full() && "Buffer overflow: cannot push to a full buffer.");
+
+    buffer[tail] = item;
+    tail = (tail + 1) % N;
+    count++;
+  }
+
+  void push(T&& item) {
+    assert(!is_full() && "Buffer overflow: cannot push to a full buffer.");
+    buffer[tail] = std::move(item);
+    tail = (tail + 1) % N;
+    count++;
+  }
+
+  void pop() {
+    assert(!is_empty() && "Buffer underflow: cannot pop from an empty buffer.");
+    head = (head + 1) % N;
+    count--;
+  }
+
+  T& front() {
+    assert(!is_empty() && "Buffer is empty.");
+    return buffer[head];
+  }
+
+  const T& front() const {
+    assert(!is_empty() && "Buffer is empty.");
+    return buffer[head];
+  }
+
+  T& operator[](size_t index) {
+    assert(index < count && "Index out of bounds.");
+    return buffer[(head + index) % N];
+  }
+
+  const T& operator[](size_t index) const {
+    assert(index < count && "Index out of bounds.");
+    return buffer[(head + index) % N];
+  }
+
+  constexpr bool is_empty() const {
+    return count == 0;
+  }
+
+  constexpr bool is_full() const {
+    return count == N;
+  }
+
+  constexpr size_t size() const {
+    return count;
+  }
+
+  constexpr size_t capacity() const {
+    return N;
+  }
+
+  void clear() {
+    head = 0;
+    tail = 0;
+    count = 0;
+  }
+
+private:
+  std::array<T, N> buffer;
+  size_t head;
+  size_t tail;
+  size_t count;
+};

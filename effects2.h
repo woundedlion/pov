@@ -6,362 +6,7 @@
 #include <vector>
 #include <map>
 
-DEFINE_GRADIENT_PALETTE(lucid_dream_p) {
-  0, 6, 4, 47,  
-  128, 162, 84, 84,
-  255, 252, 114, 0 
-};
 
-DEFINE_GRADIENT_PALETTE(red_orange_p) {
-  0, 255, 96, 0,
-  255, 255, 0, 0 
-};
-
-DEFINE_GRADIENT_PALETTE(blue_purple_p) {
-  0, 0, 0, 255,
-  255, 135, 0, 135
-};
-
-/*
-
-struct EventHandlers {
-  std::function<void()> enter;
-  std::function<void()> draw;
-  std::function<void()> animate;
-  std::function<void()> exit;
-};
-
-template <int W>
-class PolyRot : public Effect {
-public:
-  PolyRot() :
-    Effect(W),
-    poly_mask_mask(4),
-  {
-    poly_mask.chain(poly_mask_mask);
-    transition();
-  }
-
-  bool show_bg() const { return false; }
-
-  void draw_frame() {
-    states[state].draw();
-    states[state].animate();
-  }
-
-private:
-
-  enum State {
-    INIT,
-    GEN_POLY,
-    SPIN_RING,
-    SPIN_POLY,
-    SPLIT_POLY
-  };
-
-  int t = 0;
-  int state_index = -1;
-  State state = INIT;
-
-  Dodecahedron poly;
-  Orientation poly_top_orientation;
-  Orientation poly_bottom_orientation;
-
-  Vector ring = { 0, 0, 1 };
-  Orientation ring_orientation;
-
-  Vector spin_axis = { 0, 0, 1 };
-  Orientation spin_axis_orientation;
-
-  std::unique_ptr<Path> path;
-  std::unique_ptr<Motion> motion;
-  std::unique_ptr<Rotation> rotation;
-  std::unique_ptr<Rotation> rotation_rev;
-
-  FilterAntiAlias<W> poly_mask;
-  FilterDecayMask<W> poly_mask_mask;
-  FilterAntiAlias<W> output;
-
-  void transition() {
-    state_index = (state_index + 1) % sequence.size();
-    transitionTo(sequence[state_index]);
-  }
-
-  void transitionTo(State next) {
-    Serial.printf("State transition to %d\n", next);
-    if (state != INIT) {
-      states[state].exit();
-    }
-    t = 0;
-    state = next;
-    states[state].enter();
-  }
-
-  std::map<State, EventHandlers> states = {
-    {GEN_POLY, {
-      [this]() { // enter
-        Serial.printf("GEN_POLY Enter\n");
-        double duration = 160;
-        poly = Dodecahedron();
-        path.reset(new Path());
-        path->append_segment(
-          [this](double t) {
-            return Vector(ring_orientation.orient(lissajous(10, 0.5, 0, t)));
-          },
-          2 * PI,
-          duration,
-          ease_in_out_sin
-        );
-        motion.reset(new Motion(*path, duration));
-      },
-      [this]() { // draw
-        Serial.printf("GEN_POLY Draw\n");
-        poly_mask_mask.decay();
-        Pixels pixels;
-        Dots dots;
-        Canvas canvas(*this);
-
-        for (int i = 0; i < W * H; ++i) {
-          canvas(i) = CHSV(0, 0, 0);
-        }
-
-        // Draw ring trail into polygon mask
-        auto n = ring_orientation.length();
-        for (int i = 0; i < n; ++i) {
-          auto normal = ring_orientation.orient(ring, i);
-          plot_dots(
-            poly_mask,
-            draw_ring(normal, 1, [](auto& v) { return CHSV(0, 0, 0); }),
-            n == 1 ? 0 : (n - 1 - i) / (n - 1));
-        }
-        ring_orientation.collapse();
-        Vector normal = ring_orientation.orient(ring);
-
-        // Draw polyhedron
-        auto vertices = poly_top_orientation.orient(poly.vertices);
-        dots = draw_polyhedron(
-          vertices,
-          poly.euler_path,
-          [this, &normal](auto& v) { return distance_gradient(v, normal, red_orange_p, blue_purple_p); }
-        );
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), poly_mask_mask.mask(xy, p.color));
-        }
-
-        // Draw current ring position
-        dots = draw_ring(normal, 1, [](auto& v) { return CHSV(HUE_BLUE, 0, 64); });
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), p.color);
-        }
-    },
-      [this]() { // animate
-        Serial.printf("GEN_POLY Animate\n");
-        if (motion->done()) {
-          transition();
-        } else {
-          motion->move(ring_orientation);
-        }
-      },
-      [this]() { // exit
-
-      },
-    }},
-    {SPIN_POLY, {
-      [this]() { // enter
-        Serial.printf("SPIN_POLY Enter\n");
-        double duration = 192;
-        poly = Dodecahedron();
-        spin_axis = spin_axis_orientation.orient(spin_axis);
-        rotation.reset(new Rotation(spin_axis, 4 * PI, duration));
-        path.reset(new Path());
-        path->append_segment(
-          [this](double t) {
-            return Vector(lissajous(12.8, 2 * PI, 0, t));
-          },
-          1,
-          duration,
-          ease_mid
-        );
-        motion.reset(new Motion(*path, duration));
-      },
-      [this]() { // draw
-        Serial.printf("SPIN_POLY Draw\n");
-        Canvas canvas(*this);
-        Dots dots;
-        Pixels pixels;
-
-        for (int i = 0; i < W * H; ++i) {
-          canvas(i) = CHSV(0, 0, 0);
-        }
-
-        // Draw polyhedron
-        auto normal = ring_orientation.orient(ring);
-        auto vertices = poly_top_orientation.orient(poly.vertices);
-        dots = draw_polyhedron(
-          vertices,
-          poly.euler_path,
-          [this, &normal](auto& v) { return distance_gradient(v, normal, red_orange_p, blue_purple_p); }
-        );
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), p.color);
-        }
-
-        // Draw Ring
-        dots = draw_ring(normal, 1, [](auto& v) { return CHSV(HUE_BLUE, 0, 128); });
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), p.color);
-        }
-      },
-      [this]() { // animate
-        Serial.printf("SPIN_POLY Animate\n");
-        if (rotation->done()) {
-          transition();
-        } else {
-          motion->move(spin_axis_orientation);
-          rotation->set_axis(spin_axis_orientation.orient(spin_axis))
-            .rotate(poly_top_orientation, ease_in_out_sin);
-        }
-      },
-      [this]() { // exit
-
-      },
-    }},
-    {SPLIT_POLY, {
-      [this]() { // enter
-        Serial.printf("SPLIT_POLY Enter\n");
-        double duration = 96;
-        poly = Dodecahedron();
-        auto normal = ring_orientation.orient(ring);
-        bisect(poly, poly_top_orientation, normal);
-        poly_bottom_orientation.set(poly_top_orientation.get());
-        rotation.reset(new Rotation(normal, 4 * PI, duration));
-        rotation_rev.reset(new Rotation(normal.inverse(), 4 * PI, duration));
-      },
-      [this]() { // draw
-        Serial.printf("SPLIT_POLY Draw\n");
-        Dots dots;
-        Pixels pixels;
-        Canvas canvas(*this);
-        for (int i = 0; i < W * H; ++i) {
-          canvas(i) = CHSV(0, 0, 0);
-        }
-
-        auto normal = ring_orientation.orient(ring);
-        VertexList vertices;
-        std::transform(poly.vertices.begin(), poly.vertices.end(), std::back_inserter(vertices),
-          [this, &normal](auto& v) {
-            auto u = poly_top_orientation.orient(v);
-            if (is_over(u, normal)) {
-              return u;
-            } else {
-              return poly_bottom_orientation.orient(v);
-            }
-          });
-        
-        // Draw polyhedron
-        dots = draw_polyhedron(
-          vertices,
-          poly.euler_path,
-          [this, &normal](auto& v) { return distance_gradient(v, normal, red_orange_p, blue_purple_p); }
-        );
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), p.color);
-        }
-
-        // Draw Ring
-        dots = draw_ring(normal, 1, [](auto& v) { return CHSV(HUE_BLUE, 0, 128); });
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), p.color);
-        }
-
-      },
-      [this]() { // animate
-        Serial.printf("SPLIT_POLY Animate\n");
-        if (rotation->done()) {
-          transition();
-        } else {
-          rotation->rotate(poly_top_orientation, ease_in_out_sin);
-          rotation_rev->rotate(poly_bottom_orientation, ease_in_out_sin);
-        }
-      },
-      [this]() { // exit
-
-      },
-    }},
-    {SPIN_RING, {
-      [this]() { // enter
-        srand(time(NULL));
-        Serial.printf("SPIN_RING Enter\n");
-        double duration = 16;
-        poly = Dodecahedron();
-        Vector from_normal = ring_orientation.orient(ring);
-        Vector to_normal = ring_orientation.orient(poly.vertices[rand() % poly.vertices.size()]);
-        path.reset(new Path());
-        path->append_line(from_normal, to_normal, true);
-        motion.reset(new Motion(*path, duration));
-
-      },
-      [this]() { // draw
-        Serial.printf("SPIN_RING Draw\n");
-        Canvas canvas(*this);
-        for (int i = 0; i < W * H; ++i) {
-          canvas(i) = CHSV(0, 0, 0);
-        }
-
-        Dots dots;
-        Pixels pixels;
-
-        // Draw polyhedron
-        auto normal = ring_orientation.orient(ring);
-        auto vertices = poly_top_orientation.orient(poly.vertices);
-        dots = draw_polyhedron(
-          vertices,
-          poly.euler_path,
-          [this, &normal](auto& v) { return distance_gradient(v, normal, red_orange_p, blue_purple_p); }
-        );
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), p.color);
-        }
-        
-        // Draw Ring
-        dots = draw_ring(normal, 1, [](auto& v) { return CHSV(HUE_BLUE, 0, 128); });
-        pixels = plot_dots(output, dots);
-        for (auto& [xy, p] : pixels) {
-          canvas(xy) = blend_over(canvas(xy), p.color);
-        }
-      },
-      [this]() { // animate
-        Serial.printf("SPIN_RING Animate\n");
-        if (motion->done()) {
-          transition();
-        } else {
-          motion->move(ring_orientation);
-        }
-      },
-      [this]() { // exit
-
-      },
-    }},
-  };
-
-  std::vector<State> sequence = {
-   GEN_POLY,
-    SPIN_RING,
-    SPIN_POLY,
-    SPIN_RING,
-    SPLIT_POLY,
-    SPIN_RING,
-  };
-
-};
-*/
 
 /*
 template <int>
@@ -687,7 +332,7 @@ public:
     }
 
     Vector normal;
-    Palette palette;
+    const Palette& palette;
     Orientation orientation;
     FilterDecay<W> trails;
   };
@@ -695,15 +340,15 @@ public:
   RingSpin() :
     Effect(W),
     alpha(0.2),
-    trail_length(15),
-    palettes({ richSunset, undersea, mangoPeel, lemonLime, algae, lateSunset })
+    trail_length(15)
   {
-    spawn_ring(X_AXIS, palettes[0]);
-    spawn_ring(Y_AXIS, palettes[1]);
-    spawn_ring(Z_AXIS, palettes[2]);
-    spawn_ring(X_AXIS, palettes[3]);
-    spawn_ring(Y_AXIS, palettes[4]);
-    spawn_ring(Z_AXIS, palettes[5]);
+    persist_pixels = false;
+    spawn_ring(X_AXIS, *palettes[0]);
+    spawn_ring(Y_AXIS, *palettes[1]);
+    spawn_ring(Z_AXIS, *palettes[2]);
+    spawn_ring(X_AXIS, *palettes[3]);
+    spawn_ring(Y_AXIS, *palettes[4]);
+    spawn_ring(Z_AXIS, *palettes[5]);
   }
 
   bool show_bg() const { return false; }
@@ -712,28 +357,28 @@ public:
     auto ring_index = rings.size();
     rings.emplace_back(normal, filters, palette, trail_length);
     timeline.add(0,
-      std::make_unique<Sprite>(
-        [=](double opacity) { draw_ring(opacity, ring_index); },
+      Sprite(
+        [=](Canvas& canvas, double opacity) { draw_ring(canvas, opacity, ring_index); },
         -1,
         4, easeMid,
         0, easeMid
       ));
     timeline.add(0,
-      std::make_unique<RandomWalk<W>(ring.orientation, ring.normal));
+      RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
   }
 
-  void draw_ring(double opacity, size_t ring_index) {
+  void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
     Dots dots;
     auto& ring = rings[ring_index];
     double s = ring.orientation.length();
     for (int i = 0; i < s; ++i) {
       dots = draw_ring(ring.orientation.orient(ring.normal, i), 1,
         [=](auto& v, auto t) { return ring.palette.get(0); });
-      plot_dots(dots, ring.trails, pixels, 
+      plot_dots(dots, ring.trails, canvas, 
        (s - 1 - i) / s,
        alpha * opacity);
     }
-    ring.trails.trail(pixels,
+    ring.trails.trail(canvas,
       [=](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
     ring.trails.decay();
@@ -741,54 +386,49 @@ public:
   }
 
   void draw_frame() {
-    std::fill(pixels.begin(), pixels.end(), Pixel(0, 0, 0));
-    timeline.step();
     Canvas canvas(*this);
-    canvas.clear_buffer();
-    for (int i = 0; i < pixels.size(); ++i) {
-      canvas(i) = p;
-    }
+    timeline.step(canvas);
   }
 
 private:
 
-  Pixels pixels;
   std::vector<Ring> rings;
   double alpha;
   double trail_length;
   FilterAntiAlias<W> filters;
-  std::vector<Palette&> palettes;
+  std::array<const Palette*> palettes = { &richSunset, &undersea, &mangoPeel, &lemonLime, &algae, &lateSunset };
   Timeline timeline;
 };
 
-/*
-
 template <int W>
-class Dynamo {
+class Dynamo : public Effect {
 public:
 
   struct Node {
-    Node(double y) :
-      x(0), y(y), v(0)
-    {
-      double x;
-      double y;
-      double v;
-    }
+    Node() :
+      x(0), y(0), v(0)
+    {}
+
+    int x;
+    int y;
+    int v;
   };
 
   Dynamo() :
+    Effect(W),
+    palettes({ GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS) }),
     palette_normal(X_AXIS),
     speed(2),
     gap(4),
     trail_length(10),
-    replicate(4),
+    filters(4),
     trails(trail_length),
     orient(orientation)
   {
-    palettes.emplace_back(std::make_shared<GenerativePalette>());
-    for (int i = 0; i < H; ++i) {
-      nodes.emplace_back(i)
+    persist_pixels = false;
+
+    for (int i = 0; i < NUM_NODES; ++i) {
+      nodes[i].y = i;
     }
 
     filters
@@ -798,12 +438,14 @@ public:
 
     timeline
       .add(0,
-        std::make_shared<RandomTimer>(4, 64, [=]() { reverse(); }, true))
+        RandomTimer(4, 64, [=](auto&) { reverse(); }, true))
       .add(0,
-        std::make_shared<RandomTimer>(20, 64, [=]() { color_wipe(); }, true))
+        RandomTimer(20, 64, [=](auto&) { color_wipe(); }, true))
       .add(0,
-        std::make_shared<RandomTimer>(80, 150, [=]() { rotate(); }, true));
+        RandomTimer(80, 150, [=](auto&) { rotate(); }, true));
   }
+
+  bool show_bg() const { return false; }
 
   void reverse() {
     speed *= -1;
@@ -811,30 +453,140 @@ public:
 
   void rotate() {
     timeline.add(0,
-      std::make_shared<Rotation<W>>(
+      Rotation<W>(
         orientation, random_vector(), PI, 40, ease_in_out_sin, false));
   }
 
   void color_wipe() {
+    palettes.push(GenerativePalette(GradientShape::VIGNETTE));
+    palette_boundaries.push(0);
+    timeline.add(0,
+      Transition(palette_boundaries[0], PI, 20, ease_mid)
+      .then([this]() {
+          palette_boundaries.pop();
+          palettes.pop();
+        });
+  }
+
+  Pixel color(const Vector& v, double t) {
+    constexpr double blend_width = PI / 8.0;
+    double a = angle_between(v, palette_normal);
+
+    for (int i = 0; i < palette_boundaries.size(); ++i) {
+      double boundary = palette_boundaries[i];
+      auto lower_edge = boundary - blend_width;
+      auto upper_edge = boundary + blend_width;
+
+      if (a < lower_edge) {
+        return std::visit([=](auto& p) { return p.get(t); },  palettes[i]);
+      }
+
+      if (a >= lower_edge && a <= upper_edge) {
+        auto blend_factor = (a - lower_edge) / (2 * blend_width);
+        auto clamped_blend_factor = std::max(0, std::min(blend_factor, 1));
+        auto c1 = std::visit([=](auto& p) { return p.get(t); }, palettes[i]);
+        auto c2 = std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
+        return c1.lerp16(c2, to_short(clamped_blend_factor));
+      }
+
+      auto next_boundary_lower_edge = (i + 1 < palette_boundaries.size()
+        ? palette_boundaries[i + 1] - blend_width
+        : PI;
+      if (a > upper_edge && a < next_boundary_lower_edge) {
+        return std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
+      }
+    }
+
+    return std::visit([=](auto& p) { return p.get(t); }, palettes[0]);
+  }
+
+  void draw_frame() {
+    Canvas canvas(*this);
+
+    for (int i = std::abs(speed) - 1; i >= 0; --i) {
+      pull(0);
+      draw_nodes(canvas, static_cast<double>(i) / std::abs(speed));
+    }
+    trails.trail(
+      canvas,
+      [this](double x, double y, double t) { return color(pixel_to_vector(x, y), t); },
+      0.5
+    );
+
+    trails.decay();
+    timeline.step(canvas);
   }
 
 private:
 
-  Pixels pixels;
+  double node_y(const Node& node) const {
+    return (node.y / (nodes.size() - 1)) * (H - 1);
+  }
+
+  void draw_nodes(Canvas& canvas, double age) {
+    Dots dots;
+    for (int i = 0; i < nodes.size(); ++i) {
+      if (i == 0) {
+        auto from = pixel_to_vector(nodes[i].x, node_y(nodes[i]));
+        auto drawn = draw_vector(from, [this](auto& v) { return color(v, 0); });
+        dots.insert(dots.end(), drawn.begin(), drawn.end());
+      } else {
+        auto from = pixel_to_vector(nodes[i - 1].x, node_y(nodes[i - 1]));
+        auto to = pixel_to_vector(nodes[i].x, node_y(nodes[i]));
+        auto drawn = draw_line<W>(from, to, [this](auto& v) { return color(v, 0); });
+        dots.insert(dots.end(), drawn.begin(), drawn.end());
+      }
+    }
+    plot_dots(dots, filters, canvas, age, 0.5);
+  }
+
+  void pull(int leader) {
+    nodes[leader].v = dir(speed);
+    move(nodes[leader]);
+    for (int i = leader - 1; i >= 0; --i) {
+      drag(nodes[i + 1], nodes[i]);
+    }
+    for (int i = leader + 1; i < nodes.size(); ++i) {
+      drag(nodes[i - 1], nodes[i]);
+    }
+  }
+
+  void drag(Node& leader, Node& follower) {
+    int dest = wrap(follower.x + follower.v, W);
+    if (distance(dest, leader.x, W) > gap) {
+      follower.v = leader.v;
+      while (distance(follower.x, leader.x, W) > gap) {
+        move(follower);
+      }
+    } else {
+      move(follower);
+    }
+  }
+  
+  void move(Node& node) {
+    node.x = wrap(node.x + node.v, W);
+  }
+
+  int dir(int speed) {
+    return speed < 0 ? -1 : 1;
+  }
+
   Timeline timeline;
-  std::vector<std::shared_ptr<Palette>> Palettes;
-  std::vector<double> palette_boundaries;
+ 
+  static constexpr MAX_PALETTES = 16;
+  static constexpr NUM_NODES = H;
+  StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
+  StaticCircularBuffer <double, MAX_PALETTES - 1> palette_boundaries; 
+
   Vector palette_normal;
-  std::vector<Node> nodes;
-  double speed;
-  double gap;
+  std::array<Node, NUM_NODES> nodes;
+  int speed;
+  int gap;
   uint32_t trail_length;
   Orientation orientation;
   
-  FilterReplicate filters;
-  FilterDecay trails;
-  FilterOrient orient;
-  FilterAntiAlias aa;
+  FilterReplicate<W> filters;
+  FilterDecay<W> trails;
+  FilterOrient<W> orient;
+  FilterAntiAlias<W> aa;
 };
-
-*/

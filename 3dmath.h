@@ -53,9 +53,11 @@ struct Vector {
   
   Vector& normalize() {
     double m = length();
-    i = i / m;
-    j = j / m;
-    k = k / m;
+    if (m > 0) {
+      i = i / m;
+      j = j / m;
+      k = k / m;
+    }
     return *this;
   }
 
@@ -109,8 +111,10 @@ struct Quaternion {
 
   Quaternion& normalize() {
     auto m = magnitude();
-    r = r / m;
-    v = v / m;
+    if (m > 0) {
+      r = r / m;
+      v = v / m;
+    }
     return *this;
   }
 
@@ -159,7 +163,7 @@ Vector cross(const Vector& v1, const Vector& v2) {
 double distance_between(const Vector& a, const Vector& b) {
   return sqrt(pow(b.i - a.i, 2)
     + pow(b.j - a.j, 2)
-    + pow(b.k - a.k, 2);
+    + pow(b.k - a.k, 2));
 }
 
 double angle_between(const Vector& v1, const Vector& v2) {

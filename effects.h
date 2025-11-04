@@ -13,7 +13,10 @@ class Effect {
   friend class Canvas;
 
  public:
-  Effect(int W) : width_(W) {
+   Effect(int W) :
+     width_(W),
+     persist_pixels(true)
+  {
     bufs_[0] = buffer_a;
     memset(bufs_[0], 0, sizeof(CRGB) * W * H);
     bufs_[1] = buffer_b;
@@ -37,7 +40,9 @@ class Effect {
     noInterrupts();
     cur_ = cur_ ? 0 : 1;
     interrupts();
-    memcpy(bufs_[cur_], bufs_[prev_], sizeof(CRGB) * width_ * H);
+    if (persist_pixels) {
+      memcpy(bufs_[cur_], bufs_[prev_], sizeof(CRGB) * width_ * H);
+    }
   }
 
   inline void queue_frame() { 
@@ -49,6 +54,7 @@ class Effect {
  private:
   volatile int prev_ = 0, cur_ = 0, next_ = 0;
   int width_;
+  bool persist_pixels;
   inline static CRGB buffer_a[MAX_W * H];
   inline static CRGB buffer_b[MAX_W * H];
   CRGB* bufs_[2];
@@ -59,6 +65,9 @@ class Canvas {
   Canvas(Effect& effect) : effect_(effect) {
     while (!effect_.buffer_free()) {}
     effect_.advance_buffer();
+    if (!effect_.persist_pixels) {
+      clear_buffer();
+    }
   }
 
   ~Canvas() { effect_.queue_frame(); }

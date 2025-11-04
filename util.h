@@ -6,19 +6,19 @@ int wrap(int x, int m) {
 		((x % m) + m) % m);
 }
 
-int wrap(double x, int m) {
+double wrap(double x, int m) {
 	return x >= 0 ?
 		fmod(x, m) :
 		fmod(fmod(x, m) + m, m);
 }
 
-int wrap(double x, double m) {
+double wrap(double x, double m) {
 	return x >= 0 ?
 		fmod(x, m) :
 		fmod(fmod(x, m) + m, m);
 }
 
-double distance(double a, double b, int m) {
+double distance(double a, double b, double m) {
 	return std::min(abs(b - a), m - abs(a - b));
 }
 
