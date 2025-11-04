@@ -632,7 +632,7 @@ public:
   }
 };
 
-template <int W>
+template <int W, size_t MAX_PIXELS>
 class FilterDecay : public Filter<W> {
 public:
 
@@ -657,6 +657,8 @@ public:
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
         ttls[num_pixels++] = { static_cast<float>(x), static_cast<float>(y), lifetime - age };
+      } else {
+        Serial.println("FilterDecay full!");
       }
     }
     if (age <= 0) {
@@ -680,7 +682,6 @@ private:
   };
 
   int lifetime;
-  static constexpr MAX_PIXELS = 6 * 1024;
   std::array<DecayPixel, MAX_PIXELS> ttls;
   size_t num_pixels;
 };

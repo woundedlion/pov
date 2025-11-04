@@ -334,7 +334,7 @@ public:
     Vector normal;
     const Palette& palette;
     Orientation orientation;
-    FilterDecay<W> trails;
+    FilterDecay<W, 3000> trails;
   };
 
   RingSpin() :
@@ -586,7 +586,7 @@ private:
   Orientation orientation;
   
   FilterReplicate<W> filters;
-  FilterDecay<W> trails;
+  FilterDecay<W, 7000> trails;
   FilterOrient<W> orient;
   FilterAntiAlias<W> aa;
 };
