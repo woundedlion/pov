@@ -372,7 +372,7 @@ public:
     auto& ring = rings[ring_index];
     double s = ring.orientation.length();
     for (int i = 0; i < s; ++i) {
-      dots = ::draw_ring<W>(ring.orientation.orient(ring.normal, i), 1,
+      ::draw_ring<W>(dots, ring.orientation.orient(ring.normal, i), 1,
         [&](auto& v, auto t) { return ring.palette.get(0); });
       plot_dots(dots, ring.trails, canvas, 
        (s - 1 - i) / s,
@@ -458,10 +458,10 @@ public:
   }
 
   void color_wipe() {
-    palettes.push(GenerativePalette(GradientShape::VIGNETTE));
-    palette_boundaries.push(0);
+    palettes.push_back(GenerativePalette(GradientShape::VIGNETTE));
+    palette_boundaries.push_back(0);
     timeline.add(0,
-      Transition(palette_boundaries[0], PI, 20, ease_mid)
+      Transition(palette_boundaries.back(), PI, 20, ease_mid)
       .then([this]() {
         palette_boundaries.pop();
         palettes.pop();
@@ -529,13 +529,11 @@ private:
     for (int i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
         auto from = pixel_to_vector(nodes[i].x, node_y(nodes[i]));
-        auto drawn = draw_vector(from, [this](auto& v) { return color(v, 0); });
-        dots.insert(dots.end(), drawn.begin(), drawn.end());
+        draw_vector(dots, from, [this](auto& v) { return color(v, 0); });
       } else {
         auto from = pixel_to_vector(nodes[i - 1].x, node_y(nodes[i - 1]));
         auto to = pixel_to_vector(nodes[i].x, node_y(nodes[i]));
-        auto drawn = draw_line<W>(from, to, [this](auto& v) { return color(v, 0); });
-        dots.insert(dots.end(), drawn.begin(), drawn.end());
+        draw_line<W>(dots, from, to, [this](auto& v) { return color(v, 0); });
       }
     }
     plot_dots(dots, filters, canvas, age, 0.5);

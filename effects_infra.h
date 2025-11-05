@@ -13,8 +13,14 @@
 #include <array>
 #include "3dmath.h"
 #include "FastNoiseLite.h"
+#include "StaticCircularBuffer.h"
 
 typedef CRGB Pixel;
+
+struct PixelCoords {
+  double x;
+  double y;
+};
 
 struct Dot {
   Dot(const Vector& v, const Pixel& color) :
@@ -29,12 +35,8 @@ struct Dot {
   Pixel color;
 };
 
-struct PixelCoords {
-  double x;
-  double y;
-};
+using Dots = StaticCircularBuffer<Dot, 1024>;
 
-typedef std::vector<Dot> Dots;
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
 typedef std::function<Pixel(const Vector&, double)> ColorFn;
@@ -303,7 +305,7 @@ private:
 };
 
 template <int W>
-Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way = false);
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bool long_way = false);
 
 template <int W>
 class Path {
@@ -314,7 +316,8 @@ public:
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }
-    Dots seg = draw_line<W>(v1, v2, [](auto& , auto) { return Pixel(); }, long_way);
+    Dots seg;
+    draw_line<W>(seg, v1, v2, [](auto& , auto) { return Pixel(); }, long_way);
     std::transform(seg.begin(), seg.end(), std::back_inserter(points), 
       [](auto& d) { return d.position; });
     return *this;
@@ -341,16 +344,6 @@ private:
   std::vector<Vector> points;
 };
 
-template <int W>
-Dots draw_path(const Path<W>& path, ColorFn color) {
-  Dots dots;
-  size_t samples = path.num_points();
-  for (size_t i = 0; i < samples; ++i) {
-    auto v = path.get_point(static_cast<double>(i) / samples);
-    dots.push_back(Dot(v, color(v, i / (samples - 1))));
-  }
-  return dots;
-}
 
 template <typename Poly>
 void bisect(Poly& poly, const Orientation& orientation, const Vector& normal) {
@@ -389,15 +382,23 @@ Pixel distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1
 }
 ///////////////////////////////////////////////////////////////////////////////
 
-Dots draw_vector(const Vector& v, ColorFn color_fn) {
+template <int W>
+void draw_path(Dots& dots, const Path<W>& path, ColorFn color) {
+  size_t samples = path.num_points();
+  for (size_t i = 0; i < samples; ++i) {
+    auto v = path.get_point(static_cast<double>(i) / samples);
+    dots.push_back(Dot(v, color(v, i / (samples - 1))));
+  }
+}
+
+void draw_vector(Dots& dots, const Vector& v, ColorFn color_fn) {
   Vector u(v);
   u.normalize();
-  return { Dot(u, color_fn(u, 0)) };
+  dots.emplace_back(Dot(u, color_fn(u, 0)));
 }
 
 template <int W>
-Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way /* = false*/) {
-  Dots dots;
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bool long_way /* = false*/) {
   Vector u(v1);
   Vector v(v2);
   u.normalize();
@@ -419,31 +420,23 @@ Dots draw_line(const Vector& v1, const Vector& v2, ColorFn color, bool long_way 
     );
     dots.emplace_back(Dot(vi, color(vi, t)));
   }
-  return dots;
 }
 
-Dots draw_vertices(const VertexList& vertices, ColorFn color_fn) {
-  Dots dots;
+void draw_vertices(Dots& dots, const VertexList& vertices, ColorFn color_fn) {
   for (Vector v : vertices) {
     dots.emplace_back(Dot(v.normalize(), color_fn(v, 0)));
   }
-  return dots;
 }
 
 template <int W>
-Dots draw_polyhedron(const VertexList& vertices, const AdjacencyList& edges, ColorFn color_fn) {
-  Dots dots;
-
+void draw_polyhedron(Dots& dots, const VertexList& vertices, const AdjacencyList& edges, ColorFn color_fn) {
   for (size_t i = 0; i < edges.size(); ++i) {
     Vector a(vertices[i]);
     for (auto j : edges[i]) {
       Vector b(vertices[j]);
-      auto seg = draw_line<W>(a, b, color_fn);
-      dots.insert(dots.end(), seg.begin(), seg.end());
+      draw_line<W>(dots, a, b, color_fn);
     }
   }
-
-  return dots;
 }
 
 Vector calc_ring_point(double a, double radius, const Vector& u, const Vector& v, const Vector& w) {
@@ -481,7 +474,7 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
 };
 
 template <int W>
-Dots draw_fn(const Orientation& orientation, const Vector& normal, double radius, ShiftFn shift_fn, ColorFn color_fn) {
+void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, double radius, ShiftFn shift_fn, ColorFn color_fn) {
   Vector v(orientation.orient(normal));
   if (radius > 1) {
     v = -v;
@@ -502,7 +495,6 @@ Dots draw_fn(const Orientation& orientation, const Vector& normal, double radius
   bool first = true;
   Vector start, from, to;
   double step = 1.0 / W;
-  Dots dots;
   for (double t = 0; t < 1; t += step) {
     auto vi = calc_ring_point(t * 2 * PI, radius, u, v, w);
     auto vp = calc_ring_point(t * 2 * PI, 1, u, v, w);
@@ -515,15 +507,11 @@ Dots draw_fn(const Orientation& orientation, const Vector& normal, double radius
       start = to;
     }
     else {
-      auto seg = draw_line<W>(from, to, color_fn);
-      dots.insert(dots.begin(), seg.begin(), seg.end());
+      draw_line<W>(dots, from, to, color_fn);
     }
     from = to;
   }
-  auto seg = draw_line<W>(from, start, color_fn);
-  dots.insert(dots.begin(), seg.begin(), seg.end());
-
-  return dots;
+  draw_line<W>(dots, from, start, color_fn);
 };
 
 
@@ -548,8 +536,7 @@ Vector ring_point(const Vector& normal, double radius, double angle, double phas
 };
 
 template<int W>
-Dots draw_ring(const Vector& normal, double radius, ColorFn color_fn, double phase = 0) {
-  Dots dots;
+void draw_ring(Dots& dots, const Vector& normal, double radius, ColorFn color_fn, double phase = 0) {
   Vector v(normal);
   if (radius > 1) {
     v = -v;
@@ -572,8 +559,6 @@ Dots draw_ring(const Vector& normal, double radius, ColorFn color_fn, double pha
     auto vi = calc_ring_point(fmod((a + phase), (2 * PI)), radius, u, v, w);
     dots.emplace_back(Dot(vi, color_fn(vi, a / (2 * PI))));
   }
-
-  return dots;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1436,89 +1421,3 @@ void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, double age,
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template <typename T, size_t N>
-class StaticCircularBuffer {
-public:
-
-  StaticCircularBuffer() : 
-    head(0), tail(0), count(0) 
-  {}
-
-  StaticCircularBuffer(std::initializer_list<T> items) 
-    : head(0), tail(0), count(0) {
-    assert(items.size() <= N && "Initializer list is larger than buffer capacity.");
-
-    for (const T& item : items) {
-      push(item);
-    }
-  }
-
-  void push(const T& item) {
-    assert(!is_full() && "Buffer overflow: cannot push to a full buffer.");
-
-    buffer[tail] = item;
-    tail = (tail + 1) % N;
-    count++;
-  }
-
-  void push(T&& item) {
-    assert(!is_full() && "Buffer overflow: cannot push to a full buffer.");
-    buffer[tail] = std::move(item);
-    tail = (tail + 1) % N;
-    count++;
-  }
-
-  void pop() {
-    assert(!is_empty() && "Buffer underflow: cannot pop from an empty buffer.");
-    head = (head + 1) % N;
-    count--;
-  }
-
-  T& front() {
-    assert(!is_empty() && "Buffer is empty.");
-    return buffer[head];
-  }
-
-  const T& front() const {
-    assert(!is_empty() && "Buffer is empty.");
-    return buffer[head];
-  }
-
-  T& operator[](size_t index) {
-    assert(index < count && "Index out of bounds.");
-    return buffer[(head + index) % N];
-  }
-
-  const T& operator[](size_t index) const {
-    assert(index < count && "Index out of bounds.");
-    return buffer[(head + index) % N];
-  }
-
-  constexpr bool is_empty() const {
-    return count == 0;
-  }
-
-  constexpr bool is_full() const {
-    return count == N;
-  }
-
-  constexpr size_t size() const {
-    return count;
-  }
-
-  constexpr size_t capacity() const {
-    return N;
-  }
-
-  void clear() {
-    head = 0;
-    tail = 0;
-    count = 0;
-  }
-
-private:
-  std::array<T, N> buffer;
-  size_t head;
-  size_t tail;
-  size_t count;
-};
