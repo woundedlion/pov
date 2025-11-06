@@ -6,318 +6,6 @@
 #include <vector>
 #include <map>
 
-
-
-/*
-template <int>
-class Thrusters;
-
-template <int W>
-class Thruster : public Animation {
-public:
-
-  Thruster(Thrusters<W>& parent, const Orientation& orientation, const Vector& thrust_point) :
-    Animation(0, false),
-    orientation(orientation),
-    thrust_point(thrust_point),
-    exhaust_radius(0),
-    exhaust_motion(exhaust_radius, 0.3, 8, ease_mid),
-    exhaust_sprite([this, &parent](auto opacity) {
-        parent.draw_thruster(this->orientation, this->thrust_point, this->exhaust_radius, opacity); 
-      },
-      32, 0, ease_mid, 32, ease_out_expo)
-  {
-    Serial.println("Thruster() Create");
-  }
-
-  ~Thruster() {
-    Serial.println("Thruster() Destroy");
-  }
-
-  bool done() {
-    return exhaust_motion.done()
-      && exhaust_sprite.done();
-    ;
-  }
-
-  void step() {
-    exhaust_sprite.step();
-    exhaust_motion.step();
-  }
-
-private:
-
-  Orientation orientation;
-  Vector thrust_point;
-  double exhaust_radius;
-  Transition exhaust_motion;
-  Sprite exhaust_sprite;
-};
-
-template <int W>
-class Thrusters : public Effect {
-public:
-  Thrusters() :
-    Effect(W),
-    palette(
-      { 0.5, 0.5, 0.5 },
-      { 0.5, 0.5, 0.5 },
-      { 0.3, 0.3, 0.3 },
-      { 0.0, 0.2, 0.6 }),
-    ring(Vector(0.5, 0.5, 0.5).normalize())
-  {
-    timeline
-      .add(0,
-        std::make_shared<Sprite>(
-          [this](auto o) { return draw_ring(o); },
-          -1,
-          16, ease_in_sin,
-          16, ease_out_sin)
-      )
-      
-      .add(0,
-        std::make_shared<RandomTimer>(
-          8, 48,
-          [this]() {  this->on_fire_thruster(); },
-          true)
-      );
-    Serial.println("Thrusters()");
-  }
-
-  void draw_thruster(const Orientation& orientation, const Vector& thrust_point, double radius, double opacity) {
-    auto dots = ::draw_ring<W>(orientation, thrust_point, radius,
-      [opacity](auto&, auto) { return CHSV(0, 0, 255 * opacity); });
-    plot_dots<W>(dots, filters, pixels);
-  }
-
-  void on_fire_thruster() {
-    Serial.println("on_fire_thruster()");
-    auto warp_phase = hs::rand_dbl() * 2 * PI;
-    auto thrust_point = fn_point(
-      [this](auto t) { return ring_fn(t); },
-      ring, 1, warp_phase);
-    auto thrust_opp = fn_point(
-      [this](auto t) { return ring_fn(t); },
-      ring, 1, 
-      warp_phase + PI);
-
-    // warp ring
-    if (warp && !warp->done()) {
-      warp->cancel();
-    }
-    
-    warp.reset(new Mutation(
-      amplitude, 
-      [](auto t) { return 0.7 * exp(-2.0 * t); },
-      32, 
-      ease_mid));
-    timeline.add(1.0 / 16,
-      warp
-    );
-   
-    // Spin ring
-    auto thrust_axis = cross(
-      orientation.orient(thrust_point),
-      orientation.orient(ring))
-      .normalize();
-    timeline.add(0,
-      std::make_shared<Rotation<W>>(
-        orientation, thrust_axis, 2 * PI, 8 * 16, ease_out_expo)
-    );
-    
-    // show thruster
-    timeline.add(0,
-      std::make_shared<Thruster<W>>(
-        *this,
-        orientation,
-        thrust_point));
-    timeline.add(0,
-      std::make_shared<Thruster<W>>(
-        *this,
-        orientation,
-        thrust_opp));
-    Serial.println("end on_fire_thruster()");
-  }
-
-  double ring_fn(double t) {
-    return sin_wave(-1, 1, 2, warp_phase)(t) // ring
-      * sin_wave(-1, 1, 3, 0)((this->timeline.t % 32) / 32.0) // oscillation
-      * amplitude;
-  }
-
-  void draw_ring(double opacity) {
-    Serial.println("draw_ring");
-    rotate_between<W>(orientation, to);
-    orientation.collapse();
-    to.collapse();
-    auto dots = draw_fn<W>(orientation, ring, radius,
-      [this](auto t) -> auto { 
-        return this->ring_fn(t); 
-      },
-      [this, opacity](auto& v, auto t) -> auto {
-        auto z = orientation.orient(X_AXIS);
-        auto color = rgb2hsv_approximate((palette.get(angle_between(z, v) / PI)));
-        color.v = dim8_lin(color.v * opacity);
-        return color;
-      }
-    );
-    plot_dots<W>(dots, filters, pixels);
-    Serial.println("end draw_ring");
-  }
-
-  void draw_frame() {
-    pixels.clear();
-    timeline.step();
-    Canvas canvas(*this);
-    canvas.clear_buffer();
-    for (auto& [xy, p] : pixels) {
-      canvas(xy) = p;
-    }
-  }
-
-  bool show_bg() const { return false; }
-
-private:
-
-  ProceduralPalette palette;
-  FilterAntiAlias<W> filters;
-  Vector ring;
-  Orientation orientation;
-  Orientation to;
-  std::vector<Thruster<W>> thrusters;
-  double amplitude = 0;
-  double warp_phase = 0;
-  double radius = 1;
-  std::shared_ptr<Mutation> warp;
-  Timeline timeline;
-  Pixels pixels;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-
-template <int W>
-class Wormhole : public Effect {
-public:
-
-  Wormhole() :
-    Effect(W),
-    palette(
-      { 0.5, 0.5, 0.5 },
-      { 1.0, 0.2, 0.5 },
-      { 0.5, 0.5, 0.5 },
-      { 0.3, 0.5, 0.0 }),
-    normal(Z_AXIS)
-  {
-    timeline.add(0,
-      std::make_shared<Sprite>([this](double opacity) { this->draw_rings(opacity); },
-        -1, 8, ease_mid, 0, ease_mid)
-    );
-
-    // T1: Spin everything
-    on_thrust_rings(1);
-    on_spin_rings(1);
-    on_mutate_duty_cyle(1);
-    on_mutate_twist(1);
-  }
-
-  void on_mutate_duty_cyle(double in_secs = 0) {
-    return;
-    timeline.add(in_secs,
-      std::make_shared<Mutation>(duty_cycle, sin_wave((2 * PI) / W, (8 * 2 * PI) / W, 1, PI / 2),
-        160, ease_mid, true)
-    );
-  }
-
-  void on_mutate_twist(double in_secs = 0) {
-    return;
-    timeline.add(in_secs,
-      std::make_shared<Mutation>(twist, sin_wave(3.0 / W, 10.0 / W, 1, PI / 2),
-        64, ease_mid, true)
-    );
-  }
-
-  void on_thrust_rings(double in_secs = 0) {
-    timeline.add(in_secs,
-      std::make_shared<Rotation<W>>(
-        orientation,
-        ring_point(orientation.orient(normal), 1, hs::rand_dbl() * 2 * PI),
-        4 * PI,
-        16 * 16, ease_in_out_sin, false)
-    );
-
-    timeline.add(in_secs,
-      std::make_shared<RandomTimer>(4 * 16, 8 * 16, [this]() { this->on_thrust_rings(); }, false)
-    );
-  }
-
-  void on_spin_rings(double in_secs = 0) {
-    timeline.add(in_secs,
-      std::make_shared<Transition>(phase, 2 * PI, 32, ease_mid, false, true)
-    );
-  }
-
-  void calc_ring_spread() {
-    radii.resize(num_rings);
-    for (int i = 0; i < num_rings; ++i) {
-      double x = (static_cast<double>(i + 1) / (num_rings + 1)) * 2 - 1;
-      double r = sqrt(pow(1 - x, 2));
-      radii[i] = lerp(home_radius, r, spread_factor);
-    }
-  }
-
- void draw_rings(double opacity) {
-    calc_ring_spread();
-    Serial.println(phase);
-    orientation.collapse();
-    for (unsigned int i = 0; i < radii.size(); ++i) {
-      auto dots = draw_ring<W>(orientation, normal, radii[i],
-        [=](auto& v, auto t) {
-          double idx = num_rings == 1 ? 0 : (1 - (static_cast<double>(i) / (num_rings - 1)));
-          double darken = pow(1 - abs(radii[i] - 1), 3);
-          auto color = dim(palette.get(idx), darken);
-          auto r = dotted_brush(dim(color, opacity), freq,
-            duty_cycle, twist, t);
-          return r;
-        },
-        twist * i + phase);
-      plot_dots(dots, filters, pixels);
-    }
-  }
-
-  void draw_frame() {
-    pixels.clear();
-    timeline.step();
-    Canvas canvas(*this);
-    for (auto& [xy, p] : pixels) {
-      canvas(xy) = p;
-    }
-  }
-
-  bool show_bg() const { return false; }
-
-  private:
-
-    ProceduralPalette palette;
-    FilterAntiAlias<W> filters;
-    Vector normal;
-    Orientation orientation;
-
-    // TODO: int template for Mutation
-    double num_rings = W;
-    double spread_factor = 1;
-    double home_radius = 1;
-    double duty_cycle = (2 * PI) / W;
-    double freq = 2;
-    double twist = 10.0 / W;
-    double phase = 0;
-    std::vector<double> radii;
-
-    Timeline timeline;
-    Pixels pixels;
-};
-*/
-///////////////////////////////////////////////////////////////////////////////
-
 template <int W>
 class RingSpin : public Effect {
 public:
@@ -343,12 +31,10 @@ public:
     trail_length(15)
   {
     persist_pixels = false;
-    spawn_ring(X_AXIS, *palettes[0]);
-    spawn_ring(Y_AXIS, *palettes[1]);
-    spawn_ring(Z_AXIS, *palettes[2]);
-    spawn_ring(X_AXIS, *palettes[3]);
-    spawn_ring(Y_AXIS, *palettes[4]);
-    spawn_ring(Z_AXIS, *palettes[5]);
+    rings.reserve(NUM_RINGS);
+    for (int i = 0; i < NUM_RINGS; ++i) {
+      spawn_ring(X_AXIS, *palettes[i]);
+    }
   }
 
   bool show_bg() const { return false; }
@@ -392,6 +78,7 @@ public:
 
 private:
 
+  static constexpr int NUM_RINGS = 6;
   std::vector<Ring> rings;
   double alpha;
   double trail_length;
@@ -588,4 +275,127 @@ private:
   FilterDecay<W, 7000> trails;
   FilterOrient<W> orient;
   FilterAntiAlias<W> aa;
+};
+
+template <int W>
+class RingShower2 : public Effect {
+private:
+  static constexpr size_t MAX_RINGS = 8; // Max simultaneous rings, fixed size for stability
+
+  struct Ring {
+    Vector normal;
+    double speed;
+    double radius;
+    double duration;
+    GenerativePalette palette;
+    FilterDecay<W, 500> trails; // Use the V2 decay filter
+
+    // The Sprite and Transition are not held here because they are managed by the Timeline,
+    // but we need a Transition for the radius and a Sprite for the draw loop.
+
+    Ring() :
+      normal(random_vector()),
+      speed(0.0),
+      radius(0.0),
+      duration(0.0),
+      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS), // Generate a random circular palette
+      trails(10) // Small trail length
+    {
+      // Initialize the trail filter in the constructor
+      trails.chain(filters);
+    }
+  };
+
+public:
+  RingShower2() :
+    Effect(W)
+  {
+    persist_pixels = false; // We want a fresh canvas each frame
+
+    // Initialize all rings and their persistent filters
+    for (size_t i = 0; i < MAX_RINGS; ++i) {
+      rings[i].trails.chain(filters); // Chain the trail filter through the common filters
+    }
+
+    // T0: Start the continuous ring spawner
+    timeline.add(0,
+      RandomTimer(1, 24, // 1 to 24 frames (1/16s to 1.5s)
+        [this](auto&) { this->spawn_ring(); },
+        true) // Repeat forever
+    );
+
+    // Chain the final output filters once
+    filters
+      .chain(aa);
+  }
+
+  bool show_bg() const override { return false; }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
+  }
+
+private:
+  void spawn_ring() {
+    // Find the first available (inactive) ring slot.
+    for (size_t i = 0; i < MAX_RINGS; ++i) {
+      if (rings[i].duration <= 0) {
+        // Initialize new ring parameters
+        Ring& ring = rings[i];
+        ring.normal = random_vector();
+        ring.duration = hs::rand_int(8, 72); // 8 to 72 frames
+        ring.radius = 0.0;
+        ring.palette = GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS);
+
+        // 1. Animation: Expand the radius from 0 to 2 (passing through 1)
+        timeline.add(0,
+          Transition(ring.radius, 2, ring.duration, ease_mid, false, false)
+          .then([&ring]() { ring.duration = 0; }) // Mark ring slot as inactive when done
+        );
+
+        // 2. Sprite: The continuous drawing function
+        timeline.add(0,
+          Sprite(
+            [this, i](Canvas& canvas, double opacity) { this->draw_ring(canvas, opacity, i); },
+            ring.duration,
+            4, ease_mid, // Fade in duration
+            0, ease_mid)
+        );
+        return;
+      }
+    }
+  }
+
+  void draw_ring(Canvas& canvas, double opacity, size_t index) {
+    Ring& ring = rings[index];
+    Dots dots;
+
+    // Use the Orientation for drawing, even if it's just the identity quaternion
+    draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
+      [&](auto& v, auto t) {
+        // Use the palette to get the color, dimming with overall opacity
+        Pixel color = ring.palette.get(t);
+        return dim(color, opacity);
+      },
+      0); // No phase shift
+
+    // Plot the dots through the ring's private trail filter chain
+    plot_dots<W>(dots, ring.trails, canvas, 0, 1.0);
+
+    // Apply decay to the trails and trail it to the canvas
+    // NOTE: The trail decay logic is handled implicitly by the Transition/Sprite duration.
+    // We'll just decay the trails once per frame.
+    ring.trails.decay();
+    ring.trails.trail(canvas, vignette(ring.palette), 0.5); // Use the palette's vignette version for trails
+  }
+
+  // Static array of Ring structs to avoid dynamic allocation
+  Ring rings[MAX_RINGS];
+
+  // Common V2 infrastructure members
+  FilterRaw<W> filters;
+  FilterAntiAlias<W> aa;
+  Orientation orientation; // Not used for rotation here, but required by some drawing fns
+  Timeline timeline;
 };
