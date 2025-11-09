@@ -226,6 +226,6 @@ template<int W>
 void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, double age, double alpha) {
   for (auto& dot : dots) {
     auto p = vector_to_pixel<W>(dot.position);
-    filters.plot(canvas, p.x, p.y, dot.color, age, alpha);
+    filters.plot(canvas, p.x, p.y, gamma_correct(dot.color), age, alpha);
   }
 }

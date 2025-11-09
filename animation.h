@@ -1,3 +1,4 @@
+#pragma once
 static const int FPS = 16;
 
 double ease_in_out_bicubic(double t) {
@@ -488,4 +489,3 @@ private:
   std::array<TimelineEvent, MAX_EVENTS> events;
   int num_events;
 };
-#pragma once

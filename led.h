@@ -10,17 +10,6 @@ namespace {
 	const int PIN_RANDOM = 15;
 }
 
-namespace hs {
-	double rand_dbl() {
-		return static_cast<double>(::random(0, std::numeric_limits<int32_t>::max()))
-			/ std::numeric_limits<int32_t>::max();
-	}
-
-	int rand_int(int min, int max) {
-		return ::random(min, max);
-	}
-}
-
 inline int XY(int x, int y) { return x * H + y; }
 class Canvas;
 
