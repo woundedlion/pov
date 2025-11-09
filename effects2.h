@@ -1,10 +1,10 @@
 #pragma once
 
-#include "effects_infra.h"
 #include <functional>
 #include <memory>
 #include <vector>
 #include <map>
+#include "effects_engine.h"
 
 template <int W>
 class RingSpin : public Effect {
