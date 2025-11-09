@@ -2,8 +2,8 @@
 #include <SPI.h>
 #include <vector>
 #include "led.h"
+#include "effects_legacy.h"
 #include "effects.h"
-#include "effects2.h"
 
 namespace {
 	POVDisplay<NUM_PIXELS, RPM> *pov;

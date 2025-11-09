@@ -107,10 +107,6 @@ private:
   Effect& effect_;
 };
 
-//#include "effects.h"
-//#include "effects2.h"
-
-
 template <int S, int RPM>
 class POVDisplay
 {

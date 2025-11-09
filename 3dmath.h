@@ -7,7 +7,6 @@
 
 static constexpr double PHI = 1.6180339887498948482045868343656;
 static constexpr double G = 1 / PHI;
-
 struct Vector;
 struct Spherical {
   Spherical(double theta, double phi) : theta(theta), phi(phi) {}
@@ -264,44 +263,6 @@ std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
     {(v + (normal * shift)).normalize()},
     {(v + (-normal * shift)).normalize()},
   };
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-double ease_in_out_bicubic(double t) {
-  return t < 0.5 ? 4 * pow(t, 3) : 1 - pow(-2 * t + 2, 3) / 2;
-}
-
-double ease_in_out_sin(double t) {
-  return -(cos(PI * t) - 1) / 2;
-}
-
-double ease_in_sin(double t) {
-  return 1 - cos((t * PI) / 2);
-}
-
-double ease_out_sin(double t) {
-  return sin((t * PI) / 2);
-}
-
-double ease_in_cubic(double t) {
-  return pow(t, 3);
-}
-
-double ease_in_circ(double t) {
-  return 1 - sqrt(1 - pow(t, 2));
-}
-
-double ease_mid(double t) {
-  return t;
-}
-
-double ease_out_expo(double t) {
-  return t == 1 ? 1 : 1 - pow(2, -10 * t);
-}
-
-double ease_out_circ(double t) {
-  return sqrt(1 - pow(t - 1, 2));
 }
 
 Vector lissajous(double m1, double m2, double a, double t) {
