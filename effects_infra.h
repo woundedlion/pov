@@ -173,6 +173,13 @@ struct Dodecahedron {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+auto blend_add(const Pixel& c1, const Pixel& c2) {
+  return Pixel(
+    qadd8(c1.r, c2.r),
+    qadd8(c1.g, c2.g),
+    qadd8(c1.b, c2.b));
+}
+
 
 auto blend_alpha(double a) {
   return [a](const Pixel& c1, const Pixel& c2) {
@@ -288,6 +295,12 @@ public:
       orientations[num_frames++] = q;
     }
     return *this;
+  }
+
+  Quaternion pop() {
+    auto r = orientations.back();
+    num_frames--;
+    return r;
   }
 
   Orientation& collapse() {
@@ -540,6 +553,7 @@ void draw_ring(Dots& dots, const Vector& normal, double radius, ColorFn color_fn
   Vector v(normal);
   if (radius > 1) {
     v = -v;
+    phase = wrap(phase + PI, 2 * PI);
   }
   Vector u;
   if (v.i == 0 && v.j == 0) {
@@ -582,7 +596,9 @@ protected:
     const Pixel& c, double age, double alpha)
   {
     if (next == nullptr) {
-      canvas(XY(x, y)) = { blend_alpha(alpha)(canvas(XY(x, y)), c) };
+      auto p = blend_alpha(alpha)(canvas(XY(x, y)), c);
+      canvas(XY(x, y)) = p;
+//      Serial.printf("plot_out (%f, %f,) (%d, %d, %d)\n", x, y, p.r, p.g, p.b);
     }
     else {
       next->plot(canvas, x, y, c, age, alpha);
@@ -609,19 +625,20 @@ public:
     double x_m = modf(x, &x_i);
     double y_i = 0;
     double y_m = modf(y, &y_i);
+//    Serial.printf("plot_in (%f, %f,) (%d, %d, %d) [%f]\n", x, y, c.r, c.g, c.b, alpha);
 
     double v = (1 - x_m) * (1 - y_m);
-    this->pass(canvas, x_i, y_i, dim(c, v), age, alpha);
+    this->pass(canvas, x_i, y_i, c, age, alpha * v);
 
     v = x_m * (1 - y_m);
-    this->pass(canvas, (static_cast<int>(x_i + 1)) % W, y_i, dim(c, v), age, alpha);
+    this->pass(canvas, (static_cast<int>(x_i + 1)) % W, y_i, c, age, alpha * v);
 
     if (y_i < H - 1) {
       v = (1 - x_m) * y_m;
-      this->pass(canvas, x_i, y_i + 1, dim(c, v), age, alpha);
+      this->pass(canvas, x_i, y_i + 1, c, age, alpha * v);
 
       v = x_m * y_m;
-      this->pass(canvas, static_cast<int>(x_i + 1) % W, y_i + 1, dim(c, v), age, alpha);
+      this->pass(canvas, static_cast<int>(x_i + 1) % W, y_i + 1, c, age, alpha * v);
     }
   }
 };
@@ -723,7 +740,7 @@ class FilterReplicate : public Filter<W> {
 public:
 
   FilterReplicate(int count) :
-    count(std::clamp(1, W, count))
+    count(std::clamp(count, 1, W))
   {}
 
   void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
@@ -739,7 +756,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 uint16_t to_short(double zero_to_one) {
-  return std::clamp(0.0, 65535.0, std::round(zero_to_one * 65535));
+  return std::clamp(std::round(zero_to_one * 65535), 0.0, 65535.0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -817,6 +834,7 @@ public:
   }
 
   Pixel get(double t) const override {
+    Serial.println(t);
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
       if (t >= shape[i] && t < shape[i + 1]) {
@@ -833,7 +851,8 @@ public:
     Pixel c1 = colors[seg];
     Pixel c2 = colors[seg + 1];
 
-    return c1.lerp16(c2, std::clamp(0.0, 65535.0, (t - start) / (end - start) * 65535));
+    auto r = c1.lerp16(c2, std::clamp((t - start) / (end - start) * 65535, 0.0, 65535.0));
+    return r;
   }
 
   private:
@@ -991,23 +1010,9 @@ Pixel dotted_brush(const Pixel& color, double freq, double duty_cycle, double ph
 
 ///////////////////////////////////////////////////////////////////////////////
 
+template <typename Derived>
 class Animation {
 public:
-
-  Animation() :
-    duration(-1),
-    repeat(false),
-    canceled(false),
-    post([]() {})
-  {}
-
-  Animation(int duration, bool repeat) :
-    duration(duration),
-    repeat(repeat),
-    canceled(false),
-    post([](){})
-  {
-  }
 
   void cancel() { canceled = true; }
   virtual bool done() { return canceled || (duration >= 0 && t >= duration); }
@@ -1021,9 +1026,9 @@ public:
     }
   }
 
-  Animation& then(std::function<void()> callback) {
+  Derived& then(std::function<void()> callback) {
     post = callback;
-    return *this;
+    return static_cast<Derived&>(*this);
   }
 
   void post_callback() {
@@ -1031,6 +1036,14 @@ public:
   }
 
 protected:
+
+  Animation(int duration, bool repeat) :
+    duration(duration),
+    repeat(repeat),
+    canceled(false),
+    post([]() {})
+  {
+  }
 
   int duration;
   bool repeat;
@@ -1042,7 +1055,16 @@ private:
   std::function<void()> post;
 };
 
-class RandomTimer : public Animation {
+class NullAnimation : public Animation<NullAnimation> {
+public:
+  NullAnimation() :
+    Animation(0, false)
+  {}
+  void step(Canvas&) {}
+  bool done() { return true; }
+};
+
+class RandomTimer : public Animation<RandomTimer> {
 public:
 
   RandomTimer(int min, int max, TimerFn f, bool repeat = false) :
@@ -1058,9 +1080,8 @@ public:
   void reset() {
     next = t + static_cast<int>(std::round(hs::rand_int(min, max)));
   }
-
+  
   void step(Canvas& canvas) {
-    Serial.println("step RandomTimer");
     if (t >= next) {
       f(canvas);
       if (repeat) {
@@ -1081,7 +1102,7 @@ public:
     int next;
 };
 
-class PeriodicTimer : public Animation {
+class PeriodicTimer : public Animation<PeriodicTimer> {
 public:
   PeriodicTimer(int period, TimerFn f, bool repeat = false) :
     Animation(-1, repeat),
@@ -1115,11 +1136,12 @@ private:
   int next;
 };
 
-class Transition : public Animation {
+class Transition : public Animation<Transition> {
 public:
   Transition(double& mutant, double to, int duration, EasingFn easing_fn, bool quantized = false, bool repeat = false) :
     Animation(duration, repeat),
     mutant(mutant),
+    from(mutant),
     to(to),
     easing_fn(easing_fn),
     quantized(quantized)
@@ -1136,7 +1158,11 @@ public:
     if (quantized) {
       n = std::floor(n);
     }
-    mutant = n;
+    mutant.get() = n;
+  }
+
+  void rebind_mutant(double& new_mutant) {
+    mutant = new_mutant;
   }
 
 private:
@@ -1148,7 +1174,7 @@ private:
   bool quantized;
 };
 
-class Mutation : public Animation {
+class Mutation : public Animation<Mutation> {
 public:
 
   Mutation(double& mutant, MutateFn f, int duration, EasingFn easing_fn, bool repeat = false) :
@@ -1160,13 +1186,17 @@ public:
   {}
 
   void step(Canvas& canvas) {
-    Serial.println("step Mutation");
     if (t == 0) {
       from = mutant;
     }
     auto t = std::min(1.0, static_cast<double>(this->t) / (duration - 1));
     mutant.get() = f(easing_fn(t));
     Animation::step(canvas);
+  }
+
+
+  void rebind_mutant(double& new_mutant) {
+    mutant = new_mutant;
   }
 
 private:
@@ -1178,7 +1208,7 @@ private:
 };
 
 
-class Sprite : public Animation {
+class Sprite : public Animation<Sprite> {
 public:
 
   Sprite(SpriteFn draw_fn, int duration,
@@ -1193,8 +1223,36 @@ public:
     fade_out(fader, 0, fade_out_duration, fade_out_easing_fn)
   {}
 
+  Sprite(Sprite&& other) noexcept
+    : Animation(std::move(other)),
+    draw_fn(std::move(other.draw_fn)),
+    fader(other.fader),
+    fade_in_duration(other.fade_in_duration),
+    fade_out_duration(other.fade_out_duration),
+    fade_in(std::move(other.fade_in)),
+    fade_out(std::move(other.fade_out))
+  {
+    fade_in.rebind_mutant(this->fader);
+    fade_out.rebind_mutant(this->fader);
+  }
+
+  Sprite& operator=(Sprite&& other) noexcept {
+    if (this == &other) return *this;
+
+    Animation::operator=(std::move(other));
+    draw_fn = std::move(other.draw_fn);
+    fader = other.fader;
+    fade_in_duration = other.fade_in_duration;
+    fade_out_duration = other.fade_out_duration;
+    fade_in = std::move(other.fade_in);
+    fade_in.rebind_mutant(this->fader);
+    fade_out = std::move(other.fade_out);
+    fade_out.rebind_mutant(this->fader);
+
+    return *this;
+  }
+
   void step(Canvas& canvas) {
-    Serial.println("step Sprite");
     if (!fade_in.done()) {
       fade_in.step(canvas);
     }
@@ -1216,11 +1274,11 @@ private:
 };
 
 template <int W>
-class Motion : public Animation {
+class Motion : public Animation<Motion<W>> {
 public:
 
   Motion(Orientation& orientation, const Path<W>& path, int duration, bool repeat = false) :
-    Animation(duration, repeat),
+    Animation<Motion<W>>(duration, repeat),
     orientation(orientation),
     path(path),
     to(this->path.get_point(0))
@@ -1228,7 +1286,7 @@ public:
 
   void step(Canvas& canvas) {
     from = to;
-    to = path.get().get_point(static_cast<double>(t) / duration);
+    to = path.get().get_point(static_cast<double>(this->t) / this->duration);
     if (from != to) {
       Vector axis = cross(from, to).normalize();
       auto angle = angle_between(from, to);
@@ -1239,7 +1297,7 @@ public:
       }
       orientation.get().push(make_rotation(axis, angle) * origin);
     }
-    Animation::step(canvas);
+    Animation<Motion<W>>::step(canvas);
   }
 
 private:
@@ -1252,11 +1310,11 @@ private:
 };
 
 template <int W>
-class Rotation : public Animation {
+class Rotation : public Animation<Rotation<W>> {
 public:
 
   Rotation(Orientation& orientation, const Vector& axis, double angle, int duration, EasingFn easing_fn, bool repeat = false) :
-    Animation(duration, repeat),
+    Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
     axis(axis),
     total_angle(angle),
@@ -1267,24 +1325,21 @@ public:
   }
 
   static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, double angle, EasingFn easing_fn) {
-    Rotation<W> r(orientation, axis, angle, 2, easing_fn, false);
-    r.step(canvas);
+    Rotation<W> r(orientation, axis, angle, 1, easing_fn, false);
     r.step(canvas);
   }
 
   void step(Canvas& canvas) {
-    orientation.get().collapse();
+    Animation<Rotation<W>>::step(canvas);
     from = to;
-    to = easing_fn(static_cast<double>(t) / duration) * total_angle;
+    to = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
     auto angle = distance(from, to, total_angle);
     if (angle > 0.00001) {
-      auto& origin = orientation.get().get();
+      auto origin = orientation.get().pop();
       for (auto a = MAX_ANGLE; angle - a > 0.00001; a += MAX_ANGLE) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
-      orientation.get().push(make_rotation(axis, angle) * origin);
     }
-    Animation::step(canvas);
   }
 
 private:
@@ -1299,10 +1354,10 @@ private:
 };
 
 template<int W>
-class RandomWalk : public Animation {
+class RandomWalk : public Animation<RandomWalk<W>> {
 public:
   RandomWalk(Orientation& orientation, const Vector& v_start) :
-    Animation(-1, false),
+    Animation<RandomWalk<W>>(-1, false),
     orientation(orientation),
     v(Vector(v_start).normalize())
   {
@@ -1314,14 +1369,14 @@ public:
       u = X_AXIS;
     }
     direction = cross(v, u).normalize();
-
     noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     noiseGenerator.SetFrequency(NOISE_SCALE);
+    noiseGenerator.SetSeed(hs::rand_int(0, 65535));
   }
 
   void step(Canvas& canvas) override {
-    Animation::step(canvas);
-    double pivotAngle = noiseGenerator.GetNoise(t * NOISE_SCALE, 0.0) * PIVOT_STRENGTH;
+    Animation<RandomWalk<W>>::step(canvas);
+    double pivotAngle = noiseGenerator.GetNoise(this->t * NOISE_SCALE, 0.0) * PIVOT_STRENGTH;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     Vector walk_axis = cross(v, direction).normalize();
     v = rotate(v, make_rotation(walk_axis, WALK_SPEED)).normalize();
@@ -1330,9 +1385,10 @@ public:
   }
 
 private:
+
   static constexpr double WALK_SPEED = 0.2;
-  static constexpr double PIVOT_STRENGTH = 0.1;
-  static constexpr double NOISE_SCALE = 0.05;
+  static constexpr double PIVOT_STRENGTH = 1;
+  static constexpr double NOISE_SCALE = 0.5;
 
   FastNoiseLite noiseGenerator;
   std::reference_wrapper<Orientation> orientation;
@@ -1343,7 +1399,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 using AnimationVariant = std::variant<
-  Animation,
+  NullAnimation,
   Sprite,
   Transition,
   Mutation,
@@ -1411,10 +1467,8 @@ private:
 template<int W>
 void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, double age, double alpha) {
   for (auto& dot : dots) {
-    Spherical s(dot.position);
-    double y = std::clamp(0.0, static_cast<double>(H - 1), (s.phi * H) / PI);
-    double x = std::clamp(0.0, static_cast<double>(W - 1), fmod(((s.theta + PI) * W) / (2 * PI), W));
-    filters.plot(canvas, x, y, dot.color, age, alpha);
+    auto p = vector_to_pixel<W>(dot.position);
+    filters.plot(canvas, p.x, p.y, dot.color, age, alpha);
   }
 }
 

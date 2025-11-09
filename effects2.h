@@ -28,7 +28,7 @@ public:
   RingSpin() :
     Effect(W),
     alpha(0.2),
-    trail_length(15)
+    trail_length(5)
   {
     persist_pixels = false;
     rings.reserve(NUM_RINGS);
@@ -64,11 +64,11 @@ public:
        (s - 1 - i) / s,
        alpha * opacity);
     }
+    ring.orientation.collapse();
     ring.trails.trail(canvas,
       [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
     ring.trails.decay();
-    ring.orientation.collapse();
   }
 
   void draw_frame() {
@@ -114,7 +114,7 @@ public:
   {
     persist_pixels = false;
 
-    for (int i = 0; i < NUM_NODES; ++i) {
+    for (size_t i = 0; i < NUM_NODES; ++i) {
       nodes[i].y = i;
     }
 
@@ -145,7 +145,7 @@ public:
   }
 
   void color_wipe() {
-    palettes.push_back(GenerativePalette(GradientShape::VIGNETTE));
+    palettes.push_back(GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS));
     palette_boundaries.push_back(0);
     timeline.add(0,
       Transition(palette_boundaries.back(), PI, 20, ease_mid)
@@ -160,7 +160,7 @@ public:
     constexpr double blend_width = PI / 8.0;
     double a = angle_between(v, palette_normal);
 
-    for (int i = 0; i < palette_boundaries.size(); ++i) {
+    for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       double boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
       auto upper_edge = boundary + blend_width;
@@ -213,14 +213,14 @@ private:
 
   void draw_nodes(Canvas& canvas, double age) {
     Dots dots;
-    for (int i = 0; i < nodes.size(); ++i) {
+    for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
-        auto from = pixel_to_vector(nodes[i].x, node_y(nodes[i]));
-        draw_vector(dots, from, [this](auto& v) { return color(v, 0); });
+        auto from = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
+        draw_vector(dots, from, [this](auto& v, auto t) { return color(v, 0); });
       } else {
-        auto from = pixel_to_vector(nodes[i - 1].x, node_y(nodes[i - 1]));
-        auto to = pixel_to_vector(nodes[i].x, node_y(nodes[i]));
-        draw_line<W>(dots, from, to, [this](auto& v) { return color(v, 0); });
+        auto from = pixel_to_vector<W>(nodes[i - 1].x, node_y(nodes[i - 1]));
+        auto to = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
+        draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); });
       }
     }
     plot_dots(dots, filters, canvas, age, 0.5);
@@ -232,7 +232,7 @@ private:
     for (int i = leader - 1; i >= 0; --i) {
       drag(nodes[i + 1], nodes[i]);
     }
-    for (int i = leader + 1; i < nodes.size(); ++i) {
+    for (size_t i = leader + 1; i < nodes.size(); ++i) {
       drag(nodes[i - 1], nodes[i]);
     }
   }
@@ -272,7 +272,7 @@ private:
   Orientation orientation;
   
   FilterReplicate<W> filters;
-  FilterDecay<W, 7000> trails;
+  FilterDecay<W, 10000> trails;
   FilterOrient<W> orient;
   FilterAntiAlias<W> aa;
 };
@@ -280,7 +280,7 @@ private:
 template <int W>
 class RingShower2 : public Effect {
 private:
-  static constexpr size_t MAX_RINGS = 8; // Max simultaneous rings, fixed size for stability
+  static constexpr size_t MAX_RINGS = 8;
 
   struct Ring {
     Vector normal;
@@ -288,45 +288,30 @@ private:
     double radius;
     double duration;
     GenerativePalette palette;
-    FilterDecay<W, 500> trails; // Use the V2 decay filter
-
-    // The Sprite and Transition are not held here because they are managed by the Timeline,
-    // but we need a Transition for the radius and a Sprite for the draw loop.
 
     Ring() :
       normal(random_vector()),
       speed(0.0),
       radius(0.0),
       duration(0.0),
-      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS), // Generate a random circular palette
-      trails(10) // Small trail length
+      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS)
     {
-      // Initialize the trail filter in the constructor
-      trails.chain(filters);
     }
+
   };
 
 public:
   RingShower2() :
     Effect(W)
   {
-    persist_pixels = false; // We want a fresh canvas each frame
-
-    // Initialize all rings and their persistent filters
-    for (size_t i = 0; i < MAX_RINGS; ++i) {
-      rings[i].trails.chain(filters); // Chain the trail filter through the common filters
-    }
-
-    // T0: Start the continuous ring spawner
+    persist_pixels = false;
+    
     timeline.add(0,
-      RandomTimer(1, 24, // 1 to 24 frames (1/16s to 1.5s)
+      RandomTimer(1, 24,
         [this](auto&) { this->spawn_ring(); },
-        true) // Repeat forever
+        true)
     );
-
-    // Chain the final output filters once
-    filters
-      .chain(aa);
+    
   }
 
   bool show_bg() const override { return false; }
@@ -337,31 +322,29 @@ public:
   }
 
 private:
+
   void spawn_ring() {
-    // Find the first available (inactive) ring slot.
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       if (rings[i].duration <= 0) {
-        // Initialize new ring parameters
         Ring& ring = rings[i];
         ring.normal = random_vector();
-        ring.duration = hs::rand_int(8, 72); // 8 to 72 frames
-        ring.radius = 0.0;
+        ring.duration = hs::rand_int(8, 72);
+        ring.radius = 0;
         ring.palette = GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS);
 
-        // 1. Animation: Expand the radius from 0 to 2 (passing through 1)
-        timeline.add(0,
-          Transition(ring.radius, 2, ring.duration, ease_mid, false, false)
-          .then([&ring]() { ring.duration = 0; }) // Mark ring slot as inactive when done
-        );
-
-        // 2. Sprite: The continuous drawing function
         timeline.add(0,
           Sprite(
             [this, i](Canvas& canvas, double opacity) { this->draw_ring(canvas, opacity, i); },
             ring.duration,
-            4, ease_mid, // Fade in duration
+            4, ease_mid,
             0, ease_mid)
         );
+
+        timeline.add(0,
+          Transition(ring.radius, 2, ring.duration, ease_mid, false, false)
+          .then([&ring]() { ring.duration = 0; })
+        );
+
         return;
       }
     }
@@ -370,32 +353,17 @@ private:
   void draw_ring(Canvas& canvas, double opacity, size_t index) {
     Ring& ring = rings[index];
     Dots dots;
-
-    // Use the Orientation for drawing, even if it's just the identity quaternion
-    draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
+    ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
       [&](auto& v, auto t) {
-        // Use the palette to get the color, dimming with overall opacity
         Pixel color = ring.palette.get(t);
         return dim(color, opacity);
       },
-      0); // No phase shift
-
-    // Plot the dots through the ring's private trail filter chain
-    plot_dots<W>(dots, ring.trails, canvas, 0, 1.0);
-
-    // Apply decay to the trails and trail it to the canvas
-    // NOTE: The trail decay logic is handled implicitly by the Transition/Sprite duration.
-    // We'll just decay the trails once per frame.
-    ring.trails.decay();
-    ring.trails.trail(canvas, vignette(ring.palette), 0.5); // Use the palette's vignette version for trails
+      0);
+    plot_dots<W>(dots, filters, canvas, 0, 1.0);
   }
 
-  // Static array of Ring structs to avoid dynamic allocation
   Ring rings[MAX_RINGS];
-
-  // Common V2 infrastructure members
-  FilterRaw<W> filters;
-  FilterAntiAlias<W> aa;
-  Orientation orientation; // Not used for rotation here, but required by some drawing fns
+  FilterAntiAlias<W> filters;
+  Orientation orientation;
   Timeline timeline;
 };

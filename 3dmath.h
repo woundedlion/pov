@@ -167,7 +167,7 @@ double distance_between(const Vector& a, const Vector& b) {
 }
 
 double angle_between(const Vector& v1, const Vector& v2) {
-  return acos(std::clamp(-1.0, 1.0, dot(v1, v2)));
+  return acos(std::clamp(dot(v1, v2), -1.0, 1.0));
 }
 
 Quaternion operator+(const Quaternion& q1, const Quaternion& q2) {

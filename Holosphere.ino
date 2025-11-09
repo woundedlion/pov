@@ -16,6 +16,8 @@ void setup() {
 }
 
 void loop() {
+//	pov->show<Dynamo<96>>(300);
+//	pov->show<RingShower2<96>>(300);
 	pov->show<RingSpin<96>>(300);
 
 //	pov->show<Thrusters<96>>(145);
