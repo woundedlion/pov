@@ -216,11 +216,10 @@ public:
     if (t == 0) {
       from = mutant;
     }
-    auto t = std::min(1.0f, static_cast<float_t>(this->t) / (duration - 1));
-    mutant.get() = f(easing_fn(t));
     Animation::step(canvas);
+    auto t = std::min(1.0f, static_cast<float_t>(this->t) / duration);
+    mutant.get() = f(easing_fn(t));
   }
-
 
   void rebind_mutant(float_t& new_mutant) {
     mutant = new_mutant;
@@ -233,7 +232,6 @@ private:
   MutateFn f;
   EasingFn easing_fn;
 };
-
 
 class Sprite : public Animation<Sprite> {
 public:
@@ -392,13 +390,9 @@ public:
     orientation(orientation),
     v(Vector(v_start).normalize())
   {
-
-    Vector u;
-    if (std::abs(dot(v, X_AXIS)) > 0.9) {
+    Vector u = X_AXIS;
+    if (std::abs(dot(v, u)) > 0.99) {
       u = Y_AXIS;
-    }
-    else {
-      u = X_AXIS;
     }
     direction = cross(v, u).normalize();
     noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);

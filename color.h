@@ -128,7 +128,6 @@ public:
   }
 
   Pixel get(float_t t) const override {
-    Serial.println(t);
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
       if (t >= shape[i] && t < shape[i + 1]) {

@@ -149,6 +149,10 @@ public:
   }
 
   void color_wipe() {
+    if (palettes.is_full()) {
+      Serial.println("Palettes full, dropping color wipe!");
+      return;
+    }
     palettes.push_back(GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS));
     palette_boundaries.push_back(0);
     timeline.add(0,

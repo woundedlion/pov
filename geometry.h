@@ -140,6 +140,8 @@ public:
   Orientation& push(const Quaternion& q) {
     if (num_frames < MAX_FRAMES) {
       orientations[num_frames++] = q;
+    } else {
+      Serial.println("Orientation full, droping frame!");
     }
     return *this;
   }
@@ -153,7 +155,7 @@ public:
   }
 
 private:
-  static constexpr int MAX_FRAMES = MAX_W;
+  static constexpr int MAX_FRAMES = MAX_W + 1;
   std::array<Quaternion, MAX_FRAMES> orientations;
   size_t num_frames;
 };

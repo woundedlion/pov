@@ -71,7 +71,7 @@ struct Vector {
 
 Spherical::Spherical(const Vector& v) :
   theta(atan2(v.j, v.i)),
-  phi(acos(v.k))
+  phi(acos(std::clamp(v.k, -1.0f, 1.0f)))
 {}
 
 struct Quaternion;
@@ -200,7 +200,7 @@ float_t dot(const Quaternion& q1, const Quaternion& q2) {
 }
 
 float_t angle_between(const Quaternion& q1, const Quaternion& q2) {
-  return acos(dot(q1, q2));
+  return acos(std::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
 Quaternion make_rotation(const Vector& axis, float_t theta) {
@@ -222,7 +222,7 @@ Quaternion slerp(const Quaternion& q1, const Quaternion& q2, float_t t, bool lon
     return r.normalize();
   }
 
-  float_t theta = acos(d);
+  float_t theta = acos(std::clamp(d, -1.0f, 1.0f));
   float_t sin_theta = sin(theta);
   float_t s1 = sin((1 - t) * theta) / sin_theta;
   float_t s2 = sin(t * theta) / sin_theta;
