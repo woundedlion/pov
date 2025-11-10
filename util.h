@@ -29,6 +29,15 @@ double wrap(double x, double m) {
     fmod(fmod(x, m) + m, m);
 }
 
-double distance(double a, double b, double m) {
-  return std::min(abs(b - a), m - abs(a - b));
+double shortest_distance(double a, double b, double m) {
+  double d = std::fmod(std::fmod(a - b, m) + m, m);
+  return std::min(d, m - d);
+}
+
+double fwd_distance(double a, double b, double m) {
+  auto d = b - a;
+  if (d < 0) {
+    d += m;
+  }
+  return d;
 }

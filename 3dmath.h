@@ -52,7 +52,9 @@ struct Vector {
   
   Vector& normalize() {
     double m = length();
-    if (m > 0) {
+    if (m == 0) {
+      Serial.println("Can't normalize a zero vector!");
+    } else {
       i = i / m;
       j = j / m;
       k = k / m;

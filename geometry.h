@@ -145,12 +145,6 @@ public:
     return *this;
   }
 
-  Quaternion pop() {
-    auto r = orientations.back();
-    num_frames--;
-    return r;
-  }
-
   Orientation& collapse() {
     if (num_frames > 1) {
       orientations[0] = orientations[num_frames - 1];

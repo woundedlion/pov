@@ -101,6 +101,7 @@ public:
   }
 
   void trail(Canvas& canvas, TrailFn trailFn, double alpha) {
+    Serial.println(num_pixels);
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
       this->pass(canvas, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);

@@ -22,9 +22,9 @@ public:
     Vector normal;
     const Palette& palette;
     Orientation orientation;
-    FilterDecay<W, 3000> trails;
+    FilterDecay<W, 5000> trails;
   };
-
+  
   RingSpin() :
     Effect(W),
     alpha(0.2),
@@ -54,21 +54,25 @@ public:
   }
 
   void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
-    Dots dots;
     auto& ring = rings[ring_index];
-    double s = ring.orientation.length();
-    for (int i = 0; i < s; ++i) {
+    size_t end = ring.orientation.length();
+    size_t start = end == 1 ? 0 : 1;
+    for (size_t i = start; i < end; ++i) {
+      Dots dots;
       ::draw_ring<W>(dots, ring.orientation.orient(ring.normal, i), 1,
-        [&](auto& v, auto t) { return ring.palette.get(0); });
+        [&](auto& v, auto t) { return vignette(ring.palette)(0); });
       plot_dots(dots, ring.trails, canvas, 
-       (s - 1 - i) / s,
+       (end - 1 - i) / end,
        alpha * opacity);
     }
     ring.orientation.collapse();
+
     ring.trails.trail(canvas,
       [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
+    
     ring.trails.decay();
+    
   }
 
   void draw_frame() {
@@ -107,7 +111,7 @@ public:
     palette_normal(X_AXIS),
     speed(2),
     gap(4),
-    trail_length(10),
+    trail_length(5),
     filters(4),
     trails(trail_length),
     orient(orientation)

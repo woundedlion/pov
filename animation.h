@@ -358,14 +358,17 @@ public:
 
   void step(Canvas& canvas) {
     Animation<Rotation<W>>::step(canvas);
+    orientation.get().collapse();
     from = to;
     to = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
-    auto angle = distance(from, to, total_angle);
+    auto angle = fwd_distance(from, to, total_angle);
     if (angle > 0.00001) {
-      auto origin = orientation.get().pop();
-      for (auto a = MAX_ANGLE; angle - a > 0.00001; a += MAX_ANGLE) {
+      auto step_angle = angle / std::ceil(angle / MAX_ANGLE);
+      auto origin = orientation.get().get();
+      for (auto a = step_angle; angle - a > 0.00001; a += step_angle) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
+      orientation.get().push(make_rotation(axis, angle) * origin);
     }
   }
 
@@ -414,9 +417,9 @@ public:
 
 private:
 
-  static constexpr double WALK_SPEED = 0.2;
-  static constexpr double PIVOT_STRENGTH = 1;
-  static constexpr double NOISE_SCALE = 0.5;
+  static constexpr double WALK_SPEED = 0.12;
+  static constexpr double PIVOT_STRENGTH = 1.5;
+  static constexpr double NOISE_SCALE = 0.05;
 
   FastNoiseLite noiseGenerator;
   std::reference_wrapper<Orientation> orientation;
