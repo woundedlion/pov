@@ -9,13 +9,13 @@ public:
     return *this;
   }
 
-  virtual void plot(Canvas& canvas, double x, double y,
-    const Pixel& c, double age, double alpha) = 0;
+  virtual void plot(Canvas& canvas, float_t x, float_t y,
+    const Pixel& c, float_t age, float_t alpha) = 0;
 
 protected:
 
-  void pass(Canvas& canvas, double x, double y,
-    const Pixel& c, double age, double alpha)
+  void pass(Canvas& canvas, float_t x, float_t y,
+    const Pixel& c, float_t age, float_t alpha)
   {
     if (next == nullptr) {
       auto p = blend_alpha(alpha)(canvas(XY(x, y)), c);
@@ -31,7 +31,7 @@ protected:
 
 template <int W>
 class FilterRaw : public Filter<W> {
-  void plot(Canvas& canvas, double x, double y, const Pixel& c, double age, double alpha) {
+  void plot(Canvas& canvas, float_t x, float_t y, const Pixel& c, float_t age, float_t alpha) {
     this->pass(canvas, x, y, c, age, alpha);
   }
 };
@@ -41,13 +41,13 @@ class FilterAntiAlias : public Filter<W> {
 public:
   FilterAntiAlias() {}
 
-  void plot(Canvas& canvas, double x, double y, const Pixel& c, double age, double alpha) {
-    double x_i = 0;
-    double x_m = modf(x, &x_i);
-    double y_i = 0;
-    double y_m = modf(y, &y_i);
+  void plot(Canvas& canvas, float_t x, float_t y, const Pixel& c, float_t age, float_t alpha) {
+    float_t x_i = 0;
+    float_t x_m = modf(x, &x_i);
+    float_t y_i = 0;
+    float_t y_m = modf(y, &y_i);
 
-    double v = (1 - x_m) * (1 - y_m);
+    float_t v = (1 - x_m) * (1 - y_m);
     this->pass(canvas, x_i, y_i, c, age, alpha * v);
 
     v = x_m * (1 - y_m);
@@ -84,7 +84,7 @@ public:
     }
   }
 
-  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
+  void plot(Canvas& canvas, float_t x, float_t y, const Pixel& color, float_t age, float_t alpha) {
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
         ttls[num_pixels++] = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(lifetime - age) };
@@ -98,7 +98,7 @@ public:
     }
   }
 
-  void trail(Canvas& canvas, TrailFn trailFn, double alpha) {
+  void trail(Canvas& canvas, TrailFn trailFn, float_t alpha) {
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
       this->pass(canvas, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
@@ -108,9 +108,9 @@ public:
 private:
 
   struct DecayPixel {
-    float x;
-    float y;
-    float ttl;
+    float_t x;
+    float_t y;
+    float_t ttl;
   };
 
   int lifetime;
@@ -126,7 +126,7 @@ public:
   {
   }
 
-  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
+  void plot(Canvas& canvas, float_t x, float_t y, const Pixel& color, float_t age, float_t alpha) {
     CRGB r(color.r, 0, 0);
     CRGB g(0, color.g, 0);
     CRGB b(0, 0, color.b);
@@ -144,7 +144,7 @@ public:
     orientation(orientation)
   {}
 
-  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
+  void plot(Canvas& canvas, float_t x, float_t y, const Pixel& color, float_t age, float_t alpha) {
     auto v = pixel_to_vector<W>(x, y);
     auto r = vector_to_pixel<W>(orientation.orient(v));
     orientation.collapse();
@@ -164,7 +164,7 @@ public:
     count(std::clamp(count, 1, W))
   {}
 
-  void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
+  void plot(Canvas& canvas, float_t x, float_t y, const Pixel& color, float_t age, float_t alpha) {
     for (int i = 0; i < W; i += W / count) {
       this->pass(canvas, wrap(x + i, W), y, color, age, alpha);
     }

@@ -13,7 +13,7 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bo
   Vector v(v2);
   u.normalize();
   v.normalize();
-  double a = angle_between(u, v);
+  float_t a = angle_between(u, v);
   Vector w = cross(v, u);
   if (long_way) {
     a = 2 * PI - a;
@@ -21,8 +21,8 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bo
   }
   v = cross(u, w).normalize();
 
-  double step = 2 * PI / W;
-  for (double t = 0; t < a; t += step) {
+  float_t step = 2 * PI / W;
+  for (float_t t = 0; t < a; t += step) {
     Vector vi(
       u.i * cos(t) + v.i * sin(t),
       u.j * cos(t) + v.j * sin(t),
@@ -48,17 +48,17 @@ public:
     return *this;
   }
 
-  Path& append_segment(PlotFn plot, double domain, double samples, EasingFn easing) {
+  Path& append_segment(PlotFn plot, float_t domain, float_t samples, EasingFn easing) {
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }
-    for (double t = 0; t < samples; t++) {
+    for (float_t t = 0; t < samples; t++) {
       points.push_back(plot(easing(t / samples) * domain));
     }
     return *this;
   }
 
-  Vector get_point(double t) const {
+  Vector get_point(float_t t) const {
     assert(static_cast<size_t>(t * points.size()) < points.size());
     return points[static_cast<int>(t * points.size())];
   }
@@ -73,7 +73,7 @@ template <int W>
 void draw_path(Dots& dots, const Path<W>& path, ColorFn color) {
   size_t samples = path.num_points();
   for (size_t i = 0; i < samples; ++i) {
-    auto v = path.get_point(static_cast<double>(i) / samples);
+    auto v = path.get_point(static_cast<float_t>(i) / samples);
     dots.push_back(Dot(v, color(v, i / (samples - 1))));
   }
 }
@@ -95,7 +95,7 @@ void draw_polyhedron(Dots& dots, const VertexList& vertices, const AdjacencyList
   }
 }
 
-Vector calc_ring_point(double a, double radius, const Vector& u, const Vector& v, const Vector& w) {
+Vector calc_ring_point(float_t a, float_t radius, const Vector& u, const Vector& v, const Vector& w) {
   auto d = sqrt(pow(1 - radius, 2));
   return Vector(
     d * v.i + radius * u.i * cos(a) + radius * w.i * sin(a),
@@ -104,7 +104,7 @@ Vector calc_ring_point(double a, double radius, const Vector& u, const Vector& v
   ).normalize();
 }
 
-Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
+Vector fn_point(ShiftFn f, const Vector& normal, float_t radius, float_t angle) {
   Vector v(normal);
   if (radius > 1) {
     v = -v;
@@ -127,7 +127,7 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
 };
 
 template <int W>
-void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, double radius, ShiftFn shift_fn, ColorFn color_fn) {
+void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, float_t radius, ShiftFn shift_fn, ColorFn color_fn) {
   Vector v(orientation.orient(normal));
   if (radius > 1) {
     v = -v;
@@ -144,8 +144,8 @@ void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, d
 
   bool first = true;
   Vector start, from, to;
-  double step = 1.0 / W;
-  for (double t = 0; t < 1; t += step) {
+  float_t step = 1.0 / W;
+  for (float_t t = 0; t < 1; t += step) {
     auto vi = calc_ring_point(t * 2 * PI, radius, u, v, w);
     auto vp = calc_ring_point(t * 2 * PI, 1, u, v, w);
     Vector axis = cross(v, vp).normalize();
@@ -165,7 +165,7 @@ void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, d
 };
 
 
-Vector ring_point(const Vector& normal, double radius, double angle, double phase = 0) {
+Vector ring_point(const Vector& normal, float_t radius, float_t angle, float_t phase = 0) {
   Vector v(normal);
   if (radius > 1) {
     v = -v;
@@ -184,11 +184,11 @@ Vector ring_point(const Vector& normal, double radius, double angle, double phas
 };
 
 template<int W>
-void draw_ring(Dots& dots, const Vector& normal, double radius, ColorFn color_fn, double phase = 0) {
+void draw_ring(Dots& dots, const Vector& normal, float_t radius, ColorFn color_fn, float_t phase = 0) {
   Vector v(normal);
   if (radius > 1) {
     v = -v;
-    phase = wrap(phase + PI, 2 * PI);
+    phase = wrap(phase + PI_F, 2 * PI_F);
   }
 
   Vector u = X_AXIS;
@@ -202,19 +202,19 @@ void draw_ring(Dots& dots, const Vector& normal, double radius, ColorFn color_fn
     radius = 2 - radius;
   }
 
-  double step = 2 * PI / W;
-  for (double a = 0; a < 2 * PI; a += step) {
+  float_t step = 2 * PI / W;
+  for (float_t a = 0; a < 2 * PI; a += step) {
     auto vi = calc_ring_point(fmod((a + phase), (2 * PI)), radius, u, v, w);
     dots.emplace_back(Dot(vi, color_fn(vi, a / (2 * PI))));
   }
 };
 
-Pixel dotted_brush(const Pixel& color, double freq, double duty_cycle, double phase, double t) {
+Pixel dotted_brush(const Pixel& color, float_t freq, float_t duty_cycle, float_t phase, float_t t) {
   return dim(color, square_wave(0, 1, freq, duty_cycle, phase)(t));
 }
 
 template<int W>
-void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, double age, double alpha) {
+void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, float_t age, float_t alpha) {
   for (auto& dot : dots) {
     auto p = vector_to_pixel<W>(dot.position);
     filters.plot(canvas, p.x, p.y, gamma_correct(dot.color), age, alpha);

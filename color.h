@@ -36,7 +36,7 @@ Pixel gamma_correct(const Pixel& p) {
 
 class Palette {
 public:
-  virtual Pixel get(double t) const = 0;
+  virtual Pixel get(float_t t) const = 0;
 };
 
 enum class HarmonyType {
@@ -61,7 +61,7 @@ auto blend_add(const Pixel& c1, const Pixel& c2) {
 }
 
 
-auto blend_alpha(double a) {
+auto blend_alpha(float_t a) {
   return [a](const Pixel& c1, const Pixel& c2) {
     return Pixel(
       qadd8(c1.r * (1 - a), c2.r * a),
@@ -70,8 +70,8 @@ auto blend_alpha(double a) {
     };
 }
 
-uint16_t to_short(double zero_to_one) {
-  return std::clamp(std::round(zero_to_one * 65535), 0.0, 65535.0);
+uint16_t to_short(float_t zero_to_one) {
+  return std::clamp(std::round(zero_to_one * 65535), 0.0f, 65535.0f);
 }
 
 class GenerativePalette : public Palette {
@@ -127,7 +127,7 @@ public:
     }
   }
 
-  Pixel get(double t) const override {
+  Pixel get(float_t t) const override {
     Serial.println(t);
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
@@ -145,7 +145,7 @@ public:
     Pixel c1 = colors[seg];
     Pixel c2 = colors[seg + 1];
 
-    auto r = c1.lerp16(c2, std::clamp((t - start) / (end - start) * 65535, 0.0, 65535.0));
+    auto r = c1.lerp16(c2, std::clamp((t - start) / (end - start) * 65535, 0.0f, 65535.0f));
     return r;
   }
 
@@ -196,7 +196,7 @@ private:
   HarmonyType harmony_type;
   uint8_t seed_hue;
   Pixel a, b, c;
-  std::array<double, 5> shape;
+  std::array<float_t, 5> shape;
   std::array<Pixel, 5> colors;
   int size;
 };
@@ -205,10 +205,10 @@ class ProceduralPalette : public Palette {
 public:
 
   ProceduralPalette(
-    std::array<double, 3> a,
-    std::array<double, 3> b,
-    std::array<double, 3> c,
-    std::array<double, 3> d) :
+    std::array<float_t, 3> a,
+    std::array<float_t, 3> b,
+    std::array<float_t, 3> c,
+    std::array<float_t, 3> d) :
     a(a),
     b(b),
     c(c),
@@ -216,7 +216,7 @@ public:
   {
   }
 
-  Pixel get(double t) const override {
+  Pixel get(float_t t) const override {
     return Pixel(
       255 * (a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0]))),
       255 * (a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1]))),
@@ -226,10 +226,10 @@ public:
 
 private:
 
-  std::array<double, 3> a;
-  std::array<double, 3> b;
-  std::array<double, 3> c;
-  std::array<double, 3> d;
+  std::array<float_t, 3> a;
+  std::array<float_t, 3> b;
+  std::array<float_t, 3> c;
+  std::array<float_t, 3> d;
 };
 
 using PaletteVariant =
@@ -240,7 +240,7 @@ std::variant<
 
 auto vignette(const Palette& palette) {
   CRGB vignette_color(0, 0, 0);
-  return [&](double t) {
+  return [&](float_t t) {
     if (t < 0.2) {
       return vignette_color.lerp16(palette.get(0), to_short(t / 0.2));
     }

@@ -44,7 +44,7 @@ public:
     rings.emplace_back(normal, filters, palette, trail_length);
     timeline.add(0,
       Sprite(
-        [=](Canvas& canvas, double opacity) { draw_ring(canvas, opacity, ring_index); },
+        [=](Canvas& canvas, float_t opacity) { draw_ring(canvas, opacity, ring_index); },
         -1,
         4, ease_mid,
         0, ease_mid
@@ -53,7 +53,7 @@ public:
       RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
   }
 
-  void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
+  void draw_ring(Canvas& canvas, float_t opacity, size_t ring_index) {
     auto& ring = rings[ring_index];
     size_t end = ring.orientation.length();
     size_t start = end == 1 ? 0 : 1;
@@ -68,7 +68,7 @@ public:
     ring.orientation.collapse();
 
     ring.trails.trail(canvas,
-      [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
+      [&](float_t x, float_t y, float_t t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
     
     ring.trails.decay();
@@ -84,8 +84,8 @@ private:
 
   static constexpr int NUM_RINGS = 6;
   std::vector<Ring> rings;
-  double alpha;
-  double trail_length;
+  float_t alpha;
+  float_t trail_length;
   FilterAntiAlias<W> filters;
   std::array<const Palette*, 6> palettes = { &richSunset, &undersea, &mangoPeel, &lemonLime, &algae, &lateSunset };
   Timeline timeline;
@@ -160,12 +160,12 @@ public:
     );
   }
 
-  Pixel color(const Vector& v, double t) {
-    constexpr double blend_width = PI / 8.0;
-    double a = angle_between(v, palette_normal);
+  Pixel color(const Vector& v, float_t t) {
+    constexpr float_t blend_width = PI / 8.0;
+    float_t a = angle_between(v, palette_normal);
 
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
-      double boundary = palette_boundaries[i];
+      float_t boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
       auto upper_edge = boundary + blend_width;
 
@@ -175,7 +175,7 @@ public:
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
-        auto clamped_blend_factor = std::clamp(0.0, 1.0, blend_factor);
+        auto clamped_blend_factor = std::clamp(0.0f, 1.0f, blend_factor);
         auto c1 = std::visit([=](auto& p) { return p.get(t); }, palettes[i]);
         auto c2 = std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
         return c1.lerp16(c2, to_short(clamped_blend_factor));
@@ -197,11 +197,11 @@ public:
 
     for (int i = std::abs(speed) - 1; i >= 0; --i) {
       pull(0);
-      draw_nodes(canvas, static_cast<double>(i) / std::abs(speed));
+      draw_nodes(canvas, static_cast<float_t>(i) / std::abs(speed));
     }
     trails.trail(
       canvas,
-      [this](double x, double y, double t) { return color(pixel_to_vector<W>(x, y), t); },
+      [this](float_t x, float_t y, float_t t) { return color(pixel_to_vector<W>(x, y), t); },
       0.5
     );
 
@@ -211,11 +211,11 @@ public:
 
 private:
 
-  double node_y(const Node& node) const {
+  float_t node_y(const Node& node) const {
     return (node.y / (nodes.size() - 1)) * (H - 1);
   }
 
-  void draw_nodes(Canvas& canvas, double age) {
+  void draw_nodes(Canvas& canvas, float_t age) {
     Dots dots;
     for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
@@ -266,7 +266,7 @@ private:
   static constexpr size_t MAX_PALETTES = 16;
   static constexpr size_t NUM_NODES = H;
   StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
-  StaticCircularBuffer <double, MAX_PALETTES - 1> palette_boundaries; 
+  StaticCircularBuffer <float_t, MAX_PALETTES - 1> palette_boundaries; 
 
   Vector palette_normal;
   std::array<Node, NUM_NODES> nodes;
@@ -288,9 +288,9 @@ private:
 
   struct Ring {
     Vector normal;
-    double speed;
-    double radius;
-    double duration;
+    float_t speed;
+    float_t radius;
+    float_t duration;
     GenerativePalette palette;
 
     Ring() :
@@ -338,7 +338,7 @@ private:
 
         timeline.add(0,
           Sprite(
-            [this, i](Canvas& canvas, double opacity) { this->draw_ring(canvas, opacity, i); },
+            [this, i](Canvas& canvas, float_t opacity) { this->draw_ring(canvas, opacity, i); },
             ring.duration,
             4, ease_mid,
             0, ease_mid)
@@ -354,7 +354,7 @@ private:
     }
   }
 
-  void draw_ring(Canvas& canvas, double opacity, size_t index) {
+  void draw_ring(Canvas& canvas, float_t opacity, size_t index) {
     Ring& ring = rings[index];
     Dots dots;
     ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,

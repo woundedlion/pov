@@ -5,27 +5,28 @@
 #include <limits>
 #include <cassert>
 
-static constexpr double PHI = 1.6180339887498948482045868343656;
-static constexpr double G = 1 / PHI;
+static constexpr float PI_F = 3.1415926535f;
+static constexpr float_t PHI = 1.6180339887498948482045868343656f;
+static constexpr float_t G = 1 / PHI;
 struct Vector;
 struct Spherical {
-  Spherical(double theta, double phi) : theta(theta), phi(phi) {}
+  Spherical(float_t theta, float_t phi) : theta(theta), phi(phi) {}
   Spherical(const Vector& v);
 
-  double theta; // azimuthal angle
-  double phi; // polar angle
+  float_t theta; // azimuthal angle
+  float_t phi; // polar angle
 };
 
 struct Vector {
   Vector() {}
-  Vector(double i, double j, double k) : i(i), j(j), k(k) {}
+  Vector(float_t i, float_t j, float_t k) : i(i), j(j), k(k) {}
   Vector(const Vector& v) : i(v.i), j(v.j), k(v.k) {}
   Vector(const Spherical& s) :
     i(sin(s.phi)* cos(s.theta)),
     j(sin(s.phi)* sin(s.theta)),
     k(cos(s.phi))
   {}
-  Vector(double theta, double phi) : Vector(Spherical(theta, phi)) {}
+  Vector(float_t theta, float_t phi) : Vector(Spherical(theta, phi)) {}
 
   Vector& operator=(const Vector& v) { 
     i = v.i; 
@@ -48,10 +49,10 @@ struct Vector {
     return Vector(-i, -j, -k);
   }
 
-  double length() const { return sqrt(i * i + j * j + k * k); }
+  float_t length() const { return sqrt(i * i + j * j + k * k); }
   
   Vector& normalize() {
-    double m = length();
+    float_t m = length();
     if (m == 0) {
       Serial.println("Can't normalize a zero vector!");
       assert(false);
@@ -63,9 +64,9 @@ struct Vector {
     return *this;
   }
 
-  double i = 0;
-  double j = 0;
-  double k = 0;
+  float_t i = 0;
+  float_t j = 0;
+  float_t k = 0;
 };
 
 Spherical::Spherical(const Vector& v) :
@@ -75,13 +76,13 @@ Spherical::Spherical(const Vector& v) :
 
 struct Quaternion;
 Quaternion operator*(const Quaternion& q1, const Quaternion& q2);
-Vector operator/(const Vector& v, double s);
+Vector operator/(const Vector& v, float_t s);
 
 struct Quaternion {
   Quaternion() {}
   Quaternion(const Quaternion& q) : r(q.r), v(q.v) {}
-  Quaternion(double a, double b, double c, double d) : r(a), v(b, c, d) {}
-  Quaternion(double a, const Vector& v) : r(a), v(v) {}
+  Quaternion(float_t a, float_t b, float_t c, float_t d) : r(a), v(b, c, d) {}
+  Quaternion(float_t a, const Vector& v) : r(a), v(v) {}
   
   Quaternion& operator=(const Quaternion& q) {
     r = q.r;
@@ -99,7 +100,7 @@ struct Quaternion {
   }
 
   Quaternion inverse() const { 
-    double n = (r * r) + (v.i * v.i) + (v.j * v.j) + (v.k * v.k);
+    float_t n = (r * r) + (v.i * v.i) + (v.j * v.j) + (v.k * v.k);
     return Quaternion(r / n, (-v) / n);
   }
 
@@ -107,7 +108,7 @@ struct Quaternion {
     return Quaternion(-r, -v);
   }
 
-  double magnitude() const {
+  float_t magnitude() const {
     return sqrt(r * r + v.i * v.i + v.j * v.j + v.k * v.k);
   }
 
@@ -120,7 +121,7 @@ struct Quaternion {
     return *this;
   }
 
-  double r = 1;
+  float_t r = 1;
   Vector v;
 };
 
@@ -139,19 +140,19 @@ Vector operator-(const Vector& v1, const Vector& v2) {
   return Vector(v1.i - v2.i, v1.j - v2.j, v1.k - v2.k);
 }
 
-Vector operator*(const Vector& v, double s) {
+Vector operator*(const Vector& v, float_t s) {
   return Vector(s * v.i, s * v.j, s * v.k);
 }
 
-Vector operator*(double s, const Vector& v) {
+Vector operator*(float_t s, const Vector& v) {
   return v * s;
 }
 
-Vector operator/(const Vector& v, double s) {
+Vector operator/(const Vector& v, float_t s) {
   return Vector(v.i / s, v.j / s, v.k / s);
 }
 
-double dot(const Vector& v1, const Vector& v2) {
+float_t dot(const Vector& v1, const Vector& v2) {
   return (v1.i * v2.i) + (v1.j * v2.j) + (v1.k * v2.k);
 }
 
@@ -162,14 +163,14 @@ Vector cross(const Vector& v1, const Vector& v2) {
     v1.i * v2.j - v1.j * v2.i);
 }
 
-double distance_between(const Vector& a, const Vector& b) {
+float_t distance_between(const Vector& a, const Vector& b) {
   return sqrt(pow(b.i - a.i, 2)
     + pow(b.j - a.j, 2)
     + pow(b.k - a.k, 2));
 }
 
-double angle_between(const Vector& v1, const Vector& v2) {
-  return acos(std::clamp(dot(v1, v2), -1.0, 1.0));
+float_t angle_between(const Vector& v1, const Vector& v2) {
+  return acos(std::clamp(dot(v1, v2), -1.0f, 1.0f));
 }
 
 Quaternion operator+(const Quaternion& q1, const Quaternion& q2) {
@@ -186,28 +187,28 @@ Quaternion operator*(const Quaternion& q1, const Quaternion& q2) {
     q1.r * q2.v + q2.r * q1.v + cross(q1.v, q2.v));
 }
 
-Quaternion operator*(const Quaternion& q, double s) {
+Quaternion operator*(const Quaternion& q, float_t s) {
   return Quaternion(q.r * s, q.v * s);
 }
 
-Quaternion operator*(double s, const Quaternion& q) {
+Quaternion operator*(float_t s, const Quaternion& q) {
   return q * s;
 }
 
-double dot(const Quaternion& q1, const Quaternion& q2) {
+float_t dot(const Quaternion& q1, const Quaternion& q2) {
   return (q1.r * q2.r) + (q1.v.i * q2.v.i) + (q1.v.j * q2.v.j) + (q1.v.k * q2.v.k);
 }
 
-double angle_between(const Quaternion& q1, const Quaternion& q2) {
+float_t angle_between(const Quaternion& q1, const Quaternion& q2) {
   return acos(dot(q1, q2));
 }
 
-Quaternion make_rotation(const Vector& axis, double theta) {
+Quaternion make_rotation(const Vector& axis, float_t theta) {
   return Quaternion(cos(theta / 2), sin(theta / 2) * axis);
 }
 
-Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long_way = false) {
-  double d = dot(q1, q2);
+Quaternion slerp(const Quaternion& q1, const Quaternion& q2, float_t t, bool long_way = false) {
+  float_t d = dot(q1, q2);
   Quaternion p(q1);
   Quaternion q(q2);
 
@@ -221,10 +222,10 @@ Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long
     return r.normalize();
   }
 
-  double theta = acos(d);
-  double sin_theta = sin(theta);
-  double s1 = sin((1 - t) * theta) / sin_theta;
-  double s2 = sin(t * theta) / sin_theta;
+  float_t theta = acos(d);
+  float_t sin_theta = sin(theta);
+  float_t s1 = sin((1 - t) * theta) / sin_theta;
+  float_t s2 = sin(t * theta) / sin_theta;
   return (s1 * p) + (s2 * q);
 }
 
@@ -242,9 +243,9 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
   Vector i1 = cross(w, normal).normalize();
   Vector i2 = cross(normal, w).normalize();
 
-  double a1 = angle_between(u, v);
-  double a2 = angle_between(i1, u);
-  double a3 = angle_between(i1, v);
+  float_t a1 = angle_between(u, v);
+  float_t a2 = angle_between(i1, u);
+  float_t a3 = angle_between(i1, v);
   if (fabs(a2 + a3 - a1) < .0001) {
     return i1;
   }
@@ -261,14 +262,14 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
 }
 
 std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
-  double shift = sin(PI / MAX_W);
+  float_t shift = sin(PI / MAX_W);
   return {
     {(v + (normal * shift)).normalize()},
     {(v + (-normal * shift)).normalize()},
   };
 }
 
-Vector lissajous(double m1, double m2, double a, double t) {
+Vector lissajous(float_t m1, float_t m2, float_t a, float_t t) {
 
   Vector v(
     sin(m2 * t) * cos(m1 * t - a * PI),

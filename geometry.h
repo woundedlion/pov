@@ -5,8 +5,8 @@ static const Vector Y_AXIS(0, 1, 0);
 static const Vector Z_AXIS(0, 0, 1);
 
 struct PixelCoords {
-  double x;
-  double y;
+  float_t x;
+  float_t y;
 };
 
 struct Dot {
@@ -26,7 +26,7 @@ using Dots = StaticCircularBuffer<Dot, 1024>;
 
 
 template <int W>
-Vector pixel_to_vector(double x, double y) {
+Vector pixel_to_vector(float_t x, float_t y) {
   return Vector(
     Spherical(
       (x * 2 * PI) / W,
@@ -38,23 +38,23 @@ Vector pixel_to_vector(double x, double y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H - 1)) / PI });
+  return PixelCoords({ wrap((s.theta * W) / (2 * PI_F), W), (s.phi * (H - 1)) / PI_F });
 }
 
-double lerp(double from, double to, double t) {
+float_t lerp(float_t from, float_t to, float_t t) {
   return ((to - from) * t) + from;
 }
 
-WaveFn sin_wave(double from, double to, double freq, double phase) {
-  return [=](double t) -> double {
+WaveFn sin_wave(float_t from, float_t to, float_t freq, float_t phase) {
+  return [=](float_t t) -> float_t {
     auto w = (sin(freq * t * 2 * PI - (PI / 2) + PI - (2 * phase)) + 1) / 2;
     return lerp(from, to, w);
     };
 }
 
-WaveFn tri_wave(double from, double to, double freq, double phase) {
-  return [=](double t) -> double {
-    double w = wrap(t * freq + phase, 1.0);
+WaveFn tri_wave(float_t from, float_t to, float_t freq, float_t phase) {
+  return [=](float_t t) -> float_t {
+    float_t w = wrap(t * freq + phase, 1.0f);
     if (w < 0.5) {
       w = 2.0 * w;
     } else {
@@ -64,8 +64,8 @@ WaveFn tri_wave(double from, double to, double freq, double phase) {
     };
 }
 
-WaveFn square_wave(double from, double to, double freq, double dutyCycle, double phase) {
-  return [=](double t) -> double {
+WaveFn square_wave(float_t from, float_t to, float_t freq, float_t dutyCycle, float_t phase) {
+  return [=](float_t t) -> float_t {
     if (fmod(t * freq + phase, 1) < dutyCycle) {
       return to;
     }

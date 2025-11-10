@@ -18,15 +18,15 @@
 typedef CRGB Pixel;
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
-typedef std::function<Pixel(const Vector&, double)> ColorFn;
-typedef std::function<Pixel(double x, double y, double t)> TrailFn;
-typedef std::function<double(double)> EasingFn;
-typedef std::function<Vector(double)> PlotFn;
-typedef std::function<double(double)> ShiftFn;
-typedef std::function<void(Canvas&, double)> SpriteFn;
+typedef std::function<Pixel(const Vector&, float_t)> ColorFn;
+typedef std::function<Pixel(float_t x, float_t y, float_t t)> TrailFn;
+typedef std::function<float_t(float_t)> EasingFn;
+typedef std::function<Vector(float_t)> PlotFn;
+typedef std::function<float_t(float_t)> ShiftFn;
+typedef std::function<void(Canvas&, float_t)> SpriteFn;
 typedef std::function<void(Canvas&)> TimerFn;
-typedef std::function<double(double)> MutateFn;
-typedef std::function<double(double)> WaveFn;
+typedef std::function<float_t(float_t)> MutateFn;
+typedef std::function<float_t(float_t)> WaveFn;
 
 #include "geometry.h"
 #include "color.h"

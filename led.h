@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <FastLED.h>
 
+typedef float float_t;
 static constexpr unsigned int RPM = 480;
 static constexpr int NUM_PIXELS = 40;
 static constexpr int H = NUM_PIXELS / 2;
