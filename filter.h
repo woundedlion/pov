@@ -20,7 +20,6 @@ protected:
     if (next == nullptr) {
       auto p = blend_alpha(alpha)(canvas(XY(x, y)), c);
       canvas(XY(x, y)) = p;
-      //      Serial.printf("plot_out (%f, %f,) (%d, %d, %d)\n", x, y, p.r, p.g, p.b);
     }
     else {
       next->plot(canvas, x, y, c, age, alpha);
@@ -47,7 +46,6 @@ public:
     double x_m = modf(x, &x_i);
     double y_i = 0;
     double y_m = modf(y, &y_i);
-    //    Serial.printf("plot_in (%f, %f,) (%d, %d, %d) [%f]\n", x, y, c.r, c.g, c.b, alpha);
 
     double v = (1 - x_m) * (1 - y_m);
     this->pass(canvas, x_i, y_i, c, age, alpha * v);
@@ -101,7 +99,6 @@ public:
   }
 
   void trail(Canvas& canvas, TrailFn trailFn, double alpha) {
-    Serial.println(num_pixels);
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
       this->pass(canvas, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);

@@ -2,13 +2,11 @@
 #include <Arduino.h>
 #include <FastLED.h>
 
-namespace {
-	const unsigned int RPM = 480;
-	const int NUM_PIXELS = 40;
-	const int H = NUM_PIXELS / 2;
-	const int MAX_W = 96;
-	const int PIN_RANDOM = 15;
-}
+static constexpr unsigned int RPM = 480;
+static constexpr int NUM_PIXELS = 40;
+static constexpr int H = NUM_PIXELS / 2;
+static constexpr int MAX_W = 96;
+static constexpr int PIN_RANDOM = 15;
 
 inline int XY(int x, int y) { return x * H + y; }
 class Canvas;

@@ -54,12 +54,11 @@ WaveFn sin_wave(double from, double to, double freq, double phase) {
 
 WaveFn tri_wave(double from, double to, double freq, double phase) {
   return [=](double t) -> double {
-    double w;
-    if (t < 0.5) {
-      w = 2 * t;
-    }
-    else {
-      w = 2 - 2 * t;
+    double w = wrap(t * freq + phase, 1.0);
+    if (w < 0.5) {
+      w = 2.0 * w;
+    } else {
+      w = 2.0 * (1.0 - w);
     }
     return lerp(from, to, w);
     };

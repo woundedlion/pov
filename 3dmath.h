@@ -54,6 +54,7 @@ struct Vector {
     double m = length();
     if (m == 0) {
       Serial.println("Can't normalize a zero vector!");
+      assert(false);
     } else {
       i = i / m;
       j = j / m;
@@ -255,12 +256,12 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
     return i2;
   }
 
+  assert(false);
   return Vector(0, 0, 0);
 }
 
 std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
-  // TODO: optimize shift
-  double shift = sin(PI / 96);
+  double shift = sin(PI / MAX_W);
   return {
     {(v + (normal * shift)).normalize()},
     {(v + (-normal * shift)).normalize()},
