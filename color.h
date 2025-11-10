@@ -87,16 +87,16 @@ public:
     uint8_t h3;
 
     seed_hue = static_cast<uint8_t>(
-      (static_cast<uint32_t>(seed_hue) + static_cast<uint32_t>(G * 255.0)) % 256);
+      (static_cast<uint32_t>(seed_hue) + static_cast<uint32_t>(G * 255.0f)) % 256);
     calc_hues(h1, h2, h3, harmony_type);
 
-    const uint8_t s1 = hs::rand_int(255 * 0.4, 255 * 0.8);
-    const uint8_t s2 = hs::rand_int(255 * 0.4, 255 * 0.8);
-    const uint8_t s3 = hs::rand_int(255 * 0.4, 255 * 0.8);
+    const uint8_t s1 = hs::rand_int(255 * 0.4f, 255 * 0.8f);
+    const uint8_t s2 = hs::rand_int(255 * 0.4f, 255 * 0.8f);
+    const uint8_t s3 = hs::rand_int(255 * 0.4f, 255 * 0.8f);
 
-    const uint8_t v1 = hs::rand_int(255 * 0.1, 255 * 0.1);
-    const uint8_t v2 = hs::rand_int(255 * 0.2, 255 * 0.5);
-    const uint8_t v3 = hs::rand_int(255 * 0.6, 255 * 0.8);
+    const uint8_t v1 = hs::rand_int(255 * 0.1f, 255 * 0.1f);
+    const uint8_t v2 = hs::rand_int(255 * 0.2f, 255 * 0.5f);
+    const uint8_t v3 = hs::rand_int(255 * 0.6f, 255 * 0.8f);
 
     a = CHSV(h1, s1, v1);
     b = CHSV(h2, s2, v2);
@@ -105,7 +105,7 @@ public:
     const Pixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
-      shape = { 0, 0.1, 0.5, 0.9, 1 };
+      shape = { 0, 0.1f, 0.5, 0.9, 1 };
       colors = { vignette_color, a, b, c, vignette_color };
       size = 5;
       break;
@@ -218,9 +218,9 @@ public:
 
   Pixel get(float_t t) const override {
     return Pixel(
-      255 * (a[0] + b[0] * cos(2 * PI * (c[0] * t + d[0]))),
-      255 * (a[1] + b[1] * cos(2 * PI * (c[1] * t + d[1]))),
-      255 * (a[2] + b[2] * cos(2 * PI * (c[2] * t + d[2])))
+      255 * (a[0] + b[0] * cos(2 * PI_F * (c[0] * t + d[0]))),
+      255 * (a[1] + b[1] * cos(2 * PI_F * (c[1] * t + d[1]))),
+      255 * (a[2] + b[2] * cos(2 * PI_F * (c[2] * t + d[2])))
     );
   }
 

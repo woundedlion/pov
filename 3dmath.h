@@ -262,7 +262,7 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
 }
 
 std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
-  float_t shift = sin(PI / MAX_W);
+  float_t shift = sin(PI_F / MAX_W);
   return {
     {(v + (normal * shift)).normalize()},
     {(v + (-normal * shift)).normalize()},
@@ -272,8 +272,8 @@ std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
 Vector lissajous(float_t m1, float_t m2, float_t a, float_t t) {
 
   Vector v(
-    sin(m2 * t) * cos(m1 * t - a * PI),
-    sin(m2 * t) * sin(m1 * t - a * PI),
+    sin(m2 * t) * cos(m1 * t - a * PI_F),
+    sin(m2 * t) * sin(m1 * t - a * PI_F),
     cos(m2 * t)
   );
   return v;
