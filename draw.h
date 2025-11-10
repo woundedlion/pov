@@ -59,7 +59,7 @@ public:
   }
 
   Vector get_point(float_t t) const {
-    return points[static_cast<int>(t * points.size() - 1)];
+    return points[static_cast<int>(t * (points.size() - 1))];
   }
 
   size_t num_points() const { return points.size(); }
