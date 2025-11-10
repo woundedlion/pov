@@ -312,19 +312,20 @@ public:
   {}
 
   void step(Canvas& canvas) {
+    Animation<Motion<W>>::step(canvas);
+    orientation.get().collapse();
     from = to;
     to = path.get().get_point(static_cast<float_t>(this->t) / this->duration);
     if (from != to) {
       Vector axis = cross(from, to).normalize();
       auto angle = angle_between(from, to);
+      auto step_angle = angle / std::ceil(angle / MAX_ANGLE);
       auto& origin = orientation.get().get();
-      orientation.get().collapse();
-      for (auto a = MAX_ANGLE; angle - a > 0.0001; a += MAX_ANGLE) {
+      for (auto a = step_angle; angle - a > 0.0001; a += step_angle) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
       orientation.get().push(make_rotation(axis, angle) * origin);
     }
-    Animation<Motion<W>>::step(canvas);
   }
 
 private:
@@ -351,11 +352,6 @@ public:
   {
   }
 
-  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, EasingFn easing_fn) {
-    Rotation<W> r(orientation, axis, angle, 1, easing_fn, false);
-    r.step(canvas);
-  }
-
   void step(Canvas& canvas) {
     Animation<Rotation<W>>::step(canvas);
     orientation.get().collapse();
@@ -370,6 +366,11 @@ public:
       }
       orientation.get().push(make_rotation(axis, angle) * origin);
     }
+  }
+
+  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, EasingFn easing_fn) {
+    Rotation<W> r(orientation, axis, angle, 1, easing_fn, false);
+    r.step(canvas);
   }
 
 private:
