@@ -467,16 +467,22 @@ public:
         continue;
       }
       std::visit([&](auto& a) { a.step(canvas); }, events[i].animation);
-      bool done = std::visit([](auto& a) { return a.done(); }, events[i].animation);
-      if (done) {
-        std::visit([](auto& a) { a.post_callback(); }, events[i].animation);
-        num_events--;
-        if (i < num_events) {
-          events[i] = std::move(events[num_events]);
-          i--;
-        }
-      }
     }
+
+    auto new_logical_end = std::remove_if(
+      events.begin(),events.begin() + num_events,
+      [this](auto& event) {
+        if (t < event.start) {
+          return false;
+        }
+        if (std::visit([](auto& a) { return a.done(); }, event.animation)) {
+          std::visit([](auto& a) { a.post_callback(); }, event.animation);
+          return true;
+        }
+        return false;
+      }
+    );
+    num_events = std::distance(events.begin(), new_logical_end);
   }
 
   int t = 0;
