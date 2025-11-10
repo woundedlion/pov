@@ -19,9 +19,8 @@ protected:
   {
     if (next == nullptr) {
       auto p = blend_alpha(alpha)(canvas(XY(x, y)), c);
-      canvas(XY(x, y)) = p;
-    }
-    else {
+      canvas(XY(static_cast<int>(x + 0.5f), static_cast<int>(y + 0.5f))) = p;
+    } else {
       next->plot(canvas, x, y, c, age, alpha);
     }
   }
