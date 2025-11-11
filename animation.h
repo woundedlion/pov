@@ -6,15 +6,15 @@ float_t ease_in_out_bicubic(float_t t) {
 }
 
 float_t ease_in_out_sin(float_t t) {
-  return -(cos(PI_F * t) - 1) / 2;
+  return -(cos(PI * t) - 1) / 2;
 }
 
 float_t ease_in_sin(float_t t) {
-  return 1 - cos((t * PI_F) / 2);
+  return 1 - cos((t * PI) / 2);
 }
 
 float_t ease_out_sin(float_t t) {
-  return sin((t * PI_F) / 2);
+  return sin((t * PI) / 2);
 }
 
 float_t ease_in_cubic(float_t t) {
@@ -328,7 +328,7 @@ public:
 
 private:
 
-  static constexpr float_t MAX_ANGLE = 2 * PI_F / W;
+  static constexpr float_t MAX_ANGLE = 2 * PI / W;
   std::reference_wrapper<Orientation> orientation;
   std::reference_wrapper<const Path<W>> path;
   Vector from;
@@ -373,7 +373,7 @@ public:
 
 private:
 
-  static constexpr float_t MAX_ANGLE = 2 * PI_F / W;
+  static constexpr float_t MAX_ANGLE = 2 * PI / W;
   std::reference_wrapper<Orientation> orientation;
   Vector axis;
   float_t total_angle;

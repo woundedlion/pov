@@ -145,7 +145,7 @@ public:
   void rotate() {
     timeline.add(0,
       Rotation<W>(
-        orientation, random_vector(), PI_F, 40, ease_in_out_sin, false));
+        orientation, random_vector(), PI, 40, ease_in_out_sin, false));
   }
 
   void color_wipe() {
@@ -156,7 +156,7 @@ public:
     palettes.push_back(GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS));
     palette_boundaries.push_back(0);
     timeline.add(0,
-      Transition(palette_boundaries.back(), PI_F, 20, ease_mid)
+      Transition(palette_boundaries.back(), PI, 20, ease_mid)
       .then([this]() {
         palette_boundaries.pop();
         palettes.pop();
@@ -165,7 +165,7 @@ public:
   }
 
   Pixel color(const Vector& v, float_t t) {
-    constexpr float_t blend_width = PI_F / 8.0;
+    constexpr float_t blend_width = PI / 8.0;
     float_t a = angle_between(v, palette_normal);
 
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
@@ -187,7 +187,7 @@ public:
 
       auto next_boundary_lower_edge = (i + 1 < palette_boundaries.size()
         ? palette_boundaries[i + 1] - blend_width
-        : PI_F);
+        : PI);
       if (a > upper_edge && a < next_boundary_lower_edge) {
         return std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
       }

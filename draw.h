@@ -16,12 +16,12 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bo
   float_t a = angle_between(u, v);
   Vector w = cross(v, u);
   if (long_way) {
-    a = 2 * PI_F - a;
+    a = 2 * PI - a;
     w = (-w).normalize();
   }
   v = cross(u, w).normalize();
 
-  float_t step = 2 * PI_F / W;
+  float_t step = 2 * PI / W;
   for (float_t t = 0; t < a; t += step) {
     Vector vi(
       u.i * cos(t) + v.i * sin(t),
@@ -121,7 +121,7 @@ Vector fn_point(ShiftFn f, const Vector& normal, float_t radius, float_t angle) 
   auto vi = calc_ring_point(angle, radius, u, v, w);
   auto vp = calc_ring_point(angle, 1, u, v, w);
   Vector axis = cross(v, vp).normalize();
-  auto shift = make_rotation(axis, f(angle * PI_F / 2));
+  auto shift = make_rotation(axis, f(angle * PI / 2));
   return rotate(vi, shift);
 };
 
@@ -145,8 +145,8 @@ void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, f
   Vector start, from, to;
   float_t step = 1.0 / W;
   for (float_t t = 0; t < 1; t += step) {
-    auto vi = calc_ring_point(t * 2 * PI_F, radius, u, v, w);
-    auto vp = calc_ring_point(t * 2 * PI_F, 1, u, v, w);
+    auto vi = calc_ring_point(t * 2 * PI, radius, u, v, w);
+    auto vp = calc_ring_point(t * 2 * PI, 1, u, v, w);
     Vector axis = cross(v, vp).normalize();
     auto shift = make_rotation(axis, shift_fn(t));
     auto to = rotate(vi, shift);
@@ -201,10 +201,10 @@ void draw_ring(Dots& dots, const Vector& normal, float_t radius, ColorFn color_f
     radius = 2 - radius;
   }
 
-  float_t step = 2 * PI_F / W;
-  for (float_t a = 0; a < 2 * PI_F; a += step) {
-    auto vi = calc_ring_point(fmod((a + phase), (2 * PI_F)), radius, u, v, w);
-    dots.emplace_back(Dot(vi, color_fn(vi, a / (2 * PI_F))));
+  float_t step = 2 * PI / W;
+  for (float_t a = 0; a < 2 * PI; a += step) {
+    auto vi = calc_ring_point(fmod((a + phase), (2 * PI)), radius, u, v, w);
+    dots.emplace_back(Dot(vi, color_fn(vi, a / (2 * PI))));
   }
 };
 
