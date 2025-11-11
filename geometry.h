@@ -5,8 +5,8 @@ static const Vector Y_AXIS(0, 1, 0);
 static const Vector Z_AXIS(0, 0, 1);
 
 struct PixelCoords {
-  float_t x;
-  float_t y;
+  double x;
+  double y;
 };
 
 struct Dot {
@@ -26,7 +26,7 @@ using Dots = StaticCircularBuffer<Dot, 1024>;
 
 
 template <int W>
-Vector pixel_to_vector(float_t x, float_t y) {
+Vector pixel_to_vector(double x, double y) {
   return Vector(
     Spherical(
       (x * 2 * PI) / W,
@@ -38,23 +38,23 @@ Vector pixel_to_vector(float_t x, float_t y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  return PixelCoords({ wrap((s.theta * W) / (2 * PI_F), W), (s.phi * (H - 1)) / PI_F });
+  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H - 1)) / PI });
 }
 
-float_t lerp(float_t from, float_t to, float_t t) {
+double lerp(double from, double to, double t) {
   return ((to - from) * t) + from;
 }
 
-WaveFn sin_wave(float_t from, float_t to, float_t freq, float_t phase) {
-  return [=](float_t t) -> float_t {
+WaveFn sin_wave(double from, double to, double freq, double phase) {
+  return [=](double t) -> double {
     auto w = (sin(freq * t * 2 * PI - (PI / 2) + PI - (2 * phase)) + 1) / 2;
     return lerp(from, to, w);
     };
 }
 
-WaveFn tri_wave(float_t from, float_t to, float_t freq, float_t phase) {
-  return [=](float_t t) -> float_t {
-    float_t w = wrap(t * freq + phase, 1.0f);
+WaveFn tri_wave(double from, double to, double freq, double phase) {
+  return [=](double t) -> double {
+    double w = wrap(t * freq + phase, 1.0);
     if (w < 0.5) {
       w = 2.0 * w;
     } else {
@@ -64,8 +64,8 @@ WaveFn tri_wave(float_t from, float_t to, float_t freq, float_t phase) {
     };
 }
 
-WaveFn square_wave(float_t from, float_t to, float_t freq, float_t dutyCycle, float_t phase) {
-  return [=](float_t t) -> float_t {
+WaveFn square_wave(double from, double to, double freq, double dutyCycle, double phase) {
+  return [=](double t) -> double {
     if (fmod(t * freq + phase, 1) < dutyCycle) {
       return to;
     }

@@ -5,7 +5,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-CRGB dim(const CRGB& c, float_t s) {
+CRGB dim(const CRGB& c, double s) {
   if (s < 0.5) s = s * s;
   return CRGB(
     static_cast<uint8_t>(c.r * s),
@@ -71,10 +71,10 @@ void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y,
 void plot_aa(Canvas& cv, const float& x, const float& y, const CRGB& c) {
   int x_i = floor(x);
   int y_i = floor(y);
-  float_t x_m = x - x_i;
-  float_t y_m = y - y_i;
+  double x_m = x - x_i;
+  double y_m = y - y_i;
 
-  float_t v = (1 - x_m) * (1 - y_m);
+  double v = (1 - x_m) * (1 - y_m);
   cv(x_i, y_i) = dim(c, v);
 
   v = x_m * (1 - y_m);
