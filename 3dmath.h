@@ -70,7 +70,7 @@ struct Vector {
 
 Spherical::Spherical(const Vector& v) :
   theta(atan2(v.j, v.i)),
-  phi(acos(std::clamp(v.k, -1.0f, 1.0f)))
+  phi(acos(std::clamp(v.k, -1.0, 1.0)))
 {}
 
 struct Quaternion;
@@ -99,8 +99,7 @@ struct Quaternion {
   }
 
   Quaternion inverse() const { 
-    double n = (r * r) + (v.i * v.i) + (v.j * v.j) + (v.k * v.k);
-    return Quaternion(r / n, (-v) / n);
+    return Quaternion(r , -v).normalize();
   }
 
   Quaternion operator-() const {
@@ -221,7 +220,7 @@ Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long
     return r.normalize();
   }
 
-  double theta = acos(std::clamp(d, -1.0f, 1.0f));
+  double theta = acos(std::clamp(d, -1.0, 1.0));
   double sin_theta = sin(theta);
   double s1 = sin((1 - t) * theta) / sin_theta;
   double s2 = sin(t * theta) / sin_theta;

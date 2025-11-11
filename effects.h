@@ -49,20 +49,22 @@ public:
         4, ease_mid,
         0, ease_mid
       ));
+//    timeline.add(0,
+//      RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
     timeline.add(0,
-      RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
+      Rotation<W>(rings[ring_index].orientation, Z_AXIS, 2 * PI, 64, ease_mid, true));
   }
 
   void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
     auto& ring = rings[ring_index];
     size_t end = ring.orientation.length();
     size_t start = end == 1 ? 0 : 1;
+    dots.clear();
     for (size_t i = start; i < end; ++i) {
-      Dots dots;
       ::draw_ring<W>(dots, ring.orientation.orient(ring.normal, i), 1,
         [&](auto& v, auto t) { return vignette(ring.palette)(0); });
       plot_dots(dots, ring.trails, canvas, 
-       (end - 1 - i) / end,
+       static_cast<double>(end - 1 - i) / end,
        alpha * opacity);
     }
     ring.orientation.collapse();
@@ -82,13 +84,14 @@ public:
 
 private:
 
-  static constexpr int NUM_RINGS = 6;
+  static constexpr int NUM_RINGS = 1;
   std::vector<Ring> rings;
   double alpha;
   double trail_length;
   FilterAntiAlias<W> filters;
   std::array<const Palette*, 6> palettes = { &richSunset, &undersea, &mangoPeel, &lemonLime, &algae, &lateSunset };
   Timeline timeline;
+  Dots dots;
 };
 
 template <int W>

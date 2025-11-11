@@ -217,7 +217,7 @@ public:
       from = mutant;
     }
     Animation::step(canvas);
-    auto t = std::min(1.0f, static_cast<double>(this->t) / duration);
+    auto t = std::min(1.0, static_cast<double>(this->t) / duration);
     mutant.get() = f(easing_fn(t));
   }
 
