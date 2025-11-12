@@ -37,7 +37,7 @@ class Path {
 public:
   Path() {}
 
-  Path& append_line(const Vector& v1, Vector& v2, bool long_way = false) {
+  Path& append_line(const Vector& v1, const Vector& v2, bool long_way = false) {
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }

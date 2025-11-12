@@ -117,7 +117,7 @@ public:
   VertexList orient(const VertexList& vertices, int i) const {
     VertexList r;
     std::transform(vertices.begin(), vertices.end(), std::back_inserter(r),
-      [=](auto& v) {
+      [this, i](auto& v) {
         return orient(v, i);
       });
     return r;

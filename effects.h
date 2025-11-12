@@ -44,7 +44,7 @@ public:
     rings.emplace_back(normal, filters, palette, trail_length);
     timeline.add(0,
       Sprite(
-        [=](Canvas& canvas, double opacity) { draw_ring(canvas, opacity, ring_index); },
+        [this, ring_index](Canvas& canvas, double opacity) { draw_ring(canvas, opacity, ring_index); },
         -1,
         4, ease_mid,
         0, ease_mid
@@ -137,11 +137,11 @@ public:
 
     timeline
       .add(0,
-        RandomTimer(4, 64, [=](auto&) { reverse(); }, true))
+        RandomTimer(4, 64, [this](auto&) { reverse(); }, true))
       .add(0,
-        RandomTimer(20, 64, [=](auto&) { color_wipe(); }, true))
+        RandomTimer(20, 64, [this](auto&) { color_wipe(); }, true))
       .add(0,
-        RandomTimer(80, 150, [=](auto&) { rotate(); }, true));
+        RandomTimer(80, 150, [this](auto&) { rotate(); }, true));
   }
 
   bool show_bg() const { return false; }
@@ -182,14 +182,14 @@ public:
       auto upper_edge = boundary + blend_width;
 
       if (a < lower_edge) {
-        return std::visit([=](auto& p) { return p.get(t); },  palettes[i]);
+        return std::visit([t](auto& p) { return p.get(t); },  palettes[i]);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
         auto clamped_blend_factor = std::clamp(0.0, 1.0, blend_factor);
-        auto c1 = std::visit([=](auto& p) { return p.get(t); }, palettes[i]);
-        auto c2 = std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
+        auto c1 = std::visit([t](auto& p) { return p.get(t); }, palettes[i]);
+        auto c2 = std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
         return c1.lerp16(c2, to_short(clamped_blend_factor));
       }
 
@@ -197,11 +197,11 @@ public:
         ? palette_boundaries[i + 1] - blend_width
         : PI);
       if (a > upper_edge && a < next_boundary_lower_edge) {
-        return std::visit([=](auto& p) { return p.get(t); }, palettes[i + 1]);
+        return std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
       }
     }
 
-    return std::visit([=](auto& p) { return p.get(t); }, palettes[0]);
+    return std::visit([t](auto& p) { return p.get(t); }, palettes[0]);
   }
 
   void draw_frame() {
@@ -269,7 +269,7 @@ private:
     node.x = wrap(node.x + node.v, W);
   }
 
-  int dir(int speed) {
+  int dir(int speed) const {
     return speed < 0 ? -1 : 1;
   }
 

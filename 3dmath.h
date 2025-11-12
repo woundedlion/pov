@@ -92,7 +92,7 @@ struct Quaternion {
     return *this;
   }
 
-  bool operator==(const Quaternion& q) {
+  bool operator==(const Quaternion& q) const {
     return fabs(q.r - r) < 0.0001
       && q.v == v;
   }

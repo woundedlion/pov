@@ -42,7 +42,7 @@ class Animation {
 public:
 
   void cancel() { canceled = true; }
-  virtual bool done() { return canceled || (duration >= 0 && t >= duration); }
+  virtual bool done() const { return canceled || (duration >= 0 && t >= duration); }
 
   virtual void step(Canvas& canvas) {
     t++;
@@ -58,7 +58,7 @@ public:
     return static_cast<Derived&>(*this);
   }
 
-  void post_callback() {
+  void post_callback() const {
     post();
   }
 
@@ -88,7 +88,7 @@ public:
     Animation(0, false)
   {}
   void step(Canvas&) {}
-  bool done() { return true; }
+  bool done() const { return true; }
 };
 
 class RandomTimer : public Animation<RandomTimer> {

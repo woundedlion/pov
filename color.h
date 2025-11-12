@@ -150,11 +150,11 @@ public:
 
 private:
 
-  uint8_t wrap_hue(int hue) {
+  uint8_t wrap_hue(int hue) const {
     return (hue % 256 + 256) % 256;
   }
 
-  void calc_hues(uint8_t h1, uint8_t& h2, uint8_t& h3, HarmonyType harmony_type) {
+  void calc_hues(uint8_t h1, uint8_t& h2, uint8_t& h3, HarmonyType harmony_type) const {
     const int h1_int = h1;
 
     switch (harmony_type) {
