@@ -55,6 +55,8 @@ struct Vector {
     if (m < std::numeric_limits<double>::epsilon()) {
       Serial.println("Can't normalize a zero vector!");
       assert(false);
+      i = 1;
+      j = k = 0;
     } else {
       i = i / m;
       j = j / m;
@@ -123,6 +125,8 @@ struct Quaternion {
     if (m <= std::numeric_limits<double>::epsilon()) {
       Serial.println("Can't normalize a zaro Quaternion!");
       assert(false);
+      r = 1;
+      v = Vector(0, 0, 0);
     } else {
       r = r / m;
       v = v / m;
