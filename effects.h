@@ -228,8 +228,8 @@ private:
   }
 
   void draw_nodes(Canvas& canvas, double age) {
-    Dots dots;
     for (size_t i = 0; i < nodes.size(); ++i) {
+      dots.clear();
       if (i == 0) {
         auto from = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
         draw_vector(dots, from, [this](auto& v, auto t) { return color(v, 0); });
@@ -286,7 +286,8 @@ private:
   int gap;
   uint32_t trail_length;
   Orientation orientation;
-  
+  Dots dots;
+
   FilterReplicate<W> filters;
   FilterDecay<W, 10000> trails;
   FilterOrient<W> orient;
@@ -368,7 +369,7 @@ private:
 
   void draw_ring(Canvas& canvas, double opacity, size_t index) {
     Ring& ring = rings[index];
-    Dots dots;
+    dots.clear();
     ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
       [&](auto& v, auto t) {
         Pixel color = ring.palette.get(t);
@@ -382,4 +383,5 @@ private:
   FilterAntiAlias<W> filters;
   Orientation orientation;
   Timeline timeline;
+  Dots dots;
 };
