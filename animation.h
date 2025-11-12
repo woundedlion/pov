@@ -342,27 +342,26 @@ public:
   Rotation(Orientation& orientation, const Vector& axis, double angle, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
+    origin(orientation.get()),
     axis(axis),
     total_angle(angle),
     easing_fn(easing_fn),
-    from(0),
-    to(0)
+    last_angle(0)
   {
   }
 
   void step(Canvas& canvas) {
     Animation<Rotation<W>>::step(canvas);
     orientation.get().collapse();
-    from = to;
-    to = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
-    auto angle = fwd_distance(from, to, total_angle);
-    if (angle > 0.00001) {
+    double to = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
+    if (fabs(to - last_angle) > 0.00001) {
+      auto angle = fwd_distance(0, to, total_angle);
       auto step_angle = angle / std::ceil(angle / MAX_ANGLE);
-      auto origin = orientation.get().get();
       for (auto a = step_angle; angle - a > 0.00001; a += step_angle) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
       orientation.get().push(make_rotation(axis, angle) * origin);
+      last_angle = to;
     }
   }
 
@@ -378,8 +377,8 @@ private:
   Vector axis;
   double total_angle;
   EasingFn easing_fn;
-  double from;
-  double to;
+  Quaternion origin;
+  double last_angle;
 };
 
 template<int W>
