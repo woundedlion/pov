@@ -1,5 +1,5 @@
 #include <FastLED.h>
-#include "particle.h"
+//#include "particle.h"
 #include "rotate.h"
 #include "util.h"
 

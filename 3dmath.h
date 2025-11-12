@@ -29,7 +29,7 @@ struct Vector {
 
   Vector& operator=(const Vector& v) { 
     i = v.i; 
-    j = v.j, 
+    j = v.j;
     k = v.k;
     return *this;
   }
@@ -52,7 +52,7 @@ struct Vector {
   
   Vector& normalize() {
     double m = length();
-    if (m == 0) {
+    if (m < std::numeric_limits<double>::epsilon()) {
       Serial.println("Can't normalize a zero vector!");
       assert(false);
     } else {
@@ -71,10 +71,13 @@ struct Vector {
 Spherical::Spherical(const Vector& v) :
   theta(atan2(v.j, v.i)),
   phi(acos(std::clamp(v.k, -1.0, 1.0)))
-{}
+{
+  assert(fabs(v.length() - 1.0) < 0.0001);
+}
 
 struct Quaternion;
 Quaternion operator*(const Quaternion& q1, const Quaternion& q2);
+Quaternion operator/(const Quaternion& q, double s);
 Vector operator/(const Vector& v, double s);
 
 struct Quaternion {
@@ -98,8 +101,13 @@ struct Quaternion {
     *this = *this * q;
   }
 
-  Quaternion inverse() const { 
-    return Quaternion(r , -v).normalize();
+  double squared_magnitude() const {
+    return r * r + v.i * v.i + v.j * v.j + v.k * v.k;
+  }
+
+  Quaternion inverse() const {
+    double sq_mag = squared_magnitude();
+    return Quaternion(r, -v) / sq_mag;
   }
 
   Quaternion operator-() const {
@@ -112,7 +120,10 @@ struct Quaternion {
 
   Quaternion& normalize() {
     auto m = magnitude();
-    if (m > 0) {
+    if (m <= std::numeric_limits<double>::epsilon()) {
+      Serial.println("Can't normalize a zaro Quaternion!");
+      assert(false);
+    } else {
       r = r / m;
       v = v / m;
     }
@@ -124,7 +135,7 @@ struct Quaternion {
 };
 
 Vector rotate(const Vector& v, const Quaternion& q) {
-  assert(q.magnitude() - 1 < 0.00001);
+  assert(fabs(q.magnitude() - 1) < 0.00001);
   Quaternion p(0, v);
   auto r = q * p * q.inverse();
   return r.v;
@@ -162,13 +173,19 @@ Vector cross(const Vector& v1, const Vector& v2) {
 }
 
 double distance_between(const Vector& a, const Vector& b) {
-  return sqrt(pow(b.i - a.i, 2)
-    + pow(b.j - a.j, 2)
-    + pow(b.k - a.k, 2));
+  double di = b.i - a.i;
+  double dj = b.j - a.j;
+  double dk = b.k - a.k;
+  return sqrt(di * di + dj * dj + dk * dk);
 }
 
 double angle_between(const Vector& v1, const Vector& v2) {
-  return acos(std::clamp(dot(v1, v2), -1.0, 1.0));
+  double len_product = v1.length() * v2.length();
+  if (len_product <= std::numeric_limits<double>::epsilon()) {
+    assert(false);
+  }
+  double d = dot(v1, v2) / len_product;
+  return acos(std::clamp(d, -1.0, 1.0));
 }
 
 Quaternion operator+(const Quaternion& q1, const Quaternion& q2) {
@@ -193,19 +210,29 @@ Quaternion operator*(double s, const Quaternion& q) {
   return q * s;
 }
 
+Quaternion operator/(const Quaternion& q, double s) {
+  assert(fabs(s) > std::numeric_limits<double>::epsilon());
+  return Quaternion(q.r / s, q.v / s);
+}
+
 double dot(const Quaternion& q1, const Quaternion& q2) {
   return (q1.r * q2.r) + (q1.v.i * q2.v.i) + (q1.v.j * q2.v.j) + (q1.v.k * q2.v.k);
 }
 
-float_t angle_between(const Quaternion& q1, const Quaternion& q2) {
+double angle_between(const Quaternion& q1, const Quaternion& q2) {
+  assert(fabs(q1.magnitude() - 1.0) < 0.0001);
+  assert(fabs(q2.magnitude() - 1.0) < 0.0001);
   return acos(std::clamp(dot(q1, q2), -1.0, 1.0));
 }
 
 Quaternion make_rotation(const Vector& axis, double theta) {
-  return Quaternion(cos(theta / 2), sin(theta / 2) * axis);
+  assert(fabs(axis.length() - 1.0) < 0.0001);
+  return Quaternion(cos(theta / 2), sin(theta / 2) * axis).normalize();
 }
 
 Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long_way = false) {
+  assert(fabs(q1.magnitude() - 1.0) < 0.0001);
+  assert(fabs(q2.magnitude() - 1.0) < 0.0001);
   double d = dot(q1, q2);
   Quaternion p(q1);
   Quaternion q(q2);
@@ -237,6 +264,9 @@ bool intersects_plane(const Vector& v1, const Vector& v2, const Vector& normal) 
 }
 
 Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
+  assert(fabs(u.length() - 1.0) < 0.0001);
+  assert(fabs(v.length() - 1.0) < 0.0001);
+  assert(fabs(normal.length() - 1.0) < 0.0001);
   Vector w = cross(v, u).normalize();
   Vector i1 = cross(w, normal).normalize();
   Vector i2 = cross(normal, w).normalize();
@@ -260,6 +290,8 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
 }
 
 std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
+  assert(fabs(v.length() - 1.0) < 0.0001);
+  assert(fabs(normal.length() - 1.0) < 0.0001);
   double shift = sin(PI / MAX_W);
   return {
     {(v + (normal * shift)).normalize()},
@@ -274,5 +306,5 @@ Vector lissajous(double m1, double m2, double a, double t) {
     sin(m2 * t) * sin(m1 * t - a * PI),
     cos(m2 * t)
   );
-  return v;
+  return v.normalize();
 }
