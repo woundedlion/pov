@@ -70,11 +70,12 @@ struct Vector {
   double k = 0;
 };
 
-Spherical::Spherical(const Vector& v) :
-  theta(atan2(v.j, v.i)),
-  phi(acos(std::clamp(v.k, -1.0, 1.0)))
+Spherical::Spherical(const Vector& v)
 {
-  assert(fabs(v.length() - 1.0) < 0.0001);
+  Vector n(v);
+  n.normalize();
+  theta = atan2(n.j, n.i);
+  phi = acos(std::clamp(n.k, -1.0, 1.0));
 }
 
 struct Quaternion;
@@ -255,7 +256,7 @@ Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long
   double sin_theta = sin(theta);
   double s1 = sin((1 - t) * theta) / sin_theta;
   double s2 = sin(t * theta) / sin_theta;
-  return (s1 * p) + (s2 * q);
+  return ((s1 * p) + (s2 * q)).normalize();
 }
 
 bool is_over(const Vector& v, const Vector& normal) {

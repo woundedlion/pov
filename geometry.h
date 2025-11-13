@@ -90,19 +90,19 @@ public:
   int length() const { return num_frames; }
 
   Vector orient(const Vector& v) const {
-    return rotate(Vector(v).normalize(), orientations[num_frames - 1]);
+    return rotate(v, orientations[num_frames - 1]);
   }
 
   Vector orient(const Vector& v, int i) const {
-    return rotate(Vector(v).normalize(), orientations[i]);
+    return rotate(v, orientations[i]);
   }
 
   Vector unorient(const Vector& v) const {
-    return rotate(Vector(v).normalize(), orientations[num_frames - 1].inverse());
+    return rotate(v, orientations[num_frames - 1].inverse());
   }
 
   Vector unorient(const Vector& v, int i) const {
-    return rotate(Vector(v).normalize(), orientations[i].inverse());
+    return rotate(v, orientations[i].inverse());
   }
 
   VertexList orient(const VertexList& vertices) const {
@@ -117,7 +117,7 @@ public:
   VertexList orient(const VertexList& vertices, int i) const {
     VertexList r;
     std::transform(vertices.begin(), vertices.end(), std::back_inserter(r),
-      [this, i](auto& v) {
+      [this, i](const auto& v) {
         return orient(v, i);
       });
     return r;
@@ -274,7 +274,13 @@ struct Dodecahedron {
     {18},   // 19
   };
 
-  void dump() {
+  Dodecahedron() {
+    for (auto& v : vertices) {
+      v.normalize();
+    }
+  }
+
+  void dump() const {
     Serial.printf("Dodecahedron\n");
     Serial.printf("vertices [%d] = \n", vertices.size());
     for (size_t i = 0; i < vertices.size(); ++i) {
@@ -292,9 +298,18 @@ struct Dodecahedron {
 };
 
 Vector random_vector() {
+  // Marsaglia's method
+  double v1, v2, s;
+  do {
+    v1 = 2.0 * hs::rand_dbl() - 1.0;
+    v2 = 2.0 * hs::rand_dbl() - 1.0;
+    s = v1 * v1 + v2 * v2;
+  } while (s >= 1.0 || s == 0.0);
+
+  double sqrt_s = sqrt(1.0 - s);
   return Vector(
-    hs::rand_dbl(),
-    hs::rand_dbl(),
-    hs::rand_dbl()
-  ).normalize();
+    2.0 * v1 * sqrt_s,
+    2.0 * v2 * sqrt_s,
+    1.0 - 2.0 * s
+  );
 }

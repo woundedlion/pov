@@ -374,10 +374,10 @@ private:
 
   static constexpr double MAX_ANGLE = 2 * PI / W;
   std::reference_wrapper<Orientation> orientation;
+  Quaternion origin;
   Vector axis;
   double total_angle;
   EasingFn easing_fn;
-  Quaternion origin;
   double last_angle;
 };
 
