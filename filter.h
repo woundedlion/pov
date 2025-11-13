@@ -18,10 +18,12 @@ protected:
     const Pixel& c, double age, double alpha)
   {
     if (next == nullptr) {
-      auto xy = XY(static_cast<int>(x), static_cast<int>(y));
-      auto p = blend_alpha(alpha)(canvas(xy), c);
-      assert(xy < W * H);
-      canvas(xy) = p;
+      auto xi = static_cast<int>(x);
+      auto yi = static_cast<int>(y);
+      auto p = blend_alpha(alpha)(canvas(xi, yi), c);
+      assert(xi < W);
+      assert(yi < H_VIRT);
+      plot_virtual(canvas, xi, yi, p);
     } else {
       next->plot(canvas, x, y, c, age, alpha);
     }

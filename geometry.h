@@ -30,7 +30,7 @@ Vector pixel_to_vector(double x, double y) {
   return Vector(
     Spherical(
       (x * 2 * PI) / W,
-      (y * PI) / (H - 1)
+      (y * PI) / (H_VIRT - 1)
     )
   );
 }
@@ -38,7 +38,13 @@ Vector pixel_to_vector(double x, double y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H - 1)) / PI });
+  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H_VIRT - 1)) / PI });
+}
+
+void plot_virtual(Canvas& canvas, int x, int y, const Pixel& c) {
+  if (y > 0 && y < H) {
+    canvas(XY(x, y)) = c;
+  }
 }
 
 double lerp(double from, double to, double t) {

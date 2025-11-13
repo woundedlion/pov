@@ -5,6 +5,7 @@
 static constexpr unsigned int RPM = 480;
 static constexpr int NUM_PIXELS = 40;
 static constexpr int H = NUM_PIXELS / 2;
+static constexpr int H_VIRT = H + 3;
 static constexpr int MAX_W = 96;
 static constexpr int PIN_RANDOM = 15;
 
