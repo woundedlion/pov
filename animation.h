@@ -342,7 +342,6 @@ public:
   Rotation(Orientation& orientation, const Vector& axis, double angle, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
-    origin(orientation.get()),
     axis(axis),
     total_angle(angle),
     easing_fn(easing_fn),
@@ -351,17 +350,19 @@ public:
   }
 
   void step(Canvas& canvas) {
+    if (this->t == 0) {
+      origin = orientation.get().get();
+    }
     Animation<Rotation<W>>::step(canvas);
     orientation.get().collapse();
-    double to = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
-    if (fabs(to - last_angle) > 0.00001) {
-      auto angle = fwd_distance(0, to, total_angle);
-      auto step_angle = angle / std::ceil(angle / MAX_ANGLE);
-      for (auto a = step_angle; angle - a > 0.00001; a += step_angle) {
+    double angle = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
+    if (std::abs(angle - last_angle) > 0.00001) {
+      auto step_angle = angle / std::ceil(std::abs(angle) / MAX_ANGLE);
+      for (auto a = step_angle; std::abs(angle - a) > 0.00001; a += step_angle) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
       orientation.get().push(make_rotation(axis, angle) * origin);
-      last_angle = to;
+      last_angle = angle;
     }
   }
 

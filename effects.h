@@ -58,9 +58,8 @@ public:
   void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
     auto& ring = rings[ring_index];
     size_t end = ring.orientation.length();
-    size_t start = end == 1 ? 0 : 1;
     dots.clear();
-    for (size_t i = start; i < end; ++i) {
+    for (size_t i = 0; i < end; ++i) {
       Serial.printf("%f, %f, %f, %f\n", 
         ring.orientation.get(i).r, 
         ring.orientation.get().v.i, 
