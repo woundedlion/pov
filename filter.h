@@ -151,7 +151,7 @@ public:
     auto v = pixel_to_vector<W>(x, y);
     auto r = vector_to_pixel<W>(orientation.orient(v));
     orientation.collapse();
-    pass(canvas, r.x, r.y, color, age, alpha);
+    this->pass(canvas, r.x, r.y, color, age, alpha);
   }
 
 private:

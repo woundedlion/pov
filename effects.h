@@ -224,11 +224,11 @@ private:
       dots.clear();
       if (i == 0) {
         auto from = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
-        draw_vector(dots, from, [this](auto& v, auto t) { return color(v, 0); });
+        draw_vector<W>(dots, from, [this](auto& v, auto t) { return color(v, 0); });
       } else {
         auto from = pixel_to_vector<W>(nodes[i - 1].x, node_y(nodes[i - 1]));
         auto to = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
-        draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); });
+        draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, false);
       }
     }
     plot_dots(dots, filters, canvas, age, 0.5);
@@ -247,9 +247,9 @@ private:
 
   void drag(Node& leader, Node& follower) {
     int dest = wrap(follower.x + follower.v, W);
-    if (distance(dest, leader.x, W) > gap) {
+    if (shortest_distance(dest, leader.x, W) > gap) {
       follower.v = leader.v;
-      while (distance(follower.x, leader.x, W) > gap) {
+      while (shortest_distance(follower.x, leader.x, W) > gap) {
         move(follower);
       }
     } else {

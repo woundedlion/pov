@@ -8,7 +8,7 @@ void draw_vector(Dots& dots, const Vector& v, ColorFn color_fn) {
 }
 
 template <int W>
-void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bool long_way /* = false*/) {
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bool long_way) {
   Vector u(v1);
   Vector v(v2);
   u.normalize();
