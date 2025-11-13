@@ -358,7 +358,9 @@ public:
     double angle = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
     if (std::abs(angle - last_angle) > 0.00001) {
       auto step_angle = angle / std::ceil(std::abs(angle) / MAX_ANGLE);
-      for (auto a = step_angle; std::abs(angle - a) > 0.00001; a += step_angle) {
+      Serial.printf("%F\n", step_angle);
+      for (auto a = last_angle + step_angle; std::abs(angle - a) > 0.00001; a += step_angle) {
+        Serial.println(a);
         orientation.get().push(make_rotation(axis, a) * origin);
       }
       orientation.get().push(make_rotation(axis, angle) * origin);

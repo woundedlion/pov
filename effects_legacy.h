@@ -68,24 +68,36 @@ void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y,
 }
 */
 
-void plot_aa(Canvas& cv, const float& x, const float& y, const CRGB& c) {
+auto blend(double a) {
+  return [a](const CRGB& c1, const CRGB& c2) {
+    return CRGB(
+      qadd8(c1.r * (1 - a), c2.r * a),
+      qadd8(c1.g * (1 - a), c2.g * a),
+      qadd8(c1.b * (1 - a), c2.b * a));
+    };
+}
+
+void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
   int x_i = floor(x);
   int y_i = floor(y);
-  double x_m = x - x_i;
-  double y_m = y - y_i;
+  float x_m = x - x_i;
+  float y_m = y - y_i;
 
-  double v = (1 - x_m) * (1 - y_m);
-  cv(x_i, y_i) = dim(c, v);
+  const int FULL = 255;
+  auto p = CRGB(c);
+
+  float v = (1 - x_m) * (1 - y_m);
+  cv(x_i, y_i) = blend(v)(cv(x_i, y_i), p);
 
   v = x_m * (1 - y_m);
-  cv((x_i + 1) % cv.width(), y_i) = dim(c, v);
+  cv((x_i + 1) % cv.width(), y_i) = blend(v)(cv((x_i + 1) % cv.width(), y_i), p);
 
   if (y_i < H - 1) {
     v = (1 - x_m) * y_m;
-    cv(x_i, y_i + 1) = dim(c, v);
+    cv(x_i, y_i + 1) = blend(v)(cv(x_i, y_i + 1), v);
 
     v = x_m * y_m;
-    cv((x_i + 1) % cv.width(), y_i + 1) = dim(c, v);
+    cv((x_i + 1) % cv.width(), y_i + 1) = blend(v)(cv((x_i + 1) % cv.width(), y_i + 1), v);
   }
 }
 

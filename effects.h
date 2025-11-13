@@ -52,7 +52,7 @@ public:
 //    timeline.add(0,
 //      RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
     timeline.add(0,
-      Rotation<W>(rings[ring_index].orientation, Y_AXIS, PI / 4, 64, ease_mid, false));
+      Rotation<W>(rings[ring_index].orientation, Y_AXIS, PI, 64, ease_mid, true));
   }
 
   void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
@@ -60,11 +60,6 @@ public:
     size_t end = ring.orientation.length();
     dots.clear();
     for (size_t i = 0; i < end; ++i) {
-      Serial.printf("%f, %f, %f, %f\n", 
-        ring.orientation.get(i).r, 
-        ring.orientation.get().v.i, 
-        ring.orientation.get().v.j, 
-        ring.orientation.get().v.k);
       ::draw_ring<W>(dots, ring.orientation.orient(ring.normal), 1,
         [&](auto& v, auto t) { return CRGB::Red; });
       plot_dots(dots, filters, canvas, 
@@ -72,18 +67,19 @@ public:
        alpha * opacity);
     }
     ring.orientation.collapse();
-/*
+    /*
     ring.trails.trail(canvas,
       [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
     
     ring.trails.decay();
- */   
+    */
   }
 
   void draw_frame() {
+    Serial.println("draw_frame");
     Canvas canvas(*this);
-    timeline.step(canvas);
+//    timeline.step(canvas);
   }
 
 private:
