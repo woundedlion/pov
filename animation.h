@@ -342,6 +342,7 @@ public:
   Rotation(Orientation& orientation, const Vector& axis, double angle, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
+    origin(orientation.get()),
     axis(axis),
     total_angle(angle),
     easing_fn(easing_fn),
@@ -350,17 +351,17 @@ public:
   }
 
   void step(Canvas& canvas) {
-    if (this->t == 0) {
-      origin = orientation.get().get();
-    }
     Animation<Rotation<W>>::step(canvas);
+    if (this->t == 0) {
+      last_angle = 0;
+      origin = orientation.get().get();
+      this->t++;
+    }
     orientation.get().collapse();
     double angle = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
     if (std::abs(angle - last_angle) > 0.00001) {
-      auto step_angle = angle / std::ceil(std::abs(angle) / MAX_ANGLE);
-      Serial.printf("%F\n", step_angle);
+      auto step_angle = std::abs(angle - last_angle) / std::ceil(std::abs(angle - last_angle) / MAX_ANGLE);
       for (auto a = last_angle + step_angle; std::abs(angle - a) > 0.00001; a += step_angle) {
-        Serial.println(a);
         orientation.get().push(make_rotation(axis, a) * origin);
       }
       orientation.get().push(make_rotation(axis, angle) * origin);
@@ -414,9 +415,9 @@ public:
 
 private:
 
-  static constexpr double WALK_SPEED = 0.12;
-  static constexpr double PIVOT_STRENGTH = 1.5;
-  static constexpr double NOISE_SCALE = 0.05;
+  static constexpr double WALK_SPEED = 0.1;
+  static constexpr double PIVOT_STRENGTH = 0.5;
+  static constexpr double NOISE_SCALE = 0.1;
 
   FastNoiseLite noiseGenerator;
   std::reference_wrapper<Orientation> orientation;

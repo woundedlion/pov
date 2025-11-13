@@ -22,13 +22,13 @@ public:
     const Vector normal;
     const Palette& palette;
     Orientation orientation;
-    FilterDecay<W, 5000> trails;
+    FilterDecay<W, 8000> trails;
   };
   
   RingSpin() :
     Effect(W),
     alpha(0.2),
-    trail_length(5)
+    trail_length(1)
   {
     persist_pixels = false;
     rings.reserve(NUM_RINGS);
@@ -49,10 +49,8 @@ public:
         4, ease_mid,
         0, ease_mid
       ));
-//    timeline.add(0,
-//      RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
     timeline.add(0,
-      Rotation<W>(rings[ring_index].orientation, Y_AXIS, PI, 64, ease_mid, true));
+      RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
   }
 
   void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
@@ -62,7 +60,7 @@ public:
     for (size_t i = 0; i < end; ++i) {
       ::draw_ring<W>(dots, ring.orientation.orient(ring.normal), 1,
         [&](auto& v, auto t) { return CRGB::Red; });
-      plot_dots(dots, filters, canvas, 
+      plot_dots(dots, ring.trails, canvas, 
        static_cast<double>(end - 1 - i) / end,
        alpha * opacity);
     }
@@ -71,15 +69,14 @@ public:
     ring.trails.trail(canvas,
       [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
-    
-    ring.trails.decay();
     */
+    ring.trails.decay();
+    
   }
 
   void draw_frame() {
-    Serial.println("draw_frame");
     Canvas canvas(*this);
-//    timeline.step(canvas);
+    timeline.step(canvas);
   }
 
 private:
@@ -340,9 +337,9 @@ private:
       if (rings[i].duration <= 0) {
         Ring& ring = rings[i];
         ring.normal = random_vector();
-        ring.duration = hs::rand_int(8, 72);
+        ring.duration = hs::rand_int(16, 96);
         ring.radius = 0;
-        ring.palette = GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS);
+        ring.palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS);
 
         timeline.add(0,
           Sprite(
@@ -367,11 +364,10 @@ private:
     dots.clear();
     ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
       [&](auto& v, auto t) {
-        Pixel color = ring.palette.get(t);
-        return dim(color, opacity);
+        return ring.palette.get(t);
       },
       0);
-    plot_dots<W>(dots, filters, canvas, 0, 1.0);
+    plot_dots<W>(dots, filters, canvas, 0, opacity);
   }
 
   Ring rings[MAX_RINGS];

@@ -108,10 +108,14 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
   if (radius > 1) {
     v = -v;
   }
-  Vector u = X_AXIS;
-  if (std::abs(dot(v, u)) > 0.99) {
-    u = Y_AXIS;
+  Vector u;
+  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+    u = cross(v, Y_AXIS);
   }
+  else {
+    u = cross(v, X_AXIS);
+  }
+  u.normalize();
   Vector w(cross(v, u));
   if (radius > 1) {
     w = -w;
@@ -131,11 +135,14 @@ void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, d
   if (radius > 1) {
     v = -v;
   }
-  Vector u = X_AXIS;
-  if (std::abs(dot(v, u)) > 0.99) {
-    u = Y_AXIS;
+  Vector u;
+  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+    u = cross(v, Y_AXIS);
   }
-  Vector w(cross(v, u));
+  else {
+    u = cross(v, X_AXIS);
+  }
+  u.normalize();  Vector w(cross(v, u));
   if (radius > 1) {
     w = -w;
     radius = 2 - radius;
@@ -169,11 +176,14 @@ Vector ring_point(const Vector& normal, double radius, double angle, double phas
   if (radius > 1) {
     v = -v;
   }
-  Vector u = X_AXIS;
-  if (std::abs(dot(v, u)) > 0.99) {
-    u = Y_AXIS;
+  Vector u;
+  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+    u = cross(v, Y_AXIS);
   }
-
+  else {
+    u = cross(v, X_AXIS);
+  }
+  u.normalize();
   Vector w(cross(v, u));
   if (radius > 1) {
     w = -w;
@@ -187,13 +197,15 @@ void draw_ring(Dots& dots, const Vector& normal, double radius, ColorFn color_fn
   Vector v(normal);
   if (radius > 1) {
     v = -v;
-    phase = wrap(phase + PI, 2 * PI);
   }
 
-  Vector u = X_AXIS;
-  if (std::abs(dot(v, u)) > 0.99) {
-    u = Y_AXIS;
+  Vector u;
+  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+    u = cross(v, Y_AXIS);
+  } else {
+    u = cross(v, X_AXIS);
   }
+  u.normalize();
 
   Vector w(cross(v, u)); // already a normal vector
   if (radius > 1) {

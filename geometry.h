@@ -142,6 +142,7 @@ public:
       orientations[num_frames++] = q;
     } else {
       Serial.println("Orientation full, droping frame!");
+      assert(false);
     }
     return *this;
   }

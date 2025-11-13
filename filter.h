@@ -18,7 +18,7 @@ protected:
     const Pixel& c, double age, double alpha)
   {
     if (next == nullptr) {
-      auto xy = XY(static_cast<int>(x + 0.5f), static_cast<int>(y + 0.5f));
+      auto xy = XY(static_cast<int>(x), static_cast<int>(y));
       auto p = blend_alpha(alpha)(canvas(xy), c);
       assert(xy < W * H);
       canvas(xy) = p;

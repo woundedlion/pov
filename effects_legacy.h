@@ -83,7 +83,6 @@ void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
   float x_m = x - x_i;
   float y_m = y - y_i;
 
-  const int FULL = 255;
   auto p = CRGB(c);
 
   float v = (1 - x_m) * (1 - y_m);

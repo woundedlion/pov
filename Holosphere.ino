@@ -19,18 +19,20 @@ void setup() {
 void loop() {
 //	pov->show<Dynamo<96>>(300);
 //	pov->show<RingShower2<96>>(300);
-// pov->show<RingSpin<96>>(300);
+ pov->show<RingSpin<96>>(300);
 
 
 /*
 	pov->show<TheMatrix<40, 135> >(60);
 	pov->show<ChainWiggle<96> >(150);
-	*/
+	
 	pov->show<RingRotate<96> >(120);
-	/*
+	
 	pov->show<RingShower<96> >(90);
 //	pov->show<Curves<96> >(120);
+
 	pov->show<RingTwist<96> >(150);
+	
 	pov->show<Kaleidoscope<96> >(120);
 	pov->show<StarsFade<40> >(60);
 	pov->show<RingTrails<96> >(90);
