@@ -94,9 +94,9 @@ public:
     const uint8_t s2 = hs::rand_int(255 * 0.4, 255 * 0.8);
     const uint8_t s3 = hs::rand_int(255 * 0.4, 255 * 0.8);
 
-    const uint8_t v1 = hs::rand_int(255 * 0.1, 255 * 0.1);
-    const uint8_t v2 = hs::rand_int(255 * 0.2, 255 * 0.5);
-    const uint8_t v3 = hs::rand_int(255 * 0.6, 255 * 0.8);
+    const uint8_t v1 = hs::rand_int(255 * 1, 255 * 1);
+    const uint8_t v2 = hs::rand_int(255 * 1, 255 * 1);
+    const uint8_t v3 = hs::rand_int(255 * 1, 255 * 1);
 
     a = CHSV(h1, s1, v1);
     b = CHSV(h2, s2, v2);

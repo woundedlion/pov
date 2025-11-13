@@ -28,7 +28,7 @@ public:
   RingSpin() :
     Effect(W),
     alpha(0.2),
-    trail_length(1)
+    trail_length(10)
   {
     persist_pixels = false;
     rings.reserve(NUM_RINGS);
@@ -59,17 +59,17 @@ public:
     dots.clear();
     for (size_t i = 0; i < end; ++i) {
       ::draw_ring<W>(dots, ring.orientation.orient(ring.normal), 1,
-        [&](auto& v, auto t) { return CRGB::Red; });
+        [&](auto& v, auto t) { return vignette(ring.palette)(0); });
       plot_dots(dots, ring.trails, canvas, 
        static_cast<double>(end - 1 - i) / end,
        alpha * opacity);
     }
     ring.orientation.collapse();
-    /*
+    
     ring.trails.trail(canvas,
       [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
       alpha * opacity);
-    */
+    
     ring.trails.decay();
     
   }
@@ -81,7 +81,7 @@ public:
 
 private:
 
-  static constexpr int NUM_RINGS = 1;
+  static constexpr int NUM_RINGS = 3;
   std::vector<Ring> rings;
   double alpha;
   double trail_length;
@@ -339,7 +339,7 @@ private:
         ring.normal = random_vector();
         ring.duration = hs::rand_int(16, 96);
         ring.radius = 0;
-        ring.palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS);
+        ring.palette = GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS);
 
         timeline.add(0,
           Sprite(

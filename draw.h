@@ -197,6 +197,7 @@ void draw_ring(Dots& dots, const Vector& normal, double radius, ColorFn color_fn
   Vector v(normal);
   if (radius > 1) {
     v = -v;
+    phase = wrap(phase + PI, 2 * PI);
   }
 
   Vector u;
