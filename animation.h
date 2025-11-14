@@ -359,8 +359,9 @@ public:
     }
     orientation.get().collapse();
     double angle = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
-    if (std::abs(angle - last_angle) > 0.00001) {
-      auto step_angle = std::abs(angle - last_angle) / std::ceil(std::abs(angle - last_angle) / MAX_ANGLE);
+    double delta = angle - last_angle;
+    if (std::abs(delta) > 0.00001) {
+      auto step_angle = delta / std::ceil(std::abs(angle - last_angle) / MAX_ANGLE);
       for (auto a = last_angle + step_angle; std::abs(angle - a) > 0.00001; a += step_angle) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
