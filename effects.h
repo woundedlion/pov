@@ -28,7 +28,7 @@ public:
   RingSpin() :
     Effect(W),
     alpha(0.2),
-    trail_length(10)
+    trail_length(6)
   {
     persist_pixels = false;
     rings.reserve(NUM_RINGS);
@@ -81,7 +81,7 @@ public:
 
 private:
 
-  static constexpr int NUM_RINGS = 3;
+  static constexpr int NUM_RINGS = 2;
   std::vector<Ring> rings;
   double alpha;
   double trail_length;
@@ -382,3 +382,4 @@ private:
   Timeline timeline;
   Dots dots;
 };
+

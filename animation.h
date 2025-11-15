@@ -48,6 +48,7 @@ public:
     t++;
     if (done()) {
       if (repeat) {
+        post_callback();
         t = 0;
       }
     }
