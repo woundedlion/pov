@@ -1,8 +1,8 @@
 #pragma once
 
-static const Vector X_AXIS(1, 0, 0);
-static const Vector Y_AXIS(0, 1, 0);
-static const Vector Z_AXIS(0, 0, 1);
+static constexpr Vector X_AXIS(1, 0, 0);
+static constexpr Vector Y_AXIS(0, 1, 0);
+static constexpr Vector Z_AXIS(0, 0, 1);
 
 struct PixelCoords {
   double x;
@@ -47,7 +47,7 @@ void plot_virtual(Canvas& canvas, int x, int y, const Pixel& c) {
   }
 }
 
-double lerp(double from, double to, double t) {
+constexpr double lerp(double from, double to, double t) {
   return ((to - from) * t) + from;
 }
 

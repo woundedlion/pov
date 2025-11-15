@@ -107,7 +107,10 @@ public:
 
   Dynamo() :
     Effect(W),
-    palettes({ GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS) }),
+    palettes({ GenerativePalette(
+      GradientShape::VIGNETTE, 
+      HarmonyType::ANALOGOUS, 
+      BrightnessProfile::ASCENDING) }),
     palette_normal(X_AXIS),
     speed(2),
     gap(4),
@@ -153,7 +156,10 @@ public:
       Serial.println("Palettes full, dropping color wipe!");
       return;
     }
-    palettes.push_back(GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS));
+    palettes.push_back(GenerativePalette(
+      GradientShape::VIGNETTE, 
+      HarmonyType::ANALOGOUS, 
+      BrightnessProfile::ASCENDING));
     palette_boundaries.push_back(0);
     timeline.add(0,
       Transition(palette_boundaries.back(), PI, 20, ease_mid)
@@ -303,7 +309,7 @@ private:
       speed(0.0),
       radius(0.0),
       duration(0.0),
-      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS)
+      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS, BrightnessProfile::FLAT)
     {
     }
 

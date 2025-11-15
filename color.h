@@ -53,6 +53,13 @@ enum class GradientShape {
   FALLOFF
 };
 
+enum class BrightnessProfile {
+  ASCENDING,
+  DESCENDING,
+  FLAT,
+  BELL
+};
+
 auto blend_add(const Pixel& c1, const Pixel& c2) {
   return Pixel(
     qadd8(c1.r, c2.r),
@@ -77,7 +84,7 @@ uint16_t to_short(double zero_to_one) {
 class GenerativePalette : public Palette {
 public:
 
-  GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type) :
+  GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type, BrightnessProfile profile) :
     gradient_shape(gradient_shape),
     harmony_type(harmony_type),
     seed_hue(static_cast<uint8_t>(hs::rand_int(0, 256)))
@@ -94,9 +101,29 @@ public:
     const uint8_t s2 = hs::rand_int(255 * 0.4, 255 * 0.8);
     const uint8_t s3 = hs::rand_int(255 * 0.4, 255 * 0.8);
 
-    const uint8_t v1 = hs::rand_int(255 * 1, 255 * 1);
-    const uint8_t v2 = hs::rand_int(255 * 1, 255 * 1);
-    const uint8_t v3 = hs::rand_int(255 * 1, 255 * 1);
+    uint8_t v1, v2, v3;
+    switch (profile) {
+    case BrightnessProfile::ASCENDING:
+      v1 = hs::rand_int(255 * 0.1, 255 * 0.3);
+      v2 = hs::rand_int(255 * 0.5, 255 * 0.7);
+      v3 = hs::rand_int(255 * 0.8, 255 * 1.0);
+      break;
+    case BrightnessProfile::DESCENDING:
+      v1 = hs::rand_int(255 * 0.8, 255);
+      v2 = hs::rand_int(255 * 0.5, 255 * 0.7);
+      v3 = hs::rand_int(255 * 0.1, 255 * 0.3);
+      break;
+    case  BrightnessProfile::FLAT:
+      v1 = 255;
+      v2 = 255;
+      v3 = 255;
+      break;
+    case  BrightnessProfile::BELL:
+      v1 = hs::rand_int(255 * 0.2, 255 * 0.5);
+      v2 = hs::rand_int(255 * 0.7, 255);
+      v3 = v1;
+      break;
+    }
 
     a = CHSV(h1, s1, v1);
     b = CHSV(h2, s2, v2);

@@ -11,19 +11,19 @@ namespace hs {
   }
 }
 
-int wrap(int x, int m) {
+constexpr int wrap(int x, int m) {
   return (x >= 0 ?
     x % m :
     ((x % m) + m) % m);
 }
 
-double wrap(double x, int m) {
+constexpr double wrap(double x, int m) {
   return x >= 0 ?
     fmod(x, m) :
     fmod(fmod(x, m) + m, m);
 }
 
-double wrap(double x, double m) {
+constexpr double wrap(double x, double m) {
   return x >= 0 ?
     fmod(x, m) :
     fmod(fmod(x, m) + m, m);
@@ -34,7 +34,7 @@ double shortest_distance(double a, double b, double m) {
   return std::min(d, m - d);
 }
 
-double fwd_distance(double a, double b, double m) {
+constexpr double fwd_distance(double a, double b, double m) {
   auto d = b - a;
   if (d < 0) {
     d += m;

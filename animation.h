@@ -1,5 +1,5 @@
 #pragma once
-static const int FPS = 16;
+static constexpr int FPS = 16;
 
 double ease_in_out_bicubic(double t) {
   return t < 0.5 ? 4 * pow(t, 3) : 1 - pow(-2 * t + 2, 3) / 2;

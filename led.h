@@ -9,7 +9,7 @@ static constexpr int H_VIRT = H + 3;
 static constexpr int MAX_W = 96;
 static constexpr int PIN_RANDOM = 15;
 
-inline int XY(int x, int y) { return x * H + y; }
+inline constexpr int XY(int x, int y) { return x * H + y; }
 class Canvas;
 
 class Effect {

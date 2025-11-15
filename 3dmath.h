@@ -17,9 +17,9 @@ struct Spherical {
 };
 
 struct Vector {
-  Vector() {}
-  Vector(double i, double j, double k) : i(i), j(j), k(k) {}
-  Vector(const Vector& v) : i(v.i), j(v.j), k(v.k) {}
+  constexpr Vector() {}
+  constexpr Vector(double i, double j, double k) : i(i), j(j), k(k) {}
+  constexpr Vector(const Vector& v) : i(v.i), j(v.j), k(v.k) {}
   Vector(const Spherical& s) :
     i(sin(s.phi)* cos(s.theta)),
     j(sin(s.phi)* sin(s.theta)),
@@ -27,7 +27,7 @@ struct Vector {
   {}
   Vector(double theta, double phi) : Vector(Spherical(theta, phi)) {}
 
-  Vector& operator=(const Vector& v) { 
+  constexpr Vector& operator=(const Vector& v) {
     i = v.i; 
     j = v.j;
     k = v.k;
@@ -44,11 +44,11 @@ struct Vector {
     return !(*this == v);
   }
 
-  Vector operator-() const {
+  constexpr Vector operator-() const {
     return Vector(-i, -j, -k);
   }
 
-  double length() const { return sqrt(i * i + j * j + k * k); }
+  constexpr double length() const { return sqrt(i * i + j * j + k * k); }
   
   Vector& normalize() {
     double m = length();
@@ -79,15 +79,15 @@ Spherical::Spherical(const Vector& v)
 }
 
 struct Quaternion;
-Quaternion operator*(const Quaternion& q1, const Quaternion& q2);
-Quaternion operator/(const Quaternion& q, double s);
-Vector operator/(const Vector& v, double s);
+constexpr Quaternion operator*(const Quaternion& q1, const Quaternion& q2);
+constexpr Quaternion operator/(const Quaternion& q, double s);
+constexpr Vector operator/(const Vector& v, double s);
 
 struct Quaternion {
-  Quaternion() {}
-  Quaternion(const Quaternion& q) : r(q.r), v(q.v) {}
-  Quaternion(double a, double b, double c, double d) : r(a), v(b, c, d) {}
-  Quaternion(double a, const Vector& v) : r(a), v(v) {}
+  constexpr Quaternion() {}
+  constexpr Quaternion(const Quaternion& q) : r(q.r), v(q.v) {}
+  constexpr  Quaternion(double a, double b, double c, double d) : r(a), v(b, c, d) {}
+  constexpr Quaternion(double a, const Vector& v) : r(a), v(v) {}
   
   Quaternion& operator=(const Quaternion& q) {
     r = q.r;
@@ -104,7 +104,7 @@ struct Quaternion {
     *this = *this * q;
   }
 
-  double squared_magnitude() const {
+  constexpr double squared_magnitude() const {
     return r * r + v.i * v.i + v.j * v.j + v.k * v.k;
   }
 
@@ -113,11 +113,11 @@ struct Quaternion {
     return Quaternion(r, -v) / sq_mag;
   }
 
-  Quaternion operator-() const {
+  constexpr Quaternion operator-() const {
     return Quaternion(-r, -v);
   }
 
-  double magnitude() const {
+  constexpr double magnitude() const {
     return sqrt(r * r + v.i * v.i + v.j * v.j + v.k * v.k);
   }
 
@@ -146,45 +146,45 @@ Vector rotate(const Vector& v, const Quaternion& q) {
   return r.v;
 }
 
-Vector operator+(const Vector& v1, const Vector& v2) {
+constexpr Vector operator+(const Vector& v1, const Vector& v2) {
   return Vector(v1.i + v2.i, v1.j + v2.j, v1.k + v2.k);
 }
 
-Vector operator-(const Vector& v1, const Vector& v2) {
+constexpr Vector operator-(const Vector& v1, const Vector& v2) {
   return Vector(v1.i - v2.i, v1.j - v2.j, v1.k - v2.k);
 }
 
-Vector operator*(const Vector& v, double s) {
+constexpr Vector operator*(const Vector& v, double s) {
   return Vector(s * v.i, s * v.j, s * v.k);
 }
 
-Vector operator*(double s, const Vector& v) {
+constexpr Vector operator*(double s, const Vector& v) {
   return v * s;
 }
 
-Vector operator/(const Vector& v, double s) {
+constexpr Vector operator/(const Vector& v, double s) {
   return Vector(v.i / s, v.j / s, v.k / s);
 }
 
-double dot(const Vector& v1, const Vector& v2) {
+constexpr double dot(const Vector& v1, const Vector& v2) {
   return (v1.i * v2.i) + (v1.j * v2.j) + (v1.k * v2.k);
 }
 
-Vector cross(const Vector& v1, const Vector& v2) {
+constexpr Vector cross(const Vector& v1, const Vector& v2) {
   return Vector(
     v1.j * v2.k - v1.k * v2.j,
     v1.k * v2.i - v1.i * v2.k,
     v1.i * v2.j - v1.j * v2.i);
 }
 
-double distance_between(const Vector& a, const Vector& b) {
+constexpr double distance_between(const Vector& a, const Vector& b) {
   double di = b.i - a.i;
   double dj = b.j - a.j;
   double dk = b.k - a.k;
   return sqrt(di * di + dj * dj + dk * dk);
 }
 
-double angle_between(const Vector& v1, const Vector& v2) {
+constexpr double angle_between(const Vector& v1, const Vector& v2) {
   double len_product = v1.length() * v2.length();
   if (len_product <= std::numeric_limits<double>::epsilon()) {
     assert(false);
@@ -193,38 +193,38 @@ double angle_between(const Vector& v1, const Vector& v2) {
   return acos(std::clamp(d, -1.0, 1.0));
 }
 
-Quaternion operator+(const Quaternion& q1, const Quaternion& q2) {
+constexpr Quaternion operator+(const Quaternion& q1, const Quaternion& q2) {
   return Quaternion(q1.r + q2.r, q1.v + q2.v);
 }
 
-Quaternion operator-(const Quaternion& q1, const Quaternion& q2) {
+constexpr Quaternion operator-(const Quaternion& q1, const Quaternion& q2) {
   return Quaternion(q1.r - q2.r, q1.v - q2.v);
 }
 
-Quaternion operator*(const Quaternion& q1, const Quaternion& q2) {
+constexpr Quaternion operator*(const Quaternion& q1, const Quaternion& q2) {
   return Quaternion(
     q1.r * q2.r - dot(q1.v, q2.v),
     q1.r * q2.v + q2.r * q1.v + cross(q1.v, q2.v));
 }
 
-Quaternion operator*(const Quaternion& q, double s) {
+constexpr Quaternion operator*(const Quaternion& q, double s) {
   return Quaternion(q.r * s, q.v * s);
 }
 
-Quaternion operator*(double s, const Quaternion& q) {
+constexpr Quaternion operator*(double s, const Quaternion& q) {
   return q * s;
 }
 
-Quaternion operator/(const Quaternion& q, double s) {
+constexpr Quaternion operator/(const Quaternion& q, double s) {
   assert(fabs(s) > std::numeric_limits<double>::epsilon());
   return Quaternion(q.r / s, q.v / s);
 }
 
-double dot(const Quaternion& q1, const Quaternion& q2) {
+constexpr double dot(const Quaternion& q1, const Quaternion& q2) {
   return (q1.r * q2.r) + (q1.v.i * q2.v.i) + (q1.v.j * q2.v.j) + (q1.v.k * q2.v.k);
 }
 
-double angle_between(const Quaternion& q1, const Quaternion& q2) {
+constexpr double angle_between(const Quaternion& q1, const Quaternion& q2) {
   assert(fabs(q1.magnitude() - 1.0) < 0.0001);
   assert(fabs(q2.magnitude() - 1.0) < 0.0001);
   return acos(std::clamp(dot(q1, q2), -1.0, 1.0));
