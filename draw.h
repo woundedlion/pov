@@ -64,8 +64,12 @@ public:
 
   size_t num_points() const { return points.size(); }
 
+  void collapse() {
+    points = { points.back() };
+  }
+
 private:
-  std::vector<Vector> points;
+  StaticCircularBuffer<Vector, 96> points;
 };
 
 template <int W>

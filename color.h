@@ -279,6 +279,12 @@ auto vignette(const Palette& palette) {
     };
 }
 
+const ProceduralPalette embers(
+  { 0.500, 0.500, 0.500 }, // A
+  { 0.500, 0.500, 0.500 }, // B
+  { 0.265, 0.285, 0.198 }, // C
+  { 0.577, 0.440, 0.358 }  // D
+);
 
 static const ProceduralPalette richSunset(
   { 0.309, 0.500, 0.500 }, // A

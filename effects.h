@@ -315,6 +315,8 @@ private:
 
   };
 
+  /////////////////////////////////////////////////////////////////////////////
+
 public:
   RingShower2() :
     Effect(W)
@@ -383,3 +385,103 @@ private:
   Dots dots;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
+template <int W>
+class Comets : public Effect {
+public:
+  Comets() :
+    Effect(W),
+    alpha(0.5),
+    palette(embers),
+    trails(20),
+    orient(orientation)
+  {
+    persist_pixels = false;
+    trails
+      .chain(orient)
+      .chain(aa);
+
+    for (int i = 0; i < NUM_NODES; ++i) {
+      spawn_node(i);
+    }
+
+    timeline.add(0, RandomWalk<W>(orientation, random_vector()));
+  }
+
+  bool show_bg() const override { return false; }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
+    trails.trail(canvas,
+      [this](double x, double y, double t) {
+        return palette.get(1.0 - t);
+      },
+      this->alpha
+    );
+    trails.decay();
+  }
+
+private:
+
+  struct Node {
+    Orientation orientation;
+    Vector v;
+    Path<W> path;
+
+    Node() : v(random_vector()) {
+      update_path();
+    }
+    
+    void update_path() {
+      path.collapse();
+      path.append_line(orientation.orient(v), random_vector(), true);
+    }
+  };
+
+  static constexpr int NUM_NODES = 6;
+
+  double alpha;
+  Orientation orientation;
+  const ProceduralPalette& palette;
+  FilterDecay<W, 8000> trails;
+  FilterOrient<W> orient;
+  FilterAntiAlias<W> aa;
+  std::array<Node, NUM_NODES> nodes;
+  Timeline timeline;
+  Dots dots;
+
+  void spawn_node(int i) {
+    timeline.add(hs::rand_int(0, 48),
+      Sprite(
+        [this, i](Canvas& canvas, double opacity) { draw_node(canvas, opacity, i); },
+        -1,
+        16, ease_mid,
+        0, ease_mid
+      )
+    );
+
+    timeline.add(hs::rand_int(0, 16),
+      Motion<W>(nodes[i].orientation, nodes[i].path, 16, true)
+      .then([this, i]() {
+        this->nodes[i].update_path();
+        })
+    );
+  }
+
+  void draw_node(Canvas& canvas, double opacity, int i) {
+    Node& node = nodes[i];
+    dots.clear();
+    size_t s = node.orientation.length();
+    for (size_t j = 0; j < s; ++j) {
+      ::draw_vector<W>(dots, node.orientation.orient(node.v, j),
+        [this, s, j](const Vector& v, double t) {
+          return palette.get(1.0 - (static_cast<double>(s - 1 - j) / s));
+        }
+      );
+    }
+    plot_dots<W>(dots, trails, canvas, 0, this->alpha * opacity);
+    node.orientation.collapse();
+  }
+};

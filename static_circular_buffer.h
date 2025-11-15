@@ -53,6 +53,12 @@ public:
     return emplaced_item;
   }
 
+  void pop_back() {
+    assert(!is_empty() && "Buffer underflow: cannot pop_back from an empty buffer.");
+    tail = (tail - 1 + N) % N;
+    buffer[tail].reset();
+    count--;
+  }
 
   void pop() {
     assert(!is_empty() && "Buffer underflow: cannot pop from an empty buffer.");
