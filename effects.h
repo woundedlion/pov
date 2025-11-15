@@ -485,3 +485,117 @@ private:
     node.orientation.collapse();
   }
 };
+
+///////////////////////////////////////////////////////////////////////////////
+
+template <int W>
+class FlowField : public Effect {
+public:
+  FlowField() :
+    Effect(W),
+    palette(ice_melt),
+    trails(k_trail_length),
+    orient(orientation),
+    anti_alias()
+  {
+    persist_pixels = false;
+    noise_generator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    noise_generator.SetSeed(hs::rand_int(0, 65535));
+    trails.chain(anti_alias);
+    reset_particles();
+  }
+
+  bool show_bg() const override { return false; }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
+    trails.decay();
+    dots.clear();
+
+    for (Particle& p : particles) {
+      // 1. Get acceleration from the 3D noise field (simulating 4D)
+      Vector accel = get_noise_force(p.pos, timeline.t);
+
+      // 2. Apply a gravity force pulling the particle to the center
+      Vector gravity_force = p.pos * -k_gravity;
+      accel = accel + gravity_force;
+
+      // 3. Update velocity
+      p.vel = p.vel + accel;
+
+      // 4. Clamp velocity to max speed (manual implementation of clampLength)
+      double speed = p.vel.length();
+      if (speed > k_max_speed) {
+        p.vel = (p.vel / speed) * k_max_speed;
+      }
+
+      // 5. Update position and re-normalize to keep it on the sphere
+      p.pos = p.pos + p.vel;
+      p.pos.normalize();
+
+      // 6. Get color based on speed (ratio of current speed to max)
+      double speed_ratio = speed / k_max_speed;
+      Pixel color = palette.get(speed_ratio);
+
+      // 7. Add the particle's "head" to the dot buffer
+      dots.emplace_back(Dot(p.pos, color));
+    }
+
+    plot_dots<W>(dots, trails, canvas, 0, k_alpha);
+
+    trails.trail(canvas,
+      [this](double x, double y, double t) {
+        return dim(palette.get(1.0 - t), 1.0 - t); //
+      },
+      k_alpha
+    );
+  }
+
+private:
+
+  struct Particle {
+    Vector pos;
+    Vector vel;
+
+    Particle() : pos(random_vector()), vel(0, 0, 0) {} 
+  };
+
+  static constexpr int k_num_particles = 70; 
+  static constexpr int k_trail_length = 8; 
+  static constexpr double k_noise_scale = 1.5;
+  static constexpr double k_force_scale = 0.002;
+  static constexpr double k_gravity = 0.001;
+  static constexpr double k_max_speed = 0.1;
+  static constexpr double k_alpha = 0.7;
+
+  static constexpr double k_time_scale = 0.01;
+  static constexpr int k_max_trail_dots = 1024;
+  Timeline timeline;
+  FastNoiseLite noise_generator;
+  const ProceduralPalette& palette;
+  std::array<Particle, k_num_particles> particles;
+
+  FilterDecay<W, k_max_trail_dots> trails;
+  Orientation orientation;
+  FilterOrient<W> orient;
+  FilterAntiAlias<W> anti_alias;
+  Dots dots;
+
+  void reset_particles() {
+    for (int i = 0; i < k_num_particles; ++i) {
+      particles[i] = Particle();
+    }
+  }
+
+  Vector get_noise_force(const Vector& pos, double t) {
+    double t_scaled = t * k_time_scale;
+    Vector n_pos = pos * k_noise_scale;
+
+    double x_force = noise_generator.GetNoise(n_pos.i, n_pos.j, t_scaled);
+    double y_force = noise_generator.GetNoise(n_pos.j, n_pos.k, t_scaled + 100.0);
+    double z_force = noise_generator.GetNoise(n_pos.k, n_pos.i, t_scaled + 200.0);
+
+    return Vector(x_force, y_force, z_force) * k_force_scale;
+  }
+};

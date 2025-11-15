@@ -279,6 +279,13 @@ auto vignette(const Palette& palette) {
     };
 }
 
+const ProceduralPalette ice_melt(
+  { 0.500, 0.500, 0.500 }, // A
+  { 0.500, 0.500, 0.500 }, // B
+  { 0.083, 0.147, 0.082 }, // C
+  { 0.579, 0.353, 0.244 }  // D
+);
+
 const ProceduralPalette embers(
   { 0.500, 0.500, 0.500 }, // A
   { 0.500, 0.500, 0.500 }, // B
