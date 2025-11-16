@@ -56,8 +56,8 @@ public:
   void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
     auto& ring = rings[ring_index];
     size_t end = ring.orientation.length();
-    dots.clear();
     for (size_t i = 0; i < end; ++i) {
+      dots.clear();
       ::draw_ring<W>(dots, ring.orientation.orient(ring.normal), 1,
         [&](auto& v, auto t) { return vignette(ring.palette)(0); });
       plot_dots(dots, ring.trails, canvas, 
