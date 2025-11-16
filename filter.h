@@ -6,7 +6,7 @@ public:
 
   virtual Filter& chain(Filter& filter) {
     next = &filter;
-    return *this;
+    return filter;
   }
 
   virtual void plot(Canvas& canvas, double x, double y,
@@ -94,6 +94,7 @@ public:
       }
       else {
         Serial.println("FilterDecay full!");
+        assert(false);
       }
     }
     if (age <= 0) {
@@ -150,7 +151,6 @@ public:
   void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
     auto v = pixel_to_vector<W>(x, y);
     auto r = vector_to_pixel<W>(orientation.orient(v));
-    orientation.collapse();
     this->pass(canvas, r.x, r.y, color, age, alpha);
   }
 

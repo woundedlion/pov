@@ -15,6 +15,12 @@ class StaticCircularBuffer {
   class const_iterator;
 
 public:
+  using value_type = T;
+  using size_type = size_t;
+  using difference_type = std::ptrdiff_t;
+  using reference = T&;
+  using const_reference = const T&;
+
   StaticCircularBuffer() :
     head(0), tail(0), count(0)
   {

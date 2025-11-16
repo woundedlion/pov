@@ -65,7 +65,9 @@ public:
   size_t num_points() const { return points.size(); }
 
   void collapse() {
-    points = { points.back() };
+    if (points.size() > 1) {
+      points = { points.back() };
+    }
   }
 
 private:

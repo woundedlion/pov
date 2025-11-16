@@ -86,7 +86,7 @@ private:
   double alpha;
   double trail_length;
   FilterAntiAlias<W> filters;
-  std::array<const Palette*, 6> palettes = { &richSunset, &undersea, &mangoPeel, &lemonLime, &algae, &lateSunset };
+  std::array<const Palette*, 6> palettes = { &richSunset, &iceMelt };
   Timeline timeline;
   Dots dots;
 };
@@ -394,7 +394,7 @@ public:
     Effect(W),
     alpha(0.5),
     palette(embers),
-    trails(20),
+    trails(trail_length),
     orient(orientation)
   {
     persist_pixels = false;
@@ -421,6 +421,7 @@ public:
       this->alpha
     );
     trails.decay();
+    Serial.println(dots.size());
   }
 
 private:
@@ -440,18 +441,6 @@ private:
     }
   };
 
-  static constexpr int NUM_NODES = 6;
-
-  double alpha;
-  Orientation orientation;
-  const ProceduralPalette& palette;
-  FilterDecay<W, 8000> trails;
-  FilterOrient<W> orient;
-  FilterAntiAlias<W> aa;
-  std::array<Node, NUM_NODES> nodes;
-  Timeline timeline;
-  Dots dots;
-
   void spawn_node(int i) {
     timeline.add(hs::rand_int(0, 48),
       Sprite(
@@ -463,7 +452,7 @@ private:
     );
 
     timeline.add(hs::rand_int(0, 16),
-      Motion<W>(nodes[i].orientation, nodes[i].path, 16, true)
+      Motion<W>(nodes[i].orientation, nodes[i].path, 32, true)
       .then([this, i]() {
         this->nodes[i].update_path();
         })
@@ -484,6 +473,19 @@ private:
     plot_dots<W>(dots, trails, canvas, 0, this->alpha * opacity);
     node.orientation.collapse();
   }
+
+  static constexpr int NUM_NODES = 8;
+  double alpha = 0.5;
+  int trail_length = 10;
+  Orientation orientation;
+  const ProceduralPalette& palette;
+  FilterDecay<W, 3000> trails;
+  FilterOrient<W> orient;
+  FilterAntiAlias<W> aa;
+  std::array<Node, NUM_NODES> nodes;
+  Timeline timeline;
+  Dots dots;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -493,7 +495,7 @@ class FlowField : public Effect {
 public:
   FlowField() :
     Effect(W),
-    palette(ice_melt),
+    palette(iceMelt),
     trails(k_trail_length),
     orient(orientation),
     anti_alias()
@@ -561,10 +563,10 @@ private:
     Particle() : pos(random_vector()), vel(0, 0, 0) {} 
   };
 
-  static constexpr int k_num_particles = 70; 
+  static constexpr int k_num_particles = 100; 
   static constexpr int k_trail_length = 8; 
-  static constexpr double k_noise_scale = 1.5;
-  static constexpr double k_force_scale = 0.002;
+  static constexpr double k_noise_scale = 100;
+  static constexpr double k_force_scale = 0.001;
   static constexpr double k_gravity = 0.001;
   static constexpr double k_max_speed = 0.1;
   static constexpr double k_alpha = 0.7;

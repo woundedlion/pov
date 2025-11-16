@@ -307,7 +307,7 @@ public:
     Animation<Motion<W>>(duration, repeat),
     orientation(orientation),
     path(path),
-    to(this->path.get_point(0))
+    to(path.get_point(0))
   {}
 
   void step(Canvas& canvas) {
@@ -418,8 +418,8 @@ public:
 private:
 
   static constexpr double WALK_SPEED = 0.1;
-  static constexpr double PIVOT_STRENGTH = 0.5;
-  static constexpr double NOISE_SCALE = 0.1;
+  static constexpr double PIVOT_STRENGTH = 0.01;
+  static constexpr double NOISE_SCALE = 0.005;
 
   FastNoiseLite noiseGenerator;
   std::reference_wrapper<Orientation> orientation;
