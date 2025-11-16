@@ -93,10 +93,10 @@ void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
 
   if (y_i < H - 1) {
     v = (1 - x_m) * y_m;
-    cv(x_i, y_i + 1) = blend(v)(cv(x_i, y_i + 1), v);
+    cv(x_i, y_i + 1) = blend(v)(cv(x_i, y_i + 1), p);
 
     v = x_m * y_m;
-    cv((x_i + 1) % cv.width(), y_i + 1) = blend(v)(cv((x_i + 1) % cv.width(), y_i + 1), v);
+    cv((x_i + 1) % cv.width(), y_i + 1) = blend(v)(cv((x_i + 1) % cv.width(), y_i + 1), p);
   }
 }
 
