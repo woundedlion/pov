@@ -305,13 +305,3 @@ std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
     {(v + (-normal * shift)).normalize()},
   };
 }
-
-Vector lissajous(double m1, double m2, double a, double t) {
-
-  Vector v(
-    sin(m2 * t) * cos(m1 * t - a * PI),
-    sin(m2 * t) * sin(m1 * t - a * PI),
-    cos(m2 * t)
-  );
-  return v.normalize();
-}

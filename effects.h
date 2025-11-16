@@ -91,6 +91,8 @@ private:
   Dots dots;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 template <int W>
 class Dynamo : public Effect {
 public:
@@ -292,6 +294,8 @@ private:
   FilterAntiAlias<W> aa;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 template <int W>
 class RingShower2 : public Effect {
 private:
@@ -314,8 +318,6 @@ private:
     }
 
   };
-
-  /////////////////////////////////////////////////////////////////////////////
 
 public:
   RingShower2() :
@@ -385,14 +387,14 @@ private:
   Dots dots;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-
 template <int W>
 class Comets : public Effect {
 public:
   Comets() :
     Effect(W),
     alpha(0.5),
+    trail_length(12),
+    spacing(24),
     palette(embers),
     trails(trail_length),
     orient(orientation)
@@ -401,6 +403,10 @@ public:
     trails
       .chain(orient)
       .chain(aa);
+
+    path.append_segment([&](double t) -> Vector {
+      return lissajous(12.0f, 5.0f, 0.0f, t);
+      }, 2 * PI, 1024, ease_mid);
 
     for (int i = 0; i < NUM_NODES; ++i) {
       spawn_node(i);
@@ -421,7 +427,6 @@ public:
       this->alpha
     );
     trails.decay();
-    Serial.println(dots.size());
   }
 
 private:
@@ -429,20 +434,19 @@ private:
   struct Node {
     Orientation orientation;
     Vector v;
-    Path<W> path;
+    Path<W>& path;
 
-    Node() : v(random_vector()) {
-      update_path();
-    }
-    
-    void update_path() {
-      path.collapse();
-      path.append_line(orientation.orient(v), random_vector(), true);
+    Node(const Path<W>& p) :
+      v(Y_AXIS),
+      path(p)
+    {
     }
   };
 
   void spawn_node(int i) {
-    timeline.add(hs::rand_int(0, 48),
+    nodes.emplace_back(this->path);
+
+    timeline.add(0,
       Sprite(
         [this, i](Canvas& canvas, double opacity) { draw_node(canvas, opacity, i); },
         -1,
@@ -451,11 +455,8 @@ private:
       )
     );
 
-    timeline.add(hs::rand_int(0, 16),
-      Motion<W>(nodes[i].orientation, nodes[i].path, 32, true)
-      .then([this, i]() {
-        this->nodes[i].update_path();
-        })
+    timeline.add(i * spacing,
+      Motion<W>(nodes[i].orientation, nodes[i].path, 320, true)
     );
   }
 
@@ -474,18 +475,19 @@ private:
     node.orientation.collapse();
   }
 
-  static constexpr int NUM_NODES = 8;
+  static constexpr int NUM_NODES = 6;
   double alpha = 0.5;
-  int trail_length = 10;
+  int trail_length = 12;
+  int spacing = 24;
+  Path<W> path;
   Orientation orientation;
   const ProceduralPalette& palette;
   FilterDecay<W, 3000> trails;
   FilterOrient<W> orient;
   FilterAntiAlias<W> aa;
-  std::array<Node, NUM_NODES> nodes;
+  StaticCircularBuffer<Node, NUM_NODES> nodes;
   Timeline timeline;
   Dots dots;
-
 };
 
 ///////////////////////////////////////////////////////////////////////////////
