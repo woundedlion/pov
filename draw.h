@@ -113,7 +113,7 @@ Vector fn_point(ShiftFn f, const Vector& normal, double radius, double angle) {
     v = -v;
   }
   Vector u;
-  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
     u = cross(v, Y_AXIS);
   }
   else {
@@ -140,7 +140,7 @@ void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, d
     v = -v;
   }
   Vector u;
-  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
     u = cross(v, Y_AXIS);
   }
   else {
@@ -181,7 +181,7 @@ Vector ring_point(const Vector& normal, double radius, double angle, double phas
     v = -v;
   }
   Vector u;
-  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
     u = cross(v, Y_AXIS);
   }
   else {
@@ -205,7 +205,7 @@ void draw_ring(Dots& dots, const Vector& normal, double radius, ColorFn color_fn
   }
 
   Vector u;
-  if (std::abs(dot(v, X_AXIS)) > 0.99995) {
+  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
     u = cross(v, Y_AXIS);
   } else {
     u = cross(v, X_AXIS);

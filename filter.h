@@ -77,7 +77,7 @@ public:
 
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
-      if (--ttls[i].ttl < 0.00001) {
+      if (--ttls[i].ttl < TOLERANCE) {
         num_pixels--;
         if (i < num_pixels) {
           ttls[i] = std::move(ttls[num_pixels]);

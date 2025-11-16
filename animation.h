@@ -320,7 +320,7 @@ public:
       auto angle = angle_between(from, to);
       auto step_angle = angle / std::ceil(angle / MAX_ANGLE);
       auto& origin = orientation.get().get();
-      for (auto a = step_angle; angle - a > 0.0001; a += step_angle) {
+      for (auto a = step_angle; angle - a > TOLERANCE; a += step_angle) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
       orientation.get().push(make_rotation(axis, angle) * origin);
@@ -361,9 +361,9 @@ public:
     orientation.get().collapse();
     double angle = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
     double delta = angle - last_angle;
-    if (std::abs(delta) > 0.00001) {
+    if (std::abs(delta) > TOLERANCE) {
       auto step_angle = delta / std::ceil(std::abs(angle - last_angle) / MAX_ANGLE);
-      for (auto a = last_angle + step_angle; std::abs(angle - a) > 0.00001; a += step_angle) {
+      for (auto a = last_angle + step_angle; std::abs(angle - a) > TOLERANCE; a += step_angle) {
         orientation.get().push(make_rotation(axis, a) * origin);
       }
       orientation.get().push(make_rotation(axis, angle) * origin);

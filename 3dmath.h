@@ -7,6 +7,8 @@
 
 static constexpr double PHI = 1.6180339887498948482045868343656;
 static constexpr double G = 1 / PHI;
+static constexpr double TOLERANCE = 0.0001f;
+
 struct Vector;
 struct Spherical {
   Spherical(double theta, double phi) : theta(theta), phi(phi) {}
@@ -35,9 +37,9 @@ struct Vector {
   }
 
   bool operator==(const Vector& v) const {
-    return fabs(i - v.i) <= 0.0001
-      && fabs(j - v.j) <= 0.0001
-      && fabs(k - v.k) <= 0.0001;
+    return fabs(i - v.i) <= TOLERANCE
+      && fabs(j - v.j) <= TOLERANCE
+      && fabs(k - v.k) <= TOLERANCE;
   }
 
   bool operator!=(const Vector& v) const {
@@ -96,7 +98,7 @@ struct Quaternion {
   }
 
   bool operator==(const Quaternion& q) const {
-    return fabs(q.r - r) < 0.0001
+    return fabs(q.r - r) < TOLERANCE
       && q.v == v;
   }
 
@@ -140,7 +142,7 @@ struct Quaternion {
 };
 
 Vector rotate(const Vector& v, const Quaternion& q) {
-  assert(fabs(q.magnitude() - 1) < 0.00001);
+  assert(fabs(q.magnitude() - 1) < TOLERANCE);
   Quaternion p(0, v);
   auto r = q * p * q.inverse();
   return r.v;
@@ -225,19 +227,19 @@ constexpr double dot(const Quaternion& q1, const Quaternion& q2) {
 }
 
 constexpr double angle_between(const Quaternion& q1, const Quaternion& q2) {
-  assert(fabs(q1.magnitude() - 1.0) < 0.0001);
-  assert(fabs(q2.magnitude() - 1.0) < 0.0001);
+  assert(fabs(q1.magnitude() - 1.0) < TOLERANCE);
+  assert(fabs(q2.magnitude() - 1.0) < TOLERANCE);
   return acos(std::clamp(dot(q1, q2), -1.0, 1.0));
 }
 
 Quaternion make_rotation(const Vector& axis, double theta) {
-  assert(fabs(axis.length() - 1.0) < 0.0001);
+  assert(fabs(axis.length() - 1.0) < TOLERANCE);
   return Quaternion(cos(theta / 2), sin(theta / 2) * axis).normalize();
 }
 
 Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long_way = false) {
-  assert(fabs(q1.magnitude() - 1.0) < 0.0001);
-  assert(fabs(q2.magnitude() - 1.0) < 0.0001);
+  assert(fabs(q1.magnitude() - 1.0) < TOLERANCE);
+  assert(fabs(q2.magnitude() - 1.0) < TOLERANCE);
   double d = dot(q1, q2);
   Quaternion p(q1);
   Quaternion q(q2);
@@ -247,7 +249,7 @@ Quaternion slerp(const Quaternion& q1, const Quaternion& q2, double t, bool long
     d = -d;
   }
 
-  if (d > 0.99995) {
+  if (d > (1 - TOLERANCE)) {
     Quaternion r = p + t * (q - p);
     return r.normalize();
   }
@@ -269,9 +271,9 @@ bool intersects_plane(const Vector& v1, const Vector& v2, const Vector& normal) 
 }
 
 Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
-  assert(fabs(u.length() - 1.0) < 0.0001);
-  assert(fabs(v.length() - 1.0) < 0.0001);
-  assert(fabs(normal.length() - 1.0) < 0.0001);
+  assert(fabs(u.length() - 1.0) < TOLERANCE);
+  assert(fabs(v.length() - 1.0) < TOLERANCE);
+  assert(fabs(normal.length() - 1.0) < TOLERANCE);
   Vector w = cross(v, u).normalize();
   Vector i1 = cross(w, normal).normalize();
   Vector i2 = cross(normal, w).normalize();
@@ -286,7 +288,7 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
   a1 = angle_between(u, v);
   a2 = angle_between(i2, u);
   a3 = angle_between(i2, v);
-  if (fabs(a2 + a3 - a1) < 0.0001) {
+  if (fabs(a2 + a3 - a1) < TOLERANCE) {
     return i2;
   }
 
@@ -295,8 +297,8 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
 }
 
 std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
-  assert(fabs(v.length() - 1.0) < 0.0001);
-  assert(fabs(normal.length() - 1.0) < 0.0001);
+  assert(fabs(v.length() - 1.0) < TOLERANCE);
+  assert(fabs(normal.length() - 1.0) < TOLERANCE);
   double shift = sin(PI / MAX_W);
   return {
     {(v + (normal * shift)).normalize()},
