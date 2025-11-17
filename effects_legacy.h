@@ -697,6 +697,9 @@ class Kaleidoscope : public Effect {
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
         trail_rainbow_lin(c(x, y), 0, 24);
+        CHSV h = rgb2hsv_approximate(c(x, y));
+        h.h = palette_[h.v].h;
+        c(x, y) = h;
       }
     }
 

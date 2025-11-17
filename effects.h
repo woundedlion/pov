@@ -6,6 +6,256 @@
 #include <map>
 #include "effects_engine.h"
 
+///////////////////////////////////////////////////////////////////////////////
+
+template <int W>
+class RingShower : public Effect {
+private:
+  static constexpr size_t MAX_RINGS = 8;
+
+  struct Ring {
+    Vector normal;
+    double speed;
+    double radius;
+    double duration;
+    GenerativePalette palette;
+
+    Ring() :
+      normal(random_vector()),
+      speed(0.0),
+      radius(0.0),
+      duration(0.0),
+      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS, BrightnessProfile::FLAT)
+    {
+    }
+
+  };
+
+public:
+  RingShower() :
+    Effect(W)
+  {
+    persist_pixels = false;
+
+    timeline.add(0,
+      RandomTimer(1, 24,
+        [this](auto&) { this->spawn_ring(); },
+        true)
+    );
+
+  }
+
+  bool show_bg() const override { return false; }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
+  }
+
+private:
+
+  void spawn_ring() {
+    for (size_t i = 0; i < MAX_RINGS; ++i) {
+      if (rings[i].duration <= 0) {
+        Ring& ring = rings[i];
+        ring.normal = random_vector();
+        ring.duration = hs::rand_int(16, 96);
+        ring.radius = 0;
+        ring.palette = GenerativePalette(
+          GradientShape::CIRCULAR,
+          HarmonyType::ANALOGOUS,
+          BrightnessProfile::FLAT);
+
+        timeline.add(0,
+          Sprite(
+            [this, i](Canvas& canvas, double opacity) { this->draw_ring(canvas, opacity, i); },
+            ring.duration,
+            4, ease_mid,
+            0, ease_mid)
+        );
+
+        timeline.add(0,
+          Transition(ring.radius, 2, ring.duration, ease_mid, false, false)
+          .then([&ring]() { ring.duration = 0; })
+        );
+
+        return;
+      }
+    }
+  }
+
+  void draw_ring(Canvas& canvas, double opacity, size_t index) {
+    Ring& ring = rings[index];
+    dots.clear();
+    ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
+      [&](auto& v, auto t) {
+        return ring.palette.get(t);
+      },
+      0);
+    plot_dots<W>(dots, filters, canvas, 0, opacity);
+  }
+
+  Ring rings[MAX_RINGS];
+  FilterAntiAlias<W> filters;
+  Orientation orientation;
+  Timeline timeline;
+  Dots dots;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+template <int W>
+class Comets : public Effect {
+public:
+  Comets() :
+    Effect(W),
+    palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
+    next_palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
+    trails(trail_length),
+    orient(orientation)
+  {
+    persist_pixels = false;
+    trails
+      .chain(orient)
+      .chain(aa);
+
+    path.append_segment([&](double t) -> Vector {
+      return lissajous(12.0f, 5.0f, 0.0f, t);
+      }, 2 * PI, 1024, ease_mid);
+
+    for (int i = 0; i < NUM_NODES; ++i) {
+      spawn_node(i);
+    }
+
+    timeline.add(0,
+      PeriodicTimer(2 * cycle_duration, [this](auto&) {
+        update_path();
+        update_palette();
+        }, true)
+    );
+
+    timeline.add(0, RandomWalk<W>(orientation, random_vector()));
+  }
+
+  bool show_bg() const override { return false; }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
+    trails.trail(canvas,
+      [this](double x, double y, double t) {
+        return palette.get(1.0 - t);
+      },
+      alpha
+    );
+    trails.decay();
+  }
+
+private:
+
+  struct Node {
+    Orientation orientation;
+    Vector v;
+    const Path<W>& path;
+
+    Node(const Path<W>& p) :
+      v(Y_AXIS),
+      path(p)
+    {
+    }
+  };
+
+  void update_path() {
+    cur_function = hs::rand_int(0, functions.size());
+    const auto& f = functions[cur_function];
+    path.collapse();
+    path.append_segment([f](double t) -> Vector {
+      return lissajous(f.m1, f.m2, f.a, t);
+      }, f.domain, 1024, ease_mid);
+  }
+
+  void update_palette() {
+    next_palette = GenerativePalette(
+      GradientShape::STRAIGHT,
+      HarmonyType::ANALOGOUS,
+      BrightnessProfile::ASCENDING
+    );
+
+    timeline.add(0,
+      ColorWipe(palette, next_palette, wipe_duration, ease_mid)
+    );
+  }
+
+  void spawn_node(int i) {
+    nodes.emplace_back(this->path);
+
+    timeline.add(0,
+      Sprite(
+        [this, i](Canvas& canvas, double opacity) { draw_node(canvas, opacity, i); },
+        -1,
+        16, ease_mid,
+        0, ease_mid
+      )
+    );
+
+    timeline.add(i * spacing,
+      Motion<W>(nodes[i].orientation, nodes[i].path, cycle_duration, true)
+    );
+  }
+
+  void draw_node(Canvas& canvas, double opacity, int i) {
+    Node& node = nodes[i];
+    dots.clear();
+
+    tween(node.orientation, [this, &node](auto orient_fn, auto t) {
+      ::draw_vector<W>(dots, orient_fn(node.v),
+      [this](const auto& v, auto t) {
+          return palette.get(1.0 - t);
+        });
+      }
+    );
+
+    plot_dots<W>(dots, trails, canvas, 0, this->alpha * opacity);
+    node.orientation.collapse();
+  }
+
+  static constexpr int NUM_NODES = 1;
+  double alpha = 0.5;
+  size_t cycle_duration = 80;
+  size_t trail_length = 80;
+  size_t wipe_duration = 48;
+  size_t spacing = 48;
+
+  const std::array<LissajousParams, 9> functions = {
+      {1.06, 1.06, 0, 5.909},
+      {6.06, 1, 0, 2 * PI},
+      {6.02, 4.01, 0, 3.132},
+      {46.62, 62.16, 0, 0.404},
+      {46.26, 69.39, 0, 0.272},
+      {19.44, 9.72, 0, 0.646},
+      {8.51, 17.01, 0, 0.739},
+      {7.66, 6.38, 0, 4.924},
+      {8.75, 5, 0, 5.027},
+      {11.67, 14.58, 0, 2.154},
+      {11.67, 8.75, 0, 2.154},
+      {10.94, 8.75, 0, 2.872}
+  };
+
+  Path<W> path;
+  size_t cur_function;
+  Orientation orientation;
+  GenerativePalette palette;
+  GenerativePalette next_palette;
+  FilterDecay<W, 3000> trails;
+  FilterOrient<W> orient;
+  FilterAntiAlias<W> aa;
+  StaticCircularBuffer<Node, NUM_NODES> nodes;
+  Timeline timeline;
+  Dots dots;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
 template <int W>
 class RingSpin : public Effect {
 public:
@@ -26,9 +276,7 @@ public:
   };
   
   RingSpin() :
-    Effect(W),
-    alpha(0.2),
-    trail_length(6)
+    Effect(W)
   {
     persist_pixels = false;
     rings.reserve(NUM_RINGS);
@@ -83,14 +331,16 @@ private:
 
   static constexpr int NUM_RINGS = 2;
   std::vector<Ring> rings;
-  double alpha;
-  double trail_length;
+  static constexpr double alpha = 0.2;
+  static constexpr double trail_length = 6;
   FilterAntiAlias<W> filters;
   std::array<const Palette*, 6> palettes = { &richSunset, &iceMelt };
   Timeline timeline;
   Dots dots;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Experimental Effects Below!
 ///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
@@ -292,249 +542,6 @@ private:
   FilterDecay<W, 10000> trails;
   FilterOrient<W> orient;
   FilterAntiAlias<W> aa;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-
-template <int W>
-class RingShower : public Effect {
-private:
-  static constexpr size_t MAX_RINGS = 8;
-
-  struct Ring {
-    Vector normal;
-    double speed;
-    double radius;
-    double duration;
-    GenerativePalette palette;
-
-    Ring() :
-      normal(random_vector()),
-      speed(0.0),
-      radius(0.0),
-      duration(0.0),
-      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS, BrightnessProfile::FLAT)
-    {
-    }
-
-  };
-
-public:
-  RingShower() :
-    Effect(W)
-  {
-    persist_pixels = false;
-    
-    timeline.add(0,
-      RandomTimer(1, 24,
-        [this](auto&) { this->spawn_ring(); },
-        true)
-    );
-    
-  }
-
-  bool show_bg() const override { return false; }
-
-  void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
-  }
-
-private:
-
-  void spawn_ring() {
-    for (size_t i = 0; i < MAX_RINGS; ++i) {
-      if (rings[i].duration <= 0) {
-        Ring& ring = rings[i];
-        ring.normal = random_vector();
-        ring.duration = hs::rand_int(16, 96);
-        ring.radius = 0;
-        ring.palette = GenerativePalette(
-          GradientShape::CIRCULAR, 
-          HarmonyType::ANALOGOUS, 
-          BrightnessProfile::FLAT);
-
-        timeline.add(0,
-          Sprite(
-            [this, i](Canvas& canvas, double opacity) { this->draw_ring(canvas, opacity, i); },
-            ring.duration,
-            4, ease_mid,
-            0, ease_mid)
-        );
-
-        timeline.add(0,
-          Transition(ring.radius, 2, ring.duration, ease_mid, false, false)
-          .then([&ring]() { ring.duration = 0; })
-        );
-
-        return;
-      }
-    }
-  }
-
-  void draw_ring(Canvas& canvas, double opacity, size_t index) {
-    Ring& ring = rings[index];
-    dots.clear();
-    ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
-      [&](auto& v, auto t) {
-        return ring.palette.get(t);
-      },
-      0);
-    plot_dots<W>(dots, filters, canvas, 0, opacity);
-  }
-
-  Ring rings[MAX_RINGS];
-  FilterAntiAlias<W> filters;
-  Orientation orientation;
-  Timeline timeline;
-  Dots dots;
-};
-
-template <int W>
-class Comets : public Effect {
-public:
-  Comets() :
-    Effect(W),
-    palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
-    next_palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
-    trails(trail_length),
-    orient(orientation)
-  {
-    persist_pixels = false;
-    trails
-      .chain(orient)
-      .chain(aa);
-
-    path.append_segment([&](double t) -> Vector {
-      return lissajous(12.0f, 5.0f, 0.0f, t);
-      }, 2 * PI, 1024, ease_mid);
-
-    for (int i = 0; i < NUM_NODES; ++i) {
-      spawn_node(i);
-    }
-
-    timeline.add(0,
-      PeriodicTimer(2 * cycle_duration, [this](auto&) {
-        update_path();
-        update_palette();
-        }, true)
-    );
-
-    timeline.add(0, RandomWalk<W>(orientation, random_vector()));
-  }
-
-  bool show_bg() const override { return false; }
-
-  void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
-    trails.trail(canvas,
-      [this](double x, double y, double t) {
-        return palette.get(1.0 - t);
-      },
-      alpha
-    );
-    trails.decay();
-  }
-
-private:
-
-  struct Node {
-    Orientation orientation;
-    Vector v;
-    const Path<W>& path;
-
-    Node(const Path<W>& p) :
-      v(Y_AXIS),
-      path(p)
-    {
-    }
-  };
-
-  void update_path() {
-    cur_function = hs::rand_int(0, functions.size());
-    const auto& f = functions[cur_function];
-    path.collapse();
-    path.append_segment([f](double t) -> Vector {
-      return lissajous(f.m1, f.m2, f.a, t);
-      }, f.domain, 1024, ease_mid);
-  }
-
-  void update_palette() {
-    next_palette = GenerativePalette(
-      GradientShape::STRAIGHT,
-      HarmonyType::ANALOGOUS,
-      BrightnessProfile::ASCENDING
-    );
-
-    timeline.add(0,
-      ColorWipe(palette, next_palette, wipe_duration, ease_mid)
-    );
-  }
-
-  void spawn_node(int i) {
-    nodes.emplace_back(this->path);
-
-    timeline.add(0,
-      Sprite(
-        [this, i](Canvas& canvas, double opacity) { draw_node(canvas, opacity, i); },
-        -1,
-        16, ease_mid,
-        0, ease_mid
-      )
-    );
-
-    timeline.add(i * spacing,
-      Motion<W>(nodes[i].orientation, nodes[i].path, cycle_duration, true)
-    );
-  }
-
-  void draw_node(Canvas& canvas, double opacity, int i) {
-    Node& node = nodes[i];
-    dots.clear();
-  
-    tween(node.orientation, [this, &node](auto orient_fn, auto t) {
-      ::draw_vector<W>(dots, orient_fn(node.v),
-        [this](const auto& v, auto t) {
-          return palette.get(1.0 - t);
-        });
-      }
-    );
-    
-    plot_dots<W>(dots, trails, canvas, 0, this->alpha * opacity);
-    node.orientation.collapse();
-  }
-
-  static constexpr int NUM_NODES =1;
-  double alpha = 0.5;
-  size_t cycle_duration = 80;
-  size_t trail_length = 80;
-  size_t wipe_duration = 48;
-  size_t spacing = 48;
-
-  const std::array<LissajousParams, 9> functions = {
-      {1.06, 1.06, 0, 5.909},
-      {6.06, 1, 0, 2 * PI},
-      {19.44, 9.72, 0, 0.646},
-      {8.51, 17.01, 0, 0.739},
-      {7.66, 6.38, 0, 4.924},
-      {8.75, 5, 0, 5.027},
-      {11.67, 14.58, 0, 2.154},
-      {11.67, 8.75, 0, 2.154},
-      {10.94, 8.75, 0, 2.872}
-  };
-
-  Path<W> path;
-  size_t cur_function;
-  Orientation orientation;
-  GenerativePalette palette;
-  GenerativePalette next_palette;
-  FilterDecay<W, 3000> trails;
-  FilterOrient<W> orient;
-  FilterAntiAlias<W> aa;
-  StaticCircularBuffer<Node, NUM_NODES> nodes;
-  Timeline timeline;
-  Dots dots;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

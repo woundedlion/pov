@@ -34,9 +34,9 @@ void loop() {
 	pov->show<RingShower<96>>(90);
 	pov->show<Curves<96> >(120); // FIXME ?
 	pov->show<RingTwist<96>>(150); // FIXME ?
-	pov->show<Kaleidoscope<96>>(120); // FIXME
+	pov->show<Kaleidoscope<96>>(120); // FIXME ?
 	pov->show<StarsFade<40>>(60); 
-	pov->show<RingTrails<96>>(90); // FIXME
+	pov->show<RingTrails<96>>(90); // FIXME OR REPLACE WITH RingSpin?
 	pov->show<DotTrails<96>>(120);
 	pov->show<Burnout<40, 0, 5>>(52);
 	pov->show<WaveTrails<96>>(60);
