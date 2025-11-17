@@ -154,6 +154,13 @@ public:
     }
   }
 
+  void lerp(const GenerativePalette& from, const GenerativePalette& to, double amount) {
+    uint16_t fract = static_cast<uint16_t>(amount * 65535.0f);
+    a = from.a.lerp16(to.a, fract);
+    b = from.b.lerp16(to.b, fract);
+    c = from.c.lerp16(to.c, fract);
+  }
+
   Pixel get(double t) const override {
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {

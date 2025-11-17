@@ -429,6 +429,32 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
+class ColorWipe : public Animation<ColorWipe> {
+public:
+  ColorWipe(GenerativePalette& from_palette, const GenerativePalette& to_palette, int duration, EasingFn easing_fn) :
+    Animation(duration, false),
+    from_palette(from_palette),
+    cur_palette(from_palette),
+    to_palette(to_palette),
+    easing_fn(easing_fn)
+  {}
+
+  void step(Canvas& canvas) {
+    Animation::step(canvas);
+    double amount = std::clamp(0.0f, 1.0f, static_cast<float>(t) / duration);
+    cur_palette.get().lerp(from_palette, to_palette, easing_fn(amount));
+  }
+
+private:
+
+  GenerativePalette from_palette;
+  std::reference_wrapper<GenerativePalette> cur_palette;
+  GenerativePalette to_palette;
+  EasingFn easing_fn;
+};
+
+////////////////////////////////////////////////////////cur///////////////////////
+
 using AnimationVariant = std::variant<
   NullAnimation,
   Sprite,
@@ -438,7 +464,8 @@ using AnimationVariant = std::variant<
   PeriodicTimer,
   Rotation<MAX_W>,
   Motion<MAX_W>,
-  RandomWalk<MAX_W>
+  RandomWalk<MAX_W>,
+  ColorWipe
 >;
 
 struct TimelineEvent {

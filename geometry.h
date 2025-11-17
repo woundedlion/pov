@@ -321,8 +321,14 @@ Vector random_vector() {
   );
 }
 
-Vector lissajous(double m1, double m2, double a, double t) {
+struct LissajousParams {
+  double m1;
+  double m2;
+  double a;
+  double domain;
+};
 
+Vector lissajous(double m1, double m2, double a, double t) {
   Vector v(
     sin(m2 * t) * cos(m1 * t - a * PI),
     cos(m2 * t),

@@ -395,10 +395,8 @@ class Comets : public Effect {
 public:
   Comets() :
     Effect(W),
-    alpha(0.5),
-    trail_length(12),
-    spacing(24),
-    palette(embers),
+    palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
+    next_palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
     trails(trail_length),
     orient(orientation)
   {
@@ -415,6 +413,13 @@ public:
       spawn_node(i);
     }
 
+    timeline.add(0,
+      PeriodicTimer(2 * cycle_duration, [this](auto&) {
+        update_path();
+        update_palette();
+        }, true)
+    );
+
     timeline.add(0, RandomWalk<W>(orientation, random_vector()));
   }
 
@@ -427,7 +432,7 @@ public:
       [this](double x, double y, double t) {
         return palette.get(1.0 - t);
       },
-      this->alpha
+      alpha
     );
     trails.decay();
   }
@@ -445,6 +450,27 @@ private:
     {
     }
   };
+
+  void update_path() {
+    cur_function = hs::rand_int(0, functions.size());
+    const auto& f = functions[cur_function];
+    path.collapse();
+    path.append_segment([f](double t) -> Vector {
+      return lissajous(f.m1, f.m2, f.a, t);
+      }, f.domain, 1024, ease_mid);
+  }
+
+  void update_palette() {
+    next_palette = GenerativePalette(
+      GradientShape::STRAIGHT,
+      HarmonyType::ANALOGOUS,
+      BrightnessProfile::ASCENDING
+    );
+
+    timeline.add(0,
+      ColorWipe(palette, next_palette, 48, ease_mid)
+    );
+  }
 
   void spawn_node(int i) {
     nodes.emplace_back(this->path);
@@ -479,13 +505,31 @@ private:
     node.orientation.collapse();
   }
 
-  static constexpr int NUM_NODES = 6;
-  double alpha = 1.0;
-  int trail_length = 8;
-  int spacing = 24;
+  static constexpr int NUM_NODES =1;
+  double alpha = 0.5;
+  size_t cycle_duration = 80;
+  size_t wipe_duration = 48;
+  size_t trail_length = 80;
+  size_t spacing = 48;
+
+  // Parameters matching the JS implementation
+  const std::array<LissajousParams, 9> functions = {
+      {1.06, 1.06, 0, 5.909},
+      {6.06, 1, 0, 2 * PI},
+      {19.44, 9.72, 0, 0.646},
+      {8.51, 17.01, 0, 0.739},
+      {7.66, 6.38, 0, 4.924},
+      {8.75, 5, 0, 5.027},
+      {11.67, 14.58, 0, 2.154},
+      {11.67, 8.75, 0, 2.154},
+      {10.94, 8.75, 0, 2.872}
+  };
+
   Path<W> path;
+  size_t cur_function;
   Orientation orientation;
-  const ProceduralPalette& palette;
+  GenerativePalette palette;
+  GenerativePalette next_palette;
   FilterDecay<W, 3000> trails;
   FilterOrient<W> orient;
   FilterAntiAlias<W> aa;
