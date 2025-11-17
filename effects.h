@@ -468,7 +468,7 @@ private:
     );
 
     timeline.add(0,
-      ColorWipe(palette, next_palette, 48, ease_mid)
+      ColorWipe(palette, next_palette, wipe_duration, ease_mid)
     );
   }
 
@@ -485,7 +485,7 @@ private:
     );
 
     timeline.add(i * spacing,
-      Motion<W>(nodes[i].orientation, nodes[i].path, 320, true)
+      Motion<W>(nodes[i].orientation, nodes[i].path, cycle_duration, true)
     );
   }
 
@@ -493,7 +493,7 @@ private:
     Node& node = nodes[i];
     dots.clear();
   
-    tween(node.orientation, [this, node](auto orient_fn, auto t) {
+    tween(node.orientation, [this, &node](auto orient_fn, auto t) {
       ::draw_vector<W>(dots, orient_fn(node.v),
         [this](const auto& v, auto t) {
           return palette.get(1.0 - t);
@@ -508,8 +508,8 @@ private:
   static constexpr int NUM_NODES =1;
   double alpha = 0.5;
   size_t cycle_duration = 80;
-  size_t wipe_duration = 48;
   size_t trail_length = 80;
+  size_t wipe_duration = 48;
   size_t spacing = 48;
 
   const std::array<LissajousParams, 9> functions = {

@@ -32,8 +32,8 @@ void loop() {
 	pov->show<ChainWiggle<96>>(150);
 	pov->show<RingRotate<96>>(120);
 	pov->show<RingShower<96>>(90);
-	pov->show<Curves<96> >(120); // fIXme
-	pov->show<RingTwist<96>>(150); // FIXME
+	pov->show<Curves<96> >(120); // FIXME ?
+	pov->show<RingTwist<96>>(150); // FIXME ?
 	pov->show<Kaleidoscope<96>>(120); // FIXME
 	pov->show<StarsFade<40>>(60); 
 	pov->show<RingTrails<96>>(90); // FIXME

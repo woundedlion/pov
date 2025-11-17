@@ -382,7 +382,17 @@ class RingTwist : public Effect {
   }
 
  private:
-  void decay(CRGB& p) { trail_rainbow(p, 8, 24); }
+  void decay(CRGB& p) {
+    if (p == seed_) {
+      auto c = rgb2hsv_approximate(p);
+      c.h = seed_.h - 8;
+      c.s = 255;
+      c.v = seed_.v - 24;
+      p = c;
+    } else {
+      trail_rainbow(p, 8, 24);
+    }
+  }
 
   void pull(int y) {
     if (stop_ != -1 && pos_[y] == stop_) {
@@ -442,7 +452,7 @@ class RingTwist : public Effect {
   }
 
   NoColorCorrection _;
-  const CRGB seed_;
+  const CHSV seed_;
   const int COUNT_ = 2;
   const int STOP_TIMER_ = 15000;
   int pos_[H] = {0};
