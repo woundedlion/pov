@@ -466,14 +466,15 @@ private:
   void draw_node(Canvas& canvas, double opacity, int i) {
     Node& node = nodes[i];
     dots.clear();
-    size_t s = node.orientation.length();
-    for (size_t j = 0; j < s; ++j) {
-      ::draw_vector<W>(dots, node.orientation.orient(node.v, j),
-        [this, s, j](const Vector& v, double t) {
-          return palette.get(1.0 - (static_cast<double>(s - 1 - j) / s));
-        }
-      );
-    }
+  
+    tween(node.orientation, [this, node](OrientFn orient_fn, double t) {
+      ::draw_vector<W>(dots, orient_fn(node.v),
+        [this](const Vector& v, double t) {
+          return palette.get(1.0 - t);
+        });
+      }
+    );
+    
     plot_dots<W>(dots, trails, canvas, 0, this->alpha * opacity);
     node.orientation.collapse();
   }
