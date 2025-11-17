@@ -467,9 +467,9 @@ private:
     Node& node = nodes[i];
     dots.clear();
   
-    tween(node.orientation, [this, node](OrientFn orient_fn, double t) {
+    tween(node.orientation, [this, node](auto orient_fn, auto t) {
       ::draw_vector<W>(dots, orient_fn(node.v),
-        [this](const Vector& v, double t) {
+        [this](const auto& v, auto t) {
           return palette.get(1.0 - t);
         });
       }

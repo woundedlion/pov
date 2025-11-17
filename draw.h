@@ -242,7 +242,7 @@ typedef std::function<Vector(Vector)> OrientFn;
 typedef std::function<void(OrientFn, double)> TweenFn;
 
 void tween(const Orientation& orientation, TweenFn draw_fn) {
-  auto s = orientation.length();
+  size_t s = orientation.length();
   for (size_t i = 0; i < s; ++i) {
     draw_fn([orientation, i](const auto& v) { return orientation.orient(v, i); },
       static_cast<float>((s - 1 - i)) / s);
