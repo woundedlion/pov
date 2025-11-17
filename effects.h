@@ -297,7 +297,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
-class RingShower2 : public Effect {
+class RingShower : public Effect {
 private:
   static constexpr size_t MAX_RINGS = 8;
 
@@ -320,7 +320,7 @@ private:
   };
 
 public:
-  RingShower2() :
+  RingShower() :
     Effect(W)
   {
     persist_pixels = false;

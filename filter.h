@@ -3,6 +3,7 @@ template <int W>
 class Filter {
 public:
   Filter() : next(nullptr) {}
+  virtual ~Filter() = default;
 
   virtual Filter& chain(Filter& filter) {
     next = &filter;
@@ -11,6 +12,18 @@ public:
 
   virtual void plot(Canvas& canvas, double x, double y,
     const Pixel& c, double age, double alpha) = 0;
+
+  virtual void decay() {
+    if (next != nullptr) {
+      next->decay();
+    }
+  }
+
+  virtual void trail(Canvas& canvas, TrailFn trailFn, double alpha) {
+    if (next != nullptr) {
+      next->trail(canvas, trailFn, alpha);
+    }
+  }
 
 protected:
 
@@ -75,18 +88,6 @@ public:
     num_pixels(0)
   {}
 
-  void decay() {
-    for (int i = 0; i < num_pixels; ++i) {
-      if (--ttls[i].ttl < TOLERANCE) {
-        num_pixels--;
-        if (i < num_pixels) {
-          ttls[i] = std::move(ttls[num_pixels]);
-          i--;
-        }
-      }
-    }
-  }
-
   void plot(Canvas& canvas, double x, double y, const Pixel& color, double age, double alpha) {
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
@@ -102,11 +103,25 @@ public:
     }
   }
 
+  void decay() {
+    for (int i = 0; i < num_pixels; ++i) {
+      if (--ttls[i].ttl < TOLERANCE) {
+        num_pixels--;
+        if (i < num_pixels) {
+          ttls[i] = std::move(ttls[num_pixels]);
+          i--;
+        }
+      }
+    }
+    Filter<W>::decay();
+  }
+
   void trail(Canvas& canvas, TrailFn trailFn, double alpha) {
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
       this->pass(canvas, ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
     }
+    Filter<W>::trail(canvas, trailFn, alpha);
   }
 
 private:

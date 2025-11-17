@@ -195,77 +195,6 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <int W>
-class RingShower : public Effect {
- public:
-  RingShower() : Effect(W), new_ring_timer(62, 2000) {
-  }
-
-  bool show_bg() const { return false; }
-
-  void draw_frame() {
-    Canvas c(*this);
-    for (int x = 0; x < W; ++x) {
-      for (int y = 0; y < H; ++y) {
-        c(x, y) = CHSV(0, 0, 0);
-      }
-    }
-
-    if (new_ring_timer.elapsed()) {
-      new_ring();
-    }
-    draw_rings(c);
-    move_rings(c);
-  }
-
- private:
-  struct Ring {
-    Ring() : position(H), speed(0), color(CHSV(0, 0, 0)) {}
-
-    float position;
-    float speed;
-    Projection<W, H> rotation;
-    CHSV color;
-  };
-
-  void new_ring() {
-    for (size_t i = 0; i < sizeof(rings) / sizeof(Ring); ++i) {
-      if (rings[i].position >= H) {
-        rings[i].position = 0;
-        rings[i].speed = random(30, 100) / 100.0;
-        rings[i].color = colors.get();
-        rings[i].rotation.rotate(random(360), random(360), random(360));
-        break;
-      }
-    }
-  }
-
-  void draw_rings(Canvas& c) {
-    for (size_t i = 0; i < sizeof(rings) / sizeof(Ring); ++i) {
-      if (rings[i].position < H) {
-        for (float x = 0; x < W; x += 1) {
-          Point p = rings[i].rotation.project(Point(x, rings[i].position));
-          plot_aa(c, p.x, p.y, rings[i].color);
-        }
-      }
-    }
-  }
-
-  void move_rings(Canvas& c) {
-    for (size_t i = 0; i < sizeof(rings) / sizeof(Ring); ++i) {
-      if (rings[i].position < H) {
-        rings[i].position += rings[i].speed;
-      }
-    }
-  }
-
-  typedef typename Projection<W, H>::Point Point;
-  PollingRandomTimer new_ring_timer;
-  Ring rings[8];
-  unsigned long t = 0;
-  ComplementaryColorSequence colors;
-};
-
 class Oscillator
 {
 public:
@@ -569,6 +498,55 @@ class TheMatrix : public Effect {
 };
 
 template <int W>
+class Curves : public Effect {
+public:
+  Curves() : Effect(W) {
+    fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
+      rgb2hsv_approximate(CRGB(6, 4, 47)),
+      rgb2hsv_approximate(CRGB(162, 84, 84)),
+      rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
+  }
+
+  bool show_bg() const { return false; }
+
+  void draw_frame() {
+    Canvas c(*this);
+    for (int x = 0; x < W; ++x) {
+      for (int y = 0; y < H; ++y) {
+        trail_rainbow_lin(c(x, y), 0, 32);
+        CHSV h = rgb2hsv_approximate(c(x, y));
+        h.h = palette_[h.v].h;
+        c(x, y) = h;
+      }
+    }
+
+    for (int i = 0; i < COUNT; ++i) {
+      CHSV color = palette_[map8(triwave8(color_offset_), 100, 140)];
+      plot(c, num_, 255, (i * W / COUNT + offset_) % W, color);
+      plot(c, -num_, 255, (i * W / COUNT + W - 1 - offset_) % W, color);
+    }
+
+    num_ = wrap(num_ - 1, 1024);
+    color_offset_++;
+    offset_ = (offset_ + 1) % W;
+  }
+
+private:
+  void plot(Canvas& cv, int n, int d, int c, const CHSV& color) {
+    for (int y = 0; y < H; ++y) {
+      cv(wrap(y * n / d + c, W), y) = color;
+    }
+  }
+
+  int COUNT = 4;
+  int offset_ = 0;
+  uint8_t color_offset_ = 0;
+  uint16_t num_ = 1024;
+  uint8_t falloff_ = 48;
+  CHSVPalette256 palette_;
+};
+
+template <int W>
 class StarsFade : public Effect {
  private:
   uint8_t hue_;
@@ -692,6 +670,7 @@ class RingTrails : public Effect {
   CHSVPalette256 palette;
   int ttl[W][H];
   int dot;
+  NoColorCorrection _;
 };
 
 template <uint8_t W>
@@ -1050,4 +1029,5 @@ class Spinner : public Effect {
   bool swap = false;
   uint8_t p[5] = {20, 10, 4, 2, 1};
   uint8_t i = 0;
+  NoColorCorrection _;
 };
