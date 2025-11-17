@@ -417,7 +417,7 @@ public:
 
 private:
 
-  static constexpr double WALK_SPEED = 0.1;
+  static constexpr double WALK_SPEED = 0.05;
   static constexpr double PIVOT_STRENGTH = 0.01;
   static constexpr double NOISE_SCALE = 0.005;
 

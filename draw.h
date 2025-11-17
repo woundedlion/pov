@@ -71,7 +71,7 @@ public:
   }
 
 private:
-  StaticCircularBuffer<Vector, 96> points;
+  StaticCircularBuffer<Vector, 1024> points;
 };
 
 template <int W>

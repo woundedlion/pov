@@ -95,6 +95,19 @@ private:
   Effect& effect_;
 };
 
+struct NoColorCorrection {
+  NoColorCorrection()
+  {
+    FastLED.setCorrection(UncorrectedColor);
+    FastLED.setTemperature(CRGB::White);
+  }
+
+  ~NoColorCorrection() {
+    FastLED.setCorrection(TypicalLEDStrip);
+    FastLED.setTemperature(Candle);
+  }
+};
+
 template <int S, int RPM>
 class POVDisplay
 {

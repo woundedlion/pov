@@ -1,5 +1,4 @@
 #include <FastLED.h>
-//#include "particle.h"
 #include "rotate.h"
 #include "util.h"
 
@@ -418,7 +417,7 @@ class ChainWiggle : public Effect {
 template <int W>
 class RingTwist : public Effect {
  public:
-  RingTwist() : Effect(W), seed_(CHSV(104, 0, 255)) {
+  RingTwist() : Effect(W), seed_(CHSV(104, 255, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
     for (int x = 0; x < W; x += W / COUNT_) {
@@ -513,6 +512,7 @@ class RingTwist : public Effect {
     decay(c(x, y));
   }
 
+  NoColorCorrection _;
   const CRGB seed_;
   const int COUNT_ = 2;
   const int STOP_TIMER_ = 15000;
@@ -565,6 +565,7 @@ class TheMatrix : public Effect {
   }
 
   uint8_t pixels_[W][H];
+  NoColorCorrection _;
 };
 
 template <int W>

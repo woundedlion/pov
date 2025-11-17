@@ -349,7 +349,10 @@ private:
         ring.normal = random_vector();
         ring.duration = hs::rand_int(16, 96);
         ring.radius = 0;
-        ring.palette = GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS);
+        ring.palette = GenerativePalette(
+          GradientShape::CIRCULAR, 
+          HarmonyType::ANALOGOUS, 
+          BrightnessProfile::FLAT);
 
         timeline.add(0,
           Sprite(
@@ -434,7 +437,7 @@ private:
   struct Node {
     Orientation orientation;
     Vector v;
-    Path<W>& path;
+    const Path<W>& path;
 
     Node(const Path<W>& p) :
       v(Y_AXIS),
@@ -476,8 +479,8 @@ private:
   }
 
   static constexpr int NUM_NODES = 6;
-  double alpha = 0.5;
-  int trail_length = 12;
+  double alpha = 1.0;
+  int trail_length = 8;
   int spacing = 24;
   Path<W> path;
   Orientation orientation;
