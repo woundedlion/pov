@@ -512,7 +512,6 @@ private:
   size_t trail_length = 80;
   size_t spacing = 48;
 
-  // Parameters matching the JS implementation
   const std::array<LissajousParams, 9> functions = {
       {1.06, 1.06, 0, 5.909},
       {6.06, 1, 0, 2 * PI},
