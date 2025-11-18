@@ -69,13 +69,17 @@ class Canvas {
 public:
   Canvas(Effect& effect) : effect_(effect) {
     while (!effect_.buffer_free()) {}
+    start_time = millis();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       clear_buffer();
     }
   }
 
-  ~Canvas() { effect_.queue_frame(); }
+  ~Canvas() { 
+    Serial.printf("draw_frame_duration: %d\n", (millis() - start_time));
+    effect_.queue_frame();
+  }
 
   inline CRGB& operator()(int x, int y) {
     return effect_.bufs_[effect_.cur_][XY(x, y)];
@@ -93,6 +97,7 @@ public:
 
 private:
   Effect& effect_;
+  size_t start_time;
 };
 
 struct NoColorCorrection {
@@ -130,6 +135,11 @@ class POVDisplay
 	{
      randomSeed(analogRead(PIN_RANDOM));
 		 FastLED.addLeds<WS2801, 11, 13, RGB, DATA_RATE_MHZ(6)>(leds_, S);
+
+     // CLEAR the SRE bit (0) to ENABLE Slew Rate Limiting (Slow edges)
+     IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 &= ~IOMUXC_PAD_SRE; // Pin 11
+     IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE; // Pin 13
+
      FastLED.setCorrection(TypicalLEDStrip);
      FastLED.setTemperature(Candle);
   }

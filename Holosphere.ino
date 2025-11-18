@@ -5,6 +5,11 @@
 #include "effects_legacy.h"
 #include "effects.h"
 
+// TODO: Convert from double to float everywhere
+// TODO: Compile-tie FilterChain
+// TODO: FilterMask
+// TODO: FilterDisplace
+
 namespace {
 	POVDisplay<NUM_PIXELS, RPM> *pov;
 }
@@ -23,7 +28,8 @@ void loop() {
 //	pov->show<FlowField<96>>(300);
 
 	{
-		pov->show<Kaleidoscope<96>>(120); // FIXME !!!
+		//	pov->show<RingShower<96>>(90);
+			pov->show<Dynamo<96>>(300);
 
 	}
 
@@ -34,7 +40,7 @@ void loop() {
 	pov->show<RingShower<96>>(90);
 	pov->show<Curves<96> >(120);
 	pov->show<RingTwist<96>>(150);
-	pov->show<Kaleidoscope<96>>(120); // FIXME !!!
+	pov->show<Kaleidoscope<96>>(120);
 	pov->show<StarsFade<40>>(60); 
 	pov->show<RingTrails<96>>(90); // FIXME OR REPLACE WITH RingSpin?
 	pov->show<DotTrails<96>>(120);

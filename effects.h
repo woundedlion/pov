@@ -10,28 +10,8 @@
 
 template <int W>
 class RingShower : public Effect {
-private:
-  static constexpr size_t MAX_RINGS = 8;
-
-  struct Ring {
-    Vector normal;
-    double speed;
-    double radius;
-    double duration;
-    GenerativePalette palette;
-
-    Ring() :
-      normal(random_vector()),
-      speed(0.0),
-      radius(0.0),
-      duration(0.0),
-      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS, BrightnessProfile::FLAT)
-    {
-    }
-
-  };
-
 public:
+
   RingShower() :
     Effect(W)
   {
@@ -53,6 +33,22 @@ public:
   }
 
 private:
+
+  struct Ring {
+    Vector normal;
+    double speed;
+    double radius;
+    double duration;
+    GenerativePalette palette;
+
+    Ring() :
+      normal(random_vector()),
+      speed(0.0),
+      radius(0.0),
+      duration(0.0),
+      palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS, BrightnessProfile::FLAT)
+    {}
+  };
 
   void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
@@ -92,14 +88,17 @@ private:
         return ring.palette.get(t);
       },
       0);
-    plot_dots<W>(dots, filters, canvas, 0, opacity);
+    plot_dots<W>(dots, filters, canvas, 0, opacity * alpha);
   }
 
+
+  static constexpr size_t MAX_RINGS = 8;
   Ring rings[MAX_RINGS];
   FilterAntiAlias<W> filters;
   Orientation orientation;
   Timeline timeline;
   Dots dots;
+  static constexpr float alpha = 0.2;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -360,7 +359,7 @@ public:
     palette_normal(X_AXIS),
     speed(2),
     gap(4),
-    trail_length(5),
+    trail_length(8),
     filters(4),
     trails(trail_length),
     orient(orientation)
@@ -468,12 +467,12 @@ public:
 private:
 
   double node_y(const Node& node) const {
-    return (node.y / (nodes.size() - 1)) * (H - 1);
+    return (static_cast<float>(node.y) / (nodes.size() - 1)) * (H - 1);
   }
 
   void draw_nodes(Canvas& canvas, double age) {
+    dots.clear();
     for (size_t i = 0; i < nodes.size(); ++i) {
-      dots.clear();
       if (i == 0) {
         auto from = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
         draw_vector<W>(dots, from, [this](auto& v, auto t) { return color(v, 0); });
