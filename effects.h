@@ -220,13 +220,13 @@ private:
   }
 
   static constexpr int NUM_NODES = 1;
-  double alpha = 0.5;
+  double alpha = 1.0f;
   size_t cycle_duration = 80;
   size_t trail_length = 80;
   size_t wipe_duration = 48;
   size_t spacing = 48;
 
-  const std::array<LissajousParams, 9> functions = {
+  const std::array<LissajousParams, 12> functions = { {
       {1.06, 1.06, 0, 5.909},
       {6.06, 1, 0, 2 * PI},
       {6.02, 4.01, 0, 3.132},
@@ -239,7 +239,7 @@ private:
       {11.67, 14.58, 0, 2.154},
       {11.67, 8.75, 0, 2.154},
       {10.94, 8.75, 0, 2.872}
-  };
+  } };
 
   Path<W> path;
   size_t cur_function;

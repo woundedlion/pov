@@ -128,7 +128,11 @@ public:
     a = CHSV(h1, s1, v1);
     b = CHSV(h2, s2, v2);
     c = CHSV(h3, s3, v3);
+    
+    update_luts();
+  }
 
+  void update_luts() {
     const Pixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
@@ -159,6 +163,7 @@ public:
     a = from.a.lerp16(to.a, fract);
     b = from.b.lerp16(to.b, fract);
     c = from.c.lerp16(to.c, fract);
+    update_luts();
   }
 
   Pixel get(double t) const override {

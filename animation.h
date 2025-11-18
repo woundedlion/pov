@@ -441,7 +441,7 @@ public:
 
   void step(Canvas& canvas) {
     Animation::step(canvas);
-    double amount = std::clamp(0.0f, 1.0f, static_cast<float>(t) / duration);
+    double amount = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     cur_palette.get().lerp(from_palette, to_palette, easing_fn(amount));
   }
 
@@ -449,7 +449,7 @@ private:
 
   GenerativePalette from_palette;
   std::reference_wrapper<GenerativePalette> cur_palette;
-  GenerativePalette to_palette;
+  std::reference_wrapper<const GenerativePalette> to_palette;
   EasingFn easing_fn;
 };
 
