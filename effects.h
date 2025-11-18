@@ -401,16 +401,16 @@ public:
       Serial.println("Palettes full, dropping color wipe!");
       return;
     }
-    palettes.push_back(GenerativePalette(
+    palettes.push_front(GenerativePalette(
       GradientShape::VIGNETTE, 
       HarmonyType::ANALOGOUS, 
       BrightnessProfile::ASCENDING));
-    palette_boundaries.push_back(0);
+    palette_boundaries.push_front(0);
     timeline.add(0,
-      Transition(palette_boundaries.back(), PI, 20, ease_mid)
+      Transition(palette_boundaries.front(), PI + 1, 20, ease_mid)
       .then([this]() {
-        palette_boundaries.pop();
-        palettes.pop();
+        palette_boundaries.pop_back();
+        palettes.pop_back();
         })
     );
   }
@@ -438,7 +438,7 @@ public:
 
       auto next_boundary_lower_edge = (i + 1 < palette_boundaries.size()
         ? palette_boundaries[i + 1] - blend_width
-        : PI);
+        : PI + 1);
       if (a > upper_edge && a < next_boundary_lower_edge) {
         return std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
       }

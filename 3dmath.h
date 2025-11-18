@@ -296,10 +296,12 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
   return Vector(0, 0, 0);
 }
 
+static constexpr double SHIFT_DIV = 96;
+
 std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
   assert(fabs(v.length() - 1.0) < TOLERANCE);
   assert(fabs(normal.length() - 1.0) < TOLERANCE);
-  double shift = sin(PI / MAX_W);
+  double shift = sin(PI / SHIFT_DIV);
   return {
     {(v + (normal * shift)).normalize()},
     {(v + (-normal * shift)).normalize()},

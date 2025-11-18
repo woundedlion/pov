@@ -36,6 +36,29 @@ public:
     }
   }
 
+  void push_front(const T& item) {
+    assert(!is_full() && "Buffer overflow: cannot push_front to a full buffer.");
+    head = (head - 1 + N) % N;
+    buffer[head] = item;
+    count++;
+  }
+
+  void push_front(T&& item) {
+    assert(!is_full() && "Buffer overflow: cannot push_front to a full buffer.");
+    head = (head - 1 + N) % N;
+    buffer[head] = std::move(item);
+    count++;
+  }
+
+  template<typename... Args>
+  T& emplace_front(Args&&... args) {
+    assert(!is_full() && "Buffer overflow: cannot emplace_front in a full buffer.");
+    head = (head - 1 + N) % N;
+    T& emplaced_item = buffer[head].emplace(std::forward<Args>(args)...);
+    count++;
+    return emplaced_item;
+  }
+
   void push_back(const T& item) {
     assert(!is_full() && "Buffer overflow: cannot push to a full buffer.");
     buffer[tail] = item;
