@@ -205,17 +205,14 @@ private:
 
   void draw_node(Canvas& canvas, double opacity, int i) {
     Node& node = nodes[i];
-    dots.clear();
-
-    tween(node.orientation, [this, &node](auto orient_fn, auto t) {
+    tween(node.orientation, [this, &canvas, opacity, &node](auto orient_fn, auto t) {
+      dots.clear();
       ::draw_vector<W>(dots, orient_fn(node.v),
       [this](const auto& v, auto t) {
           return palette.get(1.0 - t);
         });
-      }
-    );
-
-    plot_dots<W>(dots, trails, canvas, 0, this->alpha * opacity);
+      plot_dots<W>(dots, trails, canvas, t, this->alpha * opacity);
+    });
     node.orientation.collapse();
   }
 
@@ -297,25 +294,22 @@ public:
         4, ease_mid,
         0, ease_mid
       ));
-    timeline.add(0,
-      RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
+
+      timeline.add(0,
+        RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
   }
 
   void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
     auto& ring = rings[ring_index];
-    size_t end = ring.orientation.length();
-    for (size_t i = 0; i < end; ++i) {
+    tween(ring.orientation, [this, &canvas, opacity, &ring](auto orient_fn, auto t) {
       dots.clear();
-      ::draw_ring<W>(dots, ring.orientation.orient(ring.normal), 1,
+      ::draw_ring<W>(dots, orient_fn(ring.normal), 1,
         [&](auto& v, auto t) { return vignette(ring.palette)(0); });
-      plot_dots(dots, ring.trails, canvas, 
-       static_cast<double>(end - 1 - i) / end,
-       alpha * opacity);
-    }
+      plot_dots(dots, ring.trails, canvas, t, alpha* opacity);
+    });
     ring.orientation.collapse();
-    
     ring.trails.trail(canvas,
-      [&](double x, double y, double t) { return vignette(ring.palette)(1 - t); },
+      [&](double x, double y, double t) { return vignette(ring.palette)(t); },
       alpha * opacity);
     
     ring.trails.decay();
@@ -329,12 +323,12 @@ public:
 
 private:
 
-  static constexpr int NUM_RINGS = 2;
+  static constexpr int NUM_RINGS = 4;
   std::vector<Ring> rings;
   static constexpr double alpha = 0.2;
-  static constexpr double trail_length = 6;
+  static constexpr double trail_length = 20;
   FilterAntiAlias<W> filters;
-  std::array<const Palette*, 6> palettes = { &richSunset, &iceMelt };
+  std::array<const Palette*, 6> palettes = { &richSunset, &mangoPeel, &undersea, &iceMelt };
   Timeline timeline;
   Dots dots;
 };

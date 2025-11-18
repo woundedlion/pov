@@ -1,5 +1,7 @@
 #pragma once
 
+#include "3dmath.h"
+
 namespace hs {
   double rand_dbl() {
     return static_cast<double>(::random(0, std::numeric_limits<int32_t>::max()))
@@ -11,22 +13,17 @@ namespace hs {
   }
 }
 
-constexpr int wrap(int x, int m) {
-  return (x >= 0 ?
-    x % m :
-    ((x % m) + m) % m);
-}
+template <typename T, typename U>
+inline T wrap(T x, U m) {
+  if (std::abs(x) < TOLERANCE) {
+    return 0;
+  }
 
-constexpr double wrap(double x, int m) {
-  return x >= 0 ?
-    fmod(x, m) :
-    fmod(fmod(x, m) + m, m);
-}
-
-constexpr double wrap(double x, double m) {
-  return x >= 0 ?
-    fmod(x, m) :
-    fmod(fmod(x, m) + m, m);
+  T r = std::fmod(x, m);
+  if (r < 0) {
+    r += m;
+  }
+  return (r >= m) ? 0 : r;
 }
 
 double shortest_distance(double a, double b, double m) {

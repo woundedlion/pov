@@ -1,4 +1,11 @@
 #pragma once
+
+void plot_virtual(Canvas& canvas, int x, int y, const Pixel& c) {
+  if (y >= 0 && y < H) {
+    canvas(XY(x, y)) = c;
+  }
+}
+
 template <int W>
 class Filter {
 public:

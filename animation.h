@@ -402,12 +402,12 @@ public:
     direction = cross(v, u).normalize();
     noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     noiseGenerator.SetFrequency(NOISE_SCALE);
-    noiseGenerator.SetSeed(hs::rand_int(0, 65535));
+    noiseGenerator.SetSeed(hs::rand_int(std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
   }
 
   void step(Canvas& canvas) override {
     Animation<RandomWalk<W>>::step(canvas);
-    double pivotAngle = noiseGenerator.GetNoise(this->t * NOISE_SCALE, 0.0) * PIVOT_STRENGTH;
+    double pivotAngle = noiseGenerator.GetNoise(static_cast<double>(this->t), 0.0) * PIVOT_STRENGTH;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     Vector walk_axis = cross(v, direction).normalize();
     v = rotate(v, make_rotation(walk_axis, WALK_SPEED)).normalize();
@@ -418,8 +418,8 @@ public:
 private:
 
   static constexpr double WALK_SPEED = 0.05;
-  static constexpr double PIVOT_STRENGTH = 0.01;
-  static constexpr double NOISE_SCALE = 0.005;
+  static constexpr double PIVOT_STRENGTH = 0.4;
+  static constexpr double NOISE_SCALE = 0.008;
 
   FastNoiseLite noiseGenerator;
   std::reference_wrapper<Orientation> orientation;

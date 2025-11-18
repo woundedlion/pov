@@ -38,13 +38,9 @@ Vector pixel_to_vector(double x, double y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  return PixelCoords({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H_VIRT - 1)) / PI });
-}
-
-void plot_virtual(Canvas& canvas, int x, int y, const Pixel& c) {
-  if (y > 0 && y < H) {
-    canvas(XY(x, y)) = c;
-  }
+  assert(fabs(v.length()) - 1 < TOLERANCE);
+  PixelCoords p({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H_VIRT - 1)) / PI });
+  return p;
 }
 
 constexpr double lerp(double from, double to, double t) {
@@ -327,6 +323,7 @@ struct LissajousParams {
   double a;
   double domain;
 };
+
 
 Vector lissajous(double m1, double m2, double a, double t) {
   Vector v(

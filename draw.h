@@ -238,6 +238,7 @@ void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, double age,
     filters.plot(canvas, p.x, p.y, gamma_correct(dot.color), age, alpha);
   }
 }
+
 typedef std::function<Vector(Vector)> OrientFn;
 typedef std::function<void(OrientFn, double)> TweenFn;
 

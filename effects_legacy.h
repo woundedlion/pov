@@ -346,7 +346,7 @@ class ChainWiggle : public Effect {
 template <int W>
 class RingTwist : public Effect {
  public:
-  RingTwist() : Effect(W), seed_(CHSV(104, 255, 255)) {
+  RingTwist() : Effect(W), seed_(CHSV(104, 0, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
     for (int x = 0; x < W; x += W / COUNT_) {
@@ -451,7 +451,7 @@ class RingTwist : public Effect {
     decay(c(x, y));
   }
 
-  NoColorCorrection _;
+  NoTempCorrection _;
   const CHSV seed_;
   const int COUNT_ = 2;
   const int STOP_TIMER_ = 15000;
@@ -554,6 +554,7 @@ private:
   uint16_t num_ = 1024;
   uint8_t falloff_ = 48;
   CHSVPalette256 palette_;
+  NoTempCorrection _;
 };
 
 template <int W>
@@ -585,6 +586,8 @@ template <int W, int SPREAD>
 class Spiral : public Effect {
  private:
   CHSVPalette16 palette_;
+  NoTempCorrection _;
+
 
  public:
   Spiral() : Effect(W) {
@@ -696,10 +699,7 @@ class Kaleidoscope : public Effect {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
-        trail_rainbow_lin(c(x, y), 0, 24);
-        CHSV h = rgb2hsv_approximate(c(x, y));
-        h.h = palette_[h.v].h;
-        c(x, y) = h;
+        fadeToBlackBy(&c(x, y), 1, 96);
       }
     }
 
@@ -736,6 +736,7 @@ class Kaleidoscope : public Effect {
   int inc_y_ = 1;
   CHSVPalette16 palette_;
   uint8_t palette_offset_ = 0;
+  NoTempCorrection _;
 };
 
 template <uint8_t W>

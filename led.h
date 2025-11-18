@@ -99,10 +99,23 @@ struct NoColorCorrection {
   NoColorCorrection()
   {
     FastLED.setCorrection(UncorrectedColor);
-    FastLED.setTemperature(CRGB::White);
+    FastLED.setTemperature(UncorrectedTemperature);
   }
 
   ~NoColorCorrection() {
+    FastLED.setCorrection(TypicalLEDStrip);
+    FastLED.setTemperature(Candle);
+  }
+};
+
+struct NoTempCorrection {
+  NoTempCorrection()
+  {
+    FastLED.setCorrection(TypicalLEDStrip);
+    FastLED.setTemperature(UncorrectedTemperature);
+  }
+
+  ~NoTempCorrection() {
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
   }
