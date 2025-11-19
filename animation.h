@@ -1,39 +1,39 @@
 #pragma once
 static constexpr int FPS = 16;
 
-double ease_in_out_bicubic(double t) {
+float ease_in_out_bicubic(float t) {
   return t < 0.5 ? 4 * pow(t, 3) : 1 - pow(-2 * t + 2, 3) / 2;
 }
 
-double ease_in_out_sin(double t) {
-  return -(cos(PI * t) - 1) / 2;
+float ease_in_out_sin(float t) {
+  return -(cosf(PI_F * t) - 1) / 2;
 }
 
-double ease_in_sin(double t) {
-  return 1 - cos((t * PI) / 2);
+float ease_in_sin(float t) {
+  return 1 - cosf((t * PI_F) / 2);
 }
 
-double ease_out_sin(double t) {
-  return sin((t * PI) / 2);
+float ease_out_sin(float t) {
+  return sinf((t * PI_F) / 2);
 }
 
-double ease_in_cubic(double t) {
+float ease_in_cubic(float t) {
   return pow(t, 3);
 }
 
-double ease_in_circ(double t) {
+float ease_in_circ(float t) {
   return 1 - sqrt(1 - pow(t, 2));
 }
 
-double ease_mid(double t) {
+float ease_mid(float t) {
   return t;
 }
 
-double ease_out_expo(double t) {
+float ease_out_expo(float t) {
   return t == 1 ? 1 : 1 - pow(2, -10 * t);
 }
 
-double ease_out_circ(double t) {
+float ease_out_circ(float t) {
   return sqrt(1 - pow(t - 1, 2));
 }
 
@@ -166,7 +166,7 @@ private:
 
 class Transition : public Animation<Transition> {
 public:
-  Transition(double& mutant, double to, int duration, EasingFn easing_fn, bool quantized = false, bool repeat = false) :
+  Transition(float& mutant, float to, int duration, EasingFn easing_fn, bool quantized = false, bool repeat = false) :
     Animation(duration, repeat),
     mutant(mutant),
     from(mutant),
@@ -181,7 +181,7 @@ public:
       from = mutant;
     }
     Animation::step(canvas);
-    auto t = std::min(1.0, static_cast<double>(this->t) / duration);
+    auto t = std::min(1.0f, static_cast<float>(this->t) / duration);
     auto n = easing_fn(t) * (to - from) + from;
     if (quantized) {
       n = std::floor(n);
@@ -189,15 +189,15 @@ public:
     mutant.get() = n;
   }
 
-  void rebind_mutant(double& new_mutant) {
+  void rebind_mutant(float& new_mutant) {
     mutant = new_mutant;
   }
 
 private:
 
-  std::reference_wrapper<double> mutant;
-  double from;
-  double to;
+  std::reference_wrapper<float> mutant;
+  float from;
+  float to;
   EasingFn easing_fn;
   bool quantized;
 };
@@ -205,7 +205,7 @@ private:
 class Mutation : public Animation<Mutation> {
 public:
 
-  Mutation(double& mutant, MutateFn f, int duration, EasingFn easing_fn, bool repeat = false) :
+  Mutation(float& mutant, MutateFn f, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation(duration, repeat),
     mutant(mutant),
     from(mutant),
@@ -218,18 +218,18 @@ public:
       from = mutant;
     }
     Animation::step(canvas);
-    auto t = std::min(1.0, static_cast<double>(this->t) / duration);
+    auto t = std::min(1.0f, static_cast<float>(this->t) / duration);
     mutant.get() = f(easing_fn(t));
   }
 
-  void rebind_mutant(double& new_mutant) {
+  void rebind_mutant(float& new_mutant) {
     mutant = new_mutant;
   }
 
 private:
 
-  std::reference_wrapper<double> mutant;
-  double from;
+  std::reference_wrapper<float> mutant;
+  float from;
   MutateFn f;
   EasingFn easing_fn;
 };
@@ -292,7 +292,7 @@ public:
 private:
 
   SpriteFn draw_fn;
-  double fader;
+  float fader;
   int fade_in_duration;
   int fade_out_duration;
   Transition fade_in;
@@ -314,7 +314,7 @@ public:
     Animation<Motion<W>>::step(canvas);
     orientation.get().collapse();
     from = to;
-    to = path.get().get_point(static_cast<double>(this->t) / this->duration);
+    to = path.get().get_point(static_cast<float>(this->t) / this->duration);
     if (from != to) {
       Vector axis = cross(from, to).normalize();
       auto angle = angle_between(from, to);
@@ -329,7 +329,7 @@ public:
 
 private:
 
-  static constexpr double MAX_ANGLE = 2 * PI / W;
+  static constexpr float MAX_ANGLE = 2 * PI_F / W;
   std::reference_wrapper<Orientation> orientation;
   std::reference_wrapper<const Path<W>> path;
   Vector from;
@@ -340,7 +340,7 @@ template <int W>
 class Rotation : public Animation<Rotation<W>> {
 public:
 
-  Rotation(Orientation& orientation, const Vector& axis, double angle, int duration, EasingFn easing_fn, bool repeat = false) :
+  Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
     origin(orientation.get()),
@@ -359,8 +359,8 @@ public:
       this->t++;
     }
     orientation.get().collapse();
-    double angle = easing_fn(static_cast<double>(this->t) / this->duration) * total_angle;
-    double delta = angle - last_angle;
+    float angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
+    float delta = angle - last_angle;
     if (std::abs(delta) > TOLERANCE) {
       auto step_angle = delta / std::ceil(std::abs(angle - last_angle) / MAX_ANGLE);
       for (auto a = last_angle + step_angle; std::abs(angle - a) > TOLERANCE; a += step_angle) {
@@ -378,13 +378,13 @@ public:
 
 private:
 
-  static constexpr double MAX_ANGLE = 2 * PI / W;
+  static constexpr float MAX_ANGLE = 2 * PI_F / W;
   std::reference_wrapper<Orientation> orientation;
   Quaternion origin;
   Vector axis;
-  double total_angle;
+  float total_angle;
   EasingFn easing_fn;
-  double last_angle;
+  float last_angle;
 };
 
 template<int W>
@@ -396,7 +396,7 @@ public:
     v(Vector(v_start).normalize())
   {
     Vector u = X_AXIS;
-    if (std::abs(dot(v, u)) > 0.99) {
+    if (std::abs(dot(v, u)) > 0.99f) {
       u = Y_AXIS;
     }
     direction = cross(v, u).normalize();
@@ -407,7 +407,7 @@ public:
 
   void step(Canvas& canvas) override {
     Animation<RandomWalk<W>>::step(canvas);
-    double pivotAngle = noiseGenerator.GetNoise(static_cast<double>(this->t), 0.0) * PIVOT_STRENGTH;
+    float pivotAngle = noiseGenerator.GetNoise(static_cast<float>(this->t), 0.0f) * PIVOT_STRENGTH;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     Vector walk_axis = cross(v, direction).normalize();
     v = rotate(v, make_rotation(walk_axis, WALK_SPEED)).normalize();
@@ -417,9 +417,9 @@ public:
 
 private:
 
-  static constexpr double WALK_SPEED = 0.05;
-  static constexpr double PIVOT_STRENGTH = 0.4;
-  static constexpr double NOISE_SCALE = 0.008;
+  static constexpr float WALK_SPEED = 0.05;
+  static constexpr float PIVOT_STRENGTH = 0.4;
+  static constexpr float NOISE_SCALE = 0.008;
 
   FastNoiseLite noiseGenerator;
   std::reference_wrapper<Orientation> orientation;
@@ -441,7 +441,7 @@ public:
 
   void step(Canvas& canvas) {
     Animation::step(canvas);
-    double amount = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    float amount = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     cur_palette.get().lerp(from_palette, to_palette, easing_fn(amount));
   }
 
@@ -481,7 +481,7 @@ public:
   {}
 
   template <typename A>
-  Timeline& add(double in_frames, A animation) {
+  Timeline& add(float in_frames, A animation) {
     if (num_events >= MAX_EVENTS) {
       Serial.println("Timeline full, failed to add animation!");
       return *this;

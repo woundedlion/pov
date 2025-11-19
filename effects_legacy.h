@@ -4,7 +4,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-CRGB dim(const CRGB& c, double s) {
+CRGB dim(const CRGB& c, float s) {
   if (s < 0.5) s = s * s;
   return CRGB(
     static_cast<uint8_t>(c.r * s),
@@ -67,7 +67,7 @@ void plot_aa(CHSV (&leds)[W][H], const Fix16& x, const Fix16& y,
 }
 */
 
-auto blend(double a) {
+auto blend(float a) {
   return [a](const CRGB& c1, const CRGB& c2) {
     return CRGB(
       qadd8(c1.r * (1 - a), c2.r * a),

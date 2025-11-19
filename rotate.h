@@ -1,8 +1,9 @@
 
-const float pi = 3.1415926535897f;
-const float tau = 2 * pi;
-const float radians = pi / 180;
-const float degrees = 180 / pi;
+#include "3dmath.h"
+
+const float tau = 2 * PI_F;
+const float radians = PI_F / 180;
+const float degrees = 180 / PI_F;
 
 inline float mod_tau(float n) {
 	if (n > tau) return n - tau;
@@ -26,22 +27,22 @@ public:
 		Point(int x, int y) :
 			x(x),
 			y(y),
-			lambda(x* tau / W - pi),
-			phi((H - y)* pi / H - pi / 2)
+			lambda(x* tau / W - PI_F),
+			phi((H - y)* PI_F / H - PI_F / 2)
 		{}
 
 		Point(uint8_t x, uint8_t y) :
 			x(x),
 			y(y),
-			lambda(x* tau / W - pi),
-			phi((H - y)* pi / H - pi / 2)
+			lambda(x* tau / W - PI_F),
+			phi((H - y)* PI_F / H - PI_F / 2)
 		{}
 
 		Point(float x, float y) :
 			x(x),
 			y(y),
-			lambda(x* tau / W - pi),
-			phi((H - y)* pi / H - pi / 2)
+			lambda(x* tau / W - PI_F),
+			phi((H - y)* PI_F / H - PI_F / 2)
 		{}
 
 		Point(const Point& p) :
@@ -73,10 +74,10 @@ public:
 
 		// rotate lambda
 		p.lambda += delta_lambda;
-		if (p.lambda > pi) {
+		if (p.lambda > PI_F) {
 			p.lambda -= tau;
 		}
-		else if (p.lambda < -pi) {
+		else if (p.lambda < -PI_F) {
 			p.lambda += tau;
 		}
 
@@ -92,8 +93,8 @@ public:
 		p.phi = asinf(k * cos_dg + y * sin_dg);
 
 		// convert to equirectangular x, y
-		p.x = modf((p.lambda + pi) * W / tau, W);
-		p.y = H - ((p.phi + pi / 2) * H / pi);
+		p.x = modf((p.lambda + PI_F) * W / tau, W);
+		p.y = H - ((p.phi + PI_F / 2) * H / PI_F);
 
 		return p;
 	}

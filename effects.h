@@ -36,9 +36,9 @@ private:
 
   struct Ring {
     Vector normal;
-    double speed;
-    double radius;
-    double duration;
+    float speed;
+    float radius;
+    float duration;
     GenerativePalette palette;
 
     Ring() :
@@ -64,7 +64,7 @@ private:
 
         timeline.add(0,
           Sprite(
-            [this, i](Canvas& canvas, double opacity) { this->draw_ring(canvas, opacity, i); },
+            [this, i](Canvas& canvas, float opacity) { this->draw_ring(canvas, opacity, i); },
             ring.duration,
             4, ease_mid,
             0, ease_mid)
@@ -80,7 +80,7 @@ private:
     }
   }
 
-  void draw_ring(Canvas& canvas, double opacity, size_t index) {
+  void draw_ring(Canvas& canvas, float opacity, size_t index) {
     Ring& ring = rings[index];
     dots.clear();
     ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
@@ -118,9 +118,9 @@ public:
       .chain(orient)
       .chain(aa);
 
-    path.append_segment([&](double t) -> Vector {
+    path.append_segment([&](float t) -> Vector {
       return lissajous(12.0f, 5.0f, 0.0f, t);
-      }, 2 * PI, 1024, ease_mid);
+      }, 2 * PI_F, 1024, ease_mid);
 
     for (int i = 0; i < NUM_NODES; ++i) {
       spawn_node(i);
@@ -142,7 +142,7 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
     trails.trail(canvas,
-      [this](double x, double y, double t) {
+      [this](float x, float y, float t) {
         return palette.get(1.0 - t);
       },
       alpha
@@ -168,7 +168,7 @@ private:
     cur_function = hs::rand_int(0, functions.size());
     const auto& f = functions[cur_function];
     path.collapse();
-    path.append_segment([f](double t) -> Vector {
+    path.append_segment([f](float t) -> Vector {
       return lissajous(f.m1, f.m2, f.a, t);
       }, f.domain, 1024, ease_mid);
   }
@@ -190,7 +190,7 @@ private:
 
     timeline.add(0,
       Sprite(
-        [this, i](Canvas& canvas, double opacity) { draw_node(canvas, opacity, i); },
+        [this, i](Canvas& canvas, float opacity) { draw_node(canvas, opacity, i); },
         -1,
         16, ease_mid,
         0, ease_mid
@@ -202,7 +202,7 @@ private:
     );
   }
 
-  void draw_node(Canvas& canvas, double opacity, int i) {
+  void draw_node(Canvas& canvas, float opacity, int i) {
     Node& node = nodes[i];
     tween(node.orientation, [this, &canvas, opacity, &node](auto orient_fn, auto t) {
       dots.clear();
@@ -216,7 +216,7 @@ private:
   }
 
   static constexpr int NUM_NODES = 1;
-  double alpha = 1.0f;
+  float alpha = 1.0f;
   size_t cycle_duration = 80;
   size_t trail_length = 80;
   size_t wipe_duration = 48;
@@ -224,7 +224,7 @@ private:
 
   const std::array<LissajousParams, 12> functions = { {
       {1.06, 1.06, 0, 5.909},
-      {6.06, 1, 0, 2 * PI},
+      {6.06, 1, 0, 2 * PI_F},
       {6.02, 4.01, 0, 3.132},
       {46.62, 62.16, 0, 0.404},
       {46.26, 69.39, 0, 0.272},
@@ -288,7 +288,7 @@ public:
     rings.emplace_back(normal, filters, palette, trail_length);
     timeline.add(0,
       Sprite(
-        [this, ring_index](Canvas& canvas, double opacity) { draw_ring(canvas, opacity, ring_index); },
+        [this, ring_index](Canvas& canvas, float opacity) { draw_ring(canvas, opacity, ring_index); },
         -1,
         4, ease_mid,
         0, ease_mid
@@ -298,7 +298,7 @@ public:
         RandomWalk<W>(rings[ring_index].orientation, rings[ring_index].normal));
   }
 
-  void draw_ring(Canvas& canvas, double opacity, size_t ring_index) {
+  void draw_ring(Canvas& canvas, float opacity, size_t ring_index) {
     auto& ring = rings[ring_index];
     tween(ring.orientation, [this, &canvas, opacity, &ring](auto orient_fn, auto t) {
       dots.clear();
@@ -308,7 +308,7 @@ public:
     });
     ring.orientation.collapse();
     ring.trails.trail(canvas,
-      [&](double x, double y, double t) { return vignette(ring.palette)(t); },
+      [&](float x, float y, float t) { return vignette(ring.palette)(t); },
       alpha * opacity);
     
     ring.trails.decay();
@@ -324,8 +324,8 @@ private:
 
   static constexpr int NUM_RINGS = 4;
   std::vector<Ring> rings;
-  static constexpr double alpha = 0.2;
-  static constexpr double trail_length = 20;
+  static constexpr float alpha = 0.2;
+  static constexpr float trail_length = 20;
   FilterAntiAlias<W> filters;
   std::array<const Palette*, 6> palettes = { &richSunset, &mangoPeel, &undersea, &iceMelt };
   Timeline timeline;
@@ -393,7 +393,7 @@ public:
   void rotate() {
     timeline.add(0,
       Rotation<W>(
-        orientation, random_vector(), PI, 40, ease_in_out_sin, false));
+        orientation, random_vector(), PI_F, 40, ease_in_out_sin, false));
   }
 
   void color_wipe() {
@@ -407,7 +407,7 @@ public:
       BrightnessProfile::ASCENDING));
     palette_boundaries.push_front(0);
     timeline.add(0,
-      Transition(palette_boundaries.front(), PI + 1, wipe_duration, ease_mid)
+      Transition(palette_boundaries.front(), PI_F + 1, wipe_duration, ease_mid)
       .then([this]() {
         palette_boundaries.pop_back();
         palettes.pop_back();
@@ -415,12 +415,12 @@ public:
     );
   }
 
-  Pixel color(const Vector& v, double t) {
-    constexpr double blend_width = PI / 4;
-    double a = angle_between(v, palette_normal);
+  Pixel color(const Vector& v, float t) {
+    constexpr float blend_width = PI_F / 4;
+    float a = angle_between(v, palette_normal);
 
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
-      double boundary = palette_boundaries[i];
+      float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
       auto upper_edge = boundary + blend_width;
 
@@ -430,7 +430,7 @@ public:
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
-        auto clamped_blend_factor = std::clamp(blend_factor, 0.0, 1.0);
+        auto clamped_blend_factor = std::clamp(blend_factor, 0.0f, 1.0f);
         auto c1 = std::visit([t](auto& p) { return p.get(1 - t); }, palettes[i]);
         auto c2 = std::visit([t](auto& p) { return p.get(1 - t); }, palettes[i + 1]);
         return c1.lerp16(c2, to_short(clamped_blend_factor));
@@ -438,7 +438,7 @@ public:
 
       auto next_boundary_lower_edge = (i + 1 < palette_boundaries.size()
         ? palette_boundaries[i + 1] - blend_width
-        : PI + 1);
+        : PI_F + 1);
       if (a > upper_edge && a < next_boundary_lower_edge) {
         return std::visit([t](auto& p) { return p.get(1 - t); }, palettes[i + 1]);
       }
@@ -452,11 +452,11 @@ public:
 
     for (int i = std::abs(speed) - 1; i >= 0; --i) {
       pull(0);
-      draw_nodes(canvas, static_cast<double>(i) / std::abs(speed));
+      draw_nodes(canvas, static_cast<float>(i) / std::abs(speed));
     }
     trails.trail(
       canvas,
-      [this](double x, double y, double t) { return color(pixel_to_vector<W>(x, y), t); },
+      [this](float x, float y, float t) { return color(pixel_to_vector<W>(x, y), t); },
       0.5
     );
 
@@ -466,11 +466,11 @@ public:
 
 private:
 
-  double node_y(const Node& node) const {
+  float node_y(const Node& node) const {
     return (static_cast<float>(node.y) / (nodes.size() - 1)) * (H - 1);
   }
 
-  void draw_nodes(Canvas& canvas, double age) {
+  void draw_nodes(Canvas& canvas, float age) {
     dots.clear();
     for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
@@ -521,7 +521,7 @@ private:
   static constexpr size_t MAX_PALETTES = 16;
   static constexpr size_t NUM_NODES = H;
   StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
-  StaticCircularBuffer <double, MAX_PALETTES - 1> palette_boundaries; 
+  StaticCircularBuffer <float, MAX_PALETTES - 1> palette_boundaries; 
 
   Vector palette_normal;
   std::array<Node, NUM_NODES> nodes;
@@ -578,7 +578,7 @@ public:
       p.vel = p.vel + accel;
 
       // 4. Clamp velocity to max speed (manual implementation of clampLength)
-      double speed = p.vel.length();
+      float speed = p.vel.length();
       if (speed > k_max_speed) {
         p.vel = (p.vel / speed) * k_max_speed;
       }
@@ -588,7 +588,7 @@ public:
       p.pos.normalize();
 
       // 6. Get color based on speed (ratio of current speed to max)
-      double speed_ratio = speed / k_max_speed;
+      float speed_ratio = speed / k_max_speed;
       Pixel color = palette.get(speed_ratio);
 
       // 7. Add the particle's "head" to the dot buffer
@@ -598,7 +598,7 @@ public:
     plot_dots<W>(dots, trails, canvas, 0, k_alpha);
 
     trails.trail(canvas,
-      [this](double x, double y, double t) {
+      [this](float x, float y, float t) {
         return dim(palette.get(1.0 - t), 1.0 - t); //
       },
       k_alpha
@@ -616,13 +616,13 @@ private:
 
   static constexpr int k_num_particles = 100; 
   static constexpr int k_trail_length = 8; 
-  static constexpr double k_noise_scale = 100;
-  static constexpr double k_force_scale = 0.001;
-  static constexpr double k_gravity = 0.001;
-  static constexpr double k_max_speed = 0.1;
-  static constexpr double k_alpha = 0.7;
+  static constexpr float k_noise_scale = 100;
+  static constexpr float k_force_scale = 0.001;
+  static constexpr float k_gravity = 0.001;
+  static constexpr float k_max_speed = 0.1;
+  static constexpr float k_alpha = 0.7;
 
-  static constexpr double k_time_scale = 0.01;
+  static constexpr float k_time_scale = 0.01;
   static constexpr int k_max_trail_dots = 1024;
   Timeline timeline;
   FastNoiseLite noise_generator;
@@ -641,13 +641,13 @@ private:
     }
   }
 
-  Vector get_noise_force(const Vector& pos, double t) {
-    double t_scaled = t * k_time_scale;
+  Vector get_noise_force(const Vector& pos, float t) {
+    float t_scaled = t * k_time_scale;
     Vector n_pos = pos * k_noise_scale;
 
-    double x_force = noise_generator.GetNoise(n_pos.i, n_pos.j, t_scaled);
-    double y_force = noise_generator.GetNoise(n_pos.j, n_pos.k, t_scaled + 100.0);
-    double z_force = noise_generator.GetNoise(n_pos.k, n_pos.i, t_scaled + 200.0);
+    float x_force = noise_generator.GetNoise(n_pos.i, n_pos.j, t_scaled);
+    float y_force = noise_generator.GetNoise(n_pos.j, n_pos.k, t_scaled + 100.0f);
+    float z_force = noise_generator.GetNoise(n_pos.k, n_pos.i, t_scaled + 200.0f);
 
     return Vector(x_force, y_force, z_force) * k_force_scale;
   }

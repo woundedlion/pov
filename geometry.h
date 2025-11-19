@@ -5,8 +5,8 @@ static constexpr Vector Y_AXIS(0, 1, 0);
 static constexpr Vector Z_AXIS(0, 0, 1);
 
 struct PixelCoords {
-  double x;
-  double y;
+  float x;
+  float y;
 };
 
 struct Dot {
@@ -26,11 +26,11 @@ using Dots = StaticCircularBuffer<Dot, 1024>;
 
 
 template <int W>
-Vector pixel_to_vector(double x, double y) {
+Vector pixel_to_vector(float x, float y) {
   return Vector(
     Spherical(
-      (x * 2 * PI) / W,
-      (y * PI) / (H_VIRT - 1)
+      (x * 2 * PI_F) / W,
+      (y * PI_F) / (H_VIRT - 1)
     )
   );
 }
@@ -38,25 +38,25 @@ Vector pixel_to_vector(double x, double y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  assert(fabs(v.length()) - 1 < TOLERANCE);
-  PixelCoords p({ wrap((s.theta * W) / (2 * PI), W), (s.phi * (H_VIRT - 1)) / PI });
+  assert(std::abs(v.length()) - 1 < TOLERANCE);
+  PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), (s.phi * (H_VIRT - 1)) / PI_F });
   return p;
 }
 
-constexpr double lerp(double from, double to, double t) {
+constexpr float lerp(float from, float to, float t) {
   return ((to - from) * t) + from;
 }
 
-WaveFn sin_wave(double from, double to, double freq, double phase) {
-  return [=](double t) -> double {
-    auto w = (sin(freq * t * 2 * PI - (PI / 2) + PI - (2 * phase)) + 1) / 2;
+WaveFn sin_wave(float from, float to, float freq, float phase) {
+  return [=](float t) -> float {
+    auto w = (sinf(freq * t * 2 * PI_F - (PI_F / 2) + PI_F - (2 * phase)) + 1) / 2;
     return lerp(from, to, w);
     };
 }
 
-WaveFn tri_wave(double from, double to, double freq, double phase) {
-  return [=](double t) -> double {
-    double w = wrap(t * freq + phase, 1.0);
+WaveFn tri_wave(float from, float to, float freq, float phase) {
+  return [=](float t) -> float {
+    float w = wrap(t * freq + phase, 1.0);
     if (w < 0.5) {
       w = 2.0 * w;
     } else {
@@ -66,8 +66,8 @@ WaveFn tri_wave(double from, double to, double freq, double phase) {
     };
 }
 
-WaveFn square_wave(double from, double to, double freq, double dutyCycle, double phase) {
-  return [=](double t) -> double {
+WaveFn square_wave(float from, float to, float freq, float dutyCycle, float phase) {
+  return [=](float t) -> float {
     if (fmod(t * freq + phase, 1) < dutyCycle) {
       return to;
     }
@@ -302,14 +302,14 @@ struct Dodecahedron {
 
 Vector random_vector() {
   // Marsaglia's method
-  double v1, v2, s;
+  float v1, v2, s;
   do {
     v1 = 2.0 * hs::rand_dbl() - 1.0;
     v2 = 2.0 * hs::rand_dbl() - 1.0;
     s = v1 * v1 + v2 * v2;
   } while (s >= 1.0 || s == 0.0);
 
-  double sqrt_s = sqrt(1.0 - s);
+  float sqrt_s = sqrt(1.0 - s);
   return Vector(
     2.0 * v1 * sqrt_s,
     2.0 * v2 * sqrt_s,
@@ -318,18 +318,18 @@ Vector random_vector() {
 }
 
 struct LissajousParams {
-  double m1;
-  double m2;
-  double a;
-  double domain;
+  float m1;
+  float m2;
+  float a;
+  float domain;
 };
 
 
-Vector lissajous(double m1, double m2, double a, double t) {
+Vector lissajous(float m1, float m2, float a, float t) {
   Vector v(
-    sin(m2 * t) * cos(m1 * t - a * PI),
-    cos(m2 * t),
-    sin(m2 * t) * sin(m1 * t - a * PI)
+    sinf(m2 * t) * cosf(m1 * t - a * PI_F),
+    cosf(m2 * t),
+    sinf(m2 * t) * sinf(m1 * t - a * PI_F)
     );
   return v.normalize();
 }
