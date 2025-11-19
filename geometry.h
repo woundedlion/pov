@@ -68,7 +68,7 @@ WaveFn tri_wave(float from, float to, float freq, float phase) {
 
 WaveFn square_wave(float from, float to, float freq, float dutyCycle, float phase) {
   return [=](float t) -> float {
-    if (fmod(t * freq + phase, 1) < dutyCycle) {
+    if (fmod(t * freq + phase, 1.0f) < dutyCycle) {
       return to;
     }
     return from;

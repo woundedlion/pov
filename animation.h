@@ -2,7 +2,9 @@
 static constexpr int FPS = 16;
 
 float ease_in_out_bicubic(float t) {
-  return t < 0.5 ? 4 * pow(t, 3) : 1 - pow(-2 * t + 2, 3) / 2;
+  return t < 0.5 ? 
+    4 * t * t * t : 
+    1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
 }
 
 float ease_in_out_sin(float t) {
@@ -18,11 +20,11 @@ float ease_out_sin(float t) {
 }
 
 float ease_in_cubic(float t) {
-  return pow(t, 3);
+  return t * t * t;
 }
 
 float ease_in_circ(float t) {
-  return 1 - sqrtf(1 - pow(t, 2));
+  return 1 - sqrtf(1 - t * t);
 }
 
 float ease_mid(float t) {
@@ -30,11 +32,11 @@ float ease_mid(float t) {
 }
 
 float ease_out_expo(float t) {
-  return t == 1 ? 1 : 1 - pow(2, -10 * t);
+  return t == 1 ? 1 : 1 - powf(2, -10 * t);
 }
 
 float ease_out_circ(float t) {
-  return sqrtf(1 - pow(t - 1, 2));
+  return sqrtf(1 - (t - 1) * (t - 1));
 }
 
 template <typename Derived>

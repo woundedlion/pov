@@ -92,7 +92,7 @@ public:
 		p.phi = asinf(k * cos_dg + y * sin_dg);
 
 		// convert to equirectangular x, y
-		p.x = std::modf((p.lambda + PI_F) * W / tau, W);
+		p.x = modf((p.lambda + PI_F) * W / tau, W);
 		p.y = H - ((p.phi + PI_F / 2) * H / PI_F);
 
 		return p;
