@@ -157,9 +157,14 @@ public:
     CRGB g(0, color.g, 0);
     CRGB b(0, 0, color.b);
     this->pass(canvas, x, y, color, age, alpha);
-    this->pass(canvas, wrap(x + 1, W), y, r, age, alpha);
-    this->pass(canvas, wrap(x + 2, W), y, g, age, alpha);
-    this->pass(canvas, wrap(x + 3, W), y, b, age, alpha);
+    this->pass(canvas, wrap(x + 0.66f, W), y, r, age, alpha);
+    this->pass(canvas, wrap(x + 1.33f, W), y, g, age, alpha);
+    this->pass(canvas, wrap(x + 2.0f, W), y, b, age, alpha);
+/*
+    this->pass(canvas, wrap(x - 0.66f, W), y, r, age, alpha);
+    this->pass(canvas, wrap(x - 1.33f, W), y, g, age, alpha);
+    this->pass(canvas, wrap(x - 2.0f, W), y, b, age, alpha);
+    */
   }
 };
 

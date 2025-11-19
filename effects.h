@@ -108,7 +108,7 @@ class Comets : public Effect {
 public:
   Comets() :
     Effect(W),
-    palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
+    palette(darkPrimary),
     next_palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
     trails(trail_length),
     orient(orientation)
@@ -116,11 +116,10 @@ public:
     persist_pixels = false;
     trails
       .chain(orient)
+//      .chain(chroma_shift)
       .chain(aa);
 
-    path.append_segment([&](float t) -> Vector {
-      return lissajous(12.0f, 5.0f, 0.0f, t);
-      }, 2 * PI_F, 1024, ease_mid);
+    update_path();
 
     for (int i = 0; i < NUM_NODES; ++i) {
       spawn_node(i);
@@ -128,8 +127,7 @@ public:
 
     timeline.add(0,
       PeriodicTimer(2 * cycle_duration, [this](auto&) {
-        update_path();
-        update_palette();
+        increment_path();
         }, true)
     );
 
@@ -143,7 +141,7 @@ public:
     timeline.step(canvas);
     trails.trail(canvas,
       [this](float x, float y, float t) {
-        return palette.get(1.0 - t);
+        return palette.get(1.0f - t);
       },
       alpha
     );
@@ -164,8 +162,12 @@ private:
     }
   };
 
+  void increment_path() {
+    cur_function = (cur_function + 1) % functions.size();
+    update_path();
+  }
+
   void update_path() {
-    cur_function = hs::rand_int(0, functions.size());
     const auto& f = functions[cur_function];
     path.collapse();
     path.append_segment([f](float t) -> Vector {
@@ -208,7 +210,7 @@ private:
       dots.clear();
       ::draw_vector<W>(dots, orient_fn(node.v),
       [this](const auto& v, auto t) {
-          return palette.get(1.0 - t);
+          return palette.get(1.0f - t);
         });
       plot_dots<W>(dots, trails, canvas, t, this->alpha * opacity);
     });
@@ -222,28 +224,30 @@ private:
   size_t wipe_duration = 48;
   size_t spacing = 48;
 
-  const std::array<LissajousParams, 12> functions = { {
-      {1.06, 1.06, 0, 5.909},
-      {6.06, 1, 0, 2 * PI_F},
-      {6.02, 4.01, 0, 3.132},
-      {46.62, 62.16, 0, 0.404},
-      {46.26, 69.39, 0, 0.272},
-      {19.44, 9.72, 0, 0.646},
-      {8.51, 17.01, 0, 0.739},
-      {7.66, 6.38, 0, 4.924},
-      {8.75, 5, 0, 5.027},
-      {11.67, 14.58, 0, 2.154},
-      {11.67, 8.75, 0, 2.154},
-      {10.94, 8.75, 0, 2.872}
+  const std::array<LissajousParams, 13> functions = { {
+    {1.06f, 1.06f, 0.0f, 5.909f},
+    {6.06, 1.0f, 0.0f, 2.0f * PI_F},
+    {1.0f, 5.0f, 0.0f, 2.0f * PI_F},
+    {6.02, 4.01, 0.0f, 3.132f},
+    {46.62f, 62.16f, 0.0f, 0.404f},
+    {46.26f, 69.39f, 0.0f, 0.272f},
+    {19.44f, 9.72f, 0.0f, 0.646f},
+    {8.51f, 17.01f, 0.0f, 0.739f},
+    {7.66f, 6.38f, 0.0f, 4.924f},
+    {8.75f, 5.0f, 0.0f, 5.027f},
+    {11.67f, 14.58f, 0.0f, 2.154f},
+    {11.67f, 8.75f, 0.0f, 2.154f},
+    {10.94f, 8.75f, 0.0f, 2.872f}
   } };
 
   Path<W> path;
-  size_t cur_function;
+  size_t cur_function = 0;
   Orientation orientation;
-  GenerativePalette palette;
+  ProceduralPalette palette;
   GenerativePalette next_palette;
   FilterDecay<W, 3000> trails;
   FilterOrient<W> orient;
+  FilterChromaticShift<W> chroma_shift;
   FilterAntiAlias<W> aa;
   StaticCircularBuffer<Node, NUM_NODES> nodes;
   Timeline timeline;
@@ -358,7 +362,7 @@ public:
       BrightnessProfile::ASCENDING) }),
     palette_normal(Z_AXIS),
     speed(2),
-    gap(4),
+    gap(3),
     trail_length(8),
     filters(3),
     trails(trail_length),
@@ -381,7 +385,7 @@ public:
       .add(0,
         RandomTimer(160, 160, [this](auto&) { color_wipe(); }, true))
       .add(0,
-        RandomWalk<W>(orientation, Z_AXIS));
+        RandomTimer(48, 160, [this](auto&) { rotate(); }));
   }
 
   bool show_bg() const { return false; }

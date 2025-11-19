@@ -71,6 +71,7 @@ public:
   }
 
 private:
+
   StaticCircularBuffer<Vector, 1024> points;
 };
 

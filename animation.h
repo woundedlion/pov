@@ -32,7 +32,7 @@ float ease_mid(float t) {
 }
 
 float ease_out_expo(float t) {
-  return t == 1 ? 1 : 1 - powf(2, -10 * t);
+  return t == 1 ? 1 : 1 - powf(2.0f, -10 * t);
 }
 
 float ease_out_circ(float t) {
@@ -323,9 +323,9 @@ public:
       auto step_angle = angle / std::ceil(angle / MAX_ANGLE);
       auto& origin = orientation.get().get();
       for (auto a = step_angle; angle - a > TOLERANCE; a += step_angle) {
-        orientation.get().push(make_rotation(axis, a) * origin);
+        orientation.get().push((make_rotation(axis, a) * origin).normalize());
       }
-      orientation.get().push(make_rotation(axis, angle) * origin);
+      orientation.get().push((make_rotation(axis, angle) * origin).normalize());
     }
   }
 
@@ -366,9 +366,9 @@ public:
     if (std::abs(delta) > TOLERANCE) {
       auto step_angle = delta / std::ceil(std::abs(angle - last_angle) / MAX_ANGLE);
       for (auto a = last_angle + step_angle; std::abs(angle - a) > TOLERANCE; a += step_angle) {
-        orientation.get().push(make_rotation(axis, a) * origin);
+        orientation.get().push((make_rotation(axis, a) * origin).normalize());
       }
-      orientation.get().push(make_rotation(axis, angle) * origin);
+      orientation.get().push((make_rotation(axis, angle) * origin).normalize());
       last_angle = angle;
     }
   }

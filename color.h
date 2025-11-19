@@ -221,9 +221,9 @@ private:
     case HarmonyType::ANALOGOUS:
     default: {
       const int dir = (hs::rand_int(0, 1) == 0) ? 1 : -1;
-      const int offset1 = dir * hs::rand_int(256 / 12, 256 / 6);
+      const int offset1 = dir * hs::rand_int(256 / 8, 256  * 3 / 16);
       h2 = wrap_hue(h1_int + offset1);
-      const int offset2 = dir * hs::rand_int(256 / 12, 256 / 6);
+      const int offset2 = dir * hs::rand_int(256 / 8, 256 * 3 / 16);
       h3 = wrap_hue(h2 + offset2);
       break;
     }
@@ -346,4 +346,26 @@ static const ProceduralPalette algae(
   { 0.134, 0.134, 0.134 }, // C
   { 0.328, 0.658, 0.948 }  // D
 );
+
+static const ProceduralPalette fireGlow(
+  { 0.000, 0.000, 0.000 }, // A
+  { 0.560, 0.560, 0.560 }, // B
+  { 0.216, 0.346, 0.174 }, // C
+  { 0.756, 0.542, 0.279 }  // D
+);
+
+static const ProceduralPalette darkPrimary(
+  { 0.500, 0.500, 0.500 }, // A
+  { 0.500, 0.610, 0.500 }, // B
+  { 0.746, 0.347, 0.000 }, // C
+  { 0.187, 0.417, 0.670 }  // D);
+);
+
+static const ProceduralPalette mauveFade(
+  { 0.583, 0.000, 0.583 }, // A
+  { 1.000, 0.000, 1.000 }, // B
+  { 0.191, 0.348, 0.191 }, // C
+  { 0.175, 0.045, 0.150 }  // D
+);
+
 
