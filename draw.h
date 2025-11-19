@@ -101,7 +101,7 @@ void draw_polyhedron(Dots& dots, const VertexList& vertices, const AdjacencyList
 }
 
 Vector calc_ring_point(float a, float radius, const Vector& u, const Vector& v, const Vector& w) {
-  auto d = sqrt(pow(1 - radius, 2));
+  auto d = sqrtf((1 - radius) * (1 - radius));
   return Vector(
     d * v.i + radius * u.i * cosf(a) + radius * w.i * sinf(a),
     d * v.j + radius * u.j * cosf(a) + radius * w.j * sinf(a),
@@ -156,7 +156,7 @@ void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, f
 
   bool first = true;
   Vector start, from, to;
-  float step = 1.0 / W;
+  float step = 1.0f / W;
   for (float t = 0; t < 1; t += step) {
     auto vi = calc_ring_point(t * 2 * PI_F, radius, u, v, w);
     auto vp = calc_ring_point(t * 2 * PI_F, 1, u, v, w);

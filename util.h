@@ -3,7 +3,7 @@
 #include "3dmath.h"
 
 namespace hs {
-  float rand_dbl() {
+  float rand_f() {
     return static_cast<float>(::random(0, std::numeric_limits<int32_t>::max()))
       / std::numeric_limits<int32_t>::max();
   }

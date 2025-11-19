@@ -56,7 +56,7 @@ WaveFn sin_wave(float from, float to, float freq, float phase) {
 
 WaveFn tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
-    float w = wrap(t * freq + phase, 1.0);
+    float w = wrap(t * freq + phase, 1.0f);
     if (w < 0.5f) {
       w = 2.0f * w;
     } else {
@@ -309,7 +309,7 @@ Vector random_vector() {
     s = v1 * v1 + v2 * v2;
   } while (s >= 1.0f || s == 0.0f);
 
-  float sqrt_s = sqrt(1.0f - s);
+  float sqrt_s = sqrtf(1.0f - s);
   return Vector(
     2.0f * v1 * sqrt_s,
     2.0f * v2 * sqrt_s,

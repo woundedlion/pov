@@ -22,7 +22,7 @@ float ease_in_cubic(float t) {
 }
 
 float ease_in_circ(float t) {
-  return 1 - sqrt(1 - pow(t, 2));
+  return 1 - sqrtf(1 - pow(t, 2));
 }
 
 float ease_mid(float t) {
@@ -34,7 +34,7 @@ float ease_out_expo(float t) {
 }
 
 float ease_out_circ(float t) {
-  return sqrt(1 - pow(t - 1, 2));
+  return sqrtf(1 - pow(t - 1, 2));
 }
 
 template <typename Derived>

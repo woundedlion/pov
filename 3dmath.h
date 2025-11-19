@@ -51,7 +51,7 @@ struct Vector {
     return Vector(-i, -j, -k);
   }
 
-  constexpr float length() const { return sqrt(i * i + j * j + k * k); }
+  constexpr float length() const { return sqrtf(i * i + j * j + k * k); }
   
   Vector& normalize() {
     float m = length();
@@ -121,7 +121,7 @@ struct Quaternion {
   }
 
   constexpr float magnitude() const {
-    return sqrt(r * r + v.i * v.i + v.j * v.j + v.k * v.k);
+    return sqrtf(r * r + v.i * v.i + v.j * v.j + v.k * v.k);
   }
 
   Quaternion& normalize() {
@@ -184,7 +184,7 @@ constexpr float distance_between(const Vector& a, const Vector& b) {
   float di = b.i - a.i;
   float dj = b.j - a.j;
   float dk = b.k - a.k;
-  return sqrt(di * di + dj * dj + dk * dk);
+  return sqrtf(di * di + dj * dj + dk * dk);
 }
 
 constexpr float angle_between(const Vector& v1, const Vector& v2) {

@@ -1,4 +1,3 @@
-
 #include "3dmath.h"
 
 const float tau = 2 * PI_F;
@@ -11,7 +10,7 @@ inline float mod_tau(float n) {
 	return n;
 }
 
-inline float std::modf(float x, int m) {
+inline float modf(float x, int m) {
 	return (static_cast<int>(x) % m) + (x - static_cast<int>(x));
 }
 
