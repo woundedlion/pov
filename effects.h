@@ -356,11 +356,11 @@ public:
       GradientShape::VIGNETTE, 
       HarmonyType::ANALOGOUS, 
       BrightnessProfile::ASCENDING) }),
-    palette_normal(X_AXIS),
+    palette_normal(Z_AXIS),
     speed(2),
     gap(4),
     trail_length(8),
-    filters(4),
+    filters(3),
     trails(trail_length),
     orient(orientation)
   {
@@ -379,9 +379,9 @@ public:
       .add(0,
         RandomTimer(4, 64, [this](auto&) { reverse(); }, true))
       .add(0,
-        RandomTimer(20, 64, [this](auto&) { color_wipe(); }, true))
+        RandomTimer(160, 160, [this](auto&) { color_wipe(); }, true))
       .add(0,
-        RandomTimer(80, 150, [this](auto&) { rotate(); }, true));
+        RandomWalk<W>(orientation, Z_AXIS));
   }
 
   bool show_bg() const { return false; }
@@ -407,7 +407,7 @@ public:
       BrightnessProfile::ASCENDING));
     palette_boundaries.push_front(0);
     timeline.add(0,
-      Transition(palette_boundaries.front(), PI + 1, 20, ease_mid)
+      Transition(palette_boundaries.front(), PI + 1, wipe_duration, ease_mid)
       .then([this]() {
         palette_boundaries.pop_back();
         palettes.pop_back();
@@ -416,7 +416,7 @@ public:
   }
 
   Pixel color(const Vector& v, double t) {
-    constexpr double blend_width = PI / 8.0;
+    constexpr double blend_width = PI / 4;
     double a = angle_between(v, palette_normal);
 
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
@@ -425,14 +425,14 @@ public:
       auto upper_edge = boundary + blend_width;
 
       if (a < lower_edge) {
-        return std::visit([t](auto& p) { return p.get(t); },  palettes[i]);
+        return std::visit([t](auto& p) { return p.get(1 - t); },  palettes[i]);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
-        auto clamped_blend_factor = std::clamp(0.0, 1.0, blend_factor);
-        auto c1 = std::visit([t](auto& p) { return p.get(t); }, palettes[i]);
-        auto c2 = std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
+        auto clamped_blend_factor = std::clamp(blend_factor, 0.0, 1.0);
+        auto c1 = std::visit([t](auto& p) { return p.get(1 - t); }, palettes[i]);
+        auto c2 = std::visit([t](auto& p) { return p.get(1 - t); }, palettes[i + 1]);
         return c1.lerp16(c2, to_short(clamped_blend_factor));
       }
 
@@ -440,11 +440,11 @@ public:
         ? palette_boundaries[i + 1] - blend_width
         : PI + 1);
       if (a > upper_edge && a < next_boundary_lower_edge) {
-        return std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
+        return std::visit([t](auto& p) { return p.get(1 - t); }, palettes[i + 1]);
       }
     }
 
-    return std::visit([t](auto& p) { return p.get(t); }, palettes[0]);
+    return std::visit([t](auto& p) { return p.get(1 - t); }, palettes[0]);
   }
 
   void draw_frame() {
@@ -482,7 +482,7 @@ private:
         draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, false);
       }
     }
-    plot_dots(dots, filters, canvas, age, 0.5);
+    plot_dots(dots, filters, canvas, age, alpha);
   }
 
   void pull(int leader) {
@@ -527,6 +527,8 @@ private:
   std::array<Node, NUM_NODES> nodes;
   int speed;
   int gap;
+  float alpha = 0.2;
+  int wipe_duration = 160;
   uint32_t trail_length;
   Orientation orientation;
   Dots dots;
