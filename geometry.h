@@ -57,10 +57,10 @@ WaveFn sin_wave(float from, float to, float freq, float phase) {
 WaveFn tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
     float w = wrap(t * freq + phase, 1.0);
-    if (w < 0.5) {
-      w = 2.0 * w;
+    if (w < 0.5f) {
+      w = 2.0f * w;
     } else {
-      w = 2.0 * (1.0 - w);
+      w = 2.0f * (1.0f - w);
     }
     return lerp(from, to, w);
     };
@@ -304,16 +304,16 @@ Vector random_vector() {
   // Marsaglia's method
   float v1, v2, s;
   do {
-    v1 = 2.0 * hs::rand_dbl() - 1.0;
-    v2 = 2.0 * hs::rand_dbl() - 1.0;
+    v1 = 2.0f * hs::rand_f() - 1.0f;
+    v2 = 2.0f * hs::rand_f() - 1.0f;
     s = v1 * v1 + v2 * v2;
-  } while (s >= 1.0 || s == 0.0);
+  } while (s >= 1.0f || s == 0.0f);
 
-  float sqrt_s = sqrt(1.0 - s);
+  float sqrt_s = sqrt(1.0f - s);
   return Vector(
-    2.0 * v1 * sqrt_s,
-    2.0 * v2 * sqrt_s,
-    1.0 - 2.0 * s
+    2.0f * v1 * sqrt_s,
+    2.0f * v2 * sqrt_s,
+    1.0f - 2.0f * s
   );
 }
 

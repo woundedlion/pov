@@ -66,9 +66,9 @@ public:
 
   void plot(Canvas& canvas, float x, float y, const Pixel& c, float age, float alpha) {
     float x_i = 0;
-    float x_m = modf(x, &x_i);
+    float x_m = std::modf(x, &x_i);
     float y_i = 0;
-    float y_m = modf(y, &y_i);
+    float y_m = std::modf(y, &y_i);
 
     float v = (1 - x_m) * (1 - y_m);
     this->pass(canvas, x_i, y_i, c, age, alpha * v);

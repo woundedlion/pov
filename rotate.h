@@ -11,7 +11,7 @@ inline float mod_tau(float n) {
 	return n;
 }
 
-inline float modf(float x, int m) {
+inline float std::modf(float x, int m) {
 	return (static_cast<int>(x) % m) + (x - static_cast<int>(x));
 }
 
@@ -93,7 +93,7 @@ public:
 		p.phi = asinf(k * cos_dg + y * sin_dg);
 
 		// convert to equirectangular x, y
-		p.x = modf((p.lambda + PI_F) * W / tau, W);
+		p.x = std::modf((p.lambda + PI_F) * W / tau, W);
 		p.y = H - ((p.phi + PI_F / 2) * H / PI_F);
 
 		return p;

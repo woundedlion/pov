@@ -272,9 +272,9 @@ bool intersects_plane(const Vector& v1, const Vector& v2, const Vector& normal) 
 }
 
 Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
-  assert(std::abs(u.length() - 1.0) < TOLERANCE);
-  assert(std::abs(v.length() - 1.0) < TOLERANCE);
-  assert(std::abs(normal.length() - 1.0) < TOLERANCE);
+  assert(std::abs(u.length() - 1.0f) < TOLERANCE);
+  assert(std::abs(v.length() - 1.0f) < TOLERANCE);
+  assert(std::abs(normal.length() - 1.0f) < TOLERANCE);
   Vector w = cross(v, u).normalize();
   Vector i1 = cross(w, normal).normalize();
   Vector i2 = cross(normal, w).normalize();
@@ -282,7 +282,7 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
   float a1 = angle_between(u, v);
   float a2 = angle_between(i1, u);
   float a3 = angle_between(i1, v);
-  if (std::abs(a2 + a3 - a1) < .0001) {
+  if (std::abs(a2 + a3 - a1) < TOLERANCE) {
     return i1;
   }
 
