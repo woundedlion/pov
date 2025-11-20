@@ -337,9 +337,6 @@ private:
   Dots dots;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-// Experimental Effects Below!
-///////////////////////////////////////////////////////////////////////////////
 
 template <int W>
 class Dynamo : public Effect {
@@ -472,7 +469,7 @@ public:
 private:
 
   float node_y(const Node& node) const {
-    return (static_cast<float>(node.y) / (nodes.size() - 1)) * (H - 1);
+    return (static_cast<float>(node.y) / (nodes.size() - 1)) * (H_VIRT - 1);
   }
 
   void draw_nodes(Canvas& canvas, float age) {
@@ -657,3 +654,7 @@ private:
     return Vector(x_force, y_force, z_force) * k_force_scale;
   }
 };
+
+///////////////////////////////////////////////////////////////////////////////
+// Experimental Effects Below!
+///////////////////////////////////////////////////////////////////////////////
