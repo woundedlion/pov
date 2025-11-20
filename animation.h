@@ -431,7 +431,7 @@ private:
 
   static constexpr float WALK_SPEED = 0.05;
   static constexpr float PIVOT_STRENGTH = 0.4;
-  static constexpr float NOISE_SCALE = 0.008;
+  static constexpr float NOISE_SCALE = 0.08;
 
   FastNoiseLite noiseGenerator;
   std::reference_wrapper<Orientation> orientation;
