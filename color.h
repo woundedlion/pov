@@ -4,8 +4,14 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// Gamma brightness lookup table <https://victornpb.github.io/gamma-table-generator>
-// gamma = 2.20 steps = 256 range = 0-255
+/**
+ * @brief Gamma brightness lookup table (LUT).
+ * @details This table is used to convert linear color values (what the program calculates)
+ * to gamma-corrected values (what the human eye perceives) for display.
+ * Generated using gamma = 2.20, steps = 256, range = 0-255.
+ */
+ // Gamma brightness lookup table <https://victornpb.github.io/gamma-table-generator>
+ // gamma = 2.20 steps = 256 range = 0-255
 const uint8_t gamma_lut[256] = {
      0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
      1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   2,   2,
@@ -25,6 +31,11 @@ const uint8_t gamma_lut[256] = {
    223, 225, 227, 229, 231, 234, 236, 238, 240, 242, 244, 246, 248, 251, 253, 255,
 };
 
+/**
+ * @brief Applies gamma correction to a CRGB pixel color.
+ * @param p The input CRGB pixel.
+ * @return The gamma-corrected CRGB pixel.
+ */
 Pixel gamma_correct(const Pixel& p) {
   return CRGB(
     gamma_lut[p.r],
@@ -34,32 +45,55 @@ Pixel gamma_correct(const Pixel& p) {
 }
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @brief Base class for all color palette systems.
+ */
 class Palette {
 public:
+  /**
+   * @brief Gets the color for a given position/time along the palette.
+   * @param t Normalized value (0.0 to 1.0).
+   * @return The calculated CRGB pixel color.
+   */
   virtual Pixel get(float t) const = 0;
 };
 
+/**
+ * @brief Defines types of color harmonies for generative palettes.
+ */
 enum class HarmonyType {
-  TRIADIC,
-  SPLIT_COMPLEMENTARY,
-  COMPLEMENTARY,
-  ANALOGOUS
+  TRIADIC, /**< Three colors equidistant on the color wheel. */
+  SPLIT_COMPLEMENTARY, /**< Base color and two colors adjacent to its complement. */
+  COMPLEMENTARY, /**< Base color and its direct opposite. */
+  ANALOGOUS /**< Closely spaced colors on the color wheel. */
 };
 
+/**
+ * @brief Defines the visual shape or distribution of colors across the palette domain.
+ */
 enum class GradientShape {
-  STRAIGHT,
-  CIRCULAR,
-  VIGNETTE,
-  FALLOFF
+  STRAIGHT, /**< Linear blend from start to end colors. */
+  CIRCULAR, /**< Wraps the blend back to the start color. */
+  VIGNETTE, /**< Fades to black at the edges. */
+  FALLOFF /**< Fades only at the end. */
 };
 
+/**
+ * @brief Defines the overall brightness profile across the palette domain.
+ */
 enum class BrightnessProfile {
-  ASCENDING,
-  DESCENDING,
-  FLAT,
-  BELL
+  ASCENDING, /**< Brightness increases across the palette. */
+  DESCENDING, /**< Brightness decreases across the palette. */
+  FLAT, /**< Constant maximum brightness. */
+  BELL /**< Brightness starts low, peaks in the middle, and ends low. */
 };
 
+/**
+ * @brief Blends two CRGB pixels using the additive blend mode (clamping at 255).
+ * @param c1 The first pixel.
+ * @param c2 The second pixel.
+ * @return The resulting blended pixel.
+ */
 auto blend_add(const Pixel& c1, const Pixel& c2) {
   return Pixel(
     qadd8(c1.r, c2.r),
@@ -68,6 +102,11 @@ auto blend_add(const Pixel& c1, const Pixel& c2) {
 }
 
 
+/**
+ * @brief Creates a functor for blending two CRGB pixels using a constant alpha value.
+ * @param a The blending factor (0.0 to 1.0).
+ * @return A functor that performs the alpha blend: c_result = c1 * (1-a) + c2 * a.
+ */
 auto blend_alpha(float a) {
   return [a](const Pixel& c1, const Pixel& c2) {
     return Pixel(
@@ -77,13 +116,29 @@ auto blend_alpha(float a) {
     };
 }
 
+/**
+ * @brief Converts a float in the range [0.0, 1.0] to a 16-bit integer for FastLED lerping.
+ * @param zero_to_one The input float value.
+ * @return The corresponding 16-bit integer (0 to 65535).
+ */
 uint16_t to_short(float zero_to_one) {
   return std::clamp(std::round(zero_to_one * 65535.0f), 0.0f, 65535.0f);
 }
 
+/**
+ * @brief A palette that generates colors based on defined harmony and brightness profiles.
+ * @details This palette stores three primary HSV colors (a, b, c) and interpolates between them
+ * based on a gradient shape and a normalized position 't'.
+ */
 class GenerativePalette : public Palette {
 public:
 
+  /**
+   * @brief Constructs a generative palette by selecting colors based on harmony and brightness rules.
+   * @param gradient_shape The spatial shape of the blend (e.g., STRAIGHT, VIGNETTE).
+   * @param harmony_type The relationship between the primary hues (e.g., TRIADIC, ANALOGOUS).
+   * @param profile The overall brightness profile (e.g., ASCENDING, BELL).
+   */
   GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type, BrightnessProfile profile) :
     gradient_shape(gradient_shape),
     harmony_type(harmony_type),
@@ -128,10 +183,13 @@ public:
     a = CHSV(h1, s1, v1);
     b = CHSV(h2, s2, v2);
     c = CHSV(h3, s3, v3);
-    
+
     update_luts();
   }
 
+  /**
+   * @brief Recalculates the internal interpolation points based on the current gradient shape.
+   */
   void update_luts() {
     const Pixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
@@ -158,6 +216,12 @@ public:
     }
   }
 
+  /**
+   * @brief Interpolates the palette's internal HSV components toward a target palette.
+   * @param from The starting palette state.
+   * @param to The target palette state.
+   * @param amount The interpolation factor (0.0 to 1.0).
+   */
   void lerp(const GenerativePalette& from, const GenerativePalette& to, float amount) {
     uint16_t fract = static_cast<uint16_t>(amount * 65535.0f);
     a = from.a.lerp16(to.a, fract);
@@ -166,6 +230,11 @@ public:
     update_luts();
   }
 
+  /**
+   * @brief Gets the color for a given position 't' by linearly interpolating between the defined points.
+   * @param t Normalized value (0.0 to 1.0).
+   * @return The calculated CRGB pixel color.
+   */
   Pixel get(float t) const override {
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
@@ -189,10 +258,22 @@ public:
 
 private:
 
+  /**
+   * @brief Wraps a hue value to the valid 0-255 range.
+   * @param hue The input hue value.
+   * @return The wrapped hue (0-255).
+   */
   uint8_t wrap_hue(int hue) const {
     return (hue % 256 + 256) % 256;
   }
 
+  /**
+   * @brief Calculates two secondary hues based on the primary hue and a harmony type.
+   * @param h1 The primary hue.
+   * @param h2 The first secondary hue (output).
+   * @param h3 The second secondary hue (output).
+   * @param harmony_type The rule to use (e.g., TRIADIC).
+   */
   void calc_hues(uint8_t h1, uint8_t& h2, uint8_t& h3, HarmonyType harmony_type) const {
     const int h1_int = h1;
 
@@ -221,7 +302,7 @@ private:
     case HarmonyType::ANALOGOUS:
     default: {
       const int dir = (hs::rand_int(0, 1) == 0) ? 1 : -1;
-      const int offset1 = dir * hs::rand_int(256 / 8, 256  * 3 / 16);
+      const int offset1 = dir * hs::rand_int(256 / 8, 256 * 3 / 16);
       h2 = wrap_hue(h1_int + offset1);
       const int offset2 = dir * hs::rand_int(256 / 8, 256 * 3 / 16);
       h3 = wrap_hue(h2 + offset2);
@@ -230,18 +311,29 @@ private:
     }
   }
 
-  GradientShape gradient_shape;
-  HarmonyType harmony_type;
-  uint8_t seed_hue;
-  Pixel a, b, c;
-  std::array<float, 5> shape;
-  std::array<Pixel, 5> colors;
-  int size;
+  GradientShape gradient_shape; /**< The spatial shape of the gradient. */
+  HarmonyType harmony_type; /**< The rule used for hue selection. */
+  uint8_t seed_hue; /**< The base hue used to generate the palette. */
+  Pixel a, b, c; /**< The three primary colors of the palette (CHSV internally). */
+  std::array<float, 5> shape; /**< Normalized position along the palette domain where colors change. */
+  std::array<Pixel, 5> colors; /**< The corresponding colors at the shape points. */
+  int size; /**< The number of active points in shape/colors. */
 };
 
+/**
+ * @brief A palette defined by a mathematical cosine wave function for each RGB channel.
+ * @details The function is: C(t) = A + B * cos(2 * PI * (C * t + D)).
+ */
 class ProceduralPalette : public Palette {
 public:
 
+  /**
+   * @brief Constructs the procedural palette from its four defining vectors (A, B, C, D).
+   * @param a The A vector (Base Value/Offset).
+   * @param b The B vector (Amplitude).
+   * @param c The C vector (Frequency).
+   * @param d The D vector (Phase Shift).
+   */
   ProceduralPalette(
     std::array<float, 3> a,
     std::array<float, 3> b,
@@ -254,6 +346,11 @@ public:
   {
   }
 
+  /**
+   * @brief Gets the color by calculating the cosine wave for each RGB channel at time 't'.
+   * @param t Normalized value (0.0 to 1.0).
+   * @return The calculated CRGB pixel color.
+   */
   Pixel get(float t) const override {
     return Pixel(
       255 * (a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0]))),
@@ -264,18 +361,26 @@ public:
 
 private:
 
-  std::array<float, 3> a;
-  std::array<float, 3> b;
-  std::array<float, 3> c;
-  std::array<float, 3> d;
+  std::array<float, 3> a; /**< Base value / Offset. */
+  std::array<float, 3> b; /**< Amplitude. */
+  std::array<float, 3> c; /**< Frequency. */
+  std::array<float, 3> d; /**< Phase shift. */
 };
 
+/**
+ * @brief Type alias for the variant holding any supported palette type.
+ */
 using PaletteVariant =
 std::variant<
   GenerativePalette,
   ProceduralPalette
 >;
 
+/**
+ * @brief Creates a color function that applies a falloff/vignette effect to any palette.
+ * @param palette The base palette.
+ * @return A functor that returns a color dimmed at the edges (t < 0.2 and t > 0.8).
+ */
 auto vignette(const Palette& palette) {
   CRGB vignette_color(0, 0, 0);
   return [vignette_color, &palette](float t) {
@@ -288,9 +393,12 @@ auto vignette(const Palette& palette) {
     else {
       return palette.get((t - 0.2) / 0.6);
     }
-  };
+    };
 }
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Ice Melt.
+ */
 static const ProceduralPalette iceMelt(
   { 0.500, 0.500, 0.500 }, // A
   { 0.500, 0.500, 0.500 }, // B
@@ -298,6 +406,9 @@ static const ProceduralPalette iceMelt(
   { 0.579, 0.353, 0.244 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Embers.
+ */
 static const ProceduralPalette embers(
   { 0.500, 0.500, 0.500 }, // A
   { 0.500, 0.500, 0.500 }, // B
@@ -305,6 +416,9 @@ static const ProceduralPalette embers(
   { 0.577, 0.440, 0.358 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Rich Sunset.
+ */
 static const ProceduralPalette richSunset(
   { 0.309, 0.500, 0.500 }, // A
   { 1.000, 1.000, 0.500 }, // B
@@ -312,6 +426,9 @@ static const ProceduralPalette richSunset(
   { 0.132, 0.222, 0.521 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Undersea.
+ */
 static const ProceduralPalette undersea(
   { 0.000, 0.000, 0.000 }, // A
   { 0.500, 0.276, 0.423 }, // B
@@ -319,6 +436,9 @@ static const ProceduralPalette undersea(
   { 0.374, 0.941, 0.000 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Late Sunset.
+ */
 static const ProceduralPalette lateSunset(
   { 0.337, 0.500, 0.096 }, // A
   { 0.500, 1.000, 0.176 }, // B
@@ -326,6 +446,9 @@ static const ProceduralPalette lateSunset(
   { 0.153, 0.483, 0.773 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Mango Peel.
+ */
 static const ProceduralPalette mangoPeel(
   { 0.500, 0.500, 0.500 }, // A
   { 0.500, 0.080, 0.500 }, // B
@@ -333,6 +456,9 @@ static const ProceduralPalette mangoPeel(
   { 0.566, 0.896, 0.236 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Lemon Lime.
+ */
 static const ProceduralPalette lemonLime(
   { 0.455, 0.455, 0.455 }, // A
   { 0.571, 0.151, 0.571 }, // B
@@ -340,6 +466,9 @@ static const ProceduralPalette lemonLime(
   { 0.087, 0.979, 0.319 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Algae.
+ */
 static const ProceduralPalette algae(
   { 0.337, 0.500, 0.096 }, // A
   { 0.500, 1.000, 0.176 }, // B
@@ -347,6 +476,9 @@ static const ProceduralPalette algae(
   { 0.328, 0.658, 0.948 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Fire Glow.
+ */
 static const ProceduralPalette fireGlow(
   { 0.000, 0.000, 0.000 }, // A
   { 0.560, 0.560, 0.560 }, // B
@@ -354,6 +486,9 @@ static const ProceduralPalette fireGlow(
   { 0.756, 0.542, 0.279 }  // D
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Dark Primary.
+ */
 static const ProceduralPalette darkPrimary(
   { 0.500, 0.500, 0.500 }, // A
   { 0.500, 0.610, 0.500 }, // B
@@ -361,11 +496,12 @@ static const ProceduralPalette darkPrimary(
   { 0.187, 0.417, 0.670 }  // D);
 );
 
+/**
+ * @brief A pre-defined ProceduralPalette instance: Mauve Fade.
+ */
 static const ProceduralPalette mauveFade(
   { 0.583, 0.000, 0.583 }, // A
   { 1.000, 0.000, 1.000 }, // B
   { 0.191, 0.348, 0.191 }, // C
   { 0.175, 0.045, 0.150 }  // D
 );
-
-

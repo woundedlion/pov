@@ -6,72 +6,155 @@
 #include <variant>
 #include <array>
 
+/**
+ * @brief Frames Per Second constant.
+ */
 static constexpr int FPS = 16;
 
+/**
+ * @brief Easing function: Bi-Cubic Interpolation (In-Out).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_in_out_bicubic(float t) {
-  return t < 0.5 ? 
-    4 * t * t * t : 
+  return t < 0.5 ?
+    4 * t * t * t :
     1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
 }
 
+/**
+ * @brief Easing function: Sine Interpolation (In-Out).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_in_out_sin(float t) {
   return -(cosf(PI_F * t) - 1) / 2;
 }
 
+/**
+ * @brief Easing function: Sine Interpolation (In).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_in_sin(float t) {
   return 1 - cosf((t * PI_F) / 2);
 }
 
+/**
+ * @brief Easing function: Sine Interpolation (Out).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_out_sin(float t) {
   return sinf((t * PI_F) / 2);
 }
 
+/**
+ * @brief Easing function: Cubic Interpolation (In).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_in_cubic(float t) {
   return t * t * t;
 }
 
+/**
+ * @brief Easing function: Circular Interpolation (In).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_in_circ(float t) {
   return 1 - sqrtf(1 - t * t);
 }
 
+/**
+ * @brief Easing function: Linear interpolation (no easing).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_mid(float t) {
   return t;
 }
 
+/**
+ * @brief Easing function: Exponential Interpolation (Out).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_out_expo(float t) {
   return t == 1 ? 1 : 1 - powf(2.0f, -10 * t);
 }
 
+/**
+ * @brief Easing function: Circular Interpolation (Out).
+ * @param t The time factor (0.0 to 1.0).
+ * @return The eased factor.
+ */
 float ease_out_circ(float t) {
   return sqrtf(1 - (t - 1) * (t - 1));
 }
 
+/**
+ * @brief Base class for all animations, providing core timing and state management.
+ * @tparam Derived The class inheriting from Animation (Curiously Recurring Template Pattern).
+ */
 template <typename Derived>
 class Animation {
 public:
 
+  /**
+   * @brief Cancels the animation on the next step.
+   */
   void cancel() { canceled = true; }
+  /**
+   * @brief Checks if the animation is finished or canceled.
+   * @return True if done.
+   */
   virtual bool done() const { return canceled || (duration >= 0 && t >= duration); }
+  /**
+   * @brief Checks if the animation should repeat after finishing.
+   * @return True if repeating.
+   */
   virtual bool repeats() const { return repeat; }
+  /**
+   * @brief Advances the animation state by one frame.
+   * @param canvas The canvas buffer (unused by base class, passed to derived classes).
+   */
   virtual void step(Canvas& canvas) {
     t++;
   }
 
+  /**
+   * @brief Resets the internal timer to zero.
+   */
   void rewind() {
     t = 0;
   }
 
+  /**
+   * @brief Sets a callback function to be executed when the animation finishes.
+   * @param callback The function to execute on completion.
+   * @return Reference to the derived animation object.
+   */
   Derived& then(std::function<void()> callback) {
     post = callback;
     return static_cast<Derived&>(*this);
   }
 
+  /**
+   * @brief Executes the registered post-completion callback.
+   */
   void post_callback() const {
     post();
   }
 
 protected:
 
+  /**
+   * @brief Constructor for the base animation class.
+   * @param duration Total number of frames the animation should run (-1 for indefinite).
+   * @param repeat If true, the animation rewinds and restarts when finished.
+   */
   Animation(int duration, bool repeat) :
     duration(duration == 0 ? 1 : duration),
     repeat(repeat),
@@ -80,28 +163,50 @@ protected:
   {
   }
 
-  int duration;
-  bool repeat;
-  int t = 0;
+  int duration; /**< Total length of the animation in frames. */
+  bool repeat; /**< Flag indicating if the animation should repeat. */
+  int t = 0; /**< Internal frame counter. */
 
 private:
 
-  bool canceled;
-  std::function<void()> post;
+  bool canceled; /**< Flag to signal immediate cancellation. */
+  std::function<void()> post; /**< Callback executed when the animation finishes. */
 };
 
+/**
+ * @brief A placeholder animation that immediately reports being done.
+ */
 class NullAnimation : public Animation<NullAnimation> {
 public:
+  /**
+   * @brief Constructs a NullAnimation.
+   */
   NullAnimation() :
     Animation(0, false)
   {}
+  /**
+   * @brief Performs no action.
+   */
   void step(Canvas&) {}
+  /**
+   * @brief Always reports true.
+   */
   bool done() const { return true; }
 };
 
+/**
+ * @brief An animation that triggers a callback after a random delay.
+ */
 class RandomTimer : public Animation<RandomTimer> {
 public:
 
+  /**
+   * @brief Constructs a RandomTimer.
+   * @param min Minimum delay in frames.
+   * @param max Maximum delay in frames.
+   * @param f The function to call when the timer elapses.
+   * @param repeat If true, the timer resets after calling the function.
+   */
   RandomTimer(int min, int max, TimerFn f, bool repeat = false) :
     Animation(-1, repeat),
     min(min),
@@ -112,10 +217,16 @@ public:
     reset();
   }
 
+  /**
+   * @brief Calculates the next random trigger time.
+   */
   void reset() {
     next = t + static_cast<int>(std::round(hs::rand_int(min, max)));
   }
 
+  /**
+   * @brief Steps the timer, calling the function if the delay has elapsed.
+   */
   void step(Canvas& canvas) {
     Animation::step(canvas);
     if (t >= next) {
@@ -131,14 +242,23 @@ public:
 
 private:
 
-  int min;
-  int max;
-  TimerFn f;
-  int next;
+  int min; /**< Minimum frame delay. */
+  int max; /**< Maximum frame delay. */
+  TimerFn f; /**< The callback function. */
+  int next; /**< The target frame count for the next trigger. */
 };
 
+/**
+ * @brief An animation that triggers a callback at regular intervals.
+ */
 class PeriodicTimer : public Animation<PeriodicTimer> {
 public:
+  /**
+   * @brief Constructs a PeriodicTimer.
+   * @param period The interval between calls, in frames.
+   * @param f The function to call when the timer elapses.
+   * @param repeat If true, the timer resets after calling the function.
+   */
   PeriodicTimer(int period, TimerFn f, bool repeat = false) :
     Animation(-1, repeat),
     period(period),
@@ -147,10 +267,16 @@ public:
     reset();
   }
 
+  /**
+   * @brief Calculates the next periodic trigger time.
+   */
   void reset() {
     next = t + period;
   }
 
+  /**
+   * @brief Steps the timer, calling the function if the period has elapsed.
+   */
   void step(Canvas& canvas) {
     Animation::step(canvas);
     if (t >= next) {
@@ -166,13 +292,25 @@ public:
 
 private:
 
-  int period;
-  TimerFn f;
-  int next;
+  int period; /**< The interval in frames. */
+  TimerFn f; /**< The callback function. */
+  int next; /**< The target frame count for the next trigger. */
 };
 
+/**
+ * @brief An animation that smoothly transitions a float variable over time.
+ */
 class Transition : public Animation<Transition> {
 public:
+  /**
+   * @brief Constructs a Transition animation.
+   * @param mutant The float variable to modify.
+   * @param to The target value.
+   * @param duration The duration in frames.
+   * @param easing_fn The easing function to use.
+   * @param quantized If true, the final value is rounded down to an integer.
+   * @param repeat If true, the transition repeats indefinitely.
+   */
   Transition(float& mutant, float to, int duration, EasingFn easing_fn, bool quantized = false, bool repeat = false) :
     Animation(duration, repeat),
     mutant(mutant),
@@ -183,6 +321,9 @@ public:
   {
   }
 
+  /**
+   * @brief Performs one step of the transition.
+   */
   void step(Canvas& canvas) {
     if (t == 0) {
       from = mutant;
@@ -196,22 +337,37 @@ public:
     mutant.get() = n;
   }
 
+  /**
+   * @brief Rebinds the reference to the float variable being mutated.
+   * @param new_mutant The new float variable to modify.
+   */
   void rebind_mutant(float& new_mutant) {
     mutant = new_mutant;
   }
 
 private:
 
-  std::reference_wrapper<float> mutant;
-  float from;
-  float to;
-  EasingFn easing_fn;
-  bool quantized;
+  std::reference_wrapper<float> mutant; /**< Reference to the float variable being animated. */
+  float from; /**< Starting value. */
+  float to; /**< Target value. */
+  EasingFn easing_fn; /**< Easing curve. */
+  bool quantized; /**< Flag to round result to integer. */
 };
 
+/**
+ * @brief An animation that applies a custom function to a float variable over time.
+ */
 class Mutation : public Animation<Mutation> {
 public:
 
+  /**
+   * @brief Constructs a Mutation animation.
+   * @param mutant The float variable to modify.
+   * @param f The custom mutation function: `float f(float eased_t)`.
+   * @param duration The duration in frames.
+   * @param easing_fn The easing function to apply to the time factor.
+   * @param repeat If true, the mutation repeats indefinitely.
+   */
   Mutation(float& mutant, MutateFn f, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation(duration, repeat),
     mutant(mutant),
@@ -220,6 +376,9 @@ public:
     easing_fn(easing_fn)
   {}
 
+  /**
+   * @brief Performs one step of the mutation.
+   */
   void step(Canvas& canvas) {
     if (t == 0) {
       from = mutant;
@@ -229,21 +388,37 @@ public:
     mutant.get() = f(easing_fn(t));
   }
 
+  /**
+   * @brief Rebinds the reference to the float variable being mutated.
+   * @param new_mutant The new float variable to modify.
+   */
   void rebind_mutant(float& new_mutant) {
     mutant = new_mutant;
   }
 
 private:
 
-  std::reference_wrapper<float> mutant;
-  float from;
-  MutateFn f;
-  EasingFn easing_fn;
+  std::reference_wrapper<float> mutant; /**< Reference to the float variable being modified. */
+  float from; /**< Starting value (unused by most MutateFns, but saved for context). */
+  MutateFn f; /**< The custom function to apply. */
+  EasingFn easing_fn; /**< Easing curve. */
 };
 
+/**
+ * @brief An animation that draws a sprite while managing its fade-in/out effects.
+ */
 class Sprite : public Animation<Sprite> {
 public:
 
+  /**
+   * @brief Constructs a Sprite animation.
+   * @param draw_fn The function to call each frame for drawing (`void draw_fn(Canvas&, float opacity)`).
+   * @param duration The duration the sprite is fully visible (-1 for indefinite).
+   * @param fade_in_duration Frames for fading in.
+   * @param fade_in_easing_fn Easing for fade-in.
+   * @param fade_out_duration Frames for fading out.
+   * @param fade_out_easing_fn Easing for fade-out.
+   */
   Sprite(SpriteFn draw_fn, int duration,
     int fade_in_duration = 0, EasingFn fade_in_easing_fn = ease_mid,
     int fade_out_duration = 0, EasingFn fade_out_easing_fn = ease_mid) :
@@ -256,6 +431,9 @@ public:
     fade_out(fader, 0, fade_out_duration, fade_out_easing_fn)
   {}
 
+  /**
+   * @brief Move constructor. Rebinds internal references to the new fader variable.
+   */
   Sprite(Sprite&& other) noexcept
     : Animation(std::move(other)),
     draw_fn(std::move(other.draw_fn)),
@@ -269,6 +447,9 @@ public:
     fade_out.rebind_mutant(this->fader);
   }
 
+  /**
+   * @brief Move assignment operator. Rebinds internal references.
+   */
   Sprite& operator=(Sprite&& other) noexcept {
     if (this == &other) return *this;
 
@@ -285,6 +466,9 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Steps the animation, updates the fader, and calls the draw function with the current opacity.
+   */
   void step(Canvas& canvas) {
     if (t == 0) {
       fade_in.rewind();
@@ -302,24 +486,38 @@ public:
 
 private:
 
-  SpriteFn draw_fn;
-  float fader;
-  int fade_in_duration;
-  int fade_out_duration;
-  Transition fade_in;
-  Transition fade_out;
+  SpriteFn draw_fn; /**< The drawing function functor. */
+  float fader; /**< The variable storing the current opacity (0.0 to 1.0). */
+  int fade_in_duration; /**< Duration of fade-in phase. */
+  int fade_out_duration; /**< Duration of fade-out phase. */
+  Transition fade_in; /**< Internal transition managing the fade-in. */
+  Transition fade_out; /**< Internal transition managing the fade-out. */
 };
 
+/**
+ * @brief An animation that moves an Orientation along a defined Path.
+ * @tparam W The width of the LED display (used for calculating maximum rotation step).
+ */
 template <int W>
 class Motion : public Animation<Motion<W>> {
 public:
 
+  /**
+   * @brief Constructs a Motion animation.
+   * @param orientation The Orientation object to update.
+   * @param path The path to follow.
+   * @param duration The duration in frames.
+   * @param repeat If true, the motion repeats.
+   */
   Motion(Orientation& orientation, const Path<W>& path, int duration, bool repeat = false) :
     Animation<Motion<W>>(duration, repeat),
     orientation(orientation),
     path(path)
   {}
 
+  /**
+   * @brief Steps the animation, calculates the next rotation step along the path, and pushes it to the Orientation.
+   */
   void step(Canvas& canvas) {
     if (this->t == 0) {
       to = path.get().get_point(0);
@@ -342,17 +540,30 @@ public:
 
 private:
 
-  static constexpr float MAX_ANGLE = 2 * PI_F / W;
-  std::reference_wrapper<Orientation> orientation;
-  std::reference_wrapper<const Path<W>> path;
-  Vector from;
-  Vector to;
+  static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
+  std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
+  std::reference_wrapper<const Path<W>> path; /**< Reference to the Path object. */
+  Vector from; /**< Starting position for the current step. */
+  Vector to; /**< Target position for the current step. */
 };
 
+/**
+ * @brief An animation that applies a fixed, time-eased rotation.
+ * @tparam W The width of the LED display (used for calculating maximum rotation step).
+ */
 template <int W>
 class Rotation : public Animation<Rotation<W>> {
 public:
 
+  /**
+   * @brief Constructs a Rotation animation.
+   * @param orientation The Orientation object to update.
+   * @param axis The rotation axis (unit vector).
+   * @param angle The total rotation angle in radians.
+   * @param duration The duration in frames.
+   * @param easing_fn The easing function to use.
+   * @param repeat If true, the rotation repeats.
+   */
   Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
@@ -364,6 +575,9 @@ public:
   {
   }
 
+  /**
+   * @brief Steps the animation, calculates the rotation delta based on the easing curve, and pushes it to the Orientation.
+   */
   void step(Canvas& canvas) {
     if (this->t == 0) {
       last_angle = 0;
@@ -383,6 +597,14 @@ public:
     }
   }
 
+  /**
+   * @brief Static helper to apply a rotation immediately (duration = 1 frame).
+   * @param canvas The canvas buffer.
+   * @param orientation The Orientation object to update.
+   * @param axis The rotation axis (unit vector).
+   * @param angle The rotation angle in radians.
+   * @param easing_fn The easing function to use.
+   */
   static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, EasingFn easing_fn) {
     Rotation<W> r(orientation, axis, angle, 1, easing_fn, false);
     r.step(canvas);
@@ -390,18 +612,28 @@ public:
 
 private:
 
-  static constexpr float MAX_ANGLE = 2 * PI_F / W;
-  std::reference_wrapper<Orientation> orientation;
-  Quaternion origin;
-  Vector axis;
-  float total_angle;
-  EasingFn easing_fn;
-  float last_angle;
+  static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
+  std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
+  Quaternion origin; /**< Starting quaternion for the rotation sequence. */
+  Vector axis; /**< The axis of rotation. */
+  float total_angle; /**< The total angle to sweep. */
+  EasingFn easing_fn; /**< Easing curve. */
+  float last_angle; /**< The angle reached in the previous frame. */
 };
 
+/**
+ * @brief An animation that simulates a particle/camera performing a random walk across the sphere's surface.
+ * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
+ * @tparam W The width of the LED display.
+ */
 template<int W>
 class RandomWalk : public Animation<RandomWalk<W>> {
 public:
+  /**
+   * @brief Constructs a RandomWalk animation.
+   * @param orientation The Orientation object to update.
+   * @param v_start The starting direction vector.
+   */
   RandomWalk(Orientation& orientation, const Vector& v_start) :
     Animation<RandomWalk<W>>(-1, false),
     orientation(orientation),
@@ -417,6 +649,9 @@ public:
     noiseGenerator.SetSeed(hs::rand_int(std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
   }
 
+  /**
+   * @brief Steps the walk: pivots direction based on noise, then rotates the view along the calculated axis.
+   */
   void step(Canvas& canvas) override {
     Animation<RandomWalk<W>>::step(canvas);
     float pivotAngle = noiseGenerator.GetNoise(static_cast<float>(this->t), 0.0f) * PIVOT_STRENGTH;
@@ -429,20 +664,30 @@ public:
 
 private:
 
-  static constexpr float WALK_SPEED = 0.05;
-  static constexpr float PIVOT_STRENGTH = 0.4;
-  static constexpr float NOISE_SCALE = 0.08;
+  static constexpr float WALK_SPEED = 0.05; /**< Constant linear forward speed. */
+  static constexpr float PIVOT_STRENGTH = 0.4; /**< Maximum side-to-side pivot magnitude based on noise. */
+  static constexpr float NOISE_SCALE = 0.08; /**< Frequency of the noise used for pivoting. */
 
-  FastNoiseLite noiseGenerator;
-  std::reference_wrapper<Orientation> orientation;
-  Vector v;
-  Vector direction;
+  FastNoiseLite noiseGenerator; /**< The noise generator instance. */
+  std::reference_wrapper<Orientation> orientation; /**< Reference to the global Orientation state. */
+  Vector v; /**< Current forward direction vector. */
+  Vector direction; /**< Current pivoting direction (orthogonal to v). */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @brief An animation that smoothly interpolates a GenerativePalette toward a target palette.
+ */
 class ColorWipe : public Animation<ColorWipe> {
 public:
+  /**
+   * @brief Constructs a ColorWipe animation.
+   * @param from_palette The GenerativePalette to start modifying (will be used for `cur_palette`).
+   * @param to_palette The GenerativePalette instance to interpolate toward.
+   * @param duration The duration in frames.
+   * @param easing_fn The easing function.
+   */
   ColorWipe(GenerativePalette& from_palette, const GenerativePalette& to_palette, int duration, EasingFn easing_fn) :
     Animation(duration, false),
     from_palette(from_palette),
@@ -451,6 +696,9 @@ public:
     easing_fn(easing_fn)
   {}
 
+  /**
+   * @brief Steps the animation, blending the palette's colors based on the time factor.
+   */
   void step(Canvas& canvas) {
     if (t == 0) {
       from_palette = cur_palette.get();
@@ -462,14 +710,18 @@ public:
 
 private:
 
-  GenerativePalette from_palette;
-  std::reference_wrapper<GenerativePalette> cur_palette;
-  std::reference_wrapper<const GenerativePalette> to_palette;
-  EasingFn easing_fn;
+  GenerativePalette from_palette; /**< A local copy of the starting state of the palette. */
+  std::reference_wrapper<GenerativePalette> cur_palette; /**< The actual palette instance being animated. */
+  std::reference_wrapper<const GenerativePalette> to_palette; /**< The target final palette. */
+  EasingFn easing_fn; /**< Easing curve. */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @brief Type alias for a variant that can hold any animation type.
+ * @details Used by the Timeline to manage heterogeneous animation objects.
+ */
 using AnimationVariant = std::variant<
   NullAnimation,
   Sprite,
@@ -483,18 +735,34 @@ using AnimationVariant = std::variant<
   ColorWipe
 >;
 
+/**
+ * @brief Structure linking an animation variant with its starting time.
+ */
 struct TimelineEvent {
-  int start;
-  AnimationVariant animation;
+  int start; /**< The global frame count at which the animation should begin. */
+  AnimationVariant animation; /**< The actual animation object. */
 };
 
+/**
+ * @brief Manages all active animations and their execution over time.
+ */
 class Timeline {
 public:
 
+  /**
+   * @brief Constructs a Timeline.
+   */
   Timeline() :
     num_events(0)
   {}
 
+  /**
+   * @brief Adds a new animation event to the timeline.
+   * @tparam A The animation type.
+   * @param in_frames The number of frames to delay before starting.
+   * @param animation The animation object.
+   * @return Reference to the Timeline object.
+   */
   template <typename A>
   Timeline& add(float in_frames, A animation) {
     if (num_events >= MAX_EVENTS) {
@@ -507,6 +775,10 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Advances the timeline by one frame, stepping all active or starting animations.
+   * @param canvas The current canvas buffer.
+   */
   void step(Canvas& canvas) {
     ++t;
     for (int i = 0; i < num_events; ++i) {
@@ -524,7 +796,7 @@ public:
     }
 
     auto new_logical_end = std::remove_if(
-      events.begin(),events.begin() + num_events,
+      events.begin(), events.begin() + num_events,
       [this](auto& event) {
         if (t < event.start) {
           return false;
@@ -539,11 +811,11 @@ public:
     num_events = std::distance(events.begin(), new_logical_end);
   }
 
-  int t = 0;
+  int t = 0; /**< The current global frame count. */
 
 private:
 
-  static constexpr int MAX_EVENTS = 32;
-  std::array<TimelineEvent, MAX_EVENTS> events;
-  int num_events;
+  static constexpr int MAX_EVENTS = 32; /**< Maximum number of concurrent animation events. */
+  std::array<TimelineEvent, MAX_EVENTS> events; /**< Storage for all animation events. */
+  int num_events; /**< Current number of active events. */
 };
