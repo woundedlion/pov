@@ -108,7 +108,7 @@ class Comets : public Effect {
 public:
   Comets() :
     Effect(W),
-    palette(darkPrimary),
+    palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
     next_palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
     trails(trail_length),
     orient(orientation)
@@ -116,7 +116,6 @@ public:
     persist_pixels = false;
     trails
       .chain(orient)
-//      .chain(chroma_shift)
       .chain(aa);
 
     update_path();
@@ -128,6 +127,7 @@ public:
     timeline.add(0,
       PeriodicTimer(2 * cycle_duration, [this](auto&) {
         increment_path();
+        update_palette();
         }, true)
     );
 
@@ -243,7 +243,7 @@ private:
   Path<W> path;
   size_t cur_function = 0;
   Orientation orientation;
-  ProceduralPalette palette;
+  GenerativePalette palette;
   GenerativePalette next_palette;
   FilterDecay<W, 3000> trails;
   FilterOrient<W> orient;
@@ -272,7 +272,7 @@ public:
     const Vector normal;
     const Palette& palette;
     Orientation orientation;
-    FilterDecay<W, 8000> trails;
+    FilterDecay<W, 6000> trails;
   };
   
   RingSpin() :
@@ -311,6 +311,7 @@ public:
       plot_dots(dots, ring.trails, canvas, t, alpha* opacity);
     });
     ring.orientation.collapse();
+    
     ring.trails.trail(canvas,
       [&](float x, float y, float t) { return vignette(ring.palette)(t); },
       alpha * opacity);
@@ -329,9 +330,9 @@ private:
   static constexpr int NUM_RINGS = 4;
   std::vector<Ring> rings;
   static constexpr float alpha = 0.2;
-  static constexpr float trail_length = 20;
+  static constexpr float trail_length = 22;
   FilterAntiAlias<W> filters;
-  std::array<const Palette*, 6> palettes = { &richSunset, &mangoPeel, &undersea, &iceMelt };
+  std::array<const Palette*, NUM_RINGS> palettes = { &richSunset, &mangoPeel, &undersea, &iceMelt };
   Timeline timeline;
   Dots dots;
 };
@@ -385,7 +386,7 @@ public:
       .add(0,
         RandomTimer(160, 160, [this](auto&) { color_wipe(); }, true))
       .add(0,
-        RandomTimer(48, 160, [this](auto&) { rotate(); }));
+        RandomTimer(48, 160, [this](auto&) { rotate(); }, true));
   }
 
   bool show_bg() const { return false; }
@@ -523,7 +524,7 @@ private:
   Timeline timeline;
  
   static constexpr size_t MAX_PALETTES = 16;
-  static constexpr size_t NUM_NODES = H;
+  static constexpr size_t NUM_NODES = H_VIRT;
   StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
   StaticCircularBuffer <float, MAX_PALETTES - 1> palette_boundaries; 
 

@@ -988,6 +988,7 @@ class DotTrails : public Effect {
 
   Dot dots[H];
   uint8_t hue = HUE_RED;
+  NoTempCorrection _;
 };
 
 template <uint8_t W>

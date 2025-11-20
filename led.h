@@ -69,7 +69,7 @@ class Canvas {
 public:
   Canvas(Effect& effect) : effect_(effect) {
     while (!effect_.buffer_free()) {}
-    start_time = millis();
+//    start_time = millis();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       clear_buffer();
@@ -77,7 +77,7 @@ public:
   }
 
   ~Canvas() { 
-    Serial.printf("draw_frame_duration: %d\n", (millis() - start_time));
+//    Serial.printf("draw_frame_duration: %d\n", (millis() - start_time));
     effect_.queue_frame();
   }
 

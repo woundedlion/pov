@@ -278,7 +278,7 @@ std::variant<
 
 auto vignette(const Palette& palette) {
   CRGB vignette_color(0, 0, 0);
-  return [&](float t) {
+  return [vignette_color, &palette](float t) {
     if (t < 0.2) {
       return vignette_color.lerp16(palette.get(0), to_short(t / 0.2));
     }
@@ -288,7 +288,7 @@ auto vignette(const Palette& palette) {
     else {
       return palette.get((t - 0.2) / 0.6);
     }
-    };
+  };
 }
 
 static const ProceduralPalette iceMelt(
