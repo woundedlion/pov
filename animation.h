@@ -1,4 +1,11 @@
 #pragma once
+
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <variant>
+#include <array>
+
 static constexpr int FPS = 16;
 
 float ease_in_out_bicubic(float t) {
@@ -45,15 +52,13 @@ public:
 
   void cancel() { canceled = true; }
   virtual bool done() const { return canceled || (duration >= 0 && t >= duration); }
-
+  virtual bool repeats() const { return repeat; }
   virtual void step(Canvas& canvas) {
     t++;
-    if (done()) {
-      if (repeat) {
-        post_callback();
-        t = 0;
-      }
-    }
+  }
+
+  void rewind() {
+    t = 0;
   }
 
   Derived& then(std::function<void()> callback) {
@@ -68,7 +73,7 @@ public:
 protected:
 
   Animation(int duration, bool repeat) :
-    duration(duration),
+    duration(duration == 0 ? 1 : duration),
     repeat(repeat),
     canceled(false),
     post([]() {})
@@ -112,6 +117,7 @@ public:
   }
 
   void step(Canvas& canvas) {
+    Animation::step(canvas);
     if (t >= next) {
       f(canvas);
       if (repeat) {
@@ -121,7 +127,6 @@ public:
         cancel();
       }
     }
-    Animation::step(canvas);
   }
 
 private:
@@ -147,6 +152,7 @@ public:
   }
 
   void step(Canvas& canvas) {
+    Animation::step(canvas);
     if (t >= next) {
       f(canvas);
       if (repeat) {
@@ -156,7 +162,6 @@ public:
         cancel();
       }
     }
-    Animation::step(canvas);
   }
 
 private:
@@ -281,6 +286,11 @@ public:
   }
 
   void step(Canvas& canvas) {
+    if (t == 0) {
+      fade_in.rewind();
+      fade_out.rewind();
+    }
+    Animation::step(canvas);
     if (!fade_in.done()) {
       fade_in.step(canvas);
     }
@@ -288,7 +298,6 @@ public:
       fade_out.step(canvas);
     }
     draw_fn(canvas, fader);
-    Animation::step(canvas);
   }
 
 private:
@@ -308,11 +317,13 @@ public:
   Motion(Orientation& orientation, const Path<W>& path, int duration, bool repeat = false) :
     Animation<Motion<W>>(duration, repeat),
     orientation(orientation),
-    path(path),
-    to(path.get_point(0))
+    path(path)
   {}
 
   void step(Canvas& canvas) {
+    if (this->t == 0) {
+      to = path.get().get_point(0);
+    }
     Animation<Motion<W>>::step(canvas);
     orientation.get().collapse();
     from = to;
@@ -354,12 +365,11 @@ public:
   }
 
   void step(Canvas& canvas) {
-    Animation<Rotation<W>>::step(canvas);
     if (this->t == 0) {
       last_angle = 0;
       origin = orientation.get().get();
-      this->t++;
     }
+    Animation<Rotation<W>>::step(canvas);
     orientation.get().collapse();
     float angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
     float delta = angle - last_angle;
@@ -442,6 +452,9 @@ public:
   {}
 
   void step(Canvas& canvas) {
+    if (t == 0) {
+      from_palette = cur_palette.get();
+    }
     Animation::step(canvas);
     float amount = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     cur_palette.get().lerp(from_palette, to_palette, easing_fn(amount));
@@ -455,7 +468,7 @@ private:
   EasingFn easing_fn;
 };
 
-////////////////////////////////////////////////////////cur///////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 using AnimationVariant = std::variant<
   NullAnimation,
@@ -495,12 +508,19 @@ public:
   }
 
   void step(Canvas& canvas) {
-    t++;
+    ++t;
     for (int i = 0; i < num_events; ++i) {
       if (t < events[i].start) {
         continue;
       }
-      std::visit([&](auto& a) { a.step(canvas); }, events[i].animation);
+      auto& animation = events[i].animation;
+      std::visit([&](auto& a) { a.step(canvas); }, animation);
+      if (std::visit([&](auto& a) { return a.done(); }, animation)) {
+        if (std::visit([&](auto& a) { return a.repeats(); }, animation)) {
+          std::visit([&](auto& a) { a.rewind(); }, animation);
+          std::visit([&](auto& a) { a.post_callback(); }, animation);
+        }
+      }
     }
 
     auto new_logical_end = std::remove_if(
