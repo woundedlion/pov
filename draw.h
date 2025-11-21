@@ -21,29 +21,51 @@ void draw_vector(Dots& dots, const Vector& v, ColorFn color_fn) {
  * @param v2 The ending vector.
  * @param color The color function for the line segment.
  * @param long_way If true, draws the longer arc around the sphere.
+ * @param start The normalized start position of the line (0.0 to 1.0).
+ * @param end The normalized end position of the line (0.0 to 1.0).
  */
 template <int W>
-void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color, bool long_way) {
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color,
+  float start = 0, float end = 1, bool long_way = false)
+{
   Vector u(v1);
   Vector v(v2);
   u.normalize();
   v.normalize();
+
   float a = angle_between(u, v);
-  Vector w = cross(v, u);
+  if (std::abs(a) < TOLERANCE) {
+    dots.emplace_back(Dot(u, color(u, 1.0f)));
+    return;
+  }
+  Vector w;
+  if (std::abs(PI_F - a) < TOLERANCE) {
+    if (std::abs(dot(v, X_AXIS)) > 0.9999f) {
+      w = cross(u, Y_AXIS).normalize();
+    } else {
+      w = cross(u, X_AXIS).normalize();
+    }
+  } else {
+    w = cross(u, v).normalize();
+  }
+
   if (long_way) {
     a = 2 * PI_F - a;
-    w = (-w).normalize();
+    w = -w;
   }
-  v = cross(u, w).normalize();
 
-  float step = 2 * PI_F / W;
-  for (float t = 0; t < a; t += step) {
-    Vector vi(
-      u.i * cosf(t) + v.i * sinf(t),
-      u.j * cosf(t) + v.j * sinf(t),
-      u.k * cosf(t) + v.k * sinf(t)
-    );
-    dots.emplace_back(Dot(vi, color(vi, t)));
+  // Trim start and end
+  if (std::abs(start) > TOLERANCE) {
+    Quaternion q = make_rotation(w, start * a);
+    u = rotate(u, q).normalize();
+  }
+  a *= std::abs(end - start);
+
+  int num_steps = std::max(1, static_cast<int>(std::ceil((a / (2 * PI_F)) * W)));
+  Quaternion q = make_rotation(w, a / num_steps);
+  for (int i = 0; i <= num_steps; ++i) {
+    dots.emplace_back(Dot(u, color(u, static_cast<float>(i) / num_steps)));
+    u = rotate(u, q).normalize();
   }
 }
 
@@ -68,7 +90,7 @@ public:
       points.pop_back(); // Overlap previous segment
     }
     Dots seg;
-    draw_line<W>(seg, v1, v2, [](auto&, auto) { return Pixel(); }, long_way);
+    draw_line<W>(seg, v1, v2, [](auto&, auto) { return Pixel(); }, 0.0f, 1.0f, long_way);
     std::transform(seg.begin(), seg.end(), std::back_inserter(points),
       [](auto& d) { return d.position; });
     return *this;
@@ -311,32 +333,37 @@ Vector ring_point(const Vector& normal, float radius, float angle, float phase =
  * @param phase The angular offset.
  */
 template<int W>
-void draw_ring(Dots& dots, const Vector& normal, float radius, ColorFn color_fn, float phase = 0) {
+void draw_ring(Dots& dots, const Vector& normal, 
+  float radius, ColorFn color_fn, float phase = 0) 
+{
   Vector v(normal);
+  Vector v_dir(normal);
+
   if (radius > 1) {
-    v = -v;
-    phase = wrap(phase + PI_F, 2 * PI_F);
+    v_dir = -v_dir;
+    radius = 2 - radius;
   }
 
   Vector u;
   if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
-    u = cross(v, Y_AXIS);
-  }
-  else {
-    u = cross(v, X_AXIS);
-  }
-  u.normalize();
-
-  Vector w(cross(v, u)); // already a normal vector
-  if (radius > 1) {
-    w = -w;
-    radius = 2 - radius;
+    u = cross(v, Y_AXIS).normalize();
+  } else {
+    u = cross(v, X_AXIS).normalize();
   }
 
-  float step = 2 * PI_F / W;
-  for (float a = 0; a < 2 * PI_F; a += step) {
-    auto vi = calc_ring_point(fmod((a + phase), (2 * PI_F)), radius, u, v, w);
-    dots.emplace_back(Dot(vi, color_fn(vi, a / (2 * PI_F))));
+  if (std::abs(phase) > TOLERANCE) {
+    auto  q = make_rotation(v, phase);
+    u = rotate(u, q).normalize();
+  }
+
+  int num_steps = W;
+  auto q = make_rotation(v, 2 * PI_F / num_steps);
+  auto d = sqrtf(1 - radius * radius);
+  for (int i = 0; i < num_steps; ++i) {
+    u = rotate(u, q).normalize();
+    Vector vi = (v_dir * d) + (u * radius);
+    vi.normalize();
+    dots.emplace_back(Dot(vi, color_fn(vi, static_cast<float>(i) / (num_steps - 1))));
   }
 };
 
