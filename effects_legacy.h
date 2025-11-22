@@ -387,7 +387,7 @@ class RingTwist : public Effect {
       auto c = rgb2hsv_approximate(p);
       c.h = seed_.h - 8;
       c.s = 255;
-      c.v = seed_.v - 24;
+      c.v = qsub8(seed_.v, 24);
       p = c;
     } else {
       trail_rainbow(p, 8, 24);
