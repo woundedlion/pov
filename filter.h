@@ -113,8 +113,21 @@ class FilterRaw : public Filter<W> {
 };
 
 /**
- * @brief A filter implementing anti-aliasing via bilinear interpolation.
- * @details Distributes the color/alpha of a sub-pixel position across its four nearest integer pixels.
+ * @brief Quintic Smootherstep Kernel function (Perlin's 5th order polynomial).
+ * @details Guarantees zero velocity and acceleration at t=0 and t=1 for smooth anti-aliasing.
+ * @param t The fractional coordinate (0.0 to 1.0).
+ * @return The smoothed weight (0.0 to 1.0).
+ */
+inline float quintic_kernel(float t) {
+  t = std::clamp(t, 0.0f, 1.0f);
+  // W(t) = 6*t^5 - 15*t^4 + 10*t^3
+  return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+}
+
+/**
+ * @brief A filter implementing anti-aliasing via Quintic Interpolation (Smootherstep).
+ * @details Distributes the color/alpha of a sub-pixel position across its four nearest integer pixels
+ * using a zero-acceleration weighting curve.
  * @tparam W The width of the effect.
  */
 template <int W>
@@ -122,27 +135,32 @@ class FilterAntiAlias : public Filter<W> {
 public:
   FilterAntiAlias() {}
 
-  /**
-   * @brief Plots a sub-pixel fragment across four integer pixels.
-   */
   void plot(Canvas& canvas, float x, float y, const Pixel& c, float age, float alpha) {
     float x_i = 0;
     float x_m = std::modf(x, &x_i);
     float y_i = 0;
     float y_m = std::modf(y, &y_i);
+    float xs = quintic_kernel(x_m);
+    float ys = quintic_kernel(y_m);
 
-    float v = (1 - x_m) * (1 - y_m);
-    this->pass(canvas, x_i, y_i, c, age, alpha * v);
+    float v00 = (1 - xs) * (1 - ys);  // Top-Left weight (xi, yi)
+    float v10 = xs * (1 - ys);        // Top-Right weight (xi+1, yi)
+    float v01 = (1 - xs) * ys;        // Bottom-Left weight (xi, yi+1)
+    float v11 = xs * ys;              // Bottom-Right weight (xi+1, yi+1)
 
-    v = x_m * (1 - y_m);
-    this->pass(canvas, (static_cast<int>(x_i + 1)) % W, y_i, c, age, alpha * v);
-
+    if (v00 > 0.0001) {
+      this->pass(canvas, x_i, y_i, c, age, alpha * v00);
+    }
+    if (v10 > 0.0001) {
+      this->pass(canvas, wrap((x_i + 1), W), y_i, c, age, alpha * v10);
+    }
     if (y_i < H - 1) {
-      v = (1 - x_m) * y_m;
-      this->pass(canvas, x_i, y_i + 1, c, age, alpha * v);
-
-      v = x_m * y_m;
-      this->pass(canvas, static_cast<int>(x_i + 1) % W, y_i + 1, c, age, alpha * v);
+      if (v01 > 0.0001) {
+        this->pass(canvas, x_i, y_i + 1, c, age, alpha * v01);
+      }
+      if (v11 > 0.0001) {
+        this->pass(canvas, wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11);
+      }
     }
   }
 };
