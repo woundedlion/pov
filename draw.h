@@ -254,43 +254,53 @@ Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
  */
 template <int W>
 void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, float radius, ShiftFn shift_fn, ColorFn color_fn) {
-  Vector v(orientation.orient(normal));
-  if (radius > 1) {
-    v = -v;
-  }
-  Vector u;
-  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
-    u = cross(v, Y_AXIS);
-  }
-  else {
-    u = cross(v, X_AXIS);
-  }
-  u.normalize();  Vector w(cross(v, u));
-  if (radius > 1) {
-    w = -w;
-    radius = 2 - radius;
+  Vector ref_axis = X_AXIS;
+  if (std::abs(dot(normal, ref_axis)) > 1 - TOLERANCE) {
+    ref_axis = Y_AXIS;
   }
 
-  bool first = true;
+  // Apply orientation to the frame basis
+  Vector v = orientation.orient(normal);
+  Vector ref = orientation.orient(ref_axis);
+  Vector u = cross(v, ref).normalize();
+
+  // Handle ring direction and radius logic
+  Vector v_dir = v;
+  if (radius > 1.0f) {
+    v_dir = -v_dir;
+    radius = 2.0f - radius;
+  }
+  float d = sqrtf(1.0f - radius * radius);
+
+  int num_steps = W;
+  Quaternion q_fwd = make_rotation(v, 2 * PI_F / num_steps);
   Vector start, from, to;
-  float step = 1.0f / W;
-  for (float t = 0; t < 1; t += step) {
-    auto vi = calc_ring_point(t * 2 * PI_F, radius, u, v, w);
-    auto vp = calc_ring_point(t * 2 * PI_F, 1, u, v, w);
-    Vector axis = cross(v, vp).normalize();
-    auto shift = make_rotation(axis, shift_fn(t));
-    auto to = rotate(vi, shift);
-    if (first) {
-      dots.emplace_back(Dot(to, color_fn(to, t)));
-      first = false;
-      start = to;
+  for (int i = 0; i < num_steps; ++i) {
+    if (i > 0) {
+      u = rotate(u, q_fwd).normalize();
     }
-    else {
-      draw_line<W>(dots, from, to, color_fn);
+    // Calculate the distortion axis (w) and apply the shift function
+    Vector w = cross(v, u).normalize();
+    float shift_val = shift_fn(static_cast<float>(i) / num_steps);
+    Quaternion q_shift = make_rotation(w, shift_val);
+    to = rotate(u, q_shift).normalize();
+    to = ((v_dir * d) + (to * radius)).normalize();
+    if (i == 0) {
+      start = to;
+    } else {
+      if (!dots.is_empty()) dots.pop_back();
+      draw_line<W>(dots, from, to, [&](const Vector&, float) {
+        return color_fn(from, static_cast<float>(i - 1) / num_steps);
+        });
     }
     from = to;
   }
-  draw_line<W>(dots, from, start, color_fn);
+  if (!dots.is_empty()) dots.pop_back();
+  draw_line<W>(dots, from, start, 
+    [&from, &color_fn](const Vector&, float) {
+      return color_fn(from, 1.0f);
+    });
+  if (!dots.is_empty()) dots.pop_back();
 };
 
 
