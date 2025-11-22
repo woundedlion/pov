@@ -246,22 +246,22 @@ Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
  * @brief Draws a ring defined by a normal vector and applies a functional shift (drawFn).
  * @tparam W The width of the display.
  * @param dots The buffer for the resulting Dots.
- * @param orientation The current rotational state of the scene.
+ * @param orientation The current rotational state of the normal.
  * @param normal The normal vector defining the plane of the ring.
  * @param radius The radius of the ring.
  * @param shift_fn The function defining the radial shift (ShiftFn).
  * @param color_fn The color function (ColorFn).
  */
 template <int W>
-void draw_fn(Dots& dots, const Orientation& orientation, const Vector& normal, float radius, ShiftFn shift_fn, ColorFn color_fn) {
+void draw_fn(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal, float radius, ShiftFn shift_fn, ColorFn color_fn) {
   Vector ref_axis = X_AXIS;
   if (std::abs(dot(normal, ref_axis)) > 1 - TOLERANCE) {
     ref_axis = Y_AXIS;
   }
 
   // Apply orientation to the frame basis
-  Vector v = orientation.orient(normal);
-  Vector ref = orientation.orient(ref_axis);
+  Vector v = rotate(normal, orientationQuaternion).normalize();
+  Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
   Vector u = cross(v, ref).normalize();
 
   // Handle ring direction and radius logic
@@ -334,35 +334,42 @@ Vector ring_point(const Vector& normal, float radius, float angle, float phase =
 };
 
 /**
- * @brief Draws a complete ring (circle) on the unit sphere.
+ * @brief Draws a complete ring (circle) on the unit sphere, oriented by the scene's rotation.
  * @tparam W The width of the display (used for step calculation).
  * @param dots The buffer for the resulting Dots.
- * @param normal The normal vector defining the plane of the ring.
+ * @param orientation The orientation of the normal
+ * @param normal The normal vector defining the plane of the ring (unoriented).
  * @param radius The radius of the ring.
  * @param color_fn The color function (ColorFn).
  * @param phase The angular offset.
  */
 template<int W>
-void draw_ring(Dots& dots, const Vector& normal, 
-  float radius, ColorFn color_fn, float phase = 0) 
+void draw_ring(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal,
+  float radius, ColorFn color_fn, float phase = 0)
 {
-  Vector v(normal);
-  Vector v_dir(normal);
+  // 1. Choose a reference axis perpendicular to the UNORIENTED normal.
+  Vector ref_axis = X_AXIS;
+  if (std::abs(dot(normal, ref_axis)) > (1 - TOLERANCE)) {
+    ref_axis = Y_AXIS;
+  }
 
+  // 2. Apply the global orientation to both the normal and the reference axis.
+  Vector v = rotate(normal, orientationQuaternion).normalize();
+  Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
+
+  // 3. Construct the orthogonal basis vector 'u'.
+  Vector u = cross(v, ref).normalize();
+
+  // 4. Handle radius logic (same as original).
+  Vector v_dir = v;
   if (radius > 1) {
     v_dir = -v_dir;
     radius = 2 - radius;
   }
 
-  Vector u;
-  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
-    u = cross(v, Y_AXIS).normalize();
-  } else {
-    u = cross(v, X_AXIS).normalize();
-  }
-
+  // 5. Apply the phase shift rotation to the starting vector 'u'.
   if (std::abs(phase) > TOLERANCE) {
-    auto  q = make_rotation(v, phase);
+    auto q = make_rotation(v, phase);
     u = rotate(u, q).normalize();
   }
 
@@ -372,7 +379,7 @@ void draw_ring(Dots& dots, const Vector& normal,
   for (int i = 0; i < num_steps; ++i) {
     u = rotate(u, q).normalize();
     Vector vi = (v_dir * d) + (u * radius);
-    vi.normalize();
+    vi.normalize(); // Snap to unit sphere surface
     dots.emplace_back(Dot(vi, color_fn(vi, static_cast<float>(i) / (num_steps - 1))));
   }
 };
@@ -407,25 +414,22 @@ void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, float age, 
   }
 }
 
-/**
- * @brief Type alias for a function that rotates a vector.
- */
-typedef std::function<Vector(Vector)> OrientFn;
+
 /**
  * @brief Type alias for a function that draws an object using a specific orientation and age factor.
  */
-typedef std::function<void(OrientFn, float)> TweenFn;
+typedef std::function<void(const Quaternion&, float)> TweenFn;
 
 /**
  * @brief Iterates over the Orientation's history and calls a draw function for each historical step.
  * @details This is the core mechanism for creating motion blur or trails.
  * @param orientation The Orientation object containing historical states.
- * @param draw_fn The drawing function, accepting the Orientation function and a normalized age factor (t).
+ * @param draw_fn The drawing function, accepting the Orientation quaternion and a normalized age factor (t).
  */
 void tween(const Orientation& orientation, TweenFn draw_fn) {
   size_t s = orientation.length();
   for (size_t i = 0; i < s; ++i) {
-    draw_fn([orientation, i](const auto& v) { return orientation.orient(v, i); },
+    draw_fn(orientation.get(i),
       static_cast<float>((s - 1 - i)) / s);
   }
 }

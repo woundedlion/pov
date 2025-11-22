@@ -83,7 +83,7 @@ private:
   void draw_ring(Canvas& canvas, float opacity, size_t index) {
     Ring& ring = rings[index];
     dots.clear();
-    ::draw_ring<W>(dots, orientation.orient(ring.normal), ring.radius,
+    ::draw_ring<W>(dots, orientation.get(), ring.normal, ring.radius,
       [&](auto& v, auto t) {
         return ring.palette.get(t);
       },
@@ -206,9 +206,10 @@ private:
 
   void draw_node(Canvas& canvas, float opacity, int i) {
     Node& node = nodes[i];
-    tween(node.orientation, [this, &canvas, opacity, &node](auto orient_fn, auto t) {
+    tween(node.orientation, [this, &canvas, opacity, &node](auto& q, auto t) {
       dots.clear();
-      ::draw_vector<W>(dots, orient_fn(node.v),
+      auto v = rotate(node.v, node.orientation.get()).normalize();
+      ::draw_vector<W>(dots, v,
       [this](const auto& v, auto t) {
           return palette.get(1.0f - t);
         });
@@ -304,9 +305,9 @@ public:
 
   void draw_ring(Canvas& canvas, float opacity, size_t ring_index) {
     auto& ring = rings[ring_index];
-    tween(ring.orientation, [this, &canvas, opacity, &ring](auto orient_fn, auto t) {
+    tween(ring.orientation, [this, &canvas, opacity, &ring](auto& q, auto t) {
       dots.clear();
-      ::draw_ring<W>(dots, orient_fn(ring.normal), 1,
+      ::draw_ring<W>(dots, q, ring.normal, 1,
         [&](auto& v, auto t) { return vignette(ring.palette)(0); });
       plot_dots(dots, ring.trails, canvas, t, alpha* opacity);
     });
