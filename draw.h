@@ -40,7 +40,7 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color,
   }
   Vector w;
   if (std::abs(PI_F - a) < TOLERANCE) {
-    if (std::abs(dot(v, X_AXIS)) > 0.9999f) {
+    if (std::abs(dot(v, X_AXIS)) > 1 - TOLERANCE) {
       w = cross(u, Y_AXIS).normalize();
     } else {
       w = cross(u, X_AXIS).normalize();
@@ -108,7 +108,7 @@ public:
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }
-    for (float t = 0; t < samples; t++) {
+    for (float t = 0; t <= samples; t++) {
       points.push_back(plot(easing(t / samples) * domain));
     }
     return *this;
@@ -246,63 +246,75 @@ Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
  * @brief Draws a ring defined by a normal vector and applies a functional shift (drawFn).
  * @tparam W The width of the display.
  * @param dots The buffer for the resulting Dots.
- * @param orientation The current rotational state of the normal.
+ * @param orientationQuaternion The current rotational state of the normal.
  * @param normal The normal vector defining the plane of the ring.
  * @param radius The radius of the ring.
  * @param shift_fn The function defining the radial shift (ShiftFn).
  * @param color_fn The color function (ColorFn).
+ * @param phase The angular offset.
  */
 template <int W>
-void draw_fn(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal, float radius, ShiftFn shift_fn, ColorFn color_fn) {
+void draw_fn(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal,
+  float radius, ShiftFn shift_fn, ColorFn color_fn, float phase = 0)
+{
+  // Basis
   Vector ref_axis = X_AXIS;
-  if (std::abs(dot(normal, ref_axis)) > 1 - TOLERANCE) {
+  if (std::abs(dot(normal, ref_axis)) > 1- TOLERANCE) {
     ref_axis = Y_AXIS;
   }
-
-  // Apply orientation to the frame basis
   Vector v = rotate(normal, orientationQuaternion).normalize();
   Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
   Vector u = cross(v, ref).normalize();
+  Vector w = cross(v, u).normalize();
 
-  // Handle ring direction and radius logic
-  Vector v_dir = v;
+  // Backside rings
+  float v_sign = 1.0f;
   if (radius > 1.0f) {
-    v_dir = -v_dir;
+    v_sign = -1.0f;
     radius = 2.0f - radius;
   }
-  float d = sqrtf(1.0f - radius * radius);
 
+  // Equidistant projection
+  const float theta_eq = radius * (PI_F / 2.0f);
+  const float r = sinf(theta_eq);
+  const float d = cosf(theta_eq);
   int num_steps = W;
-  Quaternion q_fwd = make_rotation(v, 2 * PI_F / num_steps);
   Vector start, from, to;
   for (int i = 0; i < num_steps; ++i) {
-    if (i > 0) {
-      u = rotate(u, q_fwd).normalize();
-    }
-    // Calculate the distortion axis (w) and apply the shift function
-    Vector w = cross(v, u).normalize();
-    float shift_val = shift_fn(static_cast<float>(i) / num_steps);
-    Quaternion q_shift = make_rotation(w, shift_val);
-    to = rotate(u, q_shift).normalize();
-    to = ((v_dir * d) + (to * radius)).normalize();
+    float t = static_cast<float>(i) / num_steps;
+
+    // Ring step
+    float theta = t * 2.0f * PI_F + phase;
+    float cos_ring = cosf(theta);
+    float sin_ring = sinf(theta);
+    Vector u_current = u * cos_ring + w * sin_ring;
+
+    // Rodrigues Rotation for shift
+    float shift = shift_fn(t);
+    float cos_shift = cosf(shift);
+    float sin_shift = sinf(shift);
+    float v_scale = (v_sign * d) * cos_shift - r * sin_shift;
+    float u_scale = r * cos_shift + (v_sign * d) * sin_shift;
+    to = ((v * v_scale) + (u_current * u_scale)).normalize();
+
     if (i == 0) {
       start = to;
     } else {
-      if (!dots.is_empty()) dots.pop_back();
-      draw_line<W>(dots, from, to, [&](const Vector&, float) {
-        return color_fn(from, static_cast<float>(i - 1) / num_steps);
+      draw_line<W>(dots, from, to, [&color_fn, &from, i, num_steps](const Vector&, float) {
+          return color_fn(from, static_cast<float>(i - 1) / num_steps);
         });
+      dots.pop_back();
     }
     from = to;
   }
-  if (!dots.is_empty()) dots.pop_back();
-  draw_line<W>(dots, from, start, 
+
+  // Close the loop
+  draw_line<W>(dots, from, start,
     [&from, &color_fn](const Vector&, float) {
       return color_fn(from, 1.0f);
     });
-  if (!dots.is_empty()) dots.pop_back();
+  dots.pop_back();
 };
-
 
 /**
  * @brief Calculates a single point on a ring based on angle and phase.
@@ -337,7 +349,7 @@ Vector ring_point(const Vector& normal, float radius, float angle, float phase =
  * @brief Draws a complete ring (circle) on the unit sphere, oriented by the scene's rotation.
  * @tparam W The width of the display (used for step calculation).
  * @param dots The buffer for the resulting Dots.
- * @param orientation The orientation of the normal
+ * @param orientationQuaternion The orientation of the normal
  * @param normal The normal vector defining the plane of the ring (unoriented).
  * @param radius The radius of the ring.
  * @param color_fn The color function (ColorFn).
@@ -347,42 +359,39 @@ template<int W>
 void draw_ring(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal,
   float radius, ColorFn color_fn, float phase = 0)
 {
-  // 1. Choose a reference axis perpendicular to the UNORIENTED normal.
+  // Basis
   Vector ref_axis = X_AXIS;
-  if (std::abs(dot(normal, ref_axis)) > (1 - TOLERANCE)) {
+  if (std::abs(dot(normal, ref_axis)) > 1 - TOLERANCE) {
     ref_axis = Y_AXIS;
   }
-
-  // 2. Apply the global orientation to both the normal and the reference axis.
   Vector v = rotate(normal, orientationQuaternion).normalize();
   Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
-
-  // 3. Construct the orthogonal basis vector 'u'.
   Vector u = cross(v, ref).normalize();
+  Vector w = cross(v, u).normalize();
 
-  // 4. Handle radius logic (same as original).
+  // Backside rings
   Vector v_dir = v;
-  if (radius > 1) {
+  if (radius > 1.0f) {
     v_dir = -v_dir;
-    radius = 2 - radius;
+    radius = 2.0f - radius;
   }
 
-  // 5. Apply the phase shift rotation to the starting vector 'u'.
-  if (std::abs(phase) > TOLERANCE) {
-    auto q = make_rotation(v, phase);
-    u = rotate(u, q).normalize();
-  }
-
+  // Equidistant projection
+  const float theta_eq = radius * (PI_F / 2.0f);
+  const float r = sinf(theta_eq);
+  const float d = cosf(theta_eq);
   int num_steps = W;
-  auto q = make_rotation(v, 2 * PI_F / num_steps);
-  auto d = sqrtf(1 - radius * radius);
+
   for (int i = 0; i < num_steps; ++i) {
-    u = rotate(u, q).normalize();
-    Vector vi = (v_dir * d) + (u * radius);
-    vi.normalize(); // Snap to unit sphere surface
-    dots.emplace_back(Dot(vi, color_fn(vi, static_cast<float>(i) / (num_steps - 1))));
+    float t = static_cast<float>(i) / num_steps;
+    float theta = t * 2.0f * PI_F + phase;
+    float cos_ring = cosf(theta);
+    float sin_ring = sinf(theta);
+    Vector u_current = u * cos_ring + w * sin_ring;
+    Vector to = ((v_dir * d) + (u_current * r)).normalize();
+    dots.emplace_back(Dot(to, color_fn(to, t)));
   }
-};
+}
 
 /**
  * @brief Applies a discrete square wave mask to a color, simulating a dotted or striped brush.
