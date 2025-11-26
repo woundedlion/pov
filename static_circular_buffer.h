@@ -3,12 +3,19 @@
 #include <array>
 #include <cstddef>     
 #include <iterator>    
-#include <stdexcept>   
-#include <assert.h>
-#include <initializer_list>
 #include <utility>     
-#include <optional>    
+#include <optional>
+#include <Arduino.h> 
 
+/**
+ * @brief A fixed-size circular buffer optimized for stability.
+ * @details
+ * - No dynamic memory allocation (prevents heap fragmentation).
+ * - No asserts (prevents hard crashes in live shows).
+ * - "Delete Oldest" strategy on overflow (never stops processing).
+ * - "Return Zeroed Dummy" on invalid access (prevents read crashes).
+ * - Supports types WITHOUT default constructors.
+ */
 template <typename T, size_t N>
 class StaticCircularBuffer {
   class iterator;
@@ -29,22 +36,29 @@ public:
   StaticCircularBuffer(std::initializer_list<T> items)
     : head(0), tail(0), count(0) {
     if (items.size() > N) {
-      assert(items.size() <= N && "Initializer list is larger than buffer capacity.");
+      Serial.println("Buffer Error: Initializer list exceeds capacity. Truncating.");
     }
     for (const T& item : items) {
       push_back(item);
     }
   }
 
+  // --- MODIFIERS (Fail-Soft: Overwrite Oldest) ---
+
   void push_front(const T& item) {
-    assert(!is_full() && "Buffer overflow: cannot push_front to a full buffer.");
+    if (is_full()) {
+      // Drop the tail (oldest in this context) to make room
+      pop_back_internal();
+    }
     head = (head - 1 + N) % N;
     buffer[head] = item;
     count++;
   }
 
   void push_front(T&& item) {
-    assert(!is_full() && "Buffer overflow: cannot push_front to a full buffer.");
+    if (is_full()) {
+      pop_back_internal();
+    }
     head = (head - 1 + N) % N;
     buffer[head] = std::move(item);
     count++;
@@ -52,7 +66,9 @@ public:
 
   template<typename... Args>
   T& emplace_front(Args&&... args) {
-    assert(!is_full() && "Buffer overflow: cannot emplace_front in a full buffer.");
+    if (is_full()) {
+      pop_back_internal();
+    }
     head = (head - 1 + N) % N;
     T& emplaced_item = buffer[head].emplace(std::forward<Args>(args)...);
     count++;
@@ -60,22 +76,29 @@ public:
   }
 
   void push_back(const T& item) {
-    assert(!is_full() && "Buffer overflow: cannot push to a full buffer.");
+    if (is_full()) {
+      // Drop the head (oldest in this context) to make room
+      pop_front_internal();
+    }
     buffer[tail] = item;
     tail = (tail + 1) % N;
     count++;
   }
 
   void push_back(T&& item) {
-    assert(!is_full() && "Buffer overflow: cannot push to a full buffer.");
-    buffer[tail] = std::move(item); 
+    if (is_full()) {
+      pop_front_internal();
+    }
+    buffer[tail] = std::move(item);
     tail = (tail + 1) % N;
     count++;
   }
 
   template<typename... Args>
   T& emplace_back(Args&&... args) {
-    assert(!is_full() && "Buffer overflow: cannot emplace in a full buffer.");
+    if (is_full()) {
+      pop_front_internal();
+    }
     T& emplaced_item = buffer[tail].emplace(std::forward<Args>(args)...);
     tail = (tail + 1) % N;
     count++;
@@ -83,79 +106,68 @@ public:
   }
 
   void pop_back() {
-    assert(!is_empty() && "Buffer underflow: cannot pop_back from an empty buffer.");
-    tail = (tail - 1 + N) % N;
-    buffer[tail].reset();
-    count--;
+    if (is_empty()) return;
+    pop_back_internal();
   }
 
   void pop() {
-    assert(!is_empty() && "Buffer underflow: cannot pop from an empty buffer.");
-    buffer[head].reset();
-    head = (head + 1) % N;
-    count--;
-  }
-
-  T& front() {
-    assert(!is_empty() && "Buffer is empty.");
-    return *buffer[head];
-  }
-
-  const T& front() const {
-    assert(!is_empty() && "Buffer is empty.");
-    return *buffer[head];
-  }
-
-  T& back() {
-    assert(!is_empty() && "Buffer is empty.");
-    return *buffer[(head + count - 1) % N];
-  }
-
-  const T& back() const {
-    assert(!is_empty() && "Buffer is empty.");
-    return *buffer[(head + count - 1) % N];
-  }
-
-  T& operator[](size_t index) {
-    assert(index < count && "Index out of bounds.");
-    return *buffer[(head + index) % N];
-  }
-
-  const T& operator[](size_t index) const {
-    assert(index < count && "Index out of bounds.");
-    return *buffer[(head + index) % N];
-  }
-
-  constexpr bool is_empty() const {
-    return count == 0;
-  }
-
-  constexpr bool is_full() const {
-    return count == N;
-  }
-
-  constexpr size_t size() const {
-    return count;
-  }
-
-  constexpr size_t capacity() const {
-    return N;
+    if (is_empty()) return;
+    pop_front_internal();
   }
 
   void clear() {
     while (!is_empty()) {
-      pop();
+      pop_front_internal();
     }
   }
 
+  // --- ACCESSORS (Fail-Soft: Return Dummy) ---
+
+  T& front() {
+    if (is_empty()) return get_dummy();
+    return *buffer[head];
+  }
+
+  const T& front() const {
+    if (is_empty()) return get_dummy();
+    return *buffer[head];
+  }
+
+  T& back() {
+    if (is_empty()) return get_dummy();
+    return *buffer[(head + count - 1) % N];
+  }
+
+  const T& back() const {
+    if (is_empty()) return get_dummy();
+    return *buffer[(head + count - 1) % N];
+  }
+
+  T& operator[](size_t index) {
+    if (index >= count) {
+      return get_dummy();
+    }
+    return *buffer[(head + index) % N];
+  }
+
+  const T& operator[](size_t index) const {
+    if (index >= count) {
+      return get_dummy();
+    }
+    return *buffer[(head + index) % N];
+  }
+
+  // --- UTILS ---
+
+  constexpr bool is_empty() const { return count == 0; }
+  constexpr bool is_full() const { return count == N; }
+  constexpr size_t size() const { return count; }
+  constexpr size_t capacity() const { return N; }
+
   iterator begin() { return iterator(this, 0); }
   iterator end() { return iterator(this, size()); }
-
   const_iterator begin() const { return const_iterator(this, 0); }
   const_iterator end() const { return const_iterator(this, size()); }
-
-  const_iterator cbegin() const { return const_iterator(this, 0); }
-  const_iterator cend() const { return const_iterator(this, size()); }
 
 private:
 
@@ -164,6 +176,31 @@ private:
   size_t tail;
   size_t count;
 
+  // --- SAFE DUMMY GENERATOR ---
+  // Creates a zero-initialized block of memory pretending to be T.
+  // This works even if T has no default constructor.
+  // Wrapping it in a struct resolves compiler ambiguity regarding 'alignas'.
+  static T& get_dummy() {
+    static struct {
+      alignas(T) uint8_t bytes[sizeof(T)];
+    } raw = { 0 }; // Zero-initialize the memory (safe for POD/Graphics types)
+    return *reinterpret_cast<T*>(raw.bytes);
+  }
+
+  // Internal unchecked helpers
+  void pop_back_internal() {
+    tail = (tail - 1 + N) % N;
+    buffer[tail].reset();
+    count--;
+  }
+
+  void pop_front_internal() {
+    buffer[head].reset();
+    head = (head + 1) % N;
+    count--;
+  }
+
+  // --- ITERATORS ---
   class iterator {
   public:
     using iterator_category = std::random_access_iterator_tag;
@@ -181,6 +218,7 @@ private:
     reference operator*() const { return (*m_buffer)[m_index]; }
     pointer   operator->() const { return &(*m_buffer)[m_index]; }
     reference operator[](difference_type n) const { return (*m_buffer)[m_index + n]; }
+
     iterator& operator++() { ++m_index; return *this; }
     iterator  operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
     iterator& operator--() { --m_index; return *this; }
@@ -221,6 +259,7 @@ private:
     reference operator*() const { return (*m_buffer)[m_index]; }
     pointer   operator->() const { return &(*m_buffer)[m_index]; }
     reference operator[](difference_type n) const { return (*m_buffer)[m_index + n]; }
+
     const_iterator& operator++() { ++m_index; return *this; }
     const_iterator  operator++(int) { const_iterator tmp = *this; ++(*this); return tmp; }
     const_iterator& operator--() { --m_index; return *this; }

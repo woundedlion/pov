@@ -134,7 +134,6 @@ struct Vector {
     float m = length();
     if (m < std::numeric_limits<float>::epsilon()) {
       Serial.println("Can't normalize a zero vector!");
-      assert(false);
       i = 1;
       j = k = 0;
     }
@@ -266,7 +265,6 @@ struct Quaternion {
     auto m = magnitude();
     if (m <= std::numeric_limits<float>::epsilon()) {
       Serial.println("Can't normalize a zaro Quaternion!");
-      assert(false);
       r = 1;
       v = Vector(0, 0, 0);
     }
@@ -288,7 +286,6 @@ struct Quaternion {
  * @return The rotated vector.
  */
 Vector rotate(const Vector& v, const Quaternion& q) {
-  assert(std::abs(q.magnitude() - 1) < TOLERANCE);
   Quaternion p(0, v);
   auto r = q * p * q.inverse();
   return r.v;
@@ -389,7 +386,8 @@ constexpr float distance_between(const Vector& a, const Vector& b) {
 constexpr float angle_between(const Vector& v1, const Vector& v2) {
   float len_product = v1.length() * v2.length();
   if (len_product <= std::numeric_limits<float>::epsilon()) {
-    assert(false);
+    Serial.println("Cannot calculate angle between 0-vectors!");
+    return 0;
   }
   float d = dot(v1, v2) / len_product;
   return acosf(std::clamp(d, -1.0f, 1.0f));
@@ -454,7 +452,6 @@ constexpr Quaternion operator*(float s, const Quaternion& q) {
  * @return The resulting quaternion.
  */
 constexpr Quaternion operator/(const Quaternion& q, float s) {
-  assert(std::abs(s) > std::numeric_limits<float>::epsilon());
   return Quaternion(q.r / s, q.v / s);
 }
 
@@ -475,8 +472,6 @@ constexpr float dot(const Quaternion& q1, const Quaternion& q2) {
  * @return The angle in radians.
  */
 constexpr float angle_between(const Quaternion& q1, const Quaternion& q2) {
-  assert(std::abs(q1.magnitude() - 1.0f) < TOLERANCE);
-  assert(std::abs(q2.magnitude() - 1.0f) < TOLERANCE);
   return acosf(std::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
@@ -487,7 +482,6 @@ constexpr float angle_between(const Quaternion& q1, const Quaternion& q2) {
  * @return The resulting unit rotation quaternion.
  */
 Quaternion make_rotation(const Vector& axis, float theta) {
-  assert(std::abs(axis.length() - 1.0f) < TOLERANCE);
   return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalize();
 }
 
@@ -500,8 +494,6 @@ Quaternion make_rotation(const Vector& axis, float theta) {
  * @return The interpolated unit quaternion.
  */
 Quaternion slerp(const Quaternion& q1, const Quaternion& q2, float t, bool long_way = false) {
-  assert(std::abs(q1.magnitude() - 1.0f) < TOLERANCE);
-  assert(std::abs(q2.magnitude() - 1.0f) < TOLERANCE);
   float d = dot(q1, q2);
   Quaternion p(q1);
   Quaternion q(q2);
@@ -553,9 +545,6 @@ bool intersects_plane(const Vector& v1, const Vector& v2, const Vector& normal) 
  * @return The intersection vector (unit vector). Asserts on failure.
  */
 Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
-  assert(std::abs(u.length() - 1.0f) < TOLERANCE);
-  assert(std::abs(v.length() - 1.0f) < TOLERANCE);
-  assert(std::abs(normal.length() - 1.0f) < TOLERANCE);
   Vector w = cross(v, u).normalize();
   Vector i1 = cross(w, normal).normalize();
   Vector i2 = cross(normal, w).normalize();
@@ -574,7 +563,6 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
     return i2;
   }
 
-  assert(false);
   return Vector(0, 0, 0);
 }
 
@@ -590,8 +578,6 @@ static constexpr float SHIFT_DIV = 96;
  * @return A vector containing two normalized vectors, shifted slightly apart along the plane normal.
  */
 std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
-  assert(std::abs(v.length() - 1.0f) < TOLERANCE);
-  assert(std::abs(normal.length() - 1.0f) < TOLERANCE);
   float shift = sinf(PI_F / SHIFT_DIV);
   return {
     {(v + (normal * shift)).normalize()},
