@@ -88,8 +88,6 @@ protected:
       auto xi = static_cast<int>(x);
       auto yi = static_cast<int>(y);
       auto p = blend_alpha(alpha)(canvas(xi, yi), c);
-      assert(xi < W);
-      assert(yi < H_VIRT);
       plot_virtual(canvas, xi, yi, p);
     }
     else {
@@ -197,7 +195,6 @@ public:
       }
       else {
         Serial.println("FilterDecay full!");
-        assert(false);
       }
     }
     if (age <= 0) {

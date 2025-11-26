@@ -80,7 +80,6 @@ Vector pixel_to_vector(float x, float y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  assert(std::abs(v.length()) - 1 < TOLERANCE);
   PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), (s.phi * (H_VIRT - 1)) / PI_F });
   return p;
 }
@@ -287,7 +286,6 @@ public:
     }
     else {
       Serial.println("Orientation full, droping frame!");
-      assert(false);
     }
     return *this;
   }
