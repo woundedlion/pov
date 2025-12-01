@@ -243,23 +243,24 @@ Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
 };
 
 /**
- * @brief Draws a ring defined by a normal vector and applies a functional shift (drawFn).
- * @tparam W The width of the display.
- * @param dots The buffer for the resulting Dots.
- * @param orientationQuaternion The current rotational state of the normal.
- * @param normal The normal vector defining the plane of the ring.
- * @param radius The radius of the ring.
- * @param shift_fn The function defining the radial shift (ShiftFn).
- * @param color_fn The color function (ColorFn).
- * @param phase The angular offset.
- */
+*@brief Draws a ring defined by a normal vector and applies a functional shift(drawFn).
+* @details Uses adaptive sampling to prevent clustering at the poles.
+* @tparam W The width of the display.
+* @param dots The buffer for the resulting Dots.
+* @param orientationQuaternion The current rotational state of the normal.
+* @param normal The normal vector defining the plane of the ring.
+* @param radius The radius of the ring.
+* @param shift_fn The function defining the radial shift(ShiftFn).
+* @param color_fn The color function(ColorFn).
+* @param phase The angular offset.
+*/
 template <int W>
-void draw_fn(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal,
+void draw_fn(Dots & dots, const Quaternion & orientationQuaternion, const Vector & normal,
   float radius, ShiftFn shift_fn, ColorFn color_fn, float phase = 0)
 {
   // Basis
   Vector ref_axis = X_AXIS;
-  if (std::abs(dot(normal, ref_axis)) > 1- TOLERANCE) {
+  if (std::abs(dot(normal, ref_axis)) > 1 - TOLERANCE) {
     ref_axis = Y_AXIS;
   }
   Vector v = rotate(normal, orientationQuaternion).normalize();
@@ -278,15 +279,23 @@ void draw_fn(Dots& dots, const Quaternion& orientationQuaternion, const Vector& 
   const float theta_eq = radius * (PI_F / 2.0f);
   const float r = sinf(theta_eq);
   const float d = cosf(theta_eq);
-  int num_steps = W;
+
+  // Adaptive Sampling Loop
+  const float base_step = (2.0f * PI_F) / W;
+  float theta = 0.0f;
+
   Vector start, from, to;
-  for (int i = 0; i < num_steps; ++i) {
-    float t = static_cast<float>(i) / num_steps;
+  float prev_t = 0.0f;
+  bool first = true;
+
+  // Loop until we complete the circle (JS logic uses < 2PI for drawFn)
+  while (theta < 2.0f * PI_F) {
+    float t = theta / (2.0f * PI_F);
 
     // Ring step
-    float theta = t * 2.0f * PI_F + phase;
-    float cos_ring = cosf(theta);
-    float sin_ring = sinf(theta);
+    float angle = theta + phase;
+    float cos_ring = cosf(angle);
+    float sin_ring = sinf(angle);
     Vector u_current = u * cos_ring + w * sin_ring;
 
     // Rodrigues Rotation for shift
@@ -295,17 +304,27 @@ void draw_fn(Dots& dots, const Quaternion& orientationQuaternion, const Vector& 
     float sin_shift = sinf(shift);
     float v_scale = (v_sign * d) * cos_shift - r * sin_shift;
     float u_scale = r * cos_shift + (v_sign * d) * sin_shift;
+
     to = ((v * v_scale) + (u_current * u_scale)).normalize();
 
-    if (i == 0) {
+    if (first) {
       start = to;
-    } else {
-      draw_line<W>(dots, from, to, [&color_fn, &from, i, num_steps](const Vector&, float) {
-          return color_fn(from, static_cast<float>(i - 1) / num_steps);
+      first = false;
+    }
+    else {
+      draw_line<W>(dots, from, to, [&color_fn, &from, prev_t](const Vector&, float) {
+        return color_fn(from, prev_t);
         });
       dots.pop_back();
     }
+
     from = to;
+    prev_t = t;
+
+    // Adaptive sampling
+    float latitude_radius = sqrtf(1.0f - to.j * to.j);
+    float scale_factor = std::max(0.05f, latitude_radius);
+    theta += base_step * scale_factor;
   }
 
   // Close the loop
@@ -347,6 +366,7 @@ Vector ring_point(const Vector& normal, float radius, float angle, float phase =
 
 /**
  * @brief Draws a complete ring (circle) on the unit sphere, oriented by the scene's rotation.
+ * @details Uses adaptive sampling to prevent clustering at the poles.
  * @tparam W The width of the display (used for step calculation).
  * @param dots The buffer for the resulting Dots.
  * @param orientationQuaternion The orientation of the normal
@@ -380,19 +400,27 @@ void draw_ring(Dots& dots, const Quaternion& orientationQuaternion, const Vector
   const float theta_eq = radius * (PI_F / 2.0f);
   const float r = sinf(theta_eq);
   const float d = cosf(theta_eq);
-  int num_steps = W;
 
-  for (int i = 0; i < num_steps; ++i) {
-    float t = static_cast<float>(i) / num_steps;
-    float theta = t * 2.0f * PI_F + phase;
-    float cos_ring = cosf(theta);
-    float sin_ring = sinf(theta);
+  const float base_step = (2.0f * PI_F) / W;
+  float theta = 0.0f;
+  while (theta < 2.0f * PI_F) {
+    float t = theta / (2.0f * PI_F);
+
+    // Ring step
+    float angle = theta + phase;
+    float cos_ring = cosf(angle);
+    float sin_ring = sinf(angle);
     Vector u_current = u * cos_ring + w * sin_ring;
     Vector to = ((v_dir * d) + (u_current * r)).normalize();
+
     dots.emplace_back(Dot(to, color_fn(to, t)));
+
+    // Adaptive sampling
+    float latitude_radius = sqrtf(1.0f - to.j * to.j);
+    float scale_factor = std::max(0.05f, latitude_radius);
+    theta += base_step * scale_factor;
   }
 }
-
 /**
  * @brief Applies a discrete square wave mask to a color, simulating a dotted or striped brush.
  * @param color The base pixel color.
