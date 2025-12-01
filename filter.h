@@ -122,11 +122,6 @@ struct Pipeline<W, Head, Tail...> : public Head {
   }
 };
 
-template <int W, typename... Filters>
-auto make_pipeline(Filters... filters) {
-  return Pipeline<W, Filters...>(std::move(filters)...);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 /**

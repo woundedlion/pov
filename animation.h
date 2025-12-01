@@ -549,6 +549,7 @@ private:
 
 /**
  * @brief An animation that applies a fixed, time-eased rotation.
+ * @details Updated to use INCREMENTAL rotations (delta) to allow multiple animations to overlap/add.
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
 template <int W>
@@ -567,7 +568,6 @@ public:
   Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, EasingFn easing_fn, bool repeat = false) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
-    origin(orientation.get()),
     axis(axis),
     total_angle(angle),
     easing_fn(easing_fn),
@@ -576,24 +576,26 @@ public:
   }
 
   /**
-   * @brief Steps the animation, calculates the rotation delta based on the easing curve, and pushes it to the Orientation.
+   * @brief Steps the animation, calculates the incremental rotation delta, and pushes it to the Orientation.
    */
   void step(Canvas& canvas) {
     if (this->t == 0) {
       last_angle = 0;
-      origin = orientation.get().get();
     }
     Animation<Rotation<W>>::step(canvas);
     orientation.get().collapse();
-    float angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
-    float delta = angle - last_angle;
+    float target_angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
+    float delta = target_angle - last_angle;
     if (std::abs(delta) > TOLERANCE) {
-      auto step_angle = delta / std::ceil(std::abs(angle - last_angle) / MAX_ANGLE);
-      for (auto a = last_angle + step_angle; std::abs(angle - a) > TOLERANCE; a += step_angle) {
-        orientation.get().push((make_rotation(axis, a) * origin).normalize());
+      int num_steps = static_cast<int>(std::ceil(std::abs(delta) / MAX_ANGLE));
+      float step_angle = delta / num_steps;
+      Quaternion q_step = make_rotation(axis, step_angle);
+      for (int i = 0; i < num_steps; ++i) {
+        Quaternion current_q = orientation.get().get();
+        current_q = (q_step * current_q).normalize();
+        orientation.get().push(current_q);
       }
-      orientation.get().push((make_rotation(axis, angle) * origin).normalize());
-      last_angle = angle;
+      last_angle = target_angle;
     }
   }
 
@@ -614,7 +616,7 @@ private:
 
   static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
   std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
-  Quaternion origin; /**< Starting quaternion for the rotation sequence. */
+  // Quaternion origin; /**< REMOVED: Starting quaternion snapshot. */
   Vector axis; /**< The axis of rotation. */
   float total_angle; /**< The total angle to sweep. */
   EasingFn easing_fn; /**< Easing curve. */
