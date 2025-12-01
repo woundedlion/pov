@@ -94,7 +94,7 @@ private:
 
   static constexpr size_t MAX_RINGS = 8;
   Ring rings[MAX_RINGS];
-  FilterAntiAlias<W> filters;
+  Pipeline<W, FilterAntiAlias<W>> filters;
   Orientation orientation;
   Timeline timeline;
   Dots dots;
@@ -110,14 +110,13 @@ public:
     Effect(W),
     palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
     next_palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
-    trails(trail_length),
-    orient(orientation)
+    filters(
+      FilterDecay<W, 3000>(trail_length),
+      FilterOrient<W>(orientation),
+      FilterChromaticShift<W>(),
+      FilterAntiAlias<W>())
   {
     persist_pixels = false;
-    trails
-      .chain(orient)
-      .chain(aa);
-
     update_path();
 
     for (int i = 0; i < NUM_NODES; ++i) {
@@ -139,13 +138,12 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-    trails.trail(canvas,
+    filters.trail(canvas,
       [this](float x, float y, float t) {
         return palette.get(1.0f - t);
       },
       alpha
     );
-    trails.decay();
   }
 
 private:
@@ -213,7 +211,7 @@ private:
       [this](const auto& v, auto t) {
           return palette.get(1.0f - t);
         });
-      plot_dots<W>(dots, trails, canvas, t, this->alpha * opacity);
+      plot_dots<W>(dots, filters, canvas, t, this->alpha * opacity);
     });
     node.orientation.collapse();
   }
@@ -246,10 +244,14 @@ private:
   Orientation orientation;
   GenerativePalette palette;
   GenerativePalette next_palette;
-  FilterDecay<W, 3000> trails;
-  FilterOrient<W> orient;
-  FilterChromaticShift<W> chroma_shift;
-  FilterAntiAlias<W> aa;
+
+  Pipeline<W,
+    FilterDecay<W, 3000>,
+    FilterOrient<W>,
+    FilterChromaticShift<W>,
+    FilterAntiAlias<W>
+  > filters;
+
   StaticCircularBuffer<Node, NUM_NODES> nodes;
   Timeline timeline;
   Dots dots;
@@ -262,18 +264,22 @@ class RingSpin : public Effect {
 public:
 
   struct Ring {
-    Ring(const Vector& normal, Filter<W>& filters, const Palette& palette, uint8_t trail_length) :
+    Ring(const Vector& normal, const Palette& palette, uint8_t trail_length) :
       normal(normal),
       palette(palette),
-      trails(trail_length)
-    {    
-      trails.chain(filters);
-    }
+      filters(
+        FilterDecay<W, 6000>(trail_length),
+        FilterAntiAlias<W>()
+      )
+    {}
 
     const Vector normal;
     const Palette& palette;
     Orientation orientation;
-    FilterDecay<W, 6000> trails;
+    Pipeline<W,
+      FilterDecay<W, 6000>,
+      FilterAntiAlias<W>
+    > filters;
   };
   
   RingSpin() :
@@ -290,7 +296,7 @@ public:
 
   void spawn_ring(const Vector& normal, const Palette& palette) {
     auto ring_index = rings.size();
-    rings.emplace_back(normal, filters, palette, trail_length);
+    rings.emplace_back(normal, palette, trail_length);
     timeline.add(0,
       Sprite(
         [this, ring_index](Canvas& canvas, float opacity) { draw_ring(canvas, opacity, ring_index); },
@@ -309,16 +315,13 @@ public:
       dots.clear();
       ::draw_ring<W>(dots, q, ring.normal, 1,
         [&](auto& v, auto t) { return vignette(ring.palette)(0); });
-      plot_dots(dots, ring.trails, canvas, t, alpha* opacity);
+      plot_dots<W>(dots, ring.filters, canvas, t, alpha* opacity);
     });
     ring.orientation.collapse();
     
-    ring.trails.trail(canvas,
+    ring.filters.trail(canvas,
       [&](float x, float y, float t) { return vignette(ring.palette)(t); },
-      alpha * opacity);
-    
-    ring.trails.decay();
-    
+      alpha * opacity);    
   }
 
   void draw_frame() {
@@ -332,7 +335,6 @@ private:
   std::vector<Ring> rings;
   static constexpr float alpha = 0.2;
   static constexpr float trail_length = 22;
-  FilterAntiAlias<W> filters;
   std::array<const Palette*, NUM_RINGS> palettes = { &richSunset, &mangoPeel, &undersea, &iceMelt };
   Timeline timeline;
   Dots dots;
@@ -363,20 +365,18 @@ public:
     speed(2),
     gap(3),
     trail_length(8),
-    filters(3),
-    trails(trail_length),
-    orient(orientation)
+    filters(
+      FilterReplicate<W>(3),
+      FilterDecay<W, 10000>(trail_length),
+      FilterOrient<W>(orientation),
+      FilterAntiAlias<W>()
+    )
   {
     persist_pixels = false;
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
       nodes[i].y = i;
     }
-
-    filters
-      .chain(trails)
-      .chain(orient)
-      .chain(aa);
 
     timeline
       .add(0,
@@ -457,13 +457,12 @@ public:
       pull(0);
       draw_nodes(canvas, static_cast<float>(i) / std::abs(speed));
     }
-    trails.trail(
+    filters.trail(
       canvas,
       [this](float x, float y, float t) { return color(pixel_to_vector<W>(x, y), t); },
       0.5
     );
 
-    trails.decay();
     timeline.step(canvas);
   }
 
@@ -485,7 +484,7 @@ private:
         draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, false);
       }
     }
-    plot_dots(dots, filters, canvas, age, alpha);
+    plot_dots<W>(dots, filters, canvas, age, alpha);
   }
 
   void pull(int leader) {
@@ -536,10 +535,12 @@ private:
   Orientation orientation;
   Dots dots;
 
-  FilterReplicate<W> filters;
-  FilterDecay<W, 10000> trails;
-  FilterOrient<W> orient;
-  FilterAntiAlias<W> aa;
+  Pipeline<W,
+    FilterReplicate<W>,
+    FilterDecay<W, 10000>,
+    FilterOrient<W>,
+    FilterAntiAlias<W>
+  > filters;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -550,14 +551,15 @@ public:
   FlowField() :
     Effect(W),
     palette(iceMelt),
-    trails(k_trail_length),
-    orient(orientation),
-    anti_alias()
+    filters(
+      FilterDecay<W, k_max_trail_dots>(k_trail_length),
+      FilterOrient<W>(orientation),
+      FilterAntiAlias<W>()
+    )
   {
     persist_pixels = false;
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     noise_generator.SetSeed(hs::rand_int(0, 65535));
-    trails.chain(anti_alias);
     reset_particles();
   }
 
@@ -566,7 +568,6 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-    trails.decay();
     dots.clear();
 
     for (Particle& p : particles) {
@@ -598,9 +599,9 @@ public:
       dots.emplace_back(Dot(p.pos, color));
     }
 
-    plot_dots<W>(dots, trails, canvas, 0, k_alpha);
+    plot_dots<W>(dots, filters, canvas, 0, k_alpha);
 
-    trails.trail(canvas,
+    filters.trail(canvas,
       [this](float x, float y, float t) {
         return dim(palette.get(1.0 - t), 1.0 - t); //
       },
@@ -632,10 +633,12 @@ private:
   const ProceduralPalette& palette;
   std::array<Particle, k_num_particles> particles;
 
-  FilterDecay<W, k_max_trail_dots> trails;
   Orientation orientation;
-  FilterOrient<W> orient;
-  FilterAntiAlias<W> anti_alias;
+  Pipeline<W,
+    FilterDecay<W, k_max_trail_dots>,
+    FilterOrient<W>,
+    FilterAntiAlias<W>
+  > filters;
   Dots dots;
 
   void reset_particles() {
