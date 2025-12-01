@@ -415,14 +415,13 @@ Pixel dotted_brush(const Pixel& color, float freq, float duty_cycle, float phase
  * @param age The age of the dots (0.0 for new).
  * @param alpha The opacity/alpha factor.
  */
-template<int W>
-void plot_dots(const Dots& dots, Filter<W>& filters, Canvas& canvas, float age, float alpha) {
+template<int W, typename Pipeline>
+void plot_dots(const Dots& dots, Pipeline& filters, Canvas& canvas, float age, float alpha) {
   for (auto& dot : dots) {
     auto p = vector_to_pixel<W>(dot.position);
     filters.plot(canvas, p.x, p.y, gamma_correct(dot.color), age, alpha);
   }
 }
-
 
 /**
  * @brief Type alias for a function that draws an object using a specific orientation and age factor.
@@ -437,7 +436,8 @@ typedef std::function<void(const Quaternion&, float)> TweenFn;
  */
 void tween(const Orientation& orientation, TweenFn draw_fn) {
   size_t s = orientation.length();
-  for (size_t i = 0; i < s; ++i) {
+  size_t start = (s > 1) ? 1 : 0;
+  for (size_t i = start; i < s; ++i) {
     draw_fn(orientation.get(i),
       static_cast<float>((s - 1 - i)) / s);
   }
