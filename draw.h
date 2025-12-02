@@ -1,4 +1,7 @@
 #pragma once
+#include <vector>
+#include <algorithm>
+
 /**
  * @brief Draws a single vector (point) on the unit sphere.
  * @tparam W The width of the display (used for projection context).
@@ -42,10 +45,12 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color,
   if (std::abs(PI_F - a) < TOLERANCE) {
     if (std::abs(dot(v, X_AXIS)) > 1 - TOLERANCE) {
       w = cross(u, Y_AXIS).normalize();
-    } else {
+    }
+    else {
       w = cross(u, X_AXIS).normalize();
     }
-  } else {
+  }
+  else {
     w = cross(u, v).normalize();
   }
 
@@ -61,7 +66,7 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color,
   }
   a *= std::abs(end - start);
 
-  int num_steps = std::max(1, static_cast<int>(std::ceil((a / (2 * PI_F)) * W)));
+  int num_steps = std::max(1, static_cast<int>(std::ceil((a / (2 * PI_F)) * W * 2)));
   Quaternion q = make_rotation(w, a / num_steps);
   for (int i = 0; i <= num_steps; ++i) {
     dots.emplace_back(Dot(u, color(u, static_cast<float>(i) / num_steps)));
@@ -243,6 +248,95 @@ Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
 };
 
 /**
+ * @brief Draws a complete ring (circle) on the unit sphere, oriented by the scene's rotation.
+ * @details Uses adaptive sampling to prevent clustering at the poles.
+ * @tparam W The width of the display (used for step calculation).
+ * @param dots The buffer for the resulting Dots.
+ * @param orientationQuaternion The orientation of the normal
+ * @param normal The normal vector defining the plane of the ring (unoriented).
+ * @param radius The radius of the ring.
+ * @param color_fn The color function (ColorFn).
+ * @param phase The angular offset.
+ */
+template<int W>
+void draw_ring(Dots& dots, const Quaternion& orientation, const Vector& normal,
+  float radius, ColorFn color_fn, float phase = 0)
+{
+  // Basis
+  Vector ref_axis = X_AXIS;
+  if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
+    ref_axis = Y_AXIS;
+  }
+  Vector v = rotate(normal, orientation).normalize();
+  Vector ref = rotate(ref_axis, orientation).normalize();
+  Vector u = cross(v, ref).normalize();
+  Vector w = cross(v, u).normalize();
+
+  // Backside rings
+  Vector v_dir = v;
+  if (radius > 1.0f) {
+    v_dir = -v_dir;
+    radius = 2.0f - radius;
+  }
+
+  // Equidistant projection
+  const float theta_eq = radius * (PI_F / 2.0f);
+  const float r = sinf(theta_eq);
+  const float d = cosf(theta_eq);
+
+  // Calculate Samples
+  const float base_step = (2.0f * PI_F) / W;
+  float theta = 0.0f;
+  StaticCircularBuffer<float, 512> thetas;
+
+  while (theta < 2.0f * PI_F) {
+    float t = theta / (2.0f * PI_F);
+
+    // Ring step
+    float angle = theta + phase;
+    float cos_ring = cosf(angle);
+    float sin_ring = sinf(angle);
+    Vector u_current = (u * cos_ring) + (w * sin_ring);
+    Vector to = ((v_dir * d) + (u_current * r)).normalize();
+    dots.emplace_back(Dot(to, color_fn(to, t)));
+    thetas.push_back(theta);
+
+    // Adaptive Sampling for horizontal pixel distortion at poles
+    float latitude_radius = sqrtf(std::max(0.0f, 1.0f - to.j * to.j));
+    float scale_factor = std::max(0.05f, latitude_radius);
+    float step = base_step * scale_factor;
+    float next_theta = theta + step;
+
+    // Repair last N samples to close the loop
+    if (next_theta >= 2.0f * PI_F) {
+      const int REPAIR_COUNT = 5;
+      if (thetas.size() > REPAIR_COUNT) {
+        float target_last_theta = 2.0f * PI_F - step;
+        int anchor_idx = thetas.size() - REPAIR_COUNT - 1;
+        float anchor_theta = thetas[anchor_idx];
+        float ratio = (target_last_theta - anchor_theta) / (theta - anchor_theta);
+        for (size_t i = anchor_idx + 1; i < thetas.size(); i++) {
+          float dist = thetas[i] - anchor_theta;
+          float corrected_theta = anchor_theta + (dist * ratio);
+
+          // Re-calculate Geometry for corrected position
+          float t_c = corrected_theta / (2.0f * PI_F);
+          float angle_c = corrected_theta + phase;
+          float cos_ring_c = cosf(angle_c);
+          float sin_ring_c = sinf(angle_c);
+          Vector u_current_c = (u * cos_ring_c) + (w * sin_ring_c);
+          Vector p_corrected = ((v_dir * d) + (u_current_c * r)).normalize();
+          size_t dot_index = dots.size() - (thetas.size() - i);
+          dots[dot_index] = Dot(p_corrected, color_fn(p_corrected, t_c));
+        }
+      }
+      break;
+    }
+    theta = next_theta;
+  }
+}
+
+/**
 *@brief Draws a ring defined by a normal vector and applies a functional shift(drawFn).
 * @details Uses adaptive sampling to prevent clustering at the poles.
 * @tparam W The width of the display.
@@ -255,16 +349,16 @@ Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
 * @param phase The angular offset.
 */
 template <int W>
-void draw_fn(Dots & dots, const Quaternion & orientationQuaternion, const Vector & normal,
+void draw_fn(Dots& dots, const Quaternion& orientation, const Vector& normal,
   float radius, ShiftFn shift_fn, ColorFn color_fn, float phase = 0)
 {
   // Basis
   Vector ref_axis = X_AXIS;
-  if (std::abs(dot(normal, ref_axis)) > 1 - TOLERANCE) {
+  if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
     ref_axis = Y_AXIS;
   }
-  Vector v = rotate(normal, orientationQuaternion).normalize();
-  Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
+  Vector v = rotate(normal, orientation).normalize();
+  Vector ref = rotate(ref_axis, orientation).normalize();
   Vector u = cross(v, ref).normalize();
   Vector w = cross(v, u).normalize();
 
@@ -280,60 +374,86 @@ void draw_fn(Dots & dots, const Quaternion & orientationQuaternion, const Vector
   const float r = sinf(theta_eq);
   const float d = cosf(theta_eq);
 
-  // Adaptive Sampling Loop
+  // Calculate Samples
   const float base_step = (2.0f * PI_F) / W;
   float theta = 0.0f;
 
-  Vector start, from, to;
-  float prev_t = 0.0f;
-  bool first = true;
+  // Temporary buffers for repair logic
+  std::vector<Vector> points;
+  std::vector<float> thetas;
+  Vector u_temp, p_temp;
 
-  // Loop until we complete the circle (JS logic uses < 2PI for drawFn)
-  while (theta < 2.0f * PI_F) {
+  while (true) {
     float t = theta / (2.0f * PI_F);
 
     // Ring step
     float angle = theta + phase;
     float cos_ring = cosf(angle);
     float sin_ring = sinf(angle);
-    Vector u_current = u * cos_ring + w * sin_ring;
+    u_temp = (u * cos_ring) + (w * sin_ring);
 
-    // Rodrigues Rotation for shift
+    // Apply Shift Function (Rodrigues Rotation approximation)
     float shift = shift_fn(t);
     float cos_shift = cosf(shift);
     float sin_shift = sinf(shift);
     float v_scale = (v_sign * d) * cos_shift - r * sin_shift;
     float u_scale = r * cos_shift + (v_sign * d) * sin_shift;
+    p_temp = ((v * v_scale) + (u_temp * u_scale)).normalize();
+    points.push_back(p_temp);
+    thetas.push_back(theta);
 
-    to = ((v * v_scale) + (u_current * u_scale)).normalize();
-
-    if (first) {
-      start = to;
-      first = false;
-    }
-    else {
-      draw_line<W>(dots, from, to, [&color_fn, &from, prev_t](const Vector&, float) {
-        return color_fn(from, prev_t);
-        });
-      dots.pop_back();
-    }
-
-    from = to;
-    prev_t = t;
-
-    // Adaptive sampling
-    float latitude_radius = sqrtf(1.0f - to.j * to.j);
+    // Adaptive Sampling for horizontal distortion at poles
+    float latitude_radius = sqrtf(std::max(0.0f, 1.0f - p_temp.j * p_temp.j));
     float scale_factor = std::max(0.05f, latitude_radius);
-    theta += base_step * scale_factor;
+    float step = base_step * scale_factor;
+    float next_theta = theta + step;
+
+    // Repair last N samples to close the loop
+    if (next_theta >= 2.0f * PI_F) {
+      const int REPAIR_COUNT = 5;
+      if (points.size() > REPAIR_COUNT) {
+        float target_last_theta = 2.0f * PI_F - step;
+        int anchor_idx = points.size() - REPAIR_COUNT - 1;
+        float anchor_theta = thetas[anchor_idx];
+        float ratio = (target_last_theta - anchor_theta) / (theta - anchor_theta);
+        for (size_t i = anchor_idx + 1; i < points.size(); i++) {
+          float dist = thetas[i] - anchor_theta;
+          float corrected_theta = anchor_theta + (dist * ratio);
+
+          // Re-calculate Geometry
+          float t_c = corrected_theta / (2.0f * PI_F);
+          float angle_c = corrected_theta + phase;
+          float cos_ring_c = cosf(angle_c);
+          float sin_ring_c = sinf(angle_c);
+          u_temp = (u * cos_ring_c) + (w * sin_ring_c);
+
+          float shift_c = shift_fn(t_c);
+          float cos_shift_c = cosf(shift_c);
+          float sin_shift_c = sinf(shift_c);
+          float v_scale_c = (v_sign * d) * cos_shift_c - r * sin_shift_c;
+          float u_scale_c = r * cos_shift_c + (v_sign * d) * sin_shift_c;
+          p_temp = ((v * v_scale_c) + (u_temp * u_scale_c)).normalize();
+
+          points[i] = p_temp;
+        }
+      }
+      break;
+    }
+    theta = next_theta;
   }
 
-  // Close the loop
-  draw_line<W>(dots, from, start,
-    [&from, &color_fn](const Vector&, float) {
-      return color_fn(from, 1.0f);
-    });
-  dots.pop_back();
-};
+  // Draw Lines Connecting Repaired Points
+  for (size_t i = 0; i < points.size(); ++i) {
+    size_t next_i = (i + 1) % points.size();
+    float t_start = thetas[i] / (2.0f * PI_F);
+
+    draw_line<W>(dots, points[i], points[next_i],
+      [&color_fn, &t_start](const Vector& v, float line_t) {
+        return color_fn(v, t_start);
+      });
+    dots.pop_back(); // Prevent double-drawing start vertex
+  }
+}
 
 /**
  * @brief Calculates a single point on a ring based on angle and phase.
@@ -364,63 +484,6 @@ Vector ring_point(const Vector& normal, float radius, float angle, float phase =
   return calc_ring_point(angle + phase, radius, u, v, w);
 };
 
-/**
- * @brief Draws a complete ring (circle) on the unit sphere, oriented by the scene's rotation.
- * @details Uses adaptive sampling to prevent clustering at the poles.
- * @tparam W The width of the display (used for step calculation).
- * @param dots The buffer for the resulting Dots.
- * @param orientationQuaternion The orientation of the normal
- * @param normal The normal vector defining the plane of the ring (unoriented).
- * @param radius The radius of the ring.
- * @param color_fn The color function (ColorFn).
- * @param phase The angular offset.
- */
-template<int W>
-void draw_ring(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal,
-  float radius, ColorFn color_fn, float phase = 0)
-{
-  // Basis
-  Vector ref_axis = X_AXIS;
-  if (std::abs(dot(normal, ref_axis)) > 1 - TOLERANCE) {
-    ref_axis = Y_AXIS;
-  }
-  Vector v = rotate(normal, orientationQuaternion).normalize();
-  Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
-  Vector u = cross(v, ref).normalize();
-  Vector w = cross(v, u).normalize();
-
-  // Backside rings
-  Vector v_dir = v;
-  if (radius > 1.0f) {
-    v_dir = -v_dir;
-    radius = 2.0f - radius;
-  }
-
-  // Equidistant projection
-  const float theta_eq = radius * (PI_F / 2.0f);
-  const float r = sinf(theta_eq);
-  const float d = cosf(theta_eq);
-
-  const float base_step = (2.0f * PI_F) / W;
-  float theta = 0.0f;
-  while (theta < 2.0f * PI_F) {
-    float t = theta / (2.0f * PI_F);
-
-    // Ring step
-    float angle = theta + phase;
-    float cos_ring = cosf(angle);
-    float sin_ring = sinf(angle);
-    Vector u_current = u * cos_ring + w * sin_ring;
-    Vector to = ((v_dir * d) + (u_current * r)).normalize();
-
-    dots.emplace_back(Dot(to, color_fn(to, t)));
-
-    // Adaptive sampling
-    float latitude_radius = sqrtf(1.0f - to.j * to.j);
-    float scale_factor = std::max(0.05f, latitude_radius);
-    theta += base_step * scale_factor;
-  }
-}
 /**
  * @brief Applies a discrete square wave mask to a color, simulating a dotted or striped brush.
  * @param color The base pixel color.
