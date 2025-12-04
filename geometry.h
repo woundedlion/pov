@@ -84,6 +84,7 @@ PixelCoords vector_to_pixel(const Vector& v) {
   return p;
 }
 
+#if __cplusplus < 202002L
 /**
  * @brief Linearly interpolates between two values.
  * @param from The starting value.
@@ -94,16 +95,17 @@ PixelCoords vector_to_pixel(const Vector& v) {
 constexpr float lerp(float from, float to, float t) {
   return ((to - from) * t) + from;
 }
+#endif
 
 /**
- * @brief Generates a sine wave function (WaveFn) with offset, amplitude, frequency, and phase.
+ * @brief Generates a sine wave function with offset, amplitude, frequency, and phase.
  * @param from The minimum output value.
  * @param to The maximum output value.
  * @param freq The frequency (cycles per unit time).
  * @param phase The starting phase offset.
- * @return A WaveFn functor that takes time (t) and returns a float.
+ * @return A lambda that takes time (t) and returns a float.
  */
-WaveFn sin_wave(float from, float to, float freq, float phase) {
+auto sin_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
     auto w = (sinf(freq * t * 2 * PI_F - (PI_F / 2) + PI_F - (2 * phase)) + 1) / 2;
     return lerp(from, to, w);
@@ -111,14 +113,14 @@ WaveFn sin_wave(float from, float to, float freq, float phase) {
 }
 
 /**
- * @brief Generates a triangle wave function (WaveFn) with offset, amplitude, frequency, and phase.
+ * @brief Generates a triangle wave function with offset, amplitude, frequency, and phase.
  * @param from The minimum output value.
  * @param to The maximum output value.
  * @param freq The frequency (cycles per unit time).
  * @param phase The starting phase offset.
- * @return A WaveFn functor that takes time (t) and returns a float.
+ * @return A lambda that takes time (t) and returns a float.
  */
-WaveFn tri_wave(float from, float to, float freq, float phase) {
+auto tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
     float w = wrap(t * freq + phase, 1.0f);
     if (w < 0.5f) {
@@ -132,15 +134,15 @@ WaveFn tri_wave(float from, float to, float freq, float phase) {
 }
 
 /**
- * @brief Generates a square wave function (WaveFn) with offset, amplitude, frequency, duty cycle, and phase.
+ * @brief Generates a square wave function with offset, amplitude, frequency, duty cycle, and phase.
  * @param from The minimum output value.
  * @param to The maximum output value.
  * @param freq The frequency (cycles per unit time).
  * @param dutyCycle The percentage of time the wave is "on" (high).
  * @param phase The starting phase offset.
- * @return A WaveFn functor that takes time (t) and returns a float.
+ * @return A lambda that takes time (t) and returns a float.
  */
-WaveFn square_wave(float from, float to, float freq, float dutyCycle, float phase) {
+auto square_wave(float from, float to, float freq, float dutyCycle, float phase) {
   return [=](float t) -> float {
     if (fmod(t * freq + phase, 1.0f) < dutyCycle) {
       return to;

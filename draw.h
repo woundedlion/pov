@@ -10,7 +10,7 @@
  * @param color_fn The color function to determine the pixel's color.
  */
 template <int W>
-void draw_vector(Dots& dots, const Vector& v, ColorFn color_fn) {
+void draw_vector(Dots& dots, const Vector& v, ColorFn auto color_fn) {
   Vector u(v);
   u.normalize();
   dots.emplace_back(Dot(u, color_fn(u, 0)));
@@ -28,7 +28,7 @@ void draw_vector(Dots& dots, const Vector& v, ColorFn color_fn) {
  * @param end The normalized end position of the line (0.0 to 1.0).
  */
 template <int W>
-void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn color,
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color,
   float start = 0, float end = 1, bool long_way = false)
 {
   Vector u(v1);
@@ -109,7 +109,7 @@ public:
    * @param easing The easing function to apply to the time factor.
    * @return Reference to the Path object.
    */
-  Path& append_segment(PlotFn plot, float domain, float samples, EasingFn easing) {
+  Path& append_segment(PlotFn auto plot, float domain, float samples, ScalarFn auto easing) {
     if (points.size() > 0) {
       points.pop_back(); // Overlap previous segment
     }
@@ -156,7 +156,7 @@ private:
  * @param color The color function.
  */
 template <int W>
-void draw_path(Dots& dots, const Path<W>& path, ColorFn color) {
+void draw_path(Dots& dots, const Path<W>& path, ColorFn auto color) {
   size_t samples = path.num_points();
   for (size_t i = 0; i < samples; ++i) {
     auto v = path.get_point(static_cast<float>(i) / samples);
@@ -170,7 +170,7 @@ void draw_path(Dots& dots, const Path<W>& path, ColorFn color) {
  * @param vertices The list of vertex vectors.
  * @param color_fn The color function.
  */
-void draw_vertices(Dots& dots, const VertexList& vertices, ColorFn color_fn) {
+void draw_vertices(Dots& dots, const VertexList& vertices, ColorFn auto color_fn) {
   for (Vector v : vertices) {
     dots.emplace_back(Dot(v.normalize(), color_fn(v, 0)));
   }
@@ -185,7 +185,7 @@ void draw_vertices(Dots& dots, const VertexList& vertices, ColorFn color_fn) {
  * @param color_fn The color function.
  */
 template <int W>
-void draw_polyhedron(Dots& dots, const VertexList& vertices, const AdjacencyList& edges, ColorFn color_fn) {
+void draw_polyhedron(Dots& dots, const VertexList& vertices, const AdjacencyList& edges, ColorFn auto color_fn) {
   for (size_t i = 0; i < edges.size(); ++i) {
     Vector a(vertices[i]);
     for (auto j : edges[i]) {
@@ -215,13 +215,13 @@ Vector calc_ring_point(float a, float radius, const Vector& u, const Vector& v, 
 
 /**
  * @brief Calculates a single point on a ring that is also perturbed by a function (shiftFn).
- * @param f The function defining the radial shift (ShiftFn).
+ * @param f The function defining the radial shift (ScalarFn).
  * @param normal The normal vector defining the plane of the ring.
  * @param radius The radius of the ring.
  * @param angle The angle along the ring.
  * @return The calculated and rotated 3D point (unit vector).
  */
-Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
+Vector fn_point(ScalarFn auto f, const Vector& normal, float radius, float angle) {
   Vector v(normal);
   if (radius > 1) {
     v = -v;
@@ -260,7 +260,7 @@ Vector fn_point(ShiftFn f, const Vector& normal, float radius, float angle) {
  */
 template<int W>
 void draw_ring(Dots& dots, const Quaternion& orientation, const Vector& normal,
-  float radius, ColorFn color_fn, float phase = 0)
+  float radius, ColorFn auto color_fn, float phase = 0)
 {
   // Basis
   Vector ref_axis = X_AXIS;
@@ -344,13 +344,13 @@ void draw_ring(Dots& dots, const Quaternion& orientation, const Vector& normal,
 * @param orientationQuaternion The current rotational state of the normal.
 * @param normal The normal vector defining the plane of the ring.
 * @param radius The radius of the ring.
-* @param shift_fn The function defining the radial shift(ShiftFn).
+* @param shift_fn The function defining the radial shift(ScalarFn).
 * @param color_fn The color function(ColorFn).
 * @param phase The angular offset.
 */
 template <int W>
 void draw_fn(Dots& dots, const Quaternion& orientation, const Vector& normal,
-  float radius, ShiftFn shift_fn, ColorFn color_fn, float phase = 0)
+  float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0)
 {
   // Basis
   Vector ref_axis = X_AXIS;
@@ -515,17 +515,12 @@ void plot_dots(const Dots& dots, Pipeline& filters, Canvas& canvas, float age, f
 }
 
 /**
- * @brief Type alias for a function that draws an object using a specific orientation and age factor.
- */
-typedef std::function<void(const Quaternion&, float)> TweenFn;
-
-/**
  * @brief Iterates over the Orientation's history and calls a draw function for each historical step.
  * @details This is the core mechanism for creating motion blur or trails.
  * @param orientation The Orientation object containing historical states.
  * @param draw_fn The drawing function, accepting the Orientation quaternion and a normalized age factor (t).
  */
-void tween(const Orientation& orientation, TweenFn draw_fn) {
+void tween(const Orientation& orientation, TweenFn auto draw_fn) {
   size_t s = orientation.length();
   size_t start = (s > 1) ? 1 : 0;
   for (size_t i = start; i < s; ++i) {

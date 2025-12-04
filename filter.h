@@ -62,7 +62,7 @@ struct Pipeline<W> {
   }
 
   // History
-  void trail(Canvas&, TrailFn, float) {}
+  void trail(Canvas&, TrailFn auto, float) {}
 };
 
 // Recursive Case
@@ -111,7 +111,7 @@ struct Pipeline<W, Head, Tail...> : public Head {
     }
   }
 
-  void trail(Canvas& cv, TrailFn trailFn, float alpha) {
+  void trail(Canvas& cv, TrailFn auto trailFn, float alpha) {
     if constexpr (Head::has_history) {
       Head::trail(trailFn, alpha,
         [&](float x, float y, const Pixel& c, float age, float alpha) {
@@ -144,8 +144,7 @@ public:
   /**
    * @brief Rotates the pixel's 3D position based on the current orientation.
    */
-  template <typename Pass>
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, Pass pass) {
+  void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
     pass(orientation.orient(v), color, age, alpha);
   }
 
@@ -175,8 +174,7 @@ public:
   /**
    * @brief Plots the fragment at its original position and at evenly spaced offsets.
    */
-  template <typename Pass>
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, Pass pass) {
+  void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
     Vector r = v;
     pass(r, color, age, alpha);
     for (int i = 1; i < count; i++) {
@@ -214,8 +212,7 @@ class FilterAntiAlias : public Is2D {
 public:
   FilterAntiAlias() {}
 
-  template <typename Pass>
-  void plot(float x, float y, const Pixel& c, float age, float alpha, Pass pass) {
+  void plot(float x, float y, const Pixel& c, float age, float alpha, auto pass) {
     float x_i = 0;
     float x_m = std::modf(x, &x_i);
     float y_i = 0;
@@ -259,8 +256,7 @@ public:
   /**
    * @brief Plots the original color, then plots R, G, and B components at slightly offset positions.
    */
-  template <typename Pass>
-  void plot(float x, float y, const Pixel& color, float age, float alpha, Pass pass) {
+  void plot(float x, float y, const Pixel& color, float age, float alpha, auto pass) {
     CRGB r(color.r, 0, 0);
     CRGB g(0, color.g, 0);
     CRGB b(0, 0, color.b);
@@ -296,8 +292,7 @@ public:
    * @details If age >= 0, the fragment is tracked for trails. If age <= 0,
    * it is plotted immediately as a new head.
    */
-  template <typename Pass>
-  void plot(float x, float y, const Pixel& color, float age, float alpha, Pass pass) {
+  void plot(float x, float y, const Pixel& color, float age, float alpha, auto pass) {
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
         ttls[num_pixels++] = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(lifetime - age) };
@@ -317,8 +312,7 @@ public:
  * @param trailFn A function to calculate the color based on normalized age (0.0 to 1.0).
  * @param alpha The base opacity for the trails.
  */
-  template <typename Pass>
-  void trail(TrailFn trailFn, float alpha, Pass pass) {
+  void trail(TrailFn auto trailFn, float alpha, auto pass) {
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
       pass(ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
