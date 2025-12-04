@@ -19,18 +19,30 @@ typedef CRGB Pixel;
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
 
-typedef std::function<Pixel(const Vector&, float)> ColorFn;
-typedef std::function<Pixel(float x, float y, float t)> TrailFn;
+template<typename F>
+concept ColorFn = std::invocable<F, const Vector&, float>
+&& std::convertible_to<std::invoke_result_t<F, const Vector&, float>, Pixel>;
 
-typedef std::function<Vector(float)> PlotFn;
+template<typename F>
+concept TrailFn = std::invocable<F, float, float, float>
+&& std::convertible_to<std::invoke_result_t<F, float, float, float>, Pixel>;
 
-typedef std::function<float(float)> EasingFn;
-typedef std::function<float(float)> ShiftFn;
-typedef std::function<float(float)> MutateFn;
-typedef std::function<float(float)> WaveFn;
+template<typename F>
+concept PlotFn = std::invocable<F, float>
+&& std::convertible_to<std::invoke_result_t<F, float>, Vector>;
 
-typedef std::function<void(Canvas&, float)> SpriteFn;
-typedef std::function<void(Canvas&)> TimerFn;
+template<typename F>
+concept ScalarFn = std::invocable<F, float>
+&& std::convertible_to<std::invoke_result_t<F, float>, float>;
+
+template<typename F>
+concept SpriteFn = std::invocable<F, Canvas&, float>;
+
+template<typename F>
+concept TimerFn = std::invocable<F, Canvas&>;
+
+template<typename F>
+concept TweenFn = std::invocable<F, const Quaternion&, float>;
 
 #include "geometry.h"
 #include "color.h"

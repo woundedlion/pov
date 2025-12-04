@@ -207,7 +207,7 @@ public:
    * @param f The function to call when the timer elapses.
    * @param repeat If true, the timer resets after calling the function.
    */
-  RandomTimer(int min, int max, TimerFn f, bool repeat = false) :
+  RandomTimer(int min, int max, TimerFn auto f, bool repeat = false) :
     Animation(-1, repeat),
     min(min),
     max(max),
@@ -244,7 +244,7 @@ private:
 
   int min; /**< Minimum frame delay. */
   int max; /**< Maximum frame delay. */
-  TimerFn f; /**< The callback function. */
+  std::function<void(Canvas&)> f; /**< The callback function. */
   int next; /**< The target frame count for the next trigger. */
 };
 
@@ -259,7 +259,7 @@ public:
    * @param f The function to call when the timer elapses.
    * @param repeat If true, the timer resets after calling the function.
    */
-  PeriodicTimer(int period, TimerFn f, bool repeat = false) :
+  PeriodicTimer(int period, TimerFn auto f, bool repeat = false) :
     Animation(-1, repeat),
     period(period),
     f(f)
@@ -293,7 +293,7 @@ public:
 private:
 
   int period; /**< The interval in frames. */
-  TimerFn f; /**< The callback function. */
+  std::function<void(Canvas&)> f; /**< The callback function. */
   int next; /**< The target frame count for the next trigger. */
 };
 
@@ -311,7 +311,7 @@ public:
    * @param quantized If true, the final value is rounded down to an integer.
    * @param repeat If true, the transition repeats indefinitely.
    */
-  Transition(float& mutant, float to, int duration, EasingFn easing_fn, bool quantized = false, bool repeat = false) :
+  Transition(float& mutant, float to, int duration, ScalarFn auto easing_fn, bool quantized = false, bool repeat = false) :
     Animation(duration, repeat),
     mutant(mutant),
     from(mutant),
@@ -350,7 +350,7 @@ private:
   std::reference_wrapper<float> mutant; /**< Reference to the float variable being animated. */
   float from; /**< Starting value. */
   float to; /**< Target value. */
-  EasingFn easing_fn; /**< Easing curve. */
+  std::function<float(float)> easing_fn; /**< Easing curve. */
   bool quantized; /**< Flag to round result to integer. */
 };
 
@@ -368,7 +368,7 @@ public:
    * @param easing_fn The easing function to apply to the time factor.
    * @param repeat If true, the mutation repeats indefinitely.
    */
-  Mutation(float& mutant, MutateFn f, int duration, EasingFn easing_fn, bool repeat = false) :
+  Mutation(float& mutant, ScalarFn auto f, int duration, ScalarFn auto easing_fn, bool repeat = false) :
     Animation(duration, repeat),
     mutant(mutant),
     from(mutant),
@@ -400,8 +400,8 @@ private:
 
   std::reference_wrapper<float> mutant; /**< Reference to the float variable being modified. */
   float from; /**< Starting value (unused by most MutateFns, but saved for context). */
-  MutateFn f; /**< The custom function to apply. */
-  EasingFn easing_fn; /**< Easing curve. */
+  std::function<float(float)> f; /**< The custom function to apply. */
+  std::function<float(float)> easing_fn; /**< Easing curve. */
 };
 
 /**
@@ -419,9 +419,9 @@ public:
    * @param fade_out_duration Frames for fading out.
    * @param fade_out_easing_fn Easing for fade-out.
    */
-  Sprite(SpriteFn draw_fn, int duration,
-    int fade_in_duration = 0, EasingFn fade_in_easing_fn = ease_mid,
-    int fade_out_duration = 0, EasingFn fade_out_easing_fn = ease_mid) :
+  Sprite(SpriteFn auto draw_fn, int duration,
+    int fade_in_duration = 0, ScalarFn auto fade_in_easing_fn = ease_mid,
+    int fade_out_duration = 0, ScalarFn auto fade_out_easing_fn = ease_mid) :
     Animation(duration, false),
     draw_fn(draw_fn),
     fader(fade_in_duration > 0 ? 0 : 1),
@@ -486,7 +486,7 @@ public:
 
 private:
 
-  SpriteFn draw_fn; /**< The drawing function functor. */
+  std::function<void(Canvas&, float)> draw_fn; /**< The drawing function functor. */
   float fader; /**< The variable storing the current opacity (0.0 to 1.0). */
   int fade_in_duration; /**< Duration of fade-in phase. */
   int fade_out_duration; /**< Duration of fade-out phase. */
@@ -565,7 +565,7 @@ public:
    * @param easing_fn The easing function to use.
    * @param repeat If true, the rotation repeats.
    */
-  Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, EasingFn easing_fn, bool repeat = false) :
+  Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, ScalarFn auto easing_fn, bool repeat = false) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
     axis(axis),
@@ -607,7 +607,7 @@ public:
    * @param angle The rotation angle in radians.
    * @param easing_fn The easing function to use.
    */
-  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, EasingFn easing_fn) {
+  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, ScalarFn auto easing_fn) {
     Rotation<W> r(orientation, axis, angle, 1, easing_fn, false);
     r.step(canvas);
   }
@@ -619,7 +619,7 @@ private:
   // Quaternion origin; /**< REMOVED: Starting quaternion snapshot. */
   Vector axis; /**< The axis of rotation. */
   float total_angle; /**< The total angle to sweep. */
-  EasingFn easing_fn; /**< Easing curve. */
+  std::function<float(float)> easing_fn; /**< Easing curve. */
   float last_angle; /**< The angle reached in the previous frame. */
 };
 
@@ -690,7 +690,7 @@ public:
    * @param duration The duration in frames.
    * @param easing_fn The easing function.
    */
-  ColorWipe(GenerativePalette& from_palette, const GenerativePalette& to_palette, int duration, EasingFn easing_fn) :
+  ColorWipe(GenerativePalette& from_palette, const GenerativePalette& to_palette, int duration, ScalarFn auto easing_fn) :
     Animation(duration, false),
     from_palette(from_palette),
     cur_palette(from_palette),
@@ -715,7 +715,7 @@ private:
   GenerativePalette from_palette; /**< A local copy of the starting state of the palette. */
   std::reference_wrapper<GenerativePalette> cur_palette; /**< The actual palette instance being animated. */
   std::reference_wrapper<const GenerativePalette> to_palette; /**< The target final palette. */
-  EasingFn easing_fn; /**< Easing curve. */
+  std::function<float(float)> easing_fn; /**< Easing curve. */
 };
 
 ///////////////////////////////////////////////////////////////////////////////

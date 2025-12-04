@@ -5,8 +5,6 @@
 #include "effects_legacy.h"
 #include "effects.h"
 
-// TODO: Convert from float to float everywhere
-// TODO: Compile-tie FilterChain
 // TODO: FilterMask
 // TODO: FilterDisplace
 
