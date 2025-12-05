@@ -278,7 +278,10 @@ public:
         const Vector normal;
         const Palette& palette;
         Orientation orientation;
-        std::vector<Vector> base_points;
+
+        // UPDATED: Use StaticCircularBuffer instead of std::vector
+        Points base_points;
+
         Pipeline<W,
             FilterDecay<W, 6000>,
             FilterAntiAlias<W>
@@ -300,7 +303,8 @@ public:
     void spawn_ring(const Vector& normal, const Palette& palette) {
         auto ring_index = rings.size();
         rings.emplace_back(normal, palette, trail_length);
-        rings.back().base_points = sample_ring<W>(Quaternion(), normal, 1.0f);
+        sample_ring<W>(rings.back().base_points, Quaternion(), normal, 1.0f);
+
         timeline.add(0,
             Sprite(
                 [this, ring_index](Canvas& canvas, float opacity) { draw_ring(canvas, opacity, ring_index); },
@@ -317,8 +321,10 @@ public:
         auto& ring = rings[ring_index];
         tween(ring.orientation, [this, &canvas, opacity, &ring](auto& q, auto t) {
             dots.clear();
-            std::vector<Vector> points;
-            for (const auto& p : ring.base_points) points.push_back(rotate(p, q));
+            Points points;
+            for (const auto& p : ring.base_points) {
+                points.push_back(rotate(p, q));
+            }
             rasterize<W>(dots, points, [&](auto& v, auto t) { return vignette(ring.palette)(0); }, true);
             plot_dots<W>(dots, ring.filters, canvas, t, alpha * opacity);
             });
@@ -488,7 +494,7 @@ private:
             else {
                 auto from = pixel_to_vector<W>(nodes[i - 1].x, node_y(nodes[i - 1]));
                 auto to = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
-                draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, false);
+                draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, 0, 1, false, true);
             }
         }
         plot_dots<W>(dots, filters, canvas, age, alpha);
