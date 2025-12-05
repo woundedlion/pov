@@ -53,6 +53,11 @@ struct Dot {
  */
 using Dots = StaticCircularBuffer<Dot, 1024>;
 
+/**
+ * @brief Type alias for a circular buffer used to store geometry points (Vectors).
+ * @details Capacity is set to 1024.
+ */
+using Points = StaticCircularBuffer<Vector, 256>;
 
 /**
  * @brief Converts 2D pixel coordinates to a 3D unit vector on the sphere.

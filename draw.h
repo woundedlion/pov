@@ -2,52 +2,6 @@
 #include <vector>
 #include <algorithm>
 
-// forward declare draw_line so it can be used in rasterize
-template <int W>
-void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color_fn,
-    float start = 0, float end = 1, bool long_way = false, bool omit_last = false);
-
-/**
- * @brief Draws a single vector (point) on the unit sphere.
- * @tparam W The width of the display (used for projection context).
- * @param dots The buffer to which the Dot will be added.
- * @param v The 3D vector position (will be normalized).
- * @param color_fn The color function to determine the pixel's color.
- */
-template <int W>
-void draw_vector(Dots& dots, const Vector& v, ColorFn auto color_fn) {
-    Vector u(v);
-    u.normalize();
-    dots.emplace_back(Dot(u, color_fn(u, 0)));
-}
-
-/**
- * @brief Rasterizes a list of points into Dot objects by connecting them with geodesic lines.
- * @param dots The buffer to which the resulting Dots will be added.
- * @param points The list of points.
- * @param color_fn Function to determine color (takes vector and normalized progress t).
- * @param close_loop If true, connects the last point to the first.
- */
-template <int W>
-void rasterize(Dots& dots, const std::vector<Vector>& points, ColorFn auto color_fn, bool close_loop = false) {
-    size_t len = points.size();
-    if (len == 0) return;
-
-    size_t count = close_loop ? len : len - 1;
-    for (size_t i = 0; i < count; i++) {
-        const Vector& p1 = points[i];
-        const Vector& p2 = points[(i + 1) % len];
-
-        auto segment_color_fn = [&](const Vector& p, float sub_t) {
-            float global_t = (i + sub_t) / count;
-            return color_fn(p, global_t);
-            };
-
-        // Draw segment
-        draw_line<W>(dots, p1, p2, segment_color_fn, 0.0f, 1.0f, false, true);
-    }
-}
-
 /**
  * @brief Draws a geodesic line (arc) between two vectors on the sphere with adaptive sampling.
  * @tparam W The width of the display (used for step calculation).
@@ -98,65 +52,86 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto colo
     }
     a *= std::abs(end - start);
 
-    // Simulation Phase
+    // Simulation P\phase
     Vector sim_u = u;
     float sim_angle = 0;
     std::vector<float> steps;
     const float base_step = 2 * PI_F / W;
-
     while (sim_angle < a) {
         float scale_factor = std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - sim_u.j * sim_u.j)));
         float step = base_step * scale_factor;
         steps.push_back(step);
         sim_angle += step;
-
-        // Advance simU
         Quaternion q = make_rotation(w, step);
         sim_u = rotate(sim_u, q).normalize();
     }
 
-    // Calculate Scale Factor
+    // Drawing phase
     float scale = a / sim_angle;
-
-    // Drawing Phase
     if (omit_last && steps.empty()) {
         return;
     }
-
     float current_angle = 0;
     dots.emplace_back(Dot(u, color_fn(u, 0)));
-
     size_t loop_limit = omit_last ? steps.size() - 1 : steps.size();
     for (size_t i = 0; i < loop_limit; i++) {
         float step = steps[i] * scale;
-
-        // Advance u
         Quaternion q = make_rotation(w, step);
         u = rotate(u, q).normalize();
         current_angle += step;
-
-        // Normalized t
         float t = (a > 0) ? (current_angle / a) : 1;
         dots.emplace_back(Dot(u, color_fn(u, t)));
     }
 }
 
 /**
- * @brief Overload for draw_line with default arguments.
+ * @brief Rasterizes a list of points into Dot objects by connecting them with geodesic lines.
+ * @param dots The buffer to which the resulting Dots will be added.
+ * @param points The buffer of points.
+ * @param color_fn Function to determine color (takes vector and normalized progress t).
+ * @param close_loop If true, connects the last point to the first.
  */
 template <int W>
-void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color_fn) {
-    draw_line<W>(dots, v1, v2, color_fn, 0.0f, 1.0f, false, false);
+void rasterize(Dots& dots, const Points& points, ColorFn auto color_fn, bool close_loop = false) {
+    size_t len = points.size();
+    if (len == 0) return;
+
+    size_t count = close_loop ? len : len - 1;
+    for (size_t i = 0; i < count; i++) {
+        const Vector& p1 = points[i];
+        const Vector& p2 = points[(i + 1) % len];
+
+        auto segment_color_fn = [&](const Vector& p, float sub_t) {
+            float global_t = (i + sub_t) / count;
+            return color_fn(p, global_t);
+         };
+
+        draw_line<W>(dots, p1, p2, segment_color_fn, 0.0f, 1.0f, false, true);
+    }
+}
+
+/**
+ * @brief Draws a single vector (point) on the unit sphere.
+ * @tparam W The width of the display (used for projection context).
+ * @param dots The buffer to which the Dot will be added.
+ * @param v The 3D vector position (will be normalized).
+ * @param color_fn The color function to determine the pixel's color.
+ */
+template <int W>
+void draw_vector(Dots& dots, const Vector& v, ColorFn auto color_fn) {
+    Vector u(v);
+    u.normalize();
+    dots.emplace_back(Dot(u, color_fn(u, 0)));
 }
 
 /**
  * @brief Draws a set of vertices (points) without connecting them.
  * @param dots The buffer to which the resulting Dots will be added.
- * @param vertices The list of vertex vectors.
+ * @param points The list of vertex vectors.
  * @param color_fn The color function.
  */
-void draw_vertices(Dots& dots, const VertexList& vertices, ColorFn auto color_fn) {
-    for (Vector v : vertices) {
+void draw_vertices(Dots& dots, const Points& points, ColorFn auto color_fn) {
+    for (Vector v : points) {
         dots.emplace_back(Dot(v.normalize(), color_fn(v, 0)));
     }
 }
@@ -176,7 +151,7 @@ void draw_polyhedron(Dots& dots, const VertexList& vertices, const AdjacencyList
         for (auto j : edges[i]) {
             if (i < j) {
                 Vector b(vertices[j]);
-                draw_line<W>(dots, a, b, color_fn);
+                draw_line<W>(dots, a, b, color_fn, 0, 1, false, true);
             }
         }
     }
@@ -223,21 +198,21 @@ Vector fn_point(ScalarFn auto f, const Vector& normal, float radius, float angle
 
 /**
  * @brief Samples points for a circular ring on the sphere surface with adaptive sampling.
- * @param orientation The orientation of the ring.
+ * @param points The buffer to which points are added.
+ * @param orientationQuaternion The orientation of the ring.
  * @param normal The normal vector defining the ring plane.
  * @param radius The radius of the ring.
  * @param phase Starting phase.
- * @return An array of points.
  */
 template<int W>
-std::vector<Vector> sample_ring(const Quaternion& orientation, const Vector& normal, float radius, float phase = 0) {
+void sample_ring(Points& points, const Quaternion& orientationQuaternion, const Vector& normal, float radius, float phase = 0) {
     // Basis
     Vector ref_axis = X_AXIS;
     if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
         ref_axis = Y_AXIS;
     }
-    Vector v = rotate(normal, orientation).normalize();
-    Vector ref = rotate(ref_axis, orientation).normalize();
+    Vector v = rotate(normal, orientationQuaternion).normalize();
+    Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
     Vector u = cross(v, ref).normalize();
     Vector w = cross(v, u).normalize();
 
@@ -255,7 +230,6 @@ std::vector<Vector> sample_ring(const Quaternion& orientation, const Vector& nor
     // Calculate Samples
     const int num_samples = W / 4;
     const float step = 2.0f * PI_F / num_samples;
-    std::vector<Vector> points;
     Vector u_temp;
 
     for (int i = 0; i < num_samples; i++) {
@@ -267,7 +241,6 @@ std::vector<Vector> sample_ring(const Quaternion& orientation, const Vector& nor
         Vector p = ((v_dir * d) + (u_temp * r)).normalize();
         points.push_back(p);
     }
-    return points;
 }
 
 /**
@@ -278,28 +251,29 @@ template<int W>
 void draw_ring(Dots& dots, const Quaternion& orientation, const Vector& normal,
     float radius, ColorFn auto color_fn, float phase = 0)
 {
-    auto points = sample_ring<W>(orientation, normal, radius, phase);
+    Points points;
+    sample_ring<W>(points, orientation, normal, radius, phase);
     rasterize<W>(dots, points, color_fn, true);
 }
 
 /**
  * @brief Samples points for a function-distorted ring with adaptive sampling.
- * @param orientation Orientation of the base ring.
+ * @param points The buffer to which points are added.
+ * @param orientationQuaternion Orientation of the base ring.
  * @param normal Normal of the base ring.
  * @param radius Base radius (0-1).
  * @param shift_fn Function(t) returning angle offset.
  * @param phase Starting phase offset.
- * @return An array of points.
  */
 template <int W>
-std::vector<Vector> sample_fn(const Quaternion& orientation, const Vector& normal, float radius, ScalarFn auto shift_fn, float phase = 0) {
+void sample_fn(Points& points, const Quaternion& orientationQuaternion, const Vector& normal, float radius, ScalarFn auto shift_fn, float phase = 0) {
     // Basis
     Vector ref_axis = X_AXIS;
     if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
         ref_axis = Y_AXIS;
     }
-    Vector v = rotate(normal, orientation).normalize();
-    Vector ref = rotate(ref_axis, orientation).normalize();
+    Vector v = rotate(normal, orientationQuaternion).normalize();
+    Vector ref = rotate(ref_axis, orientationQuaternion).normalize();
     Vector u = cross(v, ref).normalize();
     Vector w = cross(v, u).normalize();
 
@@ -318,7 +292,6 @@ std::vector<Vector> sample_fn(const Quaternion& orientation, const Vector& norma
     // Calculate Samples
     const int num_samples = W;
     const float step = 2.0f * PI_F / num_samples;
-    std::vector<Vector> points;
     Vector u_temp;
 
     for (int i = 0; i < num_samples; i++) {
@@ -338,18 +311,17 @@ std::vector<Vector> sample_fn(const Quaternion& orientation, const Vector& norma
 
         points.push_back(p);
     }
-
-    return points;
 }
 
 /**
 *@brief Draws a function-distorted ring with adaptive sampling.
 */
 template <int W>
-void draw_fn(Dots& dots, const Quaternion& orientation, const Vector& normal,
+void draw_fn(Dots& dots, const Quaternion& orientationQuaternion, const Vector& normal,
     float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0)
 {
-    auto points = sample_fn<W>(orientation, normal, radius, shift_fn, phase);
+    Points points;
+    sample_fn<W>(points, orientationQuaternion, normal, radius, shift_fn, phase);
     rasterize<W>(dots, points, color_fn, true);
 }
 
