@@ -2,6 +2,11 @@
 #include <vector>
 #include <algorithm>
 
+// forward declare draw_line so it can be used in rasterize
+template <int W>
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color_fn,
+    float start = 0, float end = 1, bool long_way = false, bool omit_last = false);
+
 /**
  * @brief Draws a single vector (point) on the unit sphere.
  * @tparam W The width of the display (used for projection context).
@@ -11,157 +16,137 @@
  */
 template <int W>
 void draw_vector(Dots& dots, const Vector& v, ColorFn auto color_fn) {
-  Vector u(v);
-  u.normalize();
-  dots.emplace_back(Dot(u, color_fn(u, 0)));
+    Vector u(v);
+    u.normalize();
+    dots.emplace_back(Dot(u, color_fn(u, 0)));
 }
 
 /**
- * @brief Draws a great-circle arc (line) between two 3D vectors on the unit sphere.
+ * @brief Rasterizes a list of points into Dot objects by connecting them with geodesic lines.
+ * @param dots The buffer to which the resulting Dots will be added.
+ * @param points The list of points.
+ * @param color_fn Function to determine color (takes vector and normalized progress t).
+ * @param close_loop If true, connects the last point to the first.
+ */
+template <int W>
+void rasterize(Dots& dots, const std::vector<Vector>& points, ColorFn auto color_fn, bool close_loop = false) {
+    size_t len = points.size();
+    if (len == 0) return;
+
+    size_t count = close_loop ? len : len - 1;
+    for (size_t i = 0; i < count; i++) {
+        const Vector& p1 = points[i];
+        const Vector& p2 = points[(i + 1) % len];
+
+        auto segment_color_fn = [&](const Vector& p, float sub_t) {
+            float global_t = (i + sub_t) / count;
+            return color_fn(p, global_t);
+            };
+
+        // Draw segment
+        draw_line<W>(dots, p1, p2, segment_color_fn, 0.0f, 1.0f, false, true);
+    }
+}
+
+/**
+ * @brief Draws a geodesic line (arc) between two vectors on the sphere with adaptive sampling.
  * @tparam W The width of the display (used for step calculation).
  * @param dots The buffer to which the resulting Dots will be added.
- * @param v1 The starting vector.
- * @param v2 The ending vector.
- * @param color The color function for the line segment.
- * @param long_way If true, draws the longer arc around the sphere.
- * @param start The normalized start position of the line (0.0 to 1.0).
- * @param end The normalized end position of the line (0.0 to 1.0).
+ * @param v1 The start vector.
+ * @param v2 The end vector.
+ * @param color_fn Function to determine the color (takes vector and normalized progress t).
+ * @param start Starting angle multiplier for drawing the line arc.
+ * @param end Ending multiplier for the total arc angle.
+ * @param long_way If true, draws the longer arc.
+ * @param omit_last If true, omits the last point (useful for connecting segments).
  */
 template <int W>
-void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color,
-  float start = 0, float end = 1, bool long_way = false)
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color_fn,
+    float start, float end, bool long_way, bool omit_last)
 {
-  Vector u(v1);
-  Vector v(v2);
-  u.normalize();
-  v.normalize();
+    Vector u(v1);
+    Vector v(v2);
+    float a = angle_between(u, v);
+    Vector w;
 
-  float a = angle_between(u, v);
-  if (std::abs(a) < TOLERANCE) {
-    dots.emplace_back(Dot(u, color(u, 1.0f)));
-    return;
-  }
-  Vector w;
-  if (std::abs(PI_F - a) < TOLERANCE) {
-    if (std::abs(dot(v, X_AXIS)) > 1 - TOLERANCE) {
-      w = cross(u, Y_AXIS).normalize();
+    if (std::abs(a) < TOLERANCE) {
+        if (!omit_last) {
+            dots.emplace_back(Dot(u, color_fn(u, 0.0f)));
+        }
+        return;
+    }
+    else if (std::abs(PI_F - a) < TOLERANCE) {
+        if (std::abs(dot(v, X_AXIS)) > 0.9999f) {
+            w = cross(u, Y_AXIS).normalize();
+        }
+        else {
+            w = cross(u, X_AXIS).normalize();
+        }
     }
     else {
-      w = cross(u, X_AXIS).normalize();
+        w = cross(u, v).normalize();
     }
-  }
-  else {
-    w = cross(u, v).normalize();
-  }
 
-  if (long_way) {
-    a = 2 * PI_F - a;
-    w = -w;
-  }
+    if (long_way) {
+        a = 2 * PI_F - a;
+        w = -w;
+    }
 
-  // Trim start and end
-  if (std::abs(start) > TOLERANCE) {
-    Quaternion q = make_rotation(w, start * a);
-    u = rotate(u, q).normalize();
-  }
-  a *= std::abs(end - start);
+    if (std::abs(start) > TOLERANCE) {
+        Quaternion q = make_rotation(w, start * a);
+        u = rotate(u, q).normalize();
+    }
+    a *= std::abs(end - start);
 
-  int num_steps = std::max(1, static_cast<int>(std::ceil((a / (2 * PI_F)) * W * 2)));
-  Quaternion q = make_rotation(w, a / num_steps);
-  for (int i = 0; i <= num_steps; ++i) {
-    dots.emplace_back(Dot(u, color(u, static_cast<float>(i) / num_steps)));
-    u = rotate(u, q).normalize();
-  }
+    // Simulation Phase
+    Vector sim_u = u;
+    float sim_angle = 0;
+    std::vector<float> steps;
+    const float base_step = 2 * PI_F / W;
+
+    while (sim_angle < a) {
+        float scale_factor = std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - sim_u.j * sim_u.j)));
+        float step = base_step * scale_factor;
+        steps.push_back(step);
+        sim_angle += step;
+
+        // Advance simU
+        Quaternion q = make_rotation(w, step);
+        sim_u = rotate(sim_u, q).normalize();
+    }
+
+    // Calculate Scale Factor
+    float scale = a / sim_angle;
+
+    // Drawing Phase
+    if (omit_last && steps.empty()) {
+        return;
+    }
+
+    float current_angle = 0;
+    dots.emplace_back(Dot(u, color_fn(u, 0)));
+
+    size_t loop_limit = omit_last ? steps.size() - 1 : steps.size();
+    for (size_t i = 0; i < loop_limit; i++) {
+        float step = steps[i] * scale;
+
+        // Advance u
+        Quaternion q = make_rotation(w, step);
+        u = rotate(u, q).normalize();
+        current_angle += step;
+
+        // Normalized t
+        float t = (a > 0) ? (current_angle / a) : 1;
+        dots.emplace_back(Dot(u, color_fn(u, t)));
+    }
 }
 
 /**
- * @brief Represents a customizable path or trajectory in 3D space.
- * @tparam W The width of the display (used for samples/resolution).
+ * @brief Overload for draw_line with default arguments.
  */
 template <int W>
-class Path {
-public:
-  Path() {}
-
-  /**
-   * @brief Appends a great-circle arc segment to the path.
-   * @param v1 The starting vector.
-   * @param v2 The ending vector.
-   * @param long_way If true, takes the longer path.
-   * @return Reference to the Path object.
-   */
-  Path& append_line(const Vector& v1, const Vector& v2, bool long_way = false) {
-    if (points.size() > 0) {
-      points.pop_back(); // Overlap previous segment
-    }
-    Dots seg;
-    draw_line<W>(seg, v1, v2, [](auto&, auto) { return Pixel(); }, 0.0f, 1.0f, long_way);
-    std::transform(seg.begin(), seg.end(), std::back_inserter(points),
-      [](auto& d) { return d.position; });
-    return *this;
-  }
-
-  /**
-   * @brief Appends a segment generated by a plotting function.
-   * @param plot A function that generates a Vector given a float input (time/domain).
-   * @param domain The maximum input value for the plot function.
-   * @param samples The number of points to sample along the segment.
-   * @param easing The easing function to apply to the time factor.
-   * @return Reference to the Path object.
-   */
-  Path& append_segment(PlotFn auto plot, float domain, float samples, ScalarFn auto easing) {
-    if (points.size() > 0) {
-      points.pop_back(); // Overlap previous segment
-    }
-    for (float t = 0; t <= samples; t++) {
-      points.push_back(plot(easing(t / samples) * domain));
-    }
-    return *this;
-  }
-
-  /**
-   * @brief Retrieves a point along the path based on a normalized factor.
-   * @param t The normalized factor (0.0 to 1.0).
-   * @return The Vector at that point.
-   */
-  Vector get_point(float t) const {
-    return points[static_cast<int>(t * (points.size() - 1))];
-  }
-
-  /**
-   * @brief Gets the total number of discrete points in the path.
-   * @return The number of points.
-   */
-  size_t num_points() const { return points.size(); }
-
-  /**
-   * @brief Reduces the path to a single point: the last recorded position.
-   */
-  void collapse() {
-    if (points.size() > 1) {
-      points = { points.back() };
-    }
-  }
-
-private:
-
-  StaticCircularBuffer<Vector, 1024> points; /**< The discrete points making up the path. */
-};
-
-/**
- * @brief Draws a Path object by sampling its points and adding them as dots.
- * @tparam W The width of the display.
- * @param dots The buffer to which the resulting Dots will be added.
- * @param path The Path object to draw.
- * @param color The color function.
- */
-template <int W>
-void draw_path(Dots& dots, const Path<W>& path, ColorFn auto color) {
-  size_t samples = path.num_points();
-  for (size_t i = 0; i < samples; ++i) {
-    auto v = path.get_point(static_cast<float>(i) / samples);
-    dots.push_back(Dot(v, color(v, i / (samples - 1))));
-  }
+void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color_fn) {
+    draw_line<W>(dots, v1, v2, color_fn, 0.0f, 1.0f, false, false);
 }
 
 /**
@@ -171,9 +156,9 @@ void draw_path(Dots& dots, const Path<W>& path, ColorFn auto color) {
  * @param color_fn The color function.
  */
 void draw_vertices(Dots& dots, const VertexList& vertices, ColorFn auto color_fn) {
-  for (Vector v : vertices) {
-    dots.emplace_back(Dot(v.normalize(), color_fn(v, 0)));
-  }
+    for (Vector v : vertices) {
+        dots.emplace_back(Dot(v.normalize(), color_fn(v, 0)));
+    }
 }
 
 /**
@@ -186,345 +171,316 @@ void draw_vertices(Dots& dots, const VertexList& vertices, ColorFn auto color_fn
  */
 template <int W>
 void draw_polyhedron(Dots& dots, const VertexList& vertices, const AdjacencyList& edges, ColorFn auto color_fn) {
-  for (size_t i = 0; i < edges.size(); ++i) {
-    Vector a(vertices[i]);
-    for (auto j : edges[i]) {
-      Vector b(vertices[j]);
-      draw_line<W>(dots, a, b, color_fn);
+    for (size_t i = 0; i < edges.size(); ++i) {
+        Vector a(vertices[i]);
+        for (auto j : edges[i]) {
+            if (i < j) {
+                Vector b(vertices[j]);
+                draw_line<W>(dots, a, b, color_fn);
+            }
+        }
     }
-  }
 }
 
 /**
- * @brief Calculates a 3D point on a circle that may be offset from the sphere's origin.
- * @param a The angle along the ring.
- * @param radius The radius of the ring relative to the sphere.
- * @param u Unit vector in the ring's local horizontal direction.
- * @param v Unit vector along the ring's normal.
- * @param w Unit vector in the ring's local vertical direction.
- * @return The calculated point, normalized to the unit sphere.
+ * @brief Calculates a point on a circle that lies on the surface of the unit sphere.
+ * Used internally by drawing functions.
  */
 Vector calc_ring_point(float a, float radius, const Vector& u, const Vector& v, const Vector& w) {
-  auto d = sqrtf((1 - radius) * (1 - radius));
-  return Vector(
-    d * v.i + radius * u.i * cosf(a) + radius * w.i * sinf(a),
-    d * v.j + radius * u.j * cosf(a) + radius * w.j * sinf(a),
-    d * v.k + radius * u.k * cosf(a) + radius * w.k * sinf(a)
-  ).normalize();
+    auto d = sqrtf((1 - radius) * (1 - radius));
+    return Vector(
+        d * v.i + radius * u.i * cosf(a) + radius * w.i * sinf(a),
+        d * v.j + radius * u.j * cosf(a) + radius * w.j * sinf(a),
+        d * v.k + radius * u.k * cosf(a) + radius * w.k * sinf(a)
+    ).normalize();
 }
 
 /**
- * @brief Calculates a single point on a ring that is also perturbed by a function (shiftFn).
- * @param f The function defining the radial shift (ScalarFn).
- * @param normal The normal vector defining the plane of the ring.
- * @param radius The radius of the ring.
- * @param angle The angle along the ring.
- * @return The calculated and rotated 3D point (unit vector).
+ * @brief Calculates a single point on a sphere distorted by a function, often for an oscillating ring.
  */
 Vector fn_point(ScalarFn auto f, const Vector& normal, float radius, float angle) {
-  Vector v(normal);
-  if (radius > 1) {
-    v = -v;
-  }
-  Vector u;
-  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
-    u = cross(v, Y_AXIS);
-  }
-  else {
-    u = cross(v, X_AXIS);
-  }
-  u.normalize();
-  Vector w(cross(v, u));
-  if (radius > 1) {
-    w = -w;
-    radius = 2 - radius;
-  }
+    Vector v(normal);
+    if (radius > 1) {
+        v = -v;
+        radius = 2 - radius;
+    }
+    Vector u;
+    if (std::abs(dot(v, X_AXIS)) > 0.99995f) {
+        u = cross(v, Y_AXIS).normalize();
+    }
+    else {
+        u = cross(v, X_AXIS).normalize();
+    }
+    Vector w(cross(v, u));
+    auto d = sqrtf((1 - radius) * (1 - radius));
 
-  auto vi = calc_ring_point(angle, radius, u, v, w);
-  auto vp = calc_ring_point(angle, 1, u, v, w);
-  Vector axis = cross(v, vp).normalize();
-  auto shift = make_rotation(axis, f(angle * PI_F / 2));
-  return rotate(vi, shift);
+    auto vi = calc_ring_point(angle, radius, u, v, w);
+    auto vp = calc_ring_point(angle, 1, u, v, w);
+    Vector axis = cross(v, vp).normalize();
+    auto shift = make_rotation(axis, f(angle * PI_F / 2));
+    return rotate(vi, shift);
 };
 
 /**
- * @brief Draws a complete ring (circle) on the unit sphere, oriented by the scene's rotation.
- * @details Uses adaptive sampling to prevent clustering at the poles.
- * @tparam W The width of the display (used for step calculation).
- * @param dots The buffer for the resulting Dots.
- * @param orientationQuaternion The orientation of the normal
- * @param normal The normal vector defining the plane of the ring (unoriented).
+ * @brief Samples points for a circular ring on the sphere surface with adaptive sampling.
+ * @param orientation The orientation of the ring.
+ * @param normal The normal vector defining the ring plane.
  * @param radius The radius of the ring.
- * @param color_fn The color function (ColorFn).
- * @param phase The angular offset.
+ * @param phase Starting phase.
+ * @return An array of points.
  */
 template<int W>
-void draw_ring(Dots& dots, const Quaternion& orientation, const Vector& normal,
-  float radius, ColorFn auto color_fn, float phase = 0)
-{
-  // Basis
-  Vector ref_axis = X_AXIS;
-  if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
-    ref_axis = Y_AXIS;
-  }
-  Vector v = rotate(normal, orientation).normalize();
-  Vector ref = rotate(ref_axis, orientation).normalize();
-  Vector u = cross(v, ref).normalize();
-  Vector w = cross(v, u).normalize();
-
-  // Backside rings
-  Vector v_dir = v;
-  if (radius > 1.0f) {
-    v_dir = -v_dir;
-    radius = 2.0f - radius;
-  }
-
-  // Equidistant projection
-  const float theta_eq = radius * (PI_F / 2.0f);
-  const float r = sinf(theta_eq);
-  const float d = cosf(theta_eq);
-
-  // Calculate Samples
-  const float base_step = (2.0f * PI_F) / W;
-  float theta = 0.0f;
-  StaticCircularBuffer<float, 512> thetas;
-
-  while (theta < 2.0f * PI_F) {
-    float t = theta / (2.0f * PI_F);
-
-    // Ring step
-    float angle = theta + phase;
-    float cos_ring = cosf(angle);
-    float sin_ring = sinf(angle);
-    Vector u_current = (u * cos_ring) + (w * sin_ring);
-    Vector to = ((v_dir * d) + (u_current * r)).normalize();
-    dots.emplace_back(Dot(to, color_fn(to, t)));
-    thetas.push_back(theta);
-
-    // Adaptive Sampling for horizontal pixel distortion at poles
-    float latitude_radius = sqrtf(std::max(0.0f, 1.0f - to.j * to.j));
-    float scale_factor = std::max(0.05f, latitude_radius);
-    float step = base_step * scale_factor;
-    float next_theta = theta + step;
-
-    // Repair last N samples to close the loop
-    if (next_theta >= 2.0f * PI_F) {
-      const int REPAIR_COUNT = 5;
-      if (thetas.size() > REPAIR_COUNT) {
-        float target_last_theta = 2.0f * PI_F - step;
-        int anchor_idx = thetas.size() - REPAIR_COUNT - 1;
-        float anchor_theta = thetas[anchor_idx];
-        float ratio = (target_last_theta - anchor_theta) / (theta - anchor_theta);
-        for (size_t i = anchor_idx + 1; i < thetas.size(); i++) {
-          float dist = thetas[i] - anchor_theta;
-          float corrected_theta = anchor_theta + (dist * ratio);
-
-          // Re-calculate Geometry for corrected position
-          float t_c = corrected_theta / (2.0f * PI_F);
-          float angle_c = corrected_theta + phase;
-          float cos_ring_c = cosf(angle_c);
-          float sin_ring_c = sinf(angle_c);
-          Vector u_current_c = (u * cos_ring_c) + (w * sin_ring_c);
-          Vector p_corrected = ((v_dir * d) + (u_current_c * r)).normalize();
-          size_t dot_index = dots.size() - (thetas.size() - i);
-          dots[dot_index] = Dot(p_corrected, color_fn(p_corrected, t_c));
-        }
-      }
-      break;
+std::vector<Vector> sample_ring(const Quaternion& orientation, const Vector& normal, float radius, float phase = 0) {
+    // Basis
+    Vector ref_axis = X_AXIS;
+    if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
+        ref_axis = Y_AXIS;
     }
-    theta = next_theta;
-  }
+    Vector v = rotate(normal, orientation).normalize();
+    Vector ref = rotate(ref_axis, orientation).normalize();
+    Vector u = cross(v, ref).normalize();
+    Vector w = cross(v, u).normalize();
+
+    // Backside rings
+    Vector v_dir = v;
+    if (radius > 1.0f) {
+        v_dir = -v_dir;
+        radius = 2.0f - radius;
+    }
+
+    const float theta_eq = radius * (PI_F / 2.0f);
+    const float r = sinf(theta_eq);
+    const float d = cosf(theta_eq);
+
+    // Calculate Samples
+    const int num_samples = W / 4;
+    const float step = 2.0f * PI_F / num_samples;
+    std::vector<Vector> points;
+    Vector u_temp;
+
+    for (int i = 0; i < num_samples; i++) {
+        float theta = i * step;
+        float t = theta + phase;
+        float cos_ring = cosf(t);
+        float sin_ring = sinf(t);
+        u_temp = (u * cos_ring) + (w * sin_ring);
+        Vector p = ((v_dir * d) + (u_temp * r)).normalize();
+        points.push_back(p);
+    }
+    return points;
 }
 
 /**
-*@brief Draws a ring defined by a normal vector and applies a functional shift(drawFn).
-* @details Uses adaptive sampling to prevent clustering at the poles.
-* @tparam W The width of the display.
-* @param dots The buffer for the resulting Dots.
-* @param orientationQuaternion The current rotational state of the normal.
-* @param normal The normal vector defining the plane of the ring.
-* @param radius The radius of the ring.
-* @param shift_fn The function defining the radial shift(ScalarFn).
-* @param color_fn The color function(ColorFn).
-* @param phase The angular offset.
+ * @brief Draws a circular ring on the sphere surface with adaptive sampling
+ * to prevent artifacts near the poles.
+ */
+template<int W>
+void draw_ring(Dots& dots, const Quaternion& orientation, const Vector& normal,
+    float radius, ColorFn auto color_fn, float phase = 0)
+{
+    auto points = sample_ring<W>(orientation, normal, radius, phase);
+    rasterize<W>(dots, points, color_fn, true);
+}
+
+/**
+ * @brief Samples points for a function-distorted ring with adaptive sampling.
+ * @param orientation Orientation of the base ring.
+ * @param normal Normal of the base ring.
+ * @param radius Base radius (0-1).
+ * @param shift_fn Function(t) returning angle offset.
+ * @param phase Starting phase offset.
+ * @return An array of points.
+ */
+template <int W>
+std::vector<Vector> sample_fn(const Quaternion& orientation, const Vector& normal, float radius, ScalarFn auto shift_fn, float phase = 0) {
+    // Basis
+    Vector ref_axis = X_AXIS;
+    if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
+        ref_axis = Y_AXIS;
+    }
+    Vector v = rotate(normal, orientation).normalize();
+    Vector ref = rotate(ref_axis, orientation).normalize();
+    Vector u = cross(v, ref).normalize();
+    Vector w = cross(v, u).normalize();
+
+    // Backside rings
+    float v_sign = 1.0f;
+    if (radius > 1.0f) {
+        v_sign = -1.0f;
+        radius = 2.0f - radius;
+    }
+
+    // Equidistant projection
+    const float theta_eq = radius * (PI_F / 2.0f);
+    const float r = sinf(theta_eq);
+    const float d = cosf(theta_eq);
+
+    // Calculate Samples
+    const int num_samples = W;
+    const float step = 2.0f * PI_F / num_samples;
+    std::vector<Vector> points;
+    Vector u_temp;
+
+    for (int i = 0; i < num_samples; i++) {
+        float theta = i * step;
+        float t = theta + phase;
+        float cos_ring = cosf(t);
+        float sin_ring = sinf(t);
+        u_temp = (u * cos_ring) + (w * sin_ring);
+
+        // Apply Shift
+        float shift = shift_fn(theta / (2.0f * PI_F));
+        float cos_shift = cosf(shift);
+        float sin_shift = sinf(shift);
+        float v_scale = (v_sign * d) * cos_shift - r * sin_shift;
+        float u_scale = r * cos_shift + (v_sign * d) * sin_shift;
+        Vector p = ((v * v_scale) + (u_temp * u_scale)).normalize();
+
+        points.push_back(p);
+    }
+
+    return points;
+}
+
+/**
+*@brief Draws a function-distorted ring with adaptive sampling.
 */
 template <int W>
 void draw_fn(Dots& dots, const Quaternion& orientation, const Vector& normal,
-  float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0)
+    float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0)
 {
-  // Basis
-  Vector ref_axis = X_AXIS;
-  if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
-    ref_axis = Y_AXIS;
-  }
-  Vector v = rotate(normal, orientation).normalize();
-  Vector ref = rotate(ref_axis, orientation).normalize();
-  Vector u = cross(v, ref).normalize();
-  Vector w = cross(v, u).normalize();
-
-  // Backside rings
-  float v_sign = 1.0f;
-  if (radius > 1.0f) {
-    v_sign = -1.0f;
-    radius = 2.0f - radius;
-  }
-
-  // Equidistant projection
-  const float theta_eq = radius * (PI_F / 2.0f);
-  const float r = sinf(theta_eq);
-  const float d = cosf(theta_eq);
-
-  // Calculate Samples
-  const float base_step = (2.0f * PI_F) / W;
-  float theta = 0.0f;
-
-  // Temporary buffers for repair logic
-  std::vector<Vector> points;
-  std::vector<float> thetas;
-  Vector u_temp, p_temp;
-
-  while (true) {
-    float t = theta / (2.0f * PI_F);
-
-    // Ring step
-    float angle = theta + phase;
-    float cos_ring = cosf(angle);
-    float sin_ring = sinf(angle);
-    u_temp = (u * cos_ring) + (w * sin_ring);
-
-    // Apply Shift Function (Rodrigues Rotation approximation)
-    float shift = shift_fn(t);
-    float cos_shift = cosf(shift);
-    float sin_shift = sinf(shift);
-    float v_scale = (v_sign * d) * cos_shift - r * sin_shift;
-    float u_scale = r * cos_shift + (v_sign * d) * sin_shift;
-    p_temp = ((v * v_scale) + (u_temp * u_scale)).normalize();
-    points.push_back(p_temp);
-    thetas.push_back(theta);
-
-    // Adaptive Sampling for horizontal distortion at poles
-    float latitude_radius = sqrtf(std::max(0.0f, 1.0f - p_temp.j * p_temp.j));
-    float scale_factor = std::max(0.05f, latitude_radius);
-    float step = base_step * scale_factor;
-    float next_theta = theta + step;
-
-    // Repair last N samples to close the loop
-    if (next_theta >= 2.0f * PI_F) {
-      const int REPAIR_COUNT = 5;
-      if (points.size() > REPAIR_COUNT) {
-        float target_last_theta = 2.0f * PI_F - step;
-        int anchor_idx = points.size() - REPAIR_COUNT - 1;
-        float anchor_theta = thetas[anchor_idx];
-        float ratio = (target_last_theta - anchor_theta) / (theta - anchor_theta);
-        for (size_t i = anchor_idx + 1; i < points.size(); i++) {
-          float dist = thetas[i] - anchor_theta;
-          float corrected_theta = anchor_theta + (dist * ratio);
-
-          // Re-calculate Geometry
-          float t_c = corrected_theta / (2.0f * PI_F);
-          float angle_c = corrected_theta + phase;
-          float cos_ring_c = cosf(angle_c);
-          float sin_ring_c = sinf(angle_c);
-          u_temp = (u * cos_ring_c) + (w * sin_ring_c);
-
-          float shift_c = shift_fn(t_c);
-          float cos_shift_c = cosf(shift_c);
-          float sin_shift_c = sinf(shift_c);
-          float v_scale_c = (v_sign * d) * cos_shift_c - r * sin_shift_c;
-          float u_scale_c = r * cos_shift_c + (v_sign * d) * sin_shift_c;
-          p_temp = ((v * v_scale_c) + (u_temp * u_scale_c)).normalize();
-
-          points[i] = p_temp;
-        }
-      }
-      break;
-    }
-    theta = next_theta;
-  }
-
-  // Draw Lines Connecting Repaired Points
-  for (size_t i = 0; i < points.size(); ++i) {
-    size_t next_i = (i + 1) % points.size();
-    float t_start = thetas[i] / (2.0f * PI_F);
-
-    draw_line<W>(dots, points[i], points[next_i],
-      [&color_fn, &t_start](const Vector& v, float line_t) {
-        return color_fn(v, t_start);
-      });
-    dots.pop_back(); // Prevent double-drawing start vertex
-  }
+    auto points = sample_fn<W>(orientation, normal, radius, shift_fn, phase);
+    rasterize<W>(dots, points, color_fn, true);
 }
 
 /**
  * @brief Calculates a single point on a ring based on angle and phase.
- * @param normal The normal vector defining the plane of the ring.
- * @param radius The radius of the ring.
- * @param angle The angle along the ring.
- * @param phase The angular offset.
- * @return The calculated 3D point (unit vector).
  */
 Vector ring_point(const Vector& normal, float radius, float angle, float phase = 0) {
-  Vector v(normal);
-  if (radius > 1) {
-    v = -v;
-  }
-  Vector u;
-  if (std::abs(dot(v, X_AXIS)) > (1 - TOLERANCE)) {
-    u = cross(v, Y_AXIS);
-  }
-  else {
-    u = cross(v, X_AXIS);
-  }
-  u.normalize();
-  Vector w(cross(v, u));
-  if (radius > 1) {
-    w = -w;
-    radius = 2 - radius;
-  }
-  return calc_ring_point(angle + phase, radius, u, v, w);
+    Vector v(normal);
+    if (radius > 1) {
+        v = -v;
+    }
+    Vector u;
+    if (std::abs(dot(v, X_AXIS)) > 0.99995f) {
+        u = cross(v, Y_AXIS).normalize();
+    }
+    else {
+        u = cross(v, X_AXIS).normalize();
+    }
+    Vector w(cross(v, u));
+    if (radius > 1) {
+        w = -w;
+        radius = 2 - radius;
+    }
+    auto d = sqrtf((1 - radius) * (1 - radius));
+    return Vector(
+        d * v.i + radius * u.i * cosf(angle + phase) + radius * w.i * sinf(angle + phase),
+        d * v.j + radius * u.j * cosf(angle + phase) + radius * w.j * sinf(angle + phase),
+        d * v.k + radius * u.k * cosf(angle + phase) + radius * w.k * sinf(angle + phase)
+    ).normalize();
 };
 
 /**
+ * @brief Represents a customizable path or trajectory in 3D space.
+ * @tparam W The width of the display (used for samples/resolution).
+ */
+template <int W>
+class Path {
+public:
+    Path() {}
+
+    /**
+     * @brief Appends a great-circle arc segment to the path.
+     */
+    Path& append_line(const Vector& v1, const Vector& v2, bool long_way = false) {
+        if (points.size() > 0) {
+            points.pop_back(); // Overlap previous segment
+        }
+        Dots seg;
+        draw_line<W>(seg, v1, v2, [](auto&, auto) { return Pixel(); }, 0.0f, 1.0f, long_way, false);
+        std::transform(seg.begin(), seg.end(), std::back_inserter(points),
+            [](auto& d) { return d.position; });
+        return *this;
+    }
+
+    /**
+     * @brief Appends a segment generated by a plotting function.
+     */
+    Path& append_segment(PlotFn auto plot, float domain, float samples, ScalarFn auto easing) {
+        if (points.size() > 0) {
+            points.pop_back(); // Overlap previous segment
+        }
+        for (float t = 0; t <= samples; t++) {
+            points.push_back(plot(easing(t / samples) * domain));
+        }
+        return *this;
+    }
+
+    /**
+     * @brief Retrieves a point along the path based on a normalized factor.
+     */
+    Vector get_point(float t) const {
+        return points[static_cast<int>(t * (points.size() - 1))];
+    }
+
+    /**
+     * @brief Gets the total number of discrete points in the path.
+     */
+    size_t num_points() const { return points.size(); }
+
+    /**
+     * @brief Reduces the path to a single point: the last recorded position.
+     */
+    void collapse() {
+        if (points.size() > 1) {
+            points = { points.back() };
+        }
+    }
+
+private:
+
+    StaticCircularBuffer<Vector, 1024> points; /**< The discrete points making up the path. */
+};
+
+/**
+ * @brief Draws a Path object by sampling its points and adding them as dots.
+ */
+template <int W>
+void draw_path(Dots& dots, const Path<W>& path, ColorFn auto color) {
+    size_t samples = path.num_points();
+    for (size_t i = 0; i < samples; ++i) {
+        auto v = path.get_point(static_cast<float>(i) / samples);
+        dots.push_back(Dot(v, color(v, i / (samples - 1))));
+    }
+}
+
+/**
  * @brief Applies a discrete square wave mask to a color, simulating a dotted or striped brush.
- * @param color The base pixel color.
- * @param freq The frequency of the square wave.
- * @param duty_cycle The duty cycle (proportion of 'on' time).
- * @param phase The phase shift.
- * @param t The position/time factor (0.0 to 1.0).
- * @return The dimmed (or full brightness) pixel color.
  */
 Pixel dotted_brush(const Pixel& color, float freq, float duty_cycle, float phase, float t) {
-  return dim(color, square_wave(0, 1, freq, duty_cycle, phase)(t));
+    return dim(color, square_wave(0, 1, freq, duty_cycle, phase)(t));
 }
 
 /**
  * @brief Plots a buffer of Dots to the Canvas, routing the data through the filter chain.
- * @tparam W The width of the display.
- * @param dots The buffer of Dots to plot.
- * @param filters The head of the Filter chain.
- * @param canvas The target canvas buffer.
- * @param age The age of the dots (0.0 for new).
- * @param alpha The opacity/alpha factor.
  */
 template<int W, typename Pipeline>
 void plot_dots(const Dots& dots, Pipeline& filters, Canvas& canvas, float age, float alpha) {
-  for (auto& dot : dots) {
-    auto p = vector_to_pixel<W>(dot.position);
-    filters.plot(canvas, p.x, p.y, gamma_correct(dot.color), age, alpha);
-  }
+    for (auto& dot : dots) {
+        auto p = vector_to_pixel<W>(dot.position);
+        filters.plot(canvas, p.x, p.y, gamma_correct(dot.color), age, alpha);
+    }
 }
 
 /**
  * @brief Iterates over the Orientation's history and calls a draw function for each historical step.
- * @details This is the core mechanism for creating motion blur or trails.
- * @param orientation The Orientation object containing historical states.
- * @param draw_fn The drawing function, accepting the Orientation quaternion and a normalized age factor (t).
  */
 void tween(const Orientation& orientation, TweenFn auto draw_fn) {
-  size_t s = orientation.length();
-  size_t start = (s > 1) ? 1 : 0;
-  for (size_t i = start; i < s; ++i) {
-    draw_fn(orientation.get(i),
-      static_cast<float>((s - 1 - i)) / s);
-  }
+    size_t s = orientation.length();
+    size_t start = (s > 1) ? 1 : 0;
+    for (size_t i = start; i < s; ++i) {
+        draw_fn(orientation.get(i),
+            static_cast<float>((s - 1 - i)) / s);
+    }
 }
