@@ -55,12 +55,19 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto colo
     // Simulation P\phase
     Vector sim_u = u;
     float sim_angle = 0;
-    std::vector<float> steps;
+    float steps[W * 4]; // Safety margin to accomodate worst case of meridian ring
+    size_t step_count = 0;
     const float base_step = 2 * PI_F / W;
     while (sim_angle < a) {
         float scale_factor = std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - sim_u.j * sim_u.j)));
         float step = base_step * scale_factor;
-        steps.push_back(step);
+        if (step_count < W * 4) {
+            steps[step_count++] = step;
+        }
+        else {
+			Serial.println("draw_line: Exceeded maximum step count during simulation phase.");
+            break;
+        }
         sim_angle += step;
         Quaternion q = make_rotation(w, step);
         sim_u = rotate(sim_u, q).normalize();
@@ -68,12 +75,12 @@ void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto colo
 
     // Drawing phase
     float scale = a / sim_angle;
-    if (omit_last && steps.empty()) {
+    if (step_count == 0) {
         return;
     }
     float current_angle = 0;
     dots.emplace_back(Dot(u, color_fn(u, 0)));
-    size_t loop_limit = omit_last ? steps.size() - 1 : steps.size();
+    size_t loop_limit = omit_last ? step_count - 1 : step_count;
     for (size_t i = 0; i < loop_limit; i++) {
         float step = steps[i] * scale;
         Quaternion q = make_rotation(w, step);
