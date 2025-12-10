@@ -560,34 +560,22 @@ public:
 	 */
 	template <typename Canvas, typename Pipeline, typename ColorFn>
 	void render(Canvas& canvas, Pipeline& pipeline, ColorFn color_fn) {
-		// Iterate using index to support swap-and-pop with StaticCircularBuffer
-		for (size_t i = 0; i < items.size(); ) {
-			Item& item = items[i];
-
-			// Calculate normalized life progress (0.0 to 1.0)
+		// sort
+		std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
+			return a.ttl < b.ttl;
+			});
+	
+		// render
+		for (auto& item : items) {
 			float t = (lifespan - item.ttl) / static_cast<float>(lifespan);
 			Pixel color = color_fn(item.v, t);
-
-			// Plot through pipeline. 
-			// We pass age=0 because the decay is handled here externally.
 			pipeline.plot(canvas, item.v, color, 0, item.alpha);
-
-			// Decay
 			item.ttl -= 1.0f;
+		}
 
-			// Cleanup
-			if (item.ttl <= 0) {
-				// Swap with the last element (if not already the last)
-				if (i < items.size() - 1) {
-					items[i] = items.back();
-				}
-				// Remove the last element
-				items.pop_back();
-				// Do not increment i, so we check the swapped-in element next.
-			}
-			else {
-				++i;
-			}
+		// cleanup
+		while (!items.is_empty() && items.front().ttl <= 0) {
+			items.pop();
 		}
 	}
 
