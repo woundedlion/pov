@@ -4,14 +4,6 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-CRGB dim(const CRGB& c, float s) {
-  if (s < 0.5) s = s * s;
-  return CRGB(
-    static_cast<uint8_t>(c.r * s),
-    static_cast<uint8_t>(c.g * s),
-    static_cast<uint8_t>(c.b * s));
-}
-
 void trail_rainbow(CRGB& c, uint8_t hue_falloff = 32,
                    uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);

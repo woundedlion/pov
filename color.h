@@ -1,8 +1,33 @@
 #pragma once
 
-// TODO: 2D/3D Palettes
+// TODO: 3D Palettes
 
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+* @brief Scales a Pixel's RGB components by a floating-point scalar.
+* @param p The Pixel to scale.
+* @param s The scaling factor.
+* @return The scaled Pixel.
+*/
+Pixel operator*(const Pixel& p, float s) {
+  return Pixel(
+    static_cast<uint8_t>(std::clamp(static_cast<int>(p.r * s), 0, 255)),
+    static_cast<uint8_t>(std::clamp(static_cast<int>(p.g * s), 0, 255)),
+    static_cast<uint8_t>(std::clamp(static_cast<int>(p.b * s), 0, 255))
+  );
+}
+
+/**
+ * @brief Scales a Pixel's RGB components by a floating-point scalar in place.
+ * @param p The Pixel to scale.
+ * @param s The scaling factor.
+ * @return Reference to the scaled Pixel.
+ */
+Pixel& operator*=(Pixel& p, float s) {
+  p = p * s;
+  return p;
+}
 
 /**
  * @brief Gamma brightness lookup table (LUT).
@@ -85,7 +110,8 @@ enum class BrightnessProfile {
   ASCENDING, /**< Brightness increases across the palette. */
   DESCENDING, /**< Brightness decreases across the palette. */
   FLAT, /**< Constant maximum brightness. */
-  BELL /**< Brightness starts low, peaks in the middle, and ends low. */
+  BELL, /**< Brightness starts low, peaks in the middle, and ends low. */
+  CUP /**< Brightness starts high, dips in the middle, and ends high. */
 };
 
 /**
@@ -178,6 +204,11 @@ public:
       v2 = hs::rand_int(255 * 0.7, 255);
       v3 = v1;
       break;
+    case  BrightnessProfile::CUP:
+		v1 = hs::rand_int(255 * 0.7, 255);
+		v2 = hs::rand_int(255 * 0.2, 255 * 0.5);
+		v3 = v1;
+        break;
     }
 
     a = CHSV(h1, s1, v1);

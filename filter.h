@@ -190,6 +190,115 @@ private:
 };
 
 /**
+ * @brief Applies an alpha falloff based on distance from an origin point on the sphere.
+ * @tparam W The width of the effect.
+ */
+template <int W>
+class FilterHole : public Is3D {
+public:
+    /**
+     * @brief Initializes the filter with an origin and radius.
+     * @param origin The center point of the hole (normalized).
+     * @param radius The radius (in radians) at which fading starts.
+     */
+    FilterHole(const Vector& origin, float radius) :
+        origin(origin),
+        radius(radius)
+    {
+    }
+
+    void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+        float d = angle_between(v, origin);
+        if (d > radius) {
+            pass(v, color, age, alpha);
+        }
+        else {
+            float t = d / radius;
+            float factor = quintic_kernel(t);
+            Pixel c = color;
+            c.r = static_cast<uint8_t>(c.r * factor);
+            c.g = static_cast<uint8_t>(c.g * factor);
+            c.b = static_cast<uint8_t>(c.b * factor);
+            pass(v, c, age, alpha);
+        }
+    }
+
+private:
+    Vector origin;
+    float radius;
+};
+
+/**
+ * @brief Applies an alpha falloff based on distance from an origin point on the sphere.
+ * Operates on a reference to the origin origin vector.
+ * @tparam W The width of the effect.
+ */
+template <int W>
+class FilterHoleRef : public Is3D {
+public:
+    /**
+     * @brief Initializes the filter with an origin and radius.
+     * @param origin The center point of the hole (normalized).
+     * @param radius The radius (in radians) at which fading starts.
+     */
+    FilterHoleRef(const Vector& origin, float radius) : origin(origin), radius(radius) {}
+    
+    void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+        float d = angle_between(v, origin);
+        if (d > radius) {
+            pass(v, color, age, alpha);
+        }
+        else {
+            float t = d / radius;
+            // Quintic kernel: 6t^5 - 15t^4 + 10t^3
+            float factor = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+            Pixel c = color;
+            c.r = static_cast<uint8_t>(c.r * factor);
+            c.g = static_cast<uint8_t>(c.g * factor);
+            c.b = static_cast<uint8_t>(c.b * factor);
+            pass(v, c, age, alpha);
+        }
+    }
+private:
+    const Vector& origin;
+    float radius;
+};
+
+
+/**
+ * @brief Applies a Mobius Transformation to 3D vectors.
+ * @details Projects sphere -> complex plane -> transform -> sphere.
+ * @tparam W The width of the effect.
+ */
+template <int W>
+class FilterMobius : public Is3D {
+public:
+    /**
+     * @brief Initializes the filter with a reference to the Mobius parameters.
+     * @param params Reference to the MobiusParams object.
+     */
+    FilterMobius(MobiusParams& params) :
+        params(params)
+    {
+    }
+
+    /**
+     * @brief Applies the Mobius transformation to the vector.
+     */
+    void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+        // 1. Stereo Projection -> 2. Mobius Transform -> 3. Inverse Stereo
+        pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha);
+    }
+
+private:
+    MobiusParams& params;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// 2D Filters
+///////////////////////////////////////////////////////////////////////////////
+
+/**
  * @brief Quintic Smootherstep Kernel function (Perlin's 5th order polynomial).
  * @details Guarantees zero velocity and acceleration at t=0 and t=1 for smooth anti-aliasing.
  * @param t The fractional coordinate (0.0 to 1.0).
