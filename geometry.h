@@ -60,6 +60,14 @@ using Dots = StaticCircularBuffer<Dot, 1024>;
 using Points = StaticCircularBuffer<Vector, 256>;
 
 /**
+ * @brief Struct to hold Log-Polar coordinates.
+ */
+struct LogPolar {
+    float rho;
+    float theta;
+};
+
+/**
  * @brief Converts 2D pixel coordinates to a 3D unit vector on the sphere.
  * @tparam W The width (number of columns) of the virtual LED display.
  * @param x The horizontal coordinate (0 to W).
@@ -89,6 +97,41 @@ PixelCoords vector_to_pixel(const Vector& v) {
   return p;
 }
 
+/**
+ * @brief Converts Log-Polar coordinates (rho, theta) to a vector on the unit sphere.
+ * Maps: Log-Polar -> Complex Plane -> Inverse Stereographic -> Sphere
+ * @param rho The log-radius (natural logarithm of the radius on the complex plane).
+ * @param theta The angle in radians.
+ * @return Normalized vector on the unit sphere.
+ */
+Vector logPolarToVector(float rho, float theta) {
+    const float R = expf(rho);
+    const float R2 = R * R;
+    const float y = (R2 - 1.0f) / (R2 + 1.0f);
+    const float r_xz = sqrtf(std::max(0.0f, 1.0f - y * y));
+    return Vector(
+        r_xz * cosf(theta),
+        y,
+        r_xz * sinf(theta)
+    ).normalize();
+}
+
+/**
+ * @brief Converts a vector on the unit sphere to Log-Polar coordinates.
+ * Maps: Sphere -> Stereographic -> Complex Plane -> Log-Polar
+ * @param v Normalized vector on the unit sphere.
+ * @return Log-Polar coordinates.
+ */
+LogPolar vectorToLogPolar(const Vector& v) {
+    const float denom = 1.0f - v.j;
+    if (std::abs(denom) < 0.00001f) {
+        return { 10.0f, 0.0f }; // Handle North Pole singularity
+    }
+    const float rho = 0.5f * logf((1.0f + v.j) / denom);
+    const float theta = atan2f(v.k, v.i);
+    return { rho, theta };
+}
+
 #if __cplusplus < 202002L
 /**
  * @brief Linearly interpolates between two values.
@@ -101,6 +144,24 @@ constexpr float lerp(float from, float to, float t) {
   return ((to - from) * t) + from;
 }
 #endif
+
+/**
+ * @brief Calculates a point on the Fibonacci spiral on the unit sphere.
+ * @param n The total number of points in the spiral.
+ * @param eps The epsilon offset for the spiral.
+ * @param i The index of the point to calculate.
+ * @return The point on the unit sphere.
+ */
+Vector fib_spiral(int n, float eps, int i) {
+    float phi = acosf(1.0f - (2.0f * (static_cast<float>(i) + eps)) / static_cast<float>(n));
+    float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * G), (2.0f * PI_F));
+    // Y-up convention
+    return Vector(
+        sinf(phi) * cosf(theta),
+        cosf(phi),
+        sinf(phi) * sinf(theta)
+    ).normalize();
+}
 
 /**
  * @brief Generates a sine wave function with offset, amplitude, frequency, and phase.
@@ -372,6 +433,33 @@ Pixel distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1
     return p2[static_cast<int>(-d * 255)];
   }
 }
+
+/**
+ * @brief Defines the geometry for a Cube (vertices and edges).
+ */
+struct Cube {
+    const VertexList vertices = {
+      Vector(1, 1, 1),   // 0
+      Vector(1, 1, -1),  // 1
+      Vector(1, -1, 1),  // 2
+      Vector(1, -1, -1), // 3
+      Vector(-1, 1, 1),  // 4
+      Vector(-1, 1, -1), // 5
+      Vector(-1, -1, 1), // 6
+      Vector(-1, -1, -1) // 7
+    };
+
+    const AdjacencyList eulerPath = {
+      {1, 2, 4}, // 0
+      {3, 5},    // 1
+      {3, 6},    // 2
+      {7},       // 3
+      {5, 6},    // 4
+      {7},       // 5
+      {7},       // 6
+      {}         // 7
+    };
+};
 
 /**
  * @brief Structure representing a Dodecahedron (20-sided polyhedron).
