@@ -111,8 +111,8 @@ public:
         Effect(W),
         palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
         next_palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
+        trails(trail_length),
         filters(
-            FilterDecay<W, 3000>(trail_length),
             FilterOrient<W>(orientation),
             FilterChromaticShift<W>(),
             FilterAntiAlias<W>())
@@ -139,11 +139,11 @@ public:
     void draw_frame() override {
         Canvas canvas(*this);
         timeline.step(canvas);
-        filters.trail(canvas,
-            [this](float x, float y, float t) {
+
+        trails.render(canvas, filters,
+            [this](const Vector& v, float t) {
                 return palette.get(1.0f - t);
-            },
-            alpha
+            }
         );
     }
 
@@ -212,7 +212,9 @@ private:
                 [this](const auto& v, auto t) {
                     return palette.get(1.0f - t);
                 });
-            plot_dots<W>(dots, filters, canvas, t, this->alpha * opacity);
+
+            // Record 3D dots into DecayBuffer instead of plotting immediately
+            trails.record(dots, t, this->alpha * opacity);
             });
         node.orientation.collapse();
     }
@@ -246,8 +248,9 @@ private:
     GenerativePalette palette;
     GenerativePalette next_palette;
 
+    DecayBuffer<W, 3000> trails;
+
     Pipeline<W,
-        FilterDecay<W, 3000>,
         FilterOrient<W>,
         FilterChromaticShift<W>,
         FilterAntiAlias<W>
@@ -377,9 +380,9 @@ public:
         speed(2),
         gap(3),
         trail_length(8),
+        trails(trail_length),
         filters(
             FilterReplicate<W>(3),
-            FilterDecay<W, 10000>(trail_length),
             FilterOrient<W>(orientation),
             FilterAntiAlias<W>()
         )
@@ -469,10 +472,11 @@ public:
             pull(0);
             draw_nodes(canvas, static_cast<float>(i) / std::abs(speed));
         }
-        filters.trail(
-            canvas,
-            [this](float x, float y, float t) { return color(pixel_to_vector<W>(x, y), t); },
-            0.5
+
+        trails.render(canvas, filters,
+            [this](const Vector& v, float t) {
+                return color(v, t);
+            }
         );
 
         timeline.step(canvas);
@@ -497,7 +501,7 @@ private:
                 draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, 0, 1, false, true);
             }
         }
-        plot_dots<W>(dots, filters, canvas, age, alpha);
+        trails.record(dots, age, alpha);
     }
 
     void pull(int leader) {
@@ -549,9 +553,10 @@ private:
     Orientation orientation;
     Dots dots;
 
+    DecayBuffer<W, 10000> trails;
+
     Pipeline<W,
         FilterReplicate<W>,
-        FilterDecay<W, 10000>,
         FilterOrient<W>,
         FilterAntiAlias<W>
     > filters;
@@ -818,8 +823,8 @@ public:
     FlowField() :
         Effect(W),
         palette(iceMelt),
+        trails(k_trail_length),
         filters(
-            FilterDecay<W, k_max_trail_dots>(k_trail_length),
             FilterOrient<W>(orientation),
             FilterAntiAlias<W>()
         )
@@ -866,13 +871,12 @@ public:
             dots.emplace_back(Dot(p.pos, color));
         }
 
-        plot_dots<W>(dots, filters, canvas, 0, k_alpha);
+        trails.record(dots, 0, k_alpha);
 
-        filters.trail(canvas,
-            [this](float x, float y, float t) {
+        trails.render(canvas, filters,
+            [this](const Vector& v, float t) {
                 return palette.get(1.0f - t) * (1.0f - t);
-            },
-            k_alpha
+            }
         );
     }
 
@@ -901,8 +905,9 @@ private:
     std::array<Particle, k_num_particles> particles;
 
     Orientation orientation;
+    DecayBuffer<W, k_max_trail_dots> trails;
+
     Pipeline<W,
-        FilterDecay<W, k_max_trail_dots>,
         FilterOrient<W>,
         FilterAntiAlias<W>
     > filters;
