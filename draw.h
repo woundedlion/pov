@@ -506,3 +506,92 @@ void tween(const Orientation& orientation, TweenFn auto draw_fn) {
 			static_cast<float>((s - 1 - i)) / s);
 	}
 }
+
+/**
+ * @brief Manages 3D trail persistence using a swap-and-pop removal strategy for O(N) performance.
+ * @details Stores 3D vectors instead of 2D projected pixels, allowing trails to rotate with the world.
+ * @tparam W The width of the display.
+ * @tparam CAPACITY Maximum number of trail segments.
+ */
+template <int W, size_t CAPACITY>
+class DecayBuffer {
+public:
+	/**
+	 * @brief Internal structure for a trail segment.
+	 */
+	struct Item {
+		Vector v;     /**< 3D Position. */
+		Pixel color;  /**< Base color. */
+		float ttl;    /**< Time To Live (frames). */
+		float alpha;  /**< Initial opacity. */
+	};
+
+	/**
+	 * @brief Constructs the DecayBuffer.
+	 * @param lifespan The number of frames a particle persists.
+	 */
+	DecayBuffer(int lifespan) : lifespan(lifespan) {}
+
+	/**
+	 * @brief Records a single 3D dot into the history.
+	 */
+	void record(const Vector& v, const Pixel& color, float age, float alpha) {
+		float ttl = lifespan - age;
+		if (ttl > 0) {
+			items.push_back({ v, color, ttl, alpha });
+		}
+	}
+
+	/**
+	 * @brief Helper to record a batch of dots.
+	 */
+	void record(const Dots& dots, float age, float alpha) {
+		for (const auto& dot : dots) {
+			record(dot.position, dot.color, age, alpha);
+		}
+	}
+
+	/**
+	 * @brief Renders all stored dots to the canvas via the pipeline, then decays them.
+	 * @details Uses swap-and-pop to remove dead particles efficiently.
+	 * @param canvas The target canvas.
+	 * @param pipeline The rendering pipeline (usually starting with FilterOrient).
+	 * @param color_fn Function to modify color over time (v, t) -> Pixel.
+	 */
+	template <typename Canvas, typename Pipeline, typename ColorFn>
+	void render(Canvas& canvas, Pipeline& pipeline, ColorFn color_fn) {
+		// Iterate using index to support swap-and-pop with StaticCircularBuffer
+		for (size_t i = 0; i < items.size(); ) {
+			Item& item = items[i];
+
+			// Calculate normalized life progress (0.0 to 1.0)
+			float t = (lifespan - item.ttl) / static_cast<float>(lifespan);
+			Pixel color = color_fn(item.v, t);
+
+			// Plot through pipeline. 
+			// We pass age=0 because the decay is handled here externally.
+			pipeline.plot(canvas, item.v, color, 0, item.alpha);
+
+			// Decay
+			item.ttl -= 1.0f;
+
+			// Cleanup
+			if (item.ttl <= 0) {
+				// Swap with the last element (if not already the last)
+				if (i < items.size() - 1) {
+					items[i] = items.back();
+				}
+				// Remove the last element
+				items.pop_back();
+				// Do not increment i, so we check the swapped-in element next.
+			}
+			else {
+				++i;
+			}
+		}
+	}
+
+private:
+	StaticCircularBuffer<Item, CAPACITY> items;
+	int lifespan;
+};
