@@ -7,3 +7,4 @@
 #include "effects/MobiusGrid.h"
 #include "effects/Moire.h"
 #include "effects/FlowField.h"
+#include "effects/Thrusters.h"

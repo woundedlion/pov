@@ -27,7 +27,7 @@ typedef std::vector<std::vector<unsigned int>> AdjacencyList;
  */
 template<typename F>
 concept ColorFn = requires(F f, const Vector & v, float t) {
-    { f(v, t) } -> std::convertible_to<Pixel>;
+  { f(v, t) } -> std::convertible_to<Pixel>;
 };
 
 /**
@@ -36,7 +36,7 @@ concept ColorFn = requires(F f, const Vector & v, float t) {
  */
 template<typename F>
 concept TrailFn = requires(F f, float x, float y, float t) {
-    { f(x, y, t) } -> std::convertible_to<Pixel>;
+  { f(x, y, t) } -> std::convertible_to<Pixel>;
 };
 
 /**
@@ -45,7 +45,7 @@ concept TrailFn = requires(F f, float x, float y, float t) {
  */
 template<typename F>
 concept PlotFn = requires(F f, float t) {
-    { f(t) } -> std::convertible_to<Vector>;
+  { f(t) } -> std::convertible_to<Vector>;
 };
 
 /**
@@ -54,7 +54,7 @@ concept PlotFn = requires(F f, float t) {
  */
 template<typename F>
 concept ScalarFn = requires(F f, float t) {
-    { f(t) } -> std::convertible_to<float>;
+  { f(t) } -> std::convertible_to<float>;
 };
 
 /**
@@ -63,7 +63,7 @@ concept ScalarFn = requires(F f, float t) {
  */
 template<typename F>
 concept TransformFn = requires(F f, Vector v) {
-    { f(v) } -> std::convertible_to<Vector>;
+  { f(v) } -> std::convertible_to<Vector>;
 };
 
 /**

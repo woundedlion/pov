@@ -257,10 +257,11 @@ public:
     randomSeed(analogRead(PIN_RANDOM));
     FastLED.addLeds<WS2801, 11, 13, RGB, DATA_RATE_MHZ(6)>(leds_, S);
 
-    // CLEAR the SRE bit (0) to ENABLE Slew Rate Limiting (Slow edges)
-    // This is a hardware optimization for stable high-speed data.
-    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 &= ~IOMUXC_PAD_SRE; // Pin 11
-    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE; // Pin 13
+    // enable slew rate limiting
+    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 =
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 & ~IOMUXC_PAD_SRE; // Pin 11
+    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 =
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 & ~IOMUXC_PAD_SRE; // Pin 13
 
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);

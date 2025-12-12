@@ -68,13 +68,13 @@ public:
             for (const auto& p : ring.base_points) {
                 points.push_back(rotate(p, q));
             }
-            rasterize<W>(dots, points, [&](auto& v, auto t) { return vignette(ring.palette)(0); }, true);
+            rasterize<W>(dots, points, [&](auto& v, auto t) { return VignettePalette(ring.palette).get(0); }, true);
             plot_dots<W>(dots, ring.filters, canvas, t, alpha * opacity);
             });
         ring.orientation.collapse();
 
         ring.filters.trail(canvas,
-            [&](float x, float y, float t) { return vignette(ring.palette)(t); },
+            [&](float x, float y, float t) { return VignettePalette(ring.palette).get(t); },
             alpha * opacity);
     }
 

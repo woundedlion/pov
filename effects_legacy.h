@@ -5,7 +5,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 void trail_rainbow(CRGB& c, uint8_t hue_falloff = 32,
-                   uint8_t dim_falloff = 32) {
+  uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
   p.s = 255;
   p.h += hue_falloff;
@@ -14,13 +14,14 @@ void trail_rainbow(CRGB& c, uint8_t hue_falloff = 32,
 }
 
 void trail_rainbow_lin(CRGB& c, uint8_t hue_falloff = 32,
-                       uint8_t dim_falloff = 32) {
+  uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
   p.s = 255;
   if (p.v < 128) {
     p.h += hue_falloff / 2;
     p.v = qsub8(p.v, dim_falloff / 2);
-  } else {
+  }
+  else {
     p.h += hue_falloff;
     p.v = qsub8(p.v, dim_falloff);
   }
@@ -92,9 +93,9 @@ void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
 }
 
 class PollingRandomTimer {
- public:
-   PollingRandomTimer(uint32_t min_ms, uint32_t max_ms)
-      : min_ms(min_ms), max_ms(max_ms) {
+public:
+  PollingRandomTimer(uint32_t min_ms, uint32_t max_ms)
+    : min_ms(min_ms), max_ms(max_ms) {
     randomSeed(analogRead(PIN_RANDOM));
     next = millis() + random(min_ms, max_ms);
   }
@@ -107,7 +108,7 @@ class PollingRandomTimer {
     return false;
   }
 
- private:
+private:
   uint32_t min_ms;
   uint32_t max_ms;
   uint32_t next;
@@ -181,7 +182,7 @@ public:
     return r;
   }
 
-private: 
+private:
   CHSV last;
 };
 
@@ -198,7 +199,8 @@ public:
     end_delay_(end_delay),
     end_count_(0),
     dir_(1)
-  {}
+  {
+  }
 
   int get() {
     int r = t_;
@@ -230,7 +232,7 @@ private:
 
 template <int W>
 class ChainWiggle : public Effect {
- public:
+public:
   ChainWiggle() : Effect(W), osc(1, 4) {
     for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
       dots[i] = Dot(0, i, 0);
@@ -257,7 +259,7 @@ class ChainWiggle : public Effect {
     pull(c, dots, 0, speed);
   };
 
- private:
+private:
   struct Dot {
     Dot() : x(0), y(0), v(0), hue(HUE_RED) {}
 
@@ -314,7 +316,8 @@ class ChainWiggle : public Effect {
       move(c, follower);
       // Adjust speed to match leader
       follower.v = leader.v;
-    } else {
+    }
+    else {
       move(c, follower);
     }
   }
@@ -337,7 +340,7 @@ class ChainWiggle : public Effect {
 
 template <int W>
 class RingTwist : public Effect {
- public:
+public:
   RingTwist() : Effect(W), seed_(CHSV(104, 0, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
@@ -373,7 +376,7 @@ class RingTwist : public Effect {
     }
   }
 
- private:
+private:
   void decay(CRGB& p) {
     if (p == seed_) {
       auto c = rgb2hsv_approximate(p);
@@ -381,7 +384,8 @@ class RingTwist : public Effect {
       c.s = 255;
       c.v = qsub8(seed_.v, 24);
       p = c;
-    } else {
+    }
+    else {
       trail_rainbow(p, 8, 24);
     }
   }
@@ -417,7 +421,7 @@ class RingTwist : public Effect {
       dir_ = random(2) < 1 ? 1 : -1;
       leader_ = random(0, H);
       lead_length_ =
-          lead_lengths_[random(1, sizeof(lead_lengths_) / sizeof(int))];
+        lead_lengths_[random(1, sizeof(lead_lengths_) / sizeof(int))];
     }
   }
 
@@ -447,18 +451,18 @@ class RingTwist : public Effect {
   const CHSV seed_;
   const int COUNT_ = 2;
   const int STOP_TIMER_ = 15000;
-  int pos_[H] = {0};
+  int pos_[H] = { 0 };
   int leader_ = 0;
   int dir_ = 1;
   int stop_ = -1;
   int lead_length_ = 1;
-  int lead_lengths_[7] = {1, 2, 3, 4, 6, 12, 16};
+  int lead_lengths_[7] = { 1, 2, 3, 4, 6, 12, 16 };
   Canvas* canvas_ = NULL;
 };
 
 template <uint8_t W, uint8_t HUE>
 class TheMatrix : public Effect {
- public:
+public:
   TheMatrix() : Effect(W) {
     random16_add_entropy(random());
     memset(pixels_, 0, sizeof(pixels_));
@@ -474,14 +478,14 @@ class TheMatrix : public Effect {
         generate(x);
         for (int y = 0; y < H; ++y) {
           c(x, y) =
-              blend(CHSV(HUE + (3 * y), 255, 40),
-                    CHSV(HUE + (3 * (H - 1 - y)), 255, 255), pixels_[x][y]);
+            blend(CHSV(HUE + (3 * y), 255, 40),
+              CHSV(HUE + (3 * (H - 1 - y)), 255, 255), pixels_[x][y]);
         }
       }
     }
   }
 
- private:
+private:
   void fall(int x) {
     memmove8(&pixels_[x][1], &pixels_[x][0], H - 1);
     pixels_[x][0] = 0;
@@ -551,10 +555,10 @@ private:
 
 template <int W>
 class StarsFade : public Effect {
- private:
+private:
   uint8_t hue_;
 
- public:
+public:
   StarsFade() : Effect(W), hue_(0) {}
 
   bool show_bg() const { return true; }
@@ -565,7 +569,8 @@ class StarsFade : public Effect {
       for (int y = 0; y < H; ++y) {
         if (c(x, y) != CRGB(0, 0, 0)) {
           trail_rainbow(c(x, y), 16, 32);
-        } else if (random8() < 3) {
+        }
+        else if (random8() < 3) {
           c(x, y) = CRGB(CHSV(hue_, 255, 255));
         }
       }
@@ -576,12 +581,12 @@ class StarsFade : public Effect {
 
 template <int W, int SPREAD>
 class Spiral : public Effect {
- private:
+private:
   CHSVPalette16 palette_;
   NoTempCorrection _;
 
 
- public:
+public:
   Spiral() : Effect(W) {
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
     draw_frame();
@@ -595,7 +600,8 @@ class Spiral : public Effect {
       for (int y = 0; y < H; ++y) {
         if ((x + y) % (SPREAD + 1) == 0) {
           c(x, y) = palette_[(x + y) % 16];
-        } else {
+        }
+        else {
           c(x, y) = CHSV(0, 0, 0);
         }
       }
@@ -605,7 +611,7 @@ class Spiral : public Effect {
 
 template <int W>
 class WaveTrails : public Effect {
- public:
+public:
   WaveTrails() : Effect(W) {}
 
   bool show_bg() const { return false; }
@@ -617,23 +623,23 @@ class WaveTrails : public Effect {
         trail_rainbow(c(x, y), 5, 24);
       }
       c(x, beatsin16(5, H / 15, H * 14 / 15, 0, map(x, 0, W - 1, 0, 65535))) =
-          CHSV(HUE_BLUE, 100, 255);
+        CHSV(HUE_BLUE, 100, 255);
       c(x, beatsin16(5, 0, H - 1, 0, map(W - 1 - x, 0, W - 1, 0, 65535))) =
-          CHSV(HUE_GREEN, 100, 255);
+        CHSV(HUE_GREEN, 100, 255);
       c(x, beatsin16(5, 0, H - 1, 32767, map(W - 1 - x, 0, W - 1, 0, 65535))) =
-          CHSV(HUE_AQUA, 100, 255);
+        CHSV(HUE_AQUA, 100, 255);
     }
   }
 };
 
 template <uint8_t W>
 class RingTrails : public Effect {
- public:
+public:
   RingTrails() : Effect(W), dot(0) {
     fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
-                        rgb2hsv_approximate(CRGB(6, 4, 47)),
-                        rgb2hsv_approximate(CRGB(162, 84, 84)),
-                        rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
+      rgb2hsv_approximate(CRGB(6, 4, 47)),
+      rgb2hsv_approximate(CRGB(162, 84, 84)),
+      rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
         ttl[x][y] = 0;
@@ -653,7 +659,7 @@ class RingTrails : public Effect {
 
     for (float x = 0; x < W; x += 1) {
       if (static_cast<int>(x) % 2 == 0) {
-//        return;
+        //        return;
       }
       Point p = projection.project(x, H / 2);
       CHSV color;
@@ -668,7 +674,7 @@ class RingTrails : public Effect {
     dot = (dot + 1) % W;
   }
 
- private:
+private:
   typedef typename Projection<W, H>::Point Point;
   Projection<W, H> projection;
   uint8_t hue = HUE_RED;
@@ -680,7 +686,7 @@ class RingTrails : public Effect {
 
 template <uint8_t W>
 class Kaleidoscope : public Effect {
- public:
+public:
   Kaleidoscope() : Effect(W) {
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
   }
@@ -701,9 +707,9 @@ class Kaleidoscope : public Effect {
       uint8_t x2 = W - 1 - x;
       uint8_t y2 = H - 1 - y;
       c(x, y) =
-          palette_[addmod8(palette_offset_, i * (16 / counts_[count_]), 16)];
+        palette_[addmod8(palette_offset_, i * (16 / counts_[count_]), 16)];
       c(x2, y2) = palette_[addmod8(palette_offset_,
-                                   16 - (i * (16 / counts_[count_])), 16)];
+        16 - (i * (16 / counts_[count_])), 16)];
     }
 
     tx_ = addmod8(tx_, 2, W);
@@ -719,8 +725,8 @@ class Kaleidoscope : public Effect {
     palette_offset_ = addmod8(palette_offset_, 1, 16);
   }
 
- private:
-  uint8_t counts_[9] = {1, 2, 3, 4, 6, 8, 12, 16, 20};
+private:
+  uint8_t counts_[9] = { 1, 2, 3, 4, 6, 8, 12, 16, 20 };
   uint8_t count_ = 0;
   uint8_t offset_ = W / counts_[count_];
   uint8_t tx_ = 0;
@@ -733,9 +739,9 @@ class Kaleidoscope : public Effect {
 
 template <uint8_t W>
 class RingRotate : public Effect {
- public:
-  RingRotate() : Effect(W) { 
-    fill_rainbow(pal.entries, 256, HUE_RED, 1); 
+public:
+  RingRotate() : Effect(W) {
+    fill_rainbow(pal.entries, 256, HUE_RED, 1);
   }
   bool show_bg() const { return false; }
 
@@ -747,7 +753,7 @@ class RingRotate : public Effect {
       }
     }
 
-    const float rings[] = {4.5, 9.5, 15.5};
+    const float rings[] = { 4.5, 9.5, 15.5 };
     for (size_t i = 0; i < sizeof(rings) / sizeof(float); ++i) {
       float y = rings[i];
       for (float x = 0; x < W; ++x) {
@@ -756,7 +762,8 @@ class RingRotate : public Effect {
         if (i % 2 == 0) {
           dir = 0;
           p = projection.project(p);
-        } else {
+        }
+        else {
           p = projection2.project(p);
         }
         CHSV color = pal[(static_cast<uint8_t>(x) + c_off * dir) * 255 / W];
@@ -769,15 +776,15 @@ class RingRotate : public Effect {
     }
 
     projection.rotate(rotations[r_off][0][0], rotations[r_off][0][1],
-                      rotations[r_off][0][2]);
+      rotations[r_off][0][2]);
 
     projection2.rotate(rotations[r_off][1][0], rotations[r_off][1][1],
-                       rotations[r_off][1][2]);
+      rotations[r_off][1][2]);
 
     c_off += 2;
   }
 
- private:
+private:
   typedef typename Projection<W, H>::Point Point;
   Projection<W, H> projection;
   Projection<W, H> projection2;
@@ -798,7 +805,7 @@ class RingRotate : public Effect {
 
 template <uint8_t W, uint8_t HUE, uint8_t BURNRATE>
 class Burnout : public Effect {
- public:
+public:
   Burnout() : Effect(W), timer_(30), burn_idx_(0) {
     random16_add_entropy(random());
     memset8(pixels_, INIT, sizeof(pixels_));
@@ -812,9 +819,11 @@ class Burnout : public Effect {
       for (int y = 0; y < H; ++y) {
         if (pixels_[x][y] & BURN) {
           c(x, y) = CHSV(HUE + (3 * y), 255, 255);
-        } else if (pixels_[x][y] == INIT) {
+        }
+        else if (pixels_[x][y] == INIT) {
           c(x, y) = CHSV(HUE + (3 * y), 255, 40);
-        } else {
+        }
+        else {
           c(x, y) = CHSV(0, 0, 0);
         }
       }
@@ -827,7 +836,7 @@ class Burnout : public Effect {
 
   bool show_bg() const { return true; }
 
- private:
+private:
   enum State {
     NONE,
     INIT,
@@ -876,7 +885,7 @@ class Burnout : public Effect {
 
 template <uint8_t W, uint8_t COOL, uint8_t SPARK>
 class Fire : public Effect {
- public:
+public:
   Fire() : Effect(W) { random16_add_entropy(random()); }
 
   bool show_bg() const { return false; }
@@ -895,7 +904,7 @@ class Fire : public Effect {
     }
   }
 
- private:
+private:
   inline void cool(uint8_t x) {
     for (uint8_t y = 0; y < H; ++y) {
       heat_[x][y] = qsub8(heat_[x][y], random(0, ((COOL * 10) / H) + 2));
@@ -905,8 +914,8 @@ class Fire : public Effect {
   inline void rise(uint8_t x) {
     for (uint8_t y = H - 1; y >= 2; --y) {
       heat_[x][H - 1 - y] = (heat_[x][H - 1 - y + 1] + heat_[x][H - 1 - y + 2] +
-                             heat_[x][H - 1 - y + 2]) /
-                            3;
+        heat_[x][H - 1 - y + 2]) /
+        3;
     }
   }
 
@@ -922,7 +931,7 @@ class Fire : public Effect {
 
 template <uint8_t W>
 class DotTrails : public Effect {
- public:
+public:
   DotTrails() : Effect(W) {
     random16_add_entropy(random());
     for (int i = 0; i < H - 1; ++i) {
@@ -941,18 +950,20 @@ class DotTrails : public Effect {
         if (dots[y].x == x) {
           if (dots[y].drawn) {
             dots[y].drawn = false;
-          } else {
+          }
+          else {
             c(x, y) = CHSV(hue - 12, 0, 255);
             move(dots[y]);
           }
-        } else {
+        }
+        else {
           trail_rainbow(c(x, y), 12, 12);
         }
       }
     }
   }
 
- private:
+private:
   struct Dot {
     Dot() : x(0), rev(0), ttl(0), drawn(0) {}
 
@@ -968,10 +979,12 @@ class DotTrails : public Effect {
     if (dot.ttl == 0) {
       dot.x = random8() % W;
       dot.ttl = (random8() % 30) + 20;
-    } else if (dot.rev) {
+    }
+    else if (dot.rev) {
       dot.x = (dot.x - 1 + W) % W;
       dot.ttl--;
-    } else {
+    }
+    else {
       dot.x = addmod8(dot.x, 1, W);
       dot.drawn = true;
       dot.ttl--;
@@ -985,7 +998,7 @@ class DotTrails : public Effect {
 
 template <uint8_t W>
 class Spinner : public Effect {
- public:
+public:
   Spinner() : Effect(W), spin_timer_(62), pos_(0) {
     memset(palette1_, 0, sizeof(palette1_));
     memset(palette2_, 0, sizeof(palette1_));
@@ -1004,13 +1017,16 @@ class Spinner : public Effect {
         if (!swap) {
           if (y % (p[i] * 2) < p[i]) {
             c(x, y) = palette1_[addmod8(x, pos_, 16)];
-          } else {
+          }
+          else {
             c(x, y) = palette2_[(uint8_t)(pos_ - x) % 16];
           }
-        } else {
+        }
+        else {
           if (y % (p[i] * 2) < p[i]) {
             c(x, y) = palette2_[(uint8_t)(pos_ - x) % 16];
-          } else {
+          }
+          else {
             c(x, y) = palette1_[addmod8(x, pos_, 16)];
           }
         }
@@ -1022,19 +1038,20 @@ class Spinner : public Effect {
     EVERY_N_SECONDS(5) {
       if ((!swap && (i == sizeof(p) - 1)) || (swap && (i == 0))) {
         swap = !swap;
-      } else {
+      }
+      else {
         i += swap ? -1 : 1;
       }
     }
   }
 
- private:
+private:
   CHSVPalette16 palette1_;
   CHSVPalette16 palette2_;
   CEveryNMillis spin_timer_;
   uint8_t pos_;
   bool swap = false;
-  uint8_t p[5] = {20, 10, 4, 2, 1};
+  uint8_t p[5] = { 20, 10, 4, 2, 1 };
   uint8_t i = 0;
   NoColorCorrection _;
 };
