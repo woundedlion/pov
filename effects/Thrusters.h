@@ -16,6 +16,7 @@ public:
     warp_phase(0),
     t_global(0)
   {
+    persist_pixels = false;
     ring_vec = ring_vec.normalize();
 
     timeline.add(0, Sprite(

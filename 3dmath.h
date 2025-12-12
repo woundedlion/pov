@@ -468,6 +468,20 @@ constexpr float distance_between(const Vector& a, const Vector& b) {
 }
 
 /**
+ * @brief Calculates the square of the Euclidean distance between two vectors.
+ * Usefule  for efficient comparisons without square root.
+ * @param a First vector.
+ * @param b Second vector.
+ * @return The distance squared (scalar).
+ */
+constexpr float distance_squared(const Vector& a, const Vector& b) {
+  float di = b.i - a.i;
+  float dj = b.j - a.j;
+  float dk = b.k - a.k;
+  return di * di + dj * dj + dk * dk;
+}
+
+/**
  * @brief Calculates the angle between two vectors.
  * @param v1 First vector.
  * @param v2 Second vector.

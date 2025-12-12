@@ -8,3 +8,5 @@
 #include "effects/Moire.h"
 #include "effects/FlowField.h"
 #include "effects/Thrusters.h"
+#include "effects/GSReactionDiffusion.h"
+#include "effects/BZReactionDiffusion.h"
