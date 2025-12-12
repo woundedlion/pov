@@ -125,6 +125,18 @@ struct Pipeline<W, Head, Tail...> : public Head {
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
+ * @brief Quintic Smootherstep Kernel function (Perlin's 5th order polynomial).
+ * @details Guarantees zero velocity and acceleration at t=0 and t=1 for smooth anti-aliasing.
+ * @param t The fractional coordinate (0.0 to 1.0).
+ * @return The smoothed weight (0.0 to 1.0).
+ */
+inline float quintic_kernel(float t) {
+    t = std::clamp(t, 0.0f, 1.0f);
+    // W(t) = 6*t^5 - 15*t^4 + 10*t^3
+    return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+}
+
+/**
  * @brief A filter that applies the current global orientation to the pixel position.
  * @details Necessary for effects that rotate the entire scene. Converts the 2D pixel to a 3D vector,
  * rotates it by the Orientation quaternion, and re-projects it to 2D.
@@ -297,18 +309,6 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 // 2D Filters
 ///////////////////////////////////////////////////////////////////////////////
-
-/**
- * @brief Quintic Smootherstep Kernel function (Perlin's 5th order polynomial).
- * @details Guarantees zero velocity and acceleration at t=0 and t=1 for smooth anti-aliasing.
- * @param t The fractional coordinate (0.0 to 1.0).
- * @return The smoothed weight (0.0 to 1.0).
- */
-inline float quintic_kernel(float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  // W(t) = 6*t^5 - 15*t^4 + 10*t^3
-  return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
-}
 
 /**
  * @brief A filter implementing anti-aliasing via Quintic Interpolation (Smootherstep).
