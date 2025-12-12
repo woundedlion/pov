@@ -43,7 +43,6 @@ public:
     }
   }
 
-  // --- MODIFIERS (Fail-Soft: Overwrite Oldest) ---
 
   void push_front(const T& item) {
     if (is_full()) {
@@ -121,8 +120,6 @@ public:
     }
   }
 
-  // --- ACCESSORS (Fail-Soft: Return Dummy) ---
-
   T& front() {
     if (is_empty()) return get_dummy();
     return *buffer[head];
@@ -157,8 +154,6 @@ public:
     return *buffer[(head + index) % N];
   }
 
-  // --- UTILS ---
-
   constexpr bool is_empty() const { return count == 0; }
   constexpr bool is_full() const { return count == N; }
   constexpr size_t size() const { return count; }
@@ -176,18 +171,14 @@ private:
   size_t tail;
   size_t count;
 
-  // --- SAFE DUMMY GENERATOR ---
-  // Creates a zero-initialized block of memory pretending to be T.
-  // This works even if T has no default constructor.
-  // Wrapping it in a struct resolves compiler ambiguity regarding 'alignas'.
+
   static T& get_dummy() {
     static struct {
       alignas(T) uint8_t bytes[sizeof(T)];
-    } raw = { 0 }; // Zero-initialize the memory (safe for POD/Graphics types)
+    } raw = { 0 };
     return *reinterpret_cast<T*>(raw.bytes);
   }
 
-  // Internal unchecked helpers
   void pop_back_internal() {
     tail = (tail - 1 + N) % N;
     buffer[tail].reset();
@@ -200,7 +191,6 @@ private:
     count--;
   }
 
-  // --- ITERATORS ---
   class iterator {
   public:
     using iterator_category = std::random_access_iterator_tag;
@@ -213,7 +203,8 @@ private:
     size_t m_index;
 
     iterator(StaticCircularBuffer* buffer, size_t logical_index)
-      : m_buffer(buffer), m_index(logical_index) {}
+      : m_buffer(buffer), m_index(logical_index) {
+    }
 
     reference operator*() const { return (*m_buffer)[m_index]; }
     pointer   operator->() const { return &(*m_buffer)[m_index]; }
@@ -251,10 +242,12 @@ private:
     size_t m_index;
 
     const_iterator(const StaticCircularBuffer* buffer, size_t logical_index)
-      : m_buffer(buffer), m_index(logical_index) {}
+      : m_buffer(buffer), m_index(logical_index) {
+    }
 
     const_iterator(const iterator& other)
-      : m_buffer(other.m_buffer), m_index(other.m_index) {}
+      : m_buffer(other.m_buffer), m_index(other.m_index) {
+    }
 
     reference operator*() const { return (*m_buffer)[m_index]; }
     pointer   operator->() const { return &(*m_buffer)[m_index]; }

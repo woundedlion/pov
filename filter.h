@@ -4,13 +4,14 @@
 #include <utility>
 #include <type_traits>
 #include <cmath>
+#include <vector>
 #include "geometry.h" 
 #include "color.h" 
 #include "static_circular_buffer.h"
 
 // Filter Traits
-struct Is2D { 
-  static constexpr bool is_2d = true; 
+struct Is2D {
+  static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
 };
 struct Is3D {
@@ -18,7 +19,7 @@ struct Is3D {
   static constexpr bool has_history = false;
 };
 
-struct Is2DWithHistory { 
+struct Is2DWithHistory {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = true;
 };
@@ -131,9 +132,9 @@ struct Pipeline<W, Head, Tail...> : public Head {
  * @return The smoothed weight (0.0 to 1.0).
  */
 inline float quintic_kernel(float t) {
-    t = std::clamp(t, 0.0f, 1.0f);
-    // W(t) = 6*t^5 - 15*t^4 + 10*t^3
-    return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+  t = std::clamp(t, 0.0f, 1.0f);
+  // W(t) = 6*t^5 - 15*t^4 + 10*t^3
+  return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 
 /**
@@ -151,7 +152,8 @@ public:
    */
   FilterOrient(Orientation& orientation) :
     orientation(orientation)
-  {}
+  {
+  }
 
   /**
    * @brief Rotates the pixel's 3D position based on the current orientation.
@@ -163,6 +165,40 @@ public:
 private:
 
   Orientation& orientation; /**< Reference to the global Orientation state. */
+};
+
+/**
+ * @brief Applies different orientations to points in n latitude bands defined by axis.
+ * @tparam W The width of the effect.
+ */
+template <int W>
+class FilterOrientSlice : public Is3D {
+public:
+  /**
+   * @brief Initializes the filter with a list of orientations and an axis.
+   * @param orientations Vector of pointers to Orientation objects.
+   * @param axis The axis defining the poles for slicing.
+   */
+  FilterOrientSlice(const std::vector<Orientation*>& orientations, const Vector& axis) :
+    orientations(orientations),
+    axis(axis)
+  {
+  }
+
+  void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+    float d = std::max(-1.0f, std::min(1.0f, dot(v, axis)));
+    float t = 1.0f - std::acos(d) / PI_F;
+
+    int idx = static_cast<int>(std::floor(t * orientations.size()));
+    if (idx >= static_cast<int>(orientations.size())) idx = orientations.size() - 1;
+    if (idx < 0) idx = 0;
+
+    pass(orientations[idx]->orient(v), color, age, alpha);
+  }
+
+private:
+  std::vector<Orientation*> orientations;
+  Vector axis;
 };
 
 /**
@@ -181,7 +217,8 @@ public:
   FilterReplicate(int count) :
     count(std::clamp(count, 1, W)),
     step(make_rotation(Y_AXIS, 2 * PI_F / count))
-  {}
+  {
+  }
 
   /**
    * @brief Plots the fragment at its original position and at evenly spaced offsets.
@@ -208,36 +245,36 @@ private:
 template <int W>
 class FilterHole : public Is3D {
 public:
-    /**
-     * @brief Initializes the filter with an origin and radius.
-     * @param origin The center point of the hole (normalized).
-     * @param radius The radius (in radians) at which fading starts.
-     */
-    FilterHole(const Vector& origin, float radius) :
-        origin(origin),
-        radius(radius)
-    {
-    }
+  /**
+   * @brief Initializes the filter with an origin and radius.
+   * @param origin The center point of the hole (normalized).
+   * @param radius The radius (in radians) at which fading starts.
+   */
+  FilterHole(const Vector& origin, float radius) :
+    origin(origin),
+    radius(radius)
+  {
+  }
 
-    void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
-        float d = angle_between(v, origin);
-        if (d > radius) {
-            pass(v, color, age, alpha);
-        }
-        else {
-            float t = d / radius;
-            float factor = quintic_kernel(t);
-            Pixel c = color;
-            c.r = static_cast<uint8_t>(c.r * factor);
-            c.g = static_cast<uint8_t>(c.g * factor);
-            c.b = static_cast<uint8_t>(c.b * factor);
-            pass(v, c, age, alpha);
-        }
+  void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+    float d = angle_between(v, origin);
+    if (d > radius) {
+      pass(v, color, age, alpha);
     }
+    else {
+      float t = d / radius;
+      float factor = quintic_kernel(t);
+      Pixel c = color;
+      c.r = static_cast<uint8_t>(c.r * factor);
+      c.g = static_cast<uint8_t>(c.g * factor);
+      c.b = static_cast<uint8_t>(c.b * factor);
+      pass(v, c, age, alpha);
+    }
+  }
 
 private:
-    Vector origin;
-    float radius;
+  Vector origin;
+  float radius;
 };
 
 /**
@@ -248,32 +285,32 @@ private:
 template <int W>
 class FilterHoleRef : public Is3D {
 public:
-    /**
-     * @brief Initializes the filter with an origin and radius.
-     * @param origin The center point of the hole (normalized).
-     * @param radius The radius (in radians) at which fading starts.
-     */
-    FilterHoleRef(const Vector& origin, float radius) : origin(origin), radius(radius) {}
-    
-    void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
-        float d = angle_between(v, origin);
-        if (d > radius) {
-            pass(v, color, age, alpha);
-        }
-        else {
-            float t = d / radius;
-            // Quintic kernel: 6t^5 - 15t^4 + 10t^3
-            float factor = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
-            Pixel c = color;
-            c.r = static_cast<uint8_t>(c.r * factor);
-            c.g = static_cast<uint8_t>(c.g * factor);
-            c.b = static_cast<uint8_t>(c.b * factor);
-            pass(v, c, age, alpha);
-        }
+  /**
+   * @brief Initializes the filter with an origin and radius.
+   * @param origin The center point of the hole (normalized).
+   * @param radius The radius (in radians) at which fading starts.
+   */
+  FilterHoleRef(const Vector& origin, float radius) : origin(origin), radius(radius) {}
+
+  void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+    float d = angle_between(v, origin);
+    if (d > radius) {
+      pass(v, color, age, alpha);
     }
+    else {
+      float t = d / radius;
+      // Quintic kernel: 6t^5 - 15t^4 + 10t^3
+      float factor = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+      Pixel c = color;
+      c.r = static_cast<uint8_t>(c.r * factor);
+      c.g = static_cast<uint8_t>(c.g * factor);
+      c.b = static_cast<uint8_t>(c.b * factor);
+      pass(v, c, age, alpha);
+    }
+  }
 private:
-    const Vector& origin;
-    float radius;
+  const Vector& origin;
+  float radius;
 };
 
 
@@ -285,25 +322,25 @@ private:
 template <int W>
 class FilterMobius : public Is3D {
 public:
-    /**
-     * @brief Initializes the filter with a reference to the Mobius parameters.
-     * @param params Reference to the MobiusParams object.
-     */
-    FilterMobius(MobiusParams& params) :
-        params(params)
-    {
-    }
+  /**
+   * @brief Initializes the filter with a reference to the Mobius parameters.
+   * @param params Reference to the MobiusParams object.
+   */
+  FilterMobius(MobiusParams& params) :
+    params(params)
+  {
+  }
 
-    /**
-     * @brief Applies the Mobius transformation to the vector.
-     */
-    void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
-        // 1. Stereo Projection -> 2. Mobius Transform -> 3. Inverse Stereo
-        pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha);
-    }
+  /**
+   * @brief Applies the Mobius transformation to the vector.
+   */
+  void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+    // 1. Stereo Projection -> 2. Mobius Transform -> 3. Inverse Stereo
+    pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha);
+  }
 
 private:
-    MobiusParams& params;
+  MobiusParams& params;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -360,7 +397,8 @@ class FilterChromaticShift : public Is2D {
 public:
 
   FilterChromaticShift()
-  {}
+  {
+  }
 
   /**
    * @brief Plots the original color, then plots R, G, and B components at slightly offset positions.
@@ -370,9 +408,9 @@ public:
     CRGB g(0, color.g, 0);
     CRGB b(0, 0, color.b);
     pass(x, y, color, age, alpha);
-    pass(wrap(x + 0.66f, W), y, r, age, alpha);
-    pass(wrap(x + 1.33f, W), y, g, age, alpha);
-    pass(wrap(x + 2.0f, W), y, b, age, alpha);
+    pass(wrap(x + 1.0f, W), y, r, age, alpha);
+    pass(wrap(x + 2.0f, W), y, g, age, alpha);
+    pass(wrap(x + 3.0f, W), y, b, age, alpha);
   }
 };
 
@@ -394,7 +432,8 @@ public:
   FilterDecay(int lifetime) :
     lifetime(lifetime),
     num_pixels(0)
-  {}
+  {
+  }
 
   /**
    * @brief Plots a new fragment, optionally tracking it for decay.
@@ -416,11 +455,11 @@ public:
   }
 
   /**
- * @brief Re-plots all existing trail fragments with reduced brightness/color based on age.
- * @param canvas The canvas to plot onto.
- * @param trailFn A function to calculate the color based on normalized age (0.0 to 1.0).
- * @param alpha The base opacity for the trails.
- */
+  * @brief Re-plots all existing trail fragments with reduced brightness/color based on age.
+  * @param canvas The canvas to plot onto.
+  * @param trailFn A function to calculate the color based on normalized age (0.0 to 1.0).
+  * @param alpha The base opacity for the trails.
+  */
   void trail(TrailFn auto trailFn, float alpha, auto pass) {
     for (int i = 0; i < num_pixels; ++i) {
       auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));

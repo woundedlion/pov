@@ -20,7 +20,7 @@ void setup() {
 }
 
 void loop() {
-
+    pov->show<Thrusters<96>>(150);
 	pov->show<TheMatrix<40, 135>>(45);
 	pov->show<ChainWiggle<96>>(150);
 	pov->show<RingRotate<96>>(120);
@@ -41,13 +41,6 @@ void loop() {
 	pov->show<Spiral<16, 0> >(10);
 	pov->show<Spiral<48, 0> >(20);
 	pov->show<Spiral<48, 1> >(10);
-
-
-	// Graveyard
-	//	pov->show<WaveTrails<96>>(60);
-	//	pov->show<RingTrails<96>>(90); // FIXME OR REPLACE WITH RingSpin?
-  //	pov->show<PolyRot<96>>(45);
-	//	pov->show<Fire<40, 150, 120> >(45);
 }
 
 
