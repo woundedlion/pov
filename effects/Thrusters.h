@@ -8,13 +8,12 @@ public:
     Effect(W),
     palette({ 0.5f, 0.5f, 0.5f }, { 0.5f, 0.5f, 0.5f }, { 0.3f, 0.3f, 0.3f }, { 0.0f, 0.2f, 0.6f }),
     filters(FilterAntiAlias<W>()),
-    warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid),
-    orientation(),
     ring_vec(0.5f, 0.5f, 0.5f),
     amplitude(0),
     radius(1.0f),
     warp_phase(0),
-    t_global(0)
+    t_global(0),
+    warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid)
   {
     persist_pixels = false;
     ring_vec = ring_vec.normalize();
@@ -35,7 +34,8 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
     if (!warp_anim.done()) {
-      warp_anim.step(canvas);
+      Canvas dummy(*this); // Mutation step doesn't need canvas but interface requires it
+      warp_anim.step(dummy);
     }
     t_global++;
   }
@@ -124,7 +124,8 @@ private:
 
   void draw_thruster(Canvas& c, const ThrusterContext& ctx, float opacity) {
     Dots dots;
-    ::draw_ring<W>(dots, ctx.orientation.get(), ctx.point, ctx.radius, [](const Vector&, float) { return CRGB::White; });
+    ::draw_ring<W>(dots, ctx.orientation.get(), ctx.point, ctx.radius,
+      [](const Vector&, float) { return Color4(CRGB::White); });
     plot_dots<W>(dots, filters, c, 0, opacity * 0.2f);
   }
 
@@ -143,13 +144,14 @@ private:
 
   ProceduralPalette palette;
   Pipeline<W, FilterAntiAlias<W>> filters;
-  Timeline timeline;
-  Mutation warp_anim;
 
-  Orientation orientation;
   Vector ring_vec;
   float amplitude;
   float radius;
   float warp_phase;
   int t_global;
+
+  Timeline timeline;
+  Mutation warp_anim;
+  Orientation orientation;
 };

@@ -1,5 +1,14 @@
 #pragma once
 
+#include <cmath>
+#include <algorithm>
+#include <array>
+#include <vector>
+#include <FastLED.h>
+#include "3dmath.h"
+#include "color.h"
+#include "static_circular_buffer.h"
+
 /**
  * @brief Unit vector along the Cartesian X-axis.
  */
@@ -29,9 +38,9 @@ struct Dot {
   /**
    * @brief Constructs a Dot.
    * @param v The 3D position vector.
-   * @param color The pixel color.
+   * @param color The pixel color with alpha.
    */
-  Dot(const Vector& v, const Pixel& color) :
+  Dot(const Vector& v, const Color4& color) :
     position(v),
     color(color)
   {
@@ -46,7 +55,7 @@ struct Dot {
   }
 
   Vector position; /**< The 3D position (unit vector). */
-  Pixel color; /**< The color of the dot. */
+  Color4 color; /**< The color of the dot. */
 };
 
 /**
@@ -424,15 +433,15 @@ void bisect(Poly& poly, const Orientation& orientation, const Vector& normal) {
  * @param normal The plane normal.
  * @param p1 The palette for the positive side.
  * @param p2 The palette for the negative side.
- * @return The calculated gradient color (Pixel).
+ * @return The calculated gradient color (Color4).
  */
-Pixel distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1, CRGBPalette256 p2) {
+Color4 distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1, CRGBPalette256 p2) {
   auto d = dot(v, normal);
   if (d > 0) {
-    return p1[static_cast<int>(d * 255)];
+    return Color4(p1[static_cast<int>(d * 255)], 1.0f);
   }
   else {
-    return p2[static_cast<int>(-d * 255)];
+    return Color4(p2[static_cast<int>(-d * 255)], 1.0f);
   }
 }
 

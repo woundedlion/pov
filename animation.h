@@ -6,6 +6,7 @@
 #include <variant>
 #include <array>
 #include "3dmath.h"
+#include "FastNoiseLite.h"
 
 /**
  * @brief Frames Per Second constant.
