@@ -15,6 +15,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
+ * @brief Represents a color with an alpha channel.
+ */
+struct Color4 {
+  Pixel color;
+  float alpha;
+
+  Color4() : color(CRGB::Black), alpha(1.0f) {}
+  Color4(const Pixel& p, float a = 1.0f) : color(p), alpha(a) {}
+  Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f) : color(r, g, b), alpha(a) {}
+};
+
+/**
 * @brief Scales a Pixel's RGB components by a floating-point scalar.
 */
 Pixel operator*(const Pixel& p, float s) {
@@ -132,7 +144,7 @@ Pixel blend_mean(const Pixel& c1, const Pixel& c2) {
  */
 class Palette {
 public:
-  virtual Pixel get(float t) const = 0;
+  virtual Color4 get(float t) const = 0;
   virtual ~Palette() = default;
 };
 
@@ -229,8 +241,8 @@ public:
     }
   }
 
-  Pixel get(float t) const override {
-    return ColorFromPalette(entries, static_cast<uint8_t>(t * 255), 255, NOBLEND);
+  Color4 get(float t) const override {
+    return Color4(ColorFromPalette(entries, static_cast<uint8_t>(t * 255), 255, NOBLEND), 1.0f);
   }
 
   CRGBPalette256 entries;
@@ -343,7 +355,7 @@ public:
     update_luts();
   }
 
-  Pixel get(float t) const override {
+  Color4 get(float t) const override {
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
       if (t >= shape[i] && t < shape[i + 1]) {
@@ -360,10 +372,10 @@ public:
 
     // Safe division check
     float dist = end - start;
-    if (dist < 0.0001f) return c1;
+    if (dist < 0.0001f) return Color4(c1, 1.0f);
 
     float p = (t - start) / dist;
-    return c1.lerp16(c2, to_short(std::clamp(p, 0.0f, 1.0f)));
+    return Color4(c1.lerp16(c2, to_short(std::clamp(p, 0.0f, 1.0f))), 1.0f);
   }
 
 private:
@@ -423,12 +435,12 @@ public:
     std::array<float, 3> d) : a(a), b(b), c(c), d(d) {
   }
 
-  Pixel get(float t) const override {
-    return Pixel(
+  Color4 get(float t) const override {
+    return Color4(Pixel(
       static_cast<uint8_t>(255 * std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f)),
       static_cast<uint8_t>(255 * std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f)),
       static_cast<uint8_t>(255 * std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f))
-    );
+    ), 1.0f);
   }
 
 protected:
@@ -472,7 +484,7 @@ private:
 class ReversePalette : public Palette {
 public:
   ReversePalette(const Palette& palette) : palette(palette) {}
-  Pixel get(float t) const override {
+  Color4 get(float t) const override {
     return palette.get().get(1.0f - t);
   }
 private:
@@ -482,17 +494,41 @@ private:
 class VignettePalette : public Palette {
 public:
   VignettePalette(const Palette& palette) : palette(palette) {}
-  Pixel get(float t) const override {
+  Color4 get(float t) const override {
     CRGB vignette_color(0, 0, 0);
     if (t < 0.2f) {
-      return vignette_color.lerp16(palette.get().get(0.0f), to_short(t / 0.2f));
+      return Color4(vignette_color.lerp16(palette.get().get(0.0f).color, to_short(t / 0.2f)), 1.0f);
     }
     else if (t >= 0.8f) {
-      return palette.get().get(1.0f).lerp16(vignette_color, to_short((t - 0.8f) / 0.2f));
+      return Color4(palette.get().get(1.0f).color.lerp16(vignette_color, to_short((t - 0.8f) / 0.2f)), 1.0f);
     }
     else {
       return palette.get().get((t - 0.2f) / 0.6f);
     }
+  }
+private:
+  std::reference_wrapper<const Palette> palette;
+};
+
+class TransparentVignette : public Palette {
+public:
+  TransparentVignette(const Palette& palette) : palette(palette) {}
+  Color4 get(float t) const override {
+    Color4 result;
+    float factor = 1.0f;
+    if (t < 0.2f) {
+      result = palette.get().get(0.0f);
+      factor = t / 0.2f;
+    }
+    else if (t >= 0.8f) {
+      result = palette.get().get(1.0f);
+      factor = (1.0f - (t - 0.8f) / 0.2f);
+    }
+    else {
+      return palette.get().get((t - 0.2f) / 0.6f);
+    }
+    result.alpha *= factor;
+    return result;
   }
 private:
   std::reference_wrapper<const Palette> palette;
@@ -512,7 +548,8 @@ using PaletteVariant = std::variant<
   Gradient,
   MutatingPalette,
   ReversePalette,
-  VignettePalette
+  VignettePalette,
+  TransparentVignette
 >;
 
 ///////////////////////////////////////////////////////////////////////////////

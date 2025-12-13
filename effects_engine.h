@@ -21,22 +21,24 @@ typedef CRGB Pixel;
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
 
+#include "color.h" // Must be included before concepts using Color4
+
 /**
  * @brief Concept for a function that determines color based on position and/or time.
- * Signature: Pixel f(const Vector& v, float t)
+ * Signature: Color4 f(const Vector& v, float t)
  */
 template<typename F>
 concept ColorFn = requires(F f, const Vector & v, float t) {
-  { f(v, t) } -> std::convertible_to<Pixel>;
+  { f(v, t) } -> std::convertible_to<Color4>;
 };
 
 /**
  * @brief Concept for a function that generates a trail color.
- * Signature: Pixel f(float x, float y, float t)
+ * Signature: Color4 f(float x, float y, float t)
  */
 template<typename F>
 concept TrailFn = requires(F f, float x, float y, float t) {
-  { f(x, y, t) } -> std::convertible_to<Pixel>;
+  { f(x, y, t) } -> std::convertible_to<Color4>;
 };
 
 /**
@@ -88,7 +90,6 @@ template<typename F>
 concept TweenFn = std::invocable<F, const Quaternion&, float>;
 
 #include "geometry.h"
-#include "color.h"
 #include "filter.h"
 #include "draw.h"
 #include "animation.h"

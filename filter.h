@@ -264,11 +264,7 @@ public:
     else {
       float t = d / radius;
       float factor = quintic_kernel(t);
-      Pixel c = color;
-      c.r = static_cast<uint8_t>(c.r * factor);
-      c.g = static_cast<uint8_t>(c.g * factor);
-      c.b = static_cast<uint8_t>(c.b * factor);
-      pass(v, c, age, alpha);
+      pass(v, color * factor, age, alpha);
     }
   }
 
@@ -299,13 +295,8 @@ public:
     }
     else {
       float t = d / radius;
-      // Quintic kernel: 6t^5 - 15t^4 + 10t^3
-      float factor = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
-      Pixel c = color;
-      c.r = static_cast<uint8_t>(c.r * factor);
-      c.g = static_cast<uint8_t>(c.g * factor);
-      c.b = static_cast<uint8_t>(c.b * factor);
-      pass(v, c, age, alpha);
+      float factor = quintic_kernel(t);
+      pass(v, color * factor, age, alpha);
     }
   }
 private:
@@ -462,8 +453,8 @@ public:
   */
   void trail(TrailFn auto trailFn, float alpha, auto pass) {
     for (int i = 0; i < num_pixels; ++i) {
-      auto color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
-      pass(ttls[i].x, ttls[i].y, color, lifetime - ttls[i].ttl, alpha);
+      Color4 color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
+      pass(ttls[i].x, ttls[i].y, color.color, lifetime - ttls[i].ttl, alpha * color.alpha);
     }
     decay();
   }

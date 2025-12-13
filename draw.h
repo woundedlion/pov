@@ -393,7 +393,7 @@ public:
       points.pop_back(); // Overlap previous segment
     }
     Dots seg;
-    draw_line<W>(seg, v1, v2, [](auto&, auto) { return Pixel(); }, 0.0f, 1.0f, long_way, false);
+    draw_line<W>(seg, v1, v2, [](auto&, auto) { return Color4(); }, 0.0f, 1.0f, long_way, false);
     std::transform(seg.begin(), seg.end(), std::back_inserter(points),
       [](auto& d) { return d.position; });
     return *this;
@@ -490,7 +490,7 @@ void draw_fib_spiral(Dots& dots, int n, float eps, ColorFn auto color_fn) {
 template<int W, typename Pipeline>
 void plot_dots(const Dots& dots, Pipeline& filters, Canvas& canvas, float age, float alpha) {
   for (auto& dot : dots) {
-    filters.plot(canvas, dot.position, gamma_correct(dot.color), age, alpha);
+    filters.plot(canvas, dot.position, gamma_correct(dot.color.color), age, alpha * dot.color.alpha);
   }
 }
 
@@ -520,7 +520,7 @@ public:
    */
   struct Item {
     Vector v;     /**< 3D Position. */
-    Pixel color;  /**< Base color. */
+    Color4 color; /**< Base color. */
     float ttl;    /**< Time To Live (frames). */
     float alpha;  /**< Initial opacity. */
   };
@@ -534,7 +534,7 @@ public:
   /**
    * @brief Records a single 3D dot into the history.
    */
-  void record(const Vector& v, const Pixel& color, float age, float alpha) {
+  void record(const Vector& v, const Color4& color, float age, float alpha) {
     float ttl = lifespan - age;
     if (ttl > 0) {
       items.push_back({ v, color, ttl, alpha });
@@ -567,8 +567,8 @@ public:
     // render
     for (auto& item : items) {
       float t = (lifespan - item.ttl) / static_cast<float>(lifespan);
-      Pixel color = color_fn(item.v, t);
-      pipeline.plot(canvas, item.v, color, 0, item.alpha);
+      Color4 color = color_fn(item.v, t);
+      pipeline.plot(canvas, item.v, color.color, 0, item.alpha * color.alpha);
       item.ttl -= 1.0f;
     }
 
