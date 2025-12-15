@@ -1,163 +1,82 @@
-# Holosphere: A Spherical POV Display Engine
+# Holosphere Firmware (POV)
 
-## Overview
+**Holosphere** is a sophisticated graphics engine built for Teensy 4.x microcontrollers to drive high-speed Persistence of Vision (POV) displays. Unlike traditional POV renderers that work on a 2D polar grid, Holosphere abstracts the display as a **virtual 3D unit sphere**, allowing for complex vector graphics, particle physics, and 3D transformations.
 
-**Holosphere** is a graphics engine designed for Teensy-based Persistence of Vision (POV) displays. The engine abstracts the spinning hardware into a **virtual 3D unit sphere**.
+This project is the hardware counterpart to **[Daydream](../daydream)**, a WebGL simulator used for prototyping these effects.
 
-It implements a pipeline for rendering 3D vectors, particle systems, and geometries onto a spherical surface. The engine handles the trigonometry required to map Cartesian 3D coordinates to the polar coordinates of the LED strip.
+---
 
-### Key Features
+## 🚀 System Architecture & Component Guide
 
-  * **3D-to-Spherical Projection**: Handles 3D vectors and projects them to physical LED addresses.
-  * **Temporal Motion Blur**: The `Orientation` system tracks object history within a single frame to draw continuous arcs.
-  * **Filter Chain**: A modular pipeline for post-processing effects such as trails and anti-aliasing.
-  * **Animation Timeline**: A system for scheduling sequences using tweens, sprites, and timers.
+The engine is architected as a modular pipeline. Data flows from high-level **Animations** $\to$ **Drawing Primitives** $\to$ **Abstract Dots** $\to$ **Filter Chain** $\to$ **Physical LEDs**.
 
------
+### 1. Core Mathematics (`3dmath.h`)
+The foundation of the engine, providing optimized floating-point primitives for the Teensy's FPU.
+* **`Vector`**: A custom 3D Cartesian vector struct $(x, y, z)$. It supports operator overloading for intuitive vector math (addition, cross products, normalization) required for 3D physics and geometry.
+* **`Quaternion`**: Implements 4D rotation math ($w, x, y, z$). This is crucial for the engine's camera system, avoiding Gimbal lock and allowing for smooth spherical interpolation (SLERP) of rotations.
+* **`Spherical`**: A helper struct for converting Cartesian vectors into Polar coordinates $(\theta, \phi)$ just before rasterization.
+* **`MobiusParams`**: A structure holding complex number coefficients ($a, b, c, d$) used for conformal mapping transformations.
 
-## Engine File Structure & Responsibilities
+### 2. Scene Graph & Geometry (`geometry.h`)
+Defines how objects exist and move in the virtual world.
+* **`Orientation`**: **(Key Feature)** This class solves the "strobing" issue inherent in POV displays. Instead of storing a single rotation state, it maintains a **history buffer** of quaternions for the current frame. When an object moves, the engine "tweens" through this history to draw it as a continuous arc rather than a single point, generating high-quality temporal motion blur.
+* **`Dot`**: The atomic unit of rendering. It bundles a `Vector` (position) with a `Color4` (RGBA color).
+* **`Projection`**: Contains the logic to map normalized 3D vectors onto the 2D "unwrapped" map of the LED strip (`pixel_to_vector` and `vector_to_pixel`).
 
-The engine is modularized into several headers, each handling a specific layer of the rendering pipeline, from low-level math to high-level hardware control.
+### 3. The Render Pipeline (`filter.h`)
+The engine uses a recursive template-based pipeline to process graphics. This allows for zero-cost abstractions where filter chains are resolved at compile time.
+* **`Pipeline<...>`**: A variadic template that chains filters together. Data passed into the pipeline traverses every filter before reaching the canvas.
+* **`FilterOrient`**: The "Camera" of the engine. It intercepts every 3D point and rotates it by the global `Orientation` quaternion, allowing the entire world to spin or tumble.
+* **`FilterDecay`**: Implements visual trails. Instead of drawing to the screen, it records points into a `DecayBuffer`. In subsequent frames, it replays these points with diminishing brightness based on their age.
+* **`FilterMobius`**: Performs a complex-plane Möbius transformation $f(z) = \frac{az+b}{cz+d}$ on the 3D vectors, creating hyperbolic and elliptic geometry distortions.
+* **`FilterAntiAlias`**: The "Rasterizer". It takes the final floating-point coordinates and distributes the pixel's energy to the four nearest physical LEDs using a **Quintic Kernel** (SmootherStep) for ultra-smooth sub-pixel rendering.
 
-### 1\. Core Mathematics (`3dmath.h`)
+### 4. Animation Timeline (`animation.h`)
+A scripting system that replaces complex state machines with a linear, scheduled timeline.
+* **`Timeline`**: The master scheduler. You add events to it with a specific start time.
+* **`Sprite`**: Manages the lifecycle of a visual object. It handles the `draw()` callback, and automatically manages fade-in and fade-out opacity curves over the object's lifespan.
+* **`Transition`**: Smoothly interpolates a scalar value (like a radius or color index) from $A$ to $B$ over time using a specific easing function.
+* **`Mutation`**: Similar to Transition, but drives a value using a continuous function (like a Sine wave) rather than a start/end point.
+* **`Motion`**: Moves an `Orientation` object along a defined 3D `Path`.
 
-This file provides the fundamental mathematical primitives used throughout the engine. It relies on floating-point math (`float`) for performance on the Teensy 4.x FPU.
+### 5. Drawing Primitives (`draw.h`)
+Helper functions that generate `Dots` to be fed into the pipeline.
+* **`draw_line`**: Draws a Great Circle arc between two vectors on the sphere surface. It uses adaptive sampling to ensure the line resolution matches the screen resolution.
+* **`draw_ring`**: Generates a circle on the sphere surface defined by a normal vector and a radius.
+* **`draw_polyhedron`**: Renders wireframe meshes (like Dodecahedrons) defined in `geometry.h` by iterating their edge lists.
 
-  * **`Vector`**: A struct representing a 3D point or direction $(x, y, z)$ in Cartesian space. It includes operator overloads for vector addition, subtraction, scalar multiplication, and normalization.
-  * **`Quaternion`**: Implements rotation math. Used to represent the orientation of objects and the camera without suffering from Gimbal lock.
-  * **`Spherical`**: A helper struct for Polar coordinates ($\theta, \phi$), used during the final projection step.
-  * **Helper Functions**: Includes `dot` product, `cross` product, `slerp` (Spherical Linear Interpolation) for smooth rotation blending, and `intersection` logic for geometry calculations.
+### 6. Color Theory (`color.h`)
+* **`GenerativePalette`**: A procedural color system. Instead of hardcoded colors, it generates harmonious palettes on the fly using rules (e.g., "Split-Complementary", "Triadic") and shape distributions (e.g., "Vignette", "Circular").
+* **`ProceduralPalette`**: Defines gradients using cosine-wave coefficients, allowing for smooth, mathematical color evolution without lookup tables.
 
-### 2\. 3D Scene Graph (`geometry.h`)
+### 7. Hardware Abstraction (`led.h`)
+* **`POVDisplay`**: Manages the `FastLED` integration and the high-speed hardware timer (`IntervalTimer`). It synchronizes the column-display rate to the motor's RPM.
+* **`Effect` / `Canvas`**: Implements **Double Buffering**.
+    * Buffer A is being written to by the `draw()` loop.
+    * Buffer B is being read by the high-priority Interrupt Service Routine (ISR) to light the LEDs.
+    * The `Canvas` class uses RAII to automatically swap and lock these buffers at the start/end of a frame.
 
-This file defines how mathematical objects are represented in the Holosphere's virtual world.
+---
 
-  * **`Orientation`**: The engine's solution for high-speed motion blur. Instead of a single rotation state, it maintains a history of `Quaternion` states for the current frame. The `tween()` function uses this history to draw objects as continuous arcs rather than static points.
-  * **`Dot`**: The atomic unit of rendering. A `Dot` consists of a `Vector` (position) and a `Pixel` (color).
-  * **Projection**: Contains `vector_to_pixel<W>()`, which converts normalized 3D vectors into 2D virtual coordinates $(x, y)$ mapped to the LED strip's resolution.
-  * **`Dodecahedron`**: Example mesh data containing vertices and edge lists for a 3D solid.
+## 📦 Included Effects
 
-### 3\. Hardware Abstraction (`led.h`)
+The `effects/` directory contains specific visual sketches demonstrating the engine's capabilities:
 
-This file bridges the software engine with the physical reality of the spinning device.
+* **`GSReactionDiffusion` / `BZReactionDiffusion`**: Simulates biological pattern formation (Gray-Scott and Belousov-Zhabotinsky models) on a spherical Fibonacci lattice.
+* **`FlowField`**: Uses 4D OpenSimplex noise to drive thousands of particles across the sphere surface, creating fluid-like motion.
+* **`MobiusGrid`**: Visualizes conformal mappings by projecting a grid through a dynamic Möbius transformation.
+* **`Thrusters`**: A physics simulation of particles emitted from a moving source, affected by drag and momentum.
+* **`Comets`**: Agents that follow complex Lissajous curves on the sphere surface, leaving long decay trails.
 
-  * **`POVDisplay`**: Manages the hardware resources. It sets up the LED controller (FastLED) and initializes the hardware interval timer based on the desired `RPM` and resolution.
-  * **`Effect`**: The base class for all visual sketches. It implements **Double Buffering**: one buffer is written to by the drawing code while the other is read by the interrupt service routine (ISR) to light the LEDs.
-  * **`Canvas`**: A RAII (Resource Acquisition Is Initialization) wrapper around the frame buffer. Creating a `Canvas` object automatically locks the buffer for writing; destroying it queues the frame for display.
+## 🔧 Setup & Configuration
 
-### 4\. Rasterization Pipeline (`filter.h`)
+1.  **Hardware**: Requires a **Teensy 4.0 or 4.1**.
+2.  **Libraries**: Install **FastLED**.
+3.  **Config (`led.h`)**:
+    ```cpp
+    static constexpr int NUM_PIXELS = 40;   // Number of physical LEDs
+    static constexpr unsigned int RPM = 480; // Rotation speed of the motor
+    ```
 
-Instead of drawing directly to the screen, the engine "plots" generic 3D dots through a chain of filters. This allows separation of concerns between *where* something is and *how* it looks.
-
-  * **`Filter`**: The abstract base class. Each filter holds a pointer to the `next` filter in the chain.
-  * **`FilterOrient`**: Intercepts a dot, applies the global camera `Orientation` (rotating the world), and passes the new position down the chain.
-  * **`FilterDecay`**: Manages persistence. It stores a history of plotted pixels and their "time to live" (TTL). In subsequent frames, it re-plots these pixels with reduced brightness to create trails.
-  * **`FilterAntiAlias`**: Performs the final rasterization. It takes the floating-point 2D coordinates from the projection step and distributes the pixel's energy to the four nearest integer coordinates on the physical LED strip.
-
-### 5\. Geometry Generation (`draw.h`)
-
-A collection of helper functions to generate 3D forms and push them into the `Dots` buffer.
-
-  * **`Path`**: A class representing a trajectory in 3D space. It can be defined procedurally or by connecting vectors.
-  * **Primitives**: `draw_line` (draws a great-circle arc between two vectors), `draw_ring` (draws a circle on the sphere surface), and `draw_polyhedron` (draws a wireframe mesh).
-  * **`Dots`**: A `StaticCircularBuffer` used as intermediate storage for the points generated by these functions before they are processed by the Filter chain.
-
-### 6\. Animation System (`animation.h`)
-
-Provides a scripting framework to make visuals move and evolve over time without messy state variables in the main loop.
-
-  * **`Timeline`**: The master clock. It stores and advances a list of active `Animation` objects.
-  * **`Transition`**: Smoothly interpolates a value (like a color or angle) from $A$ to $B$ over a set duration.
-  * **`Motion` / `Rotation`**: Specialized animations that update an `Orientation` object, moving it along a `Path` or spinning it around an axis.
-  * **`Sprite`**: Manages the lifecycle of a drawing function, handling fade-in, active duration, and fade-out automatically.
-  * **Easing Functions**: Standard easing curves (`ease_in_out_sin`, `ease_out_expo`) used by animations for natural motion.
-
-### 7\. Color System (`color.h`)
-
-Tools for managing color theory and high-quality rendering.
-
-  * **`GenerativePalette`**: A class that procedurally generates harmonious color palettes (e.g., Triadic, Analogous) based on random seeds and rules.
-  * **`ProceduralPalette`**: Defines gradients using cosine waves for smooth, mathematically defined color shifts.
-  * **Gamma Correction**: A lookup table (`gamma_lut`) used to convert linear calculated colors into values that appear correct to the human eye on LEDs.
-
-### 8\. Utilities (`static_circular_buffer.h` & `FastNoiseLite.h`)
-
-  * **`StaticCircularBuffer`**: A custom container that provides a fixed-size circular buffer (deque) without using dynamic memory allocation (`new`/`malloc`), critical for system stability on microcontrollers.
-  * **`FastNoiseLite.h`**: A third-party library used to generate Perlin/Simplex noise for organic textures and random walks.
-
------
-
-## Usage Example: Composing a "Satellite" Effect
-
-The following code demonstrates creating a "Satellite" effect: a dot orbiting the equator while the world view rotates.
-
-```cpp
-template <int W>
-class SatelliteEffect : public Effect {
-public:
-  SatelliteEffect() : Effect(W), trails(20), orient(world_view) {
-    // 1. PIPELINE SETUP
-    // Order: Decay -> Orient -> AA -> Screen
-    trails.chain(orient).chain(aa); 
-
-    // 2. ANIMATION SETUP
-    // Spin the satellite's local coordinate system
-    timeline.add(0, Rotation<W>(satellite_view, Y_AXIS, 0.1, -1, ease_mid));
-    
-    // Rotate the global world view
-    timeline.add(0, Rotation<W>(world_view, Z_AXIS, 0.01, -1, ease_mid));
-  }
-
-  // Return false to maintain previous frame buffer (for trails)
-  bool show_bg() const override { return false; } 
-
-  void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas); 
-    
-    // 3. DRAWING
-    // Iterate through the rotation history for this frame
-    tween(satellite_view, [&](auto orient_fn, auto t) {
-        dots.clear();
-        
-        // Define a vector at (1,0,0)
-        Vector p = Vector(1, 0, 0);
-        
-        // Apply the satellite's rotation
-        p = orient_fn(p);
-        
-        // Add to buffer
-        draw_vector<W>(dots, p, [](auto v, auto t) { return CRGB::Red; });
-        
-        // 4. PLOTTING
-        // Push dots through the filter chain
-        plot_dots<W>(dots, trails, canvas, t, 1.0);
-    });
-    
-    // 5. CLEANUP
-    trails.decay(); 
-    // Re-draw existing trails with calculated dimming
-    trails.trail(canvas, [](float x, float y, float t) { 
-        return CRGB::Red.nscale8(255 * (1.0 - t)); 
-    }, 1.0);
-  }
-
-private:
-  Timeline timeline;
-  Orientation satellite_view; 
-  Orientation world_view;     
-  Dots dots;                  
-  
-  FilterDecay<W, 1024> trails; 
-  FilterOrient<W> orient;      
-  FilterAntiAlias<W> aa;       
-};
-```
-
-## Requirements
-
-1.  **Hardware**: Teensy 4.0/4.1 (Required for FPU and clock speed).
-2.  **Dependencies**: **FastLED** library.
-3.  **Configuration**: Update `led.h`:
-      * `NUM_PIXELS`: Total LED count.
-      * `RPM`: Motor rotation speed.
+---
+*See [Daydream](../daydream/README.md) for the WebGL simulator used to develop these effects.*
