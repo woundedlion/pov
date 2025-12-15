@@ -1,6 +1,6 @@
 # Holosphere Firmware (POV)
 
-**Holosphere** is a sophisticated graphics engine built for Teensy 4.x microcontrollers to drive high-speed Persistence of Vision (POV) displays. Unlike traditional POV renderers that work on a 2D polar grid, Holosphere abstracts the display as a **virtual 3D unit sphere**, allowing for complex vector graphics, particle physics, and 3D transformations.
+**Holosphere** is a graphics engine built for Teensy 4.x microcontrollers to drive high-speed Spherical Persistence of Vision (POV) displays. Unlike traditional POV renderers that work on a 2D polar grid, Holosphere abstracts the display as a **virtual 3D unit sphere**, allowing for complex vector graphics, particle physics, and 3D transformations.
 
 This project is the hardware counterpart to **[Daydream]([../daydream](https://github.com/woundedlion/daydream))**, a WebGL simulator used for prototyping these effects.
 
