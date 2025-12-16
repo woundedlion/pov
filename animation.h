@@ -529,6 +529,8 @@ private:
 
 /**
  * @brief An animation that moves an Orientation along a defined Path.
+ * @details Updated to match JavaScript logic: steps along the path by sub-sampling based on the angle
+ * and MAX_ANGLE, ensuring smooth turns even when the path curvature is high.
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
 template <int W>
@@ -550,25 +552,30 @@ public:
   }
 
   /**
-   * @brief Steps the animation, calculates the next rotation step along the path, and pushes it to the Orientation.
+   * @brief Steps the animation, calculates intermediate rotation steps along the path,
+   * and pushes them to the Orientation.
    */
   void step(Canvas& canvas) {
-    if (this->t == 0) {
-      to = path.get().get_point(0);
-    }
     Animation<Motion<W>>::step(canvas);
     orientation.get().collapse();
-    from = to;
-    to = path.get().get_point(static_cast<float>(this->t) / this->duration);
-    if (from != to) {
-      Vector axis = cross(from, to).normalize();
-      auto angle = angle_between(from, to);
-      auto step_angle = angle / std::ceil(angle / MAX_ANGLE);
-      auto& origin = orientation.get().get();
-      for (auto a = step_angle; angle - a > TOLERANCE; a += step_angle) {
-        orientation.get().push((make_rotation(axis, a) * origin).normalize());
+    float t_prev = static_cast<float>(this->t - 1);
+    Vector current_v = path.get().get_point(t_prev / this->duration);
+    float t_curr = static_cast<float>(this->t);
+    Vector target_v = path.get().get_point(t_curr / this->duration);
+    float total_angle = angle_between(current_v, target_v);
+    int num_steps = static_cast<int>(std::ceil(std::max(1.0f, total_angle / MAX_ANGLE)));
+    Quaternion origin = orientation.get().get();
+    for (int i = 1; i <= num_steps; ++i) {
+      float sub_t = t_prev + (static_cast<float>(i) / num_steps);
+      Vector next_v = path.get().get_point(sub_t / this->duration);
+      float step_angle = angle_between(current_v, next_v);
+      if (step_angle > TOLERANCE) {
+        Vector step_axis = cross(current_v, next_v).normalize();
+        Quaternion q = make_rotation(step_axis, step_angle);
+        origin = (q * origin).normalize();
+        orientation.get().push(origin);
       }
-      orientation.get().push((make_rotation(axis, angle) * origin).normalize());
+      current_v = next_v;
     }
   }
 
@@ -577,8 +584,6 @@ private:
   static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
   std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
   std::reference_wrapper<const Path<W>> path; /**< Reference to the Path object. */
-  Vector from; /**< Starting position for the current step. */
-  Vector to; /**< Target position for the current step. */
 };
 
 /**

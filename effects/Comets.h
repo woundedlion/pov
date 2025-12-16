@@ -3,6 +3,8 @@
 #include <memory>
 #include <vector>
 #include <map>
+#include <algorithm>
+#include <cmath>
 #include "../effects_engine.h"
 
 template <int W>
@@ -68,10 +70,14 @@ private:
 
   void update_path() {
     const auto& f = functions[cur_function];
+    float max_speed = sqrtf(f.m1 * f.m1 + f.m2 * f.m2);
+    float length = f.domain * max_speed;
+    float samples = std::max(128.0f, ceilf(length * resolution));
+
     path.collapse();
     path.append_segment([f](float t) -> Vector {
       return lissajous(f.m1, f.m2, f.a, t);
-      }, f.domain, 1024, ease_mid);
+      }, f.domain, samples, ease_mid);
   }
 
   void update_palette() {
@@ -120,6 +126,7 @@ private:
 
   static constexpr int NUM_NODES = 1;
   float alpha = 0.5f;
+  float resolution = 32.0f;
   size_t cycle_duration = 80;
   size_t trail_length = 80;
   size_t wipe_duration = 48;
