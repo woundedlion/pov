@@ -435,7 +435,7 @@ public:
 
 private:
 
-  StaticCircularBuffer<Vector, 1024> points; /**< The discrete points making up the path. */
+  StaticCircularBuffer<Vector, 4096> points; /**< The discrete points making up the path. */
 };
 
 /**
