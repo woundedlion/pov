@@ -428,10 +428,23 @@ public:
   }
 
   /**
-   * @brief Retrieves a point along the path based on a normalized factor.
-   */
+    * @brief Retrieves a point along the path based on a normalized factor.
+    * Uses linear interpolation for smooth movement between sampled points.
+    */
   Vector get_point(float t) const {
-    return points[static_cast<int>(t * (points.size() - 1))];
+    if (points.size() == 0) return Vector(0, 0, 0); // Safety return
+
+    float raw_index = t * (points.size() - 1);
+    size_t i = static_cast<size_t>(raw_index);
+    float f = raw_index - i;
+
+    if (i >= points.size() - 1) {
+      return points.back();
+    }
+
+    const Vector& p1 = points[i];
+    const Vector& p2 = points[i + 1];
+    return p1 * (1.0f - f) + p2 * f;
   }
 
   /**
