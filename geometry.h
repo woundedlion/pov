@@ -394,43 +394,6 @@ private:
 
 
 /**
- * @brief Attempts to bisect the edges of a polyhedron that intersect a plane.
- * @details This function is used to dynamically add vertices and edges to a polyhedral wireframe
- * where it crosses a dividing plane (e.g., the horizon).
- * @tparam Poly The type of polyhedron (must expose `vertices` and `euler_path`).
- * @param poly The polyhedron to modify.
- * @param orientation The current rotation/orientation of the polyhedron.
- * @param normal The normal vector defining the dividing plane.
- */
-template <typename Poly>
-void bisect(Poly& poly, const Orientation& orientation, const Vector& normal) {
-  auto num_edges = poly.euler_path.size();
-  for (size_t i = 0; i < num_edges; ++i) {
-    for (auto j = poly.euler_path[i].begin(); j != poly.euler_path[i].end();) {
-      Vector a(orientation.orient(poly.vertices[i]));
-      Vector b(orientation.orient(poly.vertices[*j]));
-      if (intersects_plane(a, b, normal)) {
-        auto p = split_point(intersection(a, b, normal), normal);
-        poly.vertices.push_back(orientation.unorient(p[0]));
-        poly.vertices.push_back(orientation.unorient(p[1]));
-        if (is_over(a, normal)) {
-          poly.euler_path.push_back({ i });
-          poly.euler_path.push_back({ *j });
-        }
-        else {
-          poly.euler_path.push_back({ *j });
-          poly.euler_path.push_back({ i });
-        }
-        j = poly.euler_path[i].erase(j);
-      }
-      else {
-        ++j;
-      }
-    }
-  }
-}
-
-/**
  * @brief Calculates a gradient color based on the vector's dot product with a normal.
  * @details This creates two color gradients extending from the dividing plane in opposite directions.
  * @param v The vector to color.
