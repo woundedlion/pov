@@ -86,7 +86,7 @@ private:
       float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
 
       Points points;
-      sample_ring<W>(points, Quaternion(), normal, radius);
+      sample_polygon(points, Quaternion(), normal, radius, W / 4);
 
       Points transformed_points;
       for (const auto& p : points) {
@@ -109,7 +109,7 @@ private:
       Vector normal(cosf(theta), sinf(theta), 0.0f);
 
       Points points;
-      sample_ring<W>(points, Quaternion(), normal, 1.0f);
+      sample_polygon(points, Quaternion(), normal, 1.0f, W / 4);
       Points transformed_points;
       for (const auto& p : points) {
         transformed_points.push_back(inv_stereo(mobius(stereo(p), params)));

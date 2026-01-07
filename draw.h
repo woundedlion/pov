@@ -7,18 +7,18 @@
 #include <algorithm>
 #include "geometry.h" // Ensure geometry primitives are available
 
-/**
- * @brief Draws a geodesic line (arc) between two vectors on the sphere with adaptive sampling.
- * @tparam W The width of the display (used for step calculation).
- * @param dots The buffer to which the resulting Dots will be added.
- * @param v1 The start vector.
- * @param v2 The end vector.
- * @param color_fn Function to determine the color (takes vector and normalized progress t).
- * @param start Starting angle multiplier for drawing the line arc.
- * @param end Ending multiplier for the total arc angle.
- * @param long_way If true, draws the longer arc.
- * @param omit_last If true, omits the last point (useful for connecting segments).
- */
+ /**
+  * @brief Draws a geodesic line (arc) between two vectors on the sphere with adaptive sampling.
+  * @tparam W The width of the display (used for step calculation).
+  * @param dots The buffer to which the resulting Dots will be added.
+  * @param v1 The start vector.
+  * @param v2 The end vector.
+  * @param color_fn Function to determine the color (takes vector and normalized progress t).
+  * @param start Starting angle multiplier for drawing the line arc.
+  * @param end Ending multiplier for the total arc angle.
+  * @param long_way If true, draws the longer arc.
+  * @param omit_last If true, omits the last point (useful for connecting segments).
+  */
 template <int W>
 void draw_line(Dots& dots, const Vector& v1, const Vector& v2, ColorFn auto color_fn,
   float start, float end, bool long_way, bool omit_last)
@@ -229,10 +229,10 @@ Vector fn_point(ScalarFn auto f, const Vector& normal, float radius, float angle
  * @param orientationQuaternion The orientation of the ring.
  * @param normal The normal vector defining the ring plane.
  * @param radius The radius of the ring.
+ * @param num_samples The number of points to sample.
  * @param phase Starting phase.
  */
-template<int W>
-void sample_ring(Points& points, const Quaternion& orientationQuaternion, const Vector& normal, float radius, float phase = 0) {
+void sample_polygon(Points& points, const Quaternion& orientationQuaternion, const Vector& normal, float radius, int num_samples, float phase = 0) {
   // Basis
   Vector ref_axis = X_AXIS;
   if (std::abs(dot(normal, ref_axis)) > 0.9999f) {
@@ -255,7 +255,6 @@ void sample_ring(Points& points, const Quaternion& orientationQuaternion, const 
   const float d = cosf(theta_eq);
 
   // Calculate Samples
-  const int num_samples = W / 4;
   const float step = 2.0f * PI_F / num_samples;
   Vector u_temp;
 
@@ -279,7 +278,19 @@ void draw_ring(Dots& dots, const Quaternion& orientation, const Vector& normal,
   float radius, ColorFn auto color_fn, float phase = 0)
 {
   Points points;
-  sample_ring<W>(points, orientation, normal, radius, phase);
+  sample_polygon(points, orientation, normal, radius, W / 4, phase);
+  rasterize<W>(dots, points, color_fn, true);
+}
+
+/**
+ * @brief Draws a polygon on the sphere surface.
+ */
+template<int W>
+void draw_polygon(Dots& dots, const Quaternion& orientation, const Vector& normal,
+  float radius, int num_sides, ColorFn auto color_fn, float phase = 0)
+{
+  Points points;
+  sample_polygon(points, orientation, normal, radius, num_sides, phase);
   rasterize<W>(dots, points, color_fn, true);
 }
 

@@ -50,7 +50,7 @@ public:
   void spawn_ring(const Vector& normal, const Palette& palette) {
     auto ring_index = rings.size();
     rings.emplace_back(normal, palette, trail_length);
-    sample_ring<W>(rings.back().base_points, Quaternion(), normal, 1.0f);
+    sample_polygon(rings.back().base_points, Quaternion(), normal, 1.0f, W / 4);
 
     timeline.add(0,
       Sprite(
