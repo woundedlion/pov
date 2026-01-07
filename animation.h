@@ -11,10 +11,12 @@
 #include <array>
 #include "3dmath.h"
 #include "FastNoiseLite.h"
+#include "geometry.h" 
+#include "static_circular_buffer.h"
 
-/**
- * @brief Frames Per Second constant.
- */
+ /**
+  * @brief Frames Per Second constant.
+  */
 static constexpr int FPS = 16;
 
 /**
@@ -839,6 +841,47 @@ public:
 private:
   std::reference_wrapper<MobiusParams> params;
   std::reference_wrapper<const float> num_rings;
+};
+
+/**
+ * @brief Manages a history of Orientation states.
+ * @tparam CAPACITY The maximum number of snapshots to keep.
+ */
+template <int CAPACITY>
+class OrientationTrail {
+public:
+  /**
+   * @brief Records a snapshot of the current orientation state.
+   * @param source The orientation to copy.
+   */
+  void record(const Orientation& source) {
+    snapshots.push_back(source);
+  }
+
+  /**
+   * @brief Gets the number of recorded snapshots.
+   */
+  size_t length() const {
+    return snapshots.size();
+  }
+
+  /**
+   * @brief Gets a specific snapshot.
+   * @param i Index (0 is oldest).
+   */
+  const Orientation& get(size_t i) const {
+    return snapshots[i];
+  }
+
+  /**
+   * @brief Gets a specific snapshot (mutable).
+   */
+  Orientation& get(size_t i) {
+    return snapshots[i];
+  }
+
+private:
+  StaticCircularBuffer<Orientation, CAPACITY> snapshots;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
