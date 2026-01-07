@@ -13,7 +13,7 @@
 #include "color.h" 
 #include "static_circular_buffer.h"
 
-// Filter Traits
+ // Filter Traits
 struct Is2D {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
@@ -145,6 +145,7 @@ inline float quintic_kernel(float t) {
  * @brief A filter that applies the current global orientation to the pixel position.
  * @details Necessary for effects that rotate the entire scene. Converts the 2D pixel to a 3D vector,
  * rotates it by the Orientation quaternion, and re-projects it to 2D.
+ * Uses tweening to generate sub-frame motion blur.
  * @tparam W The width of the effect.
  */
 template <int W>
@@ -160,10 +161,13 @@ public:
   }
 
   /**
-   * @brief Rotates the pixel's 3D position based on the current orientation.
+   * @brief Rotates the pixel's 3D position based on the current orientation history.
+   * @details Uses tween to iterate through the orientation history (sub-frames) for motion blur.
    */
   void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
-    pass(orientation.orient(v), color, age, alpha);
+    tween(orientation, [&](const Quaternion& q, float t) {
+      pass(rotate(v, q), color, age + (1.0f - t), alpha);
+      });
   }
 
 private:
