@@ -14,13 +14,13 @@
 #include "3dmath.h"
 #include "util.h"
 
-// TODO: 3D Palettes
+ // TODO: 3D Palettes
 
-///////////////////////////////////////////////////////////////////////////////
+ ///////////////////////////////////////////////////////////////////////////////
 
-/**
- * @brief Represents a color with an alpha channel.
- */
+ /**
+  * @brief Represents a color with an alpha channel.
+  */
 struct Color4 {
   Pixel color;
   float alpha;
@@ -408,9 +408,9 @@ private:
     case HarmonyType::ANALOGOUS:
     default: {
       const int dir = (hs::rand_int(0, 1) == 0) ? 1 : -1;
-      const int offset1 = dir * hs::rand_int(32, 48);
+      const int offset1 = dir * hs::rand_int(11, 22);
       h2 = wrap_hue(h1_int + offset1);
-      const int offset2 = dir * hs::rand_int(32, 48);
+      const int offset2 = dir * hs::rand_int(11, 22);
       h3 = wrap_hue(h2 + offset2);
       break;
     }
@@ -615,6 +615,33 @@ static const Gradient rainbowStripes({
   {14.0f / 16, CRGB(0xAB0055)},
   {15.0f / 16, CRGB(0x000000)},
   {16.0f / 16, CRGB(0xFF0000)}
+  });
+
+static const Gradient rainbowThinStripes({
+  {0.0f, CRGB(0xFF0000)},
+  {1.0f / 32, CRGB(0x000000)},
+  {3.0f / 32, CRGB(0x000000)},
+  {4.0f / 32, CRGB(0xAB5500)},
+  {5.0f / 32, CRGB(0x000000)},
+  {7.0f / 32, CRGB(0x000000)},
+  {8.0f / 32, CRGB(0xABAB00)},
+  {9.0f / 32, CRGB(0x000000)},
+  {11.0f / 32, CRGB(0x000000)},
+  {12.0f / 32, CRGB(0x00FF00)},
+  {13.0f / 32, CRGB(0x000000)},
+  {15.0f / 32, CRGB(0x000000)},
+  {16.0f / 32, CRGB(0x00AB55)},
+  {17.0f / 32, CRGB(0x000000)},
+  {19.0f / 32, CRGB(0x000000)},
+  {20.0f / 32, CRGB(0x0000FF)},
+  {21.0f / 32, CRGB(0x000000)},
+  {23.0f / 32, CRGB(0x000000)},
+  {24.0f / 32, CRGB(0x5500AB)},
+  {25.0f / 32, CRGB(0x000000)},
+  {27.0f / 32, CRGB(0x000000)},
+  {28.0f / 32, CRGB(0xAB0055)},
+  {29.0f / 32, CRGB(0x000000)},
+  {32.0f / 32, CRGB(0x000000)}
   });
 
 static const Gradient grayToBlack({
