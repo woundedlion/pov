@@ -27,17 +27,17 @@ struct FSRingContext {
 
   // Derived properties
   float nx, ny, nz;
-  float targetAngle;
-  float R; // sqrt(nx^2 + nz^2)
+  float target_angle;
+  float r; // sqrt(nx^2 + nz^2)
   float alpha; // atan2(nx, nz)
-  float centerPhi;
+  float center_phi;
   Vector u, w; // Basis vectors
 
   // Sector / Arc properties
-  float startAngle;
-  float endAngle;
-  bool checkSector;
-  const std::vector<Vector>* clipPlanes;
+  float start_angle;
+  float end_angle;
+  bool check_sector;
+  const std::vector<Vector>* clip_planes;
 };
 
 /**
@@ -50,9 +50,9 @@ public:
    * @brief Draws a ring (or partial arc) onto the canvas.
    */
   static void draw(Canvas& canvas, const Vector& normal, float radius, const Color4& color,
-    float thickness, float startAngle = 0, float endAngle = 2 * PI_F,
-    const std::vector<Vector>* clipPlanes = nullptr,
-    float minPhiLimit = -1.0f, float maxPhiLimit = -1.0f)
+    float thickness, float start_angle = 0, float end_angle = 2 * PI_F,
+    const std::vector<Vector>* clip_planes = nullptr,
+    float min_phi_limit = -1.0f, float max_phi_limit = -1.0f)
   {
     // Construct Basis
     Vector ref = X_AXIS;
@@ -71,38 +71,38 @@ public:
     ctx.nx = normal.i;
     ctx.ny = normal.j;
     ctx.nz = normal.k;
-    ctx.targetAngle = radius * (PI_F / 2.0f);
-    ctx.R = sqrtf(ctx.nx * ctx.nx + ctx.nz * ctx.nz);
+    ctx.target_angle = radius * (PI_F / 2.0f);
+    ctx.r = sqrtf(ctx.nx * ctx.nx + ctx.nz * ctx.nz);
     ctx.alpha = atan2f(ctx.nx, ctx.nz);
-    ctx.centerPhi = acosf(ctx.ny);
+    ctx.center_phi = acosf(ctx.ny);
     ctx.u = u;
     ctx.w = w;
-    ctx.startAngle = startAngle;
-    ctx.endAngle = endAngle;
-    ctx.checkSector = (std::abs(endAngle - startAngle) < (2 * PI_F - 0.001f));
-    ctx.clipPlanes = clipPlanes;
+    ctx.start_angle = start_angle;
+    ctx.end_angle = end_angle;
+    ctx.check_sector = (std::abs(end_angle - start_angle) < (2 * PI_F - 0.001f));
+    ctx.clip_planes = clip_planes;
 
     // Calculate Vertical Bounds
-    float a1 = ctx.centerPhi - ctx.targetAngle;
-    float a2 = ctx.centerPhi + ctx.targetAngle;
+    float a1 = ctx.center_phi - ctx.target_angle;
+    float a2 = ctx.center_phi + ctx.target_angle;
     float p1 = acosf(cosf(a1));
     float p2 = acosf(cosf(a2));
 
-    float minP = std::min(p1, p2);
-    float maxP = std::max(p1, p2);
+    float min_p = std::min(p1, p2);
+    float max_p = std::max(p1, p2);
 
-    float phiMin = std::max(0.0f, minP - thickness);
-    float phiMax = std::min(PI_F, maxP + thickness);
+    float phi_min = std::max(0.0f, min_p - thickness);
+    float phi_max = std::min(PI_F, max_p + thickness);
 
-    if (minPhiLimit >= 0) phiMin = std::max(phiMin, minPhiLimit);
-    if (maxPhiLimit >= 0) phiMax = std::min(phiMax, maxPhiLimit);
+    if (min_phi_limit >= 0) phi_min = std::max(phi_min, min_phi_limit);
+    if (max_phi_limit >= 0) phi_max = std::min(phi_max, max_phi_limit);
 
-    if (phiMin > phiMax) return;
+    if (phi_min > phi_max) return;
 
-    int yMin = std::max(0, static_cast<int>(floorf((phiMin * (H_VIRT - 1)) / PI_F)));
-    int yMax = std::min(H - 1, static_cast<int>(ceilf((phiMax * (H_VIRT - 1)) / PI_F)));
+    int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
+    int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
 
-    for (int y = yMin; y <= yMax; y++) {
+    for (int y = y_min; y <= y_max; y++) {
       scanRow(canvas, y, ctx);
     }
   }
@@ -110,48 +110,48 @@ public:
 private:
   static void scanRow(Canvas& canvas, int y, const FSRingContext& ctx) {
     float phi = y_to_phi(y);
-    float cosPhi = cosf(phi);
-    float sinPhi = sinf(phi);
+    float cos_phi = cosf(phi);
+    float sin_phi = sinf(phi);
 
     // Singularity (Poles or Vertical Normal)
-    if (ctx.R < 0.01f) {
+    if (ctx.r < 0.01f) {
       scanFullRow(canvas, y, ctx);
       return;
     }
 
     // General Intersection
-    float ang_low = std::max(0.0f, ctx.targetAngle - ctx.thickness);
-    float ang_high = std::min(PI_F, ctx.targetAngle + ctx.thickness);
+    float ang_low = std::max(0.0f, ctx.target_angle - ctx.thickness);
+    float ang_high = std::min(PI_F, ctx.target_angle + ctx.thickness);
 
-    float D_max = cosf(ang_low);
-    float D_min = cosf(ang_high);
+    float d_max = cosf(ang_low);
+    float d_min = cosf(ang_high);
 
-    float denom = ctx.R * sinPhi;
+    float denom = ctx.r * sin_phi;
     if (std::abs(denom) < 0.000001f) {
       scanFullRow(canvas, y, ctx);
       return;
     }
 
-    float C_min = (D_min - ctx.ny * cosPhi) / denom;
-    float C_max = (D_max - ctx.ny * cosPhi) / denom;
+    float c_min = (d_min - ctx.ny * cos_phi) / denom;
+    float c_max = (d_max - ctx.ny * cos_phi) / denom;
 
-    float minCos = std::max(-1.0f, C_min);
-    float maxCos = std::min(1.0f, C_max);
-    if (minCos > maxCos) return;
+    float min_cos = std::max(-1.0f, c_min);
+    float max_cos = std::min(1.0f, c_max);
+    if (min_cos > max_cos) return;
 
-    float angleMin = acosf(maxCos);
-    float angleMax = acosf(minCos);
+    float angle_min = acosf(max_cos);
+    float angle_max = acosf(min_cos);
 
     // Generate scan windows
-    if (angleMin <= 0.0001f) {
-      scanWindow(canvas, y, ctx.alpha - angleMax, ctx.alpha + angleMax, ctx);
+    if (angle_min <= 0.0001f) {
+      scanWindow(canvas, y, ctx.alpha - angle_max, ctx.alpha + angle_max, ctx);
     }
-    else if (angleMax >= PI_F - 0.0001f) {
-      scanWindow(canvas, y, ctx.alpha + angleMin, ctx.alpha + 2 * PI_F - angleMin, ctx);
+    else if (angle_max >= PI_F - 0.0001f) {
+      scanWindow(canvas, y, ctx.alpha + angle_min, ctx.alpha + 2 * PI_F - angle_min, ctx);
     }
     else {
-      scanWindow(canvas, y, ctx.alpha - angleMax, ctx.alpha - angleMin, ctx);
-      scanWindow(canvas, y, ctx.alpha + angleMin, ctx.alpha + angleMax, ctx);
+      scanWindow(canvas, y, ctx.alpha - angle_max, ctx.alpha - angle_min, ctx);
+      scanWindow(canvas, y, ctx.alpha + angle_min, ctx.alpha + angle_max, ctx);
     }
   }
 
@@ -175,40 +175,40 @@ private:
     Vector p = pixel_to_vector<W>(x, y);
 
     // Clipping Planes
-    if (ctx.clipPlanes) {
-      for (const auto& cp : *ctx.clipPlanes) {
+    if (ctx.clip_planes) {
+      for (const auto& cp : *ctx.clip_planes) {
         if (dot(p, cp) < 0) return;
       }
     }
 
-    float polarAngle = angle_between(p, ctx.normal);
-    float dist = std::abs(polarAngle - ctx.targetAngle);
+    float polar_angle = angle_between(p, ctx.normal);
+    float dist = std::abs(polar_angle - ctx.target_angle);
 
     if (dist < ctx.thickness) {
       // Sector Check
-      if (ctx.checkSector) {
-        float dotU = dot(p, ctx.u);
-        float dotW = dot(p, ctx.w);
-        float azimuth = atan2f(dotW, dotU);
+      if (ctx.check_sector) {
+        float dot_u = dot(p, ctx.u);
+        float dot_w = dot(p, ctx.w);
+        float azimuth = atan2f(dot_w, dot_u);
         if (azimuth < 0) azimuth += 2 * PI_F;
 
         bool inside = false;
-        if (ctx.startAngle <= ctx.endAngle) {
-          inside = (azimuth >= ctx.startAngle && azimuth <= ctx.endAngle);
+        if (ctx.start_angle <= ctx.end_angle) {
+          inside = (azimuth >= ctx.start_angle && azimuth <= ctx.end_angle);
         }
         else {
-          inside = (azimuth >= ctx.startAngle || azimuth <= ctx.endAngle);
+          inside = (azimuth >= ctx.start_angle || azimuth <= ctx.end_angle);
         }
         if (!inside) return;
       }
 
       // Render
       float t = dist / ctx.thickness;
-      float alphaFactor = quintic_kernel(1.0f - t);
-      float finalAlpha = ctx.color.alpha * alphaFactor;
+      float alpha_factor = quintic_kernel(1.0f - t);
+      float final_alpha = ctx.color.alpha * alpha_factor;
 
-      Pixel& outColor = canvas(XY(x, y));
-      outColor = blend_alpha(finalAlpha)(outColor, ctx.color.color);
+      Pixel& out_color = canvas(XY(x, y));
+      out_color = blend_alpha(final_alpha)(out_color, ctx.color.color);
     }
   }
 };
@@ -239,33 +239,33 @@ public:
     Vector c2 = cross(v2, normal);
     std::vector<Vector> clips = { c1, c2 };
 
-    float maxY = std::max(v1.j, v2.j);
-    float minY = std::min(v1.j, v2.j);
+    float max_y = std::max(v1.j, v2.j);
+    float min_y = std::min(v1.j, v2.j);
 
-    Vector apexPlaneNormal = cross(normal, Y_AXIS);
-    if (dot(apexPlaneNormal, apexPlaneNormal) > 0.0001f) {
-      float d1 = dot(v1, apexPlaneNormal);
-      float d2 = dot(v2, apexPlaneNormal);
+    Vector apex_plane_normal = cross(normal, Y_AXIS);
+    if (dot(apex_plane_normal, apex_plane_normal) > 0.0001f) {
+      float d1 = dot(v1, apex_plane_normal);
+      float d2 = dot(v2, apex_plane_normal);
 
       // Segment crosses the apex plane
       if (d1 * d2 <= 0) {
-        float globalMaxY = sqrtf(1.0f - normal.j * normal.j);
+        float global_max_y = sqrtf(1.0f - normal.j * normal.j);
         if (v1.j + v2.j > 0) {
-          maxY = globalMaxY;
+          max_y = global_max_y;
         }
         else {
-          minY = -globalMaxY;
+          min_y = -global_max_y;
         }
       }
     }
 
-    float clampedMaxY = std::clamp(maxY, -1.0f, 1.0f);
-    float clampedMinY = std::clamp(minY, -1.0f, 1.0f);
+    float clamped_max_y = std::clamp(max_y, -1.0f, 1.0f);
+    float clamped_min_y = std::clamp(min_y, -1.0f, 1.0f);
 
-    float minPhi = acosf(clampedMaxY) - thickness;
-    float maxPhi = acosf(clampedMinY) + thickness;
+    float min_phi = acosf(clamped_max_y) - thickness;
+    float max_phi = acosf(clamped_min_y) + thickness;
 
-    FSRing<W>::draw(canvas, normal, 1.0f, color, thickness, 0, 2 * PI_F, &clips, minPhi, maxPhi);
+    FSRing<W>::draw(canvas, normal, 1.0f, color, thickness, 0, 2 * PI_F, &clips, min_phi, max_phi);
   }
 };
 
@@ -287,7 +287,7 @@ public:
     FSLine<W>::draw(canvas, v1, v2, color, thickness);
   }
 
-  void drawRing(Canvas& canvas, const Vector& normal, float radius, const Color4& color, float thickness, float startAngle = 0, float endAngle = 2 * PI_F) {
-    FSRing<W>::draw(canvas, normal, radius, color, thickness, startAngle, endAngle);
+  void drawRing(Canvas& canvas, const Vector& normal, float radius, const Color4& color, float thickness, float start_angle = 0, float end_angle = 2 * PI_F) {
+    FSRing<W>::draw(canvas, normal, radius, color, thickness, start_angle, end_angle);
   }
 };
