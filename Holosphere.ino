@@ -24,6 +24,7 @@ void setup() {
 }
 
 void loop() {
+  pov->show<PetalFlow<96>>(120);
   pov->show<BZReactionDiffusion<96>>(120);
   pov->show<GSReactionDiffusion<96>>(120);
   pov->show<Thrusters<96>>(120);
