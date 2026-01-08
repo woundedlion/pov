@@ -14,12 +14,12 @@
 #include <memory>
 #include <FastLED.h>
 #include <variant>
-#include <array>
 #include "3dmath.h"
 #include "FastNoiseLite.h"
 #include "static_circular_buffer.h"
 
 class Canvas;
+class Orientation;
 
 typedef CRGB Pixel;
 typedef std::vector<Vector> VertexList;
@@ -87,13 +87,27 @@ template<typename F>
 concept TimerFn = std::invocable<F, Canvas&>;
 
 /**
- * @brief Concept for a function called during tweening/interpolation.
- * Signature: void f(const Quaternion& q, float t)
+ * @brief Concept for a function called during tweening.
+ * @details Can be called with EITHER (const Quaternion&, float) OR (const Orientation&, float).
+ * This allows the same concept to support tweening an Orientation (yielding Quaternions)
+ * or an OrientationTrail (yielding Orientations).
  */
 template<typename F>
-concept TweenFn = std::invocable<F, const Quaternion&, float>;
+concept TweenFn = std::invocable<F, const Quaternion&, float> ||
+std::invocable<F, const Orientation&, float>;
+
+/**
+ * @brief Concept for any object that maintains a history or sequence accessible by index.
+ * Matches Orientation (get -> Quaternion) and OrientationTrail (get -> Orientation).
+ */
+template<typename T>
+concept Tweenable = requires(const T & t, size_t i) {
+  { t.length() } -> std::convertible_to<size_t>;
+  { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
+};
 
 #include "geometry.h"
 #include "filter.h"
 #include "draw.h"
 #include "animation.h"
+#include "FieldSampler.h"

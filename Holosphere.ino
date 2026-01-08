@@ -24,6 +24,8 @@ void setup() {
 }
 
 void loop() {
+  pov->show<CometsFieldSample<96>>(120);
+  pov->show<RingSpinFieldSample<96>>(120);
   pov->show<PetalFlow<96>>(120);
   pov->show<BZReactionDiffusion<96>>(120);
   pov->show<GSReactionDiffusion<96>>(120);
