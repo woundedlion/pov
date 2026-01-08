@@ -525,11 +525,11 @@ void plot_dots(const Dots& dots, Pipeline& filters, Canvas& canvas, float age, f
 /**
  * @brief Iterates over the Orientation's history and calls a draw function for each historical step.
  */
-void tween(const Orientation& orientation, TweenFn auto draw_fn) {
-  size_t s = orientation.length();
+void tween(Tweenable auto history, TweenFn auto draw_fn) {
+  size_t s = history.length();
   size_t start = (s > 1) ? 1 : 0;
   for (size_t i = start; i < s; ++i) {
-    draw_fn(orientation.get(i),
+    draw_fn(history.get(i),
       static_cast<float>((s - 1 - i)) / s);
   }
 }
