@@ -13,11 +13,6 @@
 #include "filter.h" 
 #include "led.h" // For Canvas, H, W
 
- // Helpers
-inline float y_to_phi(int y) {
-  return (y * PI_F) / (H_VIRT - 1);
-}
-
 // Context structure to avoid passing many arguments recursively
 struct FSRingContext {
   Vector normal;

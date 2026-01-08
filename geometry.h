@@ -83,6 +83,24 @@ struct LogPolar {
 };
 
 /**
+ * Converts a pixel y-coordinate to a spherical phi angle.
+ * @param {number} y - The pixel y-coordinate [0, H_VIRT - 1].
+ * @returns {number} The spherical phi angle in radians.
+ */
+float y_to_phi(float y) {
+  return (y * PI_F) / (H_VIRT - 1);
+}
+
+/**
+ * Converts a spherical phi angle to a pixel y-coordinate.
+ * @param {number} phi - The spherical phi angle in radians.
+ * @returns {number} The pixel y-coordinate [0, H_VIRT - 1].
+ */
+float phi_to_y(float phi) {
+  return (phi * (H_VIRT - 1)) / PI_F;
+}
+
+/**
  * @brief Converts 2D pixel coordinates to a 3D unit vector on the sphere.
  * @tparam W The width (number of columns) of the virtual LED display.
  * @param x The horizontal coordinate (0 to W).
@@ -94,7 +112,7 @@ Vector pixel_to_vector(float x, float y) {
   return Vector(
     Spherical(
       (x * 2 * PI_F) / W,
-      (y * PI_F) / (H_VIRT - 1)
+      y_to_phi(y)
     )
   );
 }
@@ -108,7 +126,7 @@ Vector pixel_to_vector(float x, float y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), (s.phi * (H_VIRT - 1)) / PI_F });
+  PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), phi_to_y(s.phi)});
   return p;
 }
 
