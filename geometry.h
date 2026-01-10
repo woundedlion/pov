@@ -12,6 +12,7 @@
 #include "3dmath.h"
 #include "color.h"
 #include "static_circular_buffer.h"
+#include "led.h"
 
 /**
  * @brief Unit vector along the Cartesian X-axis.
@@ -108,7 +109,35 @@ float phi_to_y(float phi) {
  * @return The corresponding unit vector.
  */
 template <int W>
+struct PixelLUT {
+  static std::array<Vector, W * H_VIRT> data;
+  static bool initialized;
+  static void init() {
+    for (int y = 0; y < H_VIRT; y++) {
+      for (int x = 0; x < W; x++) {
+        data[x + y * W] = Vector(Spherical((x * 2 * PI_F) / W, y_to_phi(y)));
+      }
+    }
+    initialized = true;
+  }
+};
+
+template <int W> std::array<Vector, W * H_VIRT> PixelLUT<W>::data;
+template <int W> bool PixelLUT<W>::initialized = false;
+
+template <int W>
+const Vector& pixel_to_vector(int x, int y) {
+  if (!PixelLUT<W>::initialized) {
+    PixelLUT<W>::init();
+  }
+  return PixelLUT<W>::data[x + y * W];
+}
+
+template <int W>
 Vector pixel_to_vector(float x, float y) {
+  if (x == floor(x) && y == floor(y)) {
+    return pixel_to_vector<W>(static_cast<int>(x), static_cast<int>(y));
+  }
   return Vector(
     Spherical(
       (x * 2 * PI_F) / W,

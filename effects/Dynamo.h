@@ -148,24 +148,19 @@ public:
 
 private:
 
-  float node_y(const Node& node) const {
-    return (static_cast<float>(node.y) / (nodes.size() - 1)) * (H_VIRT - 1);
-  }
-
   void draw_nodes(float age) {
     dots.clear();
     for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
-        auto from = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
+        auto from = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
         draw_vector<W>(dots, from, [this](auto& v, auto t) { return color(v, 0); });
       }
       else {
-        auto from = pixel_to_vector<W>(nodes[i - 1].x, node_y(nodes[i - 1]));
-        auto to = pixel_to_vector<W>(nodes[i].x, node_y(nodes[i]));
+        auto from = pixel_to_vector<W>(nodes[i - 1].x, nodes[i - 1].y);
+        auto to = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
         draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, 0, 1, false, true);
       }
     }
-    // Match JS hardcoded alpha 0.5 for trails
     trails.record(dots, age, 0.5f);
   }
 
