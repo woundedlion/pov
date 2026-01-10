@@ -30,6 +30,14 @@ static constexpr int MAX_W = 96;
  * @brief Analog pin used for seeding the random number generator.
  */
 static constexpr int PIN_RANDOM = 15;
+/**
+ * @brief Data pin for the LED strip
+ */
+static constexpr int PIN_DATA = 11;
+/**
+ * @brief Clock pin for the LED strip.
+ */
+static constexpr int PIN_CLOCK = 13;
 
 /**
  * @brief Macro to calculate the 1D array index from 2D coordinates (x, y).
@@ -259,7 +267,7 @@ public:
   POVDisplay()
   {
     randomSeed(analogRead(PIN_RANDOM));
-    FastLED.addLeds<WS2801, 11, 13, RGB, DATA_RATE_MHZ(6)>(leds_, S);
+    FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds_, S);
 
     // enable slew rate limiting
     IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 =

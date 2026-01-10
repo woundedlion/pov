@@ -104,9 +104,9 @@ public:
 
 private:
   static void scanRow(Canvas& canvas, int y, const FSRingContext& ctx) {
-    float phi = y_to_phi(y);
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
+    const Vector& p = pixel_to_vector<W>(0, y);
+    float cos_phi = p.k;
+    float sin_phi = p.i;
 
     // Singularity (Poles or Vertical Normal)
     if (ctx.r < 0.01f) {
@@ -167,7 +167,7 @@ private:
   }
 
   static void processPixel(Canvas& canvas, int x, int y, const FSRingContext& ctx) {
-    Vector p = pixel_to_vector<W>(x, y);
+    const Vector& p = pixel_to_vector<W>(x, y);
 
     // Clipping Planes
     if (ctx.clip_planes) {
