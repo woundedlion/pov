@@ -54,13 +54,11 @@ public:
 
     for (auto& ring : rings) {
       ring.trail.record(ring.orientation);
-      tween(ring.trail, [&](const Orientation& orientation, auto t) {
-        tween(orientation, [&](const Quaternion& q, auto sub_t) {
+      deep_tween(ring.trail, [&](const Quaternion& q, float t) {
           Color4 c = ring.palette.get(t);
           c.alpha = c.alpha * alpha;
           Vector pos = rotate(ring.normal, q);
           Scan<W>::Ring::draw(filters, canvas, pos, 1.0f, thickness, [&](const Vector&, float) { return c; });
-          });
         });
     }
   }
