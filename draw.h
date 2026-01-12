@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <array>
 #include "geometry.h"
 #include "color.h"
 #include "led.h" // For H, W, H_VIRT
@@ -25,8 +26,8 @@ static void deep_tween(auto& trail, TweenFn auto drawFn) {
     tween(frame, [&](const auto& q, float subT) {
       float globalT = t + subT * dt;
       drawFn(q, globalT);
+      });
     });
-  });
 }
 
 /**
@@ -40,12 +41,13 @@ struct Plot {
    */
   struct Point {
     static void draw(auto& pipeline, Canvas& canvas, const Vector& v, const auto& color) {
-       // Support both Pixel and Color4
-       if constexpr (std::is_same_v<std::decay_t<decltype(color)>, Pixel>) {
-           pipeline.plot(canvas, v, color, 0, 1.0f);
-       } else {
-           pipeline.plot(canvas, v, color.color, 0, color.alpha);
-       }
+      // Support both Pixel and Color4
+      if constexpr (std::is_same_v<std::decay_t<decltype(color)>, Pixel>) {
+        pipeline.plot(canvas, v, color, 0, 1.0f);
+      }
+      else {
+        pipeline.plot(canvas, v, color.color, 0, color.alpha);
+      }
     }
   };
 
@@ -63,8 +65,8 @@ struct Plot {
 
       if (std::abs(a) < TOLERANCE) {
         if (!omit_last) {
-            auto c = color_fn(u, 0.0f);
-            pipeline.plot(canvas, u, c.color, 0, c.alpha);
+          auto c = color_fn(u, 0.0f);
+          pipeline.plot(canvas, u, c.color, 0, c.alpha);
         }
         return;
       }
@@ -94,7 +96,7 @@ struct Plot {
       // Simulation Phase
       Vector sim_u = u;
       float sim_angle = 0;
-      float steps[W / 2]; 
+      std::array<float, W / 2> steps;
       size_t step_count = 0;
       const float base_step = 2 * PI_F / W;
       size_t max_steps = W / 2;
@@ -112,13 +114,13 @@ struct Plot {
       float scale = (sim_angle > TOLERANCE) ? (a / sim_angle) : 1.0f;
       if (step_count == 0) {
         if (!omit_last) {
-            auto c = color_fn(u, 0.0f);
-            pipeline.plot(canvas, u, c.color, 0, c.alpha);
+          auto c = color_fn(u, 0.0f);
+          pipeline.plot(canvas, u, c.color, 0, c.alpha);
         }
         return;
       }
       float current_angle = 0;
-      
+
       auto c0 = color_fn(u, 0.0f);
       pipeline.plot(canvas, u, c0.color, 0, c0.alpha);
 
@@ -129,7 +131,7 @@ struct Plot {
         u = rotate(u, q).normalize();
         current_angle += step;
         float t = (a > 0) ? (current_angle / a) : 1;
-        
+
         auto c = color_fn(u, t);
         pipeline.plot(canvas, u, c.color, 0, c.alpha);
       }
@@ -151,14 +153,14 @@ struct Plot {
       auto segment_color_fn = [&](const Vector& p, float sub_t) {
         float global_t = (i + sub_t) / count;
         return color_fn(p, global_t);
-      };
+        };
 
       Line::draw(pipeline, canvas, p1, p2, segment_color_fn, 0.0f, 1.0f, false, true);
     }
   }
 
   /**
-   * @brief Represents a customizable path. 
+   * @brief Represents a customizable path.
    * Retains internal buffer for state, but draws to pipeline.
    */
   class Path {
@@ -195,11 +197,11 @@ struct Plot {
 
     size_t num_points() const { return points.size(); }
     void collapse() { if (points.size() > 1) points = { points.back() }; }
-    const Points& get_points() const { 
-        static Points temp;
-        temp.clear();
-        for(size_t i=0; i<points.size(); ++i) temp.push_back(points[i]);
-        return temp;
+    const Points& get_points() const {
+      static Points temp;
+      temp.clear();
+      for (size_t i = 0; i < points.size(); ++i) temp.push_back(points[i]);
+      return temp;
     }
 
   private:
@@ -212,8 +214,8 @@ struct Plot {
   struct Vertices {
     static void draw(auto& pipeline, Canvas& canvas, const Points& points, ColorFn auto color_fn) {
       for (const Vector& v : points) {
-          auto c = color_fn(v, 0);
-          pipeline.plot(canvas, v, c.color, 0, c.alpha);
+        auto c = color_fn(v, 0);
+        pipeline.plot(canvas, v, c.color, 0, c.alpha);
       }
     }
   };
@@ -229,7 +231,7 @@ struct Plot {
     }
 
     static void draw(auto& pipeline, Canvas& canvas, const VertexList& vertices, const AdjacencyList& edges, ColorFn auto color_fn) {
-       for (size_t i = 0; i < edges.size(); ++i) {
+      for (size_t i = 0; i < edges.size(); ++i) {
         Vector a(vertices[i]);
         for (auto j : edges[i]) {
           if (i < j) {
@@ -263,7 +265,7 @@ struct Plot {
 
       Vector v_dir = (radius > 1.0f) ? -v : v;
       float r_eff = (radius > 1.0f) ? (2.0f - radius) : radius;
-      
+
       const float theta_eq = r_eff * (PI_F / 2.0f);
       const float r_val = sinf(theta_eq);
       const float d_val = cosf(theta_eq);
@@ -301,7 +303,7 @@ struct Plot {
       if (radius > 1) { v = -v; radius = 2 - radius; }
       Vector u = (std::abs(dot(v, X_AXIS)) > 0.99995f) ? cross(v, Y_AXIS).normalize() : cross(v, X_AXIS).normalize();
       Vector w(cross(v, u));
-      
+
       auto vi = Ring::calcPoint(angle, radius, u, v, w);
       auto vp = Ring::calcPoint(angle, 1, u, v, w);
       Vector axis = cross(v, vp).normalize();
@@ -309,35 +311,35 @@ struct Plot {
     }
 
     static void sample(Points& points, const Quaternion& orientation, const Vector& normal, float radius, ScalarFn auto shift_fn, float phase = 0) {
-       Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
-       Vector v = rotate(normal, orientation).normalize();
-       Vector ref = rotate(ref_axis, orientation).normalize();
-       Vector u = cross(v, ref).normalize();
-       Vector w = cross(v, u).normalize();
+      Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
+      Vector v = rotate(normal, orientation).normalize();
+      Vector ref = rotate(ref_axis, orientation).normalize();
+      Vector u = cross(v, ref).normalize();
+      Vector w = cross(v, u).normalize();
 
-       float v_sign = 1.0f;
-       if (radius > 1.0f) { v_sign = -1.0f; radius = 2.0f - radius; }
-       
-       const float theta_eq = radius * (PI_F / 2.0f);
-       const float r_val = sinf(theta_eq);
-       const float d_val = cosf(theta_eq);
+      float v_sign = 1.0f;
+      if (radius > 1.0f) { v_sign = -1.0f; radius = 2.0f - radius; }
 
-       const int num_samples = W;
-       const float step = 2.0f * PI_F / num_samples;
-       for (int i = 0; i < num_samples; i++) {
-         float theta = i * step;
-         float t = theta + phase;
-         Vector u_temp = (u * cosf(t)) + (w * sinf(t));
-         
-         float shift = shift_fn(theta / (2.0f * PI_F));
-         float cos_shift = cosf(shift);
-         float sin_shift = sinf(shift);
-         
-         float v_scale = (v_sign * d_val) * cos_shift - r_val * sin_shift;
-         float u_scale = r_val * cos_shift + (v_sign * d_val) * sin_shift;
-         
-         points.push_back(((v * v_scale) + (u_temp * u_scale)).normalize());
-       }
+      const float theta_eq = radius * (PI_F / 2.0f);
+      const float r_val = sinf(theta_eq);
+      const float d_val = cosf(theta_eq);
+
+      const int num_samples = W;
+      const float step = 2.0f * PI_F / num_samples;
+      for (int i = 0; i < num_samples; i++) {
+        float theta = i * step;
+        float t = theta + phase;
+        Vector u_temp = (u * cosf(t)) + (w * sinf(t));
+
+        float shift = shift_fn(theta / (2.0f * PI_F));
+        float cos_shift = cosf(shift);
+        float sin_shift = sinf(shift);
+
+        float v_scale = (v_sign * d_val) * cos_shift - r_val * sin_shift;
+        float u_scale = r_val * cos_shift + (v_sign * d_val) * sin_shift;
+
+        points.push_back(((v * v_scale) + (u_temp * u_scale)).normalize());
+      }
     }
 
     static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0) {
@@ -366,22 +368,22 @@ struct Plot {
  */
 template <int W>
 struct Scan {
-  
+
   struct Ring {
     struct Context {
-        Vector normal;
-        float radius;
-        float thickness;
-        float nx, ny, nz;
-        float target_angle, r_val, alpha, center_phi;
-        Vector u, w;
-        float start_angle, end_angle;
-        bool check_sector;
-        const std::vector<Vector>* clip_planes;
+      Vector normal;
+      float radius;
+      float thickness;
+      float nx, ny, nz;
+      float target_angle, r_val, alpha, center_phi;
+      Vector u, w;
+      float start_angle, end_angle;
+      bool check_sector;
+      const std::vector<Vector>* clip_planes;
     };
 
-    static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn, 
-                     float start_angle = 0, float end_angle = 2 * PI_F, const std::vector<Vector>* clip_planes = nullptr) 
+    static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn,
+      float start_angle = 0, float end_angle = 2 * PI_F, const std::vector<Vector>* clip_planes = nullptr)
     {
       Context ctx;
       ctx.normal = normal;
@@ -392,11 +394,11 @@ struct Scan {
       ctx.r_val = sqrtf(ctx.nx * ctx.nx + ctx.nz * ctx.nz);
       ctx.alpha = atan2f(ctx.nx, ctx.nz);
       ctx.center_phi = acosf(ctx.ny);
-      
+
       Vector ref = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
       ctx.u = cross(normal, ref).normalize();
       ctx.w = cross(normal, ctx.u).normalize();
-      
+
       ctx.start_angle = start_angle;
       ctx.end_angle = end_angle;
       ctx.check_sector = (std::abs(end_angle - start_angle) < (2 * PI_F - 0.001f));
@@ -419,43 +421,43 @@ struct Scan {
 
   private:
     static void scan_full(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
-        for (int x = 0; x < W; ++x) {
-            process_pixel(pipeline, canvas, x, y, ctx, color_fn);
-        }
+      for (int x = 0; x < W; ++x) {
+        process_pixel(pipeline, canvas, x, y, ctx, color_fn);
+      }
     }
-    
+
     static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
-        const Vector& p = pixel_to_vector<W>(x, y);
-        
-        if (ctx.clip_planes) {
-            for (const auto& cp : *ctx.clip_planes) if (dot(p, cp) < 0) return;
+      const Vector& p = pixel_to_vector<W>(x, y);
+
+      if (ctx.clip_planes) {
+        for (const auto& cp : *ctx.clip_planes) if (dot(p, cp) < 0) return;
+      }
+
+      float polar_angle = angle_between(p, ctx.normal);
+      float dist = std::abs(polar_angle - ctx.target_angle);
+
+      if (dist < ctx.thickness) {
+        float t = 0;
+        float dot_u = dot(p, ctx.u);
+        float dot_w = dot(p, ctx.w);
+        float azimuth = atan2f(dot_w, dot_u);
+        if (azimuth < 0) azimuth += 2 * PI_F;
+        t = azimuth / (2 * PI_F);
+
+        if (ctx.check_sector) {
+          bool inside = (ctx.start_angle <= ctx.end_angle)
+            ? (azimuth >= ctx.start_angle && azimuth <= ctx.end_angle)
+            : (azimuth >= ctx.start_angle || azimuth <= ctx.end_angle);
+          if (!inside) return;
         }
 
-        float polar_angle = angle_between(p, ctx.normal);
-        float dist = std::abs(polar_angle - ctx.target_angle);
+        float thickness_t = dist / ctx.thickness;
+        float alpha_factor = quintic_kernel(1.0f - thickness_t);
+        if (alpha_factor <= 0.001f) return;
 
-        if (dist < ctx.thickness) {
-            float t = 0;
-            float dot_u = dot(p, ctx.u);
-            float dot_w = dot(p, ctx.w);
-            float azimuth = atan2f(dot_w, dot_u);
-            if (azimuth < 0) azimuth += 2 * PI_F;
-            t = azimuth / (2 * PI_F);
-
-            if (ctx.check_sector) {
-                bool inside = (ctx.start_angle <= ctx.end_angle) 
-                    ? (azimuth >= ctx.start_angle && azimuth <= ctx.end_angle)
-                    : (azimuth >= ctx.start_angle || azimuth <= ctx.end_angle);
-                if (!inside) return;
-            }
-            
-            float thickness_t = dist / ctx.thickness;
-            float alpha_factor = quintic_kernel(1.0f - thickness_t);
-            if (alpha_factor <= 0.001f) return;
-            
-            Color4 c = color_fn(p, t);
-            pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha_factor);
-        }
+        Color4 c = color_fn(p, t);
+        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha_factor);
+      }
     }
   };
 
@@ -466,28 +468,28 @@ struct Scan {
       Vector c1 = cross(normal, v1);
       Vector c2 = cross(v2, normal);
       std::vector<Vector> clips = { c1, c2 };
-      Ring::draw(pipeline, canvas, normal, 1.0f, thickness, color_fn, 0, 2*PI_F, &clips); 
+      Ring::draw(pipeline, canvas, normal, 1.0f, thickness, color_fn, 0, 2 * PI_F, &clips);
     }
   };
 
   struct Point {
-      static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
-          Ring::draw(pipeline, canvas, p, 0.0f, thickness, color_fn);
-      }
+    static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
+      Ring::draw(pipeline, canvas, p, 0.0f, thickness, color_fn);
+    }
   };
 
   struct Field {
-      static void draw(auto& pipeline, Canvas& canvas, ColorFn auto color_fn) {
-          for (int y = 0; y < H; y++) {
-              for (int x = 0; x < W; x++) {
-                  Vector p = pixel_to_vector<W>(x, y);
-                  Color4 c = color_fn(p, 0.0f);
-                  if (c.alpha > 0.001f) {
-                      pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha);
-                  }
-              }
+    static void draw(auto& pipeline, Canvas& canvas, ColorFn auto color_fn) {
+      for (int y = 0; y < H; y++) {
+        for (int x = 0; x < W; x++) {
+          Vector p = pixel_to_vector<W>(x, y);
+          Color4 c = color_fn(p, 0.0f);
+          if (c.alpha > 0.001f) {
+            pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha);
           }
+        }
       }
+    }
   };
 
 };
