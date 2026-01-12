@@ -14,9 +14,9 @@
 #include "static_circular_buffer.h"
 #include "led.h"
 
-/**
- * @brief Unit vector along the Cartesian X-axis.
- */
+ /**
+  * @brief Unit vector along the Cartesian X-axis.
+  */
 static constexpr Vector X_AXIS(1, 0, 0);
 /**
  * @brief Unit vector along the Cartesian Y-axis.
@@ -110,7 +110,7 @@ float phi_to_y(float phi) {
  */
 template <int W>
 struct PixelLUT {
-  static std::array<Vector, W * H_VIRT> data;
+  static std::array<Vector, W* H_VIRT> data;
   static bool initialized;
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {
@@ -122,7 +122,7 @@ struct PixelLUT {
   }
 };
 
-template <int W> std::array<Vector, W * H_VIRT> PixelLUT<W>::data;
+template <int W> std::array<Vector, W* H_VIRT> PixelLUT<W>::data;
 template <int W> bool PixelLUT<W>::initialized = false;
 
 template <int W>
@@ -135,7 +135,7 @@ const Vector& pixel_to_vector(int x, int y) {
 
 template <int W>
 Vector pixel_to_vector(float x, float y) {
-  if (x == floor(x) && y == floor(y)) {
+  if (std::abs(x - floor(x)) < TOLERANCE && std::abs(y - floor(y)) < TOLERANCE) {
     return pixel_to_vector<W>(static_cast<int>(x), static_cast<int>(y));
   }
   return Vector(
@@ -155,7 +155,7 @@ Vector pixel_to_vector(float x, float y) {
 template <int W>
 PixelCoords vector_to_pixel(const Vector& v) {
   auto s = Spherical(v);
-  PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), phi_to_y(s.phi)});
+  PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), phi_to_y(s.phi) });
   return p;
 }
 
@@ -624,7 +624,6 @@ struct LissajousParams {
   float a; /**< Phase shift multiplier (multiplies PI_F). */
   float domain; /**< The total duration (t) over which the curve is drawn. */
 };
-
 
 /**
  * @brief Calculates a 3D point on the unit sphere corresponding to a spherical Lissajous curve.
