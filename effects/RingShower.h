@@ -77,14 +77,14 @@ private:
 
   void draw_ring(Canvas& canvas, float opacity, size_t index) {
     Ring& ring = rings[index];
-    dots.clear();
-    ::draw_ring<W>(dots, orientation.get(), ring.normal, ring.radius,
+    Plot<W>::Ring::draw(filters, canvas, orientation.get(), ring.normal, ring.radius,
       [&](const Vector& v, float t) {
         Vector z = orientation.orient(X_AXIS);
-        return palette.get(angle_between(z, v) / PI_F);
+        Color4 c = palette.get(angle_between(z, v) / PI_F);
+        c.alpha *= opacity * alpha;
+        return c;
       },
       0);
-    plot_dots<W>(dots, filters, canvas, 0, opacity * alpha);
   }
 
 
@@ -93,7 +93,7 @@ private:
   Pipeline<W, FilterAntiAlias<W>> filters;
   Orientation orientation;
   Timeline timeline;
-  Dots dots;
+
   GenerativePalette palette;
   static constexpr float alpha = 0.2f;
 };

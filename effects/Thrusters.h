@@ -86,8 +86,8 @@ private:
     warp_phase = hs::rand_f() * 2 * PI_F;
 
     auto r_fn = [this](float t) { return ring_fn(t); };
-    Vector thrust_point = fn_point(r_fn, ring_vec, 1.0f, warp_phase);
-    Vector thrust_opp = fn_point(r_fn, ring_vec, 1.0f, warp_phase + PI_F);
+    Vector thrust_point = Plot<W>::DistortedRing::fn_point(r_fn, ring_vec, 1.0f, warp_phase);
+    Vector thrust_opp = Plot<W>::DistortedRing::fn_point(r_fn, ring_vec, 1.0f, warp_phase + PI_F);
 
     // warp
     warp_anim = Mutation(
@@ -127,15 +127,12 @@ private:
   }
 
   void draw_thruster(Canvas& c, const ThrusterContext& ctx, float opacity) {
-    Dots dots;
-    ::draw_ring<W>(dots, ctx.orientation.get(), ctx.point, ctx.radius,
+    Plot<W>::Ring::draw(filters, c, ctx.orientation.get(), ctx.point, ctx.radius,
       [](const Vector&, float) { return Color4(CRGB::White); });
-    plot_dots<W>(dots, filters, c, 0, opacity * 0.2f);
   }
 
   void draw_ring(Canvas& c, float opacity) {
-    Dots dots;
-    ::draw_fn<W>(dots, orientation.get(), ring_vec, radius,
+    Plot<W>::DistortedRing::draw(filters, c, orientation.get(), ring_vec, radius,
       [this](float t) { return ring_fn(t); }, // Shift function
       [this](const Vector& v, float t) { // Color function
         Vector z_axis = orientation.orient(X_AXIS);
@@ -143,7 +140,6 @@ private:
         return palette.get(angle / PI_F);
       }
     );
-    plot_dots<W>(dots, filters, c, 0, opacity * 0.2f);
   }
 
   ProceduralPalette palette;

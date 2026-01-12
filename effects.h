@@ -15,5 +15,4 @@
 #include "effects/GSReactionDiffusion.h"
 #include "effects/BZReactionDiffusion.h"
 #include "effects/PetalFlow.h"
-#include "effects/CometsFieldSample.h"
-#include "effects/RingSpinFieldSample.h"
+

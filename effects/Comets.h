@@ -3,39 +3,75 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#include <functional>
-#include <memory>
+
 #include <vector>
-#include <map>
-#include <algorithm>
-#include <cmath>
+#include <array>
 #include "../effects_engine.h"
+
+ // Configuration for Lissajous curves
+struct LissajousConfig {
+  float m1;
+  float m2;
+  float a;
+  float domain;
+};
 
 template <int W>
 class Comets : public Effect {
 public:
+  static constexpr int TRAIL_LENGTH = 80;
+  static constexpr int MAX_NODES = 4; // Capacity for nodes
+
+  struct Node {
+    Orientation orientation;
+    OrientationTrail<TRAIL_LENGTH> trail;
+    Vector v;
+
+    // Default constructor needed for StaticCircularBuffer
+    Node() : v(Y_AXIS) {}
+  };
+
   Comets() :
     Effect(W),
-    palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING),
-    next_palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING),
-    trails(trail_length),
-    filters(
-      FilterOrient<W>(orientation),
-      FilterAntiAlias<W>())
+    palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::DESCENDING),
+    cur_function_idx(0),
+    num_nodes(1),
+    spacing(48),
+    resolution(32),
+    cycle_duration(80),
+    alpha(0.5f),
+    thickness(2.1f * 2 * PI_F / W)
   {
     persist_pixels = false;
+
+    // Initialize Lissajous functions
+    functions = {
+        {1.06f, 1.06f, 0, 5.909f},
+        {6.06f, 1.0f, 0, 2 * PI_F},
+        {6.02f, 4.01f, 0, 3.132f},
+        {46.62f, 62.16f, 0, 0.404f},
+        {46.26f, 69.39f, 0, 0.272f},
+        {19.44f, 9.72f, 0, 0.646f},
+        {8.51f, 17.01f, 0, 0.739f},
+        {7.66f, 6.38f, 0, 4.924f},
+        {8.75f, 5.0f, 0, 5.027f},
+        {11.67f, 14.58f, 0, 2.154f},
+        {11.67f, 8.75f, 0, 2.154f},
+        {10.94f, 8.75f, 0, 2.872f}
+    };
+
     update_path();
 
-    for (int i = 0; i < NUM_NODES; ++i) {
-      spawn_node(i);
+    // Spawn nodes
+    for (int i = 0; i < num_nodes; ++i) {
+      spawn_node();
     }
 
-    timeline.add(0,
-      PeriodicTimer(2 * cycle_duration, [this](auto&) {
-        increment_path();
-        update_palette();
-        }, true)
-    );
+    timeline.add(0, PeriodicTimer(2 * cycle_duration, [this](Canvas& c) {
+      cur_function_idx = static_cast<int>(hs::rand_int(0, functions.size()));
+      update_path();
+      update_palette();
+      }, true));
 
     timeline.add(0, RandomWalk<W>(orientation, random_vector()));
   }
@@ -45,126 +81,83 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
+    std::vector<Dot> render_points;
 
-    trails.render(canvas, filters,
-      [this](const Vector& v, float t) {
-        return palette.get(1.0f - t);
+    for (auto& node : nodes) {
+      node.trail.record(node.orientation);
+
+      size_t trail_len = node.trail.length();
+      for (size_t i = 0; i < trail_len; ++i) {
+        const Orientation& snapshot = node.trail.get(i);
+        float t_trail = static_cast<float>(trail_len - 1 - i) / trail_len;
+
+        if (t_trail > 1.0f) continue;
+
+        tween(snapshot, [&](const Quaternion& q, float sub_t) {
+          Color4 c = palette.get(t_trail);
+          c.alpha = c.alpha * alpha * quintic_kernel(1.0f - t_trail);
+
+          Vector v_local = rotate(node.v, q);
+          Vector v_final = orientation.orient(v_local);
+
+          render_points.emplace_back(Dot(v_final, c));
+          });
       }
-    );
+    }
+
+    for(const auto& dot : render_points) {
+        Scan<W>::Point::draw(filters, canvas, dot.position, thickness, [&](const Vector&, float){ return dot.color; });
+    }
   }
 
 private:
 
-  struct Node {
-    Orientation orientation;
-    Vector v;
-    const Path<W>& path;
-
-    Node(const Path<W>& p) :
-      v(Y_AXIS),
-      path(p)
-    {
-    }
-  };
-
-  void increment_path() {
-    cur_function = (cur_function + 1) % functions.size();
-    update_path();
-  }
-
   void update_path() {
-    const auto& f = functions[cur_function];
-    float max_speed = sqrtf(f.m1 * f.m1 + f.m2 * f.m2);
-    float length = f.domain * max_speed;
-    float samples = std::max(128.0f, ceilf(length * resolution));
+    const auto& config = functions[cur_function_idx];
+    float max_speed = sqrtf(config.m1 * config.m1 + config.m2 * config.m2);
+    float length = config.domain * max_speed;
+    int samples = std::max(128, static_cast<int>(ceilf(length * resolution)));
 
-    path.collapse();
-    path.append_segment([f](float t) -> Vector {
-      return lissajous(f.m1, f.m2, f.a, t);
-      }, f.domain, samples, ease_mid);
+    Path<W> new_path;
+    new_path.append_segment(
+      [&](float t) { return lissajous(config.m1, config.m2, config.a, t); },
+      config.domain,
+      static_cast<float>(samples),
+      ease_mid
+    );
+    path = new_path;
   }
 
   void update_palette() {
-    next_palette = GenerativePalette(
-      GradientShape::STRAIGHT,
-      HarmonyType::TRIADIC,
-      BrightnessProfile::ASCENDING
-    );
+    static GenerativePalette next_palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
+    next_palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
 
-    timeline.add(0,
-      ColorWipe(palette, next_palette, wipe_duration, ease_mid)
-    );
+    timeline.add(0, ColorWipe(palette, next_palette, 48, ease_mid));
   }
 
-  void spawn_node(int i) {
-    nodes.emplace_back(this->path);
+  void spawn_node() {
+    if (nodes.is_full()) return;
 
-    timeline.add(0,
-      Sprite(
-        [this, i](Canvas& canvas, float opacity) { draw_node(canvas, opacity, i); },
-        -1,
-        16, ease_mid,
-        0, ease_mid
-      )
-    );
+    int i = static_cast<int>(nodes.size());
+    nodes.push_back(Node());
+    Node& node = nodes.back();
 
-    timeline.add(i * spacing,
-      Motion<W>(nodes[i].orientation, nodes[i].path, cycle_duration, true)
-    );
+    timeline.add(i * spacing, Motion<W>(node.orientation, path, cycle_duration, true));
   }
 
-  void draw_node(Canvas& canvas, float opacity, int i) {
-    Node& node = nodes[i];
-    tween(node.orientation, [this, &canvas, opacity, &node](auto& q, auto t) {
-      dots.clear();
-      auto v = rotate(node.v, node.orientation.get()).normalize();
-      ::draw_vector<W>(dots, v,
-        [this](const auto& v, auto t) {
-          return palette.get(t);
-        });
-
-      trails.record(dots, t, this->alpha * opacity);
-      });
-    node.orientation.collapse();
-  }
-
-  static constexpr int NUM_NODES = 1;
-  float alpha = 0.5f;
-  float resolution = 32.0f;
-  size_t cycle_duration = 80;
-  size_t trail_length = 80;
-  size_t wipe_duration = 48;
-  size_t spacing = 48;
-
-  const std::array<LissajousParams, 12> functions = { {
-    {1.06f, 1.06f, 0.0f, 5.909f},
-    {6.06f, 1.0f, 0.0f, 2.0f * PI_F},
-    {6.02f, 4.01f, 0.0f, 3.132f},
-    {46.62f, 62.16f, 0.0f, 0.404f},
-    {46.26f, 69.39f, 0.0f, 0.272f},
-    {19.44f, 9.72f, 0.0f, 0.646f},
-    {8.51f, 17.01f, 0.0f, 0.739f},
-    {7.66f, 6.38f, 0.0f, 4.924f},
-    {8.75f, 5.0f, 0.0f, 5.027f},
-    {11.67f, 14.58f, 0.0f, 2.154f},
-    {11.67f, 8.75f, 0.0f, 2.154f},
-    {10.94f, 8.75f, 0.0f, 2.872f}
-  } };
-
+  Timeline timeline;
+  Pipeline<W, FilterAntiAlias<W>> filters;
   Path<W> path;
-  size_t cur_function = 0;
   Orientation orientation;
   GenerativePalette palette;
-  GenerativePalette next_palette;
+  std::vector<LissajousConfig> functions;
+  int cur_function_idx;
+  StaticCircularBuffer<Node, MAX_NODES> nodes;
 
-  DecayBuffer<W, 3000> trails;
-
-  Pipeline<W,
-    FilterOrient<W>,
-    FilterAntiAlias<W>
-  > filters;
-
-  StaticCircularBuffer<Node, NUM_NODES> nodes;
-  Timeline timeline;
-  Dots dots;
+  int num_nodes;
+  int spacing;
+  int resolution;
+  int cycle_duration;
+  float alpha;
+  float thickness;
 };

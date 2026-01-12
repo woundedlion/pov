@@ -13,6 +13,11 @@
 #include "FastNoiseLite.h"
 #include "geometry.h" 
 #include "static_circular_buffer.h"
+#include "draw.h"
+
+// Alias for Path used in animations
+template <int W>
+using Path = typename Plot<W>::Path;
 
  /**
   * @brief Frames Per Second constant.
