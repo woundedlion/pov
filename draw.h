@@ -292,25 +292,16 @@ struct Plot {
       // Basis for projection
       Vector ref_axis = (std::abs(dot(center, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
       Vector v = center; // The 'pole' for the projection
+      Vector ref = (std::abs(dot(v, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
+      Vector u = cross(v, ref).normalize();
+      Vector w = cross(v, u).normalize();
 
       auto project = [&](const Vector& p) -> std::pair<float, float> {
-        float d = dot(p, v);
-        // Clamp to avoid NaN
-        float clamped_d = std::max(-1.0f, std::min(1.0f, d));
-        float R = acosf(clamped_d);
-        
+        float R = angle_between(p, v);        
         if (R < 0.0001f) return { 0.0f, 0.0f };
-
-        // We need the basis. 
-        // Note: Optimization - basis could be precalculated outside if v is constant (it is 'center').
-        Vector ref = (std::abs(dot(v, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
-        Vector u = cross(v, ref).normalize();
-        Vector w = cross(v, u).normalize();
-
         float x = dot(p, u);
         float y = dot(p, w);
         float theta = atan2f(y, x);
-
         return { R * cosf(theta), R * sinf(theta) };
       };
 
@@ -322,11 +313,6 @@ struct Plot {
       float dist = sqrtf(dx * dx + dy * dy);
       
       int num_steps = std::max(2, static_cast<int>(ceilf(dist * W / (2.0f * PI_F))));
-      
-      // Pre-calculate basis for unproject loop
-      Vector ref = (std::abs(dot(v, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
-      Vector u = cross(v, ref).normalize();
-      Vector w = cross(v, u).normalize();
 
       for (int i = 0; i < num_steps; i++) {
         float t = static_cast<float>(i) / (num_steps - 1);
@@ -375,15 +361,6 @@ struct Plot {
         const Vector& p1 = points[i];
         const Vector& p2 = points[(i + 1) % len];
         PlanarLine::draw(pipeline, canvas, p1, p2, center, [&](const Vector& p, float t) {
-            // JS passes (p1, t) to colorFn but usually ColorFn expects (p, t).
-            // Passing p allows checking position. passing p1 makes it constant color for segment?
-            // JS: (t) => colorFn(p1, t)
-            // This suggests the color function evaluates at p1 (vertex) but varies with t along the segment?
-            // Or maybe just colorFn(p, t) is fine?
-            // If I return color_fn(p, t) I get gradients along the line.
-            // If I match JS strict: color_fn(p1, t).
-            // Let's use the actual point p for better quality unless p1 is strict requirement.
-            // Using p allows gradients.
             return color_fn(p, t);
         });
       }
