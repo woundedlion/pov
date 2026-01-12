@@ -15,4 +15,5 @@
 #include "effects/GSReactionDiffusion.h"
 #include "effects/BZReactionDiffusion.h"
 #include "effects/PetalFlow.h"
+#include "effects/Test.h"
 

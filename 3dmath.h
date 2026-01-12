@@ -13,7 +13,7 @@
 /**
  * @brief The Golden Ratio constant (Phi).
  */
-static constexpr float PHI = 1.6180339887498948482045868343656;
+static constexpr float PHI = 1.6180339887498948482045868343656f;
 /**
  * @brief The inverse of the Golden Ratio (1/Phi).
  */
