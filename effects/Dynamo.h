@@ -34,8 +34,9 @@ public:
     speed(2),
     gap(5),
     trail_length(8),
-    trails(trail_length),
+
     filters(
+      FilterWorldTrails<W, 10000>(trail_length),
       FilterReplicate<W>(3),
       FilterOrient<W>(orientation),
       FilterAntiAlias<W>()
@@ -136,32 +137,31 @@ public:
 
     for (int i = std::abs(speed) - 1; i >= 0; --i) {
       pull(0);
-      draw_nodes(static_cast<float>(i) / std::abs(speed));
+      draw_nodes(canvas, static_cast<float>(i) / std::abs(speed));
     }
-
-    trails.render(canvas, filters,
-      [this](const Vector& v, float t) {
-        return color(v, t);
-      }
-    );
   }
 
 private:
 
-  void draw_nodes(float age) {
-    dots.clear();
+  void draw_nodes(Canvas& canvas, float age) {
     for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
         auto from = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
-        draw_vector<W>(dots, from, [this](auto& v, auto t) { return color(v, 0); });
+        Color4 c = color(from, 0);
+        c.alpha *= 0.5f; 
+        filters.plot(canvas, from, c.color, age, c.alpha); // Direct plot as dots
       }
       else {
         auto from = pixel_to_vector<W>(nodes[i - 1].x, nodes[i - 1].y);
         auto to = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
-        draw_line<W>(dots, from, to, [this](auto& v, auto t) { return color(v, 0); }, 0, 1, false, true);
+        // Use Plot::Line
+        Plot<W>::Line::draw(filters, canvas, from, to, [this](const Vector& v, float t) { 
+            Color4 c = color(v, 0);
+            c.alpha *= 0.5f;
+            return c;
+        }, 0, 1, false, true);
       }
     }
-    trails.record(dots, age, 0.5f);
   }
 
   void pull(int leader) {
@@ -209,12 +209,11 @@ private:
   int gap;
   uint32_t trail_length;
   Orientation orientation;
-  Dots dots;
+
   int wipe_duration = 20;
 
-  DecayBuffer<W, 10000> trails;
-
   Pipeline<W,
+    FilterWorldTrails<W, 10000>,
     FilterReplicate<W>,
     FilterOrient<W>,
     FilterAntiAlias<W>

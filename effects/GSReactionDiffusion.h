@@ -150,7 +150,8 @@ private:
       if (b > 0.1f) {
         float t = std::clamp((b - 0.15f) * 4.0f, 0.0f, 1.0f);
         Color4 c = ctx.palette.get(t);
-        filters.plot(canvas, nodes[i], c.color, 0, global_alpha * opacity * c.alpha);
+        c.alpha *= opacity * global_alpha;
+        Plot<W>::Point::draw(filters, canvas, nodes[i], c);
       }
     }
   }
@@ -198,5 +199,6 @@ private:
 
   StaticCircularBuffer<GSReactionContext, 4> contexts;
   Timeline timeline;
+
   float global_alpha = 0.3f;
 };

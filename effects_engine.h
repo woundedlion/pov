@@ -36,6 +36,8 @@ concept ColorFn = requires(F f, const Vector & v, float t) {
   { f(v, t) } -> std::convertible_to<Color4>;
 };
 
+
+
 /**
  * @brief Concept for a function that generates a trail color.
  * Signature: Color4 f(float x, float y, float t)
@@ -43,6 +45,8 @@ concept ColorFn = requires(F f, const Vector & v, float t) {
 template<typename F>
 concept TrailFn = requires(F f, float x, float y, float t) {
   { f(x, y, t) } -> std::convertible_to<Color4>;
+} || requires(F f, const Vector& v, float t) {
+  { f(v, t) } -> std::convertible_to<Color4>;
 };
 
 /**

@@ -16,8 +16,8 @@ public:
   FlowField() :
     Effect(W),
     palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
-    trails(k_trail_length),
     filters(
+      FilterWorldTrails<W, k_max_trail_dots>(k_trail_length),
       FilterOrient<W>(orientation),
       FilterAntiAlias<W>()
     )
@@ -34,7 +34,6 @@ public:
     Canvas canvas(*this);
     // timeline.step(canvas); // Timeline logic omitted for simple port
     t += k_time_scale;
-    dots.clear();
 
     for (Particle& p : particles) {
       // 1. Calculate Noise Force (Flow Field)
@@ -69,16 +68,19 @@ public:
       // 5. Create Dot
       // Map Y (-1 to 1) to (0 to 1) for palette
       float palette_t = (p.pos.j + 1.0f) / 2.0f;
-      dots.emplace_back(Dot(p.pos, palette.get(palette_t)));
+      Color4 c = palette.get(palette_t);
+      filters.plot(canvas, p.pos, c.color, 0, c.alpha);
     }
 
-    // 6. Render with Trails
-    trails.record(dots, 0, k_alpha);
 
-    trails.render(canvas, filters,
-      [this](const Vector& v, float t) {
-        return palette.get(t);
-      }
+
+    // 6. Render with Trails
+    // Render with Trails
+    filters.trail(canvas, 
+      [this](const Vector& v, float t_trail) -> Color4 {
+        return palette.get(t_trail);
+      },
+      k_alpha
     );
   }
 
@@ -107,13 +109,13 @@ private:
   std::array<Particle, k_num_particles> particles;
 
   Orientation orientation;
-  DecayBuffer<W, k_max_trail_dots> trails;
 
   Pipeline<W,
+    FilterWorldTrails<W, k_max_trail_dots>,
     FilterOrient<W>,
     FilterAntiAlias<W>
   > filters;
-  Dots dots;
+
 
   void reset_particles() {
     for (int i = 0; i < k_num_particles; ++i) {

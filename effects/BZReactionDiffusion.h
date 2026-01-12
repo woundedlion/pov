@@ -185,7 +185,9 @@ private:
           static_cast<uint8_t>(std::clamp(b_ch, 0.0f, 255.0f))
         );
 
-        filters.plot(canvas, nodes[i], color, 0, global_alpha * opacity);
+        Color4 c(color);
+        c.alpha *= global_alpha * opacity;
+        Plot<W>::Point::draw(filters, canvas, nodes[i], c);
       }
     }
   }
@@ -235,5 +237,6 @@ private:
 
   StaticCircularBuffer<BZReactionContext, 4> contexts;
   Timeline timeline;
+
   float global_alpha = 0.3f;
 };

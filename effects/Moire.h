@@ -39,12 +39,8 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-    dots.clear();
-
-    draw_layer([this](const Vector& p) { return inv_transform(p); }, base_palette);
-    draw_layer([this](const Vector& p) { return transform(p); }, int_palette);
-
-    plot_dots<W>(dots, filters, canvas, 0, alpha);
+    draw_layer(canvas, [this](const Vector& p) { return inv_transform(p); }, base_palette);
+    draw_layer(canvas, [this](const Vector& p) { return transform(p); }, int_palette);
   }
 
 private:
@@ -73,23 +69,15 @@ private:
     return p;
   }
 
-  void draw_layer(TransformFn auto trans_fn, const GenerativePalette& pal) {
+  void draw_layer(Canvas& canvas, TransformFn auto trans_fn, const GenerativePalette& pal) {
     int count = static_cast<int>(std::ceil(density));
     for (int i = 0; i <= count; ++i) {
       float t = static_cast<float>(i) / count;
       float r = t * 2.0f;
 
-      Points points;
-      sample_fn<W>(points, Quaternion(1, 0, 0, 0), Z_AXIS, r,
-        sin_wave(-amp, amp, 4.0f, 0.0f));
-
-      Points transformed_points;
-      for (const auto& p : points) {
-        transformed_points.push_back(trans_fn(p));
-      }
-
-      rasterize<W>(dots, transformed_points,
-        [&](const Vector&, float) { return pal.get(t); }, true);
+      Plot<W>::DistortedRing::draw(filters, canvas, Quaternion(1, 0, 0, 0), Z_AXIS, r,
+        sin_wave(-amp, amp, 4.0f, 0.0f), 
+        [&](const Vector&, float) { return pal.get(t); });
     }
   }
 
@@ -105,7 +93,7 @@ private:
 
   Orientation orientation;
   Timeline timeline;
-  Dots dots;
+  // Dots removed
 
   Pipeline<W,
     FilterOrient<W>,

@@ -38,20 +38,17 @@ public:
     orientation.collapse();
     Canvas canvas(*this);
     timeline.step(canvas);
-    dots.clear();
-
     float time = (millis() / 1000.0f) * (speed * 0.015f);
     float current_spacing = spacing;
     float loop_val = time / current_spacing;
     int loop_count = static_cast<int>(std::floor(loop_val));
     float loop_t = (loop_val - loop_count) * current_spacing;
 
-    draw_petals(loop_count, loop_t);
-    plot_dots<W>(dots, filters, canvas, 0, alpha);
+    draw_petals(canvas, loop_count, loop_t);
   }
 
 private:
-  void draw_petals(int loop_count, float loop_t) {
+  void draw_petals(Canvas& canvas, int loop_count, float loop_t) {
     const float log_min = -3.75f;
     const float log_max = 3.75f;
     const float current_spacing = spacing;
@@ -104,7 +101,7 @@ private:
       int color_index = (k - loop_count) + 10000;
       float hue = wrap(color_index * 0.13f, 1.0f);
 
-      rasterize<W>(dots, points, [&](const Vector&, float) {
+      Plot<W>::rasterize(filters, canvas, points, [&](const Vector&, float) {
         Color4 res = palette.get(hue);
         res.alpha *= opacity;
         return res;
@@ -124,5 +121,5 @@ private:
     FilterAntiAlias<W>
   > filters;
   Timeline timeline;
-  Dots dots;
+  // dots removed
 };
