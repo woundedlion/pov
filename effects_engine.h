@@ -114,4 +114,3 @@ concept Tweenable = requires(const T & t, size_t i) {
 #include "filter.h"
 #include "draw.h"
 #include "animation.h"
-#include "FieldSampler.h"
