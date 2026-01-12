@@ -25,6 +25,8 @@ void setup() {
 
 void loop() {
   pov->show<Test<96>>(120);
+  pov->show<TestScanPolygon<96>>(120);
+  pov->show<TestPlotPolygon<96>>(120);
   pov->show<PetalFlow<96>>(120);
   pov->show<BZReactionDiffusion<96>>(120);
   pov->show<GSReactionDiffusion<96>>(120);

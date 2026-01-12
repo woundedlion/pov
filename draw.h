@@ -11,6 +11,7 @@
 #include "color.h"
 #include "led.h" // For H, W, H_VIRT
 #include <concepts>
+#include "filter.h"
 
 static void tween(Tweenable auto& history, auto draw_fn) {
   size_t s = history.length();
@@ -286,14 +287,106 @@ struct Plot {
     }
   };
 
+  struct PlanarLine {
+    static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, const Vector& center, ColorFn auto color_fn) {
+      // Basis for projection
+      Vector ref_axis = (std::abs(dot(center, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
+      Vector v = center; // The 'pole' for the projection
+
+      auto project = [&](const Vector& p) -> std::pair<float, float> {
+        float d = dot(p, v);
+        // Clamp to avoid NaN
+        float clamped_d = std::max(-1.0f, std::min(1.0f, d));
+        float R = acosf(clamped_d);
+        
+        if (R < 0.0001f) return { 0.0f, 0.0f };
+
+        // We need the basis. 
+        // Note: Optimization - basis could be precalculated outside if v is constant (it is 'center').
+        Vector ref = (std::abs(dot(v, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
+        Vector u = cross(v, ref).normalize();
+        Vector w = cross(v, u).normalize();
+
+        float x = dot(p, u);
+        float y = dot(p, w);
+        float theta = atan2f(y, x);
+
+        return { R * cosf(theta), R * sinf(theta) };
+      };
+
+      auto p1 = project(v1);
+      auto p2 = project(v2);
+
+      float dx = p1.first - p2.first;
+      float dy = p1.second - p2.second;
+      float dist = sqrtf(dx * dx + dy * dy);
+      
+      int num_steps = std::max(2, static_cast<int>(ceilf(dist * W / (2.0f * PI_F))));
+      
+      // Pre-calculate basis for unproject loop
+      Vector ref = (std::abs(dot(v, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
+      Vector u = cross(v, ref).normalize();
+      Vector w = cross(v, u).normalize();
+
+      for (int i = 0; i < num_steps; i++) {
+        float t = static_cast<float>(i) / (num_steps - 1);
+        float Px = p1.first + (p2.first - p1.first) * t;
+        float Py = p1.second + (p2.second - p1.second) * t;
+
+        float R = sqrtf(Px * Px + Py * Py);
+        float theta = atan2f(Py, Px);
+
+        Vector point = v;
+        if (R > 0.0001f) {
+           float sinR = sinf(R);
+           float cosR = cosf(R);
+           float cosT = cosf(theta);
+           float sinT = sinf(theta);
+
+           // dir = u*cosT + w*sinT
+           Vector dir = (u * cosT) + (w * sinT);
+           // p = v*cosR + dir*sinR
+           point = (v * cosR) + (dir * sinR);
+        }
+        point = point.normalize(); // Ensure unit vector
+
+        auto c = color_fn(point, t); 
+        pipeline.plot(canvas, point, c.color, 0, c.alpha);
+      }
+    }
+  };
+
   struct Polygon {
     static void sample(Points& points, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, float phase = 0) {
-      Ring::sample(points, orientation, normal, radius, num_sides, phase);
+       // Offset by half-sector to align with Scan.Polygon edges
+       const float offset = PI_F / num_sides;
+       Ring::sample(points, orientation, normal, radius, num_sides, phase + offset);
     }
     static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
       Points points;
       sample(points, orientation, normal, radius, num_sides, phase);
-      rasterize(pipeline, canvas, points, color_fn, true);
+      
+      Vector center = rotate(normal, orientation).normalize();
+      
+      size_t len = points.size();
+      if (len < 2) return;
+
+      for (size_t i = 0; i < len; i++) {
+        const Vector& p1 = points[i];
+        const Vector& p2 = points[(i + 1) % len];
+        PlanarLine::draw(pipeline, canvas, p1, p2, center, [&](const Vector& p, float t) {
+            // JS passes (p1, t) to colorFn but usually ColorFn expects (p, t).
+            // Passing p allows checking position. passing p1 makes it constant color for segment?
+            // JS: (t) => colorFn(p1, t)
+            // This suggests the color function evaluates at p1 (vertex) but varies with t along the segment?
+            // Or maybe just colorFn(p, t) is fine?
+            // If I return color_fn(p, t) I get gradients along the line.
+            // If I match JS strict: color_fn(p1, t).
+            // Let's use the actual point p for better quality unless p1 is strict requirement.
+            // Using p allows gradients.
+            return color_fn(p, t);
+        });
+      }
     }
   };
 
@@ -627,6 +720,160 @@ struct Scan {
   struct Point {
     static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
       Ring::draw(pipeline, canvas, p, 0.0f, thickness, color_fn);
+    }
+  };
+
+  struct Polygon {
+    struct Context {
+      Vector normal;
+      float radius;
+      float thickness;
+      int sides;
+      float apothem;
+      float nx, ny, nz;
+      float R, alpha;
+      Vector u, w;
+      float pixel_width;
+      bool debug_bb;
+    };
+
+    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal,
+      float radius, int sides, ColorFn auto color_fn, bool debug_bb = false)
+    {
+      float thickness = radius * (PI_F / 2.0f);
+      if (thickness <= 0.0001f) return;
+
+      // Basis Construction
+      Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
+      Vector v = rotate(normal, orientation).normalize();
+      Vector ref = rotate(ref_axis, orientation).normalize();
+      Vector u = cross(v, ref).normalize();
+      Vector w = cross(v, u).normalize();
+
+      float nx = v.i;
+      float ny = v.j;
+      float nz = v.k;
+
+      float R = sqrtf(nx * nx + nz * nz);
+      float alpha = atan2f(nx, nz);
+
+      float angle = PI_F / sides;
+      float apothem = thickness * cosf(angle);
+
+      float pixel_width = 2.0f * PI_F / W;
+
+      Context ctx;
+      ctx.normal = v;
+      ctx.radius = radius;
+      ctx.thickness = thickness;
+      ctx.sides = sides;
+      ctx.apothem = apothem;
+      ctx.nx = nx; ctx.ny = ny; ctx.nz = nz;
+      ctx.R = R; ctx.alpha = alpha;
+      ctx.u = u; ctx.w = w;
+      ctx.pixel_width = pixel_width;
+      ctx.debug_bb = debug_bb;
+
+      float center_phi = acosf(ny);
+      
+      // Conservative vertical bounds
+      float phi_min = std::max(0.0f, center_phi - thickness - pixel_width);
+      float phi_max = std::min(PI_F, center_phi + thickness + pixel_width);
+
+      if (phi_min > phi_max) return;
+
+      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
+      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
+
+      for (int y = y_min; y <= y_max; y++) {
+        scan_row(pipeline, canvas, y, ctx, color_fn);
+      }
+    }
+
+  private:
+    static void scan_row(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
+      float phi = y_to_phi(static_cast<float>(y));
+      float cos_phi = cosf(phi);
+      float sin_phi = sinf(phi);
+
+      if (ctx.R < 0.01f) {
+        scan_full_row(pipeline, canvas, y, ctx, color_fn);
+        return;
+      }
+
+      float ang_high = ctx.thickness;
+      float D_min = cosf(ang_high); // cos(thickness)
+
+      float denom = ctx.R * sin_phi;
+      if (std::abs(denom) < 0.000001f) {
+        scan_full_row(pipeline, canvas, y, ctx, color_fn);
+        return;
+      }
+
+      float C_min = (D_min - ctx.ny * cos_phi) / denom;
+      
+      if (C_min > 1.0f) return; // Completely outside the cap
+      if (C_min < -1.0f) {
+        scan_full_row(pipeline, canvas, y, ctx, color_fn);
+        return;
+      }
+
+      float d_alpha = acosf(C_min);
+      scan_window(pipeline, canvas, y, ctx.alpha - d_alpha, ctx.alpha + d_alpha, ctx, color_fn);
+    }
+
+    static void scan_full_row(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
+      for (int x = 0; x < W; x++) {
+        process_pixel(pipeline, canvas, x, y, ctx, color_fn);
+      }
+    }
+
+    static void scan_window(auto& pipeline, Canvas& canvas, int y, float t1, float t2, const Context& ctx, ColorFn auto& color_fn) {
+      int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
+      int x2 = static_cast<int>(ceilf((t2 * W) / (2 * PI_F)));
+
+      if (x2 - x1 >= W) {
+        scan_full_row(pipeline, canvas, y, ctx, color_fn);
+        return;
+      }
+
+      for (int x = x1; x <= x2; x++) {
+        int wx = wrap(x, W);
+        process_pixel(pipeline, canvas, wx, y, ctx, color_fn);
+      }
+    }
+
+    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
+      const Vector& p = pixel_to_vector<W>(x, y);
+      
+      float polar_angle = angle_between(p, ctx.normal);
+      if (polar_angle > ctx.thickness + ctx.pixel_width) return;
+
+      float dot_u = dot(p, ctx.u);
+      float dot_w = dot(p, ctx.w);
+      float azimuth = atan2f(dot_w, dot_u);
+      if (azimuth < 0) azimuth += 2 * PI_F;
+
+      // SDF Logic
+      float sector_angle = 2 * PI_F / ctx.sides;
+      float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+      float dist_to_edge = polar_angle * cosf(local_azimuth) - ctx.apothem;
+
+      if (dist_to_edge < ctx.pixel_width) {
+        float alpha = 1.0f;
+        if (dist_to_edge > -ctx.pixel_width) {
+          float t = (dist_to_edge + ctx.pixel_width) / (2.0f * ctx.pixel_width);
+          alpha = quintic_kernel(1.0f - t);
+        }
+
+        if (alpha <= 0.001f) return;
+
+        float t = polar_angle / ctx.thickness; 
+        
+        Color4 c = color_fn(p, t);
+        
+        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
+      }
     }
   };
 
