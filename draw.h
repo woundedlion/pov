@@ -11,10 +11,7 @@
 #include "led.h" // For H, W, H_VIRT
 #include <concepts>
 
-
-
-// Moved tween to global scope
-static void tween(Tweenable auto history, TweenFn auto draw_fn) {
+static void tween(Tweenable auto& history, auto draw_fn) {
   size_t s = history.length();
   size_t start = (s > 1) ? 1 : 0;
   for (size_t i = start; i < s; ++i) {
@@ -22,9 +19,18 @@ static void tween(Tweenable auto history, TweenFn auto draw_fn) {
   }
 }
 
+static void deep_tween(auto& trail, TweenFn auto drawFn) {
+  float dt = (trail.length() > 0) ? (1.0f / static_cast<float>(trail.length())) : 0.0f;
+  tween(trail, [&](const auto& frame, float t) {
+    tween(frame, [&](const auto& q, float subT) {
+      float globalT = t + subT * dt;
+      drawFn(q, globalT);
+    });
+  });
+}
+
 /**
  * @brief The Plot struct contains vector-based (thin) drawing primitives.
- * Refactored to draw directly into a pipeline/sink.
  */
 template <int W>
 struct Plot {

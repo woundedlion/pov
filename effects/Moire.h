@@ -93,7 +93,6 @@ private:
 
   Orientation orientation;
   Timeline timeline;
-  // Dots removed
 
   Pipeline<W,
     FilterOrient<W>,

@@ -121,5 +121,4 @@ private:
     FilterAntiAlias<W>
   > filters;
   Timeline timeline;
-  // dots removed
 };

@@ -86,23 +86,13 @@ public:
     for (auto& node : nodes) {
       node.trail.record(node.orientation);
 
-      size_t trail_len = node.trail.length();
-      for (size_t i = 0; i < trail_len; ++i) {
-        const Orientation& snapshot = node.trail.get(i);
-        float t_trail = static_cast<float>(trail_len - 1 - i) / trail_len;
-
-        if (t_trail > 1.0f) continue;
-
-        tween(snapshot, [&](const Quaternion& q, float sub_t) {
-          Color4 c = palette.get(t_trail);
-          c.alpha = c.alpha * alpha * quintic_kernel(1.0f - t_trail);
-
-          Vector v_local = rotate(node.v, q);
-          Vector v_final = orientation.orient(v_local);
-
-          render_points.emplace_back(Dot(v_final, c));
-          });
-      }
+      deep_tween(node.trail, [&](const Quaternion& q, float t_trail) {
+        Color4 c = palette.get(t_trail);
+        c.alpha = c.alpha * alpha * quintic_kernel(1.0f - t_trail);
+        Vector v_local = rotate(node.v, q);
+        Vector v_final = orientation.orient(v_local);
+        render_points.emplace_back(Dot(v_final, c));
+      });
     }
 
     for(const auto& dot : render_points) {

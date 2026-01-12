@@ -75,7 +75,6 @@ public:
       return;
     }
 
-    // JS unshift -> push_front
     palettes.push_front(GenerativePalette(
       GradientShape::VIGNETTE,
       HarmonyType::ANALOGOUS,
@@ -111,7 +110,6 @@ public:
         Color4 c1 = std::visit([t](auto& p) { return p.get(t); }, palettes[i]);
         Color4 c2 = std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
 
-        // Manual Color4 lerp
         uint16_t fract = to_short(clamped_blend_factor);
         return Color4(
           c1.color.lerp16(c2.color, fract),
@@ -149,12 +147,11 @@ private:
         auto from = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
         Color4 c = color(from, 0);
         c.alpha *= 0.5f; 
-        filters.plot(canvas, from, c.color, age, c.alpha); // Direct plot as dots
+        filters.plot(canvas, from, c.color, age, c.alpha);
       }
       else {
         auto from = pixel_to_vector<W>(nodes[i - 1].x, nodes[i - 1].y);
         auto to = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
-        // Use Plot::Line
         Plot<W>::Line::draw(filters, canvas, from, to, [this](const Vector& v, float t) { 
             Color4 c = color(v, 0);
             c.alpha *= 0.5f;
