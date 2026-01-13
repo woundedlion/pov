@@ -547,6 +547,7 @@ auto vignette(const Palette& palette) {
  * @brief Variant holding any supported palette type.
  */
 using PaletteVariant = std::variant<
+  std::monostate,
   GenerativePalette,
   ProceduralPalette,
   Gradient,

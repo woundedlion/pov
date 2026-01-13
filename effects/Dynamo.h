@@ -100,15 +100,30 @@ public:
       auto upper_edge = boundary + blend_width;
 
       if (a < lower_edge) {
-        return std::visit([t](auto& p) { return p.get(t); }, palettes[i]);
+        return std::visit([t](auto& p) -> Color4 {
+          using T = std::decay_t<decltype(p)>;
+          if constexpr (std::is_same_v<T, std::monostate>) {
+            return Color4(); // Should not happen if logic is correct
+          } else {
+            return p.get(t);
+          }
+        }, palettes[i]);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
         auto clamped_blend_factor = std::clamp(blend_factor, 0.0f, 1.0f);
 
-        Color4 c1 = std::visit([t](auto& p) { return p.get(t); }, palettes[i]);
-        Color4 c2 = std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
+        Color4 c1 = std::visit([t](auto& p) -> Color4 {
+          using T = std::decay_t<decltype(p)>;
+          if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
+          else { return p.get(t); }
+        }, palettes[i]);
+        Color4 c2 = std::visit([t](auto& p) -> Color4 {
+          using T = std::decay_t<decltype(p)>;
+          if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
+          else { return p.get(t); }
+        }, palettes[i + 1]);
 
         uint16_t fract = to_short(clamped_blend_factor);
         return Color4(
@@ -122,11 +137,19 @@ public:
         : 100.0f); // Infinity check
 
       if (a > upper_edge && a < next_boundary_lower_edge) {
-        return std::visit([t](auto& p) { return p.get(t); }, palettes[i + 1]);
+        return std::visit([t](auto& p) -> Color4 {
+          using T = std::decay_t<decltype(p)>;
+          if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
+          else { return p.get(t); }
+        }, palettes[i + 1]);
       }
     }
 
-    return std::visit([t](auto& p) { return p.get(t); }, palettes[0]);
+    return std::visit([t](auto& p) -> Color4 {
+      using T = std::decay_t<decltype(p)>;
+      if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
+      else { return p.get(t); }
+    }, palettes[0]);
   }
 
   void draw_frame() override {
