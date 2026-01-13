@@ -129,6 +129,14 @@ float ease_out_elastic(float x) {
 }
 
 /**
+ * @brief Defines the coordinate space for rotations.
+ */
+enum class Space {
+  World, /**< Rotations are applied relative to the fixed world axes (Pre-multiply). */
+  Local  /**< Rotations are applied relative to the object's current axes (Post-multiply). */
+};
+
+/**
  * @brief Base class for all animations, providing core timing and state management.
  * @tparam Derived The class inheriting from Animation (Curiously Recurring Template Pattern).
  */
@@ -540,8 +548,6 @@ private:
 
 /**
  * @brief An animation that moves an Orientation along a defined Path.
- * @details Updated to match JavaScript logic: steps along the path by sub-sampling based on the angle
- * and MAX_ANGLE, ensuring smooth turns even when the path curvature is high.
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
 template <int W>
@@ -555,12 +561,18 @@ public:
    * @param duration The duration in frames.
    * @param repeat If true, the motion repeats.
    */
-  Motion(Orientation& orientation, const Path<W>& path, int duration, bool repeat = false) :
+  Motion(Orientation& orientation, const Path<W>& path, int duration, bool repeat = false, Space space = Space::World) :
     Animation<Motion<W>>(duration, repeat),
     orientation(orientation),
-    path(path)
+    path(path),
+    space(space)
   {
   }
+
+  /**
+   * @brief Access the associated Orientation.
+   */
+  Orientation& get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Steps the animation, calculates intermediate rotation steps along the path,
@@ -568,7 +580,6 @@ public:
    */
   void step(Canvas& canvas) {
     Animation<Motion<W>>::step(canvas);
-    orientation.get().collapse();
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path.get().get_point(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -576,6 +587,16 @@ public:
     float total_angle = angle_between(current_v, target_v);
     int num_steps = static_cast<int>(std::ceil(std::max(1.0f, total_angle / MAX_ANGLE)));
     Quaternion origin = orientation.get().get();
+    
+    // lambda to apply rotation based on space
+    auto apply_rotation = [&](const Quaternion& target, const Quaternion& source) {
+      if (space == Space::Local) {
+        return target * source;
+      } else {
+        return source * target;
+      }
+    };
+
     for (int i = 1; i <= num_steps; ++i) {
       float sub_t = t_prev + (static_cast<float>(i) / num_steps);
       Vector next_v = path.get().get_point(sub_t / this->duration);
@@ -583,7 +604,7 @@ public:
       if (step_angle > TOLERANCE) {
         Vector step_axis = cross(current_v, next_v).normalize();
         Quaternion q = make_rotation(step_axis, step_angle);
-        origin = (q * origin).normalize();
+        origin = apply_rotation(origin, q).normalize();
         orientation.get().push(origin);
       }
       current_v = next_v;
@@ -595,11 +616,11 @@ private:
   static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
   std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
   std::reference_wrapper<const Path<W>> path; /**< Reference to the Path object. */
+  Space space; /**< The coordinate space for rotation. */
 };
 
 /**
  * @brief An animation that applies a fixed, time-eased rotation.
- * @details Updated to use INCREMENTAL rotations (delta) to allow multiple animations to overlap/add.
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
 template <int W>
@@ -614,16 +635,23 @@ public:
    * @param duration The duration in frames.
    * @param easing_fn The easing function to use.
    * @param repeat If true, the rotation repeats.
+   * @param space The coordinate space for rotation ("World" or "Local").
    */
-  Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, ScalarFn auto easing_fn, bool repeat = false) :
+  Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, ScalarFn auto easing_fn, bool repeat = false, Space space = Space::World) :
     Animation<Rotation<W>>(duration, repeat),
     orientation(orientation),
     axis(axis),
     total_angle(angle),
     easing_fn(easing_fn),
-    last_angle(0)
+    last_angle(0),
+    space(space)
   {
   }
+
+  /**
+   * @brief Access the associated Orientation.
+   */
+  Orientation& get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Steps the animation, calculates the incremental rotation delta, and pushes it to the Orientation.
@@ -633,16 +661,24 @@ public:
       last_angle = 0;
     }
     Animation<Rotation<W>>::step(canvas);
-    orientation.get().collapse();
     float target_angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
     float delta = target_angle - last_angle;
     if (std::abs(delta) > TOLERANCE) {
       int num_steps = static_cast<int>(std::ceil(std::abs(delta) / MAX_ANGLE));
       float step_angle = delta / num_steps;
       Quaternion q_step = make_rotation(axis, step_angle);
+      
+      auto apply_rotation = [&](const Quaternion& target, const Quaternion& source) {
+        if (space == Space::Local) {
+          return target * source;
+        } else {
+          return source * target;
+        }
+      };
+
       for (int i = 0; i < num_steps; ++i) {
         Quaternion current_q = orientation.get().get();
-        current_q = (q_step * current_q).normalize();
+        current_q = apply_rotation(current_q, q_step).normalize();
         orientation.get().push(current_q);
       }
       last_angle = target_angle;
@@ -656,9 +692,10 @@ public:
    * @param axis The rotation axis (unit vector).
    * @param angle The rotation angle in radians.
    * @param easing_fn The easing function to use.
+   * @param space The coordinate space for rotation.
    */
-  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, ScalarFn auto easing_fn) {
-    Rotation<W> r(orientation, axis, angle, 1, easing_fn, false);
+  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, ScalarFn auto easing_fn, Space space = Space::World) {
+    Rotation<W> r(orientation, axis, angle, 1, easing_fn, false, space);
     r.step(canvas);
   }
 
@@ -670,6 +707,7 @@ private:
   float total_angle; /**< The total angle to sweep. */
   std::function<float(float)> easing_fn; /**< Easing curve. */
   float last_angle; /**< The angle reached in the previous frame. */
+  Space space; /**< The coordinate space for rotation. */
 };
 
 /**
@@ -684,11 +722,14 @@ public:
    * @brief Constructs a RandomWalk animation.
    * @param orientation The Orientation object to update.
    * @param v_start The starting direction vector.
+   * @param space The coordinate space for rotation.
+   * @param seed Optional seed for noise generator (0 for random).
    */
-  RandomWalk(Orientation& orientation, const Vector& v_start) :
+  RandomWalk(Orientation& orientation, const Vector& v_start, Space space = Space::World, int seed = 0) :
     Animation<RandomWalk<W>>(-1, false),
     orientation(orientation),
-    v(Vector(v_start).normalize())
+    v(Vector(v_start).normalize()),
+    space(space)
   {
     Vector u = X_AXIS;
     if (std::abs(dot(v, u)) > 0.99f) {
@@ -697,8 +738,18 @@ public:
     direction = cross(v, u).normalize();
     noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     noiseGenerator.SetFrequency(NOISE_SCALE);
-    noiseGenerator.SetSeed(hs::rand_int(std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
+    if (seed == 0) {
+      noiseGenerator.SetSeed(hs::rand_int(std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
+    } else {
+      noiseGenerator.SetSeed(seed);
+    }
   }
+
+
+  /**
+   * @brief Access the associated Orientation.
+   */
+  Orientation& get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Steps the walk: pivots direction based on noise, then rotates the view along the calculated axis.
@@ -710,7 +761,7 @@ public:
     Vector walk_axis = cross(v, direction).normalize();
     v = rotate(v, make_rotation(walk_axis, WALK_SPEED)).normalize();
     direction = rotate(direction, make_rotation(walk_axis, WALK_SPEED)).normalize();
-    Rotation<W>::animate(canvas, orientation, walk_axis, WALK_SPEED, ease_mid);
+    Rotation<W>::animate(canvas, orientation, walk_axis, WALK_SPEED, ease_mid, space);
   }
 
 private:
@@ -723,6 +774,7 @@ private:
   std::reference_wrapper<Orientation> orientation; /**< Reference to the global Orientation state. */
   Vector v; /**< Current forward direction vector. */
   Vector direction; /**< Current pivoting direction (orthogonal to v). */
+  Space space; /**< The coordinate space for rotation. */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -955,8 +1007,39 @@ public:
    * @brief Advances the timeline by one frame, stepping all active or starting animations.
    * @param canvas The current canvas buffer.
    */
+  /**
+   * @brief Advances the timeline by one frame, stepping all active or starting animations.
+   * @param canvas The current canvas buffer.
+   */
   void step(Canvas& canvas) {
     ++t;
+
+    // Prep Animations
+    std::vector<Orientation*> touched;
+    touched.reserve(num_events); // Pre-allocate max size
+    for (int i = 0; i < num_events; ++i) {
+      if (t < events[i].start) {
+        continue;
+      }
+      std::visit([&](auto& a) { 
+        if constexpr (requires { a.get_orientation(); }) {
+          auto& o = a.get_orientation();
+          bool already_touched = false;
+          for (auto* touched_o : touched) {
+            if (touched_o == &o) {
+              already_touched = true;
+              break;
+            }
+          }
+          if (!already_touched) {
+            o.collapse();
+            touched.push_back(&o);
+          }
+        }
+      }, events[i].animation);
+    }
+
+    // Step Animations
     for (int i = 0; i < num_events; ++i) {
       if (t < events[i].start) {
         continue;
