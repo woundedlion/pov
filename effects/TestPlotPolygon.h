@@ -20,22 +20,26 @@ public:
   TestPlotPolygon() :
     Effect(W),
     alpha(0.5f),
-    radius(1.0f),
-    sides(6),
+    radius(0.4f),
+    sides(5),
     phase(0.0f)
   {
     const Palette* palettes[] = { &iceMelt, &undersea, &mangoPeel, &richSunset };
     int num_palettes = 4;
     int num_rings = 1;
 
+    int seed = hs::rand_int(0, 65535);
+
     for (int i = 0; i < num_rings; ++i) {
-      spawnRing(X_AXIS, *palettes[i % num_palettes]);
+      spawnRing(Z_AXIS, *palettes[i % num_palettes], 1, seed);
+      spawnRing(Z_AXIS, *palettes[i % num_palettes], -1, seed);
     }
   }
 
-  void spawnRing(const Vector& normal, const Palette& palette) {
+  void spawnRing(const Vector& normal, const Palette& palette, int direction, int seed) {
     auto ring = std::make_unique<Ring>(normal, palette);
-    timeline.add(0, RandomWalk<W>(ring->orientation, ring->normal));
+    timeline.add(0, RandomWalk<W>(ring->orientation, ring->normal, Space::World, seed));
+    timeline.add(0, Rotation<W>(ring->orientation, normal, direction * 2 * PI_F, 48, ease_mid, true, Space::Local));
     rings.push_back(std::move(ring));
   }
 

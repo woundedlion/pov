@@ -35,7 +35,6 @@ public:
   bool show_bg() const override { return false; }
 
   void draw_frame() override {
-    orientation.collapse();
     Canvas canvas(*this);
     timeline.step(canvas);
     float time = (millis() / 1000.0f) * (speed * 0.015f);
