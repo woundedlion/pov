@@ -449,7 +449,10 @@ public:
   void upsample(int count) {
     if (num_frames >= count) return;
     if (count > MAX_FRAMES) count = MAX_FRAMES;
-    std::vector<Quaternion> old_orientations(orientations.begin(), orientations.begin() + num_frames);
+
+    std::array<Quaternion, MAX_FRAMES> old_orientations;
+    std::copy(orientations.begin(), orientations.begin() + num_frames, old_orientations.begin());
+
     int old_num_frames = num_frames;
     num_frames = count;
     orientations[0] = old_orientations[0];
