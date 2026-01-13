@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <array>
+#include <span>
 #include "geometry.h"
 #include "color.h"
 #include "led.h" // For H, W, H_VIRT
@@ -601,11 +602,11 @@ struct Scan {
       Vector u, w;
       float start_angle, end_angle;
       bool check_sector;
-      const std::vector<Vector>* clip_planes;
+      const std::span<const Vector> clip_planes;
     };
 
     static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn,
-      float start_angle = 0, float end_angle = 2 * PI_F, const std::vector<Vector>* clip_planes = nullptr)
+      float start_angle = 0, float end_angle = 2 * PI_F, std::span<const Vector> clip_planes = {})
     {
       Context ctx;
       ctx.normal = normal;
@@ -642,6 +643,7 @@ struct Scan {
     }
 
   private:
+
     static void scan_full(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
       for (int x = 0; x < W; ++x) {
         process_pixel(pipeline, canvas, x, y, ctx, color_fn);
@@ -651,8 +653,8 @@ struct Scan {
     static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
       const Vector& p = pixel_to_vector<W>(x, y);
 
-      if (ctx.clip_planes) {
-        for (const auto& cp : *ctx.clip_planes) if (dot(p, cp) < 0) return;
+      for (const auto& cp : ctx.clip_planes) {
+        if (dot(p, cp) < 0) return;
       }
 
       float polar_angle = angle_between(p, ctx.normal);
