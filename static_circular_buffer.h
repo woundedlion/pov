@@ -17,7 +17,6 @@
  * - No asserts (prevents hard crashes in live shows).
  * - "Delete Oldest" strategy on overflow (never stops processing).
  * - "Return Zeroed Dummy" on invalid access (prevents read crashes).
- * - Supports types WITHOUT default constructors.
  */
 template <typename T, size_t N>
 class StaticCircularBuffer {
@@ -184,10 +183,12 @@ private:
 
   void pop_back_internal() {
     tail = (tail - 1 + N) % N;
+    buffer[tail] = T();
     count--;
   }
 
   void pop_front_internal() {
+    buffer[head] = T();
     head = (head + 1) % N;
     count--;
   }

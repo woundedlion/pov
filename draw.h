@@ -692,7 +692,7 @@ struct Scan {
       Vector c1 = cross(normal, v1);
       Vector c2 = cross(v2, normal);
       std::array<Vector, 2> clips = { c1, c2 };
-      Ring::draw(pipeline, canvas, normal, 1.0f, thickness, color_fn, 0, 2 * PI_F, &clips);
+      Ring::draw(pipeline, canvas, normal, 1.0f, thickness, color_fn, 0, 2 * PI_F, clips);
     }
   };
 
