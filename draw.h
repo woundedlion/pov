@@ -689,7 +689,7 @@ struct Scan {
       if (dot(normal, normal) < 1e-6) return;
       Vector c1 = cross(normal, v1);
       Vector c2 = cross(v2, normal);
-      std::vector<Vector> clips = { c1, c2 };
+      std::array<Vector, 2> clips = { c1, c2 };
       Ring::draw(pipeline, canvas, normal, 1.0f, thickness, color_fn, 0, 2 * PI_F, &clips);
     }
   };
