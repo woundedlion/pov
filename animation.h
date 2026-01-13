@@ -586,28 +586,45 @@ public:
     Vector target_v = path.get().get_point(t_curr / this->duration);
     float total_angle = angle_between(current_v, target_v);
     int num_steps = static_cast<int>(std::ceil(std::max(1.0f, total_angle / MAX_ANGLE)));
-    Quaternion origin = orientation.get().get();
-    
+
+    // Ensure sufficient resolution
+    orientation.get().upsample(num_steps + 1);
+    int len = orientation.get().length();
+
     // lambda to apply rotation based on space
-    auto apply_rotation = [&](const Quaternion& target, const Quaternion& source) {
+    auto apply_rotation = [&](Quaternion& target, const Quaternion& source) {
       if (space == Space::Local) {
-        return target * source;
-      } else {
-        return source * target;
+        target = target * source;
+      }
+      else {
+        target = source * target;
       }
     };
 
-    for (int i = 1; i <= num_steps; ++i) {
-      float sub_t = t_prev + (static_cast<float>(i) / num_steps);
+    Vector prev_v = current_v;
+    Quaternion accumulated_q; // Identity by default
+
+    for (int i = 1; i < len; ++i) {
+      // Calculate sub-t to sample path
+      // t goes from (t-1) to t.
+      // i goes from 0 to len-1. i=0 is t-1, i=len-1 is t.
+      float sub_t = t_prev + (static_cast<float>(i) / (len - 1));
+      
       Vector next_v = path.get().get_point(sub_t / this->duration);
-      float step_angle = angle_between(current_v, next_v);
+      float step_angle = angle_between(prev_v, next_v);
+      
       if (step_angle > TOLERANCE) {
-        Vector step_axis = cross(current_v, next_v).normalize();
-        Quaternion q = make_rotation(step_axis, step_angle);
-        origin = apply_rotation(origin, q).normalize();
-        orientation.get().push(origin);
+        Vector step_axis = cross(prev_v, next_v).normalize();
+        Quaternion q_step = make_rotation(step_axis, step_angle);
+        apply_rotation(accumulated_q, q_step);
       }
-      current_v = next_v;
+
+      // Apply the accumulated rotation to the existing orientation frame
+      Quaternion& current_q = orientation.get().at(i);
+      apply_rotation(current_q, accumulated_q);
+      current_q.normalize();
+      
+      prev_v = next_v;
     }
   }
 
@@ -663,26 +680,38 @@ public:
     Animation<Rotation<W>>::step(canvas);
     float target_angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
     float delta = target_angle - last_angle;
-    if (std::abs(delta) > TOLERANCE) {
-      int num_steps = static_cast<int>(std::ceil(std::abs(delta) / MAX_ANGLE));
-      float step_angle = delta / num_steps;
-      Quaternion q_step = make_rotation(axis, step_angle);
-      
-      auto apply_rotation = [&](const Quaternion& target, const Quaternion& source) {
-        if (space == Space::Local) {
-          return target * source;
-        } else {
-          return source * target;
-        }
-      };
-
-      for (int i = 0; i < num_steps; ++i) {
-        Quaternion current_q = orientation.get().get();
-        current_q = apply_rotation(current_q, q_step).normalize();
-        orientation.get().push(current_q);
-      }
+    
+    if (std::abs(delta) < TOLERANCE) {
       last_angle = target_angle;
+      return;
     }
+
+    int num_steps = 1 + static_cast<int>(std::ceil(std::abs(delta) / MAX_ANGLE));
+    orientation.get().upsample(num_steps + 1);
+    int len = orientation.get().length();
+    
+    float step_angle = delta / (len - 1);
+    Quaternion accumulated_q;
+    
+    // lambda to apply rotation based on space
+    auto apply_rotation = [&](Quaternion& target, const Quaternion& source) {
+      if (space == Space::Local) {
+        target = target * source;
+      }
+      else {
+        target = source * target;
+      }
+    };
+
+    for (int i = 1; i < len; ++i) {
+      float angle = step_angle * i;
+      Quaternion q = make_rotation(axis, angle);
+      
+      Quaternion& current_q = orientation.get().at(i);
+      apply_rotation(current_q, q);
+      current_q.normalize();
+    }
+    last_angle = target_angle;
   }
 
   /**

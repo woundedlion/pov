@@ -433,10 +433,42 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Access a mutable quaternion at a specific historical frame index.
+   * @param i The frame index.
+   * @return The Quaternion reference.
+   */
+  Quaternion& at(int i) {
+    return orientations[i];
+  }
+
+  /**
+   * @brief Increases the resolution of the history to 'count' steps, preserving shape via Slerp.
+   * @param count The target number of steps in the history.
+   */
+  void upsample(int count) {
+    if (num_frames >= count) return;
+    if (count > MAX_FRAMES) count = MAX_FRAMES;
+    std::vector<Quaternion> old_orientations(orientations.begin(), orientations.begin() + num_frames);
+    int old_num_frames = num_frames;
+    num_frames = count;
+    orientations[0] = old_orientations[0];
+    orientations[count - 1] = old_orientations[old_num_frames - 1];
+
+    for (int i = 1; i < count - 1; i++) {
+      float t = static_cast<float>(i) / (count - 1);
+      float old_val = t * (old_num_frames - 1);
+      int idx_a = static_cast<int>(std::floor(old_val));
+      int idx_b = static_cast<int>(std::ceil(old_val));
+      float alpha = old_val - idx_a;
+      orientations[i] = slerp(old_orientations[idx_a], old_orientations[idx_b], alpha);
+    }
+  }
+
 private:
   static constexpr int MAX_FRAMES = MAX_W + 1; /**< Max frames of history (related to display width). */
   std::array<Quaternion, MAX_FRAMES> orientations; /**< Storage for historical quaternions. */
-  size_t num_frames; /**< The current number of active frames in history. */
+  int num_frames; /**< The current number of active frames in history. */
 };
 
 
