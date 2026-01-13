@@ -8,7 +8,6 @@
 #include <cstddef>     
 #include <iterator>    
 #include <utility>     
-#include <optional>
 #include <Arduino.h> 
 
 /**
@@ -73,9 +72,9 @@ public:
       pop_back_internal();
     }
     head = (head - 1 + N) % N;
-    T& emplaced_item = buffer[head].emplace(std::forward<Args>(args)...);
+    buffer[head] = T(std::forward<Args>(args)...);
     count++;
-    return emplaced_item;
+    return buffer[head];
   }
 
   void push_back(const T& item) {
@@ -102,7 +101,8 @@ public:
     if (is_full()) {
       pop_front_internal();
     }
-    T& emplaced_item = buffer[tail].emplace(std::forward<Args>(args)...);
+    buffer[tail] = T(std::forward<Args>(args)...);
+    T& emplaced_item = buffer[tail];
     tail = (tail + 1) % N;
     count++;
     return emplaced_item;
@@ -126,36 +126,36 @@ public:
 
   T& front() {
     if (is_empty()) return get_dummy();
-    return *buffer[head];
+    return buffer[head];
   }
 
   const T& front() const {
     if (is_empty()) return get_dummy();
-    return *buffer[head];
+    return buffer[head];
   }
 
   T& back() {
     if (is_empty()) return get_dummy();
-    return *buffer[(head + count - 1) % N];
+    return buffer[(head + count - 1) % N];
   }
 
   const T& back() const {
     if (is_empty()) return get_dummy();
-    return *buffer[(head + count - 1) % N];
+    return buffer[(head + count - 1) % N];
   }
 
   T& operator[](size_t index) {
     if (index >= count) {
       return get_dummy();
     }
-    return *buffer[(head + index) % N];
+    return buffer[(head + index) % N];
   }
 
   const T& operator[](size_t index) const {
     if (index >= count) {
       return get_dummy();
     }
-    return *buffer[(head + index) % N];
+    return buffer[(head + index) % N];
   }
 
   constexpr bool is_empty() const { return count == 0; }
@@ -170,11 +170,10 @@ public:
 
 private:
 
-  std::array<std::optional<T>, N> buffer;
+  std::array<T, N> buffer;
   size_t head;
   size_t tail;
   size_t count;
-
 
   static T& get_dummy() {
     static struct {
@@ -185,12 +184,10 @@ private:
 
   void pop_back_internal() {
     tail = (tail - 1 + N) % N;
-    buffer[tail].reset();
     count--;
   }
 
   void pop_front_internal() {
-    buffer[head].reset();
     head = (head + 1) % N;
     count--;
   }
