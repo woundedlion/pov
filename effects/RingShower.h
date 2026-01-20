@@ -77,7 +77,8 @@ private:
 
   void draw_ring(Canvas& canvas, float opacity, size_t index) {
     Ring& ring = rings[index];
-    Plot<W>::Ring::draw(filters, canvas, orientation.get(), ring.normal, ring.radius,
+    Basis basis = make_basis(orientation.get(), ring.normal);
+    Plot<W>::Ring::draw(filters, canvas, basis, ring.radius,
       [&](const Vector& v, float t) {
         Vector z = orientation.orient(X_AXIS);
         Color4 c = palette.get(angle_between(z, v) / PI_F);

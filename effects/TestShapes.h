@@ -107,29 +107,31 @@ public:
 
     float phase = ring.layer_index * this->twist;
     float r = this->radius * ring.scale;
+    
+    Basis basis = make_basis(ring.orientation.get(), ring.normal);
 
     if (ring.mode == RenderMode::Plot) {
       switch (current_shape) {
         case ShapeType::Flower:
-           Plot<W>::Flower::draw(plot_filters, canvas, ring.orientation.get(), ring.normal, r, this->sides, color_fn, phase);
+           Plot<W>::Flower::draw(plot_filters, canvas, basis, r, this->sides, color_fn, phase);
            break;
         case ShapeType::Star:
-           Plot<W>::Star::draw(plot_filters, canvas, ring.orientation.get(), ring.normal, r, this->sides, color_fn, phase);
+           Plot<W>::Star::draw(plot_filters, canvas, basis, r, this->sides, color_fn, phase);
            break;
         default: // Polygon
-           Plot<W>::Polygon::draw(plot_filters, canvas, ring.orientation.get(), ring.normal, r, this->sides, color_fn, phase);
+           Plot<W>::Polygon::draw(plot_filters, canvas, basis, r, this->sides, color_fn, phase);
            break;
       }
     } else {
       switch (current_shape) {
         case ShapeType::Flower:
-           Scan<W>::Flower::draw(scan_filters, canvas, ring.orientation.get(), ring.normal, r, this->sides, color_fn, phase, debug_bb);
+           Scan<W>::Flower::draw(scan_filters, canvas, basis, r, this->sides, color_fn, phase, debug_bb);
            break;
         case ShapeType::Star:
-           Scan<W>::Star::draw(scan_filters, canvas, ring.orientation.get(), ring.normal, r, this->sides, color_fn, phase, debug_bb);
+           Scan<W>::Star::draw(scan_filters, canvas, basis, r, this->sides, color_fn, phase, debug_bb);
            break;
         default: // Polygon
-           Scan<W>::Polygon::draw(scan_filters, canvas, ring.orientation.get(), ring.normal, r, this->sides, color_fn, phase, debug_bb);
+           Scan<W>::Polygon::draw(scan_filters, canvas, basis, r, this->sides, color_fn, phase, debug_bb);
            break;
       }
     }

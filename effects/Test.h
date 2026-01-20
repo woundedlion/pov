@@ -64,7 +64,8 @@ public:
       };
       float amp = this->amplitudeRange;
 
-      Scan<W>::DistortedRing::draw(filters, canvas, orientation.get(), normal, radius, thickness,
+      Basis basis = make_basis(orientation.get(), normal);
+      Scan<W>::DistortedRing::draw(filters, canvas, basis, radius, thickness,
         shiftFn, amp,
         [&](const Vector& p, float t) {
           // t is normalized azimuth (0..1)
