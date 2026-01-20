@@ -12,7 +12,8 @@ template <int W>
 class BZReactionDiffusion : public Effect {
 public:
 
-  static constexpr int RD_N = 1024; // Number of nodes in the graph
+  static constexpr int RD_H = 20;   // Height of the grid
+  static constexpr int RD_N = W * RD_H * 2; // Number of nodes in the graph
   static constexpr int RD_K = 6;    // Number of neighbors per node
 
   BZReactionDiffusion() :
@@ -143,8 +144,8 @@ private:
   }
 
   void render_reaction(Canvas& canvas, BZReactionContext& ctx, float opacity) {
-    // Simulate Physics (2 steps per frame)
-    for (int k = 0; k < 2; k++) {
+    // Simulate Physics (12 steps per frame)
+    for (int k = 0; k < 12; k++) {
       update_physics(ctx);
     }
 
