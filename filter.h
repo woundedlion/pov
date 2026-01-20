@@ -139,7 +139,7 @@ struct Pipeline<W, Head, Tail...> : public Head {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-inline float quintic_kernel(float t) {
+float quintic_kernel(float t) {
   t = std::clamp(t, 0.0f, 1.0f);
   return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }

@@ -14,6 +14,9 @@
 #include <concepts>
 #include "filter.h"
 
+// Forward declaration to resolve circular dependency
+float quintic_kernel(float t);
+
 static void tween(Tweenable auto& history, auto draw_fn) {
   size_t s = history.length();
   size_t start = (s > 1) ? 1 : 0;
@@ -372,8 +375,6 @@ struct Plot {
     }
   };
 
-
-
   struct Polygon {
     static void sample(Points& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
        // Offset by half-sector to align with Scan.Polygon edges
@@ -455,7 +456,6 @@ struct Plot {
       }
     }
   };
-
 
   struct Star {
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
@@ -552,7 +552,6 @@ struct Plot {
 
 };
 
-
   struct SDF {
     struct Bounds {
       int y_min, y_max;
@@ -565,9 +564,6 @@ struct Plot {
       float t;    // Normalized parameter (0-1) or angle
       float raw_dist; // Unsigned or supplementary distance
     };
-
-
-
 
     struct Ring {
       const Basis& basis;
@@ -761,6 +757,70 @@ struct Plot {
       }
     };
     
+    template <typename A, typename B>
+    struct Intersection {
+       const A& a;
+       const B& b;
+       float thickness;
+
+       Intersection(const A& shapeA, const B& shapeB)
+          : a(shapeA), b(shapeB), thickness(std::min(shapeA.thickness, shapeB.thickness)) {}
+
+       Bounds get_vertical_bounds() const {
+          auto b1 = a.get_vertical_bounds();
+          auto b2 = b.get_vertical_bounds();
+          return { std::max(b1.y_min, b2.y_min), std::min(b1.y_max, b2.y_max) };
+       }
+
+       template<typename OutputIt>
+       bool get_horizontal_intervals(int y, OutputIt out) const {
+          std::vector<std::pair<float, float>> iA;
+          bool handledA = a.get_horizontal_intervals(y, [&](float t1, float t2) {
+              iA.push_back({t1, t2});
+          });
+
+          std::vector<std::pair<float, float>> iB;
+          bool handledB = b.get_horizontal_intervals(y, [&](float t1, float t2) {
+              iB.push_back({t1, t2});
+          });
+
+          if (!handledA && !handledB) return false;
+
+          if (!handledA) {
+             for (const auto& iv : iB) out(iv.first, iv.second);
+             return true;
+          }
+          if (!handledB) {
+             for (const auto& iv : iA) out(iv.first, iv.second);
+             return true;
+          }
+
+          size_t idxA = 0, idxB = 0;
+          while (idxA < iA.size() && idxB < iB.size()) {
+             auto ivA = iA[idxA];
+             auto ivB = iB[idxB];
+             
+             float start = std::max(ivA.first, ivB.first);
+             float end = std::min(ivA.second, ivB.second);
+             
+             if (start < end) {
+                 out(start, end);
+             }
+             
+             if (ivA.second < ivB.second) idxA++;
+             else idxB++;
+          }
+          return true;
+       }
+
+       DistanceResult distance(const Vector& p) const {
+          auto resA = a.distance(p);
+          auto resB = b.distance(p);
+          if (resA.dist > resB.dist) return resA;
+          return resB;
+       }
+    };
+
     struct Polygon {
        const Basis& basis;
        float thickness;
