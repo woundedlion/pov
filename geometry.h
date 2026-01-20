@@ -84,18 +84,18 @@ struct LogPolar {
 };
 
 /**
- * Converts a pixel y-coordinate to a spherical phi angle.
- * @param {number} y - The pixel y-coordinate [0, H_VIRT - 1].
- * @returns {number} The spherical phi angle in radians.
+ * @brief Converts a pixel y-coordinate to a spherical phi angle.
+ * @param y The pixel y-coordinate [0, H_VIRT - 1].
+ * @return The spherical phi angle in radians.
  */
 float y_to_phi(float y) {
   return (y * PI_F) / (H_VIRT - 1);
 }
 
 /**
- * Converts a spherical phi angle to a pixel y-coordinate.
- * @param {number} phi - The spherical phi angle in radians.
- * @returns {number} The pixel y-coordinate [0, H_VIRT - 1].
+ * @brief Converts a spherical phi angle to a pixel y-coordinate.
+ * @param phi The spherical phi angle in radians.
+ * @return The pixel y-coordinate [0, H_VIRT - 1].
  */
 float phi_to_y(float phi) {
   return (phi * (H_VIRT - 1)) / PI_F;

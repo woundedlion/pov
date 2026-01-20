@@ -748,11 +748,11 @@ template<int W>
 class RandomWalk : public Animation<RandomWalk<W>> {
 public:
   struct Options {
-    float speed = 0.02f;
-    float pivot_strength = 0.1f;
-    float noise_scale = 0.02f;
-    int seed = 0; // 0 means random
-    Space space = Space::World;
+    float speed = 0.02f;          /**< Movement speed per frame. */
+    float pivot_strength = 0.1f;  /**< Strength of the direction change (noise amplitude). */
+    float noise_scale = 0.02f;    /**< Frequency of the Perlin noise. */
+    int seed = 0;                 /**< Random seed (0 for random). */
+    Space space = Space::World;   /**< Coordinate space for movement. */
 
     static Options Languid() { return { 0.02f, 0.1f, 0.02f }; }
     static Options Energetic() { return { 0.05f, 0.4f, 0.08f }; }
