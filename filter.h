@@ -294,6 +294,59 @@ private:
 
 
 /**
+ * @brief Applies a variable 3x3 Gaussian Blur.
+ */
+template <int W>
+class FilterGaussianBlur : public Is2D {
+public:
+  FilterGaussianBlur(float factor = 1.0f) {
+    update(factor);
+  }
+
+  void update(float factor) {
+    float f = std::clamp(factor, 0.0f, 1.0f);
+
+    // Interpolate weights between Identity (Center=1) and Gaussian (Center=0.25)
+    // Gaussian reference: Corner=1/16, Edge=2/16, Center=4/16
+    float c = 1.0f - (0.75f * f); // Center weight: 1.0 -> 0.25
+    float e = 0.125f * f;        // Edge weight:   0.0 -> 0.125
+    float d = 0.0625f * f;       // Diagonal weight: 0.0 -> 0.0625
+
+    kernel = {
+      d, e, d,
+      e, c, e,
+      d, e, d
+    };
+  }
+
+  void plot(float x, float y, const Pixel& color, float age, float alpha, auto pass) {
+    int cx = static_cast<int>(std::round(x));
+    int cy = static_cast<int>(std::round(y));
+
+    int k = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+      int ny = cy + dy;
+
+      if (ny >= 0 && ny < H) {
+        for (int dx = -1; dx <= 1; dx++) {
+          float weight = kernel[k++];
+          if (weight > TOLERANCE) {
+            pass(static_cast<float>(wrap(cx + dx, W)), static_cast<float>(ny), color, age, alpha * weight);
+          }
+        }
+      }
+      else {
+        k += 3; // Skip row
+      }
+    }
+  }
+
+private:
+  std::array<float, 9> kernel;
+};
+
+
+/**
  * @brief New FilterWorldTrails. Manages 3D world-space trails.
  */
 template <int W, int Capacity>

@@ -747,18 +747,28 @@ private:
 template<int W>
 class RandomWalk : public Animation<RandomWalk<W>> {
 public:
+  struct Options {
+    float speed = 0.02f;
+    float pivot_strength = 0.1f;
+    float noise_scale = 0.02f;
+    int seed = 0; // 0 means random
+    Space space = Space::World;
+
+    static Options Languid() { return { 0.02f, 0.1f, 0.02f }; }
+    static Options Energetic() { return { 0.05f, 0.4f, 0.08f }; }
+  };
+
   /**
    * @brief Constructs a RandomWalk animation.
    * @param orientation The Orientation object to update.
    * @param v_start The starting direction vector.
-   * @param space The coordinate space for rotation.
-   * @param seed Optional seed for noise generator (0 for random).
+   * @param options Configuration options.
    */
-  RandomWalk(Orientation& orientation, const Vector& v_start, Space space = Space::World, int seed = 0) :
+  RandomWalk(Orientation& orientation, const Vector& v_start, Options options = Options()) :
     Animation<RandomWalk<W>>(-1, false),
     orientation(orientation),
     v(Vector(v_start).normalize()),
-    space(space)
+    options(options)
   {
     Vector u = X_AXIS;
     if (std::abs(dot(v, u)) > 0.99f) {
@@ -766,14 +776,13 @@ public:
     }
     direction = cross(v, u).normalize();
     noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    noiseGenerator.SetFrequency(NOISE_SCALE);
-    if (seed == 0) {
+    noiseGenerator.SetFrequency(options.noise_scale);
+    if (options.seed == 0) {
       noiseGenerator.SetSeed(hs::rand_int(std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
     } else {
-      noiseGenerator.SetSeed(seed);
+      noiseGenerator.SetSeed(options.seed);
     }
   }
-
 
   /**
    * @brief Access the associated Orientation.
@@ -785,25 +794,20 @@ public:
    */
   void step(Canvas& canvas) override {
     Animation<RandomWalk<W>>::step(canvas);
-    float pivotAngle = noiseGenerator.GetNoise(static_cast<float>(this->t), 0.0f) * PIVOT_STRENGTH;
+    float pivotAngle = noiseGenerator.GetNoise(static_cast<float>(this->t), 0.0f) * options.pivot_strength;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     Vector walk_axis = cross(v, direction).normalize();
-    v = rotate(v, make_rotation(walk_axis, WALK_SPEED)).normalize();
-    direction = rotate(direction, make_rotation(walk_axis, WALK_SPEED)).normalize();
-    Rotation<W>::animate(canvas, orientation, walk_axis, WALK_SPEED, ease_mid, space);
+    v = rotate(v, make_rotation(walk_axis, options.speed)).normalize();
+    direction = rotate(direction, make_rotation(walk_axis, options.speed)).normalize();
+    Rotation<W>::animate(canvas, orientation, walk_axis, options.speed, ease_mid, options.space);
   }
 
 private:
-
-  static constexpr float WALK_SPEED = 0.05; /**< Constant linear forward speed. */
-  static constexpr float PIVOT_STRENGTH = 0.4; /**< Maximum side-to-side pivot magnitude based on noise. */
-  static constexpr float NOISE_SCALE = 0.08; /**< Frequency of the noise used for pivoting. */
-
-  FastNoiseLite noiseGenerator; /**< The noise generator instance. */
   std::reference_wrapper<Orientation> orientation; /**< Reference to the global Orientation state. */
   Vector v; /**< Current forward direction vector. */
   Vector direction; /**< Current pivoting direction (orthogonal to v). */
-  Space space; /**< The coordinate space for rotation. */
+  Options options; /**< Configuration options. */
+  FastNoiseLite noiseGenerator; /**< The noise generator instance. */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
