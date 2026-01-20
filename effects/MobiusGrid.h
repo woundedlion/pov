@@ -78,7 +78,8 @@ private:
       float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
 
       Points points;
-      Plot<W>::Polygon::sample(points, Quaternion(), normal, radius, W / 4);
+      Basis basis = make_basis(Quaternion(), normal);
+      Plot<W>::Polygon::sample(points, basis, radius, W / 4);
 
       Points transformed_points;
       for (const auto& p : points) {
@@ -102,7 +103,8 @@ private:
       Vector normal(cosf(theta), sinf(theta), 0.0f);
 
       Points points;
-      Plot<W>::Polygon::sample(points, Quaternion(), normal, 1.0f, W / 4);
+      Basis basis = make_basis(Quaternion(), normal);
+      Plot<W>::Polygon::sample(points, basis, 1.0f, W / 4);
       Points transformed_points;
       for (const auto& p : points) {
         Vector transformed = inv_stereo(mobius(stereo(p), params));

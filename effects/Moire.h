@@ -69,13 +69,14 @@ private:
     return p;
   }
 
-  void draw_layer(Canvas& canvas, TransformFn auto trans_fn, const GenerativePalette& pal) {
+    void draw_layer(Canvas& canvas, TransformFn auto trans_fn, const GenerativePalette& pal) {
     int count = static_cast<int>(std::ceil(density));
     for (int i = 0; i <= count; ++i) {
       float t = static_cast<float>(i) / count;
       float r = t * 2.0f;
 
-      Plot<W>::DistortedRing::draw(filters, canvas, Quaternion(1, 0, 0, 0), Z_AXIS, r,
+      Basis basis = make_basis(Quaternion(), Z_AXIS);
+      Plot<W>::DistortedRing::draw(filters, canvas, basis, r,
         sin_wave(-amp, amp, 4.0f, 0.0f), 
         [&](const Vector&, float) { return pal.get(t); });
     }

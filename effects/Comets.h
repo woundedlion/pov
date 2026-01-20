@@ -22,6 +22,8 @@ public:
   static constexpr int TRAIL_LENGTH = 80;
   static constexpr int MAX_NODES = 4; // Capacity for nodes
 
+
+
   struct Node {
     Orientation orientation;
     OrientationTrail<TRAIL_LENGTH> trail;

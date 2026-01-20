@@ -289,12 +289,10 @@ struct Plot {
       ).normalize();
     }
 
-    static void sample(Points& points, const Quaternion& orientation, const Vector& normal, float radius, int num_samples, float phase = 0) {
-      Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
-      Vector v = rotate(normal, orientation).normalize();
-      Vector ref = rotate(ref_axis, orientation).normalize();
-      Vector u = cross(v, ref).normalize();
-      Vector w = cross(v, u).normalize();
+    static void sample(Points& points, const Basis& basis, float radius, int num_samples, float phase = 0) {
+      const Vector& v = basis.v;
+      const Vector& u = basis.u;
+      const Vector& w = basis.w;
 
       Vector v_dir = (radius > 1.0f) ? -v : v;
       float r_eff = (radius > 1.0f) ? (2.0f - radius) : radius;
@@ -312,9 +310,9 @@ struct Plot {
       }
     }
 
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, ColorFn auto color_fn, float phase = 0) {
+    static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, ColorFn auto color_fn, float phase = 0) {
       Points points;
-      sample(points, orientation, normal, radius, W / 4, phase);
+      sample(points, basis, radius, W / 4, phase);
       rasterize(pipeline, canvas, points, color_fn, true);
     }
   };
@@ -374,17 +372,20 @@ struct Plot {
     }
   };
 
+
+
   struct Polygon {
-    static void sample(Points& points, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, float phase = 0) {
+    static void sample(Points& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
        // Offset by half-sector to align with Scan.Polygon edges
        const float offset = PI_F / num_sides;
-       Ring::sample(points, orientation, normal, radius, num_sides, phase + offset);
+       Ring::sample(points, basis, radius, num_sides, phase + offset);
     }
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
+    static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
       Points points;
-      sample(points, orientation, normal, radius, num_sides, phase);
+      sample(points, basis, radius, num_sides, phase);
       
-      Vector center = rotate(normal, orientation).normalize();
+      Vector center = basis.v;
+      if (radius > 1.0f) center = -center;
       
       size_t len = points.size();
       if (len < 2) return;
@@ -400,11 +401,9 @@ struct Plot {
   };
 
   struct DistortedRing {
-    static Vector fn_point(ScalarFn auto f, const Vector& normal, float radius, float angle) {
-      Vector v(normal);
-      if (radius > 1) { v = -v; radius = 2 - radius; }
-      Vector u = (std::abs(dot(v, X_AXIS)) > 0.99995f) ? cross(v, Y_AXIS).normalize() : cross(v, X_AXIS).normalize();
-      Vector w(cross(v, u));
+    static Vector fn_point(ScalarFn auto f, const Basis& basis, float radius, float angle) {
+      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
+      if (radius > 1) { v = -v; u = -u; radius = 2 - radius; }
 
       auto vi = Ring::calcPoint(angle, radius, u, v, w);
       auto vp = Ring::calcPoint(angle, 1, u, v, w);
@@ -412,12 +411,8 @@ struct Plot {
       return rotate(vi, make_rotation(axis, f(angle * PI_F / 2)));
     }
 
-    static void sample(Points& points, const Quaternion& orientation, const Vector& normal, float radius, ScalarFn auto shift_fn, float phase = 0) {
-      Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
-      Vector v = rotate(normal, orientation).normalize();
-      Vector ref = rotate(ref_axis, orientation).normalize();
-      Vector u = cross(v, ref).normalize();
-      Vector w = cross(v, u).normalize();
+    static void sample(Points& points, const Basis& basis, float radius, ScalarFn auto shift_fn, float phase = 0) {
+      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
 
       float v_sign = 1.0f;
       if (radius > 1.0f) { v_sign = -1.0f; radius = 2.0f - radius; }
@@ -444,9 +439,9 @@ struct Plot {
       }
     }
 
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0) {
+    static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0) {
       Points points;
-      sample(points, orientation, normal, radius, shift_fn, phase);
+      sample(points, basis, radius, shift_fn, phase);
       rasterize(pipeline, canvas, points, color_fn, true);
     }
   };
@@ -463,8 +458,7 @@ struct Plot {
 
 
   struct Star {
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
-      Basis basis = make_basis(orientation, normal);
+    static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
       Vector v = basis.v;
       Vector u = basis.u;
       Vector w = basis.w;
@@ -511,8 +505,7 @@ struct Plot {
   };
 
   struct Flower {
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
-      Basis basis = make_basis(orientation, normal);
+    static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
       Vector v = basis.v; 
       Vector u = basis.u; 
       Vector w = basis.w;
@@ -560,637 +553,544 @@ struct Plot {
 };
 
 
-/**
- * @brief The Scan struct contains volumetric (raster) drawing primitives.
- */
-template <int W>
-struct Scan {
-
-  struct DistortedRing {
-    struct Context {
-      Vector normal;
-      float radius;
-      float thickness;
-      float amplitude;
-      std::function<float(float)> shift_fn;
-      float nx, ny, nz;
-      float target_angle, r_val, alpha, center_phi;
-      Vector u, w;
-      float max_thickness;
-      bool debug_bb;
+  struct SDF {
+    struct Bounds {
+      int y_min, y_max;
+    };
+    struct Interval {
+      int start, end;
+    };
+    struct DistanceResult {
+      float dist; // Signed distance (negative inside)
+      float t;    // Normalized parameter (0-1) or angle
+      float raw_dist; // Unsigned or supplementary distance
     };
 
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal,
-      float radius, float thickness, ScalarFn auto shift_fn, float amplitude, ColorFn auto color_fn, bool debug_bb = false)
-    {
-      // Conservative bounds
-      float max_thickness = thickness + amplitude;
 
-      // Basis Construction matching Plot.Ring => Stable Twist
-      Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
 
-      // Calculate Basis
-      Vector v = rotate(normal, orientation).normalize();
-      Vector ref = rotate(ref_axis, orientation).normalize();
-      Vector u = cross(v, ref).normalize();
-      Vector w = cross(v, u).normalize();
 
-      Context ctx;
-      ctx.normal = v;
-      ctx.radius = radius;
-      ctx.thickness = thickness;
-      ctx.amplitude = amplitude;
-      ctx.shift_fn = shift_fn;
-      ctx.nx = v.i; ctx.ny = v.j; ctx.nz = v.k;
-      ctx.target_angle = radius * (PI_F / 2.0f);
-      ctx.r_val = sqrtf(ctx.nx * ctx.nx + ctx.nz * ctx.nz);
-      ctx.alpha = atan2f(ctx.nx, ctx.nz);
-      ctx.center_phi = acosf(ctx.ny);
-      ctx.u = u;
-      ctx.w = w;
-      ctx.max_thickness = max_thickness;
-      ctx.debug_bb = debug_bb;
-
-      float a1 = ctx.center_phi - ctx.target_angle;
-      float a2 = ctx.center_phi + ctx.target_angle;
-      float p1 = acosf(cosf(a1));
-      float p2 = acosf(cosf(a2));
-      float min_p = std::min(p1, p2);
-      float max_p = std::max(p1, p2);
-
-      float phi_min = std::max(0.0f, min_p - max_thickness);
-      float phi_max = std::min(PI_F, max_p + max_thickness);
-
-      if (phi_min > phi_max) return;
-
-      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
-      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
-
-      for (int y = y_min; y <= y_max; y++) {
-        scan_row(pipeline, canvas, y, ctx, color_fn);
-      }
-    }
-
-  private:
-    static void scan_row(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
-      float phi = y_to_phi(static_cast<float>(y));
-      float cos_phi = cosf(phi);
-      float sin_phi = sinf(phi);
-
-      float ang_low = std::max(0.0f, ctx.target_angle - ctx.max_thickness);
-      float ang_high = std::min(PI_F, ctx.target_angle + ctx.max_thickness);
-      float D_max = cosf(ang_low);
-      float D_min = cosf(ang_high);
-
-      if (ctx.r_val < 0.01f) {
-        scan_full_row(pipeline, canvas, y, ctx, color_fn);
-        return;
-      }
-
-      float denom = ctx.r_val * sin_phi;
-      if (std::abs(denom) < 0.000001f) {
-        scan_full_row(pipeline, canvas, y, ctx, color_fn);
-        return;
-      }
-
-      float C_min = (D_min - ctx.ny * cos_phi) / denom;
-      float C_max = (D_max - ctx.ny * cos_phi) / denom;
-      float min_cos = std::max(-1.0f, C_min);
-      float max_cos = std::min(1.0f, C_max);
-
-      if (min_cos > max_cos) return;
-
-      float angle_min = acosf(max_cos);
-      float angle_max = acosf(min_cos);
-
-      const float pixel_width = 2.0f * PI_F / W;
-      const float safe_threshold = pixel_width;
-
-      if (angle_min <= safe_threshold) {
-        scan_window(pipeline, canvas, y, ctx.alpha - angle_max, ctx.alpha + angle_max, ctx, color_fn);
-      }
-      else if (angle_max >= PI_F - safe_threshold) {
-        scan_window(pipeline, canvas, y, ctx.alpha + angle_min, ctx.alpha + 2 * PI_F - angle_min, ctx, color_fn);
-      }
-      else {
-        scan_window(pipeline, canvas, y, ctx.alpha - angle_max, ctx.alpha - angle_min, ctx, color_fn);
-        scan_window(pipeline, canvas, y, ctx.alpha + angle_min, ctx.alpha + angle_max, ctx, color_fn);
-      }
-    }
-
-    static void scan_full_row(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
-      for (int x = 0; x < W; x++) {
-        process_pixel(pipeline, canvas, x, y, ctx, color_fn);
-      }
-    }
-
-    static void scan_window(auto& pipeline, Canvas& canvas, int y, float t1, float t2, const Context& ctx, ColorFn auto& color_fn) {
-      int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
-      int x2 = static_cast<int>(ceilf((t2 * W) / (2 * PI_F)));
-      for (int x = x1; x <= x2; x++) {
-        int wx = wrap(x, W);
-        process_pixel(pipeline, canvas, wx, y, ctx, color_fn);
-      }
-    }
-
-    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
-      const Vector& p = pixel_to_vector<W>(x, y);
-
-      float polar_angle = angle_between(p, ctx.normal);
-      float dot_u = dot(p, ctx.u);
-      float dot_w = dot(p, ctx.w);
-      float azimuth = atan2f(dot_w, dot_u);
-      if (azimuth < 0) azimuth += 2 * PI_F;
-
-      float norm_azimuth = azimuth / (2 * PI_F);
-      float shift = ctx.shift_fn(norm_azimuth);
-      float local_target = ctx.target_angle + shift;
-
-      float dist = std::abs(polar_angle - local_target);
-
-      if (dist < ctx.thickness) {
-        float dist_t = dist / ctx.thickness;
-        float aa_alpha = quintic_kernel(1.0f - dist_t);
-        if (aa_alpha <= 0.001f) return;
-        Color4 c = color_fn(p, norm_azimuth);        
-        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * aa_alpha);
-      }
-    }
-  };
-
-  struct Ring {
-    struct Context {
-      Vector normal;
+    struct Ring {
+      const Basis& basis;
       float radius;
       float thickness;
-      float nx, ny, nz;
-      float target_angle, r_val, alpha, center_phi;
-      Vector u, w;
-      float start_angle, end_angle;
-      bool check_sector;
-      const std::span<const Vector> clip_planes;
-      float cos_min, cos_max, inv_sin_target;
-    };
-
-    static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn,
-      float start_angle = 0, float end_angle = 2 * PI_F, std::span<const Vector> clip_planes = {})
-    {
-      Vector n = normal;
-      if (radius > 1.0f) {
-        n = -n;
-        radius = 2.0f - radius;
-      }
-
-      Context ctx;
-      ctx.normal = n;
-      ctx.radius = radius;
-      ctx.thickness = thickness;
-      ctx.target_angle = radius * (PI_F / 2.0f);
-      
-      // Optimizations
-      float min_angle = std::max(0.0f, ctx.target_angle - thickness);
-      float max_angle = std::min(PI_F, ctx.target_angle + thickness);
-      ctx.cos_min = cosf(min_angle); 
-      ctx.cos_max = cosf(max_angle);
-      ctx.inv_sin_target = (std::abs(sinf(ctx.target_angle)) > 0.001f) ? (1.0f / sinf(ctx.target_angle)) : 0.0f;
-
-      // Bounding box setup...
-      ctx.nx = n.i; ctx.ny = n.j; ctx.nz = n.k;
-      ctx.r_val = sqrtf(ctx.nx * ctx.nx + ctx.nz * ctx.nz);
-      ctx.alpha = atan2f(ctx.nx, ctx.nz);
-      ctx.center_phi = acosf(ctx.ny);
-
-      Vector ref = (std::abs(dot(n, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
-      ctx.u = cross(n, ref).normalize();
-      ctx.w = cross(n, ctx.u).normalize();
-      
-      ctx.start_angle = start_angle;
-      ctx.end_angle = end_angle;
-      ctx.check_sector = (std::abs(end_angle - start_angle) < (2 * PI_F - 0.001f));
-      ctx.clip_planes = clip_planes;
-
-      float a1 = ctx.center_phi - ctx.target_angle;
-      float a2 = ctx.center_phi + ctx.target_angle;
-      float p1 = acosf(cosf(a1));
-      float p2 = acosf(cosf(a2));
-      float phi_min = std::max(0.0f, std::min(p1, p2) - thickness);
-      float phi_max = std::min(PI_F, std::max(p1, p2) + thickness);
-
-      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
-      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
-
-      for (int y = y_min; y <= y_max; y++) {
-        scan_full(pipeline, canvas, y, ctx, color_fn);
-      }
-    }
-
-  private:
-
-    static void scan_full(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
-      for (int x = 0; x < W; ++x) {
-        process_pixel(pipeline, canvas, x, y, ctx, color_fn);
-      }
-    }
-
-    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
-      const Vector& p = pixel_to_vector<W>(x, y);
-
-      for (const auto& cp : ctx.clip_planes) {
-        if (dot(p, cp) < 0) return;
-      }
-
-      float cos_angle = dot(p, ctx.normal);
-      if (cos_angle > ctx.cos_min || cos_angle < ctx.cos_max) return;
-
-      float polar_angle = acosf(cos_angle);
-      float dist = std::abs(polar_angle - ctx.target_angle);
-      if (dist < ctx.thickness) {
-        float t = 0;
-        float dot_u = dot(p, ctx.u);
-        float dot_w = dot(p, ctx.w);
-        float azimuth = atan2f(dot_w, dot_u);
-        if (azimuth < 0) azimuth += 2 * PI_F;
-        t = azimuth / (2 * PI_F);
-
-        if (ctx.check_sector) {
-          bool inside = (ctx.start_angle <= ctx.end_angle)
-            ? (azimuth >= ctx.start_angle && azimuth <= ctx.end_angle)
-            : (azimuth >= ctx.start_angle || azimuth <= ctx.end_angle);
-          if (!inside) return;
-        }
-
-        float thickness_t = dist / ctx.thickness;
-        float alpha_factor = quintic_kernel(1.0f - thickness_t);
-        if (alpha_factor <= 0.001f) return;
-
-        Color4 c = color_fn(p, t);
-        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha_factor);
-      }
-    }
-  };
-
-  struct Line {
-    static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, float thickness, ColorFn auto color_fn) {
-      Vector normal = cross(v1, v2).normalize();
-      if (dot(normal, normal) < 1e-6) return;
-      Vector c1 = cross(normal, v1);
-      Vector c2 = cross(v2, normal);
-      std::array<Vector, 2> clips = { c1, c2 };
-      Ring::draw(pipeline, canvas, normal, 1.0f, thickness, color_fn, 0, 2 * PI_F, clips);
-    }
-  };
-
-  struct Point {
-    static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
-      Ring::draw(pipeline, canvas, p, 0.0f, thickness, color_fn);
-    }
-  };
-
-  struct Polygon {
-    struct Context {
-      Vector normal;
-      float radius;
-      float thickness;
-      int sides;
-      float apothem;
-      float nx, ny, nz;
-      float R, alpha;
-      Vector u, w;
-      float pixel_width;
-      bool debug_bb;
-    };
-
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal,
-      float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false)
-    {
-      float thickness = radius * (PI_F / 2.0f);
-      if (thickness <= 0.0001f) return;
-
-      // Basis Construction
-      Basis basis = make_basis(orientation, normal);
-      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
-
-      // Backside Logic
-      if (radius > 1.0f) {
-        v = -v;
-        u = -u;
-        radius = 2.0f - radius;
-        thickness = radius * (PI_F / 2.0f);
-      }
-
-      float nx = v.i;
-      float ny = v.j;
-      float nz = v.k;
-
-      float R = sqrtf(nx * nx + nz * nz);
-      float alpha = atan2f(nx, nz);
-
-      float angle = PI_F / sides;
-      float apothem = thickness * cosf(angle);
-
-      float pixel_width = 2.0f * PI_F / W;
-
-      Context ctx;
-      ctx.normal = v;
-      ctx.radius = radius;
-      ctx.thickness = thickness;
-      ctx.sides = sides;
-      ctx.apothem = apothem;
-      ctx.nx = nx; ctx.ny = ny; ctx.nz = nz;
-      ctx.R = R; ctx.alpha = alpha;
-      ctx.u = u; ctx.w = w;
-      ctx.pixel_width = pixel_width;
-      ctx.debug_bb = debug_bb;
-      
-      // Update: Scan::Polygon needs to respect phase!
-      // But Scan::Polygon uses global scan sweep (y->phi) and then checks azimuth within the sector.
-      // The `azimuth` calculation is `atan2(dot_w, dot_u)`.
-      // The basis {u, v, w} comes from `make_basis(orientation, normal)`.
-      // If we add `phase`, we effectively rotate the polygon around the normal or shift the azimuth check.
-      // In JS, Twist rotates the polygon. Here, we can just add phase to azimuth check in process_pixel.
-      // But process_pixel is static inside struct. We need to store phase in Context.
-      // ... WAIT, context definition is separate.
-    }
-
-  private:
-    static void scan_row(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
-      float phi = y_to_phi(static_cast<float>(y));
-      float cos_phi = cosf(phi);
-      float sin_phi = sinf(phi);
-
-      if (ctx.R < 0.01f) {
-        scan_full_row(pipeline, canvas, y, ctx, color_fn);
-        return;
-      }
-
-      float ang_high = ctx.thickness;
-      float D_min = cosf(ang_high); // cos(thickness)
-
-      float denom = ctx.R * sin_phi;
-      if (std::abs(denom) < 0.000001f) {
-        scan_full_row(pipeline, canvas, y, ctx, color_fn);
-        return;
-      }
-
-      float C_min = (D_min - ctx.ny * cos_phi) / denom;
-      
-      if (C_min > 1.0f) return; // Completely outside the cap
-      if (C_min < -1.0f) {
-        scan_full_row(pipeline, canvas, y, ctx, color_fn);
-        return;
-      }
-
-      float d_alpha = acosf(C_min);
-      scan_window(pipeline, canvas, y, ctx.alpha - d_alpha, ctx.alpha + d_alpha, ctx, color_fn);
-    }
-
-    static void scan_full_row(auto& pipeline, Canvas& canvas, int y, const Context& ctx, ColorFn auto& color_fn) {
-      for (int x = 0; x < W; x++) {
-        process_pixel(pipeline, canvas, x, y, ctx, color_fn);
-      }
-    }
-
-    static void scan_window(auto& pipeline, Canvas& canvas, int y, float t1, float t2, const Context& ctx, ColorFn auto& color_fn) {
-      int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
-      int x2 = static_cast<int>(ceilf((t2 * W) / (2 * PI_F)));
-
-      if (x2 - x1 >= W) {
-        scan_full_row(pipeline, canvas, y, ctx, color_fn);
-        return;
-      }
-
-      for (int x = x1; x <= x2; x++) {
-        int wx = wrap(x, W);
-        process_pixel(pipeline, canvas, wx, y, ctx, color_fn);
-      }
-    }
-
-    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
-      const Vector& p = pixel_to_vector<W>(x, y);
-      
-      float polar_angle = angle_between(p, ctx.normal);
-      if (polar_angle > ctx.thickness + ctx.pixel_width) return;
-
-      float dot_u = dot(p, ctx.u);
-      float dot_w = dot(p, ctx.w);
-      float azimuth = atan2f(dot_w, dot_u);
-      if (azimuth < 0) azimuth += 2 * PI_F;
-
-      // SDF Logic
-      float sector_angle = 2 * PI_F / ctx.sides;
-      float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
-      float dist_to_edge = polar_angle * cosf(local_azimuth) - ctx.apothem;
-
-      if (dist_to_edge < ctx.pixel_width) {
-        float alpha = 1.0f;
-        if (dist_to_edge > -ctx.pixel_width) {
-          float t = (dist_to_edge + ctx.pixel_width) / (2.0f * ctx.pixel_width);
-          alpha = quintic_kernel(1.0f - t);
-        }
-
-        if (alpha <= 0.001f) return;
-
-        float t = polar_angle / ctx.thickness; 
-        
-        Color4 c = color_fn(p, t);
-        
-        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
-      }
-    }
-  };
-
-  struct Circle {
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
-      float thickness = radius * (PI_F / 2.0f);
-      // Ring with radius 0 and thickness = radius
-      Ring::draw(pipeline, canvas, rotate(normal, orientation), 0.0f, thickness, color_fn); 
-    }
-  };
-
-  struct Star {
-    struct Context {
-      Vector scan_normal, u, w;
-      float thickness;
-      int sides;
-      float nx, ny, plane_d; // Edge normal precalc
-      float pixel_width;
       float phase;
-      bool debug_bb;
-    };
-
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
-      Basis basis = make_basis(orientation, normal);
-      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
-
-      if (radius > 1.0f) {
-        v = -v; u = -u; radius = 2.0f - radius;
-      }
-
-      float outer_radius = radius * (PI_F / 2.0f);
-      float inner_radius = outer_radius * 0.382f;
-      float angle_step = PI_F / sides;
-
-      // Precompute Edge Normal for SDF
-      float vT = outer_radius;
-      float vVx = inner_radius * cosf(angle_step);
-      float vVy = inner_radius * sinf(angle_step);
-      float dx = vVx - vT;
-      float dy = vVy;
-      float len = sqrtf(dx*dx + dy*dy);
-      float nx = -dy / len;
-      float ny = dx / len;
-      float plane_d = -(nx * vT); 
-
-      float thickness = outer_radius;
-      if (thickness <= 0.0001f) return;
-      float pixel_width = 2.0f * PI_F / W;
-
-      Context ctx = { v, u, w, thickness, sides, nx, ny, plane_d, pixel_width, phase, debug_bb };
-
-      // Scan bounding box around normal
-      float center_phi = acosf(v.j);
-      float phi_min = std::max(0.0f, center_phi - thickness - pixel_width);
-      float phi_max = std::min(PI_F, center_phi + thickness + pixel_width);
-
-      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
-      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
-
-      for (int y = y_min; y <= y_max; y++) {
-        for (int x = 0; x < W; x++) {
-          process_pixel(pipeline, canvas, x, y, ctx, color_fn);
-        }
-      }
-    }
-
-    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
-      const Vector& p = pixel_to_vector<W>(x, y);
-      float scan_dist = angle_between(p, ctx.scan_normal);
-      if (scan_dist > ctx.thickness + ctx.pixel_width) return;
-
-      float dot_u = dot(p, ctx.u);
-      float dot_w = dot(p, ctx.w);
-      float azimuth = atan2f(dot_w, dot_u);
-      if (azimuth < 0) azimuth += 2 * PI_F;
-      azimuth += ctx.phase;
-
-      float sector_angle = 2 * PI_F / ctx.sides;
-      float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
-      local_azimuth = std::abs(local_azimuth);
-
-      float px = scan_dist * cosf(local_azimuth);
-      float py = scan_dist * sinf(local_azimuth);
-
-      // SDF distance
-      float dist_to_edge = px * ctx.nx + py * ctx.ny + ctx.plane_d;
-
-      if (dist_to_edge > -ctx.pixel_width) {
-        float alpha = 1.0f;
-        if (dist_to_edge < ctx.pixel_width) {
-          float t = (dist_to_edge + ctx.pixel_width) / (2.0f * ctx.pixel_width);
-          alpha = quintic_kernel(t);
-        }
-        if (alpha <= 0.001f) return;
-
-        float t = scan_dist / ctx.thickness;
-        Color4 c = color_fn(p, t);
-        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
-      }
-    }
-  };
-
-  struct Flower {
-    struct Context {
-      Vector scan_normal, u, w;
-      float thickness;
-      int sides;
-      float apothem;
-      float pixel_width;
-      float phase;
-      bool debug_bb;
-    };
-
-    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
-      Basis basis = make_basis(orientation, normal);
-      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
-
-      if (radius > 1.0f) {
-        v = -v; u = -u; radius = 2.0f - radius;
-      }
-
-      float desired_outer_radius = radius * (PI_F / 2.0f);
-      float apothem = PI_F - desired_outer_radius;
-      float thickness = desired_outer_radius;
       
-      if (thickness <= 0.0001f) return;
+      Vector normal, u, w;
+      float nx, ny, nz;
+      float target_angle, center_phi;
+      float cos_max, cos_min, cos_target, inv_sin_target;
 
-      // Invert normal to scan relative to antipode
-      Vector scan_v = -v;
-      float pixel_width = 2.0f * PI_F / W;
+       // Optional optimization for "Scan Full Row" check
+      float r_val;
+      float alpha_angle; // 'alpha' in JS
 
-      Context ctx = { scan_v, u, w, thickness, sides, apothem, pixel_width, phase, debug_bb };
+      Ring(const Basis& b, float r, float th, float ph = 0)
+        : basis(b), radius(r), thickness(th), phase(ph)
+      {
+         normal = basis.v;
+         u = basis.u;
+         w = basis.w;
+         nx = normal.i; ny = normal.j; nz = normal.k;
 
-      float center_phi = acosf(scan_v.j);
-      float phi_min = std::max(0.0f, center_phi - thickness - pixel_width);
-      float phi_max = std::min(PI_F, center_phi + thickness + pixel_width);
+         target_angle = radius * (PI_F / 2.0f);
+         center_phi = acosf(ny);
 
-      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
-      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
+         float ang_min = std::max(0.0f, target_angle - thickness);
+         float ang_max = std::min(PI_F, target_angle + thickness);
+         cos_max = cosf(ang_min);
+         cos_min = cosf(ang_max);
+         cos_target = cosf(target_angle);
+         
+         bool safe_approx = (target_angle > 0.05f && target_angle < PI_F - 0.05f);
+         inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
 
-      for (int y = y_min; y <= y_max; y++) {
-        for (int x = 0; x < W; x++) {
-          process_pixel(pipeline, canvas, x, y, ctx, color_fn);
-        }
+         // For getHorizontalBounds
+         r_val = sqrtf(nx*nx + nz*nz);
+         alpha_angle = atan2f(nx, nz);
       }
-    }
 
-    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
-      const Vector& p = pixel_to_vector<W>(x, y);
-      float scan_dist = angle_between(p, ctx.scan_normal);
-      if (scan_dist > ctx.thickness + ctx.pixel_width) return;
+      Bounds get_vertical_bounds() const {
+        float a1 = center_phi - target_angle;
+        float a2 = center_phi + target_angle;
+        float phi_min = 0, phi_max = PI_F;
 
-      // Distance from Antipode
-      float polar_angle = PI_F - scan_dist; 
-
-      float dot_u = dot(p, ctx.u);
-      float dot_w = dot(p, ctx.w);
-      float azimuth = atan2f(dot_w, dot_u);
-      if (azimuth < 0) azimuth += 2 * PI_F;
-      azimuth += ctx.phase;
-
-      float sector_angle = 2 * PI_F / ctx.sides;
-      float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
-
-      // SDF vs Antipodal Polygon
-      float dist_to_edge = polar_angle * cosf(local_azimuth) - ctx.apothem;
-
-      // If distToEdge > 0, we are OUTSIDE the polygon at S (forming hole at N)
-      if (dist_to_edge > -ctx.pixel_width) {
-        float alpha = 1.0f;
-        if (dist_to_edge < ctx.pixel_width) {
-          float t = (dist_to_edge + ctx.pixel_width) / (2.0f * ctx.pixel_width);
-          alpha = quintic_kernel(t);
+        if (a1 > 0) {
+           float p1 = acosf(cosf(a1));
+           float p2 = acosf(cosf(a2));
+           phi_min = std::min(p1, p2);
         }
-        if (alpha <= 0.001f) return;
+        if (a2 < PI_F) {
+           float p1 = acosf(cosf(a1));
+           float p2 = acosf(cosf(a2));
+           phi_max = std::max(p1, p2); 
+        }
 
-        float t = scan_dist / ctx.thickness;
-        Color4 c = color_fn(p, t);
-        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
+        float f_phi_min = std::max(0.0f, phi_min - thickness);
+        float f_phi_max = std::min(PI_F, phi_max + thickness);
+        
+        int y_min = std::max(0, static_cast<int>(floorf((f_phi_min * (H_VIRT - 1)) / PI_F)));
+        int y_max = std::min(H - 1, static_cast<int>(ceilf((f_phi_max * (H_VIRT - 1)) / PI_F)));
+        return { y_min, y_max };
       }
-    }
-  };
 
-  struct Field {
-    static void draw(auto& pipeline, Canvas& canvas, ColorFn auto color_fn) {
-      for (int y = 0; y < H; y++) {
-        for (int x = 0; x < W; x++) {
-          Vector p = pixel_to_vector<W>(x, y);
-          Color4 c = color_fn(p, 0.0f);
-          if (c.alpha > 0.001f) {
-            pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha);
+      // Output iterator or callback for intervals? Using a fixed size callback/vector might be complex.
+      // Let's return a small static vector or use a callback. 
+      // JS returns array of objects. C++: we'll use a callback or `std::vector` (alloc). 
+      // Since this is for rasterization optimization, let's use a callback concept or simple optional check.
+      // For this port, let's use a `std::vector` or similar. To avoid allocs, maybe pass a buffer.
+      // JS logic: addWindow pushes to `intervals`.
+      template<typename OutputIt>
+      bool get_horizontal_intervals(int y, OutputIt out) const {
+        float phi = y_to_phi(static_cast<float>(y));
+        float cos_phi = cosf(phi);
+        float sin_phi = sinf(phi);
+
+        if (r_val < 0.01f) return false; 
+        
+        float denom = r_val * sin_phi;
+        if (std::abs(denom) < 0.000001f) return false; 
+
+        float C_min = (cos_min - ny * cos_phi) / denom;
+        float C_max = (cos_max - ny * cos_phi) / denom;
+        float min_cos = std::max(-1.0f, C_min);
+        float max_cos = std::min(1.0f, C_max);
+
+        if (min_cos > max_cos) return true; // Empty row
+
+        float angle_min = acosf(max_cos);
+        float angle_max = acosf(min_cos);
+
+        // Windows: [alpha - angle_max, alpha - angle_min] and [alpha + angle_min, alpha + angle_max]
+        out(alpha_angle - angle_max, alpha_angle - angle_min);
+        out(alpha_angle + angle_min, alpha_angle + angle_max);
+        
+        return true;
+      }
+      
+      // Let's implement distance.
+      DistanceResult distance(const Vector& p) const {
+         float d = dot(p, normal);
+         if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f };
+         
+         float dist = 0;
+         if (inv_sin_target != 0) {
+            dist = std::abs(d - cos_target) * inv_sin_target;
+         } else {
+            float polar = acosf(std::max(-1.0f, std::min(1.0f, d)));
+            dist = std::abs(polar - target_angle);
+         }
+
+         float dot_u = dot(p, u);
+         float dot_w = dot(p, w);
+         float azimuth = atan2f(dot_w, dot_u);
+         if (azimuth < 0) azimuth += 2 * PI_F;
+         azimuth += phase;
+         float t = azimuth / (2 * PI_F);
+         
+         return { dist - thickness, t, dist };
+      }
+    };
+
+    struct DistortedRing {
+       const Basis& basis;
+       float radius;
+       float thickness;
+       std::function<float(float)> shift_fn;
+       float max_distortion;
+       float phase;
+       
+       Vector normal, u, w;
+       float nx, ny, nz;
+       float target_angle, center_phi;
+       float max_thickness;
+
+       DistortedRing(const Basis& b, float r, float th, std::function<float(float)> sf, float md, float ph)
+         : basis(b), radius(r), thickness(th), shift_fn(sf), max_distortion(md), phase(ph)
+       {
+          normal = basis.v; u = basis.u; w = basis.w;
+          nx = normal.i; ny = normal.j; nz = normal.k;
+          target_angle = radius * (PI_F / 2.0f);
+          center_phi = acosf(ny);
+          max_thickness = thickness + max_distortion;
+       }
+
+       Bounds get_vertical_bounds() const {
+          // Similar logic to Ring but with max_thickness
+          float a1 = center_phi - target_angle;
+          float a2 = center_phi + target_angle;
+          float phi_min = 0, phi_max = PI_F;
+          
+          if (a1 > 0) {
+               float p1 = acosf(cosf(a1));
+               float p2 = acosf(cosf(a2));
+               phi_min = std::min(p1, p2);
           }
-        }
+           if (a2 < PI_F) {
+               float p1 = acosf(cosf(a1));
+               float p2 = acosf(cosf(a2));
+               phi_max = std::max(p1, p2);
+           }
+
+          float margin = max_thickness + 0.1f;
+          float f_phi_min = std::max(0.0f, phi_min - margin);
+          float f_phi_max = std::min(PI_F, phi_max + margin);
+
+          int y_min = std::max(0, static_cast<int>(floorf((f_phi_min * (H_VIRT - 1)) / PI_F)));
+          int y_max = std::min(H - 1, static_cast<int>(ceilf((f_phi_max * (H_VIRT - 1)) / PI_F)));
+           return { y_min, y_max };
+       }
+
+       template<typename OutputIt>
+       bool get_horizontal_intervals(int y, OutputIt out) const { return false; }
+
+      DistanceResult distance(const Vector& p) const {
+         float polar = angle_between(p, normal);
+         float dot_u = dot(p, u);
+         float dot_w = dot(p, w);
+         float azimuth = atan2f(dot_w, dot_u);
+         if (azimuth < 0) azimuth += 2 * PI_F;
+         
+         float t_val = azimuth + phase;
+         float norm_t = t_val / (2 * PI_F);
+         
+         float shift = shift_fn(norm_t);
+         float local_target = target_angle + shift;
+         float dist = std::abs(polar - local_target);
+         
+         return { dist - thickness, azimuth / (2 * PI_F), dist };
       }
-    }
+    };
+    
+    struct Polygon {
+       const Basis& basis;
+       float thickness;
+       int sides;
+       float phase;
+       float apothem;
+       float nx, ny, nz, R_val, alpha_angle;
+       int y_min, y_max;
+       
+       Polygon(const Basis& b, float r, float th, int s, float ph)
+         : basis(b), thickness(th), sides(s), phase(ph)
+       {
+          apothem = thickness * cosf(PI_F / sides);
+          nx = basis.v.i; ny = basis.v.j; nz = basis.v.k;
+          R_val = sqrtf(nx*nx + nz*nz);
+          alpha_angle = atan2f(nx, nz);
+          
+          float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
+          float margin = thickness + 0.1f;
+          y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
+          y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
+       }
+       
+       Bounds get_vertical_bounds() const { return { y_min, y_max }; }
+       
+       template<typename OutputIt>
+       bool get_horizontal_intervals(int y, OutputIt out) const {
+           float phi = y_to_phi(static_cast<float>(y));
+           float cos_phi = cosf(phi);
+           float sin_phi = sinf(phi);
+
+           if (R_val < 0.01f) return false;
+
+           float ang_high = thickness;
+           float D_min = cosf(ang_high); 
+
+           float denom = R_val * sin_phi;
+           if (std::abs(denom) < 0.000001f) return false;
+
+           float C_min = (D_min - ny * cos_phi) / denom;
+           
+           if (C_min > 1.0f) return true; // Completely outside the cap
+           if (C_min < -1.0f) return false; // Full scan fallback (simplification)
+
+           float d_alpha = acosf(C_min);
+           out(alpha_angle - d_alpha, alpha_angle + d_alpha);
+           return true;
+       }
+       
+       DistanceResult distance(const Vector& p) const {
+          float polar = angle_between(p, basis.v);
+          float dot_u = dot(p, basis.u);
+          float dot_w = dot(p, basis.w);
+          float azimuth = atan2f(dot_w, dot_u);
+          if (azimuth < 0) azimuth += 2 * PI_F;
+          azimuth += phase;
+          
+          float sector = 2 * PI_F / sides;
+          float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+          
+          float dist_edge = polar * cosf(local) - apothem;
+          return { dist_edge, polar / thickness, polar };
+       }
+    };
+    
+    struct Star {
+       const Basis& basis;
+       int sides;
+       float phase;
+       float thickness;
+       float nx, ny, plane_d;
+       float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha;
+       int y_min, y_max;
+       
+       Star(const Basis& b, float radius, int s, float ph)
+         : basis(b), sides(s), phase(ph)
+       {
+         float outer = radius * (PI_F / 2.0f);
+         float inner = outer * 0.382f;
+         float angle_step = PI_F / sides;
+         
+         float vT = outer;
+         float vVx = inner * cosf(angle_step);
+         float vVy = inner * sinf(angle_step);
+         float dx = vVx - vT;
+         float dy = vVy;
+         float len = sqrtf(dx*dx + dy*dy);
+         nx = -dy / len;
+         ny = dx / len;
+         plane_d = -(nx * vT);
+         thickness = outer;
+         
+         scan_nx = basis.v.i; scan_ny = basis.v.j; scan_nz = basis.v.k;
+         scan_R = sqrtf(scan_nx*scan_nx + scan_nz*scan_nz);
+         scan_alpha = atan2f(scan_nx, scan_nz);
+         
+         float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
+         float margin = outer + 0.1f;
+         y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
+         y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
+       }
+       
+       Bounds get_vertical_bounds() const { return { y_min, y_max }; }
+
+       template<typename OutputIt>
+       bool get_horizontal_intervals(int y, OutputIt out) const { return false; }
+       
+       DistanceResult distance(const Vector& p) const {
+          float polar = angle_between(p, basis.v);
+          float dot_u = dot(p, basis.u);
+          float dot_w = dot(p, basis.w);
+          float azimuth = atan2f(dot_w, dot_u);
+          if (azimuth < 0) azimuth += 2 * PI_F;
+          azimuth += phase;
+          
+          float sector = 2 * PI_F / sides;
+          float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+          local = std::abs(local);
+          
+          float px = polar * cosf(local);
+          float py = polar * sinf(local);
+          float dist_edge = px * nx + py * ny + plane_d;
+          
+          return { -dist_edge, polar / thickness, polar };
+       }
+    };
+    
+    struct Flower {
+       const Basis& basis;
+       int sides;
+       float phase;
+       float thickness;
+       float apothem;
+       Vector antipode;
+       int y_min, y_max;
+       
+       Flower(const Basis& b, float radius, int s, float ph)
+         : basis(b), sides(s), phase(ph)
+       {
+          float outer = radius * (PI_F / 2.0f);
+          apothem = PI_F - outer;
+          thickness = outer;
+          antipode = -basis.v;
+          
+          float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.j)));
+          float margin = thickness + 0.1f;
+          y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
+          y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
+       }
+       
+       Bounds get_vertical_bounds() const { return { y_min, y_max }; }
+
+       template<typename OutputIt>
+       bool get_horizontal_intervals(int y, OutputIt out) const { return false; }
+       
+       DistanceResult distance(const Vector& p) const {
+          float scan_dist = angle_between(p, antipode);
+          float polar = PI_F - scan_dist;
+          
+          float dot_u = dot(p, basis.u);
+          float dot_w = dot(p, basis.w);
+          float azimuth = atan2f(dot_w, dot_u);
+          if (azimuth < 0) azimuth += 2 * PI_F;
+          azimuth += phase;
+          
+          float sector = 2 * PI_F / sides;
+          float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+          
+          float dist_edge = polar * cosf(local) - apothem;
+          return { -dist_edge, scan_dist / thickness, scan_dist };
+       }
+    };
   };
 
-};
+  /**
+   * @brief The Scan struct contains volumetric (raster) drawing primitives.
+   */
+  template <int W>
+  struct Scan {
+    
+    static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, ColorFn auto color_fn, bool debug_bb = false) {
+       auto bounds = shape.get_vertical_bounds();
+       
+       for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
+          bool handled = shape.get_horizontal_intervals(y, [&](float t1, float t2) {
+             // Convert angle interval to pixel interval and scan
+             int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
+             int x2 = static_cast<int>(ceilf((t2 * W) / (2 * PI_F)));
+             
+             for (int x = x1; x <= x2; ++x) {
+                int wx = wrap(x, W);
+                process_pixel(wx, y, pipeline, canvas, shape, color_fn, debug_bb);
+             }
+          });
+          
+          if (!handled) {
+             for (int x = 0; x < W; ++x) {
+                process_pixel(x, y, pipeline, canvas, shape, color_fn, debug_bb);
+             }
+          }
+       }
+    }
+    
+    static void process_pixel(int x, int y, auto& pipeline, Canvas& canvas, const auto& shape, ColorFn auto color_fn, bool debug_bb) {
+       // Wrap handled by pixel_to_vector implicitly if x is out of bounds? No, usually x must be in range.
+       // The generic scan loop passes 0..W-1.
+       const Vector& p = pixel_to_vector<W>(x, y);
+       
+       auto result = shape.distance(p);
+       float d = result.dist;
+       
+       float pixel_width = 2.0f * PI_F / W;
+       float threshold = pixel_width;
+       
+       if (d < threshold) {
+          float t_aa = 0.5f - d / (2.0f * pixel_width);
+          float alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+          
+          if (alpha <= 0.001f) return;
+          
+          auto c = color_fn(p, result.t); 
+          // color_fn in C++ typically returns Color4 directly (or Pixel)
+          // Adjust logic to handle 3-arg color_fn if needed? 
+          // Existing code uses 2 args (p, t). JS uses (p, t, rawDist).
+          // We'll stick to 2 args for compatibility or wrapper.
+          
+          if constexpr (std::is_same_v<std::decay_t<decltype(c)>, Pixel>) {
+              pipeline.plot(canvas, x, y, c.color, 0.0f, alpha); // Pixel doesn't have alpha usually?
+          } else {
+             pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
+          }
+       }
+    }
+
+    struct DistortedRing {
+      static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, 
+                       std::function<float(float)> shift_fn, float amplitude, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) 
+      {
+        SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude, phase);
+        Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+      }
+    };
+
+    struct Point {
+       static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
+          // JS Scan.Point uses Scan.Ring with radius 0
+          Basis basis = make_basis(Quaternion(), p);
+          Ring::draw(pipeline, canvas, basis, 0.0f, thickness, color_fn);
+       }
+    };
+    
+
+
+    struct Polygon {
+       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+         Basis eff_basis = basis;
+         float effective_radius = radius;
+         if (radius > 1.0f) {
+            eff_basis.v = -eff_basis.v;
+            eff_basis.u = -eff_basis.u;
+            effective_radius = 2.0f - radius;
+         }
+         float thickness = effective_radius * (PI_F / 2.0f);
+         
+         SDF::Polygon shape(eff_basis, effective_radius, thickness, sides, phase);
+         Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+       }
+    };
+
+    struct Star {
+       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+         Basis eff_basis = basis;
+         float effective_radius = radius;
+         if (radius > 1.0f) {
+            eff_basis.v = -eff_basis.v;
+            eff_basis.u = -eff_basis.u;
+            effective_radius = 2.0f - radius;
+         }
+         SDF::Star shape(eff_basis, effective_radius, sides, phase);
+         Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+       }
+    };
+
+    struct Flower {
+       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+         Basis eff_basis = basis;
+         float effective_radius = radius;
+         if (radius > 1.0f) {
+            eff_basis.v = -eff_basis.v;
+            eff_basis.u = -eff_basis.u;
+            effective_radius = 2.0f - radius;
+         }
+         SDF::Flower shape(eff_basis, effective_radius, sides, phase);
+         Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+       }
+    };
+
+    struct Ring {
+       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+          Basis eff_basis = basis;
+          float effective_radius = radius;
+          if (radius > 1.0f) {
+             eff_basis.v = -eff_basis.v; 
+             effective_radius = 2.0f - radius;
+          }
+          SDF::Ring shape(eff_basis, effective_radius, thickness, phase);
+          Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+       }
+         // Overload for Vector normal inputs (legacy support helper)
+       static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+          Basis basis = make_basis(Quaternion(), normal);
+          draw(pipeline, canvas, basis, radius, thickness, color_fn, phase, debug_bb);
+       }
+    };
+    
+    struct Field {
+        static void draw(auto& pipeline, Canvas& canvas, ColorFn auto color_fn) {
+            for (int y = 0; y < H; ++y) {
+               for (int x = 0; x < W; ++x) {
+                  Vector p = pixel_to_vector<W>(x, y);
+                  auto c = color_fn(p, 0.0f);
+                  if constexpr (std::is_same_v<std::decay_t<decltype(c)>, Pixel>) {
+                      pipeline.plot(canvas, x, y, c.color, 0.0f, 1.0f);
+                  } else {
+                      if (c.alpha > 0.001f) {
+                          pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha);
+                      }
+                  }
+               }
+            }
+        }
+    };
+  };
