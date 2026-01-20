@@ -28,7 +28,7 @@ public:
     persist_pixels = false;
 
     timeline
-      .add(0, Rotation<W>(orientation, Y_AXIS, PI_F / 4.0f, 160, ease_mid, true))
+      .add(0, Rotation<W>(orientation, UP, PI_F / 4.0f, 160, ease_mid, true))
       .add(0, Mutation(twist_factor, sin_wave(2.0f, 2.5f, 1.0f, 0.0f), 160, ease_mid, true));
   }
 
