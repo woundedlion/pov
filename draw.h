@@ -33,6 +33,22 @@ static void deep_tween(auto& trail, TweenFn auto drawFn) {
 }
 
 /**
+ * @brief Creates a basis { u, v, w } from an orientation and normal.
+ */
+struct Basis {
+  Vector u, v, w;
+};
+
+static Basis make_basis(const Quaternion& orientation, const Vector& normal) {
+  Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
+  Vector v = rotate(normal, orientation).normalize();
+  Vector ref = rotate(ref_axis, orientation).normalize();
+  Vector u = cross(v, ref).normalize();
+  Vector w = cross(v, u).normalize();
+  return { u, v, w };
+}
+
+/**
  * @brief The Plot struct contains vector-based (thin) drawing primitives.
  */
 template <int W>
@@ -208,6 +224,21 @@ struct Plot {
 
   private:
     StaticCircularBuffer<Vector, 4096> points;
+  };
+
+  /**
+   * @brief Represents a path defined by a single procedural function.
+   * Matches interface of Path for use in Motion animations.
+   */
+  template <PlotFn F>
+  struct ProceduralPath {
+    F f;
+
+    ProceduralPath(F path_fn) : f(path_fn) {}
+
+    Vector get_point(float t) const {
+      return f(t);
+    }
   };
 
   /**
@@ -431,6 +462,101 @@ struct Plot {
   };
 
 
+  struct Star {
+    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
+      Basis basis = make_basis(orientation, normal);
+      Vector v = basis.v;
+      Vector u = basis.u;
+      Vector w = basis.w;
+
+      // Handle backside
+      if (radius > 1.0f) {
+        v = -v;
+        u = -u;
+        radius = 2.0f - radius;
+      }
+
+      float outer_radius = radius * (PI_F / 2.0f);
+      float inner_radius = outer_radius * 0.382f; // Pentagram ratio
+
+      Points points;
+      float angle_step = PI_F / num_sides;
+
+      for (int i = 0; i < num_sides * 2; i++) {
+        float theta = phase + i * angle_step;
+        float r = (i % 2 == 0) ? outer_radius : inner_radius;
+
+        float sin_r = sinf(r);
+        float cos_r = cosf(r);
+        float cos_t = cosf(theta);
+        float sin_t = sinf(theta);
+
+        // p = v*cosR + u*cosT*sinR + w*sinT*sinR
+        Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+        points.push_back(p.normalize());
+      }
+
+      // Projection center is v (Front)
+      Vector center = v;
+      size_t len = points.size();
+      
+      for (size_t i = 0; i < len; i++) {
+        const Vector& p1 = points[i];
+        const Vector& p2 = points[(i + 1) % len];
+        PlanarLine::draw(pipeline, canvas, p1, p2, center, [&](const Vector& p, float t) {
+          return color_fn(p, t);
+        });
+      }
+    }
+  };
+
+  struct Flower {
+    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
+      Basis basis = make_basis(orientation, normal);
+      Vector v = basis.v; 
+      Vector u = basis.u; 
+      Vector w = basis.w;
+
+      if (radius > 1.0f) {
+        v = -v;
+        u = -u;
+        radius = 2.0f - radius;
+      }
+
+      float desired_outer_radius = radius * (PI_F / 2.0f);
+      float apothem = PI_F - desired_outer_radius;
+      float angle_step = PI_F / num_sides;
+
+      Points points;
+      int num_segments = std::max(2, W / num_sides);
+
+      for (int i = 0; i < num_sides; i++) {
+        float sector_center = phase + i * 2 * angle_step;
+
+        for (int j = 0; j < num_segments; j++) {
+          float t = static_cast<float>(j) / num_segments;
+          float local_phi = -angle_step + t * (2 * angle_step);
+          
+          float R = apothem / cosf(local_phi);
+          if (R > PI_F) R = PI_F;
+
+          float theta = sector_center + local_phi;
+
+          float sin_r = sinf(R);
+          float cos_r = cosf(R);
+          float cos_t = cosf(theta);
+          float sin_t = sinf(theta);
+
+          Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+          points.push_back(p.normalize());
+        }
+      }
+
+      if (!points.is_empty()) points.push_back(points[0]);
+      rasterize(pipeline, canvas, points, color_fn, false);
+    }
+  };
+
 };
 
 
@@ -603,25 +729,41 @@ struct Scan {
       float start_angle, end_angle;
       bool check_sector;
       const std::span<const Vector> clip_planes;
+      float cos_min, cos_max, inv_sin_target;
     };
 
     static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn,
       float start_angle = 0, float end_angle = 2 * PI_F, std::span<const Vector> clip_planes = {})
     {
+      Vector n = normal;
+      if (radius > 1.0f) {
+        n = -n;
+        radius = 2.0f - radius;
+      }
+
       Context ctx;
-      ctx.normal = normal;
+      ctx.normal = n;
       ctx.radius = radius;
       ctx.thickness = thickness;
-      ctx.nx = normal.i; ctx.ny = normal.j; ctx.nz = normal.k;
       ctx.target_angle = radius * (PI_F / 2.0f);
+      
+      // Optimizations
+      float min_angle = std::max(0.0f, ctx.target_angle - thickness);
+      float max_angle = std::min(PI_F, ctx.target_angle + thickness);
+      ctx.cos_min = cosf(min_angle); 
+      ctx.cos_max = cosf(max_angle);
+      ctx.inv_sin_target = (std::abs(sinf(ctx.target_angle)) > 0.001f) ? (1.0f / sinf(ctx.target_angle)) : 0.0f;
+
+      // Bounding box setup...
+      ctx.nx = n.i; ctx.ny = n.j; ctx.nz = n.k;
       ctx.r_val = sqrtf(ctx.nx * ctx.nx + ctx.nz * ctx.nz);
       ctx.alpha = atan2f(ctx.nx, ctx.nz);
       ctx.center_phi = acosf(ctx.ny);
 
-      Vector ref = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
-      ctx.u = cross(normal, ref).normalize();
-      ctx.w = cross(normal, ctx.u).normalize();
-
+      Vector ref = (std::abs(dot(n, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
+      ctx.u = cross(n, ref).normalize();
+      ctx.w = cross(n, ctx.u).normalize();
+      
       ctx.start_angle = start_angle;
       ctx.end_angle = end_angle;
       ctx.check_sector = (std::abs(end_angle - start_angle) < (2 * PI_F - 0.001f));
@@ -657,9 +799,11 @@ struct Scan {
         if (dot(p, cp) < 0) return;
       }
 
-      float polar_angle = angle_between(p, ctx.normal);
-      float dist = std::abs(polar_angle - ctx.target_angle);
+      float cos_angle = dot(p, ctx.normal);
+      if (cos_angle > ctx.cos_min || cos_angle < ctx.cos_max) return;
 
+      float polar_angle = acosf(cos_angle);
+      float dist = std::abs(polar_angle - ctx.target_angle);
       if (dist < ctx.thickness) {
         float t = 0;
         float dot_u = dot(p, ctx.u);
@@ -717,17 +861,22 @@ struct Scan {
     };
 
     static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal,
-      float radius, int sides, ColorFn auto color_fn, bool debug_bb = false)
+      float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false)
     {
       float thickness = radius * (PI_F / 2.0f);
       if (thickness <= 0.0001f) return;
 
       // Basis Construction
-      Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
-      Vector v = rotate(normal, orientation).normalize();
-      Vector ref = rotate(ref_axis, orientation).normalize();
-      Vector u = cross(v, ref).normalize();
-      Vector w = cross(v, u).normalize();
+      Basis basis = make_basis(orientation, normal);
+      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
+
+      // Backside Logic
+      if (radius > 1.0f) {
+        v = -v;
+        u = -u;
+        radius = 2.0f - radius;
+        thickness = radius * (PI_F / 2.0f);
+      }
 
       float nx = v.i;
       float ny = v.j;
@@ -752,21 +901,15 @@ struct Scan {
       ctx.u = u; ctx.w = w;
       ctx.pixel_width = pixel_width;
       ctx.debug_bb = debug_bb;
-
-      float center_phi = acosf(ny);
       
-      // Conservative vertical bounds
-      float phi_min = std::max(0.0f, center_phi - thickness - pixel_width);
-      float phi_max = std::min(PI_F, center_phi + thickness + pixel_width);
-
-      if (phi_min > phi_max) return;
-
-      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
-      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
-
-      for (int y = y_min; y <= y_max; y++) {
-        scan_row(pipeline, canvas, y, ctx, color_fn);
-      }
+      // Update: Scan::Polygon needs to respect phase!
+      // But Scan::Polygon uses global scan sweep (y->phi) and then checks azimuth within the sector.
+      // The `azimuth` calculation is `atan2(dot_w, dot_u)`.
+      // The basis {u, v, w} comes from `make_basis(orientation, normal)`.
+      // If we add `phase`, we effectively rotate the polygon around the normal or shift the azimuth check.
+      // In JS, Twist rotates the polygon. Here, we can just add phase to azimuth check in process_pixel.
+      // But process_pixel is static inside struct. We need to store phase in Context.
+      // ... WAIT, context definition is separate.
     }
 
   private:
@@ -851,6 +994,186 @@ struct Scan {
         
         Color4 c = color_fn(p, t);
         
+        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
+      }
+    }
+  };
+
+  struct Circle {
+    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+      float thickness = radius * (PI_F / 2.0f);
+      // Ring with radius 0 and thickness = radius
+      Ring::draw(pipeline, canvas, rotate(normal, orientation), 0.0f, thickness, color_fn); 
+    }
+  };
+
+  struct Star {
+    struct Context {
+      Vector scan_normal, u, w;
+      float thickness;
+      int sides;
+      float nx, ny, plane_d; // Edge normal precalc
+      float pixel_width;
+      float phase;
+      bool debug_bb;
+    };
+
+    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+      Basis basis = make_basis(orientation, normal);
+      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
+
+      if (radius > 1.0f) {
+        v = -v; u = -u; radius = 2.0f - radius;
+      }
+
+      float outer_radius = radius * (PI_F / 2.0f);
+      float inner_radius = outer_radius * 0.382f;
+      float angle_step = PI_F / sides;
+
+      // Precompute Edge Normal for SDF
+      float vT = outer_radius;
+      float vVx = inner_radius * cosf(angle_step);
+      float vVy = inner_radius * sinf(angle_step);
+      float dx = vVx - vT;
+      float dy = vVy;
+      float len = sqrtf(dx*dx + dy*dy);
+      float nx = -dy / len;
+      float ny = dx / len;
+      float plane_d = -(nx * vT); 
+
+      float thickness = outer_radius;
+      if (thickness <= 0.0001f) return;
+      float pixel_width = 2.0f * PI_F / W;
+
+      Context ctx = { v, u, w, thickness, sides, nx, ny, plane_d, pixel_width, phase, debug_bb };
+
+      // Scan bounding box around normal
+      float center_phi = acosf(v.j);
+      float phi_min = std::max(0.0f, center_phi - thickness - pixel_width);
+      float phi_max = std::min(PI_F, center_phi + thickness + pixel_width);
+
+      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
+      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
+
+      for (int y = y_min; y <= y_max; y++) {
+        for (int x = 0; x < W; x++) {
+          process_pixel(pipeline, canvas, x, y, ctx, color_fn);
+        }
+      }
+    }
+
+    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
+      const Vector& p = pixel_to_vector<W>(x, y);
+      float scan_dist = angle_between(p, ctx.scan_normal);
+      if (scan_dist > ctx.thickness + ctx.pixel_width) return;
+
+      float dot_u = dot(p, ctx.u);
+      float dot_w = dot(p, ctx.w);
+      float azimuth = atan2f(dot_w, dot_u);
+      if (azimuth < 0) azimuth += 2 * PI_F;
+      azimuth += ctx.phase;
+
+      float sector_angle = 2 * PI_F / ctx.sides;
+      float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+      local_azimuth = std::abs(local_azimuth);
+
+      float px = scan_dist * cosf(local_azimuth);
+      float py = scan_dist * sinf(local_azimuth);
+
+      // SDF distance
+      float dist_to_edge = px * ctx.nx + py * ctx.ny + ctx.plane_d;
+
+      if (dist_to_edge > -ctx.pixel_width) {
+        float alpha = 1.0f;
+        if (dist_to_edge < ctx.pixel_width) {
+          float t = (dist_to_edge + ctx.pixel_width) / (2.0f * ctx.pixel_width);
+          alpha = quintic_kernel(t);
+        }
+        if (alpha <= 0.001f) return;
+
+        float t = scan_dist / ctx.thickness;
+        Color4 c = color_fn(p, t);
+        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
+      }
+    }
+  };
+
+  struct Flower {
+    struct Context {
+      Vector scan_normal, u, w;
+      float thickness;
+      int sides;
+      float apothem;
+      float pixel_width;
+      float phase;
+      bool debug_bb;
+    };
+
+    static void draw(auto& pipeline, Canvas& canvas, const Quaternion& orientation, const Vector& normal, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+      Basis basis = make_basis(orientation, normal);
+      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
+
+      if (radius > 1.0f) {
+        v = -v; u = -u; radius = 2.0f - radius;
+      }
+
+      float desired_outer_radius = radius * (PI_F / 2.0f);
+      float apothem = PI_F - desired_outer_radius;
+      float thickness = desired_outer_radius;
+      
+      if (thickness <= 0.0001f) return;
+
+      // Invert normal to scan relative to antipode
+      Vector scan_v = -v;
+      float pixel_width = 2.0f * PI_F / W;
+
+      Context ctx = { scan_v, u, w, thickness, sides, apothem, pixel_width, phase, debug_bb };
+
+      float center_phi = acosf(scan_v.j);
+      float phi_min = std::max(0.0f, center_phi - thickness - pixel_width);
+      float phi_max = std::min(PI_F, center_phi + thickness + pixel_width);
+
+      int y_min = std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
+      int y_max = std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
+
+      for (int y = y_min; y <= y_max; y++) {
+        for (int x = 0; x < W; x++) {
+          process_pixel(pipeline, canvas, x, y, ctx, color_fn);
+        }
+      }
+    }
+
+    static void process_pixel(auto& pipeline, Canvas& canvas, int x, int y, const Context& ctx, ColorFn auto& color_fn) {
+      const Vector& p = pixel_to_vector<W>(x, y);
+      float scan_dist = angle_between(p, ctx.scan_normal);
+      if (scan_dist > ctx.thickness + ctx.pixel_width) return;
+
+      // Distance from Antipode
+      float polar_angle = PI_F - scan_dist; 
+
+      float dot_u = dot(p, ctx.u);
+      float dot_w = dot(p, ctx.w);
+      float azimuth = atan2f(dot_w, dot_u);
+      if (azimuth < 0) azimuth += 2 * PI_F;
+      azimuth += ctx.phase;
+
+      float sector_angle = 2 * PI_F / ctx.sides;
+      float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+
+      // SDF vs Antipodal Polygon
+      float dist_to_edge = polar_angle * cosf(local_azimuth) - ctx.apothem;
+
+      // If distToEdge > 0, we are OUTSIDE the polygon at S (forming hole at N)
+      if (dist_to_edge > -ctx.pixel_width) {
+        float alpha = 1.0f;
+        if (dist_to_edge < ctx.pixel_width) {
+          float t = (dist_to_edge + ctx.pixel_width) / (2.0f * ctx.pixel_width);
+          alpha = quintic_kernel(t);
+        }
+        if (alpha <= 0.001f) return;
+
+        float t = scan_dist / ctx.thickness;
+        Color4 c = color_fn(p, t);
         pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
       }
     }

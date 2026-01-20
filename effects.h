@@ -16,6 +16,4 @@
 #include "effects/BZReactionDiffusion.h"
 #include "effects/PetalFlow.h"
 #include "effects/Test.h"
-#include "effects/TestScanPolygon.h"
-#include "effects/TestPlotPolygon.h"
-
+#include "effects/TestShapes.h"
