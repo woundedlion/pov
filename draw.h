@@ -14,9 +14,13 @@
 #include <concepts>
 #include "filter.h"
 
-// Forward declaration to resolve circular dependency
 float quintic_kernel(float t);
 
+/**
+ * @brief Interpolates between frames in a history buffer.
+ * @param history The history buffer (Tweenable).
+ * @param draw_fn Function to draw the state: `void f(const T& item, float t)`.
+ */
 static void tween(Tweenable auto& history, auto draw_fn) {
   size_t s = history.length();
   size_t start = (s > 1) ? 1 : 0;
@@ -25,6 +29,11 @@ static void tween(Tweenable auto& history, auto draw_fn) {
   }
 }
 
+/**
+ * @brief Interpolates recursively through a trail of history buffers (e.g., Motion Trails).
+ * @param trail The trail of history buffers.
+ * @param drawFn Function to draw the item: `void f(const T& item, float t)`.
+ */
 static void deep_tween(auto& trail, TweenFn auto drawFn) {
   float dt = (trail.length() > 0) ? (1.0f / static_cast<float>(trail.length())) : 0.0f;
   tween(trail, [&](const auto& frame, float t) {
@@ -42,6 +51,12 @@ struct Basis {
   Vector u, v, w;
 };
 
+/**
+ * @brief Creates a basis { u, v, w } from an orientation and normal.
+ * @param orientation The orientation quaternion.
+ * @param normal The normal vector (approximate 'v' axis).
+ * @return The constructed Basis.
+ */
 static Basis make_basis(const Quaternion& orientation, const Vector& normal) {
   Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
   Vector v = rotate(normal, orientation).normalize();
@@ -578,7 +593,7 @@ struct Plot {
 
        // Optional optimization for "Scan Full Row" check
       float r_val;
-      float alpha_angle; // 'alpha' in JS
+      float alpha_angle; /**< The azimuth angle of the normal vector in the XZ plane. */
 
       Ring(const Basis& b, float r, float th, float ph = 0)
         : basis(b), radius(r), thickness(th), phase(ph)
@@ -629,12 +644,12 @@ struct Plot {
         return { y_min, y_max };
       }
 
-      // Output iterator or callback for intervals? Using a fixed size callback/vector might be complex.
-      // Let's return a small static vector or use a callback. 
-      // JS returns array of objects. C++: we'll use a callback or `std::vector` (alloc). 
-      // Since this is for rasterization optimization, let's use a callback concept or simple optional check.
-      // For this port, let's use a `std::vector` or similar. To avoid allocs, maybe pass a buffer.
-      // JS logic: addWindow pushes to `intervals`.
+      /**
+       * @brief Computes the horizontal scanline intervals for this shape at a given y-coordinate.
+       * @param y The vertical pixel coordinate.
+       * @param out Output iterator or callback accepting (float start, float end).
+       * @return True if intervals were found and reported.
+       */
       template<typename OutputIt>
       bool get_horizontal_intervals(int y, OutputIt out) const {
         float phi = y_to_phi(static_cast<float>(y));
@@ -736,6 +751,10 @@ struct Plot {
            return { y_min, y_max };
        }
 
+       /**
+        * @brief Computes Horizontal intervals.
+        * @details Not implemented for DistortedRing (returns false to force full scan).
+        */
        template<typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const { return false; }
 
