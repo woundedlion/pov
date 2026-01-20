@@ -26,6 +26,10 @@ static constexpr Vector Y_AXIS(0, 1, 0);
  * @brief Unit vector along the Cartesian Z-axis.
  */
 static constexpr Vector Z_AXIS(0, 0, 1);
+/**
+ * @brief Unit vector along the Cartesian Z-axis.
+ */
+static constexpr Vector UP = Z_AXIS;
 
 /**
  * @brief Structure representing 2D floating-point pixel coordinates.

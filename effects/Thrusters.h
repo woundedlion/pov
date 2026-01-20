@@ -138,8 +138,8 @@ private:
     Plot<W>::DistortedRing::draw(filters, c, basis, radius,
       [this](float t) { return ring_fn(t); }, // Shift function
       [this](const Vector& v, float t) { // Color function
-        Vector z_axis = orientation.orient(X_AXIS);
-        float angle = angle_between(z_axis, orientation.orient(v));
+        Vector axis = orientation.orient(X_AXIS);
+        float angle = angle_between(axis, orientation.orient(v));
         return palette.get(angle / PI_F);
       }
     );
