@@ -5,6 +5,8 @@
 #pragma once
 
 #include <array>
+#include <vector>
+#include <algorithm>
 #include "../color.h"
 #include "../geometry.h"
 
@@ -86,25 +88,63 @@ private:
       );
     }
 
-    // Build Neighbors (Brute force K-NN)
+    // Build Neighbors using Spatial Hashing (Grid Optimization)
+    static constexpr int GRID_SIZE = 20;
+    static constexpr float CELL_SIZE = 2.0f / GRID_SIZE; // Domain [-1, 1], size 2.0
+    
+    // Temporary grid structure
+    std::vector<std::vector<int>> grid(GRID_SIZE * GRID_SIZE * GRID_SIZE);
+
+    auto get_grid_idx = [&](const Vector& p) {
+      int gx = std::clamp(static_cast<int>((p.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gy = std::clamp(static_cast<int>((p.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gz = std::clamp(static_cast<int>((p.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      return gx + gy * GRID_SIZE + gz * GRID_SIZE * GRID_SIZE;
+    };
+
+    // Bin points
+    for (int i = 0; i < RD_N; i++) {
+      grid[get_grid_idx(nodes[i])].push_back(i);
+    }
+
+    // Neighbor search
     for (int i = 0; i < RD_N; i++) {
       const Vector& p1 = nodes[i];
-
+      
       std::array<std::pair<float, int>, RD_K> best;
       best.fill({ std::numeric_limits<float>::max(), -1 });
 
-      for (int j = 0; j < RD_N; j++) {
-        if (i == j) continue;
+      int gx = std::clamp(static_cast<int>((p1.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gy = std::clamp(static_cast<int>((p1.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gz = std::clamp(static_cast<int>((p1.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
 
-        float d2 = distance_squared(p1, nodes[j]);
+      for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+          for (int z = -1; z <= 1; z++) {
+            int nx = gx + x;
+            int ny = gy + y;
+            int nz = gz + z;
 
-        if (d2 < best[RD_K - 1].first) {
-          int pos = RD_K - 1;
-          while (pos > 0 && d2 < best[pos - 1].first) {
-            best[pos] = best[pos - 1];
-            pos--;
+             if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE && nz >= 0 && nz < GRID_SIZE) {
+               int cell_idx = nx + ny * GRID_SIZE + nz * GRID_SIZE * GRID_SIZE;
+               const auto& cell_points = grid[cell_idx];
+
+               for (int j : cell_points) {
+                 if (i == j) continue;
+
+                 float d2 = distance_squared(p1, nodes[j]);
+
+                 if (d2 < best[RD_K - 1].first) {
+                   int pos = RD_K - 1;
+                   while (pos > 0 && d2 < best[pos - 1].first) {
+                     best[pos] = best[pos - 1];
+                     pos--;
+                   }
+                   best[pos] = { d2, j };
+                 }
+               }
+            }
           }
-          best[pos] = { d2, j };
         }
       }
 
