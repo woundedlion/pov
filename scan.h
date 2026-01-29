@@ -11,7 +11,7 @@
 #include "led.h"
 #include "filter.h"
 
-struct SDF {
+namespace SDF {
     struct Bounds {
       int y_min, y_max;
     };
@@ -857,14 +857,14 @@ struct SDF {
           return { -dist_edge, scan_dist / thickness, scan_dist };
        }
     };
-};
+}
 
 /**
  * @brief The Scan struct contains volumetric (raster) drawing primitives.
  */
-template <int W>
-struct Scan {
+namespace Scan {
   
+  template <int W>
   static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, ColorFn auto color_fn, bool debug_bb = false) {
      auto bounds = shape.get_vertical_bounds();
      
@@ -876,18 +876,19 @@ struct Scan {
            
            for (int x = x1; x <= x2; ++x) {
               int wx = wrap(x, W);
-              process_pixel(wx, y, pipeline, canvas, shape, color_fn, debug_bb);
+              process_pixel<W>(wx, y, pipeline, canvas, shape, color_fn, debug_bb);
            }
         });
         
         if (!handled) {
            for (int x = 0; x < W; ++x) {
-              process_pixel(x, y, pipeline, canvas, shape, color_fn, debug_bb);
+              process_pixel<W>(x, y, pipeline, canvas, shape, color_fn, debug_bb);
            }
         }
      }
   }
   
+  template <int W>
   static void process_pixel(int x, int y, auto& pipeline, Canvas& canvas, const auto& shape, ColorFn auto color_fn, bool debug_bb) {
      const Vector& p = pixel_to_vector<W>(x, y);
      
@@ -914,23 +915,19 @@ struct Scan {
   }
 
   struct DistortedRing {
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, 
-                     std::function<float(float)> shift_fn, float amplitude, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) 
+                     std::function<float(float)> shift_fn, float amplitude, ColorFn auto color_fn, float phase = 0, bool debug_bb = false)  
     {
       SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude, phase);
-      Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+      Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
     }
   };
 
-  struct Point {
-     static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
-        // JS Scan.Point uses Scan.Ring with radius 0
-        Basis basis = make_basis(Quaternion(), p);
-        Ring::draw(pipeline, canvas, basis, 0.0f, thickness, color_fn);
-     }
-  };
+
   
   struct Polygon {
+     template <int W>
      static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
        Basis eff_basis = basis;
        float effective_radius = radius;
@@ -942,11 +939,12 @@ struct Scan {
        float thickness = effective_radius * (PI_F / 2.0f);
        
        SDF::Polygon shape(eff_basis, effective_radius, thickness, sides, phase);
-       Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+       Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
      }
   };
 
   struct Star {
+     template <int W>
      static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
        Basis eff_basis = basis;
        float effective_radius = radius;
@@ -956,11 +954,12 @@ struct Scan {
           effective_radius = 2.0f - radius;
        }
        SDF::Star shape(eff_basis, effective_radius, sides, phase);
-       Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+       Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
      }
   };
 
   struct Flower {
+     template <int W>
      static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
        Basis eff_basis = basis;
        float effective_radius = radius;
@@ -970,11 +969,12 @@ struct Scan {
           effective_radius = 2.0f - radius;
        }
        SDF::Flower shape(eff_basis, effective_radius, sides, phase);
-       Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+       Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
      }
   };
 
   struct Ring {
+     template <int W>
      static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
         Basis eff_basis = basis;
         float effective_radius = radius;
@@ -983,16 +983,27 @@ struct Scan {
            effective_radius = 2.0f - radius;
         }
         SDF::Ring shape(eff_basis, effective_radius, thickness, phase);
-        Scan::rasterize(pipeline, canvas, shape, color_fn, debug_bb);
+        Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
      }
        // Overload for Vector normal inputs (legacy support helper)
+     template <int W>
      static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
         Basis basis = make_basis(Quaternion(), normal);
-        draw(pipeline, canvas, basis, radius, thickness, color_fn, phase, debug_bb);
+        draw<W>(pipeline, canvas, basis, radius, thickness, color_fn, phase, debug_bb);
      }
   };
   
+   struct Point {
+      template <int W>
+      static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
+         // JS Scan.Point uses Scan.Ring with radius 0
+         Basis basis = make_basis(Quaternion(), p);
+         Ring::draw<W>(pipeline, canvas, basis, 0.0f, thickness, color_fn);
+      }
+   };
+
   struct Field {
+      template <int W>
       static void draw(auto& pipeline, Canvas& canvas, ColorFn auto color_fn) {
           for (int y = 0; y < H; ++y) {
              for (int x = 0; x < W; ++x) {
@@ -1011,10 +1022,7 @@ struct Scan {
   };
 
   struct Mesh {
-      // Legacy draw using standard containers (kept for compatibility if needed, though SDF::Face changed)
-      // Since SDF::Face signature changed, we must update this or remove it.
-      // We'll update it to use a scratch buffer.
-      template <typename MeshT, typename F>
+      template <int W, typename MeshT, typename F>
       static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, F color_fn, bool debug_bb = false) {
           SDF::FaceScratchBuffer scratch;
           
@@ -1034,11 +1042,12 @@ struct Scan {
                  }
              };
              
-             Scan::rasterize(pipeline, canvas, shape, face_color_fn, debug_bb);
+             Scan::rasterize<W>(pipeline, canvas, shape, face_color_fn, debug_bb);
           }
       }
       
       // Overload for MeshState
+      template <int W>
       static void draw(auto& pipeline, Canvas& canvas, const MeshState& mesh, auto color_fn, bool debug_bb = false) {
           SDF::FaceScratchBuffer scratch;
           size_t face_offset = 0;
@@ -1060,9 +1069,9 @@ struct Scan {
                  }
              };
              
-             Scan::rasterize(pipeline, canvas, shape, face_color_fn, debug_bb);
+             Scan::rasterize<W>(pipeline, canvas, shape, face_color_fn, debug_bb);
              face_offset += count;
           }
       }
   };
-};
+}

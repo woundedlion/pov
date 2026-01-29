@@ -15,8 +15,7 @@
 /**
  * @brief The Plot struct contains vector-based (thin) drawing primitives.
  */
-template <int W>
-struct Plot {
+namespace Plot {
 
   /**
    * @brief Draws a single point.
@@ -37,6 +36,7 @@ struct Plot {
    * @brief Draws a geodesic line between two points.
    */
   struct Line {
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, ColorFn auto color_fn,
       float start = 0.0f, float end = 1.0f, bool long_way = false, bool omit_last = false)
     {
@@ -123,6 +123,7 @@ struct Plot {
   /**
    * @brief Helper to rasterize a list of points into segments.
    */
+  template <int W>
   static void rasterize(auto& pipeline, Canvas& canvas, const Points& points, ColorFn auto color_fn, bool close_loop = false) {
     size_t len = points.size();
     if (len == 0) return;
@@ -137,7 +138,7 @@ struct Plot {
         return color_fn(p, global_t);
         };
 
-      Line::draw(pipeline, canvas, p1, p2, segment_color_fn, 0.0f, 1.0f, false, true);
+      Line::draw<W>(pipeline, canvas, p1, p2, segment_color_fn, 0.0f, 1.0f, false, true);
     }
   }
 
@@ -163,13 +164,14 @@ struct Plot {
       }
     }
 
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const VertexList& vertices, const AdjacencyList& edges, ColorFn auto color_fn) {
       for (size_t i = 0; i < edges.size(); ++i) {
         Vector a(vertices[i]);
         for (auto j : edges[i]) {
           if (i < j) {
             Vector b(vertices[j]);
-            Line::draw(pipeline, canvas, a, b, color_fn, 0, 1, false, true);
+            Line::draw<W>(pipeline, canvas, a, b, color_fn, 0, 1, false, true);
           }
         }
       }
@@ -210,14 +212,16 @@ struct Plot {
       }
     }
 
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, ColorFn auto color_fn, float phase = 0) {
       Points points;
       sample(points, basis, radius, W / 4, phase);
-      rasterize(pipeline, canvas, points, color_fn, true);
+      rasterize<W>(pipeline, canvas, points, color_fn, true);
     }
   };
 
   struct PlanarLine {
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, const Vector& center, ColorFn auto color_fn) {
       // Basis for projection
       Vector ref_axis = (std::abs(dot(center, X_AXIS)) > 0.9999f) ? Y_AXIS : X_AXIS;
@@ -278,6 +282,7 @@ struct Plot {
        const float offset = PI_F / num_sides;
        Ring::sample(points, basis, radius, num_sides, phase + offset);
     }
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
       Points points;
       sample(points, basis, radius, num_sides, phase);
@@ -291,7 +296,7 @@ struct Plot {
       for (size_t i = 0; i < len; i++) {
         const Vector& p1 = points[i];
         const Vector& p2 = points[(i + 1) % len];
-        PlanarLine::draw(pipeline, canvas, p1, p2, center, [&](const Vector& p, float t) {
+        PlanarLine::draw<W>(pipeline, canvas, p1, p2, center, [&](const Vector& p, float t) {
             return color_fn(p, t);
         });
       }
@@ -309,6 +314,7 @@ struct Plot {
       return rotate(vi, make_rotation(axis, f(angle * PI_F / 2)));
     }
 
+    template <int W>
     static void sample(Points& points, const Basis& basis, float radius, ScalarFn auto shift_fn, float phase = 0) {
       Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
 
@@ -337,14 +343,16 @@ struct Plot {
       }
     }
 
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, ScalarFn auto shift_fn, ColorFn auto color_fn, float phase = 0) {
       Points points;
-      sample(points, basis, radius, shift_fn, phase);
-      rasterize(pipeline, canvas, points, color_fn, true);
+      sample<W>(points, basis, radius, shift_fn, phase);
+      rasterize<W>(pipeline, canvas, points, color_fn, true);
     }
   };
 
   struct Spiral {
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, int n, float eps, ColorFn auto color_fn) {
       for (int i = 0; i < n; ++i) {
         Vector v = fib_spiral(n, eps, i);
@@ -355,6 +363,7 @@ struct Plot {
   };
 
   struct Star {
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
       Vector v = basis.v;
       Vector u = basis.u;
@@ -394,7 +403,7 @@ struct Plot {
       for (size_t i = 0; i < len; i++) {
         const Vector& p1 = points[i];
         const Vector& p2 = points[(i + 1) % len];
-        PlanarLine::draw(pipeline, canvas, p1, p2, center, [&](const Vector& p, float t) {
+        PlanarLine::draw<W>(pipeline, canvas, p1, p2, center, [&](const Vector& p, float t) {
           return color_fn(p, t);
         });
       }
@@ -402,6 +411,7 @@ struct Plot {
   };
 
   struct Flower {
+    template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, ColorFn auto color_fn, float phase = 0) {
       Vector v = basis.v; 
       Vector u = basis.u; 
@@ -443,12 +453,12 @@ struct Plot {
       }
 
       if (!points.is_empty()) points.push_back(points[0]);
-      rasterize(pipeline, canvas, points, color_fn, false);
+      rasterize<W>(pipeline, canvas, points, color_fn, false);
     }
   };
 
   struct Mesh {
-    template <typename MeshT>
+    template <int W, typename MeshT>
     static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, ColorFn auto color_fn) {
        std::vector<std::pair<int, int>> edges;
        // Estimate size
@@ -469,9 +479,9 @@ struct Plot {
        edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
        
        for (const auto& edge : edges) {
-          Line::draw(pipeline, canvas, mesh.vertices[edge.first], mesh.vertices[edge.second], color_fn, 0.0f, 1.0f, false, true);
+          Line::draw<W>(pipeline, canvas, mesh.vertices[edge.first], mesh.vertices[edge.second], color_fn, 0.0f, 1.0f, false, true);
        }
     }
   };
 
-};
+}

@@ -175,7 +175,7 @@ private:
       else {
         auto from = pixel_to_vector<W>(nodes[i - 1].x, nodes[i - 1].y);
         auto to = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
-        Plot<W>::Line::draw(filters, canvas, from, to, [this](const Vector& v, float t) { 
+        Plot::Line::draw<W>(filters, canvas, from, to, [this](const Vector& v, float t) { 
             Color4 c = color(v, 0);
             c.alpha *= 0.5f;
             return c;

@@ -87,8 +87,8 @@ private:
 
     auto r_fn = [this](float t) { return ring_fn(t); };
     Basis basis = make_basis(Quaternion(), ring_vec);
-    Vector thrust_point = Plot<W>::DistortedRing::fn_point(r_fn, basis, 1.0f, warp_phase);
-    Vector thrust_opp = Plot<W>::DistortedRing::fn_point(r_fn, basis, 1.0f, warp_phase + PI_F);
+    Vector thrust_point = Plot::DistortedRing::fn_point(r_fn, basis, 1.0f, warp_phase);
+    Vector thrust_opp = Plot::DistortedRing::fn_point(r_fn, basis, 1.0f, warp_phase + PI_F);
 
     // warp
     warp_anim = Mutation(
@@ -129,13 +129,13 @@ private:
 
   void draw_thruster(Canvas& c, const ThrusterContext& ctx, float opacity) {
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
-    Plot<W>::Ring::draw(filters, c, basis, ctx.radius,
+    Plot::Ring::draw<W>(filters, c, basis, ctx.radius,
       [](const Vector&, float) { return Color4(CRGB::White); });
   }
 
   void draw_ring(Canvas& c, float opacity) {
     Basis basis = make_basis(orientation.get(), ring_vec);
-    Plot<W>::DistortedRing::draw(filters, c, basis, radius,
+    Plot::DistortedRing::draw<W>(filters, c, basis, radius,
       [this](float t) { return ring_fn(t); }, // Shift function
       [this](const Vector& v, float t) { // Color function
         Vector axis = orientation.orient(X_AXIS);
