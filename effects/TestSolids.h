@@ -17,6 +17,7 @@ public:
   using State = MeshMorph::State;
 
   TestSolids() : Effect(W), intensity(1.2f), opacity(1.0f), debug_bb(false), hankin(true), dual(false) {
+      register_solids();
       rebuild();
   }
 
@@ -37,10 +38,10 @@ public:
       
       // Render Task
       // Sprite(draw_fn, duration, fade_in, fade_in_easing, fade_out, fade_out_easing)
-      // duration -1 for infinite
-      timeline.add(0, Sprite([this](Canvas& canvas, float alpha) {
+      // duration -1 for infinite (using std::function constructor)
+      timeline.add(0, Sprite(std::function<void(Canvas&, float)>([this](Canvas& canvas, float alpha) {
           this->draw_mesh(canvas, alpha);
-      }, -1)); // Infinite duration
+      }), -1)); 
   }
 
   void draw_frame() override {
@@ -65,25 +66,47 @@ private:
   bool dual;
   float hankin_angle = PI_F / 4.0f;
 
+  std::vector<std::function<State()>> solid_generators;
+
   Pipeline<W> scan_pipeline;
   Pipeline<W, FilterAntiAlias<W>> plot_pipeline;
 
+  template <typename T>
+  void add_solid() {
+      solid_generators.push_back([]() -> State {
+          T t;
+          State s;
+          s.vertices = t.vertices;
+          s.faces = t.faces;
+          return s;
+      });
+  }
+
+  void register_solids() {
+      solid_generators.clear();
+      add_solid<Tetrahedron>();               // 1
+      add_solid<Cube>();                      // 2
+      add_solid<Octahedron>();                // 3
+      add_solid<Icosahedron>();               // 4
+      add_solid<Dodecahedron>();              // 5
+      add_solid<TruncatedTetrahedron>();      // 6
+      add_solid<Cuboctahedron>();             // 7
+      add_solid<TruncatedCube>();             // 8
+      add_solid<TruncatedOctahedron>();       // 9
+      add_solid<Rhombicuboctahedron>();       // 10
+      add_solid<TruncatedCuboctahedron>();    // 11
+      add_solid<SnubCube>();                  // 12
+      add_solid<Icosidodecahedron>();         // 13
+      add_solid<TruncatedDodecahedron>();     // 14
+      add_solid<TruncatedIcosahedron>();      // 15
+      add_solid<Rhombicosidodecahedron>();    // 16
+      add_solid<SnubDodecahedron>();          // 17
+  }
+
   State get_solid(int index) {
-      // 0: Tetrahedron, 1: Cube, 2: Octahedron, 3: Dodecahedron, 4: Icosahedron
-      index = index % 5;
-      State s;
-      if (index == 0) {
-          Tetrahedron t; s.vertices = t.vertices; s.faces = t.faces;
-      } else if (index == 1) {
-          Cube c; s.vertices = c.vertices; s.faces = c.faces;
-      } else if (index == 2) {
-          Octahedron o; s.vertices = o.vertices; s.faces = o.faces;
-      } else if (index == 3) {
-          Dodecahedron d; s.vertices = d.vertices; s.faces = d.faces;
-      } else {
-          Icosahedron i; s.vertices = i.vertices; s.faces = i.faces;
-      }
-      return s;
+      if (solid_generators.empty()) return State();
+      index = index % solid_generators.size();
+      return solid_generators[index]();
   }
 
   void start_morph_sequence() {
@@ -96,15 +119,14 @@ private:
   
   void trigger_morph() {
       // Next solid
-      int next_idx = (current_solid_idx + 1) % 5;
+      if (solid_generators.empty()) return;
+      int next_idx = (current_solid_idx + 1) % solid_generators.size();
       State next_solid = get_solid(next_idx);
       
       // Add MeshMorph animation to timeline
       // MeshMorph(output_ptr, source, dest, duration, repeat, easing)
       State start_state = current_mesh; // Capture current state (vertices)
       
-      // Note: MeshMorph constructor writes *source* to *output* immediately in my modification.
-      // This is good.
       timeline.add(0, MeshMorph(&current_mesh, start_state, next_solid, 64, false, ease_in_out_sin));
       
       current_solid_idx = next_idx;
@@ -141,5 +163,6 @@ private:
           return c;
       };
       
+      Scan<W>::Mesh::draw(scan_pipeline, canvas, mesh_ref, color_fn); 
   }
 };
