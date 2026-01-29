@@ -22,12 +22,6 @@ public:
     debugBB(false),
     thickness(4.0f * (2.0f * PI_F / W))
   {
-    /*
-    timeline.add(0, 
-      Sprite([this](Canvas& canvas, float opacity) { this->drawPoly(canvas, opacity); }, -1, 48, ease_mid, 0, ease_mid)
-    );
-    */
-
     timeline.add(0,
       Sprite([this](Canvas& canvas, float opacity) { this->drawFn(canvas, opacity); }, -1, 48, ease_mid, 0, ease_mid)
     );
@@ -47,14 +41,6 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-  }
-
-  void drawPoly(Canvas& canvas, float opacity) {
-    Plot<W>::Polyhedron::draw(filters, canvas, poly.vertices, poly.euler_path, [&](const Vector& v, float t) {
-      Color4 c = polyPalette.get(t);
-      c.alpha *= opacity * alpha;
-      return c;
-    });
   }
 
   void drawFn(Canvas& canvas, float opacity) {
@@ -91,7 +77,6 @@ private:
   
   float amplitude;
   float amplitudeRange;
-  Dodecahedron poly;
   int numRings;
   bool debugBB;
   float thickness;
