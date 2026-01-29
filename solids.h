@@ -8,7 +8,7 @@
 
 struct Tetrahedron {
   static constexpr int NUM_VERTS = 4;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.57735027f, 0.57735027f, 0.57735027f),
     Vector(0.57735027f, -0.57735027f, -0.57735027f),
     Vector(-0.57735027f, 0.57735027f, -0.57735027f),
@@ -16,17 +16,17 @@ struct Tetrahedron {
   };
   static constexpr int NUM_FACES = 4;
   static constexpr int TOTAL_FACE_INDICES = 12;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 3, 1, 0, 2, 3, 0, 1, 2, 1, 3, 2
   };
 };
 
 struct Cube {
   static constexpr int NUM_VERTS = 8;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.57735027f, -0.57735027f, -0.57735027f),
     Vector(0.57735027f, -0.57735027f, -0.57735027f),
     Vector(0.57735027f, 0.57735027f, -0.57735027f),
@@ -38,10 +38,10 @@ struct Cube {
   };
   static constexpr int NUM_FACES = 6;
   static constexpr int TOTAL_FACE_INDICES = 24;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     4, 4, 4, 4, 4, 4
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 3, 2, 1, 0, 1, 5, 4, 0, 4, 7, 3, 6, 5, 1, 2, 6, 2, 3, 7,
     6, 7, 4, 5
   };
@@ -49,7 +49,7 @@ struct Cube {
 
 struct Octahedron {
   static constexpr int NUM_VERTS = 6;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(1.00000000f, 0.00000000f, 0.00000000f),
     Vector(-1.00000000f, 0.00000000f, 0.00000000f),
     Vector(0.00000000f, 1.00000000f, 0.00000000f),
@@ -59,10 +59,10 @@ struct Octahedron {
   };
   static constexpr int NUM_FACES = 8;
   static constexpr int TOTAL_FACE_INDICES = 24;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     4, 0, 2, 4, 2, 1, 4, 1, 3, 4, 3, 0, 5, 2, 0, 5, 1, 2, 5, 3,
     1, 5, 0, 3
   };
@@ -70,7 +70,7 @@ struct Octahedron {
 
 struct Icosahedron {
   static constexpr int NUM_VERTS = 12;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.52573111f, 0.00000000f, 0.85065081f),
     Vector(0.52573111f, 0.00000000f, 0.85065081f),
     Vector(-0.52573111f, 0.00000000f, -0.85065081f),
@@ -86,10 +86,10 @@ struct Icosahedron {
   };
   static constexpr int NUM_FACES = 20;
   static constexpr int TOTAL_FACE_INDICES = 60;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 1, 4, 0, 4, 9, 9, 4, 5, 4, 8, 5, 4, 1, 8, 8, 1, 10, 8, 10,
     3, 5, 8, 3, 5, 3, 2, 2, 3, 7, 7, 3, 10, 7, 10, 6, 7, 6, 11, 11,
     6, 0, 0, 6, 1, 6, 10, 1, 9, 11, 0, 9, 2, 11, 9, 5, 2, 7, 11, 2
@@ -98,7 +98,7 @@ struct Icosahedron {
 
 struct Dodecahedron {
   static constexpr int NUM_VERTS = 20;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.57735027f, 0.57735027f, 0.57735027f),
     Vector(0.57735027f, 0.57735027f, -0.57735027f),
     Vector(0.57735027f, -0.57735027f, 0.57735027f),
@@ -122,10 +122,10 @@ struct Dodecahedron {
   };
   static constexpr int NUM_FACES = 12;
   static constexpr int TOTAL_FACE_INDICES = 60;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 8, 9, 4, 16, 0, 12, 13, 1, 8, 0, 16, 17, 2, 12, 8, 1, 18, 5, 9,
     12, 2, 10, 3, 13, 16, 4, 14, 6, 17, 9, 5, 15, 14, 4, 6, 11, 10, 2, 17,
     3, 19, 18, 1, 13, 7, 15, 5, 18, 19, 7, 11, 6, 14, 15, 7, 19, 3, 10, 11
@@ -134,7 +134,7 @@ struct Dodecahedron {
 
 struct TruncatedTetrahedron {
   static constexpr int NUM_VERTS = 12;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.30151132f, 0.90453405f, 0.30151132f),
     Vector(-0.90453405f, 0.30151132f, -0.30151132f),
     Vector(-0.30151132f, -0.30151132f, 0.90453405f),
@@ -150,10 +150,10 @@ struct TruncatedTetrahedron {
   };
   static constexpr int NUM_FACES = 8;
   static constexpr int TOTAL_FACE_INDICES = 36;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     6, 6, 6, 6, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 8, 1, 9, 2, 3, 3, 2, 4, 11, 5, 6, 6, 5, 7, 10, 8, 0, 9, 1,
     10, 7, 11, 4, 3, 6, 0, 8, 10, 1, 9, 4, 2, 11, 7, 5
   };
@@ -161,7 +161,7 @@ struct TruncatedTetrahedron {
 
 struct Cuboctahedron {
   static constexpr int NUM_VERTS = 12;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.70710678f, 0.00000000f, -0.70710678f),
     Vector(0.00000000f, 0.70710678f, -0.70710678f),
     Vector(0.70710678f, 0.00000000f, -0.70710678f),
@@ -177,10 +177,10 @@ struct Cuboctahedron {
   };
   static constexpr int NUM_FACES = 14;
   static constexpr int TOTAL_FACE_INDICES = 48;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 0, 9, 4, 2, 10, 10, 1, 8, 11,
     11, 7, 5, 9, 3, 6, 0, 0, 8, 1, 1, 10, 2, 2, 4, 3, 4, 9, 5, 5,
     7, 6, 7, 11, 8, 10, 11, 9
@@ -189,7 +189,7 @@ struct Cuboctahedron {
 
 struct TruncatedCube {
   static constexpr int NUM_VERTS = 24;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.67859835f, -0.28108462f, -0.67859835f),
     Vector(-0.28108462f, 0.67859835f, -0.67859835f),
     Vector(0.67859835f, 0.28108462f, -0.67859835f),
@@ -217,10 +217,10 @@ struct TruncatedCube {
   };
   static constexpr int NUM_FACES = 14;
   static constexpr int TOTAL_FACE_INDICES = 72;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     8, 8, 8, 8, 8, 8, 3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 11, 1, 17, 2, 14, 3, 4, 4, 3, 5, 13, 6, 22, 7, 8, 8, 7, 9, 21,
     10, 18, 11, 0, 12, 23, 13, 5, 14, 2, 15, 16, 16, 15, 17, 1, 18, 10, 19, 20,
     20, 19, 21, 9, 22, 6, 23, 12, 4, 8, 0, 11, 18, 1, 17, 15, 2, 14, 5, 3,
@@ -230,7 +230,7 @@ struct TruncatedCube {
 
 struct TruncatedOctahedron {
   static constexpr int NUM_VERTS = 24;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.44721360f, 0.00000000f, 0.89442719f),
     Vector(0.89442719f, 0.44721360f, 0.00000000f),
     Vector(0.00000000f, 0.89442719f, 0.44721360f),
@@ -258,10 +258,10 @@ struct TruncatedOctahedron {
   };
   static constexpr int NUM_FACES = 14;
   static constexpr int TOTAL_FACE_INDICES = 72;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     6, 6, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 4, 4
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 11, 1, 13, 2, 3, 3, 2, 4, 16, 5, 6, 6, 5, 7, 19, 8, 9, 9, 8,
     10, 22, 11, 0, 12, 17, 13, 1, 14, 21, 15, 20, 16, 4, 17, 12, 18, 23, 19, 7,
     20, 15, 21, 14, 22, 10, 23, 18, 3, 6, 9, 0, 11, 22, 14, 1, 13, 17, 4, 2,
@@ -271,7 +271,7 @@ struct TruncatedOctahedron {
 
 struct Rhombicuboctahedron {
   static constexpr int NUM_VERTS = 24;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.35740671f, 0.35740671f, -0.86285623f),
     Vector(0.35740671f, 0.35740671f, -0.86285623f),
     Vector(0.35740671f, -0.35740671f, -0.86285623f),
@@ -299,10 +299,10 @@ struct Rhombicuboctahedron {
   };
   static constexpr int NUM_FACES = 26;
   static constexpr int TOTAL_FACE_INDICES = 96;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     20, 21, 22, 23, 7, 11, 3, 10, 17, 0, 16, 14, 1, 13, 4, 2, 12, 22, 5, 21,
     8, 6, 20, 18, 9, 19, 23, 15, 3, 11, 10, 0, 0, 17, 16, 1, 1, 14, 13, 2,
@@ -313,7 +313,7 @@ struct Rhombicuboctahedron {
 
 struct TruncatedCuboctahedron {
   static constexpr int NUM_VERTS = 48;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.52084100f, 0.21573940f, -0.82594259f),
     Vector(0.21573940f, 0.52084100f, -0.82594259f),
     Vector(0.52084100f, -0.21573940f, -0.82594259f),
@@ -365,10 +365,10 @@ struct TruncatedCuboctahedron {
   };
   static constexpr int NUM_FACES = 26;
   static constexpr int TOTAL_FACE_INDICES = 144;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     8, 8, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 29, 1, 32, 2, 35, 3, 26, 4, 34, 5, 38, 6, 41, 7, 24, 8, 40, 9, 44,
     10, 27, 11, 25, 12, 36, 13, 33, 14, 31, 15, 47, 16, 30, 17, 28, 18, 43, 19, 45,
     20, 42, 21, 39, 22, 37, 23, 46, 24, 7, 25, 11, 26, 3, 27, 10, 28, 17, 29, 0,
@@ -382,7 +382,7 @@ struct TruncatedCuboctahedron {
 
 struct SnubCube {
   static constexpr int NUM_VERTS = 24;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.46232061f, -0.25135861f, -0.85034023f),
     Vector(-0.25135861f, 0.46232061f, -0.85034023f),
     Vector(0.46232061f, 0.25135861f, -0.85034023f),
@@ -410,10 +410,10 @@ struct SnubCube {
   };
   static constexpr int NUM_FACES = 38;
   static constexpr int TOTAL_FACE_INDICES = 120;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     20, 21, 22, 23, 4, 8, 0, 11, 18, 1, 17, 15, 2, 14, 5, 3, 13, 23, 6, 22,
     9, 7, 21, 19, 10, 16, 20, 12, 0, 8, 11, 0, 11, 1, 1, 18, 17, 1, 17, 2,
@@ -425,7 +425,7 @@ struct SnubCube {
 
 struct Icosidodecahedron {
   static constexpr int NUM_VERTS = 30;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.50000000f, 0.80901699f, 0.30901700f),
     Vector(0.00000000f, 1.00000000f, 0.00000000f),
     Vector(-0.50000000f, 0.80901699f, 0.30901700f),
@@ -459,10 +459,10 @@ struct Icosidodecahedron {
   };
   static constexpr int NUM_FACES = 32;
   static constexpr int TOTAL_FACE_INDICES = 120;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 4, 9, 10, 11, 5, 8, 12, 13, 14, 1,
     11, 15, 16, 17, 6, 3, 18, 19, 20, 9, 14, 21, 22, 18, 2, 23, 24, 15, 10, 20,
     25, 26, 12, 7, 17, 27, 21, 13, 26, 28, 29, 23, 19, 22, 27, 28, 25, 16, 24, 29,
@@ -474,7 +474,7 @@ struct Icosidodecahedron {
 
 struct TruncatedDodecahedron {
   static constexpr int NUM_VERTS = 60;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.54489370f, 0.71327509f, 0.44082820f),
     Vector(0.16838140f, 0.98572192f, 0.00000000f),
     Vector(-0.44082820f, 0.88165651f, 0.16838140f),
@@ -538,10 +538,10 @@ struct TruncatedDodecahedron {
   };
   static constexpr int NUM_FACES = 32;
   static constexpr int TOTAL_FACE_INDICES = 180;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 9, 1, 19, 2, 34, 3, 25, 4, 10, 5, 14, 6, 24, 7, 43, 8, 15, 9, 0,
     10, 4, 11, 29, 12, 38, 13, 20, 14, 5, 15, 8, 16, 42, 17, 47, 18, 30, 19, 1,
     20, 13, 21, 37, 22, 57, 23, 44, 24, 6, 25, 3, 26, 33, 27, 52, 28, 39, 29, 11,
@@ -556,7 +556,7 @@ struct TruncatedDodecahedron {
 
 struct TruncatedIcosahedron {
   static constexpr int NUM_VERTS = 60;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(-0.20177410f, 0.00000000f, 0.97943209f),
     Vector(0.40354821f, 0.32647741f, 0.85472882f),
     Vector(-0.20177410f, 0.65295470f, 0.73002560f),
@@ -620,10 +620,10 @@ struct TruncatedIcosahedron {
   };
   static constexpr int NUM_FACES = 32;
   static constexpr int TOTAL_FACE_INDICES = 180;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 44, 1, 12, 2, 3, 3, 2, 4, 6, 5, 50, 6, 4, 7, 11, 8, 54, 9, 14,
     10, 21, 11, 7, 12, 1, 13, 15, 14, 9, 15, 13, 16, 46, 17, 18, 18, 17, 19, 31,
     20, 22, 21, 10, 22, 20, 23, 24, 24, 23, 25, 27, 26, 55, 27, 25, 28, 30, 29, 59,
@@ -638,7 +638,7 @@ struct TruncatedIcosahedron {
 
 struct Rhombicosidodecahedron {
   static constexpr int NUM_VERTS = 60;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.22391900f, 0.94853601f, 0.22391900f),
     Vector(-0.22391900f, 0.94853601f, 0.22391900f),
     Vector(-0.36230851f, 0.72461703f, 0.58622752f),
@@ -702,10 +702,10 @@ struct Rhombicosidodecahedron {
   };
   static constexpr int NUM_FACES = 63;
   static constexpr int TOTAL_FACE_INDICES = 239;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
     41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 14,
@@ -723,7 +723,7 @@ struct Rhombicosidodecahedron {
 
 struct SnubDodecahedron {
   static constexpr int NUM_VERTS = 60;
-  static inline const std::array<Vector, NUM_VERTS> vertices = {
+  static constexpr std::array<Vector, NUM_VERTS> vertices = {
     Vector(0.39314191f, 0.76393421f, 0.51170691f),
     Vector(0.15349999f, 0.97273285f, 0.17386359f),
     Vector(-0.29827370f, 0.91743421f, 0.26333870f),
@@ -787,10 +787,10 @@ struct SnubDodecahedron {
   };
   static constexpr int NUM_FACES = 92;
   static constexpr int TOTAL_FACE_INDICES = 300;
-  static inline const std::array<uint8_t, NUM_FACES> face_counts = {
+  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
   };
-  static inline const std::array<int, TOTAL_FACE_INDICES> faces = {
+  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
     40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,

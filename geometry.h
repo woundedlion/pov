@@ -14,6 +14,34 @@
 #include "static_circular_buffer.h"
 #include "led.h"
 
+/**
+ * @brief A lightweight view over a contiguous sequence of objects.
+ * @tparam T The type of object (can be const).
+ */
+template <typename T>
+struct Span {
+  T* ptr;
+  size_t len;
+
+  Span() : ptr(nullptr), len(0) {}
+  Span(T* p, size_t l) : ptr(p), len(l) {}
+  
+  // Convert from vector
+  template <typename U>
+  Span(const std::vector<U>& v) : ptr(v.data()), len(v.size()) {}
+  
+  // Convert from array
+  template <typename U, size_t N>
+  Span(const std::array<U, N>& arr) : ptr(arr.data()), len(N) {}
+
+  T& operator[](size_t i) const { return ptr[i]; }
+  size_t size() const { return len; }
+  T* begin() const { return ptr; }
+  T* end() const { return ptr + len; }
+  bool empty() const { return len == 0; }
+};
+
+
  /**
   * @brief Unit vector along the Cartesian X-axis.
   */
@@ -673,6 +701,50 @@ public:
       }
       currentFace->halfEdge = &halfEdges[faceStartHeIdx];
     }
+  }
+};
+
+
+/**
+ * @brief Represents the state of a mesh using static storage to avoid heap allocations.
+ * @details Max vertices set to 64 to accommodate Truncated Icosahedron / Snub Dodecahedron (60 vertices).
+ */
+struct MeshState {
+  static constexpr size_t MAX_VERTS = 64;
+  std::array<Vector, MAX_VERTS> vertices;
+  size_t num_vertices = 0;
+
+  // Topology (pointers to static const data in solids.h)
+  const uint8_t* face_counts = nullptr;
+  size_t num_faces = 0;
+  const int* faces = nullptr;
+
+  void clear() {
+    num_vertices = 0;
+    num_faces = 0;
+    face_counts = nullptr;
+    faces = nullptr;
+  }
+};
+
+/**
+ * @brief Pre-allocated buffer for morphing operations.
+ * @details Stores the source and destination states and the interpolated paths.
+ */
+struct MorphBuffer {
+  MeshState source;
+  MeshState dest;
+
+  struct Path {
+    Vector start;
+    Vector end;
+    Vector axis;
+    float angle;
+  };
+  std::array<Path, MeshState::MAX_VERTS> paths;
+
+  void init_paths() {
+      // Logic handled in MeshMorph
   }
 };
 
