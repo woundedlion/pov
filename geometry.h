@@ -637,8 +637,17 @@ struct HEFace {
 };
 
 /**
- * @brief A Half-Edge data structure for mesh topology processing.
+ * @brief Forward declaration of MeshState for HalfEdgeMesh.
  */
+struct MeshState;
+
+/**
+ * @brief A simple dynamic mesh structure compatible with MeshOps templates.
+ */
+struct PolyMesh {
+  std::vector<Vector> vertices;
+  std::vector<std::vector<int>> faces;
+};
 class HalfEdgeMesh {
 public:
   std::vector<HEVertex> vertices;
@@ -649,6 +658,8 @@ public:
    * @brief Constructs a HalfEdgeMesh from a standard mesh.
    * @param mesh The input mesh (vertices and faces).
    */
+  HalfEdgeMesh(const MeshState& mesh);
+
   template <typename MeshT>
   HalfEdgeMesh(const MeshT& mesh) {
     // 1. Create Vertices
@@ -728,6 +739,67 @@ struct MeshState {
 };
 
 /**
+ * @brief Implementation of HalfEdgeMesh constructor for MeshState.
+ */
+inline HalfEdgeMesh::HalfEdgeMesh(const MeshState& mesh) {
+  // 1. Create Vertices
+  vertices.resize(mesh.num_vertices);
+  for (size_t i = 0; i < mesh.num_vertices; ++i) {
+    vertices[i].position = mesh.vertices[i];
+  }
+
+  // 2. Create Faces and HalfEdges
+  faces.reserve(mesh.num_faces);
+  std::map<std::pair<int, int>, HalfEdge*> edgeMap;
+
+  const int* face_ptr = mesh.faces;
+
+  for (size_t k = 0; k < mesh.num_faces; ++k) {
+    size_t count = mesh.face_counts[k];
+    
+    faces.emplace_back();
+    HEFace* currentFace = &faces.back();
+    
+    size_t faceStartHeIdx = halfEdges.size();
+    
+    // Allocate edges for this face
+    for (size_t i = 0; i < count; ++i) {
+      halfEdges.emplace_back();
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+      int u = face_ptr[i];
+      int v = face_ptr[(i + 1) % count];
+
+      HalfEdge* he = &halfEdges[faceStartHeIdx + i];
+      
+      // Link basic geometry
+      he->vertex = &vertices[v]; // Points TO v
+      he->face = currentFace;
+      
+      // Circular links
+      he->next = &halfEdges[faceStartHeIdx + (i + 1) % count];
+      he->prev = &halfEdges[faceStartHeIdx + (i - 1 + count) % count];
+      
+      // Vertex ref (just needs one incoming edge)
+      vertices[v].halfEdge = he;
+      
+      // Pair lookup
+      if (edgeMap.count({v, u})) {
+        HalfEdge* neighbor = edgeMap[{v, u}];
+        he->pair = neighbor;
+        neighbor->pair = he;
+      } else {
+        edgeMap[{u, v}] = he;
+      }
+    }
+    currentFace->halfEdge = &halfEdges[faceStartHeIdx];
+    
+    face_ptr += count;
+  }
+}
+
+/**
  * @brief Pre-allocated buffer for morphing operations.
  * @details Stores the source and destination states and the interpolated paths.
  */
@@ -742,6 +814,37 @@ struct MorphBuffer {
     float angle;
   };
   std::array<Path, MeshState::MAX_VERTS> paths;
+
+  // Storage for dynamic topology
+  static constexpr size_t MAX_FACES = 1024;
+  static constexpr size_t MAX_INDICES = 8192;
+  
+  std::array<uint8_t, MAX_FACES> dest_face_counts_storage;
+  std::array<int, MAX_INDICES> dest_faces_storage;
+
+  void load_dest(const PolyMesh& mesh) {
+     dest.clear();
+     if (mesh.vertices.size() > MeshState::MAX_VERTS) return; 
+     
+     dest.num_vertices = mesh.vertices.size();
+     std::copy(mesh.vertices.begin(), mesh.vertices.end(), dest.vertices.begin());
+     
+     if (mesh.faces.size() > MAX_FACES) return;
+     dest.num_faces = mesh.faces.size();
+     dest.face_counts = dest_face_counts_storage.data();
+     
+     size_t idx_offset = 0;
+     for(size_t i=0; i<mesh.faces.size(); ++i) {
+         size_t n = mesh.faces[i].size();
+         dest_face_counts_storage[i] = static_cast<uint8_t>(n);
+         if (idx_offset + n > MAX_INDICES) return; // Overflow
+         for(size_t k=0; k<n; ++k) {
+             dest_faces_storage[idx_offset + k] = mesh.faces[i][k];
+         }
+         idx_offset += n;
+     }
+     dest.faces = dest_faces_storage.data();
+  }
 
   void init_paths() {
       // Logic handled in MeshMorph
@@ -1062,5 +1165,82 @@ struct MeshOps {
      
      if (hitFound) return bestHit;
      return closest_point_on_mesh_graph(p, mesh);
+  }
+
+  /**
+   * @brief Raycasts a point onto a MeshState.
+   * @param p The point to project.
+   * @param mesh The target MeshState.
+   * @return The projected point.
+   */
+  static Vector project_to_mesh(const Vector& p, const MeshState& mesh) {
+     Vector dir = Vector(p).normalize();
+     Vector bestHit = p;
+     bool hitFound = false;
+     float minT = FLT_MAX;
+     
+     const int* face_ptr = mesh.faces;
+
+     for (size_t k = 0; k < mesh.num_faces; ++k) {
+       size_t count = mesh.face_counts[k];
+       if (count < 3) {
+           face_ptr += count;
+           continue;
+       }
+
+       // Triangulate fan
+       Vector v0 = mesh.vertices[face_ptr[0]];
+       for (size_t i = 0; i < count - 2; ++i) {
+         Vector v1 = mesh.vertices[face_ptr[i+1]];
+         Vector v2 = mesh.vertices[face_ptr[i+2]];
+         
+         Vector e1 = v1 - v0;
+         Vector e2 = v2 - v0;
+         Vector n = cross(e1, e2);
+         float lenSq = dot(n, n);
+         if (lenSq < 1e-8f) continue;
+         n.normalize();
+         
+         float denom = dot(dir, n);
+         if (denom < 0.0001f) continue; 
+         
+         float t = dot(v0, n) / denom;
+         if (t <= 0 || t >= minT) continue;
+         
+         Vector hit = dir * t;
+         
+         // Barycentric/Point-in-triangle check
+         Vector toHit = hit - v0;
+         if (dot(cross(e1, toHit), n) < 0) continue;
+         
+         Vector e1_2 = v2 - v1;
+         Vector toHit_2 = hit - v1;
+         if (dot(cross(e1_2, toHit_2), n) < 0) continue;
+         
+         Vector e1_3 = v0 - v2;
+         Vector toHit_3 = hit - v2;
+         if (dot(cross(e1_3, toHit_3), n) < 0) continue;
+         
+         bestHit = hit;
+         minT = t;
+         hitFound = true;
+       }
+       face_ptr += count;
+     }
+     
+     if (hitFound) return bestHit;
+     // Fallback: simplified nearest neighbor for now since KDTree for MeshState not implemented
+     if (mesh.num_vertices == 0) return p;
+     
+     Vector best = mesh.vertices[0];
+     float minSq = distance_squared(p, best);
+     for(size_t i=1; i<mesh.num_vertices; ++i) {
+         float sq = distance_squared(p, mesh.vertices[i]);
+         if (sq < minSq) {
+             minSq = sq;
+             best = mesh.vertices[i];
+         }
+     }
+     return best;
   }
 };

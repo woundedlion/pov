@@ -16,7 +16,7 @@ public:
   // Alias for convenience (MeshState defines the storage)
   using State = MeshState;
 
-  TestSolids() : Effect(W), intensity(1.2f), opacity(1.0f), debug_bb(false), hankin(true), dual(false) {
+  TestSolids() : Effect(W), intensity(1.2f), opacity(1.0f) {
       register_solids();
       rebuild();
   }
@@ -64,9 +64,6 @@ private:
   // Params
   float intensity;
   float opacity;
-  bool debug_bb;
-  bool hankin;
-  bool dual;
   float hankin_angle = PI_F / 4.0f;
 
   std::vector<std::function<State()>> solid_generators;
@@ -135,8 +132,15 @@ private:
       // MeshMorph(output_ptr, buffer_ptr, source, dest, duration, repeat, easing)
       State start_state = current_mesh;
       
-      // Use the pre-allocated morph buffer
-      timeline.add(0, MeshMorph(&current_mesh, &morph_buffer, start_state, next_solid, 64, false, ease_in_out_sin));
+      // Calculate Hankin for next solid (Dynamic)
+      auto compiled = MeshOps::compile_hankin(next_solid);
+      PolyMesh next_hankin = MeshOps::update_hankin<PolyMesh>(compiled, hankin_angle);
+      
+      // Load into MorphBuffer storage
+      morph_buffer.load_dest(next_hankin);
+      
+      // Use the pre-allocated morph buffer (dest should now be active in morph_buffer.dest)
+      timeline.add(0, MeshMorph(&current_mesh, &morph_buffer, start_state, morph_buffer.dest, 64, false, ease_in_out_sin));
       
       current_solid_idx = next_idx;
   }
