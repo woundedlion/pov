@@ -1227,31 +1227,8 @@ public:
       for(size_t i=0; i<count; ++i) {
          Vector s = s_verts[i];
          
-         // Find closest point on Dest mesh (Simplified projection)
-         // Full projection requires face intersection. 
-         // For now, finding nearest vertex on Dest is a reasonable approximation for visual morphs
-         // between these centered convex solids, though less perfect than surface projection.
-         // However, original code used `MeshOps::project_to_mesh`.
-         // Let's try to do better: Weighted average of 3 nearest vertices?
-         // Or just N nearest.
-         
-         Vector t = s; // Default if nothing found (shouldn't happen)
-         
-         // Find nearest vertex in dest
-         float minDistSq = 1000.0f;
-         int nearestIdx = -1;
-         
-         for(size_t j=0; j<buffer->dest.num_vertices; ++j) {
-             float dist = distance_squared(s, d_verts[j]);
-             if (dist < minDistSq) {
-                 minDistSq = dist;
-                 nearestIdx = j;
-             }
-         }
-         
-         if (nearestIdx != -1) {
-             t = d_verts[nearestIdx];
-         }
+         // Use robust projection
+         Vector t = MeshOps::project_to_mesh(s, buffer->dest);
          
          // Calculate rotation path
          float ang = angle_between(s, t);
