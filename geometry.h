@@ -680,3 +680,25 @@ Vector lissajous(float m1, float m2, float a, float t) {
   );
   return v.normalize();
 }
+
+/**
+ * @brief Creates a basis { u, v, w } from an orientation and normal.
+ */
+struct Basis {
+  Vector u, v, w;
+};
+
+/**
+ * @brief Creates a basis { u, v, w } from an orientation and normal.
+ * @param orientation The orientation quaternion.
+ * @param normal The normal vector (approximate 'v' axis).
+ * @return The constructed Basis.
+ */
+static Basis make_basis(const Quaternion& orientation, const Vector& normal) {
+  Vector ref_axis = (std::abs(dot(normal, X_AXIS)) > (1 - TOLERANCE)) ? Y_AXIS : X_AXIS;
+  Vector v = rotate(normal, orientation).normalize();
+  Vector ref = rotate(ref_axis, orientation).normalize();
+  Vector u = cross(v, ref).normalize();
+  Vector w = cross(v, u).normalize();
+  return { u, v, w };
+}

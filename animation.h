@@ -13,16 +13,105 @@
 #include "FastNoiseLite.h"
 #include "geometry.h" 
 #include "static_circular_buffer.h"
-#include "draw.h"
-
-// Alias for Path used in animations
-template <int W>
-using Path = typename Plot<W>::Path;
+#include "plot.h"
 
  /**
   * @brief Frames Per Second constant.
   */
 static constexpr int FPS = 16;
+
+/**
+ * @brief Interpolates between frames in a history buffer.
+ * @param history The history buffer (Tweenable).
+ * @param draw_fn Function to draw the state: `void f(const T& item, float t)`.
+ */
+static void tween(Tweenable auto& history, auto draw_fn) {
+  size_t s = history.length();
+  size_t start = (s > 1) ? 1 : 0;
+  for (size_t i = start; i < s; ++i) {
+    draw_fn(history.get(i), static_cast<float>((s - 1 - i)) / s);
+  }
+}
+
+/**
+ * @brief Interpolates recursively through a trail of history buffers (e.g., Motion Trails).
+ * @param trail The trail of history buffers.
+ * @param drawFn Function to draw the item: `void f(const T& item, float t)`.
+ */
+static void deep_tween(auto& trail, TweenFn auto drawFn) {
+  float dt = (trail.length() > 0) ? (1.0f / static_cast<float>(trail.length())) : 0.0f;
+  tween(trail, [&](const auto& frame, float t) {
+    tween(frame, [&](const auto& q, float subT) {
+      float globalT = t + subT * dt;
+      drawFn(q, globalT);
+      });
+    });
+}
+
+/**
+ * @brief Represents a customizable path.
+ * Retains internal buffer for state, but draws to pipeline.
+ */
+template <int W>
+class Path {
+public:
+  Path() {}
+
+  static void draw(auto& pipeline, Canvas& canvas, const Path& path, ColorFn auto color) {
+    size_t samples = path.points.size();
+    for (size_t i = 0; i < samples; ++i) {
+      auto v = path.get_point(static_cast<float>(i) / samples);
+      auto c = color(v, i / (samples - 1.0f));
+      pipeline.plot(canvas, v, c.color, 0, c.alpha);
+    }
+  }
+
+  Path& append_segment(PlotFn auto plot, float domain, float samples, ScalarFn auto easing) {
+    if (!points.is_empty()) points.pop_back();
+    for (float t = 0; t <= samples; t++) {
+      points.push_back(plot(easing(t / samples) * domain));
+    }
+    return *this;
+  }
+
+  Vector get_point(float t) const {
+    if (points.is_empty()) return Vector(0, 0, 0);
+    float raw_index = t * (points.size() - 1);
+    size_t i = static_cast<size_t>(raw_index);
+    float f = raw_index - i;
+    if (i >= points.size() - 1) return points.back();
+    const Vector& p1 = points[i];
+    const Vector& p2 = points[i + 1];
+    return p1 * (1.0f - f) + p2 * f;
+  }
+
+  size_t num_points() const { return points.size(); }
+  void collapse() { if (points.size() > 1) points = { points.back() }; }
+  const Points& get_points() const {
+    static Points temp;
+    temp.clear();
+    for (size_t i = 0; i < points.size(); ++i) temp.push_back(points[i]);
+    return temp;
+  }
+
+private:
+  StaticCircularBuffer<Vector, 4096> points;
+};
+
+/**
+ * @brief Represents a path defined by a single procedural function.
+ * Matches interface of Path for use in Motion animations.
+ */
+template <PlotFn F>
+struct ProceduralPath {
+  F f;
+
+  ProceduralPath(F path_fn) : f(path_fn) {}
+
+  Vector get_point(float t) const {
+    return f(t);
+  }
+};
 
 /**
  * @brief Easing function: Bi-Cubic Interpolation (In-Out).
