@@ -13,8 +13,8 @@
 template <int W>
 class TestSolids : public Effect {
 public:
-  // Using MeshMorph::State directly to ensure compatibility
-  using State = MeshMorph::State;
+  // Alias for convenience (MeshState defines the storage)
+  using State = MeshState;
 
   TestSolids() : Effect(W), intensity(1.2f), opacity(1.0f), debug_bb(false), hankin(true), dual(false) {
       register_solids();
@@ -58,6 +58,9 @@ private:
   State current_mesh;
   int current_solid_idx;
   
+  // Buffers
+  MorphBuffer morph_buffer;
+  
   // Params
   float intensity;
   float opacity;
@@ -75,18 +78,14 @@ private:
   void add_solid() {
       solid_generators.push_back([]() -> State {
           State s;
-          s.vertices.assign(T::vertices.begin(), T::vertices.end());
+          s.num_vertices = T::NUM_VERTS;
+          // Copy vertices to our state buffer
+          std::copy(T::vertices.begin(), T::vertices.end(), s.vertices.begin());
           
-          size_t offset = 0;
-          for (auto count : T::face_counts) {
-              std::vector<int> face;
-              face.reserve(count);
-              for (int i = 0; i < count; ++i) {
-                  face.push_back(T::faces[offset + i]);
-              }
-              s.faces.push_back(std::move(face));
-              offset += count;
-          }
+          // Bind static topology
+          s.num_faces = T::NUM_FACES;
+          s.face_counts = T::face_counts.data();
+          s.faces = T::faces.data();
           return s;
       });
   }
@@ -133,31 +132,36 @@ private:
       State next_solid = get_solid(next_idx);
       
       // Add MeshMorph animation to timeline
-      // MeshMorph(output_ptr, source, dest, duration, repeat, easing)
-      State start_state = current_mesh; // Capture current state (vertices)
+      // MeshMorph(output_ptr, buffer_ptr, source, dest, duration, repeat, easing)
+      State start_state = current_mesh;
       
-      timeline.add(0, MeshMorph(&current_mesh, start_state, next_solid, 64, false, ease_in_out_sin));
+      // Use the pre-allocated morph buffer
+      timeline.add(0, MeshMorph(&current_mesh, &morph_buffer, start_state, next_solid, 64, false, ease_in_out_sin));
       
       current_solid_idx = next_idx;
   }
 
   void draw_mesh(Canvas& canvas, float alpha) {
-      // Transform vertices
-      VertexList transformed_verts = orientation.orient(current_mesh.vertices);
+      // Transform vertices locally to avoid heap allocation
+      MeshState transformed_mesh;
+      transformed_mesh.num_vertices = current_mesh.num_vertices;
+      transformed_mesh.num_faces = current_mesh.num_faces;
+      transformed_mesh.face_counts = current_mesh.face_counts;
+      transformed_mesh.faces = current_mesh.faces;
       
-      // Temporary struct to pass to Scan::Mesh
-      struct OrientedMesh {
-          const std::vector<Vector>& vertices;
-          const std::vector<std::vector<int>>& faces;
-      } mesh_ref = { transformed_verts, current_mesh.faces };
+      for(size_t i=0; i<current_mesh.num_vertices; ++i) {
+          transformed_mesh.vertices[i] = orientation.orient(current_mesh.vertices[i]);
+      }
       
       auto color_fn = [&](const Vector& p, float t, float d, int faceIdx) {
           // Select palette based on N (sides)
           const Palette* palette = &richSunset;
           
+          // Get face vertex count from topology
+          // We can access face counts easily because MeshState is flat
           size_t n = 0;
-          if (faceIdx >= 0 && faceIdx < (int)mesh_ref.faces.size()) {
-              n = mesh_ref.faces[faceIdx].size();
+          if (faceIdx >= 0 && faceIdx < (int)transformed_mesh.num_faces) {
+              n = transformed_mesh.face_counts[faceIdx];
           }
 
           if (n == 3) palette = &lavenderLake;
@@ -172,6 +176,7 @@ private:
           return c;
       };
       
-      Scan<W>::Mesh::draw(scan_pipeline, canvas, mesh_ref, color_fn); 
+      // Use Scan::Mesh::draw which now accepts MeshState
+      Scan<W>::Mesh::draw(scan_pipeline, canvas, transformed_mesh, color_fn); 
   }
 };

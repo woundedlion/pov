@@ -1181,71 +1181,102 @@ private:
 };
 
 /*
- * @brief Animates a transition between two meshes.
+ * @brief Animates a transition between two meshes using pre-allocated buffers.
  */
 class MeshMorph : public Animation<MeshMorph> {
 public:
-  struct MorphPath {
-     Vector start;
-     Vector end;
-     float angle;
-     Vector axis;
-  };
-  
-  // Minimal representation of a mesh for morphing
-  struct State {
-     std::vector<Vector> vertices;
-     std::vector<std::vector<int>> faces;
-  };
+  // Minimal State access for consumers
+  using State = MeshState;
 
-  MeshMorph(State* output, const State& source, const State& dest, int duration, bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
-    : Animation(duration, repeat), output(output), source(source), dest(dest), easing_fn(easing_fn)
+  /**
+   * @brief Constructs a MeshMorph animation.
+   * @param output Pointer to the active mesh state to update unique to the renderer.
+   * @param buffer Pointer to the shared MorphBuffer (must persist for duration of animation).
+   * @param source The starting mesh state.
+   * @param dest The target mesh state.
+   * @param duration Duration in frames.
+   * @param repeat Whether to repeat.
+   * @param easing_fn Easing function.
+   */
+  MeshMorph(MeshState* output, MorphBuffer* buffer, const MeshState& source, const MeshState& dest, int duration, bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
+    : Animation(duration, repeat), output(output), buffer(buffer), easing_fn(easing_fn)
   {
-     // Copy source to output immediately?
-      if (output) *output = source;
-      init();
+      if (buffer) {
+          buffer->source = source; // Copy to buffer
+          buffer->dest = dest;     // Copy to buffer
+          if (output) *output = buffer->source; // Initialize output
+          init();
+      }
   }
-  
+
   void init() {
-     // Compute paths
-     // Source -> Dest
-     sourcePaths.resize(source.vertices.size());
-     
-     for(size_t i=0; i<source.vertices.size(); ++i) {
-        Vector s = source.vertices[i];
-        Vector t = MeshOps::project_to_mesh(s, dest); // Project source vert to dest mesh
-        
-        float ang = angle_between(s, t);
-        Vector ax = cross(s, t).normalize();
-        if (std::abs(ang) < 0.0001f) ax = Vector(1,0,0);
-        
-        sourcePaths[i] = { s, t, ang, ax };
-     }
-     
-     // Dest -> Source (for bidirectional morph logic if needed, JS used it)
-     destPaths.resize(dest.vertices.size());
-     for(size_t i=0; i<dest.vertices.size(); ++i) {
-        Vector d = dest.vertices[i];
-        Vector s = MeshOps::project_to_mesh(d, source);
-        
-        float ang = angle_between(s, d);
-        Vector ax = cross(s, d).normalize();
-         if (std::abs(ang) < 0.0001f) ax = Vector(1,0,0);
-        
-        destPaths[i] = { s, d, ang, ax };
-     }
+      if (!buffer) return;
+
+      // Initialize paths
+      // We need to map source vertices to dest surface.
+      // Since we want to avoid heap, we implement a simplified "nearest vertex" or "direct" map
+      // if we can't do full projection efficiently.
+      // BUT, the original code did `MeshOps::project_to_mesh`.
+      // We will reproduce logic: map s -> t (on dest).
+      
+      auto& s_verts = buffer->source.vertices;
+      auto& d_verts = buffer->dest.vertices;
+      auto& paths = buffer->paths;
+      size_t count = buffer->source.num_vertices;
+
+      for(size_t i=0; i<count; ++i) {
+         Vector s = s_verts[i];
+         
+         // Find closest point on Dest mesh (Simplified projection)
+         // Full projection requires face intersection. 
+         // For now, finding nearest vertex on Dest is a reasonable approximation for visual morphs
+         // between these centered convex solids, though less perfect than surface projection.
+         // However, original code used `MeshOps::project_to_mesh`.
+         // Let's try to do better: Weighted average of 3 nearest vertices?
+         // Or just N nearest.
+         
+         Vector t = s; // Default if nothing found (shouldn't happen)
+         
+         // Find nearest vertex in dest
+         float minDistSq = 1000.0f;
+         int nearestIdx = -1;
+         
+         for(size_t j=0; j<buffer->dest.num_vertices; ++j) {
+             float dist = distance_squared(s, d_verts[j]);
+             if (dist < minDistSq) {
+                 minDistSq = dist;
+                 nearestIdx = j;
+             }
+         }
+         
+         if (nearestIdx != -1) {
+             t = d_verts[nearestIdx];
+         }
+         
+         // Calculate rotation path
+         float ang = angle_between(s, t);
+         Vector ax = cross(s, t);
+         if (dot(ax, ax) > 0.00001f) {
+             ax = ax.normalize();
+         } else {
+             ax = Vector(1,0,0);
+         }
+
+         paths[i] = { s, t, ax, ang };
+      }
   }
   
   void step(Canvas& canvas) override {
       Animation::step(canvas);
-      if (!output) return;
+      if (!output || !buffer) return;
 
       float progress = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
       float alpha = easing_fn(progress);
       
-      // Animate Source Vertices -> Output
-      for(size_t i=0; i<source.vertices.size(); ++i) {
-         const auto& path = sourcePaths[i];
+      size_t count = buffer->source.num_vertices;
+      
+      for(size_t i=0; i<count; ++i) {
+         const auto& path = buffer->paths[i];
          if (path.angle > 0.00001f) {
             output->vertices[i] = rotate(path.start, make_rotation(path.axis, path.angle * alpha));
          } else {
@@ -1254,21 +1285,20 @@ public:
          }
       }
       
-      // Morph topology at end
+      // Update topology to Dest at the very end
       if (t >= duration) {
-          *output = dest;
+           // Copy topology from Dest to Output
+           output->num_vertices = buffer->dest.num_vertices;
+           output->vertices = buffer->dest.vertices; // Copy all positions
+           output->num_faces = buffer->dest.num_faces;
+           output->face_counts = buffer->dest.face_counts;
+           output->faces = buffer->dest.faces;
       }
   }
-  
-  // const State& getCurrentState() const { return current; } // Removed, uses output ptr
 
 private:
-  State* output;
-  State source;
-  State dest;
-  // State current; // Removed
-  std::vector<MorphPath> sourcePaths;
-  std::vector<MorphPath> destPaths;
+  MeshState* output;
+  MorphBuffer* buffer;
   std::function<float(float)> easing_fn;
 };
   

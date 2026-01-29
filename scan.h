@@ -314,27 +314,39 @@ struct SDF {
        }
     };
 
+    struct FaceScratchBuffer {
+        static constexpr int MAX_VERTS = 16;
+        std::array<Vector, MAX_VERTS> poly2D;
+        std::array<Vector, MAX_VERTS> edgeVectors;
+        std::array<float, MAX_VERTS> edgeLengthsSq;
+        std::array<Vector, MAX_VERTS> planes;
+        std::array<std::pair<float, float>, 4> intervals; 
+        std::array<float, MAX_VERTS> thetas; 
+    };
+
     struct Face {
         Vector center;
         Vector basisV, basisU, basisW; // V is Normal
         int count;
         float thickness;
         
-        std::vector<Vector> poly2D; // x,y only (z=0)
-        std::vector<Vector> edgeVectors; // x,y only
-        std::vector<float> edgeLengthsSq;
-        std::vector<Vector> planes; // edge plane normals
+        Span<Vector> poly2D; 
+        Span<Vector> edgeVectors; 
+        Span<float> edgeLengthsSq;
+        Span<Vector> planes; 
         
         int y_min, y_max;
-        std::vector<std::pair<float, float>> intervals; // Angular intervals
+        Span<std::pair<float, float>> intervals; 
         bool full_width;
         
-        Face(const std::vector<Vector>& vertices, const std::vector<int>& indices, float th) 
+        Face(Span<const Vector> vertices, Span<const int> indices, float th, FaceScratchBuffer& scratch) 
           : thickness(th), full_width(true)
         {
            count = indices.size();
+           if (count > FaceScratchBuffer::MAX_VERTS) count = FaceScratchBuffer::MAX_VERTS;
+
            center = Vector(0,0,0);
-           for (int idx : indices) center = center + vertices[idx];
+           for (size_t i=0; i<count; ++i) center = center + vertices[indices[i]];
            center.normalize();
            
            basisV = center;
@@ -343,25 +355,20 @@ struct SDF {
            basisW = cross(center, basisU).normalize();
            
            // Project 2D
-           poly2D.resize(count);
            for(int i=0; i<count; ++i) {
               const Vector& v = vertices[indices[i]];
               float d = dot(v, basisV);
-              // avoid div by zero? vertices on sphere, d ~ 1
-              poly2D[i].i = dot(v, basisU) / d; // x
-              poly2D[i].j = dot(v, basisW) / d; // y
-              poly2D[i].k = 0;
+              scratch.poly2D[i].i = dot(v, basisU) / d; // x
+              scratch.poly2D[i].j = dot(v, basisW) / d; // y
+              scratch.poly2D[i].k = 0;
            }
+           poly2D = Span<Vector>(scratch.poly2D.data(), count);
            
            // Edges and Planes
-           edgeVectors.resize(count);
-           edgeLengthsSq.resize(count);
-           planes.reserve(count);
+           int planes_count = 0;
            
            float min_phi = 100.0f;
            float max_phi = -100.0f;
-           std::vector<float> thetas;
-           thetas.reserve(count);
            
            for(int i=0; i<count; ++i) {
               int idx1 = indices[i];
@@ -370,61 +377,63 @@ struct SDF {
               const Vector& v2 = vertices[idx2];
               
               // Edge 2D
-              Vector edge = poly2D[(i+1)%count] - poly2D[i];
-              edgeVectors[i] = edge;
-              edgeLengthsSq[i] = dot(edge, edge);
+              Vector edge = scratch.poly2D[(i+1)%count] - scratch.poly2D[i];
+              scratch.edgeVectors[i] = edge;
+              scratch.edgeLengthsSq[i] = dot(edge, edge);
               
               // Plane Normal
               Vector normal = cross(v1, v2);
               float lenSq = dot(normal, normal);
               if (lenSq > 1e-12f) {
-                  planes.push_back(normal.normalize());
+                  scratch.planes[planes_count++] = normal.normalize();
               }
               
                // Vertex Bounds
-               // Note: Holosphere uses Z-up convention for phi in some contexts, but `scan.h` appears to use Y-axis
-               // based on `DistortedRing` and JS reference. We follow `v.j` for phi here.
-               // Use consistent axis for phi (Y-up for compatibility with JS Daydream port)
                float phi_val = acosf(std::clamp(v1.j, -1.0f, 1.0f)); 
               if (phi_val < min_phi) min_phi = phi_val;
               if (phi_val > max_phi) max_phi = phi_val;
               
                // Arc Extrema Logic
-               // Projects plane extrema to check if arc peaks/troughs extend vertical bounds
-              const Vector& n = planes.back();
-              float ny = n.j; 
-              if (std::abs(ny) < 0.99999f && planes.size() > 0) {
-                  float nx = n.i;
-                  float nz = n.k;
-                  float tx = -nx * ny;
-                  float ty = 1.0f - ny * ny;
-                  float tz = -nz * ny;
-                  float tLenSq = tx*tx + ty*ty + tz*tz;
-                  if (tLenSq > 1e-12f) {
-                      float invLen = 1.0f / sqrtf(tLenSq);
-                      float ptx = tx * invLen;
-                      float pty = ty * invLen;
-                      float ptz = tz * invLen;
-                      
-                      float cx1 = (v1.j * ptz - v1.k * pty) * nx + (v1.k * ptx - v1.i * ptz) * ny + (v1.i * pty - v1.j * ptx) * nz;
-                      float cx2 = (pty * v2.k - ptz * v2.j) * nx + (ptz * v2.i - ptx * v2.k) * ny + (ptx * v2.j - pty * v2.i) * nz;
-                      
-                      if (cx1 > 0 && cx2 > 0) {
-                          float phiTop = acosf(std::clamp(pty, -1.0f, 1.0f));
-                          if (phiTop < min_phi) min_phi = phiTop;
-                      }
-                      if (cx1 < 0 && cx2 < 0) {
-                          float phiBot = acosf(std::clamp(-pty, -1.0f, 1.0f));
-                          if (phiBot > max_phi) max_phi = phiBot;
+               if (planes_count > 0) {
+                  const Vector& n = scratch.planes[planes_count - 1];
+                  float ny = n.j; 
+                  if (std::abs(ny) < 0.99999f) {
+                      float nx = n.i;
+                      float nz = n.k;
+                      float tx = -nx * ny;
+                      float ty = 1.0f - ny * ny;
+                      float tz = -nz * ny;
+                      float tLenSq = tx*tx + ty*ty + tz*tz;
+                      if (tLenSq > 1e-12f) {
+                          float invLen = 1.0f / sqrtf(tLenSq);
+                          float ptx = tx * invLen;
+                          float pty = ty * invLen;
+                          float ptz = tz * invLen;
+                          
+                          float cx1 = (v1.j * ptz - v1.k * pty) * nx + (v1.k * ptx - v1.i * ptz) * ny + (v1.i * pty - v1.j * ptx) * nz;
+                          float cx2 = (pty * v2.k - ptz * v2.j) * nx + (ptz * v2.i - ptx * v2.k) * ny + (ptx * v2.j - pty * v2.i) * nz;
+                          
+                          if (cx1 > 0 && cx2 > 0) {
+                              float phiTop = acosf(std::clamp(pty, -1.0f, 1.0f));
+                              if (phiTop < min_phi) min_phi = phiTop;
+                          }
+                          if (cx1 < 0 && cx2 < 0) {
+                              float phiBot = acosf(std::clamp(-pty, -1.0f, 1.0f));
+                              if (phiBot > max_phi) max_phi = phiBot;
+                          }
                       }
                   }
-              }
+               }
 
               // Thetas
-              float theta = atan2f(v1.i, v1.k); // JS: v1.x, v1.z
+              float theta = atan2f(v1.i, v1.k); 
               if (theta < 0) theta += 2 * PI_F;
-              thetas.push_back(theta);
+              scratch.thetas[i] = theta;
            }
+           
+           edgeVectors = Span<Vector>(scratch.edgeVectors.data(), count);
+           edgeLengthsSq = Span<float>(scratch.edgeLengthsSq.data(), count);
+           planes = Span<Vector>(scratch.planes.data(), planes_count);
            
            // Pole Logic
            bool npInside = true;
@@ -442,33 +451,35 @@ struct SDF {
            y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, max_phi + margin) * (H_VIRT - 1)) / PI_F)));
            
            // Horizontal Interval Logic
-           std::sort(thetas.begin(), thetas.end());
+           std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
            float maxGap = 0;
            float gapStart = 0;
-           for(size_t i=0; i<thetas.size(); ++i) {
-               float next = (i+1 < thetas.size()) ? thetas[i+1] : (thetas[0] + 2*PI_F);
-               float diff = next - thetas[i];
+           for(size_t i=0; i<count; ++i) {
+               float next = (i+1 < count) ? scratch.thetas[i+1] : (scratch.thetas[0] + 2*PI_F);
+               float diff = next - scratch.thetas[i];
                if (diff > maxGap) {
                    maxGap = diff;
-                   gapStart = thetas[i];
+                   gapStart = scratch.thetas[i];
                }
            }
            
+           int interval_count = 0;
            if (maxGap > PI_F) {
                full_width = false;
                float startT = fmodf(gapStart + maxGap, 2*PI_F);
                float endT = gapStart;
                
                if (startT <= endT) {
-                   intervals.push_back({startT, endT});
+                   scratch.intervals[interval_count++] = {startT, endT};
                } else {
                    // Split wrapped interval
-                   intervals.push_back({startT, 2*PI_F});
-                   intervals.push_back({0.0f, endT});
+                   scratch.intervals[interval_count++] = {startT, 2*PI_F};
+                   scratch.intervals[interval_count++] = {0.0f, endT};
                }
            } else {
                full_width = true;
            }
+           intervals = Span<std::pair<float, float>>(scratch.intervals.data(), interval_count);
         }
         
         Bounds get_vertical_bounds() const { return { y_min, y_max }; }
@@ -493,20 +504,10 @@ struct SDF {
             float d = FLT_MAX;
             int winding = 0;
             
-            // Loop count-1 to get previous index
             for(int i=0; i<count; ++i) {
-               int j = (i == 0) ? count - 1 : i - 1;
-               
-               const Vector& Vi = poly2D[i];
-               const Vector& Vj = poly2D[j];
-               
-               // Edge Distance using forward edge vectors (Vi -> Vnext)
-               // Matches JS logic which stores V_prev -> V_i but loops differently.
-               // Here we iterate i and use edge from i to i+1.
-
                const Vector& V_curr = poly2D[i];
                const Vector& V_next = poly2D[(i+1)%count];
-               const Vector& edge = edgeVectors[i]; // V_next - V_curr
+               const Vector& edge = edgeVectors[i]; 
                
                float ex = edge.i;
                float ey = edge.j;
@@ -528,7 +529,6 @@ struct SDF {
                
                if (distSq < d) d = distSq;
                
-               // Winding using V_curr -> V_next
                bool isUpward = (V_curr.j <= py) && (V_next.j > py);
                bool isDownward = (V_curr.j > py) && (V_next.j <= py);
                
@@ -673,7 +673,7 @@ struct SDF {
          float max_cos = std::min(1.0f, C_max);
 
          if (min_cos > max_cos) return true; 
-
+         
          float angle_min = acosf(max_cos);
          float angle_max = acosf(min_cos);
 
@@ -754,7 +754,7 @@ struct SDF {
          float max_cos = std::min(1.0f, C_max);
 
          if (min_cos > max_cos) return true; 
-
+         
          float angle_min = acosf(max_cos);
          float angle_max = acosf(min_cos);
 
@@ -934,18 +934,22 @@ struct Scan {
   };
 
   struct Mesh {
+      // Legacy draw using standard containers (kept for compatibility if needed, though SDF::Face changed)
+      // Since SDF::Face signature changed, we must update this or remove it.
+      // We'll update it to use a scratch buffer.
       template <typename MeshT, typename F>
       static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, F color_fn, bool debug_bb = false) {
-          // Iterate faces
+          SDF::FaceScratchBuffer scratch;
+          
           for (size_t i = 0; i < mesh.faces.size(); ++i) {
              const auto& face_indices = mesh.faces[i];
-              // Construct SDF::Face on the fly.
-              // Optimization: Caching SDF::Face could improve performance.
-              SDF::Face shape(mesh.vertices, face_indices, 0.0f);
+             // Adapters for vector to Span
+             Span<const Vector> verts(mesh.vertices);
+             Span<const int> indices(face_indices);
              
-             // Wrap color_fn to pass face index if supported, or just forward
+             SDF::Face shape(verts, indices, 0.0f, scratch);
+             
              auto face_color_fn = [&](const Vector& p, float t) {
-                 // Check if color_fn accepts (p, t, dist, faceIdx)
                  if constexpr (std::is_invocable_v<decltype(color_fn), Vector, float, float, int>) {
                     return color_fn(p, t, 0.0f, static_cast<int>(i));
                  } else {
@@ -954,6 +958,33 @@ struct Scan {
              };
              
              Scan::rasterize(pipeline, canvas, shape, face_color_fn, debug_bb);
+          }
+      }
+      
+      // Overload for MeshState
+      static void draw(auto& pipeline, Canvas& canvas, const MeshState& mesh, auto color_fn, bool debug_bb = false) {
+          SDF::FaceScratchBuffer scratch;
+          size_t face_offset = 0;
+          
+          for (size_t i = 0; i < mesh.num_faces; ++i) {
+             size_t count = mesh.face_counts[i];
+             
+             // Create Spans from MeshState
+             Span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
+             Span<const int> indices(mesh.faces + face_offset, count);
+             
+             SDF::Face shape(verts, indices, 0.0f, scratch);
+             
+             auto face_color_fn = [&](const Vector& p, float t) {
+                 if constexpr (std::is_invocable_v<decltype(color_fn), Vector, float, float, int>) {
+                    return color_fn(p, t, 0.0f, static_cast<int>(i));
+                 } else {
+                    return color_fn(p, t);
+                 }
+             };
+             
+             Scan::rasterize(pipeline, canvas, shape, face_color_fn, debug_bb);
+             face_offset += count;
           }
       }
   };
