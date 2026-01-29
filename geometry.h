@@ -498,140 +498,15 @@ Color4 distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p
   }
 }
 
-/**
- * @brief Defines the geometry for a Cube (vertices and edges).
- */
-struct Cube {
-  const VertexList vertices = {
-    Vector(1, 1, 1),   // 0
-    Vector(1, 1, -1),  // 1
-    Vector(1, -1, 1),  // 2
-    Vector(1, -1, -1), // 3
-    Vector(-1, 1, 1),  // 4
-    Vector(-1, 1, -1), // 5
-    Vector(-1, -1, 1), // 6
-    Vector(-1, -1, -1) // 7
-  };
-
-  const AdjacencyList eulerPath = {
-    {1, 2, 4}, // 0
-    {3, 5},    // 1
-    {3, 6},    // 2
-    {7},       // 3
-    {5, 6},    // 4
-    {7},       // 5
-    {7},       // 6
-    {}         // 7
-  };
-};
-
-/**
- * @brief Structure representing a Dodecahedron (20-sided polyhedron).
- * @details Stores vertices as Vectors and edges as adjacency lists.
- */
-struct Dodecahedron {
-  VertexList vertices = {
-    {1, 1, 1},       // 0
-    {1, -1, 1},      // 1
-    {1, 1, -1},      // 2
-    {1, -1, -1},     // 3
-    {-1, 1, 1},      // 4
-    {-1, -1, 1},     // 5
-    {-1, 1, -1},     // 6
-    {-1, -1, -1},    // 7
-
-    {0, PHI, 1 / PHI},   //8
-    {0, -PHI, 1 / PHI},  // 9
-    {0, PHI, -1 / PHI},  // 10
-    {0, -PHI, -1 / PHI}, // 11
-
-    {1 / PHI, 0, PHI},   // 12
-    {1 / PHI, 0, -PHI},  // 13
-    {-1 / PHI, 0, PHI},  // 14
-    {-1 / PHI, 0, -PHI}, // 15
-
-    {PHI, 1 / PHI, 0},   // 16
-    {PHI, -1 / PHI, 0},  // 17
-    {-PHI, 1 / PHI, 0},  // 18
-    {-PHI, -1 / PHI, 0}, // 19
 
 
-  };
 
-  AdjacencyList edges = {
-    {8, 12, 16},  // 0
-    {9, 12, 17},  // 1
-    {10, 13, 16}, // 2
-    {11, 13, 17}, // 3
-    {8, 14, 18},  // 4
-    {9, 14, 19},  // 5
-    {10, 15, 18}, // 6
-    {11, 15, 19}, // 7
-    {0, 4, 10},   // 8
-    {1, 5, 11},   // 9
-    {2, 6, 8},    // 10
-    {3, 7, 9},    // 11
-    {0, 1, 14},   // 12
-    {2, 3, 15},   // 13
-    {4, 5, 12},   // 14
-    {6, 7, 13},   // 15
-    {0, 2, 17},   // 16
-    {1, 3, 16},   // 17
-    {4, 6, 19},   // 18
-    {5, 7, 18},   // 19
-  };
 
-  AdjacencyList euler_path = {
-    {8, 12, 16},  // 0
-    {9, 12, 17},  // 1
-    {10, 13, 16}, // 2
-    {11, 13, 17}, // 3
-    {8, 14, 18},  // 4
-    {9, 14, 19},  // 5
-    {10, 15, 18}, // 6
-    {11, 15, 19}, // 7
-    {10},   // 8
-    {11},   // 9
-    {8},    // 10
-    {9},    // 11
-    {14},   // 12
-    {15},   // 13
-    {12},   // 14
-    {13},   // 15
-    {17},   // 16
-    {16},   // 17
-    {19},   // 18
-    {18},   // 19
-  };
 
-  /**
-   * @brief Constructor that normalizes all vertices to the unit sphere.
-   */
-  Dodecahedron() {
-    for (auto& v : vertices) {
-      v.normalize();
-    }
-  }
 
-  /**
-   * @brief Prints the polyhedron's data to the serial output for debugging.
-   */
-  void dump() const {
-    Serial.printf("Dodecahedron\n");
-    Serial.printf("vertices [%d] = \n", vertices.size());
-    for (size_t i = 0; i < vertices.size(); ++i) {
-      Serial.printf("%d: [%f, %f, %f]\n", i, vertices[i].i, vertices[i].j, vertices[i].k);
-    }
-    Serial.printf("euler path [%d] = \n", euler_path.size());
-    for (size_t i = 0; i < euler_path.size(); ++i) {
-      Serial.printf("%d: [", i);
-      for (size_t j = 0; j < euler_path[i].size(); ++j) {
-        Serial.printf("%d, ", euler_path[i][j]);
-      }
-      Serial.printf("]\n", i);
-    }
-  }
-};
+
+
+
 
 /**
  * @brief Generates a truly random 3D unit vector (direction) using Marsaglia's method.
@@ -702,3 +577,418 @@ static Basis make_basis(const Quaternion& orientation, const Vector& normal) {
   Vector w = cross(v, u).normalize();
   return { u, v, w };
 }
+
+/**
+ * @brief Represents a vertex in a Half-Edge mesh.
+ */
+struct HEVertex;
+
+/**
+ * @brief Represents a face in a Half-Edge mesh.
+ */
+struct HEFace;
+
+/**
+ * @brief Represents a half-edge in a Half-Edge mesh.
+ */
+struct HalfEdge {
+  HEVertex* vertex = nullptr; /**< Vertex at the end of this half-edge. */
+  HEFace* face = nullptr;     /**< Face this half-edge belongs to. */
+  HalfEdge* next = nullptr;   /**< Next half-edge in the face loop. */
+  HalfEdge* prev = nullptr;   /**< Previous half-edge in the face loop. */
+  HalfEdge* pair = nullptr;   /**< Opposite half-edge. */
+};
+
+struct HEVertex {
+  Vector position;
+  HalfEdge* halfEdge = nullptr; /**< One of the half-edges pointing to this vertex. */
+};
+
+struct HEFace {
+  HalfEdge* halfEdge = nullptr; /**< One of the half-edges bordering this face. */
+};
+
+/**
+ * @brief A Half-Edge data structure for mesh topology processing.
+ */
+class HalfEdgeMesh {
+public:
+  std::vector<HEVertex> vertices;
+  std::vector<HEFace> faces;
+  std::vector<HalfEdge> halfEdges; // Stored contiguously to allow pointers
+
+  /**
+   * @brief Constructs a HalfEdgeMesh from a standard mesh.
+   * @param mesh The input mesh (vertices and faces).
+   */
+  template <typename MeshT>
+  HalfEdgeMesh(const MeshT& mesh) {
+    // 1. Create Vertices
+    vertices.resize(mesh.vertices.size());
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+      vertices[i].position = mesh.vertices[i];
+    }
+
+    // 2. Create Faces and HalfEdges
+    faces.reserve(mesh.faces.size());
+    std::map<std::pair<int, int>, HalfEdge*> edgeMap;
+
+    for (const auto& faceIndices : mesh.faces) {
+      faces.emplace_back();
+      HEFace* currentFace = &faces.back();
+      
+      size_t faceStartHeIdx = halfEdges.size();
+      size_t count = faceIndices.size();
+      
+      // Allocate edges for this face
+      for (size_t i = 0; i < count; ++i) {
+        halfEdges.emplace_back();
+      }
+
+      for (size_t i = 0; i < count; ++i) {
+        int u = faceIndices[i];
+        int v = faceIndices[(i + 1) % count];
+
+        HalfEdge* he = &halfEdges[faceStartHeIdx + i];
+        
+        // Link basic geometry
+        he->vertex = &vertices[v]; // Points TO v
+        he->face = currentFace;
+        
+        // Circular links
+        he->next = &halfEdges[faceStartHeIdx + (i + 1) % count];
+        he->prev = &halfEdges[faceStartHeIdx + (i - 1 + count) % count];
+        
+        // Vertex ref (just needs one incoming edge)
+        vertices[v].halfEdge = he;
+        
+        // Pair lookup
+        if (edgeMap.count({v, u})) {
+          HalfEdge* neighbor = edgeMap[{v, u}];
+          he->pair = neighbor;
+          neighbor->pair = he;
+        } else {
+          edgeMap[{u, v}] = he;
+        }
+      }
+      currentFace->halfEdge = &halfEdges[faceStartHeIdx];
+    }
+  }
+};
+
+/**
+ * @brief Structure returned by compile_hankin.
+ */
+struct HankinInstruction {
+  Vector pCorner;    /**< Corner vertex position. */
+  Vector pPrev;      /**< Previous vertex position. */
+  Vector pNext;      /**< Next vertex position. */
+  int idxM1;         /**< Index of first midpoint (static vertex). */
+  int idxM2;         /**< Index of second midpoint (static vertex). */
+};
+
+/**
+ * @brief Compiled topological data for fast Hankin pattern updates.
+ */
+struct CompiledHankin {
+  std::vector<Vector> staticVertices;         /**< Midpoints that don't move. */
+  std::vector<Vector> dynamicVertices;        /**< Intersection points that move. */
+  std::vector<HankinInstruction> dynamicInstructions; /**< Instructions to update dynamic vertices. */
+  std::vector<std::vector<int>> faces;        /**< Resulting face topology. */
+  int staticOffset;                           /**< Offset where dynamic vertices start. */
+};
+
+/**
+ * @brief Operations on meshes (Dual, Hankin, etc.).
+ */
+struct MeshOps {
+  /**
+   * @brief Computes the dual of a mesh.
+   */
+  template <typename MeshT>
+  static MeshT dual(const MeshT& mesh) {
+    HalfEdgeMesh heMesh(mesh);
+    MeshT dualMesh;
+    std::unordered_map<HEFace*, int> faceToVertIdx;
+    
+    // New Vertices (Centroids of original faces)
+    for (size_t i = 0; i < heMesh.faces.size(); ++i) {
+      HEFace* face = &heMesh.faces[i];
+      Vector c(0, 0, 0);
+      int count = 0;
+      HalfEdge* he = face->halfEdge;
+      HalfEdge* start = he;
+      do {
+        c = c + he->vertex->position;
+        count++;
+        he = he->next;
+      } while (he != start);
+      
+      c = c / static_cast<float>(count);
+      dualMesh.vertices.push_back(c.normalize());
+      faceToVertIdx[face] = static_cast<int>(i);
+    }
+    
+    // New Faces (Cycles around original vertices)
+    std::vector<HEVertex*> visitedVerts; // Naive set replacement
+    
+    // Helper to check if visited
+    auto isVisited = [&](HEVertex* v) {
+      return std::find(visitedVerts.begin(), visitedVerts.end(), v) != visitedVerts.end();
+    };
+
+    for (auto& heStart : heMesh.halfEdges) {
+      if (!heStart.prev) continue; // Safety
+      
+      HEVertex* origin = heStart.prev->vertex; // The vertex 'start' comes FROM
+      if (isVisited(origin)) continue;
+      visitedVerts.push_back(origin);
+      
+      std::vector<int> faceIndices;
+      HalfEdge* curr = &heStart;
+      HalfEdge* startOrbit = curr;
+      int safety = 0;
+      
+      do {
+        if (!curr->face) break;
+        faceIndices.push_back(faceToVertIdx[curr->face]);
+        
+        if (!curr->pair) break;
+        curr = curr->pair->next;
+        safety++;
+      } while (curr != startOrbit && curr && safety < 100);
+      
+      if (faceIndices.size() > 2) {
+        std::reverse(faceIndices.begin(), faceIndices.end()); // Maintain CCW
+        dualMesh.faces.push_back(faceIndices);
+      }
+    }
+    
+    return dualMesh;
+  }
+
+  /**
+   * @brief Compiles the topology for a Hankin pattern.
+   */
+  template <typename MeshT>
+  static CompiledHankin compile_hankin(const MeshT& mesh) {
+    HalfEdgeMesh heMesh(mesh);
+    CompiledHankin compiled;
+    
+    std::map<HalfEdge*, int> heToMidpointIdx;
+    std::map<HalfEdge*, int> heToDynamicIdx;
+    
+    // Helper to get/create midpoint index
+    auto getMidpointIdx = [&](HalfEdge* he) {
+      if (heToMidpointIdx.count(he)) return heToMidpointIdx[he];
+      if (he->pair && heToMidpointIdx.count(he->pair)) return heToMidpointIdx[he->pair];
+      
+      Vector pA = he->prev ? he->prev->vertex->position : he->pair->vertex->position;
+      Vector pB = he->vertex->position;
+      Vector mid = (pA + pB) * 0.5f;
+      mid.normalize();
+      
+      compiled.staticVertices.push_back(mid);
+      int idx = static_cast<int>(compiled.staticVertices.size()) - 1;
+      heToMidpointIdx[he] = idx;
+      if (he->pair) heToMidpointIdx[he->pair] = idx;
+      return idx;
+    };
+    
+    // Ensure all midpoints
+    for (auto& he : heMesh.halfEdges) {
+      getMidpointIdx(&he);
+    }
+    
+    compiled.staticOffset = static_cast<int>(compiled.staticVertices.size());
+    
+    // Star faces
+    for (auto& face : heMesh.faces) {
+      std::vector<int> starFaceIndices;
+      HalfEdge* he = face.halfEdge;
+      HalfEdge* startHe = he;
+      
+      do {
+        HalfEdge* prev = he->prev;
+        HalfEdge* curr = he;
+        
+        int idxM1 = getMidpointIdx(prev);
+        int idxM2 = getMidpointIdx(curr);
+        
+        Vector pCorner = prev->vertex->position;
+        Vector pPrev = (prev->prev ? prev->prev->vertex->position : prev->pair->vertex->position);
+        Vector pNext = curr->vertex->position;
+        
+        compiled.dynamicInstructions.push_back({ pCorner, pPrev, pNext, idxM1, idxM2 });
+        
+        int dynIdx = static_cast<int>(compiled.dynamicVertices.size());
+        heToDynamicIdx[curr] = dynIdx;
+        compiled.dynamicVertices.emplace_back(); // Placeholder
+        
+        starFaceIndices.push_back(idxM1);
+        starFaceIndices.push_back(compiled.staticOffset + dynIdx);
+        
+        he = he->next;
+      } while (he != startHe);
+      
+      compiled.faces.push_back(starFaceIndices);
+    }
+    
+    // Rosette faces
+    std::vector<HEVertex*> visitedVerts;
+    auto isVisited = [&](HEVertex* v) {
+      return std::find(visitedVerts.begin(), visitedVerts.end(), v) != visitedVerts.end();
+    };
+    
+    for (auto& heStart : heMesh.halfEdges) {
+      if (!heStart.prev) continue;
+      HEVertex* origin = heStart.prev->vertex;
+      if (isVisited(origin)) continue;
+      visitedVerts.push_back(origin);
+      
+      std::vector<int> rosetteIndices;
+      HalfEdge* curr = &heStart;
+      HalfEdge* startOrbit = curr;
+      int safety = 0;
+      
+      do {
+        rosetteIndices.push_back(heToMidpointIdx[curr]); // Static
+        HalfEdge* nextEdge = curr->pair ? curr->pair->next : nullptr;
+        if (!nextEdge) break;
+        rosetteIndices.push_back(compiled.staticOffset + heToDynamicIdx[nextEdge]); // Dynamic
+        curr = nextEdge;
+        safety++;
+      } while (curr != startOrbit && curr && safety < 100);
+      
+      if (rosetteIndices.size() > 2) {
+        std::reverse(rosetteIndices.begin(), rosetteIndices.end());
+        compiled.faces.push_back(rosetteIndices);
+      }
+    }
+    
+    return compiled;
+  }
+  
+  /**
+   * @brief Updates a compiled Hankin pattern.
+   */
+  template <typename MeshT> // Templated just to match style, though MeshT output is expected
+  static MeshT update_hankin(CompiledHankin& compiled, float angle) {
+    for (size_t i = 0; i < compiled.dynamicInstructions.size(); ++i) {
+      const auto& instr = compiled.dynamicInstructions[i];
+      Vector m1 = compiled.staticVertices[instr.idxM1];
+      Vector m2 = compiled.staticVertices[instr.idxM2];
+      
+      Vector nEdge1 = cross(instr.pPrev, instr.pCorner).normalize();
+      Quaternion q1 = make_rotation(m1, angle);
+      Vector nHankin1 = rotate(nEdge1, q1);
+      
+      Vector nEdge2 = cross(instr.pCorner, instr.pNext).normalize();
+      Quaternion q2 = make_rotation(m2, -angle);
+      Vector nHankin2 = rotate(nEdge2, q2);
+      
+      Vector intersect = cross(nHankin1, nHankin2);
+      if (dot(intersect, instr.pCorner) < 0) intersect = -intersect;
+      
+      compiled.dynamicVertices[i] = intersect.normalize();
+    }
+    
+    MeshT result;
+    result.vertices = compiled.staticVertices;
+    result.vertices.insert(result.vertices.end(), compiled.dynamicVertices.begin(), compiled.dynamicVertices.end());
+    result.faces = compiled.faces;
+    return result;
+  }
+  
+  /**
+   * @brief Helper to do full hankin generation.
+   */
+  template <typename MeshT>
+  static MeshT hankin(const MeshT& mesh, float angle) {
+    auto compiled = compile_hankin(mesh);
+    return update_hankin<MeshT>(compiled, angle);
+  }
+
+  /**
+   * @brief Finds the closest point on the mesh graph (BFS).
+   * @param p The query point.
+   * @param mesh The mesh to search.
+   * @return The position of the closest vertex.
+   */
+  template <typename MeshT>
+  static Vector closest_point_on_mesh_graph(const Vector& p, const MeshT& mesh) {
+    if (mesh.vertices.empty()) return Vector(0,1,0);
+    
+    // Linear scan is probably faster for small meshes (<1000 verts) than building a graph
+    // Holosphere meshes are typically small.
+    Vector best = mesh.vertices[0];
+    float minSq = distance_squared(p, best);
+    
+    for (const auto& v : mesh.vertices) {
+      float sq = distance_squared(p, v);
+      if (sq < minSq) {
+        minSq = sq;
+        best = v;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * @brief Raycasts a point onto the mesh surface.
+   * @param p The point to project.
+   * @param mesh The target mesh.
+   * @return The projected point.
+   */
+  template <typename MeshT>
+  static Vector project_to_mesh(const Vector& p, const MeshT& mesh) {
+     Vector dir = Vector(p).normalize();
+     Vector bestHit = p;
+     bool hitFound = false;
+     float minT = FLT_MAX;
+     
+     for (const auto& face : mesh.faces) {
+       if (face.size() < 3) continue;
+       // Triangulate fan
+       Vector v0 = mesh.vertices[face[0]];
+       for (size_t k = 0; k < face.size() - 2; ++k) {
+         Vector v1 = mesh.vertices[face[k+1]];
+         Vector v2 = mesh.vertices[face[k+2]];
+         
+         Vector e1 = v1 - v0;
+         Vector e2 = v2 - v0;
+         Vector n = cross(e1, e2);
+         float lenSq = dot(n, n);
+         if (lenSq < 1e-8f) continue;
+         n.normalize();
+         
+         float denom = dot(dir, n);
+         if (denom < 0.0001f) continue; // Backface or parallel
+         
+         float t = dot(v0, n) / denom;
+         if (t <= 0 || t >= minT) continue;
+         
+         Vector hit = dir * t;
+         
+         // Barycentric/Point-in-triangle check
+         Vector toHit = hit - v0;
+         if (dot(cross(e1, toHit), n) < 0) continue;
+         
+         Vector e1_2 = v2 - v1;
+         Vector toHit_2 = hit - v1;
+         if (dot(cross(e1_2, toHit_2), n) < 0) continue;
+         
+         Vector e1_3 = v0 - v2;
+         Vector toHit_3 = hit - v2;
+         if (dot(cross(e1_3, toHit_3), n) < 0) continue;
+         
+         bestHit = hit;
+         minT = t;
+         hitFound = true;
+       }
+     }
+     
+     if (hitFound) return bestHit;
+     return closest_point_on_mesh_graph(p, mesh);
+  }
+};

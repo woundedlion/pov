@@ -5,6 +5,7 @@
 #pragma once
 
 #include "../effects_engine.h"
+#include "../solids.h"
 
 template <int W>
 class Test : public Effect {

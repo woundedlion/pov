@@ -24,6 +24,7 @@ void setup() {
 }
 
 void loop() {
+  pov->show<TestSolids<96>>(120);
   pov->show<Test<96>>(120);
   pov->show<TestShapes<96>>(120);
   pov->show<PetalFlow<96>>(120);

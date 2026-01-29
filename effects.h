@@ -17,3 +17,4 @@
 #include "effects/PetalFlow.h"
 #include "effects/Test.h"
 #include "effects/TestShapes.h"
+#include "effects/TestSolids.h"

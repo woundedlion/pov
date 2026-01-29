@@ -447,4 +447,31 @@ struct Plot {
     }
   };
 
+  struct Mesh {
+    template <typename MeshT>
+    static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, ColorFn auto color_fn) {
+       std::vector<std::pair<int, int>> edges;
+       // Estimate size
+       edges.reserve(mesh.faces.size() * 3);
+       
+       for (const auto& face : mesh.faces) {
+          size_t count = face.size();
+          for (size_t i = 0; i < count; ++i) {
+             int u = face[i];
+             int v = face[(i + 1) % count];
+             if (u > v) std::swap(u, v);
+             edges.push_back({u, v});
+          }
+       }
+       
+       // Deduplicate
+       std::sort(edges.begin(), edges.end());
+       edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+       
+       for (const auto& edge : edges) {
+          Line::draw(pipeline, canvas, mesh.vertices[edge.first], mesh.vertices[edge.second], color_fn, 0.0f, 1.0f, false, true);
+       }
+    }
+  };
+
 };
