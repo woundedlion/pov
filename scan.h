@@ -11,9 +11,6 @@
 #include "led.h"
 #include "filter.h"
 
-// Forward declare quintic_kernel if not available (it IS in filter.h, but we might need it visible here)
-// However, scan.h includes filter.h, so it should be fine.
-
 struct SDF {
     struct Bounds {
       int y_min, y_max;
@@ -125,7 +122,6 @@ struct SDF {
         return true;
       }
       
-      // Let's implement distance.
       DistanceResult distance(const Vector& p) const {
          float d = dot(p, normal);
          if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f };
@@ -311,6 +307,87 @@ struct SDF {
              return resB;
           }
           return resA;
+       }
+    };
+
+    template <typename A, typename B>
+    struct Intersection {
+       const A& a;
+       const B& b;
+       float thickness;
+
+       Intersection(const A& shapeA, const B& shapeB)
+          : a(shapeA), b(shapeB), thickness(std::min(shapeA.thickness, shapeB.thickness)) {}
+
+       Bounds get_vertical_bounds() const {
+          auto b1 = a.get_vertical_bounds();
+          auto b2 = b.get_vertical_bounds();
+          return { std::max(b1.y_min, b2.y_min), std::min(b1.y_max, b2.y_max) };
+       }
+
+       template<typename OutputIt>
+       bool get_horizontal_intervals(int y, OutputIt out) const {
+           // Use StaticCircularBuffer to capture intervals from A and B
+           // Capacity 32 should be enough for basic primitives and their combinations
+           StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
+           StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
+
+           bool hasA = a.get_horizontal_intervals(y, [&](float start, float end) {
+               intervalsA.push_back({start, end});
+           });
+           
+           bool hasB = b.get_horizontal_intervals(y, [&](float start, float end) {
+               intervalsB.push_back({start, end});
+           });
+
+           if (!hasA) {
+               // A is full scan (or failed to produce intervals meaning it covers everything or nothing)
+               // The contract of get_horizontal_intervals returning false usually implies "full scan" or "too complex".
+               // But if it means "empty", we should handle that.
+               // Scan::rasterize assumes false -> full scan. 
+               // If A is full scan, intersection with B is just B.
+               return b.get_horizontal_intervals(y, out);
+           }
+           if (!hasB) {
+               // If B is full scan, intersection with A is just A.
+               return a.get_horizontal_intervals(y, out);
+           }
+
+           if (intervalsA.is_empty() || intervalsB.is_empty()) return true; // Empty intersection
+
+           // Intersect sorted intervals
+           size_t idxA = 0;
+           size_t idxB = 0;
+
+           bool found = false;
+           while (idxA < intervalsA.size() && idxB < intervalsB.size()) {
+               auto ivA = intervalsA[idxA];
+               auto ivB = intervalsB[idxB];
+
+               float start = std::max(ivA.first, ivB.first);
+               float end = std::min(ivA.second, ivB.second);
+
+               if (start < end) {
+                   out(start, end);
+                   found = true;
+               }
+
+               if (ivA.second < ivB.second) {
+                   idxA++;
+               } else {
+                   idxB++;
+               }
+           }
+           
+           return true; // We handled it (even if empty)
+       }
+
+       DistanceResult distance(const Vector& p) const {
+          auto resA = a.distance(p);
+          auto resB = b.distance(p);
+          // Max(A, B)
+          if (resA.dist > resB.dist) return resA;
+          return resB;
        }
     };
 

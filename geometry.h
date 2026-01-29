@@ -710,7 +710,7 @@ public:
  * @details Max vertices set to 64 to accommodate Truncated Icosahedron / Snub Dodecahedron (60 vertices).
  */
 struct MeshState {
-  static constexpr size_t MAX_VERTS = 64;
+  static constexpr size_t MAX_VERTS = 512;
   std::array<Vector, MAX_VERTS> vertices;
   size_t num_vertices = 0;
 
