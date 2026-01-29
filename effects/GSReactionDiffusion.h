@@ -196,7 +196,7 @@ private:
         float t = std::clamp((b - 0.15f) * 4.0f, 0.0f, 1.0f);
         Color4 c = ctx.palette.get(t);
         c.alpha *= opacity * global_alpha;
-        Plot<W>::Point::draw(filters, canvas, nodes[i], c);
+        Plot::Point::draw(filters, canvas, nodes[i], c);
       }
     }
   }

@@ -79,7 +79,7 @@ private:
 
       Points points;
       Basis basis = make_basis(Quaternion(), normal);
-      Plot<W>::Polygon::sample(points, basis, radius, W / 4);
+      Plot::Polygon::sample<W>(points, basis, radius, W / 4);
 
       Points transformed_points;
       for (const auto& p : points) {
@@ -88,7 +88,7 @@ private:
       }
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
-      Plot<W>::rasterize(filters, canvas, transformed_points, [&](const Vector&, float) {
+      Plot::rasterize<W>(filters, canvas, transformed_points, [&](const Vector&, float) {
         Color4 c = palette.get(static_cast<float>(i) / num);
         c.alpha *= opacity;
         return c;
@@ -104,7 +104,7 @@ private:
 
       Points points;
       Basis basis = make_basis(Quaternion(), normal);
-      Plot<W>::Polygon::sample(points, basis, 1.0f, W / 4);
+      Plot::Polygon::sample<W>(points, basis, 1.0f, W / 4);
       Points transformed_points;
       for (const auto& p : points) {
         Vector transformed = inv_stereo(mobius(stereo(p), params));
@@ -112,7 +112,7 @@ private:
       }
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
-      Plot<W>::rasterize(filters, canvas, transformed_points, [&](const Vector&, float t_line) {
+      Plot::rasterize<W>(filters, canvas, transformed_points, [&](const Vector&, float t_line) {
         // Approximate original Z to calculate log-gradient
         float original_idx = t_line * points.size();
         int idx1 = static_cast<int>(original_idx) % points.size();

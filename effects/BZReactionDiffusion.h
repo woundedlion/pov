@@ -228,7 +228,7 @@ private:
 
         Color4 c(color);
         c.alpha *= global_alpha * opacity;
-        Plot<W>::Point::draw(filters, canvas, nodes[i], c);
+        Plot::Point::draw(filters, canvas, nodes[i], c);
       }
     }
   }

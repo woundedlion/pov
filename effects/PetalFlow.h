@@ -100,7 +100,7 @@ private:
       int color_index = (k - loop_count) + 10000;
       float hue = wrap(color_index * 0.13f, 1.0f);
 
-      Plot<W>::rasterize(filters, canvas, points, [&](const Vector&, float) {
+      Plot::rasterize<W>(filters, canvas, points, [&](const Vector&, float) {
         Color4 res = palette.get(hue);
         res.alpha *= opacity;
         return res;

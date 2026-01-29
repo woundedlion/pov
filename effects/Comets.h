@@ -98,7 +98,7 @@ public:
     }
 
     for(const auto& dot : render_points) {
-        Scan<W>::Point::draw(filters, canvas, dot.position, thickness, [&](const Vector&, float){ return dot.color; });
+        Scan::Point::draw<W>(filters, canvas, dot.position, thickness, [&](const Vector&, float){ return dot.color; });
     }
   }
 

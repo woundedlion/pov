@@ -177,6 +177,6 @@ private:
       };
       
       // Use Scan::Mesh::draw which now accepts MeshState
-      Scan<W>::Mesh::draw(scan_pipeline, canvas, transformed_mesh, color_fn); 
+      Scan::Mesh::draw<W>(scan_pipeline, canvas, transformed_mesh, color_fn); 
   }
 };

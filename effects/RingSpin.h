@@ -58,7 +58,7 @@ public:
           Color4 c = ring.palette.get(t);
           c.alpha = c.alpha * alpha;
           Basis basis = make_basis(q, ring.normal);
-          Scan<W>::Ring::draw(filters, canvas, basis, 1.0f, thickness, [&](const Vector&, float) { return c; });
+          Scan::Ring::draw<W>(filters, canvas, basis, 1.0f, thickness, [&](const Vector&, float) { return c; });
         });
     }
   }
