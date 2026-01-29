@@ -74,10 +74,19 @@ private:
   template <typename T>
   void add_solid() {
       solid_generators.push_back([]() -> State {
-          T t;
           State s;
-          s.vertices = t.vertices;
-          s.faces = t.faces;
+          s.vertices.assign(T::vertices.begin(), T::vertices.end());
+          
+          size_t offset = 0;
+          for (auto count : T::face_counts) {
+              std::vector<int> face;
+              face.reserve(count);
+              for (int i = 0; i < count; ++i) {
+                  face.push_back(T::faces[offset + i]);
+              }
+              s.faces.push_back(std::move(face));
+              offset += count;
+          }
           return s;
       });
   }
