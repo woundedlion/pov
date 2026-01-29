@@ -112,5 +112,9 @@ concept Tweenable = requires(const T & t, size_t i) {
 
 #include "geometry.h"
 #include "filter.h"
-#include "draw.h"
+#include "filter.h"
+#include "scan.h"
+#include "plot.h"
+#include "animation.h"
+
 #include "animation.h"
