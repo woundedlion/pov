@@ -552,9 +552,9 @@ public:
    * @param fade_out_duration Frames for fading out.
    * @param fade_out_easing_fn Easing for fade-out.
    */
-  Sprite(SpriteFn auto draw_fn, int duration,
-    int fade_in_duration = 0, ScalarFn auto fade_in_easing_fn = ease_mid,
-    int fade_out_duration = 0, ScalarFn auto fade_out_easing_fn = ease_mid) :
+  Sprite(std::function<void(Canvas&, float)> draw_fn, int duration,
+    int fade_in_duration = 0, std::function<float(float)> fade_in_easing_fn = ease_mid,
+    int fade_out_duration = 0, std::function<float(float)> fade_out_easing_fn = ease_mid) :
     Animation(duration, false),
     draw_fn(draw_fn),
     fader(fade_in_duration > 0 ? 0 : 1),
@@ -1065,6 +1065,215 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
+class SpatialHash {
+public:
+  SpatialHash(float cellSize) : cellSize(cellSize) {}
+
+  void clear() {
+    grid.clear();
+  }
+
+  void insert(const Vector& p, int id) {
+    long long key = hash(p);
+    grid[key].push_back(id);
+  }
+
+  std::vector<int> query(const Vector& p) {
+    long long key = hash(p);
+    if (grid.count(key)) return grid.at(key);
+    return {};
+  }
+  
+  // Helper to query neighbors (input p's cell + adjacent cells could be needed for strict correctness but JS SpatialHash usually just checks bucket)
+  // JS SpatialSearch usually checks specific bucket.
+
+private:
+  float cellSize;
+  std::unordered_map<long long, std::vector<int>> grid;
+
+  long long hash(const Vector& p) const {
+    int x = static_cast<int>(floorf(p.i / cellSize));
+    int y = static_cast<int>(floorf(p.j / cellSize));
+    int z = static_cast<int>(floorf(p.k / cellSize));
+    // Simple packing for hash (collisions possible but accepted for visual effects)
+    return ((long long)x * 73856093) ^ ((long long)y * 19349663) ^ ((long long)z * 83492791);
+  }
+};
+
+class ParticleSystem : public Animation<ParticleSystem> {
+public:
+  struct Particle {
+    Vector p;
+    Vector v;
+    Vector a;
+    float age = 0;
+    float life = 1.0f;
+    float mass = 1.0f;
+    Vector color; // RGB
+  };
+
+  ParticleSystem(int maxParticles, float cellSize = 0.2f) 
+    : Animation(-1, false), hash(cellSize) {
+    particles.reserve(maxParticles);
+  }
+
+  void addAttractor(const Vector& p, float strength) {
+    attractors.push_back({p, strength});
+  }
+
+  void spawn(const Vector& p, const Vector& v, float life, const Vector& color) {
+    if (particles.size() < particles.capacity()) {
+      particles.push_back({p, v, Vector(0,0,0), 0, life, 1.0f, color});
+    }
+  }
+
+  void step(Canvas& canvas) override {
+    Animation::step(canvas);
+    hash.clear();
+
+    // Rebuild hash
+    for(size_t i=0; i<particles.size(); ++i) {
+      hash.insert(particles[i].p, i);
+    }
+
+    // Update
+    for (auto it = particles.begin(); it != particles.end(); ) {
+      auto& p = *it;
+      p.age += 0.01f; // Assumed dt
+      
+      // Forces
+      p.a = Vector(0,0,0);
+      for(const auto& att : attractors) {
+         Vector dir = att.first - p.p;
+         float distSq = dot(dir, dir);
+         if (distSq > 0.0001f) {
+           p.a = p.a + dir.normalize() * (att.second / distSq);
+         }
+      }
+      
+      // Physics
+      p.v = p.v + p.a; 
+      p.p = p.p + p.v;
+      p.p = p.p.normalize(); // Constrain to sphere
+      
+      // Draw (simple point)
+      // canvas.setPixel? We need a pipeline or just plot raw. 
+      // Animation::step takes canvas. But usually drawing is done by the caller or specialized draw method.
+      // JS ParticleSystem doesn't draw itself usually, it updates state.
+      // But here we might want to draw.
+      // For now, assume this updates state. Use a separate renderer or extend to draw.
+      
+      if (p.age > p.life) {
+        it = particles.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+  
+  // Accessors for rendering
+  const std::vector<Particle>& getParticles() const { return particles; }
+
+private:
+  std::vector<Particle> particles;
+  std::vector<std::pair<Vector, float>> attractors;
+  SpatialHash hash;
+};
+
+/*
+ * @brief Animates a transition between two meshes.
+ */
+class MeshMorph : public Animation<MeshMorph> {
+public:
+  struct MorphPath {
+     Vector start;
+     Vector end;
+     float angle;
+     Vector axis;
+  };
+  
+  // Minimal representation of a mesh for morphing
+  struct State {
+     std::vector<Vector> vertices;
+     std::vector<std::vector<int>> faces;
+  };
+
+  MeshMorph(State* output, const State& source, const State& dest, int duration, bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
+    : Animation(duration, repeat), output(output), source(source), dest(dest), easing_fn(easing_fn)
+  {
+     // Copy source to output immediately?
+      if (output) *output = source;
+      init();
+  }
+  
+  void init() {
+     // Compute paths
+     // Source -> Dest
+     sourcePaths.resize(source.vertices.size());
+     
+     for(size_t i=0; i<source.vertices.size(); ++i) {
+        Vector s = source.vertices[i];
+        Vector t = MeshOps::project_to_mesh(s, dest); // Project source vert to dest mesh
+        
+        float ang = angle_between(s, t);
+        Vector ax = cross(s, t).normalize();
+        if (std::abs(ang) < 0.0001f) ax = Vector(1,0,0);
+        
+        sourcePaths[i] = { s, t, ang, ax };
+     }
+     
+     // Dest -> Source (for bidirectional morph logic if needed, JS used it)
+     destPaths.resize(dest.vertices.size());
+     for(size_t i=0; i<dest.vertices.size(); ++i) {
+        Vector d = dest.vertices[i];
+        Vector s = MeshOps::project_to_mesh(d, source);
+        
+        float ang = angle_between(s, d);
+        Vector ax = cross(s, d).normalize();
+         if (std::abs(ang) < 0.0001f) ax = Vector(1,0,0);
+        
+        destPaths[i] = { s, d, ang, ax };
+     }
+  }
+  
+  void step(Canvas& canvas) override {
+      Animation::step(canvas);
+      if (!output) return;
+
+      float progress = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+      float alpha = easing_fn(progress);
+      
+      // Animate Source Vertices -> Output
+      for(size_t i=0; i<source.vertices.size(); ++i) {
+         const auto& path = sourcePaths[i];
+         if (path.angle > 0.00001f) {
+            output->vertices[i] = rotate(path.start, make_rotation(path.axis, path.angle * alpha));
+         } else {
+             // Linear fallback
+             output->vertices[i] = (path.start * (1-alpha) + path.end * alpha).normalize();
+         }
+      }
+      
+      // Morph topology at end
+      if (t >= duration) {
+          *output = dest;
+      }
+  }
+  
+  // const State& getCurrentState() const { return current; } // Removed, uses output ptr
+
+private:
+  State* output;
+  State source;
+  State dest;
+  // State current; // Removed
+  std::vector<MorphPath> sourcePaths;
+  std::vector<MorphPath> destPaths;
+  std::function<float(float)> easing_fn;
+};
+  
+
+
 /**
  * @brief Type alias for a variant that can hold any animation type.
  * @details Used by the Timeline to manage heterogeneous animation objects.
@@ -1081,7 +1290,9 @@ using AnimationVariant = std::variant<
   RandomWalk<MAX_W>,
   ColorWipe,
   MobiusFlow,
-  MobiusWarp
+  MobiusWarp,
+  ParticleSystem,
+  MeshMorph
 >;
 
 /**

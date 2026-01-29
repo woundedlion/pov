@@ -576,6 +576,7 @@ static const ProceduralPalette embers({ 0.500f, 0.500f, 0.500f }, { 0.500f, 0.50
 static const ProceduralPalette fireGlow({ 0.000f, 0.000f, 0.000f }, { 0.560f, 0.560f, 0.560f }, { 0.216f, 0.346f, 0.174f }, { 0.756f, 0.542f, 0.279f });
 static const ProceduralPalette darkPrimary({ 0.500f, 0.500f, 0.500f }, { 0.500f, 0.610f, 0.500f }, { 0.746f, 0.347f, 0.000f }, { 0.187f, 0.417f, 0.670f });
 static const ProceduralPalette mauveFade({ 0.583f, 0.000f, 0.583f }, { 1.000f, 0.000f, 1.000f }, { 0.191f, 0.348f, 0.191f }, { 0.175f, 0.045f, 0.150f });
+static const ProceduralPalette lavenderLake({ 0.288f, 0.080f, 0.288f }, { 0.380f, 0.430f, 0.380f }, { 0.154f, 0.154f, 0.154f }, { 2.926f, 2.926f, 2.926f });
 
 // Gradient Palettes
 static const Gradient rainbow({
