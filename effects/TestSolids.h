@@ -6,6 +6,7 @@
 
 #include "../effects_engine.h"
 #include "../geometry.h"
+#include "../spatial.h"
 #include "../solids.h"
 #include "../scan.h"
 #include "../plot.h"

@@ -720,6 +720,17 @@ public:
  * @brief Represents the state of a mesh using static storage to avoid heap allocations.
  * @details Max vertices set to 64 to accommodate Truncated Icosahedron / Snub Dodecahedron (60 vertices).
  */
+#include <memory>
+
+// Forward declaration
+class BVH;
+
+// ... (existing code)
+
+/**
+ * @brief Represents the state of a mesh using static storage to avoid heap allocations.
+ * @details Max vertices set to 64 to accommodate Truncated Icosahedron / Snub Dodecahedron (60 vertices).
+ */
 struct MeshState {
   static constexpr size_t MAX_VERTS = 512;
   std::array<Vector, MAX_VERTS> vertices;
@@ -730,13 +741,18 @@ struct MeshState {
   size_t num_faces = 0;
   const int* faces = nullptr;
 
+  // Acceleration structure
+  std::shared_ptr<BVH> bvh;
+
   void clear() {
     num_vertices = 0;
     num_faces = 0;
     face_counts = nullptr;
     faces = nullptr;
+    bvh.reset();
   }
 };
+
 
 /**
  * @brief Implementation of HalfEdgeMesh constructor for MeshState.
@@ -1109,138 +1125,5 @@ struct MeshOps {
     return best;
   }
 
-  /**
-   * @brief Raycasts a point onto the mesh surface.
-   * @param p The point to project.
-   * @param mesh The target mesh.
-   * @return The projected point.
-   */
-  template <typename MeshT>
-  static Vector project_to_mesh(const Vector& p, const MeshT& mesh) {
-     Vector dir = Vector(p).normalize();
-     Vector bestHit = p;
-     bool hitFound = false;
-     float minT = FLT_MAX;
-     
-     for (const auto& face : mesh.faces) {
-       if (face.size() < 3) continue;
-       // Triangulate fan
-       Vector v0 = mesh.vertices[face[0]];
-       for (size_t k = 0; k < face.size() - 2; ++k) {
-         Vector v1 = mesh.vertices[face[k+1]];
-         Vector v2 = mesh.vertices[face[k+2]];
-         
-         Vector e1 = v1 - v0;
-         Vector e2 = v2 - v0;
-         Vector n = cross(e1, e2);
-         float lenSq = dot(n, n);
-         if (lenSq < 1e-8f) continue;
-         n.normalize();
-         
-         float denom = dot(dir, n);
-         if (denom < 0.0001f) continue; // Backface or parallel
-         
-         float t = dot(v0, n) / denom;
-         if (t <= 0 || t >= minT) continue;
-         
-         Vector hit = dir * t;
-         
-         // Barycentric/Point-in-triangle check
-         Vector toHit = hit - v0;
-         if (dot(cross(e1, toHit), n) < 0) continue;
-         
-         Vector e1_2 = v2 - v1;
-         Vector toHit_2 = hit - v1;
-         if (dot(cross(e1_2, toHit_2), n) < 0) continue;
-         
-         Vector e1_3 = v0 - v2;
-         Vector toHit_3 = hit - v2;
-         if (dot(cross(e1_3, toHit_3), n) < 0) continue;
-         
-         bestHit = hit;
-         minT = t;
-         hitFound = true;
-       }
-     }
-     
-     if (hitFound) return bestHit;
-     return closest_point_on_mesh_graph(p, mesh);
-  }
 
-  /**
-   * @brief Raycasts a point onto a MeshState.
-   * @param p The point to project.
-   * @param mesh The target MeshState.
-   * @return The projected point.
-   */
-  static Vector project_to_mesh(const Vector& p, const MeshState& mesh) {
-     Vector dir = Vector(p).normalize();
-     Vector bestHit = p;
-     bool hitFound = false;
-     float minT = FLT_MAX;
-     
-     const int* face_ptr = mesh.faces;
-
-     for (size_t k = 0; k < mesh.num_faces; ++k) {
-       size_t count = mesh.face_counts[k];
-       if (count < 3) {
-           face_ptr += count;
-           continue;
-       }
-
-       // Triangulate fan
-       Vector v0 = mesh.vertices[face_ptr[0]];
-       for (size_t i = 0; i < count - 2; ++i) {
-         Vector v1 = mesh.vertices[face_ptr[i+1]];
-         Vector v2 = mesh.vertices[face_ptr[i+2]];
-         
-         Vector e1 = v1 - v0;
-         Vector e2 = v2 - v0;
-         Vector n = cross(e1, e2);
-         float lenSq = dot(n, n);
-         if (lenSq < 1e-8f) continue;
-         n.normalize();
-         
-         float denom = dot(dir, n);
-         if (denom < 0.0001f) continue; 
-         
-         float t = dot(v0, n) / denom;
-         if (t <= 0 || t >= minT) continue;
-         
-         Vector hit = dir * t;
-         
-         // Barycentric/Point-in-triangle check
-         Vector toHit = hit - v0;
-         if (dot(cross(e1, toHit), n) < 0) continue;
-         
-         Vector e1_2 = v2 - v1;
-         Vector toHit_2 = hit - v1;
-         if (dot(cross(e1_2, toHit_2), n) < 0) continue;
-         
-         Vector e1_3 = v0 - v2;
-         Vector toHit_3 = hit - v2;
-         if (dot(cross(e1_3, toHit_3), n) < 0) continue;
-         
-         bestHit = hit;
-         minT = t;
-         hitFound = true;
-       }
-       face_ptr += count;
-     }
-     
-     if (hitFound) return bestHit;
-     // Fallback: simplified nearest neighbor for now since KDTree for MeshState not implemented
-     if (mesh.num_vertices == 0) return p;
-     
-     Vector best = mesh.vertices[0];
-     float minSq = distance_squared(p, best);
-     for(size_t i=1; i<mesh.num_vertices; ++i) {
-         float sq = distance_squared(p, mesh.vertices[i]);
-         if (sq < minSq) {
-             minSq = sq;
-             best = mesh.vertices[i];
-         }
-     }
-     return best;
-  }
 };
