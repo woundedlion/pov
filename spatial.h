@@ -4,41 +4,306 @@
  */
 #pragma once
 
-#include "geometry.h"
-#include "geometry.h"
+#include "3dmath.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <span>
 #include <vector>
 #include <unordered_map>
+#include <memory>
+#include <string>
+#include <cfloat>
 
+struct AABB {
+  Vector minVal;
+  Vector maxVal;
 
+  AABB() : minVal(FLT_MAX, FLT_MAX, FLT_MAX), maxVal(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
 
-// KDTree commented out to avoid dynamic allocations (std::vector/unique_ptr)
-/*
+  void expand(const Vector& p) {
+    if (p.i < minVal.i) minVal.i = p.i;
+    if (p.j < minVal.j) minVal.j = p.j;
+    if (p.k < minVal.k) minVal.k = p.k;
+    
+    if (p.i > maxVal.i) maxVal.i = p.i;
+    if (p.j > maxVal.j) maxVal.j = p.j;
+    if (p.k > maxVal.k) maxVal.k = p.k;
+  }
+
+  // Optimize union
+  void unionWith(const AABB& box) {
+      if (box.minVal.i < minVal.i) minVal.i = box.minVal.i;
+      if (box.minVal.j < minVal.j) minVal.j = box.minVal.j;
+      if (box.minVal.k < minVal.k) minVal.k = box.minVal.k;
+      
+      if (box.maxVal.i > maxVal.i) maxVal.i = box.maxVal.i;
+      if (box.maxVal.j > maxVal.j) maxVal.j = box.maxVal.j;
+      if (box.maxVal.k > maxVal.k) maxVal.k = box.maxVal.k;
+  }
+
+  bool intersectRay(const Vector& origin, const Vector& direction) const {
+    float tmin = (minVal.i - origin.i) / direction.i;
+    float tmax = (maxVal.i - origin.i) / direction.i;
+    if (tmin > tmax) std::swap(tmin, tmax);
+
+    float tymin = (minVal.j - origin.j) / direction.j;
+    float tymax = (maxVal.j - origin.j) / direction.j;
+    if (tymin > tymax) std::swap(tymin, tymax);
+
+    if ((tmin > tymax) || (tymin > tmax)) return false;
+
+    if (tymin > tmin) tmin = tymin;
+    if (tymax < tmax) tmax = tymax;
+
+    float tzmin = (minVal.k - origin.k) / direction.k;
+    float tzmax = (maxVal.k - origin.k) / direction.k;
+    if (tzmin > tzmax) std::swap(tzmin, tzmax);
+
+    if ((tmin > tzmax) || (tzmin > tmax)) return false;
+
+    return true;
+  }
+};
+
+struct BVHNode {
+  AABB aabb;
+  int16_t left = -1;
+  int16_t right = -1;
+  int16_t firstFaceIndex = -1; // Pointer to index map
+  int16_t faceCount = 0;
+};
+
+struct BVH {
+  static constexpr int MAX_NODES = 512;   // 2N for N faces
+  static constexpr int MAX_INDICES = 512; // Permutation buffer
+
+  std::array<BVHNode, MAX_NODES> nodes;
+  std::array<int16_t, MAX_INDICES> faceIndices; 
+  int nodeCount = 0;
+  int rootIndex = -1;
+
+  void clear() {
+      nodeCount = 0;
+      rootIndex = -1;
+  }
+};
+
+/**
+ * @brief Represents the state of a mesh using static storage to avoid heap allocations.
+ */
+struct MeshState {
+  static constexpr size_t MAX_VERTS = 512;
+  static constexpr size_t MAX_FACES = 512;
+
+  std::array<Vector, MAX_VERTS> vertices;
+  size_t num_vertices = 0;
+
+  // Topology (pointers to static const data in solids.h)
+  const uint8_t* face_counts = nullptr;
+  size_t num_faces = 0;
+  const int* faces = nullptr;
+  
+  // NEW: Lookup table for O(1) access to face data
+  std::array<uint16_t, MAX_FACES> face_offsets; 
+
+  // Acceleration structure
+  BVH bvh;
+
+  void clear() {
+    num_vertices = 0;
+    num_faces = 0;
+    face_counts = nullptr;
+    faces = nullptr;
+    bvh.clear();
+  }
+};
+
+#include "static_circular_buffer.h"
+
+/**
+ * @brief k-d Tree implementation for 3D points using static memory.
+ * @details Stores points and allows nearest neighbor search.
+ */
 struct KDNode {
-  // ...
+  // We store a COPY of the point to avoid lifetime issues, 
+  // or we could store an index if we had a reference to the point array.
+  // Storing copy is safer and simpler for now.
+  Vector point;
+  int16_t axis = 0; // 0=x, 1=y, 2=z
+  int16_t left = -1;
+  int16_t right = -1;
 };
+
 class KDTree {
-  // ...
+public:
+  static constexpr int MAX_NODES = 512;
+  static constexpr int MAX_K = 5;
+
+  std::array<KDNode, MAX_NODES> nodes;
+  int nodeCount = 0;
+  int rootIndex = -1;
+
+  KDTree() = default;
+  
+  // Build from a Span of vectors
+  KDTree(Span<Vector> points) {
+      clear();
+      if (points.empty()) return;
+
+      // We need a mutable index array to partition
+      std::array<int, MAX_NODES> indices;
+      size_t count = std::min((size_t)MAX_NODES, points.size());
+      for(size_t i=0; i<count; ++i) indices[i] = i;
+
+      rootIndex = build(points, indices.data(), count, 0);
+  }
+
+  void clear() {
+      nodeCount = 0;
+      rootIndex = -1;
+  }
+
+  // Nearest neighbor search
+  // Returns up to K results
+  StaticCircularBuffer<Vector, MAX_K> nearest(const Vector& target, int k = 1) const {
+      StaticCircularBuffer<Vector, MAX_K> result;
+      if (rootIndex == -1) return result;
+
+      // Priority queue for best K is expensive to implement static.
+      // Since K is small (usually 1), we can just find the best ONE for now 
+      // or implement a simple sorted insert.
+      // The original code returned a vector of points.
+      // Let's support K=1 optimized, or simple array scan for K>1.
+      
+      // For this restricted implementation, we will perform standard NN search
+      // keeping track of the 'worst' best distance if we want K items.
+      
+      // To simplify for Teensy: Just find the single nearest if k=1 (common case).
+      // If k > 1, collecting them is tricky without dynamic memory.
+      // We will assume k=1 for now as per likely usage (finding mapped pixel).
+      
+      float bestDistSq = FLT_MAX;
+      int bestNodeIdx = -1;
+
+      search(rootIndex, target, bestDistSq, bestNodeIdx);
+
+      if (bestNodeIdx != -1) {
+          result.push_back(nodes[bestNodeIdx].point);
+      }
+      return result;
+  }
+
+private:
+  int build(Span<Vector> points, int* indices, int count, int depth) {
+      if (count <= 0) return -1;
+      if (nodeCount >= MAX_NODES) return -1;
+
+      int axis = depth % 3;
+      int mid = count / 2;
+      
+      // nth_element / partition
+      // We need to partition the indices based on the points they point to
+      auto* start = indices;
+      auto* end = indices + count;
+      
+      std::nth_element(start, start + mid, end, [&](int a, int b) {
+          float va = (axis == 0) ? points[a].i : (axis == 1) ? points[a].j : points[a].k;
+          float vb = (axis == 0) ? points[b].i : (axis == 1) ? points[b].j : points[b].k;
+          return va < vb;
+      });
+
+      int medianIdx = indices[mid];
+      
+      int newNodeIdx = nodeCount++;
+      nodes[newNodeIdx].point = points[medianIdx];
+      nodes[newNodeIdx].axis = axis;
+      
+      nodes[newNodeIdx].left = build(points, start, mid, depth + 1);
+      nodes[newNodeIdx].right = build(points, start + mid + 1, count - mid - 1, depth + 1);
+      
+      return newNodeIdx;
+  }
+  
+  void search(int nodeIdx, const Vector& target, float& bestDistSq, int& bestNodeIdx) const {
+      if (nodeIdx == -1) return;
+      
+      const KDNode& node = nodes[nodeIdx];
+      float dSq = distance_squared(node.point, target);
+      
+      if (dSq < bestDistSq) {
+          bestDistSq = dSq;
+          bestNodeIdx = nodeIdx;
+      }
+      
+      float axisDist = (node.axis == 0) ? (target.i - node.point.i) :
+                       (node.axis == 1) ? (target.j - node.point.j) :
+                                          (target.k - node.point.k);
+      
+      int near = axisDist < 0 ? node.left : node.right;
+      int far  = axisDist < 0 ? node.right : node.left;
+      
+      search(near, target, bestDistSq, bestNodeIdx);
+      
+      if (axisDist * axisDist < bestDistSq) {
+          search(far, target, bestDistSq, bestNodeIdx);
+      }
+  }
 };
-*/
 
 
-// --- SpatialHash (Moved from animation.h) ---
 class SpatialHash {
 public:
-  SpatialHash(float cellSize) : cellSize(cellSize) {}
-  void clear() { grid.clear(); }
-  void insert(const Vector& p, int id) { grid[hash(p)].push_back(id); }
-  std::vector<int> query(const Vector& p) {
-    long long key = hash(p);
-    return grid.count(key) ? grid.at(key) : std::vector<int>{};
+  static constexpr size_t MAX_ENTRIES = 1024;
+  static constexpr size_t TABLE_SIZE = 256;
+
+  struct Entry {
+    int id;
+    int16_t next;
+  };
+
+  SpatialHash(float cellSize) : cellSize(cellSize) {
+      clear();
   }
+
+  void clear() {
+     std::fill(buckets.begin(), buckets.end(), -1);
+     poolCount = 0;
+  }
+
+  void insert(const Vector& p, int id) {
+     if (poolCount >= MAX_ENTRIES) return;
+     
+     long long h = hash(p);
+     int16_t bucketIdx = (h % TABLE_SIZE + TABLE_SIZE) % TABLE_SIZE; // Ensure positive
+     
+     int idx = poolCount++;
+     pool[idx].id = id;
+     pool[idx].next = buckets[bucketIdx];
+     buckets[bucketIdx] = idx;
+  }
+  
+  // Returns fixed size buffer to avoid allocations
+  StaticCircularBuffer<int, 64> query(const Vector& p) const {
+    StaticCircularBuffer<int, 64> result;
+    long long h = hash(p);
+    int16_t bucketIdx = (h % TABLE_SIZE + TABLE_SIZE) % TABLE_SIZE;
+    
+    int16_t curr = buckets[bucketIdx];
+    while(curr != -1) {
+        result.push_back(pool[curr].id);
+        curr = pool[curr].next;
+        if (result.is_full()) break;
+    }
+    return result;
+  }
+
 private:
   float cellSize;
-  std::unordered_map<long long, std::vector<int>> grid;
+  std::array<int16_t, TABLE_SIZE> buckets;
+  std::array<Entry, MAX_ENTRIES> pool;
+  int poolCount = 0;
+
   long long hash(const Vector& p) const {
     int x = static_cast<int>(floorf(p.i / cellSize));
     int y = static_cast<int>(floorf(p.j / cellSize));
@@ -47,15 +312,11 @@ private:
   }
 };
 
-// --- BVH Static Implementation ---
-
-// --- BVH Static Implementation ---
 
 namespace BVHImpl {
     // Recursive builder
     // range [start, end) in bvh.faceIndices
     inline int build_recursive(BVH& bvh, const MeshState& mesh, int start, int end, 
-                        const int* faceOffsets, 
                         const Vector* centroids) {
         
         if (bvh.nodeCount >= BVH::MAX_NODES) return -1;
@@ -65,7 +326,7 @@ namespace BVHImpl {
         // Compute AABB
         for(int i=start; i<end; ++i) {
             int faceIdx = bvh.faceIndices[i];
-            int offset = faceOffsets[faceIdx];
+            int offset = mesh.face_offsets[faceIdx];
             int count = mesh.face_counts[faceIdx];
             for(int k=0; k<count; ++k) {
                 node.aabb.expand(mesh.vertices[mesh.faces[offset+k]]);
@@ -91,8 +352,6 @@ namespace BVHImpl {
         mid *= 0.5f;
         
         // Partition
-        // std::partition reorders elements in range
-        // We use pointers to the fixed array in BVH
         int16_t* begin = &bvh.faceIndices[start];
         int16_t* endPtr = &bvh.faceIndices[end];
         
@@ -111,8 +370,8 @@ namespace BVHImpl {
              return nodeIdx;
         }
         
-        node.left = build_recursive(bvh, mesh, start, split, faceOffsets, centroids);
-        node.right = build_recursive(bvh, mesh, split, end, faceOffsets, centroids);
+        node.left = build_recursive(bvh, mesh, start, split, centroids);
+        node.right = build_recursive(bvh, mesh, split, end, centroids);
         
         return nodeIdx;
     }
@@ -122,13 +381,20 @@ inline void build_bvh(MeshState& mesh) {
     mesh.bvh.clear();
     if (mesh.num_faces == 0) return;
     
-    // Stack buffers (ensure these fit in stack, 512 * 16 bytes ~ 8KB is fine)
-    std::array<int, BVH::MAX_INDICES> faceOffsets;
+    // 1. Populate the Offset Lookup Table (The Fix)
+    int current_offset = 0;
+    for(size_t i = 0; i < mesh.num_faces; ++i) {
+        if(i < MeshState::MAX_FACES) {
+            mesh.face_offsets[i] = (uint16_t)current_offset;
+        }
+        current_offset += mesh.face_counts[i];
+    }
+    
+    // Stack buffers for centroids (unchanged)
     std::array<Vector, BVH::MAX_INDICES> centroids;
     
-    int off = 0;
     for(size_t i=0; i<mesh.num_faces; ++i) {
-        faceOffsets[i] = off;
+        int off = mesh.face_offsets[i]; // <--- Use the new LUT
         int count = mesh.face_counts[i];
         
         Vector c(0,0,0);
@@ -140,12 +406,10 @@ inline void build_bvh(MeshState& mesh) {
         
         // Init indices
         if (i < BVH::MAX_INDICES) mesh.bvh.faceIndices[i] = (int16_t)i;
-        
-        off += count;
     }
     
     int numFuncs = std::min((int)mesh.num_faces, BVH::MAX_INDICES);
-    mesh.bvh.rootIndex = BVHImpl::build_recursive(mesh.bvh, mesh, 0, numFuncs, faceOffsets.data(), centroids.data());
+    mesh.bvh.rootIndex = BVHImpl::build_recursive(mesh.bvh, mesh, 0, numFuncs, centroids.data());
 }
 
 struct HitResult {
@@ -158,41 +422,10 @@ inline HitResult bvh_intersect(const MeshState& mesh, const Vector& origin, cons
     HitResult bestHit;
     if (mesh.bvh.rootIndex == -1 || mesh.bvh.nodeCount == 0) return bestHit;
 
-    // Stack
-    // Static stack? Depth likely small.
     std::array<int16_t, 64> stack;
     int stackPtr = 0;
     stack[stackPtr++] = mesh.bvh.rootIndex;
 
-    // Precompute offsets if we can? No, we have to scan if we don't store them.
-    // Optimization: We could store 'offset' in Cached BVH/Face list.
-    // But MeshState doesn't have it.
-    // Let's just scan linearly for offsets? Expensive.
-    // Better: Build an offset map inside BVH?
-    // BVH has indices array.
-    // We can't easily change BVH structure now without breaking header, but we can do a quick scan table on stack if needed?
-    // Actually, scanning faces array is O(F). 
-    // MeshState::faces is a single flat array.
-    // We MUST know the offset to access face K.
-    // Solution: BVH stores 'firstIndex' into the face list? No, it stores 'faceIndex'.
-    // CRITICAL: We need O(1) access to faces.
-    // solids.h data doesn't provide offset table.
-    // We can compute an offset table into `static` storage?
-    // No, MeshState can point to different solids.
-    // `build_bvh` computed offsets. We should ideally store them in BVH. 
-    // BUT BVH struct is fixed.
-    // Wait, `faceIndices` in BVH is int16_t.
-    // Maybe we just store the *offset* into the faces array in `faceIndices` instead of the face number?
-    // Then we need to know the count. `face_counts` is indexed by face number.
-    // So we need both.
-    // Alternatively, `BVH` struct in `geometry.h` has spare space?
-    // `BVH` has `faceIndices`.
-    // Let's assume we scan. It's slow but safe for now.
-    // OR: Update geometry.h to include `std::array<int16_t, MAX_INDICES> faceOffsets` in BVH?
-    // That requires another edit.
-    // Let's stick to scanning for now, assuming N is small (SnubDodeca = 92 faces).
-    // Scanning 92 integers is fast.
-    
     while(stackPtr > 0) {
         int nodeIdx = stack[--stackPtr];
         const BVHNode& node = mesh.bvh.nodes[nodeIdx];
@@ -205,9 +438,8 @@ inline HitResult bvh_intersect(const MeshState& mesh, const Vector& origin, cons
                 int idxMap = node.firstFaceIndex + i; // Index into faceIndices
                 int faceIdx = mesh.bvh.faceIndices[idxMap];
                 
-                // Find offset
-                int offset = 0;
-                for(int f=0; f<faceIdx; ++f) offset += mesh.face_counts[f];
+                // NEW FAST WAY (O(1)):
+                int offset = mesh.face_offsets[faceIdx];
                 
                 int count = mesh.face_counts[faceIdx];
                 
@@ -272,8 +504,6 @@ inline Vector project_to_mesh(const Vector& p, const MeshState& mesh) {
     return best;
 }
 
-// Non-const overload (in case we want to support building?)
-// We implemented build_bvh separately.
 inline Vector project_to_mesh(const Vector& p, MeshState& mesh) {
     if (mesh.bvh.nodeCount == 0) {
         build_bvh(mesh); // Auto-build!

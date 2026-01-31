@@ -27,6 +27,36 @@ static constexpr float TOLERANCE = 0.0001f;
  */
 static constexpr float PI_F = static_cast<float>(PI);
 
+#include <vector>
+#include <array>
+
+/**
+ * @brief A lightweight view over a contiguous sequence of objects.
+ * @tparam T The type of object (can be const).
+ */
+template <typename T>
+struct Span {
+  T* ptr;
+  size_t len;
+
+  Span() : ptr(nullptr), len(0) {}
+  Span(T* p, size_t l) : ptr(p), len(l) {}
+  
+  // Convert from vector
+  template <typename U>
+  Span(const std::vector<U>& v) : ptr(v.data()), len(v.size()) {}
+  
+  // Convert from array
+  template <typename U, size_t N>
+  Span(const std::array<U, N>& arr) : ptr(arr.data()), len(N) {}
+
+  T& operator[](size_t i) const { return ptr[i]; }
+  size_t size() const { return len; }
+  T* begin() const { return ptr; }
+  T* end() const { return ptr + len; }
+  bool empty() const { return len == 0; }
+};
+
 struct Vector;
 
 /**
