@@ -18,28 +18,7 @@
  * @brief A lightweight view over a contiguous sequence of objects.
  * @tparam T The type of object (can be const).
  */
-template <typename T>
-struct Span {
-  T* ptr;
-  size_t len;
 
-  Span() : ptr(nullptr), len(0) {}
-  Span(T* p, size_t l) : ptr(p), len(l) {}
-  
-  // Convert from vector
-  template <typename U>
-  Span(const std::vector<U>& v) : ptr(v.data()), len(v.size()) {}
-  
-  // Convert from array
-  template <typename U, size_t N>
-  Span(const std::array<U, N>& arr) : ptr(arr.data()), len(N) {}
-
-  T& operator[](size_t i) const { return ptr[i]; }
-  size_t size() const { return len; }
-  T* begin() const { return ptr; }
-  T* end() const { return ptr + len; }
-  bool empty() const { return len == 0; }
-};
 
 
  /**
@@ -725,107 +704,9 @@ public:
 #include <algorithm> // For std::swap
 #include <cfloat>
 
-// --- Spatial Structures (Forward definitions for MeshState) ---
-
-struct AABB {
-  Vector minVal;
-  Vector maxVal;
-
-  AABB() : minVal(FLT_MAX, FLT_MAX, FLT_MAX), maxVal(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
-
-  void expand(const Vector& p) {
-    if (p.i < minVal.i) minVal.i = p.i;
-    if (p.j < minVal.j) minVal.j = p.j;
-    if (p.k < minVal.k) minVal.k = p.k;
-    
-    if (p.i > maxVal.i) maxVal.i = p.i;
-    if (p.j > maxVal.j) maxVal.j = p.j;
-    if (p.k > maxVal.k) maxVal.k = p.k;
-  }
-
-  // Optimize union
-  void unionWith(const AABB& box) {
-      if (box.minVal.i < minVal.i) minVal.i = box.minVal.i;
-      if (box.minVal.j < minVal.j) minVal.j = box.minVal.j;
-      if (box.minVal.k < minVal.k) minVal.k = box.minVal.k;
-      
-      if (box.maxVal.i > maxVal.i) maxVal.i = box.maxVal.i;
-      if (box.maxVal.j > maxVal.j) maxVal.j = box.maxVal.j;
-      if (box.maxVal.k > maxVal.k) maxVal.k = box.maxVal.k;
-  }
-
-  bool intersectRay(const Vector& origin, const Vector& direction) const {
-    float tmin = (minVal.i - origin.i) / direction.i;
-    float tmax = (maxVal.i - origin.i) / direction.i;
-    if (tmin > tmax) std::swap(tmin, tmax);
-
-    float tymin = (minVal.j - origin.j) / direction.j;
-    float tymax = (maxVal.j - origin.j) / direction.j;
-    if (tymin > tymax) std::swap(tymin, tymax);
-
-    if ((tmin > tymax) || (tymin > tmax)) return false;
-
-    if (tymin > tmin) tmin = tymin;
-    if (tymax < tmax) tmax = tymax;
-
-    float tzmin = (minVal.k - origin.k) / direction.k;
-    float tzmax = (maxVal.k - origin.k) / direction.k;
-    if (tzmin > tzmax) std::swap(tzmin, tzmax);
-
-    if ((tmin > tzmax) || (tzmin > tmax)) return false;
-
-    return true;
-  }
-};
-
-struct BVHNode {
-  AABB aabb;
-  int16_t left = -1;
-  int16_t right = -1;
-  int16_t firstFaceIndex = -1; // Pointer to index map
-  int16_t faceCount = 0;
-};
-
-struct BVH {
-  static constexpr int MAX_NODES = 512;   // 2N for N faces
-  static constexpr int MAX_INDICES = 512; // Permutation buffer
-
-  std::array<BVHNode, MAX_NODES> nodes;
-  std::array<int16_t, MAX_INDICES> faceIndices; 
-  int nodeCount = 0;
-  int rootIndex = -1;
-
-  void clear() {
-      nodeCount = 0;
-      rootIndex = -1;
-  }
-};
-
-/**
- * @brief Represents the state of a mesh using static storage to avoid heap allocations.
- * @details Max vertices set to 64 to accommodate Truncated Icosahedron / Snub Dodecahedron (60 vertices).
- */
-struct MeshState {
-  static constexpr size_t MAX_VERTS = 512;
-  std::array<Vector, MAX_VERTS> vertices;
-  size_t num_vertices = 0;
-
-  // Topology (pointers to static const data in solids.h)
-  const uint8_t* face_counts = nullptr;
-  size_t num_faces = 0;
-  const int* faces = nullptr;
-
-  // Acceleration structure
-  BVH bvh;
-
-  void clear() {
-    num_vertices = 0;
-    num_faces = 0;
-    face_counts = nullptr;
-    faces = nullptr;
-    bvh.clear();
-  }
-};
+// --- Spatial Structures ---
+// (Moved to spatial.h)
+#include "spatial.h"
 
 
 /**
