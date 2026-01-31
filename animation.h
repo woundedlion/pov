@@ -12,7 +12,7 @@
 #include "3dmath.h"
 #include "FastNoiseLite.h"
 #include "geometry.h" 
-#include "spatial.h" // Added spatial.h
+#include "spatial.h"
 #include "static_circular_buffer.h"
 #include "plot.h"
 
