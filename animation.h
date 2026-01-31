@@ -12,8 +12,10 @@
 #include "3dmath.h"
 #include "FastNoiseLite.h"
 #include "geometry.h" 
+#include "spatial.h" // Added spatial.h
 #include "static_circular_buffer.h"
 #include "plot.h"
+
 
  /**
   * @brief Frames Per Second constant.
@@ -1065,40 +1067,8 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-class SpatialHash {
-public:
-  SpatialHash(float cellSize) : cellSize(cellSize) {}
+// SpatialHash moved to spatial.h
 
-  void clear() {
-    grid.clear();
-  }
-
-  void insert(const Vector& p, int id) {
-    long long key = hash(p);
-    grid[key].push_back(id);
-  }
-
-  std::vector<int> query(const Vector& p) {
-    long long key = hash(p);
-    if (grid.count(key)) return grid.at(key);
-    return {};
-  }
-  
-  // Helper to query neighbors (input p's cell + adjacent cells could be needed for strict correctness but JS SpatialHash usually just checks bucket)
-  // JS SpatialSearch usually checks specific bucket.
-
-private:
-  float cellSize;
-  std::unordered_map<long long, std::vector<int>> grid;
-
-  long long hash(const Vector& p) const {
-    int x = static_cast<int>(floorf(p.i / cellSize));
-    int y = static_cast<int>(floorf(p.j / cellSize));
-    int z = static_cast<int>(floorf(p.k / cellSize));
-    // Simple packing for hash (collisions possible but accepted for visual effects)
-    return ((long long)x * 73856093) ^ ((long long)y * 19349663) ^ ((long long)z * 83492791);
-  }
-};
 
 class ParticleSystem : public Animation<ParticleSystem> {
 public:
@@ -1228,7 +1198,7 @@ public:
          Vector s = s_verts[i];
          
          // Use robust projection
-         Vector t = MeshOps::project_to_mesh(s, buffer->dest);
+         Vector t = project_to_mesh(s, buffer->dest);
          
          // Calculate rotation path
          float ang = angle_between(s, t);
