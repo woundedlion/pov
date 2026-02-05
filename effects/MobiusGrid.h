@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
  */
 #pragma once
 #include <functional>
@@ -83,7 +83,7 @@ private:
 
       Points points;
       Basis basis = make_basis(Quaternion(), normal);
-      Plot::Polygon::sample<W>(points, basis, radius, W / 4);
+      Plot::SphericalPolygon::sample<W>(points, basis, radius, W / 4);
 
       Fragments fragments; 
       fragments.reserve(points.size());
@@ -115,7 +115,7 @@ private:
 
       Points points;
       Basis basis = make_basis(Quaternion(), normal);
-      Plot::Polygon::sample<W>(points, basis, 1.0f, W / 4);
+      Plot::SphericalPolygon::sample<W>(points, basis, 1.0f, W / 4);
       
       Fragments fragments;
       fragments.reserve(points.size());

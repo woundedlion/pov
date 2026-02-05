@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
  */
 #pragma once
 
@@ -121,7 +121,7 @@ public:
            Plot::Star::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
         default: // Polygon
-           Plot::Polygon::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           Plot::SphericalPolygon::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
       }
     } else {
@@ -132,8 +132,8 @@ public:
         case ShapeType::Star:
            Scan::Star::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
-        default: // Polygon
-           Scan::Polygon::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+        default:
+           Scan::SphericalPolygon::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
       }
     }

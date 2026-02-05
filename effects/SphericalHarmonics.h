@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
  */
 #pragma once
 
@@ -81,56 +81,12 @@ public:
         }
         
         SDF::DistanceResult distance(const Vector& p) const {
-             // Rotate p into local space
-             // orientation is object->world. Inverse is world->object.
              Vector local = rotate(p, orientation.conjugate()); 
              
-             // Spherical coords
-             float r = 1.0f; // Unit sphere sampling
              float theta = atan2f(local.k, local.i); 
              if (theta < 0) theta += 2 * PI_F;
-             
-             // Phi is angle from Y axis? 
-             // 3dmath/Scan usually uses Y as up. Phi 0 is +Y?
-             // check y_to_phi: y=0 -> phi=0 (+Y). y=H -> phi=PI (-Y).
              float phi = acosf(std::clamp(local.j, -1.0f, 1.0f));
              float val = SHMath::sphericalHarmonic(l, m, theta, phi);
-             
-
-             
-             // The shape surface is defined where radius R = 1 + amplitude * val?
-             // Or R = amplitude * val?
-             // JS: "out.rawDist contains the signed harmonic value"
-             // JS Fragment Shader uses `val` to color. 
-             // But what defines the geometry?
-             // Usually Harmonic Blob is r = |Ylm|.
-             // SDF distance is roughly (r - |Ylm|).
-             // But Scan::rasterize expects signed distance to SURFACE.
-             // If we just want to visualize the value on the sphere, we can use a sphere SDF and pass value in raw_dist.
-             // But JS draws a 3D blob shape. 
-             // "distance" should be (1.0 - (radius of blob at this angle)).
-             // Blob radius R = abs(val) * amplitude.
-             // Dist = 1.0 (screen radius) - R? No.
-             // We are raymarching or rasterizing? 
-             // Scan::rasterize is for Spherical intersection.
-             // If we assume a unit sphere canvas, we just return negative dist if we want to hit it?
-             // Actually, if we return `dist <= 0`, it draws.
-             // If we want to color the WHOLE sphere with the harmonic pattern, we say dist = -1.0 (always inside).
-             
-             // JS Logic: new SDF.HarmonicBlob(...) passed to Scan.rasterize.
-             // Scan.rasterize iterates pixels. If dist < 0, it draws fragment.
-             // If HarmonicBlob returns distance to the harmonic surface...
-             // But Holosphere is a SPHERICAL DISPLAY. We usually draw on the surface (r=1).
-             // Visualization of harmonics often R = |Ylm|. This makes a 3D blob.
-             // IF we project this blob onto the LED sphere (r=1), we are just seeing it from 0 or infinity?
-             // Users usually want to see the SHAPE.
-             // If we are mapping R to brightness, that's one thing.
-             // If we are mapping it as a 3D object inside the sphere, we need ray intersection.
-             // Since Scan::rasterize is simple, maybe it just maps values to colors on the sphere?
-             // "Digital Twin Fragment Shader" uses `val` and `absVal` to color.
-             // It does NOT seem to do raymarching.
-             // It likely draws on the sphere surface based on the value at that angle.
-             // So we return `dist = -1.0f` (Always intersect) and pass `val` as `raw_dist`.
              
              return { -1.0f, 0.0f, val }; // t is unused
         }

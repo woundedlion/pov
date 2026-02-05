@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
  */
 #pragma once
 
@@ -93,7 +93,6 @@ public:
             if (i < prev_positions.size()) {
                 const Vector& prev = prev_positions[i];
                 // Draw line segment
-                // Pass color function that returns constant color c
                 auto fragment_shader = [&](const Vector&, const Fragment&) { return c; };
                 Plot::Line::draw<W>(filters, canvas, prev, v, fragment_shader);
                 

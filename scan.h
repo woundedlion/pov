@@ -364,8 +364,6 @@ namespace SDF {
 
        template<typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
-           // Use StaticCircularBuffer to capture intervals from A and B
-           // Capacity 32 should be enough for basic primitives and their combinations
            StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
            StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
 
@@ -378,19 +376,13 @@ namespace SDF {
            });
 
            if (!hasA) {
-               // A is full scan (or failed to produce intervals meaning it covers everything or nothing)
-               // The contract of get_horizontal_intervals returning false usually implies "full scan" or "too complex".
-               // But if it means "empty", we should handle that.
-               // Scan::rasterize assumes false -> full scan. 
-               // If A is full scan, intersection with B is just B.
                return b.get_horizontal_intervals(y, out);
            }
            if (!hasB) {
-               // If B is full scan, intersection with A is just A.
                return a.get_horizontal_intervals(y, out);
            }
 
-           if (intervalsA.is_empty() || intervalsB.is_empty()) return true; // Empty intersection
+           if (intervalsA.is_empty() || intervalsB.is_empty()) return true;
 
            // Intersect sorted intervals
            size_t idxA = 0;
@@ -416,7 +408,7 @@ namespace SDF {
                }
            }
            
-           return true; // We handled it (even if empty)
+           return true;
        }
 
        /**
@@ -443,7 +435,7 @@ namespace SDF {
 
     struct Face {
         Vector center;
-        Vector basisV, basisU, basisW; // V is Normal
+        Vector basisV, basisU, basisW;
         int count;
         float thickness;
         
@@ -1032,7 +1024,6 @@ namespace Scan {
      
      for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
         bool handled = shape.get_horizontal_intervals(y, [&](float t1, float t2) {
-           // Convert angle interval to pixel interval and scan
            int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
            int x2 = static_cast<int>(ceilf((t2 * W) / (2 * PI_F)));
            
