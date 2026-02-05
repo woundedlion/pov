@@ -23,6 +23,12 @@ namespace SDF {
       float dist; // Signed distance (negative inside)
       float t;    // Normalized parameter (0-1) or angle
       float raw_dist; // Unsigned or supplementary distance
+      
+      struct Weights {
+          float a = 0, b = 0, c = 0;
+          int i0 = 0, i1 = 0, i2 = 0;
+          bool valid = false;
+      } weights;
     };
 
     /**
@@ -658,7 +664,59 @@ namespace SDF {
             
             float s = (winding != 0) ? -1.0f : 1.0f;
             float planeDist = s * sqrtf(d);
-            return { planeDist - thickness, 0.0f, planeDist };
+            
+            DistanceResult res = { planeDist - thickness, 0.0f, planeDist };
+            
+            // Barycentric Weights
+            if (count == 3) {
+                 const Vector& v0 = poly2D[0];
+                 const Vector& v1 = poly2D[1];
+                 const Vector& v2 = poly2D[2];
+                 float denom = (v1.j - v2.j) * (v0.i - v2.i) + (v2.i - v1.i) * (v0.j - v2.j);
+                 if (std::abs(denom) > 1e-12f) {
+                     float invDenom = 1.0f / denom;
+                     res.weights.a = ((v1.j - v2.j) * (px - v2.i) + (v2.i - v1.i) * (py - v2.j)) * invDenom;
+                     res.weights.b = ((v2.j - v0.j) * (px - v2.i) + (v0.i - v2.i) * (py - v2.j)) * invDenom;
+                     res.weights.c = 1.0f - res.weights.a - res.weights.b;
+                     res.weights.i0 = 0;
+                     res.weights.i1 = 1;
+                     res.weights.i2 = 2;
+                     res.weights.valid = true;
+                 }
+            } else {
+                 // Triangle Fan
+                 for (int i = 1; i < count - 1; i++) {
+                     const Vector& v0 = poly2D[0];
+                     const Vector& v1 = poly2D[i];
+                     const Vector& v2 = poly2D[i + 1];
+                     
+                     float denom = (v1.j - v2.j) * (v0.i - v2.i) + (v2.i - v1.i) * (v0.j - v2.j);
+                     if (std::abs(denom) > 1e-12f) {
+                         float invDenom = 1.0f / denom;
+                         float wA = ((v1.j - v2.j) * (px - v2.i) + (v2.i - v1.i) * (py - v2.j)) * invDenom;
+                         float wB = ((v2.j - v0.j) * (px - v2.i) + (v0.i - v2.i) * (py - v2.j)) * invDenom;
+                         float wC = 1.0f - wA - wB;
+                         
+                         if (wA >= -0.01f && wB >= -0.01f && wC >= -0.01f) {
+                             res.weights.a = wA;
+                             res.weights.b = wB;
+                             res.weights.c = wC;
+                             res.weights.i0 = 0;
+                             res.weights.i1 = i;
+                             res.weights.i2 = i + 1;
+                             res.weights.valid = true;
+                             break;
+                         }
+                     }
+                 }
+                 if (!res.weights.valid) {
+                      res.weights.a = 1; res.weights.b = 0; res.weights.c = 0;
+                      res.weights.i0 = 0; res.weights.i1 = 1; res.weights.i2 = 2;
+                      res.weights.valid = true;
+                 }
+            }
+            
+            return res;
         }
     };
 
