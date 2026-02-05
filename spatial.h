@@ -147,7 +147,7 @@ public:
   KDTree() = default;
   
   // Build from a Span of vectors
-  KDTree(Span<Vector> points) {
+  KDTree(std::span<Vector> points) {
       clear();
       if (points.empty()) return;
 
@@ -222,7 +222,7 @@ public:
   }
 
 private:
-  int build(Span<Vector> points, int* indices, int count, int depth) {
+  int build(std::span<Vector> points, int* indices, int count, int depth) {
       if (count <= 0) return -1;
       if (nodeCount >= MAX_NODES) return -1;
 

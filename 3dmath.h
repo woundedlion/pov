@@ -27,36 +27,6 @@ static constexpr float TOLERANCE = 0.0001f;
  */
 static constexpr float PI_F = static_cast<float>(PI);
 
-#include <vector>
-#include <array>
-
-/**
- * @brief A lightweight view over a contiguous sequence of objects.
- * @tparam T The type of object (can be const).
- */
-template <typename T>
-struct Span {
-  T* ptr;
-  size_t len;
-
-  Span() : ptr(nullptr), len(0) {}
-  Span(T* p, size_t l) : ptr(p), len(l) {}
-  
-  // Convert from vector
-  template <typename U>
-  Span(const std::vector<U>& v) : ptr(v.data()), len(v.size()) {}
-  
-  // Convert from array
-  template <typename U, size_t N>
-  Span(const std::array<U, N>& arr) : ptr(arr.data()), len(N) {}
-
-  T& operator[](size_t i) const { return ptr[i]; }
-  size_t size() const { return len; }
-  T* begin() const { return ptr; }
-  T* end() const { return ptr + len; }
-  bool empty() const { return len == 0; }
-};
-
 struct Vector;
 
 /**
@@ -761,23 +731,4 @@ Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
   }
 
   return Vector(0, 0, 0);
-}
-
-/**
- * @brief Constant derived from the screen width for splitting segments.
- */
-static constexpr float SHIFT_DIV = 96;
-
-/**
- * @brief Creates two slightly shifted vectors based on the intersection point and the normal.
- * @param v The intersection vector (must be unit vector).
- * @param normal The plane normal (must be unit vector).
- * @return A vector containing two normalized vectors, shifted slightly apart along the plane normal.
- */
-std::vector<Vector> split_point(const Vector& v, const Vector& normal) {
-  float shift = sinf(PI_F / SHIFT_DIV);
-  return {
-    {(v + (normal * shift)).normalize()},
-    {(v + (-normal * shift)).normalize()},
-  };
 }
