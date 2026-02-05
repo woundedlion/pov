@@ -328,7 +328,6 @@ namespace Plot {
     }
 
     static void sample(Fragments& points, const Basis& basis, float radius, int num_samples, float phase = 0) {
-      // Logic from legacy Ring::sample adapted to Fragments
       const Vector& v = basis.v;
       const Vector& u = basis.u;
       const Vector& w = basis.w;
@@ -882,6 +881,56 @@ namespace Plot {
     static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, FragmentShaderFn auto fragment_shader) {
         draw<W>(pipeline, canvas, mesh, fragment_shader, NullVertexShader{});
     }
+  };
+
+  /**
+   * @brief Particle System trails.
+   * Registers:
+   *  v0: Trail Progress (0.0=Head -> 1.0=Tail)
+   *  v1: Particle ID / Random
+   */
+  struct ParticleSystem {
+     template <int W>
+     static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
+         // Reusable buffer
+         static Fragments buffer;
+         
+         int count = system.active_count;
+         for (int i = 0; i < count; ++i) {
+             const auto& p = system.pool[i];
+             size_t len = p.history_length();
+             if (len < 2) continue;
+             
+             buffer.clear();
+             buffer.reserve(len);
+             
+             // History 0 is newest (Head), len-1 is oldest (Tail)
+             for (size_t j = 0; j < len; ++j) {
+                 const Quaternion& q = p.get_history(j);
+                 Vector pos = rotate(p.position, q);
+                 
+                 Fragment f;
+                 f.pos = pos;
+                 f.v0 = static_cast<float>(j) / (len - 1);
+                 f.v1 = static_cast<float>(i);
+                 buffer.push_back(f);
+             }
+             
+             if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
+                 for(size_t k=0; k<buffer.size(); ++k) {
+                     buffer[k].pos = vertex_shader(buffer[k].pos);
+                 }
+             }
+
+             // Draw trail
+             rasterize<W>(pipeline, canvas, buffer, fragment_shader, false, 0.0f, nullptr);
+         }
+     }
+     
+     template <int W>
+     static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader) {
+         draw<W>(pipeline, canvas, system, fragment_shader, NullVertexShader{});
+     }
   };
 
 }
