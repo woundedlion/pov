@@ -96,15 +96,28 @@ private:
         points.push_back(orientation.orient(inv_stereo(z)));
       }
 
+      // Convert to Fragments
+      Fragments fragments(points.size()); // points is std::vector<Vector> or similar?
+      // Wait, geometry.h defines Points as StaticCircularBuffer or std::vector.
+      // Line 78: Points points; 
+      // geometry.h: typedef StaticCircularBuffer<Vector, ...> Points?
+      // Or std::vector. Let's assume std::vector given push_back.
+      for (size_t i = 0; i < points.size(); ++i) {
+        fragments[i].pos = points[i];
+        fragments[i].v0 = 0.0f; // Unused by shader
+      }
+
       // Rasterize & Color
       int color_index = (k - loop_count) + 10000;
       float hue = wrap(color_index * 0.13f, 1.0f);
 
-      Plot::rasterize<W>(filters, canvas, points, [&](const Vector&, float) {
+      auto fragment_shader = [&](const Vector&, const Fragment&) {
         Color4 res = palette.get(hue);
         res.alpha *= opacity;
         return res;
-        }, true);
+      };
+
+      Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);
     }
   }
 

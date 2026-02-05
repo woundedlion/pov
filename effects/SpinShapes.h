@@ -1,0 +1,98 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the Polyform Noncommercial License 1.0.0
+ */
+#pragma once
+
+#include "../led.h"
+#include "../geometry.h"
+#include "../scan.h"
+#include "../animation.h"
+#include "../filter.h"
+#include "../palettes.h"
+#include <vector>
+
+template <int W>
+class SpinShapes : public Effect {
+public:
+    SpinShapes() : Effect(W), filters(FilterOrient<W>(camera), FilterAntiAlias<W>()) {
+        rebuild();
+    }
+
+    bool show_bg() const override { return false; }
+
+    void draw_frame() override {
+        Canvas canvas(*this);
+        
+        // Step animations (manual management to avoid Timeline limits)
+        for (auto& rot : rotations) {
+            rot.step(canvas);
+        }
+        
+        // Draw shapes
+        for (auto& shape : shapes) {
+            draw_shape(canvas, shape);
+        }
+    }
+
+private:
+    struct Shape {
+        Vector normal;
+        Orientation orientation;
+        int layer;
+    };
+    
+    // Parameters
+    int sides = 3;
+    float radius = 0.2f;
+    int count = 40;
+    
+    std::vector<Shape> shapes;
+    std::vector<Rotation<W>> rotations;
+    
+    Orientation camera;
+    Pipeline<W, FilterOrient<W>, FilterAntiAlias<W>> filters;
+
+    void rebuild() {
+        shapes.clear();
+        rotations.clear();
+        
+        // Ensure stability for references
+        shapes.reserve(count * 2); 
+        rotations.reserve(count * 2);
+
+        for (int i = 0; i < count; i++) {
+            Vector normal = fib_spiral(count, 0, i);
+
+            // Layer 1
+            {
+                shapes.push_back({normal, Orientation(), 0});
+                Shape& s = shapes.back();
+                // Rotation(orientation, axis, angle, duration, easing, repeat, space)
+                rotations.emplace_back(s.orientation, s.normal, 2 * PI_F, 300 + i * 2, ease_mid, true, Space::Local);
+            }
+
+            // Layer 2
+            {
+                shapes.push_back({normal, Orientation(), 1});
+                Shape& s = shapes.back();
+                rotations.emplace_back(s.orientation, s.normal, -2 * PI_F, 300 + i * 2, ease_mid, true, Space::Local);
+            }
+        }
+    }
+
+    void draw_shape(Canvas& canvas, Shape& shape) {
+        float t = (shape.normal.j + 1.0f) / 2.0f;
+        auto c = Palettes::richSunset.get(t);
+
+        auto fragment_shader = [&](const Vector& p, const Fragment& f) {
+            return Color4(c, 0.6f); // alpha fixed
+        };
+
+        Basis basis = make_basis(shape.orientation.get(), shape.normal);
+        float phase = (shape.layer == 0) ? 0.0f : PI_F / sides;
+        
+        // Scan::SphericalPolygon::draw(pipeline, canvas, basis, radius, sides, fragment_shader, phase)
+        Scan::SphericalPolygon::draw<W>(filters, canvas, basis, radius, sides, fragment_shader, phase);
+    }
+};

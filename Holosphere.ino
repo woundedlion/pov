@@ -24,9 +24,23 @@ void setup() {
 }
 
 void loop() {
-  pov->show<TestSolids<96>>(120);
+  // Test/Debug Effects
   pov->show<Test<96>>(120);
   pov->show<TestShapes<96>>(120);
+  pov->show<TestTemporal<96>>(120); // NEW
+
+  // Core Effects
+  pov->show<DreamBalls<96>>(120); // NEW
+  pov->show<SpinShapes<96>>(120); // NEW
+  pov->show<HopfFibration<96>>(120); // NEW
+  pov->show<IslamicStars<96>>(120); // NEW
+  pov->show<LSystem<96>>(120); // NEW
+  pov->show<MetaballEffect<96>>(120); // NEW
+  pov->show<MindSplatter<96>>(120); // NEW
+  pov->show<SphericalHarmonics<96>>(120); // NEW
+  pov->show<Voronoi<96>>(120); // NEW
+  
+  // Existing Effects
   pov->show<PetalFlow<96>>(120);
   pov->show<BZReactionDiffusion<96>>(120);
   pov->show<GSReactionDiffusion<96>>(120);
@@ -52,5 +66,3 @@ void loop() {
   pov->show<Spiral<48, 0> >(20);
   pov->show<Spiral<48, 1> >(10);
 }
-
-

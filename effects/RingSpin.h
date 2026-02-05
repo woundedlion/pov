@@ -8,6 +8,8 @@
 #include <array>
 #include "../effects_engine.h"
 
+#include "../palettes.h"
+
 template <int W>
 class RingSpin : public Effect {
 public:
@@ -19,7 +21,7 @@ public:
     TransparentVignette palette;
     Orientation orientation;
     OrientationTrail<TRAIL_LENGTH> trail;
-    Ring() : normal(X_AXIS), palette(iceMelt) {}
+    Ring() : normal(X_AXIS), palette(Palettes::iceMelt) {}
 
     Ring(const Vector& n, const Palette& p) :
       normal(n), palette(p) {
@@ -34,10 +36,10 @@ public:
     persist_pixels = false;
 
     std::vector<const Palette*> source_palettes = {
-        &iceMelt,
-        &undersea,
-        &mangoPeel,
-        &richSunset
+        &Palettes::iceMelt,
+        &Palettes::undersea,
+        &Palettes::mangoPeel,
+        &Palettes::richSunset
     };
 
     for (int i = 0; i < NUM_RINGS; ++i) {
@@ -58,7 +60,8 @@ public:
           Color4 c = ring.palette.get(t);
           c.alpha = c.alpha * alpha;
           Basis basis = make_basis(q, ring.normal);
-          Scan::Ring::draw<W>(filters, canvas, basis, 1.0f, thickness, [&](const Vector&, float) { return c; });
+          auto fragment_shader = [&](const Vector&, const Fragment&) { return c; };
+          Scan::Ring::draw<W>(filters, canvas, basis, 1.0f, thickness, fragment_shader);
         });
     }
   }

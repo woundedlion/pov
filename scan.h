@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include "geometry.h"
 #include "color.h"
 #include "led.h"
@@ -24,6 +25,13 @@ namespace SDF {
       float raw_dist; // Unsigned or supplementary distance
     };
 
+    /**
+     * @brief Calculates signed distance to a ring.
+     * Returns:
+     *  dist: Signed distance (negative inside)
+     *  t: Normalized parameter (0-1) corresponding to angle/2PI
+     *  raw_dist: Unsigned distance to centerline
+     */
     struct Ring {
       const Basis& basis;
       float radius;
@@ -122,6 +130,11 @@ namespace SDF {
         return true;
       }
       
+      /**
+       * @brief Computes signed distance to the ring.
+       * @param p Point on sphere (normalized).
+       * @return DistanceResult {dist, t, raw_dist}.
+       */
       DistanceResult distance(const Vector& p) const {
          float d = dot(p, normal);
          if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f };
@@ -145,6 +158,13 @@ namespace SDF {
       }
     };
 
+    /**
+     * @brief Calculates signed distance to a distorted ring.
+     * Returns:
+     *  dist: Signed distance - thickness
+     *  t: Normalized parameter (0-1) corresponding to angle/2PI
+     *  raw_dist: Unsigned distance to centerline
+     */
     struct DistortedRing {
        const Basis& basis;
        float radius;
@@ -232,6 +252,11 @@ namespace SDF {
          return true;
        }
 
+      /**
+       * @brief Computes signed distance to the distorted ring.
+       * @param p Point on sphere (normalized).
+       * @return DistanceResult {dist, t, raw_dist}.
+       */
       DistanceResult distance(const Vector& p) const {
          float polar = angle_between(p, normal);
          float dot_u = dot(p, u);
@@ -271,6 +296,9 @@ namespace SDF {
            return false; 
        }
 
+       /**
+        * @brief Signed distance to Union.
+        */
        DistanceResult distance(const Vector& p) const {
           auto resA = a.distance(p);
           auto resB = b.distance(p);
@@ -298,6 +326,9 @@ namespace SDF {
            return a.get_horizontal_intervals(y, out);
        }
 
+       /**
+        * @brief Signed distance to Subtraction (A - B).
+        */
        DistanceResult distance(const Vector& p) const {
           auto resA = a.distance(p);
           auto resB = b.distance(p);
@@ -382,6 +413,9 @@ namespace SDF {
            return true; // We handled it (even if empty)
        }
 
+       /**
+        * @brief Signed distance to Intersection.
+        */
        DistanceResult distance(const Vector& p) const {
           auto resA = a.distance(p);
           auto resB = b.distance(p);
@@ -570,6 +604,9 @@ namespace SDF {
            return true; 
         }
 
+        /**
+         * @brief Signed distance to planar Face.
+         */
         DistanceResult distance(const Vector& p) const {
             float cosAngle = dot(p, center);
             if (cosAngle <= 0.01f) return { 100.0f, 0.0f, 100.0f };
@@ -625,6 +662,13 @@ namespace SDF {
         }
     };
 
+    /**
+     * @brief Calculates signed distance to a planar polygon.
+     * Returns:
+     *  dist: Signed distance from edge (negative inside)
+     *  t: Normalized polar distance (polar / thickness)
+     *  raw_dist: Polar distance from center
+     */
     struct Polygon {
        const Basis& basis;
        float thickness;
@@ -674,6 +718,9 @@ namespace SDF {
            return true;
        }
        
+       /**
+        * @brief Signed distance to Polygon edge.
+        */
        DistanceResult distance(const Vector& p) const {
           float polar = angle_between(p, basis.v);
           float dot_u = dot(p, basis.u);
@@ -690,6 +737,13 @@ namespace SDF {
        }
     };
     
+    /**
+     * @brief Calculates signed distance to a star shape.
+     * Returns:
+     *  dist: Signed distance from edge
+     *  t: Normalized polar distance (polar / thickness)
+     *  raw_dist: Polar distance from center
+     */
     struct Star {
        const Basis& basis;
        int sides;
@@ -759,6 +813,9 @@ namespace SDF {
          return true;
        }
        
+       /**
+        * @brief Signed distance to Star edge.
+        */
        DistanceResult distance(const Vector& p) const {
           float polar = angle_between(p, basis.v);
           float dot_u = dot(p, basis.u);
@@ -779,6 +836,13 @@ namespace SDF {
        }
     };
     
+    /**
+     * @brief Calculates signed distance to a flower shape.
+     * Returns:
+     *  dist: Signed distance from flower edge
+     *  t: Normalized scan distance (scan_dist / thickness)
+     *  raw_dist: Scan distance from antipode
+     */
     struct Flower {
        const Basis& basis;
        int sides;
@@ -853,19 +917,59 @@ namespace SDF {
           float sector = 2 * PI_F / sides;
           float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
           
-          float dist_edge = polar * cosf(local) - apothem;
+       float dist_edge = polar * cosf(local) - apothem;
           return { -dist_edge, scan_dist / thickness, scan_dist };
        }
+    };
+
+    struct HarmonicBlob {
+        int l;
+        int m;
+        float amplitude;
+        Quaternion inv_q;
+        std::function<float(int, int, float, float)> harmonic_fn;
+        bool is_solid = true;
+
+        HarmonicBlob(int l, int m, float amplitude, const Quaternion& orientation, std::function<float(int, int, float, float)> harmonic_fn)
+            : l(l), m(m), amplitude(amplitude), harmonic_fn(harmonic_fn)
+        {
+            inv_q = orientation.inverse();
+        }
+
+        Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
+
+        DistanceResult distance(const Vector& p) const {
+             // Transform world pixel position to local harmonic space
+             Vector v = rotate(p, inv_q);
+             float phi = acosf(std::max(-1.0f, std::min(1.0f, v.j)));
+             float theta = atan2f(v.k, v.i);
+             float harmonic_val = harmonic_fn(l, m, theta, phi);
+ 
+             float lobe_radius = 1.0f + std::abs(harmonic_val) * amplitude;
+             float d = 1.0f - lobe_radius;
+ 
+             return { d, tanhf(std::abs(harmonic_val) * amplitude), harmonic_val };
+        }
+        
+        template<typename OutputIt>
+        bool get_horizontal_intervals(int y, OutputIt out) const {
+            // HarmonicBlob is complex, full scan is safest/easiest port
+            return false;
+        }
     };
 }
 
 /**
  * @brief The Scan struct contains volumetric (raster) drawing primitives.
+ * 
+ * General Register Mapping for Scan Primitives:
+ *  v0: Normalized parameter t (0-1) or angle
+ *  v1: Raw Distance or Supplementary Value
  */
 namespace Scan {
   
   template <int W>
-  static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, ColorFn auto color_fn, bool debug_bb = false) {
+  static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
      auto bounds = shape.get_vertical_bounds();
      
      for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
@@ -876,20 +980,20 @@ namespace Scan {
            
            for (int x = x1; x <= x2; ++x) {
               int wx = wrap(x, W);
-              process_pixel<W>(wx, y, pipeline, canvas, shape, color_fn, debug_bb);
+              process_pixel<W>(wx, y, pipeline, canvas, shape, fragment_shader, debug_bb);
            }
         });
         
         if (!handled) {
            for (int x = 0; x < W; ++x) {
-              process_pixel<W>(x, y, pipeline, canvas, shape, color_fn, debug_bb);
+              process_pixel<W>(x, y, pipeline, canvas, shape, fragment_shader, debug_bb);
            }
         }
      }
   }
   
   template <int W>
-  static void process_pixel(int x, int y, auto& pipeline, Canvas& canvas, const auto& shape, ColorFn auto color_fn, bool debug_bb) {
+  static void process_pixel(int x, int y, auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb) {
      const Vector& p = pixel_to_vector<W>(x, y);
      
      auto result = shape.distance(p);
@@ -904,12 +1008,25 @@ namespace Scan {
         
         if (alpha <= 0.001f) return;
         
-        auto c = color_fn(p, result.t); 
+        Fragment frag;
+        frag.pos = p;
+        frag.v0 = result.t;
+        frag.v1 = result.raw_dist;
+        frag.age = 0; // Default
         
-        if constexpr (std::is_same_v<std::decay_t<decltype(c)>, Pixel>) {
-            pipeline.plot(canvas, x, y, c.color, 0.0f, alpha);
+        // Call shader
+        using Res = decltype(fragment_shader(p, frag));
+        if constexpr (std::is_void_v<Res>) {
+            fragment_shader(p, frag);
         } else {
-           pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha * alpha);
+            auto res = fragment_shader(p, frag); 
+            if constexpr (std::is_same_v<std::decay_t<Res>, Pixel>) {
+                pipeline.plot(canvas, x, y, res, 0.0f, alpha);
+            } else if constexpr (std::is_same_v<std::decay_t<Res>, Color4>) {
+               pipeline.plot(canvas, x, y, res.color, 0.0f, res.alpha * alpha);
+            } else {
+               pipeline.plot(canvas, x, y, res.color, 0.0f, res.alpha * alpha, res.tag);
+            }
         }
      }
   }
@@ -917,18 +1034,16 @@ namespace Scan {
   struct DistortedRing {
     template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, 
-                     std::function<float(float)> shift_fn, float amplitude, ColorFn auto color_fn, float phase = 0, bool debug_bb = false)  
+                     std::function<float(float)> shift_fn, float amplitude, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false)  
     {
       SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude, phase);
-      Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
+      Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
     }
   };
 
-
-  
   struct Polygon {
      template <int W>
-     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
        Basis eff_basis = basis;
        float effective_radius = radius;
        if (radius > 1.0f) {
@@ -937,45 +1052,16 @@ namespace Scan {
           effective_radius = 2.0f - radius;
        }
        float thickness = effective_radius * (PI_F / 2.0f);
+
        
        SDF::Polygon shape(eff_basis, effective_radius, thickness, sides, phase);
-       Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
-     }
-  };
-
-  struct Star {
-     template <int W>
-     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
-       Basis eff_basis = basis;
-       float effective_radius = radius;
-       if (radius > 1.0f) {
-          eff_basis.v = -eff_basis.v;
-          eff_basis.u = -eff_basis.u;
-          effective_radius = 2.0f - radius;
-       }
-       SDF::Star shape(eff_basis, effective_radius, sides, phase);
-       Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
-     }
-  };
-
-  struct Flower {
-     template <int W>
-     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
-       Basis eff_basis = basis;
-       float effective_radius = radius;
-       if (radius > 1.0f) {
-          eff_basis.v = -eff_basis.v;
-          eff_basis.u = -eff_basis.u;
-          effective_radius = 2.0f - radius;
-       }
-       SDF::Flower shape(eff_basis, effective_radius, sides, phase);
-       Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
+       Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
      }
   };
 
   struct Ring {
-     template <int W>
-     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+    template <int W>
+    static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         Basis eff_basis = basis;
         float effective_radius = radius;
         if (radius > 1.0f) {
@@ -983,37 +1069,123 @@ namespace Scan {
            effective_radius = 2.0f - radius;
         }
         SDF::Ring shape(eff_basis, effective_radius, thickness, phase);
-        Scan::rasterize<W>(pipeline, canvas, shape, color_fn, debug_bb);
+        Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
      }
-       // Overload for Vector normal inputs (legacy support helper)
+
+      // Overload for Vector normal inputs
      template <int W>
-     static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, ColorFn auto color_fn, float phase = 0, bool debug_bb = false) {
+     static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         Basis basis = make_basis(Quaternion(), normal);
-        draw<W>(pipeline, canvas, basis, radius, thickness, color_fn, phase, debug_bb);
+        draw<W>(pipeline, canvas, basis, radius, thickness, fragment_shader, phase, debug_bb);
      }
   };
   
    struct Point {
       template <int W>
-      static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, ColorFn auto color_fn) {
-         // JS Scan.Point uses Scan.Ring with radius 0
+      static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, FragmentShaderFn auto fragment_shader) {
+         // Scan.Point uses Scan.Ring with radius 0
          Basis basis = make_basis(Quaternion(), p);
-         Ring::draw<W>(pipeline, canvas, basis, 0.0f, thickness, color_fn);
+         Ring::draw<W>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader);
       }
+   };
+   
+    struct Star {
+       template <int W>
+       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
+           SDF::Star shape(basis, radius, sides, phase);
+           Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+       }
+    };
+    
+    struct Flower {
+       template <int W>
+       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
+           SDF::Flower shape(basis, radius, sides, phase);
+           Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+       }
+    };
+   
+   struct SphericalPolygon {
+        template <int W>
+        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
+             // 1. Get Antipode and Basis
+             Basis eff_basis = basis;
+             float effective_radius = radius;
+             if (radius > 1.0f) {
+                eff_basis.v = -eff_basis.v;
+                eff_basis.u = -eff_basis.u; 
+                effective_radius = 2.0f - radius;
+             }
+             
+             // 2. Sample Points
+             float offset = PI_F / sides;
+             float theta_eq = effective_radius * (PI_F / 2.0f);
+             float r = sinf(theta_eq);
+             float d = cosf(theta_eq);
+             float step = (2.0f * PI_F) / sides;
+             
+             std::vector<Vector> vertices;
+             vertices.reserve(sides);
+             
+             for (int i = 0; i < sides; ++i) {
+                 float theta = i * step + phase + offset;
+                 float cos_t = cosf(theta);
+                 float sin_t = sinf(theta);
+                 
+                 // pos = u * cosT + w * sinT
+                 // pos *= r
+                 // pos += v * d
+                 Vector pos = eff_basis.u * cos_t + eff_basis.w * sin_t;
+                 pos = pos * r + eff_basis.v * d;
+                 pos.normalize();
+                 vertices.push_back(pos);
+             }
+             
+             // 3. Create Indices (0, 1, ..., sides-1)
+             std::vector<int> indices(sides);
+             std::iota(indices.begin(), indices.end(), 0);
+             
+             // 4. Create SDF::Face
+             SDF::FaceScratchBuffer scratch;
+             SDF::Face shape(vertices, indices, 0.0f, scratch);
+             
+             Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+        }
+   };
+
+   struct HarmonicBlob {
+       template <int W>
+       static void draw(auto& pipeline, Canvas& canvas, int l, int m, float amplitude, const Quaternion& orientation, 
+                        std::function<float(int, int, float, float)> harmonic_fn, FragmentShaderFn auto fragment_shader, bool debug_bb = false)
+       {
+           SDF::HarmonicBlob shape(l, m, amplitude, orientation, harmonic_fn);
+           Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+       }
    };
 
   struct Field {
       template <int W>
-      static void draw(auto& pipeline, Canvas& canvas, ColorFn auto color_fn) {
+      static void draw(auto& pipeline, Canvas& canvas, FragmentShaderFn auto fragment_shader) {
           for (int y = 0; y < H; ++y) {
              for (int x = 0; x < W; ++x) {
                 Vector p = pixel_to_vector<W>(x, y);
-                auto c = color_fn(p, 0.0f);
-                if constexpr (std::is_same_v<std::decay_t<decltype(c)>, Pixel>) {
-                    pipeline.plot(canvas, x, y, c.color, 0.0f, 1.0f);
+                Fragment f; f.pos = p; f.v0 = 0; f.v1 = 0; f.age = 0;
+
+                using Res = decltype(fragment_shader(p, f));
+                if constexpr (std::is_void_v<Res>) {
+                    fragment_shader(p, f);
                 } else {
-                    if (c.alpha > 0.001f) {
-                        pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha);
+                    auto c = fragment_shader(p, f);
+                    if constexpr (std::is_same_v<std::decay_t<Res>, Pixel>) {
+                        pipeline.plot(canvas, x, y, c, 0.0f, 1.0f);
+                    } else if constexpr (std::is_same_v<std::decay_t<Res>, Color4>) {
+                        if (c.alpha > 0.001f) {
+                            pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha);
+                        }
+                    } else {
+                         if (c.alpha > 0.001f) {
+                            pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha, c.tag);
+                         }
                     }
                 }
              }
@@ -1023,32 +1195,44 @@ namespace Scan {
 
   struct Mesh {
       template <int W, typename MeshT, typename F>
-      static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, F color_fn, bool debug_bb = false) {
+      static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, F fragment_shader, bool debug_bb = false) {
           SDF::FaceScratchBuffer scratch;
           
-          for (size_t i = 0; i < mesh.faces.size(); ++i) {
-             const auto& face_indices = mesh.faces[i];
-             // Adapters for vector to Span
-             Span<const Vector> verts(mesh.vertices);
-             Span<const int> indices(face_indices);
+          size_t idx_offset = 0;
+          for (size_t i = 0; i < mesh.num_faces; ++i) {
+             size_t count = mesh.face_counts[i];
+             Span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
+             Span<const int> indices(&mesh.faces[idx_offset], count);
              
              SDF::Face shape(verts, indices, 0.0f, scratch);
+             idx_offset += count;
              
-             auto face_color_fn = [&](const Vector& p, float t) {
-                 if constexpr (std::is_invocable_v<decltype(color_fn), Vector, float, float, int>) {
-                    return color_fn(p, t, 0.0f, static_cast<int>(i));
-                 } else {
-                    return color_fn(p, t);
-                 }
+             // We need to wrap or adapt fragment_shader?
+             // fragment_shader expects (pos, frag).
+             // Scan::rasterize connects frag.v0 -> t.
+             // We want to pass face index i?
+             // In JS, Scan.Mesh passes v2 = faceIndex.
+             // But Scan::rasterize populates v0=t, v1=raw_dist.
+             // We need to intercept standard Scan::rasterize logic?
+             // Or can we just use a lambda that captures i and forwards?
+             
+             // Currently Scan::rasterize calls process_pixel which calls fragment_shader(p, frag).
+             // frag.v2 is not set by process_pixel (default 0).
+             // We can't easily inject v2 unless we modify process_pixel or wrap the shader.
+             
+             auto wrapper = [&](const Vector& p, const Fragment& f_in) {
+                 Fragment f = f_in;
+                 f.v2 = static_cast<float>(i);
+                 return fragment_shader(p, f);
              };
              
-             Scan::rasterize<W>(pipeline, canvas, shape, face_color_fn, debug_bb);
+             Scan::rasterize<W>(pipeline, canvas, shape, wrapper, debug_bb);
           }
       }
       
       // Overload for MeshState
       template <int W>
-      static void draw(auto& pipeline, Canvas& canvas, const MeshState& mesh, auto color_fn, bool debug_bb = false) {
+      static void draw(auto& pipeline, Canvas& canvas, const MeshState& mesh, auto fragment_shader, bool debug_bb = false) {
           SDF::FaceScratchBuffer scratch;
           size_t face_offset = 0;
           
@@ -1061,15 +1245,13 @@ namespace Scan {
              
              SDF::Face shape(verts, indices, 0.0f, scratch);
              
-             auto face_color_fn = [&](const Vector& p, float t) {
-                 if constexpr (std::is_invocable_v<decltype(color_fn), Vector, float, float, int>) {
-                    return color_fn(p, t, 0.0f, static_cast<int>(i));
-                 } else {
-                    return color_fn(p, t);
-                 }
+             auto wrapper = [&](const Vector& p, const Fragment& f_in) {
+                 Fragment f = f_in;
+                 f.v2 = static_cast<float>(i);
+                 return fragment_shader(p, f);
              };
              
-             Scan::rasterize<W>(pipeline, canvas, shape, face_color_fn, debug_bb);
+             Scan::rasterize<W>(pipeline, canvas, shape, wrapper, debug_bb);
              face_offset += count;
           }
       }

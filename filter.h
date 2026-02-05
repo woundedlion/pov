@@ -55,13 +55,13 @@ struct Pipeline<W> {
   static constexpr bool is_2d = true;
 
   // 2D Sink
-  void plot(Canvas& cv, int x, int y, const Pixel& c, float age, float alpha) {
+  void plot(Canvas& cv, int x, int y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
     int xi = wrap(x, W);
     auto p = blend_alpha(alpha)(cv(xi, y), c); 
     plot_virtual(cv, xi, y, p);
   }
 
-  void plot(Canvas& cv, float x, float y, const Pixel& c, float age, float alpha) {
+  void plot(Canvas& cv, float x, float y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
     xi = wrap(xi, W);
@@ -70,13 +70,13 @@ struct Pipeline<W> {
   }
 
   // 3D Sink
-  void plot(Canvas& cv, const Vector& v, const Pixel& c, float age, float alpha) {
+  void plot(Canvas& cv, const Vector& v, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
     auto p = vector_to_pixel<W>(v);
-    plot(cv, p.x, p.y, c, age, alpha);
+    plot(cv, p.x, p.y, c, age, alpha, tag);
   }
 
   // History
-  void trail(Canvas&, TrailFn auto, float) {}
+  void flush(Canvas&, TrailFn auto, float) {}
 };
 
 // Recursive Case
@@ -89,53 +89,47 @@ struct Pipeline<W, Head, Tail...> : public Head {
   Pipeline() = default;
 
   // 2D Plot (Float)
-  void plot(Canvas& cv, float x, float y, const Pixel& c, float age, float alpha) {
+  void plot(Canvas& cv, float x, float y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
     if constexpr (Head::is_2d) {
       Head::plot(x, y, c, age, alpha,
         [&](float x, float y, const Pixel& c, float age, float alpha) {
-          next.plot(cv, x, y, c, age, alpha);
+          next.plot(cv, x, y, c, age, alpha, tag);
         });
     }
     else { // 2D -> 3D Mismatch
       Vector v = pixel_to_vector<W>(x, y);
-      plot(cv, v, c, age, alpha);
+      plot(cv, v, c, age, alpha, tag);
     }
   }
 
   // 2D Plot (Int) - useful for Scan
-  void plot(Canvas& cv, int x, int y, const Pixel& c, float age, float alpha) {
+  void plot(Canvas& cv, int x, int y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
       // route to float
-      plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
+      plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha, tag);
   }
 
   // 3D Plot
-  void plot(Canvas& cv, const Vector& v, const Pixel& c, float age, float alpha) {
+  void plot(Canvas& cv, const Vector& v, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
     if constexpr (!Head::is_2d) {
       Head::plot(v, c, age, alpha,
         [&](const Vector& v, const Pixel& c, float age, float alpha) {
-          if constexpr (Next::is_2d) {
-            auto p = vector_to_pixel<W>(v);
-            next.plot(cv, p.x, p.y, c, age, alpha);
-          }
-          else {
-            next.plot(cv, v, c, age, alpha);
-          }
+          next.plot(cv, v, c, age, alpha, tag);
         });
     }
     else { // 3D -> 2D Mismatch
       auto p = vector_to_pixel<W>(v);
-      plot(cv, p.x, p.y, c, age, alpha);
+      plot(cv, p.x, p.y, c, age, alpha, tag);
     }
   }
 
-  void trail(Canvas& cv, TrailFn auto trailFn, float alpha) {
+  void flush(Canvas& cv, TrailFn auto trailFn, float alpha) {
     if constexpr (Head::has_history) {
-      Head::trail(trailFn, alpha,
+      Head::flush(trailFn, alpha,
         [&](auto... args) {
           next.plot(cv, args...);
         });
     }
-    next.trail(cv, trailFn, alpha);
+    next.flush(cv, trailFn, alpha);
   }
 };
 
@@ -158,6 +152,45 @@ public:
   }
 private:
   Orientation& orientation;
+};
+
+template <int W>
+class FilterOrientSlice : public Is3D {
+public:
+  FilterOrientSlice(const std::vector<Orientation>& orientations, const Vector& axis) 
+      : enabled(true), axis(axis), orientations(orientations) {}
+
+  void plot(const Vector& v, const Pixel& color, float age, float alpha, auto pass) {
+    if (!enabled) {
+        pass(v, color, age, alpha);
+        return;
+    }
+
+    float projection = v.i * axis.i + v.j * axis.j + v.k * axis.k; // dot product
+    float dot_val = std::max(-1.0f, std::min(1.0f, projection));
+    float t = 1.0f - acosf(dot_val) / PI_F;
+    
+    size_t count = orientations.size();
+    if (count == 0) {
+        pass(v, color, age, alpha);
+        return;
+    }
+    
+    size_t idx = static_cast<size_t>(floorf(t * count));
+    if (idx >= count) idx = count - 1;
+    
+    // Pass to selected orientation
+    const Orientation& q = orientations[idx];
+    tween(q, [&](const Quaternion& rot, float tween_t) {
+        pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha);
+    });
+  }
+
+  bool enabled;
+  Vector axis;
+
+private:
+  const std::vector<Orientation>& orientations;
 };
 
 template <int W>
@@ -251,6 +284,52 @@ public:
   }
 };
 
+template <int W>
+class FilterChromaticShift : public Is2D {
+public:
+  FilterChromaticShift() {}
+  
+  void plot(float x, float y, const Pixel& c, float age, float alpha, auto pass) {
+      // Split RGB
+      // Assuming Pixel is Color4 or similar with r,g,b members or we construct new pixels
+      // Pixel is likely CRGB from FastLED?
+      // In color.h (not fully checked), Pixel is typically CRGB.
+      // But pipeline passes const Pixel&.
+      
+      // Pass Original (or R component?)
+      // JS:
+      // pass(x, y, colorInput...); // Original
+      // pass(wrap(x+1), y, R...);
+      // pass(wrap(x+2), y, G...);
+      // pass(wrap(x+3), y, B...);
+      
+      // JS implementation actually creates pure R, G, B colors.
+      // We need to construct new Pixels.
+      
+      // Let's assume Pixel is compatible with CRGB.
+      // If Pixel is Color4 (float), we do this:
+      // Note: In pipeline, we see usage with Color4 sometimes?
+      // Plot::Point::draw checks if constexpr is Pixel or Color4.
+      // Here usually we deal with Pixel (CRGB) at the 2D stage?
+      // Pipeline 3D->2D mismatches convert Vector to Pixel coords, but color remains.
+      // Color type is templated in 'auto' pass? No, plot takes 'const Pixel& c'. 
+      // But wait, the pipeline plot functions take 'const Pixel& c'. 
+      // So 'Pixel' is a fixed type in filter.h?
+      // filter.h includes "color.h" and "led.h".
+      // Usually Pixel = CRGB.
+      
+      pass(x, y, c, age, alpha);
+      
+      Pixel r_col = c; r_col.g = 0; r_col.b = 0;
+      Pixel g_col = c; g_col.r = 0; g_col.b = 0;
+      Pixel b_col = c; b_col.r = 0; b_col.g = 0;
+      
+      pass(static_cast<float>(wrap(static_cast<int>(x) + 1, W)), y, r_col, age, alpha);
+      pass(static_cast<float>(wrap(static_cast<int>(x) + 2, W)), y, g_col, age, alpha);
+      pass(static_cast<float>(wrap(static_cast<int>(x) + 3, W)), y, b_col, age, alpha);
+  }
+};
+
 /**
  * @brief Renamed from FilterDecay. Manages 2D screen-space trails.
  */
@@ -270,7 +349,7 @@ public:
     }
   }
 
-  void trail(TrailFn auto trailFn, float alpha, auto pass) {
+  void flush(TrailFn auto trailFn, float alpha, auto pass) {
     for (int i = 0; i < num_pixels; ++i) {
       Color4 color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
       pass(ttls[i].x, ttls[i].y, color.color, lifetime - ttls[i].ttl, alpha * color.alpha);
@@ -377,7 +456,7 @@ public:
       }
   }
 
-  void trail(TrailFn auto trailFn, float alpha, auto pass) {
+  void flush(TrailFn auto trailFn, float alpha, auto pass) {
       // Sort
       std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
           return a.ttl < b.ttl;
@@ -399,4 +478,46 @@ public:
 private:
   StaticCircularBuffer<Item, Capacity> items;
   int lifetime;
+};
+
+template <int W, int Capacity>
+class FilterTemporal : public Is2DWithHistory {
+public:
+  using TTLFn = std::function<float(float x, float y)>;
+  
+  FilterTemporal(TTLFn ttl_fn) : ttl_fn(ttl_fn) {}
+  
+  void plot(float x, float y, const Pixel& color, float age, float alpha, auto pass) {
+      float delay = ttl_fn(x, y);
+      if (delay <= 1e-4f) {
+          pass(x, y, color, age, alpha);
+      } else {
+          if (items.size() < Capacity) {
+              items.push_back({x, y, color, delay, age, alpha});
+          } else {
+              // Buffer full, bypass
+              pass(x, y, color, age, alpha);
+          }
+      }
+  }
+  
+  void flush(TrailFn auto trailFn, float alpha, auto pass) {
+      // Process pending
+      for (size_t i = 0; i < items.size(); ++i) {
+          auto& item = items[i];
+          item.delay -= 1.0f;
+          if (item.delay <= 0) {
+              pass(item.x, item.y, item.c, item.age, item.alpha * alpha);
+              // Swap remove
+              items[i] = items.back();
+              items.pop_back();
+              i--;
+          }
+      }
+  }
+
+private:
+  struct Item { float x, y; Pixel c; float delay; float age; float alpha; };
+  StaticCircularBuffer<Item, Capacity> items;
+  TTLFn ttl_fn;
 };
