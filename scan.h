@@ -439,16 +439,16 @@ namespace SDF {
         int count;
         float thickness;
         
-        Span<Vector> poly2D; 
-        Span<Vector> edgeVectors; 
-        Span<float> edgeLengthsSq;
-        Span<Vector> planes; 
+        std::span<Vector> poly2D; 
+        std::span<Vector> edgeVectors; 
+        std::span<float> edgeLengthsSq;
+        std::span<Vector> planes; 
         
         int y_min, y_max;
-        Span<std::pair<float, float>> intervals; 
+        std::span<std::pair<float, float>> intervals; 
         bool full_width;
         
-        Face(Span<const Vector> vertices, Span<const int> indices, float th, FaceScratchBuffer& scratch) 
+        Face(std::span<const Vector> vertices, std::span<const int> indices, float th, FaceScratchBuffer& scratch) 
           : thickness(th), full_width(true)
         {
            count = indices.size();
@@ -471,7 +471,7 @@ namespace SDF {
               scratch.poly2D[i].j = dot(v, basisW) / d; // y
               scratch.poly2D[i].k = 0;
            }
-           poly2D = Span<Vector>(scratch.poly2D.data(), count);
+           poly2D = std::span<Vector>(scratch.poly2D.data(), count);
            
            // Edges and Planes
            int planes_count = 0;
@@ -540,9 +540,9 @@ namespace SDF {
               scratch.thetas[i] = theta;
            }
            
-           edgeVectors = Span<Vector>(scratch.edgeVectors.data(), count);
-           edgeLengthsSq = Span<float>(scratch.edgeLengthsSq.data(), count);
-           planes = Span<Vector>(scratch.planes.data(), planes_count);
+           edgeVectors = std::span<Vector>(scratch.edgeVectors.data(), count);
+           edgeLengthsSq = std::span<float>(scratch.edgeLengthsSq.data(), count);
+           planes = std::span<Vector>(scratch.planes.data(), planes_count);
            
            // Pole Logic
            bool npInside = true;
@@ -588,7 +588,7 @@ namespace SDF {
            } else {
                full_width = true;
            }
-           intervals = Span<std::pair<float, float>>(scratch.intervals.data(), interval_count);
+           intervals = std::span<std::pair<float, float>>(scratch.intervals.data(), interval_count);
         }
         
         Bounds get_vertical_bounds() const { return { y_min, y_max }; }
@@ -1024,7 +1024,7 @@ namespace Scan {
      
      for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
         bool handled = shape.get_horizontal_intervals(y, [&](float t1, float t2) {
-           int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
+              int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
            int x2 = static_cast<int>(ceilf((t2 * W) / (2 * PI_F)));
            
            for (int x = x1; x <= x2; ++x) {
@@ -1250,8 +1250,8 @@ namespace Scan {
           size_t idx_offset = 0;
           for (size_t i = 0; i < mesh.num_faces; ++i) {
              size_t count = mesh.face_counts[i];
-             Span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
-             Span<const int> indices(&mesh.faces[idx_offset], count);
+             std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
+             std::span<const int> indices(&mesh.faces[idx_offset], count);
              
              SDF::Face shape(verts, indices, 0.0f, scratch);
              idx_offset += count;
@@ -1289,8 +1289,8 @@ namespace Scan {
              size_t count = mesh.face_counts[i];
              
              // Create Spans from MeshState
-             Span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
-             Span<const int> indices(mesh.faces + face_offset, count);
+             std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
+             std::span<const int> indices(mesh.faces + face_offset, count);
              
              SDF::Face shape(verts, indices, 0.0f, scratch);
              
