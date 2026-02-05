@@ -28,7 +28,7 @@ public:
     persist_pixels = false;
 
     timeline
-      .add(0, MobiusWarp(params, num_rings, 160, true))
+      .add(0, MobiusWarp(params, 1.0f, 160, true))
       .add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400, ease_mid, true))
       .add(0, PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true))
       .add(0, Mutation(num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
@@ -48,8 +48,12 @@ public:
     Vector n_trans = inv_stereo(mobius(stereo(n_in), params));
     Vector s_in = -Z_AXIS;
     Vector s_trans = inv_stereo(mobius(stereo(s_in), params));
-    Vector mid = (n_trans + s_trans).normalize();
-    Quaternion q = make_rotation(mid, Z_AXIS);
+    Vector mid = (n_trans + s_trans);
+    Quaternion q; // Default Identity
+    if (mid.length() > 0.001f) {
+      mid.normalize();
+      q = make_rotation(mid, Z_AXIS);
+    }
 
     // Update hole origins to match the rotated geometry
     holeN = rotate(n_trans, q).normalize();
@@ -81,18 +85,25 @@ private:
       Basis basis = make_basis(Quaternion(), normal);
       Plot::Polygon::sample<W>(points, basis, radius, W / 4);
 
-      Points transformed_points;
-      for (const auto& p : points) {
-        Vector transformed = inv_stereo(mobius(stereo(p), params));
-        transformed_points.push_back(rotate(transformed, q).normalize());
+      Fragments fragments; 
+      fragments.reserve(points.size());
+      for (size_t k = 0; k < points.size(); ++k) {
+        Vector transformed = inv_stereo(mobius(stereo(points[k]), params));
+        Fragment f;
+        f.pos = rotate(transformed, q).normalize();
+        f.v0 = (float)k / (points.size() - 1); // t
+        fragments.push_back(f);
       }
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
-      Plot::rasterize<W>(filters, canvas, transformed_points, [&](const Vector&, float) {
+      
+      auto fragment_shader = [&](const Vector&, const Fragment&) {
         Color4 c = palette.get(static_cast<float>(i) / num);
         c.alpha *= opacity;
         return c;
-        }, true);
+      };
+
+      Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);
     }
   }
 
@@ -105,14 +116,21 @@ private:
       Points points;
       Basis basis = make_basis(Quaternion(), normal);
       Plot::Polygon::sample<W>(points, basis, 1.0f, W / 4);
-      Points transformed_points;
-      for (const auto& p : points) {
-        Vector transformed = inv_stereo(mobius(stereo(p), params));
-        transformed_points.push_back(rotate(transformed, q).normalize());
+      
+      Fragments fragments;
+      fragments.reserve(points.size());
+      for (size_t k = 0; k < points.size(); ++k) {
+        Vector transformed = inv_stereo(mobius(stereo(points[k]), params));
+        Fragment f;
+        f.pos = rotate(transformed, q).normalize();
+        f.v0 = (float)k / points.size(); // t (0..1)
+        fragments.push_back(f);
       }
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
-      Plot::rasterize<W>(filters, canvas, transformed_points, [&](const Vector&, float t_line) {
+      
+      auto fragment_shader = [&](const Vector&, const Fragment& f_val) {
+        float t_line = f_val.v0;
         // Approximate original Z to calculate log-gradient
         float original_idx = t_line * points.size();
         int idx1 = static_cast<int>(original_idx) % points.size();
@@ -129,7 +147,9 @@ private:
         Color4 c = palette.get(wrap(t - phase, 1.0f));
         c.alpha *= opacity;
         return c;
-        }, true);
+      };
+
+      Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);
     }
   }
 

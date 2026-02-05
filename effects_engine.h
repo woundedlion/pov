@@ -25,18 +25,8 @@ typedef CRGB Pixel;
 typedef std::vector<Vector> VertexList;
 typedef std::vector<std::vector<unsigned int>> AdjacencyList;
 
+#include "geometry.h" // Provides Fragment, ShaderResult, Vector
 #include "color.h" // Must be included before concepts using Color4
-
-/**
- * @brief Concept for a function that determines color based on position and/or time.
- * Signature: Color4 f(const Vector& v, float t)
- */
-template<typename F>
-concept ColorFn = requires(F f, const Vector & v, float t) {
-  { f(v, t) } -> std::convertible_to<Color4>;
-};
-
-
 
 /**
  * @brief Concept for a function that generates a trail color.
@@ -77,6 +67,25 @@ concept TransformFn = requires(F f, Vector v) {
 };
 
 /**
+ * @brief Concept for a Vertex Shader function.
+ * Transforms a position vector.
+ */
+template <typename F>
+concept VertexShaderFn = requires(F f, const Vector & v) {
+  { f(v) } -> std::convertible_to<Vector>;
+};
+
+/**
+ * @brief Concept for a Fragment Shader function.
+ * Computes color from position and fragment data.
+ */
+template <typename F>
+concept FragmentShaderFn = requires(F f, const Vector & pos, const Fragment & frag) {
+  // Can return Color4 or ShaderResult. We'll support implicitly convertible types.
+  { f(pos, frag) }; 
+};
+
+/**
  * @brief Concept for a function that draws a sprite to the canvas.
  * Signature: void f(Canvas& canvas, float opacity)
  */
@@ -110,11 +119,9 @@ concept Tweenable = requires(const T & t, size_t i) {
   { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
 };
 
-#include "geometry.h"
-#include "filter.h"
+// Filter needs effects concepts? No filter.h defines pipeline.
+// filter.h includes geometry.h.
 #include "filter.h"
 #include "scan.h"
 #include "plot.h"
-#include "animation.h"
-
 #include "animation.h"

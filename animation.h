@@ -8,6 +8,7 @@
 #include <cmath>
 #include <functional>
 #include <variant>
+#include <numeric> // for std::iota
 #include <array>
 #include "3dmath.h"
 #include "FastNoiseLite.h"
@@ -15,40 +16,10 @@
 #include "spatial.h"
 #include "static_circular_buffer.h"
 #include "plot.h"
+#include "rotate.h"
 
 
- /**
-  * @brief Frames Per Second constant.
-  */
-static constexpr int FPS = 16;
-
-/**
- * @brief Interpolates between frames in a history buffer.
- * @param history The history buffer (Tweenable).
- * @param draw_fn Function to draw the state: `void f(const T& item, float t)`.
- */
-static void tween(Tweenable auto& history, auto draw_fn) {
-  size_t s = history.length();
-  size_t start = (s > 1) ? 1 : 0;
-  for (size_t i = start; i < s; ++i) {
-    draw_fn(history.get(i), static_cast<float>((s - 1 - i)) / s);
-  }
-}
-
-/**
- * @brief Interpolates recursively through a trail of history buffers (e.g., Motion Trails).
- * @param trail The trail of history buffers.
- * @param drawFn Function to draw the item: `void f(const T& item, float t)`.
- */
-static void deep_tween(auto& trail, TweenFn auto drawFn) {
-  float dt = (trail.length() > 0) ? (1.0f / static_cast<float>(trail.length())) : 0.0f;
-  tween(trail, [&](const auto& frame, float t) {
-    tween(frame, [&](const auto& q, float subT) {
-      float globalT = t + subT * dt;
-      drawFn(q, globalT);
-      });
-    });
-}
+// ... (skipping lines 20-53) ...
 
 /**
  * @brief Represents a customizable path.
@@ -59,7 +30,7 @@ class Path {
 public:
   Path() {}
 
-  static void draw(auto& pipeline, Canvas& canvas, const Path& path, ColorFn auto color) {
+  static void draw(auto& pipeline, Canvas& canvas, const Path& path, auto color) {
     size_t samples = path.points.size();
     for (size_t i = 0; i < samples; ++i) {
       auto v = path.get_point(static_cast<float>(i) / samples);
@@ -224,6 +195,163 @@ public:
    * @brief Always reports true.
    */
   bool done() const { return true; }
+};
+
+struct Particle {
+  Vector position;
+  Vector velocity;
+  Color4 color;
+  float life;
+  float max_life;
+  Orientation orientation;
+  
+  void init(const Vector& p, const Vector& v, const Color4& c, float l) {
+    position = p;
+    velocity = v;
+    color = c;
+    life = l;
+    max_life = l;
+    orientation.set(Quaternion());
+    history.clear();
+  }
+
+  void push_history(const Quaternion& q) {
+      history.push_back(q);
+  }
+
+  const Quaternion& get_history(size_t i) const {
+      // JS parity: 0 is newest
+      size_t idx = history.size() - 1 - i;
+      return history[idx];
+  }
+  
+  size_t history_length() const { return history.size(); }
+  
+private:
+  StaticCircularBuffer<Quaternion, 32> history;
+};
+
+class ParticleSystem : public Animation<ParticleSystem> {
+public:
+  static constexpr int CAPACITY = 128; 
+  std::array<Particle, CAPACITY> pool;
+  int active_count = 0;
+
+  struct Attractor {
+    Vector position;
+    float strength;
+    float kill_radius;
+    float event_horizon;
+  };
+
+  using EmitterFn = std::function<void(ParticleSystem&)>;
+  
+  StaticCircularBuffer<Attractor, 8> attractors;
+  StaticCircularBuffer<EmitterFn, 4> emitters;
+
+  float friction = 0.95f;
+  float gravity_scale = 0.001f;
+  float resolution_scale = 1.0f;
+
+  ParticleSystem(int capacity = CAPACITY, float friction = 0.95f, float gravity_scale = 0.001f)
+    : Animation(-1, false), friction(friction), gravity_scale(gravity_scale)
+  {
+  }
+
+  void reset(float f = 0.95f, float g = 0.001f) {
+    friction = f;
+    gravity_scale = g;
+    active_count = 0;
+    attractors.clear();
+    emitters.clear();
+  }
+
+  void add_emitter(EmitterFn fn) {
+    emitters.push_back(fn);
+  }
+
+  void add_attractor(const Vector& pos, float str, float kill, float horizon) {
+    attractors.push_back({ pos, str, kill, horizon });
+  }
+
+  void spawn(const Vector& pos, const Vector& vel, const Color4& col, float life = 600) {
+    if (active_count < CAPACITY) {
+      pool[active_count++].init(pos, vel, col, life);
+    }
+  }
+
+  void step(Canvas& canvas) override {
+    Animation::step(canvas);
+
+    // Emitters
+    for (size_t i = 0; i < emitters.size(); ++i) {
+      emitters[i](*this);
+    }
+
+    float max_delta = (2 * PI_F) / MAX_W / resolution_scale;
+
+    // Physics
+    for (int i = 0; i < active_count; ++i) {
+      bool dead = update_particle(pool[i], max_delta);
+      if (dead) {
+        pool[i] = pool[active_count - 1];
+        active_count--;
+        i--;
+      }
+    }
+  }
+
+private:
+  bool update_particle(Particle& p, float max_delta) {
+    p.life--;
+    if (p.life <= 0) return true; // Timeout
+
+    // Physics
+    Vector pos = p.orientation.orient(p.position);
+
+    for (size_t k = 0; k < attractors.size(); ++k) {
+       const auto& attr = attractors[k];
+       float dist_sq = distance_squared(pos, attr.position);
+       
+       if (dist_sq < attr.kill_radius * attr.kill_radius) return true; // Kill
+       
+       if (dist_sq > 0.0000001f) {
+          if (dist_sq < attr.event_horizon * attr.event_horizon) {
+             // Steer into center
+             Vector torque = (attr.position - pos).normalize();
+             float speed = p.velocity.magnitude();
+             p.velocity = torque * speed;
+          } else {
+             // Gravity
+             float force = (gravity_scale * attr.strength) / dist_sq;
+             Vector torque = cross(pos, attr.position).normalize() * force;
+             p.velocity += cross(torque, pos);
+          }
+       }
+    }
+    
+    // Drag
+    p.velocity *= friction;
+    
+    // Move
+    float speed = p.velocity.magnitude();
+    if (speed > 0.000001f) {
+        Vector axis = cross(pos, p.velocity).normalize();
+        Quaternion dq = make_rotation(axis, speed);
+        p.orientation.push(dq); // JS Logic appends to orientation
+        p.velocity = rotate(p.velocity, dq);
+    }
+    
+    // History
+    p.push_history(p.orientation.get());
+    
+    // Check if we need to expire old history?
+    // StaticCircularBuffer handles capacity automatically.
+     
+    p.orientation.collapse();
+    
+    return false;
+  }
 };
 
 /**
@@ -546,14 +674,15 @@ public:
   /**
    * @brief Constructs a Motion animation.
    * @param orientation The Orientation object to update.
-   * @param path The path to follow.
+   * @param path_obj The path to follow (must have get_point(float t)).
    * @param duration The duration in frames.
    * @param repeat If true, the motion repeats.
    */
-  Motion(Orientation& orientation, const Path<W>& path, int duration, bool repeat = false, Space space = Space::World) :
+  template <typename P>
+  Motion(Orientation& orientation, const P& path_obj, int duration, bool repeat = false, Space space = Space::World) :
     Animation<Motion<W>>(duration, repeat),
     orientation(orientation),
-    path(path),
+    path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
     space(space)
   {
   }
@@ -570,9 +699,9 @@ public:
   void step(Canvas& canvas) {
     Animation<Motion<W>>::step(canvas);
     float t_prev = static_cast<float>(this->t - 1);
-    Vector current_v = path.get().get_point(t_prev / this->duration);
+    Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
-    Vector target_v = path.get().get_point(t_curr / this->duration);
+    Vector target_v = path_fn(t_curr / this->duration);
     float total_angle = angle_between(current_v, target_v);
     int num_steps = static_cast<int>(std::ceil(std::max(1.0f, total_angle / MAX_ANGLE)));
 
@@ -599,7 +728,7 @@ public:
       // i goes from 0 to len-1. i=0 is t-1, i=len-1 is t.
       float sub_t = t_prev + (static_cast<float>(i) / (len - 1));
       
-      Vector next_v = path.get().get_point(sub_t / this->duration);
+      Vector next_v = path_fn(sub_t / this->duration);
       float step_angle = angle_between(prev_v, next_v);
       
       if (step_angle > TOLERANCE) {
@@ -621,7 +750,7 @@ private:
 
   static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
   std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
-  std::reference_wrapper<const Path<W>> path; /**< Reference to the Path object. */
+  std::function<Vector(float)> path_fn; /**< Function to retrieve path points. */
   Space space; /**< The coordinate space for rotation. */
 };
 
@@ -895,14 +1024,14 @@ public:
   /**
    * @brief Constructs a MobiusWarp animation.
    * @param params Reference to the MobiusParams to animate.
-   * @param num_rings Reference to the number of rings (scalar).
+   * @param scale The magnitude of the warp effect.
    * @param duration Duration of the warp.
    * @param repeat Whether to repeat.
    */
-  MobiusWarp(MobiusParams& params, const float& num_rings, int duration, bool repeat = true) :
+  MobiusWarp(MobiusParams& params, float scale, int duration, bool repeat = true) :
     Animation(duration, repeat),
     params(params),
-    num_rings(num_rings)
+    scale(scale)
   {
   }
 
@@ -913,13 +1042,14 @@ public:
     Animation::step(canvas);
     float progress = static_cast<float>(t) / duration;
     float angle = progress * 2 * PI_F;
-    params.get().bRe = cosf(angle);
-    params.get().bIm = sinf(angle);
+    params.get().bRe = scale * cosf(angle);
+    params.get().bIm = scale * sinf(angle);
   }
 
 private:
   std::reference_wrapper<MobiusParams> params;
-  std::reference_wrapper<const float> num_rings;
+public:
+  float scale;
 };
 
 /**
@@ -934,7 +1064,7 @@ public:
    * @param source The orientation to copy.
    */
   void record(const Orientation& source) {
-    snapshots.push_back(source);
+    snapshots.push_back(source.get());
   }
 
   /**
@@ -946,107 +1076,27 @@ public:
 
   /**
    * @brief Gets a specific snapshot.
-   * @param i Index (0 is oldest).
+   * @param i Index (0 is newest).
    */
-  const Orientation& get(size_t i) const {
-    return snapshots[i];
+  const Quaternion& get(size_t i) const {
+    // JS parity: 0 is newest
+    size_t idx = snapshots.size() - 1 - i;
+    return snapshots[idx];
   }
 
   /**
    * @brief Gets a specific snapshot (mutable).
+   * @param i Index (0 is newest).
    */
-  Orientation& get(size_t i) {
-    return snapshots[i];
+  Quaternion& get(size_t i) {
+    size_t idx = snapshots.size() - 1 - i;
+    return snapshots[idx];
   }
 
 private:
-  StaticCircularBuffer<Orientation, CAPACITY> snapshots;
+  StaticCircularBuffer<Quaternion, CAPACITY> snapshots;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-
-// SpatialHash moved to spatial.h
-
-
-class ParticleSystem : public Animation<ParticleSystem> {
-public:
-  struct Particle {
-    Vector p;
-    Vector v;
-    Vector a;
-    float age = 0;
-    float life = 1.0f;
-    float mass = 1.0f;
-    Vector color; // RGB
-  };
-
-  ParticleSystem(int maxParticles, float cellSize = 0.2f) 
-    : Animation(-1, false), hash(cellSize) {
-    particles.reserve(maxParticles);
-  }
-
-  void addAttractor(const Vector& p, float strength) {
-    attractors.push_back({p, strength});
-  }
-
-  void spawn(const Vector& p, const Vector& v, float life, const Vector& color) {
-    if (particles.size() < particles.capacity()) {
-      particles.push_back({p, v, Vector(0,0,0), 0, life, 1.0f, color});
-    }
-  }
-
-  void step(Canvas& canvas) override {
-    Animation::step(canvas);
-    hash.clear();
-
-    // Rebuild hash
-    for(size_t i=0; i<particles.size(); ++i) {
-      hash.insert(particles[i].p, i);
-    }
-
-    // Update
-    for (auto it = particles.begin(); it != particles.end(); ) {
-      auto& p = *it;
-      p.age += 0.01f; // Assumed dt
-      
-      // Forces
-      p.a = Vector(0,0,0);
-      for(const auto& att : attractors) {
-         Vector dir = att.first - p.p;
-         float distSq = dot(dir, dir);
-         if (distSq > 0.0001f) {
-           p.a = p.a + dir.normalize() * (att.second / distSq);
-         }
-      }
-      
-      // Physics
-      p.v = p.v + p.a; 
-      p.p = p.p + p.v;
-      p.p = p.p.normalize(); // Constrain to sphere
-      
-      // Draw (simple point)
-      // canvas.setPixel? We need a pipeline or just plot raw. 
-      // Animation::step takes canvas. But usually drawing is done by the caller or specialized draw method.
-      // JS ParticleSystem doesn't draw itself usually, it updates state.
-      // But here we might want to draw.
-      // For now, assume this updates state. Use a separate renderer or extend to draw.
-      
-      if (p.age > p.life) {
-        it = particles.erase(it);
-      } else {
-        ++it;
-      }
-    }
-  }
-  
-  // Accessors for rendering
-  const std::vector<Particle>& getParticles() const { return particles; }
-
-private:
-  std::vector<Particle> particles;
-  std::vector<std::pair<Vector, float>> attractors;
-  SpatialHash hash;
-};
 
 /*
  * @brief Animates a transition between two meshes using pre-allocated buffers.

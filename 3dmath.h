@@ -156,11 +156,33 @@ struct Vector {
     return Vector(-i, -j, -k);
   }
 
+  Vector& operator+=(const Vector& v_other) {
+    i += v_other.i; j += v_other.j; k += v_other.k;
+    return *this;
+  }
+  Vector& operator-=(const Vector& v_other) {
+    i -= v_other.i; j -= v_other.j; k -= v_other.k;
+    return *this;
+  }
+  Vector& operator*=(float s) {
+    i *= s; j *= s; k *= s;
+    return *this;
+  }
+  Vector& operator/=(float s) {
+    i /= s; j /= s; k /= s;
+    return *this;
+  }
+
   /**
    * @brief Calculates the magnitude (length) of the vector.
    * @return The magnitude.
    */
   constexpr float length() const { return sqrtf(i * i + j * j + k * k); }
+  
+  /**
+   * @brief Alias for length().
+   */
+  constexpr float magnitude() const { return length(); }
 
   /**
    * @brief Normalizes the vector (scales to unit length).
@@ -256,8 +278,21 @@ struct Quaternion {
    * @brief Quaternion multiplication compound assignment.
    * @param q The quaternion to multiply by.
    */
-  void operator*=(const Quaternion& q) {
+  Quaternion& operator*=(const Quaternion& q) {
     *this = *this * q;
+    return *this;
+  }
+  Quaternion& operator+=(const Quaternion& q) {
+    r += q.r; v += q.v;
+    return *this;
+  }
+  Quaternion& operator-=(const Quaternion& q) {
+    r -= q.r; v -= q.v;
+    return *this;
+  }
+  Quaternion& operator*=(float s) {
+    r *= s; v *= s;
+    return *this;
   }
 
   /**
@@ -275,6 +310,14 @@ struct Quaternion {
   Quaternion inverse() const {
     float sq_mag = squared_magnitude();
     return Quaternion(r, -v) / sq_mag;
+  }
+  
+  /**
+    * @brief Calculates the conjugate of the quaternion.
+    * @return The conjugate quaternion (r, -v).
+    */
+  Quaternion conjugate() const {
+      return Quaternion(r, -v);
   }
 
   /**
@@ -401,6 +444,10 @@ Complex mobius(const Complex& z, const MobiusParams& params) {
   Complex num = (params.getA() * z) + params.getB();
   Complex den = (params.getC() * z) + params.getD();
   return num / den;
+}
+
+Vector mobius_transform(const Vector& v, const MobiusParams& params) {
+    return inv_stereo(mobius(stereo(v), params));
 }
 
 /**

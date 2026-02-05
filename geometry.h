@@ -14,6 +14,66 @@
 #include "static_circular_buffer.h"
 #include "led.h"
 
+ /**
+  * @brief Represents a "Fragment" or a potential pixel/vertex with associated data registers.
+  * Mirrors the JS Fragment structure for shader compatibility.
+  */
+struct Fragment {
+  Vector pos;
+  float v0 = 0.0f; /**< Register 0 (usually normalized progress t) */
+  float v1 = 0.0f; /**< Register 1 (usually arc length/distance) */
+  float v2 = 0.0f; /**< Register 2 (usually index/id) */
+  float v3 = 0.0f; /**< Register 3 (auxiliary) */
+  float age = 0.0f; /**< Age of the operation/trail */
+
+  /**
+   * @brief Linear interpolation between two fragments.
+   * @param a Start fragment.
+   * @param b End fragment.
+   * @param t Interpolation factor (0.0 to 1.0).
+   * @return The interpolated fragment.
+   */
+  static Fragment lerp(const Fragment& a, const Fragment& b, float t) {
+    Fragment f;
+    f.pos = a.pos + (b.pos - a.pos) * t; // Note: This is linear, not slerp. Slerp usually happens known externally.
+    f.v0 = a.v0 + (b.v0 - a.v0) * t;
+    f.v1 = a.v1 + (b.v1 - a.v1) * t;
+    f.v2 = a.v2 + (b.v2 - a.v2) * t;
+    f.v3 = a.v3 + (b.v3 - a.v3) * t;
+    f.age = a.age + (b.age - a.age) * t;
+    return f;
+  }
+};
+
+/**
+ * @brief Logic for handling Fragment shaders.
+ */
+struct ShaderResult {
+  Pixel color;
+  float alpha = 1.0f;
+  uint8_t tag = 0;
+};
+
+
+/**
+ * @brief A list of fragments, equivalent to 'Points' in the JS context but with full register support.
+ */
+using Fragments = std::vector<Fragment>;
+
+/**
+ * @brief Logic for no-op vertex shader.
+ */
+struct NullVertexShader {
+    Vector operator()(const Vector& v) const { return v; }
+};
+
+/**
+ * @brief Logic for no-op fragment shader.
+ */
+struct NullFragmentShader {
+    Color4 operator()(const Vector&, const Fragment&) const { return Color4(0, 0, 0, 0); }
+};
+
 /**
  * @brief A lightweight view over a contiguous sequence of objects.
  * @tparam T The type of object (can be const).
@@ -188,6 +248,7 @@ Vector logPolarToVector(float rho, float theta) {
     r_xz * sinf(theta)
   ).normalize();
 }
+
 
 /**
  * @brief Converts a vector on the unit sphere to Log-Polar coordinates.
@@ -487,6 +548,43 @@ private:
 
 
 /**
+ * @brief Helper to iterate over an Orientation's historical frames.
+ * @param o The orientation to iterate.
+ * @param callback The function to call for each frame: `void(const Quaternion&, float t)`.
+ */
+template <typename F>
+void tween(const Orientation& o, F callback) {
+    int len = o.length();
+    if (len <= 1) {
+        callback(o.get(), 1.0f);
+        return;
+    }
+    for (int i = 0; i < len; ++i) {
+        float t = static_cast<float>(i) / (len - 1);
+        callback(o.get(i), t);
+    }
+}
+
+/**
+ * @brief Helper to iterate over any Tweenable object (Orientation or OrientationTrail).
+ * @param o The object to iterate.
+ * @param callback The function to call for each step: `void(const T&, float t)`.
+ */
+template <typename T, typename F>
+void deep_tween(const T& o, F callback) {
+    size_t len = o.length();
+    if (len <= 1) {
+        callback(o.get(0), 1.0f);
+        return;
+    }
+    for (size_t i = 0; i < len; ++i) {
+        float t = static_cast<float>(i) / (len - 1);
+        callback(o.get(i), t);
+    }
+}
+
+
+/**
  * @brief Calculates a gradient color based on the vector's dot product with a normal.
  * @details This creates two color gradients extending from the dividing plane in opposite directions.
  * @param v The vector to color.
@@ -648,15 +746,14 @@ public:
     }
 
     // 2. Create Faces and HalfEdges
-    faces.reserve(mesh.faces.size());
-    std::map<std::pair<int, int>, HalfEdge*> edgeMap;
-
-    for (const auto& faceIndices : mesh.faces) {
+    size_t idx_offset = 0;
+    std::map<std::pair<int, int>, HalfEdge*> edgeMap; // For pairing half-edges
+    for (size_t f_idx = 0; f_idx < mesh.num_faces; ++f_idx) {
       faces.emplace_back();
       HEFace* currentFace = &faces.back();
       
+      size_t count = mesh.face_counts[f_idx];
       size_t faceStartHeIdx = halfEdges.size();
-      size_t count = faceIndices.size();
       
       // Allocate edges for this face
       for (size_t i = 0; i < count; ++i) {
@@ -664,8 +761,8 @@ public:
       }
 
       for (size_t i = 0; i < count; ++i) {
-        int u = faceIndices[i];
-        int v = faceIndices[(i + 1) % count];
+        int u = mesh.faces[idx_offset + i];
+        int v = mesh.faces[idx_offset + (i + 1) % count];
 
         HalfEdge* he = &halfEdges[faceStartHeIdx + i];
         
@@ -690,6 +787,7 @@ public:
         }
       }
       currentFace->halfEdge = &halfEdges[faceStartHeIdx];
+      idx_offset += count;
     }
   }
 };

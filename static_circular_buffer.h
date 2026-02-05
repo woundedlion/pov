@@ -157,7 +157,7 @@ public:
     return buffer[(head + index) % N];
   }
 
-  constexpr bool is_empty() const { return count == 0; }
+  constexpr bool is_empty() const { return count == 0U; }
   constexpr bool is_full() const { return count == N; }
   constexpr size_t size() const { return count; }
   constexpr size_t capacity() const { return N; }

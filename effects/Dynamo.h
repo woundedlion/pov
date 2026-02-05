@@ -160,6 +160,8 @@ public:
       pull(0);
       draw_nodes(canvas, static_cast<float>(i) / std::abs(speed));
     }
+
+    filters.flush(canvas, [this](const Vector& v, float t) { return color(v, t); }, 1.0f);
   }
 
 private:
@@ -175,11 +177,12 @@ private:
       else {
         auto from = pixel_to_vector<W>(nodes[i - 1].x, nodes[i - 1].y);
         auto to = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
-        Plot::Line::draw<W>(filters, canvas, from, to, [this](const Vector& v, float t) { 
+        auto fragment_shader = [this](const Vector& v, const Fragment& f) { 
             Color4 c = color(v, 0);
             c.alpha *= 0.5f;
             return c;
-        }, 0, 1, false, true);
+        };
+        Plot::Line::draw<W>(filters, canvas, from, to, fragment_shader);
       }
     }
   }

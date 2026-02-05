@@ -12,7 +12,7 @@
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_in_out_bicubic(float t) {
+static inline float ease_in_out_bicubic(float t) {
   return t < 0.5 ?
     4 * t * t * t :
     1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
@@ -23,7 +23,7 @@ static float ease_in_out_bicubic(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_in_out_sin(float t) {
+static inline float ease_in_out_sin(float t) {
   return -(cosf(PI_F * t) - 1) / 2;
 }
 
@@ -32,7 +32,7 @@ static float ease_in_out_sin(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_in_sin(float t) {
+static inline float ease_in_sin(float t) {
   return 1 - cosf((t * PI_F) / 2);
 }
 
@@ -41,7 +41,7 @@ static float ease_in_sin(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_out_sin(float t) {
+static inline float ease_out_sin(float t) {
   return sinf((t * PI_F) / 2);
 }
 
@@ -50,7 +50,7 @@ static float ease_out_sin(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_in_cubic(float t) {
+static inline float ease_in_cubic(float t) {
   return t * t * t;
 }
 
@@ -59,7 +59,7 @@ static float ease_in_cubic(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_in_circ(float t) {
+static inline float ease_in_circ(float t) {
   return 1 - sqrtf(1 - t * t);
 }
 
@@ -68,7 +68,7 @@ static float ease_in_circ(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_mid(float t) {
+static inline float ease_mid(float t) {
   return t;
 }
 
@@ -77,7 +77,7 @@ static float ease_mid(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_out_expo(float t) {
+static inline float ease_out_expo(float t) {
   return t == 1 ? 1 : 1 - powf(2.0f, -10 * t);
 }
 
@@ -86,7 +86,7 @@ static float ease_out_expo(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_out_circ(float t) {
+static inline float ease_out_circ(float t) {
   return sqrtf(1 - (t - 1) * (t - 1));
 }
 
@@ -95,7 +95,7 @@ static float ease_out_circ(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_out_cubic(float t) {
+static inline float ease_out_cubic(float t) {
   return 1 - powf(1 - t, 3);
 }
 
@@ -104,7 +104,7 @@ static float ease_out_cubic(float t) {
  * @param x The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static float ease_out_elastic(float x) {
+static inline float ease_out_elastic(float x) {
   const float c4 = (2 * PI_F) / 3;
   return x == 0 ?
     0 : x == 1 ?

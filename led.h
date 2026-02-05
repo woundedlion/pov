@@ -3,8 +3,11 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvolatile"
 #include <Arduino.h>
 #include <FastLED.h>
+#pragma GCC diagnostic pop
 
 /**
  * @brief Rotations Per Minute of the POV display.

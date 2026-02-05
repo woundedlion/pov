@@ -6,6 +6,8 @@
 
 #include "../effects_engine.h"
 
+#include "../palettes.h"
+
 template <int W>
 class TestShapes : public Effect {
 public:
@@ -20,7 +22,7 @@ public:
     int layer_index;
     Orientation orientation;
 
-    Ring() {}
+    Ring() : scale(1.0f), color(Color4(0,0,0,0)), mode(RenderMode::Plot), layer_index(0) {}
 
     Ring(const Vector& n, float s, const Color4& c, RenderMode m, int l)
       : normal(n), scale(s), color(c), mode(m), layer_index(l) {}
@@ -72,7 +74,7 @@ public:
 
     for (int i = total_shapes - 1; i >= 0; --i) {
       float t = static_cast<float>(i) / (total_shapes > 1 ? total_shapes - 1 : 1);
-      Color4 color = richSunset.get(t);
+      Color4 color = Palettes::richSunset.get(t);
       spawnRing(X_AXIS, t, color, seed1, RenderMode::Plot, i);
       spawnRing(-X_AXIS, t, color, seed1, RenderMode::Scan, i);
     }
@@ -99,7 +101,7 @@ public:
   }
 
   void drawShape(Canvas& canvas, const Ring& ring, float sprite_alpha) {
-    auto color_fn = [&](const Vector& p, float t) {
+    auto fragment_shader = [&](const Vector& p, const Fragment& f) {
       Color4 c = ring.color;
       c.alpha = c.alpha * this->alpha * sprite_alpha;
       return c;
@@ -113,25 +115,25 @@ public:
     if (ring.mode == RenderMode::Plot) {
       switch (current_shape) {
         case ShapeType::Flower:
-           Plot::Flower::draw<W>(plot_filters, canvas, basis, r, this->sides, color_fn, phase);
+           Plot::Flower::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
         case ShapeType::Star:
-           Plot::Star::draw<W>(plot_filters, canvas, basis, r, this->sides, color_fn, phase);
+           Plot::Star::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
         default: // Polygon
-           Plot::Polygon::draw<W>(plot_filters, canvas, basis, r, this->sides, color_fn, phase);
+           Plot::Polygon::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
       }
     } else {
       switch (current_shape) {
         case ShapeType::Flower:
-           Scan::Flower::draw<W>(scan_filters, canvas, basis, r, this->sides, color_fn, phase, debug_bb);
+           Scan::Flower::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
         case ShapeType::Star:
-           Scan::Star::draw<W>(scan_filters, canvas, basis, r, this->sides, color_fn, phase, debug_bb);
+           Scan::Star::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
         default: // Polygon
-           Scan::Polygon::draw<W>(scan_filters, canvas, basis, r, this->sides, color_fn, phase, debug_bb);
+           Scan::Polygon::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
       }
     }

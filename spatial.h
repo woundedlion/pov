@@ -166,30 +166,57 @@ public:
 
   // Nearest neighbor search
   // Returns up to K results
-  StaticCircularBuffer<Vector, MAX_K> nearest(const Vector& target, int k = 1) const {
+  StaticCircularBuffer<Vector, MAX_K> nearest(const Vector& target, size_t k = 1) const {
       StaticCircularBuffer<Vector, MAX_K> result;
-      if (rootIndex == -1) return result;
+      if (rootIndex == -1 || k <= 0) return result;
 
-      // Priority queue for best K is expensive to implement static.
-      // Since K is small (usually 1), we can just find the best ONE for now 
-      // or implement a simple sorted insert.
-      // The original code returned a vector of points.
-      // Let's support K=1 optimized, or simple array scan for K>1.
+      // Max-Heap behavior scratch buffer
+      // We store pairs of <distanceSq, nodeIdx>
+      struct Candidate { float dSq; int idx; };
+      StaticCircularBuffer<Candidate, MAX_K> heap;
       
-      // For this restricted implementation, we will perform standard NN search
-      // keeping track of the 'worst' best distance if we want K items.
+      auto push_heap = [&](float dSq, int idx) {
+          if (heap.size() < static_cast<size_t>(k)) {
+              heap.push_back({dSq, idx});
+              // Maintain max-heap property: bubble up? 
+              // With small K (1-5), linear insert/sort is faster than heap complexity
+              // Just unsorted push, then find max when needed.
+          } else {
+              // Replace worst if better
+              float maxD = -1.0f;
+              int maxI = -1;
+              for(size_t i=0; i<heap.size(); ++i) {
+                  if (heap[i].dSq > maxD) {
+                      maxD = heap[i].dSq;
+                      maxI = i;
+                  }
+              }
+              if (dSq < maxD) {
+                  heap[maxI] = {dSq, idx};
+              }
+          }
+      };
       
-      // To simplify for Teensy: Just find the single nearest if k=1 (common case).
-      // If k > 1, collecting them is tricky without dynamic memory.
-      // We will assume k=1 for now as per likely usage (finding mapped pixel).
-      
-      float bestDistSq = FLT_MAX;
-      int bestNodeIdx = -1;
+      auto get_worst_dist = [&]() -> float {
+          if (heap.size() < k) return FLT_MAX;
+          float maxD = -1.0f;
+          for(size_t i=0; i<heap.size(); ++i) {
+               if (heap[i].dSq > maxD) maxD = heap[i].dSq;
+          }
+          return maxD;
+      };
 
-      search(rootIndex, target, bestDistSq, bestNodeIdx);
-
-      if (bestNodeIdx != -1) {
-          result.push_back(nodes[bestNodeIdx].point);
+      search_k(rootIndex, target, k, heap, push_heap, get_worst_dist);
+      
+      // Sort result by distance (closest first)
+      // std::sort with lambda
+      // StaticCircularBuffer has begin/end
+      std::sort(heap.begin(), heap.end(), [](const Candidate& a, const Candidate& b) {
+          return a.dSq < b.dSq;
+      });
+      
+      for(const auto& c : heap) {
+          result.push_back(nodes[c.idx].point);
       }
       return result;
   }
@@ -225,6 +252,37 @@ private:
       return newNodeIdx;
   }
   
+  // K-Nearest Search
+  template<typename PushFn, typename MaxDistFn>
+  void search_k(int nodeIdx, const Vector& target, int k, 
+                const auto& heap, PushFn&& push_heap, MaxDistFn&& get_worst_dist) const {
+      if (nodeIdx == -1) return;
+      
+      const KDNode& node = nodes[nodeIdx];
+      float dSq = distance_squared(node.point, target);
+      float worstSq = get_worst_dist();
+
+      if (dSq < worstSq) {
+          push_heap(dSq, nodeIdx);
+          worstSq = get_worst_dist(); // Update after push
+      }
+      
+      float axisDist = (node.axis == 0) ? (target.i - node.point.i) :
+                       (node.axis == 1) ? (target.j - node.point.j) :
+                                          (target.k - node.point.k);
+      
+      int near = axisDist < 0 ? node.left : node.right;
+      int far  = axisDist < 0 ? node.right : node.left;
+      
+      search_k(near, target, k, heap, push_heap, get_worst_dist);
+      
+      // Query worst again
+      worstSq = get_worst_dist();
+      if ((axisDist * axisDist) < worstSq) {
+          search_k(far, target, k, heap, push_heap, get_worst_dist);
+      }
+  }
+
   void search(int nodeIdx, const Vector& target, float& bestDistSq, int& bestNodeIdx) const {
       if (nodeIdx == -1) return;
       
@@ -302,7 +360,7 @@ private:
   float cellSize;
   std::array<int16_t, TABLE_SIZE> buckets;
   std::array<Entry, MAX_ENTRIES> pool;
-  int poolCount = 0;
+  size_t poolCount = 0;
 
   long long hash(const Vector& p) const {
     int x = static_cast<int>(floorf(p.i / cellSize));

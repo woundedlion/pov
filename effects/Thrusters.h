@@ -129,19 +129,22 @@ private:
 
   void draw_thruster(Canvas& c, const ThrusterContext& ctx, float opacity) {
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
-    Plot::Ring::draw<W>(filters, c, basis, ctx.radius,
-      [](const Vector&, float) { return Color4(CRGB::White); });
+    auto fragment_shader = [](const Vector&, const Fragment&) { return Color4(CRGB::White); };
+    Plot::Ring::draw<W>(filters, c, basis, ctx.radius, fragment_shader);
   }
 
   void draw_ring(Canvas& c, float opacity) {
     Basis basis = make_basis(orientation.get(), ring_vec);
-    Plot::DistortedRing::draw<W>(filters, c, basis, radius,
-      [this](float t) { return ring_fn(t); }, // Shift function
-      [this](const Vector& v, float t) { // Color function
+    
+    auto fragment_shader = [this](const Vector& v, const Fragment& f) { // Color function
         Vector axis = orientation.orient(X_AXIS);
         float angle = angle_between(axis, orientation.orient(v));
         return palette.get(angle / PI_F);
-      }
+    };
+
+    Plot::DistortedRing::draw<W>(filters, c, basis, radius,
+      [this](float t) { return ring_fn(t); }, // Shift function
+      fragment_shader
     );
   }
 

@@ -76,7 +76,7 @@ public:
 
     // 6. Render with Trails
     // Render with Trails
-    filters.trail(canvas, 
+    filters.flush(canvas, 
       [this](const Vector& v, float t_trail) -> Color4 {
         return palette.get(t_trail);
       },
