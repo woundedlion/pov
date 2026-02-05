@@ -458,8 +458,6 @@ namespace Plot {
     }
   };
 
-  using Polygon = PlanarPolygon;
-
   /**
    * @brief Spherical Polygon (Geodesic edges).
    * Registers:
