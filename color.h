@@ -296,10 +296,11 @@ public:
     GradientShape gradient_shape,
     HarmonyType harmony_type,
     BrightnessProfile profile,
-    SaturationProfile sat_profile = SaturationProfile::MID) :
+    SaturationProfile sat_profile = SaturationProfile::MID,
+    int seed_hue = -1) :
     gradient_shape(gradient_shape),
     harmony_type(harmony_type),
-    seed_hue(static_cast<uint8_t>(hs::rand_int(0, 256)))
+    seed_hue(seed_hue == -1 ? static_cast<uint8_t>(hs::rand_int(0, 256)) : static_cast<uint8_t>(seed_hue))
   {
     uint8_t h1 = seed_hue;
     uint8_t h2, h3;
@@ -581,6 +582,15 @@ private:
   std::reference_wrapper<const Palette> palette;
 };
 
+class SolidColorPalette : public Palette {
+public:
+  SolidColorPalette(const Color4& color) : color(color) {}
+  Color4 get(float t) const override {
+    return color;
+  }
+  Color4 color;
+};
+
 /**
  * @brief Variant holding any supported palette type.
  */
@@ -592,7 +602,21 @@ using PaletteVariant = std::variant<
   MutatingPalette,
   ReversePalette,
   VignettePalette,
-  TransparentVignette
+  TransparentVignette,
+  SolidColorPalette
 >;
+
+
+inline Color4 get_color(const PaletteVariant& pv, float t) {
+  return std::visit([t](auto&& arg) -> Color4 {
+    using T = std::decay_t<decltype(arg)>;
+    if constexpr (std::is_same_v<T, std::monostate>) {
+      return Color4(CRGB::Black, 0.0f);
+    } else {
+      return arg.get(t);
+    }
+  }, pv);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////

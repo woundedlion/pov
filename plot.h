@@ -289,7 +289,7 @@ namespace Plot {
        
        if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
            for(auto& p : points) {
-               p.pos = vertex_shader(p.pos);
+               p = vertex_shader(p);
            }
        }
        
@@ -400,7 +400,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p.pos = vertex_shader(p.pos);
+              p = vertex_shader(p);
           }
       }
       rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
@@ -470,7 +470,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p.pos = vertex_shader(p.pos);
+              p = vertex_shader(p);
           }
       }
       
@@ -538,7 +538,7 @@ namespace Plot {
        
        if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
            for(auto& p : points) {
-               p.pos = vertex_shader(p.pos);
+               p = vertex_shader(p);
            }
        }
        rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
@@ -622,7 +622,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p.pos = vertex_shader(p.pos);
+              p = vertex_shader(p);
           }
       }
       rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
@@ -650,7 +650,26 @@ namespace Plot {
       for (int i = 0; i < n; ++i) {
         Vector v = fib_spiral(n, eps, i);
         if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
-            v = vertex_shader(v);
+            // Spiral draw loop constructs Fragment locally, so we need to construct it earlier if VS is used
+            Fragment f;
+            f.pos = v;
+            f.v0 = static_cast<float>(i) / n;
+            f.age = 0;
+            
+            f = vertex_shader(f);
+            
+            using Res = decltype(fragment_shader(v, f));
+            if constexpr (std::is_void_v<Res>) {
+                fragment_shader(v, f);
+            } else {
+                auto res = fragment_shader(v, f);
+                if constexpr (std::is_same_v<Res, Color4>) {
+                    pipeline.plot(canvas, f.pos, res.color, 0, res.alpha, 0);
+                } else {
+                    pipeline.plot(canvas, f.pos, res.color, 0, res.alpha, res.tag);
+                }
+            }
+            continue; // Skip the default path
         }
         
         Fragment f;
@@ -741,7 +760,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p.pos = vertex_shader(p.pos);
+              p = vertex_shader(p);
           }
       }
       
@@ -835,7 +854,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p.pos = vertex_shader(p.pos);
+              p = vertex_shader(p);
           }
       }
       rasterize<W>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
@@ -918,7 +937,7 @@ namespace Plot {
        for (auto& points : edges) {
            if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
                for(auto& p : points) {
-                   p.pos = vertex_shader(p.pos);
+                   p = vertex_shader(p);
                }
            }
            rasterize<W>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
@@ -966,7 +985,7 @@ namespace Plot {
              
              if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
                  for(size_t k=0; k<buffer.size(); ++k) {
-                     buffer[k].pos = vertex_shader(buffer[k].pos);
+                    buffer[k] = vertex_shader(buffer[k]);
                  }
              }
 

@@ -200,15 +200,15 @@ public:
 struct Particle {
   Vector position;
   Vector velocity;
-  Color4 color;
+  PaletteVariant palette;
   float life;
   float max_life;
   Orientation orientation;
   
-  void init(const Vector& p, const Vector& v, const Color4& c, float l) {
+  void init(const Vector& p, const Vector& v, float l, const PaletteVariant& pal) {
     position = p;
     velocity = v;
-    color = c;
+    palette = pal;
     life = l;
     max_life = l;
     orientation.set(Quaternion());
@@ -276,7 +276,13 @@ public:
 
   void spawn(const Vector& pos, const Vector& vel, const Color4& col, float life = 600) {
     if (active_count < CAPACITY) {
-      pool[active_count++].init(pos, vel, col, life);
+      pool[active_count++].init(pos, vel, life, SolidColorPalette(col));
+    }
+  }
+
+  void spawn(const Vector& pos, const Vector& vel, const PaletteVariant& pal, float life = 600) {
+    if (active_count < CAPACITY) {
+      pool[active_count++].init(pos, vel, life, pal);
     }
   }
 

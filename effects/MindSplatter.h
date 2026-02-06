@@ -35,7 +35,7 @@ public:
         timeline.step(canvas);
         particle_system.step(canvas);
         
-        draw_particles(canvas);
+        draw_particles(canvas, 1.0f);
     }
     
 private:
@@ -91,47 +91,48 @@ private:
                 // Update Hue
                 emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
                 
-                // CHSV to Color4
-                CHSV hsv(static_cast<uint8_t>(emitter_hues[i] * 255), 255, 255);
-                CRGB rgb; hsv2rgb_rainbow(hsv, rgb);
+                GenerativePalette palette(
+                    GradientShape::STRAIGHT,
+                    HarmonyType::COMPLEMENTARY,
+                    BrightnessProfile::DESCENDING,
+                    SaturationProfile::MID,
+                    static_cast<int>(emitter_hues[i] * 255.0f)
+                );
                 
-                sys.spawn(axis, vel, Color4(rgb), 160);
+                sys.spawn(axis, vel, palette, 160);
             });
         }
     }
     
-    void draw_particles(Canvas& canvas) {
-        auto vertex_shader = [&](Vector v) {
-            // 1. Mobius Transform
-            v = mobius_transform(v, mobius);
-            // 2. Global Orientation (Camera)
-            // Note: FilterOrient also applies orientation. JS does both.
-            v = rotate(v, orientation.get());
-            return v;
-        };
-
-        auto fragment_shader = [&](const Vector& v, const Fragment& f) {
-             // f.v0 = Trail Progress (0..1) -> Head to Tail
-             // f.v1 = Particle ID
-             
-             float lifeAlpha = 1.0f - f.v0; 
-             
-             // Attractor Holes
-             float holeAlpha = 1.0f;
-             for(const auto& attr : particle_system.attractors) {
-                 float d = angle_between(v, attr.position);
+    void draw_particles(Canvas& canvas, float opacity = 1.0f) {
+        auto vertex_shader = [&](Fragment f) {
+            float p_idx = f.v1;
+            f.v1 = p_idx / particle_system.active_count;
+            
+            f.pos = mobius_transform(orientation.orient(f.pos), mobius);
+            float holeAlpha = 1.0f;
+            for(const auto& attr : particle_system.attractors) {
+                 float d = angle_between(f.pos, attr.position);
                   if (d < attr.event_horizon) {
                         float t = d / attr.event_horizon;
                         holeAlpha *= quintic_kernel(t);
                   }
              }
+             f.v0 = holeAlpha;
+             return f;
+        };
+
+        auto fragment_shader = [&](const Vector& v, const Fragment& f) {
+             float lifeAlpha = f.v1; 
+             float holeAlpha = f.v0; 
              
-             int p_idx = static_cast<int>(f.v1 + 0.5f);
+             int p_idx = static_cast<int>(lifeAlpha * particle_system.active_count + 0.5f);
+             if (p_idx < 0 || p_idx >= particle_system.active_count) return Color4(CRGB::Black, 0);
+
              const auto& p = particle_system.pool[p_idx];
+             Color4 c = get_color(p.palette, lifeAlpha);
              
-             Color4 c = p.color; 
-             c.alpha *= holeAlpha * lifeAlpha; 
-             
+             c.alpha *= holeAlpha * opacity;
              return c;
         };
         

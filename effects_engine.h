@@ -71,8 +71,8 @@ concept TransformFn = requires(F f, Vector v) {
  * Transforms a position vector.
  */
 template <typename F>
-concept VertexShaderFn = requires(F f, const Vector & v) {
-  { f(v) } -> std::convertible_to<Vector>;
+concept VertexShaderFn = requires(F f, const Fragment & frag) {
+  { f(frag) } -> std::convertible_to<Fragment>;
 };
 
 /**
