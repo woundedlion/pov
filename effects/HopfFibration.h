@@ -16,11 +16,11 @@
 template <int W>
 class HopfFibration : public Effect {
 public:
-    static constexpr int MAX_TRAILS = 50000; 
+    static constexpr int MAX_TRAILS = 5000; 
 
     HopfFibration() : Effect(W), 
         filters(FilterWorldTrails<W, MAX_TRAILS>(40), FilterOrient<W>(orientation), FilterAntiAlias<W>()),
-        trails(static_cast<FilterWorldTrails<W, MAX_TRAILS>&>(filters)) // Correctly cast to first filter base
+        trails(static_cast<FilterWorldTrails<W, MAX_TRAILS>&>(filters))
     {
         init_fibers();
         timeline.add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 10000, ease_mid, true)); // Slow camera
