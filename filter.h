@@ -289,35 +289,7 @@ class FilterChromaticShift : public Is2D {
 public:
   FilterChromaticShift() {}
   
-  void plot(float x, float y, const Pixel& c, float age, float alpha, auto pass) {
-      // Split RGB
-      // Assuming Pixel is Color4 or similar with r,g,b members or we construct new pixels
-      // Pixel is likely CRGB from FastLED?
-      // In color.h (not fully checked), Pixel is typically CRGB.
-      // But pipeline passes const Pixel&.
-      
-      // Pass Original (or R component?)
-      // JS:
-      // pass(x, y, colorInput...); // Original
-      // pass(wrap(x+1), y, R...);
-      // pass(wrap(x+2), y, G...);
-      // pass(wrap(x+3), y, B...);
-      
-      // JS implementation actually creates pure R, G, B colors.
-      // We need to construct new Pixels.
-      
-      // Let's assume Pixel is compatible with CRGB.
-      // If Pixel is Color4 (float), we do this:
-      // Note: In pipeline, we see usage with Color4 sometimes?
-      // Plot::Point::draw checks if constexpr is Pixel or Color4.
-      // Here usually we deal with Pixel (CRGB) at the 2D stage?
-      // Pipeline 3D->2D mismatches convert Vector to Pixel coords, but color remains.
-      // Color type is templated in 'auto' pass? No, plot takes 'const Pixel& c'. 
-      // But wait, the pipeline plot functions take 'const Pixel& c'. 
-      // So 'Pixel' is a fixed type in filter.h?
-      // filter.h includes "color.h" and "led.h".
-      // Usually Pixel = CRGB.
-      
+  void plot(float x, float y, const Pixel& c, float age, float alpha, auto pass) {      
       pass(x, y, c, age, alpha);
       
       Pixel r_col = c; r_col.g = 0; r_col.b = 0;

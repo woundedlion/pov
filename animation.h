@@ -344,10 +344,6 @@ private:
     
     // History
     p.push_history(p.orientation.get());
-    
-    // Check if we need to expire old history?
-    // StaticCircularBuffer handles capacity automatically.
-     
     p.orientation.collapse();
     
     return false;
