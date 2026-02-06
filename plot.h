@@ -241,11 +241,36 @@ namespace Plot {
      * @param v2 End point.
      * @return Fragments Two fragments representing the line endpoints.
      */
-    static Fragments sample(const Vector& v1, const Vector& v2) {
-       Fragments f(2);
-       f[0].pos = v1; f[0].v0 = 0.0f; f[0].v1 = 0.0f;
-       f[1].pos = v2; f[1].v0 = 1.0f; f[1].v1 = angle_between(v1, v2);
-       return f;
+    static Fragments sample(const Vector& v1, const Vector& v2, int density = 1) {
+       if (density < 1) density = 1;
+       Fragments points;
+       points.reserve(density + 1);
+       
+       float angle = angle_between(v1, v2);
+       if (std::abs(angle) < 0.0001f) {
+           Fragment f; f.pos = v1; f.v0 = 0.0f; f.v1 = 0.0f;
+           points.push_back(f);
+           return points;
+       }
+       
+       Vector axis = cross(v1, v2).normalize();
+       
+       for(int i=0; i<=density; ++i) {
+           float t = static_cast<float>(i) / density;
+           
+           Fragment f;
+           if (i == 0) f.pos = v1;
+           else if (i == density) f.pos = v2;
+           else {
+               Quaternion q = make_rotation(axis, angle * t);
+               f.pos = rotate(v1, q);
+           }
+           
+           f.v0 = t;
+           f.v1 = angle * t;
+           points.push_back(f);
+       }
+       return points;
     }
 
     /**
@@ -827,6 +852,7 @@ namespace Plot {
    * Registers:
    *  v0: Edge Progress t (0.0 -> 1.0) per edge
    *  v1: Cumulative Arc Length (radians) per edge
+   *  v2: Vertex index
    */
   struct Mesh {
     /**
@@ -839,9 +865,16 @@ namespace Plot {
      * @param fragment_shader Shader function.
      * @param vertex_shader Optional vertex shader.
      */
-    template <int W, typename MeshT>
-    static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
-       std::vector<std::pair<int, int>> edges;
+    /**
+     * @brief Samples edges of a mesh.
+     * @tparam MeshT Mesh type.
+     * @param mesh The mesh to sample.
+     * @param density Sampling density per edge.
+     * @return List of sampled edges (each edge is a list of Fragments).
+     */
+    template <typename MeshT>
+    static std::vector<Fragments> sample(const MeshT& mesh, int density = 10) {
+       std::vector<std::pair<int, int>> unique_edges;
        
        if constexpr (std::is_same_v<MeshT, MeshState>) {
            size_t offset = 0;
@@ -851,7 +884,7 @@ namespace Plot {
                    int u = mesh.faces[offset + k];
                    int v = mesh.faces[offset + (k + 1) % count];
                    if (u > v) std::swap(u, v);
-                   edges.push_back({u, v});
+                   unique_edges.push_back({u, v});
                }
                offset += count;
            }
@@ -862,16 +895,33 @@ namespace Plot {
                    int u = face[i];
                    int v = face[(i + 1) % count];
                    if (u > v) std::swap(u, v);
-                   edges.push_back({u, v});
+                   unique_edges.push_back({u, v});
                }
            }
        }
        
-       std::sort(edges.begin(), edges.end());
-       edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+       std::sort(unique_edges.begin(), unique_edges.end());
+       unique_edges.erase(std::unique(unique_edges.begin(), unique_edges.end()), unique_edges.end());
        
-       for (const auto& edge : edges) {
-          Line::draw<W>(pipeline, canvas, mesh.vertices[edge.first], mesh.vertices[edge.second], fragment_shader, vertex_shader);
+       std::vector<Fragments> result;
+       result.reserve(unique_edges.size());
+       for (const auto& edge : unique_edges) {
+          result.push_back(Line::sample(mesh.vertices[edge.first], mesh.vertices[edge.second], density));
+       }
+       return result;
+    }
+
+    template <int W, typename MeshT>
+    static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
+       auto edges = sample(mesh, 10);
+       
+       for (auto& points : edges) {
+           if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
+               for(auto& p : points) {
+                   p.pos = vertex_shader(p.pos);
+               }
+           }
+           rasterize<W>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
        }
     }
 
