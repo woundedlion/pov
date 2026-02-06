@@ -175,10 +175,8 @@ private:
   size_t count;
 
   static T& get_dummy() {
-    static struct {
-      alignas(T) uint8_t bytes[sizeof(T)];
-    } raw = { 0 };
-    return *reinterpret_cast<T*>(raw.bytes);
+static uint8_t garbage_byte = 0;
+    return *reinterpret_cast<T*>(&garbage_byte);
   }
 
   void pop_back_internal() {
