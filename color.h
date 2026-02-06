@@ -14,6 +14,8 @@
 #include "3dmath.h"
 #include "util.h"
 
+using Pixel = CRGB;
+
  // TODO: 3D Palettes
 
  ///////////////////////////////////////////////////////////////////////////////
@@ -153,7 +155,7 @@ Pixel blend_mean(const Pixel& c1, const Pixel& c2) {
 class Palette {
 public:
   virtual Color4 get(float t) const = 0;
-  virtual ~Palette() = default;
+  constexpr virtual ~Palette() {}
 };
 
 /**
@@ -205,55 +207,83 @@ uint16_t to_short(float zero_to_one) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Helper: constexpr linear interpolation for bytes
+constexpr uint8_t lerp8(uint8_t a, uint8_t b, float t) {
+    return static_cast<uint8_t>(a + (b - a) * t);
+}
+
+/**
+ * @brief A constexpr-compatible RGB pixel structure for Flash storage.
+ * Layout compatible with CRGB but without non-constexpr constructors.
+ */
+struct CPixel {
+    uint8_t r, g, b;
+    constexpr CPixel() : r(0), g(0), b(0) {}
+    constexpr CPixel(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
+    constexpr CPixel(uint32_t hex) : r((hex >> 16) & 0xFF), g((hex >> 8) & 0xFF), b(hex & 0xFF) {}
+    
+    // Convert to FastLED CRGB (Pixel)
+    operator Pixel() const { return CRGB(r, g, b); }
+};
+
 /**
  * @brief A class representing a discrete color gradient/lookup table.
  */
 class Gradient : public Palette {
 public:
-  /**
-   * @brief Constructs a gradient from a list of {position, color} pairs.
-   * @param points Initializer list of pairs, e.g. {{0.0f, CRGB::Red}, {1.0f, CRGB::Blue}}.
-   */
-  Gradient(std::initializer_list<std::pair<float, Pixel>> points) {
-    if (points.size() == 0) return;
+    CPixel entries[256];
 
-    auto it = points.begin();
-    float last_pos = it->first;
-    Pixel last_color = it->second;
-    ++it;
+    // Constexpr constructor calculates the table at compile-time
+    constexpr Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
+        // Initialize with black
+        for(int i=0; i<256; i++) entries[i] = CPixel(0,0,0);
 
-    // Fill initial segment if first point > 0
-    if (last_pos > 0) {
-      fill_solid(entries, to_short(last_pos) / 256, last_color);
+        if (points.size() == 0) return;
+
+        auto it = points.begin();
+        float prevPos = it->first;
+        CPixel prevColor = it->second;
+        
+        // Fill start
+        int startIdx = 0;
+        int firstStop = static_cast<int>(prevPos * 255);
+        for(int i = 0; i <= firstStop; i++) entries[i] = prevColor;
+
+        it++;
+        while(it != points.end()) {
+            float nextPos = it->first;
+            CPixel nextColor = it->second;
+            
+            int start = static_cast<int>(prevPos * 255);
+            int end = static_cast<int>(nextPos * 255);
+            
+            if (end > start) {
+                for (int i = start; i <= end; i++) {
+                    float t = static_cast<float>(i - start) / (end - start);
+                    entries[i].r = lerp8(prevColor.r, nextColor.r, t);
+                    entries[i].g = lerp8(prevColor.g, nextColor.g, t);
+                    entries[i].b = lerp8(prevColor.b, nextColor.b, t);
+                }
+            }
+            prevPos = nextPos;
+            prevColor = nextColor;
+            it++;
+        }
+        
+        // Fill end
+        int lastStop = static_cast<int>(prevPos * 255);
+        for(int i = lastStop; i < 256; i++) entries[i] = prevColor;
     }
 
-    for (; it != points.end(); ++it) {
-      float next_pos = it->first;
-      Pixel next_color = it->second;
-
-      int start_idx = static_cast<int>(last_pos * 255);
-      int end_idx = static_cast<int>(next_pos * 255);
-
-      if (end_idx > start_idx) {
-        fill_gradient_RGB(entries, start_idx, last_color, end_idx, next_color);
-      }
-
-      last_pos = next_pos;
-      last_color = next_color;
+    Color4 get(float t) const override {
+        // Direct lookup from the pre-calculated LUT
+        // This avoids casting to CRGBPalette256 and using runtime functions
+        uint8_t index = static_cast<uint8_t>(t * 255);
+        CPixel p = entries[index];
+        return Color4(Pixel(p.r, p.g, p.b), 1.0f);
     }
 
-    // Fill remaining
-    if (last_pos < 1.0f) {
-      int start_idx = static_cast<int>(last_pos * 255);
-      fill_solid(entries + start_idx, 256 - start_idx, last_color);
-    }
-  }
-
-  Color4 get(float t) const override {
-    return Color4(ColorFromPalette(entries, static_cast<uint8_t>(t * 255), 255, NOBLEND), 1.0f);
-  }
-
-  CRGBPalette256 entries;
+    constexpr ~Gradient() override {}
 };
 
 /**
@@ -428,6 +458,9 @@ private:
   std::array<float, 5> shape;
   std::array<Pixel, 5> colors;
   int size = 0;
+
+public:
+  constexpr ~GenerativePalette() override {}
 };
 
 /**
@@ -436,7 +469,7 @@ private:
  */
 class ProceduralPalette : public Palette {
 public:
-  ProceduralPalette(
+  constexpr ProceduralPalette(
     std::array<float, 3> a,
     std::array<float, 3> b,
     std::array<float, 3> c,
@@ -453,6 +486,9 @@ public:
 
 protected:
   std::array<float, 3> a, b, c, d;
+
+public:
+  constexpr ~ProceduralPalette() override {}
 };
 
 /**
@@ -483,6 +519,9 @@ private:
   float lerp(float x, float y, float t) { return x * (1.0f - t) + y * t; }
   std::array<float, 3> a1, b1, c1, d1;
   std::array<float, 3> a2, b2, c2, d2;
+
+public:
+  constexpr ~MutatingPalette() override {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -541,11 +580,6 @@ public:
 private:
   std::reference_wrapper<const Palette> palette;
 };
-
-// Backwards compatibility for functional style
-auto vignette(const Palette& palette) {
-  return VignettePalette(palette);
-}
 
 /**
  * @brief Variant holding any supported palette type.
