@@ -209,10 +209,7 @@ private:
         }
     }
 
-    // Local draw_mesh to handle flat MeshState and Transform
-    void draw_mesh(Canvas& canvas, const MeshState& mesh, auto fragment_shader, auto transform) {
-        // Collect edges to avoid dupes
-        // Using vector of pairs is fine for this scale
+    void draw_mesh(Canvas& canvas, const MeshState& mesh, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
         std::vector<std::pair<int, int>> edges;
         edges.reserve(mesh.num_faces * 4); // Avg 4 edges per face
 
@@ -232,23 +229,20 @@ private:
         edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
 
         for (const auto& edge : edges) {
-            Vector p1 = transform(mesh.vertices[edge.first]);
-            Vector p2 = transform(mesh.vertices[edge.second]);
-            
-            // Pass fragment shader directly
-            Plot::Line::draw<W>(filters, canvas, p1, p2, fragment_shader);
+            Plot::Line::draw<W>(filters, canvas, 
+                mesh.vertices[edge.first], mesh.vertices[edge.second], 
+                fragment_shader, vertex_shader);
         }
     }
 
     void draw_scene(Canvas& canvas, const Params& p, float opacity) {
         
-        auto transform = [&](const Vector& p) {
-            // No global orientation class yet, assume identity for now
-            return mobius_transform(p, mobius_params);
+        auto vertex_shader = [&](Fragment f) {
+            f.pos = mobius_transform(f.pos, mobius_params);
+            return f;
         };
 
         auto fragment_shader = [&](const Vector& v, const Fragment& f) {
-            // f.v0 is progress along the line segment
             Color4 c = p.palette->get(f.v0); 
             c.alpha *= p.alpha * opacity;
             return c;
@@ -257,7 +251,7 @@ private:
         for(int i=0; i<p.num_copies; ++i) {
             float offset = (static_cast<float>(i) / p.num_copies) * 2 * PI_F;
             update_displaced_mesh(p, offset);
-            draw_mesh(canvas, displaced_mesh, fragment_shader, transform);
+            draw_mesh(canvas, displaced_mesh, fragment_shader, vertex_shader);
         }
     }
 

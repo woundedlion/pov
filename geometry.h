@@ -65,7 +65,7 @@ using Fragments = std::vector<Fragment>;
  * @brief Logic for no-op vertex shader.
  */
 struct NullVertexShader {
-    Vector operator()(const Vector& v) const { return v; }
+    Fragment operator()(const Fragment& f) const { return f; }
 };
 
 /**
