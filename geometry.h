@@ -3,11 +3,12 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-
 #include <cmath>
 #include <algorithm>
 #include <array>
 #include <vector>
+#include <map>
+#include <set>
 #include <FastLED.h>
 #include "3dmath.h"
 #include "color.h"
@@ -1153,6 +1154,415 @@ struct MeshOps {
     return update_hankin<MeshT>(compiled, angle);
   }
 
+  // --- CONWAY OPERATORS ---
+
+  /**
+   * @brief Normalizes all vertices in the mesh to the unit sphere.
+   */
+  template <typename MeshT>
+  static void normalize(MeshT& mesh) {
+    for (auto& v : mesh.vertices) {
+      v = v.normalize();
+    }
+  }
+
+  /**
+   * @brief Kis operator: Raises a pyramid on each face.
+   */
+  template <typename MeshT>
+  static MeshT kis(const MeshT& mesh) {
+    MeshT result;
+    result.vertices = mesh.vertices; // Copy existing
+    
+    for (const auto& f : mesh.faces) {
+      // Add centroid
+      Vector centroid(0, 0, 0);
+      for (int vi : f) {
+        centroid = centroid + mesh.vertices[vi];
+      }
+      if (!f.empty()) centroid = centroid / static_cast<float>(f.size());
+      
+      result.vertices.push_back(centroid);
+      int centerIdx = static_cast<int>(result.vertices.size()) - 1;
+
+      // Create triangles
+      for (size_t i = 0; i < f.size(); ++i) {
+        int vi = f[i];
+        int vj = f[(i + 1) % f.size()];
+        result.faces.push_back({ vi, vj, centerIdx });
+      }
+    }
+
+    normalize(result);
+    return result;
+  }
+
+  /**
+   * @brief Ambo operator: Truncates vertices to edge midpoints.
+   */
+  template <typename MeshT>
+  static MeshT ambo(const MeshT& mesh) {
+    MeshT result;
+    std::map<std::pair<int, int>, int> edgeMap;
+
+    // 1. Create vertices at edge midpoints
+    for (const auto& f : mesh.faces) {
+      for (size_t i = 0; i < f.size(); ++i) {
+        int vi = f[i];
+        int vj = f[(i + 1) % f.size()];
+        int u = std::min(vi, vj);
+        int v = std::max(vi, vj);
+        
+        if (edgeMap.find({u, v}) == edgeMap.end()) {
+          Vector mid = (mesh.vertices[vi] + mesh.vertices[vj]) * 0.5f;
+          result.vertices.push_back(mid);
+          edgeMap[{u, v}] = static_cast<int>(result.vertices.size()) - 1;
+        }
+      }
+    }
+
+    // 2. Create faces
+    // A. Shrink old faces
+    for (const auto& f : mesh.faces) {
+      std::vector<int> faceVerts;
+      for (size_t i = 0; i < f.size(); ++i) {
+        int vi = f[i];
+        int vj = f[(i + 1) % f.size()];
+        int u = std::min(vi, vj);
+        int v = std::max(vi, vj);
+        faceVerts.push_back(edgeMap[{u, v}]);
+      }
+      result.faces.push_back(faceVerts);
+    }
+
+    // B. Create new faces at old vertices
+    std::map<std::pair<int, int>, std::vector<int>> edgeToFaces;
+    for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+      const auto& f = mesh.faces[fi];
+      for (size_t i = 0; i < f.size(); ++i) {
+        int vi = f[i];
+        int vj = f[(i + 1) % f.size()];
+        int u = std::min(vi, vj);
+        int v = std::max(vi, vj);
+        edgeToFaces[{u, v}].push_back(static_cast<int>(fi));
+      }
+    }
+
+    for (size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
+      std::vector<int> neighborMids;
+      
+      // Find a start face
+      int startFaceIdx = -1;
+      for(size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+        const auto& f = mesh.faces[fi];
+        if (std::find(f.begin(), f.end(), static_cast<int>(vi)) != f.end()) {
+          startFaceIdx = static_cast<int>(fi);
+          break;
+        }
+      }
+      if (startFaceIdx == -1) continue;
+
+      int currFaceIdx = startFaceIdx;
+      int safety = 0;
+      do {
+        const auto& face = mesh.faces[currFaceIdx];
+        auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
+        size_t idxInFace = std::distance(face.begin(), it);
+        int nextVi = face[(idxInFace + 1) % face.size()];
+        
+        int u = std::min((int)vi, nextVi);
+        int v = std::max((int)vi, nextVi);
+        neighborMids.push_back(edgeMap[{u, v}]);
+
+        // Find adjacent face
+        const auto& adjFaces = edgeToFaces[{u, v}];
+        auto nextFaceIt = std::find_if(adjFaces.begin(), adjFaces.end(), [&](int id){ return id != currFaceIdx; });
+        if (nextFaceIt == adjFaces.end()) break;
+
+        currFaceIdx = *nextFaceIt;
+        safety++;
+      } while (currFaceIdx != startFaceIdx && safety < 20);
+
+      if (neighborMids.size() >= 3) {
+        std::reverse(neighborMids.begin(), neighborMids.end());
+        result.faces.push_back(neighborMids);
+      }
+    }
+
+    normalize(result);
+    return result;
+  }
+
+  /**
+   * @brief Truncate operator: Cuts corners off the polyhedron.
+   * @param t Truncation depth [0..0.5].
+   */
+  template <typename MeshT>
+  static MeshT truncate(const MeshT& mesh, float t = 0.25f) {
+    MeshT result;
+    // Map edge (u,v) -> pair of new vertex indices {near_u, near_v}
+    // Stored as key {min(u,v), max(u,v)} -> value {idx_near_key_first, idx_near_key_second}
+    std::map<std::pair<int, int>, std::pair<int, int>> edgeMap;
+
+    // 1. Create new vertices along edges
+    for (const auto& f : mesh.faces) {
+      for (size_t i = 0; i < f.size(); ++i) {
+        int u = f[i];
+        int v = f[(i + 1) % f.size()];
+        int k1 = std::min(u, v);
+        int k2 = std::max(u, v);
+        
+        if (edgeMap.find({k1, k2}) == edgeMap.end()) {
+           Vector vU = mesh.vertices[u];
+           Vector vV = mesh.vertices[v];
+           
+           // Near U
+           // lerp implementation in 3dmath/geometry? Using manual: a + (b-a)*t
+           Vector p1 = vU + (vV - vU) * t;
+           result.vertices.push_back(p1);
+           int idx1 = static_cast<int>(result.vertices.size()) - 1;
+           
+           // Near V
+           Vector p2 = vU + (vV - vU) * (1.0f - t);
+           result.vertices.push_back(p2);
+           int idx2 = static_cast<int>(result.vertices.size()) - 1;
+           
+           if (u < v) {
+             edgeMap[{k1, k2}] = {idx1, idx2};
+           } else {
+             edgeMap[{k1, k2}] = {idx2, idx1}; 
+           }
+           if (u < v) edgeMap[{u, v}] = {idx1, idx2};
+           else       edgeMap[{v, u}] = {idx2, idx1};
+        }
+      }
+    }
+
+    // 2. Modified Faces (internal polygons)
+    for (const auto& f : mesh.faces) {
+      std::vector<int> faceVerts;
+      for (size_t i = 0; i < f.size(); ++i) {
+        int u = f[i];
+        int v = f[(i + 1) % f.size()];
+        int k1 = std::min(u, v);
+        int k2 = std::max(u, v);
+        
+        std::pair<int, int> indices = edgeMap[{k1, k2}];
+
+        if (u < v) {
+          faceVerts.push_back(indices.first);
+          faceVerts.push_back(indices.second);
+        } else {
+          faceVerts.push_back(indices.second);
+          faceVerts.push_back(indices.first);
+        }
+      }
+      result.faces.push_back(faceVerts);
+    }
+    
+    // 3. Corner Faces
+    std::map<std::pair<int, int>, std::vector<int>> edgeToFaces;
+    for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+      const auto& f = mesh.faces[fi];
+      for (size_t i = 0; i < f.size(); ++i) {
+        int u = f[i];
+        int v = f[(i + 1) % f.size()];
+        int k1 = std::min(u, v);
+        int k2 = std::max(u, v);
+        edgeToFaces[{k1, k2}].push_back(static_cast<int>(fi));
+      }
+    }
+
+    for (size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
+      int startFaceIdx = -1;
+      for(size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+        const auto& f = mesh.faces[fi];
+        if (std::find(f.begin(), f.end(), static_cast<int>(vi)) != f.end()) {
+          startFaceIdx = static_cast<int>(fi);
+          break;
+        }
+      }
+      if (startFaceIdx == -1) continue;
+
+      std::vector<int> polyVerts;
+      int currFaceIdx = startFaceIdx;
+      int safety = 0;
+      do {
+        const auto& face = mesh.faces[currFaceIdx];
+        auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
+        size_t idxInFace = std::distance(face.begin(), it);
+        int nextVi = face[(idxInFace + 1) % face.size()];
+
+        int k1 = std::min((int)vi, nextVi);
+        int k2 = std::max((int)vi, nextVi);
+        std::pair<int, int> indices = edgeMap[{k1, k2}];
+
+        int idxNearVi = (static_cast<int>(vi) == k1) ? indices.first : indices.second;
+        polyVerts.push_back(idxNearVi);
+
+        // Find adjacent face
+        const auto& adjFaces = edgeToFaces[{k1, k2}];
+        auto nextFaceIt = std::find_if(adjFaces.begin(), adjFaces.end(), [&](int id){ return id != currFaceIdx; });
+        if (nextFaceIt == adjFaces.end()) break;
+
+        currFaceIdx = *nextFaceIt;
+        safety++;
+      } while (currFaceIdx != startFaceIdx && safety < 20);
+
+      if (polyVerts.size() > 2) {
+        std::reverse(polyVerts.begin(), polyVerts.end());
+        result.faces.push_back(polyVerts);
+      }
+    }
+
+    normalize(result);
+    return result;
+  }
+
+  /**
+   * @brief Snub operator: Creates a chiral semi-regular polyhedron.
+   */
+  template <typename MeshT>
+  static MeshT snub(const MeshT& mesh) {
+     MeshT result;
+     // Structure: newVertsMap[faceIndex][vertIndexInFace] = globalIndex
+     std::vector<std::vector<int>> newVertsMap(mesh.faces.size());
+     const float SHRINK_FACTOR = 0.5f;
+
+     // 1. Create new vertices (n per face)
+     for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+         const auto& f = mesh.faces[fi];
+         Vector centroid(0,0,0);
+         for(int vi : f) centroid = centroid + mesh.vertices[vi];
+         if (!f.empty()) centroid = centroid / static_cast<float>(f.size());
+
+         newVertsMap[fi].resize(f.size());
+         for(size_t i=0; i<f.size(); ++i) {
+             Vector v = mesh.vertices[f[i]];
+             // lerp(v, centroid, SHRINK_FACTOR)
+             Vector newV = v + (centroid - v) * SHRINK_FACTOR;
+             result.vertices.push_back(newV);
+             newVertsMap[fi][i] = static_cast<int>(result.vertices.size()) - 1;
+         }
+     }
+
+     // 2. Create "Face Faces" (shrunk originals)
+     for(size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+         result.faces.push_back(newVertsMap[fi]);
+     }
+
+     // Helper: Build edge map
+     std::map<std::pair<int, int>, std::vector<int>> edgeToFaces;
+     for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+       const auto& f = mesh.faces[fi];
+       for (size_t i = 0; i < f.size(); ++i) {
+         int u = f[i];
+         int v = f[(i + 1) % f.size()];
+         int k1 = std::min(u, v);
+         int k2 = std::max(u, v);
+         edgeToFaces[{k1, k2}].push_back(static_cast<int>(fi));
+       }
+     }
+
+     // 3. Create "Vertex Faces"
+     for (size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
+         int startFaceIdx = -1;
+         for(size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+           const auto& f = mesh.faces[fi];
+           if (std::find(f.begin(), f.end(), static_cast<int>(vi)) != f.end()) {
+             startFaceIdx = static_cast<int>(fi);
+             break;
+           }
+         }
+         if (startFaceIdx == -1) continue;
+
+         std::vector<int> orderedFaces;
+         int currFaceIdx = startFaceIdx;
+         int safety = 0;
+         do {
+             orderedFaces.push_back(currFaceIdx);
+             const auto& face = mesh.faces[currFaceIdx];
+             auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
+             size_t idxInFace = std::distance(face.begin(), it);
+             // Previous vertex in cycle: (idx - 1)
+             int prevVi = face[(idxInFace - 1 + face.size()) % face.size()];
+             
+             int k1 = std::min((int)vi, prevVi);
+             int k2 = std::max((int)vi, prevVi);
+             const auto& adjFaces = edgeToFaces[{k1, k2}];
+             auto nextFaceIt = std::find_if(adjFaces.begin(), adjFaces.end(), [&](int id){ return id != currFaceIdx; });
+             if (nextFaceIt == adjFaces.end()) break;
+
+             currFaceIdx = *nextFaceIt;
+             safety++;
+         } while(currFaceIdx != startFaceIdx && safety < 20);
+
+         std::vector<int> faceVerts;
+         for(int fi : orderedFaces) {
+             const auto& face = mesh.faces[fi];
+             auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
+             size_t idx = std::distance(face.begin(), it);
+             faceVerts.push_back(newVertsMap[fi][idx]);
+         }
+         result.faces.push_back(faceVerts);
+     }
+
+     // 4. Create "Edge Triangles"
+     std::set<std::pair<int, int>> processedEdges;
+     for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+         const auto& f = mesh.faces[fi];
+         for (size_t i = 0; i < f.size(); ++i) {
+             int vi = f[i];
+             int vj = f[(i + 1) % f.size()];
+             int k1 = std::min(vi, vj);
+             int k2 = std::max(vi, vj);
+             
+             if (processedEdges.count({k1, k2})) continue;
+             processedEdges.insert({k1, k2});
+             
+             const auto& adj = edgeToFaces[{k1, k2}];
+             if (adj.size() < 2) continue;
+             
+             int faceA = fi;
+             int faceB = (adj[0] == static_cast<int>(fi)) ? adj[1] : adj[0];
+             
+             // Get local indices of u=vi, v=vj
+             auto itA_u = std::find(mesh.faces[faceA].begin(), mesh.faces[faceA].end(), vi);
+             int idxA_u = static_cast<int>(std::distance(mesh.faces[faceA].begin(), itA_u));
+             
+             auto itA_v = std::find(mesh.faces[faceA].begin(), mesh.faces[faceA].end(), vj);
+             int idxA_v = static_cast<int>(std::distance(mesh.faces[faceA].begin(), itA_v));
+
+             auto itB_u = std::find(mesh.faces[faceB].begin(), mesh.faces[faceB].end(), vi);
+             int idxB_u = static_cast<int>(std::distance(mesh.faces[faceB].begin(), itB_u));
+
+             auto itB_v = std::find(mesh.faces[faceB].begin(), mesh.faces[faceB].end(), vj);
+             int idxB_v = static_cast<int>(std::distance(mesh.faces[faceB].begin(), itB_v));
+
+             int A_u = newVertsMap[faceA][idxA_u];
+             int A_v = newVertsMap[faceA][idxA_v];
+             int B_u = newVertsMap[faceB][idxB_u];
+             int B_v = newVertsMap[faceB][idxB_v];
+
+             // Tri 1
+             result.faces.push_back({A_v, A_u, B_v});
+             // Tri 2
+             result.faces.push_back({B_u, B_v, A_u});
+         }
+     }
+
+     normalize(result);
+     return result;
+  }
+
+  /**
+   * @brief Gyro operator: dual(snub(mesh)).
+   */
+  template <typename MeshT>
+  static MeshT gyro(const MeshT& mesh) {
+    return dual(snub(mesh));
+  }
+  
   /**
    * @brief Finds the closest point on the mesh graph (BFS).
    * @param p The query point.
