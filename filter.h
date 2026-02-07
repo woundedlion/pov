@@ -57,7 +57,18 @@ struct Pipeline<W> {
   // 2D Sink
   void plot(Canvas& cv, int x, int y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
     int xi = wrap(x, W);
-    auto p = blend_alpha(alpha)(cv(xi, y), c); 
+    Pixel p;
+    switch(tag) {
+        case BLEND_ADD: 
+            p = blend_add_alpha(alpha)(cv(xi, y), c); 
+            break;
+        case BLEND_MAX:
+             p = blend_max_alpha(alpha)(cv(xi, y), c);
+            break;
+        default:
+            p = blend_alpha(alpha)(cv(xi, y), c); // BLEND_OVER
+            break;
+    }
     plot_virtual(cv, xi, y, p);
   }
 
@@ -65,7 +76,19 @@ struct Pipeline<W> {
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
     xi = wrap(xi, W);
-    auto p = blend_alpha(alpha)(cv(xi, yi), c);
+    
+    Pixel p;
+    switch(tag) {
+        case BLEND_ADD: 
+            p = blend_add_alpha(alpha)(cv(xi, yi), c); 
+            break;
+        case BLEND_MAX:
+             p = blend_max_alpha(alpha)(cv(xi, yi), c);
+            break;
+        default:
+            p = blend_alpha(alpha)(cv(xi, yi), c); // BLEND_OVER
+            break;
+    }
     plot_virtual(cv, xi, yi, p);
   }
 

@@ -147,6 +147,38 @@ Pixel blend_mean(const Pixel& c1, const Pixel& c2) {
   return Pixel((c1.r + c2.r) / 2, (c1.g + c2.g) / 2, (c1.b + c2.b) / 2);
 }
 
+enum BlendMode : uint8_t {
+    BLEND_OVER = 0,
+    BLEND_ADD = 1,
+    BLEND_MAX = 2
+};
+
+struct TaggedColor {
+    Pixel color;
+    float alpha;
+    uint8_t tag;
+};
+
+auto blend_add_alpha(float a) {
+    return [a](const Pixel& dest, const Pixel& src) {
+        return Pixel(
+            qadd8(dest.r, static_cast<uint8_t>(src.r * a)),
+            qadd8(dest.g, static_cast<uint8_t>(src.g * a)),
+            qadd8(dest.b, static_cast<uint8_t>(src.b * a))
+        );
+    };
+}
+
+auto blend_max_alpha(float a) {
+    return [a](const Pixel& dest, const Pixel& src) {
+        return Pixel(
+            std::max(dest.r, static_cast<uint8_t>(src.r * a)),
+            std::max(dest.g, static_cast<uint8_t>(src.g * a)),
+            std::max(dest.b, static_cast<uint8_t>(src.b * a))
+        );
+    };
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 /**

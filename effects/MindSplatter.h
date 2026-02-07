@@ -119,18 +119,17 @@ private:
              return f;
         };
 
-        auto fragment_shader = [&](const Vector& v, const Fragment& f) {
+        auto fragment_shader = [&](const Vector& v, const Fragment& f) -> TaggedColor {
              float holeAlpha = f.v0; 
              int p_idx = static_cast<int>(f.v2 + 0.5f);
              
-             if (p_idx < 0 || p_idx >= particle_system.active_count) return Color4(CRGB::Black, 0);
+             if (p_idx < 0 || p_idx >= particle_system.active_count) return { CRGB::Black, 0.0f, BLEND_OVER };
 
              const auto& p = particle_system.pool[p_idx];             
              float norm_id = static_cast<float>(p_idx) / particle_system.active_count;
              Color4 c = get_color(p.palette, norm_id);
              
-             c.alpha *= holeAlpha * opacity;
-             return c;
+             return { c.color, c.alpha * holeAlpha * opacity, BLEND_ADD };
         };
         
         Plot::ParticleSystem::draw<W>(filters, canvas, particle_system, fragment_shader, vertex_shader);
