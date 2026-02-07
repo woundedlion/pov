@@ -60,7 +60,11 @@ public:
           Color4 c = ring.palette.get(t);
           c.alpha = c.alpha * alpha;
           Basis basis = make_basis(q, ring.normal);
-          auto fragment_shader = [&](const Vector&, const Fragment&) { return c; };
+          auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment {
+              Fragment out = f;
+              out.color = c;
+              return out;
+          };
           Scan::Ring::draw<W>(filters, canvas, basis, 1.0f, thickness, fragment_shader);
         });
     }

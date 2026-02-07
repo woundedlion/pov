@@ -27,16 +27,19 @@ namespace Plot {
      * @param pipeline Render pipeline.
      * @param canvas Target canvas.
      * @param v Position.
-     * @param color Color or Pixel.
+     * @param fragment_shader Shader function (Vector, Fragment) -> Fragment.
+     * @param age Age.
      */
-    static void draw(auto& pipeline, Canvas& canvas, const Vector& v, const auto& color) {
-      // Support both Pixel and Color4
-      if constexpr (std::is_same_v<std::decay_t<decltype(color)>, Pixel>) {
-        pipeline.plot(canvas, v, color, 0, 1.0f);
-      }
-      else {
-        pipeline.plot(canvas, v, color.color, 0, color.alpha);
-      }
+    static void draw(auto& pipeline, Canvas& canvas, const Vector& v, FragmentShaderFn auto fragment_shader, float age = 0.0f) {
+      Fragment f;
+      f.pos = v;
+      f.v0 = 0; f.v1 = 0; f.v2 = 0; f.v3 = 0;
+      f.age = age;
+      f.color = Color4(0,0,0,0);
+      f.blend = 0;
+
+      Fragment f_out = fragment_shader(v, f);
+      pipeline.plot(canvas, v, f_out.color.color, f_out.age, f_out.color.alpha, f_out.blend);
     }
   };
 
@@ -61,8 +64,6 @@ namespace Plot {
         
         // 1. Determine Interpolation Strategy
         // Geodesic (Slerp) or Planar (Project/Unproject)
-        // We define a lambda 'map' that takes t [0,1] and returns Vector
-        
         std::function<Vector(float)> map;
         float total_dist = 0.0f;
 
@@ -116,8 +117,7 @@ namespace Plot {
             
             // Optimization for small angles
             if (total_dist < 0.0001f) {
-                // Degenerate segment, handle as point if needed or skip
-                // For now, simple linear fallback or skip
+                // Degenerate segment, handle as point
                 map = [=](float t) { return v1; };
             } else {
                  Vector axis;
@@ -140,17 +140,8 @@ namespace Plot {
             bool shouldOmit = close_loop || !isLastSegment;
             if (!shouldOmit) {
                  // Draw single point
-                 using Res = decltype(fragment_shader(curr.pos, curr));
-                 if constexpr (std::is_void_v<Res>) {
-                     fragment_shader(curr.pos, curr);
-                 } else {
-                     auto res = fragment_shader(curr.pos, curr);
-                     if constexpr (std::is_same_v<Res, Color4>) {
-                          pipeline.plot(canvas, curr.pos, res.color, age, res.alpha, 0);
-                     } else {
-                          pipeline.plot(canvas, curr.pos, res.color, age, res.alpha, res.tag);
-                     }
-                 }
+                 Fragment f_out = fragment_shader(curr.pos, curr);
+                 pipeline.plot(canvas, curr.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
             }
             continue;
         }
@@ -187,18 +178,9 @@ namespace Plot {
         // Draw Start
         {
             Vector p = map(0.0f);
-            Fragment f = points[i]; // Start with exact fragment
-            using Res = decltype(fragment_shader(p, f));
-            if constexpr (std::is_void_v<Res>) {
-                fragment_shader(p, f);
-            } else {
-                auto res = fragment_shader(p, f);
-                if constexpr (std::is_same_v<Res, Color4>) {
-                    pipeline.plot(canvas, p, res.color, age, res.alpha, 0);
-                } else {
-                    pipeline.plot(canvas, p, res.color, age, res.alpha, res.tag);
-                }
-            }
+            Fragment f = points[i];
+            Fragment f_out = fragment_shader(p, f);
+            pipeline.plot(canvas, p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
         }
 
         float current_dist = 0.0f;
@@ -212,17 +194,8 @@ namespace Plot {
              Vector p = map(t);
              Fragment f = Fragment::lerp(curr, next, t);
              
-             using Res = decltype(fragment_shader(p, f));
-             if constexpr (std::is_void_v<Res>) {
-                 fragment_shader(p, f);
-             } else {
-                 auto res = fragment_shader(p, f);
-                 if constexpr (std::is_same_v<Res, Color4>) {
-                     pipeline.plot(canvas, p, res.color, age, res.alpha, 0);
-                 } else {
-                     pipeline.plot(canvas, p, res.color, age, res.alpha, res.tag);
-                 }
-             }
+             Fragment f_out = fragment_shader(p, f);
+             pipeline.plot(canvas, p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
         }
     }
   }
@@ -248,7 +221,7 @@ namespace Plot {
        
        float angle = angle_between(v1, v2);
        if (std::abs(angle) < 0.0001f) {
-           Fragment f; f.pos = v1; f.v0 = 0.0f; f.v1 = 0.0f;
+           Fragment f; f.pos = v1; f.v0 = 0.0f; f.v1 = 0.0f; f.v2 = 0.0f;
            points.push_back(f);
            return points;
        }
@@ -268,6 +241,7 @@ namespace Plot {
            
            f.v0 = t;
            f.v1 = angle * t;
+           f.v2 = 0.0f; // Standard: Single lines have v2=0
            points.push_back(f);
        }
        return points;
@@ -318,19 +292,10 @@ namespace Plot {
         Fragment f;
         f.pos = v;
         // Basic default registers for points
-        f.v0 = 0.0f; f.v1 = 0.0f; f.age = 0.0f; 
+        f.v0 = 0.0f; f.v1 = 0.0f; f.v2 = 0.0f; f.v3 = 0.0f; f.age = 0.0f; 
         
-        using Res = decltype(fragment_shader(v, f));
-        if constexpr (std::is_void_v<Res>) {
-           fragment_shader(v, f);
-        } else {
-           auto res = fragment_shader(v, f);
-           if constexpr (std::is_same_v<Res, Color4>) {
-              pipeline.plot(canvas, v, res.color, 0, res.alpha, 0);
-           } else {
-              pipeline.plot(canvas, v, res.color, 0, res.alpha, res.tag);
-           }
-        }
+        Fragment f_out = fragment_shader(v, f);
+        pipeline.plot(canvas, v, f_out.color.color, f_out.age, f_out.color.alpha, f_out.blend);
       }
     }
   };
@@ -368,7 +333,6 @@ namespace Plot {
 
       const float step = 2.0f * PI_F / num_samples;
       
-      // Store start index to allow appending
       size_t start_idx = points.size();
 
       for (int i = 0; i < num_samples; i++) {
@@ -389,7 +353,6 @@ namespace Plot {
       // Manual Close (Overlap)
       if (num_samples > 0) {
           Fragment f;
-          // Exact copy of start position logic at 2PI
           float theta = 2.0f * PI_F; 
           float t = theta + phase;
           Vector u_temp = (u * cosf(t)) + (w * sinf(t));

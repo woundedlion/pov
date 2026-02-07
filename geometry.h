@@ -26,6 +26,8 @@ struct Fragment {
   float v2 = 0.0f; /**< Register 2 (usually index/id) */
   float v3 = 0.0f; /**< Register 3 (auxiliary) */
   float age = 0.0f; /**< Age of the operation/trail */
+  Color4 color = Color4(0,0,0,0); /**< Output Color (RGBA) */
+  uint8_t blend = 0; /**< Blend Mode ID */
 
   /**
    * @brief Linear interpolation between two fragments.
@@ -42,18 +44,16 @@ struct Fragment {
     f.v2 = a.v2 + (b.v2 - a.v2) * t;
     f.v3 = a.v3 + (b.v3 - a.v3) * t;
     f.age = a.age + (b.age - a.age) * t;
+    // Color/Blend are typically output-only, but valid for interpolation if needed.
+    // We leave them default or interpolate if required. For now, zero init.
+    // Taking A's blend for consistency if we had to pick.
+    f.blend = a.blend; 
     return f;
   }
 };
 
-/**
- * @brief Logic for handling Fragment shaders.
- */
-struct ShaderResult {
-  Pixel color;
-  float alpha = 1.0f;
-  uint8_t tag = 0;
-};
+// ShaderResult Removed - Strictly adhere to Fragment-in/Fragment-out
+// struct ShaderResult { ... };
 
 
 /**

@@ -177,10 +177,11 @@ private:
       else {
         auto from = pixel_to_vector<W>(nodes[i - 1].x, nodes[i - 1].y);
         auto to = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
-        auto fragment_shader = [this](const Vector& v, const Fragment& f) { 
-            Color4 c = color(v, 0);
-            c.alpha *= 0.5f;
-            return c;
+        auto fragment_shader = [this](const Vector& v, const Fragment& f) -> Fragment { 
+            Fragment out = f;
+            out.color = color(v, 0);
+            out.color.alpha *= 0.5f;
+            return out;
         };
         Plot::Line::draw<W>(filters, canvas, from, to, fragment_shader);
       }

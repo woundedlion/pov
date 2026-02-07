@@ -66,8 +66,10 @@ public:
         
         for (const auto& seg : segments) {
             // Color by y position
-            auto fragment_shader = [&](const Vector& v, const Fragment& f) {
-                return palette.get((v.j + 1.0f) * 0.5f);
+            auto fragment_shader = [&](const Vector& v, const Fragment& f) -> Fragment {
+                Fragment out = f;
+                out.color = palette.get((v.j + 1.0f) * 0.5f);
+                return out;
             };
             Plot::Line::draw<W>(filters, canvas, seg.first, seg.second, fragment_shader);
         }

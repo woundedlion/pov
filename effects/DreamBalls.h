@@ -242,10 +242,12 @@ private:
             return f;
         };
 
-        auto fragment_shader = [&](const Vector& v, const Fragment& f) {
+        auto fragment_shader = [&](const Vector& v, const Fragment& f) -> Fragment {
             Color4 c = p.palette->get(f.v0); 
             c.alpha *= p.alpha * opacity;
-            return c;
+            Fragment f_out = f;
+            f_out.color = c;
+            return f_out;
         };
 
         for(int i=0; i<p.num_copies; ++i) {

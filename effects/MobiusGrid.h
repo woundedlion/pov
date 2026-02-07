@@ -97,10 +97,12 @@ private:
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
       
-      auto fragment_shader = [&](const Vector&, const Fragment&) {
+      auto fragment_shader = [&](const Vector&, const Fragment& f_val) -> Fragment {
         Color4 c = palette.get(static_cast<float>(i) / num);
         c.alpha *= opacity;
-        return c;
+        Fragment out = f_val;
+        out.color = c;
+        return out;
       };
 
       Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);
@@ -129,7 +131,7 @@ private:
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
       
-      auto fragment_shader = [&](const Vector&, const Fragment& f_val) {
+      auto fragment_shader = [&](const Vector&, const Fragment& f_val) -> Fragment {
         float t_line = f_val.v0;
         // Approximate original Z to calculate log-gradient
         float original_idx = t_line * points.size();
@@ -146,7 +148,9 @@ private:
 
         Color4 c = palette.get(wrap(t - phase, 1.0f));
         c.alpha *= opacity;
-        return c;
+        Fragment out = f_val;
+        out.color = c;
+        return out;
       };
 
       Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);

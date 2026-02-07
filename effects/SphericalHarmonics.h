@@ -110,7 +110,7 @@ public:
         
         HarmonicBlob blob(l, m, amplitude, orientation.get());
         
-        auto shader = [&](const Vector& p, const Fragment& frag) {
+        auto shader = [&](const Vector& p, const Fragment& frag) -> Fragment {
              // float val = frag.v2; // Unused
              // HarmonicBlob::distance returns { -1.0f, 0.0f, val }.
              // Scan::rasterize maps: v0=t, v1=raw_dist.
@@ -133,7 +133,9 @@ public:
              float occlusion = 0.15f + 0.85f * shadow;
              base.color = base.color * occlusion;
              
-             return base;
+             Fragment out = frag;
+             out.color = base;
+             return out;
         };
         
         Scan::rasterize<W>(filters, canvas, blob, shader);

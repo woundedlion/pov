@@ -128,9 +128,11 @@ private:
             rotated_mesh.vertices[i] = rotate(mesh.vertices[i], q);
         }
         
-        auto shader = [&](const Vector& p, const Fragment& f) { // Simplified shader
+        auto shader = [&](const Vector& p, const Fragment& f) -> Fragment { // Simplified shader
              // Simple color based on normal or position
-             return Color4(Palettes::richSunset.get(p.j * 0.5f + 0.5f), opacity);
+             Fragment out = f;
+             out.color = Color4(Palettes::richSunset.get(p.j * 0.5f + 0.5f), opacity);
+             return out;
         };
         
         // Scan::Mesh likely defines draw.

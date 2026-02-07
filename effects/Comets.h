@@ -98,7 +98,11 @@ public:
     }
 
     for(const auto& dot : render_points) {
-        auto fragment_shader = [&](const Vector&, const Fragment&){ return dot.color; };
+        auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment { 
+            Fragment out = f;
+            out.color = dot.color;
+            return out;
+        };
         Scan::Point::draw<W>(filters, canvas, dot.position, thickness, fragment_shader);
     }
   }

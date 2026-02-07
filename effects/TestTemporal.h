@@ -56,11 +56,13 @@ public:
         // Refresh proxy
         // The lambda capture handles it.
         
-        Plot::Mesh::draw<W>(filters, canvas, mesh, [&](const Vector& v, const Fragment& f) {
+        Plot::Mesh::draw<W>(filters, canvas, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
              // renderMesh
              // JS: return colors.get((v.y + 1) * 0.5);
              float t = (v.j + 1.0f) * 0.5f;
-             return Palettes::richSunset.get(t);
+             Fragment out = f;
+             out.color = Palettes::richSunset.get(t);
+             return out;
         });
         
         // Flush not needed for Plot (it draws immediately), but FilterTemporal processes trails in 'trail'.
