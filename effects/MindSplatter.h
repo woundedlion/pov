@@ -105,10 +105,7 @@ private:
     }
     
     void draw_particles(Canvas& canvas, float opacity = 1.0f) {
-        auto vertex_shader = [&](Fragment f) {
-            float p_idx = f.v1;
-            f.v1 = p_idx / particle_system.active_count;
-            
+        auto vertex_shader = [&](Fragment f) {            
             f.pos = mobius_transform(orientation.orient(f.pos), mobius);
             float holeAlpha = 1.0f;
             for(const auto& attr : particle_system.attractors) {
@@ -118,19 +115,19 @@ private:
                         holeAlpha *= quintic_kernel(t);
                   }
              }
-             f.v0 = holeAlpha;
+             f.v0 = holeAlpha; // Overwrite progress
              return f;
         };
 
         auto fragment_shader = [&](const Vector& v, const Fragment& f) {
-             float lifeAlpha = f.v1; 
              float holeAlpha = f.v0; 
+             int p_idx = static_cast<int>(f.v2 + 0.5f);
              
-             int p_idx = static_cast<int>(lifeAlpha * particle_system.active_count + 0.5f);
              if (p_idx < 0 || p_idx >= particle_system.active_count) return Color4(CRGB::Black, 0);
 
-             const auto& p = particle_system.pool[p_idx];
-             Color4 c = get_color(p.palette, lifeAlpha);
+             const auto& p = particle_system.pool[p_idx];             
+             float norm_id = static_cast<float>(p_idx) / particle_system.active_count;
+             Color4 c = get_color(p.palette, norm_id);
              
              c.alpha *= holeAlpha * opacity;
              return c;
