@@ -1061,21 +1061,15 @@ namespace Scan {
         frag.pos = p;
         frag.v0 = result.t;
         frag.v1 = result.raw_dist;
+        frag.v2 = 0.0f; // Default for solid shapes (unless Mesh/Star overrides locally?)
+        frag.v3 = 0.0f;
         frag.age = 0; // Default
         
-        // Call shader
-        using Res = decltype(fragment_shader(p, frag));
-        if constexpr (std::is_void_v<Res>) {
-            fragment_shader(p, frag);
-        } else {
-            auto res = fragment_shader(p, frag); 
-            if constexpr (std::is_same_v<std::decay_t<Res>, Pixel>) {
-                pipeline.plot(canvas, x, y, res, 0.0f, alpha);
-            } else if constexpr (std::is_same_v<std::decay_t<Res>, Color4>) {
-               pipeline.plot(canvas, x, y, res.color, 0.0f, res.alpha * alpha);
-            } else {
-               pipeline.plot(canvas, x, y, res.color, 0.0f, res.alpha * alpha, res.tag);
-            }
+        // Strict Fragment-in, Fragment-out
+        Fragment f_out = fragment_shader(p, frag);
+        
+        if (f_out.color.alpha > 0.001f) {
+            pipeline.plot(canvas, x, y, f_out.color.color, f_out.age, f_out.color.alpha * alpha, f_out.blend);
         }
      }
   }
@@ -1218,24 +1212,12 @@ namespace Scan {
           for (int y = 0; y < H; ++y) {
              for (int x = 0; x < W; ++x) {
                 Vector p = pixel_to_vector<W>(x, y);
-                Fragment f; f.pos = p; f.v0 = 0; f.v1 = 0; f.age = 0;
+                Fragment f; f.pos = p; f.v0 = 0; f.v1 = 0; f.v2 = 0; f.v3 = 0; f.age = 0;
 
-                using Res = decltype(fragment_shader(p, f));
-                if constexpr (std::is_void_v<Res>) {
-                    fragment_shader(p, f);
-                } else {
-                    auto c = fragment_shader(p, f);
-                    if constexpr (std::is_same_v<std::decay_t<Res>, Pixel>) {
-                        pipeline.plot(canvas, x, y, c, 0.0f, 1.0f);
-                    } else if constexpr (std::is_same_v<std::decay_t<Res>, Color4>) {
-                        if (c.alpha > 0.001f) {
-                            pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha);
-                        }
-                    } else {
-                         if (c.alpha > 0.001f) {
-                            pipeline.plot(canvas, x, y, c.color, 0.0f, c.alpha, c.tag);
-                         }
-                    }
+                Fragment f_out = fragment_shader(p, f);
+                
+                if (f_out.color.alpha > 0.001f) {
+                    pipeline.plot(canvas, x, y, f_out.color.color, f_out.age, f_out.color.alpha, f_out.blend);
                 }
              }
           }
@@ -1255,19 +1237,6 @@ namespace Scan {
              
              SDF::Face shape(verts, indices, 0.0f, scratch);
              idx_offset += count;
-             
-             // We need to wrap or adapt fragment_shader?
-             // fragment_shader expects (pos, frag).
-             // Scan::rasterize connects frag.v0 -> t.
-             // We want to pass face index i?
-             // In JS, Scan.Mesh passes v2 = faceIndex.
-             // But Scan::rasterize populates v0=t, v1=raw_dist.
-             // We need to intercept standard Scan::rasterize logic?
-             // Or can we just use a lambda that captures i and forwards?
-             
-             // Currently Scan::rasterize calls process_pixel which calls fragment_shader(p, frag).
-             // frag.v2 is not set by process_pixel (default 0).
-             // We can't easily inject v2 unless we modify process_pixel or wrap the shader.
              
              auto wrapper = [&](const Vector& p, const Fragment& f_in) {
                  Fragment f = f_in;

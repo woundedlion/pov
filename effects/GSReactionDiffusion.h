@@ -200,7 +200,12 @@ private:
         float t = std::clamp((b - 0.15f) * 4.0f, 0.0f, 1.0f);
         Color4 c = ctx.palette.get(t);
         c.alpha *= opacity * global_alpha;
-        Plot::Point::draw(filters, canvas, nodes[i], c);
+						auto shader = [c](const Vector& p, const Fragment& f) -> Fragment {
+                            Fragment out = f;
+                            out.color = c;
+                            return out;
+                        };
+                        Plot::Point::draw(filters, canvas, nodes[i], shader);
       }
     }
   }

@@ -226,9 +226,14 @@ private:
           static_cast<uint8_t>(std::clamp(b_ch, 0.0f, 255.0f))
         );
 
-        Color4 c(color);
-        c.alpha *= global_alpha * opacity;
-        Plot::Point::draw(filters, canvas, nodes[i], c);
+        Color4 c_final(color);
+        c_final.alpha *= global_alpha * opacity;
+						auto shader = [c_final](const Vector& p, const Fragment& f) -> Fragment {
+                            Fragment out = f;
+                            out.color = c_final;
+                            return out;
+                        };
+                        Plot::Point::draw(filters, canvas, nodes[i], shader);
       }
     }
   }

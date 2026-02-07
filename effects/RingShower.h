@@ -78,11 +78,12 @@ private:
   void draw_ring(Canvas& canvas, float opacity, size_t index) {
     Ring& ring = rings[index];
     Basis basis = make_basis(orientation.get(), ring.normal);
-    auto fragment_shader = [&](const Vector& v, const Fragment& f) {
+    auto fragment_shader = [&](const Vector& v, const Fragment& f) -> Fragment {
         Vector z = orientation.orient(X_AXIS);
-        Color4 c = palette.get(angle_between(z, v) / PI_F);
-        c.alpha *= opacity * alpha;
-        return c;
+        Fragment out = f;
+        out.color = palette.get(angle_between(z, v) / PI_F);
+        out.color.alpha *= opacity * alpha;
+        return out;
     };
     Plot::Ring::draw<W>(filters, canvas, basis, ring.radius, fragment_shader);
   }

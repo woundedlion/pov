@@ -93,7 +93,11 @@ public:
             if (i < prev_positions.size()) {
                 const Vector& prev = prev_positions[i];
                 // Draw line segment
-                auto fragment_shader = [&](const Vector&, const Fragment&) { return c; };
+                auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment {
+                    Fragment out = f;
+                    out.color = c;
+                    return out;
+                };
                 Plot::Line::draw<W>(filters, canvas, prev, v, fragment_shader);
                 
                 prev_positions[i] = v;

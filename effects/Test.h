@@ -52,11 +52,12 @@ public:
       float amp = this->amplitudeRange;
 
       Basis basis = make_basis(orientation.get(), normal);
-      auto fragment_shader = [&](const Vector& p, const Fragment& f) {
+      auto fragment_shader = [&](const Vector& p, const Fragment& f) -> Fragment {
           // f.v0 is normalized azimuth (0..1)
-          Color4 c = ringPalette.get(f.v0);
-          c.alpha = c.alpha * opacity * alpha;
-          return c;
+          Fragment out = f;
+          out.color = ringPalette.get(f.v0);
+          out.color.alpha = out.color.alpha * opacity * alpha;
+          return out;
       };
 
       Scan::DistortedRing::draw<W>(filters, canvas, basis, radius, thickness,
