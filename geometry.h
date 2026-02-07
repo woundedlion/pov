@@ -685,6 +685,23 @@ static Basis make_basis(const Quaternion& orientation, const Vector& normal) {
 }
 
 /**
+ * @brief Adjusted basis and radius for drawing on the opposite side of the sphere.
+ * @param basis The current basis {u, v, w}.
+ * @param radius Angular radius (0-2).
+ * @return A pair containing the adjusted Basis and radius.
+ */
+static std::pair<Basis, float> get_antipode(const Basis& basis, float radius) {
+  if (radius > 1.0f) {
+    Basis new_basis;
+    new_basis.u = -basis.u; // Flip U to maintain chirality
+    new_basis.v = -basis.v; // Flip V (Antipode)
+    new_basis.w = basis.w;  // W stays (Rotation axis)
+    return { new_basis, 2.0f - radius };
+  }
+  return { basis, radius };
+}
+
+/**
  * @brief Represents a vertex in a Half-Edge mesh.
  */
 struct HEVertex;

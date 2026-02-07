@@ -353,31 +353,53 @@ namespace Plot {
     }
 
     static void sample(Fragments& points, const Basis& basis, float radius, int num_samples, float phase = 0) {
-      const Vector& v = basis.v;
-      const Vector& u = basis.u;
-      const Vector& w = basis.w;
+      auto res = get_antipode(basis, radius);
+      const Basis& work_basis = res.first;
+      float work_radius = res.second;
 
-      Vector v_dir = (radius > 1.0f) ? -v : v;
-      float r_eff = (radius > 1.0f) ? (2.0f - radius) : radius;
+      const Vector& v = work_basis.v;
+      const Vector& u = work_basis.u;
+      const Vector& w = work_basis.w;
 
-      const float theta_eq = r_eff * (PI_F / 2.0f);
+      const float theta_eq = work_radius * (PI_F / 2.0f);
       const float r_val = sinf(theta_eq);
       const float d_val = cosf(theta_eq);
+      const float arc_scale = sinf(work_radius);
 
       const float step = 2.0f * PI_F / num_samples;
+      
+      // Store start index to allow appending
+      size_t start_idx = points.size();
+
       for (int i = 0; i < num_samples; i++) {
         float theta = i * step;
         float t = theta + phase;
         Vector u_temp = (u * cosf(t)) + (w * sinf(t));
         
         Fragment f;
-        f.pos = ((v_dir * d_val) + (u_temp * r_val)).normalize();
+        f.pos = ((v * d_val) + (u_temp * r_val)).normalize();
         f.v0 = static_cast<float>(i) / num_samples;
-        f.v1 = theta;
-        f.v2 = 0; 
+        f.v1 = theta * arc_scale;
+        f.v2 = static_cast<float>(i);
         f.age = 0;
         
         points.push_back(f);
+      }
+
+      // Manual Close (Overlap)
+      if (num_samples > 0) {
+          Fragment f;
+          // Exact copy of start position logic at 2PI
+          float theta = 2.0f * PI_F; 
+          float t = theta + phase;
+          Vector u_temp = (u * cosf(t)) + (w * sinf(t));
+          f.pos = ((v * d_val) + (u_temp * r_val)).normalize();
+          
+          f.v0 = 1.0f;
+          f.v1 = theta * arc_scale;
+          f.v2 = static_cast<float>(num_samples);
+          f.age = 0;
+          points.push_back(f);
       }
     }
 
@@ -421,33 +443,22 @@ namespace Plot {
    */
   struct PlanarPolygon {
     static void sample(Fragments& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
-       const float offset = PI_F / num_sides;
+       size_t start_idx = points.size();       
+       // PlanarPolygon delegates to Ring, which handles get_antipode.
+       // Ring::sample will call get_antipode(basis, radius).
+       // If radius > 1, Ring flips basis and transforms points accordingly.
+       // The resulting points are in global space.
+       // So we don't need to do anything special here regarding basis.
        
-       const Vector& v = basis.v;
-       const Vector& u = basis.u;
-       const Vector& w = basis.w;
-
-       Vector v_dir = (radius > 1.0f) ? -v : v;
-       float r_eff = (radius > 1.0f) ? (2.0f - radius) : radius;
-       const float theta_eq = r_eff * (PI_F / 2.0f);
-       const float r_val = sinf(theta_eq);
-       const float d_val = cosf(theta_eq);
-       const float step = 2.0f * PI_F / num_sides;
+       Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
        
-       float total_len = 0.0f; 
-
-       for (int i = 0; i < num_sides; i++) {
-         float theta = i * step;
-         float t = theta + phase + offset;
-         Vector u_temp = (u * cosf(t)) + (w * sinf(t));
-         
-         Fragment f;
-         f.pos = ((v_dir * d_val) + (u_temp * r_val)).normalize();
-         f.v0 = static_cast<float>(i) / (num_sides * 2); 
-         f.v1 = total_len; 
-         f.v2 = static_cast<float>(i);
-         f.age = 0;
-         points.push_back(f);
+       // Fix v1: Ring returns Circular Arc Length. We want Polygonal Arc Length (Geodesic chords).
+       float cumul = 0.0f;
+       for (size_t i = start_idx; i < points.size(); i++) {
+           points[i].v1 = cumul;
+           if (i < points.size() - 1) {
+               cumul += angle_between(points[i].pos, points[i+1].pos);
+           }
        }
     }
 
@@ -492,30 +503,18 @@ namespace Plot {
    */
   struct SphericalPolygon {
     static void sample(Fragments& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
-       const float offset = PI_F / num_sides;
-       const Vector& v = basis.v;
-       const Vector& u = basis.u;
-       const Vector& w = basis.w;
-
-       Vector v_dir = (radius > 1.0f) ? -v : v;
-       float r_eff = (radius > 1.0f) ? (2.0f - radius) : radius;
-       const float theta_eq = r_eff * (PI_F / 2.0f);
-       const float r_val = sinf(theta_eq);
-       const float d_val = cosf(theta_eq);
-       const float step = 2.0f * PI_F / num_sides;
-
-       for (int i = 0; i < num_sides; i++) {
-         float theta = i * step;
-         float t = theta + phase + offset;
-         Vector u_temp = (u * cosf(t)) + (w * sinf(t));
-         
-         Fragment f;
-         f.pos = ((v_dir * d_val) + (u_temp * r_val)).normalize();
-         f.v0 = static_cast<float>(i) / num_sides;
-         f.v1 = 0; 
-         f.v2 = static_cast<float>(i);
-         f.age = 0;
-         points.push_back(f);
+       size_t start_idx = points.size();
+       Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
+       
+       // Re-calculate v1 to be true geodesic chord length
+       float cumulative_length = 0.0f;
+       for (size_t i = start_idx; i < points.size(); ++i) {
+           points[i].v2 = static_cast<float>(i - start_idx); // Ensure index is strictly monotonic
+           
+           if (i > start_idx) {
+               cumulative_length += angle_between(points[i-1].pos, points[i].pos);
+           }
+           points[i].v1 = cumulative_length;
        }
     }
     
@@ -559,10 +558,15 @@ namespace Plot {
    */
   struct DistortedRing {
     static Vector fn_point(std::function<float(float)> shift_fn, const Basis& basis, float radius, float angle) {
-      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
-      if (radius > 1) { v = -v; u = -u; radius = 2 - radius; }
+      auto res = get_antipode(basis, radius);
+      const Basis& work_basis = res.first;
+      float work_radius = res.second;
+      
+      const Vector& v = work_basis.v;
+      const Vector& u = work_basis.u;
+      const Vector& w = work_basis.w;
 
-      auto vi = Ring::calcPoint(angle, radius, u, v, w);
+      auto vi = Ring::calcPoint(angle, work_radius, u, v, w);
       auto vp = Ring::calcPoint(angle, 1, u, v, w);
       Vector axis = cross(v, vp).normalize();
       return rotate(vi, make_rotation(axis, shift_fn(angle * PI_F / 2)));
@@ -570,18 +574,24 @@ namespace Plot {
 
     template <int W>
     static void sample(Fragments& points, const Basis& basis, float radius, std::function<float(float)> shift_fn, float phase = 0) {
-      Vector v = basis.v; Vector u = basis.u; Vector w = basis.w;
+      auto res = get_antipode(basis, radius);
+      const Basis& work_basis = res.first;
+      float work_radius = res.second;
 
-      float v_sign = 1.0f;
-      if (radius > 1.0f) { v_sign = -1.0f; radius = 2.0f - radius; }
+      const Vector& v = work_basis.v;
+      const Vector& u = work_basis.u;
+      const Vector& w = work_basis.w;
 
-      const float theta_eq = radius * (PI_F / 2.0f);
+      const float theta_eq = work_radius * (PI_F / 2.0f);
       const float r_val = sinf(theta_eq);
       const float d_val = cosf(theta_eq);
 
       const int num_samples = W;
       const float step = 2.0f * PI_F / num_samples;
       
+      float cumulative_len = 0.0f;
+      Vector last_pos;
+
       for (int i = 0; i < num_samples; i++) {
         float theta = i * step;
         float t = theta + phase;
@@ -591,15 +601,38 @@ namespace Plot {
         float cos_shift = cosf(shift);
         float sin_shift = sinf(shift);
 
-        float v_scale = (v_sign * d_val) * cos_shift - r_val * sin_shift;
-        float u_scale = r_val * cos_shift + (v_sign * d_val) * sin_shift;
+        float v_scale = d_val * cos_shift - r_val * sin_shift;
+        float u_scale = r_val * cos_shift + d_val * sin_shift;
 
         Fragment f;
         f.pos = ((v * v_scale) + (u_temp * u_scale)).normalize();
+        
+        if (i > 0) {
+            cumulative_len += angle_between(last_pos, f.pos);
+        }
+        last_pos = f.pos;
+
         f.v0 = static_cast<float>(i) / num_samples; 
-        f.v1 = theta; 
+        f.v1 = cumulative_len; 
+        f.v2 = static_cast<float>(i);
         f.age = 0;
         points.push_back(f);
+      }
+      
+      // Manual Close (Overlap)
+      if (num_samples > 0) {
+          Fragment f;
+          float theta = 2.0f * PI_F; 
+          float t = theta + phase;
+          
+          const Fragment& first = points[0];
+          f.pos = first.pos;
+          cumulative_len += angle_between(last_pos, f.pos);
+          f.v0 = 1.0f;
+          f.v1 = cumulative_len;
+          f.v2 = static_cast<float>(num_samples);
+          f.age = 0;
+          points.push_back(f);
       }
     }
 
@@ -636,6 +669,34 @@ namespace Plot {
 
   struct Spiral {
     /**
+     * @brief Samples a Fibonacci spiral.
+     */
+    static Fragments sample(int n, float eps) {
+        Fragments fragments;
+        fragments.reserve(n);
+        
+        float cumulative_len = 0.0f;
+        Vector last_pos;
+
+        for (int i = 0; i < n; i++) {
+            Vector pos = fib_spiral(n, eps, i);
+            
+            if (i > 0) {
+                cumulative_len += angle_between(last_pos, pos);
+            }
+            last_pos = pos;
+
+            Fragment f;
+            f.pos = pos;
+            f.v0 = (n > 1) ? static_cast<float>(i) / (n - 1) : 0.0f;
+            f.v1 = cumulative_len;
+            f.age = 0;
+            fragments.push_back(f);
+        }
+        return fragments;
+    }
+
+    /**
      * @brief Draws a Fibonacci spiral.
      * @tparam W Rasterization resolution.
      * @param pipeline Render pipeline.
@@ -647,48 +708,15 @@ namespace Plot {
      */
     template <int W>
     static void draw(auto& pipeline, Canvas& canvas, int n, float eps, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
-      for (int i = 0; i < n; ++i) {
-        Vector v = fib_spiral(n, eps, i);
-        if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
-            // Spiral draw loop constructs Fragment locally, so we need to construct it earlier if VS is used
-            Fragment f;
-            f.pos = v;
-            f.v0 = static_cast<float>(i) / n;
-            f.age = 0;
-            
-            f = vertex_shader(f);
-            
-            using Res = decltype(fragment_shader(v, f));
-            if constexpr (std::is_void_v<Res>) {
-                fragment_shader(v, f);
-            } else {
-                auto res = fragment_shader(v, f);
-                if constexpr (std::is_same_v<Res, Color4>) {
-                    pipeline.plot(canvas, f.pos, res.color, 0, res.alpha, 0);
-                } else {
-                    pipeline.plot(canvas, f.pos, res.color, 0, res.alpha, res.tag);
-                }
-            }
-            continue; // Skip the default path
-        }
-        
-        Fragment f;
-        f.pos = v;
-        f.v0 = static_cast<float>(i) / n;
-        f.age = 0;
-
-        using Res = decltype(fragment_shader(v, f));
-        if constexpr (std::is_void_v<Res>) {
-            fragment_shader(v, f);
-        } else {
-            auto res = fragment_shader(v, f);
-            if constexpr (std::is_same_v<Res, Color4>) {
-                pipeline.plot(canvas, v, res.color, 0, res.alpha, 0);
-            } else {
-                pipeline.plot(canvas, v, res.color, 0, res.alpha, res.tag);
-            }
-        }
+      Fragments frags = sample(n, eps);
+      
+      if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
+          for(auto& f : frags) {
+              f = vertex_shader(f);
+          }
       }
+      
+      rasterize<W>(pipeline, canvas, frags, fragment_shader, false, 0.0f, nullptr);
     }
 
     template <int W>
@@ -706,20 +734,21 @@ namespace Plot {
    */
   struct Star {
     static void sample(Fragments& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
-      Vector v = basis.v;
-      Vector u = basis.u;
-      Vector w = basis.w;
+      // Logic Mirrors JS Plot.Star.sample
+      auto res = get_antipode(basis, radius);
+      const Basis& work_basis = res.first;
+      float work_radius = res.second;
 
-      if (radius > 1.0f) {
-        v = -v;
-        u = -u;
-        radius = 2.0f - radius;
-      }
+      const Vector& v = work_basis.v;
+      const Vector& u = work_basis.u;
+      const Vector& w = work_basis.w;
 
-      float outer_radius = radius * (PI_F / 2.0f);
+      float outer_radius = work_radius * (PI_F / 2.0f);
       float inner_radius = outer_radius * 0.382f; 
-
       float angle_step = PI_F / num_sides;
+      
+      float cumulative_len = 0.0f;
+      size_t start_idx = points.size();
 
       for (int i = 0; i < num_sides * 2; i++) {
         float theta = phase + i * angle_step;
@@ -731,13 +760,30 @@ namespace Plot {
         float sin_t = sinf(theta);
 
         Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+        p.normalize();
         
         Fragment f;
-        f.pos = p.normalize();
+        f.pos = p;
+        if (i > 0) {
+             cumulative_len += angle_between(points.back().pos, p);
+        }
+        
         f.v0 = static_cast<float>(i) / (num_sides * 2);
-        f.v1 = theta;
+        f.v1 = cumulative_len;
         f.v2 = static_cast<float>(i);
+        f.age = 0;
         points.push_back(f);
+      }
+      
+      // Manual Close
+      if (points.size() > start_idx) {
+           const Fragment& first = points[start_idx];
+           Fragment last = first;
+           cumulative_len += angle_between(points.back().pos, first.pos);
+           last.v0 = 1.0f;
+           last.v1 = cumulative_len;
+           last.v2 = static_cast<float>(num_sides * 2);
+           points.push_back(last);
       }
     }
 
@@ -791,6 +837,66 @@ namespace Plot {
    */
   struct Flower {
     /**
+     * @brief Samples a flower shape.
+     */
+    static void sample(Fragments& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
+        // JS Parity: Logic mirrors JS Plot.Flower.sample
+        auto res = get_antipode(basis, radius);
+        const Basis& work_basis = res.first;
+        float work_radius = res.second;
+
+        const Vector& v = work_basis.v;
+        const Vector& u = work_basis.u;
+        const Vector& w = work_basis.w;
+
+        float desired_outer_radius = work_radius * (PI_F / 2.0f);
+        float apothem = PI_F - desired_outer_radius;
+        float safe_apothem = std::min(apothem, PI_F - 1e-4f);
+        float angle_step = PI_F / num_sides;
+        
+        float cumulative_length = 0.0f;
+        size_t start_idx = points.size();
+
+        for (int i = 0; i < num_sides * 2; i++) {
+            float theta = phase + i * angle_step;
+            float R = safe_apothem;
+
+            float sin_r = sinf(R);
+            float cos_r = cosf(R);
+            float cos_t = cosf(theta);
+            float sin_t = sinf(theta);
+
+            // Unproject Polar -> Sphere
+            Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+            p.normalize(); // Ensure unit vector
+            
+            Fragment f;
+            f.pos = p;
+            
+            if (i > 0) {
+                cumulative_length += angle_between(points.back().pos, p);
+            }
+            
+            f.v0 = static_cast<float>(i) / (num_sides * 2);
+            f.v1 = cumulative_length;
+            f.v2 = static_cast<float>(i);
+            f.age = 0;
+            points.push_back(f);
+        }
+
+        // Close Loop
+        if (points.size() > start_idx) {
+             const Fragment& first = points[start_idx];
+             Fragment last = first; // copy
+             cumulative_length += angle_between(points.back().pos, first.pos);
+             last.v0 = 1.0f;
+             last.v1 = cumulative_length;
+             last.v2 = static_cast<float>(num_sides * 2);
+             points.push_back(last);
+        }
+    }
+
+    /**
      * @brief Draws a flower.
      * @tparam W Rasterization resolution.
      * @param pipeline Render pipeline.
@@ -804,60 +910,29 @@ namespace Plot {
      */
     template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
-      Vector v = basis.v; 
-      Vector u = basis.u; 
-      Vector w = basis.w;
+       Fragments points;
+       sample(points, basis, radius, num_sides, phase);
 
-      if (radius > 1.0f) {
-        v = -v;
-        u = -u;
-        radius = 2.0f - radius;
-      }
+       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
+           for(auto& p : points) {
+               p = vertex_shader(p);
+           }
+       }
+       
+       // JS: Plot.rasterize(..., true, ..., workBasis) -> workBasis is planar basis
+       // Need to construct planar basis for Planar Strategy
+       // In JS, 'workBasis' comes from getAntipode.
+       auto res = get_antipode(basis, radius);
+       const Basis& work_basis = res.first;
+       Vector center = work_basis.v;
+       
+       // Construct a planar basis aligned with the center
+       Vector ref = (std::abs(dot(center, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
+       Vector u_p = cross(center, ref).normalize();
+       Vector w_p = cross(center, u_p).normalize();
+       Basis planar_basis = { u_p, center, w_p };
 
-      float desired_outer_radius = radius * (PI_F / 2.0f);
-      float apothem = PI_F - desired_outer_radius;
-      float angle_step = PI_F / num_sides;
-
-      Fragments points;
-      int num_segments = std::max(2, W / num_sides);
-      points.reserve(num_sides * num_segments);
-
-      for (int i = 0; i < num_sides; i++) {
-        float sector_center = phase + i * 2 * angle_step;
-
-        for (int j = 0; j < num_segments; j++) {
-          float t = static_cast<float>(j) / num_segments;
-          float local_phi = -angle_step + t * (2 * angle_step);
-          
-          float R = apothem / cosf(local_phi);
-          if (R > PI_F) R = PI_F;
-
-          float theta = sector_center + local_phi;
-
-          float sin_r = sinf(R);
-          float cos_r = cosf(R);
-          float cos_t = cosf(theta);
-          float sin_t = sinf(theta);
-
-          Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
-          
-          Fragment f;
-          f.pos = p.normalize();
-          f.v0 = static_cast<float>(i) / num_sides; 
-          f.v1 = theta;
-          f.v2 = static_cast<float>(i);
-          points.push_back(f);
-        }
-      }
-
-      if (!points.empty()) points.push_back(points[0]); 
-      
-      if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
-          for(auto& p : points) {
-              p = vertex_shader(p);
-          }
-      }
-      rasterize<W>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
+       rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, &planar_basis);
     }
 
     template <int W>
@@ -934,10 +1009,17 @@ namespace Plot {
     static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
        auto edges = sample(mesh, 10);
        
-       for (auto& points : edges) {
+       for (size_t i = 0; i < edges.size(); ++i) {
+           auto& points = edges[i];
            if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
                for(auto& p : points) {
+                   p.v2 = static_cast<float>(i); // Edge Index
                    p = vertex_shader(p);
+               }
+           } else {
+               // Must still assign v2 if no VS
+               for(auto& p : points) {
+                   p.v2 = static_cast<float>(i);
                }
            }
            rasterize<W>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
@@ -971,15 +1053,28 @@ namespace Plot {
              buffer.clear();
              buffer.reserve(len);
              
+             float cumulative_len = 0.0f;
+             Vector last_pos;
+
              // History 0 is newest (Head), len-1 is oldest (Tail)
+             // Iterate to build path
              for (size_t j = 0; j < len; ++j) {
                  const Quaternion& q = p.get_history(j);
                  Vector pos = rotate(p.position, q);
                  
+                 if (j > 0) {
+                     cumulative_len += angle_between(last_pos, pos);
+                 }
+                 last_pos = pos;
+                 
                  Fragment f;
                  f.pos = pos;
-                 f.v0 = static_cast<float>(j) / (len - 1);
-                 f.v1 = static_cast<float>(i);
+                 f.v0 = static_cast<float>(j) / (len - 1); // Trail t (0=Head, 1=Tail)
+                 f.v1 = cumulative_len;                    // Trail Arc Length
+                 f.v2 = static_cast<float>(i);             // Particle ID
+                 f.v3 = p.life / p.max_life;               // Normalized TTL
+                 f.age = 0;
+                 
                  buffer.push_back(f);
              }
              
