@@ -23,6 +23,7 @@ namespace SDF {
       float dist; // Signed distance (negative inside)
       float t;    // Normalized parameter (0-1) or angle
       float raw_dist; // Unsigned or supplementary distance
+      float aux; // Auxiliary value (e.g. barycentric coordinate)
       
       struct Weights {
           float a = 0, b = 0, c = 0;
@@ -143,7 +144,7 @@ namespace SDF {
        */
       DistanceResult distance(const Vector& p) const {
          float d = dot(p, normal);
-         if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f };
+         if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f, 0.0f };
          
          float dist = 0;
          if (inv_sin_target != 0) {
@@ -160,7 +161,7 @@ namespace SDF {
          azimuth += phase;
          float t = azimuth / (2 * PI_F);
          
-         return { dist - thickness, t, dist };
+         return { dist - thickness, t, dist, 0.0f };
       }
     };
 
@@ -277,7 +278,7 @@ namespace SDF {
          float local_target = target_angle + shift;
          float dist = std::abs(polar - local_target);
          
-         return { dist - thickness, azimuth / (2 * PI_F), dist };
+         return { dist - thickness, azimuth / (2 * PI_F), dist, 0.0f };
       }
     };
 
@@ -607,7 +608,7 @@ namespace SDF {
          */
         DistanceResult distance(const Vector& p) const {
             float cosAngle = dot(p, center);
-            if (cosAngle <= 0.01f) return { 100.0f, 0.0f, 100.0f };
+            if (cosAngle <= 0.01f) return { 100.0f, 0.0f, 100.0f, 0.0f };
 
             float invCos = 1.0f / cosAngle;
             float px = dot(p, basisU) * invCos;
@@ -657,7 +658,7 @@ namespace SDF {
             float s = (winding != 0) ? -1.0f : 1.0f;
             float planeDist = s * sqrtf(d);
             
-            DistanceResult res = { planeDist - thickness, 0.0f, planeDist };
+            DistanceResult res = { planeDist - thickness, 0.0f, planeDist, 0.0f };
             
             // Barycentric Weights
             if (count == 3) {
@@ -708,6 +709,10 @@ namespace SDF {
                  }
             }
             
+            if (res.weights.valid) {
+                res.t = res.weights.a;
+                res.aux = res.weights.b;
+            }
             return res;
         }
     };
@@ -783,7 +788,7 @@ namespace SDF {
           float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
           
           float dist_edge = polar * cosf(local) - apothem;
-          return { dist_edge, polar / thickness, polar };
+          return { dist_edge, polar / thickness, polar, 0.0f };
        }
     };
     
@@ -882,7 +887,7 @@ namespace SDF {
           float py = polar * sinf(local);
           float dist_edge = px * nx + py * ny + plane_d;
           
-          return { -dist_edge, polar / thickness, polar };
+          return { -dist_edge, polar / thickness, polar, 0.0f };
        }
     };
     
@@ -968,7 +973,7 @@ namespace SDF {
           float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
           
        float dist_edge = polar * cosf(local) - apothem;
-          return { -dist_edge, scan_dist / thickness, scan_dist };
+          return { -dist_edge, scan_dist / thickness, scan_dist, 0.0f };
        }
     };
 
@@ -998,7 +1003,7 @@ namespace SDF {
              float lobe_radius = 1.0f + std::abs(harmonic_val) * amplitude;
              float d = 1.0f - lobe_radius;
  
-             return { d, tanhf(std::abs(harmonic_val) * amplitude), harmonic_val };
+             return { d, tanhf(std::abs(harmonic_val) * amplitude), harmonic_val, 0.0f };
         }
         
         template<typename OutputIt>
@@ -1061,8 +1066,8 @@ namespace Scan {
         frag.pos = p;
         frag.v0 = result.t;
         frag.v1 = result.raw_dist;
-        frag.v2 = 0.0f; 
-        frag.v3 = 0.0f;
+        frag.v2 = 0.0f;
+        frag.v3 = result.aux;
         frag.age = 0;
         
         Fragment f_out = fragment_shader(p, frag);
