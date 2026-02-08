@@ -115,12 +115,12 @@ private:
                         holeAlpha *= quintic_kernel(t);
                   }
              }
-             f.v0 = holeAlpha; // Overwrite progress
+             f.v3 = std::min(f.v3, holeAlpha); // Combine TTL (v3) with Hole Alpha
              return f;
         };
 
         auto fragment_shader = [&](const Vector& v, const Fragment& f) -> Fragment {
-             float holeAlpha = f.v0; 
+             float alpha = std::min(f.v0, f.v3);
              int p_idx = static_cast<int>(f.v2 + 0.5f);
              
              Fragment f_out = f;
@@ -131,10 +131,9 @@ private:
              }
 
              const auto& p = particle_system.pool[p_idx];             
-             float norm_id = static_cast<float>(p_idx) / particle_system.active_count;
-             Color4 c = get_color(p.palette, norm_id);
+             Color4 c = get_color(p.palette, f.v0);
              
-             f_out.color = Color4(c.color, c.alpha * holeAlpha * opacity);
+             f_out.color = Color4(c.color, c.alpha * alpha * opacity);
              f_out.blend = BLEND_ADD;
              
              return f_out;
