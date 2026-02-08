@@ -115,7 +115,7 @@ private:
                         holeAlpha *= quintic_kernel(t);
                   }
              }
-             f.v3 = std::min(f.v3, holeAlpha); // Combine TTL (v3) with Hole Alpha
+             f.v3 *= holeAlpha; // JS Logic: v3 *= holeAlpha
              return f;
         };
 
@@ -134,7 +134,7 @@ private:
              Color4 c = get_color(p.palette, f.v0);
              
              f_out.color = Color4(c.color, c.alpha * alpha * opacity);
-             f_out.blend = BLEND_ADD;
+             f_out.blend = BLEND_OVER; // Blend 0 = Normal/Over
              
              return f_out;
         };

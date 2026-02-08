@@ -1066,7 +1066,7 @@ public:
    * @param source The orientation to copy.
    */
   void record(const Orientation& source) {
-    snapshots.push_back(source.get());
+    snapshots.push_back(source);
   }
 
   /**
@@ -1080,7 +1080,7 @@ public:
    * @brief Gets a specific snapshot.
    * @param i Index (0 is newest).
    */
-  const Quaternion& get(size_t i) const {
+  const Orientation& get(size_t i) const {
     // JS parity: 0 is newest
     size_t idx = snapshots.size() - 1 - i;
     return snapshots[idx];
@@ -1090,13 +1090,13 @@ public:
    * @brief Gets a specific snapshot (mutable).
    * @param i Index (0 is newest).
    */
-  Quaternion& get(size_t i) {
+  Orientation& get(size_t i) {
     size_t idx = snapshots.size() - 1 - i;
     return snapshots[idx];
   }
 
 private:
-  StaticCircularBuffer<Quaternion, CAPACITY> snapshots;
+  StaticCircularBuffer<Orientation, CAPACITY> snapshots;
 };
 
 
@@ -1330,3 +1330,43 @@ private:
   std::array<TimelineEvent, MAX_EVENTS> events; /**< Storage for all animation events. */
   int num_events; /**< Current number of active events. */
 };
+
+
+/**
+ * @brief Helper to iterate over an Orientation's historical frames.
+ * @param o The orientation to iterate.
+ * @param callback The function to call for each frame: `void(const Quaternion&, float t)`.
+ */
+template <typename F>
+void tween(const Orientation& o, F callback) {
+    int len = o.length();
+    int start = (len > 1) ? 1 : 0;
+    for (int i = start; i < len; ++i) {
+        float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 0.0f;
+        callback(o.get(i), t);
+    }
+}
+
+/**
+ * @brief Helper to iterate over any Tweenable object (Orientation or OrientationTrail).
+ * @param o The object to iterate.
+ * @param callback The function to call for each step: `void(const T&, float t)`.
+ */
+template <typename T, typename F>
+void deep_tween(const T& trail, F callback) {
+    size_t trail_len = trail.length();
+    if (trail_len == 0) return;
+
+    for (size_t i = 0; i < trail_len; ++i) {
+        const auto& frame = trail.get(i);
+        size_t frame_size = frame.length();
+        size_t start_j = (i == 0) ? 0 : 1;
+        
+        for (size_t j = start_j; j < frame_size; ++j) {
+            const auto& q = frame.get(j);
+            float sub_t = (frame_size > 1) ? static_cast<float>(j) / (frame_size - 1) : 0.0f;
+            float global_t = (static_cast<float>(i) + sub_t) / trail_len;
+            callback(q, global_t);
+        }
+    }
+}
