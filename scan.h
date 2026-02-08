@@ -9,7 +9,7 @@
 #include <numeric>
 #include "geometry.h"
 #include "color.h"
-#include "led.h"
+#include "constants.h"
 #include "filter.h"
 
 namespace SDF {

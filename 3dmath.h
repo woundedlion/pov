@@ -9,6 +9,7 @@
 #include <limits>
 #include <cassert>
 #include <algorithm>
+#include "platform.h"
 
 /**
  * @brief The Golden Ratio constant (Phi).
@@ -161,7 +162,7 @@ struct Vector {
   Vector& normalize() {
     float m = length();
     if (m < std::numeric_limits<float>::epsilon()) {
-      Serial.println("Can't normalize a zero vector!");
+      hs::log("Can't normalize a zero vector!");
       i = 1;
       j = k = 0;
     }
@@ -313,7 +314,7 @@ struct Quaternion {
   Quaternion& normalize() {
     auto m = magnitude();
     if (m <= std::numeric_limits<float>::epsilon()) {
-      Serial.println("Can't normalize a zaro Quaternion!");
+      hs::log("Can't normalize a zaro Quaternion!");
       r = 1;
       v = Vector(0, 0, 0);
     }
@@ -541,7 +542,7 @@ constexpr float distance_squared(const Vector& a, const Vector& b) {
 constexpr float angle_between(const Vector& v1, const Vector& v2) {
   float len_product = v1.length() * v2.length();
   if (len_product <= std::numeric_limits<float>::epsilon()) {
-    Serial.println("Cannot calculate angle between 0-vectors!");
+    hs::log("Cannot calculate angle between 0-vectors!");
     return 0;
   }
   float d = dot(v1, v2) / len_product;

@@ -12,7 +12,7 @@
 #include <cassert>
 #include <array>
 #include <memory>
-#include <FastLED.h>
+#include "platform.h"
 #include <variant>
 #include "3dmath.h"
 #include "FastNoiseLite.h"

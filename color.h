@@ -10,7 +10,7 @@
 #include <functional>
 #include <variant>
 #include <vector>
-#include <FastLED.h>
+#include "platform.h"
 #include "3dmath.h"
 #include "util.h"
 

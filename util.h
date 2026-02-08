@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <limits>
+#include "platform.h"
 #include "3dmath.h"
 
 /**

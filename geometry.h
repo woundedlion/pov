@@ -9,11 +9,11 @@
 #include <vector>
 #include <map>
 #include <set>
-#include <FastLED.h>
+#include "platform.h"
+#include "constants.h"
 #include "3dmath.h"
 #include "color.h"
 #include "static_circular_buffer.h"
-#include "led.h"
 
  /**
   * @brief Represents a "Fragment" or a potential pixel/vertex with associated data registers.
@@ -481,9 +481,8 @@ public:
   Orientation& push(const Quaternion& q) {
     if (num_frames < MAX_FRAMES) {
       orientations[num_frames++] = q;
-    }
-    else {
-      Serial.println("Orientation full, droping frame!");
+    } else {
+      hs::log("Orientation full, droping frame!");
     }
     return *this;
   }
