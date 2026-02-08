@@ -44,16 +44,11 @@ struct Fragment {
     f.v2 = a.v2 + (b.v2 - a.v2) * t;
     f.v3 = a.v3 + (b.v3 - a.v3) * t;
     f.age = a.age + (b.age - a.age) * t;
-    // Color/Blend are typically output-only, but valid for interpolation if needed.
-    // We leave them default or interpolate if required. For now, zero init.
-    // Taking A's blend for consistency if we had to pick.
     f.blend = a.blend; 
     return f;
   }
 };
 
-// ShaderResult Removed - Strictly adhere to Fragment-in/Fragment-out
-// struct ShaderResult { ... };
 
 
 /**
@@ -546,73 +541,6 @@ private:
   std::array<Quaternion, MAX_FRAMES> orientations; /**< Storage for historical quaternions. */
   int num_frames; /**< The current number of active frames in history. */
 };
-
-
-/**
- * @brief Helper to iterate over an Orientation's historical frames.
- * @param o The orientation to iterate.
- * @param callback The function to call for each frame: `void(const Quaternion&, float t)`.
- */
-template <typename F>
-void tween(const Orientation& o, F callback) {
-    int len = o.length();
-    if (len <= 1) {
-        callback(o.get(), 1.0f);
-        return;
-    }
-    for (int i = 0; i < len; ++i) {
-        float t = static_cast<float>(i) / (len - 1);
-        callback(o.get(i), t);
-    }
-}
-
-/**
- * @brief Helper to iterate over any Tweenable object (Orientation or OrientationTrail).
- * @param o The object to iterate.
- * @param callback The function to call for each step: `void(const T&, float t)`.
- */
-template <typename T, typename F>
-void deep_tween(const T& o, F callback) {
-    size_t len = o.length();
-    if (len <= 1) {
-        callback(o.get(0), 1.0f);
-        return;
-    }
-    for (size_t i = 0; i < len; ++i) {
-        float t = static_cast<float>(i) / (len - 1);
-        callback(o.get(i), t);
-    }
-}
-
-
-/**
- * @brief Calculates a gradient color based on the vector's dot product with a normal.
- * @details This creates two color gradients extending from the dividing plane in opposite directions.
- * @param v The vector to color.
- * @param normal The plane normal.
- * @param p1 The palette for the positive side.
- * @param p2 The palette for the negative side.
- * @return The calculated gradient color (Color4).
- */
-Color4 distance_gradient(const Vector& v, const Vector& normal, CRGBPalette256 p1, CRGBPalette256 p2) {
-  auto d = dot(v, normal);
-  if (d > 0) {
-    return Color4(p1[static_cast<int>(d * 255)], 1.0f);
-  }
-  else {
-    return Color4(p2[static_cast<int>(-d * 255)], 1.0f);
-  }
-}
-
-
-
-
-
-
-
-
-
-
 
 /**
  * @brief Generates a truly random 3D unit vector (direction) using Marsaglia's method.

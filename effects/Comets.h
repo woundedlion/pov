@@ -90,7 +90,7 @@ public:
 
       deep_tween(node.trail, [&](const Quaternion& q, float t_trail) {
         Color4 c = palette.get(t_trail);
-        c.alpha = c.alpha * alpha * quintic_kernel(1.0f - t_trail);
+        c.alpha = c.alpha * alpha * quintic_kernel(t_trail);
         Vector v_local = rotate(node.v, q);
         Vector v_final = orientation.orient(v_local);
         render_points.emplace_back(Dot(v_final, c));
