@@ -8,7 +8,7 @@
 #include <cstddef>     
 #include <iterator>    
 #include <utility>     
-#include <Arduino.h> 
+#include "platform.h" 
 
 /**
  * @brief A fixed-size circular buffer optimized for stability.
@@ -38,7 +38,7 @@ public:
   StaticCircularBuffer(std::initializer_list<T> items)
     : head(0), tail(0), count(0) {
     if (items.size() > N) {
-      Serial.println("Buffer Error: Initializer list exceeds capacity. Truncating.");
+      hs::log("Buffer Error: Initializer list exceeds capacity. Truncating.");
     }
     for (const T& item : items) {
       push_back(item);

@@ -10,7 +10,7 @@
 #include <concepts>
 #include "geometry.h"
 #include "color.h"
-#include "led.h"
+#include "constants.h"
 
 /**
  * @brief The Plot struct contains vector-based (thin) drawing primitives.
