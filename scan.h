@@ -1061,11 +1061,10 @@ namespace Scan {
         frag.pos = p;
         frag.v0 = result.t;
         frag.v1 = result.raw_dist;
-        frag.v2 = 0.0f; // Default for solid shapes (unless Mesh/Star overrides locally?)
+        frag.v2 = 0.0f; 
         frag.v3 = 0.0f;
-        frag.age = 0; // Default
+        frag.age = 0;
         
-        // Strict Fragment-in, Fragment-out
         Fragment f_out = fragment_shader(p, frag);
         
         if (f_out.color.alpha > 0.001f) {
@@ -1205,24 +1204,6 @@ namespace Scan {
            Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
    };
-
-  struct Field {
-      template <int W>
-      static void draw(auto& pipeline, Canvas& canvas, FragmentShaderFn auto fragment_shader) {
-          for (int y = 0; y < H; ++y) {
-             for (int x = 0; x < W; ++x) {
-                Vector p = pixel_to_vector<W>(x, y);
-                Fragment f; f.pos = p; f.v0 = 0; f.v1 = 0; f.v2 = 0; f.v3 = 0; f.age = 0;
-
-                Fragment f_out = fragment_shader(p, f);
-                
-                if (f_out.color.alpha > 0.001f) {
-                    pipeline.plot(canvas, x, y, f_out.color.color, f_out.age, f_out.color.alpha, f_out.blend);
-                }
-             }
-          }
-      }
-  };
 
   struct Mesh {
       template <int W, typename MeshT, typename F>
