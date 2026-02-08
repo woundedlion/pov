@@ -19,7 +19,7 @@ struct LissajousConfig {
 template <int W>
 class Comets : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 80;
+  static constexpr int TRAIL_LENGTH = 120;
   static constexpr int MAX_NODES = 4; // Capacity for nodes
 
 
@@ -41,7 +41,7 @@ public:
     spacing(48),
     resolution(32),
     cycle_duration(80),
-    alpha(0.5f),
+    alpha(1.0f),
     thickness(2.1f * 2 * PI_F / W)
   {
     persist_pixels = false;
