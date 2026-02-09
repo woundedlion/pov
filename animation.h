@@ -1193,10 +1193,66 @@ private:
   
 
 
+
 /**
- * @brief Type alias for a variant that can hold any animation type.
- * @details Used by the Timeline to manage heterogeneous animation objects.
+ * @brief Continuously modulates Mobius parameters to create an evolving warp.
+ * Uses multiple frequencies for non-repeating chaos.
  */
+class MobiusGenerate : public Animation<MobiusGenerate> {
+public:
+  /**
+   * @brief Constructs a MobiusGenerate animation.
+   * @param params The params to animate.
+   * @param scale Magnitude of modulation.
+   * @param speed Speed of the animation.
+   */
+  MobiusGenerate(MobiusParams& params, float scale = 0.5f, float speed = 0.01f) :
+    Animation(-1, true),
+    params(params),
+    scale(scale),
+    speed(speed)
+  {
+    // Capture initial state as base
+    base = params;
+
+    // Random phase offsets
+    phases[0] = hs::rand_f() * 100.0f; // aRe
+    phases[1] = hs::rand_f() * 100.0f; // aIm
+    phases[2] = hs::rand_f() * 100.0f; // bRe
+    phases[3] = hs::rand_f() * 100.0f; // bIm
+    phases[4] = hs::rand_f() * 100.0f; // cRe
+    phases[5] = hs::rand_f() * 100.0f; // cIm
+    phases[6] = hs::rand_f() * 100.0f; // dRe
+    phases[7] = hs::rand_f() * 100.0f; // dIm
+  }
+
+  void step(Canvas& canvas) {
+    Animation::step(canvas);
+    float time = t * speed;
+    float s = scale;
+
+    // Use prime-ish number ratios for frequencies to minimize repetition cycle
+    params.get().aRe = base.aRe + sinf(time * 1.0f + phases[0]) * s;
+    params.get().aIm = base.aIm + cosf(time * 1.13f + phases[1]) * s;
+
+    params.get().bRe = base.bRe + sinf(time * 1.27f + phases[2]) * s;
+    params.get().bIm = base.bIm + cosf(time * 1.39f + phases[3]) * s;
+
+    params.get().cRe = base.cRe + sinf(time * 0.71f + phases[4]) * s;
+    params.get().cIm = base.cIm + cosf(time * 0.83f + phases[5]) * s;
+
+    params.get().dRe = base.dRe + sinf(time * 0.97f + phases[6]) * s;
+    params.get().dIm = base.dIm + cosf(time * 1.09f + phases[7]) * s;
+  }
+
+private:
+  std::reference_wrapper<MobiusParams> params;
+  float scale;
+  float speed;
+  MobiusParams base;
+  std::array<float, 8> phases;
+};
+
 using AnimationVariant = std::variant<
   NullAnimation,
   Sprite,
@@ -1209,6 +1265,7 @@ using AnimationVariant = std::variant<
   RandomWalk<MAX_W>,
   ColorWipe,
   MobiusFlow,
+  MobiusGenerate,
   MobiusWarp,
   ParticleSystem,
   MeshMorph
