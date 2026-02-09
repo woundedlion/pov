@@ -1018,6 +1018,65 @@ namespace SDF {
             return false;
         }
     };
+    
+    struct Line {
+        Vector a, b;
+        float thickness;
+        
+        Vector n; 
+        float len;
+        
+        Line(const Vector& start, const Vector& end, float th)
+           : a(start), b(end), thickness(th)
+        {
+            len = angle_between(a, b);
+            if (len < 1e-6f) {
+                n = Vector(0,0,0);
+            } else {
+                n = cross(a, b).normalize();
+            }
+        }
+        
+        Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
+        
+        DistanceResult distance(const Vector& p) const {
+             if (len < 1e-6f) {
+                 float dist = angle_between(p, a);
+                 return { dist - thickness, 0.0f, dist, 0.0f };
+             }
+             
+             float d_plane = dot(p, n);
+             Vector p_proj_plane = p - n * d_plane;
+             float proj_mag = p_proj_plane.magnitude();
+
+             if (proj_mag < 1e-6f) {
+                 float dA = angle_between(p, a);
+                 float dB = angle_between(p, b);
+                 float dist = std::min(dA, dB);
+                 return { dist - thickness, 0.0f, dist, 0.0f };
+             }
+             
+             Vector p_proj = p_proj_plane / proj_mag;
+             float ang_a = angle_between(a, p_proj);
+             float ang_b = angle_between(b, p_proj);
+             
+             float dist_seg = 0.0f;
+             if (ang_a + ang_b <= len + 1e-4f) {
+                 dist_seg = asinf(std::abs(d_plane));
+             } else {
+                 float dA = angle_between(p, a);
+                 float dB = angle_between(p, b);
+                 dist_seg = std::min(dA, dB);
+             }
+             
+             return { dist_seg - thickness, 0.0f, dist_seg, 0.0f };
+        }
+        
+        template<typename OutputIt>
+        bool get_horizontal_intervals(int y, OutputIt out) const {
+            return false;
+        }
+    };
 }
 
 /**
@@ -1094,7 +1153,7 @@ namespace Scan {
     }
   };
 
-   struct Polygon {
+   struct PlanarPolygon {
       template <int W>
       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         auto res = get_antipode(basis, radius);
@@ -1104,6 +1163,16 @@ namespace Scan {
         Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
       }
    };
+
+   struct Line {
+      template <int W>
+      static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, float thickness, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
+          SDF::Line shape(v1, v2, thickness);
+          Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+      }
+   };
+
+
 
   struct Ring {
     template <int W>
@@ -1120,6 +1189,21 @@ namespace Scan {
         draw<W>(pipeline, canvas, basis, radius, thickness, fragment_shader, phase, debug_bb);
      }
   };
+
+   struct Circle {
+      template <int W>
+      static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
+          // Circle is a Ring with inner radius 0
+          float th = radius * (PI_F / 2.0f);
+          Ring::draw<W>(pipeline, canvas, basis, 0.0f, th, fragment_shader, 0, debug_bb);
+      }
+
+      template <int W>
+      static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
+          Basis basis = make_basis(Quaternion(), normal);
+          draw<W>(pipeline, canvas, basis, radius, fragment_shader, debug_bb);
+      }
+   };
   
    struct Point {
       template <int W>
