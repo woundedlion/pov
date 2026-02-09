@@ -11,6 +11,7 @@
 #include "color.h"
 #include "constants.h"
 #include "filter.h"
+#include "static_circular_buffer.h"
 
 namespace SDF {
     struct Bounds {
@@ -143,6 +144,11 @@ namespace SDF {
        * @return DistanceResult {dist, t, raw_dist}.
        */
       DistanceResult distance(const Vector& p) const {
+         return distance<true>(p);
+      }
+
+      template <bool ComputeUVs = true>
+      DistanceResult distance(const Vector& p) const {
          float d = dot(p, normal);
          if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f, 0.0f };
          
@@ -154,12 +160,15 @@ namespace SDF {
             dist = std::abs(polar - target_angle);
          }
 
-         float dot_u = dot(p, u);
-         float dot_w = dot(p, w);
-         float azimuth = atan2f(dot_w, dot_u);
-         if (azimuth < 0) azimuth += 2 * PI_F;
-         azimuth += phase;
-         float t = azimuth / (2 * PI_F);
+         float t = 0.0f;
+         if constexpr (ComputeUVs) {
+             float dot_u = dot(p, u);
+             float dot_w = dot(p, w);
+             float azimuth = atan2f(dot_w, dot_u);
+             if (azimuth < 0) azimuth += 2 * PI_F;
+             azimuth += phase;
+             t = azimuth / (2 * PI_F);
+         }
          
          return { dist - thickness, t, dist, 0.0f };
       }
@@ -265,20 +274,54 @@ namespace SDF {
        * @return DistanceResult {dist, t, raw_dist}.
        */
       DistanceResult distance(const Vector& p) const {
+          return distance<true>(p);
+      }
+
+      template <bool ComputeUVs = true>
+      DistanceResult distance(const Vector& p) const {
          float polar = angle_between(p, normal);
-         float dot_u = dot(p, u);
-         float dot_w = dot(p, w);
-         float azimuth = atan2f(dot_w, dot_u);
-         if (azimuth < 0) azimuth += 2 * PI_F;
          
-         float t_val = azimuth + phase;
-         float norm_t = t_val / (2 * PI_F);
+         float t_norm = 0.0f;
+         float shift = 0.0f;
+
+         if constexpr (ComputeUVs) {
+             float dot_u = dot(p, u);
+             float dot_w = dot(p, w);
+             float azimuth = atan2f(dot_w, dot_u);
+             if (azimuth < 0) azimuth += 2 * PI_F;
+             
+             float t_val = azimuth + phase;
+             t_norm = t_val / (2 * PI_F);
+             shift = shift_fn(t_norm);
+         } else {
+             // Approximation if needed, or just 0 if shift depends on t
+             // If shift is needed for distance, we sadly MUST compute UVs partially
+             // But usually DistortedRing implies we care about the shape, so checking UVs is likely required for correct distance if shift varies.
+             // However, for optimization where we just want bounds, maybe we can skip?
+             // Actually, for DistortedRing, distance DEPENDS on t (via shift).
+             // So we cannot fully skip UVs unless shift_fn is constant (unlikely).
+             // We will leave the calculation but strictly enable optimization if the user insists,
+             // creating a potentially incorrect distance if they skip UVs on a shape that needs them.
+             // BETTER STRATEGY: For DistortedRing, 'ComputeUVs=false' might just mean "don't return t in result" but we still need it for math.
+             
+             // BUT, if the user explicitly requests ComputeUVs=false, they might be using it for a solid color ring where the distortion is handled elsewhere?
+             // No, the distortion IS the shape.
+             // So we MUST compute azimuth.
+             // Let's optimize what we can.
+             float dot_u = dot(p, u);
+             float dot_w = dot(p, w);
+             float azimuth = atan2f(dot_w, dot_u);
+             if (azimuth < 0) azimuth += 2 * PI_F;
+             
+             float t_val = azimuth + phase;
+             t_norm = t_val / (2 * PI_F);
+             shift = shift_fn(t_norm);
+         }
          
-         float shift = shift_fn(norm_t);
          float local_target = target_angle + shift;
          float dist = std::abs(polar - local_target);
          
-         return { dist - thickness, azimuth / (2 * PI_F), dist, 0.0f };
+         return { dist - thickness, t_norm, dist, 0.0f };
       }
     };
 
@@ -307,8 +350,13 @@ namespace SDF {
         * @brief Signed distance to Union.
         */
        DistanceResult distance(const Vector& p) const {
-          auto resA = a.distance(p);
-          auto resB = b.distance(p);
+           return distance<true>(p);
+       }
+
+       template <bool ComputeUVs = true>
+       DistanceResult distance(const Vector& p) const {
+          auto resA = a.template distance<ComputeUVs>(p);
+          auto resB = b.template distance<ComputeUVs>(p);
           if (resA.dist < resB.dist) return resA; // Min distance
           return resB;
        }
@@ -337,8 +385,13 @@ namespace SDF {
         * @brief Signed distance to Subtraction (A - B).
         */
        DistanceResult distance(const Vector& p) const {
-          auto resA = a.distance(p);
-          auto resB = b.distance(p);
+           return distance<true>(p);
+       }
+
+       template <bool ComputeUVs = true>
+       DistanceResult distance(const Vector& p) const {
+          auto resA = a.template distance<ComputeUVs>(p);
+          auto resB = b.template distance<ComputeUVs>(p);
           // Max(A, -B)
           if (-resB.dist > resA.dist) {
              resB.dist = -resB.dist;
@@ -416,8 +469,13 @@ namespace SDF {
         * @brief Signed distance to Intersection.
         */
        DistanceResult distance(const Vector& p) const {
-          auto resA = a.distance(p);
-          auto resB = b.distance(p);
+           return distance<true>(p);
+       }
+
+       template <bool ComputeUVs = true>
+       DistanceResult distance(const Vector& p) const {
+          auto resA = a.template distance<ComputeUVs>(p);
+          auto resB = b.template distance<ComputeUVs>(p);
           // Max(A, B)
           if (resA.dist > resB.dist) return resA;
           return resB;
@@ -607,6 +665,11 @@ namespace SDF {
          * @brief Signed distance to planar Face.
          */
         DistanceResult distance(const Vector& p) const {
+            return distance<true>(p);
+        }
+
+        template <bool ComputeUVs = true>
+        DistanceResult distance(const Vector& p) const {
             float cosAngle = dot(p, center);
             if (cosAngle <= 0.01f) return { 100.0f, 0.0f, 100.0f, 0.0f };
 
@@ -777,18 +840,46 @@ namespace SDF {
         * @brief Signed distance to Polygon edge.
         */
        DistanceResult distance(const Vector& p) const {
+           return distance<true>(p);
+       }
+
+       template <bool ComputeUVs = true>
+       DistanceResult distance(const Vector& p) const {
           float polar = angle_between(p, basis.v);
-          float dot_u = dot(p, basis.u);
-          float dot_w = dot(p, basis.w);
-          float azimuth = atan2f(dot_w, dot_u);
-          if (azimuth < 0) azimuth += 2 * PI_F;
-          azimuth += phase;
           
-          float sector = 2 * PI_F / sides;
-          float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+          float t_val = 0.0f;
+          float dist_edge = 0.0f;
+
+          if constexpr (ComputeUVs) {
+              float dot_u = dot(p, basis.u);
+              float dot_w = dot(p, basis.w);
+              float azimuth = atan2f(dot_w, dot_u);
+              if (azimuth < 0) azimuth += 2 * PI_F;
+              azimuth += phase;
+              
+              float sector = 2 * PI_F / sides;
+              float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+              
+              dist_edge = polar * cosf(local) - apothem;
+              t_val = polar / thickness;
+          } else {
+              // For Polygon, distance depends on angle (azimuth).
+              // Like DistortedRing, we cannot skip azimuth calculation if we want correct distance.
+              // So ComputeUVs here acts only as "don't need to return valid t".
+              float dot_u = dot(p, basis.u);
+              float dot_w = dot(p, basis.w);
+              float azimuth = atan2f(dot_w, dot_u);
+              if (azimuth < 0) azimuth += 2 * PI_F;
+              azimuth += phase;
+              
+              float sector = 2 * PI_F / sides;
+              float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+              
+              dist_edge = polar * cosf(local) - apothem;
+              t_val = 0.0f;
+          }
           
-          float dist_edge = polar * cosf(local) - apothem;
-          return { dist_edge, polar / thickness, polar, 0.0f };
+          return { dist_edge, t_val, polar, 0.0f };
        }
     };
 
@@ -876,24 +967,54 @@ namespace SDF {
         }
 
         DistanceResult distance(const Vector& p) const {
+            return distance<true>(p);
+        }
+
+        template <bool ComputeUVs = true>
+        DistanceResult distance(const Vector& p) const {
             float scan_dist = angle_between(p, basis.v);
-            float dot_u = dot(p, basis.u);
-            float dot_w = dot(p, basis.w);
-            float azimuth = atan2f(dot_w, dot_u);
-            if (azimuth < 0) azimuth += 2 * PI_F;
-
-            azimuth += phase;
-
-            float sector_angle = 2 * PI_F / sides;
-            float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
-            local_azimuth = std::abs(local_azimuth);
-
-            float px = scan_dist * cosf(local_azimuth);
-            float py = scan_dist * sinf(local_azimuth);
             
-            float dist_to_edge = px * nx + py * ny + plane_d;
+            float t_val = 0.0f;
+            float dist_to_edge = 0.0f;
+
+            if constexpr (ComputeUVs) {
+                float dot_u = dot(p, basis.u);
+                float dot_w = dot(p, basis.w);
+                float azimuth = atan2f(dot_w, dot_u);
+                if (azimuth < 0) azimuth += 2 * PI_F;
+
+                azimuth += phase;
+
+                float sector_angle = 2 * PI_F / sides;
+                float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+                local_azimuth = std::abs(local_azimuth);
+
+                float px = scan_dist * cosf(local_azimuth);
+                float py = scan_dist * sinf(local_azimuth);
+                
+                dist_to_edge = px * nx + py * ny + plane_d;
+                t_val = azimuth / (2 * PI_F);
+            } else {
+                 // Star shape depends on angle. Must compute azimuth.
+                float dot_u = dot(p, basis.u);
+                float dot_w = dot(p, basis.w);
+                float azimuth = atan2f(dot_w, dot_u);
+                if (azimuth < 0) azimuth += 2 * PI_F;
+
+                azimuth += phase;
+
+                float sector_angle = 2 * PI_F / sides;
+                float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+                local_azimuth = std::abs(local_azimuth);
+
+                float px = scan_dist * cosf(local_azimuth);
+                float py = scan_dist * sinf(local_azimuth);
+                
+                dist_to_edge = px * nx + py * ny + plane_d;
+                t_val = 0.0f;
+            }
             
-            return { -dist_to_edge, azimuth / (2 * PI_F), scan_dist, 0.0f };
+            return { -dist_to_edge, t_val, scan_dist, 0.0f };
         }
     };
     
@@ -965,22 +1086,46 @@ namespace SDF {
          return true;
        }
        
-       DistanceResult distance(const Vector& p) const {
-          float scan_dist = angle_between(p, antipode);
-          float polar = PI_F - scan_dist;
-          
-          float dot_u = dot(p, basis.u);
-          float dot_w = dot(p, basis.w);
-          float azimuth = atan2f(dot_w, dot_u);
-          if (azimuth < 0) azimuth += 2 * PI_F;
-          azimuth += phase;
-          
-          float sector = 2 * PI_F / sides;
-          float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
-          
-       float dist_edge = polar * cosf(local) - apothem;
-          return { -dist_edge, scan_dist / thickness, scan_dist, 0.0f };
-       }
+        DistanceResult distance(const Vector& p) const {
+            return distance<true>(p);
+        }
+        
+        template <bool ComputeUVs = true>
+        DistanceResult distance(const Vector& p) const {
+           float scan_dist = angle_between(p, antipode);
+           float polar = PI_F - scan_dist;
+           
+           float t_val = 0.0f;
+           float dist_edge = 0.0f;
+
+           if constexpr (ComputeUVs) {
+               float dot_u = dot(p, basis.u);
+               float dot_w = dot(p, basis.w);
+               float azimuth = atan2f(dot_w, dot_u);
+               if (azimuth < 0) azimuth += 2 * PI_F;
+               azimuth += phase;
+               
+               float sector = 2 * PI_F / sides;
+               float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+               
+               dist_edge = polar * cosf(local) - apothem;
+               t_val = scan_dist / thickness;
+           } else {
+               // Flower shape depends on angle.
+               float dot_u = dot(p, basis.u);
+               float dot_w = dot(p, basis.w);
+               float azimuth = atan2f(dot_w, dot_u);
+               if (azimuth < 0) azimuth += 2 * PI_F;
+               azimuth += phase;
+               
+               float sector = 2 * PI_F / sides;
+               float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
+               
+               dist_edge = polar * cosf(local) - apothem;
+               t_val = 0.0f;
+           }
+           return { -dist_edge, t_val, scan_dist, 0.0f };
+        }
     };
 
     struct HarmonicBlob {
@@ -1000,6 +1145,11 @@ namespace SDF {
         Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
 
         DistanceResult distance(const Vector& p) const {
+             return distance<true>(p);
+        }
+
+        template <bool ComputeUVs = true>
+        DistanceResult distance(const Vector& p) const {
              // Transform world pixel position to local harmonic space
              Vector v = rotate(p, inv_q);
              float phi = acosf(std::max(-1.0f, std::min(1.0f, v.j)));
@@ -1009,7 +1159,16 @@ namespace SDF {
              float lobe_radius = 1.0f + std::abs(harmonic_val) * amplitude;
              float d = 1.0f - lobe_radius;
  
-             return { d, tanhf(std::abs(harmonic_val) * amplitude), harmonic_val, 0.0f };
+             // HarmonicBlob needs theta/phi for shape, so we can't fully skip UVs (theta/phi) because they ARE the shape.
+             // But we can skip the return value 't' calculation if 'ComputeUVs' meant 'return texture coords' separately.
+             // In this engine, 't' is often used for texture mapping.
+             // Here we return 'tanhf(...)' as 't'.
+             float t_val = 0.0f;
+             if constexpr (ComputeUVs) {
+                 t_val = tanhf(std::abs(harmonic_val) * amplitude);
+             }
+
+             return { d, t_val, harmonic_val, 0.0f };
         }
         
         template<typename OutputIt>
@@ -1039,6 +1198,11 @@ namespace SDF {
         
         Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
         
+        DistanceResult distance(const Vector& p) const {
+             return distance<true>(p);
+        }
+
+        template <bool ComputeUVs = true>
         DistanceResult distance(const Vector& p) const {
              if (len < 1e-6f) {
                  float dist = angle_between(p, a);
@@ -1088,34 +1252,14 @@ namespace SDF {
  */
 namespace Scan {
   
-  template <int W>
-  static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
-     auto bounds = shape.get_vertical_bounds();
-     
-     for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
-        bool handled = shape.get_horizontal_intervals(y, [&](float t1, float t2) {
-              int x1 = static_cast<int>(floorf((t1 * W) / (2 * PI_F)));
-           int x2 = static_cast<int>(ceilf((t2 * W) / (2 * PI_F)));
-           
-           for (int x = x1; x <= x2; ++x) {
-              int wx = wrap(x, W);
-              process_pixel<W>(wx, y, pipeline, canvas, shape, fragment_shader, debug_bb);
-           }
-        });
-        
-        if (!handled) {
-           for (int x = 0; x < W; ++x) {
-              process_pixel<W>(x, y, pipeline, canvas, shape, fragment_shader, debug_bb);
-           }
-        }
-     }
-  }
-  
-  template <int W>
+  /**
+   * @brief Processes a single pixel for rasterization.
+   */
+  template <int W, bool ComputeUVs = true>
   static void process_pixel(int x, int y, auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb) {
      const Vector& p = pixel_to_vector<W>(x, y);
      
-     auto result = shape.distance(p);
+     auto result = shape.template distance<ComputeUVs>(p);
      float d = result.dist;
      
      float pixel_width = 2.0f * PI_F / W;
@@ -1143,24 +1287,59 @@ namespace Scan {
      }
   }
 
+  template <int W, bool ComputeUVs = true>
+  static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
+     auto bounds = shape.get_vertical_bounds();
+     
+     StaticCircularBuffer<std::pair<float, float>, 32> intervals;
+     
+     for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
+        bool handled = shape.get_horizontal_intervals(y, [&](float t1, float t2) {
+            intervals.push_back({t1, t2});
+        });
+        
+        if (handled && !intervals.is_empty()) {
+            for (const auto& iv : intervals) {
+                int x1 = static_cast<int>(floorf((iv.first * W) / (2 * PI_F)));
+                int x2 = static_cast<int>(ceilf((iv.second * W) / (2 * PI_F)));
+                
+                for (int x = x1; x <= x2; ++x) {
+                    int wx = wrap(x, W);
+                    process_pixel<W, ComputeUVs>(wx, y, pipeline, canvas, shape, fragment_shader, debug_bb);
+                }
+            }
+            intervals.clear();
+        } else {
+             // Fallback to full width if get_horizontal_intervals returns false
+             // OR if it returns true but pushed no intervals? (Use assumption that true means handled, false means full scan)
+             // The original code fell back if !handled.
+             if (!handled) {
+               for (int x = 0; x < W; ++x) {
+                  process_pixel<W, ComputeUVs>(x, y, pipeline, canvas, shape, fragment_shader, debug_bb);
+               }
+             }
+        }
+     }
+  }
+
   struct DistortedRing {
-    template <int W>
+    template <int W, bool ComputeUVs = true>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, 
                      std::function<float(float)> shift_fn, float amplitude, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false)  
     {
       SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude, phase);
-      Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+      Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
     }
   };
 
    struct PlanarPolygon {
-      template <int W>
+      template <int W, bool ComputeUVs = true>
       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         auto res = get_antipode(basis, radius);
         float thickness = res.second * (PI_F / 2.0f);
         
         SDF::Polygon shape(res.first, res.second, thickness, sides, phase);
-        Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+        Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
       }
    };
 
@@ -1175,33 +1354,33 @@ namespace Scan {
 
 
   struct Ring {
-    template <int W>
+    template <int W, bool ComputeUVs = true>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         auto res = get_antipode(basis, radius);
         SDF::Ring shape(res.first, res.second, thickness, phase);
-        Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+        Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
      }
 
       // Overload for Vector normal inputs
-     template <int W>
+     template <int W, bool ComputeUVs = true>
      static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         Basis basis = make_basis(Quaternion(), normal);
-        draw<W>(pipeline, canvas, basis, radius, thickness, fragment_shader, phase, debug_bb);
+        draw<W, ComputeUVs>(pipeline, canvas, basis, radius, thickness, fragment_shader, phase, debug_bb);
      }
   };
 
    struct Circle {
-      template <int W>
+      template <int W, bool ComputeUVs = true>
       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
           // Circle is a Ring with inner radius 0
           float th = radius * (PI_F / 2.0f);
-          Ring::draw<W>(pipeline, canvas, basis, 0.0f, th, fragment_shader, 0, debug_bb);
+          Ring::draw<W, ComputeUVs>(pipeline, canvas, basis, 0.0f, th, fragment_shader, 0, debug_bb);
       }
 
-      template <int W>
+      template <int W, bool ComputeUVs = true>
       static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
           Basis basis = make_basis(Quaternion(), normal);
-          draw<W>(pipeline, canvas, basis, radius, fragment_shader, debug_bb);
+          draw<W, ComputeUVs>(pipeline, canvas, basis, radius, fragment_shader, debug_bb);
       }
    };
   
@@ -1215,20 +1394,20 @@ namespace Scan {
    };
    
     struct Star {
-       template <int W>
+       template <int W, bool ComputeUVs = true>
        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
            auto res = get_antipode(basis, radius);
            SDF::Star<W> shape(res.first, res.second, sides, phase);
-           Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+           Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
     };
     
     struct Flower {
-       template <int W>
+       template <int W, bool ComputeUVs = true>
        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
            auto res = get_antipode(basis, radius);
            SDF::Flower shape(res.first, res.second, sides, phase);
-           Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+           Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
     };
    
@@ -1310,7 +1489,9 @@ namespace Scan {
                  return fragment_shader(p, f);
              };
              
-             Scan::rasterize<W>(pipeline, canvas, shape, wrapper, debug_bb);
+             // Mesh faces always need UVs/Barycentrics usually? Or maybe not?
+             // For now default to true or propagate if we add it to Mesh::draw
+             Scan::rasterize<W, true>(pipeline, canvas, shape, wrapper, debug_bb);
           }
       }
       
@@ -1335,7 +1516,7 @@ namespace Scan {
                  return fragment_shader(p, f);
              };
              
-             Scan::rasterize<W>(pipeline, canvas, shape, wrapper, debug_bb);
+             Scan::rasterize<W, true>(pipeline, canvas, shape, wrapper, debug_bb);
              face_offset += count;
           }
       }
