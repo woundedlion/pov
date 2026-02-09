@@ -81,6 +81,11 @@ public:
         }
         
         SDF::DistanceResult distance(const Vector& p) const {
+            return distance<true>(p);
+        }
+
+        template <bool ComputeUVs = true>
+        SDF::DistanceResult distance(const Vector& p) const {
              Vector local = rotate(p, orientation.conjugate()); 
              
              float theta = atan2f(local.k, local.i); 

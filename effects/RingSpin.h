@@ -65,7 +65,7 @@ public:
               out.color = c;
               return out;
           };
-          Scan::Ring::draw<W>(filters, canvas, basis, 1.0f, thickness, fragment_shader);
+          Scan::Ring::draw<W, false>(filters, canvas, basis, 1.0f, thickness, fragment_shader);
         });
     }
   }
