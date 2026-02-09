@@ -421,6 +421,36 @@ Vector mobius_transform(const Vector& v, const MobiusParams& params) {
     return inv_stereo(mobius(stereo(v), params));
 }
 
+
+/**
+ * @brief Gnomonic Projection: Sphere -> Plane (Equator at Infinity).
+ * Projects from center (0,0,0) to plane z=1 (tangent at North Pole, i.e., k=1).
+ */
+Complex gnomonic(const Vector& v) {
+  // Handle equator singularity with a large number instead of Infinity
+  // Projects to plane at k=1.
+  float div = (std::abs(v.k) < 1e-9f) ? 1e-9f * (v.k >= 0 ? 1.0f : -1.0f) : v.k;
+  return Complex(v.i / div, v.j / div);
+}
+
+/**
+ * @brief Inverse Gnomonic: Plane -> Sphere.
+ * @param z Complex point on the plane.
+ * @param original_sign The sign of the z-component (k) of the original vector.
+ */
+Vector inv_gnomonic(const Complex& z, float original_sign = 1.0f) {
+  // Project (re, im, 1) back onto unit sphere
+  float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
+  float inv_len = 1.0f / len;
+
+  // Restore hemisphere sign (Upper or Lower)
+  return Vector(
+    z.re * inv_len * original_sign, // i
+    z.im * inv_len * original_sign, // j
+    inv_len * original_sign         // k
+  );
+}
+
 /**
  * @brief Rotates a vector by a unit quaternion.
  * @param v The vector to rotate.

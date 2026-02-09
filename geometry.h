@@ -612,6 +612,27 @@ static Basis make_basis(const Quaternion& orientation, const Vector& normal) {
 }
 
 /**
+ * @brief Transforms a vector using Gnomonic projection + Mobius.
+ * This effectively treats the equator as the boundary at infinity.
+ * @param v Input vector.
+ * @param params The Mobius parameters.
+ * @return Transformed vector.
+ */
+Vector gnomonic_mobius_transform(const Vector& v, const MobiusParams& params) {
+  // 1. Preserve Hemisphere (Gnomonic is 2:1 mapping without this)
+  float sign = (v.k >= 0) ? 1.0f : -1.0f;
+
+  // 2. Project to Plane (Equator -> Infinity)
+  Complex z = gnomonic(v);
+
+  // 3. Apply Mobius Transform on the plane
+  Complex w = mobius(z, params);
+
+  // 4. Unproject back to Sphere
+  return inv_gnomonic(w, sign);
+}
+
+/**
  * @brief Adjusted basis and radius for drawing on the opposite side of the sphere.
  * @param basis The current basis {u, v, w}.
  * @param radius Angular radius (0-2).

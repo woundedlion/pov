@@ -791,104 +791,110 @@ namespace SDF {
           return { dist_edge, polar / thickness, polar, 0.0f };
        }
     };
-    
+
     /**
      * @brief Calculates signed distance to a star shape.
      * Returns:
-     *  dist: Signed distance from edge
+     *  dist: Signed distance from edge (negative inside)
      *  t: Normalized polar distance (polar / thickness)
      *  raw_dist: Polar distance from center
      */
+    template <int W>
     struct Star {
-       const Basis& basis;
-       int sides;
-       float phase;
-       float thickness;
-       float nx, ny, plane_d;
-       float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha;
-       int y_min, y_max;
-       
-       Star(const Basis& b, float radius, int s, float ph)
-         : basis(b), sides(s), phase(ph)
-       {
-         float outer = radius * (PI_F / 2.0f);
-         float inner = outer * 0.382f;
-         float angle_step = PI_F / sides;
-         
-         float vT = outer;
-         float vVx = inner * cosf(angle_step);
-         float vVy = inner * sinf(angle_step);
-         float dx = vVx - vT;
-         float dy = vVy;
-         float len = sqrtf(dx*dx + dy*dy);
-         nx = -dy / len;
-         ny = dx / len;
-         plane_d = -(nx * vT);
-         thickness = outer;
-         
-         scan_nx = basis.v.i; scan_ny = basis.v.j; scan_nz = basis.v.k;
-         scan_R = sqrtf(scan_nx*scan_nx + scan_nz*scan_nz);
-         scan_alpha = atan2f(scan_nx, scan_nz);
-         
-         float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
-         float margin = outer + 0.1f;
-         y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
-         y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
-       }
-       
-       Bounds get_vertical_bounds() const { return { y_min, y_max }; }
+        const Basis& basis;
+        float radius;
+        int sides;
+        float phase;
+        
+        float nx, ny, plane_d; // Edge plane equation (2D)
+        float thickness;
+        
+        // Scan optimization
+        float scan_nx, scan_ny, scan_nz;
+        float scan_r_val, scan_alpha_angle;
+        int y_min, y_max;
 
-       template<typename OutputIt>
-       bool get_horizontal_intervals(int y, OutputIt out) const {
-         float phi = y_to_phi(static_cast<float>(y));
-         float cos_phi = cosf(phi);
-         float sin_phi = sinf(phi);
+        Star(const Basis& b, float r, int s, float ph)
+            : basis(b), radius(r), sides(s), phase(ph)
+        {
+            float outer_radius = radius * (PI_F / 2.0f);
+            float inner_radius = outer_radius * 0.382f;
+            float angle_step = PI_F / sides;
 
-         if (scan_R < 0.01f) return false; 
-         
-         float denom = scan_R * sin_phi;
-         if (std::abs(denom) < 0.000001f) return false; 
+            float v_t = outer_radius;
+            float v_vx = inner_radius * cosf(angle_step);
+            float v_vy = inner_radius * sinf(angle_step);
 
-         float ang_max = thickness; 
-         float cos_limit = cosf(ang_max); 
-         
-         float C_min = (cos_limit - scan_ny * cos_phi) / denom;
-         float C_max = (1.0f - scan_ny * cos_phi) / denom;
-         
-         float min_cos = std::max(-1.0f, C_min);
-         float max_cos = std::min(1.0f, C_max);
+            // Vector from Tip to Valley
+            float dx = v_vx - 0.0f; // Tip x is 0
+            float dy = v_vy - v_t;  // Tip y is v_t
+            float len = sqrtf(dx * dx + dy * dy);
+            
+            // Normal to edge
+            nx = -dy / len;
+            ny = dx / len;
+            plane_d = -(nx * 0.0f + ny * v_t);
+            thickness = outer_radius;
 
-         if (min_cos > max_cos) return true; 
-         
-         float angle_min = acosf(max_cos);
-         float angle_max = acosf(min_cos);
+            // Scan Bounds setup
+            scan_nx = basis.v.i;
+            scan_ny = basis.v.j;
+            scan_nz = basis.v.k;
+            scan_r_val = sqrtf(scan_nx * scan_nx + scan_nz * scan_nz);
+            scan_alpha_angle = atan2f(scan_nx, scan_nz);
 
-         out(scan_alpha - angle_max, scan_alpha - angle_min);
-         out(scan_alpha + angle_min, scan_alpha + angle_max);
-         return true;
-       }
-       
-       /**
-        * @brief Signed distance to Star edge.
-        */
-       DistanceResult distance(const Vector& p) const {
-          float polar = angle_between(p, basis.v);
-          float dot_u = dot(p, basis.u);
-          float dot_w = dot(p, basis.w);
-          float azimuth = atan2f(dot_w, dot_u);
-          if (azimuth < 0) azimuth += 2 * PI_F;
-          azimuth += phase;
-          
-          float sector = 2 * PI_F / sides;
-          float local = wrap(azimuth + sector/2.0f, sector) - sector/2.0f;
-          local = std::abs(local);
-          
-          float px = polar * cosf(local);
-          float py = polar * sinf(local);
-          float dist_edge = px * nx + py * ny + plane_d;
-          
-          return { -dist_edge, polar / thickness, polar, 0.0f };
-       }
+            float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
+            float margin = thickness + 0.1f;
+            y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
+            y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
+        }
+
+        Bounds get_vertical_bounds() const { return { y_min, y_max }; }
+
+        template<typename OutputIt>
+        bool get_horizontal_intervals(int y, OutputIt out) const {
+            float phi = y_to_phi(static_cast<float>(y));
+            float cos_phi = cosf(phi);
+            float sin_phi = sinf(phi);
+
+            if (scan_r_val < 0.01f) return false;
+
+            float ang_high = thickness + (2.0f * PI_F / W); // Margin for AA
+            float D_min = cosf(ang_high);
+            float denom = scan_r_val * sin_phi;
+
+            if (std::abs(denom) < 0.000001f) return false;
+
+            float C_min = (D_min - scan_ny * cos_phi) / denom;
+
+            if (C_min > 1.0f) return true;
+            if (C_min < -1.0f) return false;
+
+            float d_alpha = acosf(C_min);
+            out(scan_alpha_angle - d_alpha, scan_alpha_angle + d_alpha);
+            return true;
+        }
+
+        DistanceResult distance(const Vector& p) const {
+            float scan_dist = angle_between(p, basis.v);
+            float dot_u = dot(p, basis.u);
+            float dot_w = dot(p, basis.w);
+            float azimuth = atan2f(dot_w, dot_u);
+            if (azimuth < 0) azimuth += 2 * PI_F;
+
+            azimuth += phase;
+
+            float sector_angle = 2 * PI_F / sides;
+            float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+            local_azimuth = std::abs(local_azimuth);
+
+            float px = scan_dist * cosf(local_azimuth);
+            float py = scan_dist * sinf(local_azimuth);
+            
+            float dist_to_edge = px * nx + py * ny + plane_d;
+            
+            return { -dist_to_edge, azimuth / (2 * PI_F), scan_dist, 0.0f };
+        }
     };
     
     /**
@@ -1088,34 +1094,22 @@ namespace Scan {
     }
   };
 
-  struct Polygon {
-     template <int W>
-     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
-       Basis eff_basis = basis;
-       float effective_radius = radius;
-       if (radius > 1.0f) {
-          eff_basis.v = -eff_basis.v;
-          eff_basis.u = -eff_basis.u;
-          effective_radius = 2.0f - radius;
-       }
-       float thickness = effective_radius * (PI_F / 2.0f);
-
-       
-       SDF::Polygon shape(eff_basis, effective_radius, thickness, sides, phase);
-       Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
-     }
-  };
+   struct Polygon {
+      template <int W>
+      static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
+        auto res = get_antipode(basis, radius);
+        float thickness = res.second * (PI_F / 2.0f);
+        
+        SDF::Polygon shape(res.first, res.second, thickness, sides, phase);
+        Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+      }
+   };
 
   struct Ring {
     template <int W>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
-        Basis eff_basis = basis;
-        float effective_radius = radius;
-        if (radius > 1.0f) {
-           eff_basis.v = -eff_basis.v; 
-           effective_radius = 2.0f - radius;
-        }
-        SDF::Ring shape(eff_basis, effective_radius, thickness, phase);
+        auto res = get_antipode(basis, radius);
+        SDF::Ring shape(res.first, res.second, thickness, phase);
         Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
      }
 
@@ -1139,7 +1133,8 @@ namespace Scan {
     struct Star {
        template <int W>
        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
-           SDF::Star shape(basis, radius, sides, phase);
+           auto res = get_antipode(basis, radius);
+           SDF::Star<W> shape(res.first, res.second, sides, phase);
            Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
     };
@@ -1147,7 +1142,8 @@ namespace Scan {
     struct Flower {
        template <int W>
        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
-           SDF::Flower shape(basis, radius, sides, phase);
+           auto res = get_antipode(basis, radius);
+           SDF::Flower shape(res.first, res.second, sides, phase);
            Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
     };
