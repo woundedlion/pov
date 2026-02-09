@@ -13,6 +13,7 @@
 #include "platform.h"
 #include "3dmath.h"
 #include "util.h"
+#include "static_circular_buffer.h"
 
 using Pixel = CRGB;
 
@@ -561,6 +562,102 @@ public:
 // Palette Wrappers
 ///////////////////////////////////////////////////////////////////////////////
 
+struct PaletteModifier {
+    virtual void step() = 0;
+    virtual float transform(float t) const = 0;
+    virtual ~PaletteModifier() = default;
+};
+
+/**
+ * @brief Linearly cycles the palette coordinate.
+ */
+struct CycleModifier : public PaletteModifier {
+    float speed;
+    float offset = 0.0f;
+    
+    CycleModifier(float speed = 0.01f) : speed(speed) {}
+    
+    void step() override {
+        offset += speed;
+        // Keep offset within [0, 1] to preserve floating point precision over time
+        if (offset > 1.0f) offset -= 1.0f;
+        if (offset < 0.0f) offset += 1.0f;
+    }
+    
+    float transform(float t) const override {
+        // fmodf handles wrapping for us
+        return fmodf(t + offset, 1.0f);
+    }
+};
+
+/**
+ * @brief Oscillates the palette coordinate (Breathing).
+ */
+struct BreatheModifier : public PaletteModifier {
+    float freq;
+    float amp;
+    float phase = 0.0f;
+    float val = 0.0f;
+    
+    BreatheModifier(float freq = 0.05f, float amp = 0.1f) : freq(freq), amp(amp) {}
+    
+    void step() override {
+        phase += freq;
+        if (phase > 2 * PI_F) phase -= 2 * PI_F;
+        val = sinf(phase) * amp;
+    }
+    
+    float transform(float t) const override {
+        return std::clamp(t + val, 0.0f, 1.0f);
+    }
+};
+
+/**
+ * @brief A wrapper that applies a chain of modifiers to the palette parameter 't'.
+ */
+class AnimatedPalette : public Palette {
+public:
+  AnimatedPalette(const Palette& source) : source(source) {}
+
+  /**
+   * Explicitly connect a modifier to this palette.
+   * Stores a pointer. The modifier must outlive the palette.
+   */
+  AnimatedPalette& add(PaletteModifier* modifier) {
+    if (!modifiers.is_full()) {
+        modifiers.push_back(modifier);
+    }
+    return *this;
+  }
+
+  Color4 get(float t) const override {
+    float final_t = t;
+    // Pipe t through the modifier chain: t -> m1 -> m2 ... -> t'
+    for (size_t i = 0; i < modifiers.size(); ++i) {
+        if (modifiers[i]) {
+            final_t = modifiers[i]->transform(final_t);
+        }
+    }
+    return source.get().get(final_t);
+  }
+
+private:
+  std::reference_wrapper<const Palette> source;
+  StaticCircularBuffer<PaletteModifier*, 16> modifiers;
+};
+
+
+
+class CircularPalette : public Palette {
+public:
+  CircularPalette(const Palette& palette) : palette(palette) {}
+  Color4 get(float t) const override {
+    return palette.get().get(1.0f - std::abs(2.0f * t - 1.0f));
+  }
+private:
+  std::reference_wrapper<const Palette> palette;
+};
+
 class ReversePalette : public Palette {
 public:
   ReversePalette(const Palette& palette) : palette(palette) {}
@@ -635,7 +732,9 @@ using PaletteVariant = std::variant<
   ReversePalette,
   VignettePalette,
   TransparentVignette,
-  SolidColorPalette
+  TransparentVignette,
+  SolidColorPalette,
+  CircularPalette
 >;
 
 

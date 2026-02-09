@@ -17,6 +17,7 @@
 #include "static_circular_buffer.h"
 #include "plot.h"
 #include "rotate.h"
+#include "color.h"
 
 
 // ... (skipping lines 20-53) ...
@@ -1253,6 +1254,40 @@ private:
   std::array<float, 8> phases;
 };
 
+/**
+ * @brief Adapts an arbitrary behavior function to the Animation system for Palettes.
+ * Uses shared state to allow multiple copies (e.g. in Timeline and AnimatedPalette) to sync.
+ */
+
+
+/**
+ * @brief Adapts a PaletteModifier to the Animation system.
+ * Holds a reference to the modifier, allowing the Timeline to drive it.
+ */
+class PaletteAnimation : public Animation<PaletteAnimation> {
+public:
+    /**
+     * @param modifier Reference to the stateful modifier object.
+     * @param duration Duration in frames (-1 for infinite).
+     * @param repeat Whether to repeat.
+     */
+    PaletteAnimation(PaletteModifier& modifier, int duration = -1, bool repeat = true) 
+        : Animation(duration, repeat), modifier(modifier) 
+    {
+    }
+
+    /**
+     * @brief Steps the modifier.
+     */
+    void step(Canvas& canvas) {
+        Animation::step(canvas); // Updates base 't' (optional usage)
+        modifier.get().step();   // Updates the modifier's internal state
+    }
+
+private:
+    std::reference_wrapper<PaletteModifier> modifier;
+};
+
 using AnimationVariant = std::variant<
   NullAnimation,
   Sprite,
@@ -1268,7 +1303,10 @@ using AnimationVariant = std::variant<
   MobiusGenerate,
   MobiusWarp,
   ParticleSystem,
-  MeshMorph
+  MeshMorph,
+  ParticleSystem,
+  MeshMorph,
+  PaletteAnimation
 >;
 
 /**
@@ -1312,10 +1350,6 @@ public:
     return *this;
   }
 
-  /**
-   * @brief Advances the timeline by one frame, stepping all active or starting animations.
-   * @param canvas The current canvas buffer.
-   */
   /**
    * @brief Advances the timeline by one frame, stepping all active or starting animations.
    * @param canvas The current canvas buffer.

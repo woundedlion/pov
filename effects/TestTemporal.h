@@ -34,13 +34,17 @@ public:
              FilterOrient<W>(orientation),
              FilterTemporal<W, 200>([this](float x, float y) { return calculate_delay(x, y); }),
              FilterAntiAlias<W>()
-        )
+        ),
+        circular_source(Palettes::richSunset),
+        palette(circular_source),
+        modifier(0.02f)
     {
         noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-        
-        // Random Walk
-        timeline.add(0, Motion<W>(orientation, random_path, 2000, true)); // Placeholder
-        
+    
+        timeline.add(0, RandomWalk<W>(orientation, Vector(0, 1, 0)));
+        palette.add(&modifier);
+        timeline.add(0, PaletteAnimation(modifier));
+
         rebuild_mesh();
     }
     
@@ -51,39 +55,15 @@ public:
         timeline.step(canvas);
         t += 0.01f; // internal time
         
+        
         noise.SetFrequency(liquid_params.noiseFreq);
         
-        // Refresh proxy
-        // The lambda capture handles it.
-        
         Plot::Mesh::draw<W>(filters, canvas, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
-             // renderMesh
-             // JS: return colors.get((v.y + 1) * 0.5);
              float t = (v.j + 1.0f) * 0.5f;
              Fragment out = f;
-             out.color = Palettes::richSunset.get(t);
+             out.color = palette.get(t);
              return out;
         });
-        
-        // Flush not needed for Plot (it draws immediately), but FilterTemporal processes trails in 'trail'.
-        // Plot pipeline handles `trail`?
-        // `Effect::draw` usually calls `pipeline.trail` if needed? 
-        // No, `plot.h` draws primitives.
-        // `FilterTemporal` buffer is filled during `plot`.
-        // To drain/animate the buffer, we MUST call `filters.trail(...)`.
-        // JS: `this.filters.flush(null, 1.0)`.
-        // C++: `filters.trail(canvas, trailFn, 1.0f)`.
-        // `trailFn` logic? 
-        // JS `filters.flush` default uses standard decay? 
-        // `FilterTemporal` C++ `trail` decrements delay and plots when <=0.
-        // It needs a `trailFn` to generate color?? 
-        // `FilterTemporal::plot` stores the color!
-        // `FilterTemporal::trail` in C++ line 508: `trailFn` is passed but...
-        // Line 514: `pass(... item.c ...)`. It uses stored color. 
-        // It ignores `trailFn` output? 
-        // Line 508: `trail(TrailFn auto trailFn...)`.
-        // It doesn't seem to use `trailFn`.
-        // So I can pass a dummy lambda.
         
         filters.flush(canvas, [](float x, float y, float t) { return Color4(0,0,0,0); }, 1.0f);
     }
@@ -131,6 +111,11 @@ public:
 
     DelayMode current_mode = VerticalWave;
     float t = 0;
+    
+    // Palette
+    CircularPalette circular_source;
+    AnimatedPalette palette;
+    CycleModifier modifier;
 
 private:
     Orientation orientation;
@@ -138,9 +123,7 @@ private:
     FastNoiseLite noise;
     
     // Using simple ProceduralPath for motion
-    ProceduralPath<std::function<Vector(float)>> random_path{
-        [](float t) { return Vector(0,1,0); } // Placeholder
-    };
+    // Removed unused random_path
     
     struct SimpleMesh {
         std::vector<Vector> vertices;
@@ -153,9 +136,10 @@ private:
     void rebuild_mesh() {
         // Load Icosahedron
         using S = Icosahedron;
+
         // Vertices
         for(const auto& v : S::vertices) mesh.vertices.push_back(v);
-        // Faces
+
         // Faces
         int offset = 0;
         for(uint8_t count : S::face_counts) {
