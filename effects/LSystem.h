@@ -55,7 +55,7 @@ public:
     LSystem() : Effect(W), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()) {
         setup_rules();
         set_ruleset(0); // Tree
-        timeline.add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400, ease_mid, true));
+        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400, ease_mid, true));
     }
     
     bool show_bg() const override { return false; }

@@ -22,12 +22,12 @@ public:
     persist_pixels = false;
     ring_vec = ring_vec.normalize();
 
-    timeline.add(0, Sprite(
+    timeline.add(0, Animation::Sprite(
       [this](Canvas& c, float opacity) { draw_ring(c, opacity); },
       -1, 16, ease_in_sin, 16, ease_out_sin
     ));
 
-    timeline.add(0, RandomTimer(16, 48,
+    timeline.add(0, Animation::RandomTimer(16, 48,
       [this](auto&) { on_fire_thruster(); }, true)
     );
   }
@@ -50,7 +50,7 @@ private:
     Orientation orientation;
     Vector point;
     float radius;
-    Transition motion;
+    Animation::Transition motion;
 
     ThrusterContext() : radius(0), motion(radius, 0.3f, 8, ease_mid) {}
 
@@ -76,7 +76,7 @@ private:
       orientation = o;
       point = p;
       radius = 0.0f;
-      motion = Transition(radius, 0.3f, 8, ease_mid);
+      motion = Animation::Transition(radius, 0.3f, 8, ease_mid);
     }
   };
 
@@ -91,7 +91,7 @@ private:
     Vector thrust_opp = Plot::DistortedRing::fn_point(r_fn, basis, 1.0f, warp_phase + PI_F);
 
     // warp
-    warp_anim = Mutation(
+    warp_anim = Animation::Mutation(
       amplitude,
       [](float t) { return 0.7f * expf(-2.0f * t); },
       32, ease_mid
@@ -99,7 +99,7 @@ private:
 
     // spin
     Vector thrust_axis = cross(orientation.orient(thrust_point), orientation.orient(ring_vec)).normalize();
-    timeline.add(0, Rotation<MAX_W>(orientation, thrust_axis, 2 * PI_F, 8 * 16, ease_out_expo));
+    timeline.add(0, Animation::Rotation<MAX_W>(orientation, thrust_axis, 2 * PI_F, 8 * 16, ease_out_expo));
 
     // spawn
     spawn_thruster(thrust_point);
@@ -112,7 +112,7 @@ private:
     ThrusterContext& ctx = thrusters.back();
     ctx.reset(orientation, point);
 
-    timeline.add(0, Sprite(
+    timeline.add(0, Animation::Sprite(
       [this, &ctx](Canvas& c, float opacity) {
         ctx.motion.step(c);
         draw_thruster(c, ctx, opacity);
@@ -164,6 +164,6 @@ private:
   int t_global;
 
   Timeline timeline;
-  Mutation warp_anim;
+  Animation::Mutation warp_anim;
   Orientation orientation;
 };

@@ -41,9 +41,9 @@ public:
     {
         noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     
-        timeline.add(0, RandomWalk<W>(orientation, Vector(0, 1, 0)));
+        timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
         palette.add(&modifier);
-        timeline.add(0, PaletteAnimation(modifier));
+        timeline.add(0, Animation::PaletteAnimation(modifier));
 
         rebuild_mesh();
     }

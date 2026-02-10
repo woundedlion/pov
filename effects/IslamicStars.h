@@ -28,8 +28,8 @@ public:
     IslamicStars() : Effect(W), 
         filters(Filter::Screen::AntiAlias<W>())
     {
-        timeline.add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2000, ease_mid, true)); // Continuous spin
-        timeline.add(0, PeriodicTimer(300, [this](Canvas& c) { this->next_solid(); }, true));
+        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2000, ease_mid, true)); // Continuous spin
+        timeline.add(0, Animation::PeriodicTimer(300, [this](Canvas& c) { this->next_solid(); }, true));
         
         load_solid(SolidType::Dodecahedron, mesh_a);
         current_mesh = &mesh_a;

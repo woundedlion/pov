@@ -28,11 +28,11 @@ public:
     persist_pixels = false;
 
     timeline
-      .add(0, MobiusWarp(params, 1.0f, 160, true))
-      .add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400, ease_mid, true))
-      .add(0, PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true))
-      .add(0, Mutation(num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
-      .add(160, Mutation(num_lines, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true));
+      .add(0, Animation::MobiusWarp(params, 1.0f, 160, true))
+      .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400, ease_mid, true))
+      .add(0, Animation::PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true))
+      .add(0, Animation::Mutation(num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
+      .add(160, Animation::Mutation(num_lines, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true));
   }
 
   bool show_bg() const override { return false; }
@@ -66,7 +66,7 @@ public:
 private:
   void wipe_palette() {
     next_palette = GenerativePalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::FLAT);
-    timeline.add(0, ColorWipe(palette, next_palette, 60, ease_mid));
+    timeline.add(0, Animation::ColorWipe(palette, next_palette, 60, ease_mid));
   }
 
   void draw_axis_rings(Canvas& canvas, const Vector& normal, float num, float phase, const Quaternion& q) {

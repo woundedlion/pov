@@ -26,11 +26,11 @@ public:
     persist_pixels = false;
 
     timeline
-      .add(0, PeriodicTimer(80, [this](auto&) { color_wipe(); }))
-      .add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300, ease_mid, true))
-      .add(0, Transition(rotation, 2 * PI_F, 160, ease_mid, false, true)
+      .add(0, Animation::PeriodicTimer(80, [this](auto&) { color_wipe(); }))
+      .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300, ease_mid, true))
+      .add(0, Animation::Transition(rotation, 2 * PI_F, 160, ease_mid, false, true)
         .then([this]() { rotation = 0.0f; }))
-      .add(0, Mutation(amp, sin_wave(0.1f, 0.5f, 1.0f, 0.0f), 160, ease_mid, true)
+      .add(0, Animation::Mutation(amp, sin_wave(0.1f, 0.5f, 1.0f, 0.0f), 160, ease_mid, true)
       );
   }
 
@@ -49,8 +49,8 @@ private:
     base_next_palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
     int_next_palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
 
-    timeline.add(0, ColorWipe(base_palette, base_next_palette, 80, ease_mid));
-    timeline.add(0, ColorWipe(int_palette, int_next_palette, 80, ease_mid));
+    timeline.add(0, Animation::ColorWipe(base_palette, base_next_palette, 80, ease_mid));
+    timeline.add(0, Animation::ColorWipe(int_palette, int_next_palette, 80, ease_mid));
   }
 
   Vector transform(Vector p) {

@@ -20,7 +20,7 @@ public:
     persist_pixels = false;
 
     timeline.add(0,
-      RandomTimer(4, 48,
+      Animation::RandomTimer(4, 48,
         [this](auto&) { this->spawn_ring(); },
         true)
     );
@@ -58,7 +58,7 @@ private:
         ring.radius = 0;
 
         timeline.add(0,
-          Sprite(
+          Animation::Sprite(
             [this, i](Canvas& canvas, float opacity) { this->draw_ring(canvas, opacity, i); },
             static_cast<int>(ring.duration),
             4, ease_mid,
@@ -66,7 +66,7 @@ private:
         );
 
         timeline.add(0,
-          Transition(ring.radius, 2.0f, static_cast<int>(ring.duration), ease_mid, false, false)
+          Animation::Transition(ring.radius, 2.0f, static_cast<int>(ring.duration), ease_mid, false, false)
           .then([&ring]() { ring.duration = 0; })
         );
 
