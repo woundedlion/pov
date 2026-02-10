@@ -91,7 +91,7 @@ private:
 
   static constexpr size_t MAX_RINGS = 16;
   Ring rings[MAX_RINGS];
-  Pipeline<W, FilterAntiAlias<W>> filters;
+  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
   Orientation orientation;
   Timeline timeline;
 

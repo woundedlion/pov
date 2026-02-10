@@ -31,9 +31,9 @@ public:
         orientation(),
         noise(),
         filters(
-             FilterOrient<W>(orientation),
-             FilterTemporal<W, 200>([this](float x, float y) { return calculate_delay(x, y); }),
-             FilterAntiAlias<W>()
+             Filter::World::Orient<W>(orientation),
+             Filter::Screen::Temporal<W, 200>([this](float x, float y) { return calculate_delay(x, y); }),
+             Filter::Screen::AntiAlias<W>()
         ),
         circular_source(Palettes::richSunset),
         palette(circular_source),
@@ -122,20 +122,16 @@ private:
     Timeline timeline;
     FastNoiseLite noise;
     
-    // Using simple ProceduralPath for motion
-    // Removed unused random_path
-    
     struct SimpleMesh {
         std::vector<Vector> vertices;
         std::vector<std::vector<int>> faces;
     };
     SimpleMesh mesh; 
     
-    Pipeline<W, FilterOrient<W>, FilterTemporal<W, 200>, FilterAntiAlias<W>> filters;
+    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 200>, Filter::Screen::AntiAlias<W>> filters;
 
     void rebuild_mesh() {
-        // Load Icosahedron
-        using S = Icosahedron;
+        using S = TruncatedIcosidodecahedron;
 
         // Vertices
         for(const auto& v : S::vertices) mesh.vertices.push_back(v);

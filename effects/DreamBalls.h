@@ -14,23 +14,6 @@
 #include <vector>
 #include <map>
 
-// Custom AlphaFalloffPalette
-class AlphaFalloffPalette : public Palette {
-public:
-    AlphaFalloffPalette(std::function<float(float)> falloff_fn, const Palette& base_palette)
-        : falloff_fn(falloff_fn), base_palette(base_palette) {}
-
-    Color4 get(float t) const override {
-        Color4 c = base_palette.get().get(t);
-        c.alpha *= falloff_fn(t);
-        return c;
-    }
-
-private:
-    std::function<float(float)> falloff_fn;
-    std::reference_wrapper<const Palette> base_palette;
-};
-
 template <int W>
 class DreamBalls : public Effect {
 public:
@@ -53,7 +36,7 @@ public:
     };
 
     DreamBalls() : Effect(W), 
-        filters(FilterOrientSlice<W>(orientations, Y_AXIS), FilterAntiAlias<W>()),
+        filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS), Filter::Screen::AntiAlias<W>()),
         slice_filter(filters) // Filters inherits Head (FilterOrientSlice)
     {
         // Initialize Orientations
@@ -106,8 +89,8 @@ private:
     std::vector<Orientation> orientations;
     
     // Pipeline
-    Pipeline<W, FilterOrientSlice<W>, FilterAntiAlias<W>> filters;
-    std::reference_wrapper<FilterOrientSlice<W>> slice_filter;
+    Pipeline<W, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W>> filters;
+    std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
 
     // Presets
     std::vector<Params> presets;

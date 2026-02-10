@@ -19,10 +19,10 @@ public:
     holeN(Z_AXIS),
     holeS(-Z_AXIS),
     filters(
-      FilterHoleRef<W>(holeN, 1.2f),
-      FilterHoleRef<W>(holeS, 1.2f),
-      FilterOrient<W>(orientation),
-      FilterAntiAlias<W>()
+      Filter::World::HoleRef<W>(holeN, 1.2f),
+      Filter::World::HoleRef<W>(holeS, 1.2f),
+      Filter::World::Orient<W>(orientation),
+      Filter::Screen::AntiAlias<W>()
     )
   {
     persist_pixels = false;
@@ -171,9 +171,9 @@ private:
   Vector holeS;
 
   Pipeline<W,
-    FilterHoleRef<W>,
-    FilterHoleRef<W>,
-    FilterOrient<W>,
-    FilterAntiAlias<W>
+    Filter::World::HoleRef<W>,
+    Filter::World::HoleRef<W>,
+    Filter::World::Orient<W>,
+    Filter::Screen::AntiAlias<W>
   > filters;
 };

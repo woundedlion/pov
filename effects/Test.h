@@ -70,7 +70,7 @@ public:
 
 private:
   Timeline timeline;
-  Pipeline<W, FilterAntiAlias<W>> filters;
+  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
   
   float alpha;
   GenerativePalette ringPalette;

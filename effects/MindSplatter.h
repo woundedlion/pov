@@ -17,7 +17,7 @@ template <int W>
 class MindSplatter : public Effect {
 public:
     MindSplatter() : Effect(W),
-        filters(FilterOrient<W>(orientation), FilterAntiAlias<W>()),
+        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()),
         particle_system(2048)
     {
         rebuild();
@@ -41,7 +41,7 @@ public:
 private:
     Orientation orientation;
     Timeline timeline;
-    Pipeline<W, FilterOrient<W>, FilterAntiAlias<W>> filters;
+    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
     ParticleSystem particle_system;
     
     // Params
@@ -91,13 +91,19 @@ private:
                 // Update Hue
                 emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
                 
-                GenerativePalette palette(
+                // Use AlphaFalloffPalette if desired, or standard Generative
+                // JS: new AlphaFalloffPalette((t) => t, new GenerativePalette(...))
+                // Implementing this parity:
+                
+                GenerativePalette base_palette(
                     GradientShape::STRAIGHT,
                     HarmonyType::COMPLEMENTARY,
                     BrightnessProfile::DESCENDING,
                     SaturationProfile::MID,
                     static_cast<int>(emitter_hues[i] * 255.0f)
                 );
+                
+                AlphaFalloffPalette palette([](float t) { return t; }, base_palette);
                 
                 sys.spawn(axis, vel, palette, 160);
             });
@@ -115,7 +121,7 @@ private:
                         holeAlpha *= quintic_kernel(t);
                   }
              }
-             f.v3 *= holeAlpha; // JS Logic: v3 *= holeAlpha
+             f.v3 *= holeAlpha; 
              return f;
         };
 
@@ -133,8 +139,14 @@ private:
              const auto& p = particle_system.pool[p_idx];             
              Color4 c = get_color(p.palette, f.v0);
              
+             // Optimization: Skip black
+             if (c.alpha <= 0.001f || alpha <= 0.001f) {
+                 f_out.color = Color4(CRGB::Black, 0.0f);
+                 return f_out;
+             }
+             
              f_out.color = Color4(c.color, c.alpha * alpha * opacity);
-             f_out.blend = BLEND_OVER; // Blend 0 = Normal/Over
+             f_out.blend = BLEND_OVER; 
              
              return f_out;
         };

@@ -16,7 +16,7 @@ template <int W>
 class GnomonicStars : public Effect {
 public:
     GnomonicStars() : Effect(W),
-        filters(FilterOrient<W>(orientation), FilterAntiAlias<W>()),
+        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()),
         orientation(),
         timeline(),
         params(1,0,0,0, 0,0,1,0)
@@ -74,7 +74,7 @@ public:
 private:
     Orientation orientation;
     Timeline timeline;
-    Pipeline<W, FilterOrient<W>, FilterAntiAlias<W>> filters;
+    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
     
     MobiusParams params;
     bool enable_transform = true;

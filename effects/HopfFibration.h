@@ -19,8 +19,8 @@ public:
     static constexpr int MAX_TRAILS = 5000; 
 
     HopfFibration() : Effect(W), 
-        filters(FilterWorldTrails<W, MAX_TRAILS>(40), FilterOrient<W>(orientation), FilterAntiAlias<W>()),
-        trails(static_cast<FilterWorldTrails<W, MAX_TRAILS>&>(filters))
+        filters(Filter::World::Trails<W, MAX_TRAILS>(40), Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()),
+        trails(static_cast<Filter::World::Trails<W, MAX_TRAILS>&>(filters))
     {
         init_fibers();
         timeline.add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 10000, ease_mid, true)); // Slow camera
@@ -136,11 +136,14 @@ private:
     Timeline timeline;
     
     // Pipeline
-    Pipeline<W, FilterWorldTrails<W, MAX_TRAILS>, FilterOrient<W>, FilterAntiAlias<W>> filters;
+    Pipeline<W, 
+    Filter::World::Trails<W, MAX_TRAILS>, 
+    Filter::World::Orient<W>, 
+    Filter::Screen::AntiAlias<W>> filters;
     
     // Reference to start filter for trail calls
     // Filters inherits Head (FilterWorldTrails)
-    std::reference_wrapper<FilterWorldTrails<W, MAX_TRAILS>> trails;
+    std::reference_wrapper<Filter::World::Trails<W, MAX_TRAILS>> trails;
     
     void init_fibers() {
         fibers.clear();
