@@ -17,9 +17,9 @@ public:
     Effect(W),
     palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
     filters(
-      FilterWorldTrails<W, k_max_trail_dots>(k_trail_length),
-      FilterOrient<W>(orientation),
-      FilterAntiAlias<W>()
+      Filter::World::Trails<W, k_max_trail_dots>(k_trail_length),
+      Filter::World::Orient<W>(orientation),
+      Filter::Screen::AntiAlias<W>()
     )
   {
     persist_pixels = false;
@@ -111,9 +111,9 @@ private:
   Orientation orientation;
 
   Pipeline<W,
-    FilterWorldTrails<W, k_max_trail_dots>,
-    FilterOrient<W>,
-    FilterAntiAlias<W>
+    Filter::World::Trails<W, k_max_trail_dots>,
+    Filter::World::Orient<W>,
+    Filter::Screen::AntiAlias<W>
   > filters;
 
 

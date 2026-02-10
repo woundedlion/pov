@@ -79,7 +79,7 @@ private:
   }
 
   Timeline timeline;
-  Pipeline<W, FilterAntiAlias<W>> filters;
+  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
 
   float alpha;

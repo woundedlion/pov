@@ -26,7 +26,13 @@ static constexpr float TOLERANCE = 0.0001f;
 /**
  * @brief Floating-point representation of PI.
  */
+// ... existing imports
 static constexpr float PI_F = static_cast<float>(PI);
+
+inline float quintic_kernel(float t) {
+  t = std::clamp(t, 0.0f, 1.0f);
+  return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+}
 
 struct Vector;
 

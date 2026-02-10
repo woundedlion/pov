@@ -26,7 +26,7 @@ public:
     };
 
     IslamicStars() : Effect(W), 
-        filters(FilterAntiAlias<W>())
+        filters(Filter::Screen::AntiAlias<W>())
     {
         timeline.add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2000, ease_mid, true)); // Continuous spin
         timeline.add(0, PeriodicTimer(300, [this](Canvas& c) { this->next_solid(); }, true));
@@ -60,7 +60,7 @@ public:
 private:
     Orientation orientation;
     Timeline timeline;
-    Pipeline<W, FilterAntiAlias<W>> filters;
+    Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
 
     MeshState mesh_a;
     MeshState mesh_b;

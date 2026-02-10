@@ -674,10 +674,10 @@ public:
   Color4 get(float t) const override {
     CRGB vignette_color(0, 0, 0);
     if (t < 0.2f) {
-      return Color4(vignette_color.lerp16(palette.get().get(0.0f).color, to_short(t / 0.2f)), 1.0f);
+      return Color4(vignette_color.lerp16(palette.get().get(0.0f).color, to_short(quintic_kernel(t / 0.2f))), 1.0f);
     }
     else if (t >= 0.8f) {
-      return Color4(palette.get().get(1.0f).color.lerp16(vignette_color, to_short((t - 0.8f) / 0.2f)), 1.0f);
+      return Color4(palette.get().get(1.0f).color.lerp16(vignette_color, to_short(quintic_kernel((t - 0.8f) / 0.2f))), 1.0f);
     }
     else {
       return palette.get().get((t - 0.2f) / 0.6f);
@@ -695,11 +695,11 @@ public:
     float factor = 1.0f;
     if (t < 0.2f) {
       result = palette.get().get(0.0f);
-      factor = t / 0.2f;
+      factor = quintic_kernel(t / 0.2f);
     }
     else if (t >= 0.8f) {
       result = palette.get().get(1.0f);
-      factor = (1.0f - (t - 0.8f) / 0.2f);
+      factor = quintic_kernel(1.0f - (t - 0.8f) / 0.2f);
     }
     else {
       return palette.get().get((t - 0.2f) / 0.6f);
@@ -709,6 +709,20 @@ public:
   }
 private:
   std::reference_wrapper<const Palette> palette;
+};
+
+class AlphaFalloffPalette : public Palette {
+public:
+    using FalloffFn = std::function<float(float)>;
+    AlphaFalloffPalette(FalloffFn fn, const Palette& source) : fn(fn), source(source) {}
+    Color4 get(float t) const override {
+        Color4 c = source.get().get(t);
+        c.alpha *= fn(t);
+        return c;
+    }
+private:
+    FalloffFn fn;
+    std::reference_wrapper<const Palette> source;
 };
 
 class SolidColorPalette : public Palette {
@@ -732,7 +746,7 @@ using PaletteVariant = std::variant<
   ReversePalette,
   VignettePalette,
   TransparentVignette,
-  TransparentVignette,
+  AlphaFalloffPalette,
   SolidColorPalette,
   CircularPalette
 >;

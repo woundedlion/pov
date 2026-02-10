@@ -36,10 +36,10 @@ public:
     trail_length(8),
 
     filters(
-      FilterWorldTrails<W, 10000>(trail_length),
-      FilterReplicate<W>(3),
-      FilterOrient<W>(orientation),
-      FilterAntiAlias<W>()
+      Filter::World::Trails<W, 10000>(trail_length),
+      Filter::World::Replicate<W>(3),
+      Filter::World::Orient<W>(orientation),
+      Filter::Screen::AntiAlias<W>()
     )
   {
     persist_pixels = false;
@@ -237,9 +237,9 @@ private:
   int wipe_duration = 20;
 
   Pipeline<W,
-    FilterWorldTrails<W, 10000>,
-    FilterReplicate<W>,
-    FilterOrient<W>,
-    FilterAntiAlias<W>
+    Filter::World::Trails<W, 10000>,
+    Filter::World::Replicate<W>,
+    Filter::World::Orient<W>,
+    Filter::Screen::AntiAlias<W>
   > filters;
 };

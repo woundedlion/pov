@@ -11,7 +11,7 @@ public:
   Thrusters() :
     Effect(W),
     palette({ 0.5f, 0.5f, 0.5f }, { 0.5f, 0.5f, 0.5f }, { 0.3f, 0.3f, 0.3f }, { 0.0f, 0.2f, 0.6f }),
-    filters(FilterAntiAlias<W>()),
+    filters(Filter::Screen::AntiAlias<W>()),
     ring_vec(0.5f, 0.5f, 0.5f),
     amplitude(0),
     radius(1.0f),
@@ -155,7 +155,7 @@ private:
   }
 
   ProceduralPalette palette;
-  Pipeline<W, FilterAntiAlias<W>> filters;
+  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
 
   Vector ring_vec;
   float amplitude;

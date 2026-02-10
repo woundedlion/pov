@@ -20,7 +20,7 @@ public:
 
   BZReactionDiffusion() :
     Effect(W),
-    filters(FilterOrient<W>(orientation), FilterAntiAlias<W>())
+    filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>())
   {
     persist_pixels = false;
     build_graph();
@@ -278,8 +278,8 @@ private:
   Orientation orientation;
 
   Pipeline<W,
-    FilterOrient<W>,
-    FilterAntiAlias<W>> filters;
+    Filter::World::Orient<W>,
+    Filter::Screen::AntiAlias<W>> filters;
 
   StaticCircularBuffer<BZReactionContext, 4> contexts;
   Timeline timeline;

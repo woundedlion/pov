@@ -19,8 +19,8 @@ public:
     int_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::CUP),
     int_next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::CUP),
     filters(
-      FilterOrient<W>(orientation),
-      FilterAntiAlias<W>()
+      Filter::World::Orient<W>(orientation),
+      Filter::Screen::AntiAlias<W>()
     )
   {
     persist_pixels = false;
@@ -101,7 +101,7 @@ private:
   Timeline timeline;
 
   Pipeline<W,
-    FilterOrient<W>,
-    FilterAntiAlias<W>
+    Filter::World::Orient<W>,
+    Filter::Screen::AntiAlias<W>
   > filters;
 };

@@ -21,8 +21,8 @@ public:
       { 0.539f, 0.701f, 0.809f }
     ),
     filters(
-      FilterOrient<W>(orientation),
-      FilterAntiAlias<W>()
+      Filter::World::Orient<W>(orientation),
+      Filter::Screen::AntiAlias<W>()
     )
   {
     persist_pixels = false;
@@ -130,8 +130,8 @@ private:
   ProceduralPalette palette;
   Orientation orientation;
   Pipeline<W,
-    FilterOrient<W>,
-    FilterAntiAlias<W>
+    Filter::World::Orient<W>,
+    Filter::Screen::AntiAlias<W>
   > filters;
   Timeline timeline;
 };

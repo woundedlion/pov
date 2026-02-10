@@ -52,7 +52,7 @@ public:
         int iterations;
     };
 
-    LSystem() : Effect(W), filters(FilterOrient<W>(orientation), FilterAntiAlias<W>()) {
+    LSystem() : Effect(W), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()) {
         setup_rules();
         set_ruleset(0); // Tree
         timeline.add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400, ease_mid, true));
@@ -127,7 +127,7 @@ public:
 private:
     Orientation orientation;
     Timeline timeline;
-    Pipeline<W, FilterOrient<W>, FilterAntiAlias<W>> filters;
+    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
     ProceduralPalette palette = Palettes::richSunset;
     
     std::vector<Ruleset> rulesets;

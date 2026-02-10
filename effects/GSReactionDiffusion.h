@@ -18,7 +18,7 @@ public:
   static constexpr int RD_K = 6;            // Number of neighbors per node
 
   GSReactionDiffusion()
-      : Effect(W), filters(FilterOrient<W>(orientation), FilterAntiAlias<W>()) {
+      : Effect(W), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()) {
     persist_pixels = false;
     build_graph();
     timeline
@@ -250,7 +250,7 @@ private:
   std::array<std::array<int, RD_K>, RD_N> neighbors;
   Orientation orientation;
 
-  Pipeline<W, FilterOrient<W>, FilterAntiAlias<W>> filters;
+  Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
 
   StaticCircularBuffer<GSReactionContext, 4> contexts;
   Timeline timeline;

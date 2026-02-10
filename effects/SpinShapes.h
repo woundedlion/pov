@@ -15,7 +15,7 @@
 template <int W>
 class SpinShapes : public Effect {
 public:
-    SpinShapes() : Effect(W), filters(FilterOrient<W>(camera), FilterAntiAlias<W>()) {
+    SpinShapes() : Effect(W), filters(Filter::World::Orient<W>(camera), Filter::Screen::AntiAlias<W>()) {
         rebuild();
     }
 
@@ -51,7 +51,7 @@ private:
     std::vector<Rotation<W>> rotations;
     
     Orientation camera;
-    Pipeline<W, FilterOrient<W>, FilterAntiAlias<W>> filters;
+    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
 
     void rebuild() {
         shapes.clear();

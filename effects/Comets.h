@@ -143,7 +143,7 @@ private:
   }
 
   Timeline timeline;
-  Pipeline<W, FilterAntiAlias<W>> filters;
+  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
   Path<W> path;
   Orientation orientation;
   GenerativePalette palette;

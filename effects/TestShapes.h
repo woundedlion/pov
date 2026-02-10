@@ -144,7 +144,7 @@ public:
 private:
   Timeline timeline;
   StaticCircularBuffer<Ring, 128> rings;
-  Pipeline<W, FilterAntiAlias<W>> plot_filters;
+  Pipeline<W, Filter::Screen::AntiAlias<W>> plot_filters;
   Pipeline<W> scan_filters;
 
   float alpha;
