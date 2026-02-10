@@ -23,7 +23,7 @@ public:
         rebuild();
         
         // Random Walk
-        timeline.add(0, RandomWalk<W>(orientation, Y_AXIS)); 
+        timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS)); 
 
         start_warp();
     }
@@ -42,7 +42,7 @@ private:
     Orientation orientation;
     Timeline timeline;
     Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
-    ParticleSystem particle_system;
+    Animation::ParticleSystem particle_system;
     
     // Params
     float friction = 0.85f;
@@ -77,7 +77,7 @@ private:
         for(size_t i=0; i<EmitSolid::NUM_VERTS; ++i) {
             Vector axis = EmitSolid::vertices[i];
             
-            particle_system.add_emitter([=, this](ParticleSystem& sys) mutable {
+            particle_system.add_emitter([=, this](Animation::ParticleSystem& sys) mutable {
                 static int Counter = 0;
                 float angle = (Counter++) * angular_speed;
                 
@@ -159,14 +159,14 @@ private:
     }
     
     void schedule_warp() {
-        auto timer = RandomTimer(180, 300, [this](Canvas&) {
+        auto timer = Animation::RandomTimer(180, 300, [this](Canvas&) {
             perform_warp();
         });
         timeline.add(0, timer);
     }
     
     void perform_warp() {
-        auto warp = MobiusWarp(mobius, warp_scale, 160, false);
+        auto warp = Animation::MobiusWarp(mobius, warp_scale, 160, false);
         warp.then([this]() {
             schedule_warp();
         });

@@ -22,8 +22,8 @@ public:
     persist_pixels = false;
     build_graph();
     timeline
-        .add(0, Rotation<W>(orientation, Y_AXIS, PI_F / 2, 64, ease_mid, true))
-        .add(0, PeriodicTimer(96, [this](Canvas &c) { this->spawn(); }, true));
+        .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 64, ease_mid, true))
+        .add(0, Animation::PeriodicTimer(96, [this](Canvas &c) { this->spawn(); }, true));
 
     // Seed and spawn
     spawn();
@@ -169,7 +169,7 @@ private:
     GSReactionContext &ctx = contexts.back();
     seed(ctx);
 
-    timeline.add(0, Sprite(
+    timeline.add(0, Animation::Sprite(
                         [this, &ctx](Canvas &c, float opacity) {
                           this->render_reaction(c, ctx, opacity);
                         },

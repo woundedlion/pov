@@ -48,7 +48,7 @@ public:
         // Initial load
         set_preset(0); // Load first preset
         
-        timeline.add(0, PeriodicTimer(160, [this](Canvas& c) { this->spin_slices(); }, true));
+        timeline.add(0, Animation::PeriodicTimer(160, [this](Canvas& c) { this->spin_slices(); }, true));
     }
 
     bool show_bg() const override { return false; }
@@ -82,7 +82,7 @@ private:
     
     // Animation Integ
     MobiusParams mobius_params;
-    MobiusWarp warp_anim{mobius_params, 1.0f, 200, true};
+    Animation::MobiusWarp warp_anim{mobius_params, 1.0f, 200, true};
     Timeline timeline;
     
     // Slices
@@ -246,7 +246,7 @@ private:
         
         for (int i = 0; i < orientations.size(); ++i) {
             float direction = (i % 2 == 0) ? 1.0f : -1.0f;
-            timeline.add(0, Rotation<W>(orientations[i], axis, direction * 2 * PI_F, 80, ease_in_out_sin, false));
+            timeline.add(0, Animation::Rotation<W>(orientations[i], axis, direction * 2 * PI_F, 80, ease_in_out_sin, false));
         }
     }
 };

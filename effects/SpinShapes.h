@@ -48,7 +48,7 @@ private:
     int count = 40;
     
     std::vector<Shape> shapes;
-    std::vector<Rotation<W>> rotations;
+    std::vector<Animation::Rotation<W>> rotations;
     
     Orientation camera;
     Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
@@ -69,14 +69,14 @@ private:
                 shapes.push_back({normal, Orientation(), 0});
                 Shape& s = shapes.back();
                 // Rotation(orientation, axis, angle, duration, easing, repeat, space)
-                rotations.emplace_back(s.orientation, s.normal, 2 * PI_F, 300 + i * 2, ease_mid, true, Space::Local);
+                rotations.emplace_back(s.orientation, s.normal, 2 * PI_F, 300 + i * 2, ease_mid, true, Animation::Space::Local);
             }
 
             // Layer 2
             {
                 shapes.push_back({normal, Orientation(), 1});
                 Shape& s = shapes.back();
-                rotations.emplace_back(s.orientation, s.normal, -2 * PI_F, 300 + i * 2, ease_mid, true, Space::Local);
+                rotations.emplace_back(s.orientation, s.normal, -2 * PI_F, 300 + i * 2, ease_mid, true, Animation::Space::Local);
             }
         }
     }

@@ -22,8 +22,8 @@ public:
         params(1,0,0,0, 0,0,1,0)
     {
         // Start Animations
-        timeline.add(0, MobiusGenerate(params, 0.5f, 0.05f));
-        timeline.add(0, RandomWalk<W>(orientation, UP, RandomWalk<W>::Brisk));
+        timeline.add(0, Animation::MobiusGenerate(params, 0.5f, 0.05f));
+        timeline.add(0, Animation::RandomWalk<W>(orientation, UP, Animation::RandomWalk<W>::Brisk));
     }
 
     bool show_bg() const override { return true; } 

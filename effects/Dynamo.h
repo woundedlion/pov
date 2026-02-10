@@ -50,11 +50,11 @@ public:
 
     timeline
       .add(0,
-        RandomTimer(4, 64, [this](auto&) { reverse(); }, true))
+        Animation::RandomTimer(4, 64, [this](auto&) { reverse(); }, true))
       .add(0,
-        RandomTimer(20, 64, [this](auto&) { color_wipe(); }, true))
+        Animation::RandomTimer(20, 64, [this](auto&) { color_wipe(); }, true))
       .add(0,
-        RandomTimer(48, 160, [this](auto&) { rotate(); }, true));
+        Animation::RandomTimer(48, 160, [this](auto&) { rotate(); }, true));
   }
 
   bool show_bg() const override { return false; }
@@ -65,7 +65,7 @@ public:
 
   void rotate() {
     timeline.add(0,
-      Rotation<W>(
+      Animation::Rotation<W>(
         orientation, random_vector(), PI_F, 40, ease_in_out_sin, false));
   }
 
@@ -82,7 +82,7 @@ public:
     palette_boundaries.push_front(0);
 
     timeline.add(0,
-      Transition(palette_boundaries.front(), PI_F, wipe_duration, ease_mid)
+      Animation::Transition(palette_boundaries.front(), PI_F, wipe_duration, ease_mid)
       .then([this]() {
         palette_boundaries.pop_back();
         palettes.pop_back();

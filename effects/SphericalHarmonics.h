@@ -100,7 +100,7 @@ public:
     SphericalHarmonics() : Effect(W), filters() {
         // Spin
         Vector axis = Vector(0.5f, 1.0f, 0.2f).normalize();
-        timeline.add(0, Rotation<W>(orientation, axis, 2 * PI_F * 100, 10000, ease_mid, true));
+        timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100, 10000, ease_mid, true));
     }
     
     bool show_bg() const override { return false; }

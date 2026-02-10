@@ -65,7 +65,7 @@ public:
     // Twist Mutation: sin wave
     // In JS: (Math.PI / 4) * Math.sin(t * Math.PI), duration 480
     // C++ Mutation takes a reference.
-    timeline.add(0, Mutation(twist, [](float t) {
+    timeline.add(0, Animation::Mutation(twist, [](float t) {
       return (PI_F / 4.0f) * sinf(t * PI_F); 
     }, 480, ease_mid, true));
 
@@ -88,12 +88,12 @@ public:
     Vector antipode = (normal.i < -0.5f) ? -normal : normal;
     
     // Animations
-    typename RandomWalk<W>::Options rw_opts;
+    typename Animation::RandomWalk<W>::Options rw_opts;
     rw_opts.seed = seed;
-    rw_opts.space = Space::World;
-    timeline.add(0, RandomWalk<W>(ring.orientation, antipode, rw_opts));
-    timeline.add(0, Rotation<W>(ring.orientation, ring.normal, 2 * PI_F, 160, ease_mid, true, Space::Local));
-    timeline.add(0, Sprite(
+    rw_opts.space = Animation::Space::World;
+    timeline.add(0, Animation::RandomWalk<W>(ring.orientation, antipode, rw_opts));
+    timeline.add(0, Animation::Rotation<W>(ring.orientation, ring.normal, 2 * PI_F, 160, ease_mid, true, Animation::Space::Local));
+    timeline.add(0, Animation::Sprite(
       [this, &ring](Canvas& canvas, float opacity) {
         this->drawShape(canvas, ring, opacity);
       },

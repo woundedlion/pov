@@ -20,7 +20,7 @@ public:
     Vector normal;
     TransparentVignette palette;
     Orientation orientation;
-    OrientationTrail<TRAIL_LENGTH> trail;
+    Animation::OrientationTrail<TRAIL_LENGTH> trail;
     Ring() : normal(X_AXIS), palette(Palettes::iceMelt) {}
 
     Ring(const Vector& n, const Palette& p) :
@@ -75,7 +75,7 @@ private:
     if (rings.is_full()) return;
     rings.push_back(Ring(normal, palette));
     Ring& r = rings.back();
-    timeline.add(0, RandomWalk<W>(r.orientation, r.normal));
+    timeline.add(0, Animation::RandomWalk<W>(r.orientation, r.normal));
   }
 
   Timeline timeline;

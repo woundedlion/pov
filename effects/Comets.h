@@ -26,7 +26,7 @@ public:
 
   struct Node {
     Orientation orientation;
-    OrientationTrail<TRAIL_LENGTH> trail;
+    Animation::OrientationTrail<TRAIL_LENGTH> trail;
     Vector v;
 
     // Default constructor needed for StaticCircularBuffer
@@ -69,13 +69,13 @@ public:
       spawn_node();
     }
 
-    timeline.add(0, PeriodicTimer(2 * cycle_duration, [this](Canvas& c) {
+    timeline.add(0, Animation::PeriodicTimer(2 * cycle_duration, [this](Canvas& c) {
       cur_function_idx = static_cast<int>(hs::rand_int(0, functions.size()));
       update_path();
       update_palette();
       }, true));
 
-    timeline.add(0, RandomWalk<W>(orientation, random_vector()));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
   }
 
   bool show_bg() const override { return false; }
@@ -129,7 +129,7 @@ private:
     static GenerativePalette next_palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
     next_palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
 
-    timeline.add(0, ColorWipe(palette, next_palette, 48, ease_mid));
+    timeline.add(0, Animation::ColorWipe(palette, next_palette, 48, ease_mid));
   }
 
   void spawn_node() {
@@ -139,7 +139,7 @@ private:
     nodes.push_back(Node());
     Node& node = nodes.back();
 
-    timeline.add(i * spacing, Motion<W>(node.orientation, path, cycle_duration, true));
+    timeline.add(i * spacing, Animation::Motion<W>(node.orientation, path, cycle_duration, true));
   }
 
   Timeline timeline;

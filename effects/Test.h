@@ -23,15 +23,15 @@ public:
     thickness(4.0f * (2.0f * PI_F / W))
   {
     timeline.add(0,
-      Sprite([this](Canvas& canvas, float opacity) { this->drawFn(canvas, opacity); }, -1, 48, ease_mid, 0, ease_mid)
+      Animation::Sprite([this](Canvas& canvas, float opacity) { this->drawFn(canvas, opacity); }, -1, 48, ease_mid, 0, ease_mid)
     );
 
     timeline.add(0,
-      RandomWalk<W>(orientation, normal)
+      Animation::RandomWalk<W>(orientation, normal)
     );
 
     timeline.add(0,
-      Mutation(amplitude,
+      Animation::Mutation(amplitude,
         sin_wave(-amplitudeRange, amplitudeRange, 1.0f, 0.0f), 32, ease_mid, true)
     );
   }

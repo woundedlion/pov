@@ -23,7 +23,7 @@ public:
         trails(static_cast<Filter::World::Trails<W, MAX_TRAILS>&>(filters))
     {
         init_fibers();
-        timeline.add(0, Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 10000, ease_mid, true)); // Slow camera
+        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 10000, ease_mid, true)); // Slow camera
     }
     
     bool show_bg() const override { return false; }
@@ -137,9 +137,9 @@ private:
     
     // Pipeline
     Pipeline<W, 
-    Filter::World::Trails<W, MAX_TRAILS>, 
-    Filter::World::Orient<W>, 
-    Filter::Screen::AntiAlias<W>> filters;
+        Filter::World::Trails<W, MAX_TRAILS>, 
+        Filter::World::Orient<W>, 
+        Filter::Screen::AntiAlias<W>> filters;
     
     // Reference to start filter for trail calls
     // Filters inherits Head (FilterWorldTrails)

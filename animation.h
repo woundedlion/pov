@@ -89,6 +89,9 @@ struct ProceduralPath {
 
 #include "easing.h"
 
+
+namespace Animation {
+
 /**
  * @brief Defines the coordinate space for rotations.
  */
@@ -102,7 +105,7 @@ enum class Space {
  * @tparam Derived The class inheriting from Animation (Curiously Recurring Template Pattern).
  */
 template <typename Derived>
-class Animation {
+class Base {
 public:
 
   /**
@@ -158,9 +161,17 @@ protected:
    * @param duration Total number of frames the animation should run (-1 for indefinite).
    * @param repeat If true, the animation rewinds and restarts when finished.
    */
-  Animation(int duration, bool repeat) :
+  Base(int duration, bool repeat) :
     duration(duration == 0 ? 1 : duration),
     repeat(repeat),
+    canceled(false),
+    post([]() {})
+  {
+  }
+
+  Base() :
+    duration(-1),
+    repeat(false),
     canceled(false),
     post([]() {})
   {
@@ -179,13 +190,13 @@ private:
 /**
  * @brief A placeholder animation that immediately reports being done.
  */
-class NullAnimation : public Animation<NullAnimation> {
+class NullAnimation : public Base<NullAnimation> {
 public:
   /**
    * @brief Constructs a NullAnimation.
    */
   NullAnimation() :
-    Animation(0, false)
+    Base(0, false)
   {
   }
   /**
@@ -232,7 +243,7 @@ private:
   StaticCircularBuffer<Quaternion, 32> history;
 };
 
-class ParticleSystem : public Animation<ParticleSystem> {
+class ParticleSystem : public Base<ParticleSystem> {
 public:
   static constexpr int CAPACITY = 128; 
   std::array<Particle, CAPACITY> pool;
@@ -255,7 +266,7 @@ public:
   float resolution_scale = 1.0f;
 
   ParticleSystem(int capacity = CAPACITY, float friction = 0.95f, float gravity_scale = 0.001f)
-    : Animation(-1, false), friction(friction), gravity_scale(gravity_scale)
+    : Base(-1, false), friction(friction), gravity_scale(gravity_scale)
   {
   }
 
@@ -288,7 +299,7 @@ public:
   }
 
   void step(Canvas& canvas) override {
-    Animation::step(canvas);
+    Base::step(canvas);
 
     // Emitters
     for (size_t i = 0; i < emitters.size(); ++i) {
@@ -360,7 +371,7 @@ private:
 /**
  * @brief An animation that triggers a callback after a random delay.
  */
-class RandomTimer : public Animation<RandomTimer> {
+class RandomTimer : public Base<RandomTimer> {
 public:
 
   /**
@@ -371,7 +382,7 @@ public:
    * @param repeat If true, the timer resets after calling the function.
    */
   RandomTimer(int min, int max, TimerFn auto f, bool repeat = false) :
-    Animation(-1, repeat),
+    Base(-1, repeat),
     min(min),
     max(max),
     f(f),
@@ -391,7 +402,7 @@ public:
    * @brief Steps the timer, calling the function if the delay has elapsed.
    */
   void step(Canvas& canvas) {
-    Animation::step(canvas);
+    Base::step(canvas);
     if (t >= next) {
       f(canvas);
       if (repeat) {
@@ -414,7 +425,7 @@ private:
 /**
  * @brief An animation that triggers a callback at regular intervals.
  */
-class PeriodicTimer : public Animation<PeriodicTimer> {
+class PeriodicTimer : public Base<PeriodicTimer> {
 public:
   /**
    * @brief Constructs a PeriodicTimer.
@@ -423,7 +434,7 @@ public:
    * @param repeat If true, the timer resets after calling the function.
    */
   PeriodicTimer(int period, TimerFn auto f, bool repeat = false) :
-    Animation(-1, repeat),
+    Base(-1, repeat),
     period(period),
     f(f)
   {
@@ -441,7 +452,7 @@ public:
    * @brief Steps the timer, calling the function if the period has elapsed.
    */
   void step(Canvas& canvas) {
-    Animation::step(canvas);
+    Base::step(canvas);
     if (t >= next) {
       f(canvas);
       if (repeat) {
@@ -463,7 +474,7 @@ private:
 /**
  * @brief An animation that smoothly transitions a float variable over time.
  */
-class Transition : public Animation<Transition> {
+class Transition : public Base<Transition> {
 public:
   /**
    * @brief Constructs a Transition animation.
@@ -475,7 +486,7 @@ public:
    * @param repeat If true, the transition repeats indefinitely.
    */
   Transition(float& mutant, float to, int duration, ScalarFn auto easing_fn, bool quantized = false, bool repeat = false) :
-    Animation(duration, repeat),
+    Base(duration, repeat),
     mutant(mutant),
     from(mutant),
     to(to),
@@ -491,7 +502,7 @@ public:
     if (t == 0) {
       from = mutant;
     }
-    Animation::step(canvas);
+    Base::step(canvas);
     auto t = std::min(1.0f, static_cast<float>(this->t) / duration);
     auto n = easing_fn(t) * (to - from) + from;
     if (quantized) {
@@ -520,7 +531,7 @@ private:
 /**
  * @brief An animation that applies a custom function to a float variable over time.
  */
-class Mutation : public Animation<Mutation> {
+class Mutation : public Base<Mutation> {
 public:
 
   /**
@@ -532,7 +543,7 @@ public:
    * @param repeat If true, the mutation repeats indefinitely.
    */
   Mutation(float& mutant, ScalarFn auto f, int duration, ScalarFn auto easing_fn, bool repeat = false) :
-    Animation(duration, repeat),
+    Base(duration, repeat),
     mutant(mutant),
     from(mutant),
     f(f),
@@ -547,7 +558,7 @@ public:
     if (t == 0) {
       from = mutant;
     }
-    Animation::step(canvas);
+    Base::step(canvas);
     auto t = std::min(1.0f, static_cast<float>(this->t) / duration);
     mutant.get() = f(easing_fn(t));
   }
@@ -571,7 +582,7 @@ private:
 /**
  * @brief An animation that draws a sprite while managing its fade-in/out effects.
  */
-class Sprite : public Animation<Sprite> {
+class Sprite : public Base<Sprite> {
 public:
 
   /**
@@ -586,7 +597,7 @@ public:
   Sprite(std::function<void(Canvas&, float)> draw_fn, int duration,
     int fade_in_duration = 0, std::function<float(float)> fade_in_easing_fn = ease_mid,
     int fade_out_duration = 0, std::function<float(float)> fade_out_easing_fn = ease_mid) :
-    Animation(duration, false),
+    Base(duration, false),
     draw_fn(draw_fn),
     fader(fade_in_duration > 0 ? 0 : 1),
     fade_in_duration(fade_in_duration),
@@ -600,7 +611,7 @@ public:
    * @brief Move constructor. Rebinds internal references to the new fader variable.
    */
   Sprite(Sprite&& other) noexcept
-    : Animation(std::move(other)),
+    : Base(std::move(other)),
     draw_fn(std::move(other.draw_fn)),
     fader(other.fader),
     fade_in_duration(other.fade_in_duration),
@@ -625,7 +636,7 @@ public:
   Sprite& operator=(Sprite&& other) noexcept {
     if (this == &other) return *this;
 
-    Animation::operator=(std::move(other));
+    Base::operator=(std::move(other));
     draw_fn = std::move(other.draw_fn);
     fader = other.fader;
     fade_in_duration = other.fade_in_duration;
@@ -646,7 +657,7 @@ public:
       fade_in.rewind();
       fade_out.rewind();
     }
-    Animation::step(canvas);
+    Base::step(canvas);
     if (!fade_in.done()) {
       fade_in.step(canvas);
     }
@@ -671,7 +682,7 @@ private:
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
 template <int W>
-class Motion : public Animation<Motion<W>> {
+class Motion : public Base<Motion<W>> {
 public:
 
   /**
@@ -683,7 +694,7 @@ public:
    */
   template <typename P>
   Motion(Orientation& orientation, const P& path_obj, int duration, bool repeat = false, Space space = Space::World) :
-    Animation<Motion<W>>(duration, repeat),
+    Base<Motion<W>>(duration, repeat),
     orientation(orientation),
     path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
     space(space)
@@ -700,7 +711,7 @@ public:
    * and pushes them to the Orientation.
    */
   void step(Canvas& canvas) {
-    Animation<Motion<W>>::step(canvas);
+    Base<Motion<W>>::step(canvas);
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -762,7 +773,7 @@ private:
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
 template <int W>
-class Rotation : public Animation<Rotation<W>> {
+class Rotation : public Base<Rotation<W>> {
 public:
 
   /**
@@ -776,7 +787,7 @@ public:
    * @param space The coordinate space for rotation ("World" or "Local").
    */
   Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, ScalarFn auto easing_fn, bool repeat = false, Space space = Space::World) :
-    Animation<Rotation<W>>(duration, repeat),
+    Base<Rotation<W>>(duration, repeat),
     orientation(orientation),
     axis(axis),
     total_angle(angle),
@@ -798,7 +809,7 @@ public:
     if (this->t == 0) {
       last_angle = 0;
     }
-    Animation<Rotation<W>>::step(canvas);
+    Base<Rotation<W>>::step(canvas);
     float target_angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
     float delta = target_angle - last_angle;
     
@@ -866,7 +877,7 @@ private:
  * @tparam W The width of the LED display.
  */
 template<int W>
-class RandomWalk : public Animation<RandomWalk<W>> {
+class RandomWalk : public Base<RandomWalk<W>> {
 public:
   struct Options {
     float speed = 0.02f;          /**< Movement speed per frame. */
@@ -886,7 +897,7 @@ public:
    * @param options Configuration options.
    */
   RandomWalk(Orientation& orientation, const Vector& v_start, Options options = Options()) :
-    Animation<RandomWalk<W>>(-1, false),
+    Base<RandomWalk<W>>(-1, false),
     orientation(orientation),
     v(Vector(v_start).normalize()),
     options(options)
@@ -914,7 +925,7 @@ public:
    * @brief Steps the walk: pivots direction based on noise, then rotates the view along the calculated axis.
    */
   void step(Canvas& canvas) override {
-    Animation<RandomWalk<W>>::step(canvas);
+    Base<RandomWalk<W>>::step(canvas);
     float pivotAngle = noiseGenerator.GetNoise(static_cast<float>(this->t), 0.0f) * options.pivot_strength;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     Vector walk_axis = cross(v, direction).normalize();
@@ -936,7 +947,7 @@ private:
 /**
  * @brief An animation that smoothly interpolates a GenerativePalette toward a target palette.
  */
-class ColorWipe : public Animation<ColorWipe> {
+class ColorWipe : public Base<ColorWipe> {
 public:
   /**
    * @brief Constructs a ColorWipe animation.
@@ -946,7 +957,7 @@ public:
    * @param easing_fn The easing function.
    */
   ColorWipe(GenerativePalette& from_palette, const GenerativePalette& to_palette, int duration, ScalarFn auto easing_fn) :
-    Animation(duration, false),
+    Base(duration, false),
     from_palette(from_palette),
     cur_palette(from_palette),
     to_palette(to_palette),
@@ -961,7 +972,7 @@ public:
     if (t == 0) {
       from_palette = cur_palette.get();
     }
-    Animation::step(canvas);
+    Base::step(canvas);
     float amount = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     cur_palette.get().lerp(from_palette, to_palette, easing_fn(amount));
   }
@@ -977,7 +988,7 @@ private:
 /**
  * @brief Animates the Mobius parameters for a continuous loxodromic flow.
  */
-class MobiusFlow : public Animation<MobiusFlow> {
+class MobiusFlow : public Base<MobiusFlow> {
 public:
   /**
    * @brief Constructs a MobiusFlow animation.
@@ -988,7 +999,7 @@ public:
    * @param repeat Whether to repeat.
    */
   MobiusFlow(MobiusParams& params, const float& num_rings, const float& num_lines, int duration, bool repeat = true) :
-    Animation(duration, repeat),
+    Base(duration, repeat),
     params(params),
     num_rings(num_rings),
     num_lines(num_lines)
@@ -999,7 +1010,7 @@ public:
    * @brief Steps the animation, updating params a and d.
    */
   void step(Canvas& canvas) {
-    Animation::step(canvas);
+    Base::step(canvas);
     float progress = static_cast<float>(t) / duration;
     float logPeriod = 5.0f / (num_rings + 1);
     float flowParam = progress * logPeriod;
@@ -1022,7 +1033,7 @@ private:
 /**
  * @brief Animates the Mobius parameters for a warping effect pulling the poles together.
  */
-class MobiusWarp : public Animation<MobiusWarp> {
+class MobiusWarp : public Base<MobiusWarp> {
 public:
   /**
    * @brief Constructs a MobiusWarp animation.
@@ -1032,7 +1043,7 @@ public:
    * @param repeat Whether to repeat.
    */
   MobiusWarp(MobiusParams& params, float scale, int duration, bool repeat = true) :
-    Animation(duration, repeat),
+    Base(duration, repeat),
     params(params),
     scale(scale)
   {
@@ -1042,7 +1053,7 @@ public:
    * @brief Steps the animation, updating param b.
    */
   void step(Canvas& canvas) {
-    Animation::step(canvas);
+    Base::step(canvas);
     float progress = static_cast<float>(t) / duration;
     float angle = progress * 2 * PI_F;
     params.get().bRe = scale * cosf(angle);
@@ -1104,7 +1115,7 @@ private:
 /*
  * @brief Animates a transition between two meshes using pre-allocated buffers.
  */
-class MeshMorph : public Animation<MeshMorph> {
+class MeshMorph : public Base<MeshMorph> {
 public:
   // Minimal State access for consumers
   using State = MeshState;
@@ -1120,7 +1131,7 @@ public:
    * @param easing_fn Easing function.
    */
   MeshMorph(MeshState* output, MorphBuffer* buffer, const MeshState& source, const MeshState& dest, int duration, bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
-    : Animation(duration, repeat), output(output), buffer(buffer), easing_fn(easing_fn)
+    : Base(duration, repeat), output(output), buffer(buffer), easing_fn(easing_fn)
   {
       if (buffer) {
           buffer->source = source; // Copy to buffer
@@ -1157,7 +1168,7 @@ public:
   }
   
   void step(Canvas& canvas) override {
-      Animation::step(canvas);
+      Base::step(canvas);
       if (!output || !buffer) return;
 
       float progress = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
@@ -1199,7 +1210,7 @@ private:
  * @brief Continuously modulates Mobius parameters to create an evolving warp.
  * Uses multiple frequencies for non-repeating chaos.
  */
-class MobiusGenerate : public Animation<MobiusGenerate> {
+class MobiusGenerate : public Base<MobiusGenerate> {
 public:
   /**
    * @brief Constructs a MobiusGenerate animation.
@@ -1208,7 +1219,7 @@ public:
    * @param speed Speed of the animation.
    */
   MobiusGenerate(MobiusParams& params, float scale = 0.5f, float speed = 0.01f) :
-    Animation(-1, true),
+    Base(-1, true),
     params(params),
     scale(scale),
     speed(speed)
@@ -1228,7 +1239,7 @@ public:
   }
 
   void step(Canvas& canvas) {
-    Animation::step(canvas);
+    Base::step(canvas);
     float time = t * speed;
     float s = scale;
 
@@ -1264,7 +1275,7 @@ private:
  * @brief Adapts a PaletteModifier to the Animation system.
  * Holds a reference to the modifier, allowing the Timeline to drive it.
  */
-class PaletteAnimation : public Animation<PaletteAnimation> {
+class PaletteAnimation : public Base<PaletteAnimation> {
 public:
     /**
      * @param modifier Reference to the stateful modifier object.
@@ -1272,7 +1283,7 @@ public:
      * @param repeat Whether to repeat.
      */
     PaletteAnimation(PaletteModifier& modifier, int duration = -1, bool repeat = true) 
-        : Animation(duration, repeat), modifier(modifier) 
+        : Base(duration, repeat), modifier(modifier) 
     {
     }
 
@@ -1280,7 +1291,7 @@ public:
      * @brief Steps the modifier.
      */
     void step(Canvas& canvas) {
-        Animation::step(canvas); // Updates base 't' (optional usage)
+        Base::step(canvas); // Updates base 't' (optional usage)
         modifier.get().step();   // Updates the modifier's internal state
     }
 
@@ -1288,25 +1299,25 @@ private:
     std::reference_wrapper<PaletteModifier> modifier;
 };
 
+} // namespace Animation
+
 using AnimationVariant = std::variant<
-  NullAnimation,
-  Sprite,
-  Transition,
-  Mutation,
-  RandomTimer,
-  PeriodicTimer,
-  Rotation<MAX_W>,
-  Motion<MAX_W>,
-  RandomWalk<MAX_W>,
-  ColorWipe,
-  MobiusFlow,
-  MobiusGenerate,
-  MobiusWarp,
-  ParticleSystem,
-  MeshMorph,
-  ParticleSystem,
-  MeshMorph,
-  PaletteAnimation
+  Animation::NullAnimation,
+  Animation::Sprite,
+  Animation::Transition,
+  Animation::Mutation,
+  Animation::RandomTimer,
+  Animation::PeriodicTimer,
+  Animation::Rotation<MAX_W>,
+  Animation::Motion<MAX_W>,
+  Animation::RandomWalk<MAX_W>,
+  Animation::ColorWipe,
+  Animation::MobiusFlow,
+  Animation::MobiusGenerate,
+  Animation::MobiusWarp,
+  Animation::ParticleSystem,
+  Animation::MeshMorph,
+  Animation::PaletteAnimation
 >;
 
 /**
@@ -1439,7 +1450,7 @@ void tween(const Orientation& o, F callback) {
 }
 
 /**
- * @brief Helper to iterate over any Tweenable object (Orientation or OrientationTrail).
+ * @brief Helper to iterate over any Tweenable object (Orientation or Animation::OrientationTrail).
  * @param o The object to iterate.
  * @param callback The function to call for each step: `void(const T&, float t)`.
  */
