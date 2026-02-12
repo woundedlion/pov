@@ -4,17 +4,9 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../scan.h"
-#include "../plot.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../solids.h"
-#include "../palettes.h"
-#include "../FastNoiseLite.h"
 #include <vector>
 #include <functional>
+#include "../effects_engine.h"
 
 template <int W>
 class TestTemporal : public Effect {
@@ -122,30 +114,12 @@ private:
     Timeline timeline;
     FastNoiseLite noise;
     
-    struct SimpleMesh {
-        std::vector<Vector> vertices;
-        std::vector<std::vector<int>> faces;
-    };
-    SimpleMesh mesh; 
+    PolyMesh mesh;
     
     Pipeline<W, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 200>, Filter::Screen::AntiAlias<W>> filters;
 
     void rebuild_mesh() {
-        using S = TruncatedIcosidodecahedron;
-
-        // Vertices
-        for(const auto& v : S::vertices) mesh.vertices.push_back(v);
-
-        // Faces
-        int offset = 0;
-        for(uint8_t count : S::face_counts) {
-            std::vector<int> face;
-            for(int i = 0; i < count; ++i) {
-                face.push_back(S::faces[offset + i]);
-            }
-            mesh.faces.push_back(face);
-            offset += count;
-        }
+        mesh = Solids::Archimedean::truncatedIcosidodecahedron();
     }
     
     float calculate_delay(float x, float y) {

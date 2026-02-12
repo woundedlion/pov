@@ -4,13 +4,7 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../scan.h"
-#include "../solids.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../palettes.h"
+#include "../effects_engine.h"
 #include <vector>
 #include <map>
 
@@ -77,6 +71,8 @@ private:
     // Mesh Data (Dynamic)
     MeshState base_mesh;
     MeshState displaced_mesh;
+    std::vector<int> faces_buffer;
+    std::vector<uint8_t> counts_buffer;
     struct Tangent { Vector u; Vector v; };
     std::vector<Tangent> tangents;
     
@@ -136,24 +132,36 @@ private:
 
     void load_solid(SolidType type) {
         switch(type) {
-            case SolidType::Rhombicuboctahedron: load_mesh_data<Rhombicuboctahedron>(); break;
-            case SolidType::Rhombicosidodecahedron: load_mesh_data<Rhombicosidodecahedron>(); break;
-            case SolidType::TruncatedCuboctahedron: load_mesh_data<TruncatedCuboctahedron>(); break;
-            case SolidType::Icosidodecahedron: load_mesh_data<Icosidodecahedron>(); break;
+            case SolidType::Rhombicuboctahedron: load_mesh_data(Solids::Archimedean::rhombicuboctahedron()); break;
+            case SolidType::Rhombicosidodecahedron: load_mesh_data(Solids::Archimedean::rhombicosidodecahedron()); break;
+            case SolidType::TruncatedCuboctahedron: load_mesh_data(Solids::Archimedean::truncatedCuboctahedron()); break;
+            case SolidType::Icosidodecahedron: load_mesh_data(Solids::Archimedean::icosidodecahedron()); break;
         }
     }
 
-    template <typename T>
-    void load_mesh_data() {
+    void load_mesh_data(const PolyMesh& mesh) {
         // Copy vertices (mutable)
-        if (T::NUM_VERTS > MeshState::MAX_VERTS) return;
-        std::copy(T::vertices.begin(), T::vertices.end(), base_mesh.vertices.begin());
-        base_mesh.num_vertices = T::NUM_VERTS;
+        if (mesh.vertices.size() > MeshState::MAX_VERTS) return;
+        base_mesh.num_vertices = mesh.vertices.size();
+        for(size_t i=0; i<base_mesh.num_vertices; ++i) {
+            base_mesh.vertices[i] = mesh.vertices[i];
+        }
 
-        // Point to static topology (immutable)
-        base_mesh.num_faces = T::NUM_FACES;
-        base_mesh.face_counts = T::face_counts.data();
-        base_mesh.faces = T::faces.data();
+        // Copy Topology to Buffers
+        faces_buffer.clear();
+        counts_buffer.clear();
+        
+        for(const auto& face : mesh.faces) {
+            counts_buffer.push_back((uint8_t)face.size());
+            for(int idx : face) {
+                faces_buffer.push_back(idx);
+            }
+        }
+
+        // Point to buffers
+        base_mesh.num_faces = counts_buffer.size();
+        base_mesh.face_counts = counts_buffer.data();
+        base_mesh.faces = faces_buffer.data();
         
         // Prepare Displaced Mesh
         displaced_mesh.num_vertices = base_mesh.num_vertices;
@@ -164,7 +172,8 @@ private:
         // Compute Tangents
         tangents.clear();
         tangents.reserve(base_mesh.num_vertices);
-        for(const auto& p : base_mesh.vertices) {
+        for(size_t i=0; i<base_mesh.num_vertices; ++i) {
+            const Vector& p = base_mesh.vertices[i];
             Vector axis = (std::abs(p.j) > 0.99f) ? X_AXIS : Y_AXIS;
             Vector u = cross(p, axis).normalize();
             Vector v = cross(p, u).normalize();

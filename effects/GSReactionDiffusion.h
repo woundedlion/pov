@@ -4,8 +4,7 @@
  */
 #pragma once
 
-#include "../color.h"
-#include "../geometry.h"
+#include "../effects_engine.h"
 #include <algorithm>
 #include <array>
 #include <vector>

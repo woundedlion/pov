@@ -4,13 +4,8 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../scan.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../palettes.h"
 #include <vector>
+#include "../effects_engine.h"
 
 template <int W>
 class SpinShapes : public Effect {

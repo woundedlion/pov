@@ -20,6 +20,7 @@
 #include "effects/DreamBalls.h"
 #include "effects/SpinShapes.h"
 #include "effects/HopfFibration.h"
+#include "effects/HankinSolids.h"
 #include "effects/IslamicStars.h"
 #include "effects/LSystem.h"
 #include "effects/MetaballEffect.h"

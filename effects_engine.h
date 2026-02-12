@@ -27,6 +27,7 @@ typedef std::vector<std::vector<unsigned int>> AdjacencyList;
 
 #include "geometry.h" // Provides Fragment, ShaderResult, Vector
 #include "color.h" // Must be included before concepts using Color4
+#include "solids.h"
 
 /**
  * @brief Concept for a function that generates a trail color.
@@ -119,8 +120,6 @@ concept Tweenable = requires(const T & t, size_t i) {
   { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
 };
 
-// Filter needs effects concepts? No filter.h defines pipeline.
-// filter.h includes geometry.h.
 #include "filter.h"
 #include "scan.h"
 #include "plot.h"

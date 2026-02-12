@@ -25,6 +25,7 @@ namespace SDF {
       float t;    // Normalized parameter (0-1) or angle
       float raw_dist; // Unsigned or supplementary distance
       float aux; // Auxiliary value (e.g. barycentric coordinate)
+      float size = 1.0f; // Size metric for normalization
       
       struct Weights {
           float a = 0, b = 0, c = 0;
@@ -150,7 +151,7 @@ namespace SDF {
       template <bool ComputeUVs = true>
       DistanceResult distance(const Vector& p) const {
          float d = dot(p, normal);
-         if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f, 0.0f };
+         if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f, 0.0f, thickness };
          
          float dist = 0;
          if (inv_sin_target != 0) {
@@ -170,7 +171,7 @@ namespace SDF {
              t = azimuth / (2 * PI_F);
          }
          
-         return { dist - thickness, t, dist, 0.0f };
+         return { dist - thickness, t, dist, 0.0f, thickness };
       }
     };
 
@@ -294,20 +295,6 @@ namespace SDF {
              t_norm = t_val / (2 * PI_F);
              shift = shift_fn(t_norm);
          } else {
-             // Approximation if needed, or just 0 if shift depends on t
-             // If shift is needed for distance, we sadly MUST compute UVs partially
-             // But usually DistortedRing implies we care about the shape, so checking UVs is likely required for correct distance if shift varies.
-             // However, for optimization where we just want bounds, maybe we can skip?
-             // Actually, for DistortedRing, distance DEPENDS on t (via shift).
-             // So we cannot fully skip UVs unless shift_fn is constant (unlikely).
-             // We will leave the calculation but strictly enable optimization if the user insists,
-             // creating a potentially incorrect distance if they skip UVs on a shape that needs them.
-             // BETTER STRATEGY: For DistortedRing, 'ComputeUVs=false' might just mean "don't return t in result" but we still need it for math.
-             
-             // BUT, if the user explicitly requests ComputeUVs=false, they might be using it for a solid color ring where the distortion is handled elsewhere?
-             // No, the distortion IS the shape.
-             // So we MUST compute azimuth.
-             // Let's optimize what we can.
              float dot_u = dot(p, u);
              float dot_w = dot(p, w);
              float azimuth = atan2f(dot_w, dot_u);
@@ -321,7 +308,7 @@ namespace SDF {
          float local_target = target_angle + shift;
          float dist = std::abs(polar - local_target);
          
-         return { dist - thickness, t_norm, dist, 0.0f };
+         return { dist - thickness, t_norm, dist, 0.0f, thickness };
       }
     };
 
@@ -497,6 +484,7 @@ namespace SDF {
         Vector basisV, basisU, basisW;
         int count;
         float thickness;
+        float size;
         
         std::span<Vector> poly2D; 
         std::span<Vector> edgeVectors; 
@@ -514,7 +502,7 @@ namespace SDF {
            if (count > FaceScratchBuffer::MAX_VERTS) count = FaceScratchBuffer::MAX_VERTS;
 
            center = Vector(0,0,0);
-           for (size_t i=0; i<count; ++i) center = center + vertices[indices[i]];
+           for (int i = 0; i < count; ++i) center = center + vertices[indices[i]];
            center.normalize();
            
            basisV = center;
@@ -531,6 +519,21 @@ namespace SDF {
               scratch.poly2D[i].k = 0;
            }
            poly2D = std::span<Vector>(scratch.poly2D.data(), count);
+
+           // Compute Apothem/Size (Min dist from center to infinite lines of edges)
+           float min_edge_dist = 1e9f;
+           for(int i=0; i<count; ++i) {
+               Vector v1 = scratch.poly2D[i];
+               Vector v2 = scratch.poly2D[(i+1)%count];
+               // dist = |v1.x*v2.y - v1.y*v2.x| / |v2-v1|
+               float cross_2d = std::abs(v1.i * v2.j - v1.j * v2.i);
+               float edge_len = (v1 - v2).magnitude();
+               if (edge_len > 1e-9f) {
+                   float d_line = cross_2d / edge_len;
+                   if (d_line < min_edge_dist) min_edge_dist = d_line;
+               }
+           }
+           size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
            
            // Edges and Planes
            int planes_count = 0;
@@ -622,8 +625,8 @@ namespace SDF {
            std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
            float maxGap = 0;
            float gapStart = 0;
-           for(size_t i=0; i<count; ++i) {
-               float next = (i+1 < count) ? scratch.thetas[i+1] : (scratch.thetas[0] + 2*PI_F);
+           for(int i = 0; i < count; ++i) {
+               float next = (i + 1 < count) ? scratch.thetas[i+1] : (scratch.thetas[0] + 2 * PI_F);
                float diff = next - scratch.thetas[i];
                if (diff > maxGap) {
                    maxGap = diff;
@@ -671,7 +674,7 @@ namespace SDF {
         template <bool ComputeUVs = true>
         DistanceResult distance(const Vector& p) const {
             float cosAngle = dot(p, center);
-            if (cosAngle <= 0.01f) return { 100.0f, 0.0f, 100.0f, 0.0f };
+            if (cosAngle <= 0.01f) return { 100.0f, 0.0f, 100.0f, 0.0f, size };
 
             float invCos = 1.0f / cosAngle;
             float px = dot(p, basisU) * invCos;
@@ -721,7 +724,7 @@ namespace SDF {
             float s = (winding != 0) ? -1.0f : 1.0f;
             float planeDist = s * sqrtf(d);
             
-            DistanceResult res = { planeDist - thickness, 0.0f, planeDist, 0.0f };
+            DistanceResult res = { planeDist - thickness, 0.0f, planeDist, 0.0f, size };
             
             // Barycentric Weights
             if (count == 3) {
@@ -879,7 +882,7 @@ namespace SDF {
               t_val = 0.0f;
           }
           
-          return { dist_edge, t_val, polar, 0.0f };
+          return { dist_edge, t_val, polar, 0.0f, apothem };
        }
     };
 
@@ -1014,7 +1017,7 @@ namespace SDF {
                 t_val = 0.0f;
             }
             
-            return { -dist_to_edge, t_val, scan_dist, 0.0f };
+            return { -dist_to_edge, t_val, scan_dist, 0.0f, thickness };
         }
     };
     
@@ -1124,7 +1127,7 @@ namespace SDF {
                dist_edge = polar * cosf(local) - apothem;
                t_val = 0.0f;
            }
-           return { -dist_edge, t_val, scan_dist, 0.0f };
+           return { -dist_edge, t_val, scan_dist, 0.0f, thickness };
         }
     };
 
@@ -1168,7 +1171,7 @@ namespace SDF {
                  t_val = tanhf(std::abs(harmonic_val) * amplitude);
              }
 
-             return { d, t_val, harmonic_val, 0.0f };
+             return { d, t_val, harmonic_val, 0.0f, 1.0f };
         }
         
         template<typename OutputIt>
@@ -1206,7 +1209,7 @@ namespace SDF {
         DistanceResult distance(const Vector& p) const {
              if (len < 1e-6f) {
                  float dist = angle_between(p, a);
-                 return { dist - thickness, 0.0f, dist, 0.0f };
+                 return { dist - thickness, 0.0f, dist, 0.0f, thickness };
              }
              
              float d_plane = dot(p, n);
@@ -1217,7 +1220,7 @@ namespace SDF {
                  float dA = angle_between(p, a);
                  float dB = angle_between(p, b);
                  float dist = std::min(dA, dB);
-                 return { dist - thickness, 0.0f, dist, 0.0f };
+                 return { dist - thickness, 0.0f, dist, 0.0f, thickness };
              }
              
              Vector p_proj = p_proj_plane / proj_mag;
@@ -1233,7 +1236,7 @@ namespace SDF {
                  dist_seg = std::min(dA, dB);
              }
              
-             return { dist_seg - thickness, 0.0f, dist_seg, 0.0f };
+             return { dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness };
         }
         
         template<typename OutputIt>
@@ -1277,6 +1280,7 @@ namespace Scan {
         frag.v1 = result.raw_dist;
         frag.v2 = 0.0f;
         frag.v3 = result.aux;
+        frag.size = result.size;
         frag.age = 0;
         
         Fragment f_out = fragment_shader(p, frag);

@@ -57,8 +57,8 @@ private:
     void rebuild() {
         particle_system.reset(friction, 0.001f);
         
-        using EmitSolid = Dodecahedron;
-        using AttractSolid = Icosahedron; // Dual
+        using EmitSolid = Solids::Dodecahedron;
+        using AttractSolid = Solids::Icosahedron; // Dual
         
         // Add Attractors
         for(const auto& v : AttractSolid::vertices) {
@@ -90,10 +90,6 @@ private:
                 
                 // Update Hue
                 emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
-                
-                // Use AlphaFalloffPalette if desired, or standard Generative
-                // JS: new AlphaFalloffPalette((t) => t, new GenerativePalette(...))
-                // Implementing this parity:
                 
                 GenerativePalette base_palette(
                     GradientShape::STRAIGHT,

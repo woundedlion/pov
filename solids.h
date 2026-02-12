@@ -5,957 +5,240 @@
 #pragma once
 
 #include "geometry.h"
+#include <cmath>
+#include <string>
+#include <vector>
+#include <map>
 
-struct Tetrahedron {
-  static constexpr int NUM_VERTS = 4;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.57735027f, 0.57735027f, 0.57735027f),
-    Vector(0.57735027f, -0.57735027f, -0.57735027f),
-    Vector(-0.57735027f, 0.57735027f, -0.57735027f),
-    Vector(-0.57735027f, -0.57735027f, 0.57735027f)
-  };
-  static constexpr int NUM_FACES = 4;
-  static constexpr int TOTAL_FACE_INDICES = 12;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 3, 1, 0, 2, 3, 0, 1, 2, 1, 3, 2
-  };
-};
+// --- Constants for Procedural Generation ---
+static constexpr float SQRT2 = 1.414213562373095f;
+static constexpr float TRIBONACCI = (1.0f + 1.839286755214161f + 1.839286755214161f) / 3.0f; // Approx
+// Real tribonacci constant t: t^3 - t^2 - t - 1 = 0. ~1.839286755214161
+static constexpr float TRIBONACCI_CONST = 1.839286755214161f; 
+static constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
+static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 
-struct Cube {
-  static constexpr int NUM_VERTS = 8;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.57735027f, -0.57735027f, -0.57735027f),
-    Vector(0.57735027f, -0.57735027f, -0.57735027f),
-    Vector(0.57735027f, 0.57735027f, -0.57735027f),
-    Vector(-0.57735027f, 0.57735027f, -0.57735027f),
-    Vector(-0.57735027f, -0.57735027f, 0.57735027f),
-    Vector(0.57735027f, -0.57735027f, 0.57735027f),
-    Vector(0.57735027f, 0.57735027f, 0.57735027f),
-    Vector(-0.57735027f, 0.57735027f, 0.57735027f)
-  };
-  static constexpr int NUM_FACES = 6;
-  static constexpr int TOTAL_FACE_INDICES = 24;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    4, 4, 4, 4, 4, 4
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 3, 2, 1, 0, 1, 5, 4, 0, 4, 7, 3, 6, 5, 1, 2, 6, 2, 3, 7,
-    6, 7, 4, 5
-  };
-};
+namespace Solids {
 
-struct Octahedron {
-  static constexpr int NUM_VERTS = 6;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(1.00000000f, 0.00000000f, 0.00000000f),
-    Vector(-1.00000000f, 0.00000000f, 0.00000000f),
-    Vector(0.00000000f, 1.00000000f, 0.00000000f),
-    Vector(0.00000000f, -1.00000000f, 0.00000000f),
-    Vector(0.00000000f, 0.00000000f, 1.00000000f),
-    Vector(0.00000000f, 0.00000000f, -1.00000000f)
-  };
-  static constexpr int NUM_FACES = 8;
-  static constexpr int TOTAL_FACE_INDICES = 24;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    4, 0, 2, 4, 2, 1, 4, 1, 3, 4, 3, 0, 5, 2, 0, 5, 1, 2, 5, 3,
-    1, 5, 0, 3
-  };
-};
+  // ==========================================================================================
+  // 1. DATA DEFINITIONS (Hardcoded Platonic Solids)
+  // ==========================================================================================
 
-struct Icosahedron {
-  static constexpr int NUM_VERTS = 12;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.52573111f, 0.00000000f, 0.85065081f),
-    Vector(0.52573111f, 0.00000000f, 0.85065081f),
-    Vector(-0.52573111f, 0.00000000f, -0.85065081f),
-    Vector(0.52573111f, 0.00000000f, -0.85065081f),
-    Vector(0.00000000f, 0.85065081f, 0.52573111f),
-    Vector(0.00000000f, 0.85065081f, -0.52573111f),
-    Vector(0.00000000f, -0.85065081f, 0.52573111f),
-    Vector(0.00000000f, -0.85065081f, -0.52573111f),
-    Vector(0.85065081f, 0.52573111f, 0.00000000f),
-    Vector(-0.85065081f, 0.52573111f, 0.00000000f),
-    Vector(0.85065081f, -0.52573111f, 0.00000000f),
-    Vector(-0.85065081f, -0.52573111f, 0.00000000f)
+  struct Tetrahedron {
+    static constexpr int NUM_VERTS = 4;
+    static constexpr std::array<Vector, NUM_VERTS> vertices = {
+      Vector(0.57735027f, 0.57735027f, 0.57735027f),
+      Vector(0.57735027f, -0.57735027f, -0.57735027f),
+      Vector(-0.57735027f, 0.57735027f, -0.57735027f),
+      Vector(-0.57735027f, -0.57735027f, 0.57735027f)
+    };
+    static constexpr int NUM_FACES = 4;
+    static constexpr std::array<uint8_t, NUM_FACES> face_counts = { 3, 3, 3, 3 };
+    static constexpr std::array<int, 12> faces = { 0, 3, 1, 0, 2, 3, 0, 1, 2, 1, 3, 2 };
   };
-  static constexpr int NUM_FACES = 20;
-  static constexpr int TOTAL_FACE_INDICES = 60;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 1, 4, 0, 4, 9, 9, 4, 5, 4, 8, 5, 4, 1, 8, 8, 1, 10, 8, 10,
-    3, 5, 8, 3, 5, 3, 2, 2, 3, 7, 7, 3, 10, 7, 10, 6, 7, 6, 11, 11,
-    6, 0, 0, 6, 1, 6, 10, 1, 9, 11, 0, 9, 2, 11, 9, 5, 2, 7, 11, 2
-  };
-};
 
-struct Dodecahedron {
-  static constexpr int NUM_VERTS = 20;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.57735027f, 0.57735027f, 0.57735027f),
-    Vector(0.57735027f, 0.57735027f, -0.57735027f),
-    Vector(0.57735027f, -0.57735027f, 0.57735027f),
-    Vector(0.57735027f, -0.57735027f, -0.57735027f),
-    Vector(-0.57735027f, 0.57735027f, 0.57735027f),
-    Vector(-0.57735027f, 0.57735027f, -0.57735027f),
-    Vector(-0.57735027f, -0.57735027f, 0.57735027f),
-    Vector(-0.57735027f, -0.57735027f, -0.57735027f),
-    Vector(0.35682209f, 0.93417236f, 0.00000000f),
-    Vector(-0.35682209f, 0.93417236f, 0.00000000f),
-    Vector(0.35682209f, -0.93417236f, 0.00000000f),
-    Vector(-0.35682209f, -0.93417236f, 0.00000000f),
-    Vector(0.93417236f, 0.00000000f, 0.35682209f),
-    Vector(0.93417236f, 0.00000000f, -0.35682209f),
-    Vector(-0.93417236f, 0.00000000f, 0.35682209f),
-    Vector(-0.93417236f, 0.00000000f, -0.35682209f),
-    Vector(0.00000000f, 0.35682209f, 0.93417236f),
-    Vector(0.00000000f, -0.35682209f, 0.93417236f),
-    Vector(0.00000000f, 0.35682209f, -0.93417236f),
-    Vector(0.00000000f, -0.35682209f, -0.93417236f)
+  struct Cube {
+    static constexpr int NUM_VERTS = 8;
+    static constexpr std::array<Vector, NUM_VERTS> vertices = {
+      Vector(-0.57735027f, -0.57735027f, -0.57735027f),
+      Vector(0.57735027f, -0.57735027f, -0.57735027f),
+      Vector(0.57735027f, 0.57735027f, -0.57735027f),
+      Vector(-0.57735027f, 0.57735027f, -0.57735027f),
+      Vector(-0.57735027f, -0.57735027f, 0.57735027f),
+      Vector(0.57735027f, -0.57735027f, 0.57735027f),
+      Vector(0.57735027f, 0.57735027f, 0.57735027f),
+      Vector(-0.57735027f, 0.57735027f, 0.57735027f)
+    };
+    static constexpr int NUM_FACES = 6;
+    static constexpr std::array<uint8_t, NUM_FACES> face_counts = { 4, 4, 4, 4, 4, 4 };
+    static constexpr std::array<int, 24> faces = {
+      0, 3, 2, 1, 0, 1, 5, 4, 0, 4, 7, 3, 6, 5, 1, 2, 6, 2, 3, 7, 6, 7, 4, 5
+    };
   };
-  static constexpr int NUM_FACES = 12;
-  static constexpr int TOTAL_FACE_INDICES = 60;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 8, 9, 4, 16, 0, 12, 13, 1, 8, 0, 16, 17, 2, 12, 8, 1, 18, 5, 9,
-    12, 2, 10, 3, 13, 16, 4, 14, 6, 17, 9, 5, 15, 14, 4, 6, 11, 10, 2, 17,
-    3, 19, 18, 1, 13, 7, 15, 5, 18, 19, 7, 11, 6, 14, 15, 7, 19, 3, 10, 11
-  };
-};
 
-struct TruncatedTetrahedron {
-  static constexpr int NUM_VERTS = 12;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.30151132f, 0.90453405f, 0.30151132f),
-    Vector(-0.90453405f, 0.30151132f, -0.30151132f),
-    Vector(-0.30151132f, -0.30151132f, 0.90453405f),
-    Vector(0.30151132f, 0.30151132f, 0.90453405f),
-    Vector(-0.30151132f, -0.90453405f, 0.30151132f),
-    Vector(0.90453405f, -0.30151132f, -0.30151132f),
-    Vector(0.90453405f, 0.30151132f, 0.30151132f),
-    Vector(0.30151132f, -0.30151132f, -0.90453405f),
-    Vector(-0.30151132f, 0.90453405f, -0.30151132f),
-    Vector(-0.90453405f, -0.30151132f, 0.30151132f),
-    Vector(-0.30151132f, 0.30151132f, -0.90453405f),
-    Vector(0.30151132f, -0.90453405f, -0.30151132f)
+  struct Octahedron {
+    static constexpr int NUM_VERTS = 6;
+    static constexpr std::array<Vector, NUM_VERTS> vertices = {
+      Vector(1.00000000f, 0.00000000f, 0.00000000f),
+      Vector(-1.00000000f, 0.00000000f, 0.00000000f),
+      Vector(0.00000000f, 1.00000000f, 0.00000000f),
+      Vector(0.00000000f, -1.00000000f, 0.00000000f),
+      Vector(0.00000000f, 0.00000000f, 1.00000000f),
+      Vector(0.00000000f, 0.00000000f, -1.00000000f)
+    };
+    static constexpr int NUM_FACES = 8;
+    static constexpr std::array<uint8_t, NUM_FACES> face_counts = { 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<int, 24> faces = {
+      4, 0, 2, 4, 2, 1, 4, 1, 3, 4, 3, 0, 5, 2, 0, 5, 1, 2, 5, 3, 1, 5, 0, 3
+    };
   };
-  static constexpr int NUM_FACES = 8;
-  static constexpr int TOTAL_FACE_INDICES = 36;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    6, 6, 6, 6, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 8, 1, 9, 2, 3, 3, 2, 4, 11, 5, 6, 6, 5, 7, 10, 8, 0, 9, 1,
-    10, 7, 11, 4, 3, 6, 0, 8, 10, 1, 9, 4, 2, 11, 7, 5
-  };
-};
 
-struct Cuboctahedron {
-  static constexpr int NUM_VERTS = 12;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.70710678f, 0.00000000f, -0.70710678f),
-    Vector(0.00000000f, 0.70710678f, -0.70710678f),
-    Vector(0.70710678f, 0.00000000f, -0.70710678f),
-    Vector(0.00000000f, -0.70710678f, -0.70710678f),
-    Vector(0.70710678f, -0.70710678f, 0.00000000f),
-    Vector(0.00000000f, -0.70710678f, 0.70710678f),
-    Vector(-0.70710678f, -0.70710678f, 0.00000000f),
-    Vector(-0.70710678f, 0.00000000f, 0.70710678f),
-    Vector(-0.70710678f, 0.70710678f, 0.00000000f),
-    Vector(0.70710678f, 0.00000000f, 0.70710678f),
-    Vector(0.70710678f, 0.70710678f, 0.00000000f),
-    Vector(0.00000000f, 0.70710678f, 0.70710678f)
+  struct Icosahedron {
+    static constexpr int NUM_VERTS = 12;
+    static constexpr std::array<Vector, NUM_VERTS> vertices = {
+      Vector(-0.52573111f, 0.00000000f, 0.85065081f),
+      Vector(0.52573111f, 0.00000000f, 0.85065081f),
+      Vector(-0.52573111f, 0.00000000f, -0.85065081f),
+      Vector(0.52573111f, 0.00000000f, -0.85065081f),
+      Vector(0.00000000f, 0.85065081f, 0.52573111f),
+      Vector(0.00000000f, 0.85065081f, -0.52573111f),
+      Vector(0.00000000f, -0.85065081f, 0.52573111f),
+      Vector(0.00000000f, -0.85065081f, -0.52573111f),
+      Vector(0.85065081f, 0.52573111f, 0.00000000f),
+      Vector(-0.85065081f, 0.52573111f, 0.00000000f),
+      Vector(0.85065081f, -0.52573111f, 0.00000000f),
+      Vector(-0.85065081f, -0.52573111f, 0.00000000f)
+    };
+    static constexpr int NUM_FACES = 20;
+    static constexpr std::array<uint8_t, NUM_FACES> face_counts = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<int, 60> faces = {
+      0, 1, 4, 0, 4, 9, 9, 4, 5, 4, 8, 5, 4, 1, 8, 8, 1, 10, 8, 10, 3, 5, 8, 3, 5, 3, 2, 2, 3, 7, 7, 3, 10, 7, 10, 6, 7, 6, 11, 11, 6, 0, 0, 6, 1, 6, 10, 1, 9, 11, 0, 9, 2, 11, 9, 5, 2, 7, 11, 2
+    };
   };
-  static constexpr int NUM_FACES = 14;
-  static constexpr int TOTAL_FACE_INDICES = 48;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 0, 9, 4, 2, 10, 10, 1, 8, 11,
-    11, 7, 5, 9, 3, 6, 0, 0, 8, 1, 1, 10, 2, 2, 4, 3, 4, 9, 5, 5,
-    7, 6, 7, 11, 8, 10, 11, 9
-  };
-};
 
-struct TruncatedCube {
-  static constexpr int NUM_VERTS = 24;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.67859835f, -0.28108462f, -0.67859835f),
-    Vector(-0.28108462f, 0.67859835f, -0.67859835f),
-    Vector(0.67859835f, 0.28108462f, -0.67859835f),
-    Vector(0.28108462f, -0.67859835f, -0.67859835f),
-    Vector(-0.28108462f, -0.67859835f, -0.67859835f),
-    Vector(0.67859835f, -0.67859835f, -0.28108462f),
-    Vector(0.28108462f, -0.67859835f, 0.67859835f),
-    Vector(-0.67859835f, -0.67859835f, 0.28108462f),
-    Vector(-0.67859835f, -0.67859835f, -0.28108462f),
-    Vector(-0.67859835f, -0.28108462f, 0.67859835f),
-    Vector(-0.67859835f, 0.67859835f, 0.28108462f),
-    Vector(-0.67859835f, 0.28108462f, -0.67859835f),
-    Vector(0.67859835f, 0.28108462f, 0.67859835f),
-    Vector(0.67859835f, -0.67859835f, 0.28108462f),
-    Vector(0.67859835f, -0.28108462f, -0.67859835f),
-    Vector(0.67859835f, 0.67859835f, -0.28108462f),
-    Vector(0.67859835f, 0.67859835f, 0.28108462f),
-    Vector(0.28108462f, 0.67859835f, -0.67859835f),
-    Vector(-0.67859835f, 0.67859835f, -0.28108462f),
-    Vector(-0.28108462f, 0.67859835f, 0.67859835f),
-    Vector(0.28108462f, 0.67859835f, 0.67859835f),
-    Vector(-0.67859835f, 0.28108462f, 0.67859835f),
-    Vector(-0.28108462f, -0.67859835f, 0.67859835f),
-    Vector(0.67859835f, -0.28108462f, 0.67859835f)
+  struct Dodecahedron {
+    static constexpr int NUM_VERTS = 20;
+    static constexpr std::array<Vector, NUM_VERTS> vertices = {
+      Vector(0.57735027f, 0.57735027f, 0.57735027f),
+      Vector(0.57735027f, 0.57735027f, -0.57735027f),
+      Vector(0.57735027f, -0.57735027f, 0.57735027f),
+      Vector(0.57735027f, -0.57735027f, -0.57735027f),
+      Vector(-0.57735027f, 0.57735027f, 0.57735027f),
+      Vector(-0.57735027f, 0.57735027f, -0.57735027f),
+      Vector(-0.57735027f, -0.57735027f, 0.57735027f),
+      Vector(-0.57735027f, -0.57735027f, -0.57735027f),
+      Vector(0.35682209f, 0.93417236f, 0.00000000f),
+      Vector(-0.35682209f, 0.93417236f, 0.00000000f),
+      Vector(0.35682209f, -0.93417236f, 0.00000000f),
+      Vector(-0.35682209f, -0.93417236f, 0.00000000f),
+      Vector(0.93417236f, 0.00000000f, 0.35682209f),
+      Vector(0.93417236f, 0.00000000f, -0.35682209f),
+      Vector(-0.93417236f, 0.00000000f, 0.35682209f),
+      Vector(-0.93417236f, 0.00000000f, -0.35682209f),
+      Vector(0.00000000f, 0.35682209f, 0.93417236f),
+      Vector(0.00000000f, -0.35682209f, 0.93417236f),
+      Vector(0.00000000f, 0.35682209f, -0.93417236f),
+      Vector(0.00000000f, -0.35682209f, -0.93417236f)
+    };
+    static constexpr int NUM_FACES = 12;
+    static constexpr std::array<uint8_t, NUM_FACES> face_counts = { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
+    static constexpr std::array<int, 60> faces = {
+      0, 8, 9, 4, 16, 0, 12, 13, 1, 8, 0, 16, 17, 2, 12, 8, 1, 18, 5, 9,
+      12, 2, 10, 3, 13, 16, 4, 14, 6, 17, 9, 5, 15, 14, 4, 6, 11, 10, 2, 17,
+      3, 19, 18, 1, 13, 7, 15, 5, 18, 19, 7, 11, 6, 14, 15, 7, 19, 3, 10, 11
+    };
   };
-  static constexpr int NUM_FACES = 14;
-  static constexpr int TOTAL_FACE_INDICES = 72;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    8, 8, 8, 8, 8, 8, 3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 11, 1, 17, 2, 14, 3, 4, 4, 3, 5, 13, 6, 22, 7, 8, 8, 7, 9, 21,
-    10, 18, 11, 0, 12, 23, 13, 5, 14, 2, 15, 16, 16, 15, 17, 1, 18, 10, 19, 20,
-    20, 19, 21, 9, 22, 6, 23, 12, 4, 8, 0, 11, 18, 1, 17, 15, 2, 14, 5, 3,
-    13, 23, 6, 22, 9, 7, 21, 19, 10, 16, 20, 12
-  };
-};
 
-struct TruncatedOctahedron {
-  static constexpr int NUM_VERTS = 24;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.44721360f, 0.00000000f, 0.89442719f),
-    Vector(0.89442719f, 0.44721360f, 0.00000000f),
-    Vector(0.00000000f, 0.89442719f, 0.44721360f),
-    Vector(0.00000000f, 0.44721360f, 0.89442719f),
-    Vector(-0.44721360f, 0.89442719f, 0.00000000f),
-    Vector(-0.89442719f, 0.00000000f, 0.44721360f),
-    Vector(-0.44721360f, 0.00000000f, 0.89442719f),
-    Vector(-0.89442719f, -0.44721360f, 0.00000000f),
-    Vector(0.00000000f, -0.89442719f, 0.44721360f),
-    Vector(0.00000000f, -0.44721360f, 0.89442719f),
-    Vector(0.44721360f, -0.89442719f, 0.00000000f),
-    Vector(0.89442719f, 0.00000000f, 0.44721360f),
-    Vector(0.00000000f, 0.44721360f, -0.89442719f),
-    Vector(0.44721360f, 0.89442719f, 0.00000000f),
-    Vector(0.89442719f, 0.00000000f, -0.44721360f),
-    Vector(-0.44721360f, 0.00000000f, -0.89442719f),
-    Vector(-0.89442719f, 0.44721360f, 0.00000000f),
-    Vector(0.00000000f, 0.89442719f, -0.44721360f),
-    Vector(0.00000000f, -0.44721360f, -0.89442719f),
-    Vector(-0.44721360f, -0.89442719f, 0.00000000f),
-    Vector(-0.89442719f, 0.00000000f, -0.44721360f),
-    Vector(0.44721360f, 0.00000000f, -0.89442719f),
-    Vector(0.89442719f, -0.44721360f, 0.00000000f),
-    Vector(0.00000000f, -0.89442719f, -0.44721360f)
-  };
-  static constexpr int NUM_FACES = 14;
-  static constexpr int TOTAL_FACE_INDICES = 72;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    6, 6, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 4, 4
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 11, 1, 13, 2, 3, 3, 2, 4, 16, 5, 6, 6, 5, 7, 19, 8, 9, 9, 8,
-    10, 22, 11, 0, 12, 17, 13, 1, 14, 21, 15, 20, 16, 4, 17, 12, 18, 23, 19, 7,
-    20, 15, 21, 14, 22, 10, 23, 18, 3, 6, 9, 0, 11, 22, 14, 1, 13, 17, 4, 2,
-    16, 20, 7, 5, 19, 23, 10, 8, 21, 18, 15, 12
-  };
-};
+  // Helper to convert Static Mesh Data to Dynamic PolyMesh
+  template<typename StaticMeshT>
+  PolyMesh to_polymesh() {
+    PolyMesh mesh;
+    mesh.vertices.assign(StaticMeshT::vertices.begin(), StaticMeshT::vertices.end());
+    
+    int offset = 0;
+    for (size_t i = 0; i < StaticMeshT::face_counts.size(); ++i) {
+      int count = StaticMeshT::face_counts[i];
+      std::vector<int> face;
+      for (int k = 0; k < count; ++k) {
+        face.push_back(StaticMeshT::faces[offset + k]);
+      }
+      mesh.faces.push_back(face);
+      offset += count;
+    }
+    return mesh;
+  }
 
-struct Rhombicuboctahedron {
-  static constexpr int NUM_VERTS = 24;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.35740671f, 0.35740671f, -0.86285623f),
-    Vector(0.35740671f, 0.35740671f, -0.86285623f),
-    Vector(0.35740671f, -0.35740671f, -0.86285623f),
-    Vector(-0.35740671f, -0.35740671f, -0.86285623f),
-    Vector(0.35740671f, -0.86285623f, -0.35740671f),
-    Vector(0.35740671f, -0.86285623f, 0.35740671f),
-    Vector(-0.35740671f, -0.86285623f, 0.35740671f),
-    Vector(-0.35740671f, -0.86285623f, -0.35740671f),
-    Vector(-0.86285623f, -0.35740671f, 0.35740671f),
-    Vector(-0.86285623f, 0.35740671f, 0.35740671f),
-    Vector(-0.86285623f, 0.35740671f, -0.35740671f),
-    Vector(-0.86285623f, -0.35740671f, -0.35740671f),
-    Vector(0.86285623f, -0.35740671f, 0.35740671f),
-    Vector(0.86285623f, -0.35740671f, -0.35740671f),
-    Vector(0.86285623f, 0.35740671f, -0.35740671f),
-    Vector(0.86285623f, 0.35740671f, 0.35740671f),
-    Vector(0.35740671f, 0.86285623f, -0.35740671f),
-    Vector(-0.35740671f, 0.86285623f, -0.35740671f),
-    Vector(-0.35740671f, 0.86285623f, 0.35740671f),
-    Vector(0.35740671f, 0.86285623f, 0.35740671f),
-    Vector(-0.35740671f, 0.35740671f, 0.86285623f),
-    Vector(-0.35740671f, -0.35740671f, 0.86285623f),
-    Vector(0.35740671f, -0.35740671f, 0.86285623f),
-    Vector(0.35740671f, 0.35740671f, 0.86285623f)
-  };
-  static constexpr int NUM_FACES = 26;
-  static constexpr int TOTAL_FACE_INDICES = 96;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-    20, 21, 22, 23, 7, 11, 3, 10, 17, 0, 16, 14, 1, 13, 4, 2, 12, 22, 5, 21,
-    8, 6, 20, 18, 9, 19, 23, 15, 3, 11, 10, 0, 0, 17, 16, 1, 1, 14, 13, 2,
-    2, 4, 7, 3, 4, 13, 12, 5, 5, 22, 21, 6, 6, 8, 11, 7, 8, 21, 20, 9,
-    9, 18, 17, 10, 15, 23, 22, 12, 14, 16, 19, 15, 18, 20, 23, 19
-  };
-};
+  // ==========================================================================================
+  // 2. PROCEDURAL GENERATORS
+  // ==========================================================================================
 
-struct TruncatedCuboctahedron {
-  static constexpr int NUM_VERTS = 48;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.52084100f, 0.21573940f, -0.82594259f),
-    Vector(0.21573940f, 0.52084100f, -0.82594259f),
-    Vector(0.52084100f, -0.21573940f, -0.82594259f),
-    Vector(-0.21573940f, -0.52084100f, -0.82594259f),
-    Vector(0.21573940f, -0.82594259f, -0.52084100f),
-    Vector(0.52084100f, -0.82594259f, 0.21573940f),
-    Vector(-0.21573940f, -0.82594259f, 0.52084100f),
-    Vector(-0.52084100f, -0.82594259f, -0.21573940f),
-    Vector(-0.82594259f, -0.52084100f, 0.21573940f),
-    Vector(-0.82594259f, 0.21573940f, 0.52084100f),
-    Vector(-0.82594259f, 0.52084100f, -0.21573940f),
-    Vector(-0.82594259f, -0.21573940f, -0.52084100f),
-    Vector(0.82594259f, -0.21573940f, 0.52084100f),
-    Vector(0.82594259f, -0.52084100f, -0.21573940f),
-    Vector(0.82594259f, 0.21573940f, -0.52084100f),
-    Vector(0.82594259f, 0.52084100f, 0.21573940f),
-    Vector(0.52084100f, 0.82594259f, -0.21573940f),
-    Vector(-0.21573940f, 0.82594259f, -0.52084100f),
-    Vector(-0.52084100f, 0.82594259f, 0.21573940f),
-    Vector(0.21573940f, 0.82594259f, 0.52084100f),
-    Vector(-0.21573940f, 0.52084100f, 0.82594259f),
-    Vector(-0.52084100f, -0.21573940f, 0.82594259f),
-    Vector(0.21573940f, -0.52084100f, 0.82594259f),
-    Vector(0.52084100f, 0.21573940f, 0.82594259f),
-    Vector(-0.21573940f, -0.82594259f, -0.52084100f),
-    Vector(-0.82594259f, -0.52084100f, -0.21573940f),
-    Vector(-0.52084100f, -0.21573940f, -0.82594259f),
-    Vector(-0.82594259f, 0.21573940f, -0.52084100f),
-    Vector(-0.52084100f, 0.82594259f, -0.21573940f),
-    Vector(-0.21573940f, 0.52084100f, -0.82594259f),
-    Vector(0.21573940f, 0.82594259f, -0.52084100f),
-    Vector(0.82594259f, 0.52084100f, -0.21573940f),
-    Vector(0.52084100f, 0.21573940f, -0.82594259f),
-    Vector(0.82594259f, -0.21573940f, -0.52084100f),
-    Vector(0.52084100f, -0.82594259f, -0.21573940f),
-    Vector(0.21573940f, -0.52084100f, -0.82594259f),
-    Vector(0.82594259f, -0.52084100f, 0.21573940f),
-    Vector(0.52084100f, -0.21573940f, 0.82594259f),
-    Vector(0.21573940f, -0.82594259f, 0.52084100f),
-    Vector(-0.21573940f, -0.52084100f, 0.82594259f),
-    Vector(-0.82594259f, -0.21573940f, 0.52084100f),
-    Vector(-0.52084100f, -0.82594259f, 0.21573940f),
-    Vector(-0.52084100f, 0.21573940f, 0.82594259f),
-    Vector(-0.21573940f, 0.82594259f, 0.52084100f),
-    Vector(-0.82594259f, 0.52084100f, 0.21573940f),
-    Vector(0.52084100f, 0.82594259f, 0.21573940f),
-    Vector(0.21573940f, 0.52084100f, 0.82594259f),
-    Vector(0.82594259f, 0.21573940f, 0.52084100f)
-  };
-  static constexpr int NUM_FACES = 26;
-  static constexpr int TOTAL_FACE_INDICES = 144;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    8, 8, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 29, 1, 32, 2, 35, 3, 26, 4, 34, 5, 38, 6, 41, 7, 24, 8, 40, 9, 44,
-    10, 27, 11, 25, 12, 36, 13, 33, 14, 31, 15, 47, 16, 30, 17, 28, 18, 43, 19, 45,
-    20, 42, 21, 39, 22, 37, 23, 46, 24, 7, 25, 11, 26, 3, 27, 10, 28, 17, 29, 0,
-    30, 16, 31, 14, 32, 1, 33, 13, 34, 4, 35, 2, 36, 12, 37, 22, 38, 5, 39, 21,
-    40, 8, 41, 6, 42, 20, 43, 18, 44, 9, 45, 19, 46, 23, 47, 15, 26, 11, 27, 0,
-    29, 17, 30, 1, 32, 14, 33, 2, 35, 4, 24, 3, 34, 13, 36, 5, 38, 22, 39, 6,
-    41, 8, 25, 7, 40, 21, 42, 9, 44, 18, 28, 10, 47, 23, 37, 12, 31, 16, 45, 15,
-    43, 20, 46, 19
-  };
-};
+  namespace Platonic {
+    inline PolyMesh tetrahedron() { return to_polymesh<Tetrahedron>(); }
+    inline PolyMesh cube() { return to_polymesh<Cube>(); }
+    inline PolyMesh octahedron() { return to_polymesh<Octahedron>(); }
+    inline PolyMesh dodecahedron() { return to_polymesh<Dodecahedron>(); }
+    inline PolyMesh icosahedron() { return to_polymesh<Icosahedron>(); }
+  }
 
-struct SnubCube {
-  static constexpr int NUM_VERTS = 24;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.46232061f, -0.25135861f, -0.85034023f),
-    Vector(-0.25135861f, 0.46232061f, -0.85034023f),
-    Vector(0.46232061f, 0.25135861f, -0.85034023f),
-    Vector(0.25135861f, -0.46232061f, -0.85034023f),
-    Vector(-0.25135861f, -0.85034023f, -0.46232061f),
-    Vector(0.46232061f, -0.85034023f, -0.25135861f),
-    Vector(0.25135861f, -0.85034023f, 0.46232061f),
-    Vector(-0.46232061f, -0.85034023f, 0.25135861f),
-    Vector(-0.85034023f, -0.46232061f, -0.25135861f),
-    Vector(-0.85034023f, -0.25135861f, 0.46232061f),
-    Vector(-0.85034023f, 0.46232061f, 0.25135861f),
-    Vector(-0.85034023f, 0.25135861f, -0.46232061f),
-    Vector(0.85034023f, 0.25135861f, 0.46232061f),
-    Vector(0.85034023f, -0.46232061f, 0.25135861f),
-    Vector(0.85034023f, -0.25135861f, -0.46232061f),
-    Vector(0.85034023f, 0.46232061f, -0.25135861f),
-    Vector(0.46232061f, 0.85034023f, 0.25135861f),
-    Vector(0.25135861f, 0.85034023f, -0.46232061f),
-    Vector(-0.46232061f, 0.85034023f, -0.25135861f),
-    Vector(-0.25135861f, 0.85034023f, 0.46232061f),
-    Vector(0.25135861f, 0.46232061f, 0.85034023f),
-    Vector(-0.46232061f, 0.25135861f, 0.85034023f),
-    Vector(-0.25135861f, -0.46232061f, 0.85034023f),
-    Vector(0.46232061f, -0.25135861f, 0.85034023f)
-  };
-  static constexpr int NUM_FACES = 38;
-  static constexpr int TOTAL_FACE_INDICES = 120;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-    20, 21, 22, 23, 4, 8, 0, 11, 18, 1, 17, 15, 2, 14, 5, 3, 13, 23, 6, 22,
-    9, 7, 21, 19, 10, 16, 20, 12, 0, 8, 11, 0, 11, 1, 1, 18, 17, 1, 17, 2,
-    2, 15, 14, 2, 14, 3, 3, 5, 4, 3, 4, 0, 5, 14, 13, 5, 13, 6, 6, 23,
-    22, 6, 22, 7, 7, 9, 8, 7, 8, 4, 9, 22, 21, 9, 21, 10, 10, 19, 18, 10,
-    18, 11, 12, 20, 23, 12, 23, 13, 15, 17, 16, 15, 16, 12, 19, 21, 20, 19, 20, 16
-  };
-};
+  namespace Archimedean {
+    using namespace MeshOps;
+    using namespace Platonic;
 
-struct Icosidodecahedron {
-  static constexpr int NUM_VERTS = 30;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.50000000f, 0.80901699f, 0.30901700f),
-    Vector(0.00000000f, 1.00000000f, 0.00000000f),
-    Vector(-0.50000000f, 0.80901699f, 0.30901700f),
-    Vector(-0.30901700f, 0.50000000f, 0.80901699f),
-    Vector(0.30901700f, 0.50000000f, 0.80901699f),
-    Vector(0.80901699f, 0.30901700f, 0.50000000f),
-    Vector(1.00000000f, 0.00000000f, 0.00000000f),
-    Vector(0.80901699f, 0.30901700f, -0.50000000f),
-    Vector(0.50000000f, 0.80901699f, -0.30901700f),
-    Vector(0.00000000f, 0.00000000f, 1.00000000f),
-    Vector(0.30901700f, -0.50000000f, 0.80901699f),
-    Vector(0.80901699f, -0.30901700f, 0.50000000f),
-    Vector(0.30901700f, 0.50000000f, -0.80901699f),
-    Vector(-0.30901700f, 0.50000000f, -0.80901699f),
-    Vector(-0.50000000f, 0.80901699f, -0.30901700f),
-    Vector(0.50000000f, -0.80901699f, 0.30901700f),
-    Vector(0.50000000f, -0.80901699f, -0.30901700f),
-    Vector(0.80901699f, -0.30901700f, -0.50000000f),
-    Vector(-0.80901699f, 0.30901700f, 0.50000000f),
-    Vector(-0.80901699f, -0.30901700f, 0.50000000f),
-    Vector(-0.30901700f, -0.50000000f, 0.80901699f),
-    Vector(-0.80901699f, 0.30901700f, -0.50000000f),
-    Vector(-1.00000000f, 0.00000000f, 0.00000000f),
-    Vector(-0.50000000f, -0.80901699f, 0.30901700f),
-    Vector(0.00000000f, -1.00000000f, 0.00000000f),
-    Vector(0.30901700f, -0.50000000f, -0.80901699f),
-    Vector(0.00000000f, 0.00000000f, -1.00000000f),
-    Vector(-0.80901699f, -0.30901700f, -0.50000000f),
-    Vector(-0.30901700f, -0.50000000f, -0.80901699f),
-    Vector(-0.50000000f, -0.80901699f, -0.30901700f)
-  };
-  static constexpr int NUM_FACES = 32;
-  static constexpr int TOTAL_FACE_INDICES = 120;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 4, 9, 10, 11, 5, 8, 12, 13, 14, 1,
-    11, 15, 16, 17, 6, 3, 18, 19, 20, 9, 14, 21, 22, 18, 2, 23, 24, 15, 10, 20,
-    25, 26, 12, 7, 17, 27, 21, 13, 26, 28, 29, 23, 19, 22, 27, 28, 25, 16, 24, 29,
-    4, 5, 0, 0, 8, 1, 1, 14, 2, 2, 18, 3, 3, 9, 4, 5, 11, 6, 6, 17,
-    7, 7, 12, 8, 9, 20, 10, 10, 15, 11, 12, 26, 13, 13, 21, 14, 15, 24, 16, 16,
-    25, 17, 18, 22, 19, 19, 23, 20, 21, 27, 22, 23, 29, 24, 25, 28, 26, 28, 29, 27
-  };
-};
+    inline PolyMesh truncatedTetrahedron() { return truncate(tetrahedron(), 1.0f/3.0f); }
+    inline PolyMesh cuboctahedron() { return ambo(cube()); }
+    inline PolyMesh truncatedCube() { return truncate(cube(), 1.0f/(2.0f + SQRT2)); }
+    inline PolyMesh truncatedOctahedron() { return truncate(octahedron(), 1.0f/3.0f); }
+    inline PolyMesh rhombicuboctahedron() { return expand(cube()); }
+    inline PolyMesh truncatedCuboctahedron() { return canonicalize(bitruncate(cube(), 1.0f/(2.0f + SQRT2)), 50); }
+    inline PolyMesh snubCube() { return canonicalize(snub(cube(), T_SNUB_CUBE, 0.28f), 50); }
+    inline PolyMesh icosidodecahedron() { return ambo(dodecahedron()); }
+    inline PolyMesh truncatedDodecahedron() { return truncate(dodecahedron(), T_TRUNC_ICOS); }
+    inline PolyMesh truncatedIcosahedron() { return truncate(icosahedron(), 1.0f/3.0f); }
+    inline PolyMesh rhombicosidodecahedron() { return canonicalize(expand(dodecahedron()), 50); }
+    inline PolyMesh truncatedIcosidodecahedron() { return canonicalize(bitruncate(dodecahedron(), 1.0f/(2.0f + PHI)), 50); }
+    inline PolyMesh snubDodecahedron() { return canonicalize(snub(dodecahedron(), 0.5f), 50); }
+  }
 
-struct TruncatedDodecahedron {
-  static constexpr int NUM_VERTS = 60;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.54489370f, 0.71327509f, 0.44082820f),
-    Vector(0.16838140f, 0.98572192f, 0.00000000f),
-    Vector(-0.44082820f, 0.88165651f, 0.16838140f),
-    Vector(-0.44082820f, 0.54489370f, 0.71327509f),
-    Vector(0.16838140f, 0.44082820f, 0.88165651f),
-    Vector(0.71327509f, 0.44082820f, 0.54489370f),
-    Vector(0.98572192f, 0.00000000f, 0.16838140f),
-    Vector(0.88165651f, 0.16838140f, -0.44082820f),
-    Vector(0.54489370f, 0.71327509f, -0.44082820f),
-    Vector(0.44082820f, 0.88165651f, 0.16838140f),
-    Vector(0.44082820f, 0.54489370f, 0.71327509f),
-    Vector(0.00000000f, 0.16838140f, 0.98572192f),
-    Vector(0.16838140f, -0.44082820f, 0.88165651f),
-    Vector(0.71327509f, -0.44082820f, 0.54489370f),
-    Vector(0.88165651f, 0.16838140f, 0.44082820f),
-    Vector(0.44082820f, 0.88165651f, -0.16838140f),
-    Vector(0.44082820f, 0.54489370f, -0.71327509f),
-    Vector(-0.16838140f, 0.44082820f, -0.88165651f),
-    Vector(-0.54489370f, 0.71327509f, -0.44082820f),
-    Vector(-0.16838140f, 0.98572192f, 0.00000000f),
-    Vector(0.88165651f, -0.16838140f, 0.44082820f),
-    Vector(0.54489370f, -0.71327509f, 0.44082820f),
-    Vector(0.44082820f, -0.88165651f, -0.16838140f),
-    Vector(0.71327509f, -0.44082820f, -0.54489370f),
-    Vector(0.98572192f, 0.00000000f, -0.16838140f),
-    Vector(-0.16838140f, 0.44082820f, 0.88165651f),
-    Vector(-0.71327509f, 0.44082820f, 0.54489370f),
-    Vector(-0.88165651f, -0.16838140f, 0.44082820f),
-    Vector(-0.44082820f, -0.54489370f, 0.71327509f),
-    Vector(0.00000000f, -0.16838140f, 0.98572192f),
-    Vector(-0.44082820f, 0.88165651f, -0.16838140f),
-    Vector(-0.71327509f, 0.44082820f, -0.54489370f),
-    Vector(-0.98572192f, 0.00000000f, -0.16838140f),
-    Vector(-0.88165651f, 0.16838140f, 0.44082820f),
-    Vector(-0.54489370f, 0.71327509f, 0.44082820f),
-    Vector(-0.54489370f, -0.71327509f, 0.44082820f),
-    Vector(-0.16838140f, -0.98572192f, 0.00000000f),
-    Vector(0.44082820f, -0.88165651f, 0.16838140f),
-    Vector(0.44082820f, -0.54489370f, 0.71327509f),
-    Vector(-0.16838140f, -0.44082820f, 0.88165651f),
-    Vector(0.44082820f, -0.54489370f, -0.71327509f),
-    Vector(0.00000000f, -0.16838140f, -0.98572192f),
-    Vector(0.16838140f, 0.44082820f, -0.88165651f),
-    Vector(0.71327509f, 0.44082820f, -0.54489370f),
-    Vector(0.88165651f, -0.16838140f, -0.44082820f),
-    Vector(-0.71327509f, -0.44082820f, -0.54489370f),
-    Vector(-0.88165651f, 0.16838140f, -0.44082820f),
-    Vector(-0.44082820f, 0.54489370f, -0.71327509f),
-    Vector(0.00000000f, 0.16838140f, -0.98572192f),
-    Vector(-0.16838140f, -0.44082820f, -0.88165651f),
-    Vector(-0.54489370f, -0.71327509f, -0.44082820f),
-    Vector(-0.44082820f, -0.88165651f, 0.16838140f),
-    Vector(-0.71327509f, -0.44082820f, 0.54489370f),
-    Vector(-0.98572192f, 0.00000000f, 0.16838140f),
-    Vector(-0.88165651f, -0.16838140f, -0.44082820f),
-    Vector(-0.44082820f, -0.54489370f, -0.71327509f),
-    Vector(0.16838140f, -0.44082820f, -0.88165651f),
-    Vector(0.54489370f, -0.71327509f, -0.44082820f),
-    Vector(0.16838140f, -0.98572192f, 0.00000000f),
-    Vector(-0.44082820f, -0.88165651f, -0.16838140f)
-  };
-  static constexpr int NUM_FACES = 32;
-  static constexpr int TOTAL_FACE_INDICES = 180;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 9, 1, 19, 2, 34, 3, 25, 4, 10, 5, 14, 6, 24, 7, 43, 8, 15, 9, 0,
-    10, 4, 11, 29, 12, 38, 13, 20, 14, 5, 15, 8, 16, 42, 17, 47, 18, 30, 19, 1,
-    20, 13, 21, 37, 22, 57, 23, 44, 24, 6, 25, 3, 26, 33, 27, 52, 28, 39, 29, 11,
-    30, 18, 31, 46, 32, 53, 33, 26, 34, 2, 35, 51, 36, 58, 37, 21, 38, 12, 39, 28,
-    40, 56, 41, 48, 42, 16, 43, 7, 44, 23, 45, 54, 46, 31, 47, 17, 48, 41, 49, 55,
-    50, 59, 51, 35, 52, 27, 53, 32, 54, 45, 55, 49, 56, 40, 57, 22, 58, 36, 59, 50,
-    10, 5, 0, 9, 15, 1, 19, 30, 2, 34, 26, 3, 25, 11, 4, 14, 20, 6, 24, 44,
-    7, 43, 16, 8, 29, 39, 12, 38, 21, 13, 42, 48, 17, 47, 31, 18, 37, 58, 22, 57,
-    40, 23, 33, 53, 27, 52, 35, 28, 46, 54, 32, 51, 59, 36, 56, 49, 41, 55, 50, 45
-  };
-};
+  namespace HankinSolids {
+    using namespace MeshOps;
+    using namespace Platonic;
+    using namespace Archimedean;
 
-struct TruncatedIcosahedron {
-  static constexpr int NUM_VERTS = 60;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(-0.20177410f, 0.00000000f, 0.97943209f),
-    Vector(0.40354821f, 0.32647741f, 0.85472882f),
-    Vector(-0.20177410f, 0.65295470f, 0.73002560f),
-    Vector(-0.40354821f, 0.32647741f, 0.85472882f),
-    Vector(-0.32647741f, 0.85472882f, 0.40354821f),
-    Vector(-0.85472882f, 0.40354821f, 0.32647741f),
-    Vector(-0.65295470f, 0.73002560f, 0.20177410f),
-    Vector(0.00000000f, 0.97943209f, 0.20177410f),
-    Vector(-0.32647741f, 0.85472882f, -0.40354821f),
-    Vector(0.32647741f, 0.85472882f, 0.40354821f),
-    Vector(0.65295470f, 0.73002560f, -0.20177410f),
-    Vector(0.00000000f, 0.97943209f, -0.20177410f),
-    Vector(0.20177410f, 0.65295470f, 0.73002560f),
-    Vector(0.73002560f, 0.20177410f, 0.65295470f),
-    Vector(0.65295470f, 0.73002560f, 0.20177410f),
-    Vector(0.85472882f, 0.40354821f, 0.32647741f),
-    Vector(0.73002560f, -0.20177410f, 0.65295470f),
-    Vector(0.97943209f, -0.20177410f, 0.00000000f),
-    Vector(0.97943209f, 0.20177410f, 0.00000000f),
-    Vector(0.85472882f, -0.40354821f, -0.32647741f),
-    Vector(0.73002560f, 0.20177410f, -0.65295470f),
-    Vector(0.32647741f, 0.85472882f, -0.40354821f),
-    Vector(0.85472882f, 0.40354821f, -0.32647741f),
-    Vector(0.40354821f, 0.32647741f, -0.85472882f),
-    Vector(0.20177410f, 0.65295470f, -0.73002560f),
-    Vector(0.20177410f, 0.00000000f, -0.97943209f),
-    Vector(-0.40354821f, 0.32647741f, -0.85472882f),
-    Vector(-0.20177410f, 0.00000000f, -0.97943209f),
-    Vector(0.40354821f, -0.32647741f, -0.85472882f),
-    Vector(-0.20177410f, -0.65295470f, -0.73002560f),
-    Vector(0.20177410f, -0.65295470f, -0.73002560f),
-    Vector(0.73002560f, -0.20177410f, -0.65295470f),
-    Vector(0.65295470f, -0.73002560f, -0.20177410f),
-    Vector(0.32647741f, -0.85472882f, -0.40354821f),
-    Vector(0.65295470f, -0.73002560f, 0.20177410f),
-    Vector(0.00000000f, -0.97943209f, 0.20177410f),
-    Vector(0.00000000f, -0.97943209f, -0.20177410f),
-    Vector(-0.32647741f, -0.85472882f, 0.40354821f),
-    Vector(-0.65295470f, -0.73002560f, -0.20177410f),
-    Vector(-0.65295470f, -0.73002560f, 0.20177410f),
-    Vector(-0.20177410f, -0.65295470f, 0.73002560f),
-    Vector(-0.73002560f, -0.20177410f, 0.65295470f),
-    Vector(-0.40354821f, -0.32647741f, 0.85472882f),
-    Vector(0.20177410f, -0.65295470f, 0.73002560f),
-    Vector(0.20177410f, 0.00000000f, 0.97943209f),
-    Vector(0.32647741f, -0.85472882f, 0.40354821f),
-    Vector(0.85472882f, -0.40354821f, 0.32647741f),
-    Vector(0.40354821f, -0.32647741f, 0.85472882f),
-    Vector(-0.97943209f, 0.20177410f, 0.00000000f),
-    Vector(-0.85472882f, -0.40354821f, 0.32647741f),
-    Vector(-0.73002560f, 0.20177410f, 0.65295470f),
-    Vector(-0.85472882f, 0.40354821f, -0.32647741f),
-    Vector(-0.73002560f, -0.20177410f, -0.65295470f),
-    Vector(-0.97943209f, -0.20177410f, 0.00000000f),
-    Vector(-0.65295470f, 0.73002560f, -0.20177410f),
-    Vector(-0.20177410f, 0.65295470f, -0.73002560f),
-    Vector(-0.73002560f, 0.20177410f, -0.65295470f),
-    Vector(-0.32647741f, -0.85472882f, -0.40354821f),
-    Vector(-0.85472882f, -0.40354821f, -0.32647741f),
-    Vector(-0.40354821f, -0.32647741f, -0.85472882f)
-  };
-  static constexpr int NUM_FACES = 32;
-  static constexpr int TOTAL_FACE_INDICES = 180;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 44, 1, 12, 2, 3, 3, 2, 4, 6, 5, 50, 6, 4, 7, 11, 8, 54, 9, 14,
-    10, 21, 11, 7, 12, 1, 13, 15, 14, 9, 15, 13, 16, 46, 17, 18, 18, 17, 19, 31,
-    20, 22, 21, 10, 22, 20, 23, 24, 24, 23, 25, 27, 26, 55, 27, 25, 28, 30, 29, 59,
-    30, 28, 31, 19, 32, 33, 33, 32, 34, 45, 35, 36, 36, 35, 37, 39, 38, 57, 39, 37,
-    40, 42, 41, 49, 42, 40, 43, 47, 44, 0, 45, 34, 46, 16, 47, 43, 48, 53, 49, 41,
-    50, 5, 51, 56, 52, 58, 53, 48, 54, 8, 55, 26, 56, 51, 57, 38, 58, 52, 59, 29,
-    3, 50, 41, 42, 0, 44, 47, 16, 13, 1, 12, 9, 7, 4, 2, 6, 54, 51, 48, 5,
-    11, 21, 24, 55, 8, 14, 15, 18, 22, 10, 46, 34, 32, 19, 17, 31, 28, 25, 23, 20,
-    27, 59, 52, 56, 26, 30, 33, 36, 57, 29, 45, 43, 40, 37, 35, 39, 49, 53, 58, 38
-  };
-};
+    static constexpr float D2R = PI_F / 180.0f;
 
-struct Rhombicosidodecahedron {
-  static constexpr int NUM_VERTS = 60;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.22391900f, 0.94853601f, 0.22391900f),
-    Vector(-0.22391900f, 0.94853601f, 0.22391900f),
-    Vector(-0.36230851f, 0.72461703f, 0.58622752f),
-    Vector(0.00000000f, 0.58622749f, 0.81014649f),
-    Vector(0.36230851f, 0.72461703f, 0.58622752f),
-    Vector(0.94853601f, 0.22391900f, 0.22391900f),
-    Vector(0.94853601f, 0.22391900f, -0.22391900f),
-    Vector(0.72461703f, 0.58622752f, -0.36230851f),
-    Vector(0.58622749f, 0.81014649f, 0.00000000f),
-    Vector(0.72461703f, 0.58622752f, 0.36230851f),
-    Vector(0.22391900f, 0.22391900f, 0.94853601f),
-    Vector(0.22391900f, -0.22391900f, 0.94853601f),
-    Vector(0.58622752f, -0.36230851f, 0.72461703f),
-    Vector(0.81014649f, 0.00000000f, 0.58622749f),
-    Vector(0.58622752f, 0.36230851f, 0.72461703f),
-    Vector(0.36230851f, 0.72461703f, -0.58622752f),
-    Vector(0.00000000f, 0.58622749f, -0.81014649f),
-    Vector(-0.36230851f, 0.72461703f, -0.58622752f),
-    Vector(-0.22391900f, 0.94853601f, -0.22391900f),
-    Vector(0.22391900f, 0.94853601f, -0.22391900f),
-    Vector(0.72461703f, -0.58622752f, 0.36230851f),
-    Vector(0.58622749f, -0.81014649f, 0.00000000f),
-    Vector(0.72461703f, -0.58622752f, -0.36230851f),
-    Vector(0.94853601f, -0.22391900f, -0.22391900f),
-    Vector(0.94853601f, -0.22391900f, 0.22391900f),
-    Vector(-0.58622752f, 0.36230851f, 0.72461703f),
-    Vector(-0.81014649f, 0.00000000f, 0.58622749f),
-    Vector(-0.58622752f, -0.36230851f, 0.72461703f),
-    Vector(-0.22391900f, -0.22391900f, 0.94853601f),
-    Vector(-0.22391900f, 0.22391900f, 0.94853601f),
-    Vector(-0.72461703f, 0.58622752f, -0.36230851f),
-    Vector(-0.94853601f, 0.22391900f, -0.22391900f),
-    Vector(-0.94853601f, 0.22391900f, 0.22391900f),
-    Vector(-0.72461703f, 0.58622752f, 0.36230851f),
-    Vector(-0.58622749f, 0.81014649f, 0.00000000f),
-    Vector(-0.22391900f, -0.94853601f, 0.22391900f),
-    Vector(0.22391900f, -0.94853601f, 0.22391900f),
-    Vector(0.36230851f, -0.72461703f, 0.58622752f),
-    Vector(0.00000000f, -0.58622749f, 0.81014649f),
-    Vector(-0.36230851f, -0.72461703f, 0.58622752f),
-    Vector(0.22391900f, -0.22391900f, -0.94853601f),
-    Vector(0.22391900f, 0.22391900f, -0.94853601f),
-    Vector(0.58622752f, 0.36230851f, -0.72461703f),
-    Vector(0.81014649f, 0.00000000f, -0.58622749f),
-    Vector(0.58622752f, -0.36230851f, -0.72461703f),
-    Vector(-0.81014649f, 0.00000000f, -0.58622749f),
-    Vector(-0.58622752f, 0.36230851f, -0.72461703f),
-    Vector(-0.22391900f, 0.22391900f, -0.94853601f),
-    Vector(-0.22391900f, -0.22391900f, -0.94853601f),
-    Vector(-0.58622752f, -0.36230851f, -0.72461703f),
-    Vector(-0.58622749f, -0.81014649f, 0.00000000f),
-    Vector(-0.72461703f, -0.58622752f, 0.36230851f),
-    Vector(-0.94853601f, -0.22391900f, 0.22391900f),
-    Vector(-0.94853601f, -0.22391900f, -0.22391900f),
-    Vector(-0.72461703f, -0.58622752f, -0.36230851f),
-    Vector(0.00000000f, -0.58622749f, -0.81014649f),
-    Vector(0.36230851f, -0.72461703f, -0.58622752f),
-    Vector(0.22391900f, -0.94853601f, -0.22391900f),
-    Vector(-0.22391900f, -0.94853601f, -0.22391900f),
-    Vector(-0.36230851f, -0.72461703f, -0.58622752f)
-  };
-  static constexpr int NUM_FACES = 63;
-  static constexpr int TOTAL_FACE_INDICES = 239;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-    20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 14,
-    9, 4, 8, 19, 0, 18, 34, 1, 33, 25, 2, 29, 10, 3, 13, 24, 5, 23, 43, 6,
-    42, 15, 7, 28, 38, 11, 37, 20, 12, 41, 47, 16, 46, 30, 17, 36, 57, 21, 56, 44,
-    22, 32, 52, 26, 51, 39, 27, 45, 53, 31, 50, 58, 35, 55, 48, 40, 59, 54, 49, 4,
-    9, 8, 0, 0, 19, 18, 1, 1, 34, 33, 2, 2, 25, 29, 3, 3, 10, 14, 4, 9,
-    14, 13, 5, 5, 24, 23, 6, 6, 43, 42, 7, 7, 15, 19, 8, 10, 29, 28, 11, 11,
-    38, 37, 12, 12, 20, 24, 13, 15, 42, 41, 16, 16, 47, 46, 17, 17, 30, 34, 18, 20,
-    37, 36, 21, 21, 57, 56, 22, 22, 44, 43, 23, 25, 33, 32, 26, 26, 52, 51, 27, 27,
-    39, 38, 28, 30, 46, 45, 31, 31, 53, 52, 32, 39, 51, 50, 35, 35, 58, 57, 36, 44,
-    56, 55, 40, 40, 48, 47, 41, 49, 54, 53, 45, 48, 55, 59, 49, 54, 59, 58, 50
-  };
-};
+    // Base: octahedron_hk34_ambo_hk72, Ops: Kis, Hk(0.00)
+    // Dependencies: octahedron_hk34_ambo_hk72
+    inline PolyMesh octahedron_hk34_ambo_hk72() {
+        return hankin(ambo(hankin(octahedron(), 34.0f * D2R)), 72.0f * D2R);
+    }
 
-struct SnubDodecahedron {
-  static constexpr int NUM_VERTS = 60;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.39314191f, 0.76393421f, 0.51170691f),
-    Vector(0.15349999f, 0.97273285f, 0.17386359f),
-    Vector(-0.29827370f, 0.91743421f, 0.26333870f),
-    Vector(-0.33784331f, 0.67445912f, 0.65648062f),
-    Vector(0.08947510f, 0.57959091f, 0.80998061f),
-    Vector(0.76393421f, 0.51170691f, 0.39314191f),
-    Vector(0.97273285f, 0.17386359f, 0.15349999f),
-    Vector(0.91743421f, 0.26333870f, -0.29827370f),
-    Vector(0.67445912f, 0.65648062f, -0.33784331f),
-    Vector(0.57959091f, 0.80998061f, 0.08947510f),
-    Vector(0.51170691f, 0.39314191f, 0.76393421f),
-    Vector(0.17386359f, 0.15349999f, 0.97273285f),
-    Vector(0.26333870f, -0.29827370f, 0.91743421f),
-    Vector(0.65648062f, -0.33784331f, 0.67445912f),
-    Vector(0.80998061f, 0.08947510f, 0.57959091f),
-    Vector(0.29827370f, 0.91743421f, -0.26333870f),
-    Vector(0.33784331f, 0.67445912f, -0.65648062f),
-    Vector(-0.08947510f, 0.57959091f, -0.80998061f),
-    Vector(-0.39314191f, 0.76393421f, -0.51170691f),
-    Vector(-0.15349999f, 0.97273285f, -0.17386359f),
-    Vector(0.91743421f, -0.26333870f, 0.29827370f),
-    Vector(0.67445912f, -0.65648062f, 0.33784331f),
-    Vector(0.57959091f, -0.80998061f, -0.08947510f),
-    Vector(0.76393421f, -0.51170691f, -0.39314191f),
-    Vector(0.97273285f, -0.17386359f, -0.15349999f),
-    Vector(-0.26333870f, 0.29827370f, 0.91743421f),
-    Vector(-0.65648062f, 0.33784331f, 0.67445912f),
-    Vector(-0.80998061f, -0.08947510f, 0.57959091f),
-    Vector(-0.51170691f, -0.39314191f, 0.76393421f),
-    Vector(-0.17386359f, -0.15349999f, 0.97273285f),
-    Vector(-0.57959091f, 0.80998061f, -0.08947510f),
-    Vector(-0.76393421f, 0.51170691f, -0.39314191f),
-    Vector(-0.97273285f, 0.17386359f, -0.15349999f),
-    Vector(-0.91743421f, 0.26333870f, 0.29827370f),
-    Vector(-0.67445912f, 0.65648062f, 0.33784331f),
-    Vector(-0.39314191f, -0.76393421f, 0.51170691f),
-    Vector(-0.15349999f, -0.97273285f, 0.17386359f),
-    Vector(0.29827370f, -0.91743421f, 0.26333870f),
-    Vector(0.33784331f, -0.67445912f, 0.65648062f),
-    Vector(-0.08947510f, -0.57959091f, 0.80998061f),
-    Vector(0.51170691f, -0.39314191f, -0.76393421f),
-    Vector(0.17386359f, -0.15349999f, -0.97273285f),
-    Vector(0.26333870f, 0.29827370f, -0.91743421f),
-    Vector(0.65648062f, 0.33784331f, -0.67445912f),
-    Vector(0.80998061f, -0.08947510f, -0.57959091f),
-    Vector(-0.65648062f, -0.33784331f, -0.67445912f),
-    Vector(-0.80998061f, 0.08947510f, -0.57959091f),
-    Vector(-0.51170691f, 0.39314191f, -0.76393421f),
-    Vector(-0.17386359f, 0.15349999f, -0.97273285f),
-    Vector(-0.26333870f, -0.29827370f, -0.91743421f),
-    Vector(-0.67445912f, -0.65648062f, -0.33784331f),
-    Vector(-0.57959091f, -0.80998061f, 0.08947510f),
-    Vector(-0.76393421f, -0.51170691f, 0.39314191f),
-    Vector(-0.97273285f, -0.17386359f, 0.15349999f),
-    Vector(-0.91743421f, -0.26333870f, -0.29827370f),
-    Vector(-0.33784331f, -0.67445912f, -0.65648062f),
-    Vector(0.08947510f, -0.57959091f, -0.80998061f),
-    Vector(0.39314191f, -0.76393421f, -0.51170691f),
-    Vector(0.15349999f, -0.97273285f, -0.17386359f),
-    Vector(-0.29827370f, -0.91743421f, -0.26333870f)
-  };
-  static constexpr int NUM_FACES = 92;
-  static constexpr int TOTAL_FACE_INDICES = 300;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-    20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-    40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
-    10, 5, 0, 9, 15, 1, 19, 30, 2, 34, 26, 3, 25, 11, 4, 14, 20, 6, 24, 44,
-    7, 43, 16, 8, 29, 39, 12, 38, 21, 13, 42, 48, 17, 47, 31, 18, 37, 58, 22, 57,
-    40, 23, 33, 53, 27, 52, 35, 28, 46, 54, 32, 51, 59, 36, 56, 49, 41, 55, 50, 45,
-    0, 5, 9, 0, 9, 1, 1, 15, 19, 1, 19, 2, 2, 30, 34, 2, 34, 3, 3, 26,
-    25, 3, 25, 4, 4, 11, 10, 4, 10, 0, 5, 10, 14, 5, 14, 6, 6, 20, 24, 6,
-    24, 7, 7, 44, 43, 7, 43, 8, 8, 16, 15, 8, 15, 9, 11, 25, 29, 11, 29, 12,
-    12, 39, 38, 12, 38, 13, 13, 21, 20, 13, 20, 14, 16, 43, 42, 16, 42, 17, 17, 48,
-    47, 17, 47, 18, 18, 31, 30, 18, 30, 19, 21, 38, 37, 21, 37, 22, 22, 58, 57, 22,
-    57, 23, 23, 40, 44, 23, 44, 24, 26, 34, 33, 26, 33, 27, 27, 53, 52, 27, 52, 28,
-    28, 35, 39, 28, 39, 29, 31, 47, 46, 31, 46, 32, 32, 54, 53, 32, 53, 33, 35, 52,
-    51, 35, 51, 36, 36, 59, 58, 36, 58, 37, 40, 57, 56, 40, 56, 41, 41, 49, 48, 41,
-    48, 42, 45, 50, 54, 45, 54, 46, 49, 56, 55, 49, 55, 45, 50, 55, 59, 50, 59, 51
-  };
-};
+    inline PolyMesh octahedron_hk34_ambo_hk72_kis_hk0() {
+        return hankin(kis(octahedron_hk34_ambo_hk72()), 0.0f);
+    }
 
-struct TruncatedIcosidodecahedron {
-  static constexpr int NUM_VERTS = 120;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-    Vector(0.3442612f, 0.9012876f, 0.2629922f),
-    Vector(-0.1314961f, 0.9825566f, 0.1314961f),
-    Vector(-0.4255303f, 0.7697915f, 0.4757573f),
-    Vector(-0.1314961f, 0.5570264f, 0.8200185f),
-    Vector(0.3442612f, 0.6382954f, 0.6885225f),
-    Vector(0.9012876f, 0.2629922f, 0.3442612f),
-    Vector(0.9825566f, 0.1314961f, -0.1314961f),
-    Vector(0.7697915f, 0.4757573f, -0.4255303f),
-    Vector(0.5570264f, 0.8200185f, -0.1314961f),
-    Vector(0.6382954f, 0.6885225f, 0.3442612f),
-    Vector(0.2629922f, 0.3442612f, 0.9012876f),
-    Vector(0.1314961f, -0.1314961f, 0.9825566f),
-    Vector(0.4757573f, -0.4255303f, 0.7697915f),
-    Vector(0.8200185f, -0.1314961f, 0.5570264f),
-    Vector(0.6885225f, 0.3442612f, 0.6382954f),
-    Vector(0.4255303f, 0.7697915f, -0.4757573f),
-    Vector(0.1314961f, 0.5570264f, -0.8200185f),
-    Vector(-0.3442612f, 0.6382954f, -0.6885225f),
-    Vector(-0.3442612f, 0.9012876f, -0.2629922f),
-    Vector(0.1314961f, 0.9825566f, -0.1314961f),
-    Vector(0.7697915f, -0.4757573f, 0.4255303f),
-    Vector(0.5570264f, -0.8200185f, 0.1314961f),
-    Vector(0.6382954f, -0.6885225f, -0.3442612f),
-    Vector(0.9012876f, -0.2629922f, -0.3442612f),
-    Vector(0.9825566f, -0.1314961f, 0.1314961f),
-    Vector(-0.4757573f, 0.4255303f, 0.7697915f),
-    Vector(-0.8200185f, 0.1314961f, 0.5570264f),
-    Vector(-0.6885225f, -0.3442612f, 0.6382954f),
-    Vector(-0.2629922f, -0.3442612f, 0.9012876f),
-    Vector(-0.1314961f, 0.1314961f, 0.9825566f),
-    Vector(-0.6382954f, 0.6885225f, -0.3442612f),
-    Vector(-0.9012876f, 0.2629922f, -0.3442612f),
-    Vector(-0.9825566f, 0.1314961f, 0.1314961f),
-    Vector(-0.7697915f, 0.4757573f, 0.4255303f),
-    Vector(-0.5570264f, 0.8200185f, 0.1314961f),
-    Vector(-0.3442612f, -0.9012876f, 0.2629922f),
-    Vector(-0.1535f, -0.9727329f, 0.1738636f),
-    Vector(0.2982737f, -0.9174342f, 0.2633387f),
-    Vector(0.3378433f, -0.6744591f, 0.6564806f),
-    Vector(-0.0894751f, -0.5795909f, 0.8099806f),
-    Vector(0.5117069f, -0.3931419f, -0.7639342f),
-    Vector(0.1738636f, -0.1535f, -0.9727329f),
-    Vector(0.2633387f, 0.2982737f, -0.9174342f),
-    Vector(0.6564806f, 0.3378433f, -0.6744591f),
-    Vector(0.8099806f, -0.0894751f, -0.5795909f),
-    Vector(-0.6564806f, -0.3378433f, -0.6744591f),
-    Vector(-0.8099806f, 0.0894751f, -0.5795909f),
-    Vector(-0.5117069f, 0.3931419f, -0.7639342f),
-    Vector(-0.1738636f, 0.1535f, -0.9727329f),
-    Vector(-0.2633387f, -0.2982737f, -0.9174342f),
-    Vector(-0.6744591f, -0.6564806f, -0.3378433f),
-    Vector(-0.5795909f, -0.8099806f, 0.0894751f),
-    Vector(-0.7639342f, -0.5117069f, 0.3931419f),
-    Vector(-0.9727329f, -0.1738636f, 0.1535f),
-    Vector(-0.9174342f, -0.2633387f, -0.2982737f),
-    Vector(-0.3378433f, -0.6744591f, -0.6564806f),
-    Vector(0.0894751f, -0.5795909f, -0.8099806f),
-    Vector(0.3931419f, -0.7639342f, -0.5117069f),
-    Vector(0.1535f, -0.9727329f, -0.1738636f),
-    Vector(-0.2982737f, -0.9174342f, -0.2633387f),
-    Vector(0.4757573f, 0.4255303f, 0.7697915f),
-    Vector(0.7697915f, 0.4757573f, 0.4255303f),
-    Vector(0.4255303f, 0.7697915f, 0.4757573f),
-    Vector(0.5570264f, 0.8200185f, 0.1314961f),
-    Vector(0.3442612f, 0.9012876f, -0.2629922f),
-    Vector(0.1314961f, 0.9825566f, 0.1314961f),
-    Vector(-0.1314961f, 0.9825566f, -0.1314961f),
-    Vector(-0.5570264f, 0.8200185f, -0.1314961f),
-    Vector(-0.3442612f, 0.9012876f, 0.2629922f),
-    Vector(-0.6382954f, 0.6885225f, 0.3442612f),
-    Vector(-0.6885225f, 0.3442612f, 0.6382954f),
-    Vector(-0.3442612f, 0.6382954f, 0.6885225f),
-    Vector(-0.2629922f, 0.3442612f, 0.9012876f),
-    Vector(0.1314961f, 0.1314961f, 0.9825566f),
-    Vector(0.1314961f, 0.5570264f, 0.8200185f),
-    Vector(0.8200185f, 0.1314961f, 0.5570264f),
-    Vector(0.9012876f, -0.2629922f, 0.3442612f),
-    Vector(0.9825566f, 0.1314961f, 0.1314961f),
-    Vector(0.9825566f, -0.1314961f, -0.1314961f),
-    Vector(0.8200185f, -0.1314961f, -0.5570264f),
-    Vector(0.9012876f, 0.2629922f, -0.3442612f),
-    Vector(0.6885225f, 0.3442612f, -0.6382954f),
-    Vector(0.3442612f, 0.6382954f, -0.6885225f),
-    Vector(0.6382954f, 0.6885225f, -0.3442612f),
-    Vector(-0.1314961f, -0.1314961f, 0.9825566f),
-    Vector(-0.1314961f, -0.5570264f, 0.8200185f),
-    Vector(0.2629922f, -0.3442612f, 0.9012876f),
-    Vector(0.3442612f, -0.6382954f, 0.6885225f),
-    Vector(0.6382954f, -0.6885225f, 0.3442612f),
-    Vector(0.6885225f, -0.3442612f, 0.6382954f),
-    Vector(0.2629922f, 0.3442612f, -0.9012876f),
-    Vector(-0.1314961f, 0.1314961f, -0.9825566f),
-    Vector(-0.1314961f, 0.5570264f, -0.8200185f),
-    Vector(-0.4757573f, 0.4255303f, -0.7697915f),
-    Vector(-0.7697915f, 0.4757573f, -0.4255303f),
-    Vector(-0.4255303f, 0.7697915f, -0.4757573f),
-    Vector(0.3442612f, -0.9012876f, 0.2629922f),
-    Vector(0.1314961f, -0.9825566f, -0.1314961f),
-    Vector(0.5570264f, -0.8200185f, -0.1314961f),
-    Vector(0.4255303f, -0.7697915f, -0.4757573f),
-    Vector(0.4757573f, -0.4255303f, -0.7697915f),
-    Vector(0.7697915f, -0.4757573f, -0.4255303f),
-    Vector(-0.9012876f, 0.2629922f, 0.3442612f),
-    Vector(-0.9825566f, -0.1314961f, 0.1314961f),
-    Vector(-0.8200185f, -0.1314961f, 0.5570264f),
-    Vector(-0.7697915f, -0.4757573f, 0.4255303f),
-    Vector(-0.4255303f, -0.7697915f, 0.4757573f),
-    Vector(-0.4757573f, -0.4255303f, 0.7697915f),
-    Vector(-0.8200185f, 0.1314961f, -0.5570264f),
-    Vector(-0.9012876f, -0.2629922f, -0.3442612f),
-    Vector(-0.9825566f, 0.1314961f, -0.1314961f),
-    Vector(-0.5570264f, -0.8200185f, 0.1314961f),
-    Vector(-0.3442612f, -0.9012876f, -0.2629922f),
-    Vector(-0.1314961f, -0.9825566f, 0.1314961f),
-    Vector(0.1314961f, -0.5570264f, -0.8200185f),
-    Vector(-0.2629922f, -0.3442612f, -0.9012876f),
-    Vector(0.1314961f, -0.1314961f, -0.9825566f),
-    Vector(-0.3442612f, -0.6382954f, -0.6885225f),
-    Vector(-0.6382954f, -0.6885225f, -0.3442612f),
-    Vector(-0.6885225f, -0.3442612f, -0.6382954f)
-  };
-  static constexpr int NUM_FACES = 62;
-  static constexpr int TOTAL_FACE_INDICES = 360;
-  static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
-    10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
-  };
-  static constexpr std::array<int, TOTAL_FACE_INDICES> faces = {
-    0, 65, 1, 68, 2, 71, 3, 74, 4, 62, 5, 77, 6, 80, 7, 83, 8, 63, 9, 61,
-    10, 73, 11, 86, 12, 89, 13, 75, 14, 60, 15, 82, 16, 92, 17, 95, 18, 66, 19, 64,
-    20, 88, 21, 98, 22, 101, 23, 78, 24, 76, 25, 70, 26, 104, 27, 107, 28, 84, 29, 72,
-    30, 94, 31, 110, 32, 102, 33, 69, 34, 67, 35, 113, 36, 96, 37, 87, 38, 85, 39, 106,
-    40, 116, 41, 90, 42, 81, 43, 79, 44, 100, 45, 108, 46, 93, 47, 91, 48, 115, 49, 119,
-    50, 111, 51, 105, 52, 103, 53, 109, 54, 118, 55, 114, 56, 99, 57, 97, 58, 112, 59, 117,
-    60, 14, 61, 9, 62, 4, 63, 8, 64, 19, 65, 0, 66, 18, 67, 34, 68, 1, 69, 33,
-    70, 25, 71, 2, 72, 29, 73, 10, 74, 3, 75, 13, 76, 24, 77, 5, 78, 23, 79, 43,
-    80, 6, 81, 42, 82, 15, 83, 7, 84, 28, 85, 38, 86, 11, 87, 37, 88, 20, 89, 12,
-    90, 41, 91, 47, 92, 16, 93, 46, 94, 30, 95, 17, 96, 36, 97, 57, 98, 21, 99, 56,
-    100, 44, 101, 22, 102, 32, 103, 52, 104, 26, 105, 51, 106, 39, 107, 27, 108, 45, 109, 53,
-    110, 31, 111, 50, 112, 58, 113, 35, 114, 55, 115, 48, 116, 40, 117, 59, 118, 54, 119, 49,
-    62, 9, 63, 0, 65, 19, 66, 1, 68, 34, 69, 2, 71, 25, 72, 3, 74, 10, 60, 4,
-    61, 14, 75, 5, 77, 24, 78, 6, 80, 43, 81, 7, 83, 15, 64, 8, 73, 29, 84, 11,
-    86, 38, 87, 12, 89, 20, 76, 13, 82, 42, 90, 16, 92, 47, 93, 17, 95, 30, 67, 18,
-    88, 37, 96, 21, 98, 57, 99, 22, 101, 44, 79, 23, 70, 33, 102, 26, 104, 52, 105, 27,
-    107, 39, 85, 28, 94, 46, 108, 31, 110, 53, 103, 32, 106, 51, 111, 35, 113, 58, 97, 36,
-    100, 56, 114, 40, 116, 48, 91, 41, 119, 54, 109, 45, 115, 55, 117, 49, 118, 59, 112, 50
-  };
-};
+    // Base: icosahedron, Ops: Kis, Gyro, Hk(0.00)
+    inline PolyMesh icosahedron_kis_gyro_hk0() {
+        return hankin(gyro(kis(icosahedron())), 0.0f);
+    }
+
+    // Base: truncatedIcosidodecahedron, Ops: Tr(0.5), Ambo, Dual
+    inline PolyMesh truncatedIcosidodecahedron_truncate05_ambo_dual() {
+        return dual(ambo(truncate(truncatedIcosidodecahedron(), 0.5f)));
+    }
+
+    // Base: icosidodecahedron, Ops: Tr(0.5), Ambo, Dual
+    inline PolyMesh icosidodecahedron_truncate05_ambo_dual() {
+        return dual(ambo(truncate(icosidodecahedron(), 0.5f)));
+    }
+
+    // Base: snubDodecahedron, Ops: Tr(0.5), Ambo, Dual
+    inline PolyMesh snubDodecahedron_truncate05_ambo_dual() {
+        return dual(ambo(truncate(snubDodecahedron(), 0.5f)));
+    }
+
+    // Base: rhombicuboctahedron, Ops: Hk(54.00), Ambo, Hk(72.00)
+    inline PolyMesh rhombicuboctahedron_hk54_ambo_hk72() {
+        return hankin(ambo(hankin(rhombicuboctahedron(), 54.0f * D2R)), 72.0f * D2R);
+    }
+
+    // Base: truncatedIcosahedron, Ops: Hk(54.00), Ambo, Hk(72.00)
+    inline PolyMesh truncatedIcosahedron_hk54_ambo_hk72() {
+        return hankin(ambo(hankin(truncatedIcosahedron(), 54.0f * D2R)), 72.0f * D2R);
+    }
+
+    // Base: dodecahedron, Ops: Hk(54.00), Ambo, Hk(72.00)
+    inline PolyMesh dodecahedron_hk54_ambo_hk72() {
+        return hankin(ambo(hankin(dodecahedron(), 54.0f * D2R)), 72.0f * D2R);
+    }
+
+    // Base: dodecahedron, Ops: Hk(72.00), Ambo, Dual, Hk(20.00)
+    inline PolyMesh dodecahedron_hk72_ambo_dual_hk20() {
+        return hankin(dual(ambo(hankin(dodecahedron(), 72.0f * D2R))), 20.0f * D2R);
+    }
+
+    // Base: truncatedIcosahedron, Ops: Tr(0.5), Ambo, Dual
+    inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual() {
+        return dual(ambo(truncate(truncatedIcosahedron(), 0.5f)));
+    }
+  }
+}
