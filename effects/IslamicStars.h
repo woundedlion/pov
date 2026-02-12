@@ -1,38 +1,41 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../scan.h"
-#include "../plot.h"
-#include "../solids.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../palettes.h"
+#include "../effects_engine.h"
 #include <vector>
+#include <map>
+#include <string>
+#include <algorithm>
+#include <random>
 
 template <int W>
 class IslamicStars : public Effect {
 public:
     enum class SolidType {
-        Dodecahedron,
-        Icosahedron,
-        Rhombicuboctahedron,
-        TruncatedIcosahedron,
+        Octahedron_Hk34_Ambo_Hk72,
+        Octahedron_Hk34_Ambo_Hk72_Kis_Hk0,
+        Icosahedron_Kis_Gyro_Hk0,
+        TruncatedIcosidodecahedron_Truncate05_Ambo_Dual,
+        Icosidodecahedron_Truncate05_Ambo_Dual,
+        SnubDodecahedron_Truncate05_Ambo_Dual,
+        Rhombicuboctahedron_Hk54_Ambo_Hk72,
+        TruncatedIcosahedron_Hk54_Ambo_Hk72,
+        Dodecahedron_Hk54_Ambo_Hk72,
+        Dodecahedron_Hk72_Ambo_Dual_Hk20,
+        TruncatedIcosahedron_Truncate05_Ambo_Dual,
         Last // Sentinel
     };
 
     IslamicStars() : Effect(W), 
         filters(Filter::Screen::AntiAlias<W>())
     {
-        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2000, ease_mid, true)); // Continuous spin
-        timeline.add(0, Animation::PeriodicTimer(300, [this](Canvas& c) { this->next_solid(); }, true));
+        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 8000, ease_mid, true)); // Slow continuous spin
         
-        load_solid(SolidType::Dodecahedron, mesh_a);
-        current_mesh = &mesh_a;
+        // Start the shape spawning cycle
+        spawn_shape();
     }
     
     bool show_bg() const override { return false; }
@@ -40,21 +43,6 @@ public:
     void draw_frame() override {
         Canvas canvas(*this);
         timeline.step(canvas);
-        
-        // Render
-        if (morph_t > 0.0f) {
-            // Morphing: Draw both A and B with cross-fade
-            // t goes from 1.0 down to 0.0? Or 0 to 1?
-            // Let's say morph_t is transition progress (0..1)
-            // But I use a Timer to trigger 'next_solid'.
-            // Simple approach: When next_solid triggers, we start a transition.
-            
-            // Actually, simplified: Just draw current mesh with full opacity.
-            // Morph is visual candy. I'll implement cross-fade if time permits.
-            // For now, just draw current.
-        }
-        
-        draw_mesh(canvas, *current_mesh, 1.0f);
     }
 
 private:
@@ -62,82 +50,128 @@ private:
     Timeline timeline;
     Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
 
-    MeshState mesh_a;
-    MeshState mesh_b;
-    MeshState* current_mesh = nullptr;
+    // Helper struct to own the data for a mesh (MeshState is just a view)
+    struct OwnedMesh {
+        std::vector<Vector> vertices;
+        std::vector<uint8_t> face_counts;
+        std::vector<int> faces;
+
+        MeshState get_state() const {
+             MeshState s;
+             s.num_vertices = vertices.size();
+             if (s.num_vertices > MeshState::MAX_VERTS) s.num_vertices = MeshState::MAX_VERTS;
+             
+             for(size_t i=0; i<s.num_vertices; ++i) s.vertices[i] = vertices[i];
+             
+             s.num_faces = face_counts.size();
+             s.face_counts = const_cast<uint8_t*>(face_counts.data());
+             s.faces = const_cast<int*>(faces.data());
+             return s;
+        }
+
+        static OwnedMesh from_poly(const PolyMesh& src) {
+            OwnedMesh dst;
+            dst.vertices = src.vertices;
+            for(const auto& f : src.faces) {
+                dst.face_counts.push_back((uint8_t)f.size());
+                for(int idx : f) dst.faces.push_back(idx);
+            }
+            return dst;
+        }
+    };
+
     
     int solid_idx = 0;
-    float morph_t = 0.0f; 
 
-    void next_solid() {
+    void spawn_shape() {
+        // 1. Load Next Mesh
         solid_idx = (solid_idx + 1) % (int)SolidType::Last;
-        // Perform swap logic if implementing morph
-        load_solid((SolidType)solid_idx, mesh_a); // Reload into A for now
-    }
-    
-    void load_solid(SolidType type, MeshState& target) {
-        switch(type) {
-            case SolidType::Dodecahedron: load_mesh_data<Dodecahedron>(target); break;
-            case SolidType::Icosahedron: load_mesh_data<Icosahedron>(target); break;
-            case SolidType::Rhombicuboctahedron: load_mesh_data<Rhombicuboctahedron>(target); break;
-            case SolidType::TruncatedIcosahedron: load_mesh_data<TruncatedIcosahedron>(target); break;
-            default: load_mesh_data<Dodecahedron>(target); break;
-        }
-    }
-
-    template <typename T>
-    void load_mesh_data(MeshState& base_mesh) {
-        // Copy vertices (fixed size array)
-        if (T::NUM_VERTS > MeshState::MAX_VERTS) return;
-        std::copy(T::vertices.begin(), T::vertices.end(), base_mesh.vertices.begin());
-        base_mesh.num_vertices = T::NUM_VERTS;
+        PolyMesh mesh = generate_solid((SolidType)solid_idx);
         
-        base_mesh.num_faces = T::NUM_FACES;
-        base_mesh.face_counts = T::face_counts.data();
-        base_mesh.faces = T::faces.data();
-    }
-
-    void draw_mesh(Canvas& canvas, const MeshState& mesh, float opacity) {
-
-
-        // Scanline Draw
-        // Scan::Mesh::draw<W>(filters, canvas, mesh, shader, transform?); 
-        // Scan::Mesh::draw implementation in scan.h needs checking.
-        // Assuming it supports transform or I rotate vertices locally.
-        // It's safer to rotate locally into a temp mesh if Scan::Mesh doesn't support transform.
-        // But let's check scan.h signature? I ported it. 
-        // I recall Scan::Mesh::draw iterates scanlines.
+        // 2. Classify Topology
+        auto topology = MeshOps::classify_faces_by_topology(mesh);
         
-        // If scan.h doesn't support transform, we copy and rotate.
-        // Since we have `mesh_a`, we can rotate `mesh_a.vertices` in place IF we reload it every frame?
-        // No, reload is expensive.
-        // Better: `Scan::Mesh::draw` usually takes a transform lambda in JS.
-        // In C++, did I port that?
-        // If not, I should add it or use a rotated copy.
-        // I'll assume I need to rotate copy for Scan.
+        // 3. Flatten for Rendering
+        OwnedMesh owned_mesh = OwnedMesh::from_poly(mesh);
         
-        MeshState rotated_mesh;
-        rotated_mesh.num_vertices = mesh.num_vertices;
-        // Topology reuse
-        rotated_mesh.num_faces = mesh.num_faces;
-        rotated_mesh.face_counts = mesh.face_counts;
-        rotated_mesh.faces = mesh.faces;
+        // 4. Prepare Palettes
+        std::vector<const Palette*> palettes = {
+            &Palettes::embers,
+            &Palettes::richSunset,
+            &Palettes::brightSunrise,
+            &Palettes::bruisedMoss,
+            &Palettes::lavenderLake
+        };
+        static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
+        std::shuffle(palettes.begin(), palettes.end(), g);
         
-        Quaternion q = orientation.get();
-        for(size_t i=0; i<mesh.num_vertices; ++i) {
-            rotated_mesh.vertices[i] = rotate(mesh.vertices[i], q);
-        }
+        // 5. Create Sprite
+        // duration 96, fade 32 (matching JS)
+        int duration = 96;
+        int fade_in = 32;
+        int fade_out = 32;
         
-        auto shader = [&](const Vector& p, const Fragment& f) -> Fragment { // Simplified shader
-             // Simple color based on normal or position
-             Fragment out = f;
-             out.color = Color4(Palettes::richSunset.get(p.j * 0.5f + 0.5f), opacity);
-             return out;
+        auto draw_fn = [this, owned_mesh, topology, palettes](Canvas& canvas, float opacity) {
+            MeshState mesh_state = owned_mesh.get_state();
+            
+            // Rotate
+            MeshState rotated_mesh;
+            rotated_mesh.num_vertices = mesh_state.num_vertices;
+            rotated_mesh.num_faces = mesh_state.num_faces;
+            rotated_mesh.face_counts = mesh_state.face_counts;
+            rotated_mesh.faces = mesh_state.faces;
+            
+            Quaternion q = orientation.get();
+            for(size_t i=0; i<mesh_state.num_vertices; ++i) {
+                rotated_mesh.vertices[i] = rotate(mesh_state.vertices[i], q);
+            }
+            
+            auto shader = [&](const Vector& p, const Fragment& frag) -> Fragment {
+                 int faceIdx = (int)std::round(frag.v2);
+                 int topoIdx = 0;
+                 if (faceIdx >= 0 && faceIdx < (int)topology.faceColorIndices.size()) {
+                     topoIdx = topology.faceColorIndices[faceIdx];
+                 }
+                 const Palette* pal = palettes[topoIdx % palettes.size()];
+                 Fragment out = frag;
+                 
+                 float distFromEdge = -frag.v1;
+                 float size = frag.size;
+                 float intensity = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
+                 intensity = std::clamp(intensity, 0.0f, 1.0f);
+                 
+                 out.color = pal->get(intensity);
+                 out.color.alpha = opacity;
+                 return out;
+            };
+            
+            Scan::Mesh::draw<W>(filters, canvas, rotated_mesh, shader);
         };
         
-        // Scan::Mesh likely defines draw.
-        // Assuming Scan::Mesh is available via scan.h
-        // Note: I might need to explicitly include scan::Mesh implementation if it's templated.
-        Scan::Mesh::draw<W>(filters, canvas, rotated_mesh, shader);
+        timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid, fade_out, ease_mid));
+        
+        // 6. Schedule Next
+        // Overlap = fade. Next delay = duration - overlap.
+        int next_delay = duration - fade_out;
+        timeline.add(next_delay, Animation::PeriodicTimer(0, [this](Canvas&){ this->spawn_shape(); }, false));
     }
+    
+    PolyMesh generate_solid(SolidType type) {
+        switch(type) {
+            case SolidType::Octahedron_Hk34_Ambo_Hk72: return Solids::HankinSolids::octahedron_hk34_ambo_hk72();
+            case SolidType::Octahedron_Hk34_Ambo_Hk72_Kis_Hk0: return Solids::HankinSolids::octahedron_hk34_ambo_hk72_kis_hk0();
+            case SolidType::Icosahedron_Kis_Gyro_Hk0: return Solids::HankinSolids::icosahedron_kis_gyro_hk0();
+            case SolidType::TruncatedIcosidodecahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::truncatedIcosidodecahedron_truncate05_ambo_dual();
+            case SolidType::Icosidodecahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::icosidodecahedron_truncate05_ambo_dual();
+            case SolidType::SnubDodecahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::snubDodecahedron_truncate05_ambo_dual();
+            case SolidType::Rhombicuboctahedron_Hk54_Ambo_Hk72: return Solids::HankinSolids::rhombicuboctahedron_hk54_ambo_hk72();
+            case SolidType::TruncatedIcosahedron_Hk54_Ambo_Hk72: return Solids::HankinSolids::truncatedIcosahedron_hk54_ambo_hk72();
+            case SolidType::Dodecahedron_Hk54_Ambo_Hk72: return Solids::HankinSolids::dodecahedron_hk54_ambo_hk72();
+            case SolidType::Dodecahedron_Hk72_Ambo_Dual_Hk20: return Solids::HankinSolids::dodecahedron_hk72_ambo_dual_hk20();
+            case SolidType::TruncatedIcosahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::truncatedIcosahedron_truncate05_ambo_dual();
+            default: return Solids::Platonic::dodecahedron();
+        }
+    }
+
 };
+

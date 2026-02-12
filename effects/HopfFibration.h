@@ -4,12 +4,7 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../plot.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../palettes.h"
+#include "../effects_engine.h"
 #include <vector>
 #include <cmath>
 

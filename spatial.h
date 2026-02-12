@@ -130,6 +130,7 @@ struct KDNode {
   // or we could store an index if we had a reference to the point array.
   // Storing copy is safer and simpler for now.
   Vector point;
+  int16_t originalIndex = -1; // Index in the source array
   int16_t axis = 0; // 0=x, 1=y, 2=z
   int16_t left = -1;
   int16_t right = -1;
@@ -165,9 +166,9 @@ public:
   }
 
   // Nearest neighbor search
-  // Returns up to K results
-  StaticCircularBuffer<Vector, MAX_K> nearest(const Vector& target, size_t k = 1) const {
-      StaticCircularBuffer<Vector, MAX_K> result;
+  // Returns up to K results (Nodes, so we get index + point)
+  StaticCircularBuffer<KDNode, MAX_K> nearest(const Vector& target, size_t k = 1) const {
+      StaticCircularBuffer<KDNode, MAX_K> result;
       if (rootIndex == -1 || k <= 0) return result;
 
       // Max-Heap behavior scratch buffer
@@ -209,14 +210,12 @@ public:
       search_k(rootIndex, target, k, heap, push_heap, get_worst_dist);
       
       // Sort result by distance (closest first)
-      // std::sort with lambda
-      // StaticCircularBuffer has begin/end
       std::sort(heap.begin(), heap.end(), [](const Candidate& a, const Candidate& b) {
           return a.dSq < b.dSq;
       });
       
       for(const auto& c : heap) {
-          result.push_back(nodes[c.idx].point);
+          result.push_back(nodes[c.idx]);
       }
       return result;
   }
@@ -244,10 +243,11 @@ private:
       
       int newNodeIdx = nodeCount++;
       nodes[newNodeIdx].point = points[medianIdx];
-      nodes[newNodeIdx].axis = axis;
+      nodes[newNodeIdx].originalIndex = (int16_t)medianIdx; // Store index
+      nodes[newNodeIdx].axis = (int16_t)axis;
       
-      nodes[newNodeIdx].left = build(points, start, mid, depth + 1);
-      nodes[newNodeIdx].right = build(points, start + mid + 1, count - mid - 1, depth + 1);
+      nodes[newNodeIdx].left = (int16_t)build(points, start, mid, depth + 1);
+      nodes[newNodeIdx].right = (int16_t)build(points, start + mid + 1, count - mid - 1, depth + 1);
       
       return newNodeIdx;
   }

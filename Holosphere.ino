@@ -6,11 +6,8 @@
 #include <SPI.h>
 #include <vector>
 #include "led.h"
-#include "effects_legacy.h"
 #include "effects.h"
-
-// TODO: FilterMask
-// TODO: FilterDisplace
+#include "effects_legacy.h"
 
 namespace {
   POVDisplay<NUM_PIXELS, RPM>* pov;
@@ -33,6 +30,7 @@ void loop() {
   pov->show<DreamBalls<96>>(120); // NEW
   pov->show<SpinShapes<96>>(120); // NEW
   pov->show<HopfFibration<96>>(120); // NEW
+  pov->show<HankinSolids<96>>(120); // NEW
   pov->show<IslamicStars<96>>(120); // NEW
   pov->show<LSystem<96>>(120); // NEW
   pov->show<MetaballEffect<96>>(120); // NEW

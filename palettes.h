@@ -23,7 +23,11 @@ namespace Palettes {
     static constexpr ProceduralPalette fireGlow({ 0.000f, 0.000f, 0.000f }, { 0.560f, 0.560f, 0.560f }, { 0.216f, 0.346f, 0.174f }, { 0.756f, 0.542f, 0.279f });
     static constexpr ProceduralPalette darkPrimary({ 0.500f, 0.500f, 0.500f }, { 0.500f, 0.610f, 0.500f }, { 0.746f, 0.347f, 0.000f }, { 0.187f, 0.417f, 0.670f });
     static constexpr ProceduralPalette mauveFade({ 0.583f, 0.000f, 0.583f }, { 1.000f, 0.000f, 1.000f }, { 0.191f, 0.348f, 0.191f }, { 0.175f, 0.045f, 0.150f });
-    static constexpr ProceduralPalette lavenderLake({ 0.288f, 0.080f, 0.288f }, { 0.380f, 0.430f, 0.380f }, { 0.154f, 0.154f, 0.154f }, { 2.926f, 2.926f, 2.926f });
+    static constexpr ProceduralPalette lavenderLake({ 0.473f, 0.473f, 0.473f }, { 0.500f, 0.500f, 0.500f }, { 0.364f, 0.124f, 0.528f }, { 0.142f, 0.378f, 0.876f });
+    static constexpr ProceduralPalette desertRose({ 0.500f, 0.500f, 0.500f }, { 0.500f, 0.270f, 0.442f }, { 0.303f, 1.012f, 0.585f }, { 0.985f, 0.720f, 0.212f });
+    static constexpr ProceduralPalette bruisedMoss({ 0.500f, 0.500f, 0.500f }, { 0.500f, 0.500f, 0.500f }, { 0.142f, 0.252f, 0.000f }, { 0.492f, 0.200f, 0.670f });
+    static constexpr ProceduralPalette bruisedBanana({ 0.620f, 0.620f, 0.620f }, { 0.742f, 0.742f, 0.742f }, { 0.162f, 0.286f, 0.012f }, { 0.235f, 0.205f, 0.688f });
+    static constexpr ProceduralPalette brightSunrise({ 0.620f, 0.620f, 0.620f }, { 0.742f, 0.742f, 0.742f }, { 0.162f, 0.286f, 0.012f }, { 0.090f, 0.205f, 0.688f });
 
     // Gradient Palettes
     static constexpr Gradient rainbow({

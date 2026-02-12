@@ -7,8 +7,7 @@
 #include <array>
 #include <vector>
 #include <algorithm>
-#include "../color.h"
-#include "../geometry.h"
+#include "../effects_engine.h"
 
 template <int W>
 class BZReactionDiffusion : public Effect {
