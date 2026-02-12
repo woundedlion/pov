@@ -101,22 +101,21 @@ public:
         float glitchScale = 15.0f;
     } datamosh_params;
 
+
+private:
     DelayMode current_mode = VerticalWave;
     float t = 0;
-    
-    // Palette
+
     CircularPalette circular_source;
     AnimatedPalette palette;
     CycleModifier modifier;
-
-private:
+  
     Orientation orientation;
     Timeline timeline;
     FastNoiseLite noise;
-    
+    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 200>, Filter::Screen::AntiAlias<W>> filters;
     PolyMesh mesh;
     
-    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 200>, Filter::Screen::AntiAlias<W>> filters;
 
     void rebuild_mesh() {
         mesh = Solids::Archimedean::truncatedIcosidodecahedron();

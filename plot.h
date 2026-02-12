@@ -11,6 +11,7 @@
 #include "geometry.h"
 #include "color.h"
 #include "constants.h"
+#include "canvas.h"
 
 /**
  * @brief The Plot struct contains vector-based (thin) drawing primitives.
@@ -333,8 +334,6 @@ namespace Plot {
 
       const float step = 2.0f * PI_F / num_samples;
       
-      size_t start_idx = points.size();
-
       for (int i = 0; i < num_samples; i++) {
         float theta = i * step;
         float t = theta + phase;
@@ -584,10 +583,7 @@ namespace Plot {
       
       // Manual Close (Overlap)
       if (num_samples > 0) {
-          Fragment f;
-          float theta = 2.0f * PI_F; 
-          float t = theta + phase;
-          
+          Fragment f;          
           const Fragment& first = points[0];
           f.pos = first.pos;
           cumulative_len += angle_between(last_pos, f.pos);

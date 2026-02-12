@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
  */
-#include <FastLED.h>
+#include "canvas.h"
 #include "rotate.h"
 #include "util.h"
 

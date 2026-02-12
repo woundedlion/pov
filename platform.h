@@ -16,6 +16,8 @@
     namespace hs {
        inline void log(const char* msg) { Serial.println(msg); }
        inline unsigned long millis() { return ::millis(); }
+       inline void disable_interrupts() { noInterrupts(); }
+       inline void enable_interrupts() { interrupts(); }
     }
 
 #else
@@ -115,11 +117,55 @@
     };
     static SerialMock Serial;
 
+    // --- FastLED Mocks ---
+    inline uint8_t random8() { return rand() % 256; }
+    inline uint8_t random8(uint8_t top) { return rand() % top; }
+    inline uint16_t random16() { return rand() % 65536; }
+    inline void random16_add_entropy(uint16_t) {}
+
+    inline uint8_t beatsin8(uint16_t bpm, uint8_t low, uint8_t high, uint16_t phase = 0, uint16_t offset = 0) {
+        // Simplified implementation using system clock
+        // Real implementation would need a unified timebase
+        return low; 
+    }
+    
+    inline uint16_t beatsin16(uint16_t bpm, uint16_t low, uint16_t high, uint16_t phase = 0, uint16_t offset = 0) {
+        return low;
+    }
+    
+    inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
+        return (a + b) % m;
+    }
+    
+    inline uint8_t map8(uint8_t x, uint8_t in_min, uint8_t in_max) {
+        return (x - in_min) * 255 / (in_max - in_min); // rough approximation
+    }
+    
+    inline uint8_t triwave8(uint8_t in) {
+        if (in & 0x80) {
+            in = 255 - in;
+        }
+        return in << 1;
+    }
+
+    #define FASTRUN
+
+    // Mock EVERY_N_MILLIS using a simple static checker
+    #define EVERY_N_MILLIS(N) \
+      static unsigned long __last_##__LINE__ = 0; \
+      unsigned long __now_##__LINE__ = hs::millis(); \
+      if (__now_##__LINE__ - __last_##__LINE__ >= (N) && (__last_##__LINE__ = __now_##__LINE__))
+
+    #define EVERY_N_SECONDS(N) EVERY_N_MILLIS((N) * 1000)
+    #define EVERY_N_MILLISECONDS(N) EVERY_N_MILLIS(N)
+
     namespace hs {
        inline unsigned long millis() { 
            using namespace std::chrono;
            return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
        }
+       inline void disable_interrupts() {}
+       inline void enable_interrupts() {}
     }
     
     // Global millis/micros if needed, though prefer namespaced
