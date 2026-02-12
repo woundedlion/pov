@@ -9,30 +9,6 @@
 #include "3dmath.h"
 
 /**
- * @brief Namespace for custom utility and random number generation helpers.
- */
-namespace hs {
-  /**
-   * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
-   * @return A random float in the range [0.0, 1.0].
-   */
-  float rand_f() {
-    return static_cast<float>(::random(0, std::numeric_limits<int32_t>::max()))
-      / std::numeric_limits<int32_t>::max();
-  }
-
-  /**
-   * @brief Generates a pseudo-random integer within a specified range.
-   * @param min The minimum value (inclusive).
-   * @param max The maximum value (exclusive).
-   * @return A random integer in the range [min, max).
-   */
-  int rand_int(int min, int max) {
-    return ::random(min, max);
-  }
-}
-
-/**
  * @brief Wraps a floating-point value around a modulo base (m).
  * @details Ensures the result is always non-negative and correctly handles small floating-point zero values.
  * @tparam T The type of the value being wrapped (e.g., float).

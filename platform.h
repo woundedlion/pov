@@ -7,10 +7,7 @@
 #ifdef ARDUINO
     #include <Arduino.h>
     #include <FastLED.h>
-    
-    // Alias Pixel to CRGB for consistency with non-Arduino builds if needed, 
-    // though the codebase seems to use CRGB directly often. 
-    // We will ensure Pixel type alias is consistent.
+
     using Pixel = CRGB;
 
     namespace hs {
@@ -18,10 +15,35 @@
        inline unsigned long millis() { return ::millis(); }
        inline void disable_interrupts() { noInterrupts(); }
        inline void enable_interrupts() { interrupts(); }
+
+       /**
+       * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
+       * @return A random float in the range [0.0, 1.0].
+       */
+       float rand_f() {
+           return static_cast<float>(::random(0, std::numeric_limits<int32_t>::max()))
+           / std::numeric_limits<int32_t>::max();
+       }
+
+       /**
+       * @brief Generates a pseudo-random integer within a specified range.
+       * @param min The minimum value (inclusive).
+       * @param max The maximum value (exclusive).
+       * @return A random integer in the range [min, max).
+       */
+       int rand_int(int min, int max) {
+           return ::random(min, max);
+       }
     }
 
-#else
+#else 
+
     // Non-Arduino / PC Simulation Platform
+    #ifdef __EMSCRIPTEN__
+        #include <emscripten.h>
+        #include <emscripten/bind.h>
+    #endif
+
     #include <cstdint>
     #include <cmath>
     #include <algorithm>
@@ -29,10 +51,18 @@
     #include <vector>
     #include <cstring>
     #include <chrono>
+    #include <iostream>
 
-    // --- Mock Arduino Constants/Types ---
-    using  byte = uint8_t;
-    using  boolean = bool;
+    template <typename T, typename U>
+    constexpr T lerp(T a, T b, U t) {
+        return (T)(a + (b - a) * t);
+    }
+
+    struct CHSV {
+        uint8_t h, s, v;
+        constexpr CHSV() : h(0), s(0), v(0) {}
+        constexpr CHSV(uint8_t h, uint8_t s, uint8_t v) : h(h), s(s), v(v) {}
+    };
 
     // --- Mock FastLED Types ---
     struct CRGB {
@@ -41,6 +71,34 @@
         constexpr CRGB(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
         constexpr CRGB(uint8_t gray) : r(gray), g(gray), b(gray) {} // explicit?
         
+        // Convert HSV to RGB (Basic implementation)
+        constexpr CRGB(const CHSV& hsv) {
+            unsigned char region, remainder, p, q, t;
+
+            if (hsv.s == 0) {
+                r = hsv.v;
+                g = hsv.v;
+                b = hsv.v;
+                return;
+            }
+
+            region = hsv.h / 43;
+            remainder = (hsv.h - (region * 43)) * 6; 
+
+            p = (hsv.v * (255 - hsv.s)) >> 8;
+            q = (hsv.v * (255 - ((hsv.s * remainder) >> 8))) >> 8;
+            t = (hsv.v * (255 - ((hsv.s * (255 - remainder)) >> 8))) >> 8;
+
+            switch (region) {
+                case 0: r = hsv.v; g = t; b = p; break;
+                case 1: r = q; g = hsv.v; b = p; break;
+                case 2: r = p; g = hsv.v; b = t; break;
+                case 3: r = p; g = q; b = hsv.v; break;
+                case 4: r = t; g = p; b = hsv.v; break;
+                default: r = hsv.v; g = p; b = q; break;
+            }
+        }
+
         // predefined colors
         static const CRGB Black;
         static const CRGB White;
@@ -61,27 +119,14 @@
         }
 
         // Methods matching FastLED
-        CRGB& lerp16(const CRGB& other, uint16_t frac) {
+        CRGB lerp16(const CRGB& other, uint16_t frac) const {
+            CRGB ret;
             // frac is 0..65535
-            r = static_cast<uint8_t>((static_cast<uint32_t>(r) * (65535 - frac) + static_cast<uint32_t>(other.r) * frac) >> 16);
-            g = static_cast<uint8_t>((static_cast<uint32_t>(g) * (65535 - frac) + static_cast<uint32_t>(other.g) * frac) >> 16);
-            b = static_cast<uint8_t>((static_cast<uint32_t>(b) * (65535 - frac) + static_cast<uint32_t>(other.b) * frac) >> 16);
-            return *this;
+            ret.r = static_cast<uint8_t>((static_cast<uint32_t>(r) * (65535 - frac) + static_cast<uint32_t>(other.r) * frac) >> 16);
+            ret.g = static_cast<uint8_t>((static_cast<uint32_t>(g) * (65535 - frac) + static_cast<uint32_t>(other.g) * frac) >> 16);
+            ret.b = static_cast<uint8_t>((static_cast<uint32_t>(b) * (65535 - frac) + static_cast<uint32_t>(other.b) * frac) >> 16);
+            return ret;
         }
-    };
-    
-    inline const CRGB CRGB::Black = CRGB(0,0,0);
-    inline const CRGB CRGB::White = CRGB(255,255,255);
-    inline const CRGB CRGB::Red = CRGB(255,0,0);
-    inline const CRGB CRGB::Green = CRGB(0,255,0);
-    inline const CRGB CRGB::Blue = CRGB(0,0,255);
-
-    using Pixel = CRGB;
-
-    struct CHSV {
-        uint8_t h, s, v;
-        constexpr CHSV() : h(0), s(0), v(0) {}
-        constexpr CHSV(uint8_t h, uint8_t s, uint8_t v) : h(h), s(s), v(v) {}
     };
     
     // --- Mock FastLED Functions ---
@@ -98,6 +143,41 @@
         if (t < 0) t = 0;
         return t;
     }
+
+    #define PI 3.1415926535897932384626433832795
+
+    namespace hs {
+       inline void log(const char* msg) { 
+           std::cout << msg << std::endl; 
+       }
+    }
+
+    // --- Mock Arduino Constants/Types ---
+    using  byte = uint8_t;
+    using  boolean = bool;
+
+    // --- Mock FastLED Constants ---
+    enum FastLEDCheck {
+        UncorrectedColor,
+        TypicalLEDStrip,
+        UncorrectedTemperature,
+        Candle
+    };
+
+    struct FastLEDMock {
+        void setCorrection(int) {}
+        void setTemperature(int) {}
+        template<typename T, int P1, int P2, int P3, int P4>
+        void addLeds(CRGB* data, int nLeds) {}
+        void show() {}
+        void showColor(const CRGB&) {}
+    };
+    static FastLEDMock FastLED;
+
+    // Helper for addLeds template args
+    enum LEDType { WS2801 };
+    enum ColorOrder { RGB };
+    #define DATA_RATE_MHZ(x) x
 
     // --- Mock Arduino Functions ---
     inline int random(int max) { return rand() % max; }
@@ -166,6 +246,24 @@
        }
        inline void disable_interrupts() {}
        inline void enable_interrupts() {}
+
+       /**
+       * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
+       * @return A random float in the range [0.0, 1.0].
+       */
+       float rand_f() {
+           return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+       }
+
+       /**
+       * @brief Generates a pseudo-random integer within a specified range.
+       * @param min The minimum value (inclusive).
+       * @param max The maximum value (exclusive).
+       * @return A random integer in the range [min, max).
+       */
+       int rand_int(int min, int max) {
+           return std::rand() % (max - min) + min;
+       }
     }
     
     // Global millis/micros if needed, though prefer namespaced
