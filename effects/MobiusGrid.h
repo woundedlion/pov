@@ -81,14 +81,14 @@ private:
       float r_val = expf(log_r);
       float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
 
-      Points points;
+      Fragments points;
       Basis basis = make_basis(Quaternion(), normal);
-      Plot::SphericalPolygon::sample<W>(points, basis, radius, W / 4);
+      Plot::SphericalPolygon::sample(points, basis, radius, W / 4);
 
       Fragments fragments; 
       fragments.reserve(points.size());
       for (size_t k = 0; k < points.size(); ++k) {
-        Vector transformed = inv_stereo(mobius(stereo(points[k]), params));
+        Vector transformed = inv_stereo(mobius(stereo(points[k].pos), params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
         f.v0 = (float)k / (points.size() - 1); // t
@@ -115,14 +115,14 @@ private:
       float theta = (static_cast<float>(i) / num) * PI_F;
       Vector normal(cosf(theta), sinf(theta), 0.0f);
 
-      Points points;
+      Fragments points;
       Basis basis = make_basis(Quaternion(), normal);
-      Plot::SphericalPolygon::sample<W>(points, basis, 1.0f, W / 4);
+      Plot::SphericalPolygon::sample(points, basis, 1.0f, W / 4);
       
       Fragments fragments;
       fragments.reserve(points.size());
       for (size_t k = 0; k < points.size(); ++k) {
-        Vector transformed = inv_stereo(mobius(stereo(points[k]), params));
+        Vector transformed = inv_stereo(mobius(stereo(points[k].pos), params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
         f.v0 = (float)k / points.size(); // t (0..1)
@@ -138,7 +138,7 @@ private:
         int idx1 = static_cast<int>(original_idx) % points.size();
         int idx2 = (idx1 + 1) % points.size();
         float f = original_idx - std::floor(original_idx);
-        float z = points[idx1].k * (1.0f - f) + points[idx2].k * f;
+        float z = points[idx1].pos.k * (1.0f - f) + points[idx2].pos.k * f;
 
         float R = sqrtf((1.0f + z) / (1.0f - z));
         float log_r = logf(R);

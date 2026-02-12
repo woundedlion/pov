@@ -3,6 +3,7 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifdef ARDUINO
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wall"
 #pragma GCC diagnostic ignored "-Wextra"
@@ -19,7 +20,12 @@
 #include "constants.h"
 #include "canvas.h"
 #pragma GCC diagnostic pop
+#endif
 
+/**
+ * @brief Analog pin used for seeding the random number generator.
+ */
+#ifdef ARDUINO
 /**
  * @brief Analog pin used for seeding the random number generator.
  */
@@ -168,3 +174,4 @@ Effect* POVDisplay<S, RPM>::effect_ = nullptr;
 
 template<int S, int RPM>
 CRGB POVDisplay<S, RPM>::leds_[S];
+#endif
