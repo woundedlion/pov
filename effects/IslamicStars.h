@@ -15,9 +15,8 @@ template <int W>
 class IslamicStars : public Effect {
 public:
     enum class SolidType {
-        Octahedron_Hk34_Ambo_Hk72,
-        Octahedron_Hk34_Ambo_Hk72_Kis_Hk0,
-        Icosahedron_Kis_Gyro_Hk0,
+        Octahedron_Hk17_Ambo_Hk72,
+        Icosahedron_Kis_Gyro,
         TruncatedIcosidodecahedron_Truncate05_Ambo_Dual,
         Icosidodecahedron_Truncate05_Ambo_Dual,
         SnubDodecahedron_Truncate05_Ambo_Dual,
@@ -158,17 +157,16 @@ private:
     
     PolyMesh generate_solid(SolidType type) {
         switch(type) {
-            case SolidType::Octahedron_Hk34_Ambo_Hk72: return Solids::HankinSolids::octahedron_hk34_ambo_hk72();
-            case SolidType::Octahedron_Hk34_Ambo_Hk72_Kis_Hk0: return Solids::HankinSolids::octahedron_hk34_ambo_hk72_kis_hk0();
-            case SolidType::Icosahedron_Kis_Gyro_Hk0: return Solids::HankinSolids::icosahedron_kis_gyro_hk0();
-            case SolidType::TruncatedIcosidodecahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::truncatedIcosidodecahedron_truncate05_ambo_dual();
-            case SolidType::Icosidodecahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::icosidodecahedron_truncate05_ambo_dual();
-            case SolidType::SnubDodecahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::snubDodecahedron_truncate05_ambo_dual();
-            case SolidType::Rhombicuboctahedron_Hk54_Ambo_Hk72: return Solids::HankinSolids::rhombicuboctahedron_hk54_ambo_hk72();
-            case SolidType::TruncatedIcosahedron_Hk54_Ambo_Hk72: return Solids::HankinSolids::truncatedIcosahedron_hk54_ambo_hk72();
-            case SolidType::Dodecahedron_Hk54_Ambo_Hk72: return Solids::HankinSolids::dodecahedron_hk54_ambo_hk72();
-            case SolidType::Dodecahedron_Hk72_Ambo_Dual_Hk20: return Solids::HankinSolids::dodecahedron_hk72_ambo_dual_hk20();
-            case SolidType::TruncatedIcosahedron_Truncate05_Ambo_Dual: return Solids::HankinSolids::truncatedIcosahedron_truncate05_ambo_dual();
+            case SolidType::Octahedron_Hk17_Ambo_Hk72: return Solids::IslamicStarPatterns::octahedron_hk17_ambo_hk72();
+            case SolidType::Icosahedron_Kis_Gyro: return Solids::IslamicStarPatterns::icosahedron_kis_gyro();
+            case SolidType::TruncatedIcosidodecahedron_Truncate05_Ambo_Dual: return Solids::IslamicStarPatterns::truncatedIcosidodecahedron_truncate05_ambo_dual();
+            case SolidType::Icosidodecahedron_Truncate05_Ambo_Dual: return Solids::IslamicStarPatterns::icosidodecahedron_truncate05_ambo_dual();
+            case SolidType::SnubDodecahedron_Truncate05_Ambo_Dual: return Solids::IslamicStarPatterns::snubDodecahedron_truncate05_ambo_dual();
+            case SolidType::Rhombicuboctahedron_Hk54_Ambo_Hk72: return Solids::IslamicStarPatterns::rhombicuboctahedron_hk54_ambo_hk72();
+            case SolidType::TruncatedIcosahedron_Hk54_Ambo_Hk72: return Solids::IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72();
+            case SolidType::Dodecahedron_Hk54_Ambo_Hk72: return Solids::IslamicStarPatterns::dodecahedron_hk54_ambo_hk72();
+            case SolidType::Dodecahedron_Hk72_Ambo_Dual_Hk20: return Solids::IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20();
+            case SolidType::TruncatedIcosahedron_Truncate05_Ambo_Dual: return Solids::IslamicStarPatterns::truncatedIcosahedron_truncate05_ambo_dual();
             default: return Solids::Platonic::dodecahedron();
         }
     }
