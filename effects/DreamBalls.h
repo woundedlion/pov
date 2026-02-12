@@ -253,7 +253,7 @@ private:
         Vector axis = random_vector();
         slice_filter.get().axis = axis; // Update axis
         
-        for (int i = 0; i < orientations.size(); ++i) {
+        for (size_t i = 0; i < orientations.size(); ++i) {
             float direction = (i % 2 == 0) ? 1.0f : -1.0f;
             timeline.add(0, Animation::Rotation<W>(orientations[i], axis, direction * 2 * PI_F, 80, ease_in_out_sin, false));
         }

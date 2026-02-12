@@ -12,6 +12,7 @@
 #include "constants.h"
 #include "filter.h"
 #include "static_circular_buffer.h"
+#include "canvas.h"
 
 namespace SDF {
     struct Bounds {

@@ -13,6 +13,7 @@
 #include "geometry.h" 
 #include "color.h" 
 #include "static_circular_buffer.h"
+#include "canvas.h"
 
  // Filter Traits
 struct Is2D {

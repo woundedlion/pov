@@ -17,8 +17,8 @@
 #include "3dmath.h"
 #include "FastNoiseLite.h"
 #include "static_circular_buffer.h"
+#include "canvas.h"
 
-class Canvas;
 class Orientation;
 
 typedef CRGB Pixel;
