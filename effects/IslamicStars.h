@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <random>
 
-template <int W>
+template <int W, int H>
 class IslamicStars : public Effect {
 public:
     enum class SolidType {
@@ -28,8 +28,8 @@ public:
         Last // Sentinel
     };
 
-    IslamicStars() : Effect(W), 
-        filters(Filter::Screen::AntiAlias<W>())
+    IslamicStars() : Effect(W, H), 
+        filters(Filter::Screen::AntiAlias<W, H>())
     {
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 8000, ease_mid, true)); // Slow continuous spin
         
@@ -45,9 +45,9 @@ public:
     }
 
 private:
-    Orientation orientation;
-    Timeline timeline;
-    Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
+    Orientation<W> orientation;
+    Timeline<W> timeline;
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
     // Helper struct to own the data for a mesh (MeshState is just a view)
     struct OwnedMesh {
@@ -144,7 +144,7 @@ private:
                  return out;
             };
             
-            Scan::Mesh::draw<W>(filters, canvas, rotated_mesh, shader);
+            Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
         };
         
         timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid, fade_out, ease_mid));

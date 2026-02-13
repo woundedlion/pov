@@ -175,8 +175,8 @@ private:
   size_t count;
 
   static T& get_dummy() {
-static uint8_t garbage_byte = 0;
-    return *reinterpret_cast<T*>(&garbage_byte);
+    static T dummy = T(); 
+    return dummy;
   }
 
   void pop_back_internal() {

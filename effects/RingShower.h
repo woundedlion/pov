@@ -9,13 +9,12 @@
 #include <map>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class RingShower : public Effect {
 public:
 
   RingShower() :
-    Effect(W),
-    palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING)
+    Effect(W, H)
   {
     persist_pixels = false;
 
@@ -40,6 +39,7 @@ private:
     Vector normal;
     float radius;
     float duration;
+    GenerativePalette palette;
 
     Ring() :
       normal(random_vector()),
@@ -56,6 +56,11 @@ private:
         ring.normal = random_vector();
         ring.duration = hs::rand_f() * 72.0f + 8.0f;
         ring.radius = 0;
+        ring.palette = GenerativePalette(
+            GradientShape::CIRCULAR, 
+            HarmonyType::ANALOGOUS, 
+            BrightnessProfile::FLAT
+        );
 
         timeline.add(0,
           Animation::Sprite(
@@ -81,20 +86,19 @@ private:
     auto fragment_shader = [&](const Vector& v, const Fragment& f) -> Fragment {
         Vector z = orientation.orient(X_AXIS);
         Fragment out = f;
-        out.color = palette.get(angle_between(z, v) / PI_F);
+        out.color = ring.palette.get(angle_between(z, v) / PI_F);
         out.color.alpha *= opacity * alpha;
         return out;
     };
-    Plot::Ring::draw<W>(filters, canvas, basis, ring.radius, fragment_shader);
+    Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius, fragment_shader);
   }
 
 
   static constexpr size_t MAX_RINGS = 16;
   Ring rings[MAX_RINGS];
-  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
-  Orientation orientation;
-  Timeline timeline;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  Orientation<W> orientation;
+  Timeline<W> timeline;
 
-  GenerativePalette palette;
   static constexpr float alpha = 0.2f;
 };

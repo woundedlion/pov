@@ -28,3 +28,5 @@
 #include "effects/SphericalHarmonics.h"
 #include "effects/TestTemporal.h"
 #include "effects/Voronoi.h"
+#include "effects/GnomonicStars.h"
+#include "effects/TestSlewRate.h"

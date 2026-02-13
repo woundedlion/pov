@@ -10,16 +10,16 @@
 #include "../effects_engine.h"
 #include "../FastNoiseLite.h"
 
-template <int W>
+template <int W, int H>
 class FlowField : public Effect {
 public:
   FlowField() :
-    Effect(W),
+    Effect(W, H),
     palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::ASCENDING),
     filters(
       Filter::World::Trails<W, k_max_trail_dots>(k_trail_length),
       Filter::World::Orient<W>(orientation),
-      Filter::Screen::AntiAlias<W>()
+      Filter::Screen::AntiAlias<W, H>()
     )
   {
     persist_pixels = false;
@@ -108,12 +108,12 @@ private:
   GenerativePalette palette;
   std::array<Particle, k_num_particles> particles;
 
-  Orientation orientation;
+  Orientation<W> orientation;
 
-  Pipeline<W,
+  Pipeline<W, H,
     Filter::World::Trails<W, k_max_trail_dots>,
     Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W>
+    Filter::Screen::AntiAlias<W, H>
   > filters;
 
 

@@ -4,20 +4,14 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../plot.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../solids.h"
-#include "../palettes.h"
+#include "../effects_engine.h"
 #include <vector>
 
-template <int W>
+template <int W, int H>
 class MindSplatter : public Effect {
 public:
-    MindSplatter() : Effect(W),
-        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()),
+    MindSplatter() : Effect(W, H),
+        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
         particle_system(2048)
     {
         rebuild();
@@ -39,10 +33,10 @@ public:
     }
     
 private:
-    Orientation orientation;
-    Timeline timeline;
-    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
-    Animation::ParticleSystem particle_system;
+    Orientation<W> orientation;
+    Timeline<W> timeline;
+    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
+    Animation::ParticleSystem<W> particle_system;
     
     // Params
     float friction = 0.85f;
@@ -69,7 +63,7 @@ private:
         static std::vector<float> emitter_hues;
         if(emitter_hues.empty()) {
             for(size_t i=0; i<EmitSolid::NUM_VERTS; ++i) {
-                emitter_hues.push_back(static_cast<float>(rand()) / RAND_MAX);
+                emitter_hues.push_back(hs::rand_f());
             }
         }
         
@@ -77,7 +71,7 @@ private:
         for(size_t i=0; i<EmitSolid::NUM_VERTS; ++i) {
             Vector axis = EmitSolid::vertices[i];
             
-            particle_system.add_emitter([=, this](Animation::ParticleSystem& sys) mutable {
+            particle_system.add_emitter([=, this](Animation::ParticleSystem<W>& sys) mutable {
                 static int Counter = 0;
                 float angle = (Counter++) * angular_speed;
                 
@@ -101,7 +95,7 @@ private:
                 
                 AlphaFalloffPalette palette([](float t) { return t; }, base_palette);
                 
-                sys.spawn(axis, vel, palette, 160);
+                particle_system.spawn(axis, vel, palette, 160);
             });
         }
     }
@@ -127,7 +121,7 @@ private:
              
              Fragment f_out = f;
              if (p_idx < 0 || p_idx >= particle_system.active_count) {
-                 f_out.color = Color4(CRGB::Black, 0.0f);
+                 f_out.color = Color4(CRGB(0, 0, 0), 0.0f);
                  f_out.blend = BLEND_OVER;
                  return f_out;
              }
@@ -137,7 +131,7 @@ private:
              
              // Optimization: Skip black
              if (c.alpha <= 0.001f || alpha <= 0.001f) {
-                 f_out.color = Color4(CRGB::Black, 0.0f);
+                 f_out.color = Color4(CRGB(0, 0, 0), 0.0f);
                  return f_out;
              }
              
@@ -147,7 +141,7 @@ private:
              return f_out;
         };
         
-        Plot::ParticleSystem::draw<W>(filters, canvas, particle_system, fragment_shader, vertex_shader);
+        Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system, fragment_shader, vertex_shader);
     }
     
     void start_warp() {

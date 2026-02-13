@@ -15,24 +15,11 @@ static constexpr unsigned int RPM = 480;
 static constexpr int NUM_PIXELS = 40;
 
 /**
- * @brief Half the number of pixels (physical height).
- */
-static constexpr int H = NUM_PIXELS / 2;
-
-/**
- * @brief Virtual height used for mapping (H + buffer).
- */
-static constexpr int H_VIRT = H + 3;
-
-/**
  * @brief Maximum horizontal resolution (width) for effects.
  */
-static constexpr int MAX_W = 96;
+static constexpr int MAX_W = 288;
 
 /**
- * @brief Macro to calculate the 1D array index from 2D coordinates (x, y).
- * @param x The horizontal coordinate (column).
- * @param y The vertical coordinate (row).
- * @return The 1D index.
+ * @brief Maximum vertical resolution (height) for effects.
  */
-inline constexpr int XY(int x, int y) { return x * H + y; }
+static constexpr int MAX_H = 144;

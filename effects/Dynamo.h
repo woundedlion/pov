@@ -9,7 +9,7 @@
 #include <map>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class Dynamo : public Effect {
 public:
 
@@ -25,7 +25,7 @@ public:
   };
 
   Dynamo() :
-    Effect(W),
+    Effect(W, H),
     palettes({ GenerativePalette(
       GradientShape::VIGNETTE,
       HarmonyType::ANALOGOUS,
@@ -39,7 +39,7 @@ public:
       Filter::World::Trails<W, 10000>(trail_length),
       Filter::World::Replicate<W>(3),
       Filter::World::Orient<W>(orientation),
-      Filter::Screen::AntiAlias<W>()
+      Filter::Screen::AntiAlias<W, H>()
     )
   {
     persist_pixels = false;
@@ -169,21 +169,21 @@ private:
   void draw_nodes(Canvas& canvas, float age) {
     for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
-        auto from = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
+        auto from = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
         Color4 c = color(from, 0);
         c.alpha *= 0.5f; 
         filters.plot(canvas, from, c.color, age, c.alpha);
       }
       else {
-        auto from = pixel_to_vector<W>(nodes[i - 1].x, nodes[i - 1].y);
-        auto to = pixel_to_vector<W>(nodes[i].x, nodes[i].y);
+        auto from = pixel_to_vector<W, H>(nodes[i - 1].x, nodes[i - 1].y);
+        auto to = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
         auto fragment_shader = [this](const Vector& v, const Fragment& f) -> Fragment { 
             Fragment out = f;
             out.color = color(v, 0);
             out.color.alpha *= 0.5f;
             return out;
         };
-        Plot::Line::draw<W>(filters, canvas, from, to, fragment_shader);
+        Plot::Line::draw<W, H>(filters, canvas, from, to, fragment_shader);
       }
     }
   }
@@ -220,9 +220,10 @@ private:
     return speed < 0 ? -1 : 1;
   }
 
-  Timeline timeline;
+  Timeline<W> timeline;
 
   static constexpr size_t MAX_PALETTES = 16;
+  static constexpr int H_VIRT = H + 3;
   static constexpr size_t NUM_NODES = H_VIRT;
   StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
   StaticCircularBuffer <float, MAX_PALETTES - 1> palette_boundaries;
@@ -232,14 +233,14 @@ private:
   int speed;
   int gap;
   uint32_t trail_length;
-  Orientation orientation;
+  Orientation<W> orientation;
 
   int wipe_duration = 20;
 
-  Pipeline<W,
+  Pipeline<W, H,
     Filter::World::Trails<W, 10000>,
     Filter::World::Replicate<W>,
     Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W>
+    Filter::Screen::AntiAlias<W, H>
   > filters;
 };

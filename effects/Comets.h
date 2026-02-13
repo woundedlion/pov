@@ -16,7 +16,7 @@ struct LissajousConfig {
   float domain;
 };
 
-template <int W>
+template <int W, int H>
 class Comets : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 120;
@@ -25,8 +25,8 @@ public:
 
 
   struct Node {
-    Orientation orientation;
-    Animation::OrientationTrail<TRAIL_LENGTH> trail;
+    Orientation<W, 16> orientation;
+    Animation::OrientationTrail<Orientation<W, 16>, TRAIL_LENGTH> trail;
     Vector v;
 
     // Default constructor needed for StaticCircularBuffer
@@ -34,7 +34,7 @@ public:
   };
 
   Comets() :
-    Effect(W),
+    Effect(W, H),
     palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::DESCENDING),
     cur_function_idx(0),
     num_nodes(1),
@@ -75,7 +75,7 @@ public:
       update_palette();
       }, true));
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
+    timeline.add(0, Animation::RandomWalk<W, 16>(orientation, random_vector()));
   }
 
   bool show_bg() const override { return false; }
@@ -103,7 +103,7 @@ public:
             out.color = dot.color;
             return out;
         };
-        Scan::Point::draw<W>(filters, canvas, dot.position, thickness, fragment_shader);
+        Scan::Point::draw<W, H>(filters, canvas, dot.position, thickness, fragment_shader);
     }
   }
 
@@ -139,13 +139,13 @@ private:
     nodes.push_back(Node());
     Node& node = nodes.back();
 
-    timeline.add(i * spacing, Animation::Motion<W>(node.orientation, path, cycle_duration, true));
+    timeline.add(i * spacing, Animation::Motion<W, 16>(node.orientation, path, cycle_duration, true));
   }
 
-  Timeline timeline;
-  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
+  Timeline<W, 16> timeline;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   Path<W> path;
-  Orientation orientation;
+  Orientation<W, 16> orientation;
   GenerativePalette palette;
   std::vector<LissajousConfig> functions;
   int cur_function_idx;

@@ -28,10 +28,10 @@ struct Color4 {
   Pixel color;
   float alpha;
 
-  Color4() : color(CRGB::Black), alpha(1.0f) {}
-  Color4(const Pixel& p, float a = 1.0f) : color(p), alpha(a) {}
+  Color4() : color(CRGB(0,0,0)), alpha(1.0f) {}
+  Color4(Pixel p, float a = 1.0f) : color(p), alpha(a) {}
   Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f) : color(r, g, b), alpha(a) {}
-  Color4(const Color4& c, float a) : color(c.color), alpha(a) {}
+  Color4(Color4 c, float a) : color(c.color), alpha(a) {}
 
   // Implicit conversion to CRGB (Pixel)
   operator Pixel() const { return color; }
@@ -57,36 +57,36 @@ Pixel& operator*=(Pixel& p, float s) {
 }
 
 /**
- * @brief Gamma brightness lookup table (LUT).
- * gamma = 2.20 steps = 256 range = 0-255
+ * @brief sRGB to Linear RGB lookup table (IEC 61966-2-1).
+ * Matches THREE.Color.convertSRGBToLinear() implementation.
  */
-const uint8_t gamma_lut[256] = {
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
-     1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   2,   2,
-     3,   3,   3,   3,   3,   4,   4,   4,   4,   5,   5,   5,   5,   6,   6,   6,
-     6,   7,   7,   7,   8,   8,   8,   9,   9,   9,  10,  10,  11,  11,  11,  12,
-    12,  13,  13,  13,  14,  14,  15,  15,  16,  16,  17,  17,  18,  18,  19,  19,
-    20,  20,  21,  22,  22,  23,  23,  24,  25,  25,  26,  26,  27,  28,  28,  29,
-    30,  30,  31,  32,  33,  33,  34,  35,  35,  36,  37,  38,  39,  39,  40,  41,
-    42,  43,  43,  44,  45,  46,  47,  48,  49,  49,  50,  51,  52,  53,  54,  55,
-    56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,
-    73,  74,  75,  76,  77,  78,  79,  81,  82,  83,  84,  85,  87,  88,  89,  90,
-    91,  93,  94,  95,  97,  98,  99, 100, 102, 103, 105, 106, 107, 109, 110, 111,
-   113, 114, 116, 117, 119, 120, 121, 123, 124, 126, 127, 129, 130, 132, 133, 135,
-   137, 138, 140, 141, 143, 145, 146, 148, 149, 151, 153, 154, 156, 158, 159, 161,
-   163, 165, 166, 168, 170, 172, 173, 175, 177, 179, 181, 182, 184, 186, 188, 190,
-   192, 194, 196, 197, 199, 201, 203, 205, 207, 209, 211, 213, 215, 217, 219, 221,
-   223, 225, 227, 229, 231, 234, 236, 238, 240, 242, 244, 246, 248, 251, 253, 255,
+const uint8_t srgb_to_linear_lut[256] = {
+   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,
+   1,   1,   2,   2,   2,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,   3,
+   4,   4,   4,   4,   4,   5,   5,   5,   5,   6,   6,   6,   6,   7,   7,   7,
+   8,   8,   8,   8,   9,   9,   9,  10,  10,  10,  11,  11,  12,  12,  12,  13,
+  13,  13,  14,  14,  15,  15,  16,  16,  17,  17,  17,  18,  18,  19,  19,  20,
+  20,  21,  22,  22,  23,  23,  24,  24,  25,  25,  26,  27,  27,  28,  29,  29,
+  30,  30,  31,  32,  32,  33,  34,  35,  35,  36,  37,  37,  38,  39,  40,  41,
+  41,  42,  43,  44,  45,  45,  46,  47,  48,  49,  50,  51,  51,  52,  53,  54,
+  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,
+  71,  72,  73,  74,  76,  77,  78,  79,  80,  81,  82,  84,  85,  86,  87,  88,
+  90,  91,  92,  93,  95,  96,  97,  99, 100, 101, 103, 104, 105, 107, 108, 109,
+ 111, 112, 114, 115, 116, 118, 119, 121, 122, 124, 125, 127, 128, 130, 131, 133,
+ 134, 136, 138, 139, 141, 142, 144, 146, 147, 149, 151, 152, 154, 156, 157, 159,
+ 161, 163, 164, 166, 168, 170, 171, 173, 175, 177, 179, 181, 183, 184, 186, 188,
+ 190, 192, 194, 196, 198, 200, 202, 204, 206, 208, 210, 212, 214, 216, 218, 220,
+ 222, 224, 226, 229, 231, 233, 235, 237, 239, 242, 244, 246, 248, 250, 253, 255
 };
 
 /**
- * @brief Applies gamma correction to a CRGB pixel color.
+ * @brief Converts a color from sRGB to Linear space.
  */
-Pixel gamma_correct(const Pixel& p) {
+Pixel convert_srgb_to_linear(const Pixel& p) {
   return CRGB(
-    gamma_lut[p.r],
-    gamma_lut[p.g],
-    gamma_lut[p.b]
+    srgb_to_linear_lut[p.r],
+    srgb_to_linear_lut[p.g],
+    srgb_to_linear_lut[p.b]
   );
 }
 
@@ -309,11 +309,13 @@ public:
     }
 
     Color4 get(float t) const override {
-        // Direct lookup from the pre-calculated LUT
-        // This avoids casting to CRGBPalette256 and using runtime functions
         uint8_t index = static_cast<uint8_t>(t * 255);
         CPixel p = entries[index];
-        return Color4(Pixel(p.r, p.g, p.b), 1.0f);
+        Pixel color(p.r, p.g, p.b);
+#ifdef __EMSCRIPTEN__
+        color = convert_srgb_to_linear(color);
+#endif
+        return Color4(color, 1.0f);
     }
 
     constexpr ~Gradient() override {}
@@ -325,22 +327,29 @@ public:
 class GenerativePalette : public Palette {
 public:
 
+  GenerativePalette() : 
+    GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::FLAT) {}
+
   GenerativePalette(
     GradientShape gradient_shape,
     HarmonyType harmony_type,
     BrightnessProfile profile,
     SaturationProfile sat_profile = SaturationProfile::MID,
-    int seed_hue = -1) :
+    int manual_seed = -1) :
     gradient_shape(gradient_shape),
-    harmony_type(harmony_type),
-    seed_hue(seed_hue == -1 ? static_cast<uint8_t>(hs::rand_int(0, 256)) : static_cast<uint8_t>(seed_hue))
+    harmony_type(harmony_type)
   {
-    uint8_t h1 = seed_hue;
-    uint8_t h2, h3;
+    if (manual_seed != -1) {
+        palette_hue = static_cast<uint8_t>(manual_seed);
+    } else {
+        palette_hue = g_hue_seed;
+        // Advance global seed for next generation (Golden Ratio distribution)
+        g_hue_seed = static_cast<uint8_t>(
+            (static_cast<uint32_t>(g_hue_seed) + static_cast<uint32_t>(G * 255.0f)) % 256);
+    }
 
-    // Advance seed for next generation
-    seed_hue = static_cast<uint8_t>(
-      (static_cast<uint32_t>(seed_hue) + static_cast<uint32_t>(G * 255.0f)) % 256);
+    uint8_t h1 = palette_hue;
+    uint8_t h2, h3;
 
     calc_hues(h1, h2, h3, harmony_type);
 
@@ -447,7 +456,11 @@ public:
     if (dist < 0.0001f) return Color4(c1, 1.0f);
 
     float p = (t - start) / dist;
-    return Color4(c1.lerp16(c2, to_short(std::clamp(p, 0.0f, 1.0f))), 1.0f);
+    Pixel color = c1.lerp16(c2, to_short(std::clamp(p, 0.0f, 1.0f)));
+#ifdef __EMSCRIPTEN__
+    color = convert_srgb_to_linear(color);
+#endif
+    return Color4(color, 1.0f);
   }
 
 private:
@@ -487,8 +500,10 @@ private:
 
   GradientShape gradient_shape;
   HarmonyType harmony_type;
-  uint8_t seed_hue;
+  uint8_t palette_hue;
   Pixel a, b, c;
+  
+  static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<Pixel, 5> colors;
   int size = 0;
@@ -511,11 +526,15 @@ public:
   }
 
   Color4 get(float t) const override {
-    return Color4(Pixel(
+    Pixel color(
       static_cast<uint8_t>(255 * std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f)),
       static_cast<uint8_t>(255 * std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f)),
       static_cast<uint8_t>(255 * std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f))
-    ), 1.0f);
+    );
+#ifdef __EMSCRIPTEN__
+    color = convert_srgb_to_linear(color);
+#endif
+    return Color4(color, 1.0f);
   }
 
 protected:
@@ -643,7 +662,7 @@ public:
 
 private:
   std::reference_wrapper<const Palette> source;
-  StaticCircularBuffer<PaletteModifier*, 16> modifiers;
+  StaticCircularBuffer<PaletteModifier*, 4> modifiers;
 };
 
 
@@ -756,7 +775,7 @@ inline Color4 get_color(const PaletteVariant& pv, float t) {
   return std::visit([t](auto&& arg) -> Color4 {
     using T = std::decay_t<decltype(arg)>;
     if constexpr (std::is_same_v<T, std::monostate>) {
-      return Color4(CRGB::Black, 0.0f);
+      return Color4(CRGB(0, 0, 0), 0.0f);
     } else {
       return arg.get(t);
     }

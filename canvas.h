@@ -24,15 +24,17 @@ public:
   /**
    * @brief Constructs an Effect instance.
    * @param W The width (resolution) of the effect.
+   * @param H The height (resolution) of the effect.
    */
-  Effect(int W) :
+  Effect(int W, int H) :
     persist_pixels(true),
-    width_(W)
+    width_(W),
+    height_(H)
   {
     bufs_[0] = buffer_a;
-    memset(bufs_[0], 0, sizeof(Pixel) * W * H);
+    memset(bufs_[0], 0, sizeof(Pixel) * MAX_W * MAX_H);
     bufs_[1] = buffer_b;
-    memset(bufs_[1], 0, sizeof(Pixel) * W * H);
+    memset(bufs_[1], 0, sizeof(Pixel) * MAX_W * MAX_H);
   }
 
   virtual ~Effect() {
@@ -55,7 +57,7 @@ public:
    * @return The Pixel color reference.
    */
   virtual const Pixel& get_pixel(int x, int y) const {
-    return bufs_[prev_][XY(x, y)];
+    return bufs_[prev_][x * height_ + y];
   }
 
   /**
@@ -63,6 +65,11 @@ public:
    * @return The width.
    */
   inline int width() const { return width_; }
+  /**
+   * @brief Gets the height of the effect.
+   * @return The height.
+   */
+  inline int height() const { return height_; }
   /**
    * @brief Checks if the display buffer and drawing buffer are synced.
    * @return True if the current frame is ready to be shown.
@@ -81,7 +88,7 @@ public:
     cur_ = cur_ ? 0 : 1;
     hs::enable_interrupts();
     if (persist_pixels) {
-      memcpy(bufs_[cur_], bufs_[prev_], sizeof(Pixel) * width_ * H);
+      memcpy(bufs_[cur_], bufs_[prev_], sizeof(Pixel) * width_ * height_);
     }
   }
 
@@ -103,8 +110,9 @@ protected:
 private:
   volatile int prev_ = 0, cur_ = 0, next_ = 0; /**< Pointers/indices for double buffering logic. */
   int width_; /**< The width of the effect. */
-  inline static Pixel buffer_a[MAX_W * H]; /**< Static storage for buffer A. */
-  inline static Pixel buffer_b[MAX_W * H]; /**< Static storage for buffer B. */
+  int height_; /**< The height of the effect. */
+  inline static Pixel buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A. */
+  inline static Pixel buffer_b[MAX_W * MAX_H]; /**< Static storage for buffer B. */
   Pixel* bufs_[2]; /**< Pointers to the two buffer storage locations. */
 };
 
@@ -142,7 +150,7 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel& operator()(int x, int y) {
-    return effect_.bufs_[effect_.cur_][XY(x, y)];
+    return effect_.bufs_[effect_.cur_][x * effect_.height_ + y];
   }
 
   /**
@@ -158,14 +166,16 @@ public:
    * @brief Gets the width of the canvas.
    * @return The width.
    */
-  const int width() { return effect_.width(); }
 
   /**
    * @brief Clears the entire current drawing buffer to black.
    */
   void clear_buffer() {
-    memset(effect_.bufs_[effect_.cur_], 0, sizeof(Pixel) * effect_.width_ * H);
+    memset(effect_.bufs_[effect_.cur_], 0, sizeof(Pixel) * effect_.width_ * effect_.height_);
   }
+
+  inline int width() const { return effect_.width(); }
+  inline int height() const { return effect_.height(); }
 
 private:
   Effect& effect_; /**< Reference to the owning Effect instance. */

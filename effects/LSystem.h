@@ -4,12 +4,7 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../plot.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../palettes.h"
+#include "../effects_engine.h"
 #include <vector>
 #include <string>
 #include <map>
@@ -40,7 +35,7 @@ struct SphericalTurtle {
     }
 };
 
-template <int W>
+template <int W, int H>
 class LSystem : public Effect {
 public:
     struct Ruleset {
@@ -52,7 +47,7 @@ public:
         int iterations;
     };
 
-    LSystem() : Effect(W), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()) {
+    LSystem() : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
         setup_rules();
         set_ruleset(0); // Tree
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400, ease_mid, true));
@@ -71,7 +66,7 @@ public:
                 out.color = palette.get((v.j + 1.0f) * 0.5f);
                 return out;
             };
-            Plot::Line::draw<W>(filters, canvas, seg.first, seg.second, fragment_shader);
+            Plot::Line::draw<W, H>(filters, canvas, seg.first, seg.second, fragment_shader);
         }
     }
     
@@ -125,9 +120,9 @@ public:
     }
 
 private:
-    Orientation orientation;
-    Timeline timeline;
-    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
+    Orientation<W> orientation;
+    Timeline<W> timeline;
+    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
     ProceduralPalette palette = Palettes::richSunset;
     
     std::vector<Ruleset> rulesets;

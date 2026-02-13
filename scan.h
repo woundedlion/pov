@@ -82,7 +82,9 @@ namespace SDF {
          alpha_angle = atan2f(nx, nz);
       }
 
+      template <int H>
       Bounds get_vertical_bounds() const {
+        constexpr int H_VIRT = H + 3;
         float a1 = center_phi - target_angle;
         float a2 = center_phi + target_angle;
         float phi_min = 0, phi_max = PI_F;
@@ -112,9 +114,10 @@ namespace SDF {
        * @param out Output iterator or callback accepting (float start, float end).
        * @return True if intervals were found and reported.
        */
-      template<typename OutputIt>
+      template<int H, typename OutputIt>
       bool get_horizontal_intervals(int y, OutputIt out) const {
-        float phi = y_to_phi(static_cast<float>(y));
+        constexpr int H_VIRT = H + 3;
+        float phi = y_to_phi<H>(static_cast<float>(y));
         float cos_phi = cosf(phi);
         float sin_phi = sinf(phi);
 
@@ -219,7 +222,9 @@ namespace SDF {
           cos_min_limit = cosf(ang_max);
        }
 
+       template <int H>
        Bounds get_vertical_bounds() const {
+          constexpr int H_VIRT = H + 3;
           float a1 = center_phi - target_angle;
           float a2 = center_phi + target_angle;
           float phi_min = 0, phi_max = PI_F;
@@ -244,9 +249,10 @@ namespace SDF {
            return { y_min, y_max };
        }
 
-       template<typename OutputIt>
+       template<int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
-         float phi = y_to_phi(static_cast<float>(y));
+         constexpr int H_VIRT = H + 3;
+         float phi = y_to_phi<H>(static_cast<float>(y));
          float cos_phi = cosf(phi);
          float sin_phi = sinf(phi);
 
@@ -322,13 +328,14 @@ namespace SDF {
        Union(const A& shapeA, const B& shapeB)
           : a(shapeA), b(shapeB), thickness(std::max(shapeA.thickness, shapeB.thickness)) {}
 
+       template <int H>
        Bounds get_vertical_bounds() const {
-          auto b1 = a.get_vertical_bounds();
-          auto b2 = b.get_vertical_bounds();
+          auto b1 = a.template get_vertical_bounds<H>();
+          auto b2 = b.template get_vertical_bounds<H>();
           return { std::min(b1.y_min, b2.y_min), std::max(b1.y_max, b2.y_max) };
        }
 
-       template<typename OutputIt>
+       template<int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
            // Union intervals are complex; fallback to full scan.
            return false; 
@@ -359,14 +366,15 @@ namespace SDF {
        Subtract(const A& shapeA, const B& shapeB)
           : a(shapeA), b(shapeB), thickness(shapeA.thickness) {}
 
+       template <int H>
        Bounds get_vertical_bounds() const {
-          return a.get_vertical_bounds(); // Subtraction is bounded by A
+          return a.template get_vertical_bounds<H>(); // Subtraction is bounded by A
        }
 
-       template<typename OutputIt>
+       template<int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
            // Subtraction intervals delegate to A (conservative)
-           return a.get_horizontal_intervals(y, out);
+           return a.template get_horizontal_intervals<H>(y, out);
        }
 
        /**
@@ -398,30 +406,31 @@ namespace SDF {
        Intersection(const A& shapeA, const B& shapeB)
           : a(shapeA), b(shapeB), thickness(std::min(shapeA.thickness, shapeB.thickness)) {}
 
+       template <int H>
        Bounds get_vertical_bounds() const {
-          auto b1 = a.get_vertical_bounds();
-          auto b2 = b.get_vertical_bounds();
+          auto b1 = a.template get_vertical_bounds<H>();
+          auto b2 = b.template get_vertical_bounds<H>();
           return { std::max(b1.y_min, b2.y_min), std::min(b1.y_max, b2.y_max) };
        }
 
-       template<typename OutputIt>
+       template<int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
            StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
            StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
 
-           bool hasA = a.get_horizontal_intervals(y, [&](float start, float end) {
+           bool hasA = a.template get_horizontal_intervals<H>(y, [&](float start, float end) {
                intervalsA.push_back({start, end});
            });
            
-           bool hasB = b.get_horizontal_intervals(y, [&](float start, float end) {
+           bool hasB = b.template get_horizontal_intervals<H>(y, [&](float start, float end) {
                intervalsB.push_back({start, end});
            });
 
            if (!hasA) {
-               return b.get_horizontal_intervals(y, out);
+               return b.template get_horizontal_intervals<H>(y, out);
            }
            if (!hasB) {
-               return a.get_horizontal_intervals(y, out);
+               return a.template get_horizontal_intervals<H>(y, out);
            }
 
            if (intervalsA.is_empty() || intervalsB.is_empty()) return true;
@@ -496,7 +505,7 @@ namespace SDF {
         std::span<std::pair<float, float>> intervals; 
         bool full_width;
         
-        Face(std::span<const Vector> vertices, std::span<const int> indices, float th, FaceScratchBuffer& scratch) 
+        Face(std::span<const Vector> vertices, std::span<const int> indices, float th, FaceScratchBuffer& scratch, int h_virt, int height) 
           : thickness(th), full_width(true)
         {
            count = indices.size();
@@ -619,8 +628,8 @@ namespace SDF {
            
            // Vertical Bounds
            float margin = thickness + 0.05f;
-           y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, min_phi - margin) * (H_VIRT - 1)) / PI_F)));
-           y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, max_phi + margin) * (H_VIRT - 1)) / PI_F)));
+           y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, min_phi - margin) * (h_virt - 1)) / PI_F)));
+           y_max = std::min(height - 1, static_cast<int>(ceilf((std::min(PI_F, max_phi + margin) * (h_virt - 1)) / PI_F)));
            
            // Horizontal Interval Logic
            std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
@@ -654,9 +663,10 @@ namespace SDF {
            intervals = std::span<std::pair<float, float>>(scratch.intervals.data(), interval_count);
         }
         
+        template <int H>
         Bounds get_vertical_bounds() const { return { y_min, y_max }; }
         
-        template<typename OutputIt>
+        template<int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
            if (full_width) return false;
            for(const auto& iv : intervals) {
@@ -800,7 +810,7 @@ namespace SDF {
        float nx, ny, nz, R_val, alpha_angle;
        int y_min, y_max;
        
-       Polygon(const Basis& b, float r, float th, int s, float ph)
+       Polygon(const Basis& b, float r, float th, int s, float ph, int h_virt, int height)
          : basis(b), thickness(th), sides(s), phase(ph)
        {
           apothem = thickness * cosf(PI_F / sides);
@@ -810,15 +820,17 @@ namespace SDF {
           
           float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
           float margin = thickness + 0.1f;
-          y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
-          y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
+          y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
+          y_max = std::min(height - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
        }
        
+       template <int H>
        Bounds get_vertical_bounds() const { return { y_min, y_max }; }
        
-       template<typename OutputIt>
+       template<int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
-           float phi = y_to_phi(static_cast<float>(y));
+          // Templated H not needed for full scan fallback logic if we used it, but keeping signature
+          float phi = y_to_phi<H>(static_cast<float>(y));
            float cos_phi = cosf(phi);
            float sin_phi = sinf(phi);
 
@@ -909,7 +921,7 @@ namespace SDF {
         float scan_r_val, scan_alpha_angle;
         int y_min, y_max;
 
-        Star(const Basis& b, float r, int s, float ph)
+        Star(const Basis& b, float r, int s, float ph, int h_virt, int height)
             : basis(b), radius(r), sides(s), phase(ph)
         {
             float outer_radius = radius * (PI_F / 2.0f);
@@ -940,15 +952,16 @@ namespace SDF {
 
             float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
             float margin = thickness + 0.1f;
-            y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
-            y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
+            y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
+            y_max = std::min(height - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
         }
 
+        template <int H>
         Bounds get_vertical_bounds() const { return { y_min, y_max }; }
 
-        template<typename OutputIt>
+        template<int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
-            float phi = y_to_phi(static_cast<float>(y));
+            float phi = y_to_phi<H>(static_cast<float>(y));
             float cos_phi = cosf(phi);
             float sin_phi = sinf(phi);
 
@@ -1040,7 +1053,7 @@ namespace SDF {
        float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha;
        int y_min, y_max;
        
-       Flower(const Basis& b, float radius, int s, float ph)
+       Flower(const Basis& b, float radius, int s, float ph, int h_virt, int height)
          : basis(b), sides(s), phase(ph)
        {
           float outer = radius * (PI_F / 2.0f);
@@ -1054,15 +1067,16 @@ namespace SDF {
           
           float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.j)));
           float margin = thickness + 0.1f;
-          y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (H_VIRT - 1)) / PI_F)));
-          y_max = std::min(H - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (H_VIRT - 1)) / PI_F)));
+          y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
+          y_max = std::min(height - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
        }
        
+       template <int H>
        Bounds get_vertical_bounds() const { return { y_min, y_max }; }
 
-       template<typename OutputIt>
+       template<int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
-         float phi = y_to_phi(static_cast<float>(y));
+         float phi = y_to_phi<H>(static_cast<float>(y));
          float cos_phi = cosf(phi);
          float sin_phi = sinf(phi);
 
@@ -1146,6 +1160,7 @@ namespace SDF {
             inv_q = orientation.inverse();
         }
 
+        template <int H>
         Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
 
         DistanceResult distance(const Vector& p) const {
@@ -1175,7 +1190,7 @@ namespace SDF {
              return { d, t_val, harmonic_val, 0.0f, 1.0f };
         }
         
-        template<typename OutputIt>
+        template<int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
             // HarmonicBlob is complex, full scan is safest/easiest port
             return false;
@@ -1200,6 +1215,7 @@ namespace SDF {
             }
         }
         
+        template <int H>
         Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
         
         DistanceResult distance(const Vector& p) const {
@@ -1240,7 +1256,7 @@ namespace SDF {
              return { dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness };
         }
         
-        template<typename OutputIt>
+        template<int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
             return false;
         }
@@ -1259,9 +1275,9 @@ namespace Scan {
   /**
    * @brief Processes a single pixel for rasterization.
    */
-  template <int W, bool ComputeUVs = true>
+  template <int W, int H, bool ComputeUVs = true>
   static void process_pixel(int x, int y, auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb) {
-     const Vector& p = pixel_to_vector<W>(x, y);
+     const Vector& p = pixel_to_vector<W, H>(x, y);
      
      auto result = shape.template distance<ComputeUVs>(p);
      float d = result.dist;
@@ -1292,14 +1308,14 @@ namespace Scan {
      }
   }
 
-  template <int W, bool ComputeUVs = true>
+  template <int W, int H, bool ComputeUVs = true>
   static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
-     auto bounds = shape.get_vertical_bounds();
+     auto bounds = shape.template get_vertical_bounds<H>();
      
      StaticCircularBuffer<std::pair<float, float>, 32> intervals;
      
      for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
-        bool handled = shape.get_horizontal_intervals(y, [&](float t1, float t2) {
+        bool handled = shape.template get_horizontal_intervals<H>(y, [&](float t1, float t2) {
             intervals.push_back({t1, t2});
         });
         
@@ -1310,17 +1326,15 @@ namespace Scan {
                 
                 for (int x = x1; x <= x2; ++x) {
                     int wx = wrap(x, W);
-                    process_pixel<W, ComputeUVs>(wx, y, pipeline, canvas, shape, fragment_shader, debug_bb);
+                    process_pixel<W, H, ComputeUVs>(wx, y, pipeline, canvas, shape, fragment_shader, debug_bb);
                 }
             }
             intervals.clear();
         } else {
              // Fallback to full width if get_horizontal_intervals returns false
-             // OR if it returns true but pushed no intervals? (Use assumption that true means handled, false means full scan)
-             // The original code fell back if !handled.
              if (!handled) {
                for (int x = 0; x < W; ++x) {
-                  process_pixel<W, ComputeUVs>(x, y, pipeline, canvas, shape, fragment_shader, debug_bb);
+                  process_pixel<W, H, ComputeUVs>(x, y, pipeline, canvas, shape, fragment_shader, debug_bb);
                }
              }
         }
@@ -1328,96 +1342,94 @@ namespace Scan {
   }
 
   struct DistortedRing {
-    template <int W, bool ComputeUVs = true>
+    template <int W, int H, bool ComputeUVs = true>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, 
                      std::function<float(float)> shift_fn, float amplitude, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false)  
     {
       SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude, phase);
-      Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
+      Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
     }
   };
 
    struct PlanarPolygon {
-      template <int W, bool ComputeUVs = true>
+      template <int W, int H, bool ComputeUVs = true>
       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         auto res = get_antipode(basis, radius);
         float thickness = res.second * (PI_F / 2.0f);
         
-        SDF::Polygon shape(res.first, res.second, thickness, sides, phase);
-        Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
+        SDF::Polygon shape(res.first, res.second, thickness, sides, phase, H + 3, H);
+        Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
       }
    };
 
    struct Line {
-      template <int W>
+      template <int W, int H>
       static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, float thickness, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
           SDF::Line shape(v1, v2, thickness);
-          Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+          Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
       }
    };
 
-
-
   struct Ring {
-    template <int W, bool ComputeUVs = true>
+    template <int W, int H, bool ComputeUVs = true>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, float thickness, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         auto res = get_antipode(basis, radius);
         SDF::Ring shape(res.first, res.second, thickness, phase);
-        Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
+        Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
      }
 
       // Overload for Vector normal inputs
-     template <int W, bool ComputeUVs = true>
+     template <int W, int H, bool ComputeUVs = true>
      static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, float thickness, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
         Basis basis = make_basis(Quaternion(), normal);
-        draw<W, ComputeUVs>(pipeline, canvas, basis, radius, thickness, fragment_shader, phase, debug_bb);
+        draw<W, H, ComputeUVs>(pipeline, canvas, basis, radius, thickness, fragment_shader, phase, debug_bb);
      }
   };
 
    struct Circle {
-      template <int W, bool ComputeUVs = true>
+      template <int W, int H, bool ComputeUVs = true>
       static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
           // Circle is a Ring with inner radius 0
           float th = radius * (PI_F / 2.0f);
-          Ring::draw<W, ComputeUVs>(pipeline, canvas, basis, 0.0f, th, fragment_shader, 0, debug_bb);
+          Ring::draw<W, H, ComputeUVs>(pipeline, canvas, basis, 0.0f, th, fragment_shader, 0, debug_bb);
       }
 
-      template <int W, bool ComputeUVs = true>
+      template <int W, int H, bool ComputeUVs = true>
       static void draw(auto& pipeline, Canvas& canvas, const Vector& normal, float radius, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
           Basis basis = make_basis(Quaternion(), normal);
-          draw<W, ComputeUVs>(pipeline, canvas, basis, radius, fragment_shader, debug_bb);
+          draw<W, H, ComputeUVs>(pipeline, canvas, basis, radius, fragment_shader, debug_bb);
       }
    };
   
    struct Point {
-      template <int W>
+      template <int W, int H>
       static void draw(auto& pipeline, Canvas& canvas, const Vector& p, float thickness, FragmentShaderFn auto fragment_shader) {
          // Scan.Point uses Scan.Ring with radius 0
          Basis basis = make_basis(Quaternion(), p);
-         Ring::draw<W>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader);
+         Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader);
       }
    };
    
     struct Star {
-       template <int W, bool ComputeUVs = true>
+       template <int W, int H, bool ComputeUVs = true>
        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
            auto res = get_antipode(basis, radius);
-           SDF::Star<W> shape(res.first, res.second, sides, phase);
-           Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
+           SDF::Star<W> shape(res.first, res.second, sides, phase, H + 3, H);
+           Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
     };
     
     struct Flower {
-       template <int W, bool ComputeUVs = true>
+       template <int W, int H, bool ComputeUVs = true>
        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
            auto res = get_antipode(basis, radius);
-           SDF::Flower shape(res.first, res.second, sides, phase);
-           Scan::rasterize<W, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
+           SDF::Flower shape(res.first, res.second, sides, phase, H + 3, H);
+           Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
     };
    
    struct SphericalPolygon {
-        template <int W>
+        template <int W, int H>
         static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
              // 1. Get Antipode and Basis
              Basis eff_basis = basis;
@@ -1458,24 +1470,24 @@ namespace Scan {
              
              // 4. Create SDF::Face
              SDF::FaceScratchBuffer scratch;
-             SDF::Face shape(vertices, indices, 0.0f, scratch);
+             SDF::Face shape(vertices, indices, 0.0f, scratch, H + 3, H);
              
-             Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+             Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
         }
    };
 
    struct HarmonicBlob {
-       template <int W>
+       template <int W, int H>
        static void draw(auto& pipeline, Canvas& canvas, int l, int m, float amplitude, const Quaternion& orientation, 
                         std::function<float(int, int, float, float)> harmonic_fn, FragmentShaderFn auto fragment_shader, bool debug_bb = false)
        {
            SDF::HarmonicBlob shape(l, m, amplitude, orientation, harmonic_fn);
-           Scan::rasterize<W>(pipeline, canvas, shape, fragment_shader, debug_bb);
+           Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
    };
 
   struct Mesh {
-      template <int W, typename MeshT, typename F>
+      template <int W, int H, typename MeshT, typename F>
       static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, F fragment_shader, bool debug_bb = false) {
           SDF::FaceScratchBuffer scratch;
           
@@ -1485,7 +1497,7 @@ namespace Scan {
              std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
              std::span<const int> indices(&mesh.faces[idx_offset], count);
              
-             SDF::Face shape(verts, indices, 0.0f, scratch);
+             SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
              idx_offset += count;
              
              auto wrapper = [&](const Vector& p, const Fragment& f_in) {
@@ -1496,12 +1508,12 @@ namespace Scan {
              
              // Mesh faces always need UVs/Barycentrics usually? Or maybe not?
              // For now default to true or propagate if we add it to Mesh::draw
-             Scan::rasterize<W, true>(pipeline, canvas, shape, wrapper, debug_bb);
+             Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
           }
       }
       
       // Overload for MeshState
-      template <int W>
+      template <int W, int H>
       static void draw(auto& pipeline, Canvas& canvas, const MeshState& mesh, auto fragment_shader, bool debug_bb = false) {
           SDF::FaceScratchBuffer scratch;
           size_t face_offset = 0;
@@ -1513,7 +1525,7 @@ namespace Scan {
              std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
              std::span<const int> indices(mesh.faces + face_offset, count);
              
-             SDF::Face shape(verts, indices, 0.0f, scratch);
+             SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
              
              auto wrapper = [&](const Vector& p, const Fragment& f_in) {
                  Fragment f = f_in;
@@ -1521,7 +1533,7 @@ namespace Scan {
                  return fragment_shader(p, f);
              };
              
-             Scan::rasterize<W, true>(pipeline, canvas, shape, wrapper, debug_bb);
+             Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
              face_offset += count;
           }
       }

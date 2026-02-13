@@ -25,6 +25,10 @@
            / std::numeric_limits<int32_t>::max();
        }
 
+       float rand_f(float min, float max) {
+           return min + rand_f() * (max - min);
+       }
+
        /**
        * @brief Generates a pseudo-random integer within a specified range.
        * @param min The minimum value (inclusive).
@@ -98,13 +102,6 @@
                 default: r = hsv.v; g = p; b = q; break;
             }
         }
-
-        // predefined colors
-        static const CRGB Black;
-        static const CRGB White;
-        static const CRGB Red;
-        static const CRGB Green;
-        static const CRGB Blue;
 
         // Operators
         bool operator==(const CRGB& rhs) const { return r == rhs.r && g == rhs.g && b == rhs.b; }
@@ -253,6 +250,10 @@
        */
        float rand_f() {
            return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+       }
+
+       float rand_f(float min, float max) {
+           return min + rand_f() * (max - min);
        }
 
        /**

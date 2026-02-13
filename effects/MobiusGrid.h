@@ -9,11 +9,11 @@
 #include <map>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class MobiusGrid : public Effect {
 public:
   MobiusGrid() :
-    Effect(W),
+    Effect(W, H),
     palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::FLAT),
     next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::FLAT),
     holeN(Z_AXIS),
@@ -22,7 +22,7 @@ public:
       Filter::World::HoleRef<W>(holeN, 1.2f),
       Filter::World::HoleRef<W>(holeS, 1.2f),
       Filter::World::Orient<W>(orientation),
-      Filter::Screen::AntiAlias<W>()
+      Filter::Screen::AntiAlias<W, H>()
     )
   {
     persist_pixels = false;
@@ -105,7 +105,7 @@ private:
         return out;
       };
 
-      Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);
+      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
     }
   }
 
@@ -153,7 +153,7 @@ private:
         return out;
       };
 
-      Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);
+      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
     }
   }
 
@@ -163,17 +163,17 @@ private:
   GenerativePalette palette;
   GenerativePalette next_palette;
   MobiusParams params;
-  Orientation orientation;
-  Timeline timeline;
+  Orientation<W> orientation;
+  Timeline<W> timeline;
 
 
   Vector holeN;
   Vector holeS;
 
-  Pipeline<W,
+  Pipeline<W, H,
     Filter::World::HoleRef<W>,
     Filter::World::HoleRef<W>,
     Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W>
+    Filter::Screen::AntiAlias<W, H>
   > filters;
 };

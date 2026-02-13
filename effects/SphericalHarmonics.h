@@ -4,12 +4,7 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../scan.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../palettes.h"
+#include "../effects_engine.h"
 #include <vector>
 #include <cmath>
 
@@ -61,7 +56,7 @@ namespace SHMath {
     }
 }
 
-template <int W>
+template <int W, int H>
 class SphericalHarmonics : public Effect {
 public:
     struct HarmonicBlob {
@@ -71,11 +66,12 @@ public:
         
         HarmonicBlob(int l, int m, float amp, Quaternion q) : l(l), m(m), amplitude(amp), orientation(q) {}
         
+        template <int H_>
         SDF::Bounds get_vertical_bounds() const {
-             return { 0, H - 1 }; // Full Scan fallback
+             return { 0, H_ - 1 }; // Full Scan fallback
         }
         
-        template<typename OutputIt>
+        template<int H_, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
              return false; // Full Scan fallback
         }
@@ -97,7 +93,7 @@ public:
         }
     };
 
-    SphericalHarmonics() : Effect(W), filters() {
+    SphericalHarmonics() : Effect(W, H), filters() {
         // Spin
         Vector axis = Vector(0.5f, 1.0f, 0.2f).normalize();
         timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100, 10000, ease_mid, true));
@@ -143,7 +139,7 @@ public:
              return out;
         };
         
-        Scan::rasterize<W>(filters, canvas, blob, shader);
+        Scan::rasterize<W, H>(filters, canvas, blob, shader);
     }
     
     // Params
@@ -151,7 +147,7 @@ public:
     float amplitude = 3.2f;
 
 private:
-    Orientation orientation;
-    Timeline timeline;
-    Pipeline<W> filters; // No filters needed? JS has pipeline.
+    Orientation<W> orientation;
+    Timeline<W> timeline;
+    Pipeline<W, H> filters; // No filters needed? JS has pipeline.
 };

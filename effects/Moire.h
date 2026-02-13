@@ -9,18 +9,18 @@
 #include <map>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class Moire : public Effect {
 public:
   Moire() :
-    Effect(W),
+    Effect(W, H),
     base_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::BELL),
     base_next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::BELL),
     int_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::CUP),
     int_next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::CUP),
     filters(
       Filter::World::Orient<W>(orientation),
-      Filter::Screen::AntiAlias<W>()
+      Filter::Screen::AntiAlias<W, H>()
     )
   {
     persist_pixels = false;
@@ -81,7 +81,7 @@ private:
           out.color = pal.get(t);
           return out;
       };
-      Plot::DistortedRing::draw<W>(filters, canvas, basis, r,
+      Plot::DistortedRing::draw<W, H>(filters, canvas, basis, r,
         sin_wave(-amp, amp, 4.0f, 0.0f), 
         fragment_shader);
     }
@@ -97,11 +97,11 @@ private:
   GenerativePalette int_palette;
   GenerativePalette int_next_palette;
 
-  Orientation orientation;
-  Timeline timeline;
+  Orientation<W> orientation;
+  Timeline<W> timeline;
 
-  Pipeline<W,
+  Pipeline<W, H,
     Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W>
+    Filter::Screen::AntiAlias<W, H>
   > filters;
 };

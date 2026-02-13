@@ -4,26 +4,21 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../scan.h"
-#include "../animation.h"
-#include "../filter.h"
-#include "../palettes.h"
+#include "../effects_engine.h"
 #include <vector>
 
-template <int W>
+template <int W, int H>
 class GnomonicStars : public Effect {
 public:
-    GnomonicStars() : Effect(W),
-        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()),
+    GnomonicStars() : Effect(W, H),
+        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
         orientation(),
         timeline(),
         params(1,0,0,0, 0,0,1,0)
     {
         // Start Animations
         timeline.add(0, Animation::MobiusGenerate(params, 0.5f, 0.05f));
-        timeline.add(0, Animation::RandomWalk<W>(orientation, UP, Animation::RandomWalk<W>::Brisk));
+        timeline.add(0, Animation::RandomWalk<W>(orientation, UP, Animation::RandomWalk<W>::Options::Energetic()));
     }
 
     bool show_bg() const override { return true; } 
@@ -60,7 +55,7 @@ public:
             // Create Basis at the star position (aligned with normal v)
             Basis basis = make_basis(Quaternion(), v); 
             
-            Scan::Star::draw<W>(
+            Scan::Star::draw<W, H>(
                 filters, 
                 canvas, 
                 basis, 
@@ -72,9 +67,9 @@ public:
     }
 
 private:
-    Orientation orientation;
-    Timeline timeline;
-    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
+    Orientation<W> orientation;
+    Timeline<W> timeline;
+    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
     
     MobiusParams params;
     bool enable_transform = true;

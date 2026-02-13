@@ -4,16 +4,12 @@
  */
 #pragma once
 
-#include "../led.h"
-#include "../geometry.h"
-#include "../animation.h"
-#include "../palettes.h"
-#include "../filter.h"
+#include "../effects_engine.h"
 #include <vector>
 #include <cmath>
 #include <cstdlib>
 
-template <int W>
+template <int W, int H>
 class Voronoi : public Effect {
 public:
     struct Site {
@@ -23,7 +19,7 @@ public:
         int id;
     };
 
-    Voronoi() : Effect(W),
+    Voronoi() : Effect(W, H),
         sites_buffer(200) 
     {
         init_sites();
@@ -47,7 +43,7 @@ public:
         // 2. Render Pixels (Linear Search)
         for (int y = 0; y < H; ++y) {
             for (int x = 0; x < W; ++x) {
-                Vector p = pixel_to_vector<W>(x, y);
+                Vector p = pixel_to_vector<W, H>(x, y);
                 
                 int bestIdx = -1;
                 float bestDot = -2.0f;

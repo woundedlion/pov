@@ -16,8 +16,6 @@
 #include "static_circular_buffer.h"
 #include "spatial.h"
 
-using VertexList = std::vector<Vector>;
-
  /**
   * @brief Represents a "Fragment" or a potential pixel/vertex with associated data registers.
   * Mirrors the JS Fragment structure for shader compatibility.
@@ -159,74 +157,98 @@ struct LogPolar {
  * @param y The pixel y-coordinate [0, H_VIRT - 1].
  * @return The spherical phi angle in radians.
  */
-float y_to_phi(float y) {
-  return (y * PI_F) / (H_VIRT - 1);
+/**
+ * @brief Converts a pixel y-coordinate to a spherical phi angle.
+ * @param y The pixel y-coordinate [0, h_virt - 1].
+ * @param h_virt The virtual height.
+ * @return The spherical phi angle in radians.
+ */
+inline float y_to_phi(float y, int h_virt) {
+  return (y * PI_F) / (h_virt - 1);
 }
 
 /**
  * @brief Converts a spherical phi angle to a pixel y-coordinate.
  * @param phi The spherical phi angle in radians.
- * @return The pixel y-coordinate [0, H_VIRT - 1].
+ * @param h_virt The virtual height.
+ * @return The pixel y-coordinate [0, h_virt - 1].
  */
-float phi_to_y(float phi) {
+inline float phi_to_y(float phi, int h_virt) {
+  return (phi * (h_virt - 1)) / PI_F;
+}
+
+template <int H>
+inline float y_to_phi(float y) {
+  constexpr int H_VIRT = H + 3;
+  return (y * PI_F) / (H_VIRT - 1);
+}
+
+template <int H>
+inline float phi_to_y(float phi) {
+  constexpr int H_VIRT = H + 3;
   return (phi * (H_VIRT - 1)) / PI_F;
 }
 
 /**
  * @brief Converts 2D pixel coordinates to a 3D unit vector on the sphere.
  * @tparam W The width (number of columns) of the virtual LED display.
+ * @tparam H The height (number of rows).
  * @param x The horizontal coordinate (0 to W).
  * @param y The vertical coordinate (0 to H_VIRT - 1).
  * @return The corresponding unit vector.
  */
-template <int W>
+template <int W, int H>
 struct PixelLUT {
+  static constexpr int H_VIRT = H + 3;
   static std::array<Vector, W* H_VIRT> data;
   static bool initialized;
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {
       for (int x = 0; x < W; x++) {
-        data[x + y * W] = Vector(Spherical((x * 2 * PI_F) / W, y_to_phi(y)));
+        data[x + y * W] = Vector(Spherical((x * 2 * PI_F) / W, y_to_phi(y, H_VIRT)));
       }
     }
     initialized = true;
   }
 };
 
-template <int W> std::array<Vector, W* H_VIRT> PixelLUT<W>::data;
-template <int W> bool PixelLUT<W>::initialized = false;
+template <int W, int H> std::array<Vector, W * PixelLUT<W, H>::H_VIRT> PixelLUT<W, H>::data;
+template <int W, int H> bool PixelLUT<W, H>::initialized = false;
 
-template <int W>
+template <int W, int H>
 const Vector& pixel_to_vector(int x, int y) {
-  if (!PixelLUT<W>::initialized) {
-    PixelLUT<W>::init();
+  if (!PixelLUT<W, H>::initialized) {
+    PixelLUT<W, H>::init();
   }
-  return PixelLUT<W>::data[x + y * W];
+  return PixelLUT<W, H>::data[x + y * W];
 }
 
-template <int W>
+template <int W, int H>
 Vector pixel_to_vector(float x, float y) {
+  constexpr int H_VIRT = H + 3;
   if (std::abs(x - floor(x)) < TOLERANCE && std::abs(y - floor(y)) < TOLERANCE) {
-    return pixel_to_vector<W>(static_cast<int>(x), static_cast<int>(y));
+    return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
   return Vector(
     Spherical(
       (x * 2 * PI_F) / W,
-      y_to_phi(y)
+      y_to_phi(y, H_VIRT)
     )
   );
 }
 
 /**
  * @brief Converts a 3D unit vector back to 2D pixel coordinates.
- * @tparam W The width (number of columns) of the virtual LED display.
+ * @tparam W The width.
+ * @tparam H The height.
  * @param v The input unit vector.
  * @return The 2D PixelCoords.
  */
-template <int W>
+template <int W, int H>
 PixelCoords vector_to_pixel(const Vector& v) {
+  constexpr int H_VIRT = H + 3;
   auto s = Spherical(v);
-  PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), phi_to_y(s.phi) });
+  PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), phi_to_y(s.phi, H_VIRT) });
   return p;
 }
 
@@ -355,6 +377,7 @@ auto square_wave(float from, float to, float freq, float dutyCycle, float phase)
  * @brief Class managing the current rotation state of an object, maintaining history for interpolation.
  * @details Stores a list of Quaternions (`orientations`) generated during the current frame step.
  */
+template <int W, int HISTORY>
 class Orientation {
 public:
   /**
@@ -421,35 +444,6 @@ public:
   }
 
   /**
-   * @brief Rotates a list of vectors by the current (latest) orientation.
-   * @param vertices The list of vectors to orient.
-   * @return A new list of oriented vectors.
-   */
-  VertexList orient(const VertexList& vertices) const {
-    VertexList r;
-    std::transform(vertices.begin(), vertices.end(), std::back_inserter(r),
-      [this](auto& v) {
-        return orient(v);
-      });
-    return r;
-  }
-
-  /**
-   * @brief Rotates a list of vectors by a specific historical orientation.
-   * @param vertices The list of vectors to orient.
-   * @param i The frame index.
-   * @return A new list of oriented vectors.
-   */
-  VertexList orient(const VertexList& vertices, int i) const {
-    VertexList r;
-    std::transform(vertices.begin(), vertices.end(), std::back_inserter(r),
-      [this, i](const auto& v) {
-        return orient(v, i);
-      });
-    return r;
-  }
-
-  /**
    * @brief Gets the current (latest) quaternion.
    * @return The Quaternion reference.
    */
@@ -483,7 +477,7 @@ public:
    * @return Reference to the Orientation object.
    */
   Orientation& push(const Quaternion& q) {
-    if (num_frames < MAX_FRAMES) {
+    if (num_frames < HISTORY) {
       orientations[num_frames++] = q;
     } else {
       hs::log("Orientation full, droping frame!");
@@ -519,9 +513,9 @@ public:
    */
   void upsample(int count) {
     if (num_frames >= count) return;
-    if (count > MAX_FRAMES) count = MAX_FRAMES;
+    if (count > HISTORY) count = HISTORY;
 
-    std::array<Quaternion, MAX_FRAMES> old_orientations;
+    std::array<Quaternion, HISTORY> old_orientations;
     std::copy(orientations.begin(), orientations.begin() + num_frames, old_orientations.begin());
 
     int old_num_frames = num_frames;
@@ -540,8 +534,7 @@ public:
   }
 
 private:
-  static constexpr int MAX_FRAMES = MAX_W + 1; /**< Max frames of history (related to display width). */
-  std::array<Quaternion, MAX_FRAMES> orientations; /**< Storage for historical quaternions. */
+  std::array<Quaternion, HISTORY> orientations; /**< Storage for historical quaternions. */
   int num_frames; /**< The current number of active frames in history. */
 };
 
