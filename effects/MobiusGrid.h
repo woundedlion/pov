@@ -11,6 +11,8 @@
 
 template <int W, int H>
 class MobiusGrid : public Effect {
+  mutable Fragments m_points;
+  mutable Fragments m_fragments; // Reusable buffers
 public:
   MobiusGrid() :
     Effect(W, H),
@@ -81,18 +83,18 @@ private:
       float r_val = expf(log_r);
       float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
 
-      Fragments points;
+      m_points.clear();
       Basis basis = make_basis(Quaternion(), normal);
-      Plot::SphericalPolygon::sample(points, basis, radius, W / 4);
+      Plot::SphericalPolygon::sample(m_points, basis, radius, W / 4);
 
-      Fragments fragments; 
-      fragments.reserve(points.size());
-      for (size_t k = 0; k < points.size(); ++k) {
-        Vector transformed = inv_stereo(mobius(stereo(points[k].pos), params));
+      m_fragments.clear();
+      m_fragments.reserve(m_points.size());
+      for (size_t k = 0; k < m_points.size(); ++k) {
+        Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
-        f.v0 = (float)k / (points.size() - 1); // t
-        fragments.push_back(f);
+        f.v0 = (float)k / (m_points.size() - 1); // t
+        m_fragments.push_back(f);
       }
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
@@ -105,7 +107,7 @@ private:
         return out;
       };
 
-      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
+      Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader, true);
     }
   }
 
@@ -115,30 +117,25 @@ private:
       float theta = (static_cast<float>(i) / num) * PI_F;
       Vector normal(cosf(theta), sinf(theta), 0.0f);
 
-      Fragments points;
+      m_points.clear();
       Basis basis = make_basis(Quaternion(), normal);
-      Plot::SphericalPolygon::sample(points, basis, 1.0f, W / 4);
+      Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);
       
-      Fragments fragments;
-      fragments.reserve(points.size());
-      for (size_t k = 0; k < points.size(); ++k) {
-        Vector transformed = inv_stereo(mobius(stereo(points[k].pos), params));
+      m_fragments.clear();
+      m_fragments.reserve(m_points.size());
+      for (size_t k = 0; k < m_points.size(); ++k) {
+        Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
-        f.v0 = (float)k / points.size(); // t (0..1)
-        fragments.push_back(f);
+        f.v0 = (float)k / m_points.size(); // t (0..1)
+        m_fragments.push_back(f);
       }
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
       
       auto fragment_shader = [&](const Vector&, const Fragment& f_val) -> Fragment {
         float t_line = f_val.v0;
-        // Approximate original Z to calculate log-gradient
-        float original_idx = t_line * points.size();
-        int idx1 = static_cast<int>(original_idx) % points.size();
-        int idx2 = (idx1 + 1) % points.size();
-        float f = original_idx - std::floor(original_idx);
-        float z = points[idx1].pos.k * (1.0f - f) + points[idx2].pos.k * f;
+        float z = sinf(t_line * 2.0f * PI_F);
 
         float R = sqrtf((1.0f + z) / (1.0f - z));
         float log_r = logf(R);
@@ -153,7 +150,7 @@ private:
         return out;
       };
 
-      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
+      Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader, true);
     }
   }
 
