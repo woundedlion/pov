@@ -84,7 +84,7 @@ namespace SDF {
 
       template <int H>
       Bounds get_vertical_bounds() const {
-        constexpr int H_VIRT = H + 3;
+        constexpr int H_VIRT = H + hs::H_OFFSET;
         float a1 = center_phi - target_angle;
         float a2 = center_phi + target_angle;
         float phi_min = 0, phi_max = PI_F;
@@ -116,7 +116,7 @@ namespace SDF {
        */
       template<int H, typename OutputIt>
       bool get_horizontal_intervals(int y, OutputIt out) const {
-        constexpr int H_VIRT = H + 3;
+        constexpr int H_VIRT = H + hs::H_OFFSET;
         float phi = y_to_phi<H>(static_cast<float>(y));
         float cos_phi = cosf(phi);
         float sin_phi = sinf(phi);
@@ -224,7 +224,7 @@ namespace SDF {
 
        template <int H>
        Bounds get_vertical_bounds() const {
-          constexpr int H_VIRT = H + 3;
+          constexpr int H_VIRT = H + hs::H_OFFSET;
           float a1 = center_phi - target_angle;
           float a2 = center_phi + target_angle;
           float phi_min = 0, phi_max = PI_F;
@@ -251,7 +251,7 @@ namespace SDF {
 
        template<int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
-         constexpr int H_VIRT = H + 3;
+         constexpr int H_VIRT = H + hs::H_OFFSET;
          float phi = y_to_phi<H>(static_cast<float>(y));
          float cos_phi = cosf(phi);
          float sin_phi = sinf(phi);

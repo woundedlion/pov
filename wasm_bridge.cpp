@@ -16,16 +16,20 @@
   */
 
 
+#ifdef __EMSCRIPTEN__
+
 #include <emscripten/bind.h>
 #include "effects.h"      // Includes all effect headers
 #include "platform.h"     //
+#include <string>
 
 
 using namespace emscripten;
 
 // Define the resolution used for the Wasm engine (defaults)
-int pixel_width = 96;
-int pixel_height = 20;
+// Define the resolution used for the Wasm engine (defaults)
+// Moved to class members
+
 
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(const std::string& name) {
@@ -70,10 +74,14 @@ public:
     }
 
     void setResolution(int w, int h) {
+        hs::log(("WASM: setResolution called with " + std::to_string(w) + "x" + std::to_string(h)).c_str());
         if (w == pixel_width && h == pixel_height) return;
 
         // basic validation
-        if (w > MAX_W || h > MAX_H) return;
+        if (w > MAX_W || h > MAX_H) {
+             hs::log("WASM: Resolution too large!");
+             return;
+        }
 
         pixel_width = w;
         pixel_height = h;
@@ -88,21 +96,30 @@ public:
     }
 
     void setEffect(std::string name) {
+        hs::log(("WASM: setEffect called with " + name).c_str());
+        hs::log(("WASM: H_OFFSET is " + std::to_string(hs::H_OFFSET)).c_str());
+
         // Dispatch based on resolution
         if (pixel_width == 96 && pixel_height == 20) {
+            hs::log("WASM: Creating effect <96, 20>");
             currentEffect = create_effect<96, 20>(name);
         }
         else if (pixel_width == 288 && pixel_height == 144) {
+             hs::log("WASM: Creating effect <288, 144>");
             currentEffect = create_effect<288, 144>(name);
         }
         else {
-             hs::log("Unsupported resolution for WASM factory!");
+             hs::log(("Unsupported resolution: " + std::to_string(pixel_width) + "x" + std::to_string(pixel_height)).c_str());
+        }
+        if (currentEffect) {
+             hs::log("WASM: Effect created successfully");
+        } else {
+             hs::log("WASM: Effect creation failed (or resolution mismatch)");
         }
     }
 
     void drawFrame() {
-        if (!currentEffect) return;
-
+        std::fill(pixelBuffer.begin(), pixelBuffer.end(), 0);
         currentEffect->draw_frame();
         currentEffect->advance_display();
 
@@ -134,6 +151,8 @@ public:
 private:
     std::unique_ptr<Effect> currentEffect;
     std::vector<uint8_t> pixelBuffer;
+    int pixel_width = 0;
+    int pixel_height = 0;
 };
 
 // Expose to JavaScript
@@ -146,3 +165,5 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
         .function("getPixels", &HolosphereEngine::getPixels)
         .function("getBufferLength", &HolosphereEngine::getBufferLength);
 }
+
+#endif

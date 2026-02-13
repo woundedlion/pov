@@ -223,7 +223,7 @@ private:
   Timeline<W> timeline;
 
   static constexpr size_t MAX_PALETTES = 16;
-  static constexpr int H_VIRT = H + 3;
+  static constexpr int H_VIRT = H + hs::H_OFFSET;
   static constexpr size_t NUM_NODES = H_VIRT;
   StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
   StaticCircularBuffer <float, MAX_PALETTES - 1> palette_boundaries;
