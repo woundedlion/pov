@@ -233,9 +233,8 @@ struct Particle {
   }
 
   const Quaternion& get_history(size_t i) const {
-      // JS parity: 0 is newest
-      size_t idx = history.size() - 1 - i;
-      return history[idx];
+      // JS parity: 0 is oldest
+      return history[i];
   }
   
   size_t history_length() const { return history.size(); }
@@ -912,7 +911,7 @@ public:
     noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     noiseGenerator.SetFrequency(options.noise_scale);
     if (options.seed == 0) {
-      noiseGenerator.SetSeed(hs::rand_int(std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
+      noiseGenerator.SetSeed(std::rand());
     } else {
       noiseGenerator.SetSeed(options.seed);
     }
@@ -1099,9 +1098,8 @@ public:
    * @param i Index (0 is newest).
    */
   const OrientationType& get(size_t i) const {
-    // JS parity: 0 is newest
-    size_t idx = snapshots.size() - 1 - i;
-    return snapshots[idx];
+    // JS parity: 0 is oldest
+    return snapshots[i];
   }
 
   /**
@@ -1113,8 +1111,7 @@ public:
    * @param i Index (0 is newest).
    */
   OrientationType& get(size_t i) {
-    size_t idx = snapshots.size() - 1 - i;
-    return snapshots[idx];
+    return snapshots[i];
   }
 
 private:

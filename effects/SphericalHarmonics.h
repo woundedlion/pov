@@ -63,6 +63,7 @@ public:
         int l, m;
         float amplitude;
         Quaternion orientation;
+        const bool is_solid = true;
         
         HarmonicBlob(int l, int m, float amp, Quaternion q) : l(l), m(m), amplitude(amp), orientation(q) {}
         
@@ -111,14 +112,7 @@ public:
         
         HarmonicBlob blob(l, m, amplitude, orientation.get());
         
-        auto shader = [&](const Vector& p, const Fragment& frag) -> Fragment {
-             // float val = frag.v2; // Unused
-             // HarmonicBlob::distance returns { -1.0f, 0.0f, val }.
-             // Scan::rasterize maps: v0=t, v1=raw_dist.
-             // Wait, `Scan::rasterize` (generic) populates `f` from `dist_res`.
-             // `f.v0 = res.t`, `f.v1 = res.raw_dist`.
-             // So `val` is in `frag.v1`.
-             
+        auto shader = [&](const Vector& p, const Fragment& frag) -> Fragment {             
              float abs_val = std::abs(frag.v1);
              
              Color4 base;

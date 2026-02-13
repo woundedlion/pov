@@ -57,7 +57,7 @@ public:
     for (auto& ring : rings) {
       ring.trail.record(ring.orientation);
       deep_tween(ring.trail, [&](const Quaternion& q, float t) {
-          Color4 c = ring.palette.get(t);
+          Color4 c = ring.palette.get(1.0f - t);
           c.alpha = c.alpha * alpha;
           Basis basis = make_basis(q, ring.normal);
           auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment {
@@ -75,7 +75,7 @@ private:
     if (rings.is_full()) return;
     rings.push_back(Ring(normal, palette));
     Ring& r = rings.back();
-    timeline.add(0, Animation::RandomWalk<W>(r.orientation, r.normal));
+    timeline.add(0, Animation::RandomWalk<W>(r.orientation, r.normal, Animation::RandomWalk<W>::Options::Energetic()));
   }
 
   Timeline<W> timeline;

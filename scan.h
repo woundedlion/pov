@@ -56,6 +56,7 @@ namespace SDF {
        // Optional optimization for "Scan Full Row" check
       float r_val;
       float alpha_angle; /**< The azimuth angle of the normal vector in the XZ plane. */
+      const bool is_solid = false;
 
       Ring(const Basis& b, float r, float th, float ph = 0)
         : basis(b), radius(r), thickness(th), phase(ph)
@@ -213,6 +214,7 @@ namespace SDF {
        float r_val;
        float alpha_angle;
        float cos_max_limit, cos_min_limit;
+       const bool is_solid = false;
 
        DistortedRing(const Basis& b, float r, float th, std::function<float(float)> sf, float md, float ph)
          : basis(b), radius(r), thickness(th), shift_fn(sf), max_distortion(md), phase(ph)
@@ -343,6 +345,7 @@ namespace SDF {
        const A& a;
        const B& b;
        float thickness;
+       const bool is_solid = true;
 
        Union(const A& shapeA, const B& shapeB)
           : a(shapeA), b(shapeB), thickness(std::max(shapeA.thickness, shapeB.thickness)) {}
@@ -381,6 +384,7 @@ namespace SDF {
        const A& a;
        const B& b;
        float thickness;
+       const bool is_solid = true;
 
        Subtract(const A& shapeA, const B& shapeB)
           : a(shapeA), b(shapeB), thickness(shapeA.thickness) {}
@@ -421,6 +425,7 @@ namespace SDF {
        const A& a;
        const B& b;
        float thickness;
+       const bool is_solid = true;
 
        Intersection(const A& shapeA, const B& shapeB)
           : a(shapeA), b(shapeB), thickness(std::min(shapeA.thickness, shapeB.thickness)) {}
@@ -523,6 +528,7 @@ namespace SDF {
         int y_min, y_max;
         std::span<std::pair<float, float>> intervals; 
         bool full_width;
+        const bool is_solid = true;
         
         Face(std::span<const Vector> vertices, std::span<const int> indices, float th, FaceScratchBuffer& scratch, int h_virt, int height) 
           : thickness(th), full_width(true)
@@ -828,6 +834,7 @@ namespace SDF {
        float apothem;
        float nx, ny, nz, R_val, alpha_angle;
        int y_min, y_max;
+       const bool is_solid = true;
        
        Polygon(const Basis& b, float r, float th, int s, float ph, int h_virt, int height)
          : basis(b), thickness(th), sides(s), phase(ph)
@@ -939,6 +946,7 @@ namespace SDF {
         float scan_nx, scan_ny, scan_nz;
         float scan_r_val, scan_alpha_angle;
         int y_min, y_max;
+        const bool is_solid = true;
 
         Star(const Basis& b, float r, int s, float ph, int h_virt, int height)
             : basis(b), radius(r), sides(s), phase(ph)
@@ -951,15 +959,15 @@ namespace SDF {
             float v_vx = inner_radius * cosf(angle_step);
             float v_vy = inner_radius * sinf(angle_step);
 
-            // Vector from Tip to Valley
-            float dx = v_vx - 0.0f; // Tip x is 0
-            float dy = v_vy - v_t;  // Tip y is v_t
+            // Vector from Tip (v_t, 0) to Valley (v_vx, v_vy)
+            float dx = v_vx - v_t; 
+            float dy = v_vy - 0.0f;  
             float len = sqrtf(dx * dx + dy * dy);
             
             // Normal to edge
             nx = -dy / len;
             ny = dx / len;
-            plane_d = -(nx * 0.0f + ny * v_t);
+            plane_d = -(nx * v_t + ny * 0.0f);
             thickness = outer_radius;
 
             // Scan Bounds setup
@@ -1071,6 +1079,7 @@ namespace SDF {
        // Optimization
        float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha;
        int y_min, y_max;
+       const bool is_solid = true;
        
        Flower(const Basis& b, float radius, int s, float ph, int h_virt, int height)
          : basis(b), sides(s), phase(ph)
@@ -1171,7 +1180,7 @@ namespace SDF {
         float amplitude;
         Quaternion inv_q;
         std::function<float(int, int, float, float)> harmonic_fn;
-        bool is_solid = true;
+        const bool is_solid = true;
 
         HarmonicBlob(int l, int m, float amplitude, const Quaternion& orientation, std::function<float(int, int, float, float)> harmonic_fn)
             : l(l), m(m), amplitude(amplitude), harmonic_fn(harmonic_fn)
@@ -1222,7 +1231,8 @@ namespace SDF {
         
         Vector n; 
         float len;
-        
+        const bool is_solid = false;
+
         Line(const Vector& start, const Vector& end, float th)
            : a(start), b(end), thickness(th)
         {
@@ -1302,11 +1312,28 @@ namespace Scan {
      float d = result.dist;
      
      float pixel_width = 2.0f * PI_F / W;
-     float threshold = pixel_width;
+     
+     // Determine solidity directly (compiler enforces existence)
+     bool is_solid = shape.is_solid;
+
+     // Threshold: Solids allow 1px AA bleed; Strokes (non-solid) must be strictly inside (d <= 0)
+     float threshold = is_solid ? pixel_width : 0.0f;
      
      if (d < threshold) {
-        float t_aa = 0.5f - d / (2.0f * pixel_width);
-        float alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+        float alpha = 1.0f;
+
+        if (is_solid) {
+             // Standard 1px Anti-Aliasing at the boundary
+             float t_aa = 0.5f - d / (2.0f * pixel_width);
+             alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+        } else {
+             // Stroke Falloff: Opacity fades over the entire thickness
+             if constexpr (requires { shape.thickness; }) {
+                 if (shape.thickness > 0) {
+                     alpha = quintic_kernel(-d / shape.thickness);
+                 }
+             }
+        }
         
         if (alpha <= 0.001f) return;
         
@@ -1325,6 +1352,7 @@ namespace Scan {
             pipeline.plot(canvas, x, y, f_out.color.color, f_out.age, f_out.color.alpha * alpha, f_out.blend);
         }
      }
+
   }
 
   template <int W, int H, bool ComputeUVs = true>

@@ -17,6 +17,7 @@ public:
         filters(Filter::World::Trails<W, MAX_TRAILS>(40), Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
         trails(static_cast<Filter::World::Trails<W, MAX_TRAILS>&>(filters))
     {
+        persist_pixels = false;
         init_fibers();
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 10000, ease_mid, true)); // Slow camera
     }

@@ -19,14 +19,14 @@ struct LissajousConfig {
 template <int W, int H>
 class Comets : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 120;
+  static constexpr int TRAIL_LENGTH = 115;
   static constexpr int MAX_NODES = 4; // Capacity for nodes
 
 
 
   struct Node {
-    Orientation<W, 16> orientation;
-    Animation::OrientationTrail<Orientation<W, 16>, TRAIL_LENGTH> trail;
+    Orientation<W, 32> orientation;
+    Animation::OrientationTrail<Orientation<W, 32>, TRAIL_LENGTH> trail;
     Vector v;
 
     // Default constructor needed for StaticCircularBuffer
@@ -35,7 +35,7 @@ public:
 
   Comets() :
     Effect(W, H),
-    palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::DESCENDING),
+    palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING),
     cur_function_idx(0),
     num_nodes(1),
     spacing(48),
@@ -75,7 +75,7 @@ public:
       update_palette();
       }, true));
 
-    timeline.add(0, Animation::RandomWalk<W, 16>(orientation, random_vector()));
+    timeline.add(0, Animation::RandomWalk<W, 32>(orientation, random_vector()));
   }
 
   bool show_bg() const override { return false; }
@@ -100,7 +100,9 @@ public:
     for(const auto& dot : render_points) {
         auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment { 
             Fragment out = f;
+            float t = std::clamp(f.v1 / f.size, 0.0f, 1.0f);
             out.color = dot.color;
+            out.color.alpha *= quintic_kernel(1.0f - t);
             return out;
         };
         Scan::Point::draw<W, H>(filters, canvas, dot.position, thickness, fragment_shader);
@@ -139,13 +141,13 @@ private:
     nodes.push_back(Node());
     Node& node = nodes.back();
 
-    timeline.add(i * spacing, Animation::Motion<W, 16>(node.orientation, path, cycle_duration, true));
+    timeline.add(i * spacing, Animation::Motion<W, 32>(node.orientation, path, cycle_duration, true));
   }
 
-  Timeline<W, 16> timeline;
+  Timeline<W, 32> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   Path<W> path;
-  Orientation<W, 16> orientation;
+  Orientation<W, 32> orientation;
   GenerativePalette palette;
   std::vector<LissajousConfig> functions;
   int cur_function_idx;
