@@ -22,6 +22,8 @@ public:
       palette(CircularPalette(Palettes::richSunset)),
       modifier(0.02f)
   {
+      this->persist_pixels = false;
+
       timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
       palette.add(&modifier);
       timeline.add(0, Animation::PaletteAnimation(modifier));
