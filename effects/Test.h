@@ -7,11 +7,11 @@
 #include "../effects_engine.h"
 #include "../solids.h"
 
-template <int W>
+template <int W, int H>
 class Test : public Effect {
 public:
   Test() :
-    Effect(W),
+    Effect(W, H),
     alpha(0.3f),
     ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::FLAT),
     polyPalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS, BrightnessProfile::CUP),
@@ -60,7 +60,7 @@ public:
           return out;
       };
 
-      Scan::DistortedRing::draw<W>(filters, canvas, basis, radius, thickness,
+      Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius, thickness,
         shiftFn, amp,
         fragment_shader,
         debugBB
@@ -69,14 +69,14 @@ public:
   }
 
 private:
-  Timeline timeline;
-  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
+  Timeline<W> timeline;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   
   float alpha;
   GenerativePalette ringPalette;
   GenerativePalette polyPalette;
   Vector normal;
-  Orientation orientation;
+  Orientation<W> orientation;
   
   float amplitude;
   float amplitudeRange;

@@ -9,11 +9,11 @@
 #include <cmath>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class PetalFlow : public Effect {
 public:
   PetalFlow() :
-    Effect(W),
+    Effect(W, H),
     palette(
       { 0.029f, 0.029f, 0.029f },
       { 0.500f, 0.500f, 0.500f },
@@ -22,7 +22,7 @@ public:
     ),
     filters(
       Filter::World::Orient<W>(orientation),
-      Filter::Screen::AntiAlias<W>()
+      Filter::Screen::AntiAlias<W, H>()
     )
   {
     persist_pixels = false;
@@ -118,7 +118,7 @@ private:
         return out;
       };
 
-      Plot::rasterize<W>(filters, canvas, fragments, fragment_shader, true);
+      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
     }
   }
 
@@ -128,10 +128,10 @@ private:
   float speed = 8.0f;
 
   ProceduralPalette palette;
-  Orientation orientation;
-  Pipeline<W,
+  Orientation<W> orientation;
+  Pipeline<W, H,
     Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W>
+    Filter::Screen::AntiAlias<W, H>
   > filters;
-  Timeline timeline;
+  Timeline<W> timeline;
 };

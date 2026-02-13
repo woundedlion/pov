@@ -10,7 +10,7 @@
 
 #include "../palettes.h"
 
-template <int W>
+template <int W, int H>
 class RingSpin : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 19;
@@ -19,8 +19,8 @@ public:
   struct Ring {
     Vector normal;
     TransparentVignette palette;
-    Orientation orientation;
-    Animation::OrientationTrail<TRAIL_LENGTH> trail;
+    Orientation<W> orientation;
+    Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
     Ring() : normal(X_AXIS), palette(Palettes::iceMelt) {}
 
     Ring(const Vector& n, const Palette& p) :
@@ -29,7 +29,7 @@ public:
   };
 
   RingSpin() :
-    Effect(W),
+    Effect(W, H),
     alpha(0.5f),
     thickness(2.0f * (2 * PI_F / W))
   {
@@ -65,7 +65,7 @@ public:
               out.color = c;
               return out;
           };
-          Scan::Ring::draw<W, false>(filters, canvas, basis, 1.0f, thickness, fragment_shader);
+          Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, thickness, fragment_shader);
         });
     }
   }
@@ -78,8 +78,8 @@ private:
     timeline.add(0, Animation::RandomWalk<W>(r.orientation, r.normal));
   }
 
-  Timeline timeline;
-  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
+  Timeline<W> timeline;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
 
   float alpha;

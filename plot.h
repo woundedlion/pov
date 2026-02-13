@@ -48,7 +48,7 @@ namespace Plot {
    * @brief Helper to rasterize a list of fragments into segments.
    * Handles interpolation (Geodesic or Planar) and Fragment Shader application.
    */
-  template <int W>
+  template <int W, int H>
   static void rasterize(auto& pipeline, Canvas& canvas, const Fragments& points, FragmentShaderFn auto fragment_shader, bool close_loop = false, float age = 0.0f, const Basis* planar_basis = nullptr) {
     size_t len = points.size();
     if (len < 2) return;
@@ -117,7 +117,7 @@ namespace Plot {
             total_dist = angle_between(v1, v2);
             
             // Optimization for small angles
-            if (total_dist < 0.0001f) {
+            if (total_dist < 0.001f) {
                 // Degenerate segment, handle as point
                 map = [=](float t) { return v1; };
             } else {
@@ -258,7 +258,7 @@ namespace Plot {
      * @param fragment_shader Shader function.
      * @param vertex_shader Optional vertex shader.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
        Fragments points = sample(v1, v2);
        
@@ -268,12 +268,12 @@ namespace Plot {
            }
        }
        
-       rasterize<W>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
+       rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
     }
 
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Vector& v1, const Vector& v2, FragmentShaderFn auto fragment_shader) {
-       draw<W>(pipeline, canvas, v1, v2, fragment_shader, NullVertexShader{});
+       draw<W, H>(pipeline, canvas, v1, v2, fragment_shader, NullVertexShader{});
     }
   };
 
@@ -376,7 +376,7 @@ namespace Plot {
      * @param vertex_shader Optional vertex shader.
      * @param phase Rotation phase.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
       Fragments points;
       // Use W/4 samples estimate
@@ -387,12 +387,12 @@ namespace Plot {
               p = vertex_shader(p);
           }
       }
-      rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
     }
 
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, FragmentShaderFn auto fragment_shader, float phase = 0) {
-      draw<W>(pipeline, canvas, basis, radius, fragment_shader, NullVertexShader{}, phase);
+      draw<W, H>(pipeline, canvas, basis, radius, fragment_shader, NullVertexShader{}, phase);
     }
   };
 
@@ -436,7 +436,7 @@ namespace Plot {
      * @param vertex_shader Optional vertex shader.
      * @param phase Rotation phase.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
       Fragments points;
       sample(points, basis, radius, num_sides, phase);
@@ -447,12 +447,12 @@ namespace Plot {
           }
       }
       
-      rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, &basis);
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, &basis);
     }
 
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, float phase = 0) {
-      draw<W>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
+      draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
     }
   };
 
@@ -492,7 +492,7 @@ namespace Plot {
      * @param vertex_shader Optional vertex shader.
      * @param phase Rotation phase.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
        Fragments points;
        sample(points, basis, radius, num_sides, phase);
@@ -502,12 +502,12 @@ namespace Plot {
                p = vertex_shader(p);
            }
        }
-       rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
+       rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
     }
 
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, float phase = 0) {
-       draw<W>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
+       draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
     }
   };
 
@@ -607,7 +607,7 @@ namespace Plot {
      * @param vertex_shader Optional vertex shader.
      * @param phase Rotation phase.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, std::function<float(float)> shift_fn, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
       Fragments points;
       sample<W>(points, basis, radius, shift_fn, phase);
@@ -617,12 +617,12 @@ namespace Plot {
               p = vertex_shader(p);
           }
       }
-      rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
     }
     
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, std::function<float(float)> shift_fn, FragmentShaderFn auto fragment_shader, float phase = 0) {
-      draw<W>(pipeline, canvas, basis, radius, shift_fn, fragment_shader, NullVertexShader{}, phase);
+      draw<W, H>(pipeline, canvas, basis, radius, shift_fn, fragment_shader, NullVertexShader{}, phase);
     }
   };
 
@@ -665,7 +665,7 @@ namespace Plot {
      * @param fragment_shader Shader function.
      * @param vertex_shader Optional vertex shader.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, int n, float eps, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
       Fragments frags = sample(n, eps);
       
@@ -675,12 +675,12 @@ namespace Plot {
           }
       }
       
-      rasterize<W>(pipeline, canvas, frags, fragment_shader, false, 0.0f, nullptr);
+      rasterize<W, H>(pipeline, canvas, frags, fragment_shader, false, 0.0f, nullptr);
     }
 
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, int n, float eps, FragmentShaderFn auto fragment_shader) {
-      draw<W>(pipeline, canvas, n, eps, fragment_shader, NullVertexShader{});
+      draw<W, H>(pipeline, canvas, n, eps, fragment_shader, NullVertexShader{});
     }
   };
 
@@ -758,7 +758,7 @@ namespace Plot {
      * @param vertex_shader Optional vertex shader.
      * @param phase Rotation phase.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
       Fragments points;
       sample(points, basis, radius, num_sides, phase);
@@ -778,12 +778,12 @@ namespace Plot {
       Vector w = cross(v, u).normalize();
       Basis planar_basis = { u, v, w };
 
-      rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, &planar_basis);
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, &planar_basis);
     }
 
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, float phase = 0) {
-      draw<W>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
+      draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
     }
   };
 
@@ -867,7 +867,7 @@ namespace Plot {
      * @param vertex_shader Optional vertex shader.
      * @param phase Rotation phase.
      */
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
        Fragments points;
        sample(points, basis, radius, num_sides, phase);
@@ -891,12 +891,12 @@ namespace Plot {
        Vector w_p = cross(center, u_p).normalize();
        Basis planar_basis = { u_p, center, w_p };
 
-       rasterize<W>(pipeline, canvas, points, fragment_shader, true, 0.0f, &planar_basis);
+       rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, &planar_basis);
     }
 
-    template <int W>
+    template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int num_sides, FragmentShaderFn auto fragment_shader, float phase = 0) {
-      draw<W>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
+      draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, NullVertexShader{}, phase);
     }
   };
 
@@ -964,7 +964,7 @@ namespace Plot {
        return result;
     }
 
-    template <int W, typename MeshT>
+    template <int W, int H, typename MeshT>
     static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
        auto edges = sample(mesh, 10);
        
@@ -981,13 +981,13 @@ namespace Plot {
                    p.v2 = static_cast<float>(i);
                }
            }
-           rasterize<W>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
+           rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f, nullptr);
        }
     }
 
-    template <int W, typename MeshT>
+    template <int W, int H, typename MeshT>
     static void draw(auto& pipeline, Canvas& canvas, const MeshT& mesh, FragmentShaderFn auto fragment_shader) {
-        draw<W>(pipeline, canvas, mesh, fragment_shader, NullVertexShader{});
+        draw<W, H>(pipeline, canvas, mesh, fragment_shader, NullVertexShader{});
     }
   };
 
@@ -998,7 +998,7 @@ namespace Plot {
    *  v1: Particle ID / Random
    */
   struct ParticleSystem {
-     template <int W>
+     template <int W, int H>
      static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
          // Reusable buffer
          static Fragments buffer;
@@ -1044,13 +1044,13 @@ namespace Plot {
              }
 
              // Draw trail
-             rasterize<W>(pipeline, canvas, buffer, fragment_shader, false, 0.0f, nullptr);
+             rasterize<W, H>(pipeline, canvas, buffer, fragment_shader, false, 0.0f, nullptr);
          }
      }
      
-     template <int W>
+     template <int W, int H>
      static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader) {
-         draw<W>(pipeline, canvas, system, fragment_shader, NullVertexShader{});
+         draw<W, H>(pipeline, canvas, system, fragment_shader, NullVertexShader{});
      }
   };
 

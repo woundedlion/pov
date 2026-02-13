@@ -6,18 +6,18 @@
 
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class TestSlewRate : public Effect {
 public:
   TestSlewRate()
-    : Effect(W),
+    : Effect(W, H),
       orientation(),
       // Pipeline: Orient -> Slew -> AntiAlias
       slew(1.0f, 0.05f),
       pipeline(
         Filter::World::Orient<W>(orientation),
         slew,
-        Filter::Screen::AntiAlias<W>()
+        Filter::Screen::AntiAlias<W, H>()
       ),
       palette(CircularPalette(Palettes::richSunset)),
       modifier(0.02f)
@@ -33,10 +33,11 @@ public:
   bool show_bg() const override { return true; }
 
   void draw_frame() override {
-    timeline.step();
+    Canvas canvas(*this);
+    timeline.step(canvas);
     t += 0.01f; 
     
-    Plot::Mesh::draw<W>(pipeline, *this, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
+    Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
         Color4 baseColor = palette.get((v.j + 1.0f) * 0.5f);
         
         float phase = fmodf(t * speed, 1.0f);
@@ -67,7 +68,7 @@ public:
         return out;
     });
 
-    pipeline.flush(*this, [](float x, float y, float t) { return Color4(0,0,0,0); }, 1.0f); 
+    pipeline.flush(canvas, [](float x, float y, float t) { return Color4(0,0,0,0); }, 1.0f); 
   }
   
   // Params
@@ -76,15 +77,15 @@ public:
   float lightSize = 0.15f;
 
 private:
-  Orientation orientation;
+  Orientation<W> orientation;
   Filter::Screen::Slew<W, 50000> slew; 
   
-  Pipeline<W, Filter::World::Orient<W>, Filter::Screen::Slew<W, 50000>, Filter::Screen::AntiAlias<W>> pipeline;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Slew<W, 50000>, Filter::Screen::AntiAlias<W, H>> pipeline;
   
   CircularPalette source_palette = CircularPalette(Palettes::richSunset);
   AnimatedPalette palette;
   CycleModifier modifier;
-  Timeline timeline;
+  Timeline<W> timeline;
   
   // Mesh
   PolyMesh mesh; 

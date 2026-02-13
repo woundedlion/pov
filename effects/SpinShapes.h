@@ -7,10 +7,10 @@
 #include <vector>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class SpinShapes : public Effect {
 public:
-    SpinShapes() : Effect(W), filters(Filter::World::Orient<W>(camera), Filter::Screen::AntiAlias<W>()) {
+    SpinShapes() : Effect(W, H), filters(Filter::World::Orient<W>(camera), Filter::Screen::AntiAlias<W, H>()) {
         rebuild();
     }
 
@@ -33,7 +33,7 @@ public:
 private:
     struct Shape {
         Vector normal;
-        Orientation orientation;
+        Orientation<W> orientation;
         int layer;
     };
     
@@ -45,8 +45,8 @@ private:
     std::vector<Shape> shapes;
     std::vector<Animation::Rotation<W>> rotations;
     
-    Orientation camera;
-    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
+    Orientation<W> camera;
+    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
 
     void rebuild() {
         shapes.clear();
@@ -61,7 +61,7 @@ private:
 
             // Layer 1
             {
-                shapes.push_back({normal, Orientation(), 0});
+                shapes.push_back({normal, Orientation<W>(), 0});
                 Shape& s = shapes.back();
                 // Rotation(orientation, axis, angle, duration, easing, repeat, space)
                 rotations.emplace_back(s.orientation, s.normal, 2 * PI_F, 300 + i * 2, ease_mid, true, Animation::Space::Local);
@@ -69,7 +69,7 @@ private:
 
             // Layer 2
             {
-                shapes.push_back({normal, Orientation(), 1});
+                shapes.push_back({normal, Orientation<W>(), 1});
                 Shape& s = shapes.back();
                 rotations.emplace_back(s.orientation, s.normal, -2 * PI_F, 300 + i * 2, ease_mid, true, Animation::Space::Local);
             }
@@ -90,6 +90,6 @@ private:
         float phase = (shape.layer == 0) ? 0.0f : PI_F / sides;
         
         // Scan::SphericalPolygon::draw(pipeline, canvas, basis, radius, sides, fragment_shader, phase)
-        Scan::SphericalPolygon::draw<W>(filters, canvas, basis, radius, sides, fragment_shader, phase);
+        Scan::SphericalPolygon::draw<W, H>(filters, canvas, basis, radius, sides, fragment_shader, phase);
     }
 };

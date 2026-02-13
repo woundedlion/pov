@@ -8,13 +8,13 @@
 #include <vector>
 #include <cmath>
 
-template <int W>
+template <int W, int H>
 class HopfFibration : public Effect {
 public:
     static constexpr int MAX_TRAILS = 5000; 
 
-    HopfFibration() : Effect(W), 
-        filters(Filter::World::Trails<W, MAX_TRAILS>(40), Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()),
+    HopfFibration() : Effect(W, H), 
+        filters(Filter::World::Trails<W, MAX_TRAILS>(40), Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
         trails(static_cast<Filter::World::Trails<W, MAX_TRAILS>&>(filters))
     {
         init_fibers();
@@ -93,7 +93,7 @@ public:
                     out.color = c;
                     return out;
                 };
-                Plot::Line::draw<W>(filters, canvas, prev, v, fragment_shader);
+                Plot::Line::draw<W, H>(filters, canvas, prev, v, fragment_shader);
                 
                 prev_positions[i] = v;
             } else {
@@ -127,14 +127,14 @@ private:
     std::vector<Vector> fibers;
     std::vector<Vector> prev_positions;
     
-    Orientation orientation;
-    Timeline timeline;
+    Orientation<W> orientation;
+    Timeline<W> timeline;
     
     // Pipeline
-    Pipeline<W, 
+    Pipeline<W, H, 
         Filter::World::Trails<W, MAX_TRAILS>, 
         Filter::World::Orient<W>, 
-        Filter::Screen::AntiAlias<W>> filters;
+        Filter::Screen::AntiAlias<W, H>> filters;
     
     // Reference to start filter for trail calls
     // Filters inherits Head (FilterWorldTrails)

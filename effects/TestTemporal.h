@@ -8,7 +8,7 @@
 #include <functional>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class TestTemporal : public Effect {
 public:
     enum DelayMode {
@@ -19,13 +19,13 @@ public:
         Datamosh
     };
 
-    TestTemporal() : Effect(W),
+    TestTemporal() : Effect(W, H),
         orientation(),
         noise(),
         filters(
              Filter::World::Orient<W>(orientation),
              Filter::Screen::Temporal<W, 200>([this](float x, float y) { return calculate_delay(x, y); }),
-             Filter::Screen::AntiAlias<W>()
+             Filter::Screen::AntiAlias<W, H>()
         ),
         circular_source(Palettes::richSunset),
         palette(circular_source),
@@ -50,7 +50,7 @@ public:
         
         noise.SetFrequency(liquid_params.noiseFreq);
         
-        Plot::Mesh::draw<W>(filters, canvas, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
+        Plot::Mesh::draw<W, H>(filters, canvas, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
              float t = (v.j + 1.0f) * 0.5f;
              Fragment out = f;
              out.color = palette.get(t);
@@ -110,10 +110,10 @@ private:
     AnimatedPalette palette;
     CycleModifier modifier;
   
-    Orientation orientation;
-    Timeline timeline;
+    Orientation<W> orientation;
+    Timeline<W> timeline;
     FastNoiseLite noise;
-    Pipeline<W, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 200>, Filter::Screen::AntiAlias<W>> filters;
+    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 200>, Filter::Screen::AntiAlias<W, H>> filters;
     PolyMesh mesh;
     
 

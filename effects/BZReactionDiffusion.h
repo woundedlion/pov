@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class BZReactionDiffusion : public Effect {
 public:
 
@@ -18,8 +18,8 @@ public:
   static constexpr int RD_K = 6;    // Number of neighbors per node
 
   BZReactionDiffusion() :
-    Effect(W),
-    filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>())
+    Effect(W, H),
+    filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>())
   {
     persist_pixels = false;
     build_graph();
@@ -274,14 +274,14 @@ private:
 
   std::array<Vector, RD_N> nodes;
   std::array<std::array<int, RD_K>, RD_N> neighbors;
-  Orientation orientation;
+  Orientation<W> orientation;
 
-  Pipeline<W,
+  Pipeline<W, H,
     Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W>> filters;
+    Filter::Screen::AntiAlias<W, H>> filters;
 
   StaticCircularBuffer<BZReactionContext, 4> contexts;
-  Timeline timeline;
+  Timeline<W> timeline;
 
   float global_alpha = 0.3f;
 };

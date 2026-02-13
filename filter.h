@@ -35,21 +35,21 @@ struct Is3DWithHistory {
   static constexpr bool has_history = true;
 };
 
-template <int W, typename... Filters>
+template <int W, int H, typename... Filters>
 struct Pipeline;
 
 /**
  * @brief Plots a color to the canvas, ensuring the y-coordinate is within bounds (0 to H-1).
  */
 inline void plot_virtual(Canvas& canvas, int x, int y, const Pixel& c) {
-  if (y >= 0 && y < H) {
-    canvas(XY(x, y)) = c;
+  if (y >= 0 && y < canvas.height()) {
+    canvas(x, y) = c;
   }
 }
 
 // Base Case: Canvas Sink
-template <int W>
-struct Pipeline<W> {
+template <int W, int H>
+struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
 
   // 2D Sink
@@ -92,7 +92,7 @@ struct Pipeline<W> {
 
   // 3D Sink
   void plot(Canvas& cv, const Vector& v, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
-    auto p = vector_to_pixel<W>(v);
+    auto p = vector_to_pixel<W, H>(v);
     plot(cv, p.x, p.y, c, age, alpha, tag);
   }
 
@@ -101,9 +101,9 @@ struct Pipeline<W> {
 };
 
 // Recursive Case
-template <int W, typename Head, typename... Tail>
-struct Pipeline<W, Head, Tail...> : public Head {
-  using Next = Pipeline<W, Tail...>;
+template <int W, int H, typename Head, typename... Tail>
+struct Pipeline<W, H, Head, Tail...> : public Head {
+  using Next = Pipeline<W, H, Tail...>;
   Next next;
 
   Pipeline(Head h, Tail... t) : Head(std::move(h)), next(std::move(t)...) {}
@@ -118,7 +118,7 @@ struct Pipeline<W, Head, Tail...> : public Head {
         });
     }
     else { // 2D -> 3D Mismatch
-      Vector v = pixel_to_vector<W>(x, y);
+      Vector v = pixel_to_vector<W, H>(x, y);
       plot(cv, v, c, age, alpha, tag);
     }
   }
@@ -138,7 +138,7 @@ struct Pipeline<W, Head, Tail...> : public Head {
         });
     }
     else { // 3D -> 2D Mismatch
-      auto p = vector_to_pixel<W>(v);
+      auto p = vector_to_pixel<W, H>(v);
       plot(cv, p.x, p.y, c, age, alpha, tag);
     }
   }
@@ -168,7 +168,7 @@ namespace World {
 template <int W>
 class Orient : public Is3D {
 public:
-  Orient(Orientation& orientation) : orientation(orientation) {}
+  Orient(Orientation<W>& orientation) : orientation(orientation) {}
 
   void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
     tween(orientation, [&](const Quaternion& q, float t) {
@@ -176,13 +176,13 @@ public:
     });
   }
 private:
-  Orientation& orientation;
+  Orientation<W>& orientation;
 };
 
 template <int W>
 class OrientSlice : public Is3D {
 public:
-  OrientSlice(const std::vector<Orientation>& orientations, const Vector& axis) 
+  OrientSlice(const std::vector<Orientation<W>>& orientations, const Vector& axis) 
       : enabled(true), axis(axis), orientations(orientations) {}
 
   void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
@@ -205,7 +205,7 @@ public:
     if (idx >= count) idx = count - 1;
     
     // Pass to selected orientation
-    const Orientation& q = orientations[idx];
+    const Orientation<W>& q = orientations[idx];
     tween(q, [&](const Quaternion& rot, float tween_t) {
         pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha, tag);
     });
@@ -215,7 +215,7 @@ public:
   Vector axis;
 
 private:
-  const std::vector<Orientation>& orientations;
+  const std::vector<Orientation<W>>& orientations;
 };
 
 template <int W>
@@ -342,7 +342,7 @@ private:
 // ----------------------------------------------------------------------------
 namespace Screen {
 
-template <int W>
+template <int W, int H>
 class AntiAlias : public Is2D {
 public:
   AntiAlias() {}
@@ -460,7 +460,7 @@ private:
 /**
  * @brief Applies a variable 3x3 Gaussian Blur.
  */
-template <int W>
+template <int W, int H>
 class Blur : public Is2D {
 public:
   Blur(float factor = 1.0f) {
@@ -524,7 +524,7 @@ public:
         size_t count = items.size();
         for(size_t i = 0; i < count; ++i) {
             auto item = items.front();
-            items.pop_front();
+            items.pop();
 
             // Decay
             item.alpha -= fall;

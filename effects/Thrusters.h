@@ -5,13 +5,13 @@
 #pragma once
 #include "../effects_engine.h"
 
-template <int W>
+template <int W, int H>
 class Thrusters : public Effect {
 public:
   Thrusters() :
-    Effect(W),
+    Effect(W, H),
     palette({ 0.5f, 0.5f, 0.5f }, { 0.5f, 0.5f, 0.5f }, { 0.3f, 0.3f, 0.3f }, { 0.0f, 0.2f, 0.6f }),
-    filters(Filter::Screen::AntiAlias<W>()),
+    filters(Filter::Screen::AntiAlias<W, H>()),
     ring_vec(0.5f, 0.5f, 0.5f),
     amplitude(0),
     radius(1.0f),
@@ -47,7 +47,7 @@ public:
 private:
 
   struct ThrusterContext {
-    Orientation orientation;
+    Orientation<W> orientation;
     Vector point;
     float radius;
     Animation::Transition motion;
@@ -72,7 +72,7 @@ private:
       return *this;
     }
 
-    void reset(const Orientation& o, const Vector& p) {
+    void reset(const Orientation<W>& o, const Vector& p) {
       orientation = o;
       point = p;
       radius = 0.0f;
@@ -99,7 +99,7 @@ private:
 
     // spin
     Vector thrust_axis = cross(orientation.orient(thrust_point), orientation.orient(ring_vec)).normalize();
-    timeline.add(0, Animation::Rotation<MAX_W>(orientation, thrust_axis, 2 * PI_F, 8 * 16, ease_out_expo));
+    timeline.add(0, Animation::Rotation<W>(orientation, thrust_axis, 2 * PI_F, 8 * 16, ease_out_expo));
 
     // spawn
     spawn_thruster(thrust_point);
@@ -131,10 +131,10 @@ private:
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [](const Vector&, const Fragment& f) -> Fragment { 
         Fragment out = f;
-        out.color = Color4(CRGB::White);
+        out.color = Color4(CRGB(255, 255, 255));
         return out;
     };
-    Plot::Ring::draw<W>(filters, c, basis, ctx.radius, fragment_shader);
+    Plot::Ring::draw<W, H>(filters, c, basis, ctx.radius, fragment_shader);
   }
 
   void draw_ring(Canvas& c, float opacity) {
@@ -148,14 +148,14 @@ private:
         return out;
     };
 
-    Plot::DistortedRing::draw<W>(filters, c, basis, radius,
+    Plot::DistortedRing::draw<W, H>(filters, c, basis, radius,
       [this](float t) { return ring_fn(t); }, // Shift function
       fragment_shader
     );
   }
 
   ProceduralPalette palette;
-  Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
   Vector ring_vec;
   float amplitude;
@@ -163,7 +163,7 @@ private:
   float warp_phase;
   int t_global;
 
-  Timeline timeline;
+  Timeline<W> timeline;
   Animation::Mutation warp_anim;
-  Orientation orientation;
+  Orientation<W> orientation;
 };

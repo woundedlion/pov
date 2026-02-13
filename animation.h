@@ -20,7 +20,7 @@
 #include "color.h"
 
 
-// ... (skipping lines 20-53) ...
+
 
 /**
  * @brief Represents a customizable path.
@@ -69,7 +69,7 @@ public:
   }
 
 private:
-  StaticCircularBuffer<Vector, 4096> points;
+  StaticCircularBuffer<Vector, 1024> points;
 };
 
 /**
@@ -209,13 +209,14 @@ public:
   bool done() const { return true; }
 };
 
+template <int W>
 struct Particle {
   Vector position;
   Vector velocity;
   PaletteVariant palette;
   float life;
   float max_life;
-  Orientation orientation;
+  Orientation<W> orientation;
   
   void init(const Vector& p, const Vector& v, float l, const PaletteVariant& pal) {
     position = p;
@@ -243,10 +244,11 @@ private:
   StaticCircularBuffer<Quaternion, 32> history;
 };
 
-class ParticleSystem : public Base<ParticleSystem> {
+template <int W>
+class ParticleSystem : public Base<ParticleSystem<W>> {
 public:
   static constexpr int CAPACITY = 128; 
-  std::array<Particle, CAPACITY> pool;
+  std::array<Particle<W>, CAPACITY> pool;
   int active_count = 0;
 
   struct Attractor {
@@ -266,7 +268,7 @@ public:
   float resolution_scale = 1.0f;
 
   ParticleSystem(int capacity = CAPACITY, float friction = 0.95f, float gravity_scale = 0.001f)
-    : Base(-1, false), friction(friction), gravity_scale(gravity_scale)
+    : Base<ParticleSystem<W>>(-1, false), friction(friction), gravity_scale(gravity_scale)
   {
   }
 
@@ -299,14 +301,14 @@ public:
   }
 
   void step(Canvas& canvas) override {
-    Base::step(canvas);
+    Base<ParticleSystem<W>>::step(canvas);
 
     // Emitters
     for (size_t i = 0; i < emitters.size(); ++i) {
       emitters[i](*this);
     }
 
-    float max_delta = (2 * PI_F) / MAX_W / resolution_scale;
+    float max_delta = (2 * PI_F) / W / resolution_scale;
 
     // Physics
     for (int i = 0; i < active_count; ++i) {
@@ -320,7 +322,7 @@ public:
   }
 
 private:
-  bool update_particle(Particle& p, float max_delta) {
+  bool update_particle(Particle<W>& p, float max_delta) {
     p.life--;
     if (p.life <= 0) return true; // Timeout
 
@@ -681,8 +683,8 @@ private:
  * @brief An animation that moves an Orientation along a defined Path.
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
-template <int W>
-class Motion : public Base<Motion<W>> {
+template <int W, int HISTORY = W + 1>
+class Motion : public Base<Motion<W, HISTORY>> {
 public:
 
   /**
@@ -693,8 +695,8 @@ public:
    * @param repeat If true, the motion repeats.
    */
   template <typename P>
-  Motion(Orientation& orientation, const P& path_obj, int duration, bool repeat = false, Space space = Space::World) :
-    Base<Motion<W>>(duration, repeat),
+  Motion(Orientation<W, HISTORY>& orientation, const P& path_obj, int duration, bool repeat = false, Space space = Space::World) :
+    Base<Motion<W, HISTORY>>(duration, repeat),
     orientation(orientation),
     path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
     space(space)
@@ -704,14 +706,14 @@ public:
   /**
    * @brief Access the associated Orientation.
    */
-  Orientation& get_orientation() const { return orientation.get(); }
+  Orientation<W, HISTORY>& get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Steps the animation, calculates intermediate rotation steps along the path,
    * and pushes them to the Orientation.
    */
   void step(Canvas& canvas) {
-    Base<Motion<W>>::step(canvas);
+    Base<Motion<W, HISTORY>>::step(canvas);
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -763,7 +765,7 @@ public:
 private:
 
   static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
-  std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
+  std::reference_wrapper<Orientation<W, HISTORY>> orientation; /**< Reference to the Orientation state. */
   std::function<Vector(float)> path_fn; /**< Function to retrieve path points. */
   Space space; /**< The coordinate space for rotation. */
 };
@@ -772,8 +774,8 @@ private:
  * @brief An animation that applies a fixed, time-eased rotation.
  * @tparam W The width of the LED display (used for calculating maximum rotation step).
  */
-template <int W>
-class Rotation : public Base<Rotation<W>> {
+template <int W, int HISTORY = W + 1>
+class Rotation : public Base<Rotation<W, HISTORY>> {
 public:
 
   /**
@@ -786,8 +788,8 @@ public:
    * @param repeat If true, the rotation repeats.
    * @param space The coordinate space for rotation ("World" or "Local").
    */
-  Rotation(Orientation& orientation, const Vector& axis, float angle, int duration, ScalarFn auto easing_fn, bool repeat = false, Space space = Space::World) :
-    Base<Rotation<W>>(duration, repeat),
+  Rotation(Orientation<W, HISTORY>& orientation, const Vector& axis, float angle, int duration, ScalarFn auto easing_fn, bool repeat = false, Space space = Space::World) :
+    Base<Rotation<W, HISTORY>>(duration, repeat),
     orientation(orientation),
     axis(axis),
     total_angle(angle),
@@ -800,7 +802,7 @@ public:
   /**
    * @brief Access the associated Orientation.
    */
-  Orientation& get_orientation() const { return orientation.get(); }
+  Orientation<W, HISTORY>& get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Steps the animation, calculates the incremental rotation delta, and pushes it to the Orientation.
@@ -809,7 +811,7 @@ public:
     if (this->t == 0) {
       last_angle = 0;
     }
-    Base<Rotation<W>>::step(canvas);
+    Base<Rotation<W, HISTORY>>::step(canvas);
     float target_angle = easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
     float delta = target_angle - last_angle;
     
@@ -855,15 +857,15 @@ public:
    * @param easing_fn The easing function to use.
    * @param space The coordinate space for rotation.
    */
-  static void animate(Canvas& canvas, Orientation& orientation, const Vector& axis, float_t angle, ScalarFn auto easing_fn, Space space = Space::World) {
-    Rotation<W> r(orientation, axis, angle, 1, easing_fn, false, space);
+  static void animate(Canvas& canvas, Orientation<W, HISTORY>& orientation, const Vector& axis, float_t angle, ScalarFn auto easing_fn, Space space = Space::World) {
+    Rotation<W, HISTORY> r(orientation, axis, angle, 1, easing_fn, false, space);
     r.step(canvas);
   }
 
 private:
 
   static constexpr float MAX_ANGLE = 2 * PI_F / W; /**< Maximum rotation angle per step to ensure smoothness. */
-  std::reference_wrapper<Orientation> orientation; /**< Reference to the Orientation state. */
+  std::reference_wrapper<Orientation<W, HISTORY>> orientation; /**< Reference to the Orientation state. */
   Vector axis; /**< The axis of rotation. */
   float total_angle; /**< The total angle to sweep. */
   std::function<float(float)> easing_fn; /**< Easing curve. */
@@ -876,8 +878,8 @@ private:
  * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
  * @tparam W The width of the LED display.
  */
-template<int W>
-class RandomWalk : public Base<RandomWalk<W>> {
+template<int W, int HISTORY = W + 1>
+class RandomWalk : public Base<RandomWalk<W, HISTORY>> {
 public:
   struct Options {
     float speed = 0.02f;          /**< Movement speed per frame. */
@@ -896,8 +898,8 @@ public:
    * @param v_start The starting direction vector.
    * @param options Configuration options.
    */
-  RandomWalk(Orientation& orientation, const Vector& v_start, Options options = Options()) :
-    Base<RandomWalk<W>>(-1, false),
+  RandomWalk(Orientation<W, HISTORY>& orientation, const Vector& v_start, Options options = Options()) :
+    Base<RandomWalk<W, HISTORY>>(-1, false),
     orientation(orientation),
     v(Vector(v_start).normalize()),
     options(options)
@@ -919,23 +921,23 @@ public:
   /**
    * @brief Access the associated Orientation.
    */
-  Orientation& get_orientation() const { return orientation.get(); }
+  Orientation<W, HISTORY>& get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Steps the walk: pivots direction based on noise, then rotates the view along the calculated axis.
    */
   void step(Canvas& canvas) override {
-    Base<RandomWalk<W>>::step(canvas);
+    Base<RandomWalk<W, HISTORY>>::step(canvas);
     float pivotAngle = noiseGenerator.GetNoise(static_cast<float>(this->t), 0.0f) * options.pivot_strength;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     Vector walk_axis = cross(v, direction).normalize();
     v = rotate(v, make_rotation(walk_axis, options.speed)).normalize();
     direction = rotate(direction, make_rotation(walk_axis, options.speed)).normalize();
-    Rotation<W>::animate(canvas, orientation, walk_axis, options.speed, ease_mid, options.space);
+    Rotation<W, HISTORY>::animate(canvas, orientation, walk_axis, options.speed, ease_mid, options.space);
   }
 
 private:
-  std::reference_wrapper<Orientation> orientation; /**< Reference to the global Orientation state. */
+  std::reference_wrapper<Orientation<W, HISTORY>> orientation; /**< Reference to the global Orientation state. */
   Vector v; /**< Current forward direction vector. */
   Vector direction; /**< Current pivoting direction (orthogonal to v). */
   Options options; /**< Configuration options. */
@@ -1070,14 +1072,14 @@ public:
  * @brief Manages a history of Orientation states.
  * @tparam CAPACITY The maximum number of snapshots to keep.
  */
-template <int CAPACITY>
+template <typename OrientationType, int CAPACITY>
 class OrientationTrail {
 public:
   /**
    * @brief Records a snapshot of the current orientation state.
    * @param source The orientation to copy.
    */
-  void record(const Orientation& source) {
+  void record(const OrientationType& source) {
     snapshots.push_back(source);
   }
 
@@ -1092,7 +1094,11 @@ public:
    * @brief Gets a specific snapshot.
    * @param i Index (0 is newest).
    */
-  const Orientation& get(size_t i) const {
+  /**
+   * @brief Gets a specific snapshot.
+   * @param i Index (0 is newest).
+   */
+  const OrientationType& get(size_t i) const {
     // JS parity: 0 is newest
     size_t idx = snapshots.size() - 1 - i;
     return snapshots[idx];
@@ -1102,13 +1108,17 @@ public:
    * @brief Gets a specific snapshot (mutable).
    * @param i Index (0 is newest).
    */
-  Orientation& get(size_t i) {
+  /**
+   * @brief Gets a specific snapshot (mutable).
+   * @param i Index (0 is newest).
+   */
+  OrientationType& get(size_t i) {
     size_t idx = snapshots.size() - 1 - i;
     return snapshots[idx];
   }
 
 private:
-  StaticCircularBuffer<Orientation, CAPACITY> snapshots;
+  StaticCircularBuffer<OrientationType, CAPACITY> snapshots;
 };
 
 
@@ -1301,6 +1311,7 @@ private:
 
 } // namespace Animation
 
+template <int W, int HISTORY = W + 1>
 using AnimationVariant = std::variant<
   Animation::NullAnimation,
   Animation::Sprite,
@@ -1308,14 +1319,13 @@ using AnimationVariant = std::variant<
   Animation::Mutation,
   Animation::RandomTimer,
   Animation::PeriodicTimer,
-  Animation::Rotation<MAX_W>,
-  Animation::Motion<MAX_W>,
-  Animation::RandomWalk<MAX_W>,
+  Animation::Rotation<W, HISTORY>,
+  Animation::Motion<W, HISTORY>,
+  Animation::RandomWalk<W, HISTORY>,
   Animation::ColorWipe,
   Animation::MobiusFlow,
   Animation::MobiusGenerate,
   Animation::MobiusWarp,
-  Animation::ParticleSystem,
   Animation::MeshMorph,
   Animation::PaletteAnimation
 >;
@@ -1323,14 +1333,16 @@ using AnimationVariant = std::variant<
 /**
  * @brief Structure linking an animation variant with its starting time.
  */
+template <int W, int HISTORY = W + 1>
 struct TimelineEvent {
   int start; /**< The global frame count at which the animation should begin. */
-  AnimationVariant animation; /**< The actual animation object. */
+  AnimationVariant<W, HISTORY> animation; /**< The actual animation object. */
 };
 
 /**
  * @brief Manages all active animations and their execution over time.
  */
+template <int W, int HISTORY = W + 1>
 class Timeline {
 public:
 
@@ -1355,7 +1367,7 @@ public:
       Serial.println("Timeline full, failed to add animation!");
       return *this;
     }
-    TimelineEvent& e = events[num_events++];
+    TimelineEvent<W, HISTORY>& e = events[num_events++];
     e.start = t + in_frames;
     e.animation = std::move(animation);
     return *this;
@@ -1369,7 +1381,7 @@ public:
     ++t;
 
     // Prep Animations
-    std::vector<Orientation*> touched;
+    std::vector<Orientation<W, HISTORY>*> touched;
     touched.reserve(num_events); // Pre-allocate max size
     for (int i = 0; i < num_events; ++i) {
       if (t < events[i].start) {
@@ -1429,7 +1441,7 @@ public:
 private:
 
   static constexpr int MAX_EVENTS = 32; /**< Maximum number of concurrent animation events. */
-  std::array<TimelineEvent, MAX_EVENTS> events; /**< Storage for all animation events. */
+  std::array<TimelineEvent<W, HISTORY>, MAX_EVENTS> events; /**< Storage for all animation events. */
   int num_events; /**< Current number of active events. */
 };
 
@@ -1439,8 +1451,8 @@ private:
  * @param o The orientation to iterate.
  * @param callback The function to call for each frame: `void(const Quaternion&, float t)`.
  */
-template <typename F>
-void tween(const Orientation& o, F callback) {
+template <int W, typename F>
+void tween(const Orientation<W>& o, F callback) {
     int len = o.length();
     int start = (len > 1) ? 1 : 0;
     for (int i = start; i < len; ++i) {

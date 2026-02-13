@@ -10,14 +10,14 @@
 #include <vector>
 
 
-template <int W> class GSReactionDiffusion : public Effect {
+template <int W, int H> class GSReactionDiffusion : public Effect {
 public:
   static constexpr int RD_H = 20;
   static constexpr int RD_N = W * RD_H * 2; // Number of nodes in the graph
   static constexpr int RD_K = 6;            // Number of neighbors per node
 
   GSReactionDiffusion()
-      : Effect(W), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W>()) {
+      : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
     persist_pixels = false;
     build_graph();
     timeline
@@ -247,12 +247,12 @@ private:
 
   std::array<Vector, RD_N> nodes;
   std::array<std::array<int, RD_K>, RD_N> neighbors;
-  Orientation orientation;
+  Orientation<W> orientation;
 
-  Pipeline<W, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W>> filters;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
 
   StaticCircularBuffer<GSReactionContext, 4> contexts;
-  Timeline timeline;
+  Timeline<W> timeline;
 
   float global_alpha = 0.3f;
 };

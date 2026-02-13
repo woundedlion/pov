@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 
-template <int W>
+template <int W, int H>
 class HankinSolids : public Effect {
 public:
     enum class SolidMode {
@@ -34,8 +34,8 @@ public:
         Last // Sentinel
     };
 
-    HankinSolids() : Effect(W), 
-        filters(Filter::Screen::AntiAlias<W>())
+    HankinSolids() : Effect(W, H), 
+        filters(Filter::Screen::AntiAlias<W, H>())
     {
         // Continuous Rotation
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 8000, ease_mid, true));
@@ -65,9 +65,9 @@ public:
     }
 
 private:
-    Orientation orientation;
-    Timeline timeline;
-    Pipeline<W, Filter::Screen::AntiAlias<W>> filters;
+    Orientation<W> orientation;
+    Timeline<W> timeline;
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
     int solid_idx = 0;
     float hankin_angle = PI_F / 4.0f;
@@ -184,6 +184,6 @@ private:
              return out;
         };
         
-        Scan::Mesh::draw<W>(filters, canvas, rotated_mesh, shader);
+        Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
     }
 };

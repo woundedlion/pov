@@ -8,7 +8,7 @@
 #include <vector>
 #include <map>
 
-template <int W>
+template <int W, int H>
 class DreamBalls : public Effect {
 public:
     enum class SolidType {
@@ -29,8 +29,8 @@ public:
         bool enable_slice = false;
     };
 
-    DreamBalls() : Effect(W), 
-        filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS), Filter::Screen::AntiAlias<W>()),
+    DreamBalls() : Effect(W, H), 
+        filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS), Filter::Screen::AntiAlias<W, H>()),
         slice_filter(filters) // Filters inherits Head (FilterOrientSlice)
     {
         // Initialize Orientations
@@ -79,13 +79,13 @@ private:
     // Animation Integ
     MobiusParams mobius_params;
     Animation::MobiusWarp warp_anim{mobius_params, 1.0f, 200, true};
-    Timeline timeline;
+    Timeline<W> timeline;
     
     // Slices
-    std::vector<Orientation> orientations;
+    std::vector<Orientation<W>> orientations;
     
     // Pipeline
-    Pipeline<W, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W>> filters;
+    Pipeline<W, H, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W, H>> filters;
     std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
 
     // Presets
@@ -221,7 +221,7 @@ private:
         edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
 
         for (const auto& edge : edges) {
-            Plot::Line::draw<W>(filters, canvas, 
+            Plot::Line::draw<W, H>(filters, canvas, 
                 mesh.vertices[edge.first], mesh.vertices[edge.second], 
                 fragment_shader, vertex_shader);
         }

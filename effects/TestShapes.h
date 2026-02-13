@@ -8,7 +8,7 @@
 
 #include "../palettes.h"
 
-template <int W>
+template <int W, int H>
 class TestShapes : public Effect {
 public:
   enum class ShapeType { Polygon, Star, Flower };
@@ -20,7 +20,7 @@ public:
     Color4 color;
     RenderMode mode;
     int layer_index;
-    Orientation orientation;
+    Orientation<W> orientation;
 
     Ring() : scale(1.0f), color(Color4(0,0,0,0)), mode(RenderMode::Plot), layer_index(0) {}
 
@@ -29,7 +29,7 @@ public:
   };
 
   TestShapes() :
-    Effect(W),
+    Effect(W, H),
     alpha(0.5f),
     radius(1.0f),
     sides(5),
@@ -60,7 +60,7 @@ public:
   void rebuild() {
     rings.clear();
     // Re-create timeline to clear old animations
-    timeline = Timeline(); 
+    timeline = Timeline<W>(); 
 
     // Twist Mutation: sin wave
     // In JS: (Math.PI / 4) * Math.sin(t * Math.PI), duration 480
@@ -117,35 +117,35 @@ public:
     if (ring.mode == RenderMode::Plot) {
       switch (current_shape) {
         case ShapeType::Flower:
-           Plot::Flower::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, NullVertexShader{}, phase);
            break;
         case ShapeType::Star:
-           Plot::Star::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
         default: // Polygon
-           Plot::SphericalPolygon::draw<W>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
       }
     } else {
       switch (current_shape) {
         case ShapeType::Flower:
-           Scan::Flower::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
         case ShapeType::Star:
-           Scan::Star::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
         default:
-           Scan::SphericalPolygon::draw<W>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
       }
     }
   }
 
 private:
-  Timeline timeline;
+  Timeline<W> timeline;
   StaticCircularBuffer<Ring, 128> rings;
-  Pipeline<W, Filter::Screen::AntiAlias<W>> plot_filters;
-  Pipeline<W> scan_filters;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
+  Pipeline<W, H> scan_filters;
 
   float alpha;
   float radius;
