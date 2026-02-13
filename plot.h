@@ -13,114 +13,102 @@
 #include "constants.h"
 #include "canvas.h"
 
-/**
- * @brief The Plot struct contains vector-based (thin) drawing primitives.
- */
 namespace Plot {
 
-  /**
-   * @brief Draws a single point.
-   * Registers: None (Points only)
-   */
-  struct Point {
-    /**
-     * @brief Draws a single point.
-     * @param pipeline Render pipeline.
-     * @param canvas Target canvas.
-     * @param v Position.
-     * @param fragment_shader Shader function (Vector, Fragment) -> Fragment.
-     * @param age Age.
-     */
-    static void draw(auto& pipeline, Canvas& canvas, const Vector& v, FragmentShaderFn auto fragment_shader, float age = 0.0f) {
-      Fragment f;
-      f.pos = v;
-      f.v0 = 0; f.v1 = 0; f.v2 = 0; f.v3 = 0;
-      f.age = age;
-      f.color = Color4(0,0,0,0);
-      f.blend = 0;
+  // Reusable buffers to prevent allocation in tight loops
+  static std::vector<float> _steps_cache;
+  struct CachePoint { Vector p; float t; };
+  static std::vector<CachePoint> _point_cache;
 
+  struct Point {
+    static void draw(auto& pipeline, Canvas& canvas, const Vector& v, FragmentShaderFn auto fragment_shader, float age = 0.0f) {
+      Fragment f; f.pos = v; f.v0 = 0; f.v1 = 0; f.v2 = 0; f.v3 = 0; f.age = age; f.color = Color4(0,0,0,0); f.blend = 0;
       Fragment f_out = fragment_shader(v, f);
       pipeline.plot(canvas, v, f_out.color.color, f_out.age, f_out.color.alpha, f_out.blend);
     }
   };
 
-  /**
-   * @brief Helper to rasterize a list of fragments into segments.
-   * Handles interpolation (Geodesic or Planar) and Fragment Shader application.
-   */
   template <int W, int H>
   static void rasterize(auto& pipeline, Canvas& canvas, const Fragments& points, FragmentShaderFn auto fragment_shader, bool close_loop = false, float age = 0.0f, const Basis* planar_basis = nullptr) {
     size_t len = points.size();
     if (len < 2) return;
 
     size_t count = close_loop ? len : len - 1;
+    _steps_cache.reserve(W);
+    _point_cache.reserve(W);
 
-    // reusable buffer for simulation
-    static std::vector<float> steps;
-    steps.reserve(W); // Reserve W as max_steps is W
-
-    // Helper lambda to run the simulation and drawing with a concrete map function
+    // Optimized segment processor
     auto process_segment = [&](auto&& map, const Fragment& curr, const Fragment& next, float total_dist, bool isLastSegment) {
-        // 2. Simulation Phase (Adaptive Sampling)
         if (total_dist < 1e-5f) {
             bool shouldOmit = close_loop || !isLastSegment;
             if (!shouldOmit) {
-                 // Draw single point
                  Fragment f_out = fragment_shader(curr.pos, curr);
                  pipeline.plot(canvas, curr.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
             }
             return;
         }
 
-        steps.clear();
+        _steps_cache.clear();
+        _point_cache.clear();
+        
         float sim_dist = 0.0f;
         const float base_step = 2.0f * PI_F / W;
+        
+        // Calculate initial point
         Vector sim_p = map(0.0f);
         
-        // Safety Breakout
+        // 1. SIMULATION & CACHING PHASE
+        // We store the computed points so we don't have to recalculate them later
         int max_steps = W; 
         int steps_taken = 0;
 
         while (sim_dist < total_dist && steps_taken < max_steps) {
+            // Adaptive step size based on distortion (y-component)
             float scale_factor = std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - sim_p.j * sim_p.j)));
             float step = base_step * scale_factor;
-            steps.push_back(step);
+            
             sim_dist += step;
             steps_taken++;
             
             if (sim_dist < total_dist) {
-                sim_p = map(sim_dist / total_dist);
+                float t = sim_dist / total_dist;
+                sim_p = map(t); // Heavy math happens here
+                _point_cache.push_back({sim_p, t}); // Store result
+                _steps_cache.push_back(step);
+            } else {
+                _steps_cache.push_back(step); // Last step
             }
         }
 
-        float scale = (sim_dist > 0) ? (total_dist / sim_dist) : 0.0f;
-
-        // 3. Drawing Phase
         bool omitLast = close_loop || !isLastSegment;
-        
-        if (omitLast && steps.empty()) return;
+        if (omitLast && _steps_cache.empty()) return;
 
+        // 2. DRAWING PHASE
         // Draw Start
         {
-            Vector p = map(0.0f);
-            Fragment f = curr; // Use copy of curr
-            Fragment f_out = fragment_shader(p, f);
-            pipeline.plot(canvas, p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+            // Re-calculate t=0 point only if needed, or rely on passed in curr.pos
+            // Using curr.pos ensures connectivity
+            Fragment f_out = fragment_shader(curr.pos, curr);
+            pipeline.plot(canvas, curr.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
         }
 
-        float current_dist = 0.0f;
-        size_t loop_limit = omitLast ? steps.size() - 1 : steps.size();
-
+        // Draw cached points
+        size_t loop_limit = _point_cache.size();
+        
+        // If we aren't omitting the last point, we need to handle the final segment gap
+        // The cache contains internal points. The end point (t=1) is 'next.pos'
+        
         for (size_t j = 0; j < loop_limit; j++) {
-             float step = steps[j] * scale;
-             current_dist += step;
-             float t = (total_dist > 0) ? (current_dist / total_dist) : 1.0f;
-             
-             Vector p = map(t);
-             Fragment f = Fragment::lerp(curr, next, t);
-             
-             Fragment f_out = fragment_shader(p, f);
-             pipeline.plot(canvas, p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+             const auto& pt = _point_cache[j];
+             Fragment f = Fragment::lerp(curr, next, pt.t);
+             Fragment f_out = fragment_shader(pt.p, f);
+             pipeline.plot(canvas, pt.p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+        }
+        
+        // Explicitly draw the end point if this is the last segment
+        if (!omitLast) {
+             Fragment f_out = fragment_shader(next.pos, next);
+             pipeline.plot(canvas, next.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
         }
     };
 
@@ -128,21 +116,23 @@ namespace Plot {
         const Fragment& curr = points[i];
         const Fragment& next = points[(i + 1) % len];
         bool isLastSegment = (i == count - 1);
-        
-        // 1. Determine Interpolation Strategy
-        // Geodesic (Slerp) or Planar (Project/Unproject)
 
         if (planar_basis) {
-             // Planar Setup
+             // --- OPTIMIZED PLANAR MAP ---
              Vector center = planar_basis->v;
              Vector u = planar_basis->u;
              Vector w = planar_basis->w;
              
+             // Project start/end to 2D plane
              auto project = [&](const Vector& p) -> std::pair<float, float> {
                 float R = angle_between(p, center);
-                if (R < 0.0001f) return { 0.0f, 0.0f };
+                if (R < 1e-5f) return { 0.0f, 0.0f };
                 float x = dot(p, u);
                 float y = dot(p, w);
+                // Avoid atan2 for projection if possible, but needed for theta
+                // Actually, we just need the vector on the tangent plane
+                // proj = (u*x + w*y) / sin(R) * R ? 
+                // Stick to simple way:
                 float theta = atan2f(y, x);
                 return { R * cosf(theta), R * sinf(theta) };
              };
@@ -154,55 +144,59 @@ namespace Plot {
              float dy = p1_proj.second - p2_proj.second;
              float total_dist = sqrtf(dx*dx + dy*dy);
              
+             // Fast Planar Map: Avoids atan2/sin/cos in the loop
              auto map_planar = [=](float t) -> Vector {
                  float Px = p1_proj.first + (p2_proj.first - p1_proj.first) * t;
                  float Py = p1_proj.second + (p2_proj.second - p1_proj.second) * t;
-                 float R = sqrtf(Px * Px + Py * Py);
-                 float theta = atan2f(Py, Px);
+                 float R2 = Px * Px + Py * Py;
                  
-                 Vector point = center;
-                 if (R > 0.0001f) {
-                     float sinR = sinf(R);
-                     float cosR = cosf(R);
-                     float cosT = cosf(theta);
-                     float sinT = sinf(theta);
-                     Vector dir = (u * cosT) + (w * sinT);
-                     point = (center * cosR) + (dir * sinR);
-                 }
-                 return point.normalize();
+                 if (R2 < 1e-8f) return center;
+
+                 float R = sqrtf(R2);
+                 // We want: center * cos(R) + normalize(Px*u + Py*w) * sin(R)
+                 // This simplifies to: center * cos(R) + (Px*u + Py*w) * (sin(R)/R)
+                 
+                 float scale = sinf(R) / R; // Sinc function
+                 Vector tangent = (u * Px) + (w * Py);
+                 return (center * cosf(R)) + (tangent * scale);
              };
 
              process_segment(map_planar, curr, next, total_dist, isLastSegment);
 
         } else {
-            // Geodesic Setup
+            // --- OPTIMIZED GEODESIC MAP ---
             Vector v1 = curr.pos;
             Vector v2 = next.pos;
             float total_dist = angle_between(v1, v2);
             
-            // Optimization for small angles
             if (total_dist < 0.001f) {
-                // Degenerate segment, handle as point
                 auto map_degenerate = [=](float t) { return v1; };
                 process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
             } else {
                  Vector axis;
+                 // Optimized antipodal check
                  if (std::abs(PI_F - total_dist) < TOLERANCE) {
-                     // Antipodal
                      axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS) : cross(v1, X_AXIS);
                  } else {
                      axis = cross(v1, v2).normalize();
                  }
+                 
+                 // Precompute perpendicular vector for fast rotation
+                 // v(t) = v1 * cos(a) + v_perp * sin(a)
+                 Vector v_perp = cross(axis, v1); 
+
                  auto map_geodesic = [=](float t) {
-                     Quaternion q = make_rotation(axis, total_dist * t);
-                     return rotate(v1, q).normalize();
+                     float ang = total_dist * t;
+                     // Fast sine/cosine rotation (no Quaternions)
+                     float s = sinf(ang);
+                     float c = cosf(ang);
+                     return (v1 * c) + (v_perp * s);
                  };
                  process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
             }
         }
     }
   }
-
 
   /**
    * @brief Draws a geodesic line between two points.

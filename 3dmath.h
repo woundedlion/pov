@@ -82,8 +82,8 @@ struct Vector {
    */
   Vector(const Spherical& s) :
     i(sinf(s.phi)* cosf(s.theta)),
-    j(sinf(s.phi)* sinf(s.theta)),
-    k(cosf(s.phi))
+    j(cosf(s.phi)),
+    k(sinf(s.phi)* sinf(s.theta))
   {
   }
   /**
@@ -193,8 +193,8 @@ Spherical::Spherical(const Vector& v)
 {
   Vector n(v);
   n.normalize();
-  theta = atan2f(n.j, n.i);
-  phi = acosf(std::clamp(n.k, -1.0f, 1.0f));
+  theta = atan2f(n.k, n.i);
+  phi = acosf(std::clamp(n.j, -1.0f, 1.0f));
 }
 
 struct Quaternion;
@@ -397,9 +397,9 @@ struct MobiusParams {
  * @brief Stereographic Projection: Sphere -> Complex Plane.
  */
 Complex stereo(const Vector& v) {
-  float denom = 1.0f - v.k;
+  float denom = 1.0f - v.j;
   if (std::abs(denom) < 0.0001f) return Complex(100, 100); // Infinity
-  return Complex(v.i / denom, v.j / denom);
+  return Complex(v.i / denom, v.k / denom);
 }
 
 /**
@@ -409,8 +409,8 @@ Vector inv_stereo(const Complex& z) {
   float r2 = z.re * z.re + z.im * z.im;
   return Vector(
     2 * z.re / (r2 + 1),
-    2 * z.im / (r2 + 1),
-    (r2 - 1) / (r2 + 1)
+    (r2 - 1) / (r2 + 1),
+    2 * z.im / (r2 + 1)
   );
 }
 
@@ -434,9 +434,9 @@ Vector mobius_transform(const Vector& v, const MobiusParams& params) {
  */
 Complex gnomonic(const Vector& v) {
   // Handle equator singularity with a large number instead of Infinity
-  // Projects to plane at k=1.
-  float div = (std::abs(v.k) < 1e-9f) ? 1e-9f * (v.k >= 0 ? 1.0f : -1.0f) : v.k;
-  return Complex(v.i / div, v.j / div);
+  // Projects to plane at j=1.
+  float div = (std::abs(v.j) < 1e-9f) ? 1e-9f * (v.j >= 0 ? 1.0f : -1.0f) : v.j;
+  return Complex(v.i / div, v.k / div);
 }
 
 /**
@@ -445,15 +445,15 @@ Complex gnomonic(const Vector& v) {
  * @param original_sign The sign of the z-component (k) of the original vector.
  */
 Vector inv_gnomonic(const Complex& z, float original_sign = 1.0f) {
-  // Project (re, im, 1) back onto unit sphere
+  // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
   float inv_len = 1.0f / len;
 
   // Restore hemisphere sign (Upper or Lower)
   return Vector(
     z.re * inv_len * original_sign, // i
-    z.im * inv_len * original_sign, // j
-    inv_len * original_sign         // k
+    inv_len * original_sign,        // j
+    z.im * inv_len * original_sign  // k
   );
 }
 

@@ -22,6 +22,7 @@ public:
     debugBB(false),
     thickness(4.0f * (2.0f * PI_F / W))
   {
+    this->persist_pixels = false;
     timeline.add(0,
       Animation::Sprite([this](Canvas& canvas, float opacity) { this->drawFn(canvas, opacity); }, -1, 48, ease_mid, 0, ease_mid)
     );
@@ -54,9 +55,17 @@ public:
       Basis basis = make_basis(orientation.get(), normal);
       auto fragment_shader = [&](const Vector& p, const Fragment& f) -> Fragment {
           // f.v0 is normalized azimuth (0..1)
+          // f.v1 is distance from center line
+          // f.size is thickness
+          
           Fragment out = f;
           out.color = ringPalette.get(f.v0);
-          out.color.alpha = out.color.alpha * opacity * alpha;
+          
+          float norm_dist = std::clamp(f.v1 / f.size, 0.0f, 1.0f);
+          float t = 1.0f - norm_dist;
+          float falloff = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+          
+          out.color.alpha = out.color.alpha * opacity * alpha * falloff;
           return out;
       };
 

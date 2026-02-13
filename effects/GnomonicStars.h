@@ -16,7 +16,7 @@ public:
         timeline(),
         params(1,0,0,0, 0,0,1,0)
     {
-        // Start Animations
+        this->persist_pixels = false;
         timeline.add(0, Animation::MobiusGenerate(params, 0.5f, 0.05f));
         timeline.add(0, Animation::RandomWalk<W>(orientation, UP, Animation::RandomWalk<W>::Options::Energetic()));
     }

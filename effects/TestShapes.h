@@ -38,9 +38,10 @@ public:
     num_shapes(25),
     debug_bb(false)
   {
+    this->persist_pixels = false;
     rebuild();
   }
-
+  
   bool show_bg() const override { return false; }
 
   void draw_frame() override {
