@@ -38,11 +38,17 @@
        int rand_int(int min, int max) {
            return ::random(min, max);
        }
+       
+       static constexpr int H_OFFSET = 3;
     }
 
 #else 
 
     // Non-Arduino / PC Simulation Platform
+    #ifndef DMAMEM
+    #define DMAMEM
+    #endif
+
     #ifdef __EMSCRIPTEN__
         #include <emscripten.h>
         #include <emscripten/bind.h>
@@ -265,6 +271,8 @@
        int rand_int(int min, int max) {
            return std::rand() % (max - min) + min;
        }
+       
+       static constexpr int H_OFFSET = 0;
     }
     
     // Global millis/micros if needed, though prefer namespaced

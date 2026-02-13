@@ -379,8 +379,8 @@ namespace Plot {
     template <int W, int H>
     static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader, float phase = 0) {
       Fragments points;
-      // Use W/4 samples estimate
-      sample(points, basis, radius, W / 4, phase);
+      // Use W samples for smooth circles (fixes pinching at poles)
+      sample(points, basis, radius, W, phase);
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {

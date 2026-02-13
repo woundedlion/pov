@@ -179,13 +179,13 @@ inline float phi_to_y(float phi, int h_virt) {
 
 template <int H>
 inline float y_to_phi(float y) {
-  constexpr int H_VIRT = H + 3;
+  constexpr int H_VIRT = H + hs::H_OFFSET;
   return (y * PI_F) / (H_VIRT - 1);
 }
 
 template <int H>
 inline float phi_to_y(float phi) {
-  constexpr int H_VIRT = H + 3;
+  constexpr int H_VIRT = H + hs::H_OFFSET;
   return (phi * (H_VIRT - 1)) / PI_F;
 }
 
@@ -199,7 +199,7 @@ inline float phi_to_y(float phi) {
  */
 template <int W, int H>
 struct PixelLUT {
-  static constexpr int H_VIRT = H + 3;
+  static constexpr int H_VIRT = H + hs::H_OFFSET;
   static std::array<Vector, W* H_VIRT> data;
   static bool initialized;
   static void init() {
@@ -225,7 +225,7 @@ const Vector& pixel_to_vector(int x, int y) {
 
 template <int W, int H>
 Vector pixel_to_vector(float x, float y) {
-  constexpr int H_VIRT = H + 3;
+  constexpr int H_VIRT = H + hs::H_OFFSET;
   if (std::abs(x - floor(x)) < TOLERANCE && std::abs(y - floor(y)) < TOLERANCE) {
     return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
@@ -246,7 +246,7 @@ Vector pixel_to_vector(float x, float y) {
  */
 template <int W, int H>
 PixelCoords vector_to_pixel(const Vector& v) {
-  constexpr int H_VIRT = H + 3;
+  constexpr int H_VIRT = H + hs::H_OFFSET;
   auto s = Spherical(v);
   PixelCoords p({ wrap((s.theta * W) / (2 * PI_F), W), phi_to_y(s.phi, H_VIRT) });
   return p;

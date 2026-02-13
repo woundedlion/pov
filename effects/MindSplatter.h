@@ -6,6 +6,7 @@
 
 #include "../effects_engine.h"
 #include <vector>
+#include "../static_circular_buffer.h"
 
 template <int W, int H>
 class MindSplatter : public Effect {
@@ -37,6 +38,7 @@ private:
     Timeline<W> timeline;
     Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
     Animation::ParticleSystem<W> particle_system;
+    StaticCircularBuffer<GenerativePalette, Animation::ParticleSystem<W>::CAPACITY> palette_buffer;
     
     // Params
     float friction = 0.85f;
@@ -67,6 +69,8 @@ private:
             }
         }
         
+        palette_buffer.clear();
+        
         // Add Emitters
         for(size_t i=0; i<EmitSolid::NUM_VERTS; ++i) {
             Vector axis = EmitSolid::vertices[i];
@@ -85,17 +89,19 @@ private:
                 // Update Hue
                 emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
                 
-                GenerativePalette base_palette(
-                    GradientShape::STRAIGHT,
-                    HarmonyType::COMPLEMENTARY,
-                    BrightnessProfile::DESCENDING,
-                    SaturationProfile::MID,
-                    static_cast<int>(emitter_hues[i] * 255.0f)
-                );
-                
-                AlphaFalloffPalette palette([](float t) { return t; }, base_palette);
-                
-                particle_system.spawn(axis, vel, palette, 160);
+                // Spawn with unique palette per particle
+                if (particle_system.active_count < Animation::ParticleSystem<W>::CAPACITY) {
+                    auto& pal = palette_buffer.emplace_back(
+                        GradientShape::STRAIGHT,
+                        HarmonyType::COMPLEMENTARY,
+                        BrightnessProfile::DESCENDING,
+                        SaturationProfile::MID,
+                        static_cast<int>(emitter_hues[i] * 255.0f)
+                    );
+                    
+                    AlphaFalloffPalette palette([](float t) { return t; }, pal);
+                    particle_system.spawn(axis, vel, palette, 160);
+                }
             });
         }
     }
