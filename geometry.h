@@ -212,8 +212,8 @@ struct PixelLUT {
   }
 };
 
-template <int W, int H> std::array<Vector, W * PixelLUT<W, H>::H_VIRT> PixelLUT<W, H>::data;
-template <int W, int H> bool PixelLUT<W, H>::initialized = false;
+template <int W, int H> DMAMEM std::array<Vector, W * PixelLUT<W, H>::H_VIRT> PixelLUT<W, H>::data;
+template <int W, int H> DMAMEM bool PixelLUT<W, H>::initialized = false;
 
 template <int W, int H>
 const Vector& pixel_to_vector(int x, int y) {
