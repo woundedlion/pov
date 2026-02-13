@@ -97,7 +97,6 @@ public:
 
     void setEffect(std::string name) {
         hs::log(("WASM: setEffect called with " + name).c_str());
-        hs::log(("WASM: H_OFFSET is " + std::to_string(hs::H_OFFSET)).c_str());
 
         // Dispatch based on resolution
         if (pixel_width == 96 && pixel_height == 20) {
@@ -119,7 +118,6 @@ public:
     }
 
     void drawFrame() {
-        std::fill(pixelBuffer.begin(), pixelBuffer.end(), 0);
         currentEffect->draw_frame();
         currentEffect->advance_display();
 
