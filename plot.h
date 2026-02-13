@@ -59,92 +59,17 @@ namespace Plot {
     static std::vector<float> steps;
     steps.reserve(W); // Reserve W as max_steps is W
 
-    for (size_t i = 0; i < count; i++) {
-        const Fragment& curr = points[i];
-        const Fragment& next = points[(i + 1) % len];
-        
-        // 1. Determine Interpolation Strategy
-        // Geodesic (Slerp) or Planar (Project/Unproject)
-        std::function<Vector(float)> map;
-        float total_dist = 0.0f;
-
-        // Planar Setup
-        Vector center, u, w;
-        std::pair<float, float> p1_proj, p2_proj;
-
-        if (planar_basis) {
-             center = planar_basis->v;
-             u = planar_basis->u;
-             w = planar_basis->w;
-             
-             auto project = [&](const Vector& p) -> std::pair<float, float> {
-                float R = angle_between(p, center);
-                if (R < 0.0001f) return { 0.0f, 0.0f };
-                float x = dot(p, u);
-                float y = dot(p, w);
-                float theta = atan2f(y, x);
-                return { R * cosf(theta), R * sinf(theta) };
-             };
-             
-             p1_proj = project(curr.pos);
-             p2_proj = project(next.pos);
-             
-             float dx = p1_proj.first - p2_proj.first;
-             float dy = p1_proj.second - p2_proj.second;
-             total_dist = sqrtf(dx*dx + dy*dy);
-             
-             map = [&](float t) -> Vector {
-                 float Px = p1_proj.first + (p2_proj.first - p1_proj.first) * t;
-                 float Py = p1_proj.second + (p2_proj.second - p1_proj.second) * t;
-                 float R = sqrtf(Px * Px + Py * Py);
-                 float theta = atan2f(Py, Px);
-                 
-                 Vector point = center;
-                 if (R > 0.0001f) {
-                     float sinR = sinf(R);
-                     float cosR = cosf(R);
-                     float cosT = cosf(theta);
-                     float sinT = sinf(theta);
-                     Vector dir = (u * cosT) + (w * sinT);
-                     point = (center * cosR) + (dir * sinR);
-                 }
-                 return point.normalize();
-             };
-        } else {
-            // Geodesic Setup
-            Vector v1 = curr.pos;
-            Vector v2 = next.pos;
-            total_dist = angle_between(v1, v2);
-            
-            // Optimization for small angles
-            if (total_dist < 0.001f) {
-                // Degenerate segment, handle as point
-                map = [=](float t) { return v1; };
-            } else {
-                 Vector axis;
-                 if (std::abs(PI_F - total_dist) < TOLERANCE) {
-                     // Antipodal
-                     axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS) : cross(v1, X_AXIS);
-                 } else {
-                     axis = cross(v1, v2).normalize();
-                 }
-                 map = [=](float t) {
-                     Quaternion q = make_rotation(axis, total_dist * t);
-                     return rotate(v1, q).normalize();
-                 };
-            }
-        }
-        
+    // Helper lambda to run the simulation and drawing with a concrete map function
+    auto process_segment = [&](auto&& map, const Fragment& curr, const Fragment& next, float total_dist, bool isLastSegment) {
         // 2. Simulation Phase (Adaptive Sampling)
         if (total_dist < 1e-5f) {
-            bool isLastSegment = (i == count - 1);
             bool shouldOmit = close_loop || !isLastSegment;
             if (!shouldOmit) {
                  // Draw single point
                  Fragment f_out = fragment_shader(curr.pos, curr);
                  pipeline.plot(canvas, curr.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
             }
-            continue;
+            return;
         }
 
         steps.clear();
@@ -171,15 +96,14 @@ namespace Plot {
         float scale = (sim_dist > 0) ? (total_dist / sim_dist) : 0.0f;
 
         // 3. Drawing Phase
-        bool isLastSegment = (i == count - 1);
         bool omitLast = close_loop || !isLastSegment;
         
-        if (omitLast && steps.empty()) continue;
+        if (omitLast && steps.empty()) return;
 
         // Draw Start
         {
             Vector p = map(0.0f);
-            Fragment f = points[i];
+            Fragment f = curr; // Use copy of curr
             Fragment f_out = fragment_shader(p, f);
             pipeline.plot(canvas, p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
         }
@@ -197,6 +121,84 @@ namespace Plot {
              
              Fragment f_out = fragment_shader(p, f);
              pipeline.plot(canvas, p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+        }
+    };
+
+    for (size_t i = 0; i < count; i++) {
+        const Fragment& curr = points[i];
+        const Fragment& next = points[(i + 1) % len];
+        bool isLastSegment = (i == count - 1);
+        
+        // 1. Determine Interpolation Strategy
+        // Geodesic (Slerp) or Planar (Project/Unproject)
+
+        if (planar_basis) {
+             // Planar Setup
+             Vector center = planar_basis->v;
+             Vector u = planar_basis->u;
+             Vector w = planar_basis->w;
+             
+             auto project = [&](const Vector& p) -> std::pair<float, float> {
+                float R = angle_between(p, center);
+                if (R < 0.0001f) return { 0.0f, 0.0f };
+                float x = dot(p, u);
+                float y = dot(p, w);
+                float theta = atan2f(y, x);
+                return { R * cosf(theta), R * sinf(theta) };
+             };
+             
+             std::pair<float, float> p1_proj = project(curr.pos);
+             std::pair<float, float> p2_proj = project(next.pos);
+             
+             float dx = p1_proj.first - p2_proj.first;
+             float dy = p1_proj.second - p2_proj.second;
+             float total_dist = sqrtf(dx*dx + dy*dy);
+             
+             auto map_planar = [=](float t) -> Vector {
+                 float Px = p1_proj.first + (p2_proj.first - p1_proj.first) * t;
+                 float Py = p1_proj.second + (p2_proj.second - p1_proj.second) * t;
+                 float R = sqrtf(Px * Px + Py * Py);
+                 float theta = atan2f(Py, Px);
+                 
+                 Vector point = center;
+                 if (R > 0.0001f) {
+                     float sinR = sinf(R);
+                     float cosR = cosf(R);
+                     float cosT = cosf(theta);
+                     float sinT = sinf(theta);
+                     Vector dir = (u * cosT) + (w * sinT);
+                     point = (center * cosR) + (dir * sinR);
+                 }
+                 return point.normalize();
+             };
+
+             process_segment(map_planar, curr, next, total_dist, isLastSegment);
+
+        } else {
+            // Geodesic Setup
+            Vector v1 = curr.pos;
+            Vector v2 = next.pos;
+            float total_dist = angle_between(v1, v2);
+            
+            // Optimization for small angles
+            if (total_dist < 0.001f) {
+                // Degenerate segment, handle as point
+                auto map_degenerate = [=](float t) { return v1; };
+                process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
+            } else {
+                 Vector axis;
+                 if (std::abs(PI_F - total_dist) < TOLERANCE) {
+                     // Antipodal
+                     axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS) : cross(v1, X_AXIS);
+                 } else {
+                     axis = cross(v1, v2).normalize();
+                 }
+                 auto map_geodesic = [=](float t) {
+                     Quaternion q = make_rotation(axis, total_dist * t);
+                     return rotate(v1, q).normalize();
+                 };
+                 process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
+            }
         }
     }
   }
