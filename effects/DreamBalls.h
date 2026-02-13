@@ -33,6 +33,8 @@ public:
         filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS), Filter::Screen::AntiAlias<W, H>()),
         slice_filter(filters) // Filters inherits Head (FilterOrientSlice)
     {
+        persist_pixels = false;
+
         // Initialize Orientations
         orientations.resize(2); // 2 slices
 

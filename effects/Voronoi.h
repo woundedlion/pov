@@ -98,7 +98,7 @@ public:
     }
     
     // Params
-    int num_sites = 20; 
+    int num_sites = 200; 
     float speed = 20.0f;
     bool showBorders = true;
     float borderThickness = 0.0f;

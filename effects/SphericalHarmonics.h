@@ -71,7 +71,7 @@ public:
              return { 0, H_ - 1 }; // Full Scan fallback
         }
         
-        template<int H_, typename OutputIt>
+        template<int W_scan, int H_, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
              return false; // Full Scan fallback
         }

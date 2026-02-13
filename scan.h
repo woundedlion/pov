@@ -79,7 +79,7 @@ namespace SDF {
 
          // For getHorizontalBounds
          r_val = sqrtf(nx*nx + nz*nz);
-         alpha_angle = atan2f(nx, nz);
+         alpha_angle = atan2f(nz, nx);
       }
 
       template <int H>
@@ -114,7 +114,7 @@ namespace SDF {
        * @param out Output iterator or callback accepting (float start, float end).
        * @return True if intervals were found and reported.
        */
-      template<int H, typename OutputIt>
+      template<int W, int H, typename OutputIt>
       bool get_horizontal_intervals(int y, OutputIt out) const {
         constexpr int H_VIRT = H + hs::H_OFFSET;
         float phi = y_to_phi<H>(static_cast<float>(y));
@@ -136,9 +136,19 @@ namespace SDF {
         float angle_min = acosf(max_cos);
         float angle_max = acosf(min_cos);
 
-        // Windows: [alpha - angle_max, alpha - angle_min] and [alpha + angle_min, alpha + angle_max]
-        out(alpha_angle - angle_max, alpha_angle - angle_min);
-        out(alpha_angle + angle_min, alpha_angle + angle_max);
+        float pixel_width = 2.0f * PI_F / W;
+        float safe_threshold = pixel_width;
+
+        if (angle_min <= safe_threshold) {
+             // Merge across alpha
+             out(alpha_angle - angle_max, alpha_angle + angle_max);
+        } else if (angle_max >= PI_F - safe_threshold) {
+             // Merge across antipode
+             out(alpha_angle + angle_min, alpha_angle + 2 * PI_F - angle_min);
+        } else {
+             out(alpha_angle - angle_max, alpha_angle - angle_min);
+             out(alpha_angle + angle_min, alpha_angle + angle_max);
+        }
         
         return true;
       }
@@ -214,7 +224,7 @@ namespace SDF {
           max_thickness = thickness + max_distortion;
           
           r_val = sqrtf(nx*nx + nz*nz);
-          alpha_angle = atan2f(nx, nz);
+          alpha_angle = atan2f(nz, nx);
           
           float ang_min = std::max(0.0f, target_angle - max_thickness);
           float ang_max = std::min(PI_F, target_angle + max_thickness);
@@ -249,7 +259,7 @@ namespace SDF {
            return { y_min, y_max };
        }
 
-       template<int H, typename OutputIt>
+       template<int W, int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
          constexpr int H_VIRT = H + hs::H_OFFSET;
          float phi = y_to_phi<H>(static_cast<float>(y));
@@ -271,8 +281,17 @@ namespace SDF {
          float angle_min = acosf(max_cos);
          float angle_max = acosf(min_cos);
 
-         out(alpha_angle - angle_max, alpha_angle - angle_min);
-         out(alpha_angle + angle_min, alpha_angle + angle_max);
+         float pixel_width = 2.0f * PI_F / W;
+         float safe_threshold = pixel_width;
+
+         if (angle_min <= safe_threshold) {
+              out(alpha_angle - angle_max, alpha_angle + angle_max);
+         } else if (angle_max >= PI_F - safe_threshold) {
+              out(alpha_angle + angle_min, alpha_angle + 2 * PI_F - angle_min);
+         } else {
+              out(alpha_angle - angle_max, alpha_angle - angle_min);
+              out(alpha_angle + angle_min, alpha_angle + angle_max);
+         }
          return true;
        }
 
@@ -335,7 +354,7 @@ namespace SDF {
           return { std::min(b1.y_min, b2.y_min), std::max(b1.y_max, b2.y_max) };
        }
 
-       template<int H, typename OutputIt>
+       template<int W, int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
            // Union intervals are complex; fallback to full scan.
            return false; 
@@ -371,10 +390,10 @@ namespace SDF {
           return a.template get_vertical_bounds<H>(); // Subtraction is bounded by A
        }
 
-       template<int H, typename OutputIt>
+       template<int W, int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
            // Subtraction intervals delegate to A (conservative)
-           return a.template get_horizontal_intervals<H>(y, out);
+           return a.template get_horizontal_intervals<W, H>(y, out);
        }
 
        /**
@@ -413,24 +432,24 @@ namespace SDF {
           return { std::max(b1.y_min, b2.y_min), std::min(b1.y_max, b2.y_max) };
        }
 
-       template<int H, typename OutputIt>
+       template<int W, int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
            StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
            StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
 
-           bool hasA = a.template get_horizontal_intervals<H>(y, [&](float start, float end) {
+           bool hasA = a.template get_horizontal_intervals<W, H>(y, [&](float start, float end) {
                intervalsA.push_back({start, end});
            });
            
-           bool hasB = b.template get_horizontal_intervals<H>(y, [&](float start, float end) {
+           bool hasB = b.template get_horizontal_intervals<W, H>(y, [&](float start, float end) {
                intervalsB.push_back({start, end});
            });
 
            if (!hasA) {
-               return b.template get_horizontal_intervals<H>(y, out);
+               return b.template get_horizontal_intervals<W, H>(y, out);
            }
            if (!hasB) {
-               return a.template get_horizontal_intervals<H>(y, out);
+               return a.template get_horizontal_intervals<W, H>(y, out);
            }
 
            if (intervalsA.is_empty() || intervalsB.is_empty()) return true;
@@ -607,7 +626,7 @@ namespace SDF {
                }
 
               // Thetas
-              float theta = atan2f(v1.i, v1.k); 
+              float theta = atan2f(v1.k, v1.i); 
               if (theta < 0) theta += 2 * PI_F;
               scratch.thetas[i] = theta;
            }
@@ -666,7 +685,7 @@ namespace SDF {
         template <int H>
         Bounds get_vertical_bounds() const { return { y_min, y_max }; }
         
-        template<int H, typename OutputIt>
+        template<int W, int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
            if (full_width) return false;
            for(const auto& iv : intervals) {
@@ -816,7 +835,7 @@ namespace SDF {
           apothem = thickness * cosf(PI_F / sides);
           nx = basis.v.i; ny = basis.v.j; nz = basis.v.k;
           R_val = sqrtf(nx*nx + nz*nz);
-          alpha_angle = atan2f(nx, nz);
+          alpha_angle = atan2f(nz, nx);
           
           float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
           float margin = thickness + 0.1f;
@@ -827,7 +846,7 @@ namespace SDF {
        template <int H>
        Bounds get_vertical_bounds() const { return { y_min, y_max }; }
        
-       template<int H, typename OutputIt>
+       template<int W, int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
           // Templated H not needed for full scan fallback logic if we used it, but keeping signature
           float phi = y_to_phi<H>(static_cast<float>(y));
@@ -948,7 +967,7 @@ namespace SDF {
             scan_ny = basis.v.j;
             scan_nz = basis.v.k;
             scan_r_val = sqrtf(scan_nx * scan_nx + scan_nz * scan_nz);
-            scan_alpha_angle = atan2f(scan_nx, scan_nz);
+            scan_alpha_angle = atan2f(scan_nz, scan_nx);
 
             float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
             float margin = thickness + 0.1f;
@@ -959,7 +978,7 @@ namespace SDF {
         template <int H>
         Bounds get_vertical_bounds() const { return { y_min, y_max }; }
 
-        template<int H, typename OutputIt>
+        template<int W_scan, int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
             float phi = y_to_phi<H>(static_cast<float>(y));
             float cos_phi = cosf(phi);
@@ -967,7 +986,7 @@ namespace SDF {
 
             if (scan_r_val < 0.01f) return false;
 
-            float ang_high = thickness + (2.0f * PI_F / W); // Margin for AA
+            float ang_high = thickness + (2.0f * PI_F / W); // Margin for AA, uses struct W
             float D_min = cosf(ang_high);
             float denom = scan_r_val * sin_phi;
 
@@ -1063,7 +1082,7 @@ namespace SDF {
           
           scan_nx = antipode.i; scan_ny = antipode.j; scan_nz = antipode.k;
           scan_R = sqrtf(scan_nx*scan_nx + scan_nz*scan_nz);
-          scan_alpha = atan2f(scan_nx, scan_nz);
+          scan_alpha = atan2f(scan_nz, scan_nx);
           
           float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.j)));
           float margin = thickness + 0.1f;
@@ -1074,7 +1093,7 @@ namespace SDF {
        template <int H>
        Bounds get_vertical_bounds() const { return { y_min, y_max }; }
 
-       template<int H, typename OutputIt>
+       template<int W, int H, typename OutputIt>
        bool get_horizontal_intervals(int y, OutputIt out) const {
          float phi = y_to_phi<H>(static_cast<float>(y));
          float cos_phi = cosf(phi);
@@ -1190,7 +1209,7 @@ namespace SDF {
              return { d, t_val, harmonic_val, 0.0f, 1.0f };
         }
         
-        template<int H, typename OutputIt>
+        template<int W, int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
             // HarmonicBlob is complex, full scan is safest/easiest port
             return false;
@@ -1256,7 +1275,7 @@ namespace SDF {
              return { dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness };
         }
         
-        template<int H, typename OutputIt>
+        template<int W, int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
             return false;
         }
@@ -1315,7 +1334,7 @@ namespace Scan {
      StaticCircularBuffer<std::pair<float, float>, 32> intervals;
      
      for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
-        bool handled = shape.template get_horizontal_intervals<H>(y, [&](float t1, float t2) {
+        bool handled = shape.template get_horizontal_intervals<W, H>(y, [&](float t1, float t2) {
             intervals.push_back({t1, t2});
         });
         

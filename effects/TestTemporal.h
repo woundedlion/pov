@@ -31,6 +31,8 @@ public:
         palette(circular_source),
         modifier(0.02f)
     {
+          this->persist_pixels = false;
+
         noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     
         timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));

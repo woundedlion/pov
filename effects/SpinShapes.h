@@ -11,6 +11,7 @@ template <int W, int H>
 class SpinShapes : public Effect {
 public:
     SpinShapes() : Effect(W, H), filters(Filter::World::Orient<W>(camera), Filter::Screen::AntiAlias<W, H>()) {
+        this->persist_pixels = false;
         rebuild();
     }
 
@@ -89,7 +90,6 @@ private:
         Basis basis = make_basis(shape.orientation.get(), shape.normal);
         float phase = (shape.layer == 0) ? 0.0f : PI_F / sides;
         
-        // Scan::SphericalPolygon::draw(pipeline, canvas, basis, radius, sides, fragment_shader, phase)
         Scan::SphericalPolygon::draw<W, H>(filters, canvas, basis, radius, sides, fragment_shader, phase);
     }
 };
