@@ -769,34 +769,6 @@ public:
     faces.reserve(mesh.faces.size());
     std::map<std::pair<int, int>, HalfEdge*> edgeMap; // For pairing half-edges
 
-    for (const auto& f : mesh.faces) {
-      faces.emplace_back();
-      HEFace* currentFace = &faces.back();
-      
-      size_t count = f.size();
-      size_t faceStartHeIdx = halfEdges.size();
-      
-      // Allocate edges for this face
-      for (size_t i = 0; i < count; ++i) {
-        halfEdges.emplace_back();
-      }
-      
-      // Need to re-pointer currentFace->halfEdge because vector resize might have moved it?
-      // No, faces vector is stable while we modify halfEdges? 
-      // faces is separate. halfEdges is separate.
-      // BUT currentFace->halfEdge = &halfEdges[...] stores a pointer.
-      // If halfEdges.emplace_back() reallocates, ALL pointers in previous faces' halfEdge fields become invalid!
-      // CRITICAL BUG in original design: storing pointers to elements of a vector that is growing.
-      
-      // FIX: We must pre-calculate total half-edges or use indices, or deque, or reserve.
-      // Since we don't know total edges easily without pass 1? 
-      // We can do a pass to count edges.
-    }
-
-    // RE-EVALUATING HALF-EDGE CONSTRUCTION:
-    // Storing pointers into a vector that grows is dangerous.
-    // Solution 1: Reserve enough space ahead of time.
-    // Total half-edges = sum of face degree.
     size_t totalHE = 0;
     for(const auto& f : mesh.faces) totalHE += f.size();
     halfEdges.reserve(totalHE);
@@ -839,6 +811,7 @@ public:
             HalfEdge* neighbor = edgeMap[{v, u}];
             he->pair = neighbor;
             neighbor->pair = he;
+            edgeMap.erase({v, u});
         } else {
             edgeMap[{u, v}] = he;
         }
@@ -922,6 +895,7 @@ inline HalfEdgeMesh::HalfEdgeMesh(const MeshState& mesh) {
         HalfEdge* neighbor = edgeMap[{v, u}];
         he->pair = neighbor;
         neighbor->pair = he;
+        edgeMap.erase({v, u});
       } else {
         edgeMap[{u, v}] = he;
       }
@@ -1168,7 +1142,7 @@ namespace MeshOps {
       } while (curr != startOrbit && curr && safety < 100);
 
       if (rosetteIndices.size() > 2) {
-        std::reverse(rosetteIndices.begin(), rosetteIndices.end());
+        std::reverse(rosetteIndices.begin(), rosetteIndices.end()); // Fix inward normals
         compiled.faces.push_back(rosetteIndices);
       }
     }
@@ -1195,6 +1169,8 @@ namespace MeshOps {
       Vector nHankin2 = rotate(nEdge2, q2);
 
       Vector intersect = cross(nHankin1, nHankin2);
+      
+      // Chirality
       if (dot(intersect, instr.pCorner) < 0) intersect = -intersect;
 
       compiled.dynamicVertices[i] = intersect.normalize();
@@ -1361,6 +1337,12 @@ namespace MeshOps {
    */
   template <typename MeshT>
   static MeshT truncate(const MeshT& mesh, float t = 0.25f) {
+    // Singularity check: if t is 0.5, this is geometrically equivalent to ambo (rectification).
+    // The standard truncate logic produces degenerate edges at t=0.5, so we redirect to ambo.
+    if (std::abs(t - 0.5f) < 1e-4f) {
+        return ambo(mesh);
+    }
+
     MeshT result;
     // Map edge (u,v) -> pair of new vertex indices {near_u, near_v}
     // Stored as key {min(u,v), max(u,v)} -> value {idx_near_key_first, idx_near_key_second}

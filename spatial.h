@@ -75,8 +75,8 @@ struct BVHNode {
 };
 
 struct BVH {
-  static constexpr int MAX_NODES = 512;   // 2N for N faces
-  static constexpr int MAX_INDICES = 512; // Permutation buffer
+  static constexpr int MAX_NODES = 2048;   // 2N for N faces
+  static constexpr int MAX_INDICES = 2048; // Permutation buffer
 
   std::array<BVHNode, MAX_NODES> nodes;
   std::array<int16_t, MAX_INDICES> faceIndices; 
@@ -93,8 +93,8 @@ struct BVH {
  * @brief Represents the state of a mesh using static storage to avoid heap allocations.
  */
 struct MeshState {
-  static constexpr size_t MAX_VERTS = 512;
-  static constexpr size_t MAX_FACES = 512;
+  static constexpr size_t MAX_VERTS = 2048;
+  static constexpr size_t MAX_FACES = 1024;
 
   std::array<Vector, MAX_VERTS> vertices;
   size_t num_vertices = 0;
@@ -138,7 +138,7 @@ struct KDNode {
 
 class KDTree {
 public:
-  static constexpr int MAX_NODES = 512;
+  static constexpr int MAX_NODES = 2048;
   static constexpr int MAX_K = 5;
 
   std::array<KDNode, MAX_NODES> nodes;

@@ -186,9 +186,23 @@ namespace Solids {
 
     static constexpr float D2R = PI_F / 180.0f;
 
-    // Base: octahedron, Ops: Hk(17), Ambo, Hk(72)
+    // Helper for bitruncate (truncate(ambo(m), t))
+    inline PolyMesh bitruncate(const PolyMesh& m, float t) {
+      return truncate(ambo(m), t);
+    }
+
+    // Base: icosahedron, Ops: Hk(59), Bitruncate(0.33)
+    // JS: icosahedron_hk59_bitruncate033: () => MeshOps.hankin(MeshOps.bitruncate(Solids.PlatonicSolids.icosahedron(), 0.33), 59 * (Math.PI / 180))
+    // Note: JS order is hankin(bitruncate(...), 59).
+    inline PolyMesh icosahedron_hk59_bitruncate033() {
+        return hankin(bitruncate(icosahedron(), 0.33f), 59.0f * D2R);
+    }
+
+    // Base: octahedron, Ops: Hk(17), Ambo, Hk(73) (Note: 73 deg in JS)
+    // JS: octahedron_hk17_ambo_hk72: ... hankin(..., 73 * Math.PI / 180)
+    // Name says 72, code says 73. We match code.
     inline PolyMesh octahedron_hk17_ambo_hk72() {
-        return hankin(ambo(hankin(octahedron(), 17.0f * D2R)), 72.0f * D2R);
+        return hankin(ambo(hankin(octahedron(), 17.0f * D2R)), 73.0f * D2R);
     }
 
     // Base: icosahedron, Ops: Kis, Gyro
@@ -196,44 +210,50 @@ namespace Solids {
         return gyro(kis(icosahedron()));
     }
 
-    // Base: truncatedIcosidodecahedron, Ops: Tr(0.5), Ambo, Dual
+    // Base: truncatedIcosidodecahedron, Ops: Tr(50), Ambo, Dual
     inline PolyMesh truncatedIcosidodecahedron_truncate05_ambo_dual() {
-        return dual(ambo(truncate(truncatedIcosidodecahedron(), 0.5f)));
+        return dual(ambo(truncate(truncatedIcosidodecahedron(), 50.0f * D2R)));
     }
 
-    // Base: icosidodecahedron, Ops: Tr(0.5), Ambo, Dual
+    // Base: icosidodecahedron, Ops: Tr(5), Ambo, Dual
     inline PolyMesh icosidodecahedron_truncate05_ambo_dual() {
-        return dual(ambo(truncate(icosidodecahedron(), 0.5f)));
+        return dual(ambo(truncate(icosidodecahedron(), 5.0f * D2R)));
     }
 
-    // Base: snubDodecahedron, Ops: Tr(0.5), Ambo, Dual
+    // Base: snubDodecahedron, Ops: Tr(5), Ambo, Dual
     inline PolyMesh snubDodecahedron_truncate05_ambo_dual() {
-        return dual(ambo(truncate(snubDodecahedron(), 0.5f)));
+        return dual(ambo(truncate(snubDodecahedron(), 5.0f * D2R)));
     }
 
-    // Base: rhombicuboctahedron, Ops: Hk(54.00), Ambo, Hk(72.00)
-    inline PolyMesh rhombicuboctahedron_hk54_ambo_hk72() {
-        return hankin(ambo(hankin(rhombicuboctahedron(), 54.0f * D2R)), 72.0f * D2R);
+    // Base: octahedron, Ops: Hk(34), Ambo, Hk(72)
+    inline PolyMesh octahedron_hk34_ambo_hk72() {
+        return hankin(ambo(hankin(octahedron(), 34.0f * D2R)), 72.0f * D2R);
     }
 
-    // Base: truncatedIcosahedron, Ops: Hk(54.00), Ambo, Hk(72.00)
+    // Base: rhombicuboctahedron, Ops: Hk(63), Ambo, Hk(63)
+    // JS: rhombicuboctahedron_hk63_ambo_hk63
+    inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63() {
+        return hankin(ambo(hankin(rhombicuboctahedron(), 63.0f * D2R)), 63.0f * D2R);
+    }
+
+    // Base: truncatedIcosahedron, Ops: Hk(54), Ambo, Hk(72)
     inline PolyMesh truncatedIcosahedron_hk54_ambo_hk72() {
         return hankin(ambo(hankin(truncatedIcosahedron(), 54.0f * D2R)), 72.0f * D2R);
     }
 
-    // Base: dodecahedron, Ops: Hk(54.00), Ambo, Hk(72.00)
+    // Base: dodecahedron, Ops: Hk(54), Ambo, Hk(72)
     inline PolyMesh dodecahedron_hk54_ambo_hk72() {
         return hankin(ambo(hankin(dodecahedron(), 54.0f * D2R)), 72.0f * D2R);
     }
 
-    // Base: dodecahedron, Ops: Hk(72.00), Ambo, Dual, Hk(20.00)
+    // Base: dodecahedron, Ops: Hk(72), Ambo, Dual, Hk(20)
     inline PolyMesh dodecahedron_hk72_ambo_dual_hk20() {
         return hankin(dual(ambo(hankin(dodecahedron(), 72.0f * D2R))), 20.0f * D2R);
     }
 
-    // Base: truncatedIcosahedron, Ops: Tr(0.5), Ambo, Dual
+    // Base: truncatedIcosahedron, Ops: Tr(50), Ambo, Dual
     inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual() {
-        return dual(ambo(truncate(truncatedIcosahedron(), 0.5f)));
+        return dual(ambo(truncate(truncatedIcosahedron(), 50.0f * D2R)));
     }
   }
 }
