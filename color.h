@@ -312,9 +312,6 @@ public:
         uint8_t index = static_cast<uint8_t>(t * 255);
         CPixel p = entries[index];
         Pixel color(p.r, p.g, p.b);
-#ifdef __EMSCRIPTEN__
-        color = convert_srgb_to_linear(color);
-#endif
         return Color4(color, 1.0f);
     }
 
@@ -457,9 +454,6 @@ public:
 
     float p = (t - start) / dist;
     Pixel color = c1.lerp16(c2, to_short(std::clamp(p, 0.0f, 1.0f)));
-#ifdef __EMSCRIPTEN__
-    color = convert_srgb_to_linear(color);
-#endif
     return Color4(color, 1.0f);
   }
 
@@ -531,9 +525,6 @@ public:
       static_cast<uint8_t>(255 * std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f)),
       static_cast<uint8_t>(255 * std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f))
     );
-#ifdef __EMSCRIPTEN__
-    color = convert_srgb_to_linear(color);
-#endif
     return Color4(color, 1.0f);
   }
 

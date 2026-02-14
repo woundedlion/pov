@@ -732,7 +732,7 @@ public:
     if (!fade_in.done()) {
       fade_in.step(canvas);
     }
-    else if (duration >= 0 && t >= (duration - fade_out_duration)) {
+    else if (duration >= 0 && fade_out_duration > 0 && t >= (duration - fade_out_duration)) {
       fade_out.step(canvas);
     }
     draw_fn(canvas, fader);
@@ -1147,90 +1147,149 @@ public:
 /*
  * @brief Animates a transition between two meshes using pre-allocated buffers.
  */
+// NEW: Morphing Support Structures
+struct MorphPath {
+    Vector start, end, axis;
+    float angle;
+};
+
+struct MorphBuffer {
+    MeshState source;
+    MeshState dest;
+    // Paths for Source -> Dest
+    std::vector<MorphPath> source_paths;
+    // Paths for Dest -> Source
+    std::vector<MorphPath> dest_paths;
+
+    void load_dest(const PolyMesh& poly) {
+        // Helper to load destination from PolyMesh if needed
+        // For now, assuming manual population or via MeshMorph init
+    }
+};
+
+/*
+ * @brief Animates a transition between two meshes using pre-allocated buffers.
+ * Implements dual-morph logic: Source deforms to Dest, while Dest deforms from Source.
+ */
 class MeshMorph : public Base<MeshMorph> {
 public:
-  // Minimal State access for consumers
   using State = MeshState;
 
   /**
    * @brief Constructs a MeshMorph animation.
-   * @param output Pointer to the active mesh state to update unique to the renderer.
-   * @param buffer Pointer to the shared MorphBuffer (must persist for duration of animation).
-   * @param source The starting mesh state.
-   * @param dest The target mesh state.
+   * @param output_source Pointer to the active source mesh state (gets deformed).
+   * @param output_dest Pointer to the active dest mesh state (gets deformed).
+   * @param buffer Pointer to shared MorphBuffer.
+   * @param source The starting geometry of source.
+   * @param dest The target geometry of source (and starting geometry of dest).
    * @param duration Duration in frames.
-   * @param repeat Whether to repeat.
-   * @param easing_fn Easing function.
    */
-  MeshMorph(MeshState* output, MorphBuffer* buffer, const MeshState& source, const MeshState& dest, int duration, bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
-    : Base(duration, repeat), output(output), buffer(buffer), easing_fn(easing_fn)
+  MeshMorph(MeshState* output_source, MeshState* output_dest, MorphBuffer* buffer, const MeshState& source, const MeshState& dest, int duration, bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
+    : Base(duration, repeat), output_source(output_source), output_dest(output_dest), buffer(buffer), easing_fn(easing_fn)
   {
       if (buffer) {
-          buffer->source = source; // Copy to buffer
-          buffer->dest = dest;     // Copy to buffer
-          if (output) *output = buffer->source; // Initialize output
+          // Deep copy initial states
+          buffer->source = source; 
+          buffer->dest = dest;     
+          
+          // Reset outputs to starting states
+          if (output_source) *output_source = buffer->source;
+          if (output_dest) *output_dest = buffer->dest;
+
           init();
       }
   }
+  
+  // Single output constructor compatibility
+  MeshMorph(MeshState* output_source, MorphBuffer* buffer, const MeshState& source, const MeshState& dest, int duration, bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
+    : MeshMorph(output_source, nullptr, buffer, source, dest, duration, repeat, easing_fn) {}
 
   void init() {
       if (!buffer) return;
       
-      auto& s_verts = buffer->source.vertices;
-      auto& paths = buffer->paths;
-      size_t count = buffer->source.num_vertices;
-
-      for(size_t i=0; i<count; ++i) {
-         Vector s = s_verts[i];
-         
-         // Use robust projection
+      // 1. Source -> Dest Paths
+      size_t src_count = buffer->source.vertices.size();
+      buffer->source_paths.resize(src_count);
+      for(size_t i=0; i<src_count; ++i) {
+         Vector s = buffer->source.vertices[i];
          Vector t = project_to_mesh(s, buffer->dest);
          
-         // Calculate rotation path
          float ang = angle_between(s, t);
          Vector ax = cross(s, t);
-         if (dot(ax, ax) > 0.00001f) {
-             ax = ax.normalize();
-         } else {
-             ax = Vector(1,0,0);
-         }
+         if (dot(ax, ax) > 0.00001f) ax = ax.normalize();
+         else ax = Vector(1,0,0);
 
-         paths[i] = { s, t, ax, ang };
+         buffer->source_paths[i] = { s, t, ax, ang };
+      }
+
+      // 2. Dest -> Source Paths (Reverse Morph)
+      size_t dest_count = buffer->dest.vertices.size();
+      buffer->dest_paths.resize(dest_count);
+      for(size_t i=0; i<dest_count; ++i) {
+         Vector t = buffer->dest.vertices[i]; 
+         Vector s = project_to_mesh(t, buffer->source);
+         
+         float ang = angle_between(s, t);
+         Vector ax = cross(s, t);
+         if (dot(ax, ax) > 0.00001f) ax = ax.normalize();
+         else ax = Vector(1,0,0);
+
+         buffer->dest_paths[i] = { s, t, ax, ang };
       }
   }
   
   void step(Canvas& canvas) override {
       Base::step(canvas);
-      if (!output || !buffer) return;
+      if (!buffer) return;
 
       float progress = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
       float alpha = easing_fn(progress);
       
-      size_t count = buffer->source.num_vertices;
-      
-      for(size_t i=0; i<count; ++i) {
-         const auto& path = buffer->paths[i];
-         if (path.angle > 0.00001f) {
-            output->vertices[i] = rotate(path.start, make_rotation(path.axis, path.angle * alpha));
-         } else {
-             // Linear fallback
-             output->vertices[i] = (path.start * (1-alpha) + path.end * alpha).normalize();
-         }
+      // Update Source Output (Deform Source -> Dest)
+      if (output_source) {
+          size_t count = buffer->source_paths.size();
+          if (output_source->vertices.size() != count) output_source->vertices.resize(count);
+          
+          for(size_t i=0; i<count; ++i) {
+             const auto& path = buffer->source_paths[i];
+             if (path.angle > 0.00001f) {
+                Quaternion R = make_rotation(path.axis, path.angle * alpha);
+                output_source->vertices[i] = rotate(path.start, R);
+             } else {
+                 output_source->vertices[i] = (path.start * (1-alpha) + path.end * alpha).normalize();
+             }
+          }
+      }
+
+      // Update Dest Output (Unwarp Dest from Source)
+      if (output_dest) {
+          size_t count = buffer->dest_paths.size();
+          if (output_dest->vertices.size() != count) output_dest->vertices.resize(count);
+
+          for(size_t i=0; i<count; ++i) {
+             const auto& path = buffer->dest_paths[i];
+             if (path.angle > 0.00001f) {
+                // Dest unwinds from Source: alpha goes 0->1.
+                // At alpha=0 (start), using make_rotation(axis, angle * 0) = Identity.
+                // rotate(start, I) = start. (start is 's' on Source).
+                // This matches Source at t=0. Correct.
+                Quaternion R = make_rotation(path.axis, path.angle * alpha);
+                output_dest->vertices[i] = rotate(path.start, R);
+             } else {
+                 output_dest->vertices[i] = (path.start * (1-alpha) + path.end * alpha).normalize();
+             }
+          }
       }
       
-      // Update topology to Dest at the very end
-      if (t >= duration) {
-           // Copy topology from Dest to Output
-           output->num_vertices = buffer->dest.num_vertices;
-           output->vertices = buffer->dest.vertices; // Copy all positions
-           output->num_faces = buffer->dest.num_faces;
-           output->face_counts = buffer->dest.face_counts;
-           output->faces = buffer->dest.faces;
+      // Final Swap (Commit Topology to Source Output)
+      if (t >= duration && output_source) {
+           *output_source = buffer->dest;
       }
   }
 
 private:
-  MeshState* output;
+  MeshState* output_source;
+  MeshState* output_dest;
   MorphBuffer* buffer;
   std::function<float(float)> easing_fn;
 };
@@ -1442,17 +1501,28 @@ public:
       }
     }
 
+    // 2. Fire Callbacks for Finished Events
+    // Capture original count because callbacks might add new events
+    int check_count = num_events;
+    for (int i = 0; i < check_count; ++i) {
+        if (t < events[i].start) continue;
+        
+        auto& animation = events[i].animation;
+        // If it's done (and wasn't rewound, meaning it's non-repeating)
+        if (std::visit([&](auto& a) { return a.done(); }, animation)) {
+             std::visit([&](auto& a) { a.post_callback(); }, animation);
+        }
+    }
+
+    // 3. Remove Finished Events
+    // Now we can safely remove any event that is 'done'.
+    // New events added by callbacks are not 'done', so they survive.
     auto new_logical_end = std::remove_if(
       events.begin(), events.begin() + num_events,
       [this](auto& event) {
-        if (t < event.start) {
-          return false;
-        }
-        if (std::visit([](auto& a) { return a.done(); }, event.animation)) {
-          std::visit([](auto& a) { a.post_callback(); }, event.animation);
-          return true;
-        }
-        return false;
+        // Remove if done
+        // Note: Repeating events were already rewound in step 1, so they are not done.
+        return std::visit([](auto& a) { return a.done(); }, event.animation);
       }
     );
     num_events = std::distance(events.begin(), new_logical_end);

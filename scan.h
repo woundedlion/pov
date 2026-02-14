@@ -4,7 +4,6 @@
  */
 #pragma once
 #include <vector>
-#include <bitset>
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -1423,17 +1422,34 @@ namespace Scan {
         });
         
         if (handled && !intervals.is_empty()) {
-            std::bitset<W> processed;
-            for (const auto& iv : intervals) {
-                int x1 = static_cast<int>(floorf((iv.first * W) / (2 * PI_F)));
-                int x2 = static_cast<int>(ceilf((iv.second * W) / (2 * PI_F)));
-                
-                for (int x = x1; x <= x2; ++x) {
-                    int wx = wrap(x, W);
-                    if (processed[wx]) continue; 
-                    processed[wx] = true;
+            // Sort intervals by start time
+            std::sort(intervals.begin(), intervals.begin() + intervals.size(), [](const auto& a, const auto& b) {
+                return a.first < b.first;
+            });
 
-                    process_pixel<W, H, ComputeUVs>(wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
+            // Merge and rasterize
+            float current_end = -FLT_MAX;
+            for (const auto& iv : intervals) {
+                // Skip if fully covered
+                if (iv.second <= current_end) continue;
+
+                // Adjust start if partially covered
+                float start = std::max(iv.first, current_end);
+                float end = iv.second;
+                current_end = end;
+
+                // Map radians to pixel coordinates [0, W)
+                float f_x1 = (start * W) / (2 * PI_F);
+                float f_x2 = (end * W) / (2 * PI_F);
+
+                int x1 = static_cast<int>(floorf(f_x1));
+                int x2 = static_cast<int>(ceilf(f_x2));
+                
+                if (x1 == x2) x2++; // Ensure at least one pixel for sub-pixel features
+
+                for (int x = x1; x < x2; ++x) {
+                     int wx = wrap(x, W);
+                     process_pixel<W, H, ComputeUVs>(wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
                 }
             }
             intervals.clear();
@@ -1624,12 +1640,12 @@ namespace Scan {
           SDF::FaceScratchBuffer scratch;
           size_t face_offset = 0;
           
-          for (size_t i = 0; i < mesh.num_faces; ++i) {
+          for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
              size_t count = mesh.face_counts[i];
              
              // Create Spans from MeshState
-             std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
-             std::span<const int> indices(mesh.faces + face_offset, count);
+             std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
+             std::span<const int> indices(mesh.faces.data() + face_offset, count);
              
              SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
              

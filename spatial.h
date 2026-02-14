@@ -93,30 +93,29 @@ struct BVH {
  * @brief Represents the state of a mesh using static storage to avoid heap allocations.
  */
 struct MeshState {
-  static constexpr size_t MAX_VERTS = 2048;
-  static constexpr size_t MAX_FACES = 1024;
+  // Config constants (kept for compatibility)
+  static constexpr size_t MAX_VERTS = 4096;
+  static constexpr size_t MAX_FACES = 2048;
 
-  std::array<Vector, MAX_VERTS> vertices;
-  size_t num_vertices = 0;
-
-  // Topology (pointers to static const data in solids.h)
-  const uint8_t* face_counts = nullptr;
-  size_t num_faces = 0;
-  const int* faces = nullptr;
-  
-  // NEW: Lookup table for O(1) access to face data
-  std::array<uint16_t, MAX_FACES> face_offsets; 
+  std::vector<Vector> vertices;
+  std::vector<uint8_t> face_counts;
+  std::vector<int> faces;
+  std::vector<uint16_t> face_offsets;
 
   // Acceleration structure
   BVH bvh;
 
   void clear() {
-    num_vertices = 0;
-    num_faces = 0;
-    face_counts = nullptr;
-    faces = nullptr;
+    vertices.clear();
+    face_counts.clear();
+    faces.clear();
+    face_offsets.clear();
     bvh.clear();
   }
+  
+  // Helper for size accessors if needed, but direct vector access is preferred.
+  size_t num_vertices() const { return vertices.size(); }
+  size_t num_faces() const { return face_counts.size(); }
 };
 
 #include "static_circular_buffer.h"
@@ -437,22 +436,23 @@ namespace BVHImpl {
 
 inline void build_bvh(MeshState& mesh) {
     mesh.bvh.clear();
-    if (mesh.num_faces == 0) return;
+    if (mesh.face_counts.empty()) return;
     
-    // 1. Populate the Offset Lookup Table (The Fix)
+    // 1. Populate the Offset Lookup Table
+    mesh.face_offsets.resize(mesh.face_counts.size());
     int current_offset = 0;
-    for(size_t i = 0; i < mesh.num_faces; ++i) {
-        if(i < MeshState::MAX_FACES) {
-            mesh.face_offsets[i] = (uint16_t)current_offset;
-        }
+    for(size_t i = 0; i < mesh.face_counts.size(); ++i) {
+        mesh.face_offsets[i] = (uint16_t)current_offset;
         current_offset += mesh.face_counts[i];
     }
     
-    // Stack buffers for centroids (unchanged)
+    // Stack buffers for centroids (unchanged, still static limit for BVH build)
     std::array<Vector, BVH::MAX_INDICES> centroids;
     
-    for(size_t i=0; i<mesh.num_faces; ++i) {
-        int off = mesh.face_offsets[i]; // <--- Use the new LUT
+    size_t num_faces_to_process = std::min(mesh.face_counts.size(), (size_t)BVH::MAX_INDICES);
+
+    for(size_t i=0; i<num_faces_to_process; ++i) {
+        int off = mesh.face_offsets[i]; 
         int count = mesh.face_counts[i];
         
         Vector c(0,0,0);
@@ -463,11 +463,10 @@ inline void build_bvh(MeshState& mesh) {
         centroids[i] = c;
         
         // Init indices
-        if (i < BVH::MAX_INDICES) mesh.bvh.faceIndices[i] = (int16_t)i;
+        mesh.bvh.faceIndices[i] = (int16_t)i;
     }
     
-    int numFuncs = std::min((int)mesh.num_faces, BVH::MAX_INDICES);
-    mesh.bvh.rootIndex = BVHImpl::build_recursive(mesh.bvh, mesh, 0, numFuncs, centroids.data());
+    mesh.bvh.rootIndex = BVHImpl::build_recursive(mesh.bvh, mesh, 0, (int)num_faces_to_process, centroids.data());
 }
 
 struct HitResult {
@@ -496,9 +495,7 @@ inline HitResult bvh_intersect(const MeshState& mesh, const Vector& origin, cons
                 int idxMap = node.firstFaceIndex + i; // Index into faceIndices
                 int faceIdx = mesh.bvh.faceIndices[idxMap];
                 
-                // NEW FAST WAY (O(1)):
                 int offset = mesh.face_offsets[faceIdx];
-                
                 int count = mesh.face_counts[faceIdx];
                 
                 // Intersection
@@ -543,16 +540,18 @@ inline Vector project_to_mesh(const Vector& p, const MeshState& mesh) {
     Vector dir = Vector(p).normalize();
     
     // Attempt BVH
-    if (mesh.bvh.nodeCount > 0) {
-        HitResult hit = bvh_intersect(mesh, origin, dir);
-        if (hit.hit) return hit.point;
-    }
+    // Note: For spherical morphing, raycast projection (center -> out) is often degenerate 
+    // (returns same visual position). We prefer 'Closest Vertex' for topological morphs.
+    // if (mesh.bvh.nodeCount > 0) {
+    //    HitResult hit = bvh_intersect(mesh, origin, dir);
+    //    if (hit.hit) return hit.point;
+    // }
     
     // Fallback: Closest Vertex
-    if (mesh.num_vertices == 0) return p;
+    if (mesh.vertices.empty()) return p;
     Vector best = mesh.vertices[0];
     float minSq = distance_squared(p, best);
-    for(size_t i=1; i<mesh.num_vertices; ++i) {
+    for(size_t i=1; i<mesh.vertices.size(); ++i) {
         float d = distance_squared(p, mesh.vertices[i]);
         if (d < minSq) {
             minSq = d;
