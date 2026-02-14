@@ -8,7 +8,7 @@
     #include <Arduino.h>
     #include <FastLED.h>
 
-    using Pixel = CRGB;
+    // using Pixel = CRGB; // Moved to color.h for Linear 16-bit support
 
     namespace hs {
        inline void log(const char* fmt, ...) {

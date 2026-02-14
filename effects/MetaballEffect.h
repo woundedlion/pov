@@ -50,7 +50,7 @@ public:
                 if (t > 1.0f) t = 1.0f;
                 
                 Color4 c = palette.get(t);
-                canvas(x, y) = c; 
+                canvas(x, y) = c.color; 
             }
         }
     }

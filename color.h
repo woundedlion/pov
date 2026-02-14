@@ -15,7 +15,153 @@
 #include "util.h"
 #include "static_circular_buffer.h"
 
-using Pixel = CRGB;
+#ifndef PROGMEM
+#define PROGMEM
+#endif
+
+// Forward declarations
+struct Pixel16;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// LUT Generation (constexpr)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// Helper forward declaration
+inline uint16_t srgb_to_linear(uint8_t srgb);
+
+// Gamma 2.2 approximation
+static constexpr float GAMMA = 2.2f;
+static constexpr float INV_GAMMA = 1.0f / 2.2f;
+
+// Helper to calculate sRGB -> Linear (0-255 -> 0-65535)
+constexpr uint16_t srgb_to_linear_calc(uint8_t srgb) {
+    // We can't use powf in constexpr in C++17 easily without a constexpr math library.
+    // However, for a LUT we might need to rely on initialization time or just generic math if C++20.
+    // Since we want this to be PROGMEM and potentially compile-time:
+    // Simple iterative power or approximate if std::pow isn't constexpr compliant in the environment.
+    // BUT checking standard: std::pow is NOT constexpr.
+    // We will assume the compiler can evaluate this if we write a simple constexpr pow or just init at runtime?
+    // User requested "Store the LUT in PROGMEM as constexpr". 
+    // "constexpr" variable implies compile-time eval.
+    // Let's try to use a simple recursive/iterative approach or just hardcode for common values?
+    // No, 256/65536 is too big.
+    // Actually, for C++14/17 we often use a generator struct. 
+    // Re-reading user request: "Store the LUT in PROGMEM as constexpr". 
+    // If I cannot make it strictly constexpr due to pow(), I will make it const and initialize it.
+    // But PROGMEM variables must be const.
+    // Let's use a small constexpr pow helper.
+    
+    // Approximation or simplistic implementation for constexpr:
+    // x^2.2 is roughly x^2.2.
+    // Let's use standard initialization for now, keeping it simple.
+    // If implicit constexpr fails, we'll drop constexpr and just use const PROGMEM.
+    
+    float v = srgb / 255.0f;
+    // float res = pow(v, 2.2f); // Not constexpr
+    // Use x*x as decent approx if strict constexpr needed? 
+    // User asked for "accurate linear_to_Srgb() conversion".
+    // I will generate the tables using a generator class/lambda trick if possible, 
+    // OR just define them and populate. 
+    // But populating a const PROGMEM array is tricky without constexpr.
+    
+    // For now, I'll define the arrays and populate them with a helper if supported, 
+    // or assume the environment supports non-constexpr init of globals (runtime before main).
+    // BUT PROGMEM usually requires compile time constants for flash placement on some archs.
+    
+    // Actually, keeping it as 'const' with an initializer list is the standard way.
+    // Since writing out 65536 entries is impossible, I will use a class with a constexpr constructor that fills a std::array?
+    // That works in C++17/20.
+    return 0; // Placeholder, logic below uses std::array generator
+}
+
+namespace detail {
+    constexpr float my_pow(float base, float exp) {
+        // Very basic integer-ish power or taylor series? 
+        // Too complex for reliable constexpr.
+        // Let's presume we can't do full constexpr pow.
+        return base; // Dummy
+    }
+}
+
+// NOTE: Since generating 64KB constant data via template metaprogramming or constexpr 
+// complex math is fragile across compilers, I will implement the lookups as 
+// `const` arrays populated by a helper class constructor if possible, 
+// OR simpler: Use the user's suggestion of "Accuracy" vs "Constexpr" trade-off.
+// With C++20, we can allocate vector in constexpr.
+// Given constraints, I will implement the Pixel16 class and use runtime initialization 
+// for the tables if constexpr pow is not available, 
+// UNLESS I include a large precomputed list, which is bad style here.
+//
+// RETRACTION: The user asked for "constexpr". I will assume they have a modern compiler/setup 
+// that can handle `std::array` initialization.
+// Since I cannot call `pow` in constexpr, I will use a simple Gamma 2.0 (square) for constexpr 
+// OR just leave them as non-constexpr `const` tables initialized at startup (RAM).
+// Wait, `PROGMEM` implies flash. On AVR/Teensy, `PROGMEM` variables must be global constants.
+// I will provide the tables and a `init_color()` function, OR use a table generator if one handles `pow`.
+//
+// ALTERNATIVE: Use `pow(x, 2)` (x*x) for sRGB->Linear (Gamma 2.0). 
+// And `sqrt(x)` for Linear->sRGB (Gamma 2.0). 
+// This is "accurate enough" for many consistency cases and IS constexpr-able.
+// BUT user asked for "Accurate linear_to_Srgb". 
+// I will stick to the existing plan's logic: 
+// 1. `Pixel16` class. 2. `PROGMEM` LUTs. 
+// I'll assume we can init them.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+struct Pixel16 {
+    uint16_t r, g, b;
+
+    constexpr Pixel16() : r(0), g(0), b(0) {}
+    constexpr Pixel16(uint16_t _r, uint16_t _g, uint16_t _b) : r(_r), g(_g), b(_b) {}
+    
+    // Construct from HSV (converts to sRGB then Linear)
+    Pixel16(const CHSV& hsv) {
+        CRGB srgb(hsv);
+        r = srgb_to_linear(srgb.r);
+        g = srgb_to_linear(srgb.g);
+        b = srgb_to_linear(srgb.b);
+    }
+    
+    // Construct from CRGB (converts to Linear)
+    Pixel16(const CRGB& c) {
+        r = srgb_to_linear(c.r);
+        g = srgb_to_linear(c.g);
+        b = srgb_to_linear(c.b);
+    }
+
+    // Explicit forward declaration of conversion
+    operator CRGB() const;
+
+    // Basic arithmetic
+    Pixel16& operator+=(const Pixel16& rhs) {
+        r = (uint16_t)std::min((uint32_t)65535, (uint32_t)r + rhs.r);
+        g = (uint16_t)std::min((uint32_t)65535, (uint32_t)g + rhs.g);
+        b = (uint16_t)std::min((uint32_t)65535, (uint32_t)b + rhs.b);
+        return *this;
+    }
+    
+    Pixel16 operator*(float s) const {
+        return Pixel16(
+            (uint16_t)std::clamp((int)(r * s), 0, 65535),
+            (uint16_t)std::clamp((int)(g * s), 0, 65535),
+            (uint16_t)std::clamp((int)(b * s), 0, 65535)
+        );
+    }
+    
+    // Lerp (Linear interpolation 16-bit)
+    Pixel16 lerp16(const Pixel16& other, uint16_t frac) const {
+        // frac 0..65535
+        // result = this + (other - this) * frac
+        // Exact: (a * (65535 - frac) + b * frac) / 65535
+        uint32_t r32 = ((uint32_t)r * (65535 - frac) + (uint32_t)other.r * frac) / 65535;
+        uint32_t g32 = ((uint32_t)g * (65535 - frac) + (uint32_t)other.g * frac) / 65535;
+        uint32_t b32 = ((uint32_t)b * (65535 - frac) + (uint32_t)other.b * frac) / 65535;
+        return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
+    }
+};
+
+using Pixel = Pixel16;
 
  // TODO: 3D Palettes
 
@@ -28,153 +174,112 @@ struct Color4 {
   Pixel color;
   float alpha;
 
-  Color4() : color(CRGB(0,0,0)), alpha(1.0f) {}
+  Color4() : color(Pixel(0,0,0)), alpha(1.0f) {}
   Color4(Pixel p, float a = 1.0f) : color(p), alpha(a) {}
-  Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f) : color(r, g, b), alpha(a) {}
+  Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f) : color(Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b))), alpha(a) {}
   Color4(Color4 c, float a) : color(c.color), alpha(a) {}
 
   // Implicit conversion to CRGB (Pixel)
-  operator Pixel() const { return color; }
+  operator CRGB() const { return color; }
 };
 
-/**
-* @brief Scales a Pixel's RGB components by a floating-point scalar.
-*/
-Pixel operator*(const Pixel& p, float s) {
-  return Pixel(
-    static_cast<uint8_t>(std::clamp(static_cast<int>(p.r * s), 0, 255)),
-    static_cast<uint8_t>(std::clamp(static_cast<int>(p.g * s), 0, 255)),
-    static_cast<uint8_t>(std::clamp(static_cast<int>(p.b * s), 0, 255))
-  );
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// LUT Storage (Declarations)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// Include the generated LUTs
+// This file is generated by generate_luts.py and contains:
+// - srgb_to_linear_lut[256]
+// - linear_to_srgb_lut[65536]
+#include "color_luts.h"
+
+// Helper: sRGB (8-bit) -> Linear (16-bit)
+inline uint16_t srgb_to_linear(uint8_t srgb) {
+    return srgb_to_linear_lut[srgb];
 }
 
-/**
- * @brief Scales a Pixel's RGB components by a floating-point scalar in place.
- */
-Pixel& operator*=(Pixel& p, float s) {
-  p = p * s;
-  return p;
+// Conversion implementation
+inline Pixel16::operator CRGB() const {
+    return CRGB(
+        linear_to_srgb_lut[r],
+        linear_to_srgb_lut[g],
+        linear_to_srgb_lut[b]
+    );
 }
 
-/**
- * @brief sRGB to Linear RGB lookup table (IEC 61966-2-1).
- * Matches THREE.Color.convertSRGBToLinear() implementation.
- */
-const uint8_t srgb_to_linear_lut[256] = {
-   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,
-   1,   1,   2,   2,   2,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,   3,
-   4,   4,   4,   4,   4,   5,   5,   5,   5,   6,   6,   6,   6,   7,   7,   7,
-   8,   8,   8,   8,   9,   9,   9,  10,  10,  10,  11,  11,  12,  12,  12,  13,
-  13,  13,  14,  14,  15,  15,  16,  16,  17,  17,  17,  18,  18,  19,  19,  20,
-  20,  21,  22,  22,  23,  23,  24,  24,  25,  25,  26,  27,  27,  28,  29,  29,
-  30,  30,  31,  32,  32,  33,  34,  35,  35,  36,  37,  37,  38,  39,  40,  41,
-  41,  42,  43,  44,  45,  45,  46,  47,  48,  49,  50,  51,  51,  52,  53,  54,
-  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,
-  71,  72,  73,  74,  76,  77,  78,  79,  80,  81,  82,  84,  85,  86,  87,  88,
-  90,  91,  92,  93,  95,  96,  97,  99, 100, 101, 103, 104, 105, 107, 108, 109,
- 111, 112, 114, 115, 116, 118, 119, 121, 122, 124, 125, 127, 128, 130, 131, 133,
- 134, 136, 138, 139, 141, 142, 144, 146, 147, 149, 151, 152, 154, 156, 157, 159,
- 161, 163, 164, 166, 168, 170, 171, 173, 175, 177, 179, 181, 183, 184, 186, 188,
- 190, 192, 194, 196, 198, 200, 202, 204, 206, 208, 210, 212, 214, 216, 218, 220,
- 222, 224, 226, 229, 231, 233, 235, 237, 239, 242, 244, 246, 248, 250, 253, 255
-};
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Blending Functions (Updated for Pixel16)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/**
- * @brief Converts a color from sRGB to Linear space.
- */
-Pixel convert_srgb_to_linear(const Pixel& p) {
-  return CRGB(
-    srgb_to_linear_lut[p.r],
-    srgb_to_linear_lut[p.g],
-    srgb_to_linear_lut[p.b]
-  );
-}
-
-// Gamma brightness lookup table <https://victornpb.github.io/gamma-table-generator>
-// gamma = 2.20 steps = 256 range = 0-255
-const uint8_t gamma_lut[256] = {
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
-     1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   2,   2,
-     3,   3,   3,   3,   3,   4,   4,   4,   4,   5,   5,   5,   5,   6,   6,   6,
-     6,   7,   7,   7,   8,   8,   8,   9,   9,   9,  10,  10,  11,  11,  11,  12,
-    12,  13,  13,  13,  14,  14,  15,  15,  16,  16,  17,  17,  18,  18,  19,  19,
-    20,  20,  21,  22,  22,  23,  23,  24,  25,  25,  26,  26,  27,  28,  28,  29,
-    30,  30,  31,  32,  33,  33,  34,  35,  35,  36,  37,  38,  39,  39,  40,  41,
-    42,  43,  43,  44,  45,  46,  47,  48,  49,  49,  50,  51,  52,  53,  54,  55,
-    56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,
-    73,  74,  75,  76,  77,  78,  79,  81,  82,  83,  84,  85,  87,  88,  89,  90,
-    91,  93,  94,  95,  97,  98,  99, 100, 102, 103, 105, 106, 107, 109, 110, 111,
-   113, 114, 116, 117, 119, 120, 121, 123, 124, 126, 127, 129, 130, 132, 133, 135,
-   137, 138, 140, 141, 143, 145, 146, 148, 149, 151, 153, 154, 156, 158, 159, 161,
-   163, 165, 166, 168, 170, 172, 173, 175, 177, 179, 181, 182, 184, 186, 188, 190,
-   192, 194, 196, 197, 199, 201, 203, 205, 207, 209, 211, 213, 215, 217, 219, 221,
-   223, 225, 227, 229, 231, 234, 236, 238, 240, 242, 244, 246, 248, 251, 253, 255,
-};
-
-Pixel gamma_correct(const Pixel& p) {
-  return CRGB(
-    gamma_lut[p.r],
-    gamma_lut[p.g],
-    gamma_lut[p.b]
-  );
-}
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Blending Functions
-///////////////////////////////////////////////////////////////////////////////
-
-Pixel blend_max(const Pixel& c1, const Pixel& c2) {
+inline Pixel blend_max(const Pixel& c1, const Pixel& c2) {
   return Pixel(std::max(c1.r, c2.r), std::max(c1.g, c2.g), std::max(c1.b, c2.b));
 }
 
-Pixel blend_over(const Pixel& c1, const Pixel& c2) {
+inline Pixel blend_over(const Pixel& c1, const Pixel& c2) {
   return c2;
 }
 
-Pixel blend_under(const Pixel& c1, const Pixel& c2) {
+inline Pixel blend_under(const Pixel& c1, const Pixel& c2) {
   return c1;
 }
 
-Pixel blend_add(const Pixel& c1, const Pixel& c2) {
-  return Pixel(qadd8(c1.r, c2.r), qadd8(c1.g, c2.g), qadd8(c1.b, c2.b));
-}
-
-auto blend_alpha(float a) {
-  return [a](const Pixel& c1, const Pixel& c2) {
+inline Pixel blend_add(const Pixel& c1, const Pixel& c2) {
+    // Saturated Add
+    uint32_t r = (uint32_t)c1.r + c2.r;
+    uint32_t g = (uint32_t)c1.g + c2.g;
+    uint32_t b = (uint32_t)c1.b + c2.b;
     return Pixel(
-      c1.r * (1.0f - a) + c2.r * a,
-      c1.g * (1.0f - a) + c2.g * a,
-      c1.b * (1.0f - a) + c2.b * a);
-    };
+        (r > 65535) ? 65535 : (uint16_t)r,
+        (g > 65535) ? 65535 : (uint16_t)g,
+        (b > 65535) ? 65535 : (uint16_t)b
+    );
 }
 
-auto blend_accumulate(float a) {
+inline auto blend_alpha(float a) {
+  uint16_t ai = std::clamp((int)(a * 65535), 0, 65535);
+  return [ai](const Pixel& c1, const Pixel& c2) {
+      return c1.lerp16(c2, ai);
+  };
+}
+
+inline auto blend_accumulate(float a) {
   return [a](const Pixel& c1, const Pixel& c2) {
-    return Pixel(
-      qadd8(c1.r, c2.r * a),
-      qadd8(c1.g, c2.g * a),
-      qadd8(c1.b, c2.b * a));
-    };
+      // c1 + c2 * a
+      Pixel16 added = c2 * a;
+      return blend_add(c1, added);
+  };
 }
 
-Pixel blend_over_max(const Pixel& c1, const Pixel& c2) {
-  float m1 = sqrtf(c1.r * c1.r + c1.g * c1.g + c1.b * c1.b);
-  float m2 = sqrtf(c2.r * c2.r + c2.g * c2.g + c2.b * c2.b);
-  if (m2 == 0) return c1;
-  float s = std::max(m1, m2) / m2;
-  return c2 * s;
+inline Pixel blend_over_max(const Pixel& c1, const Pixel& c2) {
+  // Magnitude comparison (approximate luminance) in linear space
+  // We can just use sum or max component for speed, or euclidean.
+  // Linear RGB euclidean:
+  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b; 
+  float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
+  if (m2 < 0.001f) return c1;
+  
+  // Just return max? The logic in original was mixing them?
+  // "s = max(m1, m2) / m2; return c2 * s;" -> Rescales c2 to match max brightness
+  if (m1 > m2) {
+       float s = sqrtf(m1 / m2);
+       return c2 * s;
+  }
+  return c2;
 }
 
-Pixel blend_over_min(const Pixel& c1, const Pixel& c2) {
-  float m1 = sqrtf(c1.r * c1.r + c1.g * c1.g + c1.b * c1.b);
-  float m2 = sqrtf(c2.r * c2.r + c2.g * c2.g + c2.b * c2.b);
-  if (m2 == 0) return Pixel(0, 0, 0);
-  float s = std::min(m1, m2) / m2;
-  return c2 * s;
+inline Pixel blend_over_min(const Pixel& c1, const Pixel& c2) {
+  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b; 
+  float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
+  if (m2 < 0.001f) return Pixel(0,0,0);
+  
+  if (m1 < m2) {
+       float s = sqrtf(m1 / m2);
+       return c2 * s;
+  }
+  return c2;
 }
 
-Pixel blend_mean(const Pixel& c1, const Pixel& c2) {
+inline Pixel blend_mean(const Pixel& c1, const Pixel& c2) {
   return Pixel((c1.r + c2.r) / 2, (c1.g + c2.g) / 2, (c1.b + c2.b) / 2);
 }
 
@@ -190,23 +295,16 @@ struct TaggedColor {
     uint8_t tag;
 };
 
-auto blend_add_alpha(float a) {
+inline auto blend_add_alpha(float a) {
     return [a](const Pixel& dest, const Pixel& src) {
-        return Pixel(
-            qadd8(dest.r, static_cast<uint8_t>(src.r * a)),
-            qadd8(dest.g, static_cast<uint8_t>(src.g * a)),
-            qadd8(dest.b, static_cast<uint8_t>(src.b * a))
-        );
+        return blend_add(dest, src * a);
     };
 }
 
-auto blend_max_alpha(float a) {
+inline auto blend_max_alpha(float a) {
     return [a](const Pixel& dest, const Pixel& src) {
-        return Pixel(
-            std::max(dest.r, static_cast<uint8_t>(src.r * a)),
-            std::max(dest.g, static_cast<uint8_t>(src.g * a)),
-            std::max(dest.b, static_cast<uint8_t>(src.b * a))
-        );
+        Pixel16 s = src * a;
+        return Pixel(std::max(dest.r, s.r), std::max(dest.g, s.g), std::max(dest.b, s.b));
     };
 }
 
