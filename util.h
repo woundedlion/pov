@@ -31,6 +31,18 @@ inline T wrap(T x, U m) {
 }
 
 /**
+ * @brief Wraps an integer value around a modulo base (m).
+ * @details Ensures the result is always non-negative.
+ * @param x The value to wrap.
+ * @param m The modulo base.
+ * @return The wrapped value in the range [0, m).
+ */
+inline int wrap(int x, int m) {
+  int r = x % m;
+  return r < 0 ? r + m : r;
+}
+
+/**
  * @brief Calculates the shortest distance (either forwards or backwards) between two points on a circular domain.
  * @param a The first position.
  * @param b The second position.

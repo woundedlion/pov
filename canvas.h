@@ -21,6 +21,8 @@ class Effect {
   friend class Canvas;
 
 public:
+  bool debug_visuals = false;
+
   /**
    * @brief Constructs an Effect instance.
    * @param W The width (resolution) of the effect.
@@ -57,7 +59,7 @@ public:
    * @return The Pixel color reference.
    */
   virtual const Pixel& get_pixel(int x, int y) const {
-    return bufs_[prev_][x * height_ + y];
+    return bufs_[prev_][y * width_ + x];
   }
 
   /**
@@ -150,7 +152,7 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel& operator()(int x, int y) {
-    return effect_.bufs_[effect_.cur_][x * effect_.height_ + y];
+    return effect_.bufs_[effect_.cur_][y * effect_.width_ + x];
   }
 
   /**
@@ -176,6 +178,8 @@ public:
 
   inline int width() const { return effect_.width(); }
   inline int height() const { return effect_.height(); }
+  inline bool debug() const { return effect_.debug_visuals; }
+
 
 private:
   Effect& effect_; /**< Reference to the owning Effect instance. */

@@ -98,12 +98,10 @@ public:
     }
 
     for(const auto& dot : render_points) {
-        auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment { 
-            Fragment out = f;
+        auto fragment_shader = [&](const Vector&, Fragment& f) { 
             float t = std::clamp(f.v1 / f.size, 0.0f, 1.0f);
-            out.color = dot.color;
-            out.color.alpha *= quintic_kernel(1.0f - t);
-            return out;
+            f.color = dot.color;
+            f.color.alpha *= quintic_kernel(1.0f - t);
         };
         Scan::Point::draw<W, H>(filters, canvas, dot.position, thickness, fragment_shader);
     }

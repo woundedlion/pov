@@ -78,11 +78,13 @@ public:
         }
         
         SDF::DistanceResult distance(const Vector& p) const {
-            return distance<true>(p);
+            SDF::DistanceResult res;
+            distance<true>(p, res);
+            return res;
         }
 
         template <bool ComputeUVs = true>
-        SDF::DistanceResult distance(const Vector& p) const {
+        void distance(const Vector& p, SDF::DistanceResult& res) const {
              Vector local = rotate(p, orientation.conjugate()); 
              
              float theta = atan2f(local.k, local.i); 
@@ -90,7 +92,7 @@ public:
              float phi = acosf(std::clamp(local.j, -1.0f, 1.0f));
              float val = SHMath::sphericalHarmonic(l, m, theta, phi);
              
-             return { -1.0f, 0.0f, val }; // t is unused
+             res = SDF::DistanceResult(-1.0f, 0.0f, val, 0.0f, 1.0f);
         }
     };
 
@@ -112,7 +114,7 @@ public:
         
         HarmonicBlob blob(l, m, amplitude, orientation.get());
         
-        auto shader = [&](const Vector& p, const Fragment& frag) -> Fragment {             
+        auto shader = [&](const Vector& p, Fragment& frag) {             
              float abs_val = std::abs(frag.v1);
              
              Color4 base;
@@ -128,9 +130,7 @@ public:
              float occlusion = 0.15f + 0.85f * shadow;
              base.color = base.color * occlusion;
              
-             Fragment out = frag;
-             out.color = base;
-             return out;
+             frag.color = base;
         };
         
         Scan::rasterize<W, H>(filters, canvas, blob, shader);

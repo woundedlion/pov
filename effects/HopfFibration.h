@@ -8,18 +8,18 @@
 #include <vector>
 #include <cmath>
 
+
 template <int W, int H>
 class HopfFibration : public Effect {
 public:
-    static constexpr int MAX_TRAILS = 5000; 
+    static constexpr int MAX_TRAILS = 50000; 
 
     HopfFibration() : Effect(W, H), 
-        filters(Filter::World::Trails<W, MAX_TRAILS>(40), Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
-        trails(static_cast<Filter::World::Trails<W, MAX_TRAILS>&>(filters))
+        filters(Filter::World::Trails<W, MAX_TRAILS>(40), Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>())
     {
         persist_pixels = false;
         init_fibers();
-        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 10000, ease_mid, true)); // Slow camera
+        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600 , ease_mid, true)); 
     }
     
     bool show_bg() const override { return false; }
@@ -89,10 +89,8 @@ public:
             if (i < prev_positions.size()) {
                 const Vector& prev = prev_positions[i];
                 // Draw line segment
-                auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment {
-                    Fragment out = f;
-                    out.color = c;
-                    return out;
+                auto fragment_shader = [&](const Vector&, Fragment& f) {
+                    f.color = c;
                 };
                 Plot::Line::draw<W, H>(filters, canvas, prev, v, fragment_shader);
                 
@@ -136,10 +134,7 @@ private:
         Filter::World::Trails<W, MAX_TRAILS>, 
         Filter::World::Orient<W>, 
         Filter::Screen::AntiAlias<W, H>> filters;
-    
-    // Reference to start filter for trail calls
-    // Filters inherits Head (FilterWorldTrails)
-    std::reference_wrapper<Filter::World::Trails<W, MAX_TRAILS>> trails;
+
     
     void init_fibers() {
         fibers.clear();

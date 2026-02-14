@@ -102,12 +102,10 @@ public:
   }
 
   void drawShape(Canvas& canvas, const Ring& ring, float sprite_alpha) {
-    auto fragment_shader = [&](const Vector& p, const Fragment& f) -> Fragment {
+    auto fragment_shader = [&](const Vector& p, Fragment& f) {
       Color4 c = ring.color;
       c.alpha = c.alpha * this->alpha * sprite_alpha;
-      Fragment f_out = f;
-      f_out.color = c;
-      return f_out;
+      f.color = c;
     };
 
     float phase = ring.layer_index * this->twist;

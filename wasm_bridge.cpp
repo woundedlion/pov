@@ -117,6 +117,13 @@ public:
         }
     }
 
+    void setDebug(bool enabled) {
+        hs::log(("WASM: setDebug called with " + std::to_string(enabled)).c_str());
+        if (currentEffect) {
+            currentEffect->debug_visuals = enabled;
+        }
+    }
+
     void drawFrame() {
         currentEffect->draw_frame();
         currentEffect->advance_display();
@@ -159,6 +166,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
         .constructor<>()
         .function("setResolution", &HolosphereEngine::setResolution)
         .function("setEffect", &HolosphereEngine::setEffect)
+        .function("setDebug", &HolosphereEngine::setDebug)
         .function("drawFrame", &HolosphereEngine::drawFrame)
         .function("getPixels", &HolosphereEngine::getPixels)
         .function("getBufferLength", &HolosphereEngine::getBufferLength);

@@ -81,10 +81,8 @@ private:
         float t = (shape.normal.j + 1.0f) / 2.0f;
         auto c = Palettes::richSunset.get(t);
 
-        auto fragment_shader = [&](const Vector& p, const Fragment& f) -> Fragment {
-            Fragment out = f;
-            out.color = Color4(c, 0.6f); // alpha fixed
-            return out;
+        auto fragment_shader = [&](const Vector& p, Fragment& f) {
+            f.color = Color4(c, 0.6f); // alpha fixed
         };
 
         Basis basis = make_basis(shape.orientation.get(), shape.normal);

@@ -71,7 +71,7 @@ private:
         balls.reserve(num_balls);
         for (int i = 0; i < num_balls; ++i) {
             Vector p = random_vector() * 0.5f; // Start inside
-            float r = (hs::rand_f(0.5f, 0.8f)) * radius_scale;
+            float r = hs::rand_f(0.5f, 0.8f) * radius_scale;
             Vector v = random_vector() * (0.05f * velocity_scale);
             balls.push_back({p, v, r});
         }

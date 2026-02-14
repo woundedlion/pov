@@ -48,8 +48,8 @@ concept TransformFn = requires(F f, Vector v) {
  * Transforms a position vector.
  */
 template <typename F>
-concept VertexShaderFn = requires(F f, const Fragment & frag) {
-  { f(frag) } -> std::convertible_to<Fragment>;
+concept VertexShaderFn = requires(F f, Fragment & frag) {
+  { f(frag) } -> std::same_as<void>;
 };
 
 /**
@@ -57,9 +57,8 @@ concept VertexShaderFn = requires(F f, const Fragment & frag) {
  * Computes color from position and fragment data.
  */
 template <typename F>
-concept FragmentShaderFn = requires(F f, const Vector & pos, const Fragment & frag) {
-  // Can return Color4 or ShaderResult. We'll support implicitly convertible types.
-  { f(pos, frag) }; 
+concept FragmentShaderFn = requires(F f, const Vector & pos, Fragment & frag) {
+  { f(pos, frag) } -> std::same_as<void>; 
 };
 
 /**

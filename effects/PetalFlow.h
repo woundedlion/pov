@@ -111,11 +111,9 @@ private:
       int color_index = (k - loop_count) + 10000;
       float hue = wrap(color_index * 0.13f, 1.0f);
 
-      auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment {
-        Fragment out = f;
-        out.color = palette.get(hue);
-        out.color.alpha *= opacity;
-        return out;
+      auto fragment_shader = [&](const Vector&, Fragment& f) {
+        f.color = palette.get(hue);
+        f.color.alpha *= opacity;
       };
 
       Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);

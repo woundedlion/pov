@@ -11,7 +11,6 @@ template <int W, int H>
 class GnomonicStars : public Effect {
 public:
     GnomonicStars() : Effect(W, H),
-        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
         orientation(),
         timeline(),
         params(1,0,0,0, 0,0,1,0)
@@ -29,13 +28,11 @@ public:
         timeline.step(canvas);
         
         // Fragment Shader for Stars (Mango Peel Gradient based on Y)
-        auto fragment_shader = [](const Vector& p, const Fragment& frag) -> Fragment {
-            Fragment f_out = frag;
+        auto fragment_shader = [](const Vector& p, Fragment& frag) {
             float t = (p.j + 1.0f) * 0.5f; // Map [-1, 1] to [0, 1]
             Color4 c = Palettes::mangoPeel.get(t);
-            f_out.color = c;
-            f_out.blend = BLEND_OVER; 
-            return f_out;
+            frag.color = c;
+            frag.blend = BLEND_OVER; 
         };
 
         const int points = spiral_params.points;
@@ -53,7 +50,7 @@ public:
             v = orientation.orient(v);
             
             // Create Basis at the star position (aligned with normal v)
-            Basis basis = make_basis(Quaternion(), v); 
+            Basis basis = make_basis(orientation.get(), v); 
             
             Scan::Star::draw<W, H>(
                 filters, 
@@ -69,7 +66,7 @@ public:
 private:
     Orientation<W> orientation;
     Timeline<W> timeline;
-    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
+    Pipeline<W, H> filters;
     
     MobiusParams params;
     bool enable_transform = true;

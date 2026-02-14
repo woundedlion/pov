@@ -76,10 +76,8 @@ private:
       float r = t * 2.0f;
 
       Basis basis = make_basis(Quaternion(), Z_AXIS);
-      auto fragment_shader = [&](const Vector&, const Fragment& f) -> Fragment { 
-          Fragment out = f;
-          out.color = pal.get(t);
-          return out;
+      auto fragment_shader = [&](const Vector&, Fragment& f) { 
+          f.color = pal.get(t);
       };
       Plot::DistortedRing::draw<W, H>(filters, canvas, basis, r,
         sin_wave(-amp, amp, 4.0f, 0.0f), 

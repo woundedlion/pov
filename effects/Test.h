@@ -53,20 +53,18 @@ public:
       float amp = this->amplitudeRange;
 
       Basis basis = make_basis(orientation.get(), normal);
-      auto fragment_shader = [&](const Vector& p, const Fragment& f) -> Fragment {
+      auto fragment_shader = [&](const Vector& p, Fragment& f) {
           // f.v0 is normalized azimuth (0..1)
           // f.v1 is distance from center line
           // f.size is thickness
           
-          Fragment out = f;
-          out.color = ringPalette.get(f.v0);
+          f.color = ringPalette.get(f.v0);
           
           float norm_dist = std::clamp(f.v1 / f.size, 0.0f, 1.0f);
           float t = 1.0f - norm_dist;
           float falloff = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
           
-          out.color.alpha = out.color.alpha * opacity * alpha * falloff;
-          return out;
+          f.color.alpha = f.color.alpha * opacity * alpha * falloff;
       };
 
       Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius, thickness,

@@ -129,10 +129,8 @@ private:
 
   void draw_thruster(Canvas& c, const ThrusterContext& ctx, float opacity) {
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
-    auto fragment_shader = [](const Vector&, const Fragment& f) -> Fragment { 
-        Fragment out = f;
-        out.color = Color4(CRGB(255, 255, 255));
-        return out;
+    auto fragment_shader = [](const Vector&, Fragment& f) { 
+        f.color = Color4(CRGB(255, 255, 255));
     };
     Plot::Ring::draw<W, H>(filters, c, basis, ctx.radius, fragment_shader);
   }
@@ -140,12 +138,10 @@ private:
   void draw_ring(Canvas& c, float opacity) {
     Basis basis = make_basis(orientation.get(), ring_vec);
     
-    auto fragment_shader = [this](const Vector& v, const Fragment& f) -> Fragment { // Color function
+    auto fragment_shader = [this](const Vector& v, Fragment& f) { // Color function
         Vector axis = orientation.orient(X_AXIS);
         float angle = angle_between(axis, orientation.orient(v));
-        Fragment out = f;
-        out.color = palette.get(angle / PI_F);
-        return out;
+        f.color = palette.get(angle / PI_F);
     };
 
     Plot::DistortedRing::draw<W, H>(filters, c, basis, radius,

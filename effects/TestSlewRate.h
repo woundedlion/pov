@@ -39,7 +39,7 @@ public:
     timeline.step(canvas);
     t += 0.01f; 
     
-    Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
+    Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, [&](const Vector& v, Fragment& f) {
         Color4 baseColor = palette.get((v.j + 1.0f) * 0.5f);
         
         float phase = fmodf(t * speed, 1.0f);
@@ -65,9 +65,7 @@ public:
              );
         };
         
-        Fragment out = f;
-        out.color = lerpColor(baseColor, Color4(255, 255, 255, 1.0f), intensity);
-        return out;
+        f.color = lerpColor(baseColor, Color4(255, 255, 255, 1.0f), intensity);
     });
 
     pipeline.flush(canvas, [](float x, float y, float t) { return Color4(0,0,0,0); }, 1.0f); 

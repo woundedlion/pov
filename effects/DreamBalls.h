@@ -7,6 +7,7 @@
 #include "../effects_engine.h"
 #include <vector>
 #include <map>
+#include <memory> 
 
 template <int W, int H>
 class DreamBalls : public Effect {
@@ -41,10 +42,11 @@ public:
         // Initialize Presets
         setup_presets();
         
-        // Initial load
-        set_preset(0); // Load first preset
-        
+        // Start Sequence
         timeline.add(0, Animation::PeriodicTimer(160, [this](Canvas& c) { this->spin_slices(); }, true));
+        timeline.add(9, Animation::RandomWalk<W>(global_orientation, Y_AXIS, Animation::RandomWalk<W>::Options::Languid()));
+        
+        spawn_sprite(0); // Start first preset
     }
 
     bool show_bg() const override { return false; }
@@ -52,47 +54,46 @@ public:
     void draw_frame() override {
         Canvas canvas(*this);
         
-        slice_filter.get().enabled = params.enable_slice;        
-        timeline.step(canvas);
+        slice_filter.get().enabled = false; 
         
-        // Warp Animation Step
-        warp_anim.scale = params.warp_scale;
-        warp_anim.step(canvas);
-        
-        // Draw
         t += 0.01f;
-        draw_scene(canvas, params, 1.0f);
+        timeline.step(canvas);
     }
     
+    // Exposed for consistency
     Params params; 
 
 private:
-    // State
     float t = 0;
-    
-    // Mesh Data (Dynamic)
-    MeshState base_mesh;
-    MeshState displaced_mesh;
-    std::vector<int> faces_buffer;
-    std::vector<uint8_t> counts_buffer;
+
     struct Tangent { Vector u; Vector v; };
-    std::vector<Tangent> tangents;
     
-    // Animation Integ
-    MobiusParams mobius_params;
-    Animation::MobiusWarp warp_anim{mobius_params, 1.0f, 200, true};
+    struct PresetData {
+        // Base Mesh Data
+        std::vector<Vector> vertices;
+        std::vector<int> faces;
+        std::vector<uint8_t> face_counts;
+        
+        MeshState mesh_state; 
+        
+        std::vector<Tangent> tangents;
+    };
+    
+    std::vector<PresetData> loaded_presets; 
+
+    // Timeline
     Timeline<W> timeline;
     
     // Slices
     std::vector<Orientation<W>> orientations;
+    Orientation<W> global_orientation; 
     
     // Pipeline
     Pipeline<W, H, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W, H>> filters;
     std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
 
-    // Presets
+    // Presets Definition
     std::vector<Params> presets;
-    int current_preset_idx = 0;
     
     AlphaFalloffPalette bloodStreamFalloff {
         [](float t){ return 1.0f - t; }, 
@@ -100,97 +101,94 @@ private:
     };
 
     void setup_presets() {
-        presets.push_back({
-            SolidType::Rhombicuboctahedron, 18, 0.3f, 0.4f, 0.3f, 
-            &bloodStreamFalloff, 
-            0.7f
-        });
+        // Define Params
+        presets.push_back({SolidType::Rhombicuboctahedron, 18, 0.3f, 0.4f, 0.3f, &bloodStreamFalloff, 0.7f});
+        presets.push_back({SolidType::Rhombicosidodecahedron, 6, 0.05f, 1.0f, 1.8f, &bloodStreamFalloff, 0.7f});
+        presets.push_back({SolidType::TruncatedCuboctahedron, 6, 0.16f, 1.0f, 2.0f, &Palettes::richSunset, 0.3f});
+        presets.push_back({SolidType::Icosidodecahedron, 10, 0.16f, 1.0f, 0.5f, &Palettes::lavenderLake, 0.3f});
         
-        presets.push_back({
-             SolidType::Rhombicosidodecahedron, 6, 0.05f, 1.0f, 1.8f,
-             &bloodStreamFalloff,
-             0.7f
-        });
-
-        presets.push_back({
-             SolidType::TruncatedCuboctahedron, 6, 0.16f, 1.0f, 2.0f,
-             &Palettes::richSunset,
-             0.3f
-        });
+        // Pre-load Geometry
+        loaded_presets.reserve(presets.size());
         
-        presets.push_back({
-             SolidType::Icosidodecahedron, 10, 0.16f, 1.0f, 0.5f,
-             &Palettes::lavenderLake,
-             0.3f
-        });
-    }
-
-    void set_preset(int idx) {
-        if (idx < 0 || static_cast<size_t>(idx) >= presets.size()) return;
-        current_preset_idx = idx;
-        params = presets[idx];
-        load_solid(params.solid_type);
-    }
-
-    void load_solid(SolidType type) {
-        switch(type) {
-            case SolidType::Rhombicuboctahedron: load_mesh_data(Solids::Archimedean::rhombicuboctahedron()); break;
-            case SolidType::Rhombicosidodecahedron: load_mesh_data(Solids::Archimedean::rhombicosidodecahedron()); break;
-            case SolidType::TruncatedCuboctahedron: load_mesh_data(Solids::Archimedean::truncatedCuboctahedron()); break;
-            case SolidType::Icosidodecahedron: load_mesh_data(Solids::Archimedean::icosidodecahedron()); break;
-        }
-    }
-
-    void load_mesh_data(const PolyMesh& mesh) {
-        // Copy vertices (mutable)
-        if (mesh.vertices.size() > MeshState::MAX_VERTS) return;
-        base_mesh.num_vertices = mesh.vertices.size();
-        for(size_t i=0; i<base_mesh.num_vertices; ++i) {
-            base_mesh.vertices[i] = mesh.vertices[i];
-        }
-
-        // Copy Topology to Buffers
-        faces_buffer.clear();
-        counts_buffer.clear();
-        
-        for(const auto& face : mesh.faces) {
-            counts_buffer.push_back((uint8_t)face.size());
-            for(int idx : face) {
-                faces_buffer.push_back(idx);
+        for(const auto& p : presets) {
+            loaded_presets.emplace_back();
+            auto& data = loaded_presets.back();
+            PolyMesh m;
+            switch(p.solid_type) {
+                case SolidType::Rhombicuboctahedron: m = Solids::Archimedean::rhombicuboctahedron(); break;
+                case SolidType::Rhombicosidodecahedron: m = Solids::Archimedean::rhombicosidodecahedron(); break;
+                case SolidType::TruncatedCuboctahedron: m = Solids::Archimedean::truncatedCuboctahedron(); break;
+                case SolidType::Icosidodecahedron: m = Solids::Archimedean::icosidodecahedron(); break;
+            }
+            
+            // Store Verts
+            data.vertices = m.vertices;
+            
+            // Store Faces
+            for(const auto& f : m.faces) {
+                data.face_counts.push_back((uint8_t)f.size());
+                data.faces.insert(data.faces.end(), f.begin(), f.end());
+            }
+            
+            // Setup MeshState
+            data.mesh_state.num_vertices = data.vertices.size();
+            // COPY vertices to fixed array
+            for(size_t i=0; i<data.vertices.size(); ++i) {
+                if(i < MeshState::MAX_VERTS) {
+                    data.mesh_state.vertices[i] = data.vertices[i];
+                }
+            }
+            
+            data.mesh_state.num_faces = data.face_counts.size();
+            data.mesh_state.face_counts = data.face_counts.data();
+            data.mesh_state.faces = data.faces.data();
+            
+            // Compute Tangents
+            for(const auto& v : data.vertices) {
+                Vector axis = (std::abs(v.j) > 0.99f) ? X_AXIS : Y_AXIS;
+                Vector u = cross(v, axis).normalize();
+                Vector frame_v = cross(v, u).normalize();
+                data.tangents.push_back({u, frame_v});
             }
         }
-
-        // Point to buffers
-        base_mesh.num_faces = counts_buffer.size();
-        base_mesh.face_counts = counts_buffer.data();
-        base_mesh.faces = faces_buffer.data();
-        
-        // Prepare Displaced Mesh
-        displaced_mesh.num_vertices = base_mesh.num_vertices;
-        displaced_mesh.num_faces = base_mesh.num_faces;
-        displaced_mesh.face_counts = base_mesh.face_counts;
-        displaced_mesh.faces = base_mesh.faces;
-
-        // Compute Tangents
-        tangents.clear();
-        tangents.reserve(base_mesh.num_vertices);
-        for(size_t i=0; i<base_mesh.num_vertices; ++i) {
-            const Vector& p = base_mesh.vertices[i];
-            Vector axis = (std::abs(p.j) > 0.99f) ? X_AXIS : Y_AXIS;
-            Vector u = cross(p, axis).normalize();
-            Vector v = cross(p, u).normalize();
-            tangents.push_back({u, v});
-        }
     }
 
-    void update_displaced_mesh(const Params& p, float angle_offset) {
-        size_t count = base_mesh.num_vertices;
+    void spawn_sprite(int idx) {
+        int safe_idx = idx % presets.size();
+        const auto& preset_params = presets[safe_idx];
+        const auto& preset_data = loaded_presets[safe_idx]; 
+        
+        auto mobius = std::make_shared<MobiusParams>(); 
+        auto warp = std::make_shared<Animation::MobiusWarp>(*mobius, 1.0f, 200, true);
+        warp->scale = preset_params.warp_scale;
+        
+        auto draw_fn = [this, preset_params, &preset_data, mobius, warp](Canvas& canvas, float opacity) mutable {
+            warp->step(canvas); 
+            
+            // Stack allocated MeshState
+            MeshState target_mesh;
+            target_mesh.num_vertices = preset_data.mesh_state.num_vertices;
+            target_mesh.num_faces = preset_data.mesh_state.num_faces;
+            target_mesh.face_counts = preset_data.mesh_state.face_counts;
+            target_mesh.faces = preset_data.mesh_state.faces;
+            
+            this->draw_scene(canvas, preset_params, opacity, preset_data.mesh_state, target_mesh, preset_data.tangents, *mobius);
+        };
+        
+        timeline.add(0, Animation::Sprite(draw_fn, 320, 32, ease_mid, 32, ease_mid));
+        
+        // Queue next
+        timeline.add(320 - 32, Animation::PeriodicTimer(0, [this, idx](Canvas& c) { this->spawn_sprite(idx + 1); }, false));
+    }
+
+    void update_displaced_mesh(const MeshState& base, MeshState& target, const std::vector<Tangent>& tangents, const Params& p, float angle_offset) {
+        size_t count = base.num_vertices;
         float r = p.offset_radius;
         float speed = p.offset_speed;
 
         for(size_t i=0; i<count; ++i) {
-            const Vector& v = base_mesh.vertices[i];
-            const Tangent& tan = tangents[i];
+            const Vector& v = base.vertices[i];
+            const auto& tan = tangents[i];
 
             float phase = i * 0.1f;
             float angle = t * speed * 2 * PI_F + phase + angle_offset;
@@ -199,61 +197,33 @@ private:
             float sinA = sinf(angle);
 
             Vector disp = v + (tan.u * cosA + tan.v * sinA) * r;
-            displaced_mesh.vertices[i] = disp.normalize();
+            target.vertices[i] = disp.normalize();
         }
     }
 
-    void draw_mesh(Canvas& canvas, const MeshState& mesh, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
-        std::vector<std::pair<int, int>> edges;
-        edges.reserve(mesh.num_faces * 4); // Avg 4 edges per face
-
-        int offset = 0;
-        for (size_t i = 0; i < mesh.num_faces; ++i) {
-            int count = mesh.face_counts[i];
-            for (int k = 0; k < count; ++k) {
-                int u = mesh.faces[offset + k];
-                int v = mesh.faces[offset + (k + 1) % count];
-                if (u > v) std::swap(u, v);
-                edges.push_back({u, v});
-            }
-            offset += count;
-        }
+    void draw_scene(Canvas& canvas, const Params& p, float opacity, const MeshState& base, MeshState& target, const std::vector<Tangent>& tangents, const MobiusParams& m_params) {
         
-        std::sort(edges.begin(), edges.end());
-        edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
-
-        for (const auto& edge : edges) {
-            Plot::Line::draw<W, H>(filters, canvas, 
-                mesh.vertices[edge.first], mesh.vertices[edge.second], 
-                fragment_shader, vertex_shader);
-        }
-    }
-
-    void draw_scene(Canvas& canvas, const Params& p, float opacity) {
-        
-        auto vertex_shader = [&](Fragment f) {
-            f.pos = mobius_transform(f.pos, mobius_params);
-            return f;
+        auto vertex_shader = [&](Fragment& f) {
+            f.pos = mobius_transform(f.pos, m_params);
+            f.pos = global_orientation.orient(f.pos);
         };
 
-        auto fragment_shader = [&](const Vector& v, const Fragment& f) -> Fragment {
+        auto fragment_shader = [&](const Vector& v, Fragment& f) {
             Color4 c = p.palette->get(f.v0); 
             c.alpha *= p.alpha * opacity;
-            Fragment f_out = f;
-            f_out.color = c;
-            return f_out;
+            f.color = c;
         };
 
         for(int i=0; i<p.num_copies; ++i) {
             float offset = (static_cast<float>(i) / p.num_copies) * 2 * PI_F;
-            update_displaced_mesh(p, offset);
-            draw_mesh(canvas, displaced_mesh, fragment_shader, vertex_shader);
+            update_displaced_mesh(base, target, tangents, p, offset);
+            Plot::Mesh::draw<W, H>(filters, canvas, target, fragment_shader, vertex_shader);
         }
     }
 
     void spin_slices() {
         Vector axis = random_vector();
-        slice_filter.get().axis = axis; // Update axis
+        slice_filter.get().axis = axis; 
         
         for (size_t i = 0; i < orientations.size(); ++i) {
             float direction = (i % 2 == 0) ? 1.0f : -1.0f;

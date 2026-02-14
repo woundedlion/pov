@@ -99,12 +99,10 @@ private:
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
       
-      auto fragment_shader = [&](const Vector&, const Fragment& f_val) -> Fragment {
+      auto fragment_shader = [&](const Vector&, Fragment& f_val) {
         Color4 c = palette.get(static_cast<float>(i) / num);
         c.alpha *= opacity;
-        Fragment out = f_val;
-        out.color = c;
-        return out;
+        f_val.color = c;
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader, true);
@@ -133,7 +131,7 @@ private:
 
       float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
       
-      auto fragment_shader = [&](const Vector&, const Fragment& f_val) -> Fragment {
+      auto fragment_shader = [&](const Vector&, Fragment& f_val) {
         float t_line = f_val.v0;
         float z = sinf(t_line * 2.0f * PI_F);
 
@@ -145,9 +143,7 @@ private:
 
         Color4 c = palette.get(wrap(t - phase, 1.0f));
         c.alpha *= opacity;
-        Fragment out = f_val;
-        out.color = c;
-        return out;
+        f_val.color = c;
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader, true);
