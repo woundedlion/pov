@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <cfloat>
+#include <span>
 #include "geometry.h"
 #include "color.h"
 #include "constants.h"
@@ -29,10 +31,17 @@ namespace SDF {
       float size = 1.0f; // Size metric for normalization
       
       struct Weights {
-          float a = 0, b = 0, c = 0;
-          int i0 = 0, i1 = 0, i2 = 0;
-          bool valid = false;
+          float a, b, c;
+          int i0, i1, i2;
+          bool valid;
       } weights;
+
+      DistanceResult() = default;
+      DistanceResult(float d, float t_val, float rd, float ax, float sz)
+        : dist(d), t(t_val), raw_dist(rd), aux(ax), size(sz)
+      {
+          weights.valid = false;
+      }
     };
 
     /**
@@ -160,13 +169,20 @@ namespace SDF {
        * @return DistanceResult {dist, t, raw_dist}.
        */
       DistanceResult distance(const Vector& p) const {
-         return distance<true>(p);
+         DistanceResult res;
+         distance<true>(p, res);
+         return res;
       }
 
       template <bool ComputeUVs = true>
-      DistanceResult distance(const Vector& p) const {
+      void distance(const Vector& p, DistanceResult& res) const {
          float d = dot(p, normal);
-         if (d < cos_min || d > cos_max) return { 100.0f, 0.0f, 100.0f, 0.0f, thickness };
+         if (d < cos_min || d > cos_max) {
+          if (d < cos_min || d > cos_max) {
+              res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+              return;
+          }
+         }
          
          float dist = 0;
          if (inv_sin_target != 0) {
@@ -186,7 +202,7 @@ namespace SDF {
              t = azimuth / (2 * PI_F);
          }
          
-         return { dist - thickness, t, dist, 0.0f, thickness };
+         res = DistanceResult(dist - thickness, t, dist, 0.0f, thickness);
       }
     };
 
@@ -303,11 +319,13 @@ namespace SDF {
        * @return DistanceResult {dist, t, raw_dist}.
        */
       DistanceResult distance(const Vector& p) const {
-          return distance<true>(p);
+          DistanceResult res;
+          distance<true>(p, res);
+          return res;
       }
 
       template <bool ComputeUVs = true>
-      DistanceResult distance(const Vector& p) const {
+      void distance(const Vector& p, DistanceResult& res) const {
          float polar = angle_between(p, normal);
          
          float t_norm = 0.0f;
@@ -336,7 +354,7 @@ namespace SDF {
          float local_target = target_angle + shift;
          float dist = std::abs(polar - local_target);
          
-         return { dist - thickness, t_norm, dist, 0.0f, thickness };
+         res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
       }
     };
 
@@ -367,15 +385,18 @@ namespace SDF {
         * @brief Signed distance to Union.
         */
        DistanceResult distance(const Vector& p) const {
-           return distance<true>(p);
+           DistanceResult res;
+           distance<true>(p, res);
+           return res;
        }
 
        template <bool ComputeUVs = true>
-       DistanceResult distance(const Vector& p) const {
-          auto resA = a.template distance<ComputeUVs>(p);
-          auto resB = b.template distance<ComputeUVs>(p);
-          if (resA.dist < resB.dist) return resA; // Min distance
-          return resB;
+       void distance(const Vector& p, DistanceResult& res) const {
+          a.template distance<ComputeUVs>(p, res);
+          DistanceResult resB;
+          b.template distance<ComputeUVs>(p, resB);
+          if (res.dist < resB.dist) return; // Min distance
+          res = resB;
        }
     };
 
@@ -404,19 +425,21 @@ namespace SDF {
         * @brief Signed distance to Subtraction (A - B).
         */
        DistanceResult distance(const Vector& p) const {
-           return distance<true>(p);
+           DistanceResult res;
+           distance<true>(p, res);
+           return res;
        }
 
        template <bool ComputeUVs = true>
-       DistanceResult distance(const Vector& p) const {
-          auto resA = a.template distance<ComputeUVs>(p);
-          auto resB = b.template distance<ComputeUVs>(p);
+       void distance(const Vector& p, DistanceResult& res) const {
+          a.template distance<ComputeUVs>(p, res);
+          DistanceResult resB;
+          b.template distance<ComputeUVs>(p, resB);
           // Max(A, -B)
-          if (-resB.dist > resA.dist) {
+          if (-resB.dist > res.dist) {
              resB.dist = -resB.dist;
-             return resB;
+             res = resB;
           }
-          return resA;
        }
     };
 
@@ -490,16 +513,19 @@ namespace SDF {
         * @brief Signed distance to Intersection.
         */
        DistanceResult distance(const Vector& p) const {
-           return distance<true>(p);
+           DistanceResult res;
+           distance<true>(p, res);
+           return res;
        }
 
        template <bool ComputeUVs = true>
-       DistanceResult distance(const Vector& p) const {
-          auto resA = a.template distance<ComputeUVs>(p);
-          auto resB = b.template distance<ComputeUVs>(p);
+       void distance(const Vector& p, DistanceResult& res) const {
+          a.template distance<ComputeUVs>(p, res);
+          DistanceResult resB;
+          b.template distance<ComputeUVs>(p, resB);
           // Max(A, B)
-          if (resA.dist > resB.dist) return resA;
-          return resB;
+          if (res.dist > resB.dist) return;
+          res = resB;
        }
     };
 
@@ -519,6 +545,7 @@ namespace SDF {
         int count;
         float thickness;
         float size;
+        float max_r2 = 0.0f;
         
         std::span<Vector> poly2D; 
         std::span<Vector> edgeVectors; 
@@ -545,13 +572,20 @@ namespace SDF {
            basisU = cross(center, ref).normalize();
            basisW = cross(center, basisU).normalize();
            
+           max_r2 = 0.0f;
            // Project 2D
            for(int i=0; i<count; ++i) {
               const Vector& v = vertices[indices[i]];
               float d = dot(v, basisV);
-              scratch.poly2D[i].i = dot(v, basisU) / d; // x
-              scratch.poly2D[i].j = dot(v, basisW) / d; // y
+              float px = dot(v, basisU) / d;
+              float py = dot(v, basisW) / d;
+              
+              scratch.poly2D[i].i = px; // x
+              scratch.poly2D[i].j = py; // y
               scratch.poly2D[i].k = 0;
+              
+              float r2 = px*px + py*py;
+              if (r2 > max_r2) max_r2 = r2;
            }
            poly2D = std::span<Vector>(scratch.poly2D.data(), count);
 
@@ -704,92 +738,102 @@ namespace SDF {
          * @brief Signed distance to planar Face.
          */
         DistanceResult distance(const Vector& p) const {
-            return distance<true>(p);
+            DistanceResult res;
+            distance<true>(p, res);
+            return res;
         }
 
         template <bool ComputeUVs = true>
-        DistanceResult distance(const Vector& p) const {
-            float cosAngle = dot(p, center);
-            if (cosAngle <= 0.01f) return { 100.0f, 0.0f, 100.0f, 0.0f, size };
+        void distance(const Vector& p, DistanceResult& res) const {
+             // Hemisphere Check
+             float cos_angle = dot(p, center);
+             if (cos_angle <= 0.01f) {
+                 res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
+                 return;
+             }
+             
+             // Project P to 2D
+             float inv_cos = 1.0f / cos_angle;
+             float px = dot(p, basisU) * inv_cos;
+             float py = dot(p, basisW) * inv_cos;
 
-            float invCos = 1.0f / cosAngle;
-            float px = dot(p, basisU) * invCos;
-            float py = dot(p, basisW) * invCos;
-            
-            float d = FLT_MAX;
-            int winding = 0;
-            
-            for(int i=0; i<count; ++i) {
-               const Vector& V_curr = poly2D[i];
-               const Vector& V_next = poly2D[(i+1)%count];
-               const Vector& edge = edgeVectors[i]; 
-               
-               float ex = edge.i;
-               float ey = edge.j;
-               
-               float wx = px - V_curr.i;
-               float wy = py - V_curr.j;
-               
-               float dotWE = wx * ex + wy * ey;
-               float dotEE = edgeLengthsSq[i];
-               
-               float clampVal = 0;
-               if (dotEE > 1e-12f) {
-                   clampVal = std::max(0.0f, std::min(1.0f, dotWE / dotEE));
-               }
-               
-               float bx = wx - ex * clampVal;
-               float by = wy - ey * clampVal;
-               float distSq = bx*bx + by*by;
-               
-               if (distSq < d) d = distSq;
-               
-               bool isUpward = (V_curr.j <= py) && (V_next.j > py);
-               bool isDownward = (V_curr.j > py) && (V_next.j <= py);
-               
-               if (isUpward || isDownward) {
-                   float crossVal = ex * wy - ey * wx;
-                   if (isUpward) {
-                       if (crossVal > 0) winding++;
-                   } else {
-                       if (crossVal < 0) winding--;
-                   }
-               }
-            }
-            
-            float s = (winding != 0) ? -1.0f : 1.0f;
-            float planeDist = s * sqrtf(d);
-            
-            DistanceResult res = { planeDist - thickness, 0.0f, planeDist, 0.0f, size };
-            
-            // Barycentric Weights
-            if (count == 3) {
-                 const Vector& v0 = poly2D[0];
-                 const Vector& v1 = poly2D[1];
-                 const Vector& v2 = poly2D[2];
-                 float denom = (v1.j - v2.j) * (v0.i - v2.i) + (v2.i - v1.i) * (v0.j - v2.j);
-                 if (std::abs(denom) > 1e-12f) {
-                     float invDenom = 1.0f / denom;
-                     res.weights.a = ((v1.j - v2.j) * (px - v2.i) + (v2.i - v1.i) * (py - v2.j)) * invDenom;
-                     res.weights.b = ((v2.j - v0.j) * (px - v2.i) + (v0.i - v2.i) * (py - v2.j)) * invDenom;
-                     res.weights.c = 1.0f - res.weights.a - res.weights.b;
-                     res.weights.i0 = 0;
-                     res.weights.i1 = 1;
-                     res.weights.i2 = 2;
-                     res.weights.valid = true;
+             // Bounding Circle (Optimization)
+             // Check max_r2 if available (assumes max_r2 added to struct)
+             float pR2 = px*px + py*py;
+             // Use size as approximation for now if max_r2 not ready?
+             // Actually, we need max_r2. I'll assume it's added.
+             float max_dist = std::sqrt(max_r2) + 0.1f; 
+             if (pR2 > max_dist * max_dist) {
+                 float dist = std::sqrt(pR2) - std::sqrt(max_r2);
+                 res = DistanceResult(dist, 0.0f, dist, 0.0f, size);
+                 return;
+             }
+             
+             // 2D SDF & Winding
+             float d = FLT_MAX;
+             int winding = 0;
+             
+             for(int i = 0; i < count; ++i) {
+                 const Vector& Vi = poly2D[i];
+                 int next_idx = (i + 1) % count;
+                 const Vector& Vnext = poly2D[next_idx];
+                 
+                 const Vector& edge = edgeVectors[i]; // Vi -> Vnext
+                 float ex = edge.i;
+                 float ey = edge.j;
+                 
+                 float wx = px - Vi.i;
+                 float wy = py - Vi.j;
+                 
+                 // Edge Dist
+                 float dotWE = wx * ex + wy * ey;
+                 float dotEE = edgeLengthsSq[i];
+                 
+                 float clampVal = 0.0f;
+                 if (dotEE > 1e-12f) {
+                     clampVal = std::clamp(dotWE / dotEE, 0.0f, 1.0f);
                  }
-            } else {
-                 // Triangle Fan
-                 for (int i = 1; i < count - 1; i++) {
-                     const Vector& v0 = poly2D[0];
+                 
+                 float bx = wx - ex * clampVal;
+                 float by = wy - ey * clampVal;
+                 float distSq = bx*bx + by*by;
+                 
+                 if (distSq < d) d = distSq;
+                 
+                 // Winding (Standard Point-in-Polygon via Ray Casting / Winding Number)
+                 bool isUpward = (Vi.j <= py) && (Vnext.j > py);
+                 bool isDownward = (Vi.j > py) && (Vnext.j <= py);
+                 
+                 if (isUpward || isDownward) {
+                     float cross_val = ex * wy - ey * wx;
+                     if (isUpward) {
+                         if (cross_val > 0) winding++;
+                     } else {
+                         if (cross_val < 0) winding--;
+                     }
+                 }
+             }
+             
+             // Inside if winding != 0
+             float s = (winding != 0) ? -1.0f : 1.0f;
+             float plane_dist = s * std::sqrt(d);
+             float dist = plane_dist - thickness;
+             
+             res = DistanceResult(dist, 0.0f, plane_dist, 0.0f, size);
+
+             // Barycentrics (Fan)
+             res.weights.valid = false;
+             if (winding != 0) {
+                 const Vector& v0 = poly2D[0];
+                 for(int i=1; i < count - 1; ++i) {
                      const Vector& v1 = poly2D[i];
-                     const Vector& v2 = poly2D[i + 1];
+                     const Vector& v2 = poly2D[i+1];
                      
-                     float denom = (v1.j - v2.j) * (v0.i - v2.i) + (v2.i - v1.i) * (v0.j - v2.j);
+                     float denom = (v1.j - v2.j)*(v0.i - v2.i) + (v2.i - v1.i)*(v0.j - v2.j);
                      if (std::abs(denom) > 1e-12f) {
                          float invDenom = 1.0f / denom;
-                         float wA = ((v1.j - v2.j) * (px - v2.i) + (v2.i - v1.i) * (py - v2.j)) * invDenom;
-                         float wB = ((v2.j - v0.j) * (px - v2.i) + (v0.i - v2.i) * (py - v2.j)) * invDenom;
+                         float wA = ((v1.j - v2.j)*(px - v2.i) + (v2.i - v1.i)*(py - v2.j)) * invDenom;
+                         float wB = ((v2.j - v0.j)*(px - v2.i) + (v0.i - v2.i)*(py - v2.j)) * invDenom;
                          float wC = 1.0f - wA - wB;
                          
                          if (wA >= -0.01f && wB >= -0.01f && wC >= -0.01f) {
@@ -798,25 +842,16 @@ namespace SDF {
                              res.weights.c = wC;
                              res.weights.i0 = 0;
                              res.weights.i1 = i;
-                             res.weights.i2 = i + 1;
+                             res.weights.i2 = i+1;
                              res.weights.valid = true;
                              break;
                          }
                      }
                  }
-                 if (!res.weights.valid) {
-                      res.weights.a = 1; res.weights.b = 0; res.weights.c = 0;
-                      res.weights.i0 = 0; res.weights.i1 = 1; res.weights.i2 = 2;
-                      res.weights.valid = true;
-                 }
-            }
-            
-            if (res.weights.valid) {
-                res.t = res.weights.a;
-                res.aux = res.weights.b;
-            }
-            return res;
+             }
         }
+
+
     };
 
     /**
@@ -882,11 +917,13 @@ namespace SDF {
         * @brief Signed distance to Polygon edge.
         */
        DistanceResult distance(const Vector& p) const {
-           return distance<true>(p);
+             DistanceResult res;
+             distance<true>(p, res);
+             return res;
        }
 
        template <bool ComputeUVs = true>
-       DistanceResult distance(const Vector& p) const {
+       void distance(const Vector& p, DistanceResult& res) const {
           float polar = angle_between(p, basis.v);
           
           float t_val = 0.0f;
@@ -921,7 +958,7 @@ namespace SDF {
               t_val = 0.0f;
           }
           
-          return { dist_edge, t_val, polar, 0.0f, apothem };
+          res = DistanceResult(dist_edge, t_val, polar, 0.0f, apothem);
        }
     };
 
@@ -955,7 +992,7 @@ namespace SDF {
             float inner_radius = outer_radius * 0.382f;
             float angle_step = PI_F / sides;
 
-            float v_t = outer_radius;
+            float v_t = outer_radius * (PI_F / 2.0f);
             float v_vx = inner_radius * cosf(angle_step);
             float v_vy = inner_radius * sinf(angle_step);
 
@@ -1011,11 +1048,13 @@ namespace SDF {
         }
 
         DistanceResult distance(const Vector& p) const {
-            return distance<true>(p);
+            DistanceResult res;
+            distance<true>(p, res);
+            return res;
         }
 
         template <bool ComputeUVs = true>
-        DistanceResult distance(const Vector& p) const {
+        void distance(const Vector& p, DistanceResult& res) const {
             float scan_dist = angle_between(p, basis.v);
             
             float t_val = 0.0f;
@@ -1058,7 +1097,7 @@ namespace SDF {
                 t_val = 0.0f;
             }
             
-            return { -dist_to_edge, t_val, scan_dist, 0.0f, thickness };
+            res = DistanceResult(-dist_to_edge, t_val, scan_dist, 0.0f, thickness);
         }
     };
     
@@ -1133,11 +1172,13 @@ namespace SDF {
        }
        
         DistanceResult distance(const Vector& p) const {
-            return distance<true>(p);
+            DistanceResult res;
+            distance<true>(p, res);
+            return res;
         }
         
         template <bool ComputeUVs = true>
-        DistanceResult distance(const Vector& p) const {
+        void distance(const Vector& p, DistanceResult& res) const {
            float scan_dist = angle_between(p, antipode);
            float polar = PI_F - scan_dist;
            
@@ -1170,7 +1211,7 @@ namespace SDF {
                dist_edge = polar * cosf(local) - apothem;
                t_val = 0.0f;
            }
-           return { -dist_edge, t_val, scan_dist, 0.0f, thickness };
+           res = DistanceResult(-dist_edge, t_val, scan_dist, 0.0f, thickness);
         }
     };
 
@@ -1192,11 +1233,13 @@ namespace SDF {
         Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
 
         DistanceResult distance(const Vector& p) const {
-             return distance<true>(p);
+             DistanceResult res;
+             distance<true>(p, res);
+             return res;
         }
 
         template <bool ComputeUVs = true>
-        DistanceResult distance(const Vector& p) const {
+        void distance(const Vector& p, DistanceResult& res) const {
              // Transform world pixel position to local harmonic space
              Vector v = rotate(p, inv_q);
              float phi = acosf(std::max(-1.0f, std::min(1.0f, v.j)));
@@ -1215,7 +1258,7 @@ namespace SDF {
                  t_val = tanhf(std::abs(harmonic_val) * amplitude);
              }
 
-             return { d, t_val, harmonic_val, 0.0f, 1.0f };
+             res = DistanceResult(d, t_val, harmonic_val, 0.0f, 1.0f);
         }
         
         template<int W, int H, typename OutputIt>
@@ -1248,14 +1291,17 @@ namespace SDF {
         Bounds get_vertical_bounds() const { return { 0, H - 1 }; }
         
         DistanceResult distance(const Vector& p) const {
-             return distance<true>(p);
+             DistanceResult res;
+             distance<true>(p, res);
+             return res;
         }
 
         template <bool ComputeUVs = true>
-        DistanceResult distance(const Vector& p) const {
+        void distance(const Vector& p, DistanceResult& res) const {
              if (len < 1e-6f) {
                  float dist = angle_between(p, a);
-                 return { dist - thickness, 0.0f, dist, 0.0f, thickness };
+                 res = DistanceResult(dist - thickness, 0.0f, dist, 0.0f, thickness);
+                 return;
              }
              
              float d_plane = dot(p, n);
@@ -1266,7 +1312,8 @@ namespace SDF {
                  float dA = angle_between(p, a);
                  float dB = angle_between(p, b);
                  float dist = std::min(dA, dB);
-                 return { dist - thickness, 0.0f, dist, 0.0f, thickness };
+                 res = DistanceResult(dist - thickness, 0.0f, dist, 0.0f, thickness);
+                 return;
              }
              
              Vector p_proj = p_proj_plane / proj_mag;
@@ -1282,7 +1329,7 @@ namespace SDF {
                  dist_seg = std::min(dA, dB);
              }
              
-             return { dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness };
+             res = DistanceResult(dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness);
         }
         
         template<int W, int H, typename OutputIt>
@@ -1305,11 +1352,11 @@ namespace Scan {
    * @brief Processes a single pixel for rasterization.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void process_pixel(int x, int y, auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb) {
-     const Vector& p = pixel_to_vector<W, H>(x, y);
+  static void process_pixel(int x, int y, const Vector& p, auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb, SDF::DistanceResult& result_scratch, Fragment& frag_scratch) {
+
      
-     auto result = shape.template distance<ComputeUVs>(p);
-     float d = result.dist;
+     shape.template distance<ComputeUVs>(p, result_scratch);
+     float d = result_scratch.dist;
      
      float pixel_width = 2.0f * PI_F / W;
      
@@ -1337,31 +1384,39 @@ namespace Scan {
         
         if (alpha <= 0.001f) return;
         
-        Fragment frag;
-        frag.pos = p;
-        frag.v0 = result.t;
-        frag.v1 = result.raw_dist;
-        frag.v2 = 0.0f;
-        frag.v3 = result.aux;
-        frag.size = result.size;
-        frag.age = 0;
+        frag_scratch.pos = p;
+        frag_scratch.v0 = result_scratch.t;
+        frag_scratch.v1 = result_scratch.raw_dist;
+        frag_scratch.v2 = 0.0f;
+        frag_scratch.v3 = result_scratch.aux;
+        frag_scratch.size = result_scratch.size;
+        frag_scratch.age = 0;
         
-        Fragment f_out = fragment_shader(p, frag);
+        fragment_shader(p, frag_scratch);
         
-        if (f_out.color.alpha > 0.001f) {
-            pipeline.plot(canvas, x, y, f_out.color.color, f_out.age, f_out.color.alpha * alpha, f_out.blend);
+        if (frag_scratch.color.alpha > 0.001f) {
+            pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age, frag_scratch.color.alpha * alpha, frag_scratch.blend);
         }
+     } else if (debug_bb) {
+         pipeline.plot(canvas, x, y, Pixel(20, 20, 20), 0, 1.0f, BLEND_ADD);
      }
 
   }
 
   template <int W, int H, bool ComputeUVs = true>
   static void rasterize(auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb = false) {
+     bool effective_debug = debug_bb || canvas.debug();
      auto bounds = shape.template get_vertical_bounds<H>();
      
+     if (!PixelLUT<W, H>::initialized) PixelLUT<W, H>::init();
+
      StaticCircularBuffer<std::pair<float, float>, 32> intervals;
+     SDF::DistanceResult result_scratch;
+     Fragment frag_scratch;
      
      for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
+        const Vector* row_vectors = &PixelLUT<W, H>::data[y * W];
+
         bool handled = shape.template get_horizontal_intervals<W, H>(y, [&](float t1, float t2) {
             intervals.push_back({t1, t2});
         });
@@ -1373,7 +1428,7 @@ namespace Scan {
                 
                 for (int x = x1; x <= x2; ++x) {
                     int wx = wrap(x, W);
-                    process_pixel<W, H, ComputeUVs>(wx, y, pipeline, canvas, shape, fragment_shader, debug_bb);
+                    process_pixel<W, H, ComputeUVs>(wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
                 }
             }
             intervals.clear();
@@ -1381,7 +1436,7 @@ namespace Scan {
              // Fallback to full width if get_horizontal_intervals returns false
              if (!handled) {
                for (int x = 0; x < W; ++x) {
-                  process_pixel<W, H, ComputeUVs>(x, y, pipeline, canvas, shape, fragment_shader, debug_bb);
+                  process_pixel<W, H, ComputeUVs>(x, y, row_vectors[x], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
                }
              }
         }
@@ -1547,10 +1602,9 @@ namespace Scan {
              SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
              idx_offset += count;
              
-             auto wrapper = [&](const Vector& p, const Fragment& f_in) {
-                 Fragment f = f_in;
-                 f.v2 = static_cast<float>(i);
-                 return fragment_shader(p, f);
+             auto wrapper = [&](const Vector& p, Fragment& f_in) {
+                 f_in.v2 = static_cast<float>(i);
+                 fragment_shader(p, f_in);
              };
              
              // Mesh faces always need UVs/Barycentrics usually? Or maybe not?
@@ -1574,10 +1628,9 @@ namespace Scan {
              
              SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
              
-             auto wrapper = [&](const Vector& p, const Fragment& f_in) {
-                 Fragment f = f_in;
-                 f.v2 = static_cast<float>(i);
-                 return fragment_shader(p, f);
+             auto wrapper = [&](const Vector& p, Fragment& f_in) {
+                 f_in.v2 = static_cast<float>(i);
+                 fragment_shader(p, f_in);
              };
              
              Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);

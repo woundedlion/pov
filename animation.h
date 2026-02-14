@@ -15,12 +15,8 @@
 #include "geometry.h" 
 #include "spatial.h"
 #include "static_circular_buffer.h"
-#include "plot.h"
 #include "rotate.h"
 #include "color.h"
-
-
-
 
 /**
  * @brief Represents a customizable path.
@@ -209,6 +205,66 @@ public:
   bool done() const { return true; }
 };
 
+
+
+/**
+ * @brief Manages a history of Orientation states.
+ * @tparam CAPACITY The maximum number of snapshots to keep.
+ */
+template <typename OrientationType, int CAPACITY>
+class OrientationTrail {
+public:
+  /**
+   * @brief Records a snapshot of the current orientation state.
+   * @param source The orientation to copy.
+   */
+  void record(const OrientationType& source) {
+    snapshots.push_back(source);
+  }
+
+  /**
+   * @brief Gets the number of recorded snapshots.
+   */
+  size_t length() const {
+    return snapshots.size();
+  }
+
+  /**
+   * @brief Gets a specific snapshot.
+   * @param i Index (0 is newest).
+   */
+  const OrientationType& get(size_t i) const {
+    // JS parity: 0 is oldest
+    return snapshots[i];
+  }
+
+  /**
+   * @brief Gets a specific snapshot (mutable).
+   * @param i Index (0 is newest).
+   */
+  OrientationType& get(size_t i) {
+    return snapshots[i];
+  }
+
+  /**
+   * @brief Clears the history.
+   */
+  void clear() {
+    snapshots.clear();
+  }
+
+  /**
+   * @brief Removes the oldest snapshot.
+   */
+  void expire() {
+    snapshots.pop();
+  }
+
+private:
+  StaticCircularBuffer<OrientationType, CAPACITY> snapshots;
+};
+
+
 template <int W>
 struct Particle {
   Vector position;
@@ -218,6 +274,8 @@ struct Particle {
   float max_life;
   Orientation<W> orientation;
   
+  OrientationTrail<Orientation<W>, 25> history;
+
   void init(const Vector& p, const Vector& v, float l, const PaletteVariant& pal) {
     position = p;
     velocity = v;
@@ -227,28 +285,21 @@ struct Particle {
     orientation.set(Quaternion());
     history.clear();
   }
-
-  void push_history(const Quaternion& q) {
-      history.push_back(q);
-  }
-
-  const Quaternion& get_history(size_t i) const {
-      // JS parity: 0 is oldest
-      return history[i];
-  }
   
-  size_t history_length() const { return history.size(); }
-  
-private:
-  StaticCircularBuffer<Quaternion, 32> history;
+  size_t history_length() const { return history.length(); }
 };
 
-template <int W>
-class ParticleSystem : public Base<ParticleSystem<W>> {
+template <int W, int CAPACITY>
+class ParticleSystem : public Base<ParticleSystem<W, CAPACITY>> {
 public:
-  static constexpr int CAPACITY = 128; 
   std::array<Particle<W>, CAPACITY> pool;
   int active_count = 0;
+  
+  int time_scale = 1;
+  float friction = 0.85f;
+  float gravity = 0.001f;
+  float resolution_scale = 1.0f;
+  int trail_length = 25; // TODO: this doesn't work as particles have static capacity
 
   struct Attractor {
     Vector position;
@@ -259,21 +310,22 @@ public:
 
   using EmitterFn = std::function<void(ParticleSystem&)>;
   
-  StaticCircularBuffer<Attractor, 8> attractors;
-  StaticCircularBuffer<EmitterFn, 4> emitters;
+  StaticCircularBuffer<Attractor, 32> attractors;
+  StaticCircularBuffer<EmitterFn, 32> emitters;
 
-  float friction = 0.95f;
-  float gravity_scale = 0.001f;
-  float resolution_scale = 1.0f;
-
-  ParticleSystem(int capacity = CAPACITY, float friction = 0.95f, float gravity_scale = 0.001f)
-    : Base<ParticleSystem<W>>(-1, false), friction(friction), gravity_scale(gravity_scale)
+  ParticleSystem(float friction = 0.85f, float gravity = 0.001f, int trail_length = 25) : 
+    Base<ParticleSystem<W, CAPACITY>>(-1, false), 
+    friction(friction), 
+    gravity(gravity),
+    trail_length(trail_length)
   {
   }
-
-  void reset(float f = 0.95f, float g = 0.001f) {
-    friction = f;
-    gravity_scale = g;
+  
+  void reset(float friction = 0.85f, float gravity = 0.001f, int trail_length = 25) {
+    this->friction = friction;
+    this->gravity = gravity;
+    this->trail_length = trail_length;
+    
     active_count = 0;
     attractors.clear();
     emitters.clear();
@@ -282,7 +334,7 @@ public:
   void add_emitter(EmitterFn fn) {
     emitters.push_back(fn);
   }
-
+  
   void add_attractor(const Vector& pos, float str, float kill, float horizon) {
     attractors.push_back({ pos, str, kill, horizon });
   }
@@ -300,72 +352,90 @@ public:
   }
 
   void step(Canvas& canvas) override {
-    Base<ParticleSystem<W>>::step(canvas);
+    Base<ParticleSystem<W, CAPACITY>>::step(canvas);
 
-    // Emitters
-    for (size_t i = 0; i < emitters.size(); ++i) {
-      emitters[i](*this);
-    }
+    for (int k = 0; k < time_scale; ++k) {
+        // Emitters
+        for (size_t i = 0; i < emitters.size(); ++i) {
+          emitters[i](*this);
+        }
 
-    float max_delta = (2 * PI_F) / W / resolution_scale;
+        float max_delta = (2 * PI_F) / W / resolution_scale;
 
-    // Physics
-    for (int i = 0; i < active_count; ++i) {
-      bool dead = update_particle(pool[i], max_delta);
-      if (dead) {
-        pool[i] = pool[active_count - 1];
-        active_count--;
-        i--;
-      }
+        // Physics
+        for (int i = 0; i < active_count; ++i) {
+          bool dead = step_particle(pool[i], max_delta);
+          if (dead) {
+            pool[i] = pool[active_count - 1];
+            active_count--;
+            i--;
+          }
+        }
     }
   }
 
 private:
-  bool update_particle(Particle<W>& p, float max_delta) {
+
+  bool step_particle(Particle<W>& p, float max_delta) {
     p.life--;
-    if (p.life <= 0) return true; // Timeout
+    bool active = p.life > 0;
 
     // Physics
-    Vector pos = p.orientation.orient(p.position);
+    if (active) {
+        Vector pos = p.orientation.orient(p.position);
 
-    for (size_t k = 0; k < attractors.size(); ++k) {
-       const auto& attr = attractors[k];
-       float dist_sq = distance_squared(pos, attr.position);
-       
-       if (dist_sq < attr.kill_radius * attr.kill_radius) return true; // Kill
-       
-       if (dist_sq > 0.0000001f) {
-          if (dist_sq < attr.event_horizon * attr.event_horizon) {
-             // Steer into center
-             Vector torque = (attr.position - pos).normalize();
-             float speed = p.velocity.magnitude();
-             p.velocity = torque * speed;
-          } else {
-             // Gravity
-             float force = (gravity_scale * attr.strength) / dist_sq;
-             Vector torque = cross(pos, attr.position).normalize() * force;
-             p.velocity += cross(torque, pos);
-          }
-       }
+        for (size_t k = 0; k < attractors.size(); ++k) {
+           const auto& attr = attractors[k];
+           float dist_sq = distance_squared(pos, attr.position);
+           
+           if (dist_sq < attr.kill_radius * attr.kill_radius) {
+               active = false; 
+               break; // Killed
+           }
+           
+           if (dist_sq > 0.0000001f) {
+              if (dist_sq < attr.event_horizon * attr.event_horizon) {
+                 // Steer into center
+                 Vector torque = (attr.position - pos).normalize();
+                 float speed = p.velocity.magnitude();
+                 p.velocity = torque * speed;
+              } else {
+                 // Gravity
+                 float force = (gravity * attr.strength) / dist_sq;
+                 Vector torque = cross(pos, attr.position).normalize() * force;
+                 p.velocity += cross(torque, pos);
+              }
+           }
+        }
+
+        if (active) {
+            // Drag
+            p.velocity *= friction;
+            
+            // Move
+            float speed = p.velocity.magnitude();
+            if (speed > 0.000001f) {
+                Vector axis = cross(pos, p.velocity).normalize();
+                Quaternion dq = make_rotation(axis, speed);
+                // JS Parity: Accumulate rotation (Absolute) instead of pushing Delta
+                p.orientation.push(dq * p.orientation.get());
+                p.velocity = rotate(p.velocity, dq);
+            }
+        }
     }
     
-    // Drag
-    p.velocity *= friction;
-    
-    // Move
-    float speed = p.velocity.magnitude();
-    if (speed > 0.000001f) {
-        Vector axis = cross(pos, p.velocity).normalize();
-        Quaternion dq = make_rotation(axis, speed);
-        p.orientation.push(dq); // JS Logic appends to orientation
-        p.velocity = rotate(p.velocity, dq);
+    // History Management
+    if (active) {
+        p.history.record(p.orientation);
+    } else {
+        if (p.history.length() > 0) {
+            p.history.expire();
+        }
     }
     
-    // History
-    p.push_history(p.orientation.get());
     p.orientation.collapse();
     
-    return false;
+    return !active && p.history.length() == 0;
   }
 };
 
@@ -1042,11 +1112,13 @@ public:
    * @param scale The magnitude of the warp effect.
    * @param duration Duration of the warp.
    * @param repeat Whether to repeat.
+   * @param easing The easing function to use (default: ease_in_out_sin).
    */
-  MobiusWarp(MobiusParams& params, float scale, int duration, bool repeat = true) :
+  MobiusWarp(MobiusParams& params, float scale, int duration, bool repeat = true, std::function<float(float)> easing = ease_in_out_sin) :
     Base(duration, repeat),
     params(params),
-    scale(scale)
+    scale(scale),
+    easing(easing)
   {
   }
 
@@ -1055,9 +1127,10 @@ public:
    */
   void step(Canvas& canvas) {
     Base::step(canvas);
-    float progress = static_cast<float>(t) / duration;
+    float t_norm = static_cast<float>(t) / duration;
+    float progress = easing(std::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    params.get().bRe = scale * cosf(angle);
+    params.get().bRe = scale * (cosf(angle) - 1.0f);
     params.get().bIm = scale * sinf(angle);
   }
 
@@ -1065,58 +1138,10 @@ private:
   std::reference_wrapper<MobiusParams> params;
 public:
   float scale;
+  std::function<float(float)> easing;
 };
 
-/**
- * @brief Manages a history of Orientation states.
- * @tparam CAPACITY The maximum number of snapshots to keep.
- */
-template <typename OrientationType, int CAPACITY>
-class OrientationTrail {
-public:
-  /**
-   * @brief Records a snapshot of the current orientation state.
-   * @param source The orientation to copy.
-   */
-  void record(const OrientationType& source) {
-    snapshots.push_back(source);
-  }
 
-  /**
-   * @brief Gets the number of recorded snapshots.
-   */
-  size_t length() const {
-    return snapshots.size();
-  }
-
-  /**
-   * @brief Gets a specific snapshot.
-   * @param i Index (0 is newest).
-   */
-  /**
-   * @brief Gets a specific snapshot.
-   * @param i Index (0 is newest).
-   */
-  const OrientationType& get(size_t i) const {
-    // JS parity: 0 is oldest
-    return snapshots[i];
-  }
-
-  /**
-   * @brief Gets a specific snapshot (mutable).
-   * @param i Index (0 is newest).
-   */
-  /**
-   * @brief Gets a specific snapshot (mutable).
-   * @param i Index (0 is newest).
-   */
-  OrientationType& get(size_t i) {
-    return snapshots[i];
-  }
-
-private:
-  StaticCircularBuffer<OrientationType, CAPACITY> snapshots;
-};
 
 
 /*

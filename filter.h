@@ -288,45 +288,46 @@ class Trails : public Is3DWithHistory {
 public:
   struct Item {
     Vector v;
-    Color4 color;
     float ttl;
-    float alpha;
     uint8_t tag;
   };
 
   Trails(int lifetime) : lifetime(lifetime) {}
 
   void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
-      if (alpha <= 0.001f) return; // Opt: Skip invisible
+      pass(v, color, age, alpha, tag); // Pass through current frame
 
       float ttl = lifetime - age;
       if (ttl > 0) {
-          items.push_back({ v, Color4(color, 1.0f), ttl, alpha, tag }); 
-      }
-      
-      if (age <= 0) {
-          pass(v, color, age, alpha, tag);
+          items.push_back({ v, ttl, tag }); 
       }
   }
 
   void flush(TrailFn auto trailFn, float alpha, auto pass) {
-      // Sort
-      std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
-          return a.ttl < b.ttl;
-      });
-
-      for (auto& item : items) {
-          float t = (lifetime - item.ttl) / static_cast<float>(lifetime);
-          Color4 color = trailFn(item.v, t);
-          if (color.alpha > 0.001f) {
-             pass(item.v, color.color, 0, item.alpha * color.alpha * alpha, item.tag); 
-          }
-          item.ttl -= 1.0f;
+      // Age (In-place)
+      size_t count = items.size();
+      for (size_t i = 0; i < count; ++i) {
+          items[i].ttl -= 1.0f;
       }
 
-      // Cleanup
+      // Cleanup (Head-only, as it's a circular buffer and earliest pushed are at head)
+      // JS behavior: "Remove Dead" check from front
       while (!items.is_empty() && items.front().ttl <= 0) {
           items.pop();
+      }
+
+      // Draw
+      // JS: Iterates entire buffer (which is efficiently packed now)
+      // No sort needed if we accept draw order = insertion order (standard for trails)
+      for (size_t i = 0; i < items.size(); ++i) {
+          const auto& item = items[i];
+          float t = 1.0f - (item.ttl / static_cast<float>(lifetime));
+          Color4 c = trailFn(item.v, t); // Trail function returns color + alpha
+          
+          // Note: JS logic ignores original point alpha and uses trace alpha * global flush alpha
+          if (c.alpha > 0.001f) {
+             pass(item.v, c.color, lifetime - item.ttl, c.alpha * alpha, item.tag); 
+          }
       }
   }
 

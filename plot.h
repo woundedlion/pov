@@ -12,6 +12,7 @@
 #include "color.h"
 #include "constants.h"
 #include "canvas.h"
+#include "animation.h"
 
 namespace Plot {
 
@@ -23,8 +24,8 @@ namespace Plot {
   struct Point {
     static void draw(auto& pipeline, Canvas& canvas, const Vector& v, FragmentShaderFn auto fragment_shader, float age = 0.0f) {
       Fragment f; f.pos = v; f.v0 = 0; f.v1 = 0; f.v2 = 0; f.v3 = 0; f.age = age; f.color = Color4(0,0,0,0); f.blend = 0;
-      Fragment f_out = fragment_shader(v, f);
-      pipeline.plot(canvas, v, f_out.color.color, f_out.age, f_out.color.alpha, f_out.blend);
+      fragment_shader(v, f);
+      pipeline.plot(canvas, v, f.color.color, f.age, f.color.alpha, f.blend);
     }
   };
 
@@ -40,10 +41,11 @@ namespace Plot {
     // Optimized segment processor
     auto process_segment = [&](auto&& map, const Fragment& curr, const Fragment& next, float total_dist, bool isLastSegment) {
         if (total_dist < 1e-5f) {
-            bool shouldOmit = close_loop || !isLastSegment;
+            bool shouldOmit = (close_loop) ? false : !isLastSegment; 
             if (!shouldOmit) {
-                 Fragment f_out = fragment_shader(curr.pos, curr);
-                 pipeline.plot(canvas, curr.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+                 Fragment f_copy = curr;
+                 fragment_shader(curr.pos, f_copy);
+                 pipeline.plot(canvas, curr.pos, f_copy.color.color, age, f_copy.color.alpha, f_copy.blend);
             }
             return;
         }
@@ -52,13 +54,12 @@ namespace Plot {
         _point_cache.clear();
         
         float sim_dist = 0.0f;
-        const float base_step = 2.0f * PI_F / W;
+        const float base_step = (2.0f * PI_F) / W;
         
         // Calculate initial point
         Vector sim_p = map(0.0f);
         
         // 1. SIMULATION & CACHING PHASE
-        // We store the computed points so we don't have to recalculate them later
         int max_steps = W; 
         int steps_taken = 0;
 
@@ -80,35 +81,28 @@ namespace Plot {
             }
         }
 
-        bool omitLast = close_loop || !isLastSegment;
-        if (omitLast && _steps_cache.empty()) return;
-
+        bool omitLast = (close_loop) ? false : !isLastSegment;
+        
         // 2. DRAWING PHASE
-        // Draw Start
         {
-            // Re-calculate t=0 point only if needed, or rely on passed in curr.pos
-            // Using curr.pos ensures connectivity
-            Fragment f_out = fragment_shader(curr.pos, curr);
-            pipeline.plot(canvas, curr.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+            Fragment f_copy = curr;
+            fragment_shader(curr.pos, f_copy);
+            pipeline.plot(canvas, curr.pos, f_copy.color.color, age, f_copy.color.alpha, f_copy.blend);
         }
 
-        // Draw cached points
         size_t loop_limit = _point_cache.size();
-        
-        // If we aren't omitting the last point, we need to handle the final segment gap
-        // The cache contains internal points. The end point (t=1) is 'next.pos'
         
         for (size_t j = 0; j < loop_limit; j++) {
              const auto& pt = _point_cache[j];
              Fragment f = Fragment::lerp(curr, next, pt.t);
-             Fragment f_out = fragment_shader(pt.p, f);
-             pipeline.plot(canvas, pt.p, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+             fragment_shader(pt.p, f);
+             pipeline.plot(canvas, pt.p, f.color.color, age, f.color.alpha, f.blend);
         }
         
-        // Explicitly draw the end point if this is the last segment
         if (!omitLast) {
-             Fragment f_out = fragment_shader(next.pos, next);
-             pipeline.plot(canvas, next.pos, f_out.color.color, age, f_out.color.alpha, f_out.blend);
+             Fragment f_copy = next;
+             fragment_shader(next.pos, f_copy);
+             pipeline.plot(canvas, next.pos, f_copy.color.color, age, f_copy.color.alpha, f_copy.blend);
         }
     };
 
@@ -116,84 +110,33 @@ namespace Plot {
         const Fragment& curr = points[i];
         const Fragment& next = points[(i + 1) % len];
         bool isLastSegment = (i == count - 1);
-
-        if (planar_basis) {
-             // --- OPTIMIZED PLANAR MAP ---
-             Vector center = planar_basis->v;
-             Vector u = planar_basis->u;
-             Vector w = planar_basis->w;
-             
-             // Project start/end to 2D plane
-             auto project = [&](const Vector& p) -> std::pair<float, float> {
-                float R = angle_between(p, center);
-                if (R < 1e-5f) return { 0.0f, 0.0f };
-                float x = dot(p, u);
-                float y = dot(p, w);
-                // Avoid atan2 for projection if possible, but needed for theta
-                // Actually, we just need the vector on the tangent plane
-                // proj = (u*x + w*y) / sin(R) * R ? 
-                // Stick to simple way:
-                float theta = atan2f(y, x);
-                return { R * cosf(theta), R * sinf(theta) };
-             };
-             
-             std::pair<float, float> p1_proj = project(curr.pos);
-             std::pair<float, float> p2_proj = project(next.pos);
-             
-             float dx = p1_proj.first - p2_proj.first;
-             float dy = p1_proj.second - p2_proj.second;
-             float total_dist = sqrtf(dx*dx + dy*dy);
-             
-             // Fast Planar Map: Avoids atan2/sin/cos in the loop
-             auto map_planar = [=](float t) -> Vector {
-                 float Px = p1_proj.first + (p2_proj.first - p1_proj.first) * t;
-                 float Py = p1_proj.second + (p2_proj.second - p1_proj.second) * t;
-                 float R2 = Px * Px + Py * Py;
-                 
-                 if (R2 < 1e-8f) return center;
-
-                 float R = sqrtf(R2);
-                 // We want: center * cos(R) + normalize(Px*u + Py*w) * sin(R)
-                 // This simplifies to: center * cos(R) + (Px*u + Py*w) * (sin(R)/R)
-                 
-                 float scale = sinf(R) / R; // Sinc function
-                 Vector tangent = (u * Px) + (w * Py);
-                 return (center * cosf(R)) + (tangent * scale);
-             };
-
-             process_segment(map_planar, curr, next, total_dist, isLastSegment);
-
+        
+        // --- OPTIMIZED GEODESIC MAP (Standard) ---        
+        Vector v1 = curr.pos;
+        Vector v2 = next.pos;
+        float total_dist = angle_between(v1, v2);
+        
+        if (total_dist < 0.001f) {
+            // Degenerate
+            auto map_degenerate = [=](float t) { return v1; };
+            process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
         } else {
-            // --- OPTIMIZED GEODESIC MAP ---
-            Vector v1 = curr.pos;
-            Vector v2 = next.pos;
-            float total_dist = angle_between(v1, v2);
-            
-            if (total_dist < 0.001f) {
-                auto map_degenerate = [=](float t) { return v1; };
-                process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
+            Vector axis;
+            if (std::abs(PI_F - total_dist) < TOLERANCE) {
+                 axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS) : cross(v1, X_AXIS);
             } else {
-                 Vector axis;
-                 // Optimized antipodal check
-                 if (std::abs(PI_F - total_dist) < TOLERANCE) {
-                     axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS) : cross(v1, X_AXIS);
-                 } else {
-                     axis = cross(v1, v2).normalize();
-                 }
-                 
-                 // Precompute perpendicular vector for fast rotation
-                 // v(t) = v1 * cos(a) + v_perp * sin(a)
-                 Vector v_perp = cross(axis, v1); 
-
-                 auto map_geodesic = [=](float t) {
-                     float ang = total_dist * t;
-                     // Fast sine/cosine rotation (no Quaternions)
-                     float s = sinf(ang);
-                     float c = cosf(ang);
-                     return (v1 * c) + (v_perp * s);
-                 };
-                 process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
+                 axis = cross(v1, v2).normalize();
             }
+             
+            Vector v_perp = cross(axis, v1);
+
+            auto map_geodesic = [=](float t) {
+                 float ang = total_dist * t;
+                 float s = sinf(ang);
+                 float c = cosf(ang);
+                 return (v1 * c) + (v_perp * s);
+             };
+             process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
         }
     }
   }
@@ -220,6 +163,7 @@ namespace Plot {
        if (std::abs(angle) < 0.0001f) {
            Fragment f; f.pos = v1; f.v0 = 0.0f; f.v1 = 0.0f; f.v2 = 0.0f;
            points.push_back(f);
+           points.push_back(f); // Draw at least a dot
            return points;
        }
        
@@ -260,7 +204,7 @@ namespace Plot {
        
        if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
            for(auto& p : points) {
-               p = vertex_shader(p);
+               vertex_shader(p);
            }
        }
        
@@ -291,8 +235,8 @@ namespace Plot {
         // Basic default registers for points
         f.v0 = 0.0f; f.v1 = 0.0f; f.v2 = 0.0f; f.v3 = 0.0f; f.age = 0.0f; 
         
-        Fragment f_out = fragment_shader(v, f);
-        pipeline.plot(canvas, v, f_out.color.color, f_out.age, f_out.color.alpha, f_out.blend);
+        fragment_shader(v, f);
+        pipeline.plot(canvas, v, f.color.color, f.age, f.color.alpha, f.blend);
       }
     }
   };
@@ -380,7 +324,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p = vertex_shader(p);
+              vertex_shader(p);
           }
       }
       rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
@@ -402,15 +346,7 @@ namespace Plot {
   struct PlanarPolygon {
     static void sample(Fragments& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
        size_t start_idx = points.size();       
-       // PlanarPolygon delegates to Ring, which handles get_antipode.
-       // Ring::sample will call get_antipode(basis, radius).
-       // If radius > 1, Ring flips basis and transforms points accordingly.
-       // The resulting points are in global space.
-       // So we don't need to do anything special here regarding basis.
-       
        Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
-       
-       // Fix v1: Ring returns Circular Arc Length. We want Polygonal Arc Length (Geodesic chords).
        float cumul = 0.0f;
        for (size_t i = start_idx; i < points.size(); i++) {
            points[i].v1 = cumul;
@@ -439,7 +375,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p = vertex_shader(p);
+              vertex_shader(p);
           }
       }
       
@@ -467,7 +403,7 @@ namespace Plot {
        // Re-calculate v1 to be true geodesic chord length
        float cumulative_length = 0.0f;
        for (size_t i = start_idx; i < points.size(); ++i) {
-           points[i].v2 = static_cast<float>(i - start_idx); // Ensure index is strictly monotonic
+           points[i].v2 = static_cast<float>(i - start_idx);
            
            if (i > start_idx) {
                cumulative_length += angle_between(points[i-1].pos, points[i].pos);
@@ -495,7 +431,7 @@ namespace Plot {
        
        if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
            for(auto& p : points) {
-               p = vertex_shader(p);
+               vertex_shader(p);
            }
        }
        rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
@@ -610,7 +546,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p = vertex_shader(p);
+              vertex_shader(p);
           }
       }
       rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f, nullptr);
@@ -667,7 +603,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& f : frags) {
-              f = vertex_shader(f);
+              vertex_shader(f);
           }
       }
       
@@ -689,7 +625,6 @@ namespace Plot {
    */
   struct Star {
     static void sample(Fragments& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
-      // Logic Mirrors JS Plot.Star.sample
       auto res = get_antipode(basis, radius);
       const Basis& work_basis = res.first;
       float work_radius = res.second;
@@ -761,7 +696,7 @@ namespace Plot {
       
       if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
           for(auto& p : points) {
-              p = vertex_shader(p);
+              vertex_shader(p);
           }
       }
       
@@ -795,7 +730,6 @@ namespace Plot {
      * @brief Samples a flower shape.
      */
     static void sample(Fragments& points, const Basis& basis, float radius, int num_sides, float phase = 0) {
-        // JS Parity: Logic mirrors JS Plot.Flower.sample
         auto res = get_antipode(basis, radius);
         const Basis& work_basis = res.first;
         float work_radius = res.second;
@@ -870,13 +804,10 @@ namespace Plot {
 
        if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
            for(auto& p : points) {
-               p = vertex_shader(p);
+               vertex_shader(p);
            }
        }
        
-       // JS: Plot.rasterize(..., true, ..., workBasis) -> workBasis is planar basis
-       // Need to construct planar basis for Planar Strategy
-       // In JS, 'workBasis' comes from getAntipode.
        auto res = get_antipode(basis, radius);
        const Basis& work_basis = res.first;
        Vector center = work_basis.v;
@@ -923,8 +854,19 @@ namespace Plot {
      */
     template <typename MeshT>
     static std::vector<Fragments> sample(const MeshT& mesh, int density = 10) {
-       std::vector<std::pair<int, int>> unique_edges;
+       std::set<std::pair<int, int>> visited;
+       std::vector<Fragments> result;
        
+       auto process_edge = [&](int u, int v) {
+           int small = std::min(u, v);
+           int large = std::max(u, v);
+           
+           if (visited.find({small, large}) == visited.end()) {
+               visited.insert({small, large});
+               result.push_back(Line::sample(mesh.vertices[u], mesh.vertices[v], density));
+           }
+       };
+
        if constexpr (std::is_same_v<MeshT, MeshState>) {
            size_t offset = 0;
            for (size_t i = 0; i < mesh.num_faces; ++i) {
@@ -932,8 +874,7 @@ namespace Plot {
                for (int k = 0; k < count; ++k) {
                    int u = mesh.faces[offset + k];
                    int v = mesh.faces[offset + (k + 1) % count];
-                   if (u > v) std::swap(u, v);
-                   unique_edges.push_back({u, v});
+                   process_edge(u, v);
                }
                offset += count;
            }
@@ -943,20 +884,11 @@ namespace Plot {
                for (size_t i = 0; i < count; ++i) {
                    int u = face[i];
                    int v = face[(i + 1) % count];
-                   if (u > v) std::swap(u, v);
-                   unique_edges.push_back({u, v});
+                   process_edge(u, v);
                }
            }
        }
        
-       std::sort(unique_edges.begin(), unique_edges.end());
-       unique_edges.erase(std::unique(unique_edges.begin(), unique_edges.end()), unique_edges.end());
-       
-       std::vector<Fragments> result;
-       result.reserve(unique_edges.size());
-       for (const auto& edge : unique_edges) {
-          result.push_back(Line::sample(mesh.vertices[edge.first], mesh.vertices[edge.second], density));
-       }
        return result;
     }
 
@@ -969,10 +901,9 @@ namespace Plot {
            if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
                for(auto& p : points) {
                    p.v2 = static_cast<float>(i); // Edge Index
-                   p = vertex_shader(p);
+                   vertex_shader(p);
                }
            } else {
-               // Must still assign v2 if no VS
                for(auto& p : points) {
                    p.v2 = static_cast<float>(i);
                }
@@ -987,67 +918,75 @@ namespace Plot {
     }
   };
 
-  /**
-   * @brief Particle System trails.
-   * Registers:
-   *  v0: Trail Progress (0.0=Head -> 1.0=Tail)
-   *  v1: Particle ID / Random
-   */
-  struct ParticleSystem {
-     template <int W, int H>
-     static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
-         // Reusable buffer
-         static Fragments buffer;
-         
-         int count = system.active_count;
-         for (int i = 0; i < count; ++i) {
-             const auto& p = system.pool[i];
-             size_t len = p.history_length();
-             if (len < 2) continue;
-             
-             buffer.clear();
-             buffer.reserve(len);
-             
-             float cumulative_len = 0.0f;
-             Vector last_pos;
 
-             // History 0 is newest (Head), len-1 is oldest (Tail)
-             // Iterate to build path
-             for (size_t j = 0; j < len; ++j) {
-                 const Quaternion& q = p.get_history(j);
-                 Vector pos = rotate(p.position, q);
-                 
-                 if (j > 0) {
-                     cumulative_len += angle_between(last_pos, pos);
-                 }
-                 last_pos = pos;
-                 
-                 Fragment f;
-                 f.pos = pos;
-                 f.v0 = static_cast<float>(j) / (len - 1); // Trail t (0=Head, 1=Tail)
-                 f.v1 = cumulative_len;                    // Trail Arc Length
-                 f.v2 = static_cast<float>(i);             // Particle ID
-                 f.v3 = p.life / p.max_life;               // Normalized TTL
-                 f.age = 0;
-                 
-                 buffer.push_back(f);
-             }
-             
-             if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
-                 for(size_t k=0; k<buffer.size(); ++k) {
-                    buffer[k] = vertex_shader(buffer[k]);
-                 }
-             }
 
-             // Draw trail
-             rasterize<W, H>(pipeline, canvas, buffer, fragment_shader, false, 0.0f, nullptr);
-         }
-     }
-     
-     template <int W, int H>
-     static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader) {
-         draw<W, H>(pipeline, canvas, system, fragment_shader, NullVertexShader{});
-     }
-  };
+   /**
+    * @brief Particle System trails.
+    * Registers:
+    *  v0: Trail Progress (0.0=Head -> 1.0=Tail)
+    *  v1: Trail Arc Length
+    *  v2: Particle ID
+    *  v3: Normalized TTL
+    */
+   struct ParticleSystem {
+      template <int W, int H>
+      static std::vector<Fragments> sample(const auto& system) {
+          std::vector<Fragments> trails;
+          int count = system.active_count;
+          trails.reserve(count);
+
+          for (int i = 0; i < count; ++i) {
+              const auto& p = system.pool[i];
+              Fragments trail;
+              float cumulative_len = 0.0f;
+              Vector last_pos; 
+              bool first = true;
+
+              deep_tween(p.history, [&](const Quaternion& q, float t) {
+                  Vector v = rotate(p.position, q);
+                  
+                  if (!first) {
+                      cumulative_len += angle_between(last_pos, v);
+                  }
+                  last_pos = v;
+                  first = false;
+
+                  Fragment f;
+                  f.pos = v;
+                  f.v0 = t;
+                  f.v1 = cumulative_len;
+                  f.v2 = static_cast<float>(i);
+                  f.v3 = p.life / p.max_life;
+                  f.age = 0;
+                  f.color = Color4(0,0,0,0);
+                  trail.push_back(f);
+              });
+              
+              if (!trail.empty()) {
+                  trails.push_back(trail);
+              }
+          }
+          return trails;
+      }
+
+      template <int W, int H>
+      static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader, VertexShaderFn auto vertex_shader) {
+          auto trails = sample<W, H>(system);
+          
+          for (auto& trail : trails) {
+              if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
+                  for (auto& f : trail) {
+                      vertex_shader(f);
+                  }
+              }
+              rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false, 0.0f, nullptr);
+          }
+      }
+      
+      template <int W, int H>
+      static void draw(auto& pipeline, Canvas& canvas, const auto& system, FragmentShaderFn auto fragment_shader) {
+          draw<W, H>(pipeline, canvas, system, fragment_shader, NullVertexShader{});
+      }
+   };
 
 }

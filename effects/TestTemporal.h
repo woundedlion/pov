@@ -52,11 +52,9 @@ public:
         
         noise.SetFrequency(liquid_params.noiseFreq);
         
-        Plot::Mesh::draw<W, H>(filters, canvas, mesh, [&](const Vector& v, const Fragment& f) -> Fragment {
+        Plot::Mesh::draw<W, H>(filters, canvas, mesh, [&](const Vector& v, Fragment& f) {
              float t = (v.j + 1.0f) * 0.5f;
-             Fragment out = f;
-             out.color = palette.get(t);
-             return out;
+             f.color = palette.get(t);
         });
         
         filters.flush(canvas, [](float x, float y, float t) { return Color4(0,0,0,0); }, 1.0f);

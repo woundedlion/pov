@@ -31,6 +31,7 @@ public:
     IslamicStars() : Effect(W, H), 
         filters(Filter::Screen::AntiAlias<W, H>())
     {
+        persist_pixels = false;
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 8000, ease_mid, true)); // Slow continuous spin
         
         // Start the shape spawning cycle
@@ -125,23 +126,21 @@ private:
                 rotated_mesh.vertices[i] = rotate(mesh_state.vertices[i], q);
             }
             
-            auto shader = [&](const Vector& p, const Fragment& frag) -> Fragment {
+            auto shader = [&](const Vector& p, Fragment& frag) {
                  int faceIdx = (int)std::round(frag.v2);
                  int topoIdx = 0;
                  if (faceIdx >= 0 && faceIdx < (int)topology.faceColorIndices.size()) {
                      topoIdx = topology.faceColorIndices[faceIdx];
                  }
                  const Palette* pal = palettes[topoIdx % palettes.size()];
-                 Fragment out = frag;
                  
                  float distFromEdge = -frag.v1;
                  float size = frag.size;
                  float intensity = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
                  intensity = std::clamp(intensity, 0.0f, 1.0f);
                  
-                 out.color = pal->get(intensity);
-                 out.color.alpha = opacity;
-                 return out;
+                 frag.color = pal->get(intensity);
+                 frag.color.alpha = opacity;
             };
             
             Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);

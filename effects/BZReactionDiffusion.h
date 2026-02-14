@@ -227,10 +227,8 @@ private:
 
         Color4 c_final(color);
         c_final.alpha *= global_alpha * opacity;
-						auto shader = [c_final](const Vector& p, const Fragment& f) -> Fragment {
-                            Fragment out = f;
-                            out.color = c_final;
-                            return out;
+						auto shader = [c_final](const Vector& p, Fragment& f) {
+                            f.color = c_final;
                         };
                         Plot::Point::draw(filters, canvas, nodes[i], shader);
       }

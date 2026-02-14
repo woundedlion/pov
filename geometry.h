@@ -62,7 +62,7 @@ using Fragments = std::vector<Fragment>;
  * @brief Logic for no-op vertex shader.
  */
 struct NullVertexShader {
-    Fragment operator()(const Fragment& f) const { return f; }
+    void operator()(Fragment& f) const {}
 };
 
 /**
@@ -1509,51 +1509,7 @@ namespace MeshOps {
       result.faces.push_back(faceVertsMap[fi]);
     }
 
-    // 2. Edge Quad Faces
-    // Map key -> list of {faceIdx, indexInFace, u, v}
-    struct EdgeEntry { size_t fi; int i; int u; int v; };
-    std::map<std::pair<int, int>, std::vector<EdgeEntry>> edgeMap;
-
-    for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-      const auto& f = mesh.faces[fi];
-      for (size_t i = 0; i < f.size(); ++i) {
-        int u = f[i];
-        int v = f[(i + 1) % f.size()];
-        int k1 = std::min(u, v);
-        int k2 = std::max(u, v);
-        edgeMap[{k1, k2}].push_back({ fi, (int)i, u, v });
-      }
-    }
-
-    for (const auto& kv : edgeMap) {
-      const auto& entries = kv.second;
-      if (entries.size() != 2) continue;
-
-      const auto& e1 = entries[0];
-      const auto& e2 = entries[1];
-
-      // Vertices in Face A (e1) corresponding to u, v
-      int count1 = static_cast<int>(mesh.faces[e1.fi].size());
-      int A_u_idx = faceVertsMap[e1.fi][e1.i];
-      int A_v_idx = faceVertsMap[e1.fi][(e1.i + 1) % count1];
-
-      // Vertices in Face B (e2) corresponding to u, v
-      // Need to find u and v in Face B
-      const auto& f2 = mesh.faces[e2.fi];
-      auto it_v = std::find(f2.begin(), f2.end(), e1.v);
-      auto it_u = std::find(f2.begin(), f2.end(), e1.u);
-
-      int idx_v_in_B = static_cast<int>(std::distance(f2.begin(), it_v));
-      int idx_u_in_B = static_cast<int>(std::distance(f2.begin(), it_u));
-
-      int B_v_idx = faceVertsMap[e2.fi][idx_v_in_B];
-      int B_u_idx = faceVertsMap[e2.fi][idx_u_in_B];
-
-      // Quad: A_v -> A_u -> B_u -> B_v
-      result.faces.push_back({ A_v_idx, A_u_idx, B_u_idx, B_v_idx });
-    }
-
-    // 3. Vertex Faces
+    // 2. Vertex Faces
     std::vector<std::vector<size_t>> vertToFaces(mesh.vertices.size());
     for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
       for (int vi : mesh.faces[fi]) {
@@ -1604,6 +1560,55 @@ namespace MeshOps {
       } while (currFace != startFace && safety < 20);
 
       result.faces.push_back(orderedIndices);
+    }
+
+    // 3. Edge Quad Faces
+    // Map key -> list of {faceIdx, indexInFace, u, v}
+    struct EdgeEntry { size_t fi; int i; int u; int v; };
+    std::map<std::pair<int, int>, std::vector<EdgeEntry>> edgeMap;
+    std::vector<std::pair<int, int>> edgeOrder; // To preserve insertion order (JS Parity)
+
+    for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+      const auto& f = mesh.faces[fi];
+      for (size_t i = 0; i < f.size(); ++i) {
+        int u = f[i];
+        int v = f[(i + 1) % f.size()];
+        int k1 = std::min(u, v);
+        int k2 = std::max(u, v);
+        
+        if (edgeMap.find({k1, k2}) == edgeMap.end()) {
+            edgeOrder.push_back({k1, k2});
+        }
+        edgeMap[{k1, k2}].push_back({ fi, (int)i, u, v });
+      }
+    }
+
+    for (const auto& key : edgeOrder) {
+      const auto& entries = edgeMap[key];
+      if (entries.size() != 2) continue;
+
+      const auto& e1 = entries[0];
+      const auto& e2 = entries[1];
+
+      // Vertices in Face A (e1) corresponding to u, v
+      int count1 = static_cast<int>(mesh.faces[e1.fi].size());
+      int A_u_idx = faceVertsMap[e1.fi][e1.i];
+      int A_v_idx = faceVertsMap[e1.fi][(e1.i + 1) % count1];
+
+      // Vertices in Face B (e2) corresponding to u, v
+      // Need to find u and v in Face B
+      const auto& f2 = mesh.faces[e2.fi];
+      auto it_v = std::find(f2.begin(), f2.end(), e1.v);
+      auto it_u = std::find(f2.begin(), f2.end(), e1.u);
+
+      int idx_v_in_B = static_cast<int>(std::distance(f2.begin(), it_v));
+      int idx_u_in_B = static_cast<int>(std::distance(f2.begin(), it_u));
+
+      int B_v_idx = faceVertsMap[e2.fi][idx_v_in_B];
+      int B_u_idx = faceVertsMap[e2.fi][idx_u_in_B];
+
+      // Quad: A_v -> A_u -> B_u -> B_v
+      result.faces.push_back({ A_v_idx, A_u_idx, B_u_idx, B_v_idx });
     }
 
     normalize(result);

@@ -37,6 +37,8 @@ public:
     HankinSolids() : Effect(W, H), 
         filters(Filter::Screen::AntiAlias<W, H>())
     {
+        persist_pixels = false;
+
         // Continuous Rotation
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 8000, ease_mid, true));
         
@@ -171,17 +173,15 @@ private:
             rotated_mesh.vertices[i] = rotate(mesh.vertices[i], q);
         }
         
-        auto shader = [&](const Vector& p, const Fragment& f) -> Fragment {
+        auto shader = [&](const Vector& p, Fragment& f) {
              int faceIdx = (int)std::round(f.v2);
              int n = (int)mesh.face_counts[faceIdx];
              
              const Palette* pal = &Palettes::lavenderLake; // Default
              if (n == 6) pal = &Palettes::emeraldForest;
              
-             Fragment out = f;
-             out.color = pal->get(0.5f);
-             out.color.alpha = opacity;
-             return out;
+             f.color = pal->get(0.5f);
+             f.color.alpha = opacity;
         };
         
         Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
