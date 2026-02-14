@@ -439,7 +439,12 @@ public:
     Color4 get(float t) const override {
         uint8_t index = static_cast<uint8_t>(t * 255);
         CPixel p = entries[index];
-        Pixel color(p.r, p.g, p.b);
+        // Explicitly use srgb_to_linear helper to fill 16-bit range
+        Pixel color(
+            srgb_to_linear(p.r),
+            srgb_to_linear(p.g),
+            srgb_to_linear(p.b)
+        );
         return Color4(color, 1.0f);
     }
 
@@ -648,10 +653,11 @@ public:
   }
 
   Color4 get(float t) const override {
+    // Determine color in 16-bit Linear space
     Pixel color(
-      static_cast<uint8_t>(255 * std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f)),
-      static_cast<uint8_t>(255 * std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f)),
-      static_cast<uint8_t>(255 * std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f))
+      static_cast<uint16_t>(65535.0f * std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f)),
+      static_cast<uint16_t>(65535.0f * std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f)),
+      static_cast<uint16_t>(65535.0f * std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f))
     );
     return Color4(color, 1.0f);
   }
