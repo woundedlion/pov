@@ -869,12 +869,12 @@ namespace Plot {
 
        if constexpr (std::is_same_v<MeshT, MeshState>) {
            size_t offset = 0;
-           for (size_t i = 0; i < mesh.num_faces; ++i) {
+           for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
                int count = mesh.face_counts[i];
                for (int k = 0; k < count; ++k) {
                    int u = mesh.faces[offset + k];
                    int v = mesh.faces[offset + (k + 1) % count];
-                   process_edge(u, v);
+                   process_edge(u, v); // Helper lambda
                }
                offset += count;
            }

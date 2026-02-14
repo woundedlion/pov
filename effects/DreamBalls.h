@@ -70,12 +70,7 @@ private:
     
     struct PresetData {
         // Base Mesh Data
-        std::vector<Vector> vertices;
-        std::vector<int> faces;
-        std::vector<uint8_t> face_counts;
-        
         MeshState mesh_state; 
-        
         std::vector<Tangent> tangents;
     };
     
@@ -122,29 +117,18 @@ private:
             }
             
             // Store Verts
-            data.vertices = m.vertices;
+            data.mesh_state.vertices = m.vertices;
             
             // Store Faces
+            data.mesh_state.faces.clear();
+            data.mesh_state.face_counts.clear();
             for(const auto& f : m.faces) {
-                data.face_counts.push_back((uint8_t)f.size());
-                data.faces.insert(data.faces.end(), f.begin(), f.end());
+                data.mesh_state.face_counts.push_back((uint8_t)f.size());
+                for(int idx : f) data.mesh_state.faces.push_back(idx);
             }
-            
-            // Setup MeshState
-            data.mesh_state.num_vertices = data.vertices.size();
-            // COPY vertices to fixed array
-            for(size_t i=0; i<data.vertices.size(); ++i) {
-                if(i < MeshState::MAX_VERTS) {
-                    data.mesh_state.vertices[i] = data.vertices[i];
-                }
-            }
-            
-            data.mesh_state.num_faces = data.face_counts.size();
-            data.mesh_state.face_counts = data.face_counts.data();
-            data.mesh_state.faces = data.faces.data();
             
             // Compute Tangents
-            for(const auto& v : data.vertices) {
+            for(const auto& v : data.mesh_state.vertices) {
                 Vector axis = (std::abs(v.j) > 0.99f) ? X_AXIS : Y_AXIS;
                 Vector u = cross(v, axis).normalize();
                 Vector frame_v = cross(v, u).normalize();
@@ -162,15 +146,11 @@ private:
         auto warp = std::make_shared<Animation::MobiusWarp>(*mobius, 1.0f, 200, true);
         warp->scale = preset_params.warp_scale;
         
-        auto draw_fn = [this, preset_params, &preset_data, mobius, warp](Canvas& canvas, float opacity) mutable {
+        auto draw_fn = [this, preset_params, preset_data, mobius, warp](Canvas& canvas, float opacity) mutable {
             warp->step(canvas); 
             
             // Stack allocated MeshState
-            MeshState target_mesh;
-            target_mesh.num_vertices = preset_data.mesh_state.num_vertices;
-            target_mesh.num_faces = preset_data.mesh_state.num_faces;
-            target_mesh.face_counts = preset_data.mesh_state.face_counts;
-            target_mesh.faces = preset_data.mesh_state.faces;
+            MeshState target_mesh = preset_data.mesh_state; // Deep copy
             
             this->draw_scene(canvas, preset_params, opacity, preset_data.mesh_state, target_mesh, preset_data.tangents, *mobius);
         };
@@ -182,7 +162,7 @@ private:
     }
 
     void update_displaced_mesh(const MeshState& base, MeshState& target, const std::vector<Tangent>& tangents, const Params& p, float angle_offset) {
-        size_t count = base.num_vertices;
+        size_t count = base.vertices.size();
         float r = p.offset_radius;
         float speed = p.offset_speed;
 

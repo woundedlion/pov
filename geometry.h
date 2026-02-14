@@ -844,23 +844,23 @@ public:
  */
 inline HalfEdgeMesh::HalfEdgeMesh(const MeshState& mesh) {
   // 1. Create Vertices
-  vertices.resize(mesh.num_vertices);
-  for (size_t i = 0; i < mesh.num_vertices; ++i) {
+  vertices.resize(mesh.vertices.size());
+  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
     vertices[i].position = mesh.vertices[i];
   }
 
   // 2. Create Faces and HalfEdges
-  faces.reserve(mesh.num_faces);
+  faces.reserve(mesh.face_counts.size());
   std::map<std::pair<int, int>, HalfEdge*> edgeMap;
 
   // Pre-allocate halfEdges to avoid pointer invalidation
   size_t totalHE = 0;
-  for(size_t i=0; i<mesh.num_faces; ++i) totalHE += mesh.face_counts[i];
+  for(size_t i=0; i<mesh.face_counts.size(); ++i) totalHE += mesh.face_counts[i];
   halfEdges.reserve(totalHE);
 
-  const int* face_ptr = mesh.faces;
+  const int* face_ptr = mesh.faces.data();
 
-  for (size_t k = 0; k < mesh.num_faces; ++k) {
+  for (size_t k = 0; k < mesh.face_counts.size(); ++k) {
     size_t count = mesh.face_counts[k];
     
     faces.emplace_back();
@@ -926,34 +926,22 @@ struct MorphBuffer {
   std::array<Path, MeshState::MAX_VERTS> paths;
 
   // Storage for dynamic topology
-  static constexpr size_t MAX_FACES = 1024;
-  static constexpr size_t MAX_INDICES = 8192;
+  // Removed static arrays as MeshState now owns its memory via std::vector
   
-  std::array<uint8_t, MAX_FACES> dest_face_counts_storage;
-  std::array<int, MAX_INDICES> dest_faces_storage;
-
   void load_dest(const PolyMesh& mesh) {
      dest.clear();
-     if (mesh.vertices.size() > MeshState::MAX_VERTS) return; 
+     // Vertices
+     dest.vertices = mesh.vertices; // Vector copy
      
-     dest.num_vertices = mesh.vertices.size();
-     std::copy(mesh.vertices.begin(), mesh.vertices.end(), dest.vertices.begin());
+     // Faces
+     dest.faces.clear();
+     dest.face_counts.clear();
+     dest.face_counts.reserve(mesh.faces.size());
      
-     if (mesh.faces.size() > MAX_FACES) return;
-     dest.num_faces = mesh.faces.size();
-     dest.face_counts = dest_face_counts_storage.data();
-     
-     size_t idx_offset = 0;
-     for(size_t i=0; i<mesh.faces.size(); ++i) {
-         size_t n = mesh.faces[i].size();
-         dest_face_counts_storage[i] = static_cast<uint8_t>(n);
-         if (idx_offset + n > MAX_INDICES) return; // Overflow
-         for(size_t k=0; k<n; ++k) {
-             dest_faces_storage[idx_offset + k] = mesh.faces[i][k];
-         }
-         idx_offset += n;
+     for(const auto& f : mesh.faces) {
+         dest.face_counts.push_back((uint8_t)f.size());
+         for(int idx : f) dest.faces.push_back(idx);
      }
-     dest.faces = dest_faces_storage.data();
   }
 };
 
@@ -983,6 +971,8 @@ struct CompiledHankin {
  * @brief Operations on meshes (Dual, Hankin, etc.).
  */
 namespace MeshOps {
+
+
   /**
    * @brief Computes the dual of a mesh.
    */
@@ -1170,6 +1160,12 @@ namespace MeshOps {
 
       Vector intersect = cross(nHankin1, nHankin2);
       
+      float lenSq = dot(intersect, intersect);
+      if (lenSq < 1e-8f) {
+           // Degenerate/Parallel. Fallback to corner or midpoint average.
+           intersect = instr.pCorner;
+      }
+
       // Chirality
       if (dot(intersect, instr.pCorner) < 0) intersect = -intersect;
 
@@ -1925,14 +1921,6 @@ namespace MeshOps {
   }
 
   /**
-   * @brief Result of topological face classification.
-   */
-  struct TopologyClassification {
-    std::vector<int> faceColorIndices;
-    int uniqueCount;
-  };
-
-  /**
    * @brief Helper to finish hash.
    */
   static uint32_t fmix32(uint32_t h) {
@@ -1955,11 +1943,12 @@ namespace MeshOps {
    * @brief Colors faces based on their vertex count and neighbor topology.
    */
   template <typename MeshT>
-  static TopologyClassification classify_faces_by_topology(const MeshT& mesh) {
+  static std::vector<int> classify_faces_by_topology(const MeshT& mesh) {
     HalfEdgeMesh heMesh(mesh);
     std::map<uint32_t, int> signatureToID;
-    TopologyClassification result;
-    result.faceColorIndices.resize(heMesh.faces.size());
+    
+    std::vector<int> faceColorIndices;
+    faceColorIndices.resize(heMesh.faces.size());
     int nextID = 0;
 
     // 1. Properties already computed by constructor (vertexCount, intrinsicHash)
@@ -1967,27 +1956,36 @@ namespace MeshOps {
     // 2. Compute Contextual Hashes (acc neighbors)
     for(size_t i=0; i<heMesh.faces.size(); ++i) {
         HEFace* face = &heMesh.faces[i];
+        
+        // Start hash with self intrinsic (order independent seed)
+        // But we want to sum/mix neighbor hashes
         uint32_t neighborAcc = 0;
         
         HalfEdge* he = face->halfEdge;
-        HalfEdge* start = he;
-        do {
-            if(he->pair && he->pair->face) {
-                // Use simple addition for order-independence
-                // Mix intrinsicHash before adding to scatter bits
-                neighborAcc = neighborAcc + js_hash32(he->pair->face->intrinsicHash, 0); 
-            }
-            he = he->next;
-        } while(he && he != start);
+        if (he) {
+            HalfEdge* start = he;
+            int safety = 0;
+            do {
+                if(he->pair && he->pair->face) {
+                    // Use simple addition for order-independence for the ring
+                    // Mix intrinsicHash before adding to scatter bits so similar counts don't just sum to same
+                    uint32_t h = js_hash32(he->pair->face->intrinsicHash, 0); 
+                    neighborAcc += h;
+                }
+                he = he->next;
+                safety++;
+            } while(he && he != start && safety < 100);
+        }
         
+        // Final Hash: Combine Neighbor Accumulator with Self Intrinsic
         uint32_t finalHash = js_hash32(neighborAcc, face->intrinsicHash);
         
         if (signatureToID.find(finalHash) == signatureToID.end()) {
             signatureToID[finalHash] = nextID++;
         }
-        result.faceColorIndices[i] = signatureToID[finalHash];
+        faceColorIndices[i] = signatureToID[finalHash];
     }
-    result.uniqueCount = nextID;
-    return result;
+    
+    return faceColorIndices;
   }
 }

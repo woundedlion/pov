@@ -251,9 +251,38 @@ namespace Solids {
         return hankin(dual(ambo(hankin(dodecahedron(), 72.0f * D2R))), 20.0f * D2R);
     }
 
-    // Base: truncatedIcosahedron, Ops: Tr(50), Ambo, Dual
     inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual() {
         return dual(ambo(truncate(truncatedIcosahedron(), 50.0f * D2R)));
     }
+  }
+
+  // Helper matching JS Solids.get()
+  inline PolyMesh get(int index) {
+      using namespace Platonic;
+      using namespace Archimedean;
+      // Map index to solids in order of JS Solids array (implied)
+      // 0-4: Platonic
+      // 5-17: Archimedean
+      switch(index) {
+          case 0: return tetrahedron();
+          case 1: return cube();
+          case 2: return octahedron();
+          case 3: return dodecahedron();
+          case 4: return icosahedron();
+          case 5: return truncatedTetrahedron();
+          case 6: return cuboctahedron();
+          case 7: return truncatedCube();
+          case 8: return truncatedOctahedron();
+          case 9: return rhombicuboctahedron();
+          case 10: return truncatedCuboctahedron();
+          case 11: return snubCube();
+          case 12: return icosidodecahedron();
+          case 13: return truncatedDodecahedron();
+          case 14: return truncatedIcosahedron();
+          case 15: return rhombicosidodecahedron();
+          case 16: return truncatedIcosidodecahedron();
+          case 17: return snubDodecahedron();
+          default: return dodecahedron();
+      }
   }
 }

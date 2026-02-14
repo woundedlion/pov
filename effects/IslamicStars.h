@@ -50,35 +50,29 @@ private:
     Timeline<W> timeline;
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
-    // Helper struct to own the data for a mesh (MeshState is just a view)
-    struct OwnedMesh {
-        std::vector<Vector> vertices;
-        std::vector<uint8_t> face_counts;
-        std::vector<int> faces;
-
-        MeshState get_state() const {
-             MeshState s;
-             s.num_vertices = vertices.size();
-             if (s.num_vertices > MeshState::MAX_VERTS) s.num_vertices = MeshState::MAX_VERTS;
-             
-             for(size_t i=0; i<s.num_vertices; ++i) s.vertices[i] = vertices[i];
-             
-             s.num_faces = face_counts.size();
-             s.face_counts = const_cast<uint8_t*>(face_counts.data());
-             s.faces = const_cast<int*>(faces.data());
-             return s;
+    // Helper to convert PolyMesh to MeshState
+    MeshState poly_to_state(const PolyMesh& src) const {
+        MeshState dst;
+        dst.vertices = src.vertices;
+        
+        dst.faces.clear();
+        dst.face_counts.clear();
+        dst.face_counts.reserve(src.faces.size());
+        
+        for(const auto& f : src.faces) {
+            dst.face_counts.push_back((uint8_t)f.size());
+            for(int idx : f) dst.faces.push_back(idx);
         }
-
-        static OwnedMesh from_poly(const PolyMesh& src) {
-            OwnedMesh dst;
-            dst.vertices = src.vertices;
-            for(const auto& f : src.faces) {
-                dst.face_counts.push_back((uint8_t)f.size());
-                for(int idx : f) dst.faces.push_back(idx);
-            }
-            return dst;
-        }
-    };
+        
+        // Helper to build BVH if needed, but for simple sprite drawing 
+        // without raycasting, BVH might not be strictly needed.
+        // However, let's keep it consistent if possible, but build_bvh is free func.
+        // We need to call build_bvh(dst);
+        // build_bvh is in spatial.h, which is included via effects_engine.h
+        build_bvh(dst);
+        
+        return dst;
+    }
 
     
     int solid_idx = -1;
@@ -89,9 +83,10 @@ private:
         PolyMesh mesh = generate_solid((SolidType)solid_idx);
         
         // 2. Classify Topology
-        auto topology = MeshOps::classify_faces_by_topology(mesh);
+        auto faceIndices = MeshOps::classify_faces_by_topology(mesh);
         
         // 3. Log Shape Name
+        // (same logic)
         const char* names[] = {
             "Icosahedron_Hk59_Bitruncate033",
             "Octahedron_Hk17_Ambo_Hk72",
@@ -111,7 +106,7 @@ private:
         }
 
         // 4. Flatten for Rendering
-        OwnedMesh owned_mesh = OwnedMesh::from_poly(mesh);
+        MeshState mesh_state = poly_to_state(mesh);
         
         // 5. Prepare Palettes
         std::vector<const Palette*> palettes = {
@@ -130,26 +125,20 @@ private:
         int fade_in = 32;
         int fade_out = 32;
         
-        auto draw_fn = [this, owned_mesh, topology, palettes](Canvas& canvas, float opacity) {
-            MeshState mesh_state = owned_mesh.get_state();
-            
+        auto draw_fn = [this, mesh_state, faceIndices, palettes](Canvas& canvas, float opacity) {
             // Rotate
-            MeshState rotated_mesh;
-            rotated_mesh.num_vertices = mesh_state.num_vertices;
-            rotated_mesh.num_faces = mesh_state.num_faces;
-            rotated_mesh.face_counts = mesh_state.face_counts;
-            rotated_mesh.faces = mesh_state.faces;
+            MeshState rotated_mesh = mesh_state; // Deep copy vectors
             
             Quaternion q = orientation.get();
-            for(size_t i=0; i<mesh_state.num_vertices; ++i) {
-                rotated_mesh.vertices[i] = rotate(mesh_state.vertices[i], q);
+            for(auto& v : rotated_mesh.vertices) {
+                v = rotate(v, q);
             }
             
             auto shader = [&](const Vector& p, Fragment& frag) {
                  int faceIdx = (int)std::round(frag.v2);
                  int topoIdx = 0;
-                 if (faceIdx >= 0 && faceIdx < (int)topology.faceColorIndices.size()) {
-                     topoIdx = topology.faceColorIndices[faceIdx];
+                 if (faceIdx >= 0 && faceIdx < (int)faceIndices.size()) {
+                     topoIdx = faceIndices[faceIdx];
                  }
                  const Palette* pal = palettes[topoIdx % palettes.size()];
                  
