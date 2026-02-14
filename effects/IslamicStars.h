@@ -15,12 +15,14 @@ template <int W, int H>
 class IslamicStars : public Effect {
 public:
     enum class SolidType {
+        Icosahedron_Hk59_Bitruncate033,
         Octahedron_Hk17_Ambo_Hk72,
         Icosahedron_Kis_Gyro,
         TruncatedIcosidodecahedron_Truncate05_Ambo_Dual,
         Icosidodecahedron_Truncate05_Ambo_Dual,
         SnubDodecahedron_Truncate05_Ambo_Dual,
-        Rhombicuboctahedron_Hk54_Ambo_Hk72,
+        Octahedron_Hk34_Ambo_Hk72,
+        Rhombicuboctahedron_Hk63_Ambo_Hk63,
         TruncatedIcosahedron_Hk54_Ambo_Hk72,
         Dodecahedron_Hk54_Ambo_Hk72,
         Dodecahedron_Hk72_Ambo_Dual_Hk20,
@@ -32,9 +34,7 @@ public:
         filters(Filter::Screen::AntiAlias<W, H>())
     {
         persist_pixels = false;
-        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 8000, ease_mid, true)); // Slow continuous spin
-        
-        // Start the shape spawning cycle
+        timeline.add(0, Animation::RandomWalk<W>(orientation, UP)); // Slow continuous spin        
         spawn_shape();
     }
     
@@ -81,7 +81,7 @@ private:
     };
 
     
-    int solid_idx = 0;
+    int solid_idx = -1;
 
     void spawn_shape() {
         // 1. Load Next Mesh
@@ -91,10 +91,29 @@ private:
         // 2. Classify Topology
         auto topology = MeshOps::classify_faces_by_topology(mesh);
         
-        // 3. Flatten for Rendering
+        // 3. Log Shape Name
+        const char* names[] = {
+            "Icosahedron_Hk59_Bitruncate033",
+            "Octahedron_Hk17_Ambo_Hk72",
+            "Icosahedron_Kis_Gyro",
+            "TruncatedIcosidodecahedron_Truncate05_Ambo_Dual",
+            "Icosidodecahedron_Truncate05_Ambo_Dual",
+            "SnubDodecahedron_Truncate05_Ambo_Dual",
+            "Octahedron_Hk34_Ambo_Hk72",
+            "Rhombicuboctahedron_Hk63_Ambo_Hk63",
+            "TruncatedIcosahedron_Hk54_Ambo_Hk72",
+            "Dodecahedron_Hk54_Ambo_Hk72",
+            "Dodecahedron_Hk72_Ambo_Dual_Hk20",
+            "TruncatedIcosahedron_Truncate05_Ambo_Dual"
+        };
+        if(solid_idx >= 0 && solid_idx < (int)SolidType::Last) {
+            hs::log("Spawning Shape: %s (V=%d, F=%d)", names[solid_idx], (int)mesh.vertices.size(), (int)mesh.faces.size());
+        }
+
+        // 4. Flatten for Rendering
         OwnedMesh owned_mesh = OwnedMesh::from_poly(mesh);
         
-        // 4. Prepare Palettes
+        // 5. Prepare Palettes
         std::vector<const Palette*> palettes = {
             &Palettes::embers,
             &Palettes::richSunset,
@@ -156,12 +175,14 @@ private:
     
     PolyMesh generate_solid(SolidType type) {
         switch(type) {
+            case SolidType::Icosahedron_Hk59_Bitruncate033: return Solids::IslamicStarPatterns::icosahedron_hk59_bitruncate033();
             case SolidType::Octahedron_Hk17_Ambo_Hk72: return Solids::IslamicStarPatterns::octahedron_hk17_ambo_hk72();
             case SolidType::Icosahedron_Kis_Gyro: return Solids::IslamicStarPatterns::icosahedron_kis_gyro();
             case SolidType::TruncatedIcosidodecahedron_Truncate05_Ambo_Dual: return Solids::IslamicStarPatterns::truncatedIcosidodecahedron_truncate05_ambo_dual();
             case SolidType::Icosidodecahedron_Truncate05_Ambo_Dual: return Solids::IslamicStarPatterns::icosidodecahedron_truncate05_ambo_dual();
             case SolidType::SnubDodecahedron_Truncate05_Ambo_Dual: return Solids::IslamicStarPatterns::snubDodecahedron_truncate05_ambo_dual();
-            case SolidType::Rhombicuboctahedron_Hk54_Ambo_Hk72: return Solids::IslamicStarPatterns::rhombicuboctahedron_hk54_ambo_hk72();
+            case SolidType::Octahedron_Hk34_Ambo_Hk72: return Solids::IslamicStarPatterns::octahedron_hk34_ambo_hk72();
+            case SolidType::Rhombicuboctahedron_Hk63_Ambo_Hk63: return Solids::IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63();
             case SolidType::TruncatedIcosahedron_Hk54_Ambo_Hk72: return Solids::IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72();
             case SolidType::Dodecahedron_Hk54_Ambo_Hk72: return Solids::IslamicStarPatterns::dodecahedron_hk54_ambo_hk72();
             case SolidType::Dodecahedron_Hk72_Ambo_Dual_Hk20: return Solids::IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20();

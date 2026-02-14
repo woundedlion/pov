@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <vector>
+#include <bitset>
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -530,7 +531,7 @@ namespace SDF {
     };
 
     struct FaceScratchBuffer {
-        static constexpr int MAX_VERTS = 16;
+        static constexpr int MAX_VERTS = 64;
         std::array<Vector, MAX_VERTS> poly2D;
         std::array<Vector, MAX_VERTS> edgeVectors;
         std::array<float, MAX_VERTS> edgeLengthsSq;
@@ -1422,12 +1423,16 @@ namespace Scan {
         });
         
         if (handled && !intervals.is_empty()) {
+            std::bitset<W> processed;
             for (const auto& iv : intervals) {
                 int x1 = static_cast<int>(floorf((iv.first * W) / (2 * PI_F)));
                 int x2 = static_cast<int>(ceilf((iv.second * W) / (2 * PI_F)));
                 
                 for (int x = x1; x <= x2; ++x) {
                     int wx = wrap(x, W);
+                    if (processed[wx]) continue; 
+                    processed[wx] = true;
+
                     process_pixel<W, H, ComputeUVs>(wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
                 }
             }

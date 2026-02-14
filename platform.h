@@ -11,7 +11,14 @@
     using Pixel = CRGB;
 
     namespace hs {
-       inline void log(const char* msg) { Serial.println(msg); }
+       inline void log(const char* fmt, ...) {
+            char buf[128];
+            va_list args;
+            va_start(args, fmt);
+            vsnprintf(buf, sizeof(buf), fmt, args);
+            va_end(args);
+            Serial.println(buf);
+       }
        inline unsigned long millis() { return ::millis(); }
        inline void disable_interrupts() { noInterrupts(); }
        inline void enable_interrupts() { interrupts(); }
@@ -150,8 +157,12 @@
     #define PI 3.1415926535897932384626433832795
 
     namespace hs {
-       inline void log(const char* msg) { 
-           std::cout << msg << std::endl; 
+       inline void log(const char* fmt, ...) {
+           va_list args;
+           va_start(args, fmt);
+           vprintf(fmt, args);
+           va_end(args);
+           printf("\n");
        }
     }
 
