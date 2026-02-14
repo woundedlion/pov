@@ -43,7 +43,7 @@ struct Pipeline;
  */
 inline void plot_virtual(Canvas& canvas, int x, int y, const Pixel& c) {
   if (y >= 0 && y < canvas.height()) {
-    canvas(x, y) = c;
+    canvas(x, y) = gamma_correct(c);
   }
 }
 
