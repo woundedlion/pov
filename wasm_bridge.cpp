@@ -128,24 +128,18 @@ public:
         currentEffect->draw_frame();
         currentEffect->advance_display();
 
-        auto linear_to_srgb = [](float u) -> uint8_t {
-            if (u <= 0.0031308f) {
-                return static_cast<uint8_t>(std::clamp(12.92f * u * 255.0f, 0.0f, 255.0f));
-            } else {
-                return static_cast<uint8_t>(std::clamp((1.055f * std::pow(u, 1.0f / 2.4f) - 0.055f) * 255.0f, 0.0f, 255.0f));
-            }
-        };
-
         int idx = 0;
         for (int y = 0; y < pixel_height; y++) {
             for (int x = 0; x < pixel_width; x++) {
                 // Safeguard boundaries
                 const Pixel& p = currentEffect->get_pixel(x, y); 
-                
+
                 // Convert Linear (Engine) -> sRGB (Display)
-                pixelBuffer[idx++] = linear_to_srgb(p.r / 255.0f);
-                pixelBuffer[idx++] = linear_to_srgb(p.g / 255.0f);
-                pixelBuffer[idx++] = linear_to_srgb(p.b / 255.0f);
+                // Using operator CRGB() which uses the LUT
+                CRGB srgb = (CRGB)p;
+                pixelBuffer[idx++] = srgb.r;
+                pixelBuffer[idx++] = srgb.g;
+                pixelBuffer[idx++] = srgb.b;
             }
         }
     }
