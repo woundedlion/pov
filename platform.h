@@ -86,7 +86,7 @@
         uint8_t r, g, b;
         constexpr CRGB() : r(0), g(0), b(0) {}
         constexpr CRGB(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
-        constexpr CRGB(uint8_t gray) : r(gray), g(gray), b(gray) {} // explicit?
+        constexpr CRGB(uint8_t gray) : r(gray), g(gray), b(gray) {}
         
         // Convert HSV to RGB (Basic implementation)
         constexpr CRGB(const CHSV& hsv) {
