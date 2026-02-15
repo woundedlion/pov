@@ -1160,10 +1160,14 @@ namespace MeshOps {
 
       Vector intersect = cross(nHankin1, nHankin2);
       
+
       float lenSq = dot(intersect, intersect);
-      if (lenSq < 1e-8f) {
-           // Degenerate/Parallel. Fallback to corner or midpoint average.
-           intersect = instr.pCorner;
+      if (lenSq < 1e-6f) { // Increased epsilon for float precision
+           // Degenerate/Parallel. 
+           // When lines are parallel (e.g. 45 deg on tetrahedron), they often form a straight line 
+           // passing through the face center. The correct "vertex" for the pattern is the midpoint 
+           // of the edge connectors m1 and m2.
+           intersect = (m1 + m2).normalize();
       }
 
       // Chirality

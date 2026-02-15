@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <string>
+#include <iostream>
 
 template <int W, int H>
 class HankinSolids : public Effect {
@@ -88,6 +89,30 @@ private:
     std::vector<std::string> solids_list; // Not really used in C++ enum but logical parity
     CompiledHankin compiled_hankin; // Keep compiled state for the active solid
     
+    std::string get_solid_name(int idx) {
+        switch ((SolidMode)idx) {
+            case SolidMode::Tetrahedron: return "Tetrahedron";
+            case SolidMode::Cube: return "Cube";
+            case SolidMode::Octahedron: return "Octahedron";
+            case SolidMode::Dodecahedron: return "Dodecahedron";
+            case SolidMode::Icosahedron: return "Icosahedron";
+            case SolidMode::TruncatedTetrahedron: return "TruncatedTetrahedron";
+            case SolidMode::Cuboctahedron: return "Cuboctahedron";
+            case SolidMode::TruncatedCube: return "TruncatedCube";
+            case SolidMode::TruncatedOctahedron: return "TruncatedOctahedron";
+            case SolidMode::Rhombicuboctahedron: return "Rhombicuboctahedron";
+            case SolidMode::TruncatedCuboctahedron: return "TruncatedCuboctahedron";
+            case SolidMode::SnubCube: return "SnubCube";
+            case SolidMode::Icosidodecahedron: return "Icosidodecahedron";
+            case SolidMode::TruncatedDodecahedron: return "TruncatedDodecahedron";
+            case SolidMode::TruncatedIcosahedron: return "TruncatedIcosahedron";
+            case SolidMode::Rhombicosidodecahedron: return "Rhombicosidodecahedron";
+            case SolidMode::TruncatedIcosidodecahedron: return "TruncatedIcosidodecahedron";
+            case SolidMode::SnubDodecahedron: return "SnubDodecahedron";
+            default: return "Unknown";
+        }
+    }
+    
     void start_hankin_cycle() {
         constexpr int DURATION = 64;
         
@@ -116,6 +141,8 @@ private:
         
         // Identify Next Solid
         int next_idx = (solid_idx + 1) % (int)SolidMode::Last;
+
+        std::cout << "Morphing: " << get_solid_name(solid_idx) << " -> " << get_solid_name(next_idx) << std::endl;
         
         // Generate Target Mesh (Secondary)
         PolyMesh next_base = Solids::get(next_idx);
