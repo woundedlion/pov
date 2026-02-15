@@ -30,7 +30,7 @@ namespace Palettes {
     static constexpr ProceduralPalette brightSunrise({ 0.620f, 0.620f, 0.620f }, { 0.742f, 0.742f, 0.742f }, { 0.162f, 0.286f, 0.012f }, { 0.090f, 0.205f, 0.688f });
 
     // Gradient Palettes
-    static constexpr Gradient rainbow({
+    static const Gradient rainbow({
       {0.0f / 16, CPixel(0xFF0000)},
       {1.0f / 16, CPixel(0xD52A00)},
       {2.0f / 16, CPixel(0xAB5500)},
@@ -50,7 +50,7 @@ namespace Palettes {
       {16.0f / 16, CPixel(0xD5002B)}
       });
 
-    static constexpr Gradient rainbowStripes({
+    static const Gradient rainbowStripes({
       {0.0f / 16, CPixel(0xFF0000)},
       {1.0f / 16, CPixel(0x000000)},
       {2.0f / 16, CPixel(0xAB5500)},
@@ -70,7 +70,7 @@ namespace Palettes {
       {16.0f / 16, CPixel(0xFF0000)}
       });
 
-    static constexpr Gradient rainbowThinStripes({
+    static const Gradient rainbowThinStripes({
       {0.0f, CPixel(0xFF0000)},
       {1.0f / 32, CPixel(0x000000)},
       {3.0f / 32, CPixel(0x000000)},
@@ -97,7 +97,7 @@ namespace Palettes {
       {32.0f / 32, CPixel(0x000000)}
       });
 
-    static constexpr Gradient emeraldForest({
+    static const Gradient emeraldForest({
       {0.0f, CPixel(0x004E64)},
       {0.2f, CPixel(0x0B6E4F)},
       {0.4f, CPixel(0x08A045)},
