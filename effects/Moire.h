@@ -24,6 +24,7 @@ public:
     )
   {
     persist_pixels = false;
+    density = W <= 96 ? 10.0f : 45.0f;
 
     timeline
       .add(0, Animation::PeriodicTimer(80, [this](auto&) { color_wipe(); }))
@@ -39,8 +40,13 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-    draw_layer(canvas, [this](const Vector& p) { return inv_transform(p); }, base_palette);
-    draw_layer(canvas, [this](const Vector& p) { return transform(p); }, int_palette);
+
+    // Calculate rotations (matching inv_transform/transform logic conceptually)
+    Quaternion q_base = make_rotation(-X_AXIS, rotation) * make_rotation(-Z_AXIS, rotation);
+    Quaternion q_int = make_rotation(X_AXIS, rotation) * make_rotation(Z_AXIS, rotation);
+
+    draw_layer(canvas, q_base, base_palette);
+    draw_layer(canvas, q_int, int_palette);
   }
 
 private:
@@ -53,35 +59,23 @@ private:
     timeline.add(0, Animation::ColorWipe(int_palette, int_next_palette, 80, ease_mid));
   }
 
-  Vector transform(Vector p) {
-    Quaternion q_z = make_rotation(Z_AXIS, rotation);
-    Quaternion q_x = make_rotation(X_AXIS, rotation);
-    p = rotate(p, q_z);
-    p = rotate(p, q_x);
-    return p;
-  }
-
-  Vector inv_transform(Vector p) {
-    Quaternion q_nx = make_rotation(-X_AXIS, rotation);
-    Quaternion q_nz = make_rotation(-Z_AXIS, rotation);
-    p = rotate(p, q_nx);
-    p = rotate(p, q_nz);
-    return p;
-  }
-
-    void draw_layer(Canvas& canvas, TransformFn auto trans_fn, const GenerativePalette& pal) {
+  void draw_layer(Canvas& canvas, Quaternion layer_rotation, const GenerativePalette& pal) {
     int count = static_cast<int>(std::ceil(density));
     for (int i = 0; i <= count; ++i) {
       float t = static_cast<float>(i) / count;
       float r = t * 2.0f;
 
-      Basis basis = make_basis(Quaternion(), Z_AXIS);
-      auto fragment_shader = [&](const Vector&, Fragment& f) { 
-          f.color = pal.get(t);
+      Basis basis = make_basis(layer_rotation, Z_AXIS);
+      auto fragment_shader = [&](const Vector&, Fragment& f) {
+        Color4 c = pal.get(f.v0);
+        c.alpha *= alpha;
+        f.color = c;
       };
+      
       Plot::DistortedRing::draw<W, H>(filters, canvas, basis, r,
-        sin_wave(-amp, amp, 4.0f, 0.0f), 
-        fragment_shader);
+        sin_wave(-amp, amp, 4.0f, 0.0f),
+        fragment_shader,
+        rotation);
     }
   }
 
