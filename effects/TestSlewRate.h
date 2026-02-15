@@ -25,8 +25,6 @@ public:
       timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
       palette.add(&modifier);
       timeline.add(0, Animation::PaletteAnimation(modifier));
-
-      // Load Mesh (Icosahedron default)
       rebuild_mesh();
   }
 
@@ -36,8 +34,6 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
     t += 1.0f; 
-    
-    // Filters need window size update if we fully port it, but for now just lights:
     
     auto fragmentShader =  [&] (const Vector& v, Fragment& f) {
         Color4 baseColor = palette.get((v.j + 1.0f) * 0.5f);

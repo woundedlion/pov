@@ -12,8 +12,7 @@
 
 template <int W, int H> class GSReactionDiffusion : public Effect {
 public:
-  static constexpr int RD_H = 20;
-  static constexpr int RD_N = W * RD_H * 2; // Number of nodes in the graph
+  static constexpr int RD_N = W * H * 2; // Number of nodes in the graph
   static constexpr int RD_K = 6;            // Number of neighbors per node
 
   GSReactionDiffusion()
@@ -187,8 +186,8 @@ private:
   }
 
   void render_reaction(Canvas &canvas, GSReactionContext &ctx, float opacity) {
-    // Simulate Physics (12 steps per frame for stability)
-    for (int k = 0; k < 12; k++) {
+    // Simulate Physics (8 steps per frame)
+    for (int k = 0; k < 8; k++) {
       update_physics(ctx);
     }
 
