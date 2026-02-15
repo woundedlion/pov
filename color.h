@@ -319,18 +319,19 @@ struct CPixel {
  */
 class Gradient : public Palette {
 public:
-    CPixel entries[256];
+    Pixel entries[256];
 
-    // Constexpr constructor calculates the table at compile-time
-    constexpr Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
+    // Constructor calculates the table at startup (runtime due to srgb_to_linear LUT)
+    Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
         // Initialize with black
-        for(int i=0; i<256; i++) entries[i] = CPixel(0,0,0);
+        Pixel black(0,0,0);
+        for(int i=0; i<256; i++) entries[i] = black;
 
         if (points.size() == 0) return;
 
         auto it = points.begin();
         float prevPos = it->first;
-        CPixel prevColor = it->second;
+        Pixel prevColor = it->second; // Implicit conversion CPixel -> Pixel16 (calls srgb_to_linear)
         
         // Fill start
         int startIdx = 0;
@@ -340,7 +341,7 @@ public:
         it++;
         while(it != points.end()) {
             float nextPos = it->first;
-            CPixel nextColor = it->second;
+            Pixel nextColor = it->second; // Implicit conversion
             
             int start = static_cast<int>(prevPos * 255);
             int end = static_cast<int>(nextPos * 255);
@@ -348,9 +349,8 @@ public:
             if (end > start) {
                 for (int i = start; i <= end; i++) {
                     float t = static_cast<float>(i - start) / (end - start);
-                    entries[i].r = lerp8(prevColor.r, nextColor.r, t);
-                    entries[i].g = lerp8(prevColor.g, nextColor.g, t);
-                    entries[i].b = lerp8(prevColor.b, nextColor.b, t);
+                    // Interpolate in Linear 16-bit space
+                    entries[i] = prevColor.lerp16(nextColor, static_cast<uint16_t>(t * 65535.f));
                 }
             }
             prevPos = nextPos;
@@ -365,17 +365,11 @@ public:
 
     Color4 get(float t) const override {
         uint8_t index = static_cast<uint8_t>(t * 255);
-        CPixel p = entries[index];
-        // Explicitly use srgb_to_linear helper to fill 16-bit range
-        Pixel color(
-            srgb_to_linear(p.r),
-            srgb_to_linear(p.g),
-            srgb_to_linear(p.b)
-        );
-        return Color4(color, 1.0f);
+        // entries are already 16-bit Linear
+        return Color4(entries[index], 1.0f);
     }
 
-    constexpr ~Gradient() override {}
+    ~Gradient() override {}
 };
 
 /**
