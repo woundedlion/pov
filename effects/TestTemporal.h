@@ -69,7 +69,9 @@ public:
                  
                  // Lerp to white
                  Pixel white(65535, 65535, 65535);
-                 uint16_t frac = (uint16_t)(strength * global.lightAlpha * 65535.0f);
+                 float val = strength * global.lightAlpha;
+                 if (val > 1.0f) val = 1.0f;
+                 uint16_t frac = (uint16_t)(val * 65535.0f);
                  f.color.color = f.color.color.lerp16(white, frac);
              }
         });

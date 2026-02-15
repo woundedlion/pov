@@ -12,6 +12,7 @@ public:
     Effect(W, H),
     palette({ 0.5f, 0.5f, 0.5f }, { 0.5f, 0.5f, 0.5f }, { 0.3f, 0.3f, 0.3f }, { 0.0f, 0.2f, 0.6f }),
     filters(Filter::Screen::AntiAlias<W, H>()),
+    alpha(0.2f),
     ring_vec(0.5f, 0.5f, 0.5f),
     amplitude(0),
     radius(1.0f),
@@ -38,8 +39,7 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
     if (!warp_anim.done()) {
-      Canvas dummy(*this); // Mutation step doesn't need canvas but interface requires it
-      warp_anim.step(dummy);
+      warp_anim.step(canvas);
     }
     t_global++;
   }
@@ -129,8 +129,10 @@ private:
 
   void draw_thruster(Canvas& c, const ThrusterContext& ctx, float opacity) {
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
-    auto fragment_shader = [](const Vector&, Fragment& f) { 
+    auto fragment_shader = [this, opacity](const Vector&, Fragment& f) { 
         f.color = Color4(CRGB(255, 255, 255));
+        f.color.color = f.color.color * opacity;
+        f.color.alpha = opacity * alpha;
     };
     Plot::Ring::draw<W, H>(filters, c, basis, ctx.radius, fragment_shader);
   }
@@ -138,14 +140,15 @@ private:
   void draw_ring(Canvas& c, float opacity) {
     Basis basis = make_basis(orientation.get(), ring_vec);
     
-    auto fragment_shader = [this](const Vector& v, Fragment& f) { // Color function
+    auto fragment_shader = [this, opacity](const Vector& v, Fragment& f) {
         Vector axis = orientation.orient(X_AXIS);
         float angle = angle_between(axis, orientation.orient(v));
         f.color = palette.get(angle / PI_F);
+        f.color.alpha *= alpha * opacity;
     };
 
     Plot::DistortedRing::draw<W, H>(filters, c, basis, radius,
-      [this](float t) { return ring_fn(t); }, // Shift function
+      [this](float t) { return ring_fn(t); }, 
       fragment_shader
     );
   }
@@ -162,4 +165,5 @@ private:
   Timeline<W> timeline;
   Animation::Mutation warp_anim;
   Orientation<W> orientation;
+  float alpha;
 };
