@@ -13,13 +13,10 @@ public:
     : Effect(W, H),
       orientation(),
       // Pipeline: Orient -> Slew -> AntiAlias
-      slew(1.0f, 0.05f),
       pipeline(
-        Filter::World::Orient<W>(orientation),
-        slew,
-        Filter::Screen::AntiAlias<W, H>()
+        Filter::World::Orient<W>(orientation)
       ),
-      palette(CircularPalette(Palettes::richSunset)),
+      palette(source_palette),
       modifier(0.02f)
   {
       this->persist_pixels = false;
@@ -37,50 +34,48 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-    t += 0.01f; 
+    t += 1.0f; 
     
-    Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, [&](const Vector& v, Fragment& f) {
+    // Filters need window size update if we fully port it, but for now just lights:
+    
+    auto fragmentShader =  [&] (const Vector& v, Fragment& f) {
         Color4 baseColor = palette.get((v.j + 1.0f) * 0.5f);
+        f.color = baseColor;
         
-        float phase = fmodf(t * speed, 1.0f);
-        if (phase < 0) phase += 1.0f;
+        // Lighting Logic (Edge Pulses)
+         float phase = fmodf(t * global.lightSpeed, 1.0f);
+         if (phase < 0) phase += 1.0f;
+         float dist = std::abs(f.v1 - phase);
+         if (dist > 0.5f) dist = 1.0f - dist;
+         
+         const float width = 0.15f;
+         if (dist < width) {
+             float strength = powf(1.0f - (dist / width), 2.0f);
+             
+             // Lerp to white
+             Pixel white(65535, 65535, 65535);
+             float val = strength * global.lightAlpha;
+             if (val > 1.0f) val = 1.0f;
+             uint16_t frac = (uint16_t)(val * 65535.0f);
+             f.color.color = f.color.color.lerp16(white, frac);
+         }
+    };
 
-        
-        float dist = std::abs(f.v1 - phase);
-        if (dist > 0.5f) dist = 1.0f - dist;
-        
-        float intensity = 0.0f;
-        if (dist < lightSize) {
-            float r = 1.0f - (dist / lightSize);
-            intensity = r * r;
-        }
-        
-
-        auto lerpColor = [](Color4 a, Color4 b, float t) {
-             return Color4(
-                static_cast<uint8_t>(a.color.r + (b.color.r - a.color.r) * t),
-                static_cast<uint8_t>(a.color.g + (b.color.g - a.color.g) * t),
-                static_cast<uint8_t>(a.color.b + (b.color.b - a.color.b) * t),
-                a.alpha + (b.alpha - a.alpha) * t
-             );
-        };
-        
-        f.color = lerpColor(baseColor, Color4(255, 255, 255, 1.0f), intensity);
-    });
-
+    Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, fragmentShader); 
     pipeline.flush(canvas, [](float x, float y, float t) { return Color4(0,0,0,0); }, 1.0f); 
   }
   
   // Params
+  struct GlobalParams {
+      float lightSpeed = 0.05f;
+      float lightAlpha = 1.0f;
+  } global;
+  
   float t = 0;
-  float speed = 0.05f;
-  float lightSize = 0.15f;
 
 private:
   Orientation<W> orientation;
-  Filter::Screen::Slew<W, 10000> slew; 
-  
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Slew<W, 10000>, Filter::Screen::AntiAlias<W, H>> pipeline;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Slew<W, 100000>, Filter::Screen::AntiAlias<W, H>> pipeline;
   
   CircularPalette source_palette = CircularPalette(Palettes::richSunset);
   AnimatedPalette palette;
