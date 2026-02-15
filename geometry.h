@@ -377,9 +377,10 @@ auto square_wave(float from, float to, float freq, float dutyCycle, float phase)
  * @brief Class managing the current rotation state of an object, maintaining history for interpolation.
  * @details Stores a list of Quaternions (`orientations`) generated during the current frame step.
  */
-template <int W, int HISTORY>
+template <int W>
 class Orientation {
 public:
+  static constexpr int CAPACITY = 32;
   /**
    * @brief Default constructor (identity rotation).
    */
@@ -477,7 +478,7 @@ public:
    * @return Reference to the Orientation object.
    */
   Orientation& push(const Quaternion& q) {
-    if (num_frames < HISTORY) {
+    if (num_frames < CAPACITY) {
       orientations[num_frames++] = q;
     } else {
       hs::log("Orientation full, droping frame!");
@@ -513,28 +514,26 @@ public:
    */
   void upsample(int count) {
     if (num_frames >= count) return;
-    if (count > HISTORY) count = HISTORY;
+    if (count > CAPACITY) count = CAPACITY;
 
-    std::array<Quaternion, HISTORY> old_orientations;
+    std::array<Quaternion, CAPACITY> old_orientations;
     std::copy(orientations.begin(), orientations.begin() + num_frames, old_orientations.begin());
 
     int old_num_frames = num_frames;
-    num_frames = count;
-    orientations[0] = old_orientations[0];
-    orientations[count - 1] = old_orientations[old_num_frames - 1];
-
-    for (int i = 1; i < count - 1; i++) {
+    
+    for (int i = 0; i < count; ++i) {
       float t = static_cast<float>(i) / (count - 1);
-      float old_val = t * (old_num_frames - 1);
-      int idx_a = static_cast<int>(std::floor(old_val));
-      int idx_b = static_cast<int>(std::ceil(old_val));
-      float alpha = old_val - idx_a;
-      orientations[i] = slerp(old_orientations[idx_a], old_orientations[idx_b], alpha);
+      float source_float_index = t * (old_num_frames - 1);
+      int idx = static_cast<int>(source_float_index);
+      float frac = source_float_index - idx;
+
+      orientations[i] = slerp(old_orientations[idx], old_orientations[std::min((int)old_num_frames - 1, idx + 1)], frac);
     }
+    num_frames = count;
   }
 
 private:
-  std::array<Quaternion, HISTORY> orientations; /**< Storage for historical quaternions. */
+  std::array<Quaternion, CAPACITY> orientations; /**< Storage for historical quaternions. */
   int num_frames; /**< The current number of active frames in history. */
 };
 

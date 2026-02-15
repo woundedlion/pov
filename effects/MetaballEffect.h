@@ -4,9 +4,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
-#include <vector>
-#include <cmath>
+#include "../FastNoiseLite.h"
 
 template <int W, int H>
 class MetaballEffect : public Effect {
@@ -18,6 +16,8 @@ public:
     };
 
     MetaballEffect() : Effect(W, H), palette(Palettes::richSunset) {
+        noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+        noise.SetSeed(hs::rand_int(0, 10000));
         init_balls();
     }
 
@@ -25,11 +25,24 @@ public:
 
     void draw_frame() override {
         Canvas canvas(*this); 
+        t += 0.01f;
 
         // 1. Physics
-        for (auto& b : balls) {
-            Vector force = b.p * (-gravity);
-            b.v += force;
+        for (int i = 0; i < balls.size(); i++) {
+            auto& b = balls[i];
+            
+            // Gravity to center
+            Vector center_force = b.p * (-gravity);
+
+            // Noise force for wandering
+            // Use ball index to offset noise so they don't all move the same way
+            float nx = noise.GetNoise(t * noise_speed, (float)i * 10.0f, 0.0f);
+            float ny = noise.GetNoise(t * noise_speed, (float)i * 10.0f, 100.0f);
+            float nz = noise.GetNoise(t * noise_speed, (float)i * 10.0f, 200.0f);
+            Vector noise_force(nx, ny, nz);
+            noise_force = noise_force * noise_strength;
+
+            b.v += center_force + noise_force;
             b.p += b.v;
         }
         
@@ -46,10 +59,10 @@ public:
                     sum += (b.r * b.r) / dist_sq;
                 }
                 
-                float t = sum / max_influence;
-                if (t > 1.0f) t = 1.0f;
+                float t_val = sum / max_influence;
+                if (t_val > 1.0f) t_val = 1.0f;
                 
-                Color4 c = palette.get(t);
+                Color4 c = palette.get(t_val);
                 canvas(x, y) = c.color; 
             }
         }
@@ -57,14 +70,20 @@ public:
     
     // Params
     float max_influence = 10.0f;
-    float gravity = 0.005f;
-    int num_balls = 16;
+    float gravity = 0.004f;
+    int num_balls = 25;
     float radius_scale = 1.0f;
-    float velocity_scale = 1.0f;
+    float velocity_scale = 0.7f;
+    
+    // Noise params
+    float noise_strength = 0.0077f;
+    float noise_speed = 4.0f;
 
 private:
     std::vector<Ball> balls;
     const Palette& palette;
+    FastNoiseLite noise;
+    float t = 0.0f;
 
     void init_balls() {
         balls.clear();

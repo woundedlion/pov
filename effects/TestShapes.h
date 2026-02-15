@@ -11,7 +11,7 @@
 template <int W, int H>
 class TestShapes : public Effect {
 public:
-  enum class ShapeType { Polygon, Star, Flower };
+  enum class ShapeType { PlanarPolygon, SphericalPolygon, Flower, Star };
   enum class RenderMode { Plot, Scan };
 
   struct Ring {
@@ -34,7 +34,7 @@ public:
     radius(1.0f),
     sides(5),
     twist(0.0f),
-    current_shape(ShapeType::Polygon),
+    current_shape(ShapeType::PlanarPolygon),
     num_shapes(25),
     debug_bb(false)
   {
@@ -51,7 +51,7 @@ public:
     static int frame_count = 0;
     frame_count++;
     if (frame_count % 500 == 0) {
-      int next = (static_cast<int>(current_shape) + 1) % 3;
+      int next = (static_cast<int>(current_shape) + 1) % 4;
       current_shape = static_cast<ShapeType>(next);
     }
 
@@ -61,7 +61,7 @@ public:
   void rebuild() {
     rings.clear();
     // Re-create timeline to clear old animations
-    timeline = Timeline<W>(); 
+    timeline = Timeline<W, 256>(); 
 
     // Twist Mutation: sin wave
     // In JS: (Math.PI / 4) * Math.sin(t * Math.PI), duration 480
@@ -75,6 +75,7 @@ public:
 
     for (int i = total_shapes - 1; i >= 0; --i) {
       float t = static_cast<float>(i) / (total_shapes > 1 ? total_shapes - 1 : 1);
+      // JS: color = Palettes.richSunset.get(t).clone();
       Color4 color = Palettes::richSunset.get(t);
       spawnRing(X_AXIS, t, color, seed1, RenderMode::Plot, i);
       spawnRing(-X_AXIS, t, color, seed1, RenderMode::Scan, i);
@@ -112,7 +113,7 @@ public:
     float r = this->radius * ring.scale;
     
     Basis basis = make_basis(ring.orientation.get(), ring.normal);
-
+    current_shape = ShapeType::Star;
     if (ring.mode == RenderMode::Plot) {
       switch (current_shape) {
         case ShapeType::Flower:
@@ -121,7 +122,10 @@ public:
         case ShapeType::Star:
            Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
-        default: // Polygon
+        case ShapeType::PlanarPolygon:
+           Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           break;
+        default: // SphericalPolygon
            Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
            break;
       }
@@ -133,7 +137,10 @@ public:
         case ShapeType::Star:
            Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
-        default:
+        case ShapeType::PlanarPolygon:
+           Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           break;
+        default: // SphericalPolygon
            Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
       }
@@ -141,7 +148,7 @@ public:
   }
 
 private:
-  Timeline<W> timeline;
+  Timeline<W, 256> timeline;
   StaticCircularBuffer<Ring, 128> rings;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
   Pipeline<W, H> scan_filters;
