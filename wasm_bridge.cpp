@@ -58,6 +58,7 @@ std::unique_ptr<Effect> create_effect(const std::string& name) {
     if (name == "TestTemporal") return std::make_unique<TestTemporal<W, H>>();
     if (name == "Thrusters") return std::make_unique<Thrusters<W, H>>();
     if (name == "Voronoi") return std::make_unique<Voronoi<W, H>>();
+    if (name == "FlamingMesh") return std::make_unique<FlamingMesh<W, H>>();
     return std::make_unique<Test<W, H>>(); // Fallback
 }
 
