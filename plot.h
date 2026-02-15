@@ -36,73 +36,86 @@ namespace Plot {
 
     size_t count = close_loop ? len : len - 1;
     _steps_cache.reserve(W);
-    _point_cache.reserve(W);
 
     // Optimized segment processor
     auto process_segment = [&](auto&& map, const Fragment& curr, const Fragment& next, float total_dist, bool isLastSegment) {
+        // Handle Degenerate Segment
         if (total_dist < 1e-5f) {
             bool shouldOmit = (close_loop) ? false : !isLastSegment; 
             if (!shouldOmit) {
                  Fragment f_copy = curr;
+                 // Set temp values for shader
+                 f_copy.pos = curr.pos;
+                 f_copy.age = age;
+                 f_copy.color = Color4(0,0,0,0);
+                 f_copy.blend = 0;
+
                  fragment_shader(curr.pos, f_copy);
                  pipeline.plot(canvas, curr.pos, f_copy.color.color, age, f_copy.color.alpha, f_copy.blend);
             }
             return;
         }
 
+        // 1. SIMULATION PHASE
         _steps_cache.clear();
-        _point_cache.clear();
-        
         float sim_dist = 0.0f;
         const float base_step = (2.0f * PI_F) / W;
         
-        // Calculate initial point
-        Vector sim_p = map(0.0f);
+        // Calculate initial point for density
+        Vector p_temp = map(0.0f);
         
-        // 1. SIMULATION & CACHING PHASE
-        int max_steps = W; 
-        int steps_taken = 0;
-
-        while (sim_dist < total_dist && steps_taken < max_steps) {
+        while (sim_dist < total_dist) {
             // Adaptive step size based on distortion (y-component)
-            float scale_factor = std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - sim_p.j * sim_p.j)));
+            // match JS: Math.max(0.05, Math.sqrt(Math.max(0, 1.0 - pTemp.y * pTemp.y)));
+            float scale_factor = std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.j * p_temp.j)));
             float step = base_step * scale_factor;
             
+            _steps_cache.push_back(step);
             sim_dist += step;
-            steps_taken++;
             
             if (sim_dist < total_dist) {
-                float t = sim_dist / total_dist;
-                sim_p = map(t); // Heavy math happens here
-                _point_cache.push_back({sim_p, t}); // Store result
-                _steps_cache.push_back(step);
-            } else {
-                _steps_cache.push_back(step); // Last step
+                p_temp = map(sim_dist / total_dist);
             }
         }
-
+        
+        float scale = (sim_dist > 0.0f) ? (total_dist / sim_dist) : 0.0f;
         bool omitLast = (close_loop) ? false : !isLastSegment;
         
+        if (omitLast && _steps_cache.empty()) return;
+
         // 2. DRAWING PHASE
+        
+        // Draw Start Point
         {
-            Fragment f_copy = curr;
-            fragment_shader(curr.pos, f_copy);
-            pipeline.plot(canvas, curr.pos, f_copy.color.color, age, f_copy.color.alpha, f_copy.blend);
+            Vector start_pos = map(0.0f);
+            Fragment f = Fragment::lerp(curr, next, 0.0f);
+            f.pos = start_pos;
+            f.age = age;
+            f.color = Color4(0,0,0,0);
+            f.blend = 0;
+            
+            fragment_shader(start_pos, f);
+            pipeline.plot(canvas, start_pos, f.color.color, age, f.color.alpha, f.blend);
         }
 
-        size_t loop_limit = _point_cache.size();
+        size_t loop_limit = omitLast ? _steps_cache.size() - 1 : _steps_cache.size();
+        float current_dist = 0.0f;
         
         for (size_t j = 0; j < loop_limit; j++) {
-             const auto& pt = _point_cache[j];
-             Fragment f = Fragment::lerp(curr, next, pt.t);
-             fragment_shader(pt.p, f);
-             pipeline.plot(canvas, pt.p, f.color.color, age, f.color.alpha, f.blend);
-        }
-        
-        if (!omitLast) {
-             Fragment f_copy = next;
-             fragment_shader(next.pos, f_copy);
-             pipeline.plot(canvas, next.pos, f_copy.color.color, age, f_copy.color.alpha, f_copy.blend);
+             float step = _steps_cache[j] * scale;
+             current_dist += step;
+             
+             float t = (total_dist > 0.0f) ? (current_dist / total_dist) : 1.0f;
+             
+             Vector p = map(t);
+             Fragment f = Fragment::lerp(curr, next, t);
+             f.pos = p;
+             f.age = age;
+             f.color = Color4(0,0,0,0);
+             f.blend = 0;
+
+             fragment_shader(p, f);
+             pipeline.plot(canvas, p, f.color.color, age, f.color.alpha, f.blend);
         }
     };
 
@@ -111,32 +124,71 @@ namespace Plot {
         const Fragment& next = points[(i + 1) % len];
         bool isLastSegment = (i == count - 1);
         
-        // --- OPTIMIZED GEODESIC MAP (Standard) ---        
-        Vector v1 = curr.pos;
-        Vector v2 = next.pos;
-        float total_dist = angle_between(v1, v2);
-        
-        if (total_dist < 0.001f) {
-            // Degenerate
-            auto map_degenerate = [=](float t) { return v1; };
-            process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
-        } else {
-            Vector axis;
-            if (std::abs(PI_F - total_dist) < TOLERANCE) {
-                 axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS) : cross(v1, X_AXIS);
-            } else {
-                 axis = cross(v1, v2).normalize();
-            }
+        // --- Interpolation Strategy Selection ---
+        if (planar_basis) {
+             // PLANAR STRATEGY
+             // match JS: PlanarStrategy(planarBasis)
+             const Vector& u = planar_basis->u;
+             const Vector& center = planar_basis->v;
+             const Vector& w = planar_basis->w;
              
-            Vector v_perp = cross(axis, v1);
-
-            auto map_geodesic = [=](float t) {
-                 float ang = total_dist * t;
-                 float s = sinf(ang);
-                 float c = cosf(ang);
-                 return (v1 * c) + (v_perp * s);
+             auto project = [&](const Vector& p) -> std::pair<float, float> {
+                 float R = angle_between(p, center);
+                 if (R < 1e-5f) return {0.0f, 0.0f};
+                 float x = dot(p, u);
+                 float y = dot(p, w);
+                 float theta = atan2f(y, x);
+                 return {R * cosf(theta), R * sinf(theta)};
              };
-             process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
+             
+             auto proj1 = project(curr.pos);
+             auto proj2 = project(next.pos);
+             float dx = proj2.first - proj1.first;
+             float dy = proj2.second - proj1.second;
+             float dist = sqrtf(dx*dx + dy*dy);
+             
+             auto map_planar = [=](float t) {
+                  float Px = proj1.first + dx * t;
+                  float Py = proj1.second + dy * t;
+                  
+                  // Unproject
+                  float R = sqrtf(Px*Px + Py*Py);
+                  if (R < 1e-5f) return center;
+                  
+                  float theta = atan2f(Py, Px);
+                  Vector axis = (u * cosf(theta)) + (w * sinf(theta));
+                  return (center * cosf(R)) + (axis * sinf(R));
+             };
+             
+             process_segment(map_planar, curr, next, dist, isLastSegment);
+
+        } else {
+            // GEODESIC STRATEGY (Standard)
+            Vector v1 = curr.pos;
+            Vector v2 = next.pos;
+            float total_dist = angle_between(v1, v2);
+            
+            if (total_dist < 0.001f) {
+                auto map_degenerate = [=](float t) { return v1; };
+                process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
+            } else {
+                Vector axis;
+                if (std::abs(PI_F - total_dist) < TOLERANCE) {
+                     axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS) : cross(v1, X_AXIS);
+                } else {
+                     axis = cross(v1, v2).normalize();
+                }
+                 
+                Vector v_perp = cross(axis, v1);
+    
+                auto map_geodesic = [=](float t) {
+                     float ang = total_dist * t;
+                     float s = sinf(ang);
+                     float c = cosf(ang);
+                     return (v1 * c) + (v_perp * s);
+                 };
+                 process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
+            }
         }
     }
   }

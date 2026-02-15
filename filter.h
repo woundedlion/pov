@@ -359,11 +359,11 @@ public:
     float v01 = (1 - xs) * ys;
     float v11 = xs * ys;
 
-    if (v00 > 1e-4) pass(x_i, y_i, c, age, alpha * v00, tag);
-    if (v10 > 1e-4) pass(wrap((x_i + 1), W), y_i, c, age, alpha * v10, tag);
+    if (v00 > 1e-8) pass(x_i, y_i, c, age, alpha * v00, tag);
+    if (v10 > 1e-8) pass(wrap((x_i + 1), W), y_i, c, age, alpha * v10, tag);
     if (y_i < H - 1) {
-      if (v01 > 1e-4) pass(x_i, y_i + 1, c, age, alpha * v01, tag);
-      if (v11 > 1e-4) pass(wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11, tag);
+      if (v01 > 1e-8) pass(x_i, y_i + 1, c, age, alpha * v01, tag);
+      if (v11 > 1e-8) pass(wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11, tag);
     }
   }
 };
