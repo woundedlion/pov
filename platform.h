@@ -46,6 +46,10 @@
            return ::random(min, max);
        }
        
+       // Global state
+       inline float time = 0.0f;
+       inline bool debug = false;
+
        static constexpr int H_OFFSET = 3;
     }
 
@@ -283,6 +287,10 @@
            return std::rand() % (max - min) + min;
        }
        
+       // Global state
+       inline float time = 0.0f;
+       inline bool debug = false;
+
        static constexpr int H_OFFSET = 0;
     }
     

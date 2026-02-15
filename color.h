@@ -27,6 +27,7 @@ struct Pixel16;
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // Helper forward declaration
+// Helper forward declaration
 inline uint16_t srgb_to_linear(uint8_t srgb);
 
 // Gamma 2.2 approximation

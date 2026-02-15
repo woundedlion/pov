@@ -86,7 +86,7 @@ public:
         pixel_width = w;
         pixel_height = h;
         
-        // Resize buffer (3 bytes per pixel: R, G, B)
+        // Resize buffer (16-bit linear: uint16_t per channel)
         pixelBuffer.resize(pixel_width * pixel_height * 3);
         
         // Re-create current effect if exists
@@ -98,68 +98,58 @@ public:
     void setEffect(std::string name) {
         hs::log(("WASM: setEffect called with " + name).c_str());
 
-        // Dispatch based on resolution
-        if (pixel_width == 96 && pixel_height == 20) {
-            hs::log("WASM: Creating effect <96, 20>");
-            currentEffect = create_effect<96, 20>(name);
+        if (currentEffect) {
+            currentEffect = nullptr;
         }
-        else if (pixel_width == 288 && pixel_height == 144) {
-             hs::log("WASM: Creating effect <288, 144>");
-            currentEffect = create_effect<288, 144>(name);
-        }
+        
+        // Use factory
+        if (pixel_width == 96 && pixel_height == 20) currentEffect = create_effect<96, 20>(name);
+        else if (pixel_width == 288 && pixel_height == 144) currentEffect = create_effect<288, 144>(name);
+        else if (pixel_width == 576 && pixel_height == 288) currentEffect = create_effect<576, 288>(name);
         else {
-             hs::log(("Unsupported resolution: " + std::to_string(pixel_width) + "x" + std::to_string(pixel_height)).c_str());
+             hs::log("WASM: Unsupported resolution for factory!");
+             return;
         }
-        if (currentEffect) {
-             hs::log("WASM: Effect created successfully");
-        } else {
-             hs::log("WASM: Effect creation failed (or resolution mismatch)");
-        }
-    }
-
-    void setDebug(bool enabled) {
-        hs::log(("WASM: setDebug called with " + std::to_string(enabled)).c_str());
-        if (currentEffect) {
-            currentEffect->debug_visuals = enabled;
-        }
+        
     }
 
     void drawFrame() {
+        if (!currentEffect) return;
+
+
+        // Draw
         currentEffect->draw_frame();
         currentEffect->advance_display();
-
+        
+        // Copy to buffer
+        // Output 16-bit Linear values directly
         int idx = 0;
         for (int y = 0; y < pixel_height; y++) {
             for (int x = 0; x < pixel_width; x++) {
-                // Safeguard boundaries
+                // Get the pixel (Pixel16)
                 const Pixel& p = currentEffect->get_pixel(x, y); 
-
-                // Convert Linear (Engine) -> sRGB (Display)
-                // Using operator CRGB() which uses the LUT
-                CRGB srgb = (CRGB)p;
-                pixelBuffer[idx++] = srgb.r;
-                pixelBuffer[idx++] = srgb.g;
-                pixelBuffer[idx++] = srgb.b;
+                
+                // Direct 16-bit copy (Linear)
+                pixelBuffer[idx++] = p.r;
+                pixelBuffer[idx++] = p.g;
+                pixelBuffer[idx++] = p.b;
             }
         }
     }
 
-    // Returns the memory address of the pixel buffer
-    uintptr_t getBufferPointer() const {
-        return (uintptr_t)pixelBuffer.data();
-    }
-
+    // Expose the raw memory view to JS to avoid copying overhead
     val getPixels() {
+        // Return Uint16Array view
         return val(typed_memory_view(pixelBuffer.size(), pixelBuffer.data()));
     }
-
-    size_t getBufferLength() const {
+    
+    int getBufferLength() {
         return pixelBuffer.size();
     }
 
 private:
     std::unique_ptr<Effect> currentEffect;
-    std::vector<uint8_t> pixelBuffer;
+    std::vector<uint16_t> pixelBuffer; // 16-bit
     int pixel_width = 0;
     int pixel_height = 0;
 };
@@ -170,7 +160,6 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
         .constructor<>()
         .function("setResolution", &HolosphereEngine::setResolution)
         .function("setEffect", &HolosphereEngine::setEffect)
-        .function("setDebug", &HolosphereEngine::setDebug)
         .function("drawFrame", &HolosphereEngine::drawFrame)
         .function("getPixels", &HolosphereEngine::getPixels)
         .function("getBufferLength", &HolosphereEngine::getBufferLength);
