@@ -132,6 +132,7 @@ public:
     } else {
       switch (current_shape) {
         case ShapeType::Flower:
+          debug_bb = true;
            Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
            break;
         case ShapeType::Star:
