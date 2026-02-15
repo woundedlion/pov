@@ -48,6 +48,7 @@ public:
     };
 
     LSystem() : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
+        persist_pixels = false;
         setup_rules();
         set_ruleset(0); // Tree
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400, ease_mid, true));
