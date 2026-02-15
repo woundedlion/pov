@@ -151,17 +151,28 @@ namespace SDF {
 
         if (angle_min <= safe_threshold) {
              // Merge across alpha
-             out(alpha_angle - angle_max, alpha_angle + angle_max);
+             float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
+             float f_x2 = (alpha_angle + angle_max) * W / (2 * PI_F);
+             out(floorf(f_x1), ceilf(f_x2));
         } else if (angle_max >= PI_F - safe_threshold) {
              // Merge across antipode
-             out(alpha_angle + angle_min, alpha_angle + 2 * PI_F - angle_min);
+             float f_x1 = (alpha_angle + angle_min) * W / (2 * PI_F);
+             float f_x2 = (alpha_angle + 2 * PI_F - angle_min) * W / (2 * PI_F);
+             out(floorf(f_x1), ceilf(f_x2));
         } else {
-             out(alpha_angle - angle_max, alpha_angle - angle_min);
-             out(alpha_angle + angle_min, alpha_angle + angle_max);
+             // Merge across alpha
+             float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
+             float f_x2 = (alpha_angle - angle_min) * W / (2 * PI_F);
+             float f_x3 = (alpha_angle + angle_min) * W / (2 * PI_F);
+             float f_x4 = (alpha_angle + angle_max) * W / (2 * PI_F);
+             
+             out(floorf(f_x1), ceilf(f_x2));
+             out(floorf(f_x3), ceilf(f_x4));
         }
         
         return true;
       }
+
       
       /**
        * @brief Computes signed distance to the ring.
@@ -303,12 +314,20 @@ namespace SDF {
          float safe_threshold = pixel_width;
 
          if (angle_min <= safe_threshold) {
-              out(alpha_angle - angle_max, alpha_angle + angle_max);
+              float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
+              float f_x2 = (alpha_angle + angle_max) * W / (2 * PI_F);
+              out(floorf(f_x1), ceilf(f_x2));
          } else if (angle_max >= PI_F - safe_threshold) {
-              out(alpha_angle + angle_min, alpha_angle + 2 * PI_F - angle_min);
+              float f_x1 = (alpha_angle + angle_min) * W / (2 * PI_F);
+              float f_x2 = (alpha_angle + 2 * PI_F - angle_min) * W / (2 * PI_F);
+              out(floorf(f_x1), ceilf(f_x2));
          } else {
-              out(alpha_angle - angle_max, alpha_angle - angle_min);
-              out(alpha_angle + angle_min, alpha_angle + angle_max);
+              float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
+              float f_x2 = (alpha_angle - angle_min) * W / (2 * PI_F);
+              float f_x3 = (alpha_angle + angle_min) * W / (2 * PI_F);
+              float f_x4 = (alpha_angle + angle_max) * W / (2 * PI_F);
+              out(floorf(f_x1), ceilf(f_x2));
+              out(floorf(f_x3), ceilf(f_x4));
          }
          return true;
        }
@@ -727,11 +746,13 @@ namespace SDF {
         
         template<int W, int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
-           if (full_width) return false;
-           for(const auto& iv : intervals) {
-               out(iv.first, iv.second);
-           }
-           return true; 
+            if (full_width) return false;
+            for(const auto& iv : intervals) {
+                float f_x1 = iv.first * W / (2 * PI_F);
+                float f_x2 = iv.second * W / (2 * PI_F);
+                out(floorf(f_x1), ceilf(f_x2));
+            }
+            return true; 
         }
 
         /**
@@ -908,9 +929,11 @@ namespace SDF {
            if (C_min > 1.0f) return true; // Completely outside the cap
            if (C_min < -1.0f) return false; // Full scan fallback (simplification)
 
-           float d_alpha = acosf(C_min);
-           out(alpha_angle - d_alpha, alpha_angle + d_alpha);
-           return true;
+            float d_alpha = acosf(C_min);
+            float f_x1 = (alpha_angle - d_alpha) * W / (2 * PI_F);
+            float f_x2 = (alpha_angle + d_alpha) * W / (2 * PI_F);
+            out(floorf(f_x1), ceilf(f_x2));
+            return true;
        }
        
        /**
@@ -972,78 +995,85 @@ namespace SDF {
     template <int W>
     struct Star {
         const Basis& basis;
-        float radius;
         int sides;
         float phase;
+        const bool is_solid = true;
         
-        float nx, ny, plane_d; // Edge plane equation (2D)
+        float nx, ny, planeD;
         float thickness;
         
-        // Scan optimization
-        float scan_nx, scan_ny, scan_nz;
-        float scan_r_val, scan_alpha_angle;
-        int y_min, y_max;
-        const bool is_solid = true;
+        // Scan
+        float scanNy, scanNx, scanNz, scanR, scanAlpha;
+        int yMin, yMax;
 
-        Star(const Basis& b, float r, int s, float ph, int h_virt, int height)
-            : basis(b), radius(r), sides(s), phase(ph)
+        Star(const Basis& b, float radius, int s, float ph, int h_virt, int height)
+            : basis(b), sides(s), phase(ph)
         {
-            float outer_radius = radius * (PI_F / 2.0f);
-            float inner_radius = outer_radius * 0.382f;
-            float angle_step = PI_F / sides;
+            float outerRadius = radius * (PI_F / 2.0f);
+            float innerRadius = outerRadius * 0.382f;
+            float angleStep = PI_F / sides;
 
-            float v_t = outer_radius * (PI_F / 2.0f);
-            float v_vx = inner_radius * cosf(angle_step);
-            float v_vy = inner_radius * sinf(angle_step);
+            float vT = outerRadius;
+            float vVx = innerRadius * cosf(angleStep);
+            float vVy = innerRadius * sinf(angleStep);
 
-            // Vector from Tip (v_t, 0) to Valley (v_vx, v_vy)
-            float dx = v_vx - v_t; 
-            float dy = v_vy - 0.0f;  
+            float dx = vVx - vT;
+            float dy = vVy;
             float len = sqrtf(dx * dx + dy * dy);
-            
-            // Normal to edge
             nx = -dy / len;
             ny = dx / len;
-            plane_d = -(nx * v_t + ny * 0.0f);
-            thickness = outer_radius;
+            planeD = -(nx * vT);
+            thickness = outerRadius;
 
-            // Scan Bounds setup
-            scan_nx = basis.v.i;
-            scan_ny = basis.v.j;
-            scan_nz = basis.v.k;
-            scan_r_val = sqrtf(scan_nx * scan_nx + scan_nz * scan_nz);
-            scan_alpha_angle = atan2f(scan_nz, scan_nx);
+            // Scan
+            scanNy = basis.v.j;
+            scanNx = basis.v.i;
+            scanNz = basis.v.k;
+            scanR = sqrtf(scanNx * scanNx + scanNz * scanNz);
+            scanAlpha = atan2f(scanNx, scanNz);
 
-            float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
-            float margin = thickness + 0.1f;
-            y_min = std::max(0, static_cast<int>(floorf((std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
-            y_max = std::min(height - 1, static_cast<int>(ceilf((std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
+            float centerPhi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
+            float margin = outerRadius + 0.1f;
+            // Star uses H (height) directly, not H_VIRT (matches JS Daydream.H)
+            yMin = std::max(0, static_cast<int>(floorf((std::max(0.0f, centerPhi - margin) * (height - 1)) / PI_F)));
+            yMax = std::min(height - 1, static_cast<int>(ceilf((std::min(PI_F, centerPhi + margin) * (height - 1)) / PI_F)));
         }
 
         template <int H>
-        Bounds get_vertical_bounds() const { return { y_min, y_max }; }
+        Bounds get_vertical_bounds() const { return { yMin, yMax }; }
 
         template<int W_scan, int H, typename OutputIt>
         bool get_horizontal_intervals(int y, OutputIt out) const {
+            // Bounding circle
             float phi = y_to_phi<H>(static_cast<float>(y));
-            float cos_phi = cosf(phi);
-            float sin_phi = sinf(phi);
+            float cosPhi = cosf(phi);
+            float sinPhi = sinf(phi);
+            
+            if (scanR < 0.01f) return false;
 
-            if (scan_r_val < 0.01f) return false;
-
-            float ang_high = thickness + (2.0f * PI_F / W); // Margin for AA, uses struct W
-            float D_min = cosf(ang_high);
-            float denom = scan_r_val * sin_phi;
-
+            float pixelWidth = 2.0f * PI_F / W_scan;
+            float D_min = cosf(thickness + pixelWidth);
+            float denom = scanR * sinPhi;
+            
             if (std::abs(denom) < 0.000001f) return false;
 
-            float C_min = (D_min - scan_ny * cos_phi) / denom;
-
+            float C_min = (D_min - scanNy * cosPhi) / denom;
+            
             if (C_min > 1.0f) return true;
             if (C_min < -1.0f) return false;
 
-            float d_alpha = acosf(C_min);
-            out(scan_alpha_angle - d_alpha, scan_alpha_angle + d_alpha);
+            float dAlpha = acosf(C_min);
+            float t1 = scanAlpha - dAlpha;
+            float t2 = scanAlpha + dAlpha;
+            float f_x1 = (t1 * W) / (2 * PI_F);
+            float f_x2 = (t2 * W) / (2 * PI_F);
+            float x1 = floorf(f_x1);
+            float x2 = ceilf(f_x2);
+            
+            // Check for full line wraparound case equivalent to "x2 - x1 >= W" in JS
+            if (x2 - x1 >= W) return false;
+
+            out(x1, x2);
             return true;
         }
 
@@ -1055,49 +1085,24 @@ namespace SDF {
 
         template <bool ComputeUVs = true>
         void distance(const Vector& p, DistanceResult& res) const {
-            float scan_dist = angle_between(p, basis.v);
+            float scanDist = angle_between(p, basis.v);
+            float dotU = dot(p, basis.u);
+            float dotW = dot(p, basis.w);
+            float azimuth = atan2f(dotW, dotU);
+            if (azimuth < 0) azimuth += 2 * PI_F;
+
+            azimuth += phase;
+
+            float sectorAngle = 2 * PI_F / sides;
+            float localAzimuth = wrap(azimuth + sectorAngle / 2.0f, sectorAngle) - sectorAngle / 2.0f;
+            localAzimuth = std::abs(localAzimuth);
+
+            float px = scanDist * cosf(localAzimuth);
+            float py = scanDist * sinf(localAzimuth);
             
-            float t_val = 0.0f;
-            float dist_to_edge = 0.0f;
-
-            if constexpr (ComputeUVs) {
-                float dot_u = dot(p, basis.u);
-                float dot_w = dot(p, basis.w);
-                float azimuth = atan2f(dot_w, dot_u);
-                if (azimuth < 0) azimuth += 2 * PI_F;
-
-                azimuth += phase;
-
-                float sector_angle = 2 * PI_F / sides;
-                float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
-                local_azimuth = std::abs(local_azimuth);
-
-                float px = scan_dist * cosf(local_azimuth);
-                float py = scan_dist * sinf(local_azimuth);
-                
-                dist_to_edge = px * nx + py * ny + plane_d;
-                t_val = azimuth / (2 * PI_F);
-            } else {
-                 // Star shape depends on angle. Must compute azimuth.
-                float dot_u = dot(p, basis.u);
-                float dot_w = dot(p, basis.w);
-                float azimuth = atan2f(dot_w, dot_u);
-                if (azimuth < 0) azimuth += 2 * PI_F;
-
-                azimuth += phase;
-
-                float sector_angle = 2 * PI_F / sides;
-                float local_azimuth = wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
-                local_azimuth = std::abs(local_azimuth);
-
-                float px = scan_dist * cosf(local_azimuth);
-                float py = scan_dist * sinf(local_azimuth);
-                
-                dist_to_edge = px * nx + py * ny + plane_d;
-                t_val = 0.0f;
-            }
+            float distToEdge = px * nx + py * ny + planeD;
             
-            res = DistanceResult(-dist_to_edge, t_val, scan_dist, 0.0f, thickness);
+            res = DistanceResult(-distToEdge, azimuth / (2 * PI_F), scanDist, 0.0f, thickness);
         }
     };
     
@@ -1166,8 +1171,13 @@ namespace SDF {
          float angle_min = acosf(max_cos);
          float angle_max = acosf(min_cos);
 
-         out(scan_alpha - angle_max, scan_alpha - angle_min);
-         out(scan_alpha + angle_min, scan_alpha + angle_max);
+         float f_x1 = (scan_alpha - angle_max) * W / (2 * PI_F);
+         float f_x2 = (scan_alpha - angle_min) * W / (2 * PI_F);
+         float f_x3 = (scan_alpha + angle_min) * W / (2 * PI_F);
+         float f_x4 = (scan_alpha + angle_max) * W / (2 * PI_F);
+         
+         out(floorf(f_x1), ceilf(f_x2));
+         out(floorf(f_x3), ceilf(f_x4));
          return true;
        }
        
@@ -1438,9 +1448,17 @@ namespace Scan {
                 float end = iv.second;
                 current_end = end;
 
-                // Map radians to pixel coordinates [0, W)
-                float f_x1 = (start * W) / (2 * PI_F);
-                float f_x2 = (end * W) / (2 * PI_F);
+                // Intervals are now in PIXELS
+                float f_x1 = start;
+                float f_x2 = end;
+
+                // Clamp to prevent huge loop
+                if (f_x2 - f_x1 >= W) {
+                    for (int x = 0; x < W; ++x) {
+                       process_pixel<W, H, ComputeUVs>(x, y, row_vectors[x], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
+                    }
+                    continue;
+                }
 
                 int x1 = static_cast<int>(floorf(f_x1));
                 int x2 = static_cast<int>(ceilf(f_x2));
@@ -1537,7 +1555,7 @@ namespace Scan {
        template <int W, int H, bool ComputeUVs = true>
        static void draw(auto& pipeline, Canvas& canvas, const Basis& basis, float radius, int sides, FragmentShaderFn auto fragment_shader, float phase = 0, bool debug_bb = false) {
            auto res = get_antipode(basis, radius);
-           SDF::Star<W> shape(res.first, res.second, sides, phase, H + 3, H);
+           SDF::Star<W> shape(res.first, res.second, sides, phase, H, H);
            Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader, debug_bb);
        }
     };

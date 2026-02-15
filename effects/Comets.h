@@ -25,8 +25,8 @@ public:
 
 
   struct Node {
-    Orientation<W, 32> orientation;
-    Animation::OrientationTrail<Orientation<W, 32>, TRAIL_LENGTH> trail;
+    Orientation<W> orientation;
+    Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
     Vector v;
 
     // Default constructor needed for StaticCircularBuffer
@@ -75,7 +75,7 @@ public:
       update_palette();
       }, true));
 
-    timeline.add(0, Animation::RandomWalk<W, 32>(orientation, random_vector()));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
   }
 
   bool show_bg() const override { return false; }
@@ -139,13 +139,13 @@ private:
     nodes.push_back(Node());
     Node& node = nodes.back();
 
-    timeline.add(i * spacing, Animation::Motion<W, 32>(node.orientation, path, cycle_duration, true));
+    timeline.add(i * spacing, Animation::Motion<W>(node.orientation, path, cycle_duration, true));
   }
 
   Timeline<W, 32> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   Path<W> path;
-  Orientation<W, 32> orientation;
+  Orientation<W> orientation;
   GenerativePalette palette;
   std::vector<LissajousConfig> functions;
   int cur_function_idx;

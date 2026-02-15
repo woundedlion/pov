@@ -83,9 +83,7 @@ namespace Plot {
         
         if (omitLast && _steps_cache.empty()) return;
 
-        // 2. DRAWING PHASE
-        
-        // Draw Start Point
+        // 2. DRAWING PHASE        
         {
             Vector start_pos = map(0.0f);
             Fragment f = Fragment::lerp(curr, next, 0.0f);

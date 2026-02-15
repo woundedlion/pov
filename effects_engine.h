@@ -19,7 +19,7 @@
 #include "static_circular_buffer.h"
 #include "canvas.h"
 
-template <int W, int HISTORY = W + 1> class Orientation;
+template <int W> class Orientation;
 
 #include "geometry.h" // Provides Fragment, ShaderResult, Vector
 #include "color.h" // Must be included before concepts using Color4

@@ -30,7 +30,6 @@ using namespace emscripten;
 // Define the resolution used for the Wasm engine (defaults)
 // Moved to class members
 
-
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(const std::string& name) {
     if (name == "Test") return std::make_unique<Test<W, H>>();
