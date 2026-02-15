@@ -33,79 +33,6 @@ inline uint16_t srgb_to_linear(uint8_t srgb);
 static constexpr float GAMMA = 2.2f;
 static constexpr float INV_GAMMA = 1.0f / 2.2f;
 
-// Helper to calculate sRGB -> Linear (0-255 -> 0-65535)
-constexpr uint16_t srgb_to_linear_calc(uint8_t srgb) {
-    // We can't use powf in constexpr in C++17 easily without a constexpr math library.
-    // However, for a LUT we might need to rely on initialization time or just generic math if C++20.
-    // Since we want this to be PROGMEM and potentially compile-time:
-    // Simple iterative power or approximate if std::pow isn't constexpr compliant in the environment.
-    // BUT checking standard: std::pow is NOT constexpr.
-    // We will assume the compiler can evaluate this if we write a simple constexpr pow or just init at runtime?
-    // User requested "Store the LUT in PROGMEM as constexpr". 
-    // "constexpr" variable implies compile-time eval.
-    // Let's try to use a simple recursive/iterative approach or just hardcode for common values?
-    // No, 256/65536 is too big.
-    // Actually, for C++14/17 we often use a generator struct. 
-    // Re-reading user request: "Store the LUT in PROGMEM as constexpr". 
-    // If I cannot make it strictly constexpr due to pow(), I will make it const and initialize it.
-    // But PROGMEM variables must be const.
-    // Let's use a small constexpr pow helper.
-    
-    // Approximation or simplistic implementation for constexpr:
-    // x^2.2 is roughly x^2.2.
-    // Let's use standard initialization for now, keeping it simple.
-    // If implicit constexpr fails, we'll drop constexpr and just use const PROGMEM.
-    
-    float v = srgb / 255.0f;
-    // float res = pow(v, 2.2f); // Not constexpr
-    // Use x*x as decent approx if strict constexpr needed? 
-    // User asked for "accurate linear_to_Srgb() conversion".
-    // I will generate the tables using a generator class/lambda trick if possible, 
-    // OR just define them and populate. 
-    // But populating a const PROGMEM array is tricky without constexpr.
-    
-    // For now, I'll define the arrays and populate them with a helper if supported, 
-    // or assume the environment supports non-constexpr init of globals (runtime before main).
-    // BUT PROGMEM usually requires compile time constants for flash placement on some archs.
-    
-    // Actually, keeping it as 'const' with an initializer list is the standard way.
-    // Since writing out 65536 entries is impossible, I will use a class with a constexpr constructor that fills a std::array?
-    // That works in C++17/20.
-    return 0; // Placeholder, logic below uses std::array generator
-}
-
-namespace detail {
-    constexpr float my_pow(float base, float exp) {
-        // Very basic integer-ish power or taylor series? 
-        // Too complex for reliable constexpr.
-        // Let's presume we can't do full constexpr pow.
-        return base; // Dummy
-    }
-}
-
-// NOTE: Since generating 64KB constant data via template metaprogramming or constexpr 
-// complex math is fragile across compilers, I will implement the lookups as 
-// `const` arrays populated by a helper class constructor if possible, 
-// OR simpler: Use the user's suggestion of "Accuracy" vs "Constexpr" trade-off.
-// With C++20, we can allocate vector in constexpr.
-// Given constraints, I will implement the Pixel16 class and use runtime initialization 
-// for the tables if constexpr pow is not available, 
-// UNLESS I include a large precomputed list, which is bad style here.
-//
-// RETRACTION: The user asked for "constexpr". I will assume they have a modern compiler/setup 
-// that can handle `std::array` initialization.
-// Since I cannot call `pow` in constexpr, I will use a simple Gamma 2.0 (square) for constexpr 
-// OR just leave them as non-constexpr `const` tables initialized at startup (RAM).
-// Wait, `PROGMEM` implies flash. On AVR/Teensy, `PROGMEM` variables must be global constants.
-// I will provide the tables and a `init_color()` function, OR use a table generator if one handles `pow`.
-//
-// ALTERNATIVE: Use `pow(x, 2)` (x*x) for sRGB->Linear (Gamma 2.0). 
-// And `sqrt(x)` for Linear->sRGB (Gamma 2.0). 
-// This is "accurate enough" for many consistency cases and IS constexpr-able.
-// BUT user asked for "Accurate linear_to_Srgb". 
-// I will stick to the existing plan's logic: 
-// 1. `Pixel16` class. 2. `PROGMEM` LUTs. 
-// I'll assume we can init them.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -655,9 +582,9 @@ public:
   Color4 get(float t) const override {
     // Determine color in 16-bit Linear space
     Pixel color(
-      static_cast<uint16_t>(65535.0f * std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f)),
-      static_cast<uint16_t>(65535.0f * std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f)),
-      static_cast<uint16_t>(65535.0f * std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f))
+      srgb_to_linear(static_cast<uint8_t>(255 * std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f))),
+      srgb_to_linear(static_cast<uint8_t>(255 * std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f))),
+      srgb_to_linear(static_cast<uint8_t>(255 * std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f)))
     );
     return Color4(color, 1.0f);
   }
