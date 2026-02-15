@@ -106,7 +106,16 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   using Next = Pipeline<W, H, Tail...>;
   Next next;
 
-  Pipeline(Head h, Tail... t) : Head(std::move(h)), next(std::move(t)...) {}
+  // Forwarding Reference Constructor
+  template <typename HArg, typename... TArgs>
+  Pipeline(HArg&& h, TArgs&&... t) 
+      : Head(std::forward<HArg>(h)), next(std::forward<TArgs>(t)...) {}
+
+  // Partial Constructor (Head only, Tail default constructed)
+  template <typename HArg>
+  explicit Pipeline(HArg&& h) 
+      : Head(std::forward<HArg>(h)) {}
+
   Pipeline() = default;
 
   // 2D Plot (Float)
@@ -429,19 +438,8 @@ public:
   }
 
   void plot(float x, float y, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
-      float delay = ttl_fn(x, y);
-      
-      // Calculate absolute target time
-      // JS: targetTime = this.currentFrame + delay
+      float delay = ttl_fn(x, y);      
       float target_time = current_frame + std::max(0.0f, delay);
-
-      // If immediate (no delay), pass through? 
-      // JS Logic: It ALWAYS adds to buffer if it's a temporal filter, 
-      // but if delay is 0 it tends to just get flushed immediately in the same frame if window covers it.
-      // However, to save buffer space for 0-delay items that will render this frame anyway:
-      // But wait, the window logic means it usually renders over multiple frames (smear).
-      // So we should add it to buffer unless we want to bypass the effect entirely.
-      
       if (items.size() < Capacity) {
           items.push_back({x, y, color, target_time, age, alpha, tag});
       } else {
@@ -452,10 +450,7 @@ public:
   
   void flush(TrailFn auto trailFn, float alpha, auto pass) {
       float win = window_size;
-      
-      // Linear Scan (Robust for Static Buffer)
-      // JS uses buckets, but linear scan is fine for < 50k items in C++
-      
+
       size_t count = items.size();
       for (size_t i = 0; i < count; ) {
           auto& item = items[i];
@@ -471,14 +466,11 @@ public:
               }
           }
           
-          // Remove if fully passed (target_time < current_frame - win)
-          // Actually, we can remove if (current_frame - target_time > win) => target_time < current_frame - win
           if (current_frame - item.target_time > win) {
               // Swap Remove
               items[i] = items.back();
               items.pop_back();
               count--; 
-              // Do not increment i, re-process this slot (which now holds the checked back element)
           } else {
               i++;
           }

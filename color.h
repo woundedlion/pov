@@ -688,9 +688,10 @@ struct CycleModifier : public PaletteModifier {
     }
     
     float transform(float t) const override {
-        // fmodf handles wrapping for us
         return fmodf(t + offset, 1.0f);
     }
+
+    ~CycleModifier() override = default;
 };
 
 /**
@@ -747,6 +748,9 @@ public:
 private:
   std::reference_wrapper<const Palette> source;
   StaticCircularBuffer<PaletteModifier*, 4> modifiers;
+
+public:
+  ~AnimatedPalette() override = default;
 };
 
 
