@@ -1026,15 +1026,14 @@ namespace SDF {
             thickness = outerRadius;
 
             // Scan
-            scanNy = basis.v.j;
             scanNx = basis.v.i;
+            scanNy = basis.v.j;
             scanNz = basis.v.k;
             scanR = sqrtf(scanNx * scanNx + scanNz * scanNz);
-            scanAlpha = atan2f(scanNx, scanNz);
+            scanAlpha = atan2f(scanNz, scanNx);
 
             float centerPhi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
             float margin = outerRadius + 0.1f;
-            // Star uses H (height) directly, not H_VIRT (matches JS Daydream.H)
             yMin = std::max(0, static_cast<int>(floorf((std::max(0.0f, centerPhi - margin) * (height - 1)) / PI_F)));
             yMax = std::min(height - 1, static_cast<int>(ceilf((std::min(PI_F, centerPhi + margin) * (height - 1)) / PI_F)));
         }
@@ -1465,7 +1464,7 @@ namespace Scan {
                 
                 if (x1 == x2) x2++; // Ensure at least one pixel for sub-pixel features
 
-                for (int x = x1; x < x2; ++x) {
+                for (int x = x1; x <= x2; ++x) {
                      int wx = wrap(x, W);
                      process_pixel<W, H, ComputeUVs>(wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
                 }
