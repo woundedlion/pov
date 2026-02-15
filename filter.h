@@ -421,41 +421,78 @@ class Temporal : public Is2DWithHistory {
 public:
   using TTLFn = std::function<float(float x, float y)>;
   
-  Temporal(TTLFn ttl_fn) : ttl_fn(ttl_fn) {}
+  Temporal(TTLFn ttl_fn, float window_size = 1.5f) 
+      : ttl_fn(ttl_fn), window_size(window_size), current_frame(0) {}
   
+  void set_window_size(float size) {
+      window_size = size;
+  }
+
   void plot(float x, float y, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
       float delay = ttl_fn(x, y);
-      if (delay <= 1e-4f) {
-          pass(x, y, color, age, alpha, tag);
+      
+      // Calculate absolute target time
+      // JS: targetTime = this.currentFrame + delay
+      float target_time = current_frame + std::max(0.0f, delay);
+
+      // If immediate (no delay), pass through? 
+      // JS Logic: It ALWAYS adds to buffer if it's a temporal filter, 
+      // but if delay is 0 it tends to just get flushed immediately in the same frame if window covers it.
+      // However, to save buffer space for 0-delay items that will render this frame anyway:
+      // But wait, the window logic means it usually renders over multiple frames (smear).
+      // So we should add it to buffer unless we want to bypass the effect entirely.
+      
+      if (items.size() < Capacity) {
+          items.push_back({x, y, color, target_time, age, alpha, tag});
       } else {
-          if (items.size() < Capacity) {
-              items.push_back({x, y, color, delay, age, alpha, tag});
-          } else {
-              // Buffer full, bypass
-              pass(x, y, color, age, alpha, tag);
-          }
+          // Fallback: render immediately if full
+          pass(x, y, color, age, alpha, tag);
       }
   }
   
   void flush(TrailFn auto trailFn, float alpha, auto pass) {
-      // Process pending
-      for (size_t i = 0; i < items.size(); ++i) {
+      float win = window_size;
+      
+      // Linear Scan (Robust for Static Buffer)
+      // JS uses buckets, but linear scan is fine for < 50k items in C++
+      
+      size_t count = items.size();
+      for (size_t i = 0; i < count; ) {
           auto& item = items[i];
-          item.delay -= 1.0f;
-          if (item.delay <= 0) {
-              pass(item.x, item.y, item.c, item.age, item.alpha * alpha, item.tag);
-              // Swap remove
+          
+          // Distance from target time
+          float dist = std::abs(item.target_time - current_frame);
+          
+          // Draw if within window
+          if (dist <= win) {
+              float intensity = 1.0f - (dist / win);
+              if (intensity > 0.001f) {
+                   pass(item.x, item.y, item.c, item.age, item.alpha * intensity * alpha, item.tag);
+              }
+          }
+          
+          // Remove if fully passed (target_time < current_frame - win)
+          // Actually, we can remove if (current_frame - target_time > win) => target_time < current_frame - win
+          if (current_frame - item.target_time > win) {
+              // Swap Remove
               items[i] = items.back();
               items.pop_back();
-              i--;
+              count--; 
+              // Do not increment i, re-process this slot (which now holds the checked back element)
+          } else {
+              i++;
           }
       }
+      
+      current_frame += 1.0f;
   }
 
 private:
-  struct Item { float x, y; Pixel c; float delay; float age; float alpha; uint8_t tag; };
+  struct Item { float x, y; Pixel c; float target_time; float age; float alpha; uint8_t tag; };
   StaticCircularBuffer<Item, Capacity> items;
   TTLFn ttl_fn;
+  float window_size;
+  float current_frame;
 };
 
 /**

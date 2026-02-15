@@ -1464,7 +1464,7 @@ namespace Scan {
                 
                 if (x1 == x2) x2++; // Ensure at least one pixel for sub-pixel features
 
-                for (int x = x1; x <= x2; ++x) {
+                for (int x = x1; x < x2; ++x) {
                      int wx = wrap(x, W);
                      process_pixel<W, H, ComputeUVs>(wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader, effective_debug, result_scratch, frag_scratch);
                 }

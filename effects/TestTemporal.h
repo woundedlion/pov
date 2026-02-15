@@ -24,7 +24,7 @@ public:
         noise(),
         filters(
              Filter::World::Orient<W>(orientation),
-             Filter::Screen::Temporal<W, 200>([this](float x, float y) { return calculate_delay(x, y); }),
+             Filter::Screen::Temporal<W, 100000>([this](float x, float y) { return calculate_delay(x, y); }, 2.0f),
              Filter::Screen::AntiAlias<W, H>()
         ),
         circular_source(Palettes::richSunset),
@@ -47,14 +47,31 @@ public:
     void draw_frame() override {
         Canvas canvas(*this);
         timeline.step(canvas);
-        t += 0.01f; // internal time
+        t += 1.0f;
         
         
         noise.SetFrequency(liquid_params.noiseFreq);
-        
+        filters.next.set_window_size(global.windowSize);
+
         Plot::Mesh::draw<W, H>(filters, canvas, mesh, [&](const Vector& v, Fragment& f) {
-             float t = (v.j + 1.0f) * 0.5f;
-             f.color = palette.get(t);
+             float t_val = (v.j + 1.0f) * 0.5f;
+             f.color = palette.get(t_val);
+
+             // Lighting Logic (Edge Pulses)
+             float phase = fmodf(t * global.lightSpeed, 1.0f);
+             if (phase < 0) phase += 1.0f;
+             float dist = std::abs(f.v1 - phase);
+             if (dist > 0.5f) dist = 1.0f - dist;
+             
+             const float width = 0.15f;
+             if (dist < width) {
+                 float strength = powf(1.0f - (dist / width), 2.0f);
+                 
+                 // Lerp to white
+                 Pixel white(65535, 65535, 65535);
+                 uint16_t frac = (uint16_t)(strength * global.lightAlpha * 65535.0f);
+                 f.color.color = f.color.color.lerp16(white, frac);
+             }
         });
         
         filters.flush(canvas, [](float x, float y, float t) { return Color4(0,0,0,0); }, 1.0f);
@@ -65,6 +82,8 @@ public:
         bool temporalEnabled = true;
         int windowSize = 2; // Unused in C++ buffer logic? 
         float speed = 0.01f;
+        float lightSpeed = 0.05f;
+        float lightAlpha = 1.0f;
     } global;
     
     struct VerticalWaveParams {
@@ -113,12 +132,12 @@ private:
     Orientation<W> orientation;
     Timeline<W> timeline;
     FastNoiseLite noise;
-    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 200>, Filter::Screen::AntiAlias<W, H>> filters;
+    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 100000>, Filter::Screen::AntiAlias<W, H>> filters;
     PolyMesh mesh;
     
 
     void rebuild_mesh() {
-        mesh = Solids::Archimedean::truncatedIcosidodecahedron();
+        mesh = Solids::Archimedean::icosahedron();
     }
     
     float calculate_delay(float x, float y) {
@@ -126,18 +145,18 @@ private:
         
         switch (current_mode) {
             case VerticalWave: {
-                float phase = y * vertical_params.frequency + t * global.speed * 10.0f; 
+                float phase = y * vertical_params.frequency + t * global.speed; 
                 return std::max(0.0f, vertical_params.delayBase + sinf(phase) * vertical_params.delayAmp);
             }
             case DiagonalSpiral: {
                 float xPhase = (x / W) * PI_F * 2.0f * diagonal_params.xSpirals;
                 float yPhase = y * diagonal_params.yFreq;
-                float phase = xPhase + yPhase + t * global.speed * 10.0f;
+                float phase = xPhase + yPhase + t * global.speed;
                 return std::max(0.0f, diagonal_params.delayBase + sinf(phase) * diagonal_params.delayAmp);
             }
             case LiquidTime: {
                 // 3D Noise
-                float noiseVal = noise.GetNoise(x, y, t * liquid_params.timeScale * 100.0f);
+                float noiseVal = noise.GetNoise(x, y, t * liquid_params.timeScale);
                 return liquid_params.delayBase + (noiseVal + 1.0f) * 0.5f * liquid_params.delayAmp;
             }
             case QuantumTunnel: {
@@ -146,11 +165,11 @@ private:
                 float v = (y / H) * 2.0f - 1.0f;
                 float radius = sqrtf(u*u + v*v);
                 float angle = atan2f(v, u);
-                float spiral = sinf(radius * quantum_params.spiralTightness - angle * quantum_params.spiralAngle + t * global.speed * 10.0f);
+                float spiral = sinf(radius * quantum_params.spiralTightness - angle * quantum_params.spiralAngle + t * global.speed);
                 return std::max(0.0f, quantum_params.delayBase + (spiral + 1.0f) * quantum_params.delayAmp);
             }
             case Datamosh: {
-                float flow = sinf(y * datamosh_params.flowSpeed + t * 0.05f * 10.0f);
+                float flow = sinf(y * datamosh_params.flowSpeed + t * 0.05f);
                 int blockSize = 8;
                 int column = (int)(x / blockSize);
                 float glitchOffset = sinf(column * 12.9898f) * datamosh_params.glitchScale;
