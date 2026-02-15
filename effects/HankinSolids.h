@@ -9,6 +9,9 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <random>
+#include <algorithm>
+#include <map>
 
 template <int W, int H>
 class HankinSolids : public Effect {
@@ -63,6 +66,10 @@ public:
         }
         load_poly_to_mesh(base, primary_mesh);
         
+        // Initial Topology & Color
+        primary_topology = MeshOps::classify_faces_by_topology(base);
+        pick_palettes(primary_palettes);
+        
         // Start the Loop
         start_hankin_cycle();
     }
@@ -88,6 +95,27 @@ private:
     // Data Helpers
     std::vector<std::string> solids_list; // Not really used in C++ enum but logical parity
     CompiledHankin compiled_hankin; // Keep compiled state for the active solid
+
+    // Topology & Color State
+    std::vector<int> primary_topology;
+    std::vector<int> secondary_topology;
+    std::vector<const Palette*> primary_palettes;
+    std::vector<const Palette*> secondary_palettes;
+
+    // Palette Pool (matching IslamicStars)
+    const std::vector<const Palette*> source_palettes_pool = {
+        &Palettes::embers,
+        &Palettes::richSunset,
+        &Palettes::brightSunrise,
+        &Palettes::bruisedMoss,
+        &Palettes::lavenderLake
+    };
+
+    void pick_palettes(std::vector<const Palette*>& target) {
+        target = source_palettes_pool;
+        static std::mt19937 g(12345 + (int)timeline.t); 
+        std::shuffle(target.begin(), target.end(), g);
+    }
     
     std::string get_solid_name(int idx) {
         switch ((SolidMode)idx) {
@@ -132,7 +160,7 @@ private:
                 PolyMesh updated = MeshOps::update_hankin<PolyMesh>(compiled_hankin, hankin_angle);
                 load_poly_to_mesh(updated, primary_mesh);
             }
-            draw_mesh(c, primary_mesh, opacity);
+            draw_topology_mesh(c, primary_mesh, primary_topology, primary_palettes, opacity);
         }, DURATION));
     }
     
@@ -157,7 +185,11 @@ private:
         } else {
             next_poly = next_base;
         }
+
+        // Prepare Secondary State
         load_poly_to_mesh(next_poly, secondary_mesh);
+        secondary_topology = MeshOps::classify_faces_by_topology(next_poly);
+        pick_palettes(secondary_palettes);
         
         // 1. Morph Animation
         timeline.add(0, Animation::MeshMorph(&primary_mesh, &secondary_mesh, &morph_buffer, primary_mesh, secondary_mesh, DURATION, false, ease_in_out_sin)
@@ -165,13 +197,18 @@ private:
                 // Commit State
                 this->solid_idx = next_idx;
                 
+                // Move Secondary -> Primary
+                this->primary_topology = this->secondary_topology;
+                this->primary_palettes = this->secondary_palettes;
+                
                 // Re-compile Hankin for the NEW solid
                 PolyMesh new_base = Solids::get(solid_idx);
                 if (enable_dual) new_base = MeshOps::dual(new_base);
                 
                 if (enable_hankin) {
                     compiled_hankin = MeshOps::compile_hankin(new_base);
-                    PolyMesh initial = MeshOps::update_hankin<PolyMesh>(compiled_hankin, hankin_angle);
+                    // No need to update 'initial' here, start_hankin_cycle will do it
+                    // PolyMesh initial = MeshOps::update_hankin<PolyMesh>(compiled_hankin, hankin_angle);
                 } 
                 
                 // Loop
@@ -180,12 +217,12 @@ private:
             
         // 2. Sprite: Outgoing
         timeline.add(0, Animation::Sprite([this](Canvas& c, float opacity) {
-            draw_mesh(c, primary_mesh, opacity);
+            draw_topology_mesh(c, primary_mesh, primary_topology, primary_palettes, opacity);
         }, DURATION, 0, ease_mid, DURATION, ease_mid));
         
         // 3. Sprite: Incoming
         timeline.add(0, Animation::Sprite([this](Canvas& c, float opacity) {
-            draw_mesh(c, secondary_mesh, opacity);
+            draw_topology_mesh(c, secondary_mesh, secondary_topology, secondary_palettes, opacity);
         }, DURATION, DURATION, ease_mid, 0, ease_mid));
     }
     
@@ -210,9 +247,8 @@ private:
         build_bvh(dst);
     }
 
-    void draw_mesh(Canvas& canvas, const MeshState& mesh, float opacity) {
+    void draw_topology_mesh(Canvas& canvas, const MeshState& mesh, const std::vector<int>& topology, const std::vector<const Palette*>& palettes, float opacity) {
         if (mesh.vertices.empty()) return;
-        
         if (opacity < 0.01f) return;
 
         // Create rotated copy
@@ -225,27 +261,18 @@ private:
         
         auto shader = [&](const Vector& p, Fragment& f) {
              int faceIdx = (int)std::round(f.v2);
-             // Safety check for face index
-             if (faceIdx < 0 || faceIdx >= rotated_mesh.face_counts.size()) return;
-             
-             int n = (int)rotated_mesh.face_counts[faceIdx];
-             const Palette* pal = &Palettes::richSunset;
-             
-             switch (n) {
-                 case 3:
-                 case 4:
-                 case 5:
-                 case 8:
-                 case 10:
-                    pal = &Palettes::lavenderLake;
-                    break;
-                 case 6:
-                    pal = &Palettes::emeraldForest;
-                    break;
-                 default:
-                    pal = &Palettes::richSunset;
-                    break;
+             int topoIdx = 0;
+             if (faceIdx >= 0 && faceIdx < (int)topology.size()) {
+                 topoIdx = topology[faceIdx];
              }
+             
+             // Safety: Ensure palettes has content
+             if (palettes.empty()) {
+                 f.color = Color4(1,0,1,1); // Error pink
+                 return;
+             }
+             
+             const Palette* pal = palettes[topoIdx % palettes.size()];
              
              // Edge Distance Intensity (v1 is -dist)
              float distFromEdge = -f.v1;             
