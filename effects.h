@@ -30,3 +30,4 @@
 #include "effects/Voronoi.h"
 #include "effects/GnomonicStars.h"
 #include "effects/TestSlewRate.h"
+#include "effects/FlamingMesh.h"

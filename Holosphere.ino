@@ -25,6 +25,7 @@ void loop() {
   pov->show<Test<96, 20>>(120);
   pov->show<TestShapes<96, 20>>(120);
   pov->show<TestTemporal<96, 20>>(120); // NEW
+  pov->show<FlamingMesh<96, 20>>(120); // NEW
 
   // Core Effects
   pov->show<DreamBalls<96, 20>>(120); // NEW
