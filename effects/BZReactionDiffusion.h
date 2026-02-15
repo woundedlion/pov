@@ -13,8 +13,7 @@ template <int W, int H>
 class BZReactionDiffusion : public Effect {
 public:
 
-  static constexpr int RD_H = 20;   // Height of the grid
-  static constexpr int RD_N = W * RD_H * 2; // Number of nodes in the graph
+  static constexpr int RD_N = W * H * 2; // Number of nodes in the graph
   static constexpr int RD_K = 6;    // Number of neighbors per node
 
   BZReactionDiffusion() :
@@ -183,8 +182,9 @@ private:
   }
 
   void render_reaction(Canvas& canvas, BZReactionContext& ctx, float opacity) {
-    // Simulate Physics (12 steps per frame)
-    for (int k = 0; k < 12; k++) {
+    // Simulate Physics
+    // JS Parity: 2 steps per frame (was 12)
+    for (int k = 0; k < 2; k++) {
       update_physics(ctx);
     }
 
@@ -220,17 +220,17 @@ private:
         b_ch = b_ch * inv_c + cc.color.b * c;
 
         Pixel color(
-          static_cast<uint8_t>(std::clamp(r, 0.0f, 255.0f)),
-          static_cast<uint8_t>(std::clamp(g, 0.0f, 255.0f)),
-          static_cast<uint8_t>(std::clamp(b_ch, 0.0f, 255.0f))
+          static_cast<uint16_t>(std::clamp(r, 0.0f, 65535.0f)),
+          static_cast<uint16_t>(std::clamp(g, 0.0f, 65535.0f)),
+          static_cast<uint16_t>(std::clamp(b_ch, 0.0f, 65535.0f))
         );
 
         Color4 c_final(color);
         c_final.alpha *= global_alpha * opacity;
 						auto shader = [c_final](const Vector& p, Fragment& f) {
-                            f.color = c_final;
-                        };
-                        Plot::Point::draw(filters, canvas, nodes[i], shader);
+              f.color = c_final;
+            };
+        Plot::Point::draw(filters, canvas, nodes[i], shader);
       }
     }
   }
