@@ -14,7 +14,8 @@ public:
       orientation(),
       // Pipeline: Orient -> Slew -> AntiAlias
       pipeline(
-        Filter::World::Orient<W>(orientation)
+        Filter::World::Orient<W>(orientation),
+        Filter::Screen::Slew<W, 200000>(1.0f, 0.03f)
       ),
       palette(source_palette),
       modifier(0.02f)
@@ -75,7 +76,7 @@ public:
 
 private:
   Orientation<W> orientation;
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Slew<W, 100000>, Filter::Screen::AntiAlias<W, H>> pipeline;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Slew<W, 200000>, Filter::Screen::AntiAlias<W, H>> pipeline;
   
   CircularPalette source_palette = CircularPalette(Palettes::richSunset);
   AnimatedPalette palette;
