@@ -310,6 +310,7 @@ struct CPixel {
     constexpr CPixel() : r(0), g(0), b(0) {}
     constexpr CPixel(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
     constexpr CPixel(uint32_t hex) : r((hex >> 16) & 0xFF), g((hex >> 8) & 0xFF), b(hex & 0xFF) {}
+    CPixel(const CRGB& c) : r(c.r), g(c.g), b(c.b) {}
     
     // Convert to FastLED CRGB (Pixel)
     operator Pixel() const { return CRGB(r, g, b); }
@@ -472,15 +473,15 @@ public:
       break;
     }
 
-    a = CHSV(h1, s1, v1);
-    b = CHSV(h2, s2, v2);
-    c = CHSV(h3, s3, v3);
+    a = CPixel(CRGB(CHSV(h1, s1, v1)));
+    b = CPixel(CRGB(CHSV(h2, s2, v2)));
+    c = CPixel(CRGB(CHSV(h3, s3, v3)));
 
     update_luts();
   }
 
   void update_luts() {
-    const Pixel vignette_color(0, 0, 0);
+    const CPixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
       shape = { 0, 0.1f, 0.5f, 0.9f, 1.0f };
@@ -506,10 +507,9 @@ public:
   }
 
   void lerp(const GenerativePalette& from, const GenerativePalette& to, float amount) {
-    uint16_t fract = to_short(amount);
-    a = from.a.lerp16(to.a, fract);
-    b = from.b.lerp16(to.b, fract);
-    c = from.c.lerp16(to.c, fract);
+    a = CPixel(lerp8(from.a.r, to.a.r, amount), lerp8(from.a.g, to.a.g, amount), lerp8(from.a.b, to.a.b, amount));
+    b = CPixel(lerp8(from.b.r, to.b.r, amount), lerp8(from.b.g, to.b.g, amount), lerp8(from.b.b, to.b.b, amount));
+    c = CPixel(lerp8(from.c.r, to.c.r, amount), lerp8(from.c.g, to.c.g, amount), lerp8(from.c.b, to.c.b, amount));
     update_luts();
   }
 
@@ -525,15 +525,22 @@ public:
 
     float start = shape[seg];
     float end = shape[seg + 1];
-    Pixel c1 = colors[seg];
-    Pixel c2 = colors[seg + 1];
+    CPixel c1 = colors[seg];
+    CPixel c2 = colors[seg + 1];
 
     // Safe division check
     float dist = end - start;
     if (dist < 0.0001f) return Color4(c1, 1.0f);
 
-    float p = (t - start) / dist;
-    Pixel color = c1.lerp16(c2, to_short(std::clamp(p, 0.0f, 1.0f)));
+    float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
+    
+    // sRGB Interpolation
+    uint8_t r = lerp8(c1.r, c2.r, p);
+    uint8_t g = lerp8(c1.g, c2.g, p);
+    uint8_t b = lerp8(c1.b, c2.b, p);
+
+    // Convert to Linear 16-bit
+    Pixel color(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
     return Color4(color, 1.0f);
   }
 
@@ -575,11 +582,11 @@ private:
   GradientShape gradient_shape;
   HarmonyType harmony_type;
   uint8_t palette_hue;
-  Pixel a, b, c;
+  CPixel a, b, c;
   
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
-  std::array<Pixel, 5> colors;
+  std::array<CPixel, 5> colors;
   int size = 0;
 
 public:
