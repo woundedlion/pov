@@ -45,24 +45,16 @@ public:
         Canvas canvas(*this);
         timeline.step(canvas);
         
-        // Update noise frequency
         noise.SetFrequency(params.noiseFreq);
-
-        // Update temporal filter window size
         filters.next.set_window_size(params.windowSize);
 
-        // Draw mesh with custom shader
         Plot::Mesh::draw<W, H>(filters, canvas, mesh, [&](const Vector& v, Fragment& f) {
             float t_val = (v.j + 1.0f) * 0.5f;
             f.color = palette.get(t_val);
-            // Alpha is implicitly 1.0 in standard draw, but if we need explicit alpha we can set it.
-            // C++ Color4 includes alpha.
         });
 
-        // Flush frame
         filters.flush(canvas, [](float x, float y, float t) { return Color4(0, 0, 0, 0); }, 1.0f);
-
-        // Advance time
+        
         t += 1.0f;
     }
 
@@ -77,7 +69,6 @@ public:
     } params;
 
 private:
-
     float t = 0.0f;
 
     Orientation<W> orientation;
@@ -89,13 +80,7 @@ private:
     // Temporal filter delay calculation 
     float calculate_delay(float x, float y) {
         if (!params.temporalEnabled) return 0.0f;
-        
-        // JS: const noiseVal = this.noise.GetNoise(x, y, this.timeline.t * this.params.speed);
-        // JS timeline.t is generally frame count or elapsed time. Here we use 't'.
         float noiseVal = noise.GetNoise(x, y, t * params.speed);
-        
-        // JS: return Math.max(0, this.params.delayBase + (noiseVal * 0.5 + 0.5) * this.params.delayAmp);
-        // Note: noiseVal is -1 to 1. (noiseVal * 0.5 + 0.5) is 0 to 1.
         return std::max(0.0f, params.delayBase + (noiseVal * 0.5f + 0.5f) * params.delayAmp);
     }
 
