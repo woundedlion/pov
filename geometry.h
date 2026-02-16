@@ -644,12 +644,28 @@ Vector ripple_transform(const Vector& v, const RippleParams& params) {
     // 1. Calculate Geodesic Distance
     float d = angle_between(v, params.center);
     
-    // 2. Calculate Displacement Angle (Damped Sine Wave)
-    // The wave travels as phase increases.
-    // We multiply by params.lifespawn to fade the entire effect out globally as it dies.
-    float theta = params.amplitude * params.lifespawn * sinf(d * params.frequency - params.phase) * expf(-params.decay * d);
+    // 2. Wavefront Causality Check
+    // "Propagate" means the wave takes time to travel.
+    // We define the wavefront location where (d * frequency == phase).
+    // If d * frequency > phase, the wave hasn't reached yet.
+    float wave_pos = d * params.frequency - params.phase;
+    
+    if (wave_pos > 0.0f) {
+        return v; // Ahead of the wavefront
+    }
 
-    // 3. Apply Rotation
+    // 3. Smooth Entry at Wavefront
+    // To avoid discontinuous normals (sharp line) at the wavefront, 
+    // we dampen the amplitude as we get close to the leading edge.
+    // wave_pos is negative behind the wavefront. 
+    // We want a factor that is 0 at wave_pos=0 and 1 at wave_pos=-pi (first trough/peak?)
+    float entry_factor = std::clamp(-wave_pos / (PI_F / 2.0f), 0.0f, 1.0f);
+    entry_factor = entry_factor * entry_factor * (3.0f - 2.0f * entry_factor); // Smoothstep
+
+    // 4. Calculate Displacement Angle (Damped Sine Wave)
+    float theta = params.amplitude * params.lifespawn * sinf(wave_pos) * expf(-params.decay * d) * entry_factor;
+
+    // 5. Apply Rotation
     // Rotate v towards/away from center along the great circle connecting them.
     Vector axis = cross(params.center, v);
     float lenSq = dot(axis, axis);
