@@ -802,9 +802,9 @@ namespace SDF {
                  return;
              }
              
-             // 2D SDF & Winding
+             // 2D SDF & Winding (Ray Casting Optimized)
              float d = FLT_MAX;
-             float winding_accum = 0.0f;
+             bool inside = false;
              
              for(int i = 0; i < count; ++i) {
                  const Vector& Vi = poly2D[i];
@@ -833,26 +833,20 @@ namespace SDF {
                  
                  if (distSq < d) d = distSq;
                  
-                // Robust Winding Number (Sum of signed angles)
-                 // angle = atan2(cross, dot) relative to P
-                 // This handles warped/self-intersecting/distorted polygons better than ray casting
-                 float dx1 = Vi.i - px;
-                 float dy1 = Vi.j - py;
-                 float dx2 = Vnext.i - px;
-                 float dy2 = Vnext.j - py;
-                 
-                 // cross product of (P->V1) and (P->V2) is z-component
-                 float cross = dx1 * dy2 - dx2 * dy1;
-                 float dot_val = dx1 * dx2 + dy1 * dy2;
-                 
-                 // atan2(sin, cos) -> angle
-                 // winding += angle
-                 float angle = atan2f(cross, dot_val);
-                 winding_accum += angle;
+                 // Ray Casting (Crossing Number)
+                 // Check if point is inside using Jordan Curve Theorem
+                 // Ray along +X axis
+                 if ((Vi.j > py) != (Vnext.j > py)) {
+                     // Intersect
+                     float t = (py - Vi.j) / ey; // ey = Vnext.j - Vi.j
+                     float intersectX = Vi.i + t * ex; // ex = Vnext.i - Vi.i
+                     if (px < intersectX) {
+                         inside = !inside;
+                     }
+                 }
              }
              
-             // Inside if winding sum is approximately +/- 2PI (use 2.0f for robustness against noise)
-             float s = (std::abs(winding_accum) > 2.0f) ? -1.0f : 1.0f;
+             float s = inside ? -1.0f : 1.0f;
              float plane_dist = s * std::sqrt(d);
              float dist = plane_dist - thickness;
              
@@ -860,7 +854,7 @@ namespace SDF {
 
              // Barycentrics (Fan)
              res.weights.valid = false;
-             if (std::abs(winding_accum) > 2.0f) {
+             if (inside) {
                  const Vector& v0 = poly2D[0];
                  for(int i=1; i < count - 1; ++i) {
                      const Vector& v1 = poly2D[i];
