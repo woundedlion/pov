@@ -43,9 +43,9 @@ public:
         timeline.add(0, Animation::RandomWalk<W>(orientation, UP)); // Slow continuous spin
         
         // Init Ripple Defaults
-        ripple.amplitude = 0.25f; 
+        ripple.amplitude = 0.35f; 
         ripple.frequency = 8.0f; // Frequency of the source oscillations
-        ripple.decay = 0.7f; // Spatial decay of the packet
+        ripple.decay = 0.5f; // Spatial decay of the packet
         ripple.lifespawn = 0.0f; // Start invisible
         
         // Example: Trigger a ripple every 60 frames at a random location
