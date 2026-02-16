@@ -1143,6 +1143,46 @@ public:
   std::function<float(float)> easing;
 };
 
+/**
+ * @brief Animates the Mobius parameters for a circular warping effect.
+ */
+class MobiusWarpCircular : public Base<MobiusWarpCircular> {
+public:
+  /**
+   * @brief Constructs a MobiusWarpCircular animation.
+   * @param params Reference to the MobiusParams to animate.
+   * @param scale The magnitude of the warp effect.
+   * @param duration Duration of the warp.
+   * @param repeat Whether to repeat.
+   * @param easing The easing function to use (default: ease_in_out_sin).
+   */
+  MobiusWarpCircular(MobiusParams& params, float scale, int duration, bool repeat = true, std::function<float(float)> easing = ease_in_out_sin) :
+    Base(duration, repeat),
+    params(params),
+    scale(scale),
+    easing(easing)
+  {
+  }
+
+  /**
+   * @brief Steps the animation, updating param b.
+   */
+  void step(Canvas& canvas) {
+    Base::step(canvas);
+    float t_norm = static_cast<float>(t) / duration;
+    float progress = easing(std::clamp(t_norm, 0.0f, 1.0f));
+    float angle = progress * 2 * PI_F;
+    params.get().bRe = scale * cosf(angle);
+    params.get().bIm = scale * sinf(angle);
+  }
+
+private:
+  std::reference_wrapper<MobiusParams> params;
+public:
+  float scale;
+  std::function<float(float)> easing;
+};
+
 
 
 
@@ -1409,6 +1449,7 @@ using AnimationVariant = std::variant<
   Animation::MobiusFlow,
   Animation::MobiusGenerate,
   Animation::MobiusWarp,
+  Animation::MobiusWarpCircular,
   Animation::MeshMorph,
   Animation::PaletteAnimation
 >;
