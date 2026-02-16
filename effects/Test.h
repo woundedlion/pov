@@ -15,14 +15,17 @@ public:
     ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY, BrightnessProfile::FLAT),
     polyPalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS, BrightnessProfile::CUP),
     normal(X_AXIS),
-    debugBB(false)
+    amplitude_mut(amplitude, [this](float t) {
+        return sin_wave(-params.max_amplitude, params.max_amplitude, 1.0f, 0.0f)(t);
+    }, 32, ease_mid, true)
   {
     params.thickness = 4.0f * (2.0f * PI_F / W);
     
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Amplitude", &params.amplitude, 0.0f, 2.0f);
-    registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
+    registerParam("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
+    registerParam("Thickness", &params.thickness, 0.1f, 0.75f);
     registerParam("Rings", &params.numRings, 1.0f, 10.0f);
+    registerParam("Show Bounding", &params.debugBB);
 
     this->persist_pixels = false;
     timeline.add(0,
@@ -32,6 +35,8 @@ public:
     timeline.add(0,
       Animation::RandomWalk<W>(orientation, normal)
     );
+
+    timeline.add(0, amplitude_mut);
   }
 
   bool show_bg() const override { return false; }
@@ -39,6 +44,8 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
+
+    // Refresh Params
   }
 
   void drawFn(Canvas& canvas, float opacity) {
@@ -47,18 +54,14 @@ public:
     for (int i = 0; i < nRings; ++i) {
       float radius = 2.0f / (nRings + 1) * (i + 1);
       auto shiftFn = [this](float t) {
-        return sin_wave(this->params.amplitude, -this->params.amplitude, 4.0f, 0.0f)(t);
+        return sin_wave(-amplitude, amplitude, 4.0f, 0.0f)(t);
       };
       
-      // Use actual amplitude for bounding box calculations
-      float amp = this->params.amplitude;
-
       Basis basis = make_basis(orientation.get(), normal);
       auto fragment_shader = [&](const Vector& p, Fragment& f) {
           // f.v0 is normalized azimuth (0..1)
           // f.v1 is distance from center line
           // f.size is thickness
-          
           f.color = ringPalette.get(f.v0);
           
           float norm_dist = std::clamp(f.v1 / f.size, 0.0f, 1.0f);
@@ -69,9 +72,10 @@ public:
       };
 
       Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius, params.thickness,
-        shiftFn, amp,
+        shiftFn, std::abs(amplitude),
         fragment_shader,
-        debugBB
+        0.0f,
+        params.debugBB
       );
     }
   }
@@ -82,15 +86,18 @@ private:
   
   struct Params {
       float alpha = 0.3f;
-      float amplitude = 0.0f;
+      float max_amplitude = 0.3f;
       float thickness = 1.0f; 
       float numRings = 1.0f;
+      bool debugBB = false;
   } params;
+
+  float amplitude = 0;
 
   GenerativePalette ringPalette;
   GenerativePalette polyPalette;
   Vector normal;
   Orientation<W> orientation;
-  
-  bool debugBB;
+  Animation::Mutation amplitude_mut;
+
 };

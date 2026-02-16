@@ -83,7 +83,7 @@ private:
 
   struct Params {
       float alpha = 0.5f;
-      float thickness = 1.0f;
+      float thickness = 2.0f * (2 * PI_F / W);
   } params;
 
 };
