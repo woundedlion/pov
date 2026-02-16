@@ -34,11 +34,11 @@ public:
     persist_pixels = false;
 
     timeline
-      .add(0, Animation::MobiusWarp(mobius_params, 1.0f, 160, true))
-      .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400, ease_mid, true))
-      .add(0, Animation::PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true));
-      //.add(0, Animation::Mutation(num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
-      //.add(160, Animation::Mutation(num_lines, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true));
+      .add(0, Animation::MobiusWarpCircular(mobius_params, 1.0f, 160, true))
+      .add(0, Animation::Rotation<W>(orientation, -Z_AXIS, 2 * PI_F, 400, ease_mid, true))
+      .add(0, Animation::PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true))
+      .add(0, Animation::Mutation(params.num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
+      .add(160, Animation::Mutation(params.num_lines, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true));
   }
 
   bool show_bg() const override { return false; }
@@ -50,12 +50,12 @@ public:
     float phase = fmodf(static_cast<float>(timeline.t), 120.0f) / 120.0f;
 
     // Calculate Stabilizing Counter-Rotation
-    Vector n_in = Z_AXIS;
+    Vector n_in = Y_AXIS;
     Vector n_trans = inv_stereo(mobius(stereo(n_in), mobius_params));
-    Vector s_in = -Z_AXIS;
+    Vector s_in = -Y_AXIS;
     Vector s_trans = inv_stereo(mobius(stereo(s_in), mobius_params));
     Vector mid = (n_trans + s_trans);
-    Quaternion q; // Default Identity
+    Quaternion q;
     if (mid.length() > 0.001f) {
       mid.normalize();
       q = make_rotation(mid, Z_AXIS);
@@ -65,7 +65,7 @@ public:
     holeN = rotate(n_trans, q).normalize();
     holeS = rotate(s_trans, q).normalize();
 
-    draw_axis_rings(canvas, Z_AXIS, params.num_rings, phase, q);
+    draw_axis_rings(canvas, Y_AXIS, params.num_rings, phase, q);
     draw_longitudes(canvas, params.num_lines, phase, q);
   }
 
@@ -97,7 +97,7 @@ private:
         Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), mobius_params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
-        f.v0 = (float)k / (m_points.size() - 1); // t
+        f.v0 = (float)k / (m_points.size() - 1);
         m_fragments.push_back(f);
       }
 
@@ -117,7 +117,7 @@ private:
     int count = static_cast<int>(std::ceil(num));
     for (int i = 0; i < count; ++i) {
       float theta = (static_cast<float>(i) / num) * PI_F;
-      Vector normal(cosf(theta), sinf(theta), 0.0f);
+      Vector normal(cosf(theta), 0.0f, -sinf(theta));
 
       m_points.clear();
       Basis basis = make_basis(Quaternion(), normal);
@@ -129,7 +129,7 @@ private:
         Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), mobius_params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
-        f.v0 = (float)k / m_points.size(); // t (0..1)
+        f.v0 = (float)k / m_points.size(); 
         m_fragments.push_back(f);
       }
 
@@ -156,13 +156,13 @@ private:
 
   GenerativePalette palette;
   GenerativePalette next_palette;
-  MobiusParams mobius_params; // Renamed from params
+  MobiusParams mobius_params;
   
   struct Params {
-      float num_rings = 4.0f;
-      float num_lines = 8.0f;
+      float num_rings = 0.0f;
+      float num_lines = 0.0f;
       float alpha = 0.2f;
-  } params; // New params struct
+  } params;
 
   Orientation<W> orientation;
   Timeline<W> timeline;
