@@ -162,9 +162,16 @@ public:
         for (const auto& [key, def] : params) {
             val entry = val::object();
             entry.set("name", def.name);
-            entry.set("value", *def.target);
-            entry.set("min", def.min);
-            entry.set("max", def.max);
+            
+            if (def.type == Effect::ParamType::BOOL) {
+                entry.set("value", *static_cast<bool*>(def.target));
+                // For boolean, we don't necessarily need min/max, but keeping them doesn't hurt if 0/1 logic is used downstream
+                // But specifically for dat.gui checkbox, value determines type.
+            } else {
+                entry.set("value", *static_cast<float*>(def.target));
+                entry.set("min", def.min);
+                entry.set("max", def.max);
+            }
             result.set(i++, entry);
         }
         return result;

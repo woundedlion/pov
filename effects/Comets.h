@@ -20,9 +20,6 @@ template <int W, int H>
 class Comets : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
-  static constexpr int MAX_NODES = 4; // Capacity for nodes
-
-
 
   struct Node {
     Orientation<W> orientation;
@@ -34,15 +31,14 @@ public:
   };
 
   Comets() :
-    Effect(W, H)
+    Effect(W, H),
+    cur_function_idx(0)
   {
-    params.thickness = 2.1f * 2 * PI_F / W;
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
+    registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
-    registerParam("Spacing", &params.spacing, 10.0f, 100.0f);
-    registerParam("Resolution", &params.resolution, 1.0f, 100.0f);
+    registerParam("Resolution", &params.resolution, 1.0f, 128.0f);
 
     persist_pixels = false;
 
@@ -63,19 +59,14 @@ public:
     };
 
     update_path();
-
-    // Spawn nodes
-    for (int i = 0; i < num_nodes; ++i) {
-      spawn_node();
-    }
-
+    timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
+    timeline.add(0, Animation::Motion<W>(node.orientation, path, (int)params.cycle_duration, true)); 
     timeline.add(0, Animation::PeriodicTimer(2 * (int)params.cycle_duration, [this](Canvas& c) {
       cur_function_idx = static_cast<int>(hs::rand_int(0, functions.size()));
       update_path();
       update_palette();
       }, true));
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
   }
 
   bool show_bg() const override { return false; }
@@ -83,28 +74,20 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-    std::vector<Dot> render_points;
 
-    for (auto& node : nodes) {
-      node.trail.record(node.orientation);
+    node.trail.record(node.orientation);
 
-      deep_tween(node.trail, [&](const Quaternion& q, float t_trail) {
-        Color4 c = palette.get(t_trail);
-        c.alpha = c.alpha * params.alpha * quintic_kernel(t_trail);
-        Vector v_local = rotate(node.v, q);
-        Vector v_final = orientation.orient(v_local);
-        render_points.emplace_back(Dot(v_final, c));
-      });
-    }
+    deep_tween(node.trail, [&](const Quaternion& q, float t) {
 
-    for(const auto& dot : render_points) {
-        auto fragment_shader = [&](const Vector&, Fragment& f) { 
-            float t = std::clamp(f.v1 / f.size, 0.0f, 1.0f);
-            f.color = dot.color;
-            f.color.alpha *= quintic_kernel(1.0f - t);
-        };
-        Scan::Point::draw<W, H>(filters, canvas, dot.position, params.thickness, fragment_shader);
-    }
+      auto fragment_shader = [&](const Vector&, Fragment& f) {  
+        f.color = palette.get(t);
+        f.color.alpha *= quintic_kernel(t);
+      };
+
+      Vector v_local = rotate(node.v, q);
+      Vector v_final = orientation.orient(v_local);
+      Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness, fragment_shader);
+    });
   }
 
 private:
@@ -128,20 +111,9 @@ private:
   void update_palette() {
     static GenerativePalette next_palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
     next_palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING);
-
     timeline.add(0, Animation::ColorWipe(palette, next_palette, 48, ease_mid));
+
   }
-
-  void spawn_node() {
-    if (nodes.is_full()) return;
-
-    int i = static_cast<int>(nodes.size());
-    nodes.push_back(Node());
-    Node& node = nodes.back();
-
-    timeline.add(i * (int)params.spacing, Animation::Motion<W>(node.orientation, path, (int)params.cycle_duration, true));
-  }
-
   Timeline<W, 32> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   Path<W> path;
@@ -149,15 +121,12 @@ private:
   GenerativePalette palette;
   std::vector<LissajousConfig> functions;
   int cur_function_idx;
-  StaticCircularBuffer<Node, MAX_NODES> nodes;
+  Node node;
   
   struct Params {
       float alpha = 1.0f;
-      float thickness = 2.0f;
+      float thickness = 2.1f * 2 * PI_F / W;
       float cycle_duration = 80.0f;
-      float spacing = 48.0f;
       float resolution = 32.0f;
   } params;
-
-  int num_nodes;
 };

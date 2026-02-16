@@ -642,6 +642,8 @@ public:
     mutant = new_mutant;
   }
 
+
+
 private:
 
   std::reference_wrapper<float> mutant; /**< Reference to the float variable being modified. */

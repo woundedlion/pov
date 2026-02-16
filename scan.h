@@ -1407,7 +1407,7 @@ namespace Scan {
             pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age, frag_scratch.color.alpha * alpha, frag_scratch.blend);
         }
      } else if (debug_bb) {
-         pipeline.plot(canvas, x, y, Pixel(20, 20, 20), 0, 1.0f, BLEND_ADD);
+         pipeline.plot(canvas, x, y, Pixel(20000, 0, 0), 0, 1.0f, BLEND_ADD);
      }
 
   }

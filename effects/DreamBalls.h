@@ -20,13 +20,15 @@ public:
     };
 
     struct Params {
-        float solid_type = 0.0f; // 0=Rhombicuboctahedron, etc
-        float num_copies = 6.0f;
-        float offset_radius = 0.2f;
-        float offset_speed = 1.0f;
-        float warp_scale = 1.0f;
-        float alpha = 0.5f;
-    } params;
+        SolidType solid_type;
+        float num_copies;
+        float offset_radius;
+        float offset_speed;
+        float warp_scale;
+        const Palette* palette;
+        float alpha;
+        bool enable_slice = false;
+    };
 
     DreamBalls() : Effect(W, H), 
         filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS), Filter::Screen::AntiAlias<W, H>()),
@@ -37,21 +39,23 @@ public:
         // Initialize Orientations
         orientations.resize(2); // 2 slices
 
-        registerParam("Type", &params.solid_type, 0.0f, 3.0f);
+        // Initialize Presets
+        setup_presets();
+
+        // Initialize default params
+        if (!presets.empty()) params = presets[0];
+
         registerParam("Copies", &params.num_copies, 1.0f, 20.0f);
         registerParam("Radius", &params.offset_radius, 0.0f, 1.0f);
         registerParam("Speed", &params.offset_speed, 0.0f, 5.0f);
         registerParam("Warp", &params.warp_scale, 0.0f, 5.0f);
         registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-
-        // Initialize Presets (Geometry only now)
-        setup_geometry();
         
         // Start Sequence
         timeline.add(0, Animation::PeriodicTimer(160, [this](Canvas& c) { this->spin_slices(); }, true));
         timeline.add(9, Animation::RandomWalk<W>(global_orientation, Y_AXIS, Animation::RandomWalk<W>::Options::Languid()));
         
-        spawn_sprite(); 
+        spawn_sprite(0); // Start first preset
     }
 
     bool show_bg() const override { return false; }
@@ -65,6 +69,8 @@ public:
         timeline.step(canvas);
     }
     
+    // Exposed for consistency
+    Params params; 
 
 private:
     float t = 0;
@@ -77,7 +83,7 @@ private:
         std::vector<Tangent> tangents;
     };
     
-    std::vector<PresetData> loaded_geometry; 
+    std::vector<PresetData> loaded_presets; 
 
     // Timeline
     Timeline<W> timeline;
@@ -93,22 +99,26 @@ private:
     // Presets Definition
     std::vector<Params> presets;
     
-    void setup_geometry() {
-        // Hardcoded solids list corresponding to enum order
-        std::vector<SolidType> codes = {
-            SolidType::Rhombicuboctahedron,
-            SolidType::Rhombicosidodecahedron,
-            SolidType::TruncatedCuboctahedron,
-            SolidType::Icosidodecahedron
-        };
+    AlphaFalloffPalette bloodStreamFalloff {
+        [](float t){ return 1.0f - t; }, 
+        Palettes::bloodStream
+    };
 
-        loaded_geometry.reserve(codes.size());
+    void setup_presets() {
+        // Define Params
+        presets.push_back({SolidType::Rhombicuboctahedron, 18.0f, 0.3f, 0.4f, 0.3f, &bloodStreamFalloff, 0.7f});
+        presets.push_back({SolidType::Rhombicosidodecahedron, 6.0f, 0.05f, 1.0f, 1.8f, &bloodStreamFalloff, 0.7f});
+        presets.push_back({SolidType::TruncatedCuboctahedron, 6.0f, 0.16f, 1.0f, 2.0f, &Palettes::richSunset, 0.3f});
+        presets.push_back({SolidType::Icosidodecahedron, 10.0f, 0.16f, 1.0f, 0.5f, &Palettes::lavenderLake, 0.3f});
         
-        for(auto type : codes) {
-            loaded_geometry.emplace_back();
-            auto& data = loaded_geometry.back();
+        // Pre-load Geometry
+        loaded_presets.reserve(presets.size());
+        
+        for(const auto& p : presets) {
+            loaded_presets.emplace_back();
+            auto& data = loaded_presets.back();
             PolyMesh m;
-            switch(type) {
+            switch(p.solid_type) {
                 case SolidType::Rhombicuboctahedron: m = Solids::Archimedean::rhombicuboctahedron(); break;
                 case SolidType::Rhombicosidodecahedron: m = Solids::Archimedean::rhombicosidodecahedron(); break;
                 case SolidType::TruncatedCuboctahedron: m = Solids::Archimedean::truncatedCuboctahedron(); break;
@@ -136,35 +146,38 @@ private:
         }
     }
 
-    void spawn_sprite() {
+    void spawn_sprite(int idx) {
+        int safe_idx = idx % presets.size();
+        
+        // Update live params
+        params = presets[safe_idx];
+
+        const auto& preset_data = loaded_presets[safe_idx]; 
+        
         auto mobius = std::make_shared<MobiusParams>(); 
         auto warp = std::make_shared<Animation::MobiusWarp>(*mobius, 1.0f, 200, true);
+        // Warp scale updated in draw loop
         
-        // Dynamic draw function capturing 'this' to access live params
-        auto draw_fn = [this, mobius, warp](Canvas& canvas, float opacity) mutable {
-             // Get current geometry based on params.solid_type
-             int geo_idx = std::clamp((int)params.solid_type, 0, (int)loaded_geometry.size() - 1);
-             const auto& preset_data = loaded_geometry[geo_idx];
-             
-             warp->scale = params.warp_scale;
+        auto draw_fn = [this, preset_data, mobius, warp](Canvas& canvas, float opacity) mutable {
+             warp->scale = this->params.warp_scale;
              warp->step(canvas); 
             
             // Stack allocated MeshState
             MeshState target_mesh = preset_data.mesh_state; // Deep copy
             
-            this->draw_scene(canvas, opacity, preset_data.mesh_state, target_mesh, preset_data.tangents, *mobius);
+            this->draw_scene(canvas, this->params, opacity, preset_data.mesh_state, target_mesh, preset_data.tangents, *mobius);
         };
         
         timeline.add(0, Animation::Sprite(draw_fn, 320, 32, ease_mid, 32, ease_mid));
         
         // Queue next
-        timeline.add(320 - 32, Animation::PeriodicTimer(0, [this](Canvas& c) { this->spawn_sprite(); }, false));
+        timeline.add(320 - 32, Animation::PeriodicTimer(0, [this, idx](Canvas& c) { this->spawn_sprite(idx + 1); }, false));
     }
 
-    void update_displaced_mesh(const MeshState& base, MeshState& target, const std::vector<Tangent>& tangents, float angle_offset) {
+    void update_displaced_mesh(const MeshState& base, MeshState& target, const std::vector<Tangent>& tangents, const Params& p, float angle_offset) {
         size_t count = base.vertices.size();
-        float r = params.offset_radius;
-        float speed = params.offset_speed;
+        float r = p.offset_radius;
+        float speed = p.offset_speed;
 
         for(size_t i=0; i<count; ++i) {
             const Vector& v = base.vertices[i];
@@ -181,7 +194,7 @@ private:
         }
     }
 
-    void draw_scene(Canvas& canvas, float opacity, const MeshState& base, MeshState& target, const std::vector<Tangent>& tangents, const MobiusParams& m_params) {
+    void draw_scene(Canvas& canvas, const Params& p, float opacity, const MeshState& base, MeshState& target, const std::vector<Tangent>& tangents, const MobiusParams& m_params) {
         
         auto vertex_shader = [&](Fragment& f) {
             f.pos = mobius_transform(f.pos, m_params);
@@ -189,15 +202,14 @@ private:
         };
 
         auto fragment_shader = [&](const Vector& v, Fragment& f) {
-            Color4 c = Palettes::richSunset.get(f.v0); 
-            c.alpha *= params.alpha * opacity;
+            Color4 c = p.palette->get(f.v0); 
+            c.alpha *= p.alpha * opacity;
             f.color = c;
         };
 
-        int copies = (int)params.num_copies;
-        for(int i=0; i<copies; ++i) {
-            float offset = (static_cast<float>(i) / copies) * 2 * PI_F;
-            update_displaced_mesh(base, target, tangents, offset);
+        for(int i=0; i<p.num_copies; ++i) {
+            float offset = (static_cast<float>(i) / p.num_copies) * 2 * PI_F;
+            update_displaced_mesh(base, target, tangents, p, offset);
             Plot::Mesh::draw<W, H>(filters, canvas, target, fragment_shader, vertex_shader);
         }
     }
