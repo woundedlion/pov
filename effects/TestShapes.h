@@ -48,7 +48,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     
-    // Cycle shapes every 500 frames (~5-10s depending on FPS)
+    // Cycle shapes every n frames
     static int frame_count = 0;
     frame_count++;
     if (frame_count % 500 == 0) {
@@ -65,19 +65,15 @@ public:
     timeline = Timeline<W, 256>(); 
 
     // Twist Mutation: sin wave
-    // In JS: (Math.PI / 4) * Math.sin(t * Math.PI), duration 480
-    // C++ Mutation takes a reference.
-    // Commented out to allow GUI control
-    // timeline.add(0, Animation::Mutation(params.twist, [](float t) {
-    //  return (PI_F / 4.0f) * sinf(t * PI_F); 
-    // }, 480, ease_mid, true));
+    timeline.add(0, Animation::Mutation(params.twist, [](float t) {
+      return (PI_F / 4.0f) * sinf(t * PI_F); 
+    }, 480, ease_mid, true));
 
     int total_shapes = num_shapes;
     int seed1 = hs::rand_int(0, 65535);
 
     for (int i = total_shapes - 1; i >= 0; --i) {
       float t = static_cast<float>(i) / (total_shapes > 1 ? total_shapes - 1 : 1);
-      // JS: color = Palettes.richSunset.get(t).clone();
       Color4 color = Palettes::richSunset.get(t);
       spawnRing(X_AXIS, t, color, seed1, RenderMode::Plot, i);
       spawnRing(-X_AXIS, t, color, seed1, RenderMode::Scan, i);
@@ -115,7 +111,6 @@ public:
     float r = this->params.radius * ring.scale;
     
     Basis basis = make_basis(ring.orientation.get(), ring.normal);
-    current_shape = ShapeType::Star;
     int sides_int = (int)params.sides;
     if (ring.mode == RenderMode::Plot) {
       switch (current_shape) {

@@ -139,24 +139,29 @@ private:
         int fade_out = 32;
         
         auto draw_fn = [this, mesh_state, faceIndices, palettes](Canvas& canvas, float opacity) {
-            // Rotate
-            MeshState rotated_mesh = mesh_state; // Deep copy vectors
+            // Optimization: Avoid deep copy of MeshState (vertices + faces + etc)
+            // We only transform vertices. Faces are constant.
+            
+            // 1. Transform Vertices
+            // Create a temporary vector for transformed vertices
+            std::vector<Vector> transformed_vertices = mesh_state.vertices; // Copy only vertices
             Quaternion q = orientation.get();
 
             // Capture the current state of ripple params
             RippleParams current_ripple = this->ripple; 
+            bool apply_ripple = (current_ripple.lifespawn > 0.001f);
 
-            for(auto& v : rotated_mesh.vertices) {
+            for(auto& v : transformed_vertices) {
                 // 1. Standard Rotation
                 v = rotate(v, q);
                 
                 // 2. Apply Ripple Transform
-                // Only if ripple is active to save cycles
-                if (current_ripple.lifespawn > 0.001f) {
+                if (apply_ripple) {
                     v = ripple_transform(v, current_ripple);
                 }
             }
             
+            // 2. Fragment Shader
             auto fragment_shader = [&](const Vector& p, Fragment& frag) {
                  int faceIdx = (int)std::round(frag.v2);
                  int topoIdx = 0;
@@ -174,7 +179,25 @@ private:
                  frag.color.alpha = opacity;
             };
             
-            Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader);
+            // 3. Draw using Scan::Mesh::drawRef
+            // We need a way to pass (vertices, faces) separately or construct a temporary wrapper.
+            // Scan::Mesh::draw takes MeshState or MeshRef-like structure.
+            // Let's create a temporary lightweight wrapper.
+            struct MeshRef {
+                const std::vector<Vector>& vertices;
+                const std::vector<int>& faces;
+                const std::vector<uint8_t>& face_counts;
+                size_t num_faces;
+                size_t num_vertices;
+            } mesh_ref = { 
+                transformed_vertices, 
+                mesh_state.faces, 
+                mesh_state.face_counts,
+                mesh_state.face_counts.size(),
+                transformed_vertices.size()
+            };
+
+            Scan::Mesh::draw<W, H>(filters, canvas, mesh_ref, fragment_shader);
         };
         
         timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid, fade_out, ease_mid));

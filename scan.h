@@ -661,9 +661,9 @@ namespace SDF {
               
                // Vertex Bounds
                float phi_val = acosf(std::clamp(v1.j, -1.0f, 1.0f)); 
-              if (phi_val < min_phi) min_phi = phi_val;
-              if (phi_val > max_phi) max_phi = phi_val;
-              
+               if (phi_val < min_phi) min_phi = phi_val;
+               if (phi_val > max_phi) max_phi = phi_val;
+
                // Arc Extrema Logic
                if (planes_count > 0) {
                   const Vector& n = scratch.planes[planes_count - 1];
