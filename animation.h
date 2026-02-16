@@ -1459,9 +1459,19 @@ public:
       // 1. Move the wave (Emanate outward)
       params.get().phase += speed;
       
-      // 2. Dissipate (Linear fade out)
+      // 2. Lifecycle Management
+      float progress = static_cast<float>(t) / duration;
+      
       if (t < duration) {
-          params.get().lifespawn = 1.0f - (static_cast<float>(t) / duration);
+          // Ease In (Attack) - fast ramp up over ~10% of duration
+          float attack_dur = 0.1f;
+          float attack = std::min(progress / attack_dur, 1.0f);
+          attack = attack * attack * (3.0f - 2.0f * attack); // Smoothstep
+          
+          // Fade Out (Decay)
+          float decay = 1.0f - progress;
+          
+          params.get().lifespawn = attack * decay;
       } else {
           params.get().lifespawn = 0.0f;
       }
