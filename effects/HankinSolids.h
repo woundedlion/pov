@@ -46,7 +46,7 @@ public:
     MeshState secondary_mesh; // Target mesh during morph
 
     HankinSolids() : Effect(W, H), 
-        filters(Filter::Screen::AntiAlias<W, H>())
+        filters()
     {
         registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
         registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
@@ -90,10 +90,8 @@ private:
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
     int solid_idx = 0;
-    // float hankin_angle = PI_F / 4.0f; // Moved to params
     bool enable_dual = false; 
     bool enable_hankin = true;
-    // float intensity = 1.2f; // Moved to params
 
     // Data Helpers
     std::vector<std::string> solids_list; // Not really used in C++ enum but logical parity

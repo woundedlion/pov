@@ -31,7 +31,7 @@ public:
     };
 
     IslamicStars() : Effect(W, H), 
-        filters(Filter::Screen::AntiAlias<W, H>())
+        filters()
     {
         registerParam("Duration", &params.duration, 48.0f, 192.0f);
         registerParam("Fade", &params.fade, 16.0f, 64.0f);
