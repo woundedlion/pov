@@ -623,6 +623,47 @@ Vector gnomonic_mobius_transform(const Vector& v, const MobiusParams& params) {
 }
 
 /**
+ * @brief Parameters defining a spherical ripple effect.
+ */
+struct RippleParams {
+  Vector center;      /**< Center of the ripple on the sphere */
+  float amplitude;    /**< Peak distortion amount (in radians) */
+  float frequency;    /**< Number of waves */
+  float phase;        /**< Current animation phase (moves the waves) */
+  float decay;        /**< spatial decay rate (falloff from center) */
+  float lifespawn;    /**< 0.0 to 1.0, tracks the life of the ripple event for fading */
+};
+
+/**
+ * @brief Applies a ripple distortion to a vector on the unit sphere.
+ * @param v The input vector to transform.
+ * @param params The ripple configuration.
+ * @return The distorted vector.
+ */
+Vector ripple_transform(const Vector& v, const RippleParams& params) {
+    // 1. Calculate Geodesic Distance
+    float d = angle_between(v, params.center);
+    
+    // 2. Calculate Displacement Angle (Damped Sine Wave)
+    // The wave travels as phase increases.
+    // We multiply by params.lifespawn to fade the entire effect out globally as it dies.
+    float theta = params.amplitude * params.lifespawn * sinf(d * params.frequency - params.phase) * expf(-params.decay * d);
+
+    // 3. Apply Rotation
+    // Rotate v towards/away from center along the great circle connecting them.
+    Vector axis = cross(params.center, v);
+    float lenSq = dot(axis, axis);
+    
+    if (lenSq > 1e-6f) {
+        axis = axis * (1.0f / sqrtf(lenSq));
+        Quaternion q = make_rotation(axis, theta);
+        return rotate(v, q);
+    }
+    
+    return v; // Singularity at center/antipode
+}
+
+/**
  * @brief Adjusted basis and radius for drawing on the opposite side of the sphere.
  * @param basis The current basis {u, v, w}.
  * @param radius Angular radius (0-2).

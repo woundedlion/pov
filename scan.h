@@ -608,20 +608,32 @@ namespace SDF {
            }
            poly2D = std::span<Vector>(scratch.poly2D.data(), count);
 
-           // Compute Apothem/Size (Min dist from center to infinite lines of edges)
+           // Compute Apothem/Size (Min dist from center (0,0) to the polygon boundary)
            float min_edge_dist = 1e9f;
            for(int i=0; i<count; ++i) {
                Vector v1 = scratch.poly2D[i];
                Vector v2 = scratch.poly2D[(i+1)%count];
-               // dist = |v1.x*v2.y - v1.y*v2.x| / |v2-v1|
-               float cross_2d = std::abs(v1.i * v2.j - v1.j * v2.i);
-               float edge_len = (v1 - v2).magnitude();
-               if (edge_len > 1e-9f) {
-                   float d_line = cross_2d / edge_len;
-                   if (d_line < min_edge_dist) min_edge_dist = d_line;
+               
+               // Distance from origin (0,0) to line segment v1-v2
+               Vector edge = v2 - v1;
+               float edge_len_sq = dot(edge, edge);
+               float t = 0.0f;
+               if (edge_len_sq > 1e-9f) {
+                   // Project (0,0)-v1 onto v2-v1. 
+                   // t = dot(p-v1, v2-v1) / |v2-v1|^2. Here p is (0,0), so dot(-v1, edge)
+                   t = dot(-v1, edge) / edge_len_sq;
+                   t = std::max(0.0f, std::min(1.0f, t));
                }
+               Vector closest = v1 + edge * t;
+               float d_line = closest.magnitude();
+               
+               if (d_line < min_edge_dist) min_edge_dist = d_line;
            }
            size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
+           
+           // Robustness: Prevent size from disappearing if centroid is near an edge
+           float radius = sqrtf(max_r2);
+           if (size < radius * 0.25f) size = radius * 0.25f;
            
            // Edges and Planes
            int planes_count = 0;
@@ -792,7 +804,7 @@ namespace SDF {
              
              // 2D SDF & Winding
              float d = FLT_MAX;
-             int winding = 0;
+             float winding_accum = 0.0f;
              
              for(int i = 0; i < count; ++i) {
                  const Vector& Vi = poly2D[i];
@@ -821,22 +833,26 @@ namespace SDF {
                  
                  if (distSq < d) d = distSq;
                  
-                 // Winding (Standard Point-in-Polygon via Ray Casting / Winding Number)
-                 bool isUpward = (Vi.j <= py) && (Vnext.j > py);
-                 bool isDownward = (Vi.j > py) && (Vnext.j <= py);
+                // Robust Winding Number (Sum of signed angles)
+                 // angle = atan2(cross, dot) relative to P
+                 // This handles warped/self-intersecting/distorted polygons better than ray casting
+                 float dx1 = Vi.i - px;
+                 float dy1 = Vi.j - py;
+                 float dx2 = Vnext.i - px;
+                 float dy2 = Vnext.j - py;
                  
-                 if (isUpward || isDownward) {
-                     float cross_val = ex * wy - ey * wx;
-                     if (isUpward) {
-                         if (cross_val > 0) winding++;
-                     } else {
-                         if (cross_val < 0) winding--;
-                     }
-                 }
+                 // cross product of (P->V1) and (P->V2) is z-component
+                 float cross = dx1 * dy2 - dx2 * dy1;
+                 float dot_val = dx1 * dx2 + dy1 * dy2;
+                 
+                 // atan2(sin, cos) -> angle
+                 // winding += angle
+                 float angle = atan2f(cross, dot_val);
+                 winding_accum += angle;
              }
              
-             // Inside if winding != 0
-             float s = (winding != 0) ? -1.0f : 1.0f;
+             // Inside if winding sum is approximately +/- 2PI (use 2.0f for robustness against noise)
+             float s = (std::abs(winding_accum) > 2.0f) ? -1.0f : 1.0f;
              float plane_dist = s * std::sqrt(d);
              float dist = plane_dist - thickness;
              
@@ -844,7 +860,7 @@ namespace SDF {
 
              // Barycentrics (Fan)
              res.weights.valid = false;
-             if (winding != 0) {
+             if (std::abs(winding_accum) > 2.0f) {
                  const Vector& v0 = poly2D[0];
                  for(int i=1; i < count - 1; ++i) {
                      const Vector& v1 = poly2D[i];
