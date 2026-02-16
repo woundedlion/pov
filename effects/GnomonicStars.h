@@ -13,10 +13,14 @@ public:
     GnomonicStars() : Effect(W, H),
         orientation(),
         timeline(),
-        params(1,0,0,0, 0,0,1,0)
+        mobius_params(1,0,0,0, 0,0,1,0)
     {
+        registerParam("Points", &params.points, 100.0f, 2000.0f);
+        registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
+        registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
+
         this->persist_pixels = false;
-        timeline.add(0, Animation::MobiusGenerate(params, 0.5f, 0.05f));
+        timeline.add(0, Animation::MobiusGenerate(mobius_params, 0.5f, 0.05f));
         timeline.add(0, Animation::RandomWalk<W>(orientation, UP, Animation::RandomWalk<W>::Options::Energetic()));
     }
 
@@ -35,15 +39,15 @@ public:
             frag.blend = BLEND_OVER; 
         };
 
-        const int points = spiral_params.points;
-        const float radius = spiral_params.star_radius;
-        const int sides = spiral_params.star_sides;
+        const int points = (int)params.points;
+        const float radius = params.star_radius;
+        const int sides = (int)params.star_sides;
         
         for (int i = 0; i < points; i++) {
             Vector v = fib_spiral(points, 0.0f, i);
 
             if (enable_transform) {
-                v = gnomonic_mobius_transform(v, params);
+                v = gnomonic_mobius_transform(v, mobius_params);
             }
 
             // Orient the star position (using latest orientation)
@@ -68,12 +72,12 @@ private:
     Timeline<W> timeline;
     Pipeline<W, H> filters;
     
-    MobiusParams params;
+    MobiusParams mobius_params;
     bool enable_transform = true;
     
-    struct SpiralParams {
-        int points = 600;
+    struct Params {
+        float points = 600.0f;
         float star_radius = 0.02f;
-        int star_sides = 4;
-    } spiral_params;
+        float star_sides = 4.0f;
+    } params;
 };

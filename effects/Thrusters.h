@@ -12,14 +12,15 @@ public:
     Effect(W, H),
     palette({ 0.5f, 0.5f, 0.5f }, { 0.5f, 0.5f, 0.5f }, { 0.3f, 0.3f, 0.3f }, { 0.0f, 0.2f, 0.6f }),
     filters(Filter::Screen::AntiAlias<W, H>()),
-    alpha(0.2f),
     ring_vec(0.5f, 0.5f, 0.5f),
     amplitude(0),
-    radius(1.0f),
     warp_phase(0),
     t_global(0),
     warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid)
   {
+    registerParam("Radius", &params.radius, 0.1f, 2.0f);
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+
     persist_pixels = false;
     ring_vec = ring_vec.normalize();
 
@@ -132,7 +133,7 @@ private:
     auto fragment_shader = [this, opacity](const Vector&, Fragment& f) { 
         f.color = Color4(CRGB(255, 255, 255));
         f.color.color = f.color.color * opacity;
-        f.color.alpha = opacity * alpha;
+        f.color.alpha = opacity * params.alpha;
     };
     Plot::Ring::draw<W, H>(filters, c, basis, ctx.radius, fragment_shader);
   }
@@ -144,10 +145,10 @@ private:
         Vector axis = orientation.orient(X_AXIS);
         float angle = angle_between(axis, orientation.orient(v));
         f.color = palette.get(angle / PI_F);
-        f.color.alpha *= alpha * opacity;
+        f.color.alpha *= params.alpha * opacity;
     };
 
-    Plot::DistortedRing::draw<W, H>(filters, c, basis, radius,
+    Plot::DistortedRing::draw<W, H>(filters, c, basis, params.radius,
       [this](float t) { return ring_fn(t); }, 
       fragment_shader
     );
@@ -158,12 +159,15 @@ private:
 
   Vector ring_vec;
   float amplitude;
-  float radius;
   float warp_phase;
   int t_global;
 
   Timeline<W> timeline;
   Animation::Mutation warp_anim;
   Orientation<W> orientation;
-  float alpha;
+  
+  struct Params {
+      float radius = 1.0f;
+      float alpha = 0.2f;
+  } params;
 };

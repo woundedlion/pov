@@ -21,7 +21,10 @@ public:
       modifier(0.02f)
   {
       this->persist_pixels = false;
-
+      
+      registerParam("Light Speed", &params.lightSpeed, 0.0f, 0.5f);
+      registerParam("Light Alpha", &params.lightAlpha, 0.0f, 2.0f);
+ 
       timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
       palette.add(&modifier);
       timeline.add(0, Animation::PaletteAnimation(modifier));
@@ -40,7 +43,7 @@ public:
         f.color = baseColor;
         
         // Lighting Logic (Edge Pulses)
-         float phase = fmodf(t * global.lightSpeed, 1.0f);
+         float phase = fmodf(t * params.lightSpeed, 1.0f);
          if (phase < 0) phase += 1.0f;
          float dist = std::abs(f.v1 - phase);
          if (dist > 0.5f) dist = 1.0f - dist;
@@ -51,7 +54,7 @@ public:
              
              // Lerp to white
              Pixel white(65535, 65535, 65535);
-             float val = strength * global.lightAlpha;
+             float val = strength * params.lightAlpha;
              if (val > 1.0f) val = 1.0f;
              uint16_t frac = (uint16_t)(val * 65535.0f);
              f.color.color = f.color.color.lerp16(white, frac);
@@ -63,10 +66,10 @@ public:
   }
   
   // Params
-  struct GlobalParams {
+  struct Params {
       float lightSpeed = 0.05f;
       float lightAlpha = 1.0f;
-  } global;
+  } params;
   
   float t = 0;
 

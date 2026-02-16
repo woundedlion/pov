@@ -13,8 +13,15 @@ class MindSplatter : public Effect {
 public:
     MindSplatter() : Effect(W, H),
         filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
-        particle_system(friction, 0.001f, 25)
+        particle_system(0.85f, 0.001f, 25)
     {
+        registerParam("Friction", &params.friction, 0.5f, 1.0f);
+        registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
+        registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
+        registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
+
+        params.friction = 0.85f; // Sync with ParticleSystem init if possible, but PS copies it
+        
         persist_pixels = false;
         timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS)); 
         rebuild();
@@ -42,10 +49,12 @@ private:
     typedef StaticCircularBuffer<GenerativePalette, NUM_PARTICLES> PaletteBuffer;
     
     // Params
-    float friction = 0.85f;
-    float well_strength = 1.0f;
-    float initial_speed = 0.025f;
-    float angular_speed = 0.2f;
+    struct Params {
+        float friction = 0.85f;
+        float well_strength = 1.0f;
+        float initial_speed = 0.025f;
+        float angular_speed = 0.2f;
+    } params;
 
     Orientation<W> orientation;
     Timeline<W> timeline;
@@ -61,11 +70,11 @@ private:
     float warp_scale = 0.6f;
 
     void rebuild() {
-        particle_system.reset(friction, 0.001f);
+        particle_system.reset(params.friction, 0.001f);
         
         // Add Attractors
         for(const auto& v : AttractSolid::vertices) {
-            particle_system.add_attractor(v, well_strength, 0.003f, 0.2f);
+            particle_system.add_attractor(v, params.well_strength, 0.003f, 0.2f);
         }
         
         // Emitter Hues
@@ -81,11 +90,11 @@ private:
             Vector axis = EmitSolid::vertices[i];
             
             particle_system.add_emitter([this, i, axis](ParticleSystem& sys) mutable {
-                float angle = (emit_counters[i]++) * angular_speed;
+                float angle = (emit_counters[i]++) * params.angular_speed;
                 
                 // Basis
                 auto basis = make_basis(Quaternion(), axis);
-                Vector vel = (basis.u * cosf(angle) + basis.w * sinf(angle)) * initial_speed;
+                Vector vel = (basis.u * cosf(angle) + basis.w * sinf(angle)) * params.initial_speed;
                 
                 // Update Hue
                 emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);

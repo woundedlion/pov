@@ -27,14 +27,18 @@ public:
       Filter::Screen::AntiAlias<W, H>()
     )
   {
+    registerParam("Rings", &params.num_rings, 0.0f, 20.0f);
+    registerParam("Lines", &params.num_lines, 0.0f, 20.0f);
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+
     persist_pixels = false;
 
     timeline
-      .add(0, Animation::MobiusWarp(params, 1.0f, 160, true))
+      .add(0, Animation::MobiusWarp(mobius_params, 1.0f, 160, true))
       .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400, ease_mid, true))
-      .add(0, Animation::PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true))
-      .add(0, Animation::Mutation(num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
-      .add(160, Animation::Mutation(num_lines, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true));
+      .add(0, Animation::PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true));
+      //.add(0, Animation::Mutation(num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
+      //.add(160, Animation::Mutation(num_lines, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true));
   }
 
   bool show_bg() const override { return false; }
@@ -47,9 +51,9 @@ public:
 
     // Calculate Stabilizing Counter-Rotation
     Vector n_in = Z_AXIS;
-    Vector n_trans = inv_stereo(mobius(stereo(n_in), params));
+    Vector n_trans = inv_stereo(mobius(stereo(n_in), mobius_params));
     Vector s_in = -Z_AXIS;
-    Vector s_trans = inv_stereo(mobius(stereo(s_in), params));
+    Vector s_trans = inv_stereo(mobius(stereo(s_in), mobius_params));
     Vector mid = (n_trans + s_trans);
     Quaternion q; // Default Identity
     if (mid.length() > 0.001f) {
@@ -61,8 +65,8 @@ public:
     holeN = rotate(n_trans, q).normalize();
     holeS = rotate(s_trans, q).normalize();
 
-    draw_axis_rings(canvas, Z_AXIS, num_rings, phase, q);
-    draw_longitudes(canvas, num_lines, phase, q);
+    draw_axis_rings(canvas, Z_AXIS, params.num_rings, phase, q);
+    draw_longitudes(canvas, params.num_lines, phase, q);
   }
 
 private:
@@ -90,7 +94,7 @@ private:
       m_fragments.clear();
       m_fragments.reserve(m_points.size());
       for (size_t k = 0; k < m_points.size(); ++k) {
-        Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), params));
+        Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), mobius_params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
         f.v0 = (float)k / (m_points.size() - 1); // t
@@ -101,7 +105,7 @@ private:
       
       auto fragment_shader = [&](const Vector&, Fragment& f_val) {
         Color4 c = palette.get(static_cast<float>(i) / num);
-        c.alpha *= opacity;
+        c.alpha *= opacity * params.alpha;
         f_val.color = c;
       };
 
@@ -122,7 +126,7 @@ private:
       m_fragments.clear();
       m_fragments.reserve(m_points.size());
       for (size_t k = 0; k < m_points.size(); ++k) {
-        Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), params));
+        Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), mobius_params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
         f.v0 = (float)k / m_points.size(); // t (0..1)
@@ -142,7 +146,7 @@ private:
         float t = (log_r - log_min) / (log_max - log_min);
 
         Color4 c = palette.get(wrap(t - phase, 1.0f));
-        c.alpha *= opacity;
+        c.alpha *= opacity * params.alpha;
         f_val.color = c;
       };
 
@@ -150,12 +154,16 @@ private:
     }
   }
 
-  float alpha = 0.2f;
-  float num_rings = 0;
-  float num_lines = 0;
   GenerativePalette palette;
   GenerativePalette next_palette;
-  MobiusParams params;
+  MobiusParams mobius_params; // Renamed from params
+  
+  struct Params {
+      float num_rings = 4.0f;
+      float num_lines = 8.0f;
+      float alpha = 0.2f;
+  } params; // New params struct
+
   Orientation<W> orientation;
   Timeline<W> timeline;
 

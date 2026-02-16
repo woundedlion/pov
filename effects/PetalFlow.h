@@ -15,6 +15,13 @@ static float ease_linear(float t) { return t; }
 template <int W, int H>
 class PetalFlow : public Effect {
 public:
+
+  struct Params {
+      float twist_factor = 2.15f;
+      float speed = 8.0f; 
+      float alpha = 0.2f;
+  } params;
+
   PetalFlow() :
     Effect(W, H),
     palette(
@@ -32,6 +39,11 @@ public:
     spawner(1, [this](Canvas&) { this->check_spawn(); }, true)
   {
     persist_pixels = false;
+    
+    // Register Params
+    registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);
+    registerParam("Speed", &params.speed, 0.0f, 20.0f);
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
     // Initialize Rings
     for (int i = 0; i < MAX_RINGS; ++i) {
@@ -66,11 +78,6 @@ private:
   Ring rings[MAX_RINGS];
   float gap_accumulator = 0.0f;
 
-  // JS Defaults
-  float twist_factor = 2.15f;
-  float speed = 8.0f; 
-  float alpha = 0.2f;
-
   ProceduralPalette palette;
   Orientation<W> orientation;
   
@@ -87,7 +94,8 @@ private:
       timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160, ease_mid, true));
       
       // Animation for Twist Mutation
-      timeline.add(0, Animation::Mutation(twist_factor, sin_wave(2.0f, 2.5f, 1.0f, 0.0f), 160, ease_mid, true));
+      // Commented out to allow GUI control of params.twist_factor
+      // timeline.add(0, Animation::Mutation(params.twist_factor, sin_wave(2.0f, 2.5f, 1.0f, 0.0f), 160, ease_mid, true));
       
       // Add Spawner
       gap_accumulator = 0.0f;
@@ -106,7 +114,7 @@ private:
       // Frame rate: 16 fps
       // Per frame: (speed * 0.015) / 16.0 = speed * 0.0009375
       
-      float move_dist = speed * 0.0009375f;
+      float move_dist = params.speed * 0.0009375f;
       
       gap_accumulator += move_dist;
       
@@ -144,7 +152,7 @@ private:
       // Update Position: 
       // Scale down to match JS per-second rate in a 16fps frame context
       // speed 8.0 * 0.0009375 = 0.0075 units/frame
-      float move_dist = speed * 0.0009375f;
+      float move_dist = params.speed * 0.0009375f;
       ring.rho += move_dist;
 
       // Lifecycle Check
@@ -162,7 +170,7 @@ private:
       }
       
       // Combined Opacity
-      float effective_opacity = opacity * alpha;
+      float effective_opacity = opacity * params.alpha;
       if (effective_opacity <= 0.01f) return;
 
       const int num_samples = W;
@@ -175,8 +183,31 @@ private:
       float hue = wrap(color_idx * 0.13f, 1.0f);
       Color4 base_col = palette.get(hue).color;
       base_col.alpha = effective_opacity; 
+      
+      // Note: We use params.twist_factor here, but also have an animation mutating it?
+      // The animation in init_timeline mutates params.twist_factor:
+      // timeline.add(0, Animation::Mutation(params.twist_factor, ...));
+      // So checking params.twist_factor here picks up the animated/mutated value.
+      // BUT if we also control it via GUI, there's a conflict.
+      // The Mutation animation writes to the reference of the variable.
+      // If the GUI writes to it too, they fight.
+      // For now, let's allow the conflict (GUI sets base, Mutation modulates) OR
+      // realize that Mutation takes a reference.
+      // If the Mutation logic is "value += delta" or "value = base + delta", it matters.
+      // Animation::Mutation usually does: *target = generator.get().
+      // This means the animation DOMINATES and overwrites whatever the GUI sets every frame.
+      
+      // FIX: In the original PetalFlow.h, twist_factor was being mutated by:
+      // timeline.add(0, Animation::Mutation(twist_factor, sin_wave(2.0f, 2.5f, 1.0f, 0.0f), ...));
+      // This means twist_factor is completely controlled by the sin_wave.
+      // If we want GUI control, we should probably REMOVE the automatic mutation 
+      // OR make the mutation relative to the GUI value.
+      // The user asked to "hook up the GUI controls", implying manual control.
+      // I will REMOVE the automatic mutation of twist_factor so the GUI works.
+      // Users usually prefer manual control over pre-canned modulation when they have a slider.
+      // I'll comment it out in init_timeline.
 
-      float twist_angle = (ring.rho / SPACING) * twist_factor;
+      float twist_angle = (ring.rho / SPACING) * params.twist_factor;
       
       auto get_shift = [](float t) -> float {
           return 0.6f * std::abs(sinf(3.0f * PI_F * t));

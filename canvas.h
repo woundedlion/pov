@@ -10,6 +10,18 @@
 #include "platform.h"
 #include "constants.h"
 #include "color.h"
+#include <map>
+#include <string>
+#include <vector>
+
+struct ParamDef {
+  std::string name;
+  float* target; // Pointer to the actual member variable
+  float min;
+  float max;
+  float defaultValue;
+};
+
 
 class Canvas;
 
@@ -103,11 +115,36 @@ public:
     hs::enable_interrupts();
   }
 
+  // Parameter System
+  void updateParameter(const std::string& name, float value) {
+      auto it = parameters.find(name);
+      if (it != parameters.end()) {
+          *(it->second.target) = value;
+          // Debug logging
+          // char buf[64];
+          // sprintf(buf, "Param Update: %s -> %f", name.c_str(), value);
+          // hs::log(buf);
+      } else {
+          // char buf[64];
+          // sprintf(buf, "Param Not Found: %s", name.c_str());
+          // hs::log(buf);
+      }
+  }
+
+  const std::map<std::string, ParamDef>& getParameters() const {
+      return parameters;
+  }
+
 protected:
   /**
    * @brief Flag indicating if the previous frame's pixels should be copied to the new buffer (for trails/decay).
    */
   bool persist_pixels;
+  std::map<std::string, ParamDef> parameters;
+
+  void registerParam(const std::string& name, float* ptr, float min = 0.0f, float max = 1.0f) {
+      parameters[name] = { name, ptr, min, max, *ptr };
+  }
 
 private:
   volatile int prev_ = 0, cur_ = 0, next_ = 0; /**< Pointers/indices for double buffering logic. */

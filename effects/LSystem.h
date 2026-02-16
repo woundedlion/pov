@@ -48,6 +48,10 @@ public:
     };
 
     LSystem() : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
+        registerParam("Rule", &params.rule_idx, 0.0f, 2.0f);
+        registerParam("Angle", &params.angle_mod, -15.0f, 15.0f);
+        registerParam("Step", &params.step_mod, 0.5f, 2.0f);
+
         persist_pixels = false;
         setup_rules();
         set_ruleset(0); // Tree
@@ -59,6 +63,25 @@ public:
     void draw_frame() override {
         Canvas canvas(*this);
         timeline.step(canvas);
+        
+        // Check for ruleset change
+        static int last_rule = -1;
+        if ((int)params.rule_idx != last_rule) {
+            set_ruleset((int)params.rule_idx);
+            last_rule = (int)params.rule_idx;
+        }
+
+        // Check for live parameter updates (requires regeneration if changed)
+        // Optimization: only regenerate if changed? For now, we regenerate or check diff
+        // But regenerate() is heavy? L-System string gen is fast for small N. Geometry gen is okay.
+        // Let's check diffs.
+        static float last_angle = 0;
+        static float last_step = 0;
+        if (std::abs(params.angle_mod - last_angle) > 0.01f || std::abs(params.step_mod - last_step) > 0.01f) {
+            regenerate();
+            last_angle = params.angle_mod;
+            last_step = params.step_mod;
+        }
         
         for (const auto& seg : segments) {
             // Color by y position
@@ -90,8 +113,8 @@ public:
              s = next_s;
         }
         
-        float step = current_ruleset.step;
-        float angle = current_ruleset.angle * PI_F / 180.0f;
+        float step = current_ruleset.step * params.step_mod;
+        float angle = (current_ruleset.angle + params.angle_mod) * PI_F / 180.0f;
         
         Vector pos(0, -1, 0);
         Vector heading(0, 0, 1);
@@ -147,4 +170,10 @@ private:
             79.0f, 0.33f, 3
         });
     }
+
+    struct Params {
+        float rule_idx = 0.0f;
+        float angle_mod = 0.0f;
+        float step_mod = 1.0f;
+    } params;
 };

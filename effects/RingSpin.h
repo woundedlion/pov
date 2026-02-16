@@ -29,10 +29,11 @@ public:
   };
 
   RingSpin() :
-    Effect(W, H),
-    alpha(0.5f),
-    thickness(2.0f * (2 * PI_F / W))
+    Effect(W, H)
   {
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
+
     persist_pixels = false;
 
     std::vector<const Palette*> source_palettes = {
@@ -58,12 +59,12 @@ public:
       ring.trail.record(ring.orientation);
       deep_tween(ring.trail, [&](const Quaternion& q, float t) {
           Color4 c = ring.palette.get(1.0f - t);
-          c.alpha = c.alpha * alpha;
+          c.alpha = c.alpha * params.alpha;
           Basis basis = make_basis(q, ring.normal);
           auto fragment_shader = [&](const Vector&, Fragment& f) {
               f.color = c;
           };
-          Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, thickness, fragment_shader);
+          Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, params.thickness, fragment_shader);
         });
     }
   }
@@ -80,6 +81,9 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
 
-  float alpha;
-  float thickness;
+  struct Params {
+      float alpha = 0.5f;
+      float thickness = 1.0f;
+  } params;
+
 };

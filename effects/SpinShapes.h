@@ -11,6 +11,10 @@ template <int W, int H>
 class SpinShapes : public Effect {
 public:
     SpinShapes() : Effect(W, H), filters(Filter::World::Orient<W>(camera), Filter::Screen::AntiAlias<W, H>()) {
+        registerParam("Sides", &params.sides, 3.0f, 12.0f);
+        registerParam("Radius", &params.radius, 0.05f, 2.0f);
+        registerParam("Count", &params.count, 1.0f, 100.0f);
+
         this->persist_pixels = false;
         rebuild();
     }
@@ -38,10 +42,11 @@ private:
         int layer;
     };
     
-    // Parameters
-    int sides = 3;
-    float radius = 0.2f;
-    int count = 40;
+    struct Params {
+        float sides = 3.0f;
+        float radius = 0.2f;
+        float count = 40.0f;
+    } params;
     
     std::vector<Shape> shapes;
     std::vector<Animation::Rotation<W>> rotations;
@@ -54,11 +59,11 @@ private:
         rotations.clear();
         
         // Ensure stability for references
-        shapes.reserve(count * 2); 
-        rotations.reserve(count * 2);
+        shapes.reserve((int)params.count * 2); 
+        rotations.reserve((int)params.count * 2);
 
-        for (int i = 0; i < count; i++) {
-            Vector normal = fib_spiral(count, 0, i);
+        for (int i = 0; i < (int)params.count; i++) {
+            Vector normal = fib_spiral((int)params.count, 0, i);
 
             // Layer 1
             {
@@ -86,8 +91,8 @@ private:
         };
 
         Basis basis = make_basis(shape.orientation.get(), shape.normal);
-        float phase = (shape.layer == 0) ? 0.0f : PI_F / sides;
+        float phase = (shape.layer == 0) ? 0.0f : PI_F / params.sides;
         
-        Scan::SphericalPolygon::draw<W, H>(filters, canvas, basis, radius, sides, fragment_shader, phase);
+        Scan::SphericalPolygon::draw<W, H>(filters, canvas, basis, params.radius, (int)params.sides, fragment_shader, phase);
     }
 };

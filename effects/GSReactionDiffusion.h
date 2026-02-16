@@ -17,6 +17,14 @@ public:
 
   GSReactionDiffusion()
       : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
+    
+    registerParam("Feed", &params.feed, 0.0f, 0.1f);
+    registerParam("Kill (k)", &params.k, 0.0f, 0.1f);
+    registerParam("dA", &params.dA, 0.0f, 1.0f);
+    registerParam("dB", &params.dB, 0.0f, 1.0f);
+    registerParam("dt", &params.dt, 0.1f, 2.0f);
+    registerParam("Global Alpha", &params.global_alpha, 0.0f, 1.0f);
+
     persist_pixels = false;
     build_graph();
     timeline
@@ -45,12 +53,7 @@ private:
     std::array<float, RD_N> nextA;
     std::array<float, RD_N> nextB;
 
-    // Simulation Parameters
-    float feed = 0.0545f;
-    float k = 0.062f;
-    float dA = 0.15f;
-    float dB = 0.075f;
-    float dt = 1.0f;
+    // Simulation params moved to main Effect class
 
     GenerativePalette palette;
 
@@ -197,7 +200,7 @@ private:
       if (b > 0.1f) {
         float t = std::clamp((b - 0.15f) * 4.0f, 0.0f, 1.0f);
         Color4 c = ctx.palette.get(t);
-        c.alpha *= opacity * global_alpha;
+        c.alpha *= opacity * params.global_alpha;
 						auto shader = [c](const Vector& p, Fragment& f) {
                             f.color = c;
                         };
@@ -228,13 +231,13 @@ private:
 
       // Reaction-Diffusion logic
       float reaction = a * b * b;
-      float feed_term = ctx.feed * (1.0f - a);
-      float kill_term = (ctx.k + ctx.feed) * b;
+      float feed_term = params.feed * (1.0f - a);
+      float kill_term = (params.k + params.feed) * b;
 
       ctx.nextA[i] = std::clamp(
-          a + (ctx.dA * lapA - reaction + feed_term) * ctx.dt, 0.0f, 1.0f);
+          a + (params.dA * lapA - reaction + feed_term) * params.dt, 0.0f, 1.0f);
       ctx.nextB[i] = std::clamp(
-          b + (ctx.dB * lapB + reaction - kill_term) * ctx.dt, 0.0f, 1.0f);
+          b + (params.dB * lapB + reaction - kill_term) * params.dt, 0.0f, 1.0f);
     }
 
     // Swap buffers
@@ -250,6 +253,13 @@ private:
 
   StaticCircularBuffer<GSReactionContext, 4> contexts;
   Timeline<W> timeline;
-
-  float global_alpha = 0.3f;
+  
+  struct Params {
+      float feed = 0.0545f;
+      float k = 0.062f;
+      float dA = 0.15f;
+      float dB = 0.075f;
+      float dt = 1.0f;
+      float global_alpha = 0.3f;
+  } params;
 };

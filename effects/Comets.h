@@ -34,16 +34,16 @@ public:
   };
 
   Comets() :
-    Effect(W, H),
-    palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::ASCENDING),
-    cur_function_idx(0),
-    num_nodes(1),
-    spacing(48),
-    resolution(32),
-    cycle_duration(80),
-    alpha(1.0f),
-    thickness(2.1f * 2 * PI_F / W)
+    Effect(W, H)
   {
+    params.thickness = 2.1f * 2 * PI_F / W;
+
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
+    registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
+    registerParam("Spacing", &params.spacing, 10.0f, 100.0f);
+    registerParam("Resolution", &params.resolution, 1.0f, 100.0f);
+
     persist_pixels = false;
 
     // Initialize Lissajous functions
@@ -69,7 +69,7 @@ public:
       spawn_node();
     }
 
-    timeline.add(0, Animation::PeriodicTimer(2 * cycle_duration, [this](Canvas& c) {
+    timeline.add(0, Animation::PeriodicTimer(2 * (int)params.cycle_duration, [this](Canvas& c) {
       cur_function_idx = static_cast<int>(hs::rand_int(0, functions.size()));
       update_path();
       update_palette();
@@ -90,7 +90,7 @@ public:
 
       deep_tween(node.trail, [&](const Quaternion& q, float t_trail) {
         Color4 c = palette.get(t_trail);
-        c.alpha = c.alpha * alpha * quintic_kernel(t_trail);
+        c.alpha = c.alpha * params.alpha * quintic_kernel(t_trail);
         Vector v_local = rotate(node.v, q);
         Vector v_final = orientation.orient(v_local);
         render_points.emplace_back(Dot(v_final, c));
@@ -103,7 +103,7 @@ public:
             f.color = dot.color;
             f.color.alpha *= quintic_kernel(1.0f - t);
         };
-        Scan::Point::draw<W, H>(filters, canvas, dot.position, thickness, fragment_shader);
+        Scan::Point::draw<W, H>(filters, canvas, dot.position, params.thickness, fragment_shader);
     }
   }
 
@@ -113,7 +113,7 @@ private:
     const auto& config = functions[cur_function_idx];
     float max_speed = sqrtf(config.m1 * config.m1 + config.m2 * config.m2);
     float length = config.domain * max_speed;
-    int samples = std::max(128, static_cast<int>(ceilf(length * resolution)));
+    int samples = std::max(128, static_cast<int>(ceilf(length * params.resolution)));
 
     Path<W> new_path;
     new_path.append_segment(
@@ -139,7 +139,7 @@ private:
     nodes.push_back(Node());
     Node& node = nodes.back();
 
-    timeline.add(i * spacing, Animation::Motion<W>(node.orientation, path, cycle_duration, true));
+    timeline.add(i * (int)params.spacing, Animation::Motion<W>(node.orientation, path, (int)params.cycle_duration, true));
   }
 
   Timeline<W, 32> timeline;
@@ -150,11 +150,14 @@ private:
   std::vector<LissajousConfig> functions;
   int cur_function_idx;
   StaticCircularBuffer<Node, MAX_NODES> nodes;
+  
+  struct Params {
+      float alpha = 1.0f;
+      float thickness = 2.0f;
+      float cycle_duration = 80.0f;
+      float spacing = 48.0f;
+      float resolution = 32.0f;
+  } params;
 
   int num_nodes;
-  int spacing;
-  int resolution;
-  int cycle_duration;
-  float alpha;
-  float thickness;
 };

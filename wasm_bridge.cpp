@@ -98,9 +98,8 @@ public:
     void setEffect(std::string name) {
         hs::log(("WASM: setEffect called with " + name).c_str());
 
-        if (currentEffect) {
-            currentEffect = nullptr;
-        }
+        // Ensure strictly sequential destruction and creation to minimize peak memory
+        currentEffect.reset();
         
         // Use factory
         if (pixel_width == 96 && pixel_height == 20) currentEffect = create_effect<96, 20>(name);
@@ -147,6 +146,30 @@ public:
         return pixelBuffer.size();
     }
 
+    void setParameter(std::string name, float value) {
+        if (currentEffect) {
+            currentEffect->updateParameter(name, value);
+        }
+    }
+
+    val getParameterDefinitions() {
+        if (!currentEffect) return val::array();
+
+        val result = val::array();
+        const auto& params = currentEffect->getParameters();
+        
+        int i = 0;
+        for (const auto& [key, def] : params) {
+            val entry = val::object();
+            entry.set("name", def.name);
+            entry.set("value", *def.target);
+            entry.set("min", def.min);
+            entry.set("max", def.max);
+            result.set(i++, entry);
+        }
+        return result;
+    }
+
 private:
     std::unique_ptr<Effect> currentEffect;
     std::vector<uint16_t> pixelBuffer; // 16-bit
@@ -162,7 +185,9 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
         .function("setEffect", &HolosphereEngine::setEffect)
         .function("drawFrame", &HolosphereEngine::drawFrame)
         .function("getPixels", &HolosphereEngine::getPixels)
-        .function("getBufferLength", &HolosphereEngine::getBufferLength);
+        .function("getBufferLength", &HolosphereEngine::getBufferLength)
+        .function("setParameter", &HolosphereEngine::setParameter)
+        .function("getParameterDefinitions", &HolosphereEngine::getParameterDefinitions);
 }
 
 #endif

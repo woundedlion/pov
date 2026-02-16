@@ -13,7 +13,10 @@
 #include <array>
 #include <memory>
 #include "platform.h"
-#include <variant>
+#include <variant> // for variant
+#include <string> // for string
+#include <map>    // for map
+
 #include "3dmath.h"
 #include "FastNoiseLite.h"
 #include "static_circular_buffer.h"
