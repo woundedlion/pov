@@ -1173,7 +1173,7 @@ public:
     float progress = easing(std::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
     params.get().bRe = scale * cosf(angle);
-    params.get().bIm = scale * sinf(angle);
+    params.get().bIm = -scale * sinf(angle);
   }
 
 private:

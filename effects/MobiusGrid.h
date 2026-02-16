@@ -35,7 +35,7 @@ public:
 
     timeline
       .add(0, Animation::MobiusWarpCircular(mobius_params, 1.0f, 160, true))
-      .add(0, Animation::Rotation<W>(orientation, -Z_AXIS, 2 * PI_F, 400, ease_mid, true))
+      .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400, ease_mid, true))
       .add(0, Animation::PeriodicTimer(120, [this](auto&) { wipe_palette(); }, true))
       .add(0, Animation::Mutation(params.num_rings, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true))
       .add(160, Animation::Mutation(params.num_lines, sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320, ease_mid, true));
@@ -120,7 +120,15 @@ private:
       Vector normal(cosf(theta), 0.0f, -sinf(theta));
 
       m_points.clear();
-      Basis basis = make_basis(Quaternion(), normal);
+      // Explicit basis construction to match JS texture alignment
+      // v = normal (in XZ plane)
+      // w = Y_AXIS (Pole)
+      // u = cross(v, w) (Tangent)
+      Vector v = normal;
+      Vector w = Y_AXIS;
+      Vector u = cross(v, w).normalize();
+      Basis basis = { u, v, w };
+
       Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);
       
       m_fragments.clear();
@@ -129,7 +137,9 @@ private:
         Vector transformed = inv_stereo(mobius(stereo(m_points[k].pos), mobius_params));
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
-        f.v0 = (float)k / m_points.size(); 
+        
+        // Correct v0 range to [0, 1]
+        f.v0 = (m_points.size() > 1) ? (float)k / (m_points.size() - 1) : 0.0f; 
         m_fragments.push_back(f);
       }
 
