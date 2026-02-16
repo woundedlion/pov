@@ -24,14 +24,18 @@ public:
     )
   {
     persist_pixels = false;
-    density = W <= 96 ? 10.0f : 45.0f;
+    params.density = W <= 96 ? 10.0f : 45.0f;
+
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    registerParam("Density", &params.density, 1.0f, 100.0f);
+    registerParam("Amp", &params.amp, 0.0f, 1.0f);
 
     timeline
       .add(0, Animation::PeriodicTimer(80, [this](auto&) { color_wipe(); }))
       .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300, ease_mid, true))
       .add(0, Animation::Transition(rotation, 2 * PI_F, 160, ease_mid, false, true)
         .then([this]() { rotation = 0.0f; }))
-      .add(0, Animation::Mutation(amp, sin_wave(0.1f, 0.5f, 1.0f, 0.0f), 160, ease_mid, true)
+      .add(0, Animation::Mutation(params.amp, sin_wave(0.1f, 0.5f, 1.0f, 0.0f), 160, ease_mid, true)
       );
   }
 
@@ -60,7 +64,7 @@ private:
   }
 
   void draw_layer(Canvas& canvas, Quaternion layer_rotation, const GenerativePalette& pal) {
-    int count = static_cast<int>(std::ceil(density));
+    int count = static_cast<int>(std::ceil(params.density));
     for (int i = 0; i <= count; ++i) {
       float t = static_cast<float>(i) / count;
       float r = t * 2.0f;
@@ -68,21 +72,24 @@ private:
       Basis basis = make_basis(layer_rotation, Z_AXIS);
       auto fragment_shader = [&](const Vector&, Fragment& f) {
         Color4 c = pal.get(f.v0);
-        c.alpha *= alpha;
+        c.alpha *= params.alpha;
         f.color = c;
       };
       
       Plot::DistortedRing::draw<W, H>(filters, canvas, basis, r,
-        sin_wave(-amp, amp, 4.0f, 0.0f),
+        sin_wave(-params.amp, params.amp, 4.0f, 0.0f),
         fragment_shader,
         rotation);
     }
   }
 
-  float alpha = 0.2f;
-  float density = 10.0f;
+  struct Params {
+      float alpha = 0.2f;
+      float density = 10.0f;
+      float amp = 0.0f;
+  } params;
+
   float rotation = 0.0f;
-  float amp = 0.0f;
 
   GenerativePalette base_palette;
   GenerativePalette base_next_palette;

@@ -48,6 +48,9 @@ public:
     HankinSolids() : Effect(W, H), 
         filters(Filter::Screen::AntiAlias<W, H>())
     {
+        registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
+        registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
+        
         persist_pixels = false;
         
         // Continuous Random Walk
@@ -62,7 +65,7 @@ public:
         
         if (enable_hankin) {
             compiled_hankin = MeshOps::compile_hankin(base);
-            base = MeshOps::update_hankin<PolyMesh>(compiled_hankin, hankin_angle);
+            base = MeshOps::update_hankin<PolyMesh>(compiled_hankin, params.hankin_angle);
         }
         load_poly_to_mesh(base, primary_mesh);
         
@@ -87,10 +90,10 @@ private:
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
     int solid_idx = 0;
-    float hankin_angle = PI_F / 4.0f;
+    // float hankin_angle = PI_F / 4.0f; // Moved to params
     bool enable_dual = false; 
     bool enable_hankin = true;
-    float intensity = 1.2f;
+    // float intensity = 1.2f; // Moved to params
 
     // Data Helpers
     std::vector<std::string> solids_list; // Not really used in C++ enum but logical parity
@@ -146,8 +149,8 @@ private:
         
         // 1. Mutation: Animate Hankin Angle
         // JS: this.timeline.add(0, new Animation.Mutation(this.params, 'hankinAngle', ...))
-        // Here we animate member variable hankin_angle
-        timeline.add(0, Animation::Mutation(hankin_angle, sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f), DURATION, ease_mid, false)
+        // Here we animate member variable params.hankin_angle
+        timeline.add(0, Animation::Mutation(params.hankin_angle, sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f), DURATION, ease_mid, false)
             .then([this]() {
                 this->start_morph_cycle();
             }));
@@ -155,9 +158,9 @@ private:
         // 2. Sprite: Draw the mesh
         timeline.add(0, Animation::Sprite([this](Canvas& c, float opacity) {
             if (enable_hankin) {
-                // Update geometry from compiled hankin
+                 // Update geometry from compiled hankin
                 // JS: this.renderMesh = MeshOps.updateHankin(...)
-                PolyMesh updated = MeshOps::update_hankin<PolyMesh>(compiled_hankin, hankin_angle);
+                PolyMesh updated = MeshOps::update_hankin<PolyMesh>(compiled_hankin, params.hankin_angle);
                 load_poly_to_mesh(updated, primary_mesh);
             }
             draw_topology_mesh(c, primary_mesh, primary_topology, primary_palettes, opacity);
@@ -181,7 +184,7 @@ private:
             // Must compile for target to get correct topology/vertices
             auto next_compiled = MeshOps::compile_hankin(next_base);
             // Use CURRENT hankin angle for smooth transition
-            next_poly = MeshOps::update_hankin<PolyMesh>(next_compiled, hankin_angle); 
+            next_poly = MeshOps::update_hankin<PolyMesh>(next_compiled, params.hankin_angle); 
         } else {
             next_poly = next_base;
         }
@@ -278,7 +281,7 @@ private:
              float distFromEdge = -f.v1;             
              float size = f.size;
              float normalizedDist = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
-             float t = std::clamp(normalizedDist * intensity, 0.0f, 1.0f);
+             float t = std::clamp(normalizedDist * params.intensity, 0.0f, 1.0f);
              
              f.color = pal->get(t);
              f.color.alpha = opacity;
@@ -286,4 +289,9 @@ private:
         
         Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
     }
+
+    struct Params {
+        float intensity = 1.2f;
+        float hankin_angle = PI_F / 4.0f;
+    } params;
 };

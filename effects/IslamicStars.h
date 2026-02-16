@@ -33,6 +33,9 @@ public:
     IslamicStars() : Effect(W, H), 
         filters(Filter::Screen::AntiAlias<W, H>())
     {
+        registerParam("Duration", &params.duration, 48.0f, 192.0f);
+        registerParam("Fade", &params.fade, 16.0f, 64.0f);
+
         persist_pixels = false;
         timeline.add(0, Animation::RandomWalk<W>(orientation, UP)); // Slow continuous spin        
         spawn_shape();
@@ -121,9 +124,9 @@ private:
         
         // 5. Create Sprite
         // duration 96, fade 32 (matching JS)
-        int duration = 96;
-        int fade_in = 32;
-        int fade_out = 32;
+        int duration = (int)params.duration;
+        int fade_in = (int)params.fade;
+        int fade_out = (int)params.fade;
         
         auto draw_fn = [this, mesh_state, faceIndices, palettes](Canvas& canvas, float opacity) {
             // Rotate
@@ -180,5 +183,8 @@ private:
         }
     }
 
+    struct Params {
+        float duration = 96.0f;
+        float fade = 32.0f;
+    } params;
 };
-

@@ -16,6 +16,7 @@ public:
   RingShower() :
     Effect(W, H)
   {
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     persist_pixels = false;
 
     timeline.add(0,
@@ -86,7 +87,7 @@ private:
     auto fragment_shader = [&](const Vector& v, Fragment& f) {
         Vector z = orientation.orient(X_AXIS);
         f.color = ring.palette.get(angle_between(z, v) / PI_F);
-        f.color.alpha *= opacity * alpha;
+        f.color.alpha *= opacity * params.alpha;
     };
     Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius, fragment_shader);
   }
@@ -97,6 +98,9 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   Orientation<W> orientation;
   Timeline<W> timeline;
+  
+  struct Params {
+      float alpha = 0.2f;
+  } params;
 
-  static constexpr float alpha = 0.2f;
 };

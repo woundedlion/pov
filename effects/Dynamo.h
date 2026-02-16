@@ -31,17 +31,19 @@ public:
       HarmonyType::ANALOGOUS,
       BrightnessProfile::ASCENDING) }),
     palette_normal(Z_AXIS), // Z is UP in C++ (vs Y in JS)
-    speed(2),
-    gap(5),
-    trail_length(8),
 
     filters(
-      Filter::World::Trails<W, 10000>(trail_length),
+      Filter::World::Trails<W, 10000>((uint32_t)params.trail_length),
       Filter::World::Replicate<W>(3),
       Filter::World::Orient<W>(orientation),
       Filter::Screen::AntiAlias<W, H>()
     )
   {
+    registerParam("Speed", &params.speed, -10.0f, 10.0f);
+    registerParam("Gap", &params.gap, 1.0f, 20.0f);
+    registerParam("Trail Len", &params.trail_length, 1.0f, 100.0f);
+    registerParam("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
+
     persist_pixels = false;
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
@@ -60,7 +62,7 @@ public:
   bool show_bg() const override { return false; }
 
   void reverse() {
-    speed *= -1;
+    params.speed *= -1;
   }
 
   void rotate() {
@@ -82,7 +84,7 @@ public:
     palette_boundaries.push_front(0);
 
     timeline.add(0,
-      Animation::Transition(palette_boundaries.front(), PI_F, wipe_duration, ease_mid)
+      Animation::Transition(palette_boundaries.front(), PI_F, (int)params.wipe_duration, ease_mid)
       .then([this]() {
         palette_boundaries.pop_back();
         palettes.pop_back();
@@ -156,9 +158,9 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    for (int i = std::abs(speed) - 1; i >= 0; --i) {
+    for (int i = std::abs((int)params.speed) - 1; i >= 0; --i) {
       pull(0);
-      draw_nodes(canvas, static_cast<float>(i) / std::abs(speed));
+      draw_nodes(canvas, static_cast<float>(i) / std::abs((int)params.speed));
     }
 
     filters.flush(canvas, [this](const Vector& v, float t) { return color(v, t); }, 1.0f);
@@ -187,7 +189,7 @@ private:
   }
 
   void pull(int leader) {
-    nodes[leader].v = dir(speed);
+    nodes[leader].v = dir((int)params.speed);
     move(nodes[leader]);
     for (int i = leader - 1; i >= 0; --i) {
       drag(nodes[i + 1], nodes[i]);
@@ -199,9 +201,9 @@ private:
 
   void drag(Node& leader, Node& follower) {
     int dest = wrap(follower.x + follower.v, W);
-    if (shortest_distance(dest, leader.x, W) > gap) {
+    if (shortest_distance(dest, leader.x, W) > (int)params.gap) {
       follower.v = leader.v;
-      while (shortest_distance(follower.x, leader.x, W) > gap) {
+      while (shortest_distance(follower.x, leader.x, W) > (int)params.gap) {
         move(follower);
       }
     }
@@ -228,12 +230,15 @@ private:
 
   Vector palette_normal;
   std::array<Node, NUM_NODES> nodes;
-  int speed;
-  int gap;
-  uint32_t trail_length;
-  Orientation<W> orientation;
+  
+  struct Params {
+      float speed = 2.0f;
+      float gap = 5.0f;
+      float trail_length = 8.0f;
+      float wipe_duration = 20.0f;
+  } params;
 
-  int wipe_duration = 20;
+  Orientation<W> orientation;
 
   Pipeline<W, H,
     Filter::World::Trails<W, 10000>,

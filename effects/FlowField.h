@@ -22,6 +22,12 @@ public:
       Filter::Screen::AntiAlias<W, H>()
     )
   {
+    registerParam("Scale", &params.noise_scale, 0.1f, 10.0f);
+    registerParam("Force", &params.force_scale, 0.001f, 0.05f);
+    registerParam("Max Spd", &params.max_speed, 0.01f, 0.1f);
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
+
     persist_pixels = false;
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.SetSeed(hs::rand_int(0, 65535));
@@ -33,14 +39,14 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     // timeline.step(canvas); // Timeline logic omitted for simple port
-    t += k_time_scale;
+    t += params.time_scale;
 
     for (Particle& p : particles) {
       // 1. Calculate Noise Force (Flow Field)
       // 4D noise: x, y, z, t
-      float fx = noise_generator.GetNoise(p.pos.i * k_noise_scale, p.pos.j * k_noise_scale, p.pos.k * k_noise_scale + t) * k_force_scale;
-      float fy = noise_generator.GetNoise(p.pos.i * k_noise_scale + 100, p.pos.j * k_noise_scale, p.pos.k * k_noise_scale + t) * k_force_scale;
-      float fz = noise_generator.GetNoise(p.pos.i * k_noise_scale + 200, p.pos.j * k_noise_scale, p.pos.k * k_noise_scale + t) * k_force_scale;
+      float fx = noise_generator.GetNoise(p.pos.i * params.noise_scale, p.pos.j * params.noise_scale, p.pos.k * params.noise_scale + t) * params.force_scale;
+      float fy = noise_generator.GetNoise(p.pos.i * params.noise_scale + 100, p.pos.j * params.noise_scale, p.pos.k * params.noise_scale + t) * params.force_scale;
+      float fz = noise_generator.GetNoise(p.pos.i * params.noise_scale + 200, p.pos.j * params.noise_scale, p.pos.k * params.noise_scale + t) * params.force_scale;
       Vector force(fx, fy, fz);
 
       // 2. Update Velocity with Damping (Friction)
@@ -48,8 +54,8 @@ public:
       p.vel = p.vel * 0.96f; // Friction prevents runaway speed
 
       float speed = p.vel.length();
-      if (speed > k_max_speed) {
-        p.vel = (p.vel / speed) * k_max_speed;
+      if (speed > params.max_speed) {
+        p.vel = (p.vel / speed) * params.max_speed;
       }
       else if (speed < 0) {
         p.vel = Vector(0, 0, 0);
@@ -80,7 +86,7 @@ public:
       [this](const Vector& v, float t_trail) -> Color4 {
         return palette.get(t_trail);
       },
-      k_alpha
+      params.alpha
     );
   }
 
@@ -95,11 +101,14 @@ private:
 
   static constexpr int k_num_particles = 600;
   static constexpr int k_trail_length = 14;
-  static constexpr float k_noise_scale = 2.0f;
-  static constexpr float k_force_scale = 0.005f;
-  static constexpr float k_max_speed = 0.03f;
-  static constexpr float k_alpha = 0.8f;
-  static constexpr float k_time_scale = 0.005f;
+
+  struct Params {
+      float noise_scale = 2.0f;
+      float force_scale = 0.005f;
+      float max_speed = 0.03f;
+      float alpha = 0.8f;
+      float time_scale = 0.005f;
+  } params;
 
   static constexpr int k_max_trail_dots = k_num_particles * k_trail_length + k_num_particles; // Capacity buffer
 

@@ -23,6 +23,9 @@ public:
         sites_buffer(200) 
     {
         init_sites();
+        registerParam("Speed", &params.speed, 0.0f, 100.0f);
+        registerParam("Smoothness", &params.smoothness, 1.0f, 500.0f);
+        registerParam("Border Thick", &params.borderThickness, 0.0f, 0.1f);
     }
     
     bool show_bg() const override { return false; }
@@ -31,9 +34,9 @@ public:
         Canvas canvas(*this);
         
         // 1. Animate Sites
-        float s = logf(speed + 1.0f) * 0.005f;
+        float s = logf(params.speed + 1.0f) * 0.005f;
         
-        for(size_t i=0; i<static_cast<size_t>(num_sites); ++i) {
+        for(size_t i=0; i<static_cast<size_t>(params.num_sites); ++i) {
             auto& site = sites_buffer[i];
             // Rotate pos around axis
             Quaternion q = make_rotation(site.axis, s);
@@ -50,7 +53,7 @@ public:
                 int secondBestIdx = -1;
                 float secondBestDot = -2.0f;
                 
-                for(size_t i=0; i<static_cast<size_t>(num_sites); ++i) {
+                for(size_t i=0; i<static_cast<size_t>(params.num_sites); ++i) {
                      float d = dot(p, sites_buffer[i].pos);
                      if (d > bestDot) {
                          secondBestDot = bestDot;
@@ -70,10 +73,10 @@ public:
                 Color4 c = bestSite.color;
                 
                 // Smoothing
-                if (secondBestIdx != -1 && smoothness > 0.0f) {
+                if (secondBestIdx != -1 && params.smoothness > 0.0f) {
                     const auto& secSite = sites_buffer[secondBestIdx];
                     float diff = maxDot1 - maxDot2;
-                    float factor = std::min(1.0f, diff * smoothness);
+                    float factor = std::min(1.0f, diff * params.smoothness);
                     factor = quintic_kernel(factor);
                     float t = 0.5f + 0.5f * factor;
                     
@@ -87,7 +90,7 @@ public:
                 if (showBorders && secondBestIdx != -1) {
                     float dist1 = acosf(std::min(1.0f, maxDot1));
                     float dist2 = acosf(std::min(1.0f, maxDot2));
-                    if (dist2 - dist1 < borderThickness) {
+                    if (dist2 - dist1 < params.borderThickness) {
                         c = Color4(0,0,0,0); // Black/Transparent
                     }
                 }
@@ -97,12 +100,14 @@ public:
         }
     }
     
-    // Params
-    int num_sites = 200; 
-    float speed = 20.0f;
+    struct Params {
+        float num_sites = 200.0f; // float for slider
+        float speed = 20.0f;
+        float borderThickness = 0.0f;
+        float smoothness = 100.0f;
+    } params;
+
     bool showBorders = true;
-    float borderThickness = 0.0f;
-    float smoothness = 100.0f;
     bool showSites = false;
 
 private:
@@ -110,11 +115,11 @@ private:
     
     void init_sites() {
         sites_buffer.clear();
-        sites_buffer.resize(num_sites);
+        sites_buffer.resize((int)params.num_sites);
         
-        for (int i = 0; i < num_sites; i++) {
+        for (int i = 0; i < (int)params.num_sites; i++) {
             float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
-            float y = 1.0f - (i / (float)(num_sites - 1)) * 2.0f;
+            float y = 1.0f - (i / (float)((int)params.num_sites - 1)) * 2.0f;
             float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
             float theta = goldenAngle * i;
 
@@ -128,7 +133,7 @@ private:
             float rz = (rand() % 1000) / 500.0f - 1.0f;
             sites_buffer[i].axis = Vector(rx, ry, rz).normalize();
             
-            float t = i / (float)(num_sites > 1 ? num_sites - 1 : 1);
+            float t = i / (float)((int)params.num_sites > 1 ? (int)params.num_sites - 1 : 1);
             sites_buffer[i].color = Palettes::richSunset.get(t);
             sites_buffer[i].id = i;
         }

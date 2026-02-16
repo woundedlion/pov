@@ -97,6 +97,9 @@ public:
     };
 
     SphericalHarmonics() : Effect(W, H), filters() {
+        registerParam("Mode", &params.mode, 0.0f, 25.0f);
+        registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
+        
         // Spin
         Vector axis = Vector(0.5f, 1.0f, 0.2f).normalize();
         timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100, 10000, ease_mid, true));
@@ -108,26 +111,26 @@ public:
         Canvas canvas(*this);
         timeline.step(canvas);
         
-        int idx = (int)mode;
+        int idx = (int)params.mode;
         int l = (int)sqrtf((float)idx);
         int m = idx - l * l - l;
         
-        HarmonicBlob blob(l, m, amplitude, orientation.get());
+        HarmonicBlob blob(l, m, params.amplitude, orientation.get());
         
         auto shader = [&](const Vector& p, Fragment& frag) {             
              float abs_val = std::abs(frag.v1);
              
              Color4 base;
              if (frag.v1 >= 0) {
-                 base = Palettes::richSunset.get(std::min(1.0f, abs_val * amplitude));
+                 base = Palettes::richSunset.get(std::min(1.0f, abs_val * params.amplitude));
              } else {
-                 Color4 p = Palettes::richSunset.get(std::min(1.0f, abs_val * amplitude));
+                 Color4 p = Palettes::richSunset.get(std::min(1.0f, abs_val * params.amplitude));
                  base = Color4(Pixel(p.color.b, static_cast<uint8_t>(p.color.g * 0.8f), p.color.r), p.alpha);
              }
              
-             // Ambient Occlusion
-             float shadow = std::clamp((abs_val * amplitude - 0.0f) / 0.4f, 0.0f, 1.0f); // approx smoothstep
-             float occlusion = 0.15f + 0.85f * shadow;
+              // Ambient Occlusion
+              float shadow = std::clamp((abs_val * params.amplitude - 0.0f) / 0.4f, 0.0f, 1.0f); // approx smoothstep
+              float occlusion = 0.15f + 0.85f * shadow;
              base.color = base.color * occlusion;
              
              frag.color = base;
@@ -137,8 +140,10 @@ public:
     }
     
     // Params
-    float mode = 6.0f;
-    float amplitude = 3.2f;
+    struct Params {
+        float mode = 6.0f;
+        float amplitude = 3.2f;
+    } params;
 
 private:
     Orientation<W> orientation;

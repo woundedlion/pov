@@ -17,6 +17,12 @@ public:
     HopfFibration() : Effect(W, H), 
         filters(Filter::World::Trails<W, MAX_TRAILS>(40), Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>())
     {
+        registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
+        registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
+        registerParam("Folding", &params.folding, 0.0f, 2.0f);
+        registerParam("Twist", &params.twist, -5.0f, 5.0f);
+        registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+        
         persist_pixels = false;
         init_fibers();
         timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600 , ease_mid, true)); 
@@ -30,9 +36,9 @@ public:
         timeline.step(canvas);
         
         // Update Params
-        flow_offset += 0.02f * flow_speed * 0.2f;
-        tumble_angle_x += 0.003f * tumble_speed;
-        tumble_angle_y += 0.005f * tumble_speed;
+        flow_offset += 0.02f * params.flow_speed * 0.2f;
+        tumble_angle_x += 0.003f * params.tumble_speed;
+        tumble_angle_y += 0.005f * params.tumble_speed;
         
         float cx = cosf(tumble_angle_x);
         float sx = sinf(tumble_angle_x);
@@ -49,11 +55,11 @@ public:
             
             // Folding
             float eta = theta / 2.0f;
-            float folding_val = sinf(phi * 2.0f + tumble_angle_y + fold_base) * 0.1f * tumble_speed * folding;
+            float folding_val = sinf(phi * 2.0f + tumble_angle_y + fold_base) * 0.1f * params.tumble_speed * params.folding;
             eta += folding_val;
             
             // Twist
-            phi += eta * twist;
+            phi += eta * params.twist;
             
             // Dot Generation
             float phase = i * (PI_F / fibers.size());
@@ -84,7 +90,7 @@ public:
             v = v.normalize();
             
             Color4 c = Palettes::richSunset.get(0.0f);
-            c.alpha = alpha; // parameter alpha
+            c.alpha = params.alpha; // parameter alpha
             
             if (i < prev_positions.size()) {
                 const Vector& prev = prev_positions[i];
@@ -111,12 +117,14 @@ public:
     }
     
     // Params
-    int num_fibers = 200;
-    float flow_speed = 10.0f;
-    float tumble_speed = 4.0f;
-    float folding = 0.5f;
-    float twist = 0.0f;
-    float alpha = 0.4f;
+    struct Params {
+        int num_fibers = 200;
+        float flow_speed = 10.0f;
+        float tumble_speed = 4.0f;
+        float folding = 0.5f;
+        float twist = 0.0f;
+        float alpha = 0.4f;
+    } params;
 
 private:
     float flow_offset = 0.0f;
@@ -140,9 +148,9 @@ private:
         fibers.clear();
         prev_positions.clear();
         
-        int side = static_cast<int>(ceilf(sqrtf(num_fibers)));
+        int side = static_cast<int>(ceilf(sqrtf((float)params.num_fibers)));
         int rings = side;
-        int per_ring = static_cast<int>(ceilf(static_cast<float>(num_fibers) / rings));
+        int per_ring = static_cast<int>(ceilf(static_cast<float>(params.num_fibers) / rings));
         
         fibers.reserve(rings * per_ring);
         

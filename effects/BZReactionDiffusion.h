@@ -20,6 +20,11 @@ public:
     Effect(W, H),
     filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>())
   {
+    registerParam("Alpha", &params.alpha, 0.0f, 2.0f);
+    registerParam("Diff", &params.D, 0.001f, 0.1f);
+    registerParam("Speed", &params.dt, 0.0f, 1.0f);
+    registerParam("GlobalAlpha", &params.global_alpha, 0.0f, 1.0f);
+
     persist_pixels = false;
     build_graph();
     timeline
@@ -49,10 +54,7 @@ private:
     std::array<float, RD_N> nextB;
     std::array<float, RD_N> nextC;
 
-    // Simulation Parameters
-    float alpha = 1.6f; // Predation rate
-    float D = 0.03f;    // Diffusion rate
-    float dt = 0.2f;    // Time step
+    // Simulation Parameters Removed from Context (Use Global Params)
 
     GenerativePalette palette;
 
@@ -226,7 +228,7 @@ private:
         );
 
         Color4 c_final(color);
-        c_final.alpha *= global_alpha * opacity;
+        c_final.alpha *= params.global_alpha * opacity;
 						auto shader = [c_final](const Vector& p, Fragment& f) {
               f.color = c_final;
             };
@@ -255,13 +257,13 @@ private:
       }
 
       // 3-Species Cyclic Model
-      float da = a * (1.0f - a - ctx.alpha * c);
-      float db = b * (1.0f - b - ctx.alpha * a);
-      float dc = c * (1.0f - c - ctx.alpha * b);
+      float da = a * (1.0f - a - params.alpha * c);
+      float db = b * (1.0f - b - params.alpha * a);
+      float dc = c * (1.0f - c - params.alpha * b);
 
-      ctx.nextA[i] = std::clamp(a + (ctx.D * lapA + da) * ctx.dt, 0.0f, 1.0f);
-      ctx.nextB[i] = std::clamp(b + (ctx.D * lapB + db) * ctx.dt, 0.0f, 1.0f);
-      ctx.nextC[i] = std::clamp(c + (ctx.D * lapC + dc) * ctx.dt, 0.0f, 1.0f);
+      ctx.nextA[i] = std::clamp(a + (params.D * lapA + da) * params.dt, 0.0f, 1.0f);
+      ctx.nextB[i] = std::clamp(b + (params.D * lapB + db) * params.dt, 0.0f, 1.0f);
+      ctx.nextC[i] = std::clamp(c + (params.D * lapC + dc) * params.dt, 0.0f, 1.0f);
     }
 
     // Swap buffers
@@ -281,5 +283,10 @@ private:
   StaticCircularBuffer<BZReactionContext, 4> contexts;
   Timeline<W> timeline;
 
-  float global_alpha = 0.3f;
+  struct Params {
+      float alpha = 1.6f;
+      float D = 0.03f;
+      float dt = 0.2f;
+      float global_alpha = 0.3f;
+  } params;
 };

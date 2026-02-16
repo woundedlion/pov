@@ -30,14 +30,15 @@ public:
 
   TestShapes() :
     Effect(W, H),
-    alpha(0.5f),
-    radius(1.0f),
-    sides(5),
-    twist(0.0f),
     current_shape(ShapeType::PlanarPolygon),
     num_shapes(25),
     debug_bb(false)
   {
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    registerParam("Radius", &params.radius, 0.1f, 5.0f);
+    registerParam("Sides", &params.sides, 3.0f, 12.0f);
+    registerParam("Twist", &params.twist, -5.0f, 5.0f);
+
     this->persist_pixels = false;
     rebuild();
   }
@@ -66,9 +67,10 @@ public:
     // Twist Mutation: sin wave
     // In JS: (Math.PI / 4) * Math.sin(t * Math.PI), duration 480
     // C++ Mutation takes a reference.
-    timeline.add(0, Animation::Mutation(twist, [](float t) {
-      return (PI_F / 4.0f) * sinf(t * PI_F); 
-    }, 480, ease_mid, true));
+    // Commented out to allow GUI control
+    // timeline.add(0, Animation::Mutation(params.twist, [](float t) {
+    //  return (PI_F / 4.0f) * sinf(t * PI_F); 
+    // }, 480, ease_mid, true));
 
     int total_shapes = num_shapes;
     int seed1 = hs::rand_int(0, 65535);
@@ -105,44 +107,45 @@ public:
   void drawShape(Canvas& canvas, const Ring& ring, float sprite_alpha) {
     auto fragment_shader = [&](const Vector& p, Fragment& f) {
       Color4 c = ring.color;
-      c.alpha = c.alpha * this->alpha * sprite_alpha;
+      c.alpha = c.alpha * this->params.alpha * sprite_alpha;
       f.color = c;
     };
 
-    float phase = ring.layer_index * this->twist;
-    float r = this->radius * ring.scale;
+    float phase = ring.layer_index * this->params.twist;
+    float r = this->params.radius * ring.scale;
     
     Basis basis = make_basis(ring.orientation.get(), ring.normal);
     current_shape = ShapeType::Star;
+    int sides_int = (int)params.sides;
     if (ring.mode == RenderMode::Plot) {
       switch (current_shape) {
         case ShapeType::Flower:
-           Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, NullVertexShader{}, phase);
+           Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, sides_int, fragment_shader, NullVertexShader{}, phase);
            break;
         case ShapeType::Star:
-           Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, sides_int, fragment_shader, phase);
            break;
         case ShapeType::PlanarPolygon:
-           Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r, sides_int, fragment_shader, phase);
            break;
         default: // SphericalPolygon
-           Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r, this->sides, fragment_shader, phase);
+           Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r, sides_int, fragment_shader, phase);
            break;
       }
     } else {
       switch (current_shape) {
         case ShapeType::Flower:
           debug_bb = true;
-           Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, sides_int, fragment_shader, phase, debug_bb);
            break;
         case ShapeType::Star:
-           Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, sides_int, fragment_shader, phase, debug_bb);
            break;
         case ShapeType::PlanarPolygon:
-           Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r, sides_int, fragment_shader, phase, debug_bb);
            break;
         default: // SphericalPolygon
-           Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r, this->sides, fragment_shader, phase, debug_bb);
+           Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r, sides_int, fragment_shader, phase, debug_bb);
            break;
       }
     }
@@ -153,11 +156,14 @@ private:
   StaticCircularBuffer<Ring, 128> rings;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
   Pipeline<W, H> scan_filters;
+  
+  struct Params {
+      float alpha = 0.5f;
+      float radius = 1.0f;
+      float sides = 5.0f;
+      float twist = 0.0f;
+  } params;
 
-  float alpha;
-  float radius;
-  int sides;
-  float twist;
   ShapeType current_shape;
   int num_shapes;
   bool debug_bb;
