@@ -1432,6 +1432,46 @@ private:
     std::reference_wrapper<PaletteModifier> modifier;
 };
 
+/**
+ * @brief Animates a single ripple event: expanding outward and fading away.
+ */
+class Ripple : public Base<Ripple> {
+public:
+  /**
+   * @brief Constructs a Ripple animation.
+   * @param params Reference to the params struct to animate.
+   * @param center The center point of the ripple.
+   * @param speed How fast the waves travel.
+   * @param duration How long the ripple lasts in frames.
+   */
+  Ripple(RippleParams& params, const Vector& center, float speed = 0.2f, int duration = 100)
+    : Base(duration, false), params(params), speed(speed)
+  {
+      // Reset the target params on start
+      this->params.get().center = center;
+      this->params.get().phase = 0.0f;
+      this->params.get().lifespawn = 1.0f; 
+  }
+
+  void step(Canvas& canvas) {
+      Base::step(canvas);
+      
+      // 1. Move the wave (Emanate outward)
+      params.get().phase += speed;
+      
+      // 2. Dissipate (Linear fade out)
+      if (t < duration) {
+          params.get().lifespawn = 1.0f - (static_cast<float>(t) / duration);
+      } else {
+          params.get().lifespawn = 0.0f;
+      }
+  }
+
+private:
+  std::reference_wrapper<RippleParams> params;
+  float speed;
+};
+
 } // namespace Animation
 
 template <int W>
@@ -1451,7 +1491,8 @@ using AnimationVariant = std::variant<
   Animation::MobiusWarp,
   Animation::MobiusWarpCircular,
   Animation::MeshMorph,
-  Animation::PaletteAnimation
+  Animation::PaletteAnimation,
+  Animation::Ripple
 >;
 
 /**

@@ -35,9 +35,27 @@ public:
     {
         registerParam("Duration", &params.duration, 48.0f, 192.0f);
         registerParam("Fade", &params.fade, 16.0f, 64.0f);
+        registerParam("Ripp Amp", &ripple.amplitude, 0.0f, 0.5f);
+        registerParam("Ripp Freq", &ripple.frequency, 1.0f, 100.0f);
+        registerParam("Ripp Decay", &ripple.decay, 0.1f, 5.0f);
 
         persist_pixels = false;
-        timeline.add(0, Animation::RandomWalk<W>(orientation, UP)); // Slow continuous spin        
+        timeline.add(0, Animation::RandomWalk<W>(orientation, UP)); // Slow continuous spin
+        
+        // Init Ripple Defaults
+        ripple.amplitude = 0.25f; 
+        ripple.frequency = 8.0f; // Frequency of the source oscillations
+        ripple.decay = 0.7f; // Spatial decay of the packet
+        ripple.lifespawn = 0.0f; // Start invisible
+        
+        // Example: Trigger a ripple every 60 frames at a random location
+        timeline.add(0, Animation::PeriodicTimer(120, [this](Canvas&) {
+            Vector hit = random_vector();
+            // Add the Ripple animation to the timeline
+            // It will hijack 'this->ripple' params for 120 frames
+            timeline.add(0, Animation::Ripple(this->ripple, hit, 0.4f, 120));
+        }, true));
+        
         spawn_shape();
     }
     
@@ -52,8 +70,8 @@ private:
     Orientation<W> orientation;
     Timeline<W> timeline;
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+    RippleParams ripple;
 
-    // Helper to convert PolyMesh to MeshState
     MeshState poly_to_state(const PolyMesh& src) const {
         MeshState dst;
         dst.vertices = src.vertices;
@@ -66,14 +84,8 @@ private:
             dst.face_counts.push_back((uint8_t)f.size());
             for(int idx : f) dst.faces.push_back(idx);
         }
-        
-        // Helper to build BVH if needed, but for simple sprite drawing 
-        // without raycasting, BVH might not be strictly needed.
-        // However, let's keep it consistent if possible, but build_bvh is free func.
-        // We need to call build_bvh(dst);
-        // build_bvh is in spatial.h, which is included via effects_engine.h
-        build_bvh(dst);
-        
+
+        build_bvh(dst);        
         return dst;
     }
 
@@ -81,15 +93,14 @@ private:
     int solid_idx = -1;
 
     void spawn_shape() {
-        // 1. Load Next Mesh
+        // Load Next Mesh
         solid_idx = (solid_idx + 1) % (int)SolidType::Last;
         PolyMesh mesh = generate_solid((SolidType)solid_idx);
         
-        // 2. Classify Topology
+        // Classify Topology
         auto faceIndices = MeshOps::classify_faces_by_topology(mesh);
         
-        // 3. Log Shape Name
-        // (same logic)
+        // Log Shape Name
         const char* names[] = {
             "Icosahedron_Hk59_Bitruncate033",
             "Octahedron_Hk17_Ambo_Hk72",
@@ -108,10 +119,10 @@ private:
             hs::log("Spawning Shape: %s (V=%d, F=%d)", names[solid_idx], (int)mesh.vertices.size(), (int)mesh.faces.size());
         }
 
-        // 4. Flatten for Rendering
+        // Flatten for Rendering
         MeshState mesh_state = poly_to_state(mesh);
         
-        // 5. Prepare Palettes
+        // Prepare Palettes
         std::vector<const Palette*> palettes = {
             &Palettes::embers,
             &Palettes::richSunset,
@@ -122,22 +133,31 @@ private:
         static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
         std::shuffle(palettes.begin(), palettes.end(), g);
         
-        // 5. Create Sprite
-        // duration 96, fade 32 (matching JS)
-        int duration = (int)params.duration;
-        int fade_in = (int)params.fade;
-        int fade_out = (int)params.fade;
+        // Create Sprite
+        int duration = 96;
+        int fade_in = 32;
+        int fade_out = 32;
         
         auto draw_fn = [this, mesh_state, faceIndices, palettes](Canvas& canvas, float opacity) {
             // Rotate
             MeshState rotated_mesh = mesh_state; // Deep copy vectors
-            
             Quaternion q = orientation.get();
+
+            // Capture the current state of ripple params
+            RippleParams current_ripple = this->ripple; 
+
             for(auto& v : rotated_mesh.vertices) {
+                // 1. Standard Rotation
                 v = rotate(v, q);
+                
+                // 2. Apply Ripple Transform
+                // Only if ripple is active to save cycles
+                if (current_ripple.lifespawn > 0.001f) {
+                    v = ripple_transform(v, current_ripple);
+                }
             }
             
-            auto shader = [&](const Vector& p, Fragment& frag) {
+            auto fragment_shader = [&](const Vector& p, Fragment& frag) {
                  int faceIdx = (int)std::round(frag.v2);
                  int topoIdx = 0;
                  if (faceIdx >= 0 && faceIdx < (int)faceIndices.size()) {
@@ -154,12 +174,12 @@ private:
                  frag.color.alpha = opacity;
             };
             
-            Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
+            Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader);
         };
         
         timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid, fade_out, ease_mid));
         
-        // 6. Schedule Next
+        // Schedule Next
         // Overlap = fade. Next delay = duration - overlap.
         int next_delay = duration - fade_out;
         timeline.add(next_delay, Animation::PeriodicTimer(0, [this](Canvas&){ this->spawn_shape(); }, false));
