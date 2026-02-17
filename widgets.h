@@ -62,9 +62,6 @@ public:
     return v;
   }
 
-  // Get active ripple params for batch processing (optimization)
-  // Returns a buffer of valid params to avoid checking 'active' repeatedly per
-  // vertex
   StaticCircularBuffer<RippleParams, CAPACITY> get_active() const {
     StaticCircularBuffer<RippleParams, CAPACITY> active_list;
     for (const auto &r : ripples) {
