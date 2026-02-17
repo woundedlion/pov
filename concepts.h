@@ -6,6 +6,7 @@
 #pragma once
 #include <concepts>
 #include "geometry.h"
+#include "canvas.h"
 /**
  * @brief Concept for a function that generates a trail color.
  * Signature: Color4 f(float x, float y, float t)

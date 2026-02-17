@@ -254,7 +254,7 @@ template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
  * @param theta The angle in radians.
  * @return Normalized vector on the unit sphere.
  */
-Vector logPolarToVector(float rho, float theta) {
+inline Vector logPolarToVector(float rho, float theta) {
   const float R = expf(rho);
   const float R2 = R * R;
   const float y = (R2 - 1.0f) / (R2 + 1.0f);
@@ -268,7 +268,7 @@ Vector logPolarToVector(float rho, float theta) {
  * @param v Normalized vector on the unit sphere.
  * @return Log-Polar coordinates.
  */
-LogPolar vectorToLogPolar(const Vector &v) {
+inline LogPolar vectorToLogPolar(const Vector &v) {
   const float denom = 1.0f - v.j;
   if (std::abs(denom) < 0.00001f) {
     return {10.0f, 0.0f}; // Handle North Pole singularity
@@ -298,7 +298,7 @@ constexpr float lerp(float from, float to, float t) {
  * @param i The index of the point to calculate.
  * @return The point on the unit sphere.
  */
-Vector fib_spiral(int n, float eps, int i) {
+inline Vector fib_spiral(int n, float eps, int i) {
   float phi = acosf(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
                                static_cast<float>(n));
   float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * G), (2.0f * PI_F));
@@ -316,7 +316,7 @@ Vector fib_spiral(int n, float eps, int i) {
  * @param phase The starting phase offset.
  * @return A lambda that takes time (t) and returns a float.
  */
-auto sin_wave(float from, float to, float freq, float phase) {
+inline auto sin_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
     auto w =
         (sinf(freq * t * 2 * PI_F - (PI_F / 2) + PI_F - (2 * phase)) + 1) / 2;
@@ -333,7 +333,7 @@ auto sin_wave(float from, float to, float freq, float phase) {
  * @param phase The starting phase offset.
  * @return A lambda that takes time (t) and returns a float.
  */
-auto tri_wave(float from, float to, float freq, float phase) {
+inline auto tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
     float w = wrap(t * freq + phase, 1.0f);
     if (w < 0.5f) {
@@ -355,8 +355,8 @@ auto tri_wave(float from, float to, float freq, float phase) {
  * @param phase The starting phase offset.
  * @return A lambda that takes time (t) and returns a float.
  */
-auto square_wave(float from, float to, float freq, float dutyCycle,
-                 float phase) {
+inline auto square_wave(float from, float to, float freq, float dutyCycle,
+                        float phase) {
   return [=](float t) -> float {
     if (fmod(t * freq + phase, 1.0f) < dutyCycle) {
       return to;
@@ -533,7 +533,7 @@ private:
  * method.
  * @return A normalized random Vector.
  */
-Vector random_vector() {
+inline Vector random_vector() {
   // Marsaglia's method
   float v1, v2, s;
   do {
@@ -565,7 +565,7 @@ struct LissajousParams {
  * @param t Time variable (or position along the domain).
  * @return The calculated 3D point (unit vector).
  */
-Vector lissajous(float m1, float m2, float a, float t) {
+inline Vector lissajous(float m1, float m2, float a, float t) {
   Vector v(sinf(m2 * t) * cosf(m1 * t - a * PI_F), cosf(m2 * t),
            sinf(m2 * t) * sinf(m1 * t - a * PI_F));
   return v.normalize();
@@ -601,7 +601,8 @@ static Basis make_basis(const Quaternion &orientation, const Vector &normal) {
  * @param params The Mobius parameters.
  * @return Transformed vector.
  */
-Vector gnomonic_mobius_transform(const Vector &v, const MobiusParams &params) {
+inline Vector gnomonic_mobius_transform(const Vector &v,
+                                        const MobiusParams &params) {
   // 1. Preserve Hemisphere (Gnomonic is 2:1 mapping without this)
   float sign = (v.k >= 0) ? 1.0f : -1.0f;
   Complex z = gnomonic(v);
@@ -626,7 +627,7 @@ struct RippleParams {
  * @param params The ripple configuration.
  * @return The distorted vector.
  */
-Vector ripple_transform(const Vector &v, const RippleParams &params) {
+inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   float d = angle_between(v, params.center);
   float dist_from_peak = d - params.phase;
 

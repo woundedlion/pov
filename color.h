@@ -311,7 +311,7 @@ enum class SaturationProfile { PASTEL, MID, VIBRANT };
  * @brief Converts a float in the range [0.0, 1.0] to a 16-bit integer for
  * FastLED lerping.
  */
-uint16_t to_short(float zero_to_one) {
+inline uint16_t to_short(float zero_to_one) {
   return std::clamp(static_cast<int>(std::round(zero_to_one * 65535.0f)), 0,
                     65535);
 }

@@ -7,8 +7,7 @@
 #ifdef ARDUINO
 #include <Arduino.h>
 #include <FastLED.h>
-
-// using Pixel = CRGB; // Moved to color.h for Linear 16-bit support
+#include <cstdarg>
 
 namespace hs {
 /**
@@ -68,6 +67,7 @@ static constexpr int H_OFFSET = 3;
 #endif
 
 #include <cstdint>
+#include <cstdarg>
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -324,11 +324,13 @@ inline void enable_interrupts() {}
  * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
  * @return A random float in the range [0.0, 1.0].
  */
-float rand_f() {
+inline float rand_f() {
   return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
 }
 
-float rand_f(float min, float max) { return min + rand_f() * (max - min); }
+inline float rand_f(float min, float max) {
+  return min + rand_f() * (max - min);
+}
 
 /**
  * @brief Generates a pseudo-random integer within a specified range.
@@ -336,7 +338,9 @@ float rand_f(float min, float max) { return min + rand_f() * (max - min); }
  * @param max The maximum value (exclusive).
  * @return A random integer in the range [min, max).
  */
-int rand_int(int min, int max) { return std::rand() % (max - min) + min; }
+inline int rand_int(int min, int max) {
+  return std::rand() % (max - min) + min;
+}
 
 // Global state
 inline float time = 0.0f;
