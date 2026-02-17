@@ -339,4 +339,75 @@ inline PolyMesh get(int index) {
     return dodecahedron();
   }
 }
+
+inline PolyMesh get_by_name(const std::string &name) {
+  using namespace Platonic;
+  using namespace Archimedean;
+  using namespace IslamicStarPatterns;
+
+  if (name == "tetrahedron")
+    return tetrahedron();
+  if (name == "cube")
+    return cube();
+  if (name == "octahedron")
+    return octahedron();
+  if (name == "dodecahedron")
+    return dodecahedron();
+  if (name == "icosahedron")
+    return icosahedron();
+
+  if (name == "truncatedTetrahedron")
+    return truncatedTetrahedron();
+  if (name == "cuboctahedron")
+    return cuboctahedron();
+  if (name == "truncatedCube")
+    return truncatedCube();
+  if (name == "truncatedOctahedron")
+    return truncatedOctahedron();
+  if (name == "rhombicuboctahedron")
+    return rhombicuboctahedron();
+  if (name == "truncatedCuboctahedron")
+    return truncatedCuboctahedron();
+  if (name == "snubCube")
+    return snubCube();
+  if (name == "icosidodecahedron")
+    return icosidodecahedron();
+  if (name == "truncatedDodecahedron")
+    return truncatedDodecahedron();
+  if (name == "truncatedIcosahedron")
+    return truncatedIcosahedron();
+  if (name == "rhombicosidodecahedron")
+    return rhombicosidodecahedron();
+  if (name == "truncatedIcosidodecahedron")
+    return truncatedIcosidodecahedron();
+  if (name == "snubDodecahedron")
+    return snubDodecahedron();
+
+  if (name == "icosahedron_hk59_bitruncate033")
+    return icosahedron_hk59_bitruncate033();
+  if (name == "octahedron_hk17_ambo_hk72")
+    return octahedron_hk17_ambo_hk72();
+  if (name == "icosahedron_kis_gyro")
+    return icosahedron_kis_gyro();
+  if (name == "truncatedIcosidodecahedron_truncate05_ambo_dual")
+    return truncatedIcosidodecahedron_truncate05_ambo_dual();
+  if (name == "icosidodecahedron_truncate05_ambo_dual")
+    return icosidodecahedron_truncate05_ambo_dual();
+  if (name == "snubDodecahedron_truncate05_ambo_dual")
+    return snubDodecahedron_truncate05_ambo_dual();
+  if (name == "octahedron_hk34_ambo_hk72")
+    return octahedron_hk34_ambo_hk72();
+  if (name == "rhombicuboctahedron_hk63_ambo_hk63")
+    return rhombicuboctahedron_hk63_ambo_hk63();
+  if (name == "truncatedIcosahedron_hk54_ambo_hk72")
+    return truncatedIcosahedron_hk54_ambo_hk72();
+  if (name == "dodecahedron_hk54_ambo_hk72")
+    return dodecahedron_hk54_ambo_hk72();
+  if (name == "dodecahedron_hk72_ambo_dual_hk20")
+    return dodecahedron_hk72_ambo_dual_hk20();
+  if (name == "truncatedIcosahedron_truncate05_ambo_dual")
+    return truncatedIcosahedron_truncate05_ambo_dual();
+
+  return cube(); // Fallback
+}
 } // namespace Solids
