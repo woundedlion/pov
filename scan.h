@@ -30,17 +30,10 @@ namespace SDF {
       float aux; // Auxiliary value (e.g. barycentric coordinate)
       float size = 1.0f; // Size metric for normalization
       
-      struct Weights {
-          float a, b, c;
-          int i0, i1, i2;
-          bool valid;
-      } weights;
-
       DistanceResult() = default;
       DistanceResult(float d, float t_val, float rd, float ax, float sz)
         : dist(d), t(t_val), raw_dist(rd), aux(ax), size(sz)
       {
-          weights.valid = false;
       }
     };
 
@@ -851,38 +844,7 @@ namespace SDF {
              float dist = plane_dist - thickness;
              
              res = DistanceResult(dist, 0.0f, plane_dist, 0.0f, size);
-
-             // Barycentrics (Fan)
-             res.weights.valid = false;
-             if (inside) {
-                 const Vector& v0 = poly2D[0];
-                 for(int i=1; i < count - 1; ++i) {
-                     const Vector& v1 = poly2D[i];
-                     const Vector& v2 = poly2D[i+1];
-                     
-                     float denom = (v1.j - v2.j)*(v0.i - v2.i) + (v2.i - v1.i)*(v0.j - v2.j);
-                     if (std::abs(denom) > 1e-12f) {
-                         float invDenom = 1.0f / denom;
-                         float wA = ((v1.j - v2.j)*(px - v2.i) + (v2.i - v1.i)*(py - v2.j)) * invDenom;
-                         float wB = ((v2.j - v0.j)*(px - v2.i) + (v0.i - v2.i)*(py - v2.j)) * invDenom;
-                         float wC = 1.0f - wA - wB;
-                         
-                         if (wA >= -0.01f && wB >= -0.01f && wC >= -0.01f) {
-                             res.weights.a = wA;
-                             res.weights.b = wB;
-                             res.weights.c = wC;
-                             res.weights.i0 = 0;
-                             res.weights.i1 = i;
-                             res.weights.i2 = i+1;
-                             res.weights.valid = true;
-                             break;
-                         }
-                     }
-                 }
-             }
         }
-
-
     };
 
     /**
