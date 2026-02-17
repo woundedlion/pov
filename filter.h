@@ -17,25 +17,33 @@
 #include "concepts.h"
 
 // Filter Traits
+/** @brief Trait indicating a filter operates in 2D screen space. */
 struct Is2D {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
 };
+/** @brief Trait indicating a filter operates in 3D world space. */
 struct Is3D {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = false;
 };
 
+/** @brief Trait indicating a 2D filter that maintains state/history. */
 struct Is2DWithHistory {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = true;
 };
 
+/** @brief Trait indicating a 3D filter that maintains state/history. */
 struct Is3DWithHistory {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = true;
 };
 
+/**
+ * @brief Recursive template pipeline for processing render commands.
+ * Chains filters together, routing 2D and 3D plot commands.
+ */
 template <int W, int H, typename... Filters> struct Pipeline;
 
 /**
@@ -49,6 +57,9 @@ inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
 }
 
 // Base Case: Canvas Sink
+/**
+ * @brief Terminal node of the pipeline. Writes final pixels to the Canvas.
+ */
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
 
@@ -173,6 +184,9 @@ namespace Filter {
 // ----------------------------------------------------------------------------
 namespace World {
 
+/**
+ * @brief Rotates 3D points based on a dynamic Orientation.
+ */
 template <int W> class Orient : public Is3D {
 public:
   Orient(Orientation<W> &orientation) : orientation(orientation) {}
@@ -188,6 +202,10 @@ private:
   Orientation<W> &orientation;
 };
 
+/**
+ * @brief Selects an orientation from a list based on the point's projection
+ * onto an axis. Useful for slicing objects with different rotations.
+ */
 template <int W> class OrientSlice : public Is3D {
 public:
   OrientSlice(const std::vector<Orientation<W>> &orientations,
@@ -230,6 +248,9 @@ private:
   const std::vector<Orientation<W>> &orientations;
 };
 
+/**
+ * @brief Creates a spherical hole by masking points within a radius.
+ */
 template <int W> class Hole : public Is3D {
 public:
   Hole(const Vector &origin, float radius) : origin(origin), radius(radius) {}
@@ -249,6 +270,9 @@ private:
   float radius;
 };
 
+/**
+ * @brief Creates a spherical hole using a reference to origin (movable hole).
+ */
 template <int W> class HoleRef : public Is3D {
 public:
   HoleRef(const Vector &origin, float radius)
@@ -269,6 +293,9 @@ private:
   float radius;
 };
 
+/**
+ * @brief Replicates geometry by rotating it around the Y-axis.
+ */
 template <int W> class Replicate : public Is3D {
 public:
   Replicate(int count)
@@ -289,6 +316,9 @@ private:
   Quaternion step;
 };
 
+/**
+ * @brief Applies a Mobius transformation to 3D points.
+ */
 template <int W> class Mobius : public Is3D {
 public:
   Mobius(MobiusParams &params) : params(params) {}
@@ -325,29 +355,22 @@ public:
   }
 
   void flush(TrailFn auto trailFn, float alpha, auto pass) {
-    // Age (In-place)
+    // Age
     size_t count = items.size();
     for (size_t i = 0; i < count; ++i) {
       items[i].ttl -= 1.0f;
     }
 
-    // Cleanup (Head-only, as it's a circular buffer and earliest pushed are at
-    // head) JS behavior: "Remove Dead" check from front
     while (!items.is_empty() && items.front().ttl <= 0) {
       items.pop();
     }
 
     // Draw
-    // JS: Iterates entire buffer (which is efficiently packed now)
-    // No sort needed if we accept draw order = insertion order (standard for
-    // trails)
     for (size_t i = 0; i < items.size(); ++i) {
       const auto &item = items[i];
       float t = 1.0f - (item.ttl / static_cast<float>(lifetime));
       Color4 c = trailFn(item.v, t); // Trail function returns color + alpha
 
-      // Note: JS logic ignores original point alpha and uses trace alpha *
-      // global flush alpha
       if (c.alpha > 0.001f) {
         pass(item.v, c.color, lifetime - item.ttl, c.alpha * alpha, item.tag);
       }
@@ -366,6 +389,10 @@ private:
 // ----------------------------------------------------------------------------
 namespace Screen {
 
+/**
+ * @brief Applies 2D anti-aliasing to sub-pixel coordinates.
+ * Distributes intensity to 4 nearest neighbors using quintic kernel.
+ */
 template <int W, int H> class AntiAlias : public Is2D {
 public:
   AntiAlias() {}
@@ -448,6 +475,10 @@ private:
   int num_pixels;
 };
 
+/**
+ * @brief Temporal anti-aliasing / motion blur filter.
+ * Buffers draws and outputs them when their scheduled time arrives.
+ */
 template <int W, int Capacity> class Temporal : public Is2DWithHistory {
 public:
   using TTLFn = std::function<float(float x, float y)>;

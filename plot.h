@@ -4,6 +4,9 @@
  */
 #pragma once
 #include <vector>
+#include <functional>
+#include <utility>
+#include <type_traits>
 #include <algorithm>
 #include <cmath>
 #include <array>
@@ -31,7 +34,13 @@ inline std::vector<CachePoint> &get_point_cache() {
   return _point_cache;
 }
 
+/**
+ * @brief Single point primitive.
+ */
 struct Point {
+  /**
+   * @brief Draws a single point.
+   */
   static void draw(auto &pipeline, Canvas &canvas, const Vector &v,
                    FragmentShaderFn auto fragment_shader, float age = 0.0f) {
     Fragment f;
@@ -48,6 +57,10 @@ struct Point {
   }
 };
 
+/**
+ * @brief Core rasterization logic for 3D lines and curves.
+ * Adapts step size based on screen-space density to avoid aliasing.
+ */
 template <int W, int H>
 static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
                       FragmentShaderFn auto fragment_shader,
@@ -350,6 +363,9 @@ struct Vertices {
  *  v2: Index
  */
 struct Ring {
+  /**
+   * @brief Calculates a 3D point on a ring given basis and progress.
+   */
   static Vector calcPoint(float a, float radius, const Vector &u,
                           const Vector &v, const Vector &w) {
     auto d = sqrtf((1 - radius) * (1 - radius));
@@ -452,6 +468,9 @@ struct Ring {
  *  v2: Vertex index
  */
 struct PlanarPolygon {
+  /**
+   * @brief Samples a planar polygon.
+   */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     size_t start_idx = points.size();
@@ -512,6 +531,9 @@ struct PlanarPolygon {
  *  v2: Vertex index
  */
 struct SphericalPolygon {
+  /**
+   * @brief Samples a spherical polygon.
+   */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     size_t start_idx = points.size();
@@ -575,6 +597,9 @@ struct SphericalPolygon {
  *  v2: Index
  */
 struct DistortedRing {
+  /**
+   * @brief Calculates a single point on a distorted ring.
+   */
   static Vector fn_point(std::function<float(float)> shift_fn,
                          const Basis &basis, float radius, float angle) {
     auto res = get_antipode(basis, radius);
@@ -592,6 +617,9 @@ struct DistortedRing {
   }
 
   template <int W>
+  /**
+   * @brief Samples a distorted ring.
+   */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      std::function<float(float)> shift_fn, float phase = 0) {
     auto res = get_antipode(basis, radius);
@@ -691,6 +719,9 @@ struct DistortedRing {
   }
 };
 
+/**
+ * @brief Fibonacci Spiral primitive.
+ */
 struct Spiral {
   /**
    * @brief Samples a Fibonacci spiral.
@@ -761,6 +792,9 @@ struct Spiral {
  *  v2: Vertex index
  */
 struct Star {
+  /**
+   * @brief Samples a star shape.
+   */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     auto res = get_antipode(basis, radius);
@@ -870,6 +904,9 @@ struct Star {
  *  v0: Perimeter progress (0.0 -> 1.0)
  *  v1: Arc Length (radians)
  *  v2: Vertex index
+ */
+/**
+ * @brief Flower primitive.
  */
 struct Flower {
   /**
@@ -1087,6 +1124,9 @@ struct Mesh {
  *  v3: Normalized TTL
  */
 struct ParticleSystem {
+  /**
+   * @brief Samples particle trails.
+   */
   template <int W, int H>
   static std::vector<Fragments> sample(const auto &system) {
     std::vector<Fragments> trails;

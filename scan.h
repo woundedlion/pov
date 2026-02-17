@@ -4,6 +4,9 @@
  */
 #pragma once
 #include <vector>
+#include <utility>
+#include <array>
+#include <functional>
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -17,12 +20,15 @@
 #include "canvas.h"
 
 namespace SDF {
+/** @brief Vertical scanline bounds (min/max Y). */
 struct Bounds {
   int y_min, y_max;
 };
+/** @brief Horizontal scanline interval (start/end X). */
 struct Interval {
   int start, end;
 };
+/** @brief Result of a signed distance query. */
 struct DistanceResult {
   float dist;        // Signed distance (negative inside)
   float t;           // Normalized parameter (0-1) or angle
@@ -384,6 +390,10 @@ struct DistortedRing {
   }
 };
 
+/**
+ * @brief CSG Union operation (A + B).
+ * Takes the minimum distance of two shapes.
+ */
 template <typename A, typename B> struct Union {
   const A &a;
   const B &b;
@@ -426,6 +436,10 @@ template <typename A, typename B> struct Union {
   }
 };
 
+/**
+ * @brief CSG Subtraction operation (A - B).
+ * Takes Max(A, -B).
+ */
 template <typename A, typename B> struct Subtract {
   const A &a;
   const B &b;
@@ -467,6 +481,10 @@ template <typename A, typename B> struct Subtract {
   }
 };
 
+/**
+ * @brief CSG Intersection operation (A & B).
+ * Takes the maximum distance of two shapes.
+ */
 template <typename A, typename B> struct Intersection {
   const A &a;
   const B &b;
@@ -552,6 +570,9 @@ template <typename A, typename B> struct Intersection {
   }
 };
 
+/**
+ * @brief Scratch buffer for Face computations to avoid allocations.
+ */
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64;
   std::array<Vector, MAX_VERTS> poly2D;
@@ -562,6 +583,10 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS> thetas;
 };
 
+/**
+ * @brief Represents a planar face for SDF rendering.
+ * Computes 2D projection and vertical/horizontal bounds for optimization.
+ */
 struct Face {
   Vector center;
   Vector basisV, basisU, basisW;
@@ -1456,6 +1481,16 @@ static void process_pixel(int x, int y, const Vector &p, auto &pipeline,
   }
 }
 
+/**
+ * @brief Main rasterization routine for SDF shapes.
+ * Scans the bounding box, computes intervals, and executes the shader for valid
+ * pixels.
+ */
+/**
+ * @brief Main rasterization routine for SDF shapes.
+ * Scans the bounding box, computes intervals, and executes the shader for valid
+ * pixels.
+ */
 template <int W, int H, bool ComputeUVs = true>
 static void rasterize(auto &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn auto fragment_shader,
@@ -1576,6 +1611,9 @@ struct Line {
 };
 
 struct Ring {
+  /**
+   * @brief Draws a solid ring using SDF rasterization.
+   */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness,
@@ -1600,6 +1638,9 @@ struct Ring {
 };
 
 struct Circle {
+  /**
+   * @brief Draws a solid circle (filled ring).
+   */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn auto fragment_shader,
@@ -1621,6 +1662,9 @@ struct Circle {
 };
 
 struct Point {
+  /**
+   * @brief Draws a solid point (thick circle).
+   */
   template <int W, int H>
   static void draw(auto &pipeline, Canvas &canvas, const Vector &p,
                    float thickness, FragmentShaderFn auto fragment_shader) {
@@ -1631,6 +1675,9 @@ struct Point {
 };
 
 struct Star {
+  /**
+   * @brief Draws a solid star shape.
+   */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides,
@@ -1644,6 +1691,9 @@ struct Star {
 };
 
 struct Flower {
+  /**
+   * @brief Draws a solid flower shape.
+   */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides,
@@ -1657,6 +1707,9 @@ struct Flower {
 };
 
 struct SphericalPolygon {
+  /**
+   * @brief Draws a solid spherical polygon.
+   */
   template <int W, int H>
   static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides,

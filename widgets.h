@@ -11,6 +11,9 @@
 // Forward declare to avoid circular dependency or missing include issues
 class Canvas;
 
+/**
+ * @brief Generates and manages ripple effects on a timeline.
+ */
 template <int W, int CAPACITY = 32> class RippleGenerator {
 public:
   struct RippleEntity {

@@ -34,77 +34,85 @@ inline uint16_t srgb_to_linear(uint8_t srgb);
 static constexpr float GAMMA = 2.2f;
 static constexpr float INV_GAMMA = 1.0f / 2.2f;
 
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+/**
+ * @brief Represents a 16-bit per channel RGB color (Linear space).
+ * @details Used for high-precision mixing and HDR rendering before
+ * downsampling/tone-mapping to 8-bit output.
+ */
 struct Pixel16 {
-    uint16_t r, g, b;
+  uint16_t r, g, b;
 
-    constexpr Pixel16() : r(0), g(0), b(0) {}
-    constexpr Pixel16(uint16_t _r, uint16_t _g, uint16_t _b) : r(_r), g(_g), b(_b) {}
-    
-    // Construct from HSV (converts to sRGB then Linear)
-    Pixel16(const CHSV& hsv) {
-        CRGB srgb(hsv);
-        r = srgb_to_linear(srgb.r);
-        g = srgb_to_linear(srgb.g);
-        b = srgb_to_linear(srgb.b);
-    }
-    
-    // Construct from CRGB (converts to Linear)
-    Pixel16(const CRGB& c) {
-        r = srgb_to_linear(c.r);
-        g = srgb_to_linear(c.g);
-        b = srgb_to_linear(c.b);
-    }
+  constexpr Pixel16() : r(0), g(0), b(0) {}
+  constexpr Pixel16(uint16_t _r, uint16_t _g, uint16_t _b)
+      : r(_r), g(_g), b(_b) {}
 
-    // Explicit forward declaration of conversion
-    operator CRGB() const;
+  // Construct from HSV (converts to sRGB then Linear)
+  Pixel16(const CHSV &hsv) {
+    CRGB srgb(hsv);
+    r = srgb_to_linear(srgb.r);
+    g = srgb_to_linear(srgb.g);
+    b = srgb_to_linear(srgb.b);
+  }
 
-    // Basic arithmetic
-    Pixel16& operator+=(const Pixel16& rhs) {
-        r = (uint16_t)std::min((uint32_t)65535, (uint32_t)r + rhs.r);
-        g = (uint16_t)std::min((uint32_t)65535, (uint32_t)g + rhs.g);
-        b = (uint16_t)std::min((uint32_t)65535, (uint32_t)b + rhs.b);
-        return *this;
-    }
-    
-    Pixel16 operator*(float s) const {
-        return Pixel16(
-            (uint16_t)std::clamp((int)(r * s), 0, 65535),
-            (uint16_t)std::clamp((int)(g * s), 0, 65535),
-            (uint16_t)std::clamp((int)(b * s), 0, 65535)
-        );
-    }
-    
-    // Lerp (Linear interpolation 16-bit)
-    Pixel16 lerp16(const Pixel16& other, uint16_t frac) const {
-        // frac 0..65535
-        // result = this + (other - this) * frac
-        // Exact: (a * (65535 - frac) + b * frac) / 65535
-        uint32_t r32 = ((uint32_t)r * (65535 - frac) + (uint32_t)other.r * frac) / 65535;
-        uint32_t g32 = ((uint32_t)g * (65535 - frac) + (uint32_t)other.g * frac) / 65535;
-        uint32_t b32 = ((uint32_t)b * (65535 - frac) + (uint32_t)other.b * frac) / 65535;
-        return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
-    }
+  // Construct from CRGB (converts to Linear)
+  Pixel16(const CRGB &c) {
+    r = srgb_to_linear(c.r);
+    g = srgb_to_linear(c.g);
+    b = srgb_to_linear(c.b);
+  }
+
+  // Explicit forward declaration of conversion
+  operator CRGB() const;
+
+  // Basic arithmetic
+  Pixel16 &operator+=(const Pixel16 &rhs) {
+    r = (uint16_t)std::min((uint32_t)65535, (uint32_t)r + rhs.r);
+    g = (uint16_t)std::min((uint32_t)65535, (uint32_t)g + rhs.g);
+    b = (uint16_t)std::min((uint32_t)65535, (uint32_t)b + rhs.b);
+    return *this;
+  }
+
+  Pixel16 operator*(float s) const {
+    return Pixel16((uint16_t)std::clamp((int)(r * s), 0, 65535),
+                   (uint16_t)std::clamp((int)(g * s), 0, 65535),
+                   (uint16_t)std::clamp((int)(b * s), 0, 65535));
+  }
+
+  // Lerp (Linear interpolation 16-bit)
+  Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
+    // frac 0..65535
+    // result = this + (other - this) * frac
+    // Exact: (a * (65535 - frac) + b * frac) / 65535
+    uint32_t r32 =
+        ((uint32_t)r * (65535 - frac) + (uint32_t)other.r * frac) / 65535;
+    uint32_t g32 =
+        ((uint32_t)g * (65535 - frac) + (uint32_t)other.g * frac) / 65535;
+    uint32_t b32 =
+        ((uint32_t)b * (65535 - frac) + (uint32_t)other.b * frac) / 65535;
+    return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
+  }
 };
 
 using Pixel = Pixel16;
 
- // TODO: 3D Palettes
+// TODO: 3D Palettes
 
- ///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
- /**
-  * @brief Represents a color with an alpha channel.
-  */
+/**
+ * @brief Represents a color with an alpha channel.
+ */
 struct Color4 {
   Pixel color;
   float alpha;
 
-  Color4() : color(Pixel(0,0,0)), alpha(1.0f) {}
+  Color4() : color(Pixel(0, 0, 0)), alpha(1.0f) {}
   Color4(Pixel p, float a = 1.0f) : color(p), alpha(a) {}
-  Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f) : color(Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b))), alpha(a) {}
+  Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f)
+      : color(Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b))),
+        alpha(a) {}
   Color4(Color4 c, float a) : color(c.color), alpha(a) {}
 
   // Implicit conversion to CRGB (Pixel)
@@ -123,117 +131,143 @@ struct Color4 {
 
 // Helper: sRGB (8-bit) -> Linear (16-bit)
 inline uint16_t srgb_to_linear(uint8_t srgb) {
-    return srgb_to_linear_lut[srgb];
+  return srgb_to_linear_lut[srgb];
 }
 
 // Conversion implementation
 inline Pixel16::operator CRGB() const {
-    return CRGB(
-        linear_to_srgb_lut[r],
-        linear_to_srgb_lut[g],
-        linear_to_srgb_lut[b]
-    );
+  return CRGB(linear_to_srgb_lut[r], linear_to_srgb_lut[g],
+              linear_to_srgb_lut[b]);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Blending Functions (Updated for Pixel16)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-inline Pixel blend_max(const Pixel& c1, const Pixel& c2) {
-  return Pixel(std::max(c1.r, c2.r), std::max(c1.g, c2.g), std::max(c1.b, c2.b));
+/**
+ * @brief Blends two pixels by taking the maximum of each component.
+ * @param c1 Destination pixel.
+ * @param c2 Source pixel.
+ * @return The max blend result.
+ */
+inline Pixel blend_max(const Pixel &c1, const Pixel &c2) {
+  return Pixel(std::max(c1.r, c2.r), std::max(c1.g, c2.g),
+               std::max(c1.b, c2.b));
 }
 
-inline Pixel blend_over(const Pixel& c1, const Pixel& c2) {
-  return c2;
-}
+/**
+ * @brief Blends two pixels by overwriting (Painter's algorithm).
+ * @param c1 Destination pixel.
+ * @param c2 Source pixel.
+ * @return c2 (Source).
+ */
+inline Pixel blend_over(const Pixel &c1, const Pixel &c2) { return c2; }
 
-inline Pixel blend_under(const Pixel& c1, const Pixel& c2) {
-  return c1;
-}
+/**
+ * @brief Blends two pixels by keeping the destination (Under).
+ * @param c1 Destination pixel.
+ * @param c2 Source pixel.
+ * @return c1 (Destination).
+ */
+inline Pixel blend_under(const Pixel &c1, const Pixel &c2) { return c1; }
 
-inline Pixel blend_add(const Pixel& c1, const Pixel& c2) {
-    // Saturated Add
-    uint32_t r = (uint32_t)c1.r + c2.r;
-    uint32_t g = (uint32_t)c1.g + c2.g;
-    uint32_t b = (uint32_t)c1.b + c2.b;
-    return Pixel(
-        (r > 65535) ? 65535 : (uint16_t)r,
-        (g > 65535) ? 65535 : (uint16_t)g,
-        (b > 65535) ? 65535 : (uint16_t)b
-    );
+/**
+ * @brief Blends two pixels by additive mixing (saturated).
+ * @param c1 Destination pixel.
+ * @param c2 Source pixel.
+ * @return c1 + c2 (clamped).
+ */
+inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
+  // Saturated Add
+  uint32_t r = (uint32_t)c1.r + c2.r;
+  uint32_t g = (uint32_t)c1.g + c2.g;
+  uint32_t b = (uint32_t)c1.b + c2.b;
+  return Pixel((r > 65535) ? 65535 : (uint16_t)r,
+               (g > 65535) ? 65535 : (uint16_t)g,
+               (b > 65535) ? 65535 : (uint16_t)b);
 }
 
 inline auto blend_alpha(float a) {
   uint16_t ai = std::clamp((int)(a * 65535), 0, 65535);
-  return [ai](const Pixel& c1, const Pixel& c2) {
-      return c1.lerp16(c2, ai);
-  };
+  return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
 
 inline auto blend_accumulate(float a) {
-  return [a](const Pixel& c1, const Pixel& c2) {
-      // c1 + c2 * a
-      Pixel16 added = c2 * a;
-      return blend_add(c1, added);
+  return [a](const Pixel &c1, const Pixel &c2) {
+    // c1 + c2 * a
+    Pixel16 added = c2 * a;
+    return blend_add(c1, added);
   };
 }
 
-inline Pixel blend_over_max(const Pixel& c1, const Pixel& c2) {
+inline Pixel blend_over_max(const Pixel &c1, const Pixel &c2) {
   // Magnitude comparison (approximate luminance) in linear space
   // We can just use sum or max component for speed, or euclidean.
   // Linear RGB euclidean:
-  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b; 
+  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b;
   float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
-  if (m2 < 0.001f) return c1;
-  
+  if (m2 < 0.001f)
+    return c1;
+
   // Just return max? The logic in original was mixing them?
-  // "s = max(m1, m2) / m2; return c2 * s;" -> Rescales c2 to match max brightness
+  // "s = max(m1, m2) / m2; return c2 * s;" -> Rescales c2 to match max
+  // brightness
   if (m1 > m2) {
-       float s = sqrtf(m1 / m2);
-       return c2 * s;
+    float s = sqrtf(m1 / m2);
+    return c2 * s;
   }
   return c2;
 }
 
-inline Pixel blend_over_min(const Pixel& c1, const Pixel& c2) {
-  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b; 
+inline Pixel blend_over_min(const Pixel &c1, const Pixel &c2) {
+  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b;
   float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
-  if (m2 < 0.001f) return Pixel(0,0,0);
-  
+  if (m2 < 0.001f)
+    return Pixel(0, 0, 0);
+
   if (m1 < m2) {
-       float s = sqrtf(m1 / m2);
-       return c2 * s;
+    float s = sqrtf(m1 / m2);
+    return c2 * s;
   }
   return c2;
 }
 
-inline Pixel blend_mean(const Pixel& c1, const Pixel& c2) {
+/**
+ * @brief Blends two pixels by averaging/mean.
+ * @param c1 Destination pixel.
+ * @param c2 Source pixel.
+ * @return (c1 + c2) / 2.
+ */
+inline Pixel blend_mean(const Pixel &c1, const Pixel &c2) {
   return Pixel((c1.r + c2.r) / 2, (c1.g + c2.g) / 2, (c1.b + c2.b) / 2);
 }
 
-enum BlendMode : uint8_t {
-    BLEND_OVER = 0,
-    BLEND_ADD = 1,
-    BLEND_MAX = 2
-};
+/**
+ * @brief Enumerates available blending modes for renderers.
+ */
+enum BlendMode : uint8_t { BLEND_OVER = 0, BLEND_ADD = 1, BLEND_MAX = 2 };
 
+/**
+ * @brief Represents a color with additional metadata (tag).
+ */
 struct TaggedColor {
-    Pixel color;
-    float alpha;
-    uint8_t tag;
+  Pixel color;
+  float alpha;
+  uint8_t tag;
 };
 
 inline auto blend_add_alpha(float a) {
-    return [a](const Pixel& dest, const Pixel& src) {
-        return blend_add(dest, src * a);
-    };
+  return [a](const Pixel &dest, const Pixel &src) {
+    return blend_add(dest, src * a);
+  };
 }
 
 inline auto blend_max_alpha(float a) {
-    return [a](const Pixel& dest, const Pixel& src) {
-        Pixel16 s = src * a;
-        return Pixel(std::max(dest.r, s.r), std::max(dest.g, s.g), std::max(dest.b, s.b));
-    };
+  return [a](const Pixel &dest, const Pixel &src) {
+    Pixel16 s = src * a;
+    return Pixel(std::max(dest.r, s.r), std::max(dest.g, s.g),
+                 std::max(dest.b, s.b));
+  };
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -258,47 +292,35 @@ enum class HarmonyType {
 };
 
 /**
- * @brief Defines the visual shape or distribution of colors across the palette domain.
+ * @brief Defines the visual shape or distribution of colors across the palette
+ * domain.
  */
-enum class GradientShape {
-  STRAIGHT,
-  CIRCULAR,
-  VIGNETTE,
-  FALLOFF
-};
+enum class GradientShape { STRAIGHT, CIRCULAR, VIGNETTE, FALLOFF };
 
 /**
  * @brief Defines the overall brightness profile across the palette domain.
  */
-enum class BrightnessProfile {
-  ASCENDING,
-  DESCENDING,
-  FLAT,
-  BELL,
-  CUP
-};
+enum class BrightnessProfile { ASCENDING, DESCENDING, FLAT, BELL, CUP };
 
 /**
  * @brief Defines the saturation profile.
  */
-enum class SaturationProfile {
-  PASTEL,
-  MID,
-  VIBRANT
-};
+enum class SaturationProfile { PASTEL, MID, VIBRANT };
 
 /**
- * @brief Converts a float in the range [0.0, 1.0] to a 16-bit integer for FastLED lerping.
+ * @brief Converts a float in the range [0.0, 1.0] to a 16-bit integer for
+ * FastLED lerping.
  */
 uint16_t to_short(float zero_to_one) {
-  return std::clamp(static_cast<int>(std::round(zero_to_one * 65535.0f)), 0, 65535);
+  return std::clamp(static_cast<int>(std::round(zero_to_one * 65535.0f)), 0,
+                    65535);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 // Helper: constexpr linear interpolation for bytes
 constexpr uint8_t lerp8(uint8_t a, uint8_t b, float t) {
-    return static_cast<uint8_t>(a + (b - a) * t);
+  return static_cast<uint8_t>(a + (b - a) * t);
 }
 
 /**
@@ -306,14 +328,15 @@ constexpr uint8_t lerp8(uint8_t a, uint8_t b, float t) {
  * Layout compatible with CRGB but without non-constexpr constructors.
  */
 struct CPixel {
-    uint8_t r, g, b;
-    constexpr CPixel() : r(0), g(0), b(0) {}
-    constexpr CPixel(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
-    constexpr CPixel(uint32_t hex) : r((hex >> 16) & 0xFF), g((hex >> 8) & 0xFF), b(hex & 0xFF) {}
-    CPixel(const CRGB& c) : r(c.r), g(c.g), b(c.b) {}
-    
-    // Convert to FastLED CRGB (Pixel)
-    operator Pixel() const { return CRGB(r, g, b); }
+  uint8_t r, g, b;
+  constexpr CPixel() : r(0), g(0), b(0) {}
+  constexpr CPixel(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
+  constexpr CPixel(uint32_t hex)
+      : r((hex >> 16) & 0xFF), g((hex >> 8) & 0xFF), b(hex & 0xFF) {}
+  CPixel(const CRGB &c) : r(c.r), g(c.g), b(c.b) {}
+
+  // Convert to FastLED CRGB (Pixel)
+  operator Pixel() const { return CRGB(r, g, b); }
 };
 
 /**
@@ -321,109 +344,112 @@ struct CPixel {
  */
 // Helper for high-precision conversion (sRGB float 0-1 -> Linear float 0-1)
 constexpr float srgb_to_linear_float(float s) {
-    return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
+  return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
 }
 
 class Gradient : public Palette {
 public:
-    Pixel entries[256];
+  Pixel entries[256];
 
-    // Constructor calculates the table at startup (runtime due to powf)
-    Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
-        // Initialize with black
-        Pixel black(0,0,0);
-        for(int i=0; i<256; i++) entries[i] = black;
+  // Constructor calculates the table at startup (runtime due to powf)
+  Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
+    // Initialize with black
+    Pixel black(0, 0, 0);
+    for (int i = 0; i < 256; i++)
+      entries[i] = black;
 
-        if (points.size() == 0) return;
+    if (points.size() == 0)
+      return;
 
-        auto it = points.begin();
-        float prevPos = it->first;
-        CPixel prevColor = it->second; // Keep as sRGB (CPixel)
-        
-        // Fill start
-        int startIdx = 0;
-        int firstStop = static_cast<int>(prevPos * 255);
-        Pixel prevLinear(
-            static_cast<uint16_t>(65535.f * srgb_to_linear_float(prevColor.r / 255.0f)),
-            static_cast<uint16_t>(65535.f * srgb_to_linear_float(prevColor.g / 255.0f)),
-            static_cast<uint16_t>(65535.f * srgb_to_linear_float(prevColor.b / 255.0f))
-        );
-        for(int i = 0; i <= firstStop; i++) entries[i] = prevLinear;
+    auto it = points.begin();
+    float prevPos = it->first;
+    CPixel prevColor = it->second; // Keep as sRGB (CPixel)
 
-        it++;
-        while(it != points.end()) {
-            float nextPos = it->first;
-            CPixel nextColor = it->second; // Keep as sRGB (CPixel)
-            
-            int start = static_cast<int>(prevPos * 255);
-            int end = static_cast<int>(nextPos * 255);
-            
-            if (end > start) {
-                for (int i = start; i <= end; i++) {
-                    float t = static_cast<float>(i - start) / (end - start);
-                    
-                    // Interpolate in sRGB float space
-                    float r = (float)prevColor.r * (1.0f - t) + (float)nextColor.r * t;
-                    float g = (float)prevColor.g * (1.0f - t) + (float)nextColor.g * t;
-                    float b = (float)prevColor.b * (1.0f - t) + (float)nextColor.b * t;
-                    
-                    // Convert interpolated sRGB -> Linear using high precision formula
-                    entries[i] = Pixel(
-                        static_cast<uint16_t>(65535.f * srgb_to_linear_float(r / 255.f)),
-                        static_cast<uint16_t>(65535.f * srgb_to_linear_float(g / 255.f)),
-                        static_cast<uint16_t>(65535.f * srgb_to_linear_float(b / 255.f))
-                    );
-                }
-            }
-            prevPos = nextPos;
-            prevColor = nextColor;
-            it++;
+    // Fill start
+    int startIdx = 0;
+    int firstStop = static_cast<int>(prevPos * 255);
+    Pixel prevLinear(static_cast<uint16_t>(
+                         65535.f * srgb_to_linear_float(prevColor.r / 255.0f)),
+                     static_cast<uint16_t>(
+                         65535.f * srgb_to_linear_float(prevColor.g / 255.0f)),
+                     static_cast<uint16_t>(
+                         65535.f * srgb_to_linear_float(prevColor.b / 255.0f)));
+    for (int i = 0; i <= firstStop; i++)
+      entries[i] = prevLinear;
+
+    it++;
+    while (it != points.end()) {
+      float nextPos = it->first;
+      CPixel nextColor = it->second; // Keep as sRGB (CPixel)
+
+      int start = static_cast<int>(prevPos * 255);
+      int end = static_cast<int>(nextPos * 255);
+
+      if (end > start) {
+        for (int i = start; i <= end; i++) {
+          float t = static_cast<float>(i - start) / (end - start);
+
+          // Interpolate in sRGB float space
+          float r = (float)prevColor.r * (1.0f - t) + (float)nextColor.r * t;
+          float g = (float)prevColor.g * (1.0f - t) + (float)nextColor.g * t;
+          float b = (float)prevColor.b * (1.0f - t) + (float)nextColor.b * t;
+
+          // Convert interpolated sRGB -> Linear using high precision formula
+          entries[i] = Pixel(
+              static_cast<uint16_t>(65535.f * srgb_to_linear_float(r / 255.f)),
+              static_cast<uint16_t>(65535.f * srgb_to_linear_float(g / 255.f)),
+              static_cast<uint16_t>(65535.f * srgb_to_linear_float(b / 255.f)));
         }
-        
-        // Fill end
-        int lastStop = static_cast<int>(prevPos * 255);
-        Pixel lastLinear(
-            static_cast<uint16_t>(65535.f * srgb_to_linear_float(prevColor.r / 255.0f)),
-            static_cast<uint16_t>(65535.f * srgb_to_linear_float(prevColor.g / 255.0f)),
-            static_cast<uint16_t>(65535.f * srgb_to_linear_float(prevColor.b / 255.0f))
-        );
-        for(int i = lastStop; i < 256; i++) entries[i] = lastLinear;
+      }
+      prevPos = nextPos;
+      prevColor = nextColor;
+      it++;
     }
 
-    Color4 get(float t) const override {
-        uint8_t index = static_cast<uint8_t>(t * 255);
-        // entries are already 16-bit Linear
-        return Color4(entries[index], 1.0f);
-    }
+    // Fill end
+    int lastStop = static_cast<int>(prevPos * 255);
+    Pixel lastLinear(static_cast<uint16_t>(
+                         65535.f * srgb_to_linear_float(prevColor.r / 255.0f)),
+                     static_cast<uint16_t>(
+                         65535.f * srgb_to_linear_float(prevColor.g / 255.0f)),
+                     static_cast<uint16_t>(
+                         65535.f * srgb_to_linear_float(prevColor.b / 255.0f)));
+    for (int i = lastStop; i < 256; i++)
+      entries[i] = lastLinear;
+  }
 
-    ~Gradient() override {}
+  Color4 get(float t) const override {
+    uint8_t index = static_cast<uint8_t>(t * 255);
+    // entries are already 16-bit Linear
+    return Color4(entries[index], 1.0f);
+  }
+
+  ~Gradient() override {}
 };
 
 /**
- * @brief A palette that generates colors based on defined harmony and brightness profiles.
+ * @brief A palette that generates colors based on defined harmony and
+ * brightness profiles.
  */
 class GenerativePalette : public Palette {
 public:
+  GenerativePalette()
+      : GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
+                          BrightnessProfile::FLAT) {}
 
-  GenerativePalette() : 
-    GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, BrightnessProfile::FLAT) {}
-
-  GenerativePalette(
-    GradientShape gradient_shape,
-    HarmonyType harmony_type,
-    BrightnessProfile profile,
-    SaturationProfile sat_profile = SaturationProfile::MID,
-    int manual_seed = -1) :
-    gradient_shape(gradient_shape),
-    harmony_type(harmony_type)
-  {
+  GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
+                    BrightnessProfile profile,
+                    SaturationProfile sat_profile = SaturationProfile::MID,
+                    int manual_seed = -1)
+      : gradient_shape(gradient_shape), harmony_type(harmony_type) {
     if (manual_seed != -1) {
-        palette_hue = static_cast<uint8_t>(manual_seed);
+      palette_hue = static_cast<uint8_t>(manual_seed);
     } else {
-        palette_hue = g_hue_seed;
-        // Advance global seed for next generation (Golden Ratio distribution)
-        g_hue_seed = static_cast<uint8_t>(
-            (static_cast<uint32_t>(g_hue_seed) + static_cast<uint32_t>(G * 255.0f)) % 256);
+      palette_hue = g_hue_seed;
+      // Advance global seed for next generation (Golden Ratio distribution)
+      g_hue_seed = static_cast<uint8_t>((static_cast<uint32_t>(g_hue_seed) +
+                                         static_cast<uint32_t>(G * 255.0f)) %
+                                        256);
     }
 
     uint8_t h1 = palette_hue;
@@ -484,32 +510,36 @@ public:
     const CPixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
-      shape = { 0, 0.1f, 0.5f, 0.9f, 1.0f };
-      colors = { vignette_color, a, b, c, vignette_color };
+      shape = {0, 0.1f, 0.5f, 0.9f, 1.0f};
+      colors = {vignette_color, a, b, c, vignette_color};
       size = 5;
       break;
     case GradientShape::STRAIGHT:
-      shape = { 0, 0.5f, 1.0f };
-      colors = { a, b, c };
+      shape = {0, 0.5f, 1.0f};
+      colors = {a, b, c};
       size = 3;
       break;
     case GradientShape::CIRCULAR:
-      shape = { 0, 0.33f, 0.66f, 1.0f };
-      colors = { a, b, c, a };
+      shape = {0, 0.33f, 0.66f, 1.0f};
+      colors = {a, b, c, a};
       size = 4;
       break;
     case GradientShape::FALLOFF:
-      shape = { 0, 0.33f, 0.66f, 0.9f, 1.0f };
-      colors = { a, b, c, vignette_color };
+      shape = {0, 0.33f, 0.66f, 0.9f, 1.0f};
+      colors = {a, b, c, vignette_color};
       size = 4;
       break;
     }
   }
 
-  void lerp(const GenerativePalette& from, const GenerativePalette& to, float amount) {
-    a = CPixel(lerp8(from.a.r, to.a.r, amount), lerp8(from.a.g, to.a.g, amount), lerp8(from.a.b, to.a.b, amount));
-    b = CPixel(lerp8(from.b.r, to.b.r, amount), lerp8(from.b.g, to.b.g, amount), lerp8(from.b.b, to.b.b, amount));
-    c = CPixel(lerp8(from.c.r, to.c.r, amount), lerp8(from.c.g, to.c.g, amount), lerp8(from.c.b, to.c.b, amount));
+  void lerp(const GenerativePalette &from, const GenerativePalette &to,
+            float amount) {
+    a = CPixel(lerp8(from.a.r, to.a.r, amount), lerp8(from.a.g, to.a.g, amount),
+               lerp8(from.a.b, to.a.b, amount));
+    b = CPixel(lerp8(from.b.r, to.b.r, amount), lerp8(from.b.g, to.b.g, amount),
+               lerp8(from.b.b, to.b.b, amount));
+    c = CPixel(lerp8(from.c.r, to.c.r, amount), lerp8(from.c.g, to.c.g, amount),
+               lerp8(from.c.b, to.c.b, amount));
     update_luts();
   }
 
@@ -521,7 +551,8 @@ public:
         break;
       }
     }
-    if (seg < 0) seg = size - 2;
+    if (seg < 0)
+      seg = size - 2;
 
     float start = shape[seg];
     float end = shape[seg + 1];
@@ -530,10 +561,11 @@ public:
 
     // Safe division check
     float dist = end - start;
-    if (dist < 0.0001f) return Color4(c1, 1.0f);
+    if (dist < 0.0001f)
+      return Color4(c1, 1.0f);
 
     float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
-    
+
     // sRGB Interpolation
     uint8_t r = lerp8(c1.r, c2.r, p);
     uint8_t g = lerp8(c1.g, c2.g, p);
@@ -547,7 +579,8 @@ public:
 private:
   uint8_t wrap_hue(int hue) const { return (hue % 256 + 256) % 256; }
 
-  void calc_hues(uint8_t h1, uint8_t& h2, uint8_t& h3, HarmonyType harmony_type) const {
+  void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
+                 HarmonyType harmony_type) const {
     const int h1_int = h1;
     switch (harmony_type) {
     case HarmonyType::TRIADIC:
@@ -583,7 +616,7 @@ private:
   HarmonyType harmony_type;
   uint8_t palette_hue;
   CPixel a, b, c;
-  
+
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<CPixel, 5> colors;
@@ -599,25 +632,23 @@ public:
  */
 class ProceduralPalette : public Palette {
 public:
-  constexpr ProceduralPalette(
-    std::array<float, 3> a,
-    std::array<float, 3> b,
-    std::array<float, 3> c,
-    std::array<float, 3> d) : a(a), b(b), c(c), d(d) {
-  }
+  constexpr ProceduralPalette(std::array<float, 3> a, std::array<float, 3> b,
+                              std::array<float, 3> c, std::array<float, 3> d)
+      : a(a), b(b), c(c), d(d) {}
 
   Color4 get(float t) const override {
-    // Determine color in high-precision float sRGB space first, then convert to 16-bit Linear
-    // This avoids 8-bit quantization steps
-    float r_srgb = std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f);
-    float g_srgb = std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f);
-    float b_srgb = std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f);
+    // Determine color in high-precision float sRGB space first, then convert to
+    // 16-bit Linear This avoids 8-bit quantization steps
+    float r_srgb = std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])),
+                              0.0f, 1.0f);
+    float g_srgb = std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])),
+                              0.0f, 1.0f);
+    float b_srgb = std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])),
+                              0.0f, 1.0f);
 
-    Pixel color(
-      static_cast<uint16_t>(65535.f * srgb_to_linear_float(r_srgb)),
-      static_cast<uint16_t>(65535.f * srgb_to_linear_float(g_srgb)),
-      static_cast<uint16_t>(65535.f * srgb_to_linear_float(b_srgb))
-    );
+    Pixel color(static_cast<uint16_t>(65535.f * srgb_to_linear_float(r_srgb)),
+                static_cast<uint16_t>(65535.f * srgb_to_linear_float(g_srgb)),
+                static_cast<uint16_t>(65535.f * srgb_to_linear_float(b_srgb)));
     return Color4(color, 1.0f);
   }
 
@@ -629,17 +660,17 @@ public:
 };
 
 /**
- * @brief A palette that allows continuous mutation between two procedural palettes.
+ * @brief A palette that allows continuous mutation between two procedural
+ * palettes.
  */
 class MutatingPalette : public ProceduralPalette {
 public:
-  MutatingPalette(
-    std::array<float, 3> a1, std::array<float, 3> b1, std::array<float, 3> c1, std::array<float, 3> d1,
-    std::array<float, 3> a2, std::array<float, 3> b2, std::array<float, 3> c2, std::array<float, 3> d2
-  ) : ProceduralPalette(a1, b1, c1, d1), // Initialize base with start values
-    a1(a1), b1(b1), c1(c1), d1(d1),
-    a2(a2), b2(b2), c2(c2), d2(d2)
-  {
+  MutatingPalette(std::array<float, 3> a1, std::array<float, 3> b1,
+                  std::array<float, 3> c1, std::array<float, 3> d1,
+                  std::array<float, 3> a2, std::array<float, 3> b2,
+                  std::array<float, 3> c2, std::array<float, 3> d2)
+      : ProceduralPalette(a1, b1, c1, d1), // Initialize base with start values
+        a1(a1), b1(b1), c1(c1), d1(d1), a2(a2), b2(b2), c2(c2), d2(d2) {
     mutate(0.0f);
   }
 
@@ -665,71 +696,77 @@ public:
 // Palette Wrappers
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @brief Interface for modifying palette lookup coordinates over time.
+ */
 struct PaletteModifier {
-    virtual void step() = 0;
-    virtual float transform(float t) const = 0;
-    virtual ~PaletteModifier() = default;
+  virtual void step() = 0;
+  virtual float transform(float t) const = 0;
+  virtual ~PaletteModifier() = default;
 };
 
 /**
  * @brief Linearly cycles the palette coordinate.
  */
 struct CycleModifier : public PaletteModifier {
-    float speed;
-    float offset = 0.0f;
-    
-    CycleModifier(float speed = 0.01f) : speed(speed) {}
-    
-    void step() override {
-        offset += speed;
-        // Keep offset within [0, 1] to preserve floating point precision over time
-        if (offset > 1.0f) offset -= 1.0f;
-        if (offset < 0.0f) offset += 1.0f;
-    }
-    
-    float transform(float t) const override {
-        return fmodf(t + offset, 1.0f);
-    }
+  float speed;
+  float offset = 0.0f;
 
-    ~CycleModifier() override = default;
+  CycleModifier(float speed = 0.01f) : speed(speed) {}
+
+  void step() override {
+    offset += speed;
+    // Keep offset within [0, 1] to preserve floating point precision over time
+    if (offset > 1.0f)
+      offset -= 1.0f;
+    if (offset < 0.0f)
+      offset += 1.0f;
+  }
+
+  float transform(float t) const override { return fmodf(t + offset, 1.0f); }
+
+  ~CycleModifier() override = default;
 };
 
 /**
  * @brief Oscillates the palette coordinate (Breathing).
  */
 struct BreatheModifier : public PaletteModifier {
-    float freq;
-    float amp;
-    float phase = 0.0f;
-    float val = 0.0f;
-    
-    BreatheModifier(float freq = 0.05f, float amp = 0.1f) : freq(freq), amp(amp) {}
-    
-    void step() override {
-        phase += freq;
-        if (phase > 2 * PI_F) phase -= 2 * PI_F;
-        val = sinf(phase) * amp;
-    }
-    
-    float transform(float t) const override {
-        return std::clamp(t + val, 0.0f, 1.0f);
-    }
+  float freq;
+  float amp;
+  float phase = 0.0f;
+  float val = 0.0f;
+
+  BreatheModifier(float freq = 0.05f, float amp = 0.1f)
+      : freq(freq), amp(amp) {}
+
+  void step() override {
+    phase += freq;
+    if (phase > 2 * PI_F)
+      phase -= 2 * PI_F;
+    val = sinf(phase) * amp;
+  }
+
+  float transform(float t) const override {
+    return std::clamp(t + val, 0.0f, 1.0f);
+  }
 };
 
 /**
- * @brief A wrapper that applies a chain of modifiers to the palette parameter 't'.
+ * @brief A wrapper that applies a chain of modifiers to the palette parameter
+ * 't'.
  */
 class AnimatedPalette : public Palette {
 public:
-  AnimatedPalette(const Palette& source) : source(source) {}
+  AnimatedPalette(const Palette &source) : source(source) {}
 
   /**
    * Explicitly connect a modifier to this palette.
    * Stores a pointer. The modifier must outlive the palette.
    */
-  AnimatedPalette& add(PaletteModifier* modifier) {
+  AnimatedPalette &add(PaletteModifier *modifier) {
     if (!modifiers.is_full()) {
-        modifiers.push_back(modifier);
+      modifiers.push_back(modifier);
     }
     return *this;
   }
@@ -738,137 +775,146 @@ public:
     float final_t = t;
     // Pipe t through the modifier chain: t -> m1 -> m2 ... -> t'
     for (size_t i = 0; i < modifiers.size(); ++i) {
-        if (modifiers[i]) {
-            final_t = modifiers[i]->transform(final_t);
-        }
+      if (modifiers[i]) {
+        final_t = modifiers[i]->transform(final_t);
+      }
     }
     return source.get().get(final_t);
   }
 
 private:
   std::reference_wrapper<const Palette> source;
-  StaticCircularBuffer<PaletteModifier*, 4> modifiers;
+  StaticCircularBuffer<PaletteModifier *, 4> modifiers;
 
 public:
   ~AnimatedPalette() override = default;
 };
 
-
-
+/**
+ * @brief Palette wrapper that makes the source palette symmetrical/circular.
+ * Maps range [0, 1] -> [0, 1, 0].
+ */
 class CircularPalette : public Palette {
 public:
-  CircularPalette(const Palette& palette) : palette(palette) {}
+  CircularPalette(const Palette &palette) : palette(palette) {}
   Color4 get(float t) const override {
     return palette.get().get(1.0f - std::abs(2.0f * t - 1.0f));
   }
+
 private:
   std::reference_wrapper<const Palette> palette;
 };
 
+/**
+ * @brief Palette wrapper that reverses the source palette.
+ * Maps inputs t -> 1-t.
+ */
 class ReversePalette : public Palette {
 public:
-  ReversePalette(const Palette& palette) : palette(palette) {}
-  Color4 get(float t) const override {
-    return palette.get().get(1.0f - t);
-  }
+  ReversePalette(const Palette &palette) : palette(palette) {}
+  Color4 get(float t) const override { return palette.get().get(1.0f - t); }
+
 private:
   std::reference_wrapper<const Palette> palette;
 };
 
+/**
+ * @brief Palette wrapper that applies black vignetting at the edges.
+ * fades to black at t < 0.2 and t > 0.8.
+ */
 class VignettePalette : public Palette {
 public:
-  VignettePalette(const Palette& palette) : palette(palette) {}
+  VignettePalette(const Palette &palette) : palette(palette) {}
   Color4 get(float t) const override {
     CRGB vignette_color(0, 0, 0);
     if (t < 0.2f) {
-      return Color4(vignette_color.lerp16(palette.get().get(0.0f).color, to_short(quintic_kernel(t / 0.2f))), 1.0f);
-    }
-    else if (t >= 0.8f) {
-      return Color4(palette.get().get(1.0f).color.lerp16(vignette_color, to_short(quintic_kernel((t - 0.8f) / 0.2f))), 1.0f);
-    }
-    else {
+      return Color4(vignette_color.lerp16(palette.get().get(0.0f).color,
+                                          to_short(quintic_kernel(t / 0.2f))),
+                    1.0f);
+    } else if (t >= 0.8f) {
+      return Color4(
+          palette.get().get(1.0f).color.lerp16(
+              vignette_color, to_short(quintic_kernel((t - 0.8f) / 0.2f))),
+          1.0f);
+    } else {
       return palette.get().get((t - 0.2f) / 0.6f);
     }
   }
+
 private:
   std::reference_wrapper<const Palette> palette;
 };
 
+/**
+ * @brief Palette wrapper that applies alpha transparency vignetting at the
+ * edges.
+ */
 class TransparentVignette : public Palette {
 public:
-  TransparentVignette(const Palette& palette) : palette(palette) {}
+  TransparentVignette(const Palette &palette) : palette(palette) {}
   Color4 get(float t) const override {
     Color4 result;
     float factor = 1.0f;
     if (t < 0.2f) {
       result = palette.get().get(0.0f);
       factor = quintic_kernel(t / 0.2f);
-    }
-    else if (t >= 0.8f) {
+    } else if (t >= 0.8f) {
       result = palette.get().get(1.0f);
       factor = quintic_kernel(1.0f - (t - 0.8f) / 0.2f);
-    }
-    else {
+    } else {
       return palette.get().get((t - 0.2f) / 0.6f);
     }
     result.alpha *= factor;
     return result;
   }
+
 private:
   std::reference_wrapper<const Palette> palette;
 };
 
 class AlphaFalloffPalette : public Palette {
 public:
-    using FalloffFn = std::function<float(float)>;
-    AlphaFalloffPalette(FalloffFn fn, const Palette& source) : fn(fn), source(source) {}
-    Color4 get(float t) const override {
-        Color4 c = source.get().get(t);
-        c.alpha *= fn(t);
-        return c;
-    }
+  using FalloffFn = std::function<float(float)>;
+  AlphaFalloffPalette(FalloffFn fn, const Palette &source)
+      : fn(fn), source(source) {}
+  Color4 get(float t) const override {
+    Color4 c = source.get().get(t);
+    c.alpha *= fn(t);
+    return c;
+  }
+
 private:
-    FalloffFn fn;
-    std::reference_wrapper<const Palette> source;
+  FalloffFn fn;
+  std::reference_wrapper<const Palette> source;
 };
 
 class SolidColorPalette : public Palette {
 public:
-  SolidColorPalette(const Color4& color) : color(color) {}
-  Color4 get(float t) const override {
-    return color;
-  }
+  SolidColorPalette(const Color4 &color) : color(color) {}
+  Color4 get(float t) const override { return color; }
   Color4 color;
 };
 
 /**
  * @brief Variant holding any supported palette type.
  */
-using PaletteVariant = std::variant<
-  std::monostate,
-  GenerativePalette,
-  ProceduralPalette,
-  Gradient,
-  MutatingPalette,
-  ReversePalette,
-  VignettePalette,
-  TransparentVignette,
-  AlphaFalloffPalette,
-  SolidColorPalette,
-  CircularPalette
->;
+using PaletteVariant =
+    std::variant<std::monostate, GenerativePalette, ProceduralPalette, Gradient,
+                 MutatingPalette, ReversePalette, VignettePalette,
+                 TransparentVignette, AlphaFalloffPalette, SolidColorPalette,
+                 CircularPalette>;
 
-
-inline Color4 get_color(const PaletteVariant& pv, float t) {
-  return std::visit([t](auto&& arg) -> Color4 {
-    using T = std::decay_t<decltype(arg)>;
-    if constexpr (std::is_same_v<T, std::monostate>) {
-      return Color4(CRGB(0, 0, 0), 0.0f);
-    } else {
-      return arg.get(t);
-    }
-  }, pv);
+inline Color4 get_color(const PaletteVariant &pv, float t) {
+  return std::visit(
+      [t](auto &&arg) -> Color4 {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+          return Color4(CRGB(0, 0, 0), 0.0f);
+        } else {
+          return arg.get(t);
+        }
+      },
+      pv);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
