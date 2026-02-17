@@ -10,12 +10,13 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
-#include "geometry.h" 
-#include "color.h" 
+#include "geometry.h"
+#include "color.h"
 #include "static_circular_buffer.h"
 #include "canvas.h"
+#include "concepts.h"
 
- // Filter Traits
+// Filter Traits
 struct Is2D {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
@@ -35,69 +36,71 @@ struct Is3DWithHistory {
   static constexpr bool has_history = true;
 };
 
-template <int W, int H, typename... Filters>
-struct Pipeline;
+template <int W, int H, typename... Filters> struct Pipeline;
 
 /**
- * @brief Plots a color to the canvas, ensuring the y-coordinate is within bounds (0 to H-1).
+ * @brief Plots a color to the canvas, ensuring the y-coordinate is within
+ * bounds (0 to H-1).
  */
-inline void plot_virtual(Canvas& canvas, int x, int y, const Pixel& c) {
+inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
   if (y >= 0 && y < canvas.height()) {
     canvas(x, y) = c;
   }
 }
 
 // Base Case: Canvas Sink
-template <int W, int H>
-struct Pipeline<W, H> {
+template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
 
   // 2D Sink
-  void plot(Canvas& cv, int x, int y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha,
+            uint8_t tag = 0) {
     int xi = wrap(x, W);
     Pixel p;
-    switch(tag) {
-        case BLEND_ADD: 
-            p = blend_add_alpha(alpha)(cv(xi, y), c); 
-            break;
-        case BLEND_MAX:
-             p = blend_max_alpha(alpha)(cv(xi, y), c);
-            break;
-        default:
-            p = blend_alpha(alpha)(cv(xi, y), c); // BLEND_OVER
-            break;
+    switch (tag) {
+    case BLEND_ADD:
+      p = blend_add_alpha(alpha)(cv(xi, y), c);
+      break;
+    case BLEND_MAX:
+      p = blend_max_alpha(alpha)(cv(xi, y), c);
+      break;
+    default:
+      p = blend_alpha(alpha)(cv(xi, y), c); // BLEND_OVER
+      break;
     }
     plot_virtual(cv, xi, y, p);
   }
 
-  void plot(Canvas& cv, float x, float y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
+  void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
+            float alpha, uint8_t tag = 0) {
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
     xi = wrap(xi, W);
-    
+
     Pixel p;
-    switch(tag) {
-        case BLEND_ADD: 
-            p = blend_add_alpha(alpha)(cv(xi, yi), c); 
-            break;
-        case BLEND_MAX:
-             p = blend_max_alpha(alpha)(cv(xi, yi), c);
-            break;
-        default:
-            p = blend_alpha(alpha)(cv(xi, yi), c); // BLEND_OVER
-            break;
+    switch (tag) {
+    case BLEND_ADD:
+      p = blend_add_alpha(alpha)(cv(xi, yi), c);
+      break;
+    case BLEND_MAX:
+      p = blend_max_alpha(alpha)(cv(xi, yi), c);
+      break;
+    default:
+      p = blend_alpha(alpha)(cv(xi, yi), c); // BLEND_OVER
+      break;
     }
     plot_virtual(cv, xi, yi, p);
   }
 
   // 3D Sink
-  void plot(Canvas& cv, const Vector& v, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha,
+            uint8_t tag = 0) {
     auto p = vector_to_pixel<W, H>(v);
     plot(cv, p.x, p.y, c, age, alpha, tag);
   }
 
   // History
-  void flush(Canvas&, TrailFn auto, float) {}
+  void flush(Canvas &, TrailFn auto, float) {}
 };
 
 // Recursive Case
@@ -108,56 +111,52 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
 
   // Forwarding Reference Constructor
   template <typename HArg, typename... TArgs>
-  Pipeline(HArg&& h, TArgs&&... t) 
+  Pipeline(HArg &&h, TArgs &&...t)
       : Head(std::forward<HArg>(h)), next(std::forward<TArgs>(t)...) {}
 
   // Partial Constructor (Head only, Tail default constructed)
   template <typename HArg>
-  explicit Pipeline(HArg&& h) 
-      : Head(std::forward<HArg>(h)) {}
+  explicit Pipeline(HArg &&h) : Head(std::forward<HArg>(h)) {}
 
   Pipeline() = default;
 
   // 2D Plot (Float)
-  void plot(Canvas& cv, float x, float y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
+  void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
+            float alpha, uint8_t tag = 0) {
     if constexpr (Head::is_2d) {
       Head::plot(x, y, c, age, alpha, tag,
-        [&](float x, float y, const Pixel& c, float age, float alpha, uint8_t tag) {
-          next.plot(cv, x, y, c, age, alpha, tag);
-        });
-    }
-    else { // 2D -> 3D Mismatch
+                 [&](float x, float y, const Pixel &c, float age, float alpha,
+                     uint8_t tag) { next.plot(cv, x, y, c, age, alpha, tag); });
+    } else { // 2D -> 3D Mismatch
       Vector v = pixel_to_vector<W, H>(x, y);
       plot(cv, v, c, age, alpha, tag);
     }
   }
 
   // 2D Plot (Int) - useful for Scan
-  void plot(Canvas& cv, int x, int y, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
-      // route to float
-      plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha, tag);
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha,
+            uint8_t tag = 0) {
+    // route to float
+    plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha, tag);
   }
 
   // 3D Plot
-  void plot(Canvas& cv, const Vector& v, const Pixel& c, float age, float alpha, uint8_t tag = 0) {
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha,
+            uint8_t tag = 0) {
     if constexpr (!Head::is_2d) {
       Head::plot(v, c, age, alpha, tag,
-        [&](const Vector& v, const Pixel& c, float age, float alpha, uint8_t tag) {
-          next.plot(cv, v, c, age, alpha, tag);
-        });
-    }
-    else { // 3D -> 2D Mismatch
+                 [&](const Vector &v, const Pixel &c, float age, float alpha,
+                     uint8_t tag) { next.plot(cv, v, c, age, alpha, tag); });
+    } else { // 3D -> 2D Mismatch
       auto p = vector_to_pixel<W, H>(v);
       plot(cv, p.x, p.y, c, age, alpha, tag);
     }
   }
 
-  void flush(Canvas& cv, TrailFn auto trailFn, float alpha) {
+  void flush(Canvas &cv, TrailFn auto trailFn, float alpha) {
     if constexpr (Head::has_history) {
       Head::flush(trailFn, alpha,
-        [&](auto... args) {
-          next.plot(cv, args...);
-        });
+                  [&](auto... args) { next.plot(cv, args...); });
     }
     next.flush(cv, trailFn, alpha);
   }
@@ -174,49 +173,53 @@ namespace Filter {
 // ----------------------------------------------------------------------------
 namespace World {
 
-template <int W>
-class Orient : public Is3D {
+template <int W> class Orient : public Is3D {
 public:
-  Orient(Orientation<W>& orientation) : orientation(orientation) {}
+  Orient(Orientation<W> &orientation) : orientation(orientation) {}
 
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
-    tween(orientation, [&](const Quaternion& q, float t) {
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
+    tween(orientation, [&](const Quaternion &q, float t) {
       pass(rotate(v, q), color, age + (1.0f - t), alpha, tag);
     });
   }
+
 private:
-  Orientation<W>& orientation;
+  Orientation<W> &orientation;
 };
 
-template <int W>
-class OrientSlice : public Is3D {
+template <int W> class OrientSlice : public Is3D {
 public:
-  OrientSlice(const std::vector<Orientation<W>>& orientations, const Vector& axis) 
+  OrientSlice(const std::vector<Orientation<W>> &orientations,
+              const Vector &axis)
       : enabled(true), axis(axis), orientations(orientations) {}
 
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
     if (!enabled) {
-        pass(v, color, age, alpha, tag);
-        return;
+      pass(v, color, age, alpha, tag);
+      return;
     }
 
-    float projection = v.i * axis.i + v.j * axis.j + v.k * axis.k; // dot product
+    float projection =
+        v.i * axis.i + v.j * axis.j + v.k * axis.k; // dot product
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
     float t = 1.0f - acosf(dot_val) / PI_F;
-    
+
     size_t count = orientations.size();
     if (count == 0) {
-        pass(v, color, age, alpha, tag);
-        return;
+      pass(v, color, age, alpha, tag);
+      return;
     }
-    
+
     size_t idx = static_cast<size_t>(floorf(t * count));
-    if (idx >= count) idx = count - 1;
-    
+    if (idx >= count)
+      idx = count - 1;
+
     // Pass to selected orientation
-    const Orientation<W>& q = orientations[idx];
-    tween(q, [&](const Quaternion& rot, float tween_t) {
-        pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha, tag);
+    const Orientation<W> &q = orientations[idx];
+    tween(q, [&](const Quaternion &rot, float tween_t) {
+      pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha, tag);
     });
   }
 
@@ -224,48 +227,55 @@ public:
   Vector axis;
 
 private:
-  const std::vector<Orientation<W>>& orientations;
+  const std::vector<Orientation<W>> &orientations;
 };
 
-template <int W>
-class Hole : public Is3D {
+template <int W> class Hole : public Is3D {
 public:
-  Hole(const Vector& origin, float radius) : origin(origin), radius(radius) {}
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
+  Hole(const Vector &origin, float radius) : origin(origin), radius(radius) {}
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
     float d = angle_between(v, origin);
-    if (d > radius) pass(v, color, age, alpha, tag);
+    if (d > radius)
+      pass(v, color, age, alpha, tag);
     else {
       float t = d / radius;
       pass(v, color * quintic_kernel(t), age, alpha, tag);
     }
   }
+
 private:
   Vector origin;
   float radius;
 };
 
-template <int W>
-class HoleRef : public Is3D {
+template <int W> class HoleRef : public Is3D {
 public:
-  HoleRef(const Vector& origin, float radius) : origin(origin), radius(radius) {}
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
+  HoleRef(const Vector &origin, float radius)
+      : origin(origin), radius(radius) {}
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
     float d = angle_between(v, origin);
-    if (d > radius) pass(v, color, age, alpha, tag);
+    if (d > radius)
+      pass(v, color, age, alpha, tag);
     else {
       float t = d / radius;
       pass(v, color * quintic_kernel(t), age, alpha, tag);
     }
   }
+
 private:
-  const Vector& origin;
+  const Vector &origin;
   float radius;
 };
 
-template <int W>
-class Replicate : public Is3D {
+template <int W> class Replicate : public Is3D {
 public:
-  Replicate(int count) : count(std::clamp(count, 1, W)), step(make_rotation(Y_AXIS, 2 * PI_F / count)) {}
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
+  Replicate(int count)
+      : count(std::clamp(count, 1, W)),
+        step(make_rotation(Y_AXIS, 2 * PI_F / count)) {}
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
     Vector r = v;
     pass(r, color, age, alpha, tag);
     for (int i = 1; i < count; i++) {
@@ -273,27 +283,28 @@ public:
       pass(r, color, age, alpha, tag);
     }
   }
+
 private:
   int count;
   Quaternion step;
 };
 
-template <int W>
-class Mobius : public Is3D {
+template <int W> class Mobius : public Is3D {
 public:
-  Mobius(MobiusParams& params) : params(params) {}
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
+  Mobius(MobiusParams &params) : params(params) {}
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
     pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha, tag);
   }
+
 private:
-  MobiusParams& params;
+  MobiusParams &params;
 };
 
 /**
  * @brief Manages 3D world-space trails.
  */
-template <int W, int Capacity>
-class Trails : public Is3DWithHistory {
+template <int W, int Capacity> class Trails : public Is3DWithHistory {
 public:
   struct Item {
     Vector v;
@@ -303,41 +314,44 @@ public:
 
   Trails(int lifetime) : lifetime(lifetime) {}
 
-  void plot(const Vector& v, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
-      pass(v, color, age, alpha, tag); // Pass through current frame
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
+    pass(v, color, age, alpha, tag); // Pass through current frame
 
-      float ttl = lifetime - age;
-      if (ttl > 0) {
-          items.push_back({ v, ttl, tag }); 
-      }
+    float ttl = lifetime - age;
+    if (ttl > 0) {
+      items.push_back({v, ttl, tag});
+    }
   }
 
   void flush(TrailFn auto trailFn, float alpha, auto pass) {
-      // Age (In-place)
-      size_t count = items.size();
-      for (size_t i = 0; i < count; ++i) {
-          items[i].ttl -= 1.0f;
-      }
+    // Age (In-place)
+    size_t count = items.size();
+    for (size_t i = 0; i < count; ++i) {
+      items[i].ttl -= 1.0f;
+    }
 
-      // Cleanup (Head-only, as it's a circular buffer and earliest pushed are at head)
-      // JS behavior: "Remove Dead" check from front
-      while (!items.is_empty() && items.front().ttl <= 0) {
-          items.pop();
-      }
+    // Cleanup (Head-only, as it's a circular buffer and earliest pushed are at
+    // head) JS behavior: "Remove Dead" check from front
+    while (!items.is_empty() && items.front().ttl <= 0) {
+      items.pop();
+    }
 
-      // Draw
-      // JS: Iterates entire buffer (which is efficiently packed now)
-      // No sort needed if we accept draw order = insertion order (standard for trails)
-      for (size_t i = 0; i < items.size(); ++i) {
-          const auto& item = items[i];
-          float t = 1.0f - (item.ttl / static_cast<float>(lifetime));
-          Color4 c = trailFn(item.v, t); // Trail function returns color + alpha
-          
-          // Note: JS logic ignores original point alpha and uses trace alpha * global flush alpha
-          if (c.alpha > 0.001f) {
-             pass(item.v, c.color, lifetime - item.ttl, c.alpha * alpha, item.tag); 
-          }
+    // Draw
+    // JS: Iterates entire buffer (which is efficiently packed now)
+    // No sort needed if we accept draw order = insertion order (standard for
+    // trails)
+    for (size_t i = 0; i < items.size(); ++i) {
+      const auto &item = items[i];
+      float t = 1.0f - (item.ttl / static_cast<float>(lifetime));
+      Color4 c = trailFn(item.v, t); // Trail function returns color + alpha
+
+      // Note: JS logic ignores original point alpha and uses trace alpha *
+      // global flush alpha
+      if (c.alpha > 0.001f) {
+        pass(item.v, c.color, lifetime - item.ttl, c.alpha * alpha, item.tag);
       }
+    }
   }
 
 private:
@@ -352,11 +366,11 @@ private:
 // ----------------------------------------------------------------------------
 namespace Screen {
 
-template <int W, int H>
-class AntiAlias : public Is2D {
+template <int W, int H> class AntiAlias : public Is2D {
 public:
   AntiAlias() {}
-  void plot(float x, float y, const Pixel& c, float age, float alpha, uint8_t tag, auto pass) {
+  void plot(float x, float y, const Pixel &c, float age, float alpha,
+            uint8_t tag, auto pass) {
     float x_i, y_i;
     float x_m = std::modf(x, &x_i);
     float y_m = std::modf(y, &y_i);
@@ -368,11 +382,15 @@ public:
     float v01 = (1 - xs) * ys;
     float v11 = xs * ys;
 
-    if (v00 > 1e-8) pass(x_i, y_i, c, age, alpha * v00, tag);
-    if (v10 > 1e-8) pass(wrap((x_i + 1), W), y_i, c, age, alpha * v10, tag);
+    if (v00 > 1e-8)
+      pass(x_i, y_i, c, age, alpha * v00, tag);
+    if (v10 > 1e-8)
+      pass(wrap((x_i + 1), W), y_i, c, age, alpha * v10, tag);
     if (y_i < H - 1) {
-      if (v01 > 1e-8) pass(x_i, y_i + 1, c, age, alpha * v01, tag);
-      if (v11 > 1e-8) pass(wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11, tag);
+      if (v01 > 1e-8)
+        pass(x_i, y_i + 1, c, age, alpha * v01, tag);
+      if (v11 > 1e-8)
+        pass(wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11, tag);
     }
   }
 };
@@ -380,17 +398,18 @@ public:
 /**
  * @brief Manages 2D screen-space trails.
  */
-template <int W, int MAX_PIXELS = 1024>
-class Trails : public Is2DWithHistory {
+template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
   Trails(int lifetime) : lifetime(lifetime), num_pixels(0) {}
 
-  void plot(float x, float y, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
-    if (alpha <= 0.001f) return;
+  void plot(float x, float y, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
+    if (alpha <= 0.001f)
+      return;
 
     if (age >= 0) {
       if (num_pixels < MAX_PIXELS) {
-        ttls[num_pixels++] = { x, y, static_cast<float>(lifetime - age), tag };
+        ttls[num_pixels++] = {x, y, static_cast<float>(lifetime - age), tag};
       }
     }
     if (age <= 0) {
@@ -400,9 +419,11 @@ public:
 
   void flush(TrailFn auto trailFn, float alpha, auto pass) {
     for (int i = 0; i < num_pixels; ++i) {
-      Color4 color = trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
+      Color4 color =
+          trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
       if (color.alpha > 0.001f) {
-        pass(ttls[i].x, ttls[i].y, color.color, lifetime - ttls[i].ttl, alpha * color.alpha, ttls[i].tag);
+        pass(ttls[i].x, ttls[i].y, color.color, lifetime - ttls[i].ttl,
+             alpha * color.alpha, ttls[i].tag);
       }
     }
     decay();
@@ -418,69 +439,77 @@ public:
   }
 
 private:
-  struct DecayPixel { float x, y, ttl; uint8_t tag; };
+  struct DecayPixel {
+    float x, y, ttl;
+    uint8_t tag;
+  };
   int lifetime;
   std::array<DecayPixel, MAX_PIXELS> ttls;
   int num_pixels;
 };
 
-
-template <int W, int Capacity>
-class Temporal : public Is2DWithHistory {
+template <int W, int Capacity> class Temporal : public Is2DWithHistory {
 public:
   using TTLFn = std::function<float(float x, float y)>;
-  
-  Temporal(TTLFn ttl_fn, float window_size = 1.5f) 
+
+  Temporal(TTLFn ttl_fn, float window_size = 1.5f)
       : ttl_fn(ttl_fn), window_size(window_size), current_frame(0) {}
-  
-  void set_window_size(float size) {
-      window_size = size;
+
+  void set_window_size(float size) { window_size = size; }
+
+  void plot(float x, float y, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
+    float delay = ttl_fn(x, y);
+    float target_time = current_frame + std::max(0.0f, delay);
+    if (items.size() < Capacity) {
+      items.push_back({x, y, color, target_time, age, alpha, tag});
+    } else {
+      // Fallback: render immediately if full
+      pass(x, y, color, age, alpha, tag);
+    }
   }
 
-  void plot(float x, float y, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
-      float delay = ttl_fn(x, y);      
-      float target_time = current_frame + std::max(0.0f, delay);
-      if (items.size() < Capacity) {
-          items.push_back({x, y, color, target_time, age, alpha, tag});
-      } else {
-          // Fallback: render immediately if full
-          pass(x, y, color, age, alpha, tag);
-      }
-  }
-  
   void flush(TrailFn auto trailFn, float alpha, auto pass) {
-      float win = window_size;
+    float win = window_size;
 
-      size_t count = items.size();
-      for (size_t i = 0; i < count; ) {
-          auto& item = items[i];
-          
-          // Distance from target time
-          float dist = std::abs(item.target_time - current_frame);
-          
-          // Draw if within window
-          if (dist <= win) {
-              float intensity = 1.0f - (dist / win);
-              if (intensity > 0.001f) {
-                   pass(item.x, item.y, item.c, item.age, item.alpha * intensity * alpha, item.tag);
-              }
-          }
-          
-          if (current_frame - item.target_time > win) {
-              // Swap Remove
-              items[i] = items.back();
-              items.pop_back();
-              count--; 
-          } else {
-              i++;
-          }
+    size_t count = items.size();
+    for (size_t i = 0; i < count;) {
+      auto &item = items[i];
+
+      // Distance from target time
+      float dist = std::abs(item.target_time - current_frame);
+
+      // Draw if within window
+      if (dist <= win) {
+        float intensity = 1.0f - (dist / win);
+        if (intensity > 0.001f) {
+          pass(item.x, item.y, item.c, item.age, item.alpha * intensity * alpha,
+               item.tag);
+        }
       }
-      
-      current_frame += 1.0f;
+
+      if (current_frame - item.target_time > win) {
+        // Swap Remove
+        items[i] = items.back();
+        items.pop_back();
+        count--;
+      } else {
+        i++;
+      }
+    }
+
+    current_frame += 1.0f;
   }
 
 private:
-  struct Item { float x, y; Pixel c; float target_time; float age; float alpha; uint8_t tag; };
+  struct Item {
+    float x, y;
+    Pixel c;
+    float target_time;
+    float age;
+    float alpha;
+    uint8_t tag;
+  };
   StaticCircularBuffer<Item, Capacity> items;
   TTLFn ttl_fn;
   float window_size;
@@ -490,24 +519,22 @@ private:
 /**
  * @brief Applies a variable 3x3 Gaussian Blur.
  */
-template <int W, int H>
-class Blur : public Is2D {
+template <int W, int H> class Blur : public Is2D {
 public:
-  Blur(float factor = 1.0f) {
-    update(factor);
-  }
+  Blur(float factor = 1.0f) { update(factor); }
 
   void update(float factor) {
     float f = std::clamp(factor, 0.0f, 1.0f);
     // Gaussian reference: Corner=1/16, Edge=2/16, Center=4/16
-    float c = 1.0f - (0.75f * f); 
-    float e = 0.125f * f;        
-    float d = 0.0625f * f;       
+    float c = 1.0f - (0.75f * f);
+    float e = 0.125f * f;
+    float d = 0.0625f * f;
 
-    kernel = { d, e, d, e, c, e, d, e, d };
+    kernel = {d, e, d, e, c, e, d, e, d};
   }
 
-  void plot(float x, float y, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
+  void plot(float x, float y, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
     int cx = static_cast<int>(std::round(x));
     int cy = static_cast<int>(std::round(y));
 
@@ -519,11 +546,11 @@ public:
         for (int dx = -1; dx <= 1; dx++) {
           float weight = kernel[k++];
           if (weight > 1e-5f) {
-            pass(static_cast<float>(wrap(cx + dx, W)), static_cast<float>(ny), color, age, alpha * weight, tag);
+            pass(static_cast<float>(wrap(cx + dx, W)), static_cast<float>(ny),
+                 color, age, alpha * weight, tag);
           }
         }
-      }
-      else {
+      } else {
         k += 3; // Skip row
       }
     }
@@ -536,41 +563,46 @@ private:
 /**
  * @brief Screen Space Slew Limiter (Sparse/Circular Buffer).
  */
-template <int W, int Capacity>
-class Slew : public Is2DWithHistory {
+template <int W, int Capacity> class Slew : public Is2DWithHistory {
 public:
-    Slew(float rise = 1.0f, float fall = 0.05f) : rise(rise), fall(fall) {}
+  Slew(float rise = 1.0f, float fall = 0.05f) : rise(rise), fall(fall) {}
 
-    void plot(float x, float y, const Pixel& color, float age, float alpha, uint8_t tag, auto pass) {
-        pass(x, y, color, age, alpha, tag);
+  void plot(float x, float y, const Pixel &color, float age, float alpha,
+            uint8_t tag, auto pass) {
+    pass(x, y, color, age, alpha, tag);
 
-        // Add to decay buffer
-        if (items.size() < Capacity && alpha > 0.001f) {
-            items.push_back({ x, y, color, alpha, tag });
-        }
+    // Add to decay buffer
+    if (items.size() < Capacity && alpha > 0.001f) {
+      items.push_back({x, y, color, alpha, tag});
     }
+  }
 
-    void flush(TrailFn auto, float globalAlpha, auto pass) {
-        size_t count = items.size();
-        for(size_t i = 0; i < count; ++i) {
-            auto item = items.front();
-            items.pop();
+  void flush(TrailFn auto, float globalAlpha, auto pass) {
+    size_t count = items.size();
+    for (size_t i = 0; i < count; ++i) {
+      auto item = items.front();
+      items.pop();
 
-            // Decay
-            item.alpha -= fall;
+      // Decay
+      item.alpha -= fall;
 
-            if (item.alpha > 0.00001f) {
-                // Still alive
-                pass(item.x, item.y, item.c, 0, item.alpha * globalAlpha, item.tag);
-                items.push_back(item);
-            }
-        }
+      if (item.alpha > 0.00001f) {
+        // Still alive
+        pass(item.x, item.y, item.c, 0, item.alpha * globalAlpha, item.tag);
+        items.push_back(item);
+      }
     }
+  }
 
 private:
-    struct Item { float x, y; Pixel c; float alpha; uint8_t tag; };
-    StaticCircularBuffer<Item, Capacity> items;
-    float rise, fall;
+  struct Item {
+    float x, y;
+    Pixel c;
+    float alpha;
+    uint8_t tag;
+  };
+  StaticCircularBuffer<Item, Capacity> items;
+  float rise, fall;
 };
 
 } // namespace Screen
@@ -580,21 +612,30 @@ private:
 // ----------------------------------------------------------------------------
 namespace Pix {
 
-template <int W>
-class ChromaticShift : public Is2D {
+template <int W> class ChromaticShift : public Is2D {
 public:
   ChromaticShift() {}
-  
-  void plot(float x, float y, const ::Pixel& c, float age, float alpha, uint8_t tag, auto pass) {      
-      pass(x, y, c, age, alpha, tag);
-      
-      ::Pixel r_col = c; r_col.g = 0; r_col.b = 0;
-      ::Pixel g_col = c; g_col.r = 0; g_col.b = 0;
-      ::Pixel b_col = c; b_col.r = 0; b_col.g = 0;
-      
-      pass(static_cast<float>(wrap(static_cast<int>(x) + 1, W)), y, r_col, age, alpha, tag);
-      pass(static_cast<float>(wrap(static_cast<int>(x) + 2, W)), y, g_col, age, alpha, tag);
-      pass(static_cast<float>(wrap(static_cast<int>(x) + 3, W)), y, b_col, age, alpha, tag);
+
+  void plot(float x, float y, const ::Pixel &c, float age, float alpha,
+            uint8_t tag, auto pass) {
+    pass(x, y, c, age, alpha, tag);
+
+    ::Pixel r_col = c;
+    r_col.g = 0;
+    r_col.b = 0;
+    ::Pixel g_col = c;
+    g_col.r = 0;
+    g_col.b = 0;
+    ::Pixel b_col = c;
+    b_col.r = 0;
+    b_col.g = 0;
+
+    pass(static_cast<float>(wrap(static_cast<int>(x) + 1, W)), y, r_col, age,
+         alpha, tag);
+    pass(static_cast<float>(wrap(static_cast<int>(x) + 2, W)), y, g_col, age,
+         alpha, tag);
+    pass(static_cast<float>(wrap(static_cast<int>(x) + 3, W)), y, b_col, age,
+         alpha, tag);
   }
 };
 

@@ -4,31 +4,33 @@
  */
 #pragma once
 
-#include <vector>
-#include <list>
 #include <algorithm>
-#include <iterator>
-#include <cmath>
-#include <cassert>
 #include <array>
+#include <cassert>
+#include <cmath>
+#include <iterator>
+#include <list>
+#include <map> // for map
 #include <memory>
-#include "platform.h"
+#include <string>  // for string
 #include <variant> // for variant
-#include <string> // for string
-#include <map>    // for map
+#include <vector>
 
 #include "3dmath.h"
 #include "FastNoiseLite.h"
-#include "static_circular_buffer.h"
 #include "canvas.h"
+#include "static_circular_buffer.h"
 
 template <int W> class Orientation;
 
 #include "geometry.h" // Provides Fragment, ShaderResult, Vector
-#include "color.h" // Must be included before concepts using Color4
-#include "solids.h"
-#include "concepts.h"
-#include "filter.h"
-#include "scan.h"
-#include "plot.h"
+#include "concepts.h" // Concepts needs fragment
+#include "color.h"
 #include "animation.h"
+
+#include "filter.h"
+#include "platform.h"
+#include "plot.h"
+#include "scan.h"
+#include "solids.h"
+#include "palettes.h"
