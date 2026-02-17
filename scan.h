@@ -613,7 +613,6 @@ namespace SDF {
                float t = 0.0f;
                if (edge_len_sq > 1e-9f) {
                    // Project (0,0)-v1 onto v2-v1. 
-                   // t = dot(p-v1, v2-v1) / |v2-v1|^2. Here p is (0,0), so dot(-v1, edge)
                    t = dot(-v1, edge) / edge_len_sq;
                    t = std::max(0.0f, std::min(1.0f, t));
                }
@@ -624,7 +623,7 @@ namespace SDF {
            }
            size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
            
-           // Robustness: Prevent size from disappearing if centroid is near an edge
+           // Prevent size from disappearing if centroid is near an edge
            float radius = sqrtf(max_r2);
            if (size < radius * 0.25f) size = radius * 0.25f;
            
@@ -784,10 +783,7 @@ namespace SDF {
              float py = dot(p, basisW) * inv_cos;
 
              // Bounding Circle (Optimization)
-             // Check max_r2 if available (assumes max_r2 added to struct)
              float pR2 = px*px + py*py;
-             // Use size as approximation for now if max_r2 not ready?
-             // Actually, we need max_r2. I'll assume it's added.
              float max_dist = std::sqrt(max_r2) + 0.1f; 
              if (pR2 > max_dist * max_dist) {
                  float dist = std::sqrt(pR2) - std::sqrt(max_r2);
@@ -827,8 +823,6 @@ namespace SDF {
                  if (distSq < d) d = distSq;
                  
                  // Ray Casting (Crossing Number)
-                 // Check if point is inside using Jordan Curve Theorem
-                 // Ray along +X axis
                  if ((Vi.j > py) != (Vnext.j > py)) {
                      // Intersect
                      float t = (py - Vi.j) / ey; // ey = Vnext.j - Vi.j
