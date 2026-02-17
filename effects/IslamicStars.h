@@ -47,7 +47,7 @@ public:
 
     // Init Ripple Defaults
     ripple_gen.set_amplitude(0.5f);
-    ripple_gen.set_thickness(1.0f);
+    ripple_gen.set_thickness(0.7f);
     ripple_gen.set_decay(0.1f);
 
     timeline.add(0, Animation::PeriodicTimer(
