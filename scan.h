@@ -1328,8 +1328,6 @@ namespace Scan {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void process_pixel(int x, int y, const Vector& p, auto& pipeline, Canvas& canvas, const auto& shape, FragmentShaderFn auto fragment_shader, bool debug_bb, SDF::DistanceResult& result_scratch, Fragment& frag_scratch) {
-
-     
      shape.template distance<ComputeUVs>(p, result_scratch);
      float d = result_scratch.dist;
      
@@ -1341,7 +1339,7 @@ namespace Scan {
      // Threshold: Solids allow 1px AA bleed; Strokes (non-solid) must be strictly inside (d <= 0)
      float threshold = is_solid ? pixel_width : 0.0f;
      
-     if (d < threshold) {
+     if (debug_bb || d < threshold) {
         float alpha = 1.0f;
 
         if (is_solid) {
@@ -1357,7 +1355,7 @@ namespace Scan {
              }
         }
         
-        if (alpha <= 0.001f) return;
+        if (!debug_bb && alpha <= 0.001f) return;
         
         frag_scratch.pos = p;
         frag_scratch.v0 = result_scratch.t;
@@ -1368,14 +1366,17 @@ namespace Scan {
         frag_scratch.age = 0;
         
         fragment_shader(p, frag_scratch);
+
+        if (debug_bb) {
+            frag_scratch.color.color = frag_scratch.color.color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
+            frag_scratch.color.alpha = 1.0f;
+            alpha = 1.0f;
+        }
         
         if (frag_scratch.color.alpha > 0.001f) {
             pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age, frag_scratch.color.alpha * alpha, frag_scratch.blend);
         }
-     } else if (debug_bb) {
-         pipeline.plot(canvas, x, y, Pixel(20000, 0, 0), 0, 1.0f, BLEND_ADD);
      }
-
   }
 
   template <int W, int H, bool ComputeUVs = true>
