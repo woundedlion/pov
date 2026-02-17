@@ -10,7 +10,6 @@
 #include <random>
 #include <string>
 #include <vector>
-#include "RippleGenerator.h"
 
 template <int W, int H> class IslamicStars : public Effect {
 

@@ -1422,7 +1422,7 @@ public:
 
     if (t < duration) {
       // Ease In (Attack) - fast ramp up over ~10% of duration
-      float attack_dur = 0.2f; // Increased from 0.1f for softer start
+      float attack_dur = 0.1f;
       float attack = std::min(progress / attack_dur, 1.0f);
       // Square the attack for a parabolic ease-in (starts very low)
       attack = attack * attack;
