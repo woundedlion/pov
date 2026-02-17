@@ -1,6 +1,7 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #pragma once
 
@@ -8,10 +9,7 @@
 #include <array>
 #include "../effects_engine.h"
 
-#include "../palettes.h"
-
-template <int W, int H>
-class RingSpin : public Effect {
+template <int W, int H> class RingSpin : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 19;
   static constexpr int NUM_RINGS = 4;
@@ -23,26 +21,19 @@ public:
     Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
     Ring() : normal(X_AXIS), palette(Palettes::iceMelt) {}
 
-    Ring(const Vector& n, const Palette& p) :
-      normal(n), palette(p) {
-    }
+    Ring(const Vector &n, const Palette &p) : normal(n), palette(p) {}
   };
 
-  RingSpin() :
-    Effect(W, H)
-  {
+  RingSpin() : Effect(W, H) {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);
 
     persist_pixels = false;
 
-    std::vector<const Palette*> source_palettes = {
-        &Palettes::iceMelt,
-        &Palettes::undersea,
-        &Palettes::mangoPeel,
-        &Palettes::richSunset
-    };
+    std::vector<const Palette *> source_palettes = {
+        &Palettes::iceMelt, &Palettes::undersea, &Palettes::mangoPeel,
+        &Palettes::richSunset};
 
     for (int i = 0; i < NUM_RINGS; ++i) {
       int p_idx = i % source_palettes.size();
@@ -56,26 +47,31 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    for (auto& ring : rings) {
+    for (auto &ring : rings) {
       ring.trail.record(ring.orientation);
-      deep_tween(ring.trail, [&](const Quaternion& q, float t) {
-          Color4 c = ring.palette.get(1.0f - t);
-          c.alpha = c.alpha * params.alpha;
-          Basis basis = make_basis(q, ring.normal);
-          auto fragment_shader = [&](const Vector&, Fragment& f) {
-              f.color = c;
-          };
-          Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, params.thickness, fragment_shader, 0.0f, params.show_bounding_box);
-        });
+      deep_tween(ring.trail, [&](const Quaternion &q, float t) {
+        Color4 c = ring.palette.get(1.0f - t);
+        c.alpha = c.alpha * params.alpha;
+        Basis basis = make_basis(q, ring.normal);
+        auto fragment_shader = [&](const Vector &, Fragment &f) {
+          f.color = c;
+        };
+        Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f,
+                                      params.thickness, fragment_shader, 0.0f,
+                                      params.show_bounding_box);
+      });
     }
   }
 
 private:
-  void spawn_ring(const Vector& normal, const Palette& palette) {
-    if (rings.is_full()) return;
+  void spawn_ring(const Vector &normal, const Palette &palette) {
+    if (rings.is_full())
+      return;
     rings.push_back(Ring(normal, palette));
-    Ring& r = rings.back();
-    timeline.add(0, Animation::RandomWalk<W>(r.orientation, r.normal, Animation::RandomWalk<W>::Options::Energetic()));
+    Ring &r = rings.back();
+    timeline.add(0, Animation::RandomWalk<W>(
+                        r.orientation, r.normal,
+                        Animation::RandomWalk<W>::Options::Energetic()));
   }
 
   Timeline<W> timeline;
@@ -83,9 +79,8 @@ private:
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
 
   struct Params {
-      float alpha = 0.5f;
-      float thickness = 2.0f * (2 * PI_F / W);
-      bool show_bounding_box = false;
+    float alpha = 0.5f;
+    float thickness = 2.0f * (2 * PI_F / W);
+    bool show_bounding_box = false;
   } params;
-
 };
