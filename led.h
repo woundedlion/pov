@@ -3,8 +3,11 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#include "platform.h"
+#ifdef ARDUINO
 #include <Arduino.h>
 #include <FastLED.h>
+#endif
 #include "constants.h"
 #include "canvas.h"
 
@@ -75,6 +78,7 @@ public:
    * optimizations.
    */
   POVDisplay() {
+#ifdef ARDUINO
     randomSeed(analogRead(PIN_RANDOM));
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds_,
                                                                         S);
@@ -84,6 +88,7 @@ public:
         IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 & ~IOMUXC_PAD_SRE; // Pin 11
     IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 =
         IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 & ~IOMUXC_PAD_SRE; // Pin 13
+#endif
 
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
@@ -98,6 +103,7 @@ public:
     long start = millis();
     effect_ = new E();
     x_ = 0;
+#ifdef ARDUINO
     IntervalTimer timer;
     // The timer interval is calculated to sweep the width exactly once per
     // rotation.
@@ -106,6 +112,11 @@ public:
       effect_->draw_frame();
     }
     timer.end();
+#else
+    while (millis() - start < duration * 1000) {
+      effect_->draw_frame();
+    }
+#endif
     delete effect_;
     effect_ = nullptr;
   }

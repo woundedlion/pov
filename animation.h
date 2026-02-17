@@ -28,6 +28,13 @@ template <int W> class Path {
 public:
   Path() {}
 
+  /**
+   * @brief Draws the path to the pipeline.
+   * @param pipeline The rendering pipeline.
+   * @param canvas The canvas to draw on.
+   * @param path The path to draw.
+   * @param color Function conveying color variation along the path index.
+   */
   static void draw(auto &pipeline, Canvas &canvas, const Path &path,
                    auto color) {
     size_t samples = path.points.size();
@@ -38,6 +45,14 @@ public:
     }
   }
 
+  /**
+   * @brief Appends a procedurally generated segment to the path.
+   * @param plot The function generating points.
+   * @param domain The input domain scale.
+   * @param samples The number of samples to take.
+   * @param easing The easing function for sample distribution.
+   * @return Reference to self for chaining.
+   */
   Path &append_segment(PlotFn auto plot, float domain, float samples,
                        ScalarFn auto easing) {
     if (!points.is_empty())
@@ -48,6 +63,11 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Retrieves a point along the path by interpolation.
+   * @param t Progress along the path (0.0 to 1.0).
+   * @return The interpolated vector.
+   */
   Vector get_point(float t) const {
     if (points.is_empty())
       return Vector(0, 0, 0);
@@ -243,15 +263,18 @@ private:
   StaticCircularBuffer<OrientationType, CAPACITY> snapshots;
 };
 
+/**
+ * @brief Represents a single particle in a system.
+ */
 template <int W> struct Particle {
-  Vector position;
-  Vector velocity;
-  PaletteVariant palette;
-  float life;
-  float max_life;
-  Orientation<W> orientation;
+  Vector position;        /**< Current 3D position. */
+  Vector velocity;        /**< Current velocity vector. */
+  PaletteVariant palette; /**< Color palette assigned to the particle. */
+  float life;             /**< Remaining life (frames or arbitrary units). */
+  float max_life;         /**< Initial life value. */
+  Orientation<W> orientation; /**< Orientation of the particle. */
 
-  OrientationTrail<Orientation<W>, 25> history;
+  OrientationTrail<Orientation<W>, 25> history; /**< Trail history. */
 
   void init(const Vector &p, const Vector &v, float l,
             const PaletteVariant &pal) {
@@ -267,6 +290,11 @@ template <int W> struct Particle {
   size_t history_length() const { return history.length(); }
 };
 
+/**
+ * @brief A physics-based particle system with emitters and attractors.
+ * @tparam W Width of the display (for Orientation).
+ * @tparam CAPACITY Maximum number of particles.
+ */
 template <int W, int CAPACITY>
 class ParticleSystem : public Base<ParticleSystem<W, CAPACITY>> {
 public:
@@ -297,6 +325,12 @@ public:
       : Base<ParticleSystem<W, CAPACITY>>(-1, false), friction(friction),
         gravity(gravity), trail_length(trail_length) {}
 
+  /**
+   * @brief Resets the system, clearing all particles and effectors.
+   * @param friction Drag coefficient.
+   * @param gravity Gravity strength.
+   * @param trail_length Length of particle trails.
+   */
   void reset(float friction = 0.85f, float gravity = 0.001f,
              int trail_length = 25) {
     this->friction = friction;
@@ -314,6 +348,13 @@ public:
     attractors.push_back({pos, str, kill, horizon});
   }
 
+  /**
+   * @brief Spawns a new particle.
+   * @param pos Initial position.
+   * @param vel Initial velocity.
+   * @param col Initial color (solid).
+   * @param life Lifespan in frames (default 600).
+   */
   void spawn(const Vector &pos, const Vector &vel, const Color4 &col,
              float life = 600) {
     if (active_count < CAPACITY) {
@@ -321,6 +362,13 @@ public:
     }
   }
 
+  /**
+   * @brief Spawns a new particle with a palette.
+   * @param pos Initial position.
+   * @param vel Initial velocity.
+   * @param pal Color palette.
+   * @param life Lifespan in frames (default 600).
+   */
   void spawn(const Vector &pos, const Vector &vel, const PaletteVariant &pal,
              float life = 600) {
     if (active_count < CAPACITY) {

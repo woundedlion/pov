@@ -208,6 +208,14 @@ template <int W, int H>
 DMAMEM std::array<Vector, W * PixelLUT<W, H>::H_VIRT> PixelLUT<W, H>::data;
 template <int W, int H> DMAMEM bool PixelLUT<W, H>::initialized = false;
 
+/**
+ * @brief look up or calculate a vector from pixel coordinates (integer).
+ * @tparam W Width.
+ * @tparam H Height (virtual).
+ * @param x X coordinate.
+ * @param y Y coordinate.
+ * @return Const reference to vector from LUT.
+ */
 template <int W, int H> const Vector &pixel_to_vector(int x, int y) {
   if (!PixelLUT<W, H>::initialized) {
     PixelLUT<W, H>::init();
@@ -778,6 +786,10 @@ struct PolyMesh {
     adjacency.clear();
   }
 };
+/**
+ * @brief A Half-Edge Data Structure for mesh topology navigation.
+ * Allows efficient traversal of vertices, faces, and edges.
+ */
 class HalfEdgeMesh {
 public:
   std::vector<HEVertex> vertices;
@@ -2033,14 +2045,11 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh) {
   faceColorIndices.resize(heMesh.faces.size());
   int nextID = 0;
 
-  // 1. Properties already computed by constructor (vertexCount, intrinsicHash)
-
-  // 2. Compute Contextual Hashes (acc neighbors)
+  // Compute Contextual Hashes (acc neighbors)
   for (size_t i = 0; i < heMesh.faces.size(); ++i) {
     HEFace *face = &heMesh.faces[i];
 
     // Start hash with self intrinsic (order independent seed)
-    // But we want to sum/mix neighbor hashes
     uint32_t neighborAcc = 0;
 
     HalfEdge *he = face->halfEdge;
@@ -2049,9 +2058,6 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh) {
       int safety = 0;
       do {
         if (he->pair && he->pair->face) {
-          // Use simple addition for order-independence for the ring
-          // Mix intrinsicHash before adding to scatter bits so similar counts
-          // don't just sum to same
           uint32_t h = js_hash32(he->pair->face->intrinsicHash, 0);
           neighborAcc += h;
         }

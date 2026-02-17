@@ -28,6 +28,11 @@ static constexpr float TOLERANCE = 0.0001f;
  */
 static constexpr float PI_F = static_cast<float>(PI);
 
+/**
+ * @brief Quintic interpolation kernel (smootherstep).
+ * @param t Interpolation factor (clamped to 0.0 - 1.0).
+ * @return The interpolated value: t^3 * (t * (t * 6 - 15) + 10).
+ */
 inline float quintic_kernel(float t) {
   t = std::clamp(t, 0.0f, 1.0f);
   return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
@@ -187,7 +192,7 @@ struct Vector {
  * @brief Constructs a Spherical coordinate from a 3D Vector.
  * @param v The Cartesian vector.
  */
-Spherical::Spherical(const Vector &v) {
+inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
   theta = atan2f(n.k, n.i);
@@ -197,6 +202,12 @@ Spherical::Spherical(const Vector &v) {
 struct Quaternion;
 constexpr Quaternion operator*(const Quaternion &q1, const Quaternion &q2);
 constexpr Quaternion operator/(const Quaternion &q, float s);
+/**
+ * @brief Scalar division decl.
+ * @param v Vector.
+ * @param s Scalar.
+ * @return The resulting vector.
+ */
 constexpr Vector operator/(const Vector &v, float s);
 
 /**
@@ -382,7 +393,14 @@ struct Complex {
  * @brief Class to hold Mobius parameters with mutable components.
  */
 struct MobiusParams {
-  float aRe, aIm, bRe, bIm, cRe, cIm, dRe, dIm;
+  float aRe, /**< Real part of a. */
+      aIm,   /**< Imaginary part of a. */
+      bRe,   /**< Real part of b. */
+      bIm,   /**< Imaginary part of b. */
+      cRe,   /**< Real part of c. */
+      cIm,   /**< Imaginary part of c. */
+      dRe,   /**< Real part of d. */
+      dIm;   /**< Imaginary part of d. */
 
   constexpr MobiusParams()
       : aRe(1), aIm(0), bRe(0), bIm(0), cRe(0), cIm(0), dRe(1), dIm(0) {}
@@ -400,7 +418,7 @@ struct MobiusParams {
 /**
  * @brief Stereographic Projection: Sphere -> Complex Plane.
  */
-Complex stereo(const Vector &v) {
+inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.j;
   if (std::abs(denom) < 0.0001f)
     return Complex(100, 100); // Infinity
@@ -410,7 +428,7 @@ Complex stereo(const Vector &v) {
 /**
  * @brief Inverse Stereographic Projection: Complex Plane -> Sphere.
  */
-Vector inv_stereo(const Complex &z) {
+inline Vector inv_stereo(const Complex &z) {
   float r2 = z.re * z.re + z.im * z.im;
   return Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1), 2 * z.im / (r2 + 1));
 }
@@ -418,13 +436,13 @@ Vector inv_stereo(const Complex &z) {
 /**
  * @brief Mobius Transformation: f(z) = (az + b) / (cz + d).
  */
-Complex mobius(const Complex &z, const MobiusParams &params) {
+inline Complex mobius(const Complex &z, const MobiusParams &params) {
   Complex num = (params.getA() * z) + params.getB();
   Complex den = (params.getC() * z) + params.getD();
   return num / den;
 }
 
-Vector mobius_transform(const Vector &v, const MobiusParams &params) {
+inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
   return inv_stereo(mobius(stereo(v), params));
 }
 
@@ -432,7 +450,7 @@ Vector mobius_transform(const Vector &v, const MobiusParams &params) {
  * @brief Gnomonic Projection: Sphere -> Plane (Equator at Infinity).
  * Projects from center (0,0,0) to plane z=1 (tangent at North Pole, i.e., k=1).
  */
-Complex gnomonic(const Vector &v) {
+inline Complex gnomonic(const Vector &v) {
   // Handle equator singularity with a large number instead of Infinity
   // Projects to plane at j=1.
   float div = (std::abs(v.j) < 1e-9f) ? 1e-9f * (v.j >= 0 ? 1.0f : -1.0f) : v.j;
@@ -444,7 +462,7 @@ Complex gnomonic(const Vector &v) {
  * @param z Complex point on the plane.
  * @param original_sign The sign of the z-component (k) of the original vector.
  */
-Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
+inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
   // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
   float inv_len = 1.0f / len;
@@ -462,7 +480,7 @@ Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
  */
-Vector rotate(const Vector &v, const Quaternion &q) {
+inline Vector rotate(const Vector &v, const Quaternion &q) {
   Quaternion p(0, v);
   auto r = q * p * q.inverse();
   return r.v;
@@ -666,7 +684,7 @@ constexpr float angle_between(const Quaternion &q1, const Quaternion &q2) {
  * @param theta The angle of rotation in radians.
  * @return The resulting unit rotation quaternion.
  */
-Quaternion make_rotation(const Vector &axis, float theta) {
+inline Quaternion make_rotation(const Vector &axis, float theta) {
   return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalize();
 }
 
@@ -676,7 +694,7 @@ Quaternion make_rotation(const Vector &axis, float theta) {
  * @param to The destination vector (must be unit vector).
  * @return The resulting unit rotation quaternion.
  */
-Quaternion make_rotation(const Vector &from, const Vector &to) {
+inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   auto axis = cross(from, to).normalize();
   auto angle = angle_between(from, to);
   return make_rotation(axis, angle);
@@ -690,8 +708,8 @@ Quaternion make_rotation(const Vector &from, const Vector &to) {
  * @param long_way If true, takes the longest path between quaternions.
  * @return The interpolated unit quaternion.
  */
-Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
-                 bool long_way = false) {
+inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
+                        bool long_way = false) {
   float d = dot(q1, q2);
   Quaternion p(q1);
   Quaternion q(q2);
@@ -720,7 +738,7 @@ Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
  * @param normal The normal vector defining the plane (must be unit vector).
  * @return True if the dot product is non-negative.
  */
-bool is_over(const Vector &v, const Vector &normal) {
+inline bool is_over(const Vector &v, const Vector &normal) {
   return dot(normal, v) >= 0;
 }
 
@@ -746,7 +764,8 @@ bool intersects_plane(const Vector &v1, const Vector &v2,
  * @param normal The plane normal (must be unit vector).
  * @return The intersection vector (unit vector). Asserts on failure.
  */
-Vector intersection(const Vector &u, const Vector &v, const Vector &normal) {
+inline Vector intersection(const Vector &u, const Vector &v,
+                           const Vector &normal) {
   Vector w = cross(v, u).normalize();
   Vector i1 = cross(w, normal).normalize();
   Vector i2 = cross(normal, w).normalize();
