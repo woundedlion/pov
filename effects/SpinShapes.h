@@ -6,7 +6,6 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include "../palettes.h"
 #include <vector>
 
 template <int W, int H> class SpinShapes : public Effect {
