@@ -620,39 +620,38 @@ struct RippleParams {
  */
 Vector ripple_transform(const Vector &v, const RippleParams &params) {
   float d = angle_between(v, params.center);
-  float dist_from_wavefront =
-      d - params.phase; // Negative means behind wavefront
+  float dist_from_peak = d - params.phase;
 
-  // Calculate Displacement Angle (Single Pulse)
-  float half_thick = params.thickness * 0.5f;
-  float theta = 0.0f;
-  if (std::abs(dist_from_wavefront) < half_thick) {
-    // Inside the pulse window
-    float p = dist_from_wavefront / half_thick;
+  // Defines the width of the single pulse
+  float half_width = params.thickness;
 
-    // Gaussian Pulse
-    const float k = 4.0f;
-    const float edge_val = expf(-k);
-    float raw_gauss = expf(-k * p * p);
+  // Optimization: Only compute if we are close to the wavefront
+  if (std::abs(dist_from_peak) < half_width * 2.0f) {
 
-    // Normalize so center is 1.0 and edge is 0.0
-    float window = (raw_gauss - edge_val) / (1.0f - edge_val);
+    // Normalize distance (-2 to 2 range covers the whole wavelet)
+    float t = (dist_from_peak / half_width) * 2.0f;
 
-    // Amplitude is pre-modulated by animation (attack/decay)
-    theta = params.amplitude * window * expf(-params.decay * d);
+    // Ricker Wavelet: (1 - t^2) * e^(-t^2/2)
+    // This creates a central peak with two side dips.
+    // We invert it (negative amp) because water usually dips before it rises.
+    float ricker = (1.0f - t * t) * expf(-0.5f * t * t);
+
+    // Distance attenuation (ripples get smaller as they spread)
+    float attenuation = expf(-params.decay * d);
+
+    float theta = params.amplitude * ricker * attenuation;
+
+    // Apply rotation
+    Vector axis = cross(params.center, v);
+    float lenSq = dot(axis, axis);
+    if (lenSq > 1e-6f) {
+      axis = axis * (1.0f / sqrtf(lenSq));
+      Quaternion q = make_rotation(axis, theta);
+      return rotate(v, q);
+    }
   }
 
-  // displace v along the great circle connecting it to the center
-  Vector axis = cross(params.center, v);
-  float lenSq = dot(axis, axis);
-
-  if (lenSq > 1e-6f) {
-    axis = axis * (1.0f / sqrtf(lenSq));
-    Quaternion q = make_rotation(axis, theta);
-    return rotate(v, q);
-  }
-
-  return v; // Singularity at center/antipode
+  return v;
 }
 
 /**
