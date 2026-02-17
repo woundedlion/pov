@@ -33,6 +33,7 @@ public:
   {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
+    registerParam("Show Bounding", &params.show_bounding_box);
 
     persist_pixels = false;
 
@@ -64,7 +65,7 @@ public:
           auto fragment_shader = [&](const Vector&, Fragment& f) {
               f.color = c;
           };
-          Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, params.thickness, fragment_shader);
+          Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, params.thickness, fragment_shader, 0.0f, params.show_bounding_box);
         });
     }
   }
@@ -84,6 +85,7 @@ private:
   struct Params {
       float alpha = 0.5f;
       float thickness = 2.0f * (2 * PI_F / W);
+      bool show_bounding_box = false;
   } params;
 
 };
