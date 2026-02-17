@@ -36,7 +36,7 @@ public:
 
   // Spawn a ripple at origin with a specific duration (frames to reach
   // antipode)
-  void ripple(const Vector &origin, int duration = 180) {
+  void ripple(const Vector &origin, int duration = 180, int in_frames = 0) {
     RippleEntity &r = ripples.emplace_back();
     r.params = params; // Copy defaults
     r.params.center = origin;
@@ -45,10 +45,8 @@ public:
     // Speed: Travel PI radians (half circumference) in 'duration' frames
     float speed = PI_F / static_cast<float>(duration);
 
-    timeline.add(
-        0, Animation::Ripple(r.params, origin, speed, duration).then([&r]() {
-          r.active = false;
-        }));
+    timeline.add(in_frames, Animation::Ripple(r.params, origin, speed, duration)
+                                .then([&r]() { r.active = false; }));
   }
 
   // Apply all active ripples to a vector

@@ -50,16 +50,17 @@ public:
     ripple_gen.set_thickness(1.0f);
     ripple_gen.set_decay(0.1f);
 
-    for (int i = 0; i < params.burst_size; i++) {
-      timeline.add(i * 16,
-                   Animation::PeriodicTimer(
-                       96,
-                       [this](Canvas &) {
-                         ripple_gen.ripple(random_vector(),
-                                           static_cast<int>(ripple_duration));
-                       },
-                       true));
-    }
+    timeline.add(0, Animation::PeriodicTimer(
+                        96,
+                        [this](Canvas &) {
+                          Vector origin = random_vector();
+                          for (int i = 0; i < params.burst_size; i++) {
+                            ripple_gen.ripple(origin,
+                                              static_cast<int>(ripple_duration),
+                                              i * 16);
+                          }
+                        },
+                        true));
     spawn_shape();
   }
 
