@@ -26,7 +26,6 @@ static constexpr float TOLERANCE = 0.0001f;
 /**
  * @brief Floating-point representation of PI.
  */
-// ... existing imports
 static constexpr float PI_F = static_cast<float>(PI);
 
 inline float quintic_kernel(float t) {
@@ -50,10 +49,10 @@ struct Spherical {
    * @brief Constructs a Spherical coordinate from a 3D Vector.
    * @param v The Cartesian vector.
    */
-  Spherical(const Vector& v);
+  Spherical(const Vector &v);
 
   float theta; /**< Azimuthal angle (usually longitude). */
-  float phi; /**< Polar angle (usually co-latitude). */
+  float phi;   /**< Polar angle (usually co-latitude). */
 };
 
 /**
@@ -75,17 +74,14 @@ struct Vector {
    * @brief Copy constructor.
    * @param v The vector to copy.
    */
-  constexpr Vector(const Vector& v) : i(v.i), j(v.j), k(v.k) {}
+  constexpr Vector(const Vector &v) : i(v.i), j(v.j), k(v.k) {}
   /**
    * @brief Constructs a vector from Spherical coordinates.
    * @param s The spherical coordinate.
    */
-  Vector(const Spherical& s) :
-    i(sinf(s.phi)* cosf(s.theta)),
-    j(cosf(s.phi)),
-    k(sinf(s.phi)* sinf(s.theta))
-  {
-  }
+  Vector(const Spherical &s)
+      : i(sinf(s.phi) * cosf(s.theta)), j(cosf(s.phi)),
+        k(sinf(s.phi) * sinf(s.theta)) {}
   /**
    * @brief Constructs a vector from theta and phi angles.
    * @param theta Azimuthal angle.
@@ -98,7 +94,7 @@ struct Vector {
    * @param v The vector to assign from.
    * @return Reference to the current object.
    */
-  constexpr Vector& operator=(const Vector& v) {
+  constexpr Vector &operator=(const Vector &v) {
     i = v.i;
     j = v.j;
     k = v.k;
@@ -110,10 +106,9 @@ struct Vector {
    * @param v The vector to compare.
    * @return True if components are within TOLERANCE.
    */
-  bool operator==(const Vector& v) const {
-    return std::abs(i - v.i) <= TOLERANCE
-      && std::abs(j - v.j) <= TOLERANCE
-      && std::abs(k - v.k) <= TOLERANCE;
+  bool operator==(const Vector &v) const {
+    return std::abs(i - v.i) <= TOLERANCE && std::abs(j - v.j) <= TOLERANCE &&
+           std::abs(k - v.k) <= TOLERANCE;
   }
 
   /**
@@ -121,32 +116,36 @@ struct Vector {
    * @param v The vector to compare.
    * @return True if components are not equal within TOLERANCE.
    */
-  bool operator!=(const Vector& v) const {
-    return !(*this == v);
-  }
+  bool operator!=(const Vector &v) const { return !(*this == v); }
 
   /**
    * @brief Unary negation operator.
    * @return A new vector with negated components.
    */
-  constexpr Vector operator-() const {
-    return Vector(-i, -j, -k);
-  }
+  constexpr Vector operator-() const { return Vector(-i, -j, -k); }
 
-  Vector& operator+=(const Vector& v_other) {
-    i += v_other.i; j += v_other.j; k += v_other.k;
+  Vector &operator+=(const Vector &v_other) {
+    i += v_other.i;
+    j += v_other.j;
+    k += v_other.k;
     return *this;
   }
-  Vector& operator-=(const Vector& v_other) {
-    i -= v_other.i; j -= v_other.j; k -= v_other.k;
+  Vector &operator-=(const Vector &v_other) {
+    i -= v_other.i;
+    j -= v_other.j;
+    k -= v_other.k;
     return *this;
   }
-  Vector& operator*=(float s) {
-    i *= s; j *= s; k *= s;
+  Vector &operator*=(float s) {
+    i *= s;
+    j *= s;
+    k *= s;
     return *this;
   }
-  Vector& operator/=(float s) {
-    i /= s; j /= s; k /= s;
+  Vector &operator/=(float s) {
+    i /= s;
+    j /= s;
+    k /= s;
     return *this;
   }
 
@@ -155,7 +154,7 @@ struct Vector {
    * @return The magnitude.
    */
   constexpr float length() const { return sqrtf(i * i + j * j + k * k); }
-  
+
   /**
    * @brief Alias for length().
    */
@@ -165,14 +164,13 @@ struct Vector {
    * @brief Normalizes the vector (scales to unit length).
    * @return Reference to the normalized vector.
    */
-  Vector& normalize() {
+  Vector &normalize() {
     float m = length();
     if (m < std::numeric_limits<float>::epsilon()) {
       hs::log("Can't normalize a zero vector!");
       i = 1;
       j = k = 0;
-    }
-    else {
+    } else {
       i = i / m;
       j = j / m;
       k = k / m;
@@ -189,8 +187,7 @@ struct Vector {
  * @brief Constructs a Spherical coordinate from a 3D Vector.
  * @param v The Cartesian vector.
  */
-Spherical::Spherical(const Vector& v)
-{
+Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
   theta = atan2f(n.k, n.i);
@@ -198,9 +195,9 @@ Spherical::Spherical(const Vector& v)
 }
 
 struct Quaternion;
-constexpr Quaternion operator*(const Quaternion& q1, const Quaternion& q2);
-constexpr Quaternion operator/(const Quaternion& q, float s);
-constexpr Vector operator/(const Vector& v, float s);
+constexpr Quaternion operator*(const Quaternion &q1, const Quaternion &q2);
+constexpr Quaternion operator/(const Quaternion &q, float s);
+constexpr Vector operator/(const Vector &v, float s);
 
 /**
  * @brief Represents a Quaternion for 3D rotation (r + i*x + j*y + k*z).
@@ -214,7 +211,7 @@ struct Quaternion {
    * @brief Copy constructor.
    * @param q The quaternion to copy.
    */
-  constexpr Quaternion(const Quaternion& q) : r(q.r), v(q.v) {}
+  constexpr Quaternion(const Quaternion &q) : r(q.r), v(q.v) {}
   /**
    * @brief Constructs a quaternion with explicit components.
    * @param a Real component (r).
@@ -222,20 +219,20 @@ struct Quaternion {
    * @param c Y imaginary component (j).
    * @param d Z imaginary component (k).
    */
-  constexpr  Quaternion(float a, float b, float c, float d) : r(a), v(b, c, d) {}
+  constexpr Quaternion(float a, float b, float c, float d) : r(a), v(b, c, d) {}
   /**
    * @brief Constructs a quaternion from a scalar and a Vector part.
    * @param a Real component (r).
    * @param v Vector part (i, j, k).
    */
-  constexpr Quaternion(float a, const Vector& v) : r(a), v(v) {}
+  constexpr Quaternion(float a, const Vector &v) : r(a), v(v) {}
 
   /**
    * @brief Assignment operator.
    * @param q The quaternion to assign from.
    * @return Reference to the current object.
    */
-  Quaternion& operator=(const Quaternion& q) {
+  Quaternion &operator=(const Quaternion &q) {
     r = q.r;
     v = q.v;
     return *this;
@@ -246,29 +243,31 @@ struct Quaternion {
    * @param q The quaternion to compare.
    * @return True if components are within TOLERANCE.
    */
-  bool operator==(const Quaternion& q) const {
-    return std::abs(q.r - r) < TOLERANCE
-      && q.v == v;
+  bool operator==(const Quaternion &q) const {
+    return std::abs(q.r - r) < TOLERANCE && q.v == v;
   }
 
   /**
    * @brief Quaternion multiplication compound assignment.
    * @param q The quaternion to multiply by.
    */
-  Quaternion& operator*=(const Quaternion& q) {
+  Quaternion &operator*=(const Quaternion &q) {
     *this = *this * q;
     return *this;
   }
-  Quaternion& operator+=(const Quaternion& q) {
-    r += q.r; v += q.v;
+  Quaternion &operator+=(const Quaternion &q) {
+    r += q.r;
+    v += q.v;
     return *this;
   }
-  Quaternion& operator-=(const Quaternion& q) {
-    r -= q.r; v -= q.v;
+  Quaternion &operator-=(const Quaternion &q) {
+    r -= q.r;
+    v -= q.v;
     return *this;
   }
-  Quaternion& operator*=(float s) {
-    r *= s; v *= s;
+  Quaternion &operator*=(float s) {
+    r *= s;
+    v *= s;
     return *this;
   }
 
@@ -288,22 +287,18 @@ struct Quaternion {
     float sq_mag = squared_magnitude();
     return Quaternion(r, -v) / sq_mag;
   }
-  
+
   /**
-    * @brief Calculates the conjugate of the quaternion.
-    * @return The conjugate quaternion (r, -v).
-    */
-  Quaternion conjugate() const {
-      return Quaternion(r, -v);
-  }
+   * @brief Calculates the conjugate of the quaternion.
+   * @return The conjugate quaternion (r, -v).
+   */
+  Quaternion conjugate() const { return Quaternion(r, -v); }
 
   /**
    * @brief Unary negation operator.
    * @return A new quaternion with negated components.
    */
-  constexpr Quaternion operator-() const {
-    return Quaternion(-r, -v);
-  }
+  constexpr Quaternion operator-() const { return Quaternion(-r, -v); }
 
   /**
    * @brief Calculates the magnitude (length) of the quaternion.
@@ -317,14 +312,13 @@ struct Quaternion {
    * @brief Normalizes the quaternion (scales to unit magnitude).
    * @return Reference to the normalized quaternion.
    */
-  Quaternion& normalize() {
+  Quaternion &normalize() {
     auto m = magnitude();
     if (m <= std::numeric_limits<float>::epsilon()) {
       hs::log("Can't normalize a zaro Quaternion!");
       r = 1;
       v = Vector(0, 0, 0);
-    }
-    else {
+    } else {
       r = r / m;
       v = v / m;
     }
@@ -332,7 +326,7 @@ struct Quaternion {
   }
 
   float r = 1; /**< Real component. */
-  Vector v; /**< Vector part (i, j, k). */
+  Vector v;    /**< Vector part (i, j, k). */
 };
 
 /**
@@ -356,23 +350,31 @@ struct Complex {
   /**
    * @brief Complex addition.
    */
-  constexpr Complex operator+(const Complex& b) const { return Complex(re + b.re, im + b.im); }
+  constexpr Complex operator+(const Complex &b) const {
+    return Complex(re + b.re, im + b.im);
+  }
   /**
    * @brief Complex subtraction.
    */
-  constexpr Complex operator-(const Complex& b) const { return Complex(re - b.re, im - b.im); }
+  constexpr Complex operator-(const Complex &b) const {
+    return Complex(re - b.re, im - b.im);
+  }
   /**
    * @brief Complex multiplication.
    */
-  constexpr Complex operator*(const Complex& b) const { return Complex(re * b.re - im * b.im, re * b.im + im * b.re); }
+  constexpr Complex operator*(const Complex &b) const {
+    return Complex(re * b.re - im * b.im, re * b.im + im * b.re);
+  }
 
   /**
    * @brief Complex division.
    */
-  Complex operator/(const Complex& b) const {
+  Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
-    if (std::abs(denom) < 0.000001f) return Complex(0, 0);
-    return Complex((re * b.re + im * b.im) / denom, (im * b.re - re * b.im) / denom);
+    if (std::abs(denom) < 0.000001f)
+      return Complex(0, 0);
+    return Complex((re * b.re + im * b.im) / denom,
+                   (im * b.re - re * b.im) / denom);
   }
 };
 
@@ -382,9 +384,11 @@ struct Complex {
 struct MobiusParams {
   float aRe, aIm, bRe, bIm, cRe, cIm, dRe, dIm;
 
-  constexpr MobiusParams() : aRe(1), aIm(0), bRe(0), bIm(0), cRe(0), cIm(0), dRe(1), dIm(0) {}
-  constexpr MobiusParams(float ar, float ai, float br, float bi, float cr, float ci, float dr, float di)
-    : aRe(ar), aIm(ai), bRe(br), bIm(bi), cRe(cr), cIm(ci), dRe(dr), dIm(di) {
+  constexpr MobiusParams()
+      : aRe(1), aIm(0), bRe(0), bIm(0), cRe(0), cIm(0), dRe(1), dIm(0) {}
+  constexpr MobiusParams(float ar, float ai, float br, float bi, float cr,
+                         float ci, float dr, float di)
+      : aRe(ar), aIm(ai), bRe(br), bIm(bi), cRe(cr), cIm(ci), dRe(dr), dIm(di) {
   }
 
   Complex getA() const { return Complex(aRe, aIm); }
@@ -396,43 +400,39 @@ struct MobiusParams {
 /**
  * @brief Stereographic Projection: Sphere -> Complex Plane.
  */
-Complex stereo(const Vector& v) {
+Complex stereo(const Vector &v) {
   float denom = 1.0f - v.j;
-  if (std::abs(denom) < 0.0001f) return Complex(100, 100); // Infinity
+  if (std::abs(denom) < 0.0001f)
+    return Complex(100, 100); // Infinity
   return Complex(v.i / denom, v.k / denom);
 }
 
 /**
  * @brief Inverse Stereographic Projection: Complex Plane -> Sphere.
  */
-Vector inv_stereo(const Complex& z) {
+Vector inv_stereo(const Complex &z) {
   float r2 = z.re * z.re + z.im * z.im;
-  return Vector(
-    2 * z.re / (r2 + 1),
-    (r2 - 1) / (r2 + 1),
-    2 * z.im / (r2 + 1)
-  );
+  return Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1), 2 * z.im / (r2 + 1));
 }
 
 /**
  * @brief Mobius Transformation: f(z) = (az + b) / (cz + d).
  */
-Complex mobius(const Complex& z, const MobiusParams& params) {
+Complex mobius(const Complex &z, const MobiusParams &params) {
   Complex num = (params.getA() * z) + params.getB();
   Complex den = (params.getC() * z) + params.getD();
   return num / den;
 }
 
-Vector mobius_transform(const Vector& v, const MobiusParams& params) {
-    return inv_stereo(mobius(stereo(v), params));
+Vector mobius_transform(const Vector &v, const MobiusParams &params) {
+  return inv_stereo(mobius(stereo(v), params));
 }
-
 
 /**
  * @brief Gnomonic Projection: Sphere -> Plane (Equator at Infinity).
  * Projects from center (0,0,0) to plane z=1 (tangent at North Pole, i.e., k=1).
  */
-Complex gnomonic(const Vector& v) {
+Complex gnomonic(const Vector &v) {
   // Handle equator singularity with a large number instead of Infinity
   // Projects to plane at j=1.
   float div = (std::abs(v.j) < 1e-9f) ? 1e-9f * (v.j >= 0 ? 1.0f : -1.0f) : v.j;
@@ -444,16 +444,15 @@ Complex gnomonic(const Vector& v) {
  * @param z Complex point on the plane.
  * @param original_sign The sign of the z-component (k) of the original vector.
  */
-Vector inv_gnomonic(const Complex& z, float original_sign = 1.0f) {
+Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
   // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
   float inv_len = 1.0f / len;
 
   // Restore hemisphere sign (Upper or Lower)
-  return Vector(
-    z.re * inv_len * original_sign, // i
-    inv_len * original_sign,        // j
-    z.im * inv_len * original_sign  // k
+  return Vector(z.re * inv_len * original_sign, // i
+                inv_len * original_sign,        // j
+                z.im * inv_len * original_sign  // k
   );
 }
 
@@ -463,7 +462,7 @@ Vector inv_gnomonic(const Complex& z, float original_sign = 1.0f) {
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
  */
-Vector rotate(const Vector& v, const Quaternion& q) {
+Vector rotate(const Vector &v, const Quaternion &q) {
   Quaternion p(0, v);
   auto r = q * p * q.inverse();
   return r.v;
@@ -475,7 +474,7 @@ Vector rotate(const Vector& v, const Quaternion& q) {
  * @param v2 Second vector.
  * @return The resulting vector.
  */
-constexpr Vector operator+(const Vector& v1, const Vector& v2) {
+constexpr Vector operator+(const Vector &v1, const Vector &v2) {
   return Vector(v1.i + v2.i, v1.j + v2.j, v1.k + v2.k);
 }
 
@@ -485,7 +484,7 @@ constexpr Vector operator+(const Vector& v1, const Vector& v2) {
  * @param v2 Second vector.
  * @return The resulting vector.
  */
-constexpr Vector operator-(const Vector& v1, const Vector& v2) {
+constexpr Vector operator-(const Vector &v1, const Vector &v2) {
   return Vector(v1.i - v2.i, v1.j - v2.j, v1.k - v2.k);
 }
 
@@ -495,7 +494,7 @@ constexpr Vector operator-(const Vector& v1, const Vector& v2) {
  * @param s Scalar.
  * @return The resulting vector.
  */
-constexpr Vector operator*(const Vector& v, float s) {
+constexpr Vector operator*(const Vector &v, float s) {
   return Vector(s * v.i, s * v.j, s * v.k);
 }
 
@@ -505,9 +504,7 @@ constexpr Vector operator*(const Vector& v, float s) {
  * @param v Vector.
  * @return The resulting vector.
  */
-constexpr Vector operator*(float s, const Vector& v) {
-  return v * s;
-}
+constexpr Vector operator*(float s, const Vector &v) { return v * s; }
 
 /**
  * @brief Scalar division.
@@ -515,7 +512,7 @@ constexpr Vector operator*(float s, const Vector& v) {
  * @param s Scalar.
  * @return The resulting vector.
  */
-constexpr Vector operator/(const Vector& v, float s) {
+constexpr Vector operator/(const Vector &v, float s) {
   return Vector(v.i / s, v.j / s, v.k / s);
 }
 
@@ -525,7 +522,7 @@ constexpr Vector operator/(const Vector& v, float s) {
  * @param v2 Second vector.
  * @return The dot product (scalar).
  */
-constexpr float dot(const Vector& v1, const Vector& v2) {
+constexpr float dot(const Vector &v1, const Vector &v2) {
   return (v1.i * v2.i) + (v1.j * v2.j) + (v1.k * v2.k);
 }
 
@@ -535,11 +532,9 @@ constexpr float dot(const Vector& v1, const Vector& v2) {
  * @param v2 Second vector.
  * @return The cross product vector.
  */
-constexpr Vector cross(const Vector& v1, const Vector& v2) {
-  return Vector(
-    v1.j * v2.k - v1.k * v2.j,
-    v1.k * v2.i - v1.i * v2.k,
-    v1.i * v2.j - v1.j * v2.i);
+constexpr Vector cross(const Vector &v1, const Vector &v2) {
+  return Vector(v1.j * v2.k - v1.k * v2.j, v1.k * v2.i - v1.i * v2.k,
+                v1.i * v2.j - v1.j * v2.i);
 }
 
 /**
@@ -548,7 +543,7 @@ constexpr Vector cross(const Vector& v1, const Vector& v2) {
  * @param b Second vector.
  * @return The distance (scalar).
  */
-constexpr float distance_between(const Vector& a, const Vector& b) {
+constexpr float distance_between(const Vector &a, const Vector &b) {
   float di = b.i - a.i;
   float dj = b.j - a.j;
   float dk = b.k - a.k;
@@ -562,7 +557,7 @@ constexpr float distance_between(const Vector& a, const Vector& b) {
  * @param b Second vector.
  * @return The distance squared (scalar).
  */
-constexpr float distance_squared(const Vector& a, const Vector& b) {
+constexpr float distance_squared(const Vector &a, const Vector &b) {
   float di = b.i - a.i;
   float dj = b.j - a.j;
   float dk = b.k - a.k;
@@ -575,7 +570,7 @@ constexpr float distance_squared(const Vector& a, const Vector& b) {
  * @param v2 Second vector.
  * @return The angle in radians.
  */
-constexpr float angle_between(const Vector& v1, const Vector& v2) {
+constexpr float angle_between(const Vector &v1, const Vector &v2) {
   float len_product = v1.length() * v2.length();
   if (len_product <= std::numeric_limits<float>::epsilon()) {
     hs::log("Cannot calculate angle between 0-vectors!");
@@ -591,7 +586,7 @@ constexpr float angle_between(const Vector& v1, const Vector& v2) {
  * @param q2 Second quaternion.
  * @return The resulting quaternion.
  */
-constexpr Quaternion operator+(const Quaternion& q1, const Quaternion& q2) {
+constexpr Quaternion operator+(const Quaternion &q1, const Quaternion &q2) {
   return Quaternion(q1.r + q2.r, q1.v + q2.v);
 }
 
@@ -601,7 +596,7 @@ constexpr Quaternion operator+(const Quaternion& q1, const Quaternion& q2) {
  * @param q2 Second quaternion.
  * @return The resulting quaternion.
  */
-constexpr Quaternion operator-(const Quaternion& q1, const Quaternion& q2) {
+constexpr Quaternion operator-(const Quaternion &q1, const Quaternion &q2) {
   return Quaternion(q1.r - q2.r, q1.v - q2.v);
 }
 
@@ -611,10 +606,9 @@ constexpr Quaternion operator-(const Quaternion& q1, const Quaternion& q2) {
  * @param q2 Second quaternion.
  * @return The resulting quaternion.
  */
-constexpr Quaternion operator*(const Quaternion& q1, const Quaternion& q2) {
-  return Quaternion(
-    q1.r * q2.r - dot(q1.v, q2.v),
-    q1.r * q2.v + q2.r * q1.v + cross(q1.v, q2.v));
+constexpr Quaternion operator*(const Quaternion &q1, const Quaternion &q2) {
+  return Quaternion(q1.r * q2.r - dot(q1.v, q2.v),
+                    q1.r * q2.v + q2.r * q1.v + cross(q1.v, q2.v));
 }
 
 /**
@@ -623,7 +617,7 @@ constexpr Quaternion operator*(const Quaternion& q1, const Quaternion& q2) {
  * @param s Scalar.
  * @return The resulting quaternion.
  */
-constexpr Quaternion operator*(const Quaternion& q, float s) {
+constexpr Quaternion operator*(const Quaternion &q, float s) {
   return Quaternion(q.r * s, q.v * s);
 }
 
@@ -633,9 +627,7 @@ constexpr Quaternion operator*(const Quaternion& q, float s) {
  * @param q Quaternion.
  * @return The resulting quaternion.
  */
-constexpr Quaternion operator*(float s, const Quaternion& q) {
-  return q * s;
-}
+constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
 
 /**
  * @brief Scalar division.
@@ -643,7 +635,7 @@ constexpr Quaternion operator*(float s, const Quaternion& q) {
  * @param s Scalar.
  * @return The resulting quaternion.
  */
-constexpr Quaternion operator/(const Quaternion& q, float s) {
+constexpr Quaternion operator/(const Quaternion &q, float s) {
   return Quaternion(q.r / s, q.v / s);
 }
 
@@ -653,8 +645,9 @@ constexpr Quaternion operator/(const Quaternion& q, float s) {
  * @param q2 Second quaternion.
  * @return The dot product (scalar).
  */
-constexpr float dot(const Quaternion& q1, const Quaternion& q2) {
-  return (q1.r * q2.r) + (q1.v.i * q2.v.i) + (q1.v.j * q2.v.j) + (q1.v.k * q2.v.k);
+constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
+  return (q1.r * q2.r) + (q1.v.i * q2.v.i) + (q1.v.j * q2.v.j) +
+         (q1.v.k * q2.v.k);
 }
 
 /**
@@ -663,7 +656,7 @@ constexpr float dot(const Quaternion& q1, const Quaternion& q2) {
  * @param q2 Second unit quaternion.
  * @return The angle in radians.
  */
-constexpr float angle_between(const Quaternion& q1, const Quaternion& q2) {
+constexpr float angle_between(const Quaternion &q1, const Quaternion &q2) {
   return acosf(std::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
@@ -673,7 +666,7 @@ constexpr float angle_between(const Quaternion& q1, const Quaternion& q2) {
  * @param theta The angle of rotation in radians.
  * @return The resulting unit rotation quaternion.
  */
-Quaternion make_rotation(const Vector& axis, float theta) {
+Quaternion make_rotation(const Vector &axis, float theta) {
   return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalize();
 }
 
@@ -683,7 +676,7 @@ Quaternion make_rotation(const Vector& axis, float theta) {
  * @param to The destination vector (must be unit vector).
  * @return The resulting unit rotation quaternion.
  */
-Quaternion make_rotation(const Vector& from, const Vector& to) {
+Quaternion make_rotation(const Vector &from, const Vector &to) {
   auto axis = cross(from, to).normalize();
   auto angle = angle_between(from, to);
   return make_rotation(axis, angle);
@@ -697,7 +690,8 @@ Quaternion make_rotation(const Vector& from, const Vector& to) {
  * @param long_way If true, takes the longest path between quaternions.
  * @return The interpolated unit quaternion.
  */
-Quaternion slerp(const Quaternion& q1, const Quaternion& q2, float t, bool long_way = false) {
+Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
+                 bool long_way = false) {
   float d = dot(q1, q2);
   Quaternion p(q1);
   Quaternion q(q2);
@@ -720,35 +714,39 @@ Quaternion slerp(const Quaternion& q1, const Quaternion& q2, float t, bool long_
 }
 
 /**
- * @brief Checks if a vector is "over" (on the positive side of) a plane defined by a normal vector.
+ * @brief Checks if a vector is "over" (on the positive side of) a plane defined
+ * by a normal vector.
  * @param v The vector to check.
  * @param normal The normal vector defining the plane (must be unit vector).
  * @return True if the dot product is non-negative.
  */
-bool is_over(const Vector& v, const Vector& normal) {
+bool is_over(const Vector &v, const Vector &normal) {
   return dot(normal, v) >= 0;
 }
 
 /**
- * @brief Checks if the segment between two vectors intersects the plane defined by a normal.
+ * @brief Checks if the segment between two vectors intersects the plane defined
+ * by a normal.
  * @param v1 The starting vector.
  * @param v2 The ending vector.
  * @param normal The plane normal (must be unit vector).
  * @return True if v1 and v2 are on opposite sides of the plane.
  */
-bool intersects_plane(const Vector& v1, const Vector& v2, const Vector& normal) {
-  return (is_over(v1, normal) && !is_over(v2, normal))
-    || (!is_over(v1, normal) && is_over(v2, normal));
+bool intersects_plane(const Vector &v1, const Vector &v2,
+                      const Vector &normal) {
+  return (is_over(v1, normal) && !is_over(v2, normal)) ||
+         (!is_over(v1, normal) && is_over(v2, normal));
 }
 
 /**
- * @brief Calculates the intersection point of an arc (between u and v) and a plane (defined by normal).
+ * @brief Calculates the intersection point of an arc (between u and v) and a
+ * plane (defined by normal).
  * @param u The starting vector (must be unit vector).
  * @param v The ending vector (must be unit vector).
  * @param normal The plane normal (must be unit vector).
  * @return The intersection vector (unit vector). Asserts on failure.
  */
-Vector intersection(const Vector& u, const Vector& v, const Vector& normal) {
+Vector intersection(const Vector &u, const Vector &v, const Vector &normal) {
   Vector w = cross(v, u).normalize();
   Vector i1 = cross(w, normal).normalize();
   Vector i2 = cross(normal, w).normalize();
