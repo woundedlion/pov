@@ -4,9 +4,9 @@
  */
 #pragma once
 
-#include "../geometry.h"
-#include "../animation.h"
-#include "../static_circular_buffer.h"
+#include "geometry.h"
+#include "animation.h"
+#include "static_circular_buffer.h"
 
 // Forward declare to avoid circular dependency or missing include issues
 class Canvas;

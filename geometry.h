@@ -628,14 +628,9 @@ Vector ripple_transform(const Vector &v, const RippleParams &params) {
   float theta = 0.0f;
   if (std::abs(dist_from_wavefront) < half_thick) {
     // Inside the pulse window
-    // normalized pos p in [-1, 1] across the window
-    // dist: [-half, half] -> div half -> [-1, 1]
     float p = dist_from_wavefront / half_thick;
 
     // Gaussian Pulse
-    // e^(-k * x^2)
-    // k=4 implies value at edge (p=1) is e^-4 ~= 0.018
-    // We shift it down to hit 0 exactly at the edges to avoid "hard cutoff"
     const float k = 4.0f;
     const float edge_val = expf(-k);
     float raw_gauss = expf(-k * p * p);
@@ -953,43 +948,6 @@ inline HalfEdgeMesh::HalfEdgeMesh(const MeshState &mesh) {
   for (auto &f : faces)
     f.compute_properties();
 }
-
-/**
- * @brief Pre-allocated buffer for morphing operations.
- * @details Stores the source and destination states and the interpolated paths.
- */
-struct MorphBuffer {
-  MeshState source;
-  MeshState dest;
-
-  struct Path {
-    Vector start;
-    Vector end;
-    Vector axis;
-    float angle;
-  };
-  std::array<Path, MeshState::MAX_VERTS> paths;
-
-  // Storage for dynamic topology
-  // Removed static arrays as MeshState now owns its memory via std::vector
-
-  void load_dest(const PolyMesh &mesh) {
-    dest.clear();
-    // Vertices
-    dest.vertices = mesh.vertices; // Vector copy
-
-    // Faces
-    dest.faces.clear();
-    dest.face_counts.clear();
-    dest.face_counts.reserve(mesh.faces.size());
-
-    for (const auto &f : mesh.faces) {
-      dest.face_counts.push_back((uint8_t)f.size());
-      for (int idx : f)
-        dest.faces.push_back(idx);
-    }
-  }
-};
 
 /**
  * @brief Structure returned by compile_hankin.
