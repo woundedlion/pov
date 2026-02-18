@@ -1546,20 +1546,34 @@ public:
   void step(Canvas &canvas) {
     ++t;
 
-    // Prep Animations
+    // Track touched orientations to ensure we only collapse once per frame
     std::vector<Orientation<W> *> touched;
-    touched.reserve(num_events); // Pre-allocate max size
-    for (int i = 0; i < num_events; ++i) {
-      if (t < events[i].start) {
+    touched.reserve(num_events);
+
+    int write_idx = 0;
+    int active_cnt =
+        num_events; // Snapshot count before callbacks potentially add more
+
+    for (int i = 0; i < active_cnt; ++i) {
+      auto &e = events[i];
+
+      // 1. Check start time
+      if (t < e.start) {
+        if (i != write_idx) {
+          events[write_idx] = std::move(e);
+        }
+        write_idx++;
         continue;
       }
+
+      // 2. Collapse Orientation
       std::visit(
           [&](auto &a) {
             if constexpr (requires { a.get_orientation(); }) {
               auto &o = a.get_orientation();
               bool already_touched = false;
-              for (auto *touched_o : touched) {
-                if (touched_o == &o) {
+              for (auto *ptr : touched) {
+                if (ptr == &o) {
                   already_touched = true;
                   break;
                 }
@@ -1570,49 +1584,45 @@ public:
               }
             }
           },
-          events[i].animation);
-    }
+          e.animation);
 
-    // Step Animations
-    for (int i = 0; i < num_events; ++i) {
-      if (t < events[i].start) {
-        continue;
-      }
-      auto &animation = events[i].animation;
-      std::visit([&](auto &a) { a.step(canvas); }, animation);
-      if (std::visit([&](auto &a) { return a.done(); }, animation)) {
-        if (std::visit([&](auto &a) { return a.repeats(); }, animation)) {
-          std::visit([&](auto &a) { a.rewind(); }, animation);
-          std::visit([&](auto &a) { a.post_callback(); }, animation);
+      // 3. Step
+      std::visit([&](auto &a) { a.step(canvas); }, e.animation);
+
+      // 4. Completion & Cleanup
+      bool is_done = std::visit([&](auto &a) { return a.done(); }, e.animation);
+      bool keep = true;
+
+      if (is_done) {
+        bool repeats =
+            std::visit([&](auto &a) { return a.repeats(); }, e.animation);
+        if (repeats) {
+          std::visit([&](auto &a) { a.rewind(); }, e.animation);
+          std::visit([&](auto &a) { a.post_callback(); }, e.animation);
+        } else {
+          keep = false;
+          // Fire callback for non-repeating event before removing
+          std::visit([&](auto &a) { a.post_callback(); }, e.animation);
         }
       }
-    }
 
-    // 2. Fire Callbacks for Finished Events
-    // Capture original count because callbacks might add new events
-    int check_count = num_events;
-    for (int i = 0; i < check_count; ++i) {
-      if (t < events[i].start)
-        continue;
-
-      auto &animation = events[i].animation;
-      // If it's done (and wasn't rewound, meaning it's non-repeating)
-      if (std::visit([&](auto &a) { return a.done(); }, animation)) {
-        std::visit([&](auto &a) { a.post_callback(); }, animation);
+      if (keep) {
+        if (i != write_idx) {
+          events[write_idx] = std::move(e);
+        }
+        write_idx++;
       }
     }
 
-    // 3. Remove Finished Events
-    // Now we can safely remove any event that is 'done'.
-    // New events added by callbacks are not 'done', so they survive.
-    auto new_logical_end = std::remove_if(
-        events.begin(), events.begin() + num_events, [this](auto &event) {
-          // Remove if done
-          // Note: Repeating events were already rewound in step 1, so they are
-          // not done.
-          return std::visit([](auto &a) { return a.done(); }, event.animation);
-        });
-    num_events = std::distance(events.begin(), new_logical_end);
+    // 5. Move new events (added during callbacks) to fill the gap
+    int new_vals_count = num_events - active_cnt;
+    if (new_vals_count > 0 && write_idx < active_cnt) {
+      for (int i = 0; i < new_vals_count; ++i) {
+        events[write_idx + i] = std::move(events[active_cnt + i]);
+      }
+    }
+
+    num_events = write_idx + new_vals_count;
   }
 
   int t = 0; /**< The current global frame count. */

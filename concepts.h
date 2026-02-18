@@ -97,3 +97,12 @@ concept Tweenable = requires(const T &t, size_t i) {
   { t.length() } -> std::convertible_to<size_t>;
   { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
 };
+
+/**
+ * @brief Concept for a generic transformation function.
+ * Signature: Vector f(const Vector& v, const Params& p)
+ */
+template <auto F, typename Params>
+concept TransformerFunction = requires(const Vector &v, const Params &p) {
+  { F(v, p) } -> std::convertible_to<Vector>;
+};

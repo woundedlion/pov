@@ -6,6 +6,7 @@
 
 #include "geometry.h"
 #include "animation.h"
+#include "concepts.h"
 #include <array>
 
 // Forward declare
@@ -19,9 +20,9 @@ class Canvas;
  * @tparam TransformFunc The static function to apply the transformation.
  * @tparam CAPACITY Max number of active transformations.
  */
-template <int W, typename ParamsT, typename AnimT,
-          Vector (*TransformFunc)(const Vector &, const ParamsT &),
+template <int W, typename ParamsT, typename AnimT, auto TransformFunc,
           int CAPACITY = 32>
+  requires TransformerFunction<TransformFunc, ParamsT>
 class Transformer {
 public:
   struct Entity {
