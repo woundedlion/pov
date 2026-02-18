@@ -295,126 +295,142 @@ inline PolyMesh icosahedron_snub_canonicalize_truncate033_hankin62() {
                 62.0f * D2R);
 }
 
+inline PolyMesh dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43() {
+  return hankin(canonicalize(ambo(hankin(
+                    canonicalize(ambo(hankin(dodecahedron(), 3.0f * D2R))),
+                    62.0f * D2R))),
+                43.0f * D2R);
+}
+
+inline PolyMesh icosahedron_ambo_truncate033_hankin59() {
+  return hankin(truncate(ambo(icosahedron()), 0.33f), 59.0f * D2R);
+}
+
+inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59() {
+  return hankin(truncate(canonicalize(ambo(truncatedIcosahedron())), 0.01f),
+                59.0f * D2R);
+}
+
+inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73() {
+  return hankin(truncate(canonicalize(ambo(truncatedIcosahedron())), 0.01f),
+                73.0f * D2R);
+}
+
 } // namespace IslamicStarPatterns
+
+enum class Category { Simple, Complex };
+
+struct Entry {
+  const char *name;
+  PolyMesh (*generate)();
+  Category category;
+};
+
+// Centralized Registry
+// Order: Platonic (0-4), Archimedean (5-17), Islamic (18+)
+static constexpr Entry registry[] = {
+
+    // Platonic
+    {"tetrahedron", Platonic::tetrahedron, Category::Simple},
+    {"cube", Platonic::cube, Category::Simple},
+    {"octahedron", Platonic::octahedron, Category::Simple},
+    {"dodecahedron", Platonic::dodecahedron, Category::Simple},
+    {"icosahedron", Platonic::icosahedron, Category::Simple},
+
+    // Archimedean
+    {"truncatedTetrahedron", Archimedean::truncatedTetrahedron,
+     Category::Simple},
+    {"cuboctahedron", Archimedean::cuboctahedron, Category::Simple},
+    {"truncatedCube", Archimedean::truncatedCube, Category::Simple},
+    {"truncatedOctahedron", Archimedean::truncatedOctahedron, Category::Simple},
+    {"rhombicuboctahedron", Archimedean::rhombicuboctahedron, Category::Simple},
+    {"truncatedCuboctahedron", Archimedean::truncatedCuboctahedron,
+     Category::Simple},
+    {"snubCube", Archimedean::snubCube, Category::Simple},
+    {"icosidodecahedron", Archimedean::icosidodecahedron, Category::Simple},
+    {"truncatedDodecahedron", Archimedean::truncatedDodecahedron,
+     Category::Simple},
+    {"truncatedIcosahedron", Archimedean::truncatedIcosahedron,
+     Category::Simple},
+    {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
+     Category::Simple},
+    {"truncatedIcosidodecahedron", Archimedean::truncatedIcosidodecahedron,
+     Category::Simple},
+    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::Simple},
+
+    // Islamic Star Patterns
+    {"truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59",
+     IslamicStarPatterns::
+         truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59,
+     Category::Complex},
+    {"truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73",
+     IslamicStarPatterns::
+         truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73,
+     Category::Complex},
+    {"icosahedron_ambo_truncate033_hankin59",
+     IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59,
+     Category::Complex},
+    {"dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43",
+     IslamicStarPatterns::dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43,
+     Category::Complex},
+    {"icosahedron_hk59_bitruncate033",
+     IslamicStarPatterns::icosahedron_hk59_bitruncate033, Category::Complex},
+    {"octahedron_hk17_ambo_hk72",
+     IslamicStarPatterns::octahedron_hk17_ambo_hk72, Category::Complex},
+    {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
+     Category::Complex},
+    {"truncatedIcosidodecahedron_truncate05_ambo_dual",
+     IslamicStarPatterns::truncatedIcosidodecahedron_truncate05_ambo_dual,
+     Category::Complex},
+    {"icosidodecahedron_truncate05_ambo_dual",
+     IslamicStarPatterns::icosidodecahedron_truncate05_ambo_dual,
+     Category::Complex},
+    {"snubDodecahedron_truncate05_ambo_dual",
+     IslamicStarPatterns::snubDodecahedron_truncate05_ambo_dual,
+     Category::Complex},
+    {"octahedron_hk34_ambo_hk72",
+     IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::Complex},
+    {"rhombicuboctahedron_hk63_ambo_hk63",
+     IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63,
+     Category::Complex},
+    {"truncatedIcosahedron_hk54_ambo_hk72",
+     IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72,
+     Category::Complex},
+    {"dodecahedron_hk54_ambo_hk72",
+     IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::Complex},
+    {"dodecahedron_hk72_ambo_dual_hk20",
+     IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::Complex},
+    {"truncatedIcosahedron_truncate05_ambo_dual",
+     IslamicStarPatterns::truncatedIcosahedron_truncate05_ambo_dual,
+     Category::Complex},
+    {"icosahedron_snub_canonicalize_truncate033_hankin62",
+     IslamicStarPatterns::icosahedron_snub_canonicalize_truncate033_hankin62,
+     Category::Complex}};
+
+static constexpr int NUM_ENTRIES = sizeof(registry) / sizeof(registry[0]);
+
+namespace Collections {
+static constexpr const Entry *simple_solids = &registry[0];
+static constexpr int num_simple_solids = 18;
+static constexpr const Entry *islamic_solids = &registry[18];
+static constexpr int num_islamic_solids = 13;
+} // namespace Collections
 
 // Helper matching JS Solids.get()
 inline PolyMesh get(int index) {
-  using namespace Platonic;
-  using namespace Archimedean;
-  // Map index to solids in order of JS Solids array (implied)
-  // 0-4: Platonic
-  // 5-17: Archimedean
-  switch (index) {
-  case 0:
-    return tetrahedron();
-  case 1:
-    return cube();
-  case 2:
-    return octahedron();
-  case 3:
-    return dodecahedron();
-  case 4:
-    return icosahedron();
-  case 5:
-    return truncatedTetrahedron();
-  case 6:
-    return cuboctahedron();
-  case 7:
-    return truncatedCube();
-  case 8:
-    return truncatedOctahedron();
-  case 9:
-    return rhombicuboctahedron();
-  case 10:
-    return truncatedCuboctahedron();
-  case 11:
-    return snubCube();
-  case 12:
-    return icosidodecahedron();
-  case 13:
-    return truncatedDodecahedron();
-  case 14:
-    return truncatedIcosahedron();
-  case 15:
-    return rhombicosidodecahedron();
-  case 16:
-    return truncatedIcosidodecahedron();
-  case 17:
-    return snubDodecahedron();
-  default:
-    return dodecahedron();
+  if (index >= 0 && index < NUM_ENTRIES) {
+    return registry[index].generate();
   }
+  return Platonic::dodecahedron(); // Fallback
 }
 
 inline PolyMesh get_by_name(const std::string &name) {
-  using namespace Platonic;
-  using namespace Archimedean;
-  using namespace IslamicStarPatterns;
-
-  if (name == "tetrahedron")
-    return tetrahedron();
-  if (name == "cube")
-    return cube();
-  if (name == "octahedron")
-    return octahedron();
-  if (name == "dodecahedron")
-    return dodecahedron();
-  if (name == "icosahedron")
-    return icosahedron();
-
-  if (name == "truncatedTetrahedron")
-    return truncatedTetrahedron();
-  if (name == "cuboctahedron")
-    return cuboctahedron();
-  if (name == "truncatedCube")
-    return truncatedCube();
-  if (name == "truncatedOctahedron")
-    return truncatedOctahedron();
-  if (name == "rhombicuboctahedron")
-    return rhombicuboctahedron();
-  if (name == "truncatedCuboctahedron")
-    return truncatedCuboctahedron();
-  if (name == "snubCube")
-    return snubCube();
-  if (name == "icosidodecahedron")
-    return icosidodecahedron();
-  if (name == "truncatedDodecahedron")
-    return truncatedDodecahedron();
-  if (name == "truncatedIcosahedron")
-    return truncatedIcosahedron();
-  if (name == "rhombicosidodecahedron")
-    return rhombicosidodecahedron();
-  if (name == "truncatedIcosidodecahedron")
-    return truncatedIcosidodecahedron();
-  if (name == "snubDodecahedron")
-    return snubDodecahedron();
-
-  if (name == "icosahedron_hk59_bitruncate033")
-    return icosahedron_hk59_bitruncate033();
-  if (name == "octahedron_hk17_ambo_hk72")
-    return octahedron_hk17_ambo_hk72();
-  if (name == "icosahedron_kis_gyro")
-    return icosahedron_kis_gyro();
-  if (name == "truncatedIcosidodecahedron_truncate05_ambo_dual")
-    return truncatedIcosidodecahedron_truncate05_ambo_dual();
-  if (name == "icosidodecahedron_truncate05_ambo_dual")
-    return icosidodecahedron_truncate05_ambo_dual();
-  if (name == "snubDodecahedron_truncate05_ambo_dual")
-    return snubDodecahedron_truncate05_ambo_dual();
-  if (name == "octahedron_hk34_ambo_hk72")
-    return octahedron_hk34_ambo_hk72();
-  if (name == "rhombicuboctahedron_hk63_ambo_hk63")
-    return rhombicuboctahedron_hk63_ambo_hk63();
-  if (name == "truncatedIcosahedron_hk54_ambo_hk72")
-    return truncatedIcosahedron_hk54_ambo_hk72();
-  if (name == "dodecahedron_hk54_ambo_hk72")
-    return dodecahedron_hk54_ambo_hk72();
-  if (name == "dodecahedron_hk72_ambo_dual_hk20")
-    return dodecahedron_hk72_ambo_dual_hk20();
-  if (name == "truncatedIcosahedron_truncate05_ambo_dual")
-    return truncatedIcosahedron_truncate05_ambo_dual();
-  if (name == "icosahedron_snub_canonicalize_truncate033_hankin62")
-    return icosahedron_snub_canonicalize_truncate033_hankin62();
-  return cube(); // Fallback
+  for (const auto &entry : registry) {
+    if (name == entry.name) {
+      return entry.generate();
+    }
+  }
+  return Platonic::cube(); // Fallback
 }
+
 } // namespace Solids
