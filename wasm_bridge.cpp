@@ -333,8 +333,24 @@ struct MeshOpsWrapper {
   MeshOpsWrapper hankin_rad(float radians) const {
     return MeshOpsWrapper(MeshOps::hankin(mesh, radians));
   }
+  MeshOpsWrapper bitruncate(float t) const {
+    return MeshOpsWrapper(MeshOps::bitruncate(mesh, t));
+  }
   MeshOpsWrapper canonicalize(int iterations) const {
     return MeshOpsWrapper(MeshOps::canonicalize(mesh, iterations));
+  }
+  static val getRegistry() {
+    val registry = val::array();
+    for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
+      const auto &entry = Solids::registry[i];
+      val item = val::object();
+      item.set("name", std::string(entry.name));
+      item.set("category", entry.category == Solids::Category::Simple
+                               ? "Simple"
+                               : "Complex");
+      registry.set(i, item);
+    }
+    return registry;
   }
 };
 
@@ -355,6 +371,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .constructor<>()
       .class_function("fromSolid", &MeshOpsWrapper::fromSolid)
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
+      .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
       .class_function("fromData", &MeshOpsWrapper::fromData)
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
@@ -367,6 +384,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("snub", &MeshOpsWrapper::snub)
       .function("dual", &MeshOpsWrapper::dual)
       .function("truncate", &MeshOpsWrapper::truncate)
+      .function("bitruncate", &MeshOpsWrapper::bitruncate)
       .function("expand", &MeshOpsWrapper::expand)
       .function("hankin", &MeshOpsWrapper::hankin_rad)
       .function("canonicalize", &MeshOpsWrapper::canonicalize);

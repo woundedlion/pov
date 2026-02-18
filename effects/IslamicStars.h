@@ -15,23 +15,6 @@
 template <int W, int H> class IslamicStars : public Effect {
 
 public:
-  enum class SolidType {
-    Icosahedron_Snub_Canonicalize_Truncate033_Hankin62,
-    Icosahedron_Hk59_Bitruncate033,
-    Octahedron_Hk17_Ambo_Hk72,
-    Icosahedron_Kis_Gyro,
-    TruncatedIcosidodecahedron_Truncate05_Ambo_Dual,
-    Icosidodecahedron_Truncate05_Ambo_Dual,
-    SnubDodecahedron_Truncate05_Ambo_Dual,
-    Octahedron_Hk34_Ambo_Hk72,
-    Rhombicuboctahedron_Hk63_Ambo_Hk63,
-    TruncatedIcosahedron_Hk54_Ambo_Hk72,
-    Dodecahedron_Hk54_Ambo_Hk72,
-    Dodecahedron_Hk72_Ambo_Dual_Hk20,
-    TruncatedIcosahedron_Truncate05_Ambo_Dual,
-    Last // Sentinel
-  };
-
   IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {
     persist_pixels = false;
 
@@ -43,25 +26,18 @@ public:
     // Ripple Duration (Speed is PI / duration)
     registerParam("Ripp Dur", &ripple_duration, 30.0f, 300.0f);
 
-    timeline.add(
-        0, Animation::RandomWalk<W>(orientation, UP)); // Slow continuous spin
+    timeline.add(0, Animation::RandomWalk<W>(orientation, UP));
 
     // Init Ripple Defaults
     ripple_gen.set_amplitude(0.5f);
     ripple_gen.set_thickness(0.7f);
     ripple_gen.set_decay(0.1f);
 
+    // Ripple now and schedule more
     timeline.add(0, Animation::PeriodicTimer(
-                        96,
-                        [this](Canvas &) {
-                          Vector origin = random_vector();
-                          for (int i = 0; i < params.burst_size; i++) {
-                            ripple_gen.ripple(origin,
-                                              static_cast<int>(ripple_duration),
-                                              i * 16);
-                          }
-                        },
-                        true));
+                        0, [this](auto &canvas) { ripple(canvas); }, false));
+    timeline.add(0, Animation::PeriodicTimer(
+                        96, [this](auto &canvas) { ripple(canvas); }, true));
     spawn_shape();
   }
 
@@ -99,29 +75,23 @@ private:
 
   int solid_idx = -1;
 
+  void ripple(Canvas &canvas) {
+    Vector origin = random_vector();
+    for (int i = 0; i < params.burst_size; i++) {
+      ripple_gen.ripple(origin, static_cast<int>(ripple_duration), i * 16);
+    }
+  }
+
   void spawn_shape() {
-    solid_idx = (solid_idx + 1) % (int)SolidType::Last;
-    PolyMesh mesh = generate_solid((SolidType)solid_idx);
+    solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
+    const auto &entry = Solids::Collections::islamic_solids[solid_idx];
+    PolyMesh mesh = entry.generate();
+
     auto faceIndices = MeshOps::classify_faces_by_topology(mesh);
 
     // Log Shape Name
-    const char *names[] = {"icosahedron_snub_canonicalize_truncate033_hankin62",
-                           "Icosahedron_Hk59_Bitruncate033",
-                           "Octahedron_Hk17_Ambo_Hk72",
-                           "Icosahedron_Kis_Gyro",
-                           "TruncatedIcosidodecahedron_Truncate05_Ambo_Dual",
-                           "Icosidodecahedron_Truncate05_Ambo_Dual",
-                           "SnubDodecahedron_Truncate05_Ambo_Dual",
-                           "Octahedron_Hk34_Ambo_Hk72",
-                           "Rhombicuboctahedron_Hk63_Ambo_Hk63",
-                           "TruncatedIcosahedron_Hk54_Ambo_Hk72",
-                           "Dodecahedron_Hk54_Ambo_Hk72",
-                           "Dodecahedron_Hk72_Ambo_Dual_Hk20",
-                           "TruncatedIcosahedron_Truncate05_Ambo_Dual"};
-    if (solid_idx >= 0 && solid_idx < (int)SolidType::Last) {
-      hs::log("Spawning Shape: %s (V=%d, F=%d)", names[solid_idx],
-              (int)mesh.vertices.size(), (int)mesh.faces.size());
-    }
+    hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
+            (int)mesh.vertices.size(), (int)mesh.faces.size());
 
     // Flatten for Rendering
     MeshState mesh_state = poly_to_state(mesh);
@@ -188,44 +158,6 @@ private:
     timeline.add(next_delay,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &) { this->spawn_shape(); }, false));
-  }
-
-  PolyMesh generate_solid(SolidType type) {
-    switch (type) {
-    case SolidType::Icosahedron_Hk59_Bitruncate033:
-      return Solids::IslamicStarPatterns::icosahedron_hk59_bitruncate033();
-    case SolidType::Octahedron_Hk17_Ambo_Hk72:
-      return Solids::IslamicStarPatterns::octahedron_hk17_ambo_hk72();
-    case SolidType::Icosahedron_Kis_Gyro:
-      return Solids::IslamicStarPatterns::icosahedron_kis_gyro();
-    case SolidType::TruncatedIcosidodecahedron_Truncate05_Ambo_Dual:
-      return Solids::IslamicStarPatterns::
-          truncatedIcosidodecahedron_truncate05_ambo_dual();
-    case SolidType::Icosidodecahedron_Truncate05_Ambo_Dual:
-      return Solids::IslamicStarPatterns::
-          icosidodecahedron_truncate05_ambo_dual();
-    case SolidType::SnubDodecahedron_Truncate05_Ambo_Dual:
-      return Solids::IslamicStarPatterns::
-          snubDodecahedron_truncate05_ambo_dual();
-    case SolidType::Octahedron_Hk34_Ambo_Hk72:
-      return Solids::IslamicStarPatterns::octahedron_hk34_ambo_hk72();
-    case SolidType::Rhombicuboctahedron_Hk63_Ambo_Hk63:
-      return Solids::IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63();
-    case SolidType::TruncatedIcosahedron_Hk54_Ambo_Hk72:
-      return Solids::IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72();
-    case SolidType::Dodecahedron_Hk54_Ambo_Hk72:
-      return Solids::IslamicStarPatterns::dodecahedron_hk54_ambo_hk72();
-    case SolidType::Dodecahedron_Hk72_Ambo_Dual_Hk20:
-      return Solids::IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20();
-    case SolidType::TruncatedIcosahedron_Truncate05_Ambo_Dual:
-      return Solids::IslamicStarPatterns::
-          truncatedIcosahedron_truncate05_ambo_dual();
-    case SolidType::Icosahedron_Snub_Canonicalize_Truncate033_Hankin62:
-      return Solids::IslamicStarPatterns::
-          icosahedron_snub_canonicalize_truncate033_hankin62();
-    default:
-      return Solids::Platonic::dodecahedron();
-    }
   }
 
   struct Params {

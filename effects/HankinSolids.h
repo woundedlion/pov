@@ -7,37 +7,15 @@
 
 #include "../effects_engine.h"
 
-#include <vector>
-#include <string>
-#include <iostream>
-#include <random>
 #include <algorithm>
+#include <iostream>
 #include <map>
+#include <random>
+#include <string>
+#include <vector>
 
 template <int W, int H> class HankinSolids : public Effect {
 public:
-  enum class SolidMode {
-    Tetrahedron,
-    Cube,
-    Octahedron,
-    Dodecahedron,
-    Icosahedron,
-    TruncatedTetrahedron,
-    Cuboctahedron,
-    TruncatedCube,
-    TruncatedOctahedron,
-    Rhombicuboctahedron,
-    TruncatedCuboctahedron,
-    SnubCube,
-    Icosidodecahedron,
-    TruncatedDodecahedron,
-    TruncatedIcosahedron,
-    Rhombicosidodecahedron,
-    TruncatedIcosidodecahedron,
-    SnubDodecahedron,
-    Last // Sentinel
-  };
-
   // Buffer for morphing operations
   Animation::MorphBuffer morph_buffer;
 
@@ -57,10 +35,10 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     // Init State
-    solid_idx = (int)SolidMode::Dodecahedron;
+    solid_idx = 3; // Dodecahedron (index 3 in simple_solids)
 
     // Initial Geometry Generation
-    PolyMesh base = Solids::get(solid_idx);
+    PolyMesh base = Solids::Collections::simple_solids[solid_idx].generate();
     if (enable_dual)
       base = MeshOps::dual(base);
 
@@ -95,9 +73,6 @@ private:
   bool enable_dual = false;
   bool enable_hankin = true;
 
-  // Data Helpers
-  std::vector<std::string>
-      solids_list; // Not really used in C++ enum but logical parity
   CompiledHankin compiled_hankin; // Keep compiled state for the active solid
 
   // Topology & Color State
@@ -115,49 +90,6 @@ private:
     target = source_palettes_pool;
     static std::mt19937 g(12345 + (int)timeline.t);
     std::shuffle(target.begin(), target.end(), g);
-  }
-
-  std::string get_solid_name(int idx) {
-    switch ((SolidMode)idx) {
-    case SolidMode::Tetrahedron:
-      return "Tetrahedron";
-    case SolidMode::Cube:
-      return "Cube";
-    case SolidMode::Octahedron:
-      return "Octahedron";
-    case SolidMode::Dodecahedron:
-      return "Dodecahedron";
-    case SolidMode::Icosahedron:
-      return "Icosahedron";
-    case SolidMode::TruncatedTetrahedron:
-      return "TruncatedTetrahedron";
-    case SolidMode::Cuboctahedron:
-      return "Cuboctahedron";
-    case SolidMode::TruncatedCube:
-      return "TruncatedCube";
-    case SolidMode::TruncatedOctahedron:
-      return "TruncatedOctahedron";
-    case SolidMode::Rhombicuboctahedron:
-      return "Rhombicuboctahedron";
-    case SolidMode::TruncatedCuboctahedron:
-      return "TruncatedCuboctahedron";
-    case SolidMode::SnubCube:
-      return "SnubCube";
-    case SolidMode::Icosidodecahedron:
-      return "Icosidodecahedron";
-    case SolidMode::TruncatedDodecahedron:
-      return "TruncatedDodecahedron";
-    case SolidMode::TruncatedIcosahedron:
-      return "TruncatedIcosahedron";
-    case SolidMode::Rhombicosidodecahedron:
-      return "Rhombicosidodecahedron";
-    case SolidMode::TruncatedIcosidodecahedron:
-      return "TruncatedIcosidodecahedron";
-    case SolidMode::SnubDodecahedron:
-      return "SnubDodecahedron";
-    default:
-      return "Unknown";
-    }
   }
 
   void start_hankin_cycle() {
@@ -191,13 +123,16 @@ private:
     constexpr int DURATION = 16;
 
     // Identify Next Solid
-    int next_idx = (solid_idx + 1) % (int)SolidMode::Last;
+    int next_idx = (solid_idx + 1) % Solids::Collections::num_simple_solids;
 
-    std::cout << "Morphing: " << get_solid_name(solid_idx) << " -> "
-              << get_solid_name(next_idx) << std::endl;
+    const auto &current_entry = Solids::Collections::simple_solids[solid_idx];
+    const auto &next_entry = Solids::Collections::simple_solids[next_idx];
+
+    std::cout << "Morphing: " << current_entry.name << " -> " << next_entry.name
+              << std::endl;
 
     // Generate Target Mesh (Secondary)
-    PolyMesh next_base = Solids::get(next_idx);
+    PolyMesh next_base = next_entry.generate();
     if (enable_dual)
       next_base = MeshOps::dual(next_base);
 
@@ -218,34 +153,35 @@ private:
     pick_palettes(secondary_palettes);
 
     // 1. Morph Animation
-    timeline.add(0, Animation::MeshMorph(&primary_mesh, &secondary_mesh,
-                                         &morph_buffer, primary_mesh,
-                                         secondary_mesh, DURATION, false,
-                                         ease_in_out_sin)
-                        .then([this, next_idx]() {
-                          // Commit State
-                          this->solid_idx = next_idx;
+    timeline.add(
+        0, Animation::MeshMorph(&primary_mesh, &secondary_mesh, &morph_buffer,
+                                primary_mesh, secondary_mesh, DURATION, false,
+                                ease_in_out_sin)
+               .then([this, next_idx]() {
+                 // Commit State
+                 this->solid_idx = next_idx;
 
-                          // Move Secondary -> Primary
-                          this->primary_topology = this->secondary_topology;
-                          this->primary_palettes = this->secondary_palettes;
+                 // Move Secondary -> Primary
+                 this->primary_topology = this->secondary_topology;
+                 this->primary_palettes = this->secondary_palettes;
 
-                          // Re-compile Hankin for the NEW solid
-                          PolyMesh new_base = Solids::get(solid_idx);
-                          if (enable_dual)
-                            new_base = MeshOps::dual(new_base);
+                 // Re-compile Hankin for the NEW solid
+                 PolyMesh new_base =
+                     Solids::Collections::simple_solids[solid_idx].generate();
+                 if (enable_dual)
+                   new_base = MeshOps::dual(new_base);
 
-                          if (enable_hankin) {
-                            compiled_hankin = MeshOps::compile_hankin(new_base);
-                            // No need to update 'initial' here,
-                            // start_hankin_cycle will do it PolyMesh initial =
-                            // MeshOps::update_hankin<PolyMesh>(compiled_hankin,
-                            // hankin_angle);
-                          }
+                 if (enable_hankin) {
+                   compiled_hankin = MeshOps::compile_hankin(new_base);
+                   // No need to update 'initial' here,
+                   // start_hankin_cycle will do it PolyMesh initial =
+                   // MeshOps::update_hankin<PolyMesh>(compiled_hankin,
+                   // hankin_angle);
+                 }
 
-                          // Loop
-                          this->start_hankin_cycle();
-                        }));
+                 // Loop
+                 this->start_hankin_cycle();
+               }));
 
     // 2. Sprite: Outgoing
     timeline.add(0, Animation::Sprite(

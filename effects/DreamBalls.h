@@ -172,47 +172,28 @@ private:
 
   void spawn_sprite(int idx) {
     int safe_idx = idx % presets.size();
-
-    // Update live params
     params = presets[safe_idx];
-
-    const auto &preset_data = loaded_presets[safe_idx];
-
-    // Allocate from pool
+    Params instance_params = presets[safe_idx];
+    const PresetData *preset_ptr = &loaded_presets[safe_idx];
     MobiusParams &mobius = mobius_pool.emplace_back();
-    // Reset to identity
     mobius = MobiusParams();
 
-    // Create linked animation (binds to this->params.warp_scale)
     timeline.add(0, Animation::MobiusWarpLinked(mobius, this->params.warp_scale,
                                                 200, true));
-
-    // Capture mobius by value (it's a reference wrapper in the pool, but we
-    // need the address or reference) Danger: buffer might overwrite if we
-    // circle around. StaticCircularBuffer pointers are stable *until*
-    // overwritten. With 16 slots and 320 frames duration, we can have
-    // concurrent sprites. 320 frames / 32 frames per spawn = 10 active sprites
-    // max. Pool size 16 is safe.
-
     MobiusParams *mobius_ptr = &mobius;
 
-    auto draw_fn = [this, preset_data, mobius_ptr](Canvas &canvas,
-                                                   float opacity) {
-      // Stack allocated MeshState
-      MeshState target_mesh = preset_data.mesh_state; // Deep copy
-
-      this->draw_scene(canvas, this->params, opacity, preset_data.mesh_state,
-                       target_mesh, preset_data.tangents, *mobius_ptr);
+    auto draw_fn = [this, preset_ptr, mobius_ptr,
+                    instance_params](Canvas &canvas, float opacity) {
+      MeshState target_mesh = preset_ptr->mesh_state;
+      this->draw_scene(canvas, instance_params, opacity, preset_ptr->mesh_state,
+                       target_mesh, preset_ptr->tangents, *mobius_ptr);
     };
 
-    timeline.add(0,
-                 Animation::Sprite(draw_fn, 320, 32, ease_mid, 32, ease_mid));
-
-    // Queue next
-    timeline.add(
-        320 - 32,
-        Animation::PeriodicTimer(
-            0, [this, idx](Canvas &c) { this->spawn_sprite(idx + 1); }, false));
+    timeline.add(0, Animation::Sprite(draw_fn, 320, 32, ease_mid, 32, ease_mid))
+        .add(320 - 32,
+             Animation::PeriodicTimer(
+                 0, [this, idx](Canvas &c) { this->spawn_sprite(idx + 1); },
+                 false));
   }
 
   void update_displaced_mesh(const MeshState &base, MeshState &target,
