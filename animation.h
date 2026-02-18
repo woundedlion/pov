@@ -1347,7 +1347,7 @@ private:
  * @brief Continuously modulates Mobius parameters to create an evolving warp.
  * Uses multiple frequencies for non-repeating chaos.
  */
-class MobiusGenerate : public Base<MobiusGenerate> {
+class MobiusWarpEvolving : public Base<MobiusWarpEvolving> {
 public:
   /**
    * @brief Constructs a MobiusGenerate animation.
@@ -1355,7 +1355,8 @@ public:
    * @param scale Magnitude of modulation.
    * @param speed Speed of the animation.
    */
-  MobiusGenerate(MobiusParams &params, float scale = 0.5f, float speed = 0.01f)
+  MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
+                     float speed = 0.01f)
       : Base(-1, true), params(params), scale(scale), speed(speed) {
     // Capture initial state as base
     base = params;
@@ -1489,38 +1490,6 @@ private:
  * @brief Animates the Mobius parameters for a warping effect pulling the poles
  * together, using a referenced scale for dynamic control.
  */
-class MobiusWarpLinked : public Base<MobiusWarpLinked> {
-public:
-  /**
-   * @brief Constructs a MobiusWarpLinked animation.
-   * @param params Reference to the MobiusParams to animate.
-   * @param scale Reference to the magnitude of the warp effect.
-   * @param duration Duration of the warp.
-   * @param repeat Whether to repeat.
-   * @param easing The easing function to use (default: ease_in_out_sin).
-   */
-  MobiusWarpLinked(MobiusParams &params, const float &scale, int duration,
-                   bool repeat = true,
-                   std::function<float(float)> easing = ease_in_out_sin)
-      : Base(duration, repeat), params(params), scale(scale), easing(easing) {}
-
-  /**
-   * @brief Steps the animation, updating param b.
-   */
-  void step(Canvas &canvas) {
-    Base::step(canvas);
-    float t_norm = static_cast<float>(t) / duration;
-    float progress = easing(std::clamp(t_norm, 0.0f, 1.0f));
-    float angle = progress * 2 * PI_F;
-    params.get().bRe = scale.get() * (cosf(angle) - 1.0f);
-    params.get().bIm = scale.get() * sinf(angle);
-  }
-
-private:
-  std::reference_wrapper<MobiusParams> params;
-  std::reference_wrapper<const float> scale;
-  std::function<float(float)> easing;
-};
 
 } // namespace Animation
 
@@ -1529,9 +1498,8 @@ using AnimationVariant = std::variant<
     Animation::NullAnimation, Animation::Sprite, Animation::Transition,
     Animation::Mutation, Animation::RandomTimer, Animation::PeriodicTimer,
     Animation::Rotation<W>, Animation::Motion<W>, Animation::RandomWalk<W>,
-    Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusGenerate,
-    Animation::MobiusWarp, Animation::MobiusWarpCircular,
-    Animation::MobiusWarpLinked, Animation::MeshMorph,
+    Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarpEvolving,
+    Animation::MobiusWarp, Animation::MobiusWarpCircular, Animation::MeshMorph,
     Animation::PaletteAnimation, Animation::Ripple>;
 
 /**

@@ -327,8 +327,8 @@ struct Entry {
 };
 
 // Centralized Registry
-// Order: Platonic (0-4), Archimedean (5-17), Islamic (18+)
-static constexpr Entry registry[] = {
+// Order: Platonic (0-4), Archimedean (5-17)
+static constexpr Entry simple_registry[] = {
 
     // Platonic
     {"tetrahedron", Platonic::tetrahedron, Category::Simple},
@@ -356,9 +356,10 @@ static constexpr Entry registry[] = {
      Category::Simple},
     {"truncatedIcosidodecahedron", Archimedean::truncatedIcosidodecahedron,
      Category::Simple},
-    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::Simple},
+    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::Simple}};
 
-    // Islamic Star Patterns
+// Islamic Star Patterns
+static constexpr Entry islamic_registry[] = {
     {"truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59",
      IslamicStarPatterns::
          truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59,
@@ -407,25 +408,42 @@ static constexpr Entry registry[] = {
      IslamicStarPatterns::icosahedron_snub_canonicalize_truncate033_hankin62,
      Category::Complex}};
 
-static constexpr int NUM_ENTRIES = sizeof(registry) / sizeof(registry[0]);
+static constexpr int NUM_ENTRIES =
+    sizeof(simple_registry) / sizeof(simple_registry[0]) +
+    sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
 namespace Collections {
-static constexpr const Entry *simple_solids = &registry[0];
-static constexpr int num_simple_solids = 18;
-static constexpr const Entry *islamic_solids = &registry[18];
-static constexpr int num_islamic_solids = 13;
+static constexpr const Entry *simple_solids = simple_registry;
+static constexpr int num_simple_solids =
+    sizeof(simple_registry) / sizeof(simple_registry[0]);
+static constexpr const Entry *islamic_solids = islamic_registry;
+static constexpr int num_islamic_solids =
+    sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 } // namespace Collections
 
 // Helper matching JS Solids.get()
-inline PolyMesh get(int index) {
-  if (index >= 0 && index < NUM_ENTRIES) {
-    return registry[index].generate();
+inline const Entry &get_entry(int index) {
+  if (index < 0 || index >= NUM_ENTRIES) {
+    // Fallback if out of bounds (should not happen with correct logic)
+    return simple_registry[3]; // Dodecahedron
   }
-  return Platonic::dodecahedron(); // Fallback
+
+  if (index < Collections::num_simple_solids) {
+    return simple_registry[index];
+  } else {
+    return islamic_registry[index - Collections::num_simple_solids];
+  }
 }
 
+inline PolyMesh get(int index) { return get_entry(index).generate(); }
+
 inline PolyMesh get_by_name(const std::string &name) {
-  for (const auto &entry : registry) {
+  for (const auto &entry : simple_registry) {
+    if (name == entry.name) {
+      return entry.generate();
+    }
+  }
+  for (const auto &entry : islamic_registry) {
     if (name == entry.name) {
       return entry.generate();
     }

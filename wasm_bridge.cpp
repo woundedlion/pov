@@ -342,7 +342,7 @@ struct MeshOpsWrapper {
   static val getRegistry() {
     val registry = val::array();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      const auto &entry = Solids::registry[i];
+      const auto &entry = Solids::get_entry(i);
       val item = val::object();
       item.set("name", std::string(entry.name));
       item.set("category", entry.category == Solids::Category::Simple

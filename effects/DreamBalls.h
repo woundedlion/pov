@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include "../transformers.h"
+
 #include "../effects_engine.h"
 #include <vector>
 #include <map>
@@ -12,15 +14,8 @@
 
 template <int W, int H> class DreamBalls : public Effect {
 public:
-  enum class SolidType {
-    Rhombicuboctahedron,
-    Rhombicosidodecahedron,
-    TruncatedCuboctahedron,
-    Icosidodecahedron
-  };
-
   struct Params {
-    SolidType solid_type;
+    std::string solid_name;
     float num_copies;
     float offset_radius;
     float offset_speed;
@@ -34,8 +29,9 @@ public:
       : Effect(W, H),
         filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS),
                 Filter::Screen::AntiAlias<W, H>()),
-        slice_filter(filters) // Filters inherits Head (FilterOrientSlice)
-  {
+
+        slice_filter(filters), // Filters inherits Head (FilterOrientSlice)
+        mobius_gen(timeline) {
     persist_pixels = false;
 
     // Initialize Orientations
@@ -94,36 +90,29 @@ private:
 
   std::vector<PresetData> loaded_presets;
 
-  // Timeline
   Timeline<W> timeline;
 
-  // Slices
   std::vector<Orientation<W>> orientations;
   Orientation<W> global_orientation;
 
-  // Pipeline
   Pipeline<W, H, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
   std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
-
-  // Presets Definition
   std::vector<Params> presets;
-
-  // Parameter Pool
-  StaticCircularBuffer<MobiusParams, 16> mobius_pool;
+  MobiusWarpTransformer<W, 64> mobius_gen;
 
   AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },
                                          Palettes::bloodStream};
 
   void setup_presets() {
     // Define Params
-    presets.push_back({SolidType::Rhombicuboctahedron, 18.0f, 0.3f, 0.4f, 0.3f,
+    presets.push_back({"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
                        &bloodStreamFalloff, 0.7f});
-    presets.push_back({SolidType::Rhombicosidodecahedron, 6.0f, 0.05f, 1.0f,
-                       1.8f, &bloodStreamFalloff, 0.7f});
-    presets.push_back({SolidType::TruncatedCuboctahedron, 6.0f, 0.16f, 1.0f,
-                       2.0f, &Palettes::richSunset, 0.3f});
-    presets.push_back({SolidType::Icosidodecahedron, 10.0f, 0.16f, 1.0f, 0.5f,
+    presets.push_back({"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
+                       &bloodStreamFalloff, 0.7f});
+    presets.push_back({"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
+                       &Palettes::richSunset, 0.3f});
+    presets.push_back({"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
                        &Palettes::lavenderLake, 0.3f});
 
     // Pre-load Geometry
@@ -132,21 +121,7 @@ private:
     for (const auto &p : presets) {
       loaded_presets.emplace_back();
       auto &data = loaded_presets.back();
-      PolyMesh m;
-      switch (p.solid_type) {
-      case SolidType::Rhombicuboctahedron:
-        m = Solids::Archimedean::rhombicuboctahedron();
-        break;
-      case SolidType::Rhombicosidodecahedron:
-        m = Solids::Archimedean::rhombicosidodecahedron();
-        break;
-      case SolidType::TruncatedCuboctahedron:
-        m = Solids::Archimedean::truncatedCuboctahedron();
-        break;
-      case SolidType::Icosidodecahedron:
-        m = Solids::Archimedean::icosidodecahedron();
-        break;
-      }
+      PolyMesh m = Solids::get_by_name(p.solid_name);
 
       // Store Verts
       data.mesh_state.vertices = m.vertices;
@@ -175,22 +150,20 @@ private:
     params = presets[safe_idx];
     Params instance_params = presets[safe_idx];
     const PresetData *preset_ptr = &loaded_presets[safe_idx];
-    MobiusParams &mobius = mobius_pool.emplace_back();
-    mobius = MobiusParams();
+    int period = 288;
+    mobius_gen.spawn(0, this->params.warp_scale, period, true);
 
-    timeline.add(0, Animation::MobiusWarpLinked(mobius, this->params.warp_scale,
-                                                200, true));
-    MobiusParams *mobius_ptr = &mobius;
-
-    auto draw_fn = [this, preset_ptr, mobius_ptr,
-                    instance_params](Canvas &canvas, float opacity) {
+    auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
+                                                       float opacity) {
       MeshState target_mesh = preset_ptr->mesh_state;
       this->draw_scene(canvas, instance_params, opacity, preset_ptr->mesh_state,
-                       target_mesh, preset_ptr->tangents, *mobius_ptr);
+                       target_mesh, preset_ptr->tangents);
     };
 
-    timeline.add(0, Animation::Sprite(draw_fn, 320, 32, ease_mid, 32, ease_mid))
-        .add(320 - 32,
+    timeline
+        .add(0, Animation::Sprite(draw_fn, 320, 32, ease_in_out_sin, 32,
+                                  ease_in_out_sin))
+        .add(period,
              Animation::PeriodicTimer(
                  0, [this, idx](Canvas &c) { this->spawn_sprite(idx + 1); },
                  false));
@@ -220,11 +193,10 @@ private:
 
   void draw_scene(Canvas &canvas, const Params &p, float opacity,
                   const MeshState &base, MeshState &target,
-                  const std::vector<Tangent> &tangents,
-                  const MobiusParams &m_params) {
+                  const std::vector<Tangent> &tangents) {
 
     auto vertex_shader = [&](Fragment &f) {
-      f.pos = mobius_transform(f.pos, m_params);
+      f.pos = mobius_gen.transform(f.pos);
       f.pos = global_orientation.orient(f.pos);
     };
 
