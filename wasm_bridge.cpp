@@ -333,6 +333,9 @@ struct MeshOpsWrapper {
   MeshOpsWrapper hankin_rad(float radians) const {
     return MeshOpsWrapper(MeshOps::hankin(mesh, radians));
   }
+  MeshOpsWrapper canonicalize(int iterations) const {
+    return MeshOpsWrapper(MeshOps::canonicalize(mesh, iterations));
+  }
 };
 
 // Expose to JavaScript
@@ -365,7 +368,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("dual", &MeshOpsWrapper::dual)
       .function("truncate", &MeshOpsWrapper::truncate)
       .function("expand", &MeshOpsWrapper::expand)
-      .function("hankin", &MeshOpsWrapper::hankin_rad);
+      .function("hankin", &MeshOpsWrapper::hankin_rad)
+      .function("canonicalize", &MeshOpsWrapper::canonicalize);
 
   register_vector<float>("VectorFloat");
   register_vector<int>("VectorInt");

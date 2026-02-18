@@ -2078,4 +2078,5 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh) {
 
   return faceColorIndices;
 }
+
 } // namespace MeshOps

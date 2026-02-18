@@ -177,8 +177,8 @@ inline PolyMesh icosahedron() { return to_polymesh<Icosahedron>(); }
 } // namespace Platonic
 
 namespace Archimedean {
-using namespace MeshOps;
 using namespace Platonic;
+using namespace MeshOps;
 
 inline PolyMesh truncatedTetrahedron() {
   return truncate(tetrahedron(), 1.0f / 3.0f);
@@ -216,9 +216,9 @@ inline PolyMesh snubDodecahedron() {
 } // namespace Archimedean
 
 namespace IslamicStarPatterns {
-using namespace MeshOps;
 using namespace Platonic;
 using namespace Archimedean;
+using namespace MeshOps;
 
 static constexpr float D2R = PI_F / 180.0f;
 
@@ -289,6 +289,12 @@ inline PolyMesh dodecahedron_hk72_ambo_dual_hk20() {
 inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual() {
   return dual(ambo(truncate(truncatedIcosahedron(), 50.0f * D2R)));
 }
+
+inline PolyMesh icosahedron_snub_canonicalize_truncate033_hankin62() {
+  return hankin(truncate(canonicalize(snub(icosahedron())), 0.33f),
+                62.0f * D2R);
+}
+
 } // namespace IslamicStarPatterns
 
 // Helper matching JS Solids.get()
@@ -407,7 +413,8 @@ inline PolyMesh get_by_name(const std::string &name) {
     return dodecahedron_hk72_ambo_dual_hk20();
   if (name == "truncatedIcosahedron_truncate05_ambo_dual")
     return truncatedIcosahedron_truncate05_ambo_dual();
-
+  if (name == "icosahedron_snub_canonicalize_truncate033_hankin62")
+    return icosahedron_snub_canonicalize_truncate033_hankin62();
   return cube(); // Fallback
 }
 } // namespace Solids
