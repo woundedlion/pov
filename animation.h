@@ -1194,11 +1194,6 @@ struct MorphBuffer {
   std::vector<MorphPath> source_paths;
   // Paths for Dest -> Source
   std::vector<MorphPath> dest_paths;
-
-  void load_dest(const PolyMesh &poly) {
-    // Helper to load destination from PolyMesh if needed
-    // For now, assuming manual population or via MeshMorph init
-  }
 };
 
 /*
@@ -1490,6 +1485,43 @@ private:
   float peak_amplitude;
 };
 
+/**
+ * @brief Animates the Mobius parameters for a warping effect pulling the poles
+ * together, using a referenced scale for dynamic control.
+ */
+class MobiusWarpLinked : public Base<MobiusWarpLinked> {
+public:
+  /**
+   * @brief Constructs a MobiusWarpLinked animation.
+   * @param params Reference to the MobiusParams to animate.
+   * @param scale Reference to the magnitude of the warp effect.
+   * @param duration Duration of the warp.
+   * @param repeat Whether to repeat.
+   * @param easing The easing function to use (default: ease_in_out_sin).
+   */
+  MobiusWarpLinked(MobiusParams &params, const float &scale, int duration,
+                   bool repeat = true,
+                   std::function<float(float)> easing = ease_in_out_sin)
+      : Base(duration, repeat), params(params), scale(scale), easing(easing) {}
+
+  /**
+   * @brief Steps the animation, updating param b.
+   */
+  void step(Canvas &canvas) {
+    Base::step(canvas);
+    float t_norm = static_cast<float>(t) / duration;
+    float progress = easing(std::clamp(t_norm, 0.0f, 1.0f));
+    float angle = progress * 2 * PI_F;
+    params.get().bRe = scale.get() * (cosf(angle) - 1.0f);
+    params.get().bIm = scale.get() * sinf(angle);
+  }
+
+private:
+  std::reference_wrapper<MobiusParams> params;
+  std::reference_wrapper<const float> scale;
+  std::function<float(float)> easing;
+};
+
 } // namespace Animation
 
 template <int W>
@@ -1498,7 +1530,8 @@ using AnimationVariant = std::variant<
     Animation::Mutation, Animation::RandomTimer, Animation::PeriodicTimer,
     Animation::Rotation<W>, Animation::Motion<W>, Animation::RandomWalk<W>,
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusGenerate,
-    Animation::MobiusWarp, Animation::MobiusWarpCircular, Animation::MeshMorph,
+    Animation::MobiusWarp, Animation::MobiusWarpCircular,
+    Animation::MobiusWarpLinked, Animation::MeshMorph,
     Animation::PaletteAnimation, Animation::Ripple>;
 
 /**

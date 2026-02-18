@@ -16,6 +16,7 @@ template <int W, int H> class IslamicStars : public Effect {
 
 public:
   enum class SolidType {
+    Icosahedron_Snub_Canonicalize_Truncate033_Hankin62,
     Icosahedron_Hk59_Bitruncate033,
     Octahedron_Hk17_Ambo_Hk72,
     Icosahedron_Kis_Gyro,
@@ -104,7 +105,8 @@ private:
     auto faceIndices = MeshOps::classify_faces_by_topology(mesh);
 
     // Log Shape Name
-    const char *names[] = {"Icosahedron_Hk59_Bitruncate033",
+    const char *names[] = {"icosahedron_snub_canonicalize_truncate033_hankin62",
+                           "Icosahedron_Hk59_Bitruncate033",
                            "Octahedron_Hk17_Ambo_Hk72",
                            "Icosahedron_Kis_Gyro",
                            "TruncatedIcosidodecahedron_Truncate05_Ambo_Dual",
@@ -218,6 +220,9 @@ private:
     case SolidType::TruncatedIcosahedron_Truncate05_Ambo_Dual:
       return Solids::IslamicStarPatterns::
           truncatedIcosahedron_truncate05_ambo_dual();
+    case SolidType::Icosahedron_Snub_Canonicalize_Truncate033_Hankin62:
+      return Solids::IslamicStarPatterns::
+          icosahedron_snub_canonicalize_truncate033_hankin62();
     default:
       return Solids::Platonic::dodecahedron();
     }
@@ -226,6 +231,6 @@ private:
   struct Params {
     float duration = 96.0f;
     float fade = 32.0f;
-    int burst_size = 3;
+    int burst_size = 4;
   } params;
 };
