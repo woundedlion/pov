@@ -11,14 +11,16 @@
 template <int W, int H> class GnomonicStars : public Effect {
 public:
   GnomonicStars()
-      : Effect(W, H), orientation(), timeline(),
-        mobius_params(1, 0, 0, 0, 0, 0, 1, 0) {
+      : Effect(W, H), orientation(), timeline(), transformer(timeline) {
     registerParam("Points", &params.points, 100.0f, 2000.0f);
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
 
     this->persist_pixels = false;
-    timeline.add(0, Animation::MobiusGenerate(mobius_params, 0.5f, 0.05f));
+
+    // Spawn the evolving warp
+    transformer.spawn(0, 0.5f, 0.05f);
+
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, UP,
                         Animation::RandomWalk<W>::Options::Energetic()));
@@ -46,9 +48,8 @@ public:
     for (int i = 0; i < points; i++) {
       Vector v = fib_spiral(points, 0.0f, i);
 
-      if (enable_transform) {
-        v = gnomonic_mobius_transform(v, mobius_params);
-      }
+      // Apply Transformer
+      v = transformer.transform(v);
 
       // Orient the star position (using latest orientation)
       v = orientation.orient(v);
@@ -66,8 +67,7 @@ private:
   Timeline<W> timeline;
   Pipeline<W, H> filters;
 
-  MobiusParams mobius_params;
-  bool enable_transform = true;
+  MobiusWarpGnomonicTransformer<W, 1> transformer;
 
   struct Params {
     float points = 600.0f;

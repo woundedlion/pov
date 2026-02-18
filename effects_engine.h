@@ -35,4 +35,4 @@ template <int W> class Orientation;
 #include "solids.h"
 #include "palettes.h"
 
-#include "widgets.h"
+#include "transformers.h"

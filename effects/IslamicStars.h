@@ -29,9 +29,9 @@ public:
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP));
 
     // Init Ripple Defaults
-    ripple_gen.set_amplitude(0.5f);
-    ripple_gen.set_thickness(0.7f);
-    ripple_gen.set_decay(0.1f);
+    ripple_gen.params.amplitude = 0.5f;
+    ripple_gen.params.thickness = 0.7f;
+    ripple_gen.params.decay = 0.1f;
 
     // Ripple now and schedule more
     timeline.add(0, Animation::PeriodicTimer(
@@ -52,7 +52,7 @@ private:
   Orientation<W> orientation;
   Timeline<W> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  RippleGenerator<W, 32> ripple_gen;
+  RippleTransformer<W, 8> ripple_gen;
   float ripple_duration = 80.0f;
 
   MeshState poly_to_state(const PolyMesh &src) const {
@@ -78,7 +78,10 @@ private:
   void ripple(Canvas &canvas) {
     Vector origin = random_vector();
     for (int i = 0; i < params.burst_size; i++) {
-      ripple_gen.ripple(origin, static_cast<int>(ripple_duration), i * 16);
+      // Speed = PI / duration.
+      // Generic spawn: delay, center, speed, duration
+      ripple_gen.spawn(i * 16, origin, PI_F / ripple_duration,
+                       static_cast<int>(ripple_duration));
     }
   }
 
@@ -113,7 +116,7 @@ private:
           mesh_state.vertices; // Copy only vertices
       Quaternion q = orientation.get();
       for (auto &v : transformed_vertices) {
-        v = ripple_gen.apply(v);
+        v = ripple_gen.transform(v);
         v = rotate(v, q);
       }
 
