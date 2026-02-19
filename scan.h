@@ -63,7 +63,7 @@ struct Ring {
   float r_val;
   float alpha_angle; /**< The azimuth angle of the normal vector in the XZ
                         plane. */
-  const bool is_solid = false;
+  static constexpr bool is_solid = false;
 
   Ring(const Basis &b, float r, float th, float ph = 0)
       : basis(b), radius(r), thickness(th), phase(ph) {
@@ -98,7 +98,7 @@ struct Ring {
     float phi_min = 0, phi_max = PI_F;
 
     if (a1 > 0) {
-      float p1 = acosf(cosf(a1));
+      float p1 = a1;
       float p2 = acosf(cosf(a2));
       phi_min = std::min(p1, p2);
     }
@@ -243,7 +243,7 @@ struct DistortedRing {
   float r_val;
   float alpha_angle;
   float cos_max_limit, cos_min_limit;
-  const bool is_solid = false;
+  static constexpr bool is_solid = false;
 
   DistortedRing(const Basis &b, float r, float th,
                 std::function<float(float)> sf, float md, float ph)
@@ -398,7 +398,7 @@ template <typename A, typename B> struct Union {
   const A &a;
   const B &b;
   float thickness;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   Union(const A &shapeA, const B &shapeB)
       : a(shapeA), b(shapeB),
@@ -444,7 +444,7 @@ template <typename A, typename B> struct Subtract {
   const A &a;
   const B &b;
   float thickness;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   Subtract(const A &shapeA, const B &shapeB)
       : a(shapeA), b(shapeB), thickness(shapeA.thickness) {}
@@ -489,7 +489,7 @@ template <typename A, typename B> struct Intersection {
   const A &a;
   const B &b;
   float thickness;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   Intersection(const A &shapeA, const B &shapeB)
       : a(shapeA), b(shapeB),
@@ -603,7 +603,7 @@ struct Face {
   int y_min, y_max;
   std::span<std::pair<float, float>> intervals;
   bool full_width;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   Face(std::span<const Vector> vertices, std::span<const int> indices, float th,
        FaceScratchBuffer &scratch, int h_virt, int height)
