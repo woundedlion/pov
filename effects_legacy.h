@@ -1,15 +1,17 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #include "canvas.h"
 #include "rotate.h"
 #include "util.h"
+#include "led.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void trail_rainbow(CRGB& c, uint8_t hue_falloff = 32,
-  uint8_t dim_falloff = 32) {
+void trail_rainbow(CRGB &c, uint8_t hue_falloff = 32,
+                   uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
   p.s = 255;
   p.h += hue_falloff;
@@ -17,37 +19,35 @@ void trail_rainbow(CRGB& c, uint8_t hue_falloff = 32,
   c = p;
 }
 
-void trail_rainbow_lin(CRGB& c, uint8_t hue_falloff = 32,
-  uint8_t dim_falloff = 32) {
+void trail_rainbow_lin(CRGB &c, uint8_t hue_falloff = 32,
+                       uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
   p.s = 255;
   if (p.v < 128) {
     p.h += hue_falloff / 2;
     p.v = qsub8(p.v, dim_falloff / 2);
-  }
-  else {
+  } else {
     p.h += hue_falloff;
     p.v = qsub8(p.v, dim_falloff);
   }
   c = p;
 }
 
-void disintegrate(CHSV& p, int prob) {
+void disintegrate(CHSV &p, int prob) {
   if (random8() <= prob) {
     p = CHSV(p.h, p.s, 0);
   }
 }
 
 auto blend(float a) {
-  return [a](const CRGB& c1, const CRGB& c2) {
-    return CRGB(
-      qadd8(c1.r * (1 - a), c2.r * a),
-      qadd8(c1.g * (1 - a), c2.g * a),
-      qadd8(c1.b * (1 - a), c2.b * a));
-    };
+  return [a](const CRGB &c1, const CRGB &c2) {
+    return CRGB(qadd8(c1.r * (1 - a), c2.r * a),
+                qadd8(c1.g * (1 - a), c2.g * a),
+                qadd8(c1.b * (1 - a), c2.b * a));
+  };
 }
 
-void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
+void plot_aa(Canvas &cv, const float &x, const float &y, const CHSV &c) {
   int x_i = floor(x);
   int y_i = floor(y);
   float x_m = x - x_i;
@@ -59,21 +59,23 @@ void plot_aa(Canvas& cv, const float& x, const float& y, const CHSV& c) {
   cv(x_i, y_i) = blend(v)(cv(x_i, y_i), p);
 
   v = x_m * (1 - y_m);
-  cv((x_i + 1) % cv.width(), y_i) = blend(v)(cv((x_i + 1) % cv.width(), y_i), p);
+  cv((x_i + 1) % cv.width(), y_i) =
+      blend(v)(cv((x_i + 1) % cv.width(), y_i), p);
 
   if (y_i < cv.height() - 1) {
     v = (1 - x_m) * y_m;
     cv(x_i, y_i + 1) = blend(v)(cv(x_i, y_i + 1), p);
 
     v = x_m * y_m;
-    cv((x_i + 1) % cv.width(), y_i + 1) = blend(v)(cv((x_i + 1) % cv.width(), y_i + 1), p);
+    cv((x_i + 1) % cv.width(), y_i + 1) =
+        blend(v)(cv((x_i + 1) % cv.width(), y_i + 1), p);
   }
 }
 
 class PollingRandomTimer {
 public:
   PollingRandomTimer(uint32_t min_ms, uint32_t max_ms)
-    : min_ms(min_ms), max_ms(max_ms) {
+      : min_ms(min_ms), max_ms(max_ms) {
     randomSeed(analogRead(PIN_RANDOM));
     next = millis() + random(min_ms, max_ms);
   }
@@ -92,7 +94,6 @@ private:
   uint32_t next;
 };
 
-
 class ComplementaryColorSequence {
 public:
   ComplementaryColorSequence() : last(0, random(128, 255), 255) {}
@@ -102,8 +103,7 @@ public:
     if (random8() < 32) {
       last = CHSV(last.h + random(16, 32), random(128, 255), 255);
       return last;
-    }
-    else if (random8() < 64) {
+    } else if (random8() < 64) {
       last = CHSV(last.h - random(16, 32), random(128, 255), 255);
       return last;
     }
@@ -118,19 +118,11 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Oscillator
-{
+class Oscillator {
 public:
-
-  Oscillator(int min, int max, int end_delay = 0) :
-    t_(min),
-    min_(min),
-    max_(max),
-    end_delay_(end_delay),
-    end_count_(0),
-    dir_(1)
-  {
-  }
+  Oscillator(int min, int max, int end_delay = 0)
+      : t_(min), min_(min), max_(max), end_delay_(end_delay), end_count_(0),
+        dir_(1) {}
 
   int get() {
     int r = t_;
@@ -138,8 +130,7 @@ public:
       if (end_count_++ >= end_delay_) {
         dir_ = dir_ * -1;
         end_count_ = 0;
-      }
-      else {
+      } else {
         return r;
       }
     }
@@ -151,7 +142,6 @@ public:
   void set_delay(int d) { end_delay_ = d; }
 
 private:
-
   int t_;
   int min_;
   int max_;
@@ -160,8 +150,7 @@ private:
   int dir_;
 };
 
-template <int W, int H>
-class ChainWiggle : public Effect {
+template <int W, int H> class ChainWiggle : public Effect {
 public:
   ChainWiggle() : Effect(W, H), osc(1, 4) {
     for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
@@ -195,7 +184,7 @@ private:
 
     Dot(int x, int y, int v) : x(x), y(y), v(v), hue(HUE_RED) {}
 
-    Dot(const Dot& d) : x(d.x), y(d.y), v(d.v), hue(d.hue) {}
+    Dot(const Dot &d) : x(d.x), y(d.y), v(d.v), hue(d.hue) {}
 
     int x;
     int y;
@@ -203,7 +192,7 @@ private:
     uint8_t hue;
   };
 
-  void replicate(Canvas& c, int x, int y, const CHSV& color, int n) {
+  void replicate(Canvas &c, int x, int y, const CHSV &color, int n) {
     for (int i = 0; i < W; i += W / n) {
       c(wrap(x + i, W), y) = color;
     }
@@ -220,9 +209,9 @@ private:
 
   int dir(int v) { return v < 0 ? -1 : 1; }
 
-  void reverse(Dot* dots, int y) { dots[y].v *= -1; }
+  void reverse(Dot *dots, int y) { dots[y].v *= -1; }
 
-  void pull(Canvas& c, Dot* dots, int y, int v) {
+  void pull(Canvas &c, Dot *dots, int y, int v) {
     dots[y].v = v;
     move(c, dots[y]);
     for (int i = y - 1; i >= 0; --i) {
@@ -233,7 +222,7 @@ private:
     }
   }
 
-  void drag(Canvas& c, Dot& leader, Dot& follower) {
+  void drag(Canvas &c, Dot &leader, Dot &follower) {
     int dest = wrap(follower.x + follower.v, W);
     if (abs(distance(dest, leader.x, W)) > gap) {
       // Move to furthest extent based on leader's prior path
@@ -246,17 +235,17 @@ private:
       move(c, follower);
       // Adjust speed to match leader
       follower.v = leader.v;
-    }
-    else {
+    } else {
       move(c, follower);
     }
   }
 
-  void move(Canvas& c, Dot& dot) {
+  void move(Canvas &c, Dot &dot) {
     int dest = wrap(dot.x + dot.v, W);
     for (int i = dot.x;; i = wrap(i + dir(dot.v), W)) {
       replicate(c, i, dot.y, CHSV(dot.hue, 255, 255), replicas);
-      if (i == dest) break;
+      if (i == dest)
+        break;
     }
     dot.x = dest;
   }
@@ -268,8 +257,7 @@ private:
   int replicas = 2;
 };
 
-template <int W, int H>
-class RingTwist : public Effect {
+template <int W, int H> class RingTwist : public Effect {
 public:
   RingTwist() : Effect(W, H), seed_(CHSV(104, 0, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
@@ -283,7 +271,7 @@ public:
 
   bool show_bg() const { return false; }
 
-  const CRGB& get_pixel(int x, int y) const {
+  const CRGB &get_pixel(int x, int y) const {
     return Effect::get_pixel(wrap(x - pos_[y], W), y);
   }
 
@@ -307,15 +295,14 @@ public:
   }
 
 private:
-  void decay(CRGB& p) {
+  void decay(CRGB &p) {
     if (p == seed_) {
       auto c = rgb2hsv_approximate(p);
       c.h = seed_.h - 8;
       c.s = 255;
       c.v = qsub8(seed_.v, 24);
       p = c;
-    }
-    else {
+    } else {
       trail_rainbow(p, 8, 24);
     }
   }
@@ -351,7 +338,7 @@ private:
       dir_ = random(2) < 1 ? 1 : -1;
       leader_ = random(0, H);
       lead_length_ =
-        lead_lengths_[random(1, sizeof(lead_lengths_) / sizeof(int))];
+          lead_lengths_[random(1, sizeof(lead_lengths_) / sizeof(int))];
     }
   }
 
@@ -368,7 +355,7 @@ private:
     }
   }
 
-  void add_trail(Canvas& c, int y, int x, int dir) {
+  void add_trail(Canvas &c, int y, int x, int dir) {
     if (c(wrap(x + dir, W), y) == CRGB(0, 0, 0) || c(x, y) == seed_) {
       return;
     }
@@ -381,17 +368,16 @@ private:
   const CHSV seed_;
   const int COUNT_ = 2;
   const int STOP_TIMER_ = 15000;
-  int pos_[H] = { 0 };
+  int pos_[H] = {0};
   int leader_ = 0;
   int dir_ = 1;
   int stop_ = -1;
   int lead_length_ = 1;
-  int lead_lengths_[7] = { 1, 2, 3, 4, 6, 12, 16 };
-  Canvas* canvas_ = NULL;
+  int lead_lengths_[7] = {1, 2, 3, 4, 6, 12, 16};
+  Canvas *canvas_ = NULL;
 };
 
-template <int W, int H, uint8_t HUE>
-class TheMatrix : public Effect {
+template <int W, int H, uint8_t HUE> class TheMatrix : public Effect {
 public:
   TheMatrix() : Effect(W, H) {
     random16_add_entropy(random());
@@ -408,8 +394,8 @@ public:
         generate(x);
         for (int y = 0; y < H; ++y) {
           c(x, y) =
-            blend(CHSV(HUE + (3 * y), 255, 40),
-              CHSV(HUE + (3 * (H - 1 - y)), 255, 255), pixels_[x][y]);
+              blend(CHSV(HUE + (3 * y), 255, 40),
+                    CHSV(HUE + (3 * (H - 1 - y)), 255, 255), pixels_[x][y]);
         }
       }
     }
@@ -433,14 +419,13 @@ private:
   NoColorCorrection _;
 };
 
-template <int W, int H>
-class Curves : public Effect {
+template <int W, int H> class Curves : public Effect {
 public:
   Curves() : Effect(W, H) {
     fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
-      rgb2hsv_approximate(CRGB(6, 4, 47)),
-      rgb2hsv_approximate(CRGB(162, 84, 84)),
-      rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
+                        rgb2hsv_approximate(CRGB(6, 4, 47)),
+                        rgb2hsv_approximate(CRGB(162, 84, 84)),
+                        rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
   }
 
   bool show_bg() const { return false; }
@@ -468,7 +453,7 @@ public:
   }
 
 private:
-  void plot(Canvas& cv, int n, int d, int c, const CHSV& color) {
+  void plot(Canvas &cv, int n, int d, int c, const CHSV &color) {
     for (int y = 0; y < H; ++y) {
       cv(wrap(y * n / d + c, W), y) = color;
     }
@@ -483,8 +468,7 @@ private:
   NoTempCorrection _;
 };
 
-template <int W, int H>
-class StarsFade : public Effect {
+template <int W, int H> class StarsFade : public Effect {
 private:
   uint8_t hue_;
 
@@ -499,8 +483,7 @@ public:
       for (int y = 0; y < H; ++y) {
         if (c(x, y) != CRGB(0, 0, 0)) {
           trail_rainbow(c(x, y), 16, 32);
-        }
-        else if (random8() < 3) {
+        } else if (random8() < 3) {
           c(x, y) = CRGB(CHSV(hue_, 255, 255));
         }
       }
@@ -509,12 +492,10 @@ public:
   }
 };
 
-template <int W, int H, int SPREAD>
-class Spiral : public Effect {
+template <int W, int H, int SPREAD> class Spiral : public Effect {
 private:
   CHSVPalette16 palette_;
   NoTempCorrection _;
-
 
 public:
   Spiral() : Effect(W, H) {
@@ -530,8 +511,7 @@ public:
       for (int y = 0; y < H; ++y) {
         if ((x + y) % (SPREAD + 1) == 0) {
           c(x, y) = palette_[(x + y) % 16];
-        }
-        else {
+        } else {
           c(x, y) = CHSV(0, 0, 0);
         }
       }
@@ -539,8 +519,7 @@ public:
   }
 };
 
-template <int W, int H>
-class WaveTrails : public Effect {
+template <int W, int H> class WaveTrails : public Effect {
 public:
   WaveTrails() : Effect(W, H) {}
 
@@ -553,23 +532,22 @@ public:
         trail_rainbow(c(x, y), 5, 24);
       }
       c(x, beatsin16(5, H / 15, H * 14 / 15, 0, map(x, 0, W - 1, 0, 65535))) =
-        CHSV(HUE_BLUE, 100, 255);
+          CHSV(HUE_BLUE, 100, 255);
       c(x, beatsin16(5, 0, H - 1, 0, map(W - 1 - x, 0, W - 1, 0, 65535))) =
-        CHSV(HUE_GREEN, 100, 255);
+          CHSV(HUE_GREEN, 100, 255);
       c(x, beatsin16(5, 0, H - 1, 32767, map(W - 1 - x, 0, W - 1, 0, 65535))) =
-        CHSV(HUE_AQUA, 100, 255);
+          CHSV(HUE_AQUA, 100, 255);
     }
   }
 };
 
-template <int W, int H>
-class RingTrails : public Effect {
+template <int W, int H> class RingTrails : public Effect {
 public:
   RingTrails() : Effect(W, H), dot(0) {
     fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
-      rgb2hsv_approximate(CRGB(6, 4, 47)),
-      rgb2hsv_approximate(CRGB(162, 84, 84)),
-      rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
+                        rgb2hsv_approximate(CRGB(6, 4, 47)),
+                        rgb2hsv_approximate(CRGB(162, 84, 84)),
+                        rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
         ttl[x][y] = 0;
@@ -614,8 +592,7 @@ private:
   NoColorCorrection _;
 };
 
-template <int W, int H>
-class Kaleidoscope : public Effect {
+template <int W, int H> class Kaleidoscope : public Effect {
 public:
   Kaleidoscope() : Effect(W, H) {
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
@@ -637,9 +614,9 @@ public:
       uint8_t x2 = W - 1 - x;
       uint8_t y2 = H - 1 - y;
       c(x, y) =
-        palette_[addmod8(palette_offset_, i * (16 / counts_[count_]), 16)];
+          palette_[addmod8(palette_offset_, i * (16 / counts_[count_]), 16)];
       c(x2, y2) = palette_[addmod8(palette_offset_,
-        16 - (i * (16 / counts_[count_])), 16)];
+                                   16 - (i * (16 / counts_[count_])), 16)];
     }
 
     tx_ = addmod8(tx_, 2, W);
@@ -656,7 +633,7 @@ public:
   }
 
 private:
-  uint8_t counts_[9] = { 1, 2, 3, 4, 6, 8, 12, 16, 20 };
+  uint8_t counts_[9] = {1, 2, 3, 4, 6, 8, 12, 16, 20};
   uint8_t count_ = 0;
   uint8_t offset_ = W / counts_[count_];
   uint8_t tx_ = 0;
@@ -667,12 +644,9 @@ private:
   NoTempCorrection _;
 };
 
-template <int W, int H>
-class RingRotate : public Effect {
+template <int W, int H> class RingRotate : public Effect {
 public:
-  RingRotate() : Effect(W, H) {
-    fill_rainbow(pal.entries, 256, HUE_RED, 1);
-  }
+  RingRotate() : Effect(W, H) { fill_rainbow(pal.entries, 256, HUE_RED, 1); }
   bool show_bg() const { return false; }
 
   void draw_frame() {
@@ -683,7 +657,7 @@ public:
       }
     }
 
-    const float rings[] = { 4.5, 9.5, 15.5 };
+    const float rings[] = {4.5, 9.5, 15.5};
     for (size_t i = 0; i < sizeof(rings) / sizeof(float); ++i) {
       float y = rings[i];
       for (float x = 0; x < W; ++x) {
@@ -692,8 +666,7 @@ public:
         if (i % 2 == 0) {
           dir = 0;
           p = projection.project(p);
-        }
-        else {
+        } else {
           p = projection2.project(p);
         }
         CHSV color = pal[(static_cast<uint8_t>(x) + c_off * dir) * 255 / W];
@@ -706,10 +679,10 @@ public:
     }
 
     projection.rotate(rotations[r_off][0][0], rotations[r_off][0][1],
-      rotations[r_off][0][2]);
+                      rotations[r_off][0][2]);
 
     projection2.rotate(rotations[r_off][1][0], rotations[r_off][1][1],
-      rotations[r_off][1][2]);
+                       rotations[r_off][1][2]);
 
     c_off += 2;
   }
@@ -749,11 +722,9 @@ public:
       for (int y = 0; y < H; ++y) {
         if (pixels_[x][y] & BURN) {
           c(x, y) = CHSV(HUE + (3 * y), 255, 255);
-        }
-        else if (pixels_[x][y] == INIT) {
+        } else if (pixels_[x][y] == INIT) {
           c(x, y) = CHSV(HUE + (3 * y), 255, 40);
-        }
-        else {
+        } else {
           c(x, y) = CHSV(0, 0, 0);
         }
       }
@@ -775,7 +746,7 @@ private:
 
   void burnout() {
     if (burn_idx_ < W * H) {
-      *((uint8_t*)pixels_ + burn_[burn_idx_++]) = BURN;
+      *((uint8_t *)pixels_ + burn_[burn_idx_++]) = BURN;
     }
   }
 
@@ -791,13 +762,13 @@ private:
     }
   }
 
-  void fill_seq(short* arr, int len) {
+  void fill_seq(short *arr, int len) {
     for (int i = 0; i < len; ++i) {
       arr[i] = i;
     }
   }
 
-  void shuffle(short* arr, int len) {
+  void shuffle(short *arr, int len) {
     for (int i = 0; i < len - 1; ++i) {
       short j = random(i, len);
       short temp = arr[i];
@@ -844,8 +815,8 @@ private:
   inline void rise(uint8_t x) {
     for (uint8_t y = H - 1; y >= 2; --y) {
       heat_[x][H - 1 - y] = (heat_[x][H - 1 - y + 1] + heat_[x][H - 1 - y + 2] +
-        heat_[x][H - 1 - y + 2]) /
-        3;
+                             heat_[x][H - 1 - y + 2]) /
+                            3;
     }
   }
 
@@ -859,8 +830,7 @@ private:
   uint8_t heat_[W][H];
 };
 
-template <int W, int H>
-class DotTrails : public Effect {
+template <int W, int H> class DotTrails : public Effect {
 public:
   DotTrails() : Effect(W, H) {
     random16_add_entropy(random());
@@ -880,13 +850,11 @@ public:
         if (dots[y].x == x) {
           if (dots[y].drawn) {
             dots[y].drawn = false;
-          }
-          else {
+          } else {
             c(x, y) = CHSV(hue - 12, 0, 255);
             move(dots[y]);
           }
-        }
-        else {
+        } else {
           trail_rainbow(c(x, y), 12, 12);
         }
       }
@@ -905,16 +873,14 @@ private:
     bool drawn;
   };
 
-  void move(Dot& dot) {
+  void move(Dot &dot) {
     if (dot.ttl == 0) {
       dot.x = random8() % W;
       dot.ttl = (random8() % 30) + 20;
-    }
-    else if (dot.rev) {
+    } else if (dot.rev) {
       dot.x = (dot.x - 1 + W) % W;
       dot.ttl--;
-    }
-    else {
+    } else {
       dot.x = addmod8(dot.x, 1, W);
       dot.drawn = true;
       dot.ttl--;
@@ -926,8 +892,7 @@ private:
   NoTempCorrection _;
 };
 
-template <int W, int H>
-class Spinner : public Effect {
+template <int W, int H> class Spinner : public Effect {
 public:
   Spinner() : Effect(W, H), spin_timer_(62), pos_(0) {
     memset(palette1_, 0, sizeof(palette1_));
@@ -947,16 +912,13 @@ public:
         if (!swap) {
           if (y % (p[i] * 2) < p[i]) {
             c(x, y) = palette1_[addmod8(x, pos_, 16)];
-          }
-          else {
+          } else {
             c(x, y) = palette2_[(uint8_t)(pos_ - x) % 16];
           }
-        }
-        else {
+        } else {
           if (y % (p[i] * 2) < p[i]) {
             c(x, y) = palette2_[(uint8_t)(pos_ - x) % 16];
-          }
-          else {
+          } else {
             c(x, y) = palette1_[addmod8(x, pos_, 16)];
           }
         }
@@ -968,8 +930,7 @@ public:
     EVERY_N_SECONDS(5) {
       if ((!swap && (i == sizeof(p) - 1)) || (swap && (i == 0))) {
         swap = !swap;
-      }
-      else {
+      } else {
         i += swap ? -1 : 1;
       }
     }
@@ -981,7 +942,7 @@ private:
   CEveryNMillis spin_timer_;
   uint8_t pos_;
   bool swap = false;
-  uint8_t p[5] = { 20, 10, 4, 2, 1 };
+  uint8_t p[5] = {20, 10, 4, 2, 1};
   uint8_t i = 0;
   NoColorCorrection _;
 };

@@ -636,6 +636,45 @@ private:
 };
 
 /**
+ * @brief An animation that interpolates between states using a captured
+ * closure. Useful for structurally complex parameters.
+ */
+class Lerp : public Base<Lerp> {
+public:
+  using UpdateFn = std::function<void(float, bool)>;
+
+  /**
+   * @brief Constructs a Lerp animation.
+   * @param subject Reference to the object being animated.
+   * @param target The target state to reach.
+   * @param duration Duration in frames.
+   * @param easing_fn Easing function.
+   */
+  template <typename T, typename Easing>
+  Lerp(T &subject, const T &target, int duration, Easing easing_fn)
+      : Base(duration, false), fn([&subject, target, start = T{}, easing_fn](
+                                      float progress, bool init) mutable {
+          if (init) {
+            start = subject;
+          }
+          subject.lerp(start, target, easing_fn(progress));
+        }) {}
+
+  // Generic constructor for arbitrary logic
+  Lerp(UpdateFn fn, int duration) : Base(duration, false), fn(fn) {}
+
+  void step(Canvas &canvas) {
+    bool init = (t == 0);
+    Base::step(canvas);
+    float progress = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    fn(progress, init);
+  }
+
+private:
+  UpdateFn fn;
+};
+
+/**
  * @brief An animation that draws a sprite while managing its fade-in/out
  * effects.
  */
@@ -1379,10 +1418,11 @@ public:
     params.get().dIm = base.dIm + cosf(time * 1.09f + phases[7]) * s;
   }
 
+  float speed;
+  float scale;
+
 private:
   std::reference_wrapper<MobiusParams> params;
-  float scale;
-  float speed;
   MobiusParams base;
   std::array<float, 8> phases;
 };
@@ -1418,6 +1458,18 @@ public:
 
 private:
   std::reference_wrapper<PaletteModifier> modifier;
+};
+
+/**
+ * @brief Parameters for a ripple wave effect.
+ */
+struct RippleParams {
+  Vector center;         /**< Center point of the ripple source. */
+  float amplitude;       /**< Current height of the wave. */
+  float phase;           /**< Current phase offset (time). */
+  float frequency{20.0}; /**< Spatial frequency of the wave. */
+  float decay{5.0};      /**< Spatial decay rate. */
+  float thickness{1.0f}; /**< Thickness of the ripple. */
 };
 
 /**
@@ -1480,6 +1532,22 @@ private:
  */
 
 /**
+ * @brief Parameters for noise transformation.
+ */
+struct NoiseParams {
+  float amplitude = 0.5f;
+  float speed = 1.0f;
+  float frequency = 0.125f;
+  float time = 0.0f;
+  mutable FastNoiseLite noise; // Mutable to allow lazy init/updates
+
+  NoiseParams() { noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2); }
+
+  // Helper to ensure frequency is synced
+  void sync() const { noise.SetFrequency(frequency); }
+};
+
+/**
  * @brief Animates noise parameters by updating time.
  */
 class Noise : public Base<Noise> {
@@ -1505,7 +1573,8 @@ using AnimationVariant = std::variant<
     Animation::Rotation<W>, Animation::Motion<W>, Animation::RandomWalk<W>,
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarpEvolving,
     Animation::MobiusWarp, Animation::MobiusWarpCircular, Animation::MeshMorph,
-    Animation::PaletteAnimation, Animation::Ripple, Animation::Noise>;
+    Animation::PaletteAnimation, Animation::Ripple, Animation::Noise,
+    Animation::Lerp>;
 
 /**
  * @brief Structure linking an animation variant with its starting time.
@@ -1632,7 +1701,6 @@ public:
 
   int t = 0; /**< The current global frame count. */
 
-private:
   static constexpr int MAX_EVENTS =
       CAPACITY; /**< Maximum number of concurrent animation events. */
   std::array<TimelineEvent<W>, MAX_EVENTS>

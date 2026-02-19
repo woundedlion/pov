@@ -41,8 +41,9 @@ public:
     setup_presets();
 
     // Initialize default params
-    if (!presets.empty())
-      params = presets[0];
+    // if (!presets.empty()) params = presets[0];
+    // replacing with preset_manager
+    params = preset_manager.get();
 
     registerParam("Copies", &params.num_copies, 1.0f, 20.0f);
     registerParam("Radius", &params.offset_radius, 0.0f, 1.0f);
@@ -98,27 +99,32 @@ private:
   Pipeline<W, H, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
   std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
-  std::vector<Params> presets;
+  std::vector<Params> presets; // DELETE
   MobiusWarpTransformer<W, 64> mobius_gen;
 
   AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },
                                          Palettes::bloodStream};
 
+  Presets<Params> preset_manager = {{"rhombicuboctahedron",
+                                     {"rhombicuboctahedron", 18.0f, 0.3f, 0.4f,
+                                      0.3f, &bloodStreamFalloff, 0.7f}},
+                                    {"rhombicosidodecahedron",
+                                     {"rhombicosidodecahedron", 6.0f, 0.05f,
+                                      1.0f, 1.8f, &bloodStreamFalloff, 0.7f}},
+                                    {"truncatedCuboctahedron",
+                                     {"truncatedCuboctahedron", 6.0f, 0.16f,
+                                      1.0f, 2.0f, &Palettes::richSunset, 0.3f}},
+                                    {"icosidodecahedron",
+                                     {"icosidodecahedron", 10.0f, 0.16f, 1.0f,
+                                      0.5f, &Palettes::lavenderLake, 0.3f}}};
+
   void setup_presets() {
-    // Define Params
-    presets.push_back({"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
-                       &bloodStreamFalloff, 0.7f});
-    presets.push_back({"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-                       &bloodStreamFalloff, 0.7f});
-    presets.push_back({"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-                       &Palettes::richSunset, 0.3f});
-    presets.push_back({"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-                       &Palettes::lavenderLake, 0.3f});
-
     // Pre-load Geometry
-    loaded_presets.reserve(presets.size());
+    const auto &entries = preset_manager.get_entries();
+    loaded_presets.reserve(entries.size());
 
-    for (const auto &p : presets) {
+    for (const auto &entry : entries) {
+      const auto &p = entry.params;
       loaded_presets.emplace_back();
       auto &data = loaded_presets.back();
       PolyMesh m = Solids::get_by_name(p.solid_name);
@@ -146,9 +152,13 @@ private:
   }
 
   void spawn_sprite(int idx) {
-    int safe_idx = idx % presets.size();
-    params = presets[safe_idx];
-    Params instance_params = presets[safe_idx];
+    auto &entries = preset_manager.get_entries();
+    int safe_idx = idx % entries.size();
+
+    // safe_idx corresponds to loaded_presets index too since we iterated
+    // entries
+    params = entries[safe_idx].params;
+    Params instance_params = entries[safe_idx].params;
     const PresetData *preset_ptr = &loaded_presets[safe_idx];
     int period = 288;
     mobius_gen.spawn(0, this->params.warp_scale, period, true);
