@@ -874,8 +874,8 @@ private:
 
 class AlphaFalloffPalette : public Palette {
 public:
-  using FalloffFn = std::function<float(float)>;
-  AlphaFalloffPalette(FalloffFn fn, const Palette &source)
+  using FalloffFunction = float (*)(float);
+  AlphaFalloffPalette(FalloffFunction fn, const Palette &source)
       : fn(fn), source(source) {}
   Color4 get(float t) const override {
     Color4 c = source.get().get(t);
@@ -884,7 +884,7 @@ public:
   }
 
 private:
-  FalloffFn fn;
+  FalloffFunction fn;
   std::reference_wrapper<const Palette> source;
 };
 

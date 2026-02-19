@@ -229,7 +229,7 @@ private:
 
         Color4 c_final(color);
         c_final.alpha *= params.global_alpha * opacity;
-						auto shader = [c_final](const Vector& p, Fragment& f) {
+            auto shader = [c_final](const Vector& p, Fragment& f) {
               f.color = c_final;
             };
         Plot::Point::draw(filters, canvas, nodes[i], shader);

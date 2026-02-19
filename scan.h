@@ -1651,38 +1651,6 @@ struct Line {
   }
 };
 
-struct Multiline {
-  template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const auto &vertices,
-                   float thickness, FragmentShaderFn auto fragment_shader,
-                   bool closed = false, bool debug_bb = false) {
-    auto it = std::begin(vertices);
-    auto end = std::end(vertices);
-
-    if (it == end)
-      return;
-
-    Vector first = *it;
-    Vector prev = first;
-    ++it;
-
-    if (it == end)
-      return;
-
-    for (; it != end; ++it) {
-      const Vector &curr = *it;
-      Scan::Line::draw<W, H>(pipeline, canvas, prev, curr, thickness,
-                             fragment_shader, debug_bb);
-      prev = curr;
-    }
-
-    if (closed) {
-      Scan::Line::draw<W, H>(pipeline, canvas, prev, first, thickness,
-                             fragment_shader, debug_bb);
-    }
-  }
-};
-
 struct Ring {
   /**
    * @brief Draws a solid ring using SDF rasterization.

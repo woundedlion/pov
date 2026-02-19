@@ -11,97 +11,97 @@
 #include <stack>
 
 struct SphericalTurtle {
-    Vector pos;
-    Vector heading;
+  Vector pos;
+  Vector heading;
 
-    SphericalTurtle(Vector p, Vector h) : pos(p.normalize()), heading(h.normalize()) {}
+  SphericalTurtle(Vector p, Vector h) : pos(p.normalize()), heading(h.normalize()) {}
 
-    // Move forward by dist radians
-    std::pair<Vector, Vector> forward(float dist) {
-        Vector axis = cross(pos, heading).normalize();
-        Quaternion rot = make_rotation(axis, dist);
+  // Move forward by dist radians
+  std::pair<Vector, Vector> forward(float dist) {
+    Vector axis = cross(pos, heading).normalize();
+    Quaternion rot = make_rotation(axis, dist);
         
-        Vector start = pos;
-        pos = rotate(pos, rot);
-        heading = rotate(heading, rot);
+    Vector start = pos;
+    pos = rotate(pos, rot);
+    heading = rotate(heading, rot);
         
-        return {start, pos};
-    }
+    return {start, pos};
+  }
 
-    // Turn by angle radians around local normal (pos)
-    void turn(float angle) {
-        Quaternion rot = make_rotation(pos, angle);
-        heading = rotate(heading, rot);
-    }
+  // Turn by angle radians around local normal (pos)
+  void turn(float angle) {
+    Quaternion rot = make_rotation(pos, angle);
+    heading = rotate(heading, rot);
+  }
 };
 
 template <int W, int H>
 class LSystem : public Effect {
 public:
-    struct Ruleset {
-        std::string name;
-        std::string axiom;
-        std::map<char, std::string> rules;
-        float angle; // Degrees
-        float step;
-        int iterations;
-    };
+  struct Ruleset {
+    std::string name;
+    std::string axiom;
+    std::map<char, std::string> rules;
+    float angle; // Degrees
+    float step;
+    int iterations;
+  };
 
-    LSystem() : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
-        registerParam("Rule", &params.rule_idx, 0.0f, 2.0f);
-        registerParam("Angle", &params.angle_mod, -15.0f, 15.0f);
-        registerParam("Step", &params.step_mod, 0.5f, 2.0f);
+  LSystem() : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
+    registerParam("Rule", &params.rule_idx, 0.0f, 2.0f);
+    registerParam("Angle", &params.angle_mod, -15.0f, 15.0f);
+    registerParam("Step", &params.step_mod, 0.5f, 2.0f);
 
-        persist_pixels = false;
-        setup_rules();
-        set_ruleset(0); // Tree
-        timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400, ease_mid, true));
-    }
+    persist_pixels = false;
+    setup_rules();
+    set_ruleset(0); // Tree
+    timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400, ease_mid, true));
+  }
     
-    bool show_bg() const override { return false; }
+  bool show_bg() const override { return false; }
 
-    void draw_frame() override {
-        Canvas canvas(*this);
-        timeline.step(canvas);
+  void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
         
-        // Check for ruleset change
-        static int last_rule = -1;
-        if ((int)params.rule_idx != last_rule) {
-            set_ruleset((int)params.rule_idx);
-            last_rule = (int)params.rule_idx;
-        }
+    // Check for ruleset change
+    static int last_rule = -1;
+    if ((int)params.rule_idx != last_rule) {
+      set_ruleset((int)params.rule_idx);
+      last_rule = (int)params.rule_idx;
+    }
 
-        // Check for live parameter updates (requires regeneration if changed)
-        // Optimization: only regenerate if changed? For now, we regenerate or check diff
-        // But regenerate() is heavy? L-System string gen is fast for small N. Geometry gen is okay.
-        // Let's check diffs.
-        static float last_angle = 0;
-        static float last_step = 0;
-        if (std::abs(params.angle_mod - last_angle) > 0.01f || std::abs(params.step_mod - last_step) > 0.01f) {
-            regenerate();
-            last_angle = params.angle_mod;
-            last_step = params.step_mod;
-        }
+    // Check for live parameter updates (requires regeneration if changed)
+    // Optimization: only regenerate if changed? For now, we regenerate or check diff
+    // But regenerate() is heavy? L-System string gen is fast for small N. Geometry gen is okay.
+    // Let's check diffs.
+    static float last_angle = 0;
+    static float last_step = 0;
+    if (std::abs(params.angle_mod - last_angle) > 0.01f || std::abs(params.step_mod - last_step) > 0.01f) {
+      regenerate();
+      last_angle = params.angle_mod;
+      last_step = params.step_mod;
+    }
         
-        for (const auto& seg : segments) {
-            // Color by y position
-            auto fragment_shader = [&](const Vector& v, Fragment& f) {
-                f.color = palette.get((v.j + 1.0f) * 0.5f);
-            };
-            Plot::Line::draw<W, H>(filters, canvas, seg.first, seg.second, fragment_shader);
-        }
+    for (const auto& seg : segments) {
+      // Color by y position
+      auto fragment_shader = [&](const Vector& v, Fragment& f) {
+        f.color = palette.get((v.j + 1.0f) * 0.5f);
+      };
+      Plot::Line::draw<W, H>(filters, canvas, seg.first, seg.second, fragment_shader);
     }
+  }
     
-    // Params
-    void set_ruleset(int idx) {
-        if (idx < 0 || static_cast<size_t>(idx) >= rulesets.size()) return;
-        current_ruleset = rulesets[idx]; // Copy
-        regenerate();
-    }
+  // Params
+  void set_ruleset(int idx) {
+    if (idx < 0 || static_cast<size_t>(idx) >= rulesets.size()) return;
+    current_ruleset = rulesets[idx]; // Copy
+    regenerate();
+  }
     
-    void regenerate() {
-        std::string s = current_ruleset.axiom;
-        for (int i = 0; i < current_ruleset.iterations; ++i) {
+  void regenerate() {
+    std::string s = current_ruleset.axiom;
+    for (int i = 0; i < current_ruleset.iterations; ++i) {
              std::string next_s;
              for (char c : s) {
                  if (current_ruleset.rules.count(c)) {
@@ -111,69 +111,69 @@ public:
                  }
              }
              s = next_s;
-        }
-        
-        float step = current_ruleset.step * params.step_mod;
-        float angle = (current_ruleset.angle + params.angle_mod) * PI_F / 180.0f;
-        
-        Vector pos(0, -1, 0);
-        Vector heading(0, 0, 1);
-        
-        SphericalTurtle turtle(pos, heading);
-        std::stack<SphericalTurtle> stack;
-        segments.clear();
-        
-        for (char c : s) {
-            if (c == 'F') {
-                segments.push_back(turtle.forward(step));
-            } else if (c == '+') {
-                turtle.turn(angle);
-            } else if (c == '-') {
-                turtle.turn(-angle);
-            } else if (c == '[') {
-                stack.push(turtle);
-            } else if (c == ']') {
-                if (!stack.empty()) {
-                    turtle = stack.top();
-                    stack.pop();
-                }
-            }
-        }
     }
+        
+    float step = current_ruleset.step * params.step_mod;
+    float angle = (current_ruleset.angle + params.angle_mod) * PI_F / 180.0f;
+        
+    Vector pos(0, -1, 0);
+    Vector heading(0, 0, 1);
+        
+    SphericalTurtle turtle(pos, heading);
+    std::stack<SphericalTurtle> stack;
+    segments.clear();
+        
+    for (char c : s) {
+      if (c == 'F') {
+        segments.push_back(turtle.forward(step));
+      } else if (c == '+') {
+        turtle.turn(angle);
+      } else if (c == '-') {
+        turtle.turn(-angle);
+      } else if (c == '[') {
+        stack.push(turtle);
+      } else if (c == ']') {
+        if (!stack.empty()) {
+          turtle = stack.top();
+          stack.pop();
+        }
+      }
+    }
+  }
 
 private:
-    Orientation<W> orientation;
-    Timeline<W> timeline;
-    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
-    ProceduralPalette palette = Palettes::richSunset;
+  Orientation<W> orientation;
+  Timeline<W> timeline;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
+  ProceduralPalette palette = Palettes::richSunset;
     
-    std::vector<Ruleset> rulesets;
-    Ruleset current_ruleset;
-    std::vector<std::pair<Vector, Vector>> segments;
+  std::vector<Ruleset> rulesets;
+  Ruleset current_ruleset;
+  std::vector<std::pair<Vector, Vector>> segments;
     
-    void setup_rules() {
-        rulesets.push_back({
-            "Tree", "X", 
-            {{'X', "F[+X][-X]FX"}, {'F', "FF"}},
-            35.0f, 0.25f, 4
-        });
+  void setup_rules() {
+    rulesets.push_back({
+      "Tree", "X", 
+      {{'X', "F[+X][-X]FX"}, {'F', "FF"}},
+      35.0f, 0.25f, 4
+    });
         
-        rulesets.push_back({
-            "Bush", "F",
-            {{'F', "FF-[-F+F+F]+[+F-F-F]"}},
-            25.0f, 0.1f, 4
-        });
+    rulesets.push_back({
+      "Bush", "F",
+      {{'F', "FF-[-F+F+F]+[+F-F-F]"}},
+      25.0f, 0.1f, 4
+    });
         
-        rulesets.push_back({
-            "Mosaic", "F++F++F",
-            {{'F', "F-F++F-F"}},
-            79.0f, 0.33f, 3
-        });
-    }
+    rulesets.push_back({
+      "Mosaic", "F++F++F",
+      {{'F', "F-F++F-F"}},
+      79.0f, 0.33f, 3
+    });
+  }
 
-    struct Params {
-        float rule_idx = 0.0f;
-        float angle_mod = 0.0f;
-        float step_mod = 1.0f;
-    } params;
+  struct Params {
+    float rule_idx = 0.0f;
+    float angle_mod = 0.0f;
+    float step_mod = 1.0f;
+  } params;
 };

@@ -201,7 +201,7 @@ private:
         float t = std::clamp((b - 0.15f) * 4.0f, 0.0f, 1.0f);
         Color4 c = ctx.palette.get(t);
         c.alpha *= opacity * params.global_alpha;
-						auto shader = [c](const Vector& p, Fragment& f) {
+            auto shader = [c](const Vector& p, Fragment& f) {
                             f.color = c;
                         };
                         Plot::Point::draw(filters, canvas, nodes[i], shader);
