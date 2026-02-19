@@ -27,8 +27,6 @@ concept PlotFn = requires(F f, float t) {
   { f(t) } -> std::convertible_to<Vector>;
 };
 
-#include "core_concepts.h"
-
 /**
  * @brief Concept for a function that transforms a vector.
  * Signature: Vector f(const Vector& v)
@@ -36,6 +34,15 @@ concept PlotFn = requires(F f, float t) {
 template <typename F>
 concept TransformFn = requires(F f, Vector v) {
   { f(v) } -> std::convertible_to<Vector>;
+};
+
+/**
+ * @brief Concept for a scalar function (e.g. easing).
+ * Signature: float f(float t)
+ */
+template <typename F>
+concept ScalarFn = requires(F f, float t) {
+  { f(t) } -> std::convertible_to<float>;
 };
 
 /**

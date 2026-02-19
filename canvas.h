@@ -204,7 +204,7 @@ public:
   Canvas(Effect &effect) : effect_(effect) {
     while (!effect_.buffer_free()) {
     }
-    //    start_time = millis();
+    start_time = millis();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       clear_buffer();

@@ -418,7 +418,7 @@ public:
     if (num_frames < CAPACITY) {
       orientations[num_frames++] = q;
     } else {
-      hs::log("Orientation full, droping frame!");
+      hs::log("Orientation full, dropping frame!");
     }
     return *this;
   }
