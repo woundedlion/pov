@@ -356,6 +356,125 @@ struct Vertices {
 };
 
 /**
+ * @brief Multiline primitive (Polyline).
+ * Registers:
+ *  v0: Path Progress (0.0 -> 1.0)
+ *  v1: Cumulative Arc Length (radians)
+ *  v2: Vertex Index
+ */
+struct Multiline {
+  /**
+   * @brief Samples a multiline path from a container of vertices.
+   * @param vertices Iterable container of Vector.
+   * @param closed If true, connects the last point to the first.
+   * @return Fragments List of fragments with arc-length parameterization.
+   */
+  static Fragments sample(const auto &vertices, bool closed = false) {
+    Fragments points;
+    auto it = std::begin(vertices);
+    auto end = std::end(vertices);
+
+    if (it == end)
+      return points;
+
+    // 1. Calculate total length to normalize v0
+    float total_len = 0.0f;
+    Vector first = *it;
+    Vector prev = first;
+    auto len_it = it;
+    ++len_it;
+
+    for (; len_it != end; ++len_it) {
+      const Vector &curr = *len_it;
+      total_len += angle_between(prev, curr);
+      prev = curr;
+    }
+    if (closed) {
+      total_len += angle_between(prev, first);
+    }
+
+    if (total_len < 1e-6f)
+      total_len = 1.0f; // Avoid divide by zero
+
+    // 2. Generate fragments
+    float current_len = 0.0f;
+    it = std::begin(vertices); // Reset iterator
+    prev = *it;
+
+    // Add first point
+    Fragment f;
+    f.pos = prev;
+    f.v0 = 0.0f;
+    f.v1 = 0.0f;
+    f.v2 = 0.0f; // Index 0
+    f.age = 0.0f;
+    f.color = Color4(0, 0, 0, 0);
+    points.push_back(f);
+
+    ++it;
+    int idx = 1;
+    for (; it != end; ++it) {
+      const Vector &curr = *it;
+      float dist = angle_between(prev, curr);
+      current_len += dist;
+
+      f.pos = curr;
+      f.v0 = current_len / total_len;
+      f.v1 = current_len;
+      f.v2 = static_cast<float>(idx++);
+      points.push_back(f);
+      prev = curr;
+    }
+
+    if (closed) {
+      float dist = angle_between(prev, first);
+      current_len += dist;
+      f.pos = first;
+      f.v0 = 1.0f; // Explicitly 1.0
+      f.v1 = current_len;
+      f.v2 = static_cast<float>(idx);
+      points.push_back(f);
+    }
+
+    return points;
+  }
+
+  /**
+   * @brief Draws a multiline path.
+   * @tparam W Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param vertices Iterable container of Vector.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Optional vertex shader.
+   * @param closed If true, connects the last point to the first.
+   */
+  template <int W, int H>
+  static void draw(auto &pipeline, Canvas &canvas, const auto &vertices,
+                   FragmentShaderFn auto fragment_shader,
+                   VertexShaderFn auto vertex_shader, bool closed = false) {
+    Fragments points = sample(vertices, closed);
+
+    if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
+      for (auto &p : points) {
+        vertex_shader(p);
+      }
+    }
+
+    // We manually closed it if requested, so pass false to rasterize
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
+                    nullptr);
+  }
+
+  template <int W, int H>
+  static void draw(auto &pipeline, Canvas &canvas, const auto &vertices,
+                   FragmentShaderFn auto fragment_shader, bool closed = false) {
+    draw<W, H>(pipeline, canvas, vertices, fragment_shader, NullVertexShader{},
+               closed);
+  }
+};
+
+/**
  * @brief Ring primitives.
  * Registers:
  *  v0: Angular progress (0.0 -> 1.0)

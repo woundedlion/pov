@@ -9,17 +9,16 @@
 #include <array>
 #include "../effects_engine.h"
 
-// Configuration for Lissajous curves
-struct LissajousConfig {
-  float m1;
-  float m2;
-  float a;
-  float domain;
-};
-
-template <int W, int H> class Comets : public Effect {
+template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
+
+  struct LissajousConfig {
+    float m1;
+    float m2;
+    float a;
+    float domain;
+  };
 
   struct Node {
     Orientation<W> orientation;
@@ -30,24 +29,35 @@ public:
     Node() : v(Y_AXIS) {}
   };
 
-  Comets() : Effect(W, H), cur_function_idx(0) {
+  ChaoticStrings()
+      : Effect(W, H), cur_function_idx(0),
+        filters(Filter::Screen::AntiAlias<W, H>()),
+        path([this](float t) { return Vector(0, 1, 0); }), // Init with dummy
+        noise(timeline) {
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Resolution", &params.resolution, 1.0f, 128.0f);
+    registerParam("Speed", &params.speed, 0.0f, 5.0f);
+    registerParam("Jitter Amp", &params.jitterAmp, 0.0f, 10.0f);
+    registerParam("Noise Freq", &params.noiseFreq, 0.01f, 10.0f);
+
+    // Initialize noise params
+    noise.params.amplitude = params.jitterAmp;
+    noise.params.frequency = params.noiseFreq;
+    noise.params.speed = params.speed;
+    noise.params.sync();
 
     persist_pixels = false;
 
     // Initialize Lissajous functions
-    functions = {{1.06f, 1.06f, 0, 5.909f},   {6.06f, 1.0f, 0, 2 * PI_F},
-                 {6.02f, 4.01f, 0, 3.132f},   {46.62f, 62.16f, 0, 0.404f},
-                 {46.26f, 69.39f, 0, 0.272f}, {19.44f, 9.72f, 0, 0.646f},
-                 {8.51f, 17.01f, 0, 0.739f},  {7.66f, 6.38f, 0, 4.924f},
-                 {8.75f, 5.0f, 0, 5.027f},    {11.67f, 14.58f, 0, 2.154f},
-                 {11.67f, 8.75f, 0, 2.154f},  {10.94f, 8.75f, 0, 2.872f}};
+    functions = {{12.0f, 5.0f, 0, 2 * PI_F}};
 
     update_path();
+    // Spawn noise once with infinite duration
+    noise.spawn(0, -1);
+
     timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
     timeline.add(0, Animation::Motion<W>(node.orientation, path,
                                          (int)params.cycle_duration, true));
@@ -68,29 +78,48 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
+    noise.params.frequency = params.noiseFreq;
+    noise.params.amplitude = params.jitterAmp;
+    noise.params.speed = params.speed;
+    noise.params.sync();
+
+    noise.params.sync();
+
+    // Update active noise entities to reflect live parameter changes
+    for (auto &e : noise.entities) {
+      if (e.active) {
+        e.params.frequency = params.noiseFreq;
+        e.params.amplitude = params.jitterAmp;
+        e.params.speed = params.speed;
+        e.params.sync();
+      }
+    }
+
     node.trail.record(node.orientation);
-
+    vertices.clear();
     deep_tween(node.trail, [&](const Quaternion &q, float t) {
-      auto fragment_shader = [&](const Vector &, Fragment &f) {
-        f.color = palette.get(t);
-        f.color.alpha *= quintic_kernel(t);
-      };
-
       Vector v_local = rotate(node.v, q);
       Vector v_final = orientation.orient(v_local);
-      Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
-                              fragment_shader);
+      v_final = noise.transform(v_final);
+
+      vertices.emplace_back(v_final);
     });
+
+    auto fragment_shader = [&](const Vector &v, Fragment &frag) {
+      frag.color = palette.get(frag.v0);
+      frag.color.alpha *= quintic_kernel(frag.v0);
+    };
+
+    hs::log("vertices size: %d", vertices.size());
+    Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
   }
 
 private:
   void update_path() {
     const auto &config = functions[cur_function_idx];
-    // Capture config by value to bake it into the lambda
     path.f = [=](float t) {
-      // Apply easing and domain scaling
-      float t_eased = ease_mid(t);
-      return lissajous(config.m1, config.m2, config.a, t_eased * config.domain);
+      return lissajous(config.m1, config.m2, config.a,
+                       ease_mid(t) * config.domain);
     };
   }
 
@@ -103,7 +132,8 @@ private:
                           BrightnessProfile::ASCENDING);
     timeline.add(0, Animation::ColorWipe(palette, next_palette, 48, ease_mid));
   }
-  Timeline<W, 32> timeline;
+
+  Timeline<W> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ProceduralPath<std::function<Vector(float)>> path;
   Orientation<W> orientation;
@@ -111,11 +141,16 @@ private:
   std::vector<LissajousConfig> functions;
   int cur_function_idx;
   Node node;
+  NoiseTransformer<W, 1> noise;
+  StaticCircularBuffer<Vector, 20000> vertices;
 
   struct Params {
     float alpha = 1.0f;
     float thickness = 2.1f * 2 * PI_F / W;
     float cycle_duration = 80.0f;
     float resolution = 32.0f;
+    float jitterAmp = 3.0f;
+    float speed = 0.1f;
+    float noiseFreq = 0.33f;
   } params;
 };

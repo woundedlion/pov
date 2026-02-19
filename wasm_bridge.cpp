@@ -85,6 +85,8 @@ std::unique_ptr<Effect> create_effect(const std::string &name) {
     return std::make_unique<Voronoi<W, H>>();
   if (name == "FlamingMesh")
     return std::make_unique<FlamingMesh<W, H>>();
+  if (name == "ChaoticStrings")
+    return std::make_unique<ChaoticStrings<W, H>>();
   return std::make_unique<Test<W, H>>(); // Fallback
 }
 

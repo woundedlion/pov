@@ -608,6 +608,47 @@ struct Face {
   Face(std::span<const Vector> vertices, std::span<const int> indices, float th,
        FaceScratchBuffer &scratch, int h_virt, int height)
       : thickness(th), full_width(true) {
+
+    // --- OPTIMIZATION START: Early Vertical Exit ---
+    // Find min/max Y (which maps to Phi) of the raw vertices first.
+    float min_y_val = 2.0f;
+    float max_y_val = -2.0f;
+
+    for (int idx : indices) {
+      float y = vertices[idx].j;
+      if (y < min_y_val)
+        min_y_val = y;
+      if (y > max_y_val)
+        max_y_val = y;
+    }
+
+    // acos is monotonic decreasing: max_y -> min_phi, min_y -> max_phi
+    // Clamp to safe range [-1, 1]
+    float min_phi_check = acosf(std::clamp(max_y_val, -1.0f, 1.0f));
+    float max_phi_check = acosf(std::clamp(min_y_val, -1.0f, 1.0f));
+
+    float margin_check = thickness + 0.05f; // Small margin for AA/Edge bleeding
+
+    // Calculate distinct integer Y bounds
+    int y_min_check = std::max(
+        0, static_cast<int>(floorf(
+               (std::max(0.0f, min_phi_check - margin_check) * (h_virt - 1)) /
+               PI_F)));
+    int y_max_check = std::min(
+        height - 1,
+        static_cast<int>(ceilf(
+            (std::min(PI_F, max_phi_check + margin_check) * (h_virt - 1)) /
+            PI_F)));
+
+    // If the face is completely outside the drawable vertical area, abort.
+    // We set y_min > y_max so the rasterizer loop immediately skips it.
+    if (y_min_check > y_max_check) {
+      y_min = 1;
+      y_max = 0;
+      return;
+    }
+    // --- OPTIMIZATION END ---
+
     count = indices.size();
     if (count > FaceScratchBuffer::MAX_VERTS)
       count = FaceScratchBuffer::MAX_VERTS;
@@ -1607,6 +1648,38 @@ struct Line {
                    bool debug_bb = false) {
     SDF::Line shape(v1, v2, thickness);
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
+  }
+};
+
+struct Multiline {
+  template <int W, int H>
+  static void draw(auto &pipeline, Canvas &canvas, const auto &vertices,
+                   float thickness, FragmentShaderFn auto fragment_shader,
+                   bool closed = false, bool debug_bb = false) {
+    auto it = std::begin(vertices);
+    auto end = std::end(vertices);
+
+    if (it == end)
+      return;
+
+    Vector first = *it;
+    Vector prev = first;
+    ++it;
+
+    if (it == end)
+      return;
+
+    for (; it != end; ++it) {
+      const Vector &curr = *it;
+      Scan::Line::draw<W, H>(pipeline, canvas, prev, curr, thickness,
+                             fragment_shader, debug_bb);
+      prev = curr;
+    }
+
+    if (closed) {
+      Scan::Line::draw<W, H>(pipeline, canvas, prev, first, thickness,
+                             fragment_shader, debug_bb);
+    }
   }
 };
 

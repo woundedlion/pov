@@ -31,3 +31,4 @@
 #include "effects/GnomonicStars.h"
 #include "effects/TestSlewRate.h"
 #include "effects/FlamingMesh.h"
+#include "effects/ChaoticStrings.h"
