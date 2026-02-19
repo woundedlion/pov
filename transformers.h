@@ -8,6 +8,7 @@
 #include "animation.h"
 #include "concepts.h"
 #include <array>
+#include "FastNoiseLite.h"
 
 // Forward declare
 class Canvas;
@@ -21,7 +22,7 @@ class Canvas;
  * @tparam CAPACITY Max number of active transformations.
  */
 template <int W, typename ParamsT, typename AnimT, auto TransformFunc,
-          int CAPACITY = 32>
+          int CAPACITY = 32, int TIMELINE_CAPACITY = 32>
   requires TransformerFunction<TransformFunc, ParamsT>
 class Transformer {
 public:
@@ -32,9 +33,9 @@ public:
 
   ParamsT params;
   std::array<Entity, CAPACITY> entities;
-  Timeline<W> &timeline;
+  Timeline<W, TIMELINE_CAPACITY> &timeline;
 
-  Transformer(Timeline<W> &tl) : timeline(tl) {}
+  Transformer(Timeline<W, TIMELINE_CAPACITY> &tl) : timeline(tl) {}
 
   /**
    * @brief Spawns a new transformation animation.
@@ -101,3 +102,10 @@ template <int W, int CAPACITY>
 using MobiusWarpGnomonicTransformer =
     Transformer<W, MobiusParams, Animation::MobiusWarpEvolving,
                 gnomonic_mobius_transform, CAPACITY>;
+
+/**
+ * @brief Applies 3D noise distortion to vectors.
+ */
+template <int W, int CAPACITY, int TIMELINE_CAP = 32>
+using NoiseTransformer = Transformer<W, NoiseParams, Animation::Noise,
+                                     noise_transform, CAPACITY, TIMELINE_CAP>;

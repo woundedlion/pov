@@ -20,30 +20,17 @@
 #include "canvas.h"
 #include "concepts.h"
 
+namespace Animation {
+class Noise;
+} // namespace Animation
+
 /**
  * @brief Represents a customizable path.
  * Retains internal buffer for state, but draws to pipeline.
  */
-template <int W> class Path {
+template <int W, int RESOLUTION = 1024> class Path {
 public:
   Path() {}
-
-  /**
-   * @brief Draws the path to the pipeline.
-   * @param pipeline The rendering pipeline.
-   * @param canvas The canvas to draw on.
-   * @param path The path to draw.
-   * @param color Function conveying color variation along the path index.
-   */
-  static void draw(auto &pipeline, Canvas &canvas, const Path &path,
-                   auto color) {
-    size_t samples = path.points.size();
-    for (size_t i = 0; i < samples; ++i) {
-      auto v = path.get_point(static_cast<float>(i) / samples);
-      auto c = color(v, i / (samples - 1.0f));
-      pipeline.plot(canvas, v, c.color, 0, c.alpha);
-    }
-  }
 
   /**
    * @brief Appends a procedurally generated segment to the path.
@@ -95,7 +82,7 @@ public:
   }
 
 private:
-  StaticCircularBuffer<Vector, 4096> points;
+  StaticCircularBuffer<Vector, RESOLUTION> points;
 };
 
 /**
@@ -105,6 +92,7 @@ private:
 template <PlotFn F> struct ProceduralPath {
   F f;
 
+  ProceduralPath() = default;
   ProceduralPath(F path_fn) : f(path_fn) {}
 
   Vector get_point(float t) const { return f(t); }
@@ -1491,6 +1479,23 @@ private:
  * together, using a referenced scale for dynamic control.
  */
 
+/**
+ * @brief Animates noise parameters by updating time.
+ */
+class Noise : public Base<Noise> {
+public:
+  Noise(NoiseParams &params, int duration = -1)
+      : Base(duration, true), params(params) {}
+
+  void step(Canvas &canvas) {
+    Base::step(canvas);
+    params.get().time = static_cast<float>(t);
+  }
+
+private:
+  std::reference_wrapper<NoiseParams> params;
+};
+
 } // namespace Animation
 
 template <int W>
@@ -1500,7 +1505,7 @@ using AnimationVariant = std::variant<
     Animation::Rotation<W>, Animation::Motion<W>, Animation::RandomWalk<W>,
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarpEvolving,
     Animation::MobiusWarp, Animation::MobiusWarpCircular, Animation::MeshMorph,
-    Animation::PaletteAnimation, Animation::Ripple>;
+    Animation::PaletteAnimation, Animation::Ripple, Animation::Noise>;
 
 /**
  * @brief Structure linking an animation variant with its starting time.
