@@ -10,6 +10,12 @@
 
 template <int W, int H> class GnomonicStars : public Effect {
 public:
+  struct Params {
+    float points = 600.0f;
+    float star_radius = 0.02f;
+    float star_sides = 4.0f;
+  } params;
+
   GnomonicStars()
       : Effect(W, H), orientation(), timeline(), transformer(timeline) {
     registerParam("Points", &params.points, 100.0f, 2000.0f);
@@ -19,11 +25,19 @@ public:
     this->persist_pixels = false;
 
     // Spawn the evolving warp
-    transformer.spawn(0, 0.5f, 0.05f);
+    transformer.spawn(0, 0.5f, 0.035f);
 
-    timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, UP,
-                        Animation::RandomWalk<W>::Options::Energetic()));
+    // Retrieve the pointer to the just-spawned animation
+    // It is the last event in the timeline
+    auto &last_event = timeline.events[timeline.num_events - 1];
+    if (auto *anim =
+            std::get_if<Animation::MobiusWarpEvolving>(&last_event.animation)) {
+      registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
+    }
+
+    timeline.add(
+        0, Animation::RandomWalk<W>(
+               orientation, UP, Animation::RandomWalk<W>::Options::Languid()));
   }
 
   bool show_bg() const override { return true; }
@@ -68,10 +82,4 @@ private:
   Pipeline<W, H> filters;
 
   MobiusWarpGnomonicTransformer<W, 1> transformer;
-
-  struct Params {
-    float points = 600.0f;
-    float star_radius = 0.02f;
-    float star_sides = 4.0f;
-  } params;
 };

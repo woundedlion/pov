@@ -327,7 +327,7 @@ struct Quaternion {
   Quaternion &normalize() {
     auto m = magnitude();
     if (m <= std::numeric_limits<float>::epsilon()) {
-      hs::log("Can't normalize a zaro Quaternion!");
+      hs::log("Can't normalize a zero Quaternion!");
       r = 1;
       v = Vector(0, 0, 0);
     } else {
@@ -441,10 +441,6 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
   Complex num = (params.getA() * z) + params.getB();
   Complex den = (params.getC() * z) + params.getD();
   return num / den;
-}
-
-inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
-  return inv_stereo(mobius(stereo(v), params));
 }
 
 /**
@@ -696,6 +692,24 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
  * @return The resulting unit rotation quaternion.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
+  float d = dot(from, to);
+
+  // Handle antiparallel vectors (180 degrees apart)
+  if (d < -1.0f + TOLERANCE) {
+    // Choose an axis perpendicular to 'from'
+    Vector axis = cross(Vector(1, 0, 0), from);
+    if (axis.length() < TOLERANCE) {
+      axis = cross(Vector(0, 1, 0), from);
+    }
+    axis.normalize();
+    return make_rotation(axis, PI_F);
+  }
+
+  // Handle parallel vectors (0 degrees apart)
+  if (d > 1.0f - TOLERANCE) {
+    return Quaternion(1, 0, 0, 0); // Identity
+  }
+
   auto axis = cross(from, to).normalize();
   auto angle = angle_between(from, to);
   return make_rotation(axis, angle);
@@ -730,50 +744,4 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   float s1 = sinf((1 - t) * theta) / sin_theta;
   float s2 = sinf(t * theta) / sin_theta;
   return ((s1 * p) + (s2 * q)).normalize();
-}
-/**
- * @brief Parameters for noise transformation.
- */
-struct NoiseParams {
-  float amplitude = 0.5f;
-  float speed = 1.0f;
-  float frequency = 0.125f;
-  float time = 0.0f;
-  mutable FastNoiseLite noise; // Mutable to allow lazy init/updates
-
-  NoiseParams() { noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2); }
-
-  // Helper to ensure frequency is synced
-  void sync() const { noise.SetFrequency(frequency); }
-};
-
-/**
- * @brief Applies 3D noise distortion to a vector.
- * @param v The vector to transform.
- * @param params The noise parameters.
- * @return The distorted vector.
- */
-inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
-  if (params.amplitude <= 0.001f)
-    return v;
-
-  params.sync(); // ensure noise state matches params
-
-  float scale = 4.0f;
-  float time_val = params.time * params.speed;
-
-  // Use member noise object
-  float noiseValX =
-      params.noise.GetNoise(v.i * scale, v.j * scale, v.k * scale + time_val);
-  float noiseValY = params.noise.GetNoise(
-      v.i * scale + 100.0f, v.j * scale + 100.0f, v.k * scale + time_val);
-
-  // Simple perturbation
-  float dist = 0.2f * params.amplitude; // Arbitrary scale factor
-
-  Vector res = v;
-  res.i += noiseValX * dist;
-  res.j += noiseValY * dist;
-
-  return res;
 }

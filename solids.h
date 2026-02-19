@@ -6,6 +6,7 @@
 
 #include <array>
 #include "geometry.h"
+#include "mesh.h" // For MeshOps
 #include <cmath>
 #include <string>
 #include <vector>
@@ -421,7 +422,6 @@ static constexpr int num_islamic_solids =
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 } // namespace Collections
 
-// Helper matching JS Solids.get()
 inline const Entry &get_entry(int index) {
   if (index < 0 || index >= NUM_ENTRIES) {
     // Fallback if out of bounds (should not happen with correct logic)

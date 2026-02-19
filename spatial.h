@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <cfloat>
+#include "static_circular_buffer.h"
 
 /**
  * @brief Axis-Aligned Bounding Box.
@@ -149,8 +150,6 @@ struct MeshState {
   size_t num_vertices() const { return vertices.size(); }
   size_t num_faces() const { return face_counts.size(); }
 };
-
-#include "static_circular_buffer.h"
 
 /**
  * @brief k-d Tree implementation for 3D points using static memory.

@@ -13,6 +13,41 @@ template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
 
+  struct Params {
+    float alpha = 1.0f;
+    float cycle_duration = 80.0f;
+    float jitterAmp = 3.0f;
+    float speed = 0.1f;
+    float noiseFreq = 0.33f;
+
+    void lerp(const Params &a, const Params &b, float t) {
+      alpha = ::lerp(a.alpha, b.alpha, t);
+      cycle_duration = ::lerp(a.cycle_duration, b.cycle_duration, t);
+      jitterAmp = ::lerp(a.jitterAmp, b.jitterAmp, t);
+      speed = ::lerp(a.speed, b.speed, t);
+      noiseFreq = ::lerp(a.noiseFreq, b.noiseFreq, t);
+    }
+  } params;
+
+  Presets<Params> preset_manager = {{"Default",
+                                     {/* alpha */ 1.0f,
+                                      /* cycle duration */ 80.0f,
+                                      /* jitter amp */ 3.0f,
+                                      /* speed */ 0.1f,
+                                      /* noise freq */ 0.33f}},
+                                    {"High Energy",
+                                     {/* alpha */ 1.0f,
+                                      /* cycle duration */ 80.0f,
+                                      /* jitter amp */ 0.5f,
+                                      /* speed */ 0.5f,
+                                      /* noise freq */ 5.0f}},
+                                    {"Slow Flow",
+                                     {/* alpha */ 0.8f,
+                                      /* cycle duration */ 80.0f,
+                                      /* jitter amp */ 1.0f,
+                                      /* speed */ 0.05f,
+                                      /* noise freq */ 0.2f}}};
+
   struct LissajousConfig {
     float m1;
     float m2;
@@ -25,20 +60,16 @@ public:
     Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
     Vector v;
 
-    // Default constructor needed for StaticCircularBuffer
     Node() : v(Y_AXIS) {}
   };
 
   ChaoticStrings()
       : Effect(W, H), cur_function_idx(0),
         filters(Filter::Screen::AntiAlias<W, H>()),
-        path([this](float t) { return Vector(0, 1, 0); }), // Init with dummy
-        noise(timeline) {
+        path([this](float t) { return Vector(0, 1, 0); }), noise(timeline) {
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
-    registerParam("Resolution", &params.resolution, 1.0f, 128.0f);
     registerParam("Speed", &params.speed, 0.0f, 5.0f);
     registerParam("Jitter Amp", &params.jitterAmp, 0.0f, 10.0f);
     registerParam("Noise Freq", &params.noiseFreq, 0.01f, 10.0f);
@@ -55,7 +86,6 @@ public:
     functions = {{12.0f, 5.0f, 0, 2 * PI_F}};
 
     update_path();
-    // Spawn noise once with infinite duration
     noise.spawn(0, -1);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
@@ -70,6 +100,25 @@ public:
                           update_palette();
                         },
                         true));
+    timeline.add(0, Animation::PeriodicTimer(
+                        4 * (int)params.cycle_duration,
+                        [this](Canvas &c) {
+                          cur_function_idx = static_cast<int>(
+                              hs::rand_int(0, functions.size()));
+                          next_preset();
+                        },
+                        true));
+
+    // Initialize with first preset
+    params = preset_manager.get();
+  }
+
+  void next_preset() {
+    preset_manager.next();
+    Params target = preset_manager.get();
+
+    timeline.add(
+        0, Animation::Lerp(params, preset_manager.get(), 160, ease_in_out_sin));
   }
 
   bool show_bg() const override { return false; }
@@ -81,8 +130,6 @@ public:
     noise.params.frequency = params.noiseFreq;
     noise.params.amplitude = params.jitterAmp;
     noise.params.speed = params.speed;
-    noise.params.sync();
-
     noise.params.sync();
 
     // Update active noise entities to reflect live parameter changes
@@ -101,7 +148,6 @@ public:
       Vector v_local = rotate(node.v, q);
       Vector v_final = orientation.orient(v_local);
       v_final = noise.transform(v_final);
-
       vertices.emplace_back(v_final);
     });
 
@@ -109,8 +155,6 @@ public:
       frag.color = palette.get(frag.v0);
       frag.color.alpha *= quintic_kernel(frag.v0);
     };
-
-    hs::log("vertices size: %d", vertices.size());
     Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
   }
 
@@ -143,14 +187,4 @@ private:
   Node node;
   NoiseTransformer<W, 1> noise;
   StaticCircularBuffer<Vector, 20000> vertices;
-
-  struct Params {
-    float alpha = 1.0f;
-    float thickness = 2.1f * 2 * PI_F / W;
-    float cycle_duration = 80.0f;
-    float resolution = 32.0f;
-    float jitterAmp = 3.0f;
-    float speed = 0.1f;
-    float noiseFreq = 0.33f;
-  } params;
 };

@@ -211,9 +211,28 @@ public:
     return result;
   }
 
+  val getParamValues() {
+    if (!currentEffect)
+      return val::array();
+
+    const auto &params = currentEffect->getParameters();
+    paramValues.clear();
+    paramValues.reserve(params.size());
+
+    for (const auto &[key, def] : params) {
+      if (def.type == Effect::ParamType::BOOL) {
+        paramValues.push_back(*static_cast<bool *>(def.target) ? 1.0f : 0.0f);
+      } else {
+        paramValues.push_back(*static_cast<float *>(def.target));
+      }
+    }
+    return val(typed_memory_view(paramValues.size(), paramValues.data()));
+  }
+
 private:
   std::unique_ptr<Effect> currentEffect;
   std::vector<uint16_t> pixelBuffer; // 16-bit
+  std::vector<float> paramValues;    // Backing store for getParamValues
   int pixel_width = 0;
   int pixel_height = 0;
 };
@@ -367,7 +386,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getBufferLength", &HolosphereEngine::getBufferLength)
       .function("setParameter", &HolosphereEngine::setParameter)
       .function("getParameterDefinitions",
-                &HolosphereEngine::getParameterDefinitions);
+                &HolosphereEngine::getParameterDefinitions)
+      .function("getParamValues", &HolosphereEngine::getParamValues);
 
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()

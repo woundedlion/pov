@@ -4,14 +4,14 @@
  */
 #pragma once
 
-#include "geometry.h"
-#include "animation.h"
+#include "3dmath.h"
 #include "concepts.h"
 #include <array>
 #include "FastNoiseLite.h"
+#include "animation.h"
 
-// Forward declare
-class Canvas;
+using Animation::NoiseParams;
+using Animation::RippleParams;
 
 /**
  * @brief A generic manager for state-based geometry transformations.
@@ -22,7 +22,7 @@ class Canvas;
  * @tparam CAPACITY Max number of active transformations.
  */
 template <int W, typename ParamsT, typename AnimT, auto TransformFunc,
-          int CAPACITY = 32, int TIMELINE_CAPACITY = 32>
+          int CAPACITY = 32>
   requires TransformerFunction<TransformFunc, ParamsT>
 class Transformer {
 public:
@@ -33,9 +33,9 @@ public:
 
   ParamsT params;
   std::array<Entity, CAPACITY> entities;
-  Timeline<W, TIMELINE_CAPACITY> &timeline;
+  Timeline<W> &timeline;
 
-  Transformer(Timeline<W, TIMELINE_CAPACITY> &tl) : timeline(tl) {}
+  Transformer(Timeline<W> &tl) : timeline(tl) {}
 
   /**
    * @brief Spawns a new transformation animation.
@@ -72,6 +72,103 @@ public:
 };
 
 /**
+ * @brief Applies Mobius Transformation to a vector.
+ * Wraps the complex math version from 3dmath.h.
+ */
+inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
+  return inv_stereo(mobius(stereo(v), params));
+}
+
+/**
+ * @brief Applies Gnomonic Mobius Transformation to a vector.
+ * Projects to gnomonic plane, applies Mobius, projects back.
+ */
+inline Vector gnomonic_mobius_transform(const Vector &v,
+                                        const MobiusParams &params) {
+  // 1. Project to plane (Gnomonic)
+  Complex z = gnomonic(v);
+
+  // 2. Transform on plane (Mobius)
+  // Note: gnomonic plane is effectively complex plane
+  Complex w = mobius(z, params);
+
+  // 3. Project back to sphere (Inverse Gnomonic)
+  // We need to restore the sign of the hemisphere if we want to stay on the
+  // same side, or maybe allows crossing. Gnomonic projects open hemisphere to
+  // plane. Usually we track the "k" sign.
+  return inv_gnomonic(w, (v.j >= 0 ? 1.0f : -1.0f));
+}
+
+/**
+ * @brief Parameters for noise transformation.
+ */
+
+/**
+ * @brief Applies 3D noise distortion to a vector.
+ * @param v The vector to transform.
+ * @param params The noise parameters.
+ * @return The distorted vector.
+ */
+inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
+  float d = angle_between(v, params.center);
+  float dist_from_peak = d - params.phase;
+
+  // Defines the width of the single pulse
+  float half_width = params.thickness * 0.5f;
+  if (half_width < 0.001f)
+    half_width = 0.001f; // Prevent division by zero
+
+  if (std::abs(dist_from_peak) < half_width * 2.0f) {
+
+    // Normalize distance (-2 to 2 range covers the whole wavelet)
+    float t = (dist_from_peak / half_width) * 2.0f;
+
+    // Ricker Wavelet: (1 - t^2) * e^(-t^2/2)
+    float ricker = (1.0f - t * t) * expf(-0.5f * t * t);
+
+    // Distance attenuation (ripples get smaller as they spread)
+    float attenuation = expf(-params.decay * d);
+
+    float theta = params.amplitude * ricker * attenuation;
+
+    // Apply rotation
+    Vector axis = cross(params.center, v);
+    float lenSq = dot(axis, axis);
+    if (lenSq > 1e-6f) {
+      axis = axis * (1.0f / sqrtf(lenSq));
+      Quaternion q = make_rotation(axis, theta);
+      return rotate(v, q);
+    }
+  }
+
+  return v;
+}
+inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
+  if (params.amplitude <= 0.001f)
+    return v;
+
+  params.sync(); // ensure noise state matches params
+
+  float scale = 4.0f;
+  float time_val = params.time * params.speed;
+
+  // Use member noise object
+  float noiseValX =
+      params.noise.GetNoise(v.i * scale, v.j * scale, v.k * scale + time_val);
+  float noiseValY = params.noise.GetNoise(
+      v.i * scale + 100.0f, v.j * scale + 100.0f, v.k * scale + time_val);
+
+  // Simple perturbation
+  float dist = 0.2f * params.amplitude; // Arbitrary scale factor
+
+  Vector res = v;
+  res.i += noiseValX * dist;
+  res.j += noiseValY * dist;
+
+  return res;
+}
+
+/**
  * @brief Generates ripples that warp the sphere
  */
 template <int W, int CAPACITY>
@@ -106,6 +203,6 @@ using MobiusWarpGnomonicTransformer =
 /**
  * @brief Applies 3D noise distortion to vectors.
  */
-template <int W, int CAPACITY, int TIMELINE_CAP = 32>
-using NoiseTransformer = Transformer<W, NoiseParams, Animation::Noise,
-                                     noise_transform, CAPACITY, TIMELINE_CAP>;
+template <int W, int CAPACITY>
+using NoiseTransformer =
+    Transformer<W, NoiseParams, Animation::Noise, noise_transform, CAPACITY>;
