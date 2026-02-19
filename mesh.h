@@ -120,20 +120,57 @@ public:
   std::vector<HalfEdge> halfEdges;
 
   explicit HalfEdgeMesh(const PolyMesh &mesh) {
-    vertices.reserve(mesh.vertices.size());
-    for (const auto &v : mesh.vertices) {
+    struct PolyReader {
+      const PolyMesh &m;
+      size_t idx = 0;
+      void reset() { idx = 0; }
+      const std::vector<int> &next() { return m.faces[idx++]; }
+    } reader{mesh};
+    build_internal(mesh.vertices, mesh.faces.size(), reader);
+  }
+
+  HalfEdgeMesh(const MeshState &mesh) {
+    struct StateReader {
+      const MeshState &m;
+      size_t idx = 0;
+      size_t offset = 0;
+      void reset() {
+        idx = 0;
+        offset = 0;
+      }
+      std::span<const int> next() {
+        uint8_t count = m.face_counts[idx++];
+        std::span<const int> s(m.faces.data() + offset, count);
+        offset += count;
+        return s;
+      }
+    } reader{mesh};
+    build_internal(mesh.vertices, mesh.face_counts.size(), reader);
+  }
+
+private:
+  template <typename Reader>
+  void build_internal(const std::vector<Vector> &mesh_verts, size_t num_faces,
+                      Reader &&reader) {
+    vertices.reserve(mesh_verts.size());
+    for (const auto &v : mesh_verts) {
       vertices.push_back({v, nullptr});
     }
 
     size_t totalHE = 0;
-    for (const auto &f : mesh.faces)
-      totalHE += f.size();
+    reader.reset();
+    for (size_t i = 0; i < num_faces; ++i) {
+      totalHE += reader.next().size();
+    }
     halfEdges.reserve(totalHE);
-    faces.reserve(mesh.faces.size());
+    faces.reserve(num_faces);
 
     std::map<std::pair<int, int>, HalfEdge *> edgeMap;
 
-    for (const auto &f : mesh.faces) {
+    reader.reset();
+    for (size_t fi = 0; fi < num_faces; ++fi) {
+      auto f = reader.next();
+
       faces.emplace_back();
       HEFace *currentFace = &faces.back();
       size_t count = f.size();
@@ -177,21 +214,6 @@ public:
     // Compute Properties
     for (auto &f : faces)
       f.compute_properties();
-  }
-
-  HalfEdgeMesh(const MeshState &mesh) {
-    // Reconstitute from flat arrays if needed
-    PolyMesh p;
-    p.vertices = mesh.vertices;
-    int off = 0;
-    for (uint8_t c : mesh.face_counts) {
-      std::vector<int> f;
-      for (int k = 0; k < c; ++k)
-        f.push_back(mesh.faces[off + k]);
-      p.faces.push_back(f);
-      off += c;
-    }
-    *this = HalfEdgeMesh(p);
   }
 };
 
