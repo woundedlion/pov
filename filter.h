@@ -250,13 +250,17 @@ private:
 
 /**
  * @brief Creates a spherical hole by masking points within a radius.
+ * Parameterized on OriginT to allow storage by value (Vector) or reference
+ * (std::reference_wrapper).
  */
-template <int W> class Hole : public Is3D {
+template <int W, typename OriginT = Vector> class Hole : public Is3D {
 public:
-  Hole(const Vector &origin, float radius) : origin(origin), radius(radius) {}
+  Hole(OriginT origin, float radius) : origin(origin), radius(radius) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             uint8_t tag, auto pass) {
-    float d = angle_between(v, origin);
+    // Unwrap if reference_wrapper, or use directly if Vector
+    const Vector &o = origin;
+    float d = angle_between(v, o);
     if (d > radius)
       pass(v, color, age, alpha, tag);
     else {
@@ -266,32 +270,14 @@ public:
   }
 
 private:
-  Vector origin;
+  OriginT origin;
   float radius;
 };
 
 /**
- * @brief Creates a spherical hole using a reference to origin (movable hole).
+ * @brief Alias for Hole with reference storage.
  */
-template <int W> class HoleRef : public Is3D {
-public:
-  HoleRef(const Vector &origin, float radius)
-      : origin(origin), radius(radius) {}
-  void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
-    float d = angle_between(v, origin);
-    if (d > radius)
-      pass(v, color, age, alpha, tag);
-    else {
-      float t = d / radius;
-      pass(v, color * quintic_kernel(t), age, alpha, tag);
-    }
-  }
-
-private:
-  const Vector &origin;
-  float radius;
-};
+template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
 
 /**
  * @brief Replicates geometry by rotating it around the Y-axis.

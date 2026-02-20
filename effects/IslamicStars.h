@@ -29,7 +29,7 @@ public:
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP));
 
     // Init Ripple Defaults
-    ripple_gen.params.amplitude = 0.5f;
+    ripple_gen.params.amplitude = 0.4f;
     ripple_gen.params.thickness = 0.7f;
     ripple_gen.params.decay = 0.1f;
 

@@ -31,62 +31,54 @@ using namespace emscripten;
 
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(const std::string &name) {
-  if (name == "Test")
-    return std::make_unique<Test<W, H>>();
-  if (name == "Comets")
-    return std::make_unique<Comets<W, H>>();
-  if (name == "RingSpin")
-    return std::make_unique<RingSpin<W, H>>();
-  if (name == "MobiusGrid")
-    return std::make_unique<MobiusGrid<W, H>>();
-  if (name == "IslamicStars")
-    return std::make_unique<IslamicStars<W, H>>();
-  if (name == "MindSplatter")
-    return std::make_unique<MindSplatter<W, H>>();
-  if (name == "BZReactionDiffusion")
-    return std::make_unique<BZReactionDiffusion<W, H>>();
-  if (name == "DreamBalls")
-    return std::make_unique<DreamBalls<W, H>>();
-  if (name == "Dynamo")
-    return std::make_unique<Dynamo<W, H>>();
-  if (name == "FlowField")
-    return std::make_unique<FlowField<W, H>>();
-  if (name == "GSReactionDiffusion")
-    return std::make_unique<GSReactionDiffusion<W, H>>();
-  if (name == "GnomonicStars")
-    return std::make_unique<GnomonicStars<W, H>>();
-  if (name == "HankinSolids")
-    return std::make_unique<HankinSolids<W, H>>();
-  if (name == "HopfFibration")
-    return std::make_unique<HopfFibration<W, H>>();
-  if (name == "LSystem")
-    return std::make_unique<LSystem<W, H>>();
-  if (name == "MetaballEffect")
-    return std::make_unique<MetaballEffect<W, H>>();
-  if (name == "Moire")
-    return std::make_unique<Moire<W, H>>();
-  if (name == "PetalFlow")
-    return std::make_unique<PetalFlow<W, H>>();
-  if (name == "RingShower")
-    return std::make_unique<RingShower<W, H>>();
-  if (name == "SphericalHarmonics")
-    return std::make_unique<SphericalHarmonics<W, H>>();
-  if (name == "SpinShapes")
-    return std::make_unique<SpinShapes<W, H>>();
-  if (name == "TestShapes")
-    return std::make_unique<TestShapes<W, H>>();
-  if (name == "TestSlewRate")
-    return std::make_unique<TestSlewRate<W, H>>();
-  if (name == "TestTemporal")
-    return std::make_unique<TestTemporal<W, H>>();
-  if (name == "Thrusters")
-    return std::make_unique<Thrusters<W, H>>();
-  if (name == "Voronoi")
-    return std::make_unique<Voronoi<W, H>>();
-  if (name == "FlamingMesh")
-    return std::make_unique<FlamingMesh<W, H>>();
-  if (name == "ChaoticStrings")
-    return std::make_unique<ChaoticStrings<W, H>>();
+  static const std::map<std::string, std::function<std::unique_ptr<Effect>()>>
+      factory = {
+          {"Test", []() { return std::make_unique<Test<W, H>>(); }},
+          {"Comets", []() { return std::make_unique<Comets<W, H>>(); }},
+          {"RingSpin", []() { return std::make_unique<RingSpin<W, H>>(); }},
+          {"MobiusGrid", []() { return std::make_unique<MobiusGrid<W, H>>(); }},
+          {"IslamicStars",
+           []() { return std::make_unique<IslamicStars<W, H>>(); }},
+          {"MindSplatter",
+           []() { return std::make_unique<MindSplatter<W, H>>(); }},
+          {"BZReactionDiffusion",
+           []() { return std::make_unique<BZReactionDiffusion<W, H>>(); }},
+          {"DreamBalls", []() { return std::make_unique<DreamBalls<W, H>>(); }},
+          {"Dynamo", []() { return std::make_unique<Dynamo<W, H>>(); }},
+          {"FlowField", []() { return std::make_unique<FlowField<W, H>>(); }},
+          {"GSReactionDiffusion",
+           []() { return std::make_unique<GSReactionDiffusion<W, H>>(); }},
+          {"GnomonicStars",
+           []() { return std::make_unique<GnomonicStars<W, H>>(); }},
+          {"HankinSolids",
+           []() { return std::make_unique<HankinSolids<W, H>>(); }},
+          {"HopfFibration",
+           []() { return std::make_unique<HopfFibration<W, H>>(); }},
+          {"LSystem", []() { return std::make_unique<LSystem<W, H>>(); }},
+          {"MetaballEffect",
+           []() { return std::make_unique<MetaballEffect<W, H>>(); }},
+          {"Moire", []() { return std::make_unique<Moire<W, H>>(); }},
+          {"PetalFlow", []() { return std::make_unique<PetalFlow<W, H>>(); }},
+          {"RingShower", []() { return std::make_unique<RingShower<W, H>>(); }},
+          {"SphericalHarmonics",
+           []() { return std::make_unique<SphericalHarmonics<W, H>>(); }},
+          {"SpinShapes", []() { return std::make_unique<SpinShapes<W, H>>(); }},
+          {"TestShapes", []() { return std::make_unique<TestShapes<W, H>>(); }},
+          {"TestSlewRate",
+           []() { return std::make_unique<TestSlewRate<W, H>>(); }},
+          {"TestTemporal",
+           []() { return std::make_unique<TestTemporal<W, H>>(); }},
+          {"Thrusters", []() { return std::make_unique<Thrusters<W, H>>(); }},
+          {"Voronoi", []() { return std::make_unique<Voronoi<W, H>>(); }},
+          {"FlamingMesh",
+           []() { return std::make_unique<FlamingMesh<W, H>>(); }},
+          {"ChaoticStrings",
+           []() { return std::make_unique<ChaoticStrings<W, H>>(); }}};
+
+  auto it = factory.find(name);
+  if (it != factory.end()) {
+    return it->second();
+  }
   return std::make_unique<Test<W, H>>(); // Fallback
 }
 

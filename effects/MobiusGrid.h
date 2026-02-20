@@ -13,6 +13,8 @@
 template <int W, int H> class MobiusGrid : public Effect {
   mutable Fragments m_points;
   mutable Fragments m_fragments; // Reusable buffers
+  mutable Plot::RasterCache m_raster_cache;
+
 public:
   MobiusGrid()
       : Effect(W, H),
@@ -119,7 +121,7 @@ private:
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
-                            true);
+                            m_raster_cache, true);
     }
   }
 
@@ -172,7 +174,7 @@ private:
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
-                            true);
+                            m_raster_cache, true);
     }
   }
 

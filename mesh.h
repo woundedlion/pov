@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <span>
 #include <cmath>
-#include <iostream>
 
 // Forward declarations
 struct HEVertex;
