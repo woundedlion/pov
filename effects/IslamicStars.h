@@ -51,7 +51,7 @@ public:
 private:
   Orientation<W> orientation;
   Timeline<W> timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H> filters;
   RippleTransformer<W, 8> ripple_gen;
   float ripple_duration = 80.0f;
 
@@ -107,7 +107,7 @@ private:
     std::shuffle(palettes.begin(), palettes.end(), g);
 
     // Create Sprite
-    int duration = 96;
+    int duration = 160;
     int fade_in = 32;
     int fade_out = 32;
     auto draw_fn = [this, mesh_state, faceIndices, palettes](Canvas &canvas,
