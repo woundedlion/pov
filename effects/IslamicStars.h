@@ -106,6 +106,12 @@ private:
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
     std::shuffle(palettes.begin(), palettes.end(), g);
 
+    // Map the topology to the effect's specific visual needs (the palette)
+    int num_colors = static_cast<int>(palettes.size());
+    for (size_t i = 0; i < faceIndices.size(); ++i) {
+      faceIndices[i] = faceIndices[i] % num_colors;
+    }
+
     // Create Sprite
     int duration = 160;
     int fade_in = 32;
@@ -122,12 +128,13 @@ private:
 
       // 2. Fragment Shader
       auto fragment_shader = [&](const Vector &p, Fragment &frag) {
-        int faceIdx = (int)std::round(frag.v2);
-        int topoIdx = 0;
+        // FAST: faceIndices is already mapped to the exact palette index!
+        int faceIdx = static_cast<int>(frag.v2);
+        int color_idx = 0;
         if (faceIdx >= 0 && faceIdx < (int)faceIndices.size()) {
-          topoIdx = faceIndices[faceIdx];
+          color_idx = faceIndices[faceIdx];
         }
-        const Palette *pal = palettes[topoIdx % palettes.size()];
+        const Palette *pal = palettes[color_idx];
 
         float distFromEdge = -frag.v1;
         float size = frag.size;

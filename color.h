@@ -368,12 +368,9 @@ public:
     // Fill start
     int startIdx = 0;
     int firstStop = static_cast<int>(prevPos * 255);
-    Pixel prevLinear(static_cast<uint16_t>(
-                         65535.f * srgb_to_linear_float(prevColor.r / 255.0f)),
-                     static_cast<uint16_t>(
-                         65535.f * srgb_to_linear_float(prevColor.g / 255.0f)),
-                     static_cast<uint16_t>(
-                         65535.f * srgb_to_linear_float(prevColor.b / 255.0f)));
+    Pixel prevLinear(srgb_to_linear(prevColor.r * 255.0f),
+                     srgb_to_linear(prevColor.g * 255.0f),
+                     srgb_to_linear(prevColor.b * 255.0f));
     for (int i = 0; i <= firstStop; i++)
       entries[i] = prevLinear;
 
@@ -395,10 +392,9 @@ public:
           float b = (float)prevColor.b * (1.0f - t) + (float)nextColor.b * t;
 
           // Convert interpolated sRGB -> Linear using high precision formula
-          entries[i] = Pixel(
-              static_cast<uint16_t>(65535.f * srgb_to_linear_float(r / 255.f)),
-              static_cast<uint16_t>(65535.f * srgb_to_linear_float(g / 255.f)),
-              static_cast<uint16_t>(65535.f * srgb_to_linear_float(b / 255.f)));
+          entries[i] =
+              Pixel(srgb_to_linear(r * 255.0f), srgb_to_linear(g * 255.0f),
+                    srgb_to_linear(b * 255.0f));
         }
       }
       prevPos = nextPos;
@@ -408,12 +404,9 @@ public:
 
     // Fill end
     int lastStop = static_cast<int>(prevPos * 255);
-    Pixel lastLinear(static_cast<uint16_t>(
-                         65535.f * srgb_to_linear_float(prevColor.r / 255.0f)),
-                     static_cast<uint16_t>(
-                         65535.f * srgb_to_linear_float(prevColor.g / 255.0f)),
-                     static_cast<uint16_t>(
-                         65535.f * srgb_to_linear_float(prevColor.b / 255.0f)));
+    Pixel lastLinear(srgb_to_linear(prevColor.r * 255.0f),
+                     srgb_to_linear(prevColor.g * 255.0f),
+                     srgb_to_linear(prevColor.b * 255.0f));
     for (int i = lastStop; i < 256; i++)
       entries[i] = lastLinear;
   }
@@ -639,16 +632,16 @@ public:
   Color4 get(float t) const override {
     // Determine color in high-precision float sRGB space first, then convert to
     // 16-bit Linear This avoids 8-bit quantization steps
-    float r_srgb = std::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])),
-                              0.0f, 1.0f);
-    float g_srgb = std::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])),
-                              0.0f, 1.0f);
-    float b_srgb = std::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])),
-                              0.0f, 1.0f);
+    float r_srgb =
+        hs::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f);
+    float g_srgb =
+        hs::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f);
+    float b_srgb =
+        hs::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f);
 
-    Pixel color(static_cast<uint16_t>(65535.f * srgb_to_linear_float(r_srgb)),
-                static_cast<uint16_t>(65535.f * srgb_to_linear_float(g_srgb)),
-                static_cast<uint16_t>(65535.f * srgb_to_linear_float(b_srgb)));
+    Pixel color(srgb_to_linear(r_srgb * 255.0f),
+                srgb_to_linear(g_srgb * 255.0f),
+                srgb_to_linear(b_srgb * 255.0f));
     return Color4(color, 1.0f);
   }
 
