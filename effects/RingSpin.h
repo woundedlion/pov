@@ -75,7 +75,7 @@ private:
   }
 
   Timeline<W> timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
 
   struct Params {
