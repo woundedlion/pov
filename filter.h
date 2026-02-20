@@ -66,7 +66,7 @@ template <int W, int H> struct Pipeline<W, H> {
   // 2D Sink
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha,
             uint8_t tag = 0) {
-    int xi = wrap(x, W);
+    int xi = fast_wrap(x, W);
     Pixel p;
     switch (tag) {
     case BLEND_ADD:
@@ -86,7 +86,7 @@ template <int W, int H> struct Pipeline<W, H> {
             float alpha, uint8_t tag = 0) {
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
-    xi = wrap(xi, W);
+    xi = fast_wrap(xi, W);
 
     Pixel p;
     switch (tag) {
@@ -398,12 +398,12 @@ public:
     if (v00 > 1e-8)
       pass(x_i, y_i, c, age, alpha * v00, tag);
     if (v10 > 1e-8)
-      pass(wrap((x_i + 1), W), y_i, c, age, alpha * v10, tag);
+      pass(fast_wrap((x_i + 1), W), y_i, c, age, alpha * v10, tag);
     if (y_i < H - 1) {
       if (v01 > 1e-8)
         pass(x_i, y_i + 1, c, age, alpha * v01, tag);
       if (v11 > 1e-8)
-        pass(wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11, tag);
+        pass(fast_wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11, tag);
     }
   }
 };

@@ -44,6 +44,14 @@ inline int wrap(int x, int m) {
   return r < 0 ? r + m : r;
 }
 
+inline int fast_wrap(int x, int W) {
+  if (x >= W)
+    return x - W;
+  if (x < 0)
+    return x + W;
+  return x;
+}
+
 /**
  * @brief Calculates the shortest distance (either forwards or backwards)
  * between two points on a circular domain.
