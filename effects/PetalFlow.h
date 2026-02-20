@@ -68,6 +68,7 @@ private:
 
   Ring rings[MAX_RINGS];
   float gap_accumulator = 0.0f;
+  mutable Plot::RasterCache m_raster_cache;
 
   ProceduralPalette palette;
   Orientation<W> orientation;
@@ -216,6 +217,7 @@ private:
       f.color = base_col;
     };
 
-    Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
+    Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader,
+                          m_raster_cache, true);
   }
 };
