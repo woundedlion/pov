@@ -29,18 +29,12 @@ public:
     }
   } params;
 
-  Presets<Params> preset_manager = {{"floppy",
+  Presets<Params> preset_manager = {{"gloopy",
                                      {/* alpha */ 1.0f,
                                       /* cycle duration */ 80.0f,
-                                      /* jitter amp */ 3.0f,
-                                      /* speed */ 0.1f,
-                                      /* noise freq */ 0.33f}},
-                                    {"gloopy",
-                                     {/* alpha */ 1.0f,
-                                      /* cycle duration */ 80.0f,
-                                      /* jitter amp */ 1.33f,
-                                      /* speed */ 0.66f,
-                                      /* noise freq */ 0.1f}}};
+                                      /* jitter amp */ 1.7f,
+                                      /* speed */ 0.04f,
+                                      /* noise freq */ 0.32f}}};
 
   struct LissajousConfig {
     float m1;
@@ -108,6 +102,7 @@ public:
   }
 
   void next_preset() {
+    return;
     preset_manager.next();
     Params target = preset_manager.get();
 
@@ -147,6 +142,21 @@ public:
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       frag.color = palette.get(frag.v0);
+
+      // Pulsing white lights traveling along the trail
+      float time_t = timeline.t * 0.05f;
+      float pulse_freq = 10.0f; // Number of pulses along the trail
+      float speed = 1.0f;       // Speed of travel
+
+      float phase =
+          frag.v0 * pulse_freq * 2.0f * PI_F - time_t *speed * 2.0f * PI_F;
+      float pulse = (sinf(phase) + 1.0f) * 0.5f;
+      pulse =
+          powf(pulse, 128.0f); // Sharpen into distinct light points (nuggets)
+
+      Pixel white(65535, 65535, 65535);
+      frag.color.color = blend_add(frag.color.color, white * pulse);
+
       frag.color.alpha *= quintic_kernel(frag.v0);
     };
     Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
