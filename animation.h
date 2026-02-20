@@ -666,7 +666,7 @@ public:
   void step(Canvas &canvas) {
     bool init = (t == 0);
     Base::step(canvas);
-    float progress = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     fn(progress, init);
   }
 
@@ -1072,7 +1072,7 @@ public:
       from_palette = cur_palette.get();
     }
     Base::step(canvas);
-    float amount = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    float amount = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     cur_palette.get().lerp(from_palette, to_palette, easing_fn(amount));
   }
 
@@ -1153,7 +1153,7 @@ public:
   void step(Canvas &canvas) {
     Base::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
-    float progress = easing(std::clamp(t_norm, 0.0f, 1.0f));
+    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
     params.get().bRe = scale * (cosf(angle) - 1.0f);
     params.get().bIm = scale * sinf(angle);
@@ -1191,7 +1191,7 @@ public:
   void step(Canvas &canvas) {
     Base::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
-    float progress = easing(std::clamp(t_norm, 0.0f, 1.0f));
+    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
     params.get().bRe = scale * cosf(angle);
     params.get().bIm = -scale * sinf(angle);
@@ -1314,7 +1314,7 @@ public:
     if (!buffer)
       return;
 
-    float progress = std::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
 
     // Update Source Output (Deform Source -> Dest)

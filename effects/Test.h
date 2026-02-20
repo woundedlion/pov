@@ -64,7 +64,7 @@ public:
           // f.size is thickness
           f.color = ringPalette.get(f.v0);
           
-          float norm_dist = std::clamp(f.v1 / f.size, 0.0f, 1.0f);
+          float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
           float t = 1.0f - norm_dist;
           float falloff = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
           

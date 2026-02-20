@@ -112,7 +112,7 @@ private:
         m_fragments.push_back(f);
       }
 
-      float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
+      float opacity = hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
 
       auto fragment_shader = [&](const Vector &, Fragment &f_val) {
         Color4 c = palette.get(static_cast<float>(i) / num);
@@ -156,7 +156,7 @@ private:
         m_fragments.push_back(f);
       }
 
-      float opacity = std::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
+      float opacity = hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
 
       auto fragment_shader = [&](const Vector &, Fragment &f_val) {
         float t_line = f_val.v0;

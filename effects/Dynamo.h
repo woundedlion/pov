@@ -114,7 +114,7 @@ public:
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
-        auto clamped_blend_factor = std::clamp(blend_factor, 0.0f, 1.0f);
+        auto clamped_blend_factor = hs::clamp(blend_factor, 0.0f, 1.0f);
 
         Color4 c1 = std::visit([t](auto& p) -> Color4 {
           using T = std::decay_t<decltype(p)>;

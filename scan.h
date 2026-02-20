@@ -594,6 +594,9 @@ struct Face {
   float thickness;
   float size;
   float max_r2 = 0.0f;
+  float radius = 0.0f;
+  float max_dist = 0.0f;
+  float max_dist_sq = 0.0f;
 
   std::span<Vector> poly2D;
   std::span<Vector> edgeVectors;
@@ -621,8 +624,8 @@ struct Face {
         max_y_val = y;
     }
 
-    float min_phi_check = acosf(std::clamp(max_y_val, -1.0f, 1.0f));
-    float max_phi_check = acosf(std::clamp(min_y_val, -1.0f, 1.0f));
+    float min_phi_check = acosf(hs::clamp(max_y_val, -1.0f, 1.0f));
+    float max_phi_check = acosf(hs::clamp(min_y_val, -1.0f, 1.0f));
     float margin_check = thickness + 0.05f;
 
     int y_min_check = std::max(
@@ -668,6 +671,10 @@ struct Face {
       if (r2 > max_r2)
         max_r2 = r2;
     }
+    radius = sqrtf(max_r2);
+    max_dist = radius + 0.1f;
+    max_dist_sq = sqrtf(max_dist);
+
     scratch.poly2D[count] = scratch.poly2D[0];
     poly2D = std::span<Vector>(scratch.poly2D.data(), count + 1);
 
@@ -691,7 +698,6 @@ struct Face {
     }
     size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
 
-    float radius = sqrtf(max_r2);
     if (size < radius * 0.25f)
       size = radius * 0.25f;
 
@@ -716,7 +722,7 @@ struct Face {
       if (lenSq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalize();
 
-      float phi_val = acosf(std::clamp(v1.j, -1.0f, 1.0f));
+      float phi_val = acosf(hs::clamp(v1.j, -1.0f, 1.0f));
       if (phi_val < min_phi)
         min_phi = phi_val;
       if (phi_val > max_phi)
@@ -747,12 +753,12 @@ struct Face {
                         (ptx * v2.j - pty * v2.i) * nz;
 
             if (cx1 > 0 && cx2 > 0) {
-              float phiTop = acosf(std::clamp(pty, -1.0f, 1.0f));
+              float phiTop = acosf(hs::clamp(pty, -1.0f, 1.0f));
               if (phiTop < min_phi)
                 min_phi = phiTop;
             }
             if (cx1 < 0 && cx2 < 0) {
-              float phiBot = acosf(std::clamp(-pty, -1.0f, 1.0f));
+              float phiBot = acosf(hs::clamp(-pty, -1.0f, 1.0f));
               if (phiBot > max_phi)
                 max_phi = phiBot;
             }
@@ -814,8 +820,10 @@ struct Face {
       if (startT <= endT) {
         scratch.intervals[interval_count++] = {startT, endT};
       } else {
-        scratch.intervals[interval_count++] = {startT, 2 * PI_F};
-        scratch.intervals[interval_count++] = {0.0f, endT};
+        // PUSH IN STRICTLY ASCENDING ORDER
+        scratch.intervals[interval_count++] = {0.0f, endT}; // Left side first
+        scratch.intervals[interval_count++] = {startT,
+                                               2 * PI_F}; // Right side second
       }
     } else {
       full_width = true;
@@ -857,9 +865,8 @@ struct Face {
     float py = dot(p, basisW) * inv_cos;
 
     float pR2 = px * px + py * py;
-    float max_dist = std::sqrt(max_r2) + 0.1f;
-    if (pR2 > max_dist * max_dist) {
-      float dist = std::sqrt(pR2) - std::sqrt(max_r2);
+    if (pR2 > max_dist_sq) {
+      float dist = std::sqrtf(pR2) - radius;
       res = DistanceResult(dist, 0.0f, dist, 0.0f, size);
       return;
     }
@@ -879,7 +886,7 @@ struct Face {
       if (edgeLengthsSq[i] > 1e-12f) {
         t = (wx * edge.i + wy * edge.j) / edgeLengthsSq[i];
       }
-      float clampVal = std::clamp(t, 0.0f, 1.0f);
+      float clampVal = hs::clamp(t, 0.0f, 1.0f);
 
       float bx = wx - edge.i * clampVal;
       float by = wy - edge.j * clampVal;
@@ -897,7 +904,7 @@ struct Face {
     }
 
     float s = inside ? -1.0f : 1.0f;
-    float plane_dist = s * std::sqrt(d);
+    float plane_dist = s * std::sqrtf(d);
     float dist = plane_dist - thickness;
 
     res = DistanceResult(dist, 0.0f, plane_dist, 0.0f, size);
@@ -1511,9 +1518,6 @@ static void rasterize(auto &pipeline, Canvas &canvas, const auto &shape,
         y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
 
     if (handled && !intervals.is_empty()) {
-      std::sort(intervals.begin(), intervals.begin() + intervals.size(),
-                [](const auto &a, const auto &b) { return a.first < b.first; });
-
       float current_end = -FLT_MAX;
       for (const auto &iv : intervals) {
         if (iv.second <= current_end)

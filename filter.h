@@ -285,7 +285,7 @@ template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
 template <int W> class Replicate : public Is3D {
 public:
   Replicate(int count)
-      : count(std::clamp(count, 1, W)),
+      : count(hs::clamp(count, 1, W)),
         step(make_rotation(Y_AXIS, 2 * PI_F / count)) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             uint8_t tag, auto pass) {
@@ -541,7 +541,7 @@ public:
   Blur(float factor = 1.0f) { update(factor); }
 
   void update(float factor) {
-    float f = std::clamp(factor, 0.0f, 1.0f);
+    float f = hs::clamp(factor, 0.0f, 1.0f);
     // Gaussian reference: Corner=1/16, Edge=2/16, Center=4/16
     float c = 1.0f - (0.75f * f);
     float e = 0.125f * f;

@@ -35,7 +35,7 @@ static constexpr float PI_F = static_cast<float>(PI);
  * @return The interpolated value: t^3 * (t * (t * 6 - 15) + 10).
  */
 inline float quintic_kernel(float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
+  t = hs::clamp(t, 0.0f, 1.0f);
   return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 
@@ -197,7 +197,7 @@ inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
   theta = atan2f(n.k, n.i);
-  phi = acosf(std::clamp(n.j, -1.0f, 1.0f));
+  phi = acosf(hs::clamp(n.j, -1.0f, 1.0f));
 }
 
 struct Quaternion;
@@ -592,7 +592,7 @@ constexpr float angle_between(const Vector &v1, const Vector &v2) {
     return 0;
   }
   float d = dot(v1, v2) / len_product;
-  return acosf(std::clamp(d, -1.0f, 1.0f));
+  return acosf(hs::clamp(d, -1.0f, 1.0f));
 }
 
 /**
@@ -672,7 +672,7 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @return The angle in radians.
  */
 constexpr float angle_between(const Quaternion &q1, const Quaternion &q2) {
-  return acosf(std::clamp(dot(q1, q2), -1.0f, 1.0f));
+  return acosf(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
 /**
@@ -739,7 +739,7 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     return r.normalize();
   }
 
-  float theta = acosf(std::clamp(d, -1.0f, 1.0f));
+  float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   float s1 = sinf((1 - t) * theta) / sin_theta;
   float s2 = sinf(t * theta) / sin_theta;
