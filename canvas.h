@@ -215,7 +215,7 @@ public:
    * @brief Destructor. Queues the finished frame to be displayed.
    */
   ~Canvas() {
-    hs::log("draw_frame_duration: %d\n", (millis() - start_time));
+    //    hs::log("draw_frame_duration: %d\n", (millis() - start_time));
     effect_.queue_frame();
   }
 

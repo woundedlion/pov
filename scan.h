@@ -575,7 +575,7 @@ template <typename A, typename B> struct Intersection {
  */
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64;
-  std::array<Vector, MAX_VERTS> poly2D;
+  std::array<Vector, MAX_VERTS + 1> poly2D; // +1 to avoid modulo
   std::array<Vector, MAX_VERTS> edgeVectors;
   std::array<float, MAX_VERTS> edgeLengthsSq;
   std::array<Vector, MAX_VERTS> planes;
@@ -617,7 +617,7 @@ struct Face {
        FaceScratchBuffer &scratch, int h_virt, int height)
       : thickness(th), full_width(true) {
 
-    // --- OPTIMIZATION START: Early Vertical Exit ---
+    // Early Vertical Exit
     float min_y_val = 2.0f;
     float max_y_val = -2.0f;
 
@@ -648,7 +648,6 @@ struct Face {
       y_max = 0;
       return;
     }
-    // --- OPTIMIZATION END ---
 
     count = indices.size();
     if (count > FaceScratchBuffer::MAX_VERTS)
@@ -677,7 +676,8 @@ struct Face {
       if (r2 > max_r2)
         max_r2 = r2;
     }
-    poly2D = std::span<Vector>(scratch.poly2D.data(), count);
+    scratch.poly2D[count] = scratch.poly2D[0];
+    poly2D = std::span<Vector>(scratch.poly2D.data(), count + 1);
 
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
@@ -719,7 +719,7 @@ struct Face {
       float edge_len_sq = dot(edge, edge);
       scratch.edgeLengthsSq[i] = edge_len_sq;
 
-      // --- NEW: PRE-CALCULATE DIVISIONS HERE ---
+      // precalculate divisions for raycaster
       scratch.invEdgeLengthsSq[i] =
           (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
       scratch.edgeSlopes[i] =
@@ -887,8 +887,7 @@ struct Face {
 
     for (int i = 0; i < count; ++i) {
       const Vector &Vi = poly2D[i];
-      int next_idx = (i + 1) % count;
-      const Vector &Vnext = poly2D[next_idx];
+      const Vector &Vnext = poly2D[i + 1];
       const Vector &edge = edgeVectors[i];
 
       float wx = px - Vi.i;
@@ -1456,9 +1455,14 @@ static void process_pixel(int x, int y, const Vector &p, auto &pipeline,
     float alpha = 1.0f;
 
     if (is_solid) {
-      // Standard 1px Anti-Aliasing at the boundary
-      float t_aa = 0.5f - d / (2.0f * pixel_width);
-      alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+      if (d <= -pixel_width) {
+        // FAST PATH: Pixel is fully inside the shape. Skip all AA math!
+        alpha = 1.0f;
+      } else {
+        // SLOW PATH: Pixel is on the boundary. Calculate AA blending.
+        float t_aa = 0.5f - d / (2.0f * pixel_width);
+        alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+      }
     } else {
       // Stroke Falloff: Opacity fades over the entire thickness
       if constexpr (requires { shape.thickness; }) {
@@ -1500,11 +1504,6 @@ static void process_pixel(int x, int y, const Vector &p, auto &pipeline,
  * Scans the bounding box, computes intervals, and executes the shader for valid
  * pixels.
  */
-/**
- * @brief Main rasterization routine for SDF shapes.
- * Scans the bounding box, computes intervals, and executes the shader for valid
- * pixels.
- */
 template <int W, int H, bool ComputeUVs = true>
 static void rasterize(auto &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn auto fragment_shader,
@@ -1526,28 +1525,19 @@ static void rasterize(auto &pipeline, Canvas &canvas, const auto &shape,
         y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
 
     if (handled && !intervals.is_empty()) {
-      // Sort intervals by start time
       std::sort(intervals.begin(), intervals.begin() + intervals.size(),
                 [](const auto &a, const auto &b) { return a.first < b.first; });
 
-      // Merge and rasterize
       float current_end = -FLT_MAX;
       for (const auto &iv : intervals) {
-        // Skip if fully covered
         if (iv.second <= current_end)
           continue;
 
-        // Adjust start if partially covered
         float start = std::max(iv.first, current_end);
         float end = iv.second;
         current_end = end;
 
-        // Intervals are now in PIXELS
-        float f_x1 = start;
-        float f_x2 = end;
-
-        // Clamp to prevent huge loop
-        if (f_x2 - f_x1 >= W) {
+        if (end - start >= W) {
           for (int x = 0; x < W; ++x) {
             process_pixel<W, H, ComputeUVs>(
                 x, y, row_vectors[x], pipeline, canvas, shape, fragment_shader,
@@ -1556,22 +1546,29 @@ static void rasterize(auto &pipeline, Canvas &canvas, const auto &shape,
           continue;
         }
 
-        int x1 = static_cast<int>(floorf(f_x1));
-        int x2 = static_cast<int>(ceilf(f_x2));
-
+        int x1 = static_cast<int>(floorf(start));
+        int x2 = static_cast<int>(ceilf(end));
         if (x1 == x2)
-          x2++; // Ensure at least one pixel for sub-pixel features
+          x2++;
+
+        // FAST MODULO LOGIC
+        int wx = x1 % W;
+        if (wx < 0)
+          wx += W;
 
         for (int x = x1; x < x2; ++x) {
-          int wx = wrap(x, W);
           process_pixel<W, H, ComputeUVs>(
               wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader,
               effective_debug, result_scratch, frag_scratch);
+
+          // Modulo-free coordinate wrap!
+          wx++;
+          if (wx >= W)
+            wx -= W;
         }
       }
       intervals.clear();
     } else {
-      // Fallback to full width if get_horizontal_intervals returns false
       if (!handled) {
         for (int x = 0; x < W; ++x) {
           process_pixel<W, H, ComputeUVs>(
