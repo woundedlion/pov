@@ -259,7 +259,7 @@ private:
       float distFromEdge = -f.v1;
       float size = f.size;
       float normalizedDist = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
-      float t = std::clamp(normalizedDist * params.intensity, 0.0f, 1.0f);
+      float t = hs::clamp(normalizedDist * params.intensity, 0.0f, 1.0f);
 
       f.color = pal->get(t);
       f.color.alpha = opacity;

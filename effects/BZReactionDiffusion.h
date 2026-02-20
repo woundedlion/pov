@@ -96,9 +96,9 @@ private:
     std::vector<std::vector<int>> grid(GRID_SIZE * GRID_SIZE * GRID_SIZE);
 
     auto get_grid_idx = [&](const Vector& p) {
-      int gx = std::clamp(static_cast<int>((p.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gy = std::clamp(static_cast<int>((p.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gz = std::clamp(static_cast<int>((p.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gx = hs::clamp(static_cast<int>((p.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gy = hs::clamp(static_cast<int>((p.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gz = hs::clamp(static_cast<int>((p.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
       return gx + gy * GRID_SIZE + gz * GRID_SIZE * GRID_SIZE;
     };
 
@@ -114,9 +114,9 @@ private:
       std::array<std::pair<float, int>, RD_K> best;
       best.fill({ std::numeric_limits<float>::max(), -1 });
 
-      int gx = std::clamp(static_cast<int>((p1.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gy = std::clamp(static_cast<int>((p1.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gz = std::clamp(static_cast<int>((p1.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gx = hs::clamp(static_cast<int>((p1.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gy = hs::clamp(static_cast<int>((p1.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      int gz = hs::clamp(static_cast<int>((p1.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
 
       for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
@@ -222,9 +222,9 @@ private:
         b_ch = b_ch * inv_c + cc.color.b * c;
 
         Pixel color(
-          static_cast<uint16_t>(std::clamp(r, 0.0f, 65535.0f)),
-          static_cast<uint16_t>(std::clamp(g, 0.0f, 65535.0f)),
-          static_cast<uint16_t>(std::clamp(b_ch, 0.0f, 65535.0f))
+          static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f)),
+          static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f)),
+          static_cast<uint16_t>(hs::clamp(b_ch, 0.0f, 65535.0f))
         );
 
         Color4 c_final(color);
@@ -261,9 +261,9 @@ private:
       float db = b * (1.0f - b - params.alpha * a);
       float dc = c * (1.0f - c - params.alpha * b);
 
-      ctx.nextA[i] = std::clamp(a + (params.D * lapA + da) * params.dt, 0.0f, 1.0f);
-      ctx.nextB[i] = std::clamp(b + (params.D * lapB + db) * params.dt, 0.0f, 1.0f);
-      ctx.nextC[i] = std::clamp(c + (params.D * lapC + dc) * params.dt, 0.0f, 1.0f);
+      ctx.nextA[i] = hs::clamp(a + (params.D * lapA + da) * params.dt, 0.0f, 1.0f);
+      ctx.nextB[i] = hs::clamp(b + (params.D * lapB + db) * params.dt, 0.0f, 1.0f);
+      ctx.nextC[i] = hs::clamp(c + (params.D * lapC + dc) * params.dt, 0.0f, 1.0f);
     }
 
     // Swap buffers

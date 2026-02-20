@@ -89,7 +89,7 @@ public:
              
              float theta = atan2f(local.k, local.i); 
              if (theta < 0) theta += 2 * PI_F;
-             float phi = acosf(std::clamp(local.j, -1.0f, 1.0f));
+             float phi = acosf(hs::clamp(local.j, -1.0f, 1.0f));
              float val = SHMath::sphericalHarmonic(l, m, theta, phi);
              
              res = SDF::DistanceResult(-1.0f, 0.0f, val, 0.0f, 1.0f);
@@ -129,7 +129,7 @@ public:
              }
              
               // Ambient Occlusion
-              float shadow = std::clamp((abs_val * params.amplitude - 0.0f) / 0.4f, 0.0f, 1.0f); // approx smoothstep
+              float shadow = hs::clamp((abs_val * params.amplitude - 0.0f) / 0.4f, 0.0f, 1.0f); // approx smoothstep
               float occlusion = 0.15f + 0.85f * shadow;
              base.color = base.color * occlusion;
              

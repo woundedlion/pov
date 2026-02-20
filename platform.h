@@ -48,7 +48,6 @@ float rand_f(float min, float max) { return min + rand_f() * (max - min); }
 int rand_int(int min, int max) { return ::random(min, max); }
 
 // Global state
-inline float time = 0.0f;
 inline bool debug = false;
 
 static constexpr int H_OFFSET = 3;
@@ -343,7 +342,6 @@ inline int rand_int(int min, int max) {
 }
 
 // Global state
-inline float time = 0.0f;
 inline bool debug = false;
 
 static constexpr int H_OFFSET = 0;
@@ -354,3 +352,42 @@ inline unsigned long millis() { return hs::millis(); }
 inline unsigned long micros() { return hs::millis() * 1000; } // approx
 
 #endif
+
+// Detect x86 / x64 architecture (Desktop/Simulator)
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) ||             \
+    defined(_M_IX86)
+#include <xmmintrin.h> // Required for SSE intrinsics
+#define HS_ARCH_X86
+#endif
+
+namespace hs {
+
+#ifdef HS_ARCH_X86
+// --- x86 / x64 EXPLICIT HARDWARE CLAMP ---
+inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
+  // Load floats into the 128-bit SSE registers
+  __m128 mv = _mm_set_ss(v);
+  __m128 mlo = _mm_set_ss(lo);
+  __m128 mhi = _mm_set_ss(hi);
+
+  // Hardware execution: max(lo, min(v, hi))
+  __m128 res = _mm_max_ss(mlo, _mm_min_ss(mv, mhi));
+
+  // Extract the result back to a standard C++ float
+  return _mm_cvtss_f32(res);
+}
+
+#else
+// --- ARM CORTEX-M7 (TEENSY) HARDWARE CLAMP ---
+inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
+  // Compiles directly to VMIN.F32 and VMAX.F32
+  return __builtin_fmaxf(lo, __builtin_fminf(v, hi));
+}
+#endif
+
+// Standard integer fallback
+inline __attribute__((always_inline)) int clamp(int v, int lo, int hi) {
+  return (v < lo) ? lo : ((v > hi) ? hi : v);
+}
+
+} // namespace hs

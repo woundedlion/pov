@@ -132,7 +132,7 @@ private:
         float distFromEdge = -frag.v1;
         float size = frag.size;
         float intensity = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
-        intensity = std::clamp(intensity, 0.0f, 1.0f);
+        intensity = hs::clamp(intensity, 0.0f, 1.0f);
 
         frag.color = pal->get(intensity);
         frag.color.alpha = opacity;
