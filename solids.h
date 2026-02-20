@@ -317,6 +317,10 @@ inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73() {
                 73.0f * D2R);
 }
 
+inline PolyMesh truncatedOctahedron_gyro_kis_hk17() {
+  return hankin(kis(gyro(truncatedOctahedron())), 17.0f * D2R);
+}
+
 } // namespace IslamicStarPatterns
 
 enum class Category { Simple, Complex };
@@ -361,6 +365,8 @@ static constexpr Entry simple_registry[] = {
 
 // Islamic Star Patterns
 static constexpr Entry islamic_registry[] = {
+    {"truncatedOctahedron_gyro_kis_hk17",
+     IslamicStarPatterns::truncatedOctahedron_gyro_kis_hk17, Category::Complex},
     {"truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59",
      IslamicStarPatterns::
          truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59,

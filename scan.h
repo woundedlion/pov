@@ -581,6 +581,10 @@ struct FaceScratchBuffer {
   std::array<Vector, MAX_VERTS> planes;
   std::array<std::pair<float, float>, 4> intervals;
   std::array<float, MAX_VERTS> thetas;
+
+  // NEW: Pre-calculated math arrays for the division-free raycaster
+  std::array<float, MAX_VERTS> invEdgeLengthsSq;
+  std::array<float, MAX_VERTS> edgeSlopes;
 };
 
 /**
@@ -600,6 +604,10 @@ struct Face {
   std::span<float> edgeLengthsSq;
   std::span<Vector> planes;
 
+  // NEW spans
+  std::span<float> invEdgeLengthsSq;
+  std::span<float> edgeSlopes;
+
   int y_min, y_max;
   std::span<std::pair<float, float>> intervals;
   bool full_width;
@@ -610,7 +618,6 @@ struct Face {
       : thickness(th), full_width(true) {
 
     // --- OPTIMIZATION START: Early Vertical Exit ---
-    // Find min/max Y (which maps to Phi) of the raw vertices first.
     float min_y_val = 2.0f;
     float max_y_val = -2.0f;
 
@@ -622,14 +629,10 @@ struct Face {
         max_y_val = y;
     }
 
-    // acos is monotonic decreasing: max_y -> min_phi, min_y -> max_phi
-    // Clamp to safe range [-1, 1]
     float min_phi_check = acosf(std::clamp(max_y_val, -1.0f, 1.0f));
     float max_phi_check = acosf(std::clamp(min_y_val, -1.0f, 1.0f));
+    float margin_check = thickness + 0.05f;
 
-    float margin_check = thickness + 0.05f; // Small margin for AA/Edge bleeding
-
-    // Calculate distinct integer Y bounds
     int y_min_check = std::max(
         0, static_cast<int>(floorf(
                (std::max(0.0f, min_phi_check - margin_check) * (h_virt - 1)) /
@@ -640,8 +643,6 @@ struct Face {
             (std::min(PI_F, max_phi_check + margin_check) * (h_virt - 1)) /
             PI_F)));
 
-    // If the face is completely outside the drawable vertical area, abort.
-    // We set y_min > y_max so the rasterizer loop immediately skips it.
     if (y_min_check > y_max_check) {
       y_min = 1;
       y_max = 0;
@@ -664,16 +665,13 @@ struct Face {
     basisW = cross(center, basisU).normalize();
 
     max_r2 = 0.0f;
-    // Project 2D
     for (int i = 0; i < count; ++i) {
       const Vector &v = vertices[indices[i]];
       float d = dot(v, basisV);
       float px = dot(v, basisU) / d;
       float py = dot(v, basisW) / d;
 
-      scratch.poly2D[i].i = px; // x
-      scratch.poly2D[i].j = py; // y
-      scratch.poly2D[i].k = 0;
+      scratch.poly2D[i] = Vector(px, py, 0);
 
       float r2 = px * px + py * py;
       if (r2 > max_r2)
@@ -681,18 +679,15 @@ struct Face {
     }
     poly2D = std::span<Vector>(scratch.poly2D.data(), count);
 
-    // Compute Apothem/Size (Min dist from center (0,0) to the polygon boundary)
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
       Vector v1 = scratch.poly2D[i];
       Vector v2 = scratch.poly2D[(i + 1) % count];
 
-      // Distance from origin (0,0) to line segment v1-v2
       Vector edge = v2 - v1;
       float edge_len_sq = dot(edge, edge);
       float t = 0.0f;
       if (edge_len_sq > 1e-9f) {
-        // Project (0,0)-v1 onto v2-v1.
         t = dot(-v1, edge) / edge_len_sq;
         t = std::max(0.0f, std::min(1.0f, t));
       }
@@ -704,14 +699,11 @@ struct Face {
     }
     size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
 
-    // Prevent size from disappearing if centroid is near an edge
     float radius = sqrtf(max_r2);
     if (size < radius * 0.25f)
       size = radius * 0.25f;
 
-    // Edges and Planes
     int planes_count = 0;
-
     float min_phi = 100.0f;
     float max_phi = -100.0f;
 
@@ -721,19 +713,23 @@ struct Face {
       const Vector &v1 = vertices[idx1];
       const Vector &v2 = vertices[idx2];
 
-      // Edge 2D
       Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
       scratch.edgeVectors[i] = edge;
-      scratch.edgeLengthsSq[i] = dot(edge, edge);
 
-      // Plane Normal
+      float edge_len_sq = dot(edge, edge);
+      scratch.edgeLengthsSq[i] = edge_len_sq;
+
+      // --- NEW: PRE-CALCULATE DIVISIONS HERE ---
+      scratch.invEdgeLengthsSq[i] =
+          (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
+      scratch.edgeSlopes[i] =
+          (std::abs(edge.j) > 1e-12f) ? (edge.i / edge.j) : 0.0f;
+
       Vector normal = cross(v1, v2);
       float lenSq = dot(normal, normal);
-      if (lenSq > 1e-12f) {
+      if (lenSq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalize();
-      }
 
-      // Vertex Bounds
       float phi_val = acosf(std::clamp(v1.j, -1.0f, 1.0f));
       if (phi_val < min_phi)
         min_phi = phi_val;
@@ -778,7 +774,6 @@ struct Face {
         }
       }
 
-      // Thetas
       float theta = atan2f(v1.k, v1.i);
       if (theta < 0)
         theta += 2 * PI_F;
@@ -789,7 +784,10 @@ struct Face {
     edgeLengthsSq = std::span<float>(scratch.edgeLengthsSq.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
-    // Pole Logic
+    // Bind the pre-calculated math arrays
+    invEdgeLengthsSq = std::span<float>(scratch.invEdgeLengthsSq.data(), count);
+    edgeSlopes = std::span<float>(scratch.edgeSlopes.data(), count);
+
     bool npInside = true;
     bool spInside = true;
     for (const auto &p : planes) {
@@ -803,7 +801,6 @@ struct Face {
     if (spInside)
       max_phi = PI_F;
 
-    // Vertical Bounds
     float margin = thickness + 0.05f;
     y_min = std::max(
         0, static_cast<int>(floorf(
@@ -813,7 +810,6 @@ struct Face {
         static_cast<int>(
             ceilf((std::min(PI_F, max_phi + margin) * (h_virt - 1)) / PI_F)));
 
-    // Horizontal Interval Logic
     std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
     float maxGap = 0;
     float gapStart = 0;
@@ -836,7 +832,6 @@ struct Face {
       if (startT <= endT) {
         scratch.intervals[interval_count++] = {startT, endT};
       } else {
-        // Split wrapped interval
         scratch.intervals[interval_count++] = {startT, 2 * PI_F};
         scratch.intervals[interval_count++] = {0.0f, endT};
       }
@@ -861,9 +856,6 @@ struct Face {
     return true;
   }
 
-  /**
-   * @brief Signed distance to planar Face.
-   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
@@ -872,19 +864,16 @@ struct Face {
 
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    // Hemisphere Check
     float cos_angle = dot(p, center);
     if (cos_angle <= 0.01f) {
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
 
-    // Project P to 2D
     float inv_cos = 1.0f / cos_angle;
     float px = dot(p, basisU) * inv_cos;
     float py = dot(p, basisW) * inv_cos;
 
-    // Bounding Circle (Optimization)
     float pR2 = px * px + py * py;
     float max_dist = std::sqrt(max_r2) + 0.1f;
     if (pR2 > max_dist * max_dist) {
@@ -893,7 +882,6 @@ struct Face {
       return;
     }
 
-    // 2D SDF & Winding (Ray Casting Optimized)
     float d = FLT_MAX;
     bool inside = false;
 
@@ -901,36 +889,23 @@ struct Face {
       const Vector &Vi = poly2D[i];
       int next_idx = (i + 1) % count;
       const Vector &Vnext = poly2D[next_idx];
-
-      const Vector &edge = edgeVectors[i]; // Vi -> Vnext
-      float ex = edge.i;
-      float ey = edge.j;
+      const Vector &edge = edgeVectors[i];
 
       float wx = px - Vi.i;
       float wy = py - Vi.j;
 
-      // Edge Dist
-      float dotWE = wx * ex + wy * ey;
-      float dotEE = edgeLengthsSq[i];
+      float clampVal = std::clamp(
+          (wx * edge.i + wy * edge.j) * invEdgeLengthsSq[i], 0.0f, 1.0f);
 
-      float clampVal = 0.0f;
-      if (dotEE > 1e-12f) {
-        clampVal = std::clamp(dotWE / dotEE, 0.0f, 1.0f);
-      }
-
-      float bx = wx - ex * clampVal;
-      float by = wy - ey * clampVal;
+      float bx = wx - edge.i * clampVal;
+      float by = wy - edge.j * clampVal;
       float distSq = bx * bx + by * by;
 
       if (distSq < d)
         d = distSq;
 
-      // Ray Casting (Crossing Number)
       if ((Vi.j > py) != (Vnext.j > py)) {
-        // Intersect
-        float t = (py - Vi.j) / ey;       // ey = Vnext.j - Vi.j
-        float intersectX = Vi.i + t * ex; // ex = Vnext.i - Vi.i
-        if (px < intersectX) {
+        if (px < Vi.i + (py - Vi.j) * edgeSlopes[i]) {
           inside = !inside;
         }
       }
@@ -986,8 +961,6 @@ struct Polygon {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // Templated H not needed for full scan fallback logic if we used it, but
-    // keeping signature
     float phi = y_to_phi<H>(static_cast<float>(y));
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
