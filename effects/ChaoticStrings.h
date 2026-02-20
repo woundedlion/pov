@@ -29,24 +29,18 @@ public:
     }
   } params;
 
-  Presets<Params> preset_manager = {{"Default",
+  Presets<Params> preset_manager = {{"floppy",
                                      {/* alpha */ 1.0f,
                                       /* cycle duration */ 80.0f,
                                       /* jitter amp */ 3.0f,
                                       /* speed */ 0.1f,
                                       /* noise freq */ 0.33f}},
-                                    {"High Energy",
+                                    {"gloopy",
                                      {/* alpha */ 1.0f,
                                       /* cycle duration */ 80.0f,
-                                      /* jitter amp */ 0.5f,
-                                      /* speed */ 0.5f,
-                                      /* noise freq */ 5.0f}},
-                                    {"Slow Flow",
-                                     {/* alpha */ 0.8f,
-                                      /* cycle duration */ 80.0f,
-                                      /* jitter amp */ 1.0f,
-                                      /* speed */ 0.05f,
-                                      /* noise freq */ 0.2f}}};
+                                      /* jitter amp */ 1.33f,
+                                      /* speed */ 0.66f,
+                                      /* noise freq */ 0.1f}}};
 
   struct LissajousConfig {
     float m1;
