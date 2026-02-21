@@ -93,35 +93,6 @@ struct AABB {
 };
 
 /**
- * @brief Node in a Bounding Volume Hierarchy.
- */
-struct BVHNode {
-  AABB aabb;
-  int16_t left = -1;
-  int16_t right = -1;
-  int16_t firstFaceIndex = -1; // Pointer to index map
-  int16_t faceCount = 0;
-};
-
-/**
- * @brief Bounding Volume Hierarchy structure.
- */
-struct BVH {
-  static constexpr int MAX_NODES = 2048;   // 2N for N faces
-  static constexpr int MAX_INDICES = 2048; // Permutation buffer
-
-  std::array<BVHNode, MAX_NODES> nodes;
-  std::array<int16_t, MAX_INDICES> faceIndices;
-  int nodeCount = 0;
-  int rootIndex = -1;
-
-  void clear() {
-    nodeCount = 0;
-    rootIndex = -1;
-  }
-};
-
-/**
  * @brief Represents the state of a mesh using static storage to avoid heap
  * allocations.
  */
@@ -135,15 +106,11 @@ struct MeshState {
   std::vector<int> faces;
   std::vector<uint16_t> face_offsets;
 
-  // Acceleration structure
-  BVH bvh;
-
   void clear() {
     vertices.clear();
     face_counts.clear();
     faces.clear();
     face_offsets.clear();
-    bvh.clear();
   }
 
   // Helper for size accessors if needed, but direct vector access is preferred.
@@ -423,196 +390,6 @@ private:
   }
 };
 
-namespace BVHImpl {
-// Recursive builder
-// range [start, end) in bvh.faceIndices
-inline int build_recursive(BVH &bvh, const MeshState &mesh, int start, int end,
-                           const Vector *centroids) {
-
-  if (bvh.nodeCount >= BVH::MAX_NODES)
-    return -1;
-  int nodeIdx = bvh.nodeCount++;
-  BVHNode &node = bvh.nodes[nodeIdx];
-
-  // Compute AABB
-  for (int i = start; i < end; ++i) {
-    int faceIdx = bvh.faceIndices[i];
-    int offset = mesh.face_offsets[faceIdx];
-    int count = mesh.face_counts[faceIdx];
-    for (int k = 0; k < count; ++k) {
-      node.aabb.expand(mesh.vertices[mesh.faces[offset + k]]);
-    }
-  }
-
-  int count = end - start;
-  if (count <= 4) {
-    node.firstFaceIndex = start;
-    node.faceCount = count;
-    return nodeIdx;
-  }
-
-  // Split
-  Vector size = node.aabb.maxVal - node.aabb.minVal;
-  int axis = 0;
-  if (size.j > size.i && size.j > size.k)
-    axis = 1;
-  if (size.k > size.i && size.k > size.j)
-    axis = 2;
-
-  float mid = (axis == 0)   ? (node.aabb.minVal.i + node.aabb.maxVal.i)
-              : (axis == 1) ? (node.aabb.minVal.j + node.aabb.maxVal.j)
-                            : (node.aabb.minVal.k + node.aabb.maxVal.k);
-  mid *= 0.5f;
-
-  // Partition
-  int16_t *begin = &bvh.faceIndices[start];
-  int16_t *endPtr = &bvh.faceIndices[end];
-
-  auto it = std::partition(begin, endPtr, [&](int16_t faceIdx) {
-    float val = (axis == 0)   ? centroids[faceIdx].i
-                : (axis == 1) ? centroids[faceIdx].j
-                              : centroids[faceIdx].k;
-    return val < mid;
-  });
-
-  int split = start + (int)std::distance(begin, it);
-
-  if (split == start || split == end) {
-    node.firstFaceIndex = start;
-    node.faceCount = count;
-    return nodeIdx;
-  }
-
-  node.left = build_recursive(bvh, mesh, start, split, centroids);
-  node.right = build_recursive(bvh, mesh, split, end, centroids);
-
-  return nodeIdx;
-}
-} // namespace BVHImpl
-
-inline void build_bvh(MeshState &mesh) {
-  mesh.bvh.clear();
-  if (mesh.face_counts.empty())
-    return;
-
-  // 1. Populate the Offset Lookup Table
-  mesh.face_offsets.resize(mesh.face_counts.size());
-  int current_offset = 0;
-  for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
-    mesh.face_offsets[i] = (uint16_t)current_offset;
-    current_offset += mesh.face_counts[i];
-  }
-
-  // Stack buffers for centroids (unchanged, still static limit for BVH build)
-  std::array<Vector, BVH::MAX_INDICES> centroids;
-
-  size_t num_faces_to_process =
-      std::min(mesh.face_counts.size(), (size_t)BVH::MAX_INDICES);
-
-  for (size_t i = 0; i < num_faces_to_process; ++i) {
-    int off = mesh.face_offsets[i];
-    int count = mesh.face_counts[i];
-
-    Vector c(0, 0, 0);
-    for (int k = 0; k < count; ++k) {
-      c = c + mesh.vertices[mesh.faces[off + k]];
-    }
-    if (count > 0)
-      c = c / (float)count;
-    centroids[i] = c;
-
-    // Init indices
-    mesh.bvh.faceIndices[i] = (int16_t)i;
-  }
-
-  mesh.bvh.rootIndex = BVHImpl::build_recursive(
-      mesh.bvh, mesh, 0, (int)num_faces_to_process, centroids.data());
-}
-
-/**
- * @brief Result of a ray-mesh intersection test.
- */
-struct HitResult {
-  float dist = FLT_MAX;
-  Vector point;
-  bool hit = false;
-};
-
-/**
- * @brief Intersects a ray with a mesh using BVH.
- * @param mesh The mesh state (must have BVH built).
- * @param origin Ray origin.
- * @param direction Ray direction (normalized).
- * @return HitResult containing distance and point.
- */
-inline HitResult bvh_intersect(const MeshState &mesh, const Vector &origin,
-                               const Vector &direction) {
-  HitResult bestHit;
-  if (mesh.bvh.rootIndex == -1 || mesh.bvh.nodeCount == 0)
-    return bestHit;
-
-  std::array<int16_t, 64> stack;
-  int stackPtr = 0;
-  stack[stackPtr++] = mesh.bvh.rootIndex;
-
-  while (stackPtr > 0) {
-    int nodeIdx = stack[--stackPtr];
-    const BVHNode &node = mesh.bvh.nodes[nodeIdx];
-
-    if (!node.aabb.intersectRay(origin, direction))
-      continue;
-
-    if (node.faceCount > 0) {
-      // Leaf
-      for (int i = 0; i < node.faceCount; ++i) {
-        int idxMap = node.firstFaceIndex + i; // Index into faceIndices
-        int faceIdx = mesh.bvh.faceIndices[idxMap];
-
-        int offset = mesh.face_offsets[faceIdx];
-        int count = mesh.face_counts[faceIdx];
-
-        // Intersection
-        Vector v0 = mesh.vertices[mesh.faces[offset]];
-        for (int k = 0; k < count - 2; ++k) {
-          Vector v1 = mesh.vertices[mesh.faces[offset + k + 1]];
-          Vector v2 = mesh.vertices[mesh.faces[offset + k + 2]];
-
-          // Moller-Trumbore
-          Vector h = cross(direction, v2 - v0); // edge2
-          float a = dot(v1 - v0, h);            // edge1
-
-          if (a > -1e-6f && a < 1e-6f)
-            continue;
-          float f = 1.0f / a;
-          Vector s = origin - v0;
-          float u = f * dot(s, h);
-          if (u < 0 || u > 1)
-            continue;
-          Vector q = cross(s, v1 - v0);
-          float v = f * dot(direction, q);
-          if (v < 0 || u + v > 1)
-            continue;
-          float t = f * dot(v2 - v0, q);
-
-          if (t > 1e-6f) {
-            if (!bestHit.hit || t < bestHit.dist) {
-              bestHit.hit = true;
-              bestHit.dist = t;
-              bestHit.point = origin + direction * t;
-            }
-          }
-        }
-      }
-    } else {
-      if (node.left != -1)
-        stack[stackPtr++] = node.left;
-      if (node.right != -1)
-        stack[stackPtr++] = node.right;
-    }
-  }
-  return bestHit;
-}
-
 /**
  * @brief Projects a point onto the nearest surface of a mesh.
  * @param p The point to project.
@@ -622,14 +399,6 @@ inline HitResult bvh_intersect(const MeshState &mesh, const Vector &origin,
 inline Vector project_to_mesh(const Vector &p, const MeshState &mesh) {
   Vector origin(0, 0, 0);
   Vector dir = Vector(p).normalize();
-
-  // Attempt BVH
-  // Note: For spherical morphing, raycast projection (center -> out) is often
-  // degenerate (returns same visual position). We prefer 'Closest Vertex' for
-  // topological morphs. if (mesh.bvh.nodeCount > 0) {
-  //    HitResult hit = bvh_intersect(mesh, origin, dir);
-  //    if (hit.hit) return hit.point;
-  // }
 
   // Fallback: Closest Vertex
   if (mesh.vertices.empty())
@@ -644,11 +413,4 @@ inline Vector project_to_mesh(const Vector &p, const MeshState &mesh) {
     }
   }
   return best;
-}
-
-inline Vector project_to_mesh(const Vector &p, MeshState &mesh) {
-  if (mesh.bvh.nodeCount == 0) {
-    build_bvh(mesh); // Auto-build!
-  }
-  return project_to_mesh(p, static_cast<const MeshState &>(mesh));
 }

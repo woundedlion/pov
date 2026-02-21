@@ -6,6 +6,7 @@
 #pragma once
 
 #include "../effects_engine.h"
+#include "../generators.h"
 
 #include <algorithm>
 #include <iostream>
@@ -19,9 +20,11 @@ public:
   // Buffer for morphing operations
   Animation::MorphBuffer morph_buffer;
 
-  // Meshes necessary for cross-fade morphing
+  // Active compiled states
+  CompiledHankin primary_hankin;
+  CompiledHankin secondary_hankin;
   MeshState primary_mesh;
-  MeshState secondary_mesh; // Target mesh during morph
+  MeshState secondary_mesh;
 
   HankinSolids() : Effect(W, H), filters() {
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
@@ -35,22 +38,24 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     // Init State
-    solid_idx = 3; // Dodecahedron (index 3 in simple_solids)
+    solid_idx = 0;
 
     // Initial Geometry Generation
-    PolyMesh base = Solids::Collections::simple_solids[solid_idx].generate();
-    if (enable_dual)
-      base = MeshOps::dual(base);
+    SolidGenerator gen(solid_idx);
+    PolyMesh base;
+    gen.generate(base);
 
     if (enable_hankin) {
-      compiled_hankin = MeshOps::compile_hankin(base);
-      base = MeshOps::update_hankin<PolyMesh>(compiled_hankin,
-                                              params.hankin_angle);
+      primary_hankin = MeshOps::compile_hankin(base);
+      primary_mesh = MeshOps::update_hankin<MeshState>(primary_hankin,
+                                                       params.hankin_angle);
+    } else {
+      primary_mesh = MeshOps::compile(base);
+      primary_hankin.dynamicInstructions.clear();
     }
-    load_poly_to_mesh(base, primary_mesh);
 
     // Initial Topology & Color
-    primary_topology = MeshOps::classify_faces_by_topology(base);
+    primary_topology = MeshOps::classify_faces_by_topology(primary_mesh);
     pick_palettes(primary_palettes);
 
     // Start the Loop
@@ -72,8 +77,6 @@ private:
   int solid_idx = 0;
   bool enable_dual = false;
   bool enable_hankin = true;
-
-  CompiledHankin compiled_hankin; // Keep compiled state for the active solid
 
   // Topology & Color State
   std::vector<int> primary_topology;
@@ -107,11 +110,8 @@ private:
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &c, float opacity) {
                           if (enable_hankin) {
-                            // Update geometry from compiled hankin
-                            // JS: this.renderMesh = MeshOps.updateHankin(...)
-                            PolyMesh updated = MeshOps::update_hankin<PolyMesh>(
-                                compiled_hankin, params.hankin_angle);
-                            load_poly_to_mesh(updated, primary_mesh);
+                            primary_mesh = MeshOps::update_hankin<MeshState>(
+                                primary_hankin, params.hankin_angle);
                           }
                           draw_topology_mesh(c, primary_mesh, primary_topology,
                                              primary_palettes, opacity);
@@ -132,56 +132,61 @@ private:
               << std::endl;
 
     // Generate Target Mesh (Secondary)
-    PolyMesh next_base = next_entry.generate();
+    SolidGenerator next_gen(next_idx);
+    PolyMesh next_base;
+    next_gen.generate(next_base);
+
     if (enable_dual)
       next_base = MeshOps::dual(next_base);
 
-    PolyMesh next_poly;
     if (enable_hankin) {
-      // Must compile for target to get correct topology/vertices
-      auto next_compiled = MeshOps::compile_hankin(next_base);
-      // Use CURRENT hankin angle for smooth transition
-      next_poly =
-          MeshOps::update_hankin<PolyMesh>(next_compiled, params.hankin_angle);
+      secondary_hankin = MeshOps::compile_hankin(next_base);
+      secondary_mesh = MeshOps::update_hankin<MeshState>(secondary_hankin,
+                                                         params.hankin_angle);
     } else {
-      next_poly = next_base;
+      secondary_mesh = MeshOps::compile(next_base);
+      secondary_hankin.dynamicInstructions.clear();
     }
 
     // Prepare Secondary State
-    load_poly_to_mesh(next_poly, secondary_mesh);
-    secondary_topology = MeshOps::classify_faces_by_topology(next_poly);
+    secondary_topology = MeshOps::classify_faces_by_topology(secondary_mesh);
     pick_palettes(secondary_palettes);
 
     // 1. Morph Animation
-    timeline.add(
-        0, Animation::MeshMorph(&primary_mesh, &secondary_mesh, &morph_buffer,
-                                primary_mesh, secondary_mesh, DURATION, false,
-                                ease_in_out_sin)
-               .then([this, next_idx]() {
-                 // Commit State
-                 this->solid_idx = next_idx;
+    timeline.add(0, Animation::MeshMorph(&primary_mesh, &secondary_mesh,
+                                         &morph_buffer, primary_mesh,
+                                         secondary_mesh, DURATION, false,
+                                         ease_in_out_sin)
+                        .then([this, next_idx]() {
+                          // Commit State
+                          this->solid_idx = next_idx;
 
-                 // Move Secondary -> Primary
-                 this->primary_topology = this->secondary_topology;
-                 this->primary_palettes = this->secondary_palettes;
+                          // Move Secondary -> Primary
+                          this->primary_topology = this->secondary_topology;
+                          this->primary_palettes = this->secondary_palettes;
+                          this->primary_hankin = this->secondary_hankin;
+                          this->primary_mesh = this->secondary_mesh;
 
-                 // Re-compile Hankin for the NEW solid
-                 PolyMesh new_base =
-                     Solids::Collections::simple_solids[solid_idx].generate();
-                 if (enable_dual)
-                   new_base = MeshOps::dual(new_base);
+                          // Re-compile Hankin for the NEW solid
+                          SolidGenerator new_gen(solid_idx);
+                          PolyMesh new_base;
+                          new_gen.generate(new_base);
 
-                 if (enable_hankin) {
-                   compiled_hankin = MeshOps::compile_hankin(new_base);
-                   // No need to update 'initial' here,
-                   // start_hankin_cycle will do it PolyMesh initial =
-                   // MeshOps::update_hankin<PolyMesh>(compiled_hankin,
-                   // hankin_angle);
-                 }
+                          if (enable_dual)
+                            new_base = MeshOps::dual(new_base);
 
-                 // Loop
-                 this->start_hankin_cycle();
-               }));
+                          if (enable_hankin) {
+                            primary_hankin = MeshOps::compile_hankin(new_base);
+                            primary_mesh = MeshOps::update_hankin<MeshState>(
+                                primary_hankin, params.hankin_angle);
+                          } else {
+                            primary_mesh = MeshOps::compile(new_base);
+                            primary_hankin.dynamicInstructions.clear();
+                          }
+
+                          // Loop
+                          this->start_hankin_cycle();
+                        }));
 
     // 2. Sprite: Outgoing
     timeline.add(0, Animation::Sprite(
@@ -199,28 +204,6 @@ private:
                                              secondary_palettes, opacity);
                         },
                         DURATION, DURATION, ease_mid, 0, ease_mid));
-  }
-
-  // Storage for Primary (0) and Secondary (1) topology
-  // REMOVED: faces_store_0, faces_store_1 (MeshState owns data now)
-
-  void load_poly_to_mesh(const PolyMesh &src, MeshState &dst) {
-    // Copy Vertices
-    dst.vertices = src.vertices;
-
-    // Copy Topology
-    dst.faces.clear();
-    dst.face_counts.clear();
-    dst.face_counts.reserve(src.faces.size());
-
-    for (const auto &f : src.faces) {
-      dst.face_counts.push_back((uint8_t)f.size());
-      for (int idx : f)
-        dst.faces.push_back(idx);
-    }
-
-    // Rebuild BVH (and offsets)
-    build_bvh(dst);
   }
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,

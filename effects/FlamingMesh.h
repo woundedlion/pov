@@ -6,6 +6,7 @@
 #pragma once
 
 #include "../effects_engine.h"
+#include "../generators.h"
 
 template <int W, int H> class FlamingMesh : public Effect {
 public:
@@ -32,7 +33,7 @@ public:
     noise.SetFrequency(params.noiseFreq);
 
     // Initialize mesh (Dodecahedron matches Solids.get(3) or 'dodecahedron')
-    mesh = Solids::Platonic::dodecahedron();
+    DodecahedronGenerator().generate(mesh);
 
     registerParam("Speed", &params.speed, 0.0f, 5.0f);
     registerParam("Delay Base", &params.delayBase, 0.0f, 50.0f);
@@ -83,23 +84,12 @@ private:
   PolyMesh mesh;
   ProceduralPalette palette;
 
-  // Temporal filter delay calculation
   float calculate_delay(float x, float y) {
     if (!params.temporalEnabled)
       return 0.0f;
-
-    // Use 3D vector for isotropic noise sampling
-    // Scale the unit vector to match the approximate spatial frequency of the
-    // previous screen-space noise Old: x coverage was 0..W. New: v coverage is
-    // circumference 2*PI. Scale by W/(2*PI).
     float scale = static_cast<float>(W) / (2.0f * PI_F);
     Vector v = pixel_to_vector<W, H>(x, y) * scale;
-
-    // Animate by translating through Z (k)
-    // Note: t * speed is added to Z to animate the noise field moving through
-    // the sphere
     float noiseVal = noise.GetNoise(v.i, v.j, v.k + (t * params.speed));
-
     return std::max(0.0f, params.delayBase +
                               (noiseVal * 0.5f + 0.5f) * params.delayAmp);
   }

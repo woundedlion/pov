@@ -6,6 +6,7 @@
 #pragma once
 
 #include "../transformers.h"
+#include "../generators.h"
 
 #include "../effects_engine.h"
 #include <vector>
@@ -127,7 +128,10 @@ private:
       const auto &p = entry.params;
       loaded_presets.emplace_back();
       auto &data = loaded_presets.back();
-      PolyMesh m = Solids::get_by_name(p.solid_name);
+
+      SolidNameGenerator gen(p.solid_name);
+      PolyMesh m;
+      gen.generate(m);
 
       // Store Verts
       data.mesh_state.vertices = m.vertices;

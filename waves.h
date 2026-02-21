@@ -20,8 +20,7 @@
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
-    auto w =
-        (sinf(freq * t * 2 * PI_F - (PI_F / 2) + PI_F - (2 * phase)) + 1) / 2;
+    auto w = (sinf(freq * t * 2 * PI_F - (PI_F / 2) - (2 * phase)) + 1) / 2;
     return lerp(from, to, w);
   };
 }

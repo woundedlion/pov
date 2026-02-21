@@ -15,7 +15,7 @@ using Animation::RippleParams;
 
 /**
  * @brief A generic manager for state-based geometry transformations.
- * * @tparam W Canvas width (for Timeline).
+ * @tparam W Canvas width (for Timeline).
  * @tparam ParamsT The configuration struct (e.g., RippleParams, MobiusParams).
  * @tparam AnimT The animation class (e.g., Animation::Ripple).
  * @tparam TransformFunc The static function to apply the transformation.
@@ -72,6 +72,17 @@ public:
 };
 
 /**
+ * @brief A transformer adapter for an Orientation object.
+ */
+template <int W> struct OrientTransformer {
+  const Orientation<W> &orientation;
+
+  explicit OrientTransformer(const Orientation<W> &ori) : orientation(ori) {}
+
+  Vector transform(const Vector &v) const { return orientation.orient(v); }
+};
+
+/**
  * @brief Applies Mobius Transformation to a vector.
  * Wraps the complex math version from 3dmath.h.
  */
@@ -85,17 +96,8 @@ inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
  */
 inline Vector gnomonic_mobius_transform(const Vector &v,
                                         const MobiusParams &params) {
-  // 1. Project to plane (Gnomonic)
   Complex z = gnomonic(v);
-
-  // 2. Transform on plane (Mobius)
-  // Note: gnomonic plane is effectively complex plane
   Complex w = mobius(z, params);
-
-  // 3. Project back to sphere (Inverse Gnomonic)
-  // We need to restore the sign of the hemisphere if we want to stay on the
-  // same side, or maybe allows crossing. Gnomonic projects open hemisphere to
-  // plane. Usually we track the "k" sign.
   return inv_gnomonic(w, (v.j >= 0 ? 1.0f : -1.0f));
 }
 
