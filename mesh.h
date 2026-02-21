@@ -245,6 +245,76 @@ struct CompiledHankin {
 namespace MeshOps {
 
 /**
+ * @brief Compiles a PolyMesh into a static MeshState.
+ * Removes degenerate faces (faces with < 3 vertices) during
+ * the process.
+ * @param src The source PolyMesh.
+ * @return The compiled MeshState.
+ */
+inline MeshState compile(const PolyMesh &src) {
+  MeshState dst;
+  dst.vertices = src.vertices;
+
+  size_t valid_faces = 0;
+  size_t valid_indices = 0;
+
+  // First pass: count valid faces
+  for (const auto &f : src.faces) {
+    if (f.size() >= 3) {
+      valid_faces++;
+      valid_indices += f.size();
+    }
+  }
+
+  dst.face_counts.reserve(valid_faces);
+  dst.faces.reserve(valid_indices);
+
+  // Second pass: compile valid faces
+  for (size_t i = 0; i < src.faces.size(); ++i) {
+    const auto &f = src.faces[i];
+    if (f.size() >= 3) {
+      dst.face_counts.push_back(static_cast<uint8_t>(f.size()));
+      for (int idx : f) {
+        dst.faces.push_back(idx);
+      }
+    }
+  }
+
+  // 1. Populate the Offset Lookup Table (moved from spatial.h since build_bvh
+  // was deleted)
+  dst.face_offsets.resize(dst.face_counts.size());
+  int current_offset = 0;
+  for (size_t i = 0; i < dst.face_counts.size(); ++i) {
+    dst.face_offsets[i] = (uint16_t)current_offset;
+    current_offset += dst.face_counts[i];
+  }
+
+  return dst;
+}
+
+/**
+ * @brief Transforms a MeshState into a target MeshState using the provided
+ * transformer.
+ * @tparam TransformerType The transformer (e.g., RippleTransformer,
+ * OrientTransformer).
+ * @param local_state The source mesh state (centered around origin).
+ * @param world_state The destination mesh state to populate.
+ * @param transformer The transformer providing a transform(Vector) method.
+ */
+template <typename MeshT, typename... TransformerTypes>
+inline void transform(const MeshT &local_state, MeshT &world_state,
+                      const TransformerTypes &...transformers) {
+  world_state = local_state; // Copy topology
+  for (size_t i = 0; i < local_state.vertices.size(); ++i) {
+    Vector v = local_state.vertices[i];
+    if constexpr (sizeof...(transformers) > 0) {
+      ((v = transformers.transform(v)), ...);
+    }
+    world_state.vertices[i] = v;
+  }
+}
+
+/**
  * @brief Computes the dual of a mesh.
  */
 template <typename MeshT> static MeshT dual(const MeshT &mesh) {
@@ -449,11 +519,8 @@ static MeshT update_hankin(CompiledHankin &compiled, float angle) {
     Vector intersect = cross(nHankin1, nHankin2);
 
     float lenSq = dot(intersect, intersect);
-    if (lenSq < 1e-6f) { // Increased epsilon for float precision
+    if (lenSq < 1e-6f) {
       // Degenerate/Parallel.
-      // When lines are parallel (e.g. 45 deg on tetrahedron), they often form a
-      // straight line passing through the face center. The correct "vertex" for
-      // the pattern is the midpoint of the edge connectors m1 and m2.
       intersect = (m1 + m2).normalize();
     }
 
@@ -464,13 +531,19 @@ static MeshT update_hankin(CompiledHankin &compiled, float angle) {
     compiled.dynamicVertices[i] = intersect.normalize();
   }
 
-  MeshT result;
-  result.vertices = compiled.staticVertices;
-  result.vertices.insert(result.vertices.end(),
-                         compiled.dynamicVertices.begin(),
-                         compiled.dynamicVertices.end());
-  result.faces = compiled.faces;
-  return result;
+  PolyMesh temp_poly;
+  temp_poly.vertices = compiled.staticVertices;
+  temp_poly.vertices.insert(temp_poly.vertices.end(),
+                            compiled.dynamicVertices.begin(),
+                            compiled.dynamicVertices.end());
+  temp_poly.faces = compiled.faces;
+
+  if constexpr (std::is_same_v<MeshT, PolyMesh>) {
+    return temp_poly;
+  } else {
+    // We assume MeshT is MeshState, or at least compile-able
+    return compile(temp_poly);
+  }
 }
 
 /**

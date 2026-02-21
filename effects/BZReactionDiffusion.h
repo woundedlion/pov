@@ -1,25 +1,23 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #pragma once
 
 #include <array>
-#include <vector>
 #include <algorithm>
 #include "../effects_engine.h"
+#include "../generators.h"
 
-template <int W, int H>
-class BZReactionDiffusion : public Effect {
+template <int W, int H> class BZReactionDiffusion : public Effect {
 public:
-
   static constexpr int RD_N = W * H * 2; // Number of nodes in the graph
-  static constexpr int RD_K = 6;    // Number of neighbors per node
+  static constexpr int RD_K = 6;         // Number of neighbors per node
 
-  BZReactionDiffusion() :
-    Effect(W, H),
-    filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>())
-  {
+  BZReactionDiffusion()
+      : Effect(W, H), filters(Filter::World::Orient<W>(orientation),
+                              Filter::Screen::AntiAlias<W, H>()) {
     registerParam("Alpha", &params.alpha, 0.0f, 2.0f);
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
@@ -28,8 +26,10 @@ public:
     persist_pixels = false;
     build_graph();
     timeline
-      .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 600, ease_mid, true))
-      .add(0, Animation::PeriodicTimer(96, [this](Canvas& c) { this->spawn(); }, true));
+        .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 600,
+                                       ease_mid, true))
+        .add(0, Animation::PeriodicTimer(
+                    96, [this](Canvas &c) { this->spawn(); }, true));
     spawn();
   }
 
@@ -41,9 +41,9 @@ public:
   }
 
 private:
-
   /**
-   * @brief Holds the chemical state and parameters for a single Belousov-Zhabotinsky reaction instance.
+   * @brief Holds the chemical state and parameters for a single
+   * Belousov-Zhabotinsky reaction instance.
    * @details Simulates a 3-species cyclic competition (Rock-Paper-Scissors).
    */
   struct BZReactionContext {
@@ -58,9 +58,9 @@ private:
 
     GenerativePalette palette;
 
-    BZReactionContext() :
-      palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::DESCENDING, SaturationProfile::VIBRANT)
-    {
+    BZReactionContext()
+        : palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                  BrightnessProfile::DESCENDING, SaturationProfile::VIBRANT) {
       reset();
     }
 
@@ -68,37 +68,44 @@ private:
       A.fill(0.0f);
       B.fill(0.0f);
       C.fill(0.0f);
-      palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC, BrightnessProfile::DESCENDING, SaturationProfile::VIBRANT);
+      palette = GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                                  BrightnessProfile::DESCENDING,
+                                  SaturationProfile::VIBRANT);
+    }
+  };
+
+  struct BZGridGenerator : public IGenerator<std::array<Vector, RD_N>> {
+    void generate(std::array<Vector, RD_N> &out_nodes) const override {
+      const float phi = PI_F * (3.0f - sqrtf(5.0f));
+      for (int i = 0; i < RD_N; i++) {
+        float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;
+        float radius = sqrtf(1.0f - y * y);
+        float theta = phi * i;
+        out_nodes[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
+      }
     }
   };
 
   void build_graph() {
     // Generate Nodes (Fibonacci Lattice)
-    const float phi = PI_F * (3.0f - sqrtf(5.0f));
-
-    for (int i = 0; i < RD_N; i++) {
-      float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;
-      float radius = sqrtf(1.0f - y * y);
-      float theta = phi * i;
-
-      nodes[i] = Vector(
-        cosf(theta) * radius,
-        y,
-        sinf(theta) * radius
-      );
-    }
+    BZGridGenerator gen;
+    gen.generate(nodes);
 
     // Build Neighbors using Spatial Hashing (Grid Optimization)
     static constexpr int GRID_SIZE = 20;
-    static constexpr float CELL_SIZE = 2.0f / GRID_SIZE; // Domain [-1, 1], size 2.0
-    
+    static constexpr float CELL_SIZE =
+        2.0f / GRID_SIZE; // Domain [-1, 1], size 2.0
+
     // Temporary grid structure
     std::vector<std::vector<int>> grid(GRID_SIZE * GRID_SIZE * GRID_SIZE);
 
-    auto get_grid_idx = [&](const Vector& p) {
-      int gx = hs::clamp(static_cast<int>((p.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gy = hs::clamp(static_cast<int>((p.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gz = hs::clamp(static_cast<int>((p.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+    auto get_grid_idx = [&](const Vector &p) {
+      int gx = hs::clamp(static_cast<int>((p.i + 1.0f) / CELL_SIZE), 0,
+                         GRID_SIZE - 1);
+      int gy = hs::clamp(static_cast<int>((p.j + 1.0f) / CELL_SIZE), 0,
+                         GRID_SIZE - 1);
+      int gz = hs::clamp(static_cast<int>((p.k + 1.0f) / CELL_SIZE), 0,
+                         GRID_SIZE - 1);
       return gx + gy * GRID_SIZE + gz * GRID_SIZE * GRID_SIZE;
     };
 
@@ -109,14 +116,17 @@ private:
 
     // Neighbor search
     for (int i = 0; i < RD_N; i++) {
-      const Vector& p1 = nodes[i];
-      
-      std::array<std::pair<float, int>, RD_K> best;
-      best.fill({ std::numeric_limits<float>::max(), -1 });
+      const Vector &p1 = nodes[i];
 
-      int gx = hs::clamp(static_cast<int>((p1.i + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gy = hs::clamp(static_cast<int>((p1.j + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
-      int gz = hs::clamp(static_cast<int>((p1.k + 1.0f) / CELL_SIZE), 0, GRID_SIZE - 1);
+      std::array<std::pair<float, int>, RD_K> best;
+      best.fill({std::numeric_limits<float>::max(), -1});
+
+      int gx = hs::clamp(static_cast<int>((p1.i + 1.0f) / CELL_SIZE), 0,
+                         GRID_SIZE - 1);
+      int gy = hs::clamp(static_cast<int>((p1.j + 1.0f) / CELL_SIZE), 0,
+                         GRID_SIZE - 1);
+      int gz = hs::clamp(static_cast<int>((p1.k + 1.0f) / CELL_SIZE), 0,
+                         GRID_SIZE - 1);
 
       for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
@@ -125,24 +135,26 @@ private:
             int ny = gy + y;
             int nz = gz + z;
 
-             if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE && nz >= 0 && nz < GRID_SIZE) {
-               int cell_idx = nx + ny * GRID_SIZE + nz * GRID_SIZE * GRID_SIZE;
-               const auto& cell_points = grid[cell_idx];
+            if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE &&
+                nz >= 0 && nz < GRID_SIZE) {
+              int cell_idx = nx + ny * GRID_SIZE + nz * GRID_SIZE * GRID_SIZE;
+              const auto &cell_points = grid[cell_idx];
 
-               for (int j : cell_points) {
-                 if (i == j) continue;
+              for (int j : cell_points) {
+                if (i == j)
+                  continue;
 
-                 float d2 = distance_squared(p1, nodes[j]);
+                float d2 = distance_squared(p1, nodes[j]);
 
-                 if (d2 < best[RD_K - 1].first) {
-                   int pos = RD_K - 1;
-                   while (pos > 0 && d2 < best[pos - 1].first) {
-                     best[pos] = best[pos - 1];
-                     pos--;
-                   }
-                   best[pos] = { d2, j };
-                 }
-               }
+                if (d2 < best[RD_K - 1].first) {
+                  int pos = RD_K - 1;
+                  while (pos > 0 && d2 < best[pos - 1].first) {
+                    best[pos] = best[pos - 1];
+                    pos--;
+                  }
+                  best[pos] = {d2, j};
+                }
+              }
             }
           }
         }
@@ -156,34 +168,36 @@ private:
 
   void spawn() {
     contexts.push_back(BZReactionContext());
-    BZReactionContext& ctx = contexts.back();
+    BZReactionContext &ctx = contexts.back();
     seed(ctx);
 
     timeline.add(0, Animation::Sprite(
-      [this, &ctx](Canvas& c, float opacity) {
-        this->render_reaction(c, ctx, opacity);
-      },
-      192, 32, ease_mid, 32, ease_mid
-    ));
+                        [this, &ctx](Canvas &c, float opacity) {
+                          this->render_reaction(c, ctx, opacity);
+                        },
+                        192, 32, ease_mid, 32, ease_mid));
   }
 
-  void seed(BZReactionContext& ctx) {
+  void seed(BZReactionContext &ctx) {
     // Sparse Seeding for Spirals (Droplets)
     for (int k = 0; k < 50; k++) {
       int center = hs::rand_int(0, RD_N - 1);
       float r = hs::rand_f();
 
       // Determine which species to seed
-      float* target = (r < 0.33f) ? ctx.A.data() : (r < 0.66f) ? ctx.B.data() : ctx.C.data();
+      float *target = (r < 0.33f)   ? ctx.A.data()
+                      : (r < 0.66f) ? ctx.B.data()
+                                    : ctx.C.data();
 
       target[center] = 1.0f;
       for (int neighbor : neighbors[center]) {
-        if (neighbor >= 0) target[neighbor] = 1.0f;
+        if (neighbor >= 0)
+          target[neighbor] = 1.0f;
       }
     }
   }
 
-  void render_reaction(Canvas& canvas, BZReactionContext& ctx, float opacity) {
+  void render_reaction(Canvas &canvas, BZReactionContext &ctx, float opacity) {
     // Simulate Physics
     // JS Parity: 2 steps per frame (was 12)
     for (int k = 0; k < 2; k++) {
@@ -221,23 +235,21 @@ private:
         g = g * inv_c + cc.color.g * c;
         b_ch = b_ch * inv_c + cc.color.b * c;
 
-        Pixel color(
-          static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f)),
-          static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f)),
-          static_cast<uint16_t>(hs::clamp(b_ch, 0.0f, 65535.0f))
-        );
+        Pixel color(static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f)),
+                    static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f)),
+                    static_cast<uint16_t>(hs::clamp(b_ch, 0.0f, 65535.0f)));
 
         Color4 c_final(color);
         c_final.alpha *= params.global_alpha * opacity;
-            auto shader = [c_final](const Vector& p, Fragment& f) {
-              f.color = c_final;
-            };
+        auto shader = [c_final](const Vector &p, Fragment &f) {
+          f.color = c_final;
+        };
         Plot::Point::draw(filters, canvas, nodes[i], shader);
       }
     }
   }
 
-  void update_physics(BZReactionContext& ctx) {
+  void update_physics(BZReactionContext &ctx) {
     for (int i = 0; i < RD_N; i++) {
       float a = ctx.A[i];
       float b = ctx.B[i];
@@ -249,7 +261,8 @@ private:
 
       for (int k = 0; k < RD_K; k++) {
         int n_idx = neighbors[i][k];
-        if (n_idx == -1) continue;
+        if (n_idx == -1)
+          continue;
 
         lapA += (ctx.A[n_idx] - a);
         lapB += (ctx.B[n_idx] - b);
@@ -261,9 +274,12 @@ private:
       float db = b * (1.0f - b - params.alpha * a);
       float dc = c * (1.0f - c - params.alpha * b);
 
-      ctx.nextA[i] = hs::clamp(a + (params.D * lapA + da) * params.dt, 0.0f, 1.0f);
-      ctx.nextB[i] = hs::clamp(b + (params.D * lapB + db) * params.dt, 0.0f, 1.0f);
-      ctx.nextC[i] = hs::clamp(c + (params.D * lapC + dc) * params.dt, 0.0f, 1.0f);
+      ctx.nextA[i] =
+          hs::clamp(a + (params.D * lapA + da) * params.dt, 0.0f, 1.0f);
+      ctx.nextB[i] =
+          hs::clamp(b + (params.D * lapB + db) * params.dt, 0.0f, 1.0f);
+      ctx.nextC[i] =
+          hs::clamp(c + (params.D * lapC + dc) * params.dt, 0.0f, 1.0f);
     }
 
     // Swap buffers
@@ -276,17 +292,16 @@ private:
   std::array<std::array<int, RD_K>, RD_N> neighbors;
   Orientation<W> orientation;
 
-  Pipeline<W, H,
-    Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+      filters;
 
   StaticCircularBuffer<BZReactionContext, 4> contexts;
   Timeline<W> timeline;
 
   struct Params {
-      float alpha = 1.6f;
-      float D = 0.03f;
-      float dt = 0.2f;
-      float global_alpha = 0.3f;
+    float alpha = 1.6f;
+    float D = 0.03f;
+    float dt = 0.2f;
+    float global_alpha = 0.3f;
   } params;
 };

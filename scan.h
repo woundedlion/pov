@@ -673,7 +673,7 @@ struct Face {
     }
     radius = sqrtf(max_r2);
     max_dist = radius + 0.1f;
-    max_dist_sq = sqrtf(max_dist);
+    max_dist_sq = max_dist * max_dist;
 
     scratch.poly2D[count] = scratch.poly2D[0];
     poly2D = std::span<Vector>(scratch.poly2D.data(), count + 1);
