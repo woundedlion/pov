@@ -75,7 +75,8 @@ private:
   };
 
   struct BZGridGenerator : public IGenerator<std::array<Vector, RD_N>> {
-    void generate(std::array<Vector, RD_N> &out_nodes) const override {
+    std::array<Vector, RD_N> generate() const override {
+      std::array<Vector, RD_N> out_nodes;
       const float phi = PI_F * (3.0f - sqrtf(5.0f));
       for (int i = 0; i < RD_N; i++) {
         float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;
@@ -83,13 +84,14 @@ private:
         float theta = phi * i;
         out_nodes[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
       }
+      return out_nodes;
     }
   };
 
   void build_graph() {
     // Generate Nodes (Fibonacci Lattice)
     BZGridGenerator gen;
-    gen.generate(nodes);
+    nodes = gen.generate();
 
     // Build Neighbors using Spatial Hashing (Grid Optimization)
     static constexpr int GRID_SIZE = 20;

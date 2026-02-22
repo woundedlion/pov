@@ -42,8 +42,7 @@ public:
 
     // Initial Geometry Generation
     SolidGenerator gen(solid_idx);
-    PolyMesh base;
-    gen.generate(base);
+    PolyMesh base = gen.generate();
 
     if (enable_hankin) {
       primary_hankin = MeshOps::compile_hankin(base);
@@ -133,8 +132,7 @@ private:
 
     // Generate Target Mesh (Secondary)
     SolidGenerator next_gen(next_idx);
-    PolyMesh next_base;
-    next_gen.generate(next_base);
+    PolyMesh next_base = next_gen.generate();
 
     if (enable_dual)
       next_base = MeshOps::dual(next_base);
@@ -169,8 +167,7 @@ private:
 
                           // Re-compile Hankin for the NEW solid
                           SolidGenerator new_gen(solid_idx);
-                          PolyMesh new_base;
-                          new_gen.generate(new_base);
+                          PolyMesh new_base = new_gen.generate();
 
                           if (enable_dual)
                             new_base = MeshOps::dual(new_base);
