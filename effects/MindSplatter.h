@@ -1,174 +1,190 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #pragma once
 
 #include "../effects_engine.h"
 #include <vector>
 #include "../static_circular_buffer.h"
+#include "../presets.h"
 
-template <int W, int H>
-class MindSplatter : public Effect {
+template <int W, int H> class MindSplatter : public Effect {
 public:
-    MindSplatter() : Effect(W, H),
-        filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()),
-        particle_system(0.85f, 0.001f, 25)
-    {
-        registerParam("Friction", &params.friction, 0.5f, 1.0f);
-        registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
-        registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
-        registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
+  MindSplatter()
+      : Effect(W, H), presets{{"Tight", {0.85f, 1.0f, 0.025f, 0.2f}},
+                              {"Medium", {0.5f, 2.0f, 0.094f, 0.2f}},
+                              {"Loose", {1.0f, 3.0f, 0.035f, 1.0f}}},
+        filters(Filter::World::Orient<W>(orientation),
+                Filter::Screen::AntiAlias<W, H>()),
+        particle_system(0.85f, 0.001f, 25) {
+    registerParam("Friction", &params.friction, 0.5f, 1.0f);
+    registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
+    registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
+    registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
 
-        params.friction = 0.85f; // Sync with ParticleSystem init if possible, but PS copies it
-        
-        persist_pixels = false;
-        timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS)); 
-        rebuild();
-        start_warp();
-    }
-    
-    bool show_bg() const override { return false; }
+    persist_pixels = false;
+    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS));
 
-    void draw_frame() override {
-        Canvas canvas(*this);
-        timeline.step(canvas);
-        particle_system.step(canvas);
-        
-        draw_particles(canvas, 1.0f);
-    }
-    
+    auto preset_timer = Animation::PeriodicTimer(
+        160,
+        [this](Canvas &) {
+          presets.next();
+          timeline.add(0, Animation::Lerp(params, presets.get(), 48, ease_mid));
+        },
+        true);
+    timeline.add(0, preset_timer);
+
+    rebuild();
+    start_warp();
+  }
+
+  bool show_bg() const override { return false; }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
+    particle_system.step(canvas);
+
+    draw_particles(canvas, 1.0f);
+  }
+
 private:
+  static const int NUM_PARTICLES = 2048;
 
-    static const int NUM_PARTICLES = 2048;
-    
-    typedef Solids::Dodecahedron EmitSolid;
-    typedef Solids::Icosahedron AttractSolid;
-    
-    typedef Animation::ParticleSystem<W, NUM_PARTICLES> ParticleSystem;
-    typedef StaticCircularBuffer<GenerativePalette, NUM_PARTICLES> PaletteBuffer;
-    
-    // Params
-    struct Params {
-        float friction = 0.85f;
-        float well_strength = 1.0f;
-        float initial_speed = 0.025f;
-        float angular_speed = 0.2f;
-    } params;
+  typedef Solids::Dodecahedron EmitSolid;
+  typedef Solids::Icosahedron AttractSolid;
 
-    Orientation<W> orientation;
-    Timeline<W> timeline;
-    Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
-    ParticleSystem particle_system;
-    PaletteBuffer palette_buffer;
-    std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
-    std::array<int, EmitSolid::NUM_VERTS> emit_counters;
-    
+  typedef Animation::ParticleSystem<W, NUM_PARTICLES> ParticleSystem;
+  typedef StaticCircularBuffer<GenerativePalette, NUM_PARTICLES> PaletteBuffer;
 
-    // Warp params
-    MobiusParams mobius;
-    float warp_scale = 0.6f;
+  // Params
+  struct Params {
+    float friction = 0.85f;
+    float well_strength = 1.0f;
+    float initial_speed = 0.025f;
+    float angular_speed = 0.2f;
 
-    void rebuild() {
-        particle_system.reset(params.friction, 0.001f);
-        
-        // Add Attractors
-        for(const auto& v : AttractSolid::vertices) {
-            particle_system.add_attractor(v, params.well_strength, 0.003f, 0.2f);
+    void lerp(const Params &start, const Params &target, float t) {
+      friction = start.friction + (target.friction - start.friction) * t;
+      well_strength = start.well_strength +
+                      (target.well_strength - start.well_strength) * t;
+      initial_speed = start.initial_speed +
+                      (target.initial_speed - start.initial_speed) * t;
+      angular_speed = start.angular_speed +
+                      (target.angular_speed - start.angular_speed) * t;
+    }
+  } params;
+
+  Presets<Params> presets;
+
+  Orientation<W> orientation;
+  Timeline<W> timeline;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+      filters;
+  ParticleSystem particle_system;
+  PaletteBuffer palette_buffer;
+  std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
+  std::array<int, EmitSolid::NUM_VERTS> emit_counters;
+
+  // Warp params
+  MobiusParams mobius;
+  float warp_scale = 0.6f;
+
+  void rebuild() {
+    particle_system.reset(params.friction, 0.001f);
+
+    // Add Attractors
+    for (const auto &v : AttractSolid::vertices) {
+      particle_system.add_attractor(v, params.well_strength, 0.003f, 0.2f);
+    }
+
+    // Emitter Hues
+    for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
+      emitter_hues[i] = hs::rand_f();
+    }
+
+    palette_buffer.clear();
+    emit_counters.fill(0);
+
+    // Add Emitters
+    for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
+      Vector axis = EmitSolid::vertices[i];
+
+      particle_system.add_emitter([this, i, axis](ParticleSystem &sys) mutable {
+        float angle = (emit_counters[i]++) * params.angular_speed;
+
+        // Basis
+        auto basis = make_basis(Quaternion(), axis);
+        Vector vel = (basis.u * cosf(angle) + basis.w * sinf(angle)) *
+                     params.initial_speed;
+
+        // Update Hue
+        emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
+
+        // Spawn with unique palette per particle
+        if (particle_system.active_count < NUM_PARTICLES) {
+          auto &pal = palette_buffer.emplace_back(
+              GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
+              BrightnessProfile::FLAT, SaturationProfile::MID,
+              static_cast<uint8_t>(emitter_hues[i] * 255));
+          particle_system.spawn(axis, vel, pal, 160);
         }
-        
-        // Emitter Hues
-        for(size_t i=0; i<EmitSolid::NUM_VERTS; ++i) {
-            emitter_hues[i] = hs::rand_f();
+      });
+    }
+  }
+
+  void draw_particles(Canvas &canvas, float opacity = 1.0f) {
+    auto vertex_shader = [&](Fragment &f) {
+      Vector original_pos = f.pos;
+      float holeAlpha = 1.0f;
+      for (const auto &attr : particle_system.attractors) {
+        float d = angle_between(original_pos, attr.position);
+        if (d < attr.event_horizon) {
+          float t = d / attr.event_horizon;
+          holeAlpha *= quintic_kernel(t);
         }
-        
-        palette_buffer.clear();
-        emit_counters.fill(0);
-        
-        // Add Emitters
-        for(size_t i=0; i<EmitSolid::NUM_VERTS; ++i) {
-            Vector axis = EmitSolid::vertices[i];
-            
-            particle_system.add_emitter([this, i, axis](ParticleSystem& sys) mutable {
-                float angle = (emit_counters[i]++) * params.angular_speed;
-                
-                // Basis
-                auto basis = make_basis(Quaternion(), axis);
-                Vector vel = (basis.u * cosf(angle) + basis.w * sinf(angle)) * params.initial_speed;
-                
-                // Update Hue
-                emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
-                
-                // Spawn with unique palette per particle
-                if (particle_system.active_count < NUM_PARTICLES) {
-                    auto& pal = palette_buffer.emplace_back(
-                        GradientShape::STRAIGHT,
-                        HarmonyType::COMPLEMENTARY,
-                        BrightnessProfile::FLAT,
-                        SaturationProfile::MID,
-                        static_cast<uint8_t>(emitter_hues[i] * 255)
-                    );
-                    particle_system.spawn(axis, vel, pal, 160);
-                }
-            });
-        }
-    }
-    
-    void draw_particles(Canvas& canvas, float opacity = 1.0f) {
-        auto vertex_shader = [&](Fragment& f) {
-            Vector original_pos = f.pos;
-            float holeAlpha = 1.0f;
-            for(const auto& attr : particle_system.attractors) {
-                 float d = angle_between(original_pos, attr.position);
-                  if (d < attr.event_horizon) {
-                        float t = d / attr.event_horizon;
-                        holeAlpha *= quintic_kernel(t);
-                  }
-             }
+      }
 
-             // Apply Transforms: Mobius THEN Orient
-            f.pos = mobius_transform(f.pos, mobius);
-            f.pos = orientation.orient(f.pos);
-            f.v3 *= holeAlpha; 
-        };
+      f.pos = mobius_transform(f.pos, mobius);
+      f.pos = orientation.orient(f.pos);
+      f.v3 *= holeAlpha;
+    };
 
-        auto fragment_shader = [&](const Vector& v, Fragment& f) {
-             float alpha = std::min(f.v0, f.v3);
-             int p_idx = static_cast<int>(f.v2 + 0.5f);
-             
-             if (p_idx < 0 || p_idx >= particle_system.active_count) {
-                #ifdef DEBUG
-                assert(false);
-                #endif
-                 f.color = Color4(CRGB(0, 0, 0), 0.0f);
-                 return;
-             }
+    auto fragment_shader = [&](const Vector &v, Fragment &f) {
+      float alpha = std::min(f.v0, f.v3);
+      int p_idx = static_cast<int>(f.v2 + 0.5f);
 
-             const auto& p = particle_system.pool[p_idx];             
-             Color4 c = get_color(p.palette, f.v0);        
-             c.alpha  = c.alpha * alpha * alpha * opacity;    
-             f.color = c;
-        };
-        
-        Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system, fragment_shader, vertex_shader);
-    }
-    
-    void start_warp() {
-        schedule_warp();
-    }
-    
-    void schedule_warp() {
-        auto timer = Animation::RandomTimer(180, 300, [this](Canvas&) {
-            perform_warp();
-        });
-        timeline.add(0, timer);
-    }
-    
-    void perform_warp() {
-        auto warp = Animation::MobiusWarp(mobius, warp_scale, 160, false);
-        warp.then([this]() {
-            schedule_warp();
-        });
-        timeline.add(0, warp);
-    }
+      if (p_idx < 0 || p_idx >= particle_system.active_count) {
+#ifdef DEBUG
+        assert(false);
+#endif
+        f.color = Color4(CRGB(0, 0, 0), 0.0f);
+        return;
+      }
+
+      const auto &p = particle_system.pool[p_idx];
+      Color4 c = get_color(p.palette, f.v0);
+      c.alpha = c.alpha * alpha * alpha * opacity;
+      f.color = c;
+    };
+
+    Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
+                                     fragment_shader, vertex_shader);
+  }
+
+  void start_warp() { schedule_warp(); }
+
+  void schedule_warp() {
+    auto timer =
+        Animation::RandomTimer(180, 300, [this](Canvas &) { perform_warp(); });
+    timeline.add(0, timer);
+  }
+
+  void perform_warp() {
+    auto warp = Animation::MobiusWarp(mobius, warp_scale, 160, false);
+    warp.then([this]() { schedule_warp(); });
+    timeline.add(0, warp);
+  }
 };
