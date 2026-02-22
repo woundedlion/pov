@@ -56,8 +56,6 @@ private:
   Pipeline<W, H> filters;
   RippleTransformer<W, 8> ripple_gen;
   float ripple_duration = 80.0f;
-  MeshState base_state;
-  MeshState transformed_state;
 
   int solid_idx = -1;
 
@@ -85,8 +83,7 @@ private:
             (int)local_mesh.vertices.size(), (int)local_mesh.faces.size());
 
     // 2. COMPILE
-    base_state = MeshOps::compile(local_mesh);
-    transformed_state = base_state;
+    MeshState base_state = MeshOps::compile(local_mesh);
 
     auto faceIndices = MeshOps::classify_faces_by_topology(base_state);
 
@@ -107,9 +104,10 @@ private:
     int duration = 160;
     int fade_in = 32;
     int fade_out = 32;
-    auto draw_fn = [this, faceIndices, palettes](Canvas &canvas,
-                                                 float opacity) {
+    auto draw_fn = [this, base_state, faceIndices, palettes](Canvas &canvas,
+                                                             float opacity) {
       // 3. TRANSFORM
+      MeshState transformed_state = base_state;
       OrientTransformer<W> camera(orientation);
       MeshOps::transform(base_state, transformed_state, ripple_gen, camera);
 
