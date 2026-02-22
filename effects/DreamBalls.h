@@ -130,8 +130,7 @@ private:
       auto &data = loaded_presets.back();
 
       SolidNameGenerator gen(p.solid_name);
-      PolyMesh m;
-      gen.generate(m);
+      PolyMesh m = gen.generate();
 
       // Store Verts
       data.mesh_state.vertices = m.vertices;
@@ -159,8 +158,6 @@ private:
     auto &entries = preset_manager.get_entries();
     int safe_idx = idx % entries.size();
 
-    // safe_idx corresponds to loaded_presets index too since we iterated
-    // entries
     params = entries[safe_idx].params;
     Params instance_params = entries[safe_idx].params;
     const PresetData *preset_ptr = &loaded_presets[safe_idx];

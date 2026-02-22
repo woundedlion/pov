@@ -24,18 +24,15 @@ public:
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
     registerParam("Ripp Width", &ripple_gen.params.thickness, 0.1f, 1.0f);
     registerParam("Ripp Decay", &ripple_gen.params.decay, 0.0f, 5.0f);
-
-    // Ripple Duration (Speed is PI / duration)
     registerParam("Ripp Dur", &ripple_duration, 30.0f, 300.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP));
 
-    // Init Ripple Defaults
     ripple_gen.params.amplitude = 0.4f;
     ripple_gen.params.thickness = 0.7f;
     ripple_gen.params.decay = 0.1f;
 
-    // Ripple now and schedule more
+    // Ripple now and schedule more ripples
     timeline.add(0, Animation::PeriodicTimer(
                         0, [this](auto &canvas) { ripple(canvas); }, false));
     timeline.add(0, Animation::PeriodicTimer(
@@ -62,30 +59,48 @@ private:
   void ripple(Canvas &canvas) {
     Vector origin = random_vector();
     for (int i = 0; i < params.burst_size; i++) {
-      // Speed = PI / duration.
-      // Generic spawn: delay, center, speed, duration
       ripple_gen.spawn(i * 16, origin, PI_F / ripple_duration,
                        static_cast<int>(ripple_duration));
     }
   }
 
+  void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
+                  const std::vector<int> &faceIndices,
+                  const std::vector<const Palette *> &palettes) {
+    MeshState transformed_state = base_state;
+    OrientTransformer<W> camera(orientation);
+    MeshOps::transform(base_state, transformed_state, ripple_gen, camera);
+
+    auto fragment_shader = [&](const Vector &p, Fragment &frag) {
+      int faceIdx = static_cast<int>(frag.v2);
+      int color_idx = 0;
+      if (faceIdx >= 0 && faceIdx < (int)faceIndices.size()) {
+        color_idx = faceIndices[faceIdx];
+      }
+      const Palette *pal = palettes[color_idx];
+
+      float distFromEdge = -frag.v1;
+      float size = frag.size;
+      float intensity = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
+      intensity = hs::clamp(intensity, 0.0f, 1.0f);
+
+      frag.color = pal->get(intensity);
+      frag.color.alpha = opacity;
+    };
+
+    Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader);
+  }
+
   void spawn_shape() {
     solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
-
-    // 1. GENERATE
     SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
-    PolyMesh local_mesh;
-    gen.generate(local_mesh);
+    PolyMesh local_mesh = gen.generate();
+    MeshState base_state = MeshOps::compile(local_mesh);
+    auto faceIndices = MeshOps::classify_faces_by_topology(base_state);
 
-    // Log Shape Name
     const auto &entry = Solids::Collections::islamic_solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
             (int)local_mesh.vertices.size(), (int)local_mesh.faces.size());
-
-    // 2. COMPILE
-    MeshState base_state = MeshOps::compile(local_mesh);
-
-    auto faceIndices = MeshOps::classify_faces_by_topology(base_state);
 
     // Prepare Palettes
     std::vector<const Palette *> palettes = {
@@ -94,7 +109,7 @@ private:
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
     std::shuffle(palettes.begin(), palettes.end(), g);
 
-    // Map the topology to the effect's specific visual needs (the palette)
+    // Map Topology to palette
     int num_colors = static_cast<int>(palettes.size());
     for (size_t i = 0; i < faceIndices.size(); ++i) {
       faceIndices[i] = faceIndices[i] % num_colors;
@@ -106,39 +121,12 @@ private:
     int fade_out = 32;
     auto draw_fn = [this, base_state, faceIndices, palettes](Canvas &canvas,
                                                              float opacity) {
-      // 3. TRANSFORM
-      MeshState transformed_state = base_state;
-      OrientTransformer<W> camera(orientation);
-      MeshOps::transform(base_state, transformed_state, ripple_gen, camera);
-
-      // 4. SHADER
-      auto fragment_shader = [&](const Vector &p, Fragment &frag) {
-        int faceIdx = static_cast<int>(frag.v2);
-        int color_idx = 0;
-        if (faceIdx >= 0 && faceIdx < (int)faceIndices.size()) {
-          color_idx = faceIndices[faceIdx];
-        }
-        const Palette *pal = palettes[color_idx];
-
-        float distFromEdge = -frag.v1;
-        float size = frag.size;
-        float intensity = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
-        intensity = hs::clamp(intensity, 0.0f, 1.0f);
-
-        frag.color = pal->get(intensity);
-        frag.color.alpha = opacity;
-      };
-
-      // 5. RASTERIZE
-      Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
-                             fragment_shader);
+      this->draw_shape(canvas, opacity, base_state, faceIndices, palettes);
     };
-
     timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid,
                                       fade_out, ease_mid));
 
-    // Schedule Next
-    // Overlap = fade. Next delay = duration - overlap.
+    // Schedule Next overlapping
     int next_delay = duration - fade_out;
     timeline.add(next_delay,
                  Animation::PeriodicTimer(

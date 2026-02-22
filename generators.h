@@ -16,10 +16,10 @@
  */
 template <typename GeometryType> struct IGenerator {
   /**
-   * @brief Populates the target geometry buffer in local space.
-   * @param out_geometry The buffer to populate.
+   * @brief Generates and returns the target geometry buffer in local space.
+   * @return The generated geometry box.
    */
-  virtual void generate(GeometryType &out_geometry) const = 0;
+  virtual GeometryType generate() const = 0;
 
   virtual ~IGenerator() = default;
 };
@@ -28,7 +28,7 @@ template <typename GeometryType> struct IGenerator {
  * @brief Specialized interface for PolyMesh generation
  */
 struct IMeshGenerator : public IGenerator<PolyMesh> {
-  virtual void generate(PolyMesh &out_mesh) const = 0;
+  virtual PolyMesh generate() const = 0;
 };
 
 /**
@@ -40,9 +40,9 @@ struct SolidGenerator : public IMeshGenerator {
 
   SolidGenerator(int id) : solid_id(id) {}
 
-  void generate(PolyMesh &out_mesh) const override {
+  PolyMesh generate() const override {
     // Generate fresh mesh from solids registry
-    out_mesh = Solids::get(solid_id);
+    return Solids::get(solid_id);
   }
 };
 
@@ -54,40 +54,30 @@ struct SolidNameGenerator : public IMeshGenerator {
 
   SolidNameGenerator(const std::string &name) : solid_name(name) {}
 
-  void generate(PolyMesh &out_mesh) const override {
-    out_mesh = Solids::get_by_name(solid_name);
-  }
+  PolyMesh generate() const override { return Solids::get_by_name(solid_name); }
 };
 
 /**
  * @brief Helper generator for specific platonic solids
  */
 struct IcosahedronGenerator : public IMeshGenerator {
-  void generate(PolyMesh &out_mesh) const override {
-    out_mesh = Solids::Platonic::icosahedron();
-  }
+  PolyMesh generate() const override { return Solids::Platonic::icosahedron(); }
 };
 
 struct DodecahedronGenerator : public IMeshGenerator {
-  void generate(PolyMesh &out_mesh) const override {
-    out_mesh = Solids::Platonic::dodecahedron();
+  PolyMesh generate() const override {
+    return Solids::Platonic::dodecahedron();
   }
 };
 
 struct CubeGenerator : public IMeshGenerator {
-  void generate(PolyMesh &out_mesh) const override {
-    out_mesh = Solids::Platonic::cube();
-  }
+  PolyMesh generate() const override { return Solids::Platonic::cube(); }
 };
 
 struct OctahedronGenerator : public IMeshGenerator {
-  void generate(PolyMesh &out_mesh) const override {
-    out_mesh = Solids::Platonic::octahedron();
-  }
+  PolyMesh generate() const override { return Solids::Platonic::octahedron(); }
 };
 
 struct TetrahedronGenerator : public IMeshGenerator {
-  void generate(PolyMesh &out_mesh) const override {
-    out_mesh = Solids::Platonic::tetrahedron();
-  }
+  PolyMesh generate() const override { return Solids::Platonic::tetrahedron(); }
 };
