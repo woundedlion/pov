@@ -83,21 +83,22 @@ struct HEFace {
     if (!halfEdge)
       return;
 
-    // 1. Collect vertices
-    std::vector<Vector> verts;
+    // 1. Collect vertices on the stack (No malloc!)
+    Vector verts[100];
     HalfEdge *he = halfEdge;
     HalfEdge *start = he;
     int safety = 0;
     do {
-      verts.push_back(he->vertex->position);
+      if (safety < 100)
+        verts[safety] = he->vertex->position;
       he = he->next;
       safety++;
     } while (he && he != start && safety < 100);
 
-    vertexCount = (int)verts.size();
+    vertexCount = safety;
 
     // 2. Angles
-    std::vector<int> angles;
+    int angles[100];
     if (vertexCount >= 3) {
       for (int i = 0; i < vertexCount; ++i) {
         const Vector &prev = verts[(i - 1 + vertexCount) % vertexCount];
@@ -107,11 +108,11 @@ struct HEFace {
         Vector v1 = (prev - curr).normalize();
         Vector v2 = (next - curr).normalize();
 
-        // angle_between returns radians.
         float ang = angle_between(v1, v2);
-        angles.push_back((int)std::round(ang * 180.0f / PI_F));
+        angles[i] = (int)std::round(ang * 180.0f / PI_F);
       }
-      std::sort(angles.begin(), angles.end());
+      // std::sort works perfectly on raw pointers
+      std::sort(angles, angles + vertexCount);
     }
 
     // 3. Hash (JS style hash32)
@@ -122,8 +123,8 @@ struct HEFace {
     };
 
     uint32_t h = hash32(static_cast<uint32_t>(vertexCount), 0x12345678);
-    for (int a : angles) {
-      h = hash32(static_cast<uint32_t>(a), h);
+    for (int i = 0; i < vertexCount; ++i) {
+      h = hash32(static_cast<uint32_t>(angles[i]), h);
     }
     intrinsicHash = h;
   }
@@ -387,9 +388,10 @@ inline void dual(const PolyMesh &mesh, PolyMesh &out_mesh,
   }
 }
 
-inline PolyMesh dual(const PolyMesh &mesh, Arena &scratch_arena) {
+inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
   PolyMesh out;
-  dual(mesh, out, scratch_arena);
+  dual(mesh, out, *(ctx.target));
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -577,10 +579,10 @@ inline void hankin(const PolyMesh &mesh, PolyMesh &out_mesh,
   update_hankin(compiled, out_mesh, scratch_arena, angle);
 }
 
-inline PolyMesh hankin(const PolyMesh &mesh, Arena &scratch_arena,
-                       float angle) {
+inline PolyMesh hankin(const PolyMesh &mesh, ScratchContext &ctx, float angle) {
   PolyMesh out;
-  hankin(mesh, out, scratch_arena, angle);
+  hankin(mesh, out, *(ctx.target), angle);
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -636,9 +638,10 @@ inline void kis(const PolyMesh &mesh, PolyMesh &out_mesh,
   }
 }
 
-inline PolyMesh kis(const PolyMesh &mesh, Arena &scratch_arena) {
+inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
   PolyMesh out;
-  kis(mesh, out, scratch_arena);
+  kis(mesh, out, *(ctx.target));
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -732,9 +735,10 @@ inline void ambo(const PolyMesh &mesh, PolyMesh &out_mesh,
   }
 }
 
-inline PolyMesh ambo(const PolyMesh &mesh, Arena &scratch_arena) {
+inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
   PolyMesh out;
-  ambo(mesh, out, scratch_arena);
+  ambo(mesh, out, *(ctx.target));
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -859,10 +863,11 @@ inline void truncate(const PolyMesh &mesh, PolyMesh &out_mesh,
   }
 }
 
-inline PolyMesh truncate(const PolyMesh &mesh, Arena &scratch_arena,
+inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
                          float t = 0.25f) {
   PolyMesh out;
-  truncate(mesh, out, scratch_arena, t);
+  truncate(mesh, out, *(ctx.target), t);
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -972,10 +977,11 @@ inline void expand(const PolyMesh &mesh, PolyMesh &out_mesh,
   }
 }
 
-inline PolyMesh expand(const PolyMesh &mesh, Arena &scratch_arena,
+inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
                        float t = 2.0f - sqrt(2.0f)) {
   PolyMesh out;
-  expand(mesh, out, scratch_arena, t);
+  expand(mesh, out, *(ctx.target), t);
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -989,10 +995,11 @@ inline void bitruncate(const PolyMesh &mesh, PolyMesh &out_mesh,
   truncate(temp, out_mesh, scratch_arena, t);
 }
 
-inline PolyMesh bitruncate(const PolyMesh &mesh, Arena &scratch_arena,
+inline PolyMesh bitruncate(const PolyMesh &mesh, ScratchContext &ctx,
                            float t = 1.0f / 3.0f) {
   PolyMesh out;
-  bitruncate(mesh, out, scratch_arena, t);
+  bitruncate(mesh, out, *(ctx.target), t);
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -1071,10 +1078,11 @@ inline void canonicalize(const PolyMesh &mesh, PolyMesh &out_mesh,
   }
 }
 
-inline PolyMesh canonicalize(const PolyMesh &mesh, Arena &scratch_arena,
+inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
                              int iterations = 100) {
   PolyMesh out;
-  canonicalize(mesh, out, scratch_arena, iterations);
+  canonicalize(mesh, out, *(ctx.target), iterations);
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -1206,10 +1214,11 @@ inline void snub(const PolyMesh &mesh, PolyMesh &out_mesh, Arena &scratch_arena,
   }
 }
 
-inline PolyMesh snub(const PolyMesh &mesh, Arena &scratch_arena, float t = 0.5f,
+inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
                      float twist = 0.0f) {
   PolyMesh out;
-  snub(mesh, out, scratch_arena, t, twist);
+  snub(mesh, out, *(ctx.target), t, twist);
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -1220,9 +1229,10 @@ inline void gyro(const PolyMesh &mesh, PolyMesh &out_mesh,
   dual(temp, out_mesh, scratch_arena);
 }
 
-inline PolyMesh gyro(const PolyMesh &mesh, Arena &scratch_arena) {
+inline PolyMesh gyro(const PolyMesh &mesh, ScratchContext &ctx) {
   PolyMesh out;
-  gyro(mesh, out, scratch_arena);
+  gyro(mesh, out, *(ctx.target));
+  ctx.swap_and_clear();
   return out;
 }
 
@@ -1329,19 +1339,19 @@ static uint32_t js_hash32(uint32_t n, uint32_t seed) {
 template <typename MeshT>
 static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
                                                    Arena &scratch_arena) {
-  ArenaMarker marker(scratch_arena);
   HalfEdgeMesh heMesh(scratch_arena, mesh);
-  std::map<uint32_t, int> signatureToID;
 
+  // Replace std::map with ArenaMap. Max possible signatures = faces.size()
+  ArenaMap<uint32_t, int> signatureToID(scratch_arena, heMesh.faces.size());
+
+  // Use std::vector so the persistent caller object preserves values out of
+  // scope
   std::vector<int> faceColorIndices;
-  faceColorIndices.resize(heMesh.faces.size());
+  faceColorIndices.reserve(heMesh.faces.size());
   int nextID = 0;
 
-  // Compute Contextual Hashes (acc neighbors)
   for (size_t i = 0; i < heMesh.faces.size(); ++i) {
     HEFace *face = &heMesh.faces[i];
-
-    // Start hash with self intrinsic (order independent seed)
     uint32_t neighborAcc = 0;
 
     HalfEdge *he = face->halfEdge;
@@ -1358,13 +1368,12 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
       } while (he && he != start && safety < 100);
     }
 
-    // Final Hash: Combine Neighbor Accumulator with Self Intrinsic
     uint32_t finalHash = js_hash32(neighborAcc, face->intrinsicHash);
 
-    if (signatureToID.find(finalHash) == signatureToID.end()) {
+    if (!signatureToID.contains(finalHash)) {
       signatureToID[finalHash] = nextID++;
     }
-    faceColorIndices[i] = signatureToID[finalHash];
+    faceColorIndices.push_back(signatureToID[finalHash]);
   }
 
   return faceColorIndices;

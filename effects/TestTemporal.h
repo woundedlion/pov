@@ -115,7 +115,8 @@ private:
 
   void rebuild_mesh() {
     ArenaMarker scratch_guard(scratch_arena);
-    mesh = Solids::finalize_solid(Solids::Platonic::icosahedron(scratch_arena),
+    ScratchContext ctx(scratch_arena, scratch_arena_b);
+    mesh = Solids::finalize_solid(Solids::Platonic::icosahedron(ctx),
                                   geometry_arena);
   }
 
