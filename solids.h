@@ -23,6 +23,20 @@ static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 
 namespace Solids {
 
+inline PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
+  PolyMesh final_mesh;
+  final_mesh.vertices.initialize(geom, temp.vertices.size());
+  for (size_t i = 0; i < temp.vertices.size(); ++i)
+    final_mesh.vertices.push_back(temp.vertices[i]);
+  final_mesh.face_counts.initialize(geom, temp.face_counts.size());
+  for (size_t i = 0; i < temp.face_counts.size(); ++i)
+    final_mesh.face_counts.push_back(temp.face_counts[i]);
+  final_mesh.faces.initialize(geom, temp.faces.size());
+  for (size_t i = 0; i < temp.faces.size(); ++i)
+    final_mesh.faces.push_back(temp.faces[i]);
+  return final_mesh;
+}
+
 // ==========================================================================================
 // 1. DATA DEFINITIONS (Hardcoded Platonic Solids)
 // ==========================================================================================
@@ -147,21 +161,17 @@ struct Dodecahedron {
 };
 
 // Helper to convert Static Mesh Data to Dynamic PolyMesh
-template <typename StaticMeshT> PolyMesh to_polymesh() {
+template <typename StaticMeshT> PolyMesh to_polymesh(Arena &scratch) {
   PolyMesh mesh;
-  mesh.vertices.assign(StaticMeshT::vertices.begin(),
-                       StaticMeshT::vertices.end());
-
-  int offset = 0;
-  for (size_t i = 0; i < StaticMeshT::face_counts.size(); ++i) {
-    int count = StaticMeshT::face_counts[i];
-    std::vector<int> face;
-    for (int k = 0; k < count; ++k) {
-      face.push_back(StaticMeshT::faces[offset + k]);
-    }
-    mesh.faces.push_back(face);
-    offset += count;
-  }
+  mesh.vertices.initialize(scratch, StaticMeshT::vertices.size());
+  for (const auto &v : StaticMeshT::vertices)
+    mesh.vertices.push_back(v);
+  mesh.face_counts.initialize(scratch, StaticMeshT::face_counts.size());
+  for (const auto &c : StaticMeshT::face_counts)
+    mesh.face_counts.push_back(c);
+  mesh.faces.initialize(scratch, StaticMeshT::faces.size());
+  for (const auto &f : StaticMeshT::faces)
+    mesh.faces.push_back(f);
   return mesh;
 }
 
@@ -170,49 +180,67 @@ template <typename StaticMeshT> PolyMesh to_polymesh() {
 // ==========================================================================================
 
 namespace Platonic {
-inline PolyMesh tetrahedron() { return to_polymesh<Tetrahedron>(); }
-inline PolyMesh cube() { return to_polymesh<Cube>(); }
-inline PolyMesh octahedron() { return to_polymesh<Octahedron>(); }
-inline PolyMesh dodecahedron() { return to_polymesh<Dodecahedron>(); }
-inline PolyMesh icosahedron() { return to_polymesh<Icosahedron>(); }
+inline PolyMesh tetrahedron(Arena &scratch) {
+  return to_polymesh<Tetrahedron>(scratch);
+}
+inline PolyMesh cube(Arena &scratch) { return to_polymesh<Cube>(scratch); }
+inline PolyMesh octahedron(Arena &scratch) {
+  return to_polymesh<Octahedron>(scratch);
+}
+inline PolyMesh dodecahedron(Arena &scratch) {
+  return to_polymesh<Dodecahedron>(scratch);
+}
+inline PolyMesh icosahedron(Arena &scratch) {
+  return to_polymesh<Icosahedron>(scratch);
+}
 } // namespace Platonic
 
 namespace Archimedean {
 using namespace Platonic;
 using namespace MeshOps;
 
-inline PolyMesh truncatedTetrahedron() {
-  return truncate(tetrahedron(), 1.0f / 3.0f);
+inline PolyMesh truncatedTetrahedron(Arena &scratch) {
+  return truncate(tetrahedron(scratch), scratch, 1.0f / 3.0f);
 }
-inline PolyMesh cuboctahedron() { return ambo(cube()); }
-inline PolyMesh truncatedCube() {
-  return truncate(cube(), 1.0f / (2.0f + SQRT2));
+inline PolyMesh cuboctahedron(Arena &scratch) {
+  return ambo(cube(scratch), scratch);
 }
-inline PolyMesh truncatedOctahedron() {
-  return truncate(octahedron(), 1.0f / 3.0f);
+inline PolyMesh truncatedCube(Arena &scratch) {
+  return truncate(cube(scratch), scratch, 1.0f / (2.0f + SQRT2));
 }
-inline PolyMesh rhombicuboctahedron() { return expand(cube()); }
-inline PolyMesh truncatedCuboctahedron() {
-  return canonicalize(bitruncate(cube(), 1.0f / (2.0f + SQRT2)), 50);
+inline PolyMesh truncatedOctahedron(Arena &scratch) {
+  return truncate(octahedron(scratch), scratch, 1.0f / 3.0f);
 }
-inline PolyMesh snubCube() {
-  return canonicalize(snub(cube(), T_SNUB_CUBE, 0.28f), 50);
+inline PolyMesh rhombicuboctahedron(Arena &scratch) {
+  return expand(cube(scratch), scratch);
 }
-inline PolyMesh icosidodecahedron() { return ambo(dodecahedron()); }
-inline PolyMesh truncatedDodecahedron() {
-  return truncate(dodecahedron(), T_TRUNC_ICOS);
+inline PolyMesh truncatedCuboctahedron(Arena &scratch) {
+  return canonicalize(bitruncate(cube(scratch), scratch, 1.0f / (2.0f + SQRT2)),
+                      scratch, 50);
 }
-inline PolyMesh truncatedIcosahedron() {
-  return truncate(icosahedron(), 1.0f / 3.0f);
+inline PolyMesh snubCube(Arena &scratch) {
+  return canonicalize(snub(cube(scratch), scratch, T_SNUB_CUBE, 0.28f), scratch,
+                      50);
 }
-inline PolyMesh rhombicosidodecahedron() {
-  return canonicalize(expand(dodecahedron()), 50);
+inline PolyMesh icosidodecahedron(Arena &scratch) {
+  return ambo(dodecahedron(scratch), scratch);
 }
-inline PolyMesh truncatedIcosidodecahedron() {
-  return canonicalize(bitruncate(dodecahedron(), 1.0f / (2.0f + PHI)), 50);
+inline PolyMesh truncatedDodecahedron(Arena &scratch) {
+  return truncate(dodecahedron(scratch), scratch, T_TRUNC_ICOS);
 }
-inline PolyMesh snubDodecahedron() {
-  return canonicalize(snub(dodecahedron(), 0.5f), 50);
+inline PolyMesh truncatedIcosahedron(Arena &scratch) {
+  return truncate(icosahedron(scratch), scratch, 1.0f / 3.0f);
+}
+inline PolyMesh rhombicosidodecahedron(Arena &scratch) {
+  return canonicalize(expand(dodecahedron(scratch), scratch), scratch, 50);
+}
+inline PolyMesh truncatedIcosidodecahedron(Arena &scratch) {
+  return canonicalize(
+      bitruncate(dodecahedron(scratch), scratch, 1.0f / (2.0f + PHI)), scratch,
+      50);
+}
+inline PolyMesh snubDodecahedron(Arena &scratch) {
+  return canonicalize(snub(dodecahedron(scratch), scratch, 0.5f), scratch, 50);
 }
 } // namespace Archimedean
 
@@ -223,118 +251,151 @@ using namespace MeshOps;
 
 static constexpr float D2R = PI_F / 180.0f;
 
-// Helper for bitruncate (truncate(ambo(m), t))
-inline PolyMesh bitruncate(const PolyMesh &m, float t) {
-  return truncate(ambo(m), t);
+inline PolyMesh bitruncate(const PolyMesh &m, Arena &scratch, float t) {
+  return truncate(ambo(m, scratch), scratch, t);
 }
 
-// Base: icosahedron, Ops: Hk(59), Bitruncate(0.33)
-// JS: icosahedron_hk59_bitruncate033: () =>
-// MeshOps.hankin(MeshOps.bitruncate(Solids.PlatonicSolids.icosahedron(), 0.33),
-// 59 * (Math.PI / 180)) Note: JS order is hankin(bitruncate(...), 59).
-inline PolyMesh icosahedron_hk59_bitruncate033() {
-  return hankin(bitruncate(icosahedron(), 0.33f), 59.0f * D2R);
-}
-
-// Base: octahedron, Ops: Hk(17), Ambo, Hk(73) (Note: 73 deg in JS)
-// JS: octahedron_hk17_ambo_hk72: ... hankin(..., 73 * Math.PI / 180)
-// Name says 72, code says 73. We match code.
-inline PolyMesh octahedron_hk17_ambo_hk72() {
-  return hankin(ambo(hankin(octahedron(), 17.0f * D2R)), 73.0f * D2R);
-}
-
-// Base: icosahedron, Ops: Kis, Gyro
-inline PolyMesh icosahedron_kis_gyro() { return gyro(kis(icosahedron())); }
-
-// Base: truncatedIcosidodecahedron, Ops: Tr(50), Ambo, Dual
-inline PolyMesh truncatedIcosidodecahedron_truncate05_ambo_dual() {
-  return dual(ambo(truncate(truncatedIcosidodecahedron(), 50.0f * D2R)));
-}
-
-// Base: icosidodecahedron, Ops: Tr(5), Ambo, Dual
-inline PolyMesh icosidodecahedron_truncate05_ambo_dual() {
-  return dual(ambo(truncate(icosidodecahedron(), 5.0f * D2R)));
-}
-
-// Base: snubDodecahedron, Ops: Tr(5), Ambo, Dual
-inline PolyMesh snubDodecahedron_truncate05_ambo_dual() {
-  return dual(ambo(truncate(snubDodecahedron(), 5.0f * D2R)));
-}
-
-// Base: octahedron, Ops: Hk(34), Ambo, Hk(72)
-inline PolyMesh octahedron_hk34_ambo_hk72() {
-  return hankin(ambo(hankin(octahedron(), 34.0f * D2R)), 72.0f * D2R);
-}
-
-// Base: rhombicuboctahedron, Ops: Hk(63), Ambo, Hk(63)
-// JS: rhombicuboctahedron_hk63_ambo_hk63
-inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63() {
-  return hankin(ambo(hankin(rhombicuboctahedron(), 63.0f * D2R)), 63.0f * D2R);
-}
-
-// Base: truncatedIcosahedron, Ops: Hk(54), Ambo, Hk(72)
-inline PolyMesh truncatedIcosahedron_hk54_ambo_hk72() {
-  return hankin(ambo(hankin(truncatedIcosahedron(), 54.0f * D2R)), 72.0f * D2R);
-}
-
-// Base: dodecahedron, Ops: Hk(54), Ambo, Hk(72)
-inline PolyMesh dodecahedron_hk54_ambo_hk72() {
-  return hankin(ambo(hankin(dodecahedron(), 54.0f * D2R)), 72.0f * D2R);
-}
-
-// Base: dodecahedron, Ops: Hk(72), Ambo, Dual, Hk(20)
-inline PolyMesh dodecahedron_hk72_ambo_dual_hk20() {
-  return hankin(dual(ambo(hankin(dodecahedron(), 72.0f * D2R))), 20.0f * D2R);
-}
-
-inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual() {
-  return dual(ambo(truncate(truncatedIcosahedron(), 50.0f * D2R)));
-}
-
-inline PolyMesh icosahedron_snub_canonicalize_truncate033_hankin62() {
-  return hankin(truncate(canonicalize(snub(icosahedron())), 0.33f),
-                62.0f * D2R);
-}
-
-inline PolyMesh dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43() {
-  return hankin(canonicalize(ambo(hankin(
-                    canonicalize(ambo(hankin(dodecahedron(), 3.0f * D2R))),
-                    62.0f * D2R))),
-                43.0f * D2R);
-}
-
-inline PolyMesh icosahedron_ambo_truncate033_hankin59() {
-  return hankin(truncate(ambo(icosahedron()), 0.33f), 59.0f * D2R);
-}
-
-inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59() {
-  return hankin(truncate(canonicalize(ambo(truncatedIcosahedron())), 0.01f),
+inline PolyMesh icosahedron_hk59_bitruncate033(Arena &scratch) {
+  return hankin(bitruncate(icosahedron(scratch), scratch, 0.33f), scratch,
                 59.0f * D2R);
 }
 
-inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73() {
-  return hankin(truncate(canonicalize(ambo(truncatedIcosahedron())), 0.01f),
-                73.0f * D2R);
-}
-
-inline PolyMesh truncatedOctahedron_gyro_kis_hk17() {
-  return hankin(kis(gyro(truncatedOctahedron())), 17.0f * D2R);
-}
-
-inline PolyMesh truncatedIcosidodecahedron_bitruncate5_canonicalize_hk77() {
+inline PolyMesh octahedron_hk17_ambo_hk72(Arena &scratch) {
   return hankin(
-      canonicalize(bitruncate(truncatedIcosidodecahedron(), 0.5f), 100),
-      77.0f * D2R);
+      ambo(hankin(octahedron(scratch), scratch, 17.0f * D2R), scratch), scratch,
+      73.0f * D2R);
+}
+inline PolyMesh icosahedron_kis_gyro(Arena &scratch) {
+  return gyro(kis(icosahedron(scratch), scratch), scratch);
 }
 
-inline PolyMesh dodecahedron_bitruncate2_canonicalize_gyro() {
-  return gyro(canonicalize(bitruncate(dodecahedron(), 0.2f), 100));
+inline PolyMesh
+truncatedIcosidodecahedron_truncate05_ambo_dual(Arena &scratch) {
+  return dual(
+      ambo(truncate(truncatedIcosidodecahedron(scratch), scratch, 50.0f * D2R),
+           scratch),
+      scratch);
 }
 
-inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate33_hk64() {
+inline PolyMesh icosidodecahedron_truncate05_ambo_dual(Arena &scratch) {
+  return dual(
+      ambo(truncate(icosidodecahedron(scratch), scratch, 5.0f * D2R), scratch),
+      scratch);
+}
+inline PolyMesh snubDodecahedron_truncate05_ambo_dual(Arena &scratch) {
+  return dual(
+      ambo(truncate(snubDodecahedron(scratch), scratch, 5.0f * D2R), scratch),
+      scratch);
+}
+
+inline PolyMesh octahedron_hk34_ambo_hk72(Arena &scratch) {
   return hankin(
-      truncate(canonicalize(ambo(truncatedIcosahedron()), 217), 0.33f),
-      64.0f * D2R);
+      ambo(hankin(octahedron(scratch), scratch, 34.0f * D2R), scratch), scratch,
+      72.0f * D2R);
+}
+
+inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &scratch) {
+  return hankin(
+      ambo(hankin(rhombicuboctahedron(scratch), scratch, 63.0f * D2R), scratch),
+      scratch, 63.0f * D2R);
+}
+
+inline PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &scratch) {
+  return hankin(
+      ambo(hankin(truncatedIcosahedron(scratch), scratch, 54.0f * D2R),
+           scratch),
+      scratch, 72.0f * D2R);
+}
+
+inline PolyMesh dodecahedron_hk54_ambo_hk72(Arena &scratch) {
+  return hankin(
+      ambo(hankin(dodecahedron(scratch), scratch, 54.0f * D2R), scratch),
+      scratch, 72.0f * D2R);
+}
+
+inline PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &scratch) {
+  return hankin(
+      dual(ambo(hankin(dodecahedron(scratch), scratch, 72.0f * D2R), scratch),
+           scratch),
+      scratch, 20.0f * D2R);
+}
+
+inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual(Arena &scratch) {
+  return dual(
+      ambo(truncate(truncatedIcosahedron(scratch), scratch, 50.0f * D2R),
+           scratch),
+      scratch);
+}
+
+inline PolyMesh
+icosahedron_snub_canonicalize_truncate033_hankin62(Arena &scratch) {
+  return hankin(
+      truncate(canonicalize(snub(icosahedron(scratch), scratch), scratch),
+               scratch, 0.33f),
+      scratch, 62.0f * D2R);
+}
+
+inline PolyMesh dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43(Arena &scratch) {
+  return hankin(
+      canonicalize(ambo(hankin(canonicalize(ambo(hankin(dodecahedron(scratch),
+                                                        scratch, 3.0f * D2R),
+                                                 scratch),
+                                            scratch),
+                               scratch, 62.0f * D2R),
+                        scratch),
+                   scratch),
+      scratch, 43.0f * D2R);
+}
+
+inline PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &scratch) {
+  return hankin(truncate(ambo(icosahedron(scratch), scratch), scratch, 0.33f),
+                scratch, 59.0f * D2R);
+}
+
+inline PolyMesh
+truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59(Arena &scratch) {
+  return hankin(
+      truncate(
+          canonicalize(ambo(truncatedIcosahedron(scratch), scratch), scratch),
+          scratch, 0.01f),
+      scratch, 59.0f * D2R);
+}
+
+inline PolyMesh
+truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73(Arena &scratch) {
+  return hankin(
+      truncate(
+          canonicalize(ambo(truncatedIcosahedron(scratch), scratch), scratch),
+          scratch, 0.01f),
+      scratch, 73.0f * D2R);
+}
+
+inline PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &scratch) {
+  return hankin(kis(gyro(truncatedOctahedron(scratch), scratch), scratch),
+                scratch, 17.0f * D2R);
+}
+
+inline PolyMesh
+truncatedIcosidodecahedron_bitruncate5_canonicalize_hk77(Arena &scratch) {
+  return hankin(canonicalize(bitruncate(truncatedIcosidodecahedron(scratch),
+                                        scratch, 0.5f),
+                             scratch, 100),
+                scratch, 77.0f * D2R);
+}
+
+inline PolyMesh dodecahedron_bitruncate2_canonicalize_gyro(Arena &scratch) {
+  return gyro(canonicalize(bitruncate(dodecahedron(scratch), scratch, 0.2f),
+                           scratch, 100),
+              scratch);
+}
+
+inline PolyMesh
+truncatedIcosahedron_ambo_canonicalize_truncate33_hk64(Arena &scratch) {
+  return hankin(
+      truncate(canonicalize(ambo(truncatedIcosahedron(scratch), scratch),
+                            scratch, 217),
+               scratch, 0.33f),
+      scratch, 64.0f * D2R);
 }
 
 } // namespace IslamicStarPatterns
@@ -343,7 +404,7 @@ enum class Category { Simple, Complex };
 
 struct Entry {
   const char *name;
-  PolyMesh (*generate)();
+  PolyMesh (*generate)(Arena &scratch);
   Category category;
 };
 
@@ -468,20 +529,23 @@ inline const Entry &get_entry(int index) {
   }
 }
 
-inline PolyMesh get(int index) { return get_entry(index).generate(); }
+inline PolyMesh get(Arena &geom, Arena &scratch, int index) {
+  return finalize_solid(get_entry(index).generate(scratch), geom);
+}
 
-inline PolyMesh get_by_name(const std::string &name) {
+inline PolyMesh get_by_name(Arena &geom, Arena &scratch,
+                            const std::string &name) {
   for (const auto &entry : simple_registry) {
     if (name == entry.name) {
-      return entry.generate();
+      return finalize_solid(entry.generate(scratch), geom);
     }
   }
   for (const auto &entry : islamic_registry) {
     if (name == entry.name) {
-      return entry.generate();
+      return finalize_solid(entry.generate(scratch), geom);
     }
   }
-  return Platonic::cube(); // Fallback
+  return finalize_solid(Platonic::cube(scratch), geom); // Fallback
 }
 
 } // namespace Solids

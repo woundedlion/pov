@@ -40,22 +40,25 @@ public:
     // Init State
     solid_idx = 0;
 
+    // Pre-allocate geometry buffers to guarantee purely zero-overhead swapping
+    preallocate_buffers();
+
     // Initial Geometry Generation
-    SolidGenerator gen(solid_idx);
-    PolyMesh base = gen.generate();
+    {
+      ArenaMarker scratch_guard(scratch_arena);
+      SolidGenerator gen(solid_idx);
+      PolyMesh base = gen.generate(scratch_arena, scratch_arena);
 
-    if (enable_hankin) {
-      primary_hankin = MeshOps::compile_hankin(base);
-      primary_mesh = MeshOps::update_hankin<MeshState>(primary_hankin,
-                                                       params.hankin_angle);
-    } else {
-      primary_mesh = MeshOps::compile(base);
-      primary_hankin.dynamicInstructions.clear();
+      MeshOps::compile_hankin(base, primary_hankin, geometry_arena,
+                              scratch_arena);
+      MeshOps::update_hankin(primary_hankin, primary_mesh, geometry_arena,
+                             params.hankin_angle);
+
+      // Initial Topology & Color
+      primary_topology =
+          MeshOps::classify_faces_by_topology(primary_mesh, scratch_arena);
+      pick_palettes(primary_palettes);
     }
-
-    // Initial Topology & Color
-    primary_topology = MeshOps::classify_faces_by_topology(primary_mesh);
-    pick_palettes(primary_palettes);
 
     // Start the Loop
     start_hankin_cycle();
@@ -73,9 +76,31 @@ private:
   Timeline<W> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
+  void preallocate_buffers() {
+    primary_mesh.vertices.initialize(geometry_arena, 4000);
+    primary_mesh.face_counts.initialize(geometry_arena, 5000);
+    primary_mesh.face_offsets.initialize(geometry_arena, 5000);
+    primary_mesh.faces.initialize(geometry_arena, 20000);
+
+    secondary_mesh.vertices.initialize(geometry_arena, 4000);
+    secondary_mesh.face_counts.initialize(geometry_arena, 5000);
+    secondary_mesh.face_offsets.initialize(geometry_arena, 5000);
+    secondary_mesh.faces.initialize(geometry_arena, 20000);
+
+    primary_hankin.staticVertices.initialize(geometry_arena, 4000);
+    primary_hankin.dynamicVertices.initialize(geometry_arena, 4000);
+    primary_hankin.dynamicInstructions.initialize(geometry_arena, 8000);
+    primary_hankin.face_counts.initialize(geometry_arena, 5000);
+    primary_hankin.faces.initialize(geometry_arena, 20000);
+
+    secondary_hankin.staticVertices.initialize(geometry_arena, 4000);
+    secondary_hankin.dynamicVertices.initialize(geometry_arena, 4000);
+    secondary_hankin.dynamicInstructions.initialize(geometry_arena, 8000);
+    secondary_hankin.face_counts.initialize(geometry_arena, 5000);
+    secondary_hankin.faces.initialize(geometry_arena, 20000);
+  }
+
   int solid_idx = 0;
-  bool enable_dual = false;
-  bool enable_hankin = true;
 
   // Topology & Color State
   std::vector<int> primary_topology;
@@ -98,8 +123,6 @@ private:
     constexpr int DURATION = 64;
 
     // 1. Mutation: Animate Hankin Angle
-    // JS: this.timeline.add(0, new Animation.Mutation(this.params,
-    // 'hankinAngle', ...)) Here we animate member variable params.hankin_angle
     timeline.add(0, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
                                         DURATION, ease_mid, false)
@@ -108,10 +131,9 @@ private:
     // 2. Sprite: Draw the mesh
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &c, float opacity) {
-                          if (enable_hankin) {
-                            primary_mesh = MeshOps::update_hankin<MeshState>(
-                                primary_hankin, params.hankin_angle);
-                          }
+                          MeshOps::update_hankin(primary_hankin, primary_mesh,
+                                                 geometry_arena,
+                                                 params.hankin_angle);
                           draw_topology_mesh(c, primary_mesh, primary_topology,
                                              primary_palettes, opacity);
                         },
@@ -131,59 +153,27 @@ private:
               << std::endl;
 
     // Generate Target Mesh (Secondary)
-    SolidGenerator next_gen(next_idx);
-    PolyMesh next_base = next_gen.generate();
+    {
+      ArenaMarker scratch_guard(scratch_arena);
+      SolidGenerator next_gen(next_idx);
+      PolyMesh next_base = next_gen.generate(scratch_arena, scratch_arena);
 
-    if (enable_dual)
-      next_base = MeshOps::dual(next_base);
+      MeshOps::compile_hankin(next_base, secondary_hankin, geometry_arena,
+                              scratch_arena);
+      MeshOps::update_hankin(secondary_hankin, secondary_mesh, geometry_arena,
+                             params.hankin_angle);
 
-    if (enable_hankin) {
-      secondary_hankin = MeshOps::compile_hankin(next_base);
-      secondary_mesh = MeshOps::update_hankin<MeshState>(secondary_hankin,
-                                                         params.hankin_angle);
-    } else {
-      secondary_mesh = MeshOps::compile(next_base);
-      secondary_hankin.dynamicInstructions.clear();
+      // Prepare Secondary State
+      secondary_topology =
+          MeshOps::classify_faces_by_topology(secondary_mesh, scratch_arena);
+      pick_palettes(secondary_palettes);
     }
-
-    // Prepare Secondary State
-    secondary_topology = MeshOps::classify_faces_by_topology(secondary_mesh);
-    pick_palettes(secondary_palettes);
 
     // 1. Morph Animation
     timeline.add(0, Animation::MeshMorph(&primary_mesh, &secondary_mesh,
                                          &morph_buffer, primary_mesh,
                                          secondary_mesh, DURATION, false,
-                                         ease_in_out_sin)
-                        .then([this, next_idx]() {
-                          // Commit State
-                          this->solid_idx = next_idx;
-
-                          // Move Secondary -> Primary
-                          this->primary_topology = this->secondary_topology;
-                          this->primary_palettes = this->secondary_palettes;
-                          this->primary_hankin = this->secondary_hankin;
-                          this->primary_mesh = this->secondary_mesh;
-
-                          // Re-compile Hankin for the NEW solid
-                          SolidGenerator new_gen(solid_idx);
-                          PolyMesh new_base = new_gen.generate();
-
-                          if (enable_dual)
-                            new_base = MeshOps::dual(new_base);
-
-                          if (enable_hankin) {
-                            primary_hankin = MeshOps::compile_hankin(new_base);
-                            primary_mesh = MeshOps::update_hankin<MeshState>(
-                                primary_hankin, params.hankin_angle);
-                          } else {
-                            primary_mesh = MeshOps::compile(new_base);
-                            primary_hankin.dynamicInstructions.clear();
-                          }
-
-                          // Loop
-                          this->start_hankin_cycle();
-                        }));
+                                         ease_in_out_sin));
 
     // 2. Sprite: Outgoing
     timeline.add(0, Animation::Sprite(
@@ -194,13 +184,42 @@ private:
                         DURATION, 0, ease_mid, DURATION, ease_mid));
 
     // 3. Sprite: Incoming
-    timeline.add(0, Animation::Sprite(
-                        [this](Canvas &c, float opacity) {
-                          draw_topology_mesh(c, secondary_mesh,
-                                             secondary_topology,
-                                             secondary_palettes, opacity);
-                        },
-                        DURATION, DURATION, ease_mid, 0, ease_mid));
+    timeline.add(
+        0, Animation::Sprite(
+               [this](Canvas &c, float opacity) {
+                 draw_topology_mesh(c, secondary_mesh, secondary_topology,
+                                    secondary_palettes, opacity);
+               },
+               DURATION, DURATION, ease_mid, 0, ease_mid)
+               .then([this, next_idx]() {
+                 // Commit State
+                 this->solid_idx = next_idx;
+
+                 // Move Secondary -> Primary via pointer swap (safe due to
+                 // pre-allocation)
+                 std::swap(this->primary_topology, this->secondary_topology);
+                 std::swap(this->primary_palettes, this->secondary_palettes);
+                 std::swap(this->primary_hankin, this->secondary_hankin);
+                 std::swap(this->primary_mesh, this->secondary_mesh);
+
+                 // Save scratch offset to prevent memory leaks from temporary
+                 // geometry
+                 ArenaMarker scratch_guard(scratch_arena);
+
+                 // Re-compile Hankin for the NEW solid (Generated purely in
+                 // scratch memory)
+                 SolidGenerator new_gen(solid_idx);
+                 PolyMesh new_base =
+                     new_gen.generate(scratch_arena, scratch_arena);
+
+                 MeshOps::compile_hankin(new_base, primary_hankin,
+                                         geometry_arena, scratch_arena);
+                 MeshOps::update_hankin(primary_hankin, primary_mesh,
+                                        geometry_arena, params.hankin_angle);
+
+                 // Loop
+                 this->start_hankin_cycle();
+               }));
   }
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
@@ -212,8 +231,11 @@ private:
     if (opacity < 0.01f)
       return;
 
-    // Create rotated copy
-    MeshState rotated_mesh = mesh; // Deep copy of vectors
+    // Create a pristine geometry copy on the scratch matrix buffer for dynamic
+    // traversal
+    ArenaMarker scratch_guard(scratch_arena);
+    MeshState rotated_mesh;
+    MeshOps::transform(mesh, rotated_mesh, scratch_arena);
 
     Quaternion q = orientation.get();
     for (auto &v : rotated_mesh.vertices) {

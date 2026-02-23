@@ -32,6 +32,15 @@ public:
     ripple_gen.params.thickness = 0.7f;
     ripple_gen.params.decay = 0.1f;
 
+    // Pre-allocate geometry buffers to prevent Arena exhaustion and ensure
+    // stable double-buffering
+    for (int i = 0; i < 2; i++) {
+      mesh_states[i].vertices.initialize(geometry_arena, 4000);
+      mesh_states[i].face_counts.initialize(geometry_arena, 5000);
+      mesh_states[i].face_offsets.initialize(geometry_arena, 5000);
+      mesh_states[i].faces.initialize(geometry_arena, 20000);
+    }
+
     // Ripple now and schedule more ripples
     timeline.add(0, Animation::PeriodicTimer(
                         0, [this](auto &canvas) { ripple(canvas); }, false));
@@ -55,6 +64,9 @@ private:
   float ripple_duration = 80.0f;
 
   int solid_idx = -1;
+  MeshState mesh_states[2];
+  std::vector<int> topologies[2];
+  int current_mesh_idx = 0;
 
   void ripple(Canvas &canvas) {
     Vector origin = random_vector();
@@ -67,9 +79,11 @@ private:
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const std::vector<int> &faceIndices,
                   const std::vector<const Palette *> &palettes) {
-    MeshState transformed_state = base_state;
+    ArenaMarker scratch_guard(scratch_arena);
+    MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
-    MeshOps::transform(base_state, transformed_state, ripple_gen, camera);
+    MeshOps::transform(base_state, transformed_state, scratch_arena, ripple_gen,
+                       camera);
 
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
       int faceIdx = static_cast<int>(frag.v2);
@@ -92,11 +106,18 @@ private:
   }
 
   void spawn_shape() {
+    ArenaMarker scratch_guard(scratch_arena);
     solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
     SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
-    PolyMesh local_mesh = gen.generate();
-    MeshState base_state = MeshOps::compile(local_mesh);
-    auto faceIndices = MeshOps::classify_faces_by_topology(base_state);
+    PolyMesh local_mesh = gen.generate(scratch_arena, scratch_arena);
+
+    current_mesh_idx = (current_mesh_idx + 1) % 2;
+    MeshState &base_state = mesh_states[current_mesh_idx];
+    std::vector<int> &faceIndices = topologies[current_mesh_idx];
+
+    MeshOps::compile(local_mesh, base_state, geometry_arena);
+    faceIndices =
+        MeshOps::classify_faces_by_topology(base_state, scratch_arena);
 
     const auto &entry = Solids::Collections::islamic_solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
@@ -119,10 +140,14 @@ private:
     int duration = 160;
     int fade_in = 32;
     int fade_out = 32;
-    auto draw_fn = [this, base_state, faceIndices, palettes](Canvas &canvas,
-                                                             float opacity) {
-      this->draw_shape(canvas, opacity, base_state, faceIndices, palettes);
+    int capture_idx = current_mesh_idx;
+
+    auto draw_fn = [this, capture_idx, palettes](Canvas &canvas,
+                                                 float opacity) {
+      this->draw_shape(canvas, opacity, mesh_states[capture_idx],
+                       topologies[capture_idx], palettes);
     };
+
     timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid,
                                       fade_out, ease_mid));
 

@@ -25,6 +25,17 @@
 
 using namespace emscripten;
 
+// Define Global Arenas for Webassembly
+#ifdef __EMSCRIPTEN__
+// 64MB for Geometry, 128MB for Scratch (WASM limit)
+Arena geometry_arena(64 * 1024 * 1024);
+Arena scratch_arena(128 * 1024 * 1024);
+#else
+// Native Simulator gets 256MB each
+Arena geometry_arena(256 * 1024 * 1024);
+Arena scratch_arena(256 * 1024 * 1024);
+#endif
+
 // Define the resolution used for the Wasm engine (defaults)
 // Define the resolution used for the Wasm engine (defaults)
 // Moved to class members
@@ -240,18 +251,20 @@ struct MeshOpsWrapper {
   PolyMesh mesh;
 
   MeshOpsWrapper() {}
-  MeshOpsWrapper(const PolyMesh &m) : mesh(m) {}
+  MeshOpsWrapper(PolyMesh &&m) : mesh(std::move(m)) {}
 
   // Factory
-  static MeshOpsWrapper fromSolid(int index) {
-    return MeshOpsWrapper(Solids::get(index));
+  static MeshOpsWrapper *fromSolid(int index) {
+    return new MeshOpsWrapper(
+        Solids::get(geometry_arena, scratch_arena, index));
   }
 
-  static MeshOpsWrapper fromSolidName(std::string name) {
-    return MeshOpsWrapper(Solids::get_by_name(name));
+  static MeshOpsWrapper *fromSolidName(std::string name) {
+    return new MeshOpsWrapper(
+        Solids::get_by_name(geometry_arena, scratch_arena, name));
   }
 
-  static MeshOpsWrapper fromData(val vertices, val faces) {
+  static MeshOpsWrapper *fromData(val vertices, val faces) {
     PolyMesh m;
 
     // Vertices: Float32Array [x, y, z, ...]
@@ -262,20 +275,39 @@ struct MeshOpsWrapper {
 
     // Faces: Flat Int32Array with -1 delimiter
     std::vector<int> fData = convertJSArrayToNumberVector<int>(faces);
-    std::vector<int> currentFace;
+
+    // First pass: count faces to allocate face_counts
+    int num_faces = 0;
+    for (int idx : fData) {
+      if (idx == -1)
+        num_faces++;
+    }
+    // If last face doesn't end with -1 but has data
+    if (!fData.empty() && fData.back() != -1)
+      num_faces++;
+
+    m.faces.initialize(geometry_arena,
+                       fData.size() -
+                           num_faces); // Exact size without delimiters
+    m.face_counts.initialize(geometry_arena, num_faces);
+
+    int current_count = 0;
     for (int idx : fData) {
       if (idx == -1) {
-        if (!currentFace.empty())
-          m.faces.push_back(currentFace);
-        currentFace.clear();
+        if (current_count > 0) {
+          m.face_counts.push_back((uint8_t)current_count);
+          current_count = 0;
+        }
       } else {
-        currentFace.push_back(idx);
+        m.faces.push_back(idx);
+        current_count++;
       }
     }
-    if (!currentFace.empty())
-      m.faces.push_back(currentFace);
+    if (current_count > 0) {
+      m.face_counts.push_back((uint8_t)current_count);
+    }
 
-    return MeshOpsWrapper(m);
+    return new MeshOpsWrapper(std::move(m));
   }
 
   // Accessors for JS
@@ -293,64 +325,74 @@ struct MeshOpsWrapper {
   }
 
   val getFaces() const {
-    val faces = val::array();
-    for (size_t i = 0; i < mesh.faces.size(); ++i) {
+    val faces_arr = val::array();
+    int flat_idx = 0;
+    for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
       val face = val::array();
-      for (int idx : mesh.faces[i]) {
-        face.call<void>("push", idx);
+      int count = mesh.face_counts[i];
+      for (int c = 0; c < count; ++c) {
+        face.call<void>("push", mesh.faces[flat_idx++]);
       }
-      faces.set(i, face);
+      faces_arr.set(i, face);
     }
-    return faces;
+    return faces_arr;
   }
 
   val getFaceCounts() const {
-    std::vector<uint8_t> counts;
-    counts.reserve(mesh.faces.size());
-    for (const auto &f : mesh.faces)
-      counts.push_back((uint8_t)f.size());
+    // Array backing is flat so we can pass memory view directly
     return val::global("Uint8Array")
-        .new_(val(typed_memory_view(counts.size(), counts.data())));
+        .new_(val(typed_memory_view(mesh.face_counts.size(),
+                                    mesh.face_counts.data())));
   }
 
   val getFlatIndices() const {
-    std::vector<int32_t> indices;
-    for (const auto &f : mesh.faces) {
-      indices.insert(indices.end(), f.begin(), f.end());
-    }
+    // Array backing is flat so we can pass memory view directly
     return val::global("Int32Array")
-        .new_(val(typed_memory_view(indices.size(), indices.data())));
+        .new_(val(typed_memory_view(mesh.faces.size(), mesh.faces.data())));
   }
 
   val classifyFaces() const {
-    std::vector<int> colors = MeshOps::classify_faces_by_topology(mesh);
+    std::vector<int> colors =
+        MeshOps::classify_faces_by_topology(mesh, scratch_arena);
     return val::global("Int32Array")
         .new_(val(typed_memory_view(colors.size(), colors.data())));
   }
 
   // Operations
-  MeshOpsWrapper kis() const { return MeshOpsWrapper(MeshOps::kis(mesh)); }
-  MeshOpsWrapper ambo() const { return MeshOpsWrapper(MeshOps::ambo(mesh)); }
-  MeshOpsWrapper gyro() const { return MeshOpsWrapper(MeshOps::gyro(mesh)); }
-  MeshOpsWrapper snub() const { return MeshOpsWrapper(MeshOps::snub(mesh)); }
-  MeshOpsWrapper dual() const { return MeshOpsWrapper(MeshOps::dual(mesh)); }
-  MeshOpsWrapper truncate(float t) const {
-    return MeshOpsWrapper(MeshOps::truncate(mesh, t));
+  MeshOpsWrapper *kis() const {
+    return new MeshOpsWrapper(MeshOps::kis(mesh, scratch_arena));
   }
-  MeshOpsWrapper expand(float t) const {
-    return MeshOpsWrapper(MeshOps::expand(mesh, t));
+  MeshOpsWrapper *ambo() const {
+    return new MeshOpsWrapper(MeshOps::ambo(mesh, scratch_arena));
   }
-  MeshOpsWrapper hankin(float angle) const {
-    return MeshOpsWrapper(MeshOps::hankin(mesh, angle * (PI_F / 180.0f)));
+  MeshOpsWrapper *gyro() const {
+    return new MeshOpsWrapper(MeshOps::gyro(mesh, scratch_arena));
   }
-  MeshOpsWrapper hankin_rad(float radians) const {
-    return MeshOpsWrapper(MeshOps::hankin(mesh, radians));
+  MeshOpsWrapper *snub() const {
+    return new MeshOpsWrapper(MeshOps::snub(mesh, scratch_arena));
   }
-  MeshOpsWrapper bitruncate(float t) const {
-    return MeshOpsWrapper(MeshOps::bitruncate(mesh, t));
+  MeshOpsWrapper *dual() const {
+    return new MeshOpsWrapper(MeshOps::dual(mesh, scratch_arena));
   }
-  MeshOpsWrapper canonicalize(int iterations) const {
-    return MeshOpsWrapper(MeshOps::canonicalize(mesh, iterations));
+  MeshOpsWrapper *truncate(float t) const {
+    return new MeshOpsWrapper(MeshOps::truncate(mesh, scratch_arena, t));
+  }
+  MeshOpsWrapper *expand(float t) const {
+    return new MeshOpsWrapper(MeshOps::expand(mesh, scratch_arena, t));
+  }
+  MeshOpsWrapper *hankin(float angle) const {
+    return new MeshOpsWrapper(
+        MeshOps::hankin(mesh, scratch_arena, angle * (PI_F / 180.0f)));
+  }
+  MeshOpsWrapper *hankin_rad(float radians) const {
+    return new MeshOpsWrapper(MeshOps::hankin(mesh, scratch_arena, radians));
+  }
+  MeshOpsWrapper *bitruncate(float t) const {
+    return new MeshOpsWrapper(MeshOps::bitruncate(mesh, scratch_arena, t));
+  }
+  MeshOpsWrapper *canonicalize(int iterations) const {
+    return new MeshOpsWrapper(
+        MeshOps::canonicalize(mesh, scratch_arena, iterations));
   }
   static val getRegistry() {
     val registry = val::array();
@@ -383,25 +425,29 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
 
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()
-      .class_function("fromSolid", &MeshOpsWrapper::fromSolid)
-      .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
+      .class_function("fromSolid", &MeshOpsWrapper::fromSolid,
+                      allow_raw_pointers())
+      .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName,
+                      allow_raw_pointers())
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
-      .class_function("fromData", &MeshOpsWrapper::fromData)
+      .class_function("fromData", &MeshOpsWrapper::fromData,
+                      allow_raw_pointers())
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("getFaceCounts", &MeshOpsWrapper::getFaceCounts)
       .function("getFlatIndices", &MeshOpsWrapper::getFlatIndices)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-      .function("kis", &MeshOpsWrapper::kis)
-      .function("ambo", &MeshOpsWrapper::ambo)
-      .function("gyro", &MeshOpsWrapper::gyro)
-      .function("snub", &MeshOpsWrapper::snub)
-      .function("dual", &MeshOpsWrapper::dual)
-      .function("truncate", &MeshOpsWrapper::truncate)
-      .function("bitruncate", &MeshOpsWrapper::bitruncate)
-      .function("expand", &MeshOpsWrapper::expand)
-      .function("hankin", &MeshOpsWrapper::hankin_rad)
-      .function("canonicalize", &MeshOpsWrapper::canonicalize);
+      .function("kis", &MeshOpsWrapper::kis, allow_raw_pointers())
+      .function("ambo", &MeshOpsWrapper::ambo, allow_raw_pointers())
+      .function("gyro", &MeshOpsWrapper::gyro, allow_raw_pointers())
+      .function("snub", &MeshOpsWrapper::snub, allow_raw_pointers())
+      .function("dual", &MeshOpsWrapper::dual, allow_raw_pointers())
+      .function("truncate", &MeshOpsWrapper::truncate, allow_raw_pointers())
+      .function("bitruncate", &MeshOpsWrapper::bitruncate, allow_raw_pointers())
+      .function("expand", &MeshOpsWrapper::expand, allow_raw_pointers())
+      .function("hankin", &MeshOpsWrapper::hankin_rad, allow_raw_pointers())
+      .function("canonicalize", &MeshOpsWrapper::canonicalize,
+                allow_raw_pointers());
 
   register_vector<float>("VectorFloat");
   register_vector<int>("VectorInt");

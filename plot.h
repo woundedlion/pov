@@ -1220,26 +1220,15 @@ struct Mesh {
       }
     };
 
-    if constexpr (std::is_same_v<MeshT, MeshState>) {
-      size_t offset = 0;
-      for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
-        int count = mesh.face_counts[i];
-        for (int k = 0; k < count; ++k) {
-          int u = mesh.faces[offset + k];
-          int v = mesh.faces[offset + (k + 1) % count];
-          process_edge(u, v); // Helper lambda
-        }
-        offset += count;
+    size_t offset = 0;
+    for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
+      int count = mesh.face_counts[i];
+      for (int k = 0; k < count; ++k) {
+        int u = mesh.faces[offset + k];
+        int v = mesh.faces[offset + (k + 1) % count];
+        process_edge(u, v); // Helper lambda
       }
-    } else {
-      for (const auto &face : mesh.faces) {
-        size_t count = face.size();
-        for (size_t i = 0; i < count; ++i) {
-          int u = face[i];
-          int v = face[(i + 1) % count];
-          process_edge(u, v);
-        }
-      }
+      offset += count;
     }
 
     return result;

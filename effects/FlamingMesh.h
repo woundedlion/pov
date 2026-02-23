@@ -33,7 +33,7 @@ public:
     noise.SetFrequency(params.noiseFreq);
 
     // Initialize mesh (Dodecahedron matches Solids.get(3) or 'dodecahedron')
-    mesh = DodecahedronGenerator().generate();
+    mesh = DodecahedronGenerator().generate(geometry_arena, scratch_arena);
 
     registerParam("Speed", &params.speed, 0.0f, 5.0f);
     registerParam("Delay Base", &params.delayBase, 0.0f, 50.0f);
