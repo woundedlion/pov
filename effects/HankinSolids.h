@@ -14,6 +14,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include "../solids.h"
 
 template <int W, int H> class HankinSolids : public Effect {
 public:
@@ -77,27 +78,34 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
   void preallocate_buffers() {
-    primary_mesh.vertices.initialize(geometry_arena, 4000);
-    primary_mesh.face_counts.initialize(geometry_arena, 5000);
-    primary_mesh.face_offsets.initialize(geometry_arena, 5000);
-    primary_mesh.faces.initialize(geometry_arena, 20000);
+    // Archimedean Maximum (Truncated Icosidodecahedron): V=120, F=62, I=360.
+    // We pad to V=250, F=150, I=600 to sit reliably within the 128KB geometry
+    // arena limit.
+    constexpr int MAX_V = Solids::MAX_VERTS;
+    constexpr int MAX_F = Solids::MAX_FACES;
+    constexpr int MAX_I = Solids::MAX_INDICES;
 
-    secondary_mesh.vertices.initialize(geometry_arena, 4000);
-    secondary_mesh.face_counts.initialize(geometry_arena, 5000);
-    secondary_mesh.face_offsets.initialize(geometry_arena, 5000);
-    secondary_mesh.faces.initialize(geometry_arena, 20000);
+    primary_mesh.vertices.initialize(geometry_arena, MAX_V);
+    primary_mesh.face_counts.initialize(geometry_arena, MAX_F);
+    primary_mesh.face_offsets.initialize(geometry_arena, MAX_F);
+    primary_mesh.faces.initialize(geometry_arena, MAX_I);
 
-    primary_hankin.staticVertices.initialize(geometry_arena, 4000);
-    primary_hankin.dynamicVertices.initialize(geometry_arena, 4000);
-    primary_hankin.dynamicInstructions.initialize(geometry_arena, 8000);
-    primary_hankin.face_counts.initialize(geometry_arena, 5000);
-    primary_hankin.faces.initialize(geometry_arena, 20000);
+    secondary_mesh.vertices.initialize(geometry_arena, MAX_V);
+    secondary_mesh.face_counts.initialize(geometry_arena, MAX_F);
+    secondary_mesh.face_offsets.initialize(geometry_arena, MAX_F);
+    secondary_mesh.faces.initialize(geometry_arena, MAX_I);
 
-    secondary_hankin.staticVertices.initialize(geometry_arena, 4000);
-    secondary_hankin.dynamicVertices.initialize(geometry_arena, 4000);
-    secondary_hankin.dynamicInstructions.initialize(geometry_arena, 8000);
-    secondary_hankin.face_counts.initialize(geometry_arena, 5000);
-    secondary_hankin.faces.initialize(geometry_arena, 20000);
+    primary_hankin.staticVertices.initialize(geometry_arena, MAX_I);
+    primary_hankin.dynamicVertices.initialize(geometry_arena, MAX_I);
+    primary_hankin.dynamicInstructions.initialize(geometry_arena, MAX_I);
+    primary_hankin.face_counts.initialize(geometry_arena, MAX_F + MAX_V);
+    primary_hankin.faces.initialize(geometry_arena, 4 * MAX_I);
+
+    secondary_hankin.staticVertices.initialize(geometry_arena, MAX_I);
+    secondary_hankin.dynamicVertices.initialize(geometry_arena, MAX_I);
+    secondary_hankin.dynamicInstructions.initialize(geometry_arena, MAX_I);
+    secondary_hankin.face_counts.initialize(geometry_arena, MAX_F + MAX_V);
+    secondary_hankin.faces.initialize(geometry_arena, 4 * MAX_I);
   }
 
   int solid_idx = 0;
@@ -161,6 +169,11 @@ private:
       MeshOps::compile_hankin(next_base, secondary_hankin, geometry_arena,
                               scratch_arena_a);
       MeshOps::update_hankin(secondary_hankin, secondary_mesh, geometry_arena,
+                             params.hankin_angle);
+
+      // Force primary_mesh to exactly match the final angle before morph
+      // capturing it!
+      MeshOps::update_hankin(primary_hankin, primary_mesh, geometry_arena,
                              params.hankin_angle);
 
       // Prepare Secondary State

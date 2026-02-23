@@ -9,10 +9,17 @@
 #include <new>
 #include <cassert>
 #include <utility>
+#include <cstdio>
 
-// --- Arena Hardware Sizing ---
-constexpr size_t GEOMETRY_ARENA_SIZE = 16 * 512 * 1024; // 8 MB
-constexpr size_t SCRATCH_ARENA_SIZE = 16 * 256 * 1024;  // 4 MB
+#ifdef __EMSCRIPTEN__
+// 64-bit arch sizing
+constexpr size_t GEOMETRY_ARENA_SIZE = 2 * 128 * 1024;
+constexpr size_t SCRATCH_ARENA_SIZE = 2 * 128 * 1024;
+#else
+// 32-bit arch sizing (Teensy limits)
+constexpr size_t GEOMETRY_ARENA_SIZE = 128 * 1024;
+constexpr size_t SCRATCH_ARENA_SIZE = 128 * 1024;
+#endif
 
 // ============================================================================
 // 1. Core Arena Allocator
@@ -31,6 +38,9 @@ public:
     size_t current = reinterpret_cast<size_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
     if (offset + padding + size > capacity) {
+      printf("[OOM] Arena out of memory! Requested: %zu bytes. Offset: %zu / "
+             "Capacity: %zu\n",
+             size, offset + padding, capacity);
       assert(false && "Arena out of memory!");
       return nullptr;
     }

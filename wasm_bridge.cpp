@@ -405,6 +405,43 @@ struct MeshOpsWrapper {
     }
     return registry;
   }
+
+  static val getMaxBounds() {
+    int max_v = 0;
+    int max_f = 0;
+    int max_i = 0;
+    std::string mv_name, mf_name, mi_name;
+
+    for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
+      PolyMesh temp = Solids::get(geometry_arena, scratch_arena_a, i);
+
+      int v = temp.vertices.size();
+      int f = temp.face_counts.size();
+      int idxs = temp.faces.size();
+
+      if (v > max_v) {
+        max_v = v;
+        mv_name = Solids::get_entry(i).name;
+      }
+      if (f > max_f) {
+        max_f = f;
+        mf_name = Solids::get_entry(i).name;
+      }
+      if (idxs > max_i) {
+        max_i = idxs;
+        mi_name = Solids::get_entry(i).name;
+      }
+    }
+
+    val stats = val::object();
+    stats.set("max_v", max_v);
+    stats.set("v_name", mv_name);
+    stats.set("max_f", max_f);
+    stats.set("f_name", mf_name);
+    stats.set("max_i", max_i);
+    stats.set("i_name", mi_name);
+    return stats;
+  }
 };
 
 // Expose to JavaScript
@@ -428,6 +465,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName,
                       allow_raw_pointers())
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
+      .class_function("getMaxBounds", &MeshOpsWrapper::getMaxBounds)
       .class_function("fromData", &MeshOpsWrapper::fromData,
                       allow_raw_pointers())
       .function("getVertices", &MeshOpsWrapper::getVertices)
