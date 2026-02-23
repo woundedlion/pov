@@ -16,6 +16,7 @@
 #include <string>
 #include <cfloat>
 #include "static_circular_buffer.h"
+#include "arena_allocator.h"
 
 /**
  * @brief Axis-Aligned Bounding Box.
@@ -93,24 +94,38 @@ struct AABB {
 };
 
 /**
- * @brief Represents the state of a mesh using static storage to avoid heap
+ * @brief Represents the state of a mesh using arena storage to avoid heap
  * allocations.
  */
 struct MeshState {
-  // Config constants (kept for compatibility)
-  static constexpr size_t MAX_VERTS = 4096;
-  static constexpr size_t MAX_FACES = 2048;
-
-  std::vector<Vector> vertices;
-  std::vector<uint8_t> face_counts;
-  std::vector<int> faces;
-  std::vector<uint16_t> face_offsets;
+  ArenaVector<Vector> vertices;
+  ArenaVector<uint8_t> face_counts;
+  ArenaVector<int> faces;
+  ArenaVector<uint16_t> face_offsets;
 
   void clear() {
     vertices.clear();
     face_counts.clear();
     faces.clear();
     face_offsets.clear();
+  }
+
+  void deep_copy(Arena &arena, const MeshState &other) {
+    vertices.initialize(arena, other.vertices.size());
+    for (size_t i = 0; i < other.vertices.size(); i++)
+      vertices.push_back(other.vertices[i]);
+
+    face_counts.initialize(arena, other.face_counts.size());
+    for (size_t i = 0; i < other.face_counts.size(); i++)
+      face_counts.push_back(other.face_counts[i]);
+
+    faces.initialize(arena, other.faces.size());
+    for (size_t i = 0; i < other.faces.size(); i++)
+      faces.push_back(other.faces[i]);
+
+    face_offsets.initialize(arena, other.face_offsets.size());
+    for (size_t i = 0; i < other.face_offsets.size(); i++)
+      face_offsets.push_back(other.face_offsets[i]);
   }
 
   // Helper for size accessors if needed, but direct vector access is preferred.
@@ -135,28 +150,30 @@ struct KDNode {
 
 class KDTree {
 public:
-  static constexpr int MAX_NODES = 2048;
   static constexpr int MAX_K = 5;
 
-  std::array<KDNode, MAX_NODES> nodes;
+  ArenaVector<KDNode> nodes;
   int nodeCount = 0;
   int rootIndex = -1;
 
   KDTree() = default;
 
-  // Build from a Span of vectors
-  KDTree(std::span<Vector> points) {
+  // Build from a Span of vectors, using arena for node storage and temporary
+  // index sorting
+  KDTree(Arena &arena, std::span<Vector> points) {
     clear();
     if (points.empty())
       return;
 
-    // We need a mutable index array to partition
-    std::array<int, MAX_NODES> indices;
-    size_t count = std::min((size_t)MAX_NODES, points.size());
+    size_t count = points.size();
+    nodes.initialize(arena, count);
+
+    // Temporary index allocation for building the tree
+    int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
     for (size_t i = 0; i < count; ++i)
       indices[i] = i;
 
-    rootIndex = build(points, indices.data(), count, 0);
+    rootIndex = build(points, indices, count, 0);
   }
 
   void clear() {
@@ -230,7 +247,7 @@ private:
   int build(std::span<Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1;
-    if (nodeCount >= MAX_NODES)
+    if (nodeCount >= nodes.capacity())
       return -1;
 
     int axis = depth % 3;

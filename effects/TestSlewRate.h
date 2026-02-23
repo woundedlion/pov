@@ -87,5 +87,9 @@ private:
   // Mesh
   PolyMesh mesh;
 
-  void rebuild_mesh() { mesh = Solids::Platonic::icosahedron(); }
+  void rebuild_mesh() {
+    ArenaMarker scratch_guard(scratch_arena);
+    mesh = Solids::finalize_solid(Solids::Platonic::icosahedron(scratch_arena),
+                                  geometry_arena);
+  }
 };

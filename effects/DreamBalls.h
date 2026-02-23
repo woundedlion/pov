@@ -129,19 +129,28 @@ private:
       loaded_presets.emplace_back();
       auto &data = loaded_presets.back();
 
+      ArenaMarker scratch_guard(scratch_arena);
       SolidNameGenerator gen(p.solid_name);
-      PolyMesh m = gen.generate();
+      PolyMesh m = gen.generate(scratch_arena, scratch_arena);
 
-      // Store Verts
-      data.mesh_state.vertices = m.vertices;
+      // Store Verts (Deep Copy)
+      data.mesh_state.vertices.initialize(geometry_arena, m.vertices.size());
+      for (const auto &v : m.vertices) {
+        data.mesh_state.vertices.push_back(v);
+      }
 
       // Store Faces
-      data.mesh_state.faces.clear();
-      data.mesh_state.face_counts.clear();
-      for (const auto &f : m.faces) {
-        data.mesh_state.face_counts.push_back((uint8_t)f.size());
-        for (int idx : f)
-          data.mesh_state.faces.push_back(idx);
+      data.mesh_state.faces.initialize(geometry_arena, m.faces.size());
+      data.mesh_state.face_counts.initialize(geometry_arena,
+                                             m.face_counts.size());
+
+      int flat_idx = 0;
+      for (size_t i = 0; i < m.face_counts.size(); ++i) {
+        int count = m.face_counts[i];
+        data.mesh_state.face_counts.push_back((uint8_t)count);
+        for (int c = 0; c < count; ++c) {
+          data.mesh_state.faces.push_back(m.faces[flat_idx++]);
+        }
       }
 
       // Compute Tangents
@@ -166,7 +175,10 @@ private:
 
     auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
                                                        float opacity) {
-      MeshState target_mesh = preset_ptr->mesh_state;
+      ArenaMarker scratch_guard(scratch_arena);
+      MeshState target_mesh;
+      MeshOps::transform(preset_ptr->mesh_state, target_mesh, scratch_arena);
+
       this->draw_scene(canvas, instance_params, opacity, preset_ptr->mesh_state,
                        target_mesh, preset_ptr->tangents);
     };

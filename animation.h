@@ -151,11 +151,22 @@ public:
   /**
    * @brief Sets a callback function to be executed when the animation finishes.
    * @param callback The function to execute on completion.
-   * @return Reference to the derived animation object.
+   * @return LValue Reference to the derived animation object.
    */
-  Derived &then(std::function<void()> callback) {
-    post = callback;
+  Derived &then(std::function<void()> callback) & {
+    post = std::move(callback);
     return static_cast<Derived &>(*this);
+  }
+
+  /**
+   * @brief Sets a callback function to be executed when the animation finishes
+   * (RValue overload).
+   * @param callback The function to execute on completion.
+   * @return RValue Reference to the derived animation object.
+   */
+  Derived &&then(std::function<void()> callback) && {
+    post = std::move(callback);
+    return static_cast<Derived &&>(*this);
   }
 
   /**
@@ -1215,8 +1226,6 @@ struct MorphPath {
 };
 
 struct MorphBuffer {
-  MeshState source;
-  MeshState dest;
   // Paths for Source -> Dest
   std::vector<MorphPath> source_paths;
   // Paths for Dest -> Source
@@ -1249,17 +1258,19 @@ public:
       : Base(duration, repeat), output_source(output_source),
         output_dest(output_dest), buffer(buffer), easing_fn(easing_fn) {
     if (buffer) {
-      // Deep copy initial states
-      buffer->source = source;
-      buffer->dest = dest;
+      // Reset output vertices to starting states (deep copy vertices only)
+      if (output_source) {
+        output_source->vertices.force_set_size(source.vertices.size());
+        for (size_t i = 0; i < source.vertices.size(); ++i)
+          output_source->vertices[i] = source.vertices[i];
+      }
+      if (output_dest) {
+        output_dest->vertices.force_set_size(dest.vertices.size());
+        for (size_t i = 0; i < dest.vertices.size(); ++i)
+          output_dest->vertices[i] = dest.vertices[i];
+      }
 
-      // Reset outputs to starting states
-      if (output_source)
-        *output_source = buffer->source;
-      if (output_dest)
-        *output_dest = buffer->dest;
-
-      init();
+      init(source, dest);
     }
   }
 
@@ -1270,16 +1281,16 @@ public:
       : MeshMorph(output_source, nullptr, buffer, source, dest, duration,
                   repeat, easing_fn) {}
 
-  void init() {
+  void init(const MeshState &source, const MeshState &dest) {
     if (!buffer)
       return;
 
     // 1. Source -> Dest Paths
-    size_t src_count = buffer->source.vertices.size();
+    size_t src_count = source.vertices.size();
     buffer->source_paths.resize(src_count);
     for (size_t i = 0; i < src_count; ++i) {
-      Vector s = buffer->source.vertices[i];
-      Vector t = project_to_mesh(s, buffer->dest);
+      Vector s = source.vertices[i];
+      Vector t = project_to_mesh(s, dest);
 
       float ang = angle_between(s, t);
       Vector ax = cross(s, t);
@@ -1292,11 +1303,11 @@ public:
     }
 
     // 2. Dest -> Source Paths (Reverse Morph)
-    size_t dest_count = buffer->dest.vertices.size();
+    size_t dest_count = dest.vertices.size();
     buffer->dest_paths.resize(dest_count);
     for (size_t i = 0; i < dest_count; ++i) {
-      Vector t = buffer->dest.vertices[i];
-      Vector s = project_to_mesh(t, buffer->source);
+      Vector t = dest.vertices[i];
+      Vector s = project_to_mesh(t, source);
 
       float ang = angle_between(s, t);
       Vector ax = cross(s, t);
@@ -1320,8 +1331,13 @@ public:
     // Update Source Output (Deform Source -> Dest)
     if (output_source) {
       size_t count = buffer->source_paths.size();
-      if (output_source->vertices.size() != count)
-        output_source->vertices.resize(count);
+      if (output_source->vertices.size() != count) {
+        // Re-allocate memory within geometry arena implicitly by re-init?
+        // Wait, we don't have the arena here. We must assume output_source is
+        // sufficiently allocated OR we shouldn't wipe capacity. Since it's an
+        // ArenaVector, size matters for iteration. Let's fix the size.
+        output_source->vertices.force_set_size(count);
+      }
 
       for (size_t i = 0; i < count; ++i) {
         const auto &path = buffer->source_paths[i];
@@ -1338,8 +1354,9 @@ public:
     // Update Dest Output (Unwarp Dest from Source)
     if (output_dest) {
       size_t count = buffer->dest_paths.size();
-      if (output_dest->vertices.size() != count)
-        output_dest->vertices.resize(count);
+      if (output_dest->vertices.size() != count) {
+        output_dest->vertices.force_set_size(count);
+      }
 
       for (size_t i = 0; i < count; ++i) {
         const auto &path = buffer->dest_paths[i];
@@ -1357,10 +1374,8 @@ public:
       }
     }
 
-    // Final Swap (Commit Topology to Source Output)
-    if (t >= duration && output_source) {
-      *output_source = buffer->dest;
-    }
+    // Final topology transition is now managed entirely by callers via
+    // `.then()`
   }
 
 private:

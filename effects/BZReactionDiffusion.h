@@ -75,7 +75,8 @@ private:
   };
 
   struct BZGridGenerator : public IGenerator<std::array<Vector, RD_N>> {
-    std::array<Vector, RD_N> generate() const override {
+    std::array<Vector, RD_N> generate(Arena &geom,
+                                      Arena &scratch) const override {
       std::array<Vector, RD_N> out_nodes;
       const float phi = PI_F * (3.0f - sqrtf(5.0f));
       for (int i = 0; i < RD_N; i++) {
@@ -91,7 +92,7 @@ private:
   void build_graph() {
     // Generate Nodes (Fibonacci Lattice)
     BZGridGenerator gen;
-    nodes = gen.generate();
+    nodes = gen.generate(geometry_arena, scratch_arena);
 
     // Build Neighbors using Spatial Hashing (Grid Optimization)
     static constexpr int GRID_SIZE = 20;

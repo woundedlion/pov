@@ -6,6 +6,7 @@
 
 #include "3dmath.h"
 #include "spatial.h"
+#include "arena_allocator.h"
 #include <vector>
 #include <map>
 #include <set>
@@ -27,18 +28,34 @@ struct MeshState;
  * @brief A simple dynamic mesh structure compatible with MeshOps templates.
  */
 struct PolyMesh {
-  std::vector<Vector> vertices;
-  std::vector<std::vector<int>> faces;
+  ArenaVector<Vector> vertices;
+  ArenaVector<uint8_t> face_counts;
+  ArenaVector<int> faces;
 
   // Cache
   mutable bool cache_valid = false;
   mutable KDTree kdTree;
-  mutable std::vector<std::vector<int>> adjacency;
+
+  PolyMesh() = default;
+
+  void initialize(Arena &arena, size_t num_verts, size_t num_faces,
+                  size_t num_indices) {
+    vertices.initialize(arena, num_verts);
+    face_counts.initialize(arena, num_faces);
+    faces.initialize(arena, num_indices);
+    cache_valid = false;
+  }
+
+  inline void clear() {
+    vertices.clear();
+    face_counts.clear();
+    faces.clear();
+    cache_valid = false;
+  }
 
   void clear_cache() const {
     cache_valid = false;
     kdTree.clear();
-    adjacency.clear();
   }
 };
 
@@ -114,105 +131,77 @@ struct HEFace {
 
 class HalfEdgeMesh {
 public:
-  std::vector<HEVertex> vertices;
-  std::vector<HEFace> faces;
-  std::vector<HalfEdge> halfEdges;
+  ArenaVector<HEVertex> vertices;
+  ArenaVector<HEFace> faces;
+  ArenaVector<HalfEdge> halfEdges;
 
-  explicit HalfEdgeMesh(const PolyMesh &mesh) {
-    struct PolyReader {
-      const PolyMesh &m;
-      size_t idx = 0;
-      void reset() { idx = 0; }
-      const std::vector<int> &next() { return m.faces[idx++]; }
-    } reader{mesh};
-    build_internal(mesh.vertices, mesh.faces.size(), reader);
+  explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
+    build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
   }
 
-  HalfEdgeMesh(const MeshState &mesh) {
-    struct StateReader {
-      const MeshState &m;
-      size_t idx = 0;
-      size_t offset = 0;
-      void reset() {
-        idx = 0;
-        offset = 0;
-      }
-      std::span<const int> next() {
-        uint8_t count = m.face_counts[idx++];
-        std::span<const int> s(m.faces.data() + offset, count);
-        offset += count;
-        return s;
-      }
-    } reader{mesh};
-    build_internal(mesh.vertices, mesh.face_counts.size(), reader);
+  explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
+    build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
   }
 
 private:
-  template <typename Reader>
-  void build_internal(const std::vector<Vector> &mesh_verts, size_t num_faces,
-                      Reader &&reader) {
-    vertices.reserve(mesh_verts.size());
-    for (const auto &v : mesh_verts) {
-      vertices.push_back({v, nullptr});
+  template <typename Verts, typename Counts, typename Faces>
+  void build_from_flat(Arena &arena, const Verts &verts, const Counts &counts,
+                       const Faces &faces_arr) {
+    size_t num_verts = verts.size();
+    size_t num_faces = counts.size();
+    size_t total_indices = faces_arr.size();
+
+    vertices.initialize(arena, num_verts);
+    for (size_t i = 0; i < num_verts; ++i) {
+      vertices.push_back({verts[i], nullptr});
     }
 
-    size_t totalHE = 0;
-    reader.reset();
-    for (size_t i = 0; i < num_faces; ++i) {
-      totalHE += reader.next().size();
-    }
-    halfEdges.reserve(totalHE);
-    faces.reserve(num_faces);
+    faces.initialize(arena, num_faces);
+    halfEdges.initialize(arena, total_indices);
 
-    std::map<std::pair<int, int>, HalfEdge *> edgeMap;
+    ArenaMap<std::pair<int, int>, HalfEdge *> edgeMap(arena, total_indices);
 
-    reader.reset();
+    size_t face_offset = 0;
+    size_t he_idx = 0;
+
     for (size_t fi = 0; fi < num_faces; ++fi) {
-      auto f = reader.next();
+      int count = counts[fi];
 
       faces.emplace_back();
-      HEFace *currentFace = &faces.back();
-      size_t count = f.size();
-      size_t faceStartHeIdx = halfEdges.size();
+      HEFace *currentFace = &faces[faces.size() - 1];
+      size_t faceStartHeIdx = he_idx;
 
-      // Allocate edges for this face
-      for (size_t i = 0; i < count; ++i) {
+      for (int i = 0; i < count; ++i) {
         halfEdges.emplace_back();
       }
 
-      for (size_t i = 0; i < count; ++i) {
-        int u = f[i];
-        int v = f[(i + 1) % count];
+      for (int i = 0; i < count; ++i) {
+        int u = faces_arr[face_offset + i];
+        int v = faces_arr[face_offset + (i + 1) % count];
 
         HalfEdge *he = &halfEdges[faceStartHeIdx + i];
-
-        // Link basic geometry
-        he->vertex = &vertices[v]; // Points TO v
+        he->vertex = &vertices[v];
         he->face = currentFace;
-
-        // Circular links
         he->next = &halfEdges[faceStartHeIdx + (i + 1) % count];
         he->prev = &halfEdges[faceStartHeIdx + (i - 1 + count) % count];
 
-        // Vertex ref (just needs one incoming edge)
         vertices[v].halfEdge = he;
 
-        // Pair lookup
-        if (edgeMap.count({v, u})) {
+        if (edgeMap.contains({v, u})) {
           HalfEdge *neighbor = edgeMap[{v, u}];
           he->pair = neighbor;
           neighbor->pair = he;
-          edgeMap.erase({v, u});
         } else {
           edgeMap[{u, v}] = he;
         }
+        he_idx++;
       }
       currentFace->halfEdge = &halfEdges[faceStartHeIdx];
+      face_offset += count;
     }
 
-    // Compute Properties
-    for (auto &f : faces)
-      f.compute_properties();
+    for (size_t fi = 0; fi < num_faces; ++fi)
+      faces[fi].compute_properties();
   }
 };
 
@@ -231,12 +220,12 @@ struct HankinInstruction {
  * @brief Compiled topological data for fast Hankin pattern updates.
  */
 struct CompiledHankin {
-  std::vector<Vector> staticVertices;  /**< Midpoints that don't move. */
-  std::vector<Vector> dynamicVertices; /**< Intersection points that move. */
-  std::vector<HankinInstruction>
-      dynamicInstructions; /**< Instructions to update dynamic vertices. */
-  std::vector<std::vector<int>> faces; /**< Resulting face topology. */
-  int staticOffset; /**< Offset where dynamic vertices start. */
+  ArenaVector<Vector> staticVertices;
+  ArenaVector<Vector> dynamicVertices;
+  ArenaVector<HankinInstruction> dynamicInstructions;
+  ArenaVector<uint8_t> face_counts;
+  ArenaVector<int> faces;
+  int staticOffset;
 };
 
 /**
@@ -251,45 +240,42 @@ namespace MeshOps {
  * @param src The source PolyMesh.
  * @return The compiled MeshState.
  */
-inline MeshState compile(const PolyMesh &src) {
-  MeshState dst;
-  dst.vertices = src.vertices;
+inline void compile(const PolyMesh &src, MeshState &dst, Arena &geom_arena) {
+  dst.clear();
 
   size_t valid_faces = 0;
   size_t valid_indices = 0;
 
-  // First pass: count valid faces
-  for (const auto &f : src.faces) {
-    if (f.size() >= 3) {
+  for (size_t i = 0; i < src.face_counts.size(); ++i) {
+    if (src.face_counts[i] >= 3) {
       valid_faces++;
-      valid_indices += f.size();
+      valid_indices += src.face_counts[i];
     }
   }
 
-  dst.face_counts.reserve(valid_faces);
-  dst.faces.reserve(valid_indices);
-
-  // Second pass: compile valid faces
-  for (size_t i = 0; i < src.faces.size(); ++i) {
-    const auto &f = src.faces[i];
-    if (f.size() >= 3) {
-      dst.face_counts.push_back(static_cast<uint8_t>(f.size()));
-      for (int idx : f) {
-        dst.faces.push_back(idx);
-      }
-    }
+  dst.vertices.initialize(geom_arena, src.vertices.size());
+  for (size_t i = 0; i < src.vertices.size(); ++i) {
+    dst.vertices.push_back(src.vertices[i]);
   }
 
-  // 1. Populate the Offset Lookup Table (moved from spatial.h since build_bvh
-  // was deleted)
-  dst.face_offsets.resize(dst.face_counts.size());
+  dst.face_counts.initialize(geom_arena, valid_faces);
+  dst.faces.initialize(geom_arena, valid_indices);
+  dst.face_offsets.initialize(geom_arena, valid_faces);
+
+  size_t offset = 0;
   int current_offset = 0;
-  for (size_t i = 0; i < dst.face_counts.size(); ++i) {
-    dst.face_offsets[i] = (uint16_t)current_offset;
-    current_offset += dst.face_counts[i];
+  for (size_t i = 0; i < src.face_counts.size(); ++i) {
+    int count = src.face_counts[i];
+    if (count >= 3) {
+      dst.face_counts.push_back(static_cast<uint8_t>(count));
+      dst.face_offsets.push_back(static_cast<uint16_t>(current_offset));
+      for (int k = 0; k < count; ++k) {
+        dst.faces.push_back(src.faces[offset + k]);
+      }
+      current_offset += count;
+    }
+    offset += count;
   }
-
-  return dst;
 }
 
 /**
@@ -303,26 +289,49 @@ inline MeshState compile(const PolyMesh &src) {
  */
 template <typename MeshT, typename... TransformerTypes>
 inline void transform(const MeshT &local_state, MeshT &world_state,
-                      const TransformerTypes &...transformers) {
-  world_state = local_state; // Copy topology
+                      Arena &arena, const TransformerTypes &...transformers) {
+  world_state.vertices.initialize(arena, local_state.vertices.size());
+  world_state.face_counts.initialize(arena, local_state.face_counts.size());
+  world_state.faces.initialize(arena, local_state.faces.size());
+
+  if constexpr (requires { world_state.face_offsets; }) {
+    world_state.face_offsets.initialize(arena, local_state.face_counts.size());
+  }
+
   for (size_t i = 0; i < local_state.vertices.size(); ++i) {
     Vector v = local_state.vertices[i];
     if constexpr (sizeof...(transformers) > 0) {
       ((v = transformers.transform(v)), ...);
     }
-    world_state.vertices[i] = v;
+    world_state.vertices.push_back(v);
+  }
+  for (size_t i = 0; i < local_state.face_counts.size(); ++i) {
+    world_state.face_counts.push_back(local_state.face_counts[i]);
+    if constexpr (requires { world_state.face_offsets; }) {
+      world_state.face_offsets.push_back(local_state.face_offsets[i]);
+    }
+  }
+  for (size_t i = 0; i < local_state.faces.size(); ++i) {
+    world_state.faces.push_back(local_state.faces[i]);
   }
 }
 
 /**
  * @brief Computes the dual of a mesh.
  */
-template <typename MeshT> static MeshT dual(const MeshT &mesh) {
-  HalfEdgeMesh heMesh(mesh);
-  MeshT dualMesh;
-  std::unordered_map<HEFace *, int> faceToVertIdx;
+inline void dual(const PolyMesh &mesh, PolyMesh &out_mesh,
+                 Arena &scratch_arena) {
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
 
-  // New Vertices (Centroids of original faces)
+  out_mesh.vertices.initialize(scratch_arena, F);
+  out_mesh.face_counts.initialize(scratch_arena, V);
+  out_mesh.faces.initialize(scratch_arena, I);
+
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
+  ArenaMap<HEFace *, int> faceToVertIdx(scratch_arena, F);
+
   for (size_t i = 0; i < heMesh.faces.size(); ++i) {
     HEFace *face = &heMesh.faces[i];
     Vector c(0, 0, 0);
@@ -333,79 +342,89 @@ template <typename MeshT> static MeshT dual(const MeshT &mesh) {
       c = c + he->vertex->position;
       count++;
       he = he->next;
-    } while (he != start);
+    } while (he != start && count < 100);
 
     c = c / static_cast<float>(count);
-    dualMesh.vertices.push_back(c.normalize());
+    out_mesh.vertices.push_back(c.normalize());
     faceToVertIdx[face] = static_cast<int>(i);
   }
 
-  // New Faces (Cycles around original vertices)
-  std::vector<HEVertex *> visitedVerts; // Naive set replacement
-
-  // Helper to check if visited
-  auto isVisited = [&](HEVertex *v) {
-    return std::find(visitedVerts.begin(), visitedVerts.end(), v) !=
-           visitedVerts.end();
-  };
-
-  for (auto &heStart : heMesh.halfEdges) {
-    if (!heStart.prev)
-      continue; // Safety
-
-    HEVertex *origin = heStart.prev->vertex; // The vertex 'start' comes FROM
-    if (isVisited(origin))
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *heStart = &heMesh.halfEdges[i];
+    if (!heStart->prev)
       continue;
-    visitedVerts.push_back(origin);
 
-    std::vector<int> faceIndices;
-    HalfEdge *curr = &heStart;
+    HEVertex *origin = heStart->prev->vertex;
+    if (visitedVerts.contains(origin))
+      continue;
+    visitedVerts[origin] = true;
+
+    int face_idx = out_mesh.faces.size();
+    HalfEdge *curr = heStart;
     HalfEdge *startOrbit = curr;
     int safety = 0;
-
+    int new_face_count = 0;
+    int local_face[100];
     do {
       if (!curr->face)
         break;
-      faceIndices.push_back(faceToVertIdx[curr->face]);
+      if (new_face_count < 100)
+        local_face[new_face_count++] = faceToVertIdx[curr->face];
 
-      if (!curr->pair)
+      if (!curr->prev || !curr->prev->pair)
         break;
-      curr = curr->pair->next;
+      curr = curr->prev->pair;
       safety++;
     } while (curr != startOrbit && curr && safety < 100);
 
-    if (faceIndices.size() > 2) {
-      std::reverse(faceIndices.begin(), faceIndices.end()); // Maintain CCW
-      dualMesh.faces.push_back(faceIndices);
+    if (new_face_count >= 3) {
+      out_mesh.face_counts.push_back(new_face_count);
+      for (int k = 0; k < new_face_count; ++k) {
+        out_mesh.faces.push_back(local_face[k]);
+      }
     }
   }
+}
 
-  return dualMesh;
+inline PolyMesh dual(const PolyMesh &mesh, Arena &scratch_arena) {
+  PolyMesh out;
+  dual(mesh, out, scratch_arena);
+  return out;
 }
 
 /**
  * @brief Compiles the topology for a Hankin pattern.
  */
-template <typename MeshT>
-static CompiledHankin compile_hankin(const MeshT &mesh) {
-  HalfEdgeMesh heMesh(mesh);
-  CompiledHankin compiled;
+inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
+                           Arena &geom_arena, Arena &scratch_arena) {
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
 
-  std::map<HalfEdge *, int> heToMidpointIdx;
-  std::map<HalfEdge *, int> heToDynamicIdx;
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
 
-  // Helper to get/create midpoint index
+  compiled.staticVertices.initialize(geom_arena, I);
+  compiled.dynamicVertices.initialize(geom_arena, I);
+  compiled.dynamicInstructions.initialize(geom_arena, I);
+
+  compiled.face_counts.initialize(geom_arena, F + V);
+  compiled.faces.initialize(geom_arena, 4 * I);
+
+  ArenaMap<HalfEdge *, int> heToMidpointIdx(scratch_arena, I);
+  ArenaMap<HalfEdge *, int> heToDynamicIdx(scratch_arena, I);
+
   auto getMidpointIdx = [&](HalfEdge *he) {
-    if (heToMidpointIdx.count(he))
+    if (heToMidpointIdx.contains(he))
       return heToMidpointIdx[he];
-    if (he->pair && heToMidpointIdx.count(he->pair))
+    if (he->pair && heToMidpointIdx.contains(he->pair))
       return heToMidpointIdx[he->pair];
 
     Vector pA =
         he->prev ? he->prev->vertex->position : he->pair->vertex->position;
     Vector pB = he->vertex->position;
     Vector mid = (pA + pB) * 0.5f;
-    mid.normalize();
+    mid = mid.normalize();
 
     compiled.staticVertices.push_back(mid);
     int idx = static_cast<int>(compiled.staticVertices.size()) - 1;
@@ -415,20 +434,21 @@ static CompiledHankin compile_hankin(const MeshT &mesh) {
     return idx;
   };
 
-  // Ensure all midpoints
-  for (auto &he : heMesh.halfEdges) {
-    getMidpointIdx(&he);
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    getMidpointIdx(&heMesh.halfEdges[i]);
   }
 
   compiled.staticOffset = static_cast<int>(compiled.staticVertices.size());
 
   // Star faces
-  for (auto &face : heMesh.faces) {
-    std::vector<int> starFaceIndices;
+  for (size_t i = 0; i < heMesh.faces.size(); ++i) {
+    HEFace &face = heMesh.faces[i];
     HalfEdge *he = face.halfEdge;
     HalfEdge *startHe = he;
+    int count = 0;
 
     do {
+      count += 2;
       HalfEdge *prev = he->prev;
       HalfEdge *curr = he;
 
@@ -445,64 +465,59 @@ static CompiledHankin compile_hankin(const MeshT &mesh) {
 
       int dynIdx = static_cast<int>(compiled.dynamicVertices.size());
       heToDynamicIdx[curr] = dynIdx;
-      compiled.dynamicVertices.emplace_back(); // Placeholder
+      compiled.dynamicVertices.emplace_back();
 
-      starFaceIndices.push_back(idxM1);
-      starFaceIndices.push_back(compiled.staticOffset + dynIdx);
+      compiled.faces.push_back(idxM1);
+      compiled.faces.push_back(compiled.staticOffset + dynIdx);
 
       he = he->next;
     } while (he != startHe);
 
-    compiled.faces.push_back(starFaceIndices);
+    compiled.face_counts.push_back(count);
   }
 
   // Rosette faces
-  std::vector<HEVertex *> visitedVerts;
-  auto isVisited = [&](HEVertex *v) {
-    return std::find(visitedVerts.begin(), visitedVerts.end(), v) !=
-           visitedVerts.end();
-  };
-
-  for (auto &heStart : heMesh.halfEdges) {
-    if (!heStart.prev)
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *heStart = &heMesh.halfEdges[i];
+    if (!heStart->prev)
       continue;
-    HEVertex *origin = heStart.prev->vertex;
-    if (isVisited(origin))
+    HEVertex *origin = heStart->prev->vertex;
+    if (visitedVerts.contains(origin))
       continue;
-    visitedVerts.push_back(origin);
+    visitedVerts[origin] = true;
 
-    std::vector<int> rosetteIndices;
-    HalfEdge *curr = &heStart;
+    HalfEdge *curr = heStart;
     HalfEdge *startOrbit = curr;
     int safety = 0;
+    int count = 0;
+    int face_indices[100];
 
     do {
-      rosetteIndices.push_back(heToMidpointIdx[curr]); // Static
+      if (count < 100)
+        face_indices[count++] = heToMidpointIdx[curr];
       HalfEdge *nextEdge = curr->pair ? curr->pair->next : nullptr;
       if (!nextEdge)
         break;
-      rosetteIndices.push_back(compiled.staticOffset +
-                               heToDynamicIdx[nextEdge]); // Dynamic
+      if (count < 100)
+        face_indices[count++] =
+            compiled.staticOffset + heToDynamicIdx[nextEdge];
       curr = nextEdge;
       safety++;
     } while (curr != startOrbit && curr && safety < 100);
 
-    if (rosetteIndices.size() > 2) {
-      std::reverse(rosetteIndices.begin(),
-                   rosetteIndices.end()); // Fix inward normals
-      compiled.faces.push_back(rosetteIndices);
+    if (count > 2) {
+      compiled.face_counts.push_back(count);
+      for (int k = count - 1; k >= 0; --k) {
+        compiled.faces.push_back(face_indices[k]);
+      }
     }
   }
-
-  return compiled;
 }
 
-/**
- * @brief Updates a compiled Hankin pattern.
- */
-template <typename MeshT> // Templated just to match style, though MeshT output
-                          // is expected
-static MeshT update_hankin(CompiledHankin &compiled, float angle) {
+template <typename MeshT>
+inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
+                          Arena &scratch_arena, float angle) {
   for (size_t i = 0; i < compiled.dynamicInstructions.size(); ++i) {
     const auto &instr = compiled.dynamicInstructions[i];
     Vector m1 = compiled.staticVertices[instr.idxM1];
@@ -517,41 +532,56 @@ static MeshT update_hankin(CompiledHankin &compiled, float angle) {
     Vector nHankin2 = rotate(nEdge2, q2);
 
     Vector intersect = cross(nHankin1, nHankin2);
-
     float lenSq = dot(intersect, intersect);
-    if (lenSq < 1e-6f) {
-      // Degenerate/Parallel.
+    if (lenSq < 1e-6f)
       intersect = (m1 + m2).normalize();
-    }
-
-    // Chirality
     if (dot(intersect, instr.pCorner) < 0)
       intersect = -intersect;
 
     compiled.dynamicVertices[i] = intersect.normalize();
   }
 
-  PolyMesh temp_poly;
-  temp_poly.vertices = compiled.staticVertices;
-  temp_poly.vertices.insert(temp_poly.vertices.end(),
-                            compiled.dynamicVertices.begin(),
-                            compiled.dynamicVertices.end());
-  temp_poly.faces = compiled.faces;
+  out_mesh.vertices.initialize(scratch_arena,
+                               compiled.staticVertices.size() +
+                                   compiled.dynamicVertices.size());
+  for (size_t i = 0; i < compiled.staticVertices.size(); ++i)
+    out_mesh.vertices.push_back(compiled.staticVertices[i]);
+  for (size_t i = 0; i < compiled.dynamicVertices.size(); ++i)
+    out_mesh.vertices.push_back(compiled.dynamicVertices[i]);
 
-  if constexpr (std::is_same_v<MeshT, PolyMesh>) {
-    return temp_poly;
-  } else {
-    // We assume MeshT is MeshState, or at least compile-able
-    return compile(temp_poly);
+  out_mesh.face_counts.initialize(scratch_arena, compiled.face_counts.size());
+
+  if constexpr (requires { out_mesh.face_offsets; }) {
+    out_mesh.face_offsets.initialize(scratch_arena,
+                                     compiled.face_counts.size());
   }
+
+  int current_offset = 0;
+  for (size_t i = 0; i < compiled.face_counts.size(); ++i) {
+    out_mesh.face_counts.push_back(compiled.face_counts[i]);
+    if constexpr (requires { out_mesh.face_offsets; }) {
+      out_mesh.face_offsets.push_back(static_cast<uint16_t>(current_offset));
+    }
+    current_offset += compiled.face_counts[i];
+  }
+
+  out_mesh.faces.initialize(scratch_arena, compiled.faces.size());
+  for (size_t i = 0; i < compiled.faces.size(); ++i)
+    out_mesh.faces.push_back(compiled.faces[i]);
 }
 
-/**
- * @brief Helper to do full hankin generation.
- */
-template <typename MeshT> static MeshT hankin(const MeshT &mesh, float angle) {
-  auto compiled = compile_hankin(mesh);
-  return update_hankin<MeshT>(compiled, angle);
+inline void hankin(const PolyMesh &mesh, PolyMesh &out_mesh,
+                   Arena &scratch_arena, float angle) {
+  CompiledHankin compiled;
+  compile_hankin(mesh, compiled, scratch_arena, scratch_arena);
+  update_hankin(compiled, out_mesh, scratch_arena, angle);
+}
+
+inline PolyMesh hankin(const PolyMesh &mesh, Arena &scratch_arena,
+                       float angle) {
+  PolyMesh out;
+  hankin(mesh, out, scratch_arena, angle);
+  return out;
 }
 
 // --- CONWAY OPERATORS ---
@@ -568,726 +598,654 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 /**
  * @brief Kis operator: Raises a pyramid on each face.
  */
-template <typename MeshT> static MeshT kis(const MeshT &mesh) {
-  MeshT result;
-  result.vertices = mesh.vertices; // Copy existing
+inline void kis(const PolyMesh &mesh, PolyMesh &out_mesh,
+                Arena &scratch_arena) {
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
 
-  for (const auto &f : mesh.faces) {
-    // Add centroid
+  out_mesh.vertices.initialize(scratch_arena, V + F);
+  out_mesh.face_counts.initialize(scratch_arena, I);
+  out_mesh.faces.initialize(scratch_arena, 3 * I);
+
+  for (size_t i = 0; i < V; ++i)
+    out_mesh.vertices.push_back(mesh.vertices[i]);
+
+  size_t offset = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    int count = mesh.face_counts[fi];
     Vector centroid(0, 0, 0);
-    for (int vi : f) {
-      centroid = centroid + mesh.vertices[vi];
+    for (int i = 0; i < count; ++i) {
+      centroid = centroid + mesh.vertices[mesh.faces[offset + i]];
     }
-    if (!f.empty())
-      centroid = centroid / static_cast<float>(f.size());
+    if (count > 0)
+      centroid = centroid / static_cast<float>(count);
 
-    result.vertices.push_back(centroid);
-    int centerIdx = static_cast<int>(result.vertices.size()) - 1;
+    out_mesh.vertices.push_back(centroid);
+    int centerIdx = static_cast<int>(out_mesh.vertices.size()) - 1;
 
-    // Create triangles
-    for (size_t i = 0; i < f.size(); ++i) {
-      int vi = f[i];
-      int vj = f[(i + 1) % f.size()];
-      result.faces.push_back({vi, vj, centerIdx});
+    for (int i = 0; i < count; ++i) {
+      int vi = mesh.faces[offset + i];
+      int vj = mesh.faces[offset + (i + 1) % count];
+      out_mesh.face_counts.push_back(3);
+      out_mesh.faces.push_back(vi);
+      out_mesh.faces.push_back(vj);
+      out_mesh.faces.push_back(centerIdx);
     }
+    offset += count;
   }
+}
 
-  normalize(result);
-  return result;
+inline PolyMesh kis(const PolyMesh &mesh, Arena &scratch_arena) {
+  PolyMesh out;
+  kis(mesh, out, scratch_arena);
+  return out;
 }
 
 /**
  * @brief Ambo operator: Truncates vertices to edge midpoints.
  */
-template <typename MeshT> static MeshT ambo(const MeshT &mesh) {
-  MeshT result;
-  std::map<std::pair<int, int>, int> edgeMap;
+inline void ambo(const PolyMesh &mesh, PolyMesh &out_mesh,
+                 Arena &scratch_arena) {
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
+  size_t E = I / 2;
 
-  // 1. Create vertices at edge midpoints
-  for (const auto &f : mesh.faces) {
-    for (size_t i = 0; i < f.size(); ++i) {
-      int vi = f[i];
-      int vj = f[(i + 1) % f.size()];
+  out_mesh.vertices.initialize(scratch_arena, E);
+  out_mesh.face_counts.initialize(scratch_arena, F + V);
+  out_mesh.faces.initialize(scratch_arena, 2 * I);
+
+  ArenaMap<std::pair<int, int>, int> edgeMap(scratch_arena, E);
+
+  size_t offset = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    int count = mesh.face_counts[fi];
+    for (int i = 0; i < count; ++i) {
+      int vi = mesh.faces[offset + i];
+      int vj = mesh.faces[offset + (i + 1) % count];
       int u = std::min(vi, vj);
       int v = std::max(vi, vj);
 
-      if (edgeMap.find({u, v}) == edgeMap.end()) {
+      if (!edgeMap.contains({u, v})) {
         Vector mid = (mesh.vertices[vi] + mesh.vertices[vj]) * 0.5f;
-        result.vertices.push_back(mid);
-        edgeMap[{u, v}] = static_cast<int>(result.vertices.size()) - 1;
+        out_mesh.vertices.push_back(mid);
+        edgeMap[{u, v}] = static_cast<int>(out_mesh.vertices.size()) - 1;
       }
     }
+    offset += count;
   }
 
-  // 2. Create faces
-  // A. Shrink old faces
-  for (const auto &f : mesh.faces) {
-    std::vector<int> faceVerts;
-    for (size_t i = 0; i < f.size(); ++i) {
-      int vi = f[i];
-      int vj = f[(i + 1) % f.size()];
+  offset = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    int count = mesh.face_counts[fi];
+    out_mesh.face_counts.push_back(count);
+    for (int i = 0; i < count; ++i) {
+      int vi = mesh.faces[offset + i];
+      int vj = mesh.faces[offset + (i + 1) % count];
       int u = std::min(vi, vj);
       int v = std::max(vi, vj);
-      faceVerts.push_back(edgeMap[{u, v}]);
+      out_mesh.faces.push_back(edgeMap[{u, v}]);
     }
-    result.faces.push_back(faceVerts);
+    offset += count;
   }
 
-  // B. Create new faces at old vertices
-  std::map<std::pair<int, int>, std::vector<int>> edgeToFaces;
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
-    for (size_t i = 0; i < f.size(); ++i) {
-      int vi = f[i];
-      int vj = f[(i + 1) % f.size()];
-      int u = std::min(vi, vj);
-      int v = std::max(vi, vj);
-      edgeToFaces[{u, v}].push_back(static_cast<int>(fi));
-    }
-  }
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
 
-  for (size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
-    std::vector<int> neighborMids;
-
-    // Find a start face
-    int startFaceIdx = -1;
-    for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-      const auto &f = mesh.faces[fi];
-      if (std::find(f.begin(), f.end(), static_cast<int>(vi)) != f.end()) {
-        startFaceIdx = static_cast<int>(fi);
-        break;
-      }
-    }
-    if (startFaceIdx == -1)
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *heStart = &heMesh.halfEdges[i];
+    if (!heStart->prev)
       continue;
 
-    int currFaceIdx = startFaceIdx;
+    HEVertex *origin = heStart->prev->vertex;
+    if (visitedVerts.contains(origin))
+      continue;
+    visitedVerts[origin] = true;
+
+    int face_idx = out_mesh.faces.size();
+    HalfEdge *curr = heStart;
+    HalfEdge *startOrbit = curr;
     int safety = 0;
+    int count = 0;
+    int local_face[100];
+
     do {
-      const auto &face = mesh.faces[currFaceIdx];
-      auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
-      size_t idxInFace = std::distance(face.begin(), it);
-      int nextVi = face[(idxInFace + 1) % face.size()];
-
-      int u = std::min((int)vi, nextVi);
-      int v = std::max((int)vi, nextVi);
-      neighborMids.push_back(edgeMap[{u, v}]);
-
-      // Find adjacent face
-      const auto &adjFaces = edgeToFaces[{u, v}];
-      auto nextFaceIt = std::find_if(adjFaces.begin(), adjFaces.end(),
-                                     [&](int id) { return id != currFaceIdx; });
-      if (nextFaceIt == adjFaces.end())
+      if (!curr->face)
         break;
+      int vi = curr->prev->vertex - heMesh.vertices.data();
+      int vj = curr->vertex - heMesh.vertices.data();
+      if (count < 100)
+        local_face[count++] = edgeMap[{std::min(vi, vj), std::max(vi, vj)}];
 
-      currFaceIdx = *nextFaceIt;
+      if (!curr->prev || !curr->prev->pair)
+        break;
+      curr = curr->prev->pair;
       safety++;
-    } while (currFaceIdx != startFaceIdx && safety < 20);
+    } while (curr != startOrbit && curr && safety < 100);
 
-    if (neighborMids.size() >= 3) {
-      std::reverse(neighborMids.begin(), neighborMids.end());
-      result.faces.push_back(neighborMids);
+    if (count >= 3) {
+      out_mesh.face_counts.push_back(count);
+      for (int k = 0; k < count; ++k)
+        out_mesh.faces.push_back(local_face[k]);
     }
   }
+}
 
-  normalize(result);
-  return result;
+inline PolyMesh ambo(const PolyMesh &mesh, Arena &scratch_arena) {
+  PolyMesh out;
+  ambo(mesh, out, scratch_arena);
+  return out;
 }
 
 /**
  * @brief Truncate operator: Cuts corners off the polyhedron.
  * @param t Truncation depth [0..0.5].
  */
-template <typename MeshT>
-static MeshT truncate(const MeshT &mesh, float t = 0.25f) {
-  // Singularity check: if t is 0.5, this is geometrically equivalent to ambo
-  // (rectification). The standard truncate logic produces degenerate edges at
-  // t=0.5, so we redirect to ambo.
+inline void truncate(const PolyMesh &mesh, PolyMesh &out_mesh,
+                     Arena &scratch_arena, float t = 0.25f) {
   if (std::abs(t - 0.5f) < 1e-4f) {
-    return ambo(mesh);
+    ambo(mesh, out_mesh, scratch_arena);
+    return;
   }
 
-  MeshT result;
-  // Map edge (u,v) -> pair of new vertex indices {near_u, near_v}
-  // Stored as key {min(u,v), max(u,v)} -> value {idx_near_key_first,
-  // idx_near_key_second}
-  std::map<std::pair<int, int>, std::pair<int, int>> edgeMap;
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
+  size_t E = I / 2;
 
-  // 1. Create new vertices along edges
-  for (const auto &f : mesh.faces) {
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
+  out_mesh.vertices.initialize(scratch_arena, 2 * E);
+  out_mesh.face_counts.initialize(scratch_arena, F + V);
+  out_mesh.faces.initialize(scratch_arena, 3 * I);
+
+  ArenaMap<std::pair<int, int>, std::pair<int, int>> edgeMap(scratch_arena, E);
+
+  size_t offset = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    int count = mesh.face_counts[fi];
+    for (int i = 0; i < count; ++i) {
+      int u = mesh.faces[offset + i];
+      int v = mesh.faces[offset + (i + 1) % count];
       int k1 = std::min(u, v);
       int k2 = std::max(u, v);
 
-      if (edgeMap.find({k1, k2}) == edgeMap.end()) {
-        Vector vU = mesh.vertices[u];
-        Vector vV = mesh.vertices[v];
+      if (!edgeMap.contains({k1, k2})) {
+        Vector new_u =
+            mesh.vertices[k1] + (mesh.vertices[k2] - mesh.vertices[k1]) * t;
+        Vector new_v =
+            mesh.vertices[k2] + (mesh.vertices[k1] - mesh.vertices[k2]) * t;
 
-        // Near U
-        // lerp implementation in 3dmath/geometry? Using manual: a + (b-a)*t
-        Vector p1 = vU + (vV - vU) * t;
-        result.vertices.push_back(p1);
-        int idx1 = static_cast<int>(result.vertices.size()) - 1;
+        out_mesh.vertices.push_back(new_u);
+        int idx_u = static_cast<int>(out_mesh.vertices.size()) - 1;
 
-        // Near V
-        Vector p2 = vU + (vV - vU) * (1.0f - t);
-        result.vertices.push_back(p2);
-        int idx2 = static_cast<int>(result.vertices.size()) - 1;
+        out_mesh.vertices.push_back(new_v);
+        int idx_v = static_cast<int>(out_mesh.vertices.size()) - 1;
 
-        if (u < v) {
-          edgeMap[{k1, k2}] = {idx1, idx2};
-        } else {
-          edgeMap[{k1, k2}] = {idx2, idx1};
-        }
-        if (u < v)
-          edgeMap[{u, v}] = {idx1, idx2};
-        else
-          edgeMap[{v, u}] = {idx2, idx1};
+        edgeMap[{k1, k2}] = {idx_u, idx_v};
       }
     }
+    offset += count;
   }
 
-  // 2. Modified Faces (internal polygons)
-  for (const auto &f : mesh.faces) {
-    std::vector<int> faceVerts;
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
-      int k1 = std::min(u, v);
-      int k2 = std::max(u, v);
+  offset = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    int count = mesh.face_counts[fi];
+    out_mesh.face_counts.push_back(count * 2);
 
-      std::pair<int, int> indices = edgeMap[{k1, k2}];
+    for (int i = 0; i < count; ++i) {
+      int vi = mesh.faces[offset + i];
+      int vj = mesh.faces[offset + (i + 1) % count];
 
-      if (u < v) {
-        faceVerts.push_back(indices.first);
-        faceVerts.push_back(indices.second);
+      int k1 = std::min(vi, vj);
+      int k2 = std::max(vi, vj);
+
+      std::pair<int, int> newVerts = edgeMap[{k1, k2}];
+
+      if (vi == k1) {
+        out_mesh.faces.push_back(newVerts.first);
+        out_mesh.faces.push_back(newVerts.second);
       } else {
-        faceVerts.push_back(indices.second);
-        faceVerts.push_back(indices.first);
+        out_mesh.faces.push_back(newVerts.second);
+        out_mesh.faces.push_back(newVerts.first);
       }
     }
-    result.faces.push_back(faceVerts);
+    offset += count;
   }
 
-  // 3. Corner Faces
-  std::map<std::pair<int, int>, std::vector<int>> edgeToFaces;
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
-      int k1 = std::min(u, v);
-      int k2 = std::max(u, v);
-      edgeToFaces[{k1, k2}].push_back(static_cast<int>(fi));
-    }
-  }
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
 
-  for (size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
-    int startFaceIdx = -1;
-    for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-      const auto &f = mesh.faces[fi];
-      if (std::find(f.begin(), f.end(), static_cast<int>(vi)) != f.end()) {
-        startFaceIdx = static_cast<int>(fi);
-        break;
-      }
-    }
-    if (startFaceIdx == -1)
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *heStart = &heMesh.halfEdges[i];
+    if (!heStart->prev)
       continue;
 
-    std::vector<int> polyVerts;
-    int currFaceIdx = startFaceIdx;
+    HEVertex *origin = heStart->prev->vertex;
+    if (visitedVerts.contains(origin))
+      continue;
+    visitedVerts[origin] = true;
+
+    HalfEdge *curr = heStart;
+    HalfEdge *startOrbit = curr;
     int safety = 0;
+    int count = 0;
+    int local_face[100];
+
     do {
-      const auto &face = mesh.faces[currFaceIdx];
-      auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
-      size_t idxInFace = std::distance(face.begin(), it);
-      int nextVi = face[(idxInFace + 1) % face.size()];
-
-      int k1 = std::min((int)vi, nextVi);
-      int k2 = std::max((int)vi, nextVi);
-      std::pair<int, int> indices = edgeMap[{k1, k2}];
-
-      int idxNearVi =
-          (static_cast<int>(vi) == k1) ? indices.first : indices.second;
-      polyVerts.push_back(idxNearVi);
-
-      // Find adjacent face
-      const auto &adjFaces = edgeToFaces[{k1, k2}];
-      auto nextFaceIt = std::find_if(adjFaces.begin(), adjFaces.end(),
-                                     [&](int id) { return id != currFaceIdx; });
-      if (nextFaceIt == adjFaces.end())
+      if (!curr->face)
         break;
+      int vi = curr->prev->vertex - heMesh.vertices.data();
+      int vj = curr->vertex - heMesh.vertices.data();
 
-      currFaceIdx = *nextFaceIt;
+      int k1 = std::min(vi, vj);
+      int k2 = std::max(vi, vj);
+      std::pair<int, int> newVerts = edgeMap[{k1, k2}];
+
+      if (count < 100) {
+        local_face[count++] = (vi == k1) ? newVerts.first : newVerts.second;
+      }
+
+      if (!curr->prev || !curr->prev->pair)
+        break;
+      curr = curr->prev->pair;
       safety++;
-    } while (currFaceIdx != startFaceIdx && safety < 20);
+    } while (curr != startOrbit && curr && safety < 100);
 
-    if (polyVerts.size() > 2) {
-      std::reverse(polyVerts.begin(), polyVerts.end());
-      result.faces.push_back(polyVerts);
+    if (count >= 3) {
+      out_mesh.face_counts.push_back(count);
+      for (int k = 0; k < count; ++k)
+        out_mesh.faces.push_back(local_face[k]);
     }
   }
+}
 
-  normalize(result);
-  return result;
+inline PolyMesh truncate(const PolyMesh &mesh, Arena &scratch_arena,
+                         float t = 0.25f) {
+  PolyMesh out;
+  truncate(mesh, out, scratch_arena, t);
+  return out;
 }
 
 /**
  * @brief Expand operator: Separates faces (e = aa).
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
  */
-template <typename MeshT>
-static MeshT expand(const MeshT &mesh, float t = 2.0f - sqrt(2.0f)) {
-  MeshT result;
-  // Map (faceIdx) -> list of new vertex indices
-  std::vector<std::vector<int>> faceVertsMap(mesh.faces.size());
+inline void expand(const PolyMesh &mesh, PolyMesh &out_mesh,
+                   Arena &scratch_arena, float t = 2.0f - sqrt(2.0f)) {
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
+  size_t E = I / 2;
 
-  // 1. Inset Faces
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
+  out_mesh.vertices.initialize(scratch_arena, I);
+  out_mesh.face_counts.initialize(scratch_arena, F + V + E);
+  out_mesh.faces.initialize(scratch_arena, 4 * I);
+
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
+  ArenaMap<HalfEdge *, int> heToVertIdx(scratch_arena, I);
+
+  for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
+    HEFace *face = &heMesh.faces[fi];
     Vector centroid(0, 0, 0);
-    for (int vi : f)
-      centroid = centroid + mesh.vertices[vi];
-    if (!f.empty())
-      centroid = centroid / static_cast<float>(f.size());
+    int count = 0;
+    HalfEdge *he = face->halfEdge;
+    HalfEdge *start = he;
+    do {
+      centroid = centroid + he->vertex->position;
+      count++;
+      he = he->next;
+    } while (he != start && count < 100);
 
-    for (int vi : f) {
-      Vector v = mesh.vertices[vi];
+    centroid = centroid / static_cast<float>(count);
+
+    out_mesh.face_counts.push_back(count);
+    he = start;
+    int safety = 0;
+    do {
+      Vector v = he->vertex->position;
       Vector newV = v + (centroid - v) * t;
-      result.vertices.push_back(newV);
-      faceVertsMap[fi].push_back(static_cast<int>(result.vertices.size()) - 1);
-    }
-    result.faces.push_back(faceVertsMap[fi]);
+      out_mesh.vertices.push_back(newV);
+      int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
+      heToVertIdx[he] = idx;
+
+      out_mesh.faces.push_back(idx);
+      he = he->next;
+      safety++;
+    } while (he != start && safety < 100);
   }
 
-  // 2. Vertex Faces
-  std::vector<std::vector<size_t>> vertToFaces(mesh.vertices.size());
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    for (int vi : mesh.faces[fi]) {
-      vertToFaces[vi].push_back(fi);
-    }
-  }
-
-  std::map<std::pair<int, int>, std::vector<size_t>> edgeToFacesLookup;
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
-      int k1 = std::min(u, v);
-      int k2 = std::max(u, v);
-      edgeToFacesLookup[{k1, k2}].push_back(fi);
-    }
-  }
-
-  for (size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
-    const auto &adjacentFaces = vertToFaces[vi];
-    if (adjacentFaces.size() < 3)
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *heStart = &heMesh.halfEdges[i];
+    if (!heStart->prev)
       continue;
 
-    std::vector<int> orderedIndices;
-    size_t startFace = adjacentFaces[0];
-    size_t currFace = startFace;
+    HEVertex *origin = heStart->prev->vertex;
+    if (visitedVerts.contains(origin))
+      continue;
+    visitedVerts[origin] = true;
+
+    HalfEdge *curr = heStart;
+    HalfEdge *startOrbit = curr;
     int safety = 0;
+    int count = 0;
+    int local_face[100];
 
     do {
-      const auto &face = mesh.faces[currFace];
-      auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
-      int idxInFace = static_cast<int>(std::distance(face.begin(), it));
-
-      orderedIndices.push_back(faceVertsMap[currFace][idxInFace]);
-
-      // Prev edge: prev -> vi
-      int prevVi = face[(idxInFace - 1 + face.size()) % face.size()];
-
-      int k1 = std::min((int)vi, prevVi);
-      int k2 = std::max((int)vi, prevVi);
-
-      const auto &neighbors = edgeToFacesLookup[{k1, k2}];
-      auto nextIt = std::find_if(neighbors.begin(), neighbors.end(),
-                                 [&](size_t fid) { return fid != currFace; });
-
-      if (nextIt == neighbors.end())
+      if (!curr->face)
         break;
-      currFace = *nextIt;
+      if (count < 100)
+        local_face[count++] = heToVertIdx[curr->prev];
+
+      if (!curr->pair)
+        break;
+      curr = curr->pair->next;
       safety++;
-    } while (currFace != startFace && safety < 20);
+    } while (curr != startOrbit && curr && safety < 100);
 
-    result.faces.push_back(orderedIndices);
-  }
-
-  // 3. Edge Quad Faces
-  // Map key -> list of {faceIdx, indexInFace, u, v}
-  struct EdgeEntry {
-    size_t fi;
-    int i;
-    int u;
-    int v;
-  };
-  std::map<std::pair<int, int>, std::vector<EdgeEntry>> edgeMap;
-  std::vector<std::pair<int, int>>
-      edgeOrder; // To preserve insertion order (JS Parity)
-
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
-      int k1 = std::min(u, v);
-      int k2 = std::max(u, v);
-
-      if (edgeMap.find({k1, k2}) == edgeMap.end()) {
-        edgeOrder.push_back({k1, k2});
-      }
-      edgeMap[{k1, k2}].push_back({fi, (int)i, u, v});
+    if (count >= 3) {
+      out_mesh.face_counts.push_back(count);
+      for (int k = count - 1; k >= 0; --k)
+        out_mesh.faces.push_back(local_face[k]);
     }
   }
 
-  for (const auto &key : edgeOrder) {
-    const auto &entries = edgeMap[key];
-    if (entries.size() != 2)
+  ArenaMap<std::pair<int, int>, bool> visitedEdges(scratch_arena, E);
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *he = &heMesh.halfEdges[i];
+    int u = he->prev->vertex - heMesh.vertices.data();
+    int v = he->vertex - heMesh.vertices.data();
+    int k1 = std::min(u, v);
+    int k2 = std::max(u, v);
+
+    if (visitedEdges.contains({k1, k2}))
       continue;
+    visitedEdges[{k1, k2}] = true;
 
-    const auto &e1 = entries[0];
-    const auto &e2 = entries[1];
-
-    // Vertices in Face A (e1) corresponding to u, v
-    int count1 = static_cast<int>(mesh.faces[e1.fi].size());
-    int A_u_idx = faceVertsMap[e1.fi][e1.i];
-    int A_v_idx = faceVertsMap[e1.fi][(e1.i + 1) % count1];
-
-    // Vertices in Face B (e2) corresponding to u, v
-    // Need to find u and v in Face B
-    const auto &f2 = mesh.faces[e2.fi];
-    auto it_v = std::find(f2.begin(), f2.end(), e1.v);
-    auto it_u = std::find(f2.begin(), f2.end(), e1.u);
-
-    int idx_v_in_B = static_cast<int>(std::distance(f2.begin(), it_v));
-    int idx_u_in_B = static_cast<int>(std::distance(f2.begin(), it_u));
-
-    int B_v_idx = faceVertsMap[e2.fi][idx_v_in_B];
-    int B_u_idx = faceVertsMap[e2.fi][idx_u_in_B];
-
-    // Quad: A_v -> A_u -> B_u -> B_v
-    result.faces.push_back({A_v_idx, A_u_idx, B_u_idx, B_v_idx});
+    if (he->pair) {
+      out_mesh.face_counts.push_back(4);
+      out_mesh.faces.push_back(heToVertIdx[he->prev]);
+      out_mesh.faces.push_back(heToVertIdx[he->pair]);
+      out_mesh.faces.push_back(heToVertIdx[he->pair->prev]);
+      out_mesh.faces.push_back(heToVertIdx[he]);
+    }
   }
+}
 
-  normalize(result);
-  return result;
+inline PolyMesh expand(const PolyMesh &mesh, Arena &scratch_arena,
+                       float t = 2.0f - sqrt(2.0f)) {
+  PolyMesh out;
+  expand(mesh, out, scratch_arena, t);
+  return out;
 }
 
 /**
  * @brief Bitruncate operator: Truncate the rectified mesh.
  */
-template <typename MeshT>
-static MeshT bitruncate(const MeshT &mesh, float t = 1.0f / 3.0f) {
-  return truncate(ambo(mesh), t);
+inline void bitruncate(const PolyMesh &mesh, PolyMesh &out_mesh,
+                       Arena &scratch_arena, float t = 1.0f / 3.0f) {
+  PolyMesh temp;
+  ambo(mesh, temp, scratch_arena);
+  truncate(temp, out_mesh, scratch_arena, t);
 }
 
-/**
- * @brief Canonicalize operator: Iteratively relaxes the mesh to equalize edge
- * lengths.
- */
-template <typename MeshT>
-static MeshT canonicalize(const MeshT &mesh, int iterations = 100) {
-  MeshT result = mesh; // Copy
-  std::vector<Vector> &positions = result.vertices;
+inline PolyMesh bitruncate(const PolyMesh &mesh, Arena &scratch_arena,
+                           float t = 1.0f / 3.0f) {
+  PolyMesh out;
+  bitruncate(mesh, out, scratch_arena, t);
+  return out;
+}
 
-  // Build adjacency
-  std::vector<std::vector<int>> neighbors(positions.size());
-  for (const auto &f : result.faces) {
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
+inline void canonicalize(const PolyMesh &mesh, PolyMesh &out_mesh,
+                         Arena &scratch_arena, int iterations = 100) {
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
 
-      bool found = false;
-      for (int existing : neighbors[u])
-        if (existing == v)
-          found = true;
-      if (!found)
-        neighbors[u].push_back(v);
+  out_mesh.vertices.initialize(scratch_arena, V);
+  out_mesh.face_counts.initialize(scratch_arena, F);
+  out_mesh.faces.initialize(scratch_arena, I);
 
-      found = false;
-      for (int existing : neighbors[v])
-        if (existing == u)
-          found = true;
-      if (!found)
-        neighbors[v].push_back(u);
-    }
-  }
+  for (size_t i = 0; i < V; ++i)
+    out_mesh.vertices.push_back(mesh.vertices[i]);
+  for (size_t i = 0; i < F; ++i)
+    out_mesh.face_counts.push_back(mesh.face_counts[i]);
+  for (size_t i = 0; i < I; ++i)
+    out_mesh.faces.push_back(mesh.faces[i]);
+
+  ArenaVector<Vector> movements;
+  movements.initialize(scratch_arena, V);
+  for (size_t i = 0; i < V; ++i)
+    movements.push_back(Vector(0, 0, 0));
+
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
 
   for (int iter = 0; iter < iterations; ++iter) {
     double totalLen = 0;
     int edgeCount = 0;
-    for (size_t i = 0; i < positions.size(); ++i) {
-      for (int ni : neighbors[i]) {
-        if ((int)i < ni) {
-          totalLen += distance_between(positions[i], positions[ni]);
-          edgeCount++;
-        }
+
+    for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+      HalfEdge *he = &heMesh.halfEdges[i];
+      int u = he->prev->vertex - heMesh.vertices.data();
+      int v = he->vertex - heMesh.vertices.data();
+      if (u < v) {
+        totalLen +=
+            distance_between(out_mesh.vertices[u], out_mesh.vertices[v]);
+        edgeCount++;
       }
     }
+
     if (edgeCount == 0)
       break;
     float targetLen = static_cast<float>(totalLen / edgeCount);
 
-    std::vector<Vector> movements(positions.size(), Vector(0, 0, 0));
-
-    for (size_t i = 0; i < positions.size(); ++i) {
+    for (size_t i = 0; i < V; ++i) {
       Vector force(0, 0, 0);
-      for (int ni : neighbors[i]) {
-        Vector vec = positions[ni] - positions[i];
-        float dist = vec.length();
-        float diff = dist - targetLen;
-        // Hooke's Law
-        if (dist > 1e-6f) {
-          force = force + (vec * (1.0f / dist)) * (diff * 0.1f);
-        }
+
+      HEVertex *hev = &heMesh.vertices[i];
+      HalfEdge *he = hev->halfEdge;
+      if (he) {
+        HalfEdge *start = he;
+        int safety = 0;
+        do {
+          int ni = he->prev->vertex - heMesh.vertices.data();
+          Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
+          float dist = vec.length();
+          if (dist > 1e-6f) {
+            float diff = dist - targetLen;
+            force = force + (vec * (1.0f / dist)) * (diff * 0.1f);
+          }
+
+          if (!he->next || !he->next->pair)
+            break;
+          he = he->next->pair;
+          safety++;
+        } while (he != start && safety < 100);
       }
-      movements[i] = movements[i] + force;
+      movements[i] = force;
     }
 
-    for (size_t i = 0; i < positions.size(); ++i) {
-      positions[i] = positions[i] + movements[i];
-      positions[i] = positions[i].normalize();
+    for (size_t i = 0; i < V; ++i) {
+      out_mesh.vertices[i] = (out_mesh.vertices[i] + movements[i]).normalize();
     }
   }
-  return result;
+}
+
+inline PolyMesh canonicalize(const PolyMesh &mesh, Arena &scratch_arena,
+                             int iterations = 100) {
+  PolyMesh out;
+  canonicalize(mesh, out, scratch_arena, iterations);
+  return out;
 }
 
 /**
  * @brief Snub operator: Creates a chiral semi-regular polyhedron.
  * Updated with twist support.
  */
-template <typename MeshT>
-static MeshT snub(const MeshT &mesh, float t = 0.5f, float twist = 0.0f) {
-  MeshT result;
-  std::vector<std::vector<int>> newVertsMap(mesh.faces.size());
+inline void snub(const PolyMesh &mesh, PolyMesh &out_mesh, Arena &scratch_arena,
+                 float t = 0.5f, float twist = 0.0f) {
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
+  size_t E = I / 2;
 
-  // 1. Create new vertices
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
+  out_mesh.vertices.initialize(scratch_arena, I);
+  out_mesh.face_counts.initialize(scratch_arena, F + V + 2 * E);
+  out_mesh.faces.initialize(scratch_arena, 5 * I);
+
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
+  ArenaMap<HalfEdge *, int> heToVertIdx(scratch_arena, I);
+
+  for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
+    HEFace *face = &heMesh.faces[fi];
     Vector centroid(0, 0, 0);
-    for (int vi : f)
-      centroid = centroid + mesh.vertices[vi];
-    if (!f.empty())
-      centroid = centroid / static_cast<float>(f.size());
+    int count = 0;
+    HalfEdge *he = face->halfEdge;
+    HalfEdge *start = he;
+    do {
+      centroid = centroid + he->vertex->position;
+      count++;
+      he = he->next;
+    } while (he != start && count < 100);
+
+    centroid = centroid / static_cast<float>(count);
 
     Vector normal(0, 0, 0);
-    // Try face normal first
-    if (f.size() >= 3) {
-      Vector ab = mesh.vertices[f[1]] - mesh.vertices[f[0]];
-      Vector ac = mesh.vertices[f[2]] - mesh.vertices[f[0]];
+    if (count >= 3) {
+      Vector ab = start->next->vertex->position - start->vertex->position;
+      Vector ac = start->next->next->vertex->position - start->vertex->position;
       normal = cross(ab, ac).normalize();
     }
-    // Fallback to centroid logic if face is degenerate or we want robust
-    // spherical normal
-    if (dot(centroid, centroid) > 1e-6f) {
-      if (dot(normal, normal) < 1e-9f)
-        normal = centroid.normalize();
+    if (dot(centroid, centroid) > 1e-6f && dot(normal, normal) < 1e-9f) {
+      normal = centroid.normalize();
     }
 
-    newVertsMap[fi].resize(f.size());
-    for (size_t i = 0; i < f.size(); ++i) {
-      Vector v = mesh.vertices[f[i]];
-      // lerp(v, centroid, t) -> v + (centroid - v)*t
+    out_mesh.face_counts.push_back(count);
+    he = start;
+    int safety = 0;
+    do {
+      Vector v = he->vertex->position;
       Vector newV = v + (centroid - v) * t;
 
       if (twist != 0.0f) {
-        // Rotate around normal at centroid
         Vector local = newV - centroid;
         Quaternion q = make_rotation(normal, twist);
         newV = centroid + rotate(local, q);
       }
 
-      result.vertices.push_back(newV);
-      newVertsMap[fi][i] = static_cast<int>(result.vertices.size()) - 1;
-    }
+      out_mesh.vertices.push_back(newV);
+      int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
+      heToVertIdx[he] = idx;
+
+      out_mesh.faces.push_back(idx);
+
+      he = he->next;
+      safety++;
+    } while (he != start && safety < 100);
   }
 
-  // 2. Face Faces
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    result.faces.push_back(newVertsMap[fi]);
-  }
-
-  // Helper: Edge Map
-  std::map<std::pair<int, int>, std::vector<int>> edgeToFaces;
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
-      int k1 = std::min(u, v);
-      int k2 = std::max(u, v);
-      edgeToFaces[{k1, k2}].push_back(static_cast<int>(fi));
-    }
-  }
-
-  // 3. Vertex Faces
-  for (size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
-    int startFaceIdx = -1;
-    for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-      const auto &f = mesh.faces[fi];
-      if (std::find(f.begin(), f.end(), static_cast<int>(vi)) != f.end()) {
-        startFaceIdx = static_cast<int>(fi);
-        break;
-      }
-    }
-    if (startFaceIdx == -1)
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *heStart = &heMesh.halfEdges[i];
+    if (!heStart->prev)
       continue;
 
-    std::vector<int> orderedFaces;
-    int currFaceIdx = startFaceIdx;
+    HEVertex *origin = heStart->prev->vertex;
+    if (visitedVerts.contains(origin))
+      continue;
+    visitedVerts[origin] = true;
+
+    HalfEdge *curr = heStart;
+    HalfEdge *startOrbit = curr;
     int safety = 0;
+    int count = 0;
+    int local_face[100];
+
     do {
-      orderedFaces.push_back(currFaceIdx);
-      const auto &face = mesh.faces[currFaceIdx];
-      auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
-      size_t idxInFace = std::distance(face.begin(), it);
-      int prevVi = face[(idxInFace - 1 + face.size()) % face.size()];
-
-      int k1 = std::min((int)vi, prevVi);
-      int k2 = std::max((int)vi, prevVi);
-      const auto &adjFaces = edgeToFaces[{k1, k2}];
-      auto nextFaceIt = std::find_if(adjFaces.begin(), adjFaces.end(),
-                                     [&](int id) { return id != currFaceIdx; });
-      if (nextFaceIt == adjFaces.end())
+      if (!curr->face)
         break;
+      if (count < 100)
+        local_face[count++] = heToVertIdx[curr->prev];
 
-      currFaceIdx = *nextFaceIt;
+      if (!curr->pair)
+        break;
+      curr = curr->pair->next;
       safety++;
-    } while (currFaceIdx != startFaceIdx && safety < 20);
+    } while (curr != startOrbit && curr && safety < 100);
 
-    std::vector<int> faceVerts;
-    for (int fi : orderedFaces) {
-      const auto &face = mesh.faces[fi];
-      auto it = std::find(face.begin(), face.end(), static_cast<int>(vi));
-      size_t idx = std::distance(face.begin(), it);
-      faceVerts.push_back(newVertsMap[fi][idx]);
-    }
-    result.faces.push_back(faceVerts);
-  }
-
-  // 4. Edge Triangles
-  std::set<std::pair<int, int>> processedEdges;
-  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
-    const auto &f = mesh.faces[fi];
-    for (size_t i = 0; i < f.size(); ++i) {
-      int vi = f[i];
-      int vj = f[(i + 1) % f.size()];
-      int k1 = std::min(vi, vj);
-      int k2 = std::max(vi, vj);
-
-      if (processedEdges.count({k1, k2}))
-        continue;
-      processedEdges.insert({k1, k2});
-
-      const auto &adj = edgeToFaces[{k1, k2}];
-      if (adj.size() < 2)
-        continue;
-
-      int faceA = fi;
-      int faceB = (adj[0] == static_cast<int>(fi)) ? adj[1] : adj[0];
-
-      auto itA_u =
-          std::find(mesh.faces[faceA].begin(), mesh.faces[faceA].end(), vi);
-      int idxA_u =
-          static_cast<int>(std::distance(mesh.faces[faceA].begin(), itA_u));
-      auto itA_v =
-          std::find(mesh.faces[faceA].begin(), mesh.faces[faceA].end(), vj);
-      int idxA_v =
-          static_cast<int>(std::distance(mesh.faces[faceA].begin(), itA_v));
-
-      auto itB_u =
-          std::find(mesh.faces[faceB].begin(), mesh.faces[faceB].end(), vi);
-      int idxB_u =
-          static_cast<int>(std::distance(mesh.faces[faceB].begin(), itB_u));
-      auto itB_v =
-          std::find(mesh.faces[faceB].begin(), mesh.faces[faceB].end(), vj);
-      int idxB_v =
-          static_cast<int>(std::distance(mesh.faces[faceB].begin(), itB_v));
-
-      int A_u = newVertsMap[faceA][idxA_u];
-      int A_v = newVertsMap[faceA][idxA_v];
-      int B_u = newVertsMap[faceB][idxB_u];
-      int B_v = newVertsMap[faceB][idxB_v];
-
-      // Tri 1
-      result.faces.push_back({A_v, A_u, B_v});
-      // Tri 2
-      result.faces.push_back({B_u, B_v, A_u});
+    if (count >= 3) {
+      out_mesh.face_counts.push_back(count);
+      for (int k = count - 1; k >= 0; --k)
+        out_mesh.faces.push_back(local_face[k]);
     }
   }
 
-  normalize(result);
-  return result;
+  ArenaMap<std::pair<int, int>, bool> visitedEdges(scratch_arena, E);
+  for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    HalfEdge *he = &heMesh.halfEdges[i];
+    int u = he->prev->vertex - heMesh.vertices.data();
+    int v = he->vertex - heMesh.vertices.data();
+    int k1 = std::min(u, v);
+    int k2 = std::max(u, v);
+
+    if (visitedEdges.contains({k1, k2}))
+      continue;
+    visitedEdges[{k1, k2}] = true;
+
+    if (he->pair) {
+      out_mesh.face_counts.push_back(3);
+      out_mesh.faces.push_back(heToVertIdx[he->prev]);
+      out_mesh.faces.push_back(heToVertIdx[he->pair]);
+      out_mesh.faces.push_back(heToVertIdx[he]);
+
+      out_mesh.face_counts.push_back(3);
+      out_mesh.faces.push_back(heToVertIdx[he->pair]);
+      out_mesh.faces.push_back(heToVertIdx[he->pair->prev]);
+      out_mesh.faces.push_back(heToVertIdx[he]);
+    }
+  }
 }
 
-/**
- * @brief Gyro operator: dual(snub(mesh)).
- */
-template <typename MeshT> static MeshT gyro(const MeshT &mesh) {
-  return dual(snub(mesh));
+inline PolyMesh snub(const PolyMesh &mesh, Arena &scratch_arena, float t = 0.5f,
+                     float twist = 0.0f) {
+  PolyMesh out;
+  snub(mesh, out, scratch_arena, t, twist);
+  return out;
+}
+
+inline void gyro(const PolyMesh &mesh, PolyMesh &out_mesh,
+                 Arena &scratch_arena) {
+  PolyMesh temp;
+  snub(mesh, temp, scratch_arena);
+  dual(temp, out_mesh, scratch_arena);
+}
+
+inline PolyMesh gyro(const PolyMesh &mesh, Arena &scratch_arena) {
+  PolyMesh out;
+  gyro(mesh, out, scratch_arena);
+  return out;
 }
 
 /**
  * @brief Computes KDTree and Adjacency map for the mesh (caching it).
  */
-template <typename MeshT> static void compute_kdtree(const MeshT &mesh) {
+inline void compute_kdtree(const PolyMesh &mesh, Arena &arena) {
   if (mesh.cache_valid)
     return;
 
-  MeshT &m = const_cast<MeshT &>(mesh);
-
-  // 1. Build Adjacency
-  m.adjacency.assign(m.vertices.size(), {});
-  for (const auto &f : m.faces) {
-    for (size_t i = 0; i < f.size(); ++i) {
-      int u = f[i];
-      int v = f[(i + 1) % f.size()];
-
-      bool hasV = false;
-      for (int x : m.adjacency[u])
-        if (x == v)
-          hasV = true;
-      if (!hasV)
-        m.adjacency[u].push_back(v);
-
-      bool hasU = false;
-      for (int x : m.adjacency[v])
-        if (x == u)
-          hasU = true;
-      if (!hasU)
-        m.adjacency[v].push_back(u);
-    }
-  }
-
-  // 2. Build KDTree (requires constructing new one)
-  // We pass the span of vertices directly.
-  // Ensure KDTree constructor calls build() on them.
-  // KDTree stores copies of points, so safe even if vector reallocates later
-  // (though it shouldn't for static mesh) Note: KDTree constructor is
-  // KDTree(std::span<Vector>).
-  m.kdTree = KDTree(std::span<Vector>(m.vertices));
+  PolyMesh &m = const_cast<PolyMesh &>(mesh);
+  m.kdTree =
+      KDTree(arena, std::span<Vector>(m.vertices.data(), m.vertices.size()));
   m.cache_valid = true;
 }
 
-/**
- * @brief Finds the closest point on the mesh graph (BFS).
- * @param p The query point.
- * @param mesh The mesh to search.
- * @return The position of the closest vertex.
- */
-template <typename MeshT>
-static Vector closest_point_on_mesh_graph(const Vector &p, const MeshT &mesh) {
+inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
+                                          Arena &scratch_arena) {
   if (mesh.vertices.empty())
     return Vector(0, 1, 0);
 
-  compute_kdtree(mesh);
+  compute_kdtree(mesh, scratch_arena);
 
-  // 1. Closest Vertex
   auto nearestNodes = mesh.kdTree.nearest(p, 1);
   if (nearestNodes.size() == 0)
     return mesh.vertices[0];
@@ -1299,46 +1257,49 @@ static Vector closest_point_on_mesh_graph(const Vector &p, const MeshT &mesh) {
   Vector bestPoint = closestVertexPos;
   float maxDot = dot(p, bestPoint);
 
-  // 2. Check connected edges
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
   if (closestVertexIndex < 0 ||
-      closestVertexIndex >= (int)mesh.adjacency.size())
+      closestVertexIndex >= (int)heMesh.vertices.size())
     return bestPoint;
-  const auto &neighbors = mesh.adjacency[closestVertexIndex];
-  if (neighbors.empty())
+
+  HEVertex *hev = &heMesh.vertices[closestVertexIndex];
+  HalfEdge *he = hev->halfEdge;
+  if (!he)
     return bestPoint;
 
   Vector A = closestVertexPos;
+  HalfEdge *start = he;
+  int safety = 0;
 
-  for (int neighborIdx : neighbors) {
-    if (neighborIdx < 0 || neighborIdx >= (int)mesh.vertices.size())
-      continue;
+  do {
+    int neighborIdx = he->prev->vertex - heMesh.vertices.data();
     Vector B = mesh.vertices[neighborIdx];
 
-    // Great circle normal
     Vector N = cross(A, B);
     float lenSq = dot(N, N);
-    if (lenSq < 1e-6f)
-      continue;
-    N = N * (1.0f / sqrt(lenSq));
+    if (lenSq >= 1e-6f) {
+      N = N * (1.0f / sqrt(lenSq));
+      float pDotN = dot(p, N);
+      Vector proj = p + N * (-pDotN);
+      proj = proj.normalize();
 
-    // Project P
-    float pDotN = dot(p, N);
-    Vector proj = p + N * (-pDotN); // P_proj
-    proj = proj.normalize();
+      Vector crossAC = cross(A, proj);
+      Vector crossCB = cross(proj, B);
 
-    // Arc Check using Cross Products
-    Vector crossAC = cross(A, proj);
-    Vector crossCB = cross(proj, B);
-
-    // Check if winding matches A->B (N)
-    if (dot(crossAC, N) > 0 && dot(crossCB, N) > 0) {
-      float d = dot(p, proj);
-      if (d > maxDot) {
-        maxDot = d;
-        bestPoint = proj;
+      if (dot(crossAC, N) > 0 && dot(crossCB, N) > 0) {
+        float d = dot(p, proj);
+        if (d > maxDot) {
+          maxDot = d;
+          bestPoint = proj;
+        }
       }
     }
-  }
+
+    if (!he->pair)
+      break;
+    he = he->pair->next;
+    safety++;
+  } while (he != start && safety < 100);
 
   return bestPoint;
 }
@@ -1366,8 +1327,10 @@ static uint32_t js_hash32(uint32_t n, uint32_t seed) {
  * @brief Colors faces based on their vertex count and neighbor topology.
  */
 template <typename MeshT>
-static std::vector<int> classify_faces_by_topology(const MeshT &mesh) {
-  HalfEdgeMesh heMesh(mesh);
+static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
+                                                   Arena &scratch_arena) {
+  ArenaMarker marker(scratch_arena);
+  HalfEdgeMesh heMesh(scratch_arena, mesh);
   std::map<uint32_t, int> signatureToID;
 
   std::vector<int> faceColorIndices;
