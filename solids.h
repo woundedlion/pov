@@ -23,6 +23,10 @@ static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 
 namespace Solids {
 
+static constexpr int MAX_VERTS = 8640;
+static constexpr int MAX_FACES = 965;
+static constexpr int MAX_INDICES = 3900;
+
 inline PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
   final_mesh.vertices.initialize(geom, temp.vertices.size());
@@ -36,8 +40,6 @@ inline PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
     final_mesh.faces.push_back(temp.faces[i]);
   return final_mesh;
 }
-
-
 
 // ==========================================================================================
 // 1. DATA DEFINITIONS (Hardcoded Platonic Solids)
@@ -183,16 +185,21 @@ template <typename StaticMeshT> PolyMesh to_polymesh(ScratchContext &ctx) {
 // ==========================================================================================
 
 namespace Platonic {
+// V=4, F=4, I=12
 inline PolyMesh tetrahedron(ScratchContext &ctx) {
   return to_polymesh<Tetrahedron>(ctx);
 }
+// V=8, F=6, I=24
 inline PolyMesh cube(ScratchContext &ctx) { return to_polymesh<Cube>(ctx); }
+// V=6, F=8, I=24
 inline PolyMesh octahedron(ScratchContext &ctx) {
   return to_polymesh<Octahedron>(ctx);
 }
+// V=20, F=12, I=60
 inline PolyMesh dodecahedron(ScratchContext &ctx) {
   return to_polymesh<Dodecahedron>(ctx);
 }
+// V=12, F=20, I=60
 inline PolyMesh icosahedron(ScratchContext &ctx) {
   return to_polymesh<Icosahedron>(ctx);
 }
@@ -202,46 +209,57 @@ namespace Archimedean {
 using namespace Platonic;
 using namespace MeshOps;
 
+// V=12, F=8, I=36
 inline PolyMesh truncatedTetrahedron(ScratchContext &ctx) {
   return truncate(tetrahedron(ctx), ctx, 1.0f / 3.0f);
 }
+// V=12, F=14, I=48
 inline PolyMesh cuboctahedron(ScratchContext &ctx) {
   return ambo(cube(ctx), ctx);
 }
+// V=24, F=14, I=72
 inline PolyMesh truncatedCube(ScratchContext &ctx) {
   return truncate(cube(ctx), ctx, 1.0f / (2.0f + SQRT2));
 }
+// V=24, F=14, I=72
 inline PolyMesh truncatedOctahedron(ScratchContext &ctx) {
   return truncate(octahedron(ctx), ctx, 1.0f / 3.0f);
 }
+// V=24, F=26, I=96
 inline PolyMesh rhombicuboctahedron(ScratchContext &ctx) {
   return expand(cube(ctx), ctx);
 }
+// V=24, F=14, I=72
 inline PolyMesh truncatedCuboctahedron(ScratchContext &ctx) {
-  return canonicalize(bitruncate(cube(ctx), ctx, 1.0f / (2.0f + SQRT2)),
-                      ctx, 50);
-}
-inline PolyMesh snubCube(ScratchContext &ctx) {
-  return canonicalize(snub(cube(ctx), ctx, T_SNUB_CUBE, 0.28f), ctx,
+  return canonicalize(bitruncate(cube(ctx), ctx, 1.0f / (2.0f + SQRT2)), ctx,
                       50);
 }
+// V=24, F=38, I=90
+inline PolyMesh snubCube(ScratchContext &ctx) {
+  return canonicalize(snub(cube(ctx), ctx, T_SNUB_CUBE, 0.28f), ctx, 50);
+}
+// V=30, F=32, I=120
 inline PolyMesh icosidodecahedron(ScratchContext &ctx) {
   return ambo(dodecahedron(ctx), ctx);
 }
+// V=60, F=32, I=180
 inline PolyMesh truncatedDodecahedron(ScratchContext &ctx) {
   return truncate(dodecahedron(ctx), ctx, T_TRUNC_ICOS);
 }
+// V=60, F=32, I=180
 inline PolyMesh truncatedIcosahedron(ScratchContext &ctx) {
   return truncate(icosahedron(ctx), ctx, 1.0f / 3.0f);
 }
+// V=60, F=62, I=240
 inline PolyMesh rhombicosidodecahedron(ScratchContext &ctx) {
   return canonicalize(expand(dodecahedron(ctx), ctx), ctx, 50);
 }
+// V=60, F=32, I=180
 inline PolyMesh truncatedIcosidodecahedron(ScratchContext &ctx) {
-  return canonicalize(
-      bitruncate(dodecahedron(ctx), ctx, 1.0f / (2.0f + PHI)), ctx,
-      50);
+  return canonicalize(bitruncate(dodecahedron(ctx), ctx, 1.0f / (2.0f + PHI)),
+                      ctx, 50);
 }
+// V=60, F=92, I=216
 inline PolyMesh snubDodecahedron(ScratchContext &ctx) {
   return canonicalize(snub(dodecahedron(ctx), ctx, 0.5f), ctx, 50);
 }
@@ -254,149 +272,149 @@ using namespace MeshOps;
 
 static constexpr float D2R = PI_F / 180.0f;
 
-inline PolyMesh bitruncate(const PolyMesh &m, ScratchContext &ctx, float t) {
-  return truncate(ambo(m, ctx), ctx, t);
-}
-
+// V=240, F=146, I=584
 inline PolyMesh icosahedron_hk59_bitruncate033(ScratchContext &ctx) {
-  return hankin(bitruncate(icosahedron(ctx), ctx, 0.33f), ctx,
-                59.0f * D2R);
+  return hankin(bitruncate(icosahedron(ctx), ctx, 0.33f), ctx, 59.0f * D2R);
 }
 
+// V=432, F=50, I=200
 inline PolyMesh octahedron_hk17_ambo_hk72(ScratchContext &ctx) {
-  return hankin(
-      ambo(hankin(octahedron(ctx), ctx, 17.0f * D2R), ctx), ctx,
-      73.0f * D2R);
+  return hankin(ambo(hankin(octahedron(ctx), ctx, 17.0f * D2R), ctx), ctx,
+                73.0f * D2R);
 }
+// V=272, F=452, I=1808
 inline PolyMesh icosahedron_kis_gyro(ScratchContext &ctx) {
   return gyro(kis(icosahedron(ctx), ctx), ctx);
 }
 
+// V=542, F=540, I=2160
 inline PolyMesh
 truncatedIcosidodecahedron_truncate05_ambo_dual(ScratchContext &ctx) {
   return dual(
-      ambo(truncate(truncatedIcosidodecahedron(ctx), ctx, 50.0f * D2R),
-           ctx),
+      ambo(truncate(truncatedIcosidodecahedron(ctx), ctx, 50.0f * D2R), ctx),
       ctx);
 }
 
+// V=182, F=180, I=720
 inline PolyMesh icosidodecahedron_truncate05_ambo_dual(ScratchContext &ctx) {
-  return dual(
-      ambo(truncate(icosidodecahedron(ctx), ctx, 5.0f * D2R), ctx),
-      ctx);
+  return dual(ambo(truncate(icosidodecahedron(ctx), ctx, 5.0f * D2R), ctx),
+              ctx);
 }
+// V=452, F=450, I=1800
 inline PolyMesh snubDodecahedron_truncate05_ambo_dual(ScratchContext &ctx) {
-  return dual(
-      ambo(truncate(snubDodecahedron(ctx), ctx, 5.0f * D2R), ctx),
-      ctx);
+  return dual(ambo(truncate(snubDodecahedron(ctx), ctx, 5.0f * D2R), ctx), ctx);
 }
 
+// V=432, F=50, I=200
 inline PolyMesh octahedron_hk34_ambo_hk72(ScratchContext &ctx) {
-  return hankin(
-      ambo(hankin(octahedron(ctx), ctx, 34.0f * D2R), ctx), ctx,
-      72.0f * D2R);
+  return hankin(ambo(hankin(octahedron(ctx), ctx, 34.0f * D2R), ctx), ctx,
+                72.0f * D2R);
 }
 
+// V=1728, F=194, I=776
 inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63(ScratchContext &ctx) {
-  return hankin(
-      ambo(hankin(rhombicuboctahedron(ctx), ctx, 63.0f * D2R), ctx),
-      ctx, 63.0f * D2R);
+  return hankin(ambo(hankin(rhombicuboctahedron(ctx), ctx, 63.0f * D2R), ctx),
+                ctx, 63.0f * D2R);
 }
 
+// V=3240, F=362, I=1448
 inline PolyMesh truncatedIcosahedron_hk54_ambo_hk72(ScratchContext &ctx) {
-  return hankin(
-      ambo(hankin(truncatedIcosahedron(ctx), ctx, 54.0f * D2R),
-           ctx),
-      ctx, 72.0f * D2R);
+  return hankin(ambo(hankin(truncatedIcosahedron(ctx), ctx, 54.0f * D2R), ctx),
+                ctx, 72.0f * D2R);
 }
 
+// V=1080, F=122, I=488
 inline PolyMesh dodecahedron_hk54_ambo_hk72(ScratchContext &ctx) {
-  return hankin(
-      ambo(hankin(dodecahedron(ctx), ctx, 54.0f * D2R), ctx),
-      ctx, 72.0f * D2R);
+  return hankin(ambo(hankin(dodecahedron(ctx), ctx, 54.0f * D2R), ctx), ctx,
+                72.0f * D2R);
 }
 
+// V=1122, F=164, I=656
 inline PolyMesh dodecahedron_hk72_ambo_dual_hk20(ScratchContext &ctx) {
   return hankin(
-      dual(ambo(hankin(dodecahedron(ctx), ctx, 72.0f * D2R), ctx),
-           ctx),
-      ctx, 20.0f * D2R);
+      dual(ambo(hankin(dodecahedron(ctx), ctx, 72.0f * D2R), ctx), ctx), ctx,
+      20.0f * D2R);
 }
 
+// V=272, F=270, I=1080
 inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual(ScratchContext &ctx) {
-  return dual(
-      ambo(truncate(truncatedIcosahedron(ctx), ctx, 50.0f * D2R),
-           ctx),
-      ctx);
-}
-
-inline PolyMesh
-icosahedron_snub_canonicalize_truncate033_hankin62(ScratchContext &ctx) {
-  return hankin(
-      truncate(canonicalize(snub(icosahedron(ctx), ctx), ctx),
-               ctx, 0.33f),
-      ctx, 62.0f * D2R);
-}
-
-inline PolyMesh dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43(ScratchContext &ctx) {
-  return hankin(
-      canonicalize(ambo(hankin(canonicalize(ambo(hankin(dodecahedron(ctx),
-                                                        ctx, 3.0f * D2R),
-                                                 ctx),
-                                            ctx),
-                               ctx, 62.0f * D2R),
-                        ctx),
-                   ctx),
-      ctx, 43.0f * D2R);
-}
-
-inline PolyMesh icosahedron_ambo_truncate033_hankin59(ScratchContext &ctx) {
-  return hankin(truncate(ambo(icosahedron(ctx), ctx), ctx, 0.33f),
-                ctx, 59.0f * D2R);
-}
-
-inline PolyMesh
-truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59(ScratchContext &ctx) {
-  return hankin(
-      truncate(
-          canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx),
-          ctx, 0.01f),
-      ctx, 59.0f * D2R);
-}
-
-inline PolyMesh
-truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73(ScratchContext &ctx) {
-  return hankin(
-      truncate(
-          canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx),
-          ctx, 0.01f),
-      ctx, 73.0f * D2R);
-}
-
-inline PolyMesh truncatedOctahedron_gyro_kis_hk17(ScratchContext &ctx) {
-  return hankin(kis(gyro(truncatedOctahedron(ctx), ctx), ctx),
-                ctx, 17.0f * D2R);
-}
-
-inline PolyMesh
-truncatedIcosidodecahedron_bitruncate5_canonicalize_hk77(ScratchContext &ctx) {
-  return hankin(canonicalize(bitruncate(truncatedIcosidodecahedron(ctx),
-                                        ctx, 0.5f),
-                             ctx, 100),
-                ctx, 77.0f * D2R);
-}
-
-inline PolyMesh dodecahedron_bitruncate2_canonicalize_gyro(ScratchContext &ctx) {
-  return gyro(canonicalize(bitruncate(dodecahedron(ctx), ctx, 0.2f),
-                           ctx, 100),
+  return dual(ambo(truncate(truncatedIcosahedron(ctx), ctx, 50.0f * D2R), ctx),
               ctx);
 }
 
+// V=2100, F=302, I=1208
+inline PolyMesh
+icosahedron_snub_canonicalize_truncate033_hankin62(ScratchContext &ctx) {
+  return hankin(
+      truncate(canonicalize(snub(icosahedron(ctx), ctx), ctx), ctx, 0.33f), ctx,
+      62.0f * D2R);
+}
+
+// V=8640, F=962, I=3848
+inline PolyMesh
+dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43(ScratchContext &ctx) {
+  return hankin(
+      canonicalize(
+          ambo(hankin(canonicalize(
+                          ambo(hankin(dodecahedron(ctx), ctx, 3.0f * D2R), ctx),
+                          ctx),
+                      ctx, 62.0f * D2R),
+               ctx),
+          ctx),
+      ctx, 43.0f * D2R);
+}
+
+// V=840, F=122, I=488
+inline PolyMesh icosahedron_ambo_truncate033_hankin59(ScratchContext &ctx) {
+  return hankin(truncate(ambo(icosahedron(ctx), ctx), ctx, 0.33f), ctx,
+                59.0f * D2R);
+}
+
+// V=2520, F=362, I=1448
+inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59(
+    ScratchContext &ctx) {
+  return hankin(
+      truncate(canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx), ctx,
+               0.01f),
+      ctx, 59.0f * D2R);
+}
+
+// V=2520, F=362, I=1448
+inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73(
+    ScratchContext &ctx) {
+  return hankin(
+      truncate(canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx), ctx,
+               0.01f),
+      ctx, 73.0f * D2R);
+}
+
+// V=2452, F=294, I=1176
+inline PolyMesh truncatedOctahedron_gyro_kis_hk17(ScratchContext &ctx) {
+  return hankin(kis(gyro(truncatedOctahedron(ctx), ctx), ctx), ctx,
+                17.0f * D2R);
+}
+
+// V=2520, F=362, I=1448
+inline PolyMesh
+truncatedIcosidodecahedron_bitruncate5_canonicalize_hk77(ScratchContext &ctx) {
+  return hankin(
+      canonicalize(bitruncate(truncatedIcosidodecahedron(ctx), ctx, 0.5f), ctx,
+                   100),
+      ctx, 77.0f * D2R);
+}
+
+// V=272, F=452, I=1808
+inline PolyMesh
+dodecahedron_bitruncate2_canonicalize_gyro(ScratchContext &ctx) {
+  return gyro(canonicalize(bitruncate(dodecahedron(ctx), ctx, 0.2f), ctx, 100),
+              ctx);
+}
+
+// V=2520, F=362, I=1448
 inline PolyMesh
 truncatedIcosahedron_ambo_canonicalize_truncate33_hk64(ScratchContext &ctx) {
   return hankin(
-      truncate(canonicalize(ambo(truncatedIcosahedron(ctx), ctx),
-                            ctx, 217),
+      truncate(canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx, 217),
                ctx, 0.33f),
       ctx, 64.0f * D2R);
 }
@@ -520,8 +538,10 @@ static constexpr int num_islamic_solids =
 } // namespace Collections
 
 inline const Entry &get_entry(int index) {
-  if (index < 0 || index >= NUM_ENTRIES) return simple_registry[3];
-  if (index < Collections::num_simple_solids) return simple_registry[index];
+  if (index < 0 || index >= NUM_ENTRIES)
+    return simple_registry[3];
+  if (index < Collections::num_simple_solids)
+    return simple_registry[index];
   return islamic_registry[index - Collections::num_simple_solids];
 }
 
@@ -530,13 +550,16 @@ inline PolyMesh get(Arena &geom, Arena &scratch, int index) {
   return finalize_solid(get_entry(index).generate(ctx), geom);
 }
 
-inline PolyMesh get_by_name(Arena &geom, Arena &scratch, const std::string &name) {
+inline PolyMesh get_by_name(Arena &geom, Arena &scratch,
+                            const std::string &name) {
   ScratchContext ctx(scratch, scratch_arena_b);
   for (const auto &entry : simple_registry) {
-    if (name == entry.name) return finalize_solid(entry.generate(ctx), geom);
+    if (name == entry.name)
+      return finalize_solid(entry.generate(ctx), geom);
   }
   for (const auto &entry : islamic_registry) {
-    if (name == entry.name) return finalize_solid(entry.generate(ctx), geom);
+    if (name == entry.name)
+      return finalize_solid(entry.generate(ctx), geom);
   }
   return finalize_solid(Platonic::cube(ctx), geom);
 }

@@ -13,6 +13,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include "../solids.h"
 
 template <int W, int H> class IslamicStars : public Effect {
 
@@ -35,10 +36,10 @@ public:
     // Pre-allocate geometry buffers to prevent Arena exhaustion and ensure
     // stable double-buffering
     for (int i = 0; i < 2; i++) {
-      mesh_states[i].vertices.initialize(geometry_arena, 4000);
-      mesh_states[i].face_counts.initialize(geometry_arena, 5000);
-      mesh_states[i].face_offsets.initialize(geometry_arena, 5000);
-      mesh_states[i].faces.initialize(geometry_arena, 20000);
+      mesh_states[i].vertices.initialize(geometry_arena, Solids::MAX_VERTS);
+      mesh_states[i].face_counts.initialize(geometry_arena, Solids::MAX_FACES);
+      mesh_states[i].face_offsets.initialize(geometry_arena, Solids::MAX_FACES);
+      mesh_states[i].faces.initialize(geometry_arena, Solids::MAX_INDICES);
     }
 
     // Ripple now and schedule more ripples
@@ -82,8 +83,8 @@ private:
     ArenaMarker scratch_guard(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
-    MeshOps::transform(base_state, transformed_state, scratch_arena_a, ripple_gen,
-                       camera);
+    MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+                       ripple_gen, camera);
 
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
       int faceIdx = static_cast<int>(frag.v2);
