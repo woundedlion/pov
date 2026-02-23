@@ -9,10 +9,6 @@
 #include "effects.h"
 #include "effects_legacy.h"
 
-// Global Arenas
-Arena geometry_arena(GEOMETRY_ARENA_SIZE);
-Arena scratch_arena(SCRATCH_ARENA_SIZE);
-
 namespace {
 POVDisplay<NUM_PIXELS, RPM> *pov;
 }

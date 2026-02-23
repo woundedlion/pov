@@ -45,18 +45,18 @@ public:
 
     // Initial Geometry Generation
     {
-      ArenaMarker scratch_guard(scratch_arena);
+      ArenaMarker scratch_guard(scratch_arena_a);
       SolidGenerator gen(solid_idx);
-      PolyMesh base = gen.generate(scratch_arena, scratch_arena);
+      PolyMesh base = gen.generate(scratch_arena_a, scratch_arena_a);
 
       MeshOps::compile_hankin(base, primary_hankin, geometry_arena,
-                              scratch_arena);
+                              scratch_arena_a);
       MeshOps::update_hankin(primary_hankin, primary_mesh, geometry_arena,
                              params.hankin_angle);
 
       // Initial Topology & Color
       primary_topology =
-          MeshOps::classify_faces_by_topology(primary_mesh, scratch_arena);
+          MeshOps::classify_faces_by_topology(primary_mesh, scratch_arena_a);
       pick_palettes(primary_palettes);
     }
 
@@ -154,18 +154,18 @@ private:
 
     // Generate Target Mesh (Secondary)
     {
-      ArenaMarker scratch_guard(scratch_arena);
+      ArenaMarker scratch_guard(scratch_arena_a);
       SolidGenerator next_gen(next_idx);
-      PolyMesh next_base = next_gen.generate(scratch_arena, scratch_arena);
+      PolyMesh next_base = next_gen.generate(scratch_arena_a, scratch_arena_a);
 
       MeshOps::compile_hankin(next_base, secondary_hankin, geometry_arena,
-                              scratch_arena);
+                              scratch_arena_a);
       MeshOps::update_hankin(secondary_hankin, secondary_mesh, geometry_arena,
                              params.hankin_angle);
 
       // Prepare Secondary State
       secondary_topology =
-          MeshOps::classify_faces_by_topology(secondary_mesh, scratch_arena);
+          MeshOps::classify_faces_by_topology(secondary_mesh, scratch_arena_a);
       pick_palettes(secondary_palettes);
     }
 
@@ -204,16 +204,16 @@ private:
 
                  // Save scratch offset to prevent memory leaks from temporary
                  // geometry
-                 ArenaMarker scratch_guard(scratch_arena);
+                 ArenaMarker scratch_guard(scratch_arena_a);
 
                  // Re-compile Hankin for the NEW solid (Generated purely in
                  // scratch memory)
                  SolidGenerator new_gen(solid_idx);
                  PolyMesh new_base =
-                     new_gen.generate(scratch_arena, scratch_arena);
+                     new_gen.generate(scratch_arena_a, scratch_arena_a);
 
                  MeshOps::compile_hankin(new_base, primary_hankin,
-                                         geometry_arena, scratch_arena);
+                                         geometry_arena, scratch_arena_a);
                  MeshOps::update_hankin(primary_hankin, primary_mesh,
                                         geometry_arena, params.hankin_angle);
 
@@ -233,9 +233,9 @@ private:
 
     // Create a pristine geometry copy on the scratch matrix buffer for dynamic
     // traversal
-    ArenaMarker scratch_guard(scratch_arena);
+    ArenaMarker scratch_guard(scratch_arena_a);
     MeshState rotated_mesh;
-    MeshOps::transform(mesh, rotated_mesh, scratch_arena);
+    MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
 
     Quaternion q = orientation.get();
     for (auto &v : rotated_mesh.vertices) {

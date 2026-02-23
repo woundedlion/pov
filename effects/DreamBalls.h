@@ -129,9 +129,9 @@ private:
       loaded_presets.emplace_back();
       auto &data = loaded_presets.back();
 
-      ArenaMarker scratch_guard(scratch_arena);
+      ArenaMarker scratch_guard(scratch_arena_a);
       SolidNameGenerator gen(p.solid_name);
-      PolyMesh m = gen.generate(scratch_arena, scratch_arena);
+      PolyMesh m = gen.generate(scratch_arena_a, scratch_arena_a);
 
       // Store Verts (Deep Copy)
       data.mesh_state.vertices.initialize(geometry_arena, m.vertices.size());
@@ -175,9 +175,9 @@ private:
 
     auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
                                                        float opacity) {
-      ArenaMarker scratch_guard(scratch_arena);
+      ArenaMarker scratch_guard(scratch_arena_a);
       MeshState target_mesh;
-      MeshOps::transform(preset_ptr->mesh_state, target_mesh, scratch_arena);
+      MeshOps::transform(preset_ptr->mesh_state, target_mesh, scratch_arena_a);
 
       this->draw_scene(canvas, instance_params, opacity, preset_ptr->mesh_state,
                        target_mesh, preset_ptr->tangents);
