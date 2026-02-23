@@ -25,23 +25,6 @@
 
 using namespace emscripten;
 
-// Define Global Arenas for Webassembly
-#ifdef __EMSCRIPTEN__
-// 64MB for Geometry, 128MB for Scratch (WASM limit)
-Arena geometry_arena(64 * 1024 * 1024);
-Arena scratch_arena(64 * 1024 * 1024);
-Arena scratch_arena_b(64 * 1024 * 1024);
-#else
-// Native Simulator gets 256MB each
-Arena geometry_arena(256 * 1024 * 1024);
-Arena scratch_arena(128 * 1024 * 1024);
-Arena scratch_arena_b(128 * 1024 * 1024);
-#endif
-
-// Define the resolution used for the Wasm engine (defaults)
-// Define the resolution used for the Wasm engine (defaults)
-// Moved to class members
-
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(const std::string &name) {
   static const std::map<std::string, std::function<std::unique_ptr<Effect>()>>
@@ -134,11 +117,8 @@ public:
   void setEffect(std::string name) {
     hs::log(("WASM: setEffect called with " + name).c_str());
 
-    // Ensure strictly sequential destruction and creation to minimize peak
-    // memory
     currentEffect.reset();
 
-    // Use factory
     if (pixel_width == 96 && pixel_height == 20)
       currentEffect = create_effect<96, 20>(name);
     else if (pixel_width == 288 && pixel_height == 144)
@@ -159,7 +139,6 @@ public:
     currentEffect->draw_frame();
     currentEffect->advance_display();
 
-    // Copy to buffer
     // Output 16-bit Linear values directly
     int idx = 0;
     for (int y = 0; y < pixel_height; y++) {
@@ -203,9 +182,6 @@ public:
 
       if (def.type == Effect::ParamType::BOOL) {
         entry.set("value", *static_cast<bool *>(def.target));
-        // For boolean, we don't necessarily need min/max, but keeping them
-        // doesn't hurt if 0/1 logic is used downstream But specifically for
-        // dat.gui checkbox, value determines type.
       } else {
         entry.set("value", *static_cast<float *>(def.target));
         entry.set("min", def.min);
@@ -258,12 +234,12 @@ struct MeshOpsWrapper {
   // Factory
   static MeshOpsWrapper *fromSolid(int index) {
     return new MeshOpsWrapper(
-        Solids::get(geometry_arena, scratch_arena, index));
+        Solids::get(geometry_arena, scratch_arena_a, index));
   }
 
   static MeshOpsWrapper *fromSolidName(std::string name) {
     return new MeshOpsWrapper(
-        Solids::get_by_name(geometry_arena, scratch_arena, name));
+        Solids::get_by_name(geometry_arena, scratch_arena_a, name));
   }
 
   static MeshOpsWrapper *fromData(val vertices, val faces) {
@@ -355,56 +331,66 @@ struct MeshOpsWrapper {
 
   val classifyFaces() const {
     std::vector<int> colors =
-        MeshOps::classify_faces_by_topology(mesh, scratch_arena);
+        MeshOps::classify_faces_by_topology(mesh, scratch_arena_a);
     return val::global("Int32Array")
         .new_(val(typed_memory_view(colors.size(), colors.data())));
   }
 
   // Operations
   MeshOpsWrapper *kis() const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::kis(mesh, ctx));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(
+        Solids::finalize_solid(MeshOps::kis(mesh, ctx), geometry_arena));
   }
   MeshOpsWrapper *ambo() const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::ambo(mesh, ctx));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(
+        Solids::finalize_solid(MeshOps::ambo(mesh, ctx), geometry_arena));
   }
   MeshOpsWrapper *gyro() const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::gyro(mesh, ctx));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(
+        Solids::finalize_solid(MeshOps::gyro(mesh, ctx), geometry_arena));
   }
   MeshOpsWrapper *snub() const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::snub(mesh, ctx));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(
+        Solids::finalize_solid(MeshOps::snub(mesh, ctx), geometry_arena));
   }
   MeshOpsWrapper *dual() const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::dual(mesh, ctx));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(
+        Solids::finalize_solid(MeshOps::dual(mesh, ctx), geometry_arena));
   }
   MeshOpsWrapper *truncate(float t) const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::truncate(mesh, ctx, t));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(Solids::finalize_solid(
+        MeshOps::truncate(mesh, ctx, t), geometry_arena));
   }
   MeshOpsWrapper *expand(float t) const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::expand(mesh, ctx, t));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(
+        Solids::finalize_solid(MeshOps::expand(mesh, ctx, t), geometry_arena));
   }
   MeshOpsWrapper *hankin(float angle) const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(
-        MeshOps::hankin(mesh, ctx, angle * (PI_F / 180.0f)));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(Solids::finalize_solid(
+        MeshOps::hankin(mesh, ctx, angle * (PI_F / 180.0f)), geometry_arena));
   }
   MeshOpsWrapper *hankin_rad(float radians) const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::hankin(mesh, ctx, radians));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(Solids::finalize_solid(
+        MeshOps::hankin(mesh, ctx, radians), geometry_arena));
   }
   MeshOpsWrapper *bitruncate(float t) const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::bitruncate(mesh, ctx, t));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(Solids::finalize_solid(
+        MeshOps::bitruncate(mesh, ctx, t), geometry_arena));
   }
   MeshOpsWrapper *canonicalize(int iterations) const {
-    ScratchContext ctx(scratch_arena, scratch_arena_b);
-    return new MeshOpsWrapper(MeshOps::canonicalize(mesh, ctx, iterations));
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    return new MeshOpsWrapper(Solids::finalize_solid(
+        MeshOps::canonicalize(mesh, ctx, iterations), geometry_arena));
   }
   static val getRegistry() {
     val registry = val::array();

@@ -6,7 +6,7 @@
 
 #include "3dmath.h"
 #include "spatial.h"
-#include "arena_allocator.h"
+#include "memory.h"
 #include <vector>
 #include <map>
 #include <set>
@@ -321,17 +321,17 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
  * @brief Computes the dual of a mesh.
  */
 inline void dual(const PolyMesh &mesh, PolyMesh &out_mesh,
-                 Arena &scratch_arena) {
+                 Arena &scratch_arena_a) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(scratch_arena, F);
-  out_mesh.face_counts.initialize(scratch_arena, V);
-  out_mesh.faces.initialize(scratch_arena, I);
+  out_mesh.vertices.initialize(scratch_arena_a, F);
+  out_mesh.face_counts.initialize(scratch_arena_a, V);
+  out_mesh.faces.initialize(scratch_arena_a, I);
 
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
-  ArenaMap<HEFace *, int> faceToVertIdx(scratch_arena, F);
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
+  ArenaMap<HEFace *, int> faceToVertIdx(scratch_arena_a, F);
 
   for (size_t i = 0; i < heMesh.faces.size(); ++i) {
     HEFace *face = &heMesh.faces[i];
@@ -350,7 +350,7 @@ inline void dual(const PolyMesh &mesh, PolyMesh &out_mesh,
     faceToVertIdx[face] = static_cast<int>(i);
   }
 
-  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena_a, V);
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *heStart = &heMesh.halfEdges[i];
     if (!heStart->prev)
@@ -399,8 +399,8 @@ inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
  * @brief Compiles the topology for a Hankin pattern.
  */
 inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
-                           Arena &geom_arena, Arena &scratch_arena) {
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
+                           Arena &geom_arena, Arena &scratch_arena_a) {
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
 
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
@@ -413,8 +413,8 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
   compiled.face_counts.initialize(geom_arena, F + V);
   compiled.faces.initialize(geom_arena, 4 * I);
 
-  ArenaMap<HalfEdge *, int> heToMidpointIdx(scratch_arena, I);
-  ArenaMap<HalfEdge *, int> heToDynamicIdx(scratch_arena, I);
+  ArenaMap<HalfEdge *, int> heToMidpointIdx(scratch_arena_a, I);
+  ArenaMap<HalfEdge *, int> heToDynamicIdx(scratch_arena_a, I);
 
   auto getMidpointIdx = [&](HalfEdge *he) {
     if (heToMidpointIdx.contains(he))
@@ -479,7 +479,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
   }
 
   // Rosette faces
-  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena_a, V);
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *heStart = &heMesh.halfEdges[i];
     if (!heStart->prev)
@@ -519,7 +519,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
 
 template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
-                          Arena &scratch_arena, float angle) {
+                          Arena &scratch_arena_a, float angle) {
   for (size_t i = 0; i < compiled.dynamicInstructions.size(); ++i) {
     const auto &instr = compiled.dynamicInstructions[i];
     Vector m1 = compiled.staticVertices[instr.idxM1];
@@ -543,7 +543,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     compiled.dynamicVertices[i] = intersect.normalize();
   }
 
-  out_mesh.vertices.initialize(scratch_arena,
+  out_mesh.vertices.initialize(scratch_arena_a,
                                compiled.staticVertices.size() +
                                    compiled.dynamicVertices.size());
   for (size_t i = 0; i < compiled.staticVertices.size(); ++i)
@@ -551,10 +551,10 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
   for (size_t i = 0; i < compiled.dynamicVertices.size(); ++i)
     out_mesh.vertices.push_back(compiled.dynamicVertices[i]);
 
-  out_mesh.face_counts.initialize(scratch_arena, compiled.face_counts.size());
+  out_mesh.face_counts.initialize(scratch_arena_a, compiled.face_counts.size());
 
   if constexpr (requires { out_mesh.face_offsets; }) {
-    out_mesh.face_offsets.initialize(scratch_arena,
+    out_mesh.face_offsets.initialize(scratch_arena_a,
                                      compiled.face_counts.size());
   }
 
@@ -567,16 +567,16 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     current_offset += compiled.face_counts[i];
   }
 
-  out_mesh.faces.initialize(scratch_arena, compiled.faces.size());
+  out_mesh.faces.initialize(scratch_arena_a, compiled.faces.size());
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     out_mesh.faces.push_back(compiled.faces[i]);
 }
 
 inline void hankin(const PolyMesh &mesh, PolyMesh &out_mesh,
-                   Arena &scratch_arena, float angle) {
+                   Arena &scratch_arena_a, float angle) {
   CompiledHankin compiled;
-  compile_hankin(mesh, compiled, scratch_arena, scratch_arena);
-  update_hankin(compiled, out_mesh, scratch_arena, angle);
+  compile_hankin(mesh, compiled, scratch_arena_a, scratch_arena_a);
+  update_hankin(compiled, out_mesh, scratch_arena_a, angle);
 }
 
 inline PolyMesh hankin(const PolyMesh &mesh, ScratchContext &ctx, float angle) {
@@ -601,14 +601,14 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
  * @brief Kis operator: Raises a pyramid on each face.
  */
 inline void kis(const PolyMesh &mesh, PolyMesh &out_mesh,
-                Arena &scratch_arena) {
+                Arena &scratch_arena_a) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(scratch_arena, V + F);
-  out_mesh.face_counts.initialize(scratch_arena, I);
-  out_mesh.faces.initialize(scratch_arena, 3 * I);
+  out_mesh.vertices.initialize(scratch_arena_a, V + F);
+  out_mesh.face_counts.initialize(scratch_arena_a, I);
+  out_mesh.faces.initialize(scratch_arena_a, 3 * I);
 
   for (size_t i = 0; i < V; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -649,17 +649,17 @@ inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
  * @brief Ambo operator: Truncates vertices to edge midpoints.
  */
 inline void ambo(const PolyMesh &mesh, PolyMesh &out_mesh,
-                 Arena &scratch_arena) {
+                 Arena &scratch_arena_a) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(scratch_arena, E);
-  out_mesh.face_counts.initialize(scratch_arena, F + V);
-  out_mesh.faces.initialize(scratch_arena, 2 * I);
+  out_mesh.vertices.initialize(scratch_arena_a, E);
+  out_mesh.face_counts.initialize(scratch_arena_a, F + V);
+  out_mesh.faces.initialize(scratch_arena_a, 2 * I);
 
-  ArenaMap<std::pair<int, int>, int> edgeMap(scratch_arena, E);
+  ArenaMap<std::pair<int, int>, int> edgeMap(scratch_arena_a, E);
 
   size_t offset = 0;
   for (size_t fi = 0; fi < F; ++fi) {
@@ -693,8 +693,8 @@ inline void ambo(const PolyMesh &mesh, PolyMesh &out_mesh,
     offset += count;
   }
 
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
-  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena_a, V);
 
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *heStart = &heMesh.halfEdges[i];
@@ -747,9 +747,9 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
  * @param t Truncation depth [0..0.5].
  */
 inline void truncate(const PolyMesh &mesh, PolyMesh &out_mesh,
-                     Arena &scratch_arena, float t = 0.25f) {
+                     Arena &scratch_arena_a, float t = 0.25f) {
   if (std::abs(t - 0.5f) < 1e-4f) {
-    ambo(mesh, out_mesh, scratch_arena);
+    ambo(mesh, out_mesh, scratch_arena_a);
     return;
   }
 
@@ -758,11 +758,11 @@ inline void truncate(const PolyMesh &mesh, PolyMesh &out_mesh,
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(scratch_arena, 2 * E);
-  out_mesh.face_counts.initialize(scratch_arena, F + V);
-  out_mesh.faces.initialize(scratch_arena, 3 * I);
+  out_mesh.vertices.initialize(scratch_arena_a, 2 * E);
+  out_mesh.face_counts.initialize(scratch_arena_a, F + V);
+  out_mesh.faces.initialize(scratch_arena_a, 3 * I);
 
-  ArenaMap<std::pair<int, int>, std::pair<int, int>> edgeMap(scratch_arena, E);
+  ArenaMap<std::pair<int, int>, std::pair<int, int>> edgeMap(scratch_arena_a, E);
 
   size_t offset = 0;
   for (size_t fi = 0; fi < F; ++fi) {
@@ -816,8 +816,8 @@ inline void truncate(const PolyMesh &mesh, PolyMesh &out_mesh,
     offset += count;
   }
 
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
-  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena_a, V);
 
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *heStart = &heMesh.halfEdges[i];
@@ -876,18 +876,18 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
  */
 inline void expand(const PolyMesh &mesh, PolyMesh &out_mesh,
-                   Arena &scratch_arena, float t = 2.0f - sqrt(2.0f)) {
+                   Arena &scratch_arena_a, float t = 2.0f - sqrt(2.0f)) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(scratch_arena, I);
-  out_mesh.face_counts.initialize(scratch_arena, F + V + E);
-  out_mesh.faces.initialize(scratch_arena, 4 * I);
+  out_mesh.vertices.initialize(scratch_arena_a, I);
+  out_mesh.face_counts.initialize(scratch_arena_a, F + V + E);
+  out_mesh.faces.initialize(scratch_arena_a, 4 * I);
 
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
-  ArenaMap<HalfEdge *, int> heToVertIdx(scratch_arena, I);
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
+  ArenaMap<HalfEdge *, int> heToVertIdx(scratch_arena_a, I);
 
   for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
     HEFace *face = &heMesh.faces[fi];
@@ -919,7 +919,7 @@ inline void expand(const PolyMesh &mesh, PolyMesh &out_mesh,
     } while (he != start && safety < 100);
   }
 
-  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena_a, V);
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *heStart = &heMesh.halfEdges[i];
     if (!heStart->prev)
@@ -955,7 +955,7 @@ inline void expand(const PolyMesh &mesh, PolyMesh &out_mesh,
     }
   }
 
-  ArenaMap<std::pair<int, int>, bool> visitedEdges(scratch_arena, E);
+  ArenaMap<std::pair<int, int>, bool> visitedEdges(scratch_arena_a, E);
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *he = &heMesh.halfEdges[i];
     int u = he->prev->vertex - heMesh.vertices.data();
@@ -989,10 +989,10 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
  * @brief Bitruncate operator: Truncate the rectified mesh.
  */
 inline void bitruncate(const PolyMesh &mesh, PolyMesh &out_mesh,
-                       Arena &scratch_arena, float t = 1.0f / 3.0f) {
+                       Arena &scratch_arena_a, float t = 1.0f / 3.0f) {
   PolyMesh temp;
-  ambo(mesh, temp, scratch_arena);
-  truncate(temp, out_mesh, scratch_arena, t);
+  ambo(mesh, temp, scratch_arena_a);
+  truncate(temp, out_mesh, scratch_arena_a, t);
 }
 
 inline PolyMesh bitruncate(const PolyMesh &mesh, ScratchContext &ctx,
@@ -1004,14 +1004,14 @@ inline PolyMesh bitruncate(const PolyMesh &mesh, ScratchContext &ctx,
 }
 
 inline void canonicalize(const PolyMesh &mesh, PolyMesh &out_mesh,
-                         Arena &scratch_arena, int iterations = 100) {
+                         Arena &scratch_arena_a, int iterations = 100) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(scratch_arena, V);
-  out_mesh.face_counts.initialize(scratch_arena, F);
-  out_mesh.faces.initialize(scratch_arena, I);
+  out_mesh.vertices.initialize(scratch_arena_a, V);
+  out_mesh.face_counts.initialize(scratch_arena_a, F);
+  out_mesh.faces.initialize(scratch_arena_a, I);
 
   for (size_t i = 0; i < V; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -1021,11 +1021,11 @@ inline void canonicalize(const PolyMesh &mesh, PolyMesh &out_mesh,
     out_mesh.faces.push_back(mesh.faces[i]);
 
   ArenaVector<Vector> movements;
-  movements.initialize(scratch_arena, V);
+  movements.initialize(scratch_arena_a, V);
   for (size_t i = 0; i < V; ++i)
     movements.push_back(Vector(0, 0, 0));
 
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
 
   for (int iter = 0; iter < iterations; ++iter) {
     double totalLen = 0;
@@ -1090,19 +1090,19 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
  * @brief Snub operator: Creates a chiral semi-regular polyhedron.
  * Updated with twist support.
  */
-inline void snub(const PolyMesh &mesh, PolyMesh &out_mesh, Arena &scratch_arena,
+inline void snub(const PolyMesh &mesh, PolyMesh &out_mesh, Arena &scratch_arena_a,
                  float t = 0.5f, float twist = 0.0f) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(scratch_arena, I);
-  out_mesh.face_counts.initialize(scratch_arena, F + V + 2 * E);
-  out_mesh.faces.initialize(scratch_arena, 5 * I);
+  out_mesh.vertices.initialize(scratch_arena_a, I);
+  out_mesh.face_counts.initialize(scratch_arena_a, F + V + 2 * E);
+  out_mesh.faces.initialize(scratch_arena_a, 5 * I);
 
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
-  ArenaMap<HalfEdge *, int> heToVertIdx(scratch_arena, I);
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
+  ArenaMap<HalfEdge *, int> heToVertIdx(scratch_arena_a, I);
 
   for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
     HEFace *face = &heMesh.faces[fi];
@@ -1152,7 +1152,7 @@ inline void snub(const PolyMesh &mesh, PolyMesh &out_mesh, Arena &scratch_arena,
     } while (he != start && safety < 100);
   }
 
-  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena, V);
+  ArenaMap<HEVertex *, bool> visitedVerts(scratch_arena_a, V);
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *heStart = &heMesh.halfEdges[i];
     if (!heStart->prev)
@@ -1188,7 +1188,7 @@ inline void snub(const PolyMesh &mesh, PolyMesh &out_mesh, Arena &scratch_arena,
     }
   }
 
-  ArenaMap<std::pair<int, int>, bool> visitedEdges(scratch_arena, E);
+  ArenaMap<std::pair<int, int>, bool> visitedEdges(scratch_arena_a, E);
   for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
     HalfEdge *he = &heMesh.halfEdges[i];
     int u = he->prev->vertex - heMesh.vertices.data();
@@ -1223,10 +1223,10 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
 }
 
 inline void gyro(const PolyMesh &mesh, PolyMesh &out_mesh,
-                 Arena &scratch_arena) {
+                 Arena &scratch_arena_a) {
   PolyMesh temp;
-  snub(mesh, temp, scratch_arena);
-  dual(temp, out_mesh, scratch_arena);
+  snub(mesh, temp, scratch_arena_a);
+  dual(temp, out_mesh, scratch_arena_a);
 }
 
 inline PolyMesh gyro(const PolyMesh &mesh, ScratchContext &ctx) {
@@ -1250,11 +1250,11 @@ inline void compute_kdtree(const PolyMesh &mesh, Arena &arena) {
 }
 
 inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
-                                          Arena &scratch_arena) {
+                                          Arena &scratch_arena_a) {
   if (mesh.vertices.empty())
     return Vector(0, 1, 0);
 
-  compute_kdtree(mesh, scratch_arena);
+  compute_kdtree(mesh, scratch_arena_a);
 
   auto nearestNodes = mesh.kdTree.nearest(p, 1);
   if (nearestNodes.size() == 0)
@@ -1267,7 +1267,7 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
   Vector bestPoint = closestVertexPos;
   float maxDot = dot(p, bestPoint);
 
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
   if (closestVertexIndex < 0 ||
       closestVertexIndex >= (int)heMesh.vertices.size())
     return bestPoint;
@@ -1338,11 +1338,11 @@ static uint32_t js_hash32(uint32_t n, uint32_t seed) {
  */
 template <typename MeshT>
 static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
-                                                   Arena &scratch_arena) {
-  HalfEdgeMesh heMesh(scratch_arena, mesh);
+                                                   Arena &scratch_arena_a) {
+  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
 
   // Replace std::map with ArenaMap. Max possible signatures = faces.size()
-  ArenaMap<uint32_t, int> signatureToID(scratch_arena, heMesh.faces.size());
+  ArenaMap<uint32_t, int> signatureToID(scratch_arena_a, heMesh.faces.size());
 
   // Use std::vector so the persistent caller object preserves values out of
   // scope

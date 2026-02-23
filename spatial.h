@@ -16,7 +16,7 @@
 #include <string>
 #include <cfloat>
 #include "static_circular_buffer.h"
-#include "arena_allocator.h"
+#include "memory.h"
 
 /**
  * @brief Axis-Aligned Bounding Box.
