@@ -66,31 +66,35 @@ struct SolidNameGenerator : public IMeshGenerator {
  */
 struct IcosahedronGenerator : public IMeshGenerator {
   PolyMesh generate(Arena &geom, Arena &scratch) const override {
-    return Solids::finalize_solid(Solids::Platonic::icosahedron(scratch), geom);
+    ScratchContext ctx(scratch, scratch_arena_b);
+    return Solids::finalize_solid(Solids::Platonic::icosahedron(ctx), geom);
   }
 };
 
 struct DodecahedronGenerator : public IMeshGenerator {
   PolyMesh generate(Arena &geom, Arena &scratch) const override {
-    return Solids::finalize_solid(Solids::Platonic::dodecahedron(scratch),
-                                  geom);
+    ScratchContext ctx(scratch, scratch_arena_b);
+    return Solids::finalize_solid(Solids::Platonic::dodecahedron(ctx), geom);
   }
 };
 
 struct CubeGenerator : public IMeshGenerator {
   PolyMesh generate(Arena &geom, Arena &scratch) const override {
-    return Solids::finalize_solid(Solids::Platonic::cube(scratch), geom);
+    ScratchContext ctx(scratch, scratch_arena_b);
+    return Solids::finalize_solid(Solids::Platonic::cube(ctx), geom);
   }
 };
 
 struct OctahedronGenerator : public IMeshGenerator {
   PolyMesh generate(Arena &geom, Arena &scratch) const override {
-    return Solids::finalize_solid(Solids::Platonic::octahedron(scratch), geom);
+    ScratchContext ctx(scratch, scratch_arena_b);
+    return Solids::finalize_solid(Solids::Platonic::octahedron(ctx), geom);
   }
 };
 
 struct TetrahedronGenerator : public IMeshGenerator {
   PolyMesh generate(Arena &geom, Arena &scratch) const override {
-    return Solids::finalize_solid(Solids::Platonic::tetrahedron(scratch), geom);
+    ScratchContext ctx(scratch, scratch_arena_b);
+    return Solids::finalize_solid(Solids::Platonic::tetrahedron(ctx), geom);
   }
 };
