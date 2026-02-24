@@ -204,6 +204,18 @@ template <> struct ArenaHash<uint32_t> {
   }
 };
 
+template <> struct ArenaHash<uint16_t> {
+  size_t operator()(const uint16_t &key) const {
+    uint32_t k = key;
+    k ^= k >> 16;
+    k *= 0x85ebca6b;
+    k ^= k >> 13;
+    k *= 0xc2b2ae35;
+    k ^= k >> 16;
+    return (size_t)k;
+  }
+};
+
 // Open-addressing Flat Hash Map
 template <typename K, typename V> class ArenaMap {
 private:
