@@ -44,7 +44,7 @@ struct SolidGenerator : public IMeshGenerator {
 
   PolyMesh generate(Arena &geom, Arena &scratch) const override {
     // Generate fresh mesh from solids registry
-    return Solids::get(geom, scratch, solid_id);
+    return Solids::get(geom, scratch, scratch_arena_b, solid_id);
   }
 };
 
@@ -57,7 +57,7 @@ struct SolidNameGenerator : public IMeshGenerator {
   SolidNameGenerator(const std::string &name) : solid_name(name) {}
 
   PolyMesh generate(Arena &geom, Arena &scratch) const override {
-    return Solids::get_by_name(geom, scratch, solid_name);
+    return Solids::get_by_name(geom, scratch, scratch_arena_b, solid_name);
   }
 };
 

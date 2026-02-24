@@ -25,6 +25,12 @@
 
 using namespace emscripten;
 
+// A huge dedicated arena for JavaScript Tools (64MB)
+Arena tooling_arena(64 * 1024 * 1024);
+// Massive scratch arenas for Web tooling operations
+Arena tooling_scratch_a(64 * 1024 * 1024);
+Arena tooling_scratch_b(64 * 1024 * 1024);
+
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(const std::string &name) {
   static const std::map<std::string, std::function<std::unique_ptr<Effect>()>>
@@ -118,6 +124,7 @@ public:
     hs::log(("WASM: setEffect called with " + name).c_str());
 
     currentEffect.reset();
+    geometry_arena.reset();
 
     if (pixel_width == 96 && pixel_height == 20)
       currentEffect = create_effect<96, 20>(name);
@@ -210,6 +217,27 @@ public:
     return val(typed_memory_view(paramValues.size(), paramValues.data()));
   }
 
+  val getArenaMetrics() {
+    val metrics = val::object();
+
+    auto add_metrics = [&](const std::string &name, Arena &arena) {
+      val m = val::object();
+      m.set("usage", arena.get_offset());
+      m.set("high_water_mark", arena.get_high_water_mark());
+      m.set("capacity", arena.get_capacity());
+      metrics.set(name, m);
+    };
+
+    add_metrics("geometry_arena", geometry_arena);
+    add_metrics(
+        "scratch_arena_a",
+        tooling_scratch_a); // Export tooling ones as the scratch for the UI
+    add_metrics("scratch_arena_b", tooling_scratch_b);
+    add_metrics("tooling_arena", tooling_arena);
+
+    return metrics;
+  }
+
 private:
   std::unique_ptr<Effect> currentEffect;
   std::vector<uint16_t> pixelBuffer; // 16-bit
@@ -231,15 +259,18 @@ struct MeshOpsWrapper {
   MeshOpsWrapper() {}
   MeshOpsWrapper(PolyMesh &&m) : mesh(std::move(m)) {}
 
+  // Call this from JS whenever you want to wipe the UI memory clean!
+  static void clearToolingMemory() { tooling_arena.reset(); }
+
   // Factory
   static MeshOpsWrapper *fromSolid(int index) {
-    return new MeshOpsWrapper(
-        Solids::get(geometry_arena, scratch_arena_a, index));
+    return new MeshOpsWrapper(Solids::get(tooling_arena, tooling_scratch_a,
+                                          tooling_scratch_b, index));
   }
 
   static MeshOpsWrapper *fromSolidName(std::string name) {
-    return new MeshOpsWrapper(
-        Solids::get_by_name(geometry_arena, scratch_arena_a, name));
+    return new MeshOpsWrapper(Solids::get_by_name(
+        tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
   }
 
   static MeshOpsWrapper *fromData(val vertices, val faces) {
@@ -264,10 +295,10 @@ struct MeshOpsWrapper {
     if (!fData.empty() && fData.back() != -1)
       num_faces++;
 
-    m.faces.initialize(geometry_arena,
+    m.faces.initialize(tooling_arena,
                        fData.size() -
                            num_faces); // Exact size without delimiters
-    m.face_counts.initialize(geometry_arena, num_faces);
+    m.face_counts.initialize(tooling_arena, num_faces);
 
     int current_count = 0;
     for (int idx : fData) {
@@ -331,66 +362,66 @@ struct MeshOpsWrapper {
 
   val classifyFaces() const {
     std::vector<int> colors =
-        MeshOps::classify_faces_by_topology(mesh, scratch_arena_a);
+        MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a);
     return val::global("Int32Array")
         .new_(val(typed_memory_view(colors.size(), colors.data())));
   }
 
   // Operations
   MeshOpsWrapper *kis() const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(
-        Solids::finalize_solid(MeshOps::kis(mesh, ctx), geometry_arena));
+        Solids::finalize_solid(MeshOps::kis(mesh, ctx), tooling_arena));
   }
   MeshOpsWrapper *ambo() const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(
-        Solids::finalize_solid(MeshOps::ambo(mesh, ctx), geometry_arena));
+        Solids::finalize_solid(MeshOps::ambo(mesh, ctx), tooling_arena));
   }
   MeshOpsWrapper *gyro() const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(
-        Solids::finalize_solid(MeshOps::gyro(mesh, ctx), geometry_arena));
+        Solids::finalize_solid(MeshOps::gyro(mesh, ctx), tooling_arena));
   }
   MeshOpsWrapper *snub() const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(
-        Solids::finalize_solid(MeshOps::snub(mesh, ctx), geometry_arena));
+        Solids::finalize_solid(MeshOps::snub(mesh, ctx), tooling_arena));
   }
   MeshOpsWrapper *dual() const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(
-        Solids::finalize_solid(MeshOps::dual(mesh, ctx), geometry_arena));
+        Solids::finalize_solid(MeshOps::dual(mesh, ctx), tooling_arena));
   }
   MeshOpsWrapper *truncate(float t) const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
-    return new MeshOpsWrapper(Solids::finalize_solid(
-        MeshOps::truncate(mesh, ctx, t), geometry_arena));
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    return new MeshOpsWrapper(
+        Solids::finalize_solid(MeshOps::truncate(mesh, ctx, t), tooling_arena));
   }
   MeshOpsWrapper *expand(float t) const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(
-        Solids::finalize_solid(MeshOps::expand(mesh, ctx, t), geometry_arena));
+        Solids::finalize_solid(MeshOps::expand(mesh, ctx, t), tooling_arena));
   }
   MeshOpsWrapper *hankin(float angle) const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(Solids::finalize_solid(
-        MeshOps::hankin(mesh, ctx, angle * (PI_F / 180.0f)), geometry_arena));
+        MeshOps::hankin(mesh, ctx, angle * (PI_F / 180.0f)), tooling_arena));
   }
   MeshOpsWrapper *hankin_rad(float radians) const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(Solids::finalize_solid(
-        MeshOps::hankin(mesh, ctx, radians), geometry_arena));
+        MeshOps::hankin(mesh, ctx, radians), tooling_arena));
   }
   MeshOpsWrapper *bitruncate(float t) const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(Solids::finalize_solid(
-        MeshOps::bitruncate(mesh, ctx, t), geometry_arena));
+        MeshOps::bitruncate(mesh, ctx, t), tooling_arena));
   }
   MeshOpsWrapper *canonicalize(int iterations) const {
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
     return new MeshOpsWrapper(Solids::finalize_solid(
-        MeshOps::canonicalize(mesh, ctx, iterations), geometry_arena));
+        MeshOps::canonicalize(mesh, ctx, iterations), tooling_arena));
   }
   static val getRegistry() {
     val registry = val::array();
@@ -413,7 +444,8 @@ struct MeshOpsWrapper {
     std::string mv_name, mf_name, mi_name;
 
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      PolyMesh temp = Solids::get(geometry_arena, scratch_arena_a, i);
+      PolyMesh temp =
+          Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, i);
 
       int v = temp.vertices.size();
       int f = temp.face_counts.size();
@@ -456,10 +488,12 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("setParameter", &HolosphereEngine::setParameter)
       .function("getParameterDefinitions",
                 &HolosphereEngine::getParameterDefinitions)
-      .function("getParamValues", &HolosphereEngine::getParamValues);
+      .function("getParamValues", &HolosphereEngine::getParamValues)
+      .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics);
 
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()
+      .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
       .class_function("fromSolid", &MeshOpsWrapper::fromSolid,
                       allow_raw_pointers())
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName,

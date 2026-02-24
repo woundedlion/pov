@@ -10,6 +10,7 @@
 #endif
 #include "constants.h"
 #include "canvas.h"
+#include "memory.h"
 
 /**
  * @brief Analog pin used for seeding the random number generator.
@@ -100,6 +101,7 @@ public:
    * @param duration The time in seconds to run the effect.
    */
   template <typename E> void show(unsigned long duration) {
+    geometry_arena.reset();
     long start = millis();
     effect_ = new E();
     x_ = 0;
