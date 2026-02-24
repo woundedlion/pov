@@ -399,11 +399,11 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    int *heToMidpointIdx =
-        static_cast<int *>(ctx.source->allocate(I * sizeof(int), alignof(int)));
+    int16_t *heToMidpointIdx = static_cast<int16_t *>(
+        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
     std::fill_n(heToMidpointIdx, I, -1);
-    int *heToDynamicIdx =
-        static_cast<int *>(ctx.source->allocate(I * sizeof(int), alignof(int)));
+    int16_t *heToDynamicIdx = static_cast<int16_t *>(
+        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
     std::fill_n(heToDynamicIdx, I, -1);
 
     auto getMidpointIdx = [&](uint16_t heIdx) {
@@ -421,7 +421,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
       mid = mid.normalize();
 
       compiled.staticVertices.push_back(mid);
-      int idx = static_cast<int>(compiled.staticVertices.size()) - 1;
+      int16_t idx = static_cast<int16_t>(compiled.staticVertices.size() - 1);
       heToMidpointIdx[heIdx] = idx;
       if (he.pair != HE_NONE)
         heToMidpointIdx[he.pair] = idx;
@@ -464,7 +464,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
                                                 static_cast<uint16_t>(idxM1),
                                                 static_cast<uint16_t>(idxM2)});
 
-        int dynIdx = static_cast<int>(compiled.dynamicVertices.size());
+        int16_t dynIdx = static_cast<int16_t>(compiled.dynamicVertices.size());
         heToDynamicIdx[heIdx] = dynIdx;
         compiled.dynamicVertices.emplace_back();
 
@@ -495,7 +495,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
       uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
-      int face_indices[100];
+      int16_t face_indices[100];
 
       do {
         HalfEdge &currHe = heMesh.halfEdges[currIdx];
@@ -583,20 +583,12 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
 inline PolyMesh hankin(const PolyMesh &mesh, ScratchContext &ctx, float angle) {
   PolyMesh out;
-  CompiledHankin temp_compiled;
+  CompiledHankin compiled;
 
-  // 1. Compile writes topology to Source, and the Compiled instructions to
-  // Target
-  compile_hankin(mesh, temp_compiled, ctx);
+  compile_hankin(mesh, compiled, ctx);
+  update_hankin(compiled, out, *(ctx.target), angle);
 
-  // 2. Update reads Compiled instructions from Target, and writes Final Mesh to
-  // Target
-  update_hankin(temp_compiled, out, *(ctx.target), angle);
-
-  // 3. Wipe Source (destroying the input mesh and HalfEdgeMesh)
-  // Target becomes the new Source for the next operation.
   ctx.swap_and_clear();
-
   return out;
 }
 
@@ -782,62 +774,76 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
   {
     ArenaMarker _(*(ctx.source));
 
-    ArenaMap<std::pair<uint16_t, uint16_t>, std::pair<uint16_t, uint16_t>>
-        edgeMap(*(ctx.source), E);
+    HalfEdgeMesh heMesh(*(ctx.source), mesh);
 
-    size_t offset = 0;
-    for (size_t fi = 0; fi < F; ++fi) {
-      int count = mesh.face_counts[fi];
-      for (int i = 0; i < count; ++i) {
-        uint16_t u = mesh.faces[offset + i];
-        uint16_t v = mesh.faces[offset + (i + 1) % count];
-        uint16_t k1 = std::min(u, v);
-        uint16_t k2 = std::max(u, v);
+    std::pair<int16_t, int16_t> *edgeToVert =
+        static_cast<std::pair<int16_t, int16_t> *>(
+            ctx.source->allocate(I * sizeof(std::pair<int16_t, int16_t>),
+                                 alignof(std::pair<int16_t, int16_t>)));
+    std::fill_n(edgeToVert, I, std::make_pair<int16_t, int16_t>(-1, -1));
 
-        if (!edgeMap.contains({k1, k2})) {
-          Vector new_u =
-              mesh.vertices[k1] + (mesh.vertices[k2] - mesh.vertices[k1]) * t;
-          Vector new_v =
-              mesh.vertices[k2] + (mesh.vertices[k1] - mesh.vertices[k2]) * t;
-
-          out_mesh.vertices.push_back(new_u);
-          uint16_t idx_u = static_cast<uint16_t>(out_mesh.vertices.size()) - 1;
-
-          out_mesh.vertices.push_back(new_v);
-          uint16_t idx_v = static_cast<uint16_t>(out_mesh.vertices.size()) - 1;
-
-          edgeMap[{k1, k2}] = {idx_u, idx_v};
-        }
-      }
-      offset += count;
-    }
-
-    offset = 0;
-    for (size_t fi = 0; fi < F; ++fi) {
-      int count = mesh.face_counts[fi];
-      out_mesh.face_counts.push_back(count * 2);
-
-      for (int i = 0; i < count; ++i) {
-        uint16_t vi = mesh.faces[offset + i];
-        uint16_t vj = mesh.faces[offset + (i + 1) % count];
-
+    for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+      if (edgeToVert[i].first == -1) {
+        HalfEdge &he = heMesh.halfEdges[i];
+        if (he.prev == HE_NONE)
+          continue;
+        uint16_t vi = heMesh.halfEdges[he.prev].vertex;
+        uint16_t vj = he.vertex;
         uint16_t k1 = std::min(vi, vj);
         uint16_t k2 = std::max(vi, vj);
 
-        std::pair<uint16_t, uint16_t> newVerts = edgeMap[{k1, k2}];
+        Vector new_u =
+            mesh.vertices[k1] + (mesh.vertices[k2] - mesh.vertices[k1]) * t;
+        Vector new_v =
+            mesh.vertices[k2] + (mesh.vertices[k1] - mesh.vertices[k2]) * t;
 
-        if (vi == k1) {
-          out_mesh.faces.push_back(newVerts.first);
-          out_mesh.faces.push_back(newVerts.second);
-        } else {
-          out_mesh.faces.push_back(newVerts.second);
-          out_mesh.faces.push_back(newVerts.first);
-        }
+        out_mesh.vertices.push_back(new_u);
+        uint16_t idx_u = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
+
+        out_mesh.vertices.push_back(new_v);
+        uint16_t idx_v = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
+
+        edgeToVert[i] = {idx_u, idx_v};
+        if (he.pair != HE_NONE)
+          edgeToVert[he.pair] = {idx_u, idx_v};
       }
-      offset += count;
     }
 
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
+      HEFace &face = heMesh.faces[fi];
+      uint16_t heIdx = face.halfEdge;
+      int count = 0;
+      if (heIdx != HE_NONE) {
+        uint16_t start = heIdx;
+        do {
+          count++;
+          heIdx = heMesh.halfEdges[heIdx].next;
+        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+
+        if (count >= 3) {
+          out_mesh.face_counts.push_back(count * 2);
+          heIdx = start;
+          do {
+            HalfEdge &he = heMesh.halfEdges[heIdx];
+            uint16_t vi = heMesh.halfEdges[he.prev].vertex;
+            uint16_t vj = he.vertex;
+            uint16_t k1 = std::min(vi, vj);
+            std::pair<int16_t, int16_t> newVerts = edgeToVert[heIdx];
+
+            if (vi == k1) {
+              out_mesh.faces.push_back(newVerts.first);
+              out_mesh.faces.push_back(newVerts.second);
+            } else {
+              out_mesh.faces.push_back(newVerts.second);
+              out_mesh.faces.push_back(newVerts.first);
+            }
+
+            heIdx = heMesh.halfEdges[heIdx].next;
+          } while (heIdx != HE_NONE && heIdx != start);
+        }
+      }
+    }
+
     bool *visitedVerts = static_cast<bool *>(
         ctx.source->allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
@@ -863,16 +869,14 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
         HalfEdge &currHe = heMesh.halfEdges[currIdx];
         if (currHe.face == HE_NONE)
           break;
+
         uint16_t vi = heMesh.halfEdges[currHe.prev].vertex;
         uint16_t vj = currHe.vertex;
+        uint16_t k1 = std::min(vi, vj);
+        std::pair<int16_t, int16_t> newVerts = edgeToVert[currIdx];
 
-        int k1 = std::min(vi, vj);
-        int k2 = std::max(vi, vj);
-        std::pair<int, int> newVerts = edgeMap[{k1, k2}];
-
-        if (count < 100) {
+        if (count < 100)
           local_face[count++] = (vi == k1) ? newVerts.first : newVerts.second;
-        }
 
         if (currHe.prev == HE_NONE ||
             heMesh.halfEdges[currHe.prev].pair == HE_NONE)
@@ -991,21 +995,20 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
       }
     }
 
-    ArenaMap<std::pair<uint16_t, uint16_t>, bool> visitedEdges(*(ctx.source),
-                                                               E);
+    bool *visitedEdges = static_cast<bool *>(
+        ctx.source->allocate(I * sizeof(bool), alignof(bool)));
+    std::fill_n(visitedEdges, I, false);
+
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heIdx = static_cast<uint16_t>(i);
       HalfEdge &he = heMesh.halfEdges[heIdx];
-      if (he.prev == HE_NONE)
-        continue;
-      uint16_t u = heMesh.halfEdges[he.prev].vertex;
-      uint16_t v = he.vertex;
-      uint16_t k1 = std::min(u, v);
-      uint16_t k2 = std::max(u, v);
 
-      if (visitedEdges.contains({k1, k2}))
+      if (he.prev == HE_NONE || visitedEdges[heIdx])
         continue;
-      visitedEdges[{k1, k2}] = true;
+
+      visitedEdges[heIdx] = true;
+      if (he.pair != HE_NONE)
+        visitedEdges[he.pair] = true;
 
       if (he.pair != HE_NONE) {
         out_mesh.face_counts.push_back(4);
@@ -1239,21 +1242,20 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
       }
     }
 
-    ArenaMap<std::pair<uint16_t, uint16_t>, bool> visitedEdges(*(ctx.source),
-                                                               E);
+    bool *visitedEdges = static_cast<bool *>(
+        ctx.source->allocate(I * sizeof(bool), alignof(bool)));
+    std::fill_n(visitedEdges, I, false);
+
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heIdx = static_cast<uint16_t>(i);
       HalfEdge &he = heMesh.halfEdges[heIdx];
-      if (he.prev == HE_NONE)
-        continue;
-      uint16_t u = heMesh.halfEdges[he.prev].vertex;
-      uint16_t v = he.vertex;
-      uint16_t k1 = std::min(u, v);
-      uint16_t k2 = std::max(u, v);
 
-      if (visitedEdges.contains({k1, k2}))
+      if (he.prev == HE_NONE || visitedEdges[heIdx])
         continue;
-      visitedEdges[{k1, k2}] = true;
+
+      visitedEdges[heIdx] = true;
+      if (he.pair != HE_NONE)
+        visitedEdges[he.pair] = true;
 
       if (he.pair != HE_NONE) {
         out_mesh.face_counts.push_back(3);
