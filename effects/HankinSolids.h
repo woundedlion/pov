@@ -46,7 +46,7 @@ public:
 
     // Initial Geometry Generation
     {
-      ArenaMarker scratch_guard(scratch_arena_a);
+      ArenaMarker _(scratch_arena_a);
       ScratchContext ctx(scratch_arena_a, scratch_arena_b);
       SolidGenerator gen(solid_idx);
       PolyMesh base = gen.generate(scratch_arena_a, ctx);
@@ -172,7 +172,7 @@ private:
 
     // Generate Target Mesh (Secondary)
     {
-      ArenaMarker scratch_guard(scratch_arena_a);
+      ArenaMarker _(scratch_arena_a);
       ScratchContext ctx(scratch_arena_a, scratch_arena_b);
       SolidGenerator next_gen(next_idx);
       PolyMesh next_base = next_gen.generate(scratch_arena_a, ctx);
@@ -225,22 +225,9 @@ private:
                  std::swap(this->primary_hankin, this->secondary_hankin);
                  std::swap(this->primary_mesh, this->secondary_mesh);
 
-                 // Save scratch offset to prevent memory leaks from temporary
-                 // geometry
-                 ArenaMarker scratch_guard(scratch_arena_a);
-
-                 // Re-compile Hankin for the NEW solid (Generated purely in
-                 // scratch memory)
-                 ScratchContext gen_ctx(scratch_arena_a, scratch_arena_b);
-                 SolidGenerator new_gen(solid_idx);
-                 PolyMesh new_base = new_gen.generate(scratch_arena_a, gen_ctx);
-
-                 ScratchContext ctx(scratch_arena_a, geometry_arena);
-                 MeshOps::compile_hankin(new_base, primary_hankin, ctx);
                  MeshOps::update_hankin(primary_hankin, primary_mesh,
                                         geometry_arena, params.hankin_angle);
 
-                 // Loop
                  this->start_hankin_cycle();
                }));
   }
@@ -256,7 +243,7 @@ private:
 
     // Create a pristine geometry copy on the scratch matrix buffer for dynamic
     // traversal
-    ArenaMarker scratch_guard(scratch_arena_a);
+    ArenaMarker _(scratch_arena_a);
     MeshState rotated_mesh;
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
 

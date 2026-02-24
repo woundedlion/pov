@@ -88,7 +88,7 @@ private:
   PolyMesh mesh;
 
   void rebuild_mesh() {
-    ArenaMarker scratch_guard(scratch_arena_a);
+    ArenaMarker _(scratch_arena_a);
     ScratchContext ctx(scratch_arena_a, scratch_arena_b);
     mesh = Solids::finalize_solid(Solids::Platonic::icosahedron(ctx),
                                   geometry_arena);

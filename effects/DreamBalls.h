@@ -129,7 +129,7 @@ private:
       loaded_presets.emplace_back();
       auto &data = loaded_presets.back();
 
-      ArenaMarker scratch_guard(scratch_arena_a);
+      ArenaMarker _(scratch_arena_a);
       SolidNameGenerator gen(p.solid_name);
       ScratchContext ctx(scratch_arena_a, scratch_arena_b);
       PolyMesh m = gen.generate(scratch_arena_a, ctx);

@@ -119,7 +119,7 @@ private:
     size_t he_idx = 0;
 
     {
-      ArenaMarker temp_marker(arena);
+      ArenaMarker _(arena);
       EdgeRecord *records = static_cast<EdgeRecord *>(arena.allocate(
           total_indices * sizeof(EdgeRecord), alignof(EdgeRecord)));
 
@@ -305,7 +305,7 @@ inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
   out_mesh.faces.initialize(*(ctx.target), I);
 
   {
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
 
@@ -396,7 +396,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
 
   {
     // The heavy HalfEdge topology goes to the SOURCE arena
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
     int *heToMidpointIdx =
@@ -625,7 +625,7 @@ inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
   out_mesh.faces.initialize(*(ctx.target), 3 * I);
 
   {
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     for (size_t i = 0; i < V; ++i)
       out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -673,7 +673,7 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
   out_mesh.faces.initialize(*(ctx.target), 2 * I);
 
   {
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     ArenaMap<std::pair<uint16_t, uint16_t>, uint16_t> edgeMap(*(ctx.source), E);
 
@@ -780,7 +780,7 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
   out_mesh.faces.initialize(*(ctx.target), 3 * I);
 
   {
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     ArenaMap<std::pair<uint16_t, uint16_t>, std::pair<uint16_t, uint16_t>>
         edgeMap(*(ctx.source), E);
@@ -909,7 +909,7 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
   out_mesh.faces.initialize(*(ctx.target), 4 * I);
 
   {
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
     int *heToVertIdx =
@@ -1047,7 +1047,7 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
     out_mesh.faces.push_back(mesh.faces[i]);
 
   {
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     ArenaVector<Vector> movements;
     movements.initialize(*(ctx.source), V);
@@ -1135,7 +1135,7 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
   out_mesh.faces.initialize(*(ctx.target), 5 * I);
 
   {
-    ArenaMarker temp_math_lock(*(ctx.source));
+    ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
     int *heToVertIdx =

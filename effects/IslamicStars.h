@@ -80,7 +80,7 @@ private:
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const std::vector<int> &faceIndices,
                   const std::vector<const Palette *> &palettes) {
-    ArenaMarker scratch_guard(scratch_arena_a);
+    ArenaMarker _(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
     MeshOps::transform(base_state, transformed_state, scratch_arena_a,
@@ -107,7 +107,7 @@ private:
   }
 
   void spawn_shape() {
-    ArenaMarker scratch_guard(scratch_arena_a);
+    ArenaMarker _(scratch_arena_a);
     solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
     ScratchContext ctx(scratch_arena_a, scratch_arena_b);
     SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
