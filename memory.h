@@ -11,8 +11,8 @@
 #include <utility>
 #include <cstdio>
 
-constexpr size_t GEOMETRY_ARENA_SIZE = 256 * 1024;
-constexpr size_t SCRATCH_ARENA_SIZE = 256 * 1024;
+constexpr size_t GEOMETRY_ARENA_SIZE = 800 * 1024;
+constexpr size_t SCRATCH_ARENA_SIZE = 800 * 1024;
 
 // ============================================================================
 // 1. Core Arena Allocator
@@ -46,8 +46,6 @@ public:
     if (offset > high_water_mark) {
       high_water_mark = offset;
     }
-    printf("[Arena] Allocated: %zu bytes. New Offset: %zu / %zu\n", size,
-           offset, capacity);
     return ptr;
   }
 

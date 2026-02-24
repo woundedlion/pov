@@ -109,8 +109,9 @@ private:
   void spawn_shape() {
     ArenaMarker scratch_guard(scratch_arena_a);
     solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
+    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
     SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
-    PolyMesh local_mesh = gen.generate(scratch_arena_a, scratch_arena_a);
+    PolyMesh local_mesh = gen.generate(scratch_arena_a, ctx);
 
     current_mesh_idx = (current_mesh_idx + 1) % 2;
     MeshState &base_state = mesh_states[current_mesh_idx];

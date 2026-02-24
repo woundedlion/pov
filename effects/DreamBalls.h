@@ -131,7 +131,8 @@ private:
 
       ArenaMarker scratch_guard(scratch_arena_a);
       SolidNameGenerator gen(p.solid_name);
-      PolyMesh m = gen.generate(scratch_arena_a, scratch_arena_a);
+      ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+      PolyMesh m = gen.generate(scratch_arena_a, ctx);
 
       // Store Verts (Deep Copy)
       data.mesh_state.vertices.initialize(geometry_arena, m.vertices.size());
