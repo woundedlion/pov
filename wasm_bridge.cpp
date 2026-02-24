@@ -262,13 +262,13 @@ struct MeshOpsWrapper {
 
   // Factory
   static MeshOpsWrapper *fromSolid(int index) {
-    return new MeshOpsWrapper(Solids::get(tooling_arena, tooling_scratch_a,
-                                          tooling_scratch_b, index));
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    return new MeshOpsWrapper(Solids::get(tooling_arena, ctx, index));
   }
 
   static MeshOpsWrapper *fromSolidName(std::string name) {
-    return new MeshOpsWrapper(Solids::get_by_name(
-        tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
+    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    return new MeshOpsWrapper(Solids::get_by_name(tooling_arena, ctx, name));
   }
 
   static MeshOpsWrapper *fromData(val vertices, val faces) {
@@ -442,8 +442,8 @@ struct MeshOpsWrapper {
     std::string mv_name, mf_name, mi_name;
 
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      PolyMesh temp =
-          Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, i);
+      ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+      PolyMesh temp = Solids::get(tooling_arena, ctx, i);
 
       int v = temp.vertices.size();
       int f = temp.face_counts.size();

@@ -400,29 +400,29 @@ inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
  * @brief Compiles the topology for a Hankin pattern.
  */
 inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
-                           Arena &target_arena, Arena &source_arena) {
+                           ScratchContext &ctx) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
   // The permanent compiled instructions go to the TARGET arena
-  compiled.baseVertices.initialize(target_arena, V);
+  compiled.baseVertices.initialize(*(ctx.target), V);
   for (size_t i = 0; i < V; ++i) {
     compiled.baseVertices.push_back(mesh.vertices[i]);
   }
-  compiled.staticVertices.initialize(target_arena, I);
-  compiled.dynamicVertices.initialize(target_arena, I);
-  compiled.dynamicInstructions.initialize(target_arena, I);
-  compiled.face_counts.initialize(target_arena, F + V);
-  compiled.faces.initialize(target_arena, 4 * I);
+  compiled.staticVertices.initialize(*(ctx.target), I);
+  compiled.dynamicVertices.initialize(*(ctx.target), I);
+  compiled.dynamicInstructions.initialize(*(ctx.target), I);
+  compiled.face_counts.initialize(*(ctx.target), F + V);
+  compiled.faces.initialize(*(ctx.target), 4 * I);
 
   {
     // The heavy HalfEdge topology goes to the SOURCE arena
-    ArenaMarker temp_math_lock(source_arena);
+    ArenaMarker temp_math_lock(*(ctx.source));
 
-    HalfEdgeMesh heMesh(source_arena, mesh);
-    ArenaMap<HalfEdge *, int> heToMidpointIdx(source_arena, I);
-    ArenaMap<HalfEdge *, int> heToDynamicIdx(source_arena, I);
+    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    ArenaMap<HalfEdge *, int> heToMidpointIdx(*(ctx.source), I);
+    ArenaMap<HalfEdge *, int> heToDynamicIdx(*(ctx.source), I);
 
     auto getMidpointIdx = [&](HalfEdge *he) {
       if (heToMidpointIdx.contains(he))
@@ -491,7 +491,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     }
 
     // Rosette faces
-    ArenaMap<HEVertex *, bool> visitedVerts(source_arena, V);
+    ArenaMap<HEVertex *, bool> visitedVerts(*(ctx.source), V);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       HalfEdge *heStart = &heMesh.halfEdges[i];
       if (!heStart->prev)
@@ -592,13 +592,16 @@ inline PolyMesh hankin(const PolyMesh &mesh, ScratchContext &ctx, float angle) {
   PolyMesh out;
   CompiledHankin temp_compiled;
 
-  // Compile into the source arena (as a temporary)
-  compile_hankin(mesh, temp_compiled, *(ctx.source), *(ctx.source));
+  // 1. Compile writes topology to Source, and the Compiled instructions to
+  // Target
+  compile_hankin(mesh, temp_compiled, ctx);
 
-  // Update into the target arena (as the final output)
+  // 2. Update reads Compiled instructions from Target, and writes Final Mesh to
+  // Target
   update_hankin(temp_compiled, out, *(ctx.target), angle);
 
-  // Wipe the source arena (destroying the temp_compiled data)
+  // 3. Wipe Source (destroying the input mesh and HalfEdgeMesh)
+  // Target becomes the new Source for the next operation.
   ctx.swap_and_clear();
 
   return out;

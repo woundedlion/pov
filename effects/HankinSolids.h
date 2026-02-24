@@ -47,11 +47,12 @@ public:
     // Initial Geometry Generation
     {
       ArenaMarker scratch_guard(scratch_arena_a);
+      ScratchContext gen_ctx(scratch_arena_a, scratch_arena_b);
       SolidGenerator gen(solid_idx);
-      PolyMesh base = gen.generate(scratch_arena_a, scratch_arena_a);
+      PolyMesh base = gen.generate(scratch_arena_a, gen_ctx);
 
-      MeshOps::compile_hankin(base, primary_hankin, geometry_arena,
-                              scratch_arena_a);
+      ScratchContext ctx(scratch_arena_a, geometry_arena);
+      MeshOps::compile_hankin(base, primary_hankin, ctx);
       MeshOps::update_hankin(primary_hankin, primary_mesh, geometry_arena,
                              params.hankin_angle);
 
@@ -173,11 +174,12 @@ private:
     // Generate Target Mesh (Secondary)
     {
       ArenaMarker scratch_guard(scratch_arena_a);
+      ScratchContext gen_ctx(scratch_arena_a, scratch_arena_b);
       SolidGenerator next_gen(next_idx);
-      PolyMesh next_base = next_gen.generate(scratch_arena_a, scratch_arena_a);
+      PolyMesh next_base = next_gen.generate(scratch_arena_a, gen_ctx);
 
-      MeshOps::compile_hankin(next_base, secondary_hankin, geometry_arena,
-                              scratch_arena_a);
+      ScratchContext ctx(scratch_arena_a, geometry_arena);
+      MeshOps::compile_hankin(next_base, secondary_hankin, ctx);
       MeshOps::update_hankin(secondary_hankin, secondary_mesh, geometry_arena,
                              params.hankin_angle);
 
@@ -231,12 +233,12 @@ private:
 
                  // Re-compile Hankin for the NEW solid (Generated purely in
                  // scratch memory)
+                 ScratchContext gen_ctx(scratch_arena_a, scratch_arena_b);
                  SolidGenerator new_gen(solid_idx);
-                 PolyMesh new_base =
-                     new_gen.generate(scratch_arena_a, scratch_arena_a);
+                 PolyMesh new_base = new_gen.generate(scratch_arena_a, gen_ctx);
 
-                 MeshOps::compile_hankin(new_base, primary_hankin,
-                                         geometry_arena, scratch_arena_a);
+                 ScratchContext ctx(scratch_arena_a, geometry_arena);
+                 MeshOps::compile_hankin(new_base, primary_hankin, ctx);
                  MeshOps::update_hankin(primary_hankin, primary_mesh,
                                         geometry_arena, params.hankin_angle);
 
