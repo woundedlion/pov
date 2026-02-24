@@ -383,34 +383,33 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  // The permanent compiled instructions go to the TARGET arena
-  compiled.baseVertices.initialize(*(ctx.target), V);
+  compiled.baseVertices.initialize(*(ctx.source), V);
   for (size_t i = 0; i < V; ++i) {
     compiled.baseVertices.push_back(mesh.vertices[i]);
   }
-  compiled.staticVertices.initialize(*(ctx.target), I);
-  compiled.dynamicVertices.initialize(*(ctx.target), I);
-  compiled.dynamicInstructions.initialize(*(ctx.target), I);
-  compiled.face_counts.initialize(*(ctx.target), F + V);
-  compiled.faces.initialize(*(ctx.target), 4 * I);
+  compiled.staticVertices.initialize(*(ctx.source), I);
+  compiled.dynamicVertices.initialize(*(ctx.source), I);
+  compiled.dynamicInstructions.initialize(*(ctx.source), I);
+  compiled.face_counts.initialize(*(ctx.source), F + V);
+  compiled.faces.initialize(*(ctx.source), 4 * I);
 
   {
     // The heavy HalfEdge topology goes to the SOURCE arena
     ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    int16_t *heToMidpointIdx = static_cast<int16_t *>(
-        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
-    std::fill_n(heToMidpointIdx, I, -1);
-    int16_t *heToDynamicIdx = static_cast<int16_t *>(
-        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
-    std::fill_n(heToDynamicIdx, I, -1);
+    uint16_t *heToMidpointIdx = static_cast<uint16_t *>(
+        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    std::fill_n(heToMidpointIdx, I, HE_NONE);
+    uint16_t *heToDynamicIdx = static_cast<uint16_t *>(
+        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    std::fill_n(heToDynamicIdx, I, HE_NONE);
 
     auto getMidpointIdx = [&](uint16_t heIdx) {
-      if (heToMidpointIdx[heIdx] != -1)
+      if (heToMidpointIdx[heIdx] != HE_NONE)
         return heToMidpointIdx[heIdx];
       HalfEdge &he = heMesh.halfEdges[heIdx];
-      if (he.pair != HE_NONE && heToMidpointIdx[he.pair] != -1)
+      if (he.pair != HE_NONE && heToMidpointIdx[he.pair] != HE_NONE)
         return heToMidpointIdx[he.pair];
 
       Vector pA = he.prev != HE_NONE
@@ -421,7 +420,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
       mid = mid.normalize();
 
       compiled.staticVertices.push_back(mid);
-      int16_t idx = static_cast<int16_t>(compiled.staticVertices.size() - 1);
+      uint16_t idx = static_cast<uint16_t>(compiled.staticVertices.size() - 1);
       heToMidpointIdx[heIdx] = idx;
       if (he.pair != HE_NONE)
         heToMidpointIdx[he.pair] = idx;
@@ -674,13 +673,13 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
 
     // 2. Flat array replaces ArenaMap
-    int16_t *edgeToVert = static_cast<int16_t *>(
-        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
-    std::fill_n(edgeToVert, I, -1);
+    uint16_t *edgeToVert = static_cast<uint16_t *>(
+        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    std::fill_n(edgeToVert, I, HE_NONE);
 
     // 3. Populate Vertices
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      if (edgeToVert[i] == -1) {
+      if (edgeToVert[i] == HE_NONE) {
         HalfEdge &he = heMesh.halfEdges[i];
         if (he.prev == HE_NONE)
           continue;
@@ -689,7 +688,7 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
 
         Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
         out_mesh.vertices.push_back(mid);
-        int16_t newIdx = static_cast<int16_t>(out_mesh.vertices.size() - 1);
+        uint16_t newIdx = static_cast<int16_t>(out_mesh.vertices.size() - 1);
 
         edgeToVert[i] = newIdx;
         if (he.pair != HE_NONE)
@@ -933,8 +932,8 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
     ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    int *heToVertIdx =
-        static_cast<int *>(ctx.source->allocate(I * sizeof(int), alignof(int)));
+    int16_t *heToVertIdx = static_cast<int16_t *>(
+        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
     std::fill_n(heToVertIdx, I, -1);
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
@@ -990,7 +989,7 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
       uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
-      int local_face[100];
+      uint16_t local_face[100];
 
       do {
         HalfEdge &currHe = heMesh.halfEdges[currIdx];
@@ -1158,9 +1157,9 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
     ArenaMarker _(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    int *heToVertIdx =
-        static_cast<int *>(ctx.source->allocate(I * sizeof(int), alignof(int)));
-    std::fill_n(heToVertIdx, I, -1);
+    uint16_t *heToVertIdx = static_cast<uint16_t *>(
+        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    std::fill_n(heToVertIdx, I, HE_NONE);
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
       HEFace &face = heMesh.faces[fi];
@@ -1237,7 +1236,7 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
       uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
-      int local_face[100];
+      uint16_t local_face[100];
 
       do {
         HalfEdge &currHe = heMesh.halfEdges[currIdx];
@@ -1409,7 +1408,10 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
   ArenaVector<uint32_t> faceHashes;
   faceHashes.initialize(scratch_arena_a, F);
 
-  // 1. Compute face hashes directly from the flat arrays
+  // 👉 PRE-ALLOCATE FINAL HASHES
+  ArenaVector<uint32_t> finalHashes;
+  finalHashes.initialize(scratch_arena_a, F);
+
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
     int count = mesh.face_counts[i];
@@ -1439,62 +1441,80 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
       h = js_hash32(static_cast<uint32_t>(angles[k]), h);
     }
     faceHashes.push_back(h);
+    finalHashes.push_back(h); // Pre-fill with self hash
     offset += count;
   }
 
-  // 2. Identify neighbors without building HalfEdge objects
-  uint16_t *heToFace = static_cast<uint16_t *>(
-      scratch_arena_a.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
-  uint16_t *pairArray = static_cast<uint16_t *>(
-      scratch_arena_a.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
-  std::fill_n(pairArray, I, HE_NONE);
-
   {
-    // Scope the heavy EdgeRecords array so it frees instantly after sorting
-    ArenaMarker temp_records(scratch_arena_a);
-    struct EdgeRecord {
-      uint16_t min_v, max_v, he;
-    };
-    EdgeRecord *records = static_cast<EdgeRecord *>(
-        scratch_arena_a.allocate(I * sizeof(EdgeRecord), alignof(EdgeRecord)));
+    // 👉 SCOPE 1: This marker pops heToFace and pairArray
+    ArenaMarker temp_topo(scratch_arena_a);
 
-    size_t he_idx = 0;
-    size_t face_offset = 0;
+    uint16_t *heToFace = static_cast<uint16_t *>(
+        scratch_arena_a.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *pairArray = static_cast<uint16_t *>(
+        scratch_arena_a.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    std::fill_n(pairArray, I, HE_NONE);
+
+    {
+      // 👉 SCOPE 2: This marker pops records
+      ArenaMarker temp_records(scratch_arena_a);
+      struct EdgeRecord {
+        uint16_t min_v, max_v, he;
+      };
+      EdgeRecord *records = static_cast<EdgeRecord *>(scratch_arena_a.allocate(
+          I * sizeof(EdgeRecord), alignof(EdgeRecord)));
+
+      size_t he_idx = 0;
+      size_t face_offset = 0;
+      for (size_t fi = 0; fi < F; ++fi) {
+        int count = mesh.face_counts[fi];
+        for (int k = 0; k < count; ++k) {
+          uint16_t u = mesh.faces[face_offset + k];
+          uint16_t v = mesh.faces[face_offset + (k + 1) % count];
+          records[he_idx].min_v = std::min(u, v);
+          records[he_idx].max_v = std::max(u, v);
+          records[he_idx].he = static_cast<uint16_t>(he_idx);
+          heToFace[he_idx] = static_cast<uint16_t>(fi);
+          he_idx++;
+        }
+        face_offset += count;
+      }
+
+      std::sort(records, records + I,
+                [](const EdgeRecord &a, const EdgeRecord &b) {
+                  if (a.min_v != b.min_v)
+                    return a.min_v < b.min_v;
+                  return a.max_v < b.max_v;
+                });
+
+      for (size_t i = 0; i < I;) {
+        if (i + 1 < I && records[i].min_v == records[i + 1].min_v &&
+            records[i].max_v == records[i + 1].max_v) {
+          pairArray[records[i].he] = records[i + 1].he;
+          pairArray[records[i + 1].he] = records[i].he;
+          i += 2;
+        } else {
+          i += 1;
+        }
+      }
+    } // 🔥 115 KB (records) immediately freed here!
+
+    offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
       int count = mesh.face_counts[fi];
+      uint32_t neighborAcc = 0;
       for (int k = 0; k < count; ++k) {
-        uint16_t u = mesh.faces[face_offset + k];
-        uint16_t v = mesh.faces[face_offset + (k + 1) % count];
-
-        records[he_idx].min_v = std::min(u, v);
-        records[he_idx].max_v = std::max(u, v);
-        records[he_idx].he = static_cast<uint16_t>(he_idx);
-        heToFace[he_idx] = static_cast<uint16_t>(fi);
-        he_idx++;
+        uint16_t pIdx = pairArray[offset + k];
+        if (pIdx != HE_NONE) {
+          neighborAcc += js_hash32(faceHashes[heToFace[pIdx]], 0);
+        }
       }
-      face_offset += count;
+      finalHashes[fi] = js_hash32(neighborAcc, faceHashes[fi]);
+      offset += count;
     }
+  } // 🔥 76.8 KB (heToFace + pairArray) immediately freed here!
 
-    std::sort(records, records + I,
-              [](const EdgeRecord &a, const EdgeRecord &b) {
-                if (a.min_v != b.min_v)
-                  return a.min_v < b.min_v;
-                return a.max_v < b.max_v;
-              });
-
-    for (size_t i = 0; i < I;) {
-      if (i + 1 < I && records[i].min_v == records[i + 1].min_v &&
-          records[i].max_v == records[i + 1].max_v) {
-        pairArray[records[i].he] = records[i + 1].he;
-        pairArray[records[i + 1].he] = records[i].he;
-        i += 2;
-      } else {
-        i += 1;
-      }
-    }
-  }
-
-  // 3. Flat array Hash Mapper
+  // 3. Flat array Hash Mapper (Allocated safely into the freed space)
   struct HashNode {
     uint32_t hash;
     int original_face;
@@ -1502,25 +1522,10 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
   HashNode *nodes = static_cast<HashNode *>(
       scratch_arena_a.allocate(F * sizeof(HashNode), alignof(HashNode)));
 
-  offset = 0;
   for (size_t fi = 0; fi < F; ++fi) {
-    int count = mesh.face_counts[fi];
-    uint32_t neighborAcc = 0;
-
-    for (int k = 0; k < count; ++k) {
-      uint16_t pIdx = pairArray[offset + k];
-      if (pIdx != HE_NONE) {
-        uint32_t h = js_hash32(faceHashes[heToFace[pIdx]], 0);
-        neighborAcc += h;
-      }
-    }
-
-    uint32_t finalHash = js_hash32(neighborAcc, faceHashes[fi]);
-    nodes[fi] = {finalHash, static_cast<int>(fi)};
-    offset += count;
+    nodes[fi] = {finalHashes[fi], static_cast<int>(fi)};
   }
 
-  // Sort nodes by hash to group identical faces together
   std::sort(nodes, nodes + F, [](const HashNode &a, const HashNode &b) {
     return a.hash < b.hash;
   });

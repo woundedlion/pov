@@ -472,6 +472,25 @@ struct MeshOpsWrapper {
     stats.set("i_name", mi_name);
     return stats;
   }
+
+  static val getArenaMetrics() {
+    val metrics = val::object();
+
+    auto add_metrics = [&](const std::string &name, Arena &arena) {
+      val m = val::object();
+      m.set("usage", arena.get_offset());
+      m.set("high_water_mark", arena.get_high_water_mark());
+      m.set("capacity", arena.get_capacity());
+      metrics.set(name, m);
+    };
+
+    add_metrics("geometry_arena", geometry_arena);
+    add_metrics("scratch_arena_a", scratch_arena_a);
+    add_metrics("scratch_arena_b", scratch_arena_b);
+    add_metrics("tooling_arena", tooling_arena);
+
+    return metrics;
+  }
 };
 
 // Expose to JavaScript
@@ -498,6 +517,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                       allow_raw_pointers())
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
       .class_function("getMaxBounds", &MeshOpsWrapper::getMaxBounds)
+      .class_function("getArenaMetrics", &MeshOpsWrapper::getArenaMetrics)
       .class_function("fromData", &MeshOpsWrapper::fromData,
                       allow_raw_pointers())
       .function("getVertices", &MeshOpsWrapper::getVertices)
