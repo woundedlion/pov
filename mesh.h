@@ -653,6 +653,9 @@ inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
 /**
  * @brief Ambo operator: Truncates vertices to edge midpoints.
  */
+/**
+ * @brief Ambo operator: Truncates vertices to edge midpoints.
+ */
 inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -667,41 +670,57 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
   {
     ArenaMarker _(*(ctx.source));
 
-    ArenaMap<std::pair<uint16_t, uint16_t>, uint16_t> edgeMap(*(ctx.source), E);
+    // 1. Build HE Mesh FIRST
+    HalfEdgeMesh heMesh(*(ctx.source), mesh);
 
-    size_t offset = 0;
-    for (size_t fi = 0; fi < F; ++fi) {
-      int count = mesh.face_counts[fi];
-      for (int i = 0; i < count; ++i) {
-        uint16_t vi = mesh.faces[offset + i];
-        uint16_t vj = mesh.faces[offset + (i + 1) % count];
-        uint16_t u = std::min(vi, vj);
-        uint16_t v = std::max(vi, vj);
+    // 2. Flat array replaces ArenaMap
+    int16_t *edgeToVert = static_cast<int16_t *>(
+        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
+    std::fill_n(edgeToVert, I, -1);
 
-        if (!edgeMap.contains({u, v})) {
-          Vector mid = (mesh.vertices[vi] + mesh.vertices[vj]) * 0.5f;
-          out_mesh.vertices.push_back(mid);
-          edgeMap[{u, v}] = static_cast<uint16_t>(out_mesh.vertices.size()) - 1;
+    // 3. Populate Vertices
+    for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+      if (edgeToVert[i] == -1) {
+        HalfEdge &he = heMesh.halfEdges[i];
+        if (he.prev == HE_NONE)
+          continue;
+        uint16_t v1 = he.vertex;
+        uint16_t v2 = heMesh.halfEdges[he.prev].vertex;
+
+        Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
+        out_mesh.vertices.push_back(mid);
+        int16_t newIdx = static_cast<int16_t>(out_mesh.vertices.size() - 1);
+
+        edgeToVert[i] = newIdx;
+        if (he.pair != HE_NONE)
+          edgeToVert[he.pair] = newIdx;
+      }
+    }
+
+    // 4. Reconstruct Original Faces (Shrunk)
+    for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
+      HEFace &face = heMesh.faces[fi];
+      uint16_t heIdx = face.halfEdge;
+      int count = 0;
+      if (heIdx != HE_NONE) {
+        uint16_t start = heIdx;
+        do {
+          count++;
+          heIdx = heMesh.halfEdges[heIdx].next;
+        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+
+        if (count >= 3) {
+          out_mesh.face_counts.push_back(count);
+          heIdx = start;
+          do {
+            out_mesh.faces.push_back(edgeToVert[heIdx]);
+            heIdx = heMesh.halfEdges[heIdx].next;
+          } while (heIdx != HE_NONE && heIdx != start);
         }
       }
-      offset += count;
     }
 
-    offset = 0;
-    for (size_t fi = 0; fi < F; ++fi) {
-      int count = mesh.face_counts[fi];
-      out_mesh.face_counts.push_back(count);
-      for (int i = 0; i < count; ++i) {
-        uint16_t vi = mesh.faces[offset + i];
-        uint16_t vj = mesh.faces[offset + (i + 1) % count];
-        uint16_t u = std::min(vi, vj);
-        uint16_t v = std::max(vi, vj);
-        out_mesh.faces.push_back(edgeMap[{u, v}]);
-      }
-      offset += count;
-    }
-
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    // 5. Build Vertex Orbits (New Faces)
     bool *visitedVerts = static_cast<bool *>(
         ctx.source->allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
@@ -717,7 +736,6 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
         continue;
       visitedVerts[originIdx] = true;
 
-      // int face_idx = out_mesh.faces.size(); // unused
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
       int safety = 0;
@@ -728,10 +746,9 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
         HalfEdge &currHe = heMesh.halfEdges[currIdx];
         if (currHe.face == HE_NONE)
           break;
-        uint16_t vi = heMesh.halfEdges[currHe.prev].vertex;
-        uint16_t vj = currHe.vertex;
+
         if (count < 100)
-          local_face[count++] = edgeMap[{std::min(vi, vj), std::max(vi, vj)}];
+          local_face[count++] = edgeToVert[currIdx];
 
         if (currHe.prev == HE_NONE ||
             heMesh.halfEdges[currHe.prev].pair == HE_NONE)
@@ -1384,29 +1401,25 @@ static uint32_t js_hash32(uint32_t n, uint32_t seed) {
 template <typename MeshT>
 static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
                                                    Arena &scratch_arena_a) {
-  HalfEdgeMesh heMesh(scratch_arena_a, mesh);
+  ArenaMarker _(scratch_arena_a);
+
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
 
   ArenaVector<uint32_t> faceHashes;
-  faceHashes.initialize(scratch_arena_a, heMesh.faces.size());
+  faceHashes.initialize(scratch_arena_a, F);
 
-  for (size_t i = 0; i < heMesh.faces.size(); ++i) {
-    HEFace &face = heMesh.faces[i];
-    if (face.halfEdge == HE_NONE) {
-      faceHashes.push_back(0);
-      continue;
-    }
+  // 1. Compute face hashes directly from the flat arrays
+  size_t offset = 0;
+  for (size_t i = 0; i < F; ++i) {
+    int count = mesh.face_counts[i];
     Vector verts[100];
-    uint16_t heIdx = face.halfEdge;
-    uint16_t start = heIdx;
-    int safety = 0;
-    do {
-      if (safety < 100)
-        verts[safety] = mesh.vertices[heMesh.halfEdges[heIdx].vertex];
-      heIdx = heMesh.halfEdges[heIdx].next;
-      safety++;
-    } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+    for (int k = 0; k < count; ++k) {
+      if (k < 100)
+        verts[k] = mesh.vertices[mesh.faces[offset + k]];
+    }
 
-    int vertexCount = safety;
+    int vertexCount = std::min(count, 100);
     int angles[100];
     if (vertexCount >= 3) {
       for (int k = 0; k < vertexCount; ++k) {
@@ -1426,45 +1439,102 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
       h = js_hash32(static_cast<uint32_t>(angles[k]), h);
     }
     faceHashes.push_back(h);
+    offset += count;
   }
 
-  // Replace std::map with ArenaMap. Max possible signatures = faces.size()
-  ArenaMap<uint32_t, int> signatureToID(scratch_arena_a, heMesh.faces.size());
+  // 2. Identify neighbors without building HalfEdge objects
+  uint16_t *heToFace = static_cast<uint16_t *>(
+      scratch_arena_a.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+  uint16_t *pairArray = static_cast<uint16_t *>(
+      scratch_arena_a.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+  std::fill_n(pairArray, I, HE_NONE);
 
-  // Use std::vector so the persistent caller object preserves values out of
-  // scope
-  std::vector<int> faceColorIndices;
-  faceColorIndices.reserve(heMesh.faces.size());
-  int nextID = 0;
+  {
+    // Scope the heavy EdgeRecords array so it frees instantly after sorting
+    ArenaMarker temp_records(scratch_arena_a);
+    struct EdgeRecord {
+      uint16_t min_v, max_v, he;
+    };
+    EdgeRecord *records = static_cast<EdgeRecord *>(
+        scratch_arena_a.allocate(I * sizeof(EdgeRecord), alignof(EdgeRecord)));
 
-  for (size_t i = 0; i < heMesh.faces.size(); ++i) {
-    HEFace &face = heMesh.faces[i];
+    size_t he_idx = 0;
+    size_t face_offset = 0;
+    for (size_t fi = 0; fi < F; ++fi) {
+      int count = mesh.face_counts[fi];
+      for (int k = 0; k < count; ++k) {
+        uint16_t u = mesh.faces[face_offset + k];
+        uint16_t v = mesh.faces[face_offset + (k + 1) % count];
+
+        records[he_idx].min_v = std::min(u, v);
+        records[he_idx].max_v = std::max(u, v);
+        records[he_idx].he = static_cast<uint16_t>(he_idx);
+        heToFace[he_idx] = static_cast<uint16_t>(fi);
+        he_idx++;
+      }
+      face_offset += count;
+    }
+
+    std::sort(records, records + I,
+              [](const EdgeRecord &a, const EdgeRecord &b) {
+                if (a.min_v != b.min_v)
+                  return a.min_v < b.min_v;
+                return a.max_v < b.max_v;
+              });
+
+    for (size_t i = 0; i < I;) {
+      if (i + 1 < I && records[i].min_v == records[i + 1].min_v &&
+          records[i].max_v == records[i + 1].max_v) {
+        pairArray[records[i].he] = records[i + 1].he;
+        pairArray[records[i + 1].he] = records[i].he;
+        i += 2;
+      } else {
+        i += 1;
+      }
+    }
+  }
+
+  // 3. Flat array Hash Mapper
+  struct HashNode {
+    uint32_t hash;
+    int original_face;
+  };
+  HashNode *nodes = static_cast<HashNode *>(
+      scratch_arena_a.allocate(F * sizeof(HashNode), alignof(HashNode)));
+
+  offset = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    int count = mesh.face_counts[fi];
     uint32_t neighborAcc = 0;
 
-    uint16_t heIdx = face.halfEdge;
-    if (heIdx != HE_NONE) {
-      uint16_t start = heIdx;
-      int safety = 0;
-      do {
-        HalfEdge &currHe = heMesh.halfEdges[heIdx];
-        if (currHe.pair != HE_NONE) {
-          HalfEdge &pairHe = heMesh.halfEdges[currHe.pair];
-          if (pairHe.face != HE_NONE) {
-            uint32_t h = js_hash32(faceHashes[pairHe.face], 0);
-            neighborAcc += h;
-          }
-        }
-        heIdx = currHe.next;
-        safety++;
-      } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+    for (int k = 0; k < count; ++k) {
+      uint16_t pIdx = pairArray[offset + k];
+      if (pIdx != HE_NONE) {
+        uint32_t h = js_hash32(faceHashes[heToFace[pIdx]], 0);
+        neighborAcc += h;
+      }
     }
 
-    uint32_t finalHash = js_hash32(neighborAcc, faceHashes[i]);
+    uint32_t finalHash = js_hash32(neighborAcc, faceHashes[fi]);
+    nodes[fi] = {finalHash, static_cast<int>(fi)};
+    offset += count;
+  }
 
-    if (!signatureToID.contains(finalHash)) {
-      signatureToID[finalHash] = nextID++;
+  // Sort nodes by hash to group identical faces together
+  std::sort(nodes, nodes + F, [](const HashNode &a, const HashNode &b) {
+    return a.hash < b.hash;
+  });
+
+  std::vector<int> faceColorIndices(F, 0);
+  if (F > 0) {
+    int currentID = 0;
+    faceColorIndices[nodes[0].original_face] = 0;
+    for (size_t i = 1; i < F; ++i) {
+      if (nodes[i].hash != nodes[i - 1].hash) {
+        currentID++;
+      }
+      faceColorIndices[nodes[i].original_face] = currentID;
     }
-    faceColorIndices.push_back(signatureToID[finalHash]);
   }
 
   return faceColorIndices;
