@@ -59,75 +59,27 @@ struct PolyMesh {
   }
 };
 
+constexpr uint16_t HE_NONE = 0xFFFF;
+
 struct HalfEdge {
-  HEVertex *vertex = nullptr; /**< Vertex at the end of this half-edge. */
-  HEFace *face = nullptr;     /**< Face this half-edge belongs to. */
-  HalfEdge *next = nullptr;   /**< Next half-edge in the face loop. */
-  HalfEdge *prev = nullptr;   /**< Previous half-edge in the face loop. */
-  HalfEdge *pair = nullptr;   /**< Opposite half-edge. */
+  uint16_t vertex = HE_NONE; /**< Vertex at the end of this half-edge. */
+  uint16_t face = HE_NONE;   /**< Face this half-edge belongs to. */
+  uint16_t next = HE_NONE;   /**< Next half-edge in the face loop. */
+  uint16_t prev = HE_NONE;   /**< Previous half-edge in the face loop. */
+  uint16_t pair = HE_NONE;   /**< Opposite half-edge. */
 };
 
 struct HEVertex {
   Vector position;
-  HalfEdge *halfEdge =
-      nullptr; /**< One of the half-edges pointing to this vertex. */
+  uint16_t halfEdge =
+      HE_NONE; /**< One of the half-edges pointing to this vertex. */
 };
 
 struct HEFace {
-  HalfEdge *halfEdge =
-      nullptr; /**< One of the half-edges bordering this face. */
+  uint16_t halfEdge =
+      HE_NONE; /**< One of the half-edges bordering this face. */
   int vertexCount = 0;
   uint32_t intrinsicHash = 0;
-
-  void compute_properties() {
-    if (!halfEdge)
-      return;
-
-    // 1. Collect vertices on the stack (No malloc!)
-    Vector verts[100];
-    HalfEdge *he = halfEdge;
-    HalfEdge *start = he;
-    int safety = 0;
-    do {
-      if (safety < 100)
-        verts[safety] = he->vertex->position;
-      he = he->next;
-      safety++;
-    } while (he && he != start && safety < 100);
-
-    vertexCount = safety;
-
-    // 2. Angles
-    int angles[100];
-    if (vertexCount >= 3) {
-      for (int i = 0; i < vertexCount; ++i) {
-        const Vector &prev = verts[(i - 1 + vertexCount) % vertexCount];
-        const Vector &curr = verts[i];
-        const Vector &next = verts[(i + 1) % vertexCount];
-
-        Vector v1 = (prev - curr).normalize();
-        Vector v2 = (next - curr).normalize();
-
-        float ang = angle_between(v1, v2);
-        angles[i] = (int)std::round(ang * 180.0f / PI_F);
-      }
-      // std::sort works perfectly on raw pointers
-      std::sort(angles, angles + vertexCount);
-    }
-
-    // 3. Hash (JS style hash32)
-    auto hash32 = [](uint32_t n, uint32_t seed) -> uint32_t {
-      n = (n ^ seed) * 0x5bd1e995;
-      n ^= n >> 15;
-      return n * 0x97455bcd;
-    };
-
-    uint32_t h = hash32(static_cast<uint32_t>(vertexCount), 0x12345678);
-    for (int i = 0; i < vertexCount; ++i) {
-      h = hash32(static_cast<uint32_t>(angles[i]), h);
-    }
-    intrinsicHash = h;
-  }
 };
 
 class HalfEdgeMesh {
@@ -144,6 +96,57 @@ public:
     build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
   }
 
+  void compute_face_properties(uint16_t faceIdx) {
+    HEFace &face = faces[faceIdx];
+    if (face.halfEdge == HE_NONE)
+      return;
+
+    // 1. Collect vertices on the stack (No malloc!)
+    Vector verts[100];
+    uint16_t heIdx = face.halfEdge;
+    uint16_t start = heIdx;
+    int safety = 0;
+    do {
+      if (safety < 100)
+        verts[safety] = vertices[halfEdges[heIdx].vertex].position;
+      heIdx = halfEdges[heIdx].next;
+      safety++;
+    } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+
+    face.vertexCount = safety;
+
+    // 2. Angles
+    int angles[100];
+    if (face.vertexCount >= 3) {
+      for (int i = 0; i < face.vertexCount; ++i) {
+        const Vector &prev =
+            verts[(i - 1 + face.vertexCount) % face.vertexCount];
+        const Vector &curr = verts[i];
+        const Vector &next = verts[(i + 1) % face.vertexCount];
+
+        Vector v1 = (prev - curr).normalize();
+        Vector v2 = (next - curr).normalize();
+
+        float ang = angle_between(v1, v2);
+        angles[i] = (int)std::round(ang * 180.0f / PI_F);
+      }
+      std::sort(angles, angles + face.vertexCount);
+    }
+
+    // 3. Hash (JS style hash32)
+    auto hash32 = [](uint32_t n, uint32_t seed) -> uint32_t {
+      n = (n ^ seed) * 0x5bd1e995;
+      n ^= n >> 15;
+      return n * 0x97455bcd;
+    };
+
+    uint32_t h = hash32(static_cast<uint32_t>(face.vertexCount), 0x12345678);
+    for (int i = 0; i < face.vertexCount; ++i) {
+      h = hash32(static_cast<uint32_t>(angles[i]), h);
+    }
+    face.intrinsicHash = h;
+  }
+
 private:
   template <typename Verts, typename Counts, typename Faces>
   void build_from_flat(Arena &arena, const Verts &verts, const Counts &counts,
@@ -154,56 +157,82 @@ private:
 
     vertices.initialize(arena, num_verts);
     for (size_t i = 0; i < num_verts; ++i) {
-      vertices.push_back({verts[i], nullptr});
+      vertices.push_back({verts[i], HE_NONE});
     }
 
     faces.initialize(arena, num_faces);
     halfEdges.initialize(arena, total_indices);
 
-    ArenaMap<std::pair<uint16_t, uint16_t>, HalfEdge *> edgeMap(arena,
-                                                                total_indices);
+    struct EdgeRecord {
+      uint16_t min_v;
+      uint16_t max_v;
+      uint16_t he;
+    };
 
     size_t face_offset = 0;
     size_t he_idx = 0;
 
-    for (size_t fi = 0; fi < num_faces; ++fi) {
-      int count = counts[fi];
+    {
+      ArenaMarker temp_marker(arena);
+      EdgeRecord *records = static_cast<EdgeRecord *>(arena.allocate(
+          total_indices * sizeof(EdgeRecord), alignof(EdgeRecord)));
 
-      faces.emplace_back();
-      HEFace *currentFace = &faces[faces.size() - 1];
-      size_t faceStartHeIdx = he_idx;
+      for (size_t fi = 0; fi < num_faces; ++fi) {
+        int count = counts[fi];
 
-      for (int i = 0; i < count; ++i) {
-        halfEdges.emplace_back();
-      }
+        faces.emplace_back();
+        uint16_t currentFaceIdx = static_cast<uint16_t>(faces.size() - 1);
+        size_t faceStartHeIdx = he_idx;
 
-      for (int i = 0; i < count; ++i) {
-        uint16_t u = faces_arr[face_offset + i];
-        uint16_t v = faces_arr[face_offset + (i + 1) % count];
-
-        HalfEdge *he = &halfEdges[faceStartHeIdx + i];
-        he->vertex = &vertices[v];
-        he->face = currentFace;
-        he->next = &halfEdges[faceStartHeIdx + (i + 1) % count];
-        he->prev = &halfEdges[faceStartHeIdx + (i - 1 + count) % count];
-
-        vertices[v].halfEdge = he;
-
-        if (edgeMap.contains({v, u})) {
-          HalfEdge *neighbor = edgeMap[{v, u}];
-          he->pair = neighbor;
-          neighbor->pair = he;
-        } else {
-          edgeMap[{u, v}] = he;
+        for (int i = 0; i < count; ++i) {
+          halfEdges.emplace_back();
         }
-        he_idx++;
+
+        for (int i = 0; i < count; ++i) {
+          uint16_t u = faces_arr[face_offset + i];
+          uint16_t v = faces_arr[face_offset + (i + 1) % count];
+
+          uint16_t heIdx = static_cast<uint16_t>(faceStartHeIdx + i);
+          HalfEdge &he = halfEdges[heIdx];
+          he.vertex = v;
+          he.face = currentFaceIdx;
+          he.next = static_cast<uint16_t>(faceStartHeIdx + (i + 1) % count);
+          he.prev =
+              static_cast<uint16_t>(faceStartHeIdx + (i - 1 + count) % count);
+
+          vertices[v].halfEdge = heIdx;
+
+          records[he_idx].min_v = std::min(u, v);
+          records[he_idx].max_v = std::max(u, v);
+          records[he_idx].he = heIdx;
+
+          he_idx++;
+        }
+        faces[currentFaceIdx].halfEdge = static_cast<uint16_t>(faceStartHeIdx);
+        face_offset += count;
       }
-      currentFace->halfEdge = &halfEdges[faceStartHeIdx];
-      face_offset += count;
+
+      std::sort(records, records + total_indices,
+                [](const EdgeRecord &a, const EdgeRecord &b) {
+                  if (a.min_v != b.min_v)
+                    return a.min_v < b.min_v;
+                  return a.max_v < b.max_v;
+                });
+
+      for (size_t i = 0; i < total_indices;) {
+        if (i + 1 < total_indices && records[i].min_v == records[i + 1].min_v &&
+            records[i].max_v == records[i + 1].max_v) {
+          halfEdges[records[i].he].pair = records[i + 1].he;
+          halfEdges[records[i + 1].he].pair = records[i].he;
+          i += 2;
+        } else {
+          i += 1;
+        }
+      }
     }
 
     for (size_t fi = 0; fi < num_faces; ++fi)
-      faces[fi].compute_properties();
+      compute_face_properties(static_cast<uint16_t>(fi));
   }
 };
 
@@ -336,53 +365,57 @@ inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
     ArenaMarker temp_math_lock(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    ArenaMap<HEFace *, uint16_t> faceToVertIdx(*(ctx.source), F);
 
     for (size_t i = 0; i < heMesh.faces.size(); ++i) {
-      HEFace *face = &heMesh.faces[i];
+      HEFace &face = heMesh.faces[i];
       Vector c(0, 0, 0);
       int count = 0;
-      HalfEdge *he = face->halfEdge;
-      HalfEdge *start = he;
-      do {
-        c = c + he->vertex->position;
-        count++;
-        he = he->next;
-      } while (he != start && count < 100);
+      uint16_t heIdx = face.halfEdge;
+      uint16_t start = heIdx;
+      if (heIdx != HE_NONE) {
+        do {
+          c = c + heMesh.vertices[heMesh.halfEdges[heIdx].vertex].position;
+          count++;
+          heIdx = heMesh.halfEdges[heIdx].next;
+        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+      }
 
-      c = c / static_cast<float>(count);
+      if (count > 0)
+        c = c / static_cast<float>(count);
       out_mesh.vertices.push_back(c.normalize());
-      faceToVertIdx[face] = static_cast<uint16_t>(i);
     }
 
-    ArenaMap<HEVertex *, bool> visitedVerts(*(ctx.source), V);
+    ArenaMap<uint16_t, bool> visitedVerts(*(ctx.source), V);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *heStart = &heMesh.halfEdges[i];
-      if (!heStart->prev)
+      uint16_t heStartIdx = static_cast<uint16_t>(i);
+      HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
+      if (heStart.prev == HE_NONE)
         continue;
 
-      HEVertex *origin = heStart->prev->vertex;
-      if (visitedVerts.contains(origin))
+      uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
+      if (visitedVerts.contains(originIdx))
         continue;
-      visitedVerts[origin] = true;
+      visitedVerts[originIdx] = true;
 
-      int face_idx = out_mesh.faces.size();
-      HalfEdge *curr = heStart;
-      HalfEdge *startOrbit = curr;
+      uint16_t currIdx = heStartIdx;
+      uint16_t startOrbit = currIdx;
       int safety = 0;
       int new_face_count = 0;
       uint16_t local_face[100];
       do {
-        if (!curr->face)
+        HalfEdge &currHe = heMesh.halfEdges[currIdx];
+        if (currHe.face == HE_NONE)
           break;
         if (new_face_count < 100)
-          local_face[new_face_count++] = faceToVertIdx[curr->face];
+          local_face[new_face_count++] =
+              currHe.face; // currHe.face matches face index
 
-        if (!curr->prev || !curr->prev->pair)
+        if (currHe.prev == HE_NONE ||
+            heMesh.halfEdges[currHe.prev].pair == HE_NONE)
           break;
-        curr = curr->prev->pair;
+        currIdx = heMesh.halfEdges[currHe.prev].pair;
         safety++;
-      } while (curr != startOrbit && curr && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
 
       if (new_face_count >= 3) {
         out_mesh.face_counts.push_back(new_face_count);
@@ -421,31 +454,34 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     ArenaMarker temp_math_lock(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    ArenaMap<HalfEdge *, int> heToMidpointIdx(*(ctx.source), I);
-    ArenaMap<HalfEdge *, int> heToDynamicIdx(*(ctx.source), I);
+    ArenaMap<uint16_t, int> heToMidpointIdx(*(ctx.source), I);
+    ArenaMap<uint16_t, int> heToDynamicIdx(*(ctx.source), I);
 
-    auto getMidpointIdx = [&](HalfEdge *he) {
-      if (heToMidpointIdx.contains(he))
-        return heToMidpointIdx[he];
-      if (he->pair && heToMidpointIdx.contains(he->pair))
-        return heToMidpointIdx[he->pair];
+    auto getMidpointIdx = [&](uint16_t heIdx) {
+      if (heToMidpointIdx.contains(heIdx))
+        return heToMidpointIdx[heIdx];
+      HalfEdge &he = heMesh.halfEdges[heIdx];
+      if (he.pair != HE_NONE && heToMidpointIdx.contains(he.pair))
+        return heToMidpointIdx[he.pair];
 
       Vector pA =
-          he->prev ? he->prev->vertex->position : he->pair->vertex->position;
-      Vector pB = he->vertex->position;
+          he.prev != HE_NONE
+              ? heMesh.vertices[heMesh.halfEdges[he.prev].vertex].position
+              : heMesh.vertices[heMesh.halfEdges[he.pair].vertex].position;
+      Vector pB = heMesh.vertices[he.vertex].position;
       Vector mid = (pA + pB) * 0.5f;
       mid = mid.normalize();
 
       compiled.staticVertices.push_back(mid);
       int idx = static_cast<int>(compiled.staticVertices.size()) - 1;
-      heToMidpointIdx[he] = idx;
-      if (he->pair)
-        heToMidpointIdx[he->pair] = idx;
+      heToMidpointIdx[heIdx] = idx;
+      if (he.pair != HE_NONE)
+        heToMidpointIdx[he.pair] = idx;
       return idx;
     };
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      getMidpointIdx(&heMesh.halfEdges[i]);
+      getMidpointIdx(static_cast<uint16_t>(i));
     }
 
     compiled.staticOffset = static_cast<int>(compiled.staticVertices.size());
@@ -453,72 +489,79 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     // Star faces
     for (size_t i = 0; i < heMesh.faces.size(); ++i) {
       HEFace &face = heMesh.faces[i];
-      HalfEdge *he = face.halfEdge;
-      HalfEdge *startHe = he;
+      uint16_t heIdx = face.halfEdge;
+      uint16_t startHe = heIdx;
       int count = 0;
+
+      if (heIdx == HE_NONE)
+        continue;
 
       do {
         count += 2;
-        HalfEdge *prev = he->prev;
-        HalfEdge *curr = he;
+        HalfEdge &currHe = heMesh.halfEdges[heIdx];
+        uint16_t prevIdx = currHe.prev;
 
-        int idxM1 = getMidpointIdx(prev);
-        int idxM2 = getMidpointIdx(curr);
+        int idxM1 = getMidpointIdx(prevIdx);
+        int idxM2 = getMidpointIdx(heIdx);
 
-        uint16_t iCorner =
-            static_cast<uint16_t>(prev->vertex - heMesh.vertices.data());
-        uint16_t iPrev = static_cast<uint16_t>(
-            prev->prev ? prev->prev->vertex - heMesh.vertices.data()
-                       : prev->pair->vertex - heMesh.vertices.data());
-        uint16_t iNext =
-            static_cast<uint16_t>(curr->vertex - heMesh.vertices.data());
+        HalfEdge &prevHe = heMesh.halfEdges[prevIdx];
+
+        uint16_t iCorner = prevHe.vertex;
+        uint16_t iPrev = prevHe.prev != HE_NONE
+                             ? heMesh.halfEdges[prevHe.prev].vertex
+                             : heMesh.halfEdges[prevHe.pair].vertex;
+        uint16_t iNext = currHe.vertex;
 
         compiled.dynamicInstructions.push_back({iCorner, iPrev, iNext,
                                                 static_cast<uint16_t>(idxM1),
                                                 static_cast<uint16_t>(idxM2)});
 
         int dynIdx = static_cast<int>(compiled.dynamicVertices.size());
-        heToDynamicIdx[curr] = dynIdx;
+        heToDynamicIdx[heIdx] = dynIdx;
         compiled.dynamicVertices.emplace_back();
 
         compiled.faces.push_back(idxM1);
         compiled.faces.push_back(compiled.staticOffset + dynIdx);
 
-        he = he->next;
-      } while (he != startHe);
+        heIdx = currHe.next;
+      } while (heIdx != HE_NONE && heIdx != startHe);
 
       compiled.face_counts.push_back(count);
     }
 
     // Rosette faces
-    ArenaMap<HEVertex *, bool> visitedVerts(*(ctx.source), V);
+    ArenaMap<uint16_t, bool> visitedVerts(*(ctx.source), V);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *heStart = &heMesh.halfEdges[i];
-      if (!heStart->prev)
+      uint16_t heStartIdx = static_cast<uint16_t>(i);
+      HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
+      if (heStart.prev == HE_NONE)
         continue;
-      HEVertex *origin = heStart->prev->vertex;
-      if (visitedVerts.contains(origin))
+      uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
+      if (visitedVerts.contains(originIdx))
         continue;
-      visitedVerts[origin] = true;
+      visitedVerts[originIdx] = true;
 
-      HalfEdge *curr = heStart;
-      HalfEdge *startOrbit = curr;
+      uint16_t currIdx = heStartIdx;
+      uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
       int face_indices[100];
 
       do {
+        HalfEdge &currHe = heMesh.halfEdges[currIdx];
         if (count < 100)
-          face_indices[count++] = heToMidpointIdx[curr];
-        HalfEdge *nextEdge = curr->pair ? curr->pair->next : nullptr;
-        if (!nextEdge)
+          face_indices[count++] = heToMidpointIdx[currIdx];
+        uint16_t nextEdgeIdx = currHe.pair != HE_NONE
+                                   ? heMesh.halfEdges[currHe.pair].next
+                                   : HE_NONE;
+        if (nextEdgeIdx == HE_NONE)
           break;
         if (count < 100)
           face_indices[count++] =
-              compiled.staticOffset + heToDynamicIdx[nextEdge];
-        curr = nextEdge;
+              compiled.staticOffset + heToDynamicIdx[nextEdgeIdx];
+        currIdx = nextEdgeIdx;
         safety++;
-      } while (curr != startOrbit && curr && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
 
       if (count > 2) {
         compiled.face_counts.push_back(count);
@@ -717,40 +760,41 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
     }
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    ArenaMap<HEVertex *, bool> visitedVerts(*(ctx.source), V);
+    ArenaMap<uint16_t, bool> visitedVerts(*(ctx.source), V);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *heStart = &heMesh.halfEdges[i];
-      if (!heStart->prev)
+      uint16_t heStartIdx = static_cast<uint16_t>(i);
+      HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
+      if (heStart.prev == HE_NONE)
         continue;
 
-      HEVertex *origin = heStart->prev->vertex;
-      if (visitedVerts.contains(origin))
+      uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
+      if (visitedVerts.contains(originIdx))
         continue;
-      visitedVerts[origin] = true;
+      visitedVerts[originIdx] = true;
 
-      int face_idx = out_mesh.faces.size();
-      HalfEdge *curr = heStart;
-      HalfEdge *startOrbit = curr;
+      // int face_idx = out_mesh.faces.size(); // unused
+      uint16_t currIdx = heStartIdx;
+      uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
-      int local_face[100];
+      uint16_t local_face[100];
 
       do {
-        if (!curr->face)
+        HalfEdge &currHe = heMesh.halfEdges[currIdx];
+        if (currHe.face == HE_NONE)
           break;
-        uint16_t vi =
-            static_cast<uint16_t>(curr->prev->vertex - heMesh.vertices.data());
-        uint16_t vj =
-            static_cast<uint16_t>(curr->vertex - heMesh.vertices.data());
+        uint16_t vi = heMesh.halfEdges[currHe.prev].vertex;
+        uint16_t vj = currHe.vertex;
         if (count < 100)
           local_face[count++] = edgeMap[{std::min(vi, vj), std::max(vi, vj)}];
 
-        if (!curr->prev || !curr->prev->pair)
+        if (currHe.prev == HE_NONE ||
+            heMesh.halfEdges[currHe.prev].pair == HE_NONE)
           break;
-        curr = curr->prev->pair;
+        currIdx = heMesh.halfEdges[currHe.prev].pair;
         safety++;
-      } while (curr != startOrbit && curr && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -842,31 +886,31 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
     }
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    ArenaMap<HEVertex *, bool> visitedVerts(*(ctx.source), V);
+    ArenaMap<uint16_t, bool> visitedVerts(*(ctx.source), V);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *heStart = &heMesh.halfEdges[i];
-      if (!heStart->prev)
+      uint16_t heStartIdx = static_cast<uint16_t>(i);
+      HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
+      if (heStart.prev == HE_NONE)
         continue;
 
-      HEVertex *origin = heStart->prev->vertex;
-      if (visitedVerts.contains(origin))
+      uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
+      if (visitedVerts.contains(originIdx))
         continue;
-      visitedVerts[origin] = true;
+      visitedVerts[originIdx] = true;
 
-      HalfEdge *curr = heStart;
-      HalfEdge *startOrbit = curr;
+      uint16_t currIdx = heStartIdx;
+      uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
       uint16_t local_face[100];
 
       do {
-        if (!curr->face)
+        HalfEdge &currHe = heMesh.halfEdges[currIdx];
+        if (currHe.face == HE_NONE)
           break;
-        uint16_t vi =
-            static_cast<uint16_t>(curr->prev->vertex - heMesh.vertices.data());
-        uint16_t vj =
-            static_cast<uint16_t>(curr->vertex - heMesh.vertices.data());
+        uint16_t vi = heMesh.halfEdges[currHe.prev].vertex;
+        uint16_t vj = currHe.vertex;
 
         int k1 = std::min(vi, vj);
         int k2 = std::max(vi, vj);
@@ -876,11 +920,12 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
           local_face[count++] = (vi == k1) ? newVerts.first : newVerts.second;
         }
 
-        if (!curr->prev || !curr->prev->pair)
+        if (currHe.prev == HE_NONE ||
+            heMesh.halfEdges[currHe.prev].pair == HE_NONE)
           break;
-        curr = curr->prev->pair;
+        currIdx = heMesh.halfEdges[currHe.prev].pair;
         safety++;
-      } while (curr != startOrbit && curr && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -913,66 +958,74 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
     ArenaMarker temp_math_lock(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    ArenaMap<HalfEdge *, int> heToVertIdx(*(ctx.source), I);
+    ArenaMap<uint16_t, int> heToVertIdx(*(ctx.source), I);
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
-      HEFace *face = &heMesh.faces[fi];
+      HEFace &face = heMesh.faces[fi];
       Vector centroid(0, 0, 0);
       int count = 0;
-      HalfEdge *he = face->halfEdge;
-      HalfEdge *start = he;
-      do {
-        centroid = centroid + he->vertex->position;
-        count++;
-        he = he->next;
-      } while (he != start && count < 100);
+      uint16_t heIdx = face.halfEdge;
+      uint16_t start = heIdx;
+      if (heIdx != HE_NONE) {
+        do {
+          centroid = centroid +
+                     heMesh.vertices[heMesh.halfEdges[heIdx].vertex].position;
+          count++;
+          heIdx = heMesh.halfEdges[heIdx].next;
+        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+      }
 
-      centroid = centroid / static_cast<float>(count);
+      if (count > 0)
+        centroid = centroid / static_cast<float>(count);
 
       out_mesh.face_counts.push_back(count);
-      he = start;
+      heIdx = start;
       int safety = 0;
-      do {
-        Vector v = he->vertex->position;
-        Vector newV = v + (centroid - v) * t;
-        out_mesh.vertices.push_back(newV);
-        int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
-        heToVertIdx[he] = idx;
+      if (heIdx != HE_NONE) {
+        do {
+          Vector v = heMesh.vertices[heMesh.halfEdges[heIdx].vertex].position;
+          Vector newV = v + (centroid - v) * t;
+          out_mesh.vertices.push_back(newV);
+          int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
+          heToVertIdx[heIdx] = idx;
 
-        out_mesh.faces.push_back(idx);
-        he = he->next;
-        safety++;
-      } while (he != start && safety < 100);
+          out_mesh.faces.push_back(idx);
+          heIdx = heMesh.halfEdges[heIdx].next;
+          safety++;
+        } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+      }
     }
 
-    ArenaMap<HEVertex *, bool> visitedVerts(*(ctx.source), V);
+    ArenaMap<uint16_t, bool> visitedVerts(*(ctx.source), V);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *heStart = &heMesh.halfEdges[i];
-      if (!heStart->prev)
+      uint16_t heStartIdx = static_cast<uint16_t>(i);
+      HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
+      if (heStart.prev == HE_NONE)
         continue;
 
-      HEVertex *origin = heStart->prev->vertex;
-      if (visitedVerts.contains(origin))
+      uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
+      if (visitedVerts.contains(originIdx))
         continue;
-      visitedVerts[origin] = true;
+      visitedVerts[originIdx] = true;
 
-      HalfEdge *curr = heStart;
-      HalfEdge *startOrbit = curr;
+      uint16_t currIdx = heStartIdx;
+      uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
       int local_face[100];
 
       do {
-        if (!curr->face)
+        HalfEdge &currHe = heMesh.halfEdges[currIdx];
+        if (currHe.face == HE_NONE)
           break;
         if (count < 100)
-          local_face[count++] = heToVertIdx[curr->prev];
+          local_face[count++] = heToVertIdx[currHe.prev];
 
-        if (!curr->pair)
+        if (currHe.pair == HE_NONE)
           break;
-        curr = curr->pair->next;
+        currIdx = heMesh.halfEdges[currHe.pair].next;
         safety++;
-      } while (curr != startOrbit && curr && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -984,10 +1037,12 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
     ArenaMap<std::pair<uint16_t, uint16_t>, bool> visitedEdges(*(ctx.source),
                                                                E);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *he = &heMesh.halfEdges[i];
-      uint16_t u =
-          static_cast<uint16_t>(he->prev->vertex - heMesh.vertices.data());
-      uint16_t v = static_cast<uint16_t>(he->vertex - heMesh.vertices.data());
+      uint16_t heIdx = static_cast<uint16_t>(i);
+      HalfEdge &he = heMesh.halfEdges[heIdx];
+      if (he.prev == HE_NONE)
+        continue;
+      uint16_t u = heMesh.halfEdges[he.prev].vertex;
+      uint16_t v = he.vertex;
       uint16_t k1 = std::min(u, v);
       uint16_t k2 = std::max(u, v);
 
@@ -995,12 +1050,12 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
         continue;
       visitedEdges[{k1, k2}] = true;
 
-      if (he->pair) {
+      if (he.pair != HE_NONE) {
         out_mesh.face_counts.push_back(4);
-        out_mesh.faces.push_back(heToVertIdx[he->prev]);
-        out_mesh.faces.push_back(heToVertIdx[he->pair]);
-        out_mesh.faces.push_back(heToVertIdx[he->pair->prev]);
-        out_mesh.faces.push_back(heToVertIdx[he]);
+        out_mesh.faces.push_back(heToVertIdx[he.prev]);
+        out_mesh.faces.push_back(heToVertIdx[he.pair]);
+        out_mesh.faces.push_back(heToVertIdx[heMesh.halfEdges[he.pair].prev]);
+        out_mesh.faces.push_back(heToVertIdx[heIdx]);
       }
     }
   }
@@ -1017,7 +1072,7 @@ inline PolyMesh bitruncate(const PolyMesh &mesh, ScratchContext &ctx,
 }
 
 inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
-                             int iterations = 100) {
+                             int iterations = 8) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
@@ -1050,9 +1105,11 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
       int edgeCount = 0;
 
       for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-        HalfEdge *he = &heMesh.halfEdges[i];
-        int u = he->prev->vertex - heMesh.vertices.data();
-        int v = he->vertex - heMesh.vertices.data();
+        HalfEdge &he = heMesh.halfEdges[i];
+        if (he.prev == HE_NONE)
+          continue;
+        int u = heMesh.halfEdges[he.prev].vertex;
+        int v = he.vertex;
         if (u < v) {
           totalLen +=
               distance_between(out_mesh.vertices[u], out_mesh.vertices[v]);
@@ -1067,13 +1124,16 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
       for (size_t i = 0; i < V; ++i) {
         Vector force(0, 0, 0);
 
-        HEVertex *hev = &heMesh.vertices[i];
-        HalfEdge *he = hev->halfEdge;
-        if (he) {
-          HalfEdge *start = he;
+        HEVertex &hev = heMesh.vertices[i];
+        uint16_t heIdx = hev.halfEdge;
+        if (heIdx != HE_NONE) {
+          uint16_t start = heIdx;
           int safety = 0;
           do {
-            int ni = he->prev->vertex - heMesh.vertices.data();
+            HalfEdge &currHe = heMesh.halfEdges[heIdx];
+            if (currHe.prev == HE_NONE)
+              break;
+            int ni = heMesh.halfEdges[currHe.prev].vertex;
             Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
             float dist = vec.length();
             if (dist > 1e-6f) {
@@ -1081,11 +1141,12 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
               force = force + (vec * (1.0f / dist)) * (diff * 0.1f);
             }
 
-            if (!he->next || !he->next->pair)
+            if (currHe.next == HE_NONE ||
+                heMesh.halfEdges[currHe.next].pair == HE_NONE)
               break;
-            he = he->next->pair;
+            heIdx = heMesh.halfEdges[currHe.next].pair;
             safety++;
-          } while (he != start && safety < 100);
+          } while (heIdx != HE_NONE && heIdx != start && safety < 100);
         }
         movements[i] = force;
       }
@@ -1120,27 +1181,35 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
     ArenaMarker temp_math_lock(*(ctx.source));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
-    ArenaMap<HalfEdge *, int> heToVertIdx(*(ctx.source), I);
+    ArenaMap<uint16_t, int> heToVertIdx(*(ctx.source), I);
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
-      HEFace *face = &heMesh.faces[fi];
+      HEFace &face = heMesh.faces[fi];
       Vector centroid(0, 0, 0);
       int count = 0;
-      HalfEdge *he = face->halfEdge;
-      HalfEdge *start = he;
-      do {
-        centroid = centroid + he->vertex->position;
-        count++;
-        he = he->next;
-      } while (he != start && count < 100);
+      uint16_t heIdx = face.halfEdge;
+      uint16_t start = heIdx;
+      if (heIdx != HE_NONE) {
+        do {
+          centroid = centroid +
+                     heMesh.vertices[heMesh.halfEdges[heIdx].vertex].position;
+          count++;
+          heIdx = heMesh.halfEdges[heIdx].next;
+        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+      }
 
-      centroid = centroid / static_cast<float>(count);
+      if (count > 0)
+        centroid = centroid / static_cast<float>(count);
 
       Vector normal(0, 0, 0);
-      if (count >= 3) {
-        Vector ab = start->next->vertex->position - start->vertex->position;
+      if (count >= 3 && start != HE_NONE) {
+        uint16_t nextIdx = heMesh.halfEdges[start].next;
+        uint16_t nextNextIdx = heMesh.halfEdges[nextIdx].next;
+        Vector ab = heMesh.vertices[heMesh.halfEdges[nextIdx].vertex].position -
+                    heMesh.vertices[heMesh.halfEdges[start].vertex].position;
         Vector ac =
-            start->next->next->vertex->position - start->vertex->position;
+            heMesh.vertices[heMesh.halfEdges[nextNextIdx].vertex].position -
+            heMesh.vertices[heMesh.halfEdges[start].vertex].position;
         normal = cross(ab, ac).normalize();
       }
       if (dot(centroid, centroid) > 1e-6f && dot(normal, normal) < 1e-9f) {
@@ -1148,57 +1217,61 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
       }
 
       out_mesh.face_counts.push_back(count);
-      he = start;
+      heIdx = start;
       int safety = 0;
-      do {
-        Vector v = he->vertex->position;
-        Vector newV = v + (centroid - v) * t;
+      if (heIdx != HE_NONE) {
+        do {
+          Vector v = heMesh.vertices[heMesh.halfEdges[heIdx].vertex].position;
+          Vector newV = v + (centroid - v) * t;
 
-        if (twist != 0.0f) {
-          Vector local = newV - centroid;
-          Quaternion q = make_rotation(normal, twist);
-          newV = centroid + rotate(local, q);
-        }
+          if (twist != 0.0f) {
+            Vector local = newV - centroid;
+            Quaternion q = make_rotation(normal, twist);
+            newV = centroid + rotate(local, q);
+          }
 
-        out_mesh.vertices.push_back(newV);
-        int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
-        heToVertIdx[he] = idx;
+          out_mesh.vertices.push_back(newV);
+          int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
+          heToVertIdx[heIdx] = idx;
 
-        out_mesh.faces.push_back(idx);
+          out_mesh.faces.push_back(idx);
 
-        he = he->next;
-        safety++;
-      } while (he != start && safety < 100);
+          heIdx = heMesh.halfEdges[heIdx].next;
+          safety++;
+        } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+      }
     }
 
-    ArenaMap<HEVertex *, bool> visitedVerts(*(ctx.source), V);
+    ArenaMap<uint16_t, bool> visitedVerts(*(ctx.source), V);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *heStart = &heMesh.halfEdges[i];
-      if (!heStart->prev)
+      uint16_t heStartIdx = static_cast<uint16_t>(i);
+      HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
+      if (heStart.prev == HE_NONE)
         continue;
 
-      HEVertex *origin = heStart->prev->vertex;
-      if (visitedVerts.contains(origin))
+      uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
+      if (visitedVerts.contains(originIdx))
         continue;
-      visitedVerts[origin] = true;
+      visitedVerts[originIdx] = true;
 
-      HalfEdge *curr = heStart;
-      HalfEdge *startOrbit = curr;
+      uint16_t currIdx = heStartIdx;
+      uint16_t startOrbit = currIdx;
       int safety = 0;
       int count = 0;
       int local_face[100];
 
       do {
-        if (!curr->face)
+        HalfEdge &currHe = heMesh.halfEdges[currIdx];
+        if (currHe.face == HE_NONE)
           break;
         if (count < 100)
-          local_face[count++] = heToVertIdx[curr->prev];
+          local_face[count++] = heToVertIdx[currHe.prev];
 
-        if (!curr->pair)
+        if (currHe.pair == HE_NONE)
           break;
-        curr = curr->pair->next;
+        currIdx = heMesh.halfEdges[currHe.pair].next;
         safety++;
-      } while (curr != startOrbit && curr && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -1210,10 +1283,12 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
     ArenaMap<std::pair<uint16_t, uint16_t>, bool> visitedEdges(*(ctx.source),
                                                                E);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
-      HalfEdge *he = &heMesh.halfEdges[i];
-      uint16_t u =
-          static_cast<uint16_t>(he->prev->vertex - heMesh.vertices.data());
-      uint16_t v = static_cast<uint16_t>(he->vertex - heMesh.vertices.data());
+      uint16_t heIdx = static_cast<uint16_t>(i);
+      HalfEdge &he = heMesh.halfEdges[heIdx];
+      if (he.prev == HE_NONE)
+        continue;
+      uint16_t u = heMesh.halfEdges[he.prev].vertex;
+      uint16_t v = he.vertex;
       uint16_t k1 = std::min(u, v);
       uint16_t k2 = std::max(u, v);
 
@@ -1221,16 +1296,16 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
         continue;
       visitedEdges[{k1, k2}] = true;
 
-      if (he->pair) {
+      if (he.pair != HE_NONE) {
         out_mesh.face_counts.push_back(3);
-        out_mesh.faces.push_back(heToVertIdx[he->prev]);
-        out_mesh.faces.push_back(heToVertIdx[he->pair]);
-        out_mesh.faces.push_back(heToVertIdx[he]);
+        out_mesh.faces.push_back(heToVertIdx[he.prev]);
+        out_mesh.faces.push_back(heToVertIdx[he.pair]);
+        out_mesh.faces.push_back(heToVertIdx[heIdx]);
 
         out_mesh.face_counts.push_back(3);
-        out_mesh.faces.push_back(heToVertIdx[he->pair]);
-        out_mesh.faces.push_back(heToVertIdx[he->pair->prev]);
-        out_mesh.faces.push_back(heToVertIdx[he]);
+        out_mesh.faces.push_back(heToVertIdx[he.pair]);
+        out_mesh.faces.push_back(heToVertIdx[heMesh.halfEdges[he.pair].prev]);
+        out_mesh.faces.push_back(heToVertIdx[heIdx]);
       }
     }
   }
@@ -1278,17 +1353,20 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
       closestVertexIndex >= (int)heMesh.vertices.size())
     return bestPoint;
 
-  HEVertex *hev = &heMesh.vertices[closestVertexIndex];
-  HalfEdge *he = hev->halfEdge;
-  if (!he)
+  HEVertex &hev = heMesh.vertices[closestVertexIndex];
+  uint16_t heIdx = hev.halfEdge;
+  if (heIdx == HE_NONE)
     return bestPoint;
 
   Vector A = closestVertexPos;
-  HalfEdge *start = he;
+  uint16_t start = heIdx;
   int safety = 0;
 
   do {
-    int neighborIdx = he->prev->vertex - heMesh.vertices.data();
+    HalfEdge &currHe = heMesh.halfEdges[heIdx];
+    if (currHe.prev == HE_NONE)
+      break;
+    int neighborIdx = heMesh.halfEdges[currHe.prev].vertex;
     Vector B = mesh.vertices[neighborIdx];
 
     Vector N = cross(A, B);
@@ -1311,11 +1389,11 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
       }
     }
 
-    if (!he->pair)
+    if (currHe.pair == HE_NONE)
       break;
-    he = he->pair->next;
+    heIdx = heMesh.halfEdges[currHe.pair].next;
     safety++;
-  } while (he != start && safety < 100);
+  } while (heIdx != HE_NONE && heIdx != start && safety < 100);
 
   return bestPoint;
 }
@@ -1357,24 +1435,28 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
   int nextID = 0;
 
   for (size_t i = 0; i < heMesh.faces.size(); ++i) {
-    HEFace *face = &heMesh.faces[i];
+    HEFace &face = heMesh.faces[i];
     uint32_t neighborAcc = 0;
 
-    HalfEdge *he = face->halfEdge;
-    if (he) {
-      HalfEdge *start = he;
+    uint16_t heIdx = face.halfEdge;
+    if (heIdx != HE_NONE) {
+      uint16_t start = heIdx;
       int safety = 0;
       do {
-        if (he->pair && he->pair->face) {
-          uint32_t h = js_hash32(he->pair->face->intrinsicHash, 0);
-          neighborAcc += h;
+        HalfEdge &currHe = heMesh.halfEdges[heIdx];
+        if (currHe.pair != HE_NONE) {
+          HalfEdge &pairHe = heMesh.halfEdges[currHe.pair];
+          if (pairHe.face != HE_NONE) {
+            uint32_t h = js_hash32(heMesh.faces[pairHe.face].intrinsicHash, 0);
+            neighborAcc += h;
+          }
         }
-        he = he->next;
+        heIdx = currHe.next;
         safety++;
-      } while (he && he != start && safety < 100);
+      } while (heIdx != HE_NONE && heIdx != start && safety < 100);
     }
 
-    uint32_t finalHash = js_hash32(neighborAcc, face->intrinsicHash);
+    uint32_t finalHash = js_hash32(neighborAcc, face.intrinsicHash);
 
     if (!signatureToID.contains(finalHash)) {
       signatureToID[finalHash] = nextID++;
