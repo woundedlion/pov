@@ -394,8 +394,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
   compiled.faces.initialize(*(ctx.source), 4 * I);
 
   {
-    // The heavy HalfEdge topology goes to the SOURCE arena
-    ArenaMarker _(*(ctx.source));
+    ArenaMarker _(*(ctx.target));
 
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
     uint16_t *heToMidpointIdx = static_cast<uint16_t *>(

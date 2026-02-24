@@ -125,6 +125,11 @@ public:
 
     currentEffect.reset();
     geometry_arena.reset();
+    geometry_arena.reset_high_water_mark();
+    scratch_arena_a.reset();
+    scratch_arena_a.reset_high_water_mark();
+    scratch_arena_b.reset();
+    scratch_arena_b.reset_high_water_mark();
 
     if (pixel_width == 96 && pixel_height == 20)
       currentEffect = create_effect<96, 20>(name);
@@ -258,7 +263,14 @@ struct MeshOpsWrapper {
   MeshOpsWrapper(PolyMesh &&m) : mesh(std::move(m)) {}
 
   // Call this from JS whenever you want to wipe the UI memory clean!
-  static void clearToolingMemory() { tooling_arena.reset(); }
+  static void clearToolingMemory() {
+    tooling_arena.reset();
+    tooling_arena.reset_high_water_mark();
+    tooling_scratch_a.reset();
+    tooling_scratch_a.reset_high_water_mark();
+    tooling_scratch_b.reset();
+    tooling_scratch_b.reset_high_water_mark();
+  }
 
   // Factory
   static MeshOpsWrapper *fromSolid(int index) {
