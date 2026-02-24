@@ -18,50 +18,20 @@
 
 template <int W, int H> class HankinSolids : public Effect {
 public:
-  // Buffer for morphing operations
-  Animation::MorphBuffer morph_buffer;
-
-  // Active compiled states
-  CompiledHankin primary_hankin;
-  CompiledHankin secondary_hankin;
-  MeshState primary_mesh;
-  MeshState secondary_mesh;
-
   HankinSolids() : Effect(W, H), filters() {
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
 
     persist_pixels = false;
 
-    // Continuous Random Walk
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    // Init State
     solid_idx = 0;
-
-    // Pre-allocate geometry buffers to guarantee purely zero-overhead swapping
     preallocate_buffers();
-
-    // Initial Geometry Generation
-    {
-      ArenaMarker _(scratch_arena_a);
-      ScratchContext ctx(scratch_arena_a, scratch_arena_b);
-      SolidGenerator gen(solid_idx);
-      PolyMesh base = gen.generate(scratch_arena_a, ctx);
-
-      MeshOps::compile_hankin(base, primary_hankin, ctx);
-      MeshOps::update_hankin(primary_hankin, primary_mesh, geometry_arena,
-                             params.hankin_angle);
-
-      // Initial Topology & Color
-      primary_topology =
-          MeshOps::classify_faces_by_topology(primary_mesh, scratch_arena_a);
-      pick_palettes(primary_palettes);
-    }
-
-    // Start the Loop
+    load_shape(solid_idx, primary_hankin, primary_mesh, primary_topology,
+               primary_palettes);
     start_hankin_cycle();
   }
 
@@ -73,10 +43,6 @@ public:
   }
 
 private:
-  Orientation<W> orientation;
-  Timeline<W> timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-
   void preallocate_buffers() {
     // Exact maximums needed for the largest Archimedean solid
     // (Truncated Icosidodecahedron)
@@ -118,13 +84,26 @@ private:
     secondary_hankin.faces.initialize(geometry_arena, OUT_I);
   }
 
-  int solid_idx = 0;
+  void load_shape(int idx, CompiledHankin &hankin_out, MeshState &mesh_out,
+                  std::vector<int> &topology_out,
+                  std::vector<const Palette *> &palettes_out) {
+    {
+      ArenaMarker _a(scratch_arena_a);
+      ArenaMarker _b(scratch_arena_b);
+      ScratchContext ctx(scratch_arena_a, scratch_arena_b);
 
-  // Topology & Color State
-  std::vector<int> primary_topology;
-  std::vector<int> secondary_topology;
-  std::vector<const Palette *> primary_palettes;
-  std::vector<const Palette *> secondary_palettes;
+      SolidGenerator gen(idx);
+      PolyMesh base = gen.generate(scratch_arena_a, ctx);
+
+      MeshOps::compile_hankin(base, hankin_out, ctx);
+      MeshOps::update_hankin(hankin_out, mesh_out, geometry_arena,
+                             params.hankin_angle);
+    }
+
+    topology_out =
+        MeshOps::classify_faces_by_topology(mesh_out, scratch_arena_a);
+    pick_palettes(palettes_out);
+  }
 
   // Palette Pool (matching IslamicStars)
   const std::vector<const Palette *> source_palettes_pool = {
@@ -170,35 +149,17 @@ private:
     std::cout << "Morphing: " << current_entry.name << " -> " << next_entry.name
               << std::endl;
 
-    // Generate Target Mesh (Secondary)
-    {
-      ArenaMarker _(scratch_arena_a);
-      ScratchContext ctx(scratch_arena_a, scratch_arena_b);
-      SolidGenerator next_gen(next_idx);
-      PolyMesh next_base = next_gen.generate(scratch_arena_a, ctx);
+    load_shape(next_idx, secondary_hankin, secondary_mesh, secondary_topology,
+               secondary_palettes);
+    MeshOps::update_hankin(primary_hankin, primary_mesh, geometry_arena,
+                           params.hankin_angle);
 
-      MeshOps::compile_hankin(next_base, secondary_hankin, ctx);
-      MeshOps::update_hankin(secondary_hankin, secondary_mesh, geometry_arena,
-                             params.hankin_angle);
-
-      // Force primary_mesh to exactly match the final angle before morph
-      // capturing it!
-      MeshOps::update_hankin(primary_hankin, primary_mesh, geometry_arena,
-                             params.hankin_angle);
-
-      // Prepare Secondary State
-      secondary_topology =
-          MeshOps::classify_faces_by_topology(secondary_mesh, scratch_arena_a);
-      pick_palettes(secondary_palettes);
-    }
-
-    // 1. Morph Animation
     timeline.add(0, Animation::MeshMorph(&primary_mesh, &secondary_mesh,
                                          &morph_buffer, primary_mesh,
                                          secondary_mesh, DURATION, false,
                                          ease_in_out_sin));
 
-    // 2. Sprite: Outgoing
+    // Outgoing Mesh
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &c, float opacity) {
                           draw_topology_mesh(c, primary_mesh, primary_topology,
@@ -206,7 +167,7 @@ private:
                         },
                         DURATION, 0, ease_mid, DURATION, ease_mid));
 
-    // 3. Sprite: Incoming
+    // Incoming Mesh
     timeline.add(
         0, Animation::Sprite(
                [this](Canvas &c, float opacity) {
@@ -241,8 +202,6 @@ private:
     if (opacity < 0.01f)
       return;
 
-    // Create a pristine geometry copy on the scratch matrix buffer for dynamic
-    // traversal
     ArenaMarker _(scratch_arena_a);
     MeshState rotated_mesh;
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
@@ -259,12 +218,6 @@ private:
         topoIdx = topology[faceIdx];
       }
 
-      // Safety: Ensure palettes has content
-      if (palettes.empty()) {
-        f.color = Color4(1, 0, 1, 1); // Error pink
-        return;
-      }
-
       const Palette *pal = palettes[topoIdx % palettes.size()];
 
       // Edge Distance Intensity (v1 is -dist)
@@ -279,6 +232,24 @@ private:
 
     Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
   }
+
+  Animation::MorphBuffer morph_buffer;
+  CompiledHankin primary_hankin;
+  CompiledHankin secondary_hankin;
+  MeshState primary_mesh;
+  MeshState secondary_mesh;
+
+  Orientation<W> orientation;
+  Timeline<W> timeline;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+
+  int solid_idx = 0;
+
+  // Topology & Color State
+  std::vector<int> primary_topology;
+  std::vector<int> secondary_topology;
+  std::vector<const Palette *> primary_palettes;
+  std::vector<const Palette *> secondary_palettes;
 
   struct Params {
     float intensity = 1.2f;
