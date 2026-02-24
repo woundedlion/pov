@@ -644,6 +644,7 @@ inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
       offset += count;
     }
   }
+  normalize(out_mesh);
   ctx.swap_and_clear();
   return out_mesh;
 }
@@ -762,6 +763,7 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
       }
     }
   }
+  normalize(out_mesh);
   ctx.swap_and_clear();
   return out_mesh;
 }
@@ -907,6 +909,7 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
       }
     }
   }
+  normalize(out_mesh);
   ctx.swap_and_clear();
   return out_mesh;
 }
@@ -1034,6 +1037,7 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
       }
     }
   }
+  normalize(out_mesh);
   ctx.swap_and_clear();
   return out_mesh;
 }
@@ -1285,6 +1289,7 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
       }
     }
   }
+  normalize(out_mesh);
   ctx.swap_and_clear();
   return out_mesh;
 }
