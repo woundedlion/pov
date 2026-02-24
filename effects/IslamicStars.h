@@ -130,7 +130,8 @@ private:
 
       // --- 2. GENERATE NEW SHAPE ---
       {
-        ArenaMarker gen_scope(scratch_arena_a);
+        ArenaMarker _a(scratch_arena_a);
+        ArenaMarker _b(scratch_arena_b);
         ScratchContext ctx(scratch_arena_a, scratch_arena_b);
         SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
         PolyMesh local_mesh = gen.generate(scratch_arena_a, ctx);
