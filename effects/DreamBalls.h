@@ -176,7 +176,7 @@ private:
 
     auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
                                                        float opacity) {
-      ArenaMarker scratch_guard(scratch_arena_a);
+      ArenaMarker _(scratch_arena_a);
       MeshState target_mesh;
       MeshOps::transform(preset_ptr->mesh_state, target_mesh, scratch_arena_a);
 
