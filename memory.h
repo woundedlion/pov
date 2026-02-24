@@ -11,15 +11,8 @@
 #include <utility>
 #include <cstdio>
 
-#ifdef __EMSCRIPTEN__
-// 64-bit arch sizing
-constexpr size_t GEOMETRY_ARENA_SIZE = 2 * 128 * 1024;
-constexpr size_t SCRATCH_ARENA_SIZE = 2 * 128 * 1024;
-#else
-// 32-bit arch sizing (Teensy limits)
-constexpr size_t GEOMETRY_ARENA_SIZE = 128 * 1024;
-constexpr size_t SCRATCH_ARENA_SIZE = 128 * 1024;
-#endif
+constexpr size_t GEOMETRY_ARENA_SIZE = 256 * 1024;
+constexpr size_t SCRATCH_ARENA_SIZE = 256 * 1024;
 
 // ============================================================================
 // 1. Core Arena Allocator
@@ -172,8 +165,8 @@ template <typename K> struct ArenaHash {
 };
 
 // Speciality for Edge Lookups
-template <> struct ArenaHash<std::pair<int, int>> {
-  size_t operator()(const std::pair<int, int> &p) const {
+template <> struct ArenaHash<std::pair<uint16_t, uint16_t>> {
+  size_t operator()(const std::pair<uint16_t, uint16_t> &p) const {
     return (size_t)(p.first * 73856093 ^ p.second * 19349663);
   }
 };

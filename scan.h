@@ -608,8 +608,8 @@ struct Face {
   bool full_width;
   static constexpr bool is_solid = true;
 
-  Face(std::span<const Vector> vertices, std::span<const int> indices, float th,
-       FaceScratchBuffer &scratch, int h_virt, int height)
+  Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
+       float th, FaceScratchBuffer &scratch, int h_virt, int height)
       : thickness(th), full_width(true) {
 
     // Early Vertical Exit
@@ -1750,7 +1750,7 @@ struct SphericalPolygon {
     }
 
     // 3. Create Indices (0, 1, ..., sides-1)
-    std::vector<int> indices(sides);
+    std::vector<uint16_t> indices(sides);
     std::iota(indices.begin(), indices.end(), 0);
 
     // 4. Create SDF::Face
@@ -1783,7 +1783,7 @@ struct Mesh {
     for (size_t i = 0; i < mesh.num_faces; ++i) {
       size_t count = mesh.face_counts[i];
       std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
-      std::span<const int> indices(&mesh.faces[idx_offset], count);
+      std::span<const uint16_t> indices(&mesh.faces[idx_offset], count);
 
       SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
       idx_offset += count;
@@ -1811,7 +1811,7 @@ struct Mesh {
 
       // Create Spans from MeshState
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
-      std::span<const int> indices(mesh.faces.data() + face_offset, count);
+      std::span<const uint16_t> indices(mesh.faces.data() + face_offset, count);
 
       SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
 
