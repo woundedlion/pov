@@ -100,7 +100,7 @@ struct AABB {
 struct MeshState {
   ArenaVector<Vector> vertices;
   ArenaVector<uint8_t> face_counts;
-  ArenaVector<int> faces;
+  ArenaVector<uint16_t> faces;
   ArenaVector<uint16_t> face_offsets;
 
   void clear() {
