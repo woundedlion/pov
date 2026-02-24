@@ -545,14 +545,15 @@ inline const Entry &get_entry(int index) {
   return islamic_registry[index - Collections::num_simple_solids];
 }
 
-inline PolyMesh get(Arena &geom, Arena &scratch, int index) {
-  ScratchContext ctx(scratch, scratch_arena_b);
+inline PolyMesh get(Arena &geom, Arena &scratch_a, Arena &scratch_b,
+                    int index) {
+  ScratchContext ctx(scratch_a, scratch_b);
   return finalize_solid(get_entry(index).generate(ctx), geom);
 }
 
-inline PolyMesh get_by_name(Arena &geom, Arena &scratch,
+inline PolyMesh get_by_name(Arena &geom, Arena &scratch_a, Arena &scratch_b,
                             const std::string &name) {
-  ScratchContext ctx(scratch, scratch_arena_b);
+  ScratchContext ctx(scratch_a, scratch_b);
   for (const auto &entry : simple_registry) {
     if (name == entry.name)
       return finalize_solid(entry.generate(ctx), geom);

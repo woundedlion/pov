@@ -21,9 +21,12 @@ class Arena {
   uint8_t *buffer;
   size_t capacity;
   size_t offset;
+  size_t high_water_mark;
 
 public:
-  Arena(size_t size) : capacity(size), offset(0) { buffer = new uint8_t[size]; }
+  Arena(size_t size) : capacity(size), offset(0), high_water_mark(0) {
+    buffer = new uint8_t[size];
+  }
 
   ~Arena() { delete[] buffer; }
 
@@ -40,12 +43,20 @@ public:
     offset += padding;
     void *ptr = buffer + offset;
     offset += size;
+    if (offset > high_water_mark) {
+      high_water_mark = offset;
+    }
+    printf("[Arena] Allocated: %zu bytes. New Offset: %zu / %zu\n", size,
+           offset, capacity);
     return ptr;
   }
 
   size_t get_offset() const { return offset; }
+  size_t get_capacity() const { return capacity; }
+  size_t get_high_water_mark() const { return high_water_mark; }
   void set_offset(size_t new_offset) { offset = new_offset; }
   void reset() { offset = 0; }
+  void reset_high_water_mark() { high_water_mark = offset; }
 };
 
 // RAII Marker for scratch memory

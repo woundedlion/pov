@@ -78,34 +78,44 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
   void preallocate_buffers() {
-    // Archimedean Maximum (Truncated Icosidodecahedron): V=120, F=62, I=360.
-    // We pad to V=250, F=150, I=600 to sit reliably within the 128KB geometry
-    // arena limit.
-    constexpr int MAX_V = Solids::MAX_VERTS;
-    constexpr int MAX_F = Solids::MAX_FACES;
-    constexpr int MAX_I = Solids::MAX_INDICES;
+    // Exact maximums needed for the largest Archimedean solid
+    // (Truncated Icosidodecahedron)
+    constexpr int MAX_V = 150;
+    constexpr int MAX_F = 100;
+    constexpr int MAX_I = 400;
 
-    primary_mesh.vertices.initialize(geometry_arena, MAX_V);
-    primary_mesh.face_counts.initialize(geometry_arena, MAX_F);
-    primary_mesh.face_offsets.initialize(geometry_arena, MAX_F);
-    primary_mesh.faces.initialize(geometry_arena, MAX_I);
+    // The output sizes after the Hankin math is applied
+    constexpr int OUT_V = 600;
+    constexpr int OUT_F = 250;
+    constexpr int OUT_I = 1600;
 
-    secondary_mesh.vertices.initialize(geometry_arena, MAX_V);
-    secondary_mesh.face_counts.initialize(geometry_arena, MAX_F);
-    secondary_mesh.face_offsets.initialize(geometry_arena, MAX_F);
-    secondary_mesh.faces.initialize(geometry_arena, MAX_I);
+    // Primary Mesh
+    primary_mesh.vertices.initialize(geometry_arena, OUT_V);
+    primary_mesh.face_counts.initialize(geometry_arena, OUT_F);
+    primary_mesh.face_offsets.initialize(geometry_arena, OUT_F);
+    primary_mesh.faces.initialize(geometry_arena, OUT_I);
 
+    // Secondary Mesh
+    secondary_mesh.vertices.initialize(geometry_arena, OUT_V);
+    secondary_mesh.face_counts.initialize(geometry_arena, OUT_F);
+    secondary_mesh.face_offsets.initialize(geometry_arena, OUT_F);
+    secondary_mesh.faces.initialize(geometry_arena, OUT_I);
+
+    // Primary Hankin Compiler
+    primary_hankin.baseVertices.initialize(geometry_arena, MAX_V);
     primary_hankin.staticVertices.initialize(geometry_arena, MAX_I);
     primary_hankin.dynamicVertices.initialize(geometry_arena, MAX_I);
     primary_hankin.dynamicInstructions.initialize(geometry_arena, MAX_I);
-    primary_hankin.face_counts.initialize(geometry_arena, MAX_F + MAX_V);
-    primary_hankin.faces.initialize(geometry_arena, 4 * MAX_I);
+    primary_hankin.face_counts.initialize(geometry_arena, OUT_F);
+    primary_hankin.faces.initialize(geometry_arena, OUT_I);
 
+    // Secondary Hankin Compiler
+    secondary_hankin.baseVertices.initialize(geometry_arena, MAX_V);
     secondary_hankin.staticVertices.initialize(geometry_arena, MAX_I);
     secondary_hankin.dynamicVertices.initialize(geometry_arena, MAX_I);
     secondary_hankin.dynamicInstructions.initialize(geometry_arena, MAX_I);
-    secondary_hankin.face_counts.initialize(geometry_arena, MAX_F + MAX_V);
-    secondary_hankin.faces.initialize(geometry_arena, 4 * MAX_I);
+    secondary_hankin.face_counts.initialize(geometry_arena, OUT_F);
+    secondary_hankin.faces.initialize(geometry_arena, OUT_I);
   }
 
   int solid_idx = 0;
