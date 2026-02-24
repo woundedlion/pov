@@ -11,9 +11,9 @@
 #include <utility>
 #include <cstdio>
 
-constexpr size_t GEOMETRY_ARENA_SIZE = 800 * 1024;
-constexpr size_t SCRATCH_ARENA_A_SIZE = 800 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 800 * 1024;
+constexpr size_t GEOMETRY_ARENA_SIZE = 300 * 1024;
+constexpr size_t SCRATCH_ARENA_A_SIZE = 256 * 1024;
+constexpr size_t SCRATCH_ARENA_B_SIZE = 256 * 1024;
 
 // ============================================================================
 // 1. Core Arena Allocator

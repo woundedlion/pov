@@ -351,8 +351,7 @@ icosahedron_snub_canonicalize_truncate033_hankin62(ScratchContext &ctx) {
 }
 
 // V=8640, F=962, I=19200
-inline PolyMesh
-dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43(ScratchContext &ctx) {
+inline PolyMesh dodecahedron_hk35_ambo_hk62_ambo_hk43(ScratchContext &ctx) {
   return hankin(
       canonicalize(
           ambo(hankin(canonicalize(
@@ -419,6 +418,15 @@ truncatedIcosahedron_ambo_canonicalize_truncate33_hk64(ScratchContext &ctx) {
       ctx, 64.0f * D2R);
 }
 
+// V=1080, F=362, I=1440
+inline PolyMesh
+dodecahedron_ambo_bitruncate33_canonicalize_hk66(ScratchContext &ctx) {
+  return hankin(
+      canonicalize(bitruncate(ambo(dodecahedron(ctx), ctx), ctx, 0.33f), ctx,
+                   100),
+      ctx, 66.0f * D2R);
+}
+
 } // namespace IslamicStarPatterns
 
 enum class Category { Simple, Complex };
@@ -463,6 +471,9 @@ static constexpr Entry simple_registry[] = {
 
 // Islamic Star Patterns
 static constexpr Entry islamic_registry[] = {
+    {"dodecahedron_ambo_bitruncate33_canonicalize_hk66",
+     IslamicStarPatterns::dodecahedron_ambo_bitruncate33_canonicalize_hk66,
+     Category::Complex},
     {"truncatedIcosahedron_ambo_canonicalize_truncate33_hk64",
      IslamicStarPatterns::
          truncatedIcosahedron_ambo_canonicalize_truncate33_hk64,
@@ -487,8 +498,8 @@ static constexpr Entry islamic_registry[] = {
     {"icosahedron_ambo_truncate033_hankin59",
      IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59,
      Category::Complex},
-    {"dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43",
-     IslamicStarPatterns::dodecahedron_hk35_ambo_100_hk62_ambo_100_hk43,
+    {"dodecahedron_hk35_ambo_hk62_ambo_hk43",
+     IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_hk43,
      Category::Complex},
     {"icosahedron_hk59_bitruncate033",
      IslamicStarPatterns::icosahedron_hk59_bitruncate033, Category::Complex},

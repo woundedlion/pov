@@ -33,15 +33,6 @@ public:
     ripple_gen.params.thickness = 0.7f;
     ripple_gen.params.decay = 0.1f;
 
-    // Pre-allocate geometry buffers to prevent Arena exhaustion and ensure
-    // stable double-buffering
-    for (int i = 0; i < 2; i++) {
-      mesh_states[i].vertices.initialize(geometry_arena, Solids::MAX_VERTS);
-      mesh_states[i].face_counts.initialize(geometry_arena, Solids::MAX_FACES);
-      mesh_states[i].face_offsets.initialize(geometry_arena, Solids::MAX_FACES);
-      mesh_states[i].faces.initialize(geometry_arena, Solids::MAX_INDICES);
-    }
-
     // Ripple now and schedule more ripples
     timeline.add(0, Animation::PeriodicTimer(
                         0, [this](auto &canvas) { ripple(canvas); }, false));
@@ -107,23 +98,62 @@ private:
   }
 
   void spawn_shape() {
-    ArenaMarker _(scratch_arena_a);
-    solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
-    SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
-    PolyMesh local_mesh = gen.generate(scratch_arena_a, ctx);
+    {
+      // Master marker: guarantees all temporary copies and generation
+      // garbage drop to 0 KB before drawing occurs.
+      ArenaMarker master_scope(scratch_arena_a);
 
-    current_mesh_idx = (current_mesh_idx + 1) % 2;
-    MeshState &base_state = mesh_states[current_mesh_idx];
-    std::vector<int> &faceIndices = topologies[current_mesh_idx];
+      // --- 1. THE COMPACTION BOUNCE ---
+      if (mesh_states[current_mesh_idx].vertices.size() > 0) {
 
-    MeshOps::compile(local_mesh, base_state, geometry_arena);
-    faceIndices =
-        MeshOps::classify_faces_by_topology(base_state, scratch_arena_a);
+        // 👉 CRITICAL FIX: Wrap the bounce in a scope so the 145 KB temp_bounce
+        // is instantly freed from scratch memory before generation begins!
+        ArenaMarker bounce_scope(scratch_arena_a);
+
+        MeshState temp_bounce;
+        MeshOps::transform(mesh_states[current_mesh_idx], temp_bounce,
+                           scratch_arena_a);
+
+        geometry_arena.set_offset(0);
+
+        // Destroy the old capacity metadata so it officially allocates at
+        // offset 0
+        mesh_states[current_mesh_idx] = MeshState();
+
+        MeshOps::transform(temp_bounce, mesh_states[current_mesh_idx],
+                           geometry_arena);
+      } else {
+        geometry_arena.set_offset(0);
+      }
+
+      solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
+
+      // --- 2. GENERATE NEW SHAPE ---
+      {
+        ArenaMarker gen_scope(scratch_arena_a);
+        ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+        SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
+        PolyMesh local_mesh = gen.generate(scratch_arena_a, ctx);
+
+        current_mesh_idx = (current_mesh_idx + 1) % 2;
+
+        // Destroy the incoming shape's metadata
+        mesh_states[current_mesh_idx] = MeshState();
+
+        MeshOps::compile(local_mesh, mesh_states[current_mesh_idx],
+                         geometry_arena);
+      } // Gen garbage pops! Scratch A is perfectly 0 KB again.
+
+      // --- 3. CLASSIFY TOPOLOGY ---
+      topologies[current_mesh_idx] = MeshOps::classify_faces_by_topology(
+          mesh_states[current_mesh_idx], scratch_arena_a);
+
+    } // Classification arrays pop! Master scope ends.
 
     const auto &entry = Solids::Collections::islamic_solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
-            (int)local_mesh.vertices.size(), (int)local_mesh.faces.size());
+            (int)mesh_states[current_mesh_idx].vertices.size(),
+            (int)mesh_states[current_mesh_idx].faces.size());
 
     // Prepare Palettes
     std::vector<const Palette *> palettes = {
@@ -134,6 +164,7 @@ private:
 
     // Map Topology to palette
     int num_colors = static_cast<int>(palettes.size());
+    std::vector<int> &faceIndices = topologies[current_mesh_idx];
     for (size_t i = 0; i < faceIndices.size(); ++i) {
       faceIndices[i] = faceIndices[i] % num_colors;
     }
