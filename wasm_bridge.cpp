@@ -229,10 +229,8 @@ public:
     };
 
     add_metrics("geometry_arena", geometry_arena);
-    add_metrics(
-        "scratch_arena_a",
-        tooling_scratch_a); // Export tooling ones as the scratch for the UI
-    add_metrics("scratch_arena_b", tooling_scratch_b);
+    add_metrics("scratch_arena_a", scratch_arena_a);
+    add_metrics("scratch_arena_b", scratch_arena_b);
     add_metrics("tooling_arena", tooling_arena);
 
     return metrics;
