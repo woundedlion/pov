@@ -26,10 +26,10 @@
 using namespace emscripten;
 
 // A huge dedicated arena for JavaScript Tools (64MB)
-Arena tooling_arena(64 * 1024 * 1024);
+Arena tooling_arena(8 * 1024 * 1024);
 // Massive scratch arenas for Web tooling operations
-Arena tooling_scratch_a(64 * 1024 * 1024);
-Arena tooling_scratch_b(64 * 1024 * 1024);
+Arena tooling_scratch_a(4 * 1024 * 1024);
+Arena tooling_scratch_b(4 * 1024 * 1024);
 
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(const std::string &name) {

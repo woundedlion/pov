@@ -68,17 +68,9 @@ public:
     return p1 * (1.0f - f) + p2 * f;
   }
 
-  size_t num_points() const { return points.size(); }
   void collapse() {
     if (points.size() > 1)
       points = {points.back()};
-  }
-  const Points &get_points() const {
-    static Points temp;
-    temp.clear();
-    for (size_t i = 0; i < points.size(); ++i)
-      temp.push_back(points[i]);
-    return temp;
   }
 
 private:

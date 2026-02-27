@@ -139,7 +139,7 @@ using Dots = StaticCircularBuffer<Dot, 1024>;
  * (Vectors).
  * @details Capacity is set to 1024.
  */
-using Points = StaticCircularBuffer<Vector, 256>;
+using Points = StaticCircularBuffer<Vector, 1024>;
 
 /**
  * @brief Struct to hold Log-Polar coordinates.
