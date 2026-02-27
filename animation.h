@@ -1227,12 +1227,10 @@ struct MorphBuffer {
 };
 
 /*
- * @brief Animates a transition between two meshes
+ * @brief Animates an elastic transition using Biased Nearest-Vertex mapping
  */
 class MeshMorph : public Base<MeshMorph> {
 public:
-  using State = MeshState;
-
   MeshMorph(MeshState *output_mesh, MorphBuffer *buffer, Arena *geometry_arena,
             const MeshState &source, const MeshState &dest, int duration,
             bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
@@ -1252,64 +1250,31 @@ public:
     buffer->active_vertex_count = m_high.vertices.size();
     buffer->using_dest_topology = growing;
 
-    // 2. Build the Topological Map
+    // 2. THE EPSILON TWIST (Breaks symmetrical deadlocks like Cube->Octahedron)
+    // We use an arbitrary off-axis vector and a tiny angle (0.05 rads)
+    Vector twist_axis = Vector(1.23f, 2.34f, 3.45f).normalize();
+    Quaternion twist = make_rotation(twist_axis, 0.05f);
+
     for (size_t i = 0; i < buffer->active_vertex_count; ++i) {
       Vector v_complex = m_high.vertices[i];
-      // CRITICAL FIX 2: Break perfect architectural symmetries (like Cube vs
-      // Octahedron) by slightly rotating the evaluation point so it never
-      // aligns perfectly equidistant between symmetrical faces/corners.
-      Vector v_complex_rotated =
-          rotate(v_complex, make_rotation(Vector(0, 1, 0).normalize(), 0.01f));
 
-      // --- A. Find the Pierced Face ---
-      int best_face = 0;
-      float max_face_dot = -9999.0f;
-      for (size_t f = 0; f < m_low.face_counts.size(); ++f) {
-        if (m_low.face_counts[f] < 3)
-          continue;
-        int offset = m_low.face_offsets[f];
-        Vector v0 = m_low.vertices[m_low.faces[offset]];
-        Vector v1 = m_low.vertices[m_low.faces[offset + 1]];
-        Vector v2 = m_low.vertices[m_low.faces[offset + 2]];
+      // Apply the tiny twist strictly for the distance measurement
+      Vector v_biased = rotate(v_complex, twist);
 
-        Vector cross_prod = cross(v1 - v0, v2 - v0);
-        if (dot(cross_prod, cross_prod) < 0.000001f)
-          continue;
-        Vector normal = cross_prod.normalize();
-
-        // CRITICAL FIX 1: Force Outward Normals!
-        // Convex shapes centered at origin must have dot(normal, v0) > 0
-        if (dot(normal, v0) < 0) {
-          hs::log("MeshMorph::init - REVERSING INWARD NORMAL on base shape "
-                  "index %d",
-                  best_face);
-          normal = normal * -1.0f;
-        }
-
-        float d = dot(v_complex_rotated, normal);
-        if (d > max_face_dot) {
-          max_face_dot = d;
-          best_face = static_cast<int>(f);
+      // Find the nearest vertex on the simple shape
+      int best_idx = 0;
+      float max_dot = -9999.0f;
+      for (size_t j = 0; j < m_low.vertices.size(); ++j) {
+        float d = dot(v_biased, m_low.vertices[j]);
+        if (d > max_dot) {
+          max_dot = d;
+          best_idx = j;
         }
       }
 
-      // --- B. Find the Nearest Corner on THAT Face ---
-      Vector v_simple =
-          m_low.vertices[m_low.faces[m_low.face_offsets[best_face]]];
-      float max_v_dot = -9999.0f;
-      int count = m_low.face_counts[best_face];
-      int offset = m_low.face_offsets[best_face];
+      Vector v_simple = m_low.vertices[best_idx];
 
-      for (int j = 0; j < count; ++j) {
-        Vector face_v = m_low.vertices[m_low.faces[offset + j]];
-        float d = dot(v_complex_rotated, face_v);
-        if (d > max_v_dot) {
-          max_v_dot = d;
-          v_simple = face_v;
-        }
-      }
-
-      // --- C. Assign Paths ---
+      // Assign Paths
       if (growing) {
         buffer->start_pos[i] = v_simple;
         buffer->end_pos[i] = v_complex;
@@ -1319,21 +1284,25 @@ public:
       }
     }
 
-    // 3. Clone the Heavy Topology into the Output Mesh ONCE
+    // 3. Clone the Heavy Topology into the Output Mesh
     output_mesh->clear();
     output_mesh->vertices.initialize(*geometry_arena, m_high.vertices.size());
-    for (size_t i = 0; i < buffer->active_vertex_count; ++i)
-      output_mesh->vertices.push_back(buffer->start_pos[i]);
+    for (size_t i = 0; i < m_high.vertices.size(); ++i)
+      output_mesh->vertices.push_back(m_high.vertices[i]);
 
     output_mesh->face_counts.initialize(*geometry_arena,
                                         m_high.face_counts.size());
-    output_mesh->face_offsets.initialize(*geometry_arena,
-                                         m_high.face_counts.size());
+    if constexpr (requires { output_mesh->face_offsets; }) {
+      output_mesh->face_offsets.initialize(*geometry_arena,
+                                           m_high.face_counts.size());
+    }
     output_mesh->faces.initialize(*geometry_arena, m_high.faces.size());
 
     for (size_t i = 0; i < m_high.face_counts.size(); ++i) {
       output_mesh->face_counts.push_back(m_high.face_counts[i]);
-      output_mesh->face_offsets.push_back(m_high.face_offsets[i]);
+      if constexpr (requires { output_mesh->face_offsets; }) {
+        output_mesh->face_offsets.push_back(m_high.face_offsets[i]);
+      }
     }
     for (size_t i = 0; i < m_high.faces.size(); ++i) {
       output_mesh->faces.push_back(m_high.faces[i]);
