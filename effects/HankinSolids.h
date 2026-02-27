@@ -187,6 +187,8 @@ private:
                           this->solid_idx = next_idx;
                           primary.swap(secondary);
 
+                          // Ensure resting state is perfect before resuming
+                          // cycle
                           MeshOps::update_hankin(primary.hankin, primary.mesh,
                                                  geometry_arena,
                                                  params.hankin_angle);
