@@ -375,9 +375,8 @@ public:
     // Fill start
     int startIdx = 0;
     int firstStop = static_cast<int>(prevPos * 255);
-    Pixel prevLinear(srgb_to_linear(prevColor.r * 255.0f),
-                     srgb_to_linear(prevColor.g * 255.0f),
-                     srgb_to_linear(prevColor.b * 255.0f));
+    Pixel prevLinear(srgb_to_linear(prevColor.r), srgb_to_linear(prevColor.g),
+                     srgb_to_linear(prevColor.b));
     for (int i = 0; i <= firstStop; i++)
       entries[i] = prevLinear;
 
@@ -400,8 +399,7 @@ public:
 
           // Convert interpolated sRGB -> Linear using high precision formula
           entries[i] =
-              Pixel(srgb_to_linear(r * 255.0f), srgb_to_linear(g * 255.0f),
-                    srgb_to_linear(b * 255.0f));
+              Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
         }
       }
       prevPos = nextPos;
@@ -411,9 +409,8 @@ public:
 
     // Fill end
     int lastStop = static_cast<int>(prevPos * 255);
-    Pixel lastLinear(srgb_to_linear(prevColor.r * 255.0f),
-                     srgb_to_linear(prevColor.g * 255.0f),
-                     srgb_to_linear(prevColor.b * 255.0f));
+    Pixel lastLinear(srgb_to_linear(prevColor.r), srgb_to_linear(prevColor.g),
+                     srgb_to_linear(prevColor.b));
     for (int i = lastStop; i < 256; i++)
       entries[i] = lastLinear;
   }
@@ -526,8 +523,8 @@ public:
       break;
     case GradientShape::FALLOFF:
       shape = {0, 0.33f, 0.66f, 0.9f, 1.0f};
-      colors = {a, b, c, vignette_color};
-      size = 4;
+      colors = {a, b, c, vignette_color, vignette_color};
+      size = 5;
       break;
     }
   }

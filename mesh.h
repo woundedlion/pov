@@ -545,12 +545,20 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
 template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
+
+  bool is_flat = std::abs(angle) < 1e-4f;
+
   for (size_t i = 0; i < compiled.dynamicInstructions.size(); ++i) {
     const auto &instr = compiled.dynamicInstructions[i];
+    Vector pCorner = compiled.baseVertices[instr.vCorner];
+
+    if (is_flat) {
+      compiled.dynamicVertices[i] = pCorner.normalize();
+      continue;
+    }
+
     Vector m1 = compiled.staticVertices[instr.idxM1];
     Vector m2 = compiled.staticVertices[instr.idxM2];
-
-    Vector pCorner = compiled.baseVertices[instr.vCorner];
     Vector pPrev = compiled.baseVertices[instr.vPrev];
     Vector pNext = compiled.baseVertices[instr.vNext];
 
