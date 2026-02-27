@@ -5,10 +5,10 @@
 #pragma once
 
 #include <array>
-#include <cstddef>     
-#include <iterator>    
-#include <utility>     
-#include "platform.h" 
+#include <cstddef>
+#include <iterator>
+#include <utility>
+#include "platform.h"
 
 /**
  * @brief A fixed-size circular buffer optimized for stability.
@@ -18,8 +18,7 @@
  * - "Delete Oldest" strategy on overflow (never stops processing).
  * - "Return Zeroed Dummy" on invalid access (prevents read crashes).
  */
-template <typename T, size_t N>
-class StaticCircularBuffer {
+template <typename T, size_t N> class StaticCircularBuffer {
   class iterator;
   class const_iterator;
 
@@ -27,26 +26,22 @@ public:
   using value_type = T;
   using size_type = size_t;
   using difference_type = std::ptrdiff_t;
-  using reference = T&;
-  using const_reference = const T&;
+  using reference = T &;
+  using const_reference = const T &;
 
-  StaticCircularBuffer() :
-    head(0), tail(0), count(0)
-  {
-  }
+  StaticCircularBuffer() : head(0), tail(0), count(0) {}
 
   StaticCircularBuffer(std::initializer_list<T> items)
-    : head(0), tail(0), count(0) {
+      : head(0), tail(0), count(0) {
     if (items.size() > N) {
       hs::log("Buffer Error: Initializer list exceeds capacity. Truncating.");
     }
-    for (const T& item : items) {
+    for (const T &item : items) {
       push_back(item);
     }
   }
 
-
-  void push_front(const T& item) {
+  void push_front(const T &item) {
     if (is_full()) {
       // Drop the tail (oldest in this context) to make room
       pop_back_internal();
@@ -56,7 +51,7 @@ public:
     count++;
   }
 
-  void push_front(T&& item) {
+  void push_front(T &&item) {
     if (is_full()) {
       pop_back_internal();
     }
@@ -65,8 +60,7 @@ public:
     count++;
   }
 
-  template<typename... Args>
-  T& emplace_front(Args&&... args) {
+  template <typename... Args> T &emplace_front(Args &&...args) {
     if (is_full()) {
       pop_back_internal();
     }
@@ -76,7 +70,7 @@ public:
     return buffer[head];
   }
 
-  void push_back(const T& item) {
+  void push_back(const T &item) {
     if (is_full()) {
       // Drop the head (oldest in this context) to make room
       pop_front_internal();
@@ -86,7 +80,7 @@ public:
     count++;
   }
 
-  void push_back(T&& item) {
+  void push_back(T &&item) {
     if (is_full()) {
       pop_front_internal();
     }
@@ -95,25 +89,26 @@ public:
     count++;
   }
 
-  template<typename... Args>
-  T& emplace_back(Args&&... args) {
+  template <typename... Args> T &emplace_back(Args &&...args) {
     if (is_full()) {
       pop_front_internal();
     }
     buffer[tail] = T(std::forward<Args>(args)...);
-    T& emplaced_item = buffer[tail];
+    T &emplaced_item = buffer[tail];
     tail = (tail + 1) % N;
     count++;
     return emplaced_item;
   }
 
   void pop_back() {
-    if (is_empty()) return;
+    if (is_empty())
+      return;
     pop_back_internal();
   }
 
   void pop() {
-    if (is_empty()) return;
+    if (is_empty())
+      return;
     pop_front_internal();
   }
 
@@ -123,36 +118,40 @@ public:
     }
   }
 
-  T& front() {
-    if (is_empty()) return get_dummy();
+  T &front() {
+    if (is_empty())
+      return get_mut_dummy();
     return buffer[head];
   }
 
-  const T& front() const {
-    if (is_empty()) return get_dummy();
+  const T &front() const {
+    if (is_empty())
+      return get_const_dummy();
     return buffer[head];
   }
 
-  T& back() {
-    if (is_empty()) return get_dummy();
+  T &back() {
+    if (is_empty())
+      return get_mut_dummy();
     return buffer[(head + count - 1) % N];
   }
 
-  const T& back() const {
-    if (is_empty()) return get_dummy();
+  const T &back() const {
+    if (is_empty())
+      return get_const_dummy();
     return buffer[(head + count - 1) % N];
   }
 
-  T& operator[](size_t index) {
+  T &operator[](size_t index) {
     if (index >= count) {
-      return get_dummy();
+      return get_mut_dummy();
     }
     return buffer[(head + index) % N];
   }
 
-  const T& operator[](size_t index) const {
+  const T &operator[](size_t index) const {
     if (index >= count) {
-      return get_dummy();
+      return get_const_dummy();
     }
     return buffer[(head + index) % N];
   }
@@ -168,25 +167,28 @@ public:
   const_iterator end() const { return const_iterator(this, size()); }
 
 private:
-
   std::array<T, N> buffer;
   size_t head;
   size_t tail;
   size_t count;
 
-  static T& get_dummy() {
-    static T dummy = T(); 
+  static T &get_mut_dummy() {
+    static T dummy;
+    dummy = T();
+    return dummy;
+  }
+
+  static const T &get_const_dummy() {
+    static const T dummy = T();
     return dummy;
   }
 
   void pop_back_internal() {
     tail = (tail - 1 + N) % N;
-    buffer[tail] = T();
     count--;
   }
 
   void pop_front_internal() {
-    buffer[head] = T();
     head = (head + 1) % N;
     count--;
   }
@@ -196,38 +198,79 @@ private:
     using iterator_category = std::random_access_iterator_tag;
     using value_type = T;
     using difference_type = std::ptrdiff_t;
-    using pointer = T*;
-    using reference = T&;
+    using pointer = T *;
+    using reference = T &;
 
-    StaticCircularBuffer* m_buffer;
+    StaticCircularBuffer *m_buffer;
     size_t m_index;
 
-    iterator(StaticCircularBuffer* buffer, size_t logical_index)
-      : m_buffer(buffer), m_index(logical_index) {
-    }
+    iterator(StaticCircularBuffer *buffer, size_t logical_index)
+        : m_buffer(buffer), m_index(logical_index) {}
 
     reference operator*() const { return (*m_buffer)[m_index]; }
-    pointer   operator->() const { return &(*m_buffer)[m_index]; }
-    reference operator[](difference_type n) const { return (*m_buffer)[m_index + n]; }
+    pointer operator->() const { return &(*m_buffer)[m_index]; }
+    reference operator[](difference_type n) const {
+      return (*m_buffer)[m_index + n];
+    }
 
-    iterator& operator++() { ++m_index; return *this; }
-    iterator  operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
-    iterator& operator--() { --m_index; return *this; }
-    iterator  operator--(int) { iterator tmp = *this; --(*this); return tmp; }
-    iterator& operator+=(difference_type n) { m_index += n; return *this; }
-    iterator& operator-=(difference_type n) { m_index -= n; return *this; }
+    iterator &operator++() {
+      ++m_index;
+      return *this;
+    }
+    iterator operator++(int) {
+      iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+    iterator &operator--() {
+      --m_index;
+      return *this;
+    }
+    iterator operator--(int) {
+      iterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
+    iterator &operator+=(difference_type n) {
+      m_index += n;
+      return *this;
+    }
+    iterator &operator-=(difference_type n) {
+      m_index -= n;
+      return *this;
+    }
 
-    friend iterator operator+(const iterator& a, difference_type n) { return iterator(a.m_buffer, a.m_index + n); }
-    friend iterator operator+(difference_type n, const iterator& a) { return iterator(a.m_buffer, a.m_index + n); }
-    friend iterator operator-(const iterator& a, difference_type n) { return iterator(a.m_buffer, a.m_index - n); }
-    friend difference_type operator-(const iterator& a, const iterator& b) { return a.m_index - b.m_index; }
+    friend iterator operator+(const iterator &a, difference_type n) {
+      return iterator(a.m_buffer, a.m_index + n);
+    }
+    friend iterator operator+(difference_type n, const iterator &a) {
+      return iterator(a.m_buffer, a.m_index + n);
+    }
+    friend iterator operator-(const iterator &a, difference_type n) {
+      return iterator(a.m_buffer, a.m_index - n);
+    }
+    friend difference_type operator-(const iterator &a, const iterator &b) {
+      return a.m_index - b.m_index;
+    }
 
-    friend bool operator==(const iterator& a, const iterator& b) { return a.m_buffer == b.m_buffer && a.m_index == b.m_index; }
-    friend bool operator!=(const iterator& a, const iterator& b) { return !(a == b); }
-    friend bool operator<(const iterator& a, const iterator& b) { return a.m_index < b.m_index; }
-    friend bool operator>(const iterator& a, const iterator& b) { return a.m_index > b.m_index; }
-    friend bool operator<=(const iterator& a, const iterator& b) { return a.m_index <= b.m_index; }
-    friend bool operator>=(const iterator& a, const iterator& b) { return a.m_index >= b.m_index; }
+    friend bool operator==(const iterator &a, const iterator &b) {
+      return a.m_buffer == b.m_buffer && a.m_index == b.m_index;
+    }
+    friend bool operator!=(const iterator &a, const iterator &b) {
+      return !(a == b);
+    }
+    friend bool operator<(const iterator &a, const iterator &b) {
+      return a.m_index < b.m_index;
+    }
+    friend bool operator>(const iterator &a, const iterator &b) {
+      return a.m_index > b.m_index;
+    }
+    friend bool operator<=(const iterator &a, const iterator &b) {
+      return a.m_index <= b.m_index;
+    }
+    friend bool operator>=(const iterator &a, const iterator &b) {
+      return a.m_index >= b.m_index;
+    }
   };
 
   class const_iterator {
@@ -235,41 +278,85 @@ private:
     using iterator_category = std::random_access_iterator_tag;
     using value_type = T;
     using difference_type = std::ptrdiff_t;
-    using pointer = const T*;
-    using reference = const T&;
+    using pointer = const T *;
+    using reference = const T &;
 
-    const StaticCircularBuffer* m_buffer;
+    const StaticCircularBuffer *m_buffer;
     size_t m_index;
 
-    const_iterator(const StaticCircularBuffer* buffer, size_t logical_index)
-      : m_buffer(buffer), m_index(logical_index) {
-    }
+    const_iterator(const StaticCircularBuffer *buffer, size_t logical_index)
+        : m_buffer(buffer), m_index(logical_index) {}
 
-    const_iterator(const iterator& other)
-      : m_buffer(other.m_buffer), m_index(other.m_index) {
-    }
+    const_iterator(const iterator &other)
+        : m_buffer(other.m_buffer), m_index(other.m_index) {}
 
     reference operator*() const { return (*m_buffer)[m_index]; }
-    pointer   operator->() const { return &(*m_buffer)[m_index]; }
-    reference operator[](difference_type n) const { return (*m_buffer)[m_index + n]; }
+    pointer operator->() const { return &(*m_buffer)[m_index]; }
+    reference operator[](difference_type n) const {
+      return (*m_buffer)[m_index + n];
+    }
 
-    const_iterator& operator++() { ++m_index; return *this; }
-    const_iterator  operator++(int) { const_iterator tmp = *this; ++(*this); return tmp; }
-    const_iterator& operator--() { --m_index; return *this; }
-    const_iterator  operator--(int) { const_iterator tmp = *this; --(*this); return tmp; }
-    const_iterator& operator+=(difference_type n) { m_index += n; return *this; }
-    const_iterator& operator-=(difference_type n) { m_index -= n; return *this; }
+    const_iterator &operator++() {
+      ++m_index;
+      return *this;
+    }
+    const_iterator operator++(int) {
+      const_iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+    const_iterator &operator--() {
+      --m_index;
+      return *this;
+    }
+    const_iterator operator--(int) {
+      const_iterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
+    const_iterator &operator+=(difference_type n) {
+      m_index += n;
+      return *this;
+    }
+    const_iterator &operator-=(difference_type n) {
+      m_index -= n;
+      return *this;
+    }
 
-    friend const_iterator operator+(const const_iterator& a, difference_type n) { return const_iterator(a.m_buffer, a.m_index + n); }
-    friend const_iterator operator+(difference_type n, const const_iterator& a) { return const_iterator(a.m_buffer, a.m_index + n); }
-    friend const_iterator operator-(const const_iterator& a, difference_type n) { return const_iterator(a.m_buffer, a.m_index - n); }
-    friend difference_type operator-(const const_iterator& a, const const_iterator& b) { return a.m_index - b.m_index; }
+    friend const_iterator operator+(const const_iterator &a,
+                                    difference_type n) {
+      return const_iterator(a.m_buffer, a.m_index + n);
+    }
+    friend const_iterator operator+(difference_type n,
+                                    const const_iterator &a) {
+      return const_iterator(a.m_buffer, a.m_index + n);
+    }
+    friend const_iterator operator-(const const_iterator &a,
+                                    difference_type n) {
+      return const_iterator(a.m_buffer, a.m_index - n);
+    }
+    friend difference_type operator-(const const_iterator &a,
+                                     const const_iterator &b) {
+      return a.m_index - b.m_index;
+    }
 
-    friend bool operator==(const const_iterator& a, const const_iterator& b) { return a.m_buffer == b.m_buffer && a.m_index == b.m_index; }
-    friend bool operator!=(const const_iterator& a, const const_iterator& b) { return !(a == b); }
-    friend bool operator<(const const_iterator& a, const const_iterator& b) { return a.m_index < b.m_index; }
-    friend bool operator>(const const_iterator& a, const const_iterator& b) { return a.m_index > b.m_index; }
-    friend bool operator<=(const const_iterator& a, const const_iterator& b) { return a.m_index <= b.m_index; }
-    friend bool operator>=(const const_iterator& a, const const_iterator& b) { return a.m_index >= b.m_index; }
+    friend bool operator==(const const_iterator &a, const const_iterator &b) {
+      return a.m_buffer == b.m_buffer && a.m_index == b.m_index;
+    }
+    friend bool operator!=(const const_iterator &a, const const_iterator &b) {
+      return !(a == b);
+    }
+    friend bool operator<(const const_iterator &a, const const_iterator &b) {
+      return a.m_index < b.m_index;
+    }
+    friend bool operator>(const const_iterator &a, const const_iterator &b) {
+      return a.m_index > b.m_index;
+    }
+    friend bool operator<=(const const_iterator &a, const const_iterator &b) {
+      return a.m_index <= b.m_index;
+    }
+    friend bool operator>=(const const_iterator &a, const const_iterator &b) {
+      return a.m_index >= b.m_index;
+    }
   };
 };

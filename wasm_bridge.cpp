@@ -3,19 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 
-/*
- Manual Build:
- cmd /c "call c:\work\emsdk\emsdk_env.bat && emcc -std=c++20 -O3 wasm_bridge.cpp
- -I. -lembind -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s
- EXPORT_NAME=createHolosphereModule -o holosphere_wasm.js"
-
- CMake Build:
- mkdir build; cd build
- emcmake cmake ..
- cmake --build .
- cmake --install .
- */
-
 #ifdef __EMSCRIPTEN__
 
 #include <emscripten/bind.h>
@@ -25,9 +12,8 @@
 
 using namespace emscripten;
 
-// A huge dedicated arena for JavaScript Tools (64MB)
+// Dedicated arena for JavaScript Tools
 Arena tooling_arena(8 * 1024 * 1024);
-// Massive scratch arenas for Web tooling operations
 Arena tooling_scratch_a(4 * 1024 * 1024);
 Arena tooling_scratch_b(4 * 1024 * 1024);
 
