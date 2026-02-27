@@ -1555,8 +1555,8 @@ public:
     ++t;
 
     // Track touched orientations to ensure we only collapse once per frame
-    std::vector<Orientation<W> *> touched;
-    touched.reserve(num_events);
+    std::array<Orientation<W> *, CAPACITY> touched;
+    int touched_count = 0;
 
     int write_idx = 0;
     int active_cnt =
@@ -1580,15 +1580,17 @@ public:
             if constexpr (requires { a.get_orientation(); }) {
               auto &o = a.get_orientation();
               bool already_touched = false;
-              for (auto *ptr : touched) {
-                if (ptr == &o) {
+              for (int k = 0; k < touched_count; ++k) {
+                if (touched[k] == &o) {
                   already_touched = true;
                   break;
                 }
               }
               if (!already_touched) {
                 o.collapse();
-                touched.push_back(&o);
+                if (touched_count < CAPACITY) {
+                  touched[touched_count++] = &o;
+                }
               }
             }
           },
