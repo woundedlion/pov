@@ -6,7 +6,7 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include <vector>
+#include <array>
 #include <cmath>
 
 template <int W, int H> class HopfFibration : public Effect {
@@ -97,7 +97,7 @@ public:
       Color4 c = Palettes::richSunset.get(0.0f);
       c.alpha = params.alpha; // parameter alpha
 
-      if (i < prev_positions.size()) {
+      if (first_frame_done) {
         const Vector &prev = prev_positions[i];
         // Draw line segment
         auto fragment_shader = [&](const Vector &, Fragment &f) {
@@ -109,9 +109,11 @@ public:
       } else {
         // First frame
         filters.plot(canvas, v, c.color, 0, c.alpha);
-        prev_positions.push_back(v);
+        prev_positions[i] = v;
       }
     }
+
+    first_frame_done = true;
 
     // Render Trails
     filters.flush(
@@ -126,7 +128,6 @@ public:
 
   // Params
   struct Params {
-    int num_fibers = 200;
     float flow_speed = 10.0f;
     float folding = 0.2f;
     float tumble_speed = 2.0f;
@@ -135,12 +136,18 @@ public:
   } params;
 
 private:
+  static constexpr int NUM_FIBERS = 200;
+  static constexpr int RINGS = 15;
+  static constexpr int PER_RING = 14;
+  static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
+
   float flow_offset = 0.0f;
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
+  bool first_frame_done = false;
 
-  std::vector<Vector> fibers;
-  std::vector<Vector> prev_positions;
+  std::array<Vector, ACTUAL_FIBERS> fibers;
+  std::array<Vector, ACTUAL_FIBERS> prev_positions;
 
   Orientation<W> orientation;
   Timeline<W> timeline;
@@ -151,30 +158,22 @@ private:
       filters;
 
   void init_fibers() {
-    fibers.clear();
-    prev_positions.clear();
-
-    int side = static_cast<int>(ceilf(sqrtf((float)params.num_fibers)));
-    int rings = side;
-    int per_ring =
-        static_cast<int>(ceilf(static_cast<float>(params.num_fibers) / rings));
-
-    fibers.reserve(rings * per_ring);
-
-    for (int i = 0; i < rings; ++i) {
-      float theta = PI_F * (i + 0.5f) / rings;
+    int idx = 0;
+    for (int i = 0; i < RINGS; ++i) {
+      float theta = PI_F * (i + 0.5f) / RINGS;
       float y = cosf(theta);
       float r = sinf(theta);
 
-      for (int j = 0; j < per_ring; ++j) {
-        float phi = 2 * PI_F * j / per_ring; // 0..2PI
+      for (int j = 0; j < PER_RING; ++j) {
+        float phi = 2 * PI_F * j / PER_RING; // 0..2PI
 
         // Y-up
         float x = r * cosf(phi);
         float z = r * sinf(phi);
 
-        fibers.emplace_back(x, y, z);
+        fibers[idx++] = Vector(x, y, z);
       }
     }
+    first_frame_done = false;
   }
 };
