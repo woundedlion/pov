@@ -11,7 +11,6 @@
 #include "../effects_engine.h"
 #include <vector>
 #include <map>
-#include <map>
 
 template <int W, int H> class DreamBalls : public Effect {
 public:
