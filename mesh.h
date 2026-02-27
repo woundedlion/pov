@@ -709,7 +709,6 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
     // 1. Build HE Mesh FIRST
     HalfEdgeMesh heMesh(*(ctx.source), mesh);
 
-    // 2. Flat array replaces ArenaMap
     uint16_t *edgeToVert = static_cast<uint16_t *>(
         ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(edgeToVert, I, HE_NONE);

@@ -273,17 +273,19 @@ struct MeshOpsWrapper {
   }
 
   // Factory
-  static MeshOpsWrapper *fromSolid(int index) {
+  static std::unique_ptr<MeshOpsWrapper> fromSolid(int index) {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(Solids::get(tooling_arena, ctx, index));
+    return std::make_unique<MeshOpsWrapper>(
+        Solids::get(tooling_arena, ctx, index));
   }
 
-  static MeshOpsWrapper *fromSolidName(std::string name) {
+  static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(Solids::get_by_name(tooling_arena, ctx, name));
+    return std::make_unique<MeshOpsWrapper>(
+        Solids::get_by_name(tooling_arena, ctx, name));
   }
 
-  static MeshOpsWrapper *fromData(val vertices, val faces) {
+  static std::unique_ptr<MeshOpsWrapper> fromData(val vertices, val faces) {
     PolyMesh m;
 
     // Vertices: Float32Array [x, y, z, ...]
@@ -326,7 +328,7 @@ struct MeshOpsWrapper {
       m.face_counts.push_back((uint8_t)current_count);
     }
 
-    return new MeshOpsWrapper(std::move(m));
+    return std::make_unique<MeshOpsWrapper>(std::move(m));
   }
 
   // Accessors for JS
@@ -378,59 +380,59 @@ struct MeshOpsWrapper {
   }
 
   // Operations
-  MeshOpsWrapper *kis() const {
+  std::unique_ptr<MeshOpsWrapper> kis() const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(
+    return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::kis(mesh, ctx), tooling_arena));
   }
-  MeshOpsWrapper *ambo() const {
+  std::unique_ptr<MeshOpsWrapper> ambo() const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(
+    return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::ambo(mesh, ctx), tooling_arena));
   }
-  MeshOpsWrapper *gyro() const {
+  std::unique_ptr<MeshOpsWrapper> gyro() const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(
+    return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::gyro(mesh, ctx), tooling_arena));
   }
-  MeshOpsWrapper *snub() const {
+  std::unique_ptr<MeshOpsWrapper> snub() const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(
+    return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::snub(mesh, ctx), tooling_arena));
   }
-  MeshOpsWrapper *dual() const {
+  std::unique_ptr<MeshOpsWrapper> dual() const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(
+    return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::dual(mesh, ctx), tooling_arena));
   }
-  MeshOpsWrapper *truncate(float t) const {
+  std::unique_ptr<MeshOpsWrapper> truncate(float t) const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(
+    return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::truncate(mesh, ctx, t), tooling_arena));
   }
-  MeshOpsWrapper *expand(float t) const {
+  std::unique_ptr<MeshOpsWrapper> expand(float t) const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(
+    return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::expand(mesh, ctx, t), tooling_arena));
   }
-  MeshOpsWrapper *hankin(float angle) const {
+  std::unique_ptr<MeshOpsWrapper> hankin(float angle) const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(Solids::finalize_solid(
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::hankin(mesh, ctx, angle * (PI_F / 180.0f)), tooling_arena));
   }
-  MeshOpsWrapper *hankin_rad(float radians) const {
+  std::unique_ptr<MeshOpsWrapper> hankin_rad(float radians) const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(Solids::finalize_solid(
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::hankin(mesh, ctx, radians), tooling_arena));
   }
-  MeshOpsWrapper *bitruncate(float t) const {
+  std::unique_ptr<MeshOpsWrapper> bitruncate(float t) const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(Solids::finalize_solid(
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::bitruncate(mesh, ctx, t), tooling_arena));
   }
-  MeshOpsWrapper *canonicalize(int iterations) const {
+  std::unique_ptr<MeshOpsWrapper> canonicalize(int iterations) const {
     ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
-    return new MeshOpsWrapper(Solids::finalize_solid(
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::canonicalize(mesh, ctx, iterations), tooling_arena));
   }
   static val getRegistry() {
@@ -523,31 +525,27 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
-      .class_function("fromSolid", &MeshOpsWrapper::fromSolid,
-                      allow_raw_pointers())
-      .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName,
-                      allow_raw_pointers())
+      .class_function("fromSolid", &MeshOpsWrapper::fromSolid)
+      .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
       .class_function("getMaxBounds", &MeshOpsWrapper::getMaxBounds)
       .class_function("getArenaMetrics", &MeshOpsWrapper::getArenaMetrics)
-      .class_function("fromData", &MeshOpsWrapper::fromData,
-                      allow_raw_pointers())
+      .class_function("fromData", &MeshOpsWrapper::fromData)
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("getFaceCounts", &MeshOpsWrapper::getFaceCounts)
       .function("getFlatIndices", &MeshOpsWrapper::getFlatIndices)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-      .function("kis", &MeshOpsWrapper::kis, allow_raw_pointers())
-      .function("ambo", &MeshOpsWrapper::ambo, allow_raw_pointers())
-      .function("gyro", &MeshOpsWrapper::gyro, allow_raw_pointers())
-      .function("snub", &MeshOpsWrapper::snub, allow_raw_pointers())
-      .function("dual", &MeshOpsWrapper::dual, allow_raw_pointers())
-      .function("truncate", &MeshOpsWrapper::truncate, allow_raw_pointers())
-      .function("bitruncate", &MeshOpsWrapper::bitruncate, allow_raw_pointers())
-      .function("expand", &MeshOpsWrapper::expand, allow_raw_pointers())
-      .function("hankin", &MeshOpsWrapper::hankin_rad, allow_raw_pointers())
-      .function("canonicalize", &MeshOpsWrapper::canonicalize,
-                allow_raw_pointers());
+      .function("kis", &MeshOpsWrapper::kis)
+      .function("ambo", &MeshOpsWrapper::ambo)
+      .function("gyro", &MeshOpsWrapper::gyro)
+      .function("snub", &MeshOpsWrapper::snub)
+      .function("dual", &MeshOpsWrapper::dual)
+      .function("truncate", &MeshOpsWrapper::truncate)
+      .function("bitruncate", &MeshOpsWrapper::bitruncate)
+      .function("expand", &MeshOpsWrapper::expand)
+      .function("hankin", &MeshOpsWrapper::hankin_rad)
+      .function("canonicalize", &MeshOpsWrapper::canonicalize);
 
   register_vector<float>("VectorFloat");
   register_vector<int>("VectorInt");

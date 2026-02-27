@@ -149,8 +149,6 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   if (params.amplitude <= 0.001f)
     return v;
 
-  params.sync(); // ensure noise state matches params
-
   float scale = 4.0f;
   float time_val = params.time * params.speed;
 
