@@ -554,11 +554,19 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector pPrev = compiled.baseVertices[instr.vPrev];
     Vector pNext = compiled.baseVertices[instr.vNext];
 
-    Vector nEdge1 = cross(pPrev, pCorner).normalize();
+    Vector cross1 = cross(pPrev, pCorner);
+    Vector cross2 = cross(pCorner, pNext);
+
+    if (dot(cross1, cross1) < 1e-8f || dot(cross2, cross2) < 1e-8f) {
+      compiled.dynamicVertices[i] = pCorner.normalize();
+      continue; // zero length edge
+    }
+
+    Vector nEdge1 = cross1.normalize();
     Quaternion q1 = make_rotation(m1, angle);
     Vector nHankin1 = rotate(nEdge1, q1);
 
-    Vector nEdge2 = cross(pCorner, pNext).normalize();
+    Vector nEdge2 = cross2.normalize();
     Quaternion q2 = make_rotation(m2, -angle);
     Vector nHankin2 = rotate(nEdge2, q2);
 
