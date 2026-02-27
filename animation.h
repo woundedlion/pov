@@ -1217,171 +1217,148 @@ public:
 };
 
 /*
- * @brief Animates a transition between two meshes using pre-allocated buffers.
+ * @brief State for a transition between two meshes
  */
-// NEW: Morphing Support Structures
-struct MorphPath {
-  Vector start, end, axis;
-  float angle;
-};
-
 struct MorphBuffer {
-  // Paths for Source -> Dest
-  std::vector<MorphPath> source_paths;
-  // Paths for Dest -> Source
-  std::vector<MorphPath> dest_paths;
+  std::array<Vector, 1024> start_pos;
+  std::array<Vector, 1024> end_pos;
+  size_t active_vertex_count = 0;
+  bool using_dest_topology = false;
 };
 
 /*
- * @brief Animates a transition between two meshes using pre-allocated buffers.
- * Implements dual-morph logic: Source deforms to Dest, while Dest deforms from
- * Source.
+ * @brief Animates a transition between two meshes
  */
 class MeshMorph : public Base<MeshMorph> {
 public:
   using State = MeshState;
 
-  /**
-   * @brief Constructs a MeshMorph animation.
-   * @param output_source Pointer to the active source mesh state (gets
-   * deformed).
-   * @param output_dest Pointer to the active dest mesh state (gets deformed).
-   * @param buffer Pointer to shared MorphBuffer.
-   * @param source The starting geometry of source.
-   * @param dest The target geometry of source (and starting geometry of dest).
-   * @param duration Duration in frames.
-   */
-  MeshMorph(MeshState *output_source, MeshState *output_dest,
-            MorphBuffer *buffer, const MeshState &source, const MeshState &dest,
-            int duration, bool repeat = false,
-            ScalarFn auto easing_fn = ease_in_out_sin)
-      : Base(duration, repeat), output_source(output_source),
-        output_dest(output_dest), buffer(buffer), easing_fn(easing_fn) {
-    if (buffer) {
-      // Reset output vertices to starting states (deep copy vertices only)
-      if (output_source) {
-        output_source->vertices.force_set_size(source.vertices.size());
-        for (size_t i = 0; i < source.vertices.size(); ++i)
-          output_source->vertices[i] = source.vertices[i];
-      }
-      if (output_dest) {
-        output_dest->vertices.force_set_size(dest.vertices.size());
-        for (size_t i = 0; i < dest.vertices.size(); ++i)
-          output_dest->vertices[i] = dest.vertices[i];
-      }
-
+  MeshMorph(MeshState *output_mesh, MorphBuffer *buffer, Arena *geometry_arena,
+            const MeshState &source, const MeshState &dest, int duration,
+            bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
+      : Base(duration, repeat), output_mesh(output_mesh), buffer(buffer),
+        geometry_arena(geometry_arena), easing_fn(easing_fn) {
+    if (buffer && output_mesh) {
       init(source, dest);
     }
   }
 
-  // Single output constructor compatibility
-  MeshMorph(MeshState *output_source, MorphBuffer *buffer,
-            const MeshState &source, const MeshState &dest, int duration,
-            bool repeat = false, ScalarFn auto easing_fn = ease_in_out_sin)
-      : MeshMorph(output_source, nullptr, buffer, source, dest, duration,
-                  repeat, easing_fn) {}
-
   void init(const MeshState &source, const MeshState &dest) {
-    if (!buffer)
-      return;
+    // 1. Determine the "Heavier" mesh to use as our permanent topology
+    bool growing = dest.vertices.size() >= source.vertices.size();
+    const MeshState &m_high = growing ? dest : source;
+    const MeshState &m_low = growing ? source : dest;
 
-    // 1. Source -> Dest Paths
-    size_t src_count = source.vertices.size();
-    buffer->source_paths.resize(src_count);
-    for (size_t i = 0; i < src_count; ++i) {
-      Vector s = source.vertices[i];
-      Vector t = project_to_mesh(s, dest);
+    buffer->active_vertex_count = m_high.vertices.size();
+    buffer->using_dest_topology = growing;
 
-      float ang = angle_between(s, t);
-      Vector ax = cross(s, t);
-      if (dot(ax, ax) > 0.00001f)
-        ax = ax.normalize();
-      else
-        ax = Vector(1, 0, 0);
+    // 2. Build the Topological Map
+    for (size_t i = 0; i < buffer->active_vertex_count; ++i) {
+      Vector v_complex = m_high.vertices[i];
+      // CRITICAL FIX 2: Break perfect architectural symmetries (like Cube vs
+      // Octahedron) by slightly rotating the evaluation point so it never
+      // aligns perfectly equidistant between symmetrical faces/corners.
+      Vector v_complex_rotated =
+          rotate(v_complex, make_rotation(Vector(0, 1, 0).normalize(), 0.01f));
 
-      buffer->source_paths[i] = {s, t, ax, ang};
+      // --- A. Find the Pierced Face ---
+      int best_face = 0;
+      float max_face_dot = -9999.0f;
+      for (size_t f = 0; f < m_low.face_counts.size(); ++f) {
+        if (m_low.face_counts[f] < 3)
+          continue;
+        int offset = m_low.face_offsets[f];
+        Vector v0 = m_low.vertices[m_low.faces[offset]];
+        Vector v1 = m_low.vertices[m_low.faces[offset + 1]];
+        Vector v2 = m_low.vertices[m_low.faces[offset + 2]];
+
+        Vector cross_prod = cross(v1 - v0, v2 - v0);
+        if (dot(cross_prod, cross_prod) < 0.000001f)
+          continue;
+        Vector normal = cross_prod.normalize();
+
+        // CRITICAL FIX 1: Force Outward Normals!
+        // Convex shapes centered at origin must have dot(normal, v0) > 0
+        if (dot(normal, v0) < 0) {
+          hs::log("MeshMorph::init - REVERSING INWARD NORMAL on base shape "
+                  "index %d",
+                  best_face);
+          normal = normal * -1.0f;
+        }
+
+        float d = dot(v_complex_rotated, normal);
+        if (d > max_face_dot) {
+          max_face_dot = d;
+          best_face = static_cast<int>(f);
+        }
+      }
+
+      // --- B. Find the Nearest Corner on THAT Face ---
+      Vector v_simple =
+          m_low.vertices[m_low.faces[m_low.face_offsets[best_face]]];
+      float max_v_dot = -9999.0f;
+      int count = m_low.face_counts[best_face];
+      int offset = m_low.face_offsets[best_face];
+
+      for (int j = 0; j < count; ++j) {
+        Vector face_v = m_low.vertices[m_low.faces[offset + j]];
+        float d = dot(v_complex_rotated, face_v);
+        if (d > max_v_dot) {
+          max_v_dot = d;
+          v_simple = face_v;
+        }
+      }
+
+      // --- C. Assign Paths ---
+      if (growing) {
+        buffer->start_pos[i] = v_simple;
+        buffer->end_pos[i] = v_complex;
+      } else {
+        buffer->start_pos[i] = v_complex;
+        buffer->end_pos[i] = v_simple;
+      }
     }
 
-    // 2. Dest -> Source Paths (Reverse Morph)
-    size_t dest_count = dest.vertices.size();
-    buffer->dest_paths.resize(dest_count);
-    for (size_t i = 0; i < dest_count; ++i) {
-      Vector t = dest.vertices[i];
-      Vector s = project_to_mesh(t, source);
+    // 3. Clone the Heavy Topology into the Output Mesh ONCE
+    output_mesh->clear();
+    output_mesh->vertices.initialize(*geometry_arena, m_high.vertices.size());
+    for (size_t i = 0; i < buffer->active_vertex_count; ++i)
+      output_mesh->vertices.push_back(buffer->start_pos[i]);
 
-      float ang = angle_between(s, t);
-      Vector ax = cross(s, t);
-      if (dot(ax, ax) > 0.00001f)
-        ax = ax.normalize();
-      else
-        ax = Vector(1, 0, 0);
+    output_mesh->face_counts.initialize(*geometry_arena,
+                                        m_high.face_counts.size());
+    output_mesh->face_offsets.initialize(*geometry_arena,
+                                         m_high.face_counts.size());
+    output_mesh->faces.initialize(*geometry_arena, m_high.faces.size());
 
-      buffer->dest_paths[i] = {s, t, ax, ang};
+    for (size_t i = 0; i < m_high.face_counts.size(); ++i) {
+      output_mesh->face_counts.push_back(m_high.face_counts[i]);
+      output_mesh->face_offsets.push_back(m_high.face_offsets[i]);
+    }
+    for (size_t i = 0; i < m_high.faces.size(); ++i) {
+      output_mesh->faces.push_back(m_high.faces[i]);
     }
   }
 
   void step(Canvas &canvas) override {
     Base::step(canvas);
-    if (!buffer)
+    if (!buffer || !output_mesh)
       return;
 
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
 
-    // Update Source Output (Deform Source -> Dest)
-    if (output_source) {
-      size_t count = buffer->source_paths.size();
-      if (output_source->vertices.size() != count) {
-        // Re-allocate memory within geometry arena implicitly by re-init?
-        // Wait, we don't have the arena here. We must assume output_source is
-        // sufficiently allocated OR we shouldn't wipe capacity. Since it's an
-        // ArenaVector, size matters for iteration. Let's fix the size.
-        output_source->vertices.force_set_size(count);
-      }
-
-      for (size_t i = 0; i < count; ++i) {
-        const auto &path = buffer->source_paths[i];
-        if (path.angle > 0.00001f) {
-          Quaternion R = make_rotation(path.axis, path.angle * alpha);
-          output_source->vertices[i] = rotate(path.start, R);
-        } else {
-          output_source->vertices[i] =
-              (path.start * (1 - alpha) + path.end * alpha).normalize();
-        }
-      }
+    for (size_t i = 0; i < buffer->active_vertex_count; ++i) {
+      // Slerp directly along the surface of the sphere
+      output_mesh->vertices[i] =
+          slerp(buffer->start_pos[i], buffer->end_pos[i], alpha);
     }
-
-    // Update Dest Output (Unwarp Dest from Source)
-    if (output_dest) {
-      size_t count = buffer->dest_paths.size();
-      if (output_dest->vertices.size() != count) {
-        output_dest->vertices.force_set_size(count);
-      }
-
-      for (size_t i = 0; i < count; ++i) {
-        const auto &path = buffer->dest_paths[i];
-        if (path.angle > 0.00001f) {
-          // Dest unwinds from Source: alpha goes 0->1.
-          // At alpha=0 (start), using make_rotation(axis, angle * 0) =
-          // Identity. rotate(start, I) = start. (start is 's' on Source). This
-          // matches Source at t=0. Correct.
-          Quaternion R = make_rotation(path.axis, path.angle * alpha);
-          output_dest->vertices[i] = rotate(path.start, R);
-        } else {
-          output_dest->vertices[i] =
-              (path.start * (1 - alpha) + path.end * alpha).normalize();
-        }
-      }
-    }
-
-    // Final topology transition is now managed entirely by callers via
-    // `.then()`
   }
 
 private:
-  MeshState *output_source;
-  MeshState *output_dest;
+  MeshState *output_mesh;
   MorphBuffer *buffer;
+  Arena *geometry_arena;
   std::function<float(float)> easing_fn;
 };
 

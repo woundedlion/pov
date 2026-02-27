@@ -99,36 +99,30 @@ private:
 
   void spawn_shape() {
     {
-      // Master marker: guarantees all temporary copies and generation
-      // garbage drop to 0 KB before drawing occurs.
       ArenaMarker master_scope(scratch_arena_a);
 
-      // --- 1. THE COMPACTION BOUNCE ---
+      // Compaction bounce
       if (mesh_states[current_mesh_idx].vertices.size() > 0) {
-
-        // 👉 CRITICAL FIX: Wrap the bounce in a scope so the 145 KB temp_bounce
-        // is instantly freed from scratch memory before generation begins!
         ArenaMarker bounce_scope(scratch_arena_a);
 
         MeshState temp_bounce;
-        MeshOps::transform(mesh_states[current_mesh_idx], temp_bounce,
-                           scratch_arena_a);
+
+        MeshOps::clone(mesh_states[current_mesh_idx], temp_bounce,
+                       scratch_arena_a);
 
         geometry_arena.set_offset(0);
-
-        // Destroy the old capacity metadata so it officially allocates at
-        // offset 0
         mesh_states[current_mesh_idx] = MeshState();
 
-        MeshOps::transform(temp_bounce, mesh_states[current_mesh_idx],
-                           geometry_arena);
+        // Bounce back to geometry_arena
+        MeshOps::clone(temp_bounce, mesh_states[current_mesh_idx],
+                       geometry_arena);
       } else {
         geometry_arena.set_offset(0);
       }
 
       solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
 
-      // --- 2. GENERATE NEW SHAPE ---
+      // Generate new shape
       {
         ArenaMarker _a(scratch_arena_a);
         ArenaMarker _b(scratch_arena_b);
@@ -143,13 +137,11 @@ private:
 
         MeshOps::compile(local_mesh, mesh_states[current_mesh_idx],
                          geometry_arena);
-      } // Gen garbage pops! Scratch A is perfectly 0 KB again.
+      }
 
-      // --- 3. CLASSIFY TOPOLOGY ---
       topologies[current_mesh_idx] = MeshOps::classify_faces_by_topology(
           mesh_states[current_mesh_idx], scratch_arena_a);
-
-    } // Classification arrays pop! Master scope ends.
+    }
 
     const auto &entry = Solids::Collections::islamic_solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,

@@ -115,6 +115,13 @@ struct Color4 {
         alpha(a) {}
   Color4(Color4 c, float a) : color(c.color), alpha(a) {}
 
+  Color4 lerp(const Color4 &other, float t) const {
+    uint16_t frac = static_cast<uint16_t>(hs::clamp(t, 0.0f, 1.0f) * 65535.0f);
+    Pixel blended = color.lerp16(other.color, frac);
+    float blended_a = alpha + (other.alpha - alpha) * t;
+    return Color4(blended, blended_a);
+  }
+
   // Implicit conversion to CRGB (Pixel)
   operator CRGB() const { return color; }
 };
