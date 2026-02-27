@@ -103,6 +103,12 @@ public:
   ArenaVector(const ArenaVector &) = delete;
   ArenaVector &operator=(const ArenaVector &) = delete;
 
+  void shallow_copy(const ArenaVector &other) {
+    data_ = other.data_;
+    size_ = other.size_;
+    capacity_ = other.capacity_;
+  }
+
   // Allow move semantics
   ArenaVector(ArenaVector &&) = default;
   ArenaVector &operator=(ArenaVector &&) = default;

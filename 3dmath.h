@@ -716,6 +716,29 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
 }
 
 /**
+ * @brief Spherical Linear Interpolation (SLERP) between two Vectors.
+ * @param v1 Starting vector.
+ * @param v2 Ending vector.
+ * @param t Interpolation factor (0.0 to 1.0).
+ * @return The interpolated unit vector.
+ */
+inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
+  float d = hs::clamp(dot(v1, v2), -1.0f, 1.0f);
+  // If vectors are extremely close, just lerp to avoid NaN
+  if (d > 0.9999f) {
+    return (v1 + (v2 - v1) * t).normalize();
+  }
+  float theta = acosf(d);
+  float sin_theta = sinf(theta);
+  if (sin_theta < 0.0001f) {
+    return (v1 + (v2 - v1) * t).normalize();
+  }
+  float s1 = sinf((1 - t) * theta) / sin_theta;
+  float s2 = sinf(t * theta) / sin_theta;
+  return ((s1 * v1) + (s2 * v2)).normalize();
+}
+
+/**
  * @brief Spherical Linear Interpolation (SLERP) between two quaternions.
  * @param q1 Starting quaternion.
  * @param q2 Ending quaternion.
@@ -741,6 +764,10 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
 
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
+  if (sin_theta < 0.0001f) {
+    Quaternion r = p + t * (q - p);
+    return r.normalize();
+  }
   float s1 = sinf((1 - t) * theta) / sin_theta;
   float s2 = sinf(t * theta) / sin_theta;
   return ((s1 * p) + (s2 * q)).normalize();

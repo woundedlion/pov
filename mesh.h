@@ -254,6 +254,35 @@ inline void compile(const PolyMesh &src, MeshState &dst, Arena &geom_arena) {
 }
 
 /**
+ * @brief Performs a strict deep copy of a MeshState into a target arena.
+ * Safe for memory compaction and bouncing between arenas.
+ */
+template <typename MeshT>
+inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
+  dst.vertices.initialize(arena, src.vertices.size());
+  for (size_t i = 0; i < src.vertices.size(); ++i) {
+    dst.vertices.push_back(src.vertices[i]);
+  }
+
+  dst.face_counts.initialize(arena, src.face_counts.size());
+  for (size_t i = 0; i < src.face_counts.size(); ++i) {
+    dst.face_counts.push_back(src.face_counts[i]);
+  }
+
+  dst.faces.initialize(arena, src.faces.size());
+  for (size_t i = 0; i < src.faces.size(); ++i) {
+    dst.faces.push_back(src.faces[i]);
+  }
+
+  if constexpr (requires { dst.face_offsets; }) {
+    dst.face_offsets.initialize(arena, src.face_offsets.size());
+    for (size_t i = 0; i < src.face_offsets.size(); ++i) {
+      dst.face_offsets.push_back(src.face_offsets[i]);
+    }
+  }
+}
+
+/**
  * @brief Transforms a MeshState into a target MeshState using the provided
  * transformer.
  * @tparam TransformerType The transformer (e.g., RippleTransformer,
@@ -265,13 +294,14 @@ inline void compile(const PolyMesh &src, MeshState &dst, Arena &geom_arena) {
 template <typename MeshT, typename... TransformerTypes>
 inline void transform(const MeshT &local_state, MeshT &world_state,
                       Arena &arena, const TransformerTypes &...transformers) {
-  world_state.vertices.initialize(arena, local_state.vertices.size());
-  world_state.face_counts.initialize(arena, local_state.face_counts.size());
-  world_state.faces.initialize(arena, local_state.faces.size());
+  world_state.face_counts.shallow_copy(local_state.face_counts);
+  world_state.faces.shallow_copy(local_state.faces);
 
   if constexpr (requires { world_state.face_offsets; }) {
-    world_state.face_offsets.initialize(arena, local_state.face_counts.size());
+    world_state.face_offsets.shallow_copy(local_state.face_offsets);
   }
+
+  world_state.vertices.initialize(arena, local_state.vertices.size());
 
   for (size_t i = 0; i < local_state.vertices.size(); ++i) {
     Vector v = local_state.vertices[i];
@@ -279,15 +309,6 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
       ((v = transformers.transform(v)), ...);
     }
     world_state.vertices.push_back(v);
-  }
-  for (size_t i = 0; i < local_state.face_counts.size(); ++i) {
-    world_state.face_counts.push_back(local_state.face_counts[i]);
-    if constexpr (requires { world_state.face_offsets; }) {
-      world_state.face_offsets.push_back(local_state.face_offsets[i]);
-    }
-  }
-  for (size_t i = 0; i < local_state.faces.size(); ++i) {
-    world_state.faces.push_back(local_state.faces[i]);
   }
 }
 
