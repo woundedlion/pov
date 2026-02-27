@@ -10,12 +10,19 @@
 
 template <int W, int H> class FlamingMesh : public Effect {
 public:
+public:
+  struct DelayCalc {
+    FlamingMesh *self;
+    float operator()(float x, float y) const {
+      return self->calculate_delay(x, y);
+    }
+  };
+
   FlamingMesh()
       : Effect(W, H), orientation(), noise(),
         filters(Filter::World::Orient<W>(orientation),
-                Filter::Screen::Temporal<W, 100000>(
-                    [this](float x, float y) { return calculate_delay(x, y); },
-                    2.0f),
+                Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
+                                                               2.0f),
                 Filter::Screen::AntiAlias<W, H>()),
         palette(Palettes::richSunset) {
     persist_pixels = false;
@@ -95,7 +102,8 @@ private:
                               (noiseVal * 0.5f + 0.5f) * params.delayAmp);
   }
 
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 100000>,
+  Pipeline<W, H, Filter::World::Orient<W>,
+           Filter::Screen::Temporal<W, 100000, DelayCalc>,
            Filter::Screen::AntiAlias<W, H>>
       filters;
 };

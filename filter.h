@@ -465,10 +465,9 @@ private:
  * @brief Temporal anti-aliasing / motion blur filter.
  * Buffers draws and outputs them when their scheduled time arrives.
  */
-template <int W, int Capacity> class Temporal : public Is2DWithHistory {
+template <int W, int Capacity, typename TTLFn>
+class Temporal : public Is2DWithHistory {
 public:
-  using TTLFn = std::function<float(float x, float y)>;
-
   Temporal(TTLFn ttl_fn, float window_size = 1.5f)
       : ttl_fn(ttl_fn), window_size(window_size), current_frame(0) {}
 

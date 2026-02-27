@@ -19,12 +19,19 @@ public:
     Datamosh = 4
   };
 
+public:
+  struct DelayCalc {
+    TestTemporal *self;
+    float operator()(float x, float y) const {
+      return self->calculate_delay(x, y);
+    }
+  };
+
   TestTemporal()
       : Effect(W, H), orientation(), noise(),
         filters(Filter::World::Orient<W>(orientation),
-                Filter::Screen::Temporal<W, 100000>(
-                    [this](float x, float y) { return calculate_delay(x, y); },
-                    2.0f),
+                Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
+                                                               2.0f),
                 Filter::Screen::AntiAlias<W, H>()),
         circular_source(Palettes::richSunset), palette(circular_source),
         modifier(0.02f) {
@@ -108,7 +115,8 @@ private:
   Orientation<W> orientation;
   Timeline<W> timeline;
   FastNoiseLite noise;
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Temporal<W, 100000>,
+  Pipeline<W, H, Filter::World::Orient<W>,
+           Filter::Screen::Temporal<W, 100000, DelayCalc>,
            Filter::Screen::AntiAlias<W, H>>
       filters;
   PolyMesh mesh;
