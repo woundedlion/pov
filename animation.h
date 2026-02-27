@@ -1217,19 +1217,18 @@ public:
 };
 
 /*
- * @brief State for a dual-mesh transition
+ * @brief State for a dual-mesh transition (Stationary Outgoing, Blooming
+ * Incoming)
  */
 struct MorphBuffer {
-  std::array<Vector, 1024> start_pos_A;
-  std::array<Vector, 1024> end_pos_A;
   std::array<Vector, 1024> start_pos_B;
   std::array<Vector, 1024> end_pos_B;
-  size_t count_A = 0;
   size_t count_B = 0;
 };
 
 /*
- * @brief Animates an elastic topological crossfade
+ * @brief Animates an elastic topological crossfade where the outgoing shape
+ * dissolves in place.
  */
 class MeshMorph : public Base<MeshMorph> {
 public:
@@ -1245,41 +1244,40 @@ public:
   }
 
   void init(const MeshState &source, const MeshState &dest) {
-    buffer->count_A = source.vertices.size();
     buffer->count_B = dest.vertices.size();
 
-    // Clone the static base topologies into our active animation buffers
     MeshOps::clone(source, *active_A, *geom_arena);
     MeshOps::clone(dest, *active_B, *geom_arena);
 
-    // Epsilon Twist: Microscopic rotation to break symmetry deadlocks (e.g.
-    // Cube to Octahedron)
-    Vector twist_axis = Vector(1.23f, 2.34f, 3.45f).normalize();
+    // Symmetry breaking
+    Vector twist_axis = Vector(0.0f, 0.0f, 1.0f);
+    bool has_poles = false;
+    for (const auto &v : source.vertices) {
+      if (std::abs(v.k) > 0.99f && std::abs(v.i) < 0.01f)
+        has_poles = true;
+    }
+    if (has_poles) {
+      twist_axis = Vector(1.0f, 1.0f, 1.0f).normalize();
+    }
     Quaternion twist = make_rotation(twist_axis, 0.05f);
 
-    auto get_nearest = [&](Vector v, const MeshState &target) {
+    auto get_nearest_on_source = [&](Vector v) {
       Vector v_biased = rotate(v, twist);
+
       int best_idx = 0;
       float max_dot = -9999.0f;
-      for (size_t j = 0; j < target.vertices.size(); ++j) {
-        float d = dot(v_biased, target.vertices[j]);
+      for (size_t j = 0; j < source.vertices.size(); ++j) {
+        float d = dot(v_biased, source.vertices[j]);
         if (d > max_dot) {
           max_dot = d;
-          best_idx = j;
+          best_idx = static_cast<int>(j);
         }
       }
-      return target.vertices[best_idx];
+      return source.vertices[best_idx];
     };
 
-    // Calculate Paths for Shape A (Normal -> Collapsed)
-    for (size_t i = 0; i < buffer->count_A; ++i) {
-      buffer->start_pos_A[i] = source.vertices[i];
-      buffer->end_pos_A[i] = get_nearest(source.vertices[i], dest);
-    }
-
-    // Calculate Paths for Shape B (Collapsed -> Normal)
     for (size_t i = 0; i < buffer->count_B; ++i) {
-      buffer->start_pos_B[i] = get_nearest(dest.vertices[i], source);
+      buffer->start_pos_B[i] = get_nearest_on_source(dest.vertices[i]);
       buffer->end_pos_B[i] = dest.vertices[i];
     }
   }
@@ -1292,11 +1290,6 @@ public:
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
 
-    // Slerp both meshes along the sphere
-    for (size_t i = 0; i < buffer->count_A; ++i) {
-      active_A->vertices[i] =
-          slerp(buffer->start_pos_A[i], buffer->end_pos_A[i], alpha);
-    }
     for (size_t i = 0; i < buffer->count_B; ++i) {
       active_B->vertices[i] =
           slerp(buffer->start_pos_B[i], buffer->end_pos_B[i], alpha);
@@ -1312,8 +1305,8 @@ private:
 };
 
 /**
- * @brief Continuously modulates Mobius parameters to create an evolving warp.
- * Uses multiple frequencies for non-repeating chaos.
+ * @brief Continuously modulates Mobius parameters to create an evolving
+ * warp. Uses multiple frequencies for non-repeating chaos.
  */
 class MobiusWarpEvolving : public Base<MobiusWarpEvolving> {
 public:

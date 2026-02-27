@@ -32,8 +32,6 @@ public:
 
     primary.preallocate(geometry_arena);
     secondary.preallocate(geometry_arena);
-    active_base_A.vertices.initialize(geometry_arena, 150);
-    active_base_B.vertices.initialize(geometry_arena, 150);
 
     {
       ArenaMarker _a(scratch_arena_a);
@@ -55,8 +53,9 @@ public:
 private:
   struct ShapeState {
     CompiledHankin hankin;
-    MeshState mesh;
-    MeshState base;
+    MeshState mesh;        // The static resting geometry
+    MeshState base;        // The simple base geometry
+    MeshState active_mesh; // The dynamic animation puppet!
     std::vector<int> topology;
     std::vector<const Palette *> palettes;
 
@@ -82,6 +81,12 @@ private:
       hankin.dynamicInstructions.initialize(arena, MAX_I);
       hankin.face_counts.initialize(arena, OUT_F);
       hankin.faces.initialize(arena, OUT_I);
+
+      active_mesh.vertices.initialize(arena, OUT_V);
+      active_mesh.face_counts.initialize(arena, OUT_F);
+      if constexpr (requires { active_mesh.face_offsets; })
+        active_mesh.face_offsets.initialize(arena, OUT_F);
+      active_mesh.faces.initialize(arena, OUT_I);
     }
 
     void load(int idx, float angle, Arena &geom, ScratchContext &ctx,
@@ -92,8 +97,9 @@ private:
       PolyMesh temp_base = gen.generate(*(ctx.source), ctx);
       MeshOps::compile(temp_base, base, geom);
       MeshOps::compile_hankin(temp_base, hankin, ctx);
-      MeshOps::update_hankin(hankin, mesh, geom, angle);
 
+      // Calculate initial state (angle = 0)
+      MeshOps::update_hankin(hankin, mesh, geom, angle);
       topology = MeshOps::classify_faces_by_topology(mesh, *(ctx.source));
 
       palettes = pool;
@@ -105,6 +111,7 @@ private:
       std::swap(hankin, other.hankin);
       std::swap(mesh, other.mesh);
       std::swap(base, other.base);
+      std::swap(active_mesh, other.active_mesh); // Swap the puppet too!
       std::swap(topology, other.topology);
       std::swap(palettes, other.palettes);
     }
@@ -114,42 +121,19 @@ private:
       &Palettes::embers, &Palettes::richSunset, &Palettes::brightSunrise,
       &Palettes::bruisedMoss, &Palettes::lavenderLake};
 
-  // Fast CPU inline update - bypasses PolyMesh conversion entirely
-  void update_dynamic_base(ShapeState &shape, MeshState &active_base,
-                           MeshState &out_mesh) {
-    for (size_t i = 0; i < active_base.vertices.size(); ++i) {
-      shape.hankin.baseVertices[i] = active_base.vertices[i];
-    }
-    for (const auto &instr : shape.hankin.dynamicInstructions) {
-      Vector pCorner = shape.hankin.baseVertices[instr.vCorner];
-      Vector pPrev = shape.hankin.baseVertices[instr.vPrev];
-      Vector pNext = shape.hankin.baseVertices[instr.vNext];
-      shape.hankin.staticVertices[instr.idxM1] = (pPrev + pCorner).normalize();
-      shape.hankin.staticVertices[instr.idxM2] = (pCorner + pNext).normalize();
-    }
-    MeshOps::update_hankin(shape.hankin, out_mesh, scratch_arena_a,
-                           params.hankin_angle);
-  }
-
   void draw_dynamic_morph(Canvas &c, float opacity) {
     ArenaMarker _a(scratch_arena_a);
 
-    // Draw Shape A (Fading Out)
-    MeshState temp_mesh_A;
-    update_dynamic_base(primary, active_base_A, temp_mesh_A);
     float op_A = (1.0f - morph_alpha) * opacity;
     if (op_A > 0.01f) {
-      draw_topology_mesh(c, temp_mesh_A, primary.topology, primary.palettes,
-                         op_A);
+      draw_topology_mesh(c, primary.active_mesh, primary.topology,
+                         primary.palettes, op_A);
     }
 
-    // Draw Shape B (Fading In)
-    MeshState temp_mesh_B;
-    update_dynamic_base(secondary, active_base_B, temp_mesh_B);
     float op_B = morph_alpha * opacity;
     if (op_B > 0.01f) {
-      draw_topology_mesh(c, temp_mesh_B, secondary.topology, secondary.palettes,
-                         op_B);
+      draw_topology_mesh(c, secondary.active_mesh, secondary.topology,
+                         secondary.palettes, op_B);
     }
   }
 
@@ -179,6 +163,7 @@ private:
       ArenaMarker _a(scratch_arena_a);
       ArenaMarker _b(scratch_arena_b);
       ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+      // Load generates the fully compiled Hankin topology at angle = 0
       secondary.load(next_idx, params.hankin_angle, geometry_arena, ctx,
                      source_palettes_pool, timeline.t);
     }
@@ -187,11 +172,11 @@ private:
     timeline.add(
         0, Animation::Transition(morph_alpha, 1.0f, DURATION, ease_in_out_sin));
 
-    // The Dual Elastic Stretch
-    timeline.add(0, Animation::MeshMorph(&active_base_A, &active_base_B,
-                                         &morph_buffer, &geometry_arena,
-                                         primary.base, secondary.base, DURATION,
-                                         false, ease_in_out_sin));
+    // The Dual Elastic Stretch DIRECTLY on the encapsulated active meshes
+    timeline.add(0, Animation::MeshMorph(
+                        &primary.active_mesh, &secondary.active_mesh,
+                        &morph_buffer, &geometry_arena, primary.mesh,
+                        secondary.mesh, DURATION, false, ease_in_out_sin));
 
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &c, float opacity) {
@@ -201,6 +186,7 @@ private:
                         .then([this, next_idx]() {
                           this->solid_idx = next_idx;
                           primary.swap(secondary);
+
                           MeshOps::update_hankin(primary.hankin, primary.mesh,
                                                  geometry_arena,
                                                  params.hankin_angle);
@@ -208,7 +194,6 @@ private:
                         }));
   }
 
-  // Massively simplified shader: strictly renders its own topology and colors!
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
                           const std::vector<int> &topology,
                           const std::vector<const Palette *> &palettes,
@@ -245,8 +230,6 @@ private:
   ShapeState primary;
   ShapeState secondary;
 
-  MeshState active_base_A;
-  MeshState active_base_B;
   Animation::MorphBuffer morph_buffer;
   float morph_alpha = 0.0f;
 
