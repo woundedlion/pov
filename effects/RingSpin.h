@@ -19,9 +19,9 @@ public:
     TransparentVignette palette;
     Orientation<W> orientation;
     Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
-    Ring() : normal(X_AXIS), palette(Palettes::iceMelt) {}
+    Ring() : normal(X_AXIS), palette(nullptr) {}
 
-    Ring(const Vector &n, const Palette &p) : normal(n), palette(p) {}
+    Ring(const Vector &n, const PaletteVariant *p) : normal(n), palette(p) {}
   };
 
   RingSpin() : Effect(W, H) {
@@ -31,13 +31,9 @@ public:
 
     persist_pixels = false;
 
-    std::vector<const Palette *> source_palettes = {
-        &Palettes::iceMelt, &Palettes::undersea, &Palettes::mangoPeel,
-        &Palettes::richSunset};
-
     for (int i = 0; i < NUM_RINGS; ++i) {
       int p_idx = i % source_palettes.size();
-      spawn_ring(X_AXIS, *source_palettes[p_idx]);
+      spawn_ring(X_AXIS, &source_palettes[p_idx]);
     }
   }
 
@@ -64,7 +60,7 @@ public:
   }
 
 private:
-  void spawn_ring(const Vector &normal, const Palette &palette) {
+  void spawn_ring(const Vector &normal, const PaletteVariant *palette) {
     if (rings.is_full())
       return;
     rings.push_back(Ring(normal, palette));
@@ -77,6 +73,10 @@ private:
   Timeline<W> timeline;
   Pipeline<W, H> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
+
+  std::vector<PaletteVariant> source_palettes = {
+      Palettes::iceMelt, Palettes::undersea, Palettes::mangoPeel,
+      Palettes::richSunset};
 
   struct Params {
     float alpha = 0.5f;

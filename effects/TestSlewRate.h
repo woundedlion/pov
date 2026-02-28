@@ -14,7 +14,7 @@ public:
         // Pipeline: Orient -> Slew -> AntiAlias
         pipeline(Filter::World::Orient<W>(orientation),
                  Filter::Screen::Slew<W, 200000>(1.0f, 0.03f)),
-        palette(source_palette), modifier(0.02f) {
+        palette(&circular_source), modifier(color_offset) {
     this->persist_pixels = false;
 
     registerParam("Light Speed", &params.lightSpeed, 0.0f, 0.5f);
@@ -22,7 +22,8 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
     palette.add(&modifier);
-    timeline.add(0, Animation::PaletteAnimation(modifier));
+    timeline.add(0, Animation::Transition(color_offset, 1.0f, 50, ease_mid,
+                                          false, true));
     rebuild_mesh();
   }
 
@@ -34,7 +35,7 @@ public:
     t += 1.0f;
 
     auto fragmentShader = [&](const Vector &v, Fragment &f) {
-      Color4 baseColor = palette.get((v.j + 1.0f) * 0.5f);
+      Color4 baseColor = get_color(palette.get((v.j + 1.0f) * 0.5f), 1.0f);
       f.color = baseColor;
 
       // Lighting Logic (Edge Pulses)
@@ -79,7 +80,9 @@ private:
            Filter::Screen::AntiAlias<W, H>>
       pipeline;
 
-  CircularPalette source_palette = CircularPalette(Palettes::richSunset);
+  float color_offset = 0.0f;
+  PaletteVariant source_variant{Palettes::richSunset};
+  PaletteVariant circular_source{CircularPalette(&source_variant)};
   AnimatedPalette palette;
   CycleModifier modifier;
   Timeline<W> timeline;

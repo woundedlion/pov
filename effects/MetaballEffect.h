@@ -70,7 +70,7 @@ public:
         if (t_val > 1.0f)
           t_val = 1.0f;
 
-        Color4 c = palette.get(t_val);
+        Color4 c = get_color(palette, t_val);
         canvas(x, y) = c.color;
       }
     }
@@ -89,7 +89,7 @@ public:
 
 private:
   std::vector<Ball> balls;
-  const Palette &palette;
+  PaletteVariant palette;
   FastNoiseLite noise;
   float t = 0.0f;
 

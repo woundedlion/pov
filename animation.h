@@ -1360,33 +1360,6 @@ private:
  */
 
 /**
- * @brief Adapts a PaletteModifier to the Animation system.
- * Holds a reference to the modifier, allowing the Timeline to drive it.
- */
-class PaletteAnimation : public Base<PaletteAnimation> {
-public:
-  /**
-   * @param modifier Reference to the stateful modifier object.
-   * @param duration Duration in frames (-1 for infinite).
-   * @param repeat Whether to repeat.
-   */
-  PaletteAnimation(PaletteModifier &modifier, int duration = -1,
-                   bool repeat = true)
-      : Base(duration, repeat), modifier(modifier) {}
-
-  /**
-   * @brief Steps the modifier.
-   */
-  void step(Canvas &canvas) {
-    Base::step(canvas);    // Updates base 't' (optional usage)
-    modifier.get().step(); // Updates the modifier's internal state
-  }
-
-private:
-  std::reference_wrapper<PaletteModifier> modifier;
-};
-
-/**
  * @brief Parameters for a ripple wave effect.
  */
 struct RippleParams {
@@ -1499,8 +1472,7 @@ using AnimationVariant = std::variant<
     Animation::Rotation<W>, Animation::Motion<W>, Animation::RandomWalk<W>,
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarpEvolving,
     Animation::MobiusWarp, Animation::MobiusWarpCircular, Animation::MeshMorph,
-    Animation::PaletteAnimation, Animation::Ripple, Animation::Noise,
-    Animation::Lerp>;
+    Animation::Ripple, Animation::Noise, Animation::Lerp>;
 
 /**
  * @brief Structure linking an animation variant with its starting time.
