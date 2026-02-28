@@ -33,7 +33,7 @@ public:
                 Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
                                                                2.0f),
                 Filter::Screen::AntiAlias<W, H>()),
-        palette(&circular_source), modifier(color_offset) {
+        palette(&circular_source) {
     registerParam("Mode", &params.mode, 0.0f, 4.0f);
     registerParam("Delay Base", &params.base, 0.0f, 50.0f);
     registerParam("Delay Amp", &params.amp, 0.0f, 50.0f);
@@ -46,9 +46,8 @@ public:
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
-    palette.add(&modifier);
-    timeline.add(0, Animation::Transition(color_offset, 1.0f, 50, ease_mid,
-                                          false, true));
+    palette.add(CycleModifier(&color_offset));
+    timeline.add(0, Animation::Driver(color_offset, 0.02f));
 
     rebuild_mesh();
   }
@@ -112,7 +111,6 @@ private:
   PaletteVariant source_variant{Palettes::richSunset};
   PaletteVariant circular_source{CircularPalette(&source_variant)};
   AnimatedPalette palette;
-  CycleModifier modifier;
 
   Orientation<W> orientation;
   Timeline<W> timeline;

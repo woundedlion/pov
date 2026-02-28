@@ -14,16 +14,15 @@ public:
         // Pipeline: Orient -> Slew -> AntiAlias
         pipeline(Filter::World::Orient<W>(orientation),
                  Filter::Screen::Slew<W, 200000>(1.0f, 0.03f)),
-        palette(&circular_source), modifier(color_offset) {
+        palette(&circular_source) {
     this->persist_pixels = false;
 
     registerParam("Light Speed", &params.lightSpeed, 0.0f, 0.5f);
     registerParam("Light Alpha", &params.lightAlpha, 0.0f, 2.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
-    palette.add(&modifier);
-    timeline.add(0, Animation::Transition(color_offset, 1.0f, 50, ease_mid,
-                                          false, true));
+    palette.add(CycleModifier(&color_offset));
+    timeline.add(0, Animation::Driver(color_offset, 0.02f));
     rebuild_mesh();
   }
 
@@ -84,7 +83,6 @@ private:
   PaletteVariant source_variant{Palettes::richSunset};
   PaletteVariant circular_source{CircularPalette(&source_variant)};
   AnimatedPalette palette;
-  CycleModifier modifier;
   Timeline<W> timeline;
 
   // Mesh

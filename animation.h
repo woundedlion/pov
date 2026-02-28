@@ -639,6 +639,41 @@ private:
 };
 
 /**
+ * @brief An animation that continuously increments a float variable over time.
+ */
+class Driver : public Base<Driver> {
+public:
+  /**
+   * @brief Constructs a Driver animation for continuous progression.
+   * @param mutant The float variable to modify.
+   * @param speed The amount to add per frame.
+   */
+  Driver(float &mutant, float speed)
+      : Base(1, true), mutant(mutant), speed(speed) {}
+
+  /**
+   * @brief Performs one step by adding the speed to the mutant.
+   */
+  void step(Canvas &canvas) {
+    Base::step(canvas);
+    mutant.get() += speed;
+    if (mutant.get() >= 1.0f)
+      mutant.get() -= 1.0f;
+    else if (mutant.get() < 0.0f)
+      mutant.get() += 1.0f;
+  }
+
+  /**
+   * @brief Rebinds the reference to the float variable being mutated.
+   */
+  void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
+
+private:
+  std::reference_wrapper<float> mutant; /**< Reference to the float variable. */
+  float speed;                          /**< Amount added per frame. */
+};
+
+/**
  * @brief An animation that interpolates between states using a captured
  * closure. Useful for structurally complex parameters.
  */
@@ -1468,11 +1503,12 @@ private:
 template <int W>
 using AnimationVariant = std::variant<
     Animation::NullAnimation, Animation::Sprite, Animation::Transition,
-    Animation::Mutation, Animation::RandomTimer, Animation::PeriodicTimer,
-    Animation::Rotation<W>, Animation::Motion<W>, Animation::RandomWalk<W>,
-    Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarpEvolving,
-    Animation::MobiusWarp, Animation::MobiusWarpCircular, Animation::MeshMorph,
-    Animation::Ripple, Animation::Noise, Animation::Lerp>;
+    Animation::Mutation, Animation::Driver, Animation::RandomTimer,
+    Animation::PeriodicTimer, Animation::Rotation<W>, Animation::Motion<W>,
+    Animation::RandomWalk<W>, Animation::ColorWipe, Animation::MobiusFlow,
+    Animation::MobiusWarpEvolving, Animation::MobiusWarp,
+    Animation::MobiusWarpCircular, Animation::MeshMorph, Animation::Ripple,
+    Animation::Noise, Animation::Lerp>;
 
 /**
  * @brief Structure linking an animation variant with its starting time.

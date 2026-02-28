@@ -632,22 +632,14 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Interface for modifying palette lookup coordinates over time.
- */
-struct PaletteModifier {
-  virtual float transform(float t) const = 0;
-  virtual ~PaletteModifier() = default;
-};
-
-/**
  * @brief Linearly cycles the palette coordinate.
  */
-struct CycleModifier : public PaletteModifier {
+struct CycleModifier {
   const float *offset;
 
-  CycleModifier(const float *driver_offset) : offset(driver_offset) {}
+  CycleModifier(const float *driver_offset = nullptr) : offset(driver_offset) {}
 
-  float transform(float t) const override {
+  float transform(float t) const {
     if (!offset)
       return t;
     float final_t = t + *offset;
@@ -656,26 +648,29 @@ struct CycleModifier : public PaletteModifier {
       final_t += 1.0f; // Handle negative offsets gracefully
     return fmodf(final_t, 1.0f);
   }
-
-  ~CycleModifier() override = default;
 };
 
 /**
  * @brief Oscillates the palette coordinate (Breathing).
  */
-struct BreatheModifier : public PaletteModifier {
+struct BreatheModifier {
   const float *phase;
   float amplitude;
 
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
       : phase(driver_phase), amplitude(amp) {}
 
-  float transform(float t) const override {
+  float transform(float t) const {
     if (!phase)
       return t;
     return std::clamp(t + sinf(*phase) * amplitude, 0.0f, 1.0f);
   }
 };
+
+/**
+ * @brief Variant holding any supported modifier type.
+ */
+using ModifierVariant = std::variant<CycleModifier, BreatheModifier>;
 
 class AnimatedPalette;
 class CircularPalette;
@@ -706,9 +701,9 @@ public:
 
   /**
    * Explicitly connect a modifier to this palette.
-   * Stores a pointer. The modifier must outlive the palette.
+   * Stores a value.
    */
-  AnimatedPalette &add(PaletteModifier *modifier) {
+  AnimatedPalette &add(const ModifierVariant &modifier) {
     if (!modifiers.is_full()) {
       modifiers.push_back(modifier);
     }
@@ -719,7 +714,7 @@ public:
 
 private:
   const PaletteVariant *source;
-  StaticCircularBuffer<PaletteModifier *, 4> modifiers;
+  StaticCircularBuffer<ModifierVariant, 4> modifiers;
 
 public:
   ~AnimatedPalette() = default;
@@ -815,9 +810,8 @@ inline Color4 get_color(const PaletteVariant &pv, float t) {
 inline Color4 AnimatedPalette::get(float t) const {
   float final_t = t;
   for (size_t i = 0; i < modifiers.size(); ++i) {
-    if (modifiers[i]) {
-      final_t = modifiers[i]->transform(final_t);
-    }
+    final_t = std::visit(
+        [final_t](auto &&arg) { return arg.transform(final_t); }, modifiers[i]);
   }
   return source ? get_color(*source, final_t) : Color4(CRGB(0, 0, 0), 0.0f);
 }
