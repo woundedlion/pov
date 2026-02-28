@@ -20,7 +20,7 @@ public:
     float offset_radius;
     float offset_speed;
     float warp_scale;
-    const Palette *palette;
+    PaletteVariant palette;
     float alpha;
     bool enable_slice = false;
   };
@@ -102,21 +102,22 @@ private:
   std::vector<Params> presets; // DELETE
   MobiusWarpTransformer<W, 64> mobius_gen;
 
+  PaletteVariant bloodStreamVar{Palettes::bloodStream};
   AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },
-                                         Palettes::bloodStream};
+                                         &bloodStreamVar};
 
   Presets<Params> preset_manager = {{"rhombicuboctahedron",
                                      {"rhombicuboctahedron", 18.0f, 0.3f, 0.4f,
-                                      0.3f, &bloodStreamFalloff, 0.7f}},
+                                      0.3f, bloodStreamFalloff, 0.7f}},
                                     {"rhombicosidodecahedron",
                                      {"rhombicosidodecahedron", 6.0f, 0.05f,
-                                      1.0f, 1.8f, &bloodStreamFalloff, 0.7f}},
+                                      1.0f, 1.8f, bloodStreamFalloff, 0.7f}},
                                     {"truncatedCuboctahedron",
                                      {"truncatedCuboctahedron", 6.0f, 0.16f,
-                                      1.0f, 2.0f, &Palettes::richSunset, 0.3f}},
+                                      1.0f, 2.0f, Palettes::richSunset, 0.3f}},
                                     {"icosidodecahedron",
                                      {"icosidodecahedron", 10.0f, 0.16f, 1.0f,
-                                      0.5f, &Palettes::lavenderLake, 0.3f}}};
+                                      0.5f, Palettes::lavenderLake, 0.3f}}};
 
   void setup_presets() {
     // Pre-load Geometry
@@ -224,7 +225,7 @@ private:
     };
 
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
-      Color4 c = p.palette->get(f.v0);
+      Color4 c = get_color(p.palette, f.v0);
       c.alpha *= p.alpha * opacity;
       f.color = c;
     };

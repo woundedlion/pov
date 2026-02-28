@@ -33,8 +33,7 @@ public:
                 Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
                                                                2.0f),
                 Filter::Screen::AntiAlias<W, H>()),
-        circular_source(Palettes::richSunset), palette(circular_source),
-        modifier(0.02f) {
+        palette(&circular_source), modifier(color_offset) {
     registerParam("Mode", &params.mode, 0.0f, 4.0f);
     registerParam("Delay Base", &params.base, 0.0f, 50.0f);
     registerParam("Delay Amp", &params.amp, 0.0f, 50.0f);
@@ -48,7 +47,8 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
     palette.add(&modifier);
-    timeline.add(0, Animation::PaletteAnimation(modifier));
+    timeline.add(0, Animation::Transition(color_offset, 1.0f, 50, ease_mid,
+                                          false, true));
 
     rebuild_mesh();
   }
@@ -66,7 +66,7 @@ public:
     Plot::Mesh::draw<W, H>(
         filters, canvas, mesh, [&](const Vector &v, Fragment &f) {
           float t_val = (v.j + 1.0f) * 0.5f;
-          f.color = palette.get(t_val);
+          f.color = get_color(palette.get((v.j + 1.0f) * 0.5f), 1.0f);
 
           // Lighting Logic (Edge Pulses)
           float phase = fmodf(t * 0.05f, 1.0f); // Fixed light speed
@@ -108,7 +108,9 @@ public:
 private:
   float t = 0;
 
-  CircularPalette circular_source;
+  float color_offset = 0.0f;
+  PaletteVariant source_variant{Palettes::richSunset};
+  PaletteVariant circular_source{CircularPalette(&source_variant)};
   AnimatedPalette palette;
   CycleModifier modifier;
 

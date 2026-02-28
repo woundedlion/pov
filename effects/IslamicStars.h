@@ -70,7 +70,7 @@ private:
 
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const std::vector<int> &faceIndices,
-                  const std::vector<const Palette *> &palettes) {
+                  const std::vector<PaletteVariant> &palettes) {
     ArenaMarker _(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
@@ -83,14 +83,14 @@ private:
       if (faceIdx >= 0 && faceIdx < (int)faceIndices.size()) {
         color_idx = faceIndices[faceIdx];
       }
-      const Palette *pal = palettes[color_idx];
+      const PaletteVariant &pal = palettes[color_idx];
 
       float distFromEdge = -frag.v1;
       float size = frag.size;
       float intensity = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
       intensity = hs::clamp(intensity, 0.0f, 1.0f);
 
-      frag.color = pal->get(intensity);
+      frag.color = get_color(pal, intensity);
       frag.color.alpha = opacity;
     };
 
@@ -149,9 +149,9 @@ private:
             (int)mesh_states[current_mesh_idx].faces.size());
 
     // Prepare Palettes
-    std::vector<const Palette *> palettes = {
-        &Palettes::embers, &Palettes::richSunset, &Palettes::brightSunrise,
-        &Palettes::bruisedMoss, &Palettes::lavenderLake};
+    std::vector<PaletteVariant> palettes = {
+        Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
+        Palettes::bruisedMoss, Palettes::lavenderLake};
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
     std::shuffle(palettes.begin(), palettes.end(), g);
 

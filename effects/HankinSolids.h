@@ -57,7 +57,7 @@ private:
     MeshState base;        // The simple base geometry
     MeshState active_mesh; // The dynamic animation puppet!
     std::vector<int> topology;
-    std::vector<const Palette *> palettes;
+    std::vector<PaletteVariant> palettes;
 
     void preallocate(Arena &arena) {
       constexpr int MAX_V = 150, MAX_F = 100, MAX_I = 400;
@@ -90,7 +90,7 @@ private:
     }
 
     void load(int idx, float angle, Arena &geom, ScratchContext &ctx,
-              const std::vector<const Palette *> &pool, float time) {
+              const std::vector<PaletteVariant> &pool, float time) {
       SolidGenerator gen(idx);
       hs::log("Transitioning to '%s'", Solids::get_entry(idx).name);
 
@@ -117,9 +117,9 @@ private:
     }
   };
 
-  const std::vector<const Palette *> source_palettes_pool = {
-      &Palettes::embers, &Palettes::richSunset, &Palettes::brightSunrise,
-      &Palettes::bruisedMoss, &Palettes::lavenderLake};
+  const std::vector<PaletteVariant> source_palettes_pool = {
+      Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
+      Palettes::bruisedMoss, Palettes::lavenderLake};
 
   void draw_dynamic_morph(Canvas &c, float opacity) {
     ArenaMarker _a(scratch_arena_a);
@@ -198,7 +198,7 @@ private:
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
                           const std::vector<int> &topology,
-                          const std::vector<const Palette *> &palettes,
+                          const std::vector<PaletteVariant> &palettes,
                           float opacity) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
@@ -222,7 +222,7 @@ private:
           (f.size > 0.0001f) ? (distFromEdge / f.size) : 0.0f;
       float t = hs::clamp(normalizedDist * params.intensity, 0.0f, 1.0f);
 
-      f.color = palettes[topoIdx % palettes.size()]->get(t);
+      f.color = get_color(palettes[topoIdx % palettes.size()], t);
       f.color.alpha *= opacity;
     };
 
