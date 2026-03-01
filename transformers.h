@@ -51,7 +51,11 @@ public:
         e.active = true;
         // Create animation with reference to the stable entity params
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
-        timeline.add(in_frames, anim.then([&e]() { e.active = false; }));
+        bool repeats = anim.repeats();
+        timeline.add(in_frames, anim.then([&e, repeats]() {
+          if (!repeats)
+            e.active = false;
+        }));
         return;
       }
     }

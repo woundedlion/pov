@@ -45,8 +45,8 @@ public:
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
                                     ease_mid, true))
         .add(160, Animation::Mutation(params.num_lines,
-                                      sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
-                                      ease_mid, true));
+                                      sin_wave(12.0f, 1.0f, 1.0f, PI_F / 2.0f),
+                                      320, ease_mid, true));
   }
 
   bool show_bg() const override { return false; }
