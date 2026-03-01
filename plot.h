@@ -151,7 +151,7 @@ static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
                              bool isLastSegment) {
     // Handle Degenerate Segment
     if (total_dist < 1e-5f) {
-      bool shouldOmit = (close_loop) ? false : !isLastSegment;
+      bool shouldOmit = (close_loop) ? true : !isLastSegment;
       if (!shouldOmit) {
         Fragment f_copy = curr;
         // Set temp values for shader
@@ -191,7 +191,7 @@ static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
     }
 
     float scale = (sim_dist > 0.0f) ? (total_dist / sim_dist) : 0.0f;
-    bool omitLast = (close_loop) ? false : !isLastSegment;
+    bool omitLast = (close_loop) ? true : !isLastSegment;
 
     if (omitLast && _steps_cache.empty())
       return;
