@@ -8,6 +8,7 @@
 #include <vector>
 #include <array>
 #include "../effects_engine.h"
+#include "../waves.h"
 
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
@@ -54,7 +55,12 @@ public:
   ChaoticStrings()
       : Effect(W, H), cur_function_idx(0),
         filters(Filter::Screen::AntiAlias<W, H>()),
-        path([this](float t) { return Vector(0, 1, 0); }), noise(timeline) {
+        path([this](float t) { return Vector(0, 1, 0); }),
+        animated_palette(&palette_variant), ripple_phase(0.0f),
+        cycle_offset(0.0f), noise(timeline) {
+
+    animated_palette.add(ScaleModifier(1.0f)).add(CycleModifier(&cycle_offset));
+    palette_variant = Palettes::fireAndIce;
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
@@ -85,7 +91,6 @@ public:
                           cur_function_idx = static_cast<int>(
                               hs::rand_int(0, functions.size()));
                           update_path();
-                          update_palette();
                         },
                         true));
     timeline.add(0, Animation::PeriodicTimer(
@@ -97,7 +102,11 @@ public:
                         },
                         true));
 
-    // Initialize with first preset
+    timeline.add(0, Animation::Mutation(ripple_phase,
+                                        sin_wave(0.0f, 10.0f, 0.05f, 0.0f), -1,
+                                        ease_mid, true));
+    //    timeline.add(0, Animation::Driver(cycle_offset, 0.001f));
+
     params = preset_manager.get();
   }
 
@@ -141,7 +150,7 @@ public:
     });
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      frag.color = palette.get(frag.v0);
+      frag.color = animated_palette.get(frag.v1);
       frag.color.alpha *= quintic_kernel(frag.v0);
     };
     Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
@@ -156,21 +165,14 @@ private:
     };
   }
 
-  void update_palette() {
-    static GenerativePalette next_palette(GradientShape::STRAIGHT,
-                                          HarmonyType::TRIADIC,
-                                          BrightnessProfile::ASCENDING);
-    next_palette =
-        GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                          BrightnessProfile::ASCENDING);
-    timeline.add(0, Animation::ColorWipe(palette, next_palette, 48, ease_mid));
-  }
-
   Timeline<W> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ProceduralPath<std::function<Vector(float)>> path;
   Orientation<W> orientation;
-  GenerativePalette palette;
+  PaletteVariant palette_variant;
+  AnimatedPalette animated_palette;
+  float ripple_phase;
+  float cycle_offset;
   std::vector<LissajousConfig> functions;
   int cur_function_idx;
   Node node;

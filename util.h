@@ -33,6 +33,12 @@ template <typename T, typename U> inline T wrap(T x, U m) {
 }
 
 /**
+ * @brief Fast floating point modulo for 1.0.
+ * Safely wraps any float (positive or negative) into the [0.0, 1.0) range.
+ */
+inline float wrap_t(float t) { return t - floorf(t); }
+
+/**
  * @brief Wraps an integer value around a modulo base (m).
  * @details Ensures the result is always non-negative.
  * @param x The value to wrap.
