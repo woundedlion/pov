@@ -20,6 +20,8 @@ public:
     float jitterAmp = 3.0f;
     float speed = 0.1f;
     float noiseFreq = 0.33f;
+    float scaleFactor = 200.0f;
+    float cycleSpeed = 0.1f;
 
     void lerp(const Params &a, const Params &b, float t) {
       alpha = ::lerp(a.alpha, b.alpha, t);
@@ -27,6 +29,8 @@ public:
       jitterAmp = ::lerp(a.jitterAmp, b.jitterAmp, t);
       speed = ::lerp(a.speed, b.speed, t);
       noiseFreq = ::lerp(a.noiseFreq, b.noiseFreq, t);
+      scaleFactor = ::lerp(a.scaleFactor, b.scaleFactor, t);
+      cycleSpeed = ::lerp(a.cycleSpeed, b.cycleSpeed, t);
     }
   } params;
 
@@ -62,7 +66,7 @@ public:
     persist_pixels = false;
 
     // Colors
-    animated_palette.add(ScaleModifier(200.0f))
+    animated_palette.add(ScaleModifier(200.0f, &params.scaleFactor))
         .add(CycleModifier(&cycle_offset));
     palette_variant = Palettes::fireAndIce;
 
@@ -72,6 +76,8 @@ public:
     registerParam("Speed", &params.speed, 0.0f, 5.0f);
     registerParam("Jitter Amp", &params.jitterAmp, 0.0f, 10.0f);
     registerParam("Noise Freq", &params.noiseFreq, 0.01f, 10.0f);
+    registerParam("Scale Factor", &params.scaleFactor, 1.0f, 500.0f);
+    registerParam("Cycle Speed", &params.cycleSpeed, 0.0f, 1.0f);
 
     // Initialize noise params
     noise.params.amplitude = params.jitterAmp;
@@ -108,7 +114,7 @@ public:
     timeline.add(0, Animation::Mutation(ripple_phase,
                                         sin_wave(0.0f, 10.0f, 0.05f, 0.0f), -1,
                                         ease_mid, true));
-    timeline.add(0, Animation::Driver(cycle_offset, 10.0f));
+    timeline.add(0, Animation::Driver(cycle_offset, params.cycleSpeed));
 
     params = preset_manager.get();
   }
@@ -134,6 +140,24 @@ public:
     noise.params.sync();
 
     // Update active noise entities to reflect live parameter changes
+    for (auto &e : noise.entities) {
+      if (e.active) {
+        e.params.frequency = params.noiseFreq;
+        e.params.amplitude = params.jitterAmp;
+        e.params.speed = params.speed;
+        e.params.sync();
+      }
+    }
+
+    // Update cycle speed dynamically
+    for (int i = 0; i < timeline.num_events; ++i) {
+      auto &e = timeline.events[i];
+      if (auto *driver = std::get_if<Animation::Driver>(&e.animation)) {
+        if (&driver->get_mutant() == &cycle_offset) {
+          driver->set_speed(params.cycleSpeed);
+        }
+      }
+    }
     for (auto &e : noise.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;

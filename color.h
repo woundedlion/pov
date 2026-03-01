@@ -759,9 +759,15 @@ struct QuantizeModifier {
  * so the palette repeats multiple times across the domain.
  */
 struct ScaleModifier {
-  float scale;
-  ScaleModifier(float s = 1.0f) : scale(s) {}
-  float modify(float t) const { return t * scale; }
+  const float *dynamic_scale;
+  float base_scale;
+
+  ScaleModifier(float s = 1.0f, const float *d_scale = nullptr)
+      : base_scale(s), dynamic_scale(d_scale) {}
+
+  float modify(float t) const {
+    return t * (dynamic_scale ? *dynamic_scale : base_scale);
+  }
 };
 
 /**

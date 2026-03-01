@@ -417,8 +417,7 @@ struct Multiline {
       float dist = angle_between(prev.pos, curr.pos);
       current_len += dist;
 
-      f = Fragment::lerp(prev, curr, 1.0f);
-      f.pos = curr.pos;
+      f = curr;
       f.v0 = current_len / total_len;
       f.v1 = current_len;
       f.v2 = static_cast<float>(idx++);
@@ -429,8 +428,7 @@ struct Multiline {
     if (closed) {
       float dist = angle_between(prev.pos, first.pos);
       current_len += dist;
-      f = Fragment::lerp(prev, first, 1.0f);
-      f.pos = first.pos;
+      f = first;
       f.v0 = 1.0f; // Explicitly 1.0
       f.v1 = current_len;
       f.v2 = static_cast<float>(idx);
