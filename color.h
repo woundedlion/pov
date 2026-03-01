@@ -628,7 +628,7 @@ public:
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// Palette Wrappers
+// Palette Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -639,15 +639,7 @@ struct CycleModifier {
 
   CycleModifier(const float *driver_offset = nullptr) : offset(driver_offset) {}
 
-  float transform(float t) const {
-    if (!offset)
-      return t;
-    float final_t = t + *offset;
-    // Keep offset within [0, 1] logic is now handled by fmodf or the driver
-    if (final_t < 0.0f)
-      final_t += 1.0f; // Handle negative offsets gracefully
-    return fmodf(final_t, 1.0f);
-  }
+  float modify(float t) const { return offset ? t + *offset : t; }
 };
 
 /**
@@ -660,17 +652,124 @@ struct BreatheModifier {
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
       : phase(driver_phase), amplitude(amp) {}
 
-  float transform(float t) const {
+  float modify(float t) const {
     if (!phase)
       return t;
-    return std::clamp(t + sinf(*phase) * amplitude, 0.0f, 1.0f);
+    return t + sinf(*phase) * amplitude;
   }
+};
+
+/**
+ * @brief Distorts the palette spatially with a sine wave, creating a liquid
+ * ripple effect. When applied to a spatial coordinate, colors will compress and
+ * expand like waves.
+ */
+struct RippleModifier {
+  const float *phase;
+  float frequency;
+  float amplitude;
+
+  RippleModifier(const float *phase, float freq = 3.0f, float amp = 0.1f)
+      : phase(phase), frequency(freq), amplitude(amp) {}
+
+  float modify(float t) const {
+    if (!phase)
+      return t;
+    // Calculate a local distortion based on the current t position
+    return t + sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
+  }
+};
+
+/**
+ * @brief Folds the palette back and forth like a kaleidoscope.
+ * A folds value of 2.0 maps [0...1] to [0 -> 1 -> 0 -> 1 -> 0].
+ */
+struct FoldModifier {
+  const float *phase;
+  float folds;
+
+  FoldModifier(float folds = 2.0f, const float *phase = nullptr)
+      : phase(phase), folds(folds) {}
+
+  float modify(float t) const {
+    float shift = phase ? *phase : 0.0f;
+    float scaled = (t * folds) + shift;
+
+    // Triangle wave formula: creates symmetrical, continuous bouncing between 0
+    // and 1
+    return fabsf(fmodf(scaled, 2.0f) - 1.0f);
+  }
+};
+
+/**
+ * @brief Pinches or expands the center of the palette.
+ * positive tension pulls colors toward the center, negative pushes them to the
+ * edges. Creates an elastic, tension-release visual dynamic.
+ */
+struct PinchModifier {
+  const float *tension; // Expects roughly -0.9 to 0.9
+
+  PinchModifier(const float *t) : tension(t) {}
+
+  float modify(float t) const {
+    if (!tension)
+      return t;
+
+    // Shift t to -1.0 to 1.0 range based on a 0.0 to 1.0 domain block
+    float wrapped_t = wrap_t(t);
+    float centered = wrapped_t * 2.0f - 1.0f;
+    float sign = centered < 0.0f ? -1.0f : 1.0f;
+
+    // Apply power curve
+    float amount = std::clamp(*tension, -0.99f, 0.99f);
+    float power = (amount < 0.0f) ? (1.0f / (1.0f + std::abs(amount)))
+                                  : (1.0f + amount * 3.0f);
+
+    centered = sign * powf(std::abs(centered), power);
+
+    // Map back to 0.0 to 1.0 and add to integer spatial frame
+    return floorf(t) + ((centered + 1.0f) * 0.5f);
+  }
+};
+
+/**
+ * @brief Snaps smooth gradients into harsh, distinct bands (Posterization).
+ * By animating the step count or offsetting before quantizing, you get a
+ * retro/glitch aesthetic.
+ */
+struct QuantizeModifier {
+  const float *dynamic_steps;
+  float base_steps;
+
+  QuantizeModifier(float steps, const float *d_steps = nullptr)
+      : base_steps(steps), dynamic_steps(d_steps) {}
+
+  float modify(float t) const {
+    float s = dynamic_steps ? *dynamic_steps : base_steps;
+    if (s < 1.0f)
+      s = 1.0f;
+
+    // Round to nearest step in the infinite domain
+    return roundf(t * s) / s;
+  }
+};
+
+/**
+ * @brief Multiplies the palette coordinate, increasing the frequency
+ * so the palette repeats multiple times across the domain.
+ */
+struct ScaleModifier {
+  float scale;
+  ScaleModifier(float s = 1.0f) : scale(s) {}
+  float modify(float t) const { return t * scale; }
 };
 
 /**
  * @brief Variant holding any supported modifier type.
  */
-using ModifierVariant = std::variant<CycleModifier, BreatheModifier>;
+using ModifierVariant =
+    std::variant<CycleModifier, BreatheModifier, RippleModifier, FoldModifier,
+                 PinchModifier, QuantizeModifier, ScaleModifier>;
 
 class AnimatedPalette;
 class CircularPalette;
@@ -679,6 +778,10 @@ class VignettePalette;
 class TransparentVignette;
 class AlphaFalloffPalette;
 class SolidColorPalette;
+
+///////////////////////////////////////////////////////////////////////////////
+// Palette Variants
+///////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Variant holding any supported palette type.
@@ -810,9 +913,13 @@ inline Color4 get_color(const PaletteVariant &pv, float t) {
 inline Color4 AnimatedPalette::get(float t) const {
   float final_t = t;
   for (size_t i = 0; i < modifiers.size(); ++i) {
-    final_t = std::visit(
-        [final_t](auto &&arg) { return arg.transform(final_t); }, modifiers[i]);
+    final_t = std::visit([final_t](auto &&arg) { return arg.modify(final_t); },
+                         modifiers[i]);
   }
+
+  // Fast wrap the final coordinate right before querying the source palette
+  final_t = wrap_t(final_t);
+
   return source ? get_color(*source, final_t) : Color4(CRGB(0, 0, 0), 0.0f);
 }
 
