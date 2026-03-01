@@ -12,7 +12,7 @@
 
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 115;
+  static constexpr int TRAIL_LENGTH = 20;
 
   struct Params {
     float alpha = 1.0f;
@@ -146,12 +146,13 @@ public:
       Vector v_local = rotate(node.v, q);
       Vector v_final = orientation.orient(v_local);
       v_final = noise.transform(v_final);
-      vertices.emplace_back(v_final);
+      vertices.emplace_back(Fragment(v_final));
+      vertices.back().v3 = t;
     });
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      frag.color = animated_palette.get(frag.v1);
-      frag.color.alpha *= quintic_kernel(frag.v0);
+      frag.color = animated_palette.get(frag.v3);
+      frag.color.alpha *= quintic_kernel(frag.v3);
     };
     Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
   }
@@ -177,5 +178,5 @@ private:
   int cur_function_idx;
   Node node;
   NoiseTransformer<W, 1> noise;
-  StaticCircularBuffer<Vector, 20000> vertices;
+  StaticCircularBuffer<Fragment, 20000> vertices;
 };

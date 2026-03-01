@@ -103,7 +103,8 @@ public:
         auto fragment_shader = [&](const Vector &, Fragment &f) {
           f.color = c;
         };
-        Plot::Line::draw<W, H>(filters, canvas, prev, v, fragment_shader);
+        Plot::Line::draw<W, H>(filters, canvas, Fragment(prev), Fragment(v),
+                               fragment_shader);
 
         prev_positions[i] = v;
       } else {

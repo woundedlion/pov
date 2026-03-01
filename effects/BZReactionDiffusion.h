@@ -248,7 +248,7 @@ private:
         auto shader = [c_final](const Vector &p, Fragment &f) {
           f.color = c_final;
         };
-        Plot::Point::draw(filters, canvas, nodes[i], shader);
+        Plot::Point::draw(filters, canvas, Fragment(nodes[i]), shader);
       }
     }
   }

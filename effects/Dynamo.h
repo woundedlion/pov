@@ -1,6 +1,7 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #pragma once
 #include <functional>
@@ -9,36 +10,27 @@
 #include <map>
 #include "../effects_engine.h"
 
-template <int W, int H>
-class Dynamo : public Effect {
+template <int W, int H> class Dynamo : public Effect {
 public:
-
   struct Node {
-    Node() :
-      x(0), y(0), v(0)
-    {
-    }
+    Node() : x(0), y(0), v(0) {}
 
     int x;
     int y;
     int v;
   };
 
-  Dynamo() :
-    Effect(W, H),
-    palettes({ GenerativePalette(
-      GradientShape::VIGNETTE,
-      HarmonyType::ANALOGOUS,
-      BrightnessProfile::ASCENDING) }),
-    palette_normal(Z_AXIS), // Z is UP in C++ (vs Y in JS)
+  Dynamo()
+      : Effect(W, H),
+        palettes(
+            {GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,
+                               BrightnessProfile::ASCENDING)}),
+        palette_normal(Z_AXIS), // Z is UP in C++ (vs Y in JS)
 
-    filters(
-      Filter::World::Trails<W, 10000>((uint32_t)params.trail_length),
-      Filter::World::Replicate<W>(3),
-      Filter::World::Orient<W>(orientation),
-      Filter::Screen::AntiAlias<W, H>()
-    )
-  {
+        filters(Filter::World::Trails<W, 10000>((uint32_t)params.trail_length),
+                Filter::World::Replicate<W>(3),
+                Filter::World::Orient<W>(orientation),
+                Filter::Screen::AntiAlias<W, H>()) {
     registerParam("Speed", &params.speed, -10.0f, 10.0f);
     registerParam("Gap", &params.gap, 1.0f, 20.0f);
     registerParam("Trail Len", &params.trail_length, 1.0f, 100.0f);
@@ -51,24 +43,21 @@ public:
     }
 
     timeline
-      .add(0,
-        Animation::RandomTimer(4, 64, [this](auto&) { reverse(); }, true))
-      .add(0,
-        Animation::RandomTimer(20, 64, [this](auto&) { color_wipe(); }, true))
-      .add(0,
-        Animation::RandomTimer(48, 160, [this](auto&) { rotate(); }, true));
+        .add(0, Animation::RandomTimer(
+                    4, 64, [this](auto &) { reverse(); }, true))
+        .add(0, Animation::RandomTimer(
+                    20, 64, [this](auto &) { color_wipe(); }, true))
+        .add(0, Animation::RandomTimer(
+                    48, 160, [this](auto &) { rotate(); }, true));
   }
 
   bool show_bg() const override { return false; }
 
-  void reverse() {
-    params.speed *= -1;
-  }
+  void reverse() { params.speed *= -1; }
 
   void rotate() {
-    timeline.add(0,
-      Animation::Rotation<W>(
-        orientation, random_vector(), PI_F, 40, ease_in_out_sin, false));
+    timeline.add(0, Animation::Rotation<W>(orientation, random_vector(), PI_F,
+                                           40, ease_in_out_sin, false));
   }
 
   void color_wipe() {
@@ -77,22 +66,20 @@ public:
       return;
     }
 
-    palettes.push_front(GenerativePalette(
-      GradientShape::VIGNETTE,
-      HarmonyType::ANALOGOUS,
-      BrightnessProfile::ASCENDING));
+    palettes.push_front(GenerativePalette(GradientShape::VIGNETTE,
+                                          HarmonyType::ANALOGOUS,
+                                          BrightnessProfile::ASCENDING));
     palette_boundaries.push_front(0);
 
-    timeline.add(0,
-      Animation::Transition(palette_boundaries.front(), PI_F, (int)params.wipe_duration, ease_mid)
-      .then([this]() {
-        palette_boundaries.pop_back();
-        palettes.pop_back();
-        })
-    );
+    timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
+                                          (int)params.wipe_duration, ease_mid)
+                        .then([this]() {
+                          palette_boundaries.pop_back();
+                          palettes.pop_back();
+                        }));
   }
 
-  Color4 color(const Vector& v, float t) {
+  Color4 color(const Vector &v, float t) {
     constexpr float blend_width = PI_F / 4;
     float a = angle_between(v, palette_normal);
 
@@ -102,56 +89,77 @@ public:
       auto upper_edge = boundary + blend_width;
 
       if (a < lower_edge) {
-        return std::visit([t](auto& p) -> Color4 {
-          using T = std::decay_t<decltype(p)>;
-          if constexpr (std::is_same_v<T, std::monostate>) {
-            return Color4(); // Should not happen if logic is correct
-          } else {
-            return p.get(t);
-          }
-        }, palettes[i]);
+        return std::visit(
+            [t](auto &p) -> Color4 {
+              using T = std::decay_t<decltype(p)>;
+              if constexpr (std::is_same_v<T, std::monostate>) {
+                return Color4(); // Should not happen if logic is correct
+              } else {
+                return p.get(t);
+              }
+            },
+            palettes[i]);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
         auto clamped_blend_factor = hs::clamp(blend_factor, 0.0f, 1.0f);
 
-        Color4 c1 = std::visit([t](auto& p) -> Color4 {
-          using T = std::decay_t<decltype(p)>;
-          if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
-          else { return p.get(t); }
-        }, palettes[i]);
-        Color4 c2 = std::visit([t](auto& p) -> Color4 {
-          using T = std::decay_t<decltype(p)>;
-          if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
-          else { return p.get(t); }
-        }, palettes[i + 1]);
+        Color4 c1 = std::visit(
+            [t](auto &p) -> Color4 {
+              using T = std::decay_t<decltype(p)>;
+              if constexpr (std::is_same_v<T, std::monostate>) {
+                return Color4();
+              } else {
+                return p.get(t);
+              }
+            },
+            palettes[i]);
+        Color4 c2 = std::visit(
+            [t](auto &p) -> Color4 {
+              using T = std::decay_t<decltype(p)>;
+              if constexpr (std::is_same_v<T, std::monostate>) {
+                return Color4();
+              } else {
+                return p.get(t);
+              }
+            },
+            palettes[i + 1]);
 
         uint16_t fract = to_short(clamped_blend_factor);
-        return Color4(
-          c1.color.lerp16(c2.color, fract),
-          lerp(c1.alpha, c2.alpha, clamped_blend_factor)
-        );
+        return Color4(c1.color.lerp16(c2.color, fract),
+                      lerp(c1.alpha, c2.alpha, clamped_blend_factor));
       }
 
-      auto next_boundary_lower_edge = (i + 1 < palette_boundaries.size()
-        ? palette_boundaries[i + 1] - blend_width
-        : 100.0f); // Infinity check
+      auto next_boundary_lower_edge =
+          (i + 1 < palette_boundaries.size()
+               ? palette_boundaries[i + 1] - blend_width
+               : 100.0f); // Infinity check
 
       if (a > upper_edge && a < next_boundary_lower_edge) {
-        return std::visit([t](auto& p) -> Color4 {
-          using T = std::decay_t<decltype(p)>;
-          if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
-          else { return p.get(t); }
-        }, palettes[i + 1]);
+        return std::visit(
+            [t](auto &p) -> Color4 {
+              using T = std::decay_t<decltype(p)>;
+              if constexpr (std::is_same_v<T, std::monostate>) {
+                return Color4();
+              } else {
+                return p.get(t);
+              }
+            },
+            palettes[i + 1]);
       }
     }
 
-    return std::visit([t](auto& p) -> Color4 {
-      using T = std::decay_t<decltype(p)>;
-      if constexpr (std::is_same_v<T, std::monostate>) { return Color4(); }
-      else { return p.get(t); }
-    }, palettes[0]);
+    return std::visit(
+        [t](auto &p) -> Color4 {
+          using T = std::decay_t<decltype(p)>;
+          if constexpr (std::is_same_v<T, std::monostate>) {
+            return Color4();
+          } else {
+            return p.get(t);
+          }
+        },
+        palettes[0]);
   }
 
   void draw_frame() override {
@@ -163,27 +171,27 @@ public:
       draw_nodes(canvas, static_cast<float>(i) / std::abs((int)params.speed));
     }
 
-    filters.flush(canvas, [this](const Vector& v, float t) { return color(v, t); }, 1.0f);
+    filters.flush(
+        canvas, [this](const Vector &v, float t) { return color(v, t); }, 1.0f);
   }
 
 private:
-
-  void draw_nodes(Canvas& canvas, float age) {
+  void draw_nodes(Canvas &canvas, float age) {
     for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
         auto from = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
         Color4 c = color(from, 0);
-        c.alpha *= 0.5f; 
+        c.alpha *= 0.5f;
         filters.plot(canvas, from, c.color, age, c.alpha);
-      }
-      else {
+      } else {
         auto from = pixel_to_vector<W, H>(nodes[i - 1].x, nodes[i - 1].y);
         auto to = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
-        auto fragment_shader = [this](const Vector& v, Fragment& f) { 
-            f.color = color(v, 0);
-            f.color.alpha *= 0.5f;
+        auto fragment_shader = [this](const Vector &v, Fragment &f) {
+          f.color = color(v, 0);
+          f.color.alpha *= 0.5f;
         };
-        Plot::Line::draw<W, H>(filters, canvas, from, to, fragment_shader);
+        Plot::Line::draw<W, H>(filters, canvas, Fragment(from), Fragment(to),
+                               fragment_shader);
       }
     }
   }
@@ -199,51 +207,43 @@ private:
     }
   }
 
-  void drag(Node& leader, Node& follower) {
+  void drag(Node &leader, Node &follower) {
     int dest = wrap(follower.x + follower.v, W);
     if (shortest_distance(dest, leader.x, W) > (int)params.gap) {
       follower.v = leader.v;
       while (shortest_distance(follower.x, leader.x, W) > (int)params.gap) {
         move(follower);
       }
-    }
-    else {
+    } else {
       move(follower);
     }
   }
 
-  void move(Node& node) {
-    node.x = wrap(node.x + node.v, W);
-  }
+  void move(Node &node) { node.x = wrap(node.x + node.v, W); }
 
-  int dir(int speed) const {
-    return speed < 0 ? -1 : 1;
-  }
+  int dir(int speed) const { return speed < 0 ? -1 : 1; }
 
   Timeline<W> timeline;
 
   static constexpr size_t MAX_PALETTES = 16;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static constexpr size_t NUM_NODES = H_VIRT;
-  StaticCircularBuffer <PaletteVariant, MAX_PALETTES> palettes;
-  StaticCircularBuffer <float, MAX_PALETTES - 1> palette_boundaries;
+  StaticCircularBuffer<PaletteVariant, MAX_PALETTES> palettes;
+  StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries;
 
   Vector palette_normal;
   std::array<Node, NUM_NODES> nodes;
-  
+
   struct Params {
-      float speed = 2.0f;
-      float gap = 5.0f;
-      float trail_length = 8.0f;
-      float wipe_duration = 20.0f;
+    float speed = 2.0f;
+    float gap = 5.0f;
+    float trail_length = 8.0f;
+    float wipe_duration = 20.0f;
   } params;
 
   Orientation<W> orientation;
 
-  Pipeline<W, H,
-    Filter::World::Trails<W, 10000>,
-    Filter::World::Replicate<W>,
-    Filter::World::Orient<W>,
-    Filter::Screen::AntiAlias<W, H>
-  > filters;
+  Pipeline<W, H, Filter::World::Trails<W, 10000>, Filter::World::Replicate<W>,
+           Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+      filters;
 };
