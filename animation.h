@@ -668,6 +668,18 @@ public:
    */
   void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
 
+  /**
+   * @brief Gets current speed.
+   */
+  float get_speed() const { return speed; }
+
+  /**
+   * @brief Sets current speed.
+   */
+  void set_speed(float new_speed) { speed = new_speed; }
+
+  const float &get_mutant() const { return mutant.get(); }
+
 private:
   std::reference_wrapper<float> mutant; /**< Reference to the float variable. */
   float speed;                          /**< Amount added per frame. */
