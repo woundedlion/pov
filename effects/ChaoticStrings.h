@@ -12,7 +12,7 @@
 
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 20;
+  static constexpr int TRAIL_LENGTH = 115;
 
   struct Params {
     float alpha = 1.0f;
@@ -59,9 +59,14 @@ public:
         animated_palette(&palette_variant), ripple_phase(0.0f),
         cycle_offset(0.0f), noise(timeline) {
 
-    animated_palette.add(ScaleModifier(1.0f)).add(CycleModifier(&cycle_offset));
+    persist_pixels = false;
+
+    // Colors
+    animated_palette.add(ScaleModifier(200.0f))
+        .add(CycleModifier(&cycle_offset));
     palette_variant = Palettes::fireAndIce;
 
+    // Parameters
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Speed", &params.speed, 0.0f, 5.0f);
@@ -73,8 +78,6 @@ public:
     noise.params.frequency = params.noiseFreq;
     noise.params.speed = params.speed;
     noise.params.sync();
-
-    persist_pixels = false;
 
     // Initialize Lissajous functions
     functions = {{12.0f, 5.0f, 0, 2 * PI_F}};
@@ -105,7 +108,7 @@ public:
     timeline.add(0, Animation::Mutation(ripple_phase,
                                         sin_wave(0.0f, 10.0f, 0.05f, 0.0f), -1,
                                         ease_mid, true));
-    //    timeline.add(0, Animation::Driver(cycle_offset, 0.001f));
+    timeline.add(0, Animation::Driver(cycle_offset, 10.0f));
 
     params = preset_manager.get();
   }
@@ -142,18 +145,25 @@ public:
 
     node.trail.record(node.orientation);
     vertices.clear();
+
+    float current_t = timeline.t;
+    float trail_len = node.trail.length();
+    constexpr float MAX_TRAIL = ChaoticStrings<W, H>::TRAIL_LENGTH;
+
     deep_tween(node.trail, [&](const Quaternion &q, float t) {
-      Vector v_local = rotate(node.v, q);
-      Vector v_final = orientation.orient(v_local);
-      v_final = noise.transform(v_final);
-      vertices.emplace_back(Fragment(v_final));
-      vertices.back().v3 = t;
+      Fragment f;
+      f.pos = noise.transform(orientation.orient(rotate(node.v, q)));
+      f.age = current_t - trail_len + 1.0f + (t * trail_len);
+      f.v3 = t;
+      vertices.push_back(f);
     });
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      frag.color = animated_palette.get(frag.v3);
+      float color_t = frag.age / MAX_TRAIL;
+      frag.color = animated_palette.get(color_t);
       frag.color.alpha *= quintic_kernel(frag.v3);
     };
+
     Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
   }
 
