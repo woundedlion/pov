@@ -1,6 +1,7 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #pragma once
 
@@ -9,15 +10,15 @@
 #include <array>
 #include <vector>
 
-
 template <int W, int H> class GSReactionDiffusion : public Effect {
 public:
   static constexpr int RD_N = W * H * 2; // Number of nodes in the graph
-  static constexpr int RD_K = 6;            // Number of neighbors per node
+  static constexpr int RD_K = 6;         // Number of neighbors per node
 
   GSReactionDiffusion()
-      : Effect(W, H), filters(Filter::World::Orient<W>(orientation), Filter::Screen::AntiAlias<W, H>()) {
-    
+      : Effect(W, H), filters(Filter::World::Orient<W>(orientation),
+                              Filter::Screen::AntiAlias<W, H>()) {
+
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill (k)", &params.k, 0.0f, 0.1f);
     registerParam("dA", &params.dA, 0.0f, 1.0f);
@@ -28,8 +29,10 @@ public:
     persist_pixels = false;
     build_graph();
     timeline
-        .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 64, ease_mid, true))
-        .add(0, Animation::PeriodicTimer(96, [this](Canvas &c) { this->spawn(); }, true));
+        .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 64,
+                                       ease_mid, true))
+        .add(0, Animation::PeriodicTimer(
+                    96, [this](Canvas &c) { this->spawn(); }, true));
 
     // Seed and spawn
     spawn();
@@ -97,11 +100,11 @@ private:
 
     auto get_grid_idx = [&](const Vector &p) {
       int gx = hs::clamp(static_cast<int>((p.i + 1.0f) / CELL_SIZE), 0,
-                          GRID_SIZE - 1);
+                         GRID_SIZE - 1);
       int gy = hs::clamp(static_cast<int>((p.j + 1.0f) / CELL_SIZE), 0,
-                          GRID_SIZE - 1);
+                         GRID_SIZE - 1);
       int gz = hs::clamp(static_cast<int>((p.k + 1.0f) / CELL_SIZE), 0,
-                          GRID_SIZE - 1);
+                         GRID_SIZE - 1);
       return gx + gy * GRID_SIZE + gz * GRID_SIZE * GRID_SIZE;
     };
 
@@ -119,11 +122,11 @@ private:
       best.fill({std::numeric_limits<float>::max(), -1});
 
       int gx = hs::clamp(static_cast<int>((p1.i + 1.0f) / CELL_SIZE), 0,
-                          GRID_SIZE - 1);
+                         GRID_SIZE - 1);
       int gy = hs::clamp(static_cast<int>((p1.j + 1.0f) / CELL_SIZE), 0,
-                          GRID_SIZE - 1);
+                         GRID_SIZE - 1);
       int gz = hs::clamp(static_cast<int>((p1.k + 1.0f) / CELL_SIZE), 0,
-                          GRID_SIZE - 1);
+                         GRID_SIZE - 1);
 
       // Search adjacent cells
       for (int x = -1; x <= 1; x++) {
@@ -201,10 +204,8 @@ private:
         float t = hs::clamp((b - 0.15f) * 4.0f, 0.0f, 1.0f);
         Color4 c = ctx.palette.get(t);
         c.alpha *= opacity * params.global_alpha;
-            auto shader = [c](const Vector& p, Fragment& f) {
-                            f.color = c;
-                        };
-                        Plot::Point::draw(filters, canvas, nodes[i], shader);
+        auto shader = [c](const Vector &p, Fragment &f) { f.color = c; };
+        Plot::Point::draw(filters, canvas, Fragment(nodes[i]), shader);
       }
     }
   }
@@ -234,10 +235,12 @@ private:
       float feed_term = params.feed * (1.0f - a);
       float kill_term = (params.k + params.feed) * b;
 
-      ctx.nextA[i] = hs::clamp(
-          a + (params.dA * lapA - reaction + feed_term) * params.dt, 0.0f, 1.0f);
-      ctx.nextB[i] = hs::clamp(
-          b + (params.dB * lapB + reaction - kill_term) * params.dt, 0.0f, 1.0f);
+      ctx.nextA[i] =
+          hs::clamp(a + (params.dA * lapA - reaction + feed_term) * params.dt,
+                    0.0f, 1.0f);
+      ctx.nextB[i] =
+          hs::clamp(b + (params.dB * lapB + reaction - kill_term) * params.dt,
+                    0.0f, 1.0f);
     }
 
     // Swap buffers
@@ -249,17 +252,18 @@ private:
   std::array<std::array<int, RD_K>, RD_N> neighbors;
   Orientation<W> orientation;
 
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+      filters;
 
   StaticCircularBuffer<GSReactionContext, 4> contexts;
   Timeline<W> timeline;
-  
+
   struct Params {
-      float feed = 0.0545f;
-      float k = 0.062f;
-      float dA = 0.15f;
-      float dB = 0.075f;
-      float dt = 1.0f;
-      float global_alpha = 0.3f;
+    float feed = 0.0545f;
+    float k = 0.062f;
+    float dA = 0.15f;
+    float dB = 0.075f;
+    float dt = 1.0f;
+    float global_alpha = 0.3f;
   } params;
 };

@@ -36,19 +36,14 @@ struct Point {
   /**
    * @brief Draws a single point.
    */
-  static void draw(auto &pipeline, Canvas &canvas, const Vector &v,
-                   FragmentShaderFn auto fragment_shader, float age = 0.0f) {
-    Fragment f;
-    f.pos = v;
-    f.v0 = 0;
-    f.v1 = 0;
-    f.v2 = 0;
-    f.v3 = 0;
-    f.age = age;
-    f.color = Color4(0, 0, 0, 0);
-    f.blend = 0;
-    fragment_shader(v, f);
-    pipeline.plot(canvas, v, f.color.color, f.age, f.color.alpha, f.blend);
+  static void draw(auto &pipeline, Canvas &canvas, const Fragment &f,
+                   FragmentShaderFn auto fragment_shader) {
+    Fragment f_copy = f;
+    f_copy.color = Color4(0, 0, 0, 0);
+    f_copy.blend = 0;
+    fragment_shader(f_copy.pos, f_copy);
+    pipeline.plot(canvas, f_copy.pos, f_copy.color.color, f_copy.age,
+                  f_copy.color.alpha, f_copy.blend);
   }
 };
 
@@ -161,12 +156,11 @@ static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
         Fragment f_copy = curr;
         // Set temp values for shader
         f_copy.pos = curr.pos;
-        f_copy.age = age;
         f_copy.color = Color4(0, 0, 0, 0);
         f_copy.blend = 0;
 
         fragment_shader(curr.pos, f_copy);
-        pipeline.plot(canvas, curr.pos, f_copy.color.color, age,
+        pipeline.plot(canvas, curr.pos, f_copy.color.color, f_copy.age,
                       f_copy.color.alpha, f_copy.blend);
       }
       return;
@@ -207,12 +201,11 @@ static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
       Vector start_pos = map(0.0f);
       Fragment f = Fragment::lerp(curr, next, 0.0f);
       f.pos = start_pos;
-      f.age = age;
       f.color = Color4(0, 0, 0, 0);
       f.blend = 0;
 
       fragment_shader(start_pos, f);
-      pipeline.plot(canvas, start_pos, f.color.color, age, f.color.alpha,
+      pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha,
                     f.blend);
     }
 
@@ -229,12 +222,11 @@ static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
       Vector p = map(t);
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
-      f.age = age;
       f.color = Color4(0, 0, 0, 0);
       f.blend = 0;
 
       fragment_shader(p, f);
-      pipeline.plot(canvas, p, f.color.color, age, f.color.alpha, f.blend);
+      pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha, f.blend);
     }
   };
 
@@ -266,37 +258,33 @@ struct Line {
    * @param v2 End point.
    * @return Fragments Two fragments representing the line endpoints.
    */
-  static Fragments sample(const Vector &v1, const Vector &v2, int density = 1) {
+  static Fragments sample(const Fragment &f1, const Fragment &f2,
+                          int density = 1) {
     if (density < 1)
       density = 1;
     Fragments points;
     points.reserve(density + 1);
 
-    float angle = angle_between(v1, v2);
+    float angle = angle_between(f1.pos, f2.pos);
     if (std::abs(angle) < 0.0001f) {
-      Fragment f;
-      f.pos = v1;
-      f.v0 = 0.0f;
-      f.v1 = 0.0f;
-      f.v2 = 0.0f;
-      points.push_back(f);
-      points.push_back(f); // Draw at least a dot
+      points.push_back(f1);
+      points.push_back(f1); // Draw at least a dot
       return points;
     }
 
-    Vector axis = cross(v1, v2).normalize();
+    Vector axis = cross(f1.pos, f2.pos).normalize();
 
     for (int i = 0; i <= density; ++i) {
       float t = static_cast<float>(i) / density;
 
-      Fragment f;
+      Fragment f = Fragment::lerp(f1, f2, t);
       if (i == 0)
-        f.pos = v1;
+        f.pos = f1.pos;
       else if (i == density)
-        f.pos = v2;
+        f.pos = f2.pos;
       else {
         Quaternion q = make_rotation(axis, angle * t);
-        f.pos = rotate(v1, q);
+        f.pos = rotate(f1.pos, q);
       }
 
       f.v0 = t;
@@ -312,17 +300,17 @@ struct Line {
    * @tparam W Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
-   * @param v1 Start point.
-   * @param v2 End point.
+   * @param f1 Start fragment.
+   * @param f2 End fragment.
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Vector &v1,
-                   const Vector &v2, FragmentShaderFn auto fragment_shader,
+  static void draw(auto &pipeline, Canvas &canvas, const Fragment &f1,
+                   const Fragment &f2, FragmentShaderFn auto fragment_shader,
                    VertexShaderFn auto vertex_shader,
                    RasterCache *cache = nullptr) {
-    Fragments points = sample(v1, v2);
+    Fragments points = sample(f1, f2);
 
     if constexpr (!std::is_same_v<decltype(vertex_shader), NullVertexShader>) {
       for (auto &p : points) {
@@ -336,10 +324,10 @@ struct Line {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Vector &v1,
-                   const Vector &v2, FragmentShaderFn auto fragment_shader,
+  static void draw(auto &pipeline, Canvas &canvas, const Fragment &f1,
+                   const Fragment &f2, FragmentShaderFn auto fragment_shader,
                    RasterCache *cache = nullptr) {
-    draw<W, H>(pipeline, canvas, v1, v2, fragment_shader, NullVertexShader{},
+    draw<W, H>(pipeline, canvas, f1, f2, fragment_shader, NullVertexShader{},
                cache);
   }
 };
@@ -355,20 +343,16 @@ struct Vertices {
    * @param points List of points.
    * @param fragment_shader Shader function.
    */
-  static void draw(auto &pipeline, Canvas &canvas, const Points &points,
+  static void draw(auto &pipeline, Canvas &canvas, const auto &points,
                    FragmentShaderFn auto fragment_shader) {
-    for (const Vector &v : points) {
-      Fragment f;
-      f.pos = v;
-      // Basic default registers for points
-      f.v0 = 0.0f;
-      f.v1 = 0.0f;
-      f.v2 = 0.0f;
-      f.v3 = 0.0f;
-      f.age = 0.0f;
+    for (const Fragment &p : points) {
+      Fragment f = p;
+      f.color = Color4(0, 0, 0, 0);
+      f.blend = 0;
 
-      fragment_shader(v, f);
-      pipeline.plot(canvas, v, f.color.color, f.age, f.color.alpha, f.blend);
+      fragment_shader(f.pos, f);
+      pipeline.plot(canvas, f.pos, f.color.color, f.age, f.color.alpha,
+                    f.blend);
     }
   }
 };
@@ -397,18 +381,18 @@ struct Multiline {
 
     // 1. Calculate total length to normalize v0
     float total_len = 0.0f;
-    Vector first = *it;
-    Vector prev = first;
+    Fragment first = *it;
+    Fragment prev = first;
     auto len_it = it;
     ++len_it;
 
     for (; len_it != end; ++len_it) {
-      const Vector &curr = *len_it;
-      total_len += angle_between(prev, curr);
+      const Fragment &curr = *len_it;
+      total_len += angle_between(prev.pos, curr.pos);
       prev = curr;
     }
     if (closed) {
-      total_len += angle_between(prev, first);
+      total_len += angle_between(prev.pos, first.pos);
     }
 
     if (total_len < 1e-6f)
@@ -420,23 +404,21 @@ struct Multiline {
     prev = *it;
 
     // Add first point
-    Fragment f;
-    f.pos = prev;
+    Fragment f = prev;
     f.v0 = 0.0f;
     f.v1 = 0.0f;
     f.v2 = 0.0f; // Index 0
-    f.age = 0.0f;
-    f.color = Color4(0, 0, 0, 0);
     points.push_back(f);
 
     ++it;
     int idx = 1;
     for (; it != end; ++it) {
-      const Vector &curr = *it;
-      float dist = angle_between(prev, curr);
+      const Fragment &curr = *it;
+      float dist = angle_between(prev.pos, curr.pos);
       current_len += dist;
 
-      f.pos = curr;
+      f = Fragment::lerp(prev, curr, 1.0f);
+      f.pos = curr.pos;
       f.v0 = current_len / total_len;
       f.v1 = current_len;
       f.v2 = static_cast<float>(idx++);
@@ -445,9 +427,10 @@ struct Multiline {
     }
 
     if (closed) {
-      float dist = angle_between(prev, first);
+      float dist = angle_between(prev.pos, first.pos);
       current_len += dist;
-      f.pos = first;
+      f = Fragment::lerp(prev, first, 1.0f);
+      f.pos = first.pos;
       f.v0 = 1.0f; // Explicitly 1.0
       f.v1 = current_len;
       f.v2 = static_cast<float>(idx);
@@ -1215,8 +1198,11 @@ struct Mesh {
 
       if (visited.find({small, large}) == visited.end()) {
         visited.insert({small, large});
-        result.push_back(
-            Line::sample(mesh.vertices[u], mesh.vertices[v], density));
+        Fragment fu;
+        fu.pos = mesh.vertices[u];
+        Fragment fv;
+        fv.pos = mesh.vertices[v];
+        result.push_back(Line::sample(fu, fv, density));
       }
     };
 
