@@ -41,8 +41,6 @@ public:
     registerParam("Param X", &params.paramX, 0.0f, 20.0f);
     registerParam("Param Y", &params.paramY, 0.0f, 20.0f);
 
-    this->persist_pixels = false;
-
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));

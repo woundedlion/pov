@@ -1,6 +1,7 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit permission.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #pragma once
 #include <functional>
@@ -9,22 +10,13 @@
 #include <map>
 #include "../effects_engine.h"
 
-template <int W, int H>
-class RingShower : public Effect {
+template <int W, int H> class RingShower : public Effect {
 public:
-
-  RingShower() :
-    Effect(W, H)
-  {
+  RingShower() : Effect(W, H) {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    persist_pixels = false;
 
-    timeline.add(0,
-      Animation::RandomTimer(4, 48,
-        [this](auto&) { this->spawn_ring(); },
-        true)
-    );
-
+    timeline.add(0, Animation::RandomTimer(
+                        4, 48, [this](auto &) { this->spawn_ring(); }, true));
   }
 
   bool show_bg() const override { return false; }
@@ -35,72 +27,62 @@ public:
   }
 
 private:
-
   struct Ring {
     Vector normal;
     float radius;
     float duration;
     GenerativePalette palette;
 
-    Ring() :
-      normal(random_vector()),
-      radius(0.0),
-      duration(0.0)
-    {
-    }
+    Ring() : normal(random_vector()), radius(0.0), duration(0.0) {}
   };
 
   void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       if (rings[i].duration <= 0) {
-        Ring& ring = rings[i];
+        Ring &ring = rings[i];
         ring.normal = random_vector();
         ring.duration = hs::rand_f() * 72.0f + 8.0f;
         ring.radius = 0;
-        ring.palette = GenerativePalette(
-            GradientShape::CIRCULAR, 
-            HarmonyType::ANALOGOUS, 
-            BrightnessProfile::FLAT
-        );
+        ring.palette =
+            GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
+                              BrightnessProfile::FLAT);
 
-        timeline.add(0,
-          Animation::Sprite(
-            [this, i](Canvas& canvas, float opacity) { this->draw_ring(canvas, opacity, i); },
-            static_cast<int>(ring.duration),
-            4, ease_mid,
-            0, ease_mid)
-        );
+        timeline.add(0, Animation::Sprite(
+                            [this, i](Canvas &canvas, float opacity) {
+                              this->draw_ring(canvas, opacity, i);
+                            },
+                            static_cast<int>(ring.duration), 4, ease_mid, 0,
+                            ease_mid));
 
-        timeline.add(0,
-          Animation::Transition(ring.radius, 2.0f, static_cast<int>(ring.duration), ease_mid, false, false)
-          .then([&ring]() { ring.duration = 0; })
-        );
+        timeline.add(0, Animation::Transition(ring.radius, 2.0f,
+                                              static_cast<int>(ring.duration),
+                                              ease_mid, false, false)
+                            .then([&ring]() { ring.duration = 0; }));
 
         return;
       }
     }
   }
 
-  void draw_ring(Canvas& canvas, float opacity, size_t index) {
-    Ring& ring = rings[index];
+  void draw_ring(Canvas &canvas, float opacity, size_t index) {
+    Ring &ring = rings[index];
     Basis basis = make_basis(orientation.get(), ring.normal);
-    auto fragment_shader = [&](const Vector& v, Fragment& f) {
-        Vector z = orientation.orient(X_AXIS);
-        f.color = ring.palette.get(angle_between(z, v) / PI_F);
-        f.color.alpha *= opacity * params.alpha;
+    auto fragment_shader = [&](const Vector &v, Fragment &f) {
+      Vector z = orientation.orient(X_AXIS);
+      f.color = ring.palette.get(angle_between(z, v) / PI_F);
+      f.color.alpha *= opacity * params.alpha;
     };
-    Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius, fragment_shader);
+    Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius,
+                           fragment_shader);
   }
-
 
   static constexpr size_t MAX_RINGS = 16;
   Ring rings[MAX_RINGS];
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   Orientation<W> orientation;
   Timeline<W> timeline;
-  
-  struct Params {
-      float alpha = 0.2f;
-  } params;
 
+  struct Params {
+    float alpha = 0.2f;
+  } params;
 };

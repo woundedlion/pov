@@ -26,7 +26,6 @@ public:
     registerParam("dt", &params.dt, 0.1f, 2.0f);
     registerParam("Global Alpha", &params.global_alpha, 0.0f, 1.0f);
 
-    persist_pixels = false;
     build_graph();
     timeline
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 64,

@@ -29,8 +29,6 @@ public:
     registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);
 
-    persist_pixels = false;
-
     for (int i = 0; i < NUM_RINGS; ++i) {
       int p_idx = i % source_palettes.size();
       spawn_ring(X_AXIS, &source_palettes[p_idx]);

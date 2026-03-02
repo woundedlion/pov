@@ -22,8 +22,6 @@ public:
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
 
-    persist_pixels = false;
-
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS,
                         Animation::RandomWalk<W>::Options::Languid()));

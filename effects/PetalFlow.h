@@ -29,7 +29,6 @@ public:
                                Filter::Screen::AntiAlias<W, H>()),
         // Spawner: Manage ring creation based on gap accumulation
         spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {
-    persist_pixels = false;
 
     // Register Params
     registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);

@@ -23,7 +23,6 @@ public:
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    persist_pixels = false;
     init_fibers();
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_mid, true));

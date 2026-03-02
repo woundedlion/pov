@@ -19,7 +19,6 @@ template <int W, int H> class IslamicStars : public Effect {
 
 public:
   IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {
-    persist_pixels = false;
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);

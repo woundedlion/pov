@@ -153,6 +153,7 @@ private:
 template <int W, int H> class ChainWiggle : public Effect {
 public:
   ChainWiggle() : Effect(W, H), osc(1, 4) {
+    persist_pixels = true;
     for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
       dots[i] = Dot(0, i, 0);
     }
@@ -260,6 +261,7 @@ private:
 template <int W, int H> class RingTwist : public Effect {
 public:
   RingTwist() : Effect(W, H), seed_(CHSV(104, 0, 255)) {
+    persist_pixels = true;
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
     for (int x = 0; x < W; x += W / COUNT_) {
@@ -422,6 +424,7 @@ private:
 template <int W, int H> class Curves : public Effect {
 public:
   Curves() : Effect(W, H) {
+    persist_pixels = true;
     fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
                         rgb2hsv_approximate(CRGB(162, 84, 84)),
@@ -473,7 +476,7 @@ private:
   uint8_t hue_;
 
 public:
-  StarsFade() : Effect(W, H), hue_(0) {}
+  StarsFade() : Effect(W, H), hue_(0) { persist_pixels = true; }
 
   bool show_bg() const { return true; }
 
@@ -521,7 +524,7 @@ public:
 
 template <int W, int H> class WaveTrails : public Effect {
 public:
-  WaveTrails() : Effect(W, H) {}
+  WaveTrails() : Effect(W, H) { persist_pixels = true; }
 
   bool show_bg() const { return false; }
 
@@ -544,6 +547,7 @@ public:
 template <int W, int H> class RingTrails : public Effect {
 public:
   RingTrails() : Effect(W, H), dot(0) {
+    persist_pixels = true;
     fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
                         rgb2hsv_approximate(CRGB(162, 84, 84)),
@@ -595,6 +599,7 @@ private:
 template <int W, int H> class Kaleidoscope : public Effect {
 public:
   Kaleidoscope() : Effect(W, H) {
+    persist_pixels = true;
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
   }
 
@@ -833,6 +838,7 @@ private:
 template <int W, int H> class DotTrails : public Effect {
 public:
   DotTrails() : Effect(W, H) {
+    persist_pixels = true;
     random16_add_entropy(random());
     for (int i = 0; i < H - 1; ++i) {
       bool rev = i % 2 == 0;

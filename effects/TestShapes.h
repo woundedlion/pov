@@ -36,7 +36,6 @@ public:
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
 
-    this->persist_pixels = false;
     rebuild();
   }
 

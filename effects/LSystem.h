@@ -55,7 +55,6 @@ public:
     registerParam("Angle", &params.angle_mod, -15.0f, 15.0f);
     registerParam("Step", &params.step_mod, 0.5f, 2.0f);
 
-    persist_pixels = false;
     setup_rules();
     set_ruleset(0); // Tree
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 2400,

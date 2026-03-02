@@ -32,7 +32,7 @@ public:
    * @param W The width (resolution) of the effect.
    * @param H The height (resolution) of the effect.
    */
-  Effect(int W, int H) : persist_pixels(true), width_(W), height_(H) {
+  Effect(int W, int H) : persist_pixels(false), width_(W), height_(H) {
     bufs_[0] = buffer_a;
     memset(bufs_[0], 0, sizeof(Pixel) * MAX_W * MAX_H);
     bufs_[1] = buffer_b;

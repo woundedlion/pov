@@ -36,8 +36,6 @@ public:
     registerParam("Trail Len", &params.trail_length, 1.0f, 100.0f);
     registerParam("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
 
-    persist_pixels = false;
-
     for (size_t i = 0; i < NUM_NODES; ++i) {
       nodes[i].y = i;
     }
