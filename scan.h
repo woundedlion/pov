@@ -1792,9 +1792,6 @@ struct Mesh {
         f_in.v2 = static_cast<float>(i);
         fragment_shader(p, f_in);
       };
-
-      // Mesh faces always need UVs/Barycentrics usually? Or maybe not?
-      // For now default to true or propagate if we add it to Mesh::draw
       Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
     }
   }

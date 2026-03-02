@@ -32,7 +32,6 @@ public:
 
         slice_filter(filters), // Filters inherits Head (FilterOrientSlice)
         mobius_gen(timeline) {
-    persist_pixels = false;
 
     // Initialize Orientations
     orientations.resize(2); // 2 slices

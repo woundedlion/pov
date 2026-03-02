@@ -31,8 +31,6 @@ public:
     registerParam("Lines", &params.num_lines, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    persist_pixels = false;
-
     // Use Generator
     mobius_gen.spawn(0, 1.0f, 160, true);
 

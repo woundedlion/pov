@@ -17,7 +17,6 @@ public:
     registerParam("Radius", &params.radius, 0.05f, 2.0f);
     registerParam("Count", &params.count, 1.0f, 100.0f);
 
-    this->persist_pixels = false;
     rebuild();
   }
 

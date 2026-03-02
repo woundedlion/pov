@@ -15,7 +15,6 @@ public:
         pipeline(Filter::World::Orient<W>(orientation),
                  Filter::Screen::Slew<W, 200000>(1.0f, 0.03f)),
         palette(&circular_source) {
-    this->persist_pixels = false;
 
     registerParam("Light Speed", &params.lightSpeed, 0.0f, 0.5f);
     registerParam("Light Alpha", &params.lightAlpha, 0.0f, 2.0f);

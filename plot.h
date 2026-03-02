@@ -145,7 +145,6 @@ static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
   auto &_steps_cache = cache.steps;
   _steps_cache.reserve(W);
 
-  // Optimized segment processor
   auto process_segment = [&](auto &&map, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool isLastSegment) {
@@ -176,8 +175,6 @@ static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
 
     while (sim_dist < total_dist) {
       // Adaptive step size based on distortion (y-component)
-      // match JS: Math.max(0.05, Math.sqrt(Math.max(0, 1.0 - pTemp.y *
-      // pTemp.y)));
       float scale_factor =
           std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.j * p_temp.j)));
       float step = base_step * scale_factor;

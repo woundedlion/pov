@@ -23,7 +23,6 @@ public:
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
     registerParam("GlobalAlpha", &params.global_alpha, 0.0f, 1.0f);
 
-    persist_pixels = false;
     build_graph();
     timeline
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 600,

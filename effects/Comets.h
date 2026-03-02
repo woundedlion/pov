@@ -37,8 +37,6 @@ public:
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Resolution", &params.resolution, 1.0f, 128.0f);
 
-    persist_pixels = false;
-
     // Initialize Lissajous functions
     functions = {{1.06f, 1.06f, 0, 5.909f},   {6.06f, 1.0f, 0, 2 * PI_F},
                  {6.02f, 4.01f, 0, 3.132f},   {46.62f, 62.16f, 0, 0.404f},

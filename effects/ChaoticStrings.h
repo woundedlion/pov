@@ -60,14 +60,11 @@ public:
       : Effect(W, H), cur_function_idx(0),
         filters(Filter::Screen::AntiAlias<W, H>()),
         path([this](float t) { return Vector(0, 1, 0); }),
-        animated_palette(&palette_variant), ripple_phase(0.0f),
-        cycle_offset(0.0f), noise(timeline) {
-
-    persist_pixels = false;
+        animated_palette(&palette_variant), noise(timeline) {
 
     // Colors
     animated_palette.add(ScaleModifier(200.0f, &params.scaleFactor))
-        .add(CycleModifier(&cycle_offset));
+        .add(CycleModifier(&cycle_phase));
     palette_variant = Palettes::fireAndIce;
 
     // Parameters
@@ -111,10 +108,7 @@ public:
                         },
                         true));
 
-    timeline.add(0, Animation::Mutation(ripple_phase,
-                                        sin_wave(0.0f, 10.0f, 0.05f, 0.0f), -1,
-                                        ease_mid, true));
-    timeline.add(0, Animation::Driver(cycle_offset, params.cycleSpeed));
+    timeline.add(0, Animation::Driver(cycle_phase, params.cycleSpeed));
 
     params = preset_manager.get();
   }
@@ -153,7 +147,7 @@ public:
     for (int i = 0; i < timeline.num_events; ++i) {
       auto &e = timeline.events[i];
       if (auto *driver = std::get_if<Animation::Driver>(&e.animation)) {
-        if (&driver->get_mutant() == &cycle_offset) {
+        if (&driver->get_mutant() == &cycle_phase) {
           driver->set_speed(params.cycleSpeed);
         }
       }
@@ -206,8 +200,7 @@ private:
   Orientation<W> orientation;
   PaletteVariant palette_variant;
   AnimatedPalette animated_palette;
-  float ripple_phase;
-  float cycle_offset;
+  float cycle_phase = 0.0f;
   std::vector<LissajousConfig> functions;
   int cur_function_idx;
   Node node;

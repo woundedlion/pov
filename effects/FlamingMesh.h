@@ -25,7 +25,6 @@ public:
                                                                2.0f),
                 Filter::Screen::AntiAlias<W, H>()),
         palette(Palettes::richSunset) {
-    persist_pixels = false;
 
     // Initialize with JS defaults
     params.temporalEnabled = true;

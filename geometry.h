@@ -172,14 +172,45 @@ inline float phi_to_y(float phi, int h_virt) {
   return (phi * (h_virt - 1)) / PI_F;
 }
 
-template <int H> inline float y_to_phi(float y) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  return (y * PI_F) / (H_VIRT - 1);
-}
-
 template <int H> inline float phi_to_y(float phi) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
   return (phi * (H_VIRT - 1)) / PI_F;
+}
+
+/**
+ * @brief Precomputed lookup table for scanline phi angles.
+ */
+template <int H> struct PhiLUT {
+  static constexpr int H_VIRT = H + hs::H_OFFSET;
+  static std::array<float, H_VIRT> data;
+  static bool initialized;
+  static void init() {
+    for (int y = 0; y < H_VIRT; y++) {
+      data[y] = y_to_phi(static_cast<float>(y), H_VIRT);
+    }
+    initialized = true;
+  }
+};
+
+template <int H> DMAMEM std::array<float, PhiLUT<H>::H_VIRT> PhiLUT<H>::data;
+template <int H> DMAMEM bool PhiLUT<H>::initialized = false;
+
+template <int H> inline float y_to_phi(int y) {
+  if (!PhiLUT<H>::initialized) {
+    PhiLUT<H>::init();
+  }
+  return PhiLUT<H>::data[y];
+}
+
+template <int H> inline float y_to_phi(float y) {
+  if (std::abs(y - std::floor(y)) < TOLERANCE) {
+    int iy = static_cast<int>(y);
+    if (iy >= 0 && iy < PhiLUT<H>::H_VIRT) {
+      return y_to_phi<H>(iy);
+    }
+  }
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  return (y * PI_F) / (H_VIRT - 1);
 }
 
 /**
@@ -195,10 +226,13 @@ template <int W, int H> struct PixelLUT {
   static std::array<Vector, W * H_VIRT> data;
   static bool initialized;
   static void init() {
+    if (!PhiLUT<H>::initialized) {
+      PhiLUT<H>::init();
+    }
     for (int y = 0; y < H_VIRT; y++) {
+      float phi = PhiLUT<H>::data[y];
       for (int x = 0; x < W; x++) {
-        data[x + y * W] =
-            Vector(Spherical((x * 2 * PI_F) / W, y_to_phi(y, H_VIRT)));
+        data[x + y * W] = Vector(Spherical((x * 2 * PI_F) / W, phi));
       }
     }
     initialized = true;
@@ -230,7 +264,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
       std::abs(y - floor(y)) < TOLERANCE) {
     return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
-  return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi(y, H_VIRT)));
+  return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H>(y)));
 }
 
 /**

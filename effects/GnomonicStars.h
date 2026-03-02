@@ -22,8 +22,6 @@ public:
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
 
-    this->persist_pixels = false;
-
     // Spawn the evolving warp
     transformer.spawn(0, 0.5f, 0.035f);
 

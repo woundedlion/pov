@@ -24,7 +24,6 @@ public:
     registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
 
-    persist_pixels = false;
     timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS));
 
     auto preset_timer = Animation::PeriodicTimer(
