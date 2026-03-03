@@ -13,7 +13,6 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
-#include <string>
 #include <cfloat>
 #include "static_circular_buffer.h"
 #include "memory.h"

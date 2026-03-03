@@ -10,10 +10,10 @@
 #include <cmath>
 #include <iterator>
 #include <list>
-#include <map> // for map
+#include <map>
 #include <memory>
-#include <string>  // for string
-#include <variant> // for variant
+#include <string_view>  
+#include <variant>
 #include <vector>
 
 #include "3dmath.h"
