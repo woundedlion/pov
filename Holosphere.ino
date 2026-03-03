@@ -34,7 +34,7 @@ void loop() {
   pov->show<HankinSolids<96, 20>>(120);       // NEW
   pov->show<IslamicStars<96, 20>>(120);       // NEW
   pov->show<LSystem<96, 20>>(120);            // NEW
-  pov->show<MetaballEffect<96, 20>>(120);     // NEW
+  pov->show<Metaballs<96, 20>>(120);          // NEW
   pov->show<MindSplatter<96, 20>>(120);       // NEW
   pov->show<SphericalHarmonics<96, 20>>(120); // NEW
   pov->show<Voronoi<96, 20>>(120);            // NEW

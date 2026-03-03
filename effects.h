@@ -23,7 +23,7 @@
 #include "effects/HankinSolids.h"
 #include "effects/IslamicStars.h"
 #include "effects/LSystem.h"
-#include "effects/MetaballEffect.h"
+#include "effects/Metaballs.h"
 #include "effects/MindSplatter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/TestTemporal.h"
