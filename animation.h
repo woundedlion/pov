@@ -40,8 +40,8 @@ public:
    * @param easing The easing function for sample distribution.
    * @return Reference to self for chaining.
    */
-  Path &append_segment(PlotFn auto plot, float domain, float samples,
-                       ScalarFn auto easing) {
+  Path &append_segment(PlotFn plot, float domain, float samples,
+                       ScalarFn easing) {
     if (!points.is_empty())
       points.pop_back();
     for (float t = 0; t <= samples; t++) {
@@ -81,11 +81,11 @@ private:
  * @brief Represents a path defined by a single procedural function.
  * Matches interface of Path for use in Motion animations.
  */
-template <PlotFn F> struct ProceduralPath {
-  F f;
+struct ProceduralPath {
+  PlotFn f;
 
   ProceduralPath() = default;
-  ProceduralPath(F path_fn) : f(path_fn) {}
+  ProceduralPath(PlotFn path_fn) : f(std::move(path_fn)) {}
 
   Vector get_point(float t) const { return f(t); }
 };
@@ -466,8 +466,8 @@ public:
    * @param f The function to call when the timer elapses.
    * @param repeat If true, the timer resets after calling the function.
    */
-  RandomTimer(int min, int max, TimerFn auto f, bool repeat = false)
-      : Base(-1, repeat), min(min), max(max), f(f), next(0) {
+  RandomTimer(int min, int max, TimerFn f, bool repeat = false)
+      : Base(-1, repeat), min(min), max(max), f(std::move(f)), next(0) {
     reset();
   }
 
@@ -494,10 +494,10 @@ public:
   }
 
 private:
-  int min;                         /**< Minimum frame delay. */
-  int max;                         /**< Maximum frame delay. */
-  std::function<void(Canvas &)> f; /**< The callback function. */
-  int next; /**< The target frame count for the next trigger. */
+  int min;   /**< Minimum frame delay. */
+  int max;   /**< Maximum frame delay. */
+  TimerFn f; /**< The callback function. */
+  int next;  /**< The target frame count for the next trigger. */
 };
 
 /**
@@ -511,8 +511,8 @@ public:
    * @param f The function to call when the timer elapses.
    * @param repeat If true, the timer resets after calling the function.
    */
-  PeriodicTimer(int period, TimerFn auto f, bool repeat = false)
-      : Base(-1, repeat), period(period), f(f) {
+  PeriodicTimer(int period, TimerFn f, bool repeat = false)
+      : Base(-1, repeat), period(period), f(std::move(f)) {
     reset();
   }
 
@@ -537,9 +537,9 @@ public:
   }
 
 private:
-  int period;                      /**< The interval in frames. */
-  std::function<void(Canvas &)> f; /**< The callback function. */
-  int next; /**< The target frame count for the next trigger. */
+  int period; /**< The interval in frames. */
+  TimerFn f;  /**< The callback function. */
+  int next;   /**< The target frame count for the next trigger. */
 };
 
 /**
@@ -556,10 +556,10 @@ public:
    * @param quantized If true, the final value is rounded down to an integer.
    * @param repeat If true, the transition repeats indefinitely.
    */
-  Transition(float &mutant, float to, int duration, ScalarFn auto easing_fn,
+  Transition(float &mutant, float to, int duration, ScalarFn easing_fn,
              bool quantized = false, bool repeat = false)
       : Base(duration, repeat), mutant(mutant), from(mutant), to(to),
-        easing_fn(easing_fn), quantized(quantized) {}
+        easing_fn(std::move(easing_fn)), quantized(quantized) {}
 
   /**
    * @brief Performs one step of the transition.
@@ -585,11 +585,11 @@ public:
 
 private:
   std::reference_wrapper<float>
-      mutant; /**< Reference to the float variable being animated. */
-  float from; /**< Starting value. */
-  float to;   /**< Target value. */
-  std::function<float(float)> easing_fn; /**< Easing curve. */
-  bool quantized; /**< Flag to round result to integer. */
+      mutant;         /**< Reference to the float variable being animated. */
+  float from;         /**< Starting value. */
+  float to;           /**< Target value. */
+  ScalarFn easing_fn; /**< Easing curve. */
+  bool quantized;     /**< Flag to round result to integer. */
 };
 
 /**
@@ -606,10 +606,10 @@ public:
    * @param easing_fn The easing function to apply to the time factor.
    * @param repeat If true, the mutation repeats indefinitely.
    */
-  Mutation(float &mutant, ScalarFn auto f, int duration,
-           ScalarFn auto easing_fn, bool repeat = false)
-      : Base(duration, repeat), mutant(mutant), from(mutant), f(f),
-        easing_fn(easing_fn) {}
+  Mutation(float &mutant, ScalarFn f, int duration, ScalarFn easing_fn,
+           bool repeat = false)
+      : Base(duration, repeat), mutant(mutant), from(mutant), f(std::move(f)),
+        easing_fn(std::move(easing_fn)) {}
 
   /**
    * @brief Performs one step of the mutation.
@@ -634,8 +634,8 @@ private:
       mutant; /**< Reference to the float variable being modified. */
   float from; /**< Starting value (unused by most MutateFns, but saved for
                  context). */
-  std::function<float(float)> f;         /**< The custom function to apply. */
-  std::function<float(float)> easing_fn; /**< Easing curve. */
+  ScalarFn f; /**< The custom function to apply. */
+  ScalarFn easing_fn; /**< Easing curve. */
 };
 
 /**
@@ -741,12 +741,10 @@ public:
    * @param fade_out_duration Frames for fading out.
    * @param fade_out_easing_fn Easing for fade-out.
    */
-  Sprite(std::function<void(Canvas &, float)> draw_fn, int duration,
-         int fade_in_duration = 0,
-         std::function<float(float)> fade_in_easing_fn = ease_mid,
-         int fade_out_duration = 0,
-         std::function<float(float)> fade_out_easing_fn = ease_mid)
-      : Base(duration, false), draw_fn(draw_fn),
+  Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
+         ScalarFn fade_in_easing_fn = ease_mid, int fade_out_duration = 0,
+         ScalarFn fade_out_easing_fn = ease_mid)
+      : Base(duration, false), draw_fn(std::move(draw_fn)),
         fader(fade_in_duration > 0 ? 0 : 1), fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
         fade_in(fader, 1, fade_in_duration, fade_in_easing_fn),
@@ -768,7 +766,7 @@ public:
   /**
    * @brief Updates the drawing function used by the sprite.
    */
-  void rebind_draw(SpriteFn auto new_draw_fn) { draw_fn = new_draw_fn; }
+  void rebind_draw(SpriteFn new_draw_fn) { draw_fn = std::move(new_draw_fn); }
 
   /**
    * @brief Move assignment operator. Rebinds internal references.
@@ -810,8 +808,7 @@ public:
   }
 
 private:
-  std::function<void(Canvas &, float)>
-      draw_fn; /**< The drawing function functor. */
+  SpriteFn draw_fn; /**< The drawing function functor. */
   float fader; /**< The variable storing the current opacity (0.0 to 1.0). */
   int fade_in_duration;  /**< Duration of fade-in phase. */
   int fade_out_duration; /**< Duration of fade-out phase. */
@@ -928,11 +925,11 @@ public:
    * @param space The coordinate space for rotation ("World" or "Local").
    */
   Rotation(Orientation<W> &orientation, const Vector &axis, float angle,
-           int duration, ScalarFn auto easing_fn, bool repeat = false,
+           int duration, ScalarFn easing_fn, bool repeat = false,
            Space space = Space::World)
       : Base<Rotation<W>>(duration, repeat), orientation(orientation),
-        axis(axis), total_angle(angle), easing_fn(easing_fn), last_angle(0),
-        space(space) {}
+        axis(axis), total_angle(angle), easing_fn(std::move(easing_fn)),
+        last_angle(0), space(space) {}
 
   /**
    * @brief Access the associated Orientation.
@@ -995,8 +992,8 @@ public:
    * @param space The coordinate space for rotation.
    */
   static void animate(Canvas &canvas, Orientation<W> &orientation,
-                      const Vector &axis, float_t angle,
-                      ScalarFn auto easing_fn, Space space = Space::World) {
+                      const Vector &axis, float_t angle, ScalarFn easing_fn,
+                      Space space = Space::World) {
     Rotation<W> r(orientation, axis, angle, 1, easing_fn, false, space);
     r.step(canvas);
   }
@@ -1006,12 +1003,12 @@ private:
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
   std::reference_wrapper<Orientation<W>>
-      orientation;   /**< Reference to the Orientation state. */
-  Vector axis;       /**< The axis of rotation. */
-  float total_angle; /**< The total angle to sweep. */
-  std::function<float(float)> easing_fn; /**< Easing curve. */
-  float last_angle; /**< The angle reached in the previous frame. */
-  Space space;      /**< The coordinate space for rotation. */
+      orientation;    /**< Reference to the Orientation state. */
+  Vector axis;        /**< The axis of rotation. */
+  float total_angle;  /**< The total angle to sweep. */
+  ScalarFn easing_fn; /**< Easing curve. */
+  float last_angle;   /**< The angle reached in the previous frame. */
+  Space space;        /**< The coordinate space for rotation. */
 };
 
 /**
@@ -1108,10 +1105,10 @@ public:
    */
   ColorWipe(GenerativePalette &from_palette,
             const GenerativePalette &to_palette, int duration,
-            ScalarFn auto easing_fn)
+            ScalarFn easing_fn)
       : Base(duration, false), from_palette(from_palette),
         cur_palette(from_palette), to_palette(to_palette),
-        easing_fn(easing_fn) {}
+        easing_fn(std::move(easing_fn)) {}
 
   /**
    * @brief Steps the animation, blending the palette's colors based on the time
@@ -1132,8 +1129,8 @@ private:
   std::reference_wrapper<GenerativePalette>
       cur_palette; /**< The actual palette instance being animated. */
   std::reference_wrapper<const GenerativePalette>
-      to_palette;                        /**< The target final palette. */
-  std::function<float(float)> easing_fn; /**< Easing curve. */
+      to_palette;     /**< The target final palette. */
+  ScalarFn easing_fn; /**< Easing curve. */
 };
 
 /**
@@ -1193,8 +1190,7 @@ public:
    * @param easing The easing function to use (default: ease_in_out_sin).
    */
   MobiusWarp(MobiusParams &params, float scale, int duration,
-             bool repeat = true,
-             std::function<float(float)> easing = ease_in_out_sin)
+             bool repeat = true, ScalarFn easing = ease_in_out_sin)
       : Base(duration, repeat), params(params), scale(scale), easing(easing) {}
 
   /**
@@ -1214,7 +1210,7 @@ private:
 
 public:
   float scale;
-  std::function<float(float)> easing;
+  ScalarFn easing;
 };
 
 /**
@@ -1231,8 +1227,7 @@ public:
    * @param easing The easing function to use (default: ease_in_out_sin).
    */
   MobiusWarpCircular(MobiusParams &params, float scale, int duration,
-                     bool repeat = true,
-                     std::function<float(float)> easing = ease_in_out_sin)
+                     bool repeat = true, ScalarFn easing = ease_in_out_sin)
       : Base(duration, repeat), params(params), scale(scale), easing(easing) {}
 
   /**
@@ -1252,7 +1247,7 @@ private:
 
 public:
   float scale;
-  std::function<float(float)> easing;
+  ScalarFn easing;
 };
 
 /*
@@ -1274,7 +1269,7 @@ public:
   MeshMorph(MeshState *active_A, MeshState *active_B, MorphBuffer *buffer,
             Arena *geom_arena, const MeshState &source, const MeshState &dest,
             int duration, bool repeat = false,
-            std::function<float(float)> easing_fn = ease_in_out_sin)
+            ScalarFn easing_fn = ease_in_out_sin)
       : Base(duration, repeat), active_A(active_A), active_B(active_B),
         buffer(buffer), geom_arena(geom_arena), easing_fn(easing_fn) {
     if (buffer && active_A && active_B) {
@@ -1340,7 +1335,7 @@ private:
   MeshState *active_B;
   MorphBuffer *buffer;
   Arena *geom_arena;
-  std::function<float(float)> easing_fn;
+  ScalarFn easing_fn;
 };
 
 /**
@@ -1662,7 +1657,7 @@ public:
  * @param callback The function to call for each frame: `void(const Quaternion&,
  * float t)`.
  */
-template <int W, typename F> void tween(const Orientation<W> &o, F callback) {
+template <int W> void tween(const Orientation<W> &o, TweenFn callback) {
   int len = o.length();
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {
@@ -1678,7 +1673,7 @@ template <int W, typename F> void tween(const Orientation<W> &o, F callback) {
  * @param callback The function to call for each step: `void(const T&, float
  * t)`.
  */
-template <typename T, typename F> void deep_tween(const T &trail, F callback) {
+void deep_tween(const Tweenable auto &trail, TweenFn callback) {
   size_t trail_len = trail.length();
   if (trail_len == 0)
     return;

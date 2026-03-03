@@ -5,87 +5,68 @@
 
 #pragma once
 #include <concepts>
-#include "geometry.h"
+#include <functional>
+#include "3dmath.h"
 #include "canvas.h"
-/**
- * @brief Concept for a function that generates a trail color.
- * Signature: Color4 f(float x, float y, float t)
- */
-template <typename F>
-concept TrailFn = requires(F f, float x, float y, float t) {
-  { f(x, y, t) } -> std::convertible_to<Color4>;
-} || requires(F f, const Vector &v, float t) {
-  { f(v, t) } -> std::convertible_to<Color4>;
+
+struct Fragment;
+struct Color4;
+template <typename Signature> class FunctionRef;
+
+template <typename Ret, typename... Args> class FunctionRef<Ret(Args...)> {
+  void *ctx_ = nullptr;
+  Ret (*thunk_)(void *, Args...) = nullptr;
+
+public:
+  FunctionRef() = default;
+  FunctionRef(std::nullptr_t) {}
+
+  FunctionRef(Ret (*func)(Args...)) noexcept
+      : ctx_(reinterpret_cast<void *>(func)) {
+    thunk_ = [](void *ptr, Args... args) -> Ret {
+      return (reinterpret_cast<Ret (*)(Args...)>(ptr))(
+          std::forward<Args>(args)...);
+    };
+  }
+
+  template <typename Callable>
+    requires std::invocable<Callable, Args...>
+  FunctionRef(Callable &callable) noexcept : ctx_(std::addressof(callable)) {
+    thunk_ = [](void *ptr, Args... args) -> Ret {
+      return (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
+    };
+  }
+
+  template <typename Callable>
+    requires std::invocable<Callable, Args...>
+  FunctionRef(const Callable &callable) noexcept
+      : ctx_(const_cast<void *>(
+            static_cast<const void *>(std::addressof(callable)))) {
+    thunk_ = [](void *ptr, Args... args) -> Ret {
+      return (*static_cast<const Callable *>(ptr))(std::forward<Args>(args)...);
+    };
+  }
+
+  inline Ret operator()(Args... args) const {
+    return thunk_(ctx_, std::forward<Args>(args)...);
+  }
+
+  explicit operator bool() const { return thunk_ != nullptr; }
 };
 
-/**
- * @brief Concept for a function that plots a path or curve.
- * Signature: Vector f(float t)
- */
-template <typename F>
-concept PlotFn = requires(F f, float t) {
-  { f(t) } -> std::convertible_to<Vector>;
-};
+using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
+using WorldTrailFn = FunctionRef<Color4(const Vector &, float)>;
+using TransformFn = FunctionRef<Vector(const Vector &)>;
+using FragmentShaderFn = FunctionRef<void(const Vector &, Fragment &)>;
+using VertexShaderRef = FunctionRef<void(Fragment &)>;
+using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
+using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 
-/**
- * @brief Concept for a function that transforms a vector.
- * Signature: Vector f(const Vector& v)
- */
-template <typename F>
-concept TransformFn = requires(F f, Vector v) {
-  { f(v) } -> std::convertible_to<Vector>;
-};
-
-/**
- * @brief Concept for a scalar function (e.g. easing).
- * Signature: float f(float t)
- */
-template <typename F>
-concept ScalarFn = requires(F f, float t) {
-  { f(t) } -> std::convertible_to<float>;
-};
-
-/**
- * @brief Concept for a Vertex Shader function.
- * Transforms a position vector.
- */
-template <typename F>
-concept VertexShaderFn = requires(F f, Fragment &frag) {
-  { f(frag) } -> std::same_as<void>;
-};
-
-/**
- * @brief Concept for a Fragment Shader function.
- * Computes color from position and fragment data.
- */
-template <typename F>
-concept FragmentShaderFn = requires(F f, const Vector &pos, Fragment &frag) {
-  { f(pos, frag) } -> std::same_as<void>;
-};
-
-/**
- * @brief Concept for a function that draws a sprite to the canvas.
- * Signature: void f(Canvas& canvas, float opacity)
- */
-template <typename F>
-concept SpriteFn = std::invocable<F, Canvas &, float>;
-
-/**
- * @brief Concept for a timer callback function.
- * Signature: void f(Canvas& canvas)
- */
-template <typename F>
-concept TimerFn = std::invocable<F, Canvas &>;
-
-/**
- * @brief Concept for a function called during tweening.
- * @details Can be called with EITHER (const Quaternion&, float) OR (const
- * Orientation&, float). This allows the same concept to support tweening an
- * Orientation (yielding Quaternions) or an OrientationTrail (yielding
- * Orientations).
- */
-template <typename F>
-concept TweenFn = std::invocable<F, const Quaternion &, float>;
+using PlotFn = std::function<Vector(float)>;
+using SpriteFn = std::function<void(Canvas &, float)>;
+using TimerFn = std::function<void(Canvas &)>;
+using ScalarFn = std::function<float(float)>;
+using HarmonicWaveFn = std::function<float(int, int, float, float)>;
 
 /**
  * @brief Concept for any object that maintains a history or sequence accessible
@@ -96,13 +77,4 @@ template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {
   { t.length() } -> std::convertible_to<size_t>;
   { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
-};
-
-/**
- * @brief Concept for a generic transformation function.
- * Signature: Vector f(const Vector& v, const Params& p)
- */
-template <auto Fn, typename Params>
-concept TransformerFunction = requires(const Vector &v, const Params &p) {
-  { Fn(v, p) } -> std::convertible_to<Vector>;
 };

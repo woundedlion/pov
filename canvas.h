@@ -10,7 +10,7 @@
 #include "platform.h"
 #include "constants.h"
 #include "color.h"
-#include <map>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -110,12 +110,38 @@ public:
    * @brief Defines a runtime-adjustable parameter.
    */
   struct ParamDef {
-    std::string name;   /**< Parameter name. */
+    const char *name;   /**< Parameter name. */
     void *target;       /**< Pointer to the variable. */
     ParamType type;     /**< Type of the parameter. */
     float min;          /**< Minimum value (for floats). */
     float max;          /**< Maximum value (for floats). */
     float defaultValue; /**< Default value. */
+  };
+
+  struct ParamList {
+    std::array<ParamDef, 32> elements;
+    size_t count = 0;
+
+    const ParamDef *begin() const { return elements.data(); }
+    const ParamDef *end() const { return elements.data() + count; }
+    ParamDef *begin() { return elements.data(); }
+    ParamDef *end() { return elements.data() + count; }
+
+    ParamDef *find(const char *name) {
+      for (size_t i = 0; i < count; ++i) {
+        if (std::strcmp(elements[i].name, name) == 0)
+          return &elements[i];
+      }
+      return nullptr;
+    }
+    const ParamDef *find(const char *name) const {
+      for (size_t i = 0; i < count; ++i) {
+        if (std::strcmp(elements[i].name, name) == 0)
+          return &elements[i];
+      }
+      return nullptr;
+    }
+    size_t size() const { return count; }
   };
 
   // Parameter System
@@ -124,24 +150,22 @@ public:
    * @param name The name of the parameter.
    * @param value The new value (mapped to bool if necessary).
    */
-  void updateParameter(const std::string &name, float value) {
-    auto it = parameters.find(name);
-    if (it != parameters.end()) {
-      if (it->second.type == ParamType::BOOL) {
-        *static_cast<bool *>(it->second.target) = (value > 0.5f);
+  void updateParameter(const char *name, float value) {
+    auto *def = parameters.find(name);
+    if (def != nullptr) {
+      if (def->type == ParamType::BOOL) {
+        *static_cast<bool *>(def->target) = (value > 0.5f);
       } else {
-        *static_cast<float *>(it->second.target) = value;
+        *static_cast<float *>(def->target) = value;
       }
     }
   }
 
   /**
-   * @brief Retrieves the map of registered parameters.
-   * @return Const reference to the parameter map.
+   * @brief Retrieves the list of registered parameters.
+   * @return Const reference to the parameter list.
    */
-  const std::map<std::string, ParamDef> &getParameters() const {
-    return parameters;
-  }
+  const ParamList &getParameters() const { return parameters; }
 
 protected:
   /**
@@ -149,7 +173,7 @@ protected:
    * the new buffer (for trails/decay).
    */
   bool persist_pixels;
-  std::map<std::string, ParamDef> parameters; /**< Map of parameters by name. */
+  ParamList parameters; /**< List of parameters. */
 
   /**
    * @brief Registers a floating-point parameter.
@@ -158,9 +182,12 @@ protected:
    * @param min Minimum value.
    * @param max Maximum value.
    */
-  void registerParam(const std::string &name, float *ptr, float min = 0.0f,
+  void registerParam(const char *name, float *ptr, float min = 0.0f,
                      float max = 1.0f) {
-    parameters[name] = {name, ptr, ParamType::FLOAT, min, max, *ptr};
+    if (parameters.count < parameters.elements.size()) {
+      parameters.elements[parameters.count++] = {name, ptr, ParamType::FLOAT,
+                                                 min,  max, *ptr};
+    }
   }
 
   /**
@@ -169,11 +196,12 @@ protected:
    * @param ptr Pointer to the bool variable.
    * @param defaultValue Initial value.
    */
-  void registerParam(const std::string &name, bool *ptr,
-                     bool defaultValue = false) {
+  void registerParam(const char *name, bool *ptr, bool defaultValue = false) {
     *ptr = defaultValue;
-    parameters[name] = {name, ptr,  ParamType::BOOL,
-                        0.0f, 1.0f, (float)defaultValue};
+    if (parameters.count < parameters.elements.size()) {
+      parameters.elements[parameters.count++] = {
+          name, ptr, ParamType::BOOL, 0.0f, 1.0f, (float)defaultValue};
+    }
   }
 
 private:

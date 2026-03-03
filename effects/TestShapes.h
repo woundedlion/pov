@@ -119,7 +119,7 @@ public:
       switch (current_shape) {
       case ShapeType::Flower:
         Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
-                                 fragment_shader, NullVertexShader{}, phase);
+                                 fragment_shader, {}, phase);
         break;
       case ShapeType::Star:
         Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, sides_int,

@@ -111,7 +111,8 @@ template <int W, int H> struct Pipeline<W, H> {
   }
 
   // History
-  void flush(Canvas &, TrailFn auto, float) {}
+  void flush(Canvas &, const ScreenTrailFn &, float) {}
+  void flush(Canvas &, const WorldTrailFn &, float) {}
 };
 
 // Recursive Case
@@ -164,10 +165,22 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
     }
   }
 
-  void flush(Canvas &cv, TrailFn auto trailFn, float alpha) {
+  void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
-      Head::flush(trailFn, alpha,
-                  [&](auto... args) { next.plot(cv, args...); });
+      if constexpr (Head::is_2d) {
+        Head::flush(trailFn, alpha,
+                    [&](auto... args) { next.plot(cv, args...); });
+      }
+    }
+    next.flush(cv, trailFn, alpha);
+  }
+
+  void flush(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
+    if constexpr (Head::has_history) {
+      if constexpr (!Head::is_2d) {
+        Head::flush(trailFn, alpha,
+                    [&](auto... args) { next.plot(cv, args...); });
+      }
     }
     next.flush(cv, trailFn, alpha);
   }
@@ -340,7 +353,7 @@ public:
     }
   }
 
-  void flush(TrailFn auto trailFn, float alpha, auto pass) {
+  void flush(const WorldTrailFn &trailFn, float alpha, auto pass) {
     // Age
     size_t count = items.size();
     for (size_t i = 0; i < count; ++i) {
@@ -430,7 +443,7 @@ public:
     }
   }
 
-  void flush(TrailFn auto trailFn, float alpha, auto pass) {
+  void flush(const ScreenTrailFn &trailFn, float alpha, auto pass) {
     for (int i = 0; i < num_pixels; ++i) {
       Color4 color =
           trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
@@ -485,7 +498,7 @@ public:
     }
   }
 
-  void flush(TrailFn auto trailFn, float alpha, auto pass) {
+  void flush(const ScreenTrailFn &trailFn, float alpha, auto pass) {
     float win = window_size;
 
     size_t count = items.size();
@@ -593,7 +606,7 @@ public:
     }
   }
 
-  void flush(TrailFn auto, float globalAlpha, auto pass) {
+  void flush(const ScreenTrailFn &, float globalAlpha, auto pass) {
     size_t count = items.size();
     for (size_t i = 0; i < count; ++i) {
       auto item = items.front();
