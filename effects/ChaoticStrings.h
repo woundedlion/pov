@@ -59,8 +59,8 @@ public:
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), animated_palette(&palette_variant),
-        cycle_phase(0.0f), functions(), cur_function_idx(0), node(),
-        noise(timeline), vertices() {
+        cycle_phase(0.0f), functions{{{12.0f, 5.0f, 0, 2 * PI_F}}},
+        cur_function_idx(0), node(), noise(timeline), vertices() {
 
     // Colors
     animated_palette.add(ScaleModifier(200.0f, &params.scaleFactor))
@@ -83,7 +83,6 @@ public:
     noise.params.sync();
 
     // Initialize Lissajous functions
-    functions = {{12.0f, 5.0f, 0, 2 * PI_F}};
 
     update_path();
     noise.spawn(0, -1);
@@ -94,8 +93,8 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         2 * (int)params.cycle_duration,
                         [this](Canvas &c) {
-                          cur_function_idx = static_cast<int>(
-                              hs::rand_int(0, functions.size()));
+                          cur_function_idx =
+                              (cur_function_idx + 1) % functions.size();
                           update_path();
                         },
                         true));
@@ -185,10 +184,9 @@ public:
 
 private:
   void update_path() {
-    const auto &config = functions[cur_function_idx];
-    path.f = [=](float t) {
-      return lissajous(config.m1, config.m2, config.a,
-                       ease_mid(t) * config.domain);
+    const LissajousConfig &config = functions[cur_function_idx];
+    path.f = [&config](float t) {
+      return lissajous(config.m1, config.m2, config.a, t * config.domain);
     };
   }
 
@@ -199,7 +197,7 @@ private:
   PaletteVariant palette_variant;
   AnimatedPalette animated_palette;
   float cycle_phase = 0.0f;
-  std::vector<LissajousConfig> functions;
+  std::array<LissajousConfig, 1> functions;
   int cur_function_idx;
   Node node;
   NoiseTransformer<W, 1> noise;
