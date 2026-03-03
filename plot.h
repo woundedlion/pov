@@ -36,7 +36,7 @@ struct Point {
   /**
    * @brief Draws a single point.
    */
-  static void draw(auto &pipeline, Canvas &canvas, const Fragment &f,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f,
                    FragmentShaderFn fragment_shader) {
     Fragment f_copy = f;
     f_copy.color = Color4(0, 0, 0, 0);
@@ -133,10 +133,10 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 }
 
 template <int W, int H>
-static void rasterize(auto &pipeline, Canvas &canvas, const Fragments &points,
-                      FragmentShaderFn fragment_shader, RasterCache &cache,
-                      bool close_loop = false, float age = 0.0f,
-                      const Basis *planar_basis = nullptr) {
+static void rasterize(PipelineRef pipeline, Canvas &canvas,
+                      const Fragments &points, FragmentShaderFn fragment_shader,
+                      RasterCache &cache, bool close_loop = false,
+                      float age = 0.0f, const Basis *planar_basis = nullptr) {
   size_t len = points.size();
   if (len < 2)
     return;
@@ -303,7 +303,7 @@ struct Line {
    * @param vertex_shader Optional vertex shader.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Fragment &f1,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader,
                    RasterCache *cache = nullptr) {
@@ -321,7 +321,7 @@ struct Line {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Fragment &f1,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader,
                    RasterCache *cache = nullptr) {
     draw<W, H>(pipeline, canvas, f1, f2, fragment_shader, {}, cache);
@@ -339,7 +339,7 @@ struct Vertices {
    * @param points List of points.
    * @param fragment_shader Shader function.
    */
-  static void draw(auto &pipeline, Canvas &canvas, const auto &points,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &points,
                    FragmentShaderFn fragment_shader) {
     for (const Fragment &p : points) {
       Fragment f = p;
@@ -445,7 +445,7 @@ struct Multiline {
    * @param closed If true, connects the last point to the first.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const auto &vertices,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false,
                    RasterCache *cache = nullptr) {
@@ -464,7 +464,7 @@ struct Multiline {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const auto &vertices,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader, bool closed = false,
                    RasterCache *cache = nullptr) {
     draw<W, H>(pipeline, canvas, vertices, fragment_shader, {}, closed, cache);
@@ -551,7 +551,7 @@ struct Ring {
    * @param phase Rotation phase.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0,
                    RasterCache *cache = nullptr) {
@@ -570,7 +570,7 @@ struct Ring {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    float phase = 0, RasterCache *cache = nullptr) {
     draw<W, H>(pipeline, canvas, basis, radius, fragment_shader, {}, phase,
@@ -615,7 +615,7 @@ struct PlanarPolygon {
    * @param phase Rotation phase.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0,
@@ -635,7 +635,7 @@ struct PlanarPolygon {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    RasterCache *cache = nullptr) {
@@ -685,7 +685,7 @@ struct SphericalPolygon {
    * @param phase Rotation phase.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0,
@@ -704,7 +704,7 @@ struct SphericalPolygon {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    RasterCache *cache = nullptr) {
@@ -818,7 +818,7 @@ struct DistortedRing {
    * @param phase Rotation phase.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0,
@@ -837,7 +837,7 @@ struct DistortedRing {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    RasterCache *cache = nullptr) {
@@ -889,7 +889,7 @@ struct Spiral {
    * @param vertex_shader Optional vertex shader.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, int n, float eps,
+  static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader,
                    RasterCache *cache = nullptr) {
@@ -907,7 +907,7 @@ struct Spiral {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, int n, float eps,
+  static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
                    FragmentShaderFn fragment_shader,
                    RasterCache *cache = nullptr) {
     draw<W, H>(pipeline, canvas, n, eps, fragment_shader, {}, cache);
@@ -992,7 +992,7 @@ struct Star {
    * @param phase Rotation phase.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0,
@@ -1022,7 +1022,7 @@ struct Star {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    RasterCache *cache = nullptr) {
@@ -1115,7 +1115,7 @@ struct Flower {
    * @param phase Rotation phase.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0,
@@ -1145,7 +1145,7 @@ struct Flower {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    RasterCache *cache = nullptr) {
@@ -1213,7 +1213,7 @@ struct Mesh {
   }
 
   template <int W, int H, typename MeshT>
-  static void draw(auto &pipeline, Canvas &canvas, const MeshT &mesh,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader,
                    RasterCache *cache = nullptr) {
@@ -1241,7 +1241,7 @@ struct Mesh {
   }
 
   template <int W, int H, typename MeshT>
-  static void draw(auto &pipeline, Canvas &canvas, const MeshT &mesh,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
                    FragmentShaderFn fragment_shader,
                    RasterCache *cache = nullptr) {
     draw<W, H>(pipeline, canvas, mesh, fragment_shader, {}, cache);
@@ -1301,7 +1301,7 @@ struct ParticleSystem {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const auto &system,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader,
                    RasterCache *cache = nullptr) {
@@ -1323,7 +1323,7 @@ struct ParticleSystem {
   }
 
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const auto &system,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader,
                    RasterCache *cache = nullptr) {
     draw<W, H>(pipeline, canvas, system, fragment_shader, {}, cache);

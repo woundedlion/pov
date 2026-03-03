@@ -16,6 +16,11 @@
 #include "canvas.h"
 #include "concepts.h"
 
+using PassFn2D =
+    FunctionRef<void(float, float, const Pixel &, float, float, uint8_t)>;
+using PassFn3D =
+    FunctionRef<void(const Vector &, const Pixel &, float, float, uint8_t)>;
+
 // Filter Traits
 /** @brief Trait indicating a filter operates in 2D screen space. */
 struct Is2D {
@@ -205,7 +210,7 @@ public:
   Orient(Orientation<W> &orientation) : orientation(orientation) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn3D pass) {
     tween(orientation, [&](const Quaternion &q, float t) {
       pass(rotate(v, q), color, age + (1.0f - t), alpha, tag);
     });
@@ -226,7 +231,7 @@ public:
       : enabled(true), axis(axis), orientations(orientations) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn3D pass) {
     if (!enabled) {
       pass(v, color, age, alpha, tag);
       return;
@@ -270,7 +275,7 @@ template <int W, typename OriginT = Vector> class Hole : public Is3D {
 public:
   Hole(OriginT origin, float radius) : origin(origin), radius(radius) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn3D pass) {
     // Unwrap if reference_wrapper, or use directly if Vector
     const Vector &o = origin;
     float d = angle_between(v, o);
@@ -301,7 +306,7 @@ public:
       : count(hs::clamp(count, 1, W)),
         step(make_rotation(Y_AXIS, 2 * PI_F / count)) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn3D pass) {
     Vector r = v;
     pass(r, color, age, alpha, tag);
     for (int i = 1; i < count; i++) {
@@ -322,7 +327,7 @@ template <int W> class Mobius : public Is3D {
 public:
   Mobius(MobiusParams &params) : params(params) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn3D pass) {
     pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha, tag);
   }
 
@@ -344,7 +349,7 @@ public:
   Trails(int lifetime) : lifetime(lifetime) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn3D pass) {
     pass(v, color, age, alpha, tag); // Pass through current frame
 
     float ttl = lifetime - age;
@@ -353,7 +358,7 @@ public:
     }
   }
 
-  void flush(const WorldTrailFn &trailFn, float alpha, auto pass) {
+  void flush(const WorldTrailFn &trailFn, float alpha, PassFn3D pass) {
     // Age
     size_t count = items.size();
     for (size_t i = 0; i < count; ++i) {
@@ -396,7 +401,7 @@ template <int W, int H> class AntiAlias : public Is2D {
 public:
   AntiAlias() {}
   void plot(float x, float y, const Pixel &c, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn2D pass) {
     float x_i, y_i;
     float x_m = std::modf(x, &x_i);
     float y_m = std::modf(y, &y_i);
@@ -429,7 +434,7 @@ public:
   Trails(int lifetime) : lifetime(lifetime), num_pixels(0) {}
 
   void plot(float x, float y, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn2D pass) {
     if (alpha <= 0.001f)
       return;
 
@@ -443,7 +448,7 @@ public:
     }
   }
 
-  void flush(const ScreenTrailFn &trailFn, float alpha, auto pass) {
+  void flush(const ScreenTrailFn &trailFn, float alpha, PassFn2D pass) {
     for (int i = 0; i < num_pixels; ++i) {
       Color4 color =
           trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
@@ -487,7 +492,7 @@ public:
   void set_window_size(float size) { window_size = size; }
 
   void plot(float x, float y, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn2D pass) {
     float delay = ttl_fn(x, y);
     float target_time = current_frame + std::max(0.0f, delay);
     if (items.size() < Capacity) {
@@ -498,7 +503,7 @@ public:
     }
   }
 
-  void flush(const ScreenTrailFn &trailFn, float alpha, auto pass) {
+  void flush(const ScreenTrailFn &trailFn, float alpha, PassFn2D pass) {
     float win = window_size;
 
     size_t count = items.size();
@@ -563,7 +568,7 @@ public:
   }
 
   void plot(float x, float y, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn2D pass) {
     int cx = static_cast<int>(std::round(x));
     int cy = static_cast<int>(std::round(y));
 
@@ -597,7 +602,7 @@ public:
   Slew(float rise = 1.0f, float fall = 0.05f) : rise(rise), fall(fall) {}
 
   void plot(float x, float y, const Pixel &color, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn2D pass) {
     pass(x, y, color, age, alpha, tag);
 
     // Add to decay buffer
@@ -606,7 +611,7 @@ public:
     }
   }
 
-  void flush(const ScreenTrailFn &, float globalAlpha, auto pass) {
+  void flush(const ScreenTrailFn &, float globalAlpha, PassFn2D pass) {
     size_t count = items.size();
     for (size_t i = 0; i < count; ++i) {
       auto item = items.front();
@@ -646,7 +651,7 @@ public:
   ChromaticShift() {}
 
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
-            uint8_t tag, auto pass) {
+            uint8_t tag, PassFn2D pass) {
     pass(x, y, c, age, alpha, tag);
 
     ::Pixel r_col = c;

@@ -62,6 +62,40 @@ using VertexShaderRef = FunctionRef<void(Fragment &)>;
 using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 
+class PipelineRef {
+  void *ctx_;
+  void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float,
+                  uint8_t);
+  void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float,
+                  uint8_t);
+
+public:
+  template <typename T> PipelineRef(T &t) : ctx_(std::addressof(t)) {
+    plot2d_ = [](void *ctx, Canvas &cv, float x, float y, const Pixel &c,
+                 float age, float alpha, uint8_t tag) {
+      static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha, tag);
+    };
+    plot3d_ = [](void *ctx, Canvas &cv, const Vector &v, const Pixel &c,
+                 float age, float alpha, uint8_t tag) {
+      static_cast<T *>(ctx)->plot(cv, v, c, age, alpha, tag);
+    };
+  }
+
+  void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
+            float alpha, uint8_t tag = 0) const {
+    plot2d_(ctx_, cv, x, y, c, age, alpha, tag);
+  }
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha,
+            uint8_t tag = 0) const {
+    plot2d_(ctx_, cv, static_cast<float>(x), static_cast<float>(y), c, age,
+            alpha, tag);
+  }
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha,
+            uint8_t tag = 0) const {
+    plot3d_(ctx_, cv, v, c, age, alpha, tag);
+  }
+};
+
 using PlotFn = std::function<Vector(float)>;
 using SpriteFn = std::function<void(Canvas &, float)>;
 using TimerFn = std::function<void(Canvas &)>;
