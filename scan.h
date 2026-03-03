@@ -1428,7 +1428,7 @@ namespace Scan {
  * @brief Processes a single pixel for rasterization.
  */
 template <int W, int H, bool ComputeUVs = true>
-static void process_pixel(int x, int y, const Vector &p, auto &pipeline,
+static void process_pixel(int x, int y, const Vector &p, PipelineRef pipeline,
                           Canvas &canvas, const auto &shape,
                           FragmentShaderFn fragment_shader, bool debug_bb,
                           SDF::DistanceResult &result_scratch,
@@ -1499,7 +1499,7 @@ static void process_pixel(int x, int y, const Vector &p, auto &pipeline,
  * pixels.
  */
 template <int W, int H, bool ComputeUVs = true>
-static void rasterize(auto &pipeline, Canvas &canvas, const auto &shape,
+static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
   bool effective_debug = debug_bb || canvas.debug();
   auto bounds = shape.template get_vertical_bounds<H>();
@@ -1572,7 +1572,7 @@ static void rasterize(auto &pipeline, Canvas &canvas, const auto &shape,
 
 struct DistortedRing {
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness, ScalarFn shift_fn,
                    float amplitude, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
@@ -1585,7 +1585,7 @@ struct DistortedRing {
 
 struct PlanarPolygon {
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
@@ -1600,7 +1600,7 @@ struct PlanarPolygon {
 
 struct Line {
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Vector &v1,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &v1,
                    const Vector &v2, float thickness,
                    FragmentShaderFn fragment_shader, bool debug_bb = false) {
     SDF::Line shape(v1, v2, thickness);
@@ -1613,7 +1613,7 @@ struct Ring {
    * @brief Draws a solid ring using SDF rasterization.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
@@ -1625,7 +1625,7 @@ struct Ring {
 
   // Overload for Vector normal inputs
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Vector &normal,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &normal,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
@@ -1640,7 +1640,7 @@ struct Circle {
    * @brief Draws a solid circle (filled ring).
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
     // Circle is a Ring with inner radius 0
@@ -1650,7 +1650,7 @@ struct Circle {
   }
 
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Vector &normal,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &normal,
                    float radius, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
     Basis basis = make_basis(Quaternion(), normal);
@@ -1664,7 +1664,7 @@ struct Point {
    * @brief Draws a solid point (thick circle).
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Vector &p,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p,
                    float thickness, FragmentShaderFn fragment_shader) {
     // Scan.Point uses Scan.Ring with radius 0
     Basis basis = make_basis(Quaternion(), p);
@@ -1677,7 +1677,7 @@ struct Star {
    * @brief Draws a solid star shape.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
@@ -1692,7 +1692,7 @@ struct Flower {
    * @brief Draws a solid flower shape.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
@@ -1707,7 +1707,7 @@ struct SphericalPolygon {
    * @brief Draws a solid spherical polygon.
    */
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const Basis &basis,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     // 1. Get Antipode and Basis
@@ -1757,7 +1757,7 @@ struct SphericalPolygon {
 
 struct HarmonicBlob {
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, int l, int m,
+  static void draw(PipelineRef pipeline, Canvas &canvas, int l, int m,
                    float amplitude, const Quaternion &orientation,
                    HarmonicWaveFn harmonic_fn, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
@@ -1767,9 +1767,9 @@ struct HarmonicBlob {
 };
 
 struct Mesh {
-  template <int W, int H, typename MeshT, typename F>
-  static void draw(auto &pipeline, Canvas &canvas, const MeshT &mesh,
-                   F fragment_shader, bool debug_bb = false) {
+  template <int W, int H, typename MeshT>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
+                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
     SDF::FaceScratchBuffer scratch;
 
     size_t idx_offset = 0;
@@ -1791,8 +1791,8 @@ struct Mesh {
 
   // Overload for MeshState
   template <int W, int H>
-  static void draw(auto &pipeline, Canvas &canvas, const MeshState &mesh,
-                   auto fragment_shader, bool debug_bb = false) {
+  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshState &mesh,
+                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
     SDF::FaceScratchBuffer scratch;
     size_t face_offset = 0;
 
