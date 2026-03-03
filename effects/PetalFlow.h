@@ -18,7 +18,7 @@ public:
     float alpha = 0.2f;
   } params;
 
-  PetalFlow()
+  FLASHMEM PetalFlow()
       : Effect(W, H),
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),

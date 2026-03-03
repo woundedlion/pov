@@ -119,39 +119,49 @@ public:
   }
 
   T &front() {
-    if (is_empty())
-      return get_mut_dummy();
+    if (is_empty()) {
+      hs::log("Buffer Error: front() called on empty buffer.");
+      abort();
+    }
     return buffer[head];
   }
 
   const T &front() const {
-    if (is_empty())
-      return get_const_dummy();
+    if (is_empty()) {
+      hs::log("Buffer Error: front() called on empty buffer.");
+      abort();
+    }
     return buffer[head];
   }
 
   T &back() {
-    if (is_empty())
-      return get_mut_dummy();
+    if (is_empty()) {
+      hs::log("Buffer Error: back() called on empty buffer.");
+      abort();
+    }
     return buffer[(head + count - 1) % N];
   }
 
   const T &back() const {
-    if (is_empty())
-      return get_const_dummy();
+    if (is_empty()) {
+      hs::log("Buffer Error: back() called on empty buffer.");
+      abort();
+    }
     return buffer[(head + count - 1) % N];
   }
 
   T &operator[](size_t index) {
     if (index >= count) {
-      return get_mut_dummy();
+      hs::log("Buffer Error: operator[] called on out of bounds index.");
+      abort();
     }
     return buffer[(head + index) % N];
   }
 
   const T &operator[](size_t index) const {
     if (index >= count) {
-      return get_const_dummy();
+      hs::log("Buffer Error: operator[] called on out of bounds index.");
+      abort();
     }
     return buffer[(head + index) % N];
   }
@@ -171,17 +181,6 @@ private:
   size_t head;
   size_t tail;
   size_t count;
-
-  static T &get_mut_dummy() {
-    static T dummy;
-    dummy = T();
-    return dummy;
-  }
-
-  static const T &get_const_dummy() {
-    static const T dummy = T();
-    return dummy;
-  }
 
   void pop_back_internal() {
     tail = (tail - 1 + N) % N;

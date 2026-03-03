@@ -8,7 +8,7 @@
 
 template <int W, int H> class Thrusters : public Effect {
 public:
-  Thrusters()
+  FLASHMEM Thrusters()
       : Effect(W, H), palette({0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f},
                               {0.3f, 0.3f, 0.3f}, {0.0f, 0.2f, 0.6f}),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),

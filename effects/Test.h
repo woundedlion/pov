@@ -10,7 +10,7 @@
 
 template <int W, int H> class Test : public Effect {
 public:
-  Test()
+  FLASHMEM Test()
       : Effect(W, H),
         ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),

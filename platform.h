@@ -64,6 +64,10 @@ static constexpr int H_OFFSET = 3;
 #define PROGMEM
 #endif
 
+#ifndef FLASHMEM
+#define FLASHMEM
+#endif
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/bind.h>
@@ -73,11 +77,11 @@ static constexpr int H_OFFSET = 3;
 #include <cstdarg>
 #include <cmath>
 #include <algorithm>
-#include <iostream>
 #include <vector>
 #include <cstring>
 #include <chrono>
 #include <iostream>
+#include <random>
 
 template <typename T, typename U> constexpr T lerp(T a, T b, U t) {
   return (T)(a + (b - a) * t);

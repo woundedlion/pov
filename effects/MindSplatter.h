@@ -12,7 +12,7 @@
 
 template <int W, int H> class MindSplatter : public Effect {
 public:
-  MindSplatter()
+  FLASHMEM MindSplatter()
       : Effect(W, H), presets{{"Tight", {0.85f, 1.0f, 0.025f, 0.2f}},
                               {"Medium", {0.5f, 2.0f, 0.094f, 0.2f}},
                               {"Loose", {1.0f, 3.0f, 0.035f, 1.0f}}},

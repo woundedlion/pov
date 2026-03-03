@@ -30,7 +30,7 @@ public:
     Node() : v(Y_AXIS) {}
   };
 
-  Comets() : Effect(W, H), cur_function_idx(0) {
+  FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);

@@ -14,7 +14,7 @@ public:
     float r;
   };
 
-  MetaballEffect() : Effect(W, H), palette(Palettes::richSunset) {
+  FLASHMEM MetaballEffect() : Effect(W, H), palette(Palettes::richSunset) {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise.SetSeed(hs::rand_int(0, 10000));
     init_balls();

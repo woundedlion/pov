@@ -27,7 +27,7 @@ public:
     }
   };
 
-  TestTemporal()
+  FLASHMEM TestTemporal()
       : Effect(W, H), params(), t(0), color_offset(0.0f),
         source_variant{Palettes::richSunset},
         circular_source{CircularPalette(&source_variant)},

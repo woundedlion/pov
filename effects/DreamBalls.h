@@ -15,7 +15,7 @@
 template <int W, int H> class DreamBalls : public Effect {
 public:
   struct Params {
-    std::string solid_name;
+    const char *solid_name;
     float num_copies;
     float offset_radius;
     float offset_speed;
@@ -25,7 +25,7 @@ public:
     bool enable_slice = false;
   };
 
-  DreamBalls()
+  FLASHMEM DreamBalls()
       : Effect(W, H),
         filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS),
                 Filter::Screen::AntiAlias<W, H>()),

@@ -9,7 +9,7 @@
 
 template <int W, int H> class TestSlewRate : public Effect {
 public:
-  TestSlewRate()
+  FLASHMEM TestSlewRate()
       : Effect(W, H), orientation(),
         // Pipeline: Orient -> Slew -> AntiAlias
         pipeline(Filter::World::Orient<W>(orientation),

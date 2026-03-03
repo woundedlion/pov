@@ -152,7 +152,7 @@ private:
 
 template <int W, int H> class ChainWiggle : public Effect {
 public:
-  ChainWiggle() : Effect(W, H), osc(1, 4) {
+  FLASHMEM ChainWiggle() : Effect(W, H), osc(1, 4) {
     persist_pixels = true;
     for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
       dots[i] = Dot(0, i, 0);
@@ -260,7 +260,7 @@ private:
 
 template <int W, int H> class RingTwist : public Effect {
 public:
-  RingTwist() : Effect(W, H), seed_(CHSV(104, 0, 255)) {
+  FLASHMEM RingTwist() : Effect(W, H), seed_(CHSV(104, 0, 255)) {
     persist_pixels = true;
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
@@ -381,7 +381,7 @@ private:
 
 template <int W, int H, uint8_t HUE> class TheMatrix : public Effect {
 public:
-  TheMatrix() : Effect(W, H) {
+  FLASHMEM TheMatrix() : Effect(W, H) {
     random16_add_entropy(random());
     memset(pixels_, 0, sizeof(pixels_));
   }
@@ -423,7 +423,7 @@ private:
 
 template <int W, int H> class Curves : public Effect {
 public:
-  Curves() : Effect(W, H) {
+  FLASHMEM Curves() : Effect(W, H) {
     persist_pixels = true;
     fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
@@ -476,7 +476,7 @@ private:
   uint8_t hue_;
 
 public:
-  StarsFade() : Effect(W, H), hue_(0) { persist_pixels = true; }
+  FLASHMEM StarsFade() : Effect(W, H), hue_(0) { persist_pixels = true; }
 
   bool show_bg() const { return true; }
 
@@ -501,7 +501,7 @@ private:
   NoTempCorrection _;
 
 public:
-  Spiral() : Effect(W, H) {
+  FLASHMEM Spiral() : Effect(W, H) {
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
     draw_frame();
   }
@@ -524,7 +524,7 @@ public:
 
 template <int W, int H> class WaveTrails : public Effect {
 public:
-  WaveTrails() : Effect(W, H) { persist_pixels = true; }
+  FLASHMEM WaveTrails() : Effect(W, H) { persist_pixels = true; }
 
   bool show_bg() const { return false; }
 
@@ -546,7 +546,7 @@ public:
 
 template <int W, int H> class RingTrails : public Effect {
 public:
-  RingTrails() : Effect(W, H), dot(0) {
+  FLASHMEM RingTrails() : Effect(W, H), dot(0) {
     persist_pixels = true;
     fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
@@ -598,7 +598,7 @@ private:
 
 template <int W, int H> class Kaleidoscope : public Effect {
 public:
-  Kaleidoscope() : Effect(W, H) {
+  FLASHMEM Kaleidoscope() : Effect(W, H) {
     persist_pixels = true;
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
   }
@@ -651,7 +651,7 @@ private:
 
 template <int W, int H> class RingRotate : public Effect {
 public:
-  RingRotate() : Effect(W, H) { fill_rainbow(pal.entries, 256, HUE_RED, 1); }
+  FLASHMEM RingRotate() : Effect(W, H) { fill_rainbow(pal.entries, 256, HUE_RED, 1); }
   bool show_bg() const { return false; }
 
   void draw_frame() {
@@ -714,7 +714,7 @@ private:
 template <int W, int H, uint8_t HUE, uint8_t BURNRATE>
 class Burnout : public Effect {
 public:
-  Burnout() : Effect(W, H), timer_(30), burn_idx_(0) {
+  FLASHMEM Burnout() : Effect(W, H), timer_(30), burn_idx_(0) {
     random16_add_entropy(random());
     memset8(pixels_, INIT, sizeof(pixels_));
     fill_seq(burn_, W * H);
@@ -792,7 +792,7 @@ private:
 template <int W, int H, uint8_t COOL, uint8_t SPARK>
 class Fire : public Effect {
 public:
-  Fire() : Effect(W, H) { random16_add_entropy(random()); }
+  FLASHMEM Fire() : Effect(W, H) { random16_add_entropy(random()); }
 
   bool show_bg() const { return false; }
 
@@ -837,7 +837,7 @@ private:
 
 template <int W, int H> class DotTrails : public Effect {
 public:
-  DotTrails() : Effect(W, H) {
+  FLASHMEM DotTrails() : Effect(W, H) {
     persist_pixels = true;
     random16_add_entropy(random());
     for (int i = 0; i < H - 1; ++i) {
@@ -900,7 +900,7 @@ private:
 
 template <int W, int H> class Spinner : public Effect {
 public:
-  Spinner() : Effect(W, H), spin_timer_(62), pos_(0) {
+  FLASHMEM Spinner() : Effect(W, H), spin_timer_(62), pos_(0) {
     memset(palette1_, 0, sizeof(palette1_));
     memset(palette2_, 0, sizeof(palette1_));
     palette1_[0] = palette1_[8] = CHSV(HUE_RED, 255, 255);

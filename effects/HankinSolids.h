@@ -9,7 +9,6 @@
 #include "../generators.h"
 
 #include <algorithm>
-#include <iostream>
 #include <map>
 #include <random>
 #include <string>
@@ -18,7 +17,7 @@
 
 template <int W, int H> class HankinSolids : public Effect {
 public:
-  HankinSolids() : Effect(W, H), filters() {
+  FLASHMEM HankinSolids() : Effect(W, H), filters() {
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
 

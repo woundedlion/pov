@@ -16,7 +16,7 @@ template <int W, int H> class MobiusGrid : public Effect {
   mutable Plot::RasterCache m_raster_cache;
 
 public:
-  MobiusGrid()
+  FLASHMEM MobiusGrid()
       : Effect(W, H),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                 BrightnessProfile::FLAT),

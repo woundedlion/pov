@@ -7,7 +7,6 @@
 
 #include "../effects_engine.h"
 #include <vector>
-#include <string>
 #include <map>
 #include <stack>
 #include <array>
@@ -42,12 +41,12 @@ template <int W, int H> class LSystem : public Effect {
 public:
   struct Rule {
     char init;
-    std::string result;
+    const char *result;
   };
 
   struct Ruleset {
-    std::string name;
-    std::string axiom;
+    const char *name;
+    const char *axiom;
     std::array<Rule, 4> rules;
     int num_rules;
     float angle; // Degrees
@@ -55,7 +54,7 @@ public:
     int iterations;
   };
 
-  LSystem()
+  FLASHMEM LSystem()
       : Effect(W, H), filters(Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {
     registerParam("Rule", &params.rule_idx, 0.0f, 2.0f);
@@ -113,23 +112,37 @@ public:
   }
 
   void regenerate() {
-    std::string s = current_ruleset.axiom;
+    char s[2048];
+    strncpy(s, current_ruleset.axiom, sizeof(s));
+    s[sizeof(s) - 1] = '\0';
+
+    char next_s[2048];
+
     for (int i = 0; i < current_ruleset.iterations; ++i) {
-      std::string next_s;
-      for (char c : s) {
+      next_s[0] = '\0';
+      int next_len = 0;
+      for (int j = 0; s[j] != '\0'; ++j) {
+        char c = s[j];
         bool found = false;
         for (int r = 0; r < current_ruleset.num_rules; ++r) {
           if (current_ruleset.rules[r].init == c) {
-            next_s += current_ruleset.rules[r].result;
+            int r_len = strlen(current_ruleset.rules[r].result);
+            if (next_len + r_len < sizeof(next_s) - 1) {
+              strcpy(&next_s[next_len], current_ruleset.rules[r].result);
+              next_len += r_len;
+            }
             found = true;
             break;
           }
         }
         if (!found) {
-          next_s += c;
+          if (next_len < sizeof(next_s) - 1) {
+            next_s[next_len++] = c;
+            next_s[next_len] = '\0';
+          }
         }
       }
-      s = next_s;
+      strcpy(s, next_s);
     }
 
     float step = current_ruleset.step * params.step_mod;
@@ -142,7 +155,8 @@ public:
     std::stack<SphericalTurtle> stack;
     segments.clear();
 
-    for (char c : s) {
+    for (int i = 0; s[i] != '\0'; ++i) {
+      char c = s[i];
       if (c == 'F') {
         segments.push_back(turtle.forward(step));
       } else if (c == '+') {
