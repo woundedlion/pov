@@ -28,6 +28,7 @@ template <int W> class Orientation;
 #include "color.h"
 #include "animation.h"
 #include "transformers.h"
+#include "generators.h"
 
 #include "filter.h"
 #include "platform.h"

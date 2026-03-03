@@ -8,14 +8,13 @@
 #include "../effects_engine.h"
 #include <vector>
 #include "../static_circular_buffer.h"
-#include "../presets.h"
 
 template <int W, int H> class MindSplatter : public Effect {
 public:
   FLASHMEM MindSplatter()
-      : Effect(W, H), presets{{"Tight", {0.85f, 1.0f, 0.025f, 0.2f}},
-                              {"Medium", {0.5f, 2.0f, 0.094f, 0.2f}},
-                              {"Loose", {1.0f, 3.0f, 0.035f, 1.0f}}},
+      : Effect(W, H), presets{{{{"Tight", {0.85f, 1.0f, 0.025f, 0.2f}},
+                                {"Medium", {0.5f, 2.0f, 0.094f, 0.2f}},
+                                {"Loose", {1.0f, 3.0f, 0.035f, 1.0f}}}}},
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()),
         particle_system(0.85f, 0.001f, 25) {
@@ -76,7 +75,7 @@ private:
     }
   } params;
 
-  Presets<Params> presets;
+  Presets<Params, 3> presets;
 
   Orientation<W> orientation;
   Timeline<W> timeline;

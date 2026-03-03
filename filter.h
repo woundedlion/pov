@@ -9,6 +9,7 @@
 #include <type_traits>
 #include <cmath>
 #include <vector>
+#include <span>
 #include <algorithm>
 #include "geometry.h"
 #include "color.h"
@@ -226,8 +227,7 @@ private:
  */
 template <int W> class OrientSlice : public Is3D {
 public:
-  OrientSlice(const std::vector<Orientation<W>> &orientations,
-              const Vector &axis)
+  OrientSlice(std::span<const Orientation<W>> orientations, const Vector &axis)
       : enabled(true), axis(axis), orientations(orientations) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
@@ -263,7 +263,7 @@ public:
   Vector axis;
 
 private:
-  const std::vector<Orientation<W>> &orientations;
+  std::span<const Orientation<W>> orientations;
 };
 
 /**
