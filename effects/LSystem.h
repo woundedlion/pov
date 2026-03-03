@@ -6,14 +6,14 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include <vector>
-#include <map>
-#include <stack>
+
 #include <array>
 
 struct SphericalTurtle {
   Vector pos;
   Vector heading;
+
+  SphericalTurtle() : pos(0, -1, 0), heading(0, 0, 1) {}
 
   SphericalTurtle(Vector p, Vector h)
       : pos(p.normalize()), heading(h.normalize()) {}
@@ -80,10 +80,6 @@ public:
       last_rule = (int)params.rule_idx;
     }
 
-    // Check for live parameter updates (requires regeneration if changed)
-    // Optimization: only regenerate if changed? For now, we regenerate or check
-    // diff But regenerate() is heavy? L-System string gen is fast for small N.
-    // Geometry gen is okay. Let's check diffs.
     static float last_angle = 0;
     static float last_step = 0;
     if (std::abs(params.angle_mod - last_angle) > 0.01f ||
@@ -152,7 +148,8 @@ public:
     Vector heading(0, 0, 1);
 
     SphericalTurtle turtle(pos, heading);
-    std::stack<SphericalTurtle> stack;
+    SphericalTurtle stack[32] = {turtle}; // prevent uninitialized warning
+    int stack_idx = 0;
     segments.clear();
 
     for (int i = 0; s[i] != '\0'; ++i) {
@@ -164,12 +161,11 @@ public:
       } else if (c == '-') {
         turtle.turn(-angle);
       } else if (c == '[') {
-        stack.push(turtle);
+        if (stack_idx < 32)
+          stack[stack_idx++] = turtle;
       } else if (c == ']') {
-        if (!stack.empty()) {
-          turtle = stack.top();
-          stack.pop();
-        }
+        if (stack_idx > 0)
+          turtle = stack[--stack_idx];
       }
     }
   }
@@ -181,24 +177,21 @@ private:
       filters;
   ProceduralPalette palette = Palettes::richSunset;
 
-  std::vector<Ruleset> rulesets;
+  std::array<Ruleset, 3> rulesets;
   Ruleset current_ruleset;
-  std::vector<std::pair<Vector, Vector>> segments;
+  StaticCircularBuffer<std::pair<Vector, Vector>, 4096> segments;
 
   void setup_rules() {
-    rulesets.push_back({"Tree",
-                        "X",
-                        {{{'X', "F[+X][-X]FX"}, {'F', "FF"}}},
-                        2,
-                        35.0f,
-                        0.25f,
-                        4});
-
-    rulesets.push_back(
-        {"Bush", "F", {{{'F', "FF-[-F+F+F]+[+F-F-F]"}}}, 1, 25.0f, 0.1f, 4});
-
-    rulesets.push_back(
-        {"Mosaic", "F++F++F", {{{'F', "F-F++F-F"}}}, 1, 79.0f, 0.33f, 3});
+    rulesets = {
+        {{"Tree",
+          "X",
+          {{{'X', "F[+X][-X]FX"}, {'F', "FF"}}},
+          2,
+          35.0f,
+          0.25f,
+          4},
+         {"Bush", "F", {{{'F', "FF-[-F+F+F]+[+F-F-F]"}}}, 1, 25.0f, 0.1f, 4},
+         {"Mosaic", "F++F++F", {{{'F', "F-F++F-F"}}}, 1, 79.0f, 0.33f, 3}}};
   }
 
   struct Params {
