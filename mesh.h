@@ -322,25 +322,19 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena &arena,
 
   transformed.vertices.initialize(arena, mesh.vertices.size());
 
-  if constexpr (sizeof...(Transformers) > 0) {
-    // Convert variadic args to TransformFn to avoid template bloat on transform
-    // implementations
-    std::array<TransformFn, sizeof...(Transformers)> tf_array = {
-        transformers...};
+  // Convert variadic args to TransformFn to avoid template bloat on transform
+  // implementations
+  std::array<TransformFn, 1 + sizeof...(Transformers)> tf_array = {
+      first_transformer, transformers...};
 
-    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-      Vector v = mesh.vertices[i];
-      for (const auto &tf : tf_array) {
-        if (tf) {
-          v = tf(v);
-        }
+  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+    Vector v = mesh.vertices[i];
+    for (const auto &tf : tf_array) {
+      if (tf) {
+        v = tf(v);
       }
-      transformed.vertices.push_back(v);
     }
-  } else {
-    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-      transformed.vertices.push_back(mesh.vertices[i]);
-    }
+    transformed.vertices.push_back(v);
   }
 }
 
