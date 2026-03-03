@@ -128,7 +128,7 @@ struct Ring {
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     constexpr int H_VIRT = H + hs::H_OFFSET;
-    float phi = y_to_phi<H>(static_cast<float>(y));
+    float phi = y_to_phi<H_VIRT>(static_cast<float>(y));
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 

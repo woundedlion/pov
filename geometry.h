@@ -182,7 +182,7 @@ template <int H> inline float phi_to_y(float phi) {
  */
 template <int H> struct PhiLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
-  static std::array<float, H_VIRT> data;
+   static std::array<float, H_VIRT> data;
   static bool initialized;
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {
@@ -192,8 +192,8 @@ template <int H> struct PhiLUT {
   }
 };
 
-template <int H> DMAMEM std::array<float, PhiLUT<H>::H_VIRT> PhiLUT<H>::data;
-template <int H> DMAMEM bool PhiLUT<H>::initialized = false;
+template <int H> std::array<float, PhiLUT<H>::H_VIRT> PhiLUT<H>::data;
+template <int H> bool PhiLUT<H>::initialized = false;
 
 template <int H> inline float y_to_phi(int y) {
   if (!PhiLUT<H>::initialized) {
