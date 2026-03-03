@@ -379,7 +379,7 @@ inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
 
 #else
 // --- ARM CORTEX-M7 (TEENSY) HARDWARE CLAMP ---
-inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
+inline constexpr __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
   // Compiles directly to VMIN.F32 and VMAX.F32
   return __builtin_fmaxf(lo, __builtin_fminf(v, hi));
 }

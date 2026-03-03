@@ -264,7 +264,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
       std::abs(y - floor(y)) < TOLERANCE) {
     return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
-  return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H>(y)));
+  return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H_VIRT>(y)));
 }
 
 /**

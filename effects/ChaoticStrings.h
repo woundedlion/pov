@@ -57,10 +57,11 @@ public:
   };
 
   ChaoticStrings()
-      : Effect(W, H), cur_function_idx(0),
-        filters(Filter::Screen::AntiAlias<W, H>()),
-        path([this](float t) { return Vector(0, 1, 0); }),
-        animated_palette(&palette_variant), noise(timeline) {
+      : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
+        path([this](float t) { return Vector(0, 1, 0); }), orientation(),
+        palette_variant(), animated_palette(&palette_variant),
+        cycle_phase(0.0f), functions(), cur_function_idx(0), node(),
+        noise(timeline), vertices() {
 
     // Colors
     animated_palette.add(ScaleModifier(200.0f, &params.scaleFactor))
@@ -116,8 +117,6 @@ public:
   void next_preset() {
     return;
     preset_manager.next();
-    Params target = preset_manager.get();
-
     timeline.add(
         0, Animation::Lerp(params, preset_manager.get(), 160, ease_in_out_sin));
   }

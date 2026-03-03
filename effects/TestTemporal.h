@@ -28,12 +28,15 @@ public:
   };
 
   TestTemporal()
-      : Effect(W, H), orientation(), noise(),
+      : Effect(W, H), params(), t(0), color_offset(0.0f),
+        source_variant{Palettes::richSunset},
+        circular_source{CircularPalette(&source_variant)},
+        palette(&circular_source), orientation(), timeline(), noise(),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
                                                                2.0f),
                 Filter::Screen::AntiAlias<W, H>()),
-        palette(&circular_source) {
+        mesh() {
     registerParam("Mode", &params.mode, 0.0f, 4.0f);
     registerParam("Delay Base", &params.base, 0.0f, 50.0f);
     registerParam("Delay Amp", &params.amp, 0.0f, 50.0f);
@@ -62,7 +65,6 @@ public:
 
     Plot::Mesh::draw<W, H>(
         filters, canvas, mesh, [&](const Vector &v, Fragment &f) {
-          float t_val = (v.j + 1.0f) * 0.5f;
           f.color = get_color(palette.get((v.j + 1.0f) * 0.5f), 1.0f);
 
           // Lighting Logic (Edge Pulses)

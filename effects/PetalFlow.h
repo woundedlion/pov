@@ -10,9 +10,6 @@
 #include <algorithm>
 #include "../effects_engine.h"
 
-// Helper linear easing
-static float ease_linear(float t) { return t; }
-
 template <int W, int H> class PetalFlow : public Effect {
 public:
   struct Params {

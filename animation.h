@@ -1357,7 +1357,7 @@ public:
    */
   MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
-      : Base(-1, true), params(params), scale(scale), speed(speed) {
+      : speed(speed), scale(scale), params(params) {
     // Capture initial state as base
     base = params;
 

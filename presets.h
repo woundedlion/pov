@@ -31,14 +31,10 @@ public:
         return entry.params;
       }
     }
-    if (!entries.empty())
-      return entries[0].params;
-    throw std::runtime_error("No presets available");
+    return entries[0].params;
   }
 
   const Params &get() const {
-    if (entries.empty())
-      throw std::runtime_error("No presets available");
     return entries[current_idx].params;
   }
 
