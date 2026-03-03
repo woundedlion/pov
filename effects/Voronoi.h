@@ -6,7 +6,7 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include <vector>
+
 #include <cmath>
 #include <cstdlib>
 
@@ -19,7 +19,7 @@ public:
     int id;
   };
 
-  FLASHMEM Voronoi() : Effect(W, H), sites_buffer(200) {
+  FLASHMEM Voronoi() : Effect(W, H) {
     init_sites();
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
     registerParam("Smoothness", &params.smoothness, 1.0f, 500.0f);
@@ -111,14 +111,12 @@ public:
   bool showBorders = true;
   bool showSites = false;
 
-private:
-  std::vector<Site> sites_buffer;
+  StaticCircularBuffer<Site, 256> sites_buffer;
 
   void init_sites() {
     sites_buffer.clear();
-    sites_buffer.resize((int)params.num_sites);
 
-    for (int i = 0; i < (int)params.num_sites; i++) {
+    for (int i = 0; i < (int)params.num_sites && i < 256; i++) {
       float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
       float y = 1.0f - (i / (float)((int)params.num_sites - 1)) * 2.0f;
       float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
@@ -127,18 +125,19 @@ private:
       float x = cosf(theta) * radius;
       float z = sinf(theta) * radius;
 
-      sites_buffer[i].pos = Vector(x, y, z);
+      Vector pos = Vector(x, y, z);
 
       float rx = (rand() % 1000) / 500.0f - 1.0f;
       float ry = (rand() % 1000) / 500.0f - 1.0f;
       float rz = (rand() % 1000) / 500.0f - 1.0f;
-      sites_buffer[i].axis = Vector(rx, ry, rz).normalize();
+      Vector axis = Vector(rx, ry, rz).normalize();
 
       float t =
           i /
           (float)((int)params.num_sites > 1 ? (int)params.num_sites - 1 : 1);
-      sites_buffer[i].color = Palettes::richSunset.get(t);
-      sites_buffer[i].id = i;
+      Color4 color = Palettes::richSunset.get(t);
+
+      sites_buffer.push_back({pos, axis, color, i});
     }
   }
 };

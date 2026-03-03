@@ -915,6 +915,14 @@ private:
 template <int W> class Rotation : public Base<Rotation<W>> {
 public:
   /**
+   * @brief Default constructor. Creates an inactive/identity rotation.
+   */
+  Rotation()
+      : Base<Rotation<W>>(0, false), orientation(nullptr), axis(X_AXIS),
+        total_angle(0), easing_fn(ease_mid), last_angle(0),
+        space(Space::World) {}
+
+  /**
    * @brief Constructs a Rotation animation.
    * @param orientation The Orientation object to update.
    * @param axis The rotation axis (unit vector).
@@ -927,14 +935,19 @@ public:
   Rotation(Orientation<W> &orientation, const Vector &axis, float angle,
            int duration, ScalarFn easing_fn, bool repeat = false,
            Space space = Space::World)
-      : Base<Rotation<W>>(duration, repeat), orientation(orientation),
+      : Base<Rotation<W>>(duration, repeat), orientation(&orientation),
         axis(axis), total_angle(angle), easing_fn(std::move(easing_fn)),
         last_angle(0), space(space) {}
 
   /**
    * @brief Access the associated Orientation.
    */
-  Orientation<W> &get_orientation() const { return orientation.get(); }
+  Orientation<W> &get_orientation() const { return *orientation; }
+
+  /**
+   * @brief Check if the rotation has a valid orientation bound.
+   */
+  bool has_orientation() const { return orientation != nullptr; }
 
   /**
    * @brief Steps the animation, calculates the incremental rotation delta, and
@@ -956,8 +969,8 @@ public:
 
     int num_steps =
         1 + static_cast<int>(std::ceil(std::abs(delta) / MAX_ANGLE));
-    orientation.get().upsample(num_steps + 1);
-    int len = orientation.get().length();
+    orientation->upsample(num_steps + 1);
+    int len = orientation->length();
 
     float step_angle = delta / (len - 1);
     Quaternion accumulated_q;
@@ -975,7 +988,7 @@ public:
       float angle = step_angle * i;
       Quaternion q = make_rotation(axis, angle);
 
-      Quaternion &current_q = orientation.get().at(i);
+      Quaternion &current_q = orientation->at(i);
       apply_rotation(current_q, q);
       current_q.normalize();
     }
@@ -1002,13 +1015,12 @@ private:
   static constexpr float MAX_ANGLE =
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
-  std::reference_wrapper<Orientation<W>>
-      orientation;    /**< Reference to the Orientation state. */
-  Vector axis;        /**< The axis of rotation. */
-  float total_angle;  /**< The total angle to sweep. */
-  ScalarFn easing_fn; /**< Easing curve. */
-  float last_angle;   /**< The angle reached in the previous frame. */
-  Space space;        /**< The coordinate space for rotation. */
+  Orientation<W> *orientation; /**< Pointer to the Orientation state. */
+  Vector axis;                 /**< The axis of rotation. */
+  float total_angle;           /**< The total angle to sweep. */
+  ScalarFn easing_fn;          /**< Easing curve. */
+  float last_angle;            /**< The angle reached in the previous frame. */
+  Space space;                 /**< The coordinate space for rotation. */
 };
 
 /**

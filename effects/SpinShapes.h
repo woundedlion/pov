@@ -6,7 +6,6 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include <vector>
 
 template <int W, int H> class SpinShapes : public Effect {
 public:
@@ -24,16 +23,7 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-
-    // Step animations (manual management to avoid Timeline limits)
-    for (auto &rot : rotations) {
-      rot.step(canvas);
-    }
-
-    // Draw shapes
-    for (auto &shape : shapes) {
-      draw_shape(canvas, shape);
-    }
+    timeline.step(canvas);
   }
 
 private:
@@ -49,8 +39,8 @@ private:
     float count = 40.0f;
   } params;
 
-  std::vector<Shape> shapes;
-  std::vector<Animation::Rotation<W>> rotations;
+  StaticCircularBuffer<Shape, 128> shapes;
+  Timeline<W, 128> timeline;
 
   Orientation<W> camera;
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
@@ -58,30 +48,31 @@ private:
 
   void rebuild() {
     shapes.clear();
-    rotations.clear();
-
-    // Ensure stability for references
-    shapes.reserve((int)params.count);
-    rotations.reserve((int)params.count);
+    timeline = Timeline<W, 128>();
 
     for (int i = 0; i < (int)params.count; i++) {
       Vector normal = fib_spiral((int)params.count, 0, i);
 
       shapes.push_back({normal, Orientation<W>(), 0});
       Shape &s = shapes.back();
-      // Rotation(orientation, axis, angle, duration, easing, repeat, space)
-      rotations.emplace_back(s.orientation, s.normal, 2 * PI_F, 300 + i * 2,
-                             ease_mid, true, Animation::Space::Local);
+      timeline.add(0, Animation::Rotation<W>(s.orientation, s.normal, 2 * PI_F,
+                                             300 + i * 2, ease_mid, true,
+                                             Animation::Space::Local));
+
+      timeline.add(0, Animation::Sprite(
+                          [this, i](Canvas &c, float opacity) {
+                            this->draw_shape(c, this->shapes[i], opacity);
+                          },
+                          -1));
     }
   }
 
-  void draw_shape(Canvas &canvas, Shape &shape) {
+  void draw_shape(Canvas &canvas, Shape &shape, float opacity) {
     float t = (shape.normal.j + 1.0f) / 2.0f;
-    auto c = Palettes::brightSunrise.get(t);
+    Color4 c = Palettes::brightSunrise.get(t);
+    c.alpha *= opacity * 0.6f;
 
-    auto fragment_shader = [&](const Vector &p, Fragment &f) {
-      f.color = Color4(c, 0.6f); // alpha fixed
-    };
+    auto fragment_shader = [&](const Vector &p, Fragment &f) { f.color = c; };
 
     Basis basis = make_basis(shape.orientation.get(), shape.normal);
     float phase = 0.0f;
