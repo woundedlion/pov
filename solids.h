@@ -8,7 +8,6 @@
 #include "geometry.h"
 #include "mesh.h" // For MeshOps
 #include <cmath>
-#include <string>
 #include <string_view>
 #include <vector>
 #include <map>

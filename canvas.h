@@ -11,8 +11,6 @@
 #include "constants.h"
 #include "color.h"
 #include <array>
-#include <string>
-#include <vector>
 
 class Canvas;
 

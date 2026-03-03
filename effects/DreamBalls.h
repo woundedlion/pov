@@ -6,7 +6,7 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include <vector>
+
 #include <map>
 #include <array>
 
@@ -76,10 +76,10 @@ private:
   struct PresetData {
     // Base Mesh Data
     MeshState mesh_state;
-    std::vector<Tangent> tangents;
+    ArenaVector<Tangent> tangents;
   };
 
-  std::vector<PresetData> loaded_presets;
+  std::array<PresetData, 4> loaded_presets;
 
   Timeline<W> timeline;
 
@@ -113,12 +113,11 @@ private:
   void setup_presets() {
     // Pre-load Geometry
     const auto &entries = preset_manager.get_entries();
-    loaded_presets.reserve(entries.size());
 
+    int preset_idx = 0;
     for (const auto &entry : entries) {
       const auto &p = entry.params;
-      loaded_presets.emplace_back();
-      auto &data = loaded_presets.back();
+      auto &data = loaded_presets[preset_idx++];
 
       ArenaMarker _(scratch_arena_a);
       SolidNameGenerator gen(p.solid_name);
@@ -146,6 +145,7 @@ private:
       }
 
       // Compute Tangents
+      data.tangents.initialize(geometry_arena, data.mesh_state.vertices.size());
       for (const auto &v : data.mesh_state.vertices) {
         Vector axis = (std::abs(v.j) > 0.99f) ? X_AXIS : Y_AXIS;
         Vector u = cross(v, axis).normalize();
@@ -185,7 +185,7 @@ private:
   }
 
   void update_displaced_mesh(const MeshState &base, MeshState &target,
-                             const std::vector<Tangent> &tangents,
+                             const ArenaVector<Tangent> &tangents,
                              const Params &p, float angle_offset) {
     size_t count = base.vertices.size();
     float r = p.offset_radius;
@@ -208,7 +208,7 @@ private:
 
   void draw_scene(Canvas &canvas, const Params &p, float opacity,
                   const MeshState &base, MeshState &target,
-                  const std::vector<Tangent> &tangents) {
+                  const ArenaVector<Tangent> &tangents) {
 
     auto vertex_shader = [&](Fragment &f) {
       f.pos = mobius_gen.transform(f.pos);
