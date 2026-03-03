@@ -120,7 +120,7 @@ public:
 
     for (int i = 0; i < current_ruleset.iterations; ++i) {
       next_s[0] = '\0';
-      int next_len = 0;
+      size_t next_len = 0;
       for (int j = 0; s[j] != '\0'; ++j) {
         char c = s[j];
         bool found = false;
