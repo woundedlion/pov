@@ -16,7 +16,7 @@ public:
     float star_sides = 4.0f;
   } params;
 
-  GnomonicStars()
+  FLASHMEM GnomonicStars()
       : Effect(W, H), orientation(), timeline(), transformer(timeline) {
     registerParam("Points", &params.points, 100.0f, 2000.0f);
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);

@@ -10,7 +10,7 @@
 
 template <int W, int H> class SpinShapes : public Effect {
 public:
-  SpinShapes()
+  FLASHMEM SpinShapes()
       : Effect(W, H), filters(Filter::World::Orient<W>(camera),
                               Filter::Screen::AntiAlias<W, H>()) {
     registerParam("Sides", &params.sides, 3.0f, 12.0f);

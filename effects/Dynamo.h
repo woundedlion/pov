@@ -20,7 +20,7 @@ public:
     int v;
   };
 
-  Dynamo()
+  FLASHMEM Dynamo()
       : Effect(W, H),
         palettes(
             {GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,

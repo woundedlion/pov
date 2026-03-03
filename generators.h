@@ -52,9 +52,9 @@ struct SolidGenerator : public IMeshGenerator {
  * @brief A generic solid generator wrapping the Solids:: registry by name.
  */
 struct SolidNameGenerator : public IMeshGenerator {
-  std::string solid_name;
+  std::string_view solid_name;
 
-  SolidNameGenerator(const std::string &name) : solid_name(name) {}
+  SolidNameGenerator(std::string_view name) : solid_name(name) {}
 
   PolyMesh generate(Arena &geom, ScratchContext &ctx) const override {
     return Solids::get_by_name(geom, ctx, solid_name);

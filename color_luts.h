@@ -4,11 +4,7 @@
 // Source: generate_luts.py (Precise sRGB Transfer Function)
 
 // sRGB (0-255) -> Linear (0-65535)
-#if __cplusplus >= 201703L
-inline const uint16_t srgb_to_linear_lut[256] = {
-#else
-static const uint16_t srgb_to_linear_lut[256] = {
-#endif
+inline const uint16_t srgb_to_linear_lut[256] PROGMEM = {
     0,     20,    40,    60,    80,    99,    119,   139,   159,   179,   199,
     219,   241,   264,   288,   313,   340,   367,   396,   427,   458,   491,
     526,   562,   599,   637,   677,   718,   761,   805,   851,   898,   947,
@@ -36,11 +32,7 @@ static const uint16_t srgb_to_linear_lut[256] = {
 };
 
 // Linear (0-65535) -> sRGB (0-255)
-#if __cplusplus >= 201703L
-inline const uint8_t linear_to_srgb_lut[65536] = {
-#else
-static const uint8_t linear_to_srgb_lut[65536] = {
-#endif
+inline const uint8_t linear_to_srgb_lut[65536] PROGMEM = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,
     1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
     2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,

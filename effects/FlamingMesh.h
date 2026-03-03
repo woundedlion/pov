@@ -18,7 +18,7 @@ public:
     }
   };
 
-  FlamingMesh()
+  FLASHMEM FlamingMesh()
       : Effect(W, H), params(), t(0.0f), orientation(), timeline(), noise(),
         mesh(), palette(Palettes::richSunset),
         filters(Filter::World::Orient<W>(orientation),

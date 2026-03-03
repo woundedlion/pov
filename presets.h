@@ -5,16 +5,15 @@
 #pragma once
 
 #include <initializer_list>
-#include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
-#include <stdexcept>
 #include <algorithm>
 
 template <typename Params> class Presets {
 public:
   struct Entry {
-    std::string name;
+    const char *name;
     Params params;
   };
 
@@ -26,17 +25,16 @@ public:
   }
 
   const Params &get(const char *name) const {
+    std::string_view target(name);
     for (const auto &entry : entries) {
-      if (entry.name == name) {
+      if (std::string_view(entry.name) == target) {
         return entry.params;
       }
     }
     return entries[0].params;
   }
 
-  const Params &get() const {
-    return entries[current_idx].params;
-  }
+  const Params &get() const { return entries[current_idx].params; }
 
   void next() {
     if (entries.empty())
@@ -53,7 +51,7 @@ public:
   const char *get_current_name() const {
     if (entries.empty())
       return "";
-    return entries[current_idx].name.c_str();
+    return entries[current_idx].name;
   }
 
   void apply(Params &target) const { target = get(); }

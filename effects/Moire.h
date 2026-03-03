@@ -12,7 +12,7 @@
 
 template <int W, int H> class Moire : public Effect {
 public:
-  Moire()
+  FLASHMEM Moire()
       : Effect(W, H),
         base_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::BELL),

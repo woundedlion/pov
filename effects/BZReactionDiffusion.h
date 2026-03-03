@@ -15,7 +15,7 @@ public:
   static constexpr int RD_N = W * H * 2; // Number of nodes in the graph
   static constexpr int RD_K = 6;         // Number of neighbors per node
 
-  BZReactionDiffusion()
+  FLASHMEM BZReactionDiffusion()
       : Effect(W, H), filters(Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {
     registerParam("Alpha", &params.alpha, 0.0f, 2.0f);

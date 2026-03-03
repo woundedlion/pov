@@ -9,6 +9,7 @@
 #include "mesh.h" // For MeshOps
 #include <cmath>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <map>
 
@@ -561,7 +562,7 @@ inline PolyMesh get(Arena &geom, ScratchContext &ctx, int index) {
 }
 
 inline PolyMesh get_by_name(Arena &geom, ScratchContext &ctx,
-                            const std::string &name) {
+                            std::string_view name) {
   for (const auto &entry : simple_registry) {
     if (name == entry.name)
       return finalize_solid(entry.generate(ctx), geom);

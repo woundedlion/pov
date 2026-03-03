@@ -13,7 +13,7 @@ template <int W, int H> class HopfFibration : public Effect {
 public:
   static constexpr int MAX_TRAILS = 50000;
 
-  HopfFibration()
+  FLASHMEM HopfFibration()
       : Effect(W, H), filters(Filter::World::Trails<W, MAX_TRAILS>(40),
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {

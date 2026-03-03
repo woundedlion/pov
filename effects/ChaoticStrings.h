@@ -56,7 +56,7 @@ public:
     Node() : v(Y_AXIS) {}
   };
 
-  ChaoticStrings()
+  FLASHMEM ChaoticStrings()
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), animated_palette(&palette_variant),

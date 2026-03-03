@@ -19,7 +19,7 @@ public:
     int id;
   };
 
-  Voronoi() : Effect(W, H), sites_buffer(200) {
+  FLASHMEM Voronoi() : Effect(W, H), sites_buffer(200) {
     init_sites();
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
     registerParam("Smoothness", &params.smoothness, 1.0f, 500.0f);

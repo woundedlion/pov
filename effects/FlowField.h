@@ -13,7 +13,7 @@
 
 template <int W, int H> class FlowField : public Effect {
 public:
-  FlowField()
+  FLASHMEM FlowField()
       : Effect(W, H), palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                               BrightnessProfile::ASCENDING),
         filters(Filter::World::Trails<W, k_max_trail_dots>(k_trail_length),

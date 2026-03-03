@@ -24,7 +24,7 @@ public:
     Ring(const Vector &n, const PaletteVariant *p) : normal(n), palette(p) {}
   };
 
-  RingSpin() : Effect(W, H) {
+  FLASHMEM RingSpin() : Effect(W, H) {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);

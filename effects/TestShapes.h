@@ -28,7 +28,7 @@ public:
         : normal(n), scale(s), color(c), mode(m), layer_index(l) {}
   };
 
-  TestShapes()
+  FLASHMEM TestShapes()
       : Effect(W, H), current_shape(ShapeType::PlanarPolygon), num_shapes(25),
         debug_bb(false) {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);

@@ -8,7 +8,7 @@
 #include <emscripten/bind.h>
 #include "effects.h"  // Includes all effect headers
 #include "platform.h" //
-#include <string>
+#include <string_view>
 
 using namespace emscripten;
 
@@ -18,54 +18,52 @@ Arena tooling_scratch_a(4 * 1024 * 1024);
 Arena tooling_scratch_b(4 * 1024 * 1024);
 
 template <int W, int H>
-std::unique_ptr<Effect> create_effect(const std::string &name) {
-  static const std::map<std::string, std::function<std::unique_ptr<Effect>()>>
-      factory = {
-          {"Test", []() { return std::make_unique<Test<W, H>>(); }},
-          {"Comets", []() { return std::make_unique<Comets<W, H>>(); }},
-          {"RingSpin", []() { return std::make_unique<RingSpin<W, H>>(); }},
-          {"MobiusGrid", []() { return std::make_unique<MobiusGrid<W, H>>(); }},
-          {"IslamicStars",
-           []() { return std::make_unique<IslamicStars<W, H>>(); }},
-          {"MindSplatter",
-           []() { return std::make_unique<MindSplatter<W, H>>(); }},
-          {"BZReactionDiffusion",
-           []() { return std::make_unique<BZReactionDiffusion<W, H>>(); }},
-          {"DreamBalls", []() { return std::make_unique<DreamBalls<W, H>>(); }},
-          {"Dynamo", []() { return std::make_unique<Dynamo<W, H>>(); }},
-          {"FlowField", []() { return std::make_unique<FlowField<W, H>>(); }},
-          {"GSReactionDiffusion",
-           []() { return std::make_unique<GSReactionDiffusion<W, H>>(); }},
-          {"GnomonicStars",
-           []() { return std::make_unique<GnomonicStars<W, H>>(); }},
-          {"HankinSolids",
-           []() { return std::make_unique<HankinSolids<W, H>>(); }},
-          {"HopfFibration",
-           []() { return std::make_unique<HopfFibration<W, H>>(); }},
-          {"LSystem", []() { return std::make_unique<LSystem<W, H>>(); }},
-          {"MetaballEffect",
-           []() { return std::make_unique<MetaballEffect<W, H>>(); }},
-          {"Moire", []() { return std::make_unique<Moire<W, H>>(); }},
-          {"PetalFlow", []() { return std::make_unique<PetalFlow<W, H>>(); }},
-          {"RingShower", []() { return std::make_unique<RingShower<W, H>>(); }},
-          {"SphericalHarmonics",
-           []() { return std::make_unique<SphericalHarmonics<W, H>>(); }},
-          {"SpinShapes", []() { return std::make_unique<SpinShapes<W, H>>(); }},
-          {"TestShapes", []() { return std::make_unique<TestShapes<W, H>>(); }},
-          {"TestSlewRate",
-           []() { return std::make_unique<TestSlewRate<W, H>>(); }},
-          {"TestTemporal",
-           []() { return std::make_unique<TestTemporal<W, H>>(); }},
-          {"Thrusters", []() { return std::make_unique<Thrusters<W, H>>(); }},
-          {"Voronoi", []() { return std::make_unique<Voronoi<W, H>>(); }},
-          {"FlamingMesh",
-           []() { return std::make_unique<FlamingMesh<W, H>>(); }},
-          {"ChaoticStrings",
-           []() { return std::make_unique<ChaoticStrings<W, H>>(); }}};
+std::unique_ptr<Effect> create_effect(std::string_view name) {
+  struct FactoryEntry {
+    std::string_view name;
+    std::function<std::unique_ptr<Effect>()> creator;
+  };
+  static const FactoryEntry factory[] = {
+      {"Test", []() { return std::make_unique<Test<W, H>>(); }},
+      {"Comets", []() { return std::make_unique<Comets<W, H>>(); }},
+      {"RingSpin", []() { return std::make_unique<RingSpin<W, H>>(); }},
+      {"MobiusGrid", []() { return std::make_unique<MobiusGrid<W, H>>(); }},
+      {"IslamicStars", []() { return std::make_unique<IslamicStars<W, H>>(); }},
+      {"MindSplatter", []() { return std::make_unique<MindSplatter<W, H>>(); }},
+      {"BZReactionDiffusion",
+       []() { return std::make_unique<BZReactionDiffusion<W, H>>(); }},
+      {"DreamBalls", []() { return std::make_unique<DreamBalls<W, H>>(); }},
+      {"Dynamo", []() { return std::make_unique<Dynamo<W, H>>(); }},
+      {"FlowField", []() { return std::make_unique<FlowField<W, H>>(); }},
+      {"GSReactionDiffusion",
+       []() { return std::make_unique<GSReactionDiffusion<W, H>>(); }},
+      {"GnomonicStars",
+       []() { return std::make_unique<GnomonicStars<W, H>>(); }},
+      {"HankinSolids", []() { return std::make_unique<HankinSolids<W, H>>(); }},
+      {"HopfFibration",
+       []() { return std::make_unique<HopfFibration<W, H>>(); }},
+      {"LSystem", []() { return std::make_unique<LSystem<W, H>>(); }},
+      {"MetaballEffect",
+       []() { return std::make_unique<MetaballEffect<W, H>>(); }},
+      {"Moire", []() { return std::make_unique<Moire<W, H>>(); }},
+      {"PetalFlow", []() { return std::make_unique<PetalFlow<W, H>>(); }},
+      {"RingShower", []() { return std::make_unique<RingShower<W, H>>(); }},
+      {"SphericalHarmonics",
+       []() { return std::make_unique<SphericalHarmonics<W, H>>(); }},
+      {"SpinShapes", []() { return std::make_unique<SpinShapes<W, H>>(); }},
+      {"TestShapes", []() { return std::make_unique<TestShapes<W, H>>(); }},
+      {"TestSlewRate", []() { return std::make_unique<TestSlewRate<W, H>>(); }},
+      {"TestTemporal", []() { return std::make_unique<TestTemporal<W, H>>(); }},
+      {"Thrusters", []() { return std::make_unique<Thrusters<W, H>>(); }},
+      {"Voronoi", []() { return std::make_unique<Voronoi<W, H>>(); }},
+      {"FlamingMesh", []() { return std::make_unique<FlamingMesh<W, H>>(); }},
+      {"ChaoticStrings",
+       []() { return std::make_unique<ChaoticStrings<W, H>>(); }}};
 
-  auto it = factory.find(name);
-  if (it != factory.end()) {
-    return it->second();
+  for (const auto &entry : factory) {
+    if (name == entry.name) {
+      return entry.creator();
+    }
   }
   return std::make_unique<Test<W, H>>(); // Fallback
 }
@@ -82,9 +80,6 @@ public:
   }
 
   void setResolution(int w, int h) {
-    hs::log(("WASM: setResolution called with " + std::to_string(w) + "x" +
-             std::to_string(h))
-                .c_str());
     if (w == pixel_width && h == pixel_height)
       return;
 
@@ -107,7 +102,9 @@ public:
   }
 
   void setEffect(std::string name) {
-    hs::log(("WASM: setEffect called with " + name).c_str());
+    char buf[128];
+    snprintf(buf, sizeof(buf), "WASM: setEffect called with %s", name.c_str());
+    hs::log(buf);
 
     currentEffect.reset();
     geometry_arena.reset();
@@ -176,7 +173,7 @@ public:
     int i = 0;
     for (const auto &def : params) {
       val entry = val::object();
-      entry.set("name", std::string(def.name));
+      entry.set("name", val(def.name));
 
       if (def.type == Effect::ParamType::BOOL) {
         entry.set("value", *static_cast<bool *>(def.target));
@@ -211,7 +208,7 @@ public:
   val getArenaMetrics() {
     val metrics = val::object();
 
-    auto add_metrics = [&](const std::string &name, Arena &arena) {
+    auto add_metrics = [&](const char *name, Arena &arena) {
       val m = val::object();
       m.set("usage", arena.get_offset());
       m.set("high_water_mark", arena.get_high_water_mark());
@@ -426,7 +423,7 @@ struct MeshOpsWrapper {
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       const auto &entry = Solids::get_entry(i);
       val item = val::object();
-      item.set("name", std::string(entry.name));
+      item.set("name", val(entry.name));
       item.set("category", entry.category == Solids::Category::Simple
                                ? "Simple"
                                : "Complex");
@@ -439,7 +436,9 @@ struct MeshOpsWrapper {
     int max_v = 0;
     int max_f = 0;
     int max_i = 0;
-    std::string mv_name, mf_name, mi_name;
+    const char *mv_name = "";
+    const char *mf_name = "";
+    const char *mi_name = "";
 
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
@@ -465,18 +464,18 @@ struct MeshOpsWrapper {
 
     val stats = val::object();
     stats.set("max_v", max_v);
-    stats.set("v_name", mv_name);
+    stats.set("v_name", val(mv_name));
     stats.set("max_f", max_f);
-    stats.set("f_name", mf_name);
+    stats.set("f_name", val(mf_name));
     stats.set("max_i", max_i);
-    stats.set("i_name", mi_name);
+    stats.set("i_name", val(mi_name));
     return stats;
   }
 
   static val getArenaMetrics() {
     val metrics = val::object();
 
-    auto add_metrics = [&](const std::string &name, Arena &arena) {
+    auto add_metrics = [&](const char *name, Arena &arena) {
       val m = val::object();
       m.set("usage", arena.get_offset());
       m.set("high_water_mark", arena.get_high_water_mark());
