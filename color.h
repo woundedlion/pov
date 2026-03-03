@@ -15,10 +15,6 @@
 #include "util.h"
 #include "static_circular_buffer.h"
 
-#ifndef PROGMEM
-#define PROGMEM
-#endif
-
 inline uint16_t srgb_to_linear(uint8_t srgb);
 
 /**

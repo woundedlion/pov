@@ -60,6 +60,10 @@ static constexpr int H_OFFSET = 3;
 #define DMAMEM
 #endif
 
+#ifndef PROGMEM
+#define PROGMEM
+#endif
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/bind.h>
@@ -379,7 +383,8 @@ inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
 
 #else
 // --- ARM CORTEX-M7 (TEENSY) HARDWARE CLAMP ---
-inline constexpr __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
+inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
+                                                            float hi) {
   // Compiles directly to VMIN.F32 and VMAX.F32
   return __builtin_fmaxf(lo, __builtin_fminf(v, hi));
 }
