@@ -7,23 +7,18 @@
 #include <initializer_list>
 #include <string_view>
 #include <vector>
+#include <array>
+#include <span>
 #include <utility>
 #include <algorithm>
 
-template <typename Params> class Presets {
+template <typename Params, size_t Size> class Presets {
 public:
   struct Entry {
     const char *name;
     Params params;
   };
-
-  Presets(std::initializer_list<std::pair<const char *, Params>> init)
-      : current_idx(0) {
-    for (const auto &item : init) {
-      entries.push_back({item.first, item.second});
-    }
-  }
-
+  // Aggregate Initialization
   const Params &get(const char *name) const {
     std::string_view target(name);
     for (const auto &entry : entries) {
@@ -37,28 +32,29 @@ public:
   const Params &get() const { return entries[current_idx].params; }
 
   void next() {
-    if (entries.empty())
+    if (Size == 0)
       return;
-    current_idx = (current_idx + 1) % entries.size();
+    current_idx = (current_idx + 1) % Size;
   }
 
   void prev() {
-    if (entries.empty())
+    if (Size == 0)
       return;
-    current_idx = (current_idx - 1 + entries.size()) % entries.size();
+    current_idx = (current_idx - 1 + Size) % Size;
   }
 
   const char *get_current_name() const {
-    if (entries.empty())
+    if (Size == 0)
       return "";
     return entries[current_idx].name;
   }
 
   void apply(Params &target) const { target = get(); }
 
-  const std::vector<Entry> &get_entries() const { return entries; }
+  std::span<const Entry> get_entries() const {
+    return std::span<const Entry>(entries);
+  }
 
-private:
-  std::vector<Entry> entries;
-  int current_idx;
+  std::array<Entry, Size> entries;
+  int current_idx = 0;
 };

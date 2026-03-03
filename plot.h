@@ -1224,8 +1224,7 @@ struct Mesh {
 
     for (size_t i = 0; i < edges.size(); ++i) {
       auto &points = edges[i];
-      if constexpr (!std::is_same_v<decltype(vertex_shader),
-                                    NullVertexShader>) {
+      if (vertex_shader) {
         for (auto &p : points) {
           p.v2 = static_cast<float>(i); // Edge Index
           vertex_shader(p);
@@ -1311,8 +1310,7 @@ struct ParticleSystem {
     RasterCache &c = cache ? *cache : local_cache;
 
     for (auto &trail : trails) {
-      if constexpr (!std::is_same_v<decltype(vertex_shader),
-                                    NullVertexShader>) {
+      if (vertex_shader) {
         for (auto &f : trail) {
           vertex_shader(f);
         }

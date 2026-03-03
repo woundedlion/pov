@@ -8,7 +8,6 @@
 #include <vector>
 #include <array>
 #include "../effects_engine.h"
-#include "../waves.h"
 
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
@@ -34,12 +33,12 @@ public:
     }
   } params;
 
-  Presets<Params> preset_manager = {{"gloopy",
-                                     {/* alpha */ 1.0f,
-                                      /* cycle duration */ 80.0f,
-                                      /* jitter amp */ 1.7f,
-                                      /* speed */ 0.04f,
-                                      /* noise freq */ 0.32f}}};
+  Presets<Params, 1> preset_manager = {{{{"gloopy",
+                                          {/* alpha */ 1.0f,
+                                           /* cycle duration */ 80.0f,
+                                           /* jitter amp */ 1.7f,
+                                           /* speed */ 0.04f,
+                                           /* noise freq */ 0.32f}}}}};
 
   struct LissajousConfig {
     float m1;

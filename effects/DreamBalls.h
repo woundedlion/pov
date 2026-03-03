@@ -5,12 +5,10 @@
  */
 #pragma once
 
-#include "../transformers.h"
-#include "../generators.h"
-
 #include "../effects_engine.h"
 #include <vector>
 #include <map>
+#include <array>
 
 template <int W, int H> class DreamBalls : public Effect {
 public:
@@ -33,15 +31,9 @@ public:
         slice_filter(filters), // Filters inherits Head (FilterOrientSlice)
         mobius_gen(timeline) {
 
-    // Initialize Orientations
-    orientations.resize(2); // 2 slices
-
     // Initialize Presets
     setup_presets();
 
-    // Initialize default params
-    // if (!presets.empty()) params = presets[0];
-    // replacing with preset_manager
     params = preset_manager.get();
 
     registerParam("Copies", &params.num_copies, 1.0f, 20.0f);
@@ -71,7 +63,6 @@ public:
     timeline.step(canvas);
   }
 
-  // Exposed for consistency
   Params params;
 
 private:
@@ -92,31 +83,32 @@ private:
 
   Timeline<W> timeline;
 
-  std::vector<Orientation<W>> orientations;
+  std::array<Orientation<W>, 2> orientations;
   Orientation<W> global_orientation;
 
   Pipeline<W, H, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
   std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
-  std::vector<Params> presets; // DELETE
   MobiusWarpTransformer<W, 64> mobius_gen;
 
   PaletteVariant bloodStreamVar{Palettes::bloodStream};
   AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },
                                          &bloodStreamVar};
 
-  Presets<Params> preset_manager = {{"rhombicuboctahedron",
-                                     {"rhombicuboctahedron", 18.0f, 0.3f, 0.4f,
-                                      0.3f, bloodStreamFalloff, 0.7f}},
-                                    {"rhombicosidodecahedron",
-                                     {"rhombicosidodecahedron", 6.0f, 0.05f,
-                                      1.0f, 1.8f, bloodStreamFalloff, 0.7f}},
-                                    {"truncatedCuboctahedron",
-                                     {"truncatedCuboctahedron", 6.0f, 0.16f,
-                                      1.0f, 2.0f, Palettes::richSunset, 0.3f}},
-                                    {"icosidodecahedron",
-                                     {"icosidodecahedron", 10.0f, 0.16f, 1.0f,
-                                      0.5f, Palettes::lavenderLake, 0.3f}}};
+  Presets<Params, 4> preset_manager = {
+      .entries = {{{"rhombicuboctahedron",
+                    {"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
+                     bloodStreamFalloff, 0.7f, false}},
+                   {"rhombicosidodecahedron",
+                    {"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
+                     bloodStreamFalloff, 0.7f, false}},
+                   {"truncatedCuboctahedron",
+                    {"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
+                     Palettes::richSunset, 0.3f, false}},
+                   {"icosidodecahedron",
+                    {"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
+                     Palettes::lavenderLake, 0.3f, false}}}},
+      .current_idx = 0};
 
   void setup_presets() {
     // Pre-load Geometry
@@ -164,14 +156,14 @@ private:
   }
 
   void spawn_sprite(int idx) {
-    auto &entries = preset_manager.get_entries();
+    auto entries = preset_manager.get_entries();
     int safe_idx = idx % entries.size();
 
     params = entries[safe_idx].params;
     Params instance_params = entries[safe_idx].params;
     const PresetData *preset_ptr = &loaded_presets[safe_idx];
     int period = 288;
-    mobius_gen.spawn(0, this->params.warp_scale, period, true);
+    mobius_gen.spawn(0, this->params.warp_scale, period, false);
 
     auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
                                                        float opacity) {
