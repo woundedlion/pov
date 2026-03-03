@@ -59,6 +59,10 @@ private:
   std::vector<int> topologies[2];
   int current_mesh_idx = 0;
 
+  std::array<PaletteVariant, 5> palettes = {
+      Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
+      Palettes::bruisedMoss, Palettes::lavenderLake};
+
   void ripple(Canvas &canvas) {
     Vector origin = random_vector();
     for (int i = 0; i < params.burst_size; i++) {
@@ -69,7 +73,7 @@ private:
 
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const std::vector<int> &faceIndices,
-                  const std::vector<PaletteVariant> &palettes) {
+                  const std::array<PaletteVariant, 5> &palettes) {
     ArenaMarker _(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
@@ -148,9 +152,6 @@ private:
             (int)mesh_states[current_mesh_idx].faces.size());
 
     // Prepare Palettes
-    std::vector<PaletteVariant> palettes = {
-        Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
-        Palettes::bruisedMoss, Palettes::lavenderLake};
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
     std::shuffle(palettes.begin(), palettes.end(), g);
 
@@ -166,11 +167,12 @@ private:
     int fade_in = 32;
     int fade_out = 32;
     int capture_idx = current_mesh_idx;
+    auto pal_copy = palettes;
 
-    auto draw_fn = [this, capture_idx, palettes](Canvas &canvas,
+    auto draw_fn = [this, capture_idx, pal_copy](Canvas &canvas,
                                                  float opacity) {
       this->draw_shape(canvas, opacity, mesh_states[capture_idx],
-                       topologies[capture_idx], palettes);
+                       topologies[capture_idx], pal_copy);
     };
 
     timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid,

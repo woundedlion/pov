@@ -72,7 +72,7 @@ private:
   Pipeline<W, H> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
 
-  std::vector<PaletteVariant> source_palettes = {
+  std::array<PaletteVariant, 4> source_palettes = {
       Palettes::iceMelt, Palettes::undersea, Palettes::mangoPeel,
       Palettes::richSunset};
 

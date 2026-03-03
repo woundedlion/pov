@@ -54,7 +54,7 @@ private:
     MeshState base;        // The simple base geometry
     MeshState active_mesh; // The dynamic animation puppet!
     std::vector<int> topology;
-    std::vector<PaletteVariant> palettes;
+    std::array<PaletteVariant, 5> palettes;
 
     void preallocate(Arena &arena) {
       constexpr int MAX_V = 150, MAX_F = 100, MAX_I = 400;
@@ -87,7 +87,7 @@ private:
     }
 
     void load(int idx, float angle, Arena &geom, ScratchContext &ctx,
-              const std::vector<PaletteVariant> &pool, float time) {
+              const std::array<PaletteVariant, 5> &pool, float time) {
       SolidGenerator gen(idx);
       hs::log("Transitioning to '%s'", Solids::get_entry(idx).name);
 
@@ -114,7 +114,7 @@ private:
     }
   };
 
-  const std::vector<PaletteVariant> source_palettes_pool = {
+  const std::array<PaletteVariant, 5> source_palettes_pool = {
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
@@ -195,7 +195,7 @@ private:
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
                           const std::vector<int> &topology,
-                          const std::vector<PaletteVariant> &palettes,
+                          const std::array<PaletteVariant, 5> &palettes,
                           float opacity) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
