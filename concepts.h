@@ -102,7 +102,7 @@ concept Tweenable = requires(const T &t, size_t i) {
  * @brief Concept for a generic transformation function.
  * Signature: Vector f(const Vector& v, const Params& p)
  */
-template <auto F, typename Params>
+template <auto Fn, typename Params>
 concept TransformerFunction = requires(const Vector &v, const Params &p) {
-  { F(v, p) } -> std::convertible_to<Vector>;
+  { Fn(v, p) } -> std::convertible_to<Vector>;
 };

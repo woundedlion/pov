@@ -78,6 +78,20 @@ struct Pixel16 {
         ((uint32_t)b * (65535 - frac) + (uint32_t)other.b * frac) / 65535;
     return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
   }
+
+  bool operator==(const Pixel16 &rhs) const {
+    return r == rhs.r && g == rhs.g && b == rhs.b;
+  }
+
+  bool operator!=(const Pixel16 &rhs) const { return !(*this == rhs); }
+
+  bool operator==(const CHSV &rhs) const { return *this == Pixel16(rhs); }
+
+  bool operator!=(const CHSV &rhs) const { return !(*this == rhs); }
+
+  bool operator==(const CRGB &rhs) const { return *this == Pixel16(rhs); }
+
+  bool operator!=(const CRGB &rhs) const { return !(*this == rhs); }
 };
 
 using Pixel = Pixel16;
@@ -316,7 +330,6 @@ public:
     CPixel prevColor = it->second;
 
     // Fill start
-    int startIdx = 0;
     int firstStop = static_cast<int>(prevPos * 255);
     Pixel prevLinear(srgb_to_linear(prevColor.r), srgb_to_linear(prevColor.g),
                      srgb_to_linear(prevColor.b));
@@ -395,7 +408,7 @@ public:
 
     calc_hues(h1, h2, h3, harmony_type);
 
-    uint8_t s1, s2, s3;
+    uint8_t s1 = 0, s2 = 0, s3 = 0;
     switch (sat_profile) {
     case SaturationProfile::PASTEL:
       s1 = s2 = s3 = 100;
@@ -410,7 +423,7 @@ public:
       break;
     }
 
-    uint8_t v1, v2, v3;
+    uint8_t v1 = 0, v2 = 0, v3 = 0;
     switch (profile) {
     case BrightnessProfile::ASCENDING:
       v1 = hs::rand_int(25, 76);
@@ -742,7 +755,7 @@ struct QuantizeModifier {
   float base_steps;
 
   QuantizeModifier(float steps, const float *d_steps = nullptr)
-      : base_steps(steps), dynamic_steps(d_steps) {}
+      : dynamic_steps(d_steps), base_steps(steps) {}
 
   float modify(float t) const {
     float s = dynamic_steps ? *dynamic_steps : base_steps;
@@ -763,7 +776,7 @@ struct ScaleModifier {
   float base_scale;
 
   ScaleModifier(float s = 1.0f, const float *d_scale = nullptr)
-      : base_scale(s), dynamic_scale(d_scale) {}
+      : dynamic_scale(d_scale), base_scale(s) {}
 
   float modify(float t) const {
     return t * (dynamic_scale ? *dynamic_scale : base_scale);

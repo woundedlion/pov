@@ -299,7 +299,7 @@ struct DistortedRing {
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     constexpr int H_VIRT = H + hs::H_OFFSET;
-    float phi = y_to_phi<H>(static_cast<float>(y));
+    float phi = y_to_phi<H_VIRT>(static_cast<float>(y));
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 
@@ -412,7 +412,7 @@ template <typename A, typename B> struct Union {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // Union intervals are complex; fallback to full scan.
+    // TODO: Union intervals are complex; fallback to full scan.
     return false;
   }
 
@@ -866,7 +866,7 @@ struct Face {
 
     float pR2 = px * px + py * py;
     if (pR2 > max_dist_sq) {
-      float dist = std::sqrtf(pR2) - radius;
+      float dist = sqrtf(pR2) - radius;
       res = DistanceResult(dist, 0.0f, dist, 0.0f, size);
       return;
     }
@@ -904,7 +904,7 @@ struct Face {
     }
 
     float s = inside ? -1.0f : 1.0f;
-    float plane_dist = s * std::sqrtf(d);
+    float plane_dist = s * sqrtf(d);
     float dist = plane_dist - thickness;
 
     res = DistanceResult(dist, 0.0f, plane_dist, 0.0f, size);

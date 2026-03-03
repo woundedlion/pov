@@ -10,7 +10,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void trail_rainbow(CRGB &c, uint8_t hue_falloff = 32,
+void trail_rainbow(Pixel &c, uint8_t hue_falloff = 32,
                    uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
   p.s = 255;
@@ -19,7 +19,7 @@ void trail_rainbow(CRGB &c, uint8_t hue_falloff = 32,
   c = p;
 }
 
-void trail_rainbow_lin(CRGB &c, uint8_t hue_falloff = 32,
+void trail_rainbow_lin(Pixel &c, uint8_t hue_falloff = 32,
                        uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
   p.s = 255;
@@ -273,7 +273,7 @@ public:
 
   bool show_bg() const { return false; }
 
-  const CRGB &get_pixel(int x, int y) const {
+  const Pixel &get_pixel(int x, int y) const override {
     return Effect::get_pixel(wrap(x - pos_[y], W), y);
   }
 
@@ -297,7 +297,7 @@ public:
   }
 
 private:
-  void decay(CRGB &p) {
+  void decay(Pixel &p) {
     if (p == seed_) {
       auto c = rgb2hsv_approximate(p);
       c.h = seed_.h - 8;
@@ -609,7 +609,7 @@ public:
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
-        fadeToBlackBy(&c(x, y), 1, 96);
+        c(x, y) = c(x, y) * (159.0f / 255.0f);
       }
     }
 

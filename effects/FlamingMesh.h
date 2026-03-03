@@ -19,12 +19,12 @@ public:
   };
 
   FlamingMesh()
-      : Effect(W, H), orientation(), noise(),
+      : Effect(W, H), params(), t(0.0f), orientation(), timeline(), noise(),
+        mesh(), palette(Palettes::richSunset),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
                                                                2.0f),
-                Filter::Screen::AntiAlias<W, H>()),
-        palette(Palettes::richSunset) {
+                Filter::Screen::AntiAlias<W, H>()) {
 
     // Initialize with JS defaults
     params.temporalEnabled = true;

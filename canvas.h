@@ -34,9 +34,9 @@ public:
    */
   Effect(int W, int H) : persist_pixels(false), width_(W), height_(H) {
     bufs_[0] = buffer_a;
-    memset(bufs_[0], 0, sizeof(Pixel) * MAX_W * MAX_H);
+    std::fill_n(bufs_[0], MAX_W * MAX_H, Pixel(0, 0, 0));
     bufs_[1] = buffer_b;
-    memset(bufs_[1], 0, sizeof(Pixel) * MAX_W * MAX_H);
+    std::fill_n(bufs_[1], MAX_W * MAX_H, Pixel(0, 0, 0));
   }
 
   virtual ~Effect() {};
@@ -245,8 +245,9 @@ public:
    * @brief Clears the entire current drawing buffer to black.
    */
   void clear_buffer() {
-    memset(effect_.bufs_[effect_.cur_], 0,
-           sizeof(Pixel) * effect_.width_ * effect_.height_);
+    std::fill(effect_.bufs_[effect_.cur_],
+              effect_.bufs_[effect_.cur_] + effect_.width_ * effect_.height_,
+              Pixel(0, 0, 0));
   }
 
   inline int width() const { return effect_.width(); }

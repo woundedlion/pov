@@ -32,7 +32,7 @@ public:
     t += 0.01f;
 
     // 1. Physics
-    for (int i = 0; i < balls.size(); i++) {
+    for (size_t i = 0; i < balls.size(); i++) {
       auto &b = balls[i];
 
       // Gravity to center

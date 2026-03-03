@@ -1427,11 +1427,9 @@ static uint32_t fmix32(uint32_t h) {
   return h;
 }
 
-// JS hash32 for consistency
-static uint32_t js_hash32(uint32_t n, uint32_t seed) {
-  n = (n ^ seed) * 0x5bd1e995;
-  n ^= n >> 15;
-  return n * 0x97455bcd;
+// A simple hash combine block
+static inline void hash_combine(uint32_t &seed, uint32_t v) {
+  seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
 /**
@@ -1448,7 +1446,6 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
   ArenaVector<uint32_t> faceHashes;
   faceHashes.initialize(scratch_arena_a, F);
 
-  // 👉 PRE-ALLOCATE FINAL HASHES
   ArenaVector<uint32_t> finalHashes;
   finalHashes.initialize(scratch_arena_a, F);
 
@@ -1476,17 +1473,18 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
       std::sort(angles, angles + vertexCount);
     }
 
-    uint32_t h = js_hash32(static_cast<uint32_t>(vertexCount), 0x12345678);
+    uint32_t h = 0x12345678;
+    hash_combine(h, static_cast<uint32_t>(vertexCount));
     for (int k = 0; k < vertexCount; ++k) {
-      h = js_hash32(static_cast<uint32_t>(angles[k]), h);
+      hash_combine(h, static_cast<uint32_t>(angles[k]));
     }
+    h = fmix32(h);
     faceHashes.push_back(h);
-    finalHashes.push_back(h); // Pre-fill with self hash
+    finalHashes.push_back(h);
     offset += count;
   }
 
   {
-    // 👉 SCOPE 1: This marker pops heToFace and pairArray
     ArenaMarker temp_topo(scratch_arena_a);
 
     uint16_t *heToFace = static_cast<uint16_t *>(
@@ -1496,7 +1494,6 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
     std::fill_n(pairArray, I, HE_NONE);
 
     {
-      // 👉 SCOPE 2: This marker pops records
       ArenaMarker temp_records(scratch_arena_a);
       struct EdgeRecord {
         uint16_t min_v, max_v, he;
@@ -1537,7 +1534,7 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
           i += 1;
         }
       }
-    } // 🔥 115 KB (records) immediately freed here!
+    }
 
     offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
@@ -1546,15 +1543,18 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
       for (int k = 0; k < count; ++k) {
         uint16_t pIdx = pairArray[offset + k];
         if (pIdx != HE_NONE) {
-          neighborAcc += js_hash32(faceHashes[heToFace[pIdx]], 0);
+          uint32_t neigh_h = faceHashes[heToFace[pIdx]];
+          hash_combine(neigh_h, 0);
+          neighborAcc += fmix32(neigh_h);
         }
       }
-      finalHashes[fi] = js_hash32(neighborAcc, faceHashes[fi]);
+      uint32_t final_h = faceHashes[fi];
+      hash_combine(final_h, neighborAcc);
+      finalHashes[fi] = fmix32(final_h);
       offset += count;
     }
-  } // 🔥 76.8 KB (heToFace + pairArray) immediately freed here!
+  }
 
-  // 3. Flat array Hash Mapper (Allocated safely into the freed space)
   struct HashNode {
     uint32_t hash;
     int original_face;

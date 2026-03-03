@@ -153,7 +153,7 @@ public:
   static constexpr int MAX_K = 5;
 
   ArenaVector<KDNode> nodes;
-  int nodeCount = 0;
+  size_t nodeCount = 0;
   int rootIndex = -1;
 
   KDTree() = default;
@@ -415,7 +415,6 @@ private:
  */
 inline Vector project_to_mesh(const Vector &p, const MeshState &mesh) {
   Vector origin(0, 0, 0);
-  Vector dir = Vector(p).normalize();
 
   // Fallback: Closest Vertex
   if (mesh.vertices.empty())
