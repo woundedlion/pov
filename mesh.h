@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "concepts.h"
 #include "3dmath.h"
 #include "spatial.h"
 #include "memory.h"
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <span>
 #include <cmath>
+#include "concepts.h"
 
 // Forward declarations
 struct HEVertex;
@@ -284,16 +286,15 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
 
 /**
  * @brief Transforms a MeshState into a target MeshState using the provided
- * transformer.
- * @tparam TransformerType The transformer (e.g., RippleTransformer,
- * OrientTransformer).
+ * transformers.
  * @param local_state The source mesh state (centered around origin).
  * @param world_state The destination mesh state to populate.
- * @param transformer The transformer providing a transform(Vector) method.
+ * @param arena The memory arena to allocate vertices.
+ * @param transformers A list of transformation functions.
  */
-template <typename MeshT, typename... TransformerTypes>
+template <typename MeshT>
 inline void transform(const MeshT &local_state, MeshT &world_state,
-                      Arena &arena, const TransformerTypes &...transformers) {
+                      Arena &arena) {
   world_state.face_counts.shallow_copy(local_state.face_counts);
   world_state.faces.shallow_copy(local_state.faces);
 
@@ -304,11 +305,42 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
   world_state.vertices.initialize(arena, local_state.vertices.size());
 
   for (size_t i = 0; i < local_state.vertices.size(); ++i) {
-    Vector v = local_state.vertices[i];
-    if constexpr (sizeof...(transformers) > 0) {
-      ((v = transformers.transform(v)), ...);
+    world_state.vertices.push_back(local_state.vertices[i]);
+  }
+}
+
+template <typename MeshT, typename T1, typename... Transformers>
+inline void transform(const MeshT &mesh, MeshT &transformed, Arena &arena,
+                      const T1 &first_transformer,
+                      const Transformers &...transformers) {
+  transformed.face_counts.shallow_copy(mesh.face_counts);
+  transformed.faces.shallow_copy(mesh.faces);
+
+  if constexpr (requires { transformed.face_offsets; }) {
+    transformed.face_offsets.shallow_copy(mesh.face_offsets);
+  }
+
+  transformed.vertices.initialize(arena, mesh.vertices.size());
+
+  if constexpr (sizeof...(Transformers) > 0) {
+    // Convert variadic args to TransformFn to avoid template bloat on transform
+    // implementations
+    std::array<TransformFn, sizeof...(Transformers)> tf_array = {
+        transformers...};
+
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+      Vector v = mesh.vertices[i];
+      for (const auto &tf : tf_array) {
+        if (tf) {
+          v = tf(v);
+        }
+      }
+      transformed.vertices.push_back(v);
     }
-    world_state.vertices.push_back(v);
+  } else {
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+      transformed.vertices.push_back(mesh.vertices[i]);
+    }
   }
 }
 

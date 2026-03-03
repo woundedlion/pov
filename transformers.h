@@ -21,9 +21,9 @@ using Animation::RippleParams;
  * @tparam TransformFunc The static function to apply the transformation.
  * @tparam CAPACITY Max number of active transformations.
  */
-template <int W, typename ParamsT, typename AnimT, auto TransformFunc,
+template <int W, typename ParamsT, typename AnimT,
+          Vector (*TransformFunc)(const Vector &, const ParamsT &),
           int CAPACITY = 32>
-  requires TransformerFunction<TransformFunc, ParamsT>
 class Transformer {
 public:
   struct Entity {
@@ -73,6 +73,8 @@ public:
     }
     return v;
   }
+
+  Vector operator()(const Vector &v) const { return transform(v); }
 };
 
 /**
@@ -84,6 +86,8 @@ template <int W> struct OrientTransformer {
   explicit OrientTransformer(const Orientation<W> &ori) : orientation(ori) {}
 
   Vector transform(const Vector &v) const { return orientation.orient(v); }
+
+  Vector operator()(const Vector &v) const { return transform(v); }
 };
 
 /**

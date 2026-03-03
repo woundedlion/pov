@@ -162,7 +162,7 @@ public:
 
   void setParameter(std::string name, float value) {
     if (currentEffect) {
-      currentEffect->updateParameter(name, value);
+      currentEffect->updateParameter(name.c_str(), value);
     }
   }
 
@@ -174,9 +174,9 @@ public:
     const auto &params = currentEffect->getParameters();
 
     int i = 0;
-    for (const auto &[key, def] : params) {
+    for (const auto &def : params) {
       val entry = val::object();
-      entry.set("name", def.name);
+      entry.set("name", std::string(def.name));
 
       if (def.type == Effect::ParamType::BOOL) {
         entry.set("value", *static_cast<bool *>(def.target));
@@ -198,7 +198,7 @@ public:
     paramValues.clear();
     paramValues.reserve(params.size());
 
-    for (const auto &[key, def] : params) {
+    for (const auto &def : params) {
       if (def.type == Effect::ParamType::BOOL) {
         paramValues.push_back(*static_cast<bool *>(def.target) ? 1.0f : 0.0f);
       } else {

@@ -103,7 +103,7 @@ private:
   }
   Timeline<W, 32> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  ProceduralPath<std::function<Vector(float)>> path;
+  ProceduralPath path;
   Orientation<W> orientation;
   GenerativePalette palette;
   std::vector<LissajousConfig> functions;

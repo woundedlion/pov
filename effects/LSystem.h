@@ -10,6 +10,7 @@
 #include <string>
 #include <map>
 #include <stack>
+#include <array>
 
 struct SphericalTurtle {
   Vector pos;
@@ -39,10 +40,16 @@ struct SphericalTurtle {
 
 template <int W, int H> class LSystem : public Effect {
 public:
+  struct Rule {
+    char init;
+    std::string result;
+  };
+
   struct Ruleset {
     std::string name;
     std::string axiom;
-    std::map<char, std::string> rules;
+    std::array<Rule, 4> rules;
+    int num_rules;
     float angle; // Degrees
     float step;
     int iterations;
@@ -110,9 +117,15 @@ public:
     for (int i = 0; i < current_ruleset.iterations; ++i) {
       std::string next_s;
       for (char c : s) {
-        if (current_ruleset.rules.count(c)) {
-          next_s += current_ruleset.rules[c];
-        } else {
+        bool found = false;
+        for (int r = 0; r < current_ruleset.num_rules; ++r) {
+          if (current_ruleset.rules[r].init == c) {
+            next_s += current_ruleset.rules[r].result;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
           next_s += c;
         }
       }
@@ -159,14 +172,19 @@ private:
   std::vector<std::pair<Vector, Vector>> segments;
 
   void setup_rules() {
-    rulesets.push_back(
-        {"Tree", "X", {{'X', "F[+X][-X]FX"}, {'F', "FF"}}, 35.0f, 0.25f, 4});
+    rulesets.push_back({"Tree",
+                        "X",
+                        {{{'X', "F[+X][-X]FX"}, {'F', "FF"}}},
+                        2,
+                        35.0f,
+                        0.25f,
+                        4});
 
     rulesets.push_back(
-        {"Bush", "F", {{'F', "FF-[-F+F+F]+[+F-F-F]"}}, 25.0f, 0.1f, 4});
+        {"Bush", "F", {{{'F', "FF-[-F+F+F]+[+F-F-F]"}}}, 1, 25.0f, 0.1f, 4});
 
     rulesets.push_back(
-        {"Mosaic", "F++F++F", {{'F', "F-F++F-F"}}, 79.0f, 0.33f, 3});
+        {"Mosaic", "F++F++F", {{{'F', "F-F++F-F"}}}, 1, 79.0f, 0.33f, 3});
   }
 
   struct Params {
