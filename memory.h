@@ -12,8 +12,9 @@
 #include <cstdio>
 
 constexpr size_t GEOMETRY_ARENA_SIZE = 128 * 1024;
-constexpr size_t SCRATCH_ARENA_A_SIZE = 128 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 256 * 1024;
+constexpr size_t SCRATCH_ARENA_A_SIZE = 256 * 1024;
+constexpr size_t SCRATCH_ARENA_B_SIZE = 128 * 1024;
+constexpr size_t PERSISTENT_ARENA_SIZE = 256 * 1024;
 
 // ============================================================================
 // 1. Core Arena Allocator
@@ -58,16 +59,7 @@ public:
   void reset_high_water_mark() { high_water_mark = offset; }
 };
 
-// RAII Marker for scratch memory
-struct ArenaMarker {
-  Arena &arena;
-  size_t saved_offset;
-
-  ArenaMarker(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
-  ~ArenaMarker() { arena.set_offset(saved_offset); }
-};
-
-// Ping-Pong Context for Double Buffering Allocations
+// Ping-Pong Context for Double Buffering Allocations (legacy)
 struct ScratchContext {
   Arena *source;
   Arena *target;
@@ -77,7 +69,6 @@ struct ScratchContext {
     target->set_offset(0);
   }
 
-  // Swaps the arenas and completely wipes the old source
   void swap_and_clear() {
     Arena *temp = source;
     source = target;
@@ -168,6 +159,92 @@ public:
 };
 
 // Global Arenas used throughout the effects engine
-extern Arena geometry_arena;
+// FRAME BUFFERS (Wiped every frame)
+extern Arena geo_arena_a;
+extern Arena geo_arena_b;
+
+// SCRATCH BUFFERS (Ping-ponged during heavy math)
 extern Arena scratch_arena_a;
 extern Arena scratch_arena_b;
+
+// PERSISTENT STATE (Lives across frames. Auto-compacted)
+extern Arena persistent_arena;
+
+// ENGINE FRAME STATE
+extern bool using_A_as_frame;
+extern Arena *current_frame_arena;
+
+struct MeshState;   // Forward declaration for PersistentTracker
+struct PolyMesh;    // Forward declaration for PersistentTracker
+namespace MeshOps { // Forward declaration for cloning
+template <typename MeshT>
+void clone(const MeshT &src, MeshT &dst, Arena &arena);
+}
+
+// ============================================================================
+// Invisible Auto-Compactor
+// ============================================================================
+class PersistentTracker {
+public:
+  // Tracks pointers to the effect's persistent meshes (MeshState*)
+  static ArenaVector<MeshState *> tracked_meshes;
+
+  static void register_mesh(MeshState *mesh) {
+    if (tracked_meshes.capacity() == 0) {
+      tracked_meshes.initialize(persistent_arena, 256);
+    }
+    tracked_meshes.push_back(mesh);
+  }
+
+  static void clear_registry() { tracked_meshes.clear(); }
+
+  // Called automatically by MemoryCtx when the arena gets full
+  static void auto_compact(Arena &safe_scratch);
+};
+
+// ============================================================================
+// Unified Factory
+// ============================================================================
+class MemoryCtx {
+  Arena *current_scratch;
+  Arena *next_scratch;
+
+public:
+  // Defaults to scratch A and B.
+  MemoryCtx()
+      : current_scratch(&scratch_arena_a), next_scratch(&scratch_arena_b) {}
+  MemoryCtx(Arena &a, Arena &b) : current_scratch(&a), next_scratch(&b) {
+    current_scratch->set_offset(0);
+    next_scratch->set_offset(0);
+  }
+
+  // 1. Scratch Management
+  Arena &get_scratch() { return *current_scratch; }
+
+  void swap_scratch() {
+    Arena *temp = current_scratch;
+    current_scratch = next_scratch;
+    next_scratch = temp;
+    // The newly active scratch destination is always wiped clean
+    current_scratch->reset();
+  }
+
+  template <typename T> ArenaVector<T> make_scratch_array(size_t size) {
+    return ArenaVector<T>(*current_scratch, size);
+  }
+
+  // 2. Invisible Persistent Storage Updates
+  // Target is MeshState
+  void update_persistent(MeshState &target, const PolyMesh &new_data);
+};
+
+// 3. The RAII Guard
+struct ScopedScratch {
+  Arena &arena;
+  size_t saved_offset;
+
+  ScopedScratch(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
+  ScopedScratch(MemoryCtx &ctx)
+      : arena(ctx.get_scratch()), saved_offset(arena.get_offset()) {}
+  ~ScopedScratch() { arena.set_offset(saved_offset); }
+};

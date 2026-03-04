@@ -26,14 +26,14 @@ public:
 
     solid_idx = 0;
 
-    primary.preallocate(geometry_arena);
-    secondary.preallocate(geometry_arena);
+    primary.preallocate(persistent_arena);
+    secondary.preallocate(persistent_arena);
 
     {
-      ArenaMarker _a(scratch_arena_a);
-      ArenaMarker _b(scratch_arena_b);
-      ScratchContext ctx(scratch_arena_a, scratch_arena_b);
-      primary.load(solid_idx, params.hankin_angle, geometry_arena, ctx,
+      ScopedScratch _a(scratch_arena_a);
+      ScopedScratch _b(scratch_arena_b);
+      MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
+      primary.load(solid_idx, params.hankin_angle, persistent_arena, ctx,
                    source_palettes_pool, timeline.t);
     }
 
@@ -85,18 +85,19 @@ private:
       active_mesh.faces.initialize(arena, OUT_I);
     }
 
-    void load(int idx, float angle, Arena &geom, ScratchContext &ctx,
+    void load(int idx, float angle, Arena &geom, MemoryCtx &ctx,
               const std::array<PaletteVariant, 5> &pool, float time) {
       SolidGenerator gen(idx);
       hs::log("Transitioning to '%s'", Solids::get_entry(idx).name);
 
-      PolyMesh temp_base = gen.generate(*(ctx.source), ctx);
+      PolyMesh temp_base = gen.generate(ctx.get_scratch(), ctx);
       MeshOps::compile(temp_base, base, geom);
       MeshOps::compile_hankin(temp_base, hankin, ctx);
 
       // Calculate initial state (angle = 0)
       MeshOps::update_hankin(hankin, mesh, geom, angle);
-      topology = MeshOps::classify_faces_by_topology(mesh, *(ctx.source));
+      ctx.swap_scratch();
+      topology = MeshOps::classify_faces_by_topology(mesh, ctx.get_scratch());
 
       palettes = pool;
       std::mt19937 g(12345 + (int)time);
@@ -118,7 +119,7 @@ private:
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
   void draw_dynamic_morph(Canvas &c, float opacity) {
-    ArenaMarker _a(scratch_arena_a);
+    ScopedScratch _a(scratch_arena_a);
 
     float op_A = (1.0f - morph_alpha) * opacity;
     if (op_A > 0.01f) {
@@ -143,7 +144,7 @@ private:
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &c, float opacity) {
                           MeshOps::update_hankin(primary.hankin, primary.mesh,
-                                                 geometry_arena,
+                                                 persistent_arena,
                                                  params.hankin_angle);
                           draw_topology_mesh(c, primary.mesh, primary.topology,
                                              primary.palettes, opacity);
@@ -156,11 +157,11 @@ private:
     int next_idx = (solid_idx + 1) % Solids::Collections::num_simple_solids;
 
     {
-      ArenaMarker _a(scratch_arena_a);
-      ArenaMarker _b(scratch_arena_b);
-      ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+      ScopedScratch _a(scratch_arena_a);
+      ScopedScratch _b(scratch_arena_b);
+      MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
       // Load generates the fully compiled Hankin topology at angle = 0
-      secondary.load(next_idx, params.hankin_angle, geometry_arena, ctx,
+      secondary.load(next_idx, params.hankin_angle, persistent_arena, ctx,
                      source_palettes_pool, timeline.t);
     }
 
@@ -171,7 +172,7 @@ private:
     // The Dual Elastic Stretch DIRECTLY on the encapsulated active meshes
     timeline.add(0, Animation::MeshMorph(
                         &primary.active_mesh, &secondary.active_mesh,
-                        &morph_buffer, &geometry_arena, primary.mesh,
+                        &morph_buffer, &persistent_arena, primary.mesh,
                         secondary.mesh, DURATION, false, ease_in_out_sin));
 
     timeline.add(0, Animation::Sprite(
@@ -186,7 +187,7 @@ private:
                           // Ensure resting state is perfect before resuming
                           // cycle
                           MeshOps::update_hankin(primary.hankin, primary.mesh,
-                                                 geometry_arena,
+                                                 persistent_arena,
                                                  params.hankin_angle);
                           this->start_hankin_cycle();
                         }));
@@ -199,7 +200,7 @@ private:
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
 
-    ArenaMarker _(scratch_arena_a);
+    ScopedScratch _(scratch_arena_a);
     MeshState rotated_mesh;
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
 

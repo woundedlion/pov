@@ -121,7 +121,7 @@ private:
     size_t he_idx = 0;
 
     {
-      ArenaMarker _(arena);
+      ScopedScratch _(arena);
       EdgeRecord *records = static_cast<EdgeRecord *>(arena.allocate(
           total_indices * sizeof(EdgeRecord), alignof(EdgeRecord)));
 
@@ -340,20 +340,21 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena &arena,
 /**
  * @brief Computes the dual of a mesh.
  */
-inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
+inline PolyMesh dual(const PolyMesh &mesh, MemoryCtx &ctx) {
+  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(*(ctx.target), F);
-  out_mesh.face_counts.initialize(*(ctx.target), V);
-  out_mesh.faces.initialize(*(ctx.target), I);
+  out_mesh.vertices.initialize(ctx.get_scratch(), F);
+  out_mesh.face_counts.initialize(ctx.get_scratch(), V);
+  out_mesh.faces.initialize(ctx.get_scratch(), I);
 
   {
-    ArenaMarker _(*(ctx.source));
+    ScopedScratch _(ctx);
 
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    HalfEdgeMesh heMesh(ctx.get_scratch(), mesh);
 
     for (size_t i = 0; i < heMesh.faces.size(); ++i) {
       HEFace &face = heMesh.faces[i];
@@ -375,7 +376,7 @@ inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
     }
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.source->allocate(V * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
@@ -416,7 +417,6 @@ inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
       }
     }
   }
-  ctx.swap_and_clear();
   return out_mesh;
 }
 
@@ -424,30 +424,30 @@ inline PolyMesh dual(const PolyMesh &mesh, ScratchContext &ctx) {
  * @brief Compiles the topology for a Hankin pattern.
  */
 inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
-                           ScratchContext &ctx) {
+                           MemoryCtx &ctx) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  compiled.baseVertices.initialize(*(ctx.source), V);
+  compiled.baseVertices.initialize(ctx.get_scratch(), V);
   for (size_t i = 0; i < V; ++i) {
     compiled.baseVertices.push_back(mesh.vertices[i]);
   }
-  compiled.staticVertices.initialize(*(ctx.source), I);
-  compiled.dynamicVertices.initialize(*(ctx.source), I);
-  compiled.dynamicInstructions.initialize(*(ctx.source), I);
-  compiled.face_counts.initialize(*(ctx.source), F + V);
-  compiled.faces.initialize(*(ctx.source), 4 * I);
+  compiled.staticVertices.initialize(ctx.get_scratch(), I);
+  compiled.dynamicVertices.initialize(ctx.get_scratch(), I);
+  compiled.dynamicInstructions.initialize(ctx.get_scratch(), I);
+  compiled.face_counts.initialize(ctx.get_scratch(), F + V);
+  compiled.faces.initialize(ctx.get_scratch(), 4 * I);
 
   {
-    ArenaMarker _(*(ctx.target));
+    ScopedScratch _(ctx);
 
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    HalfEdgeMesh heMesh(ctx.get_scratch(), mesh);
     uint16_t *heToMidpointIdx = static_cast<uint16_t *>(
-        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+        ctx.get_scratch().allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(heToMidpointIdx, I, HE_NONE);
     uint16_t *heToDynamicIdx = static_cast<uint16_t *>(
-        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+        ctx.get_scratch().allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(heToDynamicIdx, I, HE_NONE);
 
     auto getMidpointIdx = [&](uint16_t heIdx) {
@@ -523,7 +523,7 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
 
     // Rosette faces
     bool *visitedVerts = static_cast<bool *>(
-        ctx.source->allocate(V * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
@@ -641,14 +641,17 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     out_mesh.faces.push_back(compiled.faces[i]);
 }
 
-inline PolyMesh hankin(const PolyMesh &mesh, ScratchContext &ctx, float angle) {
+inline PolyMesh hankin(const PolyMesh &mesh, MemoryCtx &ctx, float angle) {
+  ctx.swap_scratch();
   PolyMesh out;
   CompiledHankin compiled;
 
+  // We do NOT swap ctx again here; compile_hankin will allocate compilation
+  // data onto the end of our current scratch, and update_hankin will place the
+  // mesh immediately after it.
   compile_hankin(mesh, compiled, ctx);
-  update_hankin(compiled, out, *(ctx.target), angle);
+  update_hankin(compiled, out, ctx.get_scratch(), angle);
 
-  ctx.swap_and_clear();
   return out;
 }
 
@@ -666,18 +669,19 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 /**
  * @brief Kis operator: Raises a pyramid on each face.
  */
-inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
+inline PolyMesh kis(const PolyMesh &mesh, MemoryCtx &ctx) {
+  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(*(ctx.target), V + F);
-  out_mesh.face_counts.initialize(*(ctx.target), I);
-  out_mesh.faces.initialize(*(ctx.target), 3 * I);
+  out_mesh.vertices.initialize(ctx.get_scratch(), V + F);
+  out_mesh.face_counts.initialize(ctx.get_scratch(), I);
+  out_mesh.faces.initialize(ctx.get_scratch(), 3 * I);
 
   {
-    ArenaMarker _(*(ctx.source));
+    ScopedScratch _(ctx);
 
     for (size_t i = 0; i < V; ++i)
       out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -707,7 +711,6 @@ inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
     }
   }
   normalize(out_mesh);
-  ctx.swap_and_clear();
   return out_mesh;
 }
 
@@ -717,25 +720,26 @@ inline PolyMesh kis(const PolyMesh &mesh, ScratchContext &ctx) {
 /**
  * @brief Ambo operator: Truncates vertices to edge midpoints.
  */
-inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
+inline PolyMesh ambo(const PolyMesh &mesh, MemoryCtx &ctx) {
+  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(*(ctx.target), E);
-  out_mesh.face_counts.initialize(*(ctx.target), F + V);
-  out_mesh.faces.initialize(*(ctx.target), 2 * I);
+  out_mesh.vertices.initialize(ctx.get_scratch(), E);
+  out_mesh.face_counts.initialize(ctx.get_scratch(), F + V);
+  out_mesh.faces.initialize(ctx.get_scratch(), 2 * I);
 
   {
-    ArenaMarker _(*(ctx.source));
+    ScopedScratch _(ctx);
 
     // 1. Build HE Mesh FIRST
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    HalfEdgeMesh heMesh(ctx.get_scratch(), mesh);
 
     uint16_t *edgeToVert = static_cast<uint16_t *>(
-        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+        ctx.get_scratch().allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(edgeToVert, I, HE_NONE);
 
     // 3. Populate Vertices
@@ -782,7 +786,7 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
 
     // 5. Build Vertex Orbits (New Faces)
     bool *visitedVerts = static_cast<bool *>(
-        ctx.source->allocate(V * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -825,7 +829,6 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
     }
   }
   normalize(out_mesh);
-  ctx.swap_and_clear();
   return out_mesh;
 }
 
@@ -833,31 +836,32 @@ inline PolyMesh ambo(const PolyMesh &mesh, ScratchContext &ctx) {
  * @brief Truncate operator: Cuts corners off the polyhedron.
  * @param t Truncation depth [0..0.5].
  */
-inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
+inline PolyMesh truncate(const PolyMesh &mesh, MemoryCtx &ctx,
                          float t = 0.25f) {
   if (std::abs(t - 0.5f) < 1e-4f) {
     return ambo(mesh, ctx);
   }
 
+  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(*(ctx.target), 2 * E);
-  out_mesh.face_counts.initialize(*(ctx.target), F + V);
-  out_mesh.faces.initialize(*(ctx.target), 3 * I);
+  out_mesh.vertices.initialize(ctx.get_scratch(), 2 * E);
+  out_mesh.face_counts.initialize(ctx.get_scratch(), F + V);
+  out_mesh.faces.initialize(ctx.get_scratch(), 3 * I);
 
   {
-    ArenaMarker _(*(ctx.source));
+    ScopedScratch _(ctx);
 
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    HalfEdgeMesh heMesh(ctx.get_scratch(), mesh);
 
     std::pair<int16_t, int16_t> *edgeToVert =
         static_cast<std::pair<int16_t, int16_t> *>(
-            ctx.source->allocate(I * sizeof(std::pair<int16_t, int16_t>),
-                                 alignof(std::pair<int16_t, int16_t>)));
+            ctx.get_scratch().allocate(I * sizeof(std::pair<int16_t, int16_t>),
+                                       alignof(std::pair<int16_t, int16_t>)));
     std::fill_n(edgeToVert, I, std::make_pair<int16_t, int16_t>(-1, -1));
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -923,7 +927,7 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
     }
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.source->allocate(V * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -971,7 +975,6 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
     }
   }
   normalize(out_mesh);
-  ctx.swap_and_clear();
   return out_mesh;
 }
 
@@ -979,24 +982,25 @@ inline PolyMesh truncate(const PolyMesh &mesh, ScratchContext &ctx,
  * @brief Expand operator: Separates faces (e = aa).
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
  */
-inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
+inline PolyMesh expand(const PolyMesh &mesh, MemoryCtx &ctx,
                        float t = 2.0f - sqrt(2.0f)) {
+  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(*(ctx.target), I);
-  out_mesh.face_counts.initialize(*(ctx.target), F + V + E);
-  out_mesh.faces.initialize(*(ctx.target), 4 * I);
+  out_mesh.vertices.initialize(ctx.get_scratch(), I);
+  out_mesh.face_counts.initialize(ctx.get_scratch(), F + V + E);
+  out_mesh.faces.initialize(ctx.get_scratch(), 4 * I);
 
   {
-    ArenaMarker _(*(ctx.source));
+    ScopedScratch _(ctx);
 
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    HalfEdgeMesh heMesh(ctx.get_scratch(), mesh);
     int16_t *heToVertIdx = static_cast<int16_t *>(
-        ctx.source->allocate(I * sizeof(int16_t), alignof(int16_t)));
+        ctx.get_scratch().allocate(I * sizeof(int16_t), alignof(int16_t)));
     std::fill_n(heToVertIdx, I, -1);
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
@@ -1035,7 +1039,7 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
     }
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.source->allocate(V * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
@@ -1075,7 +1079,7 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
     }
 
     bool *visitedEdges = static_cast<bool *>(
-        ctx.source->allocate(I * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(I * sizeof(bool), alignof(bool)));
     std::fill_n(visitedEdges, I, false);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -1099,28 +1103,28 @@ inline PolyMesh expand(const PolyMesh &mesh, ScratchContext &ctx,
     }
   }
   normalize(out_mesh);
-  ctx.swap_and_clear();
   return out_mesh;
 }
 
 /**
  * @brief Bitruncate operator: Truncate the rectified mesh.
  */
-inline PolyMesh bitruncate(const PolyMesh &mesh, ScratchContext &ctx,
+inline PolyMesh bitruncate(const PolyMesh &mesh, MemoryCtx &ctx,
                            float t = 1.0f / 3.0f) {
   return truncate(ambo(mesh, ctx), ctx, t);
 }
 
-inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
+inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
                              int iterations = 8) {
+  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(*(ctx.target), V);
-  out_mesh.face_counts.initialize(*(ctx.target), F);
-  out_mesh.faces.initialize(*(ctx.target), I);
+  out_mesh.vertices.initialize(ctx.get_scratch(), V);
+  out_mesh.face_counts.initialize(ctx.get_scratch(), F);
+  out_mesh.faces.initialize(ctx.get_scratch(), I);
 
   for (size_t i = 0; i < V; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -1130,14 +1134,14 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
     out_mesh.faces.push_back(mesh.faces[i]);
 
   {
-    ArenaMarker _(*(ctx.source));
+    ScopedScratch _(ctx);
 
     ArenaVector<Vector> movements;
-    movements.initialize(*(ctx.source), V);
+    movements.initialize(ctx.get_scratch(), V);
     for (size_t i = 0; i < V; ++i)
       movements.push_back(Vector(0, 0, 0));
 
-    HalfEdgeMesh heMesh(*(ctx.source),
+    HalfEdgeMesh heMesh(ctx.get_scratch(),
                         out_mesh); // Use out_mesh as base since we mutate it
 
     for (int iter = 0; iter < iterations; ++iter) {
@@ -1197,7 +1201,6 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
       }
     }
   }
-  ctx.swap_and_clear();
   return out_mesh;
 }
 
@@ -1205,24 +1208,25 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, ScratchContext &ctx,
  * @brief Snub operator: Creates a chiral semi-regular polyhedron.
  * Updated with twist support.
  */
-inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
+inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx, float t = 0.5f,
                      float twist = 0.0f) {
+  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(*(ctx.target), I);
-  out_mesh.face_counts.initialize(*(ctx.target), F + V + 2 * E);
-  out_mesh.faces.initialize(*(ctx.target), 5 * I);
+  out_mesh.vertices.initialize(ctx.get_scratch(), I);
+  out_mesh.face_counts.initialize(ctx.get_scratch(), F + V + 2 * E);
+  out_mesh.faces.initialize(ctx.get_scratch(), 5 * I);
 
   {
-    ArenaMarker _(*(ctx.source));
+    ScopedScratch _(ctx);
 
-    HalfEdgeMesh heMesh(*(ctx.source), mesh);
+    HalfEdgeMesh heMesh(ctx.get_scratch(), mesh);
     uint16_t *heToVertIdx = static_cast<uint16_t *>(
-        ctx.source->allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+        ctx.get_scratch().allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(heToVertIdx, I, HE_NONE);
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
@@ -1283,7 +1287,7 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
     }
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.source->allocate(V * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
@@ -1323,7 +1327,7 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
     }
 
     bool *visitedEdges = static_cast<bool *>(
-        ctx.source->allocate(I * sizeof(bool), alignof(bool)));
+        ctx.get_scratch().allocate(I * sizeof(bool), alignof(bool)));
     std::fill_n(visitedEdges, I, false);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -1351,11 +1355,10 @@ inline PolyMesh snub(const PolyMesh &mesh, ScratchContext &ctx, float t = 0.5f,
     }
   }
   normalize(out_mesh);
-  ctx.swap_and_clear();
   return out_mesh;
 }
 
-inline PolyMesh gyro(const PolyMesh &mesh, ScratchContext &ctx) {
+inline PolyMesh gyro(const PolyMesh &mesh, MemoryCtx &ctx) {
   return dual(snub(mesh, ctx), ctx);
 }
 
@@ -1463,7 +1466,7 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
 template <typename MeshT>
 static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
                                                    Arena &scratch_arena_a) {
-  ArenaMarker _(scratch_arena_a);
+  ScopedScratch _(scratch_arena_a);
 
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
@@ -1510,7 +1513,7 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
   }
 
   {
-    ArenaMarker temp_topo(scratch_arena_a);
+    ScopedScratch temp_topo(scratch_arena_a);
 
     uint16_t *heToFace = static_cast<uint16_t *>(
         scratch_arena_a.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
@@ -1519,7 +1522,7 @@ static std::vector<int> classify_faces_by_topology(const MeshT &mesh,
     std::fill_n(pairArray, I, HE_NONE);
 
     {
-      ArenaMarker temp_records(scratch_arena_a);
+      ScopedScratch temp_records(scratch_arena_a);
       struct EdgeRecord {
         uint16_t min_v, max_v, he;
       };
