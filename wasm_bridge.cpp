@@ -106,12 +106,20 @@ public:
     hs::log(buf);
 
     currentEffect.reset();
-    geometry_arena.reset();
-    geometry_arena.reset_high_water_mark();
+    geo_arena_a.reset();
+    geo_arena_a.reset_high_water_mark();
+    geo_arena_b.reset();
+    geo_arena_b.reset_high_water_mark();
     scratch_arena_a.reset();
     scratch_arena_a.reset_high_water_mark();
     scratch_arena_b.reset();
     scratch_arena_b.reset_high_water_mark();
+    persistent_arena.reset();
+    persistent_arena.reset_high_water_mark();
+
+    PersistentTracker::clear_registry();
+    using_A_as_frame = true;
+    current_frame_arena = &geo_arena_a;
 
     if (pixel_width == 96 && pixel_height == 20)
       currentEffect = create_effect<96, 20>(name);
@@ -129,9 +137,15 @@ public:
     if (!currentEffect)
       return;
 
+    Arena &frame_back = using_A_as_frame ? geo_arena_b : geo_arena_a;
+    frame_back.reset();
+    current_frame_arena = &frame_back;
+
     // Draw
     currentEffect->draw_frame();
     currentEffect->advance_display();
+
+    using_A_as_frame = !using_A_as_frame;
 
     // Output 16-bit Linear values directly
     int idx = 0;
@@ -215,9 +229,11 @@ public:
       metrics.set(name, m);
     };
 
-    add_metrics("geometry_arena", geometry_arena);
+    add_metrics("geo_arena_a", geo_arena_a);
+    add_metrics("geo_arena_b", geo_arena_b);
     add_metrics("scratch_arena_a", scratch_arena_a);
     add_metrics("scratch_arena_b", scratch_arena_b);
+    add_metrics("persistent_arena", persistent_arena);
     add_metrics("tooling_arena", tooling_arena);
 
     return metrics;
@@ -256,13 +272,13 @@ struct MeshOpsWrapper {
 
   // Factory
   static std::unique_ptr<MeshOpsWrapper> fromSolid(int index) {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::get(tooling_arena, ctx, index));
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::get_by_name(tooling_arena, ctx, name));
   }
@@ -363,57 +379,57 @@ struct MeshOpsWrapper {
 
   // Operations
   std::unique_ptr<MeshOpsWrapper> kis() const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::kis(mesh, ctx), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> ambo() const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::ambo(mesh, ctx), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> gyro() const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::gyro(mesh, ctx), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> snub() const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::snub(mesh, ctx), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> dual() const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::dual(mesh, ctx), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> truncate(float t) const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::truncate(mesh, ctx, t), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> expand(float t) const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(MeshOps::expand(mesh, ctx, t), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> hankin(float angle) const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::hankin(mesh, ctx, angle * (PI_F / 180.0f)), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> hankin_rad(float radians) const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::hankin(mesh, ctx, radians), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> bitruncate(float t) const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::bitruncate(mesh, ctx, t), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> canonicalize(int iterations) const {
-    ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::canonicalize(mesh, ctx, iterations), tooling_arena));
   }
@@ -440,7 +456,7 @@ struct MeshOpsWrapper {
     const char *mi_name = "";
 
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      ScratchContext ctx(tooling_scratch_a, tooling_scratch_b);
+      MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
       PolyMesh temp = Solids::get(tooling_arena, ctx, i);
 
       int v = temp.vertices.size();
@@ -482,9 +498,11 @@ struct MeshOpsWrapper {
       metrics.set(name, m);
     };
 
-    add_metrics("geometry_arena", geometry_arena);
+    add_metrics("geo_arena_a", geo_arena_a);
+    add_metrics("geo_arena_b", geo_arena_b);
     add_metrics("scratch_arena_a", scratch_arena_a);
     add_metrics("scratch_arena_b", scratch_arena_b);
+    add_metrics("persistent_arena", persistent_arena);
     add_metrics("tooling_arena", tooling_arena);
 
     return metrics;

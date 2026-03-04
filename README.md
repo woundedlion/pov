@@ -79,7 +79,7 @@ pov-master/
 ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 ├── waves.h                 sin_wave / tri_wave / square_wave generators
 │
-├── memory.h / memory.cpp   Arena allocator, ArenaMarker RAII, ScratchContext
+├── memory.h / memory.cpp   Arena allocator, ScopedScratch RAII, ScratchContext
 ├── mesh.h                  PolyMesh, MeshState, MeshOps (compile, subdivide, etc.)
 ├── solids.h                Platonic + Archimedean + Islamic solid geometry data
 ├── spatial.h               AABB, BVH, k-nearest-neighbor graph
@@ -438,11 +438,11 @@ Three arena allocators manage all geometry memory with zero `malloc`/`new` in th
 | `scratch_arena_a` | 128 KB | Short-lived intermediate geometry (RAII scoped) |
 | `scratch_arena_b` | 256 KB | Secondary scratch for ping-pong subdivision passes |
 
-`ArenaMarker` provides stack-like RAII lifetime:
+`ScopedScratch` provides stack-like RAII lifetime:
 
 ```cpp
 {
-    ArenaMarker _(scratch_arena_a);     // save offset
+    ScopedScratch _(scratch_arena_a);     // save offset
     // ... allocate from scratch_arena_a ...
 }                                        // restore offset — all allocations freed
 ```

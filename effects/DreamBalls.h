@@ -119,20 +119,20 @@ private:
       const auto &p = entry.params;
       auto &data = loaded_presets[preset_idx++];
 
-      ArenaMarker _(scratch_arena_a);
+      ScopedScratch _(scratch_arena_a);
       SolidNameGenerator gen(p.solid_name);
-      ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+      MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
       PolyMesh m = gen.generate(scratch_arena_a, ctx);
 
       // Store Verts (Deep Copy)
-      data.mesh_state.vertices.initialize(geometry_arena, m.vertices.size());
+      data.mesh_state.vertices.initialize(persistent_arena, m.vertices.size());
       for (const auto &v : m.vertices) {
         data.mesh_state.vertices.push_back(v);
       }
 
       // Store Faces
-      data.mesh_state.faces.initialize(geometry_arena, m.faces.size());
-      data.mesh_state.face_counts.initialize(geometry_arena,
+      data.mesh_state.faces.initialize(persistent_arena, m.faces.size());
+      data.mesh_state.face_counts.initialize(persistent_arena,
                                              m.face_counts.size());
 
       int flat_idx = 0;
@@ -145,7 +145,8 @@ private:
       }
 
       // Compute Tangents
-      data.tangents.initialize(geometry_arena, data.mesh_state.vertices.size());
+      data.tangents.initialize(persistent_arena,
+                               data.mesh_state.vertices.size());
       for (const auto &v : data.mesh_state.vertices) {
         Vector axis = (std::abs(v.j) > 0.99f) ? X_AXIS : Y_AXIS;
         Vector u = cross(v, axis).normalize();
@@ -167,7 +168,7 @@ private:
 
     auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
                                                        float opacity) {
-      ArenaMarker _(scratch_arena_a);
+      ScopedScratch _(scratch_arena_a);
       MeshState target_mesh;
       MeshOps::transform(preset_ptr->mesh_state, target_mesh, scratch_arena_a);
 

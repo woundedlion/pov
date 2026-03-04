@@ -122,10 +122,10 @@ private:
   PolyMesh mesh;
 
   void rebuild_mesh() {
-    ArenaMarker _(scratch_arena_a);
-    ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+    ScopedScratch _(scratch_arena_a);
+    MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
     mesh = Solids::finalize_solid(Solids::Platonic::icosahedron(ctx),
-                                  geometry_arena);
+                                  persistent_arena);
   }
 
   float calculate_delay(float x, float y) {

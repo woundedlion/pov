@@ -18,6 +18,13 @@ template <int W, int H> class IslamicStars : public Effect {
 
 public:
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {
+    mesh_states[0] =
+        new (persistent_arena.allocate(sizeof(MeshState))) MeshState();
+    mesh_states[1] =
+        new (persistent_arena.allocate(sizeof(MeshState))) MeshState();
+
+    PersistentTracker::register_mesh(mesh_states[0]);
+    PersistentTracker::register_mesh(mesh_states[1]);
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
@@ -54,7 +61,7 @@ private:
   float ripple_duration = 80.0f;
 
   int solid_idx = -1;
-  MeshState mesh_states[2];
+  MeshState *mesh_states[2];
   std::vector<int> topologies[2];
   int current_mesh_idx = 0;
 
@@ -73,10 +80,11 @@ private:
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const std::vector<int> &faceIndices,
                   const std::array<PaletteVariant, 5> &palettes) {
-    ArenaMarker _(scratch_arena_a);
+    MemoryCtx ctx;
+    ScopedScratch _(ctx);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
-    MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+    MeshOps::transform(base_state, transformed_state, ctx.get_scratch(),
                        ripple_gen, camera);
 
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
@@ -101,54 +109,30 @@ private:
 
   void spawn_shape() {
     {
-      ArenaMarker master_scope(scratch_arena_a);
-
-      // Compaction bounce
-      if (mesh_states[current_mesh_idx].vertices.size() > 0) {
-        ArenaMarker bounce_scope(scratch_arena_a);
-
-        MeshState temp_bounce;
-
-        MeshOps::clone(mesh_states[current_mesh_idx], temp_bounce,
-                       scratch_arena_a);
-
-        geometry_arena.set_offset(0);
-        mesh_states[current_mesh_idx] = MeshState();
-
-        // Bounce back to geometry_arena
-        MeshOps::clone(temp_bounce, mesh_states[current_mesh_idx],
-                       geometry_arena);
-      } else {
-        geometry_arena.set_offset(0);
-      }
-
+      MemoryCtx math_context;
       solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
 
-      // Generate new shape
       {
-        ArenaMarker _a(scratch_arena_a);
-        ArenaMarker _b(scratch_arena_b);
-        ScratchContext ctx(scratch_arena_a, scratch_arena_b);
+        ScopedScratch _(math_context);
         SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
-        PolyMesh local_mesh = gen.generate(scratch_arena_a, ctx);
+        PolyMesh local_mesh =
+            gen.generate(math_context.get_scratch(), math_context);
 
         current_mesh_idx = (current_mesh_idx + 1) % 2;
 
-        // Destroy the incoming shape's metadata
-        mesh_states[current_mesh_idx] = MeshState();
+        math_context.update_persistent(*(mesh_states[current_mesh_idx]),
+                                       local_mesh);
 
-        MeshOps::compile(local_mesh, mesh_states[current_mesh_idx],
-                         geometry_arena);
+        math_context.swap_scratch();
+        topologies[current_mesh_idx] = MeshOps::classify_faces_by_topology(
+            *(mesh_states[current_mesh_idx]), math_context.get_scratch());
       }
-
-      topologies[current_mesh_idx] = MeshOps::classify_faces_by_topology(
-          mesh_states[current_mesh_idx], scratch_arena_a);
     }
 
     const auto &entry = Solids::Collections::islamic_solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
-            (int)mesh_states[current_mesh_idx].vertices.size(),
-            (int)mesh_states[current_mesh_idx].faces.size());
+            (int)mesh_states[current_mesh_idx]->vertices.size(),
+            (int)mesh_states[current_mesh_idx]->faces.size());
 
     // Prepare Palettes
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
@@ -170,7 +154,7 @@ private:
 
     auto draw_fn = [this, capture_idx, pal_copy](Canvas &canvas,
                                                  float opacity) {
-      this->draw_shape(canvas, opacity, mesh_states[capture_idx],
+      this->draw_shape(canvas, opacity, *(mesh_states[capture_idx]),
                        topologies[capture_idx], pal_copy);
     };
 
