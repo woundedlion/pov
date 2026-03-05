@@ -88,8 +88,8 @@ private:
   PolyMesh mesh;
 
   void rebuild_mesh() {
-    ScopedScratch _(scratch_arena_a);
-    MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
+    MemoryCtx ctx;
+    ScopedScratch _(ctx.get_scratch_front());
     mesh = Solids::finalize_solid(Solids::Platonic::icosahedron(ctx),
                                   persistent_arena);
   }

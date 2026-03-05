@@ -2,14 +2,9 @@
 #include "mesh.h"
 
 // Allocations
-Arena geo_arena_a(GEOMETRY_ARENA_SIZE);
-Arena geo_arena_b(GEOMETRY_ARENA_SIZE);
 Arena scratch_arena_a(SCRATCH_ARENA_A_SIZE);
 Arena scratch_arena_b(SCRATCH_ARENA_B_SIZE);
 Arena persistent_arena(PERSISTENT_ARENA_SIZE);
-
-bool using_A_as_frame = true;
-Arena *current_frame_arena = &geo_arena_a;
 
 ArenaVector<MeshState *> PersistentTracker::tracked_meshes;
 
@@ -43,7 +38,7 @@ void MemoryCtx::update_persistent(MeshState &target, const PolyMesh &new_data) {
       required) {
     // Trigger invisible defragmentation using our currently INACTIVE scratch
     // buffer!
-    PersistentTracker::auto_compact(*next_scratch);
+    PersistentTracker::auto_compact(*scratch_back);
   }
 
   // Safely write the new shape into the persistent arena

@@ -168,14 +168,14 @@ struct Dodecahedron {
 template <typename StaticMeshT> PolyMesh to_polymesh(MemoryCtx &ctx) {
   ctx.swap_scratch();
   PolyMesh mesh;
-  mesh.vertices.initialize(ctx.get_scratch(), StaticMeshT::vertices.size());
+  mesh.vertices.initialize(ctx.get_scratch_front(), StaticMeshT::vertices.size());
   for (const auto &v : StaticMeshT::vertices)
     mesh.vertices.push_back(v);
-  mesh.face_counts.initialize(ctx.get_scratch(),
+  mesh.face_counts.initialize(ctx.get_scratch_front(),
                               StaticMeshT::face_counts.size());
   for (const auto &c : StaticMeshT::face_counts)
     mesh.face_counts.push_back(c);
-  mesh.faces.initialize(ctx.get_scratch(), StaticMeshT::faces.size());
+  mesh.faces.initialize(ctx.get_scratch_front(), StaticMeshT::faces.size());
   for (const auto &f : StaticMeshT::faces)
     mesh.faces.push_back(f);
   return mesh;

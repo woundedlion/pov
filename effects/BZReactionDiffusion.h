@@ -91,7 +91,7 @@ private:
   void build_graph() {
     // Generate Nodes (Fibonacci Lattice)
     BZGridGenerator gen;
-    MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
+    MemoryCtx ctx;
     nodes = gen.generate(persistent_arena, ctx);
 
     // Build Neighbors using Spatial Hashing (Grid Optimization)
