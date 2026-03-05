@@ -18,13 +18,8 @@ template <int W, int H> class IslamicStars : public Effect {
 
 public:
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {
-    mesh_states[0] =
-        new (persistent_arena.allocate(sizeof(MeshState))) MeshState();
-    mesh_states[1] =
-        new (persistent_arena.allocate(sizeof(MeshState))) MeshState();
-
-    PersistentTracker::register_mesh(mesh_states[0]);
-    PersistentTracker::register_mesh(mesh_states[1]);
+    PersistentTracker::register_mesh(&mesh_states[0]);
+    PersistentTracker::register_mesh(&mesh_states[1]);
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
@@ -60,7 +55,7 @@ private:
   RippleTransformer<W, 8> ripple_gen;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
-  MeshState *mesh_states[2];
+  MeshState mesh_states[2];
   std::array<PaletteVariant, 5> palettes_history[2];
   int current_mesh_idx = 0;
 
@@ -111,20 +106,24 @@ private:
     solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
     current_mesh_idx = (current_mesh_idx + 1) % 2;
 
-    // Log transition
-    const auto &entry = Solids::Collections::islamic_solids[solid_idx];
-    hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
-            (int)mesh_states[current_mesh_idx]->vertices.size(),
-            (int)mesh_states[current_mesh_idx]->faces.size());
+    // Forced compaction
+    mesh_states[current_mesh_idx] = MeshState();
+    PersistentTracker::auto_compact(ctx.get_scratch_back());
 
     // Generate new shape
     {
       ScopedScratch _(ctx.get_scratch_front());
       SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
       PolyMesh local_mesh = gen.generate(ctx.get_scratch_front(), ctx);
-      ctx.update_persistent(*(mesh_states[current_mesh_idx]), local_mesh);
+      ctx.update_persistent(mesh_states[current_mesh_idx], local_mesh);
     }
-    MeshOps::classify_faces_by_topology(*(mesh_states[current_mesh_idx]), ctx);
+    MeshOps::classify_faces_by_topology(mesh_states[current_mesh_idx], ctx);
+
+    // Log transition
+    const auto &entry = Solids::Collections::islamic_solids[solid_idx];
+    hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
+            (int)mesh_states[current_mesh_idx].vertices.size(),
+            (int)mesh_states[current_mesh_idx].faces.size());
 
     // Prepare Palettes
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
@@ -135,7 +134,7 @@ private:
     // Map Topology to palette
     int num_colors =
         static_cast<int>(palettes_history[current_mesh_idx].size());
-    ArenaVector<int> &faceIndices = mesh_states[current_mesh_idx]->topology;
+    ArenaVector<int> &faceIndices = mesh_states[current_mesh_idx].topology;
     for (size_t i = 0; i < faceIndices.size(); ++i) {
       faceIndices[i] = faceIndices[i] % num_colors;
     }
@@ -146,8 +145,8 @@ private:
     int fade_out = 32;
     int capture_idx = current_mesh_idx;
     auto draw_fn = [this, capture_idx](Canvas &canvas, float opacity) {
-      this->draw_shape(canvas, opacity, *(mesh_states[capture_idx]),
-                       mesh_states[capture_idx]->topology,
+      this->draw_shape(canvas, opacity, mesh_states[capture_idx],
+                       mesh_states[capture_idx].topology,
                        palettes_history[capture_idx]);
     };
 

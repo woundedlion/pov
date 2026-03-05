@@ -284,6 +284,13 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
       dst.face_offsets.push_back(src.face_offsets[i]);
     }
   }
+
+  if constexpr (requires { dst.topology; }) {
+    dst.topology.initialize(arena, src.topology.size());
+    for (size_t i = 0; i < src.topology.size(); ++i) {
+      dst.topology.push_back(src.topology[i]);
+    }
+  }
 }
 
 /**
