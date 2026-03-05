@@ -582,6 +582,8 @@ struct FaceScratchBuffer {
   std::array<Vector, MAX_VERTS> planes;
   std::array<std::pair<float, float>, 4> intervals;
   std::array<float, MAX_VERTS> thetas;
+  std::array<float, MAX_VERTS> invEdgeLengthsSq;
+  std::array<float, MAX_VERTS> invEdgeJ;
 };
 
 /**
@@ -603,6 +605,8 @@ struct Face {
   std::span<Vector> edgeVectors;
   std::span<float> edgeLengthsSq;
   std::span<Vector> planes;
+  std::span<float> invEdgeLengthsSq;
+  std::span<float> invEdgeJ;
 
   int y_min, y_max;
   std::span<std::pair<float, float>> intervals;
@@ -717,6 +721,10 @@ struct Face {
 
       float edge_len_sq = dot(edge, edge);
       scratch.edgeLengthsSq[i] = edge_len_sq;
+      scratch.invEdgeLengthsSq[i] =
+          (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
+      scratch.invEdgeJ[i] =
+          (std::abs(edge.j) > 1e-12f) ? (1.0f / edge.j) : 0.0f;
 
       Vector normal = cross(v1, v2);
       float lenSq = dot(normal, normal);
@@ -775,6 +783,8 @@ struct Face {
 
     edgeVectors = std::span<Vector>(scratch.edgeVectors.data(), count);
     edgeLengthsSq = std::span<float>(scratch.edgeLengthsSq.data(), count);
+    invEdgeLengthsSq = std::span<float>(scratch.invEdgeLengthsSq.data(), count);
+    invEdgeJ = std::span<float>(scratch.invEdgeJ.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
     bool npInside = true;
@@ -867,8 +877,7 @@ struct Face {
 
     float pR2 = px * px + py * py;
     if (pR2 > max_dist_sq) {
-      float dist = sqrtf(pR2) - radius;
-      res = DistanceResult(dist, 0.0f, dist, 0.0f, size);
+      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
 
@@ -883,10 +892,7 @@ struct Face {
       float wx = px - Vi.i;
       float wy = py - Vi.j;
 
-      float t = 0.0f;
-      if (edgeLengthsSq[i] > 1e-12f) {
-        t = (wx * edge.i + wy * edge.j) / edgeLengthsSq[i];
-      }
+      float t = (wx * edge.i + wy * edge.j) * invEdgeLengthsSq[i];
       float clampVal = hs::clamp(t, 0.0f, 1.0f);
 
       float bx = wx - edge.i * clampVal;
@@ -897,8 +903,8 @@ struct Face {
         d = distSq;
 
       if ((Vi.j > py) != (Vnext.j > py)) {
-        float slope = (std::abs(edge.j) > 1e-12f) ? (edge.i / edge.j) : 0.0f;
-        if (px < Vi.i + (py - Vi.j) * slope) {
+        float intersect_x = Vi.i + (py - Vi.j) * edge.i * invEdgeJ[i];
+        if (px < intersect_x) {
           inside = !inside;
         }
       }
