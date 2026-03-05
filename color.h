@@ -9,7 +9,7 @@
 #include <cmath>
 #include <functional>
 #include <variant>
-#include <vector>
+
 #include "platform.h"
 #include "3dmath.h"
 #include "util.h"

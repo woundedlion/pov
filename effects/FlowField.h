@@ -6,7 +6,7 @@
 #pragma once
 #include <functional>
 #include <memory>
-#include <vector>
+
 #include <map>
 #include "../effects_engine.h"
 #include "../FastNoiseLite.h"

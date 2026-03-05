@@ -6,7 +6,6 @@
 #include <cmath>
 #include <algorithm>
 #include <array>
-#include <vector>
 #include <map>
 #include <set>
 #include "platform.h"
@@ -58,7 +57,7 @@ struct Fragment {
  * @brief A list of fragments, equivalent to 'Points' in the JS context but with
  * full register support.
  */
-using Fragments = std::vector<Fragment>;
+using Fragments = StaticCircularBuffer<Fragment, 512>;
 
 /**
  * @brief Logic for no-op vertex shader.
@@ -182,7 +181,7 @@ template <int H> inline float phi_to_y(float phi) {
  */
 template <int H> struct PhiLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
-   static std::array<float, H_VIRT> data;
+  static std::array<float, H_VIRT> data;
   static bool initialized;
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {

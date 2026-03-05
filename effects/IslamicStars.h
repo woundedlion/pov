@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <map>
 #include <random>
-#include <vector>
+
 #include "../solids.h"
 
 template <int W, int H> class IslamicStars : public Effect {

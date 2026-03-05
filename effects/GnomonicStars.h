@@ -6,7 +6,6 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include <vector>
 
 template <int W, int H> class GnomonicStars : public Effect {
 public:

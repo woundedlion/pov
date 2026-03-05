@@ -79,7 +79,7 @@ static constexpr int H_OFFSET = 3;
 #include <cstdarg>
 #include <cmath>
 #include <algorithm>
-#include <vector>
+
 #include <cstring>
 #include <chrono>
 #include <iostream>
