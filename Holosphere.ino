@@ -4,7 +4,7 @@
  */
 #include <FastLED.h>
 #include <SPI.h>
-#include <vector>
+
 #include "led.h"
 #include "effects.h"
 #include "effects_legacy.h"

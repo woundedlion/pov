@@ -6,7 +6,7 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include <vector>
+
 #include "../static_circular_buffer.h"
 
 template <int W, int H> class MindSplatter : public Effect {

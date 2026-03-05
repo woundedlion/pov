@@ -7,7 +7,6 @@
 #include "geometry.h"
 #include "mesh.h"
 #include "solids.h" // For access to Solids::* functions
-#include <vector>
 
 /**
  * @brief A generic concept/interface for generating geometry

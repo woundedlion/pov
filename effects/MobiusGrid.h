@@ -6,7 +6,7 @@
 #pragma once
 #include <functional>
 #include <memory>
-#include <vector>
+
 #include <map>
 #include "../effects_engine.h"
 
@@ -101,7 +101,7 @@ private:
       Plot::SphericalPolygon::sample(m_points, basis, radius, W / 4);
 
       m_fragments.clear();
-      m_fragments.reserve(m_points.size());
+      // reserve removed
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
@@ -143,7 +143,7 @@ private:
       Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);
 
       m_fragments.clear();
-      m_fragments.reserve(m_points.size());
+      // reserve removed
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;

@@ -6,7 +6,7 @@
 
 #include <initializer_list>
 #include <string_view>
-#include <vector>
+
 #include <array>
 #include <span>
 #include <utility>

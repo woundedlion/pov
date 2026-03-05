@@ -3,7 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#include <vector>
 #include <functional>
 #include <utility>
 #include <type_traits>
@@ -25,8 +24,8 @@ struct CachePoint {
 };
 
 struct RasterCache {
-  std::vector<float> steps;
-  std::vector<CachePoint> points;
+  StaticCircularBuffer<float, 512> steps;
+  StaticCircularBuffer<CachePoint, 512> points;
 };
 
 /**
@@ -143,7 +142,6 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
 
   size_t count = close_loop ? len : len - 1;
   auto &_steps_cache = cache.steps;
-  _steps_cache.reserve(W);
 
   auto process_segment = [&](auto &&map, const Fragment &curr,
                              const Fragment &next, float total_dist,
@@ -190,7 +188,7 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
     float scale = (sim_dist > 0.0f) ? (total_dist / sim_dist) : 0.0f;
     bool omitLast = (close_loop) ? true : !isLastSegment;
 
-    if (omitLast && _steps_cache.empty())
+    if (omitLast && _steps_cache.is_empty())
       return;
 
     // 2. DRAWING PHASE
@@ -260,7 +258,6 @@ struct Line {
     if (density < 1)
       density = 1;
     Fragments points;
-    points.reserve(density + 1);
 
     float angle = angle_between(f1.pos, f2.pos);
     if (std::abs(angle) < 0.0001f) {
@@ -855,7 +852,6 @@ struct Spiral {
    */
   static Fragments sample(int n, float eps) {
     Fragments fragments;
-    fragments.reserve(n);
 
     float cumulative_len = 0.0f;
     Vector last_pos;
@@ -1179,23 +1175,50 @@ struct Mesh {
    * @param density Sampling density per edge.
    * @return List of sampled edges (each edge is a list of Fragments).
    */
-  template <typename MeshT>
-  static std::vector<Fragments> sample(const MeshT &mesh, int density = 10) {
-    std::set<std::pair<int, int>> visited;
-    std::vector<Fragments> result;
+  template <int W, int H, typename MeshT>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
+                   FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader,
+                   RasterCache *cache = nullptr) {
+    RasterCache local_cache;
+    RasterCache &c = cache ? *cache : local_cache;
+    int edge_index = 0;
+
+    StaticCircularBuffer<uint32_t, 4096> visited;
 
     auto process_edge = [&](int u, int v) {
       int small = std::min(u, v);
       int large = std::max(u, v);
+      uint32_t key =
+          (static_cast<uint32_t>(small) << 16) | static_cast<uint32_t>(large);
 
-      if (visited.find({small, large}) == visited.end()) {
-        visited.insert({small, large});
-        Fragment fu;
-        fu.pos = mesh.vertices[u];
-        Fragment fv;
-        fv.pos = mesh.vertices[v];
-        result.push_back(Line::sample(fu, fv, density));
+      for (auto curr : visited) {
+        if (curr == key)
+          return;
       }
+      visited.push_back(key);
+
+      Fragment fu;
+      fu.pos = mesh.vertices[u];
+      Fragment fv;
+      fv.pos = mesh.vertices[v];
+
+      Fragments points = Line::sample(fu, fv, 10);
+
+      if (vertex_shader) {
+        for (auto &p : points) {
+          p.v2 = static_cast<float>(edge_index); // Edge Index
+          vertex_shader(p);
+        }
+      } else {
+        for (auto &p : points) {
+          p.v2 = static_cast<float>(edge_index);
+        }
+      }
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, c, false, 0.0f,
+                      nullptr);
+
+      edge_index++;
     };
 
     size_t offset = 0;
@@ -1204,38 +1227,9 @@ struct Mesh {
       for (int k = 0; k < count; ++k) {
         int u = mesh.faces[offset + k];
         int v = mesh.faces[offset + (k + 1) % count];
-        process_edge(u, v); // Helper lambda
+        process_edge(u, v);
       }
       offset += count;
-    }
-
-    return result;
-  }
-
-  template <int W, int H, typename MeshT>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
-                   FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader,
-                   RasterCache *cache = nullptr) {
-    auto edges = sample(mesh, 10);
-
-    RasterCache local_cache;
-    RasterCache &c = cache ? *cache : local_cache;
-
-    for (size_t i = 0; i < edges.size(); ++i) {
-      auto &points = edges[i];
-      if (vertex_shader) {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(i); // Edge Index
-          vertex_shader(p);
-        }
-      } else {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(i);
-        }
-      }
-      rasterize<W, H>(pipeline, canvas, points, fragment_shader, c, false, 0.0f,
-                      nullptr);
     }
   }
 
@@ -1260,10 +1254,13 @@ struct ParticleSystem {
    * @brief Samples particle trails.
    */
   template <int W, int H>
-  static std::vector<Fragments> sample(const auto &system) {
-    std::vector<Fragments> trails;
+  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &system,
+                   FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader,
+                   RasterCache *cache = nullptr) {
+    RasterCache local_cache;
+    RasterCache &c = cache ? *cache : local_cache;
     int count = system.active_count;
-    trails.reserve(count);
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
@@ -1292,31 +1289,15 @@ struct ParticleSystem {
         trail.push_back(f);
       });
 
-      if (!trail.empty()) {
-        trails.push_back(trail);
-      }
-    }
-    return trails;
-  }
-
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &system,
-                   FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader,
-                   RasterCache *cache = nullptr) {
-    auto trails = sample<W, H>(system);
-
-    RasterCache local_cache;
-    RasterCache &c = cache ? *cache : local_cache;
-
-    for (auto &trail : trails) {
-      if (vertex_shader) {
-        for (auto &f : trail) {
-          vertex_shader(f);
+      if (!trail.is_empty()) {
+        if (vertex_shader) {
+          for (auto &f : trail) {
+            vertex_shader(f);
+          }
         }
+        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, c, false,
+                        0.0f, nullptr);
       }
-      rasterize<W, H>(pipeline, canvas, trail, fragment_shader, c, false, 0.0f,
-                      nullptr);
     }
   }
 

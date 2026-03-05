@@ -12,9 +12,8 @@
 #include <list>
 #include <map>
 #include <memory>
-#include <string_view>  
+#include <string_view>
 #include <variant>
-#include <vector>
 
 #include "3dmath.h"
 #include "FastNoiseLite.h"

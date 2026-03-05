@@ -9,7 +9,7 @@
 #include "mesh.h" // For MeshOps
 #include <cmath>
 #include <string_view>
-#include <vector>
+
 #include <map>
 
 // --- Constants for Procedural Generation ---
@@ -168,7 +168,8 @@ struct Dodecahedron {
 template <typename StaticMeshT> PolyMesh to_polymesh(MemoryCtx &ctx) {
   ctx.swap_scratch();
   PolyMesh mesh;
-  mesh.vertices.initialize(ctx.get_scratch_front(), StaticMeshT::vertices.size());
+  mesh.vertices.initialize(ctx.get_scratch_front(),
+                           StaticMeshT::vertices.size());
   for (const auto &v : StaticMeshT::vertices)
     mesh.vertices.push_back(v);
   mesh.face_counts.initialize(ctx.get_scratch_front(),

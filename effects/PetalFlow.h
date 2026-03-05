@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include <vector>
 #include <cmath>
 #include <algorithm>
 #include "../effects_engine.h"
@@ -178,7 +177,7 @@ private:
     };
 
     Fragments fragments;
-    fragments.reserve(num_samples + 1);
+    // reserve removed
 
     for (int i = 0; i < num_samples; ++i) {
       float t_norm = static_cast<float>(i) / num_samples;
@@ -203,7 +202,7 @@ private:
       fragments.push_back(f);
     }
 
-    if (!fragments.empty()) {
+    if (!fragments.is_empty()) {
       Fragment f = fragments[0];
       f.v0 = 1.0f;
       fragments.push_back(f);

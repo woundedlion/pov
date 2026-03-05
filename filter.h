@@ -8,7 +8,7 @@
 #include <utility>
 #include <type_traits>
 #include <cmath>
-#include <vector>
+
 #include <span>
 #include <algorithm>
 #include "geometry.h"

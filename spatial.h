@@ -10,7 +10,7 @@
 #include <array>
 #include <cmath>
 #include <span>
-#include <vector>
+
 #include <unordered_map>
 #include <memory>
 #include <cfloat>

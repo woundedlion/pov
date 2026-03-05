@@ -3,7 +3,7 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#include <vector>
+
 #include <utility>
 #include <array>
 #include <functional>
@@ -1726,8 +1726,7 @@ struct SphericalPolygon {
     float d = cosf(theta_eq);
     float step = (2.0f * PI_F) / sides;
 
-    std::vector<Vector> vertices;
-    vertices.reserve(sides);
+    std::array<Vector, 32> vertices;
 
     for (int i = 0; i < sides; ++i) {
       float theta = i * step + phase + offset;
@@ -1740,16 +1739,20 @@ struct SphericalPolygon {
       Vector pos = eff_basis.u * cos_t + eff_basis.w * sin_t;
       pos = pos * r + eff_basis.v * d;
       pos.normalize();
-      vertices.push_back(pos);
+      vertices[i] = pos;
     }
 
     // 3. Create Indices (0, 1, ..., sides-1)
-    std::vector<uint16_t> indices(sides);
-    std::iota(indices.begin(), indices.end(), 0);
+    std::array<uint16_t, 32> indices;
+    for (uint16_t i = 0; i < sides; ++i) {
+      indices[i] = i;
+    }
 
     // 4. Create SDF::Face
     SDF::FaceScratchBuffer scratch;
-    SDF::Face shape(vertices, indices, 0.0f, scratch, H + 3, H);
+    SDF::Face shape(std::span<const Vector>(vertices.data(), sides),
+                    std::span<const uint16_t>(indices.data(), sides), 0.0f,
+                    scratch, H + 3, H);
 
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
   }

@@ -8,7 +8,7 @@
 #include "3dmath.h"
 #include "spatial.h"
 #include "memory.h"
-#include <vector>
+
 #include <map>
 #include <set>
 #include <algorithm>

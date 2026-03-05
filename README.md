@@ -231,7 +231,7 @@ inline static DMAMEM Pixel buffer_b[MAX_W * MAX_H];
 
 ### WASM Path
 
-In the simulator there is no ISR. `HolosphereEngine::drawFrame()` calls `draw_frame()` then `advance_display()` directly. The pixel buffer is a flat `std::vector<uint16_t>` that is read back by JavaScript as a zero-copy `typed_memory_view`:
+In the simulator there is no ISR. `HolosphereEngine::drawFrame()` calls `draw_frame()` then `advance_display()` directly. The pixel buffer is a flat 16-bit array that is read back by JavaScript as a zero-copy `typed_memory_view`:
 
 ```
 C++: wasmEngine.drawFrame()
@@ -372,7 +372,7 @@ Plot::Line::draw<W, H>(pipeline, canvas, start, end, fragment_shader);
 Plot::Curve::draw<W, H>(pipeline, canvas, fragments, fragment_shader, cache);
 ```
 
-Curves accept a `Fragments` array (a `std::vector<Fragment>`) where each fragment carries position, texture registers (v0–v3), age, color, and blend mode. The rasterizer supports two interpolation strategies:
+Curves accept a `Fragments` array (a `StaticCircularBuffer<Fragment, 512>`) where each fragment carries position, texture registers (v0–v3), age, color, and blend mode. The rasterizer supports two interpolation strategies:
 - **Geodesic**: great-circle arc between segment endpoints (default)
 - **Planar**: planar projection within the tangent plane of a basis (for effects that live in a 2D local space)
 

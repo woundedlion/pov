@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include <vector>
 #include <array>
 #include "../effects_engine.h"
 
