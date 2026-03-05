@@ -30,9 +30,9 @@ public:
     secondary.preallocate(persistent_arena);
 
     {
-      ScopedScratch _a(scratch_arena_a);
-      ScopedScratch _b(scratch_arena_b);
-      MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
+      MemoryCtx ctx;
+      ScopedScratch _a(ctx.get_scratch_front());
+      ScopedScratch _b(ctx.get_scratch_back());
       primary.load(solid_idx, params.hankin_angle, persistent_arena, ctx,
                    source_palettes_pool, timeline.t);
     }
@@ -52,7 +52,6 @@ private:
     MeshState mesh;        // The static resting geometry
     MeshState base;        // The simple base geometry
     MeshState active_mesh; // The dynamic animation puppet!
-    std::vector<int> topology;
     std::array<PaletteVariant, 5> palettes;
 
     void preallocate(Arena &arena) {
@@ -90,14 +89,14 @@ private:
       SolidGenerator gen(idx);
       hs::log("Transitioning to '%s'", Solids::get_entry(idx).name);
 
-      PolyMesh temp_base = gen.generate(ctx.get_scratch(), ctx);
+      PolyMesh temp_base = gen.generate(ctx.get_scratch_front(), ctx);
       MeshOps::compile(temp_base, base, geom);
-      MeshOps::compile_hankin(temp_base, hankin, ctx);
+      MeshOps::compile_hankin(temp_base, hankin, ctx.get_scratch_back());
 
       // Calculate initial state (angle = 0)
       MeshOps::update_hankin(hankin, mesh, geom, angle);
       ctx.swap_scratch();
-      topology = MeshOps::classify_faces_by_topology(mesh, ctx.get_scratch());
+      MeshOps::classify_faces_by_topology(mesh, ctx);
 
       palettes = pool;
       std::mt19937 g(12345 + (int)time);
@@ -109,7 +108,6 @@ private:
       std::swap(mesh, other.mesh);
       std::swap(base, other.base);
       std::swap(active_mesh, other.active_mesh); // Swap the puppet too!
-      std::swap(topology, other.topology);
       std::swap(palettes, other.palettes);
     }
   };
@@ -118,19 +116,22 @@ private:
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
-  void draw_dynamic_morph(Canvas &c, float opacity) {
-    ScopedScratch _a(scratch_arena_a);
+  void draw_dynamic_morph(Canvas &c, float opacity,
+                          const ArenaVector<int> &p_topo,
+                          const std::array<PaletteVariant, 5> &p_pal,
+                          const ArenaVector<int> &s_topo,
+                          const std::array<PaletteVariant, 5> &s_pal) {
+    MemoryCtx ctx;
+    ScopedScratch _a(ctx.get_scratch_front());
 
     float op_A = (1.0f - morph_alpha) * opacity;
     if (op_A > 0.01f) {
-      draw_topology_mesh(c, primary.active_mesh, primary.topology,
-                         primary.palettes, op_A);
+      draw_topology_mesh(c, primary.active_mesh, p_topo, p_pal, op_A);
     }
 
     float op_B = morph_alpha * opacity;
     if (op_B > 0.01f) {
-      draw_topology_mesh(c, secondary.active_mesh, secondary.topology,
-                         secondary.palettes, op_B);
+      draw_topology_mesh(c, secondary.active_mesh, s_topo, s_pal, op_B);
     }
   }
 
@@ -141,15 +142,15 @@ private:
                                         DURATION, ease_mid, false)
                         .then([this]() { this->start_morph_cycle(); }));
 
-    timeline.add(0, Animation::Sprite(
-                        [this](Canvas &c, float opacity) {
-                          MeshOps::update_hankin(primary.hankin, primary.mesh,
-                                                 persistent_arena,
-                                                 params.hankin_angle);
-                          draw_topology_mesh(c, primary.mesh, primary.topology,
-                                             primary.palettes, opacity);
-                        },
-                        DURATION));
+    timeline.add(
+        0, Animation::Sprite(
+               [this](Canvas &c, float opacity) {
+                 MeshOps::update_hankin(primary.hankin, primary.mesh,
+                                        persistent_arena, params.hankin_angle);
+                 draw_topology_mesh(c, primary.mesh, primary.mesh.topology,
+                                    primary.palettes, opacity);
+               },
+               DURATION));
   }
 
   void start_morph_cycle() {
@@ -157,9 +158,9 @@ private:
     int next_idx = (solid_idx + 1) % Solids::Collections::num_simple_solids;
 
     {
-      ScopedScratch _a(scratch_arena_a);
-      ScopedScratch _b(scratch_arena_b);
-      MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
+      MemoryCtx ctx;
+      ScopedScratch _a(ctx.get_scratch_front());
+      ScopedScratch _b(ctx.get_scratch_back());
       // Load generates the fully compiled Hankin topology at angle = 0
       secondary.load(next_idx, params.hankin_angle, persistent_arena, ctx,
                      source_palettes_pool, timeline.t);
@@ -175,34 +176,37 @@ private:
                         &morph_buffer, &persistent_arena, primary.mesh,
                         secondary.mesh, DURATION, false, ease_in_out_sin));
 
-    timeline.add(0, Animation::Sprite(
-                        [this](Canvas &c, float opacity) {
-                          draw_dynamic_morph(c, opacity);
-                        },
-                        DURATION)
-                        .then([this, next_idx]() {
-                          this->solid_idx = next_idx;
-                          primary.swap(secondary);
+    timeline.add(
+        0, Animation::Sprite(
+               [this](Canvas &c, float opacity) {
+                 draw_dynamic_morph(c, opacity, primary.mesh.topology,
+                                    primary.palettes, secondary.mesh.topology,
+                                    secondary.palettes);
+               },
+               DURATION)
+               .then([this, next_idx]() {
+                 this->solid_idx = next_idx;
+                 primary.swap(secondary);
 
-                          // Ensure resting state is perfect before resuming
-                          // cycle
-                          MeshOps::update_hankin(primary.hankin, primary.mesh,
-                                                 persistent_arena,
-                                                 params.hankin_angle);
-                          this->start_hankin_cycle();
-                        }));
+                 // Ensure resting state is perfect before resuming
+                 // cycle
+                 MeshOps::update_hankin(primary.hankin, primary.mesh,
+                                        persistent_arena, params.hankin_angle);
+                 this->start_hankin_cycle();
+               }));
   }
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
-                          const std::vector<int> &topology,
+                          const ArenaVector<int> &topology,
                           const std::array<PaletteVariant, 5> &palettes,
                           float opacity) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
 
-    ScopedScratch _(scratch_arena_a);
+    MemoryCtx ctx;
+    ScopedScratch _(ctx.get_scratch_front());
     MeshState rotated_mesh;
-    MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
+    MeshOps::transform(mesh, rotated_mesh, ctx.get_scratch_front());
 
     Quaternion q = orientation.get();
     for (auto &v : rotated_mesh.vertices)

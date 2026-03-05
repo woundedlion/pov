@@ -11,10 +11,16 @@
 #include <utility>
 #include <cstdio>
 
-constexpr size_t GEOMETRY_ARENA_SIZE = 128 * 1024;
-constexpr size_t SCRATCH_ARENA_A_SIZE = 256 * 1024;
+#ifdef __EMSCRIPTEN__
+constexpr size_t SCRATCH_ARENA_A_SIZE = 2 * 1024 * 1024;
+constexpr size_t SCRATCH_ARENA_B_SIZE = 2 * 1024 * 1024;
+constexpr size_t PERSISTENT_ARENA_SIZE = 4 * 1024 * 1024;
+#else
+// Teensy 4.x safe limits (Total 512 KB, leaves 512 KB for heap/stack/FastLED)
+constexpr size_t SCRATCH_ARENA_A_SIZE = 128 * 1024;
 constexpr size_t SCRATCH_ARENA_B_SIZE = 128 * 1024;
 constexpr size_t PERSISTENT_ARENA_SIZE = 256 * 1024;
+#endif
 
 // ============================================================================
 // 1. Core Arena Allocator
@@ -57,24 +63,6 @@ public:
   void set_offset(size_t new_offset) { offset = new_offset; }
   void reset() { offset = 0; }
   void reset_high_water_mark() { high_water_mark = offset; }
-};
-
-// Ping-Pong Context for Double Buffering Allocations (legacy)
-struct ScratchContext {
-  Arena *source;
-  Arena *target;
-
-  ScratchContext(Arena &a, Arena &b) : source(&a), target(&b) {
-    source->set_offset(0);
-    target->set_offset(0);
-  }
-
-  void swap_and_clear() {
-    Arena *temp = source;
-    source = target;
-    target = temp;
-    target->set_offset(0);
-  }
 };
 
 // ============================================================================
@@ -158,25 +146,14 @@ public:
   const T *end() const { return data_ + size_; }
 };
 
-// Global Arenas used throughout the effects engine
-// FRAME BUFFERS (Wiped every frame)
-extern Arena geo_arena_a;
-extern Arena geo_arena_b;
-
-// SCRATCH BUFFERS (Ping-ponged during heavy math)
 extern Arena scratch_arena_a;
 extern Arena scratch_arena_b;
 
-// PERSISTENT STATE (Lives across frames. Auto-compacted)
 extern Arena persistent_arena;
 
-// ENGINE FRAME STATE
-extern bool using_A_as_frame;
-extern Arena *current_frame_arena;
-
-struct MeshState;   // Forward declaration for PersistentTracker
-struct PolyMesh;    // Forward declaration for PersistentTracker
-namespace MeshOps { // Forward declaration for cloning
+struct MeshState;
+struct PolyMesh;
+namespace MeshOps {
 template <typename MeshT>
 void clone(const MeshT &src, MeshT &dst, Arena &arena);
 }
@@ -186,7 +163,6 @@ void clone(const MeshT &src, MeshT &dst, Arena &arena);
 // ============================================================================
 class PersistentTracker {
 public:
-  // Tracks pointers to the effect's persistent meshes (MeshState*)
   static ArenaVector<MeshState *> tracked_meshes;
 
   static void register_mesh(MeshState *mesh) {
@@ -198,7 +174,6 @@ public:
 
   static void clear_registry() { tracked_meshes.clear(); }
 
-  // Called automatically by MemoryCtx when the arena gets full
   static void auto_compact(Arena &safe_scratch);
 };
 
@@ -206,45 +181,49 @@ public:
 // Unified Factory
 // ============================================================================
 class MemoryCtx {
-  Arena *current_scratch;
-  Arena *next_scratch;
+  Arena *scratch_front;
+  Arena *scratch_back;
 
 public:
-  // Defaults to scratch A and B.
   MemoryCtx()
-      : current_scratch(&scratch_arena_a), next_scratch(&scratch_arena_b) {}
-  MemoryCtx(Arena &a, Arena &b) : current_scratch(&a), next_scratch(&b) {
-    current_scratch->set_offset(0);
-    next_scratch->set_offset(0);
+      : scratch_front(&scratch_arena_a), scratch_back(&scratch_arena_b) {
+    scratch_front->reset();
+    scratch_back->reset();
+  }
+  MemoryCtx(Arena &a, Arena &b) : scratch_front(&a), scratch_back(&b) {
+    scratch_front->reset();
+    scratch_back->reset();
   }
 
-  // 1. Scratch Management
-  Arena &get_scratch() { return *current_scratch; }
+  // Explicit Arena Getters
+  Arena &get_scratch_front() { return *scratch_front; }
+  Arena &get_scratch_back() { return *scratch_back; }
+  Arena &get_persistent() { return persistent_arena; }
 
   void swap_scratch() {
-    Arena *temp = current_scratch;
-    current_scratch = next_scratch;
-    next_scratch = temp;
-    // The newly active scratch destination is always wiped clean
-    current_scratch->reset();
+    Arena *temp = scratch_front;
+    scratch_front = scratch_back;
+    scratch_back = temp;
+    scratch_front->reset();
   }
 
-  template <typename T> ArenaVector<T> make_scratch_array(size_t size) {
-    return ArenaVector<T>(*current_scratch, size);
+  template <typename T> ArenaVector<T> make_scratch_front(size_t size) {
+    return ArenaVector<T>(*scratch_front, size);
+  }
+  template <typename T> ArenaVector<T> make_scratch_back(size_t size) {
+    return ArenaVector<T>(*scratch_back, size);
+  }
+  template <typename T> ArenaVector<T> make_persistent(size_t size) {
+    return ArenaVector<T>(persistent_arena, size);
   }
 
-  // 2. Invisible Persistent Storage Updates
-  // Target is MeshState
   void update_persistent(MeshState &target, const PolyMesh &new_data);
 };
 
-// 3. The RAII Guard
 struct ScopedScratch {
   Arena &arena;
   size_t saved_offset;
 
   ScopedScratch(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
-  ScopedScratch(MemoryCtx &ctx)
-      : arena(ctx.get_scratch()), saved_offset(arena.get_offset()) {}
   ~ScopedScratch() { arena.set_offset(saved_offset); }
 };

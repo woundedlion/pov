@@ -106,10 +106,6 @@ public:
     hs::log(buf);
 
     currentEffect.reset();
-    geo_arena_a.reset();
-    geo_arena_a.reset_high_water_mark();
-    geo_arena_b.reset();
-    geo_arena_b.reset_high_water_mark();
     scratch_arena_a.reset();
     scratch_arena_a.reset_high_water_mark();
     scratch_arena_b.reset();
@@ -118,8 +114,6 @@ public:
     persistent_arena.reset_high_water_mark();
 
     PersistentTracker::clear_registry();
-    using_A_as_frame = true;
-    current_frame_arena = &geo_arena_a;
 
     if (pixel_width == 96 && pixel_height == 20)
       currentEffect = create_effect<96, 20>(name);
@@ -137,15 +131,10 @@ public:
     if (!currentEffect)
       return;
 
-    Arena &frame_back = using_A_as_frame ? geo_arena_b : geo_arena_a;
-    frame_back.reset();
-    current_frame_arena = &frame_back;
-
-    // Draw
+    // The effect handles all its own temporary math memory via MemoryCtx
+    // internally!
     currentEffect->draw_frame();
     currentEffect->advance_display();
-
-    using_A_as_frame = !using_A_as_frame;
 
     // Output 16-bit Linear values directly
     int idx = 0;
@@ -229,8 +218,6 @@ public:
       metrics.set(name, m);
     };
 
-    add_metrics("geo_arena_a", geo_arena_a);
-    add_metrics("geo_arena_b", geo_arena_b);
     add_metrics("scratch_arena_a", scratch_arena_a);
     add_metrics("scratch_arena_b", scratch_arena_b);
     add_metrics("persistent_arena", persistent_arena);
@@ -370,11 +357,12 @@ struct MeshOpsWrapper {
         .new_(val(typed_memory_view(mesh.faces.size(), mesh.faces.data())));
   }
 
-  val classifyFaces() const {
-    std::vector<int> colors =
-        MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a);
+  val classifyFaces() {
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    MeshOps::classify_faces_by_topology(mesh, ctx);
     return val::global("Int32Array")
-        .new_(val(typed_memory_view(colors.size(), colors.data())));
+        .new_(
+            val(typed_memory_view(mesh.topology.size(), mesh.topology.data())));
   }
 
   // Operations
@@ -498,8 +486,6 @@ struct MeshOpsWrapper {
       metrics.set(name, m);
     };
 
-    add_metrics("geo_arena_a", geo_arena_a);
-    add_metrics("geo_arena_b", geo_arena_b);
     add_metrics("scratch_arena_a", scratch_arena_a);
     add_metrics("scratch_arena_b", scratch_arena_b);
     add_metrics("persistent_arena", persistent_arena);

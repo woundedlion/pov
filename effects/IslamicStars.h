@@ -59,10 +59,9 @@ private:
   Pipeline<W, H> filters;
   RippleTransformer<W, 8> ripple_gen;
   float ripple_duration = 80.0f;
-
   int solid_idx = -1;
   MeshState *mesh_states[2];
-  std::vector<int> topologies[2];
+  std::array<PaletteVariant, 5> palettes_history[2];
   int current_mesh_idx = 0;
 
   std::array<PaletteVariant, 5> palettes = {
@@ -78,13 +77,13 @@ private:
   }
 
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
-                  const std::vector<int> &faceIndices,
+                  const ArenaVector<int> &faceIndices,
                   const std::array<PaletteVariant, 5> &palettes) {
     MemoryCtx ctx;
-    ScopedScratch _(ctx);
+    ScopedScratch _a(ctx.get_scratch_front());
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
-    MeshOps::transform(base_state, transformed_state, ctx.get_scratch(),
+    MeshOps::transform(base_state, transformed_state, ctx.get_scratch_front(),
                        ripple_gen, camera);
 
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
@@ -113,10 +112,10 @@ private:
       solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
 
       {
-        ScopedScratch _(math_context);
+        ScopedScratch _(math_context.get_scratch_back());
         SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
         PolyMesh local_mesh =
-            gen.generate(math_context.get_scratch(), math_context);
+            gen.generate(math_context.get_scratch_front(), math_context);
 
         current_mesh_idx = (current_mesh_idx + 1) % 2;
 
@@ -124,8 +123,8 @@ private:
                                        local_mesh);
 
         math_context.swap_scratch();
-        topologies[current_mesh_idx] = MeshOps::classify_faces_by_topology(
-            *(mesh_states[current_mesh_idx]), math_context.get_scratch());
+        MeshOps::classify_faces_by_topology(*(mesh_states[current_mesh_idx]),
+                                            math_context);
       }
     }
 
@@ -136,11 +135,14 @@ private:
 
     // Prepare Palettes
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
-    std::shuffle(palettes.begin(), palettes.end(), g);
+    palettes_history[current_mesh_idx] = palettes;
+    std::shuffle(palettes_history[current_mesh_idx].begin(),
+                 palettes_history[current_mesh_idx].end(), g);
 
     // Map Topology to palette
-    int num_colors = static_cast<int>(palettes.size());
-    std::vector<int> &faceIndices = topologies[current_mesh_idx];
+    int num_colors =
+        static_cast<int>(palettes_history[current_mesh_idx].size());
+    ArenaVector<int> &faceIndices = mesh_states[current_mesh_idx]->topology;
     for (size_t i = 0; i < faceIndices.size(); ++i) {
       faceIndices[i] = faceIndices[i] % num_colors;
     }
@@ -150,12 +152,10 @@ private:
     int fade_in = 32;
     int fade_out = 32;
     int capture_idx = current_mesh_idx;
-    auto pal_copy = palettes;
-
-    auto draw_fn = [this, capture_idx, pal_copy](Canvas &canvas,
-                                                 float opacity) {
+    auto draw_fn = [this, capture_idx](Canvas &canvas, float opacity) {
       this->draw_shape(canvas, opacity, *(mesh_states[capture_idx]),
-                       topologies[capture_idx], pal_copy);
+                       mesh_states[capture_idx]->topology,
+                       palettes_history[capture_idx]);
     };
 
     timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid,

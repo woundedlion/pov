@@ -101,12 +101,14 @@ struct MeshState {
   ArenaVector<uint8_t> face_counts;
   ArenaVector<uint16_t> faces;
   ArenaVector<uint16_t> face_offsets;
+  ArenaVector<int> topology;
 
   void clear() {
     vertices.clear();
     face_counts.clear();
     faces.clear();
     face_offsets.clear();
+    topology.clear();
   }
 
   void deep_copy(Arena &arena, const MeshState &other) {
@@ -125,6 +127,10 @@ struct MeshState {
     face_offsets.initialize(arena, other.face_offsets.size());
     for (size_t i = 0; i < other.face_offsets.size(); i++)
       face_offsets.push_back(other.face_offsets[i]);
+
+    topology.initialize(arena, other.topology.size());
+    for (size_t i = 0; i < other.topology.size(); i++)
+      topology.push_back(other.topology[i]);
   }
 
   // Helper for size accessors if needed, but direct vector access is preferred.

@@ -119,10 +119,10 @@ private:
       const auto &p = entry.params;
       auto &data = loaded_presets[preset_idx++];
 
-      ScopedScratch _(scratch_arena_a);
+      MemoryCtx ctx;
+      ScopedScratch _(ctx.get_scratch_front());
       SolidNameGenerator gen(p.solid_name);
-      MemoryCtx ctx(scratch_arena_a, scratch_arena_b);
-      PolyMesh m = gen.generate(scratch_arena_a, ctx);
+      PolyMesh m = gen.generate(ctx.get_scratch_front(), ctx);
 
       // Store Verts (Deep Copy)
       data.mesh_state.vertices.initialize(persistent_arena, m.vertices.size());
@@ -168,9 +168,11 @@ private:
 
     auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
                                                        float opacity) {
-      ScopedScratch _(scratch_arena_a);
+      MemoryCtx ctx;
+      ScopedScratch _(ctx.get_scratch_front());
       MeshState target_mesh;
-      MeshOps::transform(preset_ptr->mesh_state, target_mesh, scratch_arena_a);
+      MeshOps::transform(preset_ptr->mesh_state, target_mesh,
+                         ctx.get_scratch_front());
 
       this->draw_scene(canvas, instance_params, opacity, preset_ptr->mesh_state,
                        target_mesh, preset_ptr->tangents);
