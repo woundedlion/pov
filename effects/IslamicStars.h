@@ -107,31 +107,24 @@ private:
   }
 
   void spawn_shape() {
-    {
-      MemoryCtx math_context;
-      solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
+    MemoryCtx ctx;
+    solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
+    current_mesh_idx = (current_mesh_idx + 1) % 2;
 
-      {
-        ScopedScratch _(math_context.get_scratch_back());
-        SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
-        PolyMesh local_mesh =
-            gen.generate(math_context.get_scratch_front(), math_context);
-
-        current_mesh_idx = (current_mesh_idx + 1) % 2;
-
-        math_context.update_persistent(*(mesh_states[current_mesh_idx]),
-                                       local_mesh);
-
-        math_context.swap_scratch();
-        MeshOps::classify_faces_by_topology(*(mesh_states[current_mesh_idx]),
-                                            math_context);
-      }
-    }
-
+    // Log transition
     const auto &entry = Solids::Collections::islamic_solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
             (int)mesh_states[current_mesh_idx]->vertices.size(),
             (int)mesh_states[current_mesh_idx]->faces.size());
+
+    // Generate new shape
+    {
+      ScopedScratch _(ctx.get_scratch_front());
+      SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
+      PolyMesh local_mesh = gen.generate(ctx.get_scratch_front(), ctx);
+      ctx.update_persistent(*(mesh_states[current_mesh_idx]), local_mesh);
+    }
+    MeshOps::classify_faces_by_topology(*(mesh_states[current_mesh_idx]), ctx);
 
     // Prepare Palettes
     static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
