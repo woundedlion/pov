@@ -6,42 +6,38 @@ Arena scratch_arena_a(SCRATCH_ARENA_A_SIZE);
 Arena scratch_arena_b(SCRATCH_ARENA_B_SIZE);
 Arena persistent_arena(PERSISTENT_ARENA_SIZE);
 
-ArenaVector<MeshState *> PersistentTracker::tracked_meshes;
+MeshState *PersistentTracker::tracked_meshes[256];
+size_t PersistentTracker::num_tracked = 0;
 
-void PersistentTracker::auto_compact(Arena &safe_scratch) {
-  safe_scratch.reset();
+void PersistentTracker::auto_compact(Arena &scratch) {
+  ScopedScratch _(scratch);
 
-  // 1. Evacuate tracked meshes to the safe scratch arena
+  // Evacuate
   MeshState *temp_rafts = static_cast<MeshState *>(
-      safe_scratch.allocate(tracked_meshes.size() * sizeof(MeshState)));
+      scratch.allocate(num_tracked * sizeof(MeshState)));
 
-  for (size_t i = 0; i < tracked_meshes.size(); ++i) {
+  for (size_t i = 0; i < num_tracked; ++i) {
     new (&temp_rafts[i]) MeshState();
-    temp_rafts[i].deep_copy(safe_scratch, *(tracked_meshes[i]));
+    MeshOps::clone(*(tracked_meshes[i]), temp_rafts[i], scratch);
   }
 
-  // 2. Wipe the fragmented persistent arena completely
+  // Clear
   persistent_arena.reset();
 
-  // 3. Bring everything back, perfectly packed side-by-side!
-  for (size_t i = 0; i < tracked_meshes.size(); ++i) {
-    tracked_meshes[i]->clear();
-    tracked_meshes[i]->deep_copy(persistent_arena, temp_rafts[i]);
+  // Restore
+  for (size_t i = 0; i < num_tracked; ++i) {
+    *(tracked_meshes[i]) = MeshState();
+    MeshOps::clone(temp_rafts[i], *(tracked_meshes[i]), persistent_arena);
   }
-  printf("Auto-compacted persistent arena seamlessly.\n");
 }
 
 void MemoryCtx::update_persistent(MeshState &target, const PolyMesh &new_data) {
-  // Check if we are about to OOM the persistent arena
   size_t required = (new_data.vertices.capacity() * sizeof(Vector)) * 2;
   if (persistent_arena.get_capacity() - persistent_arena.get_offset() <
       required) {
-    // Trigger invisible defragmentation using our currently INACTIVE scratch
-    // buffer!
     PersistentTracker::auto_compact(*scratch_back);
   }
 
-  // Safely write the new shape into the persistent arena
   target.clear();
   MeshOps::compile(new_data, target, persistent_arena);
 }

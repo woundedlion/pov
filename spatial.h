@@ -111,28 +111,6 @@ struct MeshState {
     topology.clear();
   }
 
-  void deep_copy(Arena &arena, const MeshState &other) {
-    vertices.initialize(arena, other.vertices.size());
-    for (size_t i = 0; i < other.vertices.size(); i++)
-      vertices.push_back(other.vertices[i]);
-
-    face_counts.initialize(arena, other.face_counts.size());
-    for (size_t i = 0; i < other.face_counts.size(); i++)
-      face_counts.push_back(other.face_counts[i]);
-
-    faces.initialize(arena, other.faces.size());
-    for (size_t i = 0; i < other.faces.size(); i++)
-      faces.push_back(other.faces[i]);
-
-    face_offsets.initialize(arena, other.face_offsets.size());
-    for (size_t i = 0; i < other.face_offsets.size(); i++)
-      face_offsets.push_back(other.face_offsets[i]);
-
-    topology.initialize(arena, other.topology.size());
-    for (size_t i = 0; i < other.topology.size(); i++)
-      topology.push_back(other.topology[i]);
-  }
-
   // Helper for size accessors if needed, but direct vector access is preferred.
   size_t num_vertices() const { return vertices.size(); }
   size_t num_faces() const { return face_counts.size(); }

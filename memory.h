@@ -163,16 +163,15 @@ void clone(const MeshT &src, MeshT &dst, Arena &arena);
 // ============================================================================
 class PersistentTracker {
 public:
-  static ArenaVector<MeshState *> tracked_meshes;
+  static MeshState *tracked_meshes[256];
+  static size_t num_tracked;
 
   static void register_mesh(MeshState *mesh) {
-    if (tracked_meshes.capacity() == 0) {
-      tracked_meshes.initialize(persistent_arena, 256);
-    }
-    tracked_meshes.push_back(mesh);
+    assert(num_tracked < 256 && "Too many tracked meshes!");
+    tracked_meshes[num_tracked++] = mesh;
   }
 
-  static void clear_registry() { tracked_meshes.clear(); }
+  static void clear_registry() { num_tracked = 0; }
 
   static void auto_compact(Arena &safe_scratch);
 };
