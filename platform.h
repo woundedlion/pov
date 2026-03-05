@@ -32,12 +32,14 @@ inline void enable_interrupts() { interrupts(); }
  * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
  * @return A random float in the range [0.0, 1.0].
  */
-float rand_f() {
+inline float rand_f() {
   return static_cast<float>(::random(0, std::numeric_limits<int32_t>::max())) /
          std::numeric_limits<int32_t>::max();
 }
 
-float rand_f(float min, float max) { return min + rand_f() * (max - min); }
+inline float rand_f(float min, float max) {
+  return min + rand_f() * (max - min);
+}
 
 /**
  * @brief Generates a pseudo-random integer within a specified range.
@@ -45,7 +47,7 @@ float rand_f(float min, float max) { return min + rand_f() * (max - min); }
  * @param max The maximum value (exclusive).
  * @return A random integer in the range [min, max).
  */
-int rand_int(int min, int max) { return ::random(min, max); }
+inline int rand_int(int min, int max) { return ::random(min, max); }
 
 // Global state
 inline bool debug = false;

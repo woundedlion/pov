@@ -101,10 +101,14 @@ public:
    * @param duration The time in seconds to run the effect.
    */
   template <typename E> void show(unsigned long duration) {
-    PersistentTracker::clear_registry();
+    scratch_arena_a.reset();
+    scratch_arena_a.reset_high_water_mark();
+    scratch_arena_b.reset();
+    scratch_arena_b.reset_high_water_mark();
     persistent_arena.reset();
-    using_A_as_frame = true;
-    current_frame_arena = &geo_arena_a;
+    persistent_arena.reset_high_water_mark();
+
+    PersistentTracker::clear_registry();
 
     long start = millis();
     effect_ = new E();
@@ -115,24 +119,12 @@ public:
     // rotation.
     timer.begin(show_col, 1000000 / (RPM / 60) / effect_->width());
     while (millis() - start < duration * 1000) {
-      Arena &frame_back = using_A_as_frame ? geo_arena_b : geo_arena_a;
-      frame_back.reset();
-      current_frame_arena = &frame_back;
-
       effect_->draw_frame();
-
-      using_A_as_frame = !using_A_as_frame;
     }
     timer.end();
 #else
     while (millis() - start < duration * 1000) {
-      Arena &frame_back = using_A_as_frame ? geo_arena_b : geo_arena_a;
-      frame_back.reset();
-      current_frame_arena = &frame_back;
-
       effect_->draw_frame();
-
-      using_A_as_frame = !using_A_as_frame;
     }
 #endif
     delete effect_;
