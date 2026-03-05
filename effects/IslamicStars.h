@@ -74,6 +74,10 @@ private:
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
                   const std::array<PaletteVariant, 5> &palettes) {
+    // Early exit if barely visible to save an entire pass
+    if (opacity <= 0.005f)
+      return;
+
     MemoryCtx ctx;
     ScopedScratch _a(ctx.get_scratch_front());
     MeshState transformed_state;
@@ -81,17 +85,17 @@ private:
     MeshOps::transform(base_state, transformed_state, ctx.get_scratch_front(),
                        ripple_gen, camera);
 
-    auto fragment_shader = [&](const Vector &p, Fragment &frag) {
-      int faceIdx = static_cast<int>(frag.v2);
-      int color_idx = 0;
-      if (faceIdx >= 0 && faceIdx < (int)faceIndices.size()) {
-        color_idx = faceIndices[faceIdx];
-      }
-      const PaletteVariant &pal = palettes[color_idx];
+    // Hoist raw pointer out of the lambda to avoid arena overhead per-fragment
+    const int *raw_indices = faceIndices.data();
 
-      float distFromEdge = -frag.v1;
+    auto fragment_shader = [&](const Vector &p, Fragment &frag) {
+      // Strip safety bounds checking; trust the rasterizer's face index output
+      int faceIdx = static_cast<int>(frag.v2);
+      const PaletteVariant &pal = palettes[raw_indices[faceIdx]];
+
       float size = frag.size;
-      float intensity = (size > 0.0001f) ? (distFromEdge / size) : 0.0f;
+      // Pre-negate v1 and simplify
+      float intensity = (size > 0.0001f) ? (-frag.v1 / size) : 0.0f;
       intensity = hs::clamp(intensity, 0.0f, 1.0f);
 
       frag.color = get_color(pal, intensity);

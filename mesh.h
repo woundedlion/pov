@@ -331,17 +331,15 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena &arena,
 
   transformed.vertices.initialize(arena, mesh.vertices.size());
 
-  // Convert variadic args to TransformFn to avoid template bloa
-  std::array<TransformFn, 1 + sizeof...(Transformers)> tf_array = {
-      first_transformer, transformers...};
-
   for (size_t i = 0; i < mesh.vertices.size(); ++i) {
     Vector v = mesh.vertices[i];
-    for (const auto &tf : tf_array) {
-      if (tf) {
-        v = tf(v);
-      }
-    }
+
+    // Apply first transformer
+    v = first_transformer(v);
+
+    // Unroll remaining transformers at compile time using a fold expression
+    (..., (v = transformers(v)));
+
     transformed.vertices.push_back(v);
   }
 }
