@@ -8,7 +8,7 @@ public:
   Liquid2D()
       : Effect(W, H),
         myPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
-                  BrightnessProfile::CUP) {
+                  BrightnessProfile::CUP, SaturationProfile::VIBRANT, 141) {
     persist_pixels = false;
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -21,6 +21,7 @@ public:
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP));
+    timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP));
   }
 
   // Emulates the JS/C++ memory interlacing glitch as a 2D Post-Process Lens
@@ -29,13 +30,15 @@ public:
 
     // 1. Mirror Southern Hemisphere to Northern Hemisphere
     float mirrored_py = py;
+    float mirrored_px = px;
     if (py >= h_half) {
       mirrored_py = static_cast<float>(H - 1) - py;
+      mirrored_px = static_cast<float>(W) - px;
     }
 
     // 2. The Horizontal Warp: In the glitch, C++ rows were half the width of JS
     // rows, causing the pattern to wrap around the physical sphere twice.
-    vx = fmodf(px * 2.0f, static_cast<float>(W));
+    vx = fmodf(mirrored_px * 3.0f, static_cast<float>(W));
 
     // 3. The Vertical Squish: In the glitch, one JS row consumed two C++ rows.
     // This forces the math from North Pole to South Pole in half the space!
@@ -63,9 +66,13 @@ public:
       for (int x = 0; x < W; ++x) {
 
         // --- CALC THE NOISE ONCE PER LED USING THE VIRTUAL LENS ---
+        Vector true_center_v =
+            pixel_to_vector<W, H>(static_cast<float>(x), static_cast<float>(y));
+        Vector rotated_center_v = global_orientation.unorient(true_center_v);
+        PixelCoords center_pc = vector_to_pixel<W, H>(rotated_center_v);
+
         float center_vx, center_vy;
-        get_virtual_coords(static_cast<float>(x), static_cast<float>(y),
-                           center_vx, center_vy);
+        get_virtual_coords(center_pc.x, center_pc.y, center_vx, center_vy);
 
         Vector center_v = pixel_to_vector<W, H>(center_vx, center_vy);
         Vector center_rot = orientation.orient(center_v);
@@ -89,8 +96,12 @@ public:
           float px = static_cast<float>(x) + offsets_x[i];
           float py = static_cast<float>(y) + offsets_y[i];
 
+          Vector true_v = pixel_to_vector<W, H>(px, py);
+          Vector rotated_v = global_orientation.unorient(true_v);
+          PixelCoords pc = vector_to_pixel<W, H>(rotated_v);
+
           float vx, vy;
-          get_virtual_coords(px, py, vx, vy);
+          get_virtual_coords(pc.x, pc.y, vx, vy);
 
           Vector sample_v = pixel_to_vector<W, H>(vx, vy);
           Vector sample_rot = orientation.orient(sample_v);
@@ -131,6 +142,7 @@ public:
 private:
   Timeline<W> timeline;
   Orientation<W> orientation;
+  Orientation<W> global_orientation;
   FastNoiseLite noise;
   GenerativePalette myPalette;
 
@@ -139,8 +151,8 @@ private:
     float warp_strength = 0.5f;
     float pattern_freq = 5.0f;
     float time_speed = 0.1f;
-    float complexity = 1.8f;
-    float pole_fade = 2.0f;
+    float complexity = 0.5f;
+    float pole_fade = 1.8f;
 
     Params lerp(const Params &p, float t) const {
       return {::lerp(warp_scale, p.warp_scale, t),
