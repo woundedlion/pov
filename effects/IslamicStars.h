@@ -45,6 +45,7 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
+    ripple_gen.prepare_frame();
     timeline.step(canvas);
   }
 

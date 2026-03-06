@@ -10,6 +10,8 @@ MeshState *PersistentTracker::tracked_meshes[256];
 size_t PersistentTracker::num_tracked = 0;
 
 void PersistentTracker::auto_compact(Arena &scratch) {
+  assert(!CompactionLock::is_locked() &&
+         "Compaction while persistent pointers are held!");
   ScopedScratch _(scratch);
 
   // Evacuate
@@ -35,7 +37,7 @@ void MemoryCtx::update_persistent(MeshState &target, const PolyMesh &new_data) {
   size_t required = (new_data.vertices.capacity() * sizeof(Vector)) * 2;
   if (persistent_arena.get_capacity() - persistent_arena.get_offset() <
       required) {
-    PersistentTracker::auto_compact(*scratch_back);
+    PersistentTracker::auto_compact(get_scratch_back());
   }
 
   target.clear();
