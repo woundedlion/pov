@@ -56,6 +56,7 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
       {"Thrusters", []() { return std::make_unique<Thrusters<W, H>>(); }},
       {"Voronoi", []() { return std::make_unique<Voronoi<W, H>>(); }},
       {"FlamingMesh", []() { return std::make_unique<FlamingMesh<W, H>>(); }},
+      {"Liquid2D", []() { return std::make_unique<Liquid2D<W, H>>(); }},
       {"ChaoticStrings",
        []() { return std::make_unique<ChaoticStrings<W, H>>(); }}};
 
