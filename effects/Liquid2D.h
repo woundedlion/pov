@@ -24,32 +24,61 @@ public:
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP));
   }
 
-  // Emulates the JS/C++ memory interlacing glitch as a 2D Post-Process Lens
-  void get_virtual_coords(float px, float py, float &vx, float &vy) {
-    float h_half = static_cast<float>(H) / 2.0f;
+  // Emulates the JS/C++ memory interlacing glitch as a 3D Spherical Lens
+  Vector apply_glitch_lens(const Vector &v) const {
+    Spherical s(v); // Automatically calculates theta and phi
 
     // 1. Mirror Southern Hemisphere to Northern Hemisphere
-    float mirrored_py = py;
-    float mirrored_px = px;
-    if (py >= h_half) {
-      mirrored_py = static_cast<float>(H - 1) - py;
-      mirrored_px = static_cast<float>(W) - px;
+    if (s.phi >= PI_F / 2.0f) {
+      s.phi = PI_F - s.phi;
+      s.theta = 2.0f * PI_F - s.theta;
     }
 
     // 2. The Horizontal Warp: In the glitch, C++ rows were half the width of JS
     // rows, causing the pattern to wrap around the physical sphere twice.
-    vx = fmodf(mirrored_px * 3.0f, static_cast<float>(W));
+    s.theta = fmodf(s.theta * 3.0f, 2.0f * PI_F);
 
     // 3. The Vertical Squish: In the glitch, one JS row consumed two C++ rows.
     // This forces the math from North Pole to South Pole in half the space!
-    vy = mirrored_py * 2.0f;
+    s.phi = hs::clamp(s.phi * 2.0f, 0.0f, PI_F);
 
-    // Note: The original glitch actually had a 1-pixel vertical seam because
-    // the right half of the screen pulled from an odd C++ row while the left
-    // pulled from an even. Leaving vy as `mirrored_py * 2.0f` fixes that seam
-    // permanently!
+    return Vector(s); // Automatically converts back to i,j,k components
+  }
 
-    vy = hs::clamp(vy, 0.0f, static_cast<float>(H - 1));
+  Complex transform_point(const Vector &true_v) const {
+    Vector rotated_v = global_orientation.unorient(true_v);
+    Vector sample_v = apply_glitch_lens(rotated_v);
+    return stereo(orientation.orient(sample_v));
+  }
+
+  float sample_pattern(const Complex &z, float warp_x, float warp_y,
+                       float t) const {
+    float u = z.re + warp_x;
+    float v_coord = z.im + warp_y;
+
+    float pu = u * params.pattern_freq;
+    float pv = v_coord * params.pattern_freq;
+
+    float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
+                    cosf(pv + params.complexity * cosf(pu - t * 0.8f));
+
+    // Smoothly fade out both mathematical poles to prevent chaotic strobing
+    float r_sq = u * u + v_coord * v_coord;
+    float attenuation =
+        1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
+
+    return pattern * attenuation;
+  }
+
+  void calc_warp_noise(const Complex &z, float t, float &warp_x,
+                       float &warp_y) const {
+    float noise_time = t * 0.5f;
+    warp_x = noise.GetNoise(z.re * params.warp_scale, z.im * params.warp_scale,
+                            noise_time) *
+             params.warp_strength;
+    warp_y = noise.GetNoise(z.re * params.warp_scale + 100.0f,
+                            z.im * params.warp_scale + 100.0f, noise_time) *
+             params.warp_strength;
   }
 
   virtual void draw_frame() override {
@@ -67,26 +96,11 @@ public:
 
         // --- CALC THE NOISE ONCE PER LED USING THE VIRTUAL LENS ---
         Vector true_center_v =
-            pixel_to_vector<W, H>(static_cast<float>(x), static_cast<float>(y));
-        Vector rotated_center_v = global_orientation.unorient(true_center_v);
-        PixelCoords center_pc = vector_to_pixel<W, H>(rotated_center_v);
+            pixel_to_vector<W, H>(x, y); // Instant LUT lookup
+        Complex center_z = transform_point(true_center_v);
 
-        float center_vx, center_vy;
-        get_virtual_coords(center_pc.x, center_pc.y, center_vx, center_vy);
-
-        Vector center_v = pixel_to_vector<W, H>(center_vx, center_vy);
-        Vector center_rot = orientation.orient(center_v);
-        Complex center_z = stereo(center_rot);
-
-        float noise_time = t * 0.5f;
-        float warp_x =
-            noise.GetNoise(center_z.re * params.warp_scale,
-                           center_z.im * params.warp_scale, noise_time) *
-            params.warp_strength;
-        float warp_y = noise.GetNoise(center_z.re * params.warp_scale + 100.0f,
-                                      center_z.im * params.warp_scale + 100.0f,
-                                      noise_time) *
-                       params.warp_strength;
+        float warp_x, warp_y;
+        calc_warp_noise(center_z, t, warp_x, warp_y);
 
         float total_pattern = 0.0f;
         float valid_samples = 0.0f;
@@ -97,32 +111,9 @@ public:
           float py = static_cast<float>(y) + offsets_y[i];
 
           Vector true_v = pixel_to_vector<W, H>(px, py);
-          Vector rotated_v = global_orientation.unorient(true_v);
-          PixelCoords pc = vector_to_pixel<W, H>(rotated_v);
+          Complex z = transform_point(true_v);
 
-          float vx, vy;
-          get_virtual_coords(pc.x, pc.y, vx, vy);
-
-          Vector sample_v = pixel_to_vector<W, H>(vx, vy);
-          Vector sample_rot = orientation.orient(sample_v);
-          Complex z = stereo(sample_rot);
-
-          float u = z.re + warp_x;
-          float v_coord = z.im + warp_y;
-
-          float pu = u * params.pattern_freq;
-          float pv = v_coord * params.pattern_freq;
-
-          float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
-                          cosf(pv + params.complexity * cosf(pu - t * 0.8f));
-
-          // Smoothly fade out both mathematical poles to prevent chaotic
-          // strobing
-          float r_sq = u * u + v_coord * v_coord;
-          float attenuation =
-              1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
-
-          total_pattern += pattern * attenuation;
+          total_pattern += sample_pattern(z, warp_x, warp_y, t);
           valid_samples += 1.0f;
         }
 
