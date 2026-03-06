@@ -32,3 +32,4 @@
 #include "effects/TestSlewRate.h"
 #include "effects/FlamingMesh.h"
 #include "effects/ChaoticStrings.h"
+#include "effects/Liquid2D.h"
