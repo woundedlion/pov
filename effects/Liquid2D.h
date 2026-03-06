@@ -24,25 +24,28 @@ public:
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP));
   }
 
-  // Emulates the JS/C++ memory interlacing glitch as a 3D Spherical Lens
-  Vector apply_glitch_lens(const Vector &v) const {
-    Spherical s(v); // Automatically calculates theta and phi
-
-    // 1. Mirror Southern Hemisphere to Northern Hemisphere
-    if (s.phi >= PI_F / 2.0f) {
-      s.phi = PI_F - s.phi;
-      s.theta = 2.0f * PI_F - s.theta;
+  // Pure algebraic 3D Glitch Lens - Zero Trigonometry!
+  Vector apply_glitch_lens(Vector v) const {
+    // 1. Mirror Southern Hemisphere
+    if (v.j < 0.0f) {
+      v.j = -v.j;
+      v.k = -v.k; // X-axis reflection
     }
 
-    // 2. The Horizontal Warp: In the glitch, C++ rows were half the width of JS
-    // rows, causing the pattern to wrap around the physical sphere twice.
-    s.theta = fmodf(s.theta * 3.0f, 2.0f * PI_F);
+    float R2 = v.i * v.i + v.k * v.k;
 
-    // 3. The Vertical Squish: In the glitch, one JS row consumed two C++ rows.
-    // This forces the math from North Pole to South Pole in half the space!
-    s.phi = hs::clamp(s.phi * 2.0f, 0.0f, PI_F);
+    // North pole singularity protection
+    if (R2 < 1e-6f) {
+      return Vector(0.0f, 1.0f, 0.0f);
+    }
 
-    return Vector(s); // Automatically converts back to i,j,k components
+    // 2. Trig-less Squish (phi * 2) and Warp (theta * 3)
+    float inv_R2 = 1.0f / R2;
+
+    return Vector(2.0f * v.j * v.i * (4.0f * v.i * v.i * inv_R2 - 3.0f), // i
+                  2.0f * v.j * v.j - 1.0f,                               // j
+                  2.0f * v.j * v.k * (3.0f - 4.0f * v.k * v.k * inv_R2)  // k
+    );
   }
 
   Complex transform_point(const Vector &true_v) const {
@@ -62,7 +65,6 @@ public:
     float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
                     cosf(pv + params.complexity * cosf(pu - t * 0.8f));
 
-    // Smoothly fade out both mathematical poles to prevent chaotic strobing
     float r_sq = u * u + v_coord * v_coord;
     float attenuation =
         1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
@@ -91,43 +93,46 @@ public:
     float offsets_x[4] = {eps, -eps, eps, -eps};
     float offsets_y[4] = {eps, eps, -eps, -eps};
 
+    constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
+    constexpr float w_float = static_cast<float>(W);
+
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
 
-        // --- CALC THE NOISE ONCE PER LED USING THE VIRTUAL LENS ---
-        Vector true_center_v =
-            pixel_to_vector<W, H>(x, y); // Instant LUT lookup
+        // --- CALC THE NOISE ONCE PER LED ---
+        Vector true_center_v = pixel_to_vector<W, H>(x, y);
         Complex center_z = transform_point(true_center_v);
 
         float warp_x, warp_y;
         calc_warp_noise(center_z, t, warp_x, warp_y);
 
         float total_pattern = 0.0f;
-        float valid_samples = 0.0f;
 
         // --- 4x SSAA LOOP ---
         for (int i = 0; i < 4; ++i) {
           float px = static_cast<float>(x) + offsets_x[i];
           float py = static_cast<float>(y) + offsets_y[i];
 
-          Vector true_v = pixel_to_vector<W, H>(px, py);
+          // Direct calculation to bypass Spherical struct and clamping overhead
+          float theta = (px * 2.0f * PI_F) / w_float;
+          float phi = (py * PI_F) / h_virt_minus_1;
+          float sin_phi = sinf(phi);
+          Vector true_v(sin_phi * cosf(theta), cosf(phi),
+                        sin_phi * sinf(theta));
+
           Complex z = transform_point(true_v);
-
           total_pattern += sample_pattern(z, warp_x, warp_y, t);
-          valid_samples += 1.0f;
         }
 
-        if (valid_samples > 0.0f) {
-          float avg_pattern = total_pattern / valid_samples;
-          float normalized_pattern = (avg_pattern + 1.0f) * 0.5f;
-          canvas(x, y) = myPalette.get(normalized_pattern).color;
-        } else {
-          canvas(x, y) = Pixel(0, 0, 0);
-        }
+        // We always take 4 samples, so * 0.25f is faster than division
+        float avg_pattern = total_pattern * 0.25f;
+        float normalized_pattern = (avg_pattern + 1.0f) * 0.5f;
+        canvas(x, y) = myPalette.get(normalized_pattern).color;
       }
     }
   }
 
+  // Preserved for physical POV inter-pixel blanking
   virtual bool show_bg() const override { return true; }
 
 private:
@@ -144,15 +149,6 @@ private:
     float time_speed = 0.1f;
     float complexity = 0.5f;
     float pole_fade = 1.8f;
-
-    Params lerp(const Params &p, float t) const {
-      return {::lerp(warp_scale, p.warp_scale, t),
-              ::lerp(warp_strength, p.warp_strength, t),
-              ::lerp(pattern_freq, p.pattern_freq, t),
-              ::lerp(time_speed, p.time_speed, t),
-              ::lerp(complexity, p.complexity, t),
-              ::lerp(pole_fade, p.pole_fade, t)};
-    }
   };
   Params params;
 };
