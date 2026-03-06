@@ -63,6 +63,20 @@ public:
   }
 
   /**
+   * @brief Prepares per-frame cached state for all active entities.
+   * Call once per frame before any transform calls.
+   */
+  void prepare_frame() {
+    for (auto &e : entities) {
+      if (e.active) {
+        if constexpr (requires { e.params.prepare_thresholds(); }) {
+          e.params.prepare_thresholds();
+        }
+      }
+    }
+  }
+
+  /**
    * @brief Applies all active transformations to a vector.
    */
   Vector transform(Vector v) const {
@@ -120,35 +134,39 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
  * @return The distorted vector.
  */
 inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
-  float d = angle_between(v, params.center);
+  // FAST REJECT: dot-product comparison against precomputed thresholds
+  // avoids acosf for the ~90-95% of vertices far from the wavefront.
+  float cos_d = dot(v, params.center);
+  if (cos_d > params.cos_threshold_min || cos_d < params.cos_threshold_max) {
+    return v;
+  }
+
+  // SLOW PATH: only for vertices near the wavefront
+  float d = acosf(hs::clamp(cos_d, -1.0f, 1.0f));
   float dist_from_peak = d - params.phase;
 
-  // Defines the width of the single pulse
   float half_width = params.thickness * 0.5f;
   if (half_width < 0.001f)
-    half_width = 0.001f; // Prevent division by zero
+    half_width = 0.001f;
 
-  if (std::abs(dist_from_peak) < half_width * 2.0f) {
+  // Normalize distance (-2 to 2 range covers the whole wavelet)
+  float t = (dist_from_peak / half_width) * 2.0f;
 
-    // Normalize distance (-2 to 2 range covers the whole wavelet)
-    float t = (dist_from_peak / half_width) * 2.0f;
+  // Ricker Wavelet: (1 - t^2) * e^(-t^2/2)
+  float ricker = (1.0f - t * t) * expf(-0.5f * t * t);
 
-    // Ricker Wavelet: (1 - t^2) * e^(-t^2/2)
-    float ricker = (1.0f - t * t) * expf(-0.5f * t * t);
+  // Distance attenuation (ripples get smaller as they spread)
+  float attenuation = expf(-params.decay * d);
 
-    // Distance attenuation (ripples get smaller as they spread)
-    float attenuation = expf(-params.decay * d);
+  float theta = params.amplitude * ricker * attenuation;
 
-    float theta = params.amplitude * ricker * attenuation;
-
-    // Apply rotation
-    Vector axis = cross(params.center, v);
-    float lenSq = dot(axis, axis);
-    if (lenSq > 1e-6f) {
-      axis = axis * (1.0f / sqrtf(lenSq));
-      Quaternion q = make_rotation(axis, theta);
-      return rotate(v, q);
-    }
+  // Apply rotation
+  Vector axis = cross(params.center, v);
+  float lenSq = dot(axis, axis);
+  if (lenSq > 1e-6f) {
+    axis = axis * (1.0f / sqrtf(lenSq));
+    Quaternion q = make_rotation(axis, theta);
+    return rotate(v, q);
   }
 
   return v;

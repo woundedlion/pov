@@ -61,6 +61,13 @@ struct PolyMesh {
     cache_valid = false;
     kdTree.clear();
   }
+
+  // Unified accessors (PolyMesh always owns, so these just forward)
+  const uint8_t *get_face_counts_data() const { return face_counts.data(); }
+  size_t get_face_counts_size() const { return face_counts.size(); }
+
+  const uint16_t *get_faces_data() const { return faces.data(); }
+  size_t get_faces_size() const { return faces.size(); }
 };
 
 constexpr uint16_t HE_NONE = 0xFFFF;
@@ -303,12 +310,12 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
  */
 template <typename MeshT>
 inline void transform(const MeshT &local_state, MeshT &world_state,
-                      Arena &arena) {
-  world_state.face_counts.shallow_copy(local_state.face_counts);
-  world_state.faces.shallow_copy(local_state.faces);
+                      ScratchFront arena) {
+  world_state.face_counts_view = ArenaSpan(local_state.face_counts);
+  world_state.faces_view = ArenaSpan(local_state.faces);
 
-  if constexpr (requires { world_state.face_offsets; }) {
-    world_state.face_offsets.shallow_copy(local_state.face_offsets);
+  if constexpr (requires { world_state.face_offsets_view; }) {
+    world_state.face_offsets_view = ArenaSpan(local_state.face_offsets);
   }
 
   world_state.vertices.initialize(arena, local_state.vertices.size());
@@ -319,14 +326,14 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
 }
 
 template <typename MeshT, typename T1, typename... Transformers>
-inline void transform(const MeshT &mesh, MeshT &transformed, Arena &arena,
+inline void transform(const MeshT &mesh, MeshT &transformed, ScratchFront arena,
                       const T1 &first_transformer,
                       const Transformers &...transformers) {
-  transformed.face_counts.shallow_copy(mesh.face_counts);
-  transformed.faces.shallow_copy(mesh.faces);
+  transformed.face_counts_view = ArenaSpan(mesh.face_counts);
+  transformed.faces_view = ArenaSpan(mesh.faces);
 
-  if constexpr (requires { transformed.face_offsets; }) {
-    transformed.face_offsets.shallow_copy(mesh.face_offsets);
+  if constexpr (requires { transformed.face_offsets_view; }) {
+    transformed.face_offsets_view = ArenaSpan(mesh.face_offsets);
   }
 
   transformed.vertices.initialize(arena, mesh.vertices.size());
@@ -431,7 +438,7 @@ inline PolyMesh dual(const PolyMesh &mesh, MemoryCtx &ctx) {
  * @brief Compiles the topology for a Hankin pattern.
  */
 inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
-                           Arena &arena) {
+                           ScratchBack arena) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
@@ -580,6 +587,10 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
   bool is_flat = std::abs(angle) < 1e-4f;
 
+  // Precompute half-angle trig: one cosf + sinf instead of 2N
+  float cos_ha = cosf(angle * 0.5f);
+  float sin_ha = sinf(angle * 0.5f);
+
   for (size_t i = 0; i < compiled.dynamicInstructions.size(); ++i) {
     const auto &instr = compiled.dynamicInstructions[i];
     Vector pCorner = compiled.baseVertices[instr.vCorner];
@@ -603,11 +614,13 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     }
 
     Vector nEdge1 = cross1.normalize();
-    Quaternion q1 = make_rotation(m1, angle);
+    // Inline make_rotation using precomputed half-angle trig
+    Quaternion q1(cos_ha, sin_ha * m1.i, sin_ha * m1.j, sin_ha * m1.k);
     Vector nHankin1 = rotate(nEdge1, q1);
 
     Vector nEdge2 = cross2.normalize();
-    Quaternion q2 = make_rotation(m2, -angle);
+    // cos(-x) = cos(x), sin(-x) = -sin(x)
+    Quaternion q2(cos_ha, -sin_ha * m2.i, -sin_ha * m2.j, -sin_ha * m2.k);
     Vector nHankin2 = rotate(nEdge2, q2);
 
     Vector intersect = cross(nHankin1, nHankin2);

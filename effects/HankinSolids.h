@@ -26,15 +26,15 @@ public:
 
     solid_idx = 0;
 
-    primary.preallocate(persistent_arena);
-    secondary.preallocate(persistent_arena);
+    primary.preallocate(Persistent(persistent_arena));
+    secondary.preallocate(Persistent(persistent_arena));
 
     {
       MemoryCtx ctx;
       ScopedScratch _a(ctx.get_scratch_front());
       ScopedScratch _b(ctx.get_scratch_back());
-      primary.load(solid_idx, params.hankin_angle, persistent_arena, ctx,
-                   source_palettes_pool, timeline.t);
+      primary.load(solid_idx, params.hankin_angle, Persistent(persistent_arena),
+                   ctx, source_palettes_pool, timeline.t);
     }
 
     start_hankin_cycle();
@@ -54,7 +54,7 @@ private:
     MeshState active_mesh; // The dynamic animation puppet!
     std::array<PaletteVariant, 5> palettes;
 
-    void preallocate(Arena &arena) {
+    void preallocate(Persistent arena) {
       constexpr int MAX_V = 150, MAX_F = 100, MAX_I = 400;
       constexpr int OUT_V = 600, OUT_F = 250, OUT_I = 1600;
 
@@ -84,7 +84,7 @@ private:
       active_mesh.faces.initialize(arena, OUT_I);
     }
 
-    void load(int idx, float angle, Arena &geom, MemoryCtx &ctx,
+    void load(int idx, float angle, Persistent geom, MemoryCtx &ctx,
               const std::array<PaletteVariant, 5> &pool, float time) {
       SolidGenerator gen(idx);
       hs::log("Transitioning to '%s'", Solids::get_entry(idx).name);
@@ -124,14 +124,16 @@ private:
     MemoryCtx ctx;
     ScopedScratch _a(ctx.get_scratch_front());
 
+    Quaternion q = orientation.get();
+
     float op_A = (1.0f - morph_alpha) * opacity;
     if (op_A > 0.01f) {
-      draw_topology_mesh(c, primary.active_mesh, p_topo, p_pal, op_A);
+      draw_topology_mesh(c, primary.active_mesh, p_topo, p_pal, op_A, q);
     }
 
     float op_B = morph_alpha * opacity;
     if (op_B > 0.01f) {
-      draw_topology_mesh(c, secondary.active_mesh, s_topo, s_pal, op_B);
+      draw_topology_mesh(c, secondary.active_mesh, s_topo, s_pal, op_B, q);
     }
   }
 
@@ -162,8 +164,9 @@ private:
       ScopedScratch _a(ctx.get_scratch_front());
       ScopedScratch _b(ctx.get_scratch_back());
       // Load generates the fully compiled Hankin topology at angle = 0
-      secondary.load(next_idx, params.hankin_angle, persistent_arena, ctx,
-                     source_palettes_pool, timeline.t);
+      secondary.load(next_idx, params.hankin_angle,
+                     Persistent(persistent_arena), ctx, source_palettes_pool,
+                     timeline.t);
     }
 
     morph_alpha = 0.0f;
@@ -199,7 +202,7 @@ private:
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
                           const ArenaVector<int> &topology,
                           const std::array<PaletteVariant, 5> &palettes,
-                          float opacity) {
+                          float opacity, const Quaternion &q) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
 
@@ -208,7 +211,6 @@ private:
     MeshState rotated_mesh;
     MeshOps::transform(mesh, rotated_mesh, ctx.get_scratch_front());
 
-    Quaternion q = orientation.get();
     for (auto &v : rotated_mesh.vertices)
       v = rotate(v, q);
 
@@ -228,6 +230,15 @@ private:
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
+  }
+
+  // Overload without pre-computed quaternion (for non-morph paths)
+  void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
+                          const ArenaVector<int> &topology,
+                          const std::array<PaletteVariant, 5> &palettes,
+                          float opacity) {
+    draw_topology_mesh(canvas, mesh, topology, palettes, opacity,
+                       orientation.get());
   }
 
   ShapeState primary;

@@ -1423,6 +1423,20 @@ struct RippleParams {
   float frequency{20.0}; /**< Spatial frequency of the wave. */
   float decay{5.0};      /**< Spatial decay rate. */
   float thickness{1.0f}; /**< Thickness of the ripple. */
+
+  // Cached dot-product thresholds for fast rejection
+  float cos_threshold_min = 1.0f;
+  float cos_threshold_max = -1.0f;
+
+  void prepare_thresholds() {
+    float hw = thickness * 0.5f;
+    if (hw < 0.001f)
+      hw = 0.001f;
+    float d_min = phase - hw * 2.0f;
+    float d_max = phase + hw * 2.0f;
+    cos_threshold_min = (d_min >= 0.0f && d_min <= PI_F) ? cosf(d_min) : 1.0f;
+    cos_threshold_max = (d_max >= 0.0f && d_max <= PI_F) ? cosf(d_max) : -1.0f;
+  }
 };
 
 /**

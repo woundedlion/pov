@@ -1222,11 +1222,15 @@ struct Mesh {
     };
 
     size_t offset = 0;
-    for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
-      int count = mesh.face_counts[i];
+    const uint8_t *fc = mesh.get_face_counts_data();
+    size_t num_f = mesh.get_face_counts_size();
+    const uint16_t *fi = mesh.get_faces_data();
+
+    for (size_t i = 0; i < num_f; ++i) {
+      int count = fc[i];
       for (int k = 0; k < count; ++k) {
-        int u = mesh.faces[offset + k];
-        int v = mesh.faces[offset + (k + 1) % count];
+        int u = fi[offset + k];
+        int v = fi[offset + (k + 1) % count];
         process_edge(u, v);
       }
       offset += count;

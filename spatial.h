@@ -103,17 +103,60 @@ struct MeshState {
   ArenaVector<uint16_t> face_offsets;
   ArenaVector<int> topology;
 
+  // Borrowed (non-owning) views — populated by MeshOps::transform
+  ArenaSpan<uint8_t> face_counts_view;
+  ArenaSpan<uint16_t> faces_view;
+  ArenaSpan<uint16_t> face_offsets_view;
+
   void clear() {
     vertices.clear();
     face_counts.clear();
     faces.clear();
     face_offsets.clear();
     topology.clear();
+    face_counts_view = {};
+    faces_view = {};
+    face_offsets_view = {};
+  }
+
+  void invalidate() {
+    vertices.invalidate();
+    face_counts.invalidate();
+    faces.invalidate();
+    face_offsets.invalidate();
+    topology.invalidate();
+    face_counts_view = {};
+    faces_view = {};
+    face_offsets_view = {};
+  }
+
+  // Unified accessors: return whichever is populated (owned or borrowed)
+  const uint8_t *get_face_counts_data() const {
+    return face_counts.empty() ? face_counts_view.data() : face_counts.data();
+  }
+  size_t get_face_counts_size() const {
+    return face_counts.empty() ? face_counts_view.size() : face_counts.size();
+  }
+
+  const uint16_t *get_faces_data() const {
+    return faces.empty() ? faces_view.data() : faces.data();
+  }
+  size_t get_faces_size() const {
+    return faces.empty() ? faces_view.size() : faces.size();
+  }
+
+  const uint16_t *get_face_offsets_data() const {
+    return face_offsets.empty() ? face_offsets_view.data()
+                                : face_offsets.data();
+  }
+  size_t get_face_offsets_size() const {
+    return face_offsets.empty() ? face_offsets_view.size()
+                                : face_offsets.size();
   }
 
   // Helper for size accessors if needed, but direct vector access is preferred.
   size_t num_vertices() const { return vertices.size(); }
-  size_t num_faces() const { return face_counts.size(); }
+  size_t num_faces() const { return get_face_counts_size(); }
 };
 
 /**
