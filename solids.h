@@ -7,6 +7,8 @@
 #include <array>
 #include "geometry.h"
 #include "mesh.h" // For MeshOps
+#include "hankin.h"
+#include "conway.h"
 #include <cmath>
 #include <string_view>
 

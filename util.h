@@ -88,3 +88,28 @@ constexpr float fwd_distance(float a, float b, float m) {
   }
   return d;
 }
+
+// Maximum error is ~0.0015 radians (about 0.08 degrees)
+inline float fast_atan2(float y, float x) {
+  // Add a tiny epsilon to y to prevent division by zero without branching
+  float abs_y = std::abs(y) + 1e-10f;
+  float abs_x = std::abs(x);
+  float r, angle;
+
+  if (abs_x < abs_y) {
+    r = abs_x / abs_y;
+    // 1.57079633f is pi/2. 0.78539816f is pi/4.
+    angle = 1.57079633f - r * (0.78539816f + 0.273f * (1.0f - r));
+  } else {
+    r = abs_y / abs_x;
+    angle = r * (0.78539816f + 0.273f * (1.0f - r));
+  }
+
+  // Restore quadrants
+  if (x < 0.0f)
+    angle = 3.14159265f - angle;
+  if (y < 0.0f)
+    angle = -angle;
+
+  return angle;
+}
