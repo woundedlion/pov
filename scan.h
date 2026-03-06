@@ -819,12 +819,15 @@ struct Face {
         scratch.thetas[i] = theta;
       }
 
-      bool npInside = true;
-      bool spInside = true;
+      bool npInside = (planes_count > 0);
+      bool spInside = (planes_count > 0);
       for (int pi = 0; pi < planes_count; ++pi) {
-        if (scratch.planes[pi].j < 0)
+        float center_side = dot(center, scratch.planes[pi]);
+        // North pole: dot((0,1,0), plane) = plane.j
+        if ((scratch.planes[pi].j > 0) != (center_side > 0))
           npInside = false;
-        if (scratch.planes[pi].j > 0)
+        // South pole: dot((0,-1,0), plane) = -plane.j
+        if ((-scratch.planes[pi].j > 0) != (center_side > 0))
           spInside = false;
       }
       if (npInside)
@@ -880,6 +883,49 @@ struct Face {
     }
     intervals = std::span<std::pair<float, float>>(scratch.intervals.data(),
                                                    interval_count);
+
+    // Pole containment: if a face encircles a pole, extend vertical bounds
+    // to cover it. The fast path skips the slow-path plane-normal check,
+    // so this unified check works for both paths.
+    // North pole (0, 1, 0)
+    if (center.j > 0.01f) {
+      float inv_c = 1.0f / center.j;
+      float ppx = basisU.j * inv_c;
+      float ppy = basisW.j * inv_c;
+      bool pole_inside = false;
+      for (int i = 0; i < count; ++i) {
+        if ((poly2D[i].j > ppy) != (poly2D[i + 1].j > ppy)) {
+          float ix = poly2D[i].i +
+                     (ppy - poly2D[i].j) * edgeVectors[i].i * invEdgeJ[i];
+          if (ppx < ix)
+            pole_inside = !pole_inside;
+        }
+      }
+      if (pole_inside) {
+        y_min = 0;
+        full_width = true;
+      }
+    }
+    // South pole (0, -1, 0)
+    if (center.j < -0.01f) {
+      float cos_sp = -center.j;
+      float inv_c = 1.0f / cos_sp;
+      float ppx = -basisU.j * inv_c;
+      float ppy = -basisW.j * inv_c;
+      bool pole_inside = false;
+      for (int i = 0; i < count; ++i) {
+        if ((poly2D[i].j > ppy) != (poly2D[i + 1].j > ppy)) {
+          float ix = poly2D[i].i +
+                     (ppy - poly2D[i].j) * edgeVectors[i].i * invEdgeJ[i];
+          if (ppx < ix)
+            pole_inside = !pole_inside;
+        }
+      }
+      if (pole_inside) {
+        y_max = height - 1;
+        full_width = true;
+      }
+    }
   }
 
   template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
