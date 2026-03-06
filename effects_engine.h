@@ -22,7 +22,7 @@
 
 template <int W> class Orientation;
 
-#include "geometry.h" // Provides Fragment, ShaderResult, Vector
+#include "geometry.h" // Provides Fragment
 #include "concepts.h" // Concepts needs fragment
 #include "color.h"
 #include "animation.h"
@@ -33,9 +33,11 @@ template <int W> class Orientation;
 #include "platform.h"
 #include "plot.h"
 #include "scan.h"
+#include "mesh.h"
+#include "hankin.h"
+#include "conway.h"
 #include "solids.h"
 #include "palettes.h"
 
 #include "presets.h"
-#include "mesh.h"
 #include "waves.h"

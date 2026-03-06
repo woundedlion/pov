@@ -209,7 +209,7 @@ struct Ring {
     if constexpr (ComputeUVs) {
       float dot_u = dot(p, u);
       float dot_w = dot(p, w);
-      float azimuth = atan2f(dot_w, dot_u);
+      float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
         azimuth += 2 * PI_F;
       azimuth += phase;
@@ -1103,10 +1103,6 @@ struct Polygon {
       dist_edge = polar * cosf(local) - apothem;
       t_val = polar / thickness;
     } else {
-      // For Polygon, distance depends on angle (azimuth).
-      // Like DistortedRing, we cannot skip azimuth calculation if we want
-      // correct distance. So ComputeUVs here acts only as "don't need to return
-      // valid t".
       float dot_u = dot(p, basis.u);
       float dot_w = dot(p, basis.w);
       float azimuth = atan2f(dot_w, dot_u);
