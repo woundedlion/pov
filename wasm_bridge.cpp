@@ -120,8 +120,6 @@ public:
       currentEffect = create_effect<96, 20>(name);
     else if (pixel_width == 288 && pixel_height == 144)
       currentEffect = create_effect<288, 144>(name);
-    else if (pixel_width == 576 && pixel_height == 288)
-      currentEffect = create_effect<576, 288>(name);
     else {
       hs::log("WASM: Unsupported resolution for factory!");
       return;
@@ -132,8 +130,6 @@ public:
     if (!currentEffect)
       return;
 
-    // The effect handles all its own temporary math memory via MemoryCtx
-    // internally!
     currentEffect->draw_frame();
     currentEffect->advance_display();
 

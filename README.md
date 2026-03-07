@@ -1,6 +1,6 @@
 # Holosphere
 
-A persistence-of-vision (POV) LED sphere and its real-time simulator. The device spins a strip of LEDs at 480 RPM while a Teensy microcontroller fires pixels at microsecond intervals to paint full-color imagery on the surface of a virtual sphere. The simulator renders the same effects in a browser window at up to 576×288 resolution using the identical C++ code compiled to WebAssembly.
+A persistence-of-vision (POV) LED sphere and its real-time simulator. The device spins a strip of LEDs at 480 RPM while a Teensy microcontroller fires pixels at microsecond intervals to paint full-color imagery on the surface of a virtual sphere. The simulator renders the same effects in a browser window at up to 288×144 resolution using the identical C++ code compiled to WebAssembly.
 
 ```
 pov-master/      C++20 firmware, rendering engine, and all effects
@@ -33,7 +33,7 @@ daydream-master/ Three.js web simulator (runs the same WASM binary)
 | LEDs | 96-pixel WS2801 addressable strip (40 physical pixels exposed per half-arm) |
 | Protocol | SPI at 6 MHz via FastLED |
 | Rotation | 480 RPM (8 revolutions/second) |
-| Virtual resolution | 96 columns × 20 rows (hardware), up to 576×288 (WASM simulator) |
+| Virtual resolution | 96 columns × 20 rows (hardware), up to 288×144 (WASM simulator) |
 | Pin assignments | DATA: pin 11, CLOCK: pin 13, RANDOM seed: analog pin 15 |
 
 The POV effect works because each revolution takes ~125 ms and the ISR fires every `1,000,000 / (RPM/60) / width` microseconds to advance one column. The LED strip is mounted on both sides of a rotating arm: the top half of the strip handles one hemisphere and the bottom half handles the opposite hemisphere, so one full revolution paints a complete sphere.
@@ -177,7 +177,7 @@ template <int W, int H> class HopfFibration : public Effect { ... };
 template <int W, int H> struct Pipeline<W, H, Filter1, Filter2, ...> { ... };
 ```
 
-This means the compiler generates fully specialized, zero-overhead versions of the entire pipeline for each supported resolution. The hardware runs `<96, 20>` (96 columns × 20 rows). The simulator supports `<96, 20>`, `<288, 144>`, and `<576, 288>`.
+This means the compiler generates fully specialized, zero-overhead versions of the entire pipeline for each supported resolution. The hardware runs `<96, 20>` (96 columns × 20 rows). The simulator supports `<96, 20>` and `<288, 144>`.
 
 The `platform.h` header abstracts all target-specific differences:
 
@@ -230,7 +230,7 @@ The ISR never touches `cur_`. The main loop atomically updates `next_` inside `q
 Buffer storage is placed in Teensy DMAMEM for DMA-accessible SPI throughput:
 
 ```cpp
-inline static DMAMEM Pixel buffer_a[MAX_W * MAX_H];  // 576×288 × 6 bytes = ~1 MB
+inline static DMAMEM Pixel buffer_a[MAX_W * MAX_H];
 inline static DMAMEM Pixel buffer_b[MAX_W * MAX_H];
 ```
 
@@ -736,7 +736,7 @@ The simulator runs the identical C++ rendering engine compiled to WebAssembly vi
 
 | Method | Description |
 |---|---|
-| `setResolution(w, h)` | Switch active resolution (96×20, 288×144, or 576×288) |
+| `setResolution(w, h)` | Switch active resolution (96×20 or 288×144) |
 | `setEffect(name)` | Instantiate a new effect by string name; resets all arenas |
 | `drawFrame()` | Advance one frame and copy pixels to the output buffer |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory |
@@ -761,7 +761,7 @@ for (let i = 0; i < wasmPixels.length; i++) {
 |---|---|---|
 | Holosphere (20×96) | 96 × 20 | Matches physical hardware |
 | Phantasm (144×288) | 288 × 144 | High-quality preview (default) |
-| Pie-in-the-sky (288×576) | 576 × 288 | Maximum fidelity |
+
 
 ### GUI Auto-Generation
 
@@ -855,7 +855,7 @@ Most LED art codebases use gamma-corrected 8-bit values throughout and blend in 
 
 ### Why Compile-Time Resolution?
 
-Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. The hardware target (`<96, 20>`) runs with no runtime overhead from generality. The simulator builds separate specializations for `<288, 144>` and `<576, 288>`. Binary size increases, but for an embedded firmware this is the right trade-off.
+Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. The hardware target `<96, 20>` runs with no runtime overhead from generality. The simulator builds separate specializations for `<288, 144>`. Binary size increases, but for an embedded firmware this is the right trade-off.
 
 ### Why Arena Allocation?
 
