@@ -177,11 +177,9 @@ public:
     for (const auto &def : params) {
       val entry = val::object();
       entry.set("name", val(def.name));
+      entry.set("value", def.get());
 
-      if (def.type == Effect::ParamType::BOOL) {
-        entry.set("value", *static_cast<bool *>(def.target));
-      } else {
-        entry.set("value", *static_cast<float *>(def.target));
+      if (!def.is_bool()) {
         entry.set("min", def.min);
         entry.set("max", def.max);
       }
@@ -199,11 +197,7 @@ public:
     paramValues.reserve(params.size());
 
     for (const auto &def : params) {
-      if (def.type == Effect::ParamType::BOOL) {
-        paramValues.push_back(*static_cast<bool *>(def.target) ? 1.0f : 0.0f);
-      } else {
-        paramValues.push_back(*static_cast<float *>(def.target));
-      }
+      paramValues.push_back(def.get());
     }
     return val(typed_memory_view(paramValues.size(), paramValues.data()));
   }

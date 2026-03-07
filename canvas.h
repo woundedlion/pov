@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
+#include <variant>
 #include "platform.h"
 #include "constants.h"
 #include "color.h"
@@ -102,18 +103,45 @@ public:
     hs::enable_interrupts();
   }
 
-  enum class ParamType { FLOAT, BOOL };
-
   /**
    * @brief Defines a runtime-adjustable parameter.
    */
   struct ParamDef {
-    const char *name;   /**< Parameter name. */
-    void *target;       /**< Pointer to the variable. */
-    ParamType type;     /**< Type of the parameter. */
-    float min;          /**< Minimum value (for floats). */
-    float max;          /**< Maximum value (for floats). */
-    float defaultValue; /**< Default value. */
+    const char *name; /**< Parameter name. */
+    std::variant<float *, bool *>
+        target;             /**< Type-safe pointer to the variable. */
+    float min = 0;          /**< Minimum value (for floats). */
+    float max = 1;          /**< Maximum value (for floats). */
+    float defaultValue = 0; /**< Default value. */
+
+    /** @brief Read the current value as float (bool maps to 0/1). */
+    float get() const {
+      return std::visit(
+          [](auto *p) -> float {
+            using T = std::remove_pointer_t<decltype(p)>;
+            if constexpr (std::is_same_v<T, bool>)
+              return *p ? 1.0f : 0.0f;
+            else
+              return *p;
+          },
+          target);
+    }
+
+    /** @brief Write a float value (bool threshold at 0.5). */
+    void set(float v) {
+      std::visit(
+          [v](auto *p) {
+            using T = std::remove_pointer_t<decltype(p)>;
+            if constexpr (std::is_same_v<T, bool>)
+              *p = (v > 0.5f);
+            else
+              *p = v;
+          },
+          target);
+    }
+
+    /** @brief Check if this parameter targets a bool. */
+    bool is_bool() const { return std::holds_alternative<bool *>(target); }
   };
 
   struct ParamList {
@@ -151,11 +179,7 @@ public:
   void updateParameter(const char *name, float value) {
     auto *def = parameters.find(name);
     if (def != nullptr) {
-      if (def->type == ParamType::BOOL) {
-        *static_cast<bool *>(def->target) = (value > 0.5f);
-      } else {
-        *static_cast<float *>(def->target) = value;
-      }
+      def->set(value);
     }
   }
 
@@ -183,8 +207,7 @@ protected:
   void registerParam(const char *name, float *ptr, float min = 0.0f,
                      float max = 1.0f) {
     if (parameters.count < parameters.elements.size()) {
-      parameters.elements[parameters.count++] = {name, ptr, ParamType::FLOAT,
-                                                 min,  max, *ptr};
+      parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
     }
   }
 
@@ -197,8 +220,8 @@ protected:
   void registerParam(const char *name, bool *ptr, bool defaultValue = false) {
     *ptr = defaultValue;
     if (parameters.count < parameters.elements.size()) {
-      parameters.elements[parameters.count++] = {
-          name, ptr, ParamType::BOOL, 0.0f, 1.0f, (float)defaultValue};
+      parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
+                                                 (float)defaultValue};
     }
   }
 
