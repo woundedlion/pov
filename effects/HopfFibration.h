@@ -7,7 +7,6 @@
 
 #include "../effects_engine.h"
 #include <array>
-#include <cmath>
 
 template <int W, int H> class HopfFibration : public Effect {
 public:
@@ -50,8 +49,9 @@ public:
       const Vector &base = fibers[i];
 
       // Hopf Fiber Params (S2 base)
-      float theta = acosf(base.y); // y is up
-      float phi = atan2f(base.z, base.x);
+      Spherical sph(base);
+      float theta = sph.phi; // polar angle (co-latitude)
+      float phi = sph.theta; // azimuthal angle
 
       // Folding
       float eta = theta / 2.0f;
@@ -136,7 +136,6 @@ public:
   } params;
 
 private:
-  static constexpr int NUM_FIBERS = 200;
   static constexpr int RINGS = 15;
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
@@ -160,18 +159,11 @@ private:
   void init_fibers() {
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
-      float theta = PI_F * (i + 0.5f) / RINGS;
-      float y = cosf(theta);
-      float r = sinf(theta);
+      float polar = PI_F * (i + 0.5f) / RINGS;
 
       for (int j = 0; j < PER_RING; ++j) {
-        float phi = 2 * PI_F * j / PER_RING; // 0..2PI
-
-        // Y-up
-        float x = r * cosf(phi);
-        float z = r * sinf(phi);
-
-        fibers[idx++] = Vector(x, y, z);
+        float azimuth = 2 * PI_F * j / PER_RING;
+        fibers[idx++] = Vector(Spherical(azimuth, polar));
       }
     }
     first_frame_done = false;
