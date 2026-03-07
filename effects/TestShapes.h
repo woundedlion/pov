@@ -85,7 +85,7 @@ public:
     rings.emplace_back(normal, scale, color, mode, layer_index);
     Ring &ring = rings.back();
 
-    Vector antipode = (normal.i < -0.5f) ? -normal : normal;
+    Vector antipode = (normal.x < -0.5f) ? -normal : normal;
 
     // Animations
     typename Animation::RandomWalk<W>::Options rw_opts;

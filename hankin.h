@@ -216,12 +216,12 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
     Vector nEdge1 = cross1.normalize();
     // Inline make_rotation using precomputed half-angle trig
-    Quaternion q1(cos_ha, sin_ha * m1.i, sin_ha * m1.j, sin_ha * m1.k);
+    Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
     Vector nHankin1 = rotate(nEdge1, q1);
 
     Vector nEdge2 = cross2.normalize();
     // cos(-x) = cos(x), sin(-x) = -sin(x)
-    Quaternion q2(cos_ha, -sin_ha * m2.i, -sin_ha * m2.j, -sin_ha * m2.k);
+    Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
     Vector nHankin2 = rotate(nEdge2, q2);
 
     Vector intersect = cross(nHankin1, nHankin2);

@@ -238,7 +238,7 @@ public:
     }
 
     float projection =
-        v.i * axis.i + v.j * axis.j + v.k * axis.k; // dot product
+        v.x * axis.x + v.y * axis.y + v.z * axis.z; // dot product
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
     float t = 1.0f - acosf(dot_val) / PI_F;
 

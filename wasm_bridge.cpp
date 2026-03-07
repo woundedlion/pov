@@ -322,9 +322,9 @@ struct MeshOpsWrapper {
     std::vector<float> data;
     data.reserve(mesh.vertices.size() * 3);
     for (const auto &v : mesh.vertices) {
-      data.push_back(v.i);
-      data.push_back(v.j);
-      data.push_back(v.k);
+      data.push_back(v.x);
+      data.push_back(v.y);
+      data.push_back(v.z);
     }
     // Create JS Float32Array from memory view (copying data)
     return val::global("Float32Array")

@@ -61,7 +61,7 @@ public:
 
     Plot::Mesh::draw<W, H>(filters, canvas, mesh,
                            [&](const Vector &v, Fragment &f) {
-                             float t_val = (v.j + 1.0f) * 0.5f;
+                             float t_val = (v.y + 1.0f) * 0.5f;
                              f.color = palette.get(t_val);
                            });
 
@@ -96,7 +96,7 @@ private:
       return 0.0f;
     float scale = static_cast<float>(W) / (2.0f * PI_F);
     Vector v = pixel_to_vector<W, H>(x, y) * scale;
-    float noiseVal = noise.GetNoise(v.i, v.j, v.k + (t * params.speed));
+    float noiseVal = noise.GetNoise(v.x, v.y, v.z + (t * params.speed));
     return std::max(0.0f, params.delayBase +
                               (noiseVal * 0.5f + 0.5f) * params.delayAmp);
   }

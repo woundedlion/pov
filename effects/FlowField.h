@@ -39,17 +39,17 @@ public:
     for (Particle &p : particles) {
       // Calculate Noise Force (Flow Field)
       // 4D noise: x, y, z, t
-      float fx = noise_generator.GetNoise(p.pos.i * params.noise_scale,
-                                          p.pos.j * params.noise_scale,
-                                          p.pos.k * params.noise_scale + t) *
+      float fx = noise_generator.GetNoise(p.pos.x * params.noise_scale,
+                                          p.pos.y * params.noise_scale,
+                                          p.pos.z * params.noise_scale + t) *
                  params.force_scale;
-      float fy = noise_generator.GetNoise(p.pos.i * params.noise_scale + 100,
-                                          p.pos.j * params.noise_scale,
-                                          p.pos.k * params.noise_scale + t) *
+      float fy = noise_generator.GetNoise(p.pos.x * params.noise_scale + 100,
+                                          p.pos.y * params.noise_scale,
+                                          p.pos.z * params.noise_scale + t) *
                  params.force_scale;
-      float fz = noise_generator.GetNoise(p.pos.i * params.noise_scale + 200,
-                                          p.pos.j * params.noise_scale,
-                                          p.pos.k * params.noise_scale + t) *
+      float fz = noise_generator.GetNoise(p.pos.x * params.noise_scale + 200,
+                                          p.pos.y * params.noise_scale,
+                                          p.pos.z * params.noise_scale + t) *
                  params.force_scale;
       Vector force(fx, fy, fz);
 
@@ -74,7 +74,7 @@ public:
       }
 
       // Map Y (-1 to 1) to (0 to 1) for palette
-      float palette_t = (p.pos.j + 1.0f) / 2.0f;
+      float palette_t = (p.pos.y + 1.0f) / 2.0f;
       Color4 c = palette.get(palette_t);
       filters.plot(canvas, p.pos, c.color, 0, c.alpha);
     }

@@ -68,7 +68,7 @@ private:
   }
 
   void draw_shape(Canvas &canvas, Shape &shape, float opacity) {
-    float t = (shape.normal.j + 1.0f) / 2.0f;
+    float t = (shape.normal.y + 1.0f) / 2.0f;
     Color4 c = Palettes::brightSunrise.get(t);
     c.alpha *= opacity * 0.6f;
 

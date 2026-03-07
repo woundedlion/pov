@@ -62,7 +62,7 @@ struct Spherical {
 };
 
 /**
- * @brief Represents a 3D Vector in Cartesian coordinates (i, j, k).
+ * @brief Represents a 3D Vector in Cartesian coordinates (x, y, z).
  */
 struct Vector {
   /**
@@ -71,23 +71,23 @@ struct Vector {
   constexpr Vector() {}
   /**
    * @brief Constructs a vector with explicit components.
-   * @param i X-component.
-   * @param j Y-component.
-   * @param k Z-component.
+   * @param x X-component.
+   * @param y Y-component.
+   * @param z Z-component.
    */
-  constexpr Vector(float i, float j, float k) : i(i), j(j), k(k) {}
+  constexpr Vector(float x, float y, float z) : x(x), y(y), z(z) {}
   /**
    * @brief Copy constructor.
    * @param v The vector to copy.
    */
-  constexpr Vector(const Vector &v) : i(v.i), j(v.j), k(v.k) {}
+  constexpr Vector(const Vector &v) : x(v.x), y(v.y), z(v.z) {}
   /**
    * @brief Constructs a vector from Spherical coordinates.
    * @param s The spherical coordinate.
    */
   Vector(const Spherical &s)
-      : i(sinf(s.phi) * cosf(s.theta)), j(cosf(s.phi)),
-        k(sinf(s.phi) * sinf(s.theta)) {}
+      : x(sinf(s.phi) * cosf(s.theta)), y(cosf(s.phi)),
+        z(sinf(s.phi) * sinf(s.theta)) {}
   /**
    * @brief Constructs a vector from theta and phi angles.
    * @param theta Azimuthal angle.
@@ -101,9 +101,9 @@ struct Vector {
    * @return Reference to the current object.
    */
   constexpr Vector &operator=(const Vector &v) {
-    i = v.i;
-    j = v.j;
-    k = v.k;
+    x = v.x;
+    y = v.y;
+    z = v.z;
     return *this;
   }
 
@@ -113,8 +113,8 @@ struct Vector {
    * @return True if components are within TOLERANCE.
    */
   bool operator==(const Vector &v) const {
-    return std::abs(i - v.i) <= TOLERANCE && std::abs(j - v.j) <= TOLERANCE &&
-           std::abs(k - v.k) <= TOLERANCE;
+    return std::abs(x - v.x) <= TOLERANCE && std::abs(y - v.y) <= TOLERANCE &&
+           std::abs(z - v.z) <= TOLERANCE;
   }
 
   /**
@@ -128,30 +128,30 @@ struct Vector {
    * @brief Unary negation operator.
    * @return A new vector with negated components.
    */
-  constexpr Vector operator-() const { return Vector(-i, -j, -k); }
+  constexpr Vector operator-() const { return Vector(-x, -y, -z); }
 
   Vector &operator+=(const Vector &v_other) {
-    i += v_other.i;
-    j += v_other.j;
-    k += v_other.k;
+    x += v_other.x;
+    y += v_other.y;
+    z += v_other.z;
     return *this;
   }
   Vector &operator-=(const Vector &v_other) {
-    i -= v_other.i;
-    j -= v_other.j;
-    k -= v_other.k;
+    x -= v_other.x;
+    y -= v_other.y;
+    z -= v_other.z;
     return *this;
   }
   Vector &operator*=(float s) {
-    i *= s;
-    j *= s;
-    k *= s;
+    x *= s;
+    y *= s;
+    z *= s;
     return *this;
   }
   Vector &operator/=(float s) {
-    i /= s;
-    j /= s;
-    k /= s;
+    x /= s;
+    y /= s;
+    z /= s;
     return *this;
   }
 
@@ -159,7 +159,7 @@ struct Vector {
    * @brief Calculates the magnitude (length) of the vector.
    * @return The magnitude.
    */
-  constexpr float length() const { return sqrtf(i * i + j * j + k * k); }
+  constexpr float length() const { return sqrtf(x * x + y * y + z * z); }
 
   /**
    * @brief Alias for length().
@@ -174,19 +174,19 @@ struct Vector {
     float m = length();
     if (m < std::numeric_limits<float>::epsilon()) {
       hs::log("Can't normalize a zero vector!");
-      i = 1;
-      j = k = 0;
+      x = 1;
+      y = z = 0;
     } else {
-      i = i / m;
-      j = j / m;
-      k = k / m;
+      x = x / m;
+      y = y / m;
+      z = z / m;
     }
     return *this;
   }
 
-  float i = 0; /**< X-component. */
-  float j = 0; /**< Y-component. */
-  float k = 0; /**< Z-component. */
+  float x = 0; /**< X-component. */
+  float y = 0; /**< Y-component. */
+  float z = 0; /**< Z-component. */
 };
 
 /**
@@ -196,8 +196,8 @@ struct Vector {
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
-  theta = atan2f(n.k, n.i);
-  phi = acosf(hs::clamp(n.j, -1.0f, 1.0f));
+  theta = atan2f(n.z, n.x);
+  phi = acosf(hs::clamp(n.y, -1.0f, 1.0f));
 }
 
 struct Quaternion;
@@ -235,7 +235,7 @@ struct Quaternion {
   /**
    * @brief Constructs a quaternion from a scalar and a Vector part.
    * @param a Real component (r).
-   * @param v Vector part (i, j, k).
+   * @param v Vector part (x, y, z).
    */
   constexpr Quaternion(float a, const Vector &v) : r(a), v(v) {}
 
@@ -288,7 +288,7 @@ struct Quaternion {
    * @return The squared magnitude.
    */
   constexpr float squared_magnitude() const {
-    return r * r + v.i * v.i + v.j * v.j + v.k * v.k;
+    return r * r + v.x * v.x + v.y * v.y + v.z * v.z;
   }
 
   /**
@@ -317,7 +317,7 @@ struct Quaternion {
    * @return The magnitude.
    */
   constexpr float magnitude() const {
-    return sqrtf(r * r + v.i * v.i + v.j * v.j + v.k * v.k);
+    return sqrtf(r * r + v.x * v.x + v.y * v.y + v.z * v.z);
   }
 
   /**
@@ -338,7 +338,7 @@ struct Quaternion {
   }
 
   float r = 1; /**< Real component. */
-  Vector v;    /**< Vector part (i, j, k). */
+  Vector v;    /**< Vector part (x, y, z). */
 };
 
 /**
@@ -393,24 +393,24 @@ struct Complex {
 inline Vector fold_to_hemisphere(const Vector &v) {
   // Half-angle identities to calculate the new height (j') and the new
   // horizontal radius (r')
-  float j_new = sqrtf((1.0f + v.j) * 0.5f);
-  float r_new = sqrtf((1.0f - v.j) * 0.5f);
+  float j_new = sqrtf((1.0f + v.y) * 0.5f);
+  float r_new = sqrtf((1.0f - v.y) * 0.5f);
 
-  // Get the length of the original horizontal components (i and k)
-  float r_old = sqrtf(v.i * v.i + v.k * v.k);
+  // Get the length of the original horizontal components (x and z)
+  float r_old = sqrtf(v.x * v.x + v.z * v.z);
 
   // Protect against division by zero at the exact poles
   if (r_old == 0.0f) {
     // The North Pole (j=1) stays the North Pole.
     // The South Pole (j=-1) is stretched into the entire equator ring.
     // We arbitrarily anchor the singularity to the X-axis (i=1).
-    return v.j > 0.0f ? Vector(0.0f, 1.0f, 0.0f) : Vector(1.0f, 0.0f, 0.0f);
+    return v.y > 0.0f ? Vector(0.0f, 1.0f, 0.0f) : Vector(1.0f, 0.0f, 0.0f);
   }
 
-  // Scale the original i and k coordinates to the new tightened radius
+  // Scale the original x and z coordinates to the new tightened radius
   float scale = r_new / r_old;
 
-  return Vector(v.i * scale, j_new, v.k * scale);
+  return Vector(v.x * scale, j_new, v.z * scale);
 }
 
 /**
@@ -443,10 +443,10 @@ struct MobiusParams {
  * @brief Stereographic Projection: Sphere -> Complex Plane.
  */
 inline Complex stereo(const Vector &v) {
-  float denom = 1.0f - v.j;
+  float denom = 1.0f - v.y;
   if (std::abs(denom) < 0.0001f)
     return Complex(100, 100); // Infinity
-  return Complex(v.i / denom, v.k / denom);
+  return Complex(v.x / denom, v.z / denom);
 }
 
 /**
@@ -473,8 +473,8 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
 inline Complex gnomonic(const Vector &v) {
   // Handle equator singularity with a large number instead of Infinity
   // Projects to plane at j=1.
-  float div = (std::abs(v.j) < 1e-9f) ? 1e-9f * (v.j >= 0 ? 1.0f : -1.0f) : v.j;
-  return Complex(v.i / div, v.k / div);
+  float div = (std::abs(v.y) < 1e-9f) ? 1e-9f * (v.y >= 0 ? 1.0f : -1.0f) : v.y;
+  return Complex(v.x / div, v.z / div);
 }
 
 /**
@@ -513,7 +513,7 @@ inline Vector rotate(const Vector &v, const Quaternion &q) {
  * @return The resulting vector.
  */
 constexpr Vector operator+(const Vector &v1, const Vector &v2) {
-  return Vector(v1.i + v2.i, v1.j + v2.j, v1.k + v2.k);
+  return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
 }
 
 /**
@@ -523,7 +523,7 @@ constexpr Vector operator+(const Vector &v1, const Vector &v2) {
  * @return The resulting vector.
  */
 constexpr Vector operator-(const Vector &v1, const Vector &v2) {
-  return Vector(v1.i - v2.i, v1.j - v2.j, v1.k - v2.k);
+  return Vector(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
 }
 
 /**
@@ -533,7 +533,7 @@ constexpr Vector operator-(const Vector &v1, const Vector &v2) {
  * @return The resulting vector.
  */
 constexpr Vector operator*(const Vector &v, float s) {
-  return Vector(s * v.i, s * v.j, s * v.k);
+  return Vector(s * v.x, s * v.y, s * v.z);
 }
 
 /**
@@ -551,7 +551,7 @@ constexpr Vector operator*(float s, const Vector &v) { return v * s; }
  * @return The resulting vector.
  */
 constexpr Vector operator/(const Vector &v, float s) {
-  return Vector(v.i / s, v.j / s, v.k / s);
+  return Vector(v.x / s, v.y / s, v.z / s);
 }
 
 /**
@@ -561,7 +561,7 @@ constexpr Vector operator/(const Vector &v, float s) {
  * @return The dot product (scalar).
  */
 constexpr float dot(const Vector &v1, const Vector &v2) {
-  return (v1.i * v2.i) + (v1.j * v2.j) + (v1.k * v2.k);
+  return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
 /**
@@ -571,8 +571,8 @@ constexpr float dot(const Vector &v1, const Vector &v2) {
  * @return The cross product vector.
  */
 constexpr Vector cross(const Vector &v1, const Vector &v2) {
-  return Vector(v1.j * v2.k - v1.k * v2.j, v1.k * v2.i - v1.i * v2.k,
-                v1.i * v2.j - v1.j * v2.i);
+  return Vector(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z,
+                v1.x * v2.y - v1.y * v2.x);
 }
 
 /**
@@ -582,10 +582,10 @@ constexpr Vector cross(const Vector &v1, const Vector &v2) {
  * @return The distance (scalar).
  */
 constexpr float distance_between(const Vector &a, const Vector &b) {
-  float di = b.i - a.i;
-  float dj = b.j - a.j;
-  float dk = b.k - a.k;
-  return sqrtf(di * di + dj * dj + dk * dk);
+  float dx = b.x - a.x;
+  float dy = b.y - a.y;
+  float dz = b.z - a.z;
+  return sqrtf(dx * dx + dy * dy + dz * dz);
 }
 
 /**
@@ -596,10 +596,10 @@ constexpr float distance_between(const Vector &a, const Vector &b) {
  * @return The distance squared (scalar).
  */
 constexpr float distance_squared(const Vector &a, const Vector &b) {
-  float di = b.i - a.i;
-  float dj = b.j - a.j;
-  float dk = b.k - a.k;
-  return di * di + dj * dj + dk * dk;
+  float dx = b.x - a.x;
+  float dy = b.y - a.y;
+  float dz = b.z - a.z;
+  return dx * dx + dy * dy + dz * dz;
 }
 
 /**
@@ -684,8 +684,8 @@ constexpr Quaternion operator/(const Quaternion &q, float s) {
  * @return The dot product (scalar).
  */
 constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
-  return (q1.r * q2.r) + (q1.v.i * q2.v.i) + (q1.v.j * q2.v.j) +
-         (q1.v.k * q2.v.k);
+  return (q1.r * q2.r) + (q1.v.x * q2.v.x) + (q1.v.y * q2.v.y) +
+         (q1.v.z * q2.v.z);
 }
 
 /**
