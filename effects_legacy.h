@@ -9,6 +9,8 @@
 #include "led.h"
 
 ///////////////////////////////////////////////////////////////////////////////
+// Legacy effects built before this engine
+///////////////////////////////////////////////////////////////////////////////
 
 void trail_rainbow(Pixel &c, uint8_t hue_falloff = 32,
                    uint8_t dim_falloff = 32) {
@@ -651,7 +653,9 @@ private:
 
 template <int W, int H> class RingRotate : public Effect {
 public:
-  FLASHMEM RingRotate() : Effect(W, H) { fill_rainbow(pal.entries, 256, HUE_RED, 1); }
+  FLASHMEM RingRotate() : Effect(W, H) {
+    fill_rainbow(pal.entries, 256, HUE_RED, 1);
+  }
   bool show_bg() const { return false; }
 
   void draw_frame() {

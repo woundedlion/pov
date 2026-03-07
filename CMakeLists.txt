@@ -32,9 +32,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1")
 else()
-    message(STATUS "Configuring Release build (-O3)")
-    target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math")
-    target_link_options(${TARGET_NAME} PRIVATE "-O3")
+    message(STATUS "Configuring Release build (-O3 -flto -msimd128)")
+    target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math" "-msimd128" "-flto")
+    target_link_options(${TARGET_NAME} PRIVATE "-O3" "-msimd128" "-flto")
 endif()
 
 # Emscripten outputs a .js file as the "executable"
