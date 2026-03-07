@@ -98,3 +98,19 @@ struct TetrahedronGenerator : public IMeshGenerator {
     return Solids::finalize_solid(Solids::Platonic::tetrahedron(ctx), geom);
   }
 };
+
+/**
+ * @brief Generates a mesh using a temporary MemoryCtx scope.
+ * Encapsulates MemoryCtx + ScopedScratch boilerplate for any generator
+ * that implements generate(Arena&, MemoryCtx&).
+ *
+ * Usage: mesh = generate_mesh<DodecahedronGenerator>(persistent_arena);
+ *        mesh = generate_mesh<SolidGenerator>(persistent_arena, solid_id);
+ */
+template <typename Gen, typename... Args>
+inline auto generate_mesh(Arena &geom, Args &&...args) {
+  Gen gen(std::forward<Args>(args)...);
+  MemoryCtx ctx;
+  ScopedScratch _(ctx.get_scratch_front());
+  return gen.generate(geom, ctx);
+}

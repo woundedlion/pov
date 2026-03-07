@@ -88,9 +88,6 @@ private:
   PolyMesh mesh;
 
   void rebuild_mesh() {
-    MemoryCtx ctx;
-    ScopedScratch _(ctx.get_scratch_front());
-    mesh = Solids::finalize_solid(Solids::Platonic::icosahedron(ctx),
-                                  persistent_arena);
+    mesh = generate_mesh<IcosahedronGenerator>(persistent_arena);
   }
 };
