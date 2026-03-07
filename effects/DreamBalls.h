@@ -148,7 +148,7 @@ private:
       data.tangents.initialize(persistent_arena,
                                data.mesh_state.vertices.size());
       for (const auto &v : data.mesh_state.vertices) {
-        Vector axis = (std::abs(v.j) > 0.99f) ? X_AXIS : Y_AXIS;
+        Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
         Vector u = cross(v, axis).normalize();
         Vector frame_v = cross(v, u).normalize();
         data.tangents.push_back({u, frame_v});

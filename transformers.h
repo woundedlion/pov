@@ -120,7 +120,7 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
                                         const MobiusParams &params) {
   Complex z = gnomonic(v);
   Complex w = mobius(z, params);
-  return inv_gnomonic(w, (v.j >= 0 ? 1.0f : -1.0f));
+  return inv_gnomonic(w, (v.y >= 0 ? 1.0f : -1.0f));
 }
 
 /**
@@ -180,16 +180,16 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
 
   // Use member noise object
   float noiseValX =
-      params.noise.GetNoise(v.i * scale, v.j * scale, v.k * scale + time_val);
+      params.noise.GetNoise(v.x * scale, v.y * scale, v.z * scale + time_val);
   float noiseValY = params.noise.GetNoise(
-      v.i * scale + 100.0f, v.j * scale + 100.0f, v.k * scale + time_val);
+      v.x * scale + 100.0f, v.y * scale + 100.0f, v.z * scale + time_val);
 
   // Simple perturbation
   float dist = 0.2f * params.amplitude; // Arbitrary scale factor
 
   Vector res = v;
-  res.i += noiseValX * dist;
-  res.j += noiseValY * dist;
+  res.x += noiseValX * dist;
+  res.y += noiseValY * dist;
 
   return res;
 }

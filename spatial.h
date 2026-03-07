@@ -29,46 +29,46 @@ struct AABB {
         maxVal(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
 
   void expand(const Vector &p) {
-    if (p.i < minVal.i)
-      minVal.i = p.i;
-    if (p.j < minVal.j)
-      minVal.j = p.j;
-    if (p.k < minVal.k)
-      minVal.k = p.k;
+    if (p.x < minVal.x)
+      minVal.x = p.x;
+    if (p.y < minVal.y)
+      minVal.y = p.y;
+    if (p.z < minVal.z)
+      minVal.z = p.z;
 
-    if (p.i > maxVal.i)
-      maxVal.i = p.i;
-    if (p.j > maxVal.j)
-      maxVal.j = p.j;
-    if (p.k > maxVal.k)
-      maxVal.k = p.k;
+    if (p.x > maxVal.x)
+      maxVal.x = p.x;
+    if (p.y > maxVal.y)
+      maxVal.y = p.y;
+    if (p.z > maxVal.z)
+      maxVal.z = p.z;
   }
 
   // Optimize union
   void unionWith(const AABB &box) {
-    if (box.minVal.i < minVal.i)
-      minVal.i = box.minVal.i;
-    if (box.minVal.j < minVal.j)
-      minVal.j = box.minVal.j;
-    if (box.minVal.k < minVal.k)
-      minVal.k = box.minVal.k;
+    if (box.minVal.x < minVal.x)
+      minVal.x = box.minVal.x;
+    if (box.minVal.y < minVal.y)
+      minVal.y = box.minVal.y;
+    if (box.minVal.z < minVal.z)
+      minVal.z = box.minVal.z;
 
-    if (box.maxVal.i > maxVal.i)
-      maxVal.i = box.maxVal.i;
-    if (box.maxVal.j > maxVal.j)
-      maxVal.j = box.maxVal.j;
-    if (box.maxVal.k > maxVal.k)
-      maxVal.k = box.maxVal.k;
+    if (box.maxVal.x > maxVal.x)
+      maxVal.x = box.maxVal.x;
+    if (box.maxVal.y > maxVal.y)
+      maxVal.y = box.maxVal.y;
+    if (box.maxVal.z > maxVal.z)
+      maxVal.z = box.maxVal.z;
   }
 
   bool intersectRay(const Vector &origin, const Vector &direction) const {
-    float tmin = (minVal.i - origin.i) / direction.i;
-    float tmax = (maxVal.i - origin.i) / direction.i;
+    float tmin = (minVal.x - origin.x) / direction.x;
+    float tmax = (maxVal.x - origin.x) / direction.x;
     if (tmin > tmax)
       std::swap(tmin, tmax);
 
-    float tymin = (minVal.j - origin.j) / direction.j;
-    float tymax = (maxVal.j - origin.j) / direction.j;
+    float tymin = (minVal.y - origin.y) / direction.y;
+    float tymax = (maxVal.y - origin.y) / direction.y;
     if (tymin > tymax)
       std::swap(tymin, tymax);
 
@@ -80,8 +80,8 @@ struct AABB {
     if (tymax < tmax)
       tmax = tymax;
 
-    float tzmin = (minVal.k - origin.k) / direction.k;
-    float tzmax = (maxVal.k - origin.k) / direction.k;
+    float tzmin = (minVal.z - origin.z) / direction.z;
+    float tzmax = (maxVal.z - origin.z) / direction.z;
     if (tzmin > tzmax)
       std::swap(tzmin, tzmax);
 
@@ -285,12 +285,12 @@ private:
     auto *end = indices + count;
 
     std::nth_element(start, start + mid, end, [&](int a, int b) {
-      float va = (axis == 0)   ? points[a].i
-                 : (axis == 1) ? points[a].j
-                               : points[a].k;
-      float vb = (axis == 0)   ? points[b].i
-                 : (axis == 1) ? points[b].j
-                               : points[b].k;
+      float va = (axis == 0)   ? points[a].x
+                 : (axis == 1) ? points[a].y
+                               : points[a].z;
+      float vb = (axis == 0)   ? points[b].x
+                 : (axis == 1) ? points[b].y
+                               : points[b].z;
       return va < vb;
     });
 
@@ -324,9 +324,9 @@ private:
       worstSq = get_worst_dist(); // Update after push
     }
 
-    float axisDist = (node.axis == 0)   ? (target.i - node.point.i)
-                     : (node.axis == 1) ? (target.j - node.point.j)
-                                        : (target.k - node.point.k);
+    float axisDist = (node.axis == 0)   ? (target.x - node.point.x)
+                     : (node.axis == 1) ? (target.y - node.point.y)
+                                        : (target.z - node.point.z);
 
     int near = axisDist < 0 ? node.left : node.right;
     int far = axisDist < 0 ? node.right : node.left;
@@ -353,9 +353,9 @@ private:
       bestNodeIdx = nodeIdx;
     }
 
-    float axisDist = (node.axis == 0)   ? (target.i - node.point.i)
-                     : (node.axis == 1) ? (target.j - node.point.j)
-                                        : (target.k - node.point.k);
+    float axisDist = (node.axis == 0)   ? (target.x - node.point.x)
+                     : (node.axis == 1) ? (target.y - node.point.y)
+                                        : (target.z - node.point.z);
 
     int near = axisDist < 0 ? node.left : node.right;
     int far = axisDist < 0 ? node.right : node.left;
@@ -425,9 +425,9 @@ private:
   size_t poolCount = 0;
 
   long long hash(const Vector &p) const {
-    int x = static_cast<int>(floorf(p.i / cellSize));
-    int y = static_cast<int>(floorf(p.j / cellSize));
-    int z = static_cast<int>(floorf(p.k / cellSize));
+    int x = static_cast<int>(floorf(p.x / cellSize));
+    int y = static_cast<int>(floorf(p.y / cellSize));
+    int z = static_cast<int>(floorf(p.z / cellSize));
     return ((long long)x * 73856093) ^ ((long long)y * 19349663) ^
            ((long long)z * 83492791);
   }

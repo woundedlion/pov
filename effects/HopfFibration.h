@@ -50,8 +50,8 @@ public:
       const Vector &base = fibers[i];
 
       // Hopf Fiber Params (S2 base)
-      float theta = acosf(base.j); // y is up
-      float phi = atan2f(base.k, base.i);
+      float theta = acosf(base.y); // y is up
+      float phi = atan2f(base.z, base.x);
 
       // Folding
       float eta = theta / 2.0f;

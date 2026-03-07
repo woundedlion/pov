@@ -27,12 +27,12 @@ public:
   // Pure algebraic 3D Glitch Lens - Zero Trigonometry!
   Vector apply_glitch_lens(Vector v) const {
     // 1. Mirror Southern Hemisphere
-    if (v.j < 0.0f) {
-      v.j = -v.j;
-      v.k = -v.k; // X-axis reflection
+    if (v.y < 0.0f) {
+      v.y = -v.y;
+      v.z = -v.z; // X-axis reflection
     }
 
-    float R2 = v.i * v.i + v.k * v.k;
+    float R2 = v.x * v.x + v.z * v.z;
 
     // North pole singularity protection
     if (R2 < 1e-6f) {
@@ -42,9 +42,9 @@ public:
     // 2. Trig-less Squish (phi * 2) and Warp (theta * 3)
     float inv_R2 = 1.0f / R2;
 
-    return Vector(2.0f * v.j * v.i * (4.0f * v.i * v.i * inv_R2 - 3.0f), // i
-                  2.0f * v.j * v.j - 1.0f,                               // j
-                  2.0f * v.j * v.k * (3.0f - 4.0f * v.k * v.k * inv_R2)  // k
+    return Vector(2.0f * v.y * v.x * (4.0f * v.x * v.x * inv_R2 - 3.0f), // i
+                  2.0f * v.y * v.y - 1.0f,                               // j
+                  2.0f * v.y * v.z * (3.0f - 4.0f * v.z * v.z * inv_R2)  // k
     );
   }
 

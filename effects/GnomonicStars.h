@@ -46,7 +46,7 @@ public:
 
     // Fragment Shader for Stars (Mango Peel Gradient based on Y)
     auto fragment_shader = [](const Vector &p, Fragment &frag) {
-      float t = (p.j + 1.0f) * 0.5f; // Map [-1, 1] to [0, 1]
+      float t = (p.y + 1.0f) * 0.5f; // Map [-1, 1] to [0, 1]
       Color4 c = Palettes::mangoPeel.get(t);
       frag.color = c;
       frag.blend = BLEND_OVER;

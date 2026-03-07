@@ -71,9 +71,9 @@ struct Ring {
     normal = basis.v;
     u = basis.u;
     w = basis.w;
-    nx = normal.i;
-    ny = normal.j;
-    nz = normal.k;
+    nx = normal.x;
+    ny = normal.y;
+    nz = normal.z;
 
     target_angle = radius * (PI_F / 2.0f);
     center_phi = acosf(ny);
@@ -253,9 +253,9 @@ struct DistortedRing {
     normal = basis.v;
     u = basis.u;
     w = basis.w;
-    nx = normal.i;
-    ny = normal.j;
-    nz = normal.k;
+    nx = normal.x;
+    ny = normal.y;
+    nz = normal.z;
     target_angle = radius * (PI_F / 2.0f);
     center_phi = acosf(ny);
     max_thickness = thickness + max_distortion;
@@ -622,7 +622,7 @@ struct Face {
     float max_y_val = -2.0f;
 
     for (int idx : indices) {
-      float y = vertices[idx].j;
+      float y = vertices[idx].y;
       if (y < min_y_val)
         min_y_val = y;
       if (y > max_y_val)
@@ -726,9 +726,9 @@ struct Face {
         scratch.invEdgeLengthsSq[i] =
             (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
         scratch.invEdgeJ[i] =
-            (std::abs(edge.j) > 1e-12f) ? (1.0f / edge.j) : 0.0f;
+            (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
 
-        float theta = atan2f(vertices[indices[i]].k, vertices[indices[i]].i);
+        float theta = atan2f(vertices[indices[i]].z, vertices[indices[i]].x);
         if (theta < 0)
           theta += 2 * PI_F;
         scratch.thetas[i] = theta;
@@ -762,14 +762,14 @@ struct Face {
         scratch.invEdgeLengthsSq[i] =
             (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
         scratch.invEdgeJ[i] =
-            (std::abs(edge.j) > 1e-12f) ? (1.0f / edge.j) : 0.0f;
+            (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
 
         Vector normal = cross(v1, v2);
         float lenSq = dot(normal, normal);
         if (lenSq > 1e-12f)
           scratch.planes[planes_count++] = normal.normalize();
 
-        float phi_val = acosf(hs::clamp(v1.j, -1.0f, 1.0f));
+        float phi_val = acosf(hs::clamp(v1.y, -1.0f, 1.0f));
         if (phi_val < min_phi)
           min_phi = phi_val;
         if (phi_val > max_phi)
@@ -778,10 +778,10 @@ struct Face {
         // Arc Extrema Logic
         if (planes_count > 0) {
           const Vector &n = scratch.planes[planes_count - 1];
-          float ny = n.j;
+          float ny = n.y;
           if (std::abs(ny) < 0.99999f) {
-            float nx = n.i;
-            float nz = n.k;
+            float nx = n.x;
+            float nz = n.z;
             float tx = -nx * ny;
             float ty = 1.0f - ny * ny;
             float tz = -nz * ny;
@@ -792,12 +792,12 @@ struct Face {
               float pty = ty * invLen;
               float ptz = tz * invLen;
 
-              float cx1 = (v1.j * ptz - v1.k * pty) * nx +
-                          (v1.k * ptx - v1.i * ptz) * ny +
-                          (v1.i * pty - v1.j * ptx) * nz;
-              float cx2 = (pty * v2.k - ptz * v2.j) * nx +
-                          (ptz * v2.i - ptx * v2.k) * ny +
-                          (ptx * v2.j - pty * v2.i) * nz;
+              float cx1 = (v1.y * ptz - v1.z * pty) * nx +
+                          (v1.z * ptx - v1.x * ptz) * ny +
+                          (v1.x * pty - v1.y * ptx) * nz;
+              float cx2 = (pty * v2.z - ptz * v2.y) * nx +
+                          (ptz * v2.x - ptx * v2.z) * ny +
+                          (ptx * v2.y - pty * v2.x) * nz;
 
               if (cx1 > 0 && cx2 > 0) {
                 float phiTop = acosf(hs::clamp(pty, -1.0f, 1.0f));
@@ -813,7 +813,7 @@ struct Face {
           }
         }
 
-        float theta = atan2f(v1.k, v1.i);
+        float theta = atan2f(v1.z, v1.x);
         if (theta < 0)
           theta += 2 * PI_F;
         scratch.thetas[i] = theta;
@@ -823,11 +823,11 @@ struct Face {
       bool spInside = (planes_count > 0);
       for (int pi = 0; pi < planes_count; ++pi) {
         float center_side = dot(center, scratch.planes[pi]);
-        // North pole: dot((0,1,0), plane) = plane.j
-        if ((scratch.planes[pi].j > 0) != (center_side > 0))
+        // North pole: dot((0,1,0), plane) = plane.y
+        if ((scratch.planes[pi].y > 0) != (center_side > 0))
           npInside = false;
-        // South pole: dot((0,-1,0), plane) = -plane.j
-        if ((-scratch.planes[pi].j > 0) != (center_side > 0))
+        // South pole: dot((0,-1,0), plane) = -plane.y
+        if ((-scratch.planes[pi].y > 0) != (center_side > 0))
           spInside = false;
       }
       if (npInside)
@@ -888,15 +888,15 @@ struct Face {
     // to cover it. The fast path skips the slow-path plane-normal check,
     // so this unified check works for both paths.
     // North pole (0, 1, 0)
-    if (center.j > 0.01f) {
-      float inv_c = 1.0f / center.j;
-      float ppx = basisU.j * inv_c;
-      float ppy = basisW.j * inv_c;
+    if (center.y > 0.01f) {
+      float inv_c = 1.0f / center.y;
+      float ppx = basisU.y * inv_c;
+      float ppy = basisW.y * inv_c;
       bool pole_inside = false;
       for (int i = 0; i < count; ++i) {
-        if ((poly2D[i].j > ppy) != (poly2D[i + 1].j > ppy)) {
-          float ix = poly2D[i].i +
-                     (ppy - poly2D[i].j) * edgeVectors[i].i * invEdgeJ[i];
+        if ((poly2D[i].y > ppy) != (poly2D[i + 1].y > ppy)) {
+          float ix = poly2D[i].x +
+                     (ppy - poly2D[i].y) * edgeVectors[i].x * invEdgeJ[i];
           if (ppx < ix)
             pole_inside = !pole_inside;
         }
@@ -907,16 +907,16 @@ struct Face {
       }
     }
     // South pole (0, -1, 0)
-    if (center.j < -0.01f) {
-      float cos_sp = -center.j;
+    if (center.y < -0.01f) {
+      float cos_sp = -center.y;
       float inv_c = 1.0f / cos_sp;
-      float ppx = -basisU.j * inv_c;
-      float ppy = -basisW.j * inv_c;
+      float ppx = -basisU.y * inv_c;
+      float ppy = -basisW.y * inv_c;
       bool pole_inside = false;
       for (int i = 0; i < count; ++i) {
-        if ((poly2D[i].j > ppy) != (poly2D[i + 1].j > ppy)) {
-          float ix = poly2D[i].i +
-                     (ppy - poly2D[i].j) * edgeVectors[i].i * invEdgeJ[i];
+        if ((poly2D[i].y > ppy) != (poly2D[i + 1].y > ppy)) {
+          float ix = poly2D[i].x +
+                     (ppy - poly2D[i].y) * edgeVectors[i].x * invEdgeJ[i];
           if (ppx < ix)
             pole_inside = !pole_inside;
         }
@@ -974,21 +974,21 @@ struct Face {
       const Vector &Vnext = poly2D[i + 1];
       const Vector &edge = edgeVectors[i];
 
-      float wx = px - Vi.i;
-      float wy = py - Vi.j;
+      float wx = px - Vi.x;
+      float wy = py - Vi.y;
 
-      float t = (wx * edge.i + wy * edge.j) * invEdgeLengthsSq[i];
+      float t = (wx * edge.x + wy * edge.y) * invEdgeLengthsSq[i];
       float clampVal = hs::clamp(t, 0.0f, 1.0f);
 
-      float bx = wx - edge.i * clampVal;
-      float by = wy - edge.j * clampVal;
+      float bx = wx - edge.x * clampVal;
+      float by = wy - edge.y * clampVal;
       float distSq = bx * bx + by * by;
 
       if (distSq < d)
         d = distSq;
 
-      if ((Vi.j > py) != (Vnext.j > py)) {
-        float intersect_x = Vi.i + (py - Vi.j) * edge.i * invEdgeJ[i];
+      if ((Vi.y > py) != (Vnext.y > py)) {
+        float intersect_x = Vi.x + (py - Vi.y) * edge.x * invEdgeJ[i];
         if (px < intersect_x) {
           inside = !inside;
         }
@@ -1024,9 +1024,9 @@ struct Polygon {
           int height)
       : basis(b), thickness(th), sides(s), phase(ph) {
     apothem = thickness * cosf(PI_F / sides);
-    nx = basis.v.i;
-    ny = basis.v.j;
-    nz = basis.v.k;
+    nx = basis.v.x;
+    ny = basis.v.y;
+    nz = basis.v.z;
     R_val = sqrtf(nx * nx + nz * nz);
     alpha_angle = atan2f(nz, nx);
 
@@ -1160,13 +1160,13 @@ template <int W> struct Star {
     thickness = outerRadius;
 
     // Scan
-    scanNx = basis.v.i;
-    scanNy = basis.v.j;
-    scanNz = basis.v.k;
+    scanNx = basis.v.x;
+    scanNy = basis.v.y;
+    scanNz = basis.v.z;
     scanR = sqrtf(scanNx * scanNx + scanNz * scanNz);
     scanAlpha = atan2f(scanNz, scanNx);
 
-    float centerPhi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.j)));
+    float centerPhi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.y)));
     float margin = outerRadius + 0.1f;
     yMin = std::max(
         0, static_cast<int>(floorf(
@@ -1277,13 +1277,13 @@ struct Flower {
     thickness = outer;
     antipode = -basis.v;
 
-    scan_nx = antipode.i;
-    scan_ny = antipode.j;
-    scan_nz = antipode.k;
+    scan_nx = antipode.x;
+    scan_ny = antipode.y;
+    scan_nz = antipode.z;
     scan_R = sqrtf(scan_nx * scan_nx + scan_nz * scan_nz);
     scan_alpha = atan2f(scan_nz, scan_nx);
 
-    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.j)));
+    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.y)));
     float margin = thickness + 0.1f;
     y_min = std::max(
         0, static_cast<int>(floorf(
@@ -1406,8 +1406,8 @@ struct HarmonicBlob {
   void distance(const Vector &p, DistanceResult &res) const {
     // Transform world pixel position to local harmonic space
     Vector v = rotate(p, inv_q);
-    float phi = acosf(std::max(-1.0f, std::min(1.0f, v.j)));
-    float theta = atan2f(v.k, v.i);
+    float phi = acosf(std::max(-1.0f, std::min(1.0f, v.y)));
+    float theta = atan2f(v.z, v.x);
     float harmonic_val = harmonic_fn(l, m, theta, phi);
 
     float lobe_radius = 1.0f + std::abs(harmonic_val) * amplitude;

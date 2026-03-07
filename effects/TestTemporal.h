@@ -64,7 +64,7 @@ public:
 
     Plot::Mesh::draw<W, H>(
         filters, canvas, mesh, [&](const Vector &v, Fragment &f) {
-          f.color = get_color(palette.get((v.j + 1.0f) * 0.5f), 1.0f);
+          f.color = get_color(palette.get((v.y + 1.0f) * 0.5f), 1.0f);
 
           // Lighting Logic (Edge Pulses)
           float phase = fmodf(t * 0.05f, 1.0f); // Fixed light speed

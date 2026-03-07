@@ -104,9 +104,9 @@ private:
   }
 
   float distance_squared(const Vector &a, const Vector &b) {
-    float dx = a.i - b.i;
-    float dy = a.j - b.j;
-    float dz = a.k - b.k;
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+    float dz = a.z - b.z;
     return dx * dx + dy * dy + dz * dz;
   }
 };

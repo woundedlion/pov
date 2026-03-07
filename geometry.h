@@ -303,12 +303,12 @@ inline Vector logPolarToVector(float rho, float theta) {
  * @return Log-Polar coordinates.
  */
 inline LogPolar vectorToLogPolar(const Vector &v) {
-  const float denom = 1.0f - v.j;
+  const float denom = 1.0f - v.y;
   if (std::abs(denom) < 0.00001f) {
     return {10.0f, 0.0f}; // Handle North Pole singularity
   }
-  const float rho = 0.5f * logf((1.0f + v.j) / denom);
-  const float theta = atan2f(v.k, v.i);
+  const float rho = 0.5f * logf((1.0f + v.y) / denom);
+  const float theta = atan2f(v.z, v.x);
   return {rho, theta};
 }
 

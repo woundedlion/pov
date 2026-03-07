@@ -174,7 +174,7 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
     while (sim_dist < total_dist) {
       // Adaptive step size based on distortion (y-component)
       float scale_factor =
-          std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.j * p_temp.j)));
+          std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.y * p_temp.y)));
       float step = base_step * scale_factor;
 
       _steps_cache.push_back(step);
@@ -482,9 +482,9 @@ struct Ring {
   static Vector calcPoint(float a, float radius, const Vector &u,
                           const Vector &v, const Vector &w) {
     auto d = sqrtf((1 - radius) * (1 - radius));
-    return Vector(d * v.i + radius * u.i * cosf(a) + radius * w.i * sinf(a),
-                  d * v.j + radius * u.j * cosf(a) + radius * w.j * sinf(a),
-                  d * v.k + radius * u.k * cosf(a) + radius * w.k * sinf(a))
+    return Vector(d * v.x + radius * u.x * cosf(a) + radius * w.x * sinf(a),
+                  d * v.y + radius * u.y * cosf(a) + radius * w.y * sinf(a),
+                  d * v.z + radius * u.z * cosf(a) + radius * w.z * sinf(a))
         .normalize();
   }
 

@@ -98,11 +98,11 @@ private:
     std::array<int, RD_N> next_node;
 
     auto get_grid_idx = [&](const Vector &p) {
-      int gx = hs::clamp(static_cast<int>((p.i + 1.0f) / CELL_SIZE), 0,
+      int gx = hs::clamp(static_cast<int>((p.x + 1.0f) / CELL_SIZE), 0,
                          GRID_SIZE - 1);
-      int gy = hs::clamp(static_cast<int>((p.j + 1.0f) / CELL_SIZE), 0,
+      int gy = hs::clamp(static_cast<int>((p.y + 1.0f) / CELL_SIZE), 0,
                          GRID_SIZE - 1);
-      int gz = hs::clamp(static_cast<int>((p.k + 1.0f) / CELL_SIZE), 0,
+      int gz = hs::clamp(static_cast<int>((p.z + 1.0f) / CELL_SIZE), 0,
                          GRID_SIZE - 1);
       return gx + gy * GRID_SIZE + gz * GRID_SIZE * GRID_SIZE;
     };
@@ -122,11 +122,11 @@ private:
       std::array<std::pair<float, int>, RD_K> best;
       best.fill({std::numeric_limits<float>::max(), -1});
 
-      int gx = hs::clamp(static_cast<int>((p1.i + 1.0f) / CELL_SIZE), 0,
+      int gx = hs::clamp(static_cast<int>((p1.x + 1.0f) / CELL_SIZE), 0,
                          GRID_SIZE - 1);
-      int gy = hs::clamp(static_cast<int>((p1.j + 1.0f) / CELL_SIZE), 0,
+      int gy = hs::clamp(static_cast<int>((p1.y + 1.0f) / CELL_SIZE), 0,
                          GRID_SIZE - 1);
-      int gz = hs::clamp(static_cast<int>((p1.k + 1.0f) / CELL_SIZE), 0,
+      int gz = hs::clamp(static_cast<int>((p1.z + 1.0f) / CELL_SIZE), 0,
                          GRID_SIZE - 1);
 
       // Search adjacent cells

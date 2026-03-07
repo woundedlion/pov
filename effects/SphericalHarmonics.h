@@ -92,10 +92,10 @@ public:
     void distance(const Vector &p, SDF::DistanceResult &res) const {
       Vector local = rotate(p, orientation.conjugate());
 
-      float theta = atan2f(local.k, local.i);
+      float theta = atan2f(local.z, local.x);
       if (theta < 0)
         theta += 2 * PI_F;
-      float phi = acosf(hs::clamp(local.j, -1.0f, 1.0f));
+      float phi = acosf(hs::clamp(local.y, -1.0f, 1.0f));
       float val = SHMath::sphericalHarmonic(l, m, theta, phi);
 
       res = SDF::DistanceResult(-1.0f, 0.0f, val, 0.0f, 1.0f);

@@ -33,7 +33,7 @@ public:
     t += 1.0f;
 
     auto fragmentShader = [&](const Vector &v, Fragment &f) {
-      Color4 baseColor = get_color(palette.get((v.j + 1.0f) * 0.5f), 1.0f);
+      Color4 baseColor = get_color(palette.get((v.y + 1.0f) * 0.5f), 1.0f);
       f.color = baseColor;
 
       // Lighting Logic (Edge Pulses)
