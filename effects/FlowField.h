@@ -18,7 +18,9 @@ public:
                               BrightnessProfile::ASCENDING),
         filters(Filter::World::Trails<W, k_max_trail_dots>(k_trail_length),
                 Filter::World::Orient<W>(orientation),
-                Filter::Screen::AntiAlias<W, H>()) {
+                Filter::Screen::AntiAlias<W, H>()) {}
+
+  void init() override {
     registerParam("Scale", &params.noise_scale, 0.1f, 10.0f);
     registerParam("Force", &params.force_scale, 0.001f, 0.05f);
     registerParam("Max Spd", &params.max_speed, 0.01f, 0.1f);

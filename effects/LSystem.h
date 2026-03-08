@@ -56,7 +56,9 @@ public:
 
   FLASHMEM LSystem()
       : Effect(W, H), filters(Filter::World::Orient<W>(orientation),
-                              Filter::Screen::AntiAlias<W, H>()) {
+                              Filter::Screen::AntiAlias<W, H>()) {}
+
+  void init() override {
     registerParam("Rule", &params.rule_idx, 0.0f, 2.0f);
     registerParam("Angle", &params.angle_mod, -15.0f, 15.0f);
     registerParam("Step", &params.step_mod, 0.5f, 2.0f);

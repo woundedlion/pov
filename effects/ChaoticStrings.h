@@ -59,11 +59,11 @@ public:
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), animated_palette(&palette_variant),
         cycle_phase(0.0f), functions{{{12.0f, 5.0f, 0, 2 * PI_F}}},
-        cur_function_idx(0), node(), noise(timeline), vertices() {
+        cur_function_idx(0), node(), noise(timeline), vertices() {}
 
+  void init() override {
     // Colors
-    animated_palette.add(ScaleModifier(200.0f, &params.scaleFactor))
-        .add(CycleModifier(&cycle_phase));
+    animated_palette.add(scale_mod).add(cycle_mod);
     palette_variant = Palettes::fireAndIce;
 
     // Parameters
@@ -193,7 +193,9 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ProceduralPath path;
   Orientation<W> orientation;
-  PaletteVariant palette_variant;
+  ScaleModifier scale_mod{200.0f, &params.scaleFactor};
+  CycleModifier cycle_mod{&cycle_phase};
+  ProceduralPalette palette_variant;
   AnimatedPalette animated_palette;
   float cycle_phase = 0.0f;
   std::array<LissajousConfig, 1> functions;

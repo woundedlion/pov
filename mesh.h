@@ -196,7 +196,8 @@ namespace MeshOps {
  * Removes degenerate faces (faces with < 3 vertices) during
  * the process.
  */
-inline void compile(const PolyMesh &src, MeshState &dst, Arena &geom_arena) {
+FLASHMEM inline void compile(const PolyMesh &src, MeshState &dst,
+                             Arena &geom_arena) {
   dst.clear();
 
   size_t valid_faces = 0;
@@ -291,7 +292,8 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
  * @brief Colors faces based on their vertex count and neighbor topology.
  */
 template <typename MeshT>
-static void classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
+FLASHMEM __attribute__((noinline)) static void
+classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
   ScopedScratch _(ctx.get_scratch_back());
 
   size_t F = mesh.face_counts.size();
@@ -350,12 +352,12 @@ static void classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
     std::fill_n(pairArray, I, HE_NONE);
 
     {
-      ScopedScratch temp_records(ctx.get_scratch_back());
+      ScopedScratch temp_records(ctx.get_scratch_front());
       struct EdgeRecord {
         uint16_t min_v, max_v, he;
       };
       EdgeRecord *records =
-          static_cast<EdgeRecord *>(ctx.get_scratch_back().allocate(
+          static_cast<EdgeRecord *>(ctx.get_scratch_front().allocate(
               I * sizeof(EdgeRecord), alignof(EdgeRecord)));
 
       size_t he_idx = 0;

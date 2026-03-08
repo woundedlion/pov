@@ -55,7 +55,7 @@ public:
     timeline.step(canvas);
   }
 
-  void rebuild() {
+  FLASHMEM void rebuild() {
     rings.clear();
     // Re-create timeline to clear old animations
     timeline = Timeline<W, 256>();

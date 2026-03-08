@@ -28,14 +28,15 @@ public:
 
   FLASHMEM TestTemporal()
       : Effect(W, H), params(), t(0), color_offset(0.0f),
-        source_variant{Palettes::richSunset},
-        circular_source{CircularPalette(&source_variant)},
+        source_palette{Palettes::richSunset}, circular_source{&source_palette},
         palette(&circular_source), orientation(), timeline(), noise(),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
                                                                2.0f),
                 Filter::Screen::AntiAlias<W, H>()),
-        mesh() {
+        mesh() {}
+
+  void init() override {
     registerParam("Mode", &params.mode, 0.0f, 4.0f);
     registerParam("Delay Base", &params.base, 0.0f, 50.0f);
     registerParam("Delay Amp", &params.amp, 0.0f, 50.0f);
@@ -46,7 +47,7 @@ public:
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
-    palette.add(CycleModifier(&color_offset));
+    palette.add(cycle_mod);
     timeline.add(0, Animation::Driver(color_offset, 0.02f));
 
     rebuild_mesh();
@@ -64,7 +65,7 @@ public:
 
     Plot::Mesh::draw<W, H>(
         filters, canvas, mesh, [&](const Vector &v, Fragment &f) {
-          f.color = get_color(palette.get((v.y + 1.0f) * 0.5f), 1.0f);
+          f.color = palette.get((v.y + 1.0f) * 0.5f);
 
           // Lighting Logic (Edge Pulses)
           float phase = fmodf(t * 0.05f, 1.0f); // Fixed light speed
@@ -107,8 +108,9 @@ private:
   float t = 0;
 
   float color_offset = 0.0f;
-  PaletteVariant source_variant{Palettes::richSunset};
-  PaletteVariant circular_source{CircularPalette(&source_variant)};
+  CycleModifier cycle_mod{&color_offset};
+  ProceduralPalette source_palette = Palettes::richSunset;
+  CircularPalette circular_source{&source_palette};
   AnimatedPalette palette;
 
   Orientation<W> orientation;

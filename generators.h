@@ -41,7 +41,7 @@ struct SolidGenerator : public IMeshGenerator {
 
   SolidGenerator(int id) : solid_id(id) {}
 
-  PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
+  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
     ScopedScratch _(ctx.get_scratch_back());
     return Solids::get(geom, ctx, solid_id);
   }
@@ -55,7 +55,7 @@ struct SolidNameGenerator : public IMeshGenerator {
 
   SolidNameGenerator(std::string_view name) : solid_name(name) {}
 
-  PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
+  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
     ScopedScratch _(ctx.get_scratch_back());
     return Solids::get_by_name(geom, ctx, solid_name);
   }
@@ -65,35 +65,35 @@ struct SolidNameGenerator : public IMeshGenerator {
  * @brief Helper generator for specific platonic solids
  */
 struct IcosahedronGenerator : public IMeshGenerator {
-  PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
+  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
     ScopedScratch _(ctx.get_scratch_back());
     return Solids::finalize_solid(Solids::Platonic::icosahedron(ctx), geom);
   }
 };
 
 struct DodecahedronGenerator : public IMeshGenerator {
-  PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
+  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
     ScopedScratch _(ctx.get_scratch_back());
     return Solids::finalize_solid(Solids::Platonic::dodecahedron(ctx), geom);
   }
 };
 
 struct CubeGenerator : public IMeshGenerator {
-  PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
+  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
     ScopedScratch _(ctx.get_scratch_back());
     return Solids::finalize_solid(Solids::Platonic::cube(ctx), geom);
   }
 };
 
 struct OctahedronGenerator : public IMeshGenerator {
-  PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
+  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
     ScopedScratch _(ctx.get_scratch_back());
     return Solids::finalize_solid(Solids::Platonic::octahedron(ctx), geom);
   }
 };
 
 struct TetrahedronGenerator : public IMeshGenerator {
-  PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
+  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
     ScopedScratch _(ctx.get_scratch_back());
     return Solids::finalize_solid(Solids::Platonic::tetrahedron(ctx), geom);
   }

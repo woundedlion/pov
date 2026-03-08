@@ -24,8 +24,9 @@ public:
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
                                                                2.0f),
-                Filter::Screen::AntiAlias<W, H>()) {
+                Filter::Screen::AntiAlias<W, H>()) {}
 
+  void init() override {
     // Initialize with JS defaults
     params.temporalEnabled = true;
     params.windowSize = 8;

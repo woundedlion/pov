@@ -15,7 +15,9 @@ public:
   FLASHMEM HopfFibration()
       : Effect(W, H), filters(Filter::World::Trails<W, MAX_TRAILS>(40),
                               Filter::World::Orient<W>(orientation),
-                              Filter::Screen::AntiAlias<W, H>()) {
+                              Filter::Screen::AntiAlias<W, H>()) {}
+
+  void init() override {
     registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
     registerParam("Folding", &params.folding, 0.0f, 2.0f);

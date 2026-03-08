@@ -20,10 +20,12 @@ public:
     Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
     Ring() : normal(X_AXIS), palette(nullptr) {}
 
-    Ring(const Vector &n, const PaletteVariant *p) : normal(n), palette(p) {}
+    Ring(const Vector &n, const Palette *p) : normal(n), palette(p) {}
   };
 
-  FLASHMEM RingSpin() : Effect(W, H) {
+  FLASHMEM RingSpin() : Effect(W, H) {}
+
+  void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);
@@ -57,7 +59,7 @@ public:
   }
 
 private:
-  void spawn_ring(const Vector &normal, const PaletteVariant *palette) {
+  void spawn_ring(const Vector &normal, const Palette *palette) {
     if (rings.is_full())
       return;
     rings.push_back(Ring(normal, palette));
@@ -71,7 +73,7 @@ private:
   Pipeline<W, H> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;
 
-  std::array<PaletteVariant, 4> source_palettes = {
+  std::array<ProceduralPalette, 4> source_palettes = {
       Palettes::iceMelt, Palettes::undersea, Palettes::mangoPeel,
       Palettes::richSunset};
 

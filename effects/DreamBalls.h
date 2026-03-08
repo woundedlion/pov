@@ -18,7 +18,7 @@ public:
     float offset_radius;
     float offset_speed;
     float warp_scale;
-    PaletteVariant palette;
+    const Palette *palette;
     float alpha;
     bool enable_slice = false;
   };
@@ -29,8 +29,9 @@ public:
                 Filter::Screen::AntiAlias<W, H>()),
 
         slice_filter(filters), // Filters inherits Head (FilterOrientSlice)
-        mobius_gen(timeline) {
+        mobius_gen(timeline) {}
 
+  void init() override {
     // Initialize Presets
     setup_presets();
 
@@ -91,26 +92,29 @@ private:
   std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
   MobiusWarpTransformer<W, 64> mobius_gen;
 
-  PaletteVariant bloodStreamVar{Palettes::bloodStream};
+  ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
   AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },
-                                         &bloodStreamVar};
+                                         &bloodStreamPalette};
+
+  static constexpr ProceduralPalette richSunsetCopy = Palettes::richSunset;
+  static constexpr ProceduralPalette lavenderLakeCopy = Palettes::lavenderLake;
 
   Presets<Params, 4> preset_manager = {
       .entries = {{{"rhombicuboctahedron",
                     {"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
-                     bloodStreamFalloff, 0.7f, false}},
+                     &bloodStreamFalloff, 0.7f, false}},
                    {"rhombicosidodecahedron",
                     {"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-                     bloodStreamFalloff, 0.7f, false}},
+                     &bloodStreamFalloff, 0.7f, false}},
                    {"truncatedCuboctahedron",
                     {"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-                     Palettes::richSunset, 0.3f, false}},
+                     &richSunsetCopy, 0.3f, false}},
                    {"icosidodecahedron",
                     {"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-                     Palettes::lavenderLake, 0.3f, false}}}},
+                     &lavenderLakeCopy, 0.3f, false}}}},
       .current_idx = 0};
 
-  void setup_presets() {
+  FLASHMEM void setup_presets() {
     // Pre-load Geometry
     const auto &entries = preset_manager.get_entries();
 

@@ -21,6 +21,12 @@ public:
   FunctionRef() = default;
   FunctionRef(std::nullptr_t) {}
 
+  // Explicit copy/move — prevent the generic Callable template from matching
+  FunctionRef(const FunctionRef &other) noexcept = default;
+  FunctionRef(FunctionRef &&other) noexcept = default;
+  FunctionRef &operator=(const FunctionRef &other) noexcept = default;
+  FunctionRef &operator=(FunctionRef &&other) noexcept = default;
+
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx_(reinterpret_cast<void *>(func)) {
     thunk_ = [](void *ptr, Args... args) -> Ret {
@@ -30,7 +36,8 @@ public:
   }
 
   template <typename Callable>
-    requires std::invocable<Callable, Args...>
+    requires std::invocable<Callable, Args...> &&
+             (!std::same_as<std::decay_t<Callable>, FunctionRef>)
   FunctionRef(Callable &callable) noexcept : ctx_(std::addressof(callable)) {
     thunk_ = [](void *ptr, Args... args) -> Ret {
       return (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
@@ -38,7 +45,8 @@ public:
   }
 
   template <typename Callable>
-    requires std::invocable<Callable, Args...>
+    requires std::invocable<Callable, Args...> &&
+             (!std::same_as<std::decay_t<Callable>, FunctionRef>)
   FunctionRef(const Callable &callable) noexcept
       : ctx_(const_cast<void *>(
             static_cast<const void *>(std::addressof(callable)))) {
@@ -93,14 +101,14 @@ public:
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha,
             uint8_t tag = 0) const {
     plot3d_(ctx_, cv, v, c, age, alpha, tag);
-  }
+  };
 };
 
-using PlotFn = std::function<Vector(float)>;
-using SpriteFn = std::function<void(Canvas &, float)>;
-using TimerFn = std::function<void(Canvas &)>;
-using ScalarFn = std::function<float(float)>;
-using HarmonicWaveFn = std::function<float(int, int, float, float)>;
+using PlotFn = Fn<Vector(float), 16>;
+using SpriteFn = Fn<void(Canvas &, float), 48>;
+using TimerFn = Fn<void(Canvas &), 16>;
+using ScalarFn = FunctionRef<float(float)>;
+using HarmonicWaveFn = Fn<float(int, int, float, float), 8>;
 
 /**
  * @brief Concept for any object that maintains a history or sequence accessible

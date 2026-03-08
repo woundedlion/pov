@@ -65,7 +65,7 @@ inline void transform(const MeshT &mesh, MeshT &transformed, ScratchFront arena,
 /**
  * @brief Computes the dual of a mesh.
  */
-inline PolyMesh dual(const PolyMesh &mesh, MemoryCtx &ctx) {
+FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, MemoryCtx &ctx) {
   ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -159,7 +159,7 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 /**
  * @brief Kis operator: Raises a pyramid on each face.
  */
-inline PolyMesh kis(const PolyMesh &mesh, MemoryCtx &ctx) {
+FLASHMEM inline PolyMesh kis(const PolyMesh &mesh, MemoryCtx &ctx) {
   ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -207,7 +207,7 @@ inline PolyMesh kis(const PolyMesh &mesh, MemoryCtx &ctx) {
 /**
  * @brief Ambo operator: Truncates vertices to edge midpoints.
  */
-inline PolyMesh ambo(const PolyMesh &mesh, MemoryCtx &ctx) {
+FLASHMEM inline PolyMesh ambo(const PolyMesh &mesh, MemoryCtx &ctx) {
   ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -324,8 +324,8 @@ inline PolyMesh ambo(const PolyMesh &mesh, MemoryCtx &ctx) {
  * @brief Truncate operator: Cuts corners off the polyhedron.
  * @param t Truncation depth [0..0.5].
  */
-inline PolyMesh truncate(const PolyMesh &mesh, MemoryCtx &ctx,
-                         float t = 0.25f) {
+FLASHMEM inline PolyMesh truncate(const PolyMesh &mesh, MemoryCtx &ctx,
+                                  float t = 0.25f) {
   if (std::abs(t - 0.5f) < 1e-4f) {
     return ambo(mesh, ctx);
   }
@@ -471,8 +471,8 @@ inline PolyMesh truncate(const PolyMesh &mesh, MemoryCtx &ctx,
  * @brief Expand operator: Separates faces (e = aa).
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
  */
-inline PolyMesh expand(const PolyMesh &mesh, MemoryCtx &ctx,
-                       float t = 2.0f - sqrt(2.0f)) {
+FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, MemoryCtx &ctx,
+                                float t = 2.0f - sqrt(2.0f)) {
   ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -598,13 +598,13 @@ inline PolyMesh expand(const PolyMesh &mesh, MemoryCtx &ctx,
 /**
  * @brief Bitruncate operator: Truncate the rectified mesh.
  */
-inline PolyMesh bitruncate(const PolyMesh &mesh, MemoryCtx &ctx,
-                           float t = 1.0f / 3.0f) {
+FLASHMEM inline PolyMesh bitruncate(const PolyMesh &mesh, MemoryCtx &ctx,
+                                    float t = 1.0f / 3.0f) {
   return truncate(ambo(mesh, ctx), ctx, t);
 }
 
-inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
-                             int iterations = 8) {
+FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
+                                      int iterations = 8) {
   ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -697,8 +697,8 @@ inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
  * @brief Snub operator: Creates a chiral semi-regular polyhedron.
  * Updated with twist support.
  */
-inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx, float t = 0.5f,
-                     float twist = 0.0f) {
+FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx,
+                              float t = 0.5f, float twist = 0.0f) {
   ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -848,14 +848,14 @@ inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx, float t = 0.5f,
   return out_mesh;
 }
 
-inline PolyMesh gyro(const PolyMesh &mesh, MemoryCtx &ctx) {
+FLASHMEM inline PolyMesh gyro(const PolyMesh &mesh, MemoryCtx &ctx) {
   return dual(snub(mesh, ctx), ctx);
 }
 
 /**
  * @brief Computes KDTree and Adjacency map for the mesh (caching it).
  */
-inline void compute_kdtree(const PolyMesh &mesh, Arena &arena) {
+FLASHMEM inline void compute_kdtree(const PolyMesh &mesh, Arena &arena) {
   if (mesh.cache_valid)
     return;
 

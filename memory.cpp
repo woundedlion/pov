@@ -1,10 +1,28 @@
 #include "memory.h"
 #include "mesh.h"
 
-// Allocations
-Arena scratch_arena_a(SCRATCH_ARENA_A_SIZE);
-Arena scratch_arena_b(SCRATCH_ARENA_B_SIZE);
-Arena persistent_arena(PERSISTENT_ARENA_SIZE);
+// Stubs to prevent the linker pulling in the C++ demangler (~15KB).
+// Chain: std::function -> __cxa_throw -> __verbose_terminate_handler ->
+// d_print_*
+extern "C" void __cxa_pure_virtual() {
+  while (1)
+    ;
+}
+namespace __gnu_cxx {
+void __verbose_terminate_handler() {
+  while (1)
+    ;
+}
+} // namespace __gnu_cxx
+
+// Static arena backing stores — plain static = RAM1 (DTCM) on Teensy
+static uint8_t scratch_buf_a[SCRATCH_ARENA_A_SIZE];
+static uint8_t scratch_buf_b[SCRATCH_ARENA_B_SIZE];
+static uint8_t persistent_buf[PERSISTENT_ARENA_SIZE];
+
+Arena scratch_arena_a(scratch_buf_a, SCRATCH_ARENA_A_SIZE);
+Arena scratch_arena_b(scratch_buf_b, SCRATCH_ARENA_B_SIZE);
+Arena persistent_arena(persistent_buf, PERSISTENT_ARENA_SIZE);
 
 MeshState *PersistentTracker::tracked_meshes[256];
 size_t PersistentTracker::num_tracked = 0;

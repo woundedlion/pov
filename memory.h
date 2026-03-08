@@ -12,14 +12,14 @@
 #include <cstdio>
 
 #ifdef __EMSCRIPTEN__
-constexpr size_t SCRATCH_ARENA_A_SIZE = 2 * 1024 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 2 * 1024 * 1024;
-constexpr size_t PERSISTENT_ARENA_SIZE = 4 * 1024 * 1024;
+constexpr size_t SCRATCH_ARENA_A_SIZE = 113 * 1024;
+constexpr size_t SCRATCH_ARENA_B_SIZE = 96 * 1024;
+constexpr size_t PERSISTENT_ARENA_SIZE = 75 * 1024;
 #else
-// Teensy 4.x safe limits (Total 512 KB, leaves 512 KB for heap/stack/FastLED)
-constexpr size_t SCRATCH_ARENA_A_SIZE = 128 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 128 * 1024;
-constexpr size_t PERSISTENT_ARENA_SIZE = 256 * 1024;
+// Teensy 4.0 — static arenas in RAM1 (DTCM), must fit within free space
+constexpr size_t SCRATCH_ARENA_A_SIZE = 113 * 1024;
+constexpr size_t SCRATCH_ARENA_B_SIZE = 96 * 1024;
+constexpr size_t PERSISTENT_ARENA_SIZE = 75 * 1024;
 #endif
 
 // ============================================================================
@@ -35,11 +35,8 @@ class Arena {
 #endif
 
 public:
-  Arena(size_t size) : capacity(size), offset(0), high_water_mark(0) {
-    buffer = new uint8_t[size];
-  }
-
-  ~Arena() { delete[] buffer; }
+  Arena(uint8_t *buf, size_t size)
+      : buffer(buf), capacity(size), offset(0), high_water_mark(0) {}
 
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
     size_t current = reinterpret_cast<size_t>(buffer + offset);

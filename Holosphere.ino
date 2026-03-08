@@ -19,7 +19,7 @@ void setup() {
   pov = new POVDisplay<NUM_PIXELS, RPM>();
 }
 
-void loop() {
+FLASHMEM static void run_show_sequence() {
   // Test/Debug Effects
   pov->show<Test<96, 20>>(120);
   pov->show<TestShapes<96, 20>>(120);
@@ -66,3 +66,5 @@ void loop() {
   pov->show<Spiral<48, 20, 0>>(20);
   pov->show<Spiral<48, 20, 1>>(10);
 }
+
+void loop() { run_show_sequence(); }
