@@ -1056,7 +1056,7 @@ public:
       u = Y_AXIS;
     }
     direction = cross(v, u).normalize();
-    noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noiseGenerator.SetFrequency(options.noise_scale);
     if (options.seed == 0) {
       noiseGenerator.SetSeed(std::rand());
