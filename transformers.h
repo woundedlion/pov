@@ -42,8 +42,9 @@ public:
    * @param in_frames Delay before starting.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
+   * @return Pointer to the spawned animation, or nullptr if no slots.
    */
-  template <typename... Args> void spawn(int in_frames, Args &&...args) {
+  template <typename... Args> AnimT *spawn(int in_frames, Args &&...args) {
     // Linear scan for a free slot
     for (auto &e : entities) {
       if (!e.active) {
@@ -52,14 +53,15 @@ public:
         // Create animation with reference to the stable entity params
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         bool repeats = anim.repeats();
-        timeline.add(in_frames, anim.then([&e, repeats]() {
-          if (!repeats)
-            e.active = false;
-        }));
-        return;
+        return timeline.add_get(in_frames,
+                                std::move(anim).then([&e, repeats]() {
+                                  if (!repeats)
+                                    e.active = false;
+                                }));
       }
     }
     // If we get here, no free slots. Drop the spawn (safe failure).
+    return nullptr;
   }
 
   /**

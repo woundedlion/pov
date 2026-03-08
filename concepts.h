@@ -107,7 +107,7 @@ public:
 using PlotFn = Fn<Vector(float), 16>;
 using SpriteFn = Fn<void(Canvas &, float), 48>;
 using TimerFn = Fn<void(Canvas &), 16>;
-using ScalarFn = FunctionRef<float(float)>;
+using ScalarFn = Fn<float(float), 32>;
 using HarmonicWaveFn = Fn<float(int, int, float, float), 8>;
 
 /**

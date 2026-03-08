@@ -12,13 +12,13 @@
 #include <cstdio>
 
 #ifdef __EMSCRIPTEN__
-constexpr size_t SCRATCH_ARENA_A_SIZE = 113 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 96 * 1024;
+constexpr size_t SCRATCH_ARENA_A_SIZE = 120 * 1024;
+constexpr size_t SCRATCH_ARENA_B_SIZE = 100 * 1024;
 constexpr size_t PERSISTENT_ARENA_SIZE = 75 * 1024;
 #else
 // Teensy 4.0 — static arenas in RAM1 (DTCM), must fit within free space
-constexpr size_t SCRATCH_ARENA_A_SIZE = 113 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 96 * 1024;
+constexpr size_t SCRATCH_ARENA_A_SIZE = 120 * 1024;
+constexpr size_t SCRATCH_ARENA_B_SIZE = 100 * 1024;
 constexpr size_t PERSISTENT_ARENA_SIZE = 75 * 1024;
 #endif
 
@@ -61,13 +61,7 @@ public:
   size_t get_capacity() const { return capacity; }
   size_t get_high_water_mark() const { return high_water_mark; }
 
-  void set_offset(size_t new_offset) {
-#ifndef NDEBUG
-    if (new_offset < offset)
-      generation_++; // Scope rewind detected
-#endif
-    offset = new_offset;
-  }
+  void set_offset(size_t new_offset) { offset = new_offset; }
 
   void reset() {
     offset = 0;

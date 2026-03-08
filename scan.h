@@ -95,15 +95,14 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
   bool effective_debug = debug_bb || canvas.debug();
   auto bounds = shape.template get_vertical_bounds<H>();
 
-  if (!PixelLUT<W, H>::initialized)
-    PixelLUT<W, H>::init();
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
 
   StaticCircularBuffer<std::pair<float, float>, 32> intervals;
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
 
   for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
-    const Vector *row_vectors = &PixelLUT<W, H>::data[y * W];
 
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
@@ -120,9 +119,10 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
 
         if (end - start >= W) {
           for (int x = 0; x < W; ++x) {
-            process_pixel<W, H, ComputeUVs>(
-                x, y, row_vectors[x], pipeline, canvas, shape, fragment_shader,
-                effective_debug, result_scratch, frag_scratch);
+            Vector p = pixel_to_vector<W, H>(x, y);
+            process_pixel<W, H, ComputeUVs>(x, y, p, pipeline, canvas, shape,
+                                            fragment_shader, effective_debug,
+                                            result_scratch, frag_scratch);
           }
           continue;
         }
@@ -138,9 +138,10 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
           wx += W;
 
         for (int x = x1; x < x2; ++x) {
-          process_pixel<W, H, ComputeUVs>(
-              wx, y, row_vectors[wx], pipeline, canvas, shape, fragment_shader,
-              effective_debug, result_scratch, frag_scratch);
+          Vector p = pixel_to_vector<W, H>(wx, y);
+          process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
+                                          fragment_shader, effective_debug,
+                                          result_scratch, frag_scratch);
 
           // Modulo-free coordinate wrap!
           wx++;
@@ -152,9 +153,10 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
     } else {
       if (!handled) {
         for (int x = 0; x < W; ++x) {
-          process_pixel<W, H, ComputeUVs>(
-              x, y, row_vectors[x], pipeline, canvas, shape, fragment_shader,
-              effective_debug, result_scratch, frag_scratch);
+          Vector p = pixel_to_vector<W, H>(x, y);
+          process_pixel<W, H, ComputeUVs>(x, y, p, pipeline, canvas, shape,
+                                          fragment_shader, effective_debug,
+                                          result_scratch, frag_scratch);
         }
       }
     }

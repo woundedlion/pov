@@ -53,7 +53,7 @@ FLASHMEM inline void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   compiled.dynamicVertices.initialize(target_arena, I);
   compiled.dynamicInstructions.initialize(target_arena, I);
   compiled.face_counts.initialize(target_arena, F + V);
-  compiled.faces.initialize(target_arena, 3 * I);
+  compiled.faces.initialize(target_arena, 4 * I);
 
   {
     ScopedScratch _(temp_arena);

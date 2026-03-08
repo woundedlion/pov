@@ -7,12 +7,14 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
-#include <variant>
+
 #include <numeric> // for std::iota
 #include <array>
 #include "3dmath.h"
+#include "platform.h"
 #include "FastNoiseLite.h"
 #include "geometry.h"
+#include "memory.h"
 #include "spatial.h"
 #include "static_circular_buffer.h"
 #include "rotate.h"
@@ -723,7 +725,7 @@ private:
 
 /**
  * @brief An animation that draws a sprite while managing its fade-in/out
- * effects.
+ * effects. Computes opacity inline rather than embedding Transition objects.
  */
 class Sprite : public Base<Sprite> {
 public:
@@ -742,23 +744,10 @@ public:
          ScalarFn fade_in_easing_fn = ease_mid, int fade_out_duration = 0,
          ScalarFn fade_out_easing_fn = ease_mid)
       : Base(duration, false), draw_fn(std::move(draw_fn)),
-        fader(fade_in_duration > 0 ? 0 : 1), fade_in_duration(fade_in_duration),
+        fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
-        fade_in(fader, 1, fade_in_duration, fade_in_easing_fn),
-        fade_out(fader, 0, fade_out_duration, fade_out_easing_fn) {}
-
-  /**
-   * @brief Move constructor. Rebinds internal references to the new fader
-   * variable.
-   */
-  Sprite(Sprite &&other) noexcept
-      : Base(std::move(other)), draw_fn(std::move(other.draw_fn)),
-        fader(other.fader), fade_in_duration(other.fade_in_duration),
-        fade_out_duration(other.fade_out_duration),
-        fade_in(std::move(other.fade_in)), fade_out(std::move(other.fade_out)) {
-    fade_in.rebind_mutant(this->fader);
-    fade_out.rebind_mutant(this->fader);
-  }
+        fade_in_easing(std::move(fade_in_easing_fn)),
+        fade_out_easing(std::move(fade_out_easing_fn)) {}
 
   /**
    * @brief Updates the drawing function used by the sprite.
@@ -766,51 +755,35 @@ public:
   void rebind_draw(SpriteFn new_draw_fn) { draw_fn = std::move(new_draw_fn); }
 
   /**
-   * @brief Move assignment operator. Rebinds internal references.
-   */
-  Sprite &operator=(Sprite &&other) noexcept {
-    if (this == &other)
-      return *this;
-
-    Base::operator=(std::move(other));
-    draw_fn = std::move(other.draw_fn);
-    fader = other.fader;
-    fade_in_duration = other.fade_in_duration;
-    fade_out_duration = other.fade_out_duration;
-    fade_in = std::move(other.fade_in);
-    fade_in.rebind_mutant(this->fader);
-    fade_out = std::move(other.fade_out);
-    fade_out.rebind_mutant(this->fader);
-
-    return *this;
-  }
-
-  /**
-   * @brief Steps the animation, updates the fader, and calls the draw function
-   * with the current opacity.
+   * @brief Steps the animation, computes the current opacity inline, and calls
+   * the draw function.
    */
   void step(Canvas &canvas) override {
-    if (t == 0) {
-      fade_in.rewind();
-      fade_out.rewind();
-    }
     Base::step(canvas);
-    if (!fade_in.done()) {
-      fade_in.step(canvas);
-    } else if (duration >= 0 && fade_out_duration > 0 &&
-               t >= (duration - fade_out_duration)) {
-      fade_out.step(canvas);
+    float opacity = 1.0f;
+
+    // Fade in
+    if (fade_in_duration > 0 && t < fade_in_duration) {
+      float progress = static_cast<float>(t) / fade_in_duration;
+      opacity = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
-    draw_fn(canvas, fader);
+    // Fade out
+    else if (duration >= 0 && fade_out_duration > 0 &&
+             t >= (duration - fade_out_duration)) {
+      float elapsed = static_cast<float>(t - (duration - fade_out_duration));
+      float progress = elapsed / fade_out_duration;
+      opacity = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
+    }
+
+    draw_fn(canvas, opacity);
   }
 
 private:
-  SpriteFn draw_fn; /**< The drawing function functor. */
-  float fader; /**< The variable storing the current opacity (0.0 to 1.0). */
-  int fade_in_duration;  /**< Duration of fade-in phase. */
-  int fade_out_duration; /**< Duration of fade-out phase. */
-  Transition fade_in;    /**< Internal transition managing the fade-in. */
-  Transition fade_out;   /**< Internal transition managing the fade-out. */
+  SpriteFn draw_fn;         /**< The drawing function functor. */
+  int fade_in_duration;     /**< Duration of fade-in phase in frames. */
+  int fade_out_duration;    /**< Duration of fade-out phase in frames. */
+  ScalarFn fade_in_easing;  /**< Easing curve for fade-in. */
+  ScalarFn fade_out_easing; /**< Easing curve for fade-out. */
 };
 
 /**
@@ -1532,38 +1505,47 @@ private:
 
 } // namespace Animation
 
-template <int W>
-using AnimationVariant =
-    std::variant<std::monostate, Animation::Sprite, Animation::Transition,
-                 Animation::Mutation, Animation::Driver, Animation::RandomTimer,
-                 Animation::PeriodicTimer, Animation::Rotation<W>,
-                 Animation::Motion<W>, Animation::RandomWalk<W>,
-                 Animation::ColorWipe, Animation::MobiusFlow,
-                 Animation::MobiusWarpEvolving, Animation::MobiusWarp,
-                 Animation::MobiusWarpCircular, Animation::MeshMorph,
-                 Animation::Ripple, Animation::Noise, Animation::Lerp>;
-
 /**
- * @brief Structure linking an animation variant with its starting time.
+ * @brief Structure linking an animation with its starting time.
+ * Stores the animation inline to avoid arena allocation (survives compaction).
  */
-template <int W> struct TimelineEvent {
-  int start; /**< The global frame count at which the animation should begin. */
-  AnimationVariant<W> animation; /**< The actual animation object. */
+struct TimelineEvent {
+  static constexpr size_t MAX_ANIM_SIZE = 200;
 
-  /// Get the AnimationBase* from the stored variant.
-  AnimationBase *as_animation() {
-    return std::visit(
-        [](auto &a) -> AnimationBase * {
-          if constexpr (std::is_same_v<std::decay_t<decltype(a)>,
-                                       std::monostate>) {
-            return nullptr;
-          } else {
-            return static_cast<AnimationBase *>(&a);
-          }
-        },
-        animation);
+  int start = 0;
+  alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE];
+
+  /// Type-erased operation: dst != nullptr → move src into dst and destroy src.
+  ///                        dst == nullptr → just destroy src.
+  void (*manager)(TimelineEvent &src, TimelineEvent *dst) = nullptr;
+
+  AnimationBase *animation() {
+    return manager ? reinterpret_cast<AnimationBase *>(storage) : nullptr;
+  }
+
+  void move_into(TimelineEvent &dst) {
+    dst.start = start;
+    dst.manager = manager;
+    if (manager) {
+      manager(*this, &dst);
+      manager = nullptr;
+    }
+  }
+
+  void destroy() {
+    if (manager) {
+      manager(*this, nullptr);
+      manager = nullptr;
+    }
   }
 };
+
+/**
+ * @brief Global storage for the timeline to prevent template instantiation
+ * bloat.
+ */
+static constexpr int TIMELINE_MAX_EVENTS = 32;
+extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 
 /**
  * @brief Manages all active animations and their execution over time.
@@ -1573,7 +1555,20 @@ public:
   /**
    * @brief Constructs a Timeline.
    */
-  Timeline() : num_events(0) {}
+  Timeline() { clear(); }
+
+  /**
+   * @brief Cleans up remaining animations, invoked on effect destruction.
+   */
+  ~Timeline() { clear(); }
+
+  void clear() {
+    for (int i = 0; i < num_events; ++i) {
+      global_timeline_events[i].destroy();
+    }
+    num_events = 0;
+    t = 0;
+  }
 
   /**
    * @brief Adds a new animation event to the timeline.
@@ -1583,14 +1578,48 @@ public:
    * @return Reference to the Timeline object.
    */
   template <typename A> Timeline &add(float in_frames, A animation) {
+    static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
+                  "Animation type exceeds TimelineEvent inline storage");
     if (num_events >= MAX_EVENTS) {
       Serial.println("Timeline full, failed to add animation!");
       return *this;
     }
-    TimelineEvent<W> &e = events[num_events++];
-    e.start = t + in_frames;
-    e.animation = std::move(animation);
+    auto &e = global_timeline_events[num_events++];
+    e.start = t + (int)in_frames;
+    new (e.storage) A(std::move(animation));
+    e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
+      A *obj = reinterpret_cast<A *>(src.storage);
+      if (dst) {
+        new (dst->storage) A(std::move(*obj));
+      }
+      obj->~A();
+    };
     return *this;
+  }
+
+  /**
+   * @brief Like add(), but returns the typed pointer to the inline-stored
+   * animation. Use when you need to hold a reference for later mutation.
+   * @warning Pointer is invalidated if the event is moved during compaction.
+   */
+  template <typename A> A *add_get(float in_frames, A animation) {
+    static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
+                  "Animation type exceeds TimelineEvent inline storage");
+    if (num_events >= MAX_EVENTS) {
+      Serial.println("Timeline full, failed to add animation!");
+      return nullptr;
+    }
+    auto &e = global_timeline_events[num_events++];
+    e.start = t + (int)in_frames;
+    auto *ptr = new (e.storage) A(std::move(animation));
+    e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
+      A *obj = reinterpret_cast<A *>(src.storage);
+      if (dst) {
+        new (dst->storage) A(std::move(*obj));
+      }
+      obj->~A();
+    };
+    return ptr;
   }
 
   /**
@@ -1602,23 +1631,23 @@ public:
     ++t;
 
     int write_idx = 0;
-    int active_cnt =
-        num_events; // Snapshot count before callbacks potentially add more
+    int active_cnt = num_events; // Snapshot count before callbacks
+                                 // potentially add more
 
     for (int i = 0; i < active_cnt; ++i) {
-      auto &e = events[i];
+      auto &e = global_timeline_events[i];
 
       // 1. Check start time
       if (t < e.start) {
         if (i != write_idx) {
-          events[write_idx] = std::move(e);
+          e.move_into(global_timeline_events[write_idx]);
         }
         write_idx++;
         continue;
       }
 
       // 2. Collapse Orientation (virtual no-op for most types)
-      AnimationBase *anim = e.as_animation();
+      AnimationBase *anim = e.animation();
       if (!anim) {
         write_idx++;
         continue;
@@ -1646,9 +1675,11 @@ public:
 
       if (keep) {
         if (i != write_idx) {
-          events[write_idx] = std::move(e);
+          e.move_into(global_timeline_events[write_idx]);
         }
         write_idx++;
+      } else {
+        e.destroy();
       }
     }
 
@@ -1656,20 +1687,19 @@ public:
     int new_vals_count = num_events - active_cnt;
     if (new_vals_count > 0 && write_idx < active_cnt) {
       for (int i = 0; i < new_vals_count; ++i) {
-        events[write_idx + i] = std::move(events[active_cnt + i]);
+        global_timeline_events[active_cnt + i].move_into(
+            global_timeline_events[write_idx + i]);
       }
     }
 
     num_events = write_idx + new_vals_count;
   }
 
-  int t = 0; /**< The current global frame count. */
+  inline static int t = 0;          /**< The current global frame count. */
+  inline static int num_events = 0; /**< Current number of active events. */
 
   static constexpr int MAX_EVENTS =
       CAPACITY; /**< Maximum number of concurrent animation events. */
-  std::array<TimelineEvent<W>, MAX_EVENTS>
-      events;     /**< Storage for all animation events. */
-  int num_events; /**< Current number of active events. */
 };
 
 /**
