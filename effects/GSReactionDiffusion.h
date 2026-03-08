@@ -6,18 +6,20 @@
 #pragma once
 
 #include "../effects_engine.h"
+#include "../reaction_graph.h"
 #include <algorithm>
 #include <array>
 
 template <int W, int H> class GSReactionDiffusion : public Effect {
 public:
-  static constexpr int RD_N = W * H * 2; // Number of nodes in the graph
-  static constexpr int RD_K = 6;         // Number of neighbors per node
+  static constexpr int RD_N = ReactionGraph::RD_N;
+  static constexpr int RD_K = ReactionGraph::RD_K;
 
   FLASHMEM GSReactionDiffusion()
       : Effect(W, H), filters(Filter::World::Orient<W>(orientation),
-                              Filter::Screen::AntiAlias<W, H>()) {
+                              Filter::Screen::AntiAlias<W, H>()) {}
 
+  void init() override {
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill (k)", &params.k, 0.0f, 0.1f);
     registerParam("dA", &params.dA, 0.0f, 1.0f);
@@ -25,7 +27,9 @@ public:
     registerParam("dt", &params.dt, 0.1f, 2.0f);
     registerParam("Global Alpha", &params.global_alpha, 0.0f, 1.0f);
 
-    build_graph();
+    // Compute nodes from formula (neighbors are PROGMEM)
+    for (int i = 0; i < RD_N; ++i)
+      nodes[i] = ReactionGraph::node(i);
     timeline
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 64,
                                        ease_mid, true))
@@ -74,100 +78,6 @@ private:
     }
   };
 
-  void build_graph() {
-    // Generate Nodes (Fibonacci Lattice)
-    const float phi = PI_F * (3.0f - sqrtf(5.0f));
-
-    for (int i = 0; i < RD_N; i++) {
-      float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;
-      float radius = sqrtf(1.0f - y * y);
-      float theta = phi * i;
-
-      nodes[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
-    }
-
-    // Build Neighbors using Spatial Hashing (Grid Optimization)
-    // Grid Setup
-    static constexpr int GRID_SIZE = 20;
-    static constexpr float CELL_SIZE =
-        2.0f / GRID_SIZE; // Domain [-1, 1], size 2.0
-
-    // Temporary grid structure (Linked list approach)
-    std::array<int, GRID_SIZE * GRID_SIZE * GRID_SIZE> head;
-    head.fill(-1);
-    std::array<int, RD_N> next_node;
-
-    auto get_grid_idx = [&](const Vector &p) {
-      int gx = hs::clamp(static_cast<int>((p.x + 1.0f) / CELL_SIZE), 0,
-                         GRID_SIZE - 1);
-      int gy = hs::clamp(static_cast<int>((p.y + 1.0f) / CELL_SIZE), 0,
-                         GRID_SIZE - 1);
-      int gz = hs::clamp(static_cast<int>((p.z + 1.0f) / CELL_SIZE), 0,
-                         GRID_SIZE - 1);
-      return gx + gy * GRID_SIZE + gz * GRID_SIZE * GRID_SIZE;
-    };
-
-    // Bin points
-    for (int i = 0; i < RD_N; i++) {
-      int idx = get_grid_idx(nodes[i]);
-      next_node[i] = head[idx];
-      head[idx] = i;
-    }
-
-    // Neighbor search
-    for (int i = 0; i < RD_N; i++) {
-      const Vector &p1 = nodes[i];
-
-      // Track K nearest neighbors: {distance_squared, index}
-      std::array<std::pair<float, int>, RD_K> best;
-      best.fill({std::numeric_limits<float>::max(), -1});
-
-      int gx = hs::clamp(static_cast<int>((p1.x + 1.0f) / CELL_SIZE), 0,
-                         GRID_SIZE - 1);
-      int gy = hs::clamp(static_cast<int>((p1.y + 1.0f) / CELL_SIZE), 0,
-                         GRID_SIZE - 1);
-      int gz = hs::clamp(static_cast<int>((p1.z + 1.0f) / CELL_SIZE), 0,
-                         GRID_SIZE - 1);
-
-      // Search adjacent cells
-      for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-          for (int z = -1; z <= 1; z++) {
-            int nx = gx + x;
-            int ny = gy + y;
-            int nz = gz + z;
-
-            if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE &&
-                nz >= 0 && nz < GRID_SIZE) {
-              int cell_idx = nx + ny * GRID_SIZE + nz * GRID_SIZE * GRID_SIZE;
-
-              for (int j = head[cell_idx]; j != -1; j = next_node[j]) {
-                if (i == j)
-                  continue;
-
-                float d2 = distance_squared(p1, nodes[j]);
-
-                if (d2 < best[RD_K - 1].first) {
-                  int pos = RD_K - 1;
-                  while (pos > 0 && d2 < best[pos - 1].first) {
-                    best[pos] = best[pos - 1];
-                    pos--;
-                  }
-                  best[pos] = {d2, j};
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Store indices
-      for (int k = 0; k < RD_K; k++) {
-        neighbors[i][k] = best[k].second;
-      }
-    }
-  }
-
   void spawn() {
     contexts.push_back(GSReactionContext());
     GSReactionContext &ctx = contexts.back();
@@ -184,7 +94,7 @@ private:
     for (int i = 0; i < 5; i++) {
       int idx = hs::rand_int(0, RD_N);
       ctx.B[idx] = 1.0f;
-      for (int neighbor : neighbors[idx]) {
+      for (int neighbor : ReactionGraph::neighbors[idx]) {
         if (neighbor >= 0)
           ctx.B[neighbor] = 1.0f;
       }
@@ -219,13 +129,11 @@ private:
       float lapA = 0.0f;
       float lapB = 0.0f;
 
-      // Unrolled loop for fixed K=6
       for (int k = 0; k < RD_K; k++) {
-        int n_idx = neighbors[i][k];
-        if (n_idx == -1)
+        int n_idx = ReactionGraph::neighbors[i][k];
+        if (n_idx < 0)
           continue;
 
-        // Weight is 1.0 for all neighbors in this uniform graph
         lapA += (ctx.A[n_idx] - a);
         lapB += (ctx.B[n_idx] - b);
       }
@@ -249,7 +157,6 @@ private:
   }
 
   std::array<Vector, RD_N> nodes;
-  std::array<std::array<int, RD_K>, RD_N> neighbors;
   Orientation<W> orientation;
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Source files
-set(SOURCES wasm_bridge.cpp memory.cpp)
+set(SOURCES wasm_bridge.cpp memory.cpp reaction_graph.cpp)
 
 # Target name and output name
 set(TARGET_NAME holosphere_wasm)

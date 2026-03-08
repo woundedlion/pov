@@ -101,6 +101,14 @@ public:
    * @param duration The time in seconds to run the effect.
    */
   template <typename E> void show(unsigned long duration) {
+    run(new E(), duration);
+  }
+
+private:
+  /**
+   * @brief Non-template core of show(). Takes ownership of e.
+   */
+  void run(Effect *e, unsigned long duration) {
     scratch_arena_a.reset();
     scratch_arena_a.reset_high_water_mark();
     scratch_arena_b.reset();
@@ -111,7 +119,8 @@ public:
     PersistentTracker::clear_registry();
 
     long start = millis();
-    effect_ = new E();
+    effect_ = e;
+    effect_->init();
     x_ = 0;
 #ifdef ARDUINO
     IntervalTimer timer;

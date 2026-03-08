@@ -46,7 +46,7 @@ private:
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 
-  void rebuild() {
+  FLASHMEM void rebuild() {
     shapes.clear();
     timeline = Timeline<W, 128>();
 

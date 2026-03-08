@@ -89,7 +89,7 @@ public:
 
 private:
   StaticCircularBuffer<Ball, 50> balls;
-  PaletteVariant palette;
+  ProceduralPalette palette = Palettes::richSunset;
   FastNoiseLite noise;
   float t = 0.0f;
 

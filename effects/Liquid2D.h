@@ -1,29 +1,83 @@
 #pragma once
 
-#include "../effects_engine.h"
-#include <cmath>
+#include "../ShaderEffect.h"
 
-template <int W, int H> class Liquid2D : public Effect {
+template <int W, int H> class Liquid2D : public ShaderEffect<W, H> {
+  using Base = ShaderEffect<W, H>;
+
 public:
   Liquid2D()
-      : Effect(W, H),
-        myPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
-                  BrightnessProfile::CUP, SaturationProfile::VIBRANT, 141) {
-    persist_pixels = false;
+      : Base(GenerativePalette(
+            GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
+            BrightnessProfile::CUP, SaturationProfile::VIBRANT, 141)) {}
 
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  void init() override {
+    this->noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
-    registerParam("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
-    registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    registerParam("Time Speed", &params.time_speed, 0.1f, 5.0f);
-    registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
-    registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
+    this->registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
+    this->registerParam("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
+    this->registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
+    this->registerParam("Time Speed", &params.time_speed, 0.1f, 5.0f);
+    this->registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
+    this->registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, UP));
-    timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP));
+    // Cycle presets every 3-5 seconds via a 2 second lerp
+    this->timeline.add(0, Animation::RandomTimer(
+                              90, 150,
+                              [this](Canvas &) {
+                                presets.next();
+                                this->timeline.add(
+                                    0, Animation::Lerp(params, presets.get(),
+                                                       60, ease_in_out_sin));
+                              },
+                              true));
+
+    params = presets.get();
   }
 
+  // --- Virtual hooks ---
+
+  Complex transform(const Vector &v) const override {
+    Vector rotated_v = this->global_orientation.unorient(v);
+    Vector sample_v = apply_glitch_lens(rotated_v);
+    return stereo(this->orientation.orient(sample_v));
+  }
+
+  float sample(const Complex &z, float warp_x, float warp_y,
+               float t) const override {
+    float u = z.re + warp_x;
+    float v_coord = z.im + warp_y;
+
+    float pu = u * params.pattern_freq;
+    float pv = v_coord * params.pattern_freq;
+
+    float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
+                    cosf(pv + params.complexity * cosf(pu - t * 0.8f));
+
+    float r_sq = u * u + v_coord * v_coord;
+    float attenuation =
+        1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
+
+    return pattern * attenuation;
+  }
+
+  void calc_warp(const Complex &z, float t, float &warp_x,
+                 float &warp_y) const override {
+    float noise_time = t * 0.5f;
+    warp_x = this->noise.GetNoise(z.re * params.warp_scale,
+                                  z.im * params.warp_scale, noise_time) *
+             params.warp_strength;
+    warp_y =
+        this->noise.GetNoise(z.re * params.warp_scale + 100.0f,
+                             z.im * params.warp_scale + 100.0f, noise_time) *
+        params.warp_strength;
+  }
+
+  float get_time() const override {
+    return static_cast<float>(this->timeline.t) * params.time_speed;
+  }
+
+private:
   // Pure algebraic 3D Glitch Lens - Zero Trigonometry!
   Vector apply_glitch_lens(Vector v) const {
     // 1. Mirror Southern Hemisphere
@@ -48,100 +102,6 @@ public:
     );
   }
 
-  Complex transform_point(const Vector &true_v) const {
-    Vector rotated_v = global_orientation.unorient(true_v);
-    Vector sample_v = apply_glitch_lens(rotated_v);
-    return stereo(orientation.orient(sample_v));
-  }
-
-  float sample_pattern(const Complex &z, float warp_x, float warp_y,
-                       float t) const {
-    float u = z.re + warp_x;
-    float v_coord = z.im + warp_y;
-
-    float pu = u * params.pattern_freq;
-    float pv = v_coord * params.pattern_freq;
-
-    float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
-                    cosf(pv + params.complexity * cosf(pu - t * 0.8f));
-
-    float r_sq = u * u + v_coord * v_coord;
-    float attenuation =
-        1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
-
-    return pattern * attenuation;
-  }
-
-  void calc_warp_noise(const Complex &z, float t, float &warp_x,
-                       float &warp_y) const {
-    float noise_time = t * 0.5f;
-    warp_x = noise.GetNoise(z.re * params.warp_scale, z.im * params.warp_scale,
-                            noise_time) *
-             params.warp_strength;
-    warp_y = noise.GetNoise(z.re * params.warp_scale + 100.0f,
-                            z.im * params.warp_scale + 100.0f, noise_time) *
-             params.warp_strength;
-  }
-
-  virtual void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
-
-    float t = timeline.t * params.time_speed;
-
-    float eps = 0.5f;
-    float offsets_x[4] = {eps, -eps, eps, -eps};
-    float offsets_y[4] = {eps, eps, -eps, -eps};
-
-    constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
-    constexpr float w_float = static_cast<float>(W);
-
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-
-        // --- CALC THE NOISE ONCE PER LED ---
-        Vector true_center_v = pixel_to_vector<W, H>(x, y);
-        Complex center_z = transform_point(true_center_v);
-
-        float warp_x, warp_y;
-        calc_warp_noise(center_z, t, warp_x, warp_y);
-
-        float total_pattern = 0.0f;
-
-        // --- 4x SSAA LOOP ---
-        for (int i = 0; i < 4; ++i) {
-          float px = static_cast<float>(x) + offsets_x[i];
-          float py = static_cast<float>(y) + offsets_y[i];
-
-          // Direct calculation to bypass Spherical struct and clamping overhead
-          float theta = (px * 2.0f * PI_F) / w_float;
-          float phi = (py * PI_F) / h_virt_minus_1;
-          float sin_phi = sinf(phi);
-          Vector true_v(sin_phi * cosf(theta), cosf(phi),
-                        sin_phi * sinf(theta));
-
-          Complex z = transform_point(true_v);
-          total_pattern += sample_pattern(z, warp_x, warp_y, t);
-        }
-
-        // We always take 4 samples, so * 0.25f is faster than division
-        float avg_pattern = total_pattern * 0.25f;
-        float normalized_pattern = (avg_pattern + 1.0f) * 0.5f;
-        canvas(x, y) = myPalette.get(normalized_pattern).color;
-      }
-    }
-  }
-
-  // Preserved for physical POV inter-pixel blanking
-  virtual bool show_bg() const override { return true; }
-
-private:
-  Timeline<W> timeline;
-  Orientation<W> orientation;
-  Orientation<W> global_orientation;
-  FastNoiseLite noise;
-  GenerativePalette myPalette;
-
   struct Params {
     float warp_scale = 1.5f;
     float warp_strength = 0.5f;
@@ -149,6 +109,20 @@ private:
     float time_speed = 0.1f;
     float complexity = 0.5f;
     float pole_fade = 1.8f;
+
+    void lerp(const Params &a, const Params &b, float t) {
+      warp_scale = ::lerp(a.warp_scale, b.warp_scale, t);
+      warp_strength = ::lerp(a.warp_strength, b.warp_strength, t);
+      pattern_freq = ::lerp(a.pattern_freq, b.pattern_freq, t);
+      time_speed = ::lerp(a.time_speed, b.time_speed, t);
+      complexity = ::lerp(a.complexity, b.complexity, t);
+      pole_fade = ::lerp(a.pole_fade, b.pole_fade, t);
+    }
   };
   Params params;
+
+  Presets<Params, 4> presets = {{{
+      {"Geometric", {1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.8f}},
+      {"SlowDrip", {1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 2.0f}},
+  }}};
 };

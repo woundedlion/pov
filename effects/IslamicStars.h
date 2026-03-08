@@ -17,7 +17,9 @@
 template <int W, int H> class IslamicStars : public Effect {
 
 public:
-  FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {
+  FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
+
+  void init() override {
     PersistentTracker::register_mesh(&mesh_states[0]);
     PersistentTracker::register_mesh(&mesh_states[1]);
 
@@ -57,10 +59,10 @@ private:
   float ripple_duration = 80.0f;
   int solid_idx = -1;
   MeshState mesh_states[2];
-  std::array<PaletteVariant, 5> palettes_history[2];
+  std::array<ProceduralPalette, 5> palettes_history[2];
   int current_mesh_idx = 0;
 
-  std::array<PaletteVariant, 5> palettes = {
+  std::array<ProceduralPalette, 5> palettes = {
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
@@ -74,7 +76,7 @@ private:
 
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
-                  const std::array<PaletteVariant, 5> &palettes) {
+                  const std::array<ProceduralPalette, 5> &palettes) {
     // Early exit if barely visible to save an entire pass
     if (opacity <= 0.005f)
       return;
@@ -92,7 +94,7 @@ private:
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
       // Strip safety bounds checking; trust the rasterizer's face index output
       int faceIdx = static_cast<int>(frag.v2);
-      const PaletteVariant &pal = palettes[raw_indices[faceIdx]];
+      const ProceduralPalette &pal = palettes[raw_indices[faceIdx]];
 
       float size = frag.size;
       // Pre-negate v1 and simplify

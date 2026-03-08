@@ -92,6 +92,20 @@ struct ProceduralPath {
 
 #include "easing.h"
 
+/// Non-templated interface for all animations.
+/// Enables virtual dispatch in Timeline without std::visit.
+class AnimationBase {
+public:
+  virtual ~AnimationBase() = default;
+  virtual void step(Canvas &canvas) = 0;
+  virtual bool done() const = 0;
+  virtual bool repeats() const = 0;
+  virtual void rewind() = 0;
+  virtual void post_callback() = 0;
+  /// Override in types that own an Orientation to collapse it.
+  virtual void collapse_orientation() {}
+};
+
 namespace Animation {
 
 /**
@@ -110,7 +124,7 @@ enum class Space {
  * @tparam Derived The class inheriting from Animation (Curiously Recurring
  * Template Pattern).
  */
-template <typename Derived> class Base {
+template <typename Derived> class Base : public AnimationBase {
 public:
   /**
    * @brief Cancels the animation on the next step.
@@ -120,32 +134,32 @@ public:
    * @brief Checks if the animation is finished or canceled.
    * @return True if done.
    */
-  virtual bool done() const {
+  bool done() const override {
     return canceled || (duration >= 0 && t >= duration);
   }
   /**
    * @brief Checks if the animation should repeat after finishing.
    * @return True if repeating.
    */
-  virtual bool repeats() const { return repeat; }
+  bool repeats() const override { return repeat; }
   /**
    * @brief Advances the animation state by one frame.
    * @param canvas The canvas buffer (unused by base class, passed to derived
    * classes).
    */
-  virtual void step(Canvas &canvas) { t++; }
+  void step(Canvas &canvas) override { t++; }
 
   /**
    * @brief Resets the internal timer to zero.
    */
-  void rewind() { t = 0; }
+  void rewind() override { t = 0; }
 
   /**
    * @brief Sets a callback function to be executed when the animation finishes.
    * @param callback The function to execute on completion.
    * @return LValue Reference to the derived animation object.
    */
-  Derived &then(std::function<void()> callback) & {
+  Derived &then(Fn<void(), 24> callback) & {
     post = std::move(callback);
     return static_cast<Derived &>(*this);
   }
@@ -156,7 +170,7 @@ public:
    * @param callback The function to execute on completion.
    * @return RValue Reference to the derived animation object.
    */
-  Derived &&then(std::function<void()> callback) && {
+  Derived &&then(Fn<void(), 24> callback) && {
     post = std::move(callback);
     return static_cast<Derived &&>(*this);
   }
@@ -164,7 +178,10 @@ public:
   /**
    * @brief Executes the registered post-completion callback.
    */
-  void post_callback() const { post(); }
+  void post_callback() override {
+    if (post)
+      post();
+  }
 
 protected:
   /**
@@ -174,38 +191,18 @@ protected:
    * @param repeat If true, the animation rewinds and restarts when finished.
    */
   Base(int duration, bool repeat)
-      : duration(duration == 0 ? 1 : duration), repeat(repeat), canceled(false),
-        post([]() {}) {}
+      : duration(duration == 0 ? 1 : duration), repeat(repeat),
+        canceled(false) {}
 
-  Base() : duration(-1), repeat(false), canceled(false), post([]() {}) {}
+  Base() : duration(-1), repeat(false), canceled(false) {}
 
   int duration; /**< Total length of the animation in frames. */
   bool repeat;  /**< Flag indicating if the animation should repeat. */
   int t = 0;    /**< Internal frame counter. */
 
 private:
-  bool canceled; /**< Flag to signal immediate cancellation. */
-  std::function<void()>
-      post; /**< Callback executed when the animation finishes. */
-};
-
-/**
- * @brief A placeholder animation that immediately reports being done.
- */
-class NullAnimation : public Base<NullAnimation> {
-public:
-  /**
-   * @brief Constructs a NullAnimation.
-   */
-  NullAnimation() : Base(0, false) {}
-  /**
-   * @brief Performs no action.
-   */
-  void step(Canvas &) {}
-  /**
-   * @brief Always reports true.
-   */
-  bool done() const { return true; }
+  bool canceled;       /**< Flag to signal immediate cancellation. */
+  Fn<void(), 24> post; /**< Callback executed when the animation finishes. */
 };
 
 /**
@@ -258,20 +255,20 @@ private:
  * @brief Represents a single particle in a system.
  */
 template <int W> struct Particle {
-  Vector position;        /**< Current 3D position. */
-  Vector velocity;        /**< Current velocity vector. */
-  PaletteVariant palette; /**< Color palette assigned to the particle. */
-  float life;             /**< Remaining life (frames or arbitrary units). */
-  float max_life;         /**< Initial life value. */
+  Vector position; /**< Current 3D position. */
+  Vector velocity; /**< Current velocity vector. */
+  const Palette *palette =
+      nullptr;    /**< Color palette assigned to the particle. */
+  float life;     /**< Remaining life (frames or arbitrary units). */
+  float max_life; /**< Initial life value. */
   Orientation<W> orientation; /**< Orientation of the particle. */
 
   OrientationTrail<Orientation<W>, 25> history; /**< Trail history. */
 
-  void init(const Vector &p, const Vector &v, float l,
-            const PaletteVariant &pal) {
+  void init(const Vector &p, const Vector &v, float l, const Palette &pal) {
     position = p;
     velocity = v;
-    palette = pal;
+    palette = &pal;
     life = l;
     max_life = l;
     orientation.set(Quaternion());
@@ -306,7 +303,7 @@ public:
     float event_horizon;
   };
 
-  using EmitterFn = std::function<void(ParticleSystem &)>;
+  using EmitterFn = Fn<void(ParticleSystem &), 32>;
 
   StaticCircularBuffer<Attractor, 32> attractors;
   StaticCircularBuffer<EmitterFn, 32> emitters;
@@ -360,7 +357,7 @@ public:
    * @param pal Color palette.
    * @param life Lifespan in frames (default 600).
    */
-  void spawn(const Vector &pos, const Vector &vel, const PaletteVariant &pal,
+  void spawn(const Vector &pos, const Vector &vel, const Palette &pal,
              float life = 600) {
     if (active_count < CAPACITY) {
       pool[active_count++].init(pos, vel, life, pal);
@@ -481,7 +478,7 @@ public:
   /**
    * @brief Steps the timer, calling the function if the delay has elapsed.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     if (t >= next) {
       f(canvas);
@@ -524,7 +521,7 @@ public:
   /**
    * @brief Steps the timer, calling the function if the period has elapsed.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     if (t >= next) {
       f(canvas);
@@ -564,7 +561,7 @@ public:
   /**
    * @brief Performs one step of the transition.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     if (t == 0) {
       from = mutant;
     }
@@ -614,7 +611,7 @@ public:
   /**
    * @brief Performs one step of the mutation.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     if (t == 0) {
       from = mutant;
     }
@@ -654,7 +651,7 @@ public:
   /**
    * @brief Performs one step by adding the speed to the mutant.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     mutant.get() += speed;
     if (mutant.get() >= 1.0f)
@@ -691,7 +688,7 @@ private:
  */
 class Lerp : public Base<Lerp> {
 public:
-  using UpdateFn = std::function<void(float, bool)>;
+  using UpdateFn = Fn<void(float, bool), 64>;
 
   /**
    * @brief Constructs a Lerp animation.
@@ -713,7 +710,7 @@ public:
   // Generic constructor for arbitrary logic
   Lerp(UpdateFn fn, int duration) : Base(duration, false), fn(fn) {}
 
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     bool init = (t == 0);
     Base::step(canvas);
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
@@ -792,7 +789,7 @@ public:
    * @brief Steps the animation, updates the fader, and calls the draw function
    * with the current opacity.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     if (t == 0) {
       fade_in.rewind();
       fade_out.rewind();
@@ -841,12 +838,13 @@ public:
    * @brief Access the associated Orientation.
    */
   Orientation<W> &get_orientation() const { return orientation.get(); }
+  void collapse_orientation() override { get_orientation().collapse(); }
 
   /**
    * @brief Steps the animation, calculates intermediate rotation steps along
    * the path, and pushes them to the Orientation.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base<Motion<W>>::step(canvas);
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
@@ -901,10 +899,9 @@ private:
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
   std::reference_wrapper<Orientation<W>>
-      orientation; /**< Reference to the Orientation state. */
-  std::function<Vector(float)>
-      path_fn; /**< Function to retrieve path points. */
-  Space space; /**< The coordinate space for rotation. */
+      orientation;               /**< Reference to the Orientation state. */
+  Fn<Vector(float), 16> path_fn; /**< Function to retrieve path points. */
+  Space space;                   /**< The coordinate space for rotation. */
 };
 
 /**
@@ -943,6 +940,7 @@ public:
    * @brief Access the associated Orientation.
    */
   Orientation<W> &get_orientation() const { return *orientation; }
+  void collapse_orientation() override { get_orientation().collapse(); }
 
   /**
    * @brief Check if the rotation has a valid orientation bound.
@@ -953,7 +951,7 @@ public:
    * @brief Steps the animation, calculates the incremental rotation delta, and
    * pushes it to the Orientation.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     if (this->t == 0) {
       last_angle = 0;
     }
@@ -1071,6 +1069,7 @@ public:
    * @brief Access the associated Orientation.
    */
   Orientation<W> &get_orientation() const { return orientation.get(); }
+  void collapse_orientation() override { get_orientation().collapse(); }
 
   /**
    * @brief Steps the walk: pivots direction based on noise, then rotates the
@@ -1126,7 +1125,7 @@ public:
    * @brief Steps the animation, blending the palette's colors based on the time
    * factor.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     if (t == 0) {
       from_palette = cur_palette.get();
     }
@@ -1166,7 +1165,7 @@ public:
   /**
    * @brief Steps the animation, updating params a and d.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     float progress = static_cast<float>(t) / duration;
     float logPeriod = 5.0f / (num_rings + 1);
@@ -1208,7 +1207,7 @@ public:
   /**
    * @brief Steps the animation, updating param b.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
     float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
@@ -1245,7 +1244,7 @@ public:
   /**
    * @brief Steps the animation, updating param b.
    */
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
     float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
@@ -1379,7 +1378,7 @@ public:
     phases[7] = hs::rand_f() * 100.0f; // dIm
   }
 
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     float time = t * speed;
     float s = scale;
@@ -1461,7 +1460,7 @@ public:
     this->params.get().amplitude = 0.0f;
   }
 
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
 
     // 1. Move the wave (Emanate outward)
@@ -1522,7 +1521,7 @@ public:
   Noise(NoiseParams &params, int duration = -1)
       : Base(duration, true), params(params) {}
 
-  void step(Canvas &canvas) {
+  void step(Canvas &canvas) override {
     Base::step(canvas);
     params.get().time = static_cast<float>(t);
   }
@@ -1534,14 +1533,15 @@ private:
 } // namespace Animation
 
 template <int W>
-using AnimationVariant = std::variant<
-    Animation::NullAnimation, Animation::Sprite, Animation::Transition,
-    Animation::Mutation, Animation::Driver, Animation::RandomTimer,
-    Animation::PeriodicTimer, Animation::Rotation<W>, Animation::Motion<W>,
-    Animation::RandomWalk<W>, Animation::ColorWipe, Animation::MobiusFlow,
-    Animation::MobiusWarpEvolving, Animation::MobiusWarp,
-    Animation::MobiusWarpCircular, Animation::MeshMorph, Animation::Ripple,
-    Animation::Noise, Animation::Lerp>;
+using AnimationVariant =
+    std::variant<std::monostate, Animation::Sprite, Animation::Transition,
+                 Animation::Mutation, Animation::Driver, Animation::RandomTimer,
+                 Animation::PeriodicTimer, Animation::Rotation<W>,
+                 Animation::Motion<W>, Animation::RandomWalk<W>,
+                 Animation::ColorWipe, Animation::MobiusFlow,
+                 Animation::MobiusWarpEvolving, Animation::MobiusWarp,
+                 Animation::MobiusWarpCircular, Animation::MeshMorph,
+                 Animation::Ripple, Animation::Noise, Animation::Lerp>;
 
 /**
  * @brief Structure linking an animation variant with its starting time.
@@ -1549,6 +1549,20 @@ using AnimationVariant = std::variant<
 template <int W> struct TimelineEvent {
   int start; /**< The global frame count at which the animation should begin. */
   AnimationVariant<W> animation; /**< The actual animation object. */
+
+  /// Get the AnimationBase* from the stored variant.
+  AnimationBase *as_animation() {
+    return std::visit(
+        [](auto &a) -> AnimationBase * {
+          if constexpr (std::is_same_v<std::decay_t<decltype(a)>,
+                                       std::monostate>) {
+            return nullptr;
+          } else {
+            return static_cast<AnimationBase *>(&a);
+          }
+        },
+        animation);
+  }
 };
 
 /**
@@ -1587,10 +1601,6 @@ public:
   void step(Canvas &canvas) {
     ++t;
 
-    // Track touched orientations to ensure we only collapse once per frame
-    std::array<Orientation<W> *, CAPACITY> touched;
-    int touched_count = 0;
-
     int write_idx = 0;
     int active_cnt =
         num_events; // Snapshot count before callbacks potentially add more
@@ -1607,45 +1617,30 @@ public:
         continue;
       }
 
-      // 2. Collapse Orientation
-      std::visit(
-          [&](auto &a) {
-            if constexpr (requires { a.get_orientation(); }) {
-              auto &o = a.get_orientation();
-              bool already_touched = false;
-              for (int k = 0; k < touched_count; ++k) {
-                if (touched[k] == &o) {
-                  already_touched = true;
-                  break;
-                }
-              }
-              if (!already_touched) {
-                o.collapse();
-                if (touched_count < CAPACITY) {
-                  touched[touched_count++] = &o;
-                }
-              }
-            }
-          },
-          e.animation);
+      // 2. Collapse Orientation (virtual no-op for most types)
+      AnimationBase *anim = e.as_animation();
+      if (!anim) {
+        write_idx++;
+        continue;
+      }
+      anim->collapse_orientation();
 
       // 3. Step
-      std::visit([&](auto &a) { a.step(canvas); }, e.animation);
+      anim->step(canvas);
 
       // 4. Completion & Cleanup
-      bool is_done = std::visit([&](auto &a) { return a.done(); }, e.animation);
+      bool is_done = anim->done();
       bool keep = true;
 
       if (is_done) {
-        bool repeats =
-            std::visit([&](auto &a) { return a.repeats(); }, e.animation);
-        if (repeats) {
-          std::visit([&](auto &a) { a.rewind(); }, e.animation);
-          std::visit([&](auto &a) { a.post_callback(); }, e.animation);
+        bool does_repeat = anim->repeats();
+        if (does_repeat) {
+          anim->rewind();
+          anim->post_callback();
         } else {
           keep = false;
           // Fire callback for non-repeating event before removing
-          std::visit([&](auto &a) { a.post_callback(); }, e.animation);
+          anim->post_callback();
         }
       }
 

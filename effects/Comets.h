@@ -29,8 +29,9 @@ public:
     Node() : v(Y_AXIS) {}
   };
 
-  FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {
+  FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {}
 
+  void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);

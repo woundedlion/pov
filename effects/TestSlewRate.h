@@ -20,7 +20,7 @@ public:
     registerParam("Light Alpha", &params.lightAlpha, 0.0f, 2.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
-    palette.add(CycleModifier(&color_offset));
+    palette.add(cycle_mod);
     timeline.add(0, Animation::Driver(color_offset, 0.02f));
     rebuild_mesh();
   }
@@ -33,7 +33,7 @@ public:
     t += 1.0f;
 
     auto fragmentShader = [&](const Vector &v, Fragment &f) {
-      Color4 baseColor = get_color(palette.get((v.y + 1.0f) * 0.5f), 1.0f);
+      Color4 baseColor = palette.get((v.y + 1.0f) * 0.5f);
       f.color = baseColor;
 
       // Lighting Logic (Edge Pulses)
@@ -79,8 +79,9 @@ private:
       pipeline;
 
   float color_offset = 0.0f;
-  PaletteVariant source_variant{Palettes::richSunset};
-  PaletteVariant circular_source{CircularPalette(&source_variant)};
+  CycleModifier cycle_mod{&color_offset};
+  ProceduralPalette source_palette = Palettes::richSunset;
+  CircularPalette circular_source{&source_palette};
   AnimatedPalette palette;
   Timeline<W> timeline;
 

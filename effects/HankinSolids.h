@@ -16,7 +16,9 @@
 
 template <int W, int H> class HankinSolids : public Effect {
 public:
-  FLASHMEM HankinSolids() : Effect(W, H), filters() {
+  FLASHMEM HankinSolids() : Effect(W, H), filters() {}
+
+  void init() override {
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
 
@@ -52,7 +54,7 @@ private:
     MeshState mesh;        // The static resting geometry
     MeshState base;        // The simple base geometry
     MeshState active_mesh; // The dynamic animation puppet!
-    std::array<PaletteVariant, 5> palettes;
+    std::array<ProceduralPalette, 5> palettes;
 
     void preallocate(Persistent arena) {
       constexpr int MAX_V = 150, MAX_F = 100, MAX_I = 400;
@@ -85,13 +87,14 @@ private:
     }
 
     void load(int idx, float angle, Persistent geom, MemoryCtx &ctx,
-              const std::array<PaletteVariant, 5> &pool, float time) {
+              const std::array<ProceduralPalette, 5> &pool, float time) {
       SolidGenerator gen(idx);
       hs::log("Transitioning to '%s'", Solids::get_entry(idx).name);
 
       PolyMesh temp_base = gen.generate(ctx.get_scratch_front(), ctx);
       MeshOps::compile(temp_base, base, geom);
-      MeshOps::compile_hankin(temp_base, hankin, ctx.get_scratch_back());
+      MeshOps::compile_hankin(temp_base, hankin, ctx.get_scratch_back(),
+                              ctx.get_scratch_front());
 
       // Calculate initial state (angle = 0)
       MeshOps::update_hankin(hankin, mesh, geom, angle);
@@ -112,15 +115,15 @@ private:
     }
   };
 
-  const std::array<PaletteVariant, 5> source_palettes_pool = {
+  const std::array<ProceduralPalette, 5> source_palettes_pool = {
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
   void draw_dynamic_morph(Canvas &c, float opacity,
                           const ArenaVector<int> &p_topo,
-                          const std::array<PaletteVariant, 5> &p_pal,
+                          const std::array<ProceduralPalette, 5> &p_pal,
                           const ArenaVector<int> &s_topo,
-                          const std::array<PaletteVariant, 5> &s_pal) {
+                          const std::array<ProceduralPalette, 5> &s_pal) {
     MemoryCtx ctx;
     ScopedScratch _a(ctx.get_scratch_front());
 
@@ -155,7 +158,7 @@ private:
                DURATION));
   }
 
-  void start_morph_cycle() {
+  FLASHMEM void start_morph_cycle() {
     constexpr int DURATION = 16;
     int next_idx = (solid_idx + 1) % Solids::Collections::num_simple_solids;
 
@@ -201,7 +204,7 @@ private:
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
                           const ArenaVector<int> &topology,
-                          const std::array<PaletteVariant, 5> &palettes,
+                          const std::array<ProceduralPalette, 5> &palettes,
                           float opacity, const Quaternion &q) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
@@ -235,7 +238,7 @@ private:
   // Overload without pre-computed quaternion (for non-morph paths)
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
                           const ArenaVector<int> &topology,
-                          const std::array<PaletteVariant, 5> &palettes,
+                          const std::array<ProceduralPalette, 5> &palettes,
                           float opacity) {
     draw_topology_mesh(canvas, mesh, topology, palettes, opacity,
                        orientation.get());

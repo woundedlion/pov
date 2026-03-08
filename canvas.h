@@ -41,6 +41,12 @@ public:
   virtual ~Effect() {};
 
   /**
+   * @brief Post-construction initialization. Override to move heavy
+   * setup logic here (avoids GCC C1/C2 constructor duplication).
+   */
+  virtual void __attribute__((noinline)) init() {}
+
+  /**
    * @brief Abstract method to be implemented by derived classes to generate a
    * frame of graphics data.
    */

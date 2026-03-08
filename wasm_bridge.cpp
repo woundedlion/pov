@@ -13,9 +13,12 @@
 using namespace emscripten;
 
 // Dedicated arena for JavaScript Tools
-Arena tooling_arena(8 * 1024 * 1024);
-Arena tooling_scratch_a(4 * 1024 * 1024);
-Arena tooling_scratch_b(4 * 1024 * 1024);
+static uint8_t tooling_buf[8 * 1024 * 1024];
+static uint8_t tooling_scratch_buf_a[4 * 1024 * 1024];
+static uint8_t tooling_scratch_buf_b[4 * 1024 * 1024];
+Arena tooling_arena(tooling_buf, sizeof(tooling_buf));
+Arena tooling_scratch_a(tooling_scratch_buf_a, sizeof(tooling_scratch_buf_a));
+Arena tooling_scratch_b(tooling_scratch_buf_b, sizeof(tooling_scratch_buf_b));
 
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(std::string_view name) {
@@ -124,6 +127,8 @@ public:
       hs::log("WASM: Unsupported resolution for factory!");
       return;
     }
+    if (currentEffect)
+      currentEffect->init();
   }
 
   void drawFrame() {

@@ -8,7 +8,6 @@
 #include <array>
 #include <cmath>
 #include <functional>
-#include <variant>
 
 #include "platform.h"
 #include "3dmath.h"
@@ -309,7 +308,22 @@ constexpr float srgb_to_linear_float(float s) {
   return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
 }
 
-class Gradient {
+/// Abstract base for all palettes. Provides a uniform interface for color
+/// lookup, replacing std::variant + std::visit with a single vtable pointer.
+class Palette {
+public:
+  virtual Color4 get(float t) const = 0;
+  virtual ~Palette() = default;
+};
+
+/// Abstract base for all palette modifiers.
+class Modifier {
+public:
+  virtual float modify(float t) const = 0;
+  virtual ~Modifier() = default;
+};
+
+class Gradient : public Palette {
 public:
   Pixel entries[256];
 
@@ -366,7 +380,7 @@ public:
       entries[i] = lastLinear;
   }
 
-  Color4 get(float t) const {
+  Color4 get(float t) const override {
     uint8_t index = static_cast<uint8_t>(t * 255);
     return Color4(entries[index], 1.0f);
   }
@@ -378,7 +392,7 @@ public:
  * @brief A palette that generates colors based on defined harmony and
  * brightness profiles.
  */
-class GenerativePalette {
+class GenerativePalette : public Palette {
 public:
   GenerativePalette()
       : GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
@@ -490,7 +504,7 @@ public:
     update_luts();
   }
 
-  Color4 get(float t) const {
+  Color4 get(float t) const override {
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
       if (t >= shape[i] && t < shape[i + 1]) {
@@ -574,13 +588,15 @@ public:
  * @brief A palette defined by a mathematical cosine wave function.
  * C(t) = A + B * cos(2 * PI * (C * t + D))
  */
-class ProceduralPalette {
+class ProceduralPalette : public Palette {
 public:
+  constexpr ProceduralPalette()
+      : a{0, 0, 0}, b{0, 0, 0}, c{0, 0, 0}, d{0, 0, 0} {}
   constexpr ProceduralPalette(std::array<float, 3> a, std::array<float, 3> b,
                               std::array<float, 3> c, std::array<float, 3> d)
       : a(a), b(b), c(c), d(d) {}
 
-  Color4 get(float t) const {
+  Color4 get(float t) const override {
     // Determine color in high-precision float sRGB space first, then convert to
     // 16-bit Linear This avoids 8-bit quantization steps
     float r_srgb =
@@ -643,25 +659,25 @@ public:
 /**
  * @brief Linearly cycles the palette coordinate.
  */
-struct CycleModifier {
+struct CycleModifier : public Modifier {
   const float *offset;
 
   CycleModifier(const float *driver_offset = nullptr) : offset(driver_offset) {}
 
-  float modify(float t) const { return offset ? t + *offset : t; }
+  float modify(float t) const override { return offset ? t + *offset : t; }
 };
 
 /**
  * @brief Oscillates the palette coordinate (Breathing).
  */
-struct BreatheModifier {
+struct BreatheModifier : public Modifier {
   const float *phase;
   float amplitude;
 
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
       : phase(driver_phase), amplitude(amp) {}
 
-  float modify(float t) const {
+  float modify(float t) const override {
     if (!phase)
       return t;
     return t + sinf(*phase) * amplitude;
@@ -673,7 +689,7 @@ struct BreatheModifier {
  * ripple effect. When applied to a spatial coordinate, colors will compress and
  * expand like waves.
  */
-struct RippleModifier {
+struct RippleModifier : public Modifier {
   const float *phase;
   float frequency;
   float amplitude;
@@ -681,7 +697,7 @@ struct RippleModifier {
   RippleModifier(const float *phase, float freq = 3.0f, float amp = 0.1f)
       : phase(phase), frequency(freq), amplitude(amp) {}
 
-  float modify(float t) const {
+  float modify(float t) const override {
     if (!phase)
       return t;
     // Calculate a local distortion based on the current t position
@@ -693,14 +709,14 @@ struct RippleModifier {
  * @brief Folds the palette back and forth like a kaleidoscope.
  * A folds value of 2.0 maps [0...1] to [0 -> 1 -> 0 -> 1 -> 0].
  */
-struct FoldModifier {
+struct FoldModifier : public Modifier {
   const float *phase;
   float folds;
 
   FoldModifier(float folds = 2.0f, const float *phase = nullptr)
       : phase(phase), folds(folds) {}
 
-  float modify(float t) const {
+  float modify(float t) const override {
     float shift = phase ? *phase : 0.0f;
     float scaled = (t * folds) + shift;
 
@@ -715,12 +731,12 @@ struct FoldModifier {
  * positive tension pulls colors toward the center, negative pushes them to the
  * edges. Creates an elastic, tension-release visual dynamic.
  */
-struct PinchModifier {
+struct PinchModifier : public Modifier {
   const float *tension; // Expects roughly -0.9 to 0.9
 
   PinchModifier(const float *t) : tension(t) {}
 
-  float modify(float t) const {
+  float modify(float t) const override {
     if (!tension)
       return t;
 
@@ -746,14 +762,14 @@ struct PinchModifier {
  * By animating the step count or offsetting before quantizing, you get a
  * retro/glitch aesthetic.
  */
-struct QuantizeModifier {
+struct QuantizeModifier : public Modifier {
   const float *dynamic_steps;
   float base_steps;
 
   QuantizeModifier(float steps, const float *d_steps = nullptr)
       : dynamic_steps(d_steps), base_steps(steps) {}
 
-  float modify(float t) const {
+  float modify(float t) const override {
     float s = dynamic_steps ? *dynamic_steps : base_steps;
     if (s < 1.0f)
       s = 1.0f;
@@ -767,24 +783,17 @@ struct QuantizeModifier {
  * @brief Multiplies the palette coordinate, increasing the frequency
  * so the palette repeats multiple times across the domain.
  */
-struct ScaleModifier {
+struct ScaleModifier : public Modifier {
   const float *dynamic_scale;
   float base_scale;
 
   ScaleModifier(float s = 1.0f, const float *d_scale = nullptr)
       : dynamic_scale(d_scale), base_scale(s) {}
 
-  float modify(float t) const {
+  float modify(float t) const override {
     return t * (dynamic_scale ? *dynamic_scale : base_scale);
   }
 };
-
-/**
- * @brief Variant holding any supported modifier type.
- */
-using ModifierVariant =
-    std::variant<CycleModifier, BreatheModifier, RippleModifier, FoldModifier,
-                 PinchModifier, QuantizeModifier, ScaleModifier>;
 
 class AnimatedPalette;
 class CircularPalette;
@@ -794,148 +803,123 @@ class TransparentVignette;
 class AlphaFalloffPalette;
 class SolidColorPalette;
 
-///////////////////////////////////////////////////////////////////////////////
-// Palette Variants
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * @brief Variant holding any supported palette type.
- */
-using PaletteVariant =
-    std::variant<std::monostate, GenerativePalette, ProceduralPalette, Gradient,
-                 MutatingPalette, ReversePalette, VignettePalette,
-                 TransparentVignette, AlphaFalloffPalette, SolidColorPalette,
-                 CircularPalette, AnimatedPalette>;
-
-inline Color4 get_color(const PaletteVariant &pv, float t);
+inline Color4 get_color(const Palette &p, float t) { return p.get(t); }
+inline Color4 get_color(const Palette *p, float t) {
+  return p ? p->get(t) : Color4(CRGB(0, 0, 0), 0.0f);
+}
 
 /**
  * @brief A wrapper that applies a chain of modifiers to the palette parameter
  * 't'.
  */
-class AnimatedPalette {
+class AnimatedPalette : public Palette {
 public:
-  AnimatedPalette(const PaletteVariant *source) : source(source) {}
+  AnimatedPalette(const Palette *source) : source(source) {}
 
   /**
    * Explicitly connect a modifier to this palette.
-   * Stores a value.
+   * Stores a pointer (modifier must outlive this palette).
    */
-  AnimatedPalette &add(const ModifierVariant &modifier) {
-    if (!modifiers.is_full()) {
-      modifiers.push_back(modifier);
+  AnimatedPalette &add(const Modifier &modifier) {
+    if (num_modifiers < MAX_MODIFIERS) {
+      modifiers[num_modifiers++] = &modifier;
     }
     return *this;
   }
 
-  Color4 get(float t) const;
+  Color4 get(float t) const override;
 
 private:
-  const PaletteVariant *source;
-  StaticCircularBuffer<ModifierVariant, 4> modifiers;
-
-public:
-  ~AnimatedPalette() = default;
+  static constexpr int MAX_MODIFIERS = 4;
+  const Palette *source;
+  const Modifier *modifiers[MAX_MODIFIERS] = {};
+  int num_modifiers = 0;
 };
 
 /**
  * @brief Palette wrapper that makes the source palette symmetrical/circular.
  * Maps range [0, 1] -> [0, 1, 0].
  */
-class CircularPalette {
+class CircularPalette : public Palette {
 public:
-  CircularPalette(const PaletteVariant *palette) : palette(palette) {}
-  Color4 get(float t) const;
+  CircularPalette(const Palette *palette) : palette(palette) {}
+  Color4 get(float t) const override;
 
 private:
-  const PaletteVariant *palette;
+  const Palette *palette;
 };
 
 /**
  * @brief Palette wrapper that reverses the source palette.
  * Maps inputs t -> 1-t.
  */
-class ReversePalette {
+class ReversePalette : public Palette {
 public:
-  ReversePalette(const PaletteVariant *palette) : palette(palette) {}
-  Color4 get(float t) const;
+  ReversePalette(const Palette *palette) : palette(palette) {}
+  Color4 get(float t) const override;
 
 private:
-  const PaletteVariant *palette;
+  const Palette *palette;
 };
 
 /**
  * @brief Palette wrapper that applies black vignetting at the edges.
  * fades to black at t < 0.2 and t > 0.8.
  */
-class VignettePalette {
+class VignettePalette : public Palette {
 public:
-  VignettePalette(const PaletteVariant *palette) : palette(palette) {}
+  VignettePalette(const Palette *palette) : palette(palette) {}
 
-  Color4 get(float t) const;
+  Color4 get(float t) const override;
 
 private:
-  const PaletteVariant *palette;
+  const Palette *palette;
 };
 
 /**
  * @brief Palette wrapper that applies alpha transparency vignetting at the
  * edges.
  */
-class TransparentVignette {
+class TransparentVignette : public Palette {
 public:
-  TransparentVignette(const PaletteVariant *palette) : palette(palette) {}
+  TransparentVignette(const Palette *palette) : palette(palette) {}
 
-  Color4 get(float t) const;
+  Color4 get(float t) const override;
 
 private:
-  const PaletteVariant *palette;
+  const Palette *palette;
 };
 
-class AlphaFalloffPalette {
+class AlphaFalloffPalette : public Palette {
 public:
   using FalloffFunction = float (*)(float);
-  AlphaFalloffPalette(FalloffFunction fn, const PaletteVariant *source)
+  AlphaFalloffPalette(FalloffFunction fn, const Palette *source)
       : fn(fn), source(source) {}
-  Color4 get(float t) const;
+  Color4 get(float t) const override;
 
 private:
   FalloffFunction fn;
-  const PaletteVariant *source;
+  const Palette *source;
 };
 
-class SolidColorPalette {
+class SolidColorPalette : public Palette {
 public:
   SolidColorPalette(const Color4 &color) : color(color) {}
-  Color4 get(float t) const { return color; }
+  Color4 get(float t) const override { return color; }
   Color4 color;
 };
 
-inline Color4 get_color(const PaletteVariant &pv, float t) {
-  return std::visit(
-      [t](auto &&arg) -> Color4 {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, std::monostate>) {
-          return Color4(CRGB(0, 0, 0), 0.0f);
-        } else {
-          return arg.get(t);
-        }
-      },
-      pv);
-}
-
-// Implementations that require 'get_color' to be fully aware of the variants
+// Implementations that require all palette types to be complete
 inline Color4 AnimatedPalette::get(float t) const {
   float final_t = t;
-  for (size_t i = 0; i < modifiers.size(); ++i) {
-    final_t = std::visit([final_t](auto &&arg) { return arg.modify(final_t); },
-                         modifiers[i]);
+  for (int i = 0; i < num_modifiers; ++i) {
+    final_t = modifiers[i]->modify(final_t);
   }
 
   // Fast wrap the final coordinate right before querying the source palette
   final_t = wrap_t(final_t);
 
-  return source ? get_color(*source, final_t) : Color4(CRGB(0, 0, 0), 0.0f);
+  return get_color(source, final_t);
 }
 
 inline Color4 CircularPalette::get(float t) const {

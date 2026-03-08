@@ -363,6 +363,20 @@ inline unsigned long micros() { return hs::millis() * 1000; } // approx
 
 #endif
 
+// ---------------------------------------------------------------------------
+// Fn<Sig, Cap> — platform-aware callable wrapper
+//   Teensy:  teensy::inplace_function  (no heap, tiny codegen)
+//   WASM:    std::function             (Cap ignored)
+// ---------------------------------------------------------------------------
+#include <functional>
+#ifdef ARDUINO
+#include <inplace_function.h>
+template <typename Sig, size_t Cap = 16>
+using Fn = teensy::inplace_function<Sig, Cap>;
+#else
+template <typename Sig, size_t Cap = 16> using Fn = std::function<Sig>;
+#endif
+
 // Detect x86 / x64 architecture (Desktop/Simulator)
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) ||             \
     defined(_M_IX86)

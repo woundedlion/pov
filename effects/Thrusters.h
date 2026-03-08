@@ -13,7 +13,9 @@ public:
                               {0.3f, 0.3f, 0.3f}, {0.0f, 0.2f, 0.6f}),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
-        warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid) {
+        warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid) {}
+
+  void init() override {
     registerParam("Radius", &params.radius, 0.1f, 2.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 

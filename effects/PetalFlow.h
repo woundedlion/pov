@@ -74,7 +74,7 @@ private:
   Timeline<W> timeline;
   Animation::PeriodicTimer spawner;
 
-  void init_timeline() {
+  FLASHMEM void init_timeline() {
     // Animation for Orientation
     timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
                                            ease_mid, true));

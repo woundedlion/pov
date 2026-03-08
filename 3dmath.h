@@ -69,6 +69,8 @@ struct Vector {
    * @brief Default constructor (initializes to zero vector).
    */
   constexpr Vector() {}
+  explicit constexpr Vector(int)
+      : x(0), y(0), z(0) {} // inplace_function compat
   /**
    * @brief Constructs a vector with explicit components.
    * @param x X-component.

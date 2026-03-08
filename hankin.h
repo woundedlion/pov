@@ -38,31 +38,32 @@ namespace MeshOps {
 /**
  * @brief Compiles the topology for a Hankin pattern.
  */
-inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
-                           ScratchBack arena) {
+template <typename MeshT>
+FLASHMEM inline void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
+                                    Arena &target_arena, Arena &temp_arena) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  compiled.baseVertices.initialize(arena, V);
+  compiled.baseVertices.initialize(target_arena, V);
   for (size_t i = 0; i < V; ++i) {
     compiled.baseVertices.push_back(mesh.vertices[i]);
   }
-  compiled.staticVertices.initialize(arena, I);
-  compiled.dynamicVertices.initialize(arena, I);
-  compiled.dynamicInstructions.initialize(arena, I);
-  compiled.face_counts.initialize(arena, F + V);
-  compiled.faces.initialize(arena, 4 * I);
+  compiled.staticVertices.initialize(target_arena, (I / 2) + 1);
+  compiled.dynamicVertices.initialize(target_arena, I);
+  compiled.dynamicInstructions.initialize(target_arena, I);
+  compiled.face_counts.initialize(target_arena, F + V);
+  compiled.faces.initialize(target_arena, 3 * I);
 
   {
-    ScopedScratch _(arena);
+    ScopedScratch _(temp_arena);
 
-    HalfEdgeMesh heMesh(arena, mesh);
+    HalfEdgeMesh heMesh(temp_arena, mesh);
     uint16_t *heToMidpointIdx = static_cast<uint16_t *>(
-        arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+        temp_arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(heToMidpointIdx, I, HE_NONE);
     uint16_t *heToDynamicIdx = static_cast<uint16_t *>(
-        arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+        temp_arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(heToDynamicIdx, I, HE_NONE);
 
     auto getMidpointIdx = [&](uint16_t heIdx) {
@@ -137,8 +138,8 @@ inline void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     }
 
     // Rosette faces
-    bool *visitedVerts =
-        static_cast<bool *>(arena.allocate(V * sizeof(bool), alignof(bool)));
+    bool *visitedVerts = static_cast<bool *>(
+        temp_arena.allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
@@ -262,14 +263,16 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     out_mesh.faces.push_back(compiled.faces[i]);
 }
 
-inline PolyMesh hankin(const PolyMesh &mesh, MemoryCtx &ctx, float angle) {
+FLASHMEM inline PolyMesh hankin(const PolyMesh &mesh, MemoryCtx &ctx,
+                                float angle) {
   ctx.swap_scratch();
   PolyMesh out;
 
   {
     ScopedScratch _(ctx.get_scratch_back());
     CompiledHankin compiled;
-    compile_hankin(mesh, compiled, ctx.get_scratch_back());
+    compile_hankin(mesh, compiled, ctx.get_scratch_back(),
+                   ctx.get_scratch_front());
     update_hankin(compiled, out, ctx.get_scratch_front(), angle);
   }
 

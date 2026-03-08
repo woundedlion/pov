@@ -87,42 +87,15 @@ public:
       auto upper_edge = boundary + blend_width;
 
       if (a < lower_edge) {
-        return std::visit(
-            [t](auto &p) -> Color4 {
-              using T = std::decay_t<decltype(p)>;
-              if constexpr (std::is_same_v<T, std::monostate>) {
-                return Color4(); // Should not happen if logic is correct
-              } else {
-                return p.get(t);
-              }
-            },
-            palettes[i]);
+        return palettes[i].get(t);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
         auto clamped_blend_factor = hs::clamp(blend_factor, 0.0f, 1.0f);
 
-        Color4 c1 = std::visit(
-            [t](auto &p) -> Color4 {
-              using T = std::decay_t<decltype(p)>;
-              if constexpr (std::is_same_v<T, std::monostate>) {
-                return Color4();
-              } else {
-                return p.get(t);
-              }
-            },
-            palettes[i]);
-        Color4 c2 = std::visit(
-            [t](auto &p) -> Color4 {
-              using T = std::decay_t<decltype(p)>;
-              if constexpr (std::is_same_v<T, std::monostate>) {
-                return Color4();
-              } else {
-                return p.get(t);
-              }
-            },
-            palettes[i + 1]);
+        Color4 c1 = palettes[i].get(t);
+        Color4 c2 = palettes[i + 1].get(t);
 
         uint16_t fract = to_short(clamped_blend_factor);
         return Color4(c1.color.lerp16(c2.color, fract),
@@ -135,29 +108,11 @@ public:
                : 100.0f); // Infinity check
 
       if (a > upper_edge && a < next_boundary_lower_edge) {
-        return std::visit(
-            [t](auto &p) -> Color4 {
-              using T = std::decay_t<decltype(p)>;
-              if constexpr (std::is_same_v<T, std::monostate>) {
-                return Color4();
-              } else {
-                return p.get(t);
-              }
-            },
-            palettes[i + 1]);
+        return palettes[i + 1].get(t);
       }
     }
 
-    return std::visit(
-        [t](auto &p) -> Color4 {
-          using T = std::decay_t<decltype(p)>;
-          if constexpr (std::is_same_v<T, std::monostate>) {
-            return Color4();
-          } else {
-            return p.get(t);
-          }
-        },
-        palettes[0]);
+    return palettes[0].get(t);
   }
 
   void draw_frame() override {
@@ -226,7 +181,7 @@ private:
   static constexpr size_t MAX_PALETTES = 16;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static constexpr size_t NUM_NODES = H_VIRT;
-  StaticCircularBuffer<PaletteVariant, MAX_PALETTES> palettes;
+  StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes;
   StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries;
 
   Vector palette_normal;

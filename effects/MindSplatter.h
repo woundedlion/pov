@@ -90,7 +90,7 @@ private:
   MobiusParams mobius;
   float warp_scale = 0.6f;
 
-  void rebuild() {
+  FLASHMEM void rebuild() {
     particle_system.reset(params.friction, 0.001f);
 
     // Add Attractors
