@@ -21,14 +21,9 @@ public:
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
 
-    // Spawn the evolving warp
-    transformer.spawn(0, 0.5f, 0.035f);
-
-    // Retrieve the pointer to the just-spawned animation
-    // It is the last event in the timeline
-    auto &last_event = timeline.events[timeline.num_events - 1];
-    if (auto *anim =
-            std::get_if<Animation::MobiusWarpEvolving>(&last_event.animation)) {
+    // Spawn the evolving warp and get its animation reference
+    auto *anim = transformer.spawn(0, 0.5f, 0.035f);
+    if (anim) {
       registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
     }
 

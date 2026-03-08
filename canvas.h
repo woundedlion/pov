@@ -236,9 +236,9 @@ private:
                next_ = 0; /**< Pointers/indices for double buffering logic. */
   int width_;             /**< The width of the effect. */
   int height_;            /**< The height of the effect. */
-  inline static DMAMEM Pixel
+  static DMAMEM Pixel
       buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A. */
-  inline static DMAMEM Pixel
+  static DMAMEM Pixel
       buffer_b[MAX_W * MAX_H]; /**< Static storage for buffer B. */
   Pixel *bufs_[2]; /**< Pointers to the two buffer storage locations. */
 };

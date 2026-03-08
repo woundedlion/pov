@@ -13,7 +13,6 @@
 #include <map>
 #include <memory>
 #include <string_view>
-#include <variant>
 
 #include "3dmath.h"
 #include "FastNoiseLite.h"

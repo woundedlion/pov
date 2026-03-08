@@ -220,41 +220,60 @@ template <int H> inline float y_to_phi(float y) {
  * @param y The vertical coordinate (0 to H_VIRT - 1).
  * @return The corresponding unit vector.
  */
-template <int W, int H> struct PixelLUT {
+/**
+ * @brief Split trig lookup tables for efficient vector reconstruction.
+ * @details Caches sin/cos for theta (per column) and phi (per row) separately.
+ * Reconstructs vectors with 3 multiplies instead of storing full Vectors.
+ * Memory: ~(4*W + 4*H_VIRT) floats vs W*H_VIRT Vectors — a ~145x reduction.
+ */
+template <int W, int H> struct TrigLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
-  static std::array<Vector, W * H_VIRT> data;
+  static std::array<float, W> sin_theta;
+  static std::array<float, W> cos_theta;
+  static std::array<float, H_VIRT> sin_phi;
+  static std::array<float, H_VIRT> cos_phi;
   static bool initialized;
   static void init() {
     if (!PhiLUT<H>::initialized) {
       PhiLUT<H>::init();
     }
+    for (int x = 0; x < W; x++) {
+      float theta = (x * 2 * PI_F) / W;
+      sin_theta[x] = sinf(theta);
+      cos_theta[x] = cosf(theta);
+    }
     for (int y = 0; y < H_VIRT; y++) {
       float phi = PhiLUT<H>::data[y];
-      for (int x = 0; x < W; x++) {
-        data[x + y * W] = Vector(Spherical((x * 2 * PI_F) / W, phi));
-      }
+      sin_phi[y] = sinf(phi);
+      cos_phi[y] = cosf(phi);
     }
     initialized = true;
   }
 };
 
+template <int W, int H> std::array<float, W> TrigLUT<W, H>::sin_theta;
+template <int W, int H> std::array<float, W> TrigLUT<W, H>::cos_theta;
 template <int W, int H>
-DMAMEM std::array<Vector, W * PixelLUT<W, H>::H_VIRT> PixelLUT<W, H>::data;
-template <int W, int H> DMAMEM bool PixelLUT<W, H>::initialized = false;
+std::array<float, TrigLUT<W, H>::H_VIRT> TrigLUT<W, H>::sin_phi;
+template <int W, int H>
+std::array<float, TrigLUT<W, H>::H_VIRT> TrigLUT<W, H>::cos_phi;
+template <int W, int H> bool TrigLUT<W, H>::initialized = false;
 
 /**
- * @brief look up or calculate a vector from pixel coordinates (integer).
+ * @brief Reconstruct a vector from pixel coordinates using split trig LUTs.
  * @tparam W Width.
- * @tparam H Height (virtual).
- * @param x X coordinate.
- * @param y Y coordinate.
- * @return Const reference to vector from LUT.
+ * @tparam H Height.
+ * @param x X coordinate (column).
+ * @param y Y coordinate (row).
+ * @return Unit vector on the sphere.
  */
-template <int W, int H> const Vector &pixel_to_vector(int x, int y) {
-  if (!PixelLUT<W, H>::initialized) {
-    PixelLUT<W, H>::init();
+template <int W, int H> Vector pixel_to_vector(int x, int y) {
+  if (!TrigLUT<W, H>::initialized) {
+    TrigLUT<W, H>::init();
   }
-  return PixelLUT<W, H>::data[x + y * W];
+  float sp = TrigLUT<W, H>::sin_phi[y];
+  return Vector(sp * TrigLUT<W, H>::cos_theta[x], TrigLUT<W, H>::cos_phi[y],
+                sp * TrigLUT<W, H>::sin_theta[x]);
 }
 
 template <int W, int H> Vector pixel_to_vector(float x, float y) {

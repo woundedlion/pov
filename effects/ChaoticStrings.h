@@ -106,7 +106,8 @@ public:
                         },
                         true));
 
-    timeline.add(0, Animation::Driver(cycle_phase, params.cycleSpeed));
+    driver_ =
+        timeline.add_get(0, Animation::Driver(cycle_phase, params.cycleSpeed));
 
     params = preset_manager.get();
   }
@@ -140,14 +141,10 @@ public:
     }
 
     // Update cycle speed dynamically
-    for (int i = 0; i < timeline.num_events; ++i) {
-      auto &e = timeline.events[i];
-      if (auto *driver = std::get_if<Animation::Driver>(&e.animation)) {
-        if (&driver->get_mutant() == &cycle_phase) {
-          driver->set_speed(params.cycleSpeed);
-        }
-      }
+    if (driver_ && &driver_->get_mutant() == &cycle_phase) {
+      driver_->set_speed(params.cycleSpeed);
     }
+
     for (auto &e : noise.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;
@@ -197,6 +194,7 @@ private:
   CycleModifier cycle_mod{&cycle_phase};
   ProceduralPalette palette_variant;
   AnimatedPalette animated_palette;
+  Animation::Driver *driver_ = nullptr;
   float cycle_phase = 0.0f;
   std::array<LissajousConfig, 1> functions;
   int cur_function_idx;

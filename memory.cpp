@@ -1,5 +1,6 @@
 #include "memory.h"
 #include "mesh.h"
+#include "animation.h"
 
 // Stubs to prevent the linker pulling in the C++ demangler (~15KB).
 // Chain: std::function -> __cxa_throw -> __verbose_terminate_handler ->
@@ -26,6 +27,10 @@ Arena persistent_arena(persistent_buf, PERSISTENT_ARENA_SIZE);
 
 MeshState *PersistentTracker::tracked_meshes[256];
 size_t PersistentTracker::num_tracked = 0;
+
+DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
+DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
+DMAMEM Pixel Effect::buffer_b[MAX_W * MAX_H];
 
 void PersistentTracker::auto_compact(Arena &scratch) {
   assert(!CompactionLock::is_locked() &&
