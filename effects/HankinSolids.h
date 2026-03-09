@@ -30,6 +30,7 @@ public:
 
     primary.preallocate(Persistent(persistent_arena));
     secondary.preallocate(Persistent(persistent_arena));
+    morph_buffer.preallocate(Persistent(persistent_arena), 544);
 
     {
       MemoryCtx ctx;
@@ -57,8 +58,10 @@ private:
     std::array<ProceduralPalette, 5> palettes;
 
     void preallocate(Persistent arena) {
-      constexpr int MAX_V = 150, MAX_F = 100, MAX_I = 400;
-      constexpr int OUT_V = 600, OUT_F = 250, OUT_I = 1600;
+      // Measured maxima across all 18 simple solids:
+      // Base: V=120 F=92 I=360  Output: V=540 F=182 I=1440
+      constexpr int MAX_V = 128, MAX_F = 96, MAX_I = 368;
+      constexpr int OUT_V = 544, OUT_F = 192, OUT_I = 1440;
 
       mesh.vertices.initialize(arena, OUT_V);
       mesh.face_counts.initialize(arena, OUT_F);
@@ -73,7 +76,7 @@ private:
       base.faces.initialize(arena, MAX_I);
 
       hankin.baseVertices.initialize(arena, MAX_V);
-      hankin.staticVertices.initialize(arena, MAX_I);
+      hankin.staticVertices.initialize(arena, (MAX_I / 2) + 1);
       hankin.dynamicVertices.initialize(arena, MAX_I);
       hankin.dynamicInstructions.initialize(arena, MAX_I);
       hankin.face_counts.initialize(arena, OUT_F);
