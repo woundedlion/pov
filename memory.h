@@ -235,6 +235,18 @@ public:
   size_t size() const { return size_; }
   size_t capacity() const { return capacity_; }
   bool empty() const { return size_ == 0; }
+  bool is_empty() const { return size_ == 0; }
+
+  T &back() {
+    check_alive();
+    assert(size_ > 0);
+    return data_[size_ - 1];
+  }
+  const T &back() const {
+    check_alive();
+    assert(size_ > 0);
+    return data_[size_ - 1];
+  }
 
   void clear() {
     size_ = 0; // Does not free memory or reallocate
@@ -418,6 +430,9 @@ public:
   }
 
   void update_persistent(MeshState &target, const PolyMesh &new_data);
+
+  /// Static accessor for scratch front arena (no MemoryCtx instance needed).
+  static ScratchFront scratch() { return ScratchFront(scratch_arena_a); }
 };
 
 struct ScopedScratch {

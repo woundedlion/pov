@@ -57,7 +57,7 @@ struct Fragment {
  * @brief A list of fragments, equivalent to 'Points' in the JS context but with
  * full register support.
  */
-using Fragments = StaticCircularBuffer<Fragment, 512>;
+using Fragments = ArenaVector<Fragment>;
 
 /**
  * @brief Logic for no-op vertex shader.
