@@ -376,9 +376,9 @@ inline Vector fib_spiral(int n, float eps, int i) {
  * @details Stores a list of Quaternions (`orientations`) generated during the
  * current frame step.
  */
-template <int W> class Orientation {
+template <int W, int CAP> class Orientation {
 public:
-  static constexpr int CAPACITY = 32;
+  static constexpr int CAPACITY = CAP;
   /**
    * @brief Default constructor (identity rotation).
    */

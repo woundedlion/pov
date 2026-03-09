@@ -12,15 +12,15 @@
 #include <cstdio>
 
 #ifdef __EMSCRIPTEN__
-constexpr size_t SCRATCH_ARENA_A_SIZE = 120 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 100 * 1024;
-constexpr size_t PERSISTENT_ARENA_SIZE = 75 * 1024;
+constexpr size_t GLOBAL_ARENA_SIZE = 2048 * 1024;
 #else
-// Teensy 4.0 — static arenas in RAM1 (DTCM), must fit within free space
-constexpr size_t SCRATCH_ARENA_A_SIZE = 120 * 1024;
-constexpr size_t SCRATCH_ARENA_B_SIZE = 100 * 1024;
-constexpr size_t PERSISTENT_ARENA_SIZE = 75 * 1024;
+// Teensy 4.0 — single contiguous block in RAM1 (DTCM)
+constexpr size_t GLOBAL_ARENA_SIZE = 345 * 1024;
 #endif
+
+constexpr size_t DEFAULT_SCRATCH_A_SIZE  = 120 * 1024;
+constexpr size_t DEFAULT_SCRATCH_B_SIZE  = 125 * 1024;
+constexpr size_t DEFAULT_PERSISTENT_SIZE =  100 * 1024;
 
 // ============================================================================
 // 1. Core Arena Allocator
@@ -65,6 +65,16 @@ public:
 
   void reset() {
     offset = 0;
+#ifndef NDEBUG
+    generation_++;
+#endif
+  }
+
+  void rebind(uint8_t *buf, size_t new_capacity) {
+    buffer = buf;
+    capacity = new_capacity;
+    offset = 0;
+    high_water_mark = 0;
 #ifndef NDEBUG
     generation_++;
 #endif
@@ -284,6 +294,9 @@ extern Arena scratch_arena_a;
 extern Arena scratch_arena_b;
 
 extern Arena persistent_arena;
+
+void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
+void configure_arenas_default();
 
 struct MeshState;
 struct PolyMesh;
