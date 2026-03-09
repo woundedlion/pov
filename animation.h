@@ -1229,9 +1229,13 @@ public:
  * Incoming)
  */
 struct MorphBuffer {
-  std::array<Vector, 1024> start_pos_B;
-  std::array<Vector, 1024> end_pos_B;
-  size_t count_B = 0;
+  ArenaVector<Vector> start_pos_B;
+  ArenaVector<Vector> end_pos_B;
+
+  void preallocate(Persistent arena, size_t capacity) {
+    start_pos_B.initialize(arena, capacity);
+    end_pos_B.initialize(arena, capacity);
+  }
 };
 
 /*
@@ -1252,7 +1256,8 @@ public:
   }
 
   void init(const MeshState &source, const MeshState &dest) {
-    buffer->count_B = dest.vertices.size();
+    buffer->start_pos_B.clear();
+    buffer->end_pos_B.clear();
 
     MeshOps::clone(source, *active_A, *geom_arena);
     MeshOps::clone(dest, *active_B, *geom_arena);
@@ -1284,9 +1289,9 @@ public:
       return source.vertices[best_idx];
     };
 
-    for (size_t i = 0; i < buffer->count_B; ++i) {
-      buffer->start_pos_B[i] = get_nearest_on_source(dest.vertices[i]);
-      buffer->end_pos_B[i] = dest.vertices[i];
+    for (size_t i = 0; i < dest.vertices.size(); ++i) {
+      buffer->start_pos_B.push_back(get_nearest_on_source(dest.vertices[i]));
+      buffer->end_pos_B.push_back(dest.vertices[i]);
     }
   }
 
@@ -1298,7 +1303,7 @@ public:
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
 
-    for (size_t i = 0; i < buffer->count_B; ++i) {
+    for (size_t i = 0; i < buffer->start_pos_B.size(); ++i) {
       active_B->vertices[i] =
           slerp(buffer->start_pos_B[i], buffer->end_pos_B[i], alpha);
     }
