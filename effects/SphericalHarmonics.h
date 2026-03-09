@@ -105,6 +105,7 @@ public:
   FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {
     registerParam("Mode", &params.mode, 0.0f, 25.0f);
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
     // Spin
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalize();
@@ -148,13 +149,14 @@ public:
       frag.color = base;
     };
 
-    Scan::rasterize<W, H>(filters, canvas, blob, shader);
+    Scan::rasterize<W, H>(filters, canvas, blob, shader, params.debug_bb);
   }
 
   // Params
   struct Params {
     float mode = 6.0f;
     float amplitude = 3.2f;
+    bool debug_bb = false;
   } params;
 
 private:

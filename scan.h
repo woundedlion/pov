@@ -258,10 +258,12 @@ struct Point {
    */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p,
-                   float thickness, FragmentShaderFn fragment_shader) {
+                   float thickness, FragmentShaderFn fragment_shader,
+                   bool debug_bb = false) {
     // Scan.Point uses Scan.Ring with radius 0
     Basis basis = make_basis(Quaternion(), p);
-    Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader);
+    Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader,
+                     0.0f, debug_bb);
   }
 };
 
@@ -303,47 +305,11 @@ struct SphericalPolygon {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
-    // 1. Get Antipode and Basis
-    Basis eff_basis = basis;
-    float effective_radius = radius;
-    if (radius > 1.0f) {
-      eff_basis.v = -eff_basis.v;
-      eff_basis.u = -eff_basis.u;
-      effective_radius = 2.0f - radius;
-    }
-
-    // 2. Sample Points
+    auto res = get_antipode(basis, radius);
     float offset = PI_F / sides;
-    float theta_eq = effective_radius * (PI_F / 2.0f);
-    float r = sinf(theta_eq);
-    float d = cosf(theta_eq);
-    float step = (2.0f * PI_F) / sides;
 
-    std::array<Vector, 32> vertices;
-
-    for (int i = 0; i < sides; ++i) {
-      float theta = i * step + phase + offset;
-      float cos_t = cosf(theta);
-      float sin_t = sinf(theta);
-
-      Vector pos = eff_basis.u * cos_t + eff_basis.w * sin_t;
-      pos = pos * r + eff_basis.v * d;
-      pos.normalize();
-      vertices[i] = pos;
-    }
-
-    // 3. Create Indices (0, 1, ..., sides-1)
-    std::array<uint16_t, 32> indices;
-    for (uint16_t i = 0; i < sides; ++i) {
-      indices[i] = i;
-    }
-
-    // 4. Create SDF::Face
-    SDF::FaceScratchBuffer scratch;
-    SDF::Face shape(std::span<const Vector>(vertices.data(), sides),
-                    std::span<const uint16_t>(indices.data(), sides), 0.0f,
-                    scratch, H + 3, H);
-
+    SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
+                                H + 3, H);
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
   }
 };

@@ -10,7 +10,7 @@
 
 template <int W, int H> class HopfFibration : public Effect {
 public:
-  static constexpr int MAX_TRAILS = 50000;
+  static constexpr int MAX_TRAILS = 37500; // 300 KB at 8 bytes/item
 
   FLASHMEM HopfFibration()
       : Effect(W, H), filters(Filter::World::Trails<W, MAX_TRAILS>(40),
@@ -18,11 +18,16 @@ public:
                               Filter::Screen::AntiAlias<W, H>()) {}
 
   void init() override {
+    configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024, 16 * 1024, 0);
+
     registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
     registerParam("Folding", &params.folding, 0.0f, 2.0f);
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+
+    static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters).init_storage(
+        Persistent(persistent_arena));
 
     init_fibers();
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,

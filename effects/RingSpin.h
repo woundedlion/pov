@@ -65,10 +65,11 @@ private:
     rings.push_back(Ring(normal, palette));
     Ring &r = rings.back();
     timeline.add(0, Animation::RandomWalk<W>(
-                        r.orientation, r.normal,
+                        r.orientation, r.normal, noise,
                         Animation::RandomWalk<W>::Options::Energetic()));
   }
 
+  FastNoiseLite noise;
   Timeline<W> timeline;
   Pipeline<W, H> filters;
   StaticCircularBuffer<Ring, NUM_RINGS> rings;

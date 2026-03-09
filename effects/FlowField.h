@@ -27,6 +27,9 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
 
+    static_cast<Filter::World::Trails<W, k_max_trail_dots> &>(filters)
+        .init_storage(Persistent(persistent_arena));
+
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.SetSeed(hs::rand_int(0, 65535));
     reset_particles();

@@ -28,8 +28,9 @@ public:
     registerParam("Ripp Width", &ripple_gen.params.thickness, 0.1f, 1.0f);
     registerParam("Ripp Decay", &ripple_gen.params.decay, 0.0f, 5.0f);
     registerParam("Ripp Dur", &ripple_duration, 30.0f, 300.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, UP));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
     ripple_gen.params.amplitude = 0.4f;
     ripple_gen.params.thickness = 0.7f;
@@ -56,6 +57,7 @@ private:
   Timeline<W> timeline;
   Pipeline<W, H> filters;
   RippleTransformer<W, 8> ripple_gen;
+  FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
   MeshState mesh_states[2];
@@ -105,7 +107,8 @@ private:
       frag.color.alpha = opacity;
     };
 
-    Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader);
+    Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
+                           params.debug_bb);
   }
 
   void spawn_shape() {
@@ -171,5 +174,6 @@ private:
     float duration = 96.0f;
     float fade = 32.0f;
     int burst_size = 4;
+    bool debug_bb = false;
   } params;
 };

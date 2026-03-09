@@ -29,17 +29,19 @@ public:
   };
 
   FLASHMEM TestShapes()
-      : Effect(W, H), current_shape(ShapeType::PlanarPolygon), num_shapes(25),
-        debug_bb(false) {
+      : Effect(W, H), current_shape(ShapeType::PlanarPolygon), num_shapes(7) {}
+
+  bool show_bg() const override { return false; }
+
+  void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
     rebuild();
   }
-
-  bool show_bg() const override { return false; }
 
   void draw_frame() override {
     Canvas canvas(*this);
@@ -47,7 +49,7 @@ public:
     // Cycle shapes every n frames
     static int frame_count = 0;
     frame_count++;
-    if (frame_count % 500 == 0) {
+    if (frame_count % 48 == 0) {
       int next = (static_cast<int>(current_shape) + 1) % 4;
       current_shape = static_cast<ShapeType>(next);
     }
@@ -57,8 +59,13 @@ public:
 
   FLASHMEM void rebuild() {
     rings.clear();
-    // Re-create timeline to clear old animations
-    timeline = Timeline<W, 256>();
+    timeline = Timeline<W>();
+
+    // Single camera tumble
+    typename Animation::RandomWalk<W>::Options rw_opts;
+    rw_opts.seed = hs::rand_int(0, 65535);
+    rw_opts.space = Animation::Space::World;
+    timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, rw_opts));
 
     // Twist Mutation: sin wave
     timeline.add(0, Animation::Mutation(
@@ -67,32 +74,23 @@ public:
                         480, ease_mid, true));
 
     int total_shapes = num_shapes;
-    int seed1 = hs::rand_int(0, 65535);
 
     for (int i = total_shapes - 1; i >= 0; --i) {
       float t =
           static_cast<float>(i) / (total_shapes > 1 ? total_shapes - 1 : 1);
       Color4 color = Palettes::richSunset.get(t);
-      spawnRing(X_AXIS, t, color, seed1, RenderMode::Plot, i);
-      spawnRing(-X_AXIS, t, color, seed1, RenderMode::Scan, i);
+      spawnRing(X_AXIS, t, color, RenderMode::Plot, i);
+      spawnRing(-X_AXIS, t, color, RenderMode::Scan, i);
     }
   }
 
   void spawnRing(const Vector &normal, float scale, const Color4 &color,
-                 int seed, RenderMode mode, int layer_index) {
+                 RenderMode mode, int layer_index) {
     if (rings.is_full())
       return;
     rings.emplace_back(normal, scale, color, mode, layer_index);
     Ring &ring = rings.back();
 
-    Vector antipode = (normal.x < -0.5f) ? -normal : normal;
-
-    // Animations
-    typename Animation::RandomWalk<W>::Options rw_opts;
-    rw_opts.seed = seed;
-    rw_opts.space = Animation::Space::World;
-    timeline.add(0,
-                 Animation::RandomWalk<W>(ring.orientation, antipode, rw_opts));
     timeline.add(0, Animation::Rotation<W>(ring.orientation, ring.normal,
                                            2 * PI_F, 160, ease_mid, true,
                                            Animation::Space::Local));
@@ -113,7 +111,8 @@ public:
     float phase = ring.layer_index * this->params.twist;
     float r = this->params.radius * ring.scale;
 
-    Basis basis = make_basis(ring.orientation.get(), ring.normal);
+    Quaternion cam_q = camera.get();
+    Basis basis = make_basis(cam_q * ring.orientation.get(), ring.normal);
     int sides_int = (int)params.sides;
     if (ring.mode == RenderMode::Plot) {
       switch (current_shape) {
@@ -137,30 +136,31 @@ public:
     } else {
       switch (current_shape) {
       case ShapeType::Flower:
-        debug_bb = true;
         Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
-                                 fragment_shader, phase, debug_bb);
+                                 fragment_shader, phase, params.debug_bb);
         break;
       case ShapeType::Star:
         Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
-                               fragment_shader, phase, debug_bb);
+                               fragment_shader, phase, params.debug_bb);
         break;
       case ShapeType::PlanarPolygon:
         Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r,
                                         sides_int, fragment_shader, phase,
-                                        debug_bb);
+                                        params.debug_bb);
         break;
       default: // SphericalPolygon
         Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r,
                                            sides_int, fragment_shader, phase,
-                                           debug_bb);
+                                           params.debug_bb);
         break;
       }
     }
   }
 
 private:
-  Timeline<W, 256> timeline;
+  FastNoiseLite noise;
+  Timeline<W> timeline;
+  Orientation<W> camera;
   StaticCircularBuffer<Ring, 128> rings;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
   Pipeline<W, H> scan_filters;
@@ -170,9 +170,9 @@ private:
     float radius = 1.0f;
     float sides = 5.0f;
     float twist = 0.0f;
+    bool debug_bb = false;
   } params;
 
   ShapeType current_shape;
   int num_shapes;
-  bool debug_bb;
 };

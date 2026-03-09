@@ -47,7 +47,7 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &c) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
-                        global_orientation, Y_AXIS,
+                        global_orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
     spawn_sprite(0); // Start first preset
@@ -82,6 +82,7 @@ private:
 
   std::array<PresetData, 4> loaded_presets;
 
+  FastNoiseLite noise;
   Timeline<W> timeline;
 
   std::array<Orientation<W>, 2> orientations;

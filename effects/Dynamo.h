@@ -25,12 +25,18 @@ public:
         palettes(
             {GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,
                                BrightnessProfile::ASCENDING)}),
-        palette_normal(Z_AXIS), // Z is UP in C++ (vs Y in JS)
-
+        palette_normal(Z_AXIS),
         filters(Filter::World::Trails<W, 10000>((uint32_t)params.trail_length),
                 Filter::World::Replicate<W>(3),
                 Filter::World::Orient<W>(orientation),
-                Filter::Screen::AntiAlias<W, H>()) {
+                Filter::Screen::AntiAlias<W, H>()) {}
+
+  bool show_bg() const override { return false; }
+
+  void init() override {
+    static_cast<Filter::World::Trails<W, 10000> &>(filters)
+        .init_storage(Persistent(persistent_arena));
+
     registerParam("Speed", &params.speed, -10.0f, 10.0f);
     registerParam("Gap", &params.gap, 1.0f, 20.0f);
     registerParam("Trail Len", &params.trail_length, 1.0f, 100.0f);
@@ -48,8 +54,6 @@ public:
         .add(0, Animation::RandomTimer(
                     48, 160, [this](auto &) { rotate(); }, true));
   }
-
-  bool show_bg() const override { return false; }
 
   void reverse() { params.speed *= -1; }
 

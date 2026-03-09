@@ -21,9 +21,10 @@ public:
   void init() override {
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS,
+                        orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
     solid_idx = 0;
@@ -235,7 +236,8 @@ private:
       f.color.alpha *= opacity;
     };
 
-    Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader);
+    Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader,
+                           params.debug_bb);
   }
 
   // Overload without pre-computed quaternion (for non-morph paths)
@@ -254,6 +256,7 @@ private:
   float morph_alpha = 0.0f;
 
   Orientation<W> orientation;
+  FastNoiseLite noise;
   Timeline<W> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   int solid_idx = 0;
@@ -261,5 +264,6 @@ private:
   struct Params {
     float intensity = 1.2f;
     float hankin_angle = PI_F / 4.0f;
+    bool debug_bb = false;
   } params;
 };

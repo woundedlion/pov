@@ -18,7 +18,6 @@
 
 namespace Plot {
 
-
 /**
  * @brief Single point primitive.
  */
@@ -125,8 +124,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 template <int W, int H>
 static void rasterize(PipelineRef pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
-                      bool close_loop = false,
-                      float age = 0.0f, const Basis *planar_basis = nullptr) {
+                      bool close_loop = false, float age = 0.0f,
+                      const Basis *planar_basis = nullptr) {
   size_t len = points.size();
   if (len < 2)
     return;
@@ -134,7 +133,7 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
   size_t count = close_loop ? len : len - 1;
   ScopedScratch _sc(MemoryCtx::scratch());
   ArenaVector<float> _steps_cache;
-  _steps_cache.initialize(MemoryCtx::scratch(), 512);
+  _steps_cache.initialize(MemoryCtx::scratch(), 2048);
 
   auto process_segment = [&](auto &&map, const Fragment &curr,
                              const Fragment &next, float total_dist,
@@ -247,10 +246,9 @@ struct Line {
    * @return Fragments Two fragments representing the line endpoints.
    */
   static void sample(Fragments &points, const Fragment &f1, const Fragment &f2,
-                          int density = 1) {
+                     int density = 1) {
     if (density < 1)
       density = 1;
-
 
     float angle = angle_between(f1.pos, f2.pos);
     if (std::abs(angle) < 0.0001f) {
@@ -279,7 +277,6 @@ struct Line {
       f.v2 = 0.0f; // Standard: Single lines have v2=0
       points.push_back(f);
     }
-
   }
 
   /**
@@ -298,7 +295,7 @@ struct Line {
                    VertexShaderRef vertex_shader) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), 4);
     sample(points, f1, f2);
 
     if (vertex_shader) {
@@ -306,8 +303,8 @@ struct Line {
         vertex_shader(p);
       }
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    false, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
+                    nullptr);
   }
 
   template <int W, int H>
@@ -356,7 +353,8 @@ struct Multiline {
    * @param closed If true, connects the last point to the first.
    * @return Fragments List of fragments with arc-length parameterization.
    */
-  static void sample(Fragments &points, const auto &vertices, bool closed = false) {
+  static void sample(Fragments &points, const auto &vertices,
+                     bool closed = false) {
     auto it = std::begin(vertices);
     auto end = std::end(vertices);
 
@@ -436,7 +434,7 @@ struct Multiline {
                    VertexShaderRef vertex_shader, bool closed = false) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), vertices.size() + 2);
     sample(points, vertices, closed);
 
     if (vertex_shader) {
@@ -446,8 +444,8 @@ struct Multiline {
     }
 
     // We manually closed it if requested, so pass false to rasterize
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    false, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
+                    nullptr);
   }
 
   template <int W, int H>
@@ -542,7 +540,7 @@ struct Ring {
                    VertexShaderRef vertex_shader, float phase = 0) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), W + 2);
     // Use W samples for smooth circles (fixes pinching at poles)
     sample(points, basis, radius, W, phase);
 
@@ -551,8 +549,8 @@ struct Ring {
         vertex_shader(p);
       }
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    true, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
+                    nullptr);
   }
 
   template <int W, int H>
@@ -606,7 +604,7 @@ struct PlanarPolygon {
                    VertexShaderRef vertex_shader, float phase = 0) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -614,8 +612,8 @@ struct PlanarPolygon {
         vertex_shader(p);
       }
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    true, 0.0f, &basis);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
+                    &basis);
   }
 
   template <int W, int H>
@@ -674,7 +672,7 @@ struct SphericalPolygon {
                    VertexShaderRef vertex_shader, float phase = 0) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -682,8 +680,8 @@ struct SphericalPolygon {
         vertex_shader(p);
       }
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    true, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
+                    nullptr);
   }
 
   template <int W, int H>
@@ -806,7 +804,7 @@ struct DistortedRing {
                    VertexShaderRef vertex_shader, float phase = 0) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), W + 2);
     sample<W>(points, basis, radius, shift_fn, phase);
 
     if (vertex_shader) {
@@ -814,8 +812,8 @@ struct DistortedRing {
         vertex_shader(p);
       }
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    true, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
+                    nullptr);
   }
 
   template <int W, int H>
@@ -879,8 +877,8 @@ struct Spiral {
         vertex_shader(f);
       }
     }
-    rasterize<W, H>(pipeline, canvas, frags, fragment_shader,
-                    false, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, frags, fragment_shader, false, 0.0f,
+                    nullptr);
   }
 
   template <int W, int H>
@@ -974,7 +972,7 @@ struct Star {
                    VertexShaderRef vertex_shader, float phase = 0) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -992,8 +990,8 @@ struct Star {
     Vector u = cross(v, ref).normalize();
     Vector w = cross(v, u).normalize();
     Basis planar_basis = {u, v, w};
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    true, 0.0f, &planar_basis);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
+                    &planar_basis);
   }
 
   template <int W, int H>
@@ -1095,7 +1093,7 @@ struct Flower {
                    VertexShaderRef vertex_shader, float phase = 0) {
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments points;
-    points.initialize(MemoryCtx::scratch(), 512);
+    points.initialize(MemoryCtx::scratch(), num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -1113,8 +1111,8 @@ struct Flower {
     Vector u_p = cross(center, ref).normalize();
     Vector w_p = cross(center, u_p).normalize();
     Basis planar_basis = {u_p, center, w_p};
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                    true, 0.0f, &planar_basis);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
+                    &planar_basis);
   }
 
   template <int W, int H>
@@ -1248,7 +1246,6 @@ struct ParticleSystem {
       bool first = true;
 
       tween(p.history, [&](const Vector &v, float t) {
-
         if (!first) {
           cumulative_len += angle_between(last_pos, v);
         }
@@ -1272,8 +1269,8 @@ struct ParticleSystem {
             vertex_shader(f);
           }
         }
-        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
-                        0.0f, nullptr);
+        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false, 0.0f,
+                        nullptr);
       }
     }
   }

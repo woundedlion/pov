@@ -20,7 +20,7 @@ constexpr size_t GLOBAL_ARENA_SIZE = 345 * 1024;
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE  = 120 * 1024;
 constexpr size_t DEFAULT_SCRATCH_B_SIZE  = 125 * 1024;
-constexpr size_t DEFAULT_PERSISTENT_SIZE =  100 * 1024;
+constexpr size_t DEFAULT_PERSISTENT_SIZE = GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 
 // ============================================================================
 // 1. Core Arena Allocator
