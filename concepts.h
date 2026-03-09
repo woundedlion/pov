@@ -69,6 +69,7 @@ using FragmentShaderFn = FunctionRef<void(const Vector &, Fragment &)>;
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
 using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
+using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 
 class PipelineRef {
   void *ctx_;

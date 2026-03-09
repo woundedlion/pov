@@ -16,14 +16,24 @@ void __verbose_terminate_handler() {
 }
 } // namespace __gnu_cxx
 
-// Static arena backing stores — plain static = RAM1 (DTCM) on Teensy
-static uint8_t scratch_buf_a[SCRATCH_ARENA_A_SIZE];
-static uint8_t scratch_buf_b[SCRATCH_ARENA_B_SIZE];
-static uint8_t persistent_buf[PERSISTENT_ARENA_SIZE];
+// Single contiguous memory block — all arenas partition this
+static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
-Arena scratch_arena_a(scratch_buf_a, SCRATCH_ARENA_A_SIZE);
-Arena scratch_arena_b(scratch_buf_b, SCRATCH_ARENA_B_SIZE);
-Arena persistent_arena(persistent_buf, PERSISTENT_ARENA_SIZE);
+Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
+Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE, DEFAULT_SCRATCH_A_SIZE);
+Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE + DEFAULT_SCRATCH_A_SIZE, DEFAULT_SCRATCH_B_SIZE);
+
+void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
+  assert(persistent + scratch_a + scratch_b <= GLOBAL_ARENA_SIZE &&
+         "Arena partition exceeds global block!");
+  persistent_arena.rebind(global_arena_block, persistent);
+  scratch_arena_a.rebind(global_arena_block + persistent, scratch_a);
+  scratch_arena_b.rebind(global_arena_block + persistent + scratch_a, scratch_b);
+}
+
+void configure_arenas_default() {
+  configure_arenas(DEFAULT_PERSISTENT_SIZE, DEFAULT_SCRATCH_A_SIZE, DEFAULT_SCRATCH_B_SIZE);
+}
 
 MeshState *PersistentTracker::tracked_meshes[256];
 size_t PersistentTracker::num_tracked = 0;

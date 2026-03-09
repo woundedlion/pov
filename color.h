@@ -115,6 +115,32 @@ struct Color4 {
   operator CRGB() const { return color; }
 };
 
+/**
+ * @brief Rotates the hue of a Color4 by a fractional amount (0..1 = full turn).
+ * Uses Rodrigues rotation around the (1,1,1) gray axis in linear RGB space.
+ */
+inline Color4 hue_rotate(const Color4 &c, float amount) {
+  float angle = amount * (2.0f * PI_F);
+  float cos_a = cosf(angle);
+  float sin_a = sinf(angle);
+  float one_third = 1.0f / 3.0f;
+  float sqrt3_inv = 0.57735026919f; // 1/sqrt(3)
+
+  float r = c.color.r, g = c.color.g, b = c.color.b;
+  float avg = (r + g + b) * one_third;
+  float s = sin_a * sqrt3_inv;
+
+  float nr = avg + (r - avg) * cos_a + (g - b) * s;
+  float ng = avg + (g - avg) * cos_a + (b - r) * s;
+  float nb = avg + (b - avg) * cos_a + (r - g) * s;
+
+  Color4 result = c;
+  result.color.r = static_cast<uint16_t>(std::clamp(nr, 0.0f, 65535.0f));
+  result.color.g = static_cast<uint16_t>(std::clamp(ng, 0.0f, 65535.0f));
+  result.color.b = static_cast<uint16_t>(std::clamp(nb, 0.0f, 65535.0f));
+  return result;
+}
+
 #include "color_luts.h"
 
 inline uint16_t srgb_to_linear(uint8_t srgb) {

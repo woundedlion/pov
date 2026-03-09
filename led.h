@@ -109,12 +109,7 @@ private:
    * @brief Non-template core of show(). Takes ownership of e.
    */
   void run(Effect *e, unsigned long duration) {
-    scratch_arena_a.reset();
-    scratch_arena_a.reset_high_water_mark();
-    scratch_arena_b.reset();
-    scratch_arena_b.reset_high_water_mark();
-    persistent_arena.reset();
-    persistent_arena.reset_high_water_mark();
+    configure_arenas_default();
 
     PersistentTracker::clear_registry();
 

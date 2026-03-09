@@ -13,11 +13,15 @@ template <int W, int H> class MindSplatter : public Effect {
 public:
   FLASHMEM MindSplatter()
       : Effect(W, H), presets{{{{"Tight", {0.85f, 1.0f, 0.025f, 0.2f}},
-                                {"Medium", {0.5f, 2.0f, 0.094f, 0.2f}},
-                                {"Loose", {1.0f, 3.0f, 0.035f, 1.0f}}}}},
+                                {"Medium", {0.85f, 2.0f, 0.094f, 0.2f}},
+                                {"Loose", {0.85f, 3.0f, 0.035f, 1.0f}}}}},
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()),
-        particle_system(0.85f, 0.001f, 25) {
+        particle_system() {}
+
+  void init() override {
+    configure_arenas(GLOBAL_ARENA_SIZE, 0, 0);
+
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
     registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
     registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
@@ -43,19 +47,23 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
+
+    particle_system.friction = params.friction;
     particle_system.step(canvas);
 
     draw_particles(canvas, 1.0f);
   }
 
 private:
-  static const int NUM_PARTICLES = 2048;
+  static const int NUM_PARTICLES = 1024;
 
-  typedef Solids::Dodecahedron EmitSolid;
-  typedef Solids::Icosahedron AttractSolid;
+  typedef Solids::Cube EmitSolid;
+  typedef Solids::Octahedron AttractSolid;
 
-  typedef Animation::ParticleSystem<W, NUM_PARTICLES> ParticleSystem;
-  typedef StaticCircularBuffer<GenerativePalette, NUM_PARTICLES> PaletteBuffer;
+  typedef Animation::ParticleSystem<W, NUM_PARTICLES, 25,
+                                    EmitSolid::NUM_VERTS,
+                                    AttractSolid::NUM_VERTS>
+      ParticleSystem;
 
   // Params
   struct Params {
@@ -82,7 +90,9 @@ private:
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
   ParticleSystem particle_system;
-  PaletteBuffer palette_buffer;
+  GenerativePalette base_palette{
+      GradientShape::CIRCULAR, HarmonyType::COMPLEMENTARY,
+      BrightnessProfile::FLAT, SaturationProfile::MID};
   std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
   std::array<int, EmitSolid::NUM_VERTS> emit_counters;
 
@@ -91,7 +101,7 @@ private:
   float warp_scale = 0.6f;
 
   FLASHMEM void rebuild() {
-    particle_system.reset(params.friction, 0.001f);
+    particle_system.init(persistent_arena, params.friction, 0.001f);
 
     // Add Attractors
     for (const auto &v : AttractSolid::vertices) {
@@ -103,7 +113,6 @@ private:
       emitter_hues[i] = hs::rand_f();
     }
 
-    palette_buffer.clear();
     emit_counters.fill(0);
 
     // Add Emitters
@@ -121,13 +130,9 @@ private:
         // Update Hue
         emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
 
-        // Spawn with unique palette per particle
-        if (particle_system.active_count < NUM_PARTICLES) {
-          auto &pal = palette_buffer.emplace_back(
-              GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
-              BrightnessProfile::FLAT, SaturationProfile::MID,
-              static_cast<uint8_t>(emitter_hues[i] * 255));
-          particle_system.spawn(axis, vel, pal, 160);
+        // Spawn with hue seed
+        if (particle_system.active_count < particle_system.pool.capacity()) {
+          particle_system.spawn(axis, vel, emitter_hues[i], 160);
         }
       });
     }
@@ -163,7 +168,8 @@ private:
       }
 
       const auto &p = particle_system.pool[p_idx];
-      Color4 c = get_color(p.palette, f.v0);
+      float t_shifted = wrap_t(f.v0 + p.color_seed);
+      Color4 c = hue_rotate(base_palette.get(t_shifted), p.color_seed);
       c.alpha = c.alpha * alpha * alpha * opacity;
       f.color = c;
     };

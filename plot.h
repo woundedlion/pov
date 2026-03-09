@@ -1273,8 +1273,7 @@ struct ParticleSystem {
       Vector last_pos;
       bool first = true;
 
-      deep_tween(p.history, [&](const Quaternion &q, float t) {
-        Vector v = rotate(p.position, q);
+      tween(p.history, [&](const Vector &v, float t) {
 
         if (!first) {
           cumulative_len += angle_between(last_pos, v);
