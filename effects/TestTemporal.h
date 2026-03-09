@@ -29,7 +29,7 @@ public:
   FLASHMEM TestTemporal()
       : Effect(W, H), params(), t(0), color_offset(0.0f),
         source_palette{Palettes::richSunset}, circular_source{&source_palette},
-        palette(&circular_source), orientation(), timeline(), noise(),
+        palette(&circular_source), orientation(), noise(), timeline(),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::Temporal<W, 100000, DelayCalc>(DelayCalc{this},
                                                                2.0f),

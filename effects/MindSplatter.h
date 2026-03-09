@@ -20,7 +20,7 @@ public:
         particle_system() {}
 
   void init() override {
-    // configure_arenas(GLOBAL_ARENA_SIZE - 5000, 5000, 0);
+    configure_arenas(GLOBAL_ARENA_SIZE - 10000, 10000, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
     registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
@@ -157,7 +157,7 @@ private:
 
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
-      int p_idx = static_cast<int>(f.v2 + 0.5f);
+      size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
 
       if (p_idx < 0 || p_idx >= particle_system.active_count) {
 #ifdef DEBUG

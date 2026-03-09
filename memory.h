@@ -18,9 +18,10 @@ constexpr size_t GLOBAL_ARENA_SIZE = 2048 * 1024;
 constexpr size_t GLOBAL_ARENA_SIZE = 345 * 1024;
 #endif
 
-constexpr size_t DEFAULT_SCRATCH_A_SIZE  = 120 * 1024;
-constexpr size_t DEFAULT_SCRATCH_B_SIZE  = 125 * 1024;
-constexpr size_t DEFAULT_PERSISTENT_SIZE = GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+constexpr size_t DEFAULT_SCRATCH_A_SIZE = 120 * 1024;
+constexpr size_t DEFAULT_SCRATCH_B_SIZE = 125 * 1024;
+constexpr size_t DEFAULT_PERSISTENT_SIZE =
+    GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 
 // ============================================================================
 // 1. Core Arena Allocator
@@ -171,7 +172,8 @@ public:
   ArenaVector &operator=(ArenaVector &&) = default;
 
   // Constructor requires exact capacity upfront. No dynamic growth.
-  ArenaVector(Arena &arena, size_t exact_capacity) {
+  ArenaVector(Arena &arena, size_t exact_capacity)
+      : data_(nullptr), size_(0), capacity_(0) {
     initialize(arena, exact_capacity);
   }
 
