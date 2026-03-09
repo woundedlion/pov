@@ -173,9 +173,12 @@ public:
     for (const auto &def : params) {
       val entry = val::object();
       entry.set("name", val(def.name));
-      entry.set("value", def.get());
 
-      if (!def.is_bool()) {
+      if (def.is_bool()) {
+        // Emit JS boolean so frontend typeof check works
+        entry.set("value", val(def.get() > 0.5f));
+      } else {
+        entry.set("value", def.get());
         entry.set("min", def.min);
         entry.set("max", def.max);
       }

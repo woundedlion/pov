@@ -47,7 +47,7 @@ public:
     registerParam("Delay Amp", &params.delayAmp, 1.0f, 50.0f);
     registerParam("Noise Freq", &params.noiseFreq, 0.01f, 1.0f);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
   }
 
   bool show_bg() const override { return false; }

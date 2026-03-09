@@ -15,6 +15,7 @@ public:
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerParam("Radius", &params.radius, 0.05f, 2.0f);
     registerParam("Count", &params.count, 1.0f, 100.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
     rebuild();
   }
@@ -37,6 +38,7 @@ private:
     float sides = 3.0f;
     float radius = 0.2f;
     float count = 40.0f;
+    bool debug_bb = false;
   } params;
 
   StaticCircularBuffer<Shape, 128> shapes;
@@ -78,6 +80,7 @@ private:
     float phase = 0.0f;
 
     Scan::Star::draw<W, H>(filters, canvas, basis, params.radius,
-                           (int)params.sides, fragment_shader, phase);
+                           (int)params.sides, fragment_shader, phase,
+                           params.debug_bb);
   }
 };

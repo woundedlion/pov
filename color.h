@@ -519,8 +519,19 @@ public:
     }
   }
 
+  /// Lightweight snapshot of just the 3 color keys (9 bytes).
+  struct Snapshot {
+    CPixel a, b, c;
+  };
+
+  Snapshot snapshot() const { return {a, b, c}; }
+
   void lerp(const GenerativePalette &from, const GenerativePalette &to,
             float amount) {
+    lerp(from.snapshot(), to.snapshot(), amount);
+  }
+
+  void lerp(const Snapshot &from, const Snapshot &to, float amount) {
     a = CPixel(lerp8(from.a.r, to.a.r, amount), lerp8(from.a.g, to.a.g, amount),
                lerp8(from.a.b, to.a.b, amount));
     b = CPixel(lerp8(from.b.r, to.b.r, amount), lerp8(from.b.g, to.b.g, amount),

@@ -341,49 +341,87 @@ private:
 template <int W, int Capacity> class Trails : public Is3DWithHistory {
 public:
   struct Item {
-    Vector v;
-    float ttl;
-    uint8_t tag;
+    int16_t x, y, z; // Quantized unit vector (6 bytes)
+    uint8_t ttl;      // Remaining lifetime in frames (1 byte)
+    uint8_t pad_;     // Alignment (1 byte) — total 8 bytes
   };
 
   Trails(int lifetime) : lifetime(lifetime) {}
+
+  /// Allocate ring buffer storage from persistent arena.
+  /// Must be called from effect init(), not constructor (arenas aren't ready yet).
+  void init_storage(Persistent arena) {
+    items_ = static_cast<Item *>(arena.allocate(Capacity * sizeof(Item), alignof(Item)));
+    head_ = tail_ = count_ = 0;
+  }
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             uint8_t tag, PassFn3D pass) {
     pass(v, color, age, alpha, tag); // Pass through current frame
 
-    float ttl = lifetime - age;
-    if (ttl > 0) {
-      items.push_back({v, ttl, tag});
+    int ttl = lifetime - static_cast<int>(age);
+    if (ttl > 0 && items_) {
+      push_back(encode(v, static_cast<uint8_t>(ttl)));
     }
   }
 
   void flush(const WorldTrailFn &trailFn, float alpha, PassFn3D pass) {
     // Age
-    size_t count = items.size();
-    for (size_t i = 0; i < count; ++i) {
-      items[i].ttl -= 1.0f;
+    for (size_t i = 0; i < count_; ++i) {
+      auto &item = at(i);
+      if (item.ttl > 0) item.ttl--;
     }
 
-    while (!items.is_empty() && items.front().ttl <= 0) {
-      items.pop();
+    while (count_ > 0 && at(0).ttl == 0) {
+      pop_front();
     }
 
     // Draw
-    for (size_t i = 0; i < items.size(); ++i) {
-      const auto &item = items[i];
-      float t = 1.0f - (item.ttl / static_cast<float>(lifetime));
-      Color4 c = trailFn(item.v, t); // Trail function returns color + alpha
+    for (size_t i = 0; i < count_; ++i) {
+      const auto &item = at(i);
+      Vector v = decode(item);
+      float t = 1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime));
+      Color4 c = trailFn(v, t);
 
       if (c.alpha > 0.001f) {
-        pass(item.v, c.color, lifetime - item.ttl, c.alpha * alpha, item.tag);
+        pass(v, c.color, static_cast<float>(lifetime - item.ttl), c.alpha * alpha, 0);
       }
     }
   }
 
 private:
-  StaticCircularBuffer<Item, Capacity> items;
+  Item *items_ = nullptr;
+  size_t head_ = 0, tail_ = 0, count_ = 0;
   int lifetime;
+
+  static constexpr float Q = 32767.0f;
+  static Item encode(const Vector &v, uint8_t ttl) {
+    return {static_cast<int16_t>(v.x * Q),
+            static_cast<int16_t>(v.y * Q),
+            static_cast<int16_t>(v.z * Q),
+            ttl, 0};
+  }
+  static Vector decode(const Item &item) {
+    constexpr float INV_Q = 1.0f / Q;
+    return Vector(item.x * INV_Q, item.y * INV_Q, item.z * INV_Q);
+  }
+
+  Item &at(size_t i) { return items_[(head_ + i) % Capacity]; }
+  const Item &at(size_t i) const { return items_[(head_ + i) % Capacity]; }
+
+  void push_back(const Item &item) {
+    if (count_ == Capacity) {
+      pop_front(); // Drop oldest on overflow
+    }
+    items_[tail_] = item;
+    tail_ = (tail_ + 1) % Capacity;
+    count_++;
+  }
+
+  void pop_front() {
+    head_ = (head_ + 1) % Capacity;
+    count_--;
+  }
 };
 
 } // namespace World

@@ -13,6 +13,7 @@ public:
     float points = 600.0f;
     float star_radius = 0.02f;
     float star_sides = 4.0f;
+    bool debug_bb = false;
   } params;
 
   FLASHMEM GnomonicStars()
@@ -20,6 +21,7 @@ public:
     registerParam("Points", &params.points, 100.0f, 2000.0f);
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
     // Spawn the evolving warp and get its animation reference
     auto *anim = transformer.spawn(0, 0.5f, 0.035f);
@@ -27,9 +29,9 @@ public:
       registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
     }
 
-    timeline.add(
-        0, Animation::RandomWalk<W>(
-               orientation, UP, Animation::RandomWalk<W>::Options::Languid()));
+    timeline.add(0, Animation::RandomWalk<W>(
+                        orientation, UP, noise,
+                        Animation::RandomWalk<W>::Options::Languid()));
   }
 
   bool show_bg() const override { return true; }
@@ -64,12 +66,13 @@ public:
       Basis basis = make_basis(orientation.get(), v);
 
       Scan::Star::draw<W, H>(filters, canvas, basis, radius, sides,
-                             fragment_shader);
+                             fragment_shader, 0.0f, params.debug_bb);
     }
   }
 
 private:
   Orientation<W> orientation;
+  FastNoiseLite noise;
   Timeline<W> timeline;
   Pipeline<W, H> filters;
 

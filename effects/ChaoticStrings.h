@@ -59,7 +59,7 @@ public:
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), animated_palette(&palette_variant),
         cycle_phase(0.0f), functions{{{12.0f, 5.0f, 0, 2 * PI_F}}},
-        cur_function_idx(0), node(), noise(timeline), vertices() {}
+        cur_function_idx(0), node(), noise_xform(timeline), vertices() {}
 
   void init() override {
     // Colors
@@ -76,17 +76,18 @@ public:
     registerParam("Cycle Speed", &params.cycleSpeed, 0.0f, 1.0f);
 
     // Initialize noise params
-    noise.params.amplitude = params.jitterAmp;
-    noise.params.frequency = params.noiseFreq;
-    noise.params.speed = params.speed;
-    noise.params.sync();
+    noise_xform.params.amplitude = params.jitterAmp;
+    noise_xform.params.frequency = params.noiseFreq;
+    noise_xform.params.speed = params.speed;
+    noise_xform.params.sync();
 
     // Initialize Lissajous functions
 
     update_path();
-    noise.spawn(0, -1);
+    noise_xform.spawn(0, -1);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
+    timeline.add(0,
+                 Animation::RandomWalk<W>(orientation, random_vector(), noise));
     timeline.add(0, Animation::Motion<W>(node.orientation, path,
                                          (int)params.cycle_duration, true));
     timeline.add(0, Animation::PeriodicTimer(
@@ -125,13 +126,13 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    noise.params.frequency = params.noiseFreq;
-    noise.params.amplitude = params.jitterAmp;
-    noise.params.speed = params.speed;
-    noise.params.sync();
+    noise_xform.params.frequency = params.noiseFreq;
+    noise_xform.params.amplitude = params.jitterAmp;
+    noise_xform.params.speed = params.speed;
+    noise_xform.params.sync();
 
     // Update active noise entities to reflect live parameter changes
-    for (auto &e : noise.entities) {
+    for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;
         e.params.amplitude = params.jitterAmp;
@@ -145,7 +146,7 @@ public:
       driver_->set_speed(params.cycleSpeed);
     }
 
-    for (auto &e : noise.entities) {
+    for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;
         e.params.amplitude = params.jitterAmp;
@@ -163,7 +164,7 @@ public:
 
     deep_tween(node.trail, [&](const Quaternion &q, float t) {
       Fragment f;
-      f.pos = noise.transform(orientation.orient(rotate(node.v, q)));
+      f.pos = noise_xform.transform(orientation.orient(rotate(node.v, q)));
       f.age = current_t - trail_len + 1.0f + (t * trail_len);
       f.v3 = t;
       vertices.push_back(f);
@@ -186,6 +187,7 @@ private:
     };
   }
 
+  FastNoiseLite noise;
   Timeline<W> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ProceduralPath path;
@@ -199,6 +201,6 @@ private:
   std::array<LissajousConfig, 1> functions;
   int cur_function_idx;
   Node node;
-  NoiseTransformer<W, 1> noise;
+  NoiseTransformer<W, 1> noise_xform;
   StaticCircularBuffer<Fragment, 20000> vertices;
 };

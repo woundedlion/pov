@@ -44,9 +44,10 @@ public:
     registerParam("Param X", &params.paramX, 0.0f, 20.0f);
     registerParam("Param Y", &params.paramY, 0.0f, 20.0f);
 
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    delay_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
+    timeline.add(0,
+                 Animation::RandomWalk<W>(orientation, Vector(0, 1, 0), noise));
     palette.add(cycle_mod);
     timeline.add(0, Animation::Driver(color_offset, 0.02f));
 
@@ -60,7 +61,7 @@ public:
     timeline.step(canvas);
     t += 1.0f;
 
-    noise.SetFrequency(0.03f);
+    delay_noise.SetFrequency(0.03f);
     filters.next.set_window_size(2);
 
     Plot::Mesh::draw<W, H>(
@@ -114,8 +115,9 @@ private:
   AnimatedPalette palette;
 
   Orientation<W> orientation;
-  Timeline<W> timeline;
   FastNoiseLite noise;
+  Timeline<W> timeline;
+  FastNoiseLite delay_noise;
   Pipeline<W, H, Filter::World::Orient<W>,
            Filter::Screen::Temporal<W, 100000, DelayCalc>,
            Filter::Screen::AntiAlias<W, H>>
@@ -146,7 +148,7 @@ private:
     case LiquidTime: {
       // X = TimeScale (2.0)
       // 3D Noise
-      float noiseVal = noise.GetNoise(x, y, t * params.paramX);
+      float noiseVal = delay_noise.GetNoise(x, y, t * params.paramX);
       return params.base + (noiseVal + 1.0f) * 0.5f * params.amp;
     }
     case QuantumTunnel: {

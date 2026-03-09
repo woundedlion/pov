@@ -579,6 +579,8 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS> thetas;
   std::array<float, MAX_VERTS> invEdgeLengthsSq;
   std::array<float, MAX_VERTS> invEdgeJ;
+  std::array<Vector, MAX_VERTS + 1> verts3D;    // Original 3D vertices (+1 wrap)
+  std::array<Vector, MAX_VERTS> edgeNormals;    // Great circle plane normals
 };
 
 /**
@@ -602,6 +604,8 @@ struct Face {
   std::span<Vector> planes;
   std::span<float> invEdgeLengthsSq;
   std::span<float> invEdgeJ;
+  std::span<Vector> verts3D;
+  std::span<Vector> edgeNormals;
 
   int y_min, y_max;
   std::span<std::pair<float, float>> intervals;
@@ -677,6 +681,19 @@ struct Face {
 
     scratch.poly2D[count] = scratch.poly2D[0];
     poly2D = std::span<Vector>(scratch.poly2D.data(), count + 1);
+
+    // Store 3D vertices and edge normals for angular distance computation
+    for (int i = 0; i < count; ++i)
+      scratch.verts3D[i] = vertices[indices[i]];
+    scratch.verts3D[count] = scratch.verts3D[0];
+    verts3D = std::span<Vector>(scratch.verts3D.data(), count + 1);
+
+    for (int i = 0; i < count; ++i) {
+      Vector n = cross(scratch.verts3D[i], scratch.verts3D[i + 1]);
+      float len = n.magnitude();
+      scratch.edgeNormals[i] = (len > 1e-9f) ? n * (1.0f / len) : Vector(0, 0, 0);
+    }
+    edgeNormals = std::span<Vector>(scratch.edgeNormals.data(), count);
 
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
@@ -985,9 +1002,10 @@ struct Face {
 
     float s = inside ? -1.0f : 1.0f;
     float plane_dist = s * sqrtf(d);
-    float dist = plane_dist - thickness;
+    // Convert gnomonic planar distance to angular for correct AA blending
+    float angular_dist = atanf(plane_dist) - thickness;
 
-    res = DistanceResult(dist, 0.0f, plane_dist, 0.0f, size);
+    res = DistanceResult(angular_dist, 0.0f, atanf(plane_dist), 0.0f, size);
   }
 };
 
@@ -1106,6 +1124,132 @@ struct Polygon {
     }
 
     res = DistanceResult(dist_edge, t_val, polar, 0.0f, apothem);
+  }
+};
+
+/**
+ * @brief Calculates signed distance to a spherical polygon (great circle
+ * edges). Uses sector folding + precomputed great circle plane normal for
+ * O(1) per-pixel distance, with exact angular distances for smooth AA.
+ */
+struct SphericalPolygon {
+  const Basis &basis;
+  int sides;
+  float phase;
+  float circumradius; // angular distance from center to vertex
+  float edge_nv;      // edge normal · center
+  float edge_nu;      // edge normal · u-axis
+  int y_min, y_max;
+  float nx, ny, nz, R_val, alpha_angle;
+  static constexpr bool is_solid = true;
+
+  SphericalPolygon(const Basis &b, float radius, int s, float ph, int h_virt,
+                   int height)
+      : basis(b), sides(s), phase(ph) {
+    circumradius = radius * (PI_F / 2.0f);
+
+    // Build canonical edge: between vertices at azimuth ±π/n from
+    // the sector bisector (u-axis), at angular distance circumradius
+    float half_step = PI_F / sides;
+    float sinR = sinf(circumradius);
+    float cosR = cosf(circumradius);
+    float cos_hs = cosf(half_step);
+    float sin_hs = sinf(half_step);
+
+    Vector v1 = basis.v * cosR +
+                (basis.u * cos_hs + basis.w * sin_hs) * sinR;
+    Vector v2 = basis.v * cosR +
+                (basis.u * cos_hs - basis.w * sin_hs) * sinR;
+
+    // Normal pointing outward (away from polygon interior)
+    Vector en = cross(v2, v1);
+    float len = en.magnitude();
+    if (len > 1e-9f)
+      en = en * (1.0f / len);
+    // Ensure outward: dot(center, n) should be negative
+    if (dot(en, basis.v) > 0)
+      en = -en;
+
+    edge_nv = dot(en, basis.v);
+    edge_nu = dot(en, basis.u);
+
+    // Vertical/horizontal bounds (same as SDF::Polygon)
+    nx = basis.v.x;
+    ny = basis.v.y;
+    nz = basis.v.z;
+    R_val = sqrtf(nx * nx + nz * nz);
+    alpha_angle = atan2f(nz, nx);
+
+    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
+    float margin = circumradius + 0.1f;
+    y_min = std::max(
+        0, static_cast<int>(floorf(
+               (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
+    y_max = std::min(
+        height - 1,
+        static_cast<int>(ceilf(
+            (std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
+  }
+
+  template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
+
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    float phi = y_to_phi<H>(static_cast<float>(y));
+    float cos_phi = cosf(phi);
+    float sin_phi = sinf(phi);
+
+    if (R_val < 0.01f)
+      return false;
+
+    float ang_high = circumradius;
+    float D_min = cosf(ang_high);
+    float denom = R_val * sin_phi;
+    if (std::abs(denom) < 0.000001f)
+      return false;
+
+    float C_min = (D_min - ny * cos_phi) / denom;
+    if (C_min > 1.0f)
+      return true;
+    if (C_min < -1.0f)
+      return false;
+
+    float d_alpha = acosf(C_min);
+    float f_x1 = (alpha_angle - d_alpha) * W / (2 * PI_F);
+    float f_x2 = (alpha_angle + d_alpha) * W / (2 * PI_F);
+    out(floorf(f_x1), ceilf(f_x2));
+    return true;
+  }
+
+  DistanceResult distance(const Vector &p) const {
+    DistanceResult res;
+    distance<true>(p, res);
+    return res;
+  }
+
+  template <bool ComputeUVs = true>
+  void distance(const Vector &p, DistanceResult &res) const {
+    float polar = angle_between(p, basis.v);
+
+    float dot_u = dot(p, basis.u);
+    float dot_w = dot(p, basis.w);
+    float azimuth = atan2f(dot_w, dot_u);
+    if (azimuth < 0)
+      azimuth += 2 * PI_F;
+    azimuth += phase;
+
+    float sector = 2 * PI_F / sides;
+    float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
+
+    // Angular distance to the nearest great circle edge via precomputed normal
+    // cos(local) is even, so sector folding works automatically
+    float sinP = sinf(polar);
+    float cosP = cosf(polar);
+    float dp = edge_nv * cosP + edge_nu * cosf(local) * sinP;
+    float dist_edge = asinf(hs::clamp(dp, -1.0f, 1.0f));
+
+    float t_val = ComputeUVs ? polar / circumradius : 0.0f;
+    res = DistanceResult(dist_edge, t_val, polar, 0.0f, circumradius);
   }
 };
 

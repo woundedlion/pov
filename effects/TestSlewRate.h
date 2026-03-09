@@ -19,7 +19,8 @@ public:
     registerParam("Light Speed", &params.lightSpeed, 0.0f, 0.5f);
     registerParam("Light Alpha", &params.lightAlpha, 0.0f, 2.0f);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, Vector(0, 1, 0)));
+    timeline.add(0,
+                 Animation::RandomWalk<W>(orientation, Vector(0, 1, 0), noise));
     palette.add(cycle_mod);
     timeline.add(0, Animation::Driver(color_offset, 0.02f));
     rebuild_mesh();
@@ -83,6 +84,7 @@ private:
   ProceduralPalette source_palette = Palettes::richSunset;
   CircularPalette circular_source{&source_palette};
   AnimatedPalette palette;
+  FastNoiseLite noise;
   Timeline<W> timeline;
 
   // Mesh

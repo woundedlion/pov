@@ -39,11 +39,13 @@ public:
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Resolution", &params.resolution, 1.0f, 128.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
     update_path();
-    timeline.add(0, Animation::RandomWalk<W>(orientation, random_vector()));
+    timeline.add(0,
+                 Animation::RandomWalk<W>(orientation, random_vector(), noise));
     timeline.add(0, Animation::Motion<W, 16>(node->orientation, path,
-                                         (int)params.cycle_duration, true));
+                                             (int)params.cycle_duration, true));
     timeline.add(0, Animation::PeriodicTimer(
                         2 * (int)params.cycle_duration,
                         [this](Canvas &c) {
@@ -72,7 +74,7 @@ public:
       Vector v_local = rotate(node->v, q);
       Vector v_final = orientation.orient(v_local);
       Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
-                              fragment_shader);
+                              fragment_shader, params.debug_bb);
     });
   }
 
@@ -94,6 +96,7 @@ private:
     timeline.add(0, Animation::ColorWipe(palette, next_palette, 48, ease_mid));
   }
 
+  FastNoiseLite noise;
   Timeline<W, 32> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ProceduralPath path;
@@ -119,5 +122,6 @@ private:
     float thickness = 2.1f * 2 * PI_F / W;
     float cycle_duration = 80.0f;
     float resolution = 32.0f;
+    bool debug_bb = false;
   } params;
 };

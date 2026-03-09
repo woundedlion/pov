@@ -274,11 +274,11 @@ private:
  * @brief Represents a single particle in a system.
  */
 template <int TRAIL_LEN = 8> struct Particle {
-  Vector position; /**< Current 3D position. */
-  Vector velocity; /**< Current velocity vector. */
+  Vector position;      /**< Current 3D position. */
+  Vector velocity;      /**< Current velocity vector. */
   float color_seed = 0; /**< Hue seed for palette offset. */
-  float life;     /**< Remaining life (frames or arbitrary units). */
-  float max_life; /**< Initial life value. */
+  float life;           /**< Remaining life (frames or arbitrary units). */
+  float max_life;       /**< Initial life value. */
 
   VectorTrail<TRAIL_LEN> history; /**< Trail of world-space positions. */
 
@@ -325,15 +325,20 @@ public:
   ArenaVector<EmitterFn> emitters;
 
   ParticleSystem()
-      : Base<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
-                            ATTRACTOR_CAP>>(-1, false) {}
+      : Base<
+            ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>>(
+            -1, false) {}
 
-  void init(Arena &arena, float friction = 0.85f,
-            float gravity = 0.001f) {
+  void init(Arena &arena, float friction = 0.85f, float gravity = 0.001f) {
     this->friction = friction;
     this->gravity = gravity;
     active_count = 0;
     pool.initialize(arena, CAPACITY);
+    // Pre-fill pool to full capacity so operator[] works for any index.
+    // active_count tracks which entries are "live"; the rest are dead storage.
+    for (size_t i = 0; i < CAPACITY; ++i) {
+      pool.emplace_back();
+    }
     attractors.initialize(arena, ATTRACTOR_CAP);
     emitters.initialize(arena, EMITTER_CAP);
   }
@@ -977,11 +982,11 @@ private:
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
   Orientation<W, CAP> *orientation; /**< Pointer to the Orientation state. */
-  Vector axis;                 /**< The axis of rotation. */
-  float total_angle;           /**< The total angle to sweep. */
-  ScalarFn easing_fn;          /**< Easing curve. */
-  float last_angle;            /**< The angle reached in the previous frame. */
-  Space space;                 /**< The coordinate space for rotation. */
+  Vector axis;                      /**< The axis of rotation. */
+  float total_angle;                /**< The total angle to sweep. */
+  ScalarFn easing_fn;               /**< Easing curve. */
+  float last_angle; /**< The angle reached in the previous frame. */
+  Space space;      /**< The coordinate space for rotation. */
 };
 
 /**
@@ -990,7 +995,8 @@ private:
  * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
  * @tparam W The width of the LED display.
  */
-template <int W, int CAP = 4> class RandomWalk : public Base<RandomWalk<W, CAP>> {
+template <int W, int CAP = 4>
+class RandomWalk : public Base<RandomWalk<W, CAP>> {
 public:
   struct Options {
     float speed = 0.02f; /**< Movement speed per frame. */
@@ -1008,23 +1014,25 @@ public:
    * @brief Constructs a RandomWalk animation.
    * @param orientation The Orientation object to update.
    * @param v_start The starting direction vector.
+   * @param noise External noise generator (caller owns lifetime).
    * @param options Configuration options.
    */
   RandomWalk(Orientation<W, CAP> &orientation, const Vector &v_start,
-             Options options = Options())
+             FastNoiseLite &noise, Options options = Options())
       : Base<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
-        v(Vector(v_start).normalize()), options(options) {
+        v(Vector(v_start).normalize()), options(options),
+        noiseGenerator(noise) {
     Vector u = X_AXIS;
     if (std::abs(dot(v, u)) > 0.99f) {
       u = Y_AXIS;
     }
     direction = cross(v, u).normalize();
-    noiseGenerator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    noiseGenerator.SetFrequency(options.noise_scale);
+    noiseGenerator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noiseGenerator.get().SetFrequency(options.noise_scale);
     if (options.seed == 0) {
-      noiseGenerator.SetSeed(std::rand());
+      noiseGenerator.get().SetSeed(std::rand());
     } else {
-      noiseGenerator.SetSeed(options.seed);
+      noiseGenerator.get().SetSeed(options.seed);
     }
   }
 
@@ -1041,7 +1049,7 @@ public:
   void step(Canvas &canvas) override {
     Base<RandomWalk<W, CAP>>::step(canvas);
     float pivotAngle =
-        noiseGenerator.GetNoise(static_cast<float>(this->t), 0.0f) *
+        noiseGenerator.get().GetNoise(static_cast<float>(this->t), 0.0f) *
         options.pivot_strength;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
     Vector walk_axis = cross(v, direction).normalize();
@@ -1058,7 +1066,8 @@ private:
   Vector v;         /**< Current forward direction vector. */
   Vector direction; /**< Current pivoting direction (orthogonal to v). */
   Options options;  /**< Configuration options. */
-  FastNoiseLite noiseGenerator; /**< The noise generator instance. */
+  std::reference_wrapper<FastNoiseLite>
+      noiseGenerator; /**< External noise generator. */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1071,18 +1080,17 @@ class ColorWipe : public Base<ColorWipe> {
 public:
   /**
    * @brief Constructs a ColorWipe animation.
-   * @param from_palette The GenerativePalette to start modifying (will be used
-   * for `cur_palette`).
-   * @param to_palette The GenerativePalette instance to interpolate toward.
+   * @param from_palette The GenerativePalette to animate (snapshot taken at
+   * t=0).
+   * @param to_palette The GenerativePalette to interpolate toward.
    * @param duration The duration in frames.
    * @param easing_fn The easing function.
    */
   ColorWipe(GenerativePalette &from_palette,
             const GenerativePalette &to_palette, int duration,
             ScalarFn easing_fn)
-      : Base(duration, false), from_palette(from_palette),
-        cur_palette(from_palette), to_palette(to_palette),
-        easing_fn(std::move(easing_fn)) {}
+      : Base(duration, false), cur_palette(from_palette),
+        to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)) {}
 
   /**
    * @brief Steps the animation, blending the palette's colors based on the time
@@ -1090,20 +1098,18 @@ public:
    */
   void step(Canvas &canvas) override {
     if (t == 0) {
-      from_palette = cur_palette.get();
+      from_snap = cur_palette.get().snapshot();
     }
     Base::step(canvas);
     float amount = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
-    cur_palette.get().lerp(from_palette, to_palette, easing_fn(amount));
+    cur_palette.get().lerp(from_snap, to_snap, easing_fn(amount));
   }
 
 private:
-  GenerativePalette
-      from_palette; /**< A local copy of the starting state of the palette. */
+  GenerativePalette::Snapshot from_snap{}; /**< Snapshot of starting colors. */
+  GenerativePalette::Snapshot to_snap;     /**< Snapshot of target colors. */
   std::reference_wrapper<GenerativePalette>
-      cur_palette; /**< The actual palette instance being animated. */
-  std::reference_wrapper<const GenerativePalette>
-      to_palette;     /**< The target final palette. */
+      cur_palette;    /**< The palette being animated. */
   ScalarFn easing_fn; /**< Easing curve. */
 };
 
@@ -1505,7 +1511,7 @@ private:
  * Stores the animation inline to avoid arena allocation (survives compaction).
  */
 struct TimelineEvent {
-  static constexpr size_t MAX_ANIM_SIZE = 200;
+  static constexpr size_t MAX_ANIM_SIZE = 128;
 
   int start = 0;
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE];
@@ -1539,7 +1545,7 @@ struct TimelineEvent {
  * @brief Global storage for the timeline to prevent template instantiation
  * bloat.
  */
-static constexpr int TIMELINE_MAX_EVENTS = 32;
+static constexpr int TIMELINE_MAX_EVENTS = 64;
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 
 /**
@@ -1694,7 +1700,7 @@ public:
   inline static int num_events = 0; /**< Current number of active events. */
 
   static constexpr int MAX_EVENTS =
-      CAPACITY; /**< Maximum number of concurrent animation events. */
+      TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 };
 
 /**
@@ -1703,7 +1709,8 @@ public:
  * @param callback The function to call for each frame: `void(const Quaternion&,
  * float t)`.
  */
-template <int W, int CAP> void tween(const Orientation<W, CAP> &o, TweenFn callback) {
+template <int W, int CAP>
+void tween(const Orientation<W, CAP> &o, TweenFn callback) {
   int len = o.length();
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {
@@ -1719,7 +1726,8 @@ template <int W, int CAP> void tween(const Orientation<W, CAP> &o, TweenFn callb
  * float t)`.
  */
 template <int CAPACITY>
-void tween(const Animation::VectorTrail<CAPACITY> &trail, VectorTweenFn callback) {
+void tween(const Animation::VectorTrail<CAPACITY> &trail,
+           VectorTweenFn callback) {
   size_t len = trail.length();
   if (len == 0)
     return;

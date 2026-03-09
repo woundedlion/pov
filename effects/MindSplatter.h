@@ -20,14 +20,14 @@ public:
         particle_system() {}
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE, 0, 0);
+    // configure_arenas(GLOBAL_ARENA_SIZE - 5000, 5000, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
     registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
     registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
 
     auto preset_timer = Animation::PeriodicTimer(
         160,
@@ -60,8 +60,7 @@ private:
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
 
-  typedef Animation::ParticleSystem<W, NUM_PARTICLES, 25,
-                                    EmitSolid::NUM_VERTS,
+  typedef Animation::ParticleSystem<W, NUM_PARTICLES, 25, EmitSolid::NUM_VERTS,
                                     AttractSolid::NUM_VERTS>
       ParticleSystem;
 
@@ -86,6 +85,7 @@ private:
   Presets<Params, 3> presets;
 
   Orientation<W> orientation;
+  FastNoiseLite noise;
   Timeline<W> timeline;
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;

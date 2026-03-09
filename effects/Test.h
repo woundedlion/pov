@@ -38,7 +38,7 @@ public:
                         },
                         -1, 48, ease_mid, 0, ease_mid));
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, normal));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, normal, noise));
 
     timeline.add(0, amplitude_mut);
   }
@@ -82,6 +82,7 @@ public:
   }
 
 private:
+  FastNoiseLite noise;
   Timeline<W> timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
