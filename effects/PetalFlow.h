@@ -63,7 +63,7 @@ private:
 
   Ring rings[MAX_RINGS];
   float gap_accumulator = 0.0f;
-  mutable Plot::RasterCache m_raster_cache;
+
 
   ProceduralPalette palette;
   Orientation<W> orientation;
@@ -176,9 +176,9 @@ private:
       return 0.6f * std::abs(sinf(3.0f * PI_F * t));
     };
 
+    ScopedScratch _frag(MemoryCtx::scratch());
     Fragments fragments;
-    // reserve removed
-
+    fragments.initialize(MemoryCtx::scratch(), num_samples + 1);
     for (int i = 0; i < num_samples; ++i) {
       float t_norm = static_cast<float>(i) / num_samples;
       float theta = i * step;
@@ -213,6 +213,6 @@ private:
     };
 
     Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader,
-                          m_raster_cache, true);
+                          true);
   }
 };

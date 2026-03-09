@@ -11,9 +11,6 @@
 #include "../effects_engine.h"
 
 template <int W, int H> class MobiusGrid : public Effect {
-  mutable Fragments m_points;
-  mutable Fragments m_fragments; // Reusable buffers
-  mutable Plot::RasterCache m_raster_cache;
 
 public:
   FLASHMEM MobiusGrid()
@@ -91,17 +88,19 @@ private:
     int count = static_cast<int>(std::ceil(num));
 
     for (int i = 0; i < count; ++i) {
+      ScopedScratch _frag(MemoryCtx::scratch());
       float t = wrap((static_cast<float>(i) / num) + phase, 1.0f);
       float log_r = log_min + t * range;
       float r_val = expf(log_r);
       float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
 
-      m_points.clear();
+      Fragments m_points;
+      m_points.initialize(MemoryCtx::scratch(), 256);
       Basis basis = make_basis(Quaternion(), normal);
       Plot::SphericalPolygon::sample(m_points, basis, radius, W / 4);
 
-      m_fragments.clear();
-      // reserve removed
+      Fragments m_fragments;
+      m_fragments.initialize(MemoryCtx::scratch(), 256);
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
@@ -119,7 +118,7 @@ private:
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
-                            m_raster_cache, true);
+                            true);
     }
   }
 
@@ -127,14 +126,13 @@ private:
                        const Quaternion &q) {
     int count = static_cast<int>(std::ceil(num));
     for (int i = 0; i < count; ++i) {
+      ScopedScratch _frag(MemoryCtx::scratch());
       float theta = (static_cast<float>(i) / num) * PI_F;
       Vector normal(cosf(theta), 0.0f, -sinf(theta));
 
-      m_points.clear();
+      Fragments m_points;
+      m_points.initialize(MemoryCtx::scratch(), 256);
       // Explicit basis construction to match JS texture alignment
-      // v = normal (in XZ plane)
-      // w = Y_AXIS (Pole)
-      // u = cross(v, w) (Tangent)
       Vector v = normal;
       Vector w = Y_AXIS;
       Vector u = cross(v, w).normalize();
@@ -142,14 +140,12 @@ private:
 
       Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);
 
-      m_fragments.clear();
-      // reserve removed
+      Fragments m_fragments;
+      m_fragments.initialize(MemoryCtx::scratch(), 256);
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
         f.pos = rotate(transformed, q).normalize();
-
-        // Correct v0 range to [0, 1]
         f.v0 = (m_points.size() > 1) ? (float)k / (m_points.size() - 1) : 0.0f;
         m_fragments.push_back(f);
       }
@@ -172,7 +168,7 @@ private:
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
-                            m_raster_cache, true);
+                            true);
     }
   }
 
