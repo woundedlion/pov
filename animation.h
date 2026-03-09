@@ -550,7 +550,7 @@ public:
    * @param quantized If true, the final value is rounded down to an integer.
    * @param repeat If true, the transition repeats indefinitely.
    */
-  Transition(float &mutant, float to, int duration, ScalarFn easing_fn,
+  Transition(float &mutant, float to, int duration, EasingFn easing_fn,
              bool quantized = false, bool repeat = false)
       : Base(duration, repeat), mutant(mutant), from(mutant), to(to),
         easing_fn(std::move(easing_fn)), quantized(quantized) {}
@@ -582,7 +582,7 @@ private:
       mutant;         /**< Reference to the float variable being animated. */
   float from;         /**< Starting value. */
   float to;           /**< Target value. */
-  ScalarFn easing_fn; /**< Easing curve. */
+  EasingFn easing_fn; /**< Easing curve. */
   bool quantized;     /**< Flag to round result to integer. */
 };
 
@@ -600,7 +600,7 @@ public:
    * @param easing_fn The easing function to apply to the time factor.
    * @param repeat If true, the mutation repeats indefinitely.
    */
-  Mutation(float &mutant, ScalarFn f, int duration, ScalarFn easing_fn,
+  Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            bool repeat = false)
       : Base(duration, repeat), mutant(mutant), from(mutant), f(std::move(f)),
         easing_fn(std::move(easing_fn)) {}
@@ -629,7 +629,7 @@ private:
   float from; /**< Starting value (unused by most MutateFns, but saved for
                  context). */
   ScalarFn f; /**< The custom function to apply. */
-  ScalarFn easing_fn; /**< Easing curve. */
+  EasingFn easing_fn; /**< Easing curve. */
 };
 
 /**
@@ -736,8 +736,8 @@ public:
    * @param fade_out_easing_fn Easing for fade-out.
    */
   Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
-         ScalarFn fade_in_easing_fn = ease_mid, int fade_out_duration = 0,
-         ScalarFn fade_out_easing_fn = ease_mid)
+         EasingFn fade_in_easing_fn = ease_mid, int fade_out_duration = 0,
+         EasingFn fade_out_easing_fn = ease_mid)
       : Base(duration, false), draw_fn(std::move(draw_fn)),
         fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
@@ -777,8 +777,8 @@ private:
   SpriteFn draw_fn;         /**< The drawing function functor. */
   int fade_in_duration;     /**< Duration of fade-in phase in frames. */
   int fade_out_duration;    /**< Duration of fade-out phase in frames. */
-  ScalarFn fade_in_easing;  /**< Easing curve for fade-in. */
-  ScalarFn fade_out_easing; /**< Easing curve for fade-out. */
+  EasingFn fade_in_easing;  /**< Easing curve for fade-in. */
+  EasingFn fade_out_easing; /**< Easing curve for fade-out. */
 };
 
 /**
@@ -898,7 +898,7 @@ public:
    * @param space The coordinate space for rotation ("World" or "Local").
    */
   Rotation(Orientation<W, CAP> &orientation, const Vector &axis, float angle,
-           int duration, ScalarFn easing_fn, bool repeat = false,
+           int duration, EasingFn easing_fn, bool repeat = false,
            Space space = Space::World)
       : Base<Rotation<W, CAP>>(duration, repeat), orientation(&orientation),
         axis(axis), total_angle(angle), easing_fn(std::move(easing_fn)),
@@ -971,7 +971,7 @@ public:
    * @param space The coordinate space for rotation.
    */
   static void animate(Canvas &canvas, Orientation<W, CAP> &orientation,
-                      const Vector &axis, float_t angle, ScalarFn easing_fn,
+                      const Vector &axis, float_t angle, EasingFn easing_fn,
                       Space space = Space::World) {
     Rotation<W, CAP> r(orientation, axis, angle, 1, easing_fn, false, space);
     r.step(canvas);
@@ -984,7 +984,7 @@ private:
   Orientation<W, CAP> *orientation; /**< Pointer to the Orientation state. */
   Vector axis;                      /**< The axis of rotation. */
   float total_angle;                /**< The total angle to sweep. */
-  ScalarFn easing_fn;               /**< Easing curve. */
+  EasingFn easing_fn;               /**< Easing curve. */
   float last_angle; /**< The angle reached in the previous frame. */
   Space space;      /**< The coordinate space for rotation. */
 };
@@ -1088,7 +1088,7 @@ public:
    */
   ColorWipe(GenerativePalette &from_palette,
             const GenerativePalette &to_palette, int duration,
-            ScalarFn easing_fn)
+            EasingFn easing_fn)
       : Base(duration, false), cur_palette(from_palette),
         to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)) {}
 
@@ -1107,10 +1107,10 @@ public:
 
 private:
   GenerativePalette::Snapshot from_snap{}; /**< Snapshot of starting colors. */
-  GenerativePalette::Snapshot to_snap;     /**< Snapshot of target colors. */
   std::reference_wrapper<GenerativePalette>
-      cur_palette;    /**< The palette being animated. */
-  ScalarFn easing_fn; /**< Easing curve. */
+      cur_palette;                     /**< The palette being animated. */
+  GenerativePalette::Snapshot to_snap; /**< Snapshot of target colors. */
+  EasingFn easing_fn;                  /**< Easing curve. */
 };
 
 /**
@@ -1170,7 +1170,7 @@ public:
    * @param easing The easing function to use (default: ease_in_out_sin).
    */
   MobiusWarp(MobiusParams &params, float scale, int duration,
-             bool repeat = true, ScalarFn easing = ease_in_out_sin)
+             bool repeat = true, EasingFn easing = ease_in_out_sin)
       : Base(duration, repeat), params(params), scale(scale), easing(easing) {}
 
   /**
@@ -1190,7 +1190,7 @@ private:
 
 public:
   float scale;
-  ScalarFn easing;
+  EasingFn easing;
 };
 
 /**
@@ -1207,7 +1207,7 @@ public:
    * @param easing The easing function to use (default: ease_in_out_sin).
    */
   MobiusWarpCircular(MobiusParams &params, float scale, int duration,
-                     bool repeat = true, ScalarFn easing = ease_in_out_sin)
+                     bool repeat = true, EasingFn easing = ease_in_out_sin)
       : Base(duration, repeat), params(params), scale(scale), easing(easing) {}
 
   /**
@@ -1227,7 +1227,7 @@ private:
 
 public:
   float scale;
-  ScalarFn easing;
+  EasingFn easing;
 };
 
 /*
@@ -1253,7 +1253,7 @@ public:
   MeshMorph(MeshState *active_A, MeshState *active_B, MorphBuffer *buffer,
             Arena *geom_arena, const MeshState &source, const MeshState &dest,
             int duration, bool repeat = false,
-            ScalarFn easing_fn = ease_in_out_sin)
+            EasingFn easing_fn = ease_in_out_sin)
       : Base(duration, repeat), active_A(active_A), active_B(active_B),
         buffer(buffer), geom_arena(geom_arena), easing_fn(easing_fn) {
     if (buffer && active_A && active_B) {
@@ -1320,7 +1320,7 @@ private:
   MeshState *active_B;
   MorphBuffer *buffer;
   Arena *geom_arena;
-  ScalarFn easing_fn;
+  EasingFn easing_fn;
 };
 
 /**

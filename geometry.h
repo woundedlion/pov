@@ -589,7 +589,7 @@ struct Basis {
  * @param normal The normal vector (approximate 'v' axis).
  * @return The constructed Basis.
  */
-static Basis make_basis(const Quaternion &orientation, const Vector &normal) {
+inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
   Vector ref_axis =
       (std::abs(dot(normal, X_AXIS)) > (1 - TOLERANCE)) ? Y_AXIS : X_AXIS;
   Vector v = rotate(normal, orientation).normalize();
@@ -606,7 +606,7 @@ static Basis make_basis(const Quaternion &orientation, const Vector &normal) {
  * @param radius Angular radius (0-2).
  * @return A pair containing the adjusted Basis and radius.
  */
-static std::pair<Basis, float> get_antipode(const Basis &basis, float radius) {
+inline std::pair<Basis, float> get_antipode(const Basis &basis, float radius) {
   if (radius > 1.0f) {
     Basis new_basis;
     new_basis.u = -basis.u; // Flip U to maintain chirality

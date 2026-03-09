@@ -59,9 +59,13 @@ public:
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), animated_palette(&palette_variant),
         cycle_phase(0.0f), functions{{{12.0f, 5.0f, 0, 2 * PI_F}}},
-        cur_function_idx(0), node(), noise_xform(timeline), vertices() {}
+        cur_function_idx(0), node(), noise_xform(timeline) {}
 
   void init() override {
+
+    configure_arenas(GLOBAL_ARENA_SIZE - (256 + 256) * 1024, 256 * 1024,
+                     256 * 1024);
+
     // Colors
     animated_palette.add(scale_mod).add(cycle_mod);
     palette_variant = Palettes::fireAndIce;
@@ -124,6 +128,8 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
+    ScopedScratch _(MemoryCtx::scratch());
+    ArenaVector<Fragment> vertices(MemoryCtx::scratch(), 4000);
     timeline.step(canvas);
 
     noise_xform.params.frequency = params.noiseFreq;
@@ -155,17 +161,18 @@ public:
       }
     }
 
+    // Record the current orientation snapshot
     node.trail.record(node.orientation);
-    vertices.clear();
 
     float current_t = timeline.t;
-    float trail_len = node.trail.length();
     constexpr float MAX_TRAIL = ChaoticStrings<W, H>::TRAIL_LENGTH;
 
     deep_tween(node.trail, [&](const Quaternion &q, float t) {
+      // Re-apply transforms at draw time so the trail undulates with noise
+      Vector pos = noise_xform.transform(orientation.orient(rotate(node.v, q)));
       Fragment f;
-      f.pos = noise_xform.transform(orientation.orient(rotate(node.v, q)));
-      f.age = current_t - trail_len + 1.0f + (t * trail_len);
+      f.pos = pos.normalize();
+      f.age = current_t * t;
       f.v3 = t;
       vertices.push_back(f);
     });
@@ -202,5 +209,4 @@ private:
   int cur_function_idx;
   Node node;
   NoiseTransformer<W, 1> noise_xform;
-  StaticCircularBuffer<Fragment, 20000> vertices;
 };
