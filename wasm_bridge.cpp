@@ -456,6 +456,11 @@ struct MeshOpsWrapper {
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
         MeshOps::hankin(mesh, ctx, radians), tooling_arena));
   }
+  std::unique_ptr<MeshOpsWrapper> chamfer(float t) const {
+    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    return std::make_unique<MeshOpsWrapper>(
+        Solids::finalize_solid(MeshOps::chamfer(mesh, ctx, t), tooling_arena));
+  }
   std::unique_ptr<MeshOpsWrapper> bitruncate(float t) const {
     MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
@@ -576,6 +581,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("snub", &MeshOpsWrapper::snub)
       .function("dual", &MeshOpsWrapper::dual)
       .function("truncate", &MeshOpsWrapper::truncate)
+      .function("chamfer", &MeshOpsWrapper::chamfer)
       .function("bitruncate", &MeshOpsWrapper::bitruncate)
       .function("expand", &MeshOpsWrapper::expand)
       .function("hankin", &MeshOpsWrapper::hankin_rad)

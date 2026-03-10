@@ -603,6 +603,118 @@ FLASHMEM inline PolyMesh bitruncate(const PolyMesh &mesh, MemoryCtx &ctx,
   return truncate(ambo(mesh, ctx), ctx, t);
 }
 
+/**
+ * @brief Chamfer operator: Replaces edges with hexagonal faces.
+ * @param t Thickness factor for the new hexagons [0..1].
+ */
+FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, MemoryCtx &ctx,
+                                 float t = 0.5f) {
+  ctx.swap_scratch();
+  PolyMesh out_mesh;
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.face_counts.size();
+  size_t I = mesh.faces.size();
+  size_t E = I / 2;
+
+  out_mesh.vertices.initialize(ctx.get_scratch_front(), V + 2 * E);
+  out_mesh.face_counts.initialize(ctx.get_scratch_front(), F + E);
+  out_mesh.faces.initialize(ctx.get_scratch_front(), I + 6 * E);
+
+  {
+    ScopedScratch _(ctx.get_scratch_back());
+    HalfEdgeMesh heMesh(ctx.get_scratch_back(), mesh);
+
+    uint16_t *heToNewV =
+        static_cast<uint16_t *>(ctx.get_scratch_back().allocate(
+            I * sizeof(uint16_t), alignof(uint16_t)));
+    std::fill_n(heToNewV, I, HE_NONE);
+
+    // 1. Copy original vertices
+    for (size_t i = 0; i < V; ++i) {
+      out_mesh.vertices.push_back(mesh.vertices[i]);
+    }
+
+    // 2. Generate new vertices and shrunk faces
+    for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
+      HEFace &face = heMesh.faces[fi];
+      Vector centroid(0, 0, 0);
+      int count = 0;
+      uint16_t heIdx = face.halfEdge;
+      uint16_t start = heIdx;
+
+      if (heIdx != HE_NONE) {
+        do {
+          centroid = centroid + mesh.vertices[heMesh.halfEdges[heIdx].vertex];
+          count++;
+          heIdx = heMesh.halfEdges[heIdx].next;
+        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+      }
+
+      if (count > 0)
+        centroid = centroid / static_cast<float>(count);
+
+      out_mesh.face_counts.push_back(count);
+      heIdx = start;
+      int safety = 0;
+
+      if (heIdx != HE_NONE) {
+        do {
+          uint16_t vi =
+              heMesh.halfEdges[heIdx].prev != HE_NONE
+                  ? heMesh.halfEdges[heMesh.halfEdges[heIdx].prev].vertex
+                  : HE_NONE;
+          if (vi != HE_NONE) {
+            Vector v = mesh.vertices[vi];
+            Vector newV = v + (centroid - v) * t;
+
+            out_mesh.vertices.push_back(newV);
+            uint16_t idx = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
+            heToNewV[heIdx] = idx;
+
+            out_mesh.faces.push_back(idx);
+          }
+
+          heIdx = heMesh.halfEdges[heIdx].next;
+          safety++;
+        } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+      }
+    }
+
+    // 3. Generate Hexagon faces for edges
+    bool *visitedEdges = static_cast<bool *>(
+        ctx.get_scratch_back().allocate(I * sizeof(bool), alignof(bool)));
+    std::fill_n(visitedEdges, I, false);
+
+    for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+      uint16_t heIdx = static_cast<uint16_t>(i);
+      HalfEdge &he = heMesh.halfEdges[heIdx];
+
+      if (he.prev == HE_NONE || visitedEdges[heIdx])
+        continue;
+
+      visitedEdges[heIdx] = true;
+      if (he.pair != HE_NONE)
+        visitedEdges[he.pair] = true;
+
+      if (he.pair != HE_NONE) {
+        out_mesh.face_counts.push_back(6);
+
+        uint16_t A = heMesh.halfEdges[he.prev].vertex;
+        uint16_t B = he.vertex;
+
+        out_mesh.faces.push_back(A);
+        out_mesh.faces.push_back(heToNewV[heMesh.halfEdges[he.pair].next]);
+        out_mesh.faces.push_back(heToNewV[he.pair]);
+        out_mesh.faces.push_back(B);
+        out_mesh.faces.push_back(heToNewV[he.next]);
+        out_mesh.faces.push_back(heToNewV[heIdx]);
+      }
+    }
+  }
+  normalize(out_mesh);
+  return out_mesh;
+}
+
 FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
                                       int iterations = 8) {
   ctx.swap_scratch();
