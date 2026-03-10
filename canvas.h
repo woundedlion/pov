@@ -285,6 +285,16 @@ public:
   }
 
   /**
+   * @brief Accesses a pixel in the previous drawing buffer by 2D coordinates.
+   * @param x The horizontal coordinate.
+   * @param y The vertical coordinate.
+   * @return Copy of the Pixel from the previous frame.
+   */
+  inline Pixel prev(int x, int y) const {
+    return effect_.bufs_[effect_.prev_][y * effect_.width_ + x];
+  }
+
+  /**
    * @brief Accesses a pixel in the current drawing buffer by 1D index.
    * @param xy The 1D index.
    * @return Reference to the Pixel.

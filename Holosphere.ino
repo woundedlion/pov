@@ -23,8 +23,8 @@ FLASHMEM static void run_show_sequence() {
   // Test/Debug Effects
   pov->show<Test<288, 144>>(120);
   pov->show<TestShapes<288, 144>>(120);
-  pov->show<TestTemporal<288, 144>>(120);
-  pov->show<FlamingMesh<288, 144>>(120);
+
+  pov->show<MeshFeedback<288, 144>>(120);
   pov->show<ChaoticStrings<288, 144>>(120);
   pov->show<Liquid2D<288, 144>>(120);
 

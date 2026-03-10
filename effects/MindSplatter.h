@@ -20,7 +20,7 @@ public:
         particle_system() {}
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 10000, 10000, 0);
+    configure_arenas(GLOBAL_ARENA_SIZE - 16384, 16384, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
     registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
