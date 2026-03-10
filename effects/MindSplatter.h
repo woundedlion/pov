@@ -26,6 +26,7 @@ public:
     registerParam("Well Str", &params.well_strength, 0.0f, 20.0f);
     registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
+    registerParam("Particles", &params.active_count, 0.0f, (float)NUM_PARTICLES);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
 
@@ -50,6 +51,7 @@ public:
 
     particle_system.friction = params.friction;
     particle_system.step(canvas);
+    params.active_count = (float)particle_system.active_count;
 
     draw_particles(canvas, 1.0f);
   }
@@ -70,6 +72,7 @@ private:
     float well_strength = 1.0f;
     float initial_speed = 0.025f;
     float angular_speed = 0.2f;
+    float active_count = 0.0f;
 
     void lerp(const Params &start, const Params &target, float t) {
       friction = start.friction + (target.friction - start.friction) * t;
@@ -101,7 +104,7 @@ private:
   float warp_scale = 0.6f;
 
   FLASHMEM void rebuild() {
-    particle_system.init(persistent_arena, params.friction, 0.001f);
+    particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);
 
     // Add Attractors
     for (const auto &v : AttractSolid::vertices) {
@@ -132,7 +135,8 @@ private:
 
         // Spawn with hue seed
         if (particle_system.active_count < particle_system.pool.capacity()) {
-          particle_system.spawn(axis, vel, emitter_hues[i], 160);
+          uint16_t seed_u16 = static_cast<uint16_t>(emitter_hues[i] * 65535.0f);
+          particle_system.spawn(axis, vel, seed_u16);
         }
       });
     }
@@ -168,8 +172,9 @@ private:
       }
 
       const auto &p = particle_system.pool[p_idx];
-      float t_shifted = wrap_t(f.v0 + p.color_seed);
-      Color4 c = hue_rotate(base_palette.get(t_shifted), p.color_seed);
+      float seed_f = static_cast<float>(p.color_seed) / 65535.0f;
+      float t_shifted = wrap_t(f.v0 + seed_f);
+      Color4 c = hue_rotate(base_palette.get(t_shifted), seed_f);
       c.alpha = c.alpha * alpha * alpha * opacity;
       f.color = c;
     };
