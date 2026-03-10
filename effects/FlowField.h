@@ -32,6 +32,8 @@ public:
 
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.SetSeed(hs::rand_int(0, 65535));
+
+    particles.initialize(persistent_arena, k_num_particles);
     reset_particles();
   }
 
@@ -118,7 +120,7 @@ private:
   float t = 0;
   FastNoiseLite noise_generator;
   GenerativePalette palette;
-  std::array<Particle, k_num_particles> particles;
+  ArenaVector<Particle> particles;
 
   Orientation<W> orientation;
 
@@ -127,8 +129,9 @@ private:
       filters;
 
   void reset_particles() {
+    particles.clear();
     for (int i = 0; i < k_num_particles; ++i) {
-      particles[i] = Particle();
+      particles.emplace_back();
     }
   }
 };

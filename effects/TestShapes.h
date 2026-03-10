@@ -34,6 +34,7 @@ public:
   bool show_bg() const override { return false; }
 
   void init() override {
+    shapes.initialize(persistent_arena, 128);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
@@ -58,7 +59,7 @@ public:
   }
 
   FLASHMEM void rebuild() {
-    rings.clear();
+    shapes.clear();
     timeline = Timeline<W>();
 
     // Single camera tumble
@@ -86,10 +87,10 @@ public:
 
   void spawnRing(const Vector &normal, float scale, const Color4 &color,
                  RenderMode mode, int layer_index) {
-    if (rings.is_full())
+    if (shapes.size() == shapes.capacity())
       return;
-    rings.emplace_back(normal, scale, color, mode, layer_index);
-    Ring &ring = rings.back();
+    shapes.emplace_back(normal, scale, color, mode, layer_index);
+    Ring &ring = shapes.back();
 
     timeline.add(0, Animation::Rotation<W>(ring.orientation, ring.normal,
                                            2 * PI_F, 160, ease_mid, true,
@@ -161,7 +162,7 @@ private:
   FastNoiseLite noise;
   Timeline<W> timeline;
   Orientation<W> camera;
-  StaticCircularBuffer<Ring, 128> rings;
+  ArenaVector<Ring> shapes;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
   Pipeline<W, H> scan_filters;
 
