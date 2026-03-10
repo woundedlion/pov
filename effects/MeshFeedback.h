@@ -23,7 +23,7 @@ public:
     params.fade = 0.93f;
     noise_params.amplitude = 0.9f;
     noise_params.frequency = 0.33f;
-    noise_params.speed = 1.0f;
+    noise_params.speed = 0.8f;
     noise_params.scale = 22.6f;
 
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);

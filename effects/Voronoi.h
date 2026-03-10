@@ -20,11 +20,12 @@ public:
   };
 
   FLASHMEM Voronoi() : Effect(W, H) {
-    init_sites();
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
     registerParam("Smoothness", &params.smoothness, 1.0f, 500.0f);
     registerParam("Border Thick", &params.borderThickness, 0.0f, 0.1f);
   }
+
+  void init() override { init_sites(); }
 
   bool show_bg() const override { return false; }
 
@@ -34,7 +35,7 @@ public:
     // 1. Animate Sites
     float s = logf(params.speed + 1.0f) * 0.005f;
 
-    for (size_t i = 0; i < static_cast<size_t>(params.num_sites); ++i) {
+    for (size_t i = 0; i < sites_buffer.size(); ++i) {
       auto &site = sites_buffer[i];
       // Rotate pos around axis
       Quaternion q = make_rotation(site.axis, s);
@@ -51,7 +52,7 @@ public:
         int secondBestIdx = -1;
         float secondBestDot = -2.0f;
 
-        for (size_t i = 0; i < static_cast<size_t>(params.num_sites); ++i) {
+        for (size_t i = 0; i < sites_buffer.size(); ++i) {
           float d = dot(p, sites_buffer[i].pos);
           if (d > bestDot) {
             secondBestDot = bestDot;
@@ -111,12 +112,12 @@ public:
   bool showBorders = true;
   bool showSites = false;
 
-  StaticCircularBuffer<Site, 256> sites_buffer;
+  ArenaVector<Site> sites_buffer;
 
   void init_sites() {
-    sites_buffer.clear();
+    sites_buffer.initialize(persistent_arena, (size_t)params.num_sites);
 
-    for (int i = 0; i < (int)params.num_sites && i < 256; i++) {
+    for (int i = 0; i < (int)params.num_sites; i++) {
       float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
       float y = 1.0f - (i / (float)((int)params.num_sites - 1)) * 2.0f;
       float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
