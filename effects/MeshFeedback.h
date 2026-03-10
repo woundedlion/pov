@@ -19,8 +19,7 @@ public:
                     TransformerFn{this}, 0.95f)) {}
 
   void init() override {
-    // Initialize with JS defaults
-    params.temporalEnabled = true;
+    configure_arenas(GLOBAL_ARENA_SIZE - 16384 - 2048, 16384, 2048);
     params.fade = 0.93f;
     noise_params.amplitude = 0.9f;
     noise_params.frequency = 0.33f;
@@ -66,9 +65,7 @@ public:
         1.0f);
   }
 
-  // Parameters matching JS
   struct Params {
-    bool temporalEnabled;
     float fade;
   } params;
 
@@ -83,9 +80,6 @@ private:
   struct TransformerFn {
     const MeshFeedback *self;
     Vector operator()(const Vector &v) const {
-      if (!self->params.temporalEnabled) {
-        return v;
-      }
       return noise_transform(v, self->noise_params).normalize();
     }
   };

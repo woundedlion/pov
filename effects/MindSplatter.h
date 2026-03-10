@@ -23,7 +23,7 @@ public:
     configure_arenas(GLOBAL_ARENA_SIZE - 16384, 16384, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
-    registerParam("Well Str", &params.well_strength, 0.0f, 5.0f);
+    registerParam("Well Str", &params.well_strength, 0.0f, 20.0f);
     registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
 
