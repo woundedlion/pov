@@ -20,52 +20,89 @@ Arena tooling_arena(tooling_buf, sizeof(tooling_buf));
 Arena tooling_scratch_a(tooling_scratch_buf_a, sizeof(tooling_scratch_buf_a));
 Arena tooling_scratch_b(tooling_scratch_buf_b, sizeof(tooling_scratch_buf_b));
 
+struct FactoryEntry {
+  std::string_view name;
+  std::function<std::unique_ptr<Effect>()> creator;
+  size_t size;
+};
+
+template <int W, int H> const FactoryEntry *get_factory(size_t &count) {
+  static const FactoryEntry factory[] = {
+      {"Test", []() { return std::make_unique<Test<W, H>>(); },
+       sizeof(Test<W, H>)},
+      {"Comets", []() { return std::make_unique<Comets<W, H>>(); },
+       sizeof(Comets<W, H>)},
+      {"RingSpin", []() { return std::make_unique<RingSpin<W, H>>(); },
+       sizeof(RingSpin<W, H>)},
+      {"MobiusGrid", []() { return std::make_unique<MobiusGrid<W, H>>(); },
+       sizeof(MobiusGrid<W, H>)},
+      {"IslamicStars", []() { return std::make_unique<IslamicStars<W, H>>(); },
+       sizeof(IslamicStars<W, H>)},
+      {"MindSplatter", []() { return std::make_unique<MindSplatter<W, H>>(); },
+       sizeof(MindSplatter<W, H>)},
+      {"BZReactionDiffusion",
+       []() { return std::make_unique<BZReactionDiffusion<W, H>>(); },
+       sizeof(BZReactionDiffusion<W, H>)},
+      {"DreamBalls", []() { return std::make_unique<DreamBalls<W, H>>(); },
+       sizeof(DreamBalls<W, H>)},
+      {"Dynamo", []() { return std::make_unique<Dynamo<W, H>>(); },
+       sizeof(Dynamo<W, H>)},
+      {"FlowField", []() { return std::make_unique<FlowField<W, H>>(); },
+       sizeof(FlowField<W, H>)},
+      {"GSReactionDiffusion",
+       []() { return std::make_unique<GSReactionDiffusion<W, H>>(); },
+       sizeof(GSReactionDiffusion<W, H>)},
+      {"GnomonicStars",
+       []() { return std::make_unique<GnomonicStars<W, H>>(); },
+       sizeof(GnomonicStars<W, H>)},
+      {"HankinSolids", []() { return std::make_unique<HankinSolids<W, H>>(); },
+       sizeof(HankinSolids<W, H>)},
+      {"HopfFibration",
+       []() { return std::make_unique<HopfFibration<W, H>>(); },
+       sizeof(HopfFibration<W, H>)},
+      {"LSystem", []() { return std::make_unique<LSystem<W, H>>(); },
+       sizeof(LSystem<W, H>)},
+      {"Metaballs", []() { return std::make_unique<Metaballs<W, H>>(); },
+       sizeof(Metaballs<W, H>)},
+      {"Moire", []() { return std::make_unique<Moire<W, H>>(); },
+       sizeof(Moire<W, H>)},
+      {"PetalFlow", []() { return std::make_unique<PetalFlow<W, H>>(); },
+       sizeof(PetalFlow<W, H>)},
+      {"RingShower", []() { return std::make_unique<RingShower<W, H>>(); },
+       sizeof(RingShower<W, H>)},
+      {"SphericalHarmonics",
+       []() { return std::make_unique<SphericalHarmonics<W, H>>(); },
+       sizeof(SphericalHarmonics<W, H>)},
+      {"SpinShapes", []() { return std::make_unique<SpinShapes<W, H>>(); },
+       sizeof(SpinShapes<W, H>)},
+      {"TestShapes", []() { return std::make_unique<TestShapes<W, H>>(); },
+       sizeof(TestShapes<W, H>)},
+      {"TestSlewRate", []() { return std::make_unique<TestSlewRate<W, H>>(); },
+       sizeof(TestSlewRate<W, H>)},
+      {"TestTemporal", []() { return std::make_unique<TestTemporal<W, H>>(); },
+       sizeof(TestTemporal<W, H>)},
+      {"Thrusters", []() { return std::make_unique<Thrusters<W, H>>(); },
+       sizeof(Thrusters<W, H>)},
+      {"Voronoi", []() { return std::make_unique<Voronoi<W, H>>(); },
+       sizeof(Voronoi<W, H>)},
+      {"FlamingMesh", []() { return std::make_unique<FlamingMesh<W, H>>(); },
+       sizeof(FlamingMesh<W, H>)},
+      {"Liquid2D", []() { return std::make_unique<Liquid2D<W, H>>(); },
+       sizeof(Liquid2D<W, H>)},
+      {"ChaoticStrings",
+       []() { return std::make_unique<ChaoticStrings<W, H>>(); },
+       sizeof(ChaoticStrings<W, H>)}};
+  count = sizeof(factory) / sizeof(factory[0]);
+  return factory;
+}
+
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(std::string_view name) {
-  struct FactoryEntry {
-    std::string_view name;
-    std::function<std::unique_ptr<Effect>()> creator;
-  };
-  static const FactoryEntry factory[] = {
-      {"Test", []() { return std::make_unique<Test<W, H>>(); }},
-      {"Comets", []() { return std::make_unique<Comets<W, H>>(); }},
-      {"RingSpin", []() { return std::make_unique<RingSpin<W, H>>(); }},
-      {"MobiusGrid", []() { return std::make_unique<MobiusGrid<W, H>>(); }},
-      {"IslamicStars", []() { return std::make_unique<IslamicStars<W, H>>(); }},
-      {"MindSplatter", []() { return std::make_unique<MindSplatter<W, H>>(); }},
-      {"BZReactionDiffusion",
-       []() { return std::make_unique<BZReactionDiffusion<W, H>>(); }},
-      {"DreamBalls", []() { return std::make_unique<DreamBalls<W, H>>(); }},
-      {"Dynamo", []() { return std::make_unique<Dynamo<W, H>>(); }},
-      {"FlowField", []() { return std::make_unique<FlowField<W, H>>(); }},
-      {"GSReactionDiffusion",
-       []() { return std::make_unique<GSReactionDiffusion<W, H>>(); }},
-      {"GnomonicStars",
-       []() { return std::make_unique<GnomonicStars<W, H>>(); }},
-      {"HankinSolids", []() { return std::make_unique<HankinSolids<W, H>>(); }},
-      {"HopfFibration",
-       []() { return std::make_unique<HopfFibration<W, H>>(); }},
-      {"LSystem", []() { return std::make_unique<LSystem<W, H>>(); }},
-      {"Metaballs", []() { return std::make_unique<Metaballs<W, H>>(); }},
-      {"Moire", []() { return std::make_unique<Moire<W, H>>(); }},
-      {"PetalFlow", []() { return std::make_unique<PetalFlow<W, H>>(); }},
-      {"RingShower", []() { return std::make_unique<RingShower<W, H>>(); }},
-      {"SphericalHarmonics",
-       []() { return std::make_unique<SphericalHarmonics<W, H>>(); }},
-      {"SpinShapes", []() { return std::make_unique<SpinShapes<W, H>>(); }},
-      {"TestShapes", []() { return std::make_unique<TestShapes<W, H>>(); }},
-      {"TestSlewRate", []() { return std::make_unique<TestSlewRate<W, H>>(); }},
-      {"TestTemporal", []() { return std::make_unique<TestTemporal<W, H>>(); }},
-      {"Thrusters", []() { return std::make_unique<Thrusters<W, H>>(); }},
-      {"Voronoi", []() { return std::make_unique<Voronoi<W, H>>(); }},
-      {"FlamingMesh", []() { return std::make_unique<FlamingMesh<W, H>>(); }},
-      {"Liquid2D", []() { return std::make_unique<Liquid2D<W, H>>(); }},
-      {"ChaoticStrings",
-       []() { return std::make_unique<ChaoticStrings<W, H>>(); }}};
-
-  for (const auto &entry : factory) {
-    if (name == entry.name) {
-      return entry.creator();
+  size_t count;
+  const auto *factory = get_factory<W, H>(count);
+  for (size_t i = 0; i < count; ++i) {
+    if (name == factory[i].name) {
+      return factory[i].creator();
     }
   }
   return std::make_unique<Test<W, H>>(); // Fallback
@@ -218,6 +255,21 @@ public:
     add_metrics("tooling_arena", tooling_arena);
 
     return metrics;
+  }
+
+  template <int W, int H> val get_effect_sizes_helper() {
+    val s = val::object();
+    size_t count;
+    const auto *factory = get_factory<W, H>(count);
+    for (size_t i = 0; i < count; ++i)
+      s.set(std::string(factory[i].name), static_cast<int>(factory[i].size));
+    return s;
+  }
+
+  val getEffectSizes() {
+    if (pixel_width == 96 && pixel_height == 20)
+      return get_effect_sizes_helper<96, 20>();
+    return get_effect_sizes_helper<288, 144>();
   }
 
 private:
@@ -502,7 +554,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getParameterDefinitions",
                 &HolosphereEngine::getParameterDefinitions)
       .function("getParamValues", &HolosphereEngine::getParamValues)
-      .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics);
+      .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
+      .function("getEffectSizes", &HolosphereEngine::getEffectSizes);
 
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()
