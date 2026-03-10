@@ -47,8 +47,8 @@ public:
   };
 
   struct Node {
-    Orientation<W> orientation;
-    Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
+    Orientation<W, 16> orientation;
+    Animation::OrientationTrail<Orientation<W, 16>, TRAIL_LENGTH> trail;
     Vector v;
 
     Node() : v(Y_AXIS) {}
@@ -59,12 +59,16 @@ public:
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), animated_palette(&palette_variant),
         cycle_phase(0.0f), functions{{{12.0f, 5.0f, 0, 2 * PI_F}}},
-        cur_function_idx(0), node(), noise_xform(timeline) {}
+        cur_function_idx(0), noise_xform(timeline) {}
 
   void init() override {
 
     configure_arenas(GLOBAL_ARENA_SIZE - (256 + 256) * 1024, 256 * 1024,
                      256 * 1024);
+
+    node = static_cast<Node *>(
+        persistent_arena.allocate(sizeof(Node), alignof(Node)));
+    new (node) Node();
 
     // Colors
     animated_palette.add(scale_mod).add(cycle_mod);
@@ -92,8 +96,8 @@ public:
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
-    timeline.add(0, Animation::Motion<W>(node.orientation, path,
-                                         (int)params.cycle_duration, true));
+    timeline.add(0, Animation::Motion<W, 16>(node->orientation, path,
+                                             (int)params.cycle_duration, true));
     timeline.add(0, Animation::PeriodicTimer(
                         2 * (int)params.cycle_duration,
                         [this](Canvas &c) {
@@ -129,7 +133,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     ScopedScratch _(MemoryCtx::scratch());
-    ArenaVector<Fragment> vertices(MemoryCtx::scratch(), 4000);
+    ArenaVector<Fragment> vertices(MemoryCtx::scratch(), 2000);
     timeline.step(canvas);
 
     noise_xform.params.frequency = params.noiseFreq;
@@ -162,14 +166,15 @@ public:
     }
 
     // Record the current orientation snapshot
-    node.trail.record(node.orientation);
+    node->trail.record(node->orientation);
 
     float current_t = timeline.t;
     constexpr float MAX_TRAIL = ChaoticStrings<W, H>::TRAIL_LENGTH;
 
-    deep_tween(node.trail, [&](const Quaternion &q, float t) {
+    deep_tween(node->trail, [&](const Quaternion &q, float t) {
       // Re-apply transforms at draw time so the trail undulates with noise
-      Vector pos = noise_xform.transform(orientation.orient(rotate(node.v, q)));
+      Vector pos =
+          noise_xform.transform(orientation.orient(rotate(node->v, q)));
       Fragment f;
       f.pos = pos.normalize();
       f.age = current_t * t;
@@ -207,6 +212,6 @@ private:
   float cycle_phase = 0.0f;
   std::array<LissajousConfig, 1> functions;
   int cur_function_idx;
-  Node node;
+  Node *node = nullptr;
   NoiseTransformer<W, 1> noise_xform;
 };

@@ -18,6 +18,7 @@ public:
     TransparentVignette palette;
     Orientation<W> orientation;
     Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
+    FastNoiseLite noise;
     Ring() : normal(X_AXIS), palette(nullptr) {}
 
     Ring(const Vector &n, const Palette *p) : normal(n), palette(p) {}
@@ -26,6 +27,9 @@ public:
   FLASHMEM RingSpin() : Effect(W, H) {}
 
   void init() override {
+    rings = static_cast<Ring *>(
+        persistent_arena.allocate(NUM_RINGS * sizeof(Ring), alignof(Ring)));
+
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);
@@ -42,7 +46,8 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    for (auto &ring : rings) {
+    for (int i = 0; i < num_rings; ++i) {
+      Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
       deep_tween(ring.trail, [&](const Quaternion &q, float t) {
         Color4 c = ring.palette.get(1.0f - t);
@@ -60,19 +65,20 @@ public:
 
 private:
   void spawn_ring(const Vector &normal, const Palette *palette) {
-    if (rings.is_full())
+    if (num_rings >= NUM_RINGS)
       return;
-    rings.push_back(Ring(normal, palette));
-    Ring &r = rings.back();
+    Ring &r = rings[num_rings];
+    new (&r) Ring(normal, palette);
+    num_rings++;
     timeline.add(0, Animation::RandomWalk<W>(
-                        r.orientation, r.normal, noise,
+                        r.orientation, r.normal, r.noise,
                         Animation::RandomWalk<W>::Options::Energetic()));
   }
 
-  FastNoiseLite noise;
   Timeline<W> timeline;
   Pipeline<W, H> filters;
-  StaticCircularBuffer<Ring, NUM_RINGS> rings;
+  Ring *rings = nullptr;
+  int num_rings = 0;
 
   std::array<ProceduralPalette, 4> source_palettes = {
       Palettes::iceMelt, Palettes::undersea, Palettes::mangoPeel,
