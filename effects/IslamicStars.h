@@ -20,6 +20,9 @@ public:
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
 
   void init() override {
+    configure_arenas(GLOBAL_ARENA_SIZE - (128 + 128) * 1024, 128 * 1024,
+                     128 * 1024);
+
     PersistentTracker::register_mesh(&mesh_states[0]);
     PersistentTracker::register_mesh(&mesh_states[1]);
 
@@ -113,7 +116,8 @@ private:
 
   void spawn_shape() {
     MemoryCtx ctx;
-    solid_idx = (solid_idx + 1) % Solids::Collections::num_islamic_solids;
+    auto solids = Solids::Collections::get_islamic_solids();
+    solid_idx = (solid_idx + 1) % solids.size();
     current_mesh_idx = (current_mesh_idx + 1) % 2;
 
     // Forced compaction
@@ -123,14 +127,13 @@ private:
     // Generate new shape
     {
       ScopedScratch _(ctx.get_scratch_front());
-      SolidGenerator gen(solid_idx + Solids::Collections::num_simple_solids);
-      PolyMesh local_mesh = gen.generate(ctx.get_scratch_front(), ctx);
+      PolyMesh local_mesh = Solids::finalize_solid(solids[solid_idx].generate(ctx), ctx.get_scratch_front());
       ctx.update_persistent(mesh_states[current_mesh_idx], local_mesh);
     }
     MeshOps::classify_faces_by_topology(mesh_states[current_mesh_idx], ctx);
 
     // Log transition
-    const auto &entry = Solids::Collections::islamic_solids[solid_idx];
+    const auto &entry = solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
             (int)mesh_states[current_mesh_idx].vertices.size(),
             (int)mesh_states[current_mesh_idx].faces.size());

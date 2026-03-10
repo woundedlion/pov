@@ -92,10 +92,10 @@ private:
 
     void load(int idx, float angle, Persistent geom, MemoryCtx &ctx,
               const std::array<ProceduralPalette, 5> &pool, float time) {
-      SolidGenerator gen(idx);
-      hs::log("Transitioning to '%s'", Solids::get_entry(idx).name);
+      auto solids = Solids::Collections::get_simple_solids();
+      hs::log("Transitioning to '%s'", solids[idx].name);
 
-      PolyMesh temp_base = gen.generate(ctx.get_scratch_front(), ctx);
+      PolyMesh temp_base = Solids::finalize_solid(solids[idx].generate(ctx), ctx.get_scratch_front());
       MeshOps::compile(temp_base, base, geom);
       MeshOps::compile_hankin(temp_base, hankin, ctx.get_scratch_back(),
                               ctx.get_scratch_front());
@@ -164,7 +164,8 @@ private:
 
   FLASHMEM void start_morph_cycle() {
     constexpr int DURATION = 16;
-    int next_idx = (solid_idx + 1) % Solids::Collections::num_simple_solids;
+    auto solids = Solids::Collections::get_simple_solids();
+    int next_idx = (solid_idx + 1) % solids.size();
 
     {
       MemoryCtx ctx;

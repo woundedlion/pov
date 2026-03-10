@@ -11,7 +11,7 @@
 #include "conway.h"
 #include <cmath>
 #include <string_view>
-
+#include <span>
 #include <map>
 
 // --- Constants for Procedural Generation ---
@@ -527,7 +527,9 @@ static constexpr Entry simple_registry[] = {
     {"truncatedIcosahedron", Archimedean::truncatedIcosahedron,
      Category::Simple},
     {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
-     Category::Simple},
+     Category::Simple}};
+
+static constexpr Entry catalan_registry[] = {
     // Catalan
     {"triakisTetrahedron", Catalan::triakisTetrahedron, Category::Simple},
     {"rhombicDodecahedron", Catalan::rhombicDodecahedron, Category::Simple},
@@ -617,23 +619,38 @@ static constexpr Entry islamic_registry[] = {
 
 static constexpr int NUM_ENTRIES =
     sizeof(simple_registry) / sizeof(simple_registry[0]) +
+    sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
 namespace Collections {
-static constexpr const Entry *simple_solids = simple_registry;
-static constexpr int num_simple_solids =
-    sizeof(simple_registry) / sizeof(simple_registry[0]);
-static constexpr const Entry *islamic_solids = islamic_registry;
-static constexpr int num_islamic_solids =
-    sizeof(islamic_registry) / sizeof(islamic_registry[0]);
+inline std::span<const Entry> get_platonic_solids() {
+  return std::span<const Entry>(simple_registry, 5);
+}
+inline std::span<const Entry> get_archimedean_solids() {
+  return std::span<const Entry>(simple_registry + 5, 11);
+}
+inline std::span<const Entry> get_simple_solids() {
+  return std::span<const Entry>(simple_registry);
+}
+inline std::span<const Entry> get_catalan_solids() {
+  return std::span<const Entry>(catalan_registry);
+}
+inline std::span<const Entry> get_islamic_solids() {
+  return std::span<const Entry>(islamic_registry);
+}
 } // namespace Collections
 
-inline const Entry &get_entry(int index) {
+inline const Entry &get_entry(size_t index) {
   if (index < 0 || index >= NUM_ENTRIES)
     return simple_registry[3];
-  if (index < Collections::num_simple_solids)
+  
+  if (index < std::size(simple_registry))
     return simple_registry[index];
-  return islamic_registry[index - Collections::num_simple_solids];
+    
+  if (index < std::size(simple_registry) + std::size(catalan_registry))
+    return catalan_registry[index - std::size(simple_registry)];
+    
+  return islamic_registry[index - (std::size(simple_registry) + std::size(catalan_registry))];
 }
 
 FLASHMEM inline PolyMesh get(Arena &geom, MemoryCtx &ctx, int index) {
@@ -643,6 +660,10 @@ FLASHMEM inline PolyMesh get(Arena &geom, MemoryCtx &ctx, int index) {
 FLASHMEM inline PolyMesh get_by_name(Arena &geom, MemoryCtx &ctx,
                                      std::string_view name) {
   for (const auto &entry : simple_registry) {
+    if (name == entry.name)
+      return finalize_solid(entry.generate(ctx), geom);
+  }
+  for (const auto &entry : catalan_registry) {
     if (name == entry.name)
       return finalize_solid(entry.generate(ctx), geom);
   }

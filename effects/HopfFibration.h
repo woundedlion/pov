@@ -18,8 +18,6 @@ public:
                               Filter::Screen::AntiAlias<W, H>()) {}
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024, 16 * 1024, 0);
-
     registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
     registerParam("Folding", &params.folding, 0.0f, 2.0f);
