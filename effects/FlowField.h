@@ -16,8 +16,7 @@ public:
   FLASHMEM FlowField()
       : Effect(W, H), palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                               BrightnessProfile::ASCENDING),
-        filters(Filter::World::Trails<W, k_max_trail_dots>(k_trail_length),
-                Filter::World::Orient<W>(orientation),
+        filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
   void init() override {
@@ -27,14 +26,51 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
 
-    static_cast<Filter::World::Trails<W, k_max_trail_dots> &>(filters)
-        .init_storage(Persistent(persistent_arena));
-
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.SetSeed(hs::rand_int(0, 65535));
 
-    particles.initialize(persistent_arena, k_num_particles);
-    reset_particles();
+    particle_system.init(persistent_arena, 0.96f, 0.0f);
+
+    particle_system.add_emitter([this](ParticleSystem &sys) mutable {
+      while (sys.active_count < sys.pool.capacity()) {
+        sys.spawn(random_vector(), Vector(0, 0, 0), 0.0f,
+                  (float)hs::rand_int(100, 300));
+      }
+
+      for (size_t i = 0; i < sys.active_count; ++i) {
+        auto &p = sys.pool[i];
+
+        if (hs::rand_f() < 0.005f) {
+          p.position = random_vector();
+          p.velocity = Vector(0, 0, 0);
+          p.history.clear();
+        }
+
+        float fx =
+            noise_generator.GetNoise(p.position.x * params.noise_scale,
+                                     p.position.y * params.noise_scale,
+                                     p.position.z * params.noise_scale + t) *
+            params.force_scale;
+        float fy =
+            noise_generator.GetNoise(p.position.x * params.noise_scale + 100.0f,
+                                     p.position.y * params.noise_scale,
+                                     p.position.z * params.noise_scale + t) *
+            params.force_scale;
+        float fz =
+            noise_generator.GetNoise(p.position.x * params.noise_scale + 200.0f,
+                                     p.position.y * params.noise_scale,
+                                     p.position.z * params.noise_scale + t) *
+            params.force_scale;
+        Vector force(fx, fy, fz);
+
+        p.velocity = p.velocity + force;
+
+        float speed = p.velocity.magnitude();
+        if (speed > params.max_speed) {
+          p.velocity = (p.velocity / speed) * params.max_speed;
+        }
+      }
+    });
   }
 
   bool show_bg() const override { return false; }
@@ -43,68 +79,30 @@ public:
     Canvas canvas(*this);
     t += params.time_scale;
 
-    for (Particle &p : particles) {
-      // Calculate Noise Force (Flow Field)
-      // 4D noise: x, y, z, t
-      float fx = noise_generator.GetNoise(p.pos.x * params.noise_scale,
-                                          p.pos.y * params.noise_scale,
-                                          p.pos.z * params.noise_scale + t) *
-                 params.force_scale;
-      float fy = noise_generator.GetNoise(p.pos.x * params.noise_scale + 100,
-                                          p.pos.y * params.noise_scale,
-                                          p.pos.z * params.noise_scale + t) *
-                 params.force_scale;
-      float fz = noise_generator.GetNoise(p.pos.x * params.noise_scale + 200,
-                                          p.pos.y * params.noise_scale,
-                                          p.pos.z * params.noise_scale + t) *
-                 params.force_scale;
-      Vector force(fx, fy, fz);
+    particle_system.step(canvas);
 
-      // Update Velocity with Damping (Friction)
-      p.vel = p.vel + force;
-      p.vel = p.vel * 0.96f;
+    auto vertex_shader = [&](Fragment &f) {
+      f.pos = orientation.orient(f.pos);
+    };
 
-      float speed = p.vel.length();
-      if (speed > params.max_speed) {
-        p.vel = (p.vel / speed) * params.max_speed;
-      } else if (speed < 0) {
-        p.vel = Vector(0, 0, 0);
-      }
-
-      p.pos = p.pos + p.vel;
-      p.pos.normalize();
-
-      // Respawn Logic (Prevent sinks/clumping)
-      if (hs::rand_f() < 0.005f) {
-        p.pos = random_vector();
-        p.vel = Vector(0, 0, 0);
-      }
-
-      // Map Y (-1 to 1) to (0 to 1) for palette
-      float palette_t = (p.pos.y + 1.0f) / 2.0f;
+    auto fragment_shader = [&](const Vector &v, Fragment &f) {
+      float alpha = f.v0;
+      float palette_t = (v.y + 1.0f) / 2.0f;
       Color4 c = palette.get(palette_t);
-      filters.plot(canvas, p.pos, c.color, 0, c.alpha);
-    }
+      c.alpha = c.alpha * alpha * params.alpha;
+      f.color = c;
+    };
 
-    // Render with Trails
-    filters.flush(
-        canvas,
-        [this](const Vector &v, float t_trail) -> Color4 {
-          return palette.get(t_trail);
-        },
-        params.alpha);
+    Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
+                                     fragment_shader, vertex_shader);
   }
 
 private:
-  struct Particle {
-    Vector pos;
-    Vector vel;
-
-    Particle() : pos(random_vector()), vel(0, 0, 0) {}
-  };
-
   static constexpr int k_num_particles = 600;
   static constexpr int k_trail_length = 14;
+
+  typedef Animation::ParticleSystem<W, k_num_particles, k_trail_length, 1, 0>
+      ParticleSystem;
 
   struct Params {
     float noise_scale = 2.0f;
@@ -114,24 +112,12 @@ private:
     float time_scale = 0.005f;
   } params;
 
-  static constexpr int k_max_trail_dots =
-      k_num_particles * k_trail_length + k_num_particles; // Capacity buffer
-
   float t = 0;
   FastNoiseLite noise_generator;
   GenerativePalette palette;
-  ArenaVector<Particle> particles;
-
+  ParticleSystem particle_system;
   Orientation<W> orientation;
 
-  Pipeline<W, H, Filter::World::Trails<W, k_max_trail_dots>,
-           Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
-
-  void reset_particles() {
-    particles.clear();
-    for (int i = 0; i < k_num_particles; ++i) {
-      particles.emplace_back();
-    }
-  }
 };
