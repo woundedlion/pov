@@ -29,6 +29,11 @@ public:
     static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters).init_storage(
         Persistent(persistent_arena));
 
+    fibers = static_cast<Vector *>(persistent_arena.allocate(
+        ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));
+    prev_positions = static_cast<Vector *>(persistent_arena.allocate(
+        ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));
+
     init_fibers();
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_mid, true));
@@ -52,7 +57,7 @@ public:
     float sy = sinf(tumble_angle_y);
     float fold_base = sinf(tumble_angle_x * 0.5f) * 0.5f;
 
-    for (size_t i = 0; i < fibers.size(); ++i) {
+    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const Vector &base = fibers[i];
 
       // Hopf Fiber Params (S2 base)
@@ -70,7 +75,7 @@ public:
       phi += eta * params.twist;
 
       // Dot Generation
-      float phase = i * (PI_F / fibers.size());
+      float phase = i * (PI_F / ACTUAL_FIBERS);
       float beta = flow_offset + phase;
 
       // 1. Construct point on S3
@@ -151,9 +156,8 @@ private:
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
   bool first_frame_done = false;
-
-  std::array<Vector, ACTUAL_FIBERS> fibers;
-  std::array<Vector, ACTUAL_FIBERS> prev_positions;
+  Vector *fibers = nullptr;
+  Vector *prev_positions = nullptr;
 
   Orientation<W> orientation;
   Timeline<W> timeline;
