@@ -91,7 +91,7 @@ private:
   Pipeline<W, H, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
   std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
-  MobiusWarpTransformer<W, 64> mobius_gen;
+  MobiusWarpTransformer<W, 1> mobius_gen;
 
   ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
   AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },

@@ -342,16 +342,18 @@ template <int W, int Capacity> class Trails : public Is3DWithHistory {
 public:
   struct Item {
     int16_t x, y, z; // Quantized unit vector (6 bytes)
-    uint8_t ttl;      // Remaining lifetime in frames (1 byte)
-    uint8_t pad_;     // Alignment (1 byte) — total 8 bytes
+    uint8_t ttl;     // Remaining lifetime in frames (1 byte)
+    uint8_t pad_;    // Alignment (1 byte) — total 8 bytes
   };
 
   Trails(int lifetime) : lifetime(lifetime) {}
 
   /// Allocate ring buffer storage from persistent arena.
-  /// Must be called from effect init(), not constructor (arenas aren't ready yet).
+  /// Must be called from effect init(), not constructor (arenas aren't ready
+  /// yet).
   void init_storage(Persistent arena) {
-    items_ = static_cast<Item *>(arena.allocate(Capacity * sizeof(Item), alignof(Item)));
+    items_ = static_cast<Item *>(
+        arena.allocate(Capacity * sizeof(Item), alignof(Item)));
     head_ = tail_ = count_ = 0;
   }
 
@@ -369,7 +371,8 @@ public:
     // Age
     for (size_t i = 0; i < count_; ++i) {
       auto &item = at(i);
-      if (item.ttl > 0) item.ttl--;
+      if (item.ttl > 0)
+        item.ttl--;
     }
 
     while (count_ > 0 && at(0).ttl == 0) {
@@ -380,11 +383,13 @@ public:
     for (size_t i = 0; i < count_; ++i) {
       const auto &item = at(i);
       Vector v = decode(item);
-      float t = 1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime));
+      float t =
+          1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime));
       Color4 c = trailFn(v, t);
 
       if (c.alpha > 0.001f) {
-        pass(v, c.color, static_cast<float>(lifetime - item.ttl), c.alpha * alpha, 0);
+        pass(v, c.color, static_cast<float>(lifetime - item.ttl),
+             c.alpha * alpha, 0);
       }
     }
   }
@@ -396,10 +401,8 @@ private:
 
   static constexpr float Q = 32767.0f;
   static Item encode(const Vector &v, uint8_t ttl) {
-    return {static_cast<int16_t>(v.x * Q),
-            static_cast<int16_t>(v.y * Q),
-            static_cast<int16_t>(v.z * Q),
-            ttl, 0};
+    return {static_cast<int16_t>(v.x * Q), static_cast<int16_t>(v.y * Q),
+            static_cast<int16_t>(v.z * Q), ttl, 0};
   }
   static Vector decode(const Item &item) {
     constexpr float INV_Q = 1.0f / Q;
@@ -469,7 +472,13 @@ public:
  */
 template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
-  Trails(int lifetime) : lifetime(lifetime), num_pixels(0) {}
+  Trails(int lifetime) : lifetime(lifetime) {}
+
+  void init_storage(Persistent arena) {
+    ttls_ = static_cast<DecayPixel *>(
+        arena.allocate(MAX_PIXELS * sizeof(DecayPixel), alignof(DecayPixel)));
+    num_pixels = 0;
+  }
 
   void plot(float x, float y, const Pixel &color, float age, float alpha,
             uint8_t tag, PassFn2D pass) {
@@ -477,8 +486,8 @@ public:
       return;
 
     if (age >= 0) {
-      if (num_pixels < MAX_PIXELS) {
-        ttls[num_pixels++] = {x, y, static_cast<float>(lifetime - age), tag};
+      if (ttls_ && num_pixels < MAX_PIXELS) {
+        ttls_[num_pixels++] = {x, y, static_cast<float>(lifetime - age), tag};
       }
     }
     if (age <= 0) {
@@ -489,10 +498,10 @@ public:
   void flush(const ScreenTrailFn &trailFn, float alpha, PassFn2D pass) {
     for (int i = 0; i < num_pixels; ++i) {
       Color4 color =
-          trailFn(ttls[i].x, ttls[i].y, 1 - (ttls[i].ttl / lifetime));
+          trailFn(ttls_[i].x, ttls_[i].y, 1 - (ttls_[i].ttl / lifetime));
       if (color.alpha > 0.001f) {
-        pass(ttls[i].x, ttls[i].y, color.color, lifetime - ttls[i].ttl,
-             alpha * color.alpha, ttls[i].tag);
+        pass(ttls_[i].x, ttls_[i].y, color.color, lifetime - ttls_[i].ttl,
+             alpha * color.alpha, ttls_[i].tag);
       }
     }
     decay();
@@ -500,8 +509,8 @@ public:
 
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
-      if (--ttls[i].ttl < TOLERANCE) {
-        ttls[i] = ttls[--num_pixels];
+      if (--ttls_[i].ttl < TOLERANCE) {
+        ttls_[i] = ttls_[--num_pixels];
         i--;
       }
     }
@@ -513,79 +522,8 @@ private:
     uint8_t tag;
   };
   int lifetime;
-  std::array<DecayPixel, MAX_PIXELS> ttls;
-  int num_pixels;
-};
-
-/**
- * @brief Temporal anti-aliasing / motion blur filter.
- * Buffers draws and outputs them when their scheduled time arrives.
- */
-template <int W, int Capacity, typename TTLFn>
-class Temporal : public Is2DWithHistory {
-public:
-  Temporal(TTLFn ttl_fn, float window_size = 1.5f)
-      : ttl_fn(ttl_fn), window_size(window_size), current_frame(0) {}
-
-  void set_window_size(float size) { window_size = size; }
-
-  void plot(float x, float y, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn2D pass) {
-    float delay = ttl_fn(x, y);
-    float target_time = current_frame + std::max(0.0f, delay);
-    if (items.size() < Capacity) {
-      items.push_back({x, y, color, target_time, age, alpha, tag});
-    } else {
-      // Fallback: render immediately if full
-      pass(x, y, color, age, alpha, tag);
-    }
-  }
-
-  void flush(const ScreenTrailFn &trailFn, float alpha, PassFn2D pass) {
-    float win = window_size;
-
-    size_t count = items.size();
-    for (size_t i = 0; i < count;) {
-      auto &item = items[i];
-
-      // Distance from target time
-      float dist = std::abs(item.target_time - current_frame);
-
-      // Draw if within window
-      if (dist <= win) {
-        float intensity = 1.0f - (dist / win);
-        if (intensity > 0.001f) {
-          pass(item.x, item.y, item.c, item.age, item.alpha * intensity * alpha,
-               item.tag);
-        }
-      }
-
-      if (current_frame - item.target_time > win) {
-        // Swap Remove
-        items[i] = items.back();
-        items.pop_back();
-        count--;
-      } else {
-        i++;
-      }
-    }
-
-    current_frame += 1.0f;
-  }
-
-private:
-  struct Item {
-    float x, y;
-    Pixel c;
-    float target_time;
-    float age;
-    float alpha;
-    uint8_t tag;
-  };
-  StaticCircularBuffer<Item, Capacity> items;
-  TTLFn ttl_fn;
-  float window_size;
-  float current_frame;
+  DecayPixel *ttls_ = nullptr;
+  int num_pixels = 0;
 };
 
 /**
@@ -605,7 +543,7 @@ public:
     kernel = {d, e, d, e, c, e, d, e, d};
   }
 
-  void plot(float x, float y, const Pixel &color, float age, float alpha,
+  void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             uint8_t tag, PassFn2D pass) {
     int cx = static_cast<int>(std::round(x));
     int cy = static_cast<int>(std::round(y));
@@ -639,29 +577,40 @@ template <int W, int Capacity> class Slew : public Is2DWithHistory {
 public:
   Slew(float rise = 1.0f, float fall = 0.05f) : rise(rise), fall(fall) {}
 
-  void plot(float x, float y, const Pixel &color, float age, float alpha,
+  void init_storage(Persistent arena) {
+    items_ = static_cast<Item *>(
+        arena.allocate(Capacity * sizeof(Item), alignof(Item)));
+    head_ = tail_ = count_ = 0;
+  }
+
+  void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             uint8_t tag, PassFn2D pass) {
     pass(x, y, color, age, alpha, tag);
 
     // Add to decay buffer
-    if (items.size() < Capacity && alpha > 0.001f) {
-      items.push_back({x, y, color, alpha, tag});
+    if (items_ && count_ < Capacity && alpha > 0.001f) {
+      items_[tail_] = {x, y, color, alpha, tag};
+      tail_ = (tail_ + 1) % Capacity;
+      count_++;
     }
   }
 
   void flush(const ScreenTrailFn &, float globalAlpha, PassFn2D pass) {
-    size_t count = items.size();
-    for (size_t i = 0; i < count; ++i) {
-      auto item = items.front();
-      items.pop();
+    size_t n = count_;
+    for (size_t i = 0; i < n; ++i) {
+      auto item = items_[head_];
+      head_ = (head_ + 1) % Capacity;
+      count_--;
 
       // Decay
       item.alpha -= fall;
 
       if (item.alpha > 0.00001f) {
-        // Still alive
+        // Still alive — re-enqueue
         pass(item.x, item.y, item.c, 0, item.alpha * globalAlpha, item.tag);
-        items.push_back(item);
+        items_[tail_] = item;
+        tail_ = (tail_ + 1) % Capacity;
+        count_++;
       }
     }
   }
@@ -669,11 +618,12 @@ public:
 private:
   struct Item {
     float x, y;
-    Pixel c;
+    ::Pixel c;
     float alpha;
     uint8_t tag;
   };
-  StaticCircularBuffer<Item, Capacity> items;
+  Item *items_ = nullptr;
+  size_t head_ = 0, tail_ = 0, count_ = 0;
   float rise, fall;
 };
 
@@ -682,7 +632,122 @@ private:
 // ----------------------------------------------------------------------------
 // Pixel Space Filters (1:1 with buffer)
 // ----------------------------------------------------------------------------
-namespace Pix {
+namespace Pixel {
+
+/**
+ * @brief ::Pixel-space feedback accumulation filter.
+ * Creates infinite trails and "watery" distortion by sampling the
+ * previous frame from an internal ArenaVector with an offset/scale and blending
+ * it.
+ */
+template <int W, int H, typename SpaceTransformFn>
+class Feedback : public Is2DWithHistory {
+public:
+  Feedback(SpaceTransformFn transform_fn, float fade = 0.95f)
+      : transform_fn(transform_fn), fade(fade) {}
+
+  void set_fade(float f) { fade = f; }
+
+  void init_storage(Persistent arena) {
+    frames_.initialize(arena, W * H);
+    for (int i = 0; i < W * H; ++i) {
+      frames_.push_back(::Pixel(0, 0, 0));
+    }
+  }
+
+  void plot(float x, float y, const ::Pixel &color, float age, float alpha,
+            uint8_t tag, PassFn2D pass) {
+    if (alpha <= 0.001f || frames_.is_empty())
+      return;
+
+    int xi = std::clamp(static_cast<int>(x), 0, W - 1);
+    int yi = std::clamp(static_cast<int>(y), 0, H - 1);
+
+    // Accumulate HDR colors using blend_alpha (BLEND_OVER behavior)
+    frames_[yi * W + xi] = blend_alpha(alpha)(frames_[yi * W + xi], color);
+  }
+
+  void flush(const ScreenTrailFn &, float alpha, PassFn2D pass) {
+    if (frames_.is_empty())
+      return;
+
+    // 1. Output the accumulated frame to the pipeline
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        ::Pixel p = frames_[y * W + x];
+        if (p.r | p.g | p.b) {
+          pass(static_cast<float>(x), static_cast<float>(y), p, 0.0f, alpha, 0);
+        }
+      }
+    }
+
+    // 2. Distort and Fade for the NEXT frame in-place!
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        // Project 2D pixel to 3D sphere
+        Vector v = pixel_to_vector<W, H>(x, y);
+
+        // Apply 3D spatial transformation (e.g., NoiseTransformer)
+        Vector v_dist = transform_fn(v);
+
+        // Map back to absolute continuous 2D coordinates
+        Spherical s(v_dist);
+        float bx = (s.theta * W) / (2.0f * PI_F);
+        float by = phi_to_y<H>(s.phi);
+
+        ::Pixel p = sample_bilinear(bx, by);
+
+        frames_[y * W + x] = p * fade;
+      }
+    }
+  }
+
+private:
+  ::Pixel sample_bilinear(float bx, float by) const {
+    float fx0 = std::floor(bx);
+    float fy0 = std::floor(by);
+    int x0 = static_cast<int>(fx0);
+    int y0 = static_cast<int>(fy0);
+    float fx = bx - fx0;
+    float fy = by - fy0;
+
+    int x1 = x0 + 1;
+    int y1 = y0 + 1;
+
+    // safe wrapping for X (cylindrical)
+    if (x0 < 0)
+      x0 = W - 1 - ((-x0 - 1) % W);
+    else if (x0 >= W)
+      x0 %= W;
+
+    if (x1 < 0)
+      x1 = W - 1 - ((-x1 - 1) % W);
+    else if (x1 >= W)
+      x1 %= W;
+
+    // Filter out of bounds Y (read black if off poles)
+    ::Pixel p00 = (y0 >= 0 && y0 < H) ? frames_[y0 * W + x0] : ::Pixel(0, 0, 0);
+    ::Pixel p10 = (y0 >= 0 && y0 < H) ? frames_[y0 * W + x1] : ::Pixel(0, 0, 0);
+    ::Pixel p01 = (y1 >= 0 && y1 < H) ? frames_[y1 * W + x0] : ::Pixel(0, 0, 0);
+    ::Pixel p11 = (y1 >= 0 && y1 < H) ? frames_[y1 * W + x1] : ::Pixel(0, 0, 0);
+
+    float w00 = (1.0f - fx) * (1.0f - fy);
+    float w10 = fx * (1.0f - fy);
+    float w01 = (1.0f - fx) * fy;
+    float w11 = fx * fy;
+
+    ::Pixel result = (p00 * w00);
+    result += (p10 * w10);
+    result += (p01 * w01);
+    result += (p11 * w11);
+
+    return result;
+  }
+
+  SpaceTransformFn transform_fn;
+  float fade;
+  ArenaVector<::Pixel> frames_;
+};
 
 template <int W> class ChromaticShift : public Is2D {
 public:
@@ -711,6 +776,6 @@ public:
   }
 };
 
-} // namespace Pix
+} // namespace Pixel
 
 } // namespace Filter

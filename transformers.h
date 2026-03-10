@@ -177,23 +177,22 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   if (params.amplitude <= 0.001f)
     return v;
 
-  float scale = 4.0f;
+  float scale = params.scale;
   float time_val = params.time * params.speed;
 
-  // Use member noise object
-  float noiseValX =
+  // Sample 3D noise field isotropically across the sphere
+  float nx =
       params.noise.GetNoise(v.x * scale, v.y * scale, v.z * scale + time_val);
-  float noiseValY = params.noise.GetNoise(
-      v.x * scale + 100.0f, v.y * scale + 100.0f, v.z * scale + time_val);
+  float ny = params.noise.GetNoise(v.x * scale + 100.0f, v.y * scale + 100.0f,
+                                   v.z * scale + time_val);
+  float nz = params.noise.GetNoise(v.x * scale + 200.0f, v.y * scale + 200.0f,
+                                   v.z * scale + time_val);
 
-  // Simple perturbation
-  float dist = 0.2f * params.amplitude; // Arbitrary scale factor
+  // Scale amplitude to appropriate arc length
+  float amp = params.amplitude * 0.05f;
 
-  Vector res = v;
-  res.x += noiseValX * dist;
-  res.y += noiseValY * dist;
-
-  return res;
+  // Apply displacement as a rotation/tangent addition and re-normalize
+  return (v + Vector(nx, ny, nz) * amp).normalize();
 }
 
 /**

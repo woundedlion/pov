@@ -13,8 +13,11 @@ public:
       : Effect(W, H), orientation(),
         // Pipeline: Orient -> Slew -> AntiAlias
         pipeline(Filter::World::Orient<W>(orientation),
-                 Filter::Screen::Slew<W, 200000>(1.0f, 0.03f)),
-        palette(&circular_source) {
+                 Filter::Screen::Slew<W, 12000>(1.0f, 0.03f)),
+        palette(&circular_source) {}
+
+  void init() override {
+    pipeline.next.init_storage(Persistent(persistent_arena));
 
     registerParam("Light Speed", &params.lightSpeed, 0.0f, 0.5f);
     registerParam("Light Alpha", &params.lightAlpha, 0.0f, 2.0f);
@@ -75,7 +78,7 @@ public:
 
 private:
   Orientation<W> orientation;
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Slew<W, 200000>,
+  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::Slew<W, 12000>,
            Filter::Screen::AntiAlias<W, H>>
       pipeline;
 

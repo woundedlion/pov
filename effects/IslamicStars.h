@@ -56,7 +56,7 @@ private:
   Orientation<W> orientation;
   Timeline<W> timeline;
   Pipeline<W, H> filters;
-  RippleTransformer<W, 8> ripple_gen;
+  RippleTransformer<W, 4> ripple_gen;
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;

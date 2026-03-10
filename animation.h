@@ -1479,6 +1479,7 @@ struct NoiseParams {
   float speed = 1.0f;
   float frequency = 0.125f;
   float time = 0.0f;
+  float scale = 4.0f;
   mutable FastNoiseLite noise; // Mutable to allow lazy init/updates
 
   NoiseParams() { noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2); }
