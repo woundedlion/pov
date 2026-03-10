@@ -63,8 +63,7 @@ public:
 
   void init() override {
 
-    configure_arenas(GLOBAL_ARENA_SIZE - (256 + 256) * 1024, 256 * 1024,
-                     256 * 1024);
+    configure_arenas(GLOBAL_ARENA_SIZE - 200 * 1024, 200 * 1024, 0);
 
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));

@@ -62,7 +62,7 @@ private:
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
 
-  typedef Animation::ParticleSystem<W, NUM_PARTICLES, 25, EmitSolid::NUM_VERTS,
+  typedef Animation::ParticleSystem<W, NUM_PARTICLES, 23, EmitSolid::NUM_VERTS,
                                     AttractSolid::NUM_VERTS>
       ParticleSystem;
 
