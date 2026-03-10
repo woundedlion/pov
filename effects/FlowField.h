@@ -29,12 +29,11 @@ public:
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.SetSeed(hs::rand_int(0, 65535));
 
-    particle_system.init(persistent_arena, 0.96f, 0.0f);
+    particle_system.init(persistent_arena, 0.96f, 0.0f, 300.0f);
 
     particle_system.add_emitter([this](ParticleSystem &sys) mutable {
       while (sys.active_count < sys.pool.capacity()) {
-        sys.spawn(random_vector(), Vector(0, 0, 0), 0.0f,
-                  (float)hs::rand_int(100, 300));
+        sys.spawn(random_vector(), Vector(0, 0, 0), 0);
       }
 
       for (size_t i = 0; i < sys.active_count; ++i) {

@@ -1257,7 +1257,7 @@ struct ParticleSystem {
         f.v0 = t;
         f.v1 = cumulative_len;
         f.v2 = static_cast<float>(i);
-        f.v3 = p.life / p.max_life;
+        f.v3 = static_cast<float>(p.life) / static_cast<float>(system.max_life);
         f.age = 0;
         f.color = Color4(0, 0, 0, 0);
         trail.push_back(f);

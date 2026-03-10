@@ -274,20 +274,18 @@ private:
  * @brief Represents a single particle in a system.
  */
 template <int TRAIL_LEN = 8> struct Particle {
-  Vector position;      /**< Current 3D position. */
-  Vector velocity;      /**< Current velocity vector. */
-  float color_seed = 0; /**< Hue seed for palette offset. */
-  float life;           /**< Remaining life (frames or arbitrary units). */
-  float max_life;       /**< Initial life value. */
+  Vector position;        /**< Current 3D position. */
+  Vector velocity;        /**< Current velocity vector. */
+  uint16_t color_seed = 0; /**< Hue seed for palette offset. */
+  uint16_t life;           /**< Remaining life (frames or arbitrary units). */
 
   VectorTrail<TRAIL_LEN> history; /**< Trail of world-space positions. */
 
-  void init(const Vector &p, const Vector &v, float seed, float l) {
+  void init(const Vector &p, const Vector &v, uint16_t seed, float l) {
     position = p;
     velocity = v;
     color_seed = seed;
     life = l;
-    max_life = l;
     history.clear();
   }
 
@@ -311,6 +309,7 @@ public:
   float friction = 0.85f;
   float gravity = 0.001f;
   float resolution_scale = 1.0f;
+  uint16_t max_life = 600;
 
   struct Attractor {
     Vector position;
@@ -329,13 +328,13 @@ public:
             ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>>(
             -1, false) {}
 
-  void init(Arena &arena, float friction = 0.85f, float gravity = 0.001f) {
+  void init(Arena &arena, float friction = 0.85f, float gravity = 0.001f,
+            float max_life = 600.0f) {
     this->friction = friction;
     this->gravity = gravity;
+    this->max_life = max_life;
     active_count = 0;
     pool.initialize(arena, CAPACITY);
-    // Pre-fill pool to full capacity so operator[] works for any index.
-    // active_count tracks which entries are "live"; the rest are dead storage.
     for (size_t i = 0; i < CAPACITY; ++i) {
       pool.emplace_back();
     }
@@ -354,12 +353,10 @@ public:
    * @param pos Initial position.
    * @param vel Initial velocity.
    * @param seed Color seed for palette offset.
-   * @param life Lifespan in frames (default 600).
    */
-  void spawn(const Vector &pos, const Vector &vel, float seed,
-             float life = 600) {
+  void spawn(const Vector &pos, const Vector &vel, uint16_t seed) {
     if (active_count < pool.capacity()) {
-      pool[active_count++].init(pos, vel, seed, life);
+      pool[active_count++].init(pos, vel, seed, max_life);
     }
   }
 
@@ -389,8 +386,11 @@ public:
 
 private:
   bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
-    p.life--;
     bool active = p.life > 0;
+    if (active) {
+      p.life--;
+      active = p.life > 0;
+    }
 
     // Physics
     if (active) {
