@@ -269,6 +269,64 @@ FLASHMEM inline PolyMesh snubDodecahedron(MemoryCtx &ctx) {
 }
 } // namespace Archimedean
 
+namespace Catalan {
+using namespace Archimedean;
+using namespace MeshOps;
+
+// Dual of Truncated Tetrahedron
+FLASHMEM inline PolyMesh triakisTetrahedron(MemoryCtx &ctx) {
+  return dual(truncatedTetrahedron(ctx), ctx);
+}
+// Dual of Cuboctahedron
+FLASHMEM inline PolyMesh rhombicDodecahedron(MemoryCtx &ctx) {
+  return dual(cuboctahedron(ctx), ctx);
+}
+// Dual of Truncated Cube
+FLASHMEM inline PolyMesh triakisOctahedron(MemoryCtx &ctx) {
+  return dual(truncatedCube(ctx), ctx);
+}
+// Dual of Truncated Octahedron
+FLASHMEM inline PolyMesh tetrakisHexahedron(MemoryCtx &ctx) {
+  return dual(truncatedOctahedron(ctx), ctx);
+}
+// Dual of Rhombicuboctahedron
+FLASHMEM inline PolyMesh deltoidalIcositetrahedron(MemoryCtx &ctx) {
+  return dual(rhombicuboctahedron(ctx), ctx);
+}
+// Dual of Truncated Cuboctahedron
+FLASHMEM inline PolyMesh disdyakisDodecahedron(MemoryCtx &ctx) {
+  return dual(truncatedCuboctahedron(ctx), ctx);
+}
+// Dual of Snub Cube
+FLASHMEM inline PolyMesh pentagonalIcositetrahedron(MemoryCtx &ctx) {
+  return dual(snubCube(ctx), ctx);
+}
+// Dual of Icosidodecahedron
+FLASHMEM inline PolyMesh rhombicTriacontahedron(MemoryCtx &ctx) {
+  return dual(icosidodecahedron(ctx), ctx);
+}
+// Dual of Truncated Dodecahedron
+FLASHMEM inline PolyMesh triakisIcosahedron(MemoryCtx &ctx) {
+  return dual(truncatedDodecahedron(ctx), ctx);
+}
+// Dual of Truncated Icosahedron
+FLASHMEM inline PolyMesh pentakisDodecahedron(MemoryCtx &ctx) {
+  return dual(truncatedIcosahedron(ctx), ctx);
+}
+// Dual of Rhombicosidodecahedron
+FLASHMEM inline PolyMesh deltoidalHexecontahedron(MemoryCtx &ctx) {
+  return dual(rhombicosidodecahedron(ctx), ctx);
+}
+// Dual of Truncated Icosidodecahedron
+FLASHMEM inline PolyMesh disdyakisTriacontahedron(MemoryCtx &ctx) {
+  return dual(truncatedIcosidodecahedron(ctx), ctx);
+}
+// Dual of Snub Dodecahedron
+FLASHMEM inline PolyMesh pentagonalHexecontahedron(MemoryCtx &ctx) {
+  return dual(snubDodecahedron(ctx), ctx);
+}
+} // namespace Catalan
+
 namespace IslamicStarPatterns {
 using namespace Platonic;
 using namespace Archimedean;
@@ -356,16 +414,15 @@ icosahedron_snub_canonicalize_truncate033_hankin62(MemoryCtx &ctx) {
       62.0f * D2R);
 }
 
-// V=8640, F=962, I=19200
-FLASHMEM inline PolyMesh dodecahedron_hk35_ambo_hk62_ambo_hk43(MemoryCtx &ctx) {
+// V=3240, F=1082, I=8640
+FLASHMEM inline PolyMesh
+dodecahedron_hk35_ambo_hk62_ambo_canonicalize_hk43(MemoryCtx &ctx) {
   return hankin(
       canonicalize(
-          ambo(hankin(canonicalize(
-                          ambo(hankin(dodecahedron(ctx), ctx, 3.0f * D2R), ctx),
-                          ctx),
+          ambo(hankin(ambo(hankin(dodecahedron(ctx), ctx, 35.0f * D2R), ctx),
                       ctx, 62.0f * D2R),
                ctx),
-          ctx),
+          ctx, 100),
       ctx, 43.0f * D2R);
 }
 
@@ -471,9 +528,26 @@ static constexpr Entry simple_registry[] = {
      Category::Simple},
     {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
      Category::Simple},
-    {"truncatedIcosidodecahedron", Archimedean::truncatedIcosidodecahedron,
+    // Catalan
+    {"triakisTetrahedron", Catalan::triakisTetrahedron, Category::Simple},
+    {"rhombicDodecahedron", Catalan::rhombicDodecahedron, Category::Simple},
+    {"triakisOctahedron", Catalan::triakisOctahedron, Category::Simple},
+    {"tetrakisHexahedron", Catalan::tetrakisHexahedron, Category::Simple},
+    {"deltoidalIcositetrahedron", Catalan::deltoidalIcositetrahedron,
      Category::Simple},
-    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::Simple}};
+    {"disdyakisDodecahedron", Catalan::disdyakisDodecahedron, Category::Simple},
+    {"pentagonalIcositetrahedron", Catalan::pentagonalIcositetrahedron,
+     Category::Simple},
+    {"rhombicTriacontahedron", Catalan::rhombicTriacontahedron,
+     Category::Simple},
+    {"triakisIcosahedron", Catalan::triakisIcosahedron, Category::Simple},
+    {"pentakisDodecahedron", Catalan::pentakisDodecahedron, Category::Simple},
+    {"deltoidalHexecontahedron", Catalan::deltoidalHexecontahedron,
+     Category::Simple},
+    {"disdyakisTriacontahedron", Catalan::disdyakisTriacontahedron,
+     Category::Simple},
+    {"pentagonalHexecontahedron", Catalan::pentagonalHexecontahedron,
+     Category::Simple}};
 
 // Islamic Star Patterns
 static constexpr Entry islamic_registry[] = {
@@ -504,8 +578,8 @@ static constexpr Entry islamic_registry[] = {
     {"icosahedron_ambo_truncate033_hankin59",
      IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59,
      Category::Complex},
-    {"dodecahedron_hk35_ambo_hk62_ambo_hk43",
-     IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_hk43,
+    {"dodecahedron_hk35_ambo_hk62_ambo_canonicalize_hk43",
+     IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_canonicalize_hk43,
      Category::Complex},
     {"icosahedron_hk59_bitruncate033",
      IslamicStarPatterns::icosahedron_hk59_bitruncate033, Category::Complex},
