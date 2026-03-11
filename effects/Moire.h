@@ -25,7 +25,15 @@ public:
                          HarmonyType::SPLIT_COMPLEMENTARY,
                          BrightnessProfile::CUP),
         filters(Filter::World::Orient<W>(orientation),
-                Filter::Screen::AntiAlias<W, H>()) {
+                Filter::Screen::AntiAlias<W, H>()) {}
+
+  bool show_bg() const override { return false; }
+
+  void init() override {
+    // Moire relies on DistortedRing parsing loops.
+    // It allocates ~9.2KB for the Ring points and ~8.1KB for rasterization caches.
+    // Give it 32KB of Scratch A to safely handle iterations, and 16KB of Scratch B for AA filters.
+    configure_arenas(GLOBAL_ARENA_SIZE - 48 * 1024, 32 * 1024, 16 * 1024);
 
     params.density = W <= 96 ? 10.0f : 45.0f;
 
@@ -44,8 +52,6 @@ public:
              Animation::Mutation(params.amp, sin_wave(0.1f, 0.5f, 1.0f, 0.0f),
                                  160, ease_mid, true));
   }
-
-  bool show_bg() const override { return false; }
 
   void draw_frame() override {
     Canvas canvas(*this);

@@ -110,9 +110,6 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
 class HolosphereEngine {
 public:
   HolosphereEngine() {
-    // Seed randomness
-    srand(static_cast<unsigned int>(time(NULL)));
-
     // Initialize with default
     setResolution(96, 20);
     setEffect("Test");

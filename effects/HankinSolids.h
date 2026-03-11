@@ -106,8 +106,7 @@ private:
       MeshOps::classify_faces_by_topology(mesh, ctx);
 
       palettes = pool;
-      std::mt19937 g(12345 + (int)time);
-      std::shuffle(palettes.begin(), palettes.end(), g);
+      std::shuffle(palettes.begin(), palettes.end(), hs::random());
     }
 
     void swap(ShapeState &other) {

@@ -24,8 +24,9 @@ public:
         orientation(), filters(Filter::World::Orient<W>(orientation),
                                Filter::Screen::AntiAlias<W, H>()),
         // Spawner: Manage ring creation based on gap accumulation
-        spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {
+        spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {}
 
+  void init() override {
     // Register Params
     registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);
     registerParam("Speed", &params.speed, 0.0f, 20.0f);

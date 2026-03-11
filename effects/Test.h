@@ -23,7 +23,9 @@ public:
               return sin_wave(-params.max_amplitude, params.max_amplitude, 1.0f,
                               0.0f)(t);
             },
-            32, ease_mid, true) {
+            32, ease_mid, true) {}
+
+  void init() override {
     params.thickness = 4.0f * (2.0f * PI_F / W);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);

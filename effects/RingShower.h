@@ -12,7 +12,9 @@
 
 template <int W, int H> class RingShower : public Effect {
 public:
-  FLASHMEM RingShower() : Effect(W, H) {
+  FLASHMEM RingShower() : Effect(W, H) {}
+
+  void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
     timeline.add(0, Animation::RandomTimer(
