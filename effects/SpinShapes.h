@@ -11,7 +11,9 @@ template <int W, int H> class SpinShapes : public Effect {
 public:
   FLASHMEM SpinShapes()
       : Effect(W, H), filters(Filter::World::Orient<W>(camera),
-                              Filter::Screen::AntiAlias<W, H>()) {
+                              Filter::Screen::AntiAlias<W, H>()) {}
+
+  void init() override {
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerParam("Radius", &params.radius, 0.05f, 2.0f);
     registerParam("Count", &params.count, 1.0f, 100.0f);

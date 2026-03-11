@@ -80,7 +80,7 @@ public:
    */
   POVDisplay() {
 #ifdef ARDUINO
-    randomSeed(analogRead(PIN_RANDOM));
+    randomSeed(1337);
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds_,
                                                                         S);
 

@@ -102,7 +102,9 @@ public:
     }
   };
 
-  FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {
+  FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {}
+
+  void init() override {
     registerParam("Mode", &params.mode, 0.0f, 25.0f);
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
     registerParam("Debug BB", &params.debug_bb);

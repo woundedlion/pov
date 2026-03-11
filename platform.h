@@ -3,6 +3,7 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#include <random>
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -20,6 +21,14 @@ inline void log(const char *fmt, ...) {
   vsnprintf(buf, sizeof(buf), fmt, args);
   va_end(args);
   Serial.println(buf);
+}
+
+/**
+ * @brief Returns the global deterministic random number generator.
+ */
+inline std::mt19937& random() {
+  static std::mt19937 gen(1337);
+  return gen;
 }
 /** @brief Wrapped millis() for namespace consistency. */
 inline unsigned long millis() { return ::millis(); }
@@ -83,7 +92,6 @@ static constexpr int H_OFFSET = 3;
 #include <cstring>
 #include <chrono>
 #include <iostream>
-#include <random>
 
 template <typename T, typename U> constexpr T lerp(T a, T b, U t) {
   return (T)(a + (b - a) * t);
@@ -218,6 +226,14 @@ inline void log(const char *fmt, ...) {
   va_end(args);
   printf("\n");
 }
+
+/**
+ * @brief Returns the global deterministic random number generator.
+ */
+inline std::mt19937& random() {
+  static std::mt19937 gen(1337);
+  return gen;
+}
 } // namespace hs
 
 // --- Mock Arduino Constants/Types ---
@@ -251,8 +267,8 @@ enum ColorOrder { RGB };
 #define DATA_RATE_MHZ(x) x
 
 // --- Mock Arduino Functions ---
-inline int random(int max) { return rand() % max; }
-inline int random(int min, int max) { return min + (rand() % (max - min)); }
+inline int random(int max) { return hs::random()() % max; }
+inline int random(int min, int max) { return min + (hs::random()() % (max - min)); }
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
@@ -269,9 +285,9 @@ struct SerialMock {
 static SerialMock Serial;
 
 // --- FastLED Mocks ---
-inline uint8_t random8() { return rand() % 256; }
-inline uint8_t random8(uint8_t top) { return rand() % top; }
-inline uint16_t random16() { return rand() % 65536; }
+inline uint8_t random8() { return hs::random()() % 256; }
+inline uint8_t random8(uint8_t top) { return hs::random()() % top; }
+inline uint16_t random16() { return hs::random()() % 65536; }
 inline void random16_add_entropy(uint16_t) {}
 
 /**
@@ -334,7 +350,7 @@ inline void enable_interrupts() {}
  * @return A random float in the range [0.0, 1.0].
  */
 inline float rand_f() {
-  return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+  return static_cast<float>(hs::random()()) / static_cast<float>(hs::random().max());
 }
 
 inline float rand_f(float min, float max) {
@@ -348,7 +364,10 @@ inline float rand_f(float min, float max) {
  * @return A random integer in the range [min, max).
  */
 inline int rand_int(int min, int max) {
-  return std::rand() % (max - min) + min;
+  if (max > min) {
+    return min + (hs::random()() % (max - min));
+  }
+  return min;
 }
 
 // Global state

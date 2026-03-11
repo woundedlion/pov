@@ -19,13 +19,15 @@ public:
     int id;
   };
 
-  FLASHMEM Voronoi() : Effect(W, H) {
+  FLASHMEM Voronoi() : Effect(W, H) {}
+
+  void init() override {
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
     registerParam("Smoothness", &params.smoothness, 1.0f, 500.0f);
     registerParam("Border Thick", &params.borderThickness, 0.0f, 0.1f);
-  }
 
-  void init() override { init_sites(); }
+    init_sites();
+  }
 
   bool show_bg() const override { return false; }
 

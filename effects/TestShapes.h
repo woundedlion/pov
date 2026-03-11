@@ -116,49 +116,66 @@ public:
     Basis basis = make_basis(cam_q * ring.orientation.get(), ring.normal);
     int sides_int = (int)params.sides;
     if (ring.mode == RenderMode::Plot) {
-      switch (current_shape) {
-      case ShapeType::Flower:
-        Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
-                                 fragment_shader, {}, phase);
-        break;
-      case ShapeType::Star:
-        Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
-                               fragment_shader, phase);
-        break;
-      case ShapeType::PlanarPolygon:
-        Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r,
-                                        sides_int, fragment_shader, phase);
-        break;
-      default: // SphericalPolygon
-        Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r,
-                                           sides_int, fragment_shader, phase);
-        break;
-      }
+      dispatchPlot(canvas, basis, r, sides_int, fragment_shader, phase);
     } else {
-      switch (current_shape) {
-      case ShapeType::Flower:
-        Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
-                                 fragment_shader, phase, params.debug_bb);
-        break;
-      case ShapeType::Star:
-        Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
-                               fragment_shader, phase, params.debug_bb);
-        break;
-      case ShapeType::PlanarPolygon:
-        Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r,
-                                        sides_int, fragment_shader, phase,
-                                        params.debug_bb);
-        break;
-      default: // SphericalPolygon
-        Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r,
-                                           sides_int, fragment_shader, phase,
-                                           params.debug_bb);
-        break;
-      }
+      dispatchScan(canvas, basis, r, sides_int, fragment_shader, phase);
     }
   }
 
 private:
+  template <typename F>
+  __attribute__((noinline)) void dispatchPlot(Canvas &canvas, const Basis &basis,
+                                              float r, int sides_int,
+                                              const F &fragment_shader,
+                                              float phase) {
+    switch (current_shape) {
+    case ShapeType::Flower:
+      Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
+                               fragment_shader, {}, phase);
+      break;
+    case ShapeType::Star:
+      Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
+                             fragment_shader, phase);
+      break;
+    case ShapeType::PlanarPolygon:
+      Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r,
+                                      sides_int, fragment_shader, phase);
+      break;
+    default:
+      Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r,
+                                         sides_int, fragment_shader, phase);
+      break;
+    }
+  }
+
+  template <typename F>
+  __attribute__((noinline)) void dispatchScan(Canvas &canvas, const Basis &basis,
+                                              float r, int sides_int,
+                                              const F &fragment_shader,
+                                              float phase) {
+    switch (current_shape) {
+    case ShapeType::Flower:
+      Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
+                               fragment_shader, phase, params.debug_bb);
+      break;
+    case ShapeType::Star:
+      Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
+                             fragment_shader, phase, params.debug_bb);
+      break;
+    case ShapeType::PlanarPolygon:
+      Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r,
+                                      sides_int, fragment_shader, phase,
+                                      params.debug_bb);
+      break;
+    default: // SphericalPolygon
+      Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r,
+                                         sides_int, fragment_shader, phase,
+                                         params.debug_bb);
+      break;
+    }
+  }
+
+
   FastNoiseLite noise;
   Timeline<W> timeline;
   Orientation<W> camera;

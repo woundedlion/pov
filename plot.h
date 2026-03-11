@@ -133,7 +133,8 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
   size_t count = close_loop ? len : len - 1;
   ScopedScratch _sc(MemoryCtx::scratch());
   ArenaVector<float> _steps_cache;
-  _steps_cache.initialize(MemoryCtx::scratch(), 2048);
+  size_t max_cache = std::min(std::max(len * 4, (size_t)256), (size_t)2048);
+  _steps_cache.initialize(MemoryCtx::scratch(), max_cache);
 
   auto process_segment = [&](auto &&map, const Fragment &curr,
                              const Fragment &next, float total_dist,

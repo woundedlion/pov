@@ -23,7 +23,15 @@ public:
         filters(Filter::World::HoleRef<W>(holeN, 1.2f),
                 Filter::World::HoleRef<W>(holeS, 1.2f),
                 Filter::World::Orient<W>(orientation),
-                Filter::Screen::AntiAlias<W, H>()) {
+                Filter::Screen::AntiAlias<W, H>()) {}
+
+  bool show_bg() const override { return false; }
+
+  void init() override {
+    // MobiusGrid requires very little persistent memory.
+    // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle rasterization arrays.
+    configure_arenas(GLOBAL_ARENA_SIZE - 128 * 1024, 64 * 1024, 64 * 1024);
+
     registerParam("Rings", &params.num_rings, 0.0f, 20.0f);
     registerParam("Lines", &params.num_lines, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -43,8 +51,6 @@ public:
                                       sin_wave(12.0f, 1.0f, 1.0f, PI_F / 2.0f),
                                       320, ease_mid, true));
   }
-
-  bool show_bg() const override { return false; }
 
   void draw_frame() override {
     Canvas canvas(*this);
@@ -95,12 +101,12 @@ private:
       float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
 
       Fragments m_points;
-      m_points.initialize(MemoryCtx::scratch(), 256);
+      m_points.initialize(MemoryCtx::scratch(), 144);
       Basis basis = make_basis(Quaternion(), normal);
       Plot::SphericalPolygon::sample(m_points, basis, radius, W / 4);
 
       Fragments m_fragments;
-      m_fragments.initialize(MemoryCtx::scratch(), 256);
+      m_fragments.initialize(MemoryCtx::scratch(), 144);
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
@@ -131,7 +137,7 @@ private:
       Vector normal(cosf(theta), 0.0f, -sinf(theta));
 
       Fragments m_points;
-      m_points.initialize(MemoryCtx::scratch(), 256);
+      m_points.initialize(MemoryCtx::scratch(), 144);
       // Explicit basis construction to match JS texture alignment
       Vector v = normal;
       Vector w = Y_AXIS;
@@ -141,7 +147,7 @@ private:
       Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);
 
       Fragments m_fragments;
-      m_fragments.initialize(MemoryCtx::scratch(), 256);
+      m_fragments.initialize(MemoryCtx::scratch(), 144);
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
