@@ -42,9 +42,9 @@ struct PolyMesh {
 
   void initialize(Arena &arena, size_t num_verts, size_t num_faces,
                   size_t num_indices) {
-    vertices.initialize(arena, num_verts);
-    face_counts.initialize(arena, num_faces);
-    faces.initialize(arena, num_indices);
+    vertices.bind(arena, num_verts);
+    face_counts.bind(arena, num_faces);
+    faces.bind(arena, num_indices);
     cache_valid = false;
   }
 
@@ -111,13 +111,13 @@ private:
     size_t num_faces = counts.size();
     size_t total_indices = faces_arr.size();
 
-    vertices.initialize(arena, num_verts);
+    vertices.bind(arena, num_verts);
     for (size_t i = 0; i < num_verts; ++i) {
       vertices.push_back({HE_NONE});
     }
 
-    faces.initialize(arena, num_faces);
-    halfEdges.initialize(arena, total_indices);
+    faces.bind(arena, num_faces);
+    halfEdges.bind(arena, total_indices);
 
     struct EdgeRecord {
       uint16_t min_v;
@@ -210,14 +210,14 @@ FLASHMEM inline void compile(const PolyMesh &src, MeshState &dst,
     }
   }
 
-  dst.vertices.initialize(geom_arena, src.vertices.size());
+  dst.vertices.bind(geom_arena, src.vertices.size());
   for (size_t i = 0; i < src.vertices.size(); ++i) {
     dst.vertices.push_back(src.vertices[i]);
   }
 
-  dst.face_counts.initialize(geom_arena, valid_faces);
-  dst.faces.initialize(geom_arena, valid_indices);
-  dst.face_offsets.initialize(geom_arena, valid_faces);
+  dst.face_counts.bind(geom_arena, valid_faces);
+  dst.faces.bind(geom_arena, valid_indices);
+  dst.face_offsets.bind(geom_arena, valid_faces);
 
   size_t offset = 0;
   int current_offset = 0;
@@ -241,21 +241,21 @@ FLASHMEM inline void compile(const PolyMesh &src, MeshState &dst,
  */
 template <typename MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
-  dst.vertices.initialize(arena, src.vertices.size());
+  dst.vertices.bind(arena, src.vertices.size());
   for (size_t i = 0; i < src.vertices.size(); ++i) {
     dst.vertices.push_back(src.vertices[i]);
   }
 
   size_t fc_size = src.get_face_counts_size();
   const uint8_t *fc_data = src.get_face_counts_data();
-  dst.face_counts.initialize(arena, fc_size);
+  dst.face_counts.bind(arena, fc_size);
   for (size_t i = 0; i < fc_size; ++i) {
     dst.face_counts.push_back(fc_data[i]);
   }
 
   size_t f_size = src.get_faces_size();
   const uint16_t *f_data = src.get_faces_data();
-  dst.faces.initialize(arena, f_size);
+  dst.faces.bind(arena, f_size);
   for (size_t i = 0; i < f_size; ++i) {
     dst.faces.push_back(f_data[i]);
   }
@@ -263,14 +263,14 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
   if constexpr (requires { dst.face_offsets; }) {
     size_t fo_size = src.get_face_offsets_size();
     const uint16_t *fo_data = src.get_face_offsets_data();
-    dst.face_offsets.initialize(arena, fo_size);
+    dst.face_offsets.bind(arena, fo_size);
     for (size_t i = 0; i < fo_size; ++i) {
       dst.face_offsets.push_back(fo_data[i]);
     }
   }
 
   if constexpr (requires { dst.topology; }) {
-    dst.topology.initialize(arena, src.topology.size());
+    dst.topology.bind(arena, src.topology.size());
     for (size_t i = 0; i < src.topology.size(); ++i) {
       dst.topology.push_back(src.topology[i]);
     }
@@ -306,10 +306,10 @@ classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
   size_t I = mesh.faces.size();
 
   ArenaVector<uint32_t> faceHashes;
-  faceHashes.initialize(ctx.get_scratch_back(), F);
+  faceHashes.bind(ctx.get_scratch_back(), F);
 
   ArenaVector<uint32_t> finalHashes;
-  finalHashes.initialize(ctx.get_scratch_back(), F);
+  finalHashes.bind(ctx.get_scratch_back(), F);
 
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
@@ -436,7 +436,7 @@ classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
   });
 
   if (mesh.topology.capacity() < F) {
-    mesh.topology.initialize(ctx.get_persistent(), F);
+    mesh.topology.bind(ctx.get_persistent(), F);
   }
   mesh.topology.clear();
   for (size_t i = 0; i < F; ++i) {

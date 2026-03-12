@@ -332,10 +332,10 @@ struct MeshOpsWrapper {
     if (!fData.empty() && fData.back() != -1)
       num_faces++;
 
-    m.faces.initialize(tooling_arena,
+    m.faces.bind(tooling_arena,
                        fData.size() -
                            num_faces); // Exact size without delimiters
-    m.face_counts.initialize(tooling_arena, num_faces);
+    m.face_counts.bind(tooling_arena, num_faces);
 
     int current_count = 0;
     for (int idx : fData) {

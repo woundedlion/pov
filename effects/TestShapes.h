@@ -34,7 +34,7 @@ public:
   bool show_bg() const override { return false; }
 
   void init() override {
-    shapes.initialize(persistent_arena, 128);
+    shapes.bind(persistent_arena, 128);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);

@@ -117,7 +117,7 @@ public:
   ArenaVector<Site> sites_buffer;
 
   void init_sites() {
-    sites_buffer.initialize(persistent_arena, (size_t)params.num_sites);
+    sites_buffer.bind(persistent_arena, (size_t)params.num_sites);
 
     for (int i = 0; i < (int)params.num_sites; i++) {
       float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));

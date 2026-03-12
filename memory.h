@@ -89,54 +89,6 @@ public:
 };
 
 // ============================================================================
-// 1b. Zero-Cost Phantom-Typed Arena Wrapper
-// ============================================================================
-
-/// Tag types — empty, zero-cost, exist only for the type system.
-struct ScratchFrontTag {};
-struct ScratchBackTag {};
-struct PersistentTag {};
-
-/// Compile-time arena discriminator. Wraps Arena& with a phantom tag so the
-/// type system prevents passing the wrong arena. Implicitly converts to Arena&
-/// for backward compatibility — opt into enforcement by declaring
-/// TypedArena<SpecificTag> parameters in function signatures.
-template <typename Tag> class TypedArena {
-  Arena &inner_;
-
-public:
-  explicit TypedArena(Arena &a) : inner_(a) {}
-
-  // Implicit conversion — existing code that takes Arena& just works
-  operator Arena &() { return inner_; }
-  operator const Arena &() const { return inner_; }
-
-  // Explicit escape hatch
-  Arena &raw() { return inner_; }
-  const Arena &raw() const { return inner_; }
-
-  // Forwarded Arena interface
-  void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
-    return inner_.allocate(size, align);
-  }
-  size_t get_offset() const { return inner_.get_offset(); }
-  size_t get_capacity() const { return inner_.get_capacity(); }
-  size_t get_high_water_mark() const { return inner_.get_high_water_mark(); }
-  void set_offset(size_t new_offset) { inner_.set_offset(new_offset); }
-  void reset() { inner_.reset(); }
-  void reset_high_water_mark() { inner_.reset_high_water_mark(); }
-
-#ifndef NDEBUG
-  uint32_t get_generation() const { return inner_.get_generation(); }
-#endif
-};
-
-// Convenience aliases
-using ScratchFront = TypedArena<ScratchFrontTag>;
-using ScratchBack = TypedArena<ScratchBackTag>;
-using Persistent = TypedArena<PersistentTag>;
-
-// ============================================================================
 // 2. Arena Structures
 // ============================================================================
 
@@ -160,21 +112,32 @@ private:
   void check_alive() const {}
 #endif
 
+  void check_bound() const {
+    assert(data_ != nullptr && "Attempted to access unbound ArenaVector!");
+  }
+
 public:
+  /// Default: creates an unbound vector. Must call bind() before use.
   ArenaVector() : data_(nullptr), size_(0), capacity_(0) {}
 
   // Disable implicit shallow copying to prevent memory aliasing bugs
   ArenaVector(const ArenaVector &) = delete;
   ArenaVector &operator=(const ArenaVector &) = delete;
 
-  // Move semantics
+  // Move semantics — moved-from object returns to pristine unbound state
   ArenaVector(ArenaVector &&other) noexcept
       : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
 #ifndef NDEBUG
     source_arena_ = other.source_arena_;
     birth_generation_ = other.birth_generation_;
 #endif
-    other.invalidate();
+    other.data_ = nullptr;
+    other.size_ = 0;
+    other.capacity_ = 0;
+#ifndef NDEBUG
+    other.source_arena_ = nullptr;
+    other.birth_generation_ = 0;
+#endif
   }
 
   ArenaVector &operator=(ArenaVector &&other) noexcept {
@@ -186,7 +149,13 @@ public:
       source_arena_ = other.source_arena_;
       birth_generation_ = other.birth_generation_;
 #endif
-      other.invalidate();
+      other.data_ = nullptr;
+      other.size_ = 0;
+      other.capacity_ = 0;
+#ifndef NDEBUG
+      other.source_arena_ = nullptr;
+      other.birth_generation_ = 0;
+#endif
     }
     return *this;
   }
@@ -194,14 +163,17 @@ public:
   // Constructor requires exact capacity upfront. No dynamic growth.
   ArenaVector(Arena &arena, size_t exact_capacity)
       : data_(nullptr), size_(0), capacity_(0) {
-    initialize(arena, exact_capacity);
+    bind(arena, exact_capacity);
   }
 
-  void initialize(Arena &arena, size_t exact_capacity) {
+  /// One-time binding to an arena. Asserts on double-bind.
+  /// If already bound with sufficient capacity, resets size for reuse.
+  void bind(Arena &arena, size_t exact_capacity) {
     if (capacity_ >= exact_capacity && data_ != nullptr) {
       size_ = 0; // Reuse memory
       return;
     }
+    assert(data_ == nullptr && "ArenaVector already bound!");
     if (exact_capacity > 0) {
       data_ = static_cast<T *>(
           arena.allocate(exact_capacity * sizeof(T), alignof(T)));
@@ -216,20 +188,11 @@ public:
 #endif
   }
 
-  /// Nullify all state. Forces re-allocation on next initialize().
-  /// Required during persistent arena compaction.
-  void invalidate() {
-    data_ = nullptr;
-    size_ = 0;
-    capacity_ = 0;
-#ifndef NDEBUG
-    source_arena_ = nullptr;
-    birth_generation_ = 0;
-#endif
-  }
+  bool is_bound() const { return data_ != nullptr; }
 
   void push_back(const T &value) {
     check_alive();
+    check_bound();
     assert(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
     new (&data_[size_]) T(value);
     size_++;
@@ -237,6 +200,7 @@ public:
 
   template <typename... Args> T &emplace_back(Args &&...args) {
     check_alive();
+    check_bound();
     assert(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
     T *ptr = new (&data_[size_]) T(std::forward<Args>(args)...);
     size_++;
@@ -245,11 +209,13 @@ public:
 
   T &operator[](size_t i) {
     check_alive();
+    check_bound();
     assert(i < size_);
     return data_[i];
   }
   const T &operator[](size_t i) const {
     check_alive();
+    check_bound();
     assert(i < size_);
     return data_[i];
   }
@@ -261,11 +227,13 @@ public:
 
   T &back() {
     check_alive();
+    check_bound();
     assert(size_ > 0);
     return data_[size_ - 1];
   }
   const T &back() const {
     check_alive();
+    check_bound();
     assert(size_ > 0);
     return data_[size_ - 1];
   }
@@ -342,60 +310,98 @@ void clone(const CompiledHankin &src, CompiledHankin &dst, Arena &arena);
 }
 
 // ============================================================================
-// 4. Invisible Auto-Compactor
+// 4. ScratchScope — RAII Guard + Factory for Temporary Memory
 // ============================================================================
 
-/// RAII guard that prevents auto_compact from running while
-/// raw persistent-arena pointers are held.
-class CompactionLock {
-  static inline int lock_count_ = 0;
+/// RAII guard that saves/restores an arena offset and provides a typed
+/// factory for temporary ArenaVectors scoped to this block.
+struct ScratchScope {
+  Arena &arena;
+  size_t saved_offset;
 
-public:
-  CompactionLock() { lock_count_++; }
-  ~CompactionLock() { lock_count_--; }
+  ScratchScope(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
+  ~ScratchScope() { arena.set_offset(saved_offset); }
 
-  CompactionLock(const CompactionLock &) = delete;
-  CompactionLock &operator=(const CompactionLock &) = delete;
-
-  static bool is_locked() { return lock_count_ > 0; }
-};
-
-/// RAII Guard that safely evacuates a MeshState to scratch memory, and restores
-/// it to the persistent arena upon destruction. Used to protect active meshes
-/// during persistent arena compaction (e.g., persistent_arena.reset()).
-template <typename MeshT, typename ScratchT>
-class Persist {
-  MeshT *target_;
-  MeshT backup_;
-  Arena *scratch_;
-  Arena *persistent_;
-
-public:
-  // Requires explicit TypedArena to enforce compile-time safety.
-  // Passed by value because they are zero-cost wrappers often returned as temporaries.
-  Persist(MeshT &target, ScratchT scratch, Persistent persistent)
-      : target_(&target), scratch_(&scratch.raw()), persistent_(&persistent.raw()) {
-    MeshOps::clone(target, backup_, *scratch_);
+  /// Create a temporary ArenaVector scoped to this ScratchScope.
+  template <typename T> ArenaVector<T> make_vector(size_t capacity) {
+    return ArenaVector<T>(arena, capacity);
   }
 
-  ~Persist() {
-    target_->invalidate();
-    MeshOps::clone(backup_, *target_, *persistent_);
-  }
+  /// Escape hatch — raw arena reference for legacy MeshOps calls.
+  Arena &raw() { return arena; }
 
-  // Disable copying
-  Persist(const Persist &) = delete;
-  Persist &operator=(const Persist &) = delete;
+  // Non-copyable
+  ScratchScope(const ScratchScope &) = delete;
+  ScratchScope &operator=(const ScratchScope &) = delete;
 };
 
+// Backward-compat alias during migration
+using ScopedScratch = ScratchScope;
+
 // ============================================================================
-// 5. PingPong Double-Buffer
+// 5. Declarative Compaction Utility
 // ============================================================================
 
-/// Encapsulates the front/back scratch arena swap pattern.
-/// Provides two interfaces:
-///   - front()/back()/swap(): for MemoryCtx-style usage (Conway operators)
-///   - target()/source()/flip(): for iterative double-buffer loops
+/// Safely compacts the persistent arena by calling a user-provided lambda
+/// that clones live data into scratch, resets persistent, then clones back.
+///
+/// Usage:
+///   compact_persistent(persistent_arena, scratch_arena_a, [&](ScratchScope& backup) {
+///       MeshState tmp;
+///       MeshOps::clone(live_mesh, tmp, backup.raw());
+///       persistent_arena.reset();
+///       MeshOps::clone(tmp, live_mesh, persistent_arena);
+///   });
+template <typename Fn>
+void compact_persistent(Arena &persistent, Arena &scratch, Fn &&fn) {
+  ScratchScope backup(scratch);
+  fn(backup);
+}
+
+// ============================================================================
+// 6. Legacy Compatibility (to be removed after full migration)
+// ============================================================================
+
+/// Tag types — empty, zero-cost, exist only for the type system.
+struct ScratchFrontTag {};
+struct ScratchBackTag {};
+struct PersistentTag {};
+
+template <typename Tag> class TypedArena {
+  Arena &inner_;
+
+public:
+  explicit TypedArena(Arena &a) : inner_(a) {}
+  operator Arena &() { return inner_; }
+  operator const Arena &() const { return inner_; }
+  Arena &raw() { return inner_; }
+  const Arena &raw() const { return inner_; }
+
+  void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
+    return inner_.allocate(size, align);
+  }
+  size_t get_offset() const { return inner_.get_offset(); }
+  size_t get_capacity() const { return inner_.get_capacity(); }
+  size_t get_high_water_mark() const { return inner_.get_high_water_mark(); }
+  void set_offset(size_t new_offset) { inner_.set_offset(new_offset); }
+  void reset() { inner_.reset(); }
+  void reset_high_water_mark() { inner_.reset_high_water_mark(); }
+
+#ifndef NDEBUG
+  uint32_t get_generation() const { return inner_.get_generation(); }
+#endif
+};
+
+// Convenience aliases
+using ScratchFront = TypedArena<ScratchFrontTag>;
+using ScratchBack = TypedArena<ScratchBackTag>;
+using Persistent = TypedArena<PersistentTag>;
+
+
+
+
+/// PingPong double-buffer for scratch arenas.
+/// DEPRECATED: Use ScratchScope directly.
 class PingPong {
   Arena *arenas_[2];
   int current_ = 0;
@@ -403,39 +409,25 @@ class PingPong {
 public:
   PingPong(Arena &a, Arena &b) : arenas_{&a, &b} {}
 
-  // --- MemoryCtx-style interface ---
-
-  /// The "active" arena (where results live).
   Arena &front() { return *arenas_[current_]; }
-
-  /// The "other" arena (scratch / input data).
   Arena &back() { return *arenas_[1 - current_]; }
 
-  /// Swap front/back and reset the new front.
   void swap() {
     current_ = 1 - current_;
     arenas_[current_]->reset();
   }
 
-  // --- Iterative double-buffer interface ---
-
-  /// Returns the arena to WRITE into, resets it first.
   Arena &target() {
     Arena &t = *arenas_[1 - current_];
     t.reset();
     return t;
   }
-
-  /// Returns the arena to READ from (the last target).
   Arena &source() { return *arenas_[current_]; }
-
-  /// Flip: what was the target becomes the source.
   void flip() { current_ = 1 - current_; }
 };
 
-// ============================================================================
-// 6. Unified Factory
-// ============================================================================
+/// Unified factory for arena access.
+/// DEPRECATED: Use ScratchScope + direct arena access.
 class MemoryCtx {
   PingPong pp_;
 
@@ -449,7 +441,6 @@ public:
     b.reset();
   }
 
-  // Typed Arena Getters — compile-time arena discrimination
   ScratchFront get_scratch_front() { return ScratchFront(pp_.front()); }
   ScratchBack get_scratch_back() { return ScratchBack(pp_.back()); }
   Persistent get_persistent() { return Persistent(persistent_arena); }
@@ -470,12 +461,4 @@ public:
 
   /// Static accessor for scratch front arena (no MemoryCtx instance needed).
   static ScratchFront scratch() { return ScratchFront(scratch_arena_a); }
-};
-
-struct ScopedScratch {
-  Arena &arena;
-  size_t saved_offset;
-
-  ScopedScratch(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
-  ~ScopedScratch() { arena.set_offset(saved_offset); }
 };

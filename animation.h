@@ -330,12 +330,12 @@ public:
     this->gravity = gravity;
     this->max_life = max_life;
     active_count = 0;
-    pool.initialize(arena, CAPACITY);
+    pool.bind(arena, CAPACITY);
     for (size_t i = 0; i < CAPACITY; ++i) {
       pool.emplace_back();
     }
-    attractors.initialize(arena, ATTRACTOR_CAP);
-    emitters.initialize(arena, EMITTER_CAP);
+    attractors.bind(arena, ATTRACTOR_CAP);
+    emitters.bind(arena, EMITTER_CAP);
   }
 
   void add_emitter(EmitterFn fn) { emitters.push_back(fn); }
@@ -1235,13 +1235,8 @@ struct MorphBuffer {
   ArenaVector<Vector> end_pos_B;
 
   void preallocate(Persistent arena, size_t capacity) {
-    start_pos_B.initialize(arena, capacity);
-    end_pos_B.initialize(arena, capacity);
-  }
-
-  void invalidate() {
-    start_pos_B.invalidate();
-    end_pos_B.invalidate();
+    start_pos_B.bind(arena, capacity);
+    end_pos_B.bind(arena, capacity);
   }
 };
 
@@ -1793,11 +1788,14 @@ public:
 
     // Free the old back slot and compact
     {
-      MemoryCtx ctx;
-      slots_[back].invalidate();
-      Persist<MeshState, ScratchBack> pFront(slots_[front_], ctx.get_scratch_back(),
-                                ctx.get_persistent());
-      ctx.get_persistent().raw().reset();
+      slots_[back] = MeshState();
+      compact_persistent(persistent_arena, scratch_arena_b, [&](ScratchScope& backup) {
+        MeshState backup_front;
+        MeshOps::clone(slots_[front_], backup_front, backup.raw());
+        persistent_arena.reset();
+        slots_[front_] = MeshState();
+        MeshOps::clone(backup_front, slots_[front_], persistent_arena);
+      });
     }
 
     // Generate new shape into back slot
@@ -1846,12 +1844,16 @@ public:
   /// Compact the persistent arena (evacuates tracked MeshStates, reclaims
   /// fragmented space). Call before allocating new persistent data.
   void compact() {
-    MemoryCtx ctx;
-    Persist<MeshState, ScratchFront> pFront(slots_[0], ctx.get_scratch_front(),
-                              ctx.get_persistent());
-    Persist<MeshState, ScratchBack> pBack(slots_[1], ctx.get_scratch_back(),
-                             ctx.get_persistent());
-    ctx.get_persistent().raw().reset();
+    compact_persistent(persistent_arena, scratch_arena_a, [&](ScratchScope& backup) {
+      MeshState backup0, backup1;
+      MeshOps::clone(slots_[0], backup0, backup.raw());
+      MeshOps::clone(slots_[1], backup1, backup.raw());
+      persistent_arena.reset();
+      slots_[0] = MeshState();
+      slots_[1] = MeshState();
+      MeshOps::clone(backup0, slots_[0], persistent_arena);
+      MeshOps::clone(backup1, slots_[1], persistent_arena);
+    });
   }
 
 private:

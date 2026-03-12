@@ -181,16 +181,23 @@ private:
               // Drop temporary morph meshes and compact arena
               active_mesh_A = MeshState();
               active_mesh_B = MeshState();
-              MemoryCtx ctx;
-              Persist<MeshState, ScratchBack> pFront(carousel.current(),
-                                                     ctx.get_scratch_back(),
-                                                     ctx.get_persistent());
-              Persist<CompiledHankin, ScratchFront> pInst(
-                  compiled_hankin, ctx.get_scratch_front(),
-                  ctx.get_persistent());
-              carousel.incoming().invalidate();
-              morph_buffer.invalidate();
-              ctx.get_persistent().raw().reset();
+              carousel.incoming() = MeshState();
+              morph_buffer = Animation::MorphBuffer();
+              {
+                // Backup live data to BOTH scratch arenas (matching old split)
+                ScratchScope sa(scratch_arena_a);
+                ScratchScope sb(scratch_arena_b);
+                CompiledHankin backup_hankin;
+                MeshOps::clone(compiled_hankin, backup_hankin, sa.raw());
+                MeshState backup_mesh;
+                MeshOps::clone(carousel.current(), backup_mesh, sb.raw());
+                // Wipe persistent and clone back
+                persistent_arena.reset();
+                carousel.current() = MeshState();
+                compiled_hankin = CompiledHankin();
+                MeshOps::clone(backup_mesh, carousel.current(), persistent_arena);
+                MeshOps::clone(backup_hankin, compiled_hankin, persistent_arena);
+              }
 
               // Ensure resting mesh state is correct
               MeshOps::update_hankin(compiled_hankin, carousel.current(),

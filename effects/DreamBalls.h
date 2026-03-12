@@ -130,14 +130,14 @@ private:
       PolyMesh m = gen.generate(ctx.get_scratch_front(), ctx);
 
       // Store Verts (Deep Copy)
-      data.mesh_state.vertices.initialize(persistent_arena, m.vertices.size());
+      data.mesh_state.vertices.bind(persistent_arena, m.vertices.size());
       for (const auto &v : m.vertices) {
         data.mesh_state.vertices.push_back(v);
       }
 
       // Store Faces
-      data.mesh_state.faces.initialize(persistent_arena, m.faces.size());
-      data.mesh_state.face_counts.initialize(persistent_arena,
+      data.mesh_state.faces.bind(persistent_arena, m.faces.size());
+      data.mesh_state.face_counts.bind(persistent_arena,
                                              m.face_counts.size());
 
       int flat_idx = 0;
@@ -150,7 +150,7 @@ private:
       }
 
       // Compute Tangents
-      data.tangents.initialize(persistent_arena,
+      data.tangents.bind(persistent_arena,
                                data.mesh_state.vertices.size());
       for (const auto &v : data.mesh_state.vertices) {
         Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
