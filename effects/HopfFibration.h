@@ -25,7 +25,7 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
     static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters).init_storage(
-        Persistent(persistent_arena));
+        persistent_arena);
 
     fibers = static_cast<Vector *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));

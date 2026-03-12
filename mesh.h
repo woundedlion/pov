@@ -299,17 +299,18 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
  */
 template <typename MeshT>
 FLASHMEM __attribute__((noinline)) static void
-classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
-  ScopedScratch _(ctx.get_scratch_back());
+classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
+                           Arena &persistent) {
+  ScopedScratch _(scratch_a);
 
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
   ArenaVector<uint32_t> faceHashes;
-  faceHashes.bind(ctx.get_scratch_back(), F);
+  faceHashes.bind(scratch_a, F);
 
   ArenaVector<uint32_t> finalHashes;
-  finalHashes.bind(ctx.get_scratch_back(), F);
+  finalHashes.bind(scratch_a, F);
 
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
@@ -347,23 +348,23 @@ classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
   }
 
   {
-    ScopedScratch temp_topo(ctx.get_scratch_back());
+    ScopedScratch temp_topo(scratch_a);
 
     uint16_t *heToFace =
-        static_cast<uint16_t *>(ctx.get_scratch_back().allocate(
+        static_cast<uint16_t *>(scratch_a.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
     uint16_t *pairArray =
-        static_cast<uint16_t *>(ctx.get_scratch_back().allocate(
+        static_cast<uint16_t *>(scratch_a.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(pairArray, I, HE_NONE);
 
     {
-      ScopedScratch temp_records(ctx.get_scratch_front());
+      ScopedScratch temp_records(scratch_b);
       struct EdgeRecord {
         uint16_t min_v, max_v, he;
       };
       EdgeRecord *records =
-          static_cast<EdgeRecord *>(ctx.get_scratch_front().allocate(
+          static_cast<EdgeRecord *>(scratch_b.allocate(
               I * sizeof(EdgeRecord), alignof(EdgeRecord)));
 
       size_t he_idx = 0;
@@ -425,7 +426,7 @@ classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
     int original_face;
   };
   HashNode *nodes = static_cast<HashNode *>(
-      ctx.get_scratch_back().allocate(F * sizeof(HashNode), alignof(HashNode)));
+      scratch_a.allocate(F * sizeof(HashNode), alignof(HashNode)));
 
   for (size_t fi = 0; fi < F; ++fi) {
     nodes[fi] = {finalHashes[fi], static_cast<int>(fi)};
@@ -436,7 +437,7 @@ classify_faces_by_topology(MeshT &mesh, MemoryCtx &ctx) {
   });
 
   if (mesh.topology.capacity() < F) {
-    mesh.topology.bind(ctx.get_persistent(), F);
+    mesh.topology.bind(persistent, F);
   }
   mesh.topology.clear();
   for (size_t i = 0; i < F; ++i) {

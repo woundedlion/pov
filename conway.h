@@ -21,7 +21,7 @@ namespace MeshOps {
  */
 template <typename MeshT>
 inline void transform(const MeshT &local_state, MeshT &world_state,
-                      ScratchFront arena) {
+                      Arena& arena) {
   world_state.face_counts_view = ArenaSpan(local_state.face_counts);
   world_state.faces_view = ArenaSpan(local_state.faces);
 
@@ -37,7 +37,7 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
 }
 
 template <typename MeshT, typename T1, typename... Transformers>
-inline void transform(const MeshT &mesh, MeshT &transformed, ScratchFront arena,
+inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
                       const T1 &first_transformer,
                       const Transformers &...transformers) {
   transformed.face_counts_view = ArenaSpan(mesh.face_counts);
@@ -65,22 +65,21 @@ inline void transform(const MeshT &mesh, MeshT &transformed, ScratchFront arena,
 /**
  * @brief Computes the dual of a mesh.
  */
-FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, MemoryCtx &ctx) {
-  ctx.swap_scratch();
+FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), F);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), V);
-  out_mesh.faces.bind(ctx.get_scratch_front(), I);
+  out_mesh.vertices.bind(target, F);
+  out_mesh.face_counts.bind(target, V);
+  out_mesh.faces.bind(target, I);
 
   {
-    ScopedScratch _back(ctx.get_scratch_back());
-    ScopedScratch _front(ctx.get_scratch_front());
+    ScopedScratch _temp(temp);
+    ScopedScratch _target(target);
 
-    HalfEdgeMesh heMesh(ctx.get_scratch_back(), mesh);
+    HalfEdgeMesh heMesh(temp, mesh);
 
     for (size_t i = 0; i < heMesh.faces.size(); ++i) {
       HEFace &face = heMesh.faces[i];
@@ -102,7 +101,7 @@ FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, MemoryCtx &ctx) {
     }
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.get_scratch_front().allocate(V * sizeof(bool), alignof(bool)));
+        target.allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
@@ -160,19 +159,18 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 /**
  * @brief Kis operator: Raises a pyramid on each face.
  */
-FLASHMEM inline PolyMesh kis(const PolyMesh &mesh, MemoryCtx &ctx) {
-  ctx.swap_scratch();
+FLASHMEM inline PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), V + F);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), I);
-  out_mesh.faces.bind(ctx.get_scratch_front(), 3 * I);
+  out_mesh.vertices.bind(target, V + F);
+  out_mesh.face_counts.bind(target, I);
+  out_mesh.faces.bind(target, 3 * I);
 
   {
-    ScopedScratch _(ctx.get_scratch_back());
+    ScopedScratch _(temp);
 
     for (size_t i = 0; i < V; ++i)
       out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -208,33 +206,32 @@ FLASHMEM inline PolyMesh kis(const PolyMesh &mesh, MemoryCtx &ctx) {
 /**
  * @brief Ambo operator: Truncates vertices to edge midpoints.
  */
-FLASHMEM inline PolyMesh ambo(const PolyMesh &mesh, MemoryCtx &ctx) {
-  ctx.swap_scratch();
+FLASHMEM inline PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), E);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V);
-  out_mesh.faces.bind(ctx.get_scratch_front(), 2 * I);
+  out_mesh.vertices.bind(target, E);
+  out_mesh.face_counts.bind(target, F + V);
+  out_mesh.faces.bind(target, 2 * I);
 
   {
-    ScopedScratch _back(ctx.get_scratch_back());
-    ScopedScratch _front(ctx.get_scratch_front());
+    ScopedScratch _temp(temp);
+    ScopedScratch _target(target);
 
-    // 1. Build HE Mesh in back
-    HalfEdgeMesh heMesh(ctx.get_scratch_back(), mesh);
+    // 1. Build HE Mesh in temp
+    HalfEdgeMesh heMesh(temp, mesh);
 
-    // edgeToVert + visitedVerts routed to front to split pressure
+    // edgeToVert + visitedVerts routed to target to split pressure
     uint16_t *edgeToVert =
-        static_cast<uint16_t *>(ctx.get_scratch_front().allocate(
+        static_cast<uint16_t *>(target.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(edgeToVert, I, HE_NONE);
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.get_scratch_front().allocate(V * sizeof(bool), alignof(bool)));
+        target.allocate(V * sizeof(bool), alignof(bool)));
 
     // 3. Populate Vertices
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -328,41 +325,40 @@ FLASHMEM inline PolyMesh ambo(const PolyMesh &mesh, MemoryCtx &ctx) {
  * @brief Truncate operator: Cuts corners off the polyhedron.
  * @param t Truncation depth [0..0.5].
  */
-FLASHMEM inline PolyMesh truncate(const PolyMesh &mesh, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &temp,
                                   float t = 0.25f) {
   if (std::abs(t - 0.5f) < 1e-4f) {
-    return ambo(mesh, ctx);
+    return ambo(mesh, target, temp);
   }
 
-  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), 2 * E);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V);
-  out_mesh.faces.bind(ctx.get_scratch_front(), 3 * I);
+  out_mesh.vertices.bind(target, 2 * E);
+  out_mesh.face_counts.bind(target, F + V);
+  out_mesh.faces.bind(target, 3 * I);
 
   {
-    ScopedScratch _back(ctx.get_scratch_back());
-    ScopedScratch _front(ctx.get_scratch_front());
+    ScopedScratch _temp(temp);
+    ScopedScratch _target(target);
 
-    HalfEdgeMesh heMesh(ctx.get_scratch_back(), mesh);
+    HalfEdgeMesh heMesh(temp, mesh);
 
-    // edgeToVert routed to front (on top of pre-allocated output arrays)
+    // edgeToVert routed to target (on top of pre-allocated output arrays)
     // to split heavy temp pressure across both arenas.
     std::pair<int16_t, int16_t> *edgeToVert =
         static_cast<std::pair<int16_t, int16_t> *>(
-            ctx.get_scratch_front().allocate(
+            target.allocate(
                 I * sizeof(std::pair<int16_t, int16_t>),
                 alignof(std::pair<int16_t, int16_t>)));
     std::fill_n(edgeToVert, I, std::make_pair<int16_t, int16_t>(-1, -1));
 
-    // visitedVerts also routed to front
+    // visitedVerts also routed to target
     bool *visitedVerts = static_cast<bool *>(
-        ctx.get_scratch_front().allocate(V * sizeof(bool), alignof(bool)));
+        target.allocate(V * sizeof(bool), alignof(bool)));
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       if (edgeToVert[i].first == -1) {
@@ -480,34 +476,33 @@ FLASHMEM inline PolyMesh truncate(const PolyMesh &mesh, MemoryCtx &ctx,
  * @brief Expand operator: Separates faces (e = aa).
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
  */
-FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
                                 float t = 2.0f - sqrt(2.0f)) {
-  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), I);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V + E);
-  out_mesh.faces.bind(ctx.get_scratch_front(), 4 * I);
+  out_mesh.vertices.bind(target, I);
+  out_mesh.face_counts.bind(target, F + V + E);
+  out_mesh.faces.bind(target, 4 * I);
 
   {
-    ScopedScratch _back(ctx.get_scratch_back());
-    ScopedScratch _front(ctx.get_scratch_front());
+    ScopedScratch _temp(temp);
+    ScopedScratch _target(target);
 
-    HalfEdgeMesh heMesh(ctx.get_scratch_back(), mesh);
-    // heToVertIdx + visitedVerts + visitedEdges routed to front
+    HalfEdgeMesh heMesh(temp, mesh);
+    // heToVertIdx + visitedVerts + visitedEdges routed to target
     int16_t *heToVertIdx = static_cast<int16_t *>(
-        ctx.get_scratch_front().allocate(I * sizeof(int16_t), alignof(int16_t)));
+        target.allocate(I * sizeof(int16_t), alignof(int16_t)));
     std::fill_n(heToVertIdx, I, -1);
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.get_scratch_front().allocate(V * sizeof(bool), alignof(bool)));
+        target.allocate(V * sizeof(bool), alignof(bool)));
 
     bool *visitedEdges = static_cast<bool *>(
-        ctx.get_scratch_front().allocate(I * sizeof(bool), alignof(bool)));
+        target.allocate(I * sizeof(bool), alignof(bool)));
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
       HEFace &face = heMesh.faces[fi];
@@ -611,34 +606,33 @@ FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, MemoryCtx &ctx,
 /**
  * @brief Bitruncate operator: Truncate the rectified mesh.
  */
-FLASHMEM inline PolyMesh bitruncate(const PolyMesh &mesh, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh bitruncate(const PolyMesh &mesh, Arena &target, Arena &temp,
                                     float t = 1.0f / 3.0f) {
-  return truncate(ambo(mesh, ctx), ctx, t);
+  return truncate(ambo(mesh, target, temp), temp, target, t);
 }
 
 /**
  * @brief Chamfer operator: Replaces edges with hexagonal faces.
  * @param t Thickness factor for the new hexagons [0..1].
  */
-FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp,
                                  float t = 0.5f) {
-  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), V + 2 * E);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + E);
-  out_mesh.faces.bind(ctx.get_scratch_front(), I + 6 * E);
+  out_mesh.vertices.bind(target, V + 2 * E);
+  out_mesh.face_counts.bind(target, F + E);
+  out_mesh.faces.bind(target, I + 6 * E);
 
   {
-    ScopedScratch _(ctx.get_scratch_back());
-    HalfEdgeMesh heMesh(ctx.get_scratch_back(), mesh);
+    ScopedScratch _(temp);
+    HalfEdgeMesh heMesh(temp, mesh);
 
     uint16_t *heToNewV =
-        static_cast<uint16_t *>(ctx.get_scratch_back().allocate(
+        static_cast<uint16_t *>(temp.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(heToNewV, I, HE_NONE);
 
@@ -695,7 +689,7 @@ FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, MemoryCtx &ctx,
 
     // 3. Generate Hexagon faces for edges
     bool *visitedEdges = static_cast<bool *>(
-        ctx.get_scratch_back().allocate(I * sizeof(bool), alignof(bool)));
+        temp.allocate(I * sizeof(bool), alignof(bool)));
     std::fill_n(visitedEdges, I, false);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -728,17 +722,16 @@ FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, MemoryCtx &ctx,
   return out_mesh;
 }
 
-FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, Arena &target, Arena &temp,
                                       int iterations = 8) {
-  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), V);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), F);
-  out_mesh.faces.bind(ctx.get_scratch_front(), I);
+  out_mesh.vertices.bind(target, V);
+  out_mesh.face_counts.bind(target, F);
+  out_mesh.faces.bind(target, I);
 
   for (size_t i = 0; i < V; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -748,14 +741,14 @@ FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
     out_mesh.faces.push_back(mesh.faces[i]);
 
   {
-    ScopedScratch _(ctx.get_scratch_back());
+    ScopedScratch _(temp);
 
     ArenaVector<Vector> movements;
-    movements.bind(ctx.get_scratch_back(), V);
+    movements.bind(temp, V);
     for (size_t i = 0; i < V; ++i)
       movements.push_back(Vector(0, 0, 0));
 
-    HalfEdgeMesh heMesh(ctx.get_scratch_back(),
+    HalfEdgeMesh heMesh(temp,
                         out_mesh); // Use out_mesh as base since we mutate it
 
     for (int iter = 0; iter < iterations; ++iter) {
@@ -822,25 +815,24 @@ FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
  * @brief Snub operator: Creates a chiral semi-regular polyhedron.
  * Updated with twist support.
  */
-FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                               float t = 0.5f, float twist = 0.0f) {
-  ctx.swap_scratch();
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.bind(ctx.get_scratch_front(), I);
-  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V + 2 * E);
-  out_mesh.faces.bind(ctx.get_scratch_front(), 5 * I);
+  out_mesh.vertices.bind(target, I);
+  out_mesh.face_counts.bind(target, F + V + 2 * E);
+  out_mesh.faces.bind(target, 5 * I);
 
   {
-    ScopedScratch _(ctx.get_scratch_back());
+    ScopedScratch _(temp);
 
-    HalfEdgeMesh heMesh(ctx.get_scratch_back(), mesh);
+    HalfEdgeMesh heMesh(temp, mesh);
     uint16_t *heToVertIdx =
-        static_cast<uint16_t *>(ctx.get_scratch_back().allocate(
+        static_cast<uint16_t *>(temp.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(heToVertIdx, I, HE_NONE);
 
@@ -902,7 +894,7 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx,
     }
 
     bool *visitedVerts = static_cast<bool *>(
-        ctx.get_scratch_back().allocate(V * sizeof(bool), alignof(bool)));
+        temp.allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
@@ -942,7 +934,7 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx,
     }
 
     bool *visitedEdges = static_cast<bool *>(
-        ctx.get_scratch_back().allocate(I * sizeof(bool), alignof(bool)));
+        temp.allocate(I * sizeof(bool), alignof(bool)));
     std::fill_n(visitedEdges, I, false);
 
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -973,8 +965,8 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx,
   return out_mesh;
 }
 
-FLASHMEM inline PolyMesh gyro(const PolyMesh &mesh, MemoryCtx &ctx) {
-  return dual(snub(mesh, ctx), ctx);
+FLASHMEM inline PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
+  return dual(snub(mesh, target, temp), temp, target);
 }
 
 /**

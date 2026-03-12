@@ -45,8 +45,8 @@ public:
     // Load first Catalan solid
     auto solids = Solids::Collections::get_catalan_solids();
     solid_idx = 0;
-    carousel.load([&solids, this](MemoryCtx &ctx) {
-      return solids[solid_idx].generate(ctx);
+    carousel.load([&solids, this](Arena &a, Arena &b) {
+      return solids[solid_idx].generate(a, b);
     });
 
     registerParam("Fade", &params.fade, 0.5f, 0.99f);
@@ -116,17 +116,19 @@ private:
 
     // Generate incoming shape into back slot
     {
-      MemoryCtx ctx;
-      ScopedScratch _a(ctx.get_scratch_front());
-      ScopedScratch _b(ctx.get_scratch_back());
-      PolyMesh poly = solids[solid_idx].generate(ctx);
-      ctx.update_persistent(carousel.slot(new_slot), poly);
+      scratch_arena_a.reset();
+      scratch_arena_b.reset();
+      ScopedScratch _a(scratch_arena_a);
+      ScopedScratch _b(scratch_arena_b);
+      PolyMesh poly = solids[solid_idx].generate(scratch_arena_a, scratch_arena_b);
+      carousel.slot(new_slot).clear();
+      MeshOps::compile(poly, carousel.slot(new_slot), persistent_arena);
     }
 
     // Preallocate morph buffer
     size_t max_v = std::max(carousel.current().vertices.size(),
                             carousel.slot(new_slot).vertices.size());
-    morph_buffer.preallocate(Persistent(persistent_arena), max_v);
+    morph_buffer.preallocate(persistent_arena, max_v);
 
     auto draw_fn = [this](Canvas &c, const MeshState &mesh, float opacity) {
       Plot::Mesh::draw<W, H>(filters, c, mesh,

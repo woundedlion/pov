@@ -41,13 +41,3 @@ DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
 DMAMEM Pixel Effect::buffer_b[MAX_W * MAX_H];
 
 
-void MemoryCtx::update_persistent(MeshState &target, const PolyMesh &new_data) {
-  size_t required = (new_data.vertices.capacity() * sizeof(Vector)) * 2;
-  if (persistent_arena.get_capacity() - persistent_arena.get_offset() <
-      required) {
-    printf("WARNING: Persistent arena is low on memory!\n");
-  }
-
-  target.clear();
-  MeshOps::compile(new_data, target, persistent_arena);
-}

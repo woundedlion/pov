@@ -299,15 +299,17 @@ struct MeshOpsWrapper {
 
   // Factory
   static std::unique_ptr<MeshOpsWrapper> fromSolid(int index) {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::get(tooling_arena, ctx, index));
+        Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, index));
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::get_by_name(tooling_arena, ctx, name));
+        Solids::get_by_name(tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromData(val vertices, val faces) {
@@ -398,8 +400,9 @@ struct MeshOpsWrapper {
   }
 
   val classifyFaces() {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
-    MeshOps::classify_faces_by_topology(mesh, ctx);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
+    MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a, tooling_scratch_b, tooling_arena);
     return val::global("Int32Array")
         .new_(
             val(typed_memory_view(mesh.topology.size(), mesh.topology.data())));
@@ -407,64 +410,76 @@ struct MeshOpsWrapper {
 
   // Operations
   std::unique_ptr<MeshOpsWrapper> kis() const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::kis(mesh, ctx), tooling_arena));
+        Solids::finalize_solid(MeshOps::kis(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> ambo() const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::ambo(mesh, ctx), tooling_arena));
+        Solids::finalize_solid(MeshOps::ambo(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> gyro() const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::gyro(mesh, ctx), tooling_arena));
+        Solids::finalize_solid(MeshOps::gyro(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> snub() const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::snub(mesh, ctx), tooling_arena));
+        Solids::finalize_solid(MeshOps::snub(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> dual() const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::dual(mesh, ctx), tooling_arena));
+        Solids::finalize_solid(MeshOps::dual(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> truncate(float t) const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::truncate(mesh, ctx, t), tooling_arena));
+        Solids::finalize_solid(MeshOps::truncate(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> expand(float t) const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::expand(mesh, ctx, t), tooling_arena));
+        Solids::finalize_solid(MeshOps::expand(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> hankin(float angle) const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::hankin(mesh, ctx, angle * (PI_F / 180.0f)), tooling_arena));
+        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b, angle * (PI_F / 180.0f)), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> hankin_rad(float radians) const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::hankin(mesh, ctx, radians), tooling_arena));
+        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b, radians), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> chamfer(float t) const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::chamfer(mesh, ctx, t), tooling_arena));
+        Solids::finalize_solid(MeshOps::chamfer(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> bitruncate(float t) const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::bitruncate(mesh, ctx, t), tooling_arena));
+        MeshOps::bitruncate(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> canonicalize(int iterations) const {
-    MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::canonicalize(mesh, ctx, iterations), tooling_arena));
+        MeshOps::canonicalize(mesh, tooling_scratch_a, tooling_scratch_b, iterations), tooling_arena));
   }
   static val getRegistry() {
     val registry = val::array();
@@ -489,8 +504,9 @@ struct MeshOpsWrapper {
     const char *mi_name = "";
 
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      MemoryCtx ctx(tooling_scratch_a, tooling_scratch_b);
-      PolyMesh temp = Solids::get(tooling_arena, ctx, i);
+      tooling_scratch_a.reset();
+      tooling_scratch_b.reset();
+      PolyMesh temp = Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, i);
 
       int v = temp.vertices.size();
       int f = temp.face_counts.size();

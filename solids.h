@@ -167,22 +167,43 @@ struct Dodecahedron {
 };
 
 // Helper to convert Static Mesh Data to Dynamic PolyMesh
-template <typename StaticMeshT> PolyMesh to_polymesh(MemoryCtx &ctx) {
-  ctx.swap_scratch();
+template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   PolyMesh mesh;
-  mesh.vertices.bind(ctx.get_scratch_front(),
-                           StaticMeshT::vertices.size());
+  mesh.vertices.bind(target, StaticMeshT::vertices.size());
   for (const auto &v : StaticMeshT::vertices)
     mesh.vertices.push_back(v);
-  mesh.face_counts.bind(ctx.get_scratch_front(),
-                              StaticMeshT::face_counts.size());
+  mesh.face_counts.bind(target, StaticMeshT::face_counts.size());
   for (const auto &c : StaticMeshT::face_counts)
     mesh.face_counts.push_back(c);
-  mesh.faces.bind(ctx.get_scratch_front(), StaticMeshT::faces.size());
+  mesh.faces.bind(target, StaticMeshT::faces.size());
   for (const auto &f : StaticMeshT::faces)
     mesh.faces.push_back(f);
   return mesh;
 }
+
+/// Fluent builder for chaining Conway operators with automatic arena swapping.
+class SolidBuilder {
+  PolyMesh mesh_;
+  Arena* a_;
+  Arena* b_;
+public:
+  SolidBuilder(PolyMesh seed, Arena& a, Arena& b)
+    : mesh_(std::move(seed)), a_(&a), b_(&b) {}
+
+  SolidBuilder& dual() { mesh_ = MeshOps::dual(mesh_, *a_, *b_); std::swap(a_, b_); return *this; }
+  SolidBuilder& kis() { mesh_ = MeshOps::kis(mesh_, *a_, *b_); std::swap(a_, b_); return *this; }
+  SolidBuilder& ambo() { mesh_ = MeshOps::ambo(mesh_, *a_, *b_); std::swap(a_, b_); return *this; }
+  SolidBuilder& truncate(float t = 0.25f) { mesh_ = MeshOps::truncate(mesh_, *a_, *b_, t); std::swap(a_, b_); return *this; }
+  SolidBuilder& expand(float t = 2.0f - 1.414213562373095f) { mesh_ = MeshOps::expand(mesh_, *a_, *b_, t); std::swap(a_, b_); return *this; }
+  SolidBuilder& chamfer(float t = 0.5f) { mesh_ = MeshOps::chamfer(mesh_, *a_, *b_, t); std::swap(a_, b_); return *this; }
+  SolidBuilder& snub(float t = 0.5f, float twist = 0.0f) { mesh_ = MeshOps::snub(mesh_, *a_, *b_, t, twist); std::swap(a_, b_); return *this; }
+  SolidBuilder& gyro() { mesh_ = MeshOps::gyro(mesh_, *a_, *b_); std::swap(a_, b_); return *this; }
+  SolidBuilder& bitruncate(float t = 1.0f/3.0f) { mesh_ = MeshOps::bitruncate(mesh_, *a_, *b_, t); std::swap(a_, b_); return *this; }
+  SolidBuilder& canonicalize(int iterations = 8) { mesh_ = MeshOps::canonicalize(mesh_, *a_, *b_, iterations); std::swap(a_, b_); return *this; }
+  SolidBuilder& hankin(float angle) { mesh_ = MeshOps::hankin(mesh_, *a_, *b_, angle); std::swap(a_, b_); return *this; }
+
+  PolyMesh build() { return std::move(mesh_); }
+};
 
 // ==========================================================================================
 // 2. PROCEDURAL GENERATORS
@@ -190,324 +211,195 @@ template <typename StaticMeshT> PolyMesh to_polymesh(MemoryCtx &ctx) {
 
 namespace Platonic {
 // V=4, F=4, I=12
-FLASHMEM inline PolyMesh tetrahedron(MemoryCtx &ctx) {
-  return to_polymesh<Tetrahedron>(ctx);
+FLASHMEM inline PolyMesh tetrahedron(Arena &a, Arena &b) {
+  return to_polymesh<Tetrahedron>(a);
 }
 // V=8, F=6, I=24
-FLASHMEM inline PolyMesh cube(MemoryCtx &ctx) { return to_polymesh<Cube>(ctx); }
+FLASHMEM inline PolyMesh cube(Arena &a, Arena &b) { return to_polymesh<Cube>(a); }
 // V=6, F=8, I=24
-FLASHMEM inline PolyMesh octahedron(MemoryCtx &ctx) {
-  return to_polymesh<Octahedron>(ctx);
+FLASHMEM inline PolyMesh octahedron(Arena &a, Arena &b) {
+  return to_polymesh<Octahedron>(a);
 }
 // V=20, F=12, I=60
-FLASHMEM inline PolyMesh dodecahedron(MemoryCtx &ctx) {
-  return to_polymesh<Dodecahedron>(ctx);
+FLASHMEM inline PolyMesh dodecahedron(Arena &a, Arena &b) {
+  return to_polymesh<Dodecahedron>(a);
 }
 // V=12, F=20, I=60
-FLASHMEM inline PolyMesh icosahedron(MemoryCtx &ctx) {
-  return to_polymesh<Icosahedron>(ctx);
+FLASHMEM inline PolyMesh icosahedron(Arena &a, Arena &b) {
+  return to_polymesh<Icosahedron>(a);
 }
 } // namespace Platonic
 
 namespace Archimedean {
 using namespace Platonic;
-using namespace MeshOps;
 
-// V=12, F=8, I=36
-FLASHMEM inline PolyMesh truncatedTetrahedron(MemoryCtx &ctx) {
-  return truncate(tetrahedron(ctx), ctx, 1.0f / 3.0f);
+FLASHMEM inline PolyMesh truncatedTetrahedron(Arena &a, Arena &b) {
+  return SolidBuilder(tetrahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
 }
-// V=12, F=14, I=48
-FLASHMEM inline PolyMesh cuboctahedron(MemoryCtx &ctx) {
-  return ambo(cube(ctx), ctx);
+FLASHMEM inline PolyMesh cuboctahedron(Arena &a, Arena &b) {
+  return SolidBuilder(cube(a, b), a, b).ambo().build();
 }
-// V=24, F=14, I=72
-FLASHMEM inline PolyMesh truncatedCube(MemoryCtx &ctx) {
-  return truncate(cube(ctx), ctx, 1.0f / (2.0f + SQRT2));
+FLASHMEM inline PolyMesh truncatedCube(Arena &a, Arena &b) {
+  return SolidBuilder(cube(a, b), a, b).truncate(1.0f / (2.0f + SQRT2)).build();
 }
-// V=24, F=14, I=72
-FLASHMEM inline PolyMesh truncatedOctahedron(MemoryCtx &ctx) {
-  return truncate(octahedron(ctx), ctx, 1.0f / 3.0f);
+FLASHMEM inline PolyMesh truncatedOctahedron(Arena &a, Arena &b) {
+  return SolidBuilder(octahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
 }
-// V=24, F=26, I=96
-FLASHMEM inline PolyMesh rhombicuboctahedron(MemoryCtx &ctx) {
-  return expand(cube(ctx), ctx);
+FLASHMEM inline PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
+  return SolidBuilder(cube(a, b), a, b).expand().build();
 }
-// V=24, F=14, I=72
-FLASHMEM inline PolyMesh truncatedCuboctahedron(MemoryCtx &ctx) {
-  return canonicalize(bitruncate(cube(ctx), ctx, 1.0f / (2.0f + SQRT2)), ctx,
-                      50);
+FLASHMEM inline PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
+  return SolidBuilder(cube(a, b), a, b).bitruncate(1.0f / (2.0f + SQRT2)).canonicalize(50).build();
 }
-// V=24, F=38, I=120
-FLASHMEM inline PolyMesh snubCube(MemoryCtx &ctx) {
-  return canonicalize(snub(cube(ctx), ctx, T_SNUB_CUBE, 0.28f), ctx, 50);
+FLASHMEM inline PolyMesh snubCube(Arena &a, Arena &b) {
+  return SolidBuilder(cube(a, b), a, b).snub(T_SNUB_CUBE, 0.28f).canonicalize(50).build();
 }
-// V=30, F=32, I=120
-FLASHMEM inline PolyMesh icosidodecahedron(MemoryCtx &ctx) {
-  return ambo(dodecahedron(ctx), ctx);
+FLASHMEM inline PolyMesh icosidodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).ambo().build();
 }
-// V=60, F=32, I=180
-FLASHMEM inline PolyMesh truncatedDodecahedron(MemoryCtx &ctx) {
-  return truncate(dodecahedron(ctx), ctx, T_TRUNC_ICOS);
+FLASHMEM inline PolyMesh truncatedDodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).truncate(T_TRUNC_ICOS).build();
 }
-// V=60, F=32, I=180
-FLASHMEM inline PolyMesh truncatedIcosahedron(MemoryCtx &ctx) {
-  return truncate(icosahedron(ctx), ctx, 1.0f / 3.0f);
+FLASHMEM inline PolyMesh truncatedIcosahedron(Arena &a, Arena &b) {
+  return SolidBuilder(icosahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
 }
-// V=60, F=62, I=240
-FLASHMEM inline PolyMesh rhombicosidodecahedron(MemoryCtx &ctx) {
-  return canonicalize(expand(dodecahedron(ctx), ctx), ctx, 50);
+FLASHMEM inline PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).expand().canonicalize(50).build();
 }
-// V=60, F=32, I=180
-FLASHMEM inline PolyMesh truncatedIcosidodecahedron(MemoryCtx &ctx) {
-  return canonicalize(bitruncate(dodecahedron(ctx), ctx, 1.0f / (2.0f + PHI)),
-                      ctx, 50);
+FLASHMEM inline PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).bitruncate(1.0f / (2.0f + PHI)).canonicalize(50).build();
 }
-// V=60, F=92, I=300
-FLASHMEM inline PolyMesh snubDodecahedron(MemoryCtx &ctx) {
-  return canonicalize(snub(dodecahedron(ctx), ctx, 0.5f), ctx, 50);
+FLASHMEM inline PolyMesh snubDodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).snub(0.5f).canonicalize(50).build();
 }
 } // namespace Archimedean
 
 namespace Catalan {
 using namespace Archimedean;
-using namespace MeshOps;
 
-// Dual of Truncated Tetrahedron
-FLASHMEM inline PolyMesh triakisTetrahedron(MemoryCtx &ctx) {
-  return dual(truncatedTetrahedron(ctx), ctx);
+FLASHMEM inline PolyMesh triakisTetrahedron(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedTetrahedron(a, b), a, b).dual().build();
 }
-// Dual of Cuboctahedron
-FLASHMEM inline PolyMesh rhombicDodecahedron(MemoryCtx &ctx) {
-  return dual(cuboctahedron(ctx), ctx);
+FLASHMEM inline PolyMesh rhombicDodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(cuboctahedron(a, b), a, b).dual().build();
 }
-// Dual of Truncated Cube
-FLASHMEM inline PolyMesh triakisOctahedron(MemoryCtx &ctx) {
-  return dual(truncatedCube(ctx), ctx);
+FLASHMEM inline PolyMesh triakisOctahedron(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedCube(a, b), a, b).dual().build();
 }
-// Dual of Truncated Octahedron
-FLASHMEM inline PolyMesh tetrakisHexahedron(MemoryCtx &ctx) {
-  return dual(truncatedOctahedron(ctx), ctx);
+FLASHMEM inline PolyMesh tetrakisHexahedron(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedOctahedron(a, b), a, b).dual().build();
 }
-// Dual of Rhombicuboctahedron
-FLASHMEM inline PolyMesh deltoidalIcositetrahedron(MemoryCtx &ctx) {
-  return dual(rhombicuboctahedron(ctx), ctx);
+FLASHMEM inline PolyMesh deltoidalIcositetrahedron(Arena &a, Arena &b) {
+  return SolidBuilder(rhombicuboctahedron(a, b), a, b).dual().build();
 }
-// Dual of Truncated Cuboctahedron
-FLASHMEM inline PolyMesh disdyakisDodecahedron(MemoryCtx &ctx) {
-  return dual(truncatedCuboctahedron(ctx), ctx);
+FLASHMEM inline PolyMesh disdyakisDodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedCuboctahedron(a, b), a, b).dual().build();
 }
-// Dual of Snub Cube
-FLASHMEM inline PolyMesh pentagonalIcositetrahedron(MemoryCtx &ctx) {
-  return dual(snubCube(ctx), ctx);
+FLASHMEM inline PolyMesh pentagonalIcositetrahedron(Arena &a, Arena &b) {
+  return SolidBuilder(snubCube(a, b), a, b).dual().build();
 }
-// Dual of Icosidodecahedron
-FLASHMEM inline PolyMesh rhombicTriacontahedron(MemoryCtx &ctx) {
-  return dual(icosidodecahedron(ctx), ctx);
+FLASHMEM inline PolyMesh rhombicTriacontahedron(Arena &a, Arena &b) {
+  return SolidBuilder(icosidodecahedron(a, b), a, b).dual().build();
 }
-// Dual of Truncated Dodecahedron
-FLASHMEM inline PolyMesh triakisIcosahedron(MemoryCtx &ctx) {
-  return dual(truncatedDodecahedron(ctx), ctx);
+FLASHMEM inline PolyMesh triakisIcosahedron(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedDodecahedron(a, b), a, b).dual().build();
 }
-// Dual of Truncated Icosahedron
-FLASHMEM inline PolyMesh pentakisDodecahedron(MemoryCtx &ctx) {
-  return dual(truncatedIcosahedron(ctx), ctx);
+FLASHMEM inline PolyMesh pentakisDodecahedron(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosahedron(a, b), a, b).dual().build();
 }
-// Dual of Rhombicosidodecahedron
-FLASHMEM inline PolyMesh deltoidalHexecontahedron(MemoryCtx &ctx) {
-  return dual(rhombicosidodecahedron(ctx), ctx);
+FLASHMEM inline PolyMesh deltoidalHexecontahedron(Arena &a, Arena &b) {
+  return SolidBuilder(rhombicosidodecahedron(a, b), a, b).dual().build();
 }
-// Dual of Truncated Icosidodecahedron
-FLASHMEM inline PolyMesh disdyakisTriacontahedron(MemoryCtx &ctx) {
-  return dual(truncatedIcosidodecahedron(ctx), ctx);
+FLASHMEM inline PolyMesh disdyakisTriacontahedron(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b).dual().build();
 }
-// Dual of Snub Dodecahedron
-FLASHMEM inline PolyMesh pentagonalHexecontahedron(MemoryCtx &ctx) {
-  return dual(snubDodecahedron(ctx), ctx);
+FLASHMEM inline PolyMesh pentagonalHexecontahedron(Arena &a, Arena &b) {
+  return SolidBuilder(snubDodecahedron(a, b), a, b).dual().build();
 }
 } // namespace Catalan
 
 namespace IslamicStarPatterns {
 using namespace Platonic;
 using namespace Archimedean;
-using namespace MeshOps;
 
 static constexpr float D2R = PI_F / 180.0f;
 
-// V=576, F=434, I=2016
-FLASHMEM inline PolyMesh
-cube_canonicalize_bitruncate33_canonicalize_hk68_expand5(MemoryCtx &ctx) {
-  return expand(
-      hankin(canonicalize(
-                 bitruncate(canonicalize(cube(ctx), ctx, 100), ctx, 0.33f), ctx,
-                 100),
-             ctx, 67.5f * D2R),
-      ctx, 0.5f);
+FLASHMEM inline PolyMesh cube_canonicalize_bitruncate33_canonicalize_hk68_expand5(Arena &a, Arena &b) {
+  return SolidBuilder(cube(a, b), a, b).canonicalize(100).bitruncate(0.33f).canonicalize(100).hankin(67.5f * D2R).expand(0.5f).build();
 }
-
-// V=240, F=146, I=768
-FLASHMEM inline PolyMesh icosahedron_hk59_bitruncate033(MemoryCtx &ctx) {
-  return hankin(bitruncate(icosahedron(ctx), ctx, 0.33f), ctx, 59.0f * D2R);
+FLASHMEM inline PolyMesh icosahedron_hk59_bitruncate033(Arena &a, Arena &b) {
+  return SolidBuilder(icosahedron(a, b), a, b).bitruncate(0.33f).hankin(59.0f * D2R).build();
 }
-
-// V=432, F=50, I=960
-FLASHMEM inline PolyMesh octahedron_hk17_ambo_hk72(MemoryCtx &ctx) {
-  return hankin(ambo(hankin(octahedron(ctx), ctx, 17.0f * D2R), ctx), ctx,
-                73.0f * D2R);
+FLASHMEM inline PolyMesh octahedron_hk17_ambo_hk72(Arena &a, Arena &b) {
+  return SolidBuilder(octahedron(a, b), a, b).hankin(17.0f * D2R).ambo().hankin(73.0f * D2R).build();
 }
-// V=272, F=452, I=1444
-FLASHMEM inline PolyMesh icosahedron_kis_gyro(MemoryCtx &ctx) {
-  return gyro(kis(icosahedron(ctx), ctx), ctx);
+FLASHMEM inline PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
+  return SolidBuilder(icosahedron(a, b), a, b).kis().gyro().build();
 }
-
-// V=542, F=540, I=2160
-FLASHMEM inline PolyMesh
-truncatedIcosidodecahedron_truncate05_ambo_dual(MemoryCtx &ctx) {
-  return dual(
-      ambo(truncate(truncatedIcosidodecahedron(ctx), ctx, 50.0f * D2R), ctx),
-      ctx);
+FLASHMEM inline PolyMesh truncatedIcosidodecahedron_truncate05_ambo_dual(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b).truncate(50.0f * D2R).ambo().dual().build();
 }
-
-// V=182, F=180, I=720
-FLASHMEM inline PolyMesh
-icosidodecahedron_truncate05_ambo_dual(MemoryCtx &ctx) {
-  return dual(ambo(truncate(icosidodecahedron(ctx), ctx, 5.0f * D2R), ctx),
-              ctx);
+FLASHMEM inline PolyMesh icosidodecahedron_truncate05_ambo_dual(Arena &a, Arena &b) {
+  return SolidBuilder(icosidodecahedron(a, b), a, b).truncate(5.0f * D2R).ambo().dual().build();
 }
-// V=452, F=450, I=1800
-FLASHMEM inline PolyMesh snubDodecahedron_truncate05_ambo_dual(MemoryCtx &ctx) {
-  return dual(ambo(truncate(snubDodecahedron(ctx), ctx, 5.0f * D2R), ctx), ctx);
+FLASHMEM inline PolyMesh snubDodecahedron_truncate05_ambo_dual(Arena &a, Arena &b) {
+  return SolidBuilder(snubDodecahedron(a, b), a, b).truncate(5.0f * D2R).ambo().dual().build();
 }
-
-// V=432, F=50, I=960
-FLASHMEM inline PolyMesh octahedron_hk34_ambo_hk72(MemoryCtx &ctx) {
-  return hankin(ambo(hankin(octahedron(ctx), ctx, 34.0f * D2R), ctx), ctx,
-                72.0f * D2R);
+FLASHMEM inline PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
+  return SolidBuilder(octahedron(a, b), a, b).hankin(34.0f * D2R).ambo().hankin(72.0f * D2R).build();
 }
-
-// V=1728, F=194, I=3840
-FLASHMEM inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63(MemoryCtx &ctx) {
-  return hankin(ambo(hankin(rhombicuboctahedron(ctx), ctx, 63.0f * D2R), ctx),
-                ctx, 63.0f * D2R);
+FLASHMEM inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a, Arena &b) {
+  return SolidBuilder(rhombicuboctahedron(a, b), a, b).hankin(63.0f * D2R).ambo().hankin(63.0f * D2R).build();
 }
-
-// V=3240, F=362, I=7200
-FLASHMEM inline PolyMesh truncatedIcosahedron_hk54_ambo_hk72(MemoryCtx &ctx) {
-  return hankin(ambo(hankin(truncatedIcosahedron(ctx), ctx, 54.0f * D2R), ctx),
-                ctx, 72.0f * D2R);
+FLASHMEM inline PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosahedron(a, b), a, b).hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
 }
-
-// V=1080, F=122, I=2400
-FLASHMEM inline PolyMesh dodecahedron_hk54_ambo_hk72(MemoryCtx &ctx) {
-  return hankin(ambo(hankin(dodecahedron(ctx), ctx, 54.0f * D2R), ctx), ctx,
-                72.0f * D2R);
+FLASHMEM inline PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
 }
-
-// V=1122, F=164, I=2568
-FLASHMEM inline PolyMesh dodecahedron_hk72_ambo_dual_hk20(MemoryCtx &ctx) {
-  return hankin(
-      dual(ambo(hankin(dodecahedron(ctx), ctx, 72.0f * D2R), ctx), ctx), ctx,
-      20.0f * D2R);
+FLASHMEM inline PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).hankin(72.0f * D2R).ambo().dual().hankin(20.0f * D2R).build();
 }
-
-// V=272, F=270, I=1080
-FLASHMEM inline PolyMesh
-truncatedIcosahedron_truncate05_ambo_dual(MemoryCtx &ctx) {
-  return dual(ambo(truncate(truncatedIcosahedron(ctx), ctx, 50.0f * D2R), ctx),
-              ctx);
+FLASHMEM inline PolyMesh truncatedIcosahedron_truncate05_ambo_dual(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosahedron(a, b), a, b).truncate(50.0f * D2R).ambo().dual().build();
 }
-
-// V=2100, F=302, I=4800
-FLASHMEM inline PolyMesh
-icosahedron_snub_canonicalize_truncate033_hankin62(MemoryCtx &ctx) {
-  return hankin(
-      truncate(canonicalize(snub(icosahedron(ctx), ctx), ctx), ctx, 0.33f), ctx,
-      62.0f * D2R);
+FLASHMEM inline PolyMesh icosahedron_snub_canonicalize_truncate033_hankin62(Arena &a, Arena &b) {
+  return SolidBuilder(icosahedron(a, b), a, b).snub().canonicalize().truncate(0.33f).hankin(62.0f * D2R).build();
 }
-
-// V=3240, F=1082, I=8640
-FLASHMEM inline PolyMesh
-dodecahedron_hk35_ambo_hk62_ambo_canonicalize_hk43(MemoryCtx &ctx) {
-  return hankin(
-      canonicalize(
-          ambo(hankin(ambo(hankin(dodecahedron(ctx), ctx, 35.0f * D2R), ctx),
-                      ctx, 62.0f * D2R),
-               ctx),
-          ctx, 100),
-      ctx, 43.0f * D2R);
+FLASHMEM inline PolyMesh dodecahedron_hk35_ambo_hk62_ambo_canonicalize_hk43(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).hankin(35.0f * D2R).ambo().hankin(62.0f * D2R).ambo().canonicalize(100).hankin(43.0f * D2R).build();
 }
-
-// V=840, F=122, I=1920
-FLASHMEM inline PolyMesh icosahedron_ambo_truncate033_hankin59(MemoryCtx &ctx) {
-  return hankin(truncate(ambo(icosahedron(ctx), ctx), ctx, 0.33f), ctx,
-                59.0f * D2R);
+FLASHMEM inline PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a, Arena &b) {
+  return SolidBuilder(icosahedron(a, b), a, b).ambo().truncate(0.33f).hankin(59.0f * D2R).build();
 }
-
-// V=2520, F=362, I=5760
-FLASHMEM inline PolyMesh
-truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59(MemoryCtx &ctx) {
-  return hankin(
-      truncate(canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx), ctx,
-               0.01f),
-      ctx, 59.0f * D2R);
+FLASHMEM inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin59(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosahedron(a, b), a, b).ambo().canonicalize().truncate(0.01f).hankin(59.0f * D2R).build();
 }
-
-// V=2520, F=362, I=5760
-FLASHMEM inline PolyMesh
-truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73(MemoryCtx &ctx) {
-  return hankin(
-      truncate(canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx), ctx,
-               0.01f),
-      ctx, 73.0f * D2R);
+FLASHMEM inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate001_hankin73(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosahedron(a, b), a, b).ambo().canonicalize().truncate(0.01f).hankin(73.0f * D2R).build();
 }
-
-// V=2452, F=294, I=5488
-FLASHMEM inline PolyMesh truncatedOctahedron_gyro_kis_hk17(MemoryCtx &ctx) {
-  return hankin(kis(gyro(truncatedOctahedron(ctx), ctx), ctx), ctx,
-                17.0f * D2R);
+FLASHMEM inline PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedOctahedron(a, b), a, b).gyro().kis().hankin(17.0f * D2R).build();
 }
-
-// V=2520, F=362, I=5760
-FLASHMEM inline PolyMesh
-truncatedIcosidodecahedron_bitruncate5_canonicalize_hk77(MemoryCtx &ctx) {
-  return hankin(
-      canonicalize(bitruncate(truncatedIcosidodecahedron(ctx), ctx, 0.5f), ctx,
-                   100),
-      ctx, 77.0f * D2R);
+FLASHMEM inline PolyMesh truncatedIcosidodecahedron_bitruncate5_canonicalize_hk77(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b).bitruncate(0.5f).canonicalize(100).hankin(77.0f * D2R).build();
 }
-
-// V=272, F=452, I=1444
-FLASHMEM inline PolyMesh
-dodecahedron_bitruncate2_canonicalize_gyro(MemoryCtx &ctx) {
-  return gyro(canonicalize(bitruncate(dodecahedron(ctx), ctx, 0.2f), ctx, 100),
-              ctx);
+FLASHMEM inline PolyMesh dodecahedron_bitruncate2_canonicalize_gyro(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).bitruncate(0.2f).canonicalize(100).gyro().build();
 }
-
-// V=2520, F=362, I=5760
-FLASHMEM inline PolyMesh
-truncatedIcosahedron_ambo_canonicalize_truncate33_hk64(MemoryCtx &ctx) {
-  return hankin(
-      truncate(canonicalize(ambo(truncatedIcosahedron(ctx), ctx), ctx, 217),
-               ctx, 0.33f),
-      ctx, 64.0f * D2R);
+FLASHMEM inline PolyMesh truncatedIcosahedron_ambo_canonicalize_truncate33_hk64(Arena &a, Arena &b) {
+  return SolidBuilder(truncatedIcosahedron(a, b), a, b).ambo().canonicalize(217).truncate(0.33f).hankin(64.0f * D2R).build();
 }
-
-// V=1080, F=362, I=1440
-FLASHMEM inline PolyMesh
-dodecahedron_ambo_bitruncate33_canonicalize_hk66(MemoryCtx &ctx) {
-  return hankin(
-      canonicalize(bitruncate(ambo(dodecahedron(ctx), ctx), ctx, 0.33f), ctx,
-                   100),
-      ctx, 66.0f * D2R);
+FLASHMEM inline PolyMesh dodecahedron_ambo_bitruncate33_canonicalize_hk66(Arena &a, Arena &b) {
+  return SolidBuilder(dodecahedron(a, b), a, b).ambo().bitruncate(0.33f).canonicalize(100).hankin(66.0f * D2R).build();
 }
-
 } // namespace IslamicStarPatterns
 
 enum class Category { Simple, Complex };
 
 struct Entry {
   const char *name;
-  PolyMesh (*generate)(MemoryCtx &ctx);
+  PolyMesh (*generate)(Arena &a, Arena &b);
   Category category;
 };
 
@@ -669,25 +561,25 @@ inline const Entry &get_entry(size_t index) {
                                    std::size(catalan_registry))];
 }
 
-FLASHMEM inline PolyMesh get(Arena &geom, MemoryCtx &ctx, int index) {
-  return finalize_solid(get_entry(index).generate(ctx), geom);
+FLASHMEM inline PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) {
+  return finalize_solid(get_entry(index).generate(a, b), geom);
 }
 
-FLASHMEM inline PolyMesh get_by_name(Arena &geom, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
                                      std::string_view name) {
   for (const auto &entry : simple_registry) {
     if (name == entry.name)
-      return finalize_solid(entry.generate(ctx), geom);
+      return finalize_solid(entry.generate(a, b), geom);
   }
   for (const auto &entry : catalan_registry) {
     if (name == entry.name)
-      return finalize_solid(entry.generate(ctx), geom);
+      return finalize_solid(entry.generate(a, b), geom);
   }
   for (const auto &entry : islamic_registry) {
     if (name == entry.name)
-      return finalize_solid(entry.generate(ctx), geom);
+      return finalize_solid(entry.generate(a, b), geom);
   }
-  return finalize_solid(Platonic::cube(ctx), geom);
+  return finalize_solid(Platonic::cube(a, b), geom);
 }
 
 } // namespace Solids

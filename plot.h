@@ -131,10 +131,10 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
     return;
 
   size_t count = close_loop ? len : len - 1;
-  ScopedScratch _sc(MemoryCtx::scratch());
+  ScopedScratch _sc(scratch_arena_a);
   ArenaVector<float> _steps_cache;
   size_t max_cache = std::min(std::max(len * 4, (size_t)256), (size_t)2048);
-  _steps_cache.bind(MemoryCtx::scratch(), max_cache);
+  _steps_cache.bind(scratch_arena_a, max_cache);
 
   auto process_segment = [&](auto &&map, const Fragment &curr,
                              const Fragment &next, float total_dist,
@@ -294,9 +294,9 @@ struct Line {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), 4);
+    points.bind(scratch_arena_a, 4);
     sample(points, f1, f2);
 
     if (vertex_shader) {
@@ -433,9 +433,9 @@ struct Multiline {
   static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), vertices.size() + 2);
+    points.bind(scratch_arena_a, vertices.size() + 2);
     sample(points, vertices, closed);
 
     if (vertex_shader) {
@@ -539,9 +539,9 @@ struct Ring {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), W + 2);
+    points.bind(scratch_arena_a, W + 2);
     // Use W samples for smooth circles (fixes pinching at poles)
     sample(points, basis, radius, W, phase);
 
@@ -603,9 +603,9 @@ struct PlanarPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), num_sides + 2);
+    points.bind(scratch_arena_a, num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -671,9 +671,9 @@ struct SphericalPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), num_sides + 2);
+    points.bind(scratch_arena_a, num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -803,9 +803,9 @@ struct DistortedRing {
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), W + 2);
+    points.bind(scratch_arena_a, W + 2);
     sample<W>(points, basis, radius, shift_fn, phase);
 
     if (vertex_shader) {
@@ -868,9 +868,9 @@ struct Spiral {
   static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments frags;
-    frags.bind(MemoryCtx::scratch(), n);
+    frags.bind(scratch_arena_a, n);
     sample(frags, n, eps);
 
     if (vertex_shader) {
@@ -971,9 +971,9 @@ struct Star {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), num_sides * 2 + 2);
+    points.bind(scratch_arena_a, num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -1092,9 +1092,9 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(MemoryCtx::scratch(), num_sides * 2 + 2);
+    points.bind(scratch_arena_a, num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
 
     if (vertex_shader) {
@@ -1175,9 +1175,9 @@ struct Mesh {
       Fragment fv;
       fv.pos = mesh.vertices[v];
 
-      ScopedScratch _edge(MemoryCtx::scratch());
+      ScopedScratch _edge(scratch_arena_a);
       Fragments points;
-      points.bind(MemoryCtx::scratch(), 16);
+      points.bind(scratch_arena_a, 16);
       Line::sample(points, fu, fv, 10);
 
       if (vertex_shader) {
@@ -1239,9 +1239,9 @@ struct ParticleSystem {
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
-      ScopedScratch _trail(MemoryCtx::scratch());
+      ScopedScratch _trail(scratch_arena_a);
       Fragments trail;
-      trail.bind(MemoryCtx::scratch(), 64);
+      trail.bind(scratch_arena_a, 64);
       float cumulative_len = 0.0f;
       Vector last_pos;
       bool first = true;

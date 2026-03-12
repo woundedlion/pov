@@ -35,7 +35,7 @@ public:
 
   void init() override {
     static_cast<Filter::World::Trails<W, 10000> &>(filters)
-        .init_storage(Persistent(persistent_arena));
+        .init_storage(persistent_arena);
 
     registerParam("Speed", &params.speed, -10.0f, 10.0f);
     registerParam("Gap", &params.gap, 1.0f, 20.0f);

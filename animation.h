@@ -1234,7 +1234,7 @@ struct MorphBuffer {
   ArenaVector<Vector> start_pos_B;
   ArenaVector<Vector> end_pos_B;
 
-  void preallocate(Persistent arena, size_t capacity) {
+  void preallocate(Arena& arena, size_t capacity) {
     start_pos_B.bind(arena, capacity);
     end_pos_B.bind(arena, capacity);
   }
@@ -1729,8 +1729,8 @@ public:
  *   MeshCarousel<W> carousel;  // in effect members
  *
  *   // In init():
- *   carousel.load([&](MemoryCtx& ctx) {
- *       return solids[0].generate(ctx);
+ *   carousel.load([&](Arena& a, Arena& b) {
+ *       return solids[0].generate(a, b);
  *   });
  *
  *   // To transition:
@@ -1744,20 +1744,23 @@ public:
 
   /**
    * @brief Load the initial shape into the front slot (no crossfade).
-   * @param generate_fn Given a MemoryCtx, returns a PolyMesh in scratch.
+   * @param generate_fn Given two scratch arenas, returns a PolyMesh.
    * @param classify If true, runs classify_faces_by_topology after loading.
    */
-  void load(Fn<PolyMesh(MemoryCtx &), 48> generate_fn, bool classify = true) {
-    MemoryCtx ctx;
+  void load(Fn<PolyMesh(Arena &, Arena &), 48> generate_fn, bool classify = true) {
+    scratch_arena_a.reset();
+    scratch_arena_b.reset();
     {
-      ScopedScratch _a(ctx.get_scratch_front());
-      ScopedScratch _b(ctx.get_scratch_back());
-      PolyMesh mesh = generate_fn(ctx);
-      ctx.update_persistent(slots_[front_], mesh);
+      ScopedScratch _a(scratch_arena_a);
+      ScopedScratch _b(scratch_arena_b);
+      PolyMesh mesh = generate_fn(scratch_arena_a, scratch_arena_b);
+      slots_[front_].clear();
+      MeshOps::compile(mesh, slots_[front_], persistent_arena);
     }
     if (classify) {
-      MemoryCtx ctx2;
-      MeshOps::classify_faces_by_topology(slots_[front_], ctx2);
+      scratch_arena_a.reset();
+      scratch_arena_b.reset();
+      MeshOps::classify_faces_by_topology(slots_[front_], scratch_arena_a, scratch_arena_b, persistent_arena);
     }
   }
 
@@ -1800,16 +1803,19 @@ public:
 
     // Generate new shape into back slot
     {
-      MemoryCtx ctx;
-      ScopedScratch _a(ctx.get_scratch_front());
-      ScopedScratch _b(ctx.get_scratch_back());
-      PolyMesh mesh = generate_fn(ctx);
-      ctx.update_persistent(slots_[back], mesh);
+      scratch_arena_a.reset();
+      scratch_arena_b.reset();
+      ScopedScratch _a(scratch_arena_a);
+      ScopedScratch _b(scratch_arena_b);
+      PolyMesh mesh = generate_fn(scratch_arena_a, scratch_arena_b);
+      slots_[back].clear();
+      MeshOps::compile(mesh, slots_[back], persistent_arena);
     }
 
     if (classify) {
-      MemoryCtx ctx;
-      MeshOps::classify_faces_by_topology(slots_[back], ctx);
+      scratch_arena_a.reset();
+      scratch_arena_b.reset();
+      MeshOps::classify_faces_by_topology(slots_[back], scratch_arena_a, scratch_arena_b, persistent_arena);
     }
 
     // Flip front eagerly so the draw lambda captures the correct slot.
