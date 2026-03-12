@@ -27,13 +27,48 @@ struct CompiledHankin {
   ArenaVector<HankinInstruction> dynamicInstructions;
   ArenaVector<uint8_t> face_counts;
   ArenaVector<uint16_t> faces;
-  int staticOffset;
+  int staticOffset = 0;
+
+  void clear() {
+    baseVertices.clear();
+    staticVertices.clear();
+    dynamicVertices.clear();
+    dynamicInstructions.clear();
+    face_counts.clear();
+    faces.clear();
+  }
+
+  void invalidate() {
+    baseVertices.invalidate();
+    staticVertices.invalidate();
+    dynamicVertices.invalidate();
+    dynamicInstructions.invalidate();
+    face_counts.invalidate();
+    faces.invalidate();
+  }
 };
 
 /**
  * @brief Operations on meshes (Hankin pattern operators).
  */
 namespace MeshOps {
+
+inline void clone(const CompiledHankin &src, CompiledHankin &dst,
+                  Arena &arena) {
+  auto push = [&arena](const auto &s_vec, auto &d_vec) {
+    d_vec.initialize(arena, s_vec.size());
+    for (size_t i = 0; i < s_vec.size(); ++i) {
+      d_vec.push_back(s_vec[i]);
+    }
+  };
+  push(src.baseVertices, dst.baseVertices);
+  push(src.staticVertices, dst.staticVertices);
+  push(src.dynamicVertices, dst.dynamicVertices);
+  push(src.dynamicInstructions, dst.dynamicInstructions);
+  push(src.face_counts, dst.face_counts);
+  push(src.faces, dst.faces);
+  dst.staticOffset = src.staticOffset;
+}
 
 /**
  * @brief Compiles the topology for a Hankin pattern.

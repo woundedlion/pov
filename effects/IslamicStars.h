@@ -124,17 +124,19 @@ private:
 
     int idx = solid_idx; // capture for generate lambda
 
+    auto draw_fn = [this, capture_idx](Canvas &canvas, float opacity) {
+      const MeshState &mesh = carousel.slot(capture_idx);
+      // Map topology to palette indices
+      this->draw_shape(canvas, opacity, mesh, mesh.topology,
+                       palettes_history[capture_idx]);
+    };
+
     carousel.transition(
         timeline,
         // generate_fn
         [idx, &solids](MemoryCtx &ctx) { return solids[idx].generate(ctx); },
-        // draw_fn
-        [this, capture_idx](Canvas &canvas, float opacity) {
-          const MeshState &mesh = carousel.slot(capture_idx);
-          // Map topology to palette indices
-          this->draw_shape(canvas, opacity, mesh, mesh.topology,
-                           palettes_history[capture_idx]);
-        },
+        // draw_outgoing, draw_incoming
+        draw_fn, draw_fn,
         160, // duration
         32,  // fade_in
         32   // fade_out

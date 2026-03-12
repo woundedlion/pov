@@ -145,8 +145,6 @@ public:
     currentEffect.reset();
     configure_arenas_default();
 
-    PersistentTracker::clear_registry();
-
     if (pixel_width == 96 && pixel_height == 20)
       currentEffect = create_effect<96, 20>(name);
     else if (pixel_width == 288 && pixel_height == 144)

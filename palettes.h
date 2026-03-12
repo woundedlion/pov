@@ -89,5 +89,9 @@ static constexpr ProceduralPalette fireAndIce({0.500f, 0.500f, 0.500f},
                                               {0.500f, 0.500f, 0.500f},
                                               {0.955f, 1.004f, 0.910f},
                                               {0.167f, 0.018f, 0.930f});
+static constexpr ProceduralPalette peachPop({1.000f, 0.144f, 0.175f},
+                                            {0.543f, 0.543f, 0.543f},
+                                            {0.507f, 0.409f, 0.507f},
+                                            {0.001f, 0.002f, 0.620f});
 
 } // namespace Palettes

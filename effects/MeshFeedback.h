@@ -7,6 +7,7 @@
 
 #include "../effects_engine.h"
 #include "../generators.h"
+#include "../solids.h"
 
 template <int W, int H> class MeshFeedback : public Effect {
 public:
@@ -27,8 +28,8 @@ public:
   } params;
 
   FLASHMEM MeshFeedback()
-      : Effect(W, H), noise_params(), orientation(), timeline(), mesh(),
-        palette(Palettes::richSunset),
+      : Effect(W, H), noise_params(), orientation(), timeline(),
+        palette(Palettes::peachPop),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H, TransformerFn>(
@@ -41,7 +42,12 @@ public:
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_params.sync();
 
-    mesh = generate_mesh<DodecahedronGenerator>(persistent_arena);
+    // Load first Catalan solid
+    auto solids = Solids::Collections::get_catalan_solids();
+    solid_idx = 0;
+    carousel.load([&solids, this](MemoryCtx &ctx) {
+      return solids[solid_idx].generate(ctx);
+    });
 
     registerParam("Fade", &params.fade, 0.5f, 0.99f);
     registerParam("Distort Amp", &params.amplitude, 0.0f, 30.0f);
@@ -54,6 +60,7 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise_params.noise));
 
+    // Preset cycling
     timeline.add(0, Animation::PeriodicTimer(
                         150,
                         [this](Canvas &) {
@@ -64,32 +71,98 @@ public:
                                                           48, ease_mid));
                         },
                         true));
+
+    // Shape cycling
+    timeline.add(0,
+                 Animation::Sprite([](Canvas &, float) {}, 120).then([this]() {
+                   start_morph();
+                 }));
   }
 
   bool show_bg() const override { return false; }
 
   void draw_frame() override {
     Canvas canvas(*this);
-    timeline.step(canvas);
-
     apply_params();
     noise_params.sync();
     filters.next.next.set_fade(params.fade);
 
-    // Flush first: blend distorted previous frame as background
     filters.flush(
         canvas, [](float x, float y, float t) { return Color4(0, 0, 0, 0); },
         1.0f);
 
-    // Then draw current mesh on top
-    Plot::Mesh::draw<W, H>(filters, canvas, mesh,
-                           [&](const Vector &v, Fragment &f) {
-                             float t_val = (v.y + 1.0f) * 0.5f;
-                             f.color = palette.get(t_val);
-                           });
+    timeline.step(canvas);
+
+    if (!morphing) {
+      Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
+                             [&](const Vector &v, Fragment &f) {
+                               float t_val = (v.y + 1.0f) * 0.5f;
+                               f.color = palette.get(t_val);
+                             });
+    }
   }
 
 private:
+  void start_morph() {
+    constexpr int MORPH_FRAMES = 32;
+    auto solids = Solids::Collections::get_catalan_solids();
+    solid_idx = (solid_idx + 1) % solids.size();
+
+    int new_slot = 1 - carousel.front_index();
+
+    carousel.slot(new_slot) = MeshState();
+    active_mesh_A = MeshState();
+    active_mesh_B = MeshState();
+
+    // Generate incoming shape into back slot
+    {
+      MemoryCtx ctx;
+      ScopedScratch _a(ctx.get_scratch_front());
+      ScopedScratch _b(ctx.get_scratch_back());
+      PolyMesh poly = solids[solid_idx].generate(ctx);
+      ctx.update_persistent(carousel.slot(new_slot), poly);
+    }
+
+    // Preallocate morph buffer
+    size_t max_v = std::max(carousel.current().vertices.size(),
+                            carousel.slot(new_slot).vertices.size());
+    morph_buffer.preallocate(Persistent(persistent_arena), max_v);
+
+    auto draw_fn = [this](Canvas &c, const MeshState &mesh, float opacity) {
+      Plot::Mesh::draw<W, H>(filters, c, mesh,
+                             [&](const Vector &v, Fragment &f) {
+                               float t_val = (v.y + 1.0f) * 0.5f;
+                               f.color = palette.get(t_val);
+                               f.color.alpha *= opacity;
+                             });
+    };
+
+    morphing = true;
+    timeline.add(
+        0, Animation::MeshMorph(&active_mesh_A, &active_mesh_B, &morph_buffer,
+                                &persistent_arena, carousel.current(),
+                                carousel.slot(new_slot), draw_fn, draw_fn,
+                                MORPH_FRAMES, false, ease_in_out_sin)
+               .then([this, new_slot]() {
+                 carousel.set_front(new_slot);
+                 morphing = false;
+                 // Morph complete: drop temporary buffers and compact
+                 active_mesh_A = MeshState();
+                 active_mesh_B = MeshState();
+                 MemoryCtx ctx;
+                 Persist<MeshState, ScratchBack> pFront(carousel.current(),
+                                                        ctx.get_scratch_back(),
+                                                        ctx.get_persistent());
+                 carousel.incoming().invalidate();
+                 morph_buffer.invalidate();
+                 ctx.get_persistent().raw().reset();
+
+                 // Rest on the static shape for a moment before morphing again
+                 timeline.add(0, Animation::Sprite([](Canvas &, float) {}, 16)
+                                     .then([this]() { start_morph(); }));
+               }));
+  }
+
   void apply_params() {
     noise_params.amplitude = params.amplitude;
     noise_params.frequency = params.frequency;
@@ -103,13 +176,21 @@ private:
                    {"Intense", {0.96f, 5.0f, 0.15f, 1.5f, 10.0f}},
                    {"Subtle", {0.90f, 0.3f, 0.60f, 0.3f, 35.0f}}}},
       .current_idx = 0};
-  bool preset_paused = false;
+  bool preset_paused = true;
   NoiseParams noise_params;
 
   Orientation<W> orientation;
   Timeline<W> timeline;
-  PolyMesh mesh;
   ProceduralPalette palette;
+
+  // Mesh carousel + morph state
+  MeshCarousel<W> carousel;
+  int solid_idx = 0;
+  MeshState active_mesh_A;
+  MeshState active_mesh_B;
+  Animation::MorphBuffer morph_buffer;
+  bool morphing = false;
+  float morph_alpha = 0.0f;
 
   struct TransformerFn {
     const MeshFeedback *self;
