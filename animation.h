@@ -1252,10 +1252,11 @@ class MeshMorph : public Base<MeshMorph> {
 public:
   MeshMorph(MeshState *active_A, MeshState *active_B, MorphBuffer *buffer,
             Arena *geom_arena, const MeshState &source, const MeshState &dest,
-            int duration, bool repeat = false,
+            float &alpha_out, int duration, bool repeat = false,
             EasingFn easing_fn = ease_in_out_sin)
       : Base(duration, repeat), active_A(active_A), active_B(active_B),
-        buffer(buffer), geom_arena(geom_arena), easing_fn(easing_fn) {
+        buffer(buffer), geom_arena(geom_arena), easing_fn(easing_fn),
+        alpha_out(alpha_out) {
     if (buffer && active_A && active_B) {
       init(source, dest);
     }
@@ -1308,6 +1309,7 @@ public:
 
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
+    alpha_out = alpha;
 
     for (size_t i = 0; i < buffer->start_pos_B.size(); ++i) {
       active_B->vertices[i] =
@@ -1321,6 +1323,7 @@ private:
   MorphBuffer *buffer;
   Arena *geom_arena;
   EasingFn easing_fn;
+  float &alpha_out;
 };
 
 /**
@@ -1821,6 +1824,17 @@ public:
 
   /// Which index is front (for capture in lambdas).
   int front_index() const { return front_; }
+
+  /// Manually set the front index (for effects that manage transitions
+  /// themselves).
+  void set_front(int idx) { front_ = idx; }
+
+  /// Compact the persistent arena (evacuates tracked MeshStates, reclaims
+  /// fragmented space). Call before allocating new persistent data.
+  void compact() {
+    MemoryCtx ctx;
+    PersistentTracker::auto_compact(ctx.get_scratch_back());
+  }
 
 private:
   MeshState slots_[2];
