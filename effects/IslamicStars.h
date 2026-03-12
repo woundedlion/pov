@@ -22,8 +22,6 @@ public:
   void init() override {
     configure_arenas(GLOBAL_ARENA_SIZE - (128 + 128) * 1024, 128 * 1024,
                      128 * 1024);
-    PersistentTracker::register_mesh(&mesh_states[0]);
-    PersistentTracker::register_mesh(&mesh_states[1]);
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
@@ -62,9 +60,8 @@ private:
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
-  MeshState mesh_states[2];
+  MeshCarousel<W> carousel;
   std::array<ProceduralPalette, 5> palettes_history[2];
-  int current_mesh_idx = 0;
 
   std::array<ProceduralPalette, 5> palettes = {
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
@@ -114,60 +111,53 @@ private:
   }
 
   void spawn_shape() {
-    MemoryCtx ctx;
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
-    current_mesh_idx = (current_mesh_idx + 1) % 2;
 
-    // Forced compaction
-    mesh_states[current_mesh_idx] = MeshState();
-    PersistentTracker::auto_compact(ctx.get_scratch_back());
+    // Capture the slot index for this shape's draw lambda
+    int capture_idx = 1 - carousel.front_index();
 
-    // Generate new shape
-    {
-      ScopedScratch _front(ctx.get_scratch_front());
-      ScopedScratch _back(ctx.get_scratch_back());
-      PolyMesh local_mesh = solids[solid_idx].generate(ctx);
-      ctx.update_persistent(mesh_states[current_mesh_idx], local_mesh);
-    }
-    MeshOps::classify_faces_by_topology(mesh_states[current_mesh_idx], ctx);
+    // Prepare palettes for the incoming slot
+    static std::mt19937 g(12345 + (int)timeline.t);
+    palettes_history[capture_idx] = palettes;
+    std::shuffle(palettes_history[capture_idx].begin(),
+                 palettes_history[capture_idx].end(), g);
 
-    // Log transition
-    const auto &entry = solids[solid_idx];
-    hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
-            (int)mesh_states[current_mesh_idx].vertices.size(),
-            (int)mesh_states[current_mesh_idx].faces.size());
+    int idx = solid_idx; // capture for generate lambda
 
-    // Prepare Palettes
-    static std::mt19937 g(12345 + (int)timeline.t); // Simple seed variation
-    palettes_history[current_mesh_idx] = palettes;
-    std::shuffle(palettes_history[current_mesh_idx].begin(),
-                 palettes_history[current_mesh_idx].end(), g);
+    carousel.transition(
+        timeline,
+        // generate_fn
+        [idx, &solids](MemoryCtx &ctx) { return solids[idx].generate(ctx); },
+        // draw_fn
+        [this, capture_idx](Canvas &canvas, float opacity) {
+          const MeshState &mesh = carousel.slot(capture_idx);
+          // Map topology to palette indices
+          this->draw_shape(canvas, opacity, mesh, mesh.topology,
+                           palettes_history[capture_idx]);
+        },
+        160, // duration
+        32,  // fade_in
+        32   // fade_out
+    );
 
-    // Map Topology to palette
+    // Map topology -> palette index on the newly populated slot
     int num_colors =
-        static_cast<int>(palettes_history[current_mesh_idx].size());
-    ArenaVector<int> &faceIndices = mesh_states[current_mesh_idx].topology;
+        static_cast<int>(palettes_history[capture_idx].size());
+    // After transition(), front has flipped, so capture_idx is now front
+    ArenaVector<int> &faceIndices = carousel.slot(capture_idx).topology;
     for (size_t i = 0; i < faceIndices.size(); ++i) {
       faceIndices[i] = faceIndices[i] % num_colors;
     }
 
-    // Create Sprite
-    int duration = 160;
-    int fade_in = 32;
-    int fade_out = 32;
-    int capture_idx = current_mesh_idx;
-    auto draw_fn = [this, capture_idx](Canvas &canvas, float opacity) {
-      this->draw_shape(canvas, opacity, mesh_states[capture_idx],
-                       mesh_states[capture_idx].topology,
-                       palettes_history[capture_idx]);
-    };
+    // Log
+    const auto &entry = solids[solid_idx];
+    hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
+            (int)carousel.current().vertices.size(),
+            (int)carousel.current().faces.size());
 
-    timeline.add(0, Animation::Sprite(draw_fn, duration, fade_in, ease_mid,
-                                      fade_out, ease_mid));
-
-    // Schedule Next overlapping
-    int next_delay = duration - fade_out;
+    // Schedule next overlapping
+    int next_delay = 160 - 32; // duration - fade_out
     timeline.add(next_delay,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &) { this->spawn_shape(); }, false));

@@ -162,48 +162,45 @@ private:
   }
 
   FLASHMEM void start_morph_cycle() {
-    constexpr int DURATION = 16;
+    constexpr int MORPH_FRAMES = 16;
     auto solids = Solids::Collections::get_simple_solids();
     int next_idx = (solid_idx + 1) % solids.size();
 
+    // 1. Generate incoming shape
     {
       MemoryCtx ctx;
       ScopedScratch _a(ctx.get_scratch_front());
       ScopedScratch _b(ctx.get_scratch_back());
-      // Load generates the fully compiled Hankin topology at angle = 0
       secondary.load(next_idx, params.hankin_angle,
                      Persistent(persistent_arena), ctx, source_palettes_pool,
                      timeline.t);
     }
 
+    // 2. Schedule alpha blend + vertex morph + draw sprite
     morph_alpha = 0.0f;
     timeline.add(
-        0, Animation::Transition(morph_alpha, 1.0f, DURATION, ease_in_out_sin));
-
-    // The Dual Elastic Stretch DIRECTLY on the encapsulated active meshes
-    timeline.add(0, Animation::MeshMorph(
-                        &primary.active_mesh, &secondary.active_mesh,
-                        &morph_buffer, &persistent_arena, primary.mesh,
-                        secondary.mesh, DURATION, false, ease_in_out_sin));
-
+        0, Animation::Transition(morph_alpha, 1.0f, MORPH_FRAMES, ease_in_out_sin));
     timeline.add(
-        0, Animation::Sprite(
-               [this](Canvas &c, float opacity) {
-                 draw_dynamic_morph(c, opacity, primary.mesh.topology,
-                                    primary.palettes, secondary.mesh.topology,
-                                    secondary.palettes);
-               },
-               DURATION)
-               .then([this, next_idx]() {
-                 this->solid_idx = next_idx;
-                 primary.swap(secondary);
-
-                 // Ensure resting state is perfect before resuming
-                 // cycle
-                 MeshOps::update_hankin(primary.hankin, primary.mesh,
-                                        persistent_arena, params.hankin_angle);
-                 this->start_hankin_cycle();
-               }));
+        0, Animation::MeshMorph(
+               &primary.active_mesh, &secondary.active_mesh, &morph_buffer,
+               &persistent_arena, primary.mesh, secondary.mesh, MORPH_FRAMES,
+               false, ease_in_out_sin));
+    timeline.add(
+        0,
+        Animation::Sprite(
+            [this](Canvas &c, float opacity) {
+              draw_dynamic_morph(c, opacity, primary.mesh.topology,
+                                 primary.palettes, secondary.mesh.topology,
+                                 secondary.palettes);
+            },
+            MORPH_FRAMES)
+            .then([this, next_idx]() {
+              solid_idx = next_idx;
+              primary.swap(secondary);
+              MeshOps::update_hankin(primary.hankin, primary.mesh,
+                                     persistent_arena, params.hankin_angle);
+              start_hankin_cycle();
+            }));
   }
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,

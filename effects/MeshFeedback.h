@@ -35,15 +35,11 @@ public:
                     TransformerFn{this}, 0.95f)) {}
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 16384 - 2048, 16384, 2048);
-
     params = presets.get();
     apply_params();
 
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_params.sync();
-
-    filters.next.next.init_storage(Persistent(persistent_arena));
 
     mesh = generate_mesh<DodecahedronGenerator>(persistent_arena);
 
@@ -52,6 +48,7 @@ public:
     registerParam("Distort Freq", &params.frequency, 0.01f, 1.0f);
     registerParam("Distort Speed", &params.speed, 0.0f, 5.0f);
     registerParam("Noise Scale", &params.scale, 0.1f, 50.0f);
+    registerParam("Pause Presets", &preset_paused);
 
     timeline.add(0, Animation::Noise(noise_params));
     timeline.add(
@@ -60,6 +57,8 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         150,
                         [this](Canvas &) {
+                          if (preset_paused)
+                            return;
                           presets.next();
                           timeline.add(0, Animation::Lerp(params, presets.get(),
                                                           48, ease_mid));
@@ -77,15 +76,17 @@ public:
     noise_params.sync();
     filters.next.next.set_fade(params.fade);
 
+    // Flush first: blend distorted previous frame as background
+    filters.flush(
+        canvas, [](float x, float y, float t) { return Color4(0, 0, 0, 0); },
+        1.0f);
+
+    // Then draw current mesh on top
     Plot::Mesh::draw<W, H>(filters, canvas, mesh,
                            [&](const Vector &v, Fragment &f) {
                              float t_val = (v.y + 1.0f) * 0.5f;
                              f.color = palette.get(t_val);
                            });
-
-    filters.flush(
-        canvas, [](float x, float y, float t) { return Color4(0, 0, 0, 0); },
-        1.0f);
   }
 
 private:
@@ -102,6 +103,7 @@ private:
                    {"Intense", {0.96f, 5.0f, 0.15f, 1.5f, 10.0f}},
                    {"Subtle", {0.90f, 0.3f, 0.60f, 0.3f, 35.0f}}}},
       .current_idx = 0};
+  bool preset_paused = false;
   NoiseParams noise_params;
 
   Orientation<W> orientation;
