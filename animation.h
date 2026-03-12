@@ -1705,6 +1705,129 @@ public:
 };
 
 /**
+ * @brief Manages double-buffered MeshState transitions on a Timeline.
+ *
+ * Encapsulates the boilerplate of:
+ *   - Two persistent MeshState slots registered with PersistentTracker
+ *   - Arena compaction when freeing the old slot
+ *   - Scoped scratch generation via a user-provided callback
+ *   - Crossfade Sprite scheduling with automatic front/back flip
+ *
+ * Usage:
+ *   MeshCarousel<W> carousel;  // in effect members
+ *
+ *   // In init():
+ *   carousel.load([&](MemoryCtx& ctx) {
+ *       return solids[0].generate(ctx);
+ *   });
+ *
+ *   // To transition:
+ *   carousel.transition(timeline, generate_fn, draw_fn, duration, fade);
+ *
+ * @tparam W The display width (passed through to Timeline).
+ */
+template <int W> class MeshCarousel {
+public:
+  MeshCarousel() {
+    PersistentTracker::register_mesh(&slots_[0]);
+    PersistentTracker::register_mesh(&slots_[1]);
+  }
+
+  /**
+   * @brief Load the initial shape into the front slot (no crossfade).
+   * @param generate_fn Given a MemoryCtx, returns a PolyMesh in scratch.
+   * @param classify If true, runs classify_faces_by_topology after loading.
+   */
+  void load(Fn<PolyMesh(MemoryCtx &), 48> generate_fn, bool classify = true) {
+    MemoryCtx ctx;
+    {
+      ScopedScratch _a(ctx.get_scratch_front());
+      ScopedScratch _b(ctx.get_scratch_back());
+      PolyMesh mesh = generate_fn(ctx);
+      ctx.update_persistent(slots_[front_], mesh);
+    }
+    if (classify) {
+      MemoryCtx ctx2;
+      MeshOps::classify_faces_by_topology(slots_[front_], ctx2);
+    }
+  }
+
+  /**
+   * @brief Trigger a crossfade transition to a new shape.
+   *
+   * Internally: flips the double-buffer, compacts the arena, generates the
+   * new shape into the back slot, then schedules an overlapping Sprite on
+   * the timeline. The front index flips eagerly so the draw lambda captures
+   * the correct slot, enabling overlapping sprites.
+   *
+   * @param timeline The timeline to schedule the crossfade onto.
+   * @param generate_fn Produces a PolyMesh into scratch arenas.
+   * @param draw_fn Called each frame with (Canvas&, float opacity).
+   * @param duration Total sprite duration in frames.
+   * @param fade_in Fade-in frames (0 = instant appear).
+   * @param fade_out Fade-out frames (0 = instant disappear).
+   * @param easing Easing function for fades.
+   * @param classify If true, runs classify_faces_by_topology.
+   */
+  void transition(Timeline<W> &timeline,
+                  Fn<PolyMesh(MemoryCtx &), 48> generate_fn, SpriteFn draw_fn,
+                  int duration, int fade_in = 0, int fade_out = 0,
+                  EasingFn easing = ease_mid, bool classify = true) {
+    int back = 1 - front_;
+
+    // Free the old back slot and compact
+    {
+      MemoryCtx ctx;
+      slots_[back] = MeshState();
+      PersistentTracker::auto_compact(ctx.get_scratch_back());
+    }
+
+    // Generate new shape into back slot
+    {
+      MemoryCtx ctx;
+      ScopedScratch _a(ctx.get_scratch_front());
+      ScopedScratch _b(ctx.get_scratch_back());
+      PolyMesh mesh = generate_fn(ctx);
+      ctx.update_persistent(slots_[back], mesh);
+    }
+
+    if (classify) {
+      MemoryCtx ctx;
+      MeshOps::classify_faces_by_topology(slots_[back], ctx);
+    }
+
+    // Flip front eagerly so the draw lambda captures the correct slot.
+    // This enables overlapping sprites where the next transition()
+    // is called before the current sprite finishes.
+    front_ = back;
+
+    // Schedule the crossfade sprite
+    timeline.add(
+        0, Animation::Sprite(std::move(draw_fn), duration, fade_in, easing,
+                             fade_out, easing));
+  }
+
+  /// The currently visible (front) mesh.
+  const MeshState &current() const { return slots_[front_]; }
+  MeshState &current() { return slots_[front_]; }
+
+  /// The incoming (back) mesh — valid during a transition.
+  const MeshState &incoming() const { return slots_[1 - front_]; }
+  MeshState &incoming() { return slots_[1 - front_]; }
+
+  /// Direct slot access by index (for effects that need both).
+  const MeshState &slot(int i) const { return slots_[i]; }
+  MeshState &slot(int i) { return slots_[i]; }
+
+  /// Which index is front (for capture in lambdas).
+  int front_index() const { return front_; }
+
+private:
+  MeshState slots_[2];
+  int front_ = 0;
+};
+
+/**
  * @brief Helper to iterate over an Orientation's historical frames.
  * @param o The orientation to iterate.
  * @param callback The function to call for each frame: `void(const Quaternion&,

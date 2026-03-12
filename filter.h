@@ -174,7 +174,7 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (Head::is_2d) {
-        Head::flush(trailFn, alpha,
+        Head::flush(cv, trailFn, alpha,
                     [&](auto... args) { next.plot(cv, args...); });
       }
     }
@@ -495,7 +495,7 @@ public:
     }
   }
 
-  void flush(const ScreenTrailFn &trailFn, float alpha, PassFn2D pass) {
+  void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha, PassFn2D pass) {
     for (int i = 0; i < num_pixels; ++i) {
       Color4 color =
           trailFn(ttls_[i].x, ttls_[i].y, 1 - (ttls_[i].ttl / lifetime));
@@ -595,7 +595,7 @@ public:
     }
   }
 
-  void flush(const ScreenTrailFn &, float globalAlpha, PassFn2D pass) {
+  void flush(Canvas &, const ScreenTrailFn &, float globalAlpha, PassFn2D pass) {
     size_t n = count_;
     for (size_t i = 0; i < n; ++i) {
       auto item = items_[head_];
@@ -635,10 +635,11 @@ private:
 namespace Pixel {
 
 /**
- * @brief ::Pixel-space feedback accumulation filter.
+ * @brief ::Pixel-space feedback filter (stateless).
  * Creates infinite trails and "watery" distortion by sampling the
- * previous frame from an internal ArenaVector with an offset/scale and blending
- * it.
+ * previous frame from the Canvas front buffer with bilinear interpolation,
+ * applying spatial distortion and fade, then blending into the back buffer.
+ * Uses Canvas double-buffering — no internal frame storage needed.
  */
 template <int W, int H, typename SpaceTransformFn>
 class Feedback : public Is2DWithHistory {
@@ -648,40 +649,14 @@ public:
 
   void set_fade(float f) { fade = f; }
 
-  void init_storage(Persistent arena) {
-    frames_.initialize(arena, W * H);
-    for (int i = 0; i < W * H; ++i) {
-      frames_.push_back(::Pixel(0, 0, 0));
-    }
-  }
-
+  /// Pass-through: current-frame pixels go straight to the canvas sink.
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             uint8_t tag, PassFn2D pass) {
-    if (alpha <= 0.001f || frames_.is_empty())
-      return;
-
-    int xi = std::clamp(static_cast<int>(x), 0, W - 1);
-    int yi = std::clamp(static_cast<int>(y), 0, H - 1);
-
-    // Accumulate HDR colors using blend_alpha (BLEND_OVER behavior)
-    frames_[yi * W + xi] = blend_alpha(alpha)(frames_[yi * W + xi], color);
+    pass(x, y, color, age, alpha, tag);
   }
 
-  void flush(const ScreenTrailFn &, float alpha, PassFn2D pass) {
-    if (frames_.is_empty())
-      return;
-
-    // 1. Output the accumulated frame to the pipeline
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        ::Pixel p = frames_[y * W + x];
-        if (p.r | p.g | p.b) {
-          pass(static_cast<float>(x), static_cast<float>(y), p, 0.0f, alpha, 0);
-        }
-      }
-    }
-
-    // 2. Distort and Fade for the NEXT frame in-place!
+  /// Blend distorted previous frame (front buffer) into current frame (back buffer).
+  void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         // Project 2D pixel to 3D sphere
@@ -690,20 +665,28 @@ public:
         // Apply 3D spatial transformation (e.g., NoiseTransformer)
         Vector v_dist = transform_fn(v);
 
-        // Map back to absolute continuous 2D coordinates
+        // Map back to continuous 2D coordinates
         Spherical s(v_dist);
         float bx = (s.theta * W) / (2.0f * PI_F);
         float by = phi_to_y<H>(s.phi);
 
-        ::Pixel p = sample_bilinear(bx, by);
+        // Sample previous frame with bilinear interpolation and fade
+        ::Pixel p = sample_bilinear_prev(cv, bx, by) * fade;
 
-        frames_[y * W + x] = p * fade;
+        // Blend into back buffer
+        if (p.r | p.g | p.b) {
+          int xi = fast_wrap(x, W);
+          if (y >= 0 && y < cv.height()) {
+            cv(xi, y) = blend_alpha(alpha)(cv(xi, y), p);
+          }
+        }
       }
     }
   }
 
 private:
-  ::Pixel sample_bilinear(float bx, float by) const {
+  /// Bilinear sample from the Canvas front buffer (previous frame).
+  static ::Pixel sample_bilinear_prev(const Canvas &cv, float bx, float by) {
     float fx0 = std::floor(bx);
     float fy0 = std::floor(by);
     int x0 = static_cast<int>(fx0);
@@ -714,7 +697,7 @@ private:
     int x1 = x0 + 1;
     int y1 = y0 + 1;
 
-    // safe wrapping for X (cylindrical)
+    // Safe wrapping for X (cylindrical)
     if (x0 < 0)
       x0 = W - 1 - ((-x0 - 1) % W);
     else if (x0 >= W)
@@ -725,11 +708,11 @@ private:
     else if (x1 >= W)
       x1 %= W;
 
-    // Filter out of bounds Y (read black if off poles)
-    ::Pixel p00 = (y0 >= 0 && y0 < H) ? frames_[y0 * W + x0] : ::Pixel(0, 0, 0);
-    ::Pixel p10 = (y0 >= 0 && y0 < H) ? frames_[y0 * W + x1] : ::Pixel(0, 0, 0);
-    ::Pixel p01 = (y1 >= 0 && y1 < H) ? frames_[y1 * W + x0] : ::Pixel(0, 0, 0);
-    ::Pixel p11 = (y1 >= 0 && y1 < H) ? frames_[y1 * W + x1] : ::Pixel(0, 0, 0);
+    // Read from front buffer; black if out-of-bounds Y
+    ::Pixel p00 = (y0 >= 0 && y0 < H) ? cv.prev(x0, y0) : ::Pixel(0, 0, 0);
+    ::Pixel p10 = (y0 >= 0 && y0 < H) ? cv.prev(x1, y0) : ::Pixel(0, 0, 0);
+    ::Pixel p01 = (y1 >= 0 && y1 < H) ? cv.prev(x0, y1) : ::Pixel(0, 0, 0);
+    ::Pixel p11 = (y1 >= 0 && y1 < H) ? cv.prev(x1, y1) : ::Pixel(0, 0, 0);
 
     float w00 = (1.0f - fx) * (1.0f - fy);
     float w10 = fx * (1.0f - fy);
@@ -746,7 +729,6 @@ private:
 
   SpaceTransformFn transform_fn;
   float fade;
-  ArenaVector<::Pixel> frames_;
 };
 
 template <int W> class ChromaticShift : public Is2D {
