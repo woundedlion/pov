@@ -61,8 +61,9 @@ private:
     ScopedScratch _a(scratch_arena_a);
     ScopedScratch _b(scratch_arena_b);
 
-    PolyMesh temp_base = Solids::finalize_solid(solids[idx].generate(scratch_arena_a, scratch_arena_b),
-                                                scratch_arena_a);
+    PolyMesh temp_base = Solids::finalize_solid(
+        solids[idx].generate(scratch_arena_a, scratch_arena_b),
+        scratch_arena_a);
 
     // Compile hankin instructions onto persistent arena
     out_hankin = CompiledHankin();
@@ -77,7 +78,8 @@ private:
     {
       scratch_arena_a.reset();
       scratch_arena_b.reset();
-      MeshOps::classify_faces_by_topology(out_mesh, scratch_arena_a, scratch_arena_b, persistent_arena);
+      MeshOps::classify_faces_by_topology(out_mesh, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
     }
 
     // Shuffle palettes
@@ -161,46 +163,47 @@ private:
     // Schedule self-rendering morph (MeshMorph draws both meshes with
     // crossfade)
     timeline.add(
-        0,
-        Animation::MeshMorph(
-            &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
-            carousel.slot(old_front), carousel.slot(new_slot),
-            draw_morph_outgoing_fn_, draw_morph_incoming_fn_,
-            MORPH_FRAMES, false, ease_in_out_sin)
-            .then([this, next_idx, new_slot]() {
-              solid_idx = next_idx;
-              carousel.set_front(new_slot);
+        0, Animation::MeshMorph(
+               &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
+               carousel.slot(old_front), carousel.slot(new_slot),
+               draw_morph_outgoing_fn_, draw_morph_incoming_fn_, MORPH_FRAMES,
+               false, ease_in_out_sin)
+               .then([this, next_idx, new_slot]() {
+                 solid_idx = next_idx;
+                 carousel.set_front(new_slot);
 
-              // Promote staged hankin to primary
-              compiled_hankin = std::move(compiled_hankin_staging);
-              compiled_hankin_staging = CompiledHankin();
+                 // Promote staged hankin to primary
+                 compiled_hankin = std::move(compiled_hankin_staging);
+                 compiled_hankin_staging = CompiledHankin();
 
-              // Drop temporary morph meshes and compact arena
-              active_mesh_A = MeshState();
-              active_mesh_B = MeshState();
-              carousel.incoming() = MeshState();
-              morph_buffer = Animation::MorphBuffer();
-              {
-                // Backup live data to BOTH scratch arenas (matching old split)
-                ScratchScope sa(scratch_arena_a);
-                ScratchScope sb(scratch_arena_b);
-                CompiledHankin backup_hankin;
-                MeshOps::clone(compiled_hankin, backup_hankin, sa.raw());
-                MeshState backup_mesh;
-                MeshOps::clone(carousel.current(), backup_mesh, sb.raw());
-                // Wipe persistent and clone back
-                persistent_arena.reset();
-                carousel.current() = MeshState();
-                compiled_hankin = CompiledHankin();
-                MeshOps::clone(backup_mesh, carousel.current(), persistent_arena);
-                MeshOps::clone(backup_hankin, compiled_hankin, persistent_arena);
-              }
+                 // Drop temporary morph meshes and compact arena
+                 active_mesh_A = MeshState();
+                 active_mesh_B = MeshState();
+                 carousel.incoming() = MeshState();
+                 morph_buffer = Animation::MorphBuffer();
+                 {
+                   ScratchScope sa(scratch_arena_a);
+                   ScratchScope sb(scratch_arena_b);
+                   CompiledHankin backup_hankin;
+                   MeshOps::clone(compiled_hankin, backup_hankin, sa.get_arena());
+                   MeshState backup_mesh;
+                   MeshOps::clone(carousel.current(), backup_mesh, sb.get_arena());
 
-              // Ensure resting mesh state is correct
-              MeshOps::update_hankin(compiled_hankin, carousel.current(),
-                                     persistent_arena, params.hankin_angle);
-              start_hankin_cycle();
-            }));
+                   persistent_arena.reset();
+
+                   carousel.current() = MeshState();
+                   compiled_hankin = CompiledHankin();
+                   MeshOps::clone(backup_mesh, carousel.current(),
+                                  persistent_arena);
+                   MeshOps::clone(backup_hankin, compiled_hankin,
+                                  persistent_arena);
+                 }
+
+                 // Ensure resting mesh state is correct
+                 MeshOps::update_hankin(compiled_hankin, carousel.current(),
+                                        persistent_arena, params.hankin_angle);
+                 start_hankin_cycle();
+               }));
   }
 
   MeshCarousel<W> carousel;
@@ -215,7 +218,8 @@ private:
   int morph_old_slot_ = 0;
   int morph_new_slot_ = 1;
 
-  /// Draw callbacks for morph — stored as members so FunctionRef doesn't dangle.
+  /// Draw callbacks for morph — stored as members so FunctionRef doesn't
+  /// dangle.
   void draw_morph_outgoing(Canvas &c, const MeshState &mesh, float opacity) {
     draw_mesh(c, mesh, carousel.slot(morph_old_slot_).topology,
               palettes_slots[morph_old_slot_], opacity, orientation.get());
