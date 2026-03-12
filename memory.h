@@ -167,9 +167,29 @@ public:
   ArenaVector(const ArenaVector &) = delete;
   ArenaVector &operator=(const ArenaVector &) = delete;
 
-  // Allow move semantics
-  ArenaVector(ArenaVector &&) = default;
-  ArenaVector &operator=(ArenaVector &&) = default;
+  // Move semantics
+  ArenaVector(ArenaVector &&other) noexcept
+      : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
+#ifndef NDEBUG
+    source_arena_ = other.source_arena_;
+    birth_generation_ = other.birth_generation_;
+#endif
+    other.invalidate();
+  }
+
+  ArenaVector &operator=(ArenaVector &&other) noexcept {
+    if (this != &other) {
+      data_ = other.data_;
+      size_ = other.size_;
+      capacity_ = other.capacity_;
+#ifndef NDEBUG
+      source_arena_ = other.source_arena_;
+      birth_generation_ = other.birth_generation_;
+#endif
+      other.invalidate();
+    }
+    return *this;
+  }
 
   // Constructor requires exact capacity upfront. No dynamic growth.
   ArenaVector(Arena &arena, size_t exact_capacity)
@@ -314,9 +334,11 @@ void configure_arenas_default();
 
 struct MeshState;
 struct PolyMesh;
+struct CompiledHankin;
 namespace MeshOps {
 template <typename MeshT>
 void clone(const MeshT &src, MeshT &dst, Arena &arena);
+void clone(const CompiledHankin &src, CompiledHankin &dst, Arena &arena);
 }
 
 // ============================================================================
@@ -338,19 +360,32 @@ public:
   static bool is_locked() { return lock_count_ > 0; }
 };
 
-class PersistentTracker {
-public:
-  static MeshState *tracked_meshes[256];
-  static size_t num_tracked;
+/// RAII Guard that safely evacuates a MeshState to scratch memory, and restores
+/// it to the persistent arena upon destruction. Used to protect active meshes
+/// during persistent arena compaction (e.g., persistent_arena.reset()).
+template <typename MeshT, typename ScratchT>
+class Persist {
+  MeshT *target_;
+  MeshT backup_;
+  Arena *scratch_;
+  Arena *persistent_;
 
-  static void register_mesh(MeshState *mesh) {
-    assert(num_tracked < 256 && "Too many tracked meshes!");
-    tracked_meshes[num_tracked++] = mesh;
+public:
+  // Requires explicit TypedArena to enforce compile-time safety.
+  // Passed by value because they are zero-cost wrappers often returned as temporaries.
+  Persist(MeshT &target, ScratchT scratch, Persistent persistent)
+      : target_(&target), scratch_(&scratch.raw()), persistent_(&persistent.raw()) {
+    MeshOps::clone(target, backup_, *scratch_);
   }
 
-  static void clear_registry() { num_tracked = 0; }
+  ~Persist() {
+    target_->invalidate();
+    MeshOps::clone(backup_, *target_, *persistent_);
+  }
 
-  static void auto_compact(Arena &safe_scratch);
+  // Disable copying
+  Persist(const Persist &) = delete;
+  Persist &operator=(const Persist &) = delete;
 };
 
 // ============================================================================

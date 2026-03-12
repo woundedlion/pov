@@ -334,6 +334,17 @@ using namespace MeshOps;
 
 static constexpr float D2R = PI_F / 180.0f;
 
+// V=576, F=434, I=2016
+FLASHMEM inline PolyMesh
+cube_canonicalize_bitruncate33_canonicalize_hk68_expand5(MemoryCtx &ctx) {
+  return expand(
+      hankin(canonicalize(
+                 bitruncate(canonicalize(cube(ctx), ctx, 100), ctx, 0.33f), ctx,
+                 100),
+             ctx, 67.5f * D2R),
+      ctx, 0.5f);
+}
+
 // V=240, F=146, I=768
 FLASHMEM inline PolyMesh icosahedron_hk59_bitruncate033(MemoryCtx &ctx) {
   return hankin(bitruncate(icosahedron(ctx), ctx, 0.33f), ctx, 59.0f * D2R);
@@ -553,6 +564,10 @@ static constexpr Entry catalan_registry[] = {
 
 // Islamic Star Patterns
 static constexpr Entry islamic_registry[] = {
+    {"cube_canonicalize_bitruncate33_canonicalize_hk68_expand5",
+     IslamicStarPatterns::
+         cube_canonicalize_bitruncate33_canonicalize_hk68_expand5,
+     Category::Complex},
     {"dodecahedron_ambo_bitruncate33_canonicalize_hk66",
      IslamicStarPatterns::dodecahedron_ambo_bitruncate33_canonicalize_hk66,
      Category::Complex},
@@ -643,14 +658,15 @@ inline std::span<const Entry> get_islamic_solids() {
 inline const Entry &get_entry(size_t index) {
   if (index < 0 || index >= NUM_ENTRIES)
     return simple_registry[3];
-  
+
   if (index < std::size(simple_registry))
     return simple_registry[index];
-    
+
   if (index < std::size(simple_registry) + std::size(catalan_registry))
     return catalan_registry[index - std::size(simple_registry)];
-    
-  return islamic_registry[index - (std::size(simple_registry) + std::size(catalan_registry))];
+
+  return islamic_registry[index - (std::size(simple_registry) +
+                                   std::size(catalan_registry))];
 }
 
 FLASHMEM inline PolyMesh get(Arena &geom, MemoryCtx &ctx, int index) {

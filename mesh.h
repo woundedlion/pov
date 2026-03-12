@@ -246,20 +246,26 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
     dst.vertices.push_back(src.vertices[i]);
   }
 
-  dst.face_counts.initialize(arena, src.face_counts.size());
-  for (size_t i = 0; i < src.face_counts.size(); ++i) {
-    dst.face_counts.push_back(src.face_counts[i]);
+  size_t fc_size = src.get_face_counts_size();
+  const uint8_t *fc_data = src.get_face_counts_data();
+  dst.face_counts.initialize(arena, fc_size);
+  for (size_t i = 0; i < fc_size; ++i) {
+    dst.face_counts.push_back(fc_data[i]);
   }
 
-  dst.faces.initialize(arena, src.faces.size());
-  for (size_t i = 0; i < src.faces.size(); ++i) {
-    dst.faces.push_back(src.faces[i]);
+  size_t f_size = src.get_faces_size();
+  const uint16_t *f_data = src.get_faces_data();
+  dst.faces.initialize(arena, f_size);
+  for (size_t i = 0; i < f_size; ++i) {
+    dst.faces.push_back(f_data[i]);
   }
 
   if constexpr (requires { dst.face_offsets; }) {
-    dst.face_offsets.initialize(arena, src.face_offsets.size());
-    for (size_t i = 0; i < src.face_offsets.size(); ++i) {
-      dst.face_offsets.push_back(src.face_offsets[i]);
+    size_t fo_size = src.get_face_offsets_size();
+    const uint16_t *fo_data = src.get_face_offsets_data();
+    dst.face_offsets.initialize(arena, fo_size);
+    for (size_t i = 0; i < fo_size; ++i) {
+      dst.face_offsets.push_back(fo_data[i]);
     }
   }
 

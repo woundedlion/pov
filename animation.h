@@ -18,10 +18,6 @@
 #include "spatial.h"
 #include "static_circular_buffer.h"
 #include "rotate.h"
-#include "color.h"
-#include "canvas.h"
-#include "concepts.h"
-
 namespace Animation {
 class Noise;
 } // namespace Animation
@@ -1242,21 +1238,32 @@ struct MorphBuffer {
     start_pos_B.initialize(arena, capacity);
     end_pos_B.initialize(arena, capacity);
   }
+
+  void invalidate() {
+    start_pos_B.invalidate();
+    end_pos_B.invalidate();
+  }
 };
 
 /*
  * @brief Animates an elastic topological crossfade where the outgoing shape
  * dissolves in place.
+ *
+ * When a draw_fn is provided, MeshMorph self-renders both meshes each frame
+ * with automatic alpha crossfade — no external Sprite needed.
  */
 class MeshMorph : public Base<MeshMorph> {
 public:
+  using MorphDrawFn = Fn<void(Canvas &, const MeshState &, float opacity), 48>;
+
   MeshMorph(MeshState *active_A, MeshState *active_B, MorphBuffer *buffer,
             Arena *geom_arena, const MeshState &source, const MeshState &dest,
-            float &alpha_out, int duration, bool repeat = false,
-            EasingFn easing_fn = ease_in_out_sin)
+            MorphDrawFn draw_outgoing, MorphDrawFn draw_incoming, int duration,
+            bool repeat = false, EasingFn easing_fn = ease_in_out_sin)
       : Base(duration, repeat), active_A(active_A), active_B(active_B),
         buffer(buffer), geom_arena(geom_arena), easing_fn(easing_fn),
-        alpha_out(alpha_out) {
+        draw_outgoing(std::move(draw_outgoing)),
+        draw_incoming(std::move(draw_incoming)) {
     if (buffer && active_A && active_B) {
       init(source, dest);
     }
@@ -1309,12 +1316,18 @@ public:
 
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
-    alpha_out = alpha;
 
     for (size_t i = 0; i < buffer->start_pos_B.size(); ++i) {
       active_B->vertices[i] =
           slerp(buffer->start_pos_B[i], buffer->end_pos_B[i], alpha);
     }
+
+    // Render crossfade
+    float op_A = 1.0f - alpha;
+    if (op_A > 0.01f)
+      draw_outgoing(canvas, *active_A, op_A);
+    if (alpha > 0.01f)
+      draw_incoming(canvas, *active_B, alpha);
   }
 
 private:
@@ -1323,7 +1336,8 @@ private:
   MorphBuffer *buffer;
   Arena *geom_arena;
   EasingFn easing_fn;
-  float &alpha_out;
+  MorphDrawFn draw_outgoing;
+  MorphDrawFn draw_incoming;
 };
 
 /**
@@ -1731,10 +1745,7 @@ public:
  */
 template <int W> class MeshCarousel {
 public:
-  MeshCarousel() {
-    PersistentTracker::register_mesh(&slots_[0]);
-    PersistentTracker::register_mesh(&slots_[1]);
-  }
+  MeshCarousel() {}
 
   /**
    * @brief Load the initial shape into the front slot (no crossfade).
@@ -1772,17 +1783,21 @@ public:
    * @param easing Easing function for fades.
    * @param classify If true, runs classify_faces_by_topology.
    */
-  void transition(Timeline<W> &timeline,
-                  Fn<PolyMesh(MemoryCtx &), 48> generate_fn, SpriteFn draw_fn,
+  template <typename GenerateFn, typename DrawOutgoingFn,
+            typename DrawIncomingFn>
+  void transition(Timeline<W> &timeline, GenerateFn generate_fn,
+                  DrawOutgoingFn draw_outgoing, DrawIncomingFn draw_incoming,
                   int duration, int fade_in = 0, int fade_out = 0,
-                  EasingFn easing = ease_mid, bool classify = true) {
+                  bool classify = true, EasingFn easing = ease_mid) {
     int back = 1 - front_;
 
     // Free the old back slot and compact
     {
       MemoryCtx ctx;
-      slots_[back] = MeshState();
-      PersistentTracker::auto_compact(ctx.get_scratch_back());
+      slots_[back].invalidate();
+      Persist<MeshState, ScratchBack> pFront(slots_[front_], ctx.get_scratch_back(),
+                                ctx.get_persistent());
+      ctx.get_persistent().raw().reset();
     }
 
     // Generate new shape into back slot
@@ -1804,10 +1819,9 @@ public:
     // is called before the current sprite finishes.
     front_ = back;
 
-    // Schedule the crossfade sprite
-    timeline.add(
-        0, Animation::Sprite(std::move(draw_fn), duration, fade_in, easing,
-                             fade_out, easing));
+    // Schedule the crossfade sprite using the incoming draw function
+    timeline.add(0, Animation::Sprite(std::move(draw_incoming), duration,
+                                      fade_in, easing, fade_out, easing));
   }
 
   /// The currently visible (front) mesh.
@@ -1833,7 +1847,11 @@ public:
   /// fragmented space). Call before allocating new persistent data.
   void compact() {
     MemoryCtx ctx;
-    PersistentTracker::auto_compact(ctx.get_scratch_back());
+    Persist<MeshState, ScratchFront> pFront(slots_[0], ctx.get_scratch_front(),
+                              ctx.get_persistent());
+    Persist<MeshState, ScratchBack> pBack(slots_[1], ctx.get_scratch_back(),
+                             ctx.get_persistent());
+    ctx.get_persistent().raw().reset();
   }
 
 private:

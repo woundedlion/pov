@@ -83,10 +83,10 @@ private:
     std::shuffle(out_palettes.begin(), out_palettes.end(), hs::random());
   }
 
-  void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
-                          const ArenaVector<int> &topology,
-                          const std::array<ProceduralPalette, 5> &palettes,
-                          float opacity, const Quaternion &q) {
+  void draw_mesh(Canvas &canvas, const MeshState &mesh,
+                 const ArenaVector<int> &topology,
+                 const std::array<ProceduralPalette, 5> &palettes,
+                 float opacity, const Quaternion &q) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
 
@@ -130,9 +130,9 @@ private:
                [this, front](Canvas &c, float opacity) {
                  MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
                                         persistent_arena, params.hankin_angle);
-                 draw_topology_mesh(
-                     c, carousel.slot(front), carousel.slot(front).topology,
-                     palettes_slots[front], opacity, orientation.get());
+                 draw_mesh(c, carousel.slot(front),
+                           carousel.slot(front).topology, palettes_slots[front],
+                           opacity, orientation.get());
                },
                DURATION));
   }
@@ -154,42 +154,49 @@ private:
                             carousel.slot(new_slot).vertices.size());
     morph_buffer.preallocate(Persistent(persistent_arena), max_v);
 
-    // Schedule vertex morph + draw (MeshMorph writes morph_alpha directly)
-    morph_alpha = 0.0f;
-    timeline.add(0, Animation::MeshMorph(&active_mesh_A, &active_mesh_B,
-                                         &morph_buffer, &persistent_arena,
-                                         carousel.slot(old_front),
-                                         carousel.slot(new_slot), morph_alpha,
-                                         MORPH_FRAMES, false, ease_in_out_sin));
+    // Schedule self-rendering morph (MeshMorph draws both meshes with
+    // crossfade)
     timeline.add(
-        0, Animation::Sprite(
-               [this, old_front, new_slot](Canvas &c, float opacity) {
-                 Quaternion q = orientation.get();
-                 float op_A = (1.0f - morph_alpha) * opacity;
-                 if (op_A > 0.01f)
-                   draw_topology_mesh(c, active_mesh_A,
-                                      carousel.slot(old_front).topology,
-                                      palettes_slots[old_front], op_A, q);
-                 float op_B = morph_alpha * opacity;
-                 if (op_B > 0.01f)
-                   draw_topology_mesh(c, active_mesh_B,
-                                      carousel.slot(new_slot).topology,
-                                      palettes_slots[new_slot], op_B, q);
-               },
-               MORPH_FRAMES)
-               .then([this, next_idx, new_slot]() {
-                 solid_idx = next_idx;
-                 carousel.set_front(new_slot);
+        0,
+        Animation::MeshMorph(
+            &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
+            carousel.slot(old_front), carousel.slot(new_slot),
+            [this, old_front](Canvas &c, const MeshState &mesh, float opacity) {
+              draw_mesh(c, mesh, carousel.slot(old_front).topology,
+                        palettes_slots[old_front], opacity, orientation.get());
+            },
+            [this, new_slot](Canvas &c, const MeshState &mesh, float opacity) {
+              draw_mesh(c, mesh, carousel.slot(new_slot).topology,
+                        palettes_slots[new_slot], opacity, orientation.get());
+            },
+            MORPH_FRAMES, false, ease_in_out_sin)
+            .then([this, next_idx, new_slot]() {
+              solid_idx = next_idx;
+              carousel.set_front(new_slot);
 
-                 // Promote staged hankin to primary
-                 compiled_hankin = std::move(compiled_hankin_staging);
-                 compiled_hankin_staging = CompiledHankin();
+              // Promote staged hankin to primary
+              compiled_hankin = std::move(compiled_hankin_staging);
+              compiled_hankin_staging = CompiledHankin();
 
-                 // Ensure resting mesh state is correct
-                 MeshOps::update_hankin(compiled_hankin, carousel.current(),
-                                        persistent_arena, params.hankin_angle);
-                 start_hankin_cycle();
-               }));
+              // Drop temporary morph meshes and compact arena
+              active_mesh_A = MeshState();
+              active_mesh_B = MeshState();
+              MemoryCtx ctx;
+              Persist<MeshState, ScratchBack> pFront(carousel.current(),
+                                                     ctx.get_scratch_back(),
+                                                     ctx.get_persistent());
+              Persist<CompiledHankin, ScratchFront> pInst(
+                  compiled_hankin, ctx.get_scratch_front(),
+                  ctx.get_persistent());
+              carousel.incoming().invalidate();
+              morph_buffer.invalidate();
+              ctx.get_persistent().raw().reset();
+
+              // Ensure resting mesh state is correct
+              MeshOps::update_hankin(compiled_hankin, carousel.current(),
+                                     persistent_arena, params.hankin_angle);
+              start_hankin_cycle();
+            }));
   }
 
   MeshCarousel<W> carousel;
@@ -197,12 +204,10 @@ private:
   CompiledHankin compiled_hankin_staging; // Built during morph cycle
   std::array<ProceduralPalette, 5> palettes_slots[2];
 
-  // MeshMorph transient state (separate from carousel slots to avoid
-  // self-clone)
+  // MeshMorph transient state
   MeshState active_mesh_A;
   MeshState active_mesh_B;
   Animation::MorphBuffer morph_buffer;
-  float morph_alpha = 0.0f;
 
   Orientation<W> orientation;
   FastNoiseLite noise;

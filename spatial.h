@@ -108,6 +108,40 @@ struct MeshState {
   ArenaSpan<uint16_t> faces_view;
   ArenaSpan<uint16_t> face_offsets_view;
 
+  MeshState() = default;
+
+  // Explicit move semantics to ensure source is invalidated
+  MeshState(MeshState &&other) noexcept
+      : vertices(std::move(other.vertices)),
+        face_counts(std::move(other.face_counts)),
+        faces(std::move(other.faces)),
+        face_offsets(std::move(other.face_offsets)),
+        topology(std::move(other.topology)),
+        face_counts_view(other.face_counts_view),
+        faces_view(other.faces_view),
+        face_offsets_view(other.face_offsets_view) {
+    other.face_counts_view = {};
+    other.faces_view = {};
+    other.face_offsets_view = {};
+  }
+
+  MeshState &operator=(MeshState &&other) noexcept {
+    if (this != &other) {
+      vertices = std::move(other.vertices);
+      face_counts = std::move(other.face_counts);
+      faces = std::move(other.faces);
+      face_offsets = std::move(other.face_offsets);
+      topology = std::move(other.topology);
+      face_counts_view = other.face_counts_view;
+      faces_view = other.faces_view;
+      face_offsets_view = other.face_offsets_view;
+      other.face_counts_view = {};
+      other.faces_view = {};
+      other.face_offsets_view = {};
+    }
+    return *this;
+  }
+
   void clear() {
     vertices.clear();
     face_counts.clear();
