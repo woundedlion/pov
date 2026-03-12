@@ -179,7 +179,7 @@ private:
 
     ScopedScratch _frag(MemoryCtx::scratch());
     Fragments fragments;
-    fragments.initialize(MemoryCtx::scratch(), num_samples + 1);
+    fragments.bind(MemoryCtx::scratch(), num_samples + 1);
     for (int i = 0; i < num_samples; ++i) {
       float t_norm = static_cast<float>(i) / num_samples;
       float theta = i * step;

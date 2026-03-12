@@ -29,7 +29,7 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
     world_state.face_offsets_view = ArenaSpan(local_state.face_offsets);
   }
 
-  world_state.vertices.initialize(arena, local_state.vertices.size());
+  world_state.vertices.bind(arena, local_state.vertices.size());
 
   for (size_t i = 0; i < local_state.vertices.size(); ++i) {
     world_state.vertices.push_back(local_state.vertices[i]);
@@ -47,7 +47,7 @@ inline void transform(const MeshT &mesh, MeshT &transformed, ScratchFront arena,
     transformed.face_offsets_view = ArenaSpan(mesh.face_offsets);
   }
 
-  transformed.vertices.initialize(arena, mesh.vertices.size());
+  transformed.vertices.bind(arena, mesh.vertices.size());
 
   for (size_t i = 0; i < mesh.vertices.size(); ++i) {
     Vector v = mesh.vertices[i];
@@ -72,9 +72,9 @@ FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, MemoryCtx &ctx) {
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), F);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), V);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), I);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), F);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), V);
+  out_mesh.faces.bind(ctx.get_scratch_front(), I);
 
   {
     ScopedScratch _back(ctx.get_scratch_back());
@@ -167,9 +167,9 @@ FLASHMEM inline PolyMesh kis(const PolyMesh &mesh, MemoryCtx &ctx) {
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), V + F);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), I);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), 3 * I);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), V + F);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), I);
+  out_mesh.faces.bind(ctx.get_scratch_front(), 3 * I);
 
   {
     ScopedScratch _(ctx.get_scratch_back());
@@ -216,9 +216,9 @@ FLASHMEM inline PolyMesh ambo(const PolyMesh &mesh, MemoryCtx &ctx) {
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), E);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), F + V);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), 2 * I);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), E);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V);
+  out_mesh.faces.bind(ctx.get_scratch_front(), 2 * I);
 
   {
     ScopedScratch _back(ctx.get_scratch_back());
@@ -341,9 +341,9 @@ FLASHMEM inline PolyMesh truncate(const PolyMesh &mesh, MemoryCtx &ctx,
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), 2 * E);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), F + V);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), 3 * I);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), 2 * E);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V);
+  out_mesh.faces.bind(ctx.get_scratch_front(), 3 * I);
 
   {
     ScopedScratch _back(ctx.get_scratch_back());
@@ -489,9 +489,9 @@ FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, MemoryCtx &ctx,
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), I);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), F + V + E);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), 4 * I);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), I);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V + E);
+  out_mesh.faces.bind(ctx.get_scratch_front(), 4 * I);
 
   {
     ScopedScratch _back(ctx.get_scratch_back());
@@ -629,9 +629,9 @@ FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, MemoryCtx &ctx,
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), V + 2 * E);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), F + E);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), I + 6 * E);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), V + 2 * E);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + E);
+  out_mesh.faces.bind(ctx.get_scratch_front(), I + 6 * E);
 
   {
     ScopedScratch _(ctx.get_scratch_back());
@@ -736,9 +736,9 @@ FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), V);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), F);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), I);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), V);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), F);
+  out_mesh.faces.bind(ctx.get_scratch_front(), I);
 
   for (size_t i = 0; i < V; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -751,7 +751,7 @@ FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, MemoryCtx &ctx,
     ScopedScratch _(ctx.get_scratch_back());
 
     ArenaVector<Vector> movements;
-    movements.initialize(ctx.get_scratch_back(), V);
+    movements.bind(ctx.get_scratch_back(), V);
     for (size_t i = 0; i < V; ++i)
       movements.push_back(Vector(0, 0, 0));
 
@@ -831,9 +831,9 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, MemoryCtx &ctx,
   size_t I = mesh.faces.size();
   size_t E = I / 2;
 
-  out_mesh.vertices.initialize(ctx.get_scratch_front(), I);
-  out_mesh.face_counts.initialize(ctx.get_scratch_front(), F + V + 2 * E);
-  out_mesh.faces.initialize(ctx.get_scratch_front(), 5 * I);
+  out_mesh.vertices.bind(ctx.get_scratch_front(), I);
+  out_mesh.face_counts.bind(ctx.get_scratch_front(), F + V + 2 * E);
+  out_mesh.faces.bind(ctx.get_scratch_front(), 5 * I);
 
   {
     ScopedScratch _(ctx.get_scratch_back());

@@ -31,13 +31,13 @@ static constexpr int MAX_INDICES = 20000;
 
 FLASHMEM inline PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
-  final_mesh.vertices.initialize(geom, temp.vertices.size());
+  final_mesh.vertices.bind(geom, temp.vertices.size());
   for (size_t i = 0; i < temp.vertices.size(); ++i)
     final_mesh.vertices.push_back(temp.vertices[i]);
-  final_mesh.face_counts.initialize(geom, temp.face_counts.size());
+  final_mesh.face_counts.bind(geom, temp.face_counts.size());
   for (size_t i = 0; i < temp.face_counts.size(); ++i)
     final_mesh.face_counts.push_back(temp.face_counts[i]);
-  final_mesh.faces.initialize(geom, temp.faces.size());
+  final_mesh.faces.bind(geom, temp.faces.size());
   for (size_t i = 0; i < temp.faces.size(); ++i)
     final_mesh.faces.push_back(temp.faces[i]);
   return final_mesh;
@@ -170,15 +170,15 @@ struct Dodecahedron {
 template <typename StaticMeshT> PolyMesh to_polymesh(MemoryCtx &ctx) {
   ctx.swap_scratch();
   PolyMesh mesh;
-  mesh.vertices.initialize(ctx.get_scratch_front(),
+  mesh.vertices.bind(ctx.get_scratch_front(),
                            StaticMeshT::vertices.size());
   for (const auto &v : StaticMeshT::vertices)
     mesh.vertices.push_back(v);
-  mesh.face_counts.initialize(ctx.get_scratch_front(),
+  mesh.face_counts.bind(ctx.get_scratch_front(),
                               StaticMeshT::face_counts.size());
   for (const auto &c : StaticMeshT::face_counts)
     mesh.face_counts.push_back(c);
-  mesh.faces.initialize(ctx.get_scratch_front(), StaticMeshT::faces.size());
+  mesh.faces.bind(ctx.get_scratch_front(), StaticMeshT::faces.size());
   for (const auto &f : StaticMeshT::faces)
     mesh.faces.push_back(f);
   return mesh;

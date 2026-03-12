@@ -38,14 +38,6 @@ struct CompiledHankin {
     faces.clear();
   }
 
-  void invalidate() {
-    baseVertices.invalidate();
-    staticVertices.invalidate();
-    dynamicVertices.invalidate();
-    dynamicInstructions.invalidate();
-    face_counts.invalidate();
-    faces.invalidate();
-  }
 };
 
 /**
@@ -56,7 +48,7 @@ namespace MeshOps {
 inline void clone(const CompiledHankin &src, CompiledHankin &dst,
                   Arena &arena) {
   auto push = [&arena](const auto &s_vec, auto &d_vec) {
-    d_vec.initialize(arena, s_vec.size());
+    d_vec.bind(arena, s_vec.size());
     for (size_t i = 0; i < s_vec.size(); ++i) {
       d_vec.push_back(s_vec[i]);
     }
@@ -80,15 +72,15 @@ FLASHMEM inline void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  compiled.baseVertices.initialize(target_arena, V);
+  compiled.baseVertices.bind(target_arena, V);
   for (size_t i = 0; i < V; ++i) {
     compiled.baseVertices.push_back(mesh.vertices[i]);
   }
-  compiled.staticVertices.initialize(target_arena, (I / 2) + 1);
-  compiled.dynamicVertices.initialize(target_arena, I);
-  compiled.dynamicInstructions.initialize(target_arena, I);
-  compiled.face_counts.initialize(target_arena, F + V);
-  compiled.faces.initialize(target_arena, 4 * I);
+  compiled.staticVertices.bind(target_arena, (I / 2) + 1);
+  compiled.dynamicVertices.bind(target_arena, I);
+  compiled.dynamicInstructions.bind(target_arena, I);
+  compiled.face_counts.bind(target_arena, F + V);
+  compiled.faces.bind(target_arena, 4 * I);
 
   {
     ScopedScratch _(temp_arena);
@@ -270,7 +262,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     compiled.dynamicVertices[i] = intersect.normalize();
   }
 
-  out_mesh.vertices.initialize(target_arena,
+  out_mesh.vertices.bind(target_arena,
                                compiled.staticVertices.size() +
                                    compiled.dynamicVertices.size());
   for (size_t i = 0; i < compiled.staticVertices.size(); ++i)
@@ -278,10 +270,10 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
   for (size_t i = 0; i < compiled.dynamicVertices.size(); ++i)
     out_mesh.vertices.push_back(compiled.dynamicVertices[i]);
 
-  out_mesh.face_counts.initialize(target_arena, compiled.face_counts.size());
+  out_mesh.face_counts.bind(target_arena, compiled.face_counts.size());
 
   if constexpr (requires { out_mesh.face_offsets; }) {
-    out_mesh.face_offsets.initialize(target_arena, compiled.face_counts.size());
+    out_mesh.face_offsets.bind(target_arena, compiled.face_counts.size());
   }
 
   int current_offset = 0;
@@ -293,7 +285,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     current_offset += compiled.face_counts[i];
   }
 
-  out_mesh.faces.initialize(target_arena, compiled.faces.size());
+  out_mesh.faces.bind(target_arena, compiled.faces.size());
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     out_mesh.faces.push_back(compiled.faces[i]);
 }

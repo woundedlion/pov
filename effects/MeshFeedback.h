@@ -93,7 +93,7 @@ public:
 
     timeline.step(canvas);
 
-    if (!morphing) {
+    if (carousel.current().is_bound()) {
       Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
                              [&](const Vector &v, Fragment &f) {
                                float t_val = (v.y + 1.0f) * 0.5f;
@@ -149,13 +149,15 @@ private:
                  // Morph complete: drop temporary buffers and compact
                  active_mesh_A = MeshState();
                  active_mesh_B = MeshState();
-                 MemoryCtx ctx;
-                 Persist<MeshState, ScratchBack> pFront(carousel.current(),
-                                                        ctx.get_scratch_back(),
-                                                        ctx.get_persistent());
-                 carousel.incoming().invalidate();
-                 morph_buffer.invalidate();
-                 ctx.get_persistent().raw().reset();
+                 carousel.incoming() = MeshState();
+                 morph_buffer = Animation::MorphBuffer();
+                 compact_persistent(persistent_arena, scratch_arena_a, [&](ScratchScope& backup) {
+                   MeshState backup_mesh;
+                   MeshOps::clone(carousel.current(), backup_mesh, backup.raw());
+                   persistent_arena.reset();
+                   carousel.current() = MeshState();
+                   MeshOps::clone(backup_mesh, carousel.current(), persistent_arena);
+                 });
 
                  // Rest on the static shape for a moment before morphing again
                  timeline.add(0, Animation::Sprite([](Canvas &, float) {}, 16)

@@ -153,16 +153,8 @@ struct MeshState {
     face_offsets_view = {};
   }
 
-  void invalidate() {
-    vertices.invalidate();
-    face_counts.invalidate();
-    faces.invalidate();
-    face_offsets.invalidate();
-    topology.invalidate();
-    face_counts_view = {};
-    faces_view = {};
-    face_offsets_view = {};
-  }
+  /// Check if any member vector is bound (has been allocated).
+  bool is_bound() const { return vertices.is_bound(); }
 
   // Unified accessors: return whichever is populated (owned or borrowed)
   const uint8_t *get_face_counts_data() const {
@@ -226,7 +218,7 @@ public:
       return;
 
     size_t count = points.size();
-    nodes.initialize(arena, count);
+    nodes.bind(arena, count);
 
     // Temporary index allocation for building the tree
     int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
