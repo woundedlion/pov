@@ -408,8 +408,53 @@ template <typename A, typename B> struct Union {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // TODO: Union intervals are complex; fallback to full scan.
-    return false;
+    StaticCircularBuffer<std::pair<float, float>, 32> merged;
+
+    bool hasA = a.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { merged.push_back({start, end}); });
+
+    bool hasB = b.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { merged.push_back({start, end}); });
+
+    // If neither shape provides intervals, fall back to full scan
+    if (!hasA && !hasB)
+      return false;
+
+    // If only one shape returned intervals and the other fell back,
+    // we must do full scan (the fallback shape needs all pixels)
+    if (!hasA || !hasB)
+      return false;
+
+    if (merged.is_empty())
+      return true; // Both reported intervals but none produced
+
+    // Sort by start
+    auto *data = &merged[0];
+    size_t n = merged.size();
+    for (size_t i = 1; i < n; ++i) {
+      auto key = data[i];
+      int j = static_cast<int>(i) - 1;
+      while (j >= 0 && data[j].first > key.first) {
+        data[j + 1] = data[j];
+        --j;
+      }
+      data[j + 1] = key;
+    }
+
+    // Merge overlapping intervals
+    float cur_start = data[0].first;
+    float cur_end = data[0].second;
+    for (size_t i = 1; i < n; ++i) {
+      if (data[i].first <= cur_end) {
+        cur_end = std::max(cur_end, data[i].second);
+      } else {
+        out(cur_start, cur_end);
+        cur_start = data[i].first;
+        cur_end = data[i].second;
+      }
+    }
+    out(cur_start, cur_end);
+    return true;
   }
 
   /**
@@ -429,6 +474,58 @@ template <typename A, typename B> struct Union {
     if (res.dist < resB.dist)
       return; // Min distance
     res = resB;
+  }
+};
+
+/**
+ * @brief Smooth CSG Union operation using polynomial smooth minimum.
+ * Shapes organically blend together within radius k (Inigo Quilez smin).
+ */
+template <typename A, typename B> struct SmoothUnion {
+  const A &a;
+  const B &b;
+  float k; // Smoothing factor (e.g., 0.1)
+  float thickness;
+  static constexpr bool is_solid = true;
+
+  SmoothUnion(const A &shapeA, const B &shapeB, float smoothness)
+      : a(shapeA), b(shapeB), k(smoothness),
+        thickness(std::max(shapeA.thickness, shapeB.thickness)) {}
+
+  template <int H> Bounds get_vertical_bounds() const {
+    auto b1 = a.template get_vertical_bounds<H>();
+    auto b2 = b.template get_vertical_bounds<H>();
+    // Expand bounds slightly to account for the blending radius (k)
+    return {std::max(0, std::min(b1.y_min, b2.y_min) - 1),
+            std::min(H - 1, std::max(b1.y_max, b2.y_max) + 1)};
+  }
+
+  // Fallback to full width (blend zone invalidates tight intervals)
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const { return false; }
+
+  DistanceResult distance(const Vector &p) const {
+    DistanceResult res;
+    distance<true>(p, res);
+    return res;
+  }
+
+  template <bool ComputeUVs = true>
+  void distance(const Vector &p, DistanceResult &res) const {
+    a.template distance<ComputeUVs>(p, res);
+    DistanceResult resB;
+    b.template distance<ComputeUVs>(p, resB);
+
+    // Polynomial smooth min (cubic)
+    float h = std::max(k - std::abs(res.dist - resB.dist), 0.0f) / k;
+    float m = h * h * h * k * (1.0f / 6.0f);
+
+    if (res.dist < resB.dist) {
+      res.dist -= m;
+    } else {
+      resB.dist -= m;
+      res = resB;
+    }
   }
 };
 
@@ -563,6 +660,54 @@ template <typename A, typename B> struct Intersection {
     if (res.dist > resB.dist)
       return;
     res = resB;
+  }
+};
+
+/**
+ * @brief Angular domain repetition modifier.
+ * Folds azimuthal angle to create N copies of a shape around the Y-axis
+ * for constant cost (single distance evaluation).
+ */
+template <typename Shape> struct AngularRepeat {
+  const Shape &shape;
+  int repetitions;
+  float thickness;
+  static constexpr bool is_solid = Shape::is_solid;
+
+  AngularRepeat(const Shape &s, int reps)
+      : shape(s), repetitions(reps), thickness(s.thickness) {}
+
+  template <int H> Bounds get_vertical_bounds() const {
+    return shape.template get_vertical_bounds<H>();
+  }
+
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    // Full scan: repetitions cover the full azimuth
+    return false;
+  }
+
+  DistanceResult distance(const Vector &p) const {
+    DistanceResult res;
+    distance<true>(p, res);
+    return res;
+  }
+
+  template <bool ComputeUVs = true>
+  void distance(const Vector &p, DistanceResult &res) const {
+    // Calculate azimuth angle of p in the XZ plane
+    float theta = atan2f(p.z, p.x);
+    if (theta < 0) theta += 2 * PI_F;
+
+    // Fold space: modulo the angle into one sector
+    float sector = (2 * PI_F) / repetitions;
+    float folded_theta = fmodf(theta + sector / 2.0f, sector) - sector / 2.0f;
+
+    // Reconstruct folded point (preserving Y)
+    float r = sqrtf(p.x * p.x + p.z * p.z);
+    Vector folded_p(r * cosf(folded_theta), p.y, r * sinf(folded_theta));
+
+    shape.template distance<ComputeUVs>(folded_p, res);
   }
 };
 

@@ -20,8 +20,6 @@ public:
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - (128 + 128) * 1024, 128 * 1024,
-                     128 * 1024);
 
     PersistentTracker::register_mesh(&mesh_states[0]);
     PersistentTracker::register_mesh(&mesh_states[1]);
@@ -126,8 +124,9 @@ private:
 
     // Generate new shape
     {
-      ScopedScratch _(ctx.get_scratch_front());
-      PolyMesh local_mesh = Solids::finalize_solid(solids[solid_idx].generate(ctx), ctx.get_scratch_front());
+      ScopedScratch _front(ctx.get_scratch_front());
+      ScopedScratch _back(ctx.get_scratch_back());
+      PolyMesh local_mesh = solids[solid_idx].generate(ctx);
       ctx.update_persistent(mesh_states[current_mesh_idx], local_mesh);
     }
     MeshOps::classify_faces_by_topology(mesh_states[current_mesh_idx], ctx);
