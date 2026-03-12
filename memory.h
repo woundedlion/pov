@@ -305,7 +305,7 @@ namespace MeshOps {
 template <typename MeshT>
 void clone(const MeshT &src, MeshT &dst, Arena &arena);
 void clone(const CompiledHankin &src, CompiledHankin &dst, Arena &arena);
-}
+} // namespace MeshOps
 
 // ============================================================================
 // 4. ScratchScope — RAII Guard + Factory for Temporary Memory
@@ -325,8 +325,7 @@ struct ScratchScope {
     return ArenaVector<T>(arena, capacity);
   }
 
-  /// Escape hatch — raw arena reference for legacy MeshOps calls.
-  Arena &raw() { return arena; }
+  Arena &get_arena() { return arena; }
 
   // Non-copyable
   ScratchScope(const ScratchScope &) = delete;
@@ -344,7 +343,8 @@ using ScopedScratch = ScratchScope;
 /// that clones live data into scratch, resets persistent, then clones back.
 ///
 /// Usage:
-///   compact_persistent(persistent_arena, scratch_arena_a, [&](ScratchScope& backup) {
+///   compact_persistent(persistent_arena, scratch_arena_a, [&](ScratchScope&
+///   backup) {
 ///       MeshState tmp;
 ///       MeshOps::clone(live_mesh, tmp, backup.raw());
 ///       persistent_arena.reset();
@@ -355,4 +355,3 @@ void compact_persistent(Arena &persistent, Arena &scratch, Fn &&fn) {
   ScratchScope backup(scratch);
   fn(backup);
 }
-
