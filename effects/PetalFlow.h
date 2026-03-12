@@ -177,9 +177,9 @@ private:
       return 0.6f * std::abs(sinf(3.0f * PI_F * t));
     };
 
-    ScopedScratch _frag(MemoryCtx::scratch());
+    ScopedScratch _frag(scratch_arena_a);
     Fragments fragments;
-    fragments.bind(MemoryCtx::scratch(), num_samples + 1);
+    fragments.bind(scratch_arena_a, num_samples + 1);
     for (int i = 0; i < num_samples; ++i) {
       float t_norm = static_cast<float>(i) / num_samples;
       float theta = i * step;

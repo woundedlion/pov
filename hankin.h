@@ -290,17 +290,15 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     out_mesh.faces.push_back(compiled.faces[i]);
 }
 
-FLASHMEM inline PolyMesh hankin(const PolyMesh &mesh, MemoryCtx &ctx,
+FLASHMEM inline PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
                                 float angle) {
-  ctx.swap_scratch();
   PolyMesh out;
 
   {
-    ScopedScratch _(ctx.get_scratch_back());
+    ScopedScratch _(temp);
     CompiledHankin compiled;
-    compile_hankin(mesh, compiled, ctx.get_scratch_back(),
-                   ctx.get_scratch_front());
-    update_hankin(compiled, out, ctx.get_scratch_front(), angle);
+    compile_hankin(mesh, compiled, temp, target);
+    update_hankin(compiled, out, target, angle);
   }
 
   return out;

@@ -17,10 +17,11 @@ template <typename GeometryType> struct IGenerator {
   /**
    * @brief Generates and returns the target geometry buffer in local space.
    * @param geom The arena to allocate persistent geometry data.
-   * @param ctx The ping-pong scratch context.
+   * @param a Scratch arena A.
+   * @param b Scratch arena B.
    * @return The generated geometry box.
    */
-  virtual GeometryType generate(Arena &geom, MemoryCtx &ctx) const = 0;
+  virtual GeometryType generate(Arena &geom, Arena &a, Arena &b) const = 0;
 
   virtual ~IGenerator() = default;
 };
@@ -29,7 +30,7 @@ template <typename GeometryType> struct IGenerator {
  * @brief Specialized interface for PolyMesh generation
  */
 struct IMeshGenerator : public IGenerator<PolyMesh> {
-  virtual PolyMesh generate(Arena &geom, MemoryCtx &ctx) const = 0;
+  virtual PolyMesh generate(Arena &geom, Arena &a, Arena &b) const = 0;
 };
 
 /**
@@ -41,9 +42,9 @@ struct SolidGenerator : public IMeshGenerator {
 
   SolidGenerator(int id) : solid_id(id) {}
 
-  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
-    ScopedScratch _(ctx.get_scratch_back());
-    return Solids::get(geom, ctx, solid_id);
+  FLASHMEM PolyMesh generate(Arena &geom, Arena &a, Arena &b) const override {
+    ScopedScratch _(b);
+    return Solids::get(geom, a, b, solid_id);
   }
 };
 
@@ -55,9 +56,9 @@ struct SolidNameGenerator : public IMeshGenerator {
 
   SolidNameGenerator(std::string_view name) : solid_name(name) {}
 
-  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
-    ScopedScratch _(ctx.get_scratch_back());
-    return Solids::get_by_name(geom, ctx, solid_name);
+  FLASHMEM PolyMesh generate(Arena &geom, Arena &a, Arena &b) const override {
+    ScopedScratch _(b);
+    return Solids::get_by_name(geom, a, b, solid_name);
   }
 };
 
@@ -65,44 +66,44 @@ struct SolidNameGenerator : public IMeshGenerator {
  * @brief Helper generator for specific platonic solids
  */
 struct IcosahedronGenerator : public IMeshGenerator {
-  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
-    ScopedScratch _(ctx.get_scratch_back());
-    return Solids::finalize_solid(Solids::Platonic::icosahedron(ctx), geom);
+  FLASHMEM PolyMesh generate(Arena &geom, Arena &a, Arena &b) const override {
+    ScopedScratch _(b);
+    return Solids::finalize_solid(Solids::Platonic::icosahedron(a, b), geom);
   }
 };
 
 struct DodecahedronGenerator : public IMeshGenerator {
-  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
-    ScopedScratch _(ctx.get_scratch_back());
-    return Solids::finalize_solid(Solids::Platonic::dodecahedron(ctx), geom);
+  FLASHMEM PolyMesh generate(Arena &geom, Arena &a, Arena &b) const override {
+    ScopedScratch _(b);
+    return Solids::finalize_solid(Solids::Platonic::dodecahedron(a, b), geom);
   }
 };
 
 struct CubeGenerator : public IMeshGenerator {
-  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
-    ScopedScratch _(ctx.get_scratch_back());
-    return Solids::finalize_solid(Solids::Platonic::cube(ctx), geom);
+  FLASHMEM PolyMesh generate(Arena &geom, Arena &a, Arena &b) const override {
+    ScopedScratch _(b);
+    return Solids::finalize_solid(Solids::Platonic::cube(a, b), geom);
   }
 };
 
 struct OctahedronGenerator : public IMeshGenerator {
-  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
-    ScopedScratch _(ctx.get_scratch_back());
-    return Solids::finalize_solid(Solids::Platonic::octahedron(ctx), geom);
+  FLASHMEM PolyMesh generate(Arena &geom, Arena &a, Arena &b) const override {
+    ScopedScratch _(b);
+    return Solids::finalize_solid(Solids::Platonic::octahedron(a, b), geom);
   }
 };
 
 struct TetrahedronGenerator : public IMeshGenerator {
-  FLASHMEM PolyMesh generate(Arena &geom, MemoryCtx &ctx) const override {
-    ScopedScratch _(ctx.get_scratch_back());
-    return Solids::finalize_solid(Solids::Platonic::tetrahedron(ctx), geom);
+  FLASHMEM PolyMesh generate(Arena &geom, Arena &a, Arena &b) const override {
+    ScopedScratch _(b);
+    return Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), geom);
   }
 };
 
 /**
- * @brief Generates a mesh using a temporary MemoryCtx scope.
- * Encapsulates MemoryCtx + ScopedScratch boilerplate for any generator
- * that implements generate(Arena&, MemoryCtx&).
+ * @brief Generates a mesh using scratch arenas.
+ * Encapsulates ScopedScratch boilerplate for any generator
+ * that implements generate(Arena&, Arena&, Arena&).
  *
  * Usage: mesh = generate_mesh<DodecahedronGenerator>(persistent_arena);
  *        mesh = generate_mesh<SolidGenerator>(persistent_arena, solid_id);
@@ -110,7 +111,8 @@ struct TetrahedronGenerator : public IMeshGenerator {
 template <typename Gen, typename... Args>
 inline auto generate_mesh(Arena &geom, Args &&...args) {
   Gen gen(std::forward<Args>(args)...);
-  MemoryCtx ctx;
-  ScopedScratch _(ctx.get_scratch_front());
-  return gen.generate(geom, ctx);
+  scratch_arena_a.reset();
+  scratch_arena_b.reset();
+  ScopedScratch _(scratch_arena_a);
+  return gen.generate(geom, scratch_arena_a, scratch_arena_b);
 }

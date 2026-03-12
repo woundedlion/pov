@@ -131,8 +131,8 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-    ScopedScratch _(MemoryCtx::scratch());
-    ArenaVector<Fragment> vertices(MemoryCtx::scratch(), 2000);
+    ScopedScratch _(scratch_arena_a);
+    ArenaVector<Fragment> vertices(scratch_arena_a, 2000);
     timeline.step(canvas);
 
     noise_xform.params.frequency = params.noiseFreq;

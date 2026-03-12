@@ -17,7 +17,7 @@ public:
         palette(&circular_source) {}
 
   void init() override {
-    pipeline.next.init_storage(Persistent(persistent_arena));
+    pipeline.next.init_storage(persistent_arena);
 
     registerParam("Light Speed", &params.lightSpeed, 0.0f, 0.5f);
     registerParam("Light Alpha", &params.lightAlpha, 0.0f, 2.0f);

@@ -80,7 +80,7 @@ private:
 
   struct BZGridGenerator : public IGenerator<std::array<Vector, RD_N>> {
     std::array<Vector, RD_N> generate(Arena &geom,
-                                      MemoryCtx &ctx) const override {
+                                      Arena &a, Arena &b) const override {
       std::array<Vector, RD_N> out_nodes;
       const float phi = PI_F * (3.0f - sqrtf(5.0f));
       for (int i = 0; i < RD_N; i++) {

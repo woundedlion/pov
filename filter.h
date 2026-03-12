@@ -351,7 +351,7 @@ public:
   /// Allocate ring buffer storage from persistent arena.
   /// Must be called from effect init(), not constructor (arenas aren't ready
   /// yet).
-  void init_storage(Persistent arena) {
+  void init_storage(Arena& arena) {
     items_ = static_cast<Item *>(
         arena.allocate(Capacity * sizeof(Item), alignof(Item)));
     head_ = tail_ = count_ = 0;
@@ -474,7 +474,7 @@ template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
   Trails(int lifetime) : lifetime(lifetime) {}
 
-  void init_storage(Persistent arena) {
+  void init_storage(Arena& arena) {
     ttls_ = static_cast<DecayPixel *>(
         arena.allocate(MAX_PIXELS * sizeof(DecayPixel), alignof(DecayPixel)));
     num_pixels = 0;
@@ -577,7 +577,7 @@ template <int W, int Capacity> class Slew : public Is2DWithHistory {
 public:
   Slew(float rise = 1.0f, float fall = 0.05f) : rise(rise), fall(fall) {}
 
-  void init_storage(Persistent arena) {
+  void init_storage(Arena& arena) {
     items_ = static_cast<Item *>(
         arena.allocate(Capacity * sizeof(Item), alignof(Item)));
     head_ = tail_ = count_ = 0;

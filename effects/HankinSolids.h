@@ -56,17 +56,18 @@ private:
     auto solids = Solids::Collections::get_simple_solids();
     hs::log("Loading shape: '%s'", solids[idx].name);
 
-    MemoryCtx ctx;
-    ScopedScratch _a(ctx.get_scratch_front());
-    ScopedScratch _b(ctx.get_scratch_back());
+    scratch_arena_a.reset();
+    scratch_arena_b.reset();
+    ScopedScratch _a(scratch_arena_a);
+    ScopedScratch _b(scratch_arena_b);
 
-    PolyMesh temp_base = Solids::finalize_solid(solids[idx].generate(ctx),
-                                                ctx.get_scratch_front());
+    PolyMesh temp_base = Solids::finalize_solid(solids[idx].generate(scratch_arena_a, scratch_arena_b),
+                                                scratch_arena_a);
 
     // Compile hankin instructions onto persistent arena
     out_hankin = CompiledHankin();
     MeshOps::compile_hankin(temp_base, out_hankin, persistent_arena,
-                            ctx.get_scratch_front());
+                            scratch_arena_a);
 
     // Produce output mesh at the given angle
     out_mesh.clear();
@@ -74,8 +75,9 @@ private:
 
     // Classify topology
     {
-      MemoryCtx ctx;
-      MeshOps::classify_faces_by_topology(out_mesh, ctx);
+      scratch_arena_a.reset();
+      scratch_arena_b.reset();
+      MeshOps::classify_faces_by_topology(out_mesh, scratch_arena_a, scratch_arena_b, persistent_arena);
     }
 
     // Shuffle palettes
@@ -90,10 +92,9 @@ private:
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
 
-    MemoryCtx ctx;
-    ScopedScratch _(ctx.get_scratch_front());
+    ScopedScratch _(scratch_arena_a);
     MeshState rotated_mesh;
-    MeshOps::transform(mesh, rotated_mesh, ctx.get_scratch_front());
+    MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
 
     for (auto &v : rotated_mesh.vertices)
       v = rotate(v, q);
@@ -152,7 +153,7 @@ private:
     // MeshMorph needs SEPARATE active meshes (self-clone zeroes data)
     size_t max_v = std::max(carousel.slot(old_front).vertices.size(),
                             carousel.slot(new_slot).vertices.size());
-    morph_buffer.preallocate(Persistent(persistent_arena), max_v);
+    morph_buffer.preallocate(persistent_arena, max_v);
 
     // Schedule self-rendering morph (MeshMorph draws both meshes with
     // crossfade)

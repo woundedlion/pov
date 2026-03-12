@@ -82,11 +82,10 @@ private:
     if (opacity <= 0.005f)
       return;
 
-    MemoryCtx ctx;
-    ScopedScratch _a(ctx.get_scratch_front());
+    ScopedScratch _a(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
-    MeshOps::transform(base_state, transformed_state, ctx.get_scratch_front(),
+    MeshOps::transform(base_state, transformed_state, scratch_arena_a,
                        ripple_gen, camera);
 
     const int *raw_indices = faceIndices.data();
@@ -134,7 +133,7 @@ private:
     carousel.transition(
         timeline,
         // generate_fn
-        [idx, &solids](MemoryCtx &ctx) { return solids[idx].generate(ctx); },
+        [idx, &solids](Arena &a, Arena &b) { return solids[idx].generate(a, b); },
         // draw_outgoing, draw_incoming
         draw_fn, draw_fn,
         160, // duration
