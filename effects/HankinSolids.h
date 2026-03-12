@@ -29,17 +29,10 @@ public:
 
     solid_idx = 0;
 
-    primary.preallocate(Persistent(persistent_arena));
-    secondary.preallocate(Persistent(persistent_arena));
-    morph_buffer.preallocate(Persistent(persistent_arena), 544);
-
-    {
-      MemoryCtx ctx;
-      ScopedScratch _a(ctx.get_scratch_front());
-      ScopedScratch _b(ctx.get_scratch_back());
-      primary.load(solid_idx, params.hankin_angle, Persistent(persistent_arena),
-                   ctx, source_palettes_pool, timeline.t);
-    }
+    // Load initial shape into carousel's front slot
+    load_shape(carousel.current(), compiled_hankin,
+               palettes_slots[carousel.front_index()], solid_idx,
+               params.hankin_angle);
 
     start_hankin_cycle();
   }
@@ -51,156 +44,43 @@ public:
   }
 
 private:
-  struct ShapeState {
-    CompiledHankin hankin;
-    MeshState mesh;        // The static resting geometry
-    MeshState base;        // The simple base geometry
-    MeshState active_mesh; // The dynamic animation puppet!
-    std::array<ProceduralPalette, 5> palettes;
-
-    void preallocate(Persistent arena) {
-      // Measured maxima across all 18 simple solids:
-      // Base: V=120 F=92 I=360  Output: V=540 F=182 I=1440
-      constexpr int MAX_V = 128, MAX_F = 96, MAX_I = 368;
-      constexpr int OUT_V = 544, OUT_F = 192, OUT_I = 1440;
-
-      mesh.vertices.initialize(arena, OUT_V);
-      mesh.face_counts.initialize(arena, OUT_F);
-      if constexpr (requires { mesh.face_offsets; })
-        mesh.face_offsets.initialize(arena, OUT_F);
-      mesh.faces.initialize(arena, OUT_I);
-
-      base.vertices.initialize(arena, MAX_V);
-      base.face_counts.initialize(arena, MAX_F);
-      if constexpr (requires { base.face_offsets; })
-        base.face_offsets.initialize(arena, MAX_F);
-      base.faces.initialize(arena, MAX_I);
-
-      hankin.baseVertices.initialize(arena, MAX_V);
-      hankin.staticVertices.initialize(arena, (MAX_I / 2) + 1);
-      hankin.dynamicVertices.initialize(arena, MAX_I);
-      hankin.dynamicInstructions.initialize(arena, MAX_I);
-      hankin.face_counts.initialize(arena, OUT_F);
-      hankin.faces.initialize(arena, OUT_I);
-
-      active_mesh.vertices.initialize(arena, OUT_V);
-      active_mesh.face_counts.initialize(arena, OUT_F);
-      if constexpr (requires { active_mesh.face_offsets; })
-        active_mesh.face_offsets.initialize(arena, OUT_F);
-      active_mesh.faces.initialize(arena, OUT_I);
-    }
-
-    void load(int idx, float angle, Persistent geom, MemoryCtx &ctx,
-              const std::array<ProceduralPalette, 5> &pool, float time) {
-      auto solids = Solids::Collections::get_simple_solids();
-      hs::log("Transitioning to '%s'", solids[idx].name);
-
-      PolyMesh temp_base = Solids::finalize_solid(solids[idx].generate(ctx), ctx.get_scratch_front());
-      MeshOps::compile(temp_base, base, geom);
-      MeshOps::compile_hankin(temp_base, hankin, ctx.get_scratch_back(),
-                              ctx.get_scratch_front());
-
-      // Calculate initial state (angle = 0)
-      MeshOps::update_hankin(hankin, mesh, geom, angle);
-      ctx.swap_scratch();
-      MeshOps::classify_faces_by_topology(mesh, ctx);
-
-      palettes = pool;
-      std::shuffle(palettes.begin(), palettes.end(), hs::random());
-    }
-
-    void swap(ShapeState &other) {
-      std::swap(hankin, other.hankin);
-      std::swap(mesh, other.mesh);
-      std::swap(base, other.base);
-      std::swap(active_mesh, other.active_mesh); // Swap the puppet too!
-      std::swap(palettes, other.palettes);
-    }
-  };
-
   const std::array<ProceduralPalette, 5> source_palettes_pool = {
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
-  void draw_dynamic_morph(Canvas &c, float opacity,
-                          const ArenaVector<int> &p_topo,
-                          const std::array<ProceduralPalette, 5> &p_pal,
-                          const ArenaVector<int> &s_topo,
-                          const std::array<ProceduralPalette, 5> &s_pal) {
+  /// Load a shape: generate base, compile hankin, produce output mesh,
+  /// classify topology, shuffle palettes.
+  void load_shape(MeshState &out_mesh, CompiledHankin &out_hankin,
+                  std::array<ProceduralPalette, 5> &out_palettes, int idx,
+                  float angle) {
+    auto solids = Solids::Collections::get_simple_solids();
+    hs::log("Loading shape: '%s'", solids[idx].name);
+
     MemoryCtx ctx;
     ScopedScratch _a(ctx.get_scratch_front());
+    ScopedScratch _b(ctx.get_scratch_back());
 
-    Quaternion q = orientation.get();
+    PolyMesh temp_base = Solids::finalize_solid(solids[idx].generate(ctx),
+                                                ctx.get_scratch_front());
 
-    float op_A = (1.0f - morph_alpha) * opacity;
-    if (op_A > 0.01f) {
-      draw_topology_mesh(c, primary.active_mesh, p_topo, p_pal, op_A, q);
-    }
+    // Compile hankin instructions onto persistent arena
+    out_hankin = CompiledHankin();
+    MeshOps::compile_hankin(temp_base, out_hankin, persistent_arena,
+                            ctx.get_scratch_front());
 
-    float op_B = morph_alpha * opacity;
-    if (op_B > 0.01f) {
-      draw_topology_mesh(c, secondary.active_mesh, s_topo, s_pal, op_B, q);
-    }
-  }
+    // Produce output mesh at the given angle
+    out_mesh.clear();
+    MeshOps::update_hankin(out_hankin, out_mesh, persistent_arena, angle);
 
-  void start_hankin_cycle() {
-    constexpr int DURATION = 64;
-    timeline.add(0, Animation::Mutation(params.hankin_angle,
-                                        sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
-                                        DURATION, ease_mid, false)
-                        .then([this]() { this->start_morph_cycle(); }));
-
-    timeline.add(
-        0, Animation::Sprite(
-               [this](Canvas &c, float opacity) {
-                 MeshOps::update_hankin(primary.hankin, primary.mesh,
-                                        persistent_arena, params.hankin_angle);
-                 draw_topology_mesh(c, primary.mesh, primary.mesh.topology,
-                                    primary.palettes, opacity);
-               },
-               DURATION));
-  }
-
-  FLASHMEM void start_morph_cycle() {
-    constexpr int MORPH_FRAMES = 16;
-    auto solids = Solids::Collections::get_simple_solids();
-    int next_idx = (solid_idx + 1) % solids.size();
-
-    // 1. Generate incoming shape
+    // Classify topology
     {
       MemoryCtx ctx;
-      ScopedScratch _a(ctx.get_scratch_front());
-      ScopedScratch _b(ctx.get_scratch_back());
-      secondary.load(next_idx, params.hankin_angle,
-                     Persistent(persistent_arena), ctx, source_palettes_pool,
-                     timeline.t);
+      MeshOps::classify_faces_by_topology(out_mesh, ctx);
     }
 
-    // 2. Schedule alpha blend + vertex morph + draw sprite
-    morph_alpha = 0.0f;
-    timeline.add(
-        0, Animation::Transition(morph_alpha, 1.0f, MORPH_FRAMES, ease_in_out_sin));
-    timeline.add(
-        0, Animation::MeshMorph(
-               &primary.active_mesh, &secondary.active_mesh, &morph_buffer,
-               &persistent_arena, primary.mesh, secondary.mesh, MORPH_FRAMES,
-               false, ease_in_out_sin));
-    timeline.add(
-        0,
-        Animation::Sprite(
-            [this](Canvas &c, float opacity) {
-              draw_dynamic_morph(c, opacity, primary.mesh.topology,
-                                 primary.palettes, secondary.mesh.topology,
-                                 secondary.palettes);
-            },
-            MORPH_FRAMES)
-            .then([this, next_idx]() {
-              solid_idx = next_idx;
-              primary.swap(secondary);
-              MeshOps::update_hankin(primary.hankin, primary.mesh,
-                                     persistent_arena, params.hankin_angle);
-              start_hankin_cycle();
-            }));
+    // Shuffle palettes
+    out_palettes = source_palettes_pool;
+    std::shuffle(out_palettes.begin(), out_palettes.end(), hs::random());
   }
 
   void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
@@ -237,18 +117,90 @@ private:
                            params.debug_bb);
   }
 
-  // Overload without pre-computed quaternion (for non-morph paths)
-  void draw_topology_mesh(Canvas &canvas, const MeshState &mesh,
-                          const ArenaVector<int> &topology,
-                          const std::array<ProceduralPalette, 5> &palettes,
-                          float opacity) {
-    draw_topology_mesh(canvas, mesh, topology, palettes, opacity,
-                       orientation.get());
+  void start_hankin_cycle() {
+    constexpr int DURATION = 64;
+    timeline.add(0, Animation::Mutation(params.hankin_angle,
+                                        sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
+                                        DURATION, ease_mid, false)
+                        .then([this]() { this->start_morph_cycle(); }));
+
+    int front = carousel.front_index();
+    timeline.add(
+        0, Animation::Sprite(
+               [this, front](Canvas &c, float opacity) {
+                 MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
+                                        persistent_arena, params.hankin_angle);
+                 draw_topology_mesh(
+                     c, carousel.slot(front), carousel.slot(front).topology,
+                     palettes_slots[front], opacity, orientation.get());
+               },
+               DURATION));
   }
 
-  ShapeState primary;
-  ShapeState secondary;
+  FLASHMEM void start_morph_cycle() {
+    constexpr int MORPH_FRAMES = 16;
+    auto solids = Solids::Collections::get_simple_solids();
+    int next_idx = (solid_idx + 1) % solids.size();
 
+    int old_front = carousel.front_index();
+    int new_slot = 1 - old_front;
+
+    // Load incoming shape
+    load_shape(carousel.slot(new_slot), compiled_hankin_staging,
+               palettes_slots[new_slot], next_idx, params.hankin_angle);
+
+    // MeshMorph needs SEPARATE active meshes (self-clone zeroes data)
+    size_t max_v = std::max(carousel.slot(old_front).vertices.size(),
+                            carousel.slot(new_slot).vertices.size());
+    morph_buffer.preallocate(Persistent(persistent_arena), max_v);
+
+    // Schedule vertex morph + draw (MeshMorph writes morph_alpha directly)
+    morph_alpha = 0.0f;
+    timeline.add(0, Animation::MeshMorph(&active_mesh_A, &active_mesh_B,
+                                         &morph_buffer, &persistent_arena,
+                                         carousel.slot(old_front),
+                                         carousel.slot(new_slot), morph_alpha,
+                                         MORPH_FRAMES, false, ease_in_out_sin));
+    timeline.add(
+        0, Animation::Sprite(
+               [this, old_front, new_slot](Canvas &c, float opacity) {
+                 Quaternion q = orientation.get();
+                 float op_A = (1.0f - morph_alpha) * opacity;
+                 if (op_A > 0.01f)
+                   draw_topology_mesh(c, active_mesh_A,
+                                      carousel.slot(old_front).topology,
+                                      palettes_slots[old_front], op_A, q);
+                 float op_B = morph_alpha * opacity;
+                 if (op_B > 0.01f)
+                   draw_topology_mesh(c, active_mesh_B,
+                                      carousel.slot(new_slot).topology,
+                                      palettes_slots[new_slot], op_B, q);
+               },
+               MORPH_FRAMES)
+               .then([this, next_idx, new_slot]() {
+                 solid_idx = next_idx;
+                 carousel.set_front(new_slot);
+
+                 // Promote staged hankin to primary
+                 compiled_hankin = std::move(compiled_hankin_staging);
+                 compiled_hankin_staging = CompiledHankin();
+
+                 // Ensure resting mesh state is correct
+                 MeshOps::update_hankin(compiled_hankin, carousel.current(),
+                                        persistent_arena, params.hankin_angle);
+                 start_hankin_cycle();
+               }));
+  }
+
+  MeshCarousel<W> carousel;
+  CompiledHankin compiled_hankin;         // Active during hankin cycle
+  CompiledHankin compiled_hankin_staging; // Built during morph cycle
+  std::array<ProceduralPalette, 5> palettes_slots[2];
+
+  // MeshMorph transient state (separate from carousel slots to avoid
+  // self-clone)
+  MeshState active_mesh_A;
+  MeshState active_mesh_B;
   Animation::MorphBuffer morph_buffer;
   float morph_alpha = 0.0f;
 

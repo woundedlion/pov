@@ -89,7 +89,6 @@ private:
     MeshOps::transform(base_state, transformed_state, ctx.get_scratch_front(),
                        ripple_gen, camera);
 
-    // Hoist raw pointer out of the lambda to avoid arena overhead per-fragment
     const int *raw_indices = faceIndices.data();
 
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
@@ -142,8 +141,7 @@ private:
     );
 
     // Map topology -> palette index on the newly populated slot
-    int num_colors =
-        static_cast<int>(palettes_history[capture_idx].size());
+    int num_colors = static_cast<int>(palettes_history[capture_idx].size());
     // After transition(), front has flipped, so capture_idx is now front
     ArenaVector<int> &faceIndices = carousel.slot(capture_idx).topology;
     for (size_t i = 0; i < faceIndices.size(); ++i) {
