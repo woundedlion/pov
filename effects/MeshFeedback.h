@@ -67,14 +67,15 @@ public:
                           if (preset_paused)
                             return;
                           presets.next();
-                          timeline.add(0, Animation::Lerp(params, presets.get(),
-                                                          48, ease_mid));
+                          timeline.add(
+                              0, Animation::Lerp(params, presets.prev_get(),
+                                                 presets.get(), 48, ease_mid));
                         },
                         true));
 
     // Shape cycling
     timeline.add(0,
-                 Animation::Sprite([](Canvas &, float) {}, 120).then([this]() {
+                 Animation::Sprite([](Canvas &, float) {}, 16).then([this]() {
                    start_morph();
                  }));
   }
@@ -120,7 +121,8 @@ private:
       scratch_arena_b.reset();
       ScopedScratch _a(scratch_arena_a);
       ScopedScratch _b(scratch_arena_b);
-      PolyMesh poly = solids[solid_idx].generate(scratch_arena_a, scratch_arena_b);
+      PolyMesh poly =
+          solids[solid_idx].generate(scratch_arena_a, scratch_arena_b);
       carousel.slot(new_slot).clear();
       MeshOps::compile(poly, carousel.slot(new_slot), persistent_arena);
     }
@@ -130,21 +132,12 @@ private:
                             carousel.slot(new_slot).vertices.size());
     morph_buffer.preallocate(persistent_arena, max_v);
 
-    auto draw_fn = [this](Canvas &c, const MeshState &mesh, float opacity) {
-      Plot::Mesh::draw<W, H>(filters, c, mesh,
-                             [&](const Vector &v, Fragment &f) {
-                               float t_val = (v.y + 1.0f) * 0.5f;
-                               f.color = palette.get(t_val);
-                               f.color.alpha *= opacity;
-                             });
-    };
-
     morphing = true;
     timeline.add(
-        0, Animation::MeshMorph(&active_mesh_A, &active_mesh_B, &morph_buffer,
-                                &persistent_arena, carousel.current(),
-                                carousel.slot(new_slot), draw_fn, draw_fn,
-                                MORPH_FRAMES, false, ease_in_out_sin)
+        0, Animation::MeshMorph(
+               &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
+               carousel.current(), carousel.slot(new_slot), draw_morph_fn_,
+               draw_morph_fn_, MORPH_FRAMES, false, ease_in_out_sin)
                .then([this, new_slot]() {
                  carousel.set_front(new_slot);
                  morphing = false;
@@ -153,13 +146,17 @@ private:
                  active_mesh_B = MeshState();
                  carousel.incoming() = MeshState();
                  morph_buffer = Animation::MorphBuffer();
-                 compact_persistent(persistent_arena, scratch_arena_a, [&](ScratchScope& backup) {
-                   MeshState backup_mesh;
-                   MeshOps::clone(carousel.current(), backup_mesh, backup.raw());
-                   persistent_arena.reset();
-                   carousel.current() = MeshState();
-                   MeshOps::clone(backup_mesh, carousel.current(), persistent_arena);
-                 });
+                 compact_persistent(persistent_arena, scratch_arena_a,
+                                    [&](ScratchScope &backup) {
+                                      MeshState backup_mesh;
+                                      MeshOps::clone(carousel.current(),
+                                                     backup_mesh, backup.raw());
+                                      persistent_arena.reset();
+                                      carousel.current() = MeshState();
+                                      MeshOps::clone(backup_mesh,
+                                                     carousel.current(),
+                                                     persistent_arena);
+                                    });
 
                  // Rest on the static shape for a moment before morphing again
                  timeline.add(0, Animation::Sprite([](Canvas &, float) {}, 16)
@@ -195,6 +192,21 @@ private:
   Animation::MorphBuffer morph_buffer;
   bool morphing = false;
   float morph_alpha = 0.0f;
+
+  /// Draw callback for morph transitions — stored as member so FunctionRef
+  /// in MeshMorph can safely reference it (effect outlives animation).
+  void draw_morph_mesh(Canvas &c, const MeshState &mesh, float opacity) {
+    Plot::Mesh::draw<W, H>(filters, c, mesh,
+                           [this, opacity](const Vector &v, Fragment &f) {
+                             float t_val = (v.y + 1.0f) * 0.5f;
+                             f.color = palette.get(t_val);
+                             f.color.alpha *= opacity;
+                           });
+  }
+  Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_fn_{
+      [this](Canvas &c, const MeshState &m, float o) {
+        draw_morph_mesh(c, m, o);
+      }};
 
   struct TransformerFn {
     const MeshFeedback *self;

@@ -121,10 +121,7 @@ public:
   }
 
   void next_preset() {
-    return;
-    preset_manager.next();
-    timeline.add(
-        0, Animation::Lerp(params, preset_manager.get(), 160, ease_in_out_sin));
+    // TODO: Re-enable with smaller Params if needed
   }
 
   bool show_bg() const override { return false; }

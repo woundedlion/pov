@@ -34,6 +34,7 @@ public:
   void next() {
     if (Size == 0)
       return;
+    prev_idx = current_idx;
     current_idx = (current_idx + 1) % Size;
   }
 
@@ -57,4 +58,7 @@ public:
 
   std::array<Entry, Size> entries;
   int current_idx = 0;
+  int prev_idx = 0;
+
+  const Params &prev_get() const { return entries[prev_idx].params; }
 };

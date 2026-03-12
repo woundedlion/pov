@@ -79,7 +79,7 @@ pov-master/
 ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 ├── waves.h                 sin_wave / tri_wave / square_wave generators
 │
-├── memory.h / memory.cpp   Arena allocator, ScopedScratch, MemoryCtx, PingPong
+├── memory.h / memory.cpp   Arena allocator, ScopedScratch, compact_persistent
 ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
 ├── conway.h                Conway operators (dual, kis, ambo, truncate, expand, etc.)
 ├── hankin.h                Hankin pattern compilation and update system
@@ -485,26 +485,30 @@ Three arena allocators manage all geometry memory with zero `malloc`/`new` in th
 }                                        // restore offset — all allocations freed
 ```
 
-`MemoryCtx` is the unified factory that owns the scratch arena pair via an internal `PingPong` double-buffer and provides typed accessors:
+All functions that require scratch memory take explicit `Arena&` parameters — there are no hidden arena references or implicit state:
 
 ```cpp
-MemoryCtx ctx;                            // resets both scratch arenas
-auto verts = ctx.make_scratch_front<Vector>(n);  // allocate on front
-auto result = MeshOps::kis(mesh, ctx);           // Conway op uses front/back
-ctx.swap_scratch();                              // flip front⇄back, reset new front
+scratch_arena_a.reset();
+scratch_arena_b.reset();
+ScopedScratch _a(scratch_arena_a);
+ScopedScratch _b(scratch_arena_b);
+PolyMesh result = MeshOps::kis(mesh, scratch_arena_a, scratch_arena_b);
 ```
 
-`PingPong` encapsulates the raw double-buffer swap logic with two interfaces:
-- **Conway-style** (`front()`, `back()`, `swap()`) — used by `MemoryCtx`
-- **Iterative** (`target()`, `source()`, `flip()`) — used by subdivision loops
+Conway operators take `(Arena& target, Arena& temp)`, generator functions take `(Arena& a, Arena& b)`, and `classify_faces_by_topology` takes `(Arena& scratch_a, Arena& scratch_b, Arena& persistent)`. This purely functional approach gives total control over the exact DTCM layout on the Teensy 4.0 during heavy geometric operations.
 
-#### Typed Arena Safety
+#### Compaction
 
-`TypedArena<Tag>` is a zero-cost phantom-typed wrapper around `Arena&`. By declaring function parameters as `ScratchFront` or `ScratchBack` (aliases for `TypedArena<ScratchFrontTag>` / `TypedArena<ScratchBackTag>`), the type system prevents accidentally passing the wrong arena at compile time.
+`compact_persistent` is a free-function utility that safely defragments the persistent arena by calling a user-provided lambda that clones live data into scratch, resets persistent, then clones back:
 
-#### Auto-Compaction
-
-`PersistentTracker` maintains a registry of live `MeshState` pointers in the persistent arena. When an effect is destroyed, `auto_compact()` defragments the arena by cloning surviving meshes into contiguous memory. `CompactionLock` (RAII) suppresses compaction while raw persistent-arena pointers are temporarily held.
+```cpp
+compact_persistent(persistent_arena, scratch_arena_b, [&](ScratchScope& backup) {
+    MeshState tmp;
+    MeshOps::clone(live_mesh, tmp, backup.raw());
+    persistent_arena.reset();
+    MeshOps::clone(tmp, live_mesh, persistent_arena);
+});
+```
 
 #### Additional Data Structures
 
@@ -565,6 +569,8 @@ The mesh system is split across several files:
 
 #### Conway Operators (`conway.h`)
 
+All Conway operators take explicit `(const PolyMesh& mesh, Arena& target, Arena& temp)` parameters. They produce their result into `target` and use `temp` for intermediate computation:
+
 | Operation | Description |
 |---|---|
 | `MeshOps::transform` | Apply a chain of vertex transformers to produce a new `MeshState` |
@@ -573,6 +579,7 @@ The mesh system is split across several files:
 | `MeshOps::ambo` | Truncate vertices to edge midpoints |
 | `MeshOps::truncate` | Cut corners off the polyhedron (configurable depth) |
 | `MeshOps::expand` | Separate faces (ambo of ambo) |
+| `MeshOps::chamfer` | Bevel edges (hexagonal expansion) |
 | `MeshOps::bitruncate` | Truncate the rectified mesh |
 | `MeshOps::snub` | Chiral semi-regular polyhedron with twist |
 | `MeshOps::gyro` | Gyro operator |
@@ -593,21 +600,31 @@ The mesh system is split across several files:
 
 #### Solids Library (`solids.h`)
 
-`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for the full Archimedean solid family:
+`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for the full Archimedean solid family. Each generator function takes `(Arena& a, Arena& b)` and returns a `PolyMesh`.
 
 **Simple Solids**: Tetrahedron, Cube, Octahedron, Dodecahedron, Icosahedron, Cuboctahedron, Rhombicuboctahedron
 
 **Islamic Solids** (used by `IslamicStars`): Truncated Icosahedron, Icosidodecahedron, Rhombicosidodecahedron, Truncated Cuboctahedron, Snub Cube (uses tribonacci constant T ≈ 1.8393), Truncated Icosidodecahedron, and more
 
-Each solid is generated by a `SolidGenerator` that builds and normalizes vertices, then pushes face connectivity into a `PolyMesh` via an `Arena`.
+**Catalan Solids** (used by `MeshFeedback`): Duals of the Archimedean solids
+
+`SolidBuilder` provides a fluent interface for chaining Conway operators with automatic arena swapping:
+
+```cpp
+return SolidBuilder(a, b)
+    .start(to_polymesh<Icosahedron>(a))
+    .truncate()
+    .dual()
+    .build();
+```
 
 ### 6.8 Generators (`generators.h`)
 
-The generator system provides a uniform interface for procedural geometry creation:
+The generator system provides a uniform interface for procedural geometry creation. All generators take explicit `(Arena& geom, Arena& a, Arena& b)` parameters:
 
 | Type | Description |
 |---|---|
-| `IGenerator<T>` | Generic concept/interface: `virtual T generate(Arena&, MemoryCtx&) = 0` |
+| `IGenerator<T>` | Generic concept/interface: `virtual T generate(Arena& geom, Arena& a, Arena& b) = 0` |
 | `IMeshGenerator` | Specialization of `IGenerator<PolyMesh>` for mesh generation |
 | `SolidGenerator` | Wraps the `Solids::` registry by integer ID |
 | `SolidNameGenerator` | Wraps the `Solids::` registry by string name |
@@ -617,7 +634,7 @@ The generator system provides a uniform interface for procedural geometry creati
 | `OctahedronGenerator` | Direct generator for the octahedron |
 | `TetrahedronGenerator` | Direct generator for the tetrahedron |
 
-The `generate_mesh<Gen>(arena, args...)` helper encapsulates the `MemoryCtx` + `ScopedScratch` boilerplate:
+The `generate_mesh<Gen>(arena, args...)` helper encapsulates the `ScopedScratch` boilerplate:
 
 ```cpp
 auto mesh = generate_mesh<DodecahedronGenerator>(persistent_arena);
@@ -741,7 +758,7 @@ Animated concentric ring patterns using `Scan::Ring` with per-ring phase offsets
 Lissajous curves whose frequency ratios slowly sweep through rational approximations, transitioning between closed figures and dense space-filling curves.
 
 #### MeshFeedback
-Icosahedral mesh faces rendered with `Scan::Mesh`, distorted by a `NoiseTransformer` and given a phosphor-trail appearance via `Screen::Slew`.
+Catalan solid mesh faces rendered with `Scan::Mesh`, distorted by a `NoiseTransformer` and given a feedback-loop appearance via `Filter::Pixel::Feedback`. Cycles through the Catalan solid library with crossfade morphing between shapes.
 
 #### Liquid2D
 Inverse-projection shader that samples world-space through a configurable lens. Supports SSAA (super-sample anti-aliasing) with variable sample counts, radial fade via `Filter::World::Hole`, and glitch lens distortion effects.
@@ -897,7 +914,7 @@ Templating on `<W, H>` means every pixel coordinate transform, bounding box comp
 
 ### Why Arena Allocation?
 
-The Teensy heap fragments under heavy mesh subdivision. The three-arena design (persistent, scratch A, scratch B) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `MemoryCtx` / `PingPong` pattern allows Conway operators and iterative subdivision algorithms to alternate between scratch arenas without `malloc`/`free` cycles.
+The Teensy heap fragments under heavy mesh subdivision. The three-arena design (persistent, scratch A, scratch B) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact DTCM layout during heavy geometric operations, with no hidden state or implicit arena references.
 
 ### Why the ISR Double Buffer?
 
