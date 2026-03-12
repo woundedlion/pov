@@ -20,7 +20,8 @@ public:
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
 
   void init() override {
-
+    configure_arenas(GLOBAL_ARENA_SIZE - (128 + 128) * 1024, 128 * 1024,
+                     128 * 1024);
     PersistentTracker::register_mesh(&mesh_states[0]);
     PersistentTracker::register_mesh(&mesh_states[1]);
 
