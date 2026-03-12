@@ -111,8 +111,6 @@ private:
   void run(Effect *e, unsigned long duration) {
     configure_arenas_default();
 
-    PersistentTracker::clear_registry();
-
     long start = millis();
     effect_ = e;
     effect_->init();

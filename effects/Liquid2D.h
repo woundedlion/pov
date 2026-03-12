@@ -27,8 +27,9 @@ public:
                               [this](Canvas &) {
                                 presets.next();
                                 this->timeline.add(
-                                    0, Animation::Lerp(params, presets.get(),
-                                                       60, ease_in_out_sin));
+                                    0, Animation::Lerp(
+                                           params, presets.prev_get(),
+                                           presets.get(), 60, ease_in_out_sin));
                               },
                               true));
 

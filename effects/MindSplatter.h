@@ -34,7 +34,9 @@ public:
         160,
         [this](Canvas &) {
           presets.next();
-          timeline.add(0, Animation::Lerp(params, presets.get(), 48, ease_mid));
+          timeline.add(
+              0, Animation::Lerp(params, presets.prev_get(), presets.get(), 48,
+                                 ease_mid));
         },
         true);
     timeline.add(0, preset_timer);

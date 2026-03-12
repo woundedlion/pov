@@ -155,6 +155,9 @@ private:
                             carousel.slot(new_slot).vertices.size());
     morph_buffer.preallocate(persistent_arena, max_v);
 
+    morph_old_slot_ = old_front;
+    morph_new_slot_ = new_slot;
+
     // Schedule self-rendering morph (MeshMorph draws both meshes with
     // crossfade)
     timeline.add(
@@ -162,14 +165,7 @@ private:
         Animation::MeshMorph(
             &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
             carousel.slot(old_front), carousel.slot(new_slot),
-            [this, old_front](Canvas &c, const MeshState &mesh, float opacity) {
-              draw_mesh(c, mesh, carousel.slot(old_front).topology,
-                        palettes_slots[old_front], opacity, orientation.get());
-            },
-            [this, new_slot](Canvas &c, const MeshState &mesh, float opacity) {
-              draw_mesh(c, mesh, carousel.slot(new_slot).topology,
-                        palettes_slots[new_slot], opacity, orientation.get());
-            },
+            draw_morph_outgoing_fn_, draw_morph_incoming_fn_,
             MORPH_FRAMES, false, ease_in_out_sin)
             .then([this, next_idx, new_slot]() {
               solid_idx = next_idx;
@@ -216,6 +212,26 @@ private:
   MeshState active_mesh_A;
   MeshState active_mesh_B;
   Animation::MorphBuffer morph_buffer;
+  int morph_old_slot_ = 0;
+  int morph_new_slot_ = 1;
+
+  /// Draw callbacks for morph — stored as members so FunctionRef doesn't dangle.
+  void draw_morph_outgoing(Canvas &c, const MeshState &mesh, float opacity) {
+    draw_mesh(c, mesh, carousel.slot(morph_old_slot_).topology,
+              palettes_slots[morph_old_slot_], opacity, orientation.get());
+  }
+  void draw_morph_incoming(Canvas &c, const MeshState &mesh, float opacity) {
+    draw_mesh(c, mesh, carousel.slot(morph_new_slot_).topology,
+              palettes_slots[morph_new_slot_], opacity, orientation.get());
+  }
+  Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_outgoing_fn_{
+      [this](Canvas &c, const MeshState &m, float o) {
+        draw_morph_outgoing(c, m, o);
+      }};
+  Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_incoming_fn_{
+      [this](Canvas &c, const MeshState &m, float o) {
+        draw_morph_incoming(c, m, o);
+      }};
 
   Orientation<W> orientation;
   FastNoiseLite noise;

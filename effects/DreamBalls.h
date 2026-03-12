@@ -167,20 +167,18 @@ private:
     int safe_idx = idx % entries.size();
 
     params = entries[safe_idx].params;
-    Params instance_params = entries[safe_idx].params;
-    const PresetData *preset_ptr = &loaded_presets[safe_idx];
     int period = 288;
     mobius_gen.spawn(0, this->params.warp_scale, period, false);
 
-    auto draw_fn = [this, preset_ptr, instance_params](Canvas &canvas,
-                                                       float opacity) {
+    auto draw_fn = [this, safe_idx](Canvas &canvas, float opacity) {
+      const PresetData *pp = &loaded_presets[safe_idx];
+      Params ip = preset_manager.get_entries()[safe_idx].params;
       ScopedScratch _(scratch_arena_a);
       MeshState target_mesh;
-      MeshOps::transform(preset_ptr->mesh_state, target_mesh,
-                         scratch_arena_a);
+      MeshOps::transform(pp->mesh_state, target_mesh, scratch_arena_a);
 
-      this->draw_scene(canvas, instance_params, opacity, preset_ptr->mesh_state,
-                       target_mesh, preset_ptr->tangents);
+      this->draw_scene(canvas, ip, opacity, pp->mesh_state, target_mesh,
+                       pp->tangents);
     };
 
     timeline
