@@ -41,99 +41,11 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-
     timeline.step(canvas);
-
-    // Update Params
-    flow_offset += 0.02f * params.flow_speed * 0.2f;
-    tumble_angle_x += 0.003f * params.tumble_speed;
-    tumble_angle_y += 0.005f * params.tumble_speed;
-
-    float cx = cosf(tumble_angle_x);
-    float sx = sinf(tumble_angle_x);
-    float cy = cosf(tumble_angle_y);
-    float sy = sinf(tumble_angle_y);
-    float fold_base = sinf(tumble_angle_x * 0.5f) * 0.5f;
-
-    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
-      const Vector &base = fibers[i];
-
-      // Hopf Fiber Params (S2 base)
-      Spherical sph(base);
-      float theta = sph.phi; // polar angle (co-latitude)
-      float phi = sph.theta; // azimuthal angle
-
-      // Folding
-      float eta = theta / 2.0f;
-      float folding_val = sinf(phi * 2.0f + tumble_angle_y + fold_base) * 0.1f *
-                          params.tumble_speed * params.folding;
-      eta += folding_val;
-
-      // Twist
-      phi += eta * params.twist;
-
-      // Dot Generation
-      float phase = i * (PI_F / ACTUAL_FIBERS);
-      float beta = flow_offset + phase;
-
-      // 1. Construct point on S3
-      // q = [cos(eta)cos(phi+beta), cos(eta)sin(phi+beta), sin(eta)cos(beta),
-      // sin(eta)sin(beta)]
-      float q0 = cosf(eta) * cosf(phi + beta);
-      float q1 = cosf(eta) * sinf(phi + beta);
-      float q2 = sinf(eta) * cosf(beta);
-      float q3 = sinf(eta) * sinf(beta);
-
-      // 2. Apply Tumble (R_xw, R_yz)
-      // R_xw
-      float q0_r = q0 * cx - q3 * sx;
-      float q3_r = q0 * sx + q3 * cx;
-      q0 = q0_r;
-      q3 = q3_r;
-
-      // R_yz
-      float q1_r = q1 * cy - q2 * sy;
-      float q2_r = q1 * sy + q2 * cy;
-      q1 = q1_r;
-      q2 = q2_r;
-
-      // 3. Stereographic Projection S3 -> R3
-      float div = 1.001f - q3;
-      float factor = 1.0f / div;
-      Vector v(q0 * factor, q1 * factor, q2 * factor);
-      v = v.normalize();
-
-      Color4 c = Palettes::richSunset.get(0.0f);
-      c.alpha = params.alpha; // parameter alpha
-
-      if (first_frame_done) {
-        const Vector &prev = prev_positions[i];
-        // Draw line segment
-        auto fragment_shader = [&](const Vector &, Fragment &f) {
-          f.color = c;
-        };
-        Plot::Line::draw<W, H>(filters, canvas, Fragment(prev), Fragment(v),
-                               fragment_shader);
-
-        prev_positions[i] = v;
-      } else {
-        // First frame
-        filters.plot(canvas, v, c.color, 0, c.alpha);
-        prev_positions[i] = v;
-      }
-    }
-
+    advance_tumble();
+    draw_fibers(canvas);
     first_frame_done = true;
-
-    // Render Trails
-    filters.flush(
-        canvas,
-        [](const Vector &v, float t) {
-          Color4 c = Palettes::richSunset.get(t);
-          c.alpha *= (1.0f - t);
-          return c;
-        },
-        1.0f);
+    render_trails(canvas);
   }
 
   // Params
@@ -157,6 +69,9 @@ private:
   Vector *fibers = nullptr;
   Vector *prev_positions = nullptr;
 
+  // Cached tumble rotation values (per-frame)
+  float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
+
   Orientation<W> orientation;
   Timeline<W> timeline;
 
@@ -169,12 +84,87 @@ private:
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
       float polar = PI_F * (i + 0.5f) / RINGS;
-
       for (int j = 0; j < PER_RING; ++j) {
         float azimuth = 2 * PI_F * j / PER_RING;
         fibers[idx++] = Vector(Spherical(azimuth, polar));
       }
     }
     first_frame_done = false;
+  }
+
+  void advance_tumble() {
+    flow_offset += 0.02f * params.flow_speed * 0.2f;
+    tumble_angle_x += 0.003f * params.tumble_speed;
+    tumble_angle_y += 0.005f * params.tumble_speed;
+    cx = cosf(tumble_angle_x);
+    sx = sinf(tumble_angle_x);
+    cy = cosf(tumble_angle_y);
+    sy = sinf(tumble_angle_y);
+    fold_base = sinf(tumble_angle_x * 0.5f) * 0.5f;
+  }
+
+  /// Project a base fiber through: folding → twist → S3 → tumble → stereo
+  Vector hopf_project(size_t i) const {
+    const Vector &base = fibers[i];
+    Spherical sph(base);
+    float theta = sph.phi;   // polar angle (co-latitude)
+    float phi = sph.theta;   // azimuthal angle
+
+    // Folding
+    float eta = theta / 2.0f;
+    eta += sinf(phi * 2.0f + tumble_angle_y + fold_base) * 0.1f *
+           params.tumble_speed * params.folding;
+
+    // Twist
+    phi += eta * params.twist;
+
+    // S3 point
+    float phase = i * (PI_F / ACTUAL_FIBERS);
+    float beta = flow_offset + phase;
+    float q0 = cosf(eta) * cosf(phi + beta);
+    float q1 = cosf(eta) * sinf(phi + beta);
+    float q2 = sinf(eta) * cosf(beta);
+    float q3 = sinf(eta) * sinf(beta);
+
+    // Tumble (R_xw, R_yz)
+    float q0_r = q0 * cx - q3 * sx;
+    q3 = q0 * sx + q3 * cx;
+    q0 = q0_r;
+    float q1_r = q1 * cy - q2 * sy;
+    q2 = q1 * sy + q2 * cy;
+    q1 = q1_r;
+
+    // Stereographic S3 → R3
+    float factor = 1.0f / (1.001f - q3);
+    return Vector(q0 * factor, q1 * factor, q2 * factor).normalize();
+  }
+
+  void draw_fibers(Canvas &canvas) {
+    Color4 c = Palettes::richSunset.get(0.0f);
+    c.alpha = params.alpha;
+
+    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
+      Vector v = hopf_project(i);
+
+      if (first_frame_done) {
+        auto shader = [&](const Vector &, Fragment &f) { f.color = c; };
+        Plot::Line::draw<W, H>(filters, canvas, Fragment(prev_positions[i]),
+                               Fragment(v), shader);
+      } else {
+        filters.plot(canvas, v, c.color, 0, c.alpha);
+      }
+      prev_positions[i] = v;
+    }
+  }
+
+  void render_trails(Canvas &canvas) {
+    filters.flush(
+        canvas,
+        [](const Vector &, float t) {
+          Color4 c = Palettes::richSunset.get(t);
+          c.alpha *= (1.0f - t);
+          return c;
+        },
+        1.0f);
   }
 };
