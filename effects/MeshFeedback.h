@@ -27,6 +27,12 @@ public:
     }
   } params;
 
+  static constexpr int MORPH_FRAMES = 160;
+  static constexpr int NO_MORPH_FRAMES =
+      81; // morph period 241 is prime → coprime with preset cycle
+  static constexpr int LERP_FRAMES = 0;
+  static constexpr int NO_LERP_FRAMES = 241;
+
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
         palette(Palettes::peachPop),
@@ -42,19 +48,17 @@ public:
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_params.sync();
 
-    // Load first Platonic solid
-    auto solids = Solids::Collections::get_platonic_solids();
+    // Load first shape
     solid_idx = 0;
-    carousel.load([&solids, this](Arena &a, Arena &b) {
-      return solids[solid_idx].generate(a, b);
-    });
+    generate_incoming_shape(carousel.front_index());
 
-    registerParam("Fade", &params.fade, 0.5f, 0.99f);
+    registerParam("Fade", &params.fade, 0.0f, 0.99f);
     registerParam("Distort Amp", &params.amplitude, 0.0f, 30.0f);
     registerParam("Distort Freq", &params.frequency, 0.01f, 1.0f);
     registerParam("Distort Speed", &params.speed, 0.0f, 5.0f);
     registerParam("Noise Scale", &params.scale, 0.1f, 50.0f);
-    registerParam("Pause Presets", &preset_paused, true);
+    registerParam("Pause Presets", &preset_paused, preset_paused);
+    registerParam("Feedback", &feedback_enabled, feedback_enabled);
 
     timeline.add(0, Animation::Noise(noise_params));
     timeline.add(
@@ -62,22 +66,22 @@ public:
 
     // Preset cycling
     timeline.add(0, Animation::PeriodicTimer(
-                        150,
+                        NO_LERP_FRAMES + LERP_FRAMES,
                         [this](Canvas &) {
                           if (preset_paused)
                             return;
                           presets.next();
                           timeline.add(
                               0, Animation::Lerp(params, presets.prev_get(),
-                                                 presets.get(), 48, ease_mid));
+                                                 presets.get(), LERP_FRAMES,
+                                                 ease_in_out_sin));
                         },
                         true));
 
     // Shape cycling
-    timeline.add(0,
-                 Animation::Sprite([](Canvas &, float) {}, 16).then([this]() {
-                   start_morph();
-                 }));
+    timeline.add(
+        0, Animation::PeriodicTimer(
+               NO_MORPH_FRAMES, [this](Canvas &) { start_morph(); }, false));
   }
 
   bool show_bg() const override { return false; }
@@ -85,22 +89,21 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     apply_params();
-    noise_params.sync();
-    filters.next.next.set_fade(params.fade);
 
+    // feedback step
     filters.flush(
         canvas, [](float x, float y, float t) { return Color4(0, 0, 0, 0); },
         1.0f);
 
-    timeline.step(canvas);
-
-    if (carousel.current().is_bound()) {
+    if (!morphing && carousel.current().is_bound()) {
       Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
                              [&](const Vector &v, Fragment &f) {
                                float t_val = (v.y + 1.0f) * 0.5f;
                                f.color = palette.get(t_val);
                              });
     }
+
+    timeline.step(canvas);
   }
 
 private:
@@ -135,7 +138,7 @@ private:
   }
 
   void start_morph() {
-    constexpr int MORPH_FRAMES = 32;
+
     auto solids = Solids::Collections::get_platonic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
     int new_slot = 1 - carousel.front_index();
@@ -157,7 +160,8 @@ private:
                  release_morph_transients();
                  compact_persistent_data();
 
-                 timeline.add(0, Animation::Sprite([](Canvas &, float) {}, 16)
+                 timeline.add(0, Animation::Sprite([](Canvas &, float) {},
+                                                   NO_MORPH_FRAMES)
                                      .then([this]() { start_morph(); }));
                }));
   }
@@ -167,15 +171,18 @@ private:
     noise_params.frequency = params.frequency;
     noise_params.speed = params.speed;
     noise_params.scale = params.scale;
+    noise_params.sync();
+    filters.next.next.set_fade(feedback_enabled ? params.fade : 0.0f);
   }
 
   Presets<Params, 4> presets = {
-      .entries = {{{"Flames", {0.94f, 0.51f, 0.42f, 0.46f, 23.0f}},
-                   {"Organic", {0.93f, 0.9f, 0.33f, 0.8f, 22.6f}},
-                   {"Intense", {0.96f, 5.0f, 0.15f, 1.5f, 10.0f}},
-                   {"Subtle", {0.90f, 0.3f, 0.60f, 0.3f, 35.0f}}}},
+      .entries = {{{"Flames", {0.9f, 0.51f, 0.42f, 0.46f, 23.0f}},
+                   {"Zebras1", {0.58f, 2.73f, 0.07f, 0.0f, 26.0f}},
+                   {"Zebras2", {0.58f, 8.21f, 0.01f, 0.0f, 46.0f}},
+                   {"Interdimensional", {0.94f, 4.98f, 0.07f, 0.2f, 5.0f}}}},
       .current_idx = 0};
-  bool preset_paused = true;
+  bool preset_paused = false;
+  bool feedback_enabled = true;
   NoiseParams noise_params;
 
   Orientation<W> orientation;
@@ -192,12 +199,12 @@ private:
 
   /// Morph draw callback - Fn member gives FunctionRef a stable lifetime
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_fn_{
-      [this](Canvas &c, const MeshState &m, float o) {
+      [this](Canvas &c, const MeshState &m, float opacity) {
         Plot::Mesh::draw<W, H>(filters, c, m,
-                               [this, o](const Vector &v, Fragment &f) {
+                               [this, opacity](const Vector &v, Fragment &f) {
                                  float t_val = (v.y + 1.0f) * 0.5f;
                                  f.color = palette.get(t_val);
-                                 f.color.alpha *= o;
+                                 f.color.alpha *= opacity;
                                });
       }};
 
