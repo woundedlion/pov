@@ -12,10 +12,10 @@
 #include <cstdio>
 
 #ifdef __EMSCRIPTEN__
-constexpr size_t GLOBAL_ARENA_SIZE = 345 * 1024;
+constexpr size_t GLOBAL_ARENA_SIZE = 332 * 1024;
 #else
 // Teensy 4.0 — single contiguous block in RAM1 (DTCM)
-constexpr size_t GLOBAL_ARENA_SIZE = 345 * 1024;
+constexpr size_t GLOBAL_ARENA_SIZE = 332 * 1024;
 #endif
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
@@ -347,8 +347,7 @@ using ScopedScratch = ScratchScope;
 ///     Persist<MeshState> p(live_mesh, scratch_arena_a, persistent_arena);
 ///     persistent_arena.reset();
 ///   }  // ~Persist clones backup back into persistent
-template <typename T>
-class Persist {
+template <typename T> class Persist {
   T &target_;
   Arena &persistent_;
 
