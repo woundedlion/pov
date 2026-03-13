@@ -1469,11 +1469,6 @@ private:
 };
 
 /**
- * @brief Animates the Mobius parameters for a warping effect pulling the poles
- * together, using a referenced scale for dynamic control.
- */
-
-/**
  * @brief Parameters for noise transformation.
  */
 struct NoiseParams {

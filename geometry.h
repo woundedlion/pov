@@ -75,10 +75,6 @@ struct NullFragmentShader {
   }
 };
 
-/**
- * @brief A lightweight view over a contiguous sequence of objects.
- * @tparam T The type of object (can be const).
- */
 
 /**
  * @brief Unit vector along the Cartesian X-axis.
@@ -150,11 +146,6 @@ struct LogPolar {
 
 /**
  * @brief Converts a pixel y-coordinate to a spherical phi angle.
- * @param y The pixel y-coordinate [0, H_VIRT - 1].
- * @return The spherical phi angle in radians.
- */
-/**
- * @brief Converts a pixel y-coordinate to a spherical phi angle.
  * @param y The pixel y-coordinate [0, h_virt - 1].
  * @param h_virt The virtual height.
  * @return The spherical phi angle in radians.
@@ -212,14 +203,7 @@ template <int H> inline float y_to_phi(float y) {
   return (y * PI_F) / (H_VIRT - 1);
 }
 
-/**
- * @brief Converts 2D pixel coordinates to a 3D unit vector on the sphere.
- * @tparam W The width (number of columns) of the virtual LED display.
- * @tparam H The height (number of rows).
- * @param x The horizontal coordinate (0 to W).
- * @param y The vertical coordinate (0 to H_VIRT - 1).
- * @return The corresponding unit vector.
- */
+
 /**
  * @brief Split trig lookup tables for efficient vector reconstruction.
  * @details Caches sin/cos for theta (per column) and phi (per row) separately.
@@ -360,15 +344,6 @@ inline Vector fib_spiral(int n, float eps, int i) {
       .normalize();
 }
 
-/**
- * @brief Generates a sine wave function with offset, amplitude, frequency, and
- * phase.
- * @param from The minimum output value.
- * @param to The maximum output value.
- * @param freq The frequency (cycles per unit time).
- * @param phase The starting phase offset.
- * @return A lambda that takes time (t) and returns a float.
- */
 
 /**
  * @brief Class managing the current rotation state of an object, maintaining

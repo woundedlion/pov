@@ -126,24 +126,18 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
 }
 
 /**
- * @brief Parameters for noise transformation.
- */
-
-/**
  * @brief Applies 3D noise distortion to a vector.
  * @param v The vector to transform.
  * @param params The noise parameters.
  * @return The distorted vector.
  */
 inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
-  // FAST REJECT: dot-product comparison against precomputed thresholds
-  // avoids acosf for the ~90-95% of vertices far from the wavefront.
+  // fast reject
   float cos_d = dot(v, params.center);
   if (cos_d > params.cos_threshold_min || cos_d < params.cos_threshold_max) {
     return v;
   }
 
-  // SLOW PATH: only for vertices near the wavefront
   float d = acosf(hs::clamp(cos_d, -1.0f, 1.0f));
   float dist_from_peak = d - params.phase;
 
