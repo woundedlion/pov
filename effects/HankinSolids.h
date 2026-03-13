@@ -29,7 +29,6 @@ public:
 
     solid_idx = 0;
 
-    // Load initial shape into carousel's front slot
     load_shape(carousel.current(), compiled_hankin,
                palettes_slots[carousel.front_index()], solid_idx,
                params.hankin_angle);
@@ -48,43 +47,46 @@ private:
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
-  /// Load a shape: generate base, compile hankin, produce output mesh,
-  /// classify topology, shuffle palettes.
+  PolyMesh generate_base_solid(int idx) {
+    auto solids = Solids::Collections::get_simple_solids();
+    hs::log("Loading shape: '%s'", solids[idx].name);
+    return Solids::finalize_solid(
+        solids[idx].generate(scratch_arena_a, scratch_arena_b),
+        scratch_arena_a);
+  }
+
+  void classify_mesh_topology(MeshState &mesh) {
+    scratch_arena_a.reset();
+    scratch_arena_b.reset();
+    MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
+                                        persistent_arena);
+  }
+
+  void shuffle_palettes(std::array<ProceduralPalette, 5> &out) {
+    out = source_palettes_pool;
+    std::shuffle(out.begin(), out.end(), hs::random());
+  }
+
+  /// Full pipeline: generate → compile → evaluate → classify → palettes.
   void load_shape(MeshState &out_mesh, CompiledHankin &out_hankin,
                   std::array<ProceduralPalette, 5> &out_palettes, int idx,
                   float angle) {
-    auto solids = Solids::Collections::get_simple_solids();
-    hs::log("Loading shape: '%s'", solids[idx].name);
-
     scratch_arena_a.reset();
     scratch_arena_b.reset();
     ScopedScratch _a(scratch_arena_a);
     ScopedScratch _b(scratch_arena_b);
 
-    PolyMesh temp_base = Solids::finalize_solid(
-        solids[idx].generate(scratch_arena_a, scratch_arena_b),
-        scratch_arena_a);
+    PolyMesh base = generate_base_solid(idx);
 
-    // Compile hankin instructions onto persistent arena
     out_hankin = CompiledHankin();
-    MeshOps::compile_hankin(temp_base, out_hankin, persistent_arena,
+    MeshOps::compile_hankin(base, out_hankin, persistent_arena,
                             scratch_arena_a);
 
-    // Produce output mesh at the given angle
     out_mesh.clear();
     MeshOps::update_hankin(out_hankin, out_mesh, persistent_arena, angle);
 
-    // Classify topology
-    {
-      scratch_arena_a.reset();
-      scratch_arena_b.reset();
-      MeshOps::classify_faces_by_topology(out_mesh, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-
-    // Shuffle palettes
-    out_palettes = source_palettes_pool;
-    std::shuffle(out_palettes.begin(), out_palettes.end(), hs::random());
+    classify_mesh_topology(out_mesh);
+    shuffle_palettes(out_palettes);
   }
 
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
@@ -101,7 +103,7 @@ private:
     for (auto &v : rotated_mesh.vertices)
       v = rotate(v, q);
 
-    auto shader = [&](const Vector &p, Fragment &f) {
+    auto fragment_shader = [&](const Vector &p, Fragment &f) {
       int faceIdx = (int)std::round(f.v2);
       int topoIdx = (faceIdx >= 0 && faceIdx < (int)topology.size())
                         ? topology[faceIdx]
@@ -116,8 +118,36 @@ private:
       f.color.alpha *= opacity;
     };
 
-    Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, shader,
+    Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
                            params.debug_bb);
+  }
+
+  void prepare_morph_buffers(int old_front, int new_slot) {
+    size_t max_v = std::max(carousel.slot(old_front).vertices.size(),
+                            carousel.slot(new_slot).vertices.size());
+    morph_buffer.preallocate(persistent_arena, max_v);
+    morph_old_slot_ = old_front;
+    morph_new_slot_ = new_slot;
+  }
+
+  void promote_staged_hankin() {
+    compiled_hankin = std::move(compiled_hankin_staging);
+    compiled_hankin_staging = CompiledHankin();
+  }
+
+  void release_morph_transients() {
+    active_mesh_A = MeshState();
+    active_mesh_B = MeshState();
+    carousel.incoming() = MeshState();
+    morph_buffer = Animation::MorphBuffer();
+  }
+
+  void compact_persistent_data() {
+    Persist<CompiledHankin> p_hankin(compiled_hankin, scratch_arena_a,
+                                     persistent_arena);
+    Persist<MeshState> p_mesh(carousel.current(), scratch_arena_b,
+                              persistent_arena);
+    persistent_arena.reset();
   }
 
   void start_hankin_cycle() {
@@ -148,20 +178,11 @@ private:
     int old_front = carousel.front_index();
     int new_slot = 1 - old_front;
 
-    // Load incoming shape
     load_shape(carousel.slot(new_slot), compiled_hankin_staging,
                palettes_slots[new_slot], next_idx, params.hankin_angle);
 
-    // MeshMorph needs SEPARATE active meshes (self-clone zeroes data)
-    size_t max_v = std::max(carousel.slot(old_front).vertices.size(),
-                            carousel.slot(new_slot).vertices.size());
-    morph_buffer.preallocate(persistent_arena, max_v);
+    prepare_morph_buffers(old_front, new_slot);
 
-    morph_old_slot_ = old_front;
-    morph_new_slot_ = new_slot;
-
-    // Schedule self-rendering morph (MeshMorph draws both meshes with
-    // crossfade)
     timeline.add(
         0, Animation::MeshMorph(
                &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
@@ -172,24 +193,10 @@ private:
                  solid_idx = next_idx;
                  carousel.set_front(new_slot);
 
-                 // Promote staged hankin to primary
-                 compiled_hankin = std::move(compiled_hankin_staging);
-                 compiled_hankin_staging = CompiledHankin();
+                 promote_staged_hankin();
+                 release_morph_transients();
+                 compact_persistent_data();
 
-                 // Drop temporary morph meshes and compact arena
-                 active_mesh_A = MeshState();
-                 active_mesh_B = MeshState();
-                 carousel.incoming() = MeshState();
-                 morph_buffer = Animation::MorphBuffer();
-                 {
-                   Persist<CompiledHankin> p_hankin(
-                       compiled_hankin, scratch_arena_a, persistent_arena);
-                   Persist<MeshState> p_mesh(carousel.current(),
-                                             scratch_arena_b, persistent_arena);
-                   persistent_arena.reset();
-                 }
-
-                 // Ensure resting mesh state is correct
                  MeshOps::update_hankin(compiled_hankin, carousel.current(),
                                         persistent_arena, params.hankin_angle);
                  start_hankin_cycle();
@@ -208,23 +215,16 @@ private:
   int morph_old_slot_ = 0;
   int morph_new_slot_ = 1;
 
-  /// Draw callbacks for morph — stored as members so FunctionRef doesn't
-  /// dangle.
-  void draw_morph_outgoing(Canvas &c, const MeshState &mesh, float opacity) {
-    draw_mesh(c, mesh, carousel.slot(morph_old_slot_).topology,
-              palettes_slots[morph_old_slot_], opacity, orientation.get());
-  }
-  void draw_morph_incoming(Canvas &c, const MeshState &mesh, float opacity) {
-    draw_mesh(c, mesh, carousel.slot(morph_new_slot_).topology,
-              palettes_slots[morph_new_slot_], opacity, orientation.get());
-  }
+  /// Morph draw callbacks - Fn members give FunctionRef a stable lifetime
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_outgoing_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
-        draw_morph_outgoing(c, m, o);
+        draw_mesh(c, m, carousel.slot(morph_old_slot_).topology,
+                  palettes_slots[morph_old_slot_], o, orientation.get());
       }};
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_incoming_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
-        draw_morph_incoming(c, m, o);
+        draw_mesh(c, m, carousel.slot(morph_new_slot_).topology,
+                  palettes_slots[morph_new_slot_], o, orientation.get());
       }};
 
   Orientation<W> orientation;
