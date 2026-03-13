@@ -127,3 +127,6 @@ private:
       {"SlowDrip", {1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 2.0f}},
   }}};
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(Liquid2D)

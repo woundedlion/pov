@@ -168,3 +168,6 @@ private:
         1.0f);
   }
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(HopfFibration)

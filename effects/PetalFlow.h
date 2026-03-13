@@ -217,3 +217,6 @@ private:
                           true);
   }
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(PetalFlow)

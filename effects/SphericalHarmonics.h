@@ -205,3 +205,6 @@ private:
   int next_idx;
   float morph_alpha = 0.0f;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(SphericalHarmonics)

@@ -570,62 +570,6 @@ private:
   std::array<float, 9> kernel;
 };
 
-/**
- * @brief Screen Space Slew Limiter (Sparse/Circular Buffer).
- */
-template <int W, int Capacity> class Slew : public Is2DWithHistory {
-public:
-  Slew(float rise = 1.0f, float fall = 0.05f) : rise(rise), fall(fall) {}
-
-  void init_storage(Arena& arena) {
-    items_ = static_cast<Item *>(
-        arena.allocate(Capacity * sizeof(Item), alignof(Item)));
-    head_ = tail_ = count_ = 0;
-  }
-
-  void plot(float x, float y, const ::Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn2D pass) {
-    pass(x, y, color, age, alpha, tag);
-
-    // Add to decay buffer
-    if (items_ && count_ < Capacity && alpha > 0.001f) {
-      items_[tail_] = {x, y, color, alpha, tag};
-      tail_ = (tail_ + 1) % Capacity;
-      count_++;
-    }
-  }
-
-  void flush(Canvas &, const ScreenTrailFn &, float globalAlpha, PassFn2D pass) {
-    size_t n = count_;
-    for (size_t i = 0; i < n; ++i) {
-      auto item = items_[head_];
-      head_ = (head_ + 1) % Capacity;
-      count_--;
-
-      // Decay
-      item.alpha -= fall;
-
-      if (item.alpha > 0.00001f) {
-        // Still alive — re-enqueue
-        pass(item.x, item.y, item.c, 0, item.alpha * globalAlpha, item.tag);
-        items_[tail_] = item;
-        tail_ = (tail_ + 1) % Capacity;
-        count_++;
-      }
-    }
-  }
-
-private:
-  struct Item {
-    float x, y;
-    ::Pixel c;
-    float alpha;
-    uint8_t tag;
-  };
-  Item *items_ = nullptr;
-  size_t head_ = 0, tail_ = 0, count_ = 0;
-  float rise, fall;
-};
 
 } // namespace Screen
 

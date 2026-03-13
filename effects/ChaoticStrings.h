@@ -211,3 +211,6 @@ private:
   Node *node = nullptr;
   NoiseTransformer<W, 1> noise_xform;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(ChaoticStrings)

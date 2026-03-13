@@ -28,7 +28,6 @@
 #include "effects/SphericalHarmonics.h"
 #include "effects/Voronoi.h"
 #include "effects/GnomonicStars.h"
-#include "effects/TestSlewRate.h"
 #include "effects/MeshFeedback.h"
 #include "effects/ChaoticStrings.h"
 #include "effects/Liquid2D.h"

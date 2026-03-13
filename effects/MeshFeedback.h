@@ -219,3 +219,6 @@ private:
            Filter::Pixel::Feedback<W, H, TransformerFn>>
       filters;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(MeshFeedback)

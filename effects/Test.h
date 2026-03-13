@@ -104,3 +104,6 @@ private:
   Orientation<W> orientation;
   Animation::Mutation amplitude_mut;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(Test)
