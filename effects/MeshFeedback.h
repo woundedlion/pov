@@ -179,7 +179,7 @@ private:
       .entries = {{{"Flames", {0.9f, 0.51f, 0.42f, 0.46f, 23.0f}},
                    {"Zebras1", {0.58f, 2.73f, 0.07f, 0.0f, 26.0f}},
                    {"Zebras2", {0.58f, 8.21f, 0.01f, 0.0f, 46.0f}},
-                   {"Interdimensional", {0.94f, 4.98f, 0.07f, 0.2f, 5.0f}}}},
+                   {"Interdimensional", {0.68f, 4.98f, 0.07f, 0.2f, 5.0f}}}},
       .current_idx = 0};
   bool preset_paused = false;
   bool feedback_enabled = true;
@@ -211,7 +211,7 @@ private:
   struct TransformerFn {
     const MeshFeedback *self;
     Vector operator()(const Vector &v) const {
-      return noise_transform(v, self->noise_params).normalize();
+      return noise_transform(v, self->noise_params);
     }
   };
 
