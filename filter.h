@@ -276,7 +276,6 @@ public:
   Hole(OriginT origin, float radius) : origin(origin), radius(radius) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             uint8_t tag, PassFn3D pass) {
-    // Unwrap if reference_wrapper, or use directly if Vector
     const Vector &o = origin;
     float d = angle_between(v, o);
     if (d > radius)
@@ -351,7 +350,7 @@ public:
   /// Allocate ring buffer storage from persistent arena.
   /// Must be called from effect init(), not constructor (arenas aren't ready
   /// yet).
-  void init_storage(Arena& arena) {
+  void init_storage(Arena &arena) {
     items_ = static_cast<Item *>(
         arena.allocate(Capacity * sizeof(Item), alignof(Item)));
     head_ = tail_ = count_ = 0;
@@ -474,7 +473,7 @@ template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
   Trails(int lifetime) : lifetime(lifetime) {}
 
-  void init_storage(Arena& arena) {
+  void init_storage(Arena &arena) {
     ttls_ = static_cast<DecayPixel *>(
         arena.allocate(MAX_PIXELS * sizeof(DecayPixel), alignof(DecayPixel)));
     num_pixels = 0;
@@ -495,7 +494,8 @@ public:
     }
   }
 
-  void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha, PassFn2D pass) {
+  void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
+             PassFn2D pass) {
     for (int i = 0; i < num_pixels; ++i) {
       Color4 color =
           trailFn(ttls_[i].x, ttls_[i].y, 1 - (ttls_[i].ttl / lifetime));
@@ -570,7 +570,6 @@ private:
   std::array<float, 9> kernel;
 };
 
-
 } // namespace Screen
 
 // ----------------------------------------------------------------------------
@@ -599,7 +598,8 @@ public:
     pass(x, y, color, age, alpha, tag);
   }
 
-  /// Blend distorted previous frame (front buffer) into current frame (back buffer).
+  /// Blend distorted previous frame (front buffer) into current frame (back
+  /// buffer).
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
