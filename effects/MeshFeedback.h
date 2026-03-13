@@ -146,17 +146,11 @@ private:
                  active_mesh_B = MeshState();
                  carousel.incoming() = MeshState();
                  morph_buffer = Animation::MorphBuffer();
-                 compact_persistent(
-                     persistent_arena, scratch_arena_a,
-                     [&](ScratchScope &backup) {
-                       MeshState backup_mesh;
-                       MeshOps::clone(carousel.current(), backup_mesh,
-                                      backup.get_arena());
-                       persistent_arena.reset();
-                       carousel.current() = MeshState();
-                       MeshOps::clone(backup_mesh, carousel.current(),
-                                      persistent_arena);
-                     });
+                 {
+                   Persist<MeshState> p(carousel.current(), scratch_arena_a,
+                                        persistent_arena);
+                   persistent_arena.reset();
+                 }
 
                  // Rest on the static shape for a moment before morphing again
                  timeline.add(0, Animation::Sprite([](Canvas &, float) {}, 16)

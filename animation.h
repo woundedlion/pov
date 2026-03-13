@@ -1784,14 +1784,8 @@ public:
     // Free the old back slot and compact
     {
       slots_[back] = MeshState();
-      compact_persistent(
-          persistent_arena, scratch_arena_b, [&](ScratchScope &backup) {
-            MeshState backup_front;
-            MeshOps::clone(slots_[front_], backup_front, backup.get_arena());
-            persistent_arena.reset();
-            slots_[front_] = MeshState();
-            MeshOps::clone(backup_front, slots_[front_], persistent_arena);
-          });
+      Persist<MeshState> p(slots_[front_], scratch_arena_b, persistent_arena);
+      persistent_arena.reset();
     }
 
     // Generate new shape into back slot
@@ -1844,17 +1838,9 @@ public:
   /// Compact the persistent arena (evacuates tracked MeshStates, reclaims
   /// fragmented space). Call before allocating new persistent data.
   void compact() {
-    compact_persistent(persistent_arena, scratch_arena_a,
-                       [&](ScratchScope &backup) {
-                         MeshState backup0, backup1;
-                         MeshOps::clone(slots_[0], backup0, backup.get_arena());
-                         MeshOps::clone(slots_[1], backup1, backup.get_arena());
-                         persistent_arena.reset();
-                         slots_[0] = MeshState();
-                         slots_[1] = MeshState();
-                         MeshOps::clone(backup0, slots_[0], persistent_arena);
-                         MeshOps::clone(backup1, slots_[1], persistent_arena);
-                       });
+    Persist<MeshState> p0(slots_[0], scratch_arena_a, persistent_arena);
+    Persist<MeshState> p1(slots_[1], scratch_arena_a, persistent_arena);
+    persistent_arena.reset();
   }
 
 private:
