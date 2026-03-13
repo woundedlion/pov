@@ -312,33 +312,44 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   ArenaVector<uint32_t> finalHashes;
   finalHashes.bind(scratch_a, F);
 
+  // Find max face vertex count for scratch allocation
+  int maxCount = 0;
+  for (size_t i = 0; i < F; ++i) {
+    int c = mesh.face_counts[i];
+    if (c > maxCount) maxCount = c;
+  }
+
+  ArenaVector<Vector> verts;
+  verts.bind(scratch_a, maxCount);
+  ArenaVector<int> angles;
+  angles.bind(scratch_a, maxCount);
+
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
     int count = mesh.face_counts[i];
-    Vector verts[100];
+
+    verts.clear();
     for (int k = 0; k < count; ++k) {
-      if (k < 100)
-        verts[k] = mesh.vertices[mesh.faces[offset + k]];
+      verts.push_back(mesh.vertices[mesh.faces[offset + k]]);
     }
 
-    int vertexCount = std::min(count, 100);
-    int angles[100];
-    if (vertexCount >= 3) {
-      for (int k = 0; k < vertexCount; ++k) {
-        const Vector &prev = verts[(k - 1 + vertexCount) % vertexCount];
+    angles.clear();
+    if (count >= 3) {
+      for (int k = 0; k < count; ++k) {
+        const Vector &prev = verts[(k - 1 + count) % count];
         const Vector &curr = verts[k];
-        const Vector &next = verts[(k + 1) % vertexCount];
+        const Vector &next = verts[(k + 1) % count];
         Vector v1 = (prev - curr).normalize();
         Vector v2 = (next - curr).normalize();
         float ang = angle_between(v1, v2);
-        angles[k] = (int)std::round(ang * 180.0f / PI_F);
+        angles.push_back((int)std::round(ang * 180.0f / PI_F));
       }
-      std::sort(angles, angles + vertexCount);
+      std::sort(angles.data(), angles.data() + count);
     }
 
     uint32_t h = 0x12345678;
-    hash_combine(h, static_cast<uint32_t>(vertexCount));
-    for (int k = 0; k < vertexCount; ++k) {
+    hash_combine(h, static_cast<uint32_t>(count));
+    for (int k = 0; k < count; ++k) {
       hash_combine(h, static_cast<uint32_t>(angles[k]));
     }
     h = fmix32(h);
