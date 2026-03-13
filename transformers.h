@@ -174,7 +174,7 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   float scale = params.scale;
   float time_val = params.time * params.speed;
 
-  // Sample 3D noise field isotropically across the sphere
+  // Sample 3D noise field
   float nx =
       params.noise.GetNoise(v.x * scale, v.y * scale, v.z * scale + time_val);
   float ny = params.noise.GetNoise(v.x * scale + 100.0f, v.y * scale + 100.0f,
@@ -182,11 +182,20 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   float nz = params.noise.GetNoise(v.x * scale + 200.0f, v.y * scale + 200.0f,
                                    v.z * scale + time_val);
 
-  // Scale amplitude to appropriate arc length
-  float amp = params.amplitude * 0.05f;
+  Vector raw_noise = Vector(nx, ny, nz) * (params.amplitude * 0.05f);
 
-  // Apply displacement as a rotation/tangent addition and re-normalize
-  return (v + Vector(nx, ny, nz) * amp).normalize();
+  // Project noise onto the tangent plane
+  float inward_pull = dot(raw_noise, v);
+  Vector surface_distortion = raw_noise - (v * inward_pull);
+
+  // Soft-cap the slide distance to prevent cross-hemisphere grabs
+  constexpr float max_slide = 0.5f;
+  float sd_len_sq = dot(surface_distortion, surface_distortion);
+  if (sd_len_sq > max_slide * max_slide) {
+    surface_distortion = surface_distortion * (max_slide / sqrtf(sd_len_sq));
+  }
+
+  return (v + surface_distortion).normalize();
 }
 
 /**
