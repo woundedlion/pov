@@ -6,10 +6,8 @@
 #pragma once
 
 #include "../effects_engine.h"
-
 #include <cmath>
 
-// Math helpers
 namespace SHMath {
 inline float factorial(int n) {
   if (n <= 1)
@@ -65,13 +63,17 @@ inline float sphericalHarmonic(int l, int m, float theta, float phi) {
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
   struct HarmonicBlob {
-    int l, m;
+    int l1, m1;
+    int l2, m2;
+    float blend;
     float amplitude;
     Quaternion orientation;
     const bool is_solid = true;
 
-    HarmonicBlob(int l, int m, float amp, Quaternion q)
-        : l(l), m(m), amplitude(amp), orientation(q) {}
+    HarmonicBlob(int l1, int m1, int l2, int m2, float blend, float amp,
+                 Quaternion q)
+        : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend), amplitude(amp),
+          orientation(q) {}
 
     template <int H_> SDF::Bounds get_vertical_bounds() const {
       return {0, H_ - 1}; // Full Scan fallback
@@ -96,7 +98,16 @@ public:
       if (theta < 0)
         theta += 2 * PI_F;
       float phi = acosf(hs::clamp(local.y, -1.0f, 1.0f));
-      float val = SHMath::sphericalHarmonic(l, m, theta, phi);
+
+      // Evaluate primary shape
+      float val1 = SHMath::sphericalHarmonic(l1, m1, theta, phi);
+      float val = val1;
+
+      // Only pay the math cost for the second shape if we are actively blending
+      if (blend > 0.001f) {
+        float val2 = SHMath::sphericalHarmonic(l2, m2, theta, phi);
+        val = val1 + (val2 - val1) * blend;
+      }
 
       res = SDF::DistanceResult(-1.0f, 0.0f, val, 0.0f, 1.0f);
     }
@@ -105,14 +116,20 @@ public:
   FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {}
 
   void init() override {
-    registerParam("Mode", &params.mode, 0.0f, 25.0f);
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
     registerParam("Debug BB", &params.debug_bb);
+
+    // Initial shape
+    current_idx = 6;
+    next_idx = 6;
 
     // Spin
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalize();
     timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100,
                                            10000, ease_mid, true));
+
+    // Start morphing immediately
+    start_morph();
   }
 
   bool show_bg() const override { return false; }
@@ -121,11 +138,15 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    int idx = (int)params.mode;
-    int l = (int)sqrtf((float)idx);
-    int m = idx - l * l - l;
+    // Decode flat indices into (l, m) pairs
+    int l1 = (int)sqrtf((float)current_idx);
+    int m1 = current_idx - l1 * l1 - l1;
 
-    HarmonicBlob blob(l, m, params.amplitude, orientation.get());
+    int l2 = (int)sqrtf((float)next_idx);
+    int m2 = next_idx - l2 * l2 - l2;
+
+    HarmonicBlob blob(l1, m1, l2, m2, morph_alpha, params.amplitude,
+                      orientation.get());
 
     auto shader = [&](const Vector &p, Fragment &frag) {
       float abs_val = std::abs(frag.v1);
@@ -143,8 +164,8 @@ public:
       }
 
       // Ambient Occlusion
-      float shadow = hs::clamp((abs_val * params.amplitude - 0.0f) / 0.4f, 0.0f,
-                               1.0f); // approx smoothstep
+      float shadow =
+          hs::clamp((abs_val * params.amplitude - 0.0f) / 0.4f, 0.0f, 1.0f);
       float occlusion = 0.15f + 0.85f * shadow;
       base.color = base.color * occlusion;
 
@@ -154,15 +175,33 @@ public:
     Scan::rasterize<W, H>(filters, canvas, blob, shader, params.debug_bb);
   }
 
+private:
+  void start_morph() {
+    // Pick a random new harmonic (Modes 1 to 24 look the best)
+    next_idx = static_cast<int>(hs::rand_int(1, 24));
+
+    // Animate morph_alpha 0->1 over 90 frames using Sine Easing
+    timeline.add(
+        0, Animation::Transition(morph_alpha, 1.0f, 90, ease_mid, false, false)
+               .then([this]() {
+                 // Commit the morph and start next one immediately
+                 current_idx = next_idx;
+                 morph_alpha = 0.0f;
+                 start_morph();
+               }));
+  }
+
   // Params
   struct Params {
-    float mode = 6.0f;
     float amplitude = 3.2f;
     bool debug_bb = false;
   } params;
 
-private:
   Orientation<W> orientation;
   Timeline<W> timeline;
-  Pipeline<W, H> filters; // No filters needed? JS has pipeline.
+  Pipeline<W, H> filters;
+
+  int current_idx;
+  int next_idx;
+  float morph_alpha = 0.0f;
 };
