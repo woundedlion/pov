@@ -22,21 +22,26 @@ public:
     this->registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
 
     // Cycle presets every 3-5 seconds via a 2 second lerp
-    this->timeline.add(0, Animation::RandomTimer(
-                              90, 150,
-                              [this](Canvas &) {
-                                presets.next();
-                                this->timeline.add(
-                                    0, Animation::Lerp(
-                                           params, presets.prev_get(),
-                                           presets.get(), 60, ease_in_out_sin));
-                              },
-                              true));
+    this->timeline.add(
+        0, Animation::RandomTimer(
+               90, 150,
+               [this](Canvas &) {
+                 presets.next();
+                 this->timeline.add(
+                     0, Animation::Lerp(params, presets.prev_get(),
+                                        presets.get(), 60, ease_in_out_sin));
+               },
+               true));
 
     params = presets.get();
   }
 
   // --- Virtual hooks ---
+
+  void draw_frame() override {
+    accumulated_time += params.time_speed;
+    Base::draw_frame();
+  }
 
   Complex transform(const Vector &v) const override {
     Vector rotated_v = this->global_orientation.unorient(v);
@@ -74,9 +79,7 @@ public:
         params.warp_strength;
   }
 
-  float get_time() const override {
-    return static_cast<float>(this->timeline.t) * params.time_speed;
-  }
+  float get_time() const override { return accumulated_time; }
 
 private:
   // Pure algebraic 3D Glitch Lens - Zero Trigonometry!
@@ -112,15 +115,36 @@ private:
     float pole_fade = 1.8f;
 
     void lerp(const Params &a, const Params &b, float t) {
-      warp_scale = ::lerp(a.warp_scale, b.warp_scale, t);
-      warp_strength = ::lerp(a.warp_strength, b.warp_strength, t);
-      pattern_freq = ::lerp(a.pattern_freq, b.pattern_freq, t);
-      time_speed = ::lerp(a.time_speed, b.time_speed, t);
-      complexity = ::lerp(a.complexity, b.complexity, t);
-      pole_fade = ::lerp(a.pole_fade, b.pole_fade, t);
+      constexpr int N = 6;
+      float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq,
+                       &time_speed, &complexity,    &pole_fade};
+      const float src[N] = {a.warp_scale, a.warp_strength, a.pattern_freq,
+                            a.time_speed, a.complexity,    a.pole_fade};
+      const float tgt[N] = {b.warp_scale, b.warp_strength, b.pattern_freq,
+                            b.time_speed, b.complexity,    b.pole_fade};
+      // Count parameters that actually change
+      int active = 0;
+      for (int i = 0; i < N; ++i)
+        if (src[i] != tgt[i])
+          ++active;
+      if (active == 0)
+        return;
+      // Divide time equally among active params, lerp sequentially
+      float slice = 1.0f / active;
+      int slot = 0;
+      for (int i = 0; i < N; ++i) {
+        if (src[i] == tgt[i]) {
+          *dst[i] = tgt[i];
+          continue;
+        }
+        float tl = hs::clamp((t - slot * slice) / slice, 0.0f, 1.0f);
+        *dst[i] = ::lerp(src[i], tgt[i], tl);
+        ++slot;
+      }
     }
   };
   Params params;
+  float accumulated_time = 0.0f;
 
   Presets<Params, 4> presets = {{{
       {"Geometric", {1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.8f}},
