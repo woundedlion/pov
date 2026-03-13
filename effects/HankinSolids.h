@@ -182,21 +182,11 @@ private:
                  carousel.incoming() = MeshState();
                  morph_buffer = Animation::MorphBuffer();
                  {
-                   ScratchScope sa(scratch_arena_a);
-                   ScratchScope sb(scratch_arena_b);
-                   CompiledHankin backup_hankin;
-                   MeshOps::clone(compiled_hankin, backup_hankin, sa.get_arena());
-                   MeshState backup_mesh;
-                   MeshOps::clone(carousel.current(), backup_mesh, sb.get_arena());
-
+                   Persist<CompiledHankin> p_hankin(
+                       compiled_hankin, scratch_arena_a, persistent_arena);
+                   Persist<MeshState> p_mesh(carousel.current(),
+                                             scratch_arena_b, persistent_arena);
                    persistent_arena.reset();
-
-                   carousel.current() = MeshState();
-                   compiled_hankin = CompiledHankin();
-                   MeshOps::clone(backup_mesh, carousel.current(),
-                                  persistent_arena);
-                   MeshOps::clone(backup_hankin, compiled_hankin,
-                                  persistent_arena);
                  }
 
                  // Ensure resting mesh state is correct

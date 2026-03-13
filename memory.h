@@ -336,22 +336,39 @@ struct ScratchScope {
 using ScopedScratch = ScratchScope;
 
 // ============================================================================
-// 5. Declarative Compaction Utility
+// 5. RAII Arena Evacuator
 // ============================================================================
 
-/// Safely compacts the persistent arena by calling a user-provided lambda
-/// that clones live data into scratch, resets persistent, then clones back.
+/// Safely evacuates an object from the persistent arena to a scratch arena,
+/// and automatically restores it upon destruction.
 ///
 /// Usage:
-///   compact_persistent(persistent_arena, scratch_arena_a, [&](ScratchScope&
-///   backup) {
-///       MeshState tmp;
-///       MeshOps::clone(live_mesh, tmp, backup.raw());
-///       persistent_arena.reset();
-///       MeshOps::clone(tmp, live_mesh, persistent_arena);
-///   });
-template <typename Fn>
-void compact_persistent(Arena &persistent, Arena &scratch, Fn &&fn) {
-  ScratchScope backup(scratch);
-  fn(backup);
-}
+///   {
+///     Persist<MeshState> p(live_mesh, scratch_arena_a, persistent_arena);
+///     persistent_arena.reset();
+///   }  // ~Persist clones backup back into persistent
+template <typename T>
+class Persist {
+  T &target_;
+  Arena &persistent_;
+
+  // Declaration order matters! scratch_ must be declared BEFORE backup_
+  // so that backup_ is destroyed before the scratch arena is rolled back.
+  ScratchScope scratch_;
+  T backup_;
+
+public:
+  Persist(T &target, Arena &scratch, Arena &persistent)
+      : target_(target), persistent_(persistent), scratch_(scratch) {
+    MeshOps::clone(target_, backup_, scratch_.get_arena());
+  }
+
+  ~Persist() {
+    target_ = T();
+    MeshOps::clone(backup_, target_, persistent_);
+  }
+
+  // Non-copyable
+  Persist(const Persist &) = delete;
+  Persist &operator=(const Persist &) = delete;
+};
