@@ -194,3 +194,6 @@ private:
   ShapeType current_shape;
   int num_shapes;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(TestShapes)

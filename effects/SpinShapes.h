@@ -86,3 +86,6 @@ private:
                            params.debug_bb);
   }
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(SpinShapes)

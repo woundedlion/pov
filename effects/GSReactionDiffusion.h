@@ -174,3 +174,6 @@ private:
     float global_alpha = 0.3f;
   } params;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(GSReactionDiffusion)

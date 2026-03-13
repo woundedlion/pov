@@ -239,3 +239,6 @@ private:
     bool debug_bb = false;
   } params;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(HankinSolids)

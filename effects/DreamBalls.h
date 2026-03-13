@@ -247,3 +247,6 @@ private:
     }
   }
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(DreamBalls)

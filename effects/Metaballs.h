@@ -112,3 +112,6 @@ private:
     return dx * dx + dy * dy + dz * dz;
   }
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(Metaballs)

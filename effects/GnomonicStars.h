@@ -80,3 +80,6 @@ private:
 
   MobiusWarpGnomonicTransformer<W, 1> transformer;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(GnomonicStars)

@@ -167,3 +167,6 @@ private:
     float alpha = 0.2f;
   } params;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(Thrusters)

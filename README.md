@@ -2,11 +2,6 @@
 
 A persistence-of-vision (POV) LED sphere and its real-time simulator. The device spins a strip of LEDs at 480 RPM while a Teensy microcontroller fires pixels at microsecond intervals to paint full-color imagery on the surface of a virtual sphere. The simulator renders the same effects in a browser window at up to 288×144 resolution using the identical C++ code compiled to WebAssembly.
 
-```
-pov-master/      C++20 firmware, rendering engine, and all effects
-daydream-master/ Three.js web simulator (runs the same WASM binary)
-```
-
 ---
 
 ## Table of Contents
@@ -52,7 +47,6 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 ## 2. Repository Map
 
 ```
-pov-master/
 ├── Holosphere.ino          Entry point — POVDisplay setup and effect playlist
 ├── constants.h             RPM, NUM_PIXELS, MAX_W/MAX_H
 ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
@@ -62,6 +56,7 @@ pov-master/
 ├── effects_engine.h        Master include for the full engine (incl. hankin/conway)
 ├── effects.h               Include list for all effects
 ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
+├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
 │
 ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 ├── geometry.h              Fragment, Dots/Points, PixelLUT, coord conversions
@@ -79,25 +74,28 @@ pov-master/
 ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 ├── waves.h                 sin_wave / tri_wave / square_wave generators
 │
-├── memory.h / memory.cpp   Arena allocator, ScopedScratch, compact_persistent
+├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
 ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
 ├── conway.h                Conway operators (dual, kis, ambo, truncate, expand, etc.)
 ├── hankin.h                Hankin pattern compilation and update system
-├── solids.h                Platonic + Archimedean + Islamic solid geometry data
+├── solids.h                Platonic + Archimedean + Catalan + Islamic solid registry
 ├── spatial.h               AABB, KDTree, k-nearest-neighbor, MeshState
 ├── static_circular_buffer.h Lock-free fixed-capacity circular buffer
 ├── rotate.h                Quaternion projection helpers
 ├── generators.h            IGenerator<T> and IMeshGenerator interfaces + solid generators
-├── presets.h               Pre-built filter pipeline type aliases
+├── presets.h               Generic Presets<Params, Size> template for preset management
+├── ShaderEffect.h          Intermediate base class for per-pixel shader effects
 ├── util.h                  wrap(), fast_wrap(), clamp()
 │
-├── effects/                One .h per effect (29 total)
+├── reaction_graph.h        Precomputed Fibonacci-lattice K-NN graph for reaction-diffusion
+├── reaction_graph.cpp      147 KB neighbor table (RD_N=3840, RD_K=6)
+│
+├── effects/                One .h per effect (25 effects + 3 test effects)
 │   ├── BZReactionDiffusion.h
 │   ├── ChaoticStrings.h
 │   ├── Comets.h
 │   ├── DreamBalls.h
 │   ├── Dynamo.h
-│   ├── MeshFeedback.h
 │   ├── FlowField.h
 │   ├── GnomonicStars.h
 │   ├── GSReactionDiffusion.h
@@ -106,6 +104,7 @@ pov-master/
 │   ├── IslamicStars.h
 │   ├── Liquid2D.h
 │   ├── LSystem.h
+│   ├── MeshFeedback.h
 │   ├── Metaballs.h
 │   ├── MindSplatter.h
 │   ├── MobiusGrid.h
@@ -116,26 +115,16 @@ pov-master/
 │   ├── SphericalHarmonics.h
 │   ├── SpinShapes.h
 │   ├── Thrusters.h
-│   └── Voronoi.h
+│   ├── Voronoi.h
+│   ├── Test.h              (test/debug)
+│   ├── TestShapes.h         (test/debug)
+│   └── TestSlewRate.h       (test/debug)
 │
 ├── wasm_bridge.cpp         Emscripten bindings — HolosphereEngine JS class
 ├── CMakeLists.txt          Emscripten build (outputs holosphere_wasm.js + .wasm)
 ├── tests/                  Unit tests (CMake subdirectory)
-└── FastNoiseLite.h         Third-party: single-header noise library
-
-daydream-master/
-├── index.html              Single-page app shell
-├── daydream.js             Top-level: WASM init, effect switching, GUI wiring
-├── driver.js               Daydream class — Three.js sphere visualization
-├── geometry.js             pixel ↔ spherical ↔ vector coordinate helpers
-├── gui.js                  URL parameter persistence for GUI state
-├── holosphere_wasm.js      Emscripten JS glue (generated)
-├── holosphere_wasm.wasm    Compiled binary (generated)
-└── tools/
-    ├── lissajous.html      Interactive Lissajous curve explorer
-    ├── mobius.html         Möbius transformation visualizer
-    ├── palettes.html       Palette browser and editor
-    └── solids.html         Archimedean solid inspector
+├── FastNoiseLite.h         Third-party: single-header noise library
+└── FastNoiseLite_config.h  FastNoiseLite build configuration
 ```
 
 ---
@@ -146,7 +135,7 @@ The system has two physical execution targets sharing one codebase:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        pov-master C++                           │
+│                        C++ Codebase                             │
 │                                                                 │
 │  ┌─────────────┐   ┌──────────────────────────────────────┐    │
 │  │ Holosphere  │   │            Rendering Engine           │    │
@@ -162,7 +151,7 @@ The system has two physical execution targets sharing one codebase:
     ISR + FastLED            (Emscripten build)
           │                         │
     Physical LED strip         ┌────┴──────────┐
-    spinning at 480 RPM        │ daydream-master│
+    spinning at 480 RPM        │  daydream/    │
                                │  Three.js +   │
                                │  WASM Engine  │
                                └───────────────┘
@@ -174,7 +163,7 @@ Every rendering-related class is templated on `<int W, int H>`:
 
 ```cpp
 template <int W, int H> class HopfFibration : public Effect { ... };
-template <int W, int H> struct Pipeline<W, H, Filter1, Filter2, ...> { ... };
+template <int W, int H, typename... Filters> struct Pipeline { ... };
 ```
 
 This means the compiler generates fully specialized, zero-overhead versions of the entire pipeline for each supported resolution. The hardware runs `<96, 20>` (96 columns × 20 rows). The simulator supports `<96, 20>` and `<288, 144>`.
@@ -230,8 +219,8 @@ The ISR never touches `cur_`. The main loop atomically updates `next_` inside `q
 Buffer storage is placed in Teensy DMAMEM for DMA-accessible SPI throughput:
 
 ```cpp
-inline static DMAMEM Pixel buffer_a[MAX_W * MAX_H];
-inline static DMAMEM Pixel buffer_b[MAX_W * MAX_H];
+static DMAMEM Pixel buffer_a[MAX_W * MAX_H];
+static DMAMEM Pixel buffer_b[MAX_W * MAX_H];
 ```
 
 ### WASM Path
@@ -261,7 +250,7 @@ JS:  wasmEngine.getPixels()
 ```cpp
 void MyEffect::draw_frame() override {
     Canvas canvas(*this);   // advance_buffer() — grab write buffer
-                            // optionally clear if !persist_pixels
+                            // clear buffer if !persist_pixels
     // ... render here using canvas(x, y) = pixel ...
 }                           // ~Canvas() — queue_frame()
 ```
@@ -297,10 +286,10 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 | Filter | Effect |
 |---|---|
 | `World::Orient<W>` | Rotates every incoming 3D point by the current `Orientation` quaternion. Uses the orientation history to distribute motion-blur age values across a SLERP-interpolated sweep. |
-| `World::Trails<W, Capacity>` | Stores world-space points in a circular buffer with a TTL countdown. On `flush()`, re-draws aged points through a `TrailFn` color function. |
+| `World::Trails<W, Capacity>` | Stores world-space points in an arena-allocated ring buffer with a TTL countdown. On `flush()`, re-draws aged points through a `TrailFn` color function. Trail items are quantized to 8 bytes each (int16 xyz + uint8 TTL). |
 | `World::Replicate<W>` | Clones geometry N times around the Y-axis by re-plotting each point rotated by `2π/N`. |
 | `World::Mobius<W>` | Applies a Möbius transformation via stereographic projection: sphere → complex plane → Möbius(z) → back to sphere. |
-| `World::Hole<W>` | Masks out a spherical cap by attenuating points within a radius via quintic falloff. |
+| `World::Hole<W>` | Masks out a spherical cap by attenuating points within a radius via quintic falloff. Supports both by-value and by-reference origin (`HoleRef<W>`). |
 | `World::OrientSlice<W>` | Selects from a list of orientations based on each point's projection along an axis — enables per-hemisphere rotation effects. |
 
 #### Screen-Space Filters
@@ -308,15 +297,20 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 | Filter | Effect |
 |---|---|
 | `Screen::AntiAlias<W,H>` | Distributes a sub-pixel coordinate to its 4 nearest integer pixels using `quintic_kernel` bilinear weights. |
-| `Screen::Temporal<W, Capacity, TTLFn>` | Buffers screen-space draws and re-emits them over a configurable time window. Used for motion blur and temporal supersampling. |
 | `Screen::Blur<W, H>` | Applies a parameterized 3×3 Gaussian convolution kernel at plot time. |
-| `Screen::Trails<W>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. |
-| `Screen::Slew<W, Capacity>` | Phosphor-style persistence: every plotted pixel is re-drawn with exponentially decaying alpha until it fades out. |
-| `Pix::ChromaticShift<W>` | Splits a pixel into R, G, B channels and offsets them by 1–3 pixels horizontally to simulate chromatic aberration. |
+| `Screen::Trails<W>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. Uses arena-allocated storage. |
+| `Screen::Slew<W, Capacity>` | Phosphor-style persistence: every plotted pixel is re-drawn with exponentially decaying alpha until it fades out. Uses arena-allocated ring buffer storage. |
+
+#### Pixel-Space Filters
+
+| Filter | Effect |
+|---|---|
+| `Pixel::Feedback<W, H, SpaceTransformFn>` | Full-screen feedback loop. Samples the previous frame from the Canvas front buffer with bilinear interpolation, applies a 3D spatial transformation (e.g. NoiseTransformer) and fade, then blends into the back buffer. Stateless — uses Canvas double-buffering, no internal frame storage needed. |
+| `Pixel::ChromaticShift<W>` | Splits a pixel into R, G, B channels and offsets them by 1–3 pixels horizontally to simulate chromatic aberration. |
 
 #### Combining Filters
 
-Filters compose freely. The order matters — world-space filters must precede screen-space filters if both are present. Some common pre-built combinations (from `presets.h`):
+Filters compose freely. The order matters — world-space filters must precede screen-space filters if both are present. Some common combinations:
 
 ```cpp
 // Rotating geometry with anti-aliasing
@@ -403,25 +397,31 @@ Curves accept a `Fragments` array (a `StaticCircularBuffer<Fragment, 512>`) wher
 
 ### 6.3 The Animation System (`animation.h`)
 
-The `Timeline<W>` class manages a list of running `Animation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound.
+The `Timeline<W>` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase<Derived>` using CRTP.
 
 #### Animation Types
 
 | Type | Description |
 |---|---|
-| `Rotation<W>` | Quaternion rotation of an `Orientation` around an axis, with optional repeat |
-| `RandomWalk<W>` | Continuously perturbs an `Orientation` with smoothly changing random angular velocity |
+| `Rotation<W>` | Quaternion rotation of an `Orientation` around an axis, with optional repeat. Supports World and Local coordinate spaces. |
+| `RandomWalk<W>` | Continuously perturbs an `Orientation` with smoothly changing random angular velocity driven by Perlin noise. Configurable via `Options` presets (Languid, Energetic). |
 | `Motion<W, PathT>` | Moves an `Orientation` along a `Path` or `ProceduralPath` |
 | `Sprite` | Calls a draw function over a duration with fade-in and fade-out envelopes |
-| `PeriodicTimer` | Fires a callback once (or repeatedly) after a delay |
-| `ParticleSystem<W>` | Physics simulation with emitters, attractors, friction, gravity |
+| `PeriodicTimer` | Fires a callback at regular intervals (once or repeatedly) |
+| `RandomTimer` | Fires a callback after a random delay within a min/max range |
+| `Transition` | Smoothly interpolates a float variable from its current value to a target over a duration with easing |
+| `Mutation` | Applies a custom scalar function to a float variable over time with easing |
+| `Driver` | Continuously increments a float variable each frame (wraps at 0..1) |
+| `Lerp` | Type-erased interpolation between any `T` that implements `lerp(start, target, t)`. The caller owns start, subject, and target data; Lerp holds pointers and a type-erased lerp function. |
+| `ColorWipe` | Smoothly interpolates a `GenerativePalette` toward a target palette |
+| `ParticleSystem<W>` | Physics simulation with emitters, attractors, friction, gravity. Particles have `VectorTrail` history for trail rendering. |
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `Noise` | Animates `NoiseParams` over time for flowing distortion fields |
 
 #### Orientation and Motion Blur
 
-`Orientation<W>` stores a history of up to 32 quaternions accumulated during one frame step. The `World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
+`Orientation<W>` stores a history of up to 4 quaternions (configurable via `CAP` template parameter) accumulated during one frame step. The `World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_mid, true));
@@ -433,7 +433,11 @@ timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_
 
 #### OrientationTrail
 
-`OrientationTrail<OrientationType, CAPACITY>` maintains a circular buffer of past `Orientation` snapshots, allowing effects to recall where an object was over previous frames. Each snapshot is a full `Orientation` (with its own sub-frame history). Used by `ParticleSystem` to record per-particle trajectories for trail rendering.
+`OrientationTrail<OrientationType, CAPACITY>` maintains a circular buffer of past `Orientation` snapshots, allowing effects to recall where an object was over previous frames. Each snapshot is a full `Orientation` (with its own sub-frame history).
+
+#### VectorTrail
+
+`VectorTrail<CAPACITY>` maintains a circular buffer of past world-space `Vector` positions. Used by `ParticleSystem` to record per-particle trajectories for trail rendering.
 
 #### `tween` and `deep_tween`
 
@@ -458,29 +462,36 @@ Available transformers:
 
 | Transformer | Effect |
 |---|---|
-| `RippleTransformer` | Expands Ricker wavelets from a point, bending the sphere surface radially |
+| `RippleTransformer` | Expands Ricker wavelets from a point, bending the sphere surface radially. Uses fast-reject dot-product heuristic — ~90-95% of vertices skip the slow `acosf` path. |
 | `MobiusWarpTransformer` | Applies and releases a Möbius transformation |
 | `MobiusWarpCircularTransformer` | Loops a Möbius warp continuously |
 | `MobiusWarpGnomonicTransformer` | Möbius via gnomonic projection (preserves straight lines in hemisphere) |
 | `NoiseTransformer` | Distorts surface positions with 3D simplex noise |
+| `OrientTransformer` | Applies an `Orientation` quaternion rotation to all vertices |
 
 Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`.
 
-### 6.5 Memory Architecture (`memory.h`)
+### 6.5 Memory Architecture (`memory.h`, `memory.cpp`)
 
-Three arena allocators manage all geometry memory with zero `malloc`/`new` in the rendering hot path:
+A single contiguous memory block (`GLOBAL_ARENA_SIZE = 345 KB`) is partitioned into three arena allocators. This block is the same size on both Teensy and WASM targets. Individual effects can call `configure_arenas()` to repartition the block at runtime.
 
-| Arena | Teensy | WASM | Purpose |
-|---|---|---|---|
-| `persistent_arena` | 256 KB | 4 MB | Long-lived compiled mesh data, persists across frames |
-| `scratch_arena_a` | 128 KB | 2 MB | Short-lived intermediate geometry (RAII scoped) |
-| `scratch_arena_b` | 128 KB | 2 MB | Secondary scratch for ping-pong subdivision passes |
+| Arena | Default Size | Purpose |
+|---|---|---|
+| `persistent_arena` | 313 KB | Long-lived compiled mesh data, persists across frames |
+| `scratch_arena_a` | 16 KB | Short-lived intermediate geometry (RAII scoped) |
+| `scratch_arena_b` | 16 KB | Secondary scratch for ping-pong subdivision passes |
 
-`ScopedScratch` provides stack-like RAII lifetime:
+Effects that need more scratch memory can repartition at init time:
+
+```cpp
+configure_arenas(256 * 1024, 48 * 1024, 41 * 1024);
+```
+
+`ScratchScope` (aliased as `ScopedScratch` for backward compatibility) provides stack-like RAII lifetime:
 
 ```cpp
 {
-    ScopedScratch _(scratch_arena_a);     // save offset
+    ScratchScope _(scratch_arena_a);     // save offset
     // ... allocate from scratch_arena_a ...
 }                                        // restore offset — all allocations freed
 ```
@@ -490,31 +501,30 @@ All functions that require scratch memory take explicit `Arena&` parameters — 
 ```cpp
 scratch_arena_a.reset();
 scratch_arena_b.reset();
-ScopedScratch _a(scratch_arena_a);
-ScopedScratch _b(scratch_arena_b);
+ScratchScope _a(scratch_arena_a);
+ScratchScope _b(scratch_arena_b);
 PolyMesh result = MeshOps::kis(mesh, scratch_arena_a, scratch_arena_b);
 ```
 
-Conway operators take `(Arena& target, Arena& temp)`, generator functions take `(Arena& a, Arena& b)`, and `classify_faces_by_topology` takes `(Arena& scratch_a, Arena& scratch_b, Arena& persistent)`. This purely functional approach gives total control over the exact DTCM layout on the Teensy 4.0 during heavy geometric operations.
+Conway operators take `(Arena& target, Arena& temp)`, generator functions take `(Arena& a, Arena& b)`, and `classify_faces_by_topology` takes `(Arena& scratch_a, Arena& scratch_b, Arena& persistent)`. This purely functional approach gives total control over the exact memory layout during heavy geometric operations.
 
-#### Compaction
+#### Compaction with `Persist<T>`
 
-`compact_persistent` is a free-function utility that safely defragments the persistent arena by calling a user-provided lambda that clones live data into scratch, resets persistent, then clones back:
+`Persist<T>` is an RAII class that safely evacuates live data from the persistent arena, allowing it to be reset and defragmented, then automatically restores the data on destruction:
 
 ```cpp
-compact_persistent(persistent_arena, scratch_arena_b, [&](ScratchScope& backup) {
-    MeshState tmp;
-    MeshOps::clone(live_mesh, tmp, backup.raw());
+{
+    Persist<MeshState> p(live_mesh, scratch_arena_a, persistent_arena);
     persistent_arena.reset();
-    MeshOps::clone(tmp, live_mesh, persistent_arena);
-});
+    // ... allocate fresh data into persistent_arena ...
+}   // ~Persist: clones backup back into persistent_arena
 ```
 
 #### Additional Data Structures
 
 | Type | Description |
 |---|---|
-| `ArenaVector<T>` | Fixed-capacity, arena-backed vector (no dynamic growth) |
+| `ArenaVector<T>` | Fixed-capacity, arena-backed vector (no dynamic growth). Copy-disabled, move-enabled. Debug builds detect use-after-free via arena generation tracking. |
 | `ArenaSpan<T>` | Non-owning read-only view into an `ArenaVector` (explicit borrow) |
 
 ### 6.6 The Color System (`color.h`)
@@ -542,7 +552,7 @@ FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel16
 |---|---|
 | `ProceduralPalette` | Cosine palette: `0.5 + 0.5*cos(2π*(c*t + d))` per channel. Defined by 4 vec3 coefficients. |
 | `Gradient` | Linear interpolation between a sorted list of (position, color) stops. |
-| `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with brightness/saturation profiles. |
+| `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with brightness/saturation profiles. Supports snapshot/lerp for animated transitions. |
 | `SolidColorPalette` | Constant color, adapts to the `Palette` interface. |
 
 Twenty named `ProceduralPalette` instances are pre-defined: `richSunset`, `embers`, `lavenderLake`, `bruisedMoss`, `brightSunrise`, `undersea`, `iceMelt`, `fireGlow`, `darkPrimary`, and more.
@@ -555,7 +565,7 @@ The mesh system is split across several files:
 - **`conway.h`** — Conway mesh operators and vertex transformations
 - **`hankin.h`** — Hankin pattern compilation and dynamic update
 - **`spatial.h`** — `MeshState` (flat-array renderer format), `AABB`, `KDTree`
-- **`solids.h`** — Platonic + Archimedean solid geometry data
+- **`solids.h`** — Platonic + Archimedean + Catalan + Islamic Star Pattern solid geometry data and registry
 
 `PolyMesh` stores vertices and face connectivity via `ArenaVector` arrays. `MeshState` (in `spatial.h`) is the flat compiled format consumed by the renderer. `HalfEdgeMesh` provides a half-edge traversal structure built from either a `PolyMesh` or `MeshState`.
 
@@ -600,22 +610,32 @@ All Conway operators take explicit `(const PolyMesh& mesh, Arena& target, Arena&
 
 #### Solids Library (`solids.h`)
 
-`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for the full Archimedean solid family. Each generator function takes `(Arena& a, Arena& b)` and returns a `PolyMesh`.
+`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families. The solids are organized into three registries, unified under `Solids::get(arena, a, b, index)` and `Solids::get_by_name(arena, a, b, name)`:
 
-**Simple Solids**: Tetrahedron, Cube, Octahedron, Dodecahedron, Icosahedron, Cuboctahedron, Rhombicuboctahedron
+| Registry | Count | Description |
+|---|---|---|
+| `simple_registry` | 16 entries | 5 Platonic (tetrahedron through icosahedron) + 11 Archimedean solids |
+| `catalan_registry` | 13 entries | Duals of the Archimedean solids (triakisTetrahedron, rhombicDodecahedron, pentakisDodecahedron, etc.) |
+| `islamic_registry` | 23 entries | Complex multi-operator recipes producing Islamic star patterns from base solids |
 
-**Islamic Solids** (used by `IslamicStars`): Truncated Icosahedron, Icosidodecahedron, Rhombicosidodecahedron, Truncated Cuboctahedron, Snub Cube (uses tribonacci constant T ≈ 1.8393), Truncated Icosidodecahedron, and more
+Total: **52 registered solids** (`Solids::NUM_ENTRIES`).
 
-**Catalan Solids** (used by `MeshFeedback`): Duals of the Archimedean solids
+`Collections` namespace provides typed spans for iterating subsets: `get_platonic_solids()`, `get_archimedean_solids()`, `get_simple_solids()`, `get_catalan_solids()`, `get_islamic_solids()`.
 
 `SolidBuilder` provides a fluent interface for chaining Conway operators with automatic arena swapping:
 
 ```cpp
-return SolidBuilder(a, b)
-    .start(to_polymesh<Icosahedron>(a))
+return SolidBuilder(to_polymesh<Icosahedron>(a), a, b)
     .truncate()
     .dual()
     .build();
+```
+
+Islamic Star Pattern recipes chain multiple operators with Hankin pattern generation:
+
+```cpp
+SolidBuilder(dodecahedron(a, b), a, b)
+    .hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
 ```
 
 ### 6.8 Generators (`generators.h`)
@@ -634,12 +654,30 @@ The generator system provides a uniform interface for procedural geometry creati
 | `OctahedronGenerator` | Direct generator for the octahedron |
 | `TetrahedronGenerator` | Direct generator for the tetrahedron |
 
-The `generate_mesh<Gen>(arena, args...)` helper encapsulates the `ScopedScratch` boilerplate:
+The `generate_mesh<Gen>(arena, args...)` helper encapsulates the `ScratchScope` boilerplate:
 
 ```cpp
 auto mesh = generate_mesh<DodecahedronGenerator>(persistent_arena);
 auto mesh = generate_mesh<SolidGenerator>(persistent_arena, solid_id);
 ```
+
+### 6.9 The Preset System (`presets.h`)
+
+`Presets<Params, Size>` is a generic template for managing named parameter presets. It stores a fixed-size array of `Entry{name, params}` and provides navigation (next/prev), lookup by name, and interpolation support:
+
+```cpp
+Presets<MeshFeedbackParams, 8> presets = {{
+    {"Organic", {0.95f, 1.2f, ...}},
+    {"Crystal", {0.88f, 0.5f, ...}},
+    ...
+}};
+presets.next();  // advance to next preset
+presets.apply(current_params);  // copy current preset into live params
+```
+
+### 6.10 Shader Effects (`ShaderEffect.h`)
+
+`ShaderEffect<W,H>` is an intermediate base class for per-pixel "shader" effects. It provides the full draw_frame loop with 4× SSAA (super-sample anti-aliasing), timeline, dual orientation (view + global), noise generator, and palette. Leaf classes only implement `transform()` (world-space vector → complex sample coordinate) and `sample()` (complex coordinate → pattern intensity).
 
 ---
 
@@ -651,9 +689,11 @@ Every visual effect inherits from `Effect`:
 template <int W, int H>
 class MyEffect : public Effect {
 public:
-    MyEffect() : Effect(W, H), filters(...) {
+    MyEffect() : Effect(W, H), filters(...) {}
+
+    void init() override {
         registerParam("Speed", &speed, 0.0f, 10.0f);
-        persist_pixels = false;   // clear buffer each frame
+        persist_pixels = false;   // clear buffer each frame (this is the default)
     }
 
     bool show_bg() const override { return false; }
@@ -670,7 +710,13 @@ private:
     Timeline<W> timeline;
     float speed = 1.0f;
 };
+
+REGISTER_EFFECT(MyEffect)
 ```
+
+### Self-Registering Factory (`effect_registry.h`)
+
+Effects register themselves into a global registry using the `REGISTER_EFFECT(ClassName)` macro placed at the bottom of each effect header. This uses a static initializer pattern — each effect creates a small registrar struct whose static member calls `EffectRegistry::add()` during program initialization, eliminating the need for a hand-maintained factory array. The registry stores resolution-specific fill functions for each supported `<W,H>` pair (96×20 and 288×144).
 
 ### Parameter Registration
 
@@ -681,11 +727,11 @@ registerParam("Twist",   &params.twist,      -5.0f, 5.0f);   // float slider
 registerParam("Enabled", &params.enabled,    false);           // boolean toggle
 ```
 
-The parameter map (`std::map<std::string, ParamDef>`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. The animation system can also write to these parameters, allowing effects to animate their own exposed controls.
+The parameter list (`ParamList` — a fixed `std::array<ParamDef, 32>`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. Parameters support both `float*` and `bool*` targets via `std::variant`, with automatic bool threshold at 0.5. The animation system can also write to these parameters, allowing effects to animate their own exposed controls.
 
 ### The `persist_pixels` Flag
 
-When `persist_pixels = true` (the default), `Canvas` copies the previous frame's buffer into the new write buffer before rendering. This enables trail/decay effects without explicit trail storage — each frame partially overwrites the last. When `false`, the buffer is zeroed each frame.
+When `persist_pixels = true`, `Canvas` copies the previous frame's buffer into the new write buffer before rendering. This enables trail/decay effects without explicit trail storage — each frame partially overwrites the last. When `false` (the default), the buffer is zeroed each frame.
 
 ---
 
@@ -694,7 +740,7 @@ When `persist_pixels = true` (the default), `Canvas` copies the previous frame's
 ### Core Effects (Modern Engine)
 
 #### BZReactionDiffusion
-Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
+Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph (`ReactionGraph`: 3840 nodes, 6 neighbors each, precomputed Fibonacci lattice) with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
 
 **Parameters**: Alpha (color intensity), Diff (diffusion rate), Speed (time step), GlobalAlpha
 
@@ -758,10 +804,10 @@ Animated concentric ring patterns using `Scan::Ring` with per-ring phase offsets
 Lissajous curves whose frequency ratios slowly sweep through rational approximations, transitioning between closed figures and dense space-filling curves.
 
 #### MeshFeedback
-Catalan solid mesh faces rendered with `Scan::Mesh`, distorted by a `NoiseTransformer` and given a feedback-loop appearance via `Filter::Pixel::Feedback`. Cycles through the Catalan solid library with crossfade morphing between shapes.
+Catalan solid mesh faces rendered with `Scan::Mesh`, distorted by a `NoiseTransformer` and given a feedback-loop appearance via `Filter::Pixel::Feedback`. Cycles through the Catalan solid library with crossfade morphing between shapes using `Animation::Lerp` and the `Presets` system.
 
 #### Liquid2D
-Inverse-projection shader that samples world-space through a configurable lens. Supports SSAA (super-sample anti-aliasing) with variable sample counts, radial fade via `Filter::World::Hole`, and glitch lens distortion effects.
+Inverse-projection shader (extends `ShaderEffect`) that samples world-space through a configurable lens. Supports 4× SSAA (super-sample anti-aliasing), radial fade via `Filter::World::Hole`, and glitch lens distortion effects.
 
 #### MindSplatter
 Random-walk particle system with Möbius warp bursts.
@@ -792,13 +838,16 @@ The simulator runs the identical C++ rendering engine compiled to WebAssembly vi
 | Method | Description |
 |---|---|
 | `setResolution(w, h)` | Switch active resolution (96×20 or 288×144) |
-| `setEffect(name)` | Instantiate a new effect by string name; resets all arenas |
+| `setEffect(name)` | Instantiate a new effect by string name; resets all arenas to defaults |
 | `drawFrame()` | Advance one frame and copy pixels to the output buffer |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory |
 | `setParameter(name, value)` | Update a live effect parameter |
 | `getParameterDefinitions()` | Return the full `[{name, value, min, max}]` parameter list |
 | `getParamValues()` | Return current parameter values (including animation-driven updates) |
-| `getArenaMetrics()` | Memory usage stats for geometry and scratch arenas |
+| `getArenaMetrics()` | Memory usage stats for geometry, scratch, and tooling arenas |
+| `getEffectSizes()` | Return `sizeof` for every registered effect at the current resolution |
+
+The bridge also exposes a `MeshOps` class for the JavaScript tools, with dedicated 8 MB tooling arenas (separate from the engine's 345 KB arena) for interactive solid manipulation.
 
 Pixel data is 16-bit linear light (`uint16_t` per channel). JavaScript divides by 65535 to produce float linear values:
 
@@ -840,7 +889,7 @@ Four standalone HTML tools are included:
 | `tools/lissajous.html` | Interactive explorer for spherical Lissajous curves — adjust frequency ratios m1, m2 and phase offset to find closed curves and transition zones |
 | `tools/mobius.html` | Visualize Möbius transformations on the sphere in real time — adjust complex parameters a, b, c, d |
 | `tools/palettes.html` | Browse and tune all palette definitions — live preview with gradient strip and sphere visualization |
-| `tools/solids.html` | Inspect every Archimedean and Platonic solid — vertex counts, face topology, wireframe view |
+| `tools/solids.html` | Inspect every Platonic, Archimedean, and Catalan solid — apply Conway operators interactively, view wireframe/topology, export code |
 
 ---
 
@@ -850,7 +899,7 @@ Four standalone HTML tools are included:
 
 1. Install [Arduino IDE](https://www.arduino.cc/en/software) with Teensyduino.
 2. Install the `FastLED` library.
-3. Open `pov-master/Holosphere.ino`.
+3. Open `Holosphere.ino`.
 4. Select **Board: Teensy 4.1**, **CPU Speed: 600 MHz**.
 5. Upload.
 
@@ -872,25 +921,23 @@ static constexpr int PIN_RANDOM = 15;
 Requires [Emscripten](https://emscripten.org/) and CMake.
 
 ```bash
-cd pov-master
 mkdir build && cd build
 emcmake cmake .. -DCMAKE_BUILD_TYPE=Release
 emmake make
-cmake --install .     # copies holosphere_wasm.js + .wasm to ../daydream-master/
+cmake --install .     # copies holosphere_wasm.js + .wasm to ../daydream/
 ```
 
 The `CMakeLists.txt` configures:
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output
 - `-sSTACK_SIZE=8388608` — 8 MB stack (effects use deep template recursion)
-- `-O3 -ffast-math` for release, `-O0 -g -sASSERTIONS=1` for debug
+- `-O3 -ffast-math -flto -msimd128` for release, `-O0 -g -sASSERTIONS=1` for debug
 
 ### Running the Simulator
 
-The simulator is a static web app. Serve `daydream-master/` from any HTTP server:
+The simulator is a static web app. Serve the daydream directory from any HTTP server:
 
 ```bash
-cd daydream-master
 python3 -m http.server 8080
 # open http://localhost:8080
 ```
@@ -914,7 +961,7 @@ Templating on `<W, H>` means every pixel coordinate transform, bounding box comp
 
 ### Why Arena Allocation?
 
-The Teensy heap fragments under heavy mesh subdivision. The three-arena design (persistent, scratch A, scratch B) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact DTCM layout during heavy geometric operations, with no hidden state or implicit arena references.
+The Teensy heap fragments under heavy mesh subdivision. The single-block partitioned arena design (persistent + scratch A + scratch B) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `configure_arenas()` function allows effects to repartition the fixed 345 KB block based on their needs — mesh-heavy effects can claim more persistent space, while subdivision-heavy effects can expand their scratch pools. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact memory layout during heavy geometric operations, with no hidden state or implicit arena references.
 
 ### Why the ISR Double Buffer?
 

@@ -199,3 +199,6 @@ private:
     timeline.add(0, warp);
   }
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(MindSplatter)

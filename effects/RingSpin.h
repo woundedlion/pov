@@ -90,3 +90,6 @@ private:
     bool show_bounding_box = false;
   } params;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(RingSpin)

@@ -202,3 +202,6 @@ private:
     float step_mod = 1.0f;
   } params;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(LSystem)

@@ -198,3 +198,6 @@ private:
            Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 };
+
+#include "../effect_registry.h"
+REGISTER_EFFECT(MobiusGrid)
