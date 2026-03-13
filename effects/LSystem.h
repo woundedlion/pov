@@ -76,19 +76,16 @@ public:
     timeline.step(canvas);
 
     // Check for ruleset change
-    static int last_rule = -1;
-    if ((int)params.rule_idx != last_rule) {
+    if ((int)params.rule_idx != last_rule_) {
       set_ruleset((int)params.rule_idx);
-      last_rule = (int)params.rule_idx;
+      last_rule_ = (int)params.rule_idx;
     }
 
-    static float last_angle = 0;
-    static float last_step = 0;
-    if (std::abs(params.angle_mod - last_angle) > 0.01f ||
-        std::abs(params.step_mod - last_step) > 0.01f) {
+    if (std::abs(params.angle_mod - last_angle_) > 0.01f ||
+        std::abs(params.step_mod - last_step_) > 0.01f) {
       regenerate();
-      last_angle = params.angle_mod;
-      last_step = params.step_mod;
+      last_angle_ = params.angle_mod;
+      last_step_ = params.step_mod;
     }
 
     for (const auto &seg : segments) {
@@ -201,6 +198,10 @@ private:
     float angle_mod = 0.0f;
     float step_mod = 1.0f;
   } params;
+
+  int last_rule_ = -1;
+  float last_angle_ = 0;
+  float last_step_ = 0;
 };
 
 #include "../effect_registry.h"

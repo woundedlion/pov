@@ -48,9 +48,8 @@ public:
     Canvas canvas(*this);
 
     // Cycle shapes every n frames
-    static int frame_count = 0;
-    frame_count++;
-    if (frame_count % 48 == 0) {
+    frame_count_++;
+    if (frame_count_ % 48 == 0) {
       int next = (static_cast<int>(current_shape) + 1) % 4;
       current_shape = static_cast<ShapeType>(next);
     }
@@ -193,6 +192,7 @@ private:
 
   ShapeType current_shape;
   int num_shapes;
+  int frame_count_ = 0;
 };
 
 #include "../effect_registry.h"

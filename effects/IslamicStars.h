@@ -10,7 +10,7 @@
 #include "../transformers.h"
 #include <algorithm>
 #include <map>
-#include <random>
+
 
 #include "../solids.h"
 
@@ -116,10 +116,13 @@ private:
     int capture_idx = 1 - carousel.front_index();
 
     // Prepare palettes for the incoming slot
-    static std::mt19937 g(12345 + (int)timeline.t);
     palettes_history[capture_idx] = palettes;
-    std::shuffle(palettes_history[capture_idx].begin(),
-                 palettes_history[capture_idx].end(), g);
+    // Fisher-Yates shuffle using platform RNG (avoids 2.5 KB static std::mt19937)
+    auto &arr = palettes_history[capture_idx];
+    for (int i = static_cast<int>(arr.size()) - 1; i > 0; --i) {
+      int j = hs::rand_int(0, i);
+      std::swap(arr[i], arr[j]);
+    }
 
     int idx = solid_idx; // capture for generate lambda
 

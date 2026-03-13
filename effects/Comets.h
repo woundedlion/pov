@@ -87,13 +87,10 @@ private:
   }
 
   void update_palette() {
-    static GenerativePalette next_palette(GradientShape::STRAIGHT,
-                                          HarmonyType::TRIADIC,
-                                          BrightnessProfile::ASCENDING);
-    next_palette =
+    next_palette_ =
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::ASCENDING);
-    timeline.add(0, Animation::ColorWipe(palette, next_palette, 48, ease_mid));
+    timeline.add(0, Animation::ColorWipe(palette, next_palette_, 48, ease_mid));
   }
 
   FastNoiseLite noise;
@@ -116,6 +113,7 @@ private:
                                                 {10.94f, 8.75f, 0, 2.872f}}};
   int cur_function_idx;
   Node *node = nullptr;
+  GenerativePalette next_palette_;
 
   struct Params {
     float alpha = 1.0f;
