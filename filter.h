@@ -445,7 +445,15 @@ public:
     float x_i, y_i;
     float x_m = std::modf(x, &x_i);
     float y_m = std::modf(y, &y_i);
-    float xs = quintic_kernel(x_m);
+
+    // Spherical density compensation: scale X fractional by sin(phi).
+    // At poles, all columns converge to the same point — snap to nearest.
+    // At equator, sin(phi)=1 so behavior is unchanged.
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    float phi = (y * PI_F) / (H_VIRT - 1);
+    float x_frac = hs::clamp(x_m * sinf(phi), 0.0f, 1.0f);
+
+    float xs = quintic_kernel(x_frac);
     float ys = quintic_kernel(y_m);
 
     float v00 = (1 - xs) * (1 - ys);
@@ -453,16 +461,20 @@ public:
     float v01 = (1 - xs) * ys;
     float v11 = xs * ys;
 
-    if (v00 > 1e-8)
-      pass(x_i, y_i, c, age, alpha * v00, tag);
-    if (v10 > 1e-8)
-      pass(fast_wrap((x_i + 1), W), y_i, c, age, alpha * v10, tag);
-    if (y_i < H - 1) {
-      if (v01 > 1e-8)
-        pass(x_i, y_i + 1, c, age, alpha * v01, tag);
-      if (v11 > 1e-8)
-        pass(fast_wrap((x_i + 1), W), y_i + 1, c, age, alpha * v11, tag);
-    }
+    // Clamp Y neighbors to valid range (reflect at poles instead of dropping)
+    int y0 = hs::clamp(static_cast<int>(y_i), 0, H - 1);
+    int y1 = hs::clamp(static_cast<int>(y_i) + 1, 0, H - 1);
+    int x0 = static_cast<int>(x_i);
+    int x1 = fast_wrap(static_cast<int>(x_i) + 1, W);
+
+    if (v00 > 1e-8f)
+      pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00, tag);
+    if (v10 > 1e-8f)
+      pass(static_cast<float>(x1), static_cast<float>(y0), c, age, alpha * v10, tag);
+    if (v01 > 1e-8f)
+      pass(static_cast<float>(x0), static_cast<float>(y1), c, age, alpha * v01, tag);
+    if (v11 > 1e-8f)
+      pass(static_cast<float>(x1), static_cast<float>(y1), c, age, alpha * v11, tag);
   }
 };
 
