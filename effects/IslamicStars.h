@@ -6,7 +6,6 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include "../generators.h"
 #include "../transformers.h"
 #include <algorithm>
 #include <map>

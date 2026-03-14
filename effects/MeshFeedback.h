@@ -6,7 +6,6 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include "../generators.h"
 #include "../solids.h"
 
 template <int W, int H> class MeshFeedback : public Effect {
@@ -108,15 +107,12 @@ public:
 
 private:
   void generate_incoming_shape(int slot_idx) {
-    scratch_arena_a.reset();
-    scratch_arena_b.reset();
-    ScopedScratch _a(scratch_arena_a);
-    ScopedScratch _b(scratch_arena_b);
-    auto solids = Solids::Collections::get_platonic_solids();
-    PolyMesh poly =
-        solids[solid_idx].generate(scratch_arena_a, scratch_arena_b);
-    carousel.slot(slot_idx).clear();
-    MeshOps::compile(poly, carousel.slot(slot_idx), persistent_arena);
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      auto solids = Solids::Collections::get_platonic_solids();
+      PolyMesh poly = solids[solid_idx].generate(a, b);
+      carousel.slot(slot_idx).clear();
+      MeshOps::compile(poly, carousel.slot(slot_idx), target);
+    });
   }
 
   void prepare_morph_buffers(int new_slot) {

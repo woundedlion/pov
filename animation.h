@@ -13,6 +13,7 @@
 #include "3dmath.h"
 #include "platform.h"
 #include "FastNoiseLite.h"
+#include "generators.h"
 #include "geometry.h"
 #include "memory.h"
 #include "spatial.h"
@@ -1783,16 +1784,12 @@ public:
       persistent_arena.reset();
     }
 
-    // Generate new shape into back slot
-    {
-      scratch_arena_a.reset();
-      scratch_arena_b.reset();
-      ScopedScratch _a(scratch_arena_a);
-      ScopedScratch _b(scratch_arena_b);
-      PolyMesh mesh = generate_fn(scratch_arena_a, scratch_arena_b);
+    // Generate new shape into back slot via unified generate()
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh mesh = generate_fn(a, b);
       slots_[back].clear();
-      MeshOps::compile(mesh, slots_[back], persistent_arena);
-    }
+      MeshOps::compile(mesh, slots_[back], target);
+    });
 
     if (classify) {
       scratch_arena_a.reset();
