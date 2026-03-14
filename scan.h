@@ -407,10 +407,11 @@ struct Shader {
           Vector v(sin_phi * cosf(theta), cosf(phi),
                    sin_phi * sinf(theta));
 
-          accum += shader(v);
+          Color4 sample = shader(v);
+          sample *= 0.25f;
+          accum += sample;
         }
 
-        accum *= 0.25f;
         canvas(x, y) = accum.color;
       }
     }

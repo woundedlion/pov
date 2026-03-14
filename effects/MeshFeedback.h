@@ -107,12 +107,14 @@ public:
 
 private:
   void generate_incoming_shape(int slot_idx) {
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      auto solids = Solids::Collections::get_platonic_solids();
-      PolyMesh poly = solids[solid_idx].generate(a, b);
-      carousel.slot(slot_idx).clear();
-      MeshOps::compile(poly, carousel.slot(slot_idx), target);
-    });
+    auto solids = Solids::Collections::get_platonic_solids();
+    PolyMesh poly = generate(persistent_arena,
+        [&](Arena &target, Arena &a, Arena &b) {
+          return Solids::finalize_solid(
+              solids[solid_idx].generate(a, b), target);
+        });
+    carousel.slot(slot_idx).clear();
+    MeshOps::compile(poly, carousel.slot(slot_idx), persistent_arena);
   }
 
   void prepare_morph_buffers(int new_slot) {
