@@ -6,7 +6,6 @@
 #pragma once
 
 #include "../effects_engine.h"
-#include "../generators.h"
 
 #include <algorithm>
 #include <map>
@@ -47,12 +46,10 @@ private:
       Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
       Palettes::bruisedMoss, Palettes::lavenderLake};
 
-  PolyMesh generate_base_solid(int idx) {
+  PolyMesh generate_base_solid(int idx, Arena &a, Arena &b) {
     auto solids = Solids::Collections::get_simple_solids();
     hs::log("Loading shape: '%s'", solids[idx].name);
-    return Solids::finalize_solid(
-        solids[idx].generate(scratch_arena_a, scratch_arena_b),
-        scratch_arena_a);
+    return Solids::finalize_solid(solids[idx].generate(a, b), a);
   }
 
   void classify_mesh_topology(MeshState &mesh) {
@@ -71,19 +68,15 @@ private:
   void load_shape(MeshState &out_mesh, CompiledHankin &out_hankin,
                   std::array<ProceduralPalette, 5> &out_palettes, int idx,
                   float angle) {
-    scratch_arena_a.reset();
-    scratch_arena_b.reset();
-    ScopedScratch _a(scratch_arena_a);
-    ScopedScratch _b(scratch_arena_b);
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh base = generate_base_solid(idx, a, b);
 
-    PolyMesh base = generate_base_solid(idx);
+      out_hankin = CompiledHankin();
+      MeshOps::compile_hankin(base, out_hankin, target, a);
 
-    out_hankin = CompiledHankin();
-    MeshOps::compile_hankin(base, out_hankin, persistent_arena,
-                            scratch_arena_a);
-
-    out_mesh.clear();
-    MeshOps::update_hankin(out_hankin, out_mesh, persistent_arena, angle);
+      out_mesh.clear();
+      MeshOps::update_hankin(out_hankin, out_mesh, target, angle);
+    });
 
     classify_mesh_topology(out_mesh);
     shuffle_palettes(out_palettes);

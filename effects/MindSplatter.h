@@ -13,6 +13,8 @@ template <int W, int H> class MindSplatter : public Effect {
 public:
   FLASHMEM MindSplatter()
       : Effect(W, H), presets{{{{"Tight", {0.85f, 1.0f, 0.025f, 0.2f}},
+                                {"SpiralA", {0.85f, 1.0f, 0.025f, 0.52f}},
+                                {"SpiralB", {0.85f, 1.0f, 0.025f, 0.92f}},
                                 {"Medium", {0.85f, 2.0f, 0.094f, 0.2f}},
                                 {"Loose", {0.85f, 3.0f, 0.035f, 1.0f}}}}},
         filters(Filter::World::Orient<W>(orientation),
@@ -26,17 +28,20 @@ public:
     registerParam("Well Str", &params.well_strength, 0.0f, 20.0f);
     registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
-    registerParam("Particles", &params.active_count, 0.0f, (float)NUM_PARTICLES);
+    registerParam("Particles", &params.active_count, 0.0f,
+                  (float)NUM_PARTICLES);
+    registerParam("Run Presets", &run_presets, true);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
 
     auto preset_timer = Animation::PeriodicTimer(
         160,
         [this](Canvas &) {
+          if (!run_presets)
+            return;
           presets.next();
-          timeline.add(
-              0, Animation::Lerp(params, presets.prev_get(), presets.get(), 48,
-                                 ease_mid));
+          timeline.add(0, Animation::Lerp(params, presets.prev_get(),
+                                          presets.get(), 48, ease_mid));
         },
         true);
     timeline.add(0, preset_timer);
@@ -87,7 +92,7 @@ private:
     }
   } params;
 
-  Presets<Params, 3> presets;
+  Presets<Params, 5> presets;
 
   Orientation<W> orientation;
   FastNoiseLite noise;
@@ -104,6 +109,7 @@ private:
   // Warp params
   MobiusParams mobius;
   float warp_scale = 0.6f;
+  bool run_presets = true;
 
   FLASHMEM void rebuild() {
     particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);

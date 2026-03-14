@@ -1,87 +1,99 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
+ */
 #pragma once
 
-#include "../ShaderEffect.h"
+#include "../effects_engine.h"
+#include "../scan.h"
 
-template <int W, int H> class Liquid2D : public ShaderEffect<W, H> {
-  using Base = ShaderEffect<W, H>;
-
+template <int W, int H> class Liquid2D : public Effect {
 public:
-  Liquid2D()
-      : Base(GenerativePalette(
-            GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
-            BrightnessProfile::CUP, SaturationProfile::VIBRANT, 141)) {}
+  FLASHMEM Liquid2D() : Effect(W, H) { persist_pixels = false; }
 
   void init() override {
-    this->noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    this->registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
-    this->registerParam("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
-    this->registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    this->registerParam("Time Speed", &params.time_speed, 0.1f, 5.0f);
-    this->registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
-    this->registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
+    registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
+    registerParam("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
+    registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
+    registerParam("Time Speed", &params.time_speed, 0.1f, 5.0f);
+    registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
+    registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
+
+    timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
+    timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
 
     // Cycle presets every 3-5 seconds via a 2 second lerp
-    this->timeline.add(
+    timeline.add(
         0, Animation::RandomTimer(
                90, 150,
                [this](Canvas &) {
                  presets.next();
-                 this->timeline.add(
-                     0, Animation::Lerp(params, presets.prev_get(),
-                                        presets.get(), 60, ease_in_out_sin));
+                 timeline.add(0, Animation::Lerp(params, presets.prev_get(),
+                                                 presets.get(), 60,
+                                                 ease_in_out_sin));
                },
                true));
 
     params = presets.get();
   }
 
-  // --- Virtual hooks ---
+  bool show_bg() const override { return true; }
 
   void draw_frame() override {
+    Canvas canvas(*this);
+    timeline.step(canvas);
+
     accumulated_time += params.time_speed;
-    Base::draw_frame();
+    float t = accumulated_time;
+
+    auto shader = [&](const Vector &v) -> Color4 {
+      // Transform
+      Vector rotated_v = global_orientation.unorient(v);
+      Vector sample_v = apply_glitch_lens(rotated_v);
+      Complex z = stereo(orientation.orient(sample_v));
+
+      // Warp
+      float noise_time = t * 0.5f;
+      float warp_x =
+          noise.GetNoise(z.re * params.warp_scale, z.im * params.warp_scale,
+                         noise_time) *
+          params.warp_strength;
+      float warp_y =
+          noise.GetNoise(z.re * params.warp_scale + 100.0f,
+                         z.im * params.warp_scale + 100.0f, noise_time) *
+          params.warp_strength;
+
+      // Sample
+      float u = z.re + warp_x;
+      float v_coord = z.im + warp_y;
+      float pu = u * params.pattern_freq;
+      float pv = v_coord * params.pattern_freq;
+      float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
+                      cosf(pv + params.complexity * cosf(pu - t * 0.8f));
+      float r_sq = u * u + v_coord * v_coord;
+      float attenuation =
+          1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
+
+      float normalized = (pattern * attenuation + 1.0f) * 0.5f;
+      return palette.get(normalized);
+    };
+
+    Scan::Shader::draw<W, H>(canvas, shader);
   }
-
-  Complex transform(const Vector &v) const override {
-    Vector rotated_v = this->global_orientation.unorient(v);
-    Vector sample_v = apply_glitch_lens(rotated_v);
-    return stereo(this->orientation.orient(sample_v));
-  }
-
-  float sample(const Complex &z, float warp_x, float warp_y,
-               float t) const override {
-    float u = z.re + warp_x;
-    float v_coord = z.im + warp_y;
-
-    float pu = u * params.pattern_freq;
-    float pv = v_coord * params.pattern_freq;
-
-    float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
-                    cosf(pv + params.complexity * cosf(pu - t * 0.8f));
-
-    float r_sq = u * u + v_coord * v_coord;
-    float attenuation =
-        1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
-
-    return pattern * attenuation;
-  }
-
-  void calc_warp(const Complex &z, float t, float &warp_x,
-                 float &warp_y) const override {
-    float noise_time = t * 0.5f;
-    warp_x = this->noise.GetNoise(z.re * params.warp_scale,
-                                  z.im * params.warp_scale, noise_time) *
-             params.warp_strength;
-    warp_y =
-        this->noise.GetNoise(z.re * params.warp_scale + 100.0f,
-                             z.im * params.warp_scale + 100.0f, noise_time) *
-        params.warp_strength;
-  }
-
-  float get_time() const override { return accumulated_time; }
 
 private:
+  Timeline<W> timeline;
+  Orientation<W> orientation;
+  Orientation<W> global_orientation;
+  FastNoiseLite noise;
+  GenerativePalette palette{GradientShape::CIRCULAR,
+                            HarmonyType::SPLIT_COMPLEMENTARY,
+                            BrightnessProfile::CUP, SaturationProfile::VIBRANT,
+                            141};
+
   // Pure algebraic 3D Glitch Lens - Zero Trigonometry!
   Vector apply_glitch_lens(Vector v) const {
     // 1. Mirror Southern Hemisphere

@@ -112,6 +112,18 @@ struct Color4 {
     return Color4(blended, blended_a);
   }
 
+  Color4 &operator+=(const Color4 &rhs) {
+    color += rhs.color;
+    alpha += rhs.alpha;
+    return *this;
+  }
+
+  Color4 &operator*=(float s) {
+    color = color * s;
+    alpha *= s;
+    return *this;
+  }
+
   operator CRGB() const { return color; }
 };
 

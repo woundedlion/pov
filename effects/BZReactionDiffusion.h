@@ -8,7 +8,6 @@
 #include <array>
 #include <algorithm>
 #include "../effects_engine.h"
-#include "../generators.h"
 #include "../reaction_graph.h"
 
 template <int W, int H> class BZReactionDiffusion : public Effect {
@@ -26,7 +25,7 @@ public:
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
     registerParam("GlobalAlpha", &params.global_alpha, 0.0f, 1.0f);
 
-    // Compute nodes from formula (neighbors are PROGMEM)
+    // Compute nodes from PROGMEM Fibonacci sphere
     for (int i = 0; i < RD_N; ++i)
       nodes[i] = ReactionGraph::node(i);
     timeline
@@ -78,20 +77,6 @@ private:
     }
   };
 
-  struct BZGridGenerator : public IGenerator<std::array<Vector, RD_N>> {
-    std::array<Vector, RD_N> generate(Arena &geom,
-                                      Arena &a, Arena &b) const override {
-      std::array<Vector, RD_N> out_nodes;
-      const float phi = PI_F * (3.0f - sqrtf(5.0f));
-      for (int i = 0; i < RD_N; i++) {
-        float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;
-        float radius = sqrtf(1.0f - y * y);
-        float theta = phi * i;
-        out_nodes[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
-      }
-      return out_nodes;
-    }
-  };
 
   void spawn() {
     contexts.push_back(BZReactionContext());

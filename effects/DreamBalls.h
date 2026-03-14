@@ -121,41 +121,37 @@ private:
       const auto &p = entry.params;
       auto &data = loaded_presets[preset_idx++];
 
-      scratch_arena_a.reset();
-      scratch_arena_b.reset();
-      ScopedScratch _(scratch_arena_a);
-      SolidNameGenerator gen(p.solid_name);
-      PolyMesh m = gen.generate(scratch_arena_a, scratch_arena_a, scratch_arena_b);
+      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        PolyMesh m = Solids::get_by_name(a, a, b, p.solid_name);
 
-      // Store Verts (Deep Copy)
-      data.mesh_state.vertices.bind(persistent_arena, m.vertices.size());
-      for (const auto &v : m.vertices) {
-        data.mesh_state.vertices.push_back(v);
-      }
-
-      // Store Faces
-      data.mesh_state.faces.bind(persistent_arena, m.faces.size());
-      data.mesh_state.face_counts.bind(persistent_arena,
-                                             m.face_counts.size());
-
-      int flat_idx = 0;
-      for (size_t i = 0; i < m.face_counts.size(); ++i) {
-        int count = m.face_counts[i];
-        data.mesh_state.face_counts.push_back((uint8_t)count);
-        for (int c = 0; c < count; ++c) {
-          data.mesh_state.faces.push_back(m.faces[flat_idx++]);
+        // Store Verts (Deep Copy)
+        data.mesh_state.vertices.bind(target, m.vertices.size());
+        for (const auto &v : m.vertices) {
+          data.mesh_state.vertices.push_back(v);
         }
-      }
 
-      // Compute Tangents
-      data.tangents.bind(persistent_arena,
-                               data.mesh_state.vertices.size());
-      for (const auto &v : data.mesh_state.vertices) {
-        Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
-        Vector u = cross(v, axis).normalize();
-        Vector frame_v = cross(v, u).normalize();
-        data.tangents.push_back({u, frame_v});
-      }
+        // Store Faces
+        data.mesh_state.faces.bind(target, m.faces.size());
+        data.mesh_state.face_counts.bind(target, m.face_counts.size());
+
+        int flat_idx = 0;
+        for (size_t i = 0; i < m.face_counts.size(); ++i) {
+          int count = m.face_counts[i];
+          data.mesh_state.face_counts.push_back((uint8_t)count);
+          for (int c = 0; c < count; ++c) {
+            data.mesh_state.faces.push_back(m.faces[flat_idx++]);
+          }
+        }
+
+        // Compute Tangents
+        data.tangents.bind(target, data.mesh_state.vertices.size());
+        for (const auto &v : data.mesh_state.vertices) {
+          Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
+          Vector u = cross(v, axis).normalize();
+          Vector frame_v = cross(v, u).normalize();
+          data.tangents.push_back({u, frame_v});
+        }
+      });
     }
   }
 
