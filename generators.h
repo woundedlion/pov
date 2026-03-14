@@ -21,7 +21,7 @@
  * @return       Whatever fn returns.
  */
 template <typename GenerateFn, typename... Args>
-auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
+[[nodiscard]] auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   scratch_arena_a.reset();
   scratch_arena_b.reset();
   ScopedScratch _a(scratch_arena_a);
