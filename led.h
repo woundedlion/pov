@@ -4,9 +4,18 @@
  */
 #pragma once
 #include "platform.h"
+
+// Uncomment to use DMA-based HD107S controller instead of FastLED WS2801.
+// Requires Teensy 4.x hardware. Leave commented for WASM/sim builds.
+ #define USE_DMA_LEDS
+
 #ifdef ARDUINO
 #include <Arduino.h>
-#include <FastLED.h>
+  #ifdef USE_DMA_LEDS
+    #include "dma_led.h"
+  #else
+    #include <FastLED.h>
+  #endif
 #endif
 #include "constants.h"
 #include "canvas.h"
@@ -25,6 +34,11 @@ static constexpr int PIN_DATA = 11;
  */
 static constexpr int PIN_CLOCK = 13;
 
+// When using DMA LEDs, correction is done in the DMA pipeline — stubs only.
+#ifdef USE_DMA_LEDS
+struct NoColorCorrection {};
+struct NoTempCorrection {};
+#else
 /**
  * @brief RAII guard to temporarily disable FastLED's color correction.
  */
@@ -66,6 +80,7 @@ struct NoTempCorrection {
     FastLED.setTemperature(Candle);
   }
 };
+#endif // !USE_DMA_LEDS
 
 /**
  * @brief Manages the display loop for the POV hardware.
@@ -81,18 +96,31 @@ public:
   POVDisplay() {
 #ifdef ARDUINO
     randomSeed(1337);
+  #ifdef USE_DMA_LEDS
+    ledController_.begin();
+    ledController_.setCorrection(255, 176, 240);  // TypicalLEDStrip
+    ledController_.setTemperature(255, 147, 41);   // Candle
+    ledController_.setBrightness(255);
+    // Enable slew rate limiting for signal integrity
+    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 =
+        IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 & ~IOMUXC_PAD_SRE; // Pin 11
+    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 =
+        IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 & ~IOMUXC_PAD_SRE; // Pin 13
+  #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds_,
                                                                         S);
-
     // enable slew rate limiting
     IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 =
         IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 & ~IOMUXC_PAD_SRE; // Pin 11
     IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 =
         IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 & ~IOMUXC_PAD_SRE; // Pin 13
-#endif
-
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
+  #endif
+#else
+    FastLED.setCorrection(TypicalLEDStrip);
+    FastLED.setTemperature(Candle);
+#endif
   }
 
   /**
@@ -139,7 +167,7 @@ private:
    * @brief Static function called by the IntervalTimer to display one column of
    * the frame.
    */
-  static inline void show_col() {
+  static FASTRUN void show_col() {
 
     for (int y = 0; y < S / 2; ++y) {
       // Map to physical strip: top half is inverted, bottom half is straight.
@@ -148,10 +176,15 @@ private:
           (x_ + (effect_->width() / 2)) % effect_->width(), y);
     }
 
+#ifdef USE_DMA_LEDS
+    // Non-blocking DMA transfer (HD107S)
+    ledController_.show(leds_);
+#else
     FastLED.show();
     if (effect_->show_bg()) {
       FastLED.showColor(CRGB(0, 0, 0));
     }
+#endif
 
     x_ = (x_ + 1) % effect_->width();
     // When the POV sweep completes one full virtual revolution (x_ = 0 or x_ =
@@ -167,6 +200,9 @@ private:
       *effect_; /**< Pointer to the currently running effect instance. */
   static int
       x_; /**< Current column index being displayed (virtual position). */
+#if defined(ARDUINO) && defined(USE_DMA_LEDS)
+  static DMALEDController<S> ledController_;
+#endif
 };
 
 template <int S, int RPM> int POVDisplay<S, RPM>::x_ = 0;
@@ -174,3 +210,8 @@ template <int S, int RPM> int POVDisplay<S, RPM>::x_ = 0;
 template <int S, int RPM> Effect *POVDisplay<S, RPM>::effect_ = nullptr;
 
 template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
+
+#if defined(ARDUINO) && defined(USE_DMA_LEDS)
+template <int S, int RPM>
+DMALEDController<S> POVDisplay<S, RPM>::ledController_;
+#endif

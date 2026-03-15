@@ -25,8 +25,8 @@ A persistence-of-vision (POV) LED sphere and its real-time simulator. The device
 | Component | Detail |
 |---|---|
 | Controller | Teensy 4.1 (600 MHz ARM Cortex-M7) |
-| LEDs | 96-pixel WS2801 addressable strip (40 physical pixels exposed per half-arm) |
-| Protocol | SPI at 6 MHz via FastLED |
+| LEDs | 96-pixel addressable strip (40 physical pixels exposed per half-arm) |
+| Protocol | SPI via FastLED (WS2801 at 6 MHz) or DMA (HD107S at 12 MHz) |
 | Rotation | 480 RPM (8 revolutions/second) |
 | Virtual resolution | 96 columns × 20 rows (hardware), up to 288×144 (WASM simulator) |
 | Pin assignments | DATA: pin 11, CLOCK: pin 13, RANDOM seed: analog pin 15 |
@@ -52,6 +52,7 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
 │
 ├── led.h                   POVDisplay<S,RPM> — ISR, double-buffer, effect dispatch
+├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x only)
 ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
 ├── effects_engine.h        Master include for the full engine (incl. hankin/conway)
 ├── effects.h               Include list for all effects
@@ -90,13 +91,14 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 ├── reaction_graph.h        Precomputed Fibonacci-lattice K-NN graph for reaction-diffusion
 ├── reaction_graph.cpp      147 KB neighbor table (RD_N=3840, RD_K=6)
 │
-├── effects/                One .h per effect (25 effects + 3 test effects)
+├── effects/                One .h per effect (27 effects + 2 test effects)
 │   ├── BZReactionDiffusion.h
 │   ├── ChaoticStrings.h
 │   ├── Comets.h
 │   ├── DreamBalls.h
 │   ├── Dynamo.h
 │   ├── FlowField.h
+│   ├── Flyby.h
 │   ├── GnomonicStars.h
 │   ├── GSReactionDiffusion.h
 │   ├── HankinSolids.h
@@ -114,11 +116,11 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 │   ├── RingSpin.h
 │   ├── SphericalHarmonics.h
 │   ├── SpinShapes.h
+│   ├── SplineFlow.h
 │   ├── Thrusters.h
 │   ├── Voronoi.h
 │   ├── Test.h              (test/debug)
-│   ├── TestShapes.h         (test/debug)
-│   └── TestSlewRate.h       (test/debug)
+│   └── TestShapes.h         (test/debug)
 │
 ├── wasm_bridge.cpp         Emscripten bindings — HolosphereEngine JS class
 ├── CMakeLists.txt          Emscripten build (outputs holosphere_wasm.js + .wasm)
@@ -148,7 +150,7 @@ The system has two physical execution targets sharing one codebase:
 └─────────┼─────────────────────────┼─────────────────────────────┘
           │                         │
     Arduino/Teensy             wasm_bridge.cpp
-    ISR + FastLED            (Emscripten build)
+    ISR + FastLED/DMA        (Emscripten build)
           │                         │
     Physical LED strip         ┌────┴──────────┐
     spinning at 480 RPM        │  daydream/    │
@@ -388,12 +390,33 @@ For drawing lines, curves, and paths, the `Plot` namespace provides a geodesic/p
 
 ```cpp
 Plot::Line::draw<W, H>(pipeline, canvas, start, end, fragment_shader);
-Plot::Curve::draw<W, H>(pipeline, canvas, fragments, fragment_shader, cache);
+Plot::Bezier::draw<W, H>(pipeline, canvas, p0, p1, p2, p3, fragment_shader);
+Plot::SplineChain::draw<W, H>(pipeline, canvas, control_points, tension, shader);
 ```
 
-Curves accept a `Fragments` array (a `StaticCircularBuffer<Fragment, 512>`) where each fragment carries position, texture registers (v0–v3), age, color, and blend mode. The rasterizer supports two interpolation strategies:
+All `Plot` primitives accept a `Fragments` array (an arena-backed `StaticCircularBuffer<Fragment>`) where each fragment carries position, texture registers (v0–v3), age, color, and blend mode. The rasterizer supports two interpolation strategies via `SplineMode`:
 - **Geodesic**: great-circle arc between segment endpoints (default)
 - **Planar**: planar projection within the tangent plane of a basis (for effects that live in a 2D local space)
+
+#### Plot Primitives
+
+| Primitive | Description |
+|---|---|
+| `Plot::Point` | Single point with adaptive thickness |
+| `Plot::Line` | Geodesic line segment between two points |
+| `Plot::Vertices` | Vertex set rendering |
+| `Plot::Multiline` | Connected line strip from a sequence of fragments |
+| `Plot::Ring` | Circle rasterized as a plotted polyline |
+| `Plot::PlanarPolygon` | Regular N-gon in the tangent plane |
+| `Plot::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
+| `Plot::DistortedRing` | Ring with per-azimuth radius perturbation via callback |
+| `Plot::Spiral` | Fibonacci spiral on the sphere |
+| `Plot::Star` | N-pointed star shape (alternating inner/outer radii) |
+| `Plot::Flower` | N-petal flower shape |
+| `Plot::Mesh` | Wireframe mesh rendering with edge deduplication |
+| `Plot::ParticleSystem` | Particle trail rendering from `VectorTrail` history |
+| `Plot::Bezier` | Single cubic Bézier curve on the sphere |
+| `Plot::SplineChain` | Catmull-Rom spline chain through control points with configurable tension |
 
 ### 6.3 The Animation System (`animation.h`)
 
@@ -679,6 +702,30 @@ presets.apply(current_params);  // copy current preset into live params
 
 `ShaderEffect<W,H>` is an intermediate base class for per-pixel "shader" effects. It provides the full draw_frame loop with 4× SSAA (super-sample anti-aliasing), timeline, dual orientation (view + global), noise generator, and palette. Leaf classes only implement `transform()` (world-space vector → complex sample coordinate) and `sample()` (complex coordinate → pattern intensity).
 
+### 6.11 DMA LED Controller (`dma_led.h`)
+
+An optional non-blocking DMA-based LED output path for HD107S (APA102-compatible) LEDs on Teensy 4.x. Enabled by defining `USE_DMA_LEDS` in `led.h`; the default FastLED/WS2801 path remains as fallback.
+
+The system has three layers:
+
+| Class | Role |
+|---|---|
+| `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. Applies inline color correction (color correction → temperature → gamma → brightness) during `load()` so the buffer is ready for immediate DMA transfer. Uses `DMAMEM` placement and `arm_dcache_flush_delete()` for cache coherency. |
+| `TeensySPIDMA` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission at 12 MHz. |
+| `DMALEDController<N>` | Double-buffered high-level controller. `show(leds)` loads the back buffer and triggers DMA, returning immediately. The previous transfer is guaranteed complete before the next begins. |
+
+In the ISR, `DMALEDController::show()` replaces `FastLED.show()` as a drop-in:
+
+```cpp
+#ifdef USE_DMA_LEDS
+  ledController_.show(leds_);      // non-blocking DMA
+#else
+  FastLED.show();                  // blocking SPI
+#endif
+```
+
+Because the DMA transfer runs in hardware, the ISR returns immediately and the main loop gets more CPU time for rendering.
+
 ---
 
 ## 7. The Effect System
@@ -820,6 +867,16 @@ Directional particle jets.
 
 #### GnomonicStars
 Star polygon SDFs that rotate continuously. Uses gnomonic projection (straight lines on sphere remain straight).
+
+#### Flyby
+Stereographic-projection shader (extends `Effect` directly) with noise-driven warp distortion. Dual random-walk orientations animate the view and projection independently, producing a fly-through effect on the sphere surface.
+
+**Parameters**: Warp Scale, Warp Strength, Pattern Freq, Time Speed, Complexity, Pole Fade
+
+#### SplineFlow
+Catmull-Rom spline curves whose control points drift via independent random walks. Drawn with `Plot::SplineChain` in closed-loop mode through `World::Trails` for persistent trails, producing flowing organic ribbon paths.
+
+**Parameters**: Tension, Speed, Drift, Num Pts, Alpha
 
 ### Legacy Effects (`effects_legacy.h`)
 
