@@ -49,7 +49,17 @@ public:
 
     // Load first shape
     solid_idx = 0;
-    generate_incoming_shape(carousel.front_index());
+    {
+      auto solids = Solids::Collections::get_platonic_solids();
+      PolyMesh poly = generate(persistent_arena,
+          [&](Arena &target, Arena &a, Arena &b) {
+            return Solids::finalize_solid(
+                solids[solid_idx].generate(a, b), target);
+          });
+      carousel.slot(carousel.front_index()).clear();
+      MeshOps::compile(poly, carousel.slot(carousel.front_index()),
+                       persistent_arena);
+    }
 
     registerParam("Fade", &params.fade, 0.0f, 0.99f);
     registerParam("Distort Amp", &params.amplitude, 0.0f, 30.0f);
@@ -106,62 +116,33 @@ public:
   }
 
 private:
-  void generate_incoming_shape(int slot_idx) {
+  void start_morph() {
     auto solids = Solids::Collections::get_platonic_solids();
+    solid_idx = (solid_idx + 1) % solids.size();
+    int new_slot = 1 - carousel.front_index();
+
+    // Generate incoming shape into back slot
+    carousel.slot(new_slot) = MeshState();
     PolyMesh poly = generate(persistent_arena,
         [&](Arena &target, Arena &a, Arena &b) {
           return Solids::finalize_solid(
               solids[solid_idx].generate(a, b), target);
         });
-    carousel.slot(slot_idx).clear();
-    MeshOps::compile(poly, carousel.slot(slot_idx), persistent_arena);
-  }
-
-  void prepare_morph_buffers(int new_slot) {
-    size_t max_v = std::max(carousel.current().vertices.size(),
-                            carousel.slot(new_slot).vertices.size());
-    morph_buffer.preallocate(persistent_arena, max_v);
-  }
-
-  void release_morph_transients() {
-    active_mesh_A = MeshState();
-    active_mesh_B = MeshState();
-    carousel.incoming() = MeshState();
-    morph_buffer = Animation::MorphBuffer();
-  }
-
-  void compact_persistent_data() {
-    Persist<MeshState> p(carousel.current(), scratch_arena_a, persistent_arena);
-    persistent_arena.reset();
-  }
-
-  void start_morph() {
-
-    auto solids = Solids::Collections::get_platonic_solids();
-    solid_idx = (solid_idx + 1) % solids.size();
-    int new_slot = 1 - carousel.front_index();
-
-    release_morph_transients();
-    generate_incoming_shape(new_slot);
-    prepare_morph_buffers(new_slot);
+    MeshOps::compile(poly, carousel.slot(new_slot), persistent_arena);
 
     morphing = true;
-    timeline.add(
-        0, Animation::MeshMorph(
-               &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
-               carousel.current(), carousel.slot(new_slot), draw_morph_fn_,
-               draw_morph_fn_, MORPH_FRAMES, false, ease_in_out_sin)
-               .then([this, new_slot]() {
-                 carousel.set_front(new_slot);
-                 morphing = false;
-
-                 release_morph_transients();
-                 compact_persistent_data();
-
-                 timeline.add(0, Animation::Sprite([](Canvas &, float) {},
-                                                   NO_MORPH_FRAMES)
-                                     .then([this]() { start_morph(); }));
-               }));
+    timeline.add(0,
+      Animation::MeshMorph(carousel.current(), carousel.slot(new_slot),
+                           persistent_arena, draw_morph_fn_, draw_morph_fn_,
+                           MORPH_FRAMES, ease_in_out_sin)
+        .then([this, new_slot]() {
+          morphing = false;
+          carousel.set_front(new_slot);
+          carousel.compact();
+          timeline.add(0, Animation::Sprite([](Canvas &, float) {},
+                                            NO_MORPH_FRAMES)
+                              .then([this]() { start_morph(); }));
+        }));
   }
 
   void apply_params() {
@@ -190,9 +171,6 @@ private:
   // Mesh carousel + morph state
   MeshCarousel<W> carousel;
   int solid_idx = 0;
-  MeshState active_mesh_A;
-  MeshState active_mesh_B;
-  Animation::MorphBuffer morph_buffer;
   bool morphing = false;
 
   /// Morph draw callback - Fn member gives FunctionRef a stable lifetime

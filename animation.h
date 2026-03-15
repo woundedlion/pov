@@ -402,12 +402,23 @@ private:
 
         if (dist_sq > 0.0000001f) {
           if (dist_sq < attr.event_horizon * attr.event_horizon) {
-            // Steer into center
-            Vector torque = (attr.position - pos).normalize();
+            // Blend between gravity and steering based on distance
+            float blend = dist_sq / (attr.event_horizon * attr.event_horizon);
+
+            // Gravity component (weakens as we approach)
+            float force = (gravity * attr.strength) / dist_sq;
+            Vector torque = cross(pos, attr.position).normalize() * force;
+            Vector gravity_vel = cross(torque, pos);
+
+            // Steering component (strengthens as we approach)
+            Vector steer_dir = (attr.position - pos).normalize();
             float speed = p.velocity.magnitude();
-            p.velocity = torque * speed;
+            Vector steer_vel = steer_dir * speed;
+
+            // Smooth blend: 1.0 at horizon edge (all gravity), 0.0 at center (all steer)
+            p.velocity += gravity_vel * blend + steer_vel * (1.0f - blend) - p.velocity * (1.0f - blend);
           } else {
-            // Gravity
+            // Pure gravity
             float force = (gravity * attr.strength) / dist_sq;
             Vector torque = cross(pos, attr.position).normalize() * force;
             p.velocity += cross(torque, pos);
@@ -1224,51 +1235,42 @@ public:
   EasingFn easing;
 };
 
-/*
- * @brief State for a dual-mesh transition (Stationary Outgoing, Blooming
- * Incoming)
- */
-struct MorphBuffer {
-  ArenaVector<Vector> start_pos_B;
-  ArenaVector<Vector> end_pos_B;
 
-  void preallocate(Arena &arena, size_t capacity) {
-    start_pos_B.bind(arena, capacity);
-    end_pos_B.bind(arena, capacity);
-  }
-};
 
-/*
- * @brief Animates an elastic topological crossfade where the outgoing shape
- * dissolves in place.
+/**
+ * @brief Animates a vertex-interpolated crossfade between two meshes.
  *
- * When a draw_fn is provided, MeshMorph self-renders both meshes each frame
- * with automatic alpha crossfade — no external Sprite needed.
+ * Owns its transient state (cloned meshes + SLERP buffers) via a pointer
+ * to arena-allocated storage — keeps inline size small for TimelineEvent.
+ * The caller provides source/dest MeshState references and an Arena;
+ * MeshMorph clones both, builds nearest-vertex correspondence, and
+ * interpolates each frame. Transients are released when the animation
+ * completes and the TimelineEvent is destroyed; call compact on the
+ * arena afterward to reclaim the space.
  */
 class MeshMorph : public AnimationBase<MeshMorph> {
 public:
   using MorphDrawFn = FunctionRef<void(Canvas &, const MeshState &, float)>;
 
-  MeshMorph(MeshState *active_A, MeshState *active_B, MorphBuffer *buffer,
-            Arena *geom_arena, const MeshState &source, const MeshState &dest,
+  /// Two-callback constructor: separate shading for outgoing and incoming.
+  MeshMorph(const MeshState &source, const MeshState &dest, Arena &arena,
             MorphDrawFn draw_outgoing, MorphDrawFn draw_incoming, int duration,
-            bool repeat = false, EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(duration, repeat), active_A(active_A), active_B(active_B),
-        buffer(buffer), geom_arena(geom_arena), easing_fn(easing_fn),
+            EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(duration, false), easing_fn(easing_fn),
         draw_outgoing(draw_outgoing), draw_incoming(draw_incoming) {
-    if (buffer && active_A && active_B) {
-      init(source, dest);
-    }
-  }
+    // Allocate transient storage on the arena
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
 
-  void init(const MeshState &source, const MeshState &dest) {
-    buffer->start_pos_B.clear();
-    buffer->end_pos_B.clear();
+    // Clone both meshes for interpolation
+    MeshOps::clone(source, buf_->mesh_A, arena);
+    MeshOps::clone(dest, buf_->mesh_B, arena);
 
-    MeshOps::clone(source, *active_A, *geom_arena);
-    MeshOps::clone(dest, *active_B, *geom_arena);
+    // Allocate SLERP buffers
+    buf_->start_pos.bind(arena, dest.vertices.size());
+    buf_->end_pos.bind(arena, dest.vertices.size());
 
-    // Symmetry breaking
+    // Symmetry-breaking twist to avoid degenerate nearest-vertex mapping
     Vector twist_axis = Vector(0.0f, 0.0f, 1.0f);
     bool has_poles = false;
     for (const auto &v : source.vertices) {
@@ -1280,9 +1282,9 @@ public:
     }
     Quaternion twist = make_rotation(twist_axis, 0.05f);
 
-    auto get_nearest_on_source = [&](Vector v) {
-      Vector v_biased = rotate(v, twist);
-
+    // Build nearest-vertex correspondence
+    for (size_t i = 0; i < dest.vertices.size(); ++i) {
+      Vector v_biased = rotate(dest.vertices[i], twist);
       int best_idx = 0;
       float max_dot = -9999.0f;
       for (size_t j = 0; j < source.vertices.size(); ++j) {
@@ -1292,41 +1294,41 @@ public:
           best_idx = static_cast<int>(j);
         }
       }
-      return source.vertices[best_idx];
-    };
-
-    for (size_t i = 0; i < dest.vertices.size(); ++i) {
-      buffer->start_pos_B.push_back(get_nearest_on_source(dest.vertices[i]));
-      buffer->end_pos_B.push_back(dest.vertices[i]);
+      buf_->start_pos.push_back(source.vertices[best_idx]);
+      buf_->end_pos.push_back(dest.vertices[i]);
     }
   }
 
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    if (!buffer || !active_A || !active_B)
-      return;
 
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
 
-    for (size_t i = 0; i < buffer->start_pos_B.size(); ++i) {
-      active_B->vertices[i] =
-          slerp(buffer->start_pos_B[i], buffer->end_pos_B[i], alpha);
+    // Interpolate vertices
+    for (size_t i = 0; i < buf_->end_pos.size(); ++i) {
+      buf_->mesh_B.vertices[i] =
+          slerp(buf_->start_pos[i], buf_->end_pos[i], alpha);
     }
 
     // Render crossfade
     float op_A = 1.0f - alpha;
     if (op_A > 0.01f)
-      draw_outgoing(canvas, *active_A, op_A);
+      draw_outgoing(canvas, buf_->mesh_A, op_A);
     if (alpha > 0.01f)
-      draw_incoming(canvas, *active_B, alpha);
+      draw_incoming(canvas, buf_->mesh_B, alpha);
   }
 
 private:
-  MeshState *active_A;
-  MeshState *active_B;
-  MorphBuffer *buffer;
-  Arena *geom_arena;
+  /// Arena-allocated transient data — keeps MeshMorph inline size small.
+  struct Transients {
+    MeshState mesh_A;
+    MeshState mesh_B;
+    ArenaVector<Vector> start_pos;
+    ArenaVector<Vector> end_pos;
+  };
+
+  Transients *buf_;
   EasingFn easing_fn;
   MorphDrawFn draw_outgoing;
   MorphDrawFn draw_incoming;
