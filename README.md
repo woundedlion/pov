@@ -91,7 +91,7 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 ├── reaction_graph.h        Precomputed Fibonacci-lattice K-NN graph for reaction-diffusion
 ├── reaction_graph.cpp      147 KB neighbor table (RD_N=3840, RD_K=6)
 │
-├── effects/                One .h per effect (27 effects + 2 test effects)
+├── effects/                One .h per effect (26 effects + 2 test effects)
 │   ├── BZReactionDiffusion.h
 │   ├── ChaoticStrings.h
 │   ├── Comets.h
@@ -105,7 +105,7 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 │   ├── HopfFibration.h
 │   ├── IslamicStars.h
 │   ├── Liquid2D.h
-│   ├── LSystem.h
+
 │   ├── MeshFeedback.h
 │   ├── Metaballs.h
 │   ├── MindSplatter.h
@@ -807,10 +807,7 @@ Procedurally generates authentic Islamic geometric patterns using Hankin's metho
 #### HankinSolids
 Similar to IslamicStars but sequences through the full Archimedean solid library with animated palette transitions.
 
-#### LSystem
-L-systems rendered by a `SphericalTurtle` that advances by geodesic arcs and turns around the surface normal. Three built-in rule sets (fractal tree, Koch snowflake variant, Lévy curve) with live angle and step-size modulation.
 
-**Parameters**: Rule (0–2), Angle (modifier), Step (modifier)
 
 #### SphericalHarmonics
 Renders the real spherical harmonics Yˡₘ(θ, φ) as SDF `HarmonicBlob` shapes. The harmonic defines a lobe-radius function that deforms a unit sphere surface. Animates through different (l, m) combinations.
