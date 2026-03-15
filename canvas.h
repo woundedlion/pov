@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <variant>
+#include <atomic>
 #include "platform.h"
 #include "constants.h"
 #include "color.h"
@@ -64,7 +65,7 @@ public:
    * @return The Pixel color reference.
    */
   virtual const Pixel &get_pixel(int x, int y) const {
-    return bufs_[prev_][y * width_ + x];
+    return bufs_[prev_.load(std::memory_order_relaxed)][y * width_ + x];
   }
 
   /**
@@ -81,22 +82,28 @@ public:
    * @brief Checks if the display buffer and drawing buffer are synced.
    * @return True if the current frame is ready to be shown.
    */
-  inline bool buffer_free() const { return prev_ == next_; }
+  inline bool buffer_free() const {
+    return prev_.load(std::memory_order_relaxed) ==
+           next_.load(std::memory_order_relaxed);
+  }
   /**
    * @brief Advances the display buffer pointer to the next queued frame.
    */
-  inline void advance_display() { prev_ = next_; }
+  inline void advance_display() {
+    prev_.store(next_.load(std::memory_order_relaxed),
+                std::memory_order_relaxed);
+  }
   /**
    * @brief Advances the drawing buffer pointer to the next available buffer.
    * @details If `persist_pixels` is true, copies the previous frame's content
    * to the new buffer.
    */
   inline void advance_buffer() {
-    hs::disable_interrupts();
-    cur_ = cur_ ? 0 : 1;
-    hs::enable_interrupts();
+    int c = cur_.load(std::memory_order_relaxed) ? 0 : 1;
+    cur_.store(c, std::memory_order_relaxed);
     if (persist_pixels) {
-      memcpy(bufs_[cur_], bufs_[prev_], sizeof(Pixel) * width_ * height_);
+      memcpy(bufs_[c], bufs_[prev_.load(std::memory_order_relaxed)],
+             sizeof(Pixel) * width_ * height_);
     }
   }
 
@@ -105,7 +112,8 @@ public:
    */
   inline void queue_frame() {
     hs::disable_interrupts();
-    next_ = cur_;
+    next_.store(cur_.load(std::memory_order_relaxed),
+                std::memory_order_relaxed);
     hs::enable_interrupts();
   }
 
@@ -232,8 +240,9 @@ protected:
   }
 
 private:
-  volatile int prev_ = 0, cur_ = 0,
-               next_ = 0; /**< Pointers/indices for double buffering logic. */
+  std::atomic<int> prev_{0}; /**< Buffer the ISR is currently reading. */
+  std::atomic<int> cur_{0};  /**< Buffer the main loop is currently writing. */
+  std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
   int width_;             /**< The width of the effect. */
   int height_;            /**< The height of the effect. */
   static DMAMEM Pixel
@@ -281,7 +290,7 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int x, int y) {
-    return effect_.bufs_[effect_.cur_][y * effect_.width_ + x];
+    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][y * effect_.width_ + x];
   }
 
   /**
@@ -291,7 +300,7 @@ public:
    * @return Copy of the Pixel from the previous frame.
    */
   inline Pixel prev(int x, int y) const {
-    return effect_.bufs_[effect_.prev_][y * effect_.width_ + x];
+    return effect_.bufs_[effect_.prev_.load(std::memory_order_relaxed)][y * effect_.width_ + x];
   }
 
   /**
@@ -299,7 +308,7 @@ public:
    * @param xy The 1D index.
    * @return Reference to the Pixel.
    */
-  inline Pixel &operator()(int xy) { return effect_.bufs_[effect_.cur_][xy]; }
+  inline Pixel &operator()(int xy) { return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][xy]; }
 
   /**
    * @brief Gets the width of the canvas.
@@ -310,8 +319,9 @@ public:
    * @brief Clears the entire current drawing buffer to black.
    */
   void clear_buffer() {
-    std::fill(effect_.bufs_[effect_.cur_],
-              effect_.bufs_[effect_.cur_] + effect_.width_ * effect_.height_,
+    int c = effect_.cur_.load(std::memory_order_relaxed);
+    std::fill(effect_.bufs_[c],
+              effect_.bufs_[c] + effect_.width_ * effect_.height_,
               Pixel(0, 0, 0));
   }
 

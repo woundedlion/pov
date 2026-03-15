@@ -1373,7 +1373,10 @@ struct SplineChain {
 
     ScopedScratch _frag(scratch_arena_a);
     Fragments points;
-    points.bind(scratch_arena_a, n * samples_per_segment + 1);
+    const size_t frag_count = closed
+        ? n * samples_per_segment
+        : (n - 1) * samples_per_segment + 1;
+    points.bind(scratch_arena_a, frag_count);
 
     float cumulative_len = 0.0f;
     Vector last_pos;

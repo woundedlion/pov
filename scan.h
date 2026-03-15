@@ -184,7 +184,7 @@ struct PlanarPolygon {
     auto res = get_antipode(basis, radius);
     float thickness = res.second * (PI_F / 2.0f);
 
-    SDF::Polygon shape(res.first, res.second, thickness, sides, phase, H + 3,
+    SDF::Polygon shape(res.first, res.second, thickness, sides, phase, H + hs::H_OFFSET,
                        H);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
@@ -291,7 +291,7 @@ struct Flower {
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
-    SDF::Flower shape(res.first, res.second, sides, phase, H + 3, H);
+    SDF::Flower shape(res.first, res.second, sides, phase, H + hs::H_OFFSET, H);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -309,7 +309,7 @@ struct SphericalPolygon {
     float offset = PI_F / sides;
 
     SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
-                                H + 3, H);
+                                H + hs::H_OFFSET, H);
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
   }
 };
@@ -337,7 +337,7 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
       std::span<const uint16_t> indices(&mesh.faces[idx_offset], count);
 
-      SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
+      SDF::Face shape(verts, indices, 0.0f, scratch, H + hs::H_OFFSET, H);
       idx_offset += count;
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
@@ -365,7 +365,7 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      SDF::Face shape(verts, indices, 0.0f, scratch, H + 3, H);
+      SDF::Face shape(verts, indices, 0.0f, scratch, H + hs::H_OFFSET, H);
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
         f_in.v2 = static_cast<float>(i);
