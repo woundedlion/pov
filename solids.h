@@ -548,8 +548,8 @@ inline std::span<const Entry> get_islamic_solids() {
 } // namespace Collections
 
 inline const Entry &get_entry(size_t index) {
-  if (index < 0 || index >= NUM_ENTRIES)
-    return simple_registry[3];
+  if (index >= static_cast<size_t>(NUM_ENTRIES))
+    return simple_registry[3];  // fallback to dodecahedron
 
   if (index < std::size(simple_registry))
     return simple_registry[index];

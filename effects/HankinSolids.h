@@ -115,32 +115,9 @@ private:
                            params.debug_bb);
   }
 
-  void prepare_morph_buffers(int old_front, int new_slot) {
-    size_t max_v = std::max(carousel.slot(old_front).vertices.size(),
-                            carousel.slot(new_slot).vertices.size());
-    morph_buffer.preallocate(persistent_arena, max_v);
-    morph_old_slot_ = old_front;
-    morph_new_slot_ = new_slot;
-  }
-
   void promote_staged_hankin() {
     compiled_hankin = std::move(compiled_hankin_staging);
     compiled_hankin_staging = CompiledHankin();
-  }
-
-  void release_morph_transients() {
-    active_mesh_A = MeshState();
-    active_mesh_B = MeshState();
-    carousel.incoming() = MeshState();
-    morph_buffer = Animation::MorphBuffer();
-  }
-
-  void compact_persistent_data() {
-    Persist<CompiledHankin> p_hankin(compiled_hankin, scratch_arena_a,
-                                     persistent_arena);
-    Persist<MeshState> p_mesh(carousel.current(), scratch_arena_b,
-                              persistent_arena);
-    persistent_arena.reset();
   }
 
   void start_hankin_cycle() {
@@ -174,21 +151,30 @@ private:
     load_shape(carousel.slot(new_slot), compiled_hankin_staging,
                palettes_slots[new_slot], next_idx, params.hankin_angle);
 
-    prepare_morph_buffers(old_front, new_slot);
+    // Set slot indices before creating MeshMorph (draw callbacks reference these)
+    morph_old_slot_ = old_front;
+    morph_new_slot_ = new_slot;
 
     timeline.add(
         0, Animation::MeshMorph(
-               &active_mesh_A, &active_mesh_B, &morph_buffer, &persistent_arena,
                carousel.slot(old_front), carousel.slot(new_slot),
-               draw_morph_outgoing_fn_, draw_morph_incoming_fn_, MORPH_FRAMES,
-               false, ease_in_out_sin)
+               persistent_arena, draw_morph_outgoing_fn_,
+               draw_morph_incoming_fn_, MORPH_FRAMES,
+               ease_in_out_sin)
                .then([this, next_idx, new_slot]() {
                  solid_idx = next_idx;
                  carousel.set_front(new_slot);
-
                  promote_staged_hankin();
-                 release_morph_transients();
-                 compact_persistent_data();
+                 // Manual compaction: preserve both carousel slots + compiled_hankin
+                 {
+                   Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_a,
+                                              persistent_arena);
+                   Persist<MeshState> p0(carousel.slot(0), scratch_arena_b,
+                                         persistent_arena);
+                   Persist<MeshState> p1(carousel.slot(1), scratch_arena_a,
+                                         persistent_arena);
+                   persistent_arena.reset();
+                 }
 
                  MeshOps::update_hankin(compiled_hankin, carousel.current(),
                                         persistent_arena, params.hankin_angle);
@@ -201,14 +187,11 @@ private:
   CompiledHankin compiled_hankin_staging; // Built during morph cycle
   std::array<ProceduralPalette, 5> palettes_slots[2];
 
-  // MeshMorph transient state
-  MeshState active_mesh_A;
-  MeshState active_mesh_B;
-  Animation::MorphBuffer morph_buffer;
+  // Slot indices for morph draw callbacks (set before each morph)
   int morph_old_slot_ = 0;
   int morph_new_slot_ = 1;
 
-  /// Morph draw callbacks - Fn members give FunctionRef a stable lifetime
+  /// Morph draw callbacks — members for stable FunctionRef lifetime
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_outgoing_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
         draw_mesh(c, m, carousel.slot(morph_old_slot_).topology,

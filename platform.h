@@ -291,20 +291,29 @@ inline uint16_t random16() { return hs::random()() % 65536; }
 inline void random16_add_entropy(uint16_t) {}
 
 /**
- * @brief Generates a sine wave beat.
- * @details Mocks FastLED's beatsin8 around a fixed timebase or simplified
- * logic.
+ * @brief Generates a sine wave beat using system clock.
+ * @details Mocks FastLED's beatsin8: oscillates between low and high at
+ * the given BPM. Phase is a 16-bit offset into the wave cycle.
  */
 inline uint8_t beatsin8(uint16_t bpm, uint8_t low, uint8_t high,
                         uint16_t phase = 0, uint16_t offset = 0) {
-  // Simplified implementation using system clock
-  // Real implementation would need a unified timebase
-  return low;
+  using namespace std::chrono;
+  float t = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() / 1000.0f;
+  float beats = t * bpm / 60.0f;
+  float wave = (sinf(beats * 2.0f * PI + phase / 65536.0f * 2.0f * PI) + 1.0f) * 0.5f;
+  return low + static_cast<uint8_t>(wave * (high - low));
 }
 
+/**
+ * @brief 16-bit version of beatsin8.
+ */
 inline uint16_t beatsin16(uint16_t bpm, uint16_t low, uint16_t high,
                           uint16_t phase = 0, uint16_t offset = 0) {
-  return low;
+  using namespace std::chrono;
+  float t = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() / 1000.0f;
+  float beats = t * bpm / 60.0f;
+  float wave = (sinf(beats * 2.0f * PI + phase / 65536.0f * 2.0f * PI) + 1.0f) * 0.5f;
+  return low + static_cast<uint16_t>(wave * (high - low));
 }
 
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) { return (a + b) % m; }

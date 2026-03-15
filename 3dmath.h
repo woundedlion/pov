@@ -441,13 +441,17 @@ struct MobiusParams {
   Complex getD() const { return Complex(dRe, dIm); }
 };
 
+/// Conventional representation of the point at infinity on the complex plane.
+static constexpr float STEREO_INF = 1e4f;
+
 /**
  * @brief Stereographic Projection: Sphere -> Complex Plane.
+ * North pole (v.y ≈ 1) maps to the point at infinity on the real axis.
  */
 inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.y;
-  if (std::abs(denom) < 0.0001f)
-    return Complex(100, 100); // Infinity
+  if (denom < 1e-4f)
+    return Complex(STEREO_INF, 0.0f);  // North pole → point at infinity
   return Complex(v.x / denom, v.z / denom);
 }
 
@@ -473,10 +477,13 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * Projects from center (0,0,0) to plane z=1 (tangent at North Pole, i.e., k=1).
  */
 inline Complex gnomonic(const Vector &v) {
-  // Handle equator singularity with a large number instead of Infinity
-  // Projects to plane at j=1.
+  // Handle equator singularity — clamp to STEREO_INF
   float div = (std::abs(v.y) < 1e-9f) ? 1e-9f * (v.y >= 0 ? 1.0f : -1.0f) : v.y;
-  return Complex(v.x / div, v.z / div);
+  float gx = v.x / div;
+  float gz = v.z / div;
+  gx = hs::clamp(gx, -STEREO_INF, STEREO_INF);
+  gz = hs::clamp(gz, -STEREO_INF, STEREO_INF);
+  return Complex(gx, gz);
 }
 
 /**

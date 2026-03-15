@@ -393,16 +393,25 @@ public:
       int end = static_cast<int>(nextPos * 255);
 
       if (end > start) {
+        // Pre-convert stop colors to linear float
+        float pr = srgb_to_linear_float(prevColor.r / 255.0f);
+        float pg = srgb_to_linear_float(prevColor.g / 255.0f);
+        float pb = srgb_to_linear_float(prevColor.b / 255.0f);
+        float nr = srgb_to_linear_float(nextColor.r / 255.0f);
+        float ng = srgb_to_linear_float(nextColor.g / 255.0f);
+        float nb = srgb_to_linear_float(nextColor.b / 255.0f);
         for (int i = start; i <= end; i++) {
           float t = static_cast<float>(i - start) / (end - start);
 
-          // Interpolate in sRGB float space
-          float r = (float)prevColor.r * (1.0f - t) + (float)nextColor.r * t;
-          float g = (float)prevColor.g * (1.0f - t) + (float)nextColor.g * t;
-          float b = (float)prevColor.b * (1.0f - t) + (float)nextColor.b * t;
+          // Interpolate in linear space
+          float r_lin = pr * (1.0f - t) + nr * t;
+          float g_lin = pg * (1.0f - t) + ng * t;
+          float b_lin = pb * (1.0f - t) + nb * t;
 
-          entries[i] =
-              Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
+          entries[i] = Pixel(
+            static_cast<uint16_t>(r_lin * 65535.0f),
+            static_cast<uint16_t>(g_lin * 65535.0f),
+            static_cast<uint16_t>(b_lin * 65535.0f));
         }
       }
       prevPos = nextPos;
@@ -575,11 +584,18 @@ public:
 
     float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
 
-    uint8_t r = lerp8(c1.r, c2.r, p);
-    uint8_t g = lerp8(c1.g, c2.g, p);
-    uint8_t b = lerp8(c1.b, c2.b, p);
+    // Interpolate in linear space, not sRGB
+    float r_lin = srgb_to_linear_float(c1.r / 255.0f) * (1.0f - p)
+                + srgb_to_linear_float(c2.r / 255.0f) * p;
+    float g_lin = srgb_to_linear_float(c1.g / 255.0f) * (1.0f - p)
+                + srgb_to_linear_float(c2.g / 255.0f) * p;
+    float b_lin = srgb_to_linear_float(c1.b / 255.0f) * (1.0f - p)
+                + srgb_to_linear_float(c2.b / 255.0f) * p;
 
-    Pixel color(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
+    Pixel color(
+      static_cast<uint16_t>(r_lin * 65535.0f),
+      static_cast<uint16_t>(g_lin * 65535.0f),
+      static_cast<uint16_t>(b_lin * 65535.0f));
     return Color4(color, 1.0f);
   }
 
