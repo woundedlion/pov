@@ -804,3 +804,56 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   float s2 = sinf(t * theta) / sin_theta;
   return ((s1 * p) + (s2 * q)).normalize();
 }
+
+/**
+ * @brief Evaluation mode for spherical spline interpolation.
+ */
+enum class SplineMode { Fast, Geodesic };
+
+namespace Spline {
+
+/// Fast: polynomial interpolation + normalize. O(1) sqrtf per sample.
+/// Accurate within ~30° control-point separation; distorts on long arcs.
+inline Vector cubic_fast(const Vector &p0, const Vector &p1,
+                         const Vector &p2, const Vector &p3, float t) {
+    float u = 1.0f - t;
+    float uu = u * u;
+    float tt = t * t;
+    return (p0 * (uu * u) + p1 * (3.0f * uu * t) +
+            p2 * (3.0f * u * tt) + p3 * (tt * t)).normalize();
+}
+
+/// Accurate: de Casteljau with SLERP. 6 SLERPs per sample.
+/// Shape-faithful at any arc length.
+inline Vector cubic_slerp(const Vector &p0, const Vector &p1,
+                          const Vector &p2, const Vector &p3, float t) {
+    Vector b01  = slerp(p0, p1, t);
+    Vector b12  = slerp(p1, p2, t);
+    Vector b23  = slerp(p2, p3, t);
+    Vector b012 = slerp(b01, b12, t);
+    Vector b123 = slerp(b12, b23, t);
+    return slerp(b012, b123, t);
+}
+
+/// Unified dispatch — selects evaluation strategy once per sample point.
+inline Vector cubic(const Vector &p0, const Vector &p1,
+                    const Vector &p2, const Vector &p3,
+                    float t, SplineMode mode) {
+    return (mode == SplineMode::Fast)
+        ? cubic_fast(p0, p1, p2, p3, t)
+        : cubic_slerp(p0, p1, p2, p3, t);
+}
+
+/// Catmull-Rom tangent estimation on the sphere.
+/// Returns two Bézier control points for the segment from `start` to `end`.
+inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
+                                  const Vector &end, const Vector &next,
+                                  float tension,
+                                  Vector &cp1, Vector &cp2) {
+    // Tangent at start: pull toward the midpoint of prev→end
+    cp1 = slerp(start, slerp(prev, end, 0.5f), tension);
+    // Tangent at end: pull toward the midpoint of start→next
+    cp2 = slerp(end, slerp(start, next, 0.5f), tension);
+}
+
+} // namespace Spline

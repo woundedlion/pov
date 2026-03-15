@@ -32,3 +32,4 @@
 #include "effects/ChaoticStrings.h"
 #include "effects/Liquid2D.h"
 #include "effects/Flyby.h"
+#include "effects/SplineFlow.h"

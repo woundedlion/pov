@@ -156,8 +156,9 @@ private:
     filters.next.next.set_fade(feedback_enabled ? params.fade : 0.0f);
   }
 
-  Presets<Params, 4> presets = {
-      .entries = {{{"Flames", {0.9f, 0.51f, 0.42f, 0.46f, 23.0f, 0.01f}},
+  Presets<Params, 5> presets = {
+      .entries = {{{"Warpy", {0.82f, 3.15f, 1.0f, 0.02f, 1.0f, 0.035f}},
+                   {"Flames", {0.9f, 0.51f, 0.42f, 0.46f, 23.0f, 0.01f}},
                    {"Zebras1", {0.58f, 2.73f, 0.07f, 0.0f, 26.0f, 0.03f}},
                    {"Zebras2", {0.58f, 8.21f, 0.01f, 0.0f, 46.0f, 0.03f}},
                    {"Interdimensional",

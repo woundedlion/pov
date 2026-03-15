@@ -540,6 +540,30 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   register_vector<float>("VectorFloat");
   register_vector<int>("VectorInt");
   register_vector<uint8_t>("VectorUInt8");
+
+  // Spline evaluation — thin wrappers returning val {x,y,z}
+  function("spline_cubic_fast", optional_override([](float p0x, float p0y, float p0z,
+                                                      float p1x, float p1y, float p1z,
+                                                      float p2x, float p2y, float p2z,
+                                                      float p3x, float p3y, float p3z,
+                                                      float t) -> val {
+    Vector r = Spline::cubic_fast({p0x,p0y,p0z},{p1x,p1y,p1z},
+                                  {p2x,p2y,p2z},{p3x,p3y,p3z}, t);
+    val v = val::object();
+    v.set("x", r.x); v.set("y", r.y); v.set("z", r.z);
+    return v;
+  }));
+  function("spline_cubic_slerp", optional_override([](float p0x, float p0y, float p0z,
+                                                       float p1x, float p1y, float p1z,
+                                                       float p2x, float p2y, float p2z,
+                                                       float p3x, float p3y, float p3z,
+                                                       float t) -> val {
+    Vector r = Spline::cubic_slerp({p0x,p0y,p0z},{p1x,p1y,p1z},
+                                    {p2x,p2y,p2z},{p3x,p3y,p3z}, t);
+    val v = val::object();
+    v.set("x", r.x); v.set("y", r.y); v.set("z", r.z);
+    return v;
+  }));
 }
 
 #endif
