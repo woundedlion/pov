@@ -34,7 +34,6 @@ FLASHMEM static void run_show_sequence() {
   pov->show<HopfFibration<288, 144>>(120);
   pov->show<HankinSolids<288, 144>>(120);
   pov->show<IslamicStars<288, 144>>(120);
-  pov->show<LSystem<288, 144>>(120);
   pov->show<Metaballs<288, 144>>(120);
   pov->show<MindSplatter<288, 144>>(120);
   pov->show<SphericalHarmonics<288, 144>>(120);
