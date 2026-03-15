@@ -23,7 +23,11 @@ static constexpr float G = 1 / PHI;
 /**
  * @brief Tolerance used for floating-point comparisons.
  */
-static constexpr float TOLERANCE = 0.0001f;
+namespace math {
+  static constexpr float TOLERANCE = 0.0001f;
+}
+// Back-compat alias — prefer math::TOLERANCE in new code.
+static constexpr float TOLERANCE = math::TOLERANCE;
 /**
  * @brief Floating-point representation of PI.
  */
@@ -161,12 +165,12 @@ struct Vector {
    * @brief Calculates the magnitude (length) of the vector.
    * @return The magnitude.
    */
-  constexpr float length() const { return sqrtf(x * x + y * y + z * z); }
+  float length() const { return sqrtf(x * x + y * y + z * z); }
 
   /**
    * @brief Alias for length().
    */
-  constexpr float magnitude() const { return length(); }
+  float magnitude() const { return length(); }
 
   /**
    * @brief Normalizes the vector (scales to unit length).
@@ -184,6 +188,15 @@ struct Vector {
       z = z / m;
     }
     return *this;
+  }
+
+  /// Return a unit-length copy without mutating `this`.
+  Vector normalized() const {
+    float m = length();
+    if (m < std::numeric_limits<float>::epsilon()) {
+      return Vector(1, 0, 0); // degenerate fallback
+    }
+    return Vector(x / m, y / m, z / m);
   }
 
   float x = 0; /**< X-component. */
@@ -318,7 +331,7 @@ struct Quaternion {
    * @brief Calculates the magnitude (length) of the quaternion.
    * @return The magnitude.
    */
-  constexpr float magnitude() const {
+  float magnitude() const {
     return sqrtf(r * r + v.x * v.x + v.y * v.y + v.z * v.z);
   }
 
@@ -339,9 +352,21 @@ struct Quaternion {
     return *this;
   }
 
+  /// Return a unit-magnitude copy without mutating `this`.
+  Quaternion normalized() const {
+    float m = magnitude();
+    if (m <= std::numeric_limits<float>::epsilon()) {
+      return Quaternion(1, 0, 0, 0);
+    }
+    return Quaternion(r / m, v / m);
+  }
+
   float r = 1; /**< Real component. */
   Vector v;    /**< Vector part (x, y, z). */
 };
+
+/// Conventional representation of the point at infinity on the complex plane.
+static constexpr float STEREO_INF = 1e4f;
 
 /**
  * @brief Represents a Complex number.
@@ -385,8 +410,15 @@ struct Complex {
    */
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
-    if (std::abs(denom) < 0.000001f)
-      return Complex(0, 0);
+    if (std::abs(denom) < 1e-6f) {
+      // Near-zero denominator → point at infinity.
+      // Preserve direction of the numerator.
+      float num_mag = re * re + im * im;
+      if (num_mag < 1e-12f)
+        return Complex(0, 0); // 0/0 → indeterminate, keep zero
+      float scale = STEREO_INF / sqrtf(num_mag);
+      return Complex(re * scale, im * scale);
+    }
     return Complex((re * b.re + im * b.im) / denom,
                    (im * b.re - re * b.im) / denom);
   }
@@ -441,8 +473,6 @@ struct MobiusParams {
   Complex getD() const { return Complex(dRe, dIm); }
 };
 
-/// Conventional representation of the point at infinity on the complex plane.
-static constexpr float STEREO_INF = 1e4f;
 
 /**
  * @brief Stereographic Projection: Sphere -> Complex Plane.
@@ -459,7 +489,10 @@ inline Complex stereo(const Vector &v) {
  * @brief Inverse Stereographic Projection: Complex Plane -> Sphere.
  */
 inline Vector inv_stereo(const Complex &z) {
+  // Recognize infinity sentinel → return exact North Pole
   float r2 = z.re * z.re + z.im * z.im;
+  if (r2 >= STEREO_INF * STEREO_INF * 0.25f)
+    return Vector(0.0f, 1.0f, 0.0f);
   return Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1), 2 * z.im / (r2 + 1));
 }
 
@@ -492,6 +525,9 @@ inline Complex gnomonic(const Vector &v) {
  * @param original_sign The sign of the z-component (k) of the original vector.
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
+  // Recognize clamped-to-infinity → return the pole
+  if (std::abs(z.re) >= STEREO_INF || std::abs(z.im) >= STEREO_INF)
+    return Vector(0.0f, original_sign, 0.0f);
   // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
   float inv_len = 1.0f / len;
@@ -590,7 +626,7 @@ constexpr Vector cross(const Vector &v1, const Vector &v2) {
  * @param b Second vector.
  * @return The distance (scalar).
  */
-constexpr float distance_between(const Vector &a, const Vector &b) {
+inline float distance_between(const Vector &a, const Vector &b) {
   float dx = b.x - a.x;
   float dy = b.y - a.y;
   float dz = b.z - a.z;
@@ -617,7 +653,7 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
  * @param v2 Second vector.
  * @return The angle in radians.
  */
-constexpr float angle_between(const Vector &v1, const Vector &v2) {
+inline float angle_between(const Vector &v1, const Vector &v2) {
   float len_product = v1.length() * v2.length();
   if (len_product <= std::numeric_limits<float>::epsilon()) {
     hs::log("Cannot calculate angle between 0-vectors!");
@@ -846,6 +882,9 @@ inline Vector cubic(const Vector &p0, const Vector &p1,
 
 /// Catmull-Rom tangent estimation on the sphere.
 /// Returns two Bézier control points for the segment from `start` to `end`.
+/// @note tension=0 produces geodesic (linear) segments; tension=1 produces
+/// full Catmull-Rom smoothing. This is inverted from the conventional
+/// Catmull-Rom tension parameter where τ=0 is the standard cardinal spline.
 inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
                                   const Vector &end, const Vector &next,
                                   float tension,

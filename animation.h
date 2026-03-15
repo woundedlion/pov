@@ -404,23 +404,12 @@ private:
 
         if (dist_sq > 0.0000001f) {
           if (dist_sq < attr.event_horizon * attr.event_horizon) {
-            // Blend between gravity and steering based on distance
-            float blend = dist_sq / (attr.event_horizon * attr.event_horizon);
-
-            // Gravity component (weakens as we approach)
-            float force = (gravity * attr.strength) / dist_sq;
-            Vector torque = cross(pos, attr.position).normalize() * force;
-            Vector gravity_vel = cross(torque, pos);
-
-            // Steering component (strengthens as we approach)
-            Vector steer_dir = (attr.position - pos).normalize();
+            // Steer into center
+            Vector torque = (attr.position - pos).normalize();
             float speed = p.velocity.magnitude();
-            Vector steer_vel = steer_dir * speed;
-
-            // Smooth blend: 1.0 at horizon edge (all gravity), 0.0 at center (all steer)
-            p.velocity += gravity_vel * blend + steer_vel * (1.0f - blend) - p.velocity * (1.0f - blend);
+            p.velocity = torque * speed;
           } else {
-            // Pure gravity
+            // Gravity
             float force = (gravity * attr.strength) / dist_sq;
             Vector torque = cross(pos, attr.position).normalize() * force;
             p.velocity += cross(torque, pos);

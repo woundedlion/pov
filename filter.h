@@ -449,11 +449,16 @@ public:
     // Spherical density compensation: scale X fractional by sin(phi).
     // At poles, all columns converge to the same point — snap to nearest.
     // At equator, sin(phi)=1 so behavior is unchanged.
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    float phi = (y * PI_F) / (H_VIRT - 1);
-    float x_frac = hs::clamp(x_m * sinf(phi), 0.0f, 1.0f);
+    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    int yi0 = hs::clamp(static_cast<int>(y_i), 0,
+                        TrigLUT<W, H>::H_VIRT - 1);
+    int yi1 = hs::clamp(static_cast<int>(y_i) + 1, 0,
+                        TrigLUT<W, H>::H_VIRT - 1);
+    float sin_phi = TrigLUT<W, H>::sin_phi[yi0]
+        + (TrigLUT<W, H>::sin_phi[yi1] - TrigLUT<W, H>::sin_phi[yi0]) * y_m;
+    float x_frac = hs::clamp(x_m * sin_phi, 0.0f, 1.0f);
 
-    float xs = quintic_kernel(x_frac);
+    float xs = x_frac;  // sin(phi) already provides smooth pole collapse
     float ys = quintic_kernel(y_m);
 
     float v00 = (1 - xs) * (1 - ys);
@@ -625,6 +630,12 @@ public:
   /// Blend distorted previous frame (front buffer) into current frame (back
   /// buffer).
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
+    // Scan prev buffer row activity for early-out optimizations
+    scan_row_active(cv);
+
+    // Full-frame skip: if entire prev buffer is black, nothing to sample
+    if (is_frame_empty()) return;
+
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         // Project 2D pixel to 3D sphere
@@ -653,17 +664,55 @@ public:
   }
 
 private:
+  // --- Row-active bitmask for read-side optimizations ---
+  static constexpr int ROW_BITMASK_SIZE = (H + 7) / 8;
+  uint8_t row_active_[ROW_BITMASK_SIZE] = {};
+
+  static bool is_row_active(const uint8_t *bitmask, int row) {
+    return (bitmask[row >> 3] >> (row & 7)) & 1;
+  }
+
+  /// Scan the previous frame buffer and set one bit per row that has
+  /// at least one non-black pixel. O(W×H) loads, zero math.
+  void scan_row_active(const Canvas &cv) {
+    std::memset(row_active_, 0, ROW_BITMASK_SIZE);
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        ::Pixel p = cv.prev(x, y);
+        if (p.r | p.g | p.b) {
+          row_active_[y >> 3] |= (1 << (y & 7));
+          break; // one hit is enough for row
+        }
+      }
+    }
+  }
+
+  /// Check if the entire prev frame is empty (all row bits zero).
+  bool is_frame_empty() const {
+    for (int i = 0; i < ROW_BITMASK_SIZE; ++i) {
+      if (row_active_[i]) return false;
+    }
+    return true;
+  }
+
   /// Bilinear sample from the Canvas front buffer (previous frame).
-  static ::Pixel sample_bilinear_prev(const Canvas &cv, float bx, float by) {
-    float fx0 = std::floor(bx);
+  /// Early-outs to black when both source rows are inactive.
+  ::Pixel sample_bilinear_prev(const Canvas &cv, float bx, float by) const {
     float fy0 = std::floor(by);
-    int x0 = static_cast<int>(fx0);
     int y0 = static_cast<int>(fy0);
+    int y1 = y0 + 1;
+
+    // Early-out: if both source rows are inactive, result is black
+    bool r0_active = (y0 >= 0 && y0 < H) && is_row_active(row_active_, y0);
+    bool r1_active = (y1 >= 0 && y1 < H) && is_row_active(row_active_, y1);
+    if (!r0_active && !r1_active) return ::Pixel(0, 0, 0);
+
+    float fx0 = std::floor(bx);
+    int x0 = static_cast<int>(fx0);
     float fx = bx - fx0;
     float fy = by - fy0;
 
     int x1 = x0 + 1;
-    int y1 = y0 + 1;
 
     // Safe wrapping for X (cylindrical)
     if (x0 < 0)

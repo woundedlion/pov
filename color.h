@@ -346,6 +346,11 @@ constexpr float srgb_to_linear_float(float s) {
   return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
 }
 
+// Inverse: Linear float 0-1 -> sRGB float 0-1
+constexpr float linear_to_srgb_float(float l) {
+  return (l <= 0.0031308f) ? l * 12.92f : 1.055f * powf(l, 1.0f / 2.4f) - 0.055f;
+}
+
 /// Abstract base for all palettes. Provides a uniform interface for color
 /// lookup, replacing std::variant + std::visit with a single vtable pointer.
 class Palette {
@@ -553,12 +558,22 @@ public:
   }
 
   void lerp(const Snapshot &from, const Snapshot &to, float amount) {
-    a = CPixel(lerp8(from.a.r, to.a.r, amount), lerp8(from.a.g, to.a.g, amount),
-               lerp8(from.a.b, to.a.b, amount));
-    b = CPixel(lerp8(from.b.r, to.b.r, amount), lerp8(from.b.g, to.b.g, amount),
-               lerp8(from.b.b, to.b.b, amount));
-    c = CPixel(lerp8(from.c.r, to.c.r, amount), lerp8(from.c.g, to.c.g, amount),
-               lerp8(from.c.b, to.c.b, amount));
+    auto blend = [amount](const CPixel &f, const CPixel &t) -> CPixel {
+      float inv = 1.0f - amount;
+      float r = srgb_to_linear_float(f.r / 255.0f) * inv
+              + srgb_to_linear_float(t.r / 255.0f) * amount;
+      float g = srgb_to_linear_float(f.g / 255.0f) * inv
+              + srgb_to_linear_float(t.g / 255.0f) * amount;
+      float b = srgb_to_linear_float(f.b / 255.0f) * inv
+              + srgb_to_linear_float(t.b / 255.0f) * amount;
+      return CPixel(
+        static_cast<uint8_t>(std::clamp(linear_to_srgb_float(r) * 255.0f + 0.5f, 0.0f, 255.0f)),
+        static_cast<uint8_t>(std::clamp(linear_to_srgb_float(g) * 255.0f + 0.5f, 0.0f, 255.0f)),
+        static_cast<uint8_t>(std::clamp(linear_to_srgb_float(b) * 255.0f + 0.5f, 0.0f, 255.0f)));
+    };
+    a = blend(from.a, to.a);
+    b = blend(from.b, to.b);
+    c = blend(from.c, to.c);
     update_luts();
   }
 

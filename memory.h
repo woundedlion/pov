@@ -93,6 +93,7 @@ private:
   T *data_;
   size_t size_;
   size_t capacity_;
+  bool bound_ = false;
 #ifndef NDEBUG
   Arena *source_arena_ = nullptr;
   uint32_t birth_generation_ = 0;
@@ -109,7 +110,7 @@ private:
 #endif
 
   void check_bound() const {
-    assert(data_ != nullptr && "Attempted to access unbound ArenaVector!");
+    assert(bound_ && "Attempted to access unbound ArenaVector!");
   }
 
 public:
@@ -122,7 +123,8 @@ public:
 
   // Move semantics — moved-from object returns to pristine unbound state
   ArenaVector(ArenaVector &&other) noexcept
-      : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
+      : data_(other.data_), size_(other.size_), capacity_(other.capacity_),
+        bound_(other.bound_) {
 #ifndef NDEBUG
     source_arena_ = other.source_arena_;
     birth_generation_ = other.birth_generation_;
@@ -130,6 +132,7 @@ public:
     other.data_ = nullptr;
     other.size_ = 0;
     other.capacity_ = 0;
+    other.bound_ = false;
 #ifndef NDEBUG
     other.source_arena_ = nullptr;
     other.birth_generation_ = 0;
@@ -141,6 +144,7 @@ public:
       data_ = other.data_;
       size_ = other.size_;
       capacity_ = other.capacity_;
+      bound_ = other.bound_;
 #ifndef NDEBUG
       source_arena_ = other.source_arena_;
       birth_generation_ = other.birth_generation_;
@@ -148,6 +152,7 @@ public:
       other.data_ = nullptr;
       other.size_ = 0;
       other.capacity_ = 0;
+      other.bound_ = false;
 #ifndef NDEBUG
       other.source_arena_ = nullptr;
       other.birth_generation_ = 0;
@@ -165,11 +170,11 @@ public:
   /// One-time binding to an arena. Asserts on double-bind.
   /// If already bound with sufficient capacity, resets size for reuse.
   void bind(Arena &arena, size_t exact_capacity) {
-    if (capacity_ >= exact_capacity && data_ != nullptr) {
+    if (bound_ && capacity_ >= exact_capacity) {
       size_ = 0; // Reuse memory
       return;
     }
-    assert(data_ == nullptr && "ArenaVector already bound!");
+    assert(!bound_ && "ArenaVector already bound!");
     if (exact_capacity > 0) {
       data_ = static_cast<T *>(
           arena.allocate(exact_capacity * sizeof(T), alignof(T)));
@@ -178,13 +183,14 @@ public:
     }
     size_ = 0;
     capacity_ = exact_capacity;
+    bound_ = true;
 #ifndef NDEBUG
     source_arena_ = &arena;
     birth_generation_ = arena.get_generation();
 #endif
   }
 
-  bool is_bound() const { return data_ != nullptr; }
+  bool is_bound() const { return bound_; }
 
   void push_back(const T &value) {
     check_alive();
