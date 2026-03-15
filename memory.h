@@ -334,8 +334,7 @@ struct ScratchScope {
   ScratchScope &operator=(const ScratchScope &) = delete;
 };
 
-// Backward-compat alias during migration
-using ScopedScratch = ScratchScope;
+
 
 // ============================================================================
 // 5. RAII Arena Evacuator

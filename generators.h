@@ -24,8 +24,8 @@ template <typename GenerateFn, typename... Args>
 [[nodiscard]] auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   scratch_arena_a.reset();
   scratch_arena_b.reset();
-  ScopedScratch _a(scratch_arena_a);
-  ScopedScratch _b(scratch_arena_b);
+  ScratchScope _a(scratch_arena_a);
+  ScratchScope _b(scratch_arena_b);
   return fn(target, scratch_arena_a, scratch_arena_b,
             std::forward<Args>(args)...);
 }

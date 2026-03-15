@@ -129,7 +129,7 @@ private:
     size_t he_idx = 0;
 
     {
-      ScopedScratch _(arena);
+      ScratchScope _(arena);
       EdgeRecord *records = static_cast<EdgeRecord *>(arena.allocate(
           total_indices * sizeof(EdgeRecord), alignof(EdgeRecord)));
 
@@ -301,7 +301,7 @@ template <typename MeshT>
 FLASHMEM __attribute__((noinline)) static void
 classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
-  ScopedScratch _(scratch_a);
+  ScratchScope _(scratch_a);
 
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
@@ -359,7 +359,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   }
 
   {
-    ScopedScratch temp_topo(scratch_a);
+    ScratchScope temp_topo(scratch_a);
 
     uint16_t *heToFace =
         static_cast<uint16_t *>(scratch_a.allocate(
@@ -370,7 +370,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     std::fill_n(pairArray, I, HE_NONE);
 
     {
-      ScopedScratch temp_records(scratch_b);
+      ScratchScope temp_records(scratch_b);
       struct EdgeRecord {
         uint16_t min_v, max_v, he;
       };

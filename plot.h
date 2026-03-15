@@ -106,7 +106,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
       axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS)
                                                   : cross(v1, X_AXIS);
     } else {
-      axis = cross(v1, v2).normalize();
+      axis = cross(v1, v2).normalized();
     }
 
     Vector v_perp = cross(axis, v1);
@@ -131,7 +131,7 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
     return;
 
   size_t count = close_loop ? len : len - 1;
-  ScopedScratch _sc(scratch_arena_a);
+  ScratchScope _sc(scratch_arena_a);
   ArenaVector<float> _steps_cache;
   size_t max_cache = std::min(std::max(len * 4, (size_t)256), (size_t)2048);
   _steps_cache.bind(scratch_arena_a, max_cache);
@@ -258,7 +258,7 @@ struct Line {
       return;
     }
 
-    Vector axis = cross(f1.pos, f2.pos).normalize();
+    Vector axis = cross(f1.pos, f2.pos).normalized();
 
     for (int i = 0; i <= density; ++i) {
       float t = static_cast<float>(i) / density;
@@ -294,7 +294,7 @@ struct Line {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 4);
     sample(points, f1, f2);
@@ -433,7 +433,7 @@ struct Multiline {
   static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, vertices.size() + 2);
     sample(points, vertices, closed);
@@ -539,7 +539,7 @@ struct Ring {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, W + 2);
     // Use W samples for smooth circles (fixes pinching at poles)
@@ -603,7 +603,7 @@ struct PlanarPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
@@ -671,7 +671,7 @@ struct SphericalPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
@@ -717,7 +717,7 @@ struct DistortedRing {
 
     auto vi = Ring::calcPoint(angle, work_radius, u, v, w);
     auto vp = Ring::calcPoint(angle, 1, u, v, w);
-    Vector axis = cross(v, vp).normalize();
+    Vector axis = cross(v, vp).normalized();
     return rotate(vi, make_rotation(axis, shift_fn(angle * PI_F / 2)));
   }
 
@@ -803,7 +803,7 @@ struct DistortedRing {
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, W + 2);
     sample<W>(points, basis, radius, shift_fn, phase);
@@ -868,7 +868,7 @@ struct Spiral {
   static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments frags;
     frags.bind(scratch_arena_a, n);
     sample(frags, n, eps);
@@ -971,7 +971,7 @@ struct Star {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
@@ -988,8 +988,8 @@ struct Star {
 
     Vector v = center;
     Vector ref = (std::abs(dot(v, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
-    Vector u = cross(v, ref).normalize();
-    Vector w = cross(v, u).normalize();
+    Vector u = cross(v, ref).normalized();
+    Vector w = cross(v, u).normalized();
     Basis planar_basis = {u, v, w};
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
                     &planar_basis);
@@ -1092,7 +1092,7 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
@@ -1109,8 +1109,8 @@ struct Flower {
 
     // Construct a planar basis aligned with the center
     Vector ref = (std::abs(dot(center, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
-    Vector u_p = cross(center, ref).normalize();
-    Vector w_p = cross(center, u_p).normalize();
+    Vector u_p = cross(center, ref).normalized();
+    Vector w_p = cross(center, u_p).normalized();
     Basis planar_basis = {u_p, center, w_p};
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
                     &planar_basis);
@@ -1175,7 +1175,7 @@ struct Mesh {
       Fragment fv;
       fv.pos = mesh.vertices[v];
 
-      ScopedScratch _edge(scratch_arena_a);
+      ScratchScope _edge(scratch_arena_a);
       Fragments points;
       points.bind(scratch_arena_a, 16);
       Line::sample(points, fu, fv, 10);
@@ -1239,7 +1239,7 @@ struct ParticleSystem {
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
-      ScopedScratch _trail(scratch_arena_a);
+      ScratchScope _trail(scratch_arena_a);
       Fragments trail;
       trail.bind(scratch_arena_a, 64);
       float cumulative_len = 0.0f;
@@ -1325,7 +1325,7 @@ struct Bezier {
                    VertexShaderRef vertex_shader = {},
                    int num_samples = 32,
                    SplineMode mode = SplineMode::Geodesic) {
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, num_samples + 1);
     sample(points, p0, p1, p2, p3, num_samples, mode);
@@ -1371,7 +1371,7 @@ struct SplineChain {
     size_t n = control_points.size();
     if (n < 2) return;
 
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments points;
     const size_t frag_count = closed
         ? n * samples_per_segment

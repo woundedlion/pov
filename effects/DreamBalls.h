@@ -147,8 +147,8 @@ private:
       data.tangents.bind(persistent_arena, data.mesh_state.vertices.size());
       for (const auto &v : data.mesh_state.vertices) {
         Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
-        Vector u = cross(v, axis).normalize();
-        Vector frame_v = cross(v, u).normalize();
+        Vector u = cross(v, axis).normalized();
+        Vector frame_v = cross(v, u).normalized();
         data.tangents.push_back({u, frame_v});
       }
     }
@@ -165,7 +165,7 @@ private:
     auto draw_fn = [this, safe_idx](Canvas &canvas, float opacity) {
       const PresetData *pp = &loaded_presets[safe_idx];
       Params ip = preset_manager.get_entries()[safe_idx].params;
-      ScopedScratch _(scratch_arena_a);
+      ScratchScope _(scratch_arena_a);
       MeshState target_mesh;
       MeshOps::transform(pp->mesh_state, target_mesh, scratch_arena_a);
 

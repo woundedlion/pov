@@ -64,7 +64,7 @@ public:
     int n = hs::clamp(static_cast<int>(params.num_points), 4, MAX_POINTS);
 
     // Build control points from animated orientations
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments control_points;
     control_points.bind(scratch_arena_a, n);
     for (int i = 0; i < n; ++i) {

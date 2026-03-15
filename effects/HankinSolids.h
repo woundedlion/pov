@@ -89,7 +89,7 @@ private:
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
 
-    ScopedScratch _(scratch_arena_a);
+    ScratchScope _(scratch_arena_a);
     MeshState rotated_mesh;
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
 

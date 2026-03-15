@@ -128,7 +128,7 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-    ScopedScratch _(scratch_arena_a);
+    ScratchScope _(scratch_arena_a);
     ArenaVector<Fragment> vertices(scratch_arena_a, 2000);
     timeline.step(canvas);
 

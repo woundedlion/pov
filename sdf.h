@@ -804,8 +804,8 @@ struct Face {
 
     basisV = center;
     Vector ref = (std::abs(dot(center, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
-    basisU = cross(center, ref).normalize();
-    basisW = cross(center, basisU).normalize();
+    basisU = cross(center, ref).normalized();
+    basisW = cross(center, basisU).normalized();
 
     max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
@@ -1714,7 +1714,7 @@ struct Line {
     if (len < 1e-6f) {
       n = Vector(0, 0, 0);
     } else {
-      n = cross(a, b).normalize();
+      n = cross(a, b).normalized();
     }
   }
 

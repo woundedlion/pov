@@ -177,7 +177,7 @@ private:
       return 0.6f * std::abs(sinf(3.0f * PI_F * t));
     };
 
-    ScopedScratch _frag(scratch_arena_a);
+    ScratchScope _frag(scratch_arena_a);
     Fragments fragments;
     fragments.bind(scratch_arena_a, num_samples + 1);
     for (int i = 0; i < num_samples; ++i) {

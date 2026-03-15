@@ -569,8 +569,8 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
       (std::abs(dot(normal, X_AXIS)) > (1 - TOLERANCE)) ? Y_AXIS : X_AXIS;
   Vector v = rotate(normal, orientation).normalize();
   Vector ref = rotate(ref_axis, orientation).normalize();
-  Vector u = cross(v, ref).normalize();
-  Vector w = cross(v, u).normalize();
+  Vector u = cross(v, ref).normalized();
+  Vector w = cross(v, u).normalized();
   return {u, v, w};
 }
 
