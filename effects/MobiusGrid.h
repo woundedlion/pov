@@ -94,7 +94,7 @@ private:
     int count = static_cast<int>(std::ceil(num));
 
     for (int i = 0; i < count; ++i) {
-      ScopedScratch _frag(scratch_arena_a);
+      ScratchScope _frag(scratch_arena_a);
       float t = wrap((static_cast<float>(i) / num) + phase, 1.0f);
       float log_r = log_min + t * range;
       float r_val = expf(log_r);
@@ -132,7 +132,7 @@ private:
                        const Quaternion &q) {
     int count = static_cast<int>(std::ceil(num));
     for (int i = 0; i < count; ++i) {
-      ScopedScratch _frag(scratch_arena_a);
+      ScratchScope _frag(scratch_arena_a);
       float theta = (static_cast<float>(i) / num) * PI_F;
       Vector normal(cosf(theta), 0.0f, -sinf(theta));
 
@@ -141,7 +141,7 @@ private:
       // Explicit basis construction to match JS texture alignment
       Vector v = normal;
       Vector w = Y_AXIS;
-      Vector u = cross(v, w).normalize();
+      Vector u = cross(v, w).normalized();
       Basis basis = {u, v, w};
 
       Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);

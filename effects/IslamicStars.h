@@ -77,7 +77,7 @@ private:
                   const ArenaVector<int> &faceIndices,
                   const std::array<ProceduralPalette, 5> &palettes) {
     if (opacity <= 0.005f) return;
-    ScopedScratch _a(scratch_arena_a);
+    ScratchScope _a(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
     MeshOps::transform(base_state, transformed_state, scratch_arena_a,

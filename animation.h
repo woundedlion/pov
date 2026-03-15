@@ -411,7 +411,7 @@ private:
           } else {
             // Gravity
             float force = (gravity * attr.strength) / dist_sq;
-            Vector torque = cross(pos, attr.position).normalize() * force;
+            Vector torque = cross(pos, attr.position).normalized() * force;
             p.velocity += cross(torque, pos);
           }
         }
@@ -424,7 +424,7 @@ private:
         // Move
         float speed = p.velocity.magnitude();
         if (speed > 0.000001f) {
-          Vector axis = cross(pos, p.velocity).normalize();
+          Vector axis = cross(pos, p.velocity).normalized();
           Quaternion dq = make_rotation(axis, speed);
           p.position = rotate(p.position, dq);
           p.velocity = rotate(p.velocity, dq);
@@ -844,7 +844,7 @@ public:
       float step_angle = angle_between(prev_v, next_v);
 
       if (step_angle > TOLERANCE) {
-        Vector step_axis = cross(prev_v, next_v).normalize();
+        Vector step_axis = cross(prev_v, next_v).normalized();
         Quaternion q_step = make_rotation(step_axis, step_angle);
         apply_rotation(accumulated_q, q_step);
       }
@@ -1023,7 +1023,7 @@ public:
     if (std::abs(dot(v, u)) > 0.99f) {
       u = Y_AXIS;
     }
-    direction = cross(v, u).normalize();
+    direction = cross(v, u).normalized();
     noiseGenerator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noiseGenerator.get().SetFrequency(options.noise_scale);
     if (options.seed == 0) {
@@ -1049,7 +1049,7 @@ public:
         noiseGenerator.get().GetNoise(static_cast<float>(this->t), 0.0f) *
         options.pivot_strength;
     direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
-    Vector walk_axis = cross(v, direction).normalize();
+    Vector walk_axis = cross(v, direction).normalized();
     v = rotate(v, make_rotation(walk_axis, options.speed)).normalize();
     direction =
         rotate(direction, make_rotation(walk_axis, options.speed)).normalize();
@@ -1734,8 +1734,8 @@ public:
     scratch_arena_a.reset();
     scratch_arena_b.reset();
     {
-      ScopedScratch _a(scratch_arena_a);
-      ScopedScratch _b(scratch_arena_b);
+      ScratchScope _a(scratch_arena_a);
+      ScratchScope _b(scratch_arena_b);
       PolyMesh mesh = generate_fn(scratch_arena_a, scratch_arena_b);
       slots_[front_].clear();
       MeshOps::compile(mesh, slots_[front_], persistent_arena);

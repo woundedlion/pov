@@ -76,8 +76,8 @@ FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) 
   out_mesh.faces.bind(target, I);
 
   {
-    ScopedScratch _temp(temp);
-    ScopedScratch _target(target);
+    ScratchScope _temp(temp);
+    ScratchScope _target(target);
 
     HalfEdgeMesh heMesh(temp, mesh);
 
@@ -170,7 +170,7 @@ FLASHMEM inline PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
   out_mesh.faces.bind(target, 3 * I);
 
   {
-    ScopedScratch _(temp);
+    ScratchScope _(temp);
 
     for (size_t i = 0; i < V; ++i)
       out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -218,8 +218,8 @@ FLASHMEM inline PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) 
   out_mesh.faces.bind(target, 2 * I);
 
   {
-    ScopedScratch _temp(temp);
-    ScopedScratch _target(target);
+    ScratchScope _temp(temp);
+    ScratchScope _target(target);
 
     // 1. Build HE Mesh in temp
     HalfEdgeMesh heMesh(temp, mesh);
@@ -342,8 +342,8 @@ FLASHMEM inline PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &te
   out_mesh.faces.bind(target, 3 * I);
 
   {
-    ScopedScratch _temp(temp);
-    ScopedScratch _target(target);
+    ScratchScope _temp(temp);
+    ScratchScope _target(target);
 
     HalfEdgeMesh heMesh(temp, mesh);
 
@@ -489,8 +489,8 @@ FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp
   out_mesh.faces.bind(target, 4 * I);
 
   {
-    ScopedScratch _temp(temp);
-    ScopedScratch _target(target);
+    ScratchScope _temp(temp);
+    ScratchScope _target(target);
 
     HalfEdgeMesh heMesh(temp, mesh);
     // heToVertIdx + visitedVerts + visitedEdges routed to target
@@ -628,7 +628,7 @@ FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &tem
   out_mesh.faces.bind(target, I + 6 * E);
 
   {
-    ScopedScratch _(temp);
+    ScratchScope _(temp);
     HalfEdgeMesh heMesh(temp, mesh);
 
     uint16_t *heToNewV =
@@ -741,7 +741,7 @@ FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, Arena &target, Arena
     out_mesh.faces.push_back(mesh.faces[i]);
 
   {
-    ScopedScratch _(temp);
+    ScratchScope _(temp);
 
     ArenaVector<Vector> movements;
     movements.bind(temp, V);
@@ -828,7 +828,7 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
   out_mesh.faces.bind(target, 5 * I);
 
   {
-    ScopedScratch _(temp);
+    ScratchScope _(temp);
 
     HalfEdgeMesh heMesh(temp, mesh);
     uint16_t *heToVertIdx =
@@ -861,7 +861,7 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                     mesh.vertices[heMesh.halfEdges[start].vertex];
         Vector ac = mesh.vertices[heMesh.halfEdges[nextNextIdx].vertex] -
                     mesh.vertices[heMesh.halfEdges[start].vertex];
-        normal = cross(ab, ac).normalize();
+        normal = cross(ab, ac).normalized();
       }
       if (dot(centroid, centroid) > 1e-6f && dot(normal, normal) < 1e-9f) {
         normal = centroid.normalize();

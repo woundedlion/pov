@@ -20,7 +20,7 @@ struct SphericalTurtle {
 
   // Move forward by dist radians
   std::pair<Vector, Vector> forward(float dist) {
-    Vector axis = cross(pos, heading).normalize();
+    Vector axis = cross(pos, heading).normalized();
     Quaternion rot = make_rotation(axis, dist);
 
     Vector start = pos;

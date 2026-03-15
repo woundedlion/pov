@@ -93,99 +93,6 @@ struct AABB {
 };
 
 /**
- * @brief Represents the state of a mesh using arena storage to avoid heap
- * allocations.
- */
-struct MeshState {
-  ArenaVector<Vector> vertices;
-  ArenaVector<uint8_t> face_counts;
-  ArenaVector<uint16_t> faces;
-  ArenaVector<uint16_t> face_offsets;
-  ArenaVector<int> topology;
-
-  // Borrowed (non-owning) views — populated by MeshOps::transform
-  ArenaSpan<uint8_t> face_counts_view;
-  ArenaSpan<uint16_t> faces_view;
-  ArenaSpan<uint16_t> face_offsets_view;
-
-  MeshState() = default;
-
-  // Explicit move semantics to ensure source is invalidated
-  MeshState(MeshState &&other) noexcept
-      : vertices(std::move(other.vertices)),
-        face_counts(std::move(other.face_counts)),
-        faces(std::move(other.faces)),
-        face_offsets(std::move(other.face_offsets)),
-        topology(std::move(other.topology)),
-        face_counts_view(other.face_counts_view),
-        faces_view(other.faces_view),
-        face_offsets_view(other.face_offsets_view) {
-    other.face_counts_view = {};
-    other.faces_view = {};
-    other.face_offsets_view = {};
-  }
-
-  MeshState &operator=(MeshState &&other) noexcept {
-    if (this != &other) {
-      vertices = std::move(other.vertices);
-      face_counts = std::move(other.face_counts);
-      faces = std::move(other.faces);
-      face_offsets = std::move(other.face_offsets);
-      topology = std::move(other.topology);
-      face_counts_view = other.face_counts_view;
-      faces_view = other.faces_view;
-      face_offsets_view = other.face_offsets_view;
-      other.face_counts_view = {};
-      other.faces_view = {};
-      other.face_offsets_view = {};
-    }
-    return *this;
-  }
-
-  void clear() {
-    vertices.clear();
-    face_counts.clear();
-    faces.clear();
-    face_offsets.clear();
-    topology.clear();
-    face_counts_view = {};
-    faces_view = {};
-    face_offsets_view = {};
-  }
-
-  /// Check if any member vector is bound (has been allocated).
-  bool is_bound() const { return vertices.is_bound(); }
-
-  // Unified accessors: return whichever is populated (owned or borrowed)
-  const uint8_t *get_face_counts_data() const {
-    return face_counts.empty() ? face_counts_view.data() : face_counts.data();
-  }
-  size_t get_face_counts_size() const {
-    return face_counts.empty() ? face_counts_view.size() : face_counts.size();
-  }
-
-  const uint16_t *get_faces_data() const {
-    return faces.empty() ? faces_view.data() : faces.data();
-  }
-  size_t get_faces_size() const {
-    return faces.empty() ? faces_view.size() : faces.size();
-  }
-
-  const uint16_t *get_face_offsets_data() const {
-    return face_offsets.empty() ? face_offsets_view.data()
-                                : face_offsets.data();
-  }
-  size_t get_face_offsets_size() const {
-    return face_offsets.empty() ? face_offsets_view.size()
-                                : face_offsets.size();
-  }
-
-  // Helper for size accessors if needed, but direct vector access is preferred.
-  size_t num_vertices() const { return vertices.size(); }
-  size_t num_faces() const { return get_face_counts_size(); }
-};
-
-/**
  * @brief k-d Tree implementation for 3D points using static memory.
  * @details Stores points and allows nearest neighbor search.
  */
@@ -460,25 +367,102 @@ private:
 };
 
 /**
- * @brief Projects a point onto the nearest surface of a mesh.
- * @param p The point to project.
- * @param mesh The mesh configuration.
- * @return The closest point on the mesh surface.
+ * @brief Represents the state of a mesh using arena storage to avoid heap
+ * allocations.
  */
-inline Vector project_to_mesh(const Vector &p, const MeshState &mesh) {
-  Vector origin(0, 0, 0);
+struct MeshState {
+  ArenaVector<Vector> vertices;
+  ArenaVector<uint8_t> face_counts;
+  ArenaVector<uint16_t> faces;
+  ArenaVector<uint16_t> face_offsets;
+  ArenaVector<int> topology;
 
-  // Fallback: Closest Vertex
-  if (mesh.vertices.empty())
-    return p;
-  Vector best = mesh.vertices[0];
-  float minSq = distance_squared(p, best);
-  for (size_t i = 1; i < mesh.vertices.size(); ++i) {
-    float d = distance_squared(p, mesh.vertices[i]);
-    if (d < minSq) {
-      minSq = d;
-      best = mesh.vertices[i];
-    }
+  // Cache
+  mutable KDTree kdTree;
+  mutable bool cache_valid = false;
+
+  // Borrowed (non-owning) views — populated by MeshOps::transform
+  ArenaSpan<uint8_t> face_counts_view;
+  ArenaSpan<uint16_t> faces_view;
+  ArenaSpan<uint16_t> face_offsets_view;
+
+  MeshState() = default;
+
+  // Explicit move semantics to ensure source is invalidated
+  MeshState(MeshState &&other) noexcept
+      : vertices(std::move(other.vertices)),
+        face_counts(std::move(other.face_counts)),
+        faces(std::move(other.faces)),
+        face_offsets(std::move(other.face_offsets)),
+        topology(std::move(other.topology)),
+        face_counts_view(other.face_counts_view),
+        faces_view(other.faces_view),
+        face_offsets_view(other.face_offsets_view) {
+    other.face_counts_view = {};
+    other.faces_view = {};
+    other.face_offsets_view = {};
+    cache_valid = false;
   }
-  return best;
-}
+
+  MeshState &operator=(MeshState &&other) noexcept {
+    if (this != &other) {
+      vertices = std::move(other.vertices);
+      face_counts = std::move(other.face_counts);
+      faces = std::move(other.faces);
+      face_offsets = std::move(other.face_offsets);
+      topology = std::move(other.topology);
+      face_counts_view = other.face_counts_view;
+      faces_view = other.faces_view;
+      face_offsets_view = other.face_offsets_view;
+      other.face_counts_view = {};
+      other.faces_view = {};
+      other.face_offsets_view = {};
+      cache_valid = false;
+    }
+    return *this;
+  }
+
+  void clear() {
+    vertices.clear();
+    face_counts.clear();
+    faces.clear();
+    face_offsets.clear();
+    topology.clear();
+    face_counts_view = {};
+    faces_view = {};
+    face_offsets_view = {};
+    cache_valid = false;
+    kdTree.clear();
+  }
+
+  /// Check if any member vector is bound (has been allocated).
+  bool is_bound() const { return vertices.is_bound(); }
+
+  // Unified accessors: return whichever is populated (owned or borrowed)
+  const uint8_t *get_face_counts_data() const {
+    return face_counts.empty() ? face_counts_view.data() : face_counts.data();
+  }
+  size_t get_face_counts_size() const {
+    return face_counts.empty() ? face_counts_view.size() : face_counts.size();
+  }
+
+  const uint16_t *get_faces_data() const {
+    return faces.empty() ? faces_view.data() : faces.data();
+  }
+  size_t get_faces_size() const {
+    return faces.empty() ? faces_view.size() : faces.size();
+  }
+
+  const uint16_t *get_face_offsets_data() const {
+    return face_offsets.empty() ? face_offsets_view.data()
+                                : face_offsets.data();
+  }
+  size_t get_face_offsets_size() const {
+    return face_offsets.empty() ? face_offsets_view.size()
+                                : face_offsets.size();
+  }
+
+  // Helper for size accessors if needed, but direct vector access is preferred.
+  size_t num_vertices() const { return vertices.size(); }
+  size_t num_faces() const { return get_face_counts_size(); }
+};

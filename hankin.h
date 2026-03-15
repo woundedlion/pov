@@ -83,7 +83,7 @@ FLASHMEM inline void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   compiled.faces.bind(target_arena, 4 * I);
 
   {
-    ScopedScratch _(temp_arena);
+    ScratchScope _(temp_arena);
 
     HalfEdgeMesh heMesh(temp_arena, mesh);
     uint16_t *heToMidpointIdx = static_cast<uint16_t *>(
@@ -295,7 +295,7 @@ FLASHMEM inline PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp
   PolyMesh out;
 
   {
-    ScopedScratch _(temp);
+    ScratchScope _(temp);
     CompiledHankin compiled;
     compile_hankin(mesh, compiled, temp, target);
     update_hankin(compiled, out, target, angle);

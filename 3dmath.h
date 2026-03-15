@@ -778,7 +778,7 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
     return Quaternion(1, 0, 0, 0); // Identity
   }
 
-  auto axis = cross(from, to).normalize();
+  auto axis = cross(from, to).normalized();
   auto angle = angle_between(from, to);
   return make_rotation(axis, angle);
 }
