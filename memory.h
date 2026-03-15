@@ -43,18 +43,14 @@ public:
     size_t current = reinterpret_cast<size_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
     if (offset + padding + size > capacity) {
-      printf("[OOM] Arena out of memory! Requested: %zu bytes. Offset: %zu / "
-             "Capacity: %zu\n",
+      printf("[OOM] Arena: requested %zu bytes, offset %zu / capacity %zu\n",
              size, offset + padding, capacity);
-      assert(false && "Arena out of memory!");
       return nullptr;
     }
     offset += padding;
     void *ptr = buffer + offset;
     offset += size;
-    if (offset > high_water_mark) {
-      high_water_mark = offset;
-    }
+    if (offset > high_water_mark) high_water_mark = offset;
     return ptr;
   }
 
