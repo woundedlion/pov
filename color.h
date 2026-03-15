@@ -860,6 +860,47 @@ struct ScaleModifier : public Modifier {
   }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Compile-Time Palette Composition
+///////////////////////////////////////////////////////////////////////////////
+
+/// Structural concept: any type with a const modify(float)->float method.
+/// All existing Modifier subclasses satisfy this automatically.
+template <typename T>
+concept PaletteModifier = requires(const T m, float t) {
+  { m.modify(t) } -> std::convertible_to<float>;
+};
+
+/**
+ * @brief A compile-time composition of a Source palette and N modifiers.
+ * @details Default constructible to allow safe wiring in init().
+ * Uses a fold expression to inline the modifier chain with zero runtime
+ * overhead. Follows the ArenaVector idiom: default construct, then bind().
+ */
+template <typename Source, PaletteModifier... Mods>
+class StaticPalette {
+public:
+  StaticPalette() = default;
+
+  void bind(const Source *src, const Mods *...ms) {
+    source_ = src;
+    mods_ = std::make_tuple(ms...);
+  }
+
+  Color4 get(float t) const {
+    assert(source_ != nullptr && "StaticPalette used before bind()!");
+
+    float ft = t;
+    std::apply([&](const auto *...m) { ((ft = m->modify(ft)), ...); }, mods_);
+
+    return source_->get(wrap_t(ft));
+  }
+
+private:
+  const Source *source_ = nullptr;
+  std::tuple<const Mods *...> mods_{};
+};
+
 class AnimatedPalette;
 class CircularPalette;
 class ReversePalette;

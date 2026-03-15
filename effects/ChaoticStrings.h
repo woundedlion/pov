@@ -57,7 +57,7 @@ public:
   FLASHMEM ChaoticStrings()
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
-        palette_variant(), animated_palette(&palette_variant),
+        palette_variant(),
         cycle_phase(0.0f), functions{{{12.0f, 5.0f, 0, 2 * PI_F}}},
         cur_function_idx(0), noise_xform(timeline) {}
 
@@ -70,7 +70,7 @@ public:
     new (node) Node();
 
     // Colors
-    animated_palette.add(scale_mod).add(cycle_mod);
+    static_palette.bind(&palette_variant, &scale_mod, &cycle_mod);
     palette_variant = Palettes::fireAndIce;
 
     // Parameters
@@ -180,7 +180,7 @@ public:
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       float color_t = frag.age / MAX_TRAIL;
-      frag.color = animated_palette.get(color_t);
+      frag.color = static_palette.get(color_t);
       frag.color.alpha *= quintic_kernel(frag.v3);
     };
 
@@ -203,7 +203,7 @@ private:
   ScaleModifier scale_mod{200.0f, &params.scaleFactor};
   CycleModifier cycle_mod{&cycle_phase};
   ProceduralPalette palette_variant;
-  AnimatedPalette animated_palette;
+  StaticPalette<ProceduralPalette, ScaleModifier, CycleModifier> static_palette;
   Animation::Driver *driver_ = nullptr;
   float cycle_phase = 0.0f;
   std::array<LissajousConfig, 1> functions;
