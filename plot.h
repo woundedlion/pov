@@ -1283,4 +1283,143 @@ struct ParticleSystem {
   }
 };
 
+/**
+ * @brief Single cubic Bézier curve on the sphere.
+ * Registers:
+ *  v0: curve progress (0→1)
+ *  v1: cumulative arc length (radians)
+ *  v2: 0 (single segment)
+ */
+struct Bezier {
+  static void sample(Fragments &points,
+                     const Vector &p0, const Vector &p1,
+                     const Vector &p2, const Vector &p3,
+                     int num_samples,
+                     SplineMode mode = SplineMode::Geodesic) {
+    float cumulative_len = 0.0f;
+    Vector last_pos = p0;
+
+    for (int i = 0; i <= num_samples; ++i) {
+      float t = static_cast<float>(i) / num_samples;
+      Vector pos = Spline::cubic(p0, p1, p2, p3, t, mode);
+
+      if (i > 0)
+        cumulative_len += angle_between(last_pos, pos);
+      last_pos = pos;
+
+      Fragment f;
+      f.pos = pos;
+      f.v0 = t;
+      f.v1 = cumulative_len;
+      f.v2 = 0.0f;
+      f.age = 0;
+      points.push_back(f);
+    }
+  }
+
+  template <int W, int H>
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const Vector &p0, const Vector &p1,
+                   const Vector &p2, const Vector &p3,
+                   FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader = {},
+                   int num_samples = 32,
+                   SplineMode mode = SplineMode::Geodesic) {
+    ScopedScratch _frag(scratch_arena_a);
+    Fragments points;
+    points.bind(scratch_arena_a, num_samples + 1);
+    sample(points, p0, p1, p2, p3, num_samples, mode);
+
+    if (vertex_shader) {
+      for (auto &f : points) vertex_shader(f);
+    }
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
+                     false, 0.0f, nullptr);
+  }
+
+  /// Convenience overload taking Fragment references (uses .pos).
+  template <int W, int H>
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const Fragment &f0, const Fragment &f1,
+                   const Fragment &f2, const Fragment &f3,
+                   FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader = {},
+                   int num_samples = 32,
+                   SplineMode mode = SplineMode::Geodesic) {
+    draw<W, H>(pipeline, canvas, f0.pos, f1.pos, f2.pos, f3.pos,
+               fragment_shader, vertex_shader, num_samples, mode);
+  }
+};
+
+/**
+ * @brief Catmull-Rom spline chain on the sphere.
+ * Registers:
+ *  v0: global progress (0→1 across full chain)
+ *  v1: cumulative arc length (radians)
+ *  v2: segment index
+ */
+struct SplineChain {
+  template <int W, int H>
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const Fragments &control_points,
+                   float tension,
+                   FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader = {},
+                   bool closed = false,
+                   int samples_per_segment = 16,
+                   SplineMode mode = SplineMode::Geodesic) {
+    size_t n = control_points.size();
+    if (n < 2) return;
+
+    ScopedScratch _frag(scratch_arena_a);
+    Fragments points;
+    points.bind(scratch_arena_a, n * samples_per_segment + 1);
+
+    float cumulative_len = 0.0f;
+    Vector last_pos;
+    bool first_point = true;
+
+    size_t seg_count = closed ? n : n - 1;
+    for (size_t i = 0; i < seg_count; ++i) {
+      size_t i0 = (i == 0 && !closed) ? 0 : (i - 1 + n) % n;
+      size_t i1 = i;
+      size_t i2 = (i + 1) % n;
+      size_t i3 = (i + 2 >= n && !closed) ? n - 1 : (i + 2) % n;
+
+      Vector cp1, cp2;
+      Spline::catmull_rom_tangents(
+          control_points[i0].pos, control_points[i1].pos,
+          control_points[i2].pos, control_points[i3].pos,
+          tension, cp1, cp2);
+
+      int start_j = (i == 0) ? 0 : 1;
+      for (int j = start_j; j <= samples_per_segment; ++j) {
+        float local_t = static_cast<float>(j) / samples_per_segment;
+        Vector pos = Spline::cubic(
+            control_points[i1].pos, cp1, cp2,
+            control_points[i2].pos, local_t, mode);
+
+        if (!first_point)
+          cumulative_len += angle_between(last_pos, pos);
+        last_pos = pos;
+        first_point = false;
+
+        Fragment f = Fragment::lerp(control_points[i1],
+                                    control_points[i2], local_t);
+        f.pos = pos;
+        f.v0 = (static_cast<float>(i) + local_t) / seg_count;
+        f.v1 = cumulative_len;
+        f.v2 = static_cast<float>(i);
+        points.push_back(f);
+      }
+    }
+
+    if (vertex_shader) {
+      for (auto &f : points) vertex_shader(f);
+    }
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
+                     false, 0.0f, nullptr);
+  }
+};
+
 } // namespace Plot
