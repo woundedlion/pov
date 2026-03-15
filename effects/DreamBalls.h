@@ -51,6 +51,7 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     spawn_sprite(0); // Start first preset
+    timeline.add(0, Animation::Driver(t, 0.01f, false));
   }
 
   bool show_bg() const override { return false; }
@@ -60,7 +61,6 @@ public:
 
     slice_filter.get().enabled = false;
 
-    t += 0.01f;
     timeline.step(canvas);
   }
 

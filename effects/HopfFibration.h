@@ -35,6 +35,12 @@ public:
     init_fibers();
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_mid, true));
+    flow_driver_ = timeline.add_get(
+        0, Animation::Driver(flow_offset, 0.02f * params.flow_speed * 0.2f, false));
+    tumble_x_driver_ = timeline.add_get(
+        0, Animation::Driver(tumble_angle_x, 0.003f * params.tumble_speed, false));
+    tumble_y_driver_ = timeline.add_get(
+        0, Animation::Driver(tumble_angle_y, 0.005f * params.tumble_speed, false));
   }
 
   bool show_bg() const override { return false; }
@@ -68,6 +74,9 @@ private:
   bool first_frame_done = false;
   Vector *fibers = nullptr;
   Vector *prev_positions = nullptr;
+  Animation::Driver *flow_driver_ = nullptr;
+  Animation::Driver *tumble_x_driver_ = nullptr;
+  Animation::Driver *tumble_y_driver_ = nullptr;
 
   // Cached tumble rotation values (per-frame)
   float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
@@ -93,9 +102,9 @@ private:
   }
 
   void advance_tumble() {
-    flow_offset += 0.02f * params.flow_speed * 0.2f;
-    tumble_angle_x += 0.003f * params.tumble_speed;
-    tumble_angle_y += 0.005f * params.tumble_speed;
+    flow_driver_->set_speed(0.02f * params.flow_speed * 0.2f);
+    tumble_x_driver_->set_speed(0.003f * params.tumble_speed);
+    tumble_y_driver_->set_speed(0.005f * params.tumble_speed);
     cx = cosf(tumble_angle_x);
     sx = sinf(tumble_angle_x);
     cy = cosf(tumble_angle_y);

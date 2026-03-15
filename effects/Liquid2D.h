@@ -24,18 +24,20 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
+    time_driver_ = timeline.add_get(
+        0, Animation::Driver(accumulated_time, params.time_speed, false));
 
     // Cycle presets every 3-5 seconds via a 2 second lerp
-    timeline.add(
-        0, Animation::RandomTimer(
-               90, 150,
-               [this](Canvas &) {
-                 presets.next();
-                 timeline.add(0, Animation::Lerp(params, presets.prev_get(),
-                                                 presets.get(), 60,
-                                                 ease_in_out_sin));
-               },
-               true));
+    timeline.add(0, Animation::RandomTimer(
+                        90, 150,
+                        [this](Canvas &) {
+                          presets.next();
+                          timeline.add(0, Animation::Lerp(params,
+                                                          presets.prev_get(),
+                                                          presets.get(), 60,
+                                                          ease_in_out_sin));
+                        },
+                        true));
 
     params = presets.get();
   }
@@ -46,7 +48,7 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    accumulated_time += params.time_speed;
+    time_driver_->set_speed(params.time_speed);
     float t = accumulated_time;
 
     auto shader = [&](const Vector &v) -> Color4 {
@@ -57,10 +59,9 @@ public:
 
       // Warp
       float noise_time = t * 0.5f;
-      float warp_x =
-          noise.GetNoise(z.re * params.warp_scale, z.im * params.warp_scale,
-                         noise_time) *
-          params.warp_strength;
+      float warp_x = noise.GetNoise(z.re * params.warp_scale,
+                                    z.im * params.warp_scale, noise_time) *
+                     params.warp_strength;
       float warp_y =
           noise.GetNoise(z.re * params.warp_scale + 100.0f,
                          z.im * params.warp_scale + 100.0f, noise_time) *
@@ -89,12 +90,10 @@ private:
   Orientation<W> orientation;
   Orientation<W> global_orientation;
   FastNoiseLite noise;
-  GenerativePalette palette{GradientShape::CIRCULAR,
-                            HarmonyType::SPLIT_COMPLEMENTARY,
-                            BrightnessProfile::CUP, SaturationProfile::VIBRANT,
-                            141};
+  GenerativePalette palette{
+      GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
+      BrightnessProfile::CUP, SaturationProfile::VIBRANT, 141};
 
-  // Pure algebraic 3D Glitch Lens - Zero Trigonometry!
   Vector apply_glitch_lens(Vector v) const {
     // 1. Mirror Southern Hemisphere
     if (v.y < 0.0f) {
@@ -157,6 +156,7 @@ private:
   };
   Params params;
   float accumulated_time = 0.0f;
+  Animation::Driver *time_driver_ = nullptr;
 
   Presets<Params, 4> presets = {{{
       {"Geometric", {1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.8f}},
