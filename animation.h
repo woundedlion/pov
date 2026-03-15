@@ -649,8 +649,8 @@ public:
    * @param mutant The float variable to modify.
    * @param speed The amount to add per frame.
    */
-  Driver(float &mutant, float speed)
-      : AnimationBase(1, true), mutant(mutant), speed(speed) {}
+  Driver(float &mutant, float speed, bool wrap = true)
+      : AnimationBase(1, true), mutant(mutant), speed(speed), wrap_(wrap) {}
 
   /**
    * @brief Performs one step by adding the speed to the mutant.
@@ -658,10 +658,12 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     mutant.get() += speed;
-    if (mutant.get() >= 1.0f)
-      mutant.get() -= 1.0f;
-    else if (mutant.get() < 0.0f)
-      mutant.get() += 1.0f;
+    if (wrap_) {
+      if (mutant.get() >= 1.0f)
+        mutant.get() -= 1.0f;
+      else if (mutant.get() < 0.0f)
+        mutant.get() += 1.0f;
+    }
   }
 
   /**
@@ -684,6 +686,7 @@ public:
 private:
   std::reference_wrapper<float> mutant; /**< Reference to the float variable. */
   float speed;                          /**< Amount added per frame. */
+  bool wrap_;                           /**< If true, wraps value to 0-1 range. */
 };
 
 /**
