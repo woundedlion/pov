@@ -590,17 +590,29 @@ private:
 namespace Pixel {
 
 /**
+ * @brief Identity color transform: applies fade via scalar multiply.
+ * Default functor for Feedback — preserves original behavior.
+ */
+struct IdentityColorTransform {
+  ::Pixel operator()(const ::Pixel& p, float fade) const {
+    return p * fade;
+  }
+};
+
+/**
  * @brief ::Pixel-space feedback filter (stateless).
  * Creates infinite trails and "watery" distortion by sampling the
  * previous frame from the Canvas front buffer with bilinear interpolation,
  * applying spatial distortion and fade, then blending into the back buffer.
  * Uses Canvas double-buffering — no internal frame storage needed.
  */
-template <int W, int H, typename SpaceTransformFn>
+template <int W, int H, typename SpaceTransformFn,
+          typename ColorTransformFn = IdentityColorTransform>
 class Feedback : public Is2DWithHistory {
 public:
-  Feedback(SpaceTransformFn transform_fn, float fade = 0.95f)
-      : transform_fn(transform_fn), fade(fade) {}
+  Feedback(SpaceTransformFn transform_fn, float fade = 0.95f,
+           ColorTransformFn color_fn = ColorTransformFn{})
+      : transform_fn(transform_fn), color_fn(color_fn), fade(fade) {}
 
   void set_fade(float f) { fade = f; }
 
@@ -627,7 +639,7 @@ public:
         float by = phi_to_y<H>(s.phi);
 
         // Sample previous frame with bilinear interpolation and fade
-        ::Pixel p = sample_bilinear_prev(cv, bx, by) * fade;
+        ::Pixel p = color_fn(sample_bilinear_prev(cv, bx, by), fade);
 
         // Blend into back buffer
         if (p.r | p.g | p.b) {
@@ -684,6 +696,7 @@ private:
   }
 
   SpaceTransformFn transform_fn;
+  ColorTransformFn color_fn;
   float fade;
 };
 

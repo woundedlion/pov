@@ -16,6 +16,7 @@ public:
     float frequency = 0.33f;
     float speed = 0.8f;
     float scale = 22.6f;
+    float hue_shift = 0.03f;
 
     void lerp(const Params &a, const Params &b, float t) {
       fade = ::lerp(a.fade, b.fade, t);
@@ -23,6 +24,7 @@ public:
       frequency = ::lerp(a.frequency, b.frequency, t);
       speed = ::lerp(a.speed, b.speed, t);
       scale = ::lerp(a.scale, b.scale, t);
+      hue_shift = ::lerp(a.hue_shift, b.hue_shift, t);
     }
   } params;
 
@@ -35,10 +37,11 @@ public:
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
         palette(Palettes::peachPop),
-        filters(Filter::World::Orient<W>(orientation),
-                Filter::Screen::AntiAlias<W, H>(),
-                Filter::Pixel::Feedback<W, H, TransformerFn>(
-                    TransformerFn{this}, 0.95f)) {}
+        filters(
+            Filter::World::Orient<W>(orientation),
+            Filter::Screen::AntiAlias<W, H>(),
+            Filter::Pixel::Feedback<W, H, TransformerFn, HueShiftFade>(
+                TransformerFn{this}, 0.95f, HueShiftFade{&params.hue_shift})) {}
 
   void init() override {
     params = presets.get();
@@ -51,11 +54,10 @@ public:
     solid_idx = 0;
     {
       auto solids = Solids::Collections::get_platonic_solids();
-      PolyMesh poly = generate(persistent_arena,
-          [&](Arena &target, Arena &a, Arena &b) {
-            return Solids::finalize_solid(
-                solids[solid_idx].generate(a, b), target);
-          });
+      PolyMesh poly = generate(persistent_arena, [&](Arena &target, Arena &a,
+                                                     Arena &b) {
+        return Solids::finalize_solid(solids[solid_idx].generate(a, b), target);
+      });
       carousel.slot(carousel.front_index()).clear();
       MeshOps::compile(poly, carousel.slot(carousel.front_index()),
                        persistent_arena);
@@ -66,6 +68,7 @@ public:
     registerParam("Distort Freq", &params.frequency, 0.01f, 1.0f);
     registerParam("Distort Speed", &params.speed, 0.0f, 5.0f);
     registerParam("Noise Scale", &params.scale, 0.1f, 50.0f);
+    registerParam("Hue Shift", &params.hue_shift, 0.0f, 0.1f);
     registerParam("Pause Presets", &preset_paused, preset_paused);
     registerParam("Feedback", &feedback_enabled, feedback_enabled);
 
@@ -123,26 +126,25 @@ private:
 
     // Generate incoming shape into back slot
     carousel.slot(new_slot) = MeshState();
-    PolyMesh poly = generate(persistent_arena,
-        [&](Arena &target, Arena &a, Arena &b) {
-          return Solids::finalize_solid(
-              solids[solid_idx].generate(a, b), target);
-        });
+    PolyMesh poly = generate(persistent_arena, [&](Arena &target, Arena &a,
+                                                   Arena &b) {
+      return Solids::finalize_solid(solids[solid_idx].generate(a, b), target);
+    });
     MeshOps::compile(poly, carousel.slot(new_slot), persistent_arena);
 
     morphing = true;
-    timeline.add(0,
-      Animation::MeshMorph(carousel.current(), carousel.slot(new_slot),
-                           persistent_arena, draw_morph_fn_, draw_morph_fn_,
-                           MORPH_FRAMES, ease_in_out_sin)
-        .then([this, new_slot]() {
-          morphing = false;
-          carousel.set_front(new_slot);
-          carousel.compact();
-          timeline.add(0, Animation::Sprite([](Canvas &, float) {},
-                                            NO_MORPH_FRAMES)
-                              .then([this]() { start_morph(); }));
-        }));
+    timeline.add(
+        0, Animation::MeshMorph(carousel.current(), carousel.slot(new_slot),
+                                persistent_arena, draw_morph_fn_,
+                                draw_morph_fn_, MORPH_FRAMES, ease_in_out_sin)
+               .then([this, new_slot]() {
+                 morphing = false;
+                 carousel.set_front(new_slot);
+                 carousel.compact();
+                 timeline.add(0, Animation::Sprite([](Canvas &, float) {},
+                                                   NO_MORPH_FRAMES)
+                                     .then([this]() { start_morph(); }));
+               }));
   }
 
   void apply_params() {
@@ -155,10 +157,11 @@ private:
   }
 
   Presets<Params, 4> presets = {
-      .entries = {{{"Flames", {0.9f, 0.51f, 0.42f, 0.46f, 23.0f}},
-                   {"Zebras1", {0.58f, 2.73f, 0.07f, 0.0f, 26.0f}},
-                   {"Zebras2", {0.58f, 8.21f, 0.01f, 0.0f, 46.0f}},
-                   {"Interdimensional", {0.68f, 4.98f, 0.07f, 0.2f, 5.0f}}}},
+      .entries = {{{"Flames", {0.9f, 0.51f, 0.42f, 0.46f, 23.0f, 0.01f}},
+                   {"Zebras1", {0.58f, 2.73f, 0.07f, 0.0f, 26.0f, 0.03f}},
+                   {"Zebras2", {0.58f, 8.21f, 0.01f, 0.0f, 46.0f, 0.03f}},
+                   {"Interdimensional",
+                    {0.68f, 4.98f, 0.07f, 0.2f, 5.0f, 0.03f}}}},
       .current_idx = 0};
   bool preset_paused = false;
   bool feedback_enabled = true;
@@ -191,8 +194,15 @@ private:
     }
   };
 
+  struct HueShiftFade {
+    const float *hue_amount;
+    Pixel operator()(const Pixel &p, float fade) const {
+      return hue_rotate(Color4(p * fade, 1.0f), *hue_amount).color;
+    }
+  };
+
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
-           Filter::Pixel::Feedback<W, H, TransformerFn>>
+           Filter::Pixel::Feedback<W, H, TransformerFn, HueShiftFade>>
       filters;
 };
 

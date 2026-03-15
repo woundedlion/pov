@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <map>
 
-
 #include "../solids.h"
 
 template <int W, int H> class IslamicStars : public Effect {
@@ -77,10 +76,6 @@ private:
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
                   const std::array<ProceduralPalette, 5> &palettes) {
-    // Early exit if barely visible to save an entire pass
-    if (opacity <= 0.005f)
-      return;
-
     ScopedScratch _a(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
@@ -90,12 +85,10 @@ private:
     const int *raw_indices = faceIndices.data();
 
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
-      // Strip safety bounds checking; trust the rasterizer's face index output
       int faceIdx = static_cast<int>(frag.v2);
       const ProceduralPalette &pal = palettes[raw_indices[faceIdx]];
 
       float size = frag.size;
-      // Pre-negate v1 and simplify
       float intensity = (size > 0.0001f) ? (-frag.v1 / size) : 0.0f;
       intensity = hs::clamp(intensity, 0.0f, 1.0f);
 
@@ -110,13 +103,9 @@ private:
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
-
-    // Capture the slot index for this shape's draw lambda
     int capture_idx = 1 - carousel.front_index();
-
-    // Prepare palettes for the incoming slot
     palettes_history[capture_idx] = palettes;
-    // Fisher-Yates shuffle using platform RNG (avoids 2.5 KB static std::mt19937)
+    // Fisher-Yates shuffle using platform RNG
     auto &arr = palettes_history[capture_idx];
     for (int i = static_cast<int>(arr.size()) - 1; i > 0; --i) {
       int j = hs::rand_int(0, i);
@@ -127,7 +116,6 @@ private:
 
     auto draw_fn = [this, capture_idx](Canvas &canvas, float opacity) {
       const MeshState &mesh = carousel.slot(capture_idx);
-      // Map topology to palette indices
       this->draw_shape(canvas, opacity, mesh, mesh.topology,
                        palettes_history[capture_idx]);
     };
@@ -135,7 +123,9 @@ private:
     carousel.transition(
         timeline,
         // generate_fn
-        [idx, &solids](Arena &a, Arena &b) { return solids[idx].generate(a, b); },
+        [idx, &solids](Arena &a, Arena &b) {
+          return solids[idx].generate(a, b);
+        },
         // draw_outgoing, draw_incoming
         draw_fn, draw_fn,
         160, // duration
@@ -143,7 +133,6 @@ private:
         32   // fade_out
     );
 
-    // Map topology -> palette index on the newly populated slot
     int num_colors = static_cast<int>(palettes_history[capture_idx].size());
     // After transition(), front has flipped, so capture_idx is now front
     ArenaVector<int> &faceIndices = carousel.slot(capture_idx).topology;
