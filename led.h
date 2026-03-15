@@ -119,7 +119,8 @@ private:
     IntervalTimer timer;
     // The timer interval is calculated to sweep the width exactly once per
     // rotation.
-    timer.begin(show_col, 1000000 / (RPM / 60) / effect_->width());
+    timer.begin(show_col,
+        static_cast<unsigned long>(1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f));
     while (millis() - start < duration * 1000) {
       effect_->draw_frame();
     }

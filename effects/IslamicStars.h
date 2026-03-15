@@ -76,6 +76,7 @@ private:
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
                   const std::array<ProceduralPalette, 5> &palettes) {
+    if (opacity <= 0.005f) return;
     ScopedScratch _a(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);

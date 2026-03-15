@@ -330,6 +330,7 @@ public:
     this->max_life = max_life;
     active_count = 0;
     pool.bind(arena, CAPACITY);
+    if (!pool.is_bound()) return;  // OOM — particle system stays inactive
     for (size_t i = 0; i < CAPACITY; ++i) {
       pool.emplace_back();
     }
@@ -350,6 +351,7 @@ public:
    * @param seed Color seed for palette offset.
    */
   void spawn(const Vector &pos, const Vector &vel, uint16_t seed) {
+    if (!pool.is_bound()) return;
     if (active_count < pool.capacity()) {
       pool[active_count++].init(pos, vel, seed, max_life);
     }
