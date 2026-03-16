@@ -434,6 +434,50 @@ struct Shader {
       }
     }
   }
+
+  /**
+   * @brief Scalar pattern shader with per-pixel setup and 4× SSAA.
+   *
+   * Separates expensive per-pixel work (SetupFn, called once at pixel
+   * center) from cheap per-sub-sample evaluation (SampleFn, called 4×).
+   * Accumulates raw float pattern values across sub-samples, averages,
+   * then performs a single palette lookup — avoiding both redundant
+   * expensive work and nonlinear color-space averaging artifacts.
+   *
+   * @tparam SetupFn  (const Vector &center) → Ctx    (once per pixel)
+   * @tparam SampleFn (const Vector &v, const Ctx &)  → float [0,1]
+   */
+  template <int W, int H, typename SetupFn, typename SampleFn>
+  static void draw(Canvas &canvas, const Palette &palette, SetupFn &&setup,
+                   SampleFn &&sample) {
+    constexpr float h_virt_minus_1 =
+        static_cast<float>(H + hs::H_OFFSET - 1);
+    constexpr float w_float = static_cast<float>(W);
+    constexpr float eps = 0.5f;
+    constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
+    constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
+
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        Vector center_v = pixel_to_vector<W, H>(x, y);
+        auto ctx = setup(center_v);
+
+        float total = 0.0f;
+        for (int i = 0; i < 4; ++i) {
+          float px = static_cast<float>(x) + offsets_x[i];
+          float py = static_cast<float>(y) + offsets_y[i];
+          float theta = (px * 2.0f * PI_F) / w_float;
+          float phi = (py * PI_F) / h_virt_minus_1;
+          float sin_phi = sinf(phi);
+          Vector v(sin_phi * cosf(theta), cosf(phi),
+                   sin_phi * sinf(theta));
+          total += sample(v, ctx);
+        }
+
+        canvas(x, y) = palette.get(total * 0.25f).color;
+      }
+    }
+  }
 };
 
 } // namespace Scan

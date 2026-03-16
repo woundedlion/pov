@@ -149,23 +149,26 @@ public:
                       orientation.get());
 
     auto shader = [&](const Vector &p, Fragment &frag) {
-      float abs_val = std::abs(frag.v1);
+      float val = frag.v1;
+      float abs_val = std::abs(val);
 
-      Color4 base;
-      if (frag.v1 >= 0) {
-        base = Palettes::richSunset.get(
-            std::min(1.0f, abs_val * params.amplitude));
-      } else {
-        Color4 p = Palettes::richSunset.get(
-            std::min(1.0f, abs_val * params.amplitude));
-        base = Color4(
-            Pixel(p.color.b, static_cast<uint8_t>(p.color.g * 0.8f), p.color.r),
-            p.alpha);
-      }
+      // Positive palette
+      Color4 pos =
+          Palettes::richSunset.get(std::min(1.0f, abs_val * params.amplitude));
+      // Negative palette (channel-swapped)
+      Color4 neg =
+          Color4(Pixel(pos.color.b, static_cast<uint8_t>(pos.color.g * 0.8f),
+                       pos.color.r),
+                 pos.alpha);
+
+      // Quintic-smoothed crossfade across the zero-crossing boundary
+      constexpr float transition = 0.03f;
+      float blend_t =
+          quintic_kernel(hs::clamp(val / transition * 0.5f + 0.5f, 0.0f, 1.0f));
+      Color4 base = pos.lerp(neg, 1.0f - blend_t);
 
       // Ambient Occlusion
-      float shadow =
-          hs::clamp((abs_val * params.amplitude - 0.0f) / 0.4f, 0.0f, 1.0f);
+      float shadow = hs::clamp((abs_val * params.amplitude) / 0.4f, 0.0f, 1.0f);
       float occlusion = 0.15f + 0.85f * shadow;
       base.color = base.color * occlusion;
 
@@ -182,7 +185,7 @@ private:
 
     // Animate morph_alpha 0->1 over 90 frames using Sine Easing
     timeline.add(
-        0, Animation::Transition(morph_alpha, 1.0f, 90, ease_mid, false, false)
+        0, Animation::Transition(morph_alpha, 1.0f, 64, ease_mid, false, false)
                .then([this]() {
                  // Commit the morph and start next one immediately
                  current_idx = next_idx;

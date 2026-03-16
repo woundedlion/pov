@@ -50,26 +50,31 @@ public:
 
     time_driver_->set_speed(params.time_speed);
     float t = accumulated_time;
+    float noise_time = t * 0.5f;
 
-    auto shader = [&](const Vector &v) -> Color4 {
-      // Transform
+    struct WarpCtx {
+      float warp_x, warp_y;
+    };
+
+    auto setup = [&](const Vector &v) -> WarpCtx {
+      Vector rotated_v = global_orientation.unorient(v);
+      Vector sample_v = apply_glitch_lens(rotated_v);
+      Complex z = stereo(orientation.orient(sample_v));
+      return {noise.GetNoise(z.re * params.warp_scale,
+                             z.im * params.warp_scale, noise_time) *
+                  params.warp_strength,
+              noise.GetNoise(z.re * params.warp_scale + 100.0f,
+                             z.im * params.warp_scale + 100.0f, noise_time) *
+                  params.warp_strength};
+    };
+
+    auto sample = [&](const Vector &v, const WarpCtx &ctx) -> float {
       Vector rotated_v = global_orientation.unorient(v);
       Vector sample_v = apply_glitch_lens(rotated_v);
       Complex z = stereo(orientation.orient(sample_v));
 
-      // Warp
-      float noise_time = t * 0.5f;
-      float warp_x = noise.GetNoise(z.re * params.warp_scale,
-                                    z.im * params.warp_scale, noise_time) *
-                     params.warp_strength;
-      float warp_y =
-          noise.GetNoise(z.re * params.warp_scale + 100.0f,
-                         z.im * params.warp_scale + 100.0f, noise_time) *
-          params.warp_strength;
-
-      // Sample
-      float u = z.re + warp_x;
-      float v_coord = z.im + warp_y;
+      float u = z.re + ctx.warp_x;
+      float v_coord = z.im + ctx.warp_y;
       float pu = u * params.pattern_freq;
       float pv = v_coord * params.pattern_freq;
       float pattern = sinf(pu + params.complexity * sinf(pv + t)) *
@@ -77,12 +82,10 @@ public:
       float r_sq = u * u + v_coord * v_coord;
       float attenuation =
           1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
-
-      float normalized = (pattern * attenuation + 1.0f) * 0.5f;
-      return palette.get(normalized);
+      return (pattern * attenuation + 1.0f) * 0.5f;
     };
 
-    Scan::Shader::draw<W, H>(canvas, shader);
+    Scan::Shader::draw<W, H>(canvas, palette, setup, sample);
   }
 
 private:
