@@ -1000,11 +1000,13 @@ public:
     float pivot_strength =
         0.1f; /**< Strength of the direction change (noise amplitude). */
     float noise_scale = 0.02f;  /**< Frequency of the Perlin noise. */
+    float smoothing = 0.85f;    /**< Angular momentum (0 = none, 0.95 = very sluggish). */
+    float drift = 0.5f;         /**< Temporal drift speed for spatial noise. */
     int seed = 0;               /**< Random seed (0 for random). */
     Space space = Space::World; /**< Coordinate space for movement. */
 
-    static Options Languid() { return {0.02f, 0.1f, 0.02f}; }
-    static Options Energetic() { return {0.05f, 0.4f, 0.08f}; }
+    static Options Languid() { return {0.02f, 0.1f, 0.02f, 0.85f, 0.5f}; }
+    static Options Energetic() { return {0.05f, 0.4f, 0.08f, 0.7f, 1.0f}; }
   };
 
   /**
@@ -1045,10 +1047,16 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase<RandomWalk<W, CAP>>::step(canvas);
-    float pivotAngle =
-        noiseGenerator.get().GetNoise(static_cast<float>(this->t), 0.0f) *
+    float target_pivot =
+        noiseGenerator.get().GetNoise(
+            v.x * options.noise_scale * 100.0f,
+            v.y * options.noise_scale * 100.0f,
+            v.z * options.noise_scale * 100.0f +
+                static_cast<float>(this->t) * options.drift) *
         options.pivot_strength;
-    direction = rotate(direction, make_rotation(v, pivotAngle)).normalize();
+    angular_velocity = angular_velocity * options.smoothing +
+                       target_pivot * (1.0f - options.smoothing);
+    direction = rotate(direction, make_rotation(v, angular_velocity)).normalize();
     Vector walk_axis = cross(v, direction).normalized();
     v = rotate(v, make_rotation(walk_axis, options.speed)).normalize();
     direction =
@@ -1063,6 +1071,7 @@ private:
   Vector v;         /**< Current forward direction vector. */
   Vector direction; /**< Current pivoting direction (orthogonal to v). */
   Options options;  /**< Configuration options. */
+  float angular_velocity = 0.0f; /**< Smoothed pivot rate (angular momentum). */
   std::reference_wrapper<FastNoiseLite>
       noiseGenerator; /**< External noise generator. */
 };
