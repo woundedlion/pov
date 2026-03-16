@@ -29,13 +29,14 @@ public:
   };
 
   FLASHMEM TestShapes()
-      : Effect(W, H), current_shape(ShapeType::PlanarPolygon), num_shapes(7) {}
+      : Effect(W, H), current_shape(ShapeType::PlanarPolygon) {}
 
   bool show_bg() const override { return false; }
 
   void init() override {
     shapes.bind(persistent_arena, 128);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    registerParam("Count", &params.num_shapes, 1.0f, 16.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
@@ -52,6 +53,13 @@ public:
     if (frame_count_ % 48 == 0) {
       int next = (static_cast<int>(current_shape) + 1) % 4;
       current_shape = static_cast<ShapeType>(next);
+    }
+
+    // Rebuild if count changed via GUI
+    int count = static_cast<int>(params.num_shapes);
+    if (count != last_num_shapes_) {
+      last_num_shapes_ = count;
+      rebuild();
     }
 
     timeline.step(canvas);
@@ -73,11 +81,9 @@ public:
                         [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
                         480, ease_mid, true));
 
-    int total_shapes = num_shapes;
-
-    for (int i = total_shapes - 1; i >= 0; --i) {
-      float t =
-          static_cast<float>(i) / (total_shapes > 1 ? total_shapes - 1 : 1);
+    for (int i = params.num_shapes - 1; i >= 0; --i) {
+      float t = static_cast<float>(i) /
+                (params.num_shapes > 1 ? params.num_shapes - 1 : 1);
       Color4 color = Palettes::richSunset.get(t);
       spawnRing(X_AXIS, t, color, RenderMode::Plot, i);
       spawnRing(-X_AXIS, t, color, RenderMode::Scan, i);
@@ -123,10 +129,9 @@ public:
 
 private:
   template <typename F>
-  __attribute__((noinline)) void dispatchPlot(Canvas &canvas, const Basis &basis,
-                                              float r, int sides_int,
-                                              const F &fragment_shader,
-                                              float phase) {
+  __attribute__((noinline)) void
+  dispatchPlot(Canvas &canvas, const Basis &basis, float r, int sides_int,
+               const F &fragment_shader, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:
       Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
@@ -137,8 +142,8 @@ private:
                              fragment_shader, phase);
       break;
     case ShapeType::PlanarPolygon:
-      Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r,
-                                      sides_int, fragment_shader, phase);
+      Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
+                                      fragment_shader, phase);
       break;
     default:
       Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r,
@@ -148,10 +153,9 @@ private:
   }
 
   template <typename F>
-  __attribute__((noinline)) void dispatchScan(Canvas &canvas, const Basis &basis,
-                                              float r, int sides_int,
-                                              const F &fragment_shader,
-                                              float phase) {
+  __attribute__((noinline)) void
+  dispatchScan(Canvas &canvas, const Basis &basis, float r, int sides_int,
+               const F &fragment_shader, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:
       Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
@@ -162,9 +166,8 @@ private:
                              fragment_shader, phase, params.debug_bb);
       break;
     case ShapeType::PlanarPolygon:
-      Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r,
-                                      sides_int, fragment_shader, phase,
-                                      params.debug_bb);
+      Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
+                                      fragment_shader, phase, params.debug_bb);
       break;
     default: // SphericalPolygon
       Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r,
@@ -173,7 +176,6 @@ private:
       break;
     }
   }
-
 
   FastNoiseLite noise;
   Timeline<W> timeline;
@@ -184,6 +186,7 @@ private:
 
   struct Params {
     float alpha = 0.5f;
+    float num_shapes = 7.0f;
     float radius = 1.0f;
     float sides = 5.0f;
     float twist = 0.0f;
@@ -191,8 +194,8 @@ private:
   } params;
 
   ShapeType current_shape;
-  int num_shapes;
   int frame_count_ = 0;
+  int last_num_shapes_ = 7;
 };
 
 #include "../effect_registry.h"
