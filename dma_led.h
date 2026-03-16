@@ -25,6 +25,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <DMAChannel.h>
+#include <atomic>
 #include "color_luts.h"
 
 // ============================================================================
@@ -170,7 +171,15 @@ template <int N> uint8_t HD107SFrame<N>::brightness_ = 255;
  */
 class TeensySPIDMA {
 public:
-  TeensySPIDMA() : transferComplete_(true) {}
+  /**
+   * @brief Constructs the DMA SPI driver with configurable SPI settings.
+   * @param clock  SPI clock frequency in Hz (default: 12 MHz for HD107S).
+   * @param order  Bit order (default: MSBFIRST).
+   * @param mode   SPI mode (default: SPI_MODE0).
+   */
+  TeensySPIDMA(uint32_t clock = 12000000, uint8_t order = MSBFIRST,
+               uint8_t mode = SPI_MODE0)
+      : transferComplete_(true), spiSettings_(clock, order, mode) {}
 
   /**
    * @brief Initializes SPI and DMA hardware. Must be called from setup(),
@@ -179,9 +188,8 @@ public:
   void init() {
     instance_ = this;
 
-    // Initialize SPI — HD107S: Mode 0, 12 MHz, MSB first
     SPI.begin();
-    SPI.beginTransaction(SPISettings(12000000, MSBFIRST, SPI_MODE0));
+    SPI.beginTransaction(spiSettings_);
 
     // Configure LPSPI4 for DMA
     LPSPI4_CFGR1 |= LPSPI_CFGR1_NOSTALL;
@@ -204,31 +212,43 @@ public:
    * @param len  Number of bytes to transmit.
    */
   void transmitAsync(const uint8_t* data, size_t len) {
-    if (!transferComplete_) {
+    if (!transferComplete_.load(std::memory_order_relaxed)) {
       waitComplete();
     }
-    transferComplete_ = false;
+    transferComplete_.store(false, std::memory_order_relaxed);
     dma_.sourceBuffer(data, len);
     dma_.enable();
   }
 
-  bool isComplete() const { return transferComplete_; }
+  bool isComplete() const {
+    return transferComplete_.load(std::memory_order_relaxed);
+  }
 
   void waitComplete() {
-    while (!transferComplete_) { /* spin */ }
+    while (!transferComplete_.load(std::memory_order_relaxed)) { /* spin */ }
   }
 
 private:
   static void FASTRUN dmaISR() {
     if (instance_) {
       instance_->dma_.clearInterrupt();
-      instance_->transferComplete_ = true;
+      instance_->transferComplete_.store(true, std::memory_order_relaxed);
     }
   }
 
   DMAChannel dma_;
-  volatile bool transferComplete_;
+  std::atomic<bool> transferComplete_;
+  SPISettings spiSettings_;
 
+  /**
+   * @brief Singleton pointer for ISR callback dispatch.
+   *
+   * Thread-safety: Safe under the single-core Cortex-M7 ISR preemption model.
+   * Only written once from setup() (before interrupts that use it) and read
+   * from the DMA completion ISR. No concurrent write-write or read-write
+   * race is possible — ARM single-core guarantees that ISR preemption of
+   * the main thread sees all prior stores.
+   */
   static TeensySPIDMA* instance_;
 };
 

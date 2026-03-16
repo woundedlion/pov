@@ -68,7 +68,7 @@ public:
     float blend;
     float amplitude;
     Quaternion orientation;
-    const bool is_solid = true;
+    static constexpr bool is_solid = true;
 
     HarmonicBlob(int l1, int m1, int l2, int m2, float blend, float amp,
                  Quaternion q)
