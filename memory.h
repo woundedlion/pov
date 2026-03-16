@@ -12,10 +12,10 @@
 #include <cstdio>
 
 #ifdef __EMSCRIPTEN__
-constexpr size_t GLOBAL_ARENA_SIZE = 332 * 1024;
+constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
 #else
 // Teensy 4.0 — single contiguous block in RAM1 (DTCM)
-constexpr size_t GLOBAL_ARENA_SIZE = 332 * 1024;
+constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
 #endif
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
