@@ -27,9 +27,7 @@ public:
     registerParam("dt", &params.dt, 0.1f, 2.0f);
     registerParam("Global Alpha", &params.global_alpha, 0.0f, 1.0f);
 
-    // Compute nodes from formula (neighbors are PROGMEM)
-    for (int i = 0; i < RD_N; ++i)
-      nodes[i] = ReactionGraph::node(i);
+    // (node positions computed on-the-fly via ReactionGraph::node())
     timeline
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, PI_F / 2, 64,
                                        ease_mid, true))
@@ -115,7 +113,7 @@ private:
         Color4 c = ctx.palette.get(t);
         c.alpha *= opacity * params.global_alpha;
         auto shader = [c](const Vector &p, Fragment &f) { f.color = c; };
-        Plot::Point::draw(filters, canvas, Fragment(nodes[i]), shader);
+        Plot::Point::draw(filters, canvas, Fragment(ReactionGraph::node(i)), shader);
       }
     }
   }
@@ -156,7 +154,6 @@ private:
     std::swap(ctx.B, ctx.nextB);
   }
 
-  std::array<Vector, RD_N> nodes;
   Orientation<W> orientation;
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>

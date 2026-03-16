@@ -384,35 +384,54 @@ struct Mesh {
  * The utility calls it 4× per pixel at sub-pixel offsets and averages.
  */
 struct Shader {
-  template <int W, int H, typename ShaderFn>
+  template <int W, int H, int SAMPLES = 4, typename ShaderFn>
   static void draw(Canvas &canvas, ShaderFn &&shader) {
-    constexpr float eps = 0.5f;
-    constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
-    constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
     constexpr float h_virt_minus_1 =
         static_cast<float>(H + hs::H_OFFSET - 1);
     constexpr float w_float = static_cast<float>(W);
 
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        Color4 accum(Pixel(0, 0, 0), 0.0f);
-
-        for (int i = 0; i < 4; ++i) {
-          float px = static_cast<float>(x) + offsets_x[i];
-          float py = static_cast<float>(y) + offsets_y[i];
-
+    if constexpr (SAMPLES == 1) {
+      // 1× — single sample at pixel center (no SSAA)
+      for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+          float px = static_cast<float>(x);
+          float py = static_cast<float>(y);
           float theta = (px * 2.0f * PI_F) / w_float;
           float phi = (py * PI_F) / h_virt_minus_1;
           float sin_phi = sinf(phi);
           Vector v(sin_phi * cosf(theta), cosf(phi),
                    sin_phi * sinf(theta));
-
           Color4 sample = shader(v);
-          sample *= 0.25f;
-          accum += sample;
+          canvas(x, y) = sample.color;
         }
+      }
+    } else {
+      // 4× SSAA — four sub-pixel samples averaged
+      constexpr float eps = 0.5f;
+      constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
+      constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
 
-        canvas(x, y) = accum.color;
+      for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+          Color4 accum(Pixel(0, 0, 0), 0.0f);
+
+          for (int i = 0; i < 4; ++i) {
+            float px = static_cast<float>(x) + offsets_x[i];
+            float py = static_cast<float>(y) + offsets_y[i];
+
+            float theta = (px * 2.0f * PI_F) / w_float;
+            float phi = (py * PI_F) / h_virt_minus_1;
+            float sin_phi = sinf(phi);
+            Vector v(sin_phi * cosf(theta), cosf(phi),
+                     sin_phi * sinf(theta));
+
+            Color4 sample = shader(v);
+            sample *= 0.25f;
+            accum += sample;
+          }
+
+          canvas(x, y) = accum.color;
+        }
       }
     }
   }
