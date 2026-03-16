@@ -16,6 +16,25 @@
 #include "static_circular_buffer.h"
 
 namespace SDF {
+
+// --- Rasterization constants ------------------------------------------------
+/** Margin added to bounding boxes for AA kernel width (small faces). */
+static constexpr float BOUNDS_MARGIN = 0.05f;
+/** Expanded margin for shapes with variable thickness or large faces. */
+static constexpr float BOUNDS_MARGIN_WIDE = 0.1f;
+/** Minimum horizontal projection length for interval culling. */
+static constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
+/** Epsilon for near-zero denominators in interval math. */
+static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
+/** Threshold for near-pole ring approximation safety. */
+static constexpr float POLE_SAFE_MARGIN = 0.05f;
+
+/** Fold an angle into [0, π] (equivalent to acosf(cosf(x)) without trig). */
+inline float clamp_phi(float x) {
+  if (x < 0.0f) return -x;
+  if (x > PI_F) return 2.0f * PI_F - x;
+  return x;
+}
 /** @brief Vertical scanline bounds (min/max Y). */
 struct Bounds {
   int y_min, y_max;
@@ -79,7 +98,7 @@ struct Ring {
     cos_min = cosf(ang_max);
     cos_target = cosf(target_angle);
 
-    bool safe_approx = (target_angle > 0.05f && target_angle < PI_F - 0.05f);
+    bool safe_approx = (target_angle > POLE_SAFE_MARGIN && target_angle < PI_F - POLE_SAFE_MARGIN);
     inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
 
     // For getHorizontalBounds
@@ -95,12 +114,12 @@ struct Ring {
 
     if (a1 > 0) {
       float p1 = a1;
-      float p2 = acosf(cosf(a2));
+      float p2 = clamp_phi(a2);
       phi_min = std::min(p1, p2);
     }
     if (a2 < PI_F) {
-      float p1 = acosf(cosf(a1));
-      float p2 = acosf(cosf(a2));
+      float p1 = clamp_phi(a1);
+      float p2 = a2;
       phi_max = std::max(p1, p2);
     }
 
@@ -128,11 +147,11 @@ struct Ring {
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 
-    if (r_val < 0.01f)
+    if (r_val < MIN_HORIZONTAL_PROJ)
       return false;
 
     float denom = r_val * sin_phi;
-    if (std::abs(denom) < 0.000001f)
+    if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
     float C_min = (cos_min - ny * cos_phi) / denom;
@@ -271,17 +290,17 @@ struct DistortedRing {
     float phi_min = 0, phi_max = PI_F;
 
     if (a1 > 0) {
-      float p1 = acosf(cosf(a1));
-      float p2 = acosf(cosf(a2));
+      float p1 = clamp_phi(a1);
+      float p2 = clamp_phi(a2);
       phi_min = std::min(p1, p2);
     }
     if (a2 < PI_F) {
-      float p1 = acosf(cosf(a1));
-      float p2 = acosf(cosf(a2));
+      float p1 = clamp_phi(a1);
+      float p2 = clamp_phi(a2);
       phi_max = std::max(p1, p2);
     }
 
-    float margin = max_thickness + 0.1f;
+    float margin = max_thickness + BOUNDS_MARGIN_WIDE;
     float f_phi_min = std::max(0.0f, phi_min - margin);
     float f_phi_max = std::min(PI_F, phi_max + margin);
 
@@ -299,11 +318,11 @@ struct DistortedRing {
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 
-    if (r_val < 0.01f)
+    if (r_val < MIN_HORIZONTAL_PROJ)
       return false;
 
     float denom = r_val * sin_phi;
-    if (std::abs(denom) < 0.000001f)
+    if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
     float C_min = (cos_min_limit - ny * cos_phi) / denom;
@@ -775,7 +794,7 @@ struct Face {
 
     float min_phi_check = acosf(hs::clamp(max_y_val, -1.0f, 1.0f));
     float max_phi_check = acosf(hs::clamp(min_y_val, -1.0f, 1.0f));
-    float margin_check = thickness + 0.05f;
+    float margin_check = thickness + BOUNDS_MARGIN;
 
     int y_min_check = std::max(
         0, static_cast<int>(floorf(
@@ -888,7 +907,7 @@ struct Face {
         scratch.thetas[i] = theta;
       }
 
-      float margin = thickness + 0.05f;
+      float margin = thickness + BOUNDS_MARGIN;
       y_min = std::max(
           0,
           static_cast<int>(floorf(
@@ -989,7 +1008,7 @@ struct Face {
       if (spInside)
         max_phi = PI_F;
 
-      float margin = thickness + 0.05f;
+      float margin = thickness + BOUNDS_MARGIN;
       y_min = std::max(
           0, static_cast<int>(floorf(
                  (std::max(0.0f, min_phi - margin) * (h_virt - 1)) / PI_F)));
@@ -1169,7 +1188,7 @@ struct Polygon {
   float apothem;
   float nx, ny, nz, R_val, alpha_angle;
   int y_min, y_max;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   Polygon(const Basis &b, float r, float th, int s, float ph, int h_virt,
           int height)
@@ -1182,7 +1201,7 @@ struct Polygon {
     alpha_angle = atan2f(nz, nx);
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
-    float margin = thickness + 0.1f;
+    float margin = thickness + BOUNDS_MARGIN_WIDE;
     y_min = std::max(
         0, static_cast<int>(floorf(
                (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
@@ -1200,14 +1219,14 @@ struct Polygon {
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 
-    if (R_val < 0.01f)
+    if (R_val < MIN_HORIZONTAL_PROJ)
       return false;
 
     float ang_high = thickness;
     float D_min = cosf(ang_high);
 
     float denom = R_val * sin_phi;
-    if (std::abs(denom) < 0.000001f)
+    if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
     float C_min = (D_min - ny * cos_phi) / denom;
@@ -1326,7 +1345,7 @@ struct SphericalPolygon {
     alpha_angle = atan2f(nz, nx);
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
-    float margin = circumradius + 0.1f;
+    float margin = circumradius + BOUNDS_MARGIN_WIDE;
     y_min = std::max(
         0, static_cast<int>(floorf(
                (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
@@ -1344,13 +1363,13 @@ struct SphericalPolygon {
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 
-    if (R_val < 0.01f)
+    if (R_val < MIN_HORIZONTAL_PROJ)
       return false;
 
     float ang_high = circumradius;
     float D_min = cosf(ang_high);
     float denom = R_val * sin_phi;
-    if (std::abs(denom) < 0.000001f)
+    if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
     float C_min = (D_min - ny * cos_phi) / denom;
@@ -1409,7 +1428,7 @@ template <int W> struct Star {
   const Basis &basis;
   int sides;
   float phase;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   float nx, ny, planeD;
   float thickness;
@@ -1443,7 +1462,7 @@ template <int W> struct Star {
     scanAlpha = atan2f(scanNz, scanNx);
 
     float centerPhi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.y)));
-    float margin = outerRadius + 0.1f;
+    float margin = outerRadius + BOUNDS_MARGIN_WIDE;
     yMin = std::max(
         0, static_cast<int>(floorf(
                (std::max(0.0f, centerPhi - margin) * (height - 1)) / PI_F)));
@@ -1462,14 +1481,14 @@ template <int W> struct Star {
     float cosPhi = cosf(phi);
     float sinPhi = sinf(phi);
 
-    if (scanR < 0.01f)
+    if (scanR < MIN_HORIZONTAL_PROJ)
       return false;
 
     float pixelWidth = 2.0f * PI_F / W_scan;
     float D_min = cosf(thickness + pixelWidth);
     float denom = scanR * sinPhi;
 
-    if (std::abs(denom) < 0.000001f)
+    if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
     float C_min = (D_min - scanNy * cosPhi) / denom;
@@ -1542,7 +1561,7 @@ struct Flower {
   Vector antipode;
   float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha;
   int y_min, y_max;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   Flower(const Basis &b, float radius, int s, float ph, int h_virt, int height)
       : basis(b), sides(s), phase(ph) {
@@ -1558,7 +1577,7 @@ struct Flower {
     scan_alpha = atan2f(scan_nz, scan_nx);
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.y)));
-    float margin = thickness + 0.1f;
+    float margin = thickness + BOUNDS_MARGIN_WIDE;
     y_min = std::max(
         0, static_cast<int>(floorf(
                (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
@@ -1576,11 +1595,11 @@ struct Flower {
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 
-    if (scan_R < 0.01f)
+    if (scan_R < MIN_HORIZONTAL_PROJ)
       return false;
 
     float denom = scan_R * sin_phi;
-    if (std::abs(denom) < 0.000001f)
+    if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
     float ang_max = thickness;
@@ -1659,7 +1678,7 @@ struct HarmonicBlob {
   float amplitude;
   Quaternion inv_q;
   HarmonicWaveFn harmonic_fn;
-  const bool is_solid = true;
+  static constexpr bool is_solid = true;
 
   HarmonicBlob(int l, int m, float amplitude, const Quaternion &orientation,
                HarmonicWaveFn harmonic_fn)
@@ -1706,7 +1725,7 @@ struct Line {
 
   Vector n;
   float len;
-  const bool is_solid = false;
+  static constexpr bool is_solid = false;
 
   Line(const Vector &start, const Vector &end, float th)
       : a(start), b(end), thickness(th) {
@@ -1764,7 +1783,37 @@ struct Line {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return false;
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    float phi = y_to_phi<H_VIRT>(static_cast<float>(y));
+    float cos_phi = cosf(phi);
+    float sin_phi = sinf(phi);
+
+    // Bounding cap centered on the midpoint of the line segment
+    Vector mid = (a + b).normalized();
+    float mid_ny = mid.y;
+    float mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
+    float mid_alpha = atan2f(mid.z, mid.x);
+
+    if (mid_r < MIN_HORIZONTAL_PROJ)
+      return false;
+
+    float cap_radius = len * 0.5f + thickness;
+    float D_min = cosf(cap_radius);
+    float denom = mid_r * sin_phi;
+    if (std::abs(denom) < INTERVAL_DENOM_EPS)
+      return false;
+
+    float C_min = (D_min - mid_ny * cos_phi) / denom;
+    if (C_min > 1.0f)
+      return true;  // Row is outside the bounding cap
+    if (C_min < -1.0f)
+      return false; // Cap covers full width
+
+    float d_alpha = acosf(C_min);
+    float f_x1 = (mid_alpha - d_alpha) * W / (2 * PI_F);
+    float f_x2 = (mid_alpha + d_alpha) * W / (2 * PI_F);
+    out(floorf(f_x1), ceilf(f_x2));
+    return true;
   }
 };
 } // namespace SDF

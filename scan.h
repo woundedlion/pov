@@ -39,7 +39,8 @@ static void process_pixel(int x, int y, const Vector &p, PipelineRef pipeline,
   if (debug_bb || d < threshold) {
     float alpha = 1.0f;
 
-    if (is_solid) {
+    constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
+    if constexpr (solid) {
       if (d <= -pixel_width) {
         // FAST PATH: Pixel is fully inside the shape. Skip AA
         alpha = 1.0f;
@@ -50,10 +51,8 @@ static void process_pixel(int x, int y, const Vector &p, PipelineRef pipeline,
       }
     } else {
       // Stroke Falloff: Opacity fades over the entire thickness
-      if constexpr (requires { shape.thickness; }) {
-        if (shape.thickness > 0) {
-          alpha = quintic_kernel(-d / shape.thickness);
-        }
+      if (shape.thickness > 0) {
+        alpha = quintic_kernel(-d / shape.thickness);
       }
     }
 
