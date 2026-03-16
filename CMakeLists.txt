@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
 project(HolosphereWasm)
 
+# Enable ccache if available
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})
+    message(STATUS "ccache enabled: ${CCACHE_FOUND}")
+endif()
+
 # Ensure C++20 for consistency with manual build
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
