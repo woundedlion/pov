@@ -86,7 +86,46 @@ public:
 };
 
 // ============================================================================
-// 2. Arena Structures
+// 2. Triangular Bitset (Pair Deduplication)
+// ============================================================================
+
+/**
+ * @brief Upper-triangular bitset for O(1) pair deduplication.
+ * Stores one bit per unique unordered pair (a, b) where a < b < MAX_V.
+ * Total storage: MAX_V * (MAX_V - 1) / 2 bits.
+ * @tparam MAX_V Maximum vertex/element index (exclusive).
+ */
+template <int MAX_V> struct TriangularBitset {
+  static constexpr int BITS = MAX_V * (MAX_V - 1) / 2;
+  static constexpr int BYTES = (BITS + 7) / 8;
+  uint8_t data[BYTES];
+
+  void clear() { memset(data, 0, BYTES); }
+
+  /// Bit index for pair (small, large) where small < large.
+  static int index(int small, int large) {
+    return small * (2 * MAX_V - small - 1) / 2 + (large - small - 1);
+  }
+
+  bool test(int a, int b) const {
+    int bit = index(a, b);
+    return (data[bit >> 3] >> (bit & 7)) & 1;
+  }
+
+  /// Returns true if already set (hit), false if newly inserted (miss).
+  bool test_and_set(int a, int b) {
+    int bit = index(a, b);
+    uint8_t &byte = data[bit >> 3];
+    uint8_t mask = 1 << (bit & 7);
+    if (byte & mask)
+      return true;
+    byte |= mask;
+    return false;
+  }
+};
+
+// ============================================================================
+// 3. Arena Structures
 // ============================================================================
 
 template <typename T> class ArenaVector {

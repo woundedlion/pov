@@ -1156,19 +1156,16 @@ struct Mesh {
                    VertexShaderRef vertex_shader) {
     int edge_index = 0;
 
-    StaticCircularBuffer<uint32_t, 4096> visited;
+    // O(1) edge dedup — 1016 bytes vs 16kB for the old linear-scan buffer
+    TriangularBitset<128> visited;
+    visited.clear();
 
     auto process_edge = [&](int u, int v) {
       int small = std::min(u, v);
       int large = std::max(u, v);
-      uint32_t key =
-          (static_cast<uint32_t>(small) << 16) | static_cast<uint32_t>(large);
 
-      for (auto curr : visited) {
-        if (curr == key)
-          return;
-      }
-      visited.push_back(key);
+      if (visited.test_and_set(small, large))
+        return;
 
       Fragment fu;
       fu.pos = mesh.vertices[u];
