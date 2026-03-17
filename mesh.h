@@ -168,12 +168,15 @@ private:
         face_offset += count;
       }
 
-      std::sort(records, records + total_indices,
-                [](const EdgeRecord &a, const EdgeRecord &b) {
-                  if (a.min_v != b.min_v)
-                    return a.min_v < b.min_v;
-                  return a.max_v < b.max_v;
-                });
+      auto edge_less = [](const EdgeRecord &a, const EdgeRecord &b) {
+        if (a.min_v != b.min_v) return a.min_v < b.min_v;
+        return a.max_v < b.max_v;
+      };
+      auto edge_greater = [&](const EdgeRecord &a, const EdgeRecord &b) {
+        return edge_less(b, a);
+      };
+      std::make_heap(records, records + total_indices, edge_greater);
+      std::sort_heap(records, records + total_indices, edge_greater);
 
       for (size_t i = 0; i < total_indices;) {
         if (i + 1 < total_indices && records[i].min_v == records[i + 1].min_v &&
@@ -394,12 +397,15 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         face_offset += count;
       }
 
-      std::sort(records, records + I,
-                [](const EdgeRecord &a, const EdgeRecord &b) {
-                  if (a.min_v != b.min_v)
-                    return a.min_v < b.min_v;
-                  return a.max_v < b.max_v;
-                });
+      auto edge_less = [](const EdgeRecord &a, const EdgeRecord &b) {
+        if (a.min_v != b.min_v) return a.min_v < b.min_v;
+        return a.max_v < b.max_v;
+      };
+      auto edge_greater = [&](const EdgeRecord &a, const EdgeRecord &b) {
+        return edge_less(b, a);
+      };
+      std::make_heap(records, records + I, edge_greater);
+      std::sort_heap(records, records + I, edge_greater);
 
       for (size_t i = 0; i < I;) {
         if (i + 1 < I && records[i].min_v == records[i + 1].min_v &&
@@ -443,9 +449,11 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     nodes[fi] = {finalHashes[fi], static_cast<int>(fi)};
   }
 
-  std::sort(nodes, nodes + F, [](const HashNode &a, const HashNode &b) {
-    return a.hash < b.hash;
-  });
+  auto hash_greater = [](const HashNode &a, const HashNode &b) {
+    return a.hash > b.hash;
+  };
+  std::make_heap(nodes, nodes + F, hash_greater);
+  std::sort_heap(nodes, nodes + F, hash_greater);
 
   if (mesh.topology.capacity() < F) {
     mesh.topology.bind(persistent, F);

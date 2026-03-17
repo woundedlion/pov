@@ -98,7 +98,7 @@ private:
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
-                           params.debug_bb);
+                           scratch_arena_a, params.debug_bb);
   }
 
   void spawn_shape() {

@@ -125,8 +125,15 @@ public:
       hs::log("WASM: Unsupported resolution for factory!");
       return;
     }
-    if (currentEffect)
+    if (currentEffect) {
       currentEffect->init();
+      // Log init stack HWM, then repaint to isolate render HWM
+      char hwm_buf[80];
+      snprintf(hwm_buf, sizeof(hwm_buf), "WASM: init stack HWM = %u bytes",
+               (unsigned)stack_high_water_mark());
+      hs::log(hwm_buf);
+      stack_paint_canary();
+    }
   }
 
   void drawFrame() {
