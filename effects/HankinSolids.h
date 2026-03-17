@@ -112,7 +112,7 @@ private:
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
-                           params.debug_bb);
+                           scratch_arena_a, params.debug_bb);
   }
 
   void promote_staged_hankin() {

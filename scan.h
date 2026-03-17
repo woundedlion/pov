@@ -327,8 +327,12 @@ struct HarmonicBlob {
 struct Mesh {
   template <int W, int H, typename MeshT>
   static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
-                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
-    SDF::FaceScratchBuffer scratch;
+                   FragmentShaderFn fragment_shader, Arena &scratch_arena,
+                   bool debug_bb = false) {
+    ScratchScope scope(scratch_arena);
+    auto *scratch = static_cast<SDF::FaceScratchBuffer *>(
+        scratch_arena.allocate(sizeof(SDF::FaceScratchBuffer),
+                              alignof(SDF::FaceScratchBuffer)));
 
     size_t idx_offset = 0;
     for (size_t i = 0; i < mesh.num_faces; ++i) {
@@ -336,7 +340,7 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
       std::span<const uint16_t> indices(&mesh.faces[idx_offset], count);
 
-      SDF::Face shape(verts, indices, 0.0f, scratch, H + hs::H_OFFSET, H);
+      SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
       idx_offset += count;
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
@@ -350,8 +354,12 @@ struct Mesh {
   // Overload for MeshState
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const MeshState &mesh,
-                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
-    SDF::FaceScratchBuffer scratch;
+                   FragmentShaderFn fragment_shader, Arena &scratch_arena,
+                   bool debug_bb = false) {
+    ScratchScope scope(scratch_arena);
+    auto *scratch = static_cast<SDF::FaceScratchBuffer *>(
+        scratch_arena.allocate(sizeof(SDF::FaceScratchBuffer),
+                              alignof(SDF::FaceScratchBuffer)));
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
@@ -364,7 +372,7 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      SDF::Face shape(verts, indices, 0.0f, scratch, H + hs::H_OFFSET, H);
+      SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
         f_in.v2 = static_cast<float>(i);
