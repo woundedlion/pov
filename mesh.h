@@ -342,8 +342,8 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         const Vector &prev = verts[(k - 1 + count) % count];
         const Vector &curr = verts[k];
         const Vector &next = verts[(k + 1) % count];
-        Vector v1 = (prev - curr).normalize();
-        Vector v2 = (next - curr).normalize();
+        Vector v1 = (prev - curr).normalized();
+        Vector v2 = (next - curr).normalized();
         float ang = angle_between(v1, v2);
         angles.push_back((int)std::round(ang * 180.0f / PI_F));
       }

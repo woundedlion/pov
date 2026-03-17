@@ -145,7 +145,7 @@ private:
 
     // Stereographic S3 → R3
     float factor = 1.0f / (1.001f - q3);
-    return Vector(q0 * factor, q1 * factor, q2 * factor).normalize();
+    return Vector(q0 * factor, q1 * factor, q2 * factor).normalized();
   }
 
   void draw_fibers(Canvas &canvas) {

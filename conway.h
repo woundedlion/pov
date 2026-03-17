@@ -97,7 +97,7 @@ FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) 
 
       if (count > 0)
         c = c / static_cast<float>(count);
-      out_mesh.vertices.push_back(c.normalize());
+      out_mesh.vertices.push_back(c.normalized());
     }
 
     bool *visitedVerts = static_cast<bool *>(
@@ -152,7 +152,7 @@ FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) 
  */
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
-    v = v.normalize();
+    v.normalize();
   }
 }
 
@@ -804,7 +804,7 @@ FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, Arena &target, Arena
 
       for (size_t i = 0; i < V; ++i) {
         out_mesh.vertices[i] =
-            (out_mesh.vertices[i] + movements[i]).normalize();
+            (out_mesh.vertices[i] + movements[i]).normalized();
       }
     }
   }
@@ -864,7 +864,7 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
         normal = cross(ab, ac).normalized();
       }
       if (dot(centroid, centroid) > 1e-6f && dot(normal, normal) < 1e-9f) {
-        normal = centroid.normalize();
+        normal = centroid.normalized();
       }
 
       out_mesh.face_counts.push_back(count);
@@ -1027,7 +1027,7 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
       N = N * (1.0f / sqrt(lenSq));
       float pDotN = dot(p, N);
       Vector proj = p + N * (-pDotN);
-      proj = proj.normalize();
+      proj.normalize();
 
       Vector crossAC = cross(A, proj);
       Vector crossCB = cross(proj, B);

@@ -195,7 +195,7 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
     surface_distortion = surface_distortion * (max_slide / sqrtf(sd_len_sq));
   }
 
-  return (v + surface_distortion).normalize();
+  return (v + surface_distortion).normalized();
 }
 
 /**

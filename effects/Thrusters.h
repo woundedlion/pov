@@ -19,7 +19,7 @@ public:
     registerParam("Radius", &params.radius, 0.1f, 2.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    ring_vec = ring_vec.normalize();
+    ring_vec.normalize();
 
     timeline.add(
         0, Animation::Sprite(
@@ -95,7 +95,7 @@ private:
     // spin
     Vector thrust_axis =
         cross(orientation.orient(thrust_point), orientation.orient(ring_vec))
-            .normalize();
+            .normalized();
     timeline.add(0, Animation::Rotation<W>(orientation, thrust_axis, 2 * PI_F,
                                            8 * 16, ease_out_expo));
 

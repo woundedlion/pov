@@ -940,7 +940,7 @@ struct Face {
         Vector normal = cross(v1, v2);
         float lenSq = dot(normal, normal);
         if (lenSq > 1e-12f)
-          scratch.planes[planes_count++] = normal.normalize();
+          scratch.planes[planes_count++] = normal.normalized();
 
         float phi_val = acosf(hs::clamp(v1.y, -1.0f, 1.0f));
         if (phi_val < min_phi)
