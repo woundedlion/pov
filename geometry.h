@@ -29,7 +29,6 @@ struct Fragment {
   float size = 1.0f; /**< Size metric (e.g. radius/apothem) for normalization */
   float age = 0.0f;  /**< Age of the operation/trail */
   Color4 color = Color4(0, 0, 0, 0); /**< Output Color (RGBA) */
-  uint8_t blend = 0;                 /**< Blend Mode ID */
 
   /**
    * @brief Linear interpolation between two fragments.
@@ -48,7 +47,6 @@ struct Fragment {
     f.v2 = a.v2 + (b.v2 - a.v2) * t;
     f.v3 = a.v3 + (b.v3 - a.v3) * t;
     f.age = a.age + (b.age - a.age) * t;
-    f.blend = a.blend;
     return f;
   }
 };

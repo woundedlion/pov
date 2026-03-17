@@ -183,8 +183,8 @@ private:
   Animation::Driver *cycle_driver_ = nullptr;
 
   Presets<Params, 4> presets = {{{
-      {"Geometric", {1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.8f}},
-      {"SlowDrip", {1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 2.0f}},
+      {"Geometric", {1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.4f}},
+      {"SlowDrip", {1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 1.4f}},
   }}};
 };
 

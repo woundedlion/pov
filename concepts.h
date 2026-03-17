@@ -73,35 +73,33 @@ using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 
 class PipelineRef {
   void *ctx_;
-  void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float,
-                  uint8_t);
-  void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float,
-                  uint8_t);
+  void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);
+  void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float);
 
 public:
   template <typename T> PipelineRef(T &t) : ctx_(std::addressof(t)) {
     plot2d_ = [](void *ctx, Canvas &cv, float x, float y, const Pixel &c,
-                 float age, float alpha, uint8_t tag) {
-      static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha, tag);
+                 float age, float alpha) {
+      static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
     };
     plot3d_ = [](void *ctx, Canvas &cv, const Vector &v, const Pixel &c,
-                 float age, float alpha, uint8_t tag) {
-      static_cast<T *>(ctx)->plot(cv, v, c, age, alpha, tag);
+                 float age, float alpha) {
+      static_cast<T *>(ctx)->plot(cv, v, c, age, alpha);
     };
   }
 
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
-            float alpha, uint8_t tag = 0) const {
-    plot2d_(ctx_, cv, x, y, c, age, alpha, tag);
+            float alpha) const {
+    plot2d_(ctx_, cv, x, y, c, age, alpha);
   }
-  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha,
-            uint8_t tag = 0) const {
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float age,
+            float alpha) const {
     plot2d_(ctx_, cv, static_cast<float>(x), static_cast<float>(y), c, age,
-            alpha, tag);
+            alpha);
   }
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha,
-            uint8_t tag = 0) const {
-    plot3d_(ctx_, cv, v, c, age, alpha, tag);
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+            float alpha) const {
+    plot3d_(ctx_, cv, v, c, age, alpha);
   };
 };
 

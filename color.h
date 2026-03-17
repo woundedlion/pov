@@ -260,24 +260,8 @@ inline Pixel blend_mean(const Pixel &c1, const Pixel &c2) {
   return Pixel((c1.r + c2.r) / 2, (c1.g + c2.g) / 2, (c1.b + c2.b) / 2);
 }
 
-/**
- * @brief Enumerates available blending modes for renderers.
- */
-enum BlendMode : uint8_t { BLEND_OVER = 0, BLEND_ADD = 1, BLEND_MAX = 2 };
 
-inline auto blend_add_alpha(float a) {
-  return [a](const Pixel &dest, const Pixel &src) {
-    return blend_add(dest, src * a);
-  };
-}
 
-inline auto blend_max_alpha(float a) {
-  return [a](const Pixel &dest, const Pixel &src) {
-    Pixel16 s = src * a;
-    return Pixel(std::max(dest.r, s.r), std::max(dest.g, s.g),
-                 std::max(dest.b, s.b));
-  };
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 

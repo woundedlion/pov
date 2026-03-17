@@ -18,9 +18,9 @@
 #include "concepts.h"
 
 using PassFn2D =
-    FunctionRef<void(float, float, const Pixel &, float, float, uint8_t)>;
+    FunctionRef<void(float, float, const Pixel &, float, float)>;
 using PassFn3D =
-    FunctionRef<void(const Vector &, const Pixel &, float, float, uint8_t)>;
+    FunctionRef<void(const Vector &, const Pixel &, float, float)>;
 
 // Filter Traits
 /** @brief Trait indicating a filter operates in 2D screen space. */
@@ -70,50 +70,25 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
 
   // 2D Sink
-  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha,
-            uint8_t tag = 0) {
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
     int xi = fast_wrap(x, W);
-    Pixel p;
-    switch (tag) {
-    case BLEND_ADD:
-      p = blend_add_alpha(alpha)(cv(xi, y), c);
-      break;
-    case BLEND_MAX:
-      p = blend_max_alpha(alpha)(cv(xi, y), c);
-      break;
-    default:
-      p = blend_alpha(alpha)(cv(xi, y), c); // BLEND_OVER
-      break;
-    }
+    Pixel p = blend_alpha(alpha)(cv(xi, y), c);
     plot_virtual(cv, xi, y, p);
   }
 
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
-            float alpha, uint8_t tag = 0) {
+            float alpha) {
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
     xi = fast_wrap(xi, W);
-
-    Pixel p;
-    switch (tag) {
-    case BLEND_ADD:
-      p = blend_add_alpha(alpha)(cv(xi, yi), c);
-      break;
-    case BLEND_MAX:
-      p = blend_max_alpha(alpha)(cv(xi, yi), c);
-      break;
-    default:
-      p = blend_alpha(alpha)(cv(xi, yi), c); // BLEND_OVER
-      break;
-    }
+    Pixel p = blend_alpha(alpha)(cv(xi, yi), c);
     plot_virtual(cv, xi, yi, p);
   }
 
   // 3D Sink
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha,
-            uint8_t tag = 0) {
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha) {
     auto p = vector_to_pixel<W, H>(v);
-    plot(cv, p.x, p.y, c, age, alpha, tag);
+    plot(cv, p.x, p.y, c, age, alpha);
   }
 
   // History
@@ -140,34 +115,33 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
 
   // 2D Plot (Float)
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
-            float alpha, uint8_t tag = 0) {
+            float alpha) {
     if constexpr (Head::is_2d) {
-      Head::plot(x, y, c, age, alpha, tag,
-                 [&](float x, float y, const Pixel &c, float age, float alpha,
-                     uint8_t tag) { next.plot(cv, x, y, c, age, alpha, tag); });
+      Head::plot(x, y, c, age, alpha,
+                 [&](float x, float y, const Pixel &c, float age, float alpha) {
+                   next.plot(cv, x, y, c, age, alpha);
+                 });
     } else { // 2D -> 3D Mismatch
       Vector v = pixel_to_vector<W, H>(x, y);
-      plot(cv, v, c, age, alpha, tag);
+      plot(cv, v, c, age, alpha);
     }
   }
 
   // 2D Plot (Int) - useful for Scan
-  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha,
-            uint8_t tag = 0) {
-    // route to float
-    plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha, tag);
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
+    plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
   }
 
   // 3D Plot
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha,
-            uint8_t tag = 0) {
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha) {
     if constexpr (!Head::is_2d) {
-      Head::plot(v, c, age, alpha, tag,
-                 [&](const Vector &v, const Pixel &c, float age, float alpha,
-                     uint8_t tag) { next.plot(cv, v, c, age, alpha, tag); });
+      Head::plot(v, c, age, alpha,
+                 [&](const Vector &v, const Pixel &c, float age, float alpha) {
+                   next.plot(cv, v, c, age, alpha);
+                 });
     } else { // 3D -> 2D Mismatch
       auto p = vector_to_pixel<W, H>(v);
-      plot(cv, p.x, p.y, c, age, alpha, tag);
+      plot(cv, p.x, p.y, c, age, alpha);
     }
   }
 
@@ -211,9 +185,9 @@ public:
   Orient(Orientation<W> &orientation) : orientation(orientation) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn3D pass) {
+            PassFn3D pass) {
     tween(orientation, [&](const Quaternion &q, float t) {
-      pass(rotate(v, q), color, age + (1.0f - t), alpha, tag);
+      pass(rotate(v, q), color, age + (1.0f - t), alpha);
     });
   }
 
@@ -231,9 +205,9 @@ public:
       : enabled(true), axis(axis), orientations(orientations) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn3D pass) {
+            PassFn3D pass) {
     if (!enabled) {
-      pass(v, color, age, alpha, tag);
+      pass(v, color, age, alpha);
       return;
     }
 
@@ -244,7 +218,7 @@ public:
 
     size_t count = orientations.size();
     if (count == 0) {
-      pass(v, color, age, alpha, tag);
+      pass(v, color, age, alpha);
       return;
     }
 
@@ -255,7 +229,7 @@ public:
     // Pass to selected orientation
     const Orientation<W> &q = orientations[idx];
     tween(q, [&](const Quaternion &rot, float tween_t) {
-      pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha, tag);
+      pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha);
     });
   }
 
@@ -275,14 +249,14 @@ template <int W, typename OriginT = Vector> class Hole : public Is3D {
 public:
   Hole(OriginT origin, float radius) : origin(origin), radius(radius) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn3D pass) {
+            PassFn3D pass) {
     const Vector &o = origin;
     float d = angle_between(v, o);
     if (d > radius)
-      pass(v, color, age, alpha, tag);
+      pass(v, color, age, alpha);
     else {
       float t = d / radius;
-      pass(v, color * quintic_kernel(t), age, alpha, tag);
+      pass(v, color * quintic_kernel(t), age, alpha);
     }
   }
 
@@ -305,12 +279,12 @@ public:
       : count(hs::clamp(count, 1, W)),
         step(make_rotation(Y_AXIS, 2 * PI_F / count)) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn3D pass) {
+            PassFn3D pass) {
     Vector r = v;
-    pass(r, color, age, alpha, tag);
+    pass(r, color, age, alpha);
     for (int i = 1; i < count; i++) {
       r = rotate(r, step);
-      pass(r, color, age, alpha, tag);
+      pass(r, color, age, alpha);
     }
   }
 
@@ -326,8 +300,8 @@ template <int W> class Mobius : public Is3D {
 public:
   Mobius(MobiusParams &params) : params(params) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn3D pass) {
-    pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha, tag);
+            PassFn3D pass) {
+    pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha);
   }
 
 private:
@@ -357,8 +331,8 @@ public:
   }
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn3D pass) {
-    pass(v, color, age, alpha, tag); // Pass through current frame
+            PassFn3D pass) {
+    pass(v, color, age, alpha); // Pass through current frame
 
     int ttl = lifetime - static_cast<int>(age);
     if (ttl > 0 && items_) {
@@ -388,7 +362,7 @@ public:
 
       if (c.alpha > 0.001f) {
         pass(v, c.color, static_cast<float>(lifetime - item.ttl),
-             c.alpha * alpha, 0);
+             c.alpha * alpha);
       }
     }
   }
@@ -441,7 +415,7 @@ template <int W, int H> class AntiAlias : public Is2D {
 public:
   AntiAlias() {}
   void plot(float x, float y, const Pixel &c, float age, float alpha,
-            uint8_t tag, PassFn2D pass) {
+            PassFn2D pass) {
     float x_i, y_i;
     float x_m = std::modf(x, &x_i);
     float y_m = std::modf(y, &y_i);
@@ -473,13 +447,13 @@ public:
     int x1 = fast_wrap(static_cast<int>(x_i) + 1, W);
 
     if (v00 > 1e-8f)
-      pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00, tag);
+      pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00);
     if (v10 > 1e-8f)
-      pass(static_cast<float>(x1), static_cast<float>(y0), c, age, alpha * v10, tag);
+      pass(static_cast<float>(x1), static_cast<float>(y0), c, age, alpha * v10);
     if (v01 > 1e-8f)
-      pass(static_cast<float>(x0), static_cast<float>(y1), c, age, alpha * v01, tag);
+      pass(static_cast<float>(x0), static_cast<float>(y1), c, age, alpha * v01);
     if (v11 > 1e-8f)
-      pass(static_cast<float>(x1), static_cast<float>(y1), c, age, alpha * v11, tag);
+      pass(static_cast<float>(x1), static_cast<float>(y1), c, age, alpha * v11);
   }
 };
 
@@ -497,17 +471,17 @@ public:
   }
 
   void plot(float x, float y, const Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn2D pass) {
+            PassFn2D pass) {
     if (alpha <= 0.001f)
       return;
 
     if (age >= 0) {
       if (ttls_ && num_pixels < MAX_PIXELS) {
-        ttls_[num_pixels++] = {x, y, static_cast<float>(lifetime - age), tag};
+        ttls_[num_pixels++] = {x, y, static_cast<float>(lifetime - age)};
       }
     }
     if (age <= 0) {
-      pass(x, y, color, age, alpha, tag);
+      pass(x, y, color, age, alpha);
     }
   }
 
@@ -518,7 +492,7 @@ public:
           trailFn(ttls_[i].x, ttls_[i].y, 1 - (ttls_[i].ttl / lifetime));
       if (color.alpha > 0.001f) {
         pass(ttls_[i].x, ttls_[i].y, color.color, lifetime - ttls_[i].ttl,
-             alpha * color.alpha, ttls_[i].tag);
+             alpha * color.alpha);
       }
     }
     decay();
@@ -536,7 +510,6 @@ public:
 private:
   struct DecayPixel {
     float x, y, ttl;
-    uint8_t tag;
   };
   int lifetime;
   DecayPixel *ttls_ = nullptr;
@@ -561,7 +534,7 @@ public:
   }
 
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn2D pass) {
+            PassFn2D pass) {
     int cx = static_cast<int>(std::round(x));
     int cy = static_cast<int>(std::round(y));
 
@@ -574,7 +547,7 @@ public:
           float weight = kernel[k++];
           if (weight > 1e-5f) {
             pass(static_cast<float>(wrap(cx + dx, W)), static_cast<float>(ny),
-                 color, age, alpha * weight, tag);
+                 color, age, alpha * weight);
           }
         }
       } else {
@@ -623,8 +596,8 @@ public:
 
   /// Pass-through: current-frame pixels go straight to the canvas sink.
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
-            uint8_t tag, PassFn2D pass) {
-    pass(x, y, color, age, alpha, tag);
+            PassFn2D pass) {
+    pass(x, y, color, age, alpha);
   }
 
   /// Blend distorted previous frame (front buffer) into current frame (back
@@ -754,8 +727,8 @@ public:
   ChromaticShift() {}
 
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
-            uint8_t tag, PassFn2D pass) {
-    pass(x, y, c, age, alpha, tag);
+            PassFn2D pass) {
+    pass(x, y, c, age, alpha);
 
     ::Pixel r_col = c;
     r_col.g = 0;
@@ -768,11 +741,11 @@ public:
     b_col.g = 0;
 
     pass(static_cast<float>(wrap(static_cast<int>(x) + 1, W)), y, r_col, age,
-         alpha, tag);
+         alpha);
     pass(static_cast<float>(wrap(static_cast<int>(x) + 2, W)), y, g_col, age,
-         alpha, tag);
+         alpha);
     pass(static_cast<float>(wrap(static_cast<int>(x) + 3, W)), y, b_col, age,
-         alpha, tag);
+         alpha);
   }
 };
 

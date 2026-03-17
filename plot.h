@@ -29,10 +29,9 @@ struct Point {
                    FragmentShaderFn fragment_shader) {
     Fragment f_copy = f;
     f_copy.color = Color4(0, 0, 0, 0);
-    f_copy.blend = 0;
     fragment_shader(f_copy.pos, f_copy);
     pipeline.plot(canvas, f_copy.pos, f_copy.color.color, f_copy.age,
-                  f_copy.color.alpha, f_copy.blend);
+                  f_copy.color.alpha);
   }
 };
 
@@ -147,11 +146,10 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
         // Set temp values for shader
         f_copy.pos = curr.pos;
         f_copy.color = Color4(0, 0, 0, 0);
-        f_copy.blend = 0;
 
         fragment_shader(curr.pos, f_copy);
         pipeline.plot(canvas, curr.pos, f_copy.color.color, f_copy.age,
-                      f_copy.color.alpha, f_copy.blend);
+                      f_copy.color.alpha);
       }
       return;
     }
@@ -190,11 +188,9 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
       Fragment f = Fragment::lerp(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
-      f.blend = 0;
 
       fragment_shader(start_pos, f);
-      pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha,
-                    f.blend);
+      pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
     }
 
     size_t loop_limit =
@@ -211,10 +207,9 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
-      f.blend = 0;
 
       fragment_shader(p, f);
-      pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha, f.blend);
+      pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
     }
   };
 
@@ -331,11 +326,9 @@ struct Vertices {
     for (const Fragment &p : points) {
       Fragment f = p;
       f.color = Color4(0, 0, 0, 0);
-      f.blend = 0;
 
       fragment_shader(f.pos, f);
-      pipeline.plot(canvas, f.pos, f.color.color, f.age, f.color.alpha,
-                    f.blend);
+      pipeline.plot(canvas, f.pos, f.color.color, f.age, f.color.alpha);
     }
   }
 };
