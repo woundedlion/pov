@@ -296,7 +296,7 @@ inline Vector logPolarToVector(float rho, float theta) {
   const float R2 = R * R;
   const float y = (R2 - 1.0f) / (R2 + 1.0f);
   const float r_xz = sqrtf(std::max(0.0f, 1.0f - y * y));
-  return Vector(r_xz * cosf(theta), y, r_xz * sinf(theta)).normalize();
+  return Vector(r_xz * cosf(theta), y, r_xz * sinf(theta)).normalized();
 }
 
 /**
@@ -341,7 +341,7 @@ inline Vector fib_spiral(int n, float eps, int i) {
   float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * G), (2.0f * PI_F));
   // Y-up convention
   return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta))
-      .normalize();
+      .normalized();
 }
 
 
@@ -548,7 +548,7 @@ struct LissajousParams {
 inline Vector lissajous(float m1, float m2, float a, float t) {
   Vector v(sinf(m2 * t) * cosf(m1 * t - a * PI_F), cosf(m2 * t),
            sinf(m2 * t) * sinf(m1 * t - a * PI_F));
-  return v.normalize();
+  return v.normalized();
 }
 
 /**
@@ -567,8 +567,8 @@ struct Basis {
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
   Vector ref_axis =
       (std::abs(dot(normal, X_AXIS)) > (1 - TOLERANCE)) ? Y_AXIS : X_AXIS;
-  Vector v = rotate(normal, orientation).normalize();
-  Vector ref = rotate(ref_axis, orientation).normalize();
+  Vector v = rotate(normal, orientation).normalized();
+  Vector ref = rotate(ref_axis, orientation).normalized();
   Vector u = cross(v, ref).normalized();
   Vector w = cross(v, u).normalized();
   return {u, v, w};

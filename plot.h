@@ -473,7 +473,7 @@ struct Ring {
     return Vector(d * v.x + radius * u.x * cosf(a) + radius * w.x * sinf(a),
                   d * v.y + radius * u.y * cosf(a) + radius * w.y * sinf(a),
                   d * v.z + radius * u.z * cosf(a) + radius * w.z * sinf(a))
-        .normalize();
+        .normalized();
   }
 
   static void sample(Fragments &points, const Basis &basis, float radius,
@@ -499,7 +499,7 @@ struct Ring {
       Vector u_temp = (u * cosf(t)) + (w * sinf(t));
 
       Fragment f;
-      f.pos = ((v * d_val) + (u_temp * r_val)).normalize();
+      f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
       f.v0 = static_cast<float>(i) / num_samples;
       f.v1 = theta * arc_scale;
       f.v2 = static_cast<float>(i);
@@ -514,7 +514,7 @@ struct Ring {
       float theta = 2.0f * PI_F;
       float t = theta + phase;
       Vector u_temp = (u * cosf(t)) + (w * sinf(t));
-      f.pos = ((v * d_val) + (u_temp * r_val)).normalize();
+      f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
 
       f.v0 = 1.0f;
       f.v1 = theta * arc_scale;
@@ -758,7 +758,7 @@ struct DistortedRing {
       float u_scale = r_val * cos_shift + d_val * sin_shift;
 
       Fragment f;
-      f.pos = ((v * v_scale) + (u_temp * u_scale)).normalize();
+      f.pos = ((v * v_scale) + (u_temp * u_scale)).normalized();
 
       if (i > 0) {
         cumulative_len += angle_between(last_pos, f.pos);

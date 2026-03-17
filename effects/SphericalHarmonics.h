@@ -124,7 +124,7 @@ public:
     next_idx = 6;
 
     // Spin
-    Vector axis = Vector(0.5f, 1.0f, 0.2f).normalize();
+    Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
     timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100,
                                            10000, ease_mid, true));
 

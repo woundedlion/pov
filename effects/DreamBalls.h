@@ -200,7 +200,7 @@ private:
       float sinA = sinf(angle);
 
       Vector disp = v + (tan.u * cosA + tan.v * sinA) * r;
-      target.vertices[i] = disp.normalize();
+      target.vertices[i] = disp.normalized();
     }
   }
 

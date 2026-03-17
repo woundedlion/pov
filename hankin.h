@@ -105,7 +105,7 @@ FLASHMEM inline void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
                       : mesh.vertices[heMesh.halfEdges[he.pair].vertex];
       Vector pB = mesh.vertices[he.vertex];
       Vector mid = (pA + pB) * 0.5f;
-      mid = mid.normalize();
+      mid.normalize();
 
       compiled.staticVertices.push_back(mid);
       uint16_t idx = static_cast<uint16_t>(compiled.staticVertices.size() - 1);
@@ -225,7 +225,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector pCorner = compiled.baseVertices[instr.vCorner];
 
     if (is_flat) {
-      compiled.dynamicVertices[i] = pCorner.normalize();
+      compiled.dynamicVertices[i] = pCorner.normalized();
       continue;
     }
 
@@ -238,16 +238,16 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector cross2 = cross(pCorner, pNext);
 
     if (dot(cross1, cross1) < 1e-8f || dot(cross2, cross2) < 1e-8f) {
-      compiled.dynamicVertices[i] = pCorner.normalize();
+      compiled.dynamicVertices[i] = pCorner.normalized();
       continue; // zero length edge
     }
 
-    Vector nEdge1 = cross1.normalize();
+    Vector nEdge1 = cross1.normalized();
     // Inline make_rotation using precomputed half-angle trig
     Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
     Vector nHankin1 = rotate(nEdge1, q1);
 
-    Vector nEdge2 = cross2.normalize();
+    Vector nEdge2 = cross2.normalized();
     // cos(-x) = cos(x), sin(-x) = -sin(x)
     Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
     Vector nHankin2 = rotate(nEdge2, q2);
@@ -255,11 +255,11 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector intersect = cross(nHankin1, nHankin2);
     float lenSq = dot(intersect, intersect);
     if (lenSq < 1e-6f)
-      intersect = (m1 + m2).normalize();
+      intersect = (m1 + m2).normalized();
     if (dot(intersect, pCorner) < 0)
       intersect = -intersect;
 
-    compiled.dynamicVertices[i] = intersect.normalize();
+    compiled.dynamicVertices[i] = intersect.normalized();
   }
 
   out_mesh.vertices.bind(target_arena,

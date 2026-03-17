@@ -405,7 +405,7 @@ private:
         if (dist_sq > 0.0000001f) {
           if (dist_sq < attr.event_horizon * attr.event_horizon) {
             // Steer into center
-            Vector torque = (attr.position - pos).normalize();
+            Vector torque = (attr.position - pos).normalized();
             float speed = p.velocity.magnitude();
             p.velocity = torque * speed;
           } else {
@@ -1018,7 +1018,7 @@ public:
              FastNoiseLite &noise, Options options = Options(),
              int seed = 0)
       : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
-        v(Vector(v_start).normalize()), options(options),
+        v(Vector(v_start).normalized()), options(options),
         noiseGenerator(noise) {
     Vector u = X_AXIS;
     if (std::abs(dot(v, u)) > 0.99f) {
@@ -1055,11 +1055,11 @@ public:
         options.pivot_strength;
     angular_velocity = angular_velocity * options.smoothing +
                        target_pivot * (1.0f - options.smoothing);
-    direction = rotate(direction, make_rotation(v, angular_velocity)).normalize();
+    direction = rotate(direction, make_rotation(v, angular_velocity)).normalized();
     Vector walk_axis = cross(v, direction).normalized();
-    v = rotate(v, make_rotation(walk_axis, options.speed)).normalize();
+    v = rotate(v, make_rotation(walk_axis, options.speed)).normalized();
     direction =
-        rotate(direction, make_rotation(walk_axis, options.speed)).normalize();
+        rotate(direction, make_rotation(walk_axis, options.speed)).normalized();
     Rotation<W, CAP>::animate(canvas, orientation, walk_axis, options.speed,
                               ease_mid);
   }
@@ -1280,7 +1280,7 @@ public:
         has_poles = true;
     }
     if (has_poles) {
-      twist_axis = Vector(1.0f, 1.0f, 1.0f).normalize();
+      twist_axis = Vector(1.0f, 1.0f, 1.0f).normalized();
     }
     Quaternion twist = make_rotation(twist_axis, 0.05f);
 

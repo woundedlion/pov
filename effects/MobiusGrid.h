@@ -71,8 +71,8 @@ public:
     }
 
     // Update hole origins to match the rotated geometry
-    holeN = rotate(n_trans, q).normalize();
-    holeS = rotate(s_trans, q).normalize();
+    holeN = rotate(n_trans, q).normalized();
+    holeS = rotate(s_trans, q).normalized();
 
     draw_axis_rings(canvas, Y_AXIS, params.num_rings, phase, q);
     draw_longitudes(canvas, params.num_lines, phase, q);
@@ -110,7 +110,7 @@ private:
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
-        f.pos = rotate(transformed, q).normalize();
+        f.pos = rotate(transformed, q).normalized();
         f.v0 = (float)k / (m_points.size() - 1);
         m_fragments.push_back(f);
       }
@@ -151,7 +151,7 @@ private:
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
-        f.pos = rotate(transformed, q).normalize();
+        f.pos = rotate(transformed, q).normalized();
         f.v0 = (m_points.size() > 1) ? (float)k / (m_points.size() - 1) : 0.0f;
         m_fragments.push_back(f);
       }

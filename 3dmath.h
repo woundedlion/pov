@@ -176,7 +176,7 @@ struct Vector {
    * @brief Normalizes the vector (scales to unit length).
    * @return Reference to the normalized vector.
    */
-  Vector &normalize() {
+  void normalize() {
     float m = length();
     if (m < std::numeric_limits<float>::epsilon()) {
       hs::log("Can't normalize a zero vector!");
@@ -187,7 +187,6 @@ struct Vector {
       y = y / m;
       z = z / m;
     }
-    return *this;
   }
 
   /// Return a unit-length copy without mutating `this`.
@@ -339,7 +338,7 @@ struct Quaternion {
    * @brief Normalizes the quaternion (scales to unit magnitude).
    * @return Reference to the normalized quaternion.
    */
-  Quaternion &normalize() {
+  void normalize() {
     auto m = magnitude();
     if (m <= std::numeric_limits<float>::epsilon()) {
       hs::log("Can't normalize a zero Quaternion!");
@@ -349,7 +348,6 @@ struct Quaternion {
       r = r / m;
       v = v / m;
     }
-    return *this;
   }
 
   /// Return a unit-magnitude copy without mutating `this`.
@@ -750,7 +748,7 @@ constexpr float angle_between(const Quaternion &q1, const Quaternion &q2) {
  * @return The resulting unit rotation quaternion.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
-  return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalize();
+  return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalized();
 }
 
 /**
@@ -794,16 +792,16 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   float d = hs::clamp(dot(v1, v2), -1.0f, 1.0f);
   // If vectors are extremely close, just lerp to avoid NaN
   if (d > 0.9999f) {
-    return (v1 + (v2 - v1) * t).normalize();
+    return (v1 + (v2 - v1) * t).normalized();
   }
   float theta = acosf(d);
   float sin_theta = sinf(theta);
   if (sin_theta < 0.0001f) {
-    return (v1 + (v2 - v1) * t).normalize();
+    return (v1 + (v2 - v1) * t).normalized();
   }
   float s1 = sinf((1 - t) * theta) / sin_theta;
   float s2 = sinf(t * theta) / sin_theta;
-  return ((s1 * v1) + (s2 * v2)).normalize();
+  return ((s1 * v1) + (s2 * v2)).normalized();
 }
 
 /**
@@ -827,18 +825,18 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
 
   if (d > (1 - TOLERANCE)) {
     Quaternion r = p + t * (q - p);
-    return r.normalize();
+    return r.normalized();
   }
 
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   if (sin_theta < 0.0001f) {
     Quaternion r = p + t * (q - p);
-    return r.normalize();
+    return r.normalized();
   }
   float s1 = sinf((1 - t) * theta) / sin_theta;
   float s2 = sinf(t * theta) / sin_theta;
-  return ((s1 * p) + (s2 * q)).normalize();
+  return ((s1 * p) + (s2 * q)).normalized();
 }
 
 /**
@@ -856,7 +854,7 @@ inline Vector cubic_fast(const Vector &p0, const Vector &p1,
     float uu = u * u;
     float tt = t * t;
     return (p0 * (uu * u) + p1 * (3.0f * uu * t) +
-            p2 * (3.0f * u * tt) + p3 * (tt * t)).normalize();
+            p2 * (3.0f * u * tt) + p3 * (tt * t)).normalized();
 }
 
 /// Accurate: de Casteljau with SLERP. 6 SLERPs per sample.

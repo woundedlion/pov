@@ -133,7 +133,7 @@ public:
       float rx = (rand() % 1000) / 500.0f - 1.0f;
       float ry = (rand() % 1000) / 500.0f - 1.0f;
       float rz = (rand() % 1000) / 500.0f - 1.0f;
-      Vector axis = Vector(rx, ry, rz).normalize();
+      Vector axis = Vector(rx, ry, rz).normalized();
 
       float t =
           i /
