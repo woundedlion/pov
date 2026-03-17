@@ -12,8 +12,8 @@
 template <int W, int H> class PetalFlow : public Effect {
 public:
   struct Params {
-    float twist_factor = 2.15f;
-    float speed = 8.0f;
+    float twist_factor = 0.35f;
+    float speed = 2.5f;
     float alpha = 0.2f;
   } params;
 
@@ -45,10 +45,8 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-
-    // Step timeline ONCE per frame
-    // Speed control is handled by the magnitude of position updates per frame
     timeline.step(canvas);
+    update_and_draw_rings(canvas);
   }
 
 private:
@@ -59,12 +57,12 @@ private:
 
   struct Ring {
     float rho;
+    float hue;
     bool active;
   };
 
   Ring rings[MAX_RINGS];
   float gap_accumulator = 0.0f;
-
 
   ProceduralPalette palette;
   Orientation<W> orientation;
@@ -76,79 +74,57 @@ private:
   Animation::PeriodicTimer spawner;
 
   FLASHMEM void init_timeline() {
-    // Animation for Orientation
     timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
                                            ease_mid, true));
-
-    // Animation for Twist Mutation
-    // Commented out to allow GUI control of params.twist_factor
-    // timeline.add(0, Animation::Mutation(params.twist_factor,
-    // sin_wave(2.0f, 2.5f, 1.0f, 0.0f), 160, ease_mid, true));
-
-    // Add Spawner
     gap_accumulator = 0.0f;
     timeline.add(0, spawner);
 
-    // Pre-warm: Spawn rings along the path
-    // Iterate backwards so the 'newest' (closest to START_RHO) corresponds to
-    // recent spawn
+    // Pre-warm rings along the path
     for (float r = END_RHO - 0.01f; r > START_RHO; r -= SPACING) {
       spawn_ring_at_pos(r);
     }
   }
 
   void check_spawn() {
-    // Calculate distance moved this frame based on 16fps target
-    // Target rate: speed * 0.015 units/sec
-    // Frame rate: 16 fps
-    // Per frame: (speed * 0.015) / 16.0 = speed * 0.0009375
-
-    float move_dist = params.speed * 0.0009375f;
-
+    float move_dist = params.speed * 0.009375f;
     gap_accumulator += move_dist;
 
     while (gap_accumulator >= SPACING) {
       gap_accumulator -= SPACING;
-      // Spawn at START_RHO + overshoot
       spawn_ring_at_pos(START_RHO + gap_accumulator);
     }
   }
 
+  static float next_hue;
+
   void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active) {
-        Ring &r = rings[i];
-        r.active = true;
-        r.rho = initial_rho;
-
-        // Use Sprite with effectively infinite duration (1M frames)
-        auto sprite_anim = Animation::Sprite(
-            [this, &r](Canvas &c, float) { this->draw_ring(c, r); }, 1000000);
-
-        timeline.add(0, std::move(sprite_anim));
+        rings[i].active = true;
+        rings[i].rho = initial_rho;
+        rings[i].hue = next_hue;
+        next_hue = wrap(next_hue + 0.13f, 1.0f);
         return;
       }
     }
   }
 
-  void draw_ring(Canvas &canvas, Ring &ring) {
-    if (!ring.active)
-      return;
-
-    // Update Position:
-    // Scale down to match JS per-second rate in a 16fps frame context
-    // speed 8.0 * 0.0009375 = 0.0075 units/frame
-    float move_dist = params.speed * 0.0009375f;
-    ring.rho += move_dist;
-
-    // Lifecycle Check
-    if (ring.rho > END_RHO) {
-      ring.active = false;
-      return;
+  void update_and_draw_rings(Canvas &canvas) {
+    float move_dist = params.speed * 0.009375f;
+    for (int i = 0; i < MAX_RINGS; ++i) {
+      if (!rings[i].active) continue;
+      rings[i].rho += move_dist;
+      if (rings[i].rho > END_RHO) {
+        rings[i].active = false;
+        continue;
+      }
+      draw_ring(canvas, rings[i]);
     }
+  }
+
+  void draw_ring(Canvas &canvas, const Ring &ring) {
 
     // Calculate Opacity (Distance Based)
-    // JS: dist = abs(effectiveLogR); if (dist > 2.5) opacity = ...
     float dist = std::abs(ring.rho);
     float opacity = 1.0f;
     if (dist > 2.5f) {
@@ -160,15 +136,10 @@ private:
     if (effective_opacity <= 0.01f)
       return;
 
-    const int num_samples = W;
+    const int num_samples = W / 2;
     const float step = 2.0f * PI_F / num_samples;
 
-    // Color Logic
-    // Index implies cyclic color based on spatial position.
-    // We use negative index to maintain color flow direction matching travel
-    float color_idx = -(ring.rho / SPACING);
-    float hue = wrap(color_idx * 0.13f, 1.0f);
-    Color4 base_col = palette.get(hue).color;
+    Color4 base_col = palette.get(ring.hue).color;
     base_col.alpha = effective_opacity;
 
     float twist_angle = (ring.rho / SPACING) * params.twist_factor;
@@ -177,7 +148,7 @@ private:
       return 0.6f * std::abs(sinf(3.0f * PI_F * t));
     };
 
-    ScratchScope _frag(scratch_arena_a);
+    ScratchScope _(scratch_arena_a);
     Fragments fragments;
     fragments.bind(scratch_arena_a, num_samples + 1);
     for (int i = 0; i < num_samples; ++i) {
@@ -213,10 +184,12 @@ private:
       f.color = base_col;
     };
 
-    Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader,
-                          true);
+    Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
   }
 };
+
+template <int W, int H>
+float PetalFlow<W, H>::next_hue = 0.0f;
 
 #include "../effect_registry.h"
 REGISTER_EFFECT(PetalFlow)
