@@ -70,10 +70,8 @@ public:
     timeline = Timeline<W>();
 
     // Single camera tumble
-    typename Animation::RandomWalk<W>::Options rw_opts;
-    rw_opts.seed = hs::rand_int(0, 65535);
-    rw_opts.space = Animation::Space::World;
-    timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, rw_opts));
+    timeline.add(0, Animation::RandomWalk<W>(
+        camera, X_AXIS, noise, {}, hs::rand_int(0, 65535)));
 
     // Twist Mutation: sin wave
     timeline.add(0, Animation::Mutation(

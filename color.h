@@ -351,6 +351,106 @@ constexpr float linear_to_srgb_float(float l) {
   return (l <= 0.0031308f) ? l * 12.92f : 1.055f * powf(l, 1.0f / 2.4f) - 0.055f;
 }
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// OKLab / OKLCH Color Space (Björn Ottosson, 2020)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+struct OKLab { float L, a, b; };
+struct OKLCH { float L, C, h; };
+
+/// Linear RGB [0,1] -> OKLab
+inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
+  float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
+  float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
+  float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
+
+  float l_ = cbrtf(l), m_ = cbrtf(m), s_ = cbrtf(s);
+
+  return {0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_,
+          1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_,
+          0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_};
+}
+
+/// OKLab -> Linear RGB [0,1]
+inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
+  float l_ = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
+  float m_ = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
+  float s_ = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
+
+  float l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+
+  r = +4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s;
+  g = -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s;
+  b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
+}
+
+inline OKLCH oklab_to_oklch(OKLab lab) {
+  float C = sqrtf(lab.a * lab.a + lab.b * lab.b);
+  float h = atan2f(lab.b, lab.a);
+  return {lab.L, C, h};
+}
+
+inline OKLab oklch_to_oklab(OKLCH lch) {
+  return {lch.L, lch.C * cosf(lch.h), lch.C * sinf(lch.h)};
+}
+
+/// sRGB [0-255] -> OKLCH (convenience)
+inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
+  float rf = srgb_to_linear_float(r / 255.0f);
+  float gf = srgb_to_linear_float(g / 255.0f);
+  float bf = srgb_to_linear_float(b / 255.0f);
+  return oklab_to_oklch(linear_rgb_to_oklab(rf, gf, bf));
+}
+
+/// OKLCH -> 16-bit linear Pixel (gamut-clamped)
+inline Pixel oklch_to_pixel(OKLCH lch) {
+  float r, g, b;
+  oklab_to_linear_rgb(oklch_to_oklab(lch), r, g, b);
+  return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 1.0f) * 65535.0f),
+               static_cast<uint16_t>(hs::clamp(g, 0.0f, 1.0f) * 65535.0f),
+               static_cast<uint16_t>(hs::clamp(b, 0.0f, 1.0f) * 65535.0f));
+}
+
+/// Interpolate two OKLCH colors (shortest-arc hue)
+inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
+  // Handle achromatic cases (near-zero chroma)
+  float h;
+  if (a.C < 1e-4f && b.C < 1e-4f) {
+    h = 0.0f;
+  } else if (a.C < 1e-4f) {
+    h = b.h;
+  } else if (b.C < 1e-4f) {
+    h = a.h;
+  } else {
+    // Shortest arc interpolation
+    float dh = b.h - a.h;
+    if (dh > PI_F) dh -= 2.0f * PI_F;
+    if (dh < -PI_F) dh += 2.0f * PI_F;
+    h = a.h + dh * t;
+  }
+  return {a.L + (b.L - a.L) * t, a.C + (b.C - a.C) * t, h};
+}
+
+/// Interpolate two sRGB CPixels in OKLCH space -> 16-bit linear Pixel
+inline Pixel lerp_oklch(const CPixel &c1, const CPixel &c2, float t) {
+  OKLCH a = srgb_to_oklch(c1.r, c1.g, c1.b);
+  OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
+  return oklch_to_pixel(lerp_oklch(a, b, t));
+}
+
+/// Interpolate two sRGB CPixels in OKLCH space -> sRGB CPixel
+inline CPixel lerp_oklch_srgb(const CPixel &c1, const CPixel &c2, float t) {
+  OKLCH a = srgb_to_oklch(c1.r, c1.g, c1.b);
+  OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
+  OKLCH result = lerp_oklch(a, b, t);
+  float r, g, b_val;
+  oklab_to_linear_rgb(oklch_to_oklab(result), r, g, b_val);
+  return CPixel(
+    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(r, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
+    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(g, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
+    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(b_val, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)));
+}
+
 /// Abstract base for all palettes. Provides a uniform interface for color
 /// lookup, replacing std::variant + std::visit with a single vtable pointer.
 class Palette {
@@ -558,22 +658,9 @@ public:
   }
 
   void lerp(const Snapshot &from, const Snapshot &to, float amount) {
-    auto blend = [amount](const CPixel &f, const CPixel &t) -> CPixel {
-      float inv = 1.0f - amount;
-      float r = srgb_to_linear_float(f.r / 255.0f) * inv
-              + srgb_to_linear_float(t.r / 255.0f) * amount;
-      float g = srgb_to_linear_float(f.g / 255.0f) * inv
-              + srgb_to_linear_float(t.g / 255.0f) * amount;
-      float b = srgb_to_linear_float(f.b / 255.0f) * inv
-              + srgb_to_linear_float(t.b / 255.0f) * amount;
-      return CPixel(
-        static_cast<uint8_t>(std::clamp(linear_to_srgb_float(r) * 255.0f + 0.5f, 0.0f, 255.0f)),
-        static_cast<uint8_t>(std::clamp(linear_to_srgb_float(g) * 255.0f + 0.5f, 0.0f, 255.0f)),
-        static_cast<uint8_t>(std::clamp(linear_to_srgb_float(b) * 255.0f + 0.5f, 0.0f, 255.0f)));
-    };
-    a = blend(from.a, to.a);
-    b = blend(from.b, to.b);
-    c = blend(from.c, to.c);
+    a = lerp_oklch_srgb(from.a, to.a, amount);
+    b = lerp_oklch_srgb(from.b, to.b, amount);
+    c = lerp_oklch_srgb(from.c, to.c, amount);
     update_luts();
   }
 
@@ -599,19 +686,8 @@ public:
 
     float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
 
-    // Interpolate in linear space, not sRGB
-    float r_lin = srgb_to_linear_float(c1.r / 255.0f) * (1.0f - p)
-                + srgb_to_linear_float(c2.r / 255.0f) * p;
-    float g_lin = srgb_to_linear_float(c1.g / 255.0f) * (1.0f - p)
-                + srgb_to_linear_float(c2.g / 255.0f) * p;
-    float b_lin = srgb_to_linear_float(c1.b / 255.0f) * (1.0f - p)
-                + srgb_to_linear_float(c2.b / 255.0f) * p;
-
-    Pixel color(
-      static_cast<uint16_t>(r_lin * 65535.0f),
-      static_cast<uint16_t>(g_lin * 65535.0f),
-      static_cast<uint16_t>(b_lin * 65535.0f));
-    return Color4(color, 1.0f);
+    // Interpolate in OKLCH for perceptually uniform gradients
+    return Color4(lerp_oklch(c1, c2, p), 1.0f);
   }
 
 private:

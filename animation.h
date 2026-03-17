@@ -1002,8 +1002,6 @@ public:
     float noise_scale = 0.02f;  /**< Frequency of the Perlin noise. */
     float smoothing = 0.85f;    /**< Angular momentum (0 = none, 0.95 = very sluggish). */
     float drift = 0.5f;         /**< Temporal drift speed for spatial noise. */
-    int seed = 0;               /**< Random seed (0 for random). */
-    Space space = Space::World; /**< Coordinate space for movement. */
 
     static Options Languid() { return {0.02f, 0.1f, 0.02f, 0.85f, 0.5f}; }
     static Options Energetic() { return {0.05f, 0.4f, 0.08f, 0.7f, 1.0f}; }
@@ -1017,7 +1015,8 @@ public:
    * @param options Configuration options.
    */
   RandomWalk(Orientation<W, CAP> &orientation, const Vector &v_start,
-             FastNoiseLite &noise, Options options = Options())
+             FastNoiseLite &noise, Options options = Options(),
+             int seed = 0)
       : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
         v(Vector(v_start).normalize()), options(options),
         noiseGenerator(noise) {
@@ -1028,10 +1027,10 @@ public:
     direction = cross(v, u).normalized();
     noiseGenerator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noiseGenerator.get().SetFrequency(options.noise_scale);
-    if (options.seed == 0) {
+    if (seed == 0) {
       noiseGenerator.get().SetSeed(std::rand());
     } else {
-      noiseGenerator.get().SetSeed(options.seed);
+      noiseGenerator.get().SetSeed(seed);
     }
   }
 
@@ -1062,7 +1061,7 @@ public:
     direction =
         rotate(direction, make_rotation(walk_axis, options.speed)).normalize();
     Rotation<W, CAP>::animate(canvas, orientation, walk_axis, options.speed,
-                              ease_mid, options.space);
+                              ease_mid);
   }
 
 private:
