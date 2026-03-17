@@ -6,10 +6,37 @@
 #ifdef __EMSCRIPTEN__
 
 #include <emscripten/bind.h>
+#include <emscripten/stack.h>
 #include "effects.h"  // Includes all effect headers (triggers REGISTER_EFFECT)
 #include "effect_registry.h"
 #include "platform.h"
 #include <string_view>
+#include <cstring>
+
+// ---- Stack canary painting for high water mark tracking ----
+static constexpr uint8_t STACK_CANARY = 0xCD;
+
+/// Paint the unused portion of the stack (current SP down to stack end) with a
+/// canary byte. Safe to call at any time — only touches memory below the
+/// current stack pointer.
+static void stack_paint_canary() {
+  uintptr_t sp   = emscripten_stack_get_current();
+  uintptr_t end  = emscripten_stack_get_end();
+  if (sp > end) {
+    std::memset(reinterpret_cast<void*>(end), STACK_CANARY, sp - end);
+  }
+}
+
+/// Scan from the stack end upward to find the first overwritten canary byte.
+/// Returns the number of bytes that have been touched (high water mark).
+static size_t stack_high_water_mark() {
+  uintptr_t base = emscripten_stack_get_base();
+  uintptr_t end  = emscripten_stack_get_end();
+  const uint8_t* p = reinterpret_cast<const uint8_t*>(end);
+  const uint8_t* top = reinterpret_cast<const uint8_t*>(base);
+  while (p < top && *p == STACK_CANARY) p++;
+  return static_cast<size_t>(top - p);
+}
 
 using namespace emscripten;
 
@@ -50,6 +77,8 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
 class HolosphereEngine {
 public:
   HolosphereEngine() {
+    // Paint stack canary for HWM tracking
+    stack_paint_canary();
     // Initialize with default
     setResolution(96, 20);
     setEffect("Test");
@@ -84,6 +113,9 @@ public:
 
     currentEffect.reset();
     configure_arenas_default();
+
+    // Reset stack HWM by repainting unused region
+    stack_paint_canary();
 
     if (pixel_width == 96 && pixel_height == 20)
       currentEffect = create_effect<96, 20>(name);
@@ -187,6 +219,18 @@ public:
     add_metrics("scratch_arena_b", scratch_arena_b);
     add_metrics("persistent_arena", persistent_arena);
     add_metrics("tooling_arena", tooling_arena);
+
+    // Stack metrics (same format as arenas)
+    {
+      uintptr_t base = emscripten_stack_get_base();
+      uintptr_t end  = emscripten_stack_get_end();
+      uintptr_t sp   = emscripten_stack_get_current();
+      val m = val::object();
+      m.set("usage", static_cast<unsigned>(base - sp));
+      m.set("high_water_mark", static_cast<unsigned>(stack_high_water_mark()));
+      m.set("capacity", static_cast<unsigned>(base - end));
+      metrics.set("stack", m);
+    }
 
     return metrics;
   }

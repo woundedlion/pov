@@ -183,8 +183,8 @@ struct PlanarPolygon {
     auto res = get_antipode(basis, radius);
     float thickness = res.second * (PI_F / 2.0f);
 
-    SDF::Polygon shape(res.first, res.second, thickness, sides, phase, H + hs::H_OFFSET,
-                       H);
+    SDF::Polygon shape(res.first, res.second, thickness, sides, phase,
+                       H + hs::H_OFFSET, H);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -376,17 +376,16 @@ struct Mesh {
   }
 };
 /**
- * @brief Full-screen per-pixel shader with 4× SSAA.
+ * @brief Full-screen per-pixel shader with SAMPLES× SSAA.
  *
  * Accepts a single callable ShaderFn(const Vector &v) -> Color4
  * that maps a world-space unit vector to a final color.
- * The utility calls it 4× per pixel at sub-pixel offsets and averages.
+ * The utility calls it SAMPLES× per pixel at sub-pixel offsets and averages.
  */
 struct Shader {
   template <int W, int H, int SAMPLES = 4, typename ShaderFn>
   static void draw(Canvas &canvas, ShaderFn &&shader) {
-    constexpr float h_virt_minus_1 =
-        static_cast<float>(H + hs::H_OFFSET - 1);
+    constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
     constexpr float w_float = static_cast<float>(W);
 
     if constexpr (SAMPLES == 1) {
@@ -398,14 +397,14 @@ struct Shader {
           float theta = (px * 2.0f * PI_F) / w_float;
           float phi = (py * PI_F) / h_virt_minus_1;
           float sin_phi = sinf(phi);
-          Vector v(sin_phi * cosf(theta), cosf(phi),
-                   sin_phi * sinf(theta));
+          Vector v(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
           Color4 sample = shader(v);
-          canvas(x, y) = sample.color;
+          canvas(x, y) = sample.color * sample.alpha;
         }
       }
     } else {
-      // 4× SSAA — four sub-pixel samples averaged
+      // SAMPLES× SSAA — sub-pixel samples averaged
+      constexpr float inv_samples = 1.0f / SAMPLES;
       constexpr float eps = 0.5f;
       constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
       constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
@@ -414,67 +413,85 @@ struct Shader {
         for (int x = 0; x < W; ++x) {
           Color4 accum(Pixel(0, 0, 0), 0.0f);
 
-          for (int i = 0; i < 4; ++i) {
+          for (int i = 0; i < SAMPLES; ++i) {
             float px = static_cast<float>(x) + offsets_x[i];
             float py = static_cast<float>(y) + offsets_y[i];
 
             float theta = (px * 2.0f * PI_F) / w_float;
             float phi = (py * PI_F) / h_virt_minus_1;
             float sin_phi = sinf(phi);
-            Vector v(sin_phi * cosf(theta), cosf(phi),
-                     sin_phi * sinf(theta));
+            Vector v(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
 
             Color4 sample = shader(v);
-            sample *= 0.25f;
+            sample *= inv_samples;
             accum += sample;
           }
 
-          canvas(x, y) = accum.color;
+          canvas(x, y) = accum.color * accum.alpha;
         }
       }
     }
   }
 
   /**
-   * @brief Scalar pattern shader with per-pixel setup and 4× SSAA.
+   * @brief Full-screen per-pixel shader with SAMPLES× SSAA.
    *
-   * Separates expensive per-pixel work (SetupFn, called once at pixel
-   * center) from cheap per-sub-sample evaluation (SampleFn, called 4×).
-   * Accumulates raw float pattern values across sub-samples, averages,
-   * then performs a single palette lookup — avoiding both redundant
-   * expensive work and nonlinear color-space averaging artifacts.
-   *
-   * @tparam SetupFn  (const Vector &center) → Ctx    (once per pixel)
-   * @tparam SampleFn (const Vector &v, const Ctx &)  → float [0,1]
+   * Separates expensive per-pixel work (vertex_shader, called once at pixel
+   * center) from per-sub-sample evaluation (fragment_shader, called SAMPLES×).
    */
-  template <int W, int H, typename SetupFn, typename SampleFn>
-  static void draw(Canvas &canvas, const Palette &palette, SetupFn &&setup,
-                   SampleFn &&sample) {
-    constexpr float h_virt_minus_1 =
-        static_cast<float>(H + hs::H_OFFSET - 1);
+  template <int W, int H, int SAMPLES = 4>
+  static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader) {
+    constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
     constexpr float w_float = static_cast<float>(W);
-    constexpr float eps = 0.5f;
-    constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
-    constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
 
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        Vector center_v = pixel_to_vector<W, H>(x, y);
-        auto ctx = setup(center_v);
+    Fragment frag_base;
 
-        float total = 0.0f;
-        for (int i = 0; i < 4; ++i) {
-          float px = static_cast<float>(x) + offsets_x[i];
-          float py = static_cast<float>(y) + offsets_y[i];
-          float theta = (px * 2.0f * PI_F) / w_float;
-          float phi = (py * PI_F) / h_virt_minus_1;
-          float sin_phi = sinf(phi);
-          Vector v(sin_phi * cosf(theta), cosf(phi),
-                   sin_phi * sinf(theta));
-          total += sample(v, ctx);
+    if constexpr (SAMPLES == 1) {
+      for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+          Vector center_v = pixel_to_vector<W, H>(x, y);
+          frag_base.pos = center_v;
+          vertex_shader(frag_base);
+          fragment_shader(center_v, frag_base);
+          canvas(x, y) = frag_base.color.color;
         }
+      }
+    } else {
+      constexpr float inv_samples = 1.0f / SAMPLES;
+      constexpr float eps = 0.5f;
+      constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
+      constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
 
-        canvas(x, y) = palette.get(total * 0.25f).color;
+      for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+          Vector center_v = pixel_to_vector<W, H>(x, y);
+
+          frag_base.pos = center_v;
+          vertex_shader(frag_base);
+
+          Color4 accum(Pixel(0, 0, 0), 0.0f);
+
+          for (int i = 0; i < SAMPLES; ++i) {
+            float px = static_cast<float>(x) + offsets_x[i];
+            float py = static_cast<float>(y) + offsets_y[i];
+            float theta = (px * 2.0f * PI_F) / w_float;
+            float phi = (py * PI_F) / h_virt_minus_1;
+            float sin_phi = sinf(phi);
+            Vector v(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
+
+            Fragment sub_frag = frag_base;
+            sub_frag.pos = v;
+
+            fragment_shader(v, sub_frag);
+
+            Color4 sample = sub_frag.color;
+            sample *= inv_samples;
+            accum += sample;
+          }
+
+          canvas(x, y) = accum.color;
+        }
       }
     }
   }
