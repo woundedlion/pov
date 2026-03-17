@@ -30,7 +30,7 @@ target_link_options(${TARGET_NAME} PRIVATE
     "-sMODULARIZE=1"
     "-sEXPORT_ES6=1"
     "-sEXPORT_NAME=createHolosphereModule"
-    "-sSTACK_SIZE=8388608"
+    "-sSTACK_SIZE=8192"
 )
 
 # Build-type specific flags
