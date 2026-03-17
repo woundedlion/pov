@@ -78,7 +78,7 @@ static void process_pixel(int x, int y, const Vector &p, PipelineRef pipeline,
 
     if (frag_scratch.color.alpha > 0.001f) {
       pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age,
-                    frag_scratch.color.alpha * alpha, frag_scratch.blend);
+                    frag_scratch.color.alpha * alpha);
     }
   }
 }

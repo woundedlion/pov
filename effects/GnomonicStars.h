@@ -48,7 +48,6 @@ public:
       float t = (p.y + 1.0f) * 0.5f; // Map [-1, 1] to [0, 1]
       Color4 c = Palettes::mangoPeel.get(t);
       frag.color = c;
-      frag.blend = BLEND_OVER;
     };
 
     const int points = (int)params.points;
