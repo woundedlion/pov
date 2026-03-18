@@ -153,7 +153,7 @@ private:
     noise_params.speed = params.speed;
     noise_params.scale = params.scale;
     noise_params.sync();
-    filters.next.next.set_fade(feedback_enabled ? params.fade : 0.0f);
+    filters.template get<FeedbackFilter>().set_fade(feedback_enabled ? params.fade : 0.0f);
   }
 
   Presets<Params, 5> presets = {
@@ -202,8 +202,10 @@ private:
     }
   };
 
+  using FeedbackFilter = Filter::Pixel::Feedback<W, H, TransformerFn, HueShiftFade>;
+
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
-           Filter::Pixel::Feedback<W, H, TransformerFn, HueShiftFade>>
+           FeedbackFilter>
       filters;
 };
 

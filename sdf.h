@@ -1816,4 +1816,61 @@ struct Line {
     return true;
   }
 };
+
+// ============================================================================
+// 3D Volumetric SDF Shapes (for Scan::Volume raymarching)
+// ============================================================================
+
+/**
+ * @brief 3D Torus signed distance field.
+ *
+ * The torus ring lies in the XZ plane with symmetry axis along Y.
+ * Major radius R = ring centerline distance from origin.
+ * Minor radius r = tube cross-section radius.
+ *
+ * Unlike the 2D spherical SDF shapes above (which use DistanceResult),
+ * 3D volumetric shapes return plain float distances and operate in
+ * Cartesian ray-space.
+ */
+struct Torus {
+  float R; ///< Major radius (ring centerline)
+  float r; ///< Minor radius (tube cross-section)
+
+  /// Signed distance from point p to the torus surface.
+  /// Negative = inside, positive = outside.
+  float distance(const Vector &p) const {
+    float q = sqrtf(p.x * p.x + p.z * p.z) - R;
+    return sqrtf(q * q + p.y * p.y) - r;
+  }
+
+  /// Surface normal at a point near the torus surface.
+  Vector normal(const Vector &p) const {
+    float xz_len = sqrtf(p.x * p.x + p.z * p.z);
+    float inv = (xz_len > TOLERANCE) ? R / xz_len : 0.0f;
+    float nx = p.x - p.x * inv;
+    float ny = p.y;
+    float nz = p.z - p.z * inv;
+    float nl = sqrtf(nx * nx + ny * ny + nz * nz);
+    if (nl > TOLERANCE) {
+      float s = 1.0f / nl;
+      nx *= s;
+      ny *= s;
+      nz *= s;
+    }
+    return Vector(nx, ny, nz);
+  }
+
+  /// Populate a Fragment's registers for shading.
+  /// v0 = ring angle (0-1, for palette lookup)
+  /// v1,v2,v3 = surface normal (x,y,z)
+  /// size = signed distance (for AA edge alpha)
+  void populate(const Vector &p, Fragment &frag) const {
+    Vector n = normal(p);
+    frag.v0 = (atan2f(p.z, p.x) + PI_F) / (2.0f * PI_F);
+    frag.v1 = n.x;
+    frag.v2 = n.y;
+    frag.v3 = n.z;
+  }
+};
+
 } // namespace SDF

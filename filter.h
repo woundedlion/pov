@@ -69,6 +69,14 @@ inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
 
+  // Type-safe filter accessor (base case: T not found)
+  template <typename T> T &get() {
+    static_assert(sizeof(T) == 0, "Filter type T not found in Pipeline");
+  }
+  template <typename T> const T &get() const {
+    static_assert(sizeof(T) == 0, "Filter type T not found in Pipeline");
+  }
+
   // 2D Sink
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
     int xi = fast_wrap(x, W);
@@ -112,6 +120,22 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   explicit Pipeline(HArg &&h) : Head(std::forward<HArg>(h)) {}
 
   Pipeline() = default;
+
+  // Type-safe filter accessor
+  template <typename T> T &get() {
+    if constexpr (std::is_same_v<Head, T>) {
+      return static_cast<T &>(*this);
+    } else {
+      return next.template get<T>();
+    }
+  }
+  template <typename T> const T &get() const {
+    if constexpr (std::is_same_v<Head, T>) {
+      return static_cast<const T &>(*this);
+    } else {
+      return next.template get<T>();
+    }
+  }
 
   // 2D Plot (Float)
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
