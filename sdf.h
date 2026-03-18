@@ -1873,4 +1873,88 @@ struct Torus {
   }
 };
 
+/**
+ * @brief 3D Twisted Torus SDF — tube center oscillates vertically.
+ *
+ * Pure canonical geometry: ring in XZ plane, Y up. No spin awareness.
+ * Callers apply orientation (spin) via coordinate transform BEFORE
+ * calling distance/normal (e.g. worldToSpunLocal).
+ *
+ * When amplitude > r the tube passes through itself. A Lipschitz
+ * correction is applied to positive distances to prevent the sphere
+ * tracer from stepping through thin self-intersection regions.
+ */
+struct TwistedTorus {
+  float R;         ///< Major radius (ring centerline)
+  float r;         ///< Minor radius (tube cross-section)
+  int twist;       ///< Number of vertical oscillations
+  float amplitude; ///< Vertical displacement of tube center
+
+  /// Raw SDF distance (no Lipschitz correction). Use for surface projection.
+  float raw_distance(const Vector &p) const {
+    float s = sqrtf(p.x * p.x + p.z * p.z);
+    float q = s - R;
+    float theta = atan2f(p.z, p.x);
+    float h = p.y - amplitude * sinf(static_cast<float>(twist) * theta);
+    return sqrtf(q * q + h * h) - r;
+  }
+
+  /// March-safe distance with Lipschitz correction for sphere tracing.
+  float distance(const Vector &p) const {
+    float s = sqrtf(p.x * p.x + p.z * p.z);
+    float q = s - R;
+    float theta = atan2f(p.z, p.x);
+    float h = p.y - amplitude * sinf(static_cast<float>(twist) * theta);
+    float d = sqrtf(q * q + h * h) - r;
+
+    // Lipschitz correction: the twist term can push |∇f| above 1 near
+    // self-intersection crossings. Halved factor balances safety vs speed.
+    if (d > 0.0f && twist > 0) {
+      float lip = 1.0f + static_cast<float>(twist) * amplitude /
+                             (2.0f * std::max(s, R * 0.5f));
+      d /= lip;
+    }
+    return d;
+  }
+
+  /// Analytical surface normal via gradient of the SDF.
+  Vector normal(const Vector &p) const {
+    float s = sqrtf(p.x * p.x + p.z * p.z);
+    float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
+    float q = s - R;
+    float theta = atan2f(p.z, p.x);
+    float n_theta = static_cast<float>(twist) * theta;
+    float h = p.y - amplitude * sinf(n_theta);
+
+    float D = sqrtf(q * q + h * h);
+    float inv_D = (D > TOLERANCE) ? 1.0f / D : 0.0f;
+
+    // dh/dθ, with ∂θ/∂x = -z/s², ∂θ/∂z = x/s²
+    float dh_dtheta = -amplitude * static_cast<float>(twist) * cosf(n_theta);
+    float inv_s2 = inv_s * inv_s;
+
+    float nx = inv_D * (q * p.x * inv_s + h * dh_dtheta * (-p.z) * inv_s2);
+    float ny = inv_D * h;
+    float nz = inv_D * (q * p.z * inv_s + h * dh_dtheta * p.x * inv_s2);
+
+    float nl = sqrtf(nx * nx + ny * ny + nz * nz);
+    if (nl > TOLERANCE) {
+      float inv = 1.0f / nl;
+      nx *= inv;
+      ny *= inv;
+      nz *= inv;
+    }
+    return Vector(nx, ny, nz);
+  }
+
+  /// Populate a Fragment's registers for shading.
+  void populate(const Vector &p, Fragment &frag) const {
+    Vector n = normal(p);
+    frag.v0 = (atan2f(p.z, p.x) + PI_F) / (2.0f * PI_F);
+    frag.v1 = n.x;
+    frag.v2 = n.y;
+    frag.v3 = n.z;
+  }
+};
+
 } // namespace SDF

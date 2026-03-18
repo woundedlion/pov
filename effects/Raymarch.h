@@ -18,6 +18,7 @@ public:
     registerParam("Diffuse", &params.diffuse, 0.0f, 1.0f);
     registerParam("Specular", &params.specular, 0.0f, 1.5f);
     registerParam("Fresnel", &params.fresnel, 0.0f, 1.0f);
+    registerParam("Twist", &params.twist, 0.0f, 8.0f);
     registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
     timeline.add(0, Animation::RandomWalk<W>(camera, normal, noise));
@@ -65,8 +66,8 @@ private:
     return {vertex, tangent, tangent2};
   }
 
-  /// Transform a world-space point into the spun local frame for SDF
-  /// evaluation. Returns a local-space Vector (lx, spun_y, spun_z).
+  /// Transform a world-space point into the spun local frame.
+  /// Orientation (spin) is applied after the tangent frame projection.
   static Vector worldToSpunLocal(const Vector &world_p, const Vector &center,
                                  const TangentFrame &frame, float spin_cos,
                                  float spin_sin) {
@@ -88,7 +89,6 @@ private:
   static Vector localNormalToWorld(const Vector &n_local,
                                    const TangentFrame &frame, float spin_cos,
                                    float spin_sin) {
-    // Un-spin: inverse rotation around local X
     float ny_us = n_local.y * spin_cos + n_local.z * spin_sin;
     float nz_us = -n_local.y * spin_sin + n_local.z * spin_cos;
 
@@ -100,7 +100,8 @@ private:
                       nz_us * frame.tangent2.z);
   }
 
-  /// Half-Lambert + Blinn-Phong shading with Fresnel rim.
+  /// Metallic Blinn-Phong: half-Lambert diffuse, tight specular, Fresnel rim.
+  /// All components tinted by surface color (metallic reflection).
   float shadeBlinnPhong(const Vector &normal_w, const TangentFrame &frame) {
     const Vector &v = frame.vertex;
     const Vector &t = frame.tangent;
@@ -124,12 +125,15 @@ private:
       hy /= hl;
       hz /= hl;
     }
-    float ndoth = fabsf(normal_w.x * hx + normal_w.y * hy + normal_w.z * hz);
+    float ndoth =
+        std::max(0.0f, normal_w.x * hx + normal_w.y * hy + normal_w.z * hz);
     float spec = ndoth * ndoth;
     spec *= spec;
-    spec *= spec; // ^8
+    spec *= spec;
+    spec *= spec;
+    spec *= spec; // ^32
 
-    float fresnel = 1.0f - hs::clamp(fabsf(ndotl), 0.0f, 1.0f);
+    float fresnel = 1.0f - hs::clamp(ndotl, 0.0f, 1.0f);
     fresnel = fresnel * fresnel * fresnel;
 
     return 0.05f + diffuse * params.diffuse + spec * params.specular +
@@ -153,8 +157,13 @@ private:
     float t = static_cast<float>(timeline.t) / 60.0f;
     float anim_t = t * params.pulse_speed;
 
-    SDF::Torus torus{params.core_size * 0.45f, params.core_size * 0.14f};
-    float bounds_radius = (torus.R + torus.r) * 1.5f;
+    SDF::TwistedTorus torus{params.core_size * 0.45f, params.core_size * 0.14f,
+                            static_cast<int>(params.twist),
+                            params.core_size * 0.14f * 2.5f};
+    float bounds_radius =
+        sqrtf((torus.R + torus.r) * (torus.R + torus.r) +
+              torus.amplitude * torus.amplitude) +
+        torus.r;
     float aa_width = torus.r * params.aa_mult;
     int max_steps = static_cast<int>(params.max_steps);
 
@@ -171,16 +180,24 @@ private:
                             camera.orient(raw_frame.tangent2)};
       Vector view_dir(-vertex.x, -vertex.y, -vertex.z);
 
-      auto sdf_fn = [&](const Vector &p) -> float {
-        Vector loc = worldToSpunLocal(p, vertex, frame, spin_cos, spin_sin);
-        return torus.distance(loc);
-      };
+      // SDF is pure geometry — spin is a pre-transform applied here
+      struct SpunTorus {
+        const SDF::TwistedTorus &torus;
+        const Vector &center;
+        const TangentFrame &frame;
+        float spin_cos, spin_sin;
+
+        float distance(const Vector &p) const {
+          return torus.distance(
+              worldToSpunLocal(p, center, frame, spin_cos, spin_sin));
+        }
+      } spun_torus{torus, vertex, frame, spin_cos, spin_sin};
 
       auto frag_fn = [&](const Vector &hit, Fragment &frag) {
         Vector loc = worldToSpunLocal(hit, vertex, frame, spin_cos, spin_sin);
 
-        // Project to exact surface for stable shading
-        float d = torus.distance(loc);
+        // Project to exact surface for stable shading (raw = no Lipschitz)
+        float d = torus.raw_distance(loc);
         Vector n = torus.normal(loc);
         Vector surface_loc(loc.x - d * n.x, loc.y - d * n.y, loc.z - d * n.z);
         torus.populate(surface_loc, frag);
@@ -211,17 +228,19 @@ private:
       };
 
       Scan::Volume::draw<W, H>(pipeline, canvas, vertex, bounds_radius,
-                               view_dir, sdf_fn, frag_fn, max_steps, aa_width);
+                               view_dir, spun_torus, frag_fn, max_steps,
+                               aa_width);
     }
   }
 
   struct Params {
     float pulse_speed = 5.0f;
     float core_size = 0.4f;
-    float max_steps = 15.0f;
-    float diffuse = 0.5f;
-    float specular = 1.0f;
+    float max_steps = 18.0f;
+    float diffuse = 0.4f;
+    float specular = 1.2f;
     float fresnel = 0.2f;
+    float twist = 3.0f;
     float aa_mult = 0.5f;
   } params;
 
