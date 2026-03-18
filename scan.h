@@ -508,9 +508,10 @@ struct Shader {
 /**
  * @brief Raymarch volume renderer with orthographic projection.
  *
- * The render loop is internal: callers provide an SDF distance function
- * (evaluated per march step) and a fragment shader (evaluated once per hit
- * to populate Fragment registers for shading).
+ * The render loop is internal: callers provide a Shape with a
+ * `float distance(const Vector&) const` method (evaluated per march step)
+ * and a fragment shader (evaluated once per hit to populate Fragment
+ * registers for shading).
  *
  * Coordinate-space contract:
  *   - `view_dir` is the normalized direction all rays travel (camera → scene).
@@ -522,11 +523,11 @@ struct Shader {
  *     canvas, not the ray.
  */
 struct Volume {
-  template <int W, int H>
+  template <int W, int H, typename Shape>
   static void
   draw(PipelineRef pipeline, Canvas &canvas, const Vector &bounds_center,
-       float bounds_radius, const Vector &view_dir, SDFDistanceFn sdf_fn,
-       SDFFragmentFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
+       float bounds_radius, const Vector &view_dir, const Shape &shape,
+       FragmentShaderFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
 
@@ -577,7 +578,7 @@ struct Volume {
         Vector closest_p = ro;
 
         for (int i = 0; i < max_steps; ++i) {
-          float d = sdf_fn(march_p);
+          float d = shape.distance(march_p);
 
           if (d < closest_d) {
             closest_d = d;
@@ -612,6 +613,26 @@ struct Volume {
         } else {
           edge_alpha = quintic_kernel(
               1.0f - (closest_d - hit_threshold) / (aa_width - hit_threshold));
+        }
+
+        // Self-occlusion check: only needed near the surface edge, not for
+        // deep-inside hits. Covers narrow band on both sides of the boundary.
+        if (closest_d > -aa_width * 3.0f) {
+          Vector probe = march_p;
+          float probed = 0.0f;
+          for (int i = 0; i < 4; ++i) {
+            float pd = shape.distance(probe);
+            if (pd < -aa_width) {
+              edge_alpha = 1.0f;
+              break;
+            }
+            float step = std::max(pd * 0.9f, bounds_radius * 0.15f);
+            probe = Vector(probe.x + vd.x * step, probe.y + vd.y * step,
+                           probe.z + vd.z * step);
+            probed += step;
+            if (probed > bounds_radius)
+              break;
+          }
         }
 
         if (frag.color.alpha * edge_alpha > 0.001f) {

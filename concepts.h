@@ -68,8 +68,6 @@ using TransformFn = FunctionRef<Vector(const Vector &)>;
 using FragmentShaderFn = FunctionRef<void(const Vector &, Fragment &)>;
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
 using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
-using SDFDistanceFn = FunctionRef<float(const Vector &)>;
-using SDFFragmentFn = FunctionRef<void(const Vector &, Fragment &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 
