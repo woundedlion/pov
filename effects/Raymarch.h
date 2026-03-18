@@ -219,10 +219,10 @@ private:
     float pulse_speed = 5.0f;
     float core_size = 0.4f;
     float max_steps = 15.0f;
-    float diffuse = 0.45f;
-    float specular = 0.75f;
+    float diffuse = 0.5f;
+    float specular = 1.0f;
     float fresnel = 0.2f;
-    float aa_mult = 1.0f;
+    float aa_mult = 0.5f;
   } params;
 
   FastNoiseLite noise;
