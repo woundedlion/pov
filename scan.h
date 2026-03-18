@@ -330,9 +330,9 @@ struct Mesh {
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    bool debug_bb = false) {
     ScratchScope scope(scratch_arena);
-    auto *scratch = static_cast<SDF::FaceScratchBuffer *>(
-        scratch_arena.allocate(sizeof(SDF::FaceScratchBuffer),
-                              alignof(SDF::FaceScratchBuffer)));
+    auto *scratch =
+        static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
+            sizeof(SDF::FaceScratchBuffer), alignof(SDF::FaceScratchBuffer)));
 
     size_t idx_offset = 0;
     for (size_t i = 0; i < mesh.num_faces; ++i) {
@@ -357,9 +357,9 @@ struct Mesh {
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    bool debug_bb = false) {
     ScratchScope scope(scratch_arena);
-    auto *scratch = static_cast<SDF::FaceScratchBuffer *>(
-        scratch_arena.allocate(sizeof(SDF::FaceScratchBuffer),
-                              alignof(SDF::FaceScratchBuffer)));
+    auto *scratch =
+        static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
+            sizeof(SDF::FaceScratchBuffer), alignof(SDF::FaceScratchBuffer)));
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
@@ -499,6 +499,124 @@ struct Shader {
           }
 
           canvas(x, y) = accum.color;
+        }
+      }
+    }
+  }
+};
+
+/**
+ * @brief Raymarch volume renderer with orthographic projection.
+ *
+ * The render loop is internal: callers provide an SDF distance function
+ * (evaluated per march step) and a fragment shader (evaluated once per hit
+ * to populate Fragment registers for shading).
+ *
+ * Coordinate-space contract:
+ *   - `view_dir` is the normalized direction all rays travel (camera → scene).
+ *   - Ray origins are computed via orthographic projection: each pixel's
+ *     position is projected onto the plane perpendicular to `view_dir`,
+ *     then offset backward along `view_dir`.
+ *   - `bounds_center` and `view_dir` must both be in physical LED space.
+ *   - Filter::World::Orient rotates the *output* position passed to the
+ *     canvas, not the ray.
+ */
+struct Volume {
+  template <int W, int H>
+  static void
+  draw(PipelineRef pipeline, Canvas &canvas, const Vector &bounds_center,
+       float bounds_radius, const Vector &view_dir, SDFDistanceFn sdf_fn,
+       SDFFragmentFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+
+    // Normalized view direction
+    float vd_len = sqrtf(view_dir.x * view_dir.x + view_dir.y * view_dir.y +
+                         view_dir.z * view_dir.z);
+    float vd_inv = (vd_len > TOLERANCE) ? 1.0f / vd_len : 1.0f;
+    Vector vd(view_dir.x * vd_inv, view_dir.y * vd_inv, view_dir.z * vd_inv);
+
+    // Ray must start behind the farthest extent of the torus:
+    // vertex is at distance 1.0 (on unit sphere), torus extends bounds_radius
+    float start_offset = 1.0f + bounds_radius;
+
+    // Precompute bounds_center projected onto the view plane (⊥ vd)
+    float bc_dot_vd = bounds_center.x * vd.x + bounds_center.y * vd.y +
+                      bounds_center.z * vd.z;
+    Vector bc_proj(bounds_center.x - bc_dot_vd * vd.x,
+                   bounds_center.y - bc_dot_vd * vd.y,
+                   bounds_center.z - bc_dot_vd * vd.z);
+    float bounds_r2 = bounds_radius * bounds_radius;
+
+    for (int y = 0; y < H; ++y) {
+      for (int wx = 0; wx < W; ++wx) {
+        Vector p = pixel_to_vector<W, H>(wx, y);
+
+        // Back-face cull
+        float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
+        if (facing >= 0.0f)
+          continue;
+
+        // Orthographic ray-sphere cull
+        float pp_x = p.x - facing * vd.x;
+        float pp_y = p.y - facing * vd.y;
+        float pp_z = p.z - facing * vd.z;
+        float dx = pp_x - bc_proj.x;
+        float dy = pp_y - bc_proj.y;
+        float dz = pp_z - bc_proj.z;
+        if (dx * dx + dy * dy + dz * dz > bounds_r2)
+          continue;
+
+        // Orthographic ray origin: outside the unit sphere
+        Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
+                  pp_z - vd.z * start_offset);
+
+        // --- Sphere tracing ---
+        Vector march_p = ro;
+        float closest_d = 999.0f;
+        Vector closest_p = ro;
+
+        for (int i = 0; i < max_steps; ++i) {
+          float d = sdf_fn(march_p);
+
+          if (d < closest_d) {
+            closest_d = d;
+            closest_p = march_p;
+          }
+
+          // Stop if deep inside surface
+          if (d < -aa_width)
+            break;
+
+          // SDF-guided step with very small floor to avoid quantization
+          float advance = std::max(d * 0.9f, 1e-5f);
+          march_p =
+              Vector(march_p.x + vd.x * advance, march_p.y + vd.y * advance,
+                     march_p.z + vd.z * advance);
+        }
+
+        if (closest_d >= aa_width)
+          continue;
+
+        // --- Fragment shading ---
+        Fragment frag;
+        frag.pos = closest_p;
+        frag.size = closest_d;
+        frag_fn(closest_p, frag);
+
+        // One-sided AA with quintic kernel (matches other Scan shapes)
+        float hit_threshold = aa_width * 0.1f;
+        float edge_alpha;
+        if (closest_d <= hit_threshold) {
+          edge_alpha = 1.0f;
+        } else {
+          edge_alpha = quintic_kernel(
+              1.0f - (closest_d - hit_threshold) / (aa_width - hit_threshold));
+        }
+
+        if (frag.color.alpha * edge_alpha > 0.001f) {
+          pipeline.plot(canvas, p, frag.color.color, 0.0f,
+                        frag.color.alpha * edge_alpha);
         }
       }
     }
