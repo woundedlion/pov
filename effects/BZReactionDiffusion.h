@@ -11,14 +11,30 @@
 #include "../reaction_graph.h"
 #include "../scan.h"
 
+/**
+ * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice sphere.
+ *
+ * Three competing chemical species (A, B, C) evolve via Lotka-Volterra dynamics
+ * on a 7680-node Fibonacci lattice with K=6 nearest neighbors. The cyclic
+ * competition (A→B→C→A) creates self-sustaining spiral waves that persist
+ * indefinitely. State is stored as Q8 (uint8_t). Per-pixel rendering uses
+ * Wendland C2 kernel interpolation for smooth Voronoi boundaries.
+ *
+ * Memory budget (persistent arena):
+ *   - State:  3 arrays × 7680 × 1B = 23,040 B
+ *   - Total:  23,040 B (22 KB)
+ *
+ * Scratch arena (per frame):
+ *   - Physics:  3 × 7680 × 1B      = 23,040 B
+ *   - Node XYZ: 7680 × 12B         = 92,160 B
+ *   - Total:    115,200 B (112 KB)
+ */
 template <int W, int H> class BZReactionDiffusion : public Effect {
 public:
   static constexpr int RD_N = ReactionGraph::RD_N;
   static constexpr int RD_K = ReactionGraph::RD_K;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
 
-  // 64x64 per face gives incredible accuracy for 3840 nodes
-  static constexpr int CUBE_RES = 64;
 
   FLASHMEM BZReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
 
@@ -30,24 +46,10 @@ public:
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
 
-    state.A = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
-    state.B = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
-    state.C = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
-    memset(state.A, 0, RD_N);
-    memset(state.B, 0, RD_N);
-    memset(state.C, 0, RD_N);
-
-    // Allocate and build the fast Cubemap LUT
-    cube_lut = static_cast<uint16_t *>(persistent_arena.allocate(
-        6 * CUBE_RES * CUBE_RES * sizeof(uint16_t), alignof(uint16_t)));
-    build_cubemap_lut();
-
+    allocate_state();
+    cube_lut.build(persistent_arena);
     seed_spiral_nuclei();
-
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS, noise,
-                        Animation::RandomWalk<W>::Options::Languid()));
+    init_orientation_animation();
   }
 
   bool show_bg() const override { return true; }
@@ -59,6 +61,10 @@ public:
   }
 
 private:
+  // ---------------------------------------------------------------------------
+  // Q8 fixed-point helpers
+  // ---------------------------------------------------------------------------
+
   static inline float from_q8(uint8_t v) { return v * (1.0f / 255.0f); }
   static inline uint8_t to_q8(float v) {
     return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * 255.0f);
@@ -69,100 +75,33 @@ private:
     return dx * dx + dy * dy + dz * dz;
   }
 
-  // Used only once at startup
-  int find_nearest_node(const Vector &p) const {
-    int cur = hs::clamp(
-        static_cast<int>((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f), 0, RD_N - 1);
-    float best_d = dist2(p, ReactionGraph::node(cur));
+  // ---------------------------------------------------------------------------
+  // Initialization helpers
+  // ---------------------------------------------------------------------------
 
-    for (int iter = 0; iter < 64; ++iter) {
-      bool improved = false;
-      for (int k = 0; k < RD_K; ++k) {
-        int ni = ReactionGraph::neighbors[cur][k];
-        if (ni < 0)
-          continue;
-        float d = dist2(p, ReactionGraph::node(ni));
-        if (d < best_d) {
-          best_d = d;
-          cur = ni;
-          improved = true;
-        }
-      }
-      if (!improved)
-        break;
-    }
-    return cur;
+  void allocate_state() {
+    state.A = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
+    state.B = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
+    state.C = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
+    memset(state.A, 0, RD_N);
+    memset(state.B, 0, RD_N);
+    memset(state.C, 0, RD_N);
   }
 
-  void build_cubemap_lut() {
-    for (int face = 0; face < 6; ++face) {
-      for (int y = 0; y < CUBE_RES; ++y) {
-        for (int x = 0; x < CUBE_RES; ++x) {
-          float u = (x + 0.5f) / CUBE_RES * 2.0f - 1.0f;
-          float v = (y + 0.5f) / CUBE_RES * 2.0f - 1.0f;
-          Vector dir;
-          if (face == 0)
-            dir = Vector(1.0f, v, -u);       // +X
-          else if (face == 1)
-            dir = Vector(-1.0f, v, u);        // -X
-          else if (face == 2)
-            dir = Vector(u, 1.0f, -v);        // +Y
-          else if (face == 3)
-            dir = Vector(u, -1.0f, v);        // -Y
-          else if (face == 4)
-            dir = Vector(u, v, 1.0f);         // +Z
-          else
-            dir = Vector(-u, v, -1.0f);       // -Z
-
-          float len =
-              sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-          dir.x /= len;
-          dir.y /= len;
-          dir.z /= len;
-          cube_lut[(face * CUBE_RES + y) * CUBE_RES + x] =
-              find_nearest_node(dir);
-        }
-      }
-    }
+  void init_orientation_animation() {
+    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    timeline.add(0, Animation::RandomWalk<W>(
+                        orientation, Y_AXIS, noise,
+                        Animation::RandomWalk<W>::Options::Languid()));
   }
 
-  // ZERO Trigonometry. Runs in ~10 cycles!
-  int lookup_cubemap(const Vector &p) const {
-    float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
-    int face = 0;
-    float u = 0, v = 0;
 
-    if (ax >= ay && ax >= az) {
-      float inv = 1.0f / ax;
-      if (p.x >= 0) {
-        face = 0; u = -p.z * inv; v = p.y * inv;
-      } else {
-        face = 1; u = p.z * inv; v = p.y * inv;
-      }
-    } else if (ay >= ax && ay >= az) {
-      float inv = 1.0f / ay;
-      if (p.y >= 0) {
-        face = 2; u = p.x * inv; v = -p.z * inv;
-      } else {
-        face = 3; u = p.x * inv; v = p.z * inv;
-      }
-    } else {
-      float inv = 1.0f / az;
-      if (p.z >= 0) {
-        face = 4; u = p.x * inv; v = p.y * inv;
-      } else {
-        face = 5; u = -p.x * inv; v = p.y * inv;
-      }
-    }
 
-    int ui = hs::clamp(static_cast<int>((u + 1.0f) * 0.5f * CUBE_RES), 0,
-                       CUBE_RES - 1);
-    int vi = hs::clamp(static_cast<int>((v + 1.0f) * 0.5f * CUBE_RES), 0,
-                       CUBE_RES - 1);
-    return cube_lut[(face * CUBE_RES + vi) * CUBE_RES + ui];
-  }
+  // ---------------------------------------------------------------------------
+  // Seeding
+  // ---------------------------------------------------------------------------
 
-  // 3 clusters per species ensures all 3 are always present
+  /** Seed 3 clusters per species to ensure all 3 are always present. */
   void seed_spiral_nuclei() {
     uint8_t *species[] = {state.A, state.B, state.C};
     for (int s = 0; s < 3; s++) {
@@ -176,32 +115,30 @@ private:
     }
   }
 
-  // Lotka-Volterra reaction + graph Laplacian diffusion
-  void step_physics(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
-    for (int i = 0; i < RD_N; i++) {
-      float a = from_q8(state.A[i]);
-      float b = from_q8(state.B[i]);
-      float c = from_q8(state.C[i]);
+  // ---------------------------------------------------------------------------
+  // Physics: Lotka-Volterra reaction + graph Laplacian diffusion
+  // ---------------------------------------------------------------------------
 
-      float lA = 0, lB = 0, lC = 0;
-      for (int k = 0; k < RD_K; k++) {
-        int ni = ReactionGraph::neighbors[i][k];
-        if (ni < 0)
-          continue;
-        lA += from_q8(state.A[ni]) - a;
-        lB += from_q8(state.B[ni]) - b;
-        lC += from_q8(state.C[ni]) - c;
-      }
-
-      nA[i] = to_q8(a + (params.D * lA + a * (1 - a - params.alpha * c)) *
-                            params.dt);
-      nB[i] = to_q8(b + (params.D * lB + b * (1 - b - params.alpha * a)) *
-                            params.dt);
-      nC[i] = to_q8(c + (params.D * lC + c * (1 - c - params.alpha * b)) *
-                            params.dt);
+  /** Compute the graph Laplacian (discrete diffusion) for a single node. */
+  static float graph_laplacian(const uint8_t *field, int node, float center) {
+    float lap = 0;
+    for (int k = 0; k < RD_K; k++) {
+      int ni = ReactionGraph::neighbors[node][k];
+      if (ni >= 0)
+        lap += from_q8(field[ni]) - center;
     }
+    return lap;
+  }
 
-    // Stochastic perturbation prevents convergence on closed manifold
+  /** Advance one species: diffusion + Lotka-Volterra competition step. */
+  uint8_t advance_species(float conc, float predator, float laplacian) const {
+    return to_q8(conc +
+                 (params.D * laplacian + conc * (1 - conc - params.alpha * predator)) *
+                     params.dt);
+  }
+
+  /** Apply stochastic perturbation to prevent convergence on closed manifold. */
+  static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int p = 0; p < 8; p++) {
       int idx = hs::rand_int(0, RD_N - 1);
       int s = hs::rand_int(0, 2);
@@ -209,17 +146,36 @@ private:
       t[idx] =
           static_cast<uint8_t>(std::min(static_cast<int>(t[idx]) + 3, 255));
     }
+  }
+
+  /** Full physics step: reaction-diffusion + perturbation + swap. */
+  void step_physics(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+    for (int i = 0; i < RD_N; i++) {
+      float a = from_q8(state.A[i]);
+      float b = from_q8(state.B[i]);
+      float c = from_q8(state.C[i]);
+
+      nA[i] = advance_species(a, c, graph_laplacian(state.A, i, a));
+      nB[i] = advance_species(b, a, graph_laplacian(state.B, i, b));
+      nC[i] = advance_species(c, b, graph_laplacian(state.C, i, c));
+    }
+
+    perturb_state(nA, nB, nC);
 
     std::swap(state.A, nA);
     std::swap(state.B, nB);
     std::swap(state.C, nC);
   }
 
-  // Wendland C2 compact kernel: w(d) = max(0, 1 - d²/R²)²
-  static constexpr float D_AVG = 0.04044f; // sqrt(4π / RD_N)
+  // ---------------------------------------------------------------------------
+  // Rendering: Wendland C2 kernel interpolation
+  // ---------------------------------------------------------------------------
+
+  static constexpr float D_AVG = 0.04044f;              // sqrt(4π / RD_N)
   static constexpr float KERNEL_R = 1.5f * D_AVG;
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
 
+  /** Blend three species concentrations into a single pixel via palette. */
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {
     float r = ca.color.r * a, g = ca.color.g * a, bl = ca.color.b * a;
@@ -239,8 +195,70 @@ private:
                  static_cast<uint16_t>(hs::clamp(bl, 0.0f, 65535.0f)));
   }
 
+  /** Find the closest node by walking from a cubemap seed through neighbors. */
+  static int refine_nearest_node(const Vector &rv, const Vector *nodes,
+                                 int center_node) {
+    float best_d = dist2(rv, nodes[center_node]);
+    int best_node = center_node;
+
+    for (int k = 0; k < RD_K; ++k) {
+      int ni = ReactionGraph::neighbors[center_node][k];
+      if (ni >= 0) {
+        float d = dist2(rv, nodes[ni]);
+        if (d < best_d) {
+          best_d = d;
+          best_node = ni;
+        }
+      }
+    }
+    return best_node;
+  }
+
+  /** Accumulate Wendland C2 kernel weight for a single neighbor node. */
+  static void accumulate_kernel_weight(const Vector &rv, const Vector *nodes,
+                                       int ni, float &wa, float &wb,
+                                       float &wc, float &tw,
+                                       const uint8_t *sA, const uint8_t *sB,
+                                       const uint8_t *sC) {
+    float d = dist2(rv, nodes[ni]);
+    float u = 1.0f - d * INV_R2;
+    if (u > 0) {
+      float w = u * u;
+      wa += sA[ni] * w;
+      wb += sB[ni] * w;
+      wc += sC[ni] * w;
+      tw += w;
+    }
+  }
+
+  /** Sample the kernel-interpolated color at a world-space point. */
+  Color4 sample_kernel(const Vector &rv, const Vector *nodes, int best_node,
+                       const Color4 &ca, const Color4 &cb,
+                       const Color4 &cc) const {
+    float tw = 0, wa = 0, wb = 0, wc = 0;
+
+    // Center node + its K neighbors
+    accumulate_kernel_weight(rv, nodes, best_node, wa, wb, wc, tw,
+                             state.A, state.B, state.C);
+    for (int k = 0; k < RD_K; ++k) {
+      int ni = ReactionGraph::neighbors[best_node][k];
+      if (ni >= 0)
+        accumulate_kernel_weight(rv, nodes, ni, wa, wb, wc, tw,
+                                 state.A, state.B, state.C);
+    }
+
+    if (tw <= 0.0001f)
+      return Color4(Pixel(0, 0, 0), 0.0f);
+
+    float inv = (1.0f / 255.0f) / tw;
+    return Color4(blend_species(wa * inv, wb * inv, wc * inv, ca, cb, cc),
+                  1.0f);
+  }
+
+  /** Allocate scratch, run physics steps, then rasterize with 4× SSAA. */
   void render(Canvas &canvas) {
     ScratchScope _frame(scratch_arena_a);
+
     uint8_t *sA = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
@@ -257,73 +275,24 @@ private:
     Color4 cb = palette.get(0.5f);
     Color4 cc = palette.get(1.0f);
 
-    // 1. VERTEX SHADER: O(1) predictable cubemap lookup (Runs 1× per pixel)
     auto vertex_shader = [&](Fragment &frag) {
       Vector rv = orientation.unorient(frag.pos);
-      frag.v0 = static_cast<float>(lookup_cubemap(rv));
+      frag.v0 = static_cast<float>(cube_lut.lookup(rv));
     };
 
-    // 2. FRAGMENT SHADER: Fully inlined kernel (Runs 4× per pixel for SSAA)
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       int center_node = static_cast<int>(frag.v0);
       Vector rv = orientation.unorient(v);
-
-      // Pass A: Find the absolute best node out of the center's 7-node cluster
-      float best_d = dist2(rv, nodes[center_node]);
-      int best_node = center_node;
-
-      for (int k = 0; k < RD_K; ++k) {
-        int ni = ReactionGraph::neighbors[center_node][k];
-        if (ni >= 0) {
-          float d = dist2(rv, nodes[ni]);
-          if (d < best_d) {
-            best_d = d;
-            best_node = ni;
-          }
-        }
-      }
-
-      // Pass B: Calculate the Wendland Kernel around the true best node
-      float tw = 0, wa = 0, wb = 0, wc = 0;
-
-      // Reuse best_d from Pass A (saves one dist2 call)
-      float u0 = 1.0f - best_d * INV_R2;
-      if (u0 > 0) {
-        float w = u0 * u0;
-        wa += state.A[best_node] * w;
-        wb += state.B[best_node] * w;
-        wc += state.C[best_node] * w;
-        tw += w;
-      }
-
-      // Loop neighbors of best node
-      for (int k = 0; k < RD_K; ++k) {
-        int ni = ReactionGraph::neighbors[best_node][k];
-        if (ni >= 0) {
-          float d = dist2(rv, nodes[ni]);
-          float u = 1.0f - d * INV_R2;
-          if (u > 0) {
-            float w = u * u;
-            wa += state.A[ni] * w;
-            wb += state.B[ni] * w;
-            wc += state.C[ni] * w;
-            tw += w;
-          }
-        }
-      }
-
-      // Final output with deferred Q8 div
-      if (tw <= 0.0001f) {
-        frag.color = Color4(Pixel(0, 0, 0), 0.0f);
-      } else {
-        float inv = (1.0f / 255.0f) / tw;
-        frag.color = Color4(
-            blend_species(wa * inv, wb * inv, wc * inv, ca, cb, cc), 1.0f);
-      }
+      int best_node = refine_nearest_node(rv, nodes, center_node);
+      frag.color = sample_kernel(rv, nodes, best_node, ca, cb, cc);
     };
 
     Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
   }
+
+  // ---------------------------------------------------------------------------
+  // Member data
+  // ---------------------------------------------------------------------------
 
   struct {
     uint8_t *A = nullptr, *B = nullptr, *C = nullptr;
@@ -334,7 +303,7 @@ private:
                             SaturationProfile::VIBRANT, 42};
   Orientation<W> orientation;
   FastNoiseLite noise;
-  uint16_t *cube_lut = nullptr;
+  ReactionGraph::CubemapLUT cube_lut;
   Timeline<W> timeline;
 
   struct Params {
