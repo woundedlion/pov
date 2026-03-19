@@ -1890,6 +1890,14 @@ struct TwistedTorus {
   int twist;       ///< Number of vertical oscillations
   float amplitude; ///< Vertical displacement of tube center
 
+  /// Cheap lower-bound SDF: bounding torus with inflated radius.
+  /// No trig — just 2 sqrtf. Safe for sphere tracing (always ≤ true distance).
+  float bounding_distance(const Vector &p) const {
+    float s = sqrtf(p.x * p.x + p.z * p.z);
+    float q = s - R;
+    return sqrtf(q * q + p.y * p.y) - (r + amplitude);
+  }
+
   /// Raw SDF distance (no Lipschitz correction). Use for surface projection.
   float raw_distance(const Vector &p) const {
     float s = sqrtf(p.x * p.x + p.z * p.z);
