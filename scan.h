@@ -84,27 +84,26 @@ static void process_pixel(int x, int y, const Vector &p, PipelineRef pipeline,
 }
 
 /**
- * @brief Main rasterization routine for SDF shapes.
- * Scans the bounding box, computes intervals, and executes the shader for valid
- * pixels.
+ * @brief Shared pixel iteration utility for bounded spherical regions.
+ * Iterates y in [y_min, y_max], collects float intervals per row via
+ * get_intervals, wraps x coordinates, and calls pixel_fn(wx, y, p) per pixel.
+ *
+ * @param get_intervals  (int y, auto &out) -> bool. Pushes {float,float}
+ *                       intervals via out(start, end). Returns true if
+ *                       intervals were produced, false for full-row scan.
+ * @param pixel_fn       (int wx, int y, const Vector &p) -> void.
  */
-template <int W, int H, bool ComputeUVs = true>
-static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
-                      FragmentShaderFn fragment_shader, bool debug_bb = false) {
-  bool effective_debug = debug_bb || canvas.debug();
-  auto bounds = shape.template get_vertical_bounds<H>();
-
+template <int W, int H, typename IntervalFn, typename PixelFn>
+static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
+                        PixelFn &&pixel_fn) {
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
 
   StaticCircularBuffer<std::pair<float, float>, 32> intervals;
-  SDF::DistanceResult result_scratch;
-  Fragment frag_scratch;
 
-  for (int y = bounds.y_min; y <= bounds.y_max; ++y) {
-
-    bool handled = shape.template get_horizontal_intervals<W, H>(
-        y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
+  for (int y = y_min; y <= y_max; ++y) {
+    bool handled =
+        get_intervals(y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
 
     if (handled && !intervals.is_empty()) {
       float current_end = -FLT_MAX;
@@ -117,12 +116,8 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
         current_end = end;
 
         if (end - start >= W) {
-          for (int x = 0; x < W; ++x) {
-            Vector p = pixel_to_vector<W, H>(x, y);
-            process_pixel<W, H, ComputeUVs>(x, y, p, pipeline, canvas, shape,
-                                            fragment_shader, effective_debug,
-                                            result_scratch, frag_scratch);
-          }
+          for (int x = 0; x < W; ++x)
+            pixel_fn(x, y, pixel_to_vector<W, H>(x, y));
           continue;
         }
 
@@ -131,35 +126,87 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
         if (x1 == x2)
           x2++;
 
-        // FAST MODULO LOGIC
+        // Modulo-free coordinate wrap
         int wx = x1 % W;
         if (wx < 0)
           wx += W;
 
         for (int x = x1; x < x2; ++x) {
-          Vector p = pixel_to_vector<W, H>(wx, y);
-          process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
-                                          fragment_shader, effective_debug,
-                                          result_scratch, frag_scratch);
-
-          // Modulo-free coordinate wrap!
+          pixel_fn(wx, y, pixel_to_vector<W, H>(wx, y));
           wx++;
           if (wx >= W)
             wx -= W;
         }
       }
       intervals.clear();
-    } else {
-      if (!handled) {
-        for (int x = 0; x < W; ++x) {
-          Vector p = pixel_to_vector<W, H>(x, y);
-          process_pixel<W, H, ComputeUVs>(x, y, p, pipeline, canvas, shape,
-                                          fragment_shader, effective_debug,
-                                          result_scratch, frag_scratch);
-        }
-      }
+    } else if (!handled) {
+      for (int x = 0; x < W; ++x)
+        pixel_fn(x, y, pixel_to_vector<W, H>(x, y));
     }
   }
+}
+
+/**
+ * @brief Computes bounding sphere y-range and per-row x intervals.
+ */
+template <int W, int H>
+struct BoundingSphere {
+  int y_min, y_max;
+  float center_theta;  // longitude of center in pixel units
+  float angular_radius;
+
+  BoundingSphere(const Vector &center, float bounds_radius)
+      : angular_radius(asinf(std::min(bounds_radius, 1.0f))) {
+    PixelCoords center_px = vector_to_pixel<W, H>(center);
+    center_theta = center_px.x;
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    float center_phi = (center_px.y * PI_F) / (H_VIRT - 1);
+    y_min = std::max(0, static_cast<int>(phi_to_y<H>(center_phi - angular_radius)));
+    y_max = std::min(H - 1, static_cast<int>(ceilf(phi_to_y<H>(center_phi + angular_radius))));
+  }
+
+  /// Push a single interval for row y based on longitude span at that latitude.
+  template <typename OutFn>
+  bool get_intervals(int y, OutFn &&out) const {
+    float phi = y_to_phi<H>(y);
+    float sin_phi = sinf(phi);
+    float theta_span;
+    if (sin_phi < 0.1f) {
+      // Near pole: full row
+      theta_span = static_cast<float>(W);
+    } else {
+      theta_span = angular_radius / sin_phi * W / (2.0f * PI_F);
+    }
+    int x_half = std::min(W / 2, static_cast<int>(ceilf(theta_span)) + 1);
+    out(center_theta - x_half, center_theta + x_half);
+    return true;
+  }
+};
+
+/**
+ * @brief Main rasterization routine for SDF shapes.
+ * Scans the bounding box, computes intervals, and executes the shader for valid
+ * pixels.
+ */
+template <int W, int H, bool ComputeUVs = true>
+static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
+                      FragmentShaderFn fragment_shader, bool debug_bb = false) {
+  bool effective_debug = debug_bb || canvas.debug();
+  auto bounds = shape.template get_vertical_bounds<H>();
+
+  SDF::DistanceResult result_scratch;
+  Fragment frag_scratch;
+
+  scan_region<W, H>(
+      bounds.y_min, bounds.y_max,
+      [&](int y, auto &&out) {
+        return shape.template get_horizontal_intervals<W, H>(y, out);
+      },
+      [&](int wx, int y, const Vector &p) {
+        process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
+                                        fragment_shader, effective_debug,
+                                        result_scratch, frag_scratch);
+      });
 }
 
 struct DistortedRing {
@@ -506,6 +553,32 @@ struct Shader {
 };
 
 /**
+ * @brief Generic wrapper that places an SDF in world space via a center
+ * point and a rotation quaternion. Satisfies the Volume::draw shape concept.
+ *
+ * The quaternion q maps local→world: world_p = center + rotate(local_p, q)
+ * ray_to_local uses q.inverse() to map world→local.
+ */
+template <typename SDF>
+struct TransformedVolume {
+  const SDF &sdf;
+  Vector center;
+  Quaternion q_inv; // precomputed inverse (world→local)
+
+  TransformedVolume(const SDF &sdf, const Vector &center, const Quaternion &q)
+      : sdf(sdf), center(center), q_inv(q.inverse()) {}
+
+  /// Transform ray origin and direction from world space to local space.
+  std::pair<Vector, Vector> ray_to_local(const Vector &ro,
+                                         const Vector &vd) const {
+    return {rotate(ro - center, q_inv), rotate(vd, q_inv)};
+  }
+
+  /// Delegate to the underlying SDF in local space.
+  float distance(const Vector &local_p) const { return sdf.distance(local_p); }
+};
+
+/**
  * @brief Raymarch volume renderer with orthographic projection.
  *
  * The render loop is internal: callers provide a Shape with a
@@ -523,13 +596,16 @@ struct Shader {
  *     canvas, not the ray.
  */
 struct Volume {
+  /**
+   * Shape concept:
+   *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector &vd) const;
+   *   float distance(const Vector &local_point) const;
+   */
   template <int W, int H, typename Shape>
   static void
   draw(PipelineRef pipeline, Canvas &canvas, const Vector &bounds_center,
        float bounds_radius, const Vector &view_dir, const Shape &shape,
        FragmentShaderFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
 
     // Normalized view direction
     float vd_len = sqrtf(view_dir.x * view_dir.x + view_dir.y * view_dir.y +
@@ -537,8 +613,7 @@ struct Volume {
     float vd_inv = (vd_len > TOLERANCE) ? 1.0f / vd_len : 1.0f;
     Vector vd(view_dir.x * vd_inv, view_dir.y * vd_inv, view_dir.z * vd_inv);
 
-    // Ray must start behind the farthest extent of the torus:
-    // vertex is at distance 1.0 (on unit sphere), torus extends bounds_radius
+    // Ray must start behind the farthest extent of the shape
     float start_offset = 1.0f + bounds_radius;
 
     // Precompute bounds_center projected onto the view plane (⊥ vd)
@@ -549,117 +624,104 @@ struct Volume {
                    bounds_center.z - bc_dot_vd * vd.z);
     float bounds_r2 = bounds_radius * bounds_radius;
 
-    // Pixel bounding box from angular extent of the bounding sphere
-    float angular_radius = asinf(std::min(bounds_radius, 1.0f));
-    PixelCoords center_px = vector_to_pixel<W, H>(bounds_center);
+    // Precompute local-space view direction (shared across all pixels)
+    auto [dummy_ro, local_vd] = shape.ray_to_local(Vector(0, 0, 0), vd);
 
-    // Y range (latitude): phi = center_phi ± angular_radius
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    float center_phi = (center_px.y * PI_F) / (H_VIRT - 1);
-    int y_min = std::max(0, static_cast<int>(phi_to_y<H>(center_phi - angular_radius)));
-    int y_max = std::min(H - 1, static_cast<int>(ceilf(phi_to_y<H>(center_phi + angular_radius))));
+    BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
 
-    // X range (longitude): angular_radius / sin(phi) gives the longitude span
-    // at each latitude row — but conservatively use the maximum span
-    float sin_min_phi = std::max(0.1f, sinf(std::max(angular_radius,
-        std::min(center_phi, PI_F - center_phi))));
-    float theta_span = angular_radius / sin_min_phi;
-    int x_half = std::min(W / 2, static_cast<int>(ceilf(theta_span * W / (2.0f * PI_F))) + 1);
-    int x_center = static_cast<int>(center_px.x) % W;
+    scan_region<W, H>(
+        bounds.y_min, bounds.y_max,
+        [&](int y, auto &&out) {
+          return bounds.get_intervals(y, out);
+        },
+        [&](int wx, int y, const Vector &p) {
+          // Back-face cull
+          float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
+          if (facing >= 0.0f)
+            return;
 
-    for (int y = y_min; y <= y_max; ++y) {
-      for (int xi = -x_half; xi <= x_half; ++xi) {
-        int wx = (x_center + xi + W) % W;
-        Vector p = pixel_to_vector<W, H>(wx, y);
+          // Orthographic ray-sphere cull
+          float pp_x = p.x - facing * vd.x;
+          float pp_y = p.y - facing * vd.y;
+          float pp_z = p.z - facing * vd.z;
+          float dx = pp_x - bc_proj.x;
+          float dy = pp_y - bc_proj.y;
+          float dz = pp_z - bc_proj.z;
+          if (dx * dx + dy * dy + dz * dz > bounds_r2)
+            return;
 
-        // Back-face cull
-        float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
-        if (facing >= 0.0f)
-          continue;
+          // Orthographic ray origin: outside the unit sphere
+          Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
+                    pp_z - vd.z * start_offset);
 
-        // Orthographic ray-sphere cull
-        float pp_x = p.x - facing * vd.x;
-        float pp_y = p.y - facing * vd.y;
-        float pp_z = p.z - facing * vd.z;
-        float dx = pp_x - bc_proj.x;
-        float dy = pp_y - bc_proj.y;
-        float dz = pp_z - bc_proj.z;
-        if (dx * dx + dy * dy + dz * dz > bounds_r2)
-          continue;
+          // Transform ray to local space once per pixel
+          auto [local_ro, unused_ld] = shape.ray_to_local(ro, vd);
+          Vector local_p = local_ro;
+          Vector closest_local = local_ro;
+          float closest_d = 999.0f;
 
-        // Orthographic ray origin: outside the unit sphere
-        Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
-                  pp_z - vd.z * start_offset);
+          // --- Sphere tracing in local space ---
+          for (int i = 0; i < max_steps; ++i) {
+            float d = shape.distance(local_p);
 
-        // --- Sphere tracing ---
-        Vector march_p = ro;
-        float closest_d = 999.0f;
-        Vector closest_p = ro;
-
-        for (int i = 0; i < max_steps; ++i) {
-          float d = shape.distance(march_p);
-
-          if (d < closest_d) {
-            closest_d = d;
-            closest_p = march_p;
-          }
-
-          // Stop if deep inside surface
-          if (d < -aa_width)
-            break;
-
-          // SDF-guided step with very small floor to avoid quantization
-          float advance = std::max(d * 0.9f, 1e-5f);
-          march_p =
-              Vector(march_p.x + vd.x * advance, march_p.y + vd.y * advance,
-                     march_p.z + vd.z * advance);
-        }
-
-        if (closest_d >= aa_width)
-          continue;
-
-        // --- Fragment shading ---
-        Fragment frag;
-        frag.pos = closest_p;
-        frag.size = closest_d;
-        frag_fn(closest_p, frag);
-
-        // One-sided AA with quintic kernel (matches other Scan shapes)
-        float hit_threshold = aa_width * 0.1f;
-        float edge_alpha;
-        if (closest_d <= hit_threshold) {
-          edge_alpha = 1.0f;
-        } else {
-          edge_alpha = quintic_kernel(
-              1.0f - (closest_d - hit_threshold) / (aa_width - hit_threshold));
-        }
-
-        // Self-occlusion check: only needed near the surface edge, not for
-        // deep-inside hits. Covers narrow band on both sides of the boundary.
-        if (closest_d > -aa_width * 3.0f) {
-          Vector probe = march_p;
-          float probed = 0.0f;
-          for (int i = 0; i < 4; ++i) {
-            float pd = shape.distance(probe);
-            if (pd < -aa_width) {
-              edge_alpha = 1.0f;
-              break;
+            if (d < closest_d) {
+              closest_d = d;
+              closest_local = local_p;
             }
-            float step = std::max(pd * 0.9f, bounds_radius * 0.15f);
-            probe = Vector(probe.x + vd.x * step, probe.y + vd.y * step,
-                           probe.z + vd.z * step);
-            probed += step;
-            if (probed > bounds_radius)
-              break;
-          }
-        }
 
-        if (frag.color.alpha * edge_alpha > 0.001f) {
-          pipeline.plot(canvas, p, frag.color.color, 0.0f,
-                        frag.color.alpha * edge_alpha);
-        }
-      }
-    }
+            if (d < -aa_width)
+              break;
+
+            float advance = std::max(d * 0.9f, 1e-5f);
+            local_p = Vector(local_p.x + local_vd.x * advance,
+                             local_p.y + local_vd.y * advance,
+                             local_p.z + local_vd.z * advance);
+          }
+
+          if (closest_d >= aa_width)
+            return;
+
+          // --- Fragment shading ---
+          Fragment frag;
+          frag.pos = closest_local;
+          frag.size = closest_d;
+          frag_fn(closest_local, frag);
+
+          // One-sided AA with quintic kernel
+          float hit_threshold = aa_width * 0.1f;
+          float edge_alpha;
+          if (closest_d <= hit_threshold) {
+            edge_alpha = 1.0f;
+          } else {
+            edge_alpha = quintic_kernel(
+                1.0f - (closest_d - hit_threshold) / (aa_width - hit_threshold));
+          }
+
+          // Self-occlusion probe in local space
+          if (closest_d > -aa_width * 3.0f) {
+            Vector probe = local_p;
+            float probed = 0.0f;
+            for (int i = 0; i < 4; ++i) {
+              float pd = shape.distance(probe);
+              if (pd < -aa_width) {
+                edge_alpha = 1.0f;
+                break;
+              }
+              float step = std::max(pd * 0.9f, bounds_radius * 0.15f);
+              probe = Vector(probe.x + local_vd.x * step,
+                             probe.y + local_vd.y * step,
+                             probe.z + local_vd.z * step);
+              probed += step;
+              if (probed > bounds_radius)
+                break;
+            }
+          }
+
+          if (frag.color.alpha * edge_alpha > 0.001f) {
+            pipeline.plot(canvas, p, frag.color.color, 0.0f,
+                          frag.color.alpha * edge_alpha);
+          }
+        });
   }
 };
 
