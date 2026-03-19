@@ -21,6 +21,10 @@ public:
     registerParam("Twist", &params.twist, 0.0f, 8.0f);
     registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
+    // Precompute tangent frames — dodecahedron vertices are constexpr
+    for (int i = 0; i < 20; ++i)
+      raw_frames[i] = buildTangentFrame(Solids::Dodecahedron::vertices[i]);
+
     timeline.add(0, Animation::RandomWalk<W>(camera, normal, noise));
 
     timeline.add(0, Animation::Sprite(
@@ -102,23 +106,26 @@ private:
 
   /// Metallic Blinn-Phong: half-Lambert diffuse, tight specular, Fresnel rim.
   /// All components tinted by surface color (metallic reflection).
-  float shadeBlinnPhong(const Vector &normal_w, const TangentFrame &frame) {
-    const Vector &v = frame.vertex;
-    const Vector &t = frame.tangent;
-
-    float ndotl = normal_w.x * v.x + normal_w.y * v.y + normal_w.z * v.z;
+  float shadeBlinnPhong(const Vector &normal_w, const Vector &light_dir,
+                        const Vector &view_dir, const Vector &tangent) {
+    // Diffuse: half-Lambert wrap using light direction
+    float ndotl = normal_w.x * light_dir.x + normal_w.y * light_dir.y +
+                  normal_w.z * light_dir.z;
     float half_lam = ndotl * 0.5f + 0.5f;
     float diffuse = half_lam * half_lam;
 
-    // Specular (light tilted off-axis for visible highlight)
-    float lx = v.x + t.x * 0.3f, ly = v.y + t.y * 0.3f, lz = v.z + t.z * 0.3f;
+    // Specular: light tilted off-axis along tangent for visible highlight
+    float lx = light_dir.x + tangent.x * 0.3f;
+    float ly = light_dir.y + tangent.y * 0.3f;
+    float lz = light_dir.z + tangent.z * 0.3f;
     float ll = sqrtf(lx * lx + ly * ly + lz * lz);
     if (ll > TOLERANCE) {
       lx /= ll;
       ly /= ll;
       lz /= ll;
     }
-    float hx = lx + v.x, hy = ly + v.y, hz = lz + v.z;
+    // Half-vector between tilted light and view direction
+    float hx = lx + view_dir.x, hy = ly + view_dir.y, hz = lz + view_dir.z;
     float hl = sqrtf(hx * hx + hy * hy + hz * hz);
     if (hl > TOLERANCE) {
       hx /= hl;
@@ -127,11 +134,12 @@ private:
     }
     float ndoth =
         std::max(0.0f, normal_w.x * hx + normal_w.y * hy + normal_w.z * hz);
-    float spec = ndoth * ndoth;
-    spec *= spec;
-    spec *= spec;
-    spec *= spec;
-    spec *= spec; // ^32
+    // ndoth^32 via repeated squaring
+    float spec = ndoth * ndoth; // ^2
+    spec *= spec;               // ^4
+    spec *= spec;               // ^8
+    spec *= spec;               // ^16
+    spec *= spec;               // ^32
 
     float fresnel = 1.0f - hs::clamp(ndotl, 0.0f, 1.0f);
     fresnel = fresnel * fresnel * fresnel;
@@ -140,16 +148,8 @@ private:
            fresnel * params.fresnel;
   }
 
-  // --- Dodecahedron vertex table ---
-
-  static constexpr float S = 0.5773502692f; // 1/√3
-  static constexpr float P = 0.9341723590f; // φ/√3
-  static constexpr float Q = 0.3568220898f; // (1/φ)/√3
-  static constexpr float kVerts[20][3] = {
-      {S, S, S},   {S, S, -S},  {S, -S, S},   {S, -S, -S}, {-S, S, S},
-      {-S, S, -S}, {-S, -S, S}, {-S, -S, -S}, {0, P, Q},   {0, P, -Q},
-      {0, -P, Q},  {0, -P, -Q}, {Q, 0, P},    {Q, 0, -P},  {-Q, 0, P},
-      {-Q, 0, -P}, {P, Q, 0},   {P, -Q, 0},   {-P, Q, 0},  {-P, -Q, 0}};
+  // Dodecahedron vertices from Solids::Dodecahedron (constexpr)
+  static constexpr int NUM_VERTS = Solids::Dodecahedron::NUM_VERTS;
 
   // --- Main draw ---
 
@@ -160,21 +160,19 @@ private:
     SDF::TwistedTorus torus{params.core_size * 0.45f, params.core_size * 0.14f,
                             static_cast<int>(params.twist),
                             params.core_size * 0.14f * 2.5f};
-    float bounds_radius =
-        sqrtf((torus.R + torus.r) * (torus.R + torus.r) +
-              torus.amplitude * torus.amplitude) +
-        torus.r;
+    float bounds_radius = sqrtf((torus.R + torus.r) * (torus.R + torus.r) +
+                                torus.amplitude * torus.amplitude) +
+                          torus.r;
     float aa_width = torus.r * params.aa_mult;
-    int max_steps = static_cast<int>(params.max_steps);
+    int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
     float spin_angle = anim_t * 1.5f;
     float spin_cos = cosf(spin_angle);
     float spin_sin = sinf(spin_angle);
 
-    for (int vi = 0; vi < 20; ++vi) {
-      Vector raw_vertex(kVerts[vi][0], kVerts[vi][1], kVerts[vi][2]);
-      // Build tangent frame from stable un-rotated vertex, then rotate
-      TangentFrame raw_frame = buildTangentFrame(raw_vertex);
+    for (int vi = 0; vi < NUM_VERTS; ++vi) {
+      const Vector &raw_vertex = Solids::Dodecahedron::vertices[vi];
+      const TangentFrame &raw_frame = raw_frames[vi];
       Vector vertex = camera.orient(raw_vertex);
       TangentFrame frame = {vertex, camera.orient(raw_frame.tangent),
                             camera.orient(raw_frame.tangent2)};
@@ -188,8 +186,7 @@ private:
         float spin_cos, spin_sin;
 
         float distance(const Vector &p) const {
-          Vector loc =
-              worldToSpunLocal(p, center, frame, spin_cos, spin_sin);
+          Vector loc = worldToSpunLocal(p, center, frame, spin_cos, spin_sin);
           // Cheap bound (no trig) for the approach phase
           float bd = torus.bounding_distance(loc);
           if (bd > torus.r)
@@ -206,7 +203,8 @@ private:
         // the hit is within aa_width of the surface (normal is stable).
         Vector n_local = torus.normal(loc);
         Vector n_world = localNormalToWorld(n_local, frame, spin_cos, spin_sin);
-        float shade = shadeBlinnPhong(n_world, frame);
+        float shade =
+            shadeBlinnPhong(n_world, frame.vertex, frame.vertex, frame.tangent);
 
         // Ring angle from un-spun local frame (stable across spin rotation).
         // The spin only rotates local YZ; lx and lz (tangent projections)
@@ -222,11 +220,7 @@ private:
         float palette_t = fmodf(
             ring_angle + anim_t * 0.05f + static_cast<float>(vi) / 20.0f, 1.0f);
         Color4 c = palette.get(palette_t);
-        frag.color = Color4(
-            Pixel(static_cast<uint16_t>(std::min(65535.0f, c.color.r * shade)),
-                  static_cast<uint16_t>(std::min(65535.0f, c.color.g * shade)),
-                  static_cast<uint16_t>(std::min(65535.0f, c.color.b * shade))),
-            opacity);
+        frag.color = Color4(c.color * shade, opacity);
       };
 
       Scan::Volume::draw<W, H>(pipeline, canvas, vertex, bounds_radius,
@@ -242,13 +236,14 @@ private:
     float diffuse = 0.4f;
     float specular = 1.2f;
     float fresnel = 0.2f;
-    float twist = 3.0f;
+    float twist = 2.0f;
     float aa_mult = 0.5f;
   } params;
 
   FastNoiseLite noise;
   Vector normal = Y_AXIS;
   Orientation<W> camera;
+  std::array<TangentFrame, 20> raw_frames;
   Timeline<W> timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
