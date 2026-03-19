@@ -549,8 +549,27 @@ struct Volume {
                    bounds_center.z - bc_dot_vd * vd.z);
     float bounds_r2 = bounds_radius * bounds_radius;
 
-    for (int y = 0; y < H; ++y) {
-      for (int wx = 0; wx < W; ++wx) {
+    // Pixel bounding box from angular extent of the bounding sphere
+    float angular_radius = asinf(std::min(bounds_radius, 1.0f));
+    PixelCoords center_px = vector_to_pixel<W, H>(bounds_center);
+
+    // Y range (latitude): phi = center_phi ± angular_radius
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    float center_phi = (center_px.y * PI_F) / (H_VIRT - 1);
+    int y_min = std::max(0, static_cast<int>(phi_to_y<H>(center_phi - angular_radius)));
+    int y_max = std::min(H - 1, static_cast<int>(ceilf(phi_to_y<H>(center_phi + angular_radius))));
+
+    // X range (longitude): angular_radius / sin(phi) gives the longitude span
+    // at each latitude row — but conservatively use the maximum span
+    float sin_min_phi = std::max(0.1f, sinf(std::max(angular_radius,
+        std::min(center_phi, PI_F - center_phi))));
+    float theta_span = angular_radius / sin_min_phi;
+    int x_half = std::min(W / 2, static_cast<int>(ceilf(theta_span * W / (2.0f * PI_F))) + 1);
+    int x_center = static_cast<int>(center_px.x) % W;
+
+    for (int y = y_min; y <= y_max; ++y) {
+      for (int xi = -x_half; xi <= x_half; ++xi) {
+        int wx = (x_center + xi + W) % W;
         Vector p = pixel_to_vector<W, H>(wx, y);
 
         // Back-face cull

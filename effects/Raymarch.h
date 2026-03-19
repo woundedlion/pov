@@ -188,21 +188,23 @@ private:
         float spin_cos, spin_sin;
 
         float distance(const Vector &p) const {
-          return torus.distance(
-              worldToSpunLocal(p, center, frame, spin_cos, spin_sin));
+          Vector loc =
+              worldToSpunLocal(p, center, frame, spin_cos, spin_sin);
+          // Cheap bound (no trig) for the approach phase
+          float bd = torus.bounding_distance(loc);
+          if (bd > torus.r)
+            return bd;
+          // Close — full SDF with twist
+          return torus.distance(loc);
         }
       } spun_torus{torus, vertex, frame, spin_cos, spin_sin};
 
       auto frag_fn = [&](const Vector &hit, Fragment &frag) {
         Vector loc = worldToSpunLocal(hit, vertex, frame, spin_cos, spin_sin);
 
-        // Project to exact surface for stable shading (raw = no Lipschitz)
-        float d = torus.raw_distance(loc);
-        Vector n = torus.normal(loc);
-        Vector surface_loc(loc.x - d * n.x, loc.y - d * n.y, loc.z - d * n.z);
-        torus.populate(surface_loc, frag);
-
-        Vector n_local(frag.v1, frag.v2, frag.v3);
+        // Normal directly at march point — skip surface projection since
+        // the hit is within aa_width of the surface (normal is stable).
+        Vector n_local = torus.normal(loc);
         Vector n_world = localNormalToWorld(n_local, frame, spin_cos, spin_sin);
         float shade = shadeBlinnPhong(n_world, frame);
 
