@@ -684,17 +684,33 @@ template <typename A, typename B> struct Intersection {
 
 /**
  * @brief Angular domain repetition modifier.
- * Folds azimuthal angle to create N copies of a shape around the Y-axis
+ * Folds azimuthal angle to create N copies of a shape around an arbitrary axis
  * for constant cost (single distance evaluation).
  */
 template <typename Shape> struct AngularRepeat {
   const Shape &shape;
+  Vector axis, u, w; // axis = rotation axis, u/w = derived perpendicular plane
   int repetitions;
   float thickness;
   static constexpr bool is_solid = Shape::is_solid;
 
+  /// Repeat around an arbitrary axis.
+  AngularRepeat(const Shape &s, int reps, const Vector &ax)
+      : shape(s), axis(ax), repetitions(reps), thickness(s.thickness) {
+    // Derive perpendicular plane via Gram-Schmidt
+    Vector ref = (fabsf(ax.y) < 0.9f) ? Vector(0, 1, 0) : Vector(1, 0, 0);
+    float d = ref.x * ax.x + ref.y * ax.y + ref.z * ax.z;
+    u = Vector(ref.x - d * ax.x, ref.y - d * ax.y, ref.z - d * ax.z);
+    float len = u.length();
+    if (len > TOLERANCE)
+      u = u * (1.0f / len);
+    w = Vector(ax.y * u.z - ax.z * u.y, ax.z * u.x - ax.x * u.z,
+               ax.x * u.y - ax.y * u.x);
+  }
+
+  /// Repeat around the Y-axis (legacy behavior).
   AngularRepeat(const Shape &s, int reps)
-      : shape(s), repetitions(reps), thickness(s.thickness) {}
+      : AngularRepeat(s, reps, Vector(0, 1, 0)) {}
 
   template <int H> Bounds get_vertical_bounds() const {
     return shape.template get_vertical_bounds<H>();
@@ -714,17 +730,28 @@ template <typename Shape> struct AngularRepeat {
 
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    // Calculate azimuth angle of p in the XZ plane
-    float theta = atan2f(p.z, p.x);
-    if (theta < 0) theta += 2 * PI_F;
+    // Project p into local coordinate system
+    float local_u = p.x * u.x + p.y * u.y + p.z * u.z;
+    float local_v = p.x * axis.x + p.y * axis.y + p.z * axis.z;
+    float local_w = p.x * w.x + p.y * w.y + p.z * w.z;
 
-    // Fold space: modulo the angle into one sector
+    // Fold angle in the u-w plane
+    float theta = atan2f(local_w, local_u);
+    if (theta < 0)
+      theta += 2 * PI_F;
+
     float sector = (2 * PI_F) / repetitions;
     float folded_theta = fmodf(theta + sector / 2.0f, sector) - sector / 2.0f;
 
-    // Reconstruct folded point (preserving Y)
-    float r = sqrtf(p.x * p.x + p.z * p.z);
-    Vector folded_p(r * cosf(folded_theta), p.y, r * sinf(folded_theta));
+    // Reconstruct folded local coordinates (preserving axis component)
+    float r = sqrtf(local_u * local_u + local_w * local_w);
+    float fu = r * cosf(folded_theta);
+    float fw = r * sinf(folded_theta);
+
+    // Project back to world space
+    Vector folded_p(fu * u.x + local_v * axis.x + fw * w.x,
+                    fu * u.y + local_v * axis.y + fw * w.y,
+                    fu * u.z + local_v * axis.z + fw * w.z);
 
     shape.template distance<ComputeUVs>(folded_p, res);
   }
@@ -1909,8 +1936,12 @@ struct TwistedTorus {
 
   /// March-safe distance with Lipschitz correction for sphere tracing.
   float distance(const Vector &p) const {
+    // Cheap bounding check — skip expensive trig if far from surface
     float s = sqrtf(p.x * p.x + p.z * p.z);
     float q = s - R;
+    float bd = sqrtf(q * q + p.y * p.y) - (r + amplitude);
+    if (bd > r) return bd;
+
     float theta = atan2f(p.z, p.x);
     float h = p.y - amplitude * sinf(static_cast<float>(twist) * theta);
     float d = sqrtf(q * q + h * h) - r;

@@ -318,6 +318,30 @@ private:
 };
 
 /**
+ * @brief Replicates geometry onto the vertices of a solid.
+ * Precomputes rotation quaternions from vertex[0] to each other vertex.
+ * Applies an optional per-copy color shift (e.g., palette offset).
+ */
+template <int W, int N> class VertexReplicate : public Is3D {
+public:
+  /// Build from a vertex array. Computes rotations from vertices[0] → each.
+  template <typename VertexArray>
+  VertexReplicate(const VertexArray &vertices) {
+    for (int i = 0; i < N; ++i)
+      rotations[i] = make_rotation(vertices[0], vertices[i]);
+  }
+
+  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+            PassFn3D pass) {
+    for (int i = 0; i < N; ++i) {
+      pass(rotate(v, rotations[i]), color, age + static_cast<float>(i), alpha);
+    }
+  }
+
+  std::array<Quaternion, N> rotations;
+};
+
+/**
  * @brief Applies a Mobius transformation to 3D points.
  */
 template <int W> class Mobius : public Is3D {
