@@ -11,35 +11,20 @@
 #include "../reaction_graph.h"
 #include "../scan.h"
 
-/**
- * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice sphere.
- *
- * Three competing chemical species (A, B, C) evolve via Lotka-Volterra dynamics
- * on a 7680-node Fibonacci lattice with K=6 nearest neighbors. The cyclic
- * competition (A→B→C→A) creates self-sustaining spiral waves that persist
- * indefinitely. State is stored as Q8 (uint8_t). Per-pixel rendering uses
- * Wendland C2 kernel interpolation for smooth Voronoi boundaries.
- *
- * Memory budget (persistent arena):
- *   - State:  3 arrays × 7680 × 1B = 23,040 B
- *   - LUT:    288 × 144 × 2B       = 82,944 B
- *   - Total:  105,984 B (103 KB)
- *
- * Scratch arena (per frame):
- *   - Physics:  3 × 7680 × 1B      = 23,040 B
- *   - Node XYZ: 7680 × 12B         = 92,160 B
- *   - Total:    115,200 B (112 KB)
- */
 template <int W, int H> class BZReactionDiffusion : public Effect {
 public:
   static constexpr int RD_N = ReactionGraph::RD_N;
   static constexpr int RD_K = ReactionGraph::RD_K;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
 
+  // 64x64 per face gives incredible accuracy for 3840 nodes
+  static constexpr int CUBE_RES = 64;
+
   FLASHMEM BZReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 140 * 1024, 140 * 1024, 0);
+    // 75KB easily holds the 48KB Cubemap LUT + 23KB State
+    configure_arenas(75 * 1024, GLOBAL_ARENA_SIZE - 75 * 1024, 0);
 
     registerParam("Alpha", &params.alpha, 0.0f, 4.0f);
     registerParam("Diff", &params.D, 0.001f, 0.1f);
@@ -52,9 +37,11 @@ public:
     memset(state.B, 0, RD_N);
     memset(state.C, 0, RD_N);
 
-    pixel_to_node = static_cast<uint16_t *>(
-        persistent_arena.allocate(W * H * sizeof(uint16_t), alignof(uint16_t)));
-    build_pixel_to_node_lut();
+    // Allocate and build the fast Cubemap LUT
+    cube_lut = static_cast<uint16_t *>(persistent_arena.allocate(
+        6 * CUBE_RES * CUBE_RES * sizeof(uint16_t), alignof(uint16_t)));
+    build_cubemap_lut();
+
     seed_spiral_nuclei();
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -82,8 +69,7 @@ private:
     return dx * dx + dy * dy + dz * dz;
   }
 
-
-  // Greedy walk on K-NN graph from Y-seeded estimate
+  // Used only once at startup
   int find_nearest_node(const Vector &p) const {
     int cur = hs::clamp(
         static_cast<int>((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f), 0, RD_N - 1);
@@ -108,16 +94,72 @@ private:
     return cur;
   }
 
-  void build_pixel_to_node_lut() {
-    for (int y = 0; y < H; ++y) {
-      float phi = (static_cast<float>(y) * PI_F) / (H_VIRT - 1);
-      float sp = sinf(phi), cp = cosf(phi);
-      for (int x = 0; x < W; ++x) {
-        float theta = (static_cast<float>(x) * 2.0f * PI_F) / W;
-        Vector p(sp * cosf(theta), cp, sp * sinf(theta));
-        pixel_to_node[y * W + x] = static_cast<uint16_t>(find_nearest_node(p));
+  void build_cubemap_lut() {
+    for (int face = 0; face < 6; ++face) {
+      for (int y = 0; y < CUBE_RES; ++y) {
+        for (int x = 0; x < CUBE_RES; ++x) {
+          float u = (x + 0.5f) / CUBE_RES * 2.0f - 1.0f;
+          float v = (y + 0.5f) / CUBE_RES * 2.0f - 1.0f;
+          Vector dir;
+          if (face == 0)
+            dir = Vector(1.0f, v, -u);       // +X
+          else if (face == 1)
+            dir = Vector(-1.0f, v, u);        // -X
+          else if (face == 2)
+            dir = Vector(u, 1.0f, -v);        // +Y
+          else if (face == 3)
+            dir = Vector(u, -1.0f, v);        // -Y
+          else if (face == 4)
+            dir = Vector(u, v, 1.0f);         // +Z
+          else
+            dir = Vector(-u, v, -1.0f);       // -Z
+
+          float len =
+              sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+          dir.x /= len;
+          dir.y /= len;
+          dir.z /= len;
+          cube_lut[(face * CUBE_RES + y) * CUBE_RES + x] =
+              find_nearest_node(dir);
+        }
       }
     }
+  }
+
+  // ZERO Trigonometry. Runs in ~10 cycles!
+  int lookup_cubemap(const Vector &p) const {
+    float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
+    int face = 0;
+    float u = 0, v = 0;
+
+    if (ax >= ay && ax >= az) {
+      float inv = 1.0f / ax;
+      if (p.x >= 0) {
+        face = 0; u = -p.z * inv; v = p.y * inv;
+      } else {
+        face = 1; u = p.z * inv; v = p.y * inv;
+      }
+    } else if (ay >= ax && ay >= az) {
+      float inv = 1.0f / ay;
+      if (p.y >= 0) {
+        face = 2; u = p.x * inv; v = -p.z * inv;
+      } else {
+        face = 3; u = p.x * inv; v = p.z * inv;
+      }
+    } else {
+      float inv = 1.0f / az;
+      if (p.z >= 0) {
+        face = 4; u = p.x * inv; v = p.y * inv;
+      } else {
+        face = 5; u = -p.x * inv; v = p.y * inv;
+      }
+    }
+
+    int ui = hs::clamp(static_cast<int>((u + 1.0f) * 0.5f * CUBE_RES), 0,
+                       CUBE_RES - 1);
+    int vi = hs::clamp(static_cast<int>((v + 1.0f) * 0.5f * CUBE_RES), 0,
+                       CUBE_RES - 1);
+    return cube_lut[(face * CUBE_RES + vi) * CUBE_RES + ui];
   }
 
   // 3 clusters per species ensures all 3 are always present
@@ -178,34 +220,6 @@ private:
   static constexpr float KERNEL_R = 1.5f * D_AVG;
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
 
-  struct InterpolatedState {
-    float a, b, c;
-  };
-
-  InterpolatedState interpolate_at(const Vector &p, int nearest,
-                                   const Vector *nodes) const {
-    float tw = 0, wa = 0, wb = 0, wc = 0;
-    auto acc = [&](int i) {
-      float u = 1.0f - dist2(p, nodes[i]) * INV_R2;
-      if (u <= 0)
-        return;
-      float w = u * u;
-      wa += from_q8(state.A[i]) * w;
-      wb += from_q8(state.B[i]) * w;
-      wc += from_q8(state.C[i]) * w;
-      tw += w;
-    };
-
-    acc(nearest);
-    for (int k = 0; k < RD_K; ++k) {
-      int ni = ReactionGraph::neighbors[nearest][k];
-      if (ni >= 0)
-        acc(ni);
-    }
-    float inv = 1.0f / tw;
-    return {wa * inv, wb * inv, wc * inv};
-  }
-
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {
     float r = ca.color.r * a, g = ca.color.g * a, bl = ca.color.b * a;
@@ -223,16 +237,6 @@ private:
     return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f)),
                  static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f)),
                  static_cast<uint16_t>(hs::clamp(bl, 0.0f, 65535.0f)));
-  }
-
-  int lookup_nearest(const Vector &rv) const {
-    Spherical s(rv);
-    int x = static_cast<int>((s.theta * W) / (2.0f * PI_F) + 0.5f) % W;
-    int y = hs::clamp(static_cast<int>((s.phi * (H_VIRT - 1)) / PI_F + 0.5f), 0,
-                      H - 1);
-    if (x < 0)
-      x += W;
-    return pixel_to_node[y * W + x];
   }
 
   void render(Canvas &canvas) {
@@ -253,16 +257,72 @@ private:
     Color4 cb = palette.get(0.5f);
     Color4 cc = palette.get(1.0f);
 
-    auto shader = [&](const Vector &v) -> Color4 {
-      Vector rv = orientation.unorient(v);
-      int nearest = lookup_nearest(rv);
-      auto [a, b, c] = interpolate_at(rv, nearest, nodes);
-      if (a + b + c < 0.01f)
-        return Color4(Pixel(0, 0, 0), 0.0f);
-      return Color4(blend_species(a, b, c, ca, cb, cc), 1.0f);
+    // 1. VERTEX SHADER: O(1) predictable cubemap lookup (Runs 1× per pixel)
+    auto vertex_shader = [&](Fragment &frag) {
+      Vector rv = orientation.unorient(frag.pos);
+      frag.v0 = static_cast<float>(lookup_cubemap(rv));
     };
 
-    Scan::Shader::draw<W, H, 4>(canvas, shader);
+    // 2. FRAGMENT SHADER: Fully inlined kernel (Runs 4× per pixel for SSAA)
+    auto fragment_shader = [&](const Vector &v, Fragment &frag) {
+      int center_node = static_cast<int>(frag.v0);
+      Vector rv = orientation.unorient(v);
+
+      // Pass A: Find the absolute best node out of the center's 7-node cluster
+      float best_d = dist2(rv, nodes[center_node]);
+      int best_node = center_node;
+
+      for (int k = 0; k < RD_K; ++k) {
+        int ni = ReactionGraph::neighbors[center_node][k];
+        if (ni >= 0) {
+          float d = dist2(rv, nodes[ni]);
+          if (d < best_d) {
+            best_d = d;
+            best_node = ni;
+          }
+        }
+      }
+
+      // Pass B: Calculate the Wendland Kernel around the true best node
+      float tw = 0, wa = 0, wb = 0, wc = 0;
+
+      // Reuse best_d from Pass A (saves one dist2 call)
+      float u0 = 1.0f - best_d * INV_R2;
+      if (u0 > 0) {
+        float w = u0 * u0;
+        wa += state.A[best_node] * w;
+        wb += state.B[best_node] * w;
+        wc += state.C[best_node] * w;
+        tw += w;
+      }
+
+      // Loop neighbors of best node
+      for (int k = 0; k < RD_K; ++k) {
+        int ni = ReactionGraph::neighbors[best_node][k];
+        if (ni >= 0) {
+          float d = dist2(rv, nodes[ni]);
+          float u = 1.0f - d * INV_R2;
+          if (u > 0) {
+            float w = u * u;
+            wa += state.A[ni] * w;
+            wb += state.B[ni] * w;
+            wc += state.C[ni] * w;
+            tw += w;
+          }
+        }
+      }
+
+      // Final output with deferred Q8 div
+      if (tw <= 0.0001f) {
+        frag.color = Color4(Pixel(0, 0, 0), 0.0f);
+      } else {
+        float inv = (1.0f / 255.0f) / tw;
+        frag.color = Color4(
+            blend_species(wa * inv, wb * inv, wc * inv, ca, cb, cc), 1.0f);
+      }
+    };
+
+    Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
   }
 
   struct {
@@ -274,7 +334,7 @@ private:
                             SaturationProfile::VIBRANT, 42};
   Orientation<W> orientation;
   FastNoiseLite noise;
-  uint16_t *pixel_to_node = nullptr;
+  uint16_t *cube_lut = nullptr;
   Timeline<W> timeline;
 
   struct Params {
