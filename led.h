@@ -177,7 +177,7 @@ private:
       frame.packPixel(S / 2 + y, effect_->get_pixel(
           (x_ + (effect_->width() / 2)) % effect_->width(), y));
     }
-    ledController_.submitFrame();
+    ledController_.submitFrame(effect_->show_bg());
 #else
     for (int y = 0; y < S / 2; ++y) {
       // Map to physical strip: top half is inverted, bottom half is straight.

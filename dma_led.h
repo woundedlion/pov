@@ -53,14 +53,20 @@ class HD107SFrame {
 public:
   /// End-frame size per SK9822/HD107S convention.
   static constexpr int END_FRAME_BYTES = (N / 2) + 1;
-  /// Total buffer size in bytes.
+  /// Single-frame buffer size in bytes.
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
+  /// Composite size: image frame + trailing black frame (for show_bg).
+  static constexpr int COMPOSITE_SIZE = BUFFER_SIZE * 2;
 
   HD107SFrame() {
-    memset(buffer_, 0, BUFFER_SIZE);
-    // Pre-fill the brightness byte for every pixel slot (0xFF = max).
+    memset(buffer_, 0, COMPOSITE_SIZE);
+    // Image frame: set brightness bytes
     for (int i = 0; i < N; ++i) {
       buffer_[4 + i * 4] = 0xFF;
+    }
+    // Trailing black frame: set brightness bytes (colors stay zero)
+    for (int i = 0; i < N; ++i) {
+      buffer_[BUFFER_SIZE + 4 + i * 4] = 0xFF;
     }
   }
 
@@ -118,7 +124,7 @@ public:
     }
 
     // Flush data cache so DMA sees the updated buffer.
-    arm_dcache_flush_delete(buffer_, BUFFER_SIZE);
+    arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
   }
 
   /**
@@ -164,11 +170,13 @@ public:
    * @brief Flushes data cache so DMA sees the buffer. Call after packPixel().
    */
   void flush() {
-    arm_dcache_flush_delete(buffer_, BUFFER_SIZE);
+    arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
   }
 
   const uint8_t* data() const { return buffer_; }
   constexpr size_t size() const { return BUFFER_SIZE; }
+  /// Size including trailing black frame (for show_bg composite DMA).
+  constexpr size_t sizeWithBg() const { return COMPOSITE_SIZE; }
 
   // --- Static correction configuration (shared across all frames) -----------
 
@@ -185,7 +193,7 @@ public:
   }
 
 private:
-  uint8_t buffer_[BUFFER_SIZE] __attribute__((aligned(32)));
+  uint8_t buffer_[COMPOSITE_SIZE] __attribute__((aligned(32)));
 
   // Shared correction state — 8-bit scale factors (255 = 1.0)
   static uint8_t tempR_, tempG_, tempB_;
@@ -201,6 +209,7 @@ template <int N> uint8_t HD107SFrame<N>::corrR_ = 255;
 template <int N> uint8_t HD107SFrame<N>::corrG_ = 255;
 template <int N> uint8_t HD107SFrame<N>::corrB_ = 255;
 template <int N> uint8_t HD107SFrame<N>::brightness_ = 255;
+
 
 // ============================================================================
 // TeensySPIDMA — Low-level async DMA+SPI driver for Teensy 4.x
@@ -355,13 +364,19 @@ public:
    * @brief Flushes the back frame and triggers async DMA transfer.
    * Call after all packPixel() calls on backFrame().
    */
-  void submitFrame() {
+  /**
+   * @brief Flushes the back frame and triggers async DMA transfer.
+   * @param withBg If true, DMAs the composite buffer (image + trailing
+   *               black frame) in a single transfer — zero gap, no spin.
+   */
+  void submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
       overrunCount_++;
     }
     int back = 1 - activeBuffer_;
     frames_[back].flush();
-    spi_.transmitAsync(frames_[back].data(), frames_[back].size());
+    size_t len = withBg ? frames_[back].sizeWithBg() : frames_[back].size();
+    spi_.transmitAsync(frames_[back].data(), len);
     activeBuffer_ = back;
     transferCount_++;
   }
