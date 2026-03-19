@@ -20,7 +20,7 @@ public:
   FLASHMEM GSReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 120 * 1024, 120 * 1024, 0);
+    configure_arenas(80 * 1024, GLOBAL_ARENA_SIZE - 80 * 1024, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
@@ -35,9 +35,7 @@ public:
     // A starts at 1.0 (65535), B starts at 0.0
     for (int i = 0; i < RD_N; i++) { state.A[i] = 65535; state.B[i] = 0; }
 
-    pixel_to_node = static_cast<uint16_t *>(
-        persistent_arena.allocate(W * H * sizeof(uint16_t), alignof(uint16_t)));
-    build_pixel_to_node_lut();
+    cube_lut.build(persistent_arena);
     seed_clusters();
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -63,42 +61,7 @@ private:
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE);
   }
 
-  static float dist2(const Vector &a, const Vector &b) {
-    float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-    return dx * dx + dy * dy + dz * dz;
-  }
 
-  // Greedy walk on K-NN graph from Y-seeded estimate
-  int find_nearest_node(const Vector &p) const {
-    int cur = hs::clamp(
-        static_cast<int>((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f), 0,
-        RD_N - 1);
-    float best_d = dist2(p, ReactionGraph::node(cur));
-
-    for (int iter = 0; iter < 64; ++iter) {
-      bool improved = false;
-      for (int k = 0; k < RD_K; ++k) {
-        int ni = ReactionGraph::neighbors[cur][k];
-        if (ni < 0) continue;
-        float d = dist2(p, ReactionGraph::node(ni));
-        if (d < best_d) { best_d = d; cur = ni; improved = true; }
-      }
-      if (!improved) break;
-    }
-    return cur;
-  }
-
-  void build_pixel_to_node_lut() {
-    for (int y = 0; y < H; ++y) {
-      float phi = (static_cast<float>(y) * PI_F) / (H_VIRT - 1);
-      float sp = sinf(phi), cp = cosf(phi);
-      for (int x = 0; x < W; ++x) {
-        float theta = (static_cast<float>(x) * 2.0f * PI_F) / W;
-        Vector p(sp * cosf(theta), cp, sp * sinf(theta));
-        pixel_to_node[y * W + x] = static_cast<uint16_t>(find_nearest_node(p));
-      }
-    }
-  }
 
   void seed_clusters() {
     for (int i = 0; i < 30; i++) {
@@ -140,6 +103,10 @@ private:
 
   float interpolate_b(const Vector &p, int nearest,
                       const Vector *nodes) const {
+    auto dist2 = [](const Vector &a, const Vector &b) {
+      float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+      return dx * dx + dy * dy + dz * dz;
+    };
     float tw = 0, wb = 0;
     auto acc = [&](int i) {
       float u = 1.0f - dist2(p, nodes[i]) * INV_R2;
@@ -157,14 +124,7 @@ private:
     return wb / tw;
   }
 
-  int lookup_nearest(const Vector &rv) const {
-    Spherical s(rv);
-    int x = static_cast<int>((s.theta * W) / (2.0f * PI_F) + 0.5f) % W;
-    int y = hs::clamp(
-        static_cast<int>((s.phi * (H_VIRT - 1)) / PI_F + 0.5f), 0, H - 1);
-    if (x < 0) x += W;
-    return pixel_to_node[y * W + x];
-  }
+
 
   void render(Canvas &canvas) {
     ScratchScope _frame(scratch_arena_a);
@@ -183,7 +143,7 @@ private:
 
     auto shader = [&](const Vector &v) -> Color4 {
       Vector rv = orientation.unorient(v);
-      int nearest = lookup_nearest(rv);
+      int nearest = cube_lut.lookup(rv);
       float b = interpolate_b(rv, nearest, nodes);
 
       if (b < 0.05f) return Color4(Pixel(0, 0, 0), 0.0f);
@@ -203,7 +163,7 @@ private:
                             SaturationProfile::VIBRANT};
   Orientation<W> orientation;
   FastNoiseLite noise;
-  uint16_t *pixel_to_node = nullptr;
+  ReactionGraph::CubemapLUT cube_lut;
   Timeline<W> timeline;
 
   struct Params {

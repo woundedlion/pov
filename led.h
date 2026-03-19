@@ -169,17 +169,22 @@ private:
    */
   static FASTRUN void show_col() {
 
+#if defined(ARDUINO) && defined(USE_DMA_LEDS)
+    // Direct Pixel16 → HD107S wire packing (no intermediate CRGB array).
+    auto& frame = ledController_.backFrame();
+    for (int y = 0; y < S / 2; ++y) {
+      frame.packPixel(S / 2 - y - 1, effect_->get_pixel(x_, y));
+      frame.packPixel(S / 2 + y, effect_->get_pixel(
+          (x_ + (effect_->width() / 2)) % effect_->width(), y));
+    }
+    ledController_.submitFrame();
+#else
     for (int y = 0; y < S / 2; ++y) {
       // Map to physical strip: top half is inverted, bottom half is straight.
       leds_[S / 2 - y - 1] = effect_->get_pixel(x_, y);
       leds_[S / 2 + y] = effect_->get_pixel(
           (x_ + (effect_->width() / 2)) % effect_->width(), y);
     }
-
-#ifdef USE_DMA_LEDS
-    // Non-blocking DMA transfer (HD107S)
-    ledController_.show(leds_);
-#else
     FastLED.show();
     if (effect_->show_bg()) {
       FastLED.showColor(CRGB(0, 0, 0));
@@ -194,8 +199,10 @@ private:
     }
   }
 
+#ifndef USE_DMA_LEDS
   static CRGB
       leds_[S]; /**< Array holding the CRGB data for the physical LED strip. */
+#endif
   static Effect
       *effect_; /**< Pointer to the currently running effect instance. */
   static int
@@ -209,7 +216,9 @@ template <int S, int RPM> int POVDisplay<S, RPM>::x_ = 0;
 
 template <int S, int RPM> Effect *POVDisplay<S, RPM>::effect_ = nullptr;
 
+#ifndef USE_DMA_LEDS
 template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
+#endif
 
 #if defined(ARDUINO) && defined(USE_DMA_LEDS)
 template <int S, int RPM>

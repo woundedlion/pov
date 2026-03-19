@@ -714,7 +714,7 @@ struct DistortedRing {
     return rotate(vi, make_rotation(axis, shift_fn(angle * PI_F / 2)));
   }
 
-  template <int W>
+  template <int W, int H>
   /**
    * @brief Samples a distorted ring.
    */
@@ -735,13 +735,22 @@ struct DistortedRing {
     const int num_samples = W;
     const float step = 2.0f * PI_F / num_samples;
 
+    // Precompute phase for angle-addition: cos/sin(θ+φ) via TrigLUT
+    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    const float cos_phase = cosf(phase);
+    const float sin_phase = sinf(phase);
+
     float cumulative_len = 0.0f;
     Vector last_pos;
 
     for (int i = 0; i < num_samples; i++) {
       float theta = i * step;
-      float t = theta + phase;
-      Vector u_temp = (u * cosf(t)) + (w * sinf(t));
+      // Angle-addition identity: cos/sin(θ+φ) from precomputed LUT
+      float cos_t = TrigLUT<W, H>::cos_theta[i] * cos_phase
+                  - TrigLUT<W, H>::sin_theta[i] * sin_phase;
+      float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase
+                  + TrigLUT<W, H>::cos_theta[i] * sin_phase;
+      Vector u_temp = (u * cos_t) + (w * sin_t);
 
       float shift = shift_fn(theta / (2.0f * PI_F));
       float cos_shift = cosf(shift);
@@ -799,7 +808,7 @@ struct DistortedRing {
     ScratchScope _frag(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, W + 2);
-    sample<W>(points, basis, radius, shift_fn, phase);
+    sample<W, H>(points, basis, radius, shift_fn, phase);
 
     if (vertex_shader) {
       for (auto &p : points) {

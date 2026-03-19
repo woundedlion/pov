@@ -26,7 +26,7 @@
 #include <SPI.h>
 #include <DMAChannel.h>
 #include <atomic>
-#include "color_luts.h"
+#include "color.h"
 
 // ============================================================================
 // HD107SFrame — Pre-formatted DMA buffer for the HD107S protocol
@@ -118,6 +118,52 @@ public:
     }
 
     // Flush data cache so DMA sees the updated buffer.
+    arm_dcache_flush_delete(buffer_, BUFFER_SIZE);
+  }
+
+  /**
+   * @brief Packs a single Pixel16 directly into the buffer with corrections.
+   * @param index LED index (0-based).
+   * @param p     Linear 16-bit pixel.
+   *
+   * Applies color/temperature/brightness corrections in linear 16-bit space
+   * then converts to sRGB 8-bit in a single pass (no intermediate CRGB).
+   */
+  FASTRUN inline void packPixel(int index, const Pixel16& p) {
+    uint8_t* dest = buffer_ + 4 + index * 4;
+
+    uint32_t r = p.r;
+    uint32_t g = p.g;
+    uint32_t b = p.b;
+
+    // Color correction + temperature + brightness (all linear 16-bit)
+    r = (r * corrR_) >> 8;
+    g = (g * corrG_) >> 8;
+    b = (b * corrB_) >> 8;
+
+    r = (r * tempR_) >> 8;
+    g = (g * tempG_) >> 8;
+    b = (b * tempB_) >> 8;
+
+    r = (r * brightness_) >> 8;
+    g = (g * brightness_) >> 8;
+    b = (b * brightness_) >> 8;
+
+    if (r > 65535) r = 65535;
+    if (g > 65535) g = 65535;
+    if (b > 65535) b = 65535;
+
+    // Single linear 16-bit → sRGB 8-bit conversion, packed in wire order
+    dest[0] = 0xFF;
+    dest[1] = linear_to_srgb_lut[b];
+    dest[2] = linear_to_srgb_lut[g];
+    dest[3] = linear_to_srgb_lut[r];
+  }
+
+  /**
+   * @brief Flushes data cache so DMA sees the buffer. Call after packPixel().
+   */
+  void flush() {
     arm_dcache_flush_delete(buffer_, BUFFER_SIZE);
   }
 
@@ -292,6 +338,29 @@ public:
 
     int back = 1 - activeBuffer_;
     frames_[back].load(pixels, N);
+    spi_.transmitAsync(frames_[back].data(), frames_[back].size());
+    activeBuffer_ = back;
+    transferCount_++;
+  }
+
+  /**
+   * @brief Returns the back frame (not currently being DMA'd).
+   * Pack pixels via packPixel(), then call submitFrame().
+   */
+  HD107SFrame<N>& backFrame() {
+    return frames_[1 - activeBuffer_];
+  }
+
+  /**
+   * @brief Flushes the back frame and triggers async DMA transfer.
+   * Call after all packPixel() calls on backFrame().
+   */
+  void submitFrame() {
+    if (!spi_.isComplete()) {
+      overrunCount_++;
+    }
+    int back = 1 - activeBuffer_;
+    frames_[back].flush();
     spi_.transmitAsync(frames_[back].data(), frames_[back].size());
     activeBuffer_ = back;
     transferCount_++;
