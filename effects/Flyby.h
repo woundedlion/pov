@@ -43,12 +43,12 @@ public:
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
-      auto [w, displacement] = warp(z, t);
+      float r_sq = z.re * z.re + z.im * z.im;
+      auto [w, displacement] = warp(z, r_sq, t);
       float pattern = sample(w, t);
-      float value = attenuate(pattern, z);
+      float value = attenuate(pattern, r_sq);
       Color4 c = palette.get(value);
       c.alpha *= powf(1.0f - value, params.falloff);
-      // Shift hue towards red proportional to noise displacement
       c = hue_rotate(c, -displacement * params.hue_shift);
       return c;
     };
@@ -68,9 +68,8 @@ private:
   };
 
   /// Noise-based displacement in stereographic space, attenuated near pole.
-  WarpResult warp(const Complex &z, float t) const {
+  WarpResult warp(const Complex &z, float r_sq, float t) const {
     float nt = t * 0.3f;
-    float r_sq = z.re * z.re + z.im * z.im;
     float atten =
         1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
     float strength = params.warp_strength * atten;
@@ -90,8 +89,7 @@ private:
   }
 
   /// Pole attenuation applied to pattern, normalized to [0,1].
-  float attenuate(float pattern, const Complex &z) const {
-    float r_sq = z.re * z.re + z.im * z.im;
+  float attenuate(float pattern, float r_sq) const {
     float fade = 1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
     return (pattern * fade + 1.0f) * 0.5f;
   }
