@@ -13,17 +13,22 @@ public:
   FLASHMEM Flyby() : Effect(W, H) { persist_pixels = false; }
 
   void init() override {
+
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
-    registerParam("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
+    registerParam("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
+    registerParam("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    registerParam("Time Speed", &params.time_speed, 0.01f, 2.0f);
-    registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
+    registerParam("Speed", &params.speed, 0.0f, 2.0f);
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
+    registerParam("Falloff", &params.falloff, 0.0f, 10.0f);
+    registerParam("Drift", &params.drift, 0.0f, 2.0f);
+    registerParam("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
-    timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
+    // Start with tangent plane at -Z, then rotate around Y
+    orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
+    timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
+                                           ease_mid, true));
 
     params = presets.get();
   }
@@ -34,65 +39,91 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    float t = static_cast<float>(timeline.t);
+    float t = static_cast<float>(timeline.t) * params.speed;
 
     auto shader = [&](const Vector &v) -> Color4 {
-      // Transform
-      Vector rotated_v = global_orientation.unorient(v);
-      Complex z = stereo(orientation.orient(rotated_v));
-
-      // Warp
-      float noise_time = t * 0.5f;
-      float warp_x =
-          noise.GetNoise(z.re * params.warp_scale, z.im * params.warp_scale,
-                         noise_time) *
-          params.warp_strength;
-      float warp_y =
-          noise.GetNoise(z.re * params.warp_scale + 100.0f,
-                         z.im * params.warp_scale + 100.0f, noise_time) *
-          params.warp_strength;
-
-      // Sample
-      float u = z.re + warp_x;
-      float v_coord = z.im + warp_y;
-      float pattern = sinf(u * params.pattern_freq + t) *
-                      cosf(v_coord * params.pattern_freq - t * 0.7f);
-      float r_sq = u * u + v_coord * v_coord;
-      float attenuation =
-          1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
-
-      float normalized = (pattern * attenuation + 1.0f) * 0.5f;
-      return palette.get(normalized);
+      Complex z = project(v);
+      auto [w, displacement] = warp(z, t);
+      float pattern = sample(w, t);
+      float value = attenuate(pattern, z);
+      Color4 c = palette.get(value);
+      c.alpha *= powf(1.0f - value, params.falloff);
+      // Shift hue towards red proportional to noise displacement
+      c = hue_rotate(c, -displacement * params.hue_shift);
+      return c;
     };
 
-    Scan::Shader::draw<W, H>(canvas, shader);
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
 private:
+  /// Stereographic projection with animated orientation.
+  Complex project(const Vector &v) const {
+    return stereo(orientation.unorient(v));
+  }
+
+  struct WarpResult {
+    Complex coords;
+    float displacement;
+  };
+
+  /// Noise-based displacement in stereographic space, attenuated near pole.
+  WarpResult warp(const Complex &z, float t) const {
+    float nt = t * 0.3f;
+    float r_sq = z.re * z.re + z.im * z.im;
+    float atten =
+        1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
+    float strength = params.warp_strength * atten;
+    float dx =
+        noise.GetNoise(z.re * params.warp_scale, z.im * params.warp_scale, nt) *
+        strength;
+    float dy = noise.GetNoise(z.re * params.warp_scale + 100.0f,
+                              z.im * params.warp_scale + 100.0f, nt) *
+               strength;
+    return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
+  }
+
+  /// Cartesian grid pattern from warped coordinates.
+  float sample(const Complex &w, float t) const {
+    return sinf(w.re * params.pattern_freq + t) *
+           cosf(w.im * params.pattern_freq - t * params.drift);
+  }
+
+  /// Pole attenuation applied to pattern, normalized to [0,1].
+  float attenuate(float pattern, const Complex &z) const {
+    float r_sq = z.re * z.re + z.im * z.im;
+    float fade = 1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
+    return (pattern * fade + 1.0f) * 0.5f;
+  }
+
   Timeline<W> timeline;
   Orientation<W> orientation;
-  Orientation<W> global_orientation;
   FastNoiseLite noise;
-  GenerativePalette palette{GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
-                            BrightnessProfile::CUP, SaturationProfile::VIBRANT,
-                            77};
+
+  GenerativePalette palette{
+      GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
+      BrightnessProfile::FLAT, SaturationProfile::MID, 42};
 
   struct Params {
     float warp_scale = 1.5f;
     float warp_strength = 0.5f;
-    float pattern_freq = 5.0f;
-    float time_speed = 0.05f;
-    float complexity = 1.0f;
+    float pattern_freq = 8.0f;
+    float speed = 0.30f;
     float pole_fade = 2.0f;
+    float falloff = 0.0f;
+    float drift = 0.7f;
+    float hue_shift = 0.15f;
 
     void lerp(const Params &a, const Params &b, float t) {
-      constexpr int N = 6;
-      float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq,
-                       &time_speed, &complexity,    &pole_fade};
+      constexpr int N = 8;
+      float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq, &speed,
+                       &pole_fade,  &falloff,       &drift,        &hue_shift};
       const float src[N] = {a.warp_scale, a.warp_strength, a.pattern_freq,
-                            a.time_speed, a.complexity,    a.pole_fade};
+                            a.speed,      a.pole_fade,     a.falloff,
+                            a.drift,      a.hue_shift};
       const float tgt[N] = {b.warp_scale, b.warp_strength, b.pattern_freq,
-                            b.time_speed, b.complexity,    b.pole_fade};
+                            b.speed,      b.pole_fade,     b.falloff,
+                            b.drift,      b.hue_shift};
       int active = 0;
       for (int i = 0; i < N; ++i)
         if (src[i] != tgt[i])
@@ -115,7 +146,9 @@ private:
   Params params;
 
   Presets<Params, 4> presets = {{{
-      {"Default", {1.5f, 0.5f, 5.0f, 0.05f, 1.0f, 2.0f}},
+      {{47.752f, 11.55f, 1.0f, 0.586f, 2.843f, 1.2f, 0.0f, 0.097f}},
+      {{1.5f, 0.5f, 8.0f, 0.30f, 2.0f, 1.2f, 0.7f, 0.15f}},
+      {{47.752f, 2.55f, 7.878f, 0.562f, 2.843f, 1.2f, 0.0f, 0.0f}},
   }}};
 };
 
