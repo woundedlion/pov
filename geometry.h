@@ -396,7 +396,7 @@ public:
    * @return The unrotated vector.
    */
   Vector unorient(const Vector &v) const {
-    return rotate(v, orientations[num_frames - 1].inverse());
+    return rotate(v, orientations[num_frames - 1].conjugate());
   }
 
   /**
@@ -407,7 +407,7 @@ public:
    * @return The unrotated vector.
    */
   Vector unorient(const Vector &v, int i) const {
-    return rotate(v, orientations[i].inverse());
+    return rotate(v, orientations[i].conjugate());
   }
 
   /**

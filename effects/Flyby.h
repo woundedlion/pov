@@ -30,6 +30,11 @@ public:
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
                                            ease_mid, true));
 
+    // Bake the generative palette into a fast 16-bit LUT
+    palette.bake(persistent_arena, GenerativePalette{
+        GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
+        BrightnessProfile::FLAT, SaturationProfile::MID, 42});
+
     params = presets.get();
   }
 
@@ -62,24 +67,11 @@ private:
     return stereo(orientation.unorient(v));
   }
 
-  struct WarpResult {
-    Complex coords;
-    float displacement;
-  };
-
-  /// Noise-based displacement in stereographic space, attenuated near pole.
-  WarpResult warp(const Complex &z, float r_sq, float t) const {
-    float nt = t * 0.3f;
-    float atten =
-        1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
-    float strength = params.warp_strength * atten;
-    float dx =
-        noise.GetNoise(z.re * params.warp_scale, z.im * params.warp_scale, nt) *
-        strength;
-    float dy = noise.GetNoise(z.re * params.warp_scale + 100.0f,
-                              z.im * params.warp_scale + 100.0f, nt) *
-               strength;
-    return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
+  /// Noise-based warp in stereographic space, attenuated near pole.
+  StereoWarpResult warp(const Complex &z, float r_sq, float t) const {
+    return stereo_noise_warp(z, r_sq, noise, params.warp_scale,
+                             params.warp_strength, params.pole_fade,
+                             t * 0.3f);
   }
 
   /// Cartesian grid pattern from warped coordinates.
@@ -98,9 +90,7 @@ private:
   Orientation<W> orientation;
   FastNoiseLite noise;
 
-  GenerativePalette palette{
-      GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
-      BrightnessProfile::FLAT, SaturationProfile::MID, 42};
+  BakedPalette palette;
 
   struct Params {
     float warp_scale = 1.5f;

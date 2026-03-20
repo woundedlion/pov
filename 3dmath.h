@@ -539,14 +539,20 @@ inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
 
 /**
  * @brief Rotates a vector by a unit quaternion.
+ * @details Expanded q*v*conj(q) formula: 15 muls + 15 adds, no division.
  * @param v The vector to rotate.
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
  */
 inline Vector rotate(const Vector &v, const Quaternion &q) {
-  Quaternion p(0, v);
-  auto r = q * p * q.inverse();
-  return r.v;
+  float qr = q.r, qx = q.v.x, qy = q.v.y, qz = q.v.z;
+  float tx = 2.0f * (qy * v.z - qz * v.y);
+  float ty = 2.0f * (qz * v.x - qx * v.z);
+  float tz = 2.0f * (qx * v.y - qy * v.x);
+  return Vector(
+      v.x + qr * tx + (qy * tz - qz * ty),
+      v.y + qr * ty + (qz * tx - qx * tz),
+      v.z + qr * tz + (qx * ty - qy * tx));
 }
 
 /**

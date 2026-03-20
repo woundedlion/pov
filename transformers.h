@@ -199,6 +199,40 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
 }
 
 /**
+ * @brief Result of a stereographic-space noise warp.
+ */
+struct StereoWarpResult {
+  Complex coords;       ///< Displaced coordinate
+  float displacement;   ///< Magnitude of the displacement vector
+};
+
+/**
+ * @brief Applies noise-based displacement in stereographic space.
+ * Displacement is attenuated near the projection pole to prevent
+ * singularity blowup. Returns both the warped coordinate and the
+ * scalar displacement for downstream effects (e.g., hue shifting).
+ *
+ * @param z         Stereographic coordinate to warp.
+ * @param r_sq      Pre-computed |z|² (z.re² + z.im²).
+ * @param noise     FastNoiseLite instance for sampling.
+ * @param scale     Noise frequency scale.
+ * @param strength  Maximum displacement amplitude.
+ * @param pole_fade Attenuation radius (larger = wider fade zone).
+ * @param time      Noise time coordinate (for animation).
+ */
+inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
+                                          const FastNoiseLite &noise,
+                                          float scale, float strength,
+                                          float pole_fade, float time) {
+  float atten = 1.0f / (1.0f + (r_sq / (pole_fade * pole_fade)));
+  float s = strength * atten;
+  float dx = noise.GetNoise(z.re * scale, z.im * scale, time) * s;
+  float dy =
+      noise.GetNoise(z.re * scale + 100.0f, z.im * scale + 100.0f, time) * s;
+  return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
+}
+
+/**
  * @brief Generates ripples that warp the sphere
  */
 template <int W, int CAPACITY>
