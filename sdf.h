@@ -1901,80 +1901,62 @@ struct Torus {
 };
 
 /**
- * @brief 3D Twisted Torus SDF — tube center oscillates vertically.
- *
- * Pure canonical geometry: ring in XZ plane, Y up. No spin awareness.
- * Callers apply orientation (spin) via coordinate transform BEFORE
- * calling distance/normal (e.g. worldToSpunLocal).
- *
- * When amplitude > r the tube passes through itself. A Lipschitz
- * correction is applied to positive distances to prevent the sphere
- * tracer from stepping through thin self-intersection regions.
+ * @brief Domain warp functions for composing with WarpedSDF.
  */
-struct TwistedTorus {
-  float R;         ///< Major radius (ring centerline)
-  float r;         ///< Minor radius (tube cross-section)
-  int twist;       ///< Number of vertical oscillations
-  float amplitude; ///< Vertical displacement of tube center
+namespace Warp {
 
-  /// Cheap lower-bound SDF: bounding torus with inflated radius.
-  /// No trig — just 2 sqrtf. Safe for sphere tracing (always ≤ true distance).
-  float bounding_distance(const Vector &p) const {
-    float s = sqrtf(p.x * p.x + p.z * p.z);
-    float q = s - R;
-    return sqrtf(q * q + p.y * p.y) - (r + amplitude);
-  }
+/**
+ * @brief Oscillates the Y coordinate sinusoidally around the azimuthal
+ * angle θ = atan2(z, x).
+ *
+ * Produces twisted/undulating geometry when composed with a torus.
+ * Provides an analytical Lipschitz bound for safe sphere tracing.
+ */
+struct Twist {
+  int twist;       ///< Number of oscillations around the ring
+  float amplitude; ///< Vertical displacement magnitude
+  float R;         ///< Major radius (needed for Lipschitz bound)
 
-  /// Raw SDF distance (no Lipschitz correction). Use for surface projection.
-  float raw_distance(const Vector &p) const {
-    float s = sqrtf(p.x * p.x + p.z * p.z);
-    float q = s - R;
+  /// Warp the domain: displace Y by amplitude * sin(twist * θ).
+  Vector apply(const Vector &p) const {
     float theta = atan2f(p.z, p.x);
-    float h = p.y - amplitude * sinf(static_cast<float>(twist) * theta);
-    return sqrtf(q * q + h * h) - r;
+    return Vector(p.x, p.y - amplitude * sinf(static_cast<float>(twist) * theta),
+                  p.z);
   }
 
-  /// March-safe distance with Lipschitz correction for sphere tracing.
-  float distance(const Vector &p) const {
-    // Cheap bounding check — skip expensive trig if far from surface
+  /// Analytical Lipschitz constant at point p.
+  /// The twist derivative can push |∇f| above 1; this bounds the maximum.
+  float lipschitz(const Vector &p) const {
+    if (twist == 0) return 1.0f;
     float s = sqrtf(p.x * p.x + p.z * p.z);
-    float q = s - R;
-    float bd = sqrtf(q * q + p.y * p.y) - (r + amplitude);
-    if (bd > r) return bd;
-
-    float theta = atan2f(p.z, p.x);
-    float h = p.y - amplitude * sinf(static_cast<float>(twist) * theta);
-    float d = sqrtf(q * q + h * h) - r;
-
-    // Lipschitz correction: the twist term can push |∇f| above 1 near
-    // self-intersection crossings. Halved factor balances safety vs speed.
-    if (d > 0.0f && twist > 0) {
-      float lip = 1.0f + static_cast<float>(twist) * amplitude /
-                             (2.0f * std::max(s, R * 0.5f));
-      d /= lip;
-    }
-    return d;
+    return 1.0f + static_cast<float>(twist) * amplitude /
+                      (2.0f * std::max(s, R * 0.5f));
   }
 
-  /// Analytical surface normal via gradient of the SDF.
-  Vector normal(const Vector &p) const {
+  /// Maximum possible inflation of the bounding volume.
+  float bounding_inflation() const { return amplitude; }
+
+  /// Analytical normal correction via chain rule.
+  /// Takes the base SDF normal at the warped point and corrects for the
+  /// warp's Jacobian to produce the true surface normal.
+  Vector correct_normal(const Vector &p, const Vector &base_n) const {
+    if (twist == 0 || amplitude < TOLERANCE) return base_n;
     float s = sqrtf(p.x * p.x + p.z * p.z);
     float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
-    float q = s - R;
     float theta = atan2f(p.z, p.x);
-    float n_theta = static_cast<float>(twist) * theta;
-    float h = p.y - amplitude * sinf(n_theta);
-
-    float D = sqrtf(q * q + h * h);
-    float inv_D = (D > TOLERANCE) ? 1.0f / D : 0.0f;
-
-    // dh/dθ, with ∂θ/∂x = -z/s², ∂θ/∂z = x/s²
-    float dh_dtheta = -amplitude * static_cast<float>(twist) * cosf(n_theta);
+    float dh_dtheta =
+        -amplitude * static_cast<float>(twist) *
+        cosf(static_cast<float>(twist) * theta);
     float inv_s2 = inv_s * inv_s;
 
-    float nx = inv_D * (q * p.x * inv_s + h * dh_dtheta * (-p.z) * inv_s2);
-    float ny = inv_D * h;
-    float nz = inv_D * (q * p.z * inv_s + h * dh_dtheta * p.x * inv_s2);
+    // The warp Jacobian J^T maps the base normal back to the original domain.
+    // For twist warp: J^T * n adds dh/dx and dh/dz contributions to ny.
+    float dh_dx = dh_dtheta * (-p.z) * inv_s2;
+    float dh_dz = dh_dtheta * p.x * inv_s2;
+
+    float nx = base_n.x - base_n.y * dh_dx;
+    float ny = base_n.y;
+    float nz = base_n.z - base_n.y * dh_dz;
 
     float nl = sqrtf(nx * nx + ny * ny + nz * nz);
     if (nl > TOLERANCE) {
@@ -1984,6 +1966,58 @@ struct TwistedTorus {
       nz *= inv;
     }
     return Vector(nx, ny, nz);
+  }
+};
+
+} // namespace Warp
+
+/**
+ * @brief Composable domain-warped volume SDF.
+ *
+ * Applies a Warp to the input domain of any 3D volume SDF, with:
+ * - Bounding fast-path (skips warp trig when far from surface)
+ * - Analytical Lipschitz correction for safe sphere tracing
+ * - Normal correction via the warp's chain rule
+ *
+ * @tparam SDF  Base 3D volume (must have distance(), normal())
+ * @tparam Warp Domain warp (must have apply(), lipschitz(), bounding_inflation())
+ */
+template <typename SDF, typename Warp> struct WarpedVolume {
+  SDF base;
+  Warp warp;
+
+  /// Cheap lower-bound: base distance minus warp's maximum displacement.
+  /// Safe for sphere tracing (always ≤ true distance). No warp trig.
+  float bounding_distance(const Vector &p) const {
+    return base.distance(p) - warp.bounding_inflation();
+  }
+
+  /// Raw SDF distance (no Lipschitz correction). Use for surface projection.
+  float raw_distance(const Vector &p) const {
+    return base.distance(warp.apply(p));
+  }
+
+  /// March-safe distance with bounding fast-path and Lipschitz correction.
+  float distance(const Vector &p) const {
+    float bd = bounding_distance(p);
+    if (bd > warp.bounding_inflation()) return bd;
+
+    float d = base.distance(warp.apply(p));
+
+    if (d > 0.0f) {
+      float lip = warp.lipschitz(p);
+      if (lip > 1.0f) d /= lip;
+    }
+    return d;
+  }
+
+  /// Surface normal with warp chain-rule correction.
+  Vector normal(const Vector &p) const {
+    Vector base_n = base.normal(warp.apply(p));
+    if constexpr (requires { warp.correct_normal(p, base_n); }) {
+      return warp.correct_normal(p, base_n);
+    }
+    return base_n;
   }
 
   /// Populate a Fragment's registers for shading.
