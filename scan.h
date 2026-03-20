@@ -670,7 +670,7 @@ struct Volume {
             if (d < -aa_width)
               break;
 
-            float advance = std::max(d * 0.9f, 1e-5f);
+            float advance = std::max(d * 0.95f, 1e-5f);
             local_p = Vector(local_p.x + local_vd.x * advance,
                              local_p.y + local_vd.y * advance,
                              local_p.z + local_vd.z * advance);
