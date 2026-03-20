@@ -654,6 +654,12 @@ struct Volume {
 
           // --- Sphere tracing in local space ---
           for (int i = 0; i < max_steps; ++i) {
+            // Early out: ray has exited the back of the bounding sphere
+            if (local_p.x * local_vd.x + local_p.y * local_vd.y +
+                    local_p.z * local_vd.z >
+                bounds_radius)
+              break;
+
             float d = shape.distance(local_p);
 
             if (d < closest_d) {

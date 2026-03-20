@@ -95,13 +95,18 @@ private:
     float t = static_cast<float>(timeline.t) / 60.0f;
     float anim_t = t * params.pulse_speed;
 
-    SDF::TwistedTorus torus{params.core_size * 0.45f, params.core_size * 0.14f,
-                            static_cast<int>(params.twist),
-                            params.core_size * 0.14f * 2.5f};
-    float bounds_radius = sqrtf((torus.R + torus.r) * (torus.R + torus.r) +
-                                torus.amplitude * torus.amplitude) +
-                          torus.r;
-    float aa_width = torus.r * params.aa_mult;
+    float major_r = params.core_size * 0.45f;
+    float minor_r = params.core_size * 0.14f;
+    int twist_n = static_cast<int>(params.twist);
+    float twist_amp = minor_r * 2.5f;
+
+    SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+        {major_r, minor_r}, {twist_n, twist_amp, major_r}};
+
+    float bounds_radius = sqrtf((major_r + minor_r) * (major_r + minor_r) +
+                                twist_amp * twist_amp) +
+                          minor_r;
+    float aa_width = minor_r * params.aa_mult;
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
     // Tumble rotation around local X-axis (tangent)
@@ -117,8 +122,6 @@ private:
       Quaternion world_q = camera.get() * raw_quats[vi] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
 
-      Scan::TransformedVolume vol(torus, vertex, world_q);
-
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
         Vector n_local = torus.normal(loc);
         Vector n_world = rotate(n_local, world_q);
@@ -131,6 +134,7 @@ private:
         frag.color = Color4(c.color * shade, opacity);
       };
 
+      Scan::TransformedVolume vol(torus, vertex, world_q);
       Scan::Volume::draw<W, H>(pipeline, canvas, vertex, bounds_radius,
                                view_dir, vol, frag_fn, max_steps, aa_width);
     }
