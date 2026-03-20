@@ -98,18 +98,14 @@ private:
                                          &bloodStreamPalette};
 
   Presets<Params, 4> preset_manager = {
-      .entries = {{{"rhombicuboctahedron",
-                    {"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
-                     &bloodStreamFalloff, 0.7f, false}},
-                   {"rhombicosidodecahedron",
-                    {"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-                     &bloodStreamFalloff, 0.7f, false}},
-                   {"truncatedCuboctahedron",
-                    {"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-                      &Palettes::richSunset, 0.3f, false}},
-                   {"icosidodecahedron",
-                    {"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-                      &Palettes::lavenderLake, 0.3f, false}}}},
+      .entries = {{{{  "rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
+                      &bloodStreamFalloff, 0.7f, false}},
+                   {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
+                      &bloodStreamFalloff, 0.7f, false}},
+                   {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
+                       &Palettes::richSunset, 0.3f, false}},
+                   {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
+                       &Palettes::lavenderLake, 0.3f, false}}}},
       .current_idx = 0};
 
   FLASHMEM void setup_presets() {

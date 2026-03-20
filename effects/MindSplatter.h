@@ -12,11 +12,11 @@
 template <int W, int H> class MindSplatter : public Effect {
 public:
   FLASHMEM MindSplatter()
-      : Effect(W, H), presets{{{{"Tight", {0.85f, 1.0f, 0.025f, 0.2f}},
-                                {"SpiralA", {0.85f, 1.0f, 0.025f, 0.52f}},
-                                {"SpiralB", {0.85f, 1.0f, 0.025f, 0.92f}},
-                                {"Medium", {0.85f, 2.0f, 0.094f, 0.2f}},
-                                {"Loose", {0.85f, 3.0f, 0.035f, 1.0f}}}}},
+      : Effect(W, H), presets{{{{{0.85f, 1.0f, 0.025f, 0.2f}},
+                                {{0.85f, 1.0f, 0.025f, 0.52f}},
+                                {{0.85f, 1.0f, 0.025f, 0.92f}},
+                                {{0.85f, 2.0f, 0.094f, 0.2f}},
+                                {{0.85f, 3.0f, 0.035f, 1.0f}}}}},
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}

@@ -32,8 +32,7 @@ public:
     }
   } params;
 
-  Presets<Params, 1> preset_manager = {{{{"gloopy",
-                                          {/* alpha */ 1.0f,
+  Presets<Params, 1> preset_manager = {{{{{/* alpha */ 1.0f,
                                            /* cycle duration */ 80.0f,
                                            /* jitter amp */ 1.7f,
                                            /* speed */ 0.04f,

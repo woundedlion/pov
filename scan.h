@@ -102,8 +102,8 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   StaticCircularBuffer<std::pair<float, float>, 32> intervals;
 
   for (int y = y_min; y <= y_max; ++y) {
-    bool handled =
-        get_intervals(y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
+    bool handled = get_intervals(
+        y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
 
     if (handled && !intervals.is_empty()) {
       float current_end = -FLT_MAX;
@@ -149,10 +149,9 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
 /**
  * @brief Computes bounding sphere y-range and per-row x intervals.
  */
-template <int W, int H>
-struct BoundingSphere {
+template <int W, int H> struct BoundingSphere {
   int y_min, y_max;
-  float center_theta;  // longitude of center in pixel units
+  float center_theta; // longitude of center in pixel units
   float angular_radius;
 
   BoundingSphere(const Vector &center, float bounds_radius)
@@ -161,13 +160,14 @@ struct BoundingSphere {
     center_theta = center_px.x;
     constexpr int H_VIRT = H + hs::H_OFFSET;
     float center_phi = (center_px.y * PI_F) / (H_VIRT - 1);
-    y_min = std::max(0, static_cast<int>(phi_to_y<H>(center_phi - angular_radius)));
-    y_max = std::min(H - 1, static_cast<int>(ceilf(phi_to_y<H>(center_phi + angular_radius))));
+    y_min =
+        std::max(0, static_cast<int>(phi_to_y<H>(center_phi - angular_radius)));
+    y_max = std::min(H - 1, static_cast<int>(ceilf(
+                                phi_to_y<H>(center_phi + angular_radius))));
   }
 
   /// Push a single interval for row y based on longitude span at that latitude.
-  template <typename OutFn>
-  bool get_intervals(int y, OutFn &&out) const {
+  template <typename OutFn> bool get_intervals(int y, OutFn &&out) const {
     float phi = y_to_phi<H>(y);
     float sin_phi = sinf(phi);
     float theta_span;
@@ -438,7 +438,7 @@ struct Mesh {
  * The utility calls it SAMPLES× per pixel at sub-pixel offsets and averages.
  */
 struct Shader {
-  template <int W, int H, int SAMPLES = 4, typename ShaderFn>
+  template <int W, int H, int SAMPLES = 1, typename ShaderFn>
   static void draw(Canvas &canvas, ShaderFn &&shader) {
     constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
     constexpr float w_float = static_cast<float>(W);
@@ -559,8 +559,7 @@ struct Shader {
  * The quaternion q maps local→world: world_p = center + rotate(local_p, q)
  * ray_to_local uses q.inverse() to map world→local.
  */
-template <typename SDF>
-struct TransformedVolume {
+template <typename SDF> struct TransformedVolume {
   const SDF &sdf;
   Vector center;
   Quaternion q_inv; // precomputed inverse (world→local)
@@ -598,8 +597,8 @@ struct TransformedVolume {
 struct Volume {
   /**
    * Shape concept:
-   *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector &vd) const;
-   *   float distance(const Vector &local_point) const;
+   *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector
+   * &vd) const; float distance(const Vector &local_point) const;
    */
   template <int W, int H, typename Shape>
   static void
@@ -631,9 +630,7 @@ struct Volume {
 
     scan_region<W, H>(
         bounds.y_min, bounds.y_max,
-        [&](int y, auto &&out) {
-          return bounds.get_intervals(y, out);
-        },
+        [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
         [&](int wx, int y, const Vector &p) {
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
@@ -693,8 +690,8 @@ struct Volume {
           if (closest_d <= hit_threshold) {
             edge_alpha = 1.0f;
           } else {
-            edge_alpha = quintic_kernel(
-                1.0f - (closest_d - hit_threshold) / (aa_width - hit_threshold));
+            edge_alpha = quintic_kernel(1.0f - (closest_d - hit_threshold) /
+                                                   (aa_width - hit_threshold));
           }
 
           // Self-occlusion probe in local space
