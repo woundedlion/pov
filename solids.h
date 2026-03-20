@@ -32,14 +32,11 @@ static constexpr int MAX_INDICES = 20000;
 FLASHMEM inline PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
   final_mesh.vertices.bind(geom, temp.vertices.size());
-  for (size_t i = 0; i < temp.vertices.size(); ++i)
-    final_mesh.vertices.push_back(temp.vertices[i]);
+  final_mesh.vertices.append_bulk(temp.vertices.data(), temp.vertices.size());
   final_mesh.face_counts.bind(geom, temp.face_counts.size());
-  for (size_t i = 0; i < temp.face_counts.size(); ++i)
-    final_mesh.face_counts.push_back(temp.face_counts[i]);
+  final_mesh.face_counts.append_bulk(temp.face_counts.data(), temp.face_counts.size());
   final_mesh.faces.bind(geom, temp.faces.size());
-  for (size_t i = 0; i < temp.faces.size(); ++i)
-    final_mesh.faces.push_back(temp.faces[i]);
+  final_mesh.faces.append_bulk(temp.faces.data(), temp.faces.size());
   return final_mesh;
 }
 
@@ -170,11 +167,9 @@ struct Dodecahedron {
 template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   PolyMesh mesh;
   mesh.vertices.bind(target, StaticMeshT::vertices.size());
-  for (const auto &v : StaticMeshT::vertices)
-    mesh.vertices.push_back(v);
+  mesh.vertices.append_bulk(StaticMeshT::vertices.data(), StaticMeshT::vertices.size());
   mesh.face_counts.bind(target, StaticMeshT::face_counts.size());
-  for (const auto &c : StaticMeshT::face_counts)
-    mesh.face_counts.push_back(c);
+  mesh.face_counts.append_bulk(StaticMeshT::face_counts.data(), StaticMeshT::face_counts.size());
   mesh.faces.bind(target, StaticMeshT::faces.size());
   for (const auto &f : StaticMeshT::faces)
     mesh.faces.push_back(f);

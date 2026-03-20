@@ -240,6 +240,15 @@ public:
     size_++;
   }
 
+  /// Bulk-append from a contiguous source. T must be trivially copyable.
+  void append_bulk(const T *src, size_t count) {
+    check_alive();
+    check_bound();
+    assert(size_ + count <= capacity_ && "ArenaVector bulk append exceeds capacity!");
+    memcpy(static_cast<void*>(data_ + size_), src, count * sizeof(T));
+    size_ += count;
+  }
+
   template <typename... Args> T &emplace_back(Args &&...args) {
     check_alive();
     check_bound();
