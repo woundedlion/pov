@@ -14,6 +14,8 @@
 #include "util.h"
 #include "static_circular_buffer.h"
 
+#include "memory.h"
+
 inline uint16_t srgb_to_linear(uint8_t srgb);
 
 /**
@@ -1088,6 +1090,40 @@ public:
   SolidColorPalette(const Color4 &color) : color(color) {}
   Color4 get(float t) const override { return color; }
   Color4 color;
+};
+
+/// Pre-baked 256-entry Pixel16 LUT allocated in an arena.
+/// Converts any Palette into a fast table lookup with lerp interpolation.
+/// Not a Palette subclass — call get(t) directly for zero-overhead lookups.
+class BakedPalette {
+public:
+  static constexpr int LUT_SIZE = 256;
+
+  BakedPalette() = default;
+
+  /// Bake a palette into a 256-entry LUT in the given arena.
+  void bake(Arena &arena, const Palette &source) {
+    lut_ = static_cast<Pixel16 *>(
+        arena.allocate(LUT_SIZE * sizeof(Pixel16), alignof(Pixel16)));
+    for (int i = 0; i < LUT_SIZE; ++i) {
+      float t = static_cast<float>(i) / (LUT_SIZE - 1);
+      Color4 c = source.get(t);
+      lut_[i] = c.color;
+    }
+  }
+
+  /// Fast lookup with linear interpolation between adjacent entries.
+  Color4 get(float t) const {
+    float idx = t * (LUT_SIZE - 1);
+    int lo = static_cast<int>(idx);
+    if (lo >= LUT_SIZE - 1) return Color4(lut_[LUT_SIZE - 1], 1.0f);
+    if (lo < 0) return Color4(lut_[0], 1.0f);
+    uint16_t frac = static_cast<uint16_t>((idx - lo) * 65535.0f);
+    return Color4(lut_[lo].lerp16(lut_[lo + 1], frac), 1.0f);
+  }
+
+private:
+  Pixel16 *lut_ = nullptr;
 };
 
 // Implementations that require all palette types to be complete

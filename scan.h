@@ -447,12 +447,7 @@ struct Shader {
       // 1× — single sample at pixel center (no SSAA)
       for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
-          float px = static_cast<float>(x);
-          float py = static_cast<float>(y);
-          float theta = (px * 2.0f * PI_F) / w_float;
-          float phi = (py * PI_F) / h_virt_minus_1;
-          float sin_phi = sinf(phi);
-          Vector v(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
+          Vector v = pixel_to_vector<W, H>(x, y);
           Color4 sample = shader(v);
           canvas(x, y) = sample.color * sample.alpha;
         }
