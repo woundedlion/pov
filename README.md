@@ -85,13 +85,12 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 ├── rotate.h                Quaternion projection helpers
 ├── generators.h            IGenerator<T> and IMeshGenerator interfaces + solid generators
 ├── presets.h               Generic Presets<Params, Size> template for preset management
-├── ShaderEffect.h          Intermediate base class for per-pixel shader effects
 ├── util.h                  wrap(), fast_wrap(), clamp()
 │
 ├── reaction_graph.h        Precomputed Fibonacci-lattice K-NN graph for reaction-diffusion
-├── reaction_graph.cpp      147 KB neighbor table (RD_N=3840, RD_K=6)
+├── reaction_graph.cpp      301 KB neighbor table (RD_N=7680, RD_K=6)
 │
-├── effects/                One .h per effect (26 effects + 2 test effects)
+├── effects/                One .h per effect (27 effects + 2 test effects)
 │   ├── BZReactionDiffusion.h
 │   ├── ChaoticStrings.h
 │   ├── Comets.h
@@ -105,6 +104,7 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 │   ├── HopfFibration.h
 │   ├── IslamicStars.h
 │   ├── Liquid2D.h
+│   ├── Raymarch.h
 
 │   ├── MeshFeedback.h
 │   ├── Metaballs.h
@@ -290,6 +290,7 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 | `World::Orient<W>` | Rotates every incoming 3D point by the current `Orientation` quaternion. Uses the orientation history to distribute motion-blur age values across a SLERP-interpolated sweep. |
 | `World::Trails<W, Capacity>` | Stores world-space points in an arena-allocated ring buffer with a TTL countdown. On `flush()`, re-draws aged points through a `TrailFn` color function. Trail items are quantized to 8 bytes each (int16 xyz + uint8 TTL). |
 | `World::Replicate<W>` | Clones geometry N times around the Y-axis by re-plotting each point rotated by `2π/N`. |
+| `World::VertexReplicate<W, N>` | Replicates geometry onto the N vertices of a solid by precomputing rotation quaternions from vertex[0] to each other vertex. |
 | `World::Mobius<W>` | Applies a Möbius transformation via stereographic projection: sphere → complex plane → Möbius(z) → back to sphere. |
 | `World::Hole<W>` | Masks out a spherical cap by attenuating points within a radius via quintic falloff. Supports both by-value and by-reference origin (`HoleRef<W>`). |
 | `World::OrientSlice<W>` | Selects from a list of orientations based on each point's projection along an axis — enables per-hemisphere rotation effects. |
@@ -301,7 +302,6 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 | `Screen::AntiAlias<W,H>` | Distributes a sub-pixel coordinate to its 4 nearest integer pixels using `quintic_kernel` bilinear weights. |
 | `Screen::Blur<W, H>` | Applies a parameterized 3×3 Gaussian convolution kernel at plot time. |
 | `Screen::Trails<W>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. Uses arena-allocated storage. |
-| `Screen::Slew<W, Capacity>` | Phosphor-style persistence: every plotted pixel is re-drawn with exponentially decaying alpha until it fades out. Uses arena-allocated ring buffer storage. |
 
 #### Pixel-Space Filters
 
@@ -350,20 +350,25 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 | `SDF::Ring` | Geodesic circle at a given radius and thickness |
 | `SDF::DistortedRing` | Ring with per-azimuth radius perturbation via a callback |
 | `SDF::Polygon` | Regular N-gon in the tangent plane of a basis vector |
+| `SDF::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `SDF::Star` | N-pointed star using the standard inradius/circumradius construction |
 | `SDF::Flower` | Inverted star (N-petal flower shape from the antipodal perspective) |
 | `SDF::HarmonicBlob` | Shape defined by a spherical harmonic Yˡₘ function |
 | `SDF::Line` | Geodesic line segment between two sphere-surface points |
 | `SDF::Face` | Planar polygon face (used for mesh rendering) |
+| `SDF::Torus` | Torus SDF with configurable major/minor radii |
+| `SDF::TwistedTorus` | Torus with configurable twist deformation and amplitude |
 
 #### CSG Operations (`sdf.h`)
 
 Shapes can be combined using Constructive Solid Geometry:
 
 ```cpp
-SDF::Union<Ring, Polygon>       // min(d_A, d_B)
-SDF::Subtract<Ring, Polygon>    // max(d_A, -d_B)
-SDF::Intersection<Ring, Polygon>// max(d_A, d_B) with interval intersection
+SDF::Union<Ring, Polygon>        // min(d_A, d_B)
+SDF::SmoothUnion<Ring, Polygon>  // smooth minimum with blending radius
+SDF::Subtract<Ring, Polygon>     // max(d_A, -d_B)
+SDF::Intersection<Ring, Polygon> // max(d_A, d_B) with interval intersection
+SDF::AngularRepeat<Shape>        // N-fold angular repetition around an axis
 ```
 
 #### Scan Rasterization Primitives (`scan.h`)
@@ -383,6 +388,9 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Scan::HarmonicBlob` | Spherical harmonic shape |
 | `Scan::Mesh` | Rasterizes all faces of a `MeshState` or `PolyMesh` |
+| `Scan::Shader` | Full-screen per-pixel shader with configurable SSAA (super-sample anti-aliasing). Accepts a fragment shader callback and optional vertex shader. |
+| `Scan::TransformedVolume` | Wraps an SDF shape with a world-space position and orientation quaternion for volumetric rendering |
+| `Scan::Volume` | Volumetric ray-marcher that steps along the view direction through a `TransformedVolume`, applying a fragment shader at the hit point with configurable step count and AA width |
 
 ### 6.2 The Curve Rasterizer (`plot.h`)
 
@@ -420,7 +428,7 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `StaticCircula
 
 ### 6.3 The Animation System (`animation.h`)
 
-The `Timeline<W>` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase<Derived>` using CRTP.
+The `Timeline<W>` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase<Derived>` using CRTP for method chaining (e.g. `.then()` returns the derived type).
 
 #### Animation Types
 
@@ -496,11 +504,11 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 
 ### 6.5 Memory Architecture (`memory.h`, `memory.cpp`)
 
-A single contiguous memory block (`GLOBAL_ARENA_SIZE = 345 KB`) is partitioned into three arena allocators. This block is the same size on both Teensy and WASM targets. Individual effects can call `configure_arenas()` to repartition the block at runtime.
+A single contiguous memory block (`GLOBAL_ARENA_SIZE = 335 KB`) is partitioned into three arena allocators. This block is the same size on both Teensy and WASM targets. Individual effects can call `configure_arenas()` to repartition the block at runtime.
 
 | Arena | Default Size | Purpose |
 |---|---|---|
-| `persistent_arena` | 313 KB | Long-lived compiled mesh data, persists across frames |
+| `persistent_arena` | 303 KB | Long-lived compiled mesh data, persists across frames |
 | `scratch_arena_a` | 16 KB | Short-lived intermediate geometry (RAII scoped) |
 | `scratch_arena_b` | 16 KB | Secondary scratch for ping-pong subdivision passes |
 
@@ -578,7 +586,7 @@ FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel16
 | `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with brightness/saturation profiles. Supports snapshot/lerp for animated transitions. |
 | `SolidColorPalette` | Constant color, adapts to the `Palette` interface. |
 
-Twenty named `ProceduralPalette` instances are pre-defined: `richSunset`, `embers`, `lavenderLake`, `bruisedMoss`, `brightSunrise`, `undersea`, `iceMelt`, `fireGlow`, `darkPrimary`, and more.
+Twenty-one named `ProceduralPalette` instances are pre-defined: `darkRainbow`, `bloodStream`, `vintageSunset`, `richSunset`, `undersea`, `lateSunset`, `mangoPeel`, `iceMelt`, `lemonLime`, `algae`, `embers`, `fireGlow`, `darkPrimary`, `mauveFade`, `lavenderLake`, `desertRose`, `bruisedMoss`, `bruisedBanana`, `brightSunrise`, `fireAndIce`, and `peachPop`.
 
 ### 6.7 The Mesh System (`mesh.h`, `conway.h`, `hankin.h`, `spatial.h`, `solids.h`)
 
@@ -698,11 +706,7 @@ presets.next();  // advance to next preset
 presets.apply(current_params);  // copy current preset into live params
 ```
 
-### 6.10 Shader Effects (`ShaderEffect.h`)
-
-`ShaderEffect<W,H>` is an intermediate base class for per-pixel "shader" effects. It provides the full draw_frame loop with 4× SSAA (super-sample anti-aliasing), timeline, dual orientation (view + global), noise generator, and palette. Leaf classes only implement `transform()` (world-space vector → complex sample coordinate) and `sample()` (complex coordinate → pattern intensity).
-
-### 6.11 DMA LED Controller (`dma_led.h`)
+### 6.10 DMA LED Controller (`dma_led.h`)
 
 An optional non-blocking DMA-based LED output path for HD107S (APA102-compatible) LEDs on Teensy 4.x. Enabled by defining `USE_DMA_LEDS` in `led.h`; the default FastLED/WS2801 path remains as fallback.
 
@@ -787,7 +791,7 @@ When `persist_pixels = true`, `Canvas` copies the previous frame's buffer into t
 ### Core Effects (Modern Engine)
 
 #### BZReactionDiffusion
-Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph (`ReactionGraph`: 3840 nodes, 6 neighbors each, precomputed Fibonacci lattice) with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
+Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph (`ReactionGraph`: 7680 nodes, 6 neighbors each, precomputed Fibonacci lattice) with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
 
 **Parameters**: Alpha (color intensity), Diff (diffusion rate), Speed (time step), GlobalAlpha
 
@@ -851,7 +855,9 @@ Lissajous curves whose frequency ratios slowly sweep through rational approximat
 Catalan solid mesh faces rendered with `Scan::Mesh`, distorted by a `NoiseTransformer` and given a feedback-loop appearance via `Filter::Pixel::Feedback`. Cycles through the Catalan solid library with crossfade morphing between shapes using `Animation::Lerp` and the `Presets` system.
 
 #### Liquid2D
-Inverse-projection shader (extends `ShaderEffect`) that samples world-space through a configurable lens. Supports 4× SSAA (super-sample anti-aliasing), radial fade via `Filter::World::Hole`, and glitch lens distortion effects.
+Stereographic-projection shader (extends `Effect` directly) that samples world-space through a configurable glitch lens (hemisphere mirror + squish/warp). Dual random-walk orientations animate the view and global rotation independently, producing flowing liquid distortion. Uses `Scan::Shader::draw` for full-screen pixel shading and `StaticPalette` with a `BreatheModifier` for animated palette cycling.
+
+**Parameters**: Warp Scale, Warp Strength, Pattern Freq, Time Speed, Complexity, Pole Fade, Cycle Speed
 
 #### MindSplatter
 Random-walk particle system with Möbius warp bursts.
@@ -865,10 +871,15 @@ Directional particle jets.
 #### GnomonicStars
 Star polygon SDFs that rotate continuously. Uses gnomonic projection (straight lines on sphere remain straight).
 
-#### Flyby
-Stereographic-projection shader (extends `Effect` directly) with noise-driven warp distortion. Dual random-walk orientations animate the view and projection independently, producing a fly-through effect on the sphere surface.
+#### Raymarch
+Volumetric raymarcher that renders twisted tori at the 20 vertices of a dodecahedron. Each torus is ray-marched with `Scan::Volume::draw` and lit with metallic Blinn-Phong shading (half-Lambert diffuse, specular highlights, Fresnel rim). A random-walk animation drives the camera orientation.
 
-**Parameters**: Warp Scale, Warp Strength, Pattern Freq, Time Speed, Complexity, Pole Fade
+**Parameters**: Pulse Speed, Core Size, Max Steps, Diffuse, Specular, Fresnel, Twist, AA Width
+
+#### Flyby
+Stereographic-projection shader (extends `Effect` directly) with noise-driven warp distortion. A single `Rotation` animation continuously rotates the tangent plane around the Y-axis, producing a fly-through effect on the sphere surface. Uses `Scan::Shader::draw` for full-screen pixel shading with a baked palette.
+
+**Parameters**: Warp Scale, Warp Strength, Pattern Freq, Speed, Pole Fade, Falloff, Drift, Hue Shift
 
 #### SplineFlow
 Catmull-Rom spline curves whose control points drift via independent random walks. Drawn with `Plot::SplineChain` in closed-loop mode through `World::Trails` for persistent trails, producing flowing organic ribbon paths.
@@ -933,17 +944,6 @@ params.forEach(p => {
 ```
 
 `getParamValues()` is polled each frame to sync the GUI with parameter values that the animation system has changed autonomously. The sync skips any control the user is currently interacting with to avoid fighting the slider.
-
-### Tools
-
-Four standalone HTML tools are included:
-
-| Tool | Description |
-|---|---|
-| `tools/lissajous.html` | Interactive explorer for spherical Lissajous curves — adjust frequency ratios m1, m2 and phase offset to find closed curves and transition zones |
-| `tools/mobius.html` | Visualize Möbius transformations on the sphere in real time — adjust complex parameters a, b, c, d |
-| `tools/palettes.html` | Browse and tune all palette definitions — live preview with gradient strip and sphere visualization |
-| `tools/solids.html` | Inspect every Platonic, Archimedean, and Catalan solid — apply Conway operators interactively, view wireframe/topology, export code |
 
 ---
 
@@ -1015,7 +1015,7 @@ Templating on `<W, H>` means every pixel coordinate transform, bounding box comp
 
 ### Why Arena Allocation?
 
-The Teensy heap fragments under heavy mesh subdivision. The single-block partitioned arena design (persistent + scratch A + scratch B) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `configure_arenas()` function allows effects to repartition the fixed 345 KB block based on their needs — mesh-heavy effects can claim more persistent space, while subdivision-heavy effects can expand their scratch pools. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact memory layout during heavy geometric operations, with no hidden state or implicit arena references.
+The Teensy heap fragments under heavy mesh subdivision. The single-block partitioned arena design (persistent + scratch A + scratch B) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `configure_arenas()` function allows effects to repartition the fixed 335 KB block based on their needs — mesh-heavy effects can claim more persistent space, while subdivision-heavy effects can expand their scratch pools. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact memory layout during heavy geometric operations, with no hidden state or implicit arena references.
 
 ### Why the ISR Double Buffer?
 
