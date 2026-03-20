@@ -171,8 +171,8 @@ struct BoundingSphere {
     float phi = y_to_phi<H>(y);
     float sin_phi = sinf(phi);
     float theta_span;
-    if (sin_phi < 0.1f) {
-      // Near pole: full row
+    if (sin_phi < angular_radius / PI_F) {
+      // Near pole: span exceeds half the row, scan all columns
       theta_span = static_cast<float>(W);
     } else {
       theta_span = angular_radius / sin_phi * W / (2.0f * PI_F);
