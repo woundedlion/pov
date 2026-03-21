@@ -383,7 +383,7 @@ struct DistortedRing {
     if constexpr (ComputeUVs) {
       float dot_u = dot(p, u);
       float dot_w = dot(p, w);
-      float azimuth = atan2f(dot_w, dot_u);
+      float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
         azimuth += 2 * PI_F;
 
@@ -393,7 +393,7 @@ struct DistortedRing {
     } else {
       float dot_u = dot(p, u);
       float dot_w = dot(p, w);
-      float azimuth = atan2f(dot_w, dot_u);
+      float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
         azimuth += 2 * PI_F;
 
@@ -1296,7 +1296,7 @@ struct Polygon {
     if constexpr (ComputeUVs) {
       float dot_u = dot(p, basis.u);
       float dot_w = dot(p, basis.w);
-      float azimuth = atan2f(dot_w, dot_u);
+      float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
         azimuth += 2 * PI_F;
       azimuth += phase;
@@ -1309,7 +1309,7 @@ struct Polygon {
     } else {
       float dot_u = dot(p, basis.u);
       float dot_w = dot(p, basis.w);
-      float azimuth = atan2f(dot_w, dot_u);
+      float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
         azimuth += 2 * PI_F;
       azimuth += phase;
@@ -1429,7 +1429,7 @@ struct SphericalPolygon {
 
     float dot_u = dot(p, basis.u);
     float dot_w = dot(p, basis.w);
-    float azimuth = atan2f(dot_w, dot_u);
+    float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
       azimuth += 2 * PI_F;
     azimuth += phase;
@@ -1556,7 +1556,7 @@ template <int W> struct Star {
     float scanDist = angle_between(p, basis.v);
     float dotU = dot(p, basis.u);
     float dotW = dot(p, basis.w);
-    float azimuth = atan2f(dotW, dotU);
+    float azimuth = fast_atan2(dotW, dotU);
     if (azimuth < 0)
       azimuth += 2 * PI_F;
 
@@ -1676,7 +1676,7 @@ struct Flower {
     if constexpr (ComputeUVs) {
       float dot_u = dot(p, basis.u);
       float dot_w = dot(p, basis.w);
-      float azimuth = atan2f(dot_w, dot_u);
+      float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
         azimuth += 2 * PI_F;
       azimuth += phase;
@@ -1689,7 +1689,7 @@ struct Flower {
     } else {
       float dot_u = dot(p, basis.u);
       float dot_w = dot(p, basis.w);
-      float azimuth = atan2f(dot_w, dot_u);
+      float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
         azimuth += 2 * PI_F;
       azimuth += phase;
@@ -1730,7 +1730,7 @@ struct HarmonicBlob {
   void distance(const Vector &p, DistanceResult &res) const {
     Vector v = rotate(p, inv_q);
     float phi = acosf(std::max(-1.0f, std::min(1.0f, v.y)));
-    float theta = atan2f(v.z, v.x);
+    float theta = fast_atan2(v.z, v.x);
     float harmonic_val = harmonic_fn(l, m, theta, phi);
 
     float lobe_radius = 1.0f + std::abs(harmonic_val) * amplitude;
@@ -1888,7 +1888,7 @@ struct Torus {
   /// size = signed distance (for AA edge alpha)
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
-    frag.v0 = (atan2f(p.z, p.x) + PI_F) / (2.0f * PI_F);
+    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / (2.0f * PI_F);
     frag.v1 = n.x;
     frag.v2 = n.y;
     frag.v3 = n.z;
@@ -1919,7 +1919,7 @@ struct Twist {
 
   /// Warp the domain: displace Y by amplitude * sin(twist * θ).
   Vector apply(const Vector &p, Ctx /*s*/) const {
-    float theta = atan2f(p.z, p.x);
+    float theta = fast_atan2(p.z, p.x);
     return Vector(
         p.x, p.y - amplitude * sinf(static_cast<float>(twist) * theta), p.z);
   }
@@ -1940,7 +1940,7 @@ struct Twist {
     if (twist == 0 || amplitude < TOLERANCE)
       return base_n;
     float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
-    float theta = atan2f(p.z, p.x);
+    float theta = fast_atan2(p.z, p.x);
     float n_theta = static_cast<float>(twist) * theta;
     float dh_dtheta = -amplitude * static_cast<float>(twist) * cosf(n_theta);
     float inv_s2 = inv_s * inv_s;
@@ -2017,7 +2017,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   /// Populate a Fragment's registers for shading.
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
-    frag.v0 = (atan2f(p.z, p.x) + PI_F) / (2.0f * PI_F);
+    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / (2.0f * PI_F);
     frag.v1 = n.x;
     frag.v2 = n.y;
     frag.v3 = n.z;
