@@ -31,9 +31,10 @@ public:
                                            ease_mid, true));
 
     // Bake the generative palette into a fast 16-bit LUT
-    palette.bake(persistent_arena, GenerativePalette{
-        GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
-        BrightnessProfile::FLAT, SaturationProfile::MID, 42});
+    palette.bake(persistent_arena,
+                 GenerativePalette{
+                     GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
+                     BrightnessProfile::FLAT, SaturationProfile::MID, 42});
 
     params = presets.get();
   }
@@ -70,8 +71,7 @@ private:
   /// Noise-based warp in stereographic space, attenuated near pole.
   StereoWarpResult warp(const Complex &z, float r_sq, float t) const {
     return stereo_noise_warp(z, r_sq, noise, params.warp_scale,
-                             params.warp_strength, params.pole_fade,
-                             t * 0.3f);
+                             params.warp_strength, params.pole_fade, t * 0.3f);
   }
 
   /// Cartesian grid pattern from warped coordinates.

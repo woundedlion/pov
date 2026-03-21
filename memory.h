@@ -9,7 +9,9 @@
 #include <new>
 #include <cassert>
 #include <utility>
+#ifndef ARDUINO
 #include <cstdio>
+#endif
 
 #ifdef __EMSCRIPTEN__
 constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
@@ -43,8 +45,12 @@ public:
     size_t current = reinterpret_cast<size_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
     if (offset + padding + size > capacity) {
+#ifdef ARDUINO
+      // No printf on Teensy — avoid pulling in 4KB of stdio
+#else
       printf("[OOM] Arena: requested %zu bytes, offset %zu / capacity %zu\n",
              size, offset + padding, capacity);
+#endif
       return nullptr;
     }
     offset += padding;
@@ -140,8 +146,6 @@ private:
 
   void check_alive() const {
     if (source_arena_ && source_arena_->get_generation() != birth_generation_) {
-      printf("USE-AFTER-FREE: ArenaVector accessed after its arena scope was "
-             "destroyed!\n");
       assert(false && "ArenaVector use-after-free!");
     }
   }

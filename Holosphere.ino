@@ -27,6 +27,10 @@ FLASHMEM static void run_show_sequence() {
   pov->show<MeshFeedback<288, 144>>(120);
   pov->show<ChaoticStrings<288, 144>>(120);
   pov->show<Liquid2D<288, 144>>(120);
+  pov->show<Flyby<288, 144>>(120);
+  pov->show<Raymarch<288, 144>>(120);
+  pov->show<SplineFlow<288, 144>>(120);
+  pov->show<GnomonicStars<288, 144>>(120);
 
   // Core Effects
   pov->show<DreamBalls<288, 144>>(120);
@@ -34,10 +38,11 @@ FLASHMEM static void run_show_sequence() {
   pov->show<HopfFibration<288, 144>>(120);
   pov->show<HankinSolids<288, 144>>(120);
   pov->show<IslamicStars<288, 144>>(120);
-  pov->show<Metaballs<288, 144>>(120);
   pov->show<MindSplatter<288, 144>>(120);
   pov->show<SphericalHarmonics<288, 144>>(120);
   pov->show<Voronoi<288, 144>>(120);
+  pov->show<MobiusGrid<288, 144>>(120);
+  pov->show<FlowField<288, 144>>(120);
 
   // Existing Effects
   pov->show<PetalFlow<288, 144>>(120);

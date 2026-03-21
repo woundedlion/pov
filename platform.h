@@ -12,15 +12,10 @@
 
 namespace hs {
 /**
- * @brief On-device logging to Serial.
+ * @brief On-device logging to Serial (no vsnprintf to avoid ~4KB stdio in ITCM).
  */
-inline void log(const char *fmt, ...) {
-  char buf[128];
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(buf, sizeof(buf), fmt, args);
-  va_end(args);
-  Serial.println(buf);
+inline void log(const char *msg, ...) {
+  Serial.println(msg);
 }
 
 /**

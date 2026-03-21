@@ -670,7 +670,7 @@ struct Volume {
             if (d < -aa_width)
               break;
 
-            float advance = std::max(d * 0.95f, 1e-5f);
+            float advance = std::max(d * 0.9f, 1e-5f);
             local_p = Vector(local_p.x + local_vd.x * advance,
                              local_p.y + local_vd.y * advance,
                              local_p.z + local_vd.z * advance);
@@ -688,21 +688,23 @@ struct Volume {
           // One-sided AA with quintic kernel
           float hit_threshold = aa_width * 0.1f;
           float edge_alpha;
+
           if (closest_d <= hit_threshold) {
+            // FAST PATH: Solid hit. No probe needed.
             edge_alpha = 1.0f;
           } else {
+            // SLOW PATH: We are in the fuzzy AA border.
+            // Calculate standard AA alpha...
             edge_alpha = quintic_kernel(1.0f - (closest_d - hit_threshold) /
                                                    (aa_width - hit_threshold));
-          }
 
-          // Self-occlusion probe in local space
-          if (closest_d > -aa_width * 3.0f) {
+            // ...and fire the occlusion probe to see if this is a false halo!
             Vector probe = local_p;
             float probed = 0.0f;
             for (int i = 0; i < 4; ++i) {
               float pd = shape.distance(probe);
-              if (pd < -aa_width) {
-                edge_alpha = 1.0f;
+              if (pd < hit_threshold) {
+                edge_alpha = 1.0f; // Punched through the halo, solid hit!
                 break;
               }
               float step = std::max(pd * 0.9f, bounds_radius * 0.15f);

@@ -29,7 +29,8 @@ public:
 
   void init() override {
     // MobiusGrid requires very little persistent memory.
-    // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle rasterization arrays.
+    // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle
+    // rasterization arrays.
     configure_arenas(GLOBAL_ARENA_SIZE - 128 * 1024, 64 * 1024, 64 * 1024);
 
     registerParam("Rings", &params.num_rings, 0.0f, 20.0f);

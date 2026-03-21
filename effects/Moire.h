@@ -31,8 +31,9 @@ public:
 
   void init() override {
     // Moire relies on DistortedRing parsing loops.
-    // It allocates ~9.2KB for the Ring points and ~8.1KB for rasterization caches.
-    // Give it 32KB of Scratch A to safely handle iterations, and 16KB of Scratch B for AA filters.
+    // It allocates ~9.2KB for the Ring points and ~8.1KB for rasterization
+    // caches. Give it 32KB of Scratch A to safely handle iterations, and 16KB
+    // of Scratch B for AA filters.
     configure_arenas(GLOBAL_ARENA_SIZE - 48 * 1024, 32 * 1024, 16 * 1024);
 
     params.density = W <= 96 ? 10.0f : 45.0f;
@@ -124,4 +125,5 @@ private:
 };
 
 #include "../effect_registry.h"
+REGISTER_EFFECT(Moire)
 REGISTER_EFFECT(Moire)

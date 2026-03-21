@@ -9,7 +9,7 @@
 #include "effects/RingSpin.h"
 #include "effects/Dynamo.h"
 #include "effects/MobiusGrid.h"
-#include "effects/Moire.h"
+
 #include "effects/FlowField.h"
 #include "effects/Thrusters.h"
 #include "effects/GSReactionDiffusion.h"
@@ -22,7 +22,7 @@
 #include "effects/HopfFibration.h"
 #include "effects/HankinSolids.h"
 #include "effects/IslamicStars.h"
-#include "effects/Metaballs.h"
+
 #include "effects/MindSplatter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/Voronoi.h"
