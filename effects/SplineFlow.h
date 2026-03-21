@@ -23,14 +23,13 @@ public:
   } params;
 
   FLASHMEM SplineFlow()
-      : Effect(W, H),
-        filters(Filter::World::Trails<W, MAX_TRAILS>(lifetime),
-                Filter::World::Orient<W>(orientation),
-                Filter::Screen::AntiAlias<W, H>()) {}
+      : Effect(W, H), filters(Filter::World::Trails<W, MAX_TRAILS>(lifetime),
+                              Filter::World::Orient<W>(orientation),
+                              Filter::Screen::AntiAlias<W, H>()) {}
 
   void init() override {
-    static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters)
-        .init_storage(persistent_arena);
+    static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters).init_storage(
+        persistent_arena);
 
     registerParam("Tension", &params.tension, 0.0f, 1.0f);
     registerParam("Speed", &params.speed, 0.01f, 0.2f);
@@ -40,16 +39,16 @@ public:
 
     // Animated control points driven by independent random walks
     for (int i = 0; i < MAX_POINTS; ++i) {
-      point_orientations[i].set(make_rotation(random_vector(),
-                                 hs::rand_f() * 2 * PI_F));
+      point_orientations[i].set(
+          make_rotation(random_vector(), hs::rand_f() * 2 * PI_F));
       timeline.add(0, Animation::RandomWalk<W>(
-          point_orientations[i], random_vector(), noise,
-          {params.drift * 0.02f, 0.15f, 0.03f}));
+                          point_orientations[i], random_vector(), noise,
+                          {params.drift * 0.02f, 0.15f, 0.03f}));
     }
 
     timeline.add(0, Animation::RandomWalk<W>(
-        orientation, Y_AXIS, noise,
-        Animation::RandomWalk<W>::Options::Languid()));
+                        orientation, Y_AXIS, noise,
+                        Animation::RandomWalk<W>::Options::Languid()));
 
     // Phase accumulator for draw-head position
     timeline.add(0, Animation::Driver(draw_head, params.speed, true));
@@ -81,19 +80,21 @@ public:
       f.color.alpha = brightness * params.alpha;
     };
 
-    Plot::SplineChain::draw<W, H>(
-        filters, canvas, control_points, params.tension,
-        shader, {}, true,   // closed loop
-        24,                  // samples per segment
-        SplineMode::Geodesic);
+    Plot::SplineChain::draw<W, H>(filters, canvas, control_points,
+                                  params.tension, shader, {},
+                                  true, // closed loop
+                                  24,   // samples per segment
+                                  SplineMode::Geodesic);
 
     // Flush trails
-    filters.flush(canvas,
+    filters.flush(
+        canvas,
         [](const Vector &, float t) {
           Color4 c = Palettes::lavenderLake.get(t);
           c.alpha *= (1.0f - t);
           return c;
-        }, 1.0f);
+        },
+        1.0f);
   }
 
 private:
@@ -104,10 +105,9 @@ private:
   Timeline<W> timeline;
   ProceduralPalette palette = Palettes::lavenderLake;
 
-  Pipeline<W, H,
-      Filter::World::Trails<W, MAX_TRAILS>,
-      Filter::World::Orient<W>,
-      Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H, Filter::World::Trails<W, MAX_TRAILS>, Filter::World::Orient<W>,
+           Filter::Screen::AntiAlias<W, H>>
+      filters;
 };
 
 #include "../effect_registry.h"

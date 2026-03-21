@@ -14,6 +14,7 @@
 #include "constants.h"
 #include "concepts.h"
 #include "static_circular_buffer.h"
+#include "util.h"
 
 namespace SDF {
 
@@ -31,8 +32,10 @@ static constexpr float POLE_SAFE_MARGIN = 0.05f;
 
 /** Fold an angle into [0, π] (equivalent to acosf(cosf(x)) without trig). */
 inline float clamp_phi(float x) {
-  if (x < 0.0f) return -x;
-  if (x > PI_F) return 2.0f * PI_F - x;
+  if (x < 0.0f)
+    return -x;
+  if (x > PI_F)
+    return 2.0f * PI_F - x;
   return x;
 }
 /** @brief Vertical scanline bounds (min/max Y). */
@@ -98,7 +101,8 @@ struct Ring {
     cos_min = cosf(ang_max);
     cos_target = cosf(target_angle);
 
-    bool safe_approx = (target_angle > POLE_SAFE_MARGIN && target_angle < PI_F - POLE_SAFE_MARGIN);
+    bool safe_approx = (target_angle > POLE_SAFE_MARGIN &&
+                        target_angle < PI_F - POLE_SAFE_MARGIN);
     inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
 
     // For getHorizontalBounds
@@ -521,7 +525,9 @@ template <typename A, typename B> struct SmoothUnion {
 
   // Fallback to full width (blend zone invalidates tight intervals)
   template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const { return false; }
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    return false;
+  }
 
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -770,8 +776,8 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS> thetas;
   std::array<float, MAX_VERTS> invEdgeLengthsSq;
   std::array<float, MAX_VERTS> invEdgeJ;
-  std::array<Vector, MAX_VERTS + 1> verts3D;    // Original 3D vertices (+1 wrap)
-  std::array<Vector, MAX_VERTS> edgeNormals;    // Great circle plane normals
+  std::array<Vector, MAX_VERTS + 1> verts3D; // Original 3D vertices (+1 wrap)
+  std::array<Vector, MAX_VERTS> edgeNormals; // Great circle plane normals
 };
 
 /**
@@ -882,7 +888,8 @@ struct Face {
     for (int i = 0; i < count; ++i) {
       Vector n = cross(scratch.verts3D[i], scratch.verts3D[i + 1]);
       float len = n.magnitude();
-      scratch.edgeNormals[i] = (len > 1e-9f) ? n * (1.0f / len) : Vector(0, 0, 0);
+      scratch.edgeNormals[i] =
+          (len > 1e-9f) ? n * (1.0f / len) : Vector(0, 0, 0);
     }
     edgeNormals = std::span<Vector>(scratch.edgeNormals.data(), count);
 
@@ -1347,10 +1354,8 @@ struct SphericalPolygon {
     float cos_hs = cosf(half_step);
     float sin_hs = sinf(half_step);
 
-    Vector v1 = basis.v * cosR +
-                (basis.u * cos_hs + basis.w * sin_hs) * sinR;
-    Vector v2 = basis.v * cosR +
-                (basis.u * cos_hs - basis.w * sin_hs) * sinR;
+    Vector v1 = basis.v * cosR + (basis.u * cos_hs + basis.w * sin_hs) * sinR;
+    Vector v2 = basis.v * cosR + (basis.u * cos_hs - basis.w * sin_hs) * sinR;
 
     // Normal pointing outward (away from polygon interior)
     Vector en = cross(v2, v1);
@@ -1832,7 +1837,7 @@ struct Line {
 
     float C_min = (D_min - mid_ny * cos_phi) / denom;
     if (C_min > 1.0f)
-      return true;  // Row is outside the bounding cap
+      return true; // Row is outside the bounding cap
     if (C_min < -1.0f)
       return false; // Cap covers full width
 
@@ -1870,27 +1875,11 @@ struct Torus {
     return sqrtf(q * q + p.y * p.y) - r;
   }
 
-  /// Overload with precomputed s = sqrtf(x² + z²).
-  float distance(const Vector &p, float s) const {
-    float q = s - R;
-    return sqrtf(q * q + p.y * p.y) - r;
-  }
-
   /// Surface normal at a point near the torus surface.
   Vector normal(const Vector &p) const {
     float xz_len = sqrtf(p.x * p.x + p.z * p.z);
-    float inv = (xz_len > TOLERANCE) ? R / xz_len : 0.0f;
-    float nx = p.x - p.x * inv;
-    float ny = p.y;
-    float nz = p.z - p.z * inv;
-    float nl = sqrtf(nx * nx + ny * ny + nz * nz);
-    if (nl > TOLERANCE) {
-      float s = 1.0f / nl;
-      nx *= s;
-      ny *= s;
-      nz *= s;
-    }
-    return Vector(nx, ny, nz);
+    float scale = (xz_len > TOLERANCE) ? R / xz_len : 0.0f;
+    return (p - Vector(p.x * scale, 0.0f, p.z * scale)).normalized();
   }
 
   /// Populate a Fragment's registers for shading.
@@ -1926,21 +1915,19 @@ struct Twist {
   /// Precomputed context: s = sqrtf(x² + z²), shared across apply/lipschitz.
   using Ctx = float;
 
-  Ctx make_ctx(const Vector &p) const {
-    return sqrtf(p.x * p.x + p.z * p.z);
-  }
+  Ctx make_ctx(const Vector &p) const { return sqrtf(p.x * p.x + p.z * p.z); }
 
   /// Warp the domain: displace Y by amplitude * sin(twist * θ).
   Vector apply(const Vector &p, Ctx /*s*/) const {
     float theta = atan2f(p.z, p.x);
-    return Vector(p.x,
-                  p.y - amplitude * sinf(static_cast<float>(twist) * theta),
-                  p.z);
+    return Vector(
+        p.x, p.y - amplitude * sinf(static_cast<float>(twist) * theta), p.z);
   }
 
   /// Analytical Lipschitz constant at point p.
-  float lipschitz(const Vector &/*p*/, Ctx s) const {
-    if (twist == 0) return 1.0f;
+  float lipschitz(const Vector & /*p*/, Ctx s) const {
+    if (twist == 0)
+      return 1.0f;
     return 1.0f + static_cast<float>(twist) * amplitude /
                       (2.0f * std::max(s, R * 0.5f));
   }
@@ -1949,31 +1936,21 @@ struct Twist {
   float bounding_inflation() const { return amplitude; }
 
   /// Analytical normal correction via chain rule (called once per hit).
-  Vector correct_normal(const Vector &p, const Vector &base_n,
-                        Ctx s) const {
-    if (twist == 0 || amplitude < TOLERANCE) return base_n;
+  Vector correct_normal(const Vector &p, const Vector &base_n, Ctx s) const {
+    if (twist == 0 || amplitude < TOLERANCE)
+      return base_n;
     float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
     float theta = atan2f(p.z, p.x);
     float n_theta = static_cast<float>(twist) * theta;
-    float dh_dtheta =
-        -amplitude * static_cast<float>(twist) * cosf(n_theta);
+    float dh_dtheta = -amplitude * static_cast<float>(twist) * cosf(n_theta);
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;
     float dh_dz = dh_dtheta * p.x * inv_s2;
 
-    float nx = base_n.x - base_n.y * dh_dx;
-    float ny = base_n.y;
-    float nz = base_n.z - base_n.y * dh_dz;
-
-    float nl = sqrtf(nx * nx + ny * ny + nz * nz);
-    if (nl > TOLERANCE) {
-      float inv = 1.0f / nl;
-      nx *= inv;
-      ny *= inv;
-      nz *= inv;
-    }
-    return Vector(nx, ny, nz);
+    return Vector(base_n.x - base_n.y * dh_dx, base_n.y,
+                  base_n.z - base_n.y * dh_dz)
+        .normalized();
   }
 };
 
@@ -2000,29 +1977,29 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   Warp warp;
 
   /// Cheap lower-bound: base distance minus warp's maximum displacement.
-  float bounding_distance(const Vector &p, float s) const {
-    return base.distance(p, s) - warp.bounding_inflation();
+  float bounding_distance(const Vector &p) const {
+    return base.distance(p) - warp.bounding_inflation();
   }
 
   /// Raw SDF distance (no Lipschitz correction). Use for surface projection.
   float raw_distance(const Vector &p) const {
     auto ctx = warp.make_ctx(p);
-    return base.distance(warp.apply(p, ctx), ctx);
+    return base.distance(warp.apply(p, ctx));
   }
 
   /// March-safe distance with bounding fast-path and Lipschitz correction.
-  /// Computes s = sqrtf(x²+z²) once and shares it across bounding,
-  /// base SDF, and Lipschitz — 3 sqrtf total vs 5 without sharing.
   float distance(const Vector &p) const {
-    auto ctx = warp.make_ctx(p);
-    float bd = bounding_distance(p, ctx);
-    if (bd > warp.bounding_inflation()) return bd;
+    float bd = bounding_distance(p);
+    if (bd > warp.bounding_inflation())
+      return bd;
 
-    float d = base.distance(warp.apply(p, ctx), ctx);
+    auto ctx = warp.make_ctx(p);
+    float d = base.distance(warp.apply(p, ctx));
 
     if (d > 0.0f) {
       float lip = warp.lipschitz(p, ctx);
-      if (lip > 1.0f) d /= lip;
+      if (lip > 1.0f)
+        d /= lip;
     }
     return d;
   }
