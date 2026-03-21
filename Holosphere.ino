@@ -22,19 +22,15 @@ void setup() {
 FLASHMEM static void run_show_sequence() {
   // Test/Debug Effects
   pov->show<Test<288, 144>>(120);
-  pov->show<TestShapes<288, 144>>(120);
+//  pov->show<TestShapes<288, 144>>(120);
 
-  pov->show<MeshFeedback<288, 144>>(120);
   pov->show<ChaoticStrings<288, 144>>(120);
   pov->show<Liquid2D<288, 144>>(120);
   pov->show<Flyby<288, 144>>(120);
   pov->show<Raymarch<288, 144>>(120);
-  pov->show<SplineFlow<288, 144>>(120);
+//  pov->show<SplineFlow<288, 144>>(120);
   pov->show<GnomonicStars<288, 144>>(120);
-
-  // Core Effects
   pov->show<DreamBalls<288, 144>>(120);
-  pov->show<SpinShapes<288, 144>>(120);
   pov->show<HopfFibration<288, 144>>(120);
   pov->show<HankinSolids<288, 144>>(120);
   pov->show<IslamicStars<288, 144>>(120);
@@ -43,12 +39,11 @@ FLASHMEM static void run_show_sequence() {
   pov->show<Voronoi<288, 144>>(120);
   pov->show<MobiusGrid<288, 144>>(120);
   pov->show<FlowField<288, 144>>(120);
-
-  // Existing Effects
+  pov->show<MeshFeedback<288, 144>>(120);
   pov->show<PetalFlow<288, 144>>(120);
   pov->show<BZReactionDiffusion<288, 144>>(120);
   pov->show<GSReactionDiffusion<288, 144>>(120);
-  pov->show<Thrusters<288, 144>>(120);
+//  pov->show<Thrusters<288, 144>>(120);
 
   /*
 
