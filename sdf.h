@@ -29,6 +29,14 @@ static constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 /** Threshold for near-pole ring approximation safety. */
 static constexpr float POLE_SAFE_MARGIN = 0.05f;
+/** Inner/outer radius ratio for star shapes (≈ golden ratio conjugate). */
+static constexpr float STAR_INNER_RATIO = 0.382f;
+/** Vertex phi-span threshold below which Face uses the fast vertex-only
+ *  bounding path instead of the full arc-extrema computation. */
+static constexpr float FAST_BOUNDS_PHI_THRESHOLD = 0.3f;
+/** Minimum inradius-to-circumradius ratio used to floor Face::size,
+ *  preventing degenerate near-zero inradii from collapsing AA. */
+static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 
 /** Fold an angle into [0, π] (equivalent to acosf(cosf(x)) without trig). */
 inline float clamp_phi(float x) {
@@ -377,30 +385,18 @@ struct DistortedRing {
   void distance(const Vector &p, DistanceResult &res) const {
     float polar = angle_between(p, normal);
 
-    float t_norm = 0.0f;
-    float shift = 0.0f;
+    float dot_u = dot(p, u);
+    float dot_w = dot(p, w);
+    float azimuth = fast_atan2(dot_w, dot_u);
+    if (azimuth < 0)
+      azimuth += 2 * PI_F;
 
-    if constexpr (ComputeUVs) {
-      float dot_u = dot(p, u);
-      float dot_w = dot(p, w);
-      float azimuth = fast_atan2(dot_w, dot_u);
-      if (azimuth < 0)
-        azimuth += 2 * PI_F;
+    float t_val = azimuth + phase;
+    float t_norm = t_val / (2 * PI_F);
+    float shift = shift_fn(t_norm);
 
-      float t_val = azimuth + phase;
-      t_norm = t_val / (2 * PI_F);
-      shift = shift_fn(t_norm);
-    } else {
-      float dot_u = dot(p, u);
-      float dot_w = dot(p, w);
-      float azimuth = fast_atan2(dot_w, dot_u);
-      if (azimuth < 0)
-        azimuth += 2 * PI_F;
-
-      float t_val = azimuth + phase;
-      t_norm = t_val / (2 * PI_F);
-      shift = shift_fn(t_norm);
-    }
+    if constexpr (!ComputeUVs)
+      t_norm = 0.0f;
 
     float local_target = target_angle + shift;
     float dist = std::abs(polar - local_target);
@@ -495,7 +491,7 @@ template <typename A, typename B> struct Union {
     DistanceResult resB;
     b.template distance<ComputeUVs>(p, resB);
     if (res.dist < resB.dist)
-      return; // Min distance
+      return; // A is already closer, keep it
     res = resB;
   }
 };
@@ -523,10 +519,56 @@ template <typename A, typename B> struct SmoothUnion {
             std::min(H - 1, std::max(b1.y_max, b2.y_max) + 1)};
   }
 
-  // Fallback to full width (blend zone invalidates tight intervals)
+  // Conservative union of children's intervals, padded by k (in radians)
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return false;
+    StaticCircularBuffer<std::pair<float, float>, 32> merged;
+    float pad_px = k * W / (2 * PI_F);
+
+    bool hasA = a.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) {
+          merged.push_back({start - pad_px, end + pad_px});
+        });
+
+    bool hasB = b.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) {
+          merged.push_back({start - pad_px, end + pad_px});
+        });
+
+    // If either child falls back to full-width, so must the blend
+    if (!hasA || !hasB)
+      return false;
+
+    if (merged.is_empty())
+      return true;
+
+    // Sort by start
+    auto *data = &merged[0];
+    size_t n = merged.size();
+    for (size_t i = 1; i < n; ++i) {
+      auto key = data[i];
+      int j = static_cast<int>(i) - 1;
+      while (j >= 0 && data[j].first > key.first) {
+        data[j + 1] = data[j];
+        --j;
+      }
+      data[j + 1] = key;
+    }
+
+    // Merge overlapping intervals
+    float cur_start = data[0].first;
+    float cur_end = data[0].second;
+    for (size_t i = 1; i < n; ++i) {
+      if (data[i].first <= cur_end) {
+        cur_end = std::max(cur_end, data[i].second);
+      } else {
+        out(cur_start, cur_end);
+        cur_start = data[i].first;
+        cur_end = data[i].second;
+      }
+    }
+    out(cur_start, cur_end);
+    return true;
   }
 
   DistanceResult distance(const Vector &p) const {
@@ -913,11 +955,11 @@ struct Face {
     }
     size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
 
-    if (size < radius * 0.25f)
-      size = radius * 0.25f;
+    if (size < radius * MIN_SIZE_RADIUS_RATIO)
+      size = radius * MIN_SIZE_RADIUS_RATIO;
 
     float vertex_phi_span = max_phi_check - min_phi_check;
-    bool use_fast_bounds = (vertex_phi_span < 0.3f);
+    bool use_fast_bounds = (vertex_phi_span < FAST_BOUNDS_PHI_THRESHOLD);
 
     int planes_count = 0;
 
@@ -1290,36 +1332,18 @@ struct Polygon {
   void distance(const Vector &p, DistanceResult &res) const {
     float polar = angle_between(p, basis.v);
 
-    float t_val = 0.0f;
-    float dist_edge = 0.0f;
+    float dot_u = dot(p, basis.u);
+    float dot_w = dot(p, basis.w);
+    float azimuth = fast_atan2(dot_w, dot_u);
+    if (azimuth < 0)
+      azimuth += 2 * PI_F;
+    azimuth += phase;
 
-    if constexpr (ComputeUVs) {
-      float dot_u = dot(p, basis.u);
-      float dot_w = dot(p, basis.w);
-      float azimuth = fast_atan2(dot_w, dot_u);
-      if (azimuth < 0)
-        azimuth += 2 * PI_F;
-      azimuth += phase;
+    float sector = 2 * PI_F / sides;
+    float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
 
-      float sector = 2 * PI_F / sides;
-      float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
-
-      dist_edge = polar * cosf(local) - apothem;
-      t_val = polar / thickness;
-    } else {
-      float dot_u = dot(p, basis.u);
-      float dot_w = dot(p, basis.w);
-      float azimuth = fast_atan2(dot_w, dot_u);
-      if (azimuth < 0)
-        azimuth += 2 * PI_F;
-      azimuth += phase;
-
-      float sector = 2 * PI_F / sides;
-      float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
-
-      dist_edge = polar * cosf(local) - apothem;
-      t_val = 0.0f;
-    }
+    float dist_edge = polar * cosf(local) - apothem;
+    float t_val = ComputeUVs ? polar / thickness : 0.0f;
 
     res = DistanceResult(dist_edge, t_val, polar, 0.0f, apothem);
   }
@@ -1456,7 +1480,7 @@ struct SphericalPolygon {
  *  t: Normalized polar distance (polar / thickness)
  *  raw_dist: Polar distance from center
  */
-template <int W> struct Star {
+struct Star {
   const Basis &basis;
   int sides;
   float phase;
@@ -1472,7 +1496,7 @@ template <int W> struct Star {
   Star(const Basis &b, float radius, int s, float ph, int h_virt, int height)
       : basis(b), sides(s), phase(ph) {
     float outerRadius = radius * (PI_F / 2.0f);
-    float innerRadius = outerRadius * 0.382f;
+    float innerRadius = outerRadius * STAR_INNER_RATIO;
     float angleStep = PI_F / sides;
 
     float vT = outerRadius;
@@ -1506,7 +1530,7 @@ template <int W> struct Star {
 
   template <int H> Bounds get_vertical_bounds() const { return {yMin, yMax}; }
 
-  template <int W_scan, int H, typename OutputIt>
+  template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     // Bounding circle
     float phi = y_to_phi<H>(static_cast<float>(y));
@@ -1516,7 +1540,7 @@ template <int W> struct Star {
     if (scanR < MIN_HORIZONTAL_PROJ)
       return false;
 
-    float pixelWidth = 2.0f * PI_F / W_scan;
+    float pixelWidth = 2.0f * PI_F / W;
     float D_min = cosf(thickness + pixelWidth);
     float denom = scanR * sinPhi;
 
@@ -1670,40 +1694,31 @@ struct Flower {
     float scan_dist = angle_between(p, antipode);
     float polar = PI_F - scan_dist;
 
-    float t_val = 0.0f;
-    float dist_edge = 0.0f;
+    float dot_u = dot(p, basis.u);
+    float dot_w = dot(p, basis.w);
+    float azimuth = fast_atan2(dot_w, dot_u);
+    if (azimuth < 0)
+      azimuth += 2 * PI_F;
+    azimuth += phase;
 
-    if constexpr (ComputeUVs) {
-      float dot_u = dot(p, basis.u);
-      float dot_w = dot(p, basis.w);
-      float azimuth = fast_atan2(dot_w, dot_u);
-      if (azimuth < 0)
-        azimuth += 2 * PI_F;
-      azimuth += phase;
+    float sector = 2 * PI_F / sides;
+    float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
 
-      float sector = 2 * PI_F / sides;
-      float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
+    float dist_edge = polar * cosf(local) - apothem;
+    float t_val = ComputeUVs ? scan_dist / thickness : 0.0f;
 
-      dist_edge = polar * cosf(local) - apothem;
-      t_val = scan_dist / thickness;
-    } else {
-      float dot_u = dot(p, basis.u);
-      float dot_w = dot(p, basis.w);
-      float azimuth = fast_atan2(dot_w, dot_u);
-      if (azimuth < 0)
-        azimuth += 2 * PI_F;
-      azimuth += phase;
-
-      float sector = 2 * PI_F / sides;
-      float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
-
-      dist_edge = polar * cosf(local) - apothem;
-      t_val = 0.0f;
-    }
     res = DistanceResult(-dist_edge, t_val, scan_dist, 0.0f, thickness);
   }
 };
 
+/**
+ * @brief Signed distance to a spherical harmonic "blob".
+ *
+ * Vertical and horizontal culling are intentionally disabled:
+ * spherical harmonic lobes for arbitrary (l,m) can occupy any
+ * region of the sphere, so no static bounding is possible
+ * without per-(l,m) analysis.  Full-sphere scan is correct.
+ */
 struct HarmonicBlob {
   int l;
   int m;
@@ -1744,9 +1759,9 @@ struct HarmonicBlob {
     res = DistanceResult(d, t_val, harmonic_val, 0.0f, 1.0f);
   }
 
+  /// Full-sphere scan (see struct doc).
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // TODO: Implement interval calculation for harmonic blobs
     return false;
   }
 };
@@ -1757,6 +1772,7 @@ struct Line {
 
   Vector n;
   float len;
+  float phi_min, phi_max; // Precomputed vertical bounds (radians)
   static constexpr bool is_solid = false;
 
   Line(const Vector &start, const Vector &end, float th)
@@ -1767,9 +1783,23 @@ struct Line {
     } else {
       n = cross(a, b).normalized();
     }
+
+    // Compute vertical bounds from endpoint phi values + thickness
+    float phi_a = acosf(std::max(-1.0f, std::min(1.0f, a.y)));
+    float phi_b = acosf(std::max(-1.0f, std::min(1.0f, b.y)));
+    float margin = thickness + BOUNDS_MARGIN;
+    phi_min = std::max(0.0f, std::min(phi_a, phi_b) - margin);
+    phi_max = std::min(PI_F, std::max(phi_a, phi_b) + margin);
   }
 
-  template <int H> Bounds get_vertical_bounds() const { return {0, H - 1}; }
+  template <int H> Bounds get_vertical_bounds() const {
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    int y_min = std::max(
+        0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
+    int y_max = std::min(
+        H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
+    return {y_min, y_max};
+  }
 
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
