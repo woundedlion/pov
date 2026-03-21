@@ -8,7 +8,6 @@
 #include "../effects_engine.h"
 
 #include <cmath>
-#include <cstdlib>
 
 template <int W, int H> class Voronoi : public Effect {
 public:
@@ -130,9 +129,9 @@ public:
 
       Vector pos = Vector(x, y, z);
 
-      float rx = (rand() % 1000) / 500.0f - 1.0f;
-      float ry = (rand() % 1000) / 500.0f - 1.0f;
-      float rz = (rand() % 1000) / 500.0f - 1.0f;
+      float rx = hs::rand_f() * 2.0f - 1.0f;
+      float ry = hs::rand_f() * 2.0f - 1.0f;
+      float rz = hs::rand_f() * 2.0f - 1.0f;
       Vector axis = Vector(rx, ry, rz).normalized();
 
       float t =
