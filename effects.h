@@ -9,7 +9,6 @@
 #include "effects/RingSpin.h"
 #include "effects/Dynamo.h"
 #include "effects/MobiusGrid.h"
-
 #include "effects/FlowField.h"
 #include "effects/Thrusters.h"
 #include "effects/GSReactionDiffusion.h"
@@ -18,11 +17,9 @@
 #include "effects/Test.h"
 #include "effects/TestShapes.h"
 #include "effects/DreamBalls.h"
-#include "effects/SpinShapes.h"
 #include "effects/HopfFibration.h"
 #include "effects/HankinSolids.h"
 #include "effects/IslamicStars.h"
-
 #include "effects/MindSplatter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/Voronoi.h"
