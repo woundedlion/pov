@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
@@ -211,5 +211,5 @@ private:
   NoiseTransformer<W, 1> noise_xform;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(ChaoticStrings)

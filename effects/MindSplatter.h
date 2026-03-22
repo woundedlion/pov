@@ -5,9 +5,9 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
-#include "../static_circular_buffer.h"
+#include "static_circular_buffer.h"
 
 template <int W, int H> class MindSplatter : public Effect {
 public:
@@ -206,5 +206,5 @@ private:
   }
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(MindSplatter)

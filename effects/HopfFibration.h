@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 #include <array>
 
 template <int W, int H> class HopfFibration : public Effect {
@@ -178,5 +178,5 @@ private:
   }
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(HopfFibration)

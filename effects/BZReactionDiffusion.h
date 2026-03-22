@@ -7,9 +7,9 @@
 
 #include <algorithm>
 #include <cstring>
-#include "../effects_engine.h"
-#include "../reaction_graph.h"
-#include "../scan.h"
+#include "effects_engine.h"
+#include "reaction_graph.h"
+#include "scan.h"
 
 /**
  * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice sphere.
@@ -313,5 +313,5 @@ private:
   } params;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(BZReactionDiffusion)

@@ -5,12 +5,12 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
-#include "../transformers.h"
+#include "effects_engine.h"
+#include "transformers.h"
 #include <algorithm>
 #include <map>
 
-#include "../solids.h"
+#include "solids.h"
 
 template <int W, int H> class IslamicStars : public Effect {
 
@@ -162,5 +162,5 @@ private:
   } params;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(IslamicStars)

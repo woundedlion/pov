@@ -8,8 +8,8 @@
 #include <memory>
 
 #include <map>
-#include "../effects_engine.h"
-#include "../FastNoiseLite.h"
+#include "effects_engine.h"
+#include "FastNoiseLite.h"
 
 template <int W, int H> class FlowField : public Effect {
 public:
@@ -121,5 +121,5 @@ private:
       filters;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(FlowField)

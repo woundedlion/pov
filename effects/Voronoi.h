@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 #include <cmath>
 
@@ -144,5 +144,5 @@ public:
   }
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(Voronoi)

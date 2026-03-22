@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class Raymarch : public Effect {
 public:
@@ -162,5 +162,5 @@ private:
                             219};
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(Raymarch)

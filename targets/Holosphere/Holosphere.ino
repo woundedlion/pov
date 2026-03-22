@@ -1,13 +1,22 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
+ *
+ * Holosphere — Single-Teensy POV display (96×20 physical strip)
+ *
+ * Target: Teensy 4.0
+ * Physical LEDs: 40 (20 per arm × 2 sides)
+ * Virtual canvas: 288×144 (or 96×20 for legacy effects)
  */
 #include <FastLED.h>
 #include <SPI.h>
 
-#include "led.h"
+#include "pov_single.h"
 #include "effects.h"
 #include "effects_legacy.h"
+
+static constexpr int NUM_PIXELS = 40;
+static constexpr unsigned int RPM = 480;
 
 namespace {
 POVDisplay<NUM_PIXELS, RPM> *pov;
@@ -44,31 +53,6 @@ FLASHMEM static void run_show_sequence() {
   pov->show<BZReactionDiffusion<288, 144>>(120);
   pov->show<GSReactionDiffusion<288, 144>>(120);
 //  pov->show<Thrusters<288, 144>>(120);
-
-  /*
-
-pov->show<TheMatrix<40, 20, 135>>(45);
-pov->show<ChainWiggle<96, 20>>(150);
-pov->show<RingRotate<96, 20>>(120);
-pov->show<RingShower<96, 20>>(120);
-pov->show<Curves<96, 20>>(120);
-pov->show<RingTwist<96, 20>>(150);
-pov->show<Dynamo<96, 20>>(120);
-pov->show<RingSpin<96, 20>>(120);
-pov->show<Comets<96, 20>>(120);
-pov->show<FlowField<96, 20>>(60);
-pov->show<Kaleidoscope<96, 20>>(90);
-pov->show<StarsFade<40, 20>>(60);
-pov->show<DotTrails<96, 20>>(120);
-pov->show<Burnout<40, 20, 0, 5>>(52);
-pov->show<Spinner<48, 20>>(50);
-pov->show<Spiral<4, 20, 0>>(10);
-pov->show<Spiral<8, 20, 0>>(10);
-pov->show<Spiral<16, 20, 0>>(10);
-pov->show<Spiral<48, 20, 0>>(20);
-pov->show<Spiral<48, 20, 1>>(10);
-
-*/
 }
 
 void loop() { run_show_sequence(); }

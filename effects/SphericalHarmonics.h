@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 #include <cmath>
 
 namespace SHMath {
@@ -209,5 +209,5 @@ private:
   float morph_alpha = 0.0f;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(SphericalHarmonics)

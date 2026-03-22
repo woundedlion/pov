@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class TestShapes : public Effect {
 public:
@@ -196,5 +196,5 @@ private:
   int last_num_shapes_ = 7;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(TestShapes)
