@@ -6,27 +6,12 @@
 #pragma once
 
 #include "../effects_engine.h"
+#include "../styles.h"
 #include "../solids.h"
 
 template <int W, int H> class MeshFeedback : public Effect {
 public:
-  struct Params {
-    float fade = 0.93f;
-    float amplitude = 0.9f;
-    float frequency = 0.33f;
-    float speed = 0.8f;
-    float scale = 22.6f;
-    float hue_shift = 0.03f;
-
-    void lerp(const Params &a, const Params &b, float t) {
-      fade = ::lerp(a.fade, b.fade, t);
-      amplitude = ::lerp(a.amplitude, b.amplitude, t);
-      frequency = ::lerp(a.frequency, b.frequency, t);
-      speed = ::lerp(a.speed, b.speed, t);
-      scale = ::lerp(a.scale, b.scale, t);
-      hue_shift = ::lerp(a.hue_shift, b.hue_shift, t);
-    }
-  } params;
+  using Style = Feedback::Style;
 
   static constexpr int MORPH_FRAMES = 160;
   static constexpr int NO_MORPH_FRAMES =
@@ -40,11 +25,14 @@ public:
         filters(
             Filter::World::Orient<W>(orientation),
             Filter::Screen::AntiAlias<W, H>(),
-            Filter::Pixel::Feedback<W, H, TransformerFn, HueShiftFade>(
-                TransformerFn{this}, 0.95f, HueShiftFade{&params.hue_shift})) {}
+            Feedback::Filter<W, H>(style)) {}
 
   void init() override {
-    params = presets.get();
+    // Bind mutable state into all presets
+    for (auto &e : presets.entries) {
+      e.params.noise = &noise_params;
+    }
+    style = presets.get();
     apply_params();
 
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -63,12 +51,12 @@ public:
                        persistent_arena);
     }
 
-    registerParam("Fade", &params.fade, 0.0f, 0.99f);
-    registerParam("Distort Amp", &params.amplitude, 0.0f, 30.0f);
-    registerParam("Distort Freq", &params.frequency, 0.01f, 1.0f);
-    registerParam("Distort Speed", &params.speed, 0.0f, 5.0f);
-    registerParam("Noise Scale", &params.scale, 0.1f, 50.0f);
-    registerParam("Hue Shift", &params.hue_shift, 0.0f, 0.1f);
+    registerParam("Fade", &style.fade, 0.0f, 0.99f);
+    registerParam("Distort Amp", &style.amplitude, 0.0f, 30.0f);
+    registerParam("Distort Freq", &style.frequency, 0.01f, 1.0f);
+    registerParam("Distort Speed", &style.speed, 0.0f, 5.0f);
+    registerParam("Noise Scale", &style.scale, 0.1f, 50.0f);
+    registerParam("Hue Shift", &style.hue_shift, 0.0f, 0.1f);
     registerParam("Pause Presets", &preset_paused, preset_paused);
     registerParam("Feedback", &feedback_enabled, feedback_enabled);
 
@@ -84,7 +72,7 @@ public:
                             return;
                           presets.next();
                           timeline.add(
-                              0, Animation::Lerp(params, presets.prev_get(),
+                              0, Animation::Lerp(style, presets.prev_get(),
                                                  presets.get(), LERP_FRAMES,
                                                  ease_in_out_sin));
                         },
@@ -148,20 +136,18 @@ private:
   }
 
   void apply_params() {
-    noise_params.amplitude = params.amplitude;
-    noise_params.frequency = params.frequency;
-    noise_params.speed = params.speed;
-    noise_params.scale = params.scale;
-    noise_params.sync();
-    filters.template get<FeedbackFilter>().set_fade(feedback_enabled ? params.fade : 0.0f);
+    style.sync_noise();
+    filters.template get<Feedback::Filter<W, H>>().set_enabled(feedback_enabled);
   }
 
-  Presets<Params, 5> presets = {
-      .entries = {{{{0.82f, 3.15f, 1.0f, 0.02f, 1.0f, 0.035f}},
-                   {{0.9f, 0.51f, 0.42f, 0.46f, 23.0f, 0.01f}},
-                   {{0.58f, 2.73f, 0.07f, 0.0f, 26.0f, 0.03f}},
-                   {{0.58f, 8.21f, 0.01f, 0.0f, 46.0f, 0.03f}},
-                   {{0.68f, 4.98f, 0.07f, 0.2f, 5.0f, 0.03f}}}},
+  Style style;
+
+  Presets<Style, 5> presets = {
+      .entries = {{{Style::Churn()},
+                   {Style::Smoke()},
+                   {Style::Frozen()},
+                   {Style::Shatter()},
+                   {Style::Drift()}}},
       .current_idx = 0};
   bool preset_paused = false;
   bool feedback_enabled = true;
@@ -187,24 +173,8 @@ private:
                                });
       }};
 
-  struct TransformerFn {
-    const MeshFeedback *self;
-    Vector operator()(const Vector &v) const {
-      return noise_transform(v, self->noise_params);
-    }
-  };
-
-  struct HueShiftFade {
-    const float *hue_amount;
-    Pixel operator()(const Pixel &p, float fade) const {
-      return hue_rotate(Color4(p * fade, 1.0f), *hue_amount).color;
-    }
-  };
-
-  using FeedbackFilter = Filter::Pixel::Feedback<W, H, TransformerFn, HueShiftFade>;
-
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
-           FeedbackFilter>
+           Feedback::Filter<W, H>>
       filters;
 };
 

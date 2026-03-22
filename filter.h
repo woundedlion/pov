@@ -641,6 +641,8 @@ public:
       : transform_fn(transform_fn), color_fn(color_fn), fade(fade) {}
 
   void set_fade(float f) { fade = f; }
+  void set_transform(SpaceTransformFn fn) { transform_fn = fn; }
+  void set_color_fn(ColorTransformFn fn) { color_fn = fn; }
 
   /// Pass-through: current-frame pixels go straight to the canvas sink.
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
