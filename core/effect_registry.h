@@ -74,6 +74,7 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
   }
 
 #else
-// Non-WASM targets: no-op
+// Non-WASM targets: no-op (extern template + explicit instantiation was
+// attempted but GCC ARM 11.3.1 still emits weak symbols, ignoring FLASHMEM)
 #define REGISTER_EFFECT(ClassName)
 #endif

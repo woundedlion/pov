@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_ROTATE_H_
+#define HOLOSPHERE_CORE_ROTATE_H_
 #include <cmath>
 #include <cstdint>
 #include "3dmath.h"
@@ -131,3 +133,4 @@ private:
   float cos_dg = cosf(delta_gamma);
   float sin_dg = sinf(delta_gamma);
 };
+#endif // HOLOSPHERE_CORE_ROTATE_H_

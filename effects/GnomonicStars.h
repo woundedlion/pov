@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class GnomonicStars : public Effect {
 public:
@@ -19,7 +19,11 @@ public:
   FLASHMEM GnomonicStars()
       : Effect(W, H), orientation(), timeline(), transformer(timeline) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     registerParam("Points", &params.points, 100.0f, 2000.0f);
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
@@ -80,5 +84,5 @@ private:
   MobiusWarpGnomonicTransformer<W, 1> transformer;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(GnomonicStars)

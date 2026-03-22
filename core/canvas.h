@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_CANVAS_H_
+#define HOLOSPHERE_CORE_CANVAS_H_
 
 #include <cstring>
 #include <cstdio>
@@ -45,7 +47,11 @@ public:
    * @brief Post-construction initialization. Override to move heavy
    * setup logic here (avoids GCC C1/C2 constructor duplication).
    */
+#ifdef __EMSCRIPTEN__
   virtual void __attribute__((noinline)) init() {}
+#else
+  FLASHMEM void __attribute__((noinline)) init() {}
+#endif
 
   /**
    * @brief Abstract method to be implemented by derived classes to generate a
@@ -337,3 +343,5 @@ private:
   Effect &effect_;   /**< Reference to the owning Effect instance. */
   size_t start_time; /**< Tracks frame drawing duration (debug). */
 };
+
+#endif // HOLOSPHERE_CORE_CANVAS_H_

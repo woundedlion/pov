@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_MESH_H_
+#define HOLOSPHERE_CORE_MESH_H_
 
 #include "concepts.h"
 #include "3dmath.h"
@@ -476,3 +478,4 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 }
 
 } // namespace MeshOps
+#endif // HOLOSPHERE_CORE_MESH_H_

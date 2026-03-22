@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class Thrusters : public Effect {
 public:
@@ -15,7 +15,11 @@ public:
         amplitude(0), warp_phase(0), t_global(0),
         warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     registerParam("Radius", &params.radius, 0.1f, 2.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
@@ -168,5 +172,5 @@ private:
   } params;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(Thrusters)

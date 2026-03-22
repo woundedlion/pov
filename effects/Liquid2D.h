@@ -5,14 +5,17 @@
  */
 #pragma once
 
-#include "effects_engine.h"
-#include "scan.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class Liquid2D : public Effect {
 public:
   FLASHMEM Liquid2D() : Effect(W, H) { persist_pixels = false; }
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
@@ -32,10 +35,9 @@ public:
 
     // Bake the generative palette into a fast 16-bit LUT
     palette.bake(persistent_arena,
-                 GenerativePalette{GradientShape::STRAIGHT,
-                                   HarmonyType::COMPLEMENTARY,
-                                   BrightnessProfile::CUP,
-                                   SaturationProfile::VIBRANT, 75});
+                 GenerativePalette{
+                     GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
+                     BrightnessProfile::CUP, SaturationProfile::VIBRANT, 75});
     static_palette.bind(&palette, &breathe_mod);
 
     // Cycle presets every 3-5 seconds via a 2 second lerp
@@ -88,8 +90,7 @@ private:
   /// Noise-based warp in stereographic space, attenuated near pole.
   StereoWarpResult warp(const Complex &z, float r_sq, float t) const {
     return stereo_noise_warp(z, r_sq, noise, params.warp_scale,
-                             params.warp_strength, params.pole_fade,
-                             t * 0.5f);
+                             params.warp_strength, params.pole_fade, t * 0.5f);
   }
 
   /// Cross-coupled sinusoidal pattern with complexity modulation.
@@ -105,7 +106,6 @@ private:
     float fade = 1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
     return (pattern * fade + 1.0f) * 0.5f;
   }
-
 
   /// Trig-free glitch lens: mirror + squish + triple theta.
   static Vector apply_glitch_lens(Vector v) {
@@ -124,8 +124,7 @@ private:
     float inv_R2 = 1.0f / R2;
     float y2 = 2.0f * v.y;
 
-    return Vector(y2 * v.x * (4.0f * x2 * inv_R2 - 3.0f),
-                  y2 * v.y - 1.0f,
+    return Vector(y2 * v.x * (4.0f * x2 * inv_R2 - 3.0f), y2 * v.y - 1.0f,
                   y2 * v.z * (3.0f - 4.0f * z2 * inv_R2));
   }
 
@@ -186,5 +185,5 @@ private:
   }}};
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(Liquid2D)

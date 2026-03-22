@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_GEOMETRY_H_
+#define HOLOSPHERE_CORE_GEOMETRY_H_
 #include <cmath>
 #include <algorithm>
 #include <array>
@@ -589,3 +591,4 @@ inline std::pair<Basis, float> get_antipode(const Basis &basis, float radius) {
   }
   return {basis, radius};
 }
+#endif // HOLOSPHERE_CORE_GEOMETRY_H_

@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 #include <array>
 
 template <int W, int H> class HopfFibration : public Effect {
@@ -17,7 +17,11 @@ public:
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
     registerParam("Folding", &params.folding, 0.0f, 2.0f);
@@ -36,11 +40,14 @@ public:
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_mid, true));
     flow_driver_ = timeline.add_get(
-        0, Animation::Driver(flow_offset, 0.02f * params.flow_speed * 0.2f, false));
+        0, Animation::Driver(flow_offset, 0.02f * params.flow_speed * 0.2f,
+                             false));
     tumble_x_driver_ = timeline.add_get(
-        0, Animation::Driver(tumble_angle_x, 0.003f * params.tumble_speed, false));
+        0,
+        Animation::Driver(tumble_angle_x, 0.003f * params.tumble_speed, false));
     tumble_y_driver_ = timeline.add_get(
-        0, Animation::Driver(tumble_angle_y, 0.005f * params.tumble_speed, false));
+        0,
+        Animation::Driver(tumble_angle_y, 0.005f * params.tumble_speed, false));
   }
 
   bool show_bg() const override { return false; }
@@ -116,8 +123,8 @@ private:
   Vector hopf_project(size_t i) const {
     const Vector &base = fibers[i];
     Spherical sph(base);
-    float theta = sph.phi;   // polar angle (co-latitude)
-    float phi = sph.theta;   // azimuthal angle
+    float theta = sph.phi; // polar angle (co-latitude)
+    float phi = sph.theta; // azimuthal angle
 
     // Folding
     float eta = theta / 2.0f;
@@ -178,5 +185,5 @@ private:
   }
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(HopfFibration)

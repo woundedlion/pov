@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_HANKIN_H_
+#define HOLOSPHERE_CORE_HANKIN_H_
 
 #include "mesh.h"
 
@@ -305,3 +307,4 @@ FLASHMEM inline PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp
 }
 
 } // namespace MeshOps
+#endif // HOLOSPHERE_CORE_HANKIN_H_

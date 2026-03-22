@@ -5,9 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
-
-#include "static_circular_buffer.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class MindSplatter : public Effect {
 public:
@@ -21,7 +19,11 @@ public:
                 Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     configure_arenas(GLOBAL_ARENA_SIZE - 16384, 16384, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
@@ -206,5 +208,5 @@ private:
   }
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(MindSplatter)

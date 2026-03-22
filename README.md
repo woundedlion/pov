@@ -135,7 +135,7 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 │   ├── Phantasm/
 │   │   └── Phantasm.ino        Phantasm entry — 4×Teensy segmented (stub)
 │   └── wasm/
-│       └── wasm_bridge.cpp     Emscripten bindings — HolosphereEngine JS class
+│       └── wasm.cpp            Emscripten bindings — HolosphereEngine JS class
 │
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
 ├── tests/                      Unit tests (CMake subdirectory)
@@ -162,8 +162,8 @@ Three build targets share a common engine:
 │  │  .ino (stub) │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
-│  │  wasm_bridge │   │  pov_single.h — single-Teensy POV            │    │
-│  │  .cpp        │   │  pov_segmented.h — multi-Teensy POV (stub)   │    │
+│  │  wasm.cpp   │   │  pov_single.h — single-Teensy POV            │    │
+│  │              │   │  pov_segmented.h — multi-Teensy POV (stub)   │    │
 │  │              │   │  dma_led.h — HD107S DMA SPI pipeline          │    │
 │  └──────┬───────┘   └──────────────────────────────────────────────┘    │
 │         │                              ↑                                │
@@ -1188,7 +1188,7 @@ The simulator runs the identical C++ rendering engine compiled to WebAssembly vi
 
 ### WASM Bridge
 
-`wasm_bridge.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class:
+`wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class:
 
 | Method | Description |
 |---|---|
@@ -1283,7 +1283,7 @@ cmake --install .     # copies holosphere_wasm.js + .wasm to ../daydream/
 ```
 
 The `CMakeLists.txt` configures:
-- Source paths: `targets/wasm/wasm_bridge.cpp`, `core/memory.cpp`, `core/reaction_graph.cpp`
+- Source paths: `targets/wasm/wasm.cpp`, `core/memory.cpp`, `core/reaction_graph.cpp`
 - Include paths: project root (for `effects/`, `hardware/`) and `core/` (for engine headers)
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output

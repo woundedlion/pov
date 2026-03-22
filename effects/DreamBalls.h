@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 #include <map>
 #include <array>
@@ -31,7 +31,11 @@ public:
         slice_filter(filters), // Filters inherits Head (FilterOrientSlice)
         mobius_gen(timeline) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     // Initialize Presets
     setup_presets();
 
@@ -98,14 +102,14 @@ private:
                                          &bloodStreamPalette};
 
   Presets<Params, 4> preset_manager = {
-      .entries = {{{{  "rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
-                      &bloodStreamFalloff, 0.7f, false}},
+      .entries = {{{{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
+                     &bloodStreamFalloff, 0.7f, false}},
                    {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-                      &bloodStreamFalloff, 0.7f, false}},
+                     &bloodStreamFalloff, 0.7f, false}},
                    {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-                       &Palettes::richSunset, 0.3f, false}},
+                     &Palettes::richSunset, 0.3f, false}},
                    {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-                       &Palettes::lavenderLake, 0.3f, false}}}},
+                     &Palettes::lavenderLake, 0.3f, false}}}},
       .current_idx = 0};
 
   FLASHMEM void setup_presets() {
@@ -118,7 +122,7 @@ private:
       auto &data = loaded_presets[preset_idx++];
 
       PolyMesh m = generate(persistent_arena, Solids::get_by_name,
-                             std::string_view(p.solid_name));
+                            std::string_view(p.solid_name));
 
       // Store Verts (Deep Copy)
       data.mesh_state.vertices.bind(persistent_arena, m.vertices.size());
@@ -236,5 +240,5 @@ private:
   }
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(DreamBalls)

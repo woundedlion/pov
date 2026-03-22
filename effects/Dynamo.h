@@ -8,7 +8,7 @@
 #include <memory>
 
 #include <map>
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class Dynamo : public Effect {
 public:
@@ -33,9 +33,13 @@ public:
 
   bool show_bg() const override { return false; }
 
+#ifdef __EMSCRIPTEN__
   void init() override {
-    static_cast<Filter::World::Trails<W, 10000> &>(filters)
-        .init_storage(persistent_arena);
+#else
+  FLASHMEM void init() {
+#endif
+    static_cast<Filter::World::Trails<W, 10000> &>(filters).init_storage(
+        persistent_arena);
 
     registerParam("Speed", &params.speed, -10.0f, 10.0f);
     registerParam("Gap", &params.gap, 1.0f, 20.0f);
@@ -205,5 +209,5 @@ private:
       filters;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(Dynamo)

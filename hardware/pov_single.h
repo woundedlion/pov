@@ -75,7 +75,9 @@ public:
    * @param duration The time in seconds to run the effect.
    */
   template <typename E> void show(unsigned long duration) {
-    run(new E(), duration);
+    E *e = new E();
+    e->init();  // Static dispatch — FLASHMEM honored via explicit instantiation
+    run(e, duration);
   }
 
 private:
@@ -87,7 +89,6 @@ private:
 
     long start = millis();
     effect_ = e;
-    effect_->init();
     x_ = 0;
 #ifdef ARDUINO
     IntervalTimer timer;

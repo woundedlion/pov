@@ -5,9 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
-#include "styles.h"
-#include "solids.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class MeshFeedback : public Effect {
 public:
@@ -26,7 +24,11 @@ public:
                 Filter::Screen::AntiAlias<W, H>(),
                 Feedback::Filter<W, H>(style)) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     // Bind mutable state into all presets
     for (auto &e : presets.entries) {
       e.params.noise = &noise_params;
@@ -179,5 +181,5 @@ private:
       filters;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(MeshFeedback)

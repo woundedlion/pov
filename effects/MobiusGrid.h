@@ -8,7 +8,7 @@
 #include <memory>
 
 #include <map>
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class MobiusGrid : public Effect {
 
@@ -27,7 +27,11 @@ public:
 
   bool show_bg() const override { return false; }
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     // MobiusGrid requires very little persistent memory.
     // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle
     // rasterization arrays.
@@ -200,5 +204,5 @@ private:
       filters;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(MobiusGrid)

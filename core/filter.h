@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_FILTER_H_
+#define HOLOSPHERE_CORE_FILTER_H_
 
 #include <tuple>
 #include <utility>
@@ -802,3 +804,4 @@ public:
 } // namespace Pixel
 
 } // namespace Filter
+#endif // HOLOSPHERE_CORE_FILTER_H_

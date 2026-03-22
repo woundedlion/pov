@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class RingSpin : public Effect {
 public:
@@ -26,7 +26,11 @@ public:
 
   FLASHMEM RingSpin() : Effect(W, H) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     rings = static_cast<Ring *>(
         persistent_arena.allocate(NUM_RINGS * sizeof(Ring), alignof(Ring)));
 
@@ -91,5 +95,5 @@ private:
   } params;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(RingSpin)

@@ -7,7 +7,7 @@
 
 #include <cmath>
 #include <algorithm>
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class PetalFlow : public Effect {
 public:
@@ -26,7 +26,11 @@ public:
         // Spawner: Manage ring creation based on gap accumulation
         spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     // Register Params
     registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);
     registerParam("Speed", &params.speed, 0.0f, 20.0f);
@@ -112,7 +116,8 @@ private:
   void update_and_draw_rings(Canvas &canvas) {
     float move_dist = params.speed * 0.009375f;
     for (int i = 0; i < MAX_RINGS; ++i) {
-      if (!rings[i].active) continue;
+      if (!rings[i].active)
+        continue;
       rings[i].rho += move_dist;
       if (rings[i].rho > END_RHO) {
         rings[i].active = false;
@@ -188,8 +193,7 @@ private:
   }
 };
 
-template <int W, int H>
-float PetalFlow<W, H>::next_hue = 0.0f;
+template <int W, int H> float PetalFlow<W, H>::next_hue = 0.0f;
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(PetalFlow)

@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_PRESETS_H_
+#define HOLOSPHERE_CORE_PRESETS_H_
 
 #include <array>
 #include <span>
@@ -54,3 +56,4 @@ Presets(std::array<PresetEntry<Params>, N>, int) -> Presets<Params, N>;
 
 template <typename Params, size_t N>
 Presets(std::array<PresetEntry<Params>, N>, int, int) -> Presets<Params, N>;
+#endif // HOLOSPHERE_CORE_PRESETS_H_

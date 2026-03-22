@@ -5,8 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
-#include "solids.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class Test : public Effect {
 public:
@@ -25,7 +24,11 @@ public:
             },
             32, ease_mid, true) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     params.thickness = 4.0f * (2.0f * PI_F / W);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -105,5 +108,5 @@ private:
   Animation::Mutation amplitude_mut;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(Test)

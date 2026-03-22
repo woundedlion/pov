@@ -4,6 +4,8 @@
  */
 
 #pragma once
+#ifndef HOLOSPHERE_CORE_CONCEPTS_H_
+#define HOLOSPHERE_CORE_CONCEPTS_H_
 #include <concepts>
 #include <functional>
 #include "3dmath.h"
@@ -122,3 +124,4 @@ concept Tweenable = requires(const T &t, size_t i) {
   { t.length() } -> std::convertible_to<size_t>;
   { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
 };
+#endif // HOLOSPHERE_CORE_CONCEPTS_H_

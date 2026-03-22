@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_3DMATH_H_
+#define HOLOSPHERE_CORE_3DMATH_H_
 
 #include <cmath>
 #include <cfloat>
@@ -900,3 +902,4 @@ inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
 }
 
 } // namespace Spline
+#endif // HOLOSPHERE_CORE_3DMATH_H_

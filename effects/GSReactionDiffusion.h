@@ -7,9 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
-#include "effects_engine.h"
-#include "reaction_graph.h"
-#include "scan.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class GSReactionDiffusion : public Effect {
 public:
@@ -19,7 +17,11 @@ public:
 
   FLASHMEM GSReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     configure_arenas(80 * 1024, GLOBAL_ARENA_SIZE - 80 * 1024, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
@@ -33,7 +35,10 @@ public:
     state.B = static_cast<uint16_t *>(
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
     // A starts at 1.0 (65535), B starts at 0.0
-    for (int i = 0; i < RD_N; i++) { state.A[i] = 65535; state.B[i] = 0; }
+    for (int i = 0; i < RD_N; i++) {
+      state.A[i] = 65535;
+      state.B[i] = 0;
+    }
 
     cube_lut.build(persistent_arena);
     seed_clusters();
@@ -61,14 +66,13 @@ private:
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE);
   }
 
-
-
   void seed_clusters() {
     for (int i = 0; i < 30; i++) {
       int idx = hs::rand_int(0, RD_N - 1);
       state.B[idx] = 65535;
       for (int nb : ReactionGraph::neighbors[idx])
-        if (nb >= 0) state.B[nb] = 65535;
+        if (nb >= 0)
+          state.B[nb] = 65535;
     }
   }
 
@@ -82,14 +86,17 @@ private:
       float lA = 0, lB = 0;
       for (int k = 0; k < RD_K; k++) {
         int ni = ReactionGraph::neighbors[i][k];
-        if (ni < 0) continue;
+        if (ni < 0)
+          continue;
         lA += from_q16(state.A[ni]) - a;
         lB += from_q16(state.B[ni]) - b;
       }
 
       float abb = a * b * b;
-      nA[i] = to_q16(a + (params.dA * lA - abb + params.feed * (1.0f - a)) * params.dt);
-      nB[i] = to_q16(b + (params.dB * lB + abb - (params.k + params.feed) * b) * params.dt);
+      nA[i] = to_q16(a + (params.dA * lA - abb + params.feed * (1.0f - a)) *
+                             params.dt);
+      nB[i] = to_q16(b + (params.dB * lB + abb - (params.k + params.feed) * b) *
+                             params.dt);
     }
 
     std::swap(state.A, nA);
@@ -101,8 +108,7 @@ private:
   static constexpr float KERNEL_R = 1.5f * D_AVG;
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
 
-  float interpolate_b(const Vector &p, int nearest,
-                      const Vector *nodes) const {
+  float interpolate_b(const Vector &p, int nearest, const Vector *nodes) const {
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
       return dx * dx + dy * dy + dz * dz;
@@ -110,7 +116,8 @@ private:
     float tw = 0, wb = 0;
     auto acc = [&](int i) {
       float u = 1.0f - dist2(p, nodes[i]) * INV_R2;
-      if (u <= 0) return;
+      if (u <= 0)
+        return;
       float w = u * u;
       wb += from_q16(state.B[i]) * w;
       tw += w;
@@ -119,12 +126,11 @@ private:
     acc(nearest);
     for (int k = 0; k < RD_K; ++k) {
       int ni = ReactionGraph::neighbors[nearest][k];
-      if (ni >= 0) acc(ni);
+      if (ni >= 0)
+        acc(ni);
     }
     return wb / tw;
   }
-
-
 
   void render(Canvas &canvas) {
     ScratchScope _frame(scratch_arena_a);
@@ -146,7 +152,8 @@ private:
       int nearest = cube_lut.lookup(rv);
       float b = interpolate_b(rv, nearest, nodes);
 
-      if (b < 0.05f) return Color4(Pixel(0, 0, 0), 0.0f);
+      if (b < 0.05f)
+        return Color4(Pixel(0, 0, 0), 0.0f);
 
       float t = hs::clamp((b - 0.1f) * 4.0f, 0.0f, 1.0f);
       return palette.get(t);
@@ -155,12 +162,13 @@ private:
     Scan::Shader::draw<W, H, 4>(canvas, shader);
   }
 
-  struct { uint16_t *A = nullptr, *B = nullptr; } state;
+  struct {
+    uint16_t *A = nullptr, *B = nullptr;
+  } state;
 
-  GenerativePalette palette{GradientShape::STRAIGHT,
-                            HarmonyType::SPLIT_COMPLEMENTARY,
-                            BrightnessProfile::ASCENDING,
-                            SaturationProfile::VIBRANT};
+  GenerativePalette palette{
+      GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
+      BrightnessProfile::ASCENDING, SaturationProfile::VIBRANT};
   Orientation<W> orientation;
   FastNoiseLite noise;
   ReactionGraph::CubemapLUT cube_lut;
@@ -175,5 +183,5 @@ private:
   } params;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(GSReactionDiffusion)

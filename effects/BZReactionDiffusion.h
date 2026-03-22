@@ -7,9 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
-#include "effects_engine.h"
-#include "reaction_graph.h"
-#include "scan.h"
+#include "core/effects_engine.h"
 
 /**
  * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice sphere.
@@ -35,10 +33,13 @@ public:
   static constexpr int RD_K = ReactionGraph::RD_K;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
 
-
   FLASHMEM BZReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     // 75KB easily holds the 48KB Cubemap LUT + 23KB State
     configure_arenas(75 * 1024, GLOBAL_ARENA_SIZE - 75 * 1024, 0);
 
@@ -95,8 +96,6 @@ private:
                         Animation::RandomWalk<W>::Options::Languid()));
   }
 
-
-
   // ---------------------------------------------------------------------------
   // Seeding
   // ---------------------------------------------------------------------------
@@ -132,12 +131,13 @@ private:
 
   /** Advance one species: diffusion + Lotka-Volterra competition step. */
   uint8_t advance_species(float conc, float predator, float laplacian) const {
-    return to_q8(conc +
-                 (params.D * laplacian + conc * (1 - conc - params.alpha * predator)) *
-                     params.dt);
+    return to_q8(conc + (params.D * laplacian +
+                         conc * (1 - conc - params.alpha * predator)) *
+                            params.dt);
   }
 
-  /** Apply stochastic perturbation to prevent convergence on closed manifold. */
+  /** Apply stochastic perturbation to prevent convergence on closed manifold.
+   */
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int p = 0; p < 8; p++) {
       int idx = hs::rand_int(0, RD_N - 1);
@@ -171,7 +171,7 @@ private:
   // Rendering: Wendland C2 kernel interpolation
   // ---------------------------------------------------------------------------
 
-  static constexpr float D_AVG = 0.04044f;              // sqrt(4π / RD_N)
+  static constexpr float D_AVG = 0.04044f; // sqrt(4π / RD_N)
   static constexpr float KERNEL_R = 1.5f * D_AVG;
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
 
@@ -216,10 +216,9 @@ private:
 
   /** Accumulate Wendland C2 kernel weight for a single neighbor node. */
   static void accumulate_kernel_weight(const Vector &rv, const Vector *nodes,
-                                       int ni, float &wa, float &wb,
-                                       float &wc, float &tw,
-                                       const uint8_t *sA, const uint8_t *sB,
-                                       const uint8_t *sC) {
+                                       int ni, float &wa, float &wb, float &wc,
+                                       float &tw, const uint8_t *sA,
+                                       const uint8_t *sB, const uint8_t *sC) {
     float d = dist2(rv, nodes[ni]);
     float u = 1.0f - d * INV_R2;
     if (u > 0) {
@@ -238,13 +237,13 @@ private:
     float tw = 0, wa = 0, wb = 0, wc = 0;
 
     // Center node + its K neighbors
-    accumulate_kernel_weight(rv, nodes, best_node, wa, wb, wc, tw,
-                             state.A, state.B, state.C);
+    accumulate_kernel_weight(rv, nodes, best_node, wa, wb, wc, tw, state.A,
+                             state.B, state.C);
     for (int k = 0; k < RD_K; ++k) {
       int ni = ReactionGraph::neighbors[best_node][k];
       if (ni >= 0)
-        accumulate_kernel_weight(rv, nodes, ni, wa, wb, wc, tw,
-                                 state.A, state.B, state.C);
+        accumulate_kernel_weight(rv, nodes, ni, wa, wb, wc, tw, state.A,
+                                 state.B, state.C);
     }
 
     if (tw <= 0.0001f)
@@ -313,5 +312,5 @@ private:
   } params;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(BZReactionDiffusion)

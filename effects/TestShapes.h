@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class TestShapes : public Effect {
 public:
@@ -33,7 +33,11 @@ public:
 
   bool show_bg() const override { return false; }
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     shapes.bind(persistent_arena, 128);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Count", &params.num_shapes, 1.0f, 16.0f);
@@ -70,8 +74,8 @@ public:
     timeline = Timeline<W>();
 
     // Single camera tumble
-    timeline.add(0, Animation::RandomWalk<W>(
-        camera, X_AXIS, noise, {}, hs::rand_int(0, 65535)));
+    timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
+                                             hs::rand_int(0, 65535)));
 
     // Twist Mutation: sin wave
     timeline.add(0, Animation::Mutation(
@@ -196,5 +200,5 @@ private:
   int last_num_shapes_ = 7;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(TestShapes)
