@@ -3,12 +3,25 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_PLATFORM_H_
+#define HOLOSPHERE_CORE_PLATFORM_H_
+
+// Canvas resolution — override per target via -D flags if needed
+#ifndef CANVAS_W
+#define CANVAS_W 288
+#endif
+#ifndef CANVAS_H
+#define CANVAS_H 144
+#endif
+
 #include <random>
 
 #ifdef ARDUINO
+#ifndef NDEBUG
+#define NDEBUG  // Strip assert() to avoid linking newlib's __assert_func → fprintf
+#endif
 #include <Arduino.h>
 #include <FastLED.h>
-#include <cstdarg>
 
 namespace hs {
 /**
@@ -439,3 +452,4 @@ inline __attribute__((always_inline)) int clamp(int v, int lo, int hi) {
 }
 
 } // namespace hs
+#endif // HOLOSPHERE_CORE_PLATFORM_H_

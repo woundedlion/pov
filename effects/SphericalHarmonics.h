@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 #include <cmath>
 
 namespace SHMath {
@@ -115,7 +115,11 @@ public:
 
   FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
     registerParam("Debug BB", &params.debug_bb);
 
@@ -209,5 +213,5 @@ private:
   float morph_alpha = 0.0f;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(SphericalHarmonics)

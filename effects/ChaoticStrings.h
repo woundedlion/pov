@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
@@ -56,11 +56,15 @@ public:
   FLASHMEM ChaoticStrings()
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
-        palette_variant(),
-        cycle_phase(0.0f), functions{{{12.0f, 5.0f, 0, 2 * PI_F}}},
-        cur_function_idx(0), noise_xform(timeline) {}
+        palette_variant(), cycle_phase(0.0f),
+        functions{{{12.0f, 5.0f, 0, 2 * PI_F}}}, cur_function_idx(0),
+        noise_xform(timeline) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
 
     configure_arenas(GLOBAL_ARENA_SIZE - 200 * 1024, 200 * 1024, 0);
 
@@ -211,5 +215,5 @@ private:
   NoiseTransformer<W, 1> noise_xform;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(ChaoticStrings)

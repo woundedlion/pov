@@ -5,19 +5,20 @@
  */
 #pragma once
 
-#include "effects_engine.h"
-#include "transformers.h"
+#include "core/effects_engine.h"
 #include <algorithm>
 #include <map>
-
-#include "solids.h"
 
 template <int W, int H> class IslamicStars : public Effect {
 
 public:
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     configure_arenas(GLOBAL_ARENA_SIZE - (128 + 128) * 1024, 128 * 1024,
                      128 * 1024);
 
@@ -76,7 +77,8 @@ private:
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
                   const std::array<ProceduralPalette, 5> &palettes) {
-    if (opacity <= 0.005f) return;
+    if (opacity <= 0.005f)
+      return;
     ScratchScope _a(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
@@ -162,5 +164,5 @@ private:
   } params;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(IslamicStars)

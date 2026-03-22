@@ -5,19 +5,21 @@
  */
 #pragma once
 
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 #include <algorithm>
 #include <map>
 #include <random>
 
-#include "solids.h"
-
 template <int W, int H> class HankinSolids : public Effect {
 public:
   FLASHMEM HankinSolids() : Effect(W, H), filters() {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
     registerParam("Debug BB", &params.debug_bb);
@@ -151,7 +153,8 @@ private:
     load_shape(carousel.slot(new_slot), compiled_hankin_staging,
                palettes_slots[new_slot], next_idx, params.hankin_angle);
 
-    // Set slot indices before creating MeshMorph (draw callbacks reference these)
+    // Set slot indices before creating MeshMorph (draw callbacks reference
+    // these)
     morph_old_slot_ = old_front;
     morph_new_slot_ = new_slot;
 
@@ -159,13 +162,13 @@ private:
         0, Animation::MeshMorph(
                carousel.slot(old_front), carousel.slot(new_slot),
                persistent_arena, draw_morph_outgoing_fn_,
-               draw_morph_incoming_fn_, MORPH_FRAMES,
-               ease_in_out_sin)
+               draw_morph_incoming_fn_, MORPH_FRAMES, ease_in_out_sin)
                .then([this, next_idx, new_slot]() {
                  solid_idx = next_idx;
                  carousel.set_front(new_slot);
                  promote_staged_hankin();
-                 // Manual compaction: preserve both carousel slots + compiled_hankin
+                 // Manual compaction: preserve both carousel slots +
+                 // compiled_hankin
                  {
                    Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_a,
                                               persistent_arena);
@@ -216,5 +219,5 @@ private:
   } params;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(HankinSolids)

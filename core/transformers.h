@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_TRANSFORMERS_H_
+#define HOLOSPHERE_CORE_TRANSFORMERS_H_
 
 #include "3dmath.h"
 #include "concepts.h"
@@ -270,3 +272,4 @@ using MobiusWarpGnomonicTransformer =
 template <int W, int CAPACITY>
 using NoiseTransformer =
     Transformer<W, NoiseParams, Animation::Noise, noise_transform, CAPACITY>;
+#endif // HOLOSPHERE_CORE_TRANSFORMERS_H_

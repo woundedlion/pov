@@ -6,6 +6,8 @@
  // Based on https://easings.net/
 
 #pragma once
+#ifndef HOLOSPHERE_CORE_EASING_H_
+#define HOLOSPHERE_CORE_EASING_H_
 
 #include <cmath>
 #include "3dmath.h"
@@ -113,3 +115,4 @@ static inline float ease_out_elastic(float x) {
     0 : x == 1 ?
     1 : powf(2, -10 * x) * sinf((x * 10 - 0.75f) * c4) + 1;
 }
+#endif // HOLOSPHERE_CORE_EASING_H_

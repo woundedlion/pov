@@ -8,8 +8,7 @@
 #include <memory>
 
 #include <map>
-#include "effects_engine.h"
-#include "FastNoiseLite.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class FlowField : public Effect {
 public:
@@ -19,7 +18,11 @@ public:
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     registerParam("Scale", &params.noise_scale, 0.1f, 10.0f);
     registerParam("Force", &params.force_scale, 0.001f, 0.05f);
     registerParam("Max Spd", &params.max_speed, 0.01f, 0.1f);
@@ -121,5 +124,5 @@ private:
       filters;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(FlowField)

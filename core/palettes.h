@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_PALETTES_H_
+#define HOLOSPHERE_CORE_PALETTES_H_
 
 #include "color.h"
 
@@ -95,3 +97,4 @@ static constexpr ProceduralPalette peachPop({1.000f, 0.144f, 0.175f},
                                             {0.001f, 0.002f, 0.620f});
 
 } // namespace Palettes
+#endif // HOLOSPHERE_CORE_PALETTES_H_

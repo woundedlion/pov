@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_UTIL_H_
+#define HOLOSPHERE_CORE_UTIL_H_
 
 #include <algorithm>
 #include <cmath>
@@ -113,3 +115,4 @@ inline float fast_atan2(float y, float x) {
 
   return angle;
 }
+#endif // HOLOSPHERE_CORE_UTIL_H_

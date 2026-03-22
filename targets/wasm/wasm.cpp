@@ -7,8 +7,8 @@
 
 #include <emscripten/bind.h>
 #include <emscripten/stack.h>
-#include "effects.h"  // Includes all effect headers (triggers REGISTER_EFFECT)
-#include "effect_registry.h"
+#include "effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
+#include "core/effect_registry.h"
 #include "platform.h"
 #include <string_view>
 #include <cstring>
@@ -20,10 +20,10 @@ static constexpr uint8_t STACK_CANARY = 0xCD;
 /// canary byte. Safe to call at any time — only touches memory below the
 /// current stack pointer.
 static void stack_paint_canary() {
-  uintptr_t sp   = emscripten_stack_get_current();
-  uintptr_t end  = emscripten_stack_get_end();
+  uintptr_t sp = emscripten_stack_get_current();
+  uintptr_t end = emscripten_stack_get_end();
   if (sp > end) {
-    std::memset(reinterpret_cast<void*>(end), STACK_CANARY, sp - end);
+    std::memset(reinterpret_cast<void *>(end), STACK_CANARY, sp - end);
   }
 }
 
@@ -31,10 +31,11 @@ static void stack_paint_canary() {
 /// Returns the number of bytes that have been touched (high water mark).
 static size_t stack_high_water_mark() {
   uintptr_t base = emscripten_stack_get_base();
-  uintptr_t end  = emscripten_stack_get_end();
-  const uint8_t* p = reinterpret_cast<const uint8_t*>(end);
-  const uint8_t* top = reinterpret_cast<const uint8_t*>(base);
-  while (p < top && *p == STACK_CANARY) p++;
+  uintptr_t end = emscripten_stack_get_end();
+  const uint8_t *p = reinterpret_cast<const uint8_t *>(end);
+  const uint8_t *top = reinterpret_cast<const uint8_t *>(base);
+  while (p < top && *p == STACK_CANARY)
+    p++;
   return static_cast<size_t>(top - p);
 }
 
@@ -49,10 +50,9 @@ Arena tooling_scratch_a(tooling_scratch_buf_a, sizeof(tooling_scratch_buf_a));
 Arena tooling_scratch_b(tooling_scratch_buf_b, sizeof(tooling_scratch_buf_b));
 
 // Build a concrete factory table from the self-registering entries
-template <int W, int H>
-const std::vector<FactoryEntry>& get_factory() {
+template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
   static std::vector<FactoryEntry> table = []() {
-    const auto& regs = EffectRegistry::entries();
+    const auto &regs = EffectRegistry::entries();
     std::vector<FactoryEntry> t(regs.size());
     for (size_t i = 0; i < regs.size(); ++i)
       get_fill_fn<W, H>(regs[i])(t[i]);
@@ -63,8 +63,8 @@ const std::vector<FactoryEntry>& get_factory() {
 
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(std::string_view name) {
-  const auto& factory = get_factory<W, H>();
-  for (const auto& entry : factory) {
+  const auto &factory = get_factory<W, H>();
+  for (const auto &entry : factory) {
     if (name == entry.name)
       return entry.creator();
   }
@@ -230,8 +230,8 @@ public:
     // Stack metrics (same format as arenas)
     {
       uintptr_t base = emscripten_stack_get_base();
-      uintptr_t end  = emscripten_stack_get_end();
-      uintptr_t sp   = emscripten_stack_get_current();
+      uintptr_t end = emscripten_stack_get_end();
+      uintptr_t sp = emscripten_stack_get_current();
       val m = val::object();
       m.set("usage", static_cast<unsigned>(base - sp));
       m.set("high_water_mark", static_cast<unsigned>(stack_high_water_mark()));
@@ -244,8 +244,8 @@ public:
 
   template <int W, int H> val get_effect_sizes_helper() {
     val s = val::object();
-    const auto& factory = get_factory<W, H>();
-    for (const auto& entry : factory)
+    const auto &factory = get_factory<W, H>();
+    for (const auto &entry : factory)
       s.set(std::string(entry.name), static_cast<int>(entry.size));
     return s;
   }
@@ -291,15 +291,15 @@ struct MeshOpsWrapper {
   static std::unique_ptr<MeshOpsWrapper> fromSolid(int index) {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, index));
+    return std::make_unique<MeshOpsWrapper>(Solids::get(
+        tooling_arena, tooling_scratch_a, tooling_scratch_b, index));
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::get_by_name(tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
+    return std::make_unique<MeshOpsWrapper>(Solids::get_by_name(
+        tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromData(val vertices, val faces) {
@@ -325,8 +325,7 @@ struct MeshOpsWrapper {
       num_faces++;
 
     m.faces.bind(tooling_arena,
-                       fData.size() -
-                           num_faces); // Exact size without delimiters
+                 fData.size() - num_faces); // Exact size without delimiters
     m.face_counts.bind(tooling_arena, num_faces);
 
     int current_count = 0;
@@ -392,7 +391,8 @@ struct MeshOpsWrapper {
   val classifyFaces() {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a, tooling_scratch_b, tooling_arena);
+    MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a,
+                                        tooling_scratch_b, tooling_arena);
     return val::global("Int32Array")
         .new_(
             val(typed_memory_view(mesh.topology.size(), mesh.topology.data())));
@@ -402,74 +402,88 @@ struct MeshOpsWrapper {
   std::unique_ptr<MeshOpsWrapper> kis() const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::kis(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::kis(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> ambo() const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::ambo(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::ambo(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> gyro() const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::gyro(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::gyro(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> snub() const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::snub(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::snub(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> dual() const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::dual(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::dual(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> truncate(float t) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::truncate(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::truncate(mesh, tooling_scratch_a, tooling_scratch_b, t),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> expand(float t) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::expand(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::expand(mesh, tooling_scratch_a, tooling_scratch_b, t),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> hankin(float angle) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b, angle * (PI_F / 180.0f)), tooling_arena));
+        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b,
+                        angle * (PI_F / 180.0f)),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> hankin_rad(float radians) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b, radians), tooling_arena));
+        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b, radians),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> chamfer(float t) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(
-        Solids::finalize_solid(MeshOps::chamfer(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::chamfer(mesh, tooling_scratch_a, tooling_scratch_b, t),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> bitruncate(float t) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::bitruncate(mesh, tooling_scratch_a, tooling_scratch_b, t), tooling_arena));
+        MeshOps::bitruncate(mesh, tooling_scratch_a, tooling_scratch_b, t),
+        tooling_arena));
   }
   std::unique_ptr<MeshOpsWrapper> canonicalize(int iterations) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::canonicalize(mesh, tooling_scratch_a, tooling_scratch_b, iterations), tooling_arena));
+        MeshOps::canonicalize(mesh, tooling_scratch_a, tooling_scratch_b,
+                              iterations),
+        tooling_arena));
   }
   static val getRegistry() {
     val registry = val::array();
@@ -496,7 +510,8 @@ struct MeshOpsWrapper {
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       tooling_scratch_a.reset();
       tooling_scratch_b.reset();
-      PolyMesh temp = Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, i);
+      PolyMesh temp =
+          Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, i);
 
       int v = temp.vertices.size();
       int f = temp.face_counts.size();
@@ -593,28 +608,33 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   register_vector<uint8_t>("VectorUInt8");
 
   // Spline evaluation — thin wrappers returning val {x,y,z}
-  function("spline_cubic_fast", optional_override([](float p0x, float p0y, float p0z,
-                                                      float p1x, float p1y, float p1z,
-                                                      float p2x, float p2y, float p2z,
-                                                      float p3x, float p3y, float p3z,
-                                                      float t) -> val {
-    Vector r = Spline::cubic_fast({p0x,p0y,p0z},{p1x,p1y,p1z},
-                                  {p2x,p2y,p2z},{p3x,p3y,p3z}, t);
-    val v = val::object();
-    v.set("x", r.x); v.set("y", r.y); v.set("z", r.z);
-    return v;
-  }));
-  function("spline_cubic_slerp", optional_override([](float p0x, float p0y, float p0z,
-                                                       float p1x, float p1y, float p1z,
-                                                       float p2x, float p2y, float p2z,
-                                                       float p3x, float p3y, float p3z,
-                                                       float t) -> val {
-    Vector r = Spline::cubic_slerp({p0x,p0y,p0z},{p1x,p1y,p1z},
-                                    {p2x,p2y,p2z},{p3x,p3y,p3z}, t);
-    val v = val::object();
-    v.set("x", r.x); v.set("y", r.y); v.set("z", r.z);
-    return v;
-  }));
+  function("spline_cubic_fast",
+           optional_override([](float p0x, float p0y, float p0z, float p1x,
+                                float p1y, float p1z, float p2x, float p2y,
+                                float p2z, float p3x, float p3y, float p3z,
+                                float t) -> val {
+             Vector r = Spline::cubic_fast({p0x, p0y, p0z}, {p1x, p1y, p1z},
+                                           {p2x, p2y, p2z}, {p3x, p3y, p3z}, t);
+             val v = val::object();
+             v.set("x", r.x);
+             v.set("y", r.y);
+             v.set("z", r.z);
+             return v;
+           }));
+  function("spline_cubic_slerp",
+           optional_override([](float p0x, float p0y, float p0z, float p1x,
+                                float p1y, float p1z, float p2x, float p2y,
+                                float p2z, float p3x, float p3y, float p3z,
+                                float t) -> val {
+             Vector r =
+                 Spline::cubic_slerp({p0x, p0y, p0z}, {p1x, p1y, p1z},
+                                     {p2x, p2y, p2z}, {p3x, p3y, p3z}, t);
+             val v = val::object();
+             v.set("x", r.x);
+             v.set("y", r.y);
+             v.set("z", r.z);
+             return v;
+           }));
 }
 
 #endif

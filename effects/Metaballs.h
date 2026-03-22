@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class Metaballs : public Effect {
 public:
@@ -16,7 +16,11 @@ public:
 
   FLASHMEM Metaballs() : Effect(W, H), palette(Palettes::richSunset) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise.SetSeed(hs::rand_int(0, 10000));
     init_balls();
@@ -113,5 +117,5 @@ private:
   }
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(Metaballs)

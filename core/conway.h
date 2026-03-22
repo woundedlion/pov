@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_CONWAY_H_
+#define HOLOSPHERE_CORE_CONWAY_H_
 
 #include "mesh.h"
 
@@ -477,7 +479,7 @@ FLASHMEM inline PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &te
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
  */
 FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
-                                float t = 2.0f - sqrt(2.0f)) {
+                                float t = 2.0f - sqrtf(2.0f)) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
@@ -752,7 +754,7 @@ FLASHMEM inline PolyMesh canonicalize(const PolyMesh &mesh, Arena &target, Arena
                         out_mesh); // Use out_mesh as base since we mutate it
 
     for (int iter = 0; iter < iterations; ++iter) {
-      double totalLen = 0;
+      float totalLen = 0;
       int edgeCount = 0;
 
       for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
@@ -1024,7 +1026,7 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
     Vector N = cross(A, B);
     float lenSq = dot(N, N);
     if (lenSq >= 1e-6f) {
-      N = N * (1.0f / sqrt(lenSq));
+      N = N * (1.0f / sqrtf(lenSq));
       float pDotN = dot(p, N);
       Vector proj = p + N * (-pDotN);
       proj.normalize();
@@ -1051,3 +1053,4 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
 }
 
 } // namespace MeshOps
+#endif // HOLOSPHERE_CORE_CONWAY_H_

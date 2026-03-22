@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_WAVES_H_
+#define HOLOSPHERE_CORE_WAVES_H_
 
 #include "3dmath.h"
 #include <cmath>
@@ -65,3 +67,4 @@ inline auto square_wave(float from, float to, float freq, float dutyCycle,
     return from;
   };
 }
+#endif // HOLOSPHERE_CORE_WAVES_H_

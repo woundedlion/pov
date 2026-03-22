@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class SplineFlow : public Effect {
 public:
@@ -27,7 +27,11 @@ public:
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters).init_storage(
         persistent_arena);
 
@@ -110,5 +114,5 @@ private:
       filters;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(SplineFlow)

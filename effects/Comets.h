@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "effects_engine.h"
+#include "core/effects_engine.h"
 
 // Configuration for Lissajous curves
 struct LissajousConfig {
@@ -30,7 +30,11 @@ public:
 
   FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {}
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
     new (node) Node();
@@ -124,5 +128,5 @@ private:
   } params;
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(Comets)

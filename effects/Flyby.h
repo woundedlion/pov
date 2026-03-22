@@ -5,14 +5,17 @@
  */
 #pragma once
 
-#include "effects_engine.h"
-#include "scan.h"
+#include "core/effects_engine.h"
 
 template <int W, int H> class Flyby : public Effect {
 public:
   FLASHMEM Flyby() : Effect(W, H) { persist_pixels = false; }
 
+#ifdef __EMSCRIPTEN__
   void init() override {
+#else
+  FLASHMEM void init() {
+#endif
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
@@ -140,5 +143,5 @@ private:
   }}};
 };
 
-#include "effect_registry.h"
+#include "core/effect_registry.h"
 REGISTER_EFFECT(Flyby)

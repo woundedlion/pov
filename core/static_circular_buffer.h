@@ -3,6 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+#ifndef HOLOSPHERE_CORE_STATIC_CIRCULAR_BUFFER_H_
+#define HOLOSPHERE_CORE_STATIC_CIRCULAR_BUFFER_H_
 
 #include <array>
 #include <cstddef>
@@ -359,3 +361,4 @@ private:
     }
   };
 };
+#endif // HOLOSPHERE_CORE_STATIC_CIRCULAR_BUFFER_H_

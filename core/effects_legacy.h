@@ -50,8 +50,8 @@ auto blend(float a) {
 }
 
 void plot_aa(Canvas &cv, const float &x, const float &y, const CHSV &c) {
-  int x_i = floor(x);
-  int y_i = floor(y);
+  int x_i = floorf(x);
+  int y_i = floorf(y);
   float x_m = x - x_i;
   float y_m = y - y_i;
 
@@ -666,7 +666,7 @@ public:
       }
     }
 
-    const float rings[] = {4.5, 9.5, 15.5};
+    const float rings[] = {4.5f, 9.5f, 15.5f};
     for (size_t i = 0; i < sizeof(rings) / sizeof(float); ++i) {
       float y = rings[i];
       for (float x = 0; x < W; ++x) {

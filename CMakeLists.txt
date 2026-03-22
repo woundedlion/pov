@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Source files
 set(SOURCES
-    targets/wasm/wasm_bridge.cpp
+    targets/wasm/wasm.cpp
     core/memory.cpp
     core/reaction_graph.cpp
 )

@@ -1,4 +1,6 @@
 #pragma once
+#ifndef HOLOSPHERE_CORE_COLOR_LUTS_H_
+#define HOLOSPHERE_CORE_COLOR_LUTS_H_
 #include "platform.h"
 // Generated LUTs for color conversion
 // Source: generate_luts.py (Precise sRGB Transfer Function)
@@ -4404,3 +4406,4 @@ inline const uint8_t linear_to_srgb_lut[65536] PROGMEM = {
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
     255,
 };
+#endif // HOLOSPHERE_CORE_COLOR_LUTS_H_

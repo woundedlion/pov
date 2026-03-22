@@ -1,6 +1,8 @@
 // Auto-generated -- do not edit
 // Fibonacci lattice K-NN graph: RD_N=7680, RD_K=6
 #pragma once
+#ifndef HOLOSPHERE_CORE_REACTION_GRAPH_H_
+#define HOLOSPHERE_CORE_REACTION_GRAPH_H_
 #include "platform.h"
 #include "3dmath.h"
 #include "memory.h"
@@ -113,3 +115,4 @@ private:
 };
 
 } // namespace ReactionGraph
+#endif // HOLOSPHERE_CORE_REACTION_GRAPH_H_
