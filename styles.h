@@ -31,6 +31,9 @@ using ColorFn = Pixel (*)(const Pixel &, float fade, const Style &);
 /// Noise-based spatial warping (default).
 inline Vector noise_warp(const Vector &v, const Style &s);
 
+/// Downward melt — slerps toward north pole (image drips south) + noise wobble.
+inline Vector melt_warp(const Vector &v, const Style &s);
+
 /// Identity — no spatial distortion.
 inline Vector identity_warp(const Vector &v, const Style &) { return v; }
 
@@ -111,6 +114,16 @@ struct Style {
   static constexpr Style Drift() {
     return {0.68f, 0.03f, 4.98f, 0.07f, 0.2f, 5.0f, &noise_warp, &hue_fade};
   }
+
+  /// Image melts and drips downward off the sphere.
+  static constexpr Style Melting() {
+    return {0.8158f, 0.0766f, 6.36f, 0.014f, 1.005f, 42.365f, &melt_warp, &hue_fade};
+  }
+
+  /// Fast downward swirl with strong distortion, no hue shift.
+  static constexpr Style Swirling() {
+    return {0.8158f, 0.0f, 6.36f, 0.014f, 1.465f, 42.365f, &melt_warp, &plain_fade};
+  }
 };
 
 // --- Deferred inline definitions (Style is now complete) ----------------------
@@ -118,6 +131,20 @@ struct Style {
 inline Vector noise_warp(const Vector &v, const Style &s) {
   if (!s.noise) return v;
   return noise_transform(v, *s.noise);
+}
+
+inline Vector melt_warp(const Vector &v, const Style &s) {
+  // Shift sample toward north pole → image appears to drip south.
+  // speed controls drip rate; amplitude controls noise wobble.
+  static constexpr Vector NORTH = {0.0f, 1.0f, 0.0f};
+  float drip = s.speed * 0.04f;
+  Vector drifted = slerp(v, NORTH, drip);
+
+  // Add noise perturbation for organic, uneven drip widths
+  if (s.noise && s.amplitude > 0.001f) {
+    return noise_transform(drifted, *s.noise);
+  }
+  return drifted;
 }
 
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
