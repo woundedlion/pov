@@ -13,15 +13,24 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Source files
-set(SOURCES wasm_bridge.cpp memory.cpp reaction_graph.cpp)
+set(SOURCES
+    targets/wasm/wasm_bridge.cpp
+    core/memory.cpp
+    core/reaction_graph.cpp
+)
 
 # Target name and output name
 set(TARGET_NAME holosphere_wasm)
 
 add_executable(${TARGET_NAME} ${SOURCES})
 
-# Include the current directory for all headers
-target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+# Include directories:
+#   - Project root for effects/ and hardware/ (top-level dirs)
+#   - core/ for engine headers (canvas.h, platform.h, etc.)
+target_include_directories(${TARGET_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+)
 
 # Common Emscripten options
 target_link_options(${TARGET_NAME} PRIVATE 

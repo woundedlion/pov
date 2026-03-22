@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 // Configuration for Lissajous curves
 struct LissajousConfig {
@@ -124,5 +124,5 @@ private:
   } params;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(Comets)

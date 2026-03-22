@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
-#include "../scan.h"
+#include "effects_engine.h"
+#include "scan.h"
 
 template <int W, int H> class Flyby : public Effect {
 public:
@@ -140,5 +140,5 @@ private:
   }}};
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(Flyby)

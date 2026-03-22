@@ -7,7 +7,7 @@
 
 #include <cmath>
 #include <algorithm>
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class PetalFlow : public Effect {
 public:
@@ -191,5 +191,5 @@ private:
 template <int W, int H>
 float PetalFlow<W, H>::next_hue = 0.0f;
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(PetalFlow)

@@ -8,7 +8,7 @@
 #include <memory>
 
 #include <map>
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class Dynamo : public Effect {
 public:
@@ -205,5 +205,5 @@ private:
       filters;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(Dynamo)

@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
-#include "../solids.h"
+#include "effects_engine.h"
+#include "solids.h"
 
 template <int W, int H> class Test : public Effect {
 public:
@@ -105,5 +105,5 @@ private:
   Animation::Mutation amplitude_mut;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(Test)

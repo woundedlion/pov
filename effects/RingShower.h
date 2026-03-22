@@ -8,7 +8,7 @@
 #include <memory>
 
 #include <map>
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class RingShower : public Effect {
 public:
@@ -89,5 +89,5 @@ private:
   } params;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(RingShower)

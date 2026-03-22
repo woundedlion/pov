@@ -5,13 +5,13 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 #include <algorithm>
 #include <map>
 #include <random>
 
-#include "../solids.h"
+#include "solids.h"
 
 template <int W, int H> class HankinSolids : public Effect {
 public:
@@ -216,5 +216,5 @@ private:
   } params;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(HankinSolids)

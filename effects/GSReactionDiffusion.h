@@ -7,9 +7,9 @@
 
 #include <algorithm>
 #include <cstring>
-#include "../effects_engine.h"
-#include "../reaction_graph.h"
-#include "../scan.h"
+#include "effects_engine.h"
+#include "reaction_graph.h"
+#include "scan.h"
 
 template <int W, int H> class GSReactionDiffusion : public Effect {
 public:
@@ -175,5 +175,5 @@ private:
   } params;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(GSReactionDiffusion)

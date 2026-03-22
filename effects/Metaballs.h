@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class Metaballs : public Effect {
 public:
@@ -113,5 +113,5 @@ private:
   }
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(Metaballs)

@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 #include <map>
 #include <array>
@@ -236,5 +236,5 @@ private:
   }
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(DreamBalls)

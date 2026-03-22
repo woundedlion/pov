@@ -5,9 +5,9 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
-#include "../styles.h"
-#include "../solids.h"
+#include "effects_engine.h"
+#include "styles.h"
+#include "solids.h"
 
 template <int W, int H> class MeshFeedback : public Effect {
 public:
@@ -179,5 +179,5 @@ private:
       filters;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(MeshFeedback)

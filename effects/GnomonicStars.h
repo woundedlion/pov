@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "../effects_engine.h"
+#include "effects_engine.h"
 
 template <int W, int H> class GnomonicStars : public Effect {
 public:
@@ -80,5 +80,5 @@ private:
   MobiusWarpGnomonicTransformer<W, 1> transformer;
 };
 
-#include "../effect_registry.h"
+#include "effect_registry.h"
 REGISTER_EFFECT(GnomonicStars)
