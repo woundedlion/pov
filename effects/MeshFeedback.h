@@ -22,10 +22,9 @@ public:
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
         palette(Palettes::peachPop),
-        filters(
-            Filter::World::Orient<W>(orientation),
-            Filter::Screen::AntiAlias<W, H>(),
-            Feedback::Filter<W, H>(style)) {}
+        filters(Filter::World::Orient<W>(orientation),
+                Filter::Screen::AntiAlias<W, H>(),
+                Feedback::Filter<W, H>(style)) {}
 
   void init() override {
     // Bind mutable state into all presets
@@ -137,18 +136,20 @@ private:
 
   void apply_params() {
     style.sync_noise();
-    filters.template get<Feedback::Filter<W, H>>().set_enabled(feedback_enabled);
+    filters.template get<Feedback::Filter<W, H>>().set_enabled(
+        feedback_enabled);
   }
 
   Style style;
 
-  Presets<Style, 5> presets = {
-      .entries = {{{Style::Churn()},
-                   {Style::Smoke()},
-                   {Style::Frozen()},
-                   {Style::Shatter()},
-                   {Style::Drift()}}},
-      .current_idx = 0};
+  Presets<Style, 7> presets = {.entries = {{{Style::Melting()},
+                                            {Style::Swirling()},
+                                            {Style::Churn()},
+                                            {Style::Smoke()},
+                                            {Style::Frozen()},
+                                            {Style::Shatter()},
+                                            {Style::Drift()}}},
+                               .current_idx = 0};
   bool preset_paused = false;
   bool feedback_enabled = true;
   NoiseParams noise_params;
