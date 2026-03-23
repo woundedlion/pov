@@ -26,7 +26,7 @@ A persistence-of-vision (POV) LED sphere and its real-time simulator. The device
    - [6.7 The Mesh System](#67-the-mesh-system-meshh-conwayh-hankinh-spatialh-solidsh)
    - [6.8 Generators](#68-generators-generatorsh)
    - [6.9 The Preset System](#69-the-preset-system-presetsh)
-   - [6.10 DMA LED Controller](#610-dma-led-controller-dma_ledh)
+   - [6.10 Hardware Drivers](#610-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
 7. [The Effect System](#7-the-effect-system)
 8. [Effects Reference](#8-effects-reference)
 9. [The Web Simulator (Daydream)](#9-the-web-simulator-daydream)
@@ -43,19 +43,26 @@ Two physical targets share the same rendering engine:
 
 | Component | Detail |
 |---|---|
-| Controller | Teensy 4.1 (600 MHz ARM Cortex-M7) |
+| Controller | Teensy 4.0 (600 MHz ARM Cortex-M7) |
 | LEDs | 40-pixel addressable strip (20 per half-arm, two-arm rotation) |
 | Protocol | SPI via FastLED (WS2801 at 6 MHz) or DMA (HD107S at 12 MHz) |
 | Rotation | 480 RPM (8 revolutions/second) |
 | Virtual resolution | 96 × 20 |
+| Driver | `POVDisplay<40, 480>` in `pov_single.h` |
 | Pin assignments | DATA: pin 11, CLOCK: pin 13, RANDOM seed: analog pin 15 |
 
-### New Art Piece
+### Phantasm
 
 | Component | Detail |
 |---|---|
-| LEDs | 2 × 144-pixel strips around the ring |
-| Virtual resolution | 288 × 144 (effect-dependent horizontal; most use 288) |
+| Controllers | 4× Teensy 4.1 (600 MHz ARM Cortex-M7) |
+| LEDs | 2 × 144-pixel strips (288 total, 72 per segment) |
+| Protocol | DMA (HD107S at 24 MHz) |
+| Rotation | 1200 RPM (20 revolutions/second) |
+| Virtual resolution | 288 × 144 |
+| Driver | `POVSegmented<288, 4, 1200>` in `pov_segmented.h` |
+| Synchronization | 2-wire: column clock (PWM) + frame sync (pulse) |
+| Pin assignments | ID: pins 21–22, Column clock: pin 2 (in) / pin 5 (out), Frame sync: pin 3 (out) / pin 4 (in), SPI: pins 11 + 13 |
 
 The POV effect works because each revolution takes ~125 ms and the ISR fires every `1,000,000 / (RPM/60) / width` microseconds to advance one column. The LED strip is mounted on both sides of a rotating arm: the top half of the strip handles one hemisphere and the bottom half handles the opposite hemisphere, so one full revolution paints a complete sphere.
 
@@ -127,13 +134,13 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
-│   └── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm, stub)
+│   └── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │
 ├── targets/                    Per-target entry points
 │   ├── Holosphere/
 │   │   └── Holosphere.ino      Holosphere entry — NUM_PIXELS=40, RPM=480
 │   ├── Phantasm/
-│   │   └── Phantasm.ino        Phantasm entry — 4×Teensy segmented (stub)
+│   │   └── Phantasm.ino        Phantasm entry — 4×Teensy, TOTAL_PIXELS=288, RPM=1200
 │   └── wasm/
 │       └── wasm.cpp            Emscripten bindings — HolosphereEngine JS class
 │
@@ -999,29 +1006,111 @@ presets.next();  // advance to next preset
 presets.apply(current_params);  // copy current preset into live params
 ```
 
-### 6.10 DMA LED Controller (`hardware/dma_led.h`)
+### 6.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 
-An optional non-blocking DMA-based LED output path for HD107S (APA102-compatible) LEDs on Teensy 4.x. Enabled by defining `USE_DMA_LEDS` in `led.h`; the default FastLED/WS2801 path remains as fallback.
+Three hardware drivers form a layered stack.  `dma_led.h` handles the SPI wire protocol; `pov_single.h` and `pov_segmented.h` sit above it and manage the POV column sweep, differing only in how many Teensys share the work.
 
-The system has three layers:
+#### DMA LED Controller (`dma_led.h`)
+
+Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 4.x.  Enabled by `#define USE_DMA_LEDS` in `led.h`; the default FastLED/WS2801 path remains as fallback.
 
 | Class | Role |
 |---|---|
 | `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel16` values directly into the frame buffer with inline color correction (color correction → temperature → gamma → brightness), bypassing the CRGB intermediate. Uses `DMAMEM` placement and `arm_dcache_flush_delete()` for cache coherency. |
-| `TeensySPIDMA` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission at 12 MHz. |
+| `TeensySPIDMA` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
 | `DMALEDController<N>` | Double-buffered high-level controller. `show(leds)` loads the back buffer and triggers DMA, returning immediately. The previous transfer is guaranteed complete before the next begins. |
 
-In the ISR, `DMALEDController::show()` replaces `FastLED.show()` as a drop-in. The ISR writes `Pixel16` values directly via `packPixel()` — the 16-bit linear pipeline reaches all the way to the SPI wire with no 8-bit intermediate:
+The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire with no 8-bit intermediate:
 
 ```cpp
 // ISR path:
-for (y in 0..S/2):
-  frame.packPixel(S/2-y-1, get_pixel(x, y));   // Pixel16 → HD107S frame
-  frame.packPixel(S/2+y,   get_pixel(x±W/2, y));
-ledController_.submitFrame();  // non-blocking DMA
+frame.packPixel(i, get_pixel(x, y));   // Pixel16 → HD107S frame
+ledController_.submitFrame();           // non-blocking DMA
 ```
 
-Because the DMA transfer runs in hardware, the ISR returns immediately and the main loop gets more CPU time for rendering.
+#### Single-Teensy POV Driver (`pov_single.h`)
+
+`POVDisplay<S, RPM>` drives the Holosphere — one Teensy owns the entire LED strip.  An `IntervalTimer` ISR fires at `1,000,000 / (RPM/60) / width` µs intervals to advance one column:
+
+```
+Main Loop                              ISR (IntervalTimer)
+──────────                             ───────────────────
+effect->draw_frame()                   show_col() fires every N µs
+  Canvas canvas(*this)                   for y in 0..S/2:
+    render to bufs_[cur_]                  packPixel(S/2-y-1, get_pixel(x, y))    // top arm
+  ~Canvas → queue_frame()                  packPixel(S/2+y,   get_pixel(x+W/2, y)) // bottom arm
+                                         submitFrame() → async DMA
+                                         x = (x+1) % width
+                                         if x==0 || x==width/2: advance_display()
+```
+
+The top arm's physical LED ordering is reversed (LED 0 at the tip, descending in Y), and the bottom arm shows the opposite half of the image (x offset by W/2).
+
+| Parameter | Value (Holosphere) |
+|---|---|
+| S (total pixels) | 40 |
+| RPM | 480 |
+| Column interval | ~434 µs |
+| ISR duration | ~20 µs |
+
+#### Multi-Teensy Segmented POV Driver (`pov_segmented.h`)
+
+`POVSegmented<S, N, RPM>` drives Phantasm — N Teensys (typically 4) each control a contiguous Y-segment of the LED strip on a single arm.  Two Teensys sit on each arm: one at the N pole (top), one at the S pole (bottom).
+
+**Physical strip layout (N=4, S=288):**
+
+```
+Arm A                               Arm B (x offset by W/2)
+┌──────────────────────────┐        ┌──────────────────────────┐
+│ Seg 0 (top)              │        │ Seg 2 (top)              │
+│ LED 0 at N pole (y=0)    │        │ LED 0 at N pole (y=0)    │
+│ → LED 71 at junction     │        │ → LED 71 at junction     │
+├────────── junction ──────┤        ├────────── junction ──────┤
+│ Seg 1 (bottom, reversed) │        │ Seg 3 (bottom, reversed) │
+│ LED 0 at S pole (y=143)  │        │ LED 0 at S pole (y=143)  │
+│ → LED 71 at junction     │        │ → LED 71 at junction     │
+└──────────────────────────┘        └──────────────────────────┘
+```
+
+**Hardware ID detection**: Each Teensy reads a 2-bit ID from GPIO pins 21–22 (active-low with pull-ups).  All-floating = ID 0 (clock master).  The ID determines which arm and which half this board owns.
+
+**Synchronization** uses two shared wires:
+
+| Wire | Pin (out) | Pin (in) | Purpose |
+|---|---|---|---|
+| Column clock | 5 (PWM) | 2 (ext. interrupt) | Segment 0 generates a PWM at (RPM/60)×W Hz. All boards fire `show_col()` ISR on each rising edge — zero inter-board phase drift. |
+| Frame sync | 3 (GPIO) | 4 (ext. interrupt) | Segment 0 pulses HIGH when `x` wraps to 0. All boards reset `x=0` on this edge, bounding any column drift from missed/spurious pulses to ≤ 1 revolution. |
+
+The column clock ensures all 4 boards paint the same column at the same instant.  The frame sync is insurance against electrical noise on the clock line — a spurious or missed pulse would cause permanent 1-column drift without periodic re-alignment.
+
+**Branchless ISR**: All per-segment decisions are resolved at boot time into three precomputed values:
+
+| Value | Description |
+|---|---|
+| `y_base_` | Starting Y index for LED 0 (0 for top segments, ROWS-1 for bottom) |
+| `y_step_` | +1 (top, forward) or -1 (bottom, reversed) |
+| `arm_b_` | Whether this segment is on arm B (x offset by W/2) |
+
+The ISR loop has no branches:
+
+```cpp
+int y = y_base_;
+for (int i = 0; i < PPS; ++i, y += y_step_) {
+    frame.packPixel(i, effect_->get_pixel(x_col, y));
+}
+```
+
+**Effect transparency**: Effects render the full 288×144 canvas — segmentation is handled entirely in the ISR.  No changes to any effect code are needed.  All 4 boards share the same deterministic random seed (`std::mt19937(1337)` in `platform.h`), so identical effect sequences produce identical canvases.
+
+| Parameter | Value (Phantasm) |
+|---|---|
+| S (total pixels) | 288 |
+| N (segments) | 4 |
+| PPS (pixels per segment) | 72 |
+| RPM | 1200 |
+| Column frequency | 5760 Hz |
+| Column interval | ~173 µs |
+| ISR duration (72px pack + DMA trigger) | ~96 µs worst case |
 
 ---
 
