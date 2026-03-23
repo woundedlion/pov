@@ -204,8 +204,8 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
  * @brief Result of a stereographic-space noise warp.
  */
 struct StereoWarpResult {
-  Complex coords;       ///< Displaced coordinate
-  float displacement;   ///< Magnitude of the displacement vector
+  Complex coords;     ///< Displaced coordinate
+  float displacement; ///< Magnitude of the displacement vector
 };
 
 /**
@@ -250,7 +250,7 @@ using MobiusWarpTransformer =
                 CAPACITY>;
 
 /**
- * @brief Performs circular Mobius warps stay warped throughout sutiable for
+ * @brief Performs circular Mobius warps stay warped throughout suitable for
  * repeating animations
  */
 template <int W, int CAPACITY>

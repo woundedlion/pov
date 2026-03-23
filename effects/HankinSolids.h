@@ -8,8 +8,6 @@
 #include "core/effects_engine.h"
 
 #include <algorithm>
-#include <map>
-#include <random>
 
 template <int W, int H> class HankinSolids : public Effect {
 public:

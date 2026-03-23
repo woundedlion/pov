@@ -5,9 +5,7 @@
  */
 #pragma once
 #include <functional>
-#include <memory>
 
-#include <map>
 #include "core/effects_engine.h"
 
 template <int W, int H> class Dynamo : public Effect {
@@ -68,7 +66,7 @@ public:
 
   void color_wipe() {
     if (palettes.is_full()) {
-      Serial.println("Palettes full, dropping color wipe!");
+      hs::log("Palettes full, dropping color wipe!");
       return;
     }
 
@@ -151,7 +149,9 @@ private:
           f.color = color(v, 0);
           f.color.alpha *= 0.5f;
         };
-        Plot::Line::draw<W, H>(filters, canvas, Fragment(from), Fragment(to),
+        Fragment f_from; f_from.pos = from;
+        Fragment f_to;   f_to.pos = to;
+        Plot::Line::draw<W, H>(filters, canvas, f_from, f_to,
                                fragment_shader);
       }
     }

@@ -374,33 +374,7 @@ struct HarmonicBlob {
 };
 
 struct Mesh {
-  template <int W, int H, typename MeshT>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
-                   FragmentShaderFn fragment_shader, Arena &scratch_arena,
-                   bool debug_bb = false) {
-    ScratchScope scope(scratch_arena);
-    auto *scratch =
-        static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
-            sizeof(SDF::FaceScratchBuffer), alignof(SDF::FaceScratchBuffer)));
-
-    size_t idx_offset = 0;
-    for (size_t i = 0; i < mesh.num_faces; ++i) {
-      size_t count = mesh.face_counts[i];
-      std::span<const Vector> verts(mesh.vertices.data(), mesh.num_vertices);
-      std::span<const uint16_t> indices(&mesh.faces[idx_offset], count);
-
-      SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
-      idx_offset += count;
-
-      auto wrapper = [&](const Vector &p, Fragment &f_in) {
-        f_in.v2 = static_cast<float>(i);
-        fragment_shader(p, f_in);
-      };
-      Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
-    }
-  }
-
-  // Overload for MeshState
+  // MeshState overload
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
@@ -455,19 +429,33 @@ struct Shader {
         }
       }
     } else {
-      // SAMPLES× SSAA — sub-pixel samples averaged
       constexpr float inv_samples = 1.0f / SAMPLES;
+      // Generalized rotated-grid sub-pixel offsets
+      struct SampleOffsets {
+        float x[SAMPLES];
+        float y[SAMPLES];
+      };
       constexpr float eps = 0.5f;
-      constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
-      constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
+      constexpr SampleOffsets offsets = [&]() constexpr {
+        SampleOffsets o{};
+        // Rotated grid: distribute samples at equal angular spacing
+        for (int i = 0; i < SAMPLES; ++i) {
+          // Map index to quadrant-based pattern
+          int qx = (i & 1) ? -1 : 1;
+          int qy = (i & 2) ? -1 : 1;
+          o.x[i] = eps * qx;
+          o.y[i] = eps * qy;
+        }
+        return o;
+      }();
 
       for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
           Color4 accum(Pixel(0, 0, 0), 0.0f);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            float px = static_cast<float>(x) + offsets_x[i];
-            float py = static_cast<float>(y) + offsets_y[i];
+            float px = static_cast<float>(x) + offsets.x[i];
+            float py = static_cast<float>(y) + offsets.y[i];
 
             float theta = (px * 2.0f * PI_F) / w_float;
             float phi = (py * PI_F) / h_virt_minus_1;
@@ -511,9 +499,21 @@ struct Shader {
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
+      struct SampleOffsets {
+        float x[SAMPLES];
+        float y[SAMPLES];
+      };
       constexpr float eps = 0.5f;
-      constexpr float offsets_x[4] = {eps, -eps, eps, -eps};
-      constexpr float offsets_y[4] = {eps, eps, -eps, -eps};
+      constexpr SampleOffsets offsets = [&]() constexpr {
+        SampleOffsets o{};
+        for (int i = 0; i < SAMPLES; ++i) {
+          int qx = (i & 1) ? -1 : 1;
+          int qy = (i & 2) ? -1 : 1;
+          o.x[i] = eps * qx;
+          o.y[i] = eps * qy;
+        }
+        return o;
+      }();
 
       for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
@@ -525,8 +525,8 @@ struct Shader {
           Color4 accum(Pixel(0, 0, 0), 0.0f);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            float px = static_cast<float>(x) + offsets_x[i];
-            float py = static_cast<float>(y) + offsets_y[i];
+            float px = static_cast<float>(x) + offsets.x[i];
+            float py = static_cast<float>(y) + offsets.y[i];
             float theta = (px * 2.0f * PI_F) / w_float;
             float phi = (py * PI_F) / h_virt_minus_1;
             float sin_phi = sinf(phi);

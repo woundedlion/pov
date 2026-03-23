@@ -8,13 +8,6 @@
 #include <array>
 #include "core/effects_engine.h"
 
-// Configuration for Lissajous curves
-struct LissajousConfig {
-  float m1;
-  float m2;
-  float a;
-  float domain;
-};
 
 template <int W, int H> class Comets : public Effect {
 public:
@@ -84,7 +77,7 @@ public:
 
 private:
   void update_path() {
-    const LissajousConfig &config = functions[cur_function_idx];
+    const LissajousParams &config = functions[cur_function_idx];
     path.f = [&config](float t) {
       return lissajous(config.m1, config.m2, config.a, t * config.domain);
     };
@@ -103,7 +96,7 @@ private:
   ProceduralPath path;
   Orientation<W> orientation;
   GenerativePalette palette;
-  std::array<LissajousConfig, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},
+  std::array<LissajousParams, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},
                                                 {6.06f, 1.0f, 0, 2 * PI_F},
                                                 {6.02f, 4.01f, 0, 3.132f},
                                                 {46.62f, 62.16f, 0, 0.404f},

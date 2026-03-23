@@ -368,6 +368,7 @@ public:
     uint8_t ttl;     // Remaining lifetime in frames (1 byte)
     uint8_t pad_;    // Alignment (1 byte) — total 8 bytes
   };
+  static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
   Trails(int lifetime) : lifetime(lifetime) {}
 
@@ -550,7 +551,7 @@ public:
 
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
-      if (--ttls_[i].ttl < TOLERANCE) {
+      if (--ttls_[i].ttl <= 0.0f) {
         ttls_[i] = ttls_[--num_pixels];
         i--;
       }

@@ -284,7 +284,7 @@ template <int TRAIL_LEN = 8> struct Particle {
     position = p;
     velocity = v;
     color_seed = seed;
-    life = l;
+    life = static_cast<uint16_t>(std::min(l, 65535.0f));
     history.clear();
   }
 
@@ -563,8 +563,8 @@ public:
       from = mutant;
     }
     AnimationBase::step(canvas);
-    auto t = std::min(1.0f, static_cast<float>(this->t) / duration);
-    auto n = easing_fn(t) * (to - from) + from;
+    auto t_norm = std::min(1.0f, static_cast<float>(this->t) / duration);
+    auto n = easing_fn(t_norm) * (to - from) + from;
     if (quantized) {
       n = std::floor(n);
     }
@@ -613,8 +613,8 @@ public:
       from = mutant;
     }
     AnimationBase::step(canvas);
-    auto t = std::min(1.0f, static_cast<float>(this->t) / duration);
-    mutant.get() = f(easing_fn(t));
+    auto t_norm = std::min(1.0f, static_cast<float>(this->t) / duration);
+    mutant.get() = f(easing_fn(t_norm));
   }
 
   /**
@@ -1030,7 +1030,7 @@ public:
     noiseGenerator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noiseGenerator.get().SetFrequency(options.noise_scale);
     if (seed == 0) {
-      noiseGenerator.get().SetSeed(std::rand());
+      noiseGenerator.get().SetSeed(static_cast<int>(hs::random()()));
     } else {
       noiseGenerator.get().SetSeed(seed);
     }
@@ -1193,12 +1193,11 @@ public:
     params.get().bIm = scale * sinf(angle);
   }
 
+  float scale;       // Public: effects need direct read/write access
+  EasingFn easing;   // Public: effects need direct read/write access
+
 private:
   std::reference_wrapper<MobiusParams> params;
-
-public:
-  float scale;
-  EasingFn easing;
 };
 
 /**
@@ -1587,7 +1586,7 @@ public:
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     if (num_events >= MAX_EVENTS) {
-      Serial.println("Timeline full, failed to add animation!");
+      hs::log("Timeline full, failed to add animation!");
       return *this;
     }
     auto &e = global_timeline_events[num_events++];
@@ -1836,6 +1835,9 @@ public:
   /// Compact the persistent arena (evacuates tracked MeshStates, reclaims
   /// fragmented space). Call before allocating new persistent data.
   void compact() {
+    // NOTE: Both evacuations share scratch_arena_a. If both slots are
+    // populated, scratch_arena_a must have room for both. An OOM here
+    // will trigger the Arena::allocate assert.
     Persist<MeshState> p0(slots_[0], scratch_arena_a, persistent_arena);
     Persist<MeshState> p1(slots_[1], scratch_arena_a, persistent_arena);
     persistent_arena.reset();

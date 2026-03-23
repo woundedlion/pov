@@ -13,8 +13,6 @@
 #include <cmath>
 #include <span>
 
-#include <unordered_map>
-#include <memory>
 #include <cfloat>
 #include "static_circular_buffer.h"
 #include "memory.h"
@@ -103,7 +101,7 @@ struct KDNode {
   // or we could store an index if we had a reference to the point array.
   // Storing copy is safer and simpler for now.
   Vector point;
-  int16_t originalIndex = -1; // Index in the source array
+  uint16_t originalIndex = 0; // Index in the source array
   int16_t axis = 0;           // 0=x, 1=y, 2=z
   int16_t left = -1;
   int16_t right = -1;
@@ -233,7 +231,7 @@ private:
 
     int newNodeIdx = nodeCount++;
     nodes[newNodeIdx].point = points[medianIdx];
-    nodes[newNodeIdx].originalIndex = (int16_t)medianIdx; // Store index
+    nodes[newNodeIdx].originalIndex = (uint16_t)medianIdx; // Store index
     nodes[newNodeIdx].axis = (int16_t)axis;
 
     nodes[newNodeIdx].left = (int16_t)build(points, start, mid, depth + 1);

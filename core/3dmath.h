@@ -157,6 +157,7 @@ struct Vector {
     return *this;
   }
   Vector &operator/=(float s) {
+    assert(s != 0.0f && "Vector /= by zero");
     x /= s;
     y /= s;
     z /= s;
@@ -167,12 +168,12 @@ struct Vector {
    * @brief Calculates the magnitude (length) of the vector.
    * @return The magnitude.
    */
-  float length() const { return sqrtf(x * x + y * y + z * z); }
+  [[nodiscard]] float length() const { return sqrtf(x * x + y * y + z * z); }
 
   /**
    * @brief Alias for length().
    */
-  float magnitude() const { return length(); }
+  [[nodiscard]] float magnitude() const { return length(); }
 
   /**
    * @brief Normalizes the vector (scales to unit length).
@@ -192,7 +193,7 @@ struct Vector {
   }
 
   /// Return a unit-length copy without mutating `this`.
-  Vector normalized() const {
+  [[nodiscard]] Vector normalized() const {
     float m = length();
     if (m < std::numeric_limits<float>::epsilon()) {
       return Vector(1, 0, 0); // degenerate fallback
@@ -303,7 +304,7 @@ struct Quaternion {
    * @brief Calculates the squared magnitude of the quaternion.
    * @return The squared magnitude.
    */
-  constexpr float squared_magnitude() const {
+  [[nodiscard]] constexpr float squared_magnitude() const {
     return r * r + v.x * v.x + v.y * v.y + v.z * v.z;
   }
 
@@ -311,16 +312,26 @@ struct Quaternion {
    * @brief Calculates the inverse of the quaternion.
    * @return The inverse quaternion.
    */
-  Quaternion inverse() const {
+  [[nodiscard]] Quaternion inverse() const {
     float sq_mag = squared_magnitude();
     return Quaternion(r, -v) / sq_mag;
+  }
+
+  /**
+   * @brief Fast inverse for unit quaternions (avoids division).
+   * Equivalent to conjugate() when |q| == 1.
+   */
+  [[nodiscard]] Quaternion unit_inverse() const {
+    assert(std::abs(squared_magnitude() - 1.0f) < 0.01f &&
+           "unit_inverse() called on non-unit quaternion");
+    return conjugate();
   }
 
   /**
    * @brief Calculates the conjugate of the quaternion.
    * @return The conjugate quaternion (r, -v).
    */
-  Quaternion conjugate() const { return Quaternion(r, -v); }
+  [[nodiscard]] Quaternion conjugate() const { return Quaternion(r, -v); }
 
   /**
    * @brief Unary negation operator.
@@ -332,7 +343,7 @@ struct Quaternion {
    * @brief Calculates the magnitude (length) of the quaternion.
    * @return The magnitude.
    */
-  float magnitude() const {
+  [[nodiscard]] float magnitude() const {
     return sqrtf(r * r + v.x * v.x + v.y * v.y + v.z * v.z);
   }
 
@@ -353,7 +364,7 @@ struct Quaternion {
   }
 
   /// Return a unit-magnitude copy without mutating `this`.
-  Quaternion normalized() const {
+  [[nodiscard]] Quaternion normalized() const {
     float m = magnitude();
     if (m <= std::numeric_limits<float>::epsilon()) {
       return Quaternion(1, 0, 0, 0);
@@ -434,7 +445,7 @@ inline Vector fold_to_hemisphere(const Vector &v) {
   float r_old = sqrtf(v.x * v.x + v.z * v.z);
 
   // Protect against division by zero at the exact poles
-  if (r_old == 0.0f) {
+  if (r_old < 1e-7f) {
     // The North Pole (j=1) stays the North Pole.
     // The South Pole (j=-1) is stretched into the entire equator ring.
     // We arbitrarily anchor the singularity to the X-axis (i=1).
@@ -745,7 +756,7 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @param q2 Second unit quaternion.
  * @return The angle in radians.
  */
-constexpr float angle_between(const Quaternion &q1, const Quaternion &q2) {
+inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
   return acosf(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 

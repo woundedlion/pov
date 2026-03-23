@@ -166,11 +166,11 @@ Three build targets share a common engine:
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
 │  │ Phantasm/    │   │  effects/  (27 visual algorithms)            │    │
-│  │  .ino (stub) │   │                                              │    │
+│  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
 │  │  wasm.cpp   │   │  pov_single.h — single-Teensy POV            │    │
-│  │              │   │  pov_segmented.h — multi-Teensy POV (stub)   │    │
+│  │              │   │  pov_segmented.h — multi-Teensy segmented POV │    │
 │  │              │   │  dma_led.h — HD107S DMA SPI pipeline          │    │
 │  └──────┬───────┘   └──────────────────────────────────────────────┘    │
 │         │                              ↑                                │

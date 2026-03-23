@@ -38,12 +38,7 @@ public:
                                            /* speed */ 0.04f,
                                            /* noise freq */ 0.32f}}}}};
 
-  struct LissajousConfig {
-    float m1;
-    float m2;
-    float a;
-    float domain;
-  };
+
 
   struct Node {
     Orientation<W, 16> orientation;
@@ -155,15 +150,6 @@ public:
       driver_->set_speed(params.cycleSpeed);
     }
 
-    for (auto &e : noise_xform.entities) {
-      if (e.active) {
-        e.params.frequency = params.noiseFreq;
-        e.params.amplitude = params.jitterAmp;
-        e.params.speed = params.speed;
-        e.params.sync();
-      }
-    }
-
     // Record the current orientation snapshot
     node->trail.record(node->orientation);
 
@@ -192,7 +178,7 @@ public:
 
 private:
   void update_path() {
-    const LissajousConfig &config = functions[cur_function_idx];
+    const LissajousParams &config = functions[cur_function_idx];
     path.f = [&config](float t) {
       return lissajous(config.m1, config.m2, config.a, t * config.domain);
     };
@@ -209,7 +195,7 @@ private:
   StaticPalette<ProceduralPalette, ScaleModifier, CycleModifier> static_palette;
   Animation::Driver *driver_ = nullptr;
   float cycle_phase = 0.0f;
-  std::array<LissajousConfig, 1> functions;
+  std::array<LissajousParams, 1> functions;
   int cur_function_idx;
   Node *node = nullptr;
   NoiseTransformer<W, 1> noise_xform;

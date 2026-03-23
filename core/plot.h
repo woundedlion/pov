@@ -171,6 +171,8 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
       float step = base_step * scale_factor;
 
       _steps_cache.push_back(step);
+      assert(_steps_cache.size() < _steps_cache.capacity() &&
+             "_steps_cache capacity exceeded — increase heuristic");
       sim_dist += step;
 
       if (sim_dist < total_dist) {
@@ -1147,13 +1149,6 @@ struct Mesh {
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
    */
-  /**
-   * @brief Samples edges of a mesh.
-   * @tparam MeshT Mesh type.
-   * @param mesh The mesh to sample.
-   * @param density Sampling density per edge.
-   * @return List of sampled edges (each edge is a list of Fragments).
-   */
   template <int W, int H, typename MeshT>
   static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
                    FragmentShaderFn fragment_shader,
@@ -1167,6 +1162,12 @@ struct Mesh {
     auto process_edge = [&](int u, int v) {
       int small = std::min(u, v);
       int large = std::max(u, v);
+
+      // Guard against vertex indices exceeding TriangularBitset capacity
+      if (large >= 128) {
+        hs::log("Plot::Mesh: vertex index exceeds TriangularBitset<128>");
+        return;
+      }
 
       if (visited.test_and_set(small, large))
         return;

@@ -5,9 +5,7 @@
  */
 #pragma once
 #include <functional>
-#include <memory>
 
-#include <map>
 #include "core/effects_engine.h"
 
 template <int W, int H> class FlowField : public Effect {
