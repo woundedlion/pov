@@ -28,6 +28,8 @@ namespace hs {
  * @brief On-device logging to Serial (no vsnprintf to avoid ~4KB stdio in ITCM).
  */
 inline void log(const char *msg, ...) {
+  // NOTE: format args are silently discarded on Teensy to avoid
+  // pulling ~4KB of vsnprintf/stdio into ITCM.
   Serial.println(msg);
 }
 
@@ -50,8 +52,8 @@ inline void enable_interrupts() { interrupts(); }
  * @return A random float in the range [0.0, 1.0].
  */
 inline float rand_f() {
-  return static_cast<float>(::random(0, std::numeric_limits<int32_t>::max())) /
-         std::numeric_limits<int32_t>::max();
+  return static_cast<float>(hs::random()()) /
+         static_cast<float>(hs::random().max());
 }
 
 inline float rand_f(float min, float max) {
@@ -64,7 +66,12 @@ inline float rand_f(float min, float max) {
  * @param max The maximum value (exclusive).
  * @return A random integer in the range [min, max).
  */
-inline int rand_int(int min, int max) { return ::random(min, max); }
+inline int rand_int(int min, int max) {
+  if (max > min) {
+    return min + (hs::random()() % (max - min));
+  }
+  return min;
+}
 
 // Global state
 inline bool debug = false;
@@ -267,7 +274,7 @@ struct FastLEDMock {
   void show() {}
   void showColor(const CRGB &) {}
 };
-static FastLEDMock FastLED;
+inline FastLEDMock FastLED;
 
 // Helper for addLeds template args
 enum LEDType { WS2801 };
@@ -290,7 +297,7 @@ struct SerialMock {
     std::cout << fmt << std::endl;
   }
 };
-static SerialMock Serial;
+inline SerialMock Serial;
 
 // --- FastLED Mocks ---
 inline uint8_t random8() { return hs::random()() % 256; }
@@ -344,11 +351,15 @@ inline uint8_t triwave8(uint8_t in) {
  * @brief Macro to execute a block of code periodically.
  * @param N Interval in milliseconds.
  */
+// Two-level macro for proper __LINE__ token pasting
+#define HS_CONCAT_(a, b) a##b
+#define HS_CONCAT(a, b) HS_CONCAT_(a, b)
+
 #define EVERY_N_MILLIS(N)                                                      \
-  static unsigned long __last_##__LINE__ = 0;                                  \
-  unsigned long __now_##__LINE__ = hs::millis();                               \
-  if (__now_##__LINE__ - __last_##__LINE__ >= (N) &&                           \
-      (__last_##__LINE__ = __now_##__LINE__))
+  static unsigned long HS_CONCAT(__last_, __LINE__) = 0;                       \
+  unsigned long HS_CONCAT(__now_, __LINE__) = hs::millis();                     \
+  if (HS_CONCAT(__now_, __LINE__) - HS_CONCAT(__last_, __LINE__) >= (N) &&      \
+      (HS_CONCAT(__last_, __LINE__) = HS_CONCAT(__now_, __LINE__)))
 
 #define EVERY_N_SECONDS(N) EVERY_N_MILLIS((N) * 1000)
 #define EVERY_N_MILLISECONDS(N) EVERY_N_MILLIS(N)

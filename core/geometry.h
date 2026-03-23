@@ -8,8 +8,6 @@
 #include <cmath>
 #include <algorithm>
 #include <array>
-#include <map>
-#include <set>
 #include "platform.h"
 #include "constants.h"
 #include "3dmath.h"

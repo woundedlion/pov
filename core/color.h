@@ -107,7 +107,7 @@ struct Color4 {
   Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f)
       : color(Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b))),
         alpha(a) {}
-  Color4(Color4 c, float a) : color(c.color), alpha(a) {}
+  Color4(const Color4 &c, float a) : color(c.color), alpha(a) {}
 
   Color4 lerp(const Color4 &other, float t) const {
     uint16_t frac = static_cast<uint16_t>(hs::clamp(t, 0.0f, 1.0f) * 65535.0f);
@@ -307,7 +307,7 @@ inline uint16_t to_short(float zero_to_one) {
 ///////////////////////////////////////////////////////////////////////////////
 
 constexpr uint8_t lerp8(uint8_t a, uint8_t b, float t) {
-  return static_cast<uint8_t>(a + (b - a) * t);
+  return static_cast<uint8_t>(a + (int(b) - int(a)) * t);
 }
 
 /**
@@ -520,6 +520,9 @@ public:
       entries[i] = lastLinear;
   }
 
+  /// Fast LUT lookup — nearest-index, no interpolation between entries.
+  /// For smooth gradients at low t resolution, use GenerativePalette or
+  /// BakedPalette which interpolate between stops.
   Color4 get(float t) const override {
     uint8_t index = static_cast<uint8_t>(t * 255);
     return Color4(entries[index], 1.0f);

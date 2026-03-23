@@ -15,12 +15,7 @@
 #include <cstdio>
 #endif
 
-#ifdef __EMSCRIPTEN__
 constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
-#else
-// Teensy 4.0 — single contiguous block in RAM1 (DTCM)
-constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
-#endif
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
 constexpr size_t DEFAULT_SCRATCH_B_SIZE = 16 * 1024;
@@ -60,6 +55,7 @@ public:
     offset += size;
     if (offset > high_water_mark)
       high_water_mark = offset;
+    assert(ptr != nullptr && "Arena::allocate returned null — OOM");
     return ptr;
   }
 
@@ -248,6 +244,8 @@ public:
 
   /// Bulk-append from a contiguous source. T must be trivially copyable.
   void append_bulk(const T *src, size_t count) {
+    static_assert(std::is_trivially_destructible_v<T>,
+                  "append_bulk requires trivially destructible T (memcpy safety)");
     check_alive();
     check_bound();
     assert(size_ + count <= capacity_ && "ArenaVector bulk append exceeds capacity!");

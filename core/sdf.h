@@ -615,8 +615,70 @@ template <typename A, typename B> struct Subtract {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // TODO: Implement proper interval calculation for subtraction
-    return a.template get_horizontal_intervals<W, H>(y, out);
+    StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
+    StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
+
+    bool hasA = a.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { intervalsA.push_back({start, end}); });
+
+    // If A falls back to full-width, we can't restrict
+    if (!hasA)
+      return false;
+
+    // If A produced no intervals on this row, nothing to subtract from
+    if (intervalsA.is_empty())
+      return true;
+
+    bool hasB = b.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { intervalsB.push_back({start, end}); });
+
+    // If B falls back (no interval info), B removes nothing we can
+    // reason about — pass A's intervals through conservatively
+    if (!hasB || intervalsB.is_empty()) {
+      for (size_t i = 0; i < intervalsA.size(); ++i)
+        out(intervalsA[i].first, intervalsA[i].second);
+      return true;
+    }
+
+    // Set difference: A minus B
+    // For each A interval, subtract all overlapping B intervals
+    for (size_t ai = 0; ai < intervalsA.size(); ++ai) {
+      float cur_start = intervalsA[ai].first;
+      float cur_end = intervalsA[ai].second;
+
+      for (size_t bi = 0; bi < intervalsB.size(); ++bi) {
+        float bs = intervalsB[bi].first;
+        float be = intervalsB[bi].second;
+
+        // No overlap
+        if (be <= cur_start || bs >= cur_end)
+          continue;
+
+        // B covers the left portion: emit nothing, shrink from left
+        if (bs <= cur_start) {
+          cur_start = be;
+          if (cur_start >= cur_end)
+            break;
+          continue;
+        }
+
+        // B covers the right portion: shrink from right
+        if (be >= cur_end) {
+          cur_end = bs;
+          if (cur_start >= cur_end)
+            break;
+          continue;
+        }
+
+        // B splits A: emit left piece, continue with right piece
+        out(cur_start, bs);
+        cur_start = be;
+      }
+
+      if (cur_start < cur_end)
+        out(cur_start, cur_end);
+    }
+    return true;
   }
 
   /**
@@ -888,8 +950,10 @@ struct Face {
     }
 
     count = indices.size();
-    if (count > FaceScratchBuffer::MAX_VERTS)
+    if (count > FaceScratchBuffer::MAX_VERTS) {
+      hs::log("Face: vertex count exceeds MAX_VERTS, truncating");
       count = FaceScratchBuffer::MAX_VERTS;
+    }
 
     center = Vector(0, 0, 0);
     for (int i = 0; i < count; ++i)
@@ -964,134 +1028,13 @@ struct Face {
     int planes_count = 0;
 
     if (use_fast_bounds) {
-      // FAST PATH: Skip plane normals and arc extrema entirely.
-      // Use vertex-based phi bounds from the early check above.
-      for (int i = 0; i < count; ++i) {
-        Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
-        scratch.edgeVectors[i] = edge;
-
-        float edge_len_sq = dot(edge, edge);
-        scratch.edgeLengthsSq[i] = edge_len_sq;
-        scratch.invEdgeLengthsSq[i] =
-            (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
-        scratch.invEdgeJ[i] =
-            (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
-
-        float theta = atan2f(vertices[indices[i]].z, vertices[indices[i]].x);
-        if (theta < 0)
-          theta += 2 * PI_F;
-        scratch.thetas[i] = theta;
-      }
-
-      float margin = thickness + BOUNDS_MARGIN;
-      y_min = std::max(
-          0,
-          static_cast<int>(floorf(
-              (std::max(0.0f, min_phi_check - margin) * (h_virt - 1)) / PI_F)));
-      y_max = std::min(
-          height - 1,
-          static_cast<int>(ceilf(
-              (std::min(PI_F, max_phi_check + margin) * (h_virt - 1)) / PI_F)));
+      compute_fast_bounds(scratch, vertices, indices, count, thickness,
+                          min_phi_check, max_phi_check, h_virt, height,
+                          y_min, y_max);
     } else {
-      // SLOW PATH: Full arc extrema computation for large faces.
-      float min_phi = 100.0f;
-      float max_phi = -100.0f;
-
-      for (int i = 0; i < count; ++i) {
-        int idx1 = indices[i];
-        int idx2 = indices[(i + 1) % count];
-        const Vector &v1 = vertices[idx1];
-        const Vector &v2 = vertices[idx2];
-
-        Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
-        scratch.edgeVectors[i] = edge;
-
-        float edge_len_sq = dot(edge, edge);
-        scratch.edgeLengthsSq[i] = edge_len_sq;
-        scratch.invEdgeLengthsSq[i] =
-            (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
-        scratch.invEdgeJ[i] =
-            (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
-
-        Vector normal = cross(v1, v2);
-        float lenSq = dot(normal, normal);
-        if (lenSq > 1e-12f)
-          scratch.planes[planes_count++] = normal.normalized();
-
-        float phi_val = acosf(hs::clamp(v1.y, -1.0f, 1.0f));
-        if (phi_val < min_phi)
-          min_phi = phi_val;
-        if (phi_val > max_phi)
-          max_phi = phi_val;
-
-        // Arc Extrema Logic
-        if (planes_count > 0) {
-          const Vector &n = scratch.planes[planes_count - 1];
-          float ny = n.y;
-          if (std::abs(ny) < 0.99999f) {
-            float nx = n.x;
-            float nz = n.z;
-            float tx = -nx * ny;
-            float ty = 1.0f - ny * ny;
-            float tz = -nz * ny;
-            float tLenSq = tx * tx + ty * ty + tz * tz;
-            if (tLenSq > 1e-12f) {
-              float invLen = 1.0f / sqrtf(tLenSq);
-              float ptx = tx * invLen;
-              float pty = ty * invLen;
-              float ptz = tz * invLen;
-
-              float cx1 = (v1.y * ptz - v1.z * pty) * nx +
-                          (v1.z * ptx - v1.x * ptz) * ny +
-                          (v1.x * pty - v1.y * ptx) * nz;
-              float cx2 = (pty * v2.z - ptz * v2.y) * nx +
-                          (ptz * v2.x - ptx * v2.z) * ny +
-                          (ptx * v2.y - pty * v2.x) * nz;
-
-              if (cx1 > 0 && cx2 > 0) {
-                float phiTop = acosf(hs::clamp(pty, -1.0f, 1.0f));
-                if (phiTop < min_phi)
-                  min_phi = phiTop;
-              }
-              if (cx1 < 0 && cx2 < 0) {
-                float phiBot = acosf(hs::clamp(-pty, -1.0f, 1.0f));
-                if (phiBot > max_phi)
-                  max_phi = phiBot;
-              }
-            }
-          }
-        }
-
-        float theta = atan2f(v1.z, v1.x);
-        if (theta < 0)
-          theta += 2 * PI_F;
-        scratch.thetas[i] = theta;
-      }
-
-      bool npInside = (planes_count > 0);
-      bool spInside = (planes_count > 0);
-      for (int pi = 0; pi < planes_count; ++pi) {
-        float center_side = dot(center, scratch.planes[pi]);
-        // North pole: dot((0,1,0), plane) = plane.y
-        if ((scratch.planes[pi].y > 0) != (center_side > 0))
-          npInside = false;
-        // South pole: dot((0,-1,0), plane) = -plane.y
-        if ((-scratch.planes[pi].y > 0) != (center_side > 0))
-          spInside = false;
-      }
-      if (npInside)
-        min_phi = 0.0f;
-      if (spInside)
-        max_phi = PI_F;
-
-      float margin = thickness + BOUNDS_MARGIN;
-      y_min = std::max(
-          0, static_cast<int>(floorf(
-                 (std::max(0.0f, min_phi - margin) * (h_virt - 1)) / PI_F)));
-      y_max = std::min(
-          height - 1,
-          static_cast<int>(
-              ceilf((std::min(PI_F, max_phi + margin) * (h_virt - 1)) / PI_F)));
+      planes_count = compute_full_bounds(scratch, vertices, indices, count,
+                                         center, thickness, h_virt, height,
+                                         y_min, y_max);
     }
 
     edgeVectors = std::span<Vector>(scratch.edgeVectors.data(), count);
@@ -1171,6 +1114,132 @@ struct Face {
         full_width = true;
       }
     }
+  }
+
+  /// Fast-path bounds: uses vertex-based phi for small faces.
+  static void compute_fast_bounds(
+      FaceScratchBuffer &scratch, std::span<const Vector> vertices,
+      std::span<const uint16_t> indices, int count, float thickness,
+      float min_phi_check, float max_phi_check,
+      int h_virt, int height, int &y_min_out, int &y_max_out) {
+    for (int i = 0; i < count; ++i) {
+      Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
+      scratch.edgeVectors[i] = edge;
+      float edge_len_sq = dot(edge, edge);
+      scratch.edgeLengthsSq[i] = edge_len_sq;
+      scratch.invEdgeLengthsSq[i] =
+          (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
+      scratch.invEdgeJ[i] =
+          (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
+      float theta = atan2f(vertices[indices[i]].z, vertices[indices[i]].x);
+      if (theta < 0)
+        theta += 2 * PI_F;
+      scratch.thetas[i] = theta;
+    }
+    float margin = thickness + BOUNDS_MARGIN;
+    y_min_out = std::max(
+        0, static_cast<int>(floorf(
+               (std::max(0.0f, min_phi_check - margin) * (h_virt - 1)) / PI_F)));
+    y_max_out = std::min(
+        height - 1,
+        static_cast<int>(ceilf(
+            (std::min(PI_F, max_phi_check + margin) * (h_virt - 1)) / PI_F)));
+  }
+
+  /// Full-path bounds: arc extrema + pole containment for large faces.
+  /// Returns the number of planes computed.
+  static int compute_full_bounds(
+      FaceScratchBuffer &scratch, std::span<const Vector> vertices,
+      std::span<const uint16_t> indices, int count,
+      const Vector &center, float thickness,
+      int h_virt, int height, int &y_min_out, int &y_max_out) {
+    float min_phi = 100.0f;
+    float max_phi = -100.0f;
+    int planes_count = 0;
+    for (int i = 0; i < count; ++i) {
+      int idx1 = indices[i];
+      int idx2 = indices[(i + 1) % count];
+      const Vector &v1 = vertices[idx1];
+      const Vector &v2 = vertices[idx2];
+      Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
+      scratch.edgeVectors[i] = edge;
+      float edge_len_sq = dot(edge, edge);
+      scratch.edgeLengthsSq[i] = edge_len_sq;
+      scratch.invEdgeLengthsSq[i] =
+          (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
+      scratch.invEdgeJ[i] =
+          (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
+      Vector normal = cross(v1, v2);
+      float lenSq = dot(normal, normal);
+      if (lenSq > 1e-12f)
+        scratch.planes[planes_count++] = normal.normalized();
+      float phi_val = acosf(hs::clamp(v1.y, -1.0f, 1.0f));
+      if (phi_val < min_phi)
+        min_phi = phi_val;
+      if (phi_val > max_phi)
+        max_phi = phi_val;
+      // Arc Extrema Logic
+      if (planes_count > 0) {
+        const Vector &n = scratch.planes[planes_count - 1];
+        float ny = n.y;
+        if (std::abs(ny) < 0.99999f) {
+          float nx = n.x;
+          float nz = n.z;
+          float tx = -nx * ny;
+          float ty = 1.0f - ny * ny;
+          float tz = -nz * ny;
+          float tLenSq = tx * tx + ty * ty + tz * tz;
+          if (tLenSq > 1e-12f) {
+            float invLen = 1.0f / sqrtf(tLenSq);
+            float ptx = tx * invLen;
+            float pty = ty * invLen;
+            float ptz = tz * invLen;
+            float cx1 = (v1.y * ptz - v1.z * pty) * nx +
+                        (v1.z * ptx - v1.x * ptz) * ny +
+                        (v1.x * pty - v1.y * ptx) * nz;
+            float cx2 = (pty * v2.z - ptz * v2.y) * nx +
+                        (ptz * v2.x - ptx * v2.z) * ny +
+                        (ptx * v2.y - pty * v2.x) * nz;
+            if (cx1 > 0 && cx2 > 0) {
+              float phiTop = acosf(hs::clamp(pty, -1.0f, 1.0f));
+              if (phiTop < min_phi)
+                min_phi = phiTop;
+            }
+            if (cx1 < 0 && cx2 < 0) {
+              float phiBot = acosf(hs::clamp(-pty, -1.0f, 1.0f));
+              if (phiBot > max_phi)
+                max_phi = phiBot;
+            }
+          }
+        }
+      }
+      float theta = atan2f(v1.z, v1.x);
+      if (theta < 0)
+        theta += 2 * PI_F;
+      scratch.thetas[i] = theta;
+    }
+    bool npInside = (planes_count > 0);
+    bool spInside = (planes_count > 0);
+    for (int pi = 0; pi < planes_count; ++pi) {
+      float center_side = dot(center, scratch.planes[pi]);
+      if ((scratch.planes[pi].y > 0) != (center_side > 0))
+        npInside = false;
+      if ((-scratch.planes[pi].y > 0) != (center_side > 0))
+        spInside = false;
+    }
+    if (npInside)
+      min_phi = 0.0f;
+    if (spInside)
+      max_phi = PI_F;
+    float margin = thickness + BOUNDS_MARGIN;
+    y_min_out = std::max(
+        0, static_cast<int>(floorf(
+               (std::max(0.0f, min_phi - margin) * (h_virt - 1)) / PI_F)));
+    y_max_out = std::min(
+        height - 1,
+        static_cast<int>(
+            ceilf((std::min(PI_F, max_phi + margin) * (h_virt - 1)) / PI_F)));
+    return planes_count;
   }
 
   template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }

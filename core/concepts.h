@@ -11,6 +11,20 @@
 #include "3dmath.h"
 #include "canvas.h"
 
+// ---------------------------------------------------------------------------
+// Callable wrappers — two complementary types:
+//
+//   FunctionRef<Sig>   Non-owning, borrows the callable. Zero overhead.
+//                      Use for parameters that are only invoked during the
+//                      call (e.g. pipeline pass callbacks, shader functors).
+//                      Must NOT outlive the referenced callable.
+//
+//   Fn<Sig, Cap>       Owning, inline storage (teensy::inplace_function on
+//                      Teensy, std::function on WASM). Use for stored
+//                      callbacks that must persist beyond the creating scope
+//                      (e.g. registered timers, sprite functions).
+// ---------------------------------------------------------------------------
+
 struct Fragment;
 struct Color4;
 template <typename Signature> class FunctionRef;
@@ -58,10 +72,11 @@ public:
   }
 
   inline Ret operator()(Args... args) const {
+    assert(thunk_ != nullptr && "FunctionRef called on null/default-constructed ref");
     return thunk_(ctx_, std::forward<Args>(args)...);
   }
 
-  explicit operator bool() const { return thunk_ != nullptr; }
+  [[nodiscard]] explicit operator bool() const { return thunk_ != nullptr; }
 };
 
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;

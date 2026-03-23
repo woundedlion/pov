@@ -14,7 +14,6 @@
 #include <cmath>
 #include <string_view>
 #include <span>
-#include <map>
 
 // --- Constants for Procedural Generation ---
 static constexpr float SQRT2 = 1.414213562373095f;
@@ -174,7 +173,7 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   mesh.face_counts.append_bulk(StaticMeshT::face_counts.data(), StaticMeshT::face_counts.size());
   mesh.faces.bind(target, StaticMeshT::faces.size());
   for (const auto &f : StaticMeshT::faces)
-    mesh.faces.push_back(f);
+    mesh.faces.push_back(static_cast<uint16_t>(f));
   return mesh;
 }
 
@@ -402,7 +401,7 @@ struct Entry {
 
 // Centralized Registry
 // Order: Platonic (0-4), Archimedean (5-17)
-static constexpr Entry simple_registry[] = {
+inline constexpr Entry simple_registry[] = {
 
     // Platonic
     {"tetrahedron", Platonic::tetrahedron, Category::Simple},
@@ -429,7 +428,7 @@ static constexpr Entry simple_registry[] = {
     {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
      Category::Simple}};
 
-static constexpr Entry catalan_registry[] = {
+inline constexpr Entry catalan_registry[] = {
     // Catalan
     {"triakisTetrahedron", Catalan::triakisTetrahedron, Category::Simple},
     {"rhombicDodecahedron", Catalan::rhombicDodecahedron, Category::Simple},
@@ -452,7 +451,7 @@ static constexpr Entry catalan_registry[] = {
      Category::Simple}};
 
 // Islamic Star Patterns
-static constexpr Entry islamic_registry[] = {
+inline constexpr Entry islamic_registry[] = {
     {"cube_canonicalize_bitruncate33_canonicalize_hk68_expand5",
      IslamicStarPatterns::
          cube_canonicalize_bitruncate33_canonicalize_hk68_expand5,
@@ -521,7 +520,7 @@ static constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::icosahedron_snub_canonicalize_truncate033_hankin62,
      Category::Complex}};
 
-static constexpr int NUM_ENTRIES =
+inline constexpr int NUM_ENTRIES =
     sizeof(simple_registry) / sizeof(simple_registry[0]) +
     sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);

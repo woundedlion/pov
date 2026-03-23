@@ -50,6 +50,9 @@ public:
 #ifdef __EMSCRIPTEN__
   virtual void __attribute__((noinline)) init() {}
 #else
+  // Non-virtual on Teensy: FLASHMEM functions cannot participate in vtable
+  // dispatch (the vtable lives in ITCM, but FLASHMEM code is in flash).
+  // Concrete effects override this via hiding, not polymorphism.
   FLASHMEM void __attribute__((noinline)) init() {}
 #endif
 
@@ -78,17 +81,17 @@ public:
    * @brief Gets the width of the effect.
    * @return The width.
    */
-  inline int width() const { return width_; }
+  [[nodiscard]] inline int width() const { return width_; }
   /**
    * @brief Gets the height of the effect.
    * @return The height.
    */
-  inline int height() const { return height_; }
+  [[nodiscard]] inline int height() const { return height_; }
   /**
    * @brief Checks if the display buffer and drawing buffer are synced.
    * @return True if the current frame is ready to be shown.
    */
-  inline bool buffer_free() const {
+  [[nodiscard]] inline bool buffer_free() const {
     return prev_.load(std::memory_order_relaxed) ==
            next_.load(std::memory_order_relaxed);
   }
@@ -296,6 +299,7 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int x, int y) {
+    assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
     return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][y * effect_.width_ + x];
   }
 
@@ -306,6 +310,7 @@ public:
    * @return Copy of the Pixel from the previous frame.
    */
   inline Pixel prev(int x, int y) const {
+    assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
     return effect_.bufs_[effect_.prev_.load(std::memory_order_relaxed)][y * effect_.width_ + x];
   }
 
@@ -314,12 +319,11 @@ public:
    * @param xy The 1D index.
    * @return Reference to the Pixel.
    */
-  inline Pixel &operator()(int xy) { return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][xy]; }
+  inline Pixel &operator()(int xy) {
+    assert(xy >= 0 && xy < effect_.width_ * effect_.height_);
+    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][xy];
+  }
 
-  /**
-   * @brief Gets the width of the canvas.
-   * @return The width.
-   */
 
   /**
    * @brief Clears the entire current drawing buffer to black.
@@ -331,8 +335,8 @@ public:
               Pixel(0, 0, 0));
   }
 
-  inline int width() const { return effect_.width(); }
-  inline int height() const { return effect_.height(); }
+  [[nodiscard]] inline int width() const { return effect_.width(); }
+  [[nodiscard]] inline int height() const { return effect_.height(); }
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.

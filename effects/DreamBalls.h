@@ -7,7 +7,6 @@
 
 #include "core/effects_engine.h"
 
-#include <map>
 #include <array>
 
 template <int W, int H> class DreamBalls : public Effect {

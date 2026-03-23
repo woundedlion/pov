@@ -13,6 +13,72 @@
  */
 namespace MeshOps {
 
+// ---------------------------------------------------------------------------
+// Shared topology helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Compute the centroid of a face by walking its half-edge loop.
+ */
+inline Vector face_centroid(const HalfEdgeMesh &heMesh,
+                           const PolyMesh &mesh, size_t face_index,
+                           int &out_count) {
+  const HEFace &face = heMesh.faces[face_index];
+  Vector c(0, 0, 0);
+  out_count = 0;
+  uint16_t heIdx = face.halfEdge;
+  uint16_t start = heIdx;
+  if (heIdx != HE_NONE) {
+    do {
+      c = c + mesh.vertices[heMesh.halfEdges[heIdx].vertex];
+      out_count++;
+      heIdx = heMesh.halfEdges[heIdx].next;
+    } while (heIdx != HE_NONE && heIdx != start && out_count < 100);
+  }
+  if (out_count > 0)
+    c = c / static_cast<float>(out_count);
+  return c;
+}
+
+/**
+ * @brief Walk all half-edges orbiting a vertex, calling visitor(currIdx)
+ *        for each. Returns the number of visited half-edges.
+ *
+ * OrbitMode selects the traversal direction:
+ *   'P' = prev->pair (dual, ambo, truncate)
+ *   'N' = pair->next  (expand, snub)
+ */
+template <char OrbitMode, typename VisitorFn>
+inline int vertex_orbit(const HalfEdgeMesh &heMesh, uint16_t startIdx,
+                       VisitorFn &&visitor) {
+  uint16_t currIdx = startIdx;
+  int count = 0;
+  int safety = 0;
+  do {
+    const HalfEdge &currHe = heMesh.halfEdges[currIdx];
+    if (currHe.face == HE_NONE)
+      break;
+
+    visitor(currIdx);
+    count++;
+
+    if constexpr (OrbitMode == 'P') {
+      // prev->pair orbit
+      if (currHe.prev == HE_NONE ||
+          heMesh.halfEdges[currHe.prev].pair == HE_NONE)
+        break;
+      currIdx = heMesh.halfEdges[currHe.prev].pair;
+    } else {
+      // pair->next orbit
+      if (currHe.pair == HE_NONE)
+        break;
+      currIdx = heMesh.halfEdges[currHe.pair].next;
+    }
+    safety++;
+  } while (currIdx != HE_NONE && currIdx != startIdx && safety < 100);
+  return count;
+}
+
 /**
  * @brief Transforms a MeshState into a target MeshState using the provided
  * transformers.
@@ -84,21 +150,8 @@ FLASHMEM inline PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) 
     HalfEdgeMesh heMesh(temp, mesh);
 
     for (size_t i = 0; i < heMesh.faces.size(); ++i) {
-      HEFace &face = heMesh.faces[i];
-      Vector c(0, 0, 0);
-      int count = 0;
-      uint16_t heIdx = face.halfEdge;
-      uint16_t start = heIdx;
-      if (heIdx != HE_NONE) {
-        do {
-          c = c + mesh.vertices[heMesh.halfEdges[heIdx].vertex];
-          count++;
-          heIdx = heMesh.halfEdges[heIdx].next;
-        } while (heIdx != HE_NONE && heIdx != start && count < 100);
-      }
-
-      if (count > 0)
-        c = c / static_cast<float>(count);
+      int count;
+      Vector c = face_centroid(heMesh, mesh, i, count);
       out_mesh.vertices.push_back(c.normalized());
     }
 
@@ -246,7 +299,7 @@ FLASHMEM inline PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) 
 
         Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
         out_mesh.vertices.push_back(mid);
-        uint16_t newIdx = static_cast<int16_t>(out_mesh.vertices.size() - 1);
+        uint16_t newIdx = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
 
         edgeToVert[i] = newIdx;
         if (he.pair != HE_NONE)
@@ -507,21 +560,10 @@ FLASHMEM inline PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp
         target.allocate(I * sizeof(bool), alignof(bool)));
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
-      HEFace &face = heMesh.faces[fi];
-      Vector centroid(0, 0, 0);
-      int count = 0;
-      uint16_t heIdx = face.halfEdge;
-      uint16_t start = heIdx;
-      if (heIdx != HE_NONE) {
-        do {
-          centroid = centroid + mesh.vertices[heMesh.halfEdges[heIdx].vertex];
-          count++;
-          heIdx = heMesh.halfEdges[heIdx].next;
-        } while (heIdx != HE_NONE && heIdx != start && count < 100);
-      }
-
-      if (count > 0)
-        centroid = centroid / static_cast<float>(count);
+      int count;
+      Vector centroid = face_centroid(heMesh, mesh, fi, count);
+      uint16_t start = heMesh.faces[fi].halfEdge;
+      uint16_t heIdx = start;
 
       out_mesh.face_counts.push_back(count);
       heIdx = start;
@@ -645,22 +687,10 @@ FLASHMEM inline PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &tem
 
     // 2. Generate new vertices and shrunk faces
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
-      HEFace &face = heMesh.faces[fi];
-      Vector centroid(0, 0, 0);
-      int count = 0;
-      uint16_t heIdx = face.halfEdge;
-      uint16_t start = heIdx;
-
-      if (heIdx != HE_NONE) {
-        do {
-          centroid = centroid + mesh.vertices[heMesh.halfEdges[heIdx].vertex];
-          count++;
-          heIdx = heMesh.halfEdges[heIdx].next;
-        } while (heIdx != HE_NONE && heIdx != start && count < 100);
-      }
-
-      if (count > 0)
-        centroid = centroid / static_cast<float>(count);
+      int count;
+      Vector centroid = face_centroid(heMesh, mesh, fi, count);
+      uint16_t start = heMesh.faces[fi].halfEdge;
+      uint16_t heIdx = start;
 
       out_mesh.face_counts.push_back(count);
       heIdx = start;
@@ -839,21 +869,10 @@ FLASHMEM inline PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
     std::fill_n(heToVertIdx, I, HE_NONE);
 
     for (size_t fi = 0; fi < heMesh.faces.size(); ++fi) {
-      HEFace &face = heMesh.faces[fi];
-      Vector centroid(0, 0, 0);
-      int count = 0;
-      uint16_t heIdx = face.halfEdge;
-      uint16_t start = heIdx;
-      if (heIdx != HE_NONE) {
-        do {
-          centroid = centroid + mesh.vertices[heMesh.halfEdges[heIdx].vertex];
-          count++;
-          heIdx = heMesh.halfEdges[heIdx].next;
-        } while (heIdx != HE_NONE && heIdx != start && count < 100);
-      }
-
-      if (count > 0)
-        centroid = centroid / static_cast<float>(count);
+      int count;
+      Vector centroid = face_centroid(heMesh, mesh, fi, count);
+      uint16_t start = heMesh.faces[fi].halfEdge;
+      uint16_t heIdx = start;
 
       Vector normal(0, 0, 0);
       if (count >= 3 && start != HE_NONE) {
@@ -978,10 +997,10 @@ FLASHMEM inline void compute_kdtree(const PolyMesh &mesh, Arena &arena) {
   if (mesh.cache_valid)
     return;
 
-  PolyMesh &m = const_cast<PolyMesh &>(mesh);
-  m.kdTree =
-      KDTree(arena, std::span<Vector>(m.vertices.data(), m.vertices.size()));
-  m.cache_valid = true;
+  mesh.kdTree =
+      KDTree(arena, std::span<Vector>(
+          const_cast<Vector*>(mesh.vertices.data()), mesh.vertices.size()));
+  mesh.cache_valid = true;
 }
 
 inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
