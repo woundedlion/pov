@@ -101,7 +101,7 @@ struct Ring {
     nz = normal.z;
 
     target_angle = radius * (PI_F / 2.0f);
-    center_phi = acosf(ny);
+    center_phi = fast_acos(ny);
 
     float ang_min = std::max(0.0f, target_angle - thickness);
     float ang_max = std::min(PI_F, target_angle + thickness);
@@ -115,7 +115,7 @@ struct Ring {
 
     // For getHorizontalBounds
     r_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = atan2f(nz, nx);
+    alpha_angle = fast_atan2(nz, nx);
   }
 
   template <int H> Bounds get_vertical_bounds() const {
@@ -154,10 +154,9 @@ struct Ring {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    float phi = y_to_phi<H_VIRT>(static_cast<float>(y));
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
+    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    float cos_phi = TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
     if (r_val < MIN_HORIZONTAL_PROJ)
       return false;
@@ -174,8 +173,8 @@ struct Ring {
     if (min_cos > max_cos)
       return true; // Empty row
 
-    float angle_min = acosf(max_cos);
-    float angle_max = acosf(min_cos);
+    float angle_min = fast_acos(max_cos);
+    float angle_max = fast_acos(min_cos);
 
     float pixel_width = 2.0f * PI_F / W;
     float safe_threshold = pixel_width;
@@ -929,8 +928,8 @@ struct Face {
         max_y_val = y;
     }
 
-    float min_phi_check = acosf(hs::clamp(max_y_val, -1.0f, 1.0f));
-    float max_phi_check = acosf(hs::clamp(min_y_val, -1.0f, 1.0f));
+    float min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
+    float max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     float margin_check = thickness + BOUNDS_MARGIN;
 
     int y_min_check = std::max(
@@ -1131,7 +1130,7 @@ struct Face {
           (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
       scratch.invEdgeJ[i] =
           (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
-      float theta = atan2f(vertices[indices[i]].z, vertices[indices[i]].x);
+      float theta = fast_atan2(vertices[indices[i]].z, vertices[indices[i]].x);
       if (theta < 0)
         theta += 2 * PI_F;
       scratch.thetas[i] = theta;
@@ -1173,7 +1172,7 @@ struct Face {
       float lenSq = dot(normal, normal);
       if (lenSq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalized();
-      float phi_val = acosf(hs::clamp(v1.y, -1.0f, 1.0f));
+      float phi_val = fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
       if (phi_val < min_phi)
         min_phi = phi_val;
       if (phi_val > max_phi)
@@ -1201,19 +1200,19 @@ struct Face {
                         (ptz * v2.x - ptx * v2.z) * ny +
                         (ptx * v2.y - pty * v2.x) * nz;
             if (cx1 > 0 && cx2 > 0) {
-              float phiTop = acosf(hs::clamp(pty, -1.0f, 1.0f));
+              float phiTop = fast_acos(hs::clamp(pty, -1.0f, 1.0f));
               if (phiTop < min_phi)
                 min_phi = phiTop;
             }
             if (cx1 < 0 && cx2 < 0) {
-              float phiBot = acosf(hs::clamp(-pty, -1.0f, 1.0f));
+              float phiBot = fast_acos(hs::clamp(-pty, -1.0f, 1.0f));
               if (phiBot > max_phi)
                 max_phi = phiBot;
             }
           }
         }
       }
-      float theta = atan2f(v1.z, v1.x);
+      float theta = fast_atan2(v1.z, v1.x);
       if (theta < 0)
         theta += 2 * PI_F;
       scratch.thetas[i] = theta;
@@ -1312,9 +1311,10 @@ struct Face {
     float s = inside ? -1.0f : 1.0f;
     float plane_dist = s * sqrtf(d);
     // Convert gnomonic planar distance to angular for correct AA blending
-    float angular_dist = atanf(plane_dist) - thickness;
+    float angular_dist_raw = fast_atan2(plane_dist, 1.0f);
+    float angular_dist = angular_dist_raw - thickness;
 
-    res = DistanceResult(angular_dist, 0.0f, atanf(plane_dist), 0.0f, size);
+    res = DistanceResult(angular_dist, 0.0f, angular_dist_raw, 0.0f, size);
   }
 };
 

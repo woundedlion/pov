@@ -913,4 +913,15 @@ inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
 }
 
 } // namespace Spline
+
+// Maximum error ~0.0005 radians (~0.03 degrees).
+// Abramowitz & Stegun polynomial approximation for acos(x), x in [-1, 1].
+inline float fast_acos(float x) {
+  float ax = std::abs(x);
+  if (ax > 1.0f) ax = 1.0f;
+  float result = sqrtf(1.0f - ax) *
+      (1.5707963f + ax * (-0.2121144f + ax * (0.0742610f + ax * -0.0187293f)));
+  return x < 0.0f ? PI_F - result : result;
+}
+
 #endif // HOLOSPHERE_CORE_3DMATH_H_
