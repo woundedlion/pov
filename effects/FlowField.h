@@ -16,11 +16,7 @@ public:
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     registerParam("Scale", &params.noise_scale, 0.1f, 10.0f);
     registerParam("Force", &params.force_scale, 0.001f, 0.05f);
     registerParam("Max Spd", &params.max_speed, 0.01f, 0.1f);

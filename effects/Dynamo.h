@@ -31,11 +31,7 @@ public:
 
   bool show_bg() const override { return false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     static_cast<Filter::World::Trails<W, 10000> &>(filters).init_storage(
         persistent_arena);
 

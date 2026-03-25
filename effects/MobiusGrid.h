@@ -27,11 +27,7 @@ public:
 
   bool show_bg() const override { return false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     // MobiusGrid requires very little persistent memory.
     // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle
     // rasterization arrays.

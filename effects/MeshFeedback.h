@@ -24,11 +24,7 @@ public:
                 Filter::Screen::AntiAlias<W, H>(),
                 Feedback::Filter<W, H>(style)) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     // Bind mutable state into all presets
     for (auto &e : presets.entries) {
       e.params.noise = &noise_params;

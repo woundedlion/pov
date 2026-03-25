@@ -13,11 +13,7 @@ template <int W, int H> class HankinSolids : public Effect {
 public:
   FLASHMEM HankinSolids() : Effect(W, H), filters() {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
     registerParam("Debug BB", &params.debug_bb);

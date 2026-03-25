@@ -17,7 +17,7 @@
 
 // Uncomment to use DMA-based HD107S controller instead of FastLED WS2801.
 // Requires Teensy 4.x hardware. Leave commented for WASM/sim builds.
- #define USE_DMA_LEDS
+// #define USE_DMA_LEDS
 
 /**
  * @brief Analog pin used for seeding the random number generator.

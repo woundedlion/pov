@@ -11,11 +11,7 @@ template <int W, int H> class Liquid2D : public Effect {
 public:
   FLASHMEM Liquid2D() : Effect(W, H) { persist_pixels = false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
@@ -97,8 +93,8 @@ private:
   float sample(const Complex &w, float t, float t_08) const {
     float pu = w.re * params.pattern_freq;
     float pv = w.im * params.pattern_freq;
-    return sinf(pu + params.complexity * sinf(pv + t)) *
-           cosf(pv + params.complexity * cosf(pu - t_08));
+    return fast_sinf(pu + params.complexity * fast_sinf(pv + t)) *
+           fast_cosf(pv + params.complexity * fast_cosf(pu - t_08));
   }
 
   /// Pole attenuation applied to pattern, normalized to [0,1].

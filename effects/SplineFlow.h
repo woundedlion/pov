@@ -27,11 +27,7 @@ public:
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters).init_storage(
         persistent_arena);
 

@@ -17,11 +17,7 @@ public:
 
   FLASHMEM GSReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     configure_arenas(80 * 1024, GLOBAL_ARENA_SIZE - 80 * 1024, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);

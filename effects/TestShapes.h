@@ -33,11 +33,7 @@ public:
 
   bool show_bg() const override { return false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     shapes.bind(persistent_arena, 128);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Count", &params.num_shapes, 1.0f, 16.0f);

@@ -49,7 +49,6 @@ static void
 rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
                           const Basis &planar_basis, bool isLastSegment,
                           ProcessSegmentFn &&process_segment) {
-  // match JS: PlanarStrategy(planarBasis)
   const Vector &u = planar_basis.u;
   const Vector &center = planar_basis.v;
   const Vector &w = planar_basis.w;
@@ -60,8 +59,8 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
       return {0.0f, 0.0f};
     float x = dot(p, u);
     float y = dot(p, w);
-    float theta = atan2f(y, x);
-    return {R * cosf(theta), R * sinf(theta)};
+    float theta = fast_atan2(y, x);
+    return {R * fast_cosf(theta), R * fast_sinf(theta)};
   };
 
   auto proj1 = project(curr.pos);
@@ -79,9 +78,9 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
     if (R < 1e-5f)
       return center;
 
-    float theta = atan2f(Py, Px);
-    Vector axis = (u * cosf(theta)) + (w * sinf(theta));
-    return (center * cosf(R)) + (axis * sinf(R));
+    float theta = fast_atan2(Py, Px);
+    Vector axis = (u * fast_cosf(theta)) + (w * fast_sinf(theta));
+    return (center * fast_cosf(R)) + (axis * fast_sinf(R));
   };
 
   process_segment(map_planar, curr, next, dist, isLastSegment);
@@ -114,8 +113,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 
     auto map_geodesic = [=](float t) {
       float ang = total_dist * t;
-      float s = sinf(ang);
-      float c = cosf(ang);
+      float s = fast_sinf(ang);
+      float c = fast_cosf(ang);
       return (v1 * c) + (v_perp * s);
     };
     process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
@@ -740,7 +739,8 @@ struct DistortedRing {
     const float step = 2.0f * PI_F / num_samples;
 
     // Precompute phase for angle-addition: cos/sin(θ+φ) via TrigLUT
-    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     const float cos_phase = cosf(phase);
     const float sin_phase = sinf(phase);
 
@@ -750,10 +750,10 @@ struct DistortedRing {
     for (int i = 0; i < num_samples; i++) {
       float theta = i * step;
       // Angle-addition identity: cos/sin(θ+φ) from precomputed LUT
-      float cos_t = TrigLUT<W, H>::cos_theta[i] * cos_phase
-                  - TrigLUT<W, H>::sin_theta[i] * sin_phase;
-      float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase
-                  + TrigLUT<W, H>::cos_theta[i] * sin_phase;
+      float cos_t = TrigLUT<W, H>::cos_theta[i] * cos_phase -
+                    TrigLUT<W, H>::sin_theta[i] * sin_phase;
+      float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
+                    TrigLUT<W, H>::cos_theta[i] * sin_phase;
       Vector u_temp = (u * cos_t) + (w * sin_t);
 
       float shift = shift_fn(theta / (2.0f * PI_F));
@@ -1293,10 +1293,8 @@ struct ParticleSystem {
  *  v2: 0 (single segment)
  */
 struct Bezier {
-  static void sample(Fragments &points,
-                     const Vector &p0, const Vector &p1,
-                     const Vector &p2, const Vector &p3,
-                     int num_samples,
+  static void sample(Fragments &points, const Vector &p0, const Vector &p1,
+                     const Vector &p2, const Vector &p3, int num_samples,
                      SplineMode mode = SplineMode::Geodesic) {
     float cumulative_len = 0.0f;
     Vector last_pos = p0;
@@ -1320,12 +1318,10 @@ struct Bezier {
   }
 
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const Vector &p0, const Vector &p1,
-                   const Vector &p2, const Vector &p3,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p0,
+                   const Vector &p1, const Vector &p2, const Vector &p3,
                    FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader = {},
-                   int num_samples = 32,
+                   VertexShaderRef vertex_shader = {}, int num_samples = 32,
                    SplineMode mode = SplineMode::Geodesic) {
     ScratchScope _frag(scratch_arena_a);
     Fragments points;
@@ -1333,20 +1329,19 @@ struct Bezier {
     sample(points, p0, p1, p2, p3, num_samples, mode);
 
     if (vertex_shader) {
-      for (auto &f : points) vertex_shader(f);
+      for (auto &f : points)
+        vertex_shader(f);
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                     false, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
+                    nullptr);
   }
 
   /// Convenience overload taking Fragment references (uses .pos).
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const Fragment &f0, const Fragment &f1,
-                   const Fragment &f2, const Fragment &f3,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f0,
+                   const Fragment &f1, const Fragment &f2, const Fragment &f3,
                    FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader = {},
-                   int num_samples = 32,
+                   VertexShaderRef vertex_shader = {}, int num_samples = 32,
                    SplineMode mode = SplineMode::Geodesic) {
     draw<W, H>(pipeline, canvas, f0.pos, f1.pos, f2.pos, f3.pos,
                fragment_shader, vertex_shader, num_samples, mode);
@@ -1362,22 +1357,19 @@ struct Bezier {
  */
 struct SplineChain {
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const Fragments &control_points,
-                   float tension,
-                   FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader = {},
-                   bool closed = false,
-                   int samples_per_segment = 16,
-                   SplineMode mode = SplineMode::Geodesic) {
+  static void
+  draw(PipelineRef pipeline, Canvas &canvas, const Fragments &control_points,
+       float tension, FragmentShaderFn fragment_shader,
+       VertexShaderRef vertex_shader = {}, bool closed = false,
+       int samples_per_segment = 16, SplineMode mode = SplineMode::Geodesic) {
     size_t n = control_points.size();
-    if (n < 2) return;
+    if (n < 2)
+      return;
 
     ScratchScope _frag(scratch_arena_a);
     Fragments points;
-    const size_t frag_count = closed
-        ? n * samples_per_segment
-        : (n - 1) * samples_per_segment + 1;
+    const size_t frag_count =
+        closed ? n * samples_per_segment : (n - 1) * samples_per_segment + 1;
     points.bind(scratch_arena_a, frag_count);
 
     float cumulative_len = 0.0f;
@@ -1394,23 +1386,21 @@ struct SplineChain {
       Vector cp1, cp2;
       Spline::catmull_rom_tangents(
           control_points[i0].pos, control_points[i1].pos,
-          control_points[i2].pos, control_points[i3].pos,
-          tension, cp1, cp2);
+          control_points[i2].pos, control_points[i3].pos, tension, cp1, cp2);
 
       int start_j = (i == 0) ? 0 : 1;
       for (int j = start_j; j <= samples_per_segment; ++j) {
         float local_t = static_cast<float>(j) / samples_per_segment;
-        Vector pos = Spline::cubic(
-            control_points[i1].pos, cp1, cp2,
-            control_points[i2].pos, local_t, mode);
+        Vector pos = Spline::cubic(control_points[i1].pos, cp1, cp2,
+                                   control_points[i2].pos, local_t, mode);
 
         if (!first_point)
           cumulative_len += angle_between(last_pos, pos);
         last_pos = pos;
         first_point = false;
 
-        Fragment f = Fragment::lerp(control_points[i1],
-                                    control_points[i2], local_t);
+        Fragment f =
+            Fragment::lerp(control_points[i1], control_points[i2], local_t);
         f.pos = pos;
         f.v0 = (static_cast<float>(i) + local_t) / seg_count;
         f.v1 = cumulative_len;
@@ -1420,10 +1410,11 @@ struct SplineChain {
     }
 
     if (vertex_shader) {
-      for (auto &f : points) vertex_shader(f);
+      for (auto &f : points)
+        vertex_shader(f);
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                     false, 0.0f, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
+                    nullptr);
   }
 };
 

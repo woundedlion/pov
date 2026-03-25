@@ -11,11 +11,7 @@ template <int W, int H> class Raymarch : public Effect {
 public:
   FLASHMEM Raymarch() : Effect(W, H) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     registerParam("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
     registerParam("Core Size", &params.core_size, 0.1f, 0.8f);
     registerParam("Max Steps", &params.max_steps, 4.0f, 30.0f);

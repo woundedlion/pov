@@ -44,19 +44,19 @@ inline float associatedLegendre(int l, int m, float x) {
   return pll;
 }
 
-inline float sphericalHarmonic(int l, int m, float theta, float phi) {
+/// Precompute normalization factor for given (l, m) — constant per shape.
+inline float normalization(int l, int m) {
   int absM = std::abs(m);
   float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * PI_F)) *
                   (factorial(l - absM) / factorial(l + absM)));
-  float P = associatedLegendre(l, absM, cosf(phi));
+  return (m != 0) ? sqrtf(2.0f) * N : N;
+}
 
-  if (m > 0) {
-    return sqrtf(2.0f) * N * P * cosf(m * theta);
-  } else if (m < 0) {
-    return sqrtf(2.0f) * N * P * sinf(absM * theta);
-  } else {
-    return N * P;
-  }
+/// Evaluate SH with precomputed norm and cos_phi (avoids cosf(acos(x)) roundtrip).
+inline float sphericalHarmonic(int l, int m, float theta, float cos_phi, float N) {
+  int absM = std::abs(m);
+  float P = associatedLegendre(l, absM, cos_phi);
+  return N * P * ((m > 0) ? fast_cosf(m * theta) : (m < 0) ? fast_sinf(absM * theta) : 1.0f);
 }
 } // namespace SHMath
 
@@ -69,11 +69,14 @@ public:
     float amplitude;
     Quaternion orientation;
     static constexpr bool is_solid = true;
+    float N1, N2; // Precomputed normalization factors
 
     HarmonicBlob(int l1, int m1, int l2, int m2, float blend, float amp,
                  Quaternion q)
         : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend), amplitude(amp),
-          orientation(q) {}
+          orientation(q),
+          N1(SHMath::normalization(l1, m1)),
+          N2(SHMath::normalization(l2, m2)) {}
 
     template <int H_> SDF::Bounds get_vertical_bounds() const {
       return {0, H_ - 1}; // Full Scan fallback
@@ -94,18 +97,19 @@ public:
     void distance(const Vector &p, SDF::DistanceResult &res) const {
       Vector local = rotate(p, orientation.conjugate());
 
-      float theta = atan2f(local.z, local.x);
+      float theta = fast_atan2(local.z, local.x);
       if (theta < 0)
         theta += 2 * PI_F;
-      float phi = acosf(hs::clamp(local.y, -1.0f, 1.0f));
+      // local.y IS cos(phi) — skip fast_acos + cosf roundtrip
+      float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
-      // Evaluate primary shape
-      float val1 = SHMath::sphericalHarmonic(l1, m1, theta, phi);
+      // Evaluate primary shape (N1 precomputed per-frame)
+      float val1 = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
       float val = val1;
 
       // Only pay the math cost for the second shape if we are actively blending
       if (blend > 0.001f) {
-        float val2 = SHMath::sphericalHarmonic(l2, m2, theta, phi);
+        float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
         val = val1 + (val2 - val1) * blend;
       }
 
@@ -115,13 +119,12 @@ public:
 
   FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
     registerParam("Debug BB", &params.debug_bb);
+
+    // Bake procedural palette into fast LUT
+    baked_palette.bake(persistent_arena, Palettes::richSunset);
 
     // Initial shape
     current_idx = 6;
@@ -156,9 +159,9 @@ public:
       float val = frag.v1;
       float abs_val = std::abs(val);
 
-      // Positive palette
+      // Positive palette (baked LUT — no cosf/powf per pixel)
       Color4 pos =
-          Palettes::richSunset.get(std::min(1.0f, abs_val * params.amplitude));
+          baked_palette.get(std::min(1.0f, abs_val * params.amplitude));
       // Negative palette (channel-swapped)
       Color4 neg =
           Color4(Pixel(pos.color.b, static_cast<uint8_t>(pos.color.g * 0.8f),
@@ -207,6 +210,7 @@ private:
   Orientation<W> orientation;
   Timeline<W> timeline;
   Pipeline<W, H> filters;
+  BakedPalette baked_palette;
 
   int current_idx;
   int next_idx;

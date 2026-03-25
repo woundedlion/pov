@@ -14,11 +14,7 @@ template <int W, int H> class RingShower : public Effect {
 public:
   FLASHMEM RingShower() : Effect(W, H) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
     timeline.add(0, Animation::RandomTimer(

@@ -418,6 +418,8 @@ public:
     }
   }
 
+  size_t size() const { return count_; }
+
 private:
   Item *items_ = nullptr;
   size_t head_ = 0, tail_ = 0, count_ = 0;
