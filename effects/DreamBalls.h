@@ -30,11 +30,7 @@ public:
         slice_filter(filters), // Filters inherits Head (FilterOrientSlice)
         mobius_gen(timeline) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     // Initialize Presets
     setup_presets();
 

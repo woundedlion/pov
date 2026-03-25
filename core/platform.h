@@ -290,8 +290,14 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
 
 // --- System Mock ---
 struct SerialMock {
+  void begin(int) {}
+  void print(const char *msg) { std::cout << msg; }
+  void print(int val) { std::cout << val; }
+  void print(unsigned long val) { std::cout << val; }
+  void print(float val) { std::cout << val; }
   void println(const char *msg) { std::cout << msg << std::endl; }
   void println(int val) { std::cout << val << std::endl; }
+  void println(unsigned long val) { std::cout << val << std::endl; }
   void printf(const char *fmt, ...) {
     // simplified
     std::cout << fmt << std::endl;

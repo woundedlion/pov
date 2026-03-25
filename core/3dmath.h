@@ -210,11 +210,37 @@ struct Vector {
  * @brief Constructs a Spherical coordinate from a 3D Vector.
  * @param v The Cartesian vector.
  */
+// Fast atan2: Maximum error ~0.0015 radians (~0.08 degrees)
+// Moved from util.h so all fast trig lives in 3dmath.h
+inline float fast_atan2(float y, float x) {
+  float abs_y = std::abs(y) + 1e-10f;
+  float abs_x = std::abs(x);
+  float r, angle;
+
+  if (abs_x < abs_y) {
+    r = abs_x / abs_y;
+    angle = 1.57079633f - r * (0.78539816f + 0.273f * (1.0f - r));
+  } else {
+    r = abs_y / abs_x;
+    angle = r * (0.78539816f + 0.273f * (1.0f - r));
+  }
+
+  if (x < 0.0f)
+    angle = 3.14159265f - angle;
+  if (y < 0.0f)
+    angle = -angle;
+
+  return angle;
+}
+
+// Forward declaration (defined at end of file)
+inline float fast_acos(float x);
+
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
-  theta = atan2f(n.z, n.x);
-  phi = acosf(hs::clamp(n.y, -1.0f, 1.0f));
+  theta = fast_atan2(n.z, n.x);
+  phi = fast_acos(hs::clamp(n.y, -1.0f, 1.0f));
 }
 
 struct Quaternion;
@@ -922,6 +948,24 @@ inline float fast_acos(float x) {
   float result = sqrtf(1.0f - ax) *
       (1.5707963f + ax * (-0.2121144f + ax * (0.0742610f + ax * -0.0187293f)));
   return x < 0.0f ? PI_F - result : result;
+}
+
+// Bhaskara I sine approximation. Max error ~0.17% (~0.1 degrees).
+// ~8 FPU ops vs ~80-120 cycles for newlib sinf.
+inline float fast_sinf(float x) {
+  // Range reduce to [0, 2π)
+  constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
+  x = x - floorf(x * INV_2PI) * (2.0f * PI_F);
+  // Map to [0, π) with sign tracking
+  float sign = 1.0f;
+  if (x > PI_F) { x -= PI_F; sign = -1.0f; }
+  // Bhaskara I: 16x(π-x) / (5π² - 4x(π-x))
+  float xpi = x * (PI_F - x);
+  return sign * (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
+}
+
+inline float fast_cosf(float x) {
+  return fast_sinf(x + PI_F * 0.5f);
 }
 
 #endif // HOLOSPHERE_CORE_3DMATH_H_

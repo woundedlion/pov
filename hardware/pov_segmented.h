@@ -252,7 +252,11 @@ private:
                     frame_sync_isr, RISING);
 
     while (millis() - start < duration * 1000) {
+      unsigned long t0 = micros();
       e->draw_frame();
+      unsigned long dt = micros() - t0;
+      Serial.print("ft ");
+      Serial.println(dt);
     }
 
     detachInterrupt(digitalPinToInterrupt(PIN_COLUMN_SYNC));

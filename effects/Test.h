@@ -24,11 +24,7 @@ public:
             },
             32, ease_mid, true) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     params.thickness = 4.0f * (2.0f * PI_F / W);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -89,7 +85,7 @@ public:
 private:
   FastNoiseLite noise;
   Timeline<W> timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H> filters;
 
   struct Params {
     float alpha = 0.3f;

@@ -35,11 +35,7 @@ public:
 
   FLASHMEM BZReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     // 75KB easily holds the 48KB Cubemap LUT + 23KB State
     configure_arenas(75 * 1024, GLOBAL_ARENA_SIZE - 75 * 1024, 0);
 

@@ -137,8 +137,8 @@ struct Color4 {
  */
 inline Color4 hue_rotate(const Color4 &c, float amount) {
   float angle = amount * (2.0f * PI_F);
-  float cos_a = cosf(angle);
-  float sin_a = sinf(angle);
+  float cos_a = fast_cosf(angle);
+  float sin_a = fast_sinf(angle);
   float one_third = 1.0f / 3.0f;
   float sqrt3_inv = 0.57735026919f; // 1/sqrt(3)
 
@@ -827,7 +827,7 @@ struct BreatheModifier : public Modifier {
   float modify(float t) const override {
     if (!phase)
       return t;
-    return t + sinf(*phase) * amplitude;
+    return t + fast_sinf(*phase) * amplitude;
   }
 };
 
@@ -1110,10 +1110,14 @@ public:
   void bake(Arena &arena, const Palette &source) {
     lut_ = static_cast<Pixel16 *>(
         arena.allocate(LUT_SIZE * sizeof(Pixel16), alignof(Pixel16)));
+    rebake(source);
+  }
+
+  /// Refill existing LUT without allocating. Use for animated palettes.
+  void rebake(const Palette &source) {
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
-      Color4 c = source.get(t);
-      lut_[i] = c.color;
+      lut_[i] = source.get(t).color;
     }
   }
 

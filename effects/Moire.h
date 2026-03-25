@@ -29,11 +29,7 @@ public:
 
   bool show_bg() const override { return false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     // Moire relies on DistortedRing parsing loops.
     // It allocates ~9.2KB for the Ring points and ~8.1KB for rasterization
     // caches. Give it 32KB of Scratch A to safely handle iterations, and 16KB

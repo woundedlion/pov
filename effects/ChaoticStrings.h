@@ -55,11 +55,7 @@ public:
         functions{{{12.0f, 5.0f, 0, 2 * PI_F}}}, cur_function_idx(0),
         noise_xform(timeline) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
 
     configure_arenas(GLOBAL_ARENA_SIZE - 200 * 1024, 200 * 1024, 0);
 

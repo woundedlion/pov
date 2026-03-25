@@ -26,11 +26,7 @@ public:
         // Spawner: Manage ring creation based on gap accumulation
         spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     // Register Params
     registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);
     registerParam("Speed", &params.speed, 0.0f, 20.0f);

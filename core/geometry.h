@@ -73,7 +73,6 @@ struct NullFragmentShader {
   }
 };
 
-
 /**
  * @brief Unit vector along the Cartesian X-axis.
  */
@@ -201,7 +200,6 @@ template <int H> inline float y_to_phi(float y) {
   return (y * PI_F) / (H_VIRT - 1);
 }
 
-
 /**
  * @brief Split trig lookup tables for efficient vector reconstruction.
  * @details Caches sin/cos for theta (per column) and phi (per row) separately.
@@ -309,7 +307,7 @@ inline LogPolar vectorToLogPolar(const Vector &v) {
     return {10.0f, 0.0f}; // Handle North Pole singularity
   }
   const float rho = 0.5f * logf((1.0f + v.y) / denom);
-  const float theta = atan2f(v.z, v.x);
+  const float theta = fast_atan2(v.z, v.x);
   return {rho, theta};
 }
 
@@ -341,7 +339,6 @@ inline Vector fib_spiral(int n, float eps, int i) {
   return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta))
       .normalized();
 }
-
 
 /**
  * @brief Class managing the current rotation state of an object, maintaining

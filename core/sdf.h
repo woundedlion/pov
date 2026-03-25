@@ -105,13 +105,13 @@ struct Ring {
 
     float ang_min = std::max(0.0f, target_angle - thickness);
     float ang_max = std::min(PI_F, target_angle + thickness);
-    cos_max = cosf(ang_min);
-    cos_min = cosf(ang_max);
-    cos_target = cosf(target_angle);
+    cos_max = fast_cosf(ang_min);
+    cos_min = fast_cosf(ang_max);
+    cos_target = fast_cosf(target_angle);
 
     bool safe_approx = (target_angle > POLE_SAFE_MARGIN &&
                         target_angle < PI_F - POLE_SAFE_MARGIN);
-    inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
+    inv_sin_target = safe_approx ? (1.0f / fast_sinf(target_angle)) : 0.0f;
 
     // For getHorizontalBounds
     r_val = sqrtf(nx * nx + nz * nz);
@@ -226,7 +226,7 @@ struct Ring {
     if (inv_sin_target != 0) {
       dist = std::abs(d - cos_target) * inv_sin_target;
     } else {
-      float polar = acosf(std::max(-1.0f, std::min(1.0f, d)));
+      float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
       dist = std::abs(polar - target_angle);
     }
 
@@ -282,11 +282,11 @@ struct DistortedRing {
     ny = normal.y;
     nz = normal.z;
     target_angle = radius * (PI_F / 2.0f);
-    center_phi = acosf(ny);
+    center_phi = fast_acos(ny);
     max_thickness = thickness + max_distortion;
 
     r_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = atan2f(nz, nx);
+    alpha_angle = fast_atan2(nz, nx);
 
     float ang_min = std::max(0.0f, target_angle - max_thickness);
     float ang_max = std::min(PI_F, target_angle + max_thickness);
@@ -324,10 +324,9 @@ struct DistortedRing {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    float phi = y_to_phi<H_VIRT>(static_cast<float>(y));
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
+    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    float cos_phi = TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
     if (r_val < MIN_HORIZONTAL_PROJ)
       return false;
@@ -344,8 +343,8 @@ struct DistortedRing {
     if (min_cos > max_cos)
       return true; // Empty row
 
-    float angle_min = acosf(max_cos);
-    float angle_max = acosf(min_cos);
+    float angle_min = fast_acos(max_cos);
+    float angle_max = fast_acos(min_cos);
 
     float pixel_width = 2.0f * PI_F / W;
     float safe_threshold = pixel_width;
@@ -382,7 +381,13 @@ struct DistortedRing {
 
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    float polar = angle_between(p, normal);
+    float d = dot(p, normal);
+    // Early reject: outside bounding annulus
+    if (d < cos_min_limit || d > cos_max_limit) {
+      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+      return;
+    }
+    float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
 
     float dot_u = dot(p, u);
     float dot_w = dot(p, w);

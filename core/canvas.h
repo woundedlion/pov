@@ -47,14 +47,7 @@ public:
    * @brief Post-construction initialization. Override to move heavy
    * setup logic here (avoids GCC C1/C2 constructor duplication).
    */
-#ifdef __EMSCRIPTEN__
   virtual void __attribute__((noinline)) init() {}
-#else
-  // Non-virtual on Teensy: FLASHMEM functions cannot participate in vtable
-  // dispatch (the vtable lives in ITCM, but FLASHMEM code is in flash).
-  // Concrete effects override this via hiding, not polymorphism.
-  FLASHMEM void __attribute__((noinline)) init() {}
-#endif
 
   /**
    * @brief Abstract method to be implemented by derived classes to generate a
@@ -277,18 +270,25 @@ public:
   Canvas(Effect &effect) : effect_(effect) {
     while (!effect_.buffer_free()) {
     }
-    start_time = millis();
+    start_time = micros();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       clear_buffer();
     }
+    clear_time = micros() - start_time;
   }
 
   /**
    * @brief Destructor. Queues the finished frame to be displayed.
    */
   ~Canvas() {
-    //    hs::log("draw_frame_duration: %d\n", (millis() - start_time));
+#ifdef ARDUINO
+    unsigned long render_time = micros() - start_time - clear_time;
+    Serial.print("clear ");
+    Serial.print(clear_time);
+    Serial.print(" render ");
+    Serial.println(render_time);
+#endif
     effect_.queue_frame();
   }
 
@@ -330,9 +330,8 @@ public:
    */
   void clear_buffer() {
     int c = effect_.cur_.load(std::memory_order_relaxed);
-    std::fill(effect_.bufs_[c],
-              effect_.bufs_[c] + effect_.width_ * effect_.height_,
-              Pixel(0, 0, 0));
+    std::fill_n(effect_.bufs_[c], effect_.width_ * effect_.height_,
+                Pixel(0, 0, 0));
   }
 
   [[nodiscard]] inline int width() const { return effect_.width(); }
@@ -345,7 +344,8 @@ public:
 
 private:
   Effect &effect_;   /**< Reference to the owning Effect instance. */
-  size_t start_time; /**< Tracks frame drawing duration (debug). */
+  unsigned long start_time; /**< Tracks frame drawing duration (debug). */
+  unsigned long clear_time = 0; /**< Tracks clear phase duration. */
 };
 
 #endif // HOLOSPHERE_CORE_CANVAS_H_

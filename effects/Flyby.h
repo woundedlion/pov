@@ -11,11 +11,7 @@ template <int W, int H> class Flyby : public Effect {
 public:
   FLASHMEM Flyby() : Effect(W, H) { persist_pixels = false; }
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
@@ -40,6 +36,15 @@ public:
                      BrightnessProfile::FLAT, SaturationProfile::MID, 42});
 
     params = presets.get();
+    next_preset();
+  }
+
+  void next_preset() {
+    constexpr int LERP_FRAMES = 480;
+    presets.next();
+    timeline.add(0, Animation::Lerp(params, presets.prev_get(), presets.get(),
+                                    LERP_FRAMES, ease_in_out_sin)
+                        .then([this]() { next_preset(); }));
   }
 
   bool show_bg() const override { return true; }
@@ -48,7 +53,8 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    float t = static_cast<float>(timeline.t) * params.speed;
+    phase += params.speed;
+    float t = phase;
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
@@ -57,7 +63,7 @@ public:
       float pattern = sample(w, t);
       float value = attenuate(pattern, r_sq);
       Color4 c = palette.get(value);
-      c.alpha *= powf(1.0f - value, params.falloff);
+      c.alpha *= (1.0f - value); // Linear falloff (was powf, saves ~8ms)
       c = hue_rotate(c, -displacement * params.hue_shift);
       return c;
     };
@@ -79,8 +85,8 @@ private:
 
   /// Cartesian grid pattern from warped coordinates.
   float sample(const Complex &w, float t) const {
-    return sinf(w.re * params.pattern_freq + t) *
-           cosf(w.im * params.pattern_freq - t * params.drift);
+    return fast_sinf(w.re * params.pattern_freq + t) *
+           fast_cosf(w.im * params.pattern_freq - t * params.drift);
   }
 
   /// Pole attenuation applied to pattern, normalized to [0,1].
@@ -92,6 +98,7 @@ private:
   Timeline<W> timeline;
   Orientation<W> orientation;
   FastNoiseLite noise;
+  float phase = 0.0f;
 
   BakedPalette palette;
 
@@ -106,39 +113,22 @@ private:
     float hue_shift = 0.15f;
 
     void lerp(const Params &a, const Params &b, float t) {
-      constexpr int N = 8;
-      float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq, &speed,
-                       &pole_fade,  &falloff,       &drift,        &hue_shift};
-      const float src[N] = {a.warp_scale, a.warp_strength, a.pattern_freq,
-                            a.speed,      a.pole_fade,     a.falloff,
-                            a.drift,      a.hue_shift};
-      const float tgt[N] = {b.warp_scale, b.warp_strength, b.pattern_freq,
-                            b.speed,      b.pole_fade,     b.falloff,
-                            b.drift,      b.hue_shift};
-      int active = 0;
-      for (int i = 0; i < N; ++i)
-        if (src[i] != tgt[i])
-          ++active;
-      if (active == 0)
-        return;
-      float slice = 1.0f / active;
-      int slot = 0;
-      for (int i = 0; i < N; ++i) {
-        if (src[i] == tgt[i]) {
-          *dst[i] = tgt[i];
-          continue;
-        }
-        float tl = hs::clamp((t - slot * slice) / slice, 0.0f, 1.0f);
-        *dst[i] = ::lerp(src[i], tgt[i], tl);
-        ++slot;
-      }
+      warp_scale = ::lerp(a.warp_scale, b.warp_scale, t);
+      warp_strength = ::lerp(a.warp_strength, b.warp_strength, t);
+      pattern_freq = ::lerp(a.pattern_freq, b.pattern_freq, t);
+      speed = ::lerp(a.speed, b.speed, t);
+      pole_fade = ::lerp(a.pole_fade, b.pole_fade, t);
+      falloff = ::lerp(a.falloff, b.falloff, t);
+      drift = ::lerp(a.drift, b.drift, t);
+      hue_shift = ::lerp(a.hue_shift, b.hue_shift, t);
     }
   };
   Params params;
 
   Presets<Params, 4> presets = {{{
-      {{47.752f, 11.55f, 2.7f, 0.586f, 2.843f, 1.2f, 0.0f, 0.097f}},
-      {{1.5f, 0.5f, 8.0f, 0.30f, 2.0f, 1.2f, 0.7f, 0.15f}},
+      {{47.752f, 11.55f, 2.7f, 0.586f, 1.55f, 1.2f, 0.0f, 0.097f}},
+      {{0.1f, 0.87f, 14.262f, 0.586f, 3.527f, 1.2f, 0.0f, 0.097f}},
+      {{1.5f, 0.5f, 8.0f, 0.30f, 2.0f, 1.2f, 0.0f, 0.15f}},
       {{47.752f, 2.55f, 7.878f, 0.562f, 2.843f, 1.2f, 0.0f, 0.0f}},
   }}};
 };

@@ -75,9 +75,11 @@ public:
    * @param duration The time in seconds to run the effect.
    */
   template <typename E> void show(unsigned long duration) {
-    E *e = new E();
-    e->init();  // Static dispatch — FLASHMEM honored via explicit instantiation
-    run(e, duration);
+    effect_ = new E();
+    effect_->init();  // Static dispatch — FLASHMEM honored via explicit instantiation
+    run(effect_, duration);
+    delete effect_;
+    effect_ = nullptr;
   }
 
 private:
@@ -92,21 +94,27 @@ private:
     x_ = 0;
 #ifdef ARDUINO
     IntervalTimer timer;
-    // The timer interval is calculated to sweep the width exactly once per
-    // rotation.
+    // sweep the width once per rotation
     timer.begin(show_col,
         static_cast<unsigned long>(1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f));
     while (millis() - start < duration * 1000) {
+      unsigned long t0 = micros();
       effect_->draw_frame();
+      effect_->advance_display();
+//      delay(125);
+      unsigned long dt = micros() - t0;
+      Serial.print("frame ms: ");
+      Serial.println(dt);
     }
     timer.end();
 #else
     while (millis() - start < duration * 1000) {
+      unsigned long t0 = micros();
       effect_->draw_frame();
+      unsigned long dt = micros() - t0;
+      hs::log("ft %lu", dt);
     }
 #endif
-    delete effect_;
-    effect_ = nullptr;
   }
 
 private:
@@ -115,6 +123,7 @@ private:
    * the frame.
    */
   static FASTRUN void show_col() {
+    return;
 
 #if defined(ARDUINO) && defined(USE_DMA_LEDS)
     // Direct Pixel16 → HD107S wire packing (no intermediate CRGB array).

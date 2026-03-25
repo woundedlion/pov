@@ -1193,11 +1193,9 @@ public:
     params.get().bIm = scale * sinf(angle);
   }
 
+  std::reference_wrapper<MobiusParams> params;
   float scale;       // Public: effects need direct read/write access
   EasingFn easing;   // Public: effects need direct read/write access
-
-private:
-  std::reference_wrapper<MobiusParams> params;
 };
 
 /**

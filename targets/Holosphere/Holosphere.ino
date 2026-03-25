@@ -15,7 +15,7 @@
 #include "effects.h"
 #include "effects_legacy.h"
 
-static constexpr int NUM_PIXELS = 40;
+static constexpr int NUM_PIXELS = 288;
 static constexpr unsigned int RPM = 480;
 
 namespace {
@@ -25,34 +25,44 @@ POVDisplay<NUM_PIXELS, RPM> *pov;
 void setup() {
   Serial.begin(9600);
   delay(1000);
+  Serial.println("Hello");
   pov = new POVDisplay<NUM_PIXELS, RPM>();
 }
 
 FLASHMEM static void run_show_sequence() {
-  // Test/Debug Effects
-  pov->show<Test<288, 144>>(120);
-//  pov->show<TestShapes<288, 144>>(120);
 
+    pov->show<HopfFibration<288, 144>>(120); // 176
+
+  /*
+  pov->show<Comets<288, 144>>(120); //52!!!
+  pov->show<RingSpin<288, 144>>(120); // 140
+  pov->show<Test<288, 144>>(120); // 60
+  pov->show<TestShapes<288, 144>>(120); //140
   pov->show<ChaoticStrings<288, 144>>(120);
-  pov->show<Liquid2D<288, 144>>(120);
-  pov->show<Flyby<288, 144>>(120);
+  pov->show<Liquid2D<288, 144>>(120);  //85
   pov->show<Raymarch<288, 144>>(120);
-//  pov->show<SplineFlow<288, 144>>(120);
-  pov->show<GnomonicStars<288, 144>>(120);
+  pov->show<SplineFlow<288, 144>>(120);
+  pov->show<GnomonicStars<288, 144>>(120); //60
   pov->show<DreamBalls<288, 144>>(120);
-  pov->show<HopfFibration<288, 144>>(120);
+  pov->show<Flyby<288, 144>>(120); // 120
+  pov->show<HopfFibration<288, 144>>(120); //176
   pov->show<HankinSolids<288, 144>>(120);
   pov->show<IslamicStars<288, 144>>(120);
   pov->show<MindSplatter<288, 144>>(120);
-  pov->show<SphericalHarmonics<288, 144>>(120);
+  pov->show<SphericalHarmonics<288, 144>>(120);  //49!!!!
   pov->show<Voronoi<288, 144>>(120);
   pov->show<MobiusGrid<288, 144>>(120);
   pov->show<FlowField<288, 144>>(120);
   pov->show<MeshFeedback<288, 144>>(120);
-  pov->show<PetalFlow<288, 144>>(120);
+  pov->show<PetalFlow<288, 144>>(120); //35
   pov->show<BZReactionDiffusion<288, 144>>(120);
   pov->show<GSReactionDiffusion<288, 144>>(120);
-//  pov->show<Thrusters<288, 144>>(120);
+  pov->show<Thrusters<288, 144>>(120);
+  */
 }
 
-void loop() { run_show_sequence(); }
+void loop() {
+  Serial.println("Oh hi again");
+  delay(1000);
+  run_show_sequence();
+}

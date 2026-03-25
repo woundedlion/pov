@@ -20,11 +20,7 @@ public:
 
   FLASHMEM Voronoi() : Effect(W, H) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
     registerParam("Smoothness", &params.smoothness, 1.0f, 500.0f);
     registerParam("Border Thick", &params.borderThickness, 0.0f, 0.1f);

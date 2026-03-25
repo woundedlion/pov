@@ -8,7 +8,6 @@
 #include <array>
 #include "core/effects_engine.h"
 
-
 template <int W, int H> class Comets : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
@@ -23,14 +22,13 @@ public:
 
   FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {}
 
-#ifdef __EMSCRIPTEN__
   void init() override {
-#else
-  FLASHMEM void init() {
-#endif
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
     new (node) Node();
+
+    // Allocate baked palette LUT (refilled each frame)
+    baked_palette.bake(persistent_arena, palette);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
@@ -60,11 +58,14 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
+    // Re-bake animated palette each frame (256 lookups vs ~1700)
+    baked_palette.rebake(palette);
+
     node->trail.record(node->orientation);
 
     deep_tween(node->trail, [&](const Quaternion &q, float t) {
       auto fragment_shader = [&](const Vector &, Fragment &f) {
-        f.color = palette.get(t);
+        f.color = baked_palette.get(t);
         f.color.alpha *= quintic_kernel(t);
       };
 
@@ -92,10 +93,11 @@ private:
 
   FastNoiseLite noise;
   Timeline<W, 32> timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H> filters;
   ProceduralPath path;
   Orientation<W> orientation;
   GenerativePalette palette;
+  BakedPalette baked_palette;
   std::array<LissajousParams, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},
                                                 {6.06f, 1.0f, 0, 2 * PI_F},
                                                 {6.02f, 4.01f, 0, 3.132f},
