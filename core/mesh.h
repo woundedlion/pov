@@ -201,7 +201,7 @@ namespace MeshOps {
  * Removes degenerate faces (faces with < 3 vertices) during
  * the process.
  */
-FLASHMEM inline void compile(const PolyMesh &src, MeshState &dst,
+FLASHMEM static void compile(const PolyMesh &src, MeshState &dst,
                              Arena &geom_arena) {
   dst.clear();
 

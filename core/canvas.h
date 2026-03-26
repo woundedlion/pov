@@ -39,6 +39,10 @@ public:
     std::fill_n(bufs_[0], MAX_W * MAX_H, Pixel(0, 0, 0));
     bufs_[1] = buffer_b;
     std::fill_n(bufs_[1], MAX_W * MAX_H, Pixel(0, 0, 0));
+    clip.w = W;
+    clip.h = H;
+    clip.y_end = H;
+    clip.x_end = W;
   }
 
   virtual ~Effect() {};
@@ -59,6 +63,24 @@ public:
    * @return True if the background should be shown (often black).
    */
   virtual bool show_bg() const = 0;
+
+  /** @brief Segment clip region (display + render margin). */
+  ClipRegion clip;
+
+  /** @brief Driver sets display bounds (which segment this Teensy owns). */
+  void set_clip(int y0, int y1, int x0, int x1) {
+    clip.y_start = y0;
+    clip.y_end = y1;
+    clip.x_start = x0;
+    clip.x_end = x1;
+  }
+  /** @brief Driver updates x clip at each half-rotation. */
+  void set_clip_x(int x0, int x1) {
+    clip.x_start = x0;
+    clip.x_end = x1;
+  }
+  /** @brief Effect sets render margin for stateful filters. */
+  void set_margin(int m) { clip.margin = m; }
 
   /**
    * @brief Retrieves the color of a pixel from the currently displayed buffer.
@@ -245,8 +267,8 @@ private:
   std::atomic<int> prev_{0}; /**< Buffer the ISR is currently reading. */
   std::atomic<int> cur_{0};  /**< Buffer the main loop is currently writing. */
   std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
-  int width_;             /**< The width of the effect. */
-  int height_;            /**< The height of the effect. */
+  int width_;                /**< The width of the effect. */
+  int height_;               /**< The height of the effect. */
   static DMAMEM Pixel
       buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A. */
   static DMAMEM Pixel
@@ -275,22 +297,12 @@ public:
     if (!effect_.persist_pixels) {
       clear_buffer();
     }
-    clear_time = micros() - start_time;
   }
 
   /**
    * @brief Destructor. Queues the finished frame to be displayed.
    */
-  ~Canvas() {
-#ifdef ARDUINO
-    unsigned long render_time = micros() - start_time - clear_time;
-    Serial.print("clear ");
-    Serial.print(clear_time);
-    Serial.print(" render ");
-    Serial.println(render_time);
-#endif
-    effect_.queue_frame();
-  }
+  ~Canvas() { effect_.queue_frame(); }
 
   /**
    * @brief Accesses a pixel in the current drawing buffer by 2D coordinates.
@@ -300,7 +312,8 @@ public:
    */
   inline Pixel &operator()(int x, int y) {
     assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
-    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][y * effect_.width_ + x];
+    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)]
+                        [y * effect_.width_ + x];
   }
 
   /**
@@ -311,7 +324,8 @@ public:
    */
   inline Pixel prev(int x, int y) const {
     assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
-    return effect_.bufs_[effect_.prev_.load(std::memory_order_relaxed)][y * effect_.width_ + x];
+    return effect_.bufs_[effect_.prev_.load(std::memory_order_relaxed)]
+                        [y * effect_.width_ + x];
   }
 
   /**
@@ -324,7 +338,6 @@ public:
     return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][xy];
   }
 
-
   /**
    * @brief Clears the entire current drawing buffer to black.
    */
@@ -336,6 +349,7 @@ public:
 
   [[nodiscard]] inline int width() const { return effect_.width(); }
   [[nodiscard]] inline int height() const { return effect_.height(); }
+  [[nodiscard]] inline const ClipRegion &clip() const { return effect_.clip; }
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.
@@ -343,9 +357,8 @@ public:
   inline bool debug() const { return effect_.debug_visuals; }
 
 private:
-  Effect &effect_;   /**< Reference to the owning Effect instance. */
+  Effect &effect_;          /**< Reference to the owning Effect instance. */
   unsigned long start_time; /**< Tracks frame drawing duration (debug). */
-  unsigned long clear_time = 0; /**< Tracks clear phase duration. */
 };
 
 #endif // HOLOSPHERE_CORE_CANVAS_H_

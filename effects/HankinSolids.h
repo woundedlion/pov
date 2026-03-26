@@ -14,6 +14,9 @@ public:
   FLASHMEM HankinSolids() : Effect(W, H), filters() {}
 
   void init() override {
+    // scratch_b must hold CompiledHankin (~10KB) + BakedPaletteBank (~15KB)
+    configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
+                     32 * 1024);
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
     registerParam("Debug BB", &params.debug_bb);
@@ -23,6 +26,10 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     solid_idx = 0;
+
+    for (int i = 0; i < NUM_PALETTES; ++i)
+      baked_palette_bank_.entries[i].bake(persistent_arena,
+                                          *source_palettes[i]);
 
     load_shape(carousel.current(), compiled_hankin,
                palettes_slots[carousel.front_index()], solid_idx,
@@ -38,9 +45,12 @@ public:
   }
 
 private:
-  const std::array<ProceduralPalette, 5> source_palettes_pool = {
-      Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
-      Palettes::bruisedMoss, Palettes::lavenderLake};
+  static constexpr int NUM_PALETTES = 5;
+  static constexpr std::array<const ProceduralPalette *, NUM_PALETTES>
+      source_palettes = {&Palettes::embers, &Palettes::richSunset,
+                         &Palettes::brightSunrise, &Palettes::bruisedMoss,
+                         &Palettes::lavenderLake};
+  BakedPaletteBank baked_palette_bank_;
 
   PolyMesh generate_base_solid(int idx, Arena &a, Arena &b) {
     auto solids = Solids::Collections::get_simple_solids();
@@ -55,14 +65,15 @@ private:
                                         persistent_arena);
   }
 
-  void shuffle_palettes(std::array<ProceduralPalette, 5> &out) {
-    out = source_palettes_pool;
+  void shuffle_palette_indices(std::array<int, NUM_PALETTES> &out) {
+    for (int i = 0; i < NUM_PALETTES; ++i)
+      out[i] = i;
     std::shuffle(out.begin(), out.end(), hs::random());
   }
 
-  /// Full pipeline: generate → compile → evaluate → classify → palettes.
+  /// Full pipeline: generate → compile → evaluate → classify → palette indices.
   void load_shape(MeshState &out_mesh, CompiledHankin &out_hankin,
-                  std::array<ProceduralPalette, 5> &out_palettes, int idx,
+                  std::array<int, NUM_PALETTES> &out_palette_idx, int idx,
                   float angle) {
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh base = generate_base_solid(idx, a, b);
@@ -75,12 +86,12 @@ private:
     });
 
     classify_mesh_topology(out_mesh);
-    shuffle_palettes(out_palettes);
+    shuffle_palette_indices(out_palette_idx);
   }
 
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
-                 const std::array<ProceduralPalette, 5> &palettes,
+                 const std::array<int, NUM_PALETTES> &palette_idx,
                  float opacity, const Quaternion &q) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
@@ -103,7 +114,9 @@ private:
           (f.size > 0.0001f) ? (distFromEdge / f.size) : 0.0f;
       float t = hs::clamp(normalizedDist * params.intensity, 0.0f, 1.0f);
 
-      f.color = get_color(palettes[topoIdx % palettes.size()], t);
+      f.color =
+          baked_palette_bank_.entries[palette_idx[topoIdx % NUM_PALETTES]].get(
+              t);
       f.color.alpha *= opacity;
     };
 
@@ -164,13 +177,16 @@ private:
                  // Manual compaction: preserve both carousel slots +
                  // compiled_hankin
                  {
-                   Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_a,
+                   Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_b,
                                               persistent_arena);
-                   Persist<MeshState> p0(carousel.slot(0), scratch_arena_b,
+                   Persist<MeshState> p0(carousel.slot(0), scratch_arena_a,
                                          persistent_arena);
                    Persist<MeshState> p1(carousel.slot(1), scratch_arena_a,
                                          persistent_arena);
+                   Persist<BakedPaletteBank> pp(
+                       baked_palette_bank_, scratch_arena_b, persistent_arena);
                    persistent_arena.reset();
+                   hs::log("morph_cycle_then: finished arena compaction");
                  }
 
                  MeshOps::update_hankin(compiled_hankin, carousel.current(),
@@ -182,7 +198,7 @@ private:
   MeshCarousel<W> carousel;
   CompiledHankin compiled_hankin;         // Active during hankin cycle
   CompiledHankin compiled_hankin_staging; // Built during morph cycle
-  std::array<ProceduralPalette, 5> palettes_slots[2];
+  std::array<int, NUM_PALETTES> palettes_slots[2];
 
   // Slot indices for morph draw callbacks (set before each morph)
   int morph_old_slot_ = 0;
@@ -203,7 +219,7 @@ private:
   Orientation<W> orientation;
   FastNoiseLite noise;
   Timeline<W> timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  Pipeline<W, H> filters;
   int solid_idx = 0;
 
   struct Params {

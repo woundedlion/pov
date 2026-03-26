@@ -67,14 +67,14 @@ struct Pixel16 {
   // Lerp (Linear interpolation 16-bit)
   Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
     // frac 0..65535
-    // result = this + (other - this) * frac
-    // Exact: (a * (65535 - frac) + b * frac) / 65535
-    uint32_t r32 =
-        ((uint32_t)r * (65535 - frac) + (uint32_t)other.r * frac) / 65535;
-    uint32_t g32 =
-        ((uint32_t)g * (65535 - frac) + (uint32_t)other.g * frac) / 65535;
-    uint32_t b32 =
-        ((uint32_t)b * (65535 - frac) + (uint32_t)other.b * frac) / 65535;
+    // Exact div-by-65535 via shifts: x/65535 == (x + (x>>16) + 1) >> 16
+    uint16_t inv = 65535 - frac;
+    uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
+    uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
+    uint32_t xb = (uint32_t)b * inv + (uint32_t)other.b * frac;
+    uint32_t r32 = (xr + (xr >> 16) + 1) >> 16;
+    uint32_t g32 = (xg + (xg >> 16) + 1) >> 16;
+    uint32_t b32 = (xb + (xb >> 16) + 1) >> 16;
     return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
   }
 
@@ -263,7 +263,6 @@ inline Pixel blend_over_min(const Pixel &c1, const Pixel &c2) {
 inline Pixel blend_mean(const Pixel &c1, const Pixel &c2) {
   return Pixel((c1.r + c2.r) / 2, (c1.g + c2.g) / 2, (c1.b + c2.b) / 2);
 }
-
 
 
 
@@ -1108,8 +1107,8 @@ public:
 
   /// Bake a palette into a 256-entry LUT in the given arena.
   void bake(Arena &arena, const Palette &source) {
-    lut_ = static_cast<Pixel16 *>(
-        arena.allocate(LUT_SIZE * sizeof(Pixel16), alignof(Pixel16)));
+    lut_ = static_cast<Color4 *>(
+        arena.allocate(LUT_SIZE * sizeof(Color4), alignof(Color4)));
     rebake(source);
   }
 
@@ -1117,7 +1116,7 @@ public:
   void rebake(const Palette &source) {
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
-      lut_[i] = source.get(t).color;
+      lut_[i] = source.get(t);
     }
   }
 
@@ -1125,14 +1124,38 @@ public:
   Color4 get(float t) const {
     float idx = t * (LUT_SIZE - 1);
     int lo = static_cast<int>(idx);
-    if (lo >= LUT_SIZE - 1) return Color4(lut_[LUT_SIZE - 1], 1.0f);
-    if (lo < 0) return Color4(lut_[0], 1.0f);
-    uint16_t frac = static_cast<uint16_t>((idx - lo) * 65535.0f);
-    return Color4(lut_[lo].lerp16(lut_[lo + 1], frac), 1.0f);
+    if (lo >= LUT_SIZE - 1) return lut_[LUT_SIZE - 1];
+    if (lo < 0) return lut_[0];
+    float frac = idx - lo;
+    const Color4 &a = lut_[lo];
+    const Color4 &b = lut_[lo + 1];
+    return Color4(a.color.lerp16(b.color, static_cast<uint16_t>(frac * 65535.0f)),
+                  a.alpha + (b.alpha - a.alpha) * frac);
+  }
+
+  /// Deep-copy LUT from another BakedPalette into the given arena.
+  /// Used by Persist for arena compaction.
+  void clone_from(const BakedPalette &src, Arena &arena) {
+    lut_ = static_cast<Color4 *>(
+        arena.allocate(LUT_SIZE * sizeof(Color4), alignof(Color4)));
+    memcpy(lut_, src.lut_, LUT_SIZE * sizeof(Color4));
   }
 
 private:
-  Pixel16 *lut_ = nullptr;
+  Color4 *lut_ = nullptr;
+};
+
+/// Bank of N baked palettes for bulk Persist/clone operations.
+struct BakedPaletteBank {
+  static constexpr int N = 5;
+  BakedPalette entries[N];
+
+  /// Deep-copy all entries into a target arena. Required by Cloneable.
+  static void clone(const BakedPaletteBank &src, BakedPaletteBank &dst,
+                    Arena &arena) {
+    for (int i = 0; i < N; ++i)
+      dst.entries[i].clone_from(src.entries[i], arena);
+  }
 };
 
 // Implementations that require all palette types to be complete

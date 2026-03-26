@@ -40,6 +40,22 @@ struct CompiledHankin {
     faces.clear();
   }
 
+  /// Deep-copy all owned data into a target arena. Required by Cloneable.
+  static void clone(const CompiledHankin &src, CompiledHankin &dst,
+                    Arena &arena) {
+    auto push = [&arena](const auto &s_vec, auto &d_vec) {
+      d_vec.bind(arena, s_vec.size());
+      for (size_t i = 0; i < s_vec.size(); ++i)
+        d_vec.push_back(s_vec[i]);
+    };
+    push(src.baseVertices, dst.baseVertices);
+    push(src.staticVertices, dst.staticVertices);
+    push(src.dynamicVertices, dst.dynamicVertices);
+    push(src.dynamicInstructions, dst.dynamicInstructions);
+    push(src.face_counts, dst.face_counts);
+    push(src.faces, dst.faces);
+    dst.staticOffset = src.staticOffset;
+  }
 };
 
 /**
@@ -47,28 +63,11 @@ struct CompiledHankin {
  */
 namespace MeshOps {
 
-inline void clone(const CompiledHankin &src, CompiledHankin &dst,
-                  Arena &arena) {
-  auto push = [&arena](const auto &s_vec, auto &d_vec) {
-    d_vec.bind(arena, s_vec.size());
-    for (size_t i = 0; i < s_vec.size(); ++i) {
-      d_vec.push_back(s_vec[i]);
-    }
-  };
-  push(src.baseVertices, dst.baseVertices);
-  push(src.staticVertices, dst.staticVertices);
-  push(src.dynamicVertices, dst.dynamicVertices);
-  push(src.dynamicInstructions, dst.dynamicInstructions);
-  push(src.face_counts, dst.face_counts);
-  push(src.faces, dst.faces);
-  dst.staticOffset = src.staticOffset;
-}
-
 /**
  * @brief Compiles the topology for a Hankin pattern.
  */
 template <typename MeshT>
-FLASHMEM inline void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
+FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
                                     Arena &target_arena, Arena &temp_arena) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.face_counts.size();
@@ -292,7 +291,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     out_mesh.faces.push_back(compiled.faces[i]);
 }
 
-FLASHMEM inline PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
+FLASHMEM static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
                                 float angle) {
   PolyMesh out;
 

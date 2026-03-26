@@ -465,5 +465,38 @@ struct MeshState {
   // Helper for size accessors if needed, but direct vector access is preferred.
   size_t num_vertices() const { return vertices.size(); }
   size_t num_faces() const { return get_face_counts_size(); }
+
+  /// Deep-copy all owned data into a target arena. Required by Cloneable.
+  static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
+    dst.vertices.bind(arena, src.vertices.size());
+    for (size_t i = 0; i < src.vertices.size(); ++i)
+      dst.vertices.push_back(src.vertices[i]);
+
+    size_t fc_size = src.get_face_counts_size();
+    const uint8_t *fc_data = src.get_face_counts_data();
+    dst.face_counts.bind(arena, fc_size);
+    for (size_t i = 0; i < fc_size; ++i)
+      dst.face_counts.push_back(fc_data[i]);
+
+    size_t f_size = src.get_faces_size();
+    const uint16_t *f_data = src.get_faces_data();
+    dst.faces.bind(arena, f_size);
+    for (size_t i = 0; i < f_size; ++i)
+      dst.faces.push_back(f_data[i]);
+
+    size_t fo_size = src.get_face_offsets_size();
+    if (fo_size > 0) {
+      const uint16_t *fo_data = src.get_face_offsets_data();
+      dst.face_offsets.bind(arena, fo_size);
+      for (size_t i = 0; i < fo_size; ++i)
+        dst.face_offsets.push_back(fo_data[i]);
+    }
+
+    if (!src.topology.empty()) {
+      dst.topology.bind(arena, src.topology.size());
+      for (size_t i = 0; i < src.topology.size(); ++i)
+        dst.topology.push_back(src.topology[i]);
+    }
+  }
 };
 #endif // HOLOSPHERE_CORE_SPATIAL_H_

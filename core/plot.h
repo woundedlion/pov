@@ -121,8 +121,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   }
 }
 
-template <int W, int H>
-static void rasterize(PipelineRef pipeline, Canvas &canvas,
+template <int W, int H, typename PipelineT = PipelineRef>
+static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
                       bool close_loop = false, float age = 0.0f,
                       const Basis *planar_basis = nullptr) {
@@ -155,10 +155,26 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
       return;
     }
 
+    // FAST PATH: sub-pixel segment — skip simulation, just plot start
+    const float base_step = (2.0f * PI_F) / W;
+    if (total_dist < base_step) {
+      Fragment f = curr;
+      f.color = Color4(0, 0, 0, 0);
+      fragment_shader(curr.pos, f);
+      pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
+      if (!close_loop && isLastSegment) {
+        Fragment fl = next;
+        fl.color = Color4(0, 0, 0, 0);
+        fragment_shader(next.pos, fl);
+        pipeline.plot(canvas, next.pos, fl.color.color, fl.age,
+                      fl.color.alpha);
+      }
+      return;
+    }
+
     // 1. SIMULATION PHASE
     _steps_cache.clear();
     float sim_dist = 0.0f;
-    const float base_step = (2.0f * PI_F) / W;
 
     // Calculate initial point for density
     Vector p_temp = map(0.0f);
@@ -216,10 +232,21 @@ static void rasterize(PipelineRef pipeline, Canvas &canvas,
     }
   };
 
+  const auto &cr = canvas.clip();
+  const bool clip_active = !cr.is_full();
+
   for (size_t i = 0; i < count; i++) {
     const Fragment &curr = points[i];
     const Fragment &next = points[(i + 1) % len];
     bool isLastSegment = (i == count - 1);
+
+    // Tier 3: Segment culling — skip if both endpoints are outside clip region
+    if (clip_active) {
+      auto p1 = vector_to_pixel<W, H>(curr.pos);
+      auto p2 = vector_to_pixel<W, H>(next.pos);
+      if (!cr.could_intersect_y(p1.y, p2.y))
+        continue;
+    }
 
     // --- Interpolation Strategy Selection ---
     if (planar_basis) {
@@ -1149,8 +1176,8 @@ struct Mesh {
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
    */
-  template <int W, int H, typename MeshT>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
+  template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
     int edge_index = 0;
@@ -1214,10 +1241,73 @@ struct Mesh {
     }
   }
 
-  template <int W, int H, typename MeshT>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshT &mesh,
+  template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                    FragmentShaderFn fragment_shader) {
     draw<W, H>(pipeline, canvas, mesh, fragment_shader, {});
+  }
+
+  /// Precomputed edge pair for static-topology meshes.
+  struct Edge {
+    uint16_t u, v;
+  };
+
+  /// Extract unique edges from a mesh (call once at setup time).
+  template <typename MeshT>
+  static void extract_edges(const MeshT &mesh, ArenaVector<Edge> &edges) {
+    TriangularBitset<128> visited;
+    visited.clear();
+
+    const uint8_t *fc = mesh.get_face_counts_data();
+    size_t num_f = mesh.get_face_counts_size();
+    const uint16_t *fi = mesh.get_faces_data();
+    size_t offset = 0;
+
+    for (size_t i = 0; i < num_f; ++i) {
+      int count = fc[i];
+      for (int k = 0; k < count; ++k) {
+        int u = fi[offset + k];
+        int v = fi[offset + (k + 1) % count];
+        int small = std::min(u, v);
+        int large = std::max(u, v);
+        if (large < 128 && !visited.test_and_set(small, large)) {
+          edges.push_back({(uint16_t)u, (uint16_t)v});
+        }
+      }
+      offset += count;
+    }
+  }
+
+  /// Draw using precomputed edge list (skips face walk + dedup).
+  template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+                   const ArenaVector<Edge> &edges,
+                   FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader = {}) {
+    for (size_t ei = 0; ei < edges.size(); ++ei) {
+      Fragment fu;
+      fu.pos = mesh.vertices[edges[ei].u];
+      Fragment fv;
+      fv.pos = mesh.vertices[edges[ei].v];
+
+      ScratchScope _edge(scratch_arena_a);
+      Fragments points;
+      points.bind(scratch_arena_a, 16);
+      Line::sample(points, fu, fv, 10);
+
+      if (vertex_shader) {
+        for (auto &p : points) {
+          p.v2 = static_cast<float>(ei);
+          vertex_shader(p);
+        }
+      } else {
+        for (auto &p : points) {
+          p.v2 = static_cast<float>(ei);
+        }
+      }
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
+                      nullptr);
+    }
   }
 };
 

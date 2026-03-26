@@ -23,18 +23,14 @@ public:
   };
 
   FLASHMEM DreamBalls()
-      : Effect(W, H),
-        filters(Filter::World::OrientSlice<W>(orientations, Y_AXIS),
-                Filter::Screen::AntiAlias<W, H>()),
-
-        slice_filter(filters), // Filters inherits Head (FilterOrientSlice)
+      : Effect(W, H), filters(Filter::Screen::AntiAlias<W, H>()),
         mobius_gen(timeline) {}
 
   void init() override {
-    // Initialize Presets
     setup_presets();
 
     params = preset_manager.get();
+    baked_palette.bake(persistent_arena, *params.palette);
 
     registerParam("Copies", &params.num_copies, 1.0f, 20.0f);
     registerParam("Radius", &params.offset_radius, 0.0f, 1.0f);
@@ -49,7 +45,7 @@ public:
                         global_orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    spawn_sprite(0); // Start first preset
+    spawn_sprite(0);
     timeline.add(0, Animation::Driver(t, 0.01f, false));
   }
 
@@ -57,9 +53,6 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-
-    slice_filter.get().enabled = false;
-
     timeline.step(canvas);
   }
 
@@ -77,6 +70,7 @@ private:
     // Base Mesh Data
     MeshState mesh_state;
     ArenaVector<Tangent> tangents;
+    ArenaVector<Plot::Mesh::Edge> edges;
   };
 
   std::array<PresetData, 4> loaded_presets;
@@ -84,13 +78,11 @@ private:
   FastNoiseLite noise;
   Timeline<W> timeline;
 
-  std::array<Orientation<W>, 2> orientations;
   Orientation<W> global_orientation;
 
-  Pipeline<W, H, Filter::World::OrientSlice<W>, Filter::Screen::AntiAlias<W, H>>
-      filters;
-  std::reference_wrapper<Filter::World::OrientSlice<W>> slice_filter;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   MobiusWarpTransformer<W, 1> mobius_gen;
+  BakedPalette baked_palette;
 
   ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
   AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },
@@ -108,13 +100,12 @@ private:
       .current_idx = 0};
 
   FLASHMEM void setup_presets() {
-    // Pre-load Geometry
     const auto &entries = preset_manager.get_entries();
 
     int preset_idx = 0;
     for (const auto &entry : entries) {
       const auto &p = entry.params;
-      auto &data = loaded_presets[preset_idx++];
+      auto &data = loaded_presets[preset_idx];
 
       PolyMesh m = generate(persistent_arena, Solids::get_by_name,
                             std::string_view(p.solid_name));
@@ -146,6 +137,13 @@ private:
         Vector frame_v = cross(v, u).normalized();
         data.tangents.push_back({u, frame_v});
       }
+
+      // Precompute unique edge list (topology is static)
+      size_t max_edges = data.mesh_state.faces.size(); // upper bound
+      data.edges.bind(persistent_arena, max_edges);
+      Plot::Mesh::extract_edges(data.mesh_state, data.edges);
+
+      preset_idx++;
     }
   }
 
@@ -156,16 +154,17 @@ private:
     params = entries[safe_idx].params;
     int period = 288;
     mobius_gen.spawn(0, this->params.warp_scale, period, false);
+    baked_palette.rebake(*params.palette);
 
     auto draw_fn = [this, safe_idx](Canvas &canvas, float opacity) {
-      const PresetData *pp = &loaded_presets[safe_idx];
+      const auto &preset = loaded_presets[safe_idx];
       Params ip = preset_manager.get_entries()[safe_idx].params;
       ScratchScope _(scratch_arena_a);
       MeshState target_mesh;
-      MeshOps::transform(pp->mesh_state, target_mesh, scratch_arena_a);
+      MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
 
-      this->draw_scene(canvas, ip, opacity, pp->mesh_state, target_mesh,
-                       pp->tangents);
+      this->draw_scene(canvas, ip, opacity, preset.mesh_state, target_mesh,
+                       preset.tangents, preset.edges);
     };
 
     timeline
@@ -191,8 +190,8 @@ private:
       float phase = i * 0.1f;
       float angle = t * speed * 2 * PI_F + phase + angle_offset;
 
-      float cosA = cosf(angle);
-      float sinA = sinf(angle);
+      float cosA = fast_cosf(angle);
+      float sinA = fast_sinf(angle);
 
       Vector disp = v + (tan.u * cosA + tan.v * sinA) * r;
       target.vertices[i] = disp.normalized();
@@ -201,15 +200,11 @@ private:
 
   void draw_scene(Canvas &canvas, const Params &p, float opacity,
                   const MeshState &base, MeshState &target,
-                  const ArenaVector<Tangent> &tangents) {
-
-    auto vertex_shader = [&](Fragment &f) {
-      f.pos = mobius_gen.transform(f.pos);
-      f.pos = global_orientation.orient(f.pos);
-    };
+                  const ArenaVector<Tangent> &tangents,
+                  const ArenaVector<Plot::Mesh::Edge> &edges) {
 
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
-      Color4 c = get_color(p.palette, f.v0);
+      Color4 c = baked_palette.get(f.v0);
       c.alpha *= p.alpha * opacity;
       f.color = c;
     };
@@ -217,21 +212,21 @@ private:
     for (int i = 0; i < p.num_copies; ++i) {
       float offset = (static_cast<float>(i) / p.num_copies) * 2 * PI_F;
       update_displaced_mesh(base, target, tangents, p, offset);
-      Plot::Mesh::draw<W, H>(filters, canvas, target, fragment_shader,
-                             vertex_shader);
+
+      for (size_t vi = 0; vi < target.vertices.size(); ++vi) {
+        target.vertices[vi] = mobius_gen.transform(target.vertices[vi]);
+        target.vertices[vi] = global_orientation.orient(target.vertices[vi]);
+      }
+
+      Plot::Mesh::draw<W, H>(filters, canvas, target, edges,
+                             fragment_shader);
     }
   }
 
   void spin_slices() {
     Vector axis = random_vector();
-    slice_filter.get().axis = axis;
-
-    for (size_t i = 0; i < orientations.size(); ++i) {
-      float direction = (i % 2 == 0) ? 1.0f : -1.0f;
-      timeline.add(0, Animation::Rotation<W>(orientations[i], axis,
-                                             direction * 2 * PI_F, 80,
-                                             ease_in_out_sin, false));
-    }
+    timeline.add(0, Animation::Rotation<W>(global_orientation, axis, 2 * PI_F,
+                                           80, ease_in_out_sin, false));
   }
 };
 

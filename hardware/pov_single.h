@@ -76,7 +76,8 @@ public:
    */
   template <typename E> void show(unsigned long duration) {
     effect_ = new E();
-    effect_->init();  // Static dispatch — FLASHMEM honored via explicit instantiation
+    configure_arenas_default(); // Reset before init so effects can override
+    effect_->init();
     run(effect_, duration);
     delete effect_;
     effect_ = nullptr;
@@ -87,8 +88,6 @@ private:
    * @brief Non-template core of show(). Takes ownership of e.
    */
   void run(Effect *e, unsigned long duration) {
-    configure_arenas_default();
-
     long start = millis();
     effect_ = e;
     x_ = 0;
