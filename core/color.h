@@ -18,6 +18,21 @@
 
 #include "memory.h"
 
+#if defined(__ARM_FEATURE_DSP)
+// Inline assembly fallbacks to avoid CMSIS header dependency nightmares
+__attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
+  uint32_t res;
+  __asm__ volatile("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
+  return res;
+}
+
+__attribute__((always_inline)) static inline uint32_t inline_smlad(uint32_t a, uint32_t b, uint32_t c) {
+  uint32_t res;
+  __asm__ volatile("smlad %0, %1, %2, %3" : "=r"(res) : "r"(a), "r"(b), "r"(c));
+  return res;
+}
+#endif
+
 inline uint16_t srgb_to_linear(uint8_t srgb);
 
 /**
@@ -52,9 +67,23 @@ struct Pixel16 {
 
   // Basic arithmetic
   Pixel16 &operator+=(const Pixel16 &rhs) {
+#if defined(__ARM_FEATURE_DSP)
+    uint32_t bg1 = ((uint32_t)g << 16) | b;
+    uint32_t bg2 = ((uint32_t)rhs.g << 16) | rhs.b;
+    uint32_t sum_bg = inline_uqadd16(bg1, bg2);
+    
+    uint32_t zero_r1 = r; // Lower 16 bits
+    uint32_t zero_r2 = rhs.r;
+    uint32_t sum_r = inline_uqadd16(zero_r1, zero_r2);
+    
+    r = (uint16_t)sum_r;
+    g = (uint16_t)(sum_bg >> 16);
+    b = (uint16_t)sum_bg;
+#else
     r = (uint16_t)std::min((uint32_t)65535, (uint32_t)r + rhs.r);
     g = (uint16_t)std::min((uint32_t)65535, (uint32_t)g + rhs.g);
     b = (uint16_t)std::min((uint32_t)65535, (uint32_t)b + rhs.b);
+#endif
     return *this;
   }
 
@@ -69,9 +98,26 @@ struct Pixel16 {
     // frac 0..65535
     // Exact div-by-65535 via shifts: x/65535 == (x + (x>>16) + 1) >> 16
     uint16_t inv = 65535 - frac;
+#if defined(__ARM_FEATURE_DSP)
+    // Pack multipliers: [ frac | inv ]
+    uint32_t mults = ((uint32_t)frac << 16) | inv;
+    
+    // Process r and g first. We need 32-bit accumulations. inline_smlad does exactly:
+    // val = (op1_lower * op2_lower) + (op1_upper * op2_upper) + op3
+    // We want: (r * inv) + (other.r * frac)
+    uint32_t r_packed = ((uint32_t)other.r << 16) | r;
+    uint32_t xr = inline_smlad(r_packed, mults, 0);
+    
+    uint32_t g_packed = ((uint32_t)other.g << 16) | g;
+    uint32_t xg = inline_smlad(g_packed, mults, 0);
+    
+    uint32_t b_packed = ((uint32_t)other.b << 16) | b;
+    uint32_t xb = inline_smlad(b_packed, mults, 0);
+#else
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
     uint32_t xb = (uint32_t)b * inv + (uint32_t)other.b * frac;
+#endif
     uint32_t r32 = (xr + (xr >> 16) + 1) >> 16;
     uint32_t g32 = (xg + (xg >> 16) + 1) >> 16;
     uint32_t b32 = (xb + (xb >> 16) + 1) >> 16;
@@ -207,12 +253,24 @@ inline Pixel blend_under(const Pixel &c1, const Pixel &c2) { return c1; }
  */
 inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
   // Saturated Add
+#if defined(__ARM_FEATURE_DSP)
+  uint32_t bg1 = ((uint32_t)c1.g << 16) | c1.b;
+  uint32_t bg2 = ((uint32_t)c2.g << 16) | c2.b;
+  uint32_t sum_bg = inline_uqadd16(bg1, bg2);
+  
+  uint32_t zero_r1 = c1.r;
+  uint32_t zero_r2 = c2.r;
+  uint32_t sum_r = inline_uqadd16(zero_r1, zero_r2);
+  
+  return Pixel((uint16_t)sum_r, (uint16_t)(sum_bg >> 16), (uint16_t)sum_bg);
+#else
   uint32_t r = (uint32_t)c1.r + c2.r;
   uint32_t g = (uint32_t)c1.g + c2.g;
   uint32_t b = (uint32_t)c1.b + c2.b;
   return Pixel((r > 65535) ? 65535 : (uint16_t)r,
                (g > 65535) ? 65535 : (uint16_t)g,
                (b > 65535) ? 65535 : (uint16_t)b);
+#endif
 }
 
 inline auto blend_alpha(float a) {

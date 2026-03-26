@@ -381,8 +381,8 @@ struct HarmonicBlob {
 
 struct Mesh {
   // MeshState overload
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const MeshState &mesh,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    bool debug_bb = false) {
     ScratchScope scope(scratch_arena);

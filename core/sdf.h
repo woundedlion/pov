@@ -850,7 +850,7 @@ template <typename Shape> struct AngularRepeat {
     float local_w = p.x * w.x + p.y * w.y + p.z * w.z;
 
     // Fold angle in the u-w plane
-    float theta = atan2f(local_w, local_u);
+    float theta = fast_atan2(local_w, local_u);
     if (theta < 0)
       theta += 2 * PI_F;
 
@@ -859,8 +859,8 @@ template <typename Shape> struct AngularRepeat {
 
     // Reconstruct folded local coordinates (preserving axis component)
     float r = sqrtf(local_u * local_u + local_w * local_w);
-    float fu = r * cosf(folded_theta);
-    float fw = r * sinf(folded_theta);
+    float fu = r * fast_cosf(folded_theta);
+    float fw = r * fast_sinf(folded_theta);
 
     // Project back to world space
     Vector folded_p(fu * u.x + local_v * axis.x + fw * w.x,
@@ -1404,7 +1404,7 @@ struct Polygon {
 
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    float polar = angle_between(p, basis.v);
+    float polar = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
 
     float dot_u = dot(p, basis.u);
     float dot_w = dot(p, basis.w);
@@ -1416,7 +1416,7 @@ struct Polygon {
     float sector = 2 * PI_F / sides;
     float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
 
-    float dist_edge = polar * cosf(local) - apothem;
+    float dist_edge = polar * fast_cosf(local) - apothem;
     float t_val = ComputeUVs ? polar / thickness : 0.0f;
 
     res = DistanceResult(dist_edge, t_val, polar, 0.0f, apothem);
