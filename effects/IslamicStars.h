@@ -7,7 +7,7 @@
 
 #include "core/effects_engine.h"
 #include <algorithm>
-#include <map>
+
 
 template <int W, int H> class IslamicStars : public Effect {
 
@@ -15,8 +15,13 @@ public:
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
 
   void init() override {
+    // scratch arenas + room for BakedPaletteBank (~15KB) in persistent
     configure_arenas(GLOBAL_ARENA_SIZE - (128 + 128) * 1024, 128 * 1024,
                      128 * 1024);
+
+    for (int i = 0; i < NUM_PALETTES; ++i)
+      baked_palette_bank_.entries[i].bake(persistent_arena,
+                                          *source_palettes[i]);
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
@@ -56,11 +61,14 @@ private:
   float ripple_duration = 80.0f;
   int solid_idx = -1;
   MeshCarousel<W> carousel;
-  std::array<ProceduralPalette, 5> palettes_history[2];
 
-  std::array<ProceduralPalette, 5> palettes = {
-      Palettes::embers, Palettes::richSunset, Palettes::brightSunrise,
-      Palettes::bruisedMoss, Palettes::lavenderLake};
+  static constexpr int NUM_PALETTES = 5;
+  static constexpr std::array<const ProceduralPalette *, NUM_PALETTES>
+      source_palettes = {&Palettes::embers, &Palettes::richSunset,
+                         &Palettes::brightSunrise, &Palettes::bruisedMoss,
+                         &Palettes::lavenderLake};
+  BakedPaletteBank baked_palette_bank_;
+  std::array<int, NUM_PALETTES> palettes_slots[2];
 
   void ripple(Canvas &canvas) {
     Vector origin = random_vector();
@@ -72,7 +80,7 @@ private:
 
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
-                  const std::array<ProceduralPalette, 5> &palettes) {
+                  const std::array<int, NUM_PALETTES> &palette_idx) {
     if (opacity <= 0.005f)
       return;
     ScratchScope _a(scratch_arena_a);
@@ -85,13 +93,15 @@ private:
 
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
       int faceIdx = static_cast<int>(frag.v2);
-      const ProceduralPalette &pal = palettes[raw_indices[faceIdx]];
+      int topoIdx = raw_indices[faceIdx];
 
       float size = frag.size;
       float intensity = (size > 0.0001f) ? (-frag.v1 / size) : 0.0f;
       intensity = hs::clamp(intensity, 0.0f, 1.0f);
 
-      frag.color = get_color(pal, intensity);
+      frag.color =
+          baked_palette_bank_.entries[palette_idx[topoIdx % NUM_PALETTES]].get(
+              intensity);
       frag.color.alpha = opacity;
     };
 
@@ -99,44 +109,64 @@ private:
                            scratch_arena_a, params.debug_bb);
   }
 
+  void shuffle_palette_indices(std::array<int, NUM_PALETTES> &out) {
+    for (int i = 0; i < NUM_PALETTES; ++i)
+      out[i] = i;
+    std::shuffle(out.begin(), out.end(), hs::random());
+  }
+
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
     int capture_idx = 1 - carousel.front_index();
-    palettes_history[capture_idx] = palettes;
-    // Fisher-Yates shuffle using platform RNG
-    auto &arr = palettes_history[capture_idx];
-    for (int i = static_cast<int>(arr.size()) - 1; i > 0; --i) {
-      int j = hs::rand_int(0, i);
-      std::swap(arr[i], arr[j]);
-    }
+    shuffle_palette_indices(palettes_slots[capture_idx]);
 
     int idx = solid_idx; // capture for generate lambda
 
     auto draw_fn = [this, capture_idx](Canvas &canvas, float opacity) {
       const MeshState &mesh = carousel.slot(capture_idx);
       this->draw_shape(canvas, opacity, mesh, mesh.topology,
-                       palettes_history[capture_idx]);
+                       palettes_slots[capture_idx]);
     };
 
-    carousel.transition(
-        timeline,
-        // generate_fn
-        [idx, &solids](Arena &a, Arena &b) {
-          return solids[idx].generate(a, b);
-        },
-        // draw_outgoing, draw_incoming
-        draw_fn, draw_fn,
-        160, // duration
-        32,  // fade_in
-        32   // fade_out
-    );
+    int back = 1 - carousel.front_index();
 
-    int num_colors = static_cast<int>(palettes_history[capture_idx].size());
+    // 1. Clear back slot and perform custom compaction
+    {
+      carousel.slot(back) = MeshState();
+      Persist<MeshState> p(carousel.slot(carousel.front_index()),
+                           scratch_arena_b, persistent_arena);
+      Persist<BakedPaletteBank> pp(baked_palette_bank_, scratch_arena_b,
+                                   persistent_arena);
+      persistent_arena.reset();
+      hs::log("IslamicStars: Finished arena compaction");
+    }
+
+    // 2. Generate new shape
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh mesh = solids[idx].generate(a, b);
+      carousel.slot(back).clear();
+      MeshOps::compile(mesh, carousel.slot(back), target);
+    });
+
+    scratch_arena_a.reset();
+    scratch_arena_b.reset();
+    MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
+                                        scratch_arena_b, persistent_arena);
+
+    // 3. Flip front eagerly for the overlapping sprite
+    carousel.set_front(back);
+
+    timeline.add(0, Animation::Sprite(draw_fn,
+                                      160,          // duration
+                                      32, ease_mid, // fade_in
+                                      32, ease_mid  // fade_out
+                                      ));
+
     // After transition(), front has flipped, so capture_idx is now front
     ArenaVector<int> &faceIndices = carousel.slot(capture_idx).topology;
     for (size_t i = 0; i < faceIndices.size(); ++i) {
-      faceIndices[i] = faceIndices[i] % num_colors;
+      faceIndices[i] = faceIndices[i] % NUM_PALETTES;
     }
 
     // Log
