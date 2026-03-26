@@ -79,21 +79,12 @@ public:
         float th = (t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w;
 
         unsigned long t1 = micros();
-        Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f,
-                                      th, fragment_shader, 0.0f,
+        Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, th,
+                                      fragment_shader, 0.0f,
                                       params.show_bounding_box);
         raster_us += micros() - t1;
       });
     }
-    Serial.print("draws:");
-    Serial.print(draw_calls);
-    Serial.print(" px:");
-    Serial.print(total_pixels);
-    Serial.print(" basis:");
-    Serial.print(basis_us);
-    Serial.print("us rast:");
-    Serial.print(raster_us);
-    Serial.println("us");
   }
 
 private:

@@ -26,8 +26,8 @@ namespace Scan {
 /**
  * @brief Processes a single pixel for rasterization.
  */
-template <int W, int H, bool ComputeUVs = true>
-static void process_pixel(int x, int y, const Vector &p, PipelineRef pipeline,
+template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
                           Canvas &canvas, const auto &shape,
                           FragmentShaderFn fragment_shader, bool debug_bb,
                           SDF::DistanceResult &result_scratch,
@@ -190,17 +190,23 @@ template <int W, int H> struct BoundingSphere {
  * Scans the bounding box, computes intervals, and executes the shader for valid
  * pixels.
  */
-template <int W, int H, bool ComputeUVs = true>
-static void rasterize(PipelineRef pipeline, Canvas &canvas, const auto &shape,
+template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
   bool effective_debug = debug_bb || canvas.debug();
   auto bounds = shape.template get_vertical_bounds<H>();
+
+  // Tier 2: Clamp SDF bounding box to clip region
+  const auto &cr = canvas.clip();
+  int y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+  int y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max : cr.render_y_end() - 1;
+  if (y_lo > y_hi) return;
 
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
 
   scan_region<W, H>(
-      bounds.y_min, bounds.y_max,
+      y_lo, y_hi,
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
@@ -253,8 +259,8 @@ struct Ring {
   /**
    * @brief Draws a solid ring using SDF rasterization.
    */
-  template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
@@ -265,8 +271,8 @@ struct Ring {
   }
 
   // Overload for Vector normal inputs
-  template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &normal,
+  template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Vector &normal,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
@@ -488,7 +494,8 @@ struct Shader {
     Fragment frag_base;
 
     if constexpr (SAMPLES == 1) {
-      for (int y = 0; y < H; ++y) {
+      const auto &cr = canvas.clip();
+      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = 0; x < W; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
           frag_base.pos = center_v;
@@ -515,7 +522,8 @@ struct Shader {
         return o;
       }();
 
-      for (int y = 0; y < H; ++y) {
+      const auto &cr = canvas.clip();
+      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = 0; x < W; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
 
@@ -625,8 +633,14 @@ struct Volume {
 
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
 
+    // Tier 2: Clamp volume bounds to clip region
+    const auto &cr = canvas.clip();
+    int vol_y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+    int vol_y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max : cr.render_y_end() - 1;
+    if (vol_y_lo > vol_y_hi) return;
+
     scan_region<W, H>(
-        bounds.y_min, bounds.y_max,
+        vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
         [&](int wx, int y, const Vector &p) {
           // Back-face cull

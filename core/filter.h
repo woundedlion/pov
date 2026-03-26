@@ -81,6 +81,7 @@ template <int W, int H> struct Pipeline<W, H> {
 
   // 2D Sink
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
+    if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
     Pixel p = blend_alpha(alpha)(cv(xi, y), c);
     plot_virtual(cv, xi, y, p);
@@ -90,6 +91,7 @@ template <int W, int H> struct Pipeline<W, H> {
             float alpha) {
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
+    if (!cv.clip().contains_y(yi)) return;
     xi = fast_wrap(xi, W);
     Pixel p = blend_alpha(alpha)(cv(xi, yi), c);
     plot_virtual(cv, xi, yi, p);
@@ -467,8 +469,9 @@ namespace Screen {
 template <int W, int H> class AntiAlias : public Is2D {
 public:
   AntiAlias() {}
+  template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
-            PassFn2D pass) {
+            PassFnT &&pass) {
     float x_i, y_i;
     float x_m = std::modf(x, &x_i);
     float y_m = std::modf(y, &y_i);

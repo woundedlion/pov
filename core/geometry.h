@@ -274,8 +274,11 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  auto s = Spherical(v);
-  PixelCoords p({wrap((s.theta * W) / (2 * PI_F), W), phi_to_y(s.phi, H_VIRT)});
+  // Skip normalize: fast_atan2 is scale-invariant, and inputs from
+  // the rasterizer are already unit vectors.
+  float theta = fast_atan2(v.z, v.x);
+  float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
+  PixelCoords p({wrap((theta * W) / (2 * PI_F), W), phi_to_y(phi, H_VIRT)});
   return p;
 }
 

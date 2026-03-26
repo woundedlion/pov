@@ -156,6 +156,7 @@ public:
   template <typename E>
   void show(unsigned long duration) {
     E *e = new E();
+    configure_arenas_default(); // Reset before init so effects can override
     e->init();
     run(e, duration);
   }
@@ -238,8 +239,6 @@ private:
    * @param duration Display time in seconds.
    */
   void run(Effect *e, unsigned long duration) {
-    configure_arenas_default();
-
     long start = millis();
     effect_ = e;
     x_ = 0;

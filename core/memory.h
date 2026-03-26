@@ -11,9 +11,8 @@
 #include <new>
 #include <cassert>
 #include <utility>
-#ifndef ARDUINO
-#include <cstdio>
-#endif
+#include <concepts>
+#include "platform.h"
 
 constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
 
@@ -43,9 +42,11 @@ public:
     size_t padding = (align - (current % align)) % align;
     if (offset + padding + size > capacity) {
 #ifdef ARDUINO
-      // No printf on Teensy — avoid pulling in 4KB of stdio
+      Serial.printf("[OOM] Arena: req %u, offset %u / cap %u\n",
+                    (unsigned)size, (unsigned)(offset + padding),
+                    (unsigned)capacity);
 #else
-      printf("[OOM] Arena: requested %zu bytes, offset %zu / capacity %zu\n",
+      printf("[OOM] Arena: req %zu, offset %zu / cap %zu\n",
              size, offset + padding, capacity);
 #endif
       return nullptr;
@@ -355,13 +356,6 @@ extern Arena persistent_arena;
 void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
 void configure_arenas_default();
 
-struct CompiledHankin;
-namespace MeshOps {
-template <typename MeshT>
-void clone(const MeshT &src, MeshT &dst, Arena &arena);
-void clone(const CompiledHankin &src, CompiledHankin &dst, Arena &arena);
-} // namespace MeshOps
-
 // ============================================================================
 // 4. ScratchScope — RAII Guard + Factory for Temporary Memory
 // ============================================================================
@@ -391,6 +385,12 @@ struct ScratchScope {
 // 5. RAII Arena Evacuator
 // ============================================================================
 
+/// Concept: T must provide static void clone(const T&, T&, Arena&)
+template <typename T>
+concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
+  { T::clone(src, dst, arena) } -> std::same_as<void>;
+};
+
 /// Safely evacuates an object from the persistent arena to a scratch arena,
 /// and automatically restores it upon destruction.
 ///
@@ -399,7 +399,7 @@ struct ScratchScope {
 ///     Persist<MeshState> p(live_mesh, scratch_arena_a, persistent_arena);
 ///     persistent_arena.reset();
 ///   }  // ~Persist clones backup back into persistent
-template <typename T> class Persist {
+template <Cloneable T> class Persist {
   T &target_;
   Arena &persistent_;
 
@@ -411,12 +411,12 @@ template <typename T> class Persist {
 public:
   Persist(T &target, Arena &scratch, Arena &persistent)
       : target_(target), persistent_(persistent), scratch_(scratch) {
-    MeshOps::clone(target_, backup_, scratch_.get_arena());
+    T::clone(target_, backup_, scratch_.get_arena());
   }
 
   ~Persist() {
     target_ = T();
-    MeshOps::clone(backup_, target_, persistent_);
+    T::clone(backup_, target_, persistent_);
   }
 
   // Non-copyable
