@@ -16,8 +16,8 @@ public:
 
   void init() override {
     // scratch arenas + room for BakedPaletteBank (~15KB) in persistent
-    configure_arenas(GLOBAL_ARENA_SIZE - (128 + 128) * 1024, 128 * 1024,
-                     128 * 1024);
+    configure_arenas(GLOBAL_ARENA_SIZE - (120 + 120) * 1024, 120 * 1024,
+                     120 * 1024);
 
     for (int i = 0; i < NUM_PALETTES; ++i)
       baked_palette_bank_.entries[i].bake(persistent_arena,
@@ -136,10 +136,15 @@ private:
       carousel.slot(back) = MeshState();
       Persist<MeshState> p(carousel.slot(carousel.front_index()),
                            scratch_arena_b, persistent_arena);
-      Persist<BakedPaletteBank> pp(baked_palette_bank_, scratch_arena_b,
-                                   persistent_arena);
       persistent_arena.reset();
-      hs::log("IslamicStars: Finished arena compaction");
+
+      // Rebake palettes into the fresh arena instead of tracking them 
+      // during evacuation (saves fragmentation/OOM)
+      for (int i = 0; i < NUM_PALETTES; ++i)
+        baked_palette_bank_.entries[i].bake(persistent_arena,
+                                            *source_palettes[i]);
+
+      hs::log("IslamicStars: Finished arena compaction & rebake");
     }
 
     // 2. Generate new shape
