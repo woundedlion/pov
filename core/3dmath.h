@@ -826,6 +826,34 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   return make_rotation(axis, angle);
 }
 
+// Maximum error ~0.0005 radians (~0.03 degrees).
+// Abramowitz & Stegun polynomial approximation for acos(x), x in [-1, 1].
+inline float fast_acos(float x) {
+  float ax = std::abs(x);
+  if (ax > 1.0f) ax = 1.0f;
+  float result = sqrtf(1.0f - ax) *
+      (1.5707963f + ax * (-0.2121144f + ax * (0.0742610f + ax * -0.0187293f)));
+  return x < 0.0f ? PI_F - result : result;
+}
+
+// Bhaskara I sine approximation. Max error ~0.17% (~0.1 degrees).
+// ~8 FPU ops vs ~80-120 cycles for newlib sinf.
+inline float fast_sinf(float x) {
+  // Range reduce to [0, 2π)
+  constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
+  x = x - floorf(x * INV_2PI) * (2.0f * PI_F);
+  // Map to [0, π) with sign tracking
+  float sign = 1.0f;
+  if (x > PI_F) { x -= PI_F; sign = -1.0f; }
+  // Bhaskara I: 16x(π-x) / (5π² - 4x(π-x))
+  float xpi = x * (PI_F - x);
+  return sign * (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
+}
+
+inline float fast_cosf(float x) {
+  return fast_sinf(x + PI_F * 0.5f);
+}
+
 /**
  * @brief Spherical Linear Interpolation (SLERP) between two Vectors.
  * @param v1 Starting vector.
@@ -839,13 +867,13 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   if (d > 0.9999f) {
     return (v1 + (v2 - v1) * t).normalized();
   }
-  float theta = acosf(d);
-  float sin_theta = sinf(theta);
+  float theta = fast_acos(d);
+  float sin_theta = fast_sinf(theta);
   if (sin_theta < 0.0001f) {
     return (v1 + (v2 - v1) * t).normalized();
   }
-  float s1 = sinf((1 - t) * theta) / sin_theta;
-  float s2 = sinf(t * theta) / sin_theta;
+  float s1 = fast_sinf((1 - t) * theta) / sin_theta;
+  float s2 = fast_sinf(t * theta) / sin_theta;
   return ((s1 * v1) + (s2 * v2)).normalized();
 }
 
@@ -940,32 +968,5 @@ inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
 
 } // namespace Spline
 
-// Maximum error ~0.0005 radians (~0.03 degrees).
-// Abramowitz & Stegun polynomial approximation for acos(x), x in [-1, 1].
-inline float fast_acos(float x) {
-  float ax = std::abs(x);
-  if (ax > 1.0f) ax = 1.0f;
-  float result = sqrtf(1.0f - ax) *
-      (1.5707963f + ax * (-0.2121144f + ax * (0.0742610f + ax * -0.0187293f)));
-  return x < 0.0f ? PI_F - result : result;
-}
-
-// Bhaskara I sine approximation. Max error ~0.17% (~0.1 degrees).
-// ~8 FPU ops vs ~80-120 cycles for newlib sinf.
-inline float fast_sinf(float x) {
-  // Range reduce to [0, 2π)
-  constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
-  x = x - floorf(x * INV_2PI) * (2.0f * PI_F);
-  // Map to [0, π) with sign tracking
-  float sign = 1.0f;
-  if (x > PI_F) { x -= PI_F; sign = -1.0f; }
-  // Bhaskara I: 16x(π-x) / (5π² - 4x(π-x))
-  float xpi = x * (PI_F - x);
-  return sign * (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
-}
-
-inline float fast_cosf(float x) {
-  return fast_sinf(x + PI_F * 0.5f);
-}
 
 #endif // HOLOSPHERE_CORE_3DMATH_H_
