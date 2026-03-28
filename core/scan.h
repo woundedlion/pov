@@ -13,6 +13,7 @@
 #include "filter.h"
 #include "static_circular_buffer.h"
 #include "canvas.h"
+#include "platform.h"
 
 /**
  * @brief The Scan struct contains volumetric (raster) drawing primitives.
@@ -26,13 +27,17 @@ namespace Scan {
 /**
  * @brief Processes a single pixel for rasterization.
  */
-template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+template <int W, int H, bool ComputeUVs = true,
+          typename PipelineT = PipelineRef>
 static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
                           Canvas &canvas, const auto &shape,
                           FragmentShaderFn fragment_shader, bool debug_bb,
                           SDF::DistanceResult &result_scratch,
                           Fragment &frag_scratch) {
+  uint32_t t_sdf = HS_OS_CYCLES();
   shape.template distance<ComputeUVs>(p, result_scratch);
+  hs::g_scan_metrics.sdf_dist += (HS_OS_CYCLES() - t_sdf);
+
   float d = result_scratch.dist;
   float pixel_width = 2.0f * PI_F / W;
   bool is_solid = shape.is_solid;
@@ -69,7 +74,9 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     frag_scratch.size = result_scratch.size;
     frag_scratch.age = 0;
 
+    uint32_t t_frag = HS_OS_CYCLES();
     fragment_shader(p, frag_scratch);
+    hs::g_scan_metrics.frag_shader += (HS_OS_CYCLES() - t_frag);
 
     if (debug_bb) {
       frag_scratch.color.color = frag_scratch.color.color.lerp16(
@@ -79,8 +86,10 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     }
 
     if (frag_scratch.color.alpha > 0.001f) {
+      uint32_t t0 = HS_OS_CYCLES();
       pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age,
                     frag_scratch.color.alpha * alpha);
+      hs::g_scan_metrics.plot += (HS_OS_CYCLES() - t0);
     }
   }
 }
@@ -190,7 +199,8 @@ template <int W, int H> struct BoundingSphere {
  * Scans the bounding box, computes intervals, and executes the shader for valid
  * pixels.
  */
-template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+template <int W, int H, bool ComputeUVs = true,
+          typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
   bool effective_debug = debug_bb || canvas.debug();
@@ -198,9 +208,12 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 
   // Tier 2: Clamp SDF bounding box to clip region
   const auto &cr = canvas.clip();
-  int y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-  int y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max : cr.render_y_end() - 1;
-  if (y_lo > y_hi) return;
+  int y_lo =
+      bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+  int y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
+                                                  : cr.render_y_end() - 1;
+  if (y_lo > y_hi)
+    return;
 
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
@@ -259,7 +272,8 @@ struct Ring {
   /**
    * @brief Draws a solid ring using SDF rasterization.
    */
-  template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+  template <int W, int H, bool ComputeUVs = true,
+            typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
@@ -271,7 +285,8 @@ struct Ring {
   }
 
   // Overload for Vector normal inputs
-  template <int W, int H, bool ComputeUVs = true, typename PipelineT = PipelineRef>
+  template <int W, int H, bool ComputeUVs = true,
+            typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const Vector &normal,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
@@ -401,14 +416,18 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
+      uint32_t t_face = HS_OS_CYCLES();
       SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
+      hs::g_scan_metrics.face_setup += (HS_OS_CYCLES() - t_face);
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
         f_in.v2 = static_cast<float>(i);
         fragment_shader(p, f_in);
       };
 
+      uint32_t t_rast = HS_OS_CYCLES();
       Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
+      hs::g_scan_metrics.scan_loop += (HS_OS_CYCLES() - t_rast);
     }
   }
 };
@@ -635,9 +654,12 @@ struct Volume {
 
     // Tier 2: Clamp volume bounds to clip region
     const auto &cr = canvas.clip();
-    int vol_y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-    int vol_y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max : cr.render_y_end() - 1;
-    if (vol_y_lo > vol_y_hi) return;
+    int vol_y_lo =
+        bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+    int vol_y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
+                                                        : cr.render_y_end() - 1;
+    if (vol_y_lo > vol_y_hi)
+      return;
 
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,

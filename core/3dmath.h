@@ -26,7 +26,7 @@ static constexpr float G = 1 / PHI;
  * @brief Tolerance used for floating-point comparisons.
  */
 namespace math {
-  static constexpr float TOLERANCE = 0.0001f;
+static constexpr float TOLERANCE = 0.0001f;
 }
 // Back-compat alias — prefer math::TOLERANCE in new code.
 static constexpr float TOLERANCE = math::TOLERANCE;
@@ -233,8 +233,10 @@ inline float fast_atan2(float y, float x) {
   return angle;
 }
 
-// Forward declaration (defined at end of file)
+// Forward declarations (defined at end of file)
 inline float fast_acos(float x);
+inline float fast_sinf(float x);
+inline float fast_cosf(float x);
 
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
@@ -510,7 +512,6 @@ struct MobiusParams {
   Complex getD() const { return Complex(dRe, dIm); }
 };
 
-
 /**
  * @brief Stereographic Projection: Sphere -> Complex Plane.
  * North pole (v.y ≈ 1) maps to the point at infinity on the real axis.
@@ -518,7 +519,7 @@ struct MobiusParams {
 inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.y;
   if (denom < 1e-4f)
-    return Complex(STEREO_INF, 0.0f);  // North pole → point at infinity
+    return Complex(STEREO_INF, 0.0f); // North pole → point at infinity
   return Complex(v.x / denom, v.z / denom);
 }
 
@@ -588,10 +589,9 @@ inline Vector rotate(const Vector &v, const Quaternion &q) {
   float tx = 2.0f * (qy * v.z - qz * v.y);
   float ty = 2.0f * (qz * v.x - qx * v.z);
   float tz = 2.0f * (qx * v.y - qy * v.x);
-  return Vector(
-      v.x + qr * tx + (qy * tz - qz * ty),
-      v.y + qr * ty + (qz * tx - qx * tz),
-      v.z + qr * tz + (qx * ty - qy * tx));
+  return Vector(v.x + qr * tx + (qy * tz - qz * ty),
+                v.y + qr * ty + (qz * tx - qx * tz),
+                v.z + qr * tz + (qx * ty - qy * tx));
 }
 
 /**
@@ -703,7 +703,7 @@ inline float angle_between(const Vector &v1, const Vector &v2) {
     return 0;
   }
   float d = dot(v1, v2) / len_product;
-  return acosf(hs::clamp(d, -1.0f, 1.0f));
+  return fast_acos(hs::clamp(d, -1.0f, 1.0f));
 }
 
 /**
@@ -793,7 +793,7 @@ inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
  * @return The resulting unit rotation quaternion.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
-  return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalized();
+  return Quaternion(fast_cosf(theta / 2), fast_sinf(theta / 2) * axis).normalized();
 }
 
 /**
@@ -830,8 +830,10 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
 // Abramowitz & Stegun polynomial approximation for acos(x), x in [-1, 1].
 inline float fast_acos(float x) {
   float ax = std::abs(x);
-  if (ax > 1.0f) ax = 1.0f;
-  float result = sqrtf(1.0f - ax) *
+  if (ax > 1.0f)
+    ax = 1.0f;
+  float result =
+      sqrtf(1.0f - ax) *
       (1.5707963f + ax * (-0.2121144f + ax * (0.0742610f + ax * -0.0187293f)));
   return x < 0.0f ? PI_F - result : result;
 }
@@ -844,15 +846,16 @@ inline float fast_sinf(float x) {
   x = x - floorf(x * INV_2PI) * (2.0f * PI_F);
   // Map to [0, π) with sign tracking
   float sign = 1.0f;
-  if (x > PI_F) { x -= PI_F; sign = -1.0f; }
+  if (x > PI_F) {
+    x -= PI_F;
+    sign = -1.0f;
+  }
   // Bhaskara I: 16x(π-x) / (5π² - 4x(π-x))
   float xpi = x * (PI_F - x);
   return sign * (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
 }
 
-inline float fast_cosf(float x) {
-  return fast_sinf(x + PI_F * 0.5f);
-}
+inline float fast_cosf(float x) { return fast_sinf(x + PI_F * 0.5f); }
 
 /**
  * @brief Spherical Linear Interpolation (SLERP) between two Vectors.
@@ -921,34 +924,33 @@ namespace Spline {
 
 /// Fast: polynomial interpolation + normalize. O(1) sqrtf per sample.
 /// Accurate within ~30° control-point separation; distorts on long arcs.
-inline Vector cubic_fast(const Vector &p0, const Vector &p1,
-                         const Vector &p2, const Vector &p3, float t) {
-    float u = 1.0f - t;
-    float uu = u * u;
-    float tt = t * t;
-    return (p0 * (uu * u) + p1 * (3.0f * uu * t) +
-            p2 * (3.0f * u * tt) + p3 * (tt * t)).normalized();
+inline Vector cubic_fast(const Vector &p0, const Vector &p1, const Vector &p2,
+                         const Vector &p3, float t) {
+  float u = 1.0f - t;
+  float uu = u * u;
+  float tt = t * t;
+  return (p0 * (uu * u) + p1 * (3.0f * uu * t) + p2 * (3.0f * u * tt) +
+          p3 * (tt * t))
+      .normalized();
 }
 
 /// Accurate: de Casteljau with SLERP. 6 SLERPs per sample.
 /// Shape-faithful at any arc length.
-inline Vector cubic_slerp(const Vector &p0, const Vector &p1,
-                          const Vector &p2, const Vector &p3, float t) {
-    Vector b01  = slerp(p0, p1, t);
-    Vector b12  = slerp(p1, p2, t);
-    Vector b23  = slerp(p2, p3, t);
-    Vector b012 = slerp(b01, b12, t);
-    Vector b123 = slerp(b12, b23, t);
-    return slerp(b012, b123, t);
+inline Vector cubic_slerp(const Vector &p0, const Vector &p1, const Vector &p2,
+                          const Vector &p3, float t) {
+  Vector b01 = slerp(p0, p1, t);
+  Vector b12 = slerp(p1, p2, t);
+  Vector b23 = slerp(p2, p3, t);
+  Vector b012 = slerp(b01, b12, t);
+  Vector b123 = slerp(b12, b23, t);
+  return slerp(b012, b123, t);
 }
 
 /// Unified dispatch — selects evaluation strategy once per sample point.
-inline Vector cubic(const Vector &p0, const Vector &p1,
-                    const Vector &p2, const Vector &p3,
-                    float t, SplineMode mode) {
-    return (mode == SplineMode::Fast)
-        ? cubic_fast(p0, p1, p2, p3, t)
-        : cubic_slerp(p0, p1, p2, p3, t);
+inline Vector cubic(const Vector &p0, const Vector &p1, const Vector &p2,
+                    const Vector &p3, float t, SplineMode mode) {
+  return (mode == SplineMode::Fast) ? cubic_fast(p0, p1, p2, p3, t)
+                                    : cubic_slerp(p0, p1, p2, p3, t);
 }
 
 /// Catmull-Rom tangent estimation on the sphere.
@@ -957,16 +959,14 @@ inline Vector cubic(const Vector &p0, const Vector &p1,
 /// full Catmull-Rom smoothing. This is inverted from the conventional
 /// Catmull-Rom tension parameter where τ=0 is the standard cardinal spline.
 inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
-                                  const Vector &end, const Vector &next,
-                                  float tension,
-                                  Vector &cp1, Vector &cp2) {
-    // Tangent at start: pull toward the midpoint of prev→end
-    cp1 = slerp(start, slerp(prev, end, 0.5f), tension);
-    // Tangent at end: pull toward the midpoint of start→next
-    cp2 = slerp(end, slerp(start, next, 0.5f), tension);
+                                 const Vector &end, const Vector &next,
+                                 float tension, Vector &cp1, Vector &cp2) {
+  // Tangent at start: pull toward the midpoint of prev→end
+  cp1 = slerp(start, slerp(prev, end, 0.5f), tension);
+  // Tangent at end: pull toward the midpoint of start→next
+  cp2 = slerp(end, slerp(start, next, 0.5f), tension);
 }
 
 } // namespace Spline
-
 
 #endif // HOLOSPHERE_CORE_3DMATH_H_

@@ -9,6 +9,12 @@
 
 #include <algorithm>
 
+#ifdef CORE_TEENSY
+#define OS_CYCLES() ARM_DWT_CYCCNT
+#else
+#define OS_CYCLES() 0
+#endif
+
 template <int W, int H> class HankinSolids : public Effect {
 public:
   FLASHMEM HankinSolids() : Effect(W, H), filters() {}
@@ -40,8 +46,26 @@ public:
 
   bool show_bg() const override { return false; }
   void draw_frame() override {
+    uint32_t t_start = OS_CYCLES();
+
     Canvas canvas(*this);
+    uint32_t t1 = OS_CYCLES();
     timeline.step(canvas);
+    c_timeline += (OS_CYCLES() - t1);
+
+    c_total_accum += (OS_CYCLES() - t_start);
+    // Accumulate scan sub-metrics from this frame
+    a_sdf_dist += hs::g_scan_metrics.sdf_dist;
+    a_frag_shader += hs::g_scan_metrics.frag_shader;
+    a_plot += hs::g_scan_metrics.plot;
+    a_face_setup += hs::g_scan_metrics.face_setup;
+    a_scan_loop += hs::g_scan_metrics.scan_loop;
+    a_pixels_tested += hs::g_scan_metrics.pixels_tested;
+    a_pixels_culled += hs::g_scan_metrics.pixels_culled;
+    a_lut_hits += hs::g_scan_metrics.lut_hits;
+    a_exact_hits += hs::g_scan_metrics.exact_hits;
+    hs::g_scan_metrics.reset();
+    current_cycle_frames++;
   }
 
 private:
@@ -51,6 +75,51 @@ private:
                          &Palettes::brightSunrise, &Palettes::bruisedMoss,
                          &Palettes::lavenderLake};
   BakedPaletteBank baked_palette_bank_;
+
+  uint64_t c_raster = 0;
+  uint64_t c_pipeline = 0;
+  uint64_t c_timeline = 0;
+  uint64_t c_total_accum = 0;
+  uint64_t a_sdf_dist = 0;
+  uint64_t a_frag_shader = 0;
+  uint64_t a_plot = 0;
+  uint64_t a_face_setup = 0;
+  uint64_t a_scan_loop = 0;
+  uint64_t a_pixels_tested = 0;
+  uint64_t a_pixels_culled = 0;
+  uint64_t a_lut_hits = 0;
+  uint64_t a_exact_hits = 0;
+  uint32_t current_cycle_frames = 0;
+
+  void print_and_reset_metrics(const char* phase_name) {
+    uint32_t f = current_cycle_frames ? current_cycle_frames : 1;
+    printf("\n=== %s Complete (%lu frames) ===\n", phase_name, f);
+    printf("Avg/frame: Total=%lu, Timeline=%lu\n", 
+           (uint32_t)(c_total_accum / f), (uint32_t)(c_timeline / f));
+    printf("  Pipeline(Logic)=%lu\n", (uint32_t)(c_pipeline / f));
+    printf("  Raster Breakdown:\n");
+    printf("    FaceSetup=%lu, ScanLoop=%lu\n",
+           (uint32_t)(a_face_setup / f), (uint32_t)(a_scan_loop / f));
+    printf("    SDF_Dist=%lu, FragShader=%lu, Plot=%lu\n",
+           (uint32_t)(a_sdf_dist / f), (uint32_t)(a_frag_shader / f), (uint32_t)(a_plot / f));
+    uint64_t accounted = a_sdf_dist + a_frag_shader + a_plot;
+    uint64_t scan_other = a_scan_loop > accounted ? a_scan_loop - accounted : 0;
+    printf("    ScanOther(bounds+iter)=%lu\n", (uint32_t)(scan_other / f));
+    printf("  Pixels: tested=%lu, culled=%lu, interior=%lu\n",
+           (uint32_t)(a_pixels_tested / f), (uint32_t)(a_pixels_culled / f),
+           (uint32_t)((a_pixels_tested - a_pixels_culled) / f));
+    printf("  LUT_hits=%lu, Exact_hits=%lu\n",
+           (uint32_t)(a_lut_hits / f), (uint32_t)(a_exact_hits / f));
+    
+    c_raster = 0; c_pipeline = 0; c_timeline = 0;
+    c_total_accum = 0;
+    a_sdf_dist = 0; a_frag_shader = 0; a_plot = 0;
+    a_face_setup = 0; a_scan_loop = 0;
+    a_pixels_tested = 0; a_pixels_culled = 0;
+    a_lut_hits = 0; a_exact_hits = 0;
+    current_cycle_frames = 0;
+    hs::g_scan_metrics.reset();
+  }
 
   PolyMesh generate_base_solid(int idx, Arena &a, Arena &b) {
     auto solids = Solids::Collections::get_simple_solids();
@@ -98,10 +167,14 @@ private:
 
     ScratchScope _(scratch_arena_a);
     MeshState rotated_mesh;
+    
+    uint32_t t0 = OS_CYCLES();
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
 
     for (auto &v : rotated_mesh.vertices)
       v = rotate(v, q);
+    
+    c_pipeline += (OS_CYCLES() - t0);
 
     auto fragment_shader = [&](const Vector &p, Fragment &f) {
       int faceIdx = (int)std::round(f.v2);
@@ -120,8 +193,10 @@ private:
       f.color.alpha *= opacity;
     };
 
+    uint32_t t1 = OS_CYCLES();
     Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
                            scratch_arena_a, params.debug_bb);
+    c_raster += (OS_CYCLES() - t1);
   }
 
   void promote_staged_hankin() {
@@ -134,14 +209,19 @@ private:
     timeline.add(0, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
                                         DURATION, ease_mid, false)
-                        .then([this]() { this->start_morph_cycle(); }));
+                        .then([this]() {
+                          this->print_and_reset_metrics("Hankin Cycle");
+                          this->start_morph_cycle(); 
+                        }));
 
     int front = carousel.front_index();
     timeline.add(
         0, Animation::Sprite(
                [this, front](Canvas &c, float opacity) {
+                 uint32_t t0 = OS_CYCLES();
                  MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
                                         persistent_arena, params.hankin_angle);
+                 c_pipeline += (OS_CYCLES() - t0);
                  draw_mesh(c, carousel.slot(front),
                            carousel.slot(front).topology, palettes_slots[front],
                            opacity, orientation.get());
@@ -171,6 +251,7 @@ private:
                persistent_arena, draw_morph_outgoing_fn_,
                draw_morph_incoming_fn_, MORPH_FRAMES, ease_in_out_sin)
                .then([this, next_idx, new_slot]() {
+                 this->print_and_reset_metrics("Morph Cycle");
                  solid_idx = next_idx;
                  carousel.set_front(new_slot);
                  promote_staged_hankin();

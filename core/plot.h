@@ -92,7 +92,6 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
                                         const Fragment &next,
                                         bool isLastSegment,
                                         ProcessSegmentFn &&process_segment) {
-  // GEODESIC STRATEGY (Standard)
   Vector v1 = curr.pos;
   Vector v2 = next.pos;
   float total_dist = angle_between(v1, v2);
@@ -144,7 +143,6 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       bool shouldOmit = (close_loop) ? true : !isLastSegment;
       if (!shouldOmit) {
         Fragment f_copy = curr;
-        // Set temp values for shader
         f_copy.pos = curr.pos;
         f_copy.color = Color4(0, 0, 0, 0);
 
@@ -175,12 +173,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // 1. SIMULATION PHASE
     _steps_cache.clear();
     float sim_dist = 0.0f;
-
-    // Calculate initial point for density
     Vector p_temp = map(0.0f);
 
     while (sim_dist < total_dist) {
-      // Adaptive step size based on distortion (y-component)
       float scale_factor =
           std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.y * p_temp.y)));
       float step = base_step * scale_factor;
@@ -1323,8 +1318,8 @@ struct ParticleSystem {
   /**
    * @brief Samples particle trails.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &system,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
     int count = system.active_count;
@@ -1368,8 +1363,8 @@ struct ParticleSystem {
     }
   }
 
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &system,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader) {
     draw<W, H>(pipeline, canvas, system, fragment_shader, {});
   }

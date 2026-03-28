@@ -154,7 +154,8 @@ struct Ring {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     float cos_phi = TrigLUT<W, H>::cos_phi[y];
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
@@ -324,7 +325,8 @@ struct DistortedRing {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     float cos_phi = TrigLUT<W, H>::cos_phi[y];
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
@@ -876,6 +878,7 @@ template <typename Shape> struct AngularRepeat {
  */
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64;
+  static constexpr int LUT_N = 32;
   std::array<Vector, MAX_VERTS + 1> poly2D; // +1 to avoid modulo
   std::array<Vector, MAX_VERTS> edgeVectors;
   std::array<float, MAX_VERTS> edgeLengthsSq;
@@ -884,8 +887,15 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS> thetas;
   std::array<float, MAX_VERTS> invEdgeLengthsSq;
   std::array<float, MAX_VERTS> invEdgeJ;
-  std::array<Vector, MAX_VERTS + 1> verts3D; // Original 3D vertices (+1 wrap)
-  std::array<Vector, MAX_VERTS> edgeNormals; // Great circle plane normals
+  std::array<Vector, MAX_VERTS + 1> verts3D;
+  std::array<Vector, MAX_VERTS> edgeNormals;
+  std::array<float, LUT_N * LUT_N> dist_lut;
+
+  // Packed per-edge data for cache-friendly fallback in distance()
+  struct EdgePacked {
+    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy, _pad;
+  };
+  std::array<EdgePacked, MAX_VERTS> packed_edges;
 };
 
 /**
@@ -916,6 +926,17 @@ struct Face {
   std::span<std::pair<float, float>> intervals;
   bool full_width;
   static constexpr bool is_solid = true;
+
+  // Packed edge data + LUT for distance computation
+  using EdgePacked = FaceScratchBuffer::EdgePacked;
+  std::span<EdgePacked> packed_edges;
+  static constexpr int LUT_N = FaceScratchBuffer::LUT_N;
+  const float *dist_lut = nullptr;
+  float lut_cx = 0.0f, lut_cy = 0.0f;
+  float lut_Rx = 0.0f, lut_Ry = 0.0f;
+  float lut_inv_step_x = 0.0f;
+  float lut_inv_step_y = 0.0f;
+  float lut_safe_dist = 0.0f; // per-face: cell diagonal
 
   Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
        float th, FaceScratchBuffer &scratch, int h_virt, int height)
@@ -1033,12 +1054,12 @@ struct Face {
 
     if (use_fast_bounds) {
       compute_fast_bounds(scratch, vertices, indices, count, thickness,
-                          min_phi_check, max_phi_check, h_virt, height,
-                          y_min, y_max);
+                          min_phi_check, max_phi_check, h_virt, height, y_min,
+                          y_max);
     } else {
-      planes_count = compute_full_bounds(scratch, vertices, indices, count,
-                                         center, thickness, h_virt, height,
-                                         y_min, y_max);
+      planes_count =
+          compute_full_bounds(scratch, vertices, indices, count, center,
+                              thickness, h_virt, height, y_min, y_max);
     }
 
     edgeVectors = std::span<Vector>(scratch.edgeVectors.data(), count);
@@ -1046,6 +1067,74 @@ struct Face {
     invEdgeLengthsSq = std::span<float>(scratch.invEdgeLengthsSq.data(), count);
     invEdgeJ = std::span<float>(scratch.invEdgeJ.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
+
+    // Pack per-edge data contiguously for cache-friendly fallback
+    for (int i = 0; i < count; ++i) {
+      auto &ep = scratch.packed_edges[i];
+      ep.vx = poly2D[i].x;
+      ep.vy = poly2D[i].y;
+      ep.ex = edgeVectors[i].x;
+      ep.ey = edgeVectors[i].y;
+      ep.inv_len_sq = invEdgeLengthsSq[i];
+      ep.inv_ej = invEdgeJ[i];
+      ep.next_vy = poly2D[i + 1].y;
+    }
+    packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
+
+    // Precompute signed distance LUT (anisotropic)
+    float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
+    float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
+    for (int i = 0; i < count; ++i) {
+      float vx = poly2D[i].x, vy = poly2D[i].y;
+      if (vx < bb_min_x)
+        bb_min_x = vx;
+      if (vx > bb_max_x)
+        bb_max_x = vx;
+      if (vy < bb_min_y)
+        bb_min_y = vy;
+      if (vy > bb_max_y)
+        bb_max_y = vy;
+    }
+    float margin = 0.1f;
+    lut_cx = (bb_min_x + bb_max_x) * 0.5f;
+    lut_cy = (bb_min_y + bb_max_y) * 0.5f;
+    lut_Rx = (bb_max_x - bb_min_x) * 0.5f + margin;
+    lut_Ry = (bb_max_y - bb_min_y) * 0.5f + margin;
+    if (lut_Rx < 0.01f)
+      lut_Rx = 0.01f;
+    if (lut_Ry < 0.01f)
+      lut_Ry = 0.01f;
+    lut_inv_step_x = (LUT_N - 1) / (2.0f * lut_Rx);
+    lut_inv_step_y = (LUT_N - 1) / (2.0f * lut_Ry);
+    dist_lut = scratch.dist_lut.data();
+    float step_x = (2.0f * lut_Rx) / (LUT_N - 1);
+    float step_y = (2.0f * lut_Ry) / (LUT_N - 1);
+    lut_safe_dist = 1.8f * 2 * PI_F / 288.0f;
+    for (int gy = 0; gy < LUT_N; ++gy) {
+      float qy = (lut_cy - lut_Ry) + gy * step_y;
+      for (int gx = 0; gx < LUT_N; ++gx) {
+        float qx = (lut_cx - lut_Rx) + gx * step_x;
+        float d_sq = FLT_MAX;
+        bool is_inside = false;
+        for (int i = 0; i < count; ++i) {
+          const auto &ep = packed_edges[i];
+          float wx = qx - ep.vx, wy = qy - ep.vy;
+          float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
+          float cv = hs::clamp(t, 0.0f, 1.0f);
+          float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
+          float dsq = bx * bx + by * by;
+          if (dsq < d_sq)
+            d_sq = dsq;
+          if ((ep.vy > qy) != (ep.next_vy > qy)) {
+            float ix = ep.vx + (qy - ep.vy) * ep.ex * ep.inv_ej;
+            if (qx < ix)
+              is_inside = !is_inside;
+          }
+        }
+        scratch.dist_lut[gy * LUT_N + gx] =
+            (is_inside ? -1.0f : 1.0f) * sqrtf(d_sq);
+      }
+    }
 
     std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
     float maxGap = 0;
@@ -1121,11 +1210,12 @@ struct Face {
   }
 
   /// Fast-path bounds: uses vertex-based phi for small faces.
-  static void compute_fast_bounds(
-      FaceScratchBuffer &scratch, std::span<const Vector> vertices,
-      std::span<const uint16_t> indices, int count, float thickness,
-      float min_phi_check, float max_phi_check,
-      int h_virt, int height, int &y_min_out, int &y_max_out) {
+  static void compute_fast_bounds(FaceScratchBuffer &scratch,
+                                  std::span<const Vector> vertices,
+                                  std::span<const uint16_t> indices, int count,
+                                  float thickness, float min_phi_check,
+                                  float max_phi_check, int h_virt, int height,
+                                  int &y_min_out, int &y_max_out) {
     for (int i = 0; i < count; ++i) {
       Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
       scratch.edgeVectors[i] = edge;
@@ -1142,8 +1232,9 @@ struct Face {
     }
     float margin = thickness + BOUNDS_MARGIN;
     y_min_out = std::max(
-        0, static_cast<int>(floorf(
-               (std::max(0.0f, min_phi_check - margin) * (h_virt - 1)) / PI_F)));
+        0,
+        static_cast<int>(floorf(
+            (std::max(0.0f, min_phi_check - margin) * (h_virt - 1)) / PI_F)));
     y_max_out = std::min(
         height - 1,
         static_cast<int>(ceilf(
@@ -1152,11 +1243,12 @@ struct Face {
 
   /// Full-path bounds: arc extrema + pole containment for large faces.
   /// Returns the number of planes computed.
-  static int compute_full_bounds(
-      FaceScratchBuffer &scratch, std::span<const Vector> vertices,
-      std::span<const uint16_t> indices, int count,
-      const Vector &center, float thickness,
-      int h_virt, int height, int &y_min_out, int &y_max_out) {
+  static int compute_full_bounds(FaceScratchBuffer &scratch,
+                                 std::span<const Vector> vertices,
+                                 std::span<const uint16_t> indices, int count,
+                                 const Vector &center, float thickness,
+                                 int h_virt, int height, int &y_min_out,
+                                 int &y_max_out) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
@@ -1268,8 +1360,11 @@ struct Face {
 
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
+    hs::g_scan_metrics.pixels_tested++;
+
     float cos_angle = dot(p, center);
     if (cos_angle <= 0.01f) {
+      hs::g_scan_metrics.pixels_culled++;
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
@@ -1280,45 +1375,59 @@ struct Face {
 
     float pR2 = px * px + py * py;
     if (pR2 > max_dist_sq) {
+      hs::g_scan_metrics.pixels_culled++;
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
 
-    float d = FLT_MAX;
-    bool inside = false;
+    // LUT lookup + same-sign hybrid
+    float fx = (px - lut_cx + lut_Rx) * lut_inv_step_x;
+    float fy = (py - lut_cy + lut_Ry) * lut_inv_step_y;
+    fx = hs::clamp(fx, 0.0f, (float)(LUT_N - 2));
+    fy = hs::clamp(fy, 0.0f, (float)(LUT_N - 2));
+    int ix = (int)fx;
+    int iy = (int)fy;
+    float tx = fx - ix;
+    float ty = fy - iy;
+    float d00 = dist_lut[iy * LUT_N + ix];
+    float d10 = dist_lut[iy * LUT_N + ix + 1];
+    float d01 = dist_lut[(iy + 1) * LUT_N + ix];
+    float d11 = dist_lut[(iy + 1) * LUT_N + ix + 1];
 
-    for (int i = 0; i < count; ++i) {
-      const Vector &Vi = poly2D[i];
-      const Vector &Vnext = poly2D[i + 1];
-      const Vector &edge = edgeVectors[i];
-
-      float wx = px - Vi.x;
-      float wy = py - Vi.y;
-
-      float t = (wx * edge.x + wy * edge.y) * invEdgeLengthsSq[i];
-      float clampVal = hs::clamp(t, 0.0f, 1.0f);
-
-      float bx = wx - edge.x * clampVal;
-      float by = wy - edge.y * clampVal;
-      float distSq = bx * bx + by * by;
-
-      if (distSq < d)
-        d = distSq;
-
-      if ((Vi.y > py) != (Vnext.y > py)) {
-        float intersect_x = Vi.x + (py - Vi.y) * edge.x * invEdgeJ[i];
-        if (px < intersect_x) {
-          inside = !inside;
+    bool same_sign = (d00 > 0) == (d10 > 0) && (d00 > 0) == (d01 > 0) &&
+                     (d00 > 0) == (d11 > 0);
+    // Per-face threshold: cell diagonal (tightest correct bound)
+    float min_abs =
+        std::min({std::abs(d00), std::abs(d10), std::abs(d01), std::abs(d11)});
+    float plane_dist;
+    if (same_sign && min_abs > lut_safe_dist) {
+      hs::g_scan_metrics.lut_hits++;
+      plane_dist = d00 * (1.0f - tx) * (1.0f - ty) + d10 * tx * (1.0f - ty) +
+                   d01 * (1.0f - tx) * ty + d11 * tx * ty;
+    } else {
+      hs::g_scan_metrics.exact_hits++;
+      float d = FLT_MAX;
+      bool inside = false;
+      for (int i = 0; i < count; ++i) {
+        const auto &ep = packed_edges[i];
+        float wx = px - ep.vx, wy = py - ep.vy;
+        float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
+        float cv = hs::clamp(t, 0.0f, 1.0f);
+        float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
+        float dsq = bx * bx + by * by;
+        if (dsq < d)
+          d = dsq;
+        if ((ep.vy > py) != (ep.next_vy > py)) {
+          float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
+          if (px < isx)
+            inside = !inside;
         }
       }
+      plane_dist = (inside ? -1.0f : 1.0f) * sqrtf(d);
     }
 
-    float s = inside ? -1.0f : 1.0f;
-    float plane_dist = s * sqrtf(d);
-    // Convert gnomonic planar distance to angular for correct AA blending
     float angular_dist_raw = fast_atan2(plane_dist, 1.0f);
     float angular_dist = angular_dist_raw - thickness;
-
     res = DistanceResult(angular_dist, 0.0f, angular_dist_raw, 0.0f, size);
   }
 };
@@ -1868,8 +1977,8 @@ struct Line {
 
   template <int H> Bounds get_vertical_bounds() const {
     constexpr int H_VIRT = H + hs::H_OFFSET;
-    int y_min = std::max(
-        0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
+    int y_min =
+        std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
     int y_max = std::min(
         H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
     return {y_min, y_max};
