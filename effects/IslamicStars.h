@@ -8,6 +8,8 @@
 #include "core/effects_engine.h"
 #include <algorithm>
 
+// Uses HS_OS_CYCLES() from platform.h
+
 
 template <int W, int H> class IslamicStars : public Effect {
 
@@ -47,9 +49,50 @@ public:
   bool show_bg() const override { return false; }
 
   void draw_frame() override {
+    c_transform = 0;
+    c_raster = 0;
+    c_face_count = 0;
+    hs::g_scan_metrics.reset();
+    uint32_t t_start = HS_OS_CYCLES();
+
     Canvas canvas(*this);
+    
+    uint32_t t0 = HS_OS_CYCLES();
     ripple_gen.prepare_frame();
+    c_ripple_prep = HS_OS_CYCLES() - t0;
+
+    uint32_t t1 = HS_OS_CYCLES();
     timeline.step(canvas);
+    c_timeline = HS_OS_CYCLES() - t1;
+
+    static int frame_count = 0;
+    if (frame_count++ % 60 == 0) {
+      uint32_t t_total = HS_OS_CYCLES() - t_start;
+      auto &m = hs::g_scan_metrics;
+      uint32_t total_pixels = m.pixels_tested;
+      uint32_t total_sdf = m.lut_hits + m.exact_hits;
+      hs::log("=== IslamicStars Frame %d ===", frame_count);
+      hs::log("  Total: %luus  Timeline: %luus", t_total/600, c_timeline/600);
+      hs::log("  Phases: RipplePrep=%luus  Transform=%luus  Raster=%luus  Other=%luus",
+              c_ripple_prep/600, c_transform/600, c_raster/600,
+              (c_timeline - c_transform - c_raster)/600);
+      hs::log("  Raster sub-phases (faces=%lu):", c_face_count);
+      hs::log("    face_setup=%luus  scan_loop=%luus",
+              m.face_setup/600, m.scan_loop/600);
+      hs::log("    sdf_dist=%luus  frag_shader=%luus  plot=%luus",
+              m.sdf_dist/600, m.frag_shader/600, m.plot/600);
+      hs::log("  Pixels: tested=%lu culled=%lu (%.0f%%)",
+              total_pixels, m.pixels_culled,
+              total_pixels > 0 ? 100.0f * m.pixels_culled / total_pixels : 0.0f);
+      hs::log("  SDF: lut_hits=%lu exact=%lu (lut%%=%.0f%%)",
+              m.lut_hits, m.exact_hits,
+              total_sdf > 0 ? 100.0f * m.lut_hits / total_sdf : 0.0f);
+      if (c_face_count > 0) {
+        hs::log("  Per-face avg: setup=%luus  scan=%luus  total=%luus",
+                m.face_setup/600/c_face_count, m.scan_loop/600/c_face_count,
+                c_raster/600/c_face_count);
+      }
+    }
   }
 
 private:
@@ -61,6 +104,12 @@ private:
   float ripple_duration = 80.0f;
   int solid_idx = -1;
   MeshCarousel<W> carousel;
+
+  uint32_t c_transform = 0;
+  uint32_t c_raster = 0;
+  uint32_t c_ripple_prep = 0;
+  uint32_t c_timeline = 0;
+  uint32_t c_face_count = 0;
 
   static constexpr int NUM_PALETTES = 5;
   static constexpr std::array<const ProceduralPalette *, NUM_PALETTES>
@@ -86,8 +135,10 @@ private:
     ScratchScope _a(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer<W> camera(orientation);
+    uint32_t t0 = HS_OS_CYCLES();
     MeshOps::transform(base_state, transformed_state, scratch_arena_a,
                        ripple_gen, camera);
+    c_transform += (HS_OS_CYCLES() - t0);
 
     const int *raw_indices = faceIndices.data();
 
@@ -105,8 +156,11 @@ private:
       frag.color.alpha = opacity;
     };
 
+    c_face_count += transformed_state.get_face_counts_size();
+    uint32_t t1 = HS_OS_CYCLES();
     Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
                            scratch_arena_a, params.debug_bb);
+    c_raster += (HS_OS_CYCLES() - t1);
   }
 
   void shuffle_palette_indices(std::array<int, NUM_PALETTES> &out) {

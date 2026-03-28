@@ -22,15 +22,20 @@
 #endif
 #include <Arduino.h>
 #include <FastLED.h>
+#include <cstdarg>
+#include <cstdio>
 
 namespace hs {
 /**
  * @brief On-device logging to Serial (no vsnprintf to avoid ~4KB stdio in ITCM).
  */
 inline void log(const char *msg, ...) {
-  // NOTE: format args are silently discarded on Teensy to avoid
-  // pulling ~4KB of vsnprintf/stdio into ITCM.
-  Serial.println(msg);
+  va_list args;
+  va_start(args, msg);
+  char buf[128];
+  vsnprintf(buf, sizeof(buf), msg, args);
+  va_end(args);
+  Serial.println(buf);
 }
 
 /**
@@ -75,6 +80,28 @@ inline int rand_int(int min, int max) {
 
 // Global state
 inline bool debug = false;
+
+struct ScanMetrics {
+  uint32_t plot = 0;
+  uint32_t sdf_dist = 0;
+  uint32_t frag_shader = 0;
+  uint32_t bounds = 0;
+  uint32_t face_setup = 0;
+  uint32_t scan_loop = 0;
+  uint32_t pixels_tested = 0;
+  uint32_t pixels_culled = 0;
+  uint32_t lut_hits = 0;
+  uint32_t exact_hits = 0;
+  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = lut_hits = exact_hits = 0; }
+};
+inline ScanMetrics g_scan_metrics;
+inline uint32_t g_plot_cycles = 0;  // kept for backward compat
+
+#ifdef CORE_TEENSY
+#define HS_OS_CYCLES() ARM_DWT_CYCCNT
+#else
+#define HS_OS_CYCLES() 0
+#endif
 
 static constexpr int H_OFFSET = 3;
 } // namespace hs
@@ -406,6 +433,23 @@ inline int rand_int(int min, int max) {
 
 // Global state
 inline bool debug = false;
+
+struct ScanMetrics {
+  uint32_t plot = 0;
+  uint32_t sdf_dist = 0;
+  uint32_t frag_shader = 0;
+  uint32_t bounds = 0;
+  uint32_t face_setup = 0;
+  uint32_t scan_loop = 0;
+  uint32_t pixels_tested = 0;
+  uint32_t pixels_culled = 0;
+  uint32_t lut_hits = 0;
+  uint32_t exact_hits = 0;
+  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = lut_hits = exact_hits = 0; }
+};
+inline ScanMetrics g_scan_metrics;
+inline uint32_t g_plot_cycles = 0;
+#define HS_OS_CYCLES() 0
 
 static constexpr int H_OFFSET = 0;
 } // namespace hs

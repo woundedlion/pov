@@ -15,12 +15,11 @@ public:
                                 {{0.85f, 1.0f, 0.025f, 0.92f}},
                                 {{0.85f, 2.0f, 0.094f, 0.2f}},
                                 {{0.85f, 3.0f, 0.035f, 1.0f}}}}},
-        filters(Filter::World::Orient<W>(orientation),
-                Filter::Screen::AntiAlias<W, H>()),
+        filters(Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 16384, 16384, 0);
+    configure_arenas(GLOBAL_ARENA_SIZE - 11264, 11264, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
     registerParam("Well Str", &params.well_strength, 0.0f, 20.0f);
@@ -45,6 +44,7 @@ public:
     timeline.add(0, preset_timer);
 
     rebuild();
+    baked_palette_.bake(persistent_arena, base_palette);
     start_warp();
   }
 
@@ -95,12 +95,12 @@ private:
   Orientation<W> orientation;
   FastNoiseLite noise;
   Timeline<W> timeline;
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
-      filters;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ParticleSystem particle_system;
   GenerativePalette base_palette{
       GradientShape::CIRCULAR, HarmonyType::COMPLEMENTARY,
       BrightnessProfile::FLAT, SaturationProfile::MID};
+  BakedPalette baked_palette_;
   std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
   std::array<int, EmitSolid::NUM_VERTS> emit_counters;
 
@@ -149,15 +149,24 @@ private:
   }
 
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
+    // Precompute cos thresholds for dot-product fast-reject
+    // cos(event_horizon) — points further than this have dot > threshold
+    std::array<float, AttractSolid::NUM_VERTS> cos_eh;
+    for (size_t i = 0; i < particle_system.attractors.size(); ++i) {
+      cos_eh[i] = fast_cosf(particle_system.attractors[i].event_horizon);
+    }
+
     auto vertex_shader = [&](Fragment &f) {
       Vector original_pos = f.pos;
       float holeAlpha = 1.0f;
-      for (const auto &attr : particle_system.attractors) {
-        float d = angle_between(original_pos, attr.position);
-        if (d < attr.event_horizon) {
-          float t = d / attr.event_horizon;
-          holeAlpha *= quintic_kernel(t);
-        }
+      for (size_t ai = 0; ai < particle_system.attractors.size(); ++ai) {
+        const auto &attr = particle_system.attractors[ai];
+        float cos_d = dot(original_pos, attr.position);
+        if (cos_d < cos_eh[ai])
+          continue;
+        float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+        float t = d / attr.event_horizon;
+        holeAlpha *= quintic_kernel(t);
       }
 
       f.pos = mobius_transform(f.pos, mobius);
@@ -170,9 +179,6 @@ private:
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
 
       if (p_idx < 0 || p_idx >= particle_system.active_count) {
-#ifdef DEBUG
-        assert(false);
-#endif
         f.color = Color4(CRGB(0, 0, 0), 0.0f);
         return;
       }
@@ -180,7 +186,7 @@ private:
       const auto &p = particle_system.pool[p_idx];
       float seed_f = static_cast<float>(p.color_seed) / 65535.0f;
       float t_shifted = wrap_t(f.v0 + seed_f);
-      Color4 c = hue_rotate(base_palette.get(t_shifted), seed_f);
+      Color4 c = baked_palette_.get(t_shifted);
       c.alpha = c.alpha * alpha * alpha * opacity;
       f.color = c;
     };

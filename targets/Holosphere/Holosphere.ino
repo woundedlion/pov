@@ -30,35 +30,35 @@ void setup() {
 }
 
 FLASHMEM static void run_show_sequence() {
-  pov->show<HankinSolids<288, 144>>(120); // 145
+
+  pov->show<IslamicStars<288, 144>>(120);
 
   /*
   pov->show<RingSpin<288, 144>>(120); // 140
-  pov->show<ChaoticStrings<288, 144>>(120);
+  pov->show<TestShapes<288, 144>>(120); //140
+  pov->show<DreamBalls<288, 144>>(120); // 117
+  pov->show<IslamicStars<288, 144>>(120);
+
+  pov->show<ChaoticStrings<288, 144>>(120);0
   pov->show<Raymarch<288, 144>>(120);
   pov->show<SplineFlow<288, 144>>(120);
-  pov->show<GnomonicStars<288, 144>>(120); //60
-  pov->show<DreamBalls<288, 144>>(120); // 117
-  pov->show<HankinSolids<288, 144>>(120);
-  pov->show<IslamicStars<288, 144>>(120);
-  pov->show<MindSplatter<288, 144>>(120);
   pov->show<Voronoi<288, 144>>(120);
   pov->show<MobiusGrid<288, 144>>(120);
   pov->show<FlowField<288, 144>>(120);
   pov->show<MeshFeedback<288, 144>>(120);
-  pov->show<PetalFlow<288, 144>>(120); //35
   pov->show<BZReactionDiffusion<288, 144>>(120);
   pov->show<GSReactionDiffusion<288, 144>>(120);
   pov->show<Thrusters<288, 144>>(120);
-  pov->show<TestShapes<288, 144>>(120); //140
 
+  pov->show<MindSplatter<288, 144>>(120); //75
+  pov->show<GnomonicStars<288, 144>>(120); //60
+  pov->show<HankinSolids<288, 144>>(120); // 85
+  pov->show<PetalFlow<288, 144>>(120); //35
   pov->show<Liquid2D<288, 144>>(120);  //85
   pov->show<Flyby<288, 144>>(120); // 85
-
   pov->show<Test<288, 144>>(120); // 60
   pov->show<SphericalHarmonics<288, 144>>(120);  //49
   pov->show<Comets<288, 144>>(120); //53
-
   pov->show<HopfFibration<288, 144>>(120); //72
 
 
