@@ -47,6 +47,8 @@ inline std::mt19937& random() {
 }
 /** @brief Wrapped millis() for namespace consistency. */
 inline unsigned long millis() { return ::millis(); }
+/** @brief Wrapped micros() for namespace consistency. */
+inline unsigned long micros() { return ::micros(); }
 /** @brief Disables interrupts (Arduino). */
 inline void disable_interrupts() { noInterrupts(); }
 /** @brief Enables interrupts (Arduino). */
@@ -403,6 +405,11 @@ inline unsigned long millis() {
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
       .count();
 }
+inline unsigned long micros() {
+  using namespace std::chrono;
+  return (unsigned long)duration_cast<microseconds>(
+      steady_clock::now().time_since_epoch()).count();
+}
 inline void disable_interrupts() {}
 inline void enable_interrupts() {}
 
@@ -456,7 +463,7 @@ static constexpr int H_OFFSET = 0;
 
 // Global millis/micros if needed, though prefer namespaced
 inline unsigned long millis() { return hs::millis(); }
-inline unsigned long micros() { return hs::millis() * 1000; } // approx
+inline unsigned long micros() { return hs::micros(); }
 
 #endif
 
@@ -513,4 +520,85 @@ inline __attribute__((always_inline)) int clamp(int v, int lo, int hi) {
 }
 
 } // namespace hs
+
+// ---------------------------------------------------------------------------
+// Cycle-counting instrumentation
+//   CycleCounter — named cumulative accumulator (self-registers for bulk log)
+//   CycleScope   — RAII guard that accumulates into a CycleCounter
+//   HS_PROFILE   — one-liner convenience macro
+// ---------------------------------------------------------------------------
+namespace hs {
+
+struct CycleCounter {
+  static constexpr uint32_t CYCLES_PER_US = 600; // Teensy 4 @ 600 MHz
+
+  const char* name;
+  uint32_t cycles = 0;
+  uint32_t count = 0;
+  CycleCounter* parent = nullptr;
+  CycleCounter* next = nullptr;
+
+  explicit CycleCounter(const char* n) : name(n), next(head_) { head_ = this; }
+
+  void reset() { cycles = 0; count = 0; }
+
+  static void log_all() {
+    hs::log("--- Cycle Counters ---");
+    for (auto* c = head_; c; c = c->next)
+      if (!c->parent && c->count) log_node(c, 0);
+  }
+
+  static void reset_all() {
+    for (auto* c = head_; c; c = c->next)
+      c->reset();
+  }
+
+private:
+  static inline CycleCounter* head_ = nullptr;
+  static inline CycleCounter* active_ = nullptr;
+  friend struct CycleScope;
+
+  static void log_node(const CycleCounter* node, int depth) {
+    if (!node->count) return;
+    uint32_t ref = node->parent ? node->parent->cycles : node->cycles;
+    uint32_t pct = ref ? (uint32_t)((uint64_t)node->cycles * 100 / ref) : 100;
+    uint32_t us = node->cycles / CYCLES_PER_US;
+    int indent = depth * 2;
+    int name_w = 22 - indent;
+    if (name_w < 1) name_w = 1;
+    hs::log("%*s%-*s %lu us (%lu%%)  %lu calls",
+            indent, "", name_w, node->name,
+            (unsigned long)us, (unsigned long)pct, (unsigned long)node->count);
+    for (auto* c = head_; c; c = c->next)
+      if (c->parent == node) log_node(c, depth + 1);
+  }
+};
+
+struct CycleScope {
+  CycleCounter& counter;
+  CycleCounter* prev_active;
+  uint32_t start;
+
+  explicit CycleScope(CycleCounter& c) : counter(c), start(HS_OS_CYCLES()) {
+    prev_active = CycleCounter::active_;
+    if (!counter.parent && prev_active)
+      counter.parent = prev_active;
+    CycleCounter::active_ = &counter;
+  }
+  ~CycleScope() {
+    counter.cycles += (HS_OS_CYCLES() - start);
+    counter.count++;
+    CycleCounter::active_ = prev_active;
+  }
+
+  CycleScope(const CycleScope&) = delete;
+  CycleScope& operator=(const CycleScope&) = delete;
+};
+
+} // namespace hs
+
+#define HS_PROFILE(label) \
+  static hs::CycleCounter hs_ctr_##label(#label); \
+  hs::CycleScope hs_scope_##label(hs_ctr_##label)
+
 #endif // HOLOSPHERE_CORE_PLATFORM_H_

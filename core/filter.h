@@ -81,6 +81,7 @@ template <int W, int H> struct Pipeline<W, H> {
 
   // 2D Sink
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
+    HS_PROFILE(filter_blend);
     if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
     Pixel p = blend_alpha(alpha)(cv(xi, y), c);

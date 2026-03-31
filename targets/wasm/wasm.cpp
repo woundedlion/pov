@@ -136,10 +136,16 @@ public:
     }
   }
 
+  void setClip(int y0, int y1, int x0, int x1) {
+    if (currentEffect)
+      currentEffect->set_clip(y0, y1, x0, x1);
+  }
+
   void drawFrame() {
     if (!currentEffect)
       return;
 
+    currentEffect->render_us = 0.0;
     currentEffect->draw_frame();
     currentEffect->advance_display();
 
@@ -147,15 +153,16 @@ public:
     int idx = 0;
     for (int y = 0; y < pixel_height; y++) {
       for (int x = 0; x < pixel_width; x++) {
-        // Get the pixel (Pixel16)
         const Pixel &p = currentEffect->get_pixel(x, y);
-
-        // Direct 16-bit copy (Linear)
         pixelBuffer[idx++] = p.r;
         pixelBuffer[idx++] = p.g;
         pixelBuffer[idx++] = p.b;
       }
     }
+  }
+
+  double getRenderUs() {
+    return currentEffect ? currentEffect->render_us : 0.0;
   }
 
   // Expose the raw memory view to JS to avoid copying overhead
@@ -575,7 +582,9 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                 &HolosphereEngine::getParameterDefinitions)
       .function("getParamValues", &HolosphereEngine::getParamValues)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
-      .function("getEffectSizes", &HolosphereEngine::getEffectSizes);
+      .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
+      .function("setClip", &HolosphereEngine::setClip)
+      .function("getRenderUs", &HolosphereEngine::getRenderUs);
 
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()

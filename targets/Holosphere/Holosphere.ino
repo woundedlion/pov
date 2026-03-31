@@ -30,8 +30,9 @@ void setup() {
 }
 
 FLASHMEM static void run_show_sequence() {
+  pov->show<RingSpin<288, 144>>(120); // 140
 
-  pov->show<IslamicStars<288, 144>>(120);
+  //  pov->show<IslamicStars<288, 144>>(120);
 
   /*
   pov->show<RingSpin<288, 144>>(120); // 140
