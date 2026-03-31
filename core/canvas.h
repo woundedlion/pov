@@ -67,6 +67,9 @@ public:
   /** @brief Segment clip region (display + render margin). */
   ClipRegion clip;
 
+  /** @brief Accumulated rasterization time for the current frame (µs, WASM only). */
+  double render_us = 0.0;
+
   /** @brief Driver sets display bounds (which segment this Teensy owns). */
   void set_clip(int y0, int y1, int x0, int x1) {
     clip.y_start = y0;
@@ -350,6 +353,10 @@ public:
   [[nodiscard]] inline int width() const { return effect_.width(); }
   [[nodiscard]] inline int height() const { return effect_.height(); }
   [[nodiscard]] inline const ClipRegion &clip() const { return effect_.clip; }
+
+  inline void reset_render_us() { effect_.render_us = 0.0; }
+  inline void add_render_us(double us) { effect_.render_us += us; }
+  [[nodiscard]] inline double get_render_us() const { return effect_.render_us; }
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.

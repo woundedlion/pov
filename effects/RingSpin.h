@@ -49,42 +49,41 @@ public:
   bool show_bg() const override { return false; }
 
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    hs::CycleCounter::reset_all();
+    {
+      HS_PROFILE(ringspin_frame);
+      Canvas canvas(*this);
 
-    int draw_calls = 0;
-    int total_pixels = 0;
-    unsigned long basis_us = 0;
-    unsigned long raster_us = 0;
+      { HS_PROFILE(ringspin_timeline); timeline.step(canvas); }
 
-    for (int i = 0; i < num_rings; ++i) {
-      Ring &ring = rings[i];
-      ring.trail.record(ring.orientation);
-      deep_tween(ring.trail, [&](const Quaternion &q, float t) {
-        draw_calls++;
-        Color4 c = ring.palette->get(1.0f - t);
-        c.alpha = c.alpha * params.alpha;
+      for (int i = 0; i < num_rings; ++i) {
+        Ring &ring = rings[i];
+        ring.trail.record(ring.orientation);
+        deep_tween(ring.trail, [&](const Quaternion &q, float t) {
+          Color4 c = ring.palette->get(1.0f - t);
+          c.alpha = c.alpha * params.alpha;
 
-        unsigned long t0 = micros();
-        Basis basis = make_basis(q, ring.normal);
-        basis_us += micros() - t0;
+          Basis basis;
+          { HS_PROFILE(ringspin_basis); basis = make_basis(q, ring.normal); }
 
-        auto fragment_shader = [&](const Vector &, Fragment &f) {
-          total_pixels++;
-          f.color = c;
-        };
+          auto fragment_shader = [&](const Vector &, Fragment &f) {
+            f.color = c;
+          };
 
-        // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
-        constexpr float pixel_w = 2.0f * PI_F / W;
-        float th = (t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w;
+          // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
+          constexpr float pixel_w = 2.0f * PI_F / W;
+          float th = (t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w;
 
-        unsigned long t1 = micros();
-        Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, th,
-                                      fragment_shader, 0.0f,
-                                      params.show_bounding_box);
-        raster_us += micros() - t1;
-      });
+          {
+            HS_PROFILE(ringspin_raster);
+            Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, th,
+                                          fragment_shader, 0.0f,
+                                          params.show_bounding_box);
+          }
+        });
+      }
     }
+    hs::CycleCounter::log_all();
   }
 
 private:

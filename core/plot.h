@@ -12,6 +12,9 @@
 #include <cmath>
 #include <array>
 #include <concepts>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include "geometry.h"
 #include "color.h"
 #include "constants.h"
@@ -128,6 +131,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t len = points.size();
   if (len < 2)
     return;
+  #ifdef __EMSCRIPTEN__
+  double _plot_t0 = emscripten_get_now();
+  #endif
 
   size_t count = close_loop ? len : len - 1;
   ScratchScope _sc(scratch_arena_a);
@@ -251,6 +257,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       rasterize_geodesic_strategy(curr, next, isLastSegment, process_segment);
     }
   }
+  #ifdef __EMSCRIPTEN__
+  canvas.add_render_us(emscripten_get_now() - _plot_t0);
+  #endif
 }
 
 /**

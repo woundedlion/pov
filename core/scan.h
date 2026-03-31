@@ -13,6 +13,9 @@
 #include "filter.h"
 #include "static_circular_buffer.h"
 #include "canvas.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include "platform.h"
 
 /**
@@ -34,9 +37,9 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
                           FragmentShaderFn fragment_shader, bool debug_bb,
                           SDF::DistanceResult &result_scratch,
                           Fragment &frag_scratch) {
-  uint32_t t_sdf = HS_OS_CYCLES();
-  shape.template distance<ComputeUVs>(p, result_scratch);
-  hs::g_scan_metrics.sdf_dist += (HS_OS_CYCLES() - t_sdf);
+  { HS_PROFILE(scan_sdf);
+    shape.template distance<ComputeUVs>(p, result_scratch);
+  }
 
   float d = result_scratch.dist;
   float pixel_width = 2.0f * PI_F / W;
@@ -74,9 +77,9 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     frag_scratch.size = result_scratch.size;
     frag_scratch.age = 0;
 
-    uint32_t t_frag = HS_OS_CYCLES();
-    fragment_shader(p, frag_scratch);
-    hs::g_scan_metrics.frag_shader += (HS_OS_CYCLES() - t_frag);
+    { HS_PROFILE(scan_shader);
+      fragment_shader(p, frag_scratch);
+    }
 
     if (debug_bb) {
       frag_scratch.color.color = frag_scratch.color.color.lerp16(
@@ -86,10 +89,9 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     }
 
     if (frag_scratch.color.alpha > 0.001f) {
-      uint32_t t0 = HS_OS_CYCLES();
+      HS_PROFILE(scan_plot);
       pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age,
                     frag_scratch.color.alpha * alpha);
-      hs::g_scan_metrics.plot += (HS_OS_CYCLES() - t0);
     }
   }
 }
@@ -112,7 +114,13 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
 
   StaticCircularBuffer<std::pair<float, float>, 32> intervals;
 
+  const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+
   for (int y = y_min; y <= y_max; ++y) {
+    float sp = TrigLUT<W, H>::sin_phi[y];
+    float cp = TrigLUT<W, H>::cos_phi[y];
+
     bool handled = get_intervals(
         y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
 
@@ -128,7 +136,7 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
 
         if (end - start >= W) {
           for (int x = 0; x < W; ++x)
-            pixel_fn(x, y, pixel_to_vector<W, H>(x, y));
+            pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
           continue;
         }
 
@@ -143,7 +151,7 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
           wx += W;
 
         for (int x = x1; x < x2; ++x) {
-          pixel_fn(wx, y, pixel_to_vector<W, H>(wx, y));
+          pixel_fn(wx, y, Vector(sp * cos_theta[wx], cp, sp * sin_theta[wx]));
           wx++;
           if (wx >= W)
             wx -= W;
@@ -152,7 +160,7 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       intervals.clear();
     } else if (!handled) {
       for (int x = 0; x < W; ++x)
-        pixel_fn(x, y, pixel_to_vector<W, H>(x, y));
+        pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
     }
   }
 }
@@ -204,30 +212,39 @@ template <int W, int H, bool ComputeUVs = true,
 static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
   bool effective_debug = debug_bb || canvas.debug();
-  auto bounds = shape.template get_vertical_bounds<H>();
 
-  // Tier 2: Clamp SDF bounding box to clip region
-  const auto &cr = canvas.clip();
-  int y_lo =
-      bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-  int y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
-                                                  : cr.render_y_end() - 1;
+  int y_lo, y_hi;
+  { HS_PROFILE(scan_bounds);
+    auto bounds = shape.template get_vertical_bounds<H>();
+    const auto &cr = canvas.clip();
+    y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+    y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
+                                                 : cr.render_y_end() - 1;
+  }
   if (y_lo > y_hi)
     return;
 
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
 
-  scan_region<W, H>(
-      y_lo, y_hi,
-      [&](int y, auto &&out) {
-        return shape.template get_horizontal_intervals<W, H>(y, out);
-      },
-      [&](int wx, int y, const Vector &p) {
-        process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
-                                        fragment_shader, effective_debug,
-                                        result_scratch, frag_scratch);
-      });
+  #ifdef __EMSCRIPTEN__
+  double _t0 = emscripten_get_now();
+  #endif
+  { HS_PROFILE(scan_loop);
+    scan_region<W, H>(
+        y_lo, y_hi,
+        [&](int y, auto &&out) {
+          return shape.template get_horizontal_intervals<W, H>(y, out);
+        },
+        [&](int wx, int y, const Vector &p) {
+          process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
+                                          fragment_shader, effective_debug,
+                                          result_scratch, frag_scratch);
+        });
+  }
+  #ifdef __EMSCRIPTEN__
+  canvas.add_render_us(emscripten_get_now() - _t0);
+  #endif
 }
 
 struct DistortedRing {
@@ -416,18 +433,20 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      uint32_t t_face = HS_OS_CYCLES();
+      static hs::CycleCounter hs_ctr_face_setup("scan_face_setup");
+      auto fs0 = HS_OS_CYCLES();
       SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
-      hs::g_scan_metrics.face_setup += (HS_OS_CYCLES() - t_face);
+      hs_ctr_face_setup.cycles += (HS_OS_CYCLES() - fs0);
+      hs_ctr_face_setup.count++;
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
         f_in.v2 = static_cast<float>(i);
         fragment_shader(p, f_in);
       };
 
-      uint32_t t_rast = HS_OS_CYCLES();
-      Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
-      hs::g_scan_metrics.scan_loop += (HS_OS_CYCLES() - t_rast);
+      { HS_PROFILE(scan_mesh_raster);
+        Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
+      }
     }
   }
 };
@@ -444,15 +463,23 @@ struct Shader {
     constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
     constexpr float w_float = static_cast<float>(W);
 
+    const auto &cr = canvas.clip();
+
     if constexpr (SAMPLES == 1) {
       // 1× — single sample at pixel center (no SSAA)
-      for (int y = 0; y < H; ++y) {
-        for (int x = 0; x < W; ++x) {
+      #ifdef __EMSCRIPTEN__
+      double _t0 = emscripten_get_now();
+      #endif
+      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector v = pixel_to_vector<W, H>(x, y);
           Color4 sample = shader(v);
           canvas(x, y) = sample.color * sample.alpha;
         }
       }
+      #ifdef __EMSCRIPTEN__
+      canvas.add_render_us(emscripten_get_now() - _t0);
+      #endif
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
       // Generalized rotated-grid sub-pixel offsets
@@ -474,8 +501,11 @@ struct Shader {
         return o;
       }();
 
-      for (int y = 0; y < H; ++y) {
-        for (int x = 0; x < W; ++x) {
+      #ifdef __EMSCRIPTEN__
+      double _t0 = emscripten_get_now();
+      #endif
+      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        for (int x = cr.x_start; x < cr.x_end; ++x) {
           Color4 accum(Pixel(0, 0, 0), 0.0f);
 
           for (int i = 0; i < SAMPLES; ++i) {
@@ -495,6 +525,9 @@ struct Shader {
           canvas(x, y) = accum.color * accum.alpha;
         }
       }
+      #ifdef __EMSCRIPTEN__
+      canvas.add_render_us(emscripten_get_now() - _t0);
+      #endif
     }
   }
 
@@ -514,8 +547,11 @@ struct Shader {
 
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
+      #ifdef __EMSCRIPTEN__
+      double _t0 = emscripten_get_now();
+      #endif
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = 0; x < W; ++x) {
+        for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
           frag_base.pos = center_v;
           vertex_shader(frag_base);
@@ -523,6 +559,9 @@ struct Shader {
           canvas(x, y) = frag_base.color.color;
         }
       }
+      #ifdef __EMSCRIPTEN__
+      canvas.add_render_us(emscripten_get_now() - _t0);
+      #endif
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
       struct SampleOffsets {
@@ -542,8 +581,11 @@ struct Shader {
       }();
 
       const auto &cr = canvas.clip();
+      #ifdef __EMSCRIPTEN__
+      double _t0 = emscripten_get_now();
+      #endif
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = 0; x < W; ++x) {
+        for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
 
           frag_base.pos = center_v;
@@ -572,6 +614,9 @@ struct Shader {
           canvas(x, y) = accum.color;
         }
       }
+      #ifdef __EMSCRIPTEN__
+      canvas.add_render_us(emscripten_get_now() - _t0);
+      #endif
     }
   }
 };
@@ -661,6 +706,9 @@ struct Volume {
     if (vol_y_lo > vol_y_hi)
       return;
 
+    #ifdef __EMSCRIPTEN__
+    double _vol_t0 = emscripten_get_now();
+    #endif
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
@@ -760,6 +808,9 @@ struct Volume {
                           frag.color.alpha * edge_alpha);
           }
         });
+    #ifdef __EMSCRIPTEN__
+    canvas.add_render_us(emscripten_get_now() - _vol_t0);
+    #endif
   }
 };
 
