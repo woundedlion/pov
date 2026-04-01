@@ -37,9 +37,7 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
                           FragmentShaderFn fragment_shader, bool debug_bb,
                           SDF::DistanceResult &result_scratch,
                           Fragment &frag_scratch) {
-  { HS_PROFILE(scan_sdf);
-    shape.template distance<ComputeUVs>(p, result_scratch);
-  }
+  shape.template distance<ComputeUVs>(p, result_scratch);
 
   float d = result_scratch.dist;
   float pixel_width = 2.0f * PI_F / W;
@@ -77,9 +75,7 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     frag_scratch.size = result_scratch.size;
     frag_scratch.age = 0;
 
-    { HS_PROFILE(scan_shader);
-      fragment_shader(p, frag_scratch);
-    }
+    fragment_shader(p, frag_scratch);
 
     if (debug_bb) {
       frag_scratch.color.color = frag_scratch.color.color.lerp16(
@@ -89,7 +85,6 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     }
 
     if (frag_scratch.color.alpha > 0.001f) {
-      HS_PROFILE(scan_plot);
       pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age,
                     frag_scratch.color.alpha * alpha);
     }
@@ -214,13 +209,15 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
-  { HS_PROFILE(scan_bounds);
-    auto bounds = shape.template get_vertical_bounds<H>();
-    const auto &cr = canvas.clip();
-    y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-    y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
-                                                 : cr.render_y_end() - 1;
-  }
+  const auto &cr = canvas.clip();
+  bool clip_x = !cr.is_full();
+  int rx_s = cr.render_x_start();
+  int rx_e = cr.render_x_end();
+  bool rx_wrap = rx_s > rx_e;
+  auto bounds = shape.template get_vertical_bounds<H>();
+  y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+  y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
+                                               : cr.render_y_end() - 1;
   if (y_lo > y_hi)
     return;
 
@@ -230,18 +227,19 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   #ifdef __EMSCRIPTEN__
   double _t0 = emscripten_get_now();
   #endif
-  { HS_PROFILE(scan_loop);
-    scan_region<W, H>(
-        y_lo, y_hi,
-        [&](int y, auto &&out) {
-          return shape.template get_horizontal_intervals<W, H>(y, out);
-        },
-        [&](int wx, int y, const Vector &p) {
-          process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
-                                          fragment_shader, effective_debug,
-                                          result_scratch, frag_scratch);
-        });
-  }
+  scan_region<W, H>(
+      y_lo, y_hi,
+      [&](int y, auto &&out) {
+        return shape.template get_horizontal_intervals<W, H>(y, out);
+      },
+      [&](int wx, int y, const Vector &p) {
+        if (clip_x && (rx_wrap ? (wx < rx_s && wx >= rx_e)
+                               : (wx < rx_s || wx >= rx_e)))
+          return;
+        process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
+                                        fragment_shader, effective_debug,
+                                        result_scratch, frag_scratch);
+      });
   #ifdef __EMSCRIPTEN__
   canvas.add_render_us(emscripten_get_now() - _t0);
   #endif
@@ -699,6 +697,10 @@ struct Volume {
 
     // Tier 2: Clamp volume bounds to clip region
     const auto &cr = canvas.clip();
+    bool vol_clip_x = !cr.is_full();
+    int vol_rx_s = cr.render_x_start();
+    int vol_rx_e = cr.render_x_end();
+    bool vol_rx_wrap = vol_rx_s > vol_rx_e;
     int vol_y_lo =
         bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
     int vol_y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
@@ -713,6 +715,9 @@ struct Volume {
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
         [&](int wx, int y, const Vector &p) {
+          if (vol_clip_x && (vol_rx_wrap ? (wx < vol_rx_s && wx >= vol_rx_e)
+                                         : (wx < vol_rx_s || wx >= vol_rx_e)))
+            return;
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
           if (facing >= 0.0f)

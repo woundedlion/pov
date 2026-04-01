@@ -84,6 +84,7 @@ template <int W, int H> struct Pipeline<W, H> {
     HS_PROFILE(filter_blend);
     if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
+    if (!cv.clip().contains_x(xi)) return;
     Pixel p = blend_alpha(alpha)(cv(xi, y), c);
     plot_virtual(cv, xi, y, p);
   }
@@ -94,6 +95,7 @@ template <int W, int H> struct Pipeline<W, H> {
     int yi = static_cast<int>(std::round(y));
     if (!cv.clip().contains_y(yi)) return;
     xi = fast_wrap(xi, W);
+    if (!cv.clip().contains_x(xi)) return;
     Pixel p = blend_alpha(alpha)(cv(xi, yi), c);
     plot_virtual(cv, xi, yi, p);
   }
