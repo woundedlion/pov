@@ -31,7 +31,7 @@ public:
         persistent_arena.allocate(NUM_RINGS * sizeof(Ring), alignof(Ring)));
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Thickness", &params.thickness, 0.1f, 10.0f);
+    registerParam("Thickness", &params.thickness, 0.01f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);
 
     // Bake vignette-wrapped palettes into fast LUTs
@@ -49,41 +49,32 @@ public:
   bool show_bg() const override { return false; }
 
   void draw_frame() override {
-    hs::CycleCounter::reset_all();
-    {
-      HS_PROFILE(ringspin_frame);
-      Canvas canvas(*this);
+    Canvas canvas(*this);
+    timeline.step(canvas);
 
-      { HS_PROFILE(ringspin_timeline); timeline.step(canvas); }
+    for (int i = 0; i < num_rings; ++i) {
+      Ring &ring = rings[i];
+      ring.trail.record(ring.orientation);
+      deep_tween(ring.trail, [&](const Quaternion &q, float t) {
+        Color4 c = ring.palette->get(1.0f - t);
+        c.alpha = c.alpha * params.alpha;
+        if (c.alpha <= 0.001f) return;
 
-      for (int i = 0; i < num_rings; ++i) {
-        Ring &ring = rings[i];
-        ring.trail.record(ring.orientation);
-        deep_tween(ring.trail, [&](const Quaternion &q, float t) {
-          Color4 c = ring.palette->get(1.0f - t);
-          c.alpha = c.alpha * params.alpha;
+        Basis basis = make_basis(q, ring.normal);
 
-          Basis basis;
-          { HS_PROFILE(ringspin_basis); basis = make_basis(q, ring.normal); }
+        auto fragment_shader = [&](const Vector &, Fragment &f) {
+          f.color = c;
+        };
 
-          auto fragment_shader = [&](const Vector &, Fragment &f) {
-            f.color = c;
-          };
+        // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
+        constexpr float pixel_w = 2.0f * PI_F / W;
+        float th = ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) * params.thickness;
 
-          // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
-          constexpr float pixel_w = 2.0f * PI_F / W;
-          float th = (t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w;
-
-          {
-            HS_PROFILE(ringspin_raster);
-            Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, th,
-                                          fragment_shader, 0.0f,
-                                          params.show_bounding_box);
-          }
-        });
-      }
+        Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, th,
+                                      fragment_shader, 0.0f,
+                                      params.show_bounding_box);
+      });
     }
-    hs::CycleCounter::log_all();
   }
 
 private:
@@ -110,7 +101,7 @@ private:
 
   struct Params {
     float alpha = 0.5f;
-    float thickness = 1.0f * (2 * PI_F / W);
+    float thickness = 0.8f;
     bool show_bounding_box = false;
   } params;
 };

@@ -83,7 +83,7 @@ struct Ring {
   Vector normal, u, w;
   float nx, ny, nz;
   float target_angle, center_phi;
-  float cos_max, cos_min, cos_target, inv_sin_target;
+  float cos_max, cos_min, cos_target, inv_sin_target, sin_target;
 
   // Optional optimization for "Scan Full Row" check
   float r_val;
@@ -109,9 +109,10 @@ struct Ring {
     cos_min = fast_cosf(ang_max);
     cos_target = fast_cosf(target_angle);
 
+    sin_target = fast_sinf(target_angle);
     bool safe_approx = (target_angle > POLE_SAFE_MARGIN &&
                         target_angle < PI_F - POLE_SAFE_MARGIN);
-    inv_sin_target = safe_approx ? (1.0f / fast_sinf(target_angle)) : 0.0f;
+    inv_sin_target = safe_approx ? (1.0f / sin_target) : 0.0f;
 
     // For getHorizontalBounds
     r_val = sqrtf(nx * nx + nz * nz);
@@ -135,8 +136,9 @@ struct Ring {
       phi_max = std::max(p1, p2);
     }
 
-    float f_phi_min = std::max(0.0f, phi_min - thickness);
-    float f_phi_max = std::min(PI_F, phi_max + thickness);
+    float eff_th = 0.95f * thickness; // quintic_kernel(0.05) ≈ 0.001
+    float f_phi_min = std::max(0.0f, phi_min - eff_th);
+    float f_phi_max = std::min(PI_F, phi_max + eff_th);
 
     int y_min = std::max(
         0, static_cast<int>(floorf((f_phi_min * (H_VIRT - 1)) / PI_F)));
@@ -166,6 +168,31 @@ struct Ring {
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
+    float C_target = (cos_target - ny * cos_phi) / denom;
+    float scale = W / (2.0f * PI_F);
+
+    // Centerline-crossing: fast path when the annular band edges won't be
+    // clamped to [-1,1]. Past the clamp boundary the first-order formula
+    // over-estimates width (spikes), so we fall back to the exact annular
+    // band arcs there.
+    float clamp_bound = 1.0f - sin_target * thickness / denom;
+    if (C_target > -clamp_bound && C_target < clamp_bound &&
+        sin_target > 1e-3f) {
+      float sin_cross = sqrtf(1.0f - C_target * C_target);
+      float acos_C = fast_acos(C_target);
+      float eff_th = 0.95f * thickness;
+      float half_width = eff_th * sin_target / (denom * sin_cross);
+
+      float hw_px = half_width * scale;
+      float t1 = (alpha_angle - acos_C) * scale;
+      float t2 = (alpha_angle + acos_C) * scale;
+
+      out(floorf(t1 - hw_px), ceilf(t1 + hw_px));
+      out(floorf(t2 - hw_px), ceilf(t2 + hw_px));
+      return true;
+    }
+
+    // Annular band: exact intervals for near-tangent / out-of-range rows
     float C_min = (cos_min - ny * cos_phi) / denom;
     float C_max = (cos_max - ny * cos_phi) / denom;
     float min_cos = std::max(-1.0f, C_min);
@@ -181,21 +208,18 @@ struct Ring {
     float safe_threshold = pixel_width;
 
     if (angle_min <= safe_threshold) {
-      // Merge across alpha
-      float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
-      float f_x2 = (alpha_angle + angle_max) * W / (2 * PI_F);
+      float f_x1 = (alpha_angle - angle_max) * scale;
+      float f_x2 = (alpha_angle + angle_max) * scale;
       out(floorf(f_x1), ceilf(f_x2));
     } else if (angle_max >= PI_F - safe_threshold) {
-      // Merge across antipode
-      float f_x1 = (alpha_angle + angle_min) * W / (2 * PI_F);
-      float f_x2 = (alpha_angle + 2 * PI_F - angle_min) * W / (2 * PI_F);
+      float f_x1 = (alpha_angle + angle_min) * scale;
+      float f_x2 = (alpha_angle + 2 * PI_F - angle_min) * scale;
       out(floorf(f_x1), ceilf(f_x2));
     } else {
-      // Merge across alpha
-      float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
-      float f_x2 = (alpha_angle - angle_min) * W / (2 * PI_F);
-      float f_x3 = (alpha_angle + angle_min) * W / (2 * PI_F);
-      float f_x4 = (alpha_angle + angle_max) * W / (2 * PI_F);
+      float f_x1 = (alpha_angle - angle_max) * scale;
+      float f_x2 = (alpha_angle - angle_min) * scale;
+      float f_x3 = (alpha_angle + angle_min) * scale;
+      float f_x4 = (alpha_angle + angle_max) * scale;
 
       out(floorf(f_x1), ceilf(f_x2));
       out(floorf(f_x3), ceilf(f_x4));

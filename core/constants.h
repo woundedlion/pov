@@ -47,9 +47,11 @@ struct ClipRegion {
   }
 
   bool contains_x(int x) const {
+    if (x_end - x_start >= w) return true;
     int rs = render_x_start();
     int re = render_x_end();
-    return (rs <= re) ? (x >= rs && x < re) : (x >= rs || x < re);
+    if (rs == re) return true; // margin expansion wrapped to full width
+    return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
   }
 
   /// Conservative AABB test: could a segment between two screen points
