@@ -88,7 +88,13 @@ struct AABB {
     if ((tmin > tzmax) || (tzmin > tmax))
       return false;
 
-    return true;
+    if (tzmin > tmin)
+      tmin = tzmin;
+    if (tzmax < tmax)
+      tmax = tzmax;
+
+    // Reject boxes entirely behind the ray origin.
+    return tmax >= 0.0f;
   }
 };
 
@@ -230,6 +236,7 @@ private:
     int medianIdx = indices[mid];
 
     int newNodeIdx = nodeCount++;
+    nodes.emplace_back();
     nodes[newNodeIdx].point = points[medianIdx];
     nodes[newNodeIdx].originalIndex = (uint16_t)medianIdx; // Store index
     nodes[newNodeIdx].axis = (int16_t)axis;

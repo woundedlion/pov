@@ -16,31 +16,12 @@
 #ifndef HOLOSPHERE_TESTS_TEST_3DMATH_H_
 #define HOLOSPHERE_TESTS_TEST_3DMATH_H_
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
 #include "core/3dmath.h"
+#include "tests/test_harness.h"
 
 namespace hs_test {
 namespace math3d {
 
-// ============================================================================
-// Test harness
-// ============================================================================
-
-struct Stats {
-  int passed = 0;
-  int failed = 0;
-};
-
-inline Stats &stats() {
-  static Stats s;
-  return s;
-}
-
-inline bool approx(float a, float b, float tol) {
-  return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
-}
 inline bool approx_vec(const Vector &a, const Vector &b, float tol) {
   return approx(a.x, b.x, tol) && approx(a.y, b.y, tol) &&
          approx(a.z, b.z, tol);
@@ -52,19 +33,6 @@ inline bool approx_complex(const Complex &a, const Complex &b, float tol) {
   return approx(a.re, b.re, tol) && approx(a.im, b.im, tol);
 }
 
-#define HS_EXPECT(cond, msg)                                                   \
-  do {                                                                         \
-    if (cond) {                                                                \
-      ++hs_test::math3d::stats().passed;                                       \
-    } else {                                                                   \
-      ++hs_test::math3d::stats().failed;                                       \
-      std::printf("  FAIL %s:%d  %s\n", __FILE__, __LINE__, msg);              \
-    }                                                                          \
-  } while (0)
-
-#define HS_EXPECT_NEAR(a, b, tol)                                              \
-  HS_EXPECT(hs_test::math3d::approx((a), (b), (tol)),                          \
-            #a " ~= " #b " (tol=" #tol ")")
 #define HS_EXPECT_VEC(a, b, tol)                                               \
   HS_EXPECT(hs_test::math3d::approx_vec((a), (b), (tol)),                      \
             #a " ~= " #b " (tol=" #tol ")")
@@ -74,8 +42,6 @@ inline bool approx_complex(const Complex &a, const Complex &b, float tol) {
 #define HS_EXPECT_COMPLEX(a, b, tol)                                           \
   HS_EXPECT(hs_test::math3d::approx_complex((a), (b), (tol)),                  \
             #a " ~= " #b " (tol=" #tol ")")
-#define HS_EXPECT_TRUE(cond) HS_EXPECT((cond), #cond)
-#define HS_EXPECT_FALSE(cond) HS_EXPECT(!(cond), "!(" #cond ")")
 
 // ============================================================================
 // Constants
@@ -826,8 +792,7 @@ inline void test_spline_catmull_rom() {
 // ============================================================================
 
 inline int run_3dmath_tests() {
-  stats() = Stats{};
-  std::printf("=== 3dmath.h tests ===\n");
+  auto scope = hs_test::begin_module("3dmath");
 
   test_constants();
   test_quintic_kernel();
@@ -876,9 +841,7 @@ inline int run_3dmath_tests() {
   test_spline_cubic_endpoints();
   test_spline_catmull_rom();
 
-  std::printf("=== 3dmath: %d passed, %d failed ===\n", stats().passed,
-              stats().failed);
-  return stats().failed;
+  return hs_test::end_module(scope);
 }
 
 } // namespace math3d
