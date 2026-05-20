@@ -181,7 +181,6 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
 
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
-      int safety = 0;
       int count = 0;
       int16_t face_indices[100];
 
@@ -198,8 +197,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
           face_indices[count++] =
               compiled.staticOffset + heToDynamicIdx[nextEdgeIdx];
         currIdx = nextEdgeIdx;
-        safety++;
-      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit);
 
       if (count > 2) {
         compiled.face_counts.push_back(count);

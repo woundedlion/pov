@@ -33,7 +33,7 @@ inline Vector face_centroid(const HalfEdgeMesh &heMesh,
       c = c + mesh.vertices[heMesh.halfEdges[heIdx].vertex];
       out_count++;
       heIdx = heMesh.halfEdges[heIdx].next;
-    } while (heIdx != HE_NONE && heIdx != start && out_count < 100);
+    } while (heIdx != HE_NONE && heIdx != start);
   }
   if (out_count > 0)
     c = c / static_cast<float>(out_count);
@@ -53,7 +53,6 @@ inline int vertex_orbit(const HalfEdgeMesh &heMesh, uint16_t startIdx,
                        VisitorFn &&visitor) {
   uint16_t currIdx = startIdx;
   int count = 0;
-  int safety = 0;
   do {
     const HalfEdge &currHe = heMesh.halfEdges[currIdx];
     if (currHe.face == HE_NONE)
@@ -74,8 +73,7 @@ inline int vertex_orbit(const HalfEdgeMesh &heMesh, uint16_t startIdx,
         break;
       currIdx = heMesh.halfEdges[currHe.pair].next;
     }
-    safety++;
-  } while (currIdx != HE_NONE && currIdx != startIdx && safety < 100);
+  } while (currIdx != HE_NONE && currIdx != startIdx);
   return count;
 }
 
@@ -171,7 +169,6 @@ FLASHMEM static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) 
 
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
-      int safety = 0;
       int new_face_count = 0;
       uint16_t local_face[100];
       do {
@@ -186,8 +183,7 @@ FLASHMEM static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) 
             heMesh.halfEdges[currHe.prev].pair == HE_NONE)
           break;
         currIdx = heMesh.halfEdges[currHe.prev].pair;
-        safety++;
-      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit);
 
       if (new_face_count >= 3) {
         out_mesh.face_counts.push_back(new_face_count);
@@ -317,7 +313,7 @@ FLASHMEM static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) 
         do {
           count++;
           heIdx = heMesh.halfEdges[heIdx].next;
-        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+        } while (heIdx != HE_NONE && heIdx != start);
 
         if (count >= 3) {
           out_mesh.face_counts.push_back(count);
@@ -346,7 +342,6 @@ FLASHMEM static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) 
 
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
-      int safety = 0;
       int count = 0;
       uint16_t local_face[100];
 
@@ -362,8 +357,7 @@ FLASHMEM static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) 
             heMesh.halfEdges[currHe.prev].pair == HE_NONE)
           break;
         currIdx = heMesh.halfEdges[currHe.prev].pair;
-        safety++;
-      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -451,7 +445,7 @@ FLASHMEM static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &te
         do {
           count++;
           heIdx = heMesh.halfEdges[heIdx].next;
-        } while (heIdx != HE_NONE && heIdx != start && count < 100);
+        } while (heIdx != HE_NONE && heIdx != start);
 
         if (count >= 3) {
           out_mesh.face_counts.push_back(count * 2);
@@ -492,7 +486,6 @@ FLASHMEM static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &te
 
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
-      int safety = 0;
       int count = 0;
       uint16_t local_face[100];
 
@@ -513,8 +506,7 @@ FLASHMEM static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &te
             heMesh.halfEdges[currHe.prev].pair == HE_NONE)
           break;
         currIdx = heMesh.halfEdges[currHe.prev].pair;
-        safety++;
-      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -567,7 +559,6 @@ FLASHMEM static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp
 
       out_mesh.face_counts.push_back(count);
       heIdx = start;
-      int safety = 0;
       if (heIdx != HE_NONE) {
         do {
           Vector v = mesh.vertices[heMesh.halfEdges[heIdx].vertex];
@@ -578,8 +569,7 @@ FLASHMEM static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp
 
           out_mesh.faces.push_back(idx);
           heIdx = heMesh.halfEdges[heIdx].next;
-          safety++;
-        } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+        } while (heIdx != HE_NONE && heIdx != start);
       }
     }
 
@@ -597,7 +587,6 @@ FLASHMEM static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp
 
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
-      int safety = 0;
       int count = 0;
       uint16_t local_face[100];
 
@@ -611,8 +600,7 @@ FLASHMEM static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp
         if (currHe.pair == HE_NONE)
           break;
         currIdx = heMesh.halfEdges[currHe.pair].next;
-        safety++;
-      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -694,7 +682,6 @@ FLASHMEM static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &tem
 
       out_mesh.face_counts.push_back(count);
       heIdx = start;
-      int safety = 0;
 
       if (heIdx != HE_NONE) {
         do {
@@ -714,8 +701,7 @@ FLASHMEM static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &tem
           }
 
           heIdx = heMesh.halfEdges[heIdx].next;
-          safety++;
-        } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+        } while (heIdx != HE_NONE && heIdx != start);
       }
     }
 
@@ -811,7 +797,6 @@ FLASHMEM static PolyMesh canonicalize(const PolyMesh &mesh, Arena &target, Arena
         uint16_t heIdx = hev.halfEdge;
         if (heIdx != HE_NONE) {
           uint16_t start = heIdx;
-          int safety = 0;
           do {
             HalfEdge &currHe = heMesh.halfEdges[heIdx];
             if (currHe.prev == HE_NONE)
@@ -828,8 +813,7 @@ FLASHMEM static PolyMesh canonicalize(const PolyMesh &mesh, Arena &target, Arena
                 heMesh.halfEdges[currHe.next].pair == HE_NONE)
               break;
             heIdx = heMesh.halfEdges[currHe.next].pair;
-            safety++;
-          } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+          } while (heIdx != HE_NONE && heIdx != start);
         }
         movements[i] = force;
       }
@@ -890,7 +874,6 @@ FLASHMEM static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
 
       out_mesh.face_counts.push_back(count);
       heIdx = start;
-      int safety = 0;
       if (heIdx != HE_NONE) {
         do {
           Vector v = mesh.vertices[heMesh.halfEdges[heIdx].vertex];
@@ -909,8 +892,7 @@ FLASHMEM static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
           out_mesh.faces.push_back(idx);
 
           heIdx = heMesh.halfEdges[heIdx].next;
-          safety++;
-        } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+        } while (heIdx != HE_NONE && heIdx != start);
       }
     }
 
@@ -930,7 +912,6 @@ FLASHMEM static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
 
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
-      int safety = 0;
       int count = 0;
       uint16_t local_face[100];
 
@@ -944,8 +925,7 @@ FLASHMEM static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
         if (currHe.pair == HE_NONE)
           break;
         currIdx = heMesh.halfEdges[currHe.pair].next;
-        safety++;
-      } while (currIdx != HE_NONE && currIdx != startOrbit && safety < 100);
+      } while (currIdx != HE_NONE && currIdx != startOrbit);
 
       if (count >= 3) {
         out_mesh.face_counts.push_back(count);
@@ -1033,7 +1013,6 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
 
   Vector A = closestVertexPos;
   uint16_t start = heIdx;
-  int safety = 0;
 
   do {
     HalfEdge &currHe = heMesh.halfEdges[heIdx];
@@ -1065,8 +1044,7 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
     if (currHe.pair == HE_NONE)
       break;
     heIdx = heMesh.halfEdges[currHe.pair].next;
-    safety++;
-  } while (heIdx != HE_NONE && heIdx != start && safety < 100);
+  } while (heIdx != HE_NONE && heIdx != start);
 
   return bestPoint;
 }
