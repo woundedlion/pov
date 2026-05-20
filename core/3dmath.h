@@ -210,8 +210,8 @@ struct Vector {
  * @brief Constructs a Spherical coordinate from a 3D Vector.
  * @param v The Cartesian vector.
  */
-// Fast atan2: Maximum error ~0.0015 radians (~0.08 degrees)
-// Moved from util.h so all fast trig lives in 3dmath.h
+// Fast atan2: 0.273-Hastings polynomial. Peak abs error ~0.0038 rad (~0.22°)
+// measured over a dense sweep; worst near r ~= 0.7 in each octant.
 inline float fast_atan2(float y, float x) {
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
@@ -826,8 +826,8 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   return make_rotation(axis, angle);
 }
 
-// Maximum error ~0.0005 radians (~0.03 degrees).
 // Abramowitz & Stegun polynomial approximation for acos(x), x in [-1, 1].
+// Peak abs error ~1.3e-4 rad (~0.0072°) measured over a dense sweep.
 inline float fast_acos(float x) {
   float ax = std::abs(x);
   if (ax > 1.0f)
