@@ -484,12 +484,39 @@ struct MeshOpsWrapper {
         MeshOps::bitruncate(mesh, tooling_scratch_a, tooling_scratch_b, t),
         tooling_arena));
   }
-  std::unique_ptr<MeshOpsWrapper> canonicalize(int iterations) const {
+  std::unique_ptr<MeshOpsWrapper> meta() const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::canonicalize(mesh, tooling_scratch_a, tooling_scratch_b,
-                              iterations),
+        MeshOps::meta(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
+  }
+  std::unique_ptr<MeshOpsWrapper> needle() const {
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::needle(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
+  }
+  std::unique_ptr<MeshOpsWrapper> zip() const {
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::zip(mesh, tooling_scratch_a, tooling_scratch_b),
+        tooling_arena));
+  }
+  std::unique_ptr<MeshOpsWrapper> bevel(float t) const {
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::bevel(mesh, tooling_scratch_a, tooling_scratch_b, t),
+        tooling_arena));
+  }
+  std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
+    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
+        MeshOps::relax(mesh, tooling_scratch_a, tooling_scratch_b, iterations),
         tooling_arena));
   }
   static val getRegistry() {
@@ -610,7 +637,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("bitruncate", &MeshOpsWrapper::bitruncate)
       .function("expand", &MeshOpsWrapper::expand)
       .function("hankin", &MeshOpsWrapper::hankin_rad)
-      .function("canonicalize", &MeshOpsWrapper::canonicalize);
+      .function("meta", &MeshOpsWrapper::meta)
+      .function("needle", &MeshOpsWrapper::needle)
+      .function("zip", &MeshOpsWrapper::zip)
+      .function("bevel", &MeshOpsWrapper::bevel)
+      .function("relax", &MeshOpsWrapper::relax);
 
   register_vector<float>("VectorFloat");
   register_vector<int>("VectorInt");

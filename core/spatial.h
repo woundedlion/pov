@@ -124,8 +124,9 @@ public:
   KDTree() = default;
 
   // Build from a Span of vectors, using arena for node storage and temporary
-  // index sorting
-  KDTree(Arena &arena, std::span<Vector> points) {
+  // index sorting. Accepts std::span<const Vector> so callers don't have to
+  // const_cast read-only vertex arrays.
+  KDTree(Arena &arena, std::span<const Vector> points) {
     clear();
     if (points.empty())
       return;
@@ -209,7 +210,7 @@ public:
   }
 
 private:
-  int build(std::span<Vector> points, int *indices, int count, int depth) {
+  int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1;
     if (nodeCount >= nodes.capacity())

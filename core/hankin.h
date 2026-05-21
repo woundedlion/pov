@@ -169,11 +169,16 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
     bool *visitedVerts = static_cast<bool *>(
         temp_arena.allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visitedVerts, V, false);
+
+    // Per-orbit scratch buffer sized to the absolute upper bound on valence
+    // (= total half-edges). Replaces a fixed `face_indices[100]` stack array
+    // that silently truncated high-valence orbits.
+    int16_t *face_indices = static_cast<int16_t *>(
+        temp_arena.allocate(2 * I * sizeof(int16_t), alignof(int16_t)));
+
     for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
-      HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
-      if (heStart.prev == HE_NONE)
-        continue;
+      const HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
       uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
       if (visitedVerts[originIdx])
         continue;
@@ -182,20 +187,19 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       uint16_t currIdx = heStartIdx;
       uint16_t startOrbit = currIdx;
       int count = 0;
-      int16_t face_indices[100];
 
       do {
-        HalfEdge &currHe = heMesh.halfEdges[currIdx];
-        if (count < 100)
-          face_indices[count++] = heToMidpointIdx[currIdx];
+        const HalfEdge &currHe = heMesh.halfEdges[currIdx];
+        assert(count < (int)(2 * I));
+        face_indices[count++] = heToMidpointIdx[currIdx];
         uint16_t nextEdgeIdx = currHe.pair != HE_NONE
                                    ? heMesh.halfEdges[currHe.pair].next
                                    : HE_NONE;
         if (nextEdgeIdx == HE_NONE)
           break;
-        if (count < 100)
-          face_indices[count++] =
-              compiled.staticOffset + heToDynamicIdx[nextEdgeIdx];
+        assert(count < (int)(2 * I));
+        face_indices[count++] =
+            compiled.staticOffset + heToDynamicIdx[nextEdgeIdx];
         currIdx = nextEdgeIdx;
       } while (currIdx != HE_NONE && currIdx != startOrbit);
 
@@ -213,7 +217,7 @@ template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
 
-  bool is_flat = std::abs(angle) < 1e-4f;
+  bool is_flat = std::abs(angle) < math::TOLERANCE;
 
   // Precompute half-angle trig: one cosf + sinf instead of 2N
   float cos_ha = cosf(angle * 0.5f);
@@ -236,7 +240,8 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector cross1 = cross(pPrev, pCorner);
     Vector cross2 = cross(pCorner, pNext);
 
-    if (dot(cross1, cross1) < 1e-8f || dot(cross2, cross2) < 1e-8f) {
+    if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
+        dot(cross2, cross2) < math::EPS_CROSS_SQ) {
       compiled.dynamicVertices[i] = pCorner.normalized();
       continue; // zero length edge
     }
@@ -253,7 +258,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
     Vector intersect = cross(nHankin1, nHankin2);
     float lenSq = dot(intersect, intersect);
-    if (lenSq < 1e-6f)
+    if (lenSq < math::EPS_LEN_SQ)
       intersect = (m1 + m2).normalized();
     if (dot(intersect, pCorner) < 0)
       intersect = -intersect;

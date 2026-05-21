@@ -918,7 +918,7 @@ The mesh system is split across several files:
 
 #### Conway Operators (`conway.h`)
 
-All Conway operators take explicit `(const PolyMesh& mesh, Arena& target, Arena& temp)` parameters. They produce their result into `target` and use `temp` for intermediate computation:
+All Conway operators are templated on input mesh type and take `(const MeshT& mesh, Arena& target, Arena& temp)`. They produce a `PolyMesh` into `target` and use `temp` for intermediate computation. `MeshT` can be either `PolyMesh` or `MeshState`:
 
 | Operation | Description |
 |---|---|
@@ -930,9 +930,13 @@ All Conway operators take explicit `(const PolyMesh& mesh, Arena& target, Arena&
 | `MeshOps::expand` | Separate faces (ambo of ambo) |
 | `MeshOps::chamfer` | Bevel edges (hexagonal expansion) |
 | `MeshOps::bitruncate` | Truncate the rectified mesh |
-| `MeshOps::snub` | Chiral semi-regular polyhedron with twist |
-| `MeshOps::gyro` | Gyro operator |
-| `MeshOps::canonicalize` | Iterative canonicalization |
+| `MeshOps::snub` | Chiral semi-regular polyhedron with twist (Newell-method face normals) |
+| `MeshOps::gyro` | Gyro operator (= dual ∘ snub) |
+| `MeshOps::meta` | Meta operator = kis ∘ ambo |
+| `MeshOps::needle` | Needle operator = kis ∘ dual |
+| `MeshOps::zip` | Zip operator = dual ∘ kis |
+| `MeshOps::bevel` | Bevel operator = truncate ∘ ambo |
+| `MeshOps::relax` | Edge-length relaxation by spring forces on the unit sphere — NOT canonical-form computation (which requires midsphere tangency + planarization + centroid); renamed from `canonicalize` to be honest about what it does. |
 | `MeshOps::normalize` | Project all vertices onto the unit sphere |
 | `MeshOps::compute_kdtree` | Build a KDTree for nearest-neighbor queries on mesh vertices |
 | `MeshOps::closest_point_on_mesh_graph` | Find the closest point on a mesh edge graph |

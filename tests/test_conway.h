@@ -363,24 +363,68 @@ inline void test_chamfer_cube() {
 }
 
 // ---------------------------------------------------------------------------
-// canonicalize — relaxation, output must keep the same topology and all
-// vertices remain on the unit sphere.
+// relax — spring-based edge-length relaxation on the unit sphere. Output
+// must keep the same topology and all vertices must remain on the sphere.
+// (Renamed from `canonicalize` — see core/conway.h docstring for why.)
 // ---------------------------------------------------------------------------
 
-inline void test_canonicalize_preserves_topology() {
+inline void test_relax_preserves_topology() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
 
   PolyMesh cube;
   build_solid<Solids::Cube>(cube, temp);
 
-  PolyMesh c = MeshOps::canonicalize(cube, target, temp, /*iterations*/ 3);
+  PolyMesh c = MeshOps::relax(cube, target, temp, /*iterations*/ 3);
 
   HS_EXPECT_EQ(c.vertices.size(), cube.vertices.size());
   HS_EXPECT_EQ(c.face_counts.size(), cube.face_counts.size());
   HS_EXPECT_EQ(c.faces.size(), cube.faces.size());
   check_all_unit_vertices(c);
   check_consistent_winding(c);
+}
+
+// ---------------------------------------------------------------------------
+// Compositional + standalone operators added alongside the originals.
+// We only check structural invariants — exact topology counts for
+// compositions like meta/needle/zip/bevel are derived from their primitive
+// definitions and would just duplicate the test for the primitives.
+// ---------------------------------------------------------------------------
+
+inline void test_meta_cube() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  PolyMesh m = MeshOps::meta(cube, target, temp);
+  check_basic_invariants(m);
+}
+
+inline void test_needle_cube() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  PolyMesh n = MeshOps::needle(cube, target, temp);
+  check_basic_invariants(n);
+}
+
+inline void test_zip_cube() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  PolyMesh z = MeshOps::zip(cube, target, temp);
+  check_basic_invariants(z);
+}
+
+inline void test_bevel_cube() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  PolyMesh b = MeshOps::bevel(cube, target, temp);
+  check_basic_invariants(b);
 }
 
 // ---------------------------------------------------------------------------
@@ -475,7 +519,11 @@ inline int run_conway_tests() {
   test_truncate_t_half_is_ambo();
   test_expand_cube();
   test_chamfer_cube();
-  test_canonicalize_preserves_topology();
+  test_relax_preserves_topology();
+  test_meta_cube();
+  test_needle_cube();
+  test_zip_cube();
+  test_bevel_cube();
   test_snub_cube_is_well_formed();
   test_transform_applies_translation_chain();
   test_face_centroid_for_cube_top_face();

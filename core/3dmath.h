@@ -23,10 +23,26 @@ static constexpr float PHI = 1.6180339887498948482045868343656f;
  */
 static constexpr float G = 1 / PHI;
 /**
- * @brief Tolerance used for floating-point comparisons.
+ * @brief Named tolerances for floating-point geometry comparisons.
+ *
+ * Use these named constants instead of ad-hoc literals so that
+ * tolerance decisions are reviewed in one place. The naming reflects
+ * what is being compared, not the magnitude:
+ *
+ *   EPS_UNIT       — unit-vector length test (1e-3f)
+ *   TOLERANCE      — generic float compare (1e-4f, formerly the only one)
+ *   EPS_GEOMETRIC  — geometric near-equality (positions, angles) (1e-5f)
+ *   EPS_LEN_SQ     — degenerate squared edge length (1e-6f)
+ *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared) (1e-8f)
+ *   EPS_NORMAL_SQ  — degenerate face normal (squared) (1e-9f)
  */
 namespace math {
-static constexpr float TOLERANCE = 0.0001f;
+static constexpr float EPS_UNIT       = 1e-3f;
+static constexpr float TOLERANCE      = 1e-4f;
+static constexpr float EPS_GEOMETRIC  = 1e-5f;
+static constexpr float EPS_LEN_SQ     = 1e-6f;
+static constexpr float EPS_CROSS_SQ   = 1e-8f;
+static constexpr float EPS_NORMAL_SQ  = 1e-9f;
 }
 // Back-compat alias — prefer math::TOLERANCE in new code.
 static constexpr float TOLERANCE = math::TOLERANCE;
