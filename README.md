@@ -1209,150 +1209,273 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
 
 ### Core Effects (Modern Engine)
 
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/BZReactionDiffusion.png" alt="BZReactionDiffusion" width="280"></td>
+<td valign="top">
+
 #### BZReactionDiffusion
-<img src="docs/screenshots/BZReactionDiffusion.png" alt="BZReactionDiffusion" width="280" align="right">
 
 Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph (`ReactionGraph`: 7680 nodes, 6 neighbors each, precomputed Fibonacci lattice) with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
 
 **Parameters**: Alpha (color intensity), Diff (diffusion rate), Speed (time step), GlobalAlpha
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/GSReactionDiffusion.png" alt="GSReactionDiffusion" width="280"></td>
+<td valign="top">
+
 #### GSReactionDiffusion
-<img src="docs/screenshots/GSReactionDiffusion.png" alt="GSReactionDiffusion" width="280" align="right">
 
 Gray-Scott reaction-diffusion system (U + 2V → 3V, V → P) on a spherical mesh. Produces spots, stripes, and labyrinthine patterns depending on feed/kill rates.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/HopfFibration.png" alt="HopfFibration" width="280"></td>
+<td valign="top">
+
 #### HopfFibration
-<img src="docs/screenshots/HopfFibration.png" alt="HopfFibration" width="280" align="right">
 
 Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base space) are lifted to fibers on S³ via the quaternion parameterization `q = [cos(η)cos(φ+β), cos(η)sin(φ+β), sin(η)cos(β), sin(η)sin(β)]`, then stereographically projected back to S³ and plotted on the sphere. A 4D tumble (R_xw × R_yz rotation) continuously rotates the fibration.
 
 **Parameters**: Flow Spd, Tumble Spd, Folding, Twist, Alpha
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/IslamicStars.png" alt="IslamicStars" width="280"></td>
+<td valign="top">
+
 #### IslamicStars
-<img src="docs/screenshots/IslamicStars.png" alt="IslamicStars" width="280" align="right">
 
 Procedurally generates authentic Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.). Ripple waves periodically distort the geometry.
 
 **Parameters**: Duration, Ripp Amp, Ripp Width, Ripp Decay, Ripp Dur
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/HankinSolids.png" alt="HankinSolids" width="280"></td>
+<td valign="top">
+
 #### HankinSolids
-<img src="docs/screenshots/HankinSolids.png" alt="HankinSolids" width="280" align="right">
 
 Similar to IslamicStars but sequences through the full Archimedean solid library with animated palette transitions.
 
+</td></tr></table>
 
+
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/SphericalHarmonics.png" alt="SphericalHarmonics" width="280"></td>
+<td valign="top">
 
 #### SphericalHarmonics
-<img src="docs/screenshots/SphericalHarmonics.png" alt="SphericalHarmonics" width="280" align="right">
 
 Renders the real spherical harmonics Yˡₘ(θ, φ) as SDF `HarmonicBlob` shapes. The harmonic defines a lobe-radius function that deforms a unit sphere surface. Animates through different (l, m) combinations.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Metaballs.png" alt="Metaballs" width="280"></td>
+<td valign="top">
+
 #### Metaballs
-<img src="docs/screenshots/Metaballs.png" alt="Metaballs" width="280" align="right">
 
 Spherical metaballs: N point-sources on the sphere whose implicit field functions sum and threshold into a rendered surface.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/MobiusGrid.png" alt="MobiusGrid" width="280"></td>
+<td valign="top">
+
 #### MobiusGrid
-<img src="docs/screenshots/MobiusGrid.png" alt="MobiusGrid" width="280" align="right">
 
 A latitude-longitude grid that undergoes live Möbius transformation animation via `MobiusWarpCircularTransformer`.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Moire.png" alt="Moire" width="280"></td>
+<td valign="top">
+
 #### Moire
-<img src="docs/screenshots/Moire.png" alt="Moire" width="280" align="right">
 
 Overlapping ring families that produce interference patterns as their angular frequencies slowly drift.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/FlowField.png" alt="FlowField" width="280"></td>
+<td valign="top">
+
 #### FlowField
-<img src="docs/screenshots/FlowField.png" alt="FlowField" width="280" align="right">
 
 FastNoiseLite-driven curl flow field. Particles follow the gradient of a 3D noise function mapped onto the sphere.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Voronoi.png" alt="Voronoi" width="280"></td>
+<td valign="top">
+
 #### Voronoi
-<img src="docs/screenshots/Voronoi.png" alt="Voronoi" width="280" align="right">
 
 Spherical Voronoi diagram with animated seed positions. Cell boundaries are drawn as geodesic edges; cells are optionally filled.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/PetalFlow.png" alt="PetalFlow" width="280"></td>
+<td valign="top">
+
 #### PetalFlow
-<img src="docs/screenshots/PetalFlow.png" alt="PetalFlow" width="280" align="right">
 
 Flowers constructed from distorted ring SDFs whose radii oscillate via sine waves.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/DreamBalls.png" alt="DreamBalls" width="280"></td>
+<td valign="top">
+
 #### DreamBalls
-<img src="docs/screenshots/DreamBalls.png" alt="DreamBalls" width="280" align="right">
 
 Draws twisting wireframe knotted structures derived from Archimedean solids. Mesh vertices are displaced along per-vertex tangent frames to create orbiting knot patterns, and a Möbius warp is applied to the geometry. Multiple copies orbit simultaneously with animated `OrientSlice` hemisphere rotation effects.
 
 **Parameters**: Copies (number of knot copies), Radius (displacement), Speed (orbit speed), Warp (Möbius warp scale), Alpha
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Comets.png" alt="Comets" width="280"></td>
+<td valign="top">
+
 #### Comets
-<img src="docs/screenshots/Comets.png" alt="Comets" width="280" align="right">
 
 Particles with long orientation-trail-based tails, launched in bursts and influenced by rotational gravity.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/RingSpin.png" alt="RingSpin" width="280"></td>
+<td valign="top">
+
 #### RingSpin / RingShower
-<img src="docs/screenshots/RingSpin.png" alt="RingSpin" width="280" align="right">
 
 Animated concentric ring patterns using `Scan::Ring` with per-ring phase offsets.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/ChaoticStrings.png" alt="ChaoticStrings" width="280"></td>
+<td valign="top">
+
 #### ChaoticStrings
-<img src="docs/screenshots/ChaoticStrings.png" alt="ChaoticStrings" width="280" align="right">
 
 Lissajous curves whose frequency ratios slowly sweep through rational approximations, transitioning between closed figures and dense space-filling curves.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/MeshFeedback.png" alt="MeshFeedback" width="280"></td>
+<td valign="top">
+
 #### MeshFeedback
-<img src="docs/screenshots/MeshFeedback.png" alt="MeshFeedback" width="280" align="right">
 
 Catalan solid mesh faces rendered with `Scan::Mesh`, distorted by a `NoiseTransformer` and given a feedback-loop appearance via `Filter::Pixel::Feedback`. Cycles through the Catalan solid library with crossfade morphing between shapes using `Animation::Lerp` and the `Presets` system.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Liquid2D.png" alt="Liquid2D" width="280"></td>
+<td valign="top">
+
 #### Liquid2D
-<img src="docs/screenshots/Liquid2D.png" alt="Liquid2D" width="280" align="right">
 
 Stereographic-projection shader (extends `Effect` directly) that samples world-space through a configurable glitch lens (hemisphere mirror + squish/warp). Dual random-walk orientations animate the view and global rotation independently, producing flowing liquid distortion. Uses `Scan::Shader::draw` for full-screen pixel shading and `StaticPalette` with a `BreatheModifier` for animated palette cycling.
 
 **Parameters**: Warp Scale, Warp Strength, Pattern Freq, Time Speed, Complexity, Pole Fade, Cycle Speed
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/MindSplatter.png" alt="MindSplatter" width="280"></td>
+<td valign="top">
+
 #### MindSplatter
-<img src="docs/screenshots/MindSplatter.png" alt="MindSplatter" width="280" align="right">
 
 Random-walk particle system with Möbius warp bursts.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Dynamo.png" alt="Dynamo" width="280"></td>
+<td valign="top">
+
 #### Dynamo
-<img src="docs/screenshots/Dynamo.png" alt="Dynamo" width="280" align="right">
 
 Rotating ring-pair patterns whose axes precess relative to each other.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Thrusters.png" alt="Thrusters" width="280"></td>
+<td valign="top">
+
 #### Thrusters
-<img src="docs/screenshots/Thrusters.png" alt="Thrusters" width="280" align="right">
 
 Directional particle jets.
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/GnomonicStars.png" alt="GnomonicStars" width="280"></td>
+<td valign="top">
+
 #### GnomonicStars
-<img src="docs/screenshots/GnomonicStars.png" alt="GnomonicStars" width="280" align="right">
 
 Star polygon SDFs that rotate continuously. Uses gnomonic projection (straight lines on sphere remain straight).
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Raymarch.png" alt="Raymarch" width="280"></td>
+<td valign="top">
+
 #### Raymarch
-<img src="docs/screenshots/Raymarch.png" alt="Raymarch" width="280" align="right">
 
 Volumetric raymarcher that renders twisted tori at the 20 vertices of a dodecahedron. Each torus is ray-marched with `Scan::Volume::draw` and lit with metallic Blinn-Phong shading (half-Lambert diffuse, specular highlights, Fresnel rim). A random-walk animation drives the camera orientation.
 
 **Parameters**: Pulse Speed, Core Size, Max Steps, Diffuse, Specular, Fresnel, Twist, AA Width
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/Flyby.png" alt="Flyby" width="280"></td>
+<td valign="top">
+
 #### Flyby
-<img src="docs/screenshots/Flyby.png" alt="Flyby" width="280" align="right">
 
 Stereographic-projection shader (extends `Effect` directly) with noise-driven warp distortion. A single `Rotation` animation continuously rotates the tangent plane around the Y-axis, producing a fly-through effect on the sphere surface. Uses `Scan::Shader::draw` for full-screen pixel shading with a baked palette.
 
 **Parameters**: Warp Scale, Warp Strength, Pattern Freq, Speed, Pole Fade, Falloff, Drift, Hue Shift
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/SplineFlow.png" alt="SplineFlow" width="280"></td>
+<td valign="top">
+
 #### SplineFlow
-<img src="docs/screenshots/SplineFlow.png" alt="SplineFlow" width="280" align="right">
 
 Catmull-Rom spline curves whose control points drift via independent random walks. Drawn with `Plot::SplineChain` in closed-loop mode through `World::Trails` for persistent trails, producing flowing organic ribbon paths.
 
 **Parameters**: Tension, Speed, Drift, Num Pts, Alpha
 
-<br clear="all">
+</td></tr></table>
 
 ### Legacy Effects (`effects_legacy.h`)
 
