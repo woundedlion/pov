@@ -22,7 +22,7 @@ public:
         palette(Palettes::peachPop),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
-                Feedback::Filter<W, H>(style)) {}
+                Filter::Pixel::Feedback<W, H>(style)) {}
 
   void init() override {
     // Bind mutable state into all presets
@@ -134,7 +134,7 @@ private:
 
   void apply_params() {
     style.sync_noise();
-    filters.template get<Feedback::Filter<W, H>>().set_enabled(
+    filters.template get<Filter::Pixel::Feedback<W, H>>().set_enabled(
         feedback_enabled);
   }
 
@@ -173,7 +173,7 @@ private:
       }};
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
-           Feedback::Filter<W, H>>
+           Filter::Pixel::Feedback<W, H>>
       filters;
 };
 

@@ -18,6 +18,9 @@
 #include "static_circular_buffer.h"
 #include "canvas.h"
 #include "concepts.h"
+#include "memory.h"
+#include "styles.h"
+#include "memory.h"
 
 using PassFn2D =
     FunctionRef<void(float, float, const Pixel &, float, float)>;
@@ -158,7 +161,7 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
     }
   }
 
-  // 2D Plot (Int) - useful for Scan
+  // 2D Plot (Int)
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
     plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
   }
@@ -627,66 +630,106 @@ private:
 namespace Pixel {
 
 /**
- * @brief Identity color transform: applies fade via scalar multiply.
- * Default functor for Feedback — preserves original behavior.
+ * @brief Style-aware feedback filter. Takes a `::Feedback::Style&` directly —
+ * drop-in pipeline filter. The Style's spatial transform (noise, melt, etc.)
+ * is smooth and expensive (noise + atan2 + acos per call), so the warp field
+ * is computed on a coarse W/DS x H/DS grid (allocated from scratch_arena_a
+ * per flush) and bilinearly upsampled. DS is read from style.downsample.
+ *
+ * Operates on the full canvas during flush() (integer coordinates, reads
+ * cv.prev) — this is a pixel-space filter despite the 2D trait.
+ *
+ * Usage:
+ *   ::Feedback::Style style = ::Feedback::Style::Smoke();
+ *   Pipeline<W, H, ..., Filter::Pixel::Feedback<W, H>> filters(
+ *       ..., Filter::Pixel::Feedback<W, H>(style));
  */
-struct IdentityColorTransform {
-  ::Pixel operator()(const ::Pixel& p, float fade) const {
-    return p * fade;
-  }
-};
-
-/**
- * @brief ::Pixel-space feedback filter (stateless).
- * Creates infinite trails and "watery" distortion by sampling the
- * previous frame from the Canvas front buffer with bilinear interpolation,
- * applying spatial distortion and fade, then blending into the back buffer.
- * Uses Canvas double-buffering — no internal frame storage needed.
- */
-template <int W, int H, typename SpaceTransformFn,
-          typename ColorTransformFn = IdentityColorTransform>
+template <int W, int H>
 class Feedback : public Is2DWithHistory {
 public:
-  Feedback(SpaceTransformFn transform_fn, float fade = 0.95f,
-           ColorTransformFn color_fn = ColorTransformFn{})
-      : transform_fn(transform_fn), color_fn(color_fn), fade(fade) {}
+  explicit Feedback(::Feedback::Style &style) : style_(&style) {}
 
-  void set_fade(float f) { fade = f; }
-  void set_transform(SpaceTransformFn fn) { transform_fn = fn; }
-  void set_color_fn(ColorTransformFn fn) { color_fn = fn; }
-
-  /// Pass-through: current-frame pixels go straight to the canvas sink.
+  /// Pass-through: current-frame pixels go straight to next filter.
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFn2D pass) {
     pass(x, y, color, age, alpha);
   }
 
-  /// Blend distorted previous frame (front buffer) into current frame (back
-  /// buffer).
+  /// Blend distorted previous frame into current frame via the Style's transforms.
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
-    // Scan prev buffer row activity for early-out optimizations
-    scan_row_active(cv);
+    if (!enabled_) return;
 
-    // Full-frame skip: if entire prev buffer is black, nothing to sample
+    const int ds = style_->downsample;
+    if (ds <= 0 || W % ds != 0 || H % ds != 0) return;
+    const int hw = W / ds;
+    const int hh = H / ds;
+
+    scan_row_active(cv);
     if (is_frame_empty()) return;
 
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        // Project 2D pixel to 3D sphere
-        Vector v = pixel_to_vector<W, H>(x, y);
+    // Allocate coarse warp deltas (signed 8.8 fixed-point) from scratch.
+    ScratchScope scope(scratch_arena_a);
+    auto *dx = static_cast<int16_t *>(scope.get_arena().allocate(
+        hh * hw * sizeof(int16_t), alignof(int16_t)));
+    auto *dy = static_cast<int16_t *>(scope.get_arena().allocate(
+        hh * hw * sizeof(int16_t), alignof(int16_t)));
+    if (!dx || !dy) return; // OOM — skip this frame's feedback
 
-        // Apply 3D spatial transformation (e.g., NoiseTransformer)
-        Vector v_dist = transform_fn(v);
-
-        // Map back to continuous 2D coordinates
+    // 1) Populate coarse warp field. Delta encoding keeps the bilerp safe
+    //    across the longitude seam — neighbouring absolute bx values can
+    //    straddle x=W ↔ x=0, but their deltas are continuous.
+    constexpr float Q = 256.0f;
+    for (int cy = 0; cy < hh; ++cy) {
+      int y = cy * ds;
+      for (int cx = 0; cx < hw; ++cx) {
+        int x = cx * ds;
+        Vector v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
         Spherical s(v_dist);
         float bx = (s.theta * W) / (2.0f * PI_F);
         float by = phi_to_y<H>(s.phi);
+        float ddx = bx - x;
+        float ddy = by - y;
+        if (ddx > W * 0.5f)       ddx -= W;
+        else if (ddx < -W * 0.5f) ddx += W;
+        dx[cy * hw + cx] = static_cast<int16_t>(
+            hs::clamp(ddx * Q, -32767.0f, 32767.0f));
+        dy[cy * hw + cx] = static_cast<int16_t>(
+            hs::clamp(ddy * Q, -32767.0f, 32767.0f));
+      }
+    }
 
-        // Sample previous frame with bilinear interpolation and fade
-        ::Pixel p = color_fn(sample_bilinear_prev(cv, bx, by), fade);
+    // 2) Sample at full res, bilerping the coarse warp field per pixel.
+    constexpr float INV_Q = 1.0f / Q;
+    const float inv_ds = 1.0f / ds;
+    const float fade = style_->fade;
+    for (int y = 0; y < H; ++y) {
+      int cy0 = y / ds;
+      int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
+      float fy = (y - cy0 * ds) * inv_ds;
+      float wy0 = 1.0f - fy, wy1 = fy;
 
-        // Blend into back buffer
+      for (int x = 0; x < W; ++x) {
+        int cx0 = x / ds;
+        int cx1 = (cx0 + 1) % hw;
+        float fx = (x - cx0 * ds) * inv_ds;
+        float wx0 = 1.0f - fx, wx1 = fx;
+
+        int i00 = cy0 * hw + cx0;
+        int i10 = cy0 * hw + cx1;
+        int i01 = cy1 * hw + cx0;
+        int i11 = cy1 * hw + cx1;
+
+        float w00 = wx0 * wy0, w10 = wx1 * wy0;
+        float w01 = wx0 * wy1, w11 = wx1 * wy1;
+
+        float ddx = (dx[i00] * w00 + dx[i10] * w10
+                   + dx[i01] * w01 + dx[i11] * w11) * INV_Q;
+        float ddy = (dy[i00] * w00 + dy[i10] * w10
+                   + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
+
+        ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
+        ::Pixel p = style_->color_fn(sample, fade, *style_);
+
         if (p.r | p.g | p.b) {
           int xi = fast_wrap(x, W);
           if (y >= 0 && y < cv.height()) {
@@ -696,6 +739,13 @@ public:
       }
     }
   }
+
+  /// Enable/disable feedback (disabled = skip flush entirely).
+  void set_enabled(bool e) { enabled_ = e; }
+
+  /// Access the bound Style.
+  ::Feedback::Style &style() { return *style_; }
+  const ::Feedback::Style &style() const { return *style_; }
 
 private:
   // --- Row-active bitmask for read-side optimizations ---
@@ -707,7 +757,7 @@ private:
   }
 
   /// Scan the previous frame buffer and set one bit per row that has
-  /// at least one non-black pixel. O(W×H) loads, zero math.
+  /// at least one non-black pixel.
   void scan_row_active(const Canvas &cv) {
     std::memset(row_active_, 0, ROW_BITMASK_SIZE);
     for (int y = 0; y < H; ++y) {
@@ -715,13 +765,12 @@ private:
         ::Pixel p = cv.prev(x, y);
         if (p.r | p.g | p.b) {
           row_active_[y >> 3] |= (1 << (y & 7));
-          break; // one hit is enough for row
+          break;
         }
       }
     }
   }
 
-  /// Check if the entire prev frame is empty (all row bits zero).
   bool is_frame_empty() const {
     for (int i = 0; i < ROW_BITMASK_SIZE; ++i) {
       if (row_active_[i]) return false;
@@ -736,7 +785,6 @@ private:
     int y0 = static_cast<int>(fy0);
     int y1 = y0 + 1;
 
-    // Early-out: if both source rows are inactive, result is black
     bool r0_active = (y0 >= 0 && y0 < H) && is_row_active(row_active_, y0);
     bool r1_active = (y1 >= 0 && y1 < H) && is_row_active(row_active_, y1);
     if (!r0_active && !r1_active) return ::Pixel(0, 0, 0);
@@ -745,21 +793,13 @@ private:
     int x0 = static_cast<int>(fx0);
     float fx = bx - fx0;
     float fy = by - fy0;
-
     int x1 = x0 + 1;
 
-    // Safe wrapping for X (cylindrical)
-    if (x0 < 0)
-      x0 = W - 1 - ((-x0 - 1) % W);
-    else if (x0 >= W)
-      x0 %= W;
+    if (x0 < 0)       x0 = W - 1 - ((-x0 - 1) % W);
+    else if (x0 >= W) x0 %= W;
+    if (x1 < 0)       x1 = W - 1 - ((-x1 - 1) % W);
+    else if (x1 >= W) x1 %= W;
 
-    if (x1 < 0)
-      x1 = W - 1 - ((-x1 - 1) % W);
-    else if (x1 >= W)
-      x1 %= W;
-
-    // Read from front buffer; black if out-of-bounds Y
     ::Pixel p00 = (y0 >= 0 && y0 < H) ? cv.prev(x0, y0) : ::Pixel(0, 0, 0);
     ::Pixel p10 = (y0 >= 0 && y0 < H) ? cv.prev(x1, y0) : ::Pixel(0, 0, 0);
     ::Pixel p01 = (y1 >= 0 && y1 < H) ? cv.prev(x0, y1) : ::Pixel(0, 0, 0);
@@ -774,13 +814,11 @@ private:
     result += (p10 * w10);
     result += (p01 * w01);
     result += (p11 * w11);
-
     return result;
   }
 
-  SpaceTransformFn transform_fn;
-  ColorTransformFn color_fn;
-  float fade;
+  ::Feedback::Style *style_;
+  bool enabled_ = true;
 };
 
 template <int W> class ChromaticShift : public Is2D {
@@ -813,4 +851,5 @@ public:
 } // namespace Pixel
 
 } // namespace Filter
+
 #endif // HOLOSPHERE_CORE_FILTER_H_

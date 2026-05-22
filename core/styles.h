@@ -8,7 +8,6 @@
 
 #include "transformers.h"
 #include "color.h"
-#include "filter.h"
 
 /**
  * @brief Named feedback presets that bundle spatial/color transforms with
@@ -62,6 +61,14 @@ struct Style {
   SpaceFn space_fn = &noise_warp;
   ColorFn color_fn = &hue_fade;
 
+  // --- Filter tuning (snap during lerp) ---
+  /// Coarse-grid downsample factor for the warp field. Higher = cheaper
+  /// (~DS^2 fewer space_fn / atan2 / acos calls) but loses detail in
+  /// high-frequency warps. Pick smaller values (2) for sharp noise,
+  /// larger (8) for slow swirling warps. Scratch arena must hold
+  /// (W/DS) * (H/DS) * 4 bytes — at 288x144, DS=4 ≈ 10KB, DS=2 ≈ 41KB.
+  int downsample = 4;
+
   // --- Bound state (set by effect at init, NOT part of presets) ---
   NoiseParams *noise = nullptr;
 
@@ -72,9 +79,10 @@ struct Style {
     frequency = ::lerp(a.frequency, b.frequency, t);
     speed     = ::lerp(a.speed,     b.speed,     t);
     scale     = ::lerp(a.scale,     b.scale,     t);
-    // Function pointers snap at midpoint
-    space_fn = t < 0.5f ? a.space_fn : b.space_fn;
-    color_fn = t < 0.5f ? a.color_fn : b.color_fn;
+    // Function pointers and discrete tuning snap at midpoint
+    space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
+    color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;
+    downsample = t < 0.5f ? a.downsample : b.downsample;
     // Bound pointer preserved (not lerped)
     noise = a.noise;
   }
@@ -152,68 +160,6 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
   return hue_rotate(Color4(p * fade, 1.0f), s.hue_shift).color;
 }
-
-// --- Style-aware Feedback Filter ----------------------------------------------
-
-/// Internal adapters — bridge Style's function pointers to FunctionRef callables.
-struct SpaceAdapter_ {
-  const Style *s;
-  Vector operator()(const Vector &v) const { return s->space_fn(v, *s); }
-};
-
-struct ColorAdapter_ {
-  const Style *s;
-  Pixel operator()(const Pixel &p, float fade) const {
-    return s->color_fn(p, fade, *s);
-  }
-};
-
-/**
- * @brief Style-based Feedback filter. Takes a Style& directly — no template
- * params for transform types, no adapter boilerplate in effects.
- *
- * Usage:
- *   Feedback::Style style = Feedback::Style::Smoke();
- *   Pipeline<W, H, ..., Feedback::Filter<W, H>> filters(..., Feedback::Filter<W, H>(style));
- */
-template <int W, int H>
-class Filter : public Is2DWithHistory {
-  using Inner = ::Filter::Pixel::Feedback<W, H, SpaceAdapter_, ColorAdapter_>;
-
-public:
-  explicit Filter(Style &style)
-      : style_(&style),
-        inner_(SpaceAdapter_{&style}, style.fade, ColorAdapter_{&style}) {}
-
-  /// Pass-through: current-frame pixels go straight to next filter.
-  void plot(float x, float y, const ::Pixel &color, float age, float alpha,
-            PassFn2D pass) {
-    inner_.plot(x, y, color, age, alpha, pass);
-  }
-
-  /// Blend distorted previous frame into current frame via the Style's transforms.
-  void flush(Canvas &cv, const ScreenTrailFn &trail, float alpha,
-             PassFn2D pass) {
-    if (!enabled_) return;
-    // Sync fade and function pointers from the (possibly lerping) Style
-    inner_.set_fade(style_->fade);
-    inner_.set_transform(SpaceAdapter_{style_});
-    inner_.set_color_fn(ColorAdapter_{style_});
-    inner_.flush(cv, trail, alpha, pass);
-  }
-
-  /// Enable/disable feedback (disabled = skip flush entirely).
-  void set_enabled(bool e) { enabled_ = e; }
-
-  /// Access the bound Style.
-  Style &style() { return *style_; }
-  const Style &style() const { return *style_; }
-
-private:
-  Style *style_;
-  Inner inner_;
-  bool enabled_ = true;
-};
 
 } // namespace Feedback
 #endif // HOLOSPHERE_CORE_STYLES_H_

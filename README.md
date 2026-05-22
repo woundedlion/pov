@@ -1,5 +1,11 @@
 # Holosphere
 
+### [▶ Play with the live WebAssembly simulator](https://woundedlion.github.io/daydream/)
+
+<p align="center">
+  <img src="docs/screenshots/IslamicStars.png" alt="Holosphere — IslamicStars effect" width="640">
+</p>
+
 A persistence-of-vision (POV) LED sphere and its real-time simulator. The device spins a strip of LEDs at 480 RPM while a Teensy microcontroller fires pixels at microsecond intervals to paint full-color imagery on the surface of a virtual sphere. The simulator renders the same effects in a browser window at up to 288×144 resolution using the identical C++ code compiled to WebAssembly.
 
 ---
@@ -7,31 +13,31 @@ A persistence-of-vision (POV) LED sphere and its real-time simulator. The device
 ## Table of Contents
 
 1. [Hardware](#1-hardware)
-2. [Repository Map](#2-repository-map)
-3. [Architecture Overview](#3-architecture-overview)
-4. [Data Flow: Frame Lifecycle](#4-data-flow-frame-lifecycle)
-5. [The Rendering Pipeline](#5-the-rendering-pipeline)
+2. [Engineering Philosophies](#2-engineering-philosophies)
+3. [Repository Map](#3-repository-map)
+4. [Architecture Overview](#4-architecture-overview)
+5. [Data Flow: Frame Lifecycle](#5-data-flow-frame-lifecycle)
+6. [The Rendering Pipeline](#6-the-rendering-pipeline)
    - [End-to-End Flow](#end-to-end-flow)
    - [Pipeline Domain Transitions](#pipeline-domain-transitions)
    - [The Canvas](#the-canvas)
    - [The Filter Pipeline](#the-filter-pipeline)
-6. [Core Subsystems](#6-core-subsystems)
-   - [6.0 The Shader Interface](#60-the-shader-interface)
-   - [6.1 SDF Shapes and the Scan Rasterizer](#61-sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
-   - [6.2 The Curve Rasterizer](#62-the-curve-rasterizer-ploth)
-   - [6.3 The Animation System](#63-the-animation-system-animationh)
-   - [6.4 Geometry Transformers](#64-geometry-transformers-transformersh)
-   - [6.5 Memory Architecture](#65-memory-architecture-memoryh-memorycpp)
-   - [6.6 The Color System](#66-the-color-system-colorh)
-   - [6.7 The Mesh System](#67-the-mesh-system-meshh-conwayh-hankinh-spatialh-solidsh)
-   - [6.8 Generators](#68-generators-generatorsh)
-   - [6.9 The Preset System](#69-the-preset-system-presetsh)
-   - [6.10 Hardware Drivers](#610-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
-7. [The Effect System](#7-the-effect-system)
-8. [Effects Reference](#8-effects-reference)
-9. [The Web Simulator (Daydream)](#9-the-web-simulator-daydream)
-10. [Building](#10-building)
-11. [Design Notes](#11-design-notes)
+7. [Core Subsystems](#7-core-subsystems)
+   - [7.0 The Shader Interface](#70-the-shader-interface)
+   - [7.1 SDF Shapes and the Scan Rasterizer](#71-sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
+   - [7.2 The Curve Rasterizer](#72-the-curve-rasterizer-ploth)
+   - [7.3 The Animation System](#73-the-animation-system-animationh)
+   - [7.4 Geometry Transformers](#74-geometry-transformers-transformersh)
+   - [7.5 Memory Architecture](#75-memory-architecture-memoryh-memorycpp)
+   - [7.6 The Color System](#76-the-color-system-colorh)
+   - [7.7 The Mesh System](#77-the-mesh-system-meshh-conwayh-hankinh-spatialh-solidsh)
+   - [7.8 Generators](#78-generators-generatorsh)
+   - [7.9 The Preset System](#79-the-preset-system-presetsh)
+   - [7.10 Hardware Drivers](#710-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
+8. [The Effect System](#8-the-effect-system)
+9. [Effects Reference](#9-effects-reference)
+10. [The Web Simulator (Daydream)](#10-the-web-simulator-daydream)
+11. [Building](#11-building)
 
 ---
 
@@ -77,7 +83,37 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 
 ---
 
-## 2. Repository Map
+## 2. Engineering Philosophies
+
+The four design decisions below shape the rest of the codebase. Skim them first — every later section makes more sense once you know *why* the engine looks the way it does.
+
+### Why 16-bit Linear Color?
+
+Most LED art codebases use gamma-corrected 8-bit values throughout and blend in sRGB space. This produces muddy mixes: red + blue = dark purple instead of magenta. Holosphere blends in linear light (16-bit precision), then gamma-encodes only at the hardware output. The improvement is most visible in soft gradients and multi-layer alpha compositing. Palette interpolation goes a step further into the OKLCH perceptual color space, with shortest-arc hue interpolation that avoids the red→green→blue detour.
+
+### Why Compile-Time Resolution?
+
+Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. The hardware target `<96, 20>` runs with no runtime overhead from generality. The simulator builds separate specializations for `<288, 144>`. Binary size increases, but for an embedded firmware this is the right trade-off.
+
+### Why Arena Allocation?
+
+The Teensy heap fragments under heavy mesh subdivision. The single-block partitioned arena design (persistent + scratch A + scratch B, 335 KB total) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `configure_arenas()` function allows effects to repartition the fixed block based on their needs — mesh-heavy effects can claim more persistent space, while subdivision-heavy effects can expand their scratch pools. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact memory layout during heavy geometric operations, with no hidden state or implicit arena references.
+
+### Why the ISR Double Buffer?
+
+POV display requires pixel data to be ready before each column interval fires — typically 13–130 µs for the hardware resolution at 480 RPM. A naive approach (rendering in the ISR) would block the main loop. Instead, the main loop renders freely into a back buffer while the ISR reads from a separate front buffer. `queue_frame()` / `advance_display()` synchronize with minimal interrupt-disabled critical sections.
+
+### Coordinate Conventions
+
+- **Y-up Cartesian**: `Vector(x, y, z)` — `y` is the vertical axis
+- **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
+- **Pixel mapping**: `x ∈ [0, W)` → `theta ∈ [0, 2π)`, `y ∈ [0, H)` → `phi ∈ [0, π]`
+- **SDF distances**: in radians on the unit sphere (matching `angle_between()`)
+- All pixel LUTs are pre-computed and lazy-initialized (`PixelLUT<W,H>`) on first use
+
+---
+
+## 3. Repository Map
 
 ```
 ├── core/                       Rendering engine
@@ -116,20 +152,14 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 │   ├── rotate.h                Quaternion projection helpers
 │   ├── generators.h            Universal generate() wrapper for procedural geometry
 │   ├── presets.h               Generic Presets<Params, Size> template
-│   ├── styles.h                Feedback::Style named presets + Feedback::Filter wrapper
+│   ├── styles.h                Feedback::Style named presets + space/color transform functions
 │   ├── util.h                  wrap(), fast_wrap(), clamp()
 │   ├── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (301 KB table)
 │   ├── FastNoiseLite.h         Third-party: single-header noise library
 │   └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    One .h per effect (27 effects + 2 test/debug)
-│   ├── BZReactionDiffusion.h, ChaoticStrings.h, Comets.h, DreamBalls.h,
-│   │   Dynamo.h, FlowField.h, Flyby.h, GnomonicStars.h, GSReactionDiffusion.h,
-│   │   HankinSolids.h, HopfFibration.h, IslamicStars.h, Liquid2D.h,
-│   │   MeshFeedback.h, Metaballs.h, MindSplatter.h, MobiusGrid.h, Moire.h,
-│   │   PetalFlow.h, Raymarch.h, RingShower.h, RingSpin.h,
-│   │   SphericalHarmonics.h, SplineFlow.h, Thrusters.h, Voronoi.h
-│   └── Test.h, TestShapes.h    (test/debug)
+├── effects/                    27 effect headers (BZReactionDiffusion.h, HopfFibration.h,
+│                                IslamicStars.h, Raymarch.h, …) — see §9 Effects Reference
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
@@ -151,7 +181,7 @@ IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
 
 ---
 
-## 3. Architecture Overview
+## 4. Architecture Overview
 
 Three build targets share a common engine:
 
@@ -209,7 +239,7 @@ The `platform.h` header abstracts all target-specific differences:
 
 ---
 
-## 4. Data Flow: Frame Lifecycle
+## 5. Data Flow: Frame Lifecycle
 
 ### Hardware Path
 
@@ -269,7 +299,7 @@ JS:  wasmEngine.getPixels()
 
 ---
 
-## 5. The Rendering Pipeline
+## 6. The Rendering Pipeline
 
 ### End-to-End Flow
 
@@ -391,18 +421,19 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 
 | Filter | Effect |
 |---|---|
-| `Pixel::Feedback<W, H, SpaceTransformFn, ColorTransformFn>` | Low-level full-screen feedback loop. Samples the previous frame from the Canvas front buffer with bilinear interpolation, applies a spatial transformation and color transform with fade, then blends into the back buffer. Stateless — uses Canvas double-buffering, no internal frame storage. Most effects should use the higher-level `Feedback::Filter` wrapper instead (see below). |
+| `Pixel::Feedback<W, H>` | Style-driven full-screen feedback loop. During `flush()` iterates the full canvas, samples the previous frame from the Canvas front buffer with bilinear interpolation, applies the bound `Feedback::Style`'s spatial transform and color transform with fade, then blends into the back buffer. Stateless — uses Canvas double-buffering, no internal frame storage. The warp field is computed on a coarse `W/DS × H/DS` grid (scratch-arena allocated) and bilinearly upsampled; `DS = style.downsample`. See `Feedback::Style` below for preset selection. |
 | `Pixel::ChromaticShift<W>` | Splits a pixel into R, G, B channels and offsets them by 1–3 pixels horizontally to simulate chromatic aberration. |
 
 #### Feedback Styles (`styles.h`)
 
-`Feedback::Style` bundles spatial transform, color transform, and scalar parameters into a single POD-copyable struct with named presets. `Feedback::Filter<W,H>` is a drop-in pipeline filter that takes a `Style&` directly — no template parameters for transform types, no adapter boilerplate.
+`Feedback::Style` bundles spatial transform, color transform, and scalar parameters into a single POD-copyable struct with named presets. `Filter::Pixel::Feedback<W,H>` (see Pixel-Space Filters above) takes a `Style&` directly — no template parameters for transform types, no adapter boilerplate.
 
 ```cpp
 // Declare a style member and use it in the pipeline:
 Feedback::Style style = Feedback::Style::Smoke();
 Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
-         Feedback::Filter<W, H>> filters(..., Feedback::Filter<W, H>(style));
+         Filter::Pixel::Feedback<W, H>> filters(
+    ..., Filter::Pixel::Feedback<W, H>(style));
 ```
 
 The Filter auto-syncs from the Style every frame — when the Style lerps between presets, the function pointers snap at the midpoint while scalars interpolate smoothly.
@@ -447,14 +478,14 @@ Pipeline<W, H,
 Pipeline<W, H,
     Filter::World::Orient<W>,
     Filter::Screen::AntiAlias<W, H>,
-    Feedback::Filter<W, H>>
+    Filter::Pixel::Feedback<W, H>>
 ```
 
 ---
 
-## 6. Core Subsystems
+## 7. Core Subsystems
 
-### 6.0 The Shader Interface
+### 7.0 The Shader Interface
 
 All rasterizers — SDF scanline, curve plotting, mesh, volumetric, and full-screen shader — share a common shading model based on the `Fragment` struct and two function signatures.
 
@@ -543,7 +574,7 @@ Registers are not pre-populated — the shader receives only `pos` (reconstructe
 
 The fragment shader receives `pos` set to the closest local-space hit point (in the SDF's coordinate frame) and `size` set to the closest signed distance. No register convention — the shader computes lighting from the local-space position directly.
 
-### 6.1 SDF Shapes (`sdf.h`) and the Scan Rasterizer (`scan.h`)
+### 7.1 SDF Shapes (`sdf.h`) and the Scan Rasterizer (`scan.h`)
 
 The rendering pipeline splits shape definitions from rasterization. `sdf.h` defines the SDF shape primitives, each implementing three methods:
 
@@ -606,7 +637,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::TransformedVolume` | Wraps an SDF shape with a world-space position and orientation quaternion for volumetric rendering |
 | `Scan::Volume` | Volumetric ray-marcher that steps along the view direction through a `TransformedVolume`, applying a fragment shader at the hit point with configurable step count and AA width |
 
-### 6.2 The Curve Rasterizer (`plot.h`)
+### 7.2 The Curve Rasterizer (`plot.h`)
 
 For drawing lines, curves, and paths, the `Plot` namespace provides a geodesic/planar rasterizer with adaptive step size. The key insight is that near the poles of the sphere, pixels are much denser in latitude than near the equator. Step size is scaled by `sqrt(1 - y²)` — the sine of the polar angle — so curves remain smooth at all latitudes without over-sampling at the equator.
 
@@ -640,7 +671,7 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 | `Plot::Bezier` | Single cubic Bézier curve on the sphere |
 | `Plot::SplineChain` | Catmull-Rom spline chain through control points with configurable tension |
 
-### 6.3 The Animation System (`animation.h`)
+### 7.3 The Animation System (`animation.h`)
 
 The `Timeline<W>` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing.
 
@@ -731,7 +762,7 @@ void draw_frame() {
 }
 ```
 
-### 6.4 Geometry Transformers (`transformers.h`)
+### 7.4 Geometry Transformers (`transformers.h`)
 
 Transformers deform the sphere geometry before rendering. The `Transformer<W, ParamsT, AnimT, TransformFunc, CAPACITY>` class manages a pool of active transform instances, each with its own animated parameters:
 
@@ -758,7 +789,7 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 
 `stereo_noise_warp()` (`transformers.h`) is a free function, not a `Transformer<>` specialization — it is called directly by effects rather than managed through the transformer pool. It projects a sphere point to the complex plane via `stereo()`, adds FastNoiseLite-driven displacement with pole attenuation, then reprojects. Returns a `StereoWarpResult` containing the warped coordinates and displacement magnitude (used for hue shift by Liquid2D and Flyby).
 
-### 6.5 Memory Architecture (`memory.h`, `memory.cpp`)
+### 7.5 Memory Architecture (`memory.h`, `memory.cpp`)
 
 A single contiguous memory block (`GLOBAL_ARENA_SIZE = 335 KB`) is partitioned into three arena allocators. This block is the same size on both Teensy and WASM targets. Individual effects can call `configure_arenas()` to repartition the block at runtime.
 
@@ -814,7 +845,7 @@ Conway operators take `(Arena& target, Arena& temp)`, generator functions take `
 | `ArenaVector<T>` | Fixed-capacity, arena-backed vector (no dynamic growth). Copy-disabled, move-enabled. Debug builds detect use-after-free via arena generation tracking. |
 | `ArenaSpan<T>` | Non-owning read-only view into an `ArenaVector` (explicit borrow) |
 
-### 6.6 The Color System (`color.h`)
+### 7.6 The Color System (`color.h`)
 
 All internal color data is **16-bit linear light** (`uint16_t r, g, b` in range 0–65535). This avoids the precision loss and incorrect blending that occurs with gamma-encoded 8-bit values.
 
@@ -896,7 +927,7 @@ StaticPalette<BakedPalette, BreatheModifier> palette;
 | `AlphaFalloffPalette` | Applies a custom alpha curve (via callback) over the palette parameter |
 | `BakedPalette` | Precomputes a `GenerativePalette` into a fast 16-bit LUT for O(1) lookup. Arena-allocated. |
 
-### 6.7 The Mesh System (`mesh.h`, `conway.h`, `hankin.h`, `spatial.h`, `solids.h`)
+### 7.7 The Mesh System (`mesh.h`, `conway.h`, `hankin.h`, `spatial.h`, `solids.h`)
 
 The mesh system is split across several files:
 
@@ -981,7 +1012,7 @@ SolidBuilder(dodecahedron(a, b), a, b)
     .hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
 ```
 
-### 6.8 Generators (`generators.h`)
+### 7.8 Generators (`generators.h`)
 
 `generators.h` provides a single universal generation wrapper that manages arena lifecycle for all procedural geometry creation:
 
@@ -996,7 +1027,7 @@ It resets and scopes both scratch arenas, then invokes `fn(target, scratch_a, sc
 auto mesh = generate(persistent_arena, Solids::get_by_name, std::string_view("icosahedron"));
 ```
 
-### 6.9 The Preset System (`presets.h`)
+### 7.9 The Preset System (`presets.h`)
 
 `Presets<Params, Size>` is a generic template for managing parameter presets. It stores a fixed-size array of `PresetEntry<Params>` (each containing only a `Params` struct — no name field) and provides navigation and interpolation support:
 
@@ -1010,7 +1041,7 @@ presets.next();  // advance to next preset
 presets.apply(current_params);  // copy current preset into live params
 ```
 
-### 6.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
+### 7.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 
 Three hardware drivers form a layered stack.  `dma_led.h` handles the SPI wire protocol; `pov_single.h` and `pov_segmented.h` sit above it and manage the POV column sweep, differing only in how many Teensys share the work.
 
@@ -1118,7 +1149,7 @@ for (int i = 0; i < PPS; ++i, y += y_step_) {
 
 ---
 
-## 7. The Effect System
+## 8. The Effect System
 
 Every visual effect inherits from `Effect`:
 
@@ -1172,102 +1203,156 @@ When `persist_pixels = true`, `Canvas` copies the previous frame's buffer into t
 
 ---
 
-## 8. Effects Reference
+## 9. Effects Reference
+
+All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) at the Phantasm 288×144 resolution.
 
 ### Core Effects (Modern Engine)
 
 #### BZReactionDiffusion
+<img src="docs/screenshots/BZReactionDiffusion.png" alt="BZReactionDiffusion" width="280" align="right">
+
 Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph (`ReactionGraph`: 7680 nodes, 6 neighbors each, precomputed Fibonacci lattice) with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
 
 **Parameters**: Alpha (color intensity), Diff (diffusion rate), Speed (time step), GlobalAlpha
 
 #### GSReactionDiffusion
+<img src="docs/screenshots/GSReactionDiffusion.png" alt="GSReactionDiffusion" width="280" align="right">
+
 Gray-Scott reaction-diffusion system (U + 2V → 3V, V → P) on a spherical mesh. Produces spots, stripes, and labyrinthine patterns depending on feed/kill rates.
 
 #### HopfFibration
+<img src="docs/screenshots/HopfFibration.png" alt="HopfFibration" width="280" align="right">
+
 Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base space) are lifted to fibers on S³ via the quaternion parameterization `q = [cos(η)cos(φ+β), cos(η)sin(φ+β), sin(η)cos(β), sin(η)sin(β)]`, then stereographically projected back to S³ and plotted on the sphere. A 4D tumble (R_xw × R_yz rotation) continuously rotates the fibration.
 
 **Parameters**: Flow Spd, Tumble Spd, Folding, Twist, Alpha
 
 #### IslamicStars
+<img src="docs/screenshots/IslamicStars.png" alt="IslamicStars" width="280" align="right">
+
 Procedurally generates authentic Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.). Ripple waves periodically distort the geometry.
 
 **Parameters**: Duration, Ripp Amp, Ripp Width, Ripp Decay, Ripp Dur
 
 #### HankinSolids
+<img src="docs/screenshots/HankinSolids.png" alt="HankinSolids" width="280" align="right">
+
 Similar to IslamicStars but sequences through the full Archimedean solid library with animated palette transitions.
 
 
 
 #### SphericalHarmonics
+<img src="docs/screenshots/SphericalHarmonics.png" alt="SphericalHarmonics" width="280" align="right">
+
 Renders the real spherical harmonics Yˡₘ(θ, φ) as SDF `HarmonicBlob` shapes. The harmonic defines a lobe-radius function that deforms a unit sphere surface. Animates through different (l, m) combinations.
 
 #### Metaballs
+<img src="docs/screenshots/Metaballs.png" alt="Metaballs" width="280" align="right">
+
 Spherical metaballs: N point-sources on the sphere whose implicit field functions sum and threshold into a rendered surface.
 
 #### MobiusGrid
+<img src="docs/screenshots/MobiusGrid.png" alt="MobiusGrid" width="280" align="right">
+
 A latitude-longitude grid that undergoes live Möbius transformation animation via `MobiusWarpCircularTransformer`.
 
 #### Moire
+<img src="docs/screenshots/Moire.png" alt="Moire" width="280" align="right">
+
 Overlapping ring families that produce interference patterns as their angular frequencies slowly drift.
 
 #### FlowField
+<img src="docs/screenshots/FlowField.png" alt="FlowField" width="280" align="right">
+
 FastNoiseLite-driven curl flow field. Particles follow the gradient of a 3D noise function mapped onto the sphere.
 
 #### Voronoi
+<img src="docs/screenshots/Voronoi.png" alt="Voronoi" width="280" align="right">
+
 Spherical Voronoi diagram with animated seed positions. Cell boundaries are drawn as geodesic edges; cells are optionally filled.
 
 #### PetalFlow
+<img src="docs/screenshots/PetalFlow.png" alt="PetalFlow" width="280" align="right">
+
 Flowers constructed from distorted ring SDFs whose radii oscillate via sine waves.
 
 #### DreamBalls
+<img src="docs/screenshots/DreamBalls.png" alt="DreamBalls" width="280" align="right">
+
 Draws twisting wireframe knotted structures derived from Archimedean solids. Mesh vertices are displaced along per-vertex tangent frames to create orbiting knot patterns, and a Möbius warp is applied to the geometry. Multiple copies orbit simultaneously with animated `OrientSlice` hemisphere rotation effects.
 
 **Parameters**: Copies (number of knot copies), Radius (displacement), Speed (orbit speed), Warp (Möbius warp scale), Alpha
 
 #### Comets
+<img src="docs/screenshots/Comets.png" alt="Comets" width="280" align="right">
+
 Particles with long orientation-trail-based tails, launched in bursts and influenced by rotational gravity.
 
 #### RingSpin / RingShower
+<img src="docs/screenshots/RingSpin.png" alt="RingSpin" width="280" align="right">
+
 Animated concentric ring patterns using `Scan::Ring` with per-ring phase offsets.
 
 #### ChaoticStrings
+<img src="docs/screenshots/ChaoticStrings.png" alt="ChaoticStrings" width="280" align="right">
+
 Lissajous curves whose frequency ratios slowly sweep through rational approximations, transitioning between closed figures and dense space-filling curves.
 
 #### MeshFeedback
+<img src="docs/screenshots/MeshFeedback.png" alt="MeshFeedback" width="280" align="right">
+
 Catalan solid mesh faces rendered with `Scan::Mesh`, distorted by a `NoiseTransformer` and given a feedback-loop appearance via `Filter::Pixel::Feedback`. Cycles through the Catalan solid library with crossfade morphing between shapes using `Animation::Lerp` and the `Presets` system.
 
 #### Liquid2D
+<img src="docs/screenshots/Liquid2D.png" alt="Liquid2D" width="280" align="right">
+
 Stereographic-projection shader (extends `Effect` directly) that samples world-space through a configurable glitch lens (hemisphere mirror + squish/warp). Dual random-walk orientations animate the view and global rotation independently, producing flowing liquid distortion. Uses `Scan::Shader::draw` for full-screen pixel shading and `StaticPalette` with a `BreatheModifier` for animated palette cycling.
 
 **Parameters**: Warp Scale, Warp Strength, Pattern Freq, Time Speed, Complexity, Pole Fade, Cycle Speed
 
 #### MindSplatter
+<img src="docs/screenshots/MindSplatter.png" alt="MindSplatter" width="280" align="right">
+
 Random-walk particle system with Möbius warp bursts.
 
 #### Dynamo
+<img src="docs/screenshots/Dynamo.png" alt="Dynamo" width="280" align="right">
+
 Rotating ring-pair patterns whose axes precess relative to each other.
 
 #### Thrusters
+<img src="docs/screenshots/Thrusters.png" alt="Thrusters" width="280" align="right">
+
 Directional particle jets.
 
 #### GnomonicStars
+<img src="docs/screenshots/GnomonicStars.png" alt="GnomonicStars" width="280" align="right">
+
 Star polygon SDFs that rotate continuously. Uses gnomonic projection (straight lines on sphere remain straight).
 
 #### Raymarch
+<img src="docs/screenshots/Raymarch.png" alt="Raymarch" width="280" align="right">
+
 Volumetric raymarcher that renders twisted tori at the 20 vertices of a dodecahedron. Each torus is ray-marched with `Scan::Volume::draw` and lit with metallic Blinn-Phong shading (half-Lambert diffuse, specular highlights, Fresnel rim). A random-walk animation drives the camera orientation.
 
 **Parameters**: Pulse Speed, Core Size, Max Steps, Diffuse, Specular, Fresnel, Twist, AA Width
 
 #### Flyby
+<img src="docs/screenshots/Flyby.png" alt="Flyby" width="280" align="right">
+
 Stereographic-projection shader (extends `Effect` directly) with noise-driven warp distortion. A single `Rotation` animation continuously rotates the tangent plane around the Y-axis, producing a fly-through effect on the sphere surface. Uses `Scan::Shader::draw` for full-screen pixel shading with a baked palette.
 
 **Parameters**: Warp Scale, Warp Strength, Pattern Freq, Speed, Pole Fade, Falloff, Drift, Hue Shift
 
 #### SplineFlow
+<img src="docs/screenshots/SplineFlow.png" alt="SplineFlow" width="280" align="right">
+
 Catmull-Rom spline curves whose control points drift via independent random walks. Drawn with `Plot::SplineChain` in closed-loop mode through `World::Trails` for persistent trails, producing flowing organic ribbon paths.
 
 **Parameters**: Tension, Speed, Drift, Num Pts, Alpha
+
+<br clear="all">
 
 ### Legacy Effects (`effects_legacy.h`)
 
@@ -1275,7 +1360,7 @@ TheMatrix, ChainWiggle, RingRotate, RingTwist, Curves, Kaleidoscope, StarsFade, 
 
 ---
 
-## 9. The Web Simulator (Daydream)
+## 10. The Web Simulator (Daydream)
 
 The simulator runs the identical C++ rendering engine compiled to WebAssembly via Emscripten, visualized as a 3D sphere in Three.js.
 
@@ -1332,7 +1417,7 @@ params.forEach(p => {
 
 ---
 
-## 10. Building
+## 11. Building
 
 ### Firmware (Arduino / Teensy 4.x)
 
@@ -1396,34 +1481,6 @@ URL parameters control the initial state:
 ```
 ?effect=IslamicStars&resolution=Phantasm%20(144x288)&wasm=true
 ```
-
----
-
-## 11. Design Notes
-
-### Why 16-bit Linear Color?
-
-Most LED art codebases use gamma-corrected 8-bit values throughout and blend in sRGB space. This produces muddy mixes: red + blue = dark purple instead of magenta. Holosphere blends in linear light (16-bit precision), then gamma-encodes only at the hardware output. The improvement is most visible in soft gradients and multi-layer alpha compositing.
-
-### Why Compile-Time Resolution?
-
-Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. The hardware target `<96, 20>` runs with no runtime overhead from generality. The simulator builds separate specializations for `<288, 144>`. Binary size increases, but for an embedded firmware this is the right trade-off.
-
-### Why Arena Allocation?
-
-The Teensy heap fragments under heavy mesh subdivision. The single-block partitioned arena design (persistent + scratch A + scratch B) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `configure_arenas()` function allows effects to repartition the fixed 335 KB block based on their needs — mesh-heavy effects can claim more persistent space, while subdivision-heavy effects can expand their scratch pools. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact memory layout during heavy geometric operations, with no hidden state or implicit arena references.
-
-### Why the ISR Double Buffer?
-
-POV display requires pixel data to be ready before each column interval fires — typically 13–130 µs for the hardware resolution at 480 RPM. A naive approach (rendering in the ISR) would block the main loop. Instead, the main loop renders freely into a back buffer while the ISR reads from a separate front buffer. `queue_frame()` / `advance_display()` synchronize with minimal interrupt-disabled critical sections.
-
-### Coordinate Conventions
-
-- **Y-up Cartesian**: `Vector(x, y, z)` — `y` is the vertical axis
-- **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
-- **Pixel mapping**: `x ∈ [0, W)` → `theta ∈ [0, 2π)`, `y ∈ [0, H)` → `phi ∈ [0, π]`
-- **SDF distances**: in radians on the unit sphere (matching `angle_between()`)
-- All pixel LUTs are pre-computed and lazy-initialized (`PixelLUT<W,H>`) on first use
 
 ---
 
