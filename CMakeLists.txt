@@ -68,6 +68,12 @@ endif()
 install(TARGETS ${TARGET_NAME} DESTINATION daydream)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm" DESTINATION daydream)
 
+# Copy the README and its referenced screenshot assets so daydream/ has a
+# self-contained, viewable README (e.g. on GitHub Pages or in the repo).
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md" DESTINATION daydream)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
+        DESTINATION daydream/docs/screenshots)
+
 
 # --- TESTS ---
 add_subdirectory(tests)
