@@ -1513,7 +1513,17 @@ private:
  * Stores the animation inline to avoid arena allocation (survives compaction).
  */
 struct TimelineEvent {
+  // Inline storage budget for a type-erased animation. Tuned to 112 B for the
+  // device (teensy::inplace_function, 24 B/callable) and the WASM simulator
+  // (libc++ std::function, 32 B/callable). The native unit-test build uses
+  // MSVC's std::function (64 B/callable), which inflates the same animation
+  // types past 112 B; HS_TEST_BUILD widens the budget for that build only so
+  // the device's RAM footprint is unchanged. See build_tests.bat.
+#ifdef HS_TEST_BUILD
+  static constexpr size_t MAX_ANIM_SIZE = 256;
+#else
   static constexpr size_t MAX_ANIM_SIZE = 112;
+#endif
 
   int start = 0;
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE];

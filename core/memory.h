@@ -14,7 +14,16 @@
 #include <concepts>
 #include "platform.h"
 
+// Device/simulator arena budget is 335 KB. The native unit-test build
+// (HS_TEST_BUILD) widens it so the effect smoke harness can exercise every
+// effect's full render path regardless of per-effect arena tuning; the device
+// footprint is unchanged. NOTE: the smoke harness surfaced that at least one
+// effect (MindSplatter) over-subscribes the 335 KB budget — see test_effects.h.
+#ifdef HS_TEST_BUILD
+constexpr size_t GLOBAL_ARENA_SIZE = 8 * 1024 * 1024;
+#else
 constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
+#endif
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
 constexpr size_t DEFAULT_SCRATCH_B_SIZE = 16 * 1024;

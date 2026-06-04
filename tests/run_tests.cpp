@@ -1,5 +1,13 @@
 #include <cstdio>
-#include <cstdio>
+
+// Pull in the engine barrel first, exactly as a real target does. It owns the
+// `template <int W, int CAP = 4> class Orientation;` forward declaration that
+// establishes the default CAP before geometry.h defines the class — filter.h
+// and the effects use the single-argument form Orientation<W>. Including it
+// here (rather than letting individual test headers include geometry.h
+// directly) guarantees correct ordering for the whole translation unit.
+#include "core/effects_engine.h"
+
 #include "tests/test_3dmath.h"
 #include "tests/test_memory.h"
 #include "tests/test_spatial.h"
@@ -9,6 +17,14 @@
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
 #include "tests/test_mesh.h"
+#include "tests/test_solids.h"
+#include "tests/test_reaction_graph.h"
+#include "tests/test_color.h"
+#include "tests/test_easing_waves.h"
+#include "tests/test_filter.h"
+#include "tests/test_plot_scan.h"
+#include "tests/test_animation.h"
+#include "tests/test_effects.h"
 
 int main() {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -22,5 +38,13 @@ int main() {
   failures += hs_test::hankin_tests::run_hankin_tests();
   failures += hs_test::geometry::run_geometry_tests();
   failures += hs_test::mesh_tests::run_mesh_tests();
+  failures += hs_test::solids_tests::run_solids_tests();
+  failures += hs_test::reaction_graph_tests::run_reaction_graph_tests();
+  failures += hs_test::color_tests::run_color_tests();
+  failures += hs_test::easing_waves_tests::run_easing_waves_tests();
+  failures += hs_test::filter_tests::run_filter_tests();
+  failures += hs_test::plot_scan_tests::run_plot_scan_tests();
+  failures += hs_test::animation_tests::run_animation_tests();
+  failures += hs_test::effects_tests::run_effects_tests();
   return failures;
 }
