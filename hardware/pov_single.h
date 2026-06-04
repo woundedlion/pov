@@ -122,8 +122,6 @@ private:
    * the frame.
    */
   static FASTRUN void show_col() {
-    return;
-
 #if defined(ARDUINO) && defined(USE_DMA_LEDS)
     // Direct Pixel16 → HD107S wire packing (no intermediate CRGB array).
     auto& frame = ledController_.backFrame();
