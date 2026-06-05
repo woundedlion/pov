@@ -101,6 +101,11 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       if (he.pair != HE_NONE && heToMidpointIdx[he.pair] != HE_NONE)
         return heToMidpointIdx[he.pair];
 
+      // A closed-manifold half-edge always has a valid prev (interior face
+      // loop). If both prev and pair are HE_NONE the edge is degenerate /
+      // non-manifold and the he.pair fallback below would read
+      // halfEdges[HE_NONE] out of bounds — trap on the bad input instead.
+      HS_CHECK(he.prev != HE_NONE || he.pair != HE_NONE);
       Vector pA = he.prev != HE_NONE
                       ? mesh.vertices[heMesh.halfEdges[he.prev].vertex]
                       : mesh.vertices[heMesh.halfEdges[he.pair].vertex];
