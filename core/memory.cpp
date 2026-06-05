@@ -26,14 +26,16 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
                       DEFAULT_SCRATCH_B_SIZE);
 
 void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
+  // An over-subscribed partition is a sizing/config bug, not a recoverable
+  // condition. Silently scaling it down hands the effect a smaller layout than
+  // it requested, which then over-runs later — relocating the corruption into
+  // the rendered output. Trap at init() so the bad request is caught on the
+  // bench; the log preserves the numbers for diagnosis before the trap.
   size_t total = persistent + scratch_a + scratch_b;
   if (total > GLOBAL_ARENA_SIZE) {
-    hs::log("[WARN] configure_arenas: requested %zu, available %zu — scaling down",
+    hs::log("[FATAL] configure_arenas: requested %zu > available %zu",
             total, GLOBAL_ARENA_SIZE);
-    float scale = static_cast<float>(GLOBAL_ARENA_SIZE) / total;
-    persistent = static_cast<size_t>(persistent * scale);
-    scratch_a = static_cast<size_t>(scratch_a * scale);
-    scratch_b = GLOBAL_ARENA_SIZE - persistent - scratch_a;
+    HS_CHECK(false);
   }
   persistent_arena.rebind(global_arena_block, persistent);
   scratch_arena_a.rebind(global_arena_block + persistent, scratch_a);
