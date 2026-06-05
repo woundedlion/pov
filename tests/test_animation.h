@@ -343,6 +343,45 @@ inline void test_easing_elastic_anchors() {
 }
 
 // ============================================================================
+// Borrow-contract guards (compile-time)
+// ----------------------------------------------------------------------------
+// Motion and MeshMorph store a non-owning borrow (Fn capturing &path_obj /
+// FunctionRef) of effect-owned state that must outlive the Timeline. Their
+// constructors have a `= delete` rvalue overload so binding to a temporary is
+// a compile error instead of a silent dangle. These static_asserts lock that
+// contract: an effect-owned lvalue must be accepted, a temporary must be
+// rejected. They live at namespace scope (checked at compile time; no runner
+// call needed). If a refactor turns the SFINAE guard into a no-op, this fails
+// to compile. See P1 #5 in docs/CODE_REVIEW.md.
+namespace borrow_guard {
+using Ori = Orientation<288, 16>;
+using DrawFn = Fn<void(Canvas &, const MeshState &, float), 8>;
+
+// Motion: effect-owned lvalue path OK; temporary path rejected.
+static_assert(std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
+                                      ProceduralPath &, int>,
+              "Motion must accept an lvalue (effect-owned) path");
+static_assert(!std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
+                                       ProceduralPath &&, int>,
+              "Motion must REJECT a temporary path (would dangle)");
+
+// MeshMorph: effect-owned lvalue callables OK; a temporary in EITHER slot
+// rejected.
+static_assert(std::is_constructible_v<Animation::MeshMorph, const MeshState &,
+                                      const MeshState &, Arena &, DrawFn &,
+                                      DrawFn &, int>,
+              "MeshMorph must accept lvalue (effect-owned) callables");
+static_assert(!std::is_constructible_v<Animation::MeshMorph, const MeshState &,
+                                       const MeshState &, Arena &, DrawFn &&,
+                                       DrawFn &&, int>,
+              "MeshMorph must REJECT temporary callables (would dangle)");
+static_assert(!std::is_constructible_v<Animation::MeshMorph, const MeshState &,
+                                       const MeshState &, Arena &, DrawFn &,
+                                       DrawFn &&, int>,
+              "MeshMorph must REJECT a temporary in either callable slot");
+} // namespace borrow_guard
+
+// ============================================================================
 // Runner
 // ============================================================================
 
