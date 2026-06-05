@@ -58,14 +58,18 @@ public:
       printf("[OOM] Arena: req %zu, offset %zu / cap %zu\n",
              size, offset + padding, capacity);
 #endif
-      return nullptr;
+      // Over-allocation is a sizing/logic bug, not a recoverable runtime
+      // condition: there is no valid recovery, and returning null only relocates
+      // the corruption into whatever derefs the result (callers do not check).
+      // Trap at the violation site so it's caught on the bench. The log above
+      // remains for the diagnostic; HS_CHECK survives NDEBUG on device.
+      HS_CHECK(false);
     }
     offset += padding;
     void *ptr = buffer + offset;
     offset += size;
     if (offset > high_water_mark)
       high_water_mark = offset;
-    assert(ptr != nullptr && "Arena::allocate returned null — OOM");
     return ptr;
   }
 
@@ -247,7 +251,10 @@ public:
   void push_back(const T &value) {
     check_alive();
     check_bound();
-    assert(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
+    // Cold-path capacity guard: a fixed-capacity overflow is a sizing bug.
+    // HS_CHECK survives NDEBUG so this traps in the device build instead of
+    // silently writing past the arena allocation.
+    HS_CHECK(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
     new (&data_[size_]) T(value);
     size_++;
   }
@@ -258,7 +265,8 @@ public:
                   "append_bulk requires trivially destructible T (memcpy safety)");
     check_alive();
     check_bound();
-    assert(size_ + count <= capacity_ && "ArenaVector bulk append exceeds capacity!");
+    HS_CHECK(size_ + count <= capacity_ &&
+             "ArenaVector bulk append exceeds capacity!");
     memcpy(static_cast<void*>(data_ + size_), src, count * sizeof(T));
     size_ += count;
   }
@@ -266,7 +274,7 @@ public:
   template <typename... Args> T &emplace_back(Args &&...args) {
     check_alive();
     check_bound();
-    assert(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
+    HS_CHECK(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
     T *ptr = new (&data_[size_]) T(std::forward<Args>(args)...);
     size_++;
     return *ptr;

@@ -14,6 +14,26 @@
 #define CANVAS_H 144
 #endif
 
+// ---------------------------------------------------------------------------
+// HS_CHECK — always-on invariant trap (survives NDEBUG, pulls in no stdio)
+//
+// Unlike assert(), HS_CHECK is NOT stripped by NDEBUG, so it still fires in the
+// optimized device build — where platform.h defines NDEBUG to keep newlib's
+// __assert_func → fprintf out of the image. Use it on COLD paths only
+// (container growth, arena OOM, capacity guards), where an invariant violation
+// is a logic/sizing bug with no valid recovery: trapping at the violation site
+// is strictly better than silently writing out of bounds, and a corrupted
+// arena that ships garbage is the worst outcome. It compiles to a single
+// predicted-not-taken branch — never place it in the per-pixel hot loop.
+//
+// Reserve bounded/soft handling for genuine *transient* conditions (DMA
+// overrun, dropped frame); those are not invariant violations.
+#define HS_CHECK(cond)                                                          \
+  do {                                                                          \
+    if (!(cond))                                                                \
+      __builtin_trap();                                                         \
+  } while (0)
+
 #include <random>
 
 #ifdef ARDUINO

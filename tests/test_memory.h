@@ -106,17 +106,23 @@ inline void test_arena_set_offset() {
   HS_EXPECT_EQ(a.get_offset(), saved);
 }
 
-inline void test_arena_oom_returns_null() {
+inline void test_arena_fills_to_capacity() {
+  // Fail-fast contract: over-allocation is an invariant violation that
+  // HS_CHECK-traps inside allocate() (it no longer returns nullptr for callers
+  // to deref blindly). Like the other precondition traps in memory.h, that is
+  // exercised on the bench, not here — we verify only the legal boundary: an
+  // allocation that fills exactly to capacity succeeds with in-range pointers.
   uint8_t tiny[64];
   Arena a(tiny, sizeof(tiny));
-  void *p = a.allocate(sizeof(tiny) + 1);
-  HS_EXPECT_TRUE(p == nullptr);
-  // Arena state must be untouched by the failed allocation
-  HS_EXPECT_EQ(a.get_offset(), (size_t)0);
-
-  // Subsequent small allocation still works
-  void *q = a.allocate(16);
+  void *p = a.allocate(32, 1);
+  HS_EXPECT_TRUE(p != nullptr);
+  void *q = a.allocate(32, 1); // fills exactly to capacity
   HS_EXPECT_TRUE(q != nullptr);
+  HS_EXPECT_EQ(a.get_offset(), sizeof(tiny));
+
+  uintptr_t base = reinterpret_cast<uintptr_t>(tiny);
+  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(p), base);
+  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(q), base + 32);
 }
 
 inline void test_arena_rebind() {
@@ -541,7 +547,7 @@ inline int run_memory_tests() {
   test_arena_high_water_mark();
   test_arena_reset();
   test_arena_set_offset();
-  test_arena_oom_returns_null();
+  test_arena_fills_to_capacity();
   test_arena_rebind();
   test_arena_reset_high_water_mark();
 #ifndef NDEBUG

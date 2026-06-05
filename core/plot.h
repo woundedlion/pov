@@ -186,9 +186,12 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
           std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.y * p_temp.y)));
       float step = base_step * scale_factor;
 
+      // Cold-path capacity guard, checked BEFORE the push so the specific
+      // "increase heuristic" diagnostic traps instead of overflowing. (push_back
+      // also HS_CHECKs internally; this keeps the site-specific intent.)
+      HS_CHECK(_steps_cache.size() < _steps_cache.capacity() &&
+               "_steps_cache capacity exceeded — increase heuristic");
       _steps_cache.push_back(step);
-      assert(_steps_cache.size() < _steps_cache.capacity() &&
-             "_steps_cache capacity exceeded — increase heuristic");
       sim_dist += step;
 
       if (sim_dist < total_dist) {
