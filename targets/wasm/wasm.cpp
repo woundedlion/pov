@@ -41,6 +41,11 @@ static size_t stack_high_water_mark() {
 
 using namespace emscripten;
 
+// Upper bound on a single effect's exposed parameters. Mirrors the fixed
+// `std::array<ParamDef, 32>` backing `Effect::ParamList` (core/canvas.h). Used
+// to pre-reserve the getParamValues() backing store so it never reallocates.
+static constexpr size_t MAX_PARAMS = 32;
+
 // Dedicated arena for JavaScript Tools
 static uint8_t tooling_buf[8 * 1024 * 1024];
 static uint8_t tooling_scratch_buf_a[4 * 1024 * 1024];
@@ -79,6 +84,16 @@ public:
   HolosphereEngine() {
     // Paint stack canary for HWM tracking
     stack_paint_canary();
+
+    // Pre-size the JS-facing readback buffers ONCE to their maximum extent so
+    // their backing storage never moves and the steady-state render/sync path
+    // performs no allocation. This is the core of the WASM memory-view contract
+    // (see getPixels()): under ALLOW_MEMORY_GROWTH=1 any heap reallocation
+    // detaches the ArrayBuffer behind a typed_memory_view, so the buffers
+    // exposed to JS must be stable for the lifetime of the engine.
+    pixelBuffer.assign(MAX_W * MAX_H * 3, 0); // 16-bit linear RGB; never resized
+    paramValues.reserve(MAX_PARAMS);          // never reallocated past this
+
     // Initialize with default
     setResolution(96, 20);
     setEffect("Test");
@@ -97,8 +112,11 @@ public:
     pixel_width = w;
     pixel_height = h;
 
-    // Resize buffer (16-bit linear: uint16_t per channel)
-    pixelBuffer.resize(pixel_width * pixel_height * 3);
+    // NOTE: pixelBuffer is pre-sized to MAX_W*MAX_H*3 in the constructor and is
+    // deliberately NEVER resized here. Resizing could move its backing store
+    // (and/or grow the WASM heap), detaching every outstanding getPixels()
+    // view. getPixels() instead returns a view over just the active
+    // pixel_width*pixel_height*3 prefix of this stable buffer.
 
     // Re-create current effect if exists
     if (currentEffect) {
@@ -165,13 +183,24 @@ public:
     return currentEffect ? currentEffect->render_us : 0.0;
   }
 
-  // Expose the raw memory view to JS to avoid copying overhead
+  // Expose the raw pixel buffer to JS as a zero-copy Uint16Array view.
+  //
+  // WASM memory-view contract: the returned view aliases WASM linear memory, it
+  // is NOT a copy. With ALLOW_MEMORY_GROWTH=1, any subsequent heap growth
+  // detaches the underlying ArrayBuffer and leaves this view zero-length
+  // (buffer.byteLength === 0). Callers MUST therefore re-fetch the view after
+  // anything that may allocate (resolution/effect change) and may only cache it
+  // across frames while guarding for detachment. The backing vector is pre-sized
+  // once and never reallocated, so the only possible detachment source is heap
+  // growth elsewhere. daydream.js::refreshPixelView mirrors this expectation.
   val getPixels() {
-    // Return Uint16Array view
-    return val(typed_memory_view(pixelBuffer.size(), pixelBuffer.data()));
+    // View spans only the active resolution's pixels (R,G,B per pixel) within
+    // the stable MAX_W*MAX_H*3 backing buffer.
+    return val(typed_memory_view(pixel_width * pixel_height * 3,
+                                 pixelBuffer.data()));
   }
 
-  int getBufferLength() { return pixelBuffer.size(); }
+  int getBufferLength() { return pixel_width * pixel_height * 3; }
 
   void setParameter(std::string name, float value) {
     if (currentEffect) {
@@ -209,12 +238,15 @@ public:
       return val::array();
 
     const auto &params = currentEffect->getParameters();
-    paramValues.clear();
-    paramValues.reserve(params.size());
+    paramValues.clear(); // retains capacity reserved (MAX_PARAMS) in ctor
 
     for (const auto &def : params) {
       paramValues.push_back(def.get());
     }
+    // Same memory-view contract as getPixels(): this view aliases WASM memory
+    // and must be consumed before the next allocation. paramValues never
+    // reallocates here (params.size() <= MAX_PARAMS), so emitting it triggers no
+    // heap growth that could detach other outstanding views.
     return val(typed_memory_view(paramValues.size(), paramValues.data()));
   }
 
