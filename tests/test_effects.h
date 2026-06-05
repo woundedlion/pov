@@ -114,6 +114,7 @@ inline int run_effects_tests() {
   smoke_one<RingSpin>("RingSpin");
   smoke_one<SphericalHarmonics>("SphericalHarmonics");
   smoke_one<Test>("Test");
+  smoke_one<TestShapes>("TestShapes");
   smoke_one<Voronoi>("Voronoi");
 
   // ------------------------------------------------------------------------
@@ -123,15 +124,16 @@ inline int run_effects_tests() {
   // test build), NOT the global arena:
   //   * SplineFlow  — ArenaVector "exact capacity exceeded" (memory.h push_back)
   //                   while sampling/trailing the closed spline.
-  //   * TestShapes  — "_steps_cache capacity exceeded" (plot.h adaptive steps).
   //   * Thrusters   — access violation in the plot path.
   // These are real fixed-capacity limits in plot.h reached at full resolution.
   // It is not yet confirmed whether they reproduce on-device (the live app may
   // render sub-segment clip regions, lowering per-call step/fragment counts) or
   // are genuine plot.h capacity bugs. Tracked as findings; re-enable once
   // root-caused. DO NOT silently drop — warn loudly:
-  std::printf("  [WARN] 3 effects QUARANTINED (plot capacity limits, "
-              "uninvestigated): SplineFlow, TestShapes, Thrusters\n");
+  // (TestShapes re-enabled 2026-06-05: plot.h _steps_cache now sized off W
+  //  with a graceful cap — see #3 in docs/CODE_REVIEW.md.)
+  std::printf("  [WARN] 2 effects QUARANTINED (plot capacity limits, "
+              "uninvestigated): SplineFlow, Thrusters\n");
 
   return hs_test::end_module(scope);
 }

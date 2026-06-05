@@ -138,7 +138,13 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t count = close_loop ? len : len - 1;
   ScratchScope _sc(scratch_arena_a);
   ArenaVector<float> _steps_cache;
-  size_t max_cache = std::min(std::max(len * 4, (size_t)256), (size_t)2048);
+  // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each
+  // step advances ≈ one pixel column, so a single segment needs ≲ W steps (a
+  // great-circle arc crosses each longitude ~once; the sinφ≥0.05 clamp caps the
+  // pole case). Size off W (2× headroom) — NOT the old control-point heuristic,
+  // which under-sized to 256 for few-vertex shapes (< W) and over-sized for
+  // W+2-point rings. The simulation loop breaks at capacity as a backstop.
+  size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
   _steps_cache.bind(scratch_arena_a, max_cache);
 
   auto process_segment = [&](auto &&map, const Fragment &curr,
@@ -186,11 +192,13 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
           std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.y * p_temp.y)));
       float step = base_step * scale_factor;
 
-      // Cold-path capacity guard, checked BEFORE the push so the specific
-      // "increase heuristic" diagnostic traps instead of overflowing. (push_back
-      // also HS_CHECKs internally; this keeps the site-specific intent.)
-      HS_CHECK(_steps_cache.size() < _steps_cache.capacity() &&
-               "_steps_cache capacity exceeded — increase heuristic");
+      // Backstop: a pathological segment (e.g. a huge-radius shape wrapping the
+      // sphere) could still exceed the 2*W cache. Stop subdividing and let the
+      // normalized replay stretch the cached steps over the rest of the segment
+      // — coarser sampling on an extreme arc is fine (and far better than
+      // trapping a live show). Normal segments never reach this.
+      if (_steps_cache.size() >= _steps_cache.capacity())
+        break;
       _steps_cache.push_back(step);
       sim_dist += step;
 
