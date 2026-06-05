@@ -809,8 +809,14 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
             const HalfEdge &currHe = heMesh.halfEdges[heIdx];
             int ni = heMesh.halfEdges[currHe.prev].vertex;
             Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
-            float dist = vec.length();
-            if (dist > math::EPS_LEN_SQ) {
+            // Compare SQUARED length against the squared tolerance (the
+            // codebase idiom; cf. conway.h:1064, hankin.h:266). The old guard
+            // compared a length against EPS_LEN_SQ, so edges with length in
+            // [1e-6, 1e-3] slipped through and made 1/dist explode into a huge
+            // force spike. sqrt only for non-degenerate edges.
+            float lenSq = dot(vec, vec);
+            if (lenSq > math::EPS_LEN_SQ) {
+              float dist = sqrtf(lenSq);
               float diff = dist - targetLen;
               force = force + (vec * (1.0f / dist)) * (diff * 0.1f);
             }
