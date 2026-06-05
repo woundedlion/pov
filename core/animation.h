@@ -12,6 +12,7 @@
 
 #include <numeric> // for std::iota
 #include <array>
+#include <type_traits>
 #include "3dmath.h"
 #include "platform.h"
 #include "FastNoiseLite.h"
@@ -799,6 +800,16 @@ public:
         path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
         space(space) {}
 
+  // Borrow contract: path_fn captures &path_obj and dereferences it every
+  // frame for the animation's lifetime (which lives in the effect's Timeline).
+  // The path must therefore be an effect-owned lvalue that outlives the
+  // timeline — reject binding to a temporary at compile time instead of
+  // dangling silently. (Non-owning by design: see Fn<>/inline-storage budget.)
+  template <typename P,
+            typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
+  Motion(Orientation<W, CAP> &orientation, P &&path_obj, int duration,
+         bool repeat = false, Space space = Space::World) = delete;
+
   /**
    * @brief Access the associated Orientation.
    */
@@ -1298,6 +1309,19 @@ public:
       buf_->end_pos.push_back(dest.vertices[i]);
     }
   }
+
+  // Borrow contract: draw_outgoing/draw_incoming are stored as non-owning
+  // FunctionRefs (8 bytes each — deliberately not owning, to keep MeshMorph
+  // inside the Timeline inline-storage budget) and invoked in step() across
+  // many frames. The callables must be effect-owned lvalues that outlive the
+  // timeline — reject a temporary (e.g. an inline lambda) at compile time
+  // rather than dangle silently.
+  template <typename FOut, typename FIn,
+            typename = std::enable_if_t<!std::is_lvalue_reference_v<FOut> ||
+                                        !std::is_lvalue_reference_v<FIn>>>
+  MeshMorph(const MeshState &source, const MeshState &dest, Arena &arena,
+            FOut &&draw_outgoing, FIn &&draw_incoming, int duration,
+            EasingFn easing_fn = ease_in_out_sin) = delete;
 
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
