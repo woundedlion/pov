@@ -20,7 +20,6 @@
 #include "concepts.h"
 #include "memory.h"
 #include "styles.h"
-#include "memory.h"
 
 using PassFn2D =
     FunctionRef<void(float, float, const Pixel &, float, float)>;

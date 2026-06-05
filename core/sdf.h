@@ -315,8 +315,9 @@ struct DistortedRing {
 
     float ang_min = std::max(0.0f, target_angle - max_thickness);
     float ang_max = std::min(PI_F, target_angle + max_thickness);
-    cos_max_limit = cosf(ang_min);
-    cos_min_limit = cosf(ang_max);
+    // Match Ring (and the rest of this ctor): fast trig for these cull limits.
+    cos_max_limit = fast_cosf(ang_min);
+    cos_min_limit = fast_cosf(ang_max);
   }
 
   template <int H> Bounds get_vertical_bounds() const {
@@ -963,7 +964,7 @@ struct Face {
   float lut_safe_dist = 0.0f; // per-face: cell diagonal
 
   Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
-       float th, FaceScratchBuffer &scratch, int h_virt, int height)
+       float th, FaceScratchBuffer &scratch, int h_virt, int height, int width)
       : thickness(th), full_width(true) {
 
     // Early Vertical Exit
@@ -1133,7 +1134,9 @@ struct Face {
     dist_lut = scratch.dist_lut.data();
     float step_x = (2.0f * lut_Rx) / (LUT_N - 1);
     float step_y = (2.0f * lut_Ry) / (LUT_N - 1);
-    lut_safe_dist = 1.8f * 2 * PI_F / 288.0f;
+    // 1.8 pixel-columns of azimuth (2π/width radians per column). Scales with
+    // the actual canvas width instead of assuming the 288-wide canvas.
+    lut_safe_dist = 1.8f * 2 * PI_F / static_cast<float>(width);
     for (int gy = 0; gy < LUT_N; ++gy) {
       float qy = (lut_cy - lut_Ry) + gy * step_y;
       for (int gx = 0; gx < LUT_N; ++gx) {

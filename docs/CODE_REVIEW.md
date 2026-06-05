@@ -106,9 +106,9 @@ Strongest cluster. `3dmath.h` features branch/div-free quaternion rotation with 
 
 Clean compile-time `Pipeline<W,H,Filters...>` recursion with automatic 2D↔3D domain bridging; SDF CSG composes orthogonally; pervasive fast-reject culling and pole guards.
 
-- **Medium** | `filter.h:95-104` — the float `plot` sink uses `fast_wrap` (corrects only one period); a future filter emitting `x≥2W` writes OOB via `cv(xi,y)` with the assert stripped. Use modulo `wrap()` in the sink.
-- **Low** | `sdf.h:1136` — `Face` dist-LUT threshold hardcodes `W=288`, mis-scaling on other resolutions.
-- Nits: duplicate `#include "memory.h"` (`filter.h:23`); `DistortedRing` uses `cosf` where `Ring` uses `fast_cosf`.
+- **Medium — WONTFIX (2026-06-04)** | `filter.h:95-104` — the float `plot` sink uses `fast_wrap` (corrects only one period). `fast_wrap` is an intentional, important performance optimization in the sink and is **kept by design**; the OOB-on-`x≥2W` concern is mitigated separately now that `ArenaVector`/`cv` writes `HS_CHECK`-trap (P0 #1) rather than silently corrupting.
+- ~~**Low** | `sdf.h:1136` — `Face` dist-LUT threshold hardcodes `W=288`, mis-scaling on other resolutions.~~ **✅ FIXED (2026-06-04)** — the `Face` ctor now takes the canvas `width` (threaded from `Scan::Mesh::draw<W,H>` at `scan.h:436`) and computes `lut_safe_dist = 1.8·2π/width`, so it scales with the active resolution.
+- ~~Nits: duplicate `#include "memory.h"` (`filter.h:23`); `DistortedRing` uses `cosf` where `Ring` uses `fast_cosf`.~~ **✅ FIXED (2026-06-04)** — removed the duplicate include; `DistortedRing`'s cull-limit trig now uses `fast_cosf` to match `Ring` (and the rest of its own ctor).
 
 ### Animation & Mesh/Geometry (`animation.h`, `mesh.h`, `conway.h`, `hankin.h`, `solids.h`, `spatial.h`, `generators.h`, `presets.h`, `static_circular_buffer.h`, `reaction_graph.*`)
 
