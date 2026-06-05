@@ -178,14 +178,16 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 
-inline void test_paramlist_capacity_cap() {
+inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
-  static float vals[40];
-  for (int i = 0; i < 40; ++i) {
+  static float vals[32];
+  // Registering exactly ParamList's capacity (std::array<ParamDef, 32>) is
+  // valid. Registering a 33rd now TRAPS (an effect-authoring bug, fail-fast),
+  // so the overflow path can't be exercised here without death-test infra.
+  for (int i = 0; i < 32; ++i) {
     vals[i] = static_cast<float>(i);
     fx.add_float("p", &vals[i], 0.0f, 100.0f);
   }
-  // ParamList is a fixed std::array<ParamDef, 32>; extra registrations drop.
   HS_EXPECT_EQ(fx.getParameters().size(), (size_t)32);
 }
 
@@ -225,7 +227,7 @@ inline int run_canvas_tests() {
   test_canvas_2d_and_1d_access_and_prev();
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
-  test_paramlist_capacity_cap();
+  test_paramlist_fills_to_capacity();
   test_clip_setters();
 
   return hs_test::end_module(scope);

@@ -48,11 +48,21 @@ public:
   }
 };
 
-// Helper: select the correct fill function pointer for a given <W,H>
+// Helper: select the correct fill function pointer for a given <W,H>.
+// The registry stores one fill pointer per supported resolution, so this must
+// enumerate them explicitly: a new resolution requires a new field above AND a
+// branch here. The static_assert makes that coupling a COMPILE error instead of
+// silently mis-instantiating an unrecognised <W,H> at the 288x144 fill.
 template <int W, int H>
 constexpr auto get_fill_fn(const EffectRegistration& reg) {
   if constexpr (W == 96 && H == 20) return reg.fill_96_20;
-  else                               return reg.fill_288_144;
+  else if constexpr (W == 288 && H == 144) return reg.fill_288_144;
+  else {
+    static_assert(W == 96 && H == 20,
+                  "get_fill_fn: unsupported <W,H> — add a fill_* field to "
+                  "EffectRegistration and a branch here");
+    return reg.fill_288_144; // unreachable (static_assert fires)
+  }
 }
 
 #define REGISTER_EFFECT(ClassName)                                     \

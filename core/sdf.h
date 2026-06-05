@@ -38,6 +38,25 @@ static constexpr float FAST_BOUNDS_PHI_THRESHOLD = 0.3f;
  *  preventing degenerate near-zero inradii from collapsing AA. */
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 
+/** Per-row scanline interval buffer. Fixed capacity, accumulate-only. */
+using IntervalBuffer = StaticCircularBuffer<std::pair<float, float>, 32>;
+
+/**
+ * @brief Append a scanline interval, trapping on overflow.
+ *
+ * The CSG ops and scan_region accumulate per-row intervals into a fixed-capacity
+ * buffer. StaticCircularBuffer::push_back evicts the OLDEST entry when full
+ * (correct for trails, wrong here) — so an overflow would silently drop
+ * geometry. A row exceeding the capacity is a sizing bug (e.g. a deeply nested
+ * CSG producing more disjoint spans than budgeted), so trap at the violation
+ * site instead of dropping coverage (fail-fast).
+ */
+inline void push_interval(IntervalBuffer &buf, float start, float end) {
+  HS_CHECK(!buf.is_full() &&
+           "SDF scanline interval buffer overflow (>32 spans in one row)");
+  buf.push_back({start, end});
+}
+
 /** Fold an angle into [0, π] (equivalent to acosf(cosf(x)) without trig). */
 inline float clamp_phi(float x) {
   if (x < 0.0f)
@@ -461,10 +480,10 @@ template <typename A, typename B> struct Union {
     StaticCircularBuffer<std::pair<float, float>, 32> merged;
 
     bool hasA = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { merged.push_back({start, end}); });
+        y, [&](float start, float end) { push_interval(merged, start, end); });
 
     bool hasB = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { merged.push_back({start, end}); });
+        y, [&](float start, float end) { push_interval(merged, start, end); });
 
     // If neither shape provides intervals, fall back to full scan
     if (!hasA && !hasB)
@@ -558,12 +577,12 @@ template <typename A, typename B> struct SmoothUnion {
 
     bool hasA = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
-          merged.push_back({start - pad_px, end + pad_px});
+          push_interval(merged, start - pad_px, end + pad_px);
         });
 
     bool hasB = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
-          merged.push_back({start - pad_px, end + pad_px});
+          push_interval(merged, start - pad_px, end + pad_px);
         });
 
     // If either child falls back to full-width, so must the blend
@@ -651,9 +670,9 @@ template <typename A, typename B> struct Subtract {
 
     // Insertion-sort an interval buffer by start (matches Union's idiom). Both
     // the set-difference loop below and scan_region's coalescer assume intervals
-    // arrive in non-decreasing start order; a multi-interval child (AngularRepeat,
-    // a nested CSG) can emit them out of order, which without this sort yields a
-    // wrong set difference AND unsorted output that the coalescer silently drops.
+    // arrive in non-decreasing start order; a multi-interval child (a nested CSG)
+    // can emit them out of order, which without this sort yields a wrong set
+    // difference AND unsorted output that the coalescer silently drops.
     auto sort_by_start =
         [](StaticCircularBuffer<std::pair<float, float>, 32> &buf) {
           size_t n = buf.size();
@@ -669,7 +688,7 @@ template <typename A, typename B> struct Subtract {
         };
 
     bool hasA = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { intervalsA.push_back({start, end}); });
+        y, [&](float start, float end) { push_interval(intervalsA, start, end); });
 
     // If A falls back to full-width, we can't restrict
     if (!hasA)
@@ -684,7 +703,7 @@ template <typename A, typename B> struct Subtract {
     sort_by_start(intervalsA);
 
     bool hasB = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { intervalsB.push_back({start, end}); });
+        y, [&](float start, float end) { push_interval(intervalsB, start, end); });
 
     // If B falls back (no interval info), B removes nothing we can
     // reason about — pass A's intervals through conservatively
@@ -786,10 +805,10 @@ template <typename A, typename B> struct Intersection {
     StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
 
     bool hasA = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { intervalsA.push_back({start, end}); });
+        y, [&](float start, float end) { push_interval(intervalsA, start, end); });
 
     bool hasB = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { intervalsB.push_back({start, end}); });
+        y, [&](float start, float end) { push_interval(intervalsB, start, end); });
 
     if (!hasA) {
       return b.template get_horizontal_intervals<W, H>(y, out);

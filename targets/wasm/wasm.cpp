@@ -73,9 +73,10 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
     if (name == entry.name)
       return entry.creator();
   }
-  // Fallback: first registered effect
-  if (!factory.empty())
-    return factory[0].creator();
+  // Unknown name = typo'd/stale UI string. Substituting factory[0] would render
+  // a different effect with no signal; instead surface it and return null —
+  // setEffect()'s `if (currentEffect)` guard makes a null a safe no-op.
+  hs::log("WASM: create_effect: unknown effect name (no effect created)");
   return nullptr;
 }
 

@@ -686,7 +686,9 @@ public:
         hh * hw * sizeof(int16_t), alignof(int16_t)));
     auto *dy = static_cast<int16_t *>(scope.get_arena().allocate(
         hh * hw * sizeof(int16_t), alignof(int16_t)));
-    if (!dx || !dy) return; // OOM — skip this frame's feedback
+    // No OOM guard here: Arena::allocate traps on over-allocation and never
+    // returns null, so a "skip this frame" fallback would be dead code that
+    // also implies a recovery path the fail-fast model deliberately rejects.
 
     // 1) Populate coarse warp field. Delta encoding keeps the bilerp safe
     //    across the longitude seam — neighbouring absolute bx values can

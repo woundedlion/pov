@@ -117,7 +117,7 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
     float cp = TrigLUT<W, H>::cos_phi[y];
 
     bool handled = get_intervals(
-        y, [&](float t1, float t2) { intervals.push_back({t1, t2}); });
+        y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
     if (handled && !intervals.is_empty()) {
       float current_end = -FLT_MAX;

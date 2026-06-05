@@ -336,7 +336,9 @@ public:
     this->max_life = max_life;
     active_count = 0;
     pool.bind(arena, CAPACITY);
-    if (!pool.is_bound()) return;  // OOM — particle system stays inactive
+    // No is_bound() guard: bind() routes through Arena::allocate, which traps on
+    // OOM and never leaves the vector unbound for CAPACITY > 0. The old early
+    // return was dead code that masked a (non-existent) inert-system fallback.
     for (size_t i = 0; i < CAPACITY; ++i) {
       pool.emplace_back();
     }

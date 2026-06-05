@@ -247,9 +247,12 @@ protected:
    */
   void registerParam(const char *name, float *ptr, float min = 0.0f,
                      float max = 1.0f) {
-    if (parameters.count < parameters.elements.size()) {
-      parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
-    }
+    // Overflowing the fixed ParamList is an effect-authoring bug (too many
+    // params); silently dropping the registration hides it and desyncs the GUI.
+    // Trap instead. (Also upholds the WASM no-realloc memory-view invariant.)
+    HS_CHECK(parameters.count < parameters.elements.size() &&
+             "registerParam: exceeded ParamList capacity");
+    parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
   }
 
   /**
@@ -260,10 +263,10 @@ protected:
    */
   void registerParam(const char *name, bool *ptr, bool defaultValue = false) {
     *ptr = defaultValue;
-    if (parameters.count < parameters.elements.size()) {
-      parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
-                                                 (float)defaultValue};
-    }
+    HS_CHECK(parameters.count < parameters.elements.size() &&
+             "registerParam: exceeded ParamList capacity");
+    parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
+                                               (float)defaultValue};
   }
 
 private:

@@ -1062,9 +1062,11 @@ public:
    * Stores a pointer (modifier must outlive this palette).
    */
   AnimatedPalette &add(const Modifier &modifier) {
-    if (num_modifiers < MAX_MODIFIERS) {
-      modifiers[num_modifiers++] = &modifier;
-    }
+    // Exceeding MAX_MODIFIERS is a wiring bug; silently dropping a modifier
+    // changes the visual with no signal. Trap (fail-fast).
+    HS_CHECK(num_modifiers < MAX_MODIFIERS &&
+             "AnimatedPalette::add: exceeded MAX_MODIFIERS");
+    modifiers[num_modifiers++] = &modifier;
     return *this;
   }
 

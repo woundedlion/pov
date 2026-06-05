@@ -81,6 +81,8 @@ But almost every *other* kind of invariant check ships a silent bounded fallback
 
 Individually, each is defensible ("it's only trails", "tooling only"). Collectively they are the single largest correctness liability in the codebase, because they are precisely the regressions the test suite cannot catch — and the trap surface itself is never exercised by a death test (`tests/test_memory.h:8`). Fixing this cluster is the highest-leverage work available: it is mostly mechanical, and it converts a class of silent-wrong-output bugs into bench-time crashes, which is the entire point of the stated philosophy.
 
+> **✅ Resolved (2026-06-05, P1 #6):** every row in the table above was converted to a trap (or a compile-time `static_assert`, or — for the JS diagnostics — a `console.warn`). See P1 #6 in the fix list for the per-site breakdown. The remaining gap is that the traps still aren't exercised by a death test; that is tracked separately under Testing.
+
 ---
 
 ## Standout engineering
@@ -110,7 +112,19 @@ Worth calling out because excellence should be named, not just defects:
 
 ### P1 — Latent bugs & the fail-fast cluster
 
-6. **Convert the silent-fallback cluster to traps** (the whole table in §"Systemic theme" above). Highest-leverage, mostly mechanical. Start with `solids.h:747/781`, `effects_engine.h:76`, `effect_registry.h:52`.
+6. **✅ FIXED (2026-06-05) — converted the silent-fallback cluster to traps / surfaced errors** (the whole table in §"Systemic theme" above). Each site was validated individually:
+   - **`solids.h` `get_entry`/`get_by_name`** → `HS_CHECK` trap on out-of-range index / unknown name (was: substitute dodecahedron/cube).
+   - **`effect_registry.h` `get_fill_fn`** → `static_assert` in the `else` branch so an unrecognised `<W,H>` is a *compile* error (was: silently route to the 288×144 fill).
+   - **`wasm.cpp` `create_effect`** → `hs::log` + `return nullptr` (was: `factory[0]`); `setEffect`'s existing `if (currentEffect)` guard makes null a safe no-op.
+   - **`filter.h:689` Feedback OOM guard** → removed as dead code (`Arena::allocate` traps and never returns null).
+   - **`animation.h` `ParticleSystem::init` `is_bound()` guard** → removed as dead code (`bind()` routes through the trapping `allocate`).
+   - **`canvas.h` `registerParam` (both overloads)** → `HS_CHECK` trap past `ParamList` capacity (was: silent drop); also upholds the WASM no-realloc memory-view invariant.
+   - **`color.h` `AnimatedPalette::add`** → `HS_CHECK` trap past `MAX_MODIFIERS` (was: silent drop).
+   - **`spatial.h` `SpatialHash::insert`** → `HS_CHECK` trap past `MAX_ENTRIES` (was: silent drop).
+   - **`sdf.h`/`scan.h` scanline interval buffers** → couldn't change `StaticCircularBuffer` globally (its evict-oldest is correct for trails), so added an `SDF::push_interval()` helper that traps on overflow and routed all 9 CSG/`scan_region` accumulation sites through it. The effect smoke harness (all 28 effects at 288×144) renders cleanly with the trap active, confirming no shipping effect exceeds 32 spans/row.
+   - **JS empty `catch {}`** (daydream repo): `segment_worker.js` `getArenaMetrics`, `daydream.js` `getEffectSizes`, and both `gui.js` `updateDisplay` now `console.warn` instead of silently swallowing.
+
+   Three unit tests that *locked the old anti-pattern* (`test_spatialhash_overflow_silently_drops`, the two solids fallback tests, `test_paramlist_capacity_cap`) were repurposed to verify the valid capacity boundary and document that overflow now traps — their failures during this work confirmed the fixes change real behavior. Full native suite passes. *(`effects_engine.h:76` in the original finding was a mislabel — `create_effect` lives in `wasm.cpp`.)*
 7. **`relax` unit mismatch** (`conway.h:813`): a vector *length* is compared against `EPS_LEN_SQ` (a *squared* tolerance). Compare `lengthSq()` instead, or use a length epsilon.
 8. **`Driver` + `.then()` fires every frame** (`animation.h:649,1704`). `Driver` is `AnimationBase(1, true)` — "done" every frame — so any attached `.then()` callback runs ~60×/s, almost never the intent. Disallow `.then()` on perpetual drivers, or special-case the repeat boundary.
 9. **`FunctionRef` binds rvalues/temporaries** (`concepts.h:63`) capturing their address with no diagnostic; a `FunctionRef` outliving the temporary dangles. Add `FunctionRef(Callable&&) = delete` to make the borrow misuse-resistant at compile time.

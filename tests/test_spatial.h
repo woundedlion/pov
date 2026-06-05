@@ -346,10 +346,12 @@ inline void test_spatialhash_negative_coords() {
   HS_EXPECT_TRUE(saw11);
 }
 
-inline void test_spatialhash_overflow_silently_drops() {
+inline void test_spatialhash_fills_to_capacity() {
   SpatialHash sh(1.0f);
-  // Fill past MAX_ENTRIES — implementation drops further inserts silently.
-  for (size_t i = 0; i < SpatialHash::MAX_ENTRIES + 16; ++i) {
+  // Filling exactly to MAX_ENTRIES is valid. (Overflowing past it now traps via
+  // HS_CHECK — a sizing bug, not a recoverable condition — so it cannot be
+  // exercised here without death-test infrastructure.)
+  for (size_t i = 0; i < SpatialHash::MAX_ENTRIES; ++i) {
     sh.insert(Vector(static_cast<float>(i) * 1.1f, 0, 0), (int)i);
   }
   // No crash, and id 0 is still queryable from cell 0.
@@ -484,7 +486,7 @@ inline int run_spatial_tests() {
   test_spatialhash_insert_retrieves_same_cell();
   test_spatialhash_clear();
   test_spatialhash_negative_coords();
-  test_spatialhash_overflow_silently_drops();
+  test_spatialhash_fills_to_capacity();
 
   test_meshstate_default_unbound();
   test_meshstate_clone_deep_copies();

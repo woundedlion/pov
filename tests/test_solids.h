@@ -17,8 +17,8 @@
  *   - Euler characteristic V - E + F == 2 for the hardcoded closed Platonic
  *     solids, using the half-edge edge count (E = halfEdges/2) as in
  *     test_mesh.h.
- *   - Fallbacks: get_entry() out-of-range falls back to dodecahedron
- *     (simple_registry[3]); get_by_name() unknown name falls back to a cube.
+ *   - Bounds: get_entry() out-of-range and get_by_name() unknown name now TRAP
+ *     (fail-fast), so only the valid boundary (last index) is exercised here.
  *   - Determinism: building the same registry entry twice yields identical
  *     vertex counts and positions.
  *
@@ -184,31 +184,20 @@ inline void test_euler_platonic_solids() {
 // Fallbacks (read directly from solids.h).
 // ---------------------------------------------------------------------------
 
-inline void test_get_entry_out_of_range_falls_back_to_dodecahedron() {
-  // get_entry(index >= NUM_ENTRIES) returns simple_registry[3] = dodecahedron.
-  const Solids::Entry &e = Solids::get_entry(Solids::NUM_ENTRIES + 100);
-  HS_EXPECT_TRUE(std::string_view(e.name) == "dodecahedron");
+// Out-of-range get_entry() and unknown get_by_name() now TRAP (fail-fast) rather
+// than substituting a default solid, so those error paths can't be exercised
+// here without death-test infrastructure. Instead verify the last valid index
+// builds correctly (boundary of the valid range).
+inline void test_get_entry_last_valid_index_builds() {
+  const Solids::Entry &e = Solids::get_entry(Solids::NUM_ENTRIES - 1);
+  HS_EXPECT_TRUE(e.name != nullptr);
 
-  // And it must still build into a valid mesh.
   Arena geom(solids_geom_a, sizeof(solids_geom_a));
   Arena a(solids_scratch_a, sizeof(solids_scratch_a));
   Arena b(solids_scratch_b, sizeof(solids_scratch_b));
   PolyMesh m = Solids::finalize_solid(e.generate(a, b), geom);
   check_basic(m);
   check_all_unit(m);
-}
-
-inline void test_get_by_name_unknown_falls_back_to_cube() {
-  Arena geom(solids_geom_a, sizeof(solids_geom_a));
-  Arena a(solids_scratch_a, sizeof(solids_scratch_a));
-  Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-  // Unknown name -> Platonic::cube fallback (8 verts, 6 quad faces).
-  PolyMesh m = Solids::get_by_name(geom, a, b, "definitely_not_a_solid");
-  check_basic(m);
-  check_all_unit(m);
-  HS_EXPECT_EQ(m.vertices.size(), (size_t)8);
-  HS_EXPECT_EQ(m.face_counts.size(), (size_t)6);
-  HS_EXPECT_EQ(m.faces.size(), (size_t)24);
 }
 
 inline void test_get_by_name_known_returns_that_solid() {
@@ -283,8 +272,7 @@ inline int run_solids_tests() {
 
   test_euler_platonic_solids();
 
-  test_get_entry_out_of_range_falls_back_to_dodecahedron();
-  test_get_by_name_unknown_falls_back_to_cube();
+  test_get_entry_last_valid_index_builds();
   test_get_by_name_known_returns_that_solid();
 
   test_determinism_hardcoded_platonic();

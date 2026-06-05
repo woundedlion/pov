@@ -338,8 +338,11 @@ public:
   }
 
   void insert(const Vector &p, int id) {
-    if (poolCount >= MAX_ENTRIES)
-      return;
+    // Exceeding MAX_ENTRIES means the hash was sized too small for the caller's
+    // point set — a sizing bug. Dropping inserts silently corrupts queries, so
+    // trap rather than truncate (fail-fast).
+    HS_CHECK(poolCount < MAX_ENTRIES &&
+             "SpatialHash::insert: exceeded MAX_ENTRIES");
 
     long long h = hash(p);
     int16_t bucketIdx =
