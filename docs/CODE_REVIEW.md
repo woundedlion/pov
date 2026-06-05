@@ -87,7 +87,7 @@ The current code mostly does the *opposite* of fail-fast on the invariant paths:
 
 13. ~~**Build fragility:** the install step writes into the sibling `../daydream` checkout (`CMakeLists.txt:62-66`) with no `EXISTS`/`OPTIONAL` guards — guard it or expose a `DAYDREAM_DIR` cache var.~~ — **✅ FIXED (2026-06-04).** Added a `DAYDREAM_DIR` cache var (defaults to `../daydream`, override with `-DDAYDREAM_DIR=`), switched the install rules to absolute destinations (independent of `CMAKE_INSTALL_PREFIX`), and guarded them with `if(EXISTS "${DAYDREAM_DIR}")` — a standalone Holosphere clone now skips the simulator-module install with a notice instead of creating a stray `../daydream`. Verified: default path still installs to `../daydream`; a bogus `DAYDREAM_DIR` skips cleanly with no error.
 
-**Notable coverage gaps to close over time:** `canvas.h`, `scan.h` rasterizer, `transformers.h`, `generators.h`, the hardware drivers, and the WASM bridge are entirely untested.
+**Notable coverage gaps to close over time:** ~~`canvas.h`, `scan.h` rasterizer, `transformers.h`, `generators.h`~~ **✅ now covered (2026-06-05)** — added `test_canvas.h` (double-buffer state machine, param system, clip), `test_scan.h` (`Scan::Shader::draw` + the SDF `rasterize` path via `Scan::Ring::draw`), `test_transformers.h` (orient/mobius/gnomonic/ripple/noise + manager), and `test_generators.h` (`generate()` arena lifecycle), wired into `run_tests.cpp`; the hardware drivers and the WASM bridge remain untested. A `.githooks/pre-commit` hook now builds + runs the suite on any C++/CMake change (enable with `git config core.hooksPath .githooks`).
 
 ---
 
@@ -144,7 +144,7 @@ Clean header-only harness with delta-based per-module tallies and typed domain m
 - **Medium** | `test_effects.h:84-87` — tautological postcondition (`acc+1>0`).
 - **Medium** | `test_effects.h:119-134` — suite is green by excluding 3 known-failing effects.
 - **Medium** | no determinism seam for `hs::millis` — effects can't be regression-tested.
-- Untested: `canvas.h`, `scan.h` rasterizer, `transformers.h`, `generators.h`, platform/hardware, WASM bridge.
+- ~~Untested: `canvas.h`, `scan.h` rasterizer, `transformers.h`, `generators.h`~~ **✅ now tested (2026-06-05)** (`test_canvas.h`/`test_scan.h`/`test_transformers.h`/`test_generators.h`); platform/hardware and the WASM bridge remain untested. A `.githooks/pre-commit` hook runs the suite on C++/CMake changes.
 
 ### WASM Bridge & Build (`wasm.cpp`, `CMakeLists.txt`, presets, toolchain, build scripts)
 
@@ -160,7 +160,7 @@ Engine kept pristine (bindings only wrap); templated compile-time factory dispat
 Clean pub/sub state, worker isolation, near-zero per-frame allocation (persistent adapter, pooled labels, reused temp vectors), correct GPU disposal on resolution change, and — notably — a **correct** detached-buffer guard (`daydream.js:357`). Robust browser-compat (codec fallback chain, importmap probe, File System Access fallback).
 
 - ~~**Medium** | `segment_worker.js:79-88` — `setResolution` doesn't re-apply clip → stale clip rectangle.~~ **✅ FIXED (2026-06-04)** — handler now calls `applyClip()` itself; see P1 #8.
-- **Medium** | `daydream.js:631,672` — `applyResolution(true)` called twice at startup (once with null engine).
+- ~~**Medium** | `daydream.js:631,672` — `applyResolution(true)` called twice at startup (once with null engine).~~ **✅ FIXED (2026-06-05)** — dropped the early synchronous (null-engine) call; setup runs once in the WASM `.then` handler (the animation loop is gated on `wasmAdapter`, so nothing renders before then). Committed in the daydream repo.
 - **Low (partially fixed)** | ~~new/resized segment workers don't receive current tuned param values~~ **✅ FIXED (2026-06-04)** (`createSegmentWorkers` snapshots the main engine's current params and sends them in the worker `init` message; the worker applies them after `setEffect`); dual URL-sync layers can race — **still open** (consolidation attempted in P2 #10 but reverted: it broke effect-param deep links); ~~`62`ms magic number in 3+ places~~ **✅ FIXED (2026-06-04)** (exported `SLOW_FRAME_MS`); ~~`THREE_VERSION` mismatch~~ **✅ FIXED (2026-06-04)** (removed the dead stale copy in `tools/shared.js`; `vendor-importmap.js` is canonical).
 
 ---

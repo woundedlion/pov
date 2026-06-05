@@ -23,6 +23,10 @@
 #include "tests/test_easing_waves.h"
 #include "tests/test_filter.h"
 #include "tests/test_plot_scan.h"
+#include "tests/test_canvas.h"
+#include "tests/test_scan.h"
+#include "tests/test_transformers.h"
+#include "tests/test_generators.h"
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
 
@@ -44,6 +48,10 @@ int main() {
   failures += hs_test::easing_waves_tests::run_easing_waves_tests();
   failures += hs_test::filter_tests::run_filter_tests();
   failures += hs_test::plot_scan_tests::run_plot_scan_tests();
+  failures += hs_test::canvas_tests::run_canvas_tests();
+  failures += hs_test::scan_tests::run_scan_tests();
+  failures += hs_test::transformers_tests::run_transformers_tests();
+  failures += hs_test::generators_tests::run_generators_tests();
   failures += hs_test::animation_tests::run_animation_tests();
   failures += hs_test::effects_tests::run_effects_tests();
   return failures;
