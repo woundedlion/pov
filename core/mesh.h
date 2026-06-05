@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <span>
 #include <cmath>
+#include <type_traits>
 
 // Forward declarations
 struct HEVertex;
@@ -91,6 +92,46 @@ struct HEFace {
       HE_NONE; /**< One of the half-edges bordering this face. */
 };
 
+/**
+ * @brief Record used to pair opposite half-edges by their undirected
+ * (min_v, max_v) vertex key.
+ */
+struct HalfEdgePairRecord {
+  uint16_t min_v, max_v, he;
+};
+
+/**
+ * @brief Sorts half-edge records by (min_v, max_v) and calls set_pair(heA, heB)
+ * once per matched opposite-edge pair. Templated + inline, so it lowers to the
+ * same code as a hand-inlined sort/scan — no call overhead on the (cold)
+ * mesh-build path; this only removes the copy-paste between build_from_flat and
+ * classify_faces_by_topology.
+ */
+template <typename SetPairFn>
+inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
+                            SetPairFn set_pair) {
+  auto edge_less = [](const HalfEdgePairRecord &a, const HalfEdgePairRecord &b) {
+    if (a.min_v != b.min_v) return a.min_v < b.min_v;
+    return a.max_v < b.max_v;
+  };
+  auto edge_greater = [&](const HalfEdgePairRecord &a,
+                          const HalfEdgePairRecord &b) {
+    return edge_less(b, a);
+  };
+  std::make_heap(records, records + n, edge_greater);
+  std::sort_heap(records, records + n, edge_greater);
+
+  for (size_t i = 0; i < n;) {
+    if (i + 1 < n && records[i].min_v == records[i + 1].min_v &&
+        records[i].max_v == records[i + 1].max_v) {
+      set_pair(records[i].he, records[i + 1].he);
+      i += 2;
+    } else {
+      i += 1;
+    }
+  }
+}
+
 class HalfEdgeMesh {
 public:
   ArenaVector<HEVertex> vertices;
@@ -121,19 +162,15 @@ private:
     faces.bind(arena, num_faces);
     halfEdges.bind(arena, total_indices);
 
-    struct EdgeRecord {
-      uint16_t min_v;
-      uint16_t max_v;
-      uint16_t he;
-    };
-
     size_t face_offset = 0;
     size_t he_idx = 0;
 
     {
       ScratchScope _(arena);
-      EdgeRecord *records = static_cast<EdgeRecord *>(arena.allocate(
-          total_indices * sizeof(EdgeRecord), alignof(EdgeRecord)));
+      HalfEdgePairRecord *records =
+          static_cast<HalfEdgePairRecord *>(arena.allocate(
+              total_indices * sizeof(HalfEdgePairRecord),
+              alignof(HalfEdgePairRecord)));
 
       for (size_t fi = 0; fi < num_faces; ++fi) {
         int count = counts[fi];
@@ -170,26 +207,10 @@ private:
         face_offset += count;
       }
 
-      auto edge_less = [](const EdgeRecord &a, const EdgeRecord &b) {
-        if (a.min_v != b.min_v) return a.min_v < b.min_v;
-        return a.max_v < b.max_v;
-      };
-      auto edge_greater = [&](const EdgeRecord &a, const EdgeRecord &b) {
-        return edge_less(b, a);
-      };
-      std::make_heap(records, records + total_indices, edge_greater);
-      std::sort_heap(records, records + total_indices, edge_greater);
-
-      for (size_t i = 0; i < total_indices;) {
-        if (i + 1 < total_indices && records[i].min_v == records[i + 1].min_v &&
-            records[i].max_v == records[i + 1].max_v) {
-          halfEdges[records[i].he].pair = records[i + 1].he;
-          halfEdges[records[i + 1].he].pair = records[i].he;
-          i += 2;
-        } else {
-          i += 1;
-        }
-      }
+      pair_half_edges(records, total_indices, [&](uint16_t a, uint16_t b) {
+        halfEdges[a].pair = b;
+        halfEdges[b].pair = a;
+      });
     }
   }
 };
@@ -241,11 +262,19 @@ FLASHMEM static void compile(const PolyMesh &src, MeshState &dst,
 }
 
 /**
- * @brief Performs a strict deep copy of a MeshState into a target arena.
+ * @brief Performs a strict deep copy of a mesh into a target arena.
  * Safe for memory compaction and bouncing between arenas.
+ *
+ * For MeshState this delegates to MeshState::clone (the Cloneable interface
+ * used by Persist) so the two implementations can't drift; the generic body
+ * below handles PolyMesh (which has no face_offsets).
  */
 template <typename MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
+  if constexpr (std::is_same_v<MeshT, MeshState>) {
+    MeshState::clone(src, dst, arena);
+    return;
+  }
   dst.vertices.bind(arena, src.vertices.size());
   for (size_t i = 0; i < src.vertices.size(); ++i) {
     dst.vertices.push_back(src.vertices[i]);
@@ -376,12 +405,9 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
     {
       ScratchScope temp_records(scratch_b);
-      struct EdgeRecord {
-        uint16_t min_v, max_v, he;
-      };
-      EdgeRecord *records =
-          static_cast<EdgeRecord *>(scratch_b.allocate(
-              I * sizeof(EdgeRecord), alignof(EdgeRecord)));
+      HalfEdgePairRecord *records =
+          static_cast<HalfEdgePairRecord *>(scratch_b.allocate(
+              I * sizeof(HalfEdgePairRecord), alignof(HalfEdgePairRecord)));
 
       size_t he_idx = 0;
       size_t face_offset = 0;
@@ -399,26 +425,10 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         face_offset += count;
       }
 
-      auto edge_less = [](const EdgeRecord &a, const EdgeRecord &b) {
-        if (a.min_v != b.min_v) return a.min_v < b.min_v;
-        return a.max_v < b.max_v;
-      };
-      auto edge_greater = [&](const EdgeRecord &a, const EdgeRecord &b) {
-        return edge_less(b, a);
-      };
-      std::make_heap(records, records + I, edge_greater);
-      std::sort_heap(records, records + I, edge_greater);
-
-      for (size_t i = 0; i < I;) {
-        if (i + 1 < I && records[i].min_v == records[i + 1].min_v &&
-            records[i].max_v == records[i + 1].max_v) {
-          pairArray[records[i].he] = records[i + 1].he;
-          pairArray[records[i + 1].he] = records[i].he;
-          i += 2;
-        } else {
-          i += 1;
-        }
-      }
+      pair_half_edges(records, I, [&](uint16_t a, uint16_t b) {
+        pairArray[a] = b;
+        pairArray[b] = a;
+      });
     }
 
     offset = 0;
