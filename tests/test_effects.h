@@ -30,6 +30,7 @@
 #include "tests/test_harness.h"
 
 #include <cstdint>
+#include <cstdlib>
 
 namespace hs_test {
 namespace effects_tests {
@@ -39,7 +40,27 @@ namespace effects_tests {
 // exercised at in deployment, so it is the representative smoke target.
 constexpr int kW = 288;
 constexpr int kH = 144;
-constexpr int kFrames = 8;
+
+// Default smoke frame count — kept small so the full suite stays well under a
+// few seconds (the fast `ctest`/pre-commit path). Set HS_SMOKE_FRAMES=<n> to
+// drive long, cyclic code paths (effect morph cycles, particle/trail wraps,
+// arena compaction) that only surface over many frames. That deep mode is
+// opt-in and intentionally NOT part of the default run.
+constexpr int kDefaultFrames = 8;
+
+inline int smoke_frames() {
+  // getenv is the simplest way to parameterize a test binary; the MSVC CRT
+  // flags it deprecated in favor of _dupenv_s, but the standard call is fine
+  // for read-only test config.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (const char *e = std::getenv("HS_SMOKE_FRAMES")) {
+#pragma clang diagnostic pop
+    int n = std::atoi(e);
+    if (n > 0) return n;
+  }
+  return kDefaultFrames;
+}
 
 // Drive one effect type through construct -> init -> render -> read-back.
 template <template <int, int> class E>
@@ -61,7 +82,8 @@ inline void smoke_one(const char *name) {
   HS_EXPECT_EQ(effect.width(), kW);
   HS_EXPECT_EQ(effect.height(), kH);
 
-  for (int f = 0; f < kFrames; ++f) {
+  const int frames = smoke_frames();
+  for (int f = 0; f < frames; ++f) {
     effect.draw_frame();
     // Simulate the display consuming the queued frame, otherwise the next
     // Canvas ctor would spin-wait on buffer_free() forever.
@@ -84,7 +106,7 @@ inline void smoke_one(const char *name) {
   // visible passing assertion in the tally.
   HS_EXPECT_TRUE(acc + 1 > 0);
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
-              kFrames, kW, kH, static_cast<unsigned long long>(acc));
+              frames, kW, kH, static_cast<unsigned long long>(acc));
 }
 
 inline int run_effects_tests() {

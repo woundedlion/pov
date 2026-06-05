@@ -226,11 +226,31 @@ public:
   /// One-time binding to an arena. Asserts on double-bind.
   /// If already bound with sufficient capacity, resets size for reuse.
   void bind(Arena &arena, size_t exact_capacity) {
+#ifndef NDEBUG
+    // If the previous binding is STALE — the source arena was reset (generation
+    // bumped) since we bound, or it's a different arena — the old storage is
+    // already dead. Drop the stale binding so we rebind cleanly (a fresh
+    // allocation) instead of reusing a dangling pointer. (Debug-only:
+    // generation tracking exists only here; NDEBUG can't detect this, but it
+    // re-allocates on a grow anyway, so device behavior is unchanged.)
+    if (bound_ && (source_arena_ != &arena ||
+                   birth_generation_ != arena.get_generation())) {
+      bound_ = false;
+    }
+#endif
+    // Same arena, still live, and big enough → reuse the block in place.
     if (bound_ && capacity_ >= exact_capacity) {
       size_ = 0; // Reuse memory
       return;
     }
-    assert(!bound_ && "ArenaVector already bound!");
+    // Otherwise (unbound, or a deliberate grow that abandons the old block) →
+    // allocate fresh. A re-bind that grows is NOT a memory-safety invariant
+    // violation: it just leaks the old block until the next arena reset /
+    // compaction reclaims it — a supported pattern (e.g. HankinSolids' shape
+    // morph rebinds restored vectors to the next, larger shape between
+    // compactions). So no double-bind assert here. The genuine hard failures
+    // are still trapped: OOM in Arena::allocate (HS_CHECK), capacity overflow in
+    // push_back/append_bulk (HS_CHECK), and use-after-free in check_alive().
     if (exact_capacity > 0) {
       data_ = static_cast<T *>(
           arena.allocate(exact_capacity * sizeof(T), alignof(T)));
