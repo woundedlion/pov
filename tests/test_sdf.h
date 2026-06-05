@@ -24,6 +24,9 @@
 #include "tests/test_3dmath.h"
 #include "tests/test_harness.h"
 
+#include <utility>
+#include <vector>
+
 namespace hs_test {
 namespace sdf {
 
@@ -317,6 +320,71 @@ inline void test_subtract_inside_both_becomes_outside() {
   HS_EXPECT_NEAR(r.dist, 0.1f, 1e-3f);
 }
 
+// Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list,
+// to exercise Subtract's scanline set-difference independently of any real
+// shape. Minimal surface: only thickness, is_solid, and get_horizontal_intervals
+// are touched by Subtract's ctor + interval path.
+namespace sdf_subtract_detail {
+struct MockIntervalShape {
+  const std::vector<std::pair<float, float>> *ivs;
+  float thickness = 0.1f;
+  static constexpr bool is_solid = true;
+  template <int W, int H, typename Out>
+  bool get_horizontal_intervals(int, Out out) const {
+    for (const auto &p : *ivs)
+      out(p.first, p.second);
+    return true;
+  }
+};
+} // namespace sdf_subtract_detail
+
+// Regression: a child emitting UNSORTED, multi-piece B intervals must still
+// yield the correct set difference, emitted in start-sorted order (scan_region's
+// coalescer drops any out-of-order interval). Before the fix, Subtract processed
+// B in emission order and produced a wrong, unsorted result.
+inline void test_subtract_unsorted_b_yields_sorted_set_difference() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  std::vector<P> a_ivs = {{0.0f, 100.0f}};
+  std::vector<P> b_ivs = {{60.0f, 70.0f}, {20.0f, 30.0f}}; // unsorted, multi
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(A, B);
+
+  std::vector<P> out;
+  bool ok = s.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+
+  // [0,100] - {[20,30],[60,70]} = [0,20],[30,60],[70,100].
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(3));
+  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 20.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].first, 30.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].second, 60.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[2].first, 70.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[2].second, 100.0f, 1e-4f);
+  for (size_t i = 1; i < out.size(); ++i)
+    HS_EXPECT_TRUE(out[i].first >= out[i - 1].first);
+}
+
+// Regression: when B removes nothing (empty), unsorted A intervals must pass
+// through in start-sorted order so the coalescer doesn't drop the earlier one.
+inline void test_subtract_unsorted_a_passthrough_is_sorted() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
+  std::vector<P> b_ivs = {};                              // empty → passthrough
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(A, B);
+
+  std::vector<P> out;
+  s.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].first, 50.0f, 1e-4f);
+}
+
 // ============================================================================
 // Intersection — max(A, B)
 // ============================================================================
@@ -438,6 +506,8 @@ inline int run_sdf_tests() {
 
   test_subtract_inside_a_outside_b_remains_inside();
   test_subtract_inside_both_becomes_outside();
+  test_subtract_unsorted_b_yields_sorted_set_difference();
+  test_subtract_unsorted_a_passthrough_is_sorted();
 
   test_intersection_requires_both_inside();
   test_intersection_thickness_is_min();

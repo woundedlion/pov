@@ -649,6 +649,25 @@ template <typename A, typename B> struct Subtract {
     StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
     StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
 
+    // Insertion-sort an interval buffer by start (matches Union's idiom). Both
+    // the set-difference loop below and scan_region's coalescer assume intervals
+    // arrive in non-decreasing start order; a multi-interval child (AngularRepeat,
+    // a nested CSG) can emit them out of order, which without this sort yields a
+    // wrong set difference AND unsorted output that the coalescer silently drops.
+    auto sort_by_start =
+        [](StaticCircularBuffer<std::pair<float, float>, 32> &buf) {
+          size_t n = buf.size();
+          for (size_t i = 1; i < n; ++i) {
+            auto key = buf[i];
+            int j = static_cast<int>(i) - 1;
+            while (j >= 0 && buf[static_cast<size_t>(j)].first > key.first) {
+              buf[static_cast<size_t>(j) + 1] = buf[static_cast<size_t>(j)];
+              --j;
+            }
+            buf[static_cast<size_t>(j) + 1] = key;
+          }
+        };
+
     bool hasA = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { intervalsA.push_back({start, end}); });
 
@@ -660,6 +679,10 @@ template <typename A, typename B> struct Subtract {
     if (intervalsA.is_empty())
       return true;
 
+    // A's pieces are emitted in A-interval order, so A must be start-sorted for
+    // the output (and the pass-through below) to stay start-ordered.
+    sort_by_start(intervalsA);
+
     bool hasB = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { intervalsB.push_back({start, end}); });
 
@@ -670,6 +693,9 @@ template <typename A, typename B> struct Subtract {
         out(intervalsA[i].first, intervalsA[i].second);
       return true;
     }
+
+    // The per-A shrink/split loop walks B left-to-right, so B must be sorted.
+    sort_by_start(intervalsB);
 
     // Set difference: A minus B
     // For each A interval, subtract all overlapping B intervals
