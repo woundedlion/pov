@@ -640,6 +640,12 @@ private:
 
 /**
  * @brief An animation that continuously increments a float variable over time.
+ *
+ * A Driver is perpetual with a one-frame cycle (duration 1, repeat true): it has
+ * no natural completion, so a `.then()` callback attached to it fires once PER
+ * FRAME (after each step + rewind). That is intentional — for a per-frame
+ * incrementer, a per-frame hook is the only meaningful interpretation of
+ * `.then()`. Do not attach a one-shot callback expecting a single fire.
  */
 class Driver : public AnimationBase<Driver> {
 public:
