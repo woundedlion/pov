@@ -81,6 +81,9 @@ public:
 
   Color4 color(const Vector &v, float t) {
     constexpr float blend_width = PI_F / 4;
+    // +inf sentinel for "no next boundary": `a` is an angle in [0, PI], so any
+    // value well above PI makes the `a < next_boundary_lower_edge` test pass.
+    constexpr float NO_NEXT_BOUNDARY = 100.0f;
     float a = angle_between(v, palette_normal);
 
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
@@ -107,7 +110,7 @@ public:
       auto next_boundary_lower_edge =
           (i + 1 < palette_boundaries.size()
                ? palette_boundaries[i + 1] - blend_width
-               : 100.0f); // Infinity check
+               : NO_NEXT_BOUNDARY);
 
       if (a > upper_edge && a < next_boundary_lower_edge) {
         return palettes[i + 1].get(t);

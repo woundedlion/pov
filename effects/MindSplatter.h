@@ -19,7 +19,10 @@ public:
         particle_system() {}
 
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 11264, 11264, 0);
+    // The particle pool needs the bulk of the arena; carve a small scratch_a
+    // (11 KiB) for it and give scratch_b nothing.
+    static constexpr size_t SCRATCH_BYTES = 11 * 1024; // 11264
+    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
     registerParam("Well Str", &params.well_strength, 0.0f, 20.0f);

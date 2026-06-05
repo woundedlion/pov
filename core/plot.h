@@ -23,6 +23,10 @@
 
 namespace Plot {
 
+/** Inner/outer radius ratio for star shapes (≈ golden-ratio conjugate; mirrors
+ *  SDF::STAR_INNER_RATIO). */
+static constexpr float STAR_INNER_RATIO = 0.382f;
+
 /**
  * @brief Apply an optional per-control-point vertex shader to every fragment.
  *
@@ -948,7 +952,7 @@ struct Star {
     const Vector &w = work_basis.w;
 
     float outer_radius = work_radius * (PI_F / 2.0f);
-    float inner_radius = outer_radius * 0.382f;
+    float inner_radius = outer_radius * STAR_INNER_RATIO;
     float angle_step = PI_F / num_sides;
 
     float cumulative_len = 0.0f;
