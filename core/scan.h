@@ -360,7 +360,7 @@ struct Star {
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
-    SDF::Star shape(res.first, res.second, sides, phase, H, H);
+    SDF::Star shape(res.first, res.second, sides, phase, H + hs::H_OFFSET, H);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }

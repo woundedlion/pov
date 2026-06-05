@@ -1731,11 +1731,11 @@ struct Star {
     float margin = outerRadius + BOUNDS_MARGIN_WIDE;
     yMin = std::max(
         0, static_cast<int>(floorf(
-               (std::max(0.0f, centerPhi - margin) * (height - 1)) / PI_F)));
+               (std::max(0.0f, centerPhi - margin) * (h_virt - 1)) / PI_F)));
     yMax = std::min(
         height - 1,
         static_cast<int>(
-            ceilf((std::min(PI_F, centerPhi + margin) * (height - 1)) / PI_F)));
+            ceilf((std::min(PI_F, centerPhi + margin) * (h_virt - 1)) / PI_F)));
   }
 
   template <int H> Bounds get_vertical_bounds() const { return {yMin, yMax}; }
