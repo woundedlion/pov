@@ -79,6 +79,26 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
   return nullptr;
 }
 
+// ---------------------------------------------------------------------------
+// Single source of truth for the (W,H) resolutions the WASM factory can build.
+// setResolution()/setEffect()/getEffectSizes() all dispatch through this list
+// via the X-macro below, so the supported set can never drift between them.
+// To support a new resolution, add one row here (the effect templates must also
+// be instantiable at that <W,H>).
+// ---------------------------------------------------------------------------
+#define HS_WASM_RESOLUTIONS(X)                                                  \
+  X(96, 20)                                                                     \
+  X(288, 144)
+
+static bool wasm_resolution_supported(int w, int h) {
+#define X(W, H)                                                                 \
+  if (w == (W) && h == (H))                                                     \
+    return true;
+  HS_WASM_RESOLUTIONS(X)
+#undef X
+  return false;
+}
+
 class HolosphereEngine {
 public:
   HolosphereEngine() {
@@ -99,14 +119,19 @@ public:
     setEffect("Test");
   }
 
-  void setResolution(int w, int h) {
+  // Returns true if the resolution is now active, false if the request was
+  // rejected (unsupported size) and the previous valid state was kept.
+  bool setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
-      return;
+      return true; // already at this (valid) resolution
 
-    // basic validation
-    if (w > MAX_W || h > MAX_H) {
-      hs::log("WASM: Resolution too large!");
-      return;
+    // Reject sizes the factory can't build rather than switching to them and
+    // nulling currentEffect — that previously left the engine rendering blank
+    // with no signal to JS. Keep the prior valid resolution/effect alive and
+    // report the failure so the caller can surface it.
+    if (!wasm_resolution_supported(w, h)) {
+      hs::log("WASM: Unsupported resolution %dx%d — ignored", w, h);
+      return false;
     }
 
     pixel_width = w;
@@ -122,6 +147,7 @@ public:
     if (currentEffect) {
       currentEffect = nullptr;
     }
+    return true;
   }
 
   void setEffect(std::string name) {
@@ -135,11 +161,16 @@ public:
     // Reset stack HWM by repainting unused region
     stack_paint_canary();
 
-    if (pixel_width == 96 && pixel_height == 20)
-      currentEffect = create_effect<96, 20>(name);
-    else if (pixel_width == 288 && pixel_height == 144)
-      currentEffect = create_effect<288, 144>(name);
-    else {
+    bool created = false;
+#define X(W, H)                                                                \
+  if (pixel_width == (W) && pixel_height == (H)) {                             \
+    currentEffect = create_effect<W, H>(name);                                 \
+    created = true;                                                            \
+  }
+    HS_WASM_RESOLUTIONS(X)
+#undef X
+    if (!created) {
+      // Unreachable in practice: setResolution() only admits supported sizes.
       hs::log("WASM: Unsupported resolution for factory!");
       return;
     }
@@ -290,9 +321,12 @@ public:
   }
 
   val getEffectSizes() {
-    if (pixel_width == 96 && pixel_height == 20)
-      return get_effect_sizes_helper<96, 20>();
-    return get_effect_sizes_helper<288, 144>();
+#define X(W, H)                                                                \
+  if (pixel_width == (W) && pixel_height == (H))                               \
+    return get_effect_sizes_helper<W, H>();
+    HS_WASM_RESOLUTIONS(X)
+#undef X
+    return val::object(); // unsupported/uninitialized — empty map
   }
 
 private:
