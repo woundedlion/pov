@@ -1,19 +1,19 @@
 # Holosphere native unit tests.
 #
-# The quick canonical runner is ../build_tests.bat. This file additionally
-# exposes the suite to CMake/CTest so CI can build and run it portably:
+# Canonical flow is the `tests` CMake preset (see CMakePresets.json), which uses
+# cmake/toolchain-native-clang.cmake to locate Clang and, on Windows, the SDK
+# rc.exe automatically — no Visual Studio Developer Prompt or manual flags:
 #
-#   cmake -S tests -B build_test -G Ninja
-#   cmake --build build_test
-#   ctest --test-dir build_test --output-on-failure
+#   cmake --preset tests
+#   cmake --build --preset tests
+#   ctest --preset tests
+#
+# build_tests.bat is a thin wrapper over exactly those three commands.
 #
 # The root CMakeLists.txt (a WASM/Emscripten build) does add_subdirectory(tests);
 # the unit tests are native-only, so we no-op under Emscripten to leave the WASM
-# build untouched.
-#
-# NOTE: on Windows with a clang toolchain, CMake's platform module also wants a
-# resource compiler — pass -DCMAKE_RC_COMPILER=<path-to-llvm-rc>. Linux/macOS CI
-# need nothing extra. The verified quick runner on this repo is build_tests.bat.
+# build untouched. (A standalone `cmake -S tests -B build_test` configure also
+# works for CI, but the preset is the supported path.)
 if(EMSCRIPTEN)
   return()
 endif()

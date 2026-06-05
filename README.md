@@ -379,7 +379,7 @@ JS:  wasmEngine.getPixels()
 
 ### End-to-End Flow
 
-A typical effect frame follows a four-stage pipeline. Not every effect uses every stage — some skip generation entirely, others skip transformations — but the available primitives compose along this flow:
+A typical effect frame follows a four-stage pipeline. Not every effect uses every stage — some skip generation entirely, others skip transformations, and a few full-screen shader effects (e.g. Liquid2D, Flyby, Raymarch) extend `Effect` directly and bypass the filter pipeline altogether — but the available primitives compose along this flow:
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -1604,7 +1604,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 | `setParameter(name, value)` | Update a live effect parameter |
 | `getParameterDefinitions()` | Return the full `[{name, value, min, max}]` parameter list |
 | `getParamValues()` | Return current parameter values (including animation-driven updates) |
-| `getArenaMetrics()` | Memory usage stats for geometry, scratch, and tooling arenas |
+| `getArenaMetrics()` | Memory usage stats for geometry, scratch, and tooling arenas, plus the stack high-water mark (see below) |
 | `getEffectSizes()` | Return `sizeof` for every registered effect at the current resolution |
 | `setClip(y0, y1, x0, x1)` | Restrict rendering to a sub-rectangle (used by segment workers) |
 
