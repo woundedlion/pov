@@ -65,7 +65,7 @@ The current code mostly does the *opposite* of fail-fast on the invariant paths:
 
 ### P1 — Robustness, concurrency & lifetime
 
-4. **ISR reads `effect_` with no publish/lifetime barrier** (`pov_single.h:78-84`, `pov_segmented.h`). A late-pending IntervalTimer ISR can dereference a freed effect at teardown. Null-publish `effect_` under disabled interrupts before `delete`.
+4. ~~**ISR reads `effect_` with no publish/lifetime barrier** (`pov_single.h:78-84`, `pov_segmented.h`). A late-pending IntervalTimer ISR can dereference a freed effect at teardown. Null-publish `effect_` under disabled interrupts before `delete`.~~ — **❌ DISMISSED (2026-06-04), not a bug as described.** The lifetime barrier already exists: `run()` calls `timer.end()` (`pov_single.h:108`) / `detachInterrupt()` (`pov_segmented.h:261-262`) to stop the ISR *before* control returns to `show()` and runs `delete effect_`. Any genuinely pending interrupt is serviced the instant interrupts resume — right after `end()`/`detach()` and well before the `delete` — so it reads a still-valid `effect_`, not freed memory. The proposed fix is also incoherent for this code: **neither ISR null-checks `effect_`** (`pov_single.h:124-153`, `pov_segmented.h:282-317` deref it unconditionally), so null-publishing before `delete` would convert a hypothetical use-after-free into a *guaranteed* null-deref on any stray ISR. The only real kernel — the delete-before-null ordering and an unguarded ISR-shared raw pointer — is defense-in-depth, not a live hazard, and any real fix would need an ISR null-check **plus** reordering (not the doc's one-liner); deferred as not worth the per-column ISR branch cost.
 
 5. **Relaxed atomics on the DMA completion flag** (`dma_led.h:270-295`). Use `release` in the ISR / `acquire` on the consumer instead of `relaxed` to guarantee buffer-write→flag visibility.
 
@@ -124,7 +124,7 @@ Type-erased inline animation storage, correct half-edge construction, KNN graph 
 Non-blocking DMA with a composite black-frame trick; minimal interrupt-disabled critical sections; branchless per-segment ISR resolved at boot.
 
 - **Medium** | `memory.cpp:28-42` — `configure_arenas` silently proportionally **scales down** an over-subscribed partition request. Under fail-fast this masks a config/sizing bug: the effect asked for a layout that doesn't fit and gets a quietly smaller one, which then over-runs later. Prefer `HS_CHECK(persistent + a + b <= GLOBAL_ARENA_SIZE)` so a bad partition request traps at `init()` instead of degrading. (Previously praised as "graceful" — that was the old fail-soft framing.)
-- **High** | `pov_single.h:78-84,124-153` — ISR reads `effect_` with no publish/lifetime barrier.
+- ~~**High** | `pov_single.h:78-84,124-153` — ISR reads `effect_` with no publish/lifetime barrier.~~ **❌ DISMISSED (2026-06-04)** — `timer.end()`/`detachInterrupt()` already stop the ISR before `delete`; proposed null-publish fix is incoherent (ISR has no null-check). See P1 #4.
 - **Medium** | `dma_led.h:270-295` — `relaxed` atomics on the cross-context completion flag.
 - **Medium** | `pov_single.h:105-106` — per-frame `Serial.print` in the hot loop; dead `delay(125)`.
 
