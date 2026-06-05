@@ -24,6 +24,23 @@
 namespace Plot {
 
 /**
+ * @brief Apply an optional per-control-point vertex shader to every fragment.
+ *
+ * Zero-cost inline replacement for the identical
+ * `if (vertex_shader) for (auto &p : pts) vertex_shader(p);` block repeated
+ * across the primitives. Templated on the fragment container; the FunctionRef
+ * is passed by value (two pointers) and the whole thing inlines away at -O3.
+ */
+template <typename Fragments>
+inline void apply_vertex_shader(VertexShaderRef vertex_shader, Fragments &pts) {
+  if (vertex_shader) {
+    for (auto &p : pts) {
+      vertex_shader(p);
+    }
+  }
+}
+
+/**
  * @brief Single point primitive.
  */
 struct Point {
@@ -339,11 +356,7 @@ struct Line {
     points.bind(scratch_arena_a, 4);
     sample(points, f1, f2);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
                     nullptr);
   }
@@ -476,11 +489,7 @@ struct Multiline {
     points.bind(scratch_arena_a, vertices.size() + 2);
     sample(points, vertices, closed);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
 
     // We manually closed it if requested, so pass false to rasterize
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
@@ -583,11 +592,7 @@ struct Ring {
     // Use W samples for smooth circles (fixes pinching at poles)
     sample(points, basis, radius, W, phase);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
                     nullptr);
   }
@@ -646,11 +651,7 @@ struct PlanarPolygon {
     points.bind(scratch_arena_a, num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
                     &basis);
   }
@@ -714,11 +715,7 @@ struct SphericalPolygon {
     points.bind(scratch_arena_a, num_sides + 2);
     sample(points, basis, radius, num_sides, phase);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
                     nullptr);
   }
@@ -856,11 +853,7 @@ struct DistortedRing {
     points.bind(scratch_arena_a, W + 2);
     sample<W, H>(points, basis, radius, shift_fn, phase);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
                     nullptr);
   }
@@ -921,11 +914,7 @@ struct Spiral {
     frags.bind(scratch_arena_a, n);
     sample(frags, n, eps);
 
-    if (vertex_shader) {
-      for (auto &f : frags) {
-        vertex_shader(f);
-      }
-    }
+    apply_vertex_shader(vertex_shader, frags);
     rasterize<W, H>(pipeline, canvas, frags, fragment_shader, false, 0.0f,
                     nullptr);
   }
@@ -1024,11 +1013,7 @@ struct Star {
     points.bind(scratch_arena_a, num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
 
     Vector center = basis.v;
     if (radius > 1.0f)
@@ -1145,11 +1130,7 @@ struct Flower {
     points.bind(scratch_arena_a, num_sides * 2 + 2);
     sample(points, basis, radius, num_sides, phase);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        vertex_shader(p);
-      }
-    }
+    apply_vertex_shader(vertex_shader, points);
 
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
@@ -1372,11 +1353,7 @@ struct ParticleSystem {
       });
 
       if (!trail.is_empty()) {
-        if (vertex_shader) {
-          for (auto &f : trail) {
-            vertex_shader(f);
-          }
-        }
+        apply_vertex_shader(vertex_shader, trail);
         rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false, 0.0f,
                         nullptr);
       }
@@ -1433,10 +1410,7 @@ struct Bezier {
     points.bind(scratch_arena_a, num_samples + 1);
     sample(points, p0, p1, p2, p3, num_samples, mode);
 
-    if (vertex_shader) {
-      for (auto &f : points)
-        vertex_shader(f);
-    }
+    apply_vertex_shader(vertex_shader, points);
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
                     nullptr);
   }
@@ -1518,10 +1492,7 @@ struct SplineChain {
       }
     }
 
-    if (vertex_shader) {
-      for (auto &f : points)
-        vertex_shader(f);
-    }
+    apply_vertex_shader(vertex_shader, points);
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
                     nullptr);
   }
