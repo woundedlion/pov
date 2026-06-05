@@ -37,7 +37,7 @@ It is held back from an unqualified A by three things: (1) a **pixel-sink harden
 | Memory / Platform / HW | A− | B | A | Branchless segmented ISR; `effect_` not `volatile`, driver ownership divergence |
 | Effects (×27) | A− | B− | A− | World-class art; two color truncations + 3 capacity aborts |
 | WASM Bridge / Build / Tests | A− | B | A | Correct detachment contract; format-string bug; shallow effect tests |
-| Daydream Simulator | A− | B | A | Detached-view guard done correctly; worker-after-resolution blank-frame bug |
+| Daydream Simulator | A− | B+ | A | Detached-view guard correct; #8 blank-frame over-stated & resolved (clip hardened in daydream `f8e6aa6`); minor sync-XHR importmap probe remains (P2 #19) |
 
 ---
 
@@ -97,7 +97,7 @@ The engine *mostly* gets this right: `Arena::allocate`, `ArenaVector::push_back/
 16. **Missing div-guards / dead checks in effects:** `MobiusGrid.h:115` (`/(size-1)` without the `size>1` guard present at line 156); `MindSplatter.h:181` dead `size_t < 0` check. Sweep stray `<map>/<memory>` includes from MobiusGrid/Moire/RingShower.
 17. **De-duplicate hot maintenance liabilities:** the edge-pairing `make_heap`+`sort_heap` block (5+ copies across `mesh.h`/`conway.h`), the two divergent `clone` paths (`spatial.h:486` vs `mesh.h:248`), the duplicated WASM `add_metrics` lambda, and the SSAA loops in `Scan::Shader`.
 18. **Testing depth:** the effect smoke-test asserts only `acc+1 > 0` (`test_effects.h:85`) — add a mockable clock seam and at least one non-trivial property (golden hash / not-all-black). Add death-tests that actually fire the memory traps. Add a small harness for the WASM bridge's `fromData` parsing and detachment contract (currently validated only in the separate JS repo).
-19. **Daydream hardening:** replace the synchronous-XHR importmap probe (`vendor-importmap.js:23-25`, blocks page load, deprecated) with a build-resolved map; re-validate `wasmMemoryView.buffer.byteLength` in `compositeSegments` (`daydream.js:243`) or assert the main engine is idle in segment mode.
+19. **Daydream hardening** (the sole remaining open daydream item — verified still open 2026-06-05): replace the synchronous-XHR importmap probe (`vendor-importmap.js:23-24`, blocks page load, deprecated) with a build-resolved map; re-validate `wasmMemoryView.buffer.byteLength` in `compositeSegments` (`daydream.js:243-245`) or assert the main engine is idle in segment mode. *Reconciliation note:* other daydream-side findings from the superseded 2026-06-04 review were already fixed in the daydream repo and are reflected here as strengths or resolved — unsupported-resolution surfacing (`8ce3693`), segment clip re-apply (`f8e6aa6`, see #8), URL-sync consolidation then reverted/kept-by-design (`1c3778d`/`80c72d8`), dead `THREE_VERSION` removed (`9c69437`). Those commits cite the *old* review's finding numbers, which do **not** correspond to this doc's renumbered list.
 20. **Reconcile gnomonic equator threshold** (`3dmath.h:568` 1e-9 band vs the `STEREO_INF` 1e4 sentinel) so near-equator points round-trip correctly.
 
 ---
