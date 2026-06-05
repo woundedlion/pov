@@ -178,7 +178,7 @@ private:
       float alpha = std::min(f.v0, f.v3);
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
 
-      if (p_idx < 0 || p_idx >= particle_system.active_count) {
+      if (p_idx >= particle_system.active_count) {
         f.color = Color4(CRGB(0, 0, 0), 0.0f);
         return;
       }

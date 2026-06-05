@@ -5,9 +5,6 @@
  */
 #pragma once
 #include <functional>
-#include <memory>
-
-#include <map>
 #include "core/effects_engine.h"
 
 template <int W, int H> class MobiusGrid : public Effect {
@@ -112,7 +109,7 @@ private:
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
         f.pos = rotate(transformed, q).normalized();
-        f.v0 = (float)k / (m_points.size() - 1);
+        f.v0 = (m_points.size() > 1) ? (float)k / (m_points.size() - 1) : 0.0f;
         m_fragments.push_back(f);
       }
 
