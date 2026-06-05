@@ -135,24 +135,18 @@ inline int run_effects_tests() {
   smoke_one<RingShower>("RingShower");
   smoke_one<RingSpin>("RingSpin");
   smoke_one<SphericalHarmonics>("SphericalHarmonics");
+  smoke_one<SplineFlow>("SplineFlow");
   smoke_one<Test>("Test");
   smoke_one<TestShapes>("TestShapes");
   smoke_one<Thrusters>("Thrusters");
   smoke_one<Voronoi>("Voronoi");
 
   // ------------------------------------------------------------------------
-  // QUARANTINED — aborts under the standalone full-canvas (288x144) harness and
-  // is excluded so the suite stays green. Tripped a FIXED-CAPACITY guard in the
-  // Plot rasterization path (asserts/HS_CHECK ON), NOT the global arena:
-  //   * SplineFlow  — ArenaVector "exact capacity exceeded" (memory.h push_back)
-  //                   while sampling/trailing the closed spline.
-  // Confirmed real (also traps in the WASM sim via HS_CHECK). Re-enable once
-  // root-caused. DO NOT silently drop — warn loudly.
-  // (TestShapes + Thrusters re-enabled 2026-06-05: plot.h _steps_cache now
-  //  sized off W with a graceful cap — see #3 in docs/CODE_REVIEW.md. Both
-  //  verified rendering in the WASM sim after a fresh build/install.)
-  std::printf("  [WARN] 1 effect QUARANTINED (plot capacity limit, "
-              "uninvestigated): SplineFlow\n");
+  // All effects re-enabled as of 2026-06-05 (see #3 in docs/CODE_REVIEW.md):
+  //   * TestShapes + Thrusters — plot.h _steps_cache sized off W + graceful cap.
+  //   * SplineFlow — fixed an off-by-one in Plot::SplineChain's closed-loop
+  //     fragment-buffer size (it pushed n*S+1 points into an n*S buffer).
+  // All verified rendering in the WASM sim after a fresh build/install.
 
   return hs_test::end_module(scope);
 }

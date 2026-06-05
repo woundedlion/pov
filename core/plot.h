@@ -1473,8 +1473,12 @@ struct SplineChain {
 
     ScratchScope _frag(scratch_arena_a);
     Fragments points;
+    // Segment 0 emits samples_per_segment+1 points (j=0..S); each later segment
+    // emits S (j=1..S, sharing the previous segment's endpoint). Total is
+    // seg_count*S + 1 for BOTH closed and open — the closed case was missing the
+    // +1, so the final push_back overflowed the buffer by exactly one.
     const size_t frag_count =
-        closed ? n * samples_per_segment : (n - 1) * samples_per_segment + 1;
+        (closed ? n : (n - 1)) * samples_per_segment + 1;
     points.bind(scratch_arena_a, frag_count);
 
     float cumulative_len = 0.0f;
