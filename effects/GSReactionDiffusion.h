@@ -125,6 +125,11 @@ private:
       if (ni >= 0)
         acc(ni);
     }
+    // Empty kernel (no node within the support radius): guard the division. A
+    // 0/0 NaN would slip past the b < 0.05 cull in the shader (NaN compares
+    // false) and silently poison palette.get(). Mirrors BZ's sample_kernel.
+    if (tw <= 0.0001f)
+      return 0.0f;
     return wb / tw;
   }
 

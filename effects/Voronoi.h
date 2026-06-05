@@ -44,6 +44,12 @@ public:
     }
 
     // 2. Render Pixels (Linear Search)
+    // No sites (degenerate num_sites == 0): the search below would leave
+    // bestIdx == -1 and index sites_buffer[-1] out of bounds for every pixel.
+    // Nothing to render, so bail before the pixel loop.
+    if (sites_buffer.size() == 0)
+      return;
+
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         Vector p = pixel_to_vector<W, H>(x, y);
@@ -120,7 +126,11 @@ public:
 
     for (int i = 0; i < (int)params.num_sites; i++) {
       float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
-      float y = 1.0f - (i / (float)((int)params.num_sites - 1)) * 2.0f;
+      // Guard num_sites == 1: the denominator would be 0 → NaN y (which then
+      // poisons pos/axis). A single site sits at the pole (y = 1). Mirrors the
+      // same guard applied to `t` below.
+      int span = (int)params.num_sites > 1 ? (int)params.num_sites - 1 : 1;
+      float y = 1.0f - (i / (float)span) * 2.0f;
       float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
       float theta = goldenAngle * i;
 
