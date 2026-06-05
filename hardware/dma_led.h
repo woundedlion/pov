@@ -292,6 +292,16 @@ private:
   }
 
   DMAChannel dma_;
+  // Completion flag handed between the DMA-completion ISR (writes true) and the
+  // main/column thread (reads, and writes false to start a transfer). relaxed
+  // ordering is intentional and correct on this single-core Cortex-M7: the ISR
+  // and the thread are the SAME observer (the ISR preempts), so there is no
+  // multi-core reordering for acquire/release to constrain — same rationale as
+  // the instance_ note below. Crucially, this flag does NOT order the buffer
+  // for the DMA engine: that buffer→DMA coherence is provided by
+  // arm_dcache_flush_delete() (cache flush + DSB) before dma_.enable(), which
+  // the atomic's memory_order has no effect on. Do not "upgrade" to
+  // acquire/release expecting a visibility fix — it only adds DMB cost here.
   std::atomic<bool> transferComplete_;
   SPISettings spiSettings_;
 
