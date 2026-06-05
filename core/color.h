@@ -363,10 +363,6 @@ inline uint16_t to_short(float zero_to_one) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-constexpr uint8_t lerp8(uint8_t a, uint8_t b, float t) {
-  return static_cast<uint8_t>(a + (int(b) - int(a)) * t);
-}
-
 /**
  * @brief A constexpr-compatible RGB pixel structure for Flash storage.
  * Layout compatible with CRGB but without non-constexpr constructors.

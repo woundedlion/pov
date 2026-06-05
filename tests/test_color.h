@@ -5,7 +5,7 @@
  * Unit tests for core/color.h.
  *
  * Coverage:
- *   - Pixel16::lerp16 (endpoints + midpoint), lerp8 (in-range)
+ *   - Pixel16::lerp16 (endpoints + midpoint)
  *   - Blend modes (over/under/max/mean/add) — identity & boundedness invariants
  *   - OKLab / OKLCH round-trips (sRGB -> OKLab -> sRGB, sRGB -> OKLCH -> sRGB)
  *     for grays and saturated primaries; achromatic hue handling in lerp_oklch
@@ -25,7 +25,7 @@ namespace hs_test {
 namespace color_tests {
 
 // ============================================================================
-// lerp16 / lerp8
+// lerp16
 // ============================================================================
 
 inline void test_lerp16_endpoints() {
@@ -68,15 +68,6 @@ inline void test_lerp16_bounded() {
     HS_EXPECT_LE(m.g, static_cast<uint16_t>(std::max(a.g, b.g)));
     HS_EXPECT_GE(m.g + 1, static_cast<uint16_t>(std::min(a.g, b.g)));
   }
-}
-
-inline void test_lerp8_in_range() {
-  // TODO: t outside [0,1] is unclamped (see review) — only test in-range here.
-  HS_EXPECT_EQ(lerp8(0, 200, 0.0f), 0);
-  HS_EXPECT_EQ(lerp8(0, 200, 1.0f), 200);
-  HS_EXPECT_EQ(lerp8(0, 200, 0.5f), 100);
-  HS_EXPECT_EQ(lerp8(100, 100, 0.5f), 100); // equal endpoints
-  HS_EXPECT_EQ(lerp8(40, 60, 0.5f), 50);
 }
 
 // ============================================================================
@@ -391,7 +382,6 @@ inline int run_color_tests() {
   test_lerp16_endpoints();
   test_lerp16_midpoint();
   test_lerp16_bounded();
-  test_lerp8_in_range();
 
   test_blend_over_under();
   test_blend_max();
