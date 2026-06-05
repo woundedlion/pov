@@ -47,6 +47,15 @@ public:
       : buffer(buf), capacity(size), offset(0), high_water_mark(0) {}
 
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
+    // `padding` is a byte count derived from the TRUE address (buffer+offset),
+    // which is the robust form (correct for any base alignment, including the
+    // arbitrary bases configure_arenas() rebinds to). The bounds check adds that
+    // same byte count to `offset` before comparing against `capacity` (the byte
+    // length from `buffer`): the allocation occupies
+    // [buffer+offset+padding, buffer+offset+padding+size) and the arena is
+    // [buffer, buffer+capacity), so it fits iff offset+padding+size <= capacity.
+    // Mixing address-derived padding with the offset-space bound is therefore
+    // correct, not a unit error.
     size_t current = reinterpret_cast<size_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
     if (offset + padding + size > capacity) {

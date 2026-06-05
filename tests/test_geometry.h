@@ -128,6 +128,38 @@ inline void test_y_to_phi_templated_LUT() {
   HS_EXPECT_NEAR(lut_f, y_to_phi<H>(5), 1e-5f);
 }
 
+// Offset-injection regression guard for the H_OFFSET double-apply bug.
+//
+// H_OFFSET adds virtual rows so the image is CLIPPED (not stretched) at the
+// bottom of the ring, where the LEDs stop short of the south pole. The mapping
+// is phi = y*PI/(H_VIRT-1) with H_VIRT = H + H_OFFSET, so the bottom physical
+// row y=H-1 lands short of PI. The bug passed H_VIRT (already = H+H_OFFSET) as
+// the template arg to y_to_phi<H>(), which re-adds H_OFFSET internally — a
+// double-apply that divides by (H + 2*H_OFFSET - 1) instead. On the native
+// build H_OFFSET==0 so the bug is invisible; this test injects the real
+// hardware offset through the offset-parameterised free function (the building
+// block the templated path mirrors) so the formula and the clipping intent are
+// pinned regardless of the compile-time offset.
+inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
+  constexpr int H = 20;          // Holosphere hardware height
+  constexpr int OFF = 3;         // hardware H_OFFSET
+  constexpr int H_VIRT = H + OFF; // 23
+  const float bottom_phys = static_cast<float>(H - 1); // y = 19
+
+  // Correct (single-offset) mapping: bottom physical row clips short of PI.
+  float correct = y_to_phi(bottom_phys, H_VIRT);          // 19*PI/22
+  HS_EXPECT_NEAR(correct, bottom_phys * PI_F / (H_VIRT - 1), 1e-5f);
+  HS_EXPECT_TRUE(correct < PI_F); // clipped, not reaching the south pole
+
+  // The double-applied denominator (the bug) divides by (H + 2*OFF - 1) = 25
+  // and must NOT match the correct value — guards against reintroducing it.
+  float double_applied = bottom_phys * PI_F / (H + 2 * OFF - 1); // 19*PI/24
+  HS_EXPECT_TRUE(std::abs(correct - double_applied) > 1e-2f);
+
+  // The virtual bottom row reaches the pole exactly.
+  HS_EXPECT_NEAR(y_to_phi(static_cast<float>(H_VIRT - 1), H_VIRT), PI_F, 1e-5f);
+}
+
 // ============================================================================
 // TrigLUT / pixel_to_vector / vector_to_pixel
 // ============================================================================
@@ -154,6 +186,21 @@ inline void test_pixel_to_vector_known_samples() {
   // y=0 (north pole): phi=0 ⇒ cos_phi=1, sin_phi=0 ⇒ Vector(0, 1, 0).
   Vector north = pixel_to_vector<W, H>(0, 0);
   HS_EXPECT_VEC(north, Vector(0, 1, 0), 5e-2f);
+}
+
+// Pins pixel_to_vector's fractional-y (float) branch to y_to_phi<H>, the same
+// phi source the integer LUT path and every SDF/scan shape use. If the float
+// branch ever diverges (e.g. a y_to_phi<H_VIRT> double-apply reappears) on a
+// build with a non-zero H_OFFSET, the float and LUT paths disagree and this
+// fails. At x=0, Vector(Spherical(0, phi)) = (sin phi, cos phi, 0), so the
+// recovered phi is acos(v.y).
+inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
+  constexpr int W = 32, H = 32;
+  for (float y : {0.5f, 5.25f, 12.75f, 20.5f}) {
+    Vector v = pixel_to_vector<W, H>(0.0f, y);
+    float recovered_phi = std::acos(std::clamp(v.y, -1.0f, 1.0f));
+    HS_EXPECT_NEAR(recovered_phi, y_to_phi<H>(y), 1e-4f);
+  }
 }
 
 inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
@@ -394,9 +441,11 @@ inline int run_geometry_tests() {
   test_phi_to_y_free_function();
   test_y_phi_roundtrip();
   test_y_to_phi_templated_LUT();
+  test_y_to_phi_offset_injection_clips_no_double_apply();
 
   test_pixel_to_vector_unit_length();
   test_pixel_to_vector_known_samples();
+  test_pixel_to_vector_float_branch_matches_phi_lut();
   test_vector_to_pixel_roundtrip_via_pixel_to_vector();
 
   test_log_polar_roundtrip();
