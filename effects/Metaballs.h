@@ -23,6 +23,10 @@ public:
 
     registerParam("Max Infl", &params.max_influence, 1.0f, 50.0f);
     registerParam("Gravity", &params.gravity, 0.0f, 0.02f);
+    registerParam("Num Balls", &params.num_balls, 1.0f,
+                  static_cast<float>(BALL_CAPACITY));
+    registerParam("Radius", &params.radius_scale, 0.1f, 3.0f);
+    registerParam("Velocity", &params.velocity_scale, 0.0f, 3.0f);
     registerParam("Noise Str", &params.noise_strength, 0.0f, 0.05f);
     registerParam("Noise Spd", &params.noise_speed, 0.0f, 10.0f);
   }
@@ -31,6 +35,14 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
+
+    // Re-seed when the GUI changes the ball count or initial-velocity scale
+    // (both are set at spawn time). Radius is applied live below, so it doesn't
+    // require a re-seed. Integer count compare avoids thrashing on sub-unit drag.
+    if (active_ball_count() != seeded_num_balls ||
+        params.velocity_scale != seeded_velocity_scale)
+      init_balls();
+
     t += 0.01f;
 
     // 1. Physics
@@ -65,7 +77,10 @@ public:
           // Avoid div by zero
           if (dist_sq < 0.0001f)
             dist_sq = 0.0001f;
-          sum += (b.r * b.r) / dist_sq;
+          // Radius slider applied live (b.r is the base radius); a size tweak
+          // grows the field without re-seeding ball positions.
+          float br = b.r * params.radius_scale;
+          sum += (br * br) / dist_sq;
         }
 
         float t_val = sum / params.max_influence;
@@ -82,31 +97,41 @@ public:
   struct Params {
     float max_influence = 10.0f;
     float gravity = 0.004f;
+    float num_balls = 25.0f;      // GUI slider; re-seeds on integer change
+    float radius_scale = 1.0f;    // GUI slider; applied live at render
+    float velocity_scale = 0.7f;  // GUI slider; initial velocity, re-seeds
     float noise_strength = 0.0077f;
     float noise_speed = 4.0f;
   } params;
 
 private:
-  // Fixed init-time configuration (consumed once in init_balls, not tunable).
   static constexpr int BALL_CAPACITY = 50;
-  static constexpr int NUM_BALLS = 25;
-  static constexpr float RADIUS_SCALE = 1.0f;
-  static constexpr float VELOCITY_SCALE = 0.7f;
-  static_assert(NUM_BALLS <= BALL_CAPACITY, "NUM_BALLS exceeds ball buffer");
 
   StaticCircularBuffer<Ball, BALL_CAPACITY> balls;
   ProceduralPalette palette = Palettes::richSunset;
   FastNoiseLite noise;
   float t = 0.0f;
 
+  // Snapshot of the seed-time config, to detect GUI edits that need a re-seed.
+  int seeded_num_balls = 0;
+  float seeded_velocity_scale = 0.0f;
+
+  int active_ball_count() const {
+    return std::clamp(static_cast<int>(params.num_balls), 1, BALL_CAPACITY);
+  }
+
   void init_balls() {
+    const int n = active_ball_count();
     balls.clear();
-    for (int i = 0; i < NUM_BALLS; ++i) {
+    for (int i = 0; i < n; ++i) {
       Vector p = random_vector() * 0.5f; // Start inside
-      float r = hs::rand_f(0.5f, 0.8f) * RADIUS_SCALE;
-      Vector v = random_vector() * (0.05f * VELOCITY_SCALE);
+      // Base radius (unscaled); the Radius slider is applied live at render.
+      float r = hs::rand_f(0.5f, 0.8f);
+      Vector v = random_vector() * (0.05f * params.velocity_scale);
       balls.push_back({p, v, r});
     }
+    seeded_num_balls = n;
+    seeded_velocity_scale = params.velocity_scale;
   }
 
   float distance_squared(const Vector &a, const Vector &b) {
