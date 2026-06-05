@@ -190,14 +190,14 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
 
       do {
         const HalfEdge &currHe = heMesh.halfEdges[currIdx];
-        assert(count < (int)(2 * I));
+        HS_CHECK(count < (int)(2 * I));
         face_indices[count++] = heToMidpointIdx[currIdx];
         uint16_t nextEdgeIdx = currHe.pair != HE_NONE
                                    ? heMesh.halfEdges[currHe.pair].next
                                    : HE_NONE;
         if (nextEdgeIdx == HE_NONE)
           break;
-        assert(count < (int)(2 * I));
+        HS_CHECK(count < (int)(2 * I));
         face_indices[count++] =
             compiled.staticOffset + heToDynamicIdx[nextEdgeIdx];
         currIdx = nextEdgeIdx;

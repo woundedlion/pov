@@ -229,7 +229,7 @@ FLASHMEM static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
 
       int orbit_count = 0;
       vertex_orbit<'P'>(heMesh, heStartIdx, [&](uint16_t idx) {
-        assert(orbit_count < (int)I);
+        HS_CHECK(orbit_count < (int)I);
         orbit_buf[orbit_count++] = heMesh.halfEdges[idx].face;
       });
 
@@ -380,7 +380,7 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
 
       int orbit_count = 0;
       vertex_orbit<'P'>(heMesh, heStartIdx, [&](uint16_t idx) {
-        assert(orbit_count < (int)I);
+        HS_CHECK(orbit_count < (int)I);
         orbit_buf[orbit_count++] = edgeToVert[idx];
       });
 
@@ -513,7 +513,7 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
         uint16_t vj = currHe.vertex;
         uint16_t k1 = std::min(vi, vj);
         std::pair<int16_t, int16_t> newVerts = edgeToVert[idx];
-        assert(orbit_count < (int)I);
+        HS_CHECK(orbit_count < (int)I);
         orbit_buf[orbit_count++] =
             (vi == k1) ? newVerts.first : newVerts.second;
       });
@@ -598,7 +598,7 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
 
       int orbit_count = 0;
       vertex_orbit<'N'>(heMesh, heStartIdx, [&](uint16_t idx) {
-        assert(orbit_count < (int)I);
+        HS_CHECK(orbit_count < (int)I);
         orbit_buf[orbit_count++] = heToVertIdx[heMesh.halfEdges[idx].prev];
       });
 
@@ -798,7 +798,14 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
         uint16_t heIdx = hev.halfEdge;
         if (heIdx != HE_NONE) {
           uint16_t start = heIdx;
+          // A manifold vertex orbit visits at most every half-edge once.
+          // Exceeding that means the twin graph is corrupt and this hand-rolled
+          // walk would spin forever — trap so it's caught on the bench instead
+          // of hanging the device (mirrors vertex_orbit's always-on guard).
+          int orbit_count = 0;
+          const int max_orbit = static_cast<int>(heMesh.halfEdges.size());
           do {
+            HS_CHECK(orbit_count++ < max_orbit);
             const HalfEdge &currHe = heMesh.halfEdges[heIdx];
             int ni = heMesh.halfEdges[currHe.prev].vertex;
             Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
@@ -908,7 +915,7 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
 
       int orbit_count = 0;
       vertex_orbit<'N'>(heMesh, heStartIdx, [&](uint16_t idx) {
-        assert(orbit_count < (int)I);
+        HS_CHECK(orbit_count < (int)I);
         orbit_buf[orbit_count++] = heToVertIdx[heMesh.halfEdges[idx].prev];
       });
 
