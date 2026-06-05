@@ -1618,7 +1618,7 @@ public:
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     if (num_events >= MAX_EVENTS) {
-      Serial.println("Timeline full, failed to add animation!");
+      hs::log("Timeline full, failed to add animation!");
       return nullptr;
     }
     auto &e = global_timeline_events[num_events++];

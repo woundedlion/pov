@@ -80,7 +80,14 @@ inline int vertex_orbit(const HalfEdgeMesh &heMesh, uint16_t startIdx,
                         VisitorFn &&visitor) {
   uint16_t currIdx = startIdx;
   int count = 0;
+  // Hard upper bound, independent of asserts (survives NDEBUG): a vertex orbit
+  // visits each incident half-edge at most once, so it can never legitimately
+  // touch more half-edges than exist. Exceeding that means the half-edge graph
+  // is non-manifold/corrupt and the walk would otherwise spin forever — trap so
+  // it's caught on the bench instead of hanging the device.
+  const int max_orbit = static_cast<int>(heMesh.halfEdges.size());
   do {
+    HS_CHECK(count < max_orbit);
     const HalfEdge &currHe = heMesh.halfEdges[currIdx];
     if (currHe.face == HE_NONE)
       break;

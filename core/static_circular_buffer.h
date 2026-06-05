@@ -16,9 +16,12 @@
  * @brief A fixed-size circular buffer optimized for stability.
  * @details
  * - No dynamic memory allocation (prevents heap fragmentation).
- * - No asserts (prevents hard crashes in live shows).
- * - "Delete Oldest" strategy on overflow (never stops processing).
- * - "Return Zeroed Dummy" on invalid access (prevents read crashes).
+ * - "Delete Oldest" strategy on overflow (never stops processing) — overflow is
+ *   a designed, non-fatal condition.
+ * - Misuse — front()/back() on an empty buffer, or operator[] out of range — is
+ *   an invariant violation with no valid recovery, so it HS_CHECK-traps
+ *   (survives NDEBUG, pulls in no stdio) rather than reading garbage. Fail-fast,
+ *   consistent with the rest of the engine.
  */
 template <typename T, size_t N> class StaticCircularBuffer {
   class iterator;
@@ -121,50 +124,32 @@ public:
   }
 
   T &front() {
-    if (is_empty()) {
-      hs::log("Buffer Error: front() called on empty buffer.");
-      abort();
-    }
+    HS_CHECK(!is_empty() && "front() on empty StaticCircularBuffer");
     return buffer[head];
   }
 
   const T &front() const {
-    if (is_empty()) {
-      hs::log("Buffer Error: front() called on empty buffer.");
-      abort();
-    }
+    HS_CHECK(!is_empty() && "front() on empty StaticCircularBuffer");
     return buffer[head];
   }
 
   T &back() {
-    if (is_empty()) {
-      hs::log("Buffer Error: back() called on empty buffer.");
-      abort();
-    }
+    HS_CHECK(!is_empty() && "back() on empty StaticCircularBuffer");
     return buffer[(head + count - 1) % N];
   }
 
   const T &back() const {
-    if (is_empty()) {
-      hs::log("Buffer Error: back() called on empty buffer.");
-      abort();
-    }
+    HS_CHECK(!is_empty() && "back() on empty StaticCircularBuffer");
     return buffer[(head + count - 1) % N];
   }
 
   T &operator[](size_t index) {
-    if (index >= count) {
-      hs::log("Buffer Error: operator[] called on out of bounds index.");
-      abort();
-    }
+    HS_CHECK(index < count && "StaticCircularBuffer index out of range");
     return buffer[(head + index) % N];
   }
 
   const T &operator[](size_t index) const {
-    if (index >= count) {
-      hs::log("Buffer Error: operator[] called on out of bounds index.");
-      abort();
-    }
+    HS_CHECK(index < count && "StaticCircularBuffer index out of range");
     return buffer[(head + index) % N];
   }
 
