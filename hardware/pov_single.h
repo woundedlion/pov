@@ -75,17 +75,18 @@ public:
    * @param duration The time in seconds to run the effect.
    */
   template <typename E> void show(unsigned long duration) {
-    effect_ = new E();
+    E *e = new E();
     configure_arenas_default(); // Reset before init so effects can override
-    effect_->init();
-    run(effect_, duration);
-    delete effect_;
-    effect_ = nullptr;
+    e->init();
+    run(e, duration);
+    delete e;
   }
 
 private:
   /**
-   * @brief Non-template core of show(). Takes ownership of e.
+   * @brief Non-template core of show(). Borrows e — the caller (show) retains
+   * ownership and deletes it. Publishes e to the ISR-visible effect_ only while
+   * the timer ISR is attached, then unpublishes it. Does not delete e.
    */
   void run(Effect *e, unsigned long duration) {
     long start = millis();
@@ -115,6 +116,7 @@ private:
       if (hs::debug) hs::log("ft %lu", dt);
     }
 #endif
+    effect_ = nullptr; // ISR detached above — unpublish; caller deletes e
   }
 
 private:

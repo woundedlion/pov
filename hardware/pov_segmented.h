@@ -162,6 +162,7 @@ public:
     configure_arenas_default(); // Reset before init so effects can override
     e->init();
     run(e, duration);
+    delete e;
   }
 
 private:
@@ -237,8 +238,10 @@ private:
   // ── Effect lifecycle ────────────────────────────────────────────────
 
   /**
-   * @brief Non-template core of show(). Takes ownership of the effect.
-   * @param e        Effect instance (deleted on exit).
+   * @brief Non-template core of show(). Borrows e — the caller (show) retains
+   * ownership and deletes it. Publishes e to the ISR-visible effect_ only while
+   * the column/frame-sync ISRs are attached, then unpublishes it.
+   * @param e        Effect instance (borrowed; not deleted here).
    * @param duration Display time in seconds.
    */
   void run(Effect *e, unsigned long duration) {
@@ -263,8 +266,7 @@ private:
 
     detachInterrupt(digitalPinToInterrupt(PIN_COLUMN_SYNC));
     detachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN));
-    delete effect_;
-    effect_ = nullptr;
+    effect_ = nullptr; // ISRs detached above — unpublish; caller deletes e
   }
 
   // ── Column ISR ──────────────────────────────────────────────────────
