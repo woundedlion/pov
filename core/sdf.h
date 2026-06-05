@@ -2055,8 +2055,9 @@ struct Line {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    float phi = y_to_phi<H_VIRT>(static_cast<float>(y));
+    // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT
+    // (matches every other shape's bounds path; passing H_VIRT double-applied it).
+    float phi = y_to_phi<H>(static_cast<float>(y));
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 

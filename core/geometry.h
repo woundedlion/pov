@@ -257,12 +257,12 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
 }
 
 template <int W, int H> Vector pixel_to_vector(float x, float y) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   if (std::abs(x - floor(x)) < TOLERANCE &&
       std::abs(y - floor(y)) < TOLERANCE) {
     return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
-  return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H_VIRT>(y)));
+  // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT.
+  return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H>(y)));
 }
 
 /**
