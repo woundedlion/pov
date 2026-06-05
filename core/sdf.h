@@ -57,6 +57,54 @@ inline void push_interval(IntervalBuffer &buf, float start, float end) {
   buf.push_back({start, end});
 }
 
+/**
+ * @brief Insertion-sort an interval buffer in place by start coordinate.
+ *
+ * Raw-pointer indexing (the buffer is freshly built, head == 0, so it is
+ * contiguous from index 0) — same codegen as the inlined copies it replaces, no
+ * per-access modulo. Shared by merge_intervals and the Subtract set-difference.
+ */
+inline void sort_intervals_by_start(IntervalBuffer &buf) {
+  auto *data = &buf[0];
+  size_t n = buf.size();
+  for (size_t i = 1; i < n; ++i) {
+    auto key = data[i];
+    int j = static_cast<int>(i) - 1;
+    while (j >= 0 && data[j].first > key.first) {
+      data[j + 1] = data[j];
+      --j;
+    }
+    data[j + 1] = key;
+  }
+}
+
+/**
+ * @brief Sort an interval buffer by start, then emit the union of overlapping
+ * intervals via out(start, end). Shared by Union/SmoothUnion.
+ *
+ * Precondition: `merged` is non-empty (callers guard with is_empty()). Zero-cost
+ * inline replacement for the byte-identical sort+merge that was copy-pasted in
+ * both ops; templated on the output sink so it inlines at -O3.
+ */
+template <typename OutputIt>
+inline void merge_intervals(IntervalBuffer &merged, OutputIt out) {
+  sort_intervals_by_start(merged);
+  auto *data = &merged[0];
+  size_t n = merged.size();
+  float cur_start = data[0].first;
+  float cur_end = data[0].second;
+  for (size_t i = 1; i < n; ++i) {
+    if (data[i].first <= cur_end) {
+      cur_end = std::max(cur_end, data[i].second);
+    } else {
+      out(cur_start, cur_end);
+      cur_start = data[i].first;
+      cur_end = data[i].second;
+    }
+  }
+  out(cur_start, cur_end);
+}
+
 /** Fold an angle into [0, π] (equivalent to acosf(cosf(x)) without trig). */
 inline float clamp_phi(float x) {
   if (x < 0.0f)
@@ -497,32 +545,7 @@ template <typename A, typename B> struct Union {
     if (merged.is_empty())
       return true; // Both reported intervals but none produced
 
-    // Sort by start
-    auto *data = &merged[0];
-    size_t n = merged.size();
-    for (size_t i = 1; i < n; ++i) {
-      auto key = data[i];
-      int j = static_cast<int>(i) - 1;
-      while (j >= 0 && data[j].first > key.first) {
-        data[j + 1] = data[j];
-        --j;
-      }
-      data[j + 1] = key;
-    }
-
-    // Merge overlapping intervals
-    float cur_start = data[0].first;
-    float cur_end = data[0].second;
-    for (size_t i = 1; i < n; ++i) {
-      if (data[i].first <= cur_end) {
-        cur_end = std::max(cur_end, data[i].second);
-      } else {
-        out(cur_start, cur_end);
-        cur_start = data[i].first;
-        cur_end = data[i].second;
-      }
-    }
-    out(cur_start, cur_end);
+    merge_intervals(merged, out);
     return true;
   }
 
@@ -592,32 +615,7 @@ template <typename A, typename B> struct SmoothUnion {
     if (merged.is_empty())
       return true;
 
-    // Sort by start
-    auto *data = &merged[0];
-    size_t n = merged.size();
-    for (size_t i = 1; i < n; ++i) {
-      auto key = data[i];
-      int j = static_cast<int>(i) - 1;
-      while (j >= 0 && data[j].first > key.first) {
-        data[j + 1] = data[j];
-        --j;
-      }
-      data[j + 1] = key;
-    }
-
-    // Merge overlapping intervals
-    float cur_start = data[0].first;
-    float cur_end = data[0].second;
-    for (size_t i = 1; i < n; ++i) {
-      if (data[i].first <= cur_end) {
-        cur_end = std::max(cur_end, data[i].second);
-      } else {
-        out(cur_start, cur_end);
-        cur_start = data[i].first;
-        cur_end = data[i].second;
-      }
-    }
-    out(cur_start, cur_end);
+    merge_intervals(merged, out);
     return true;
   }
 
@@ -668,25 +666,11 @@ template <typename A, typename B> struct Subtract {
     StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
     StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
 
-    // Insertion-sort an interval buffer by start (matches Union's idiom). Both
-    // the set-difference loop below and scan_region's coalescer assume intervals
-    // arrive in non-decreasing start order; a multi-interval child (a nested CSG)
-    // can emit them out of order, which without this sort yields a wrong set
-    // difference AND unsorted output that the coalescer silently drops.
-    auto sort_by_start =
-        [](StaticCircularBuffer<std::pair<float, float>, 32> &buf) {
-          size_t n = buf.size();
-          for (size_t i = 1; i < n; ++i) {
-            auto key = buf[i];
-            int j = static_cast<int>(i) - 1;
-            while (j >= 0 && buf[static_cast<size_t>(j)].first > key.first) {
-              buf[static_cast<size_t>(j) + 1] = buf[static_cast<size_t>(j)];
-              --j;
-            }
-            buf[static_cast<size_t>(j) + 1] = key;
-          }
-        };
-
+    // The set-difference loop below and scan_region's coalescer both assume
+    // intervals arrive in non-decreasing start order; a multi-interval child
+    // (a nested CSG) can emit them out of order, which without sorting yields a
+    // wrong set difference AND unsorted output the coalescer silently drops.
+    // sort_intervals_by_start() (above) is shared with Union/SmoothUnion.
     bool hasA = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervalsA, start, end); });
 
@@ -700,7 +684,7 @@ template <typename A, typename B> struct Subtract {
 
     // A's pieces are emitted in A-interval order, so A must be start-sorted for
     // the output (and the pass-through below) to stay start-ordered.
-    sort_by_start(intervalsA);
+    sort_intervals_by_start(intervalsA);
 
     bool hasB = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervalsB, start, end); });
@@ -714,7 +698,7 @@ template <typename A, typename B> struct Subtract {
     }
 
     // The per-A shrink/split loop walks B left-to-right, so B must be sorted.
-    sort_by_start(intervalsB);
+    sort_intervals_by_start(intervalsB);
 
     // Set difference: A minus B
     // For each A interval, subtract all overlapping B intervals
