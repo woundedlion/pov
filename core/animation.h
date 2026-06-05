@@ -225,16 +225,15 @@ public:
 
   /**
    * @brief Gets a specific snapshot.
-   * @param i Index (0 is newest).
+   * @param i Index into the history: 0 is the OLDEST snapshot, length()-1 the
+   *          newest. (record() appends the newest at the end of the underlying
+   *          ring buffer, whose operator[](0) is the oldest live element.)
+   *          Matches the JS simulator's trail ordering.
    */
-  const OrientationType &get(size_t i) const {
-    // JS parity: 0 is oldest
-    return snapshots[i];
-  }
+  const OrientationType &get(size_t i) const { return snapshots[i]; }
 
   /**
-   * @brief Gets a specific snapshot (mutable).
-   * @param i Index (0 is newest).
+   * @brief Gets a specific snapshot (mutable). 0 is oldest, length()-1 newest.
    */
   OrientationType &get(size_t i) { return snapshots[i]; }
 

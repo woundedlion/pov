@@ -62,36 +62,38 @@ struct AABB {
   }
 
   bool intersectRay(const Vector &origin, const Vector &direction) const {
-    float tmin = (minVal.x - origin.x) / direction.x;
-    float tmax = (maxVal.x - origin.x) / direction.x;
-    if (tmin > tmax)
-      std::swap(tmin, tmax);
+    float tmin = -FLT_MAX;
+    float tmax = FLT_MAX;
 
-    float tymin = (minVal.y - origin.y) / direction.y;
-    float tymax = (maxVal.y - origin.y) / direction.y;
-    if (tymin > tymax)
-      std::swap(tymin, tymax);
+    // Slab test, one axis at a time. A zero direction component means the ray
+    // runs parallel to that pair of slab planes: it can only intersect if the
+    // origin already lies within the slab, otherwise it misses. Guarding this
+    // avoids the naive (plane - origin) / 0 — which is ±inf for a glancing ray
+    // (the old comparisons happened to tolerate that) but 0/0 = NaN when the
+    // origin sits exactly on a slab plane, silently breaking every subsequent
+    // comparison.
+    auto slab = [&](float mn, float mx, float o, float d) -> bool {
+      if (d != 0.0f) {
+        float inv = 1.0f / d;
+        float t1 = (mn - o) * inv;
+        float t2 = (mx - o) * inv;
+        if (t1 > t2)
+          std::swap(t1, t2);
+        if (t1 > tmin)
+          tmin = t1;
+        if (t2 < tmax)
+          tmax = t2;
+        return tmin <= tmax;
+      }
+      return o >= mn && o <= mx; // parallel ray: inside the slab?
+    };
 
-    if ((tmin > tymax) || (tymin > tmax))
+    if (!slab(minVal.x, maxVal.x, origin.x, direction.x))
       return false;
-
-    if (tymin > tmin)
-      tmin = tymin;
-    if (tymax < tmax)
-      tmax = tymax;
-
-    float tzmin = (minVal.z - origin.z) / direction.z;
-    float tzmax = (maxVal.z - origin.z) / direction.z;
-    if (tzmin > tzmax)
-      std::swap(tzmin, tzmax);
-
-    if ((tmin > tzmax) || (tzmin > tmax))
+    if (!slab(minVal.y, maxVal.y, origin.y, direction.y))
       return false;
-
-    if (tzmin > tmin)
-      tmin = tzmin;
-    if (tzmax < tmax)
-      tmax = tzmax;
+    if (!slab(minVal.z, maxVal.z, origin.z, direction.z))
+      return false;
 
     // Reject boxes entirely behind the ray origin.
     return tmax >= 0.0f;
@@ -154,6 +156,12 @@ public:
     StaticCircularBuffer<KDNode, MAX_K> result;
     if (rootIndex == -1 || k <= 0)
       return result;
+
+    // The result/heap buffers are sized MAX_K, so more than MAX_K neighbors
+    // cannot be honored. Silently returning fewer than requested would mask the
+    // caller's mistake; trap so a k > MAX_K bug surfaces instead. (Requesting
+    // more neighbors than points exist is fine — that legitimately caps below.)
+    HS_CHECK(k <= static_cast<size_t>(MAX_K));
 
     // Max-Heap behavior scratch buffer
     // We store pairs of <distanceSq, nodeIdx>

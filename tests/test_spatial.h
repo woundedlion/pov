@@ -5,9 +5,10 @@
  * Unit tests for core/spatial.h — AABB, KDTree, SpatialHash, MeshState.
  *
  * Tests deliberately avoid invoking the asserts in dependent types
- * (out-of-bounds, unbound access). Pathological geometry such as
- * zero-component ray directions for AABB::intersectRay is intentionally
- * skipped — that path divides by zero and is owned by callers.
+ * (out-of-bounds, unbound access). Zero-component (axis-aligned) ray
+ * directions for AABB::intersectRay ARE exercised here — including the
+ * grazing on-face case that previously produced a 0/0 NaN — now that the
+ * slab test guards parallel rays explicitly.
  */
 #pragma once
 #ifndef HOLOSPHERE_TESTS_TEST_SPATIAL_H_
@@ -131,6 +132,21 @@ inline void test_aabb_ray_from_inside() {
   // A ray starting inside the box always hits — slab test allows negative t.
   HS_EXPECT_TRUE(box.intersectRay(Vector(0, 0, 0), Vector(1, 0, 0)));
   HS_EXPECT_TRUE(box.intersectRay(Vector(0, 0, 0), Vector(0, 1, 0)));
+}
+
+inline void test_aabb_ray_parallel_grazing() {
+  AABB box;
+  box.expand(Vector(-1, -1, -1));
+  box.expand(Vector(1, 1, 1));
+  // Origin lies exactly ON the +Y face and the ray runs parallel to it. The
+  // naive (maxVal.y - origin.y) / 0 == 0/0 == NaN; the slab guard treats a zero
+  // direction component as "hit only if the origin is within the slab", so an
+  // on-face grazing ray still counts as touching the box.
+  HS_EXPECT_TRUE(box.intersectRay(Vector(0, 1, 0), Vector(1, 0, 0)));
+  // Same parallel direction but origin just outside the +Y face → clean miss.
+  HS_EXPECT_FALSE(box.intersectRay(Vector(0, 1.5f, 0), Vector(1, 0, 0)));
+  // Parallel to two axes, origin outside the Z slab → miss.
+  HS_EXPECT_FALSE(box.intersectRay(Vector(0, 0, 2), Vector(1, 0, 0)));
 }
 
 // ============================================================================
@@ -453,6 +469,7 @@ inline int run_spatial_tests() {
   test_aabb_ray_hit();
   test_aabb_ray_miss();
   test_aabb_ray_from_inside();
+  test_aabb_ray_parallel_grazing();
 
   test_kdtree_empty_input();
   test_kdtree_single_point();
