@@ -158,13 +158,16 @@ private:
 
     auto draw_fn = [this, safe_idx](Canvas &canvas, float opacity) {
       const auto &preset = loaded_presets[safe_idx];
-      Params ip = preset_manager.get_entries()[safe_idx].params;
       ScratchScope _(scratch_arena_a);
       MeshState target_mesh;
       MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
 
-      this->draw_scene(canvas, ip, opacity, preset.mesh_state, target_mesh,
-                       preset.tangents, preset.edges);
+      // Render from the live, slider-bound params (not a fresh preset copy) so
+      // the registered Copies/Radius/Speed/Alpha sliders actually affect the
+      // output. spawn_sprite() seeds params from the preset at each cycle, so
+      // edits apply live and persist until the next preset cycle.
+      this->draw_scene(canvas, this->params, opacity, preset.mesh_state,
+                       target_mesh, preset.tangents, preset.edges);
     };
 
     timeline

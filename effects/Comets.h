@@ -33,7 +33,6 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
-    registerParam("Resolution", &params.resolution, 1.0f, 128.0f);
     registerParam("Debug BB", &params.debug_bb);
 
     update_path();
@@ -118,7 +117,6 @@ private:
     float alpha = 1.0f;
     float thickness = 2.1f * 2 * PI_F / W;
     float cycle_duration = 80.0f;
-    float resolution = 32.0f;
     bool debug_bb = false;
   } params;
 };

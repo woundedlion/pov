@@ -78,29 +78,33 @@ public:
     }
   }
 
-  // Params
+  // Registered (live-tunable) params.
   struct Params {
     float max_influence = 10.0f;
     float gravity = 0.004f;
-    float num_balls = 25.0f;
-    float radius_scale = 1.0f;
-    float velocity_scale = 0.7f;
     float noise_strength = 0.0077f;
     float noise_speed = 4.0f;
   } params;
 
 private:
-  StaticCircularBuffer<Ball, 50> balls;
+  // Fixed init-time configuration (consumed once in init_balls, not tunable).
+  static constexpr int BALL_CAPACITY = 50;
+  static constexpr int NUM_BALLS = 25;
+  static constexpr float RADIUS_SCALE = 1.0f;
+  static constexpr float VELOCITY_SCALE = 0.7f;
+  static_assert(NUM_BALLS <= BALL_CAPACITY, "NUM_BALLS exceeds ball buffer");
+
+  StaticCircularBuffer<Ball, BALL_CAPACITY> balls;
   ProceduralPalette palette = Palettes::richSunset;
   FastNoiseLite noise;
   float t = 0.0f;
 
   void init_balls() {
     balls.clear();
-    for (int i = 0; i < (int)params.num_balls && i < 50; ++i) {
+    for (int i = 0; i < NUM_BALLS; ++i) {
       Vector p = random_vector() * 0.5f; // Start inside
-      float r = hs::rand_f(0.5f, 0.8f) * params.radius_scale;
-      Vector v = random_vector() * (0.05f * params.velocity_scale);
+      float r = hs::rand_f(0.5f, 0.8f) * RADIUS_SCALE;
+      Vector v = random_vector() * (0.05f * VELOCITY_SCALE);
       balls.push_back({p, v, r});
     }
   }
