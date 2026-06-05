@@ -101,10 +101,12 @@ struct Vector {
    */
   constexpr Vector(float x, float y, float z) : x(x), y(y), z(z) {}
   /**
-   * @brief Copy constructor.
-   * @param v The vector to copy.
+   * @brief Copy constructor. Defaulted (trivial) so Vector is trivially
+   * copyable — required for the memcpy fast paths (ArenaVector::append_bulk,
+   * MeshState bulk copies) to be well-defined, and lets the optimizer
+   * vectorize bulk copies.
    */
-  constexpr Vector(const Vector &v) : x(v.x), y(v.y), z(v.z) {}
+  constexpr Vector(const Vector &v) = default;
   /**
    * @brief Constructs a vector from Spherical coordinates.
    * @param s The spherical coordinate.
@@ -120,16 +122,10 @@ struct Vector {
   Vector(float theta, float phi) : Vector(Spherical(theta, phi)) {}
 
   /**
-   * @brief Assignment operator.
-   * @param v The vector to assign from.
-   * @return Reference to the current object.
+   * @brief Copy assignment. Defaulted (trivial) — see the copy constructor;
+   * keeps Vector trivially copyable.
    */
-  constexpr Vector &operator=(const Vector &v) {
-    x = v.x;
-    y = v.y;
-    z = v.z;
-    return *this;
-  }
+  constexpr Vector &operator=(const Vector &v) = default;
 
   /**
    * @brief Equality comparison using tolerance.

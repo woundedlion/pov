@@ -155,6 +155,19 @@ template <int MAX_V> struct TriangularBitset {
 // 3. Arena Structures
 // ============================================================================
 
+/// Fixed-capacity, arena-backed vector. Move-only; no dynamic growth.
+///
+/// ELEMENT DESTRUCTOR CONTRACT: ArenaVector deliberately does NOT run element
+/// destructors. clear(), move, move-assign, and going out of scope all leave
+/// stored elements un-destructed — storage is owned and reclaimed by the arena
+/// (reset/compaction), not by this handle. This is a hard requirement of the
+/// arena model, not an oversight: an arena can be reset out from under a still-
+/// live ArenaVector (see bind()'s stale-binding handling), so a handle-driven
+/// destructor pass could run on already-reclaimed memory. Consequently, only
+/// store types whose destructor need not run for correctness — trivially-
+/// destructible PODs, or types like Fn/std::function whose stored captures are
+/// themselves trivial (which never own external resources here). A type that
+/// owns heap/handles outside the arena must not be stored in an ArenaVector.
 template <typename T> class ArenaVector {
 private:
   T *data_;
@@ -290,8 +303,8 @@ public:
 
   /// Bulk-append from a contiguous source. T must be trivially copyable.
   void append_bulk(const T *src, size_t count) {
-    static_assert(std::is_trivially_destructible_v<T>,
-                  "append_bulk requires trivially destructible T (memcpy safety)");
+    static_assert(std::is_trivially_copyable_v<T>,
+                  "append_bulk memcpy's the source; T must be trivially copyable");
     check_alive();
     check_bound();
     HS_CHECK(size_ + count <= capacity_ &&
