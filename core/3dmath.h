@@ -564,7 +564,16 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * Projects from center (0,0,0) to plane z=1 (tangent at North Pole, i.e., k=1).
  */
 inline Complex gnomonic(const Vector &v) {
-  // Handle equator singularity — clamp to STEREO_INF
+  // Equator handling is two-stage and round-trips consistently with
+  // inv_gnomonic. (1) Floor the divisor to ±1e-9 purely to avoid div-by-zero
+  // at v.y == 0. (2) Clamp the result to ±STEREO_INF — this is the actual
+  // equator→pole threshold. On the unit sphere a near-equator point (small
+  // |v.y|) has |v.x| or |v.z| ≈ O(1), so at least one coordinate exceeds
+  // STEREO_INF and is clamped to the same sentinel that inv_gnomonic
+  // (|z| >= STEREO_INF) maps back to the pole. With STEREO_INF = 1e4 the flip
+  // to "pole" happens around |v.y| < ~7e-5, far above the 1e-9 div floor — so
+  // the floor never decides the round-trip; the matched STEREO_INF threshold
+  // does.
   float div = (std::abs(v.y) < 1e-9f) ? 1e-9f * (v.y >= 0 ? 1.0f : -1.0f) : v.y;
   float gx = v.x / div;
   float gz = v.z / div;
