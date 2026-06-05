@@ -83,9 +83,9 @@ The current code mostly does the *opposite* of fail-fast on the invariant paths:
 
 11. **Unclamped lerps** (`color.h:366-368` `lerp8`, `color.h:584` `Gradient::get`) can wrap to garbage for `t∉[0,1]`; the `Face` SDF hardcodes `W=288` in its dist-LUT threshold (`sdf.h:1136`), breaking multi-resolution; decompose the 270-line `Face` ctor.
 
-12. **Cleanup:** per-frame `Serial.print` in the POV hot loop (`pov_single.h:105-106`); dead/commented code in the `.ino` files and `effects_legacy.h`; `THREE_VERSION` mismatch (`tools/shared.js:105` vs `vendor-importmap.js:16`).
+12. **Cleanup — partially addressed (2026-06-04).** ~~`THREE_VERSION` mismatch (`tools/shared.js:105` vs `vendor-importmap.js:16`)~~ **✅ FIXED** — the `shared.js` copy was a dead, stale (`0.160.0`) export referenced nowhere; removed it so `vendor-importmap.js` (`0.183.1`, matching `package.json`) is the single source of truth. The per-frame `Serial.print` in the POV loop (`pov_single.h:105-106`) is **kept by design** — it's the once-per-frame timing readout used for on-bench verification, compiled in only under `ARDUINO`. Dead/commented code in the `.ino` files and `effects_legacy.h` is **intentionally left as-is** (owner's call).
 
-13. **Build fragility:** the install step writes into the sibling `../daydream` checkout (`CMakeLists.txt:62-66`) with no `EXISTS`/`OPTIONAL` guards — guard it or expose a `DAYDREAM_DIR` cache var.
+13. ~~**Build fragility:** the install step writes into the sibling `../daydream` checkout (`CMakeLists.txt:62-66`) with no `EXISTS`/`OPTIONAL` guards — guard it or expose a `DAYDREAM_DIR` cache var.~~ — **✅ FIXED (2026-06-04).** Added a `DAYDREAM_DIR` cache var (defaults to `../daydream`, override with `-DDAYDREAM_DIR=`), switched the install rules to absolute destinations (independent of `CMAKE_INSTALL_PREFIX`), and guarded them with `if(EXISTS "${DAYDREAM_DIR}")` — a standalone Holosphere clone now skips the simulator-module install with a notice instead of creating a stray `../daydream`. Verified: default path still installs to `../daydream`; a bogus `DAYDREAM_DIR` skips cleanly with no error.
 
 **Notable coverage gaps to close over time:** `canvas.h`, `scan.h` rasterizer, `transformers.h`, `generators.h`, the hardware drivers, and the WASM bridge are entirely untested.
 
@@ -126,7 +126,7 @@ Non-blocking DMA with a composite black-frame trick; minimal interrupt-disabled 
 - **Medium** | `memory.cpp:28-42` — `configure_arenas` silently proportionally **scales down** an over-subscribed partition request. Under fail-fast this masks a config/sizing bug: the effect asked for a layout that doesn't fit and gets a quietly smaller one, which then over-runs later. Prefer `HS_CHECK(persistent + a + b <= GLOBAL_ARENA_SIZE)` so a bad partition request traps at `init()` instead of degrading. (Previously praised as "graceful" — that was the old fail-soft framing.)
 - ~~**High** | `pov_single.h:78-84,124-153` — ISR reads `effect_` with no publish/lifetime barrier.~~ **❌ DISMISSED (2026-06-04)** — `timer.end()`/`detachInterrupt()` already stop the ISR before `delete`; proposed null-publish fix is incoherent (ISR has no null-check). See P1 #4.
 - ~~**Medium** | `dma_led.h:270-295` — `relaxed` atomics on the cross-context completion flag.~~ **❌ DISMISSED (2026-06-04)** — single-core Cortex-M7: ISR and consumer are the same observer, so relaxed is correct; buffer↔DMA coherence is the cache flush, not the atomic. See P1 #5.
-- **Medium** | `pov_single.h:105-106` — per-frame `Serial.print` in the hot loop; dead `delay(125)`.
+- **Medium** | `pov_single.h:105-106` — per-frame `Serial.print` in the hot loop **(kept by design: once-per-frame timing readout for on-bench verification, `ARDUINO`-only)**; dead `delay(125)`.
 
 ### Effects Library (27 effects + registry/glue)
 
@@ -152,7 +152,7 @@ Engine kept pristine (bindings only wrap); templated compile-time factory dispat
 
 - ~~**High** | `wasm.cpp:101,169-172,207-219` — `typed_memory_view` detachment under memory growth.~~ **✅ FIXED (2026-06-04)** — stable pre-sized readback buffers, no per-frame allocation, contract documented.
 - ~~**High** | `wasm.cpp:87-127` — `setResolution` on an unsupported size leaves the engine null/dead with no error to JS.~~ **✅ FIXED (2026-06-04)** — rejects unsupported sizes, returns bool, single X-macro dispatch table. See P1 #6.
-- **Medium** | supported resolutions hardcoded in 3 places; install into sibling `../daydream` is unguarded.
+- ~~**Medium** | supported resolutions hardcoded in 3 places~~ **✅ FIXED (P1 #6)**; ~~install into sibling `../daydream` is unguarded~~ **✅ FIXED (P2 #13)** — `DAYDREAM_DIR` cache var + `EXISTS` guard.
 - **Low (partially fixed)** | ~~15× MeshOps wrapper boilerplate~~ **✅ FIXED (2026-06-04)** — `apply()` helper + `MESHOP_*` macros (see P2 #10); 8 KB stack with no release `STACK_OVERFLOW_CHECK` — still open.
 
 ### Daydream Web Simulator (vanilla ES-module JS + Three.js + Web Workers + WASM)
@@ -161,7 +161,7 @@ Clean pub/sub state, worker isolation, near-zero per-frame allocation (persisten
 
 - ~~**Medium** | `segment_worker.js:79-88` — `setResolution` doesn't re-apply clip → stale clip rectangle.~~ **✅ FIXED (2026-06-04)** — handler now calls `applyClip()` itself; see P1 #8.
 - **Medium** | `daydream.js:631,672` — `applyResolution(true)` called twice at startup (once with null engine).
-- **Low (partially fixed)** | new/resized segment workers don't receive current tuned param values — still open; dual URL-sync layers can race — **still open** (consolidation attempted in P2 #10 but reverted: it broke effect-param deep links); ~~`62`ms magic number in 3+ places~~ **✅ FIXED (2026-06-04)** (exported `SLOW_FRAME_MS`); `THREE_VERSION` mismatch — still open.
+- **Low (partially fixed)** | new/resized segment workers don't receive current tuned param values — still open; dual URL-sync layers can race — **still open** (consolidation attempted in P2 #10 but reverted: it broke effect-param deep links); ~~`62`ms magic number in 3+ places~~ **✅ FIXED (2026-06-04)** (exported `SLOW_FRAME_MS`); ~~`THREE_VERSION` mismatch~~ **✅ FIXED (2026-06-04)** (removed the dead stale copy in `tools/shared.js`; `vendor-importmap.js` is canonical).
 
 ---
 
