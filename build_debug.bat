@@ -1,29 +1,8 @@
 @echo off
-set "PATH=%PATH%;C:\Program Files\CMake\bin"
-call c:\work\emsdk\emsdk_env.bat
-if not exist build_debug mkdir build_debug
-cd build_debug
-echo Running CMake...
-call emcmake cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja ..
-if %errorlevel% neq 0 (
-    echo CMake failed with error %errorlevel%
-    cd ..
-    exit /b %errorlevel%
-)
-echo Running Ninja...
-echo Executing: ninja -j 16 -v
-ninja -j 16 -v
-if %errorlevel% neq 0 (
-    echo Ninja failed with error %errorlevel%
-    cd ..
-    exit /b %errorlevel%
-)
-echo Installing...
-ninja install
-if %errorlevel% neq 0 (
-    echo Install failed with error %errorlevel%
-    cd ..
-    exit /b %errorlevel%
-)
-echo Build completed successfully.
-cd ..
+REM Thin wrapper over the canonical CMake presets. Equivalent to:
+REM   cmake --preset wasm-debug && cmake --build --preset wasm-debug
+REM The WASM build needs the Emscripten toolchain; ensure EMSDK is set (run
+REM emsdk_env once) — we fall back to a sibling emsdk checkout if it is not.
+if "%EMSDK%"=="" if exist "%~dp0..\emsdk\emsdk_env.bat" call "%~dp0..\emsdk\emsdk_env.bat"
+cmake --preset wasm-debug || exit /b 1
+cmake --build --preset wasm-debug

@@ -1,11 +1,8 @@
 @echo off
-if not exist build_test mkdir build_test
-echo Compiling tests...
-C:\work\emsdk\upstream\bin\clang++.exe -std=c++20 -O0 -g -DHS_TEST_BUILD -I . -I core -o build_test\run_tests.exe tests\run_tests.cpp core\memory.cpp core\reaction_graph.cpp
-if %errorlevel% neq 0 (
-    echo Compile failed with error %errorlevel%
-    exit /b %errorlevel%
-)
-echo Running tests...
-build_test\run_tests.exe
-exit /b %errorlevel%
+REM Thin wrapper over the canonical CMake preset. Equivalent to:
+REM   cmake --preset tests && cmake --build --preset tests && ctest --preset tests
+REM Requires cmake, ninja, and the emsdk clang (via the EMSDK env var or a
+REM sibling ../emsdk checkout) on the system. No Visual Studio prompt needed.
+cmake --preset tests || exit /b 1
+cmake --build --preset tests || exit /b 1
+ctest --preset tests
