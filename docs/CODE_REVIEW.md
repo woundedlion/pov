@@ -63,9 +63,10 @@ The engine *mostly* gets this right: `Arena::allocate`, `ArenaVector::push_back/
 
 ### P1 — Wrong output, latent crash, or fail-fast gap
 
-2. **Two 16-bit→8-bit color truncations in shipping effects.**
-   - `Voronoi.h:90-95` — smoothed cell color is `static_cast<uint8_t>(...)` on `uint16_t` linear channels (0–65535). With ~200 sites the smoothing path runs on essentially every pixel, so colors wrap mod-256 → mostly-dark garbage. **Fix:** use `Color4::lerp`/`lerp16` and keep `uint16_t`.
-   - `SphericalHarmonics.h:167` — negative-lobe green channel is force-cast to `uint8_t`, truncating up to 65535. **Fix:** `static_cast<uint16_t>(pos.color.g * 0.8f)`.
+2. **✅ FIXED (2026-06-05).** Two 16-bit→8-bit color truncations in shipping effects, both fixed by widening the cast to `uint16_t` (the channel-wise lerp/scale stays in `[0, 65535]`, so this is behavior-preserving; the separate rounding-bias item is tracked at P2 #9):
+   - `Voronoi.h:90-95` — smoothed cell color was `static_cast<uint8_t>(...)` on `uint16_t` linear channels (0–65535). With ~200 sites the smoothing path runs on essentially every pixel, so colors wrapped mod-256 → mostly-dark garbage. Now `static_cast<uint16_t>`.
+   - `SphericalHarmonics.h:167` — negative-lobe green channel was force-cast to `uint8_t`, truncating up to 65535. Now `static_cast<uint16_t>(pos.color.g * 0.8f)`.
+   - **Verified:** native suite passes (both effects render in the 288×144 smoke harness).
 
 3. **Three effects abort at 288×144 (quarantined: SplineFlow, TestShapes, Thrusters).** All trip *fixed-capacity* guards in the plot path at full resolution: SplineFlow overflows its `MAX_TRAILS`/trail buffer with closed-geodesic sample fragments; TestShapes overflows `_steps_cache` (`plot.h:192`); Thrusters faults in the `DistortedRing`/`Ring` plot path. These are correct fail-fast traps, but they make three shipping effects unrenderable standalone at Phantasm resolution. **Fix:** size the plot caches/trail buffers off `W` (as the Face dist-LUT already does, commit `f0ac2ea`) or clamp sample counts; then remove from the quarantine list. **Confirm whether they also reproduce on-device** — under the failure philosophy these are live-show crashes waiting to happen.
 

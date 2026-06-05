@@ -164,7 +164,7 @@ public:
           baked_palette.get(std::min(1.0f, abs_val * params.amplitude));
       // Negative palette (channel-swapped)
       Color4 neg =
-          Color4(Pixel(pos.color.b, static_cast<uint8_t>(pos.color.g * 0.8f),
+          Color4(Pixel(pos.color.b, static_cast<uint16_t>(pos.color.g * 0.8f),
                        pos.color.r),
                  pos.alpha);
 

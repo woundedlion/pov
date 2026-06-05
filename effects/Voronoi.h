@@ -86,12 +86,12 @@ public:
           factor = quintic_kernel(factor);
           float t = 0.5f + 0.5f * factor;
 
-          // Mix
-          c.color.r = static_cast<uint8_t>(
+          // Mix (16-bit linear channels — do NOT truncate to uint8_t)
+          c.color.r = static_cast<uint16_t>(
               secSite.color.color.r + (c.color.r - secSite.color.color.r) * t);
-          c.color.g = static_cast<uint8_t>(
+          c.color.g = static_cast<uint16_t>(
               secSite.color.color.g + (c.color.g - secSite.color.color.g) * t);
-          c.color.b = static_cast<uint8_t>(
+          c.color.b = static_cast<uint16_t>(
               secSite.color.color.b + (c.color.b - secSite.color.color.b) * t);
         }
 
