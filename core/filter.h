@@ -10,6 +10,7 @@
 #include <utility>
 #include <type_traits>
 #include <cmath>
+#include <cassert>
 
 #include <span>
 #include <algorithm>
@@ -84,6 +85,13 @@ template <int W, int H> struct Pipeline<W, H> {
   // 2D Sink
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
     HS_PROFILE(filter_blend);
+    // fast_wrap() only corrects a single +/-W offset, so the sink relies on the
+    // producer keeping x within [-W, 2W). Every current producer does (3D path
+    // full-wraps via vector_to_pixel; AntiAlias/Blur/ChromaticShift wrap before
+    // forwarding). This precondition is enforced debug-only: it is stripped
+    // under NDEBUG on device (zero hot-loop cost) but fires in the native test
+    // suite / WASM-debug if a NaN coord or a future out-of-range filter slips in.
+    assert(x >= -W && x < 2 * W);
     if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
     if (!cv.clip().contains_x(xi)) return;
@@ -93,8 +101,14 @@ template <int W, int H> struct Pipeline<W, H> {
 
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) {
+    // Non-finite coords would make the int casts below UB and bypass the wrap,
+    // and round() must land within fast_wrap()'s [-W, 2W) window. Both hold for
+    // every finite producer; assert debug-only (stripped on device, fires in
+    // tests / WASM-debug) so a NaN-producing effect faults at the bench.
+    assert(std::isfinite(x) && std::isfinite(y));
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
+    assert(xi >= -W && xi < 2 * W);
     if (!cv.clip().contains_y(yi)) return;
     xi = fast_wrap(xi, W);
     if (!cv.clip().contains_x(xi)) return;
