@@ -151,9 +151,9 @@ public:
   }
 
   void setEffect(std::string name) {
-    char buf[128];
-    snprintf(buf, sizeof(buf), "WASM: setEffect called with %s", name.c_str());
-    hs::log(buf);
+    // hs::log is printf-style: pass name as an arg, never as the format string
+    // (an effect name containing '%' would otherwise read nonexistent varargs).
+    hs::log("WASM: setEffect called with %s", name.c_str());
 
     currentEffect.reset();
     configure_arenas_default();
