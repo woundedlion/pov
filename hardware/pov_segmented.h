@@ -78,6 +78,9 @@ class POVSegmented {
       "Segment count must be even (equal split across two arms)");
   static_assert(S >= N,
       "Must have at least one pixel per segment");
+  static_assert((N & (N - 1)) == 0 && N <= 4,
+      "Segment ID is decoded from 2 GPIO pins as (raw & (N-1)); that requires "
+      "N to be a power of two and N <= 4 (2 ID bits)");
 
   // ── Pin assignments ─────────────────────────────────────────────────
 

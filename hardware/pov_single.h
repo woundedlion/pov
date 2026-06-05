@@ -100,10 +100,11 @@ private:
       unsigned long t0 = micros();
       effect_->draw_frame();
       effect_->advance_display();
-//      delay(125);
       unsigned long dt = micros() - t0;
-      Serial.print("frame ms: ");
-      Serial.println(dt);
+      if (hs::debug) {
+        Serial.print("frame ms: ");
+        Serial.println(dt);
+      }
     }
     timer.end();
 #else
@@ -111,7 +112,7 @@ private:
       unsigned long t0 = micros();
       effect_->draw_frame();
       unsigned long dt = micros() - t0;
-      hs::log("ft %lu", dt);
+      if (hs::debug) hs::log("ft %lu", dt);
     }
 #endif
   }
