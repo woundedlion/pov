@@ -73,7 +73,7 @@ The current code mostly does the *opposite* of fail-fast on the invariant paths:
 
 7. ~~**Geometry edge cases:** `AABB::intersectRay` div-by-zero on axis-aligned rays (`spatial.h:64-97`); `KDTree::nearest` unclamped `k>MAX_K` silently drops results (`spatial.h:152-209`); `OrientationTrail::get` has contradictory oldest/newest ordering docs (`animation.h:230-233`) that can reverse motion-blur direction.~~ — **✅ FIXED (2026-06-04).** `intersectRay` rewritten as a per-axis slab test that guards a zero direction component (parallel ray ⇒ hit only if the origin is inside the slab), eliminating the `0/0 = NaN` on a grazing on-face ray; added `test_aabb_ray_parallel_grazing` to lock it in. `KDTree::nearest` now `HS_CHECK(k <= MAX_K)` so an over-large `k` traps instead of silently truncating (asking for more neighbors than points exist still legitimately caps below). `OrientationTrail::get` docs corrected to match the implementation — **0 is the oldest** snapshot, `length()-1` the newest (the inline comment was right; the `@param` was wrong).
 
-8. **Worker clip not re-applied on resolution change** (`segment_worker.js:79-88`) — segments render with a stale clip rectangle until the next effect switch. Call `applyClip()` after `engine.setResolution`.
+8. ~~**Worker clip not re-applied on resolution change** (`segment_worker.js:79-88`) — segments render with a stale clip rectangle until the next effect switch. Call `applyClip()` after `engine.setResolution`.~~ — **✅ FIXED (2026-06-04).** The worker's `setResolution` handler now calls `applyClip()` instead of relying on a trailing `setEffect` to do it. (In the current main-thread flow `applyResolution` always follows `workerSetResolution` with `workerSetEffect`, and messages are FIFO, so the live clip wasn't actually stale — but the handler was fragile by depending on that ordering. It is now self-contained; the call is a harmless no-op while no effect is bound.) Committed in the daydream repo.
 
 ### P2 — Quality, maintainability & test depth
 
@@ -159,7 +159,7 @@ Engine kept pristine (bindings only wrap); templated compile-time factory dispat
 
 Clean pub/sub state, worker isolation, near-zero per-frame allocation (persistent adapter, pooled labels, reused temp vectors), correct GPU disposal on resolution change, and — notably — a **correct** detached-buffer guard (`daydream.js:357`). Robust browser-compat (codec fallback chain, importmap probe, File System Access fallback).
 
-- **Medium** | `segment_worker.js:79-88` — `setResolution` doesn't re-apply clip → stale clip rectangle.
+- ~~**Medium** | `segment_worker.js:79-88` — `setResolution` doesn't re-apply clip → stale clip rectangle.~~ **✅ FIXED (2026-06-04)** — handler now calls `applyClip()` itself; see P1 #8.
 - **Medium** | `daydream.js:631,672` — `applyResolution(true)` called twice at startup (once with null engine).
 - **Low** | new/resized segment workers don't receive current tuned param values; dual URL-sync layers can race; `62`ms magic number in 3+ places; `THREE_VERSION` mismatch.
 
