@@ -45,14 +45,13 @@ public:
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_mid, true));
     flow_driver_ = timeline.add_get(
-        0, Animation::Driver(flow_offset, 0.02f * params.flow_speed * 0.2f,
-                             false));
+        0, Animation::Driver(flow_offset, FLOW_RATE * params.flow_speed, false));
     tumble_x_driver_ = timeline.add_get(
-        0,
-        Animation::Driver(tumble_angle_x, 0.003f * params.tumble_speed, false));
+        0, Animation::Driver(tumble_angle_x, TUMBLE_X_RATE * params.tumble_speed,
+                             false));
     tumble_y_driver_ = timeline.add_get(
-        0,
-        Animation::Driver(tumble_angle_y, 0.005f * params.tumble_speed, false));
+        0, Animation::Driver(tumble_angle_y, TUMBLE_Y_RATE * params.tumble_speed,
+                             false));
   }
 
   bool show_bg() const override { return false; }
@@ -87,6 +86,13 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
+  // Per-unit driver speeds (multiplied by the corresponding tuning param).
+  // Defined once and shared between the initial Driver setup and the per-frame
+  // set_speed() in advance_tumble(), which previously repeated the literals.
+  static constexpr float FLOW_RATE = 0.02f * 0.2f; // flow_offset / flow_speed
+  static constexpr float TUMBLE_X_RATE = 0.003f;   // tumble_angle_x / tumble_speed
+  static constexpr float TUMBLE_Y_RATE = 0.005f;   // tumble_angle_y / tumble_speed
+
   float flow_offset = 0.0f;
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
@@ -120,9 +126,9 @@ private:
   }
 
   void advance_tumble() {
-    flow_driver_->set_speed(0.02f * params.flow_speed * 0.2f);
-    tumble_x_driver_->set_speed(0.003f * params.tumble_speed);
-    tumble_y_driver_->set_speed(0.005f * params.tumble_speed);
+    flow_driver_->set_speed(FLOW_RATE * params.flow_speed);
+    tumble_x_driver_->set_speed(TUMBLE_X_RATE * params.tumble_speed);
+    tumble_y_driver_->set_speed(TUMBLE_Y_RATE * params.tumble_speed);
     cx = fast_cosf(tumble_angle_x);
     sx = fast_sinf(tumble_angle_x);
     cy = fast_cosf(tumble_angle_y);

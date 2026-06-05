@@ -79,7 +79,7 @@ The current code mostly does the *opposite* of fail-fast on the invariant paths:
 
 9. **Strengthen effect tests** (`test_effects.h:84-87`): `HS_EXPECT_TRUE(acc+1>0)` is tautological. Assert non-trivial output (not-all-zero / finite bounds) or golden-hash buffers; inject a mockable clock for determinism; root-cause the 3 quarantined effects rather than excluding them.
 
-10. **De-duplicate:** copy-pasted `BakedPaletteBank` block (`HankinSolids.h` ↔ `IslamicStars.h`), the 15× MeshOps wrappers (`wasm.cpp:280-596`), repeated magic numbers (`62`ms in daydream, `D_AVG=0.04044f`, Hopf tumble constants), and the dual URL-sync layers (`state.js` vs `gui.js`).
+10. ~~**De-duplicate:** copy-pasted `BakedPaletteBank` block (`HankinSolids.h` ↔ `IslamicStars.h`), the 15× MeshOps wrappers (`wasm.cpp:280-596`), repeated magic numbers (`62`ms in daydream, `D_AVG=0.04044f`, Hopf tumble constants), and the dual URL-sync layers (`state.js` vs `gui.js`).~~ — **✅ FIXED (2026-06-04).** All zero runtime cost (everything compile-time/inlined; hot-path palette lookup is still `BakedPalette::get()`). **(a)** New `MeshPaletteBank` in `palettes.h` bundles the shared source-palette table + `bake_all` + `shuffle_indices`; HankinSolids/IslamicStars now use it. **(b)** The 16 MeshOps operator wrappers in `wasm.cpp` collapse to an `apply()` helper + `MESHOP_0/1` macros (tooling path, fully inlined). **(c)** Magic numbers named: Hopf flow/tumble rates → `FLOW_RATE`/`TUMBLE_X_RATE`/`TUMBLE_Y_RATE` constexpr (shared by init + `advance_tumble`); `D_AVG` centralized in `ReactionGraph` (referenced by BZ + GS); daydream `62` → exported `SLOW_FRAME_MS` (driver.js, used by both files). **(d)** Consolidated the dual URL-sync layers into one shared `urlWriter` (state.js) that merges queued changes into a *fresh* read of the URL with a single debounce — also fixing the stale-write race where a GUI param edit could clobber a concurrent effect/resolution change; gui.js routes through it (and `resetGUI` flushes first). Behavioral test added (ad-hoc) confirming fresh-read merge, race-safety, delete, and URLSync seeding.
 
 11. **Unclamped lerps** (`color.h:366-368` `lerp8`, `color.h:584` `Gradient::get`) can wrap to garbage for `t∉[0,1]`; the `Face` SDF hardcodes `W=288` in its dist-LUT threshold (`sdf.h:1136`), breaking multi-resolution; decompose the 270-line `Face` ctor.
 
@@ -153,7 +153,7 @@ Engine kept pristine (bindings only wrap); templated compile-time factory dispat
 - ~~**High** | `wasm.cpp:101,169-172,207-219` — `typed_memory_view` detachment under memory growth.~~ **✅ FIXED (2026-06-04)** — stable pre-sized readback buffers, no per-frame allocation, contract documented.
 - ~~**High** | `wasm.cpp:87-127` — `setResolution` on an unsupported size leaves the engine null/dead with no error to JS.~~ **✅ FIXED (2026-06-04)** — rejects unsupported sizes, returns bool, single X-macro dispatch table. See P1 #6.
 - **Medium** | supported resolutions hardcoded in 3 places; install into sibling `../daydream` is unguarded.
-- **Low** | 15× MeshOps wrapper boilerplate; 8 KB stack with no release `STACK_OVERFLOW_CHECK`.
+- **Low (partially fixed)** | ~~15× MeshOps wrapper boilerplate~~ **✅ FIXED (2026-06-04)** — `apply()` helper + `MESHOP_*` macros (see P2 #10); 8 KB stack with no release `STACK_OVERFLOW_CHECK` — still open.
 
 ### Daydream Web Simulator (vanilla ES-module JS + Three.js + Web Workers + WASM)
 
@@ -161,7 +161,7 @@ Clean pub/sub state, worker isolation, near-zero per-frame allocation (persisten
 
 - ~~**Medium** | `segment_worker.js:79-88` — `setResolution` doesn't re-apply clip → stale clip rectangle.~~ **✅ FIXED (2026-06-04)** — handler now calls `applyClip()` itself; see P1 #8.
 - **Medium** | `daydream.js:631,672` — `applyResolution(true)` called twice at startup (once with null engine).
-- **Low** | new/resized segment workers don't receive current tuned param values; dual URL-sync layers can race; `62`ms magic number in 3+ places; `THREE_VERSION` mismatch.
+- **Low (partially fixed)** | new/resized segment workers don't receive current tuned param values — still open; ~~dual URL-sync layers can race~~ **✅ FIXED (2026-06-04)** (consolidated into one fresh-read `urlWriter`, see P2 #10); ~~`62`ms magic number in 3+ places~~ **✅ FIXED** (exported `SLOW_FRAME_MS`); `THREE_VERSION` mismatch — still open.
 
 ---
 

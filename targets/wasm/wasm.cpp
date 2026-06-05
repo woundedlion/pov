@@ -471,119 +471,62 @@ struct MeshOpsWrapper {
             val(typed_memory_view(mesh.topology.size(), mesh.topology.data())));
   }
 
-  // Operations
-  std::unique_ptr<MeshOpsWrapper> kis() const {
+  // --- Conway/Goldberg operators -------------------------------------------
+  // Every operator has the same shape: reset both tooling scratch arenas, run
+  // the op into a fresh PolyMesh, finalize it into tooling_arena, and hand back
+  // a new wrapper. apply() captures that boilerplate so each operator is just
+  // its MeshOps call; the MESHOP_* macros remove the remaining stutter. This is
+  // tooling — invoked from the JS mesh editor, never the render loop — and
+  // every lambda inlines, so there is no added cost.
+  template <typename Op>
+  std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::kis(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
+        op(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
-  std::unique_ptr<MeshOpsWrapper> ambo() const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::ambo(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
+
+#define MESHOP_0(name)                                                         \
+  std::unique_ptr<MeshOpsWrapper> name() const {                              \
+    return apply(                                                              \
+        [](const PolyMesh &m, Arena &a, Arena &b) { return MeshOps::name(m, a, b); });           \
   }
-  std::unique_ptr<MeshOpsWrapper> gyro() const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::gyro(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
+#define MESHOP_1(name, T)                                                      \
+  std::unique_ptr<MeshOpsWrapper> name(T arg) const {                        \
+    return apply([arg](const PolyMesh &m, Arena &a, Arena &b) {               \
+      return MeshOps::name(m, a, b, arg);                                     \
+    });                                                                        \
   }
-  std::unique_ptr<MeshOpsWrapper> snub() const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::snub(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> dual() const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::dual(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> truncate(float t) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::truncate(mesh, tooling_scratch_a, tooling_scratch_b, t),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> expand(float t) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::expand(mesh, tooling_scratch_a, tooling_scratch_b, t),
-        tooling_arena));
-  }
+
+  MESHOP_0(kis)
+  MESHOP_0(ambo)
+  MESHOP_0(gyro)
+  MESHOP_0(snub)
+  MESHOP_0(dual)
+  MESHOP_0(meta)
+  MESHOP_0(needle)
+  MESHOP_0(zip)
+  MESHOP_1(truncate, float)
+  MESHOP_1(expand, float)
+  MESHOP_1(chamfer, float)
+  MESHOP_1(bitruncate, float)
+  MESHOP_1(bevel, float)
+  MESHOP_1(relax, int)
+
+#undef MESHOP_0
+#undef MESHOP_1
+
+  // Hankin shares one MeshOps entry point but with two unit conventions, so it
+  // stays explicit rather than fitting the MESHOP_* shape.
   std::unique_ptr<MeshOpsWrapper> hankin(float angle) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b,
-                        angle * (PI_F / 180.0f)),
-        tooling_arena));
+    return apply([angle](const PolyMesh &m, Arena &a, Arena &b) {
+      return MeshOps::hankin(m, a, b, angle * (PI_F / 180.0f));
+    });
   }
   std::unique_ptr<MeshOpsWrapper> hankin_rad(float radians) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::hankin(mesh, tooling_scratch_a, tooling_scratch_b, radians),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> chamfer(float t) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::chamfer(mesh, tooling_scratch_a, tooling_scratch_b, t),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> bitruncate(float t) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::bitruncate(mesh, tooling_scratch_a, tooling_scratch_b, t),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> meta() const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::meta(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> needle() const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::needle(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> zip() const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::zip(mesh, tooling_scratch_a, tooling_scratch_b),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> bevel(float t) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::bevel(mesh, tooling_scratch_a, tooling_scratch_b, t),
-        tooling_arena));
-  }
-  std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
-        MeshOps::relax(mesh, tooling_scratch_a, tooling_scratch_b, iterations),
-        tooling_arena));
+    return apply([radians](const PolyMesh &m, Arena &a, Arena &b) {
+      return MeshOps::hankin(m, a, b, radians);
+    });
   }
   static val getRegistry() {
     val registry = val::array();

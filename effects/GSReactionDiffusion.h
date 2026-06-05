@@ -100,7 +100,7 @@ private:
   }
 
   // Wendland C2 compact kernel: w(d) = max(0, 1 - d²/R²)²
-  static constexpr float D_AVG = 0.04044f; // sqrt(4π / RD_N)
+  static constexpr float D_AVG = ReactionGraph::D_AVG; // sqrt(4π / RD_N)
   static constexpr float KERNEL_R = 1.5f * D_AVG;
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
 

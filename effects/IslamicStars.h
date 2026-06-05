@@ -21,9 +21,7 @@ public:
     configure_arenas(GLOBAL_ARENA_SIZE - (120 + 120) * 1024, 120 * 1024,
                      120 * 1024);
 
-    for (int i = 0; i < NUM_PALETTES; ++i)
-      baked_palette_bank_.entries[i].bake(persistent_arena,
-                                          *source_palettes[i]);
+    palette_bank_.bake_all(persistent_arena);
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
@@ -111,12 +109,8 @@ private:
   uint32_t c_timeline = 0;
   uint32_t c_face_count = 0;
 
-  static constexpr int NUM_PALETTES = 5;
-  static constexpr std::array<const ProceduralPalette *, NUM_PALETTES>
-      source_palettes = {&Palettes::embers, &Palettes::richSunset,
-                         &Palettes::brightSunrise, &Palettes::bruisedMoss,
-                         &Palettes::lavenderLake};
-  BakedPaletteBank baked_palette_bank_;
+  static constexpr int NUM_PALETTES = MeshPaletteBank::N;
+  MeshPaletteBank palette_bank_;
   std::array<int, NUM_PALETTES> palettes_slots[2];
 
   void ripple(Canvas &canvas) {
@@ -151,8 +145,7 @@ private:
       intensity = hs::clamp(intensity, 0.0f, 1.0f);
 
       frag.color =
-          baked_palette_bank_.entries[palette_idx[topoIdx % NUM_PALETTES]].get(
-              intensity);
+          palette_bank_[palette_idx[topoIdx % NUM_PALETTES]].get(intensity);
       frag.color.alpha = opacity;
     };
 
@@ -163,17 +156,11 @@ private:
     c_raster += (HS_OS_CYCLES() - t1);
   }
 
-  void shuffle_palette_indices(std::array<int, NUM_PALETTES> &out) {
-    for (int i = 0; i < NUM_PALETTES; ++i)
-      out[i] = i;
-    std::shuffle(out.begin(), out.end(), hs::random());
-  }
-
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
     int capture_idx = 1 - carousel.front_index();
-    shuffle_palette_indices(palettes_slots[capture_idx]);
+    MeshPaletteBank::shuffle_indices(palettes_slots[capture_idx]);
 
     int idx = solid_idx; // capture for generate lambda
 
@@ -192,11 +179,9 @@ private:
                            scratch_arena_b, persistent_arena);
       persistent_arena.reset();
 
-      // Rebake palettes into the fresh arena instead of tracking them 
+      // Rebake palettes into the fresh arena instead of tracking them
       // during evacuation (saves fragmentation/OOM)
-      for (int i = 0; i < NUM_PALETTES; ++i)
-        baked_palette_bank_.entries[i].bake(persistent_arena,
-                                            *source_palettes[i]);
+      palette_bank_.bake_all(persistent_arena);
 
       hs::log("IslamicStars: Finished arena compaction & rebake");
     }

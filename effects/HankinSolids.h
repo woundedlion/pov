@@ -27,9 +27,7 @@ public:
 
     solid_idx = 0;
 
-    for (int i = 0; i < NUM_PALETTES; ++i)
-      baked_palette_bank_.entries[i].bake(persistent_arena,
-                                          *source_palettes[i]);
+    palette_bank_.bake_all(persistent_arena);
 
     load_shape(carousel.current(), compiled_hankin,
                palettes_slots[carousel.front_index()], solid_idx,
@@ -45,12 +43,8 @@ public:
   }
 
 private:
-  static constexpr int NUM_PALETTES = 5;
-  static constexpr std::array<const ProceduralPalette *, NUM_PALETTES>
-      source_palettes = {&Palettes::embers, &Palettes::richSunset,
-                         &Palettes::brightSunrise, &Palettes::bruisedMoss,
-                         &Palettes::lavenderLake};
-  BakedPaletteBank baked_palette_bank_;
+  static constexpr int NUM_PALETTES = MeshPaletteBank::N;
+  MeshPaletteBank palette_bank_;
 
 
   PolyMesh generate_base_solid(int idx, Arena &a, Arena &b) {
@@ -64,12 +58,6 @@ private:
     scratch_arena_b.reset();
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
                                         persistent_arena);
-  }
-
-  void shuffle_palette_indices(std::array<int, NUM_PALETTES> &out) {
-    for (int i = 0; i < NUM_PALETTES; ++i)
-      out[i] = i;
-    std::shuffle(out.begin(), out.end(), hs::random());
   }
 
   /// Full pipeline: generate → compile → evaluate → classify → palette indices.
@@ -87,7 +75,7 @@ private:
     });
 
     classify_mesh_topology(out_mesh);
-    shuffle_palette_indices(out_palette_idx);
+    MeshPaletteBank::shuffle_indices(out_palette_idx);
   }
 
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
@@ -116,9 +104,7 @@ private:
           (f.size > 0.0001f) ? (distFromEdge / f.size) : 0.0f;
       float t = hs::clamp(normalizedDist * params.intensity, 0.0f, 1.0f);
 
-      f.color =
-          baked_palette_bank_.entries[palette_idx[topoIdx % NUM_PALETTES]].get(
-              t);
+      f.color = palette_bank_[palette_idx[topoIdx % NUM_PALETTES]].get(t);
       f.color.alpha *= opacity;
     };
 
@@ -187,8 +173,8 @@ private:
                                          persistent_arena);
                    Persist<MeshState> p1(carousel.slot(1), scratch_arena_a,
                                          persistent_arena);
-                   Persist<BakedPaletteBank> pp(
-                       baked_palette_bank_, scratch_arena_b, persistent_arena);
+                   Persist<MeshPaletteBank> pp(palette_bank_, scratch_arena_b,
+                                               persistent_arena);
                    persistent_arena.reset();
                    hs::log("morph_cycle_then: finished arena compaction");
                  }

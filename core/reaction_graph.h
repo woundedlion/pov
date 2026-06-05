@@ -13,6 +13,11 @@ namespace ReactionGraph {
 static constexpr int RD_N = 7680;
 static constexpr int RD_K = 6;
 
+/// Mean nearest-neighbor spacing on the unit sphere for an RD_N-point lattice:
+/// sqrt(4π / RD_N). Used as the base radius for reaction-diffusion interpolation
+/// kernels (BZ / GS). Precomputed because std::sqrt isn't constexpr here.
+static constexpr float D_AVG = 0.04044f; // sqrt(4π / 7680)
+
 /** Compute Fibonacci lattice node i (avoids storing 180KB in flash). */
 inline Vector node(int i) {
   constexpr float phi = 2.399963229728653f;

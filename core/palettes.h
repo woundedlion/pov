@@ -6,6 +6,9 @@
 #ifndef HOLOSPHERE_CORE_PALETTES_H_
 #define HOLOSPHERE_CORE_PALETTES_H_
 
+#include <algorithm>
+#include <array>
+
 #include "color.h"
 
 namespace Palettes {
@@ -97,4 +100,49 @@ static constexpr ProceduralPalette peachPop({1.000f, 0.144f, 0.175f},
                                             {0.001f, 0.002f, 0.620f});
 
 } // namespace Palettes
+
+/// Shared 5-palette "mesh effect" bank used by HankinSolids / IslamicStars (and
+/// any future mesh effect). Bundles the standard source-palette set, the
+/// bake-all step, and the per-shape index shuffle that those effects each
+/// previously hand-rolled identically. Zero-overhead: the source list is
+/// constexpr and every accessor is a thin inline wrapper over BakedPaletteBank,
+/// so the per-pixel lookup remains BakedPalette::get() with no added
+/// indirection.
+struct MeshPaletteBank {
+  static constexpr int N = BakedPaletteBank::N; // 5
+
+  /// Standard source palettes, in slot order.
+  static constexpr std::array<const ProceduralPalette *, N> sources() {
+    return {&Palettes::embers, &Palettes::richSunset, &Palettes::brightSunrise,
+            &Palettes::bruisedMoss, &Palettes::lavenderLake};
+  }
+
+  /// (Re)bake every source palette into `arena` (N × 256-entry Color4 LUTs).
+  void bake_all(Arena &arena) {
+    constexpr auto src = sources();
+    for (int i = 0; i < N; ++i)
+      bank.entries[i].bake(arena, *src[i]);
+  }
+
+  /// Fill out[0..N) with a random permutation of [0, N) — the per-shape
+  /// palette-slot assignment.
+  static void shuffle_indices(std::array<int, N> &out) {
+    for (int i = 0; i < N; ++i)
+      out[i] = i;
+    std::shuffle(out.begin(), out.end(), hs::random());
+  }
+
+  /// Baked LUT for a slot index. Hot-path lookup is unchanged: bank[slot].get(t).
+  const BakedPalette &operator[](int i) const { return bank.entries[i]; }
+  BakedPalette &operator[](int i) { return bank.entries[i]; }
+
+  /// Cloneable hook so effects can Persist<MeshPaletteBank> across compaction.
+  static void clone(const MeshPaletteBank &src, MeshPaletteBank &dst,
+                    Arena &arena) {
+    BakedPaletteBank::clone(src.bank, dst.bank, arena);
+  }
+
+  BakedPaletteBank bank;
+};
+
 #endif // HOLOSPHERE_CORE_PALETTES_H_
