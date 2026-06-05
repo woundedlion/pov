@@ -137,25 +137,22 @@ inline int run_effects_tests() {
   smoke_one<SphericalHarmonics>("SphericalHarmonics");
   smoke_one<Test>("Test");
   smoke_one<TestShapes>("TestShapes");
+  smoke_one<Thrusters>("Thrusters");
   smoke_one<Voronoi>("Voronoi");
 
   // ------------------------------------------------------------------------
-  // QUARANTINED — these abort under the standalone full-canvas (288x144)
-  // harness and are excluded so the suite stays green. Each tripped a
-  // FIXED-CAPACITY guard in the Plot rasterization path (asserts are ON in the
-  // test build), NOT the global arena:
+  // QUARANTINED — aborts under the standalone full-canvas (288x144) harness and
+  // is excluded so the suite stays green. Tripped a FIXED-CAPACITY guard in the
+  // Plot rasterization path (asserts/HS_CHECK ON), NOT the global arena:
   //   * SplineFlow  — ArenaVector "exact capacity exceeded" (memory.h push_back)
   //                   while sampling/trailing the closed spline.
-  //   * Thrusters   — access violation in the plot path.
-  // These are real fixed-capacity limits in plot.h reached at full resolution.
-  // It is not yet confirmed whether they reproduce on-device (the live app may
-  // render sub-segment clip regions, lowering per-call step/fragment counts) or
-  // are genuine plot.h capacity bugs. Tracked as findings; re-enable once
-  // root-caused. DO NOT silently drop — warn loudly:
-  // (TestShapes re-enabled 2026-06-05: plot.h _steps_cache now sized off W
-  //  with a graceful cap — see #3 in docs/CODE_REVIEW.md.)
-  std::printf("  [WARN] 2 effects QUARANTINED (plot capacity limits, "
-              "uninvestigated): SplineFlow, Thrusters\n");
+  // Confirmed real (also traps in the WASM sim via HS_CHECK). Re-enable once
+  // root-caused. DO NOT silently drop — warn loudly.
+  // (TestShapes + Thrusters re-enabled 2026-06-05: plot.h _steps_cache now
+  //  sized off W with a graceful cap — see #3 in docs/CODE_REVIEW.md. Both
+  //  verified rendering in the WASM sim after a fresh build/install.)
+  std::printf("  [WARN] 1 effect QUARANTINED (plot capacity limit, "
+              "uninvestigated): SplineFlow\n");
 
   return hs_test::end_module(scope);
 }
