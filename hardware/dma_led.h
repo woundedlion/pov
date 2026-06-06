@@ -351,7 +351,15 @@ public:
    */
   void show(const CRGB* pixels) {
     if (!spi_.isComplete()) {
+      // Drop the frame on overrun rather than fall through to transmitAsync(),
+      // which would spin in waitComplete(). When called from the column ISR
+      // that spin can deadlock — transferComplete_ is only set by the DMA
+      // completion ISR, which cannot preempt an equal/lower-priority ISR — and
+      // at best extends the ISR past the next column tick. A dropped frame is a
+      // transient (platform.h), not an invariant violation: the in-flight DMA
+      // keeps the previous column; the next tick repacks and retries.
       overrunCount_++;
+      return;
     }
 
     int back = 1 - activeBuffer_;
@@ -380,7 +388,11 @@ public:
    */
   void submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
+      // Drop on overrun — never enter transmitAsync()'s waitComplete() spin
+      // from the column ISR (see show() for the deadlock rationale). The
+      // already-packed back buffer is simply discarded; the next column repacks.
       overrunCount_++;
+      return;
     }
     int back = 1 - activeBuffer_;
     frames_[back].flush();
