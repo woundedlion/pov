@@ -5,8 +5,8 @@
  * Unit tests for core/hankin.h.
  *
  * Coverage:
- *   - compile_hankin builds baseVertices, staticVertices, dynamicVertices,
- *     dynamicInstructions, and face arrays consistently.
+ *   - compile_hankin builds base_vertices, static_vertices, dynamic_vertices,
+ *     dynamic_instructions, and face arrays consistently.
  *   - update_hankin populates an output PolyMesh for both flat (angle=0)
  *     and twisted (angle≠0) configurations.
  *   - one-shot MeshOps::hankin convenience wrapper produces a valid mesh.
@@ -70,31 +70,31 @@ inline void test_compile_hankin_populates_arrays() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, target, temp);
 
-  // baseVertices mirrors the input vertex list exactly
-  HS_EXPECT_EQ(compiled.baseVertices.size(), cube.vertices.size());
+  // base_vertices mirrors the input vertex list exactly
+  HS_EXPECT_EQ(compiled.base_vertices.size(), cube.vertices.size());
   for (size_t i = 0; i < cube.vertices.size(); ++i) {
-    HS_EXPECT_NEAR(compiled.baseVertices[i].x, cube.vertices[i].x, 1e-6f);
-    HS_EXPECT_NEAR(compiled.baseVertices[i].y, cube.vertices[i].y, 1e-6f);
-    HS_EXPECT_NEAR(compiled.baseVertices[i].z, cube.vertices[i].z, 1e-6f);
+    HS_EXPECT_NEAR(compiled.base_vertices[i].x, cube.vertices[i].x, 1e-6f);
+    HS_EXPECT_NEAR(compiled.base_vertices[i].y, cube.vertices[i].y, 1e-6f);
+    HS_EXPECT_NEAR(compiled.base_vertices[i].z, cube.vertices[i].z, 1e-6f);
   }
 
-  // staticVertices: one per unique edge of the input. Cube has 12 edges.
-  HS_EXPECT_EQ(compiled.staticVertices.size(), (size_t)12);
+  // static_vertices: one per unique edge of the input. Cube has 12 edges.
+  HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)12);
 
   // Static vertices are midpoints normalised onto the unit sphere.
-  for (size_t i = 0; i < compiled.staticVertices.size(); ++i) {
-    HS_EXPECT_NEAR(compiled.staticVertices[i].length(), 1.0f, 1e-3f);
+  for (size_t i = 0; i < compiled.static_vertices.size(); ++i) {
+    HS_EXPECT_NEAR(compiled.static_vertices[i].length(), 1.0f, 1e-3f);
   }
 
-  // dynamicVertices: one per half-edge (= twice the edge count).
-  HS_EXPECT_EQ(compiled.dynamicVertices.size(), (size_t)24);
-  // dynamicInstructions parallels dynamicVertices.
-  HS_EXPECT_EQ(compiled.dynamicInstructions.size(),
-               compiled.dynamicVertices.size());
+  // dynamic_vertices: one per half-edge (= twice the edge count).
+  HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)24);
+  // dynamic_instructions parallels dynamic_vertices.
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
+               compiled.dynamic_vertices.size());
 
-  // staticOffset == |staticVertices| (dynamic indices start at staticOffset).
-  HS_EXPECT_EQ((size_t)compiled.staticOffset,
-               compiled.staticVertices.size());
+  // static_offset == |static_vertices| (dynamic indices start at static_offset).
+  HS_EXPECT_EQ((size_t)compiled.static_offset,
+               compiled.static_vertices.size());
 
   // Face data is internally consistent.
   size_t total = 0;
@@ -102,8 +102,8 @@ inline void test_compile_hankin_populates_arrays() {
     total += compiled.face_counts[i];
   HS_EXPECT_EQ(total, compiled.faces.size());
 
-  // All face indices must be < |staticVertices| + |dynamicVertices|.
-  size_t max_v = compiled.staticVertices.size() + compiled.dynamicVertices.size();
+  // All face indices must be < |static_vertices| + |dynamic_vertices|.
+  size_t max_v = compiled.static_vertices.size() + compiled.dynamic_vertices.size();
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
 }
@@ -119,14 +119,14 @@ inline void test_compile_hankin_instruction_indices_in_range() {
   MeshOps::compile_hankin(cube, compiled, target, temp);
 
   size_t V = cube.vertices.size();
-  size_t S = compiled.staticVertices.size();
-  for (size_t i = 0; i < compiled.dynamicInstructions.size(); ++i) {
-    const auto &ins = compiled.dynamicInstructions[i];
-    HS_EXPECT_TRUE(ins.vCorner < V);
-    HS_EXPECT_TRUE(ins.vPrev < V);
-    HS_EXPECT_TRUE(ins.vNext < V);
-    HS_EXPECT_TRUE(ins.idxM1 < S);
-    HS_EXPECT_TRUE(ins.idxM2 < S);
+  size_t S = compiled.static_vertices.size();
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const auto &ins = compiled.dynamic_instructions[i];
+    HS_EXPECT_TRUE(ins.v_corner < V);
+    HS_EXPECT_TRUE(ins.v_prev < V);
+    HS_EXPECT_TRUE(ins.v_next < V);
+    HS_EXPECT_TRUE(ins.idx_m1 < S);
+    HS_EXPECT_TRUE(ins.idx_m2 < S);
   }
 }
 
@@ -145,16 +145,16 @@ inline void test_update_hankin_flat_collapses_to_corners() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, target, temp);
 
-  // angle = 0 → each dynamic vertex equals the normalised vCorner.
+  // angle = 0 → each dynamic vertex equals the normalised v_corner.
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.0f);
 
-  for (size_t i = 0; i < compiled.dynamicInstructions.size(); ++i) {
-    const auto &ins = compiled.dynamicInstructions[i];
-    Vector expected = compiled.baseVertices[ins.vCorner].normalized();
-    HS_EXPECT_NEAR(compiled.dynamicVertices[i].x, expected.x, 1e-4f);
-    HS_EXPECT_NEAR(compiled.dynamicVertices[i].y, expected.y, 1e-4f);
-    HS_EXPECT_NEAR(compiled.dynamicVertices[i].z, expected.z, 1e-4f);
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const auto &ins = compiled.dynamic_instructions[i];
+    Vector expected = compiled.base_vertices[ins.v_corner].normalized();
+    HS_EXPECT_NEAR(compiled.dynamic_vertices[i].x, expected.x, 1e-4f);
+    HS_EXPECT_NEAR(compiled.dynamic_vertices[i].y, expected.y, 1e-4f);
+    HS_EXPECT_NEAR(compiled.dynamic_vertices[i].z, expected.z, 1e-4f);
   }
 }
 
@@ -171,10 +171,10 @@ inline void test_update_hankin_populates_output_mesh() {
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.4f);
 
-  // Output vertices = staticVertices + dynamicVertices
+  // Output vertices = static_vertices + dynamic_vertices
   HS_EXPECT_EQ(out.vertices.size(),
-               compiled.staticVertices.size() +
-                   compiled.dynamicVertices.size());
+               compiled.static_vertices.size() +
+                   compiled.dynamic_vertices.size());
   HS_EXPECT_EQ(out.face_counts.size(), compiled.face_counts.size());
   HS_EXPECT_EQ(out.faces.size(), compiled.faces.size());
 
@@ -255,23 +255,23 @@ inline void test_compiled_hankin_clone_deep_copies() {
   CompiledHankin dst;
   CompiledHankin::clone(src, dst, dst_arena);
 
-  HS_EXPECT_EQ(dst.baseVertices.size(), src.baseVertices.size());
-  HS_EXPECT_EQ(dst.staticVertices.size(), src.staticVertices.size());
-  HS_EXPECT_EQ(dst.dynamicVertices.size(), src.dynamicVertices.size());
-  HS_EXPECT_EQ(dst.dynamicInstructions.size(), src.dynamicInstructions.size());
+  HS_EXPECT_EQ(dst.base_vertices.size(), src.base_vertices.size());
+  HS_EXPECT_EQ(dst.static_vertices.size(), src.static_vertices.size());
+  HS_EXPECT_EQ(dst.dynamic_vertices.size(), src.dynamic_vertices.size());
+  HS_EXPECT_EQ(dst.dynamic_instructions.size(), src.dynamic_instructions.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
   HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
-  HS_EXPECT_EQ(dst.staticOffset, src.staticOffset);
+  HS_EXPECT_EQ(dst.static_offset, src.static_offset);
 
   // Backing storage is independent (pointers differ — different arenas).
-  HS_EXPECT_TRUE(dst.baseVertices.data() != src.baseVertices.data());
-  HS_EXPECT_TRUE(dst.staticVertices.data() != src.staticVertices.data());
+  HS_EXPECT_TRUE(dst.base_vertices.data() != src.base_vertices.data());
+  HS_EXPECT_TRUE(dst.static_vertices.data() != src.static_vertices.data());
 
   // Element values match.
-  for (size_t i = 0; i < src.baseVertices.size(); ++i) {
-    HS_EXPECT_NEAR(dst.baseVertices[i].x, src.baseVertices[i].x, 1e-6f);
-    HS_EXPECT_NEAR(dst.baseVertices[i].y, src.baseVertices[i].y, 1e-6f);
-    HS_EXPECT_NEAR(dst.baseVertices[i].z, src.baseVertices[i].z, 1e-6f);
+  for (size_t i = 0; i < src.base_vertices.size(); ++i) {
+    HS_EXPECT_NEAR(dst.base_vertices[i].x, src.base_vertices[i].x, 1e-6f);
+    HS_EXPECT_NEAR(dst.base_vertices[i].y, src.base_vertices[i].y, 1e-6f);
+    HS_EXPECT_NEAR(dst.base_vertices[i].z, src.base_vertices[i].z, 1e-6f);
   }
   for (size_t i = 0; i < src.faces.size(); ++i) {
     HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
@@ -287,13 +287,13 @@ inline void test_compiled_hankin_clear() {
 
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, arena, temp);
-  HS_EXPECT_TRUE(compiled.baseVertices.size() > 0);
+  HS_EXPECT_TRUE(compiled.base_vertices.size() > 0);
 
   compiled.clear();
-  HS_EXPECT_EQ(compiled.baseVertices.size(), (size_t)0);
-  HS_EXPECT_EQ(compiled.staticVertices.size(), (size_t)0);
-  HS_EXPECT_EQ(compiled.dynamicVertices.size(), (size_t)0);
-  HS_EXPECT_EQ(compiled.dynamicInstructions.size(), (size_t)0);
+  HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)0);
+  HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)0);
+  HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)0);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.faces.size(), (size_t)0);
 }
