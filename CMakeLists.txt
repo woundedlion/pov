@@ -47,8 +47,14 @@ if(EMSCRIPTEN)
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1")
   else()
-    message(STATUS "WASM Release build (-O3 -ffast-math -msimd128 -flto)")
-    target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math" "-msimd128" "-flto")
+    # -fno-finite-math-only is required AFTER -ffast-math: -ffast-math implies
+    # -ffinite-math-only, which folds std::isfinite() to constant true and lets
+    # the compiler assume no NaN/Inf module-wide. The render sink relies on real
+    # finite semantics (filter.h: a NaN coord must not silently UB-cast and
+    # bypass the clip/wrap guards). We keep the rest of -ffast-math (reassoc,
+    # FMA, reciprocal, -fno-math-errno) for the SIMD float throughput.
+    message(STATUS "WASM Release build (-O3 -ffast-math -fno-finite-math-only -msimd128 -flto)")
+    target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto")
     target_link_options(${TARGET_NAME} PRIVATE "-O3" "-msimd128" "-flto")
   endif()
 
