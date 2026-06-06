@@ -804,6 +804,13 @@ template <typename A, typename B> struct Intersection {
     if (intervalsA.is_empty() || intervalsB.is_empty())
       return true;
 
+    // The merge-sweep below assumes both lists are start-sorted (it advances by
+    // comparing interval ends); a multi-interval child (a nested CSG) can emit
+    // them out of order, so sort first — same as Subtract. Single-interval
+    // children are already trivially sorted.
+    sort_intervals_by_start(intervalsA);
+    sort_intervals_by_start(intervalsB);
+
     // Intersect sorted intervals
     size_t idxA = 0;
     size_t idxB = 0;

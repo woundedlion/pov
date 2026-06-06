@@ -410,6 +410,31 @@ inline void test_intersection_thickness_is_min() {
   HS_EXPECT_NEAR(inter.thickness, 0.1f, 1e-6f);
 }
 
+// Regression: Intersection's merge-sweep assumes both child interval lists are
+// start-sorted. With an UNSORTED multi-interval child it must still produce the
+// correct, start-sorted intersection (before the fix it emitted out-of-order
+// intervals that scan_region's coalescer then dropped).
+inline void test_intersection_unsorted_child_yields_sorted_result() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  std::vector<P> a_ivs = {{0.0f, 100.0f}};
+  std::vector<P> b_ivs = {{60.0f, 80.0f}, {20.0f, 40.0f}}; // unsorted, multi
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Intersection<Mock, Mock> s(A, B);
+
+  std::vector<P> out;
+  bool ok = s.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+
+  // [0,100] ∩ {[20,40],[60,80]} = [20,40],[60,80], start-sorted.
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_NEAR(out[0].first, 20.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 40.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].first, 60.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].second, 80.0f, 1e-4f);
+}
+
 // ============================================================================
 // SmoothUnion — blends at the boundary
 // ============================================================================
@@ -509,6 +534,7 @@ inline int run_sdf_tests() {
 
   test_intersection_requires_both_inside();
   test_intersection_thickness_is_min();
+  test_intersection_unsorted_child_yields_sorted_result();
 
   test_smooth_union_matches_union_far_from_boundary();
 
