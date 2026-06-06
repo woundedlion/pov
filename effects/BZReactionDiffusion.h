@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring>
 #include "core/effects_engine.h"
+#include "effects/ReactionDiffusionBase.h"
 
 /**
  * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice sphere.
@@ -18,6 +19,8 @@
  * indefinitely. State is stored as Q8 (uint8_t). Per-pixel rendering uses
  * Wendland C2 kernel interpolation for smooth Voronoi boundaries.
  *
+ * Shared lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
+ *
  * Memory budget (persistent arena):
  *   - State:  3 arrays × 7680 × 1B = 23,040 B
  *   - Total:  23,040 B (22 KB)
@@ -27,13 +30,25 @@
  *   - Node XYZ: 7680 × 12B         = 92,160 B
  *   - Total:    115,200 B (112 KB)
  */
-template <int W, int H> class BZReactionDiffusion : public Effect {
-public:
-  static constexpr int RD_N = ReactionGraph::RD_N;
-  static constexpr int RD_K = ReactionGraph::RD_K;
-  static constexpr int H_VIRT = H + hs::H_OFFSET;
+template <int W, int H>
+class BZReactionDiffusion
+    : public ReactionDiffusionBase<BZReactionDiffusion<W, H>, W, H> {
+  using Base = ReactionDiffusionBase<BZReactionDiffusion<W, H>, W, H>;
+  friend Base; // draw_frame() forwards to render()
 
-  FLASHMEM BZReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
+  // Bring dependent-base names into scope (template base requires this).
+  using Base::build_nodes;
+  using Base::cube_lut;
+  using Base::dist2;
+  using Base::init_orientation_animation;
+  using Base::INV_R2;
+  using Base::orientation;
+  using Base::RD_K;
+  using Base::RD_N;
+  using Base::registerParam;
+
+public:
+  FLASHMEM BZReactionDiffusion() = default;
 
   void init() override {
     // 75KB easily holds the 48KB Cubemap LUT + 23KB State
@@ -49,14 +64,6 @@ public:
     init_orientation_animation();
   }
 
-  bool show_bg() const override { return true; }
-
-  void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
-    render(canvas);
-  }
-
 private:
   // ---------------------------------------------------------------------------
   // Q8 fixed-point helpers
@@ -65,11 +72,6 @@ private:
   static inline float from_q8(uint8_t v) { return v * (1.0f / 255.0f); }
   static inline uint8_t to_q8(float v) {
     return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * 255.0f);
-  }
-
-  static float dist2(const Vector &a, const Vector &b) {
-    float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-    return dx * dx + dy * dy + dz * dz;
   }
 
   // ---------------------------------------------------------------------------
@@ -83,13 +85,6 @@ private:
     memset(state.A, 0, RD_N);
     memset(state.B, 0, RD_N);
     memset(state.C, 0, RD_N);
-  }
-
-  void init_orientation_animation() {
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS, noise,
-                        Animation::RandomWalk<W>::Options::Languid()));
   }
 
   // ---------------------------------------------------------------------------
@@ -166,10 +161,6 @@ private:
   // ---------------------------------------------------------------------------
   // Rendering: Wendland C2 kernel interpolation
   // ---------------------------------------------------------------------------
-
-  static constexpr float D_AVG = ReactionGraph::D_AVG; // sqrt(4π / RD_N)
-  static constexpr float KERNEL_R = 1.5f * D_AVG;
-  static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
 
   /** Blend three species concentrations into a single pixel via palette. */
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
@@ -263,8 +254,7 @@ private:
 
     Vector *nodes = static_cast<Vector *>(
         scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    for (int i = 0; i < RD_N; ++i)
-      nodes[i] = ReactionGraph::node(i);
+    build_nodes(nodes);
 
     Color4 ca = palette.get(0.0f);
     Color4 cb = palette.get(0.5f);
@@ -296,10 +286,6 @@ private:
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                             BrightnessProfile::DESCENDING,
                             SaturationProfile::VIBRANT, 42};
-  Orientation<W> orientation;
-  FastNoiseLite noise;
-  ReactionGraph::CubemapLUT cube_lut;
-  Timeline<W> timeline;
 
   struct Params {
     float alpha = 3.0f;

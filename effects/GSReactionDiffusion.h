@@ -8,14 +8,35 @@
 #include <algorithm>
 #include <cstring>
 #include "core/effects_engine.h"
+#include "effects/ReactionDiffusionBase.h"
 
-template <int W, int H> class GSReactionDiffusion : public Effect {
+/**
+ * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
+ *
+ * Two species (A, B) evolve via Gray-Scott dynamics (A·B² autocatalysis with
+ * feed/kill) on the shared 7680-node lattice, producing spots/stripes/mazes.
+ * State is Q16 (uint16_t) for the cubic reaction-term precision. Shared
+ * lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
+ */
+template <int W, int H>
+class GSReactionDiffusion
+    : public ReactionDiffusionBase<GSReactionDiffusion<W, H>, W, H> {
+  using Base = ReactionDiffusionBase<GSReactionDiffusion<W, H>, W, H>;
+  friend Base; // draw_frame() forwards to render()
+
+  // Bring dependent-base names into scope (template base requires this).
+  using Base::build_nodes;
+  using Base::cube_lut;
+  using Base::dist2;
+  using Base::init_orientation_animation;
+  using Base::INV_R2;
+  using Base::orientation;
+  using Base::RD_K;
+  using Base::RD_N;
+  using Base::registerParam;
+
 public:
-  static constexpr int RD_N = ReactionGraph::RD_N;
-  static constexpr int RD_K = ReactionGraph::RD_K;
-  static constexpr int H_VIRT = H + hs::H_OFFSET;
-
-  FLASHMEM GSReactionDiffusion() : Effect(W, H) { persist_pixels = false; }
+  FLASHMEM GSReactionDiffusion() = default;
 
   void init() override {
     configure_arenas(80 * 1024, GLOBAL_ARENA_SIZE - 80 * 1024, 0);
@@ -38,19 +59,7 @@ public:
 
     cube_lut.build(persistent_arena);
     seed_clusters();
-
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS, noise,
-                        Animation::RandomWalk<W>::Options::Languid()));
-  }
-
-  bool show_bg() const override { return true; }
-
-  void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
-    render(canvas);
+    init_orientation_animation();
   }
 
 private:
@@ -99,16 +108,7 @@ private:
     std::swap(state.B, nB);
   }
 
-  // Wendland C2 compact kernel: w(d) = max(0, 1 - d²/R²)²
-  static constexpr float D_AVG = ReactionGraph::D_AVG; // sqrt(4π / RD_N)
-  static constexpr float KERNEL_R = 1.5f * D_AVG;
-  static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
-
   float interpolate_b(const Vector &p, int nearest, const Vector *nodes) const {
-    auto dist2 = [](const Vector &a, const Vector &b) {
-      float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-      return dx * dx + dy * dy + dz * dz;
-    };
     float tw = 0, wb = 0;
     auto acc = [&](int i) {
       float u = 1.0f - dist2(p, nodes[i]) * INV_R2;
@@ -145,8 +145,7 @@ private:
 
     Vector *nodes = static_cast<Vector *>(
         scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    for (int i = 0; i < RD_N; ++i)
-      nodes[i] = ReactionGraph::node(i);
+    build_nodes(nodes);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Vector rv = orientation.unorient(v);
@@ -170,10 +169,6 @@ private:
   GenerativePalette palette{
       GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
       BrightnessProfile::ASCENDING, SaturationProfile::VIBRANT};
-  Orientation<W> orientation;
-  FastNoiseLite noise;
-  ReactionGraph::CubemapLUT cube_lut;
-  Timeline<W> timeline;
 
   struct Params {
     float feed = 0.04f;
