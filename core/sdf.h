@@ -181,7 +181,7 @@ struct Ring {
                         target_angle < PI_F - POLE_SAFE_MARGIN);
     inv_sin_target = safe_approx ? (1.0f / sin_target) : 0.0f;
 
-    // For getHorizontalBounds
+    // For get_horizontal_bounds
     r_val = sqrtf(nx * nx + nz * nz);
     alpha_angle = fast_atan2(nz, nx);
   }
@@ -513,9 +513,9 @@ template <typename A, typename B> struct Union {
   float thickness;
   static constexpr bool is_solid = true;
 
-  Union(const A &shapeA, const B &shapeB)
-      : a(shapeA), b(shapeB),
-        thickness(std::max(shapeA.thickness, shapeB.thickness)) {}
+  Union(const A &shape_a, const B &shape_b)
+      : a(shape_a), b(shape_b),
+        thickness(std::max(shape_a.thickness, shape_b.thickness)) {}
 
   template <int H> Bounds get_vertical_bounds() const {
     auto b1 = a.template get_vertical_bounds<H>();
@@ -527,19 +527,19 @@ template <typename A, typename B> struct Union {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     StaticCircularBuffer<std::pair<float, float>, 32> merged;
 
-    bool hasA = a.template get_horizontal_intervals<W, H>(
+    bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
-    bool hasB = b.template get_horizontal_intervals<W, H>(
+    bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
     // If neither shape provides intervals, fall back to full scan
-    if (!hasA && !hasB)
+    if (!has_a && !has_b)
       return false;
 
     // If only one shape returned intervals and the other fell back,
     // we must do full scan (the fallback shape needs all pixels)
-    if (!hasA || !hasB)
+    if (!has_a || !has_b)
       return false;
 
     if (merged.is_empty())
@@ -561,11 +561,11 @@ template <typename A, typename B> struct Union {
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
-    DistanceResult resB;
-    b.template distance<ComputeUVs>(p, resB);
-    if (res.dist < resB.dist)
+    DistanceResult res_b;
+    b.template distance<ComputeUVs>(p, res_b);
+    if (res.dist < res_b.dist)
       return; // A is already closer, keep it
-    res = resB;
+    res = res_b;
   }
 };
 
@@ -580,9 +580,9 @@ template <typename A, typename B> struct SmoothUnion {
   float thickness;
   static constexpr bool is_solid = true;
 
-  SmoothUnion(const A &shapeA, const B &shapeB, float smoothness)
-      : a(shapeA), b(shapeB), k(smoothness),
-        thickness(std::max(shapeA.thickness, shapeB.thickness)) {}
+  SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
+      : a(shape_a), b(shape_b), k(smoothness),
+        thickness(std::max(shape_a.thickness, shape_b.thickness)) {}
 
   template <int H> Bounds get_vertical_bounds() const {
     auto b1 = a.template get_vertical_bounds<H>();
@@ -598,18 +598,18 @@ template <typename A, typename B> struct SmoothUnion {
     StaticCircularBuffer<std::pair<float, float>, 32> merged;
     float pad_px = k * W / (2 * PI_F);
 
-    bool hasA = a.template get_horizontal_intervals<W, H>(
+    bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
         });
 
-    bool hasB = b.template get_horizontal_intervals<W, H>(
+    bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
         });
 
     // If either child falls back to full-width, so must the blend
-    if (!hasA || !hasB)
+    if (!has_a || !has_b)
       return false;
 
     if (merged.is_empty())
@@ -628,18 +628,18 @@ template <typename A, typename B> struct SmoothUnion {
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
-    DistanceResult resB;
-    b.template distance<ComputeUVs>(p, resB);
+    DistanceResult res_b;
+    b.template distance<ComputeUVs>(p, res_b);
 
     // Polynomial smooth min (cubic)
-    float h = std::max(k - std::abs(res.dist - resB.dist), 0.0f) / k;
+    float h = std::max(k - std::abs(res.dist - res_b.dist), 0.0f) / k;
     float m = h * h * h * k * (1.0f / 6.0f);
 
-    if (res.dist < resB.dist) {
+    if (res.dist < res_b.dist) {
       res.dist -= m;
     } else {
-      resB.dist -= m;
-      res = resB;
+      res_b.dist -= m;
+      res = res_b;
     }
   }
 };
@@ -654,8 +654,8 @@ template <typename A, typename B> struct Subtract {
   float thickness;
   static constexpr bool is_solid = true;
 
-  Subtract(const A &shapeA, const B &shapeB)
-      : a(shapeA), b(shapeB), thickness(shapeA.thickness) {}
+  Subtract(const A &shape_a, const B &shape_b)
+      : a(shape_a), b(shape_b), thickness(shape_a.thickness) {}
 
   template <int H> Bounds get_vertical_bounds() const {
     return a.template get_vertical_bounds<H>();
@@ -663,52 +663,52 @@ template <typename A, typename B> struct Subtract {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
-    StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
+    StaticCircularBuffer<std::pair<float, float>, 32> intervals_a;
+    StaticCircularBuffer<std::pair<float, float>, 32> intervals_b;
 
     // The set-difference loop below and scan_region's coalescer both assume
     // intervals arrive in non-decreasing start order; a multi-interval child
     // (a nested CSG) can emit them out of order, which without sorting yields a
     // wrong set difference AND unsorted output the coalescer silently drops.
     // sort_intervals_by_start() (above) is shared with Union/SmoothUnion.
-    bool hasA = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervalsA, start, end); });
+    bool has_a = a.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { push_interval(intervals_a, start, end); });
 
     // If A falls back to full-width, we can't restrict
-    if (!hasA)
+    if (!has_a)
       return false;
 
     // If A produced no intervals on this row, nothing to subtract from
-    if (intervalsA.is_empty())
+    if (intervals_a.is_empty())
       return true;
 
     // A's pieces are emitted in A-interval order, so A must be start-sorted for
     // the output (and the pass-through below) to stay start-ordered.
-    sort_intervals_by_start(intervalsA);
+    sort_intervals_by_start(intervals_a);
 
-    bool hasB = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervalsB, start, end); });
+    bool has_b = b.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
     // If B falls back (no interval info), B removes nothing we can
     // reason about — pass A's intervals through conservatively
-    if (!hasB || intervalsB.is_empty()) {
-      for (size_t i = 0; i < intervalsA.size(); ++i)
-        out(intervalsA[i].first, intervalsA[i].second);
+    if (!has_b || intervals_b.is_empty()) {
+      for (size_t i = 0; i < intervals_a.size(); ++i)
+        out(intervals_a[i].first, intervals_a[i].second);
       return true;
     }
 
     // The per-A shrink/split loop walks B left-to-right, so B must be sorted.
-    sort_intervals_by_start(intervalsB);
+    sort_intervals_by_start(intervals_b);
 
     // Set difference: A minus B
     // For each A interval, subtract all overlapping B intervals
-    for (size_t ai = 0; ai < intervalsA.size(); ++ai) {
-      float cur_start = intervalsA[ai].first;
-      float cur_end = intervalsA[ai].second;
+    for (size_t ai = 0; ai < intervals_a.size(); ++ai) {
+      float cur_start = intervals_a[ai].first;
+      float cur_end = intervals_a[ai].second;
 
-      for (size_t bi = 0; bi < intervalsB.size(); ++bi) {
-        float bs = intervalsB[bi].first;
-        float be = intervalsB[bi].second;
+      for (size_t bi = 0; bi < intervals_b.size(); ++bi) {
+        float bs = intervals_b[bi].first;
+        float be = intervals_b[bi].second;
 
         // No overlap
         if (be <= cur_start || bs >= cur_end)
@@ -753,12 +753,12 @@ template <typename A, typename B> struct Subtract {
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
-    DistanceResult resB;
-    b.template distance<ComputeUVs>(p, resB);
+    DistanceResult res_b;
+    b.template distance<ComputeUVs>(p, res_b);
     // Max(A, -B)
-    if (-resB.dist > res.dist) {
-      resB.dist = -resB.dist;
-      res = resB;
+    if (-res_b.dist > res.dist) {
+      res_b.dist = -res_b.dist;
+      res = res_b;
     }
   }
 };
@@ -773,9 +773,9 @@ template <typename A, typename B> struct Intersection {
   float thickness;
   static constexpr bool is_solid = true;
 
-  Intersection(const A &shapeA, const B &shapeB)
-      : a(shapeA), b(shapeB),
-        thickness(std::min(shapeA.thickness, shapeB.thickness)) {}
+  Intersection(const A &shape_a, const B &shape_b)
+      : a(shape_a), b(shape_b),
+        thickness(std::min(shape_a.thickness, shape_b.thickness)) {}
 
   template <int H> Bounds get_vertical_bounds() const {
     auto b1 = a.template get_vertical_bounds<H>();
@@ -785,53 +785,53 @@ template <typename A, typename B> struct Intersection {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    StaticCircularBuffer<std::pair<float, float>, 32> intervalsA;
-    StaticCircularBuffer<std::pair<float, float>, 32> intervalsB;
+    StaticCircularBuffer<std::pair<float, float>, 32> intervals_a;
+    StaticCircularBuffer<std::pair<float, float>, 32> intervals_b;
 
-    bool hasA = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervalsA, start, end); });
+    bool has_a = a.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { push_interval(intervals_a, start, end); });
 
-    bool hasB = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervalsB, start, end); });
+    bool has_b = b.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
-    if (!hasA) {
+    if (!has_a) {
       return b.template get_horizontal_intervals<W, H>(y, out);
     }
-    if (!hasB) {
+    if (!has_b) {
       return a.template get_horizontal_intervals<W, H>(y, out);
     }
 
-    if (intervalsA.is_empty() || intervalsB.is_empty())
+    if (intervals_a.is_empty() || intervals_b.is_empty())
       return true;
 
     // The merge-sweep below assumes both lists are start-sorted (it advances by
     // comparing interval ends); a multi-interval child (a nested CSG) can emit
     // them out of order, so sort first — same as Subtract. Single-interval
     // children are already trivially sorted.
-    sort_intervals_by_start(intervalsA);
-    sort_intervals_by_start(intervalsB);
+    sort_intervals_by_start(intervals_a);
+    sort_intervals_by_start(intervals_b);
 
     // Intersect sorted intervals
-    size_t idxA = 0;
-    size_t idxB = 0;
+    size_t idx_a = 0;
+    size_t idx_b = 0;
 
     bool found = false;
-    while (idxA < intervalsA.size() && idxB < intervalsB.size()) {
-      auto ivA = intervalsA[idxA];
-      auto ivB = intervalsB[idxB];
+    while (idx_a < intervals_a.size() && idx_b < intervals_b.size()) {
+      auto iv_a = intervals_a[idx_a];
+      auto iv_b = intervals_b[idx_b];
 
-      float start = std::max(ivA.first, ivB.first);
-      float end = std::min(ivA.second, ivB.second);
+      float start = std::max(iv_a.first, iv_b.first);
+      float end = std::min(iv_a.second, iv_b.second);
 
       if (start < end) {
         out(start, end);
         found = true;
       }
 
-      if (ivA.second < ivB.second) {
-        idxA++;
+      if (iv_a.second < iv_b.second) {
+        idx_a++;
       } else {
-        idxB++;
+        idx_b++;
       }
     }
 
@@ -850,12 +850,12 @@ template <typename A, typename B> struct Intersection {
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
-    DistanceResult resB;
-    b.template distance<ComputeUVs>(p, resB);
+    DistanceResult res_b;
+    b.template distance<ComputeUVs>(p, res_b);
     // Max(A, B)
-    if (res.dist > resB.dist)
+    if (res.dist > res_b.dist)
       return;
-    res = resB;
+    res = res_b;
   }
 };
 
@@ -940,16 +940,16 @@ template <typename Shape> struct AngularRepeat {
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64;
   static constexpr int LUT_N = 32;
-  std::array<Vector, MAX_VERTS + 1> poly2D; // +1 to avoid modulo
-  std::array<Vector, MAX_VERTS> edgeVectors;
-  std::array<float, MAX_VERTS> edgeLengthsSq;
+  std::array<Vector, MAX_VERTS + 1> poly_2d; // +1 to avoid modulo
+  std::array<Vector, MAX_VERTS> edge_vectors;
+  std::array<float, MAX_VERTS> edge_lengths_sq;
   std::array<Vector, MAX_VERTS> planes;
   std::array<std::pair<float, float>, 4> intervals;
   std::array<float, MAX_VERTS> thetas;
-  std::array<float, MAX_VERTS> invEdgeLengthsSq;
-  std::array<float, MAX_VERTS> invEdgeJ;
-  std::array<Vector, MAX_VERTS + 1> verts3D;
-  std::array<Vector, MAX_VERTS> edgeNormals;
+  std::array<float, MAX_VERTS> inv_edge_lengths_sq;
+  std::array<float, MAX_VERTS> inv_edge_j;
+  std::array<Vector, MAX_VERTS + 1> verts_3d;
+  std::array<Vector, MAX_VERTS> edge_normals;
   std::array<float, LUT_N * LUT_N> dist_lut;
 
   // Packed per-edge data for cache-friendly fallback in distance()
@@ -965,7 +965,7 @@ struct FaceScratchBuffer {
  */
 struct Face {
   Vector center;
-  Vector basisV, basisU, basisW;
+  Vector basis_v, basis_u, basis_w;
   int count;
   float thickness;
   float size;
@@ -974,14 +974,14 @@ struct Face {
   float max_dist = 0.0f;
   float max_dist_sq = 0.0f;
 
-  std::span<Vector> poly2D;
-  std::span<Vector> edgeVectors;
-  std::span<float> edgeLengthsSq;
+  std::span<Vector> poly_2d;
+  std::span<Vector> edge_vectors;
+  std::span<float> edge_lengths_sq;
   std::span<Vector> planes;
-  std::span<float> invEdgeLengthsSq;
-  std::span<float> invEdgeJ;
-  std::span<Vector> verts3D;
-  std::span<Vector> edgeNormals;
+  std::span<float> inv_edge_lengths_sq;
+  std::span<float> inv_edge_j;
+  std::span<Vector> verts_3d;
+  std::span<Vector> edge_normals;
 
   int y_min, y_max;
   std::span<std::pair<float, float>> intervals;
@@ -1046,19 +1046,19 @@ struct Face {
       center = center + vertices[indices[i]];
     center.normalize();
 
-    basisV = center;
+    basis_v = center;
     Vector ref = (std::abs(dot(center, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
-    basisU = cross(center, ref).normalized();
-    basisW = cross(center, basisU).normalized();
+    basis_u = cross(center, ref).normalized();
+    basis_w = cross(center, basis_u).normalized();
 
     max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
       const Vector &v = vertices[indices[i]];
-      float d = dot(v, basisV);
-      float px = dot(v, basisU) / d;
-      float py = dot(v, basisW) / d;
+      float d = dot(v, basis_v);
+      float px = dot(v, basis_u) / d;
+      float py = dot(v, basis_w) / d;
 
-      scratch.poly2D[i] = Vector(px, py, 0);
+      scratch.poly_2d[i] = Vector(px, py, 0);
 
       float r2 = px * px + py * py;
       if (r2 > max_r2)
@@ -1068,27 +1068,27 @@ struct Face {
     max_dist = radius + 0.1f;
     max_dist_sq = max_dist * max_dist;
 
-    scratch.poly2D[count] = scratch.poly2D[0];
-    poly2D = std::span<Vector>(scratch.poly2D.data(), count + 1);
+    scratch.poly_2d[count] = scratch.poly_2d[0];
+    poly_2d = std::span<Vector>(scratch.poly_2d.data(), count + 1);
 
     // Store 3D vertices and edge normals for angular distance computation
     for (int i = 0; i < count; ++i)
-      scratch.verts3D[i] = vertices[indices[i]];
-    scratch.verts3D[count] = scratch.verts3D[0];
-    verts3D = std::span<Vector>(scratch.verts3D.data(), count + 1);
+      scratch.verts_3d[i] = vertices[indices[i]];
+    scratch.verts_3d[count] = scratch.verts_3d[0];
+    verts_3d = std::span<Vector>(scratch.verts_3d.data(), count + 1);
 
     for (int i = 0; i < count; ++i) {
-      Vector n = cross(scratch.verts3D[i], scratch.verts3D[i + 1]);
+      Vector n = cross(scratch.verts_3d[i], scratch.verts_3d[i + 1]);
       float len = n.magnitude();
-      scratch.edgeNormals[i] =
+      scratch.edge_normals[i] =
           (len > 1e-9f) ? n * (1.0f / len) : Vector(0, 0, 0);
     }
-    edgeNormals = std::span<Vector>(scratch.edgeNormals.data(), count);
+    edge_normals = std::span<Vector>(scratch.edge_normals.data(), count);
 
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
-      Vector v1 = scratch.poly2D[i];
-      Vector v2 = scratch.poly2D[(i + 1) % count];
+      Vector v1 = scratch.poly_2d[i];
+      Vector v2 = scratch.poly_2d[(i + 1) % count];
 
       Vector edge = v2 - v1;
       float edge_len_sq = dot(edge, edge);
@@ -1123,22 +1123,22 @@ struct Face {
                               thickness, h_virt, height, y_min, y_max);
     }
 
-    edgeVectors = std::span<Vector>(scratch.edgeVectors.data(), count);
-    edgeLengthsSq = std::span<float>(scratch.edgeLengthsSq.data(), count);
-    invEdgeLengthsSq = std::span<float>(scratch.invEdgeLengthsSq.data(), count);
-    invEdgeJ = std::span<float>(scratch.invEdgeJ.data(), count);
+    edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
+    edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
+    inv_edge_lengths_sq = std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
+    inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
     // Pack per-edge data contiguously for cache-friendly fallback
     for (int i = 0; i < count; ++i) {
       auto &ep = scratch.packed_edges[i];
-      ep.vx = poly2D[i].x;
-      ep.vy = poly2D[i].y;
-      ep.ex = edgeVectors[i].x;
-      ep.ey = edgeVectors[i].y;
-      ep.inv_len_sq = invEdgeLengthsSq[i];
-      ep.inv_ej = invEdgeJ[i];
-      ep.next_vy = poly2D[i + 1].y;
+      ep.vx = poly_2d[i].x;
+      ep.vy = poly_2d[i].y;
+      ep.ex = edge_vectors[i].x;
+      ep.ey = edge_vectors[i].y;
+      ep.inv_len_sq = inv_edge_lengths_sq[i];
+      ep.inv_ej = inv_edge_j[i];
+      ep.next_vy = poly_2d[i + 1].y;
     }
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
 
@@ -1146,7 +1146,7 @@ struct Face {
     float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
     float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
-      float vx = poly2D[i].x, vy = poly2D[i].y;
+      float vx = poly_2d[i].x, vy = poly_2d[i].y;
       if (vx < bb_min_x)
         bb_min_x = vx;
       if (vx > bb_max_x)
@@ -1200,29 +1200,29 @@ struct Face {
     }
 
     std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
-    float maxGap = 0;
-    float gapStart = 0;
+    float max_gap = 0;
+    float gap_start = 0;
     for (int i = 0; i < count; ++i) {
       float next = (i + 1 < count) ? scratch.thetas[i + 1]
                                    : (scratch.thetas[0] + 2 * PI_F);
       float diff = next - scratch.thetas[i];
-      if (diff > maxGap) {
-        maxGap = diff;
-        gapStart = scratch.thetas[i];
+      if (diff > max_gap) {
+        max_gap = diff;
+        gap_start = scratch.thetas[i];
       }
     }
 
     int interval_count = 0;
-    if (maxGap > PI_F) {
+    if (max_gap > PI_F) {
       full_width = false;
-      float startT = fmodf(gapStart + maxGap, 2 * PI_F);
-      float endT = gapStart;
+      float start_t = fmodf(gap_start + max_gap, 2 * PI_F);
+      float end_t = gap_start;
 
-      if (startT <= endT) {
-        scratch.intervals[interval_count++] = {startT, endT};
+      if (start_t <= end_t) {
+        scratch.intervals[interval_count++] = {start_t, end_t};
       } else {
-        scratch.intervals[interval_count++] = {0.0f, endT};
-        scratch.intervals[interval_count++] = {startT, 2 * PI_F};
+        scratch.intervals[interval_count++] = {0.0f, end_t};
+        scratch.intervals[interval_count++] = {start_t, 2 * PI_F};
       }
     } else {
       full_width = true;
@@ -1234,13 +1234,13 @@ struct Face {
     // to cover it.
     if (center.y > 0.01f) {
       float inv_c = 1.0f / center.y;
-      float ppx = basisU.y * inv_c;
-      float ppy = basisW.y * inv_c;
+      float ppx = basis_u.y * inv_c;
+      float ppy = basis_w.y * inv_c;
       bool pole_inside = false;
       for (int i = 0; i < count; ++i) {
-        if ((poly2D[i].y > ppy) != (poly2D[i + 1].y > ppy)) {
-          float ix = poly2D[i].x +
-                     (ppy - poly2D[i].y) * edgeVectors[i].x * invEdgeJ[i];
+        if ((poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
+          float ix = poly_2d[i].x +
+                     (ppy - poly_2d[i].y) * edge_vectors[i].x * inv_edge_j[i];
           if (ppx < ix)
             pole_inside = !pole_inside;
         }
@@ -1254,13 +1254,13 @@ struct Face {
     if (center.y < -0.01f) {
       float cos_sp = -center.y;
       float inv_c = 1.0f / cos_sp;
-      float ppx = -basisU.y * inv_c;
-      float ppy = -basisW.y * inv_c;
+      float ppx = -basis_u.y * inv_c;
+      float ppy = -basis_w.y * inv_c;
       bool pole_inside = false;
       for (int i = 0; i < count; ++i) {
-        if ((poly2D[i].y > ppy) != (poly2D[i + 1].y > ppy)) {
-          float ix = poly2D[i].x +
-                     (ppy - poly2D[i].y) * edgeVectors[i].x * invEdgeJ[i];
+        if ((poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
+          float ix = poly_2d[i].x +
+                     (ppy - poly_2d[i].y) * edge_vectors[i].x * inv_edge_j[i];
           if (ppx < ix)
             pole_inside = !pole_inside;
         }
@@ -1280,13 +1280,13 @@ struct Face {
                                   float max_phi_check, int h_virt, int height,
                                   int &y_min_out, int &y_max_out) {
     for (int i = 0; i < count; ++i) {
-      Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
-      scratch.edgeVectors[i] = edge;
+      Vector edge = scratch.poly_2d[(i + 1) % count] - scratch.poly_2d[i];
+      scratch.edge_vectors[i] = edge;
       float edge_len_sq = dot(edge, edge);
-      scratch.edgeLengthsSq[i] = edge_len_sq;
-      scratch.invEdgeLengthsSq[i] =
+      scratch.edge_lengths_sq[i] = edge_len_sq;
+      scratch.inv_edge_lengths_sq[i] =
           (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
-      scratch.invEdgeJ[i] =
+      scratch.inv_edge_j[i] =
           (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
       float theta = fast_atan2(vertices[indices[i]].z, vertices[indices[i]].x);
       if (theta < 0)
@@ -1320,17 +1320,17 @@ struct Face {
       int idx2 = indices[(i + 1) % count];
       const Vector &v1 = vertices[idx1];
       const Vector &v2 = vertices[idx2];
-      Vector edge = scratch.poly2D[(i + 1) % count] - scratch.poly2D[i];
-      scratch.edgeVectors[i] = edge;
+      Vector edge = scratch.poly_2d[(i + 1) % count] - scratch.poly_2d[i];
+      scratch.edge_vectors[i] = edge;
       float edge_len_sq = dot(edge, edge);
-      scratch.edgeLengthsSq[i] = edge_len_sq;
-      scratch.invEdgeLengthsSq[i] =
+      scratch.edge_lengths_sq[i] = edge_len_sq;
+      scratch.inv_edge_lengths_sq[i] =
           (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
-      scratch.invEdgeJ[i] =
+      scratch.inv_edge_j[i] =
           (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
       Vector normal = cross(v1, v2);
-      float lenSq = dot(normal, normal);
-      if (lenSq > 1e-12f)
+      float len_sq = dot(normal, normal);
+      if (len_sq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalized();
       float phi_val = fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
       if (phi_val < min_phi)
@@ -1347,12 +1347,12 @@ struct Face {
           float tx = -nx * ny;
           float ty = 1.0f - ny * ny;
           float tz = -nz * ny;
-          float tLenSq = tx * tx + ty * ty + tz * tz;
-          if (tLenSq > 1e-12f) {
-            float invLen = 1.0f / sqrtf(tLenSq);
-            float ptx = tx * invLen;
-            float pty = ty * invLen;
-            float ptz = tz * invLen;
+          float t_len_sq = tx * tx + ty * ty + tz * tz;
+          if (t_len_sq > 1e-12f) {
+            float inv_len = 1.0f / sqrtf(t_len_sq);
+            float ptx = tx * inv_len;
+            float pty = ty * inv_len;
+            float ptz = tz * inv_len;
             float cx1 = (v1.y * ptz - v1.z * pty) * nx +
                         (v1.z * ptx - v1.x * ptz) * ny +
                         (v1.x * pty - v1.y * ptx) * nz;
@@ -1360,14 +1360,14 @@ struct Face {
                         (ptz * v2.x - ptx * v2.z) * ny +
                         (ptx * v2.y - pty * v2.x) * nz;
             if (cx1 > 0 && cx2 > 0) {
-              float phiTop = fast_acos(hs::clamp(pty, -1.0f, 1.0f));
-              if (phiTop < min_phi)
-                min_phi = phiTop;
+              float phi_top = fast_acos(hs::clamp(pty, -1.0f, 1.0f));
+              if (phi_top < min_phi)
+                min_phi = phi_top;
             }
             if (cx1 < 0 && cx2 < 0) {
-              float phiBot = fast_acos(hs::clamp(-pty, -1.0f, 1.0f));
-              if (phiBot > max_phi)
-                max_phi = phiBot;
+              float phi_bot = fast_acos(hs::clamp(-pty, -1.0f, 1.0f));
+              if (phi_bot > max_phi)
+                max_phi = phi_bot;
             }
           }
         }
@@ -1377,18 +1377,18 @@ struct Face {
         theta += 2 * PI_F;
       scratch.thetas[i] = theta;
     }
-    bool npInside = (planes_count > 0);
-    bool spInside = (planes_count > 0);
+    bool np_inside = (planes_count > 0);
+    bool sp_inside = (planes_count > 0);
     for (int pi = 0; pi < planes_count; ++pi) {
       float center_side = dot(center, scratch.planes[pi]);
       if ((scratch.planes[pi].y > 0) != (center_side > 0))
-        npInside = false;
+        np_inside = false;
       if ((-scratch.planes[pi].y > 0) != (center_side > 0))
-        spInside = false;
+        sp_inside = false;
     }
-    if (npInside)
+    if (np_inside)
       min_phi = 0.0f;
-    if (spInside)
+    if (sp_inside)
       max_phi = PI_F;
     float margin = thickness + BOUNDS_MARGIN;
     y_min_out = std::max(
@@ -1433,11 +1433,11 @@ struct Face {
     }
 
     float inv_cos = 1.0f / cos_angle;
-    float px = dot(p, basisU) * inv_cos;
-    float py = dot(p, basisW) * inv_cos;
+    float px = dot(p, basis_u) * inv_cos;
+    float py = dot(p, basis_w) * inv_cos;
 
-    float pR2 = px * px + py * py;
-    if (pR2 > max_dist_sq) {
+    float p_r2 = px * px + py * py;
+    if (p_r2 > max_dist_sq) {
       hs::g_scan_metrics.pixels_culled++;
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
@@ -1619,13 +1619,13 @@ struct SphericalPolygon {
     // Build canonical edge: between vertices at azimuth ±π/n from
     // the sector bisector (u-axis), at angular distance circumradius
     float half_step = PI_F / sides;
-    float sinR = sinf(circumradius);
-    float cosR = cosf(circumradius);
+    float sin_r = sinf(circumradius);
+    float cos_r = cosf(circumradius);
     float cos_hs = cosf(half_step);
     float sin_hs = sinf(half_step);
 
-    Vector v1 = basis.v * cosR + (basis.u * cos_hs + basis.w * sin_hs) * sinR;
-    Vector v2 = basis.v * cosR + (basis.u * cos_hs - basis.w * sin_hs) * sinR;
+    Vector v1 = basis.v * cos_r + (basis.u * cos_hs + basis.w * sin_hs) * sin_r;
+    Vector v2 = basis.v * cos_r + (basis.u * cos_hs - basis.w * sin_hs) * sin_r;
 
     // Normal pointing outward (away from polygon interior)
     Vector en = cross(v2, v1);
@@ -1709,9 +1709,9 @@ struct SphericalPolygon {
 
     // Angular distance to the nearest great circle edge via precomputed normal
     // cos(local) is even, so sector folding works automatically
-    float sinP = sinf(polar);
-    float cosP = cosf(polar);
-    float dp = edge_nv * cosP + edge_nu * cosf(local) * sinP;
+    float sin_p = sinf(polar);
+    float cos_p = cosf(polar);
+    float dp = edge_nv * cos_p + edge_nu * cosf(local) * sin_p;
     float dist_edge = asinf(hs::clamp(dp, -1.0f, 1.0f));
 
     float t_val = ComputeUVs ? polar / circumradius : 0.0f;
@@ -1732,77 +1732,77 @@ struct Star {
   float phase;
   static constexpr bool is_solid = true;
 
-  float nx, ny, planeD;
+  float nx, ny, plane_d;
   float thickness;
 
   // Scan
-  float scanNy, scanNx, scanNz, scanR, scanAlpha;
-  int yMin, yMax;
+  float scan_ny, scan_nx, scan_nz, scan_r, scan_alpha;
+  int y_min, y_max;
 
   Star(const Basis &b, float radius, int s, float ph, int h_virt, int height)
       : basis(b), sides(s), phase(ph) {
-    float outerRadius = radius * (PI_F / 2.0f);
-    float innerRadius = outerRadius * STAR_INNER_RATIO;
-    float angleStep = PI_F / sides;
+    float outer_radius = radius * (PI_F / 2.0f);
+    float inner_radius = outer_radius * STAR_INNER_RATIO;
+    float angle_step = PI_F / sides;
 
-    float vT = outerRadius;
-    float vVx = innerRadius * cosf(angleStep);
-    float vVy = innerRadius * sinf(angleStep);
+    float v_t = outer_radius;
+    float v_vx = inner_radius * cosf(angle_step);
+    float v_vy = inner_radius * sinf(angle_step);
 
-    float dx = vVx - vT;
-    float dy = vVy;
+    float dx = v_vx - v_t;
+    float dy = v_vy;
     float len = sqrtf(dx * dx + dy * dy);
     nx = -dy / len;
     ny = dx / len;
-    planeD = -(nx * vT);
-    thickness = outerRadius;
+    plane_d = -(nx * v_t);
+    thickness = outer_radius;
 
-    scanNx = basis.v.x;
-    scanNy = basis.v.y;
-    scanNz = basis.v.z;
-    scanR = sqrtf(scanNx * scanNx + scanNz * scanNz);
-    scanAlpha = atan2f(scanNz, scanNx);
+    scan_nx = basis.v.x;
+    scan_ny = basis.v.y;
+    scan_nz = basis.v.z;
+    scan_r = sqrtf(scan_nx * scan_nx + scan_nz * scan_nz);
+    scan_alpha = atan2f(scan_nz, scan_nx);
 
-    float centerPhi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.y)));
-    float margin = outerRadius + BOUNDS_MARGIN_WIDE;
-    yMin = std::max(
+    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.y)));
+    float margin = outer_radius + BOUNDS_MARGIN_WIDE;
+    y_min = std::max(
         0, static_cast<int>(floorf(
-               (std::max(0.0f, centerPhi - margin) * (h_virt - 1)) / PI_F)));
-    yMax = std::min(
+               (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
+    y_max = std::min(
         height - 1,
         static_cast<int>(
-            ceilf((std::min(PI_F, centerPhi + margin) * (h_virt - 1)) / PI_F)));
+            ceilf((std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
   }
 
-  template <int H> Bounds get_vertical_bounds() const { return {yMin, yMax}; }
+  template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     // Bounding circle
     float phi = y_to_phi<H>(static_cast<float>(y));
-    float cosPhi = cosf(phi);
-    float sinPhi = sinf(phi);
+    float cos_phi = cosf(phi);
+    float sin_phi = sinf(phi);
 
-    if (scanR < MIN_HORIZONTAL_PROJ)
+    if (scan_r < MIN_HORIZONTAL_PROJ)
       return false;
 
-    float pixelWidth = 2.0f * PI_F / W;
-    float D_min = cosf(thickness + pixelWidth);
-    float denom = scanR * sinPhi;
+    float pixel_width = 2.0f * PI_F / W;
+    float D_min = cosf(thickness + pixel_width);
+    float denom = scan_r * sin_phi;
 
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
-    float C_min = (D_min - scanNy * cosPhi) / denom;
+    float C_min = (D_min - scan_ny * cos_phi) / denom;
 
     if (C_min > 1.0f)
       return true;
     if (C_min < -1.0f)
       return false;
 
-    float dAlpha = acosf(C_min);
-    float t1 = scanAlpha - dAlpha;
-    float t2 = scanAlpha + dAlpha;
+    float d_alpha = acosf(C_min);
+    float t1 = scan_alpha - d_alpha;
+    float t2 = scan_alpha + d_alpha;
     float f_x1 = (t1 * W) / (2 * PI_F);
     float f_x2 = (t2 * W) / (2 * PI_F);
     float x1 = floorf(f_x1);
@@ -1823,26 +1823,26 @@ struct Star {
 
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    float scanDist = angle_between(p, basis.v);
-    float dotU = dot(p, basis.u);
-    float dotW = dot(p, basis.w);
-    float azimuth = fast_atan2(dotW, dotU);
+    float scan_dist = angle_between(p, basis.v);
+    float dot_u = dot(p, basis.u);
+    float dot_w = dot(p, basis.w);
+    float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
       azimuth += 2 * PI_F;
 
     azimuth += phase;
 
-    float sectorAngle = 2 * PI_F / sides;
-    float localAzimuth =
-        wrap(azimuth + sectorAngle / 2.0f, sectorAngle) - sectorAngle / 2.0f;
-    localAzimuth = std::abs(localAzimuth);
+    float sector_angle = 2 * PI_F / sides;
+    float local_azimuth =
+        wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+    local_azimuth = std::abs(local_azimuth);
 
-    float px = scanDist * cosf(localAzimuth);
-    float py = scanDist * sinf(localAzimuth);
+    float px = scan_dist * cosf(local_azimuth);
+    float py = scan_dist * sinf(local_azimuth);
 
-    float distToEdge = px * nx + py * ny + planeD;
+    float dist_to_edge = px * nx + py * ny + plane_d;
 
-    res = DistanceResult(-distToEdge, azimuth / (2 * PI_F), scanDist, 0.0f,
+    res = DistanceResult(-dist_to_edge, azimuth / (2 * PI_F), scan_dist, 0.0f,
                          thickness);
   }
 };
@@ -2066,9 +2066,9 @@ struct Line {
     float proj_mag = p_proj_plane.magnitude();
 
     if (proj_mag < 1e-6f) {
-      float dA = angle_between(p, a);
-      float dB = angle_between(p, b);
-      float dist = std::min(dA, dB);
+      float d_a = angle_between(p, a);
+      float d_b = angle_between(p, b);
+      float dist = std::min(d_a, d_b);
       res = DistanceResult(dist - thickness, 0.0f, dist, 0.0f, thickness);
       return;
     }
@@ -2081,9 +2081,9 @@ struct Line {
     if (ang_a + ang_b <= len + 1e-4f) {
       dist_seg = asinf(std::abs(d_plane));
     } else {
-      float dA = angle_between(p, a);
-      float dB = angle_between(p, b);
-      dist_seg = std::min(dA, dB);
+      float d_a = angle_between(p, a);
+      float d_b = angle_between(p, b);
+      dist_seg = std::min(d_a, d_b);
     }
 
     res = DistanceResult(dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness);
