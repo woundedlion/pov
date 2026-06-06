@@ -1039,7 +1039,7 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
     return mesh.vertices[0];
 
   const auto &node = nearest_nodes[0];
-  int closest_vertex_index = (int)node.originalIndex;
+  int closest_vertex_index = (int)node.original_index;
   Vector closest_vertex_pos = node.point;
 
   Vector best_point = closest_vertex_pos;

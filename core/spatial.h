@@ -19,47 +19,47 @@
  * @brief Axis-Aligned Bounding Box.
  */
 struct AABB {
-  Vector minVal;
-  Vector maxVal;
+  Vector min_val;
+  Vector max_val;
 
   AABB()
-      : minVal(FLT_MAX, FLT_MAX, FLT_MAX),
-        maxVal(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
+      : min_val(FLT_MAX, FLT_MAX, FLT_MAX),
+        max_val(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
 
   void expand(const Vector &p) {
-    if (p.x < minVal.x)
-      minVal.x = p.x;
-    if (p.y < minVal.y)
-      minVal.y = p.y;
-    if (p.z < minVal.z)
-      minVal.z = p.z;
+    if (p.x < min_val.x)
+      min_val.x = p.x;
+    if (p.y < min_val.y)
+      min_val.y = p.y;
+    if (p.z < min_val.z)
+      min_val.z = p.z;
 
-    if (p.x > maxVal.x)
-      maxVal.x = p.x;
-    if (p.y > maxVal.y)
-      maxVal.y = p.y;
-    if (p.z > maxVal.z)
-      maxVal.z = p.z;
+    if (p.x > max_val.x)
+      max_val.x = p.x;
+    if (p.y > max_val.y)
+      max_val.y = p.y;
+    if (p.z > max_val.z)
+      max_val.z = p.z;
   }
 
   // Optimize union
-  void unionWith(const AABB &box) {
-    if (box.minVal.x < minVal.x)
-      minVal.x = box.minVal.x;
-    if (box.minVal.y < minVal.y)
-      minVal.y = box.minVal.y;
-    if (box.minVal.z < minVal.z)
-      minVal.z = box.minVal.z;
+  void union_with(const AABB &box) {
+    if (box.min_val.x < min_val.x)
+      min_val.x = box.min_val.x;
+    if (box.min_val.y < min_val.y)
+      min_val.y = box.min_val.y;
+    if (box.min_val.z < min_val.z)
+      min_val.z = box.min_val.z;
 
-    if (box.maxVal.x > maxVal.x)
-      maxVal.x = box.maxVal.x;
-    if (box.maxVal.y > maxVal.y)
-      maxVal.y = box.maxVal.y;
-    if (box.maxVal.z > maxVal.z)
-      maxVal.z = box.maxVal.z;
+    if (box.max_val.x > max_val.x)
+      max_val.x = box.max_val.x;
+    if (box.max_val.y > max_val.y)
+      max_val.y = box.max_val.y;
+    if (box.max_val.z > max_val.z)
+      max_val.z = box.max_val.z;
   }
 
-  bool intersectRay(const Vector &origin, const Vector &direction) const {
+  bool intersect_ray(const Vector &origin, const Vector &direction) const {
     float tmin = -FLT_MAX;
     float tmax = FLT_MAX;
 
@@ -86,11 +86,11 @@ struct AABB {
       return o >= mn && o <= mx; // parallel ray: inside the slab?
     };
 
-    if (!slab(minVal.x, maxVal.x, origin.x, direction.x))
+    if (!slab(min_val.x, max_val.x, origin.x, direction.x))
       return false;
-    if (!slab(minVal.y, maxVal.y, origin.y, direction.y))
+    if (!slab(min_val.y, max_val.y, origin.y, direction.y))
       return false;
-    if (!slab(minVal.z, maxVal.z, origin.z, direction.z))
+    if (!slab(min_val.z, max_val.z, origin.z, direction.z))
       return false;
 
     // Reject boxes entirely behind the ray origin.
@@ -107,7 +107,7 @@ struct KDNode {
   // or we could store an index if we had a reference to the point array.
   // Storing copy is safer and simpler for now.
   Vector point;
-  uint16_t originalIndex = 0; // Index in the source array
+  uint16_t original_index = 0; // Index in the source array
   int16_t axis = 0;           // 0=x, 1=y, 2=z
   int16_t left = -1;
   int16_t right = -1;
@@ -118,8 +118,8 @@ public:
   static constexpr int MAX_K = 5;
 
   ArenaVector<KDNode> nodes;
-  size_t nodeCount = 0;
-  int rootIndex = -1;
+  size_t node_count = 0;
+  int root_index = -1;
 
   KDTree() = default;
 
@@ -139,12 +139,12 @@ public:
     for (size_t i = 0; i < count; ++i)
       indices[i] = i;
 
-    rootIndex = build(points, indices, count, 0);
+    root_index = build(points, indices, count, 0);
   }
 
   void clear() {
-    nodeCount = 0;
-    rootIndex = -1;
+    node_count = 0;
+    root_index = -1;
   }
 
   // Nearest neighbor search
@@ -152,7 +152,7 @@ public:
   StaticCircularBuffer<KDNode, MAX_K> nearest(const Vector &target,
                                               size_t k = 1) const {
     StaticCircularBuffer<KDNode, MAX_K> result;
-    if (rootIndex == -1 || k <= 0)
+    if (root_index == -1 || k <= 0)
       return result;
 
     // The result/heap buffers are sized MAX_K, so more than MAX_K neighbors
@@ -162,31 +162,31 @@ public:
     HS_CHECK(k <= static_cast<size_t>(MAX_K));
 
     // Max-Heap behavior scratch buffer
-    // We store pairs of <distanceSq, nodeIdx>
+    // We store pairs of <distanceSq, node_idx>
     struct Candidate {
-      float dSq;
+      float d_sq;
       int idx;
     };
     StaticCircularBuffer<Candidate, MAX_K> heap;
 
-    auto push_heap = [&](float dSq, int idx) {
+    auto push_heap = [&](float d_sq, int idx) {
       if (heap.size() < static_cast<size_t>(k)) {
-        heap.push_back({dSq, idx});
+        heap.push_back({d_sq, idx});
         // Maintain max-heap property: bubble up?
         // With small K (1-5), linear insert/sort is faster than heap complexity
         // Just unsorted push, then find max when needed.
       } else {
         // Replace worst if better
-        float maxD = -1.0f;
-        int maxI = -1;
+        float max_d = -1.0f;
+        int max_i = -1;
         for (size_t i = 0; i < heap.size(); ++i) {
-          if (heap[i].dSq > maxD) {
-            maxD = heap[i].dSq;
-            maxI = i;
+          if (heap[i].d_sq > max_d) {
+            max_d = heap[i].d_sq;
+            max_i = i;
           }
         }
-        if (dSq < maxD) {
-          heap[maxI] = {dSq, idx};
+        if (d_sq < max_d) {
+          heap[max_i] = {d_sq, idx};
         }
       }
     };
@@ -194,20 +194,20 @@ public:
     auto get_worst_dist = [&]() -> float {
       if (heap.size() < k)
         return FLT_MAX;
-      float maxD = -1.0f;
+      float max_d = -1.0f;
       for (size_t i = 0; i < heap.size(); ++i) {
-        if (heap[i].dSq > maxD)
-          maxD = heap[i].dSq;
+        if (heap[i].d_sq > max_d)
+          max_d = heap[i].d_sq;
       }
-      return maxD;
+      return max_d;
     };
 
-    search_k(rootIndex, target, k, heap, push_heap, get_worst_dist);
+    search_k(root_index, target, k, heap, push_heap, get_worst_dist);
 
     // Sort result by distance (closest first)
     std::sort(
         heap.begin(), heap.end(),
-        [](const Candidate &a, const Candidate &b) { return a.dSq < b.dSq; });
+        [](const Candidate &a, const Candidate &b) { return a.d_sq < b.d_sq; });
 
     for (const auto &c : heap) {
       result.push_back(nodes[c.idx]);
@@ -219,7 +219,7 @@ private:
   int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1;
-    if (nodeCount >= nodes.capacity())
+    if (node_count >= nodes.capacity())
       return -1;
 
     int axis = depth % 3;
@@ -240,77 +240,77 @@ private:
       return va < vb;
     });
 
-    int medianIdx = indices[mid];
+    int median_idx = indices[mid];
 
-    int newNodeIdx = nodeCount++;
+    int new_node_idx = node_count++;
     nodes.emplace_back();
-    nodes[newNodeIdx].point = points[medianIdx];
-    nodes[newNodeIdx].originalIndex = (uint16_t)medianIdx; // Store index
-    nodes[newNodeIdx].axis = (int16_t)axis;
+    nodes[new_node_idx].point = points[median_idx];
+    nodes[new_node_idx].original_index = (uint16_t)median_idx; // Store index
+    nodes[new_node_idx].axis = (int16_t)axis;
 
-    nodes[newNodeIdx].left = (int16_t)build(points, start, mid, depth + 1);
-    nodes[newNodeIdx].right =
+    nodes[new_node_idx].left = (int16_t)build(points, start, mid, depth + 1);
+    nodes[new_node_idx].right =
         (int16_t)build(points, start + mid + 1, count - mid - 1, depth + 1);
 
-    return newNodeIdx;
+    return new_node_idx;
   }
 
   // K-Nearest Search
   template <typename PushFn, typename MaxDistFn>
-  void search_k(int nodeIdx, const Vector &target, int k, const auto &heap,
+  void search_k(int node_idx, const Vector &target, int k, const auto &heap,
                 PushFn &&push_heap, MaxDistFn &&get_worst_dist) const {
-    if (nodeIdx == -1)
+    if (node_idx == -1)
       return;
 
-    const KDNode &node = nodes[nodeIdx];
-    float dSq = distance_squared(node.point, target);
-    float worstSq = get_worst_dist();
+    const KDNode &node = nodes[node_idx];
+    float d_sq = distance_squared(node.point, target);
+    float worst_sq = get_worst_dist();
 
-    if (dSq < worstSq) {
-      push_heap(dSq, nodeIdx);
-      worstSq = get_worst_dist(); // Update after push
+    if (d_sq < worst_sq) {
+      push_heap(d_sq, node_idx);
+      worst_sq = get_worst_dist(); // Update after push
     }
 
-    float axisDist = (node.axis == 0)   ? (target.x - node.point.x)
+    float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
                      : (node.axis == 1) ? (target.y - node.point.y)
                                         : (target.z - node.point.z);
 
-    int near = axisDist < 0 ? node.left : node.right;
-    int far = axisDist < 0 ? node.right : node.left;
+    int near = axis_dist < 0 ? node.left : node.right;
+    int far = axis_dist < 0 ? node.right : node.left;
 
     search_k(near, target, k, heap, push_heap, get_worst_dist);
 
     // Query worst again
-    worstSq = get_worst_dist();
-    if ((axisDist * axisDist) < worstSq) {
+    worst_sq = get_worst_dist();
+    if ((axis_dist * axis_dist) < worst_sq) {
       search_k(far, target, k, heap, push_heap, get_worst_dist);
     }
   }
 
-  void search(int nodeIdx, const Vector &target, float &bestDistSq,
-              int &bestNodeIdx) const {
-    if (nodeIdx == -1)
+  void search(int node_idx, const Vector &target, float &best_dist_sq,
+              int &best_node_idx) const {
+    if (node_idx == -1)
       return;
 
-    const KDNode &node = nodes[nodeIdx];
-    float dSq = distance_squared(node.point, target);
+    const KDNode &node = nodes[node_idx];
+    float d_sq = distance_squared(node.point, target);
 
-    if (dSq < bestDistSq) {
-      bestDistSq = dSq;
-      bestNodeIdx = nodeIdx;
+    if (d_sq < best_dist_sq) {
+      best_dist_sq = d_sq;
+      best_node_idx = node_idx;
     }
 
-    float axisDist = (node.axis == 0)   ? (target.x - node.point.x)
+    float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
                      : (node.axis == 1) ? (target.y - node.point.y)
                                         : (target.z - node.point.z);
 
-    int near = axisDist < 0 ? node.left : node.right;
-    int far = axisDist < 0 ? node.right : node.left;
+    int near = axis_dist < 0 ? node.left : node.right;
+    int far = axis_dist < 0 ? node.right : node.left;
 
-    search(near, target, bestDistSq, bestNodeIdx);
+    search(near, target, best_dist_sq, best_node_idx);
 
-    if (axisDist * axisDist < bestDistSq) {
-      search(far, target, bestDistSq, bestNodeIdx);
+    if (axis_dist * axis_dist < best_dist_sq) {
+      search(far, target, best_dist_sq, best_node_idx);
     }
   }
 };
@@ -328,37 +328,37 @@ public:
     int16_t next;
   };
 
-  SpatialHash(float cellSize) : cellSize(cellSize) { clear(); }
+  SpatialHash(float cell_size) : cell_size(cell_size) { clear(); }
 
   void clear() {
     std::fill(buckets.begin(), buckets.end(), -1);
-    poolCount = 0;
+    pool_count = 0;
   }
 
   void insert(const Vector &p, int id) {
     // Exceeding MAX_ENTRIES means the hash was sized too small for the caller's
     // point set — a sizing bug. Dropping inserts silently corrupts queries, so
     // trap rather than truncate (fail-fast).
-    HS_CHECK(poolCount < MAX_ENTRIES &&
+    HS_CHECK(pool_count < MAX_ENTRIES &&
              "SpatialHash::insert: exceeded MAX_ENTRIES");
 
     long long h = hash(p);
-    int16_t bucketIdx =
+    int16_t bucket_idx =
         (h % TABLE_SIZE + TABLE_SIZE) % TABLE_SIZE; // Ensure positive
 
-    int idx = poolCount++;
+    int idx = pool_count++;
     pool[idx].id = id;
-    pool[idx].next = buckets[bucketIdx];
-    buckets[bucketIdx] = idx;
+    pool[idx].next = buckets[bucket_idx];
+    buckets[bucket_idx] = idx;
   }
 
   // Returns fixed size buffer to avoid allocations
   StaticCircularBuffer<int, 64> query(const Vector &p) const {
     StaticCircularBuffer<int, 64> result;
     long long h = hash(p);
-    int16_t bucketIdx = (h % TABLE_SIZE + TABLE_SIZE) % TABLE_SIZE;
+    int16_t bucket_idx = (h % TABLE_SIZE + TABLE_SIZE) % TABLE_SIZE;
 
-    int16_t curr = buckets[bucketIdx];
+    int16_t curr = buckets[bucket_idx];
     while (curr != -1) {
       result.push_back(pool[curr].id);
       curr = pool[curr].next;
@@ -369,15 +369,15 @@ public:
   }
 
 private:
-  float cellSize;
+  float cell_size;
   std::array<int16_t, TABLE_SIZE> buckets;
   std::array<Entry, MAX_ENTRIES> pool;
-  size_t poolCount = 0;
+  size_t pool_count = 0;
 
   long long hash(const Vector &p) const {
-    int x = static_cast<int>(floorf(p.x / cellSize));
-    int y = static_cast<int>(floorf(p.y / cellSize));
-    int z = static_cast<int>(floorf(p.z / cellSize));
+    int x = static_cast<int>(floorf(p.x / cell_size));
+    int y = static_cast<int>(floorf(p.y / cell_size));
+    int z = static_cast<int>(floorf(p.z / cell_size));
     return ((long long)x * 73856093) ^ ((long long)y * 19349663) ^
            ((long long)z * 83492791);
   }

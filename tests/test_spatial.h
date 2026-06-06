@@ -6,7 +6,7 @@
  *
  * Tests deliberately avoid invoking the asserts in dependent types
  * (out-of-bounds, unbound access). Zero-component (axis-aligned) ray
- * directions for AABB::intersectRay ARE exercised here — including the
+ * directions for AABB::intersect_ray ARE exercised here — including the
  * grazing on-face case that previously produced a 0/0 NaN — now that the
  * slab test guards parallel rays explicitly.
  */
@@ -36,15 +36,15 @@ inline uint8_t spatial_buf[128 * 1024];
 inline void test_aabb_default_empty() {
   AABB box;
   // Empty box: min initialized to +FLT_MAX, max to -FLT_MAX (degenerate).
-  HS_EXPECT_TRUE(box.minVal.x >= FLT_MAX * 0.5f);
-  HS_EXPECT_TRUE(box.maxVal.x <= -FLT_MAX * 0.5f);
+  HS_EXPECT_TRUE(box.min_val.x >= FLT_MAX * 0.5f);
+  HS_EXPECT_TRUE(box.max_val.x <= -FLT_MAX * 0.5f);
 }
 
 inline void test_aabb_expand_single_point() {
   AABB box;
   box.expand(Vector(1, 2, 3));
-  HS_EXPECT_VEC(box.minVal, Vector(1, 2, 3), 1e-6f);
-  HS_EXPECT_VEC(box.maxVal, Vector(1, 2, 3), 1e-6f);
+  HS_EXPECT_VEC(box.min_val, Vector(1, 2, 3), 1e-6f);
+  HS_EXPECT_VEC(box.max_val, Vector(1, 2, 3), 1e-6f);
 }
 
 inline void test_aabb_expand_multiple_points() {
@@ -52,8 +52,8 @@ inline void test_aabb_expand_multiple_points() {
   box.expand(Vector(1, 2, 3));
   box.expand(Vector(-1, 5, 2));
   box.expand(Vector(4, 0, -6));
-  HS_EXPECT_VEC(box.minVal, Vector(-1, 0, -6), 1e-6f);
-  HS_EXPECT_VEC(box.maxVal, Vector(4, 5, 3), 1e-6f);
+  HS_EXPECT_VEC(box.min_val, Vector(-1, 0, -6), 1e-6f);
+  HS_EXPECT_VEC(box.max_val, Vector(4, 5, 3), 1e-6f);
 }
 
 inline void test_aabb_union_with() {
@@ -65,9 +65,9 @@ inline void test_aabb_union_with() {
   b.expand(Vector(-1, 1, 5));
   b.expand(Vector(3, 4, 6));
 
-  a.unionWith(b);
-  HS_EXPECT_VEC(a.minVal, Vector(-1, 0, 0), 1e-6f);
-  HS_EXPECT_VEC(a.maxVal, Vector(3, 4, 6), 1e-6f);
+  a.union_with(b);
+  HS_EXPECT_VEC(a.min_val, Vector(-1, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(a.max_val, Vector(3, 4, 6), 1e-6f);
 }
 
 inline void test_aabb_union_with_empty_is_noop_when_outside() {
@@ -80,17 +80,17 @@ inline void test_aabb_union_with_empty_is_noop_when_outside() {
   AABB superset;
   superset.expand(Vector(-10, -10, -10));
   superset.expand(Vector(10, 10, 10));
-  a.unionWith(superset);
-  HS_EXPECT_VEC(a.minVal, Vector(-10, -10, -10), 1e-6f);
-  HS_EXPECT_VEC(a.maxVal, Vector(10, 10, 10), 1e-6f);
+  a.union_with(superset);
+  HS_EXPECT_VEC(a.min_val, Vector(-10, -10, -10), 1e-6f);
+  HS_EXPECT_VEC(a.max_val, Vector(10, 10, 10), 1e-6f);
 
   // Union with a contained box should not change a.
   AABB inside;
   inside.expand(Vector(-5, -5, -5));
   inside.expand(Vector(5, 5, 5));
-  a.unionWith(inside);
-  HS_EXPECT_VEC(a.minVal, Vector(-10, -10, -10), 1e-6f);
-  HS_EXPECT_VEC(a.maxVal, Vector(10, 10, 10), 1e-6f);
+  a.union_with(inside);
+  HS_EXPECT_VEC(a.min_val, Vector(-10, -10, -10), 1e-6f);
+  HS_EXPECT_VEC(a.max_val, Vector(10, 10, 10), 1e-6f);
   (void)before;
 }
 
@@ -100,11 +100,11 @@ inline void test_aabb_ray_hit() {
   box.expand(Vector(1, 1, 1));
 
   // Ray from +X axis pointing inward
-  HS_EXPECT_TRUE(box.intersectRay(Vector(5, 0, 0), Vector(-1, 0, 0)));
+  HS_EXPECT_TRUE(box.intersect_ray(Vector(5, 0, 0), Vector(-1, 0, 0)));
   // Ray from -Y axis pointing inward
-  HS_EXPECT_TRUE(box.intersectRay(Vector(0, -5, 0), Vector(0, 1, 0)));
+  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, -5, 0), Vector(0, 1, 0)));
   // Diagonal ray through the centre
-  HS_EXPECT_TRUE(box.intersectRay(Vector(5, 5, 5),
+  HS_EXPECT_TRUE(box.intersect_ray(Vector(5, 5, 5),
                                   Vector(-1, -1, -1).normalized()));
 }
 
@@ -114,13 +114,13 @@ inline void test_aabb_ray_miss() {
   box.expand(Vector(1, 1, 1));
 
   // Ray parallel to the box but offset in Y — passes over the top.
-  HS_EXPECT_FALSE(box.intersectRay(Vector(-5, 5, 0), Vector(1, 0, 0)));
+  HS_EXPECT_FALSE(box.intersect_ray(Vector(-5, 5, 0), Vector(1, 0, 0)));
   // Ray parallel to box, offset in Z — passes alongside.
-  HS_EXPECT_FALSE(box.intersectRay(Vector(0, 0, 5), Vector(1, 0, 0)));
+  HS_EXPECT_FALSE(box.intersect_ray(Vector(0, 0, 5), Vector(1, 0, 0)));
   // Ray starts in front of the box and points AWAY from it.
-  HS_EXPECT_FALSE(box.intersectRay(Vector(5, 0, 0), Vector(1, 0, 0)));
+  HS_EXPECT_FALSE(box.intersect_ray(Vector(5, 0, 0), Vector(1, 0, 0)));
   // Ray starts behind the box and points AWAY from it.
-  HS_EXPECT_FALSE(box.intersectRay(Vector(-5, 0, 0), Vector(-1, 0, 0)));
+  HS_EXPECT_FALSE(box.intersect_ray(Vector(-5, 0, 0), Vector(-1, 0, 0)));
 }
 
 inline void test_aabb_ray_from_inside() {
@@ -128,8 +128,8 @@ inline void test_aabb_ray_from_inside() {
   box.expand(Vector(-1, -1, -1));
   box.expand(Vector(1, 1, 1));
   // A ray starting inside the box always hits — slab test allows negative t.
-  HS_EXPECT_TRUE(box.intersectRay(Vector(0, 0, 0), Vector(1, 0, 0)));
-  HS_EXPECT_TRUE(box.intersectRay(Vector(0, 0, 0), Vector(0, 1, 0)));
+  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 0, 0), Vector(1, 0, 0)));
+  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 0, 0), Vector(0, 1, 0)));
 }
 
 inline void test_aabb_ray_parallel_grazing() {
@@ -137,14 +137,14 @@ inline void test_aabb_ray_parallel_grazing() {
   box.expand(Vector(-1, -1, -1));
   box.expand(Vector(1, 1, 1));
   // Origin lies exactly ON the +Y face and the ray runs parallel to it. The
-  // naive (maxVal.y - origin.y) / 0 == 0/0 == NaN; the slab guard treats a zero
+  // naive (max_val.y - origin.y) / 0 == 0/0 == NaN; the slab guard treats a zero
   // direction component as "hit only if the origin is within the slab", so an
   // on-face grazing ray still counts as touching the box.
-  HS_EXPECT_TRUE(box.intersectRay(Vector(0, 1, 0), Vector(1, 0, 0)));
+  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 1, 0), Vector(1, 0, 0)));
   // Same parallel direction but origin just outside the +Y face → clean miss.
-  HS_EXPECT_FALSE(box.intersectRay(Vector(0, 1.5f, 0), Vector(1, 0, 0)));
+  HS_EXPECT_FALSE(box.intersect_ray(Vector(0, 1.5f, 0), Vector(1, 0, 0)));
   // Parallel to two axes, origin outside the Z slab → miss.
-  HS_EXPECT_FALSE(box.intersectRay(Vector(0, 0, 2), Vector(1, 0, 0)));
+  HS_EXPECT_FALSE(box.intersect_ray(Vector(0, 0, 2), Vector(1, 0, 0)));
 }
 
 // ============================================================================
@@ -156,7 +156,7 @@ inline void test_kdtree_empty_input() {
   Vector pts[1] = {Vector(0, 0, 0)};
   std::span<Vector> empty(pts, 0);
   KDTree tree(arena, empty);
-  HS_EXPECT_EQ(tree.rootIndex, -1);
+  HS_EXPECT_EQ(tree.root_index, -1);
 
   // Querying an empty tree returns an empty result.
   auto r = tree.nearest(Vector(0, 0, 0), 1);
@@ -168,12 +168,12 @@ inline void test_kdtree_single_point() {
   Vector pts[1] = {Vector(3, 4, 5)};
   std::span<Vector> sp(pts, 1);
   KDTree tree(arena, sp);
-  HS_EXPECT_NE(tree.rootIndex, -1);
+  HS_EXPECT_NE(tree.root_index, -1);
 
   auto r = tree.nearest(Vector(0, 0, 0), 1);
   HS_EXPECT_EQ(r.size(), (size_t)1);
   HS_EXPECT_VEC(r[0].point, Vector(3, 4, 5), 1e-6f);
-  HS_EXPECT_EQ(r[0].originalIndex, (uint16_t)0);
+  HS_EXPECT_EQ(r[0].original_index, (uint16_t)0);
 }
 
 inline void test_kdtree_nearest_known_set() {
@@ -193,19 +193,19 @@ inline void test_kdtree_nearest_known_set() {
   auto r1 = tree.nearest(Vector(0.1f, 0.1f, 0.1f), 1);
   HS_EXPECT_EQ(r1.size(), (size_t)1);
   HS_EXPECT_VEC(r1[0].point, Vector(0, 0, 0), 1e-6f);
-  HS_EXPECT_EQ(r1[0].originalIndex, (uint16_t)0);
+  HS_EXPECT_EQ(r1[0].original_index, (uint16_t)0);
 
   // Query at (10.1, 0, 0) → closest is index 1
   auto r2 = tree.nearest(Vector(10.1f, 0, 0), 1);
   HS_EXPECT_EQ(r2.size(), (size_t)1);
   HS_EXPECT_VEC(r2[0].point, Vector(10, 0, 0), 1e-6f);
-  HS_EXPECT_EQ(r2[0].originalIndex, (uint16_t)1);
+  HS_EXPECT_EQ(r2[0].original_index, (uint16_t)1);
 
   // Query exactly at one of the points → that point comes back, dist = 0
   auto r3 = tree.nearest(Vector(5, 5, 5), 1);
   HS_EXPECT_EQ(r3.size(), (size_t)1);
   HS_EXPECT_VEC(r3[0].point, Vector(5, 5, 5), 1e-6f);
-  HS_EXPECT_EQ(r3[0].originalIndex, (uint16_t)4);
+  HS_EXPECT_EQ(r3[0].original_index, (uint16_t)4);
 }
 
 inline void test_kdtree_k_nearest_sorted() {
@@ -240,9 +240,9 @@ inline void test_kdtree_k_caps_at_size() {
 }
 
 inline void test_kdtree_default_unbuilt() {
-  // A default-constructed KDTree (no build) has rootIndex == -1.
+  // A default-constructed KDTree (no build) has root_index == -1.
   KDTree tree;
-  HS_EXPECT_EQ(tree.rootIndex, -1);
+  HS_EXPECT_EQ(tree.root_index, -1);
   auto r = tree.nearest(Vector(1, 2, 3), 1);
   HS_EXPECT_TRUE(r.is_empty());
 }
@@ -252,11 +252,11 @@ inline void test_kdtree_clear() {
   Vector pts[2] = {Vector(0, 0, 0), Vector(1, 1, 1)};
   std::span<Vector> sp(pts, 2);
   KDTree tree(arena, sp);
-  HS_EXPECT_NE(tree.rootIndex, -1);
+  HS_EXPECT_NE(tree.root_index, -1);
 
   tree.clear();
-  HS_EXPECT_EQ(tree.rootIndex, -1);
-  HS_EXPECT_EQ(tree.nodeCount, (size_t)0);
+  HS_EXPECT_EQ(tree.root_index, -1);
+  HS_EXPECT_EQ(tree.node_count, (size_t)0);
   // After clear the tree returns nothing
   auto r = tree.nearest(Vector(0, 0, 0), 1);
   HS_EXPECT_TRUE(r.is_empty());
@@ -291,7 +291,7 @@ inline void test_kdtree_matches_brute_force() {
 
   auto r = tree.nearest(query, 1);
   HS_EXPECT_EQ(r.size(), (size_t)1);
-  HS_EXPECT_EQ((int)r[0].originalIndex, best_i);
+  HS_EXPECT_EQ((int)r[0].original_index, best_i);
   HS_EXPECT_VEC(r[0].point, pts[best_i], 1e-6f);
 }
 
@@ -335,7 +335,7 @@ inline void test_spatialhash_clear() {
 
 inline void test_spatialhash_negative_coords() {
   SpatialHash sh(2.0f);
-  // Cell (-1,-1,-1) for cellSize=2 — floor of -0.5 / 2 = -1
+  // Cell (-1,-1,-1) for cell_size=2 — floor of -0.5 / 2 = -1
   sh.insert(Vector(-0.5f, -1.5f, -0.7f), 11);
   auto r = sh.query(Vector(-0.1f, -0.9f, -0.2f));
   bool saw11 = false;
