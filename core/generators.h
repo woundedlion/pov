@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_GENERATORS_H_
-#define HOLOSPHERE_CORE_GENERATORS_H_
 
 #include "memory.h"
 
@@ -31,4 +29,3 @@ template <typename GenerateFn, typename... Args>
   return fn(target, scratch_arena_a, scratch_arena_b,
             std::forward<Args>(args)...);
 }
-#endif // HOLOSPHERE_CORE_GENERATORS_H_

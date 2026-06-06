@@ -14,8 +14,6 @@
  *   - MeshOps::classify_faces_by_topology (cube → all faces same class)
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_MESH_H_
-#define HOLOSPHERE_TESTS_TEST_MESH_H_
 
 #include <cstdint>
 #include "core/mesh.h"
@@ -379,4 +377,3 @@ inline int run_mesh_tests() {
 } // namespace mesh_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_MESH_H_

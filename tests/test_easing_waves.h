@@ -11,8 +11,6 @@
  * avoid float drift past 1.0 (where circular easings would go NaN).
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_EASING_WAVES_H_
-#define HOLOSPHERE_TESTS_TEST_EASING_WAVES_H_
 
 #include "core/easing.h"
 #include "core/waves.h"
@@ -159,4 +157,3 @@ inline int run_easing_waves_tests() {
 } // namespace easing_waves_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_EASING_WAVES_H_

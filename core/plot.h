@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_PLOT_H_
-#define HOLOSPHERE_CORE_PLOT_H_
 #include <functional>
 #include <utility>
 #include <type_traits>
@@ -1503,4 +1501,3 @@ struct SplineChain {
 };
 
 } // namespace Plot
-#endif // HOLOSPHERE_CORE_PLOT_H_

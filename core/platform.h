@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_PLATFORM_H_
-#define HOLOSPHERE_CORE_PLATFORM_H_
 
 // Canvas resolution — override per target via -D flags if needed
 #ifndef CANVAS_W
@@ -621,4 +619,3 @@ struct CycleScope {
   static hs::CycleCounter hs_ctr_##label(#label); \
   hs::CycleScope hs_scope_##label(hs_ctr_##label)
 
-#endif // HOLOSPHERE_CORE_PLATFORM_H_

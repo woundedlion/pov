@@ -13,8 +13,6 @@
  * exit code.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_3DMATH_H_
-#define HOLOSPHERE_TESTS_TEST_3DMATH_H_
 
 #include "core/3dmath.h"
 #include "tests/test_harness.h"
@@ -847,4 +845,3 @@ inline int run_3dmath_tests() {
 } // namespace math3d
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_3DMATH_H_

@@ -11,8 +11,6 @@
  * directly by target .ino files.
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_LED_H_
-#define HOLOSPHERE_CORE_LED_H_
 #include "platform.h"
 
 // Uncomment to use DMA-based HD107S controller instead of FastLED WS2801.
@@ -65,4 +63,3 @@ struct NoTempCorrection {
   }
 };
 #endif // !USE_DMA_LEDS
-#endif // HOLOSPHERE_CORE_LED_H_

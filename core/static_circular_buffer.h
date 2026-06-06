@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_STATIC_CIRCULAR_BUFFER_H_
-#define HOLOSPHERE_CORE_STATIC_CIRCULAR_BUFFER_H_
 
 #include <array>
 #include <cstddef>
@@ -264,4 +262,3 @@ private:
     const_iterator(const iterator &other) : Base(other.m_buffer, other.m_index) {}
   };
 };
-#endif // HOLOSPHERE_CORE_STATIC_CIRCULAR_BUFFER_H_

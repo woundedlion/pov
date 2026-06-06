@@ -16,8 +16,6 @@
  *   - Orientation<W, CAP>: set, push, get, collapse, upsample, orient/unorient
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_GEOMETRY_H_
-#define HOLOSPHERE_TESTS_TEST_GEOMETRY_H_
 
 #include "core/geometry.h"
 #include "tests/test_3dmath.h"
@@ -477,4 +475,3 @@ inline int run_geometry_tests() {
 } // namespace geometry
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_GEOMETRY_H_

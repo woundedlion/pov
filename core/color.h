@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_COLOR_H_
-#define HOLOSPHERE_CORE_COLOR_H_
 
 #include <algorithm>
 #include <array>
@@ -1297,4 +1295,3 @@ inline Color4 AlphaFalloffPalette::get(float t) const {
   c.alpha *= fn(t);
   return c;
 }
-#endif // HOLOSPHERE_CORE_COLOR_H_

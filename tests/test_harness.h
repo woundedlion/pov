@@ -8,8 +8,6 @@
  * suites can coexist in one driver.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_HARNESS_H_
-#define HOLOSPHERE_TESTS_TEST_HARNESS_H_
 
 #include <cmath>
 #include <cstdio>
@@ -72,4 +70,3 @@ inline int end_module(const ModuleScope &m) {
 #define HS_EXPECT_GT(a, b) HS_EXPECT((a) > (b), #a " > " #b)
 #define HS_EXPECT_GE(a, b) HS_EXPECT((a) >= (b), #a " >= " #b)
 
-#endif // HOLOSPHERE_TESTS_TEST_HARNESS_H_

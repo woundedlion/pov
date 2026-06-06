@@ -13,8 +13,6 @@
  *   - CompiledHankin::clone makes an independent deep copy.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_HANKIN_H_
-#define HOLOSPHERE_TESTS_TEST_HANKIN_H_
 
 #include <cstdint>
 #include "core/hankin.h"
@@ -325,4 +323,3 @@ inline int run_hankin_tests() {
 } // namespace hankin_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_HANKIN_H_

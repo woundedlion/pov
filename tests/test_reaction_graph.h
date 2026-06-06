@@ -13,8 +13,6 @@
  * Also exercises CubemapLUT round-trip (direction -> nearest node).
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_REACTION_GRAPH_H_
-#define HOLOSPHERE_TESTS_TEST_REACTION_GRAPH_H_
 
 #include "core/reaction_graph.h"
 #include "tests/test_3dmath.h" // for HS_EXPECT_VEC
@@ -214,4 +212,3 @@ inline int run_reaction_graph_tests() {
 } // namespace reaction_graph_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_REACTION_GRAPH_H_

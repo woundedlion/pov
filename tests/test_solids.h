@@ -27,8 +27,6 @@
  * deliberately not exercised here.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_SOLIDS_H_
-#define HOLOSPHERE_TESTS_TEST_SOLIDS_H_
 
 #include <cmath>
 #include <cstdint>
@@ -285,4 +283,3 @@ inline int run_solids_tests() {
 } // namespace solids_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_SOLIDS_H_

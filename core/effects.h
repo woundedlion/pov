@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_EFFECTS_H_
-#define HOLOSPHERE_CORE_EFFECTS_H_
 
 #include "effects/BZReactionDiffusion.h"
 #include "effects/ChaoticStrings.h"
@@ -35,4 +33,3 @@
 #include "effects/Thrusters.h"
 #include "effects/Voronoi.h"
 
-#endif // HOLOSPHERE_CORE_EFFECTS_H_

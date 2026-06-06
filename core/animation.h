@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_ANIMATION_H_
-#define HOLOSPHERE_CORE_ANIMATION_H_
 
 #include <algorithm>
 #include <cmath>
@@ -1952,4 +1950,3 @@ void deep_tween(const Tweenable auto &trail, TweenFn callback) {
     }
   }
 }
-#endif // HOLOSPHERE_CORE_ANIMATION_H_

@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_EFFECTS_ENGINE_H_
-#define HOLOSPHERE_CORE_EFFECTS_ENGINE_H_
 
 #include <algorithm>
 #include <array>
@@ -43,4 +41,3 @@ template <int W, int CAP = 4> class Orientation;
 #include "presets.h"
 #include "waves.h"
 #include "styles.h"
-#endif // HOLOSPHERE_CORE_EFFECTS_ENGINE_H_

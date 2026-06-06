@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_MEMORY_H_
-#define HOLOSPHERE_CORE_MEMORY_H_
 
 #include <cstdint>
 #include <cstddef>
@@ -482,4 +480,3 @@ public:
   Persist(const Persist &) = delete;
   Persist &operator=(const Persist &) = delete;
 };
-#endif // HOLOSPHERE_CORE_MEMORY_H_

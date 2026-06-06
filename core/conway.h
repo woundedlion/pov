@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_CONWAY_H_
-#define HOLOSPHERE_CORE_CONWAY_H_
 
 #include "mesh.h"
 
@@ -1094,4 +1092,3 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
 }
 
 } // namespace MeshOps
-#endif // HOLOSPHERE_CORE_CONWAY_H_

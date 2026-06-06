@@ -13,8 +13,6 @@
  *   - Transformer<>           : no active entities → identity.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_TRANSFORMERS_H_
-#define HOLOSPHERE_TESTS_TEST_TRANSFORMERS_H_
 
 #include "core/transformers.h"
 #include "tests/test_harness.h"
@@ -185,4 +183,3 @@ inline int run_transformers_tests() {
 } // namespace transformers_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_TRANSFORMERS_H_

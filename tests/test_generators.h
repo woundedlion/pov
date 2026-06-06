@@ -12,8 +12,6 @@
  *   - extra args and the return value are forwarded.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_GENERATORS_H_
-#define HOLOSPHERE_TESTS_TEST_GENERATORS_H_
 
 #include "core/generators.h"
 #include "core/memory.h"
@@ -117,4 +115,3 @@ inline int run_generators_tests() {
 } // namespace generators_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_GENERATORS_H_

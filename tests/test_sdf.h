@@ -16,8 +16,6 @@
  * indirectly by feeding known points and verifying signed distance.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_SDF_H_
-#define HOLOSPHERE_TESTS_TEST_SDF_H_
 
 #include "core/sdf.h"
 #include "core/geometry.h"
@@ -523,4 +521,3 @@ inline int run_sdf_tests() {
 } // namespace sdf
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_SDF_H_

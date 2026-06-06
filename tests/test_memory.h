@@ -11,8 +11,6 @@
  * the legal behaviors.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_MEMORY_H_
-#define HOLOSPHERE_TESTS_TEST_MEMORY_H_
 
 #include <cstdint>
 #include <cstring>
@@ -590,4 +588,3 @@ inline int run_memory_tests() {
 } // namespace mem
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_MEMORY_H_

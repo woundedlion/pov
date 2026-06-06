@@ -21,8 +21,6 @@
  * golden frames — the recommended next step.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_EFFECTS_H_
-#define HOLOSPHERE_TESTS_TEST_EFFECTS_H_
 
 #include "core/effects.h"
 #include "core/canvas.h"
@@ -154,4 +152,3 @@ inline int run_effects_tests() {
 } // namespace effects_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_EFFECTS_H_

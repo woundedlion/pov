@@ -13,8 +13,6 @@
  *   - operator-specific counts (e.g. |dual.vertices| == |input.faces|)
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_CONWAY_H_
-#define HOLOSPHERE_TESTS_TEST_CONWAY_H_
 
 #include <algorithm>
 #include <cstdint>
@@ -534,4 +532,3 @@ inline int run_conway_tests() {
 } // namespace conway_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_CONWAY_H_

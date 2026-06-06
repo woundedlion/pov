@@ -25,8 +25,6 @@
  *   - easing.h: ease(0)~0, ease(1)~1 for in/out variants; output finite
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_ANIMATION_H_
-#define HOLOSPHERE_TESTS_TEST_ANIMATION_H_
 
 #include <cstddef>
 #include "core/animation.h"
@@ -422,4 +420,3 @@ inline int run_animation_tests() {
 } // namespace animation_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_ANIMATION_H_

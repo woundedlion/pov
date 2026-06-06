@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_CANVAS_H_
-#define HOLOSPHERE_CORE_CANVAS_H_
 
 #include <cstring>
 #include <cstdio>
@@ -371,4 +369,3 @@ private:
   unsigned long start_time; /**< Tracks frame drawing duration (debug). */
 };
 
-#endif // HOLOSPHERE_CORE_CANVAS_H_

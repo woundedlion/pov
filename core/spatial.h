@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_SPATIAL_H_
-#define HOLOSPHERE_CORE_SPATIAL_H_
 
 #include <cstdint>
 #include "3dmath.h"
@@ -518,4 +516,3 @@ struct MeshState {
     }
   }
 };
-#endif // HOLOSPHERE_CORE_SPATIAL_H_

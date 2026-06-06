@@ -24,8 +24,6 @@
  *   - Plot::Star::sample / Flower::sample : unit-length, closed loop.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_PLOT_SCAN_H_
-#define HOLOSPHERE_TESTS_TEST_PLOT_SCAN_H_
 
 #include "core/plot.h"
 #include "core/scan.h"
@@ -417,4 +415,3 @@ inline int run_plot_scan_tests() {
 } // namespace plot_scan_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_PLOT_SCAN_H_

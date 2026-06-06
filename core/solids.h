@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_SOLIDS_H_
-#define HOLOSPHERE_CORE_SOLIDS_H_
 
 #include <array>
 #include "geometry.h"
@@ -788,4 +786,3 @@ FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
 }
 
 } // namespace Solids
-#endif // HOLOSPHERE_CORE_SOLIDS_H_

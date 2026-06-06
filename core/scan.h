@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_SCAN_H_
-#define HOLOSPHERE_CORE_SCAN_H_
 
 #include <utility>
 #include <functional>
@@ -820,4 +818,3 @@ struct Volume {
 };
 
 } // namespace Scan
-#endif // HOLOSPHERE_CORE_SCAN_H_

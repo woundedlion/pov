@@ -11,8 +11,6 @@
  *                           sink plot), verified to produce bounded output.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_SCAN_H_
-#define HOLOSPHERE_TESTS_TEST_SCAN_H_
 
 #include "core/scan.h"
 #include "core/filter.h"
@@ -171,4 +169,3 @@ inline int run_scan_tests() {
 } // namespace scan_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_SCAN_H_

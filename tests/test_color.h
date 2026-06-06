@@ -13,8 +13,6 @@
  *   - Gradient::get and BakedPalette::get: in-range validity + endpoint match
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_COLOR_H_
-#define HOLOSPHERE_TESTS_TEST_COLOR_H_
 
 #include <cstdint>
 
@@ -450,4 +448,3 @@ inline int run_color_tests() {
 } // namespace color_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_COLOR_H_

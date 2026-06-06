@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_CONSTANTS_H_
-#define HOLOSPHERE_CORE_CONSTANTS_H_
 
 /**
  * @brief Maximum horizontal resolution (width) for effects.
@@ -63,4 +61,3 @@ struct ClipRegion {
   }
 };
 
-#endif // HOLOSPHERE_CORE_CONSTANTS_H_

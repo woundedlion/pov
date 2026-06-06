@@ -31,8 +31,6 @@
  *     with an Arena and plot/flush driving).
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_FILTER_H_
-#define HOLOSPHERE_TESTS_TEST_FILTER_H_
 
 #include "core/filter.h"
 #include "tests/test_harness.h"
@@ -374,4 +372,3 @@ inline int run_filter_tests() {
 } // namespace filter_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_FILTER_H_

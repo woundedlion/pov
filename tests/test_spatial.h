@@ -11,8 +11,6 @@
  * slab test guards parallel rays explicitly.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_SPATIAL_H_
-#define HOLOSPHERE_TESTS_TEST_SPATIAL_H_
 
 #include <cfloat>
 #include <cstdint>
@@ -500,4 +498,3 @@ inline int run_spatial_tests() {
 } // namespace spatial
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_SPATIAL_H_

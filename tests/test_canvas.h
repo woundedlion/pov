@@ -11,8 +11,6 @@
  * Canvas (otherwise the host build would spin forever on a still-pending frame).
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_CANVAS_H_
-#define HOLOSPHERE_TESTS_TEST_CANVAS_H_
 
 #include "core/canvas.h"
 #include "tests/test_harness.h"
@@ -236,4 +234,3 @@ inline int run_canvas_tests() {
 } // namespace canvas_tests
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_CANVAS_H_

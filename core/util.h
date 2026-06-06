@@ -3,8 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#ifndef HOLOSPHERE_CORE_UTIL_H_
-#define HOLOSPHERE_CORE_UTIL_H_
 
 #include <algorithm>
 #include <cmath>
@@ -91,4 +89,3 @@ constexpr float fwd_distance(float a, float b, float m) {
   return d;
 }
 
-#endif // HOLOSPHERE_CORE_UTIL_H_

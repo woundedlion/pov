@@ -9,8 +9,6 @@
  * caller responsibilities.
  */
 #pragma once
-#ifndef HOLOSPHERE_TESTS_TEST_STATIC_CIRCULAR_BUFFER_H_
-#define HOLOSPHERE_TESTS_TEST_STATIC_CIRCULAR_BUFFER_H_
 
 #include <iterator>
 #include "core/static_circular_buffer.h"
@@ -369,4 +367,3 @@ inline int run_static_circular_buffer_tests() {
 } // namespace scb
 } // namespace hs_test
 
-#endif // HOLOSPHERE_TESTS_TEST_STATIC_CIRCULAR_BUFFER_H_
