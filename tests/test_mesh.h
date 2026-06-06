@@ -111,7 +111,7 @@ inline void test_half_edge_mesh_size_matches_input() {
   HS_EXPECT_EQ(he.vertices.size(), cube.vertices.size());
   HS_EXPECT_EQ(he.faces.size(), cube.face_counts.size());
   // One half-edge per face index.
-  HS_EXPECT_EQ(he.halfEdges.size(), cube.faces.size());
+  HS_EXPECT_EQ(he.half_edges.size(), cube.faces.size());
 }
 
 inline void test_half_edge_mesh_face_loop_closes() {
@@ -123,13 +123,13 @@ inline void test_half_edge_mesh_face_loop_closes() {
   // Walk the half-edge loop around each face and verify it closes after
   // face_counts[fi] steps.
   for (size_t fi = 0; fi < he.faces.size(); ++fi) {
-    uint16_t start = he.faces[fi].halfEdge;
+    uint16_t start = he.faces[fi].half_edge;
     uint16_t curr = start;
     int steps = 0;
     do {
       HS_EXPECT_TRUE(curr != HE_NONE);
-      HS_EXPECT_EQ(he.halfEdges[curr].face, (uint16_t)fi);
-      curr = he.halfEdges[curr].next;
+      HS_EXPECT_EQ(he.half_edges[curr].face, (uint16_t)fi);
+      curr = he.half_edges[curr].next;
       steps++;
       if (steps > 100) break; // safety
     } while (curr != start);
@@ -145,15 +145,15 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
   build_solid<Solids::Cube>(cube, arena);
   HalfEdgeMesh he(arena, cube);
 
-  for (size_t i = 0; i < he.halfEdges.size(); ++i) {
-    uint16_t pair = he.halfEdges[i].pair;
+  for (size_t i = 0; i < he.half_edges.size(); ++i) {
+    uint16_t pair = he.half_edges[i].pair;
     HS_EXPECT_TRUE(pair != HE_NONE);
-    HS_EXPECT_EQ(he.halfEdges[pair].pair, (uint16_t)i);
+    HS_EXPECT_EQ(he.half_edges[pair].pair, (uint16_t)i);
   }
 }
 
 inline void test_half_edge_mesh_euler_invariant() {
-  // V - E + F = 2 for a topological sphere. E = halfEdges/2 (each edge is two
+  // V - E + F = 2 for a topological sphere. E = half_edges/2 (each edge is two
   // half-edges).
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh cube;
@@ -161,7 +161,7 @@ inline void test_half_edge_mesh_euler_invariant() {
   HalfEdgeMesh he(arena, cube);
 
   int V = static_cast<int>(he.vertices.size());
-  int E = static_cast<int>(he.halfEdges.size()) / 2;
+  int E = static_cast<int>(he.half_edges.size()) / 2;
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V - E + F, 2);
   HS_EXPECT_EQ(V, 8);
@@ -176,7 +176,7 @@ inline void test_half_edge_mesh_euler_tetrahedron() {
   HalfEdgeMesh he(arena, tet);
 
   int V = static_cast<int>(he.vertices.size());
-  int E = static_cast<int>(he.halfEdges.size()) / 2;
+  int E = static_cast<int>(he.half_edges.size()) / 2;
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V, 4);
   HS_EXPECT_EQ(E, 6);
@@ -196,7 +196,7 @@ inline void test_half_edge_mesh_built_from_meshstate() {
   HalfEdgeMesh he(arena, ms);
   HS_EXPECT_EQ(he.vertices.size(), ms.vertices.size());
   HS_EXPECT_EQ(he.faces.size(), ms.face_counts.size());
-  HS_EXPECT_EQ(he.halfEdges.size(), ms.faces.size());
+  HS_EXPECT_EQ(he.half_edges.size(), ms.faces.size());
 }
 
 // ---------------------------------------------------------------------------

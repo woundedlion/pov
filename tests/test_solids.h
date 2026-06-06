@@ -15,7 +15,7 @@
  *     pattern can move points off the sphere), so magnitude is NOT asserted for
  *     those — only finiteness + structural invariants.
  *   - Euler characteristic V - E + F == 2 for the hardcoded closed Platonic
- *     solids, using the half-edge edge count (E = halfEdges/2) as in
+ *     solids, using the half-edge edge count (E = half_edges/2) as in
  *     test_mesh.h.
  *   - Bounds: get_entry() out-of-range and get_by_name() unknown name now TRAP
  *     (fail-fast), so only the valid boundary (last index) is exercised here.
@@ -154,7 +154,7 @@ inline void test_registry_count_matches_collections() {
 
 // ---------------------------------------------------------------------------
 // Euler characteristic V - E + F == 2 for the closed hardcoded Platonic
-// solids. We build the half-edge mesh and count edges as halfEdges/2, exactly
+// solids. We build the half-edge mesh and count edges as half_edges/2, exactly
 // as test_mesh.h does.
 // ---------------------------------------------------------------------------
 
@@ -167,7 +167,7 @@ inline void check_euler_for_index(size_t index) {
   HalfEdgeMesh he(he_arena, m);
 
   int V = static_cast<int>(he.vertices.size());
-  int E = static_cast<int>(he.halfEdges.size()) / 2;
+  int E = static_cast<int>(he.half_edges.size()) / 2;
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V - E + F, 2);
 }

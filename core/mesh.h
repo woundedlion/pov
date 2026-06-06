@@ -37,7 +37,7 @@ struct PolyMesh {
 
   // Cache
   mutable bool cache_valid = false;
-  mutable KDTree kdTree;
+  mutable KDTree kd_tree;
 
   PolyMesh() = default;
 
@@ -59,7 +59,7 @@ struct PolyMesh {
 
   void clear_cache() const {
     cache_valid = false;
-    kdTree.clear();
+    kd_tree.clear();
   }
 
   // Unified accessors (PolyMesh always owns, so these just forward)
@@ -81,12 +81,12 @@ struct HalfEdge {
 };
 
 struct HEVertex {
-  uint16_t halfEdge =
+  uint16_t half_edge =
       HE_NONE; /**< One of the half-edges pointing to this vertex. */
 };
 
 struct HEFace {
-  uint16_t halfEdge =
+  uint16_t half_edge =
       HE_NONE; /**< One of the half-edges bordering this face. */
 };
 
@@ -134,7 +134,7 @@ class HalfEdgeMesh {
 public:
   ArenaVector<HEVertex> vertices;
   ArenaVector<HEFace> faces;
-  ArenaVector<HalfEdge> halfEdges;
+  ArenaVector<HalfEdge> half_edges;
 
   explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
     build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
@@ -158,7 +158,7 @@ private:
     }
 
     faces.bind(arena, num_faces);
-    halfEdges.bind(arena, total_indices);
+    half_edges.bind(arena, total_indices);
 
     size_t face_offset = 0;
     size_t he_idx = 0;
@@ -174,40 +174,40 @@ private:
         int count = counts[fi];
 
         faces.emplace_back();
-        uint16_t currentFaceIdx = static_cast<uint16_t>(faces.size() - 1);
-        size_t faceStartHeIdx = he_idx;
+        uint16_t current_face_idx = static_cast<uint16_t>(faces.size() - 1);
+        size_t face_start_he_idx = he_idx;
 
         for (int i = 0; i < count; ++i) {
-          halfEdges.emplace_back();
+          half_edges.emplace_back();
         }
 
         for (int i = 0; i < count; ++i) {
           uint16_t u = faces_arr[face_offset + i];
           uint16_t v = faces_arr[face_offset + (i + 1) % count];
 
-          uint16_t heIdx = static_cast<uint16_t>(faceStartHeIdx + i);
-          HalfEdge &he = halfEdges[heIdx];
+          uint16_t he_index = static_cast<uint16_t>(face_start_he_idx + i);
+          HalfEdge &he = half_edges[he_index];
           he.vertex = v;
-          he.face = currentFaceIdx;
-          he.next = static_cast<uint16_t>(faceStartHeIdx + (i + 1) % count);
+          he.face = current_face_idx;
+          he.next = static_cast<uint16_t>(face_start_he_idx + (i + 1) % count);
           he.prev =
-              static_cast<uint16_t>(faceStartHeIdx + (i - 1 + count) % count);
+              static_cast<uint16_t>(face_start_he_idx + (i - 1 + count) % count);
 
-          vertices[v].halfEdge = heIdx;
+          vertices[v].half_edge = he_index;
 
           records[he_idx].min_v = std::min(u, v);
           records[he_idx].max_v = std::max(u, v);
-          records[he_idx].he = heIdx;
+          records[he_idx].he = he_index;
 
           he_idx++;
         }
-        faces[currentFaceIdx].halfEdge = static_cast<uint16_t>(faceStartHeIdx);
+        faces[current_face_idx].half_edge = static_cast<uint16_t>(face_start_he_idx);
         face_offset += count;
       }
 
       pair_half_edges(records, total_indices, [&](uint16_t a, uint16_t b) {
-        halfEdges[a].pair = b;
-        halfEdges[b].pair = a;
+        half_edges[a].pair = b;
+        half_edges[b].pair = a;
       });
     }
   }
@@ -338,23 +338,23 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   size_t F = mesh.face_counts.size();
   size_t I = mesh.faces.size();
 
-  ArenaVector<uint32_t> faceHashes;
-  faceHashes.bind(scratch_a, F);
+  ArenaVector<uint32_t> face_hashes;
+  face_hashes.bind(scratch_a, F);
 
-  ArenaVector<uint32_t> finalHashes;
-  finalHashes.bind(scratch_a, F);
+  ArenaVector<uint32_t> final_hashes;
+  final_hashes.bind(scratch_a, F);
 
   // Find max face vertex count for scratch allocation
-  int maxCount = 0;
+  int max_count = 0;
   for (size_t i = 0; i < F; ++i) {
     int c = mesh.face_counts[i];
-    if (c > maxCount) maxCount = c;
+    if (c > max_count) max_count = c;
   }
 
   ArenaVector<Vector> verts;
-  verts.bind(scratch_a, maxCount);
+  verts.bind(scratch_a, max_count);
   ArenaVector<int> angles;
-  angles.bind(scratch_a, maxCount);
+  angles.bind(scratch_a, max_count);
 
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
@@ -385,21 +385,21 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       hash_combine(h, static_cast<uint32_t>(angles[k]));
     }
     h = fmix32(h);
-    faceHashes.push_back(h);
-    finalHashes.push_back(h);
+    face_hashes.push_back(h);
+    final_hashes.push_back(h);
     offset += count;
   }
 
   {
     ScratchScope temp_topo(scratch_a);
 
-    uint16_t *heToFace =
+    uint16_t *he_to_face =
         static_cast<uint16_t *>(scratch_a.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
-    uint16_t *pairArray =
+    uint16_t *pair_array =
         static_cast<uint16_t *>(scratch_a.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
-    std::fill_n(pairArray, I, HE_NONE);
+    std::fill_n(pair_array, I, HE_NONE);
 
     {
       ScratchScope temp_records(scratch_b);
@@ -417,33 +417,33 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
           records[he_idx].min_v = std::min(u, v);
           records[he_idx].max_v = std::max(u, v);
           records[he_idx].he = static_cast<uint16_t>(he_idx);
-          heToFace[he_idx] = static_cast<uint16_t>(fi);
+          he_to_face[he_idx] = static_cast<uint16_t>(fi);
           he_idx++;
         }
         face_offset += count;
       }
 
       pair_half_edges(records, I, [&](uint16_t a, uint16_t b) {
-        pairArray[a] = b;
-        pairArray[b] = a;
+        pair_array[a] = b;
+        pair_array[b] = a;
       });
     }
 
     offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
       int count = mesh.face_counts[fi];
-      uint32_t neighborAcc = 0;
+      uint32_t neighbor_acc = 0;
       for (int k = 0; k < count; ++k) {
-        uint16_t pIdx = pairArray[offset + k];
-        if (pIdx != HE_NONE) {
-          uint32_t neigh_h = faceHashes[heToFace[pIdx]];
+        uint16_t p_idx = pair_array[offset + k];
+        if (p_idx != HE_NONE) {
+          uint32_t neigh_h = face_hashes[he_to_face[p_idx]];
           hash_combine(neigh_h, 0);
-          neighborAcc += fmix32(neigh_h);
+          neighbor_acc += fmix32(neigh_h);
         }
       }
-      uint32_t final_h = faceHashes[fi];
-      hash_combine(final_h, neighborAcc);
-      finalHashes[fi] = fmix32(final_h);
+      uint32_t final_h = face_hashes[fi];
+      hash_combine(final_h, neighbor_acc);
+      final_hashes[fi] = fmix32(final_h);
       offset += count;
     }
   }
@@ -456,7 +456,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       scratch_a.allocate(F * sizeof(HashNode), alignof(HashNode)));
 
   for (size_t fi = 0; fi < F; ++fi) {
-    nodes[fi] = {finalHashes[fi], static_cast<int>(fi)};
+    nodes[fi] = {final_hashes[fi], static_cast<int>(fi)};
   }
 
   auto hash_greater = [](const HashNode &a, const HashNode &b) {
@@ -474,13 +474,13 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   }
 
   if (F > 0) {
-    int currentID = 0;
+    int current_id = 0;
     mesh.topology[nodes[0].original_face] = 0;
     for (size_t i = 1; i < F; ++i) {
       if (nodes[i].hash != nodes[i - 1].hash) {
-        currentID++;
+        current_id++;
       }
-      mesh.topology[nodes[i].original_face] = currentID;
+      mesh.topology[nodes[i].original_face] = current_id;
     }
   }
 }

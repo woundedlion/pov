@@ -395,7 +395,7 @@ struct MeshState {
   ArenaVector<int> topology;
 
   // Cache
-  mutable KDTree kdTree;
+  mutable KDTree kd_tree;
   mutable bool cache_valid = false;
 
   // Borrowed (non-owning) views — populated by MeshOps::transform
@@ -449,7 +449,7 @@ struct MeshState {
     faces_view = {};
     face_offsets_view = {};
     cache_valid = false;
-    kdTree.clear();
+    kd_tree.clear();
   }
 
   /// Check if any member vector is bound (has been allocated).

@@ -95,18 +95,18 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
     auto getMidpointIdx = [&](uint16_t heIdx) {
       if (heToMidpointIdx[heIdx] != HE_NONE)
         return heToMidpointIdx[heIdx];
-      HalfEdge &he = heMesh.halfEdges[heIdx];
+      HalfEdge &he = heMesh.half_edges[heIdx];
       if (he.pair != HE_NONE && heToMidpointIdx[he.pair] != HE_NONE)
         return heToMidpointIdx[he.pair];
 
       // A closed-manifold half-edge always has a valid prev (interior face
       // loop). If both prev and pair are HE_NONE the edge is degenerate /
       // non-manifold and the he.pair fallback below would read
-      // halfEdges[HE_NONE] out of bounds — trap on the bad input instead.
+      // half_edges[HE_NONE] out of bounds — trap on the bad input instead.
       HS_CHECK(he.prev != HE_NONE || he.pair != HE_NONE);
       Vector pA = he.prev != HE_NONE
-                      ? mesh.vertices[heMesh.halfEdges[he.prev].vertex]
-                      : mesh.vertices[heMesh.halfEdges[he.pair].vertex];
+                      ? mesh.vertices[heMesh.half_edges[he.prev].vertex]
+                      : mesh.vertices[heMesh.half_edges[he.pair].vertex];
       Vector pB = mesh.vertices[he.vertex];
       Vector mid = (pA + pB) * 0.5f;
       mid.normalize();
@@ -119,7 +119,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       return idx;
     };
 
-    for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    for (size_t i = 0; i < heMesh.half_edges.size(); ++i) {
       getMidpointIdx(static_cast<uint16_t>(i));
     }
 
@@ -128,7 +128,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
     // Star faces
     for (size_t i = 0; i < heMesh.faces.size(); ++i) {
       HEFace &face = heMesh.faces[i];
-      uint16_t heIdx = face.halfEdge;
+      uint16_t heIdx = face.half_edge;
       uint16_t startHe = heIdx;
       int count = 0;
 
@@ -137,18 +137,18 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
 
       do {
         count += 2;
-        HalfEdge &currHe = heMesh.halfEdges[heIdx];
+        HalfEdge &currHe = heMesh.half_edges[heIdx];
         uint16_t prevIdx = currHe.prev;
 
         int idxM1 = getMidpointIdx(prevIdx);
         int idxM2 = getMidpointIdx(heIdx);
 
-        HalfEdge &prevHe = heMesh.halfEdges[prevIdx];
+        HalfEdge &prevHe = heMesh.half_edges[prevIdx];
 
         uint16_t iCorner = prevHe.vertex;
         uint16_t iPrev = prevHe.prev != HE_NONE
-                             ? heMesh.halfEdges[prevHe.prev].vertex
-                             : heMesh.halfEdges[prevHe.pair].vertex;
+                             ? heMesh.half_edges[prevHe.prev].vertex
+                             : heMesh.half_edges[prevHe.pair].vertex;
         uint16_t iNext = currHe.vertex;
 
         compiled.dynamicInstructions.push_back({iCorner, iPrev, iNext,
@@ -179,10 +179,10 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
     int16_t *face_indices = static_cast<int16_t *>(
         temp_arena.allocate(2 * I * sizeof(int16_t), alignof(int16_t)));
 
-    for (size_t i = 0; i < heMesh.halfEdges.size(); ++i) {
+    for (size_t i = 0; i < heMesh.half_edges.size(); ++i) {
       uint16_t heStartIdx = static_cast<uint16_t>(i);
-      const HalfEdge &heStart = heMesh.halfEdges[heStartIdx];
-      uint16_t originIdx = heMesh.halfEdges[heStart.prev].vertex;
+      const HalfEdge &heStart = heMesh.half_edges[heStartIdx];
+      uint16_t originIdx = heMesh.half_edges[heStart.prev].vertex;
       if (visitedVerts[originIdx])
         continue;
       visitedVerts[originIdx] = true;
@@ -192,11 +192,11 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       int count = 0;
 
       do {
-        const HalfEdge &currHe = heMesh.halfEdges[currIdx];
+        const HalfEdge &currHe = heMesh.half_edges[currIdx];
         HS_CHECK(count < (int)(2 * I));
         face_indices[count++] = heToMidpointIdx[currIdx];
         uint16_t nextEdgeIdx = currHe.pair != HE_NONE
-                                   ? heMesh.halfEdges[currHe.pair].next
+                                   ? heMesh.half_edges[currHe.pair].next
                                    : HE_NONE;
         if (nextEdgeIdx == HE_NONE)
           break;
