@@ -1811,6 +1811,14 @@ The suite must use Clang — the engine relies on GCC/Clang `__attribute__` exte
 
 Coverage spans the math/geometry/memory core, color, easing/waves, the reaction-diffusion graph integrity, filters, the plot samplers, solids-registry invariants, animation, and an effect smoke harness that constructs and renders every effect at 288×144 with asserts on. `tests/run_tests.cpp` is the driver; add a `tests/test_<module>.h` and one line there to extend it.
 
+#### Continuous testing
+
+Three layers run the same suite so a regression can't reach the live demo:
+
+- **Local pre-commit hook** ([`.githooks/pre-commit`](.githooks/pre-commit)) — builds + runs the suite before each commit. **On by default (opt-out):** configuring the `tests` preset points `core.hooksPath` at `.githooks` automatically. Skip a single commit with `HS_SKIP_TESTS=1 git commit …` (or `--no-verify`); disable the auto-enable with `-DHS_INSTALL_GIT_HOOKS=OFF`. Doc-only commits skip the suite.
+- **Presubmit CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — runs the native suite *and* compiles the WASM module on every push and pull request.
+- **Gated deploy** ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) — on a push to `master`, the suite runs as a **gate** (`publish` `needs: tests`); only if it passes does CI build the optimized WASM and publish `holosphere_wasm.{js,wasm}` + this README + screenshots into the `daydream` checkout, which serves the live demo via GitHub Pages. Requires a `DAYDREAM_DEPLOY_TOKEN` secret (a PAT with `Contents:write` on `daydream`).
+
 ### Running the Simulator — daydream repo
 
 The simulator is a static web app. Serve the daydream directory from any HTTP server:

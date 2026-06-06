@@ -1,0 +1,76 @@
+# Gated deployment — on a push to master, run the native unit suite as a GATE,
+# then build the optimized WASM module and publish it into the daydream repo
+# (which serves https://woundedlion.github.io/daydream/ via GitHub Pages from
+# its master branch). The `publish` job `needs: tests`, so a failing suite blocks
+# the deploy. Only generated files are pushed (holosphere_wasm.{js,wasm},
+# README.md, docs/screenshots) — daydream's hand-edited JS is never touched.
+#
+# REQUIRED SECRET: DAYDREAM_DEPLOY_TOKEN — a fine-grained PAT (or classic PAT
+# with `repo` scope) that has Contents:write on woundedlion/daydream. The
+# built-in GITHUB_TOKEN cannot push to a different repository.
+#   Add at: pov repo → Settings → Secrets and variables → Actions → New secret.
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Native unit tests (deploy gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Clang + Ninja
+        run: sudo apt-get update && sudo apt-get install -y clang ninja-build
+      - run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+      - run: cmake --build --preset tests
+      - run: ctest --preset tests --output-on-failure
+
+  publish:
+    name: Build WASM + publish to daydream
+    needs: tests                 # ← deployment gated on the suite passing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pov (Holosphere)
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 5.0.0
+
+      - name: Checkout daydream
+        uses: actions/checkout@v4
+        with:
+          repository: woundedlion/daydream
+          token: ${{ secrets.DAYDREAM_DEPLOY_TOKEN }}
+          path: daydream
+
+      - name: Build WASM + install into daydream
+        run: |
+          cmake --preset wasm-release -DDAYDREAM_DIR="$GITHUB_WORKSPACE/daydream"
+          cmake --build --preset wasm-release-install
+
+      - name: Commit + push to daydream (deploys via Pages)
+        working-directory: daydream
+        run: |
+          git config user.name  "holosphere-ci[bot]"
+          git config user.email "holosphere-ci@users.noreply.github.com"
+          git add holosphere_wasm.js holosphere_wasm.wasm README.md docs/screenshots
+          if git diff --cached --quiet; then
+            echo "No WASM/README/screenshot changes to publish."
+          else
+            git commit -m "Deploy WASM from pov@${GITHUB_SHA::7} (unit tests passed)"
+            git push
+          fi

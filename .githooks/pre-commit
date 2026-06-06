@@ -1,18 +1,26 @@
 #!/bin/sh
-# Holosphere pre-commit hook — build and run the native unit tests, and abort
-# the commit if anything fails.
+# Holosphere pre-commit hook — build and run the native unit tests, aborting the
+# commit if anything fails.
 #
-# Enable for this checkout with:
+# ON BY DEFAULT (opt-out). Configuring the `tests` CMake preset enables it
+# automatically (core.hooksPath=.githooks; see CMakeLists.txt). To enable it by
+# hand for a fresh clone:
 #     git config core.hooksPath .githooks
-# Bypass a single commit with:
-#     git commit --no-verify
 #
-# Uses the CMake "tests" preset (Ninja + the auto-located Clang toolchain — the
-# same path as build_tests.bat). Configure is cached and builds are incremental,
-# so a typical commit only pays the changed-file rebuild plus the ~4s test run.
-# Doc-only commits skip the suite entirely.
+# Opt OUT of a single commit:
+#     HS_SKIP_TESTS=1 git commit ...        (or:  git commit --no-verify)
+#
+# Uses the CMake "tests" preset (Ninja + auto-located Clang). Configure is cached
+# and builds are incremental, so a typical commit pays only the changed-file
+# rebuild plus the ~4s test run. Doc-only commits skip the suite entirely.
 
 set -e
+
+# Per-commit opt-out.
+if [ -n "$HS_SKIP_TESTS" ]; then
+  echo "[pre-commit] HS_SKIP_TESTS set — skipping unit tests."
+  exit 0
+fi
 
 # Run only when C++/CMake/test sources are staged; skip doc-only commits.
 CHANGED="$(git diff --cached --name-only --diff-filter=ACM)"
@@ -24,7 +32,7 @@ fi
 echo "[pre-commit] Building + running unit tests (cmake --preset tests)..."
 if ! { cmake --preset tests && cmake --build --preset tests && ctest --preset tests --output-on-failure; }; then
   echo "[pre-commit] Unit tests FAILED — commit aborted."
-  echo "[pre-commit] (fix the tests, or bypass once with: git commit --no-verify)"
+  echo "[pre-commit] (fix the tests, or bypass once with: HS_SKIP_TESTS=1 git commit  /  --no-verify)"
   exit 1
 fi
 

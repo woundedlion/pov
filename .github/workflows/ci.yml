@@ -1,0 +1,69 @@
+# Presubmit CI — builds and runs the native unit suite, and compiles the WASM
+# module, on every push and pull request. This is the cloud counterpart of the
+# local .githooks/pre-commit gate (which is opt-out / on by default).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Native unit tests (Clang)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang + Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build
+          # cmake is preinstalled on GitHub runners (>= 3.21 required).
+
+      # The 'tests' preset's toolchain falls back to clang/clang++ on PATH when
+      # EMSDK is unset (Linux CI). Don't auto-touch git config in CI.
+      - name: Configure
+        run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+
+      - name: Build
+        run: cmake --build --preset tests
+
+      - name: Test
+        run: ctest --preset tests --output-on-failure
+
+  wasm:
+    name: WASM build (Emscripten)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      # Pinned to match the local toolchain (emsdk 5.0.0). Bump deliberately.
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 5.0.0
+
+      - name: Configure + build WASM (compile check)
+        run: |
+          cmake --preset wasm-release
+          cmake --build --preset wasm-release
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: holosphere_wasm
+          path: |
+            build/wasm-release/holosphere_wasm.js
+            build/wasm-release/holosphere_wasm.wasm
+          if-no-files-found: error
