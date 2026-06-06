@@ -1816,8 +1816,8 @@ Coverage spans the math/geometry/memory core, color, easing/waves, the reaction-
 Three layers run the same suite so a regression can't reach the live demo:
 
 - **Local pre-commit hook** ([`.githooks/pre-commit`](.githooks/pre-commit)) — builds + runs the suite before each commit. **On by default (opt-out):** configuring the `tests` preset points `core.hooksPath` at `.githooks` automatically. Skip a single commit with `HS_SKIP_TESTS=1 git commit …` (or `--no-verify`); disable the auto-enable with `-DHS_INSTALL_GIT_HOOKS=OFF`. Doc-only commits skip the suite.
-- **Presubmit CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — runs the native suite *and* compiles the WASM module on every push and pull request.
-- **Gated deploy** ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) — on a push to `master`, the suite runs as a **gate** (`publish` `needs: tests`); only if it passes does CI build the optimized WASM and publish `holosphere_wasm.{js,wasm}` + this README + screenshots into the `daydream` checkout, which serves the live demo via GitHub Pages. Requires a `DAYDREAM_DEPLOY_TOKEN` secret (a PAT with `Contents:write` on `daydream`).
+- **Presubmit CI** (`.github/workflows/ci.yml`, Holosphere repo) — runs the native suite *and* compiles the WASM module on every push and pull request.
+- **Gated deploy** (`.github/workflows/deploy.yml`, **daydream repo**) — daydream's GitHub Pages source is *GitHub Actions*. On a push to daydream's `master` (or manual dispatch), the engine's native unit suite runs as a **gate** (`deploy` `needs: gate`, checking out the engine repo); only if it passes does the workflow publish the simulator to Pages. The engine's WASM is whatever is committed in daydream (built + installed from Holosphere). If the engine repo is private, add a `POV_TOKEN` secret (a read-access PAT) for the gate's checkout.
 
 ### Running the Simulator — daydream repo
 
