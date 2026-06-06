@@ -72,50 +72,10 @@ inline void disable_interrupts() { noInterrupts(); }
 /** @brief Enables interrupts (Arduino). */
 inline void enable_interrupts() { interrupts(); }
 
-/**
- * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
- * @return A random float in the range [0.0, 1.0].
- */
-inline float rand_f() {
-  return static_cast<float>(hs::random()()) /
-         static_cast<float>(hs::random().max());
-}
-
-inline float rand_f(float min, float max) {
-  return min + rand_f() * (max - min);
-}
-
-/**
- * @brief Generates a pseudo-random integer within a specified range.
- * @param min The minimum value (inclusive).
- * @param max The maximum value (exclusive).
- * @return A random integer in the range [min, max).
- */
-inline int rand_int(int min, int max) {
-  if (max > min) {
-    return min + (hs::random()() % (max - min));
-  }
-  return min;
-}
-
 // Global state
 inline bool debug = false;
-
-struct ScanMetrics {
-  uint32_t plot = 0;
-  uint32_t sdf_dist = 0;
-  uint32_t frag_shader = 0;
-  uint32_t bounds = 0;
-  uint32_t face_setup = 0;
-  uint32_t scan_loop = 0;
-  uint32_t pixels_tested = 0;
-  uint32_t pixels_culled = 0;
-  uint32_t lut_hits = 0;
-  uint32_t exact_hits = 0;
-  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = lut_hits = exact_hits = 0; }
-};
-inline ScanMetrics g_scan_metrics;
-inline uint32_t g_plot_cycles = 0;  // kept for backward compat
+// rand_f/rand_int and ScanMetrics are platform-agnostic — defined once in the
+// shared hs namespace after the #endif below.
 
 #ifdef CORE_TEENSY
 #define HS_OS_CYCLES() ARM_DWT_CYCCNT
@@ -431,12 +391,34 @@ inline unsigned long micros() {
 inline void disable_interrupts() {}
 inline void enable_interrupts() {}
 
+// Global state
+inline bool debug = false;
+// rand_f/rand_int and ScanMetrics are platform-agnostic — defined once in the
+// shared hs namespace after the #endif below.
+#define HS_OS_CYCLES() 0
+
+static constexpr int H_OFFSET = 0;
+} // namespace hs
+
+// Global millis/micros if needed, though prefer namespaced
+inline unsigned long millis() { return hs::millis(); }
+inline unsigned long micros() { return hs::micros(); }
+
+#endif
+
+// ---------------------------------------------------------------------------
+// Platform-agnostic hs:: helpers (defined once; both branches above provide
+// hs::random()). Hoisted out of the per-platform #if to remove duplication.
+// ---------------------------------------------------------------------------
+namespace hs {
+
 /**
  * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
  * @return A random float in the range [0.0, 1.0].
  */
 inline float rand_f() {
-  return static_cast<float>(hs::random()()) / static_cast<float>(hs::random().max());
+  return static_cast<float>(hs::random()()) /
+         static_cast<float>(hs::random().max());
 }
 
 inline float rand_f(float min, float max) {
@@ -456,9 +438,7 @@ inline int rand_int(int min, int max) {
   return min;
 }
 
-// Global state
-inline bool debug = false;
-
+/** @brief Scanline profiling counters (platform-agnostic). */
 struct ScanMetrics {
   uint32_t plot = 0;
   uint32_t sdf_dist = 0;
@@ -473,17 +453,9 @@ struct ScanMetrics {
   void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = lut_hits = exact_hits = 0; }
 };
 inline ScanMetrics g_scan_metrics;
-inline uint32_t g_plot_cycles = 0;
-#define HS_OS_CYCLES() 0
+inline uint32_t g_plot_cycles = 0; // kept for backward compat
 
-static constexpr int H_OFFSET = 0;
 } // namespace hs
-
-// Global millis/micros if needed, though prefer namespaced
-inline unsigned long millis() { return hs::millis(); }
-inline unsigned long micros() { return hs::micros(); }
-
-#endif
 
 // ---------------------------------------------------------------------------
 // Fn<Sig, Cap> — platform-aware callable wrapper
