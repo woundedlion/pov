@@ -1914,6 +1914,20 @@ public:
     persistent_arena.reset();
   }
 
+  /// Free the back slot and compact, preserving only the front slot. Runs
+  /// `after_reset(persistent_arena)` immediately after the reset — while the
+  /// front slot is still evacuated — so the caller can re-bake effect-owned
+  /// persistent data (e.g. a palette bank) into the fresh arena *before* the
+  /// front mesh is restored on top of it. Use when only the visible (front)
+  /// shape must survive a regeneration of the back slot.
+  template <typename AfterReset> void compact_keep_front(AfterReset after_reset) {
+    int back = 1 - front_;
+    slots_[back] = MeshState();
+    Persist<MeshState> p(slots_[front_], scratch_arena_b, persistent_arena);
+    persistent_arena.reset();
+    after_reset(persistent_arena);
+  }
+
 private:
   MeshState slots_[2];
   int front_ = 0;
