@@ -235,19 +235,19 @@ inline void test_vector_normalize() {
   HS_EXPECT_NEAR(v.length(), 1.0f, 1e-6f);
   HS_EXPECT_VEC(v, Vector(0.6f, 0.0f, 0.8f), 1e-6f);
 
-  // Zero-vector fallback returns canonical +X
-  Vector z(0, 0, 0);
-  z.normalize();
-  HS_EXPECT_VEC(z, Vector(1, 0, 0), 1e-6f);
-
   // normalized() does not mutate the source
   Vector u(0, 5, 0);
   Vector n = u.normalized();
   HS_EXPECT_VEC(u, Vector(0, 5, 0), 1e-6f);
   HS_EXPECT_VEC(n, Vector(0, 1, 0), 1e-6f);
 
-  // normalized() zero fallback
-  HS_EXPECT_VEC(Vector(0, 0, 0).normalized(), Vector(1, 0, 0), 1e-6f);
+  // A zero-length vector now traps under the strict normalize()/normalized();
+  // the guarded normalized_or() returns the supplied fallback, and a non-zero
+  // vector normalizes as usual.
+  HS_EXPECT_VEC(normalized_or(Vector(0, 0, 0), Vector(1, 0, 0)), Vector(1, 0, 0),
+                1e-6f);
+  HS_EXPECT_VEC(normalized_or(Vector(0, 6, 0), Vector(1, 0, 0)), Vector(0, 1, 0),
+                1e-6f);
 }
 
 // ============================================================================
@@ -293,8 +293,8 @@ inline void test_angle_between_vectors() {
   HS_EXPECT_NEAR(angle_between(x, -x), PI_F, 1e-3f);
   // Independent of magnitude
   HS_EXPECT_NEAR(angle_between(x * 5.0f, y * 0.3f), PI_F * 0.5f, 1e-3f);
-  // Zero vector → returns 0 (degenerate guard)
-  HS_EXPECT_NEAR(angle_between(Vector(0, 0, 0), x), 0.0f, 1e-6f);
+  // A zero-length operand now traps (HS_CHECK) rather than returning 0, so it
+  // is no longer exercised here — see normalized_or() for the guarded path.
 }
 
 // ============================================================================
@@ -395,10 +395,7 @@ inline void test_quaternion_normalize() {
   HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-6f);
   HS_EXPECT_QUAT(p, Quaternion(1, 0, 0, 0), 1e-6f);
 
-  // Zero-quaternion fallback
-  Quaternion z(0, 0, 0, 0);
-  z.normalize();
-  HS_EXPECT_QUAT(z, Quaternion(1, 0, 0, 0), 1e-6f);
+  // A zero-magnitude quaternion now traps (HS_CHECK) rather than falling back.
 
   // normalized() does not mutate
   Quaternion u(3, 0, 0, 0);

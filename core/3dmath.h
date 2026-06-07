@@ -172,7 +172,7 @@ struct Vector {
     return *this;
   }
   Vector &operator/=(float s) {
-    assert(s != 0.0f && "Vector /= by zero");
+    HS_CHECK(s != 0.0f);
     x /= s;
     y /= s;
     z /= s;
@@ -196,23 +196,19 @@ struct Vector {
    */
   void normalize() {
     float m = length();
-    if (m < std::numeric_limits<float>::epsilon()) {
-      hs::log("Can't normalize a zero vector!");
-      x = 1;
-      y = z = 0;
-    } else {
-      x = x / m;
-      y = y / m;
-      z = z / m;
-    }
+    HS_CHECK(m >= std::numeric_limits<float>::epsilon());
+    x = x / m;
+    y = y / m;
+    z = z / m;
   }
 
   /// Return a unit-length copy without mutating `this`.
+  /// Traps on a zero-length vector — a degenerate input is a logic bug. Sites
+  /// where a zero vector is a legitimate geometric edge (antipodal/coincident/
+  /// pole/singularity) must use normalized_or() with an explicit fallback.
   [[nodiscard]] Vector normalized() const {
     float m = length();
-    if (m < std::numeric_limits<float>::epsilon()) {
-      return Vector(1, 0, 0); // degenerate fallback
-    }
+    HS_CHECK(m >= std::numeric_limits<float>::epsilon());
     return Vector(x / m, y / m, z / m);
   }
 
@@ -220,6 +216,25 @@ struct Vector {
   float y = 0; /**< Y-component. */
   float z = 0; /**< Z-component. */
 };
+
+/**
+ * @brief Normalize, returning `fallback` when the vector is degenerate (zero
+ * length) instead of trapping.
+ *
+ * The strict Vector::normalized() traps on a zero-length input so that an
+ * unexpected zero surfaces as a bug. Use this variant at the handful of sites
+ * where a zero vector is a *legitimate* geometric edge that arises during
+ * normal animation — antipodal endpoints, a Hopf-fiber pole, a Möbius
+ * singularity — so the degeneracy degrades gracefully to a stable direction.
+ */
+[[nodiscard]] inline Vector normalized_or(const Vector &v,
+                                          const Vector &fallback) {
+  float m = v.length();
+  if (m < std::numeric_limits<float>::epsilon()) {
+    return fallback;
+  }
+  return Vector(v.x / m, v.y / m, v.z / m);
+}
 
 /**
  * @brief Constructs a Spherical coordinate from a 3D Vector.
@@ -365,8 +380,7 @@ struct Quaternion {
    * Equivalent to conjugate() when |q| == 1.
    */
   [[nodiscard]] Quaternion unit_inverse() const {
-    assert(std::abs(squared_magnitude() - 1.0f) < 0.01f &&
-           "unit_inverse() called on non-unit quaternion");
+    HS_CHECK(std::abs(squared_magnitude() - 1.0f) < 0.01f);
     return conjugate();
   }
 
@@ -396,22 +410,16 @@ struct Quaternion {
    */
   void normalize() {
     auto m = magnitude();
-    if (m <= std::numeric_limits<float>::epsilon()) {
-      hs::log("Can't normalize a zero Quaternion!");
-      r = 1;
-      v = Vector(0, 0, 0);
-    } else {
-      r = r / m;
-      v = v / m;
-    }
+    HS_CHECK(m > std::numeric_limits<float>::epsilon());
+    r = r / m;
+    v = v / m;
   }
 
   /// Return a unit-magnitude copy without mutating `this`.
+  /// Traps on a zero-magnitude quaternion — a degenerate input is a logic bug.
   [[nodiscard]] Quaternion normalized() const {
     float m = magnitude();
-    if (m <= std::numeric_limits<float>::epsilon()) {
-      return Quaternion(1, 0, 0, 0);
-    }
+    HS_CHECK(m > std::numeric_limits<float>::epsilon());
     return Quaternion(r / m, v / m);
   }
 
@@ -722,10 +730,7 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
  */
 inline float angle_between(const Vector &v1, const Vector &v2) {
   float len_product = v1.length() * v2.length();
-  if (len_product <= std::numeric_limits<float>::epsilon()) {
-    hs::log("Cannot calculate angle between 0-vectors!");
-    return 0;
-  }
+  HS_CHECK(len_product > std::numeric_limits<float>::epsilon());
   float d = dot(v1, v2) / len_product;
   return fast_acos(hs::clamp(d, -1.0f, 1.0f));
 }

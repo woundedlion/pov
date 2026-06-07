@@ -493,6 +493,10 @@ struct Shader {
     constexpr float w_float = static_cast<float>(W);
 
     const auto &cr = canvas.clip();
+    // LUT-domain invariant (checked once per draw, not per pixel): every (x,y)
+    // the loops feed to pixel_to_vector indexes the trig LUTs within bounds.
+    HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
+             cr.render_y_end() <= PhiLUT<H>::H_VIRT);
 
     if constexpr (SAMPLES == 1) {
       // 1× — single sample at pixel center (no SSAA)
@@ -576,6 +580,8 @@ struct Shader {
 
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
+      HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
+               cr.render_y_end() <= PhiLUT<H>::H_VIRT);
       #ifdef __EMSCRIPTEN__
       double _t0 = emscripten_get_now();
       #endif
@@ -610,6 +616,8 @@ struct Shader {
       }();
 
       const auto &cr = canvas.clip();
+      HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
+               cr.render_y_end() <= PhiLUT<H>::H_VIRT);
       #ifdef __EMSCRIPTEN__
       double _t0 = emscripten_get_now();
       #endif

@@ -168,9 +168,11 @@ private:
     q2 = q1 * sy + q2 * cy;
     q1 = q1_r;
 
-    // Stereographic S3 → R3
+    // Stereographic S3 → R3. At a fiber pole (q0=q1=q2=0) the projected
+    // direction is undefined; fall back to a stable axis instead of trapping.
     float factor = 1.0f / (1.001f - q3);
-    return Vector(q0 * factor, q1 * factor, q2 * factor).normalized();
+    return normalized_or(Vector(q0 * factor, q1 * factor, q2 * factor),
+                         Vector(1, 0, 0));
   }
 
   void render_trails(Canvas &canvas) {

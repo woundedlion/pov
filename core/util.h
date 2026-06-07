@@ -14,8 +14,7 @@
 
 /**
  * @brief Wraps a floating-point value around a modulo base (m).
- * @details Ensures the result is always non-negative and correctly handles
- * small floating-point zero values.
+ * @details Ensures the result is always non-negative and in [0, m).
  * @tparam T The type of the value being wrapped (e.g., float).
  * @tparam U The type of the modulo base.
  * @param x The value to wrap.
@@ -23,10 +22,6 @@
  * @return The wrapped value in the range [0, m).
  */
 template <typename T, typename U> inline T wrap(T x, U m) {
-  if (std::abs(x) < TOLERANCE) {
-    return 0;
-  }
-
   T r = std::fmod(x, m);
   if (r < 0) {
     r += m;

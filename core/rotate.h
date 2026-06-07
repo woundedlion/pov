@@ -14,14 +14,8 @@ static constexpr float radians = PI_F / 180;
 /** @brief Multiplication factor to convert radians to degrees. */
 static constexpr float degrees = 180 / PI_F;
 
-/** @brief Wraps an angle to be within [0, 2PI]. */
-inline float mod_tau(float n) {
-  if (n > tau)
-    return n - tau;
-  else if (n < 0)
-    return n + tau;
-  return n;
-}
+/** @brief Wraps an angle into [0, 2PI) for any input period (not just one). */
+inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
 
 /** @brief Wraps a floating point index into a range [0, m). */
 inline float wrap_index(float x, int m) {

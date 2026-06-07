@@ -2029,7 +2029,9 @@ struct Line {
     if (len < 1e-6f) {
       n = Vector(0, 0, 0);
     } else {
-      n = cross(a, b).normalized();
+      // Antipodal endpoints (len ~ π) make cross() degenerate to ~0 with no
+      // defined great circle; guard the normalize rather than trap.
+      n = normalized_or(cross(a, b), Vector(1, 0, 0));
     }
 
     // Compute vertical bounds from endpoint phi values + thickness
@@ -2099,8 +2101,9 @@ struct Line {
     float cos_phi = cosf(phi);
     float sin_phi = sinf(phi);
 
-    // Bounding cap centered on the midpoint of the line segment
-    Vector mid = (a + b).normalized();
+    // Bounding cap centered on the midpoint of the line segment. Antipodal
+    // endpoints sum to ~0 (no defined midpoint); guard the normalize.
+    Vector mid = normalized_or(a + b, Vector(1, 0, 0));
     float mid_ny = mid.y;
     float mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
     float mid_alpha = atan2f(mid.z, mid.x);

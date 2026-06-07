@@ -184,6 +184,7 @@ template <int H> inline float y_to_phi(int y) {
   if (!PhiLUT<H>::initialized) {
     PhiLUT<H>::init();
   }
+  HS_CHECK(y >= 0 && y < PhiLUT<H>::H_VIRT);
   return PhiLUT<H>::data[y];
 }
 
@@ -384,6 +385,7 @@ public:
    * @return The rotated vector.
    */
   Vector orient(const Vector &v, int i) const {
+    HS_CHECK(i >= 0 && i < num_frames);
     return rotate(v, orientations[i]);
   }
 
@@ -405,6 +407,7 @@ public:
    * @return The unrotated vector.
    */
   Vector unorient(const Vector &v, int i) const {
+    HS_CHECK(i >= 0 && i < num_frames);
     return rotate(v, orientations[i].conjugate());
   }
 
@@ -419,7 +422,10 @@ public:
    * @param i The frame index.
    * @return The Quaternion reference.
    */
-  const Quaternion &get(int i) const { return orientations[i]; }
+  const Quaternion &get(int i) const {
+    HS_CHECK(i >= 0 && i < num_frames);
+    return orientations[i];
+  }
 
   /**
    * @brief Sets the orientation, clearing all history.
@@ -466,7 +472,10 @@ public:
    * @param i The frame index.
    * @return The Quaternion reference.
    */
-  Quaternion &at(int i) { return orientations[i]; }
+  Quaternion &at(int i) {
+    HS_CHECK(i >= 0 && i < num_frames);
+    return orientations[i];
+  }
 
   /**
    * @brief Increases the resolution of the history to 'count' steps, preserving

@@ -159,7 +159,7 @@ public:
       Vector pos =
           noise_xform.transform(orientation.orient(rotate(node->v, q)));
       Fragment f;
-      f.pos = pos.normalized();
+      f.pos = normalized_or(pos, Vector(1, 0, 0));
       f.age = current_t * t;
       f.v3 = t;
       vertices.push_back(f);

@@ -415,9 +415,11 @@ private:
             float speed = p.velocity.magnitude();
             p.velocity = torque * speed;
           } else {
-            // Gravity
+            // Gravity. pos and the attractor can be ~antipodal, leaving the
+            // cross-product axis undefined; guard the normalize.
             float force = (gravity * attr.strength) / dist_sq;
-            Vector torque = cross(pos, attr.position).normalized() * force;
+            Vector torque =
+                normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) * force;
             p.velocity += cross(torque, pos);
           }
         }
