@@ -489,9 +489,17 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
-    float x_i, y_i;
-    float x_m = std::modf(x, &x_i);
+    float y_i;
     float y_m = std::modf(y, &y_i);
+
+    // Floor-based integer/fraction split for X so a sub-pixel coordinate just
+    // left of the theta=0 seam (x < 0, or x >= W) wraps to the correct columns
+    // and keeps a fractional weight in [0, 1). std::modf truncates toward zero,
+    // which collapses a negative fraction onto the wrong column and leaves the
+    // left neighbor (x0) unwrapped, contrary to the sink's "wrap before
+    // forwarding" contract.
+    float x_floor = floorf(x);
+    float x_m = x - x_floor; // always in [0, 1)
 
     // Spherical density compensation: scale X fractional by sin(phi).
     // At poles, all columns converge to the same point — snap to nearest.
@@ -516,8 +524,8 @@ public:
     // Clamp Y neighbors to valid range (reflect at poles instead of dropping)
     int y0 = hs::clamp(static_cast<int>(y_i), 0, H - 1);
     int y1 = hs::clamp(static_cast<int>(y_i) + 1, 0, H - 1);
-    int x0 = static_cast<int>(x_i);
-    int x1 = fast_wrap(static_cast<int>(x_i) + 1, W);
+    int x0 = fast_wrap(static_cast<int>(x_floor), W);
+    int x1 = fast_wrap(static_cast<int>(x_floor) + 1, W);
 
     if (v00 > 1e-8f)
       pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00);

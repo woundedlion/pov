@@ -184,6 +184,33 @@ inline void test_antialias_integer_coord_single_tap() {
   HS_EXPECT_NEAR(kept_y, 24.0f, 1e-5f);
 }
 
+inline void test_antialias_seam_wraps_left_column() {
+  constexpr int W = 64, H = 64;
+  Filter::Screen::AntiAlias<W, H> aa;
+
+  // A sub-pixel coordinate just left of the theta=0 seam (x = -0.3) must
+  // distribute across the wrapped columns W-1 and 0, not collapse onto a single
+  // unwrapped column. y at the equator (y_m = 0) isolates the two X taps.
+  // Regression: the old truncating modf put a negative fraction onto column 0
+  // only and left the left neighbor unwrapped.
+  const float in_alpha = 1.0f;
+  float sum = 0.0f;
+  bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
+  aa.plot(-0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, in_alpha,
+          [&](float x, float y, const Pixel &, float, float a) {
+            (void)y;
+            sum += a;
+            if (x < 0.0f || x >= static_cast<float>(W)) all_in_range = false;
+            int xi = static_cast<int>(x);
+            if (xi == W - 1) saw_w_minus_1 = true;
+            if (xi == 0) saw_zero = true;
+          });
+  HS_EXPECT_TRUE(all_in_range);
+  HS_EXPECT_TRUE(saw_w_minus_1);
+  HS_EXPECT_TRUE(saw_zero);
+  HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+}
+
 // ============================================================================
 // Screen::Blur::plot — kernel passthrough
 // ============================================================================
@@ -356,6 +383,7 @@ inline int run_filter_tests() {
 
   test_antialias_weights_partition();
   test_antialias_integer_coord_single_tap();
+  test_antialias_seam_wraps_left_column();
 
   test_blur_factor_zero_is_identity();
   test_blur_full_kernel_sums_to_alpha();
