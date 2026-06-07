@@ -294,6 +294,20 @@ public:
    * @param effect The effect instance owning the buffer.
    */
   Canvas(Effect &effect) : effect_(effect) {
+    // NOT a TOCTOU race, despite the check-then-advance running outside an
+    // interrupts-disabled window. Single-core Teensy, strict index ownership:
+    // the main loop solely writes cur_/next_ (advance_buffer/queue_frame); the
+    // ISR solely writes prev_ (advance_display: prev_ = next_). buffer_free()
+    // (prev_ == next_) can only be *falsified* by the main loop's next
+    // queue_frame() — this same thread, after this Canvas is destroyed. The
+    // ISR's advance_display is idempotent once prev_ == next_, so it cannot
+    // invalidate the gate between the check and the flip. advance_buffer() then
+    // moves cur_ to the OTHER of the two buffers, which — since prev_ == next_
+    // pins one — is guaranteed != prev_: the write buffer is never the ISR's
+    // read buffer. Relaxed atomics suffice (the ISR preempts the main loop =
+    // same observer; no multi-core reordering to fence). The 2-buffer + this
+    // gate is correct by design — there is no RAM for a third buffer, and the
+    // gate (not a third buffer) is what prevents tearing.
     while (!effect_.buffer_free()) {
     }
     start_time = micros();
