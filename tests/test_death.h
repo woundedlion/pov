@@ -8,13 +8,19 @@
  * So each trap is exercised in a CHILD process: the test binary re-exec's
  * itself with HS_DEATH_CASE=<name> (handled in main() before any module runs),
  * runs exactly one trap-triggering case, and the parent asserts the child died
- * abnormally.
+ * by the *specific* trap status — clang lowers __builtin_trap() to an illegal
+ * instruction (x86 ud2), so the child dies by SIGILL (POSIX) /
+ * STATUS_ILLEGAL_INSTRUCTION (Windows). Asserting that exact status, not merely
+ * "nonzero", means an unrelated child crash (a different signal, an ordinary
+ * nonzero exit) can no longer masquerade as a passing death test.
  *
  * Cross-platform by design: the child is selected through an inherited env var
  * and spawned with std::system(), so no fork() (absent on Windows) is needed.
  * A control "spawn check" runs first; if the harness cannot re-exec itself
  * (unknown argv[0], a sandbox that blocks process creation), the death tests
- * are SKIPPED with a notice rather than reported as failures.
+ * are SKIPPED with a notice — EXCEPT under CI (the CI env var is set), where a
+ * suite that cannot run is a hard FAILURE rather than a silent green skip, so a
+ * regression in the fail-fast layer cannot slip through unobserved.
  */
 #pragma once
 
@@ -28,9 +34,12 @@
 #include "core/3dmath.h"
 #include "core/memory.h"
 #include "core/solids.h"
+#include "core/spatial.h"
+#include "core/static_circular_buffer.h"
 
 #if !defined(_WIN32)
-#include <sys/wait.h> // WIFSIGNALED / WIFEXITED / WEXITSTATUS for system() status
+#include <csignal>    // SIGILL — the expected trap signal
+#include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
 #endif
 
 #if defined(_WIN32)
@@ -87,11 +96,57 @@ inline void case_normalize_zero() {
     std::printf("x");
 }
 
+// Math-core surface: normalize a NaN vector. A NaN coordinate poisons the
+// length to NaN, and `NaN >= epsilon` is false, so the normalize guard fires.
+// This is the suite's NaN/Inf fault case: it proves a non-finite producer is
+// trapped at the math seam rather than silently propagating NaN into geometry.
+inline void case_normalize_nan() {
+  const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
+  Vector bad{nan, opaque(0.0f), opaque(0.0f)};
+  Vector n = bad.normalized(); // length is NaN -> HS_CHECK fails
+  if (n.x == 42.0f)
+    std::printf("x");
+}
+
 // Lookup/registry surface: out-of-range solids index.
 inline void case_solids_index_oob() {
   const auto &e = Solids::get_entry(opaque<size_t>(Solids::NUM_ENTRIES));
   if (e.name == nullptr)
     std::printf("x");
+}
+
+// Registry surface (by name): an unknown solid name has no valid fallback.
+inline void case_solids_unknown_name() {
+  configure_arenas_default();
+  PolyMesh m = Solids::get_by_name(persistent_arena, scratch_arena_a,
+                                   scratch_arena_b, "definitely_not_a_solid");
+  if (m.vertices.size() == 0x7fff)
+    std::printf("x");
+}
+
+// Container surface: StaticCircularBuffer index past the live count.
+inline void case_circular_buffer_oob() {
+  StaticCircularBuffer<int, 4> cb;
+  cb.push_back(10);
+  cb.push_back(20);
+  int v = cb[opaque<size_t>(5)]; // index >= count -> HS_CHECK
+  if (v == 42)
+    std::printf("x");
+}
+
+// Container surface: SpatialHash insert pool exhaustion (sizing bug).
+inline void case_spatial_hash_overflow() {
+  SpatialHash sh(1.0f);
+  const int n = static_cast<int>(SpatialHash::MAX_ENTRIES) + 1;
+  for (int i = 0; i < opaque(n); ++i)
+    sh.insert(Vector{0.0f, 0.0f, 1.0f}, i); // exceeds MAX_ENTRIES -> HS_CHECK
+}
+
+// Config surface: an over-subscribed arena partition.
+inline void case_arena_oversubscribed() {
+  // Each request alone fits, but the sum exceeds GLOBAL_ARENA_SIZE -> HS_CHECK.
+  configure_arenas(opaque(GLOBAL_ARENA_SIZE), opaque<size_t>(1024),
+                   opaque<size_t>(1024));
 }
 
 struct Case {
@@ -104,7 +159,12 @@ inline const Case *all_cases(int &n) {
       {"arena_oom", case_arena_oom},
       {"arena_vector_overflow", case_arena_vector_overflow},
       {"normalize_zero", case_normalize_zero},
+      {"normalize_nan", case_normalize_nan},
       {"solids_index_oob", case_solids_index_oob},
+      {"solids_unknown_name", case_solids_unknown_name},
+      {"circular_buffer_oob", case_circular_buffer_oob},
+      {"spatial_hash_overflow", case_spatial_hash_overflow},
+      {"arena_oversubscribed", case_arena_oversubscribed},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -154,16 +214,23 @@ inline int spawn_child(const char *name) {
   return std::system(cmd.c_str());
 }
 
-// Interpret a std::system() return value as "the child terminated abnormally".
-inline bool child_died(int rc) {
+// Interpret a std::system() return value as "the child died by the SPECIFIC
+// trap status". clang lowers __builtin_trap() to an illegal instruction, so a
+// fired HS_CHECK kills the child with SIGILL (POSIX) / STATUS_ILLEGAL_INSTRUCTION
+// (Windows). Requiring that exact status — rather than any nonzero exit —
+// prevents an unrelated crash or an ordinary nonzero return from being misread
+// as a passing death test.
 #if defined(_WIN32)
-  return rc != 0; // a trap -> nonzero (illegal-instruction) exit code
+// EXCEPTION_ILLEGAL_INSTRUCTION; an unhandled trap sets it as the process exit
+// code, which std::system() returns through cmd.exe.
+inline constexpr int kTrapStatus = static_cast<int>(0xC000001D);
+#endif
+
+inline bool child_trapped(int rc) {
+#if defined(_WIN32)
+  return rc == kTrapStatus;
 #else
-  if (rc == -1)
-    return false; // system() itself failed
-  if (WIFSIGNALED(rc))
-    return true; // killed by SIGILL/SIGABRT (the trap)
-  return WIFEXITED(rc) && WEXITSTATUS(rc) != 0;
+  return rc != -1 && WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL;
 #endif
 }
 
@@ -176,21 +243,41 @@ inline bool child_exited_clean(int rc) {
 #endif
 }
 
+// Are we running under CI? GitHub Actions (and most CI providers) set CI=true.
+// Under CI a death suite that cannot run must FAIL loudly, not skip silently.
+inline bool in_ci() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *ci = std::getenv("CI");
+#pragma clang diagnostic pop
+  return ci && ci[0] != '\0';
+}
+
+// Report an inability to run the death suite. Loud (counts as a failure) under
+// CI, quiet skip otherwise.
+inline void report_unrunnable(const char *why, int rc) {
+  if (in_ci()) {
+    std::printf("  [FAIL] death tests: %s (rc=%d, CI=on)\n", why, rc);
+    HS_EXPECT_TRUE(false && "death suite must run under CI");
+  } else {
+    std::printf("  [skip] death tests: %s (rc=%d)\n", why, rc);
+  }
+}
+
 inline int run_death_tests() {
   auto scope = hs_test::begin_module("death");
 
   if (!self_exe() || self_exe()[0] == '\0') {
-    std::printf("  [skip] death tests: no argv[0] to re-exec\n");
+    report_unrunnable("no argv[0] to re-exec", 0);
     return hs_test::end_module(scope);
   }
 
   // Control: a child given an unknown case must exit cleanly. If it doesn't,
-  // this harness can't reliably spawn itself here (e.g. a sandbox) — SKIP
-  // rather than emit false failures for every case.
+  // this harness can't reliably spawn itself here (e.g. a sandbox) — skip
+  // (or FAIL under CI) rather than emit false results for every case.
   int control = spawn_child("__spawn_check__");
   if (!child_exited_clean(control)) {
-    std::printf("  [skip] death tests: cannot re-exec self (control rc=%d)\n",
-                control);
+    report_unrunnable("cannot re-exec self", control);
     set_case_env("");
     return hs_test::end_module(scope);
   }
@@ -199,10 +286,10 @@ inline int run_death_tests() {
   const Case *cs = all_cases(n);
   for (int i = 0; i < n; ++i) {
     int rc = spawn_child(cs[i].name);
-    bool died = child_died(rc);
-    HS_EXPECT_TRUE(died);
+    bool trapped = child_trapped(rc);
+    HS_EXPECT_TRUE(trapped);
     std::printf("  [%s] trap fires: %-22s (child rc=%d)\n",
-                died ? "ok" : "FAIL", cs[i].name, rc);
+                trapped ? "ok" : "FAIL", cs[i].name, rc);
   }
 
   set_case_env(""); // leave the env clean for anything that runs after us
