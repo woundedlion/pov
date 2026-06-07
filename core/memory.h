@@ -170,6 +170,10 @@ template <int MAX_V> struct TriangularBitset {
 /// themselves trivial (which never own external resources here). A type that
 /// owns heap/handles outside the arena must not be stored in an ArenaVector.
 template <typename T> class ArenaVector {
+  // ArenaSpan borrows our backing data and (in debug builds) our arena
+  // generation stamp for its own use-after-free check.
+  template <typename U> friend class ArenaSpan;
+
 private:
   T *data_;
   size_t size_;
@@ -389,23 +393,55 @@ public:
 template <typename T> class ArenaSpan {
   const T *data_;
   size_t size_;
+#ifndef NDEBUG
+  Arena *source_arena_ = nullptr;
+  uint32_t birth_generation_ = 0;
+
+  void check_alive() const {
+    if (source_arena_ && source_arena_->get_generation() != birth_generation_) {
+      assert(false && "ArenaSpan use-after-free!");
+    }
+  }
+#else
+  void check_alive() const {}
+#endif
 
 public:
   ArenaSpan() : data_(nullptr), size_(0) {}
 
-  /// Can only be created FROM an ArenaVector (explicit borrow)
+  /// Can only be created FROM an ArenaVector (explicit borrow). In debug builds
+  /// the span inherits the vector's arena-generation stamp, so accessing it
+  /// after the arena is reset/compacted trips the same use-after-free check
+  /// the vector itself has.
   explicit ArenaSpan(const ArenaVector<T> &source)
-      : data_(source.data()), size_(source.size()) {}
+      : data_(source.data()), size_(source.size())
+#ifndef NDEBUG
+        ,
+        source_arena_(source.source_arena_),
+        birth_generation_(source.birth_generation_)
+#endif
+  {
+  }
 
   const T &operator[](size_t i) const {
+    check_alive();
     assert(i < size_);
     return data_[i];
   }
   size_t size() const { return size_; }
   bool empty() const { return size_ == 0; }
-  const T *data() const { return data_; }
-  const T *begin() const { return data_; }
-  const T *end() const { return data_ + size_; }
+  const T *data() const {
+    check_alive();
+    return data_;
+  }
+  const T *begin() const {
+    check_alive();
+    return data_;
+  }
+  const T *end() const {
+    check_alive();
+    return data_ + size_;
+  }
 };
 
 extern Arena scratch_arena_a;

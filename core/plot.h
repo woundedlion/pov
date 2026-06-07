@@ -77,7 +77,7 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
 
   auto project = [&](const Vector &p) -> std::pair<float, float> {
     float R = angle_between(p, center);
-    if (R < 1e-5f)
+    if (R < math::EPS_GEOMETRIC)
       return {0.0f, 0.0f};
     float x = dot(p, u);
     float y = dot(p, w);
@@ -96,7 +96,7 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
 
     // Unproject
     float R = sqrtf(Px * Px + Py * Py);
-    if (R < 1e-5f)
+    if (R < math::EPS_GEOMETRIC)
       return center;
 
     float theta = fast_atan2(Py, Px);
@@ -185,7 +185,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
                              const Fragment &next, float total_dist,
                              bool isLastSegment) {
     // Handle Degenerate Segment
-    if (total_dist < 1e-5f) {
+    if (total_dist < math::EPS_GEOMETRIC) {
       bool shouldOmit = (close_loop) ? true : !isLastSegment;
       if (!shouldOmit) {
         Fragment f_copy = curr;
@@ -326,7 +326,7 @@ struct Line {
       density = 1;
 
     float angle = angle_between(f1.pos, f2.pos);
-    if (std::abs(angle) < 0.0001f) {
+    if (std::abs(angle) < TOLERANCE) {
       points.push_back(f1);
       points.push_back(f1); // Draw at least a dot
       return;
