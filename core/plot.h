@@ -89,7 +89,6 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   auto proj2 = project(next.pos);
   float dx = proj2.first - proj1.first;
   float dy = proj2.second - proj1.second;
-  float dist = sqrtf(dx * dx + dy * dy);
 
   auto map_planar = [=](float t) {
     float Px = proj1.first + dx * t;
@@ -104,6 +103,22 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
     Vector axis = (u * fast_cosf(theta)) + (w * fast_sinf(theta));
     return (center * fast_cosf(R)) + (axis * fast_sinf(R));
   };
+
+  // total_dist drives the step count, so it must be the path's true on-sphere
+  // length. The planar path is a straight line in the azimuthal-equidistant
+  // projection, NOT a geodesic: the projected chord over-estimates it (the
+  // stretched tangential metric → over-sampling) while the geodesic arc
+  // under-estimates it (shortest path → gaps). Approximate the real length by
+  // summing great-circle arcs between a few path samples — a few setup-time map
+  // evals, far cheaper than the over-sampled pixels they save.
+  constexpr int LEN_SAMPLES = 4;
+  Vector len_prev = map_planar(0.0f);
+  float dist = 0.0f;
+  for (int k = 1; k <= LEN_SAMPLES; ++k) {
+    Vector len_cur = map_planar(static_cast<float>(k) / LEN_SAMPLES);
+    dist += angle_between(len_prev, len_cur);
+    len_prev = len_cur;
+  }
 
   process_segment(map_planar, curr, next, dist, isLastSegment);
 }
