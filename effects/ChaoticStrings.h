@@ -36,7 +36,9 @@ public:
                                            /* cycle duration */ 80.0f,
                                            /* jitter amp */ 1.7f,
                                            /* speed */ 0.04f,
-                                           /* noise freq */ 0.32f}}}}};
+                                           /* noise freq */ 0.32f,
+                                           /* scale factor */ 200.0f,
+                                           /* cycle speed */ 0.1f}}}}};
 
 
 

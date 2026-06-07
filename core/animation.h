@@ -519,6 +519,12 @@ public:
    */
   void reset() { next = t + period; }
 
+  /// Live-update the trigger interval; reschedules the next trigger from now.
+  void set_period(int new_period) {
+    period = new_period;
+    reset();
+  }
+
   /**
    * @brief Steps the timer, calling the function if the period has elapsed.
    */
@@ -842,6 +848,9 @@ public:
   Orientation<W, CAP> &get_orientation() const { return orientation.get(); }
   void collapse_orientation() override { get_orientation().collapse(); }
 
+  /// Live-update the traversal duration (frames per path loop).
+  void set_duration(int frames) { this->duration = frames; }
+
   /**
    * @brief Steps the animation, calculates intermediate rotation steps along
    * the path, and pushes them to the Orientation.
@@ -1071,6 +1080,9 @@ public:
       noiseGenerator.get().SetSeed(seed);
     }
   }
+
+  /// Live-update the per-frame movement speed (e.g. from a GUI slider).
+  void set_speed(float new_speed) { options.speed = new_speed; }
 
   /**
    * @brief Access the associated Orientation.

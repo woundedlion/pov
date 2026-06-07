@@ -38,17 +38,22 @@ public:
     update_path();
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
-    timeline.add(0, Animation::Motion<W, 16>(node->orientation, path,
-                                             (int)params.cycle_duration, true));
-    timeline.add(0, Animation::PeriodicTimer(
-                        2 * (int)params.cycle_duration,
-                        [this](Canvas &c) {
-                          cur_function_idx =
-                              (cur_function_idx + 1) % functions.size();
-                          update_path();
-                          update_palette();
-                        },
-                        true));
+    // Motion + cycle timer are infinite and added before the only finite
+    // animation (the periodic ColorWipe, always appended after), so the
+    // timeline never moves them — these add_get() handles stay valid for live
+    // Cycle Dur updates.
+    motion_ = timeline.add_get(
+        0, Animation::Motion<W, 16>(node->orientation, path,
+                                    (int)params.cycle_duration, true));
+    cycle_timer_ = timeline.add_get(
+        0, Animation::PeriodicTimer(
+               2 * (int)params.cycle_duration,
+               [this](Canvas &c) {
+                 cur_function_idx = (cur_function_idx + 1) % functions.size();
+                 update_path();
+                 update_palette();
+               },
+               true));
   }
 
   bool show_bg() const override { return false; }
@@ -56,6 +61,16 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
+
+    // Live-apply the Cycle Dur slider to the motion duration + cycle timer.
+    int cd = (int)params.cycle_duration;
+    if (cd != last_cycle_dur_) {
+      last_cycle_dur_ = cd;
+      if (motion_)
+        motion_->set_duration(cd);
+      if (cycle_timer_)
+        cycle_timer_->set_period(2 * cd);
+    }
 
     // Re-bake animated palette each frame (256 lookups vs ~1700)
     baked_palette.rebake(palette);
@@ -112,6 +127,9 @@ private:
   int cur_function_idx;
   Node *node = nullptr;
   GenerativePalette next_palette_;
+  Animation::Motion<W, 16> *motion_ = nullptr;
+  Animation::PeriodicTimer *cycle_timer_ = nullptr;
+  int last_cycle_dur_ = -1;
 
   struct Params {
     float alpha = 1.0f;

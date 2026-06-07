@@ -37,13 +37,16 @@ public:
     registerParam("Num Pts", &params.num_points, 4.0f, 12.0f);
     registerParam("Alpha", &params.alpha, 0.1f, 1.0f);
 
-    // Animated control points driven by independent random walks
+    // Animated control points driven by independent random walks. All walks
+    // are infinite (never removed), so the timeline never compacts and these
+    // add_get() handles stay valid for live Drift updates.
     for (int i = 0; i < MAX_POINTS; ++i) {
       point_orientations[i].set(
           make_rotation(random_vector(), hs::rand_f() * 2 * PI_F));
-      timeline.add(0, Animation::RandomWalk<W>(
-                          point_orientations[i], random_vector(), noise,
-                          {params.drift * 0.02f, 0.15f, 0.03f}));
+      point_walks_[i] = timeline.add_get(
+          0, Animation::RandomWalk<W>(point_orientations[i], random_vector(),
+                                      noise,
+                                      {params.drift * 0.02f, 0.15f, 0.03f}));
     }
 
     timeline.add(0, Animation::RandomWalk<W>(
@@ -59,6 +62,15 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
+
+    // Live-apply the Drift slider to the control-point walk speeds.
+    if (params.drift != last_drift_) {
+      last_drift_ = params.drift;
+      float walk_speed = params.drift * 0.02f;
+      for (auto *w : point_walks_)
+        if (w)
+          w->set_speed(walk_speed);
+    }
 
     int n = hs::clamp(static_cast<int>(params.num_points), 4, MAX_POINTS);
 
@@ -101,6 +113,8 @@ private:
   float draw_head = 0.0f;
   Orientation<W> orientation;
   Orientation<W> point_orientations[MAX_POINTS];
+  Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {};
+  float last_drift_ = -1.0f;
   FastNoiseLite noise;
   Timeline<W> timeline;
   ProceduralPalette palette = Palettes::lavenderLake;

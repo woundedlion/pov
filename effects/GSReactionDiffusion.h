@@ -45,7 +45,7 @@ public:
     registerParam("Kill", &params.k, 0.0f, 0.1f);
     registerParam("dA", &params.dA, 0.0f, 1.0f);
     registerParam("dB", &params.dB, 0.0f, 1.0f);
-    registerParam("Speed", &params.dt, 0.1f, 2.0f);
+    registerParam("Speed", &params.dt, 0.1f, 3.0f);
 
     state.A = static_cast<uint16_t *>(
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));

@@ -143,13 +143,15 @@ private:
     float cycle_speed = 0.05f;
 
     void lerp(const Params &a, const Params &b, float t) {
-      constexpr int N = 6;
-      float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq,
-                       &time_speed, &complexity,    &pole_fade};
+      constexpr int N = 7;
+      float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq, &time_speed,
+                       &complexity,  &pole_fade,     &cycle_speed};
       const float src[N] = {a.warp_scale, a.warp_strength, a.pattern_freq,
-                            a.time_speed, a.complexity,    a.pole_fade};
+                            a.time_speed, a.complexity,    a.pole_fade,
+                            a.cycle_speed};
       const float tgt[N] = {b.warp_scale, b.warp_strength, b.pattern_freq,
-                            b.time_speed, b.complexity,    b.pole_fade};
+                            b.time_speed, b.complexity,    b.pole_fade,
+                            b.cycle_speed};
       int active = 0;
       for (int i = 0; i < N; ++i)
         if (src[i] != tgt[i])
