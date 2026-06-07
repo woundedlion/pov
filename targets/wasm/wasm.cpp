@@ -106,6 +106,15 @@ public:
     // Paint stack canary for HWM tracking
     stack_paint_canary();
 
+    // SSOT guard: the self-registering effect count must match the static roster
+    // in core/effects.h (HS_EFFECT_LIST / HS_EFFECT_COUNT). A mismatch means an
+    // effect was added to the roster without REGISTER_EFFECT (or registered
+    // without a roster entry) — the live set here and the native smoke suite
+    // (which generates one case per roster entry) would silently diverge. Trap
+    // at startup; this is a cold one-time check with no per-frame cost.
+    HS_CHECK(EffectRegistry::entries().size() ==
+             static_cast<size_t>(HS_EFFECT_COUNT));
+
     // Pre-size the JS-facing readback buffers ONCE to their maximum extent so
     // their backing storage never moves and the steady-state render/sync path
     // performs no allocation. This is the core of the WASM memory-view contract

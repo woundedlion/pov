@@ -29,9 +29,28 @@
 #include "tests/test_generators.h"
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
+#include "tests/test_death.h"
 
-int main() {
+int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
+
+  hs_test::death::self_exe() = (argc > 0) ? argv[0] : nullptr;
+
+  // Child death-case dispatch: when HS_DEATH_CASE is set, run ONLY that single
+  // trap-triggering case and exit — never the full suite (which would re-spawn
+  // children recursively). The case is expected to __builtin_trap(); reaching
+  // the return here means it did NOT trap, so we exit 0 and let the parent flag
+  // the missing trap.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (const char *dc = std::getenv("HS_DEATH_CASE")) {
+#pragma clang diagnostic pop
+    if (dc[0] != '\0') {
+      hs_test::death::run_child_case(dc);
+      return 0;
+    }
+  }
+
   int failures = 0;
   failures += hs_test::math3d::run_3dmath_tests();
   failures += hs_test::mem::run_memory_tests();
@@ -54,5 +73,6 @@ int main() {
   failures += hs_test::generators_tests::run_generators_tests();
   failures += hs_test::animation_tests::run_animation_tests();
   failures += hs_test::effects_tests::run_effects_tests();
+  failures += hs_test::death::run_death_tests();
   return failures;
 }

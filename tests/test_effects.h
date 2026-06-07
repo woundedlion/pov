@@ -91,18 +91,26 @@ inline void smoke_one(const char *name) {
   // Read every pixel of the last displayed frame. Exercises get_pixel()'s
   // index path across the whole buffer; the accumulator prevents the loop
   // from being optimized away.
-  uint64_t acc = 0;
-  for (int y = 0; y < kH; ++y) {
-    for (int x = 0; x < kW; ++x) {
-      const Pixel &p = effect.get_pixel(x, y);
-      acc += static_cast<uint64_t>(p.r) + p.g + p.b;
-    }
-  }
-  // Trivially-true post-condition: reaching here means the effect constructed,
-  // initialized, rendered kFrames, and was fully read back without tripping an
-  // assert / OOB / hang. The acc>=0 keeps `acc` live and gives each effect a
-  // visible passing assertion in the tally.
-  HS_EXPECT_TRUE(acc + 1 > 0);
+  auto sum_buffer = [&effect]() {
+    uint64_t s = 0;
+    for (int y = 0; y < kH; ++y)
+      for (int x = 0; x < kW; ++x) {
+        const Pixel &p = effect.get_pixel(x, y);
+        s += static_cast<uint64_t>(p.r) + p.g + p.b;
+      }
+    return s;
+  };
+  const uint64_t acc = sum_buffer();
+
+  // Real post-condition (not the old tautological `acc + 1 > 0`): get_pixel is a
+  // pure, stable accessor over the displayed buffer, so re-reading the very same
+  // frame must yield the identical sum. A get_pixel that mutated state, indexed
+  // nondeterministically, or read outside the buffer would diverge here — and
+  // unlike `acc > 0` this holds for effects that legitimately render black
+  // (e.g. RingShower sums to 0 at this frame count). Reaching this point also
+  // proves the effect constructed, init'd, rendered, and read back without
+  // tripping an assert / OOB / hang.
+  HS_EXPECT_EQ(acc, sum_buffer());
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, kW, kH, static_cast<unsigned long long>(acc));
 }
@@ -110,41 +118,15 @@ inline void smoke_one(const char *name) {
 inline int run_effects_tests() {
   auto scope = hs_test::begin_module("effects");
 
-  smoke_one<BZReactionDiffusion>("BZReactionDiffusion");
-  smoke_one<ChaoticStrings>("ChaoticStrings");
-  smoke_one<Comets>("Comets");
-  smoke_one<DistortedRing>("DistortedRing");
-  smoke_one<DreamBalls>("DreamBalls");
-  smoke_one<Dynamo>("Dynamo");
-  smoke_one<FlowField>("FlowField");
-  smoke_one<Flyby>("Flyby");
-  smoke_one<GnomonicStars>("GnomonicStars");
-  smoke_one<GSReactionDiffusion>("GSReactionDiffusion");
-  smoke_one<HankinSolids>("HankinSolids");
-  smoke_one<HopfFibration>("HopfFibration");
-  smoke_one<IslamicStars>("IslamicStars");
-  smoke_one<Liquid2D>("Liquid2D");
-  smoke_one<MeshFeedback>("MeshFeedback");
-  smoke_one<Metaballs>("Metaballs");
-  smoke_one<MindSplatter>("MindSplatter");
-  smoke_one<MobiusGrid>("MobiusGrid");
-  smoke_one<Moire>("Moire");
-  smoke_one<PetalFlow>("PetalFlow");
-  smoke_one<Raymarch>("Raymarch");
-  smoke_one<RingShower>("RingShower");
-  smoke_one<RingSpin>("RingSpin");
-  smoke_one<ShapeShifter>("ShapeShifter");
-  smoke_one<SphericalHarmonics>("SphericalHarmonics");
-  smoke_one<SplineFlow>("SplineFlow");
-  smoke_one<Thrusters>("Thrusters");
-  smoke_one<Voronoi>("Voronoi");
-
-  // ------------------------------------------------------------------------
-  // All effects re-enabled as of 2026-06-05 (see #3 in docs/CODE_REVIEW.md):
-  //   * ShapeShifter + Thrusters — plot.h _steps_cache sized off W + graceful cap.
-  //   * SplineFlow — fixed an off-by-one in Plot::SplineChain's closed-loop
-  //     fragment-buffer size (it pushed n*S+1 points into an n*S buffer).
-  // All verified rendering in the WASM sim after a fresh build/install.
+  // Smoke every registered effect. The list is GENERATED from the single-source
+  // roster in core/effects.h (HS_EFFECT_LIST) rather than hand-maintained here,
+  // so it can no longer silently drift from the shipped set: an effect added to
+  // the roster is smoke-tested automatically (and one in the roster but not
+  // #included is a compile error). The matching WASM-registry count is checked
+  // against HS_EFFECT_COUNT at engine startup (targets/wasm/wasm.cpp).
+#define HS_SMOKE_ONE(name) smoke_one<name>(#name);
+  HS_EFFECT_LIST(HS_SMOKE_ONE)
+#undef HS_SMOKE_ONE
 
   return hs_test::end_module(scope);
 }

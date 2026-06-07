@@ -28,6 +28,7 @@
 
 #include <cstddef>
 #include "core/animation.h"
+#include "core/canvas.h"
 #include "core/easing.h"
 #include "tests/test_harness.h"
 
@@ -35,18 +36,31 @@ namespace hs_test {
 namespace animation_tests {
 
 // ============================================================================
-// Fake Canvas reference
+// Stand-in Canvas reference
 // ----------------------------------------------------------------------------
-// The animations under test never touch the Canvas. Constructing a real one
-// blocks on the render pipeline, so we hand step() a reference into properly
-// aligned, allocated storage. The reference is valid (non-null, correctly
-// sized/aligned) and is never used to access a Canvas object, so passing it
-// through step() is benign.
+// The animations under test (Transition/Mutation/Lerp/Driver) take a Canvas& in
+// step() but never dereference it. Previously this handed step() a reference
+// into raw aligned storage with no Canvas ever constructed — undefined behavior,
+// since binding a reference to (and later forming a glvalue for) an object that
+// doesn't exist is UB even if it's never read through.
+//
+// Instead we construct ONE genuine Canvas over a tiny static Effect and reuse
+// it. A fresh effect's buffer_free() is true, so the ctor doesn't spin; we never
+// construct a second Canvas on this effect, so there's no pending-frame spin and
+// the single dtor (queue_frame) only runs harmlessly at process exit. The
+// animations still never touch it — the reference is simply valid now.
 // ============================================================================
 
+struct FakeEffect : public Effect {
+  FakeEffect() : Effect(8, 8) {}
+  void draw_frame() override {}
+  bool show_bg() const override { return false; }
+};
+
 inline Canvas &fake_canvas() {
-  alignas(Canvas) static unsigned char storage[sizeof(Canvas)];
-  return *reinterpret_cast<Canvas *>(storage);
+  static FakeEffect fx;
+  static Canvas canvas(fx);
+  return canvas;
 }
 
 // ============================================================================
