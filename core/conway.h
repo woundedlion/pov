@@ -11,29 +11,8 @@
  */
 namespace MeshOps {
 
-// ---------------------------------------------------------------------------
-// Shared topology helpers
-// ---------------------------------------------------------------------------
-
-/**
- * @brief Narrow a freshly-appended container index to the mesh topology index
- * type, trapping on a budget bump that pushes it past the representable range.
- *
- * Vertex/face indices are stored as uint16_t (faces, with HE_NONE=0xFFFF as the
- * sentinel) and, in some operators' scratch, as int16_t (-1 sentinel). The input
- * range is checked at mesh build, but each operator's OUTPUT index is captured
- * via `static_cast<...>(vertices.size() - 1)`, which silently wraps if a future
- * MAX_VERTS bump makes the count exceed the index type. Routing those casts
- * through here converts that silent geometry corruption into a bench-time trap.
- * Bound is INT16_MAX — the narrowest type these indices land in (matches the
- * `MAX_VERTS <= INT16_MAX` static_assert in solids.h). Cold path: once per
- * emitted vertex during a rebuild, never per pixel.
- */
-inline uint16_t narrow_index(size_t i) {
-  HS_CHECK(i <= static_cast<size_t>(INT16_MAX) &&
-           "mesh index exceeds int16_t topology range (MAX_VERTS bumped?)");
-  return static_cast<uint16_t>(i);
-}
+// `narrow_index` (the trapping size_t -> uint16_t topology-index cast) lives in
+// mesh.h so the Conway and Hankin operators share a single guarded narrowing.
 
 /**
  * @brief Compute the centroid of a face by walking its half-edge loop.

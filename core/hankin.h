@@ -112,7 +112,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       mid.normalize();
 
       compiled.static_vertices.push_back(mid);
-      uint16_t idx = static_cast<uint16_t>(compiled.static_vertices.size() - 1);
+      uint16_t idx = narrow_index(compiled.static_vertices.size() - 1);
       he_to_midpoint_idx[he_idx] = idx;
       if (he.pair != HE_NONE)
         he_to_midpoint_idx[he.pair] = idx;
@@ -152,15 +152,15 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
         uint16_t i_next = curr_he.vertex;
 
         compiled.dynamic_instructions.push_back({i_corner, i_prev, i_next,
-                                                static_cast<uint16_t>(idx_m1),
-                                                static_cast<uint16_t>(idx_m2)});
+                                                narrow_index(idx_m1),
+                                                narrow_index(idx_m2)});
 
-        int16_t dyn_idx = static_cast<int16_t>(compiled.dynamic_vertices.size());
+        uint16_t dyn_idx = narrow_index(compiled.dynamic_vertices.size());
         he_to_dynamic_idx[he_idx] = dyn_idx;
         compiled.dynamic_vertices.emplace_back();
 
-        compiled.faces.push_back(idx_m1);
-        compiled.faces.push_back(compiled.static_offset + dyn_idx);
+        compiled.faces.push_back(narrow_index(idx_m1));
+        compiled.faces.push_back(narrow_index(compiled.static_offset + dyn_idx));
 
         he_idx = curr_he.next;
       } while (he_idx != HE_NONE && he_idx != start_he);
