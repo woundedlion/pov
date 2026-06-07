@@ -241,6 +241,11 @@ private:
    */
   void run(Effect *e, unsigned long duration) {
     long start = millis();
+    // Ordering invariant (the column clock free-runs continuously): publish
+    // effect_ BEFORE attaching show_col, and clear it only AFTER detaching
+    // show_col below. show_col is the sole reader of effect_, so between effects
+    // it is detached while effect_ is null — the ISR can never observe a null
+    // effect_. Keep these two writes bracketing the attach/detach pair.
     effect_ = e;
     x_ = 0;
 
@@ -324,10 +329,17 @@ private:
    * segment 0 itself this also clears the sync output.
    */
   static FASTRUN void frame_sync_isr() {
-    x_ = 0;
     if (segment_id_ == 0) {
+      // Segment 0 is the clock master: it already zeroed x_ directly in
+      // show_col when the counter wrapped. Its own pulse returns here after
+      // interrupt latency, during which the free-running clock may have already
+      // advanced x_ to the next column — re-zeroing from the self-pulse would
+      // clobber that and corrupt the master's counter. So only clear the line;
+      // do NOT touch x_. Downstream boards (below) still re-align off this edge.
       digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+      return;
     }
+    x_ = 0;
   }
 
   // ── Static state ────────────────────────────────────────────────────
