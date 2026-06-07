@@ -17,9 +17,16 @@ static constexpr float degrees = 180 / PI_F;
 /** @brief Wraps an angle into [0, 2PI) for any input period (not just one). */
 inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
 
-/** @brief Wraps a floating point index into a range [0, m). */
+/** @brief Wraps a floating point index into a range [0, m).
+ *
+ * floorf (not a truncating cast) so negative inputs floor toward -inf, and the
+ * double-mod `((i % m) + m) % m` keeps the integer part non-negative — a plain
+ * truncating cast returns a negative result for x < 0 (e.g. -0.5 -> -0.5),
+ * violating the [0, m) contract and yielding a negative pixel x downstream. */
 inline float wrap_index(float x, int m) {
-  return (static_cast<int>(x) % m) + (x - static_cast<int>(x));
+  int i = static_cast<int>(floorf(x));
+  int w = ((i % m) + m) % m;
+  return w + (x - i);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -131,7 +131,7 @@ No crash-on-normal-use or shipped-artifact-corrupts-output defects survive in th
 
 3. **Replace `Timeline::add_get`'s raw-pointer handle with a stable slot id + generation**, or pin events so compaction can't relocate a cached handle ([animation.h:1681-1699](../core/animation.h#L1681)). Today every effect that caches an `AnimT*` for live mutation relies on an unstated ordering invariant.
 
-4. **Fix `wrap_index` for negative input** ([rotate.h:21](../core/rotate.h#L21)): `int i = (int)floorf(x); int w = ((i % m) + m) % m; return w + (x - i);`. Feeds `Projection::project` and can yield a negative pixel x.
+4. ~~**Fix `wrap_index` for negative input** ([rotate.h:21](../core/rotate.h#L21)): `int i = (int)floorf(x); int w = ((i % m) + m) % m; return w + (x - i);`. Feeds `Projection::project` and can yield a negative pixel x.~~ ✅ **FIXED (2026-06-07).** Confirmed: a truncating cast returns negative `x` unchanged (`-0.5 -> -0.5`), violating the `[0, m)` contract. Replaced with the `floorf` + double-mod form ([rotate.h:21](../core/rotate.h#L21)). Latent at the sole call site (rotate.h:87 feeds `atan2f`-derived input always in `[0, W]`), but now contract-correct for any input. Perf: `floorf` is a single `vrintm.f32` on the Cortex-M7 (equal to the prior cast) plus one integer modulo — negligible against the 4 transcendentals already in `project()` per pixel, and behavior at the call site is unchanged. Covered by a new `test_wrap_index` sweep in `test_3dmath.h` (asserts the result stays in `[0, m)` across both signs).
 
 5. **Wrap the AntiAlias left column at the seam** ([filter.h:519](../core/filter.h#L519)): `int x0 = fast_wrap((int)floorf(x_i), W);` (and use `floorf`, not truncating `static_cast<int>`, so negative sub-pixel coords snap correctly).
 

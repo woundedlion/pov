@@ -15,6 +15,7 @@
 #pragma once
 
 #include "core/3dmath.h"
+#include "core/rotate.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -786,6 +787,35 @@ inline void test_spline_catmull_rom() {
 // Runner
 // ============================================================================
 
+// ============================================================================
+// wrap_index (core/rotate.h) — folds a float index into [0, m)
+// ============================================================================
+
+inline void test_wrap_index() {
+  const int m = 288;
+
+  // Non-negative inputs: integer + fractional parts preserved.
+  HS_EXPECT_NEAR(wrap_index(0.0f, m), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(wrap_index(0.5f, m), 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(wrap_index(287.9f, m), 287.9f, 1e-3f);
+
+  // Wrap at and above the period.
+  HS_EXPECT_NEAR(wrap_index(static_cast<float>(m), m), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(wrap_index(m + 1.5f, m), 1.5f, 1e-4f);
+
+  // Negative inputs must fold into [0, m). Regression: a truncating cast
+  // returned them unchanged (e.g. -0.5 -> -0.5), yielding a negative pixel x.
+  HS_EXPECT_NEAR(wrap_index(-0.5f, m), 287.5f, 1e-3f);
+  HS_EXPECT_NEAR(wrap_index(-1.5f, m), 286.5f, 1e-3f);
+  HS_EXPECT_NEAR(wrap_index(-static_cast<float>(m) + 0.25f, m), 0.25f, 1e-3f);
+
+  // Result stays in [0, m) across several periods of both signs.
+  for (int i = -3 * m; i <= 3 * m; ++i) {
+    float w = wrap_index(i * 0.5f, m);
+    HS_EXPECT_TRUE(w >= 0.0f && w < static_cast<float>(m));
+  }
+}
+
 inline int run_3dmath_tests() {
   auto scope = hs_test::begin_module("3dmath");
 
@@ -835,6 +865,8 @@ inline int run_3dmath_tests() {
 
   test_spline_cubic_endpoints();
   test_spline_catmull_rom();
+
+  test_wrap_index();
 
   return hs_test::end_module(scope);
 }
