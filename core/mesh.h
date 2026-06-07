@@ -120,13 +120,18 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
   std::sort_heap(records, records + n, edge_greater);
 
   for (size_t i = 0; i < n;) {
-    if (i + 1 < n && records[i].min_v == records[i + 1].min_v &&
-        records[i].max_v == records[i + 1].max_v) {
+    size_t j = i + 1;
+    while (j < n && records[j].min_v == records[i].min_v &&
+           records[j].max_v == records[i].max_v)
+      ++j;
+    // A 2-manifold mesh shares each undirected edge between exactly 1 (boundary)
+    // or 2 (interior) half-edges. A run of >2 is a non-manifold edge — a build
+    // invariant violation — so fail fast rather than pair two arbitrarily and
+    // silently drop the rest.
+    HS_CHECK(j - i <= 2 && "non-manifold edge: >2 half-edges share an edge");
+    if (j - i == 2)
       set_pair(records[i].he, records[i + 1].he);
-      i += 2;
-    } else {
-      i += 1;
-    }
+    i = j;
   }
 }
 
@@ -151,6 +156,11 @@ private:
     size_t num_verts = verts.size();
     size_t num_faces = counts.size();
     size_t total_indices = faces_arr.size();
+
+    // All vertex/face/half-edge indices are stored as uint16_t below; a mesh
+    // past that range would silently truncate. Trap instead (fail-fast).
+    HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX &&
+             "half-edge mesh exceeds 16-bit index range");
 
     vertices.bind(arena, num_verts);
     for (size_t i = 0; i < num_verts; ++i) {

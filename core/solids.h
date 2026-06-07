@@ -27,6 +27,13 @@ namespace Solids {
 static constexpr int MAX_VERTS = 8700;
 static constexpr int MAX_FACES = 1000;
 static constexpr int MAX_INDICES = 20000;
+// Conway/Hankin store vertex indices as int16_t (edge_to_vert uses -1 as a
+// sentinel) and half-edge/face indices as uint16_t, so the mesh budgets must
+// fit those index widths or they would silently truncate.
+static_assert(MAX_VERTS <= INT16_MAX,
+              "MAX_VERTS must fit int16_t vertex indices");
+static_assert(MAX_INDICES <= UINT16_MAX,
+              "MAX_INDICES must fit uint16_t half-edge indices");
 
 FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
