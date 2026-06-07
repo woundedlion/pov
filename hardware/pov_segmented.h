@@ -115,11 +115,6 @@ public:
     ledController_.setCorrection(255, 176, 240);   // TypicalLEDStrip
     ledController_.setTemperature(255, 147, 41);    // Candle
     ledController_.setBrightness(255);
-    // Slew-rate limiting for signal integrity
-    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 =
-        IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 & ~IOMUXC_PAD_SRE;   // Pin 11
-    IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 =
-        IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 & ~IOMUXC_PAD_SRE;   // Pin 13
 #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(
         leds_, PPS);

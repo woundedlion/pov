@@ -84,22 +84,13 @@ Two physical targets share the same rendering engine:
 | Controllers | 4× Teensy 4.1 (600 MHz ARM Cortex-M7) |
 | LEDs | 2 × 144-pixel strips (288 total, 72 per segment) |
 | Protocol | DMA (HD107S at 24 MHz) |
-| Rotation | 1200 RPM (20 revolutions/second) |
+| Rotation | 480 RPM (8 revolutions/second) 16 FPS from 2 sides of the ring |
 | Virtual resolution | 288 × 144 |
 | Driver | `POVSegmented<288, 4, 1200>` in `pov_segmented.h` |
 | Synchronization | 2-wire: column clock (PWM) + frame sync (pulse) |
 | Pin assignments | ID: pins 21–22, Column clock: pin 2 (in) / pin 5 (out), Frame sync: pin 3 (out) / pin 4 (in), SPI: pins 11 + 13 |
 
 The POV effect works because each revolution takes ~125 ms and the ISR fires every `1,000,000 / (RPM/60) / width` microseconds to advance one column. The LED strip is mounted on both sides of a rotating arm: the top half of the strip handles one hemisphere and the bottom half handles the opposite hemisphere, so one full revolution paints a complete sphere.
-
-### Slew Rate Limiting
-
-The firmware directly manipulates Teensy 4 IOMUX registers to enable slew rate limiting on both SPI pins, reducing electromagnetic interference at 6 MHz:
-
-```cpp
-IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02 &= ~IOMUXC_PAD_SRE;  // Pin 11 (DATA)
-IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 &= ~IOMUXC_PAD_SRE;  // Pin 13 (CLOCK)
-```
 
 ---
 
