@@ -396,12 +396,14 @@ struct CPixel {
  * @brief A class representing a discrete color gradient/lookup table.
  */
 // Helper for high-precision conversion (sRGB float 0-1 -> Linear float 0-1)
-constexpr float srgb_to_linear_float(float s) {
+// Not constexpr: powf is not a constant expression, so a constexpr marking here
+// could never be evaluated at compile time (ill-formed NDR). inline for ODR.
+inline float srgb_to_linear_float(float s) {
   return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
 }
 
 // Inverse: Linear float 0-1 -> sRGB float 0-1
-constexpr float linear_to_srgb_float(float l) {
+inline float linear_to_srgb_float(float l) {
   return (l <= 0.0031308f) ? l * 12.92f : 1.055f * powf(l, 1.0f / 2.4f) - 0.055f;
 }
 
@@ -568,9 +570,9 @@ public:
           float b_lin = pb * (1.0f - t) + nb * t;
 
           entries[i] = Pixel(
-            static_cast<uint16_t>(r_lin * 65535.0f),
-            static_cast<uint16_t>(g_lin * 65535.0f),
-            static_cast<uint16_t>(b_lin * 65535.0f));
+            static_cast<uint16_t>(hs::clamp(r_lin, 0.0f, 1.0f) * 65535.0f),
+            static_cast<uint16_t>(hs::clamp(g_lin, 0.0f, 1.0f) * 65535.0f),
+            static_cast<uint16_t>(hs::clamp(b_lin, 0.0f, 1.0f) * 65535.0f));
         }
       }
       prevPos = nextPos;
