@@ -16,6 +16,26 @@ namespace MeshOps {
 // ---------------------------------------------------------------------------
 
 /**
+ * @brief Narrow a freshly-appended container index to the mesh topology index
+ * type, trapping on a budget bump that pushes it past the representable range.
+ *
+ * Vertex/face indices are stored as uint16_t (faces, with HE_NONE=0xFFFF as the
+ * sentinel) and, in some operators' scratch, as int16_t (-1 sentinel). The input
+ * range is checked at mesh build, but each operator's OUTPUT index is captured
+ * via `static_cast<...>(vertices.size() - 1)`, which silently wraps if a future
+ * MAX_VERTS bump makes the count exceed the index type. Routing those casts
+ * through here converts that silent geometry corruption into a bench-time trap.
+ * Bound is INT16_MAX — the narrowest type these indices land in (matches the
+ * `MAX_VERTS <= INT16_MAX` static_assert in solids.h). Cold path: once per
+ * emitted vertex during a rebuild, never per pixel.
+ */
+inline uint16_t narrow_index(size_t i) {
+  HS_CHECK(i <= static_cast<size_t>(INT16_MAX) &&
+           "mesh index exceeds int16_t topology range (MAX_VERTS bumped?)");
+  return static_cast<uint16_t>(i);
+}
+
+/**
  * @brief Compute the centroid of a face by walking its half-edge loop.
  */
 template <typename MeshT>
@@ -275,7 +295,7 @@ FLASHMEM static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
         centroid = centroid / static_cast<float>(count);
 
       out_mesh.vertices.push_back(centroid);
-      int center_idx = static_cast<int>(out_mesh.vertices.size()) - 1;
+      int center_idx = narrow_index(out_mesh.vertices.size() - 1);
 
       for (int i = 0; i < count; ++i) {
         uint16_t vi = faces[offset + i];
@@ -333,7 +353,7 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
 
         Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
         out_mesh.vertices.push_back(mid);
-        uint16_t new_idx = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
+        uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
 
         edge_to_vert[i] = new_idx;
         if (he.pair != HE_NONE)
@@ -447,10 +467,10 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
             mesh.vertices[k2] + (mesh.vertices[k1] - mesh.vertices[k2]) * t;
 
         out_mesh.vertices.push_back(new_u);
-        uint16_t idx_u = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
+        uint16_t idx_u = narrow_index(out_mesh.vertices.size() - 1);
 
         out_mesh.vertices.push_back(new_v);
-        uint16_t idx_v = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
+        uint16_t idx_v = narrow_index(out_mesh.vertices.size() - 1);
 
         edge_to_vert[i] = {idx_u, idx_v};
         if (he.pair != HE_NONE)
@@ -575,7 +595,7 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
           Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
           Vector new_v = v + (centroid - v) * t;
           out_mesh.vertices.push_back(new_v);
-          int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
+          int idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_vert_idx[he_idx] = idx;
 
           out_mesh.faces.push_back(idx);
@@ -691,7 +711,7 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
           Vector new_v = v + (centroid - v) * t;
 
           out_mesh.vertices.push_back(new_v);
-          uint16_t idx = static_cast<uint16_t>(out_mesh.vertices.size() - 1);
+          uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_new_v[he_idx] = idx;
 
           out_mesh.faces.push_back(idx);
@@ -895,7 +915,7 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
           }
 
           out_mesh.vertices.push_back(new_v);
-          int idx = static_cast<int>(out_mesh.vertices.size()) - 1;
+          int idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_vert_idx[he_idx] = idx;
 
           out_mesh.faces.push_back(idx);

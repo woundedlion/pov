@@ -243,6 +243,13 @@ private:
     int median_idx = indices[mid];
 
     int new_node_idx = node_count++;
+    // Child links (left/right) are stored as int16_t with -1 as the sentinel,
+    // so a node pool bumped past INT16_MAX would silently truncate them into
+    // garbage links. The pool-capacity guard above caps node_count, but trap the
+    // index range explicitly so a future capacity bump fails loud instead of
+    // corrupting the tree. Cold path (once per node during build).
+    HS_CHECK(new_node_idx <= INT16_MAX &&
+             "KDTree node index exceeds int16_t child-link range");
     nodes.emplace_back();
     nodes[new_node_idx].point = points[median_idx];
     nodes[new_node_idx].original_index = (uint16_t)median_idx; // Store index
@@ -360,10 +367,14 @@ public:
 
     int16_t curr = buckets[bucket_idx];
     while (curr != -1) {
+      // A bucket chain longer than the result buffer would silently drop
+      // neighbors, corrupting the query the same way a dropped insert corrupts
+      // the table. Trap for parity with insert()'s fail-fast rather than
+      // truncate to a partial neighbor set.
+      HS_CHECK(!result.is_full() &&
+               "SpatialHash::query: bucket chain exceeds result capacity");
       result.push_back(pool[curr].id);
       curr = pool[curr].next;
-      if (result.is_full())
-        break;
     }
     return result;
   }
