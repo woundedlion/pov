@@ -213,6 +213,11 @@ inline uint16_t srgb_to_linear(uint8_t srgb) {
 /// LUT lookup + lerp (no powf). Input must be in [0,1] (callers clamp).
 inline uint16_t srgb_to_linear_interp(float s_srgb) {
   float f = s_srgb * 255.0f; // [0, 255]
+  // The contract is [0,1], but a negative input would make (int)f negative — an
+  // OOB LUT read — and a negative frac that wraps the uint16_t cast. Clamp the
+  // low end defensively, mirroring the i>=255 high-end guard.
+  if (f <= 0.0f)
+    return srgb_to_linear_lut[0];
   int i = static_cast<int>(f);
   if (i >= 255)
     return srgb_to_linear_lut[255];
@@ -462,9 +467,12 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
 inline Pixel oklch_to_pixel(OKLCH lch) {
   float r, g, b;
   oklab_to_linear_rgb(oklch_to_oklab(lch), r, g, b);
-  return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 1.0f) * 65535.0f),
-               static_cast<uint16_t>(hs::clamp(g, 0.0f, 1.0f) * 65535.0f),
-               static_cast<uint16_t>(hs::clamp(b, 0.0f, 1.0f) * 65535.0f));
+  // Round (+0.5f), don't truncate, for parity with the sibling conversions
+  // (srgb_to_linear_interp, to_crgb, float_to_pixel16) — truncation biased
+  // every channel down by up to ~1/65535.
+  return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 1.0f) * 65535.0f + 0.5f),
+               static_cast<uint16_t>(hs::clamp(g, 0.0f, 1.0f) * 65535.0f + 0.5f),
+               static_cast<uint16_t>(hs::clamp(b, 0.0f, 1.0f) * 65535.0f + 0.5f));
 }
 
 /// Interpolate two OKLCH colors (shortest-arc hue)
@@ -569,10 +577,11 @@ public:
           float g_lin = pg * (1.0f - t) + ng * t;
           float b_lin = pb * (1.0f - t) + nb * t;
 
+          // Round (+0.5f), not truncate — parity with the sibling conversions.
           entries[i] = Pixel(
-            static_cast<uint16_t>(hs::clamp(r_lin, 0.0f, 1.0f) * 65535.0f),
-            static_cast<uint16_t>(hs::clamp(g_lin, 0.0f, 1.0f) * 65535.0f),
-            static_cast<uint16_t>(hs::clamp(b_lin, 0.0f, 1.0f) * 65535.0f));
+            static_cast<uint16_t>(hs::clamp(r_lin, 0.0f, 1.0f) * 65535.0f + 0.5f),
+            static_cast<uint16_t>(hs::clamp(g_lin, 0.0f, 1.0f) * 65535.0f + 0.5f),
+            static_cast<uint16_t>(hs::clamp(b_lin, 0.0f, 1.0f) * 65535.0f + 0.5f));
         }
       }
       prevPos = nextPos;
