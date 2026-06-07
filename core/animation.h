@@ -1602,6 +1602,11 @@ struct TimelineEvent {
 #endif
 
   int start = 0;
+  // Set when this event's inline animation pointer was handed out via
+  // Timeline::add_get(). Compaction must never relocate such an event — doing so
+  // dangles the caller's cached pointer. (Occupies existing alignment padding
+  // before `storage`, so it costs no extra bytes.)
+  bool handled = false;
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE];
 
   /// Type-erased operation: dst != nullptr → move src into dst and destroy src.
@@ -1613,7 +1618,16 @@ struct TimelineEvent {
   }
 
   void move_into(TimelineEvent &dst) {
+    // Fail-fast on the add_get() dangling-handle hazard: relocating a handled
+    // event invalidates the caller's cached animation pointer. Today's callers
+    // are safe by an unstated invariant (handled animations are infinite and
+    // added before any finite one, so compaction never shifts them), but a
+    // future change that violates it would silently corrupt memory. Trap at the
+    // move instead — a bench-time crash beats a live use-after-free. (Cold path:
+    // once per relocated event per frame, never per pixel.)
+    HS_CHECK(!handled);
     dst.start = start;
+    dst.handled = handled; // always false past the check; kept for symmetry
     dst.manager = manager;
     if (manager) {
       manager(*this, &dst);
@@ -1675,6 +1689,7 @@ public:
     }
     auto &e = global_timeline_events[num_events++];
     e.start = t + (int)in_frames;
+    e.handled = false; // global slots are reused — clear any stale handled flag
     new (e.storage) A(std::move(animation));
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
       A *obj = reinterpret_cast<A *>(src.storage);
@@ -1689,9 +1704,17 @@ public:
   /**
    * @brief Like add(), but returns the typed pointer to the inline-stored
    * animation. Use when you need to hold a reference for later mutation.
-   * @warning Pointer is invalidated if the event is moved during compaction.
+   * @param pin If true (default), the caller intends to RETAIN this pointer
+   * across frames, so the event is marked handled and step()'s compaction traps
+   * (move_into) rather than relocating it out from under the cached pointer.
+   * Such a retained handle is only safe when the animation is infinite and added
+   * before any finite one (so no earlier event is ever removed to shift it) —
+   * the contract the direct callers rely on; the trap enforces it. Pass
+   * `pin=false` for a TRANSIENT pointer used only at the call site and not kept
+   * across frames (e.g. TransformerPool::spawn, whose finite animations are
+   * compacted normally and whose return is typically discarded).
    */
-  template <typename A> A *add_get(float in_frames, A animation) {
+  template <typename A> A *add_get(float in_frames, A animation, bool pin = true) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     if (num_events >= MAX_EVENTS) {
@@ -1700,6 +1723,9 @@ public:
     }
     auto &e = global_timeline_events[num_events++];
     e.start = t + (int)in_frames;
+    // A pinned (retained) handle must stay put: step()'s compaction traps in
+    // move_into if a later change ever tries to relocate this event.
+    e.handled = pin;
     auto *ptr = new (e.storage) A(std::move(animation));
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
       A *obj = reinterpret_cast<A *>(src.storage);

@@ -32,6 +32,7 @@
 #include "tests/test_harness.h"
 
 #include "core/3dmath.h"
+#include "core/animation.h"
 #include "core/memory.h"
 #include "core/solids.h"
 #include "core/spatial.h"
@@ -149,6 +150,17 @@ inline void case_arena_oversubscribed() {
                    opaque<size_t>(1024));
 }
 
+// Animation surface: relocating a retained (pinned) add_get() handle. step()'s
+// compaction routes every relocation through TimelineEvent::move_into, which
+// traps when the event was handed out via add_get(pin=true) — converting the
+// dangling-handle hazard into a fail-fast crash instead of silent corruption.
+inline void case_timeline_handled_relocation() {
+  TimelineEvent src;
+  src.handled = opaque(true); // as if handed out by add_get(pin=true)
+  TimelineEvent dst;
+  src.move_into(dst); // HS_CHECK(!handled) -> trap
+}
+
 struct Case {
   const char *name;
   void (*fn)();
@@ -165,6 +177,7 @@ inline const Case *all_cases(int &n) {
       {"circular_buffer_oob", case_circular_buffer_oob},
       {"spatial_hash_overflow", case_spatial_hash_overflow},
       {"arena_oversubscribed", case_arena_oversubscribed},
+      {"timeline_handled_relocation", case_timeline_handled_relocation},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;

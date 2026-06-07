@@ -53,11 +53,15 @@ public:
         // Create animation with reference to the stable entity params
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         bool repeats = anim.repeats();
+        // pin=false: the returned pointer is transient (used at the call site,
+        // not retained across frames). These animations are often finite and are
+        // compacted normally; pinning them would trap on routine completion.
         return timeline.add_get(in_frames,
                                 std::move(anim).then([&e, repeats]() {
                                   if (!repeats)
                                     e.active = false;
-                                }));
+                                }),
+                                /*pin=*/false);
       }
     }
     // If we get here, no free slots. Drop the spawn (safe failure).
