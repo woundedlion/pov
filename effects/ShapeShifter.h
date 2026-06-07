@@ -7,7 +7,7 @@
 
 #include "core/effects_engine.h"
 
-template <int W, int H> class TestShapes : public Effect {
+template <int W, int H> class ShapeShifter : public Effect {
 public:
   enum class ShapeType { PlanarPolygon, SphericalPolygon, Flower, Star };
   enum class RenderMode { Plot, Scan };
@@ -28,7 +28,7 @@ public:
         : normal(n), scale(s), color(c), mode(m), layer_index(l) {}
   };
 
-  FLASHMEM TestShapes()
+  FLASHMEM ShapeShifter()
       : Effect(W, H), current_shape(ShapeType::PlanarPolygon) {}
 
   bool show_bg() const override { return false; }
@@ -197,4 +197,4 @@ private:
 };
 
 #include "core/effect_registry.h"
-REGISTER_EFFECT(TestShapes)
+REGISTER_EFFECT(ShapeShifter)

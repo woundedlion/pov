@@ -113,6 +113,7 @@ inline int run_effects_tests() {
   smoke_one<BZReactionDiffusion>("BZReactionDiffusion");
   smoke_one<ChaoticStrings>("ChaoticStrings");
   smoke_one<Comets>("Comets");
+  smoke_one<DistortedRing>("DistortedRing");
   smoke_one<DreamBalls>("DreamBalls");
   smoke_one<Dynamo>("Dynamo");
   smoke_one<FlowField>("FlowField");
@@ -132,16 +133,15 @@ inline int run_effects_tests() {
   smoke_one<Raymarch>("Raymarch");
   smoke_one<RingShower>("RingShower");
   smoke_one<RingSpin>("RingSpin");
+  smoke_one<ShapeShifter>("ShapeShifter");
   smoke_one<SphericalHarmonics>("SphericalHarmonics");
   smoke_one<SplineFlow>("SplineFlow");
-  smoke_one<Test>("Test");
-  smoke_one<TestShapes>("TestShapes");
   smoke_one<Thrusters>("Thrusters");
   smoke_one<Voronoi>("Voronoi");
 
   // ------------------------------------------------------------------------
   // All effects re-enabled as of 2026-06-05 (see #3 in docs/CODE_REVIEW.md):
-  //   * TestShapes + Thrusters — plot.h _steps_cache sized off W + graceful cap.
+  //   * ShapeShifter + Thrusters — plot.h _steps_cache sized off W + graceful cap.
   //   * SplineFlow — fixed an off-by-one in Plot::SplineChain's closed-loop
   //     fragment-buffer size (it pushed n*S+1 points into an n*S buffer).
   // All verified rendering in the WASM sim after a fresh build/install.

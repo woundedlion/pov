@@ -36,7 +36,7 @@ FLASHMEM static void run_show_sequence() {
 
   /*
   pov->show<RingSpin<288, 144>>(120); // 140
-  pov->show<TestShapes<288, 144>>(120); //140
+  pov->show<ShapeShifter<288, 144>>(120); //140
   pov->show<DreamBalls<288, 144>>(120); // 117
   pov->show<IslamicStars<288, 144>>(120);
 

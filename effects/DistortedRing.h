@@ -7,9 +7,9 @@
 
 #include "core/effects_engine.h"
 
-template <int W, int H> class Test : public Effect {
+template <int W, int H> class DistortedRing : public Effect {
 public:
-  FLASHMEM Test()
+  FLASHMEM DistortedRing()
       : Effect(W, H),
         ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),
@@ -105,4 +105,4 @@ private:
 };
 
 #include "core/effect_registry.h"
-REGISTER_EFFECT(Test)
+REGISTER_EFFECT(DistortedRing)
