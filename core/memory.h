@@ -59,7 +59,12 @@ public:
     // correct, not a unit error.
     size_t current = reinterpret_cast<size_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
-    if (offset + padding + size > capacity) {
+    // No-wrap bounds check. An additive form (offset + padding + size > capacity)
+    // wraps if `size` is colossal — e.g. an overflowed exact_capacity * sizeof(T)
+    // from bind() — and would spuriously pass. The subtractive form can't wrap:
+    // offset <= capacity is an invariant, so (capacity - offset) is safe; guard
+    // the padding step against it, then compare the remaining room against size.
+    if (padding > capacity - offset || size > capacity - offset - padding) {
 #ifdef ARDUINO
       Serial.printf("[OOM] Arena: req %u, offset %u / cap %u\n",
                     (unsigned)size, (unsigned)(offset + padding),
@@ -279,6 +284,12 @@ public:
     // are still trapped: OOM in Arena::allocate (HS_CHECK), capacity overflow in
     // push_back/append_bulk (HS_CHECK), and use-after-free in check_alive().
     if (exact_capacity > 0) {
+      // A capacity so large that exact_capacity * sizeof(T) overflows size_t
+      // would wrap to a small byte count that slips past Arena::allocate's
+      // bounds check — a silent under-allocation. Trap the overflow here, where
+      // the multiply happens. Cold path (binding, not per-element).
+      HS_CHECK(exact_capacity <= SIZE_MAX / sizeof(T) &&
+               "ArenaVector capacity * sizeof(T) overflows size_t!");
       data_ = static_cast<T *>(
           arena.allocate(exact_capacity * sizeof(T), alignof(T)));
     } else {
@@ -359,11 +370,18 @@ public:
   }
 
   void clear() {
+    check_alive();
     size_ = 0; // Does not free memory or reallocate
   }
 
-  T *data() { return data_; }
-  const T *data() const { return data_; }
+  T *data() {
+    check_alive();
+    return data_;
+  }
+  const T *data() const {
+    check_alive();
+    return data_;
+  }
 
   T *begin() {
     check_alive();
@@ -390,6 +408,14 @@ public:
 /// A read-only, non-owning view into arena-allocated data.
 /// Makes the distinction between owned (ArenaVector) and borrowed data
 /// visible at the type level. Used to replace shallow_copy in transforms.
+///
+/// LIFETIME CONTRACT: a span snapshots its source vector's data_ pointer at
+/// construction. The debug generation stamp catches an arena RESET out from
+/// under the span, but NOT a bind()-driven RE-GROW of the source vector: a grow
+/// allocates a fresh block and rebinds data_ without bumping the arena
+/// generation, leaving the span pointing at the abandoned (still-mapped but
+/// stale) block with no fault. Do not retain a span across any bind()/grow of
+/// the vector it views; re-take the span afterward.
 template <typename T> class ArenaSpan {
   const T *data_;
   size_t size_;
