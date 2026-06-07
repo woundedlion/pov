@@ -118,36 +118,69 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
     if (handled && !intervals.is_empty()) {
-      float current_end = -FLT_MAX;
+      // Normalize spans into [0, W): wrap each start and split any span that
+      // crosses the x=0 seam, so the forward-sweep coalescer below (which
+      // assumes sorted, non-wrapping spans) is correct even when a shape/CSG
+      // emits intervals that straddle θ=0. Coalescing seam-crossers in
+      // unwrapped space could otherwise skip distinct pixels or double-plot the
+      // wrapped overlap. For the common in-[0,W) sorted case this is a no-op
+      // (no wrap, no split, sort already ordered) — identical output. The norm
+      // buffer is 2× the 32-span input cap, so splitting can never overflow it.
+      bool full_row = false;
+      StaticCircularBuffer<std::pair<float, float>, 64> norm;
       for (const auto &iv : intervals) {
-        if (iv.second <= current_end)
-          continue;
+        float len = iv.second - iv.first;
+        if (len >= W) {
+          full_row = true;
+          break;
+        }
+        float s = fmodf(iv.first, static_cast<float>(W));
+        if (s < 0.0f)
+          s += static_cast<float>(W);
+        float e = s + len;
+        if (e <= static_cast<float>(W)) {
+          norm.push_back({s, e});
+        } else {
+          norm.push_back({s, static_cast<float>(W)});
+          norm.push_back({0.0f, e - static_cast<float>(W)});
+        }
+      }
 
-        float start = std::max(iv.first, current_end);
-        float end = iv.second;
-        current_end = end;
-
-        if (end - start >= W) {
-          for (int x = 0; x < W; ++x)
-            pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
-          continue;
+      if (full_row) {
+        for (int x = 0; x < W; ++x)
+          pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
+      } else {
+        // Insertion-sort by start (small n; a no-op when already sorted).
+        auto *d = &norm[0];
+        size_t nn = norm.size();
+        for (size_t i = 1; i < nn; ++i) {
+          auto key = d[i];
+          int j = static_cast<int>(i) - 1;
+          while (j >= 0 && d[j].first > key.first) {
+            d[j + 1] = d[j];
+            --j;
+          }
+          d[j + 1] = key;
         }
 
-        int x1 = static_cast<int>(floorf(start));
-        int x2 = static_cast<int>(ceilf(end));
-        if (x1 == x2)
-          x2++;
+        float current_end = -FLT_MAX;
+        for (const auto &iv : norm) {
+          if (iv.second <= current_end)
+            continue;
+          float start = std::max(iv.first, current_end);
+          float end = iv.second;
+          current_end = end;
 
-        // Modulo-free coordinate wrap
-        int wx = x1 % W;
-        if (wx < 0)
-          wx += W;
-
-        for (int x = x1; x < x2; ++x) {
-          pixel_fn(wx, y, Vector(sp * cos_theta[wx], cp, sp * sin_theta[wx]));
-          wx++;
-          if (wx >= W)
-            wx -= W;
+          int x1 = static_cast<int>(floorf(start));
+          int x2 = static_cast<int>(ceilf(end));
+          if (x1 == x2)
+            x2++;
+          if (x1 < 0)
+            x1 = 0;
+          if (x2 > W)
+            x2 = W;
+          for (int x = x1; x < x2; ++x)
+            pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
         }
       }
       intervals.clear();

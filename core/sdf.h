@@ -1036,10 +1036,10 @@ struct Face {
     }
 
     count = indices.size();
-    if (count > FaceScratchBuffer::MAX_VERTS) {
-      hs::log("Face: vertex count exceeds MAX_VERTS, truncating");
-      count = FaceScratchBuffer::MAX_VERTS;
-    }
+    // A face with more vertices than the scratch budget would build wrong
+    // geometry from a truncated index list — trap instead of silently masking.
+    HS_CHECK(count <= FaceScratchBuffer::MAX_VERTS &&
+             "Face: vertex count exceeds MAX_VERTS");
 
     center = Vector(0, 0, 0);
     for (int i = 0; i < count; ++i)

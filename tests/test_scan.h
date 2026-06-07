@@ -150,6 +150,42 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
   HS_EXPECT_EQ(plotted, (size_t)0);
 }
 
+// scan_region seam coalescer: a span crossing x=0 must not double-plot the
+// wrapped overlap with another span. Drives scan_region directly with a sorted
+// two-span row (a low span + a seam-crosser, as a shape's sorted output emits).
+// The old coalescer worked in unwrapped space and double-plotted the overlap.
+inline void test_scan_region_seam_no_double_plot() {
+  constexpr int W = 96, H = 20;
+  int counts[W];
+  for (int i = 0; i < W; ++i)
+    counts[i] = 0;
+  const int y = 10;
+
+  Scan::scan_region<W, H>(
+      y, y,
+      [](int, auto &&out) {
+        out(1.0f, 5.0f);                     // low span      -> 1,2,3,4
+        out((float)(W - 2), (float)(W + 2)); // seam-crosser  -> W-2,W-1,0,1
+        return true;
+      },
+      [&](int wx, int, const Vector &) {
+        if (wx >= 0 && wx < W)
+          counts[wx]++;
+      });
+
+  // No pixel plotted more than once (the wrapped overlap at x=0,1 is not
+  // doubled — without the fix counts[1] == 2).
+  for (int x = 0; x < W; ++x)
+    HS_EXPECT_LE(counts[x], 1);
+
+  // Coverage is exactly {0,1,2,3,4, W-2, W-1}.
+  const int covered[] = {0, 1, 2, 3, 4, W - 2, W - 1};
+  for (int x : covered)
+    HS_EXPECT_EQ(counts[x], 1);
+  HS_EXPECT_EQ(counts[5], 0);
+  HS_EXPECT_EQ(counts[W - 3], 0);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -162,6 +198,7 @@ inline int run_scan_tests() {
   test_shader_respects_clip_band();
   test_ring_rasterize_produces_bounded_output();
   test_ring_rasterize_empty_clip_draws_nothing();
+  test_scan_region_seam_no_double_plot();
 
   return hs_test::end_module(scope);
 }
