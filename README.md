@@ -1832,7 +1832,7 @@ npm install              # populates node_modules/lil-gui/
 git clone --depth 1 https://github.com/mrdoob/three.js.git
 ```
 
-[`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) detects these at startup and switches to local URLs automatically (§10.8).
+After populating them, run `npm run importmap:local` to point [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) at the local copies (don't commit the result); `npm run importmap` reverts to all-CDN (§10.8).
 
 **Live demo.** The `master` branch of daydream is published to <https://woundedlion.github.io/daydream/> via GitHub Pages. The CDN-fallback path is what powers it.
 
