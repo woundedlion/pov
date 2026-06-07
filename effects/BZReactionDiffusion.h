@@ -40,8 +40,11 @@ class BZReactionDiffusion
   using Base::build_nodes;
   using Base::cube_lut;
   using Base::dist2;
+  using Base::for_each_neighbor;
+  using Base::graph_laplacian;
   using Base::init_orientation_animation;
   using Base::INV_R2;
+  using Base::kernel_accumulate;
   using Base::orientation;
   using Base::RD_K;
   using Base::RD_N;
@@ -109,17 +112,6 @@ private:
   // Physics: Lotka-Volterra reaction + graph Laplacian diffusion
   // ---------------------------------------------------------------------------
 
-  /** Compute the graph Laplacian (discrete diffusion) for a single node. */
-  static float graph_laplacian(const uint8_t *field, int node, float center) {
-    float lap = 0;
-    for (int k = 0; k < RD_K; k++) {
-      int ni = ReactionGraph::neighbors[node][k];
-      if (ni >= 0)
-        lap += from_q8(field[ni]) - center;
-    }
-    return lap;
-  }
-
   /** Advance one species: diffusion + Lotka-Volterra competition step. */
   uint8_t advance_species(float conc, float predator, float laplacian) const {
     return to_q8(conc + (params.D * laplacian +
@@ -141,14 +133,15 @@ private:
 
   /** Full physics step: reaction-diffusion + perturbation + swap. */
   void step_physics(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+    auto from = [](uint8_t v) { return from_q8(v); };
     for (int i = 0; i < RD_N; i++) {
       float a = from_q8(state.A[i]);
       float b = from_q8(state.B[i]);
       float c = from_q8(state.C[i]);
 
-      nA[i] = advance_species(a, c, graph_laplacian(state.A, i, a));
-      nB[i] = advance_species(b, a, graph_laplacian(state.B, i, b));
-      nC[i] = advance_species(c, b, graph_laplacian(state.C, i, c));
+      nA[i] = advance_species(a, c, graph_laplacian(state.A, i, a, from));
+      nB[i] = advance_species(b, a, graph_laplacian(state.B, i, b, from));
+      nC[i] = advance_species(c, b, graph_laplacian(state.C, i, c, from));
     }
 
     perturb_state(nA, nB, nC);
@@ -187,34 +180,14 @@ private:
                                  int center_node) {
     float best_d = dist2(rv, nodes[center_node]);
     int best_node = center_node;
-
-    for (int k = 0; k < RD_K; ++k) {
-      int ni = ReactionGraph::neighbors[center_node][k];
-      if (ni >= 0) {
-        float d = dist2(rv, nodes[ni]);
-        if (d < best_d) {
-          best_d = d;
-          best_node = ni;
-        }
+    for_each_neighbor(center_node, [&](int ni) {
+      float d = dist2(rv, nodes[ni]);
+      if (d < best_d) {
+        best_d = d;
+        best_node = ni;
       }
-    }
+    });
     return best_node;
-  }
-
-  /** Accumulate Wendland C2 kernel weight for a single neighbor node. */
-  static void accumulate_kernel_weight(const Vector &rv, const Vector *nodes,
-                                       int ni, float &wa, float &wb, float &wc,
-                                       float &tw, const uint8_t *sA,
-                                       const uint8_t *sB, const uint8_t *sC) {
-    float d = dist2(rv, nodes[ni]);
-    float u = 1.0f - d * INV_R2;
-    if (u > 0) {
-      float w = u * u;
-      wa += sA[ni] * w;
-      wb += sB[ni] * w;
-      wc += sC[ni] * w;
-      tw += w;
-    }
   }
 
   /** Sample the kernel-interpolated color at a world-space point. */
@@ -222,16 +195,12 @@ private:
                        const Color4 &ca, const Color4 &cb,
                        const Color4 &cc) const {
     float tw = 0, wa = 0, wb = 0, wc = 0;
-
-    // Center node + its K neighbors
-    accumulate_kernel_weight(rv, nodes, best_node, wa, wb, wc, tw, state.A,
-                             state.B, state.C);
-    for (int k = 0; k < RD_K; ++k) {
-      int ni = ReactionGraph::neighbors[best_node][k];
-      if (ni >= 0)
-        accumulate_kernel_weight(rv, nodes, ni, wa, wb, wc, tw, state.A,
-                                 state.B, state.C);
-    }
+    kernel_accumulate(rv, nodes, best_node, [&](int i, float w) {
+      wa += state.A[i] * w;
+      wb += state.B[i] * w;
+      wc += state.C[i] * w;
+      tw += w;
+    });
 
     if (tw <= 0.0001f)
       return Color4(Pixel(0, 0, 0), 0.0f);

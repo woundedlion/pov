@@ -63,6 +63,46 @@ protected:
       nodes[i] = ReactionGraph::node(i);
   }
 
+  /** Invoke `fn(ni)` for each valid K-NN neighbor index of `node`.
+   *  The fundamental shared iteration over the lattice graph; the lambda
+   *  inlines, so this is identical codegen to a hand-written neighbor loop. */
+  template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
+    for (int k = 0; k < RD_K; ++k) {
+      int ni = ReactionGraph::neighbors[node][k];
+      if (ni >= 0)
+        fn(ni);
+    }
+  }
+
+  /** Graph Laplacian (discrete diffusion) of a fixed-point `field` at `node`:
+   *  Σ_neighbors (field[ni] − center). `from_fixed` converts a stored sample to
+   *  float. Single-field; callers needing several fields per node should fuse
+   *  them in one for_each_neighbor walk to avoid re-reading the neighbor list. */
+  template <typename T, typename FromFixed>
+  static float graph_laplacian(const T *field, int node, float center,
+                               FromFixed from_fixed) {
+    float lap = 0;
+    for_each_neighbor(node,
+                      [&](int ni) { lap += from_fixed(field[ni]) - center; });
+    return lap;
+  }
+
+  /** Wendland C2 kernel walk over `center` and its neighbors. Calls
+   *  `on_weight(node_index, weight)` for every node inside the support radius.
+   *  The caller accumulates whatever fields it needs and applies the total-
+   *  weight guard, so this stays agnostic to species count and fixed-point. */
+  template <typename OnWeight>
+  static void kernel_accumulate(const Vector &rv, const Vector *nodes,
+                                int center, OnWeight &&on_weight) {
+    auto visit = [&](int i) {
+      float u = 1.0f - dist2(rv, nodes[i]) * INV_R2;
+      if (u > 0)
+        on_weight(i, u * u);
+    };
+    visit(center);
+    for_each_neighbor(center, visit);
+  }
+
   Orientation<W> orientation;
   FastNoiseLite noise;
   ReactionGraph::CubemapLUT cube_lut;

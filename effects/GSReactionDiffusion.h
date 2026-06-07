@@ -28,8 +28,10 @@ class GSReactionDiffusion
   using Base::build_nodes;
   using Base::cube_lut;
   using Base::dist2;
+  using Base::for_each_neighbor;
   using Base::init_orientation_animation;
   using Base::INV_R2;
+  using Base::kernel_accumulate;
   using Base::orientation;
   using Base::RD_K;
   using Base::RD_N;
@@ -88,14 +90,13 @@ private:
       float a = from_q16(state.A[i]);
       float b = from_q16(state.B[i]);
 
+      // Both species' Laplacians share one neighbor walk (fused on purpose:
+      // two single-field graph_laplacian() calls would double the lattice reads).
       float lA = 0, lB = 0;
-      for (int k = 0; k < RD_K; k++) {
-        int ni = ReactionGraph::neighbors[i][k];
-        if (ni < 0)
-          continue;
+      for_each_neighbor(i, [&](int ni) {
         lA += from_q16(state.A[ni]) - a;
         lB += from_q16(state.B[ni]) - b;
-      }
+      });
 
       float abb = a * b * b;
       nA[i] = to_q16(a + (params.dA * lA - abb + params.feed * (1.0f - a)) *
@@ -110,21 +111,10 @@ private:
 
   float interpolate_b(const Vector &p, int nearest, const Vector *nodes) const {
     float tw = 0, wb = 0;
-    auto acc = [&](int i) {
-      float u = 1.0f - dist2(p, nodes[i]) * INV_R2;
-      if (u <= 0)
-        return;
-      float w = u * u;
+    kernel_accumulate(p, nodes, nearest, [&](int i, float w) {
       wb += from_q16(state.B[i]) * w;
       tw += w;
-    };
-
-    acc(nearest);
-    for (int k = 0; k < RD_K; ++k) {
-      int ni = ReactionGraph::neighbors[nearest][k];
-      if (ni >= 0)
-        acc(ni);
-    }
+    });
     // Empty kernel (no node within the support radius): guard the division. A
     // 0/0 NaN would slip past the b < 0.05 cull in the shader (NaN compares
     // false) and silently poison palette.get(). Mirrors BZ's sample_kernel.
