@@ -13,6 +13,7 @@
 #pragma once
 
 #include "core/scan.h"
+#include "core/plot.h"
 #include "core/filter.h"
 #include "core/canvas.h"
 #include "core/geometry.h"
@@ -186,6 +187,38 @@ inline void test_scan_region_seam_no_double_plot() {
   HS_EXPECT_EQ(counts[W - 3], 0);
 }
 
+// A Plot geodesic line passing through the north pole must actually plot the
+// pole row (row 0). Regression: map_geodesic/map_planar build interpolated
+// points with fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel
+// takes phi = acos(v.y) directly, and acos's infinite slope at y=1 mapped the
+// near-pole samples ~1.3 rows south ("clamped to the 3rd pixel"). The drawing
+// phase now re-normalizes interpolated positions, so the pole maps to row 0.
+inline void test_plot_line_over_pole_reaches_row0() {
+  constexpr int W = 288, H = 144;
+  ScanFx fx(W, H);
+  Pipeline<W, H> pipe; // bare sink (no AA) so we see raw sample placement
+
+  // Geodesic from 0.4 rad down the +Z side of the N pole to 0.4 rad down the
+  // -Z side; its midpoint is the pole (row 0).
+  Fragment f1, f2;
+  f1.pos = Vector(0.0f, cosf(0.4f), sinf(0.4f));
+  f2.pos = Vector(0.0f, cosf(0.4f), -sinf(0.4f));
+  {
+    Canvas c(fx);
+    Plot::Line::draw<W, H>(pipe, c, f1, f2, [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+    });
+  }
+  fx.advance_display();
+
+  size_t row0 = 0;
+  for (int x = 0; x < W; ++x)
+    if (!is_black(fx.get_pixel(x, 0)))
+      ++row0;
+  // Without the fix the line never reaches row 0 (clamped to ~row 1.3).
+  HS_EXPECT_GT(row0, (size_t)0);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -199,6 +232,7 @@ inline int run_scan_tests() {
   test_ring_rasterize_produces_bounded_output();
   test_ring_rasterize_empty_clip_draws_nothing();
   test_scan_region_seam_no_double_plot();
+  test_plot_line_over_pole_reaches_row0();
 
   return hs_test::end_module(scope);
 }

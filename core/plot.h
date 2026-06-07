@@ -258,8 +258,16 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       return;
 
     // 2. DRAWING PHASE
+    //
+    // map_geodesic/map_planar build interpolated points with fast_sinf/fast_cosf,
+    // which don't satisfy sin²+cos²=1 — so the result is ~0.04% non-unit. The
+    // sink's vector_to_pixel skips normalization and takes phi = acos(v.y)
+    // directly; near the pole acos has infinite slope, so a y of 0.9996 instead
+    // of 1.0 lands ~1.3 rows below the pole. Re-normalize the interpolated
+    // positions here (the sampled vertices are already unit) so polar samples
+    // map to the correct row. Plot-path only; one sqrt per drawn sample.
     {
-      Vector start_pos = map(0.0f);
+      Vector start_pos = map(0.0f).normalized();
       Fragment f = Fragment::lerp(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
@@ -278,7 +286,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
       float t = (total_dist > 0.0f) ? (current_dist / total_dist) : 1.0f;
 
-      Vector p = map(t);
+      Vector p = map(t).normalized();
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
