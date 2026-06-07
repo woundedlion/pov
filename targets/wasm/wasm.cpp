@@ -124,9 +124,14 @@ public:
     pixelBuffer.assign(MAX_W * MAX_H * 3, 0); // 16-bit linear RGB; never resized
     paramValues.reserve(MAX_PARAMS);          // never reallocated past this
 
-    // Initialize with default
+    // Initialize with a valid default effect. ("Test" was renamed to
+    // "DistortedRing" in review finding #10; the old name no longer resolves, so
+    // create_effect() returned null and the engine started effect-less until JS
+    // set one.) JS overrides this almost immediately (daydream defaults to
+    // IslamicStars / the URL ?effect=), but a real registered name keeps the
+    // engine valid for that first instant and for any headless/tool use.
     setResolution(96, 20);
-    setEffect("Test");
+    setEffect("DistortedRing");
   }
 
   // Returns true if the resolution is now active, false if the request was
