@@ -34,6 +34,12 @@ static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
  *  segment so polar curves don't oversample. A clamp, not a tolerance. */
 static constexpr float MIN_POLE_SCALE = 0.05f;
 
+/** Planar (azimuthal-equidistant) projection is singular at the basis antipode
+ *  (R→π: azimuth undefined). A control point whose dot with the basis center is
+ *  below this (≈ within 2.6° of the antipode) projects to an unstable azimuth,
+ *  so its segment falls back to a geodesic edge. cos(π − 0.045). */
+static constexpr float COS_PLANAR_ANTIPODE = 0.999f;
+
 /**
  * @brief Apply an optional per-control-point vertex shader to every fragment.
  *
@@ -313,7 +319,17 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
 
     // --- Interpolation Strategy Selection ---
-    if (planar_basis) {
+    // Branch-cut guard: the planar projection is singular at the basis antipode,
+    // so a segment with an endpoint there would project to a garbage azimuth and
+    // interpolate wildly. Fall back to a (well-defined) geodesic edge for that
+    // segment — near the antipode the "straight in projection" intent is
+    // meaningless anyway. Two dot products on the planar path only; no cost to
+    // the geodesic callers.
+    const Vector *pc = planar_basis ? &planar_basis->v : nullptr;
+    const bool antipodal_seam =
+        pc && (dot(curr.pos, *pc) < -COS_PLANAR_ANTIPODE ||
+               dot(next.pos, *pc) < -COS_PLANAR_ANTIPODE);
+    if (planar_basis && !antipodal_seam) {
       rasterize_planar_strategy(curr, next, *planar_basis, isLastSegment,
                                 process_segment);
     } else {
@@ -1243,6 +1259,12 @@ struct Mesh {
       if (visited.test_and_set(small, large))
         return;
 
+      // mesh.vertices[] only asserts in bounds (stripped under NDEBUG on the
+      // device), so a malformed face index would read OOB silently on hardware.
+      // This is the per-edge setup boundary, not a per-pixel path, so an
+      // always-on HS_CHECK is contract-appropriate (platform.h).
+      HS_CHECK(static_cast<size_t>(large) < mesh.vertices.size());
+
       Fragment fu;
       fu.pos = mesh.vertices[u];
       Fragment fv;
@@ -1329,6 +1351,12 @@ struct Mesh {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader = {}) {
     for (size_t ei = 0; ei < edges.size(); ++ei) {
+      // Setup-boundary OOB guard (see the face-walk overload above): the raw
+      // edge list could outlive or mismatch its mesh, and mesh.vertices[] only
+      // asserts (compiled out on device).
+      HS_CHECK(edges[ei].u < mesh.vertices.size() &&
+               edges[ei].v < mesh.vertices.size());
+
       Fragment fu;
       fu.pos = mesh.vertices[edges[ei].u];
       Fragment fv;
