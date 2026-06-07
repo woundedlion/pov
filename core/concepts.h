@@ -70,6 +70,8 @@ public:
   }
 
   inline Ret operator()(Args... args) const {
+    // Per-pixel hot path (trail/transform callbacks): debug-only guard,
+    // deliberately NOT HS_CHECK to avoid an always-on per-call branch on-device.
     assert(thunk_ != nullptr && "FunctionRef called on null/default-constructed ref");
     return thunk_(ctx_, std::forward<Args>(args)...);
   }

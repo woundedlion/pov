@@ -329,6 +329,10 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int x, int y) {
+    // Per-pixel hot path: bounds guard is debug-only by design (stripped on the
+    // device, as the README documents — "No bounds checking"). Deliberately NOT
+    // HS_CHECK: an always-on branch on every pixel access is the one place
+    // HS_CHECK's own contract says it must never go.
     assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
     return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)]
                         [y * effect_.width_ + x];

@@ -1039,6 +1039,8 @@ public:
   }
 
   Color4 get(float t) const {
+    // Per-pixel hot path: debug-only guard, deliberately NOT HS_CHECK (an
+    // always-on branch here costs on every pixel on-device).
     assert(source_ != nullptr && "StaticPalette used before bind()!");
 
     float ft = t;
@@ -1186,6 +1188,10 @@ public:
 
   /// Refill existing LUT without allocating. Use for animated palettes.
   void rebake(const Palette &source) {
+    // Cold (per-frame at most, never per-pixel): a null lut_ here means rebake()
+    // was called before bake() — a wiring bug with no valid recovery. Trap
+    // always-on (survives NDEBUG on-device) rather than write through null.
+    HS_CHECK(lut_ != nullptr && "BakedPalette::rebake before bake()");
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
       lut_[i] = source.get(t);
@@ -1194,6 +1200,10 @@ public:
 
   /// Fast lookup with linear interpolation between adjacent entries.
   Color4 get(float t) const {
+    // Per-pixel hot path: debug-only guard (parity with StaticPalette::get),
+    // deliberately NOT HS_CHECK — a branch here costs on every pixel on-device.
+    // The unbaked-palette wiring bug is trapped always-on at the cold rebake().
+    assert(lut_ != nullptr && "BakedPalette::get before bake()");
     float idx = t * (LUT_SIZE - 1);
     int lo = static_cast<int>(idx);
     if (lo >= LUT_SIZE - 1) return lut_[LUT_SIZE - 1];
