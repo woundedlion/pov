@@ -1118,7 +1118,7 @@ Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 
 
 | Class | Role |
 |---|---|
-| `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel16` values directly into the frame buffer with inline color correction (color correction → temperature → gamma → brightness), bypassing the CRGB intermediate. Uses `DMAMEM` placement and `arm_dcache_flush_delete()` for cache coherency. |
+| `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel16` values directly into the frame buffer with inline color correction (color correction → temperature → gamma → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and flushed with `arm_dcache_flush_delete()` for cache coherency. |
 | `TeensySPIDMA` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
 | `DMALEDController<N>` | Double-buffered high-level controller. `show(leds)` loads the back buffer and triggers DMA, returning immediately. The previous transfer is guaranteed complete before the next begins. |
 
