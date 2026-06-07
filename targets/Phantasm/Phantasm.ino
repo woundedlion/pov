@@ -38,26 +38,16 @@ void setup() {
   pov = new POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>();
 }
 
+// The show sequence is GENERATED from the single-source effect roster
+// (HS_EFFECT_LIST in core/effects.h) rather than hand-maintained, so the
+// firmware roster cannot silently drift from the shipped effect set: an effect
+// added to the roster joins the show automatically, and one renamed/removed
+// from it (e.g. the old Test → DistortedRing rename) becomes a compile error
+// here instead of a stale entry. Every effect runs for the same 120 rotations.
 FLASHMEM static void run_show_sequence() {
-  pov->show<Test<288, 144>>(120);
-  pov->show<ChaoticStrings<288, 144>>(120);
-  pov->show<Liquid2D<288, 144>>(120);
-  pov->show<Flyby<288, 144>>(120);
-  pov->show<Raymarch<288, 144>>(120);
-  pov->show<GnomonicStars<288, 144>>(120);
-  pov->show<DreamBalls<288, 144>>(120);
-  pov->show<HopfFibration<288, 144>>(120);
-  pov->show<HankinSolids<288, 144>>(120);
-  pov->show<IslamicStars<288, 144>>(120);
-  pov->show<MindSplatter<288, 144>>(120);
-  pov->show<SphericalHarmonics<288, 144>>(120);
-  pov->show<Voronoi<288, 144>>(120);
-  pov->show<MobiusGrid<288, 144>>(120);
-  pov->show<FlowField<288, 144>>(120);
-  pov->show<MeshFeedback<288, 144>>(120);
-  pov->show<PetalFlow<288, 144>>(120);
-  pov->show<BZReactionDiffusion<288, 144>>(120);
-  pov->show<GSReactionDiffusion<288, 144>>(120);
+#define HS_SHOW_ONE(name) pov->show<name<288, 144>>(120);
+  HS_EFFECT_LIST(HS_SHOW_ONE)
+#undef HS_SHOW_ONE
 }
 
 void loop() { run_show_sequence(); }

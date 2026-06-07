@@ -82,6 +82,25 @@ if(EMSCRIPTEN)
             DESTINATION "${DAYDREAM_DIR}")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots")
+
+    # Record the engine commit this WASM module was built from, alongside it.
+    # The daydream deploy gate reads this to pin its engine checkout to the exact
+    # source the committed module corresponds to, instead of testing a decoupled
+    # engine HEAD. Captured at install time (immediately after the build) via
+    # git rev-parse; committed together with the .wasm it describes.
+    install(CODE "
+      execute_process(
+        COMMAND git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" rev-parse HEAD
+        OUTPUT_VARIABLE HS_ENGINE_SHA
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE HS_GIT_RC)
+      if(HS_GIT_RC EQUAL 0)
+        file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\" \"\${HS_ENGINE_SHA}\\n\")
+        message(STATUS \"Wrote engine provenance ${TARGET_NAME}.sha: \${HS_ENGINE_SHA}\")
+      else()
+        message(WARNING \"git rev-parse failed; ${TARGET_NAME}.sha not written (deploy gate will fall back to engine HEAD)\")
+      endif()
+    ")
   else()
     message(STATUS
       "DAYDREAM_DIR '${DAYDREAM_DIR}' not found — skipping simulator-module "

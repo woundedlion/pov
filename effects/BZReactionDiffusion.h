@@ -22,13 +22,13 @@
  * Shared lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
  *
  * Memory budget (persistent arena):
+ *   - Cubemap LUT:                 ~49,152 B
  *   - State:  3 arrays × 7680 × 1B = 23,040 B
- *   - Total:  23,040 B (22 KB)
+ *   - Node XYZ: 7680 × 12B         = 92,160 B  (fixed lattice, built once)
  *
  * Scratch arena (per frame):
  *   - Physics:  3 × 7680 × 1B      = 23,040 B
- *   - Node XYZ: 7680 × 12B         = 92,160 B
- *   - Total:    115,200 B (112 KB)
+ *   - Total:    23,040 B (22 KB)
  */
 template <int W, int H>
 class BZReactionDiffusion
@@ -54,8 +54,14 @@ public:
   FLASHMEM BZReactionDiffusion() = default;
 
   void init() override {
-    // 75KB easily holds the 48KB Cubemap LUT + 23KB State
-    configure_arenas(75 * 1024, GLOBAL_ARENA_SIZE - 75 * 1024, 0);
+    // 165KB holds the 48KB Cubemap LUT + 23KB State + 90KB node positions. The
+    // node array (7680 × Vector) is the fixed Fibonacci lattice — it does not
+    // depend on the per-frame view orientation (queries are un-oriented onto it,
+    // not the reverse), so it is built ONCE here instead of every frame. This is
+    // not a net RAM increase: the array was already allocated per-frame in the
+    // scratch arena, so the peak footprint is unchanged — it just moves from
+    // transient scratch to persistent and stops being recomputed each frame.
+    configure_arenas(165 * 1024, GLOBAL_ARENA_SIZE - 165 * 1024, 0);
 
     registerParam("Alpha", &params.alpha, 0.0f, 4.0f);
     registerParam("Diff", &params.D, 0.001f, 0.1f);
@@ -63,6 +69,9 @@ public:
 
     allocate_state();
     cube_lut.build(persistent_arena);
+    nodes = static_cast<Vector *>(
+        persistent_arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    build_nodes(nodes);
     seed_spiral_nuclei();
     init_orientation_animation();
   }
@@ -221,10 +230,7 @@ private:
     for (int k = 0; k < 2; k++)
       step_physics(sA, sB, sC);
 
-    Vector *nodes = static_cast<Vector *>(
-        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    build_nodes(nodes);
-
+    // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
     Color4 ca = palette.get(0.0f);
     Color4 cb = palette.get(0.5f);
     Color4 cc = palette.get(1.0f);
@@ -251,6 +257,9 @@ private:
   struct {
     uint8_t *A = nullptr, *B = nullptr, *C = nullptr;
   } state;
+
+  // Fixed Fibonacci-lattice node positions, built once in init() (persistent).
+  Vector *nodes = nullptr;
 
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                             BrightnessProfile::DESCENDING,
