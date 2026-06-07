@@ -19,14 +19,26 @@ jobs:
   tests:
     name: Native unit tests (Clang)
     runs-on: ubuntu-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Clang + Ninja
+      - name: Install Clang + Ninja + ccache
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build
+          sudo apt-get install -y clang ninja-build ccache
           # cmake is preinstalled on GitHub runners (>= 3.21 required).
+
+      # Persist the compile cache across runs. CMakeLists auto-detects ccache
+      # and wires it as the compiler launcher, so unchanged TUs skip recompile.
+      # A unique key per run + prefix restore-keys keeps the cache rolling.
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tests-${{ github.run_id }}
+          restore-keys: ccache-tests-
 
       # The 'tests' preset's toolchain falls back to clang/clang++ on PATH when
       # EMSDK is unset (Linux CI). Don't auto-touch git config in CI.
@@ -42,17 +54,30 @@ jobs:
   wasm:
     name: WASM build (Emscripten)
     runs-on: ubuntu-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Ninja
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Install Ninja + ccache
+        run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
 
       # Pinned to match the local toolchain (emsdk 5.0.0). Bump deliberately.
+      # actions-cache-folder persists the emsdk install across runs.
       - name: Set up Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
           version: 5.0.0
+          actions-cache-folder: emsdk-cache-5.0.0
+
+      # ccache also fronts emcc (CMAKE_CXX_COMPILER_LAUNCHER applies to both
+      # modes), so cache it here too.
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-wasm-${{ github.run_id }}
+          restore-keys: ccache-wasm-
 
       - name: Configure + build WASM (compile check)
         run: |

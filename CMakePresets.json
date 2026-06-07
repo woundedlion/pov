@@ -1,0 +1,54 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}"
+    },
+    {
+      "name": "wasm-release",
+      "displayName": "WASM (daydream) — Release",
+      "description": "Optimized Emscripten build of the simulator module. Requires the EMSDK env var (run emsdk_env).",
+      "inherits": "base",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "wasm-debug",
+      "displayName": "WASM (daydream) — Debug",
+      "description": "Unoptimized Emscripten build with assertions. Requires the EMSDK env var.",
+      "inherits": "base",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "tests",
+      "displayName": "Native unit tests (Clang)",
+      "description": "Native Clang build of the unit-test suite. Uses cmake/toolchain-native-clang.cmake (auto-locates Clang via EMSDK and the Windows SDK rc.exe). SIDE EFFECT: configuring this preset repoints git core.hooksPath at .githooks (the pre-commit test gate, ON by default); disable with -DHS_INSTALL_GIT_HOOKS=OFF. See README §11.",
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/toolchain-native-clang.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "wasm-release", "configurePreset": "wasm-release" },
+    { "name": "wasm-debug", "configurePreset": "wasm-debug" },
+    {
+      "name": "wasm-release-install",
+      "configurePreset": "wasm-release",
+      "displayName": "WASM Release + install to ../daydream",
+      "targets": ["install"]
+    },
+    { "name": "tests", "configurePreset": "tests" }
+  ],
+  "testPresets": [
+    {
+      "name": "tests",
+      "configurePreset": "tests",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
