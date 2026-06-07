@@ -317,7 +317,17 @@ struct Line {
       return;
     }
 
-    Vector axis = cross(f1.pos, f2.pos).normalized();
+    Vector axis;
+    if (std::abs(PI_F - angle) < TOLERANCE) {
+      // Antipodal endpoints: cross() degenerates to ~0 (infinitely many
+      // geodesics connect them), so normalizing it yields a garbage axis. Pick
+      // a stable perpendicular axis instead, matching the geodesic strategy.
+      axis = (std::abs(dot(f1.pos, X_AXIS)) > 0.999f)
+                 ? cross(f1.pos, Y_AXIS).normalized()
+                 : cross(f1.pos, X_AXIS).normalized();
+    } else {
+      axis = cross(f1.pos, f2.pos).normalized();
+    }
 
     for (int i = 0; i <= density; ++i) {
       float t = static_cast<float>(i) / density;

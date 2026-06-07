@@ -125,6 +125,39 @@ inline void test_line_sample_degenerate_segment() {
   }
 }
 
+inline void test_line_sample_antipodal_stable_axis() {
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 16);
+
+  // Antipodal endpoints: angle == pi, so cross(a, b) == 0. Without a stable-axis
+  // fallback this normalizes a ~zero vector into a garbage axis, collapsing the
+  // interior to the start point (or NaN). The fix picks a perpendicular axis.
+  Fragment a, b;
+  a.pos = Vector(1, 0, 0);
+  b.pos = Vector(-1, 0, 0);
+  const int density = 8;
+  Plot::Line::sample(points, a, b, density);
+
+  HS_EXPECT_EQ(points.size(), (size_t)(density + 1));
+  HS_EXPECT_NEAR(points[0].pos.x, a.pos.x, 1e-6f);
+  HS_EXPECT_NEAR(points[density].pos.x, b.pos.x, 1e-6f);
+
+  // Every sample is finite and unit length.
+  for (size_t i = 0; i < points.size(); ++i) {
+    const Vector &p = points[i].pos;
+    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
+                   std::isfinite(p.z));
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+  }
+
+  // Discriminating check: the midpoint is a real point ~90deg from each
+  // antipodal endpoint (without the fix it collapses to the start, angle 0).
+  const Vector &mid = points[density / 2].pos;
+  HS_EXPECT_NEAR(angle_between(a.pos, mid), PI_F * 0.5f, 1e-3f);
+  HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
+}
+
 // ============================================================================
 // ClipRegion::could_intersect_y  (constants.h — pure clip culling)
 // ============================================================================
@@ -394,6 +427,7 @@ inline int run_plot_scan_tests() {
   test_line_sample_endpoints_and_unit_length();
   test_line_sample_interior_between_endpoints();
   test_line_sample_degenerate_segment();
+  test_line_sample_antipodal_stable_axis();
 
   test_clip_could_intersect_y();
 
