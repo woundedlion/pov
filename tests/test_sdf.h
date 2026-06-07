@@ -334,6 +334,17 @@ struct MockIntervalShape {
     return true;
   }
 };
+
+// Mock that falls back to full-width coverage: returning false means "no
+// interval restriction", i.e. the shape covers the entire row.
+struct MockFullWidthShape {
+  float thickness = 0.1f;
+  static constexpr bool is_solid = true;
+  template <int W, int H, typename Out>
+  bool get_horizontal_intervals(int, Out) const {
+    return false;
+  }
+};
 } // namespace sdf_subtract_detail
 
 // Regression: a child emitting UNSORTED, multi-piece B intervals must still
@@ -381,6 +392,25 @@ inline void test_subtract_unsorted_a_passthrough_is_sorted() {
   HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
   HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
   HS_EXPECT_NEAR(out[1].first, 50.0f, 1e-4f);
+}
+
+// Regression: when B falls back to full-width (covers the whole row), A - B is
+// empty. Before the fix a full-width B was conflated with an empty B, so A was
+// passed through, drawing geometry the subtraction should have removed.
+inline void test_subtract_full_width_b_yields_empty() {
+  using P = std::pair<float, float>;
+  using MockA = sdf_subtract_detail::MockIntervalShape;
+  using MockB = sdf_subtract_detail::MockFullWidthShape;
+  std::vector<P> a_ivs = {{0.0f, 100.0f}};
+  MockA A{&a_ivs};
+  MockB B;
+  SDF::Subtract<MockA, MockB> s(A, B);
+
+  std::vector<P> out;
+  bool ok = s.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok); // definitive result (not a full-width fallback)...
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0)); // ...and it is empty
 }
 
 // ============================================================================
@@ -531,6 +561,7 @@ inline int run_sdf_tests() {
   test_subtract_inside_both_becomes_outside();
   test_subtract_unsorted_b_yields_sorted_set_difference();
   test_subtract_unsorted_a_passthrough_is_sorted();
+  test_subtract_full_width_b_yields_empty();
 
   test_intersection_requires_both_inside();
   test_intersection_thickness_is_min();

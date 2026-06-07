@@ -689,9 +689,15 @@ template <typename A, typename B> struct Subtract {
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
-    // If B falls back (no interval info), B removes nothing we can
-    // reason about — pass A's intervals through conservatively
-    if (!has_b || intervals_b.is_empty()) {
+    // B fell back to full-width: it covers the entire row, so A - B is empty.
+    // Emit nothing and report a definitive (empty) result — passing A through
+    // here would draw geometry the subtraction should have removed.
+    if (!has_b)
+      return true;
+
+    // B produced no intervals on this row: it removes nothing, so pass A's
+    // intervals through unchanged.
+    if (intervals_b.is_empty()) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
       return true;

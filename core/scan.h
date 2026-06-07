@@ -784,7 +784,14 @@ struct Volume {
 
           // --- Sphere tracing in local space ---
           for (int i = 0; i < max_steps; ++i) {
-            // Early out: ray has exited the back of the bounding sphere
+            // Early out: ray has exited the back of the bounding sphere.
+            // local_p.local_vd is compared against the world-space bounds_radius;
+            // this is correct only because ray_to_local is length-preserving
+            // (rotation + translation, no scale) so local_vd is unit and
+            // local_p.local_vd == (p_world - center).vd, AND callers pass the
+            // shape center as bounds_center (so center == bounds_center). A
+            // future shape with a scaling transform, or a bounds_center distinct
+            // from the shape center, would need this threshold recomputed.
             if (local_p.x * local_vd.x + local_p.y * local_vd.y +
                     local_p.z * local_vd.z >
                 bounds_radius)
