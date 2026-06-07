@@ -1047,7 +1047,9 @@ struct Face {
     center.normalize();
 
     basis_v = center;
-    Vector ref = (std::abs(dot(center, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
+    Vector ref =
+        (std::abs(dot(center, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
+                                                                  : X_AXIS;
     basis_u = cross(center, ref).normalized();
     basis_w = cross(center, basis_u).normalized();
 

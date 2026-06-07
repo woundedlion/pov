@@ -25,6 +25,15 @@ namespace Plot {
  *  SDF::STAR_INNER_RATIO). */
 static constexpr float STAR_INNER_RATIO = 0.382f;
 
+/** Geodesic segment shorter than this (radians) collapses to a point.
+ *  Deliberately ~10× math::EPS_GEOMETRIC — a looser threshold for slerp-axis
+ *  stability, not positional near-equality. */
+static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
+
+/** Floor on the sin(φ) step-density scale near the poles, capping sub-steps per
+ *  segment so polar curves don't oversample. A clamp, not a tolerance. */
+static constexpr float MIN_POLE_SCALE = 0.05f;
+
 /**
  * @brief Apply an optional per-control-point vertex shader to every fragment.
  *
@@ -133,14 +142,15 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   Vector v2 = next.pos;
   float total_dist = angle_between(v1, v2);
 
-  if (total_dist < 0.001f) {
+  if (total_dist < EPS_GEODESIC_SEGMENT) {
     auto map_degenerate = [=](float t) { return v1; };
     process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
   } else {
     Vector axis;
     if (std::abs(PI_F - total_dist) < TOLERANCE) {
-      axis = (std::abs(dot(v1, X_AXIS)) > 0.999f) ? cross(v1, Y_AXIS)
-                                                  : cross(v1, X_AXIS);
+      axis = (std::abs(dot(v1, X_AXIS)) > math::COS_AXIS_PARALLEL)
+                 ? cross(v1, Y_AXIS)
+                 : cross(v1, X_AXIS);
     } else {
       axis = cross(v1, v2).normalized();
     }
@@ -223,7 +233,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
     while (sim_dist < total_dist) {
       float scale_factor =
-          std::max(0.05f, sqrtf(std::max(0.0f, 1.0f - p_temp.y * p_temp.y)));
+          std::max(MIN_POLE_SCALE, sqrtf(std::max(0.0f, 1.0f - p_temp.y * p_temp.y)));
       float step = base_step * scale_factor;
 
       // Backstop: a pathological segment (e.g. a huge-radius shape wrapping the
@@ -337,7 +347,7 @@ struct Line {
       // Antipodal endpoints: cross() degenerates to ~0 (infinitely many
       // geodesics connect them), so normalizing it yields a garbage axis. Pick
       // a stable perpendicular axis instead, matching the geodesic strategy.
-      axis = (std::abs(dot(f1.pos, X_AXIS)) > 0.999f)
+      axis = (std::abs(dot(f1.pos, X_AXIS)) > math::COS_AXIS_PARALLEL)
                  ? cross(f1.pos, Y_AXIS).normalized()
                  : cross(f1.pos, X_AXIS).normalized();
     } else {
@@ -1047,7 +1057,8 @@ struct Star {
       center = -center;
 
     Vector v = center;
-    Vector ref = (std::abs(dot(v, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
+    Vector ref = (std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
+                                                                      : X_AXIS;
     Vector u = cross(v, ref).normalized();
     Vector w = cross(v, u).normalized();
     Basis planar_basis = {u, v, w};
@@ -1164,7 +1175,9 @@ struct Flower {
     Vector center = work_basis.v;
 
     // Construct a planar basis aligned with the center
-    Vector ref = (std::abs(dot(center, X_AXIS)) > 0.9f) ? Y_AXIS : X_AXIS;
+    Vector ref =
+        (std::abs(dot(center, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
+                                                                  : X_AXIS;
     Vector u_p = cross(center, ref).normalized();
     Vector w_p = cross(center, u_p).normalized();
     Basis planar_basis = {u_p, center, w_p};

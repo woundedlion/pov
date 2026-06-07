@@ -41,6 +41,11 @@ static constexpr float EPS_GEOMETRIC  = 1e-5f;
 static constexpr float EPS_LEN_SQ     = 1e-6f;
 static constexpr float EPS_CROSS_SQ   = 1e-8f;
 static constexpr float EPS_NORMAL_SQ  = 1e-9f;
+// Cosine above which a vector is treated as parallel to a reference axis: too
+// aligned to cross with it safely, so callers pick an alternate axis to avoid a
+// near-zero (degenerate) cross when building a frame. Switches only when truly
+// near-parallel (~0.8°) — the minimal-necessary guard.
+static constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
 }
 // Back-compat alias — prefer math::TOLERANCE in new code.
 static constexpr float TOLERANCE = math::TOLERANCE;

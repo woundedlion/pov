@@ -1068,7 +1068,7 @@ public:
         v(Vector(v_start).normalized()), options(options),
         noiseGenerator(noise) {
     Vector u = X_AXIS;
-    if (std::abs(dot(v, u)) > 0.99f) {
+    if (std::abs(dot(v, u)) > math::COS_AXIS_PARALLEL) {
       u = Y_AXIS;
     }
     direction = cross(v, u).normalized();

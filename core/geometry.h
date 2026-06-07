@@ -562,7 +562,8 @@ struct Basis {
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
   Vector ref_axis =
-      (std::abs(dot(normal, X_AXIS)) > (1 - TOLERANCE)) ? Y_AXIS : X_AXIS;
+      (std::abs(dot(normal, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
+                                                                : X_AXIS;
   Vector v = rotate(normal, orientation).normalized();
   Vector ref = rotate(ref_axis, orientation).normalized();
   Vector u = cross(v, ref).normalized();
