@@ -244,7 +244,7 @@ POV display requires pixel data to be ready before each column interval fires �
 └── package.json
 ```
 
-If the local `three.js/` and `node_modules/lil-gui/` directories are missing (e.g. on the GitHub Pages deploy), [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) probes them at startup and falls back to jsdelivr. See [§10.8](#108-vendor-importmap-local-first--cdn-fallback).
+When the local `three.js/` and `node_modules/lil-gui/` directories are absent (e.g. on the GitHub Pages deploy, and by default), [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) resolves libraries from jsdelivr; `npm run importmap:local` switches it to the vendored copies for offline dev. See [§10.8](#108-vendor-importmap-local-first--cdn-fallback).
 
 ---
 
@@ -1692,11 +1692,11 @@ Key properties:
 `vendor-importmap.js` is loaded as a regular (non-module) `<script>` in every HTML page. At parse time it:
 
 1. Locates itself via `document.currentScript.src`, so it works whether called as `./vendor-importmap.js` (root) or `../vendor-importmap.js` (a tool page).
-2. Synchronously probes `three.js/build/three.module.js` and `node_modules/lil-gui/dist/lil-gui.esm.min.js` with `XMLHttpRequest('HEAD', …, false)`.
-3. Builds a `<script type="importmap">` with local URLs when present, otherwise jsdelivr URLs pinned to versions from `package.json`.
+2. Reads a build-time-baked `VENDOR` decision (per library, `'cdn'` or `'local'`).
+3. Builds a `<script type="importmap">` with local page-relative URLs for any `'local'` library, otherwise jsdelivr URLs pinned to versions from `package.json`.
 4. Injects that importmap into `<head>` before any module loads.
 
-The probe HEAD requests cost a few hundred milliseconds total when 404'ing on the live GitHub Pages deploy (the only requests that 404 in the console), and the actual library code loads cleanly from CDN afterward. Local dev with a populated `three.js/` and `node_modules/` skips the CDN entirely.
+The local-vs-CDN choice is **baked at build time**, not probed at runtime — there is no main-thread-blocking synchronous XHR and nothing 404s on the CDN-only Pages deploy. The committed default is all-CDN, which is what the deploy and a fresh checkout serve. For offline / local dev with a populated `three.js/` and `node_modules/`, run `npm run importmap:local` (detects vendored dirs and rewrites the `VENDOR` block); `npm run importmap` reverts to all-CDN. The generated `local` block must not be committed — it would break the live deploy.
 
 A page-specific local import (e.g. `solids.html` referencing `../solids.js`) is added by setting `window.__DAYDREAM_EXTRA_IMPORTS` before the helper script.
 
@@ -1727,7 +1727,7 @@ Five standalone HTML pages that share the engine's WASM `MeshOps` but render wit
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated 8 MB tooling arenas. |
 | `splines.html` | Catmull-Rom spline designer with closed-loop and open-chain modes; click to add control points, drag to edit, export to a C++ `Plot::SplineChain` initializer. |
 
-All five reuse `vendor-importmap.js` so they work offline (with the local `three.js/`) or from GitHub Pages (via CDN).
+All five reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
 
 ---
 
