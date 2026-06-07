@@ -414,6 +414,21 @@ static_assert(!std::is_constructible_v<Animation::Lerp, Lerpable &,
                                        const Lerpable &, const Lerpable &&, int,
                                        EasingFn>,
               "Lerp must REJECT a temporary target (would dangle)");
+
+// MobiusFlow stores num_rings/num_lines as reference_wrappers and re-reads them
+// every frame (live-tracking); they are `const float&` and so could bind a
+// temporary. The deleted rvalue overloads must make lvalue scalars OK and a
+// temporary in either slot a compile error. `params` is a non-const ref and
+// already rejects temporaries on its own.
+static_assert(std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
+                                      const float &, const float &, int>,
+              "MobiusFlow must accept lvalue (effect-owned) scalars");
+static_assert(!std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
+                                       const float &&, const float &, int>,
+              "MobiusFlow must REJECT a temporary num_rings (would dangle)");
+static_assert(!std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
+                                       const float &, const float &&, int>,
+              "MobiusFlow must REJECT a temporary num_lines (would dangle)");
 } // namespace borrow_guard
 
 // ============================================================================

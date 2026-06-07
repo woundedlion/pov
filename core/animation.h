@@ -1188,6 +1188,19 @@ public:
       : AnimationBase(duration, repeat), params(params), num_rings(num_rings),
         num_lines(num_lines) {}
 
+  // Borrow contract: num_rings/num_lines are stored as reference_wrappers and
+  // re-read in step() across many frames (live-tracking), so they must be
+  // caller-owned lvalues that outlive the Timeline. `MobiusParams &params`
+  // already rejects a temporary; these deleted overloads reject a temporary
+  // scalar too, so `MobiusFlow(p, 3.0f, 4.0f, ...)` is a compile error instead
+  // of a silent dangling read (mirrors Lerp/Motion/MeshMorph).
+  MobiusFlow(MobiusParams &params, const float &&num_rings,
+             const float &num_lines, int duration, bool repeat = true) = delete;
+  MobiusFlow(MobiusParams &params, const float &num_rings,
+             const float &&num_lines, int duration, bool repeat = true) = delete;
+  MobiusFlow(MobiusParams &params, const float &&num_rings,
+             const float &&num_lines, int duration, bool repeat = true) = delete;
+
   /**
    * @brief Steps the animation, updating params a and d.
    */
