@@ -377,6 +377,29 @@ static_assert(!std::is_constructible_v<Animation::MeshMorph, const MeshState &,
                                        const MeshState &, Arena &, DrawFn &,
                                        DrawFn &&, int>,
               "MeshMorph must REJECT a temporary in either callable slot");
+
+// Lerp stores raw pointers to subject/start/target and dereferences them every
+// frame; start/target are `const T&` and so could bind a temporary. The
+// deleted rvalue overloads must make an lvalue start+target OK and a temporary
+// in either slot a compile error.
+struct Lerpable {
+  float v = 0.0f;
+  void lerp(const Lerpable &a, const Lerpable &b, float t) {
+    v = a.v + (b.v - a.v) * t;
+  }
+};
+static_assert(std::is_constructible_v<Animation::Lerp, Lerpable &,
+                                      const Lerpable &, const Lerpable &, int,
+                                      EasingFn>,
+              "Lerp must accept lvalue (effect-owned) start/target");
+static_assert(!std::is_constructible_v<Animation::Lerp, Lerpable &,
+                                       const Lerpable &&, const Lerpable &, int,
+                                       EasingFn>,
+              "Lerp must REJECT a temporary start (would dangle)");
+static_assert(!std::is_constructible_v<Animation::Lerp, Lerpable &,
+                                       const Lerpable &, const Lerpable &&, int,
+                                       EasingFn>,
+              "Lerp must REJECT a temporary target (would dangle)");
 } // namespace borrow_guard
 
 // ============================================================================

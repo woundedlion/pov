@@ -710,6 +710,22 @@ public:
     };
   }
 
+  // Borrow contract: subject/start/target are stored as raw pointers and
+  // dereferenced in step() across many frames, so they must be caller-owned
+  // lvalues that outlive the Timeline. `T &subject` already rejects a temporary
+  // subject; these deleted overloads reject a temporary start/target too, so an
+  // inline `Lerp(x, Foo{...}, bar, ...)` is a compile error instead of a silent
+  // dangling read (mirrors Motion/MeshMorph).
+  template <typename T, typename Easing>
+  Lerp(T &subject, const T &&start, const T &target, int duration,
+       Easing easing_fn) = delete;
+  template <typename T, typename Easing>
+  Lerp(T &subject, const T &start, const T &&target, int duration,
+       Easing easing_fn) = delete;
+  template <typename T, typename Easing>
+  Lerp(T &subject, const T &&start, const T &&target, int duration,
+       Easing easing_fn) = delete;
+
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
