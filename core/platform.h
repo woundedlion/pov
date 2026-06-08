@@ -116,6 +116,33 @@ static constexpr int H_OFFSET = 3;
 #include <chrono>
 #include <iostream>
 
+// ---------------------------------------------------------------------------
+// Test-only injectable clock (host builds only).
+//
+// Animation timing on host reads the wall clock (hs::millis / hs::micros /
+// beatsin*), so the same frame rendered twice sees a different time and cannot
+// be compared byte-for-byte. Tests enable this seam to pin time to a fixed
+// per-frame schedule, which is what makes the cross-run determinism check in
+// tests/test_effects.h possible.
+//
+// OFF by default: with use_mock_time == false the helpers return the real wall
+// clock, so the simulator / WASM build is bit-for-bit unchanged. The seam does
+// not exist in the device (ARDUINO) branch at all, so hardware is untouched.
+// The single predicted-not-taken branch lives only in millis/micros, which are
+// per-frame calls — never the per-pixel hot loop.
+namespace hs {
+inline bool use_mock_time = false;
+inline unsigned long mock_millis_value = 0;
+inline unsigned long mock_micros_value = 0;
+inline void set_mock_time(unsigned long ms, unsigned long us) {
+  use_mock_time = true;
+  mock_millis_value = ms;
+  mock_micros_value = us;
+}
+inline void clear_mock_time() { use_mock_time = false; }
+inline unsigned long millis(); // defined below; beatsin* route through it
+} // namespace hs
+
 template <typename T, typename U> constexpr T lerp(T a, T b, U t) {
   return (T)(a + (b - a) * t);
 }
@@ -326,8 +353,11 @@ inline void random16_add_entropy(uint16_t) {}
  */
 inline uint8_t beatsin8(uint16_t bpm, uint8_t low, uint8_t high,
                         uint16_t phase = 0, uint16_t offset = 0) {
-  using namespace std::chrono;
-  float t = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() / 1000.0f;
+  // Route through hs::millis() (same wall-clock source in production) so the
+  // test time-injection seam makes beats deterministic too. This is a host-only
+  // FastLED mock; the absolute time only sets a sine phase, so the prior direct
+  // chrono read and this are interchangeable.
+  float t = hs::millis() / 1000.0f;
   float beats = t * bpm / 60.0f;
   float wave = (sinf(beats * 2.0f * PI + phase / 65536.0f * 2.0f * PI) + 1.0f) * 0.5f;
   return low + static_cast<uint8_t>(wave * (high - low));
@@ -338,8 +368,7 @@ inline uint8_t beatsin8(uint16_t bpm, uint8_t low, uint8_t high,
  */
 inline uint16_t beatsin16(uint16_t bpm, uint16_t low, uint16_t high,
                           uint16_t phase = 0, uint16_t offset = 0) {
-  using namespace std::chrono;
-  float t = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() / 1000.0f;
+  float t = hs::millis() / 1000.0f;
   float beats = t * bpm / 60.0f;
   float wave = (sinf(beats * 2.0f * PI + phase / 65536.0f * 2.0f * PI) + 1.0f) * 0.5f;
   return low + static_cast<uint16_t>(wave * (high - low));
@@ -380,11 +409,13 @@ inline uint8_t triwave8(uint8_t in) {
 
 namespace hs {
 inline unsigned long millis() {
+  if (use_mock_time) return mock_millis_value;
   using namespace std::chrono;
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
       .count();
 }
 inline unsigned long micros() {
+  if (use_mock_time) return mock_micros_value;
   using namespace std::chrono;
   return (unsigned long)duration_cast<microseconds>(
       steady_clock::now().time_since_epoch()).count();

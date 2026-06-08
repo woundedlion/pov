@@ -12,13 +12,22 @@
  * overruns an arena, indexes a pixel out of range, or derefs a failed
  * allocation will abort here instead of silently corrupting the live show.
  *
- * SCOPE / FOLLOW-UP: this is a robustness pass, not a pixel-correctness or
- * cross-run-determinism check. Output pixels are 16-bit integers (NaN cannot
- * survive into them), and the engine's animation clock (hs::millis / beatsin*)
- * reads wall-clock time on host, so byte-exact reproducibility across runs
- * requires a time-injection seam that does not yet exist. Adding that seam
- * (mockable millis/micros) would let this harness assert determinism and hash
- * golden frames — the recommended next step.
+ * COVERAGE: two passes over the full effect roster.
+ *   1. smoke_one  — construct/init/render/read-back robustness (above).
+ *   2. determinism_one — renders each effect twice under an injected, fixed
+ *      per-frame clock (hs::set_mock_time, the seam in core/platform.h that
+ *      hs::millis/micros and beatsin* honor) and asserts the two final frames
+ *      are byte-identical. This proves *what* is rendered is reproducible — the
+ *      gap the in-run get_pixel-stability check cannot cover — and directly
+ *      guards the time/state-dependent defect class (drifting trail clocks,
+ *      stale globals, uninitialized reads) without any stored reference frame.
+ *
+ * Deliberately NOT golden-frame hashing: a stored hash over the actively-tuned
+ * generative effects inverts the signal (every intentional look change is a red
+ * test), carries zero diagnostic value, and is not even bit-reproducible across
+ * the native + WASM targets (fast_* trig / float rounding diverge). Self-
+ * referential cross-run comparison catches the real bug classes with none of
+ * that maintenance tax. Pixel-aesthetic correctness remains a human judgment.
  */
 #pragma once
 
@@ -30,6 +39,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <vector>
 
 namespace hs_test {
 namespace effects_tests {
@@ -160,6 +170,76 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
   }
 }
 
+// Fixed per-frame clock schedule for the determinism pass (~30fps). Identical
+// across both runs, so any frame-to-frame animation driven by hs::millis/micros
+// or beatsin* is reproduced exactly rather than tracking the wall clock.
+constexpr unsigned long kFrameMs = 33;
+constexpr unsigned long kFrameUs = 33000;
+
+// Render one effect for `frames` frames under the injected clock and copy the
+// final displayed buffer out. Resets every shared global the smoke path does
+// (RNG seed, arenas, Timeline) so two calls start from an identical state.
+template <template <int, int> class E>
+inline void render_capture(std::vector<Pixel> &out, int frames) {
+  hs::random().seed(1337u);
+  configure_arenas_default();
+  Timeline<kW>().clear();
+  Timeline<kW>::t = 0;
+  // The global generative-hue cursor drifts across palette constructions by
+  // design (see GenerativePalette); pin it so both runs start from identical
+  // global state — without this, the second run's palettes are hue-rotated.
+  GenerativePalette::reset_hue_seed(0);
+  hs::set_mock_time(0, 0);
+
+  E<kW, kH> effect;
+  effect.init();
+  for (int f = 0; f < frames; ++f) {
+    hs::set_mock_time(static_cast<unsigned long>(f) * kFrameMs,
+                      static_cast<unsigned long>(f) * kFrameUs);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+
+  out.resize(static_cast<size_t>(kW) * kH);
+  for (int y = 0; y < kH; ++y)
+    for (int x = 0; x < kW; ++x)
+      out[static_cast<size_t>(y) * kW + x] = effect.get_pixel(x, y);
+}
+
+// Cross-run determinism: render the same effect twice under the fixed clock and
+// require byte-identical final frames. The clock seam neutralizes wall-time, so
+// a divergence here is real nondeterminism (uninitialized read, stale global,
+// address-dependent path) — the defect class smoke coverage cannot see.
+template <template <int, int> class E>
+inline void determinism_one(const char *name) {
+  const int frames = smoke_frames();
+  std::vector<Pixel> a, b;
+  render_capture<E>(a, frames);
+  render_capture<E>(b, frames);
+  hs::clear_mock_time();
+
+  int first_diff = -1;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) {
+      first_diff = static_cast<int>(i);
+      break;
+    }
+
+  if (first_diff >= 0) {
+    const int x = first_diff % kW, y = first_diff / kW;
+    std::printf("  NONDETERMINISTIC %-20s pixel (%d,%d): runA (%d,%d,%d) != "
+                "runB (%d,%d,%d) over %d frames\n",
+                name, x, y, static_cast<int>(a[first_diff].r),
+                static_cast<int>(a[first_diff].g),
+                static_cast<int>(a[first_diff].b),
+                static_cast<int>(b[first_diff].r),
+                static_cast<int>(b[first_diff].g),
+                static_cast<int>(b[first_diff].b), frames);
+  }
+  HS_EXPECT(first_diff < 0,
+            "effect must render identically across runs under a fixed clock");
+}
+
 inline int run_effects_tests() {
   auto scope = hs_test::begin_module("effects");
 
@@ -172,6 +252,12 @@ inline int run_effects_tests() {
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE)
 #undef HS_SMOKE_ONE
+
+  // Second pass: cross-run determinism under the injected clock. Same roster,
+  // so a new effect is automatically held to byte-exact reproducibility too.
+#define HS_DET_ONE(name) determinism_one<name>(#name);
+  HS_EFFECT_LIST(HS_DET_ONE)
+#undef HS_DET_ONE
 
   return hs_test::end_module(scope);
 }
