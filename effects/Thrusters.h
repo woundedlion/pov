@@ -35,6 +35,10 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
+    // Stepped manually rather than via the timeline: each fire reassigns
+    // warp_anim to restart the decay, and fires routinely overlap its life, so
+    // a single restartable member is correct here where timeline.add() would
+    // stack concurrent mutations fighting over `amplitude`.
     if (!warp_anim.done()) {
       warp_anim.step(canvas);
     }
@@ -47,16 +51,15 @@ public:
     }
 
     // Advance and draw each live thruster directly from the ring. Lifetime,
-    // motion and fade are driven here rather than by per-thruster animations
-    // capturing &ctx: ctx is a recyclable ring slot, so an animation outliving
-    // the slot's reuse would step/draw whatever thruster later lands in it.
-    // Opacity is full at spawn and fades via ease_out_expo across LIFE frames.
+    // radius growth and fade are driven here rather than by per-thruster
+    // animations capturing &ctx: ctx is a recyclable ring slot, so an animation
+    // outliving the slot's reuse would step/draw whatever thruster later lands
+    // in it. Both radius and opacity are pure functions of `age`.
     for (size_t i = 0; i < thrusters.size(); ++i) {
       ThrusterContext &ctx = thrusters[i];
-      ctx.motion.step(canvas);
       float progress = static_cast<float>(ctx.age) / ThrusterContext::LIFE;
       float opacity = 1.0f - ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
-      draw_thruster(canvas, ctx, opacity);
+      draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
       ++ctx.age;
     }
 
@@ -67,41 +70,30 @@ private:
   struct ThrusterContext {
     // Visible lifetime in frames.
     static constexpr int LIFE = 16;
+    // Ring radius grows from 0 to RADIUS_MAX over the first RADIUS_GROW_FRAMES
+    // frames, then holds. Derived from `age` in draw_frame() (see radius_at()).
+    static constexpr int RADIUS_GROW_FRAMES = 8;
+    static constexpr float RADIUS_MAX = 0.3f;
 
     Orientation<W> orientation;
     Vector point;
-    float radius;
-    int age;
-    Animation::Transition motion;
+    int age = 0;
 
-    ThrusterContext() : radius(0), age(0), motion(radius, 0.3f, 8, ease_mid) {}
-
-    // Copy/assign rebind motion's mutant reference to this instance's own
-    // radius; otherwise the copy would still drive the source's radius.
-    ThrusterContext(const ThrusterContext &other)
-        : orientation(other.orientation), point(other.point),
-          radius(other.radius), age(other.age), motion(other.motion) {
-      motion.rebind_mutant(radius);
-    }
-
-    ThrusterContext &operator=(const ThrusterContext &other) {
-      if (this != &other) {
-        orientation = other.orientation;
-        point = other.point;
-        radius = other.radius;
-        age = other.age;
-        motion = other.motion;
-        motion.rebind_mutant(radius);
-      }
-      return *this;
-    }
-
+    // Trivially copyable: the circular buffer relocates slots by plain
+    // memberwise copy. No member holds a reference into this slot, so a copy
+    // never has to be rebound.
     void reset(const Orientation<W> &o, const Vector &p) {
       orientation = o;
       point = p;
-      radius = 0.0f;
       age = 0;
-      motion = Animation::Transition(radius, 0.3f, 8, ease_mid);
+    }
+
+    // Eased ring radius for the current age. Mirrors the prior Transition's
+    // phasing, which stepped once before the first draw (hence age + 1).
+    float radius_at() const {
+      float t = hs::clamp(static_cast<float>(age + 1) / RADIUS_GROW_FRAMES,
+                          0.0f, 1.0f);
+      return RADIUS_MAX * ease_mid(t);
     }
   };
 
@@ -139,7 +131,7 @@ private:
       thrusters.pop();
     thrusters.push_back(ThrusterContext());
     thrusters.back().reset(orientation, point);
-    // Lifetime, fade and motion are advanced in draw_frame() by iterating the
+    // Lifetime, radius and fade are advanced in draw_frame() by iterating the
     // ring rather than by a per-thruster animation capturing this slot
     // (see draw_frame()).
   }
@@ -150,14 +142,15 @@ private:
            amplitude;
   }
 
-  void draw_thruster(Canvas &c, const ThrusterContext &ctx, float opacity) {
+  void draw_thruster(Canvas &c, const ThrusterContext &ctx, float radius,
+                     float opacity) {
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [this, opacity](const Vector &, Fragment &f) {
       f.color = Color4(CRGB(255, 255, 255));
       f.color.color = f.color.color * opacity;
       f.color.alpha = opacity * params.alpha;
     };
-    Plot::Ring::draw<W, H>(filters, c, basis, ctx.radius, fragment_shader);
+    Plot::Ring::draw<W, H>(filters, c, basis, radius, fragment_shader);
   }
 
   void draw_ring(Canvas &c, float opacity) {
