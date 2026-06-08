@@ -26,27 +26,37 @@ using PassFn3D =
     FunctionRef<void(const Vector &, const Pixel &, float, float)>;
 
 // Filter Traits
+//
+// `is_terminal` marks a filter that writes the Canvas directly during flush()
+// and ignores its downstream `pass` callback (e.g. Pixel::Feedback). Such a
+// filter swallows the stream, so anything chained after it would silently never
+// run — the Pipeline static-asserts a terminal filter is the last stage. Almost
+// all filters forward via `pass` and leave this false.
 /** @brief Trait indicating a filter operates in 2D screen space. */
 struct Is2D {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
+  static constexpr bool is_terminal = false;
 };
 /** @brief Trait indicating a filter operates in 3D world space. */
 struct Is3D {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = false;
+  static constexpr bool is_terminal = false;
 };
 
 /** @brief Trait indicating a 2D filter that maintains state/history. */
 struct Is2DWithHistory {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = true;
+  static constexpr bool is_terminal = false;
 };
 
 /** @brief Trait indicating a 3D filter that maintains state/history. */
 struct Is3DWithHistory {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = true;
+  static constexpr bool is_terminal = false;
 };
 
 /**
@@ -214,6 +224,14 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
           },
       "2D history filter must define "
       "flush(Canvas&, const ScreenTrailFn&, float, PassFn2D)");
+
+  // A terminal filter (one that writes the Canvas directly in flush() and
+  // ignores its downstream pass, e.g. Pixel::Feedback) swallows the stream, so
+  // any stage chained after it would silently never run. Enforce it is last.
+  static_assert(
+      !Head::is_terminal || sizeof...(Tail) == 0,
+      "A terminal filter (e.g. Pixel::Feedback) writes the Canvas directly and "
+      "ignores downstream filters — it must be the last stage in the Pipeline.");
 
   void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
@@ -689,6 +707,12 @@ namespace Pixel {
  * Operates on the full canvas during flush() (integer coordinates, reads
  * cv.prev) — this is a pixel-space filter despite the 2D trait.
  *
+ * TERMINAL: flush() composites directly into the Canvas and ignores its
+ * `PassFn2D pass` callback, so it does NOT forward the stream downstream. It
+ * must therefore be the last stage of the Pipeline — `is_terminal` makes the
+ * Pipeline static-assert this (a non-terminal Feedback would silently drop
+ * every filter chained after it).
+ *
  * Usage:
  *   ::Feedback::Style style = ::Feedback::Style::Smoke();
  *   Pipeline<W, H, ..., Filter::Pixel::Feedback<W, H>> filters(
@@ -697,6 +721,9 @@ namespace Pixel {
 template <int W, int H>
 class Feedback : public Is2DWithHistory {
 public:
+  // Writes the Canvas directly in flush() and ignores `pass` — must be last.
+  static constexpr bool is_terminal = true;
+
   explicit Feedback(::Feedback::Style &style) : style_(&style) {}
 
   /// Pass-through: current-frame pixels go straight to next filter.
