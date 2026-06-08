@@ -972,8 +972,7 @@ FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
 // These are defined as compositions of primitive operators. Equivalences are
 // from Hart's reference implementation. Memory-wise, each composition uses
 // the standard ping-pong of (target, temp) arenas.
-//   meta   m = kj = k(dual(ambo(x)))  — Hart: meta is kis-of-join.
-//                                       Wait: Hart's meta is k3j, treat as kj.
+//   meta   m = kj = kis of ambo (j = a)
 //   needle n = kd = kis of dual
 //   zip    z = dk = dual of kis (truncated dual)
 //   bevel  b = ta = truncate of ambo (rectify-then-truncate)

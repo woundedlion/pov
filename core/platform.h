@@ -45,7 +45,8 @@
 
 namespace hs {
 /**
- * @brief On-device logging to Serial (no vsnprintf to avoid ~4KB stdio in ITCM).
+ * @brief On-device logging to Serial: formats into a fixed 128-byte stack
+ *        buffer with vsnprintf (no heap), then writes one line.
  */
 inline void log(const char *msg, ...) {
   va_list args;
