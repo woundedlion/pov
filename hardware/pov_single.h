@@ -98,7 +98,6 @@ private:
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       effect_->draw_frame();
-      effect_->advance_display();
       unsigned long dt = micros() - t0;
       if (hs::debug) {
         Serial.print("frame ms: ");
