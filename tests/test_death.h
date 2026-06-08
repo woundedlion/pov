@@ -151,14 +151,6 @@ inline void case_circular_buffer_oob() {
     std::printf("x");
 }
 
-// Container surface: SpatialHash insert pool exhaustion (sizing bug).
-inline void case_spatial_hash_overflow() {
-  SpatialHash sh(1.0f);
-  const int n = static_cast<int>(SpatialHash::MAX_ENTRIES) + 1;
-  for (int i = 0; i < opaque(n); ++i)
-    sh.insert(Vector{0.0f, 0.0f, 1.0f}, i); // exceeds MAX_ENTRIES -> HS_CHECK
-}
-
 // Config surface: an over-subscribed arena partition.
 inline void case_arena_oversubscribed() {
   // Each request alone fits, but the sum exceeds GLOBAL_ARENA_SIZE -> HS_CHECK.
@@ -281,7 +273,6 @@ inline const Case *all_cases(int &n) {
       {"solids_index_oob", case_solids_index_oob},
       {"solids_unknown_name", case_solids_unknown_name},
       {"circular_buffer_oob", case_circular_buffer_oob},
-      {"spatial_hash_overflow", case_spatial_hash_overflow},
       {"arena_oversubscribed", case_arena_oversubscribed},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
       {"mesh_narrow_index", case_mesh_narrow_index},

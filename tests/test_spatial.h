@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/spatial.h — AABB, KDTree, SpatialHash, MeshState.
+ * Unit tests for core/spatial.h — AABB, KDTree, MeshState.
  *
  * Tests deliberately avoid invoking the asserts in dependent types
  * (out-of-bounds, unbound access). Zero-component (axis-aligned) ray
@@ -296,71 +296,6 @@ inline void test_kdtree_matches_brute_force() {
 }
 
 // ============================================================================
-// SpatialHash
-// ============================================================================
-
-inline void test_spatialhash_construction_and_empty_query() {
-  SpatialHash sh(1.0f);
-  auto r = sh.query(Vector(0, 0, 0));
-  HS_EXPECT_TRUE(r.is_empty());
-}
-
-inline void test_spatialhash_insert_retrieves_same_cell() {
-  SpatialHash sh(1.0f);
-  // Two points in the same unit cell (cell (0,0,0)).
-  sh.insert(Vector(0.1f, 0.2f, 0.3f), 7);
-  sh.insert(Vector(0.4f, 0.6f, 0.9f), 9);
-
-  auto r = sh.query(Vector(0.5f, 0.5f, 0.5f));
-  // Both ids are present (order may vary due to linked-list prepend).
-  bool saw7 = false, saw9 = false;
-  for (size_t i = 0; i < r.size(); ++i) {
-    if (r[i] == 7) saw7 = true;
-    if (r[i] == 9) saw9 = true;
-  }
-  HS_EXPECT_TRUE(saw7);
-  HS_EXPECT_TRUE(saw9);
-}
-
-inline void test_spatialhash_clear() {
-  SpatialHash sh(1.0f);
-  sh.insert(Vector(0.1f, 0.2f, 0.3f), 42);
-  auto r1 = sh.query(Vector(0.5f, 0.5f, 0.5f));
-  HS_EXPECT_FALSE(r1.is_empty());
-
-  sh.clear();
-  auto r2 = sh.query(Vector(0.5f, 0.5f, 0.5f));
-  HS_EXPECT_TRUE(r2.is_empty());
-}
-
-inline void test_spatialhash_negative_coords() {
-  SpatialHash sh(2.0f);
-  // Cell (-1,-1,-1) for cell_size=2 — floor of -0.5 / 2 = -1
-  sh.insert(Vector(-0.5f, -1.5f, -0.7f), 11);
-  auto r = sh.query(Vector(-0.1f, -0.9f, -0.2f));
-  bool saw11 = false;
-  for (size_t i = 0; i < r.size(); ++i)
-    if (r[i] == 11) saw11 = true;
-  HS_EXPECT_TRUE(saw11);
-}
-
-inline void test_spatialhash_fills_to_capacity() {
-  SpatialHash sh(1.0f);
-  // Filling exactly to MAX_ENTRIES is valid. (Overflowing past it now traps via
-  // HS_CHECK — a sizing bug, not a recoverable condition — so it cannot be
-  // exercised here without death-test infrastructure.)
-  for (size_t i = 0; i < SpatialHash::MAX_ENTRIES; ++i) {
-    sh.insert(Vector(static_cast<float>(i) * 1.1f, 0, 0), (int)i);
-  }
-  // No crash, and id 0 is still queryable from cell 0.
-  auto r = sh.query(Vector(0, 0, 0));
-  bool saw0 = false;
-  for (size_t i = 0; i < r.size(); ++i)
-    if (r[i] == 0) saw0 = true;
-  HS_EXPECT_TRUE(saw0);
-}
-
-// ============================================================================
 // MeshState
 // ============================================================================
 
@@ -479,12 +414,6 @@ inline int run_spatial_tests() {
   test_kdtree_default_unbuilt();
   test_kdtree_clear();
   test_kdtree_matches_brute_force();
-
-  test_spatialhash_construction_and_empty_query();
-  test_spatialhash_insert_retrieves_same_cell();
-  test_spatialhash_clear();
-  test_spatialhash_negative_coords();
-  test_spatialhash_fills_to_capacity();
 
   test_meshstate_default_unbound();
   test_meshstate_clone_deep_copies();
