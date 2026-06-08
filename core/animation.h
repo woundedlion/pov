@@ -159,8 +159,21 @@ public:
   void rewind() override { t = 0; }
 
   /**
-   * @brief Sets a callback function to be executed when the animation finishes.
-   * @param callback The function to execute on completion.
+   * @brief Sets a callback fired at the end of each completion cycle.
+   *
+   * "Completion" is per-cycle, not strictly once. The callback runs every time
+   * the animation reaches done():
+   *   - One-shot animation (repeat=false): fires exactly once, then the
+   *     animation is removed.
+   *   - Repeating animation (repeat=true): fires at the end of every cycle,
+   *     just after the timer rewinds.
+   *   - Driver (perpetual, one-frame cycle): fires once per frame, since each
+   *     step completes a cycle. See the Driver class doc.
+   * This is one polymorphic hook by design — per-cycle is the only framing that
+   * generalizes across all three, since a driver's "cycle" is a single
+   * increment. Do not attach a one-shot callback to a repeating target.
+   *
+   * @param callback The function to execute at each completion.
    * @return LValue Reference to the derived animation object.
    */
   Derived &then(Fn<void(), 24> callback) & {
@@ -169,9 +182,11 @@ public:
   }
 
   /**
-   * @brief Sets a callback function to be executed when the animation finishes
-   * (RValue overload).
-   * @param callback The function to execute on completion.
+   * @brief Sets a per-cycle completion callback (RValue overload).
+   *
+   * See the lvalue overload for the per-cycle semantics across one-shot,
+   * repeating, and Driver targets.
+   * @param callback The function to execute at each completion.
    * @return RValue Reference to the derived animation object.
    */
   Derived &&then(Fn<void(), 24> callback) && {
