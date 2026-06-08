@@ -217,9 +217,17 @@ public:
    */
   void updateParameter(const char *name, float value) {
     auto *def = parameters.find(name);
-    if (def != nullptr) {
-      def->set(value);
-    }
+    if (def == nullptr)
+      return;
+    // This is the (untrusted) JS boundary — the only caller is WASM
+    // setParameter. Reject non-finite input outright (a NaN/Inf would silently
+    // poison render math), and clamp floats to the registered [min,max] the GUI
+    // advertises. Bools are not range-clamped (set() thresholds them at 0.5).
+    if (!std::isfinite(value))
+      return;
+    if (!def->is_bool())
+      value = hs::clamp(value, def->min, def->max);
+    def->set(value);
   }
 
   /**

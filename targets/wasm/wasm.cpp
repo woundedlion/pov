@@ -200,17 +200,24 @@ public:
     }
   }
 
-  void setClip(int y0, int y1, int x0, int x1) {
+  bool setClip(int y0, int y1, int x0, int x1) {
     if (!currentEffect)
-      return;
+      return false;
     // Clip bounds cross the untyped JS boundary. Reject malformed input that
     // would otherwise feed negatives into ClipRegion's modulo arithmetic
     // (constants.h render_x_*), yielding a wrong clip band instead of a clean
-    // segment. Segment workers always pass valid, in-range, ordered bounds.
-    HS_CHECK(x0 >= 0 && y0 >= 0 && x0 <= x1 && x1 <= pixel_width &&
-             y0 <= y1 && y1 <= pixel_height &&
-             "setClip: bounds out of range");
+    // segment. Mirror setResolution: reject-and-return rather than trap, since a
+    // trap at the JS boundary aborts the whole WASM module. Segment workers
+    // always pass valid, in-range, ordered bounds, so this rejects only
+    // malformed external calls.
+    if (!(x0 >= 0 && y0 >= 0 && x0 <= x1 && x1 <= pixel_width && y0 <= y1 &&
+          y1 <= pixel_height)) {
+      hs::log("WASM: setClip bounds out of range (%d,%d,%d,%d) — ignored", y0,
+              y1, x0, x1);
+      return false;
+    }
     currentEffect->set_clip(y0, y1, x0, x1);
+    return true;
   }
 
   void drawFrame() {
