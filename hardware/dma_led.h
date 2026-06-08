@@ -39,10 +39,10 @@
  * HD107S frame layout:
  *   Start frame : 4 bytes of 0x00
  *   Per pixel   : [0xFF] [B] [G] [R]   (brightness byte fixed at max)
- *   End frame   : (N/2)+1 bytes of 0x00 — a deliberately generous trailer.
- *                 The spec only needs ceil(N/2) extra *clocks* to flush data
- *                 through the chain, i.e. ceil(N/16) bytes; we send ~8× that.
- *                 Surplus zeros are harmless and give timing margin.
+ *   End frame   : ceil(N/16) bytes of 0x00. Each LED re-clocks the data one
+ *                 half-cycle later, so the last pixel needs ceil(N/2) extra
+ *                 clocks to latch; at 8 clocks/byte that is ceil(N/16) =
+ *                 (N+15)/16 bytes. 0x00 (not 0xFF) per the SK9822/HD107S latch.
  *
  * Color correction pipeline (all in linear 16-bit space):
  *   1. sRGB 8-bit → linear 16-bit   (srgb_to_linear_lut, PROGMEM)
@@ -54,10 +54,9 @@
 template <int N>
 class HD107SFrame {
 public:
-  /// Generous end-frame trailer: spec needs ceil(N/2) clocks (= ceil(N/16)
-  /// bytes) to flush the chain; (N/2)+1 bytes is ~8× that. Extra zeros are
-  /// harmless and give timing margin.
-  static constexpr int END_FRAME_BYTES = (N / 2) + 1;
+  /// End-frame latch per the SK9822/HD107S spec: ceil(N/2) extra clocks to
+  /// push data through the chain → ceil(N/16) = (N+15)/16 bytes of 0x00.
+  static constexpr int END_FRAME_BYTES = (N + 15) / 16;
   /// Single-frame buffer size in bytes.
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
   /// Composite size: image frame + trailing black frame (for show_bg).
