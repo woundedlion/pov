@@ -119,22 +119,21 @@ public:
     // Record the current orientation snapshot
     node->trail.record(node->orientation);
 
-    float current_t = timeline.t;
-    constexpr float MAX_TRAIL = ChaoticStrings<W, H>::TRAIL_LENGTH;
-
     deep_tween(node->trail, [&](const Quaternion &q, float t) {
       // Re-apply transforms at draw time so the trail undulates with noise
       Vector pos =
           noise_xform.transform(orientation.orient(rotate(node->v, q)));
       Fragment f;
       f.pos = normalized_or(pos, Vector(1, 0, 0));
-      f.age = current_t * t;
       f.v3 = t;
       vertices.push_back(f);
     });
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      float color_t = frag.age / MAX_TRAIL;
+      // Drive color and fade from the normalized trail parameter (v3), as the
+      // sibling Comets effect does. Scaling by the unbounded timeline counter
+      // saturates color_t past 1 within seconds, pinning the palette endpoint.
+      float color_t = frag.v3;
       frag.color = static_palette.get(color_t);
       frag.color.alpha *= quintic_kernel(frag.v3);
     };
