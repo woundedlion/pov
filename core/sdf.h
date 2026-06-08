@@ -585,11 +585,15 @@ template <typename A, typename B> struct SmoothUnion {
         thickness(std::max(shape_a.thickness, shape_b.thickness)) {}
 
   template <int H> Bounds get_vertical_bounds() const {
+    constexpr int H_VIRT = H + hs::H_OFFSET;
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
-    // Expand bounds slightly to account for the blending radius (k)
-    return {std::max(0, std::min(b1.y_min, b2.y_min) - 1),
-            std::min(H - 1, std::max(b1.y_max, b2.y_max) + 1)};
+    // Expand bounds by the blending radius (k, in radians) converted to rows:
+    // phi spans [0,π] over (H_VIRT-1) rows, mirroring the horizontal pad (k→px).
+    // A fixed ±1 clipped the blend top/bottom for large k.
+    int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
+    return {std::max(0, std::min(b1.y_min, b2.y_min) - pad),
+            std::min(H - 1, std::max(b1.y_max, b2.y_max) + pad)};
   }
 
   // Conservative union of children's intervals, padded by k (in radians)

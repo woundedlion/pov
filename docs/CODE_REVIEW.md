@@ -97,7 +97,9 @@ Per-component correctness ranged **A** (WASM bridge) down to **B** (mesh, raster
 
 ### P3 — Polish / Consistency / Docs / Micro-perf
 
-- [ ] **P3-1** [`core/sdf.h:587-593`](../core/sdf.h#L587-L593) — `SmoothUnion::get_vertical_bounds` expands only ±1 row regardless of `k`; large smoothing radius clips top/bottom of the blend. Convert `k`(radians)→rows like the horizontal path (`:599`).
+- [x] ✅ **P3-1** [`core/sdf.h:587-593`](../core/sdf.h#L587-L593) — `SmoothUnion::get_vertical_bounds` expands only ±1 row regardless of `k`; large smoothing radius clips top/bottom of the blend. Convert `k`(radians)→rows like the horizontal path (`:599`).
+  **Validated:** confirmed — the horizontal path pads by `k·W/(2π)` px (W spans 2π), but the vertical path hard-coded ±1 row while phi maps `[0,π]→(H_VIRT-1)` rows; a smoothing radius `k` larger than one row's worth of latitude clipped the blend at top/bottom.
+  **Fixed:** pad by `ceil(k·(H_VIRT-1)/π)` rows (min 1), mirroring the horizontal `k→px` conversion. Bounds-only, computed once per shape per frame; identical ±1 for small `k`, larger (correct) span for large `k` — no hot-path cost.
 - [ ] **P3-2** [`core/sdf.h:195-199`](../core/sdf.h#L195-L199) — `Ring::get_vertical_bounds` uses raw `a1` where `DistortedRing` (`:396`) clamps both endpoints; mirror the symmetric `clamp_phi` treatment.
 - [ ] **P3-3** `core/sdf.h` — four near-identical `get_horizontal_intervals` bodies (Ring/Polygon/Star/Flower); extract a shared `emit_cap_intervals` helper (also unifies `fast_cosf` vs full `cosf` — Polygon/Star/Flower pay full precision per row for no stated reason).
 - [ ] **P3-4** [`core/presets.h:28-32`](../core/presets.h#L28-L32) — `prev()` doesn't record `prev_idx` the way `next()` does (`:24`); latent wrong-source crossfade for the next caller that wires `prev()` to a crossfade (all 4 current callers use only `next()`).
