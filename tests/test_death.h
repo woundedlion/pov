@@ -2,8 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Death tests — the suite's first coverage of the fail-fast philosophy the
- * project markets. An HS_CHECK violation is a deliberate __builtin_trap() that
+ * Death tests — the suite's coverage of the fail-fast philosophy the project
+ * markets, spanning the memory/arena, math core, mesh-topology, registry,
+ * container, animation, canvas, and scan seams (including non-finite-input
+ * faults: NaN fed to normalize/slerp/make_rotation/make_basis must trap, not
+ * propagate into geometry). An HS_CHECK violation is a deliberate __builtin_trap() that
  * aborts the whole process; the in-process HS_EXPECT_* harness cannot catch it.
  * So each trap is exercised in a CHILD process: the test binary re-exec's
  * itself with HS_DEATH_CASE=<name> (handled in main() before any module runs),
@@ -33,7 +36,11 @@
 
 #include "core/3dmath.h"
 #include "core/animation.h"
+#include "core/canvas.h"
+#include "core/geometry.h"
 #include "core/memory.h"
+#include "core/mesh.h"
+#include "core/scan.h"
 #include "core/solids.h"
 #include "core/spatial.h"
 #include "core/static_circular_buffer.h"
@@ -161,6 +168,95 @@ inline void case_timeline_handled_relocation() {
   src.move_into(dst); // HS_CHECK(!handled) -> trap
 }
 
+// Mesh-topology surface: an output index past the int16 topology range. Both
+// conway.h and hankin.h route every output vertex/face-index narrowing through
+// this shared MeshOps guard (the fail-fast parity fix), so a future MAX_VERTS
+// bump traps at the bench instead of silently wrapping an index and corrupting
+// topology. This is the conway/hankin subsystems' first death coverage.
+inline void case_mesh_narrow_index() {
+  size_t over = static_cast<size_t>(INT16_MAX) + 1;
+  uint16_t i = MeshOps::narrow_index(opaque(over)); // > INT16_MAX -> HS_CHECK
+  if (i == 0xBEEF)
+    std::printf("x");
+}
+
+// Math-core surface: a NaN endpoint poisons slerp's interpolation through both
+// branches into the final strict normalized(), which traps rather than emitting
+// a NaN direction into geometry. Pairs with case_normalize_nan to prove the
+// non-finite input is caught at the slerp seam, not just at bare normalize().
+inline void case_slerp_nan() {
+  const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
+  Vector bad{nan, opaque(0.0f), opaque(0.0f)};
+  Vector dst{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
+  Vector v = slerp(bad, dst, opaque(0.5f)); // NaN -> normalized() -> HS_CHECK
+  if (v.x == 42.0f)
+    std::printf("x");
+}
+
+// Math-core surface: make_rotation(from, to) with a NaN source. The d-based
+// parallel/antiparallel guards are NaN-false, so it falls through to
+// cross(from,to).normalized(), which traps on the NaN-poisoned axis.
+inline void case_make_rotation_vectors_nan() {
+  const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
+  Vector from{nan, opaque(0.0f), opaque(0.0f)};
+  Vector to{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
+  Quaternion q = make_rotation(from, to); // NaN axis -> normalized() -> HS_CHECK
+  if (q.r == 42.0f)
+    std::printf("x");
+}
+
+// Math-core surface: make_rotation(axis, theta) with a NaN angle. cos/sin of a
+// NaN poison the quaternion, and its normalized() traps on the NaN magnitude.
+inline void case_make_rotation_angle_nan() {
+  const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
+  Vector axis{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  Quaternion q = make_rotation(axis, nan); // NaN quat -> normalized() -> HS_CHECK
+  if (q.r == 42.0f)
+    std::printf("x");
+}
+
+// Geometry surface: make_basis with a NaN normal. rotate(normal,·).normalized()
+// is the first strict normalize in the basis construction and traps on the
+// NaN-poisoned vector rather than returning a garbage frame.
+inline void case_make_basis_nan() {
+  const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
+  Vector normal{nan, opaque(0.0f), opaque(0.0f)};
+  Basis b = make_basis(Quaternion(), normal); // NaN -> normalized() -> HS_CHECK
+  if (b.u.x == 42.0f)
+    std::printf("x");
+}
+
+// Concrete Effect for the canvas/scan death cases — fixed 32×16 so its trig LUTs
+// match the well-exercised host config. Exposes registerParam and set_clip.
+struct DeathEffect : public Effect {
+  DeathEffect() : Effect(32, 16) {}
+  void draw_frame() override {}
+  bool show_bg() const override { return false; }
+  void reg(const char *n, float *p) { registerParam(n, p, 0.0f, 1.0f); }
+};
+
+// Canvas surface: overflowing the fixed 32-slot ParamList. registerParam traps
+// rather than silently dropping a registration (which would desync the GUI and,
+// on WASM, break the no-realloc memory-view invariant). First canvas death case.
+inline void case_register_param_overflow() {
+  DeathEffect fx;
+  static float slot = 0.0f;
+  for (int i = 0; i < opaque(64); ++i) // exceeds capacity 32 -> HS_CHECK
+    fx.reg("p", &slot);
+}
+
+// Scan surface: the per-draw LUT-domain invariant. A clip whose x_end exceeds W
+// would index the trig LUTs out of bounds; Scan::Shader::draw traps once per
+// draw (not per pixel) before the loop runs. First scan death case.
+inline void case_scan_clip_out_of_bounds() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx;
+  fx.set_clip(0, H, 0, opaque(W + 64)); // x_end > W -> LUT-domain HS_CHECK
+  Canvas c(fx);
+  Scan::Shader::draw<W, H, 1>(
+      c, [](const Vector &) { return Color4(Pixel(0, 0, 0), 1.0f); });
+}
+
 struct Case {
   const char *name;
   void (*fn)();
@@ -178,6 +274,13 @@ inline const Case *all_cases(int &n) {
       {"spatial_hash_overflow", case_spatial_hash_overflow},
       {"arena_oversubscribed", case_arena_oversubscribed},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
+      {"mesh_narrow_index", case_mesh_narrow_index},
+      {"slerp_nan", case_slerp_nan},
+      {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
+      {"make_rotation_angle_nan", case_make_rotation_angle_nan},
+      {"make_basis_nan", case_make_basis_nan},
+      {"register_param_overflow", case_register_param_overflow},
+      {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -301,7 +404,7 @@ inline int run_death_tests() {
     int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc);
     HS_EXPECT_TRUE(trapped);
-    std::printf("  [%s] trap fires: %-22s (child rc=%d)\n",
+    std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
                 trapped ? "ok" : "FAIL", cs[i].name, rc);
   }
 
