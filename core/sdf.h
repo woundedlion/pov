@@ -1883,9 +1883,12 @@ struct Flower {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    float phi = y_to_phi<H>(static_cast<float>(y));
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
+    // Phi trig from the static LUT (bit-identical to cosf(y_to_phi(y))) and
+    // fast_acos for the band edges — same as Ring's annular fallback path.
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    float cos_phi = TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
     if (scan_R < MIN_HORIZONTAL_PROJ)
       return false;
@@ -1906,8 +1909,8 @@ struct Flower {
     if (min_cos > max_cos)
       return true;
 
-    float angle_min = acosf(max_cos);
-    float angle_max = acosf(min_cos);
+    float angle_min = fast_acos(max_cos);
+    float angle_max = fast_acos(min_cos);
 
     float f_x1 = (scan_alpha - angle_max) * W / (2 * PI_F);
     float f_x2 = (scan_alpha - angle_min) * W / (2 * PI_F);
