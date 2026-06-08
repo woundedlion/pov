@@ -1274,7 +1274,13 @@ public:
     float flowParam = progress * logPeriod;
     float scale = expf(flowParam);
     float s = sqrtf(scale);
-    float angle = progress * (2 * PI_F / num_lines);
+    // num_lines is live-bound and its GUI slider bottoms out at 0, so 2π/0
+    // would blow angle up to inf. Clamp to >= 1 before dividing, mirroring the
+    // defensive floor in set_period/set_duration.
+    float lines = num_lines;
+    if (lines < 1.0f)
+      lines = 1.0f;
+    float angle = progress * (2 * PI_F / lines);
 
     params.get().aRe = s * cosf(angle);
     params.get().aIm = s * sinf(angle);
