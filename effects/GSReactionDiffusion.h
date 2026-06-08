@@ -41,7 +41,14 @@ public:
   FLASHMEM GSReactionDiffusion() = default;
 
   void init() override {
-    configure_arenas(80 * 1024, GLOBAL_ARENA_SIZE - 80 * 1024, 0);
+    // 170KB holds the 48KB Cubemap LUT + 30KB State + 90KB node positions. The
+    // node array (7680 × Vector) is the fixed Fibonacci lattice — queries are
+    // un-oriented onto it (not the reverse), so it does not depend on the
+    // per-frame view orientation and is built ONCE here instead of every frame
+    // (mirrors BZReactionDiffusion). Peak footprint is unchanged: the array was
+    // already allocated per-frame in the scratch arena, so it just moves from
+    // transient scratch to persistent and stops being recomputed each frame.
+    configure_arenas(170 * 1024, GLOBAL_ARENA_SIZE - 170 * 1024, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
@@ -60,6 +67,9 @@ public:
     }
 
     cube_lut.build(persistent_arena);
+    nodes = static_cast<Vector *>(
+        persistent_arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    build_nodes(nodes);
     seed_clusters();
     init_orientation_animation();
   }
@@ -133,10 +143,7 @@ private:
     for (int k = 0; k < 16; k++)
       step_physics(sA, sB);
 
-    Vector *nodes = static_cast<Vector *>(
-        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    build_nodes(nodes);
-
+    // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
     auto shader = [&](const Vector &v) -> Color4 {
       Vector rv = orientation.unorient(v);
       int nearest = cube_lut.lookup(rv);
@@ -155,6 +162,9 @@ private:
   struct {
     uint16_t *A = nullptr, *B = nullptr;
   } state;
+
+  // Fixed Fibonacci-lattice node positions, built once in init() (see BZ).
+  Vector *nodes = nullptr;
 
   GenerativePalette palette{
       GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,

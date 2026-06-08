@@ -6,8 +6,10 @@
 #pragma once
 
 #include "core/effects_engine.h"
+#include "core/spatial.h"
 
 #include <cmath>
+#include <span>
 
 template <int W, int H> class Voronoi : public Effect {
 public:
@@ -21,6 +23,11 @@ public:
   FLASHMEM Voronoi() : Effect(W, H) {}
 
   void init() override {
+    // Persistent holds the sites buffer; scratch_arena_a holds the per-frame
+    // KD-tree (positions + nodes + build indices, ~15KB at MAX_SITES). Give it
+    // comfortable headroom rather than rely on the 16KB default.
+    configure_arenas(GLOBAL_ARENA_SIZE - 64 * 1024, 64 * 1024, 0);
+
     registerParam("Num Sites", &params.num_sites, 1.0f,
                   static_cast<float>(MAX_SITES));
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
@@ -53,44 +60,43 @@ public:
       site.pos = rotate(site.pos, q);
     }
 
-    // 2. Render Pixels (Linear Search)
-    // No sites (degenerate num_sites == 0): the search below would leave
-    // bestIdx == -1 and index sites_buffer[-1] out of bounds for every pixel.
-    // Nothing to render, so bail before the pixel loop.
+    // 2. Render Pixels (KD-tree nearest + second-nearest)
+    // No sites (degenerate num_sites == 0): nothing to render, so bail before
+    // building the tree / pixel loop (an empty tree would yield no neighbors).
     if (sites_buffer.size() == 0)
       return;
+
+    // Build a KD-tree over the (moving) site positions once per frame. On the
+    // unit sphere nearest-by-Euclidean-distance is exactly nearest-by-max-dot
+    // (|p−s|² = 2 − 2·p·s for unit p,s), so the k=2 query returns the *same*
+    // best/second-best site as the former per-pixel O(N) scan — exactly, not
+    // approximately — turning the O(W·H·N) loop into O(N log N) build +
+    // O(log N) per pixel (and dropping the per-pixel work N≤400 dominated).
+    ScratchScope _scope(scratch_arena_a);
+    Vector *positions = static_cast<Vector *>(scratch_arena_a.allocate(
+        sites_buffer.size() * sizeof(Vector), alignof(Vector)));
+    for (size_t i = 0; i < sites_buffer.size(); ++i)
+      positions[i] = sites_buffer[i].pos;
+    KDTree tree(scratch_arena_a,
+                std::span<const Vector>(positions, sites_buffer.size()));
 
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         Vector p = pixel_to_vector<W, H>(x, y);
 
-        int bestIdx = -1;
-        float bestDot = -2.0f;
-        int secondBestIdx = -1;
-        float secondBestDot = -2.0f;
-
-        for (size_t i = 0; i < sites_buffer.size(); ++i) {
-          float d = dot(p, sites_buffer[i].pos);
-          if (d > bestDot) {
-            secondBestDot = bestDot;
-            secondBestIdx = bestIdx;
-            bestDot = d;
-            bestIdx = i;
-          } else if (d > secondBestDot) {
-            secondBestDot = d;
-            secondBestIdx = i;
-          }
-        }
-
-        float maxDot1 = bestDot;
-        float maxDot2 = secondBestDot;
-        const auto &bestSite = sites_buffer[bestIdx];
+        auto knn = tree.nearest(p, 2);
+        // Tree is non-empty (sites_buffer.size() > 0), so there is always a
+        // nearest; a second neighbor exists iff there are ≥ 2 sites.
+        const auto &bestSite = sites_buffer[knn[0].original_index];
+        bool hasSecond = knn.size() > 1;
+        float maxDot1 = dot(p, knn[0].point);
+        float maxDot2 = hasSecond ? dot(p, knn[1].point) : -2.0f;
 
         Color4 c = bestSite.color;
 
         // Smoothing
-        if (secondBestIdx != -1 && params.smoothness > 0.0f) {
-          const auto &secSite = sites_buffer[secondBestIdx];
+        if (hasSecond && params.smoothness > 0.0f) {
+          const auto &secSite = sites_buffer[knn[1].original_index];
           float diff = maxDot1 - maxDot2;
           float factor = std::min(1.0f, diff * params.smoothness);
           factor = quintic_kernel(factor);
@@ -106,7 +112,7 @@ public:
         }
 
         // Borders
-        if (showBorders && secondBestIdx != -1) {
+        if (showBorders && hasSecond) {
           float dist1 = acosf(std::min(1.0f, maxDot1));
           float dist2 = acosf(std::min(1.0f, maxDot2));
           if (dist2 - dist1 < params.borderThickness) {
