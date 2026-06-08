@@ -163,7 +163,9 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
   if (C_min < -1.0f)
     return false; // Full scan fallback (simplification)
 
-  float d_alpha = acosf(C_min);
+  // fast_acos: ~1.3e-4 rad peak error ≈ 0.006 px at W=288, far under the
+  // floor/ceil pad below. Matches the Ring/DistortedRing scanline path.
+  float d_alpha = fast_acos(C_min);
   float scale = W / (2.0f * PI_F);
   float x1 = floorf((alpha_angle - d_alpha) * scale);
   float x2 = ceilf((alpha_angle + d_alpha) * scale);
@@ -1593,9 +1595,11 @@ struct Polygon {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    float phi = y_to_phi<H>(static_cast<float>(y));
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     return emit_cap_interval<W>(cosf(thickness), ny, R_val, alpha_angle,
-                                cosf(phi), sinf(phi), false, out);
+                                TrigLUT<W, H>::cos_phi[y],
+                                TrigLUT<W, H>::sin_phi[y], false, out);
   }
 
   /**
@@ -1694,9 +1698,11 @@ struct SphericalPolygon {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    float phi = y_to_phi<H>(static_cast<float>(y));
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     return emit_cap_interval<W>(cosf(circumradius), ny, R_val, alpha_angle,
-                                cosf(phi), sinf(phi), false, out);
+                                TrigLUT<W, H>::cos_phi[y],
+                                TrigLUT<W, H>::sin_phi[y], false, out);
   }
 
   DistanceResult distance(const Vector &p) const {
@@ -1791,10 +1797,12 @@ struct Star {
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     // Bounding circle; pad the cap by one pixel and reject full-width rows.
-    float phi = y_to_phi<H>(static_cast<float>(y));
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     float pixel_width = 2.0f * PI_F / W;
     return emit_cap_interval<W>(cosf(thickness + pixel_width), scan_ny, scan_r,
-                                scan_alpha, cosf(phi), sinf(phi), true, out);
+                                scan_alpha, TrigLUT<W, H>::cos_phi[y],
+                                TrigLUT<W, H>::sin_phi[y], true, out);
   }
 
   DistanceResult distance(const Vector &p) const {
