@@ -105,11 +105,12 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   float dx = proj2.first - proj1.first;
   float dy = proj2.second - proj1.second;
 
-  auto map_planar = [=](float t) {
-    float Px = proj1.first + dx * t;
-    float Py = proj1.second + dy * t;
+  // The path is a straight line in the azimuthal-equidistant projection,
+  // parameterized here by the PROJECTION fraction p in [0,1] (not arc length).
+  auto unproject = [=](float p) -> Vector {
+    float Px = proj1.first + dx * p;
+    float Py = proj1.second + dy * p;
 
-    // Unproject
     float R = sqrtf(Px * Px + Py * Py);
     if (R < math::EPS_GEOMETRIC)
       return center;
@@ -119,21 +120,47 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
     return (center * fast_cosf(R)) + (axis * fast_sinf(R));
   };
 
+  // Cumulative on-sphere arc length at evenly-spaced PROJECTION samples.
   // total_dist drives the step count, so it must be the path's true on-sphere
-  // length. The planar path is a straight line in the azimuthal-equidistant
-  // projection, NOT a geodesic: the projected chord over-estimates it (the
-  // stretched tangential metric → over-sampling) while the geodesic arc
-  // under-estimates it (shortest path → gaps). Approximate the real length by
-  // summing great-circle arcs between a few path samples — a few setup-time map
-  // evals, far cheaper than the over-sampled pixels they save.
+  // length: the projected chord over-estimates it (the stretched tangential
+  // metric) while the geodesic arc under-estimates it. Summing great-circle
+  // arcs between a few samples gives the real length — these are the same setup
+  // evals the old code already spent on total_dist.
+  //
+  // The table additionally lets map() take an ARC-length fraction and invert it
+  // back to a projection parameter. Projection-uniform stepping is NOT
+  // arc-uniform under the anisotropic azimuthal metric, so feeding the
+  // rasterizer's arc-fraction t straight into the projection-linear map (as
+  // before) clustered/gapped samples. The inversion makes planar sampling
+  // arc-uniform — matching the geodesic strategy — at the cost of a trig-free
+  // table scan per sample (no new trig anywhere).
   constexpr int LEN_SAMPLES = 4;
-  Vector len_prev = map_planar(0.0f);
-  float dist = 0.0f;
+  std::array<float, LEN_SAMPLES + 1> arc_cumul;
+  arc_cumul[0] = 0.0f;
+  Vector len_prev = unproject(0.0f);
   for (int k = 1; k <= LEN_SAMPLES; ++k) {
-    Vector len_cur = map_planar(static_cast<float>(k) / LEN_SAMPLES);
-    dist += angle_between(len_prev, len_cur);
+    Vector len_cur = unproject(static_cast<float>(k) / LEN_SAMPLES);
+    arc_cumul[k] = arc_cumul[k - 1] + angle_between(len_prev, len_cur);
     len_prev = len_cur;
   }
+  const float dist = arc_cumul[LEN_SAMPLES];
+
+  // Arc-length parameterization: s is the arc fraction in [0,1]. Invert the
+  // piecewise-linear cumulative-arc table to a projection parameter, then
+  // unproject. A short scan over LEN_SAMPLES floats — no trig.
+  auto map_planar = [=](float s) -> Vector {
+    if (dist < math::EPS_GEOMETRIC)
+      return unproject(s);
+    float target = s * dist;
+    int k = 0;
+    while (k < LEN_SAMPLES - 1 && arc_cumul[k + 1] < target)
+      ++k;
+    float seg = arc_cumul[k + 1] - arc_cumul[k];
+    float frac =
+        (seg > math::EPS_GEOMETRIC) ? (target - arc_cumul[k]) / seg : 0.0f;
+    float p = (static_cast<float>(k) + frac) / LEN_SAMPLES;
+    return unproject(std::min(1.0f, std::max(0.0f, p)));
+  };
 
   process_segment(map_planar, curr, next, dist, isLastSegment);
 }
