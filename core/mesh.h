@@ -35,10 +35,6 @@ struct PolyMesh {
   ArenaVector<uint16_t> faces;
   ArenaVector<int> topology;
 
-  // Cache
-  mutable bool cache_valid = false;
-  mutable KDTree kd_tree;
-
   PolyMesh() = default;
 
   void initialize(Arena &arena, size_t num_verts, size_t num_faces,
@@ -46,7 +42,6 @@ struct PolyMesh {
     vertices.bind(arena, num_verts);
     face_counts.bind(arena, num_faces);
     faces.bind(arena, num_indices);
-    cache_valid = false;
   }
 
   inline void clear() {
@@ -54,12 +49,6 @@ struct PolyMesh {
     face_counts.clear();
     faces.clear();
     topology.clear();
-    cache_valid = false;
-  }
-
-  void clear_cache() const {
-    cache_valid = false;
-    kd_tree.clear();
   }
 
   // Unified accessors (PolyMesh always owns, so these just forward)

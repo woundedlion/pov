@@ -355,7 +355,6 @@ inline void test_meshstate_clear_resets_views() {
   m.clear();
   HS_EXPECT_EQ(m.num_vertices(), (size_t)0);
   HS_EXPECT_EQ(m.num_faces(), (size_t)0);
-  HS_EXPECT_FALSE(m.cache_valid);
 }
 
 inline void test_meshstate_move_invalidates_source() {

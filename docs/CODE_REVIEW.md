@@ -132,7 +132,7 @@ Above typical maker-project infra: dual-mode CMake selected by toolchain, correc
 16. **CI compiler/runtime pinning** — pin native Clang and the runner image; SHA-pin third-party actions; exercise the `install`/provenance path in CI; add a dirty-tree provenance guard.
 
 ### P3 — Design consistency & dead code
-17. Remove the dead `mutable kd_tree`/`cache_valid` mesh fields (or move the tree to a caller-owned local) — they can only ever dangle into reset scratch ([`core/conway.h:992-1003`](../core/conway.h#L992-L1003)).
+17. ✅ Remove the dead `mutable kd_tree`/`cache_valid` mesh fields (or move the tree to a caller-owned local) — they can only ever dangle into reset scratch ([`core/conway.h:992-1003`](../core/conway.h#L992-L1003)). **Fixed:** `compute_kdtree` now returns the `KDTree` by value and `closest_point_on_mesh_graph` holds it as a caller-owned local; dropped the unused `kd_tree`/`cache_valid` members (and `PolyMesh::clear_cache`) from `PolyMesh` and `MeshState` — `cache_valid` never gated a rebuild and the tree was only ever a same-call scratch hand-off. Behavior- and performance-neutral (the tree is still built once into the temp arena per call).
 18. Reconcile `registerParam` float-vs-bool default semantics ([`core/canvas.h:331`](../core/canvas.h#L331) vs [`:341`](../core/canvas.h#L341)); make `markAnimated`/`markReadonly` fail loudly on unknown names.
 19. `Pixel::Feedback`: document/enforce that it must be the terminal pipeline stage (it ignores `PassFn2D`) ([`core/filter.h:690`](../core/filter.h#L690)).
 20. Modifier null-driver paths and `MeshState` empty-owned-vs-borrowed accessor: trap or gate on `is_bound()` rather than silently returning a passthrough/stale view.

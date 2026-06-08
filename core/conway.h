@@ -985,21 +985,20 @@ FLASHMEM static PolyMesh bevel(const MeshT &mesh, Arena &target, Arena &temp,
 // Add them under a separate change with a dedicated test for blade winding.
 
 /**
- * @brief (Re)builds the mesh KDTree into the supplied arena.
+ * @brief Builds and returns the mesh KDTree in the supplied arena.
  *
  * The tree's nodes live in `arena`. Every caller passes a scratch/temp arena
  * that is reset between frames, so the tree CANNOT be cached across calls: a
- * persistent `cache_valid` flag would leave `mesh.kd_tree.nodes` dangling into
- * reset/overwritten scratch on the next call and return silent garbage
- * nearest-neighbours in release (the stale-binding guard that would catch this
- * is debug-only). We therefore rebuild every call, mirroring
+ * cached handle would dangle into reset/overwritten scratch on the next call
+ * and return silent garbage nearest-neighbours in release (the stale-binding
+ * guard that would catch this is debug-only). The tree is therefore returned
+ * by value as a caller-owned local and rebuilt every call, mirroring
  * closest_point_on_mesh_graph(), which already rebuilds the HalfEdgeMesh — the
  * dominant cost — each call, so the KDTree rebuild adds little.
  */
-FLASHMEM static void compute_kdtree(const PolyMesh &mesh, Arena &arena) {
-  mesh.kd_tree =
-      KDTree(arena, std::span<const Vector>(mesh.vertices.data(),
-                                            mesh.vertices.size()));
+FLASHMEM static KDTree compute_kdtree(const PolyMesh &mesh, Arena &arena) {
+  return KDTree(arena, std::span<const Vector>(mesh.vertices.data(),
+                                               mesh.vertices.size()));
 }
 
 inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
@@ -1007,9 +1006,9 @@ inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
   if (mesh.vertices.empty())
     return Vector(0, 1, 0);
 
-  compute_kdtree(mesh, temp_arena);
+  KDTree kd_tree = compute_kdtree(mesh, temp_arena);
 
-  auto nearest_nodes = mesh.kd_tree.nearest(p, 1);
+  auto nearest_nodes = kd_tree.nearest(p, 1);
   if (nearest_nodes.size() == 0)
     return mesh.vertices[0];
 

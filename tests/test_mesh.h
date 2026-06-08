@@ -5,7 +5,7 @@
  * Unit tests for core/mesh.h.
  *
  * Coverage:
- *   - PolyMesh basic API (initialize, clear, accessors, clear_cache)
+ *   - PolyMesh basic API (initialize, clear, accessors)
  *   - HalfEdgeMesh construction from PolyMesh and MeshState
  *     (Euler invariant V - E + F = 2, half-edge pairing, vertex/face refs)
  *   - MeshOps::compile (PolyMesh → MeshState, drops degenerate faces,
@@ -45,7 +45,6 @@ inline void test_polymesh_default_state() {
   HS_EXPECT_EQ(m.vertices.size(), (size_t)0);
   HS_EXPECT_EQ(m.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(m.faces.size(), (size_t)0);
-  HS_EXPECT_FALSE(m.cache_valid);
 }
 
 inline void test_polymesh_initialize_binds_arrays() {
@@ -60,31 +59,16 @@ inline void test_polymesh_initialize_binds_arrays() {
   HS_EXPECT_EQ(m.faces.capacity(), (size_t)24);
 }
 
-inline void test_polymesh_clear_resets_data_and_cache() {
+inline void test_polymesh_clear_resets_data() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh m;
   build_solid<Solids::Cube>(m, arena);
-  m.cache_valid = true; // simulate a primed cache
   HS_EXPECT_TRUE(m.vertices.size() > 0);
 
   m.clear();
   HS_EXPECT_EQ(m.vertices.size(), (size_t)0);
   HS_EXPECT_EQ(m.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(m.faces.size(), (size_t)0);
-  HS_EXPECT_FALSE(m.cache_valid);
-}
-
-inline void test_polymesh_clear_cache_only() {
-  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
-  PolyMesh m;
-  build_solid<Solids::Cube>(m, arena);
-  m.cache_valid = true;
-
-  m.clear_cache();
-  HS_EXPECT_FALSE(m.cache_valid);
-  // Geometry untouched
-  HS_EXPECT_EQ(m.vertices.size(), (size_t)8);
-  HS_EXPECT_EQ(m.face_counts.size(), (size_t)6);
 }
 
 inline void test_polymesh_unified_accessors() {
@@ -351,8 +335,7 @@ inline int run_mesh_tests() {
 
   test_polymesh_default_state();
   test_polymesh_initialize_binds_arrays();
-  test_polymesh_clear_resets_data_and_cache();
-  test_polymesh_clear_cache_only();
+  test_polymesh_clear_resets_data();
   test_polymesh_unified_accessors();
 
   test_half_edge_mesh_size_matches_input();
