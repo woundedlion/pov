@@ -13,9 +13,7 @@ public:
   static constexpr int TRAIL_LEN = 40;
 
   FLASHMEM HopfFibration()
-      : Effect(W, H), fiber_pipeline(Filter::World::Orient<W>(orientation),
-                                     Filter::Screen::AntiAlias<W, H>()),
-        trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {
+      : Effect(W, H), trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {
     persist_pixels = false;
   }
 
@@ -113,10 +111,8 @@ private:
   Timeline<W> timeline;
   BakedPalette baked_sunset;
 
-  // fiber_pipeline applies Orient+AA; trail_pipeline applies AA only (trail
-  // points are oriented by hand in render_trails before rasterizing).
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
-      fiber_pipeline;
+  // trail_pipeline applies AA only; trail points are oriented by hand in
+  // render_trails before rasterizing, so no Orient filter is needed.
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> trail_pipeline;
 
   void init_fibers() {
