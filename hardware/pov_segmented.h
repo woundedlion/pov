@@ -250,6 +250,22 @@ private:
     x_ = 0;
 
     // Attach column + frame sync ISRs.
+    //
+    // LOAD-BEARING INVARIANT — equal-priority non-preemption. show_col and
+    // frame_sync_isr share the plain int x_ with no lock and no `volatile`:
+    // show_col runs a read-modify-write (x_ = (x_ + 1) % w) while frame_sync_isr
+    // writes x_ = 0. That is race-free ONLY because the two handlers never
+    // preempt each other. Both are GPIO pin interrupts that attachInterrupt
+    // installs at the same default NVIC priority, and a Cortex-M exception
+    // cannot preempt another of equal-or-lower priority — so the two serialize.
+    // On Teensy 4 the guarantee is stronger still: every digital-pin interrupt
+    // is dispatched from a single shared GPIO port vector, so these two ISRs
+    // literally cannot overlap regardless of priority.
+    //
+    // If a future change moves either handler to a different interrupt source,
+    // or raises one's NVIC priority above the other, this assumption breaks and
+    // x_ needs real synchronization. (SysTick is demoted above for the same
+    // non-preemption reason, so millis() can't preempt the column ISR either.)
     pinMode(PIN_COLUMN_SYNC, INPUT);
     attachInterrupt(digitalPinToInterrupt(PIN_COLUMN_SYNC),
                     show_col, RISING);
@@ -348,6 +364,9 @@ private:
   static CRGB leds_[PPS];
 #endif
   static Effect *effect_;
+  // Shared between show_col and frame_sync_isr. Plain int (no lock, no
+  // volatile) is race-free only under the equal-priority non-preemption
+  // invariant documented at the ISR attach site in run().
   static int x_;
   static int segment_id_;
   static bool arm_b_;

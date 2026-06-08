@@ -58,6 +58,16 @@ public:
   /// Composite size: image frame + trailing black frame (for show_bg).
   static constexpr int COMPOSITE_SIZE = BUFFER_SIZE * 2;
 
+  // The whole composite buffer can be handed to a single DMA transfer
+  // (submitFrame(withBg=true) → transmitAsync(data(), COMPOSITE_SIZE)). Teensy
+  // 4's eDMA encodes a transfer's major-loop count in the 15-bit CITER/BITER
+  // field (minor-loop linking disabled), so one transfer tops out at 32767
+  // bytes — past that the count silently truncates and the strip tail goes
+  // dark. Trap at compile time if a future pixel count would overflow it.
+  static_assert(COMPOSITE_SIZE <= 32767,
+      "HD107SFrame composite buffer exceeds the 15-bit eDMA single-transfer "
+      "limit (CITER/BITER); split the transfer or reduce N");
+
   HD107SFrame() {
     memset(buffer_, 0, COMPOSITE_SIZE);
     // Image frame: set brightness bytes
