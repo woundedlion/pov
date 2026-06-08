@@ -24,6 +24,7 @@
   #endif
 #endif
 #include "canvas.h"
+#include "geometry.h"
 #include "memory.h"
 
 /**
@@ -65,6 +66,9 @@ public:
    * @param duration The time in seconds to run the effect.
    */
   template <typename E> void show(unsigned long duration) {
+    // Eager-fill the scanline LUTs for this effect's resolution before the
+    // first frame, so the ISR never observes a half-filled table.
+    GeometryResolution<E>::init();
     E *e = new E();
     configure_arenas_default(); // Reset before init so effects can override
     e->init();

@@ -180,6 +180,7 @@ public:
     bool created = false;
 #define X(W, H)                                                                \
   if (pixel_width == (W) && pixel_height == (H)) {                             \
+    init_geometry_luts<W, H>(); /* eager-fill LUTs before the first frame */   \
     currentEffect = create_effect<W, H>(name);                                 \
     created = true;                                                            \
   }

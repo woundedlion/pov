@@ -50,6 +50,7 @@
 #endif
 
 #include "canvas.h"
+#include "geometry.h"
 #include "memory.h"
 
 /**
@@ -153,6 +154,9 @@ public:
    */
   template <typename E>
   void show(unsigned long duration) {
+    // Eager-fill the scanline LUTs for this effect's resolution before the
+    // first frame, so the per-board ISRs never observe a half-filled table.
+    GeometryResolution<E>::init();
     E *e = new E();
     configure_arenas_default(); // Reset before init so effects can override
     e->init();

@@ -240,6 +240,34 @@ std::array<float, TrigLUT<W, H>::H_VIRT> TrigLUT<W, H>::cos_phi;
 template <int W, int H> bool TrigLUT<W, H>::initialized = false;
 
 /**
+ * @brief Eagerly fill the scanline LUTs for resolution <W, H>.
+ * @details Engine setup calls this once, before the first frame, so the tables
+ * are fully populated before any rendering — and, on hardware, before the
+ * column-sweep ISR could ever observe a partially-filled table. With eager
+ * init in place the per-call `if (!initialized) init()` guards scattered
+ * through the scanline rasterizers (Scan/Plot/SDF/Filter, `pixel_to_vector`)
+ * are never the *first* touch in production; they remain only as a
+ * self-healing fallback for unit tests and offline tools that render at other
+ * resolutions without going through engine setup. Idempotent.
+ */
+template <int W, int H> inline void init_geometry_luts() {
+  PhiLUT<H>::init();
+  TrigLUT<W, H>::init();
+}
+
+/**
+ * @brief Recovers an effect's compile-time <W, H> from its type so a driver's
+ * `show<E>()` can eager-init the LUTs without the caller restating the
+ * resolution. Every effect is `template <int W, int H> class E`, so the
+ * partial specialization matches them all.
+ */
+template <typename E> struct GeometryResolution;
+template <template <int, int> class Eff, int W, int H>
+struct GeometryResolution<Eff<W, H>> {
+  static void init() { init_geometry_luts<W, H>(); }
+};
+
+/**
  * @brief Reconstruct a vector from pixel coordinates using split trig LUTs.
  * @tparam W Width.
  * @tparam H Height.
