@@ -34,6 +34,13 @@ static_assert(MAX_VERTS <= INT16_MAX,
               "MAX_VERTS must fit int16_t vertex indices");
 static_assert(MAX_INDICES <= UINT16_MAX,
               "MAX_INDICES must fit uint16_t half-edge indices");
+// KDTree::KDNode::original_index (spatial.h) is uint16_t and stores indices
+// into vertex arrays bounded by MAX_VERTS. The int16_t assert above implies
+// this today, but they are independent index types: widening the topology path
+// to int32 would relax that assert and leave KDNode the silent truncator. Keep
+// the coupling explicit here so a MAX_VERTS bump is caught at compile time.
+static_assert(MAX_VERTS <= UINT16_MAX,
+              "MAX_VERTS must fit KDNode::original_index (uint16_t)");
 
 FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
