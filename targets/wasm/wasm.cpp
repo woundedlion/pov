@@ -293,7 +293,11 @@ public:
       entry.set("name", val(def.name));
 
       if (def.is_bool()) {
-        // Emit JS boolean so frontend typeof check works
+        // Emit a JS boolean so the frontend's `typeof value === 'boolean'`
+        // check renders a checkbox (daydream.js applyEffect). Bool params
+        // deliberately omit min/max — a toggle has no range, and the GUI keys
+        // off the boolean type, never reading min/max for it. Float params
+        // always carry both because the slider path consumes them.
         entry.set("value", val(def.get() > 0.5f));
       } else {
         entry.set("value", def.get());
@@ -452,18 +456,33 @@ struct MeshOpsWrapper {
       }
     }
 
-    // First pass: count faces to allocate face_counts
-    int num_faces = 0;
-    for (int idx : fData) {
-      if (idx == -1)
+    // Size the arenas by simulating the build pass below rather than tallying
+    // delimiters: an empty face (a leading or consecutive -1) emits no
+    // face_count, while a trailing face with no final -1 still counts. A naive
+    // "one face per -1" count would over-allocate face_counts on empty faces,
+    // and the "size minus delimiters" trick would under-size faces when the
+    // stream doesn't end on a -1. Counting exactly what the loop pushes keeps
+    // both arenas right-sized.
+    int num_faces = 0;      // non-empty faces => face_counts entries
+    int num_face_verts = 0; // total vertex indices => faces entries
+    {
+      int run = 0;
+      for (int idx : fData) {
+        if (idx == -1) {
+          if (run > 0) {
+            num_faces++;
+            run = 0;
+          }
+        } else {
+          num_face_verts++;
+          run++;
+        }
+      }
+      if (run > 0)
         num_faces++;
     }
-    // If last face doesn't end with -1 but has data
-    if (!fData.empty() && fData.back() != -1)
-      num_faces++;
 
-    m.faces.bind(tooling_arena,
-                 fData.size() - num_faces); // Exact size without delimiters
+    m.faces.bind(tooling_arena, num_face_verts);
     m.face_counts.bind(tooling_arena, num_faces);
 
     int current_count = 0;
