@@ -175,8 +175,12 @@ private:
     pinMode(PIN_ID1, INPUT_PULLUP);
     delay(10);  // settle time for pull-ups
 
-    segment_id_ = ~(digitalReadFast(PIN_ID0)
-                   | (digitalReadFast(PIN_ID1) << 1)) & (N - 1);
+    // ~ binds tighter than &: invert the 2-bit reading (so all-floating
+    // pull-ups => ID 0), then mask off the inverted high bits with & (N-1).
+    // The mask is load-bearing — without it the full-width ~ would set every
+    // upper bit. Parens make the (~...) & (N-1) grouping explicit.
+    segment_id_ = (~(digitalReadFast(PIN_ID0)
+                   | (digitalReadFast(PIN_ID1) << 1))) & (N - 1);
   }
 
   // ── Segment mapping ─────────────────────────────────────────────────
@@ -240,7 +244,12 @@ private:
    * @param duration Display time in seconds.
    */
   void run(Effect *e, unsigned long duration) {
-    long start = millis();
+    // Unsigned start + unsigned elapsed (millis() - start) is the overflow-safe
+    // timing idiom: the modular subtraction stays correct across the ~49.7-day
+    // millis() wraparound. A signed start, or a precomputed `start + interval`
+    // deadline, would mis-compare on overflow.
+    const unsigned long start = millis();
+    const unsigned long duration_ms = duration * 1000;
     // Ordering invariant (the column clock free-runs continuously): publish
     // effect_ BEFORE attaching show_col, and clear it only AFTER detaching
     // show_col below. show_col is the sole reader of effect_, so between effects
@@ -272,7 +281,7 @@ private:
     attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN),
                     frame_sync_isr, RISING);
 
-    while (millis() - start < duration * 1000) {
+    while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       e->draw_frame();
       unsigned long dt = micros() - t0;

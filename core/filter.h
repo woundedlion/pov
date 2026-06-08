@@ -390,7 +390,10 @@ public:
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
-  Trails(int lifetime) : lifetime(lifetime) {}
+  // lifetime is a per-frame divisor (fade alpha); a zero/negative trail length
+  // is a cold authoring error that would feed inf/NaN into blend_alpha. Trap at
+  // construction (cold path) rather than producing garbage per pixel.
+  Trails(int lifetime) : lifetime(lifetime) { HS_CHECK(lifetime > 0); }
 
   /// Allocate ring buffer storage from persistent arena.
   /// Must be called from effect init(), not constructor (arenas aren't ready
@@ -544,7 +547,9 @@ public:
  */
 template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
-  Trails(int lifetime) : lifetime(lifetime) {}
+  // See World::Trails: lifetime divides per-frame; trap a zero/negative trail
+  // length at construction (cold) rather than feeding inf/NaN into the fade.
+  Trails(int lifetime) : lifetime(lifetime) { HS_CHECK(lifetime > 0); }
 
   void init_storage(Arena &arena) {
     ttls_ = static_cast<DecayPixel *>(

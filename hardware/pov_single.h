@@ -79,7 +79,11 @@ private:
    * the timer ISR is attached, then unpublishes it. Does not delete e.
    */
   void run(Effect *e, unsigned long duration) {
-    long start = millis();
+    // Unsigned start + unsigned elapsed (millis() - start) is the overflow-safe
+    // timing idiom: the modular subtraction stays correct across the ~49.7-day
+    // millis() wraparound. A signed start would mis-compare on overflow.
+    const unsigned long start = millis();
+    const unsigned long duration_ms = duration * 1000;
     effect_ = e;
     x_ = 0;
 #ifdef ARDUINO
@@ -87,7 +91,7 @@ private:
     // sweep the width once per rotation
     timer.begin(show_col,
         static_cast<unsigned long>(1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f));
-    while (millis() - start < duration * 1000) {
+    while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       effect_->draw_frame();
       effect_->advance_display();
@@ -99,7 +103,7 @@ private:
     }
     timer.end();
 #else
-    while (millis() - start < duration * 1000) {
+    while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       effect_->draw_frame();
       unsigned long dt = micros() - t0;
