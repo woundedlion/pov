@@ -72,12 +72,16 @@ inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
 
-  // Type-safe filter accessor (base case: T not found)
+  // Type-safe filter accessor (base case: T not found). The guard is a
+  // dependent-false: !sizeof(T*) is always false but cannot be proven so until
+  // the template is instantiated, so it fires only when get<T>() is actually
+  // named on a pipeline lacking T. (sizeof(T*) — not sizeof(T) — so the intended
+  // "not found" diagnostic also wins for an incomplete T.)
   template <typename T> T &get() {
-    static_assert(sizeof(T) == 0, "Filter type T not found in Pipeline");
+    static_assert(!sizeof(T *), "Filter type T not found in Pipeline");
   }
   template <typename T> const T &get() const {
-    static_assert(sizeof(T) == 0, "Filter type T not found in Pipeline");
+    static_assert(!sizeof(T *), "Filter type T not found in Pipeline");
   }
 
   // 2D Sink

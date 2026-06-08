@@ -144,6 +144,17 @@ inline void test_pipeline_get_returns_correct_filter() {
   const Pipeline<W, H, AA, Blur, CS> &cpipe = pipe;
   const Blur &cbl = cpipe.get<Blur>();
   HS_EXPECT_TRUE(&cbl == &bl);
+
+  // Absent-filter case: get<T>() on a pipeline lacking T must fail to compile
+  // cleanly (the dependent-false static_assert "Filter type T not found"). It
+  // cannot be exercised at runtime — instantiating the base get<T>() is a hard
+  // error, not a SFINAE-detectable one — so it lives behind a default-off macro.
+  // Verify by hand: build with -DHS_TEST_PIPELINE_GET_ABSENT and confirm the
+  // sole diagnostic is the intended message.
+#ifdef HS_TEST_PIPELINE_GET_ABSENT
+  using Absent = Filter::Pixel::Feedback<W, H>; // not in the pipeline above
+  (void)pipe.get<Absent>();
+#endif
 }
 
 // ============================================================================
