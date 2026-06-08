@@ -6,6 +6,8 @@
 
 #include <cmath>
 #include <cfloat>
+#include <cstdint>
+#include <cstring>
 #include <limits>
 #include <algorithm>
 #include "platform.h"
@@ -255,6 +257,25 @@ inline float fast_atan2(float y, float x) {
     angle = -angle;
 
   return angle;
+}
+
+// Fast cube root for x >= 0. Bit-hack initial guess (divide the float exponent
+// by three) refined by ONE Halley step (cubic convergence). Peak relative error
+// ~2.3e-5 measured against cbrtf over [0,8] — vs ~1e-3 for a single Newton step
+// — for ~2 extra multiplies and the same single division. Avoids the
+// ~100-200-cycle soft-float cbrtf in the per-pixel OKLab hue path (see
+// hue_rotate). Domain is x >= 0 (cbrt(0)=0); negative inputs return 0.
+inline float fast_cbrt(float x) {
+  if (x <= 0.0f)
+    return 0.0f;
+  uint32_t i;
+  std::memcpy(&i, &x, sizeof(i));
+  i = i / 3u + 0x2a514067u;
+  float y;
+  std::memcpy(&y, &i, sizeof(y));
+  // Halley: y *= (y^3 + 2x) / (2y^3 + x)
+  float c = y * y * y;
+  return y * (c + 2.0f * x) / (2.0f * c + x);
 }
 
 // Forward declarations (defined at end of file)

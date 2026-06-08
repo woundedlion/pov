@@ -520,12 +520,15 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 | `Style::Frozen()` | Static frozen distortion — no temporal movement. |
 | `Style::Shatter()` | Extreme static warping with fast decay. Shattering glass look. |
 | `Style::Drift()` | Flowing medium-strength distortion. Gentle liquid drift. |
+| `Style::Melting()` | Image melts and drips downward off the sphere. |
+| `Style::Swirling()` | Fast downward swirl with strong distortion, no hue shift. |
 
 Available transform functions:
 
 | Space Transform | Description |
 |---|---|
 | `Feedback::noise_warp` (default) | 3D simplex noise distortion via `noise_transform()` |
+| `Feedback::melt_warp` | Downward melt — slerps samples toward the north pole (image drips south) plus noise wobble |
 | `Feedback::identity_warp` | No spatial distortion (pass-through) |
 
 | Color Transform | Description |
@@ -972,7 +975,7 @@ Pixel (sRGB 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, h)
 | `oklab_to_oklch()` | Convert OKLab (rectangular) to OKLCH (polar: Lightness, Chroma, Hue) |
 | `lerp_oklch()` | Interpolate two OKLCH values with shortest-arc hue (avoids the red→green→blue detour) |
 | `lerp_oklch_srgb()` | Same as above but returns an sRGB `CPixel` (used by `GenerativePalette` transitions) |
-| `hue_rotate()` | Rodrigues hue rotation in linear RGB space — a single-axis rotation in the color cube. Used by `MeshFeedback`'s `HueShiftFade` and `Flyby`'s displacement-driven hue shift. |
+| `hue_rotate()` | Perceptual hue rotation — rotates the (a,b) chroma plane in OKLab, preserving lightness and chroma. Forward nonlinearity uses `fast_cbrt` (hot per-pixel path); inverse is exact. Used by the feedback `hue_fade` transform and `Flyby`'s displacement-driven hue shift. |
 
 #### Palette Modifiers
 

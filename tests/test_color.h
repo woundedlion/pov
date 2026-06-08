@@ -234,6 +234,56 @@ inline void test_oklch_to_pixel_bounded() {
 }
 
 // ============================================================================
+// fast_cbrt + perceptual hue_rotate (OKLab)
+// ============================================================================
+
+inline void test_fast_cbrt_accuracy() {
+  // Exact at the easy points.
+  HS_EXPECT_EQ(fast_cbrt(0.0f), 0.0f);
+  HS_EXPECT_NEAR(fast_cbrt(1.0f), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(fast_cbrt(8.0f), 2.0f, 1e-3f);
+  // Negative / zero domain guard returns 0 (cbrt is only used on >= 0 inputs).
+  HS_EXPECT_EQ(fast_cbrt(-1.0f), 0.0f);
+  // One Halley step holds ~2.3e-5 relative error over the linear-RGB range.
+  for (int k = 1; k <= 800; ++k) {
+    float x = 8.0f * static_cast<float>(k) / 800.0f;
+    float approx = fast_cbrt(x);
+    float exact = cbrtf(x);
+    HS_EXPECT_TRUE(std::fabs(approx - exact) / exact < 1e-4f);
+  }
+}
+
+// A gray (achromatic) color has zero chroma in OKLab, so a perceptual hue
+// rotation must leave it unchanged for any amount — and preserve alpha.
+inline void test_hue_rotate_preserves_gray() {
+  Color4 gray(128, 128, 128, 0.5f);
+  for (float amt : {0.1f, 0.25f, 0.5f, 0.8f}) {
+    Color4 out = hue_rotate(gray, amt);
+    // Output stays gray (channels track each other) and near the input.
+    HS_EXPECT_NEAR(static_cast<float>(out.color.r),
+                   static_cast<float>(gray.color.r), 48.0f);
+    HS_EXPECT_NEAR(static_cast<float>(out.color.g),
+                   static_cast<float>(out.color.r), 48.0f);
+    HS_EXPECT_NEAR(static_cast<float>(out.color.b),
+                   static_cast<float>(out.color.r), 48.0f);
+    HS_EXPECT_NEAR(out.alpha, 0.5f, 1e-5f);
+  }
+}
+
+// A full-turn rotation (amount = 1.0) returns to the original color within the
+// fast_cbrt round-trip error.
+inline void test_hue_rotate_full_turn_identity() {
+  Color4 c(200, 60, 30, 1.0f);
+  Color4 out = hue_rotate(c, 1.0f);
+  HS_EXPECT_NEAR(static_cast<float>(out.color.r),
+                 static_cast<float>(c.color.r), 64.0f);
+  HS_EXPECT_NEAR(static_cast<float>(out.color.g),
+                 static_cast<float>(c.color.g), 64.0f);
+  HS_EXPECT_NEAR(static_cast<float>(out.color.b),
+                 static_cast<float>(c.color.b), 64.0f);
+}
+
+// ============================================================================
 // sRGB <-> linear LUTs vs. float reference
 // ============================================================================
 
@@ -427,6 +477,10 @@ inline int run_color_tests() {
   test_lerp_oklch_achromatic_hue();
   test_lerp_oklch_endpoints();
   test_oklch_to_pixel_bounded();
+
+  test_fast_cbrt_accuracy();
+  test_hue_rotate_preserves_gray();
+  test_hue_rotate_full_turn_identity();
 
   test_srgb_to_linear_endpoints();
   test_linear_to_srgb_endpoints();

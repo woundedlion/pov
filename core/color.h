@@ -175,31 +175,9 @@ struct Color4 {
   operator CRGB() const { return color; }
 };
 
-/**
- * @brief Rotates the hue of a Color4 by a fractional amount (0..1 = full turn).
- * Uses Rodrigues rotation around the (1,1,1) gray axis in linear RGB space.
- */
-inline Color4 hue_rotate(const Color4 &c, float amount) {
-  float angle = amount * (2.0f * PI_F);
-  float cos_a = fast_cosf(angle);
-  float sin_a = fast_sinf(angle);
-  float one_third = 1.0f / 3.0f;
-  float sqrt3_inv = 0.57735026919f; // 1/sqrt(3)
-
-  float r = c.color.r, g = c.color.g, b = c.color.b;
-  float avg = (r + g + b) * one_third;
-  float s = sin_a * sqrt3_inv;
-
-  float nr = avg + (r - avg) * cos_a + (g - b) * s;
-  float ng = avg + (g - avg) * cos_a + (b - r) * s;
-  float nb = avg + (b - avg) * cos_a + (r - g) * s;
-
-  Color4 result = c;
-  result.color.r = static_cast<uint16_t>(std::clamp(nr, 0.0f, 65535.0f));
-  result.color.g = static_cast<uint16_t>(std::clamp(ng, 0.0f, 65535.0f));
-  result.color.b = static_cast<uint16_t>(std::clamp(nb, 0.0f, 65535.0f));
-  return result;
-}
+// hue_rotate is a perceptual (OKLab) rotation; defined after the OKLab
+// conversion helpers below.
+inline Color4 hue_rotate(const Color4 &c, float amount);
 
 #include "color_luts.h"
 
@@ -451,6 +429,51 @@ inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
   r = +4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s;
   g = -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s;
   b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
+}
+
+/**
+ * @brief Perceptual hue rotation of a Color4 (amount: 0..1 = full turn).
+ *
+ * Rotates the (a,b) chroma plane in the OKLab perceptual color space, which
+ * preserves perceived lightness (L) and chroma (sqrt(a^2+b^2)) across the
+ * shift. A linear-RGB rotation cannot: its equal angular steps are not
+ * perceptually uniform and its perceived brightness drifts with hue.
+ *
+ * Hot path: this is the default feedback color transform (Feedback::hue_fade,
+ * run per pixel every frame) and Flyby's per-pixel shader. To stay affordable,
+ * the forward linear->OKLab nonlinearity uses fast_cbrt (~2e-5 rel error)
+ * while the inverse is exact cubes, and the shift is a direct 2D rotation of
+ * (a,b) — no atan2/sqrt of a full OKLCH polar round-trip.
+ */
+inline Color4 hue_rotate(const Color4 &c, float amount) {
+  constexpr float INV16 = 1.0f / 65535.0f;
+  float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
+
+  // linear RGB -> OKLab (forward nonlinearity via fast_cbrt)
+  float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
+  float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
+  float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
+  float l_ = fast_cbrt(l), m_ = fast_cbrt(m), s_ = fast_cbrt(s);
+
+  float L = 0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_;
+  float A = 1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_;
+  float B = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
+
+  // Rotate the chroma plane by `amount` turns — preserves L and |(A,B)|.
+  float angle = amount * (2.0f * PI_F);
+  float ca = fast_cosf(angle), sa = fast_sinf(angle);
+  float A2 = A * ca - B * sa;
+  float B2 = A * sa + B * ca;
+
+  // OKLab -> linear RGB (exact inverse) -> 16-bit linear, gamut-clamped.
+  float nr, ng, nb;
+  oklab_to_linear_rgb({L, A2, B2}, nr, ng, nb);
+
+  Color4 result = c;
+  result.color.r = static_cast<uint16_t>(std::clamp(nr * 65535.0f, 0.0f, 65535.0f));
+  result.color.g = static_cast<uint16_t>(std::clamp(ng * 65535.0f, 0.0f, 65535.0f));
+  result.color.b = static_cast<uint16_t>(std::clamp(nb * 65535.0f, 0.0f, 65535.0f));
+  return result;
 }
 
 inline OKLCH oklab_to_oklch(OKLab lab) {
