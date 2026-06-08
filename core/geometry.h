@@ -571,11 +571,16 @@ struct Basis {
  * @return The constructed Basis.
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
-  Vector ref_axis =
-      (std::abs(dot(normal, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
-                                                                : X_AXIS;
+  // rotate() is only a pure rotation for a unit quaternion; assert it rather
+  // than silently scale/shear the basis (fail-fast doctrine).
+  HS_CHECK(std::abs(orientation.squared_magnitude() - 1.0f) < 0.01f);
   Vector v = rotate(normal, orientation).normalized();
-  Vector ref = rotate(ref_axis, orientation).normalized();
+  // Pick the reference axis least parallel to v, testing the *rotated* vectors
+  // that are actually crossed below.
+  Vector ref = rotate(X_AXIS, orientation).normalized();
+  if (std::abs(dot(v, ref)) > math::COS_AXIS_PARALLEL) {
+    ref = rotate(Y_AXIS, orientation).normalized();
+  }
   Vector u = cross(v, ref).normalized();
   Vector w = cross(v, u).normalized();
   return {u, v, w};
