@@ -94,6 +94,21 @@ public:
   }
 
   /**
+   * @brief Raw base pointer to the currently displayed buffer (row-major,
+   *        `width()` stride): `display_buffer()[y * width() + x]` equals
+   *        `get_pixel(x, y)` for any effect that does not override `get_pixel`.
+   *
+   * ISR fast path: lets a column loop index pixels directly and skip the
+   * per-pixel virtual `get_pixel` dispatch. Valid only until the next
+   * `advance_display()` flip — re-fetch after one. Effects that override
+   * `get_pixel` (none in the modern engine; only the legacy scroller) must NOT
+   * use this, as it bypasses their transform.
+   */
+  [[nodiscard]] const Pixel *display_buffer() const {
+    return bufs_[prev_.load(std::memory_order_relaxed)];
+  }
+
+  /**
    * @brief Gets the width of the effect.
    * @return The width.
    */

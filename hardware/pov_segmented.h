@@ -304,19 +304,27 @@ private:
     const int w = effect_->width();
     const int x_col = arm_b_ ? (x_ + w / 2) % w : x_;
 
+    // ISR fast path: fetch the display buffer base once and index it directly,
+    // dropping PPS per-pixel virtual get_pixel() dispatches per column. Sound
+    // here because (1) prev_ is stable for this whole column — advance_display()
+    // runs below at x_==0, after the loop — and (2) no effect reachable on this
+    // segmented path overrides get_pixel (only the out-of-scope legacy scroller
+    // does, and it never runs here). buf[y * w + x_col] == get_pixel(x_col, y).
+    const Pixel *buf = effect_->display_buffer();
+
 #if defined(USE_DMA_LEDS)
     auto &frame = ledController_.backFrame();
 
     int y = y_base_;
     for (int i = 0; i < PPS; ++i, y += y_step_) {
-      frame.packPixel(i, effect_->get_pixel(x_col, y));
+      frame.packPixel(i, buf[y * w + x_col]);
     }
     ledController_.submitFrame(effect_->show_bg());
 
 #else
     int y = y_base_;
     for (int i = 0; i < PPS; ++i, y += y_step_) {
-      leds_[i] = effect_->get_pixel(x_col, y);
+      leds_[i] = buf[y * w + x_col];
     }
     FastLED.show();
     if (effect_->show_bg()) {
