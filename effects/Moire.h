@@ -70,12 +70,17 @@ public:
 
 private:
   void color_wipe() {
+    // The two counter-rotating layers are deliberately contrasting: the base
+    // layer starts BELL, the interference layer CUP (see the constructor). Keep
+    // that inter-layer contrast through the wipe by giving the new palettes
+    // opposite brightness gradients — otherwise both layers wipe to the same
+    // profile and the moire beat washes out to incidental hue noise.
     base_next_palette =
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::ASCENDING);
     int_next_palette =
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                          BrightnessProfile::ASCENDING);
+                          BrightnessProfile::DESCENDING);
 
     timeline.add(
         0, Animation::ColorWipe(base_palette, base_next_palette, 80, ease_mid));
