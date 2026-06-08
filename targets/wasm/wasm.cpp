@@ -425,8 +425,6 @@ struct MeshOpsWrapper {
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromData(val vertices, val faces) {
-    PolyMesh m;
-
     // Vertices: Float32Array [x, y, z, ...]
     std::vector<float> vData = convertJSArrayToNumberVector<float>(vertices);
     // This is the untrusted JS mesh-editor boundary. A vertex array whose length
@@ -438,10 +436,7 @@ struct MeshOpsWrapper {
               vData.size());
       return nullptr;
     }
-    for (size_t i = 0; i < vData.size(); i += 3) {
-      m.vertices.emplace_back(vData[i], vData[i + 1], vData[i + 2]);
-    }
-    const int num_verts = static_cast<int>(m.vertices.size());
+    const int num_verts = static_cast<int>(vData.size() / 3);
 
     // Faces: Flat Int32Array with -1 delimiter
     std::vector<int> fData = convertJSArrayToNumberVector<int>(faces);
@@ -480,6 +475,36 @@ struct MeshOpsWrapper {
       }
       if (run > 0)
         num_faces++;
+    }
+
+    // A well-formed mesh can still be too large for the tooling arena. Budget
+    // the three allocations (plus one alignment gap each) and soft-reject an
+    // oversize mesh with null — the index-range check above only bounds values,
+    // not total size, and an over-allocation would otherwise trip the arena
+    // trap and abort the module. Mirrors the reject-don't-trap intent above.
+    const size_t needed = (size_t)num_verts * sizeof(Vector) +
+                          (size_t)num_face_verts * sizeof(uint16_t) +
+                          (size_t)num_faces * sizeof(uint8_t) +
+                          3 * alignof(std::max_align_t);
+    if (needed > tooling_arena.get_capacity()) {
+      hs::log("WASM: fromData mesh needs %zu B > tooling arena %zu B — ignored",
+              needed, tooling_arena.get_capacity());
+      return nullptr;
+    }
+
+    // fromData rebuilds a mesh wholesale and reads no prior arena state, so reset
+    // first. The tooling arena otherwise only frees on an explicit
+    // clearToolingMemory(), so a long editor session would creep toward
+    // overflow; resetting per load reclaims that memory and lets the new mesh
+    // use the arena's full capacity.
+    tooling_arena.reset();
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
+
+    PolyMesh m;
+    m.vertices.bind(tooling_arena, num_verts);
+    for (size_t i = 0; i < vData.size(); i += 3) {
+      m.vertices.emplace_back(vData[i], vData[i + 1], vData[i + 2]);
     }
 
     m.faces.bind(tooling_arena, num_face_verts);
