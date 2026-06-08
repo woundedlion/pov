@@ -194,6 +194,27 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
     }
   }
 
+  // Flush contract: a history-bearing filter must define exactly the flush
+  // signature matching its dimension trait — the if-constexpr dispatch below
+  // only ever names the matching one (the other call sits in a discarded
+  // branch, so a single-flush filter composes fine). These asserts make that
+  // contract explicit: a trait/signature mismatch fails here with a readable
+  // message instead of a deep overload-resolution error further down.
+  static_assert(
+      !Head::has_history || Head::is_2d ||
+          requires(Head h, const WorldTrailFn &w, PassFn3D p) {
+            h.flush(w, 1.0f, p);
+          },
+      "3D history filter must define "
+      "flush(const WorldTrailFn&, float, PassFn3D)");
+  static_assert(
+      !Head::has_history || !Head::is_2d ||
+          requires(Head h, Canvas &cv, const ScreenTrailFn &s, PassFn2D p) {
+            h.flush(cv, s, 1.0f, p);
+          },
+      "2D history filter must define "
+      "flush(Canvas&, const ScreenTrailFn&, float, PassFn2D)");
+
   void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (Head::is_2d) {
