@@ -10,6 +10,7 @@
 #include "effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include "core/effect_registry.h"
 #include "platform.h"
+#include "targets/wasm/param_marshal.h" // pure, host-tested param marshaling
 #include <string_view>
 #include <cstring>
 
@@ -123,6 +124,7 @@ public:
     // exposed to JS must be stable for the lifetime of the engine.
     pixelBuffer.assign(MAX_W * MAX_H * 3, 0); // 16-bit linear RGB; never resized
     paramValues.reserve(MAX_PARAMS);          // never reallocated past this
+    paramViews.reserve(MAX_PARAMS);           // definition-stream scratch
 
     // Initialize with a valid default effect. JS overrides this almost
     // immediately (daydream defaults to IslamicStars / the URL ?effect=), but a
@@ -286,29 +288,31 @@ public:
       return val::array();
 
     val result = val::array();
-    const auto &params = currentEffect->getParameters();
+    // Single source of order shared with getParamValues() (param_marshal.h), so
+    // the value stream cannot index-drift from these definitions (P2-12).
+    hs_wasm::collect_param_views(*currentEffect, paramViews);
 
     int i = 0;
-    for (const auto &def : params) {
+    for (const auto &v : paramViews) {
       val entry = val::object();
-      entry.set("name", val(def.name));
+      entry.set("name", val(v.name));
 
-      if (def.is_bool()) {
+      if (v.is_bool) {
         // Emit a JS boolean so the frontend's `typeof value === 'boolean'`
         // check renders a checkbox (daydream.js applyEffect). Bool params
         // deliberately omit min/max — a toggle has no range, and the GUI keys
         // off the boolean type, never reading min/max for it. Float params
         // always carry both because the slider path consumes them.
-        entry.set("value", val(def.get() > 0.5f));
+        entry.set("value", val(v.value > 0.5f));
       } else {
-        entry.set("value", def.get());
-        entry.set("min", def.min);
-        entry.set("max", def.max);
+        entry.set("value", v.value);
+        entry.set("min", v.min);
+        entry.set("max", v.max);
       }
       // Animation-driven params surface as auto-pausing sliders in the GUI;
       // read-only params are shown live but disabled for editing.
-      entry.set("animated", val(def.animated));
-      entry.set("readonly", val(def.readonly));
+      entry.set("animated", val(v.animated));
+      entry.set("readonly", val(v.readonly));
       result.set(i++, entry);
     }
     return result;
@@ -318,12 +322,9 @@ public:
     if (!currentEffect)
       return val::array();
 
-    const auto &params = currentEffect->getParameters();
-    paramValues.clear(); // retains capacity reserved (MAX_PARAMS) in ctor
-
-    for (const auto &def : params) {
-      paramValues.push_back(def.get());
-    }
+    // Same definition order as getParameterDefinitions(); clears but retains the
+    // MAX_PARAMS capacity reserved in the ctor, so no reallocation occurs here.
+    hs_wasm::fill_param_values(*currentEffect, paramValues);
     // Same memory-view contract as getPixels(): this view aliases WASM memory
     // and must be consumed before the next allocation. paramValues never
     // reallocates here (params.size() <= MAX_PARAMS), so emitting it triggers no
@@ -383,6 +384,7 @@ private:
   std::unique_ptr<Effect> currentEffect;
   std::vector<uint16_t> pixelBuffer; // 16-bit
   std::vector<float> paramValues;    // Backing store for getParamValues
+  std::vector<hs_wasm::ParamView> paramViews; // Scratch for getParameterDefinitions
   int pixel_width = 0;
   int pixel_height = 0;
 };
