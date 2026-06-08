@@ -15,8 +15,7 @@ public:
   static constexpr int NO_MORPH_FRAMES =
       81; // shape-cycle period; coprime with the 241-frame preset cycle (prime)
           // so the two cycles stay out of phase
-  static constexpr int LERP_FRAMES = 0;
-  static constexpr int NO_LERP_FRAMES = 241;
+  static constexpr int PRESET_FRAMES = 241; // preset hard-cut period (prime)
 
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
@@ -69,18 +68,16 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise_params.noise));
 
-    // Preset cycling
+    // Preset cycling — presets hard-cut: snap style to the new preset (no
+    // crossfade). presets.apply() copies all scalar/fn-ptr/downsample fields
+    // and leaves the bound noise pointer intact.
     timeline.add(0, Animation::PeriodicTimer(
-                        NO_LERP_FRAMES + LERP_FRAMES,
+                        PRESET_FRAMES,
                         [this](Canvas &) {
                           if (animationsPaused())
                             return;
                           presets.next();
-                          timeline.add(
-                              0, Animation::Lerp(style, presets.prev_get(),
-                                                 presets.get(), LERP_FRAMES,
-                                                 ease_in_out_sin,
-                                                 &anims_paused_));
+                          presets.apply(style);
                         },
                         true));
 
