@@ -86,6 +86,15 @@ inline void case_arena_oom() {
     std::printf("x"); // keep the call live
 }
 
+// Memory surface: rewinding the arena past its capacity. set_offset is the one
+// seam that can break the offset <= capacity invariant the no-wrap bounds math
+// in allocate() depends on, so an out-of-range rewind traps at the source.
+inline void case_arena_set_offset_overflow() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  a.set_offset(opaque<size_t>(sizeof(buf) + 1)); // > capacity -> HS_CHECK
+}
+
 // Arena-container surface: fixed-capacity overflow.
 inline void case_arena_vector_overflow() {
   static uint8_t buf[256];
@@ -265,6 +274,7 @@ struct Case {
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
       {"arena_oom", case_arena_oom},
+      {"arena_set_offset_overflow", case_arena_set_offset_overflow},
       {"arena_vector_overflow", case_arena_vector_overflow},
       {"normalize_zero", case_normalize_zero},
       {"normalize_nan", case_normalize_nan},

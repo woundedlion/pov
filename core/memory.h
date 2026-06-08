@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 #include <new>
 #include <cassert>
 #include <utility>
@@ -97,7 +98,14 @@ public:
   size_t get_capacity() const { return capacity; }
   size_t get_high_water_mark() const { return high_water_mark; }
 
-  void set_offset(size_t new_offset) { offset = new_offset; }
+  void set_offset(size_t new_offset) {
+    // The allocator's core invariant is offset <= capacity: the no-wrap bounds
+    // math in allocate() (capacity - offset) is only safe while it holds. This
+    // is the one seam that can break it, so trap an out-of-range rewind at the
+    // source rather than letting it silently corrupt a later allocation.
+    HS_CHECK(new_offset <= capacity);
+    offset = new_offset;
+  }
 
   void reset() {
     offset = 0;
