@@ -512,7 +512,8 @@ public:
    * @param repeat If true, the timer resets after calling the function.
    */
   PeriodicTimer(int period, TimerFn f, bool repeat = false)
-      : AnimationBase(-1, repeat), period(period), f(std::move(f)) {
+      : AnimationBase(-1, repeat), period(period < 1 ? 1 : period),
+        f(std::move(f)) {
     reset();
   }
 
@@ -522,8 +523,10 @@ public:
   void reset() { next = t + period; }
 
   /// Live-update the trigger interval; reschedules the next trigger from now.
+  /// Clamps to >= 1: a 0/negative period makes `next = t + period <= t`, which
+  /// fires the callback every frame (and re-triggers on its own reset).
   void set_period(int new_period) {
-    period = new_period;
+    period = (new_period < 1 ? 1 : new_period);
     reset();
   }
 
@@ -850,8 +853,10 @@ public:
   Orientation<W, CAP> &get_orientation() const { return orientation.get(); }
   void collapse_orientation() override { get_orientation().collapse(); }
 
-  /// Live-update the traversal duration (frames per path loop).
-  void set_duration(int frames) { this->duration = frames; }
+  /// Live-update the traversal duration (frames per path loop). Guards against
+  /// 0 (which would divide-by-zero in step()'s `t / duration`), matching the
+  /// base ctor's `duration == 0 ? 1` rule that this direct write would bypass.
+  void set_duration(int frames) { this->duration = (frames == 0 ? 1 : frames); }
 
   /**
    * @brief Steps the animation, calculates intermediate rotation steps along
