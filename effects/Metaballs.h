@@ -66,31 +66,29 @@ public:
       b.p += b.v;
     }
 
-    // 2. Render
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        Vector v = pixel_to_vector<W, H>(x, y);
-
-        float sum = 0.0f;
-        for (const auto &b : balls) {
-          float dist_sq = distance_squared(v, b.p);
-          // Avoid div by zero
-          if (dist_sq < 0.0001f)
-            dist_sq = 0.0001f;
-          // Radius slider applied live (b.r is the base radius); a size tweak
-          // grows the field without re-seeding ball positions.
-          float br = b.r * params.radius_scale;
-          sum += (br * br) / dist_sq;
-        }
-
-        float t_val = sum / params.max_influence;
-        if (t_val > 1.0f)
-          t_val = 1.0f;
-
-        Color4 c = get_color(palette, t_val);
-        canvas(x, y) = c.color;
+    // 2. Render via the shared full-screen shader path (clip-aware, instrumented).
+    // SAMPLES=1: one sample at pixel center, identical to the former raw loop —
+    // the metaball field is O(balls) per sample, too heavy to supersample.
+    auto shader = [&](const Vector &v) -> Color4 {
+      float sum = 0.0f;
+      for (const auto &b : balls) {
+        float dist_sq = distance_squared(v, b.p);
+        // Avoid div by zero
+        if (dist_sq < 0.0001f)
+          dist_sq = 0.0001f;
+        // Radius slider applied live (b.r is the base radius); a size tweak
+        // grows the field without re-seeding ball positions.
+        float br = b.r * params.radius_scale;
+        sum += (br * br) / dist_sq;
       }
-    }
+
+      float t_val = sum / params.max_influence;
+      if (t_val > 1.0f)
+        t_val = 1.0f;
+
+      return get_color(palette, t_val);
+    };
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
   // Registered (live-tunable) params.

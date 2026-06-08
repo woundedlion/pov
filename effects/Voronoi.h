@@ -80,49 +80,49 @@ public:
     KDTree tree(scratch_arena_a,
                 std::span<const Vector>(positions, sites_buffer.size()));
 
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        Vector p = pixel_to_vector<W, H>(x, y);
+    // Render via the shared full-screen shader path (clip-aware, instrumented).
+    // SAMPLES=1: one sample at pixel center, identical to the former raw loop —
+    // the per-pixel KD-tree query is too heavy to supersample.
+    auto shader = [&](const Vector &p) -> Color4 {
+      auto knn = tree.nearest(p, 2);
+      // Tree is non-empty (sites_buffer.size() > 0), so there is always a
+      // nearest; a second neighbor exists iff there are ≥ 2 sites.
+      const auto &bestSite = sites_buffer[knn[0].original_index];
+      bool hasSecond = knn.size() > 1;
+      float maxDot1 = dot(p, knn[0].point);
+      float maxDot2 = hasSecond ? dot(p, knn[1].point) : -2.0f;
 
-        auto knn = tree.nearest(p, 2);
-        // Tree is non-empty (sites_buffer.size() > 0), so there is always a
-        // nearest; a second neighbor exists iff there are ≥ 2 sites.
-        const auto &bestSite = sites_buffer[knn[0].original_index];
-        bool hasSecond = knn.size() > 1;
-        float maxDot1 = dot(p, knn[0].point);
-        float maxDot2 = hasSecond ? dot(p, knn[1].point) : -2.0f;
+      Color4 c = bestSite.color;
 
-        Color4 c = bestSite.color;
+      // Smoothing
+      if (hasSecond && params.smoothness > 0.0f) {
+        const auto &secSite = sites_buffer[knn[1].original_index];
+        float diff = maxDot1 - maxDot2;
+        float factor = std::min(1.0f, diff * params.smoothness);
+        factor = quintic_kernel(factor);
+        float t = 0.5f + 0.5f * factor;
 
-        // Smoothing
-        if (hasSecond && params.smoothness > 0.0f) {
-          const auto &secSite = sites_buffer[knn[1].original_index];
-          float diff = maxDot1 - maxDot2;
-          float factor = std::min(1.0f, diff * params.smoothness);
-          factor = quintic_kernel(factor);
-          float t = 0.5f + 0.5f * factor;
-
-          // Mix (16-bit linear channels — do NOT truncate to uint8_t)
-          c.color.r = static_cast<uint16_t>(
-              secSite.color.color.r + (c.color.r - secSite.color.color.r) * t);
-          c.color.g = static_cast<uint16_t>(
-              secSite.color.color.g + (c.color.g - secSite.color.color.g) * t);
-          c.color.b = static_cast<uint16_t>(
-              secSite.color.color.b + (c.color.b - secSite.color.color.b) * t);
-        }
-
-        // Borders
-        if (showBorders && hasSecond) {
-          float dist1 = acosf(std::min(1.0f, maxDot1));
-          float dist2 = acosf(std::min(1.0f, maxDot2));
-          if (dist2 - dist1 < params.borderThickness) {
-            c = Color4(0, 0, 0, 0); // Black/Transparent
-          }
-        }
-
-        canvas(x, y) = c.color;
+        // Mix (16-bit linear channels — do NOT truncate to uint8_t)
+        c.color.r = static_cast<uint16_t>(
+            secSite.color.color.r + (c.color.r - secSite.color.color.r) * t);
+        c.color.g = static_cast<uint16_t>(
+            secSite.color.color.g + (c.color.g - secSite.color.color.g) * t);
+        c.color.b = static_cast<uint16_t>(
+            secSite.color.color.b + (c.color.b - secSite.color.color.b) * t);
       }
-    }
+
+      // Borders
+      if (showBorders && hasSecond) {
+        float dist1 = acosf(std::min(1.0f, maxDot1));
+        float dist2 = acosf(std::min(1.0f, maxDot2));
+        if (dist2 - dist1 < params.borderThickness) {
+          c = Color4(0, 0, 0, 0); // Black/Transparent
+        }
+      }
+
+      return c;
+    };
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
   struct Params {
