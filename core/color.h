@@ -622,7 +622,11 @@ public:
   /// For smooth gradients at low t resolution, use GenerativePalette or
   /// BakedPalette which interpolate between stops.
   Color4 get(float t) const override {
-    uint8_t index = static_cast<uint8_t>(t * 255);
+    // Clamp before the cast: t > 1 would wrap (256 -> index 0, the first stop
+    // instead of the last) and t < 0 is UB for the float->uint8_t conversion.
+    // Identity for the valid t in [0,1] range; matches the index clamping the
+    // sibling LUT palettes (e.g. BakedPalette::get) already do.
+    uint8_t index = static_cast<uint8_t>(hs::clamp(t, 0.0f, 1.0f) * 255);
     return Color4(entries[index], 1.0f);
   }
 
