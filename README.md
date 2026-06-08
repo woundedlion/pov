@@ -1218,9 +1218,10 @@ for (int i = 0; i < PPS; ++i, y += y_step_) {
 | S (total pixels) | 288 |
 | N (segments) | 4 |
 | PPS (pixels per segment) | 72 |
-| RPM | 480 |
+| RPM | 480 (8 rev/s, ~125 ms/rev) |
+| Frame rate | 16 FPS (2 frames/rev — one per side; each side draws W/2 = 144 cols per 62.5 ms frame) |
 | Column frequency | 2304 Hz |
-| Column interval | ~434 µs |
+| Column interval | ~434 µs (= 125 ms / 288 = 62.5 ms / 144) |
 | ISR duration (72px pack + DMA trigger) | ~96 µs worst case |
 
 ---
