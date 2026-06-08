@@ -1196,7 +1196,7 @@ Arm A                               Arm B (x offset by W/2)
 | Wire | Pin (out) | Pin (in) | Purpose |
 |---|---|---|---|
 | Column clock | 5 (PWM) | 2 (ext. interrupt) | Segment 0 generates a PWM at (RPM/60)×W Hz. All boards fire `show_col()` ISR on each rising edge — zero inter-board phase drift. |
-| Frame sync | 3 (GPIO) | 4 (ext. interrupt) | Segment 0 pulses HIGH when `x` wraps to 0. All boards reset `x=0` on this edge, bounding any column drift from missed/spurious pulses to ≤ 1 revolution. |
+| Frame sync | 3 (GPIO) | 4 (ext. interrupt) | Segment 0 pulses HIGH at each frame boundary (`x==0` and `x==W/2`, two per revolution). Boards snap `x` to the nearest boundary on this edge, bounding any column drift from missed/spurious pulses to ≤ ½ revolution. |
 
 The column clock ensures all 4 boards paint the same column at the same instant.  The frame sync is insurance against electrical noise on the clock line — a spurious or missed pulse would cause permanent 1-column drift without periodic re-alignment.
 

@@ -361,37 +361,46 @@ private:
 #endif
 
     x_ = (x_ + 1) % w;
-    if (x_ == 0) {
+    // The display buffer flips at BOTH frame boundaries (x==0 and x==w/2 —
+    // two frames per revolution, one per arm side). Segment 0 pulses the frame
+    // sync line at each boundary so downstream boards re-align twice per rev,
+    // bounding column drift from missed/spurious clock pulses to ≤ ½ rev rather
+    // than a full rev (a mid-revolution frame would otherwise stay misaligned
+    // until the next x==0 edge).
+    if (x_ == 0 || x_ == w / 2) {
       effect_->advance_display();
-      // Segment 0: pulse the frame sync line so all boards re-align.
       if (segment_id_ == 0) {
         digitalWriteFast(PIN_FRAME_SYNC_OUT, HIGH);
         // Pulse will be cleared by the frame_sync_isr on this board too.
       }
-    } else if (x_ == w / 2) {
-      effect_->advance_display();
     }
   }
 
   /**
-   * @brief ISR for the frame sync line.  Resets the column counter to 0,
-   *        re-aligning this board if any column pulses were missed.
+   * @brief ISR for the frame sync line.  Snaps the column counter to the
+   *        nearest frame boundary (0 or w/2), re-aligning this board if any
+   *        column pulses were missed.
    *
-   * Fired by segment 0's pulse at the start of each revolution.  On
-   * segment 0 itself this also clears the sync output.
+   * Fired by segment 0's pulse at each half-revolution boundary.  On segment 0
+   * itself this only clears the sync output.
    */
   static FASTRUN void frame_sync_isr() {
     if (segment_id_ == 0) {
-      // Segment 0 is the clock master: it already zeroed x_ directly in
-      // show_col when the counter wrapped. Its own pulse returns here after
-      // interrupt latency, during which the free-running clock may have already
-      // advanced x_ to the next column — re-zeroing from the self-pulse would
-      // clobber that and corrupt the master's counter. So only clear the line;
-      // do NOT touch x_. Downstream boards (below) still re-align off this edge.
+      // Segment 0 is the clock master: it already advanced x_ directly in
+      // show_col when the counter hit a boundary. Its own pulse returns here
+      // after interrupt latency, during which the free-running clock may have
+      // already advanced x_ to the next column — re-zeroing from the self-pulse
+      // would clobber that and corrupt the master's counter. So only clear the
+      // line; do NOT touch x_. Downstream boards (below) still re-align here.
       digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
       return;
     }
-    x_ = 0;
+    // A single-wire pulse can't say which boundary it is, so snap x_ to
+    // whichever of {0, w/2} it is nearest. Real drift is a few columns at most
+    // (well under w/4), so this both selects the right boundary and absorbs the
+    // drift the sync exists to correct. At x==0 this matches the old behavior.
+    const int w = effect_->width();
+    x_ = (x_ < w / 4 || x_ >= 3 * w / 4) ? 0 : w / 2;
   }
 
   // ── Static state ────────────────────────────────────────────────────
