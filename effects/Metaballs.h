@@ -86,7 +86,7 @@ public:
       if (t_val > 1.0f)
         t_val = 1.0f;
 
-      return get_color(palette, t_val);
+      return palette.get(t_val);
     };
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
@@ -106,7 +106,7 @@ private:
   static constexpr int BALL_CAPACITY = 50;
 
   StaticCircularBuffer<Ball, BALL_CAPACITY> balls;
-  ProceduralPalette palette = Palettes::richSunset;
+  ProceduralPalette palette; // initialized in the ctor (Palettes::richSunset)
   FastNoiseLite noise;
   float t = 0.0f;
 
@@ -130,13 +130,6 @@ private:
     }
     seeded_num_balls = n;
     seeded_velocity_scale = params.velocity_scale;
-  }
-
-  float distance_squared(const Vector &a, const Vector &b) {
-    float dx = a.x - b.x;
-    float dy = a.y - b.y;
-    float dz = a.z - b.z;
-    return dx * dx + dy * dy + dz * dz;
   }
 };
 
