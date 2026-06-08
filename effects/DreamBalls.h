@@ -165,7 +165,12 @@ private:
       last_preset_idx_ = safe_idx;
     }
     int period = 288;
-    mobius_gen.spawn(0, this->params.warp_scale, period, false);
+    // Bind the warp magnitude to the live "Warp" slider so dragging it takes
+    // effect this frame instead of only at the next spawn (~5 s later). The
+    // returned pointer is used transiently — never retained — so it is safe
+    // against timeline compaction.
+    if (auto *warp = mobius_gen.spawn(0, this->params.warp_scale, period, false))
+      warp->bind_scale(this->params.warp_scale);
     baked_palette.rebake(*params.palette);
 
     auto draw_fn = [this, safe_idx](Canvas &canvas, float opacity) {

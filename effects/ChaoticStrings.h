@@ -15,32 +15,12 @@ public:
   struct Params {
     float alpha = 1.0f;
     float cycle_duration = 80.0f;
-    float jitterAmp = 3.0f;
-    float speed = 0.1f;
-    float noiseFreq = 0.33f;
+    float jitterAmp = 1.7f;
+    float speed = 0.04f;
+    float noiseFreq = 0.32f;
     float scaleFactor = 200.0f;
     float cycleSpeed = 0.1f;
-
-    void lerp(const Params &a, const Params &b, float t) {
-      alpha = ::lerp(a.alpha, b.alpha, t);
-      cycle_duration = ::lerp(a.cycle_duration, b.cycle_duration, t);
-      jitterAmp = ::lerp(a.jitterAmp, b.jitterAmp, t);
-      speed = ::lerp(a.speed, b.speed, t);
-      noiseFreq = ::lerp(a.noiseFreq, b.noiseFreq, t);
-      scaleFactor = ::lerp(a.scaleFactor, b.scaleFactor, t);
-      cycleSpeed = ::lerp(a.cycleSpeed, b.cycleSpeed, t);
-    }
   } params;
-
-  Presets<Params, 1> preset_manager = {{{{{/* alpha */ 1.0f,
-                                           /* cycle duration */ 80.0f,
-                                           /* jitter amp */ 1.7f,
-                                           /* speed */ 0.04f,
-                                           /* noise freq */ 0.32f,
-                                           /* scale factor */ 200.0f,
-                                           /* cycle speed */ 0.1f}}}}};
-
-
 
   struct Node {
     Orientation<W, 16> orientation;
@@ -115,7 +95,6 @@ public:
     driver_ =
         timeline.add_get(0, Animation::Driver(cycle_phase, params.cycleSpeed));
 
-    params = preset_manager.get();
     last_cycle_duration_ = params.cycle_duration;
   }
 

@@ -1283,6 +1283,17 @@ public:
         easing(easing) {}
 
   /**
+   * @brief Binds the warp magnitude to a live external float.
+   * @details By default the magnitude is the `scale` captured at construction.
+   * Binding makes step() read the referent every frame instead, so a GUI slider
+   * wired to that float takes effect immediately rather than only at the next
+   * (re)spawn. The referent must outlive the animation (e.g. an effect's param
+   * member). This avoids retaining the animation pointer across frames, which
+   * would dangle under timeline compaction.
+   */
+  void bind_scale(const float &live_scale) { scale_ref_ = &live_scale; }
+
+  /**
    * @brief Steps the animation, updating param b.
    */
   void step(Canvas &canvas) override {
@@ -1290,13 +1301,17 @@ public:
     float t_norm = static_cast<float>(t) / duration;
     float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    params.get().bRe = scale * (cosf(angle) - 1.0f);
-    params.get().bIm = scale * sinf(angle);
+    float s = scale_ref_ ? *scale_ref_ : scale;
+    params.get().bRe = s * (cosf(angle) - 1.0f);
+    params.get().bIm = s * sinf(angle);
   }
 
   std::reference_wrapper<MobiusParams> params;
   float scale;       // Public: effects need direct read/write access
   EasingFn easing;   // Public: effects need direct read/write access
+
+private:
+  const float *scale_ref_ = nullptr; // optional live magnitude source
 };
 
 /**
