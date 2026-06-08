@@ -103,12 +103,14 @@ private:
       float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
 
       Fragments m_points;
-      m_points.bind(scratch_arena_a, 144);
+      // SphericalPolygon::sample emits W/4 + 1 points (one closing overlap);
+      // size to that, not a fixed constant, so the bind scales with resolution.
+      m_points.bind(scratch_arena_a, W / 4 + 2);
       Basis basis = make_basis(Quaternion(), normal);
       Plot::SphericalPolygon::sample(m_points, basis, radius, W / 4);
 
       Fragments m_fragments;
-      m_fragments.bind(scratch_arena_a, 144);
+      m_fragments.bind(scratch_arena_a, W / 4 + 2);
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
@@ -139,7 +141,7 @@ private:
       Vector normal(cosf(theta), 0.0f, -sinf(theta));
 
       Fragments m_points;
-      m_points.bind(scratch_arena_a, 144);
+      m_points.bind(scratch_arena_a, W / 4 + 2);
       // Explicit basis construction to match JS texture alignment
       Vector v = normal;
       Vector w = Y_AXIS;
@@ -149,7 +151,7 @@ private:
       Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);
 
       Fragments m_fragments;
-      m_fragments.bind(scratch_arena_a, 144);
+      m_fragments.bind(scratch_arena_a, W / 4 + 2);
       for (size_t k = 0; k < m_points.size(); ++k) {
         Vector transformed = mobius_gen.transform(m_points[k].pos);
         Fragment f;
