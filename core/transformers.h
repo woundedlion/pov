@@ -67,20 +67,59 @@ public:
   }
 
 private:
+  // Compact, ascending list of the slots currently active. transform() and
+  // prepare_frame() are hot (transform runs per pixel), so they iterate only
+  // the active slots — O(active) instead of O(CAPACITY). Kept sorted so the
+  // transform composition order is identical to the former full-array scan
+  // (the warps are not all commutative). Maintenance is O(active) but cold:
+  // once per spawn and once per finished animation, never per pixel.
+  std::array<int, CAPACITY> active_slots_{};
+  int active_count_ = 0;
+
+  void add_active(int idx) {
+    // Insert idx keeping active_slots_ ascending (idx is the lowest free slot,
+    // so this matches the order a 0..CAPACITY scan would have applied it in).
+    int pos = active_count_;
+    while (pos > 0 && active_slots_[pos - 1] > idx) {
+      active_slots_[pos] = active_slots_[pos - 1];
+      --pos;
+    }
+    active_slots_[pos] = idx;
+    ++active_count_;
+  }
+
+  void remove_active(int idx) {
+    int pos = 0;
+    while (pos < active_count_ && active_slots_[pos] != idx)
+      ++pos;
+    if (pos == active_count_)
+      return; // already gone
+    for (int k = pos; k + 1 < active_count_; ++k)
+      active_slots_[k] = active_slots_[k + 1];
+    --active_count_;
+  }
+
   template <typename... Args>
   AnimT *spawn_impl(bool pin, int in_frames, Args &&...args) {
-    // Linear scan for a free slot
-    for (auto &e : entities) {
+    // Linear scan for a free slot (cold path).
+    for (int idx = 0; idx < CAPACITY; ++idx) {
+      Entity &e = entities[idx];
       if (!e.active) {
         e.params = params;
         e.active = true;
-        // Create animation with reference to the stable entity params
+        add_active(idx);
+        // Create animation with reference to the stable entity params. The
+        // completion callback captures `this` + the slot index (both stable:
+        // the Transformer is effect-owned and holds a Timeline& so it never
+        // moves) to deactivate the slot and drop it from the active list.
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         bool repeats = anim.repeats();
         return timeline.add_get(in_frames,
-                                std::move(anim).then([&e, repeats]() {
-                                  if (!repeats)
-                                    e.active = false;
+                                std::move(anim).then([this, idx, repeats]() {
+                                  if (!repeats) {
+                                    entities[idx].active = false;
+                                    remove_active(idx);
+                                  }
                                 }),
                                 pin);
       }
@@ -96,11 +135,10 @@ public:
    * Call once per frame before any transform calls.
    */
   void prepare_frame() {
-    for (auto &e : entities) {
-      if (e.active) {
-        if constexpr (requires { e.params.prepare_thresholds(); }) {
-          e.params.prepare_thresholds();
-        }
+    for (int k = 0; k < active_count_; ++k) {
+      Entity &e = entities[active_slots_[k]];
+      if constexpr (requires { e.params.prepare_thresholds(); }) {
+        e.params.prepare_thresholds();
       }
     }
   }
@@ -109,10 +147,8 @@ public:
    * @brief Applies all active transformations to a vector.
    */
   Vector transform(Vector v) const {
-    for (const auto &e : entities) {
-      if (e.active) {
-        v = TransformFunc(v, e.params);
-      }
+    for (int k = 0; k < active_count_; ++k) {
+      v = TransformFunc(v, entities[active_slots_[k]].params);
     }
     return v;
   }

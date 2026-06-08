@@ -435,6 +435,27 @@ static_assert(!std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
 // Runner
 // ============================================================================
 
+// Motion and Rotation size their orientation trail through the shared
+// Animation::rotation_substeps() helper so the same sweep yields the same subdivision.
+inline void test_rotation_substeps_shared_and_tight() {
+  constexpr float MAX = 0.1f;
+  // Always at least 1, even for a sub-threshold angle.
+  HS_EXPECT_EQ(Animation::rotation_substeps(0.0f, MAX), 1);
+  HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 0.5f, MAX), 1);
+  // Tight ceil: N*MAX needs exactly N subdivisions (no extra +1).
+  HS_EXPECT_EQ(Animation::rotation_substeps(MAX, MAX), 1);
+  HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 3.0f, MAX), 3);
+  // A fractional overshoot rounds up.
+  HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 3.2f, MAX), 4);
+  // Each of the (substeps) sub-intervals stays within MAX (the invariant the
+  // trail sizing must guarantee).
+  for (float a = 0.0f; a < 2.0f; a += 0.013f) {
+    int n = Animation::rotation_substeps(a, MAX);
+    HS_EXPECT_GE(n, 1);
+    HS_EXPECT_LE(a / n, MAX + 1e-6f);
+  }
+}
+
 inline int run_animation_tests() {
   auto scope = hs_test::begin_module("animation");
 
@@ -465,6 +486,8 @@ inline int run_animation_tests() {
   test_easing_in_out_endpoints();
   test_easing_output_finite_over_range();
   test_easing_elastic_anchors();
+
+  test_rotation_substeps_shared_and_tight();
 
   return hs_test::end_module(scope);
 }

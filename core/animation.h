@@ -847,6 +847,16 @@ private:
                                     timer advance, still draws) when set. */
 };
 
+/// Sub-rotation count needed to keep each interpolated step within `max_angle`
+/// (the per-column smoothness threshold) over a total sweep of `angle` radians.
+/// The caller upsamples the orientation trail to (result + 1) frames, so the
+/// loop's (len-1) sub-intervals each stay <= max_angle. Always >= 1. Shared by
+/// Motion and Rotation so both size the trail identically for the same angle —
+/// this is the tight count (ceil), with no extra subdivision.
+inline int rotation_substeps(float angle, float max_angle) {
+  return static_cast<int>(std::ceil(std::max(1.0f, angle / max_angle)));
+}
+
 /**
  * @brief An animation that moves an Orientation along a defined Path.
  * @tparam W The width of the LED display (used for calculating maximum rotation
@@ -902,8 +912,7 @@ public:
     float t_curr = static_cast<float>(this->t);
     Vector target_v = path_fn(t_curr / this->duration);
     float total_angle = angle_between(current_v, target_v);
-    int num_steps =
-        static_cast<int>(std::ceil(std::max(1.0f, total_angle / MAX_ANGLE)));
+    int num_steps = rotation_substeps(total_angle, MAX_ANGLE);
 
     // Ensure sufficient resolution
     orientation.get().upsample(num_steps + 1);
@@ -1017,8 +1026,9 @@ public:
       return;
     }
 
-    int num_steps =
-        1 + static_cast<int>(std::ceil(std::abs(delta) / MAX_ANGLE));
+    // Same tight substep count as Motion (was `1 + ceil(...)`, one subdivision
+    // more than needed — now unified via rotation_substeps).
+    int num_steps = rotation_substeps(std::abs(delta), MAX_ANGLE);
     orientation->upsample(num_steps + 1);
     int len = orientation->length();
 
@@ -1845,7 +1855,13 @@ public:
       }
     }
 
-    // 5. Move new events (added during callbacks) to fill the gap
+    // 5. Move new events (added during callbacks) to fill the gap left by
+    //    completed ones. This relocates the new events, so a *pinned* event
+    //    spawned inside a callback (add_get/spawn_pinned with pin=true) would
+    //    trap here in move_into's HS_CHECK(!handled) — by design: its address
+    //    was handed back to the caller and must not move. Callback-spawners use
+    //    pin=false today (TransformerPool::spawn), so the gap-fill is safe; the
+    //    trap stands as the fail-fast guard if that ever changes.
     int new_vals_count = num_events - active_cnt;
     if (new_vals_count > 0 && write_idx < active_cnt) {
       for (int i = 0; i < new_vals_count; ++i) {

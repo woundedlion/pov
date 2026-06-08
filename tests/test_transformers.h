@@ -161,6 +161,58 @@ inline void test_transformer_no_entities_is_identity() {
 }
 
 // ============================================================================
+// Transformer<> active-slot list — spawn applies; multiple entities compose
+// ============================================================================
+
+// Exercises the compact active-slot list that replaced the O(CAPACITY) scan:
+// a spawned entity is applied by transform(), and two active entities compose
+// while staying on the unit sphere. Noise is used (not Ripple) because its ctor
+// leaves the copied amplitude intact, so the spawned entity displaces
+// immediately — no Canvas / timeline stepping needed. The local Timeline's
+// destructor clears the global event buffer on scope exit.
+inline void test_transformer_spawn_applies_and_composes() {
+  Timeline<32> tl;
+  Timeline<32>::t = 0;
+  NoiseTransformer<32, 4> nt(tl);
+  nt.params.amplitude = 0.6f;
+  nt.params.scale = 4.0f;
+  nt.params.time = 1.0f;
+  nt.params.sync();
+
+  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
+                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+
+  // No active entities → identity for every sample.
+  for (const Vector &v : samples) {
+    Vector r = nt.transform(v);
+    HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
+    HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
+    HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
+  }
+
+  // One active entity → transform applies the warp; sum the displacement across
+  // samples so a single noise zero-crossing can't make the test flaky.
+  HS_EXPECT_TRUE(nt.spawn(0) != nullptr);
+  float total_moved = 0.0f;
+  for (const Vector &v : samples) {
+    Vector r = nt.transform(v);
+    HS_EXPECT_TRUE(finite_vec(r));
+    HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
+    total_moved +=
+        std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
+  }
+  HS_EXPECT_GT(total_moved, 1e-2f);
+
+  // A second active entity → both compose, still finite and on the sphere.
+  HS_EXPECT_TRUE(nt.spawn(0) != nullptr);
+  for (const Vector &v : samples) {
+    Vector r = nt.transform(v);
+    HS_EXPECT_TRUE(finite_vec(r));
+    HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
+  }
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -176,6 +228,7 @@ inline int run_transformers_tests() {
   test_noise_zero_amplitude_is_identity();
   test_noise_active_stays_on_sphere();
   test_transformer_no_entities_is_identity();
+  test_transformer_spawn_applies_and_composes();
 
   return hs_test::end_module(scope);
 }
