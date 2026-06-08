@@ -48,34 +48,30 @@ private:
   /// Metallic Blinn-Phong: half-Lambert diffuse, tight specular, Fresnel rim.
   /// Returns a scalar shade factor (ambient base + weighted terms); the caller
   /// multiplies it by the surface color for the metallic look.
+  ///
+  /// The sole caller uses a *headlight* model — the light and the viewer
+  /// coincide, so it passes the same view vector for both `light_dir` and
+  /// `view_dir`. The two parameters are kept distinct to preserve the standard
+  /// Blinn-Phong signature should the light ever decouple from the camera.
   float shadeBlinnPhong(const Vector &normal_w, const Vector &light_dir,
                         const Vector &view_dir, const Vector &tangent) {
     // Diffuse: half-Lambert wrap using light direction
-    float ndotl = normal_w.x * light_dir.x + normal_w.y * light_dir.y +
-                  normal_w.z * light_dir.z;
+    float ndotl = dot(normal_w, light_dir);
     float half_lam = ndotl * 0.5f + 0.5f;
     float diffuse = half_lam * half_lam;
 
-    // Specular: light tilted off-axis along tangent for visible highlight
-    float lx = light_dir.x + tangent.x * 0.3f;
-    float ly = light_dir.y + tangent.y * 0.3f;
-    float lz = light_dir.z + tangent.z * 0.3f;
-    float ll = sqrtf(lx * lx + ly * ly + lz * lz);
-    if (ll > TOLERANCE) {
-      lx /= ll;
-      ly /= ll;
-      lz /= ll;
-    }
+    // Specular: light tilted off-axis along tangent for visible highlight.
+    // Normalize only above TOLERANCE; a near-zero tilt stays as-is.
+    Vector light = light_dir + tangent * 0.3f;
+    float ll = light.length();
+    if (ll > TOLERANCE)
+      light /= ll;
     // Half-vector between tilted light and view direction
-    float hx = lx + view_dir.x, hy = ly + view_dir.y, hz = lz + view_dir.z;
-    float hl = sqrtf(hx * hx + hy * hy + hz * hz);
-    if (hl > TOLERANCE) {
-      hx /= hl;
-      hy /= hl;
-      hz /= hl;
-    }
-    float ndoth =
-        std::max(0.0f, normal_w.x * hx + normal_w.y * hy + normal_w.z * hz);
+    Vector half = light + view_dir;
+    float hl = half.length();
+    if (hl > TOLERANCE)
+      half /= hl;
+    float ndoth = std::max(0.0f, dot(normal_w, half));
     // ndoth^32 via repeated squaring
     float spec = ndoth * ndoth; // ^2
     spec *= spec;               // ^4
@@ -126,6 +122,8 @@ private:
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
         Vector n_local = torus.normal(loc);
         Vector n_world = rotate(n_local, world_q);
+        // Headlight model: light coincides with the viewer, so the view vector
+        // `vertex` serves as both light_dir and view_dir.
         float shade = shadeBlinnPhong(n_world, vertex, vertex, tangent);
 
         float ring_angle = (atan2f(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
