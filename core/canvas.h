@@ -6,6 +6,7 @@
 
 #include <cstring>
 #include <cstdio>
+#include <cassert>
 #include <algorithm>
 #include <variant>
 #include <atomic>
