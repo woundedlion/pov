@@ -387,6 +387,10 @@ struct Quaternion {
    */
   [[nodiscard]] Quaternion inverse() const {
     float sq_mag = squared_magnitude();
+    // A zero-magnitude quaternion has no inverse; the divide below would
+    // silently yield NaN/Inf. Trap instead — inverse() is computed per-frame
+    // and cached (never per-pixel), so this guard is off the hot path.
+    HS_CHECK(sq_mag > std::numeric_limits<float>::epsilon());
     return Quaternion(r, -v) / sq_mag;
   }
 
@@ -717,6 +721,11 @@ constexpr Vector operator*(float s, const Vector &v) { return v * s; }
  * @param v Vector.
  * @param s Scalar.
  * @return The resulting vector.
+ *
+ * Unlike Vector::operator/=, this free operator deliberately does NOT trap on
+ * s == 0: it is a per-pixel hot-path primitive, and HS_CHECK is reserved for
+ * cold paths (see core/platform.h). A zero divisor yields ±Inf/NaN. Use the
+ * compound-assignment form (v /= s) where a guarded divide is wanted.
  */
 constexpr Vector operator/(const Vector &v, float s) {
   return Vector(v.x / s, v.y / s, v.z / s);
@@ -837,6 +846,11 @@ constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
  * @param q Quaternion.
  * @param s Scalar.
  * @return The resulting quaternion.
+ *
+ * Like operator/(Vector, float), this deliberately does NOT trap on s == 0 (hot
+ * path; HS_CHECK is cold-path only). Callers that divide by a magnitude which
+ * could be zero must guard themselves — e.g. Quaternion::inverse() HS_CHECKs the
+ * squared magnitude before dividing.
  */
 constexpr Quaternion operator/(const Quaternion &q, float s) {
   return Quaternion(q.r / s, q.v / s);
