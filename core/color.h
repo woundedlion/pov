@@ -86,9 +86,12 @@ struct Pixel16 {
   }
 
   Pixel16 operator*(float s) const {
-    return Pixel16((uint16_t)std::clamp((int)(r * s), 0, 65535),
-                   (uint16_t)std::clamp((int)(g * s), 0, 65535),
-                   (uint16_t)std::clamp((int)(b * s), 0, 65535));
+    // Clamp in float before the cast: r*s can exceed INT_MAX for large s,
+    // and float->int conversion is UB out of range (would bite before an
+    // int clamp could fire).
+    return Pixel16((uint16_t)std::clamp(r * s, 0.0f, 65535.0f),
+                   (uint16_t)std::clamp(g * s, 0.0f, 65535.0f),
+                   (uint16_t)std::clamp(b * s, 0.0f, 65535.0f));
   }
 
   // Lerp (Linear interpolation 16-bit)
