@@ -26,7 +26,7 @@
 
 static constexpr int TOTAL_PIXELS = 288;
 static constexpr int NUM_SEGMENTS = 4;
-static constexpr unsigned int RPM = 1200;
+static constexpr unsigned int RPM = 480;
 
 namespace {
 POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM> *pov;

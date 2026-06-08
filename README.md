@@ -84,9 +84,9 @@ Two physical targets share the same rendering engine:
 | Controllers | 4× Teensy 4.1 (600 MHz ARM Cortex-M7) |
 | LEDs | 2 × 144-pixel strips (288 total, 72 per segment) |
 | Protocol | DMA (HD107S at 24 MHz) |
-| Rotation | 480 RPM (8 revolutions/second) 16 FPS from 2 sides of the ring |
+| Rotation | 480 RPM (8 revolutions/second), 16 FPS from 2 sides of the ring |
 | Virtual resolution | 288 × 144 |
-| Driver | `POVSegmented<288, 4, 1200>` in `pov_segmented.h` |
+| Driver | `POVSegmented<288, 4, 480>` in `pov_segmented.h` |
 | Synchronization | 2-wire: column clock (PWM) + frame sync (pulse) |
 | Pin assignments | ID: pins 21–22, Column clock: pin 2 (in) / pin 5 (out), Frame sync: pin 3 (out) / pin 4 (in), SPI: pins 11 + 13 |
 
@@ -96,7 +96,7 @@ The POV effect works because each revolution takes ~125 ms and the ISR fires eve
 
 ## 2. Engineering Philosophies
 
-The four design decisions below shape the rest of the codebase. Skim them first — every later section makes more sense once you know *why* the engine looks the way it does.
+The five design decisions below shape the rest of the codebase. Skim them first — every later section makes more sense once you know *why* the engine looks the way it does.
 
 ### Why 16-bit Linear Color?
 
@@ -113,6 +113,12 @@ The Teensy heap fragments under heavy mesh subdivision. The single-block partiti
 ### Why the ISR Double Buffer?
 
 POV display requires pixel data to be ready before each column interval fires — typically 13–130 µs for the hardware resolution at 480 RPM. A naive approach (rendering in the ISR) would block the main loop. Instead, the main loop renders freely into a back buffer while the ISR reads from a separate front buffer. `queue_frame()` / `advance_display()` synchronize with minimal interrupt-disabled critical sections.
+
+### Why Fail-Fast (`HS_CHECK`)?
+
+On hardware there is no debugger attached and no console to read — a corrupted arena that ships garbage to the LEDs is the worst possible outcome, because the failure is silent and the cause is already gone by the time it shows on the sphere. So invariant violations *trap at the violation site* rather than being masked by bounded fallbacks. `HS_CHECK(cond)` (`platform.h`) compiles to a single predicted-not-taken branch to `__builtin_trap()` and, unlike `assert()`, is **not** stripped by `NDEBUG` — it still fires in the optimized device build, where `NDEBUG` is defined only to keep newlib's `__assert_func`→`fprintf` (and all of stdio) out of the image. It pulls in no stdio of its own.
+
+The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths only — container growth, arena OOM, capacity and bounds guards at allocation/registration/config seams — where a violation is a logic or sizing bug with no valid recovery. It is never placed in the per-pixel hot loop; hot paths that need a check use a stripped `assert` backed by a cold trap at the corresponding bind/setup site. Genuinely *transient* conditions (a DMA overrun, a dropped frame) are not invariant violations and get bounded/soft handling instead. The native test suite includes a death harness that asserts these traps actually fire (`SIGILL` / `STATUS_ILLEGAL_INSTRUCTION`), so the safety net is verified rather than assumed.
 
 ### Coordinate Conventions
 
@@ -201,7 +207,7 @@ POV display requires pixel data to be ready before each column interval fires �
 │   ├── Holosphere/
 │   │   └── Holosphere.ino      Holosphere entry — NUM_PIXELS=40, RPM=480
 │   ├── Phantasm/
-│   │   └── Phantasm.ino        Phantasm entry — 4×Teensy, TOTAL_PIXELS=288, RPM=1200
+│   │   └── Phantasm.ino        Phantasm entry — 4×Teensy, TOTAL_PIXELS=288, RPM=480
 │   └── wasm/
 │       └── wasm.cpp            Emscripten bindings — HolosphereEngine JS class
 │
@@ -869,7 +875,10 @@ A single contiguous memory block (`GLOBAL_ARENA_SIZE = 335 KB`) is partitioned i
 Effects that need more scratch memory can repartition at init time:
 
 ```cpp
-configure_arenas(256 * 1024, 48 * 1024, 41 * 1024);
+// The three sizes must sum to GLOBAL_ARENA_SIZE (335 KB on device); an
+// over-subscribed partition traps at init() via HS_CHECK rather than silently
+// scaling down. Here scratch is doubled at the expense of persistent space:
+configure_arenas(271 * 1024, 32 * 1024, 32 * 1024);  // 271 + 32 + 32 = 335 KB
 ```
 
 `ScratchScope` (aliased as `ScopedScratch` for backward compatibility) provides stack-like RAII lifetime:
@@ -1209,9 +1218,9 @@ for (int i = 0; i < PPS; ++i, y += y_step_) {
 | S (total pixels) | 288 |
 | N (segments) | 4 |
 | PPS (pixels per segment) | 72 |
-| RPM | 1200 |
-| Column frequency | 5760 Hz |
-| Column interval | ~173 µs |
+| RPM | 480 |
+| Column frequency | 2304 Hz |
+| Column interval | ~434 µs |
 | ISR duration (72px pack + DMA trigger) | ~96 µs worst case |
 
 ---
