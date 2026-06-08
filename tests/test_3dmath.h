@@ -628,9 +628,20 @@ inline void test_stereo_roundtrip() {
     HS_EXPECT_VEC(back, v, 5e-3f);
   }
 
-  // North pole maps to the infinity sentinel
+  // North pole maps to the infinity sentinel (azimuth undefined → +real axis)
   Complex zN = stereo(Vector(0, 1, 0));
   HS_EXPECT_NEAR(zN.re, STEREO_INF, 1.0f);
+  HS_EXPECT_NEAR(zN.im, 0.0f, 1.0f);
+
+  // Inside the pole cap (denom < STEREO_POLE_EPS) the sentinel preserves the
+  // (x,z) azimuth at magnitude STEREO_INF rather than collapsing onto +real, so
+  // a Mobius map can carry the cap's swirl to a finite point.
+  Vector nearPole(0.006f, 0.99998f, 0.0021f); // |xz| small, denom ≈ 2e-5
+  Complex zCap = stereo(nearPole.normalized());
+  HS_EXPECT_NEAR(std::sqrt(zCap.re * zCap.re + zCap.im * zCap.im), STEREO_INF,
+                 1.0f);
+  HS_EXPECT_NEAR(std::atan2(zCap.im, zCap.re),
+                 std::atan2(nearPole.z, nearPole.x), 1e-3f);
 
   // Large complex magnitude maps back to north pole
   Vector pole = inv_stereo(Complex(STEREO_INF, 0));

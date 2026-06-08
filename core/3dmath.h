@@ -428,7 +428,24 @@ struct Quaternion {
 };
 
 /// Conventional representation of the point at infinity on the complex plane.
+/// Single source of truth for the pole sentinel: every forward projection that
+/// hits a singularity (stereo() at the north pole, gnomonic() at the equator,
+/// Complex::operator/ on a near-zero denominator) emits a value of this
+/// magnitude, and every inverse projection recognizes it (see the two
+/// thresholds below).
 static constexpr float STEREO_INF = 1e4f;
+
+/// |z| at/above which inv_stereo() treats its input as the infinity sentinel.
+/// Half of STEREO_INF on purpose: stereo() and Complex::operator/ emit exactly
+/// STEREO_INF, but an intervening Mobius map can scale that toward (but not
+/// past) zero, so the inverse needs margin below the emitted magnitude to still
+/// snap a Mobius-shrunk sentinel back to the pole. (Squared in the comparison
+/// to avoid a sqrt on the hot path.)
+static constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
+
+/// 1 - v.y below which stereo() is inside the north-pole cap and emits the
+/// sentinel magnitude instead of the raw (and numerically explosive) quotient.
+static constexpr float STEREO_POLE_EPS = 1e-4f;
 
 /**
  * @brief Represents a Complex number.
@@ -541,8 +558,18 @@ struct MobiusParams {
  */
 inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.y;
-  if (denom < 1e-4f)
-    return Complex(STEREO_INF, 0.0f); // North pole → point at infinity
+  if (denom < STEREO_POLE_EPS) {
+    // Inside the north-pole cap. Emit the infinity sentinel, but keep the
+    // (x,z) azimuth so a Mobius map that pulls the pole to a finite point
+    // preserves the cap's swirl instead of collapsing it onto the +real axis.
+    // At the exact pole (x = z = 0) the azimuth is undefined → +real fallback,
+    // matching test_stereo_roundtrip's stereo(0,1,0).re ≈ STEREO_INF.
+    float r = sqrtf(v.x * v.x + v.z * v.z);
+    if (r < 1e-12f)
+      return Complex(STEREO_INF, 0.0f);
+    float scale = STEREO_INF / r;
+    return Complex(v.x * scale, v.z * scale);
+  }
   return Complex(v.x / denom, v.z / denom);
 }
 
@@ -550,9 +577,10 @@ inline Complex stereo(const Vector &v) {
  * @brief Inverse Stereographic Projection: Complex Plane -> Sphere.
  */
 inline Vector inv_stereo(const Complex &z) {
-  // Recognize infinity sentinel → return exact North Pole
+  // Recognize the infinity sentinel (|z| >= STEREO_INF_RECOGNIZE) → exact North
+  // Pole. Compared squared to keep the sqrt off this path.
   float r2 = z.re * z.re + z.im * z.im;
-  if (r2 >= STEREO_INF * STEREO_INF * 0.25f)
+  if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return Vector(0.0f, 1.0f, 0.0f);
   return Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1), 2 * z.im / (r2 + 1));
 }
@@ -595,7 +623,11 @@ inline Complex gnomonic(const Vector &v) {
  * @param original_sign The sign of the z-component (k) of the original vector.
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
-  // Recognize clamped-to-infinity → return the pole
+  // Recognize clamped-to-infinity → return the pole. gnomonic() clamps each
+  // component to exactly ±STEREO_INF, so the inverse matches at exactly
+  // STEREO_INF — no margin (unlike inv_stereo's STEREO_INF_RECOGNIZE), because
+  // the forward sentinel here is an exact per-axis clamp, not a magnitude that a
+  // Mobius map can shrink.
   if (std::abs(z.re) >= STEREO_INF || std::abs(z.im) >= STEREO_INF)
     return Vector(0.0f, original_sign, 0.0f);
   // Project (re, 1, im) back onto unit sphere
