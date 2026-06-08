@@ -169,6 +169,17 @@ private:
    *
    * Pins are configured as INPUT_PULLUP; grounding a pin sets its bit.
    * The result is inverted so that all-floating = ID 0 (clock master).
+   *
+   * A floating or cold-soldered strap reads HIGH, which inverts toward ID 0 —
+   * silently promoting the board to a second clock master and driving the
+   * shared clock/frame-sync wires into contention. To catch unstable straps we
+   * sample twice and trap on disagreement: a stable strap is an invariant.
+   *
+   * Note: this validates *this* board's strap only. It cannot detect a *peer*
+   * holding the same ID — both shared wires are push-pull, so a duplicate
+   * master is not observable from a single board without a dedicated
+   * (open-drain) arbitration line. That cross-check is intentionally out of
+   * scope; the debounce above removes the most likely cause (a floating pin).
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
@@ -179,8 +190,12 @@ private:
     // pull-ups => ID 0), then mask off the inverted high bits with & (N-1).
     // The mask is load-bearing — without it the full-width ~ would set every
     // upper bit. Parens make the (~...) & (N-1) grouping explicit.
-    segment_id_ = (~(digitalReadFast(PIN_ID0)
-                   | (digitalReadFast(PIN_ID1) << 1))) & (N - 1);
+    const int raw0 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
+    delay(2);  // re-sample after a brief gap to reject a bouncing/floating pin
+    const int raw1 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
+    HS_CHECK(raw0 == raw1);  // unstable strap → mis-ID → bus contention
+
+    segment_id_ = (~raw0) & (N - 1);
   }
 
   // ── Segment mapping ─────────────────────────────────────────────────
