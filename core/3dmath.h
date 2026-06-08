@@ -902,7 +902,11 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   float theta = fast_acos(d);
   float sin_theta = fast_sinf(theta);
   if (sin_theta < 0.0001f) {
-    return (v1 + (v2 - v1) * t).normalized();
+    // Antipodal endpoints: the lerp midpoint collapses to the zero vector for an
+    // exact antipode at t≈0.5, where the great-circle path is undefined anyway.
+    // Fall back to a stable endpoint direction rather than trapping in strict
+    // normalized() — an antipodal pair is a legitimate geometric edge here.
+    return normalized_or((v1 + (v2 - v1) * t), v1);
   }
   float s1 = fast_sinf((1 - t) * theta) / sin_theta;
   float s2 = fast_sinf(t * theta) / sin_theta;

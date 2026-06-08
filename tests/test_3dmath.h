@@ -542,6 +542,15 @@ inline void test_vector_slerp() {
   Vector v2(0.99999f, 0.00001f, 0.0f);
   Vector lerp_result = slerp(v1, v2, 0.5f);
   HS_EXPECT_NEAR(lerp_result.length(), 1.0f, 1e-3f);
+
+  // Antipodal endpoints: the lerp midpoint collapses to the zero vector at
+  // t=0.5; slerp must degrade to a stable unit direction, not trap in
+  // normalized(). Endpoints stay exact; the midpoint stays unit-length.
+  Vector p(0, 1, 0), ap(0, -1, 0);
+  HS_EXPECT_VEC(slerp(p, ap, 0.0f), p, 5e-3f);
+  HS_EXPECT_VEC(slerp(p, ap, 1.0f), ap, 5e-3f);
+  Vector anti_mid = slerp(p, ap, 0.5f);
+  HS_EXPECT_NEAR(anti_mid.length(), 1.0f, 1e-3f);
 }
 
 inline void test_quaternion_slerp() {
