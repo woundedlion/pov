@@ -77,10 +77,9 @@ public:
 
     particle_system.step(canvas);
 
-    auto vertex_shader = [&](Fragment &f) {
-      f.pos = orientation.orient(f.pos);
-    };
-
+    // Rotation is owned by the Filter::World::Orient stage in `filters`, which
+    // also sweeps the orientation history for SLERP motion blur. Applying it
+    // again in a vertex shader would rotate every point twice, so none is used.
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
       float alpha = f.v0;
       float palette_t = (v.y + 1.0f) / 2.0f;
@@ -90,7 +89,7 @@ public:
     };
 
     Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
-                                     fragment_shader, vertex_shader);
+                                     fragment_shader);
   }
 
 private:
