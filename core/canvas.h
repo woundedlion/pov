@@ -109,6 +109,18 @@ public:
   }
 
   /**
+   * @brief Whether this effect overrides get_pixel with a per-pixel transform
+   *        that display_buffer() does NOT reflect.
+   *
+   * Base effects return false: `display_buffer()[y * width() + x]` equals
+   * `get_pixel(x, y)`, so ISR fast paths may index the buffer directly. The
+   * legacy scroller (RingTwist) reads through a per-row offset in its get_pixel
+   * override and returns true here, forcing those fast paths to fall back to
+   * virtual dispatch. One cheap virtual call per column gates the bulk loop.
+   */
+  [[nodiscard]] virtual bool overrides_get_pixel() const { return false; }
+
+  /**
    * @brief Gets the width of the effect.
    * @return The width.
    */

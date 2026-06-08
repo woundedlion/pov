@@ -279,6 +279,10 @@ public:
     return Effect::get_pixel(wrap(x - pos_[y], W), y);
   }
 
+  // Per-row scroll offset above: display_buffer() does not reflect it, so ISR
+  // fast paths must fall back to virtual get_pixel dispatch for this effect.
+  bool overrides_get_pixel() const override { return true; }
+
   void draw_frame() {
     Canvas c(*this);
     canvas_ = &c;

@@ -119,21 +119,37 @@ private:
    * the frame.
    */
   static FASTRUN void show_col() {
+    // Top half reads column x_; bottom half reads the opposite column (x_+W/2).
+    const int w = effect_->width();
+    const int x_top = x_;
+    const int x_bot = (x_ + w / 2) % w;
+
+    // ISR fast path: fetch the display buffer base once and index it directly,
+    // dropping the S per-column virtual get_pixel() dispatches. Sound because
+    // (1) prev_ is stable for this whole column — advance_display() runs below
+    // after the loop — and (2) buf[y * w + x] == get_pixel(x, y) for any effect
+    // that does not override get_pixel. Only the legacy scroller (RingTwist)
+    // does; one virtual probe per column routes it to the correct slow path.
+    const bool slow = effect_->overrides_get_pixel();
+    const Pixel *buf = slow ? nullptr : effect_->display_buffer();
+
 #if defined(ARDUINO) && defined(USE_DMA_LEDS)
     // Direct Pixel16 → HD107S wire packing (no intermediate CRGB array).
     auto& frame = ledController_.backFrame();
     for (int y = 0; y < S / 2; ++y) {
-      frame.packPixel(S / 2 - y - 1, effect_->get_pixel(x_, y));
-      frame.packPixel(S / 2 + y, effect_->get_pixel(
-          (x_ + (effect_->width() / 2)) % effect_->width(), y));
+      // Map to physical strip: top half is inverted, bottom half is straight.
+      frame.packPixel(S / 2 - y - 1,
+          slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
+      frame.packPixel(S / 2 + y,
+          slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     ledController_.submitFrame(effect_->show_bg());
 #else
     for (int y = 0; y < S / 2; ++y) {
-      // Map to physical strip: top half is inverted, bottom half is straight.
-      leds_[S / 2 - y - 1] = effect_->get_pixel(x_, y);
-      leds_[S / 2 + y] = effect_->get_pixel(
-          (x_ + (effect_->width() / 2)) % effect_->width(), y);
+      leds_[S / 2 - y - 1] =
+          slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top];
+      leds_[S / 2 + y] =
+          slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot];
     }
     FastLED.show();
     if (effect_->show_bg()) {
@@ -141,10 +157,10 @@ private:
     }
 #endif
 
-    x_ = (x_ + 1) % effect_->width();
+    x_ = (x_ + 1) % w;
     // When the POV sweep completes one full virtual revolution (x_ = 0 or x_ =
     // width/2), advance the display buffer.
-    if (x_ == 0 || x_ == effect_->width() / 2) {
+    if (x_ == 0 || x_ == w / 2) {
       effect_->advance_display();
     }
   }
