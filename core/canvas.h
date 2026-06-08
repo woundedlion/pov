@@ -169,6 +169,8 @@ public:
     float defaultValue = 0; /**< Default value. */
     bool animated = false;  /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
+    bool readonly = false;  /**< True if this is engine-written telemetry; the
+                               GUI shows it live but disables editing. */
 
     /** @brief Read the current value as float (bool maps to 0/1). */
     float get() const {
@@ -282,6 +284,16 @@ protected:
   void markAnimated(const char *name) {
     if (auto *def = parameters.find(name))
       def->animated = true;
+  }
+
+  /**
+   * @brief Flag a registered param as engine-written telemetry (read-only).
+   * @details The GUI keeps showing its live value but disables editing. Use for
+   * output-only values clobbered every frame (e.g. an active-particle count).
+   */
+  void markReadonly(const char *name) {
+    if (auto *def = parameters.find(name))
+      def->readonly = true;
   }
 
   /**

@@ -20,6 +20,13 @@ public:
 
     palette_bank_.bake_all(persistent_arena);
 
+    // Set the ripple defaults BEFORE registering their pointers so the captured
+    // registered defaults match the actual runtime values (registerParam snaps
+    // *ptr as the default; setting them afterwards desynced the two).
+    ripple_gen.params.amplitude = 0.4f;
+    ripple_gen.params.thickness = 0.7f;
+    ripple_gen.params.decay = 0.1f;
+
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
     registerParam("Ripp Width", &ripple_gen.params.thickness, 0.1f, 1.0f);
@@ -28,10 +35,6 @@ public:
     registerParam("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
-
-    ripple_gen.params.amplitude = 0.4f;
-    ripple_gen.params.thickness = 0.7f;
-    ripple_gen.params.decay = 0.1f;
 
     // Ripple now and schedule more ripples
     timeline.add(0, Animation::PeriodicTimer(
@@ -138,11 +141,11 @@ private:
     // 3. Flip front eagerly for the overlapping sprite
     carousel.set_front(back);
 
-    timeline.add(0, Animation::Sprite(draw_fn,
-                                      160,          // duration
-                                      32, ease_mid, // fade_in
-                                      32, ease_mid  // fade_out
-                                      ));
+    // Live-read the Duration slider per shape cycle (was a dead literal 160).
+    int dur = static_cast<int>(params.duration);
+    int fade = static_cast<int>(params.fade);
+    timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_mid, fade,
+                                      ease_mid));
 
     // After transition(), front has flipped, so capture_idx is now front
     ArenaVector<int> &faceIndices = carousel.slot(capture_idx).topology;
@@ -157,14 +160,14 @@ private:
             (int)carousel.current().faces.size());
 
     // Schedule next overlapping
-    int next_delay = 160 - 32; // duration - fade_out
+    int next_delay = dur - fade; // duration - fade_out
     timeline.add(next_delay,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &) { this->spawn_shape(); }, false));
   }
 
   struct Params {
-    float duration = 96.0f;
+    float duration = 160.0f; // shape display period (was a dead literal 160)
     float fade = 32.0f;
     int burst_size = 4;
     bool debug_bb = false;

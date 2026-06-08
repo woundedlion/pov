@@ -37,6 +37,10 @@ public:
     registerParam("Speed", &params.offset_speed, 0.0f, 5.0f);
     registerParam("Warp", &params.warp_scale, 0.0f, 5.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    // Each preset cycle reseeds these from the preset; flag them so the standard
+    // "Pause Animation" toggle freezes the cycle and lets the user take over.
+    for (const char *n : {"Copies", "Radius", "Speed", "Warp", "Alpha"})
+      markAnimated(n);
 
     // Start Sequence
     timeline.add(0, Animation::PeriodicTimer(
@@ -60,6 +64,7 @@ public:
 
 private:
   float t = 0;
+  int last_preset_idx_ = -1; // last preset whose values were copied into params
 
   struct Tangent {
     Vector u;
@@ -151,7 +156,14 @@ private:
     auto entries = preset_manager.get_entries();
     int safe_idx = idx % entries.size();
 
-    params = entries[safe_idx].params;
+    // Reseed the slider-bound params from the preset only when the preset
+    // actually changes. While paused the chain re-spawns the SAME preset (see
+    // the scheduler below), so the user's live edits persist instead of being
+    // clobbered each cycle.
+    if (safe_idx != last_preset_idx_) {
+      params = entries[safe_idx].params;
+      last_preset_idx_ = safe_idx;
+    }
     int period = 288;
     mobius_gen.spawn(0, this->params.warp_scale, period, false);
     baked_palette.rebake(*params.palette);
@@ -175,7 +187,12 @@ private:
                                   ease_in_out_sin))
         .add(period,
              Animation::PeriodicTimer(
-                 0, [this, idx](Canvas &c) { this->spawn_sprite(idx + 1); },
+                 0,
+                 [this, idx](Canvas &c) {
+                   // Paused: re-spawn the same preset (params hold); otherwise
+                   // advance to the next one.
+                   this->spawn_sprite(animationsPaused() ? idx : idx + 1);
+                 },
                  false));
   }
 

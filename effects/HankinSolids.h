@@ -20,6 +20,9 @@ public:
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
     registerParam("Debug BB", &params.debug_bb);
+    // Angle is swept by the Mutation in start_hankin_cycle(); flag it so the GUI
+    // auto-pauses the sweep (and its morph cycle) when the user grabs the slider.
+    markAnimated("Angle");
 
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS, noise,
@@ -121,12 +124,14 @@ private:
     constexpr int DURATION = 64;
     timeline.add(0, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
-                                        DURATION, ease_mid, false)
+                                        DURATION, ease_mid, false, &anims_paused_)
                         .then([this]() {
                           this->start_morph_cycle();
                         }));
 
     int front = carousel.front_index();
+    // Gate the render sprite on the same pause flag (holds the frame instead of
+    // expiring) so a paused angle keeps rendering rather than going blank.
     timeline.add(
         0, Animation::Sprite(
                [this, front](Canvas &c, float opacity) {
@@ -136,7 +141,7 @@ private:
                            carousel.slot(front).topology, palettes_slots[front],
                            opacity, orientation.get());
                },
-               DURATION));
+               DURATION, 0, ease_mid, 0, ease_mid, &anims_paused_));
   }
 
   FLASHMEM void start_morph_cycle() {

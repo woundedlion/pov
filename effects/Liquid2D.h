@@ -21,6 +21,12 @@ public:
     registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
     registerParam("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
+    // Every param is driven by the preset lerp; flag them so the standard
+    // "Pause Animation" toggle lets the user take a slider over.
+    for (const char *n :
+         {"Warp Scale", "Warp Strength", "Pattern Freq", "Time Speed",
+          "Complexity", "Pole Fade", "Cycle Speed"})
+      markAnimated(n);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
@@ -40,11 +46,14 @@ public:
     timeline.add(0, Animation::RandomTimer(
                         90, 150,
                         [this](Canvas &) {
+                          if (animationsPaused())
+                            return;
                           presets.next();
                           timeline.add(0, Animation::Lerp(params,
                                                           presets.prev_get(),
                                                           presets.get(), 60,
-                                                          ease_in_out_sin));
+                                                          ease_in_out_sin,
+                                                          &anims_paused_));
                         },
                         true));
 

@@ -27,6 +27,7 @@
 #include "core/memory.h"
 #include "tests/test_harness.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 
@@ -59,6 +60,8 @@ inline int smoke_frames() {
   }
   return kDefaultFrames;
 }
+
+inline void lint_dead_sliders(Effect &effect, const char *name);
 
 // Drive one effect type through construct -> init -> render -> read-back.
 template <template <int, int> class E>
@@ -113,6 +116,48 @@ inline void smoke_one(const char *name) {
   HS_EXPECT_EQ(acc, sum_buffer());
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, kW, kH, static_cast<unsigned long long>(acc));
+
+  lint_dead_sliders(effect, name);
+}
+
+// Build-time "registered-but-unread" lint for the live-art param system.
+//
+// Contract: a registered, editable param — one NOT flagged markAnimated() and
+// NOT flagged markReadonly() — must be genuinely user-controllable, i.e. a value
+// written through updateParameter() must persist across frames. If the engine
+// overwrites it every frame (a Mutation/Driver/Lerp bound to the same member, or
+// output-only telemetry), the slider is dead: the author must drive a private
+// member and markAnimated() it, or markReadonly() pure telemetry. This is the
+// build-time gate for the theme-4 dead-slider class (it catches the per-frame
+// overwrite mechanism behind MobiusGrid/ShapeShifter/the preset-lerp group; a
+// value that merely has no rendered effect can't be detected without flaky
+// golden-image diffing and is out of scope).
+inline void lint_dead_sliders(Effect &effect, const char *name) {
+  for (const auto &def : effect.getParameters()) {
+    if (def.is_bool() || def.animated || def.readonly)
+      continue;
+    const float range = def.max - def.min;
+    if (range <= 0.0f)
+      continue;
+    const float cur = def.get();
+    // An in-range target well clear of the current value, so a revert is visible.
+    const float target = (cur - def.min) > (def.max - cur)
+                             ? def.min + 0.25f * range
+                             : def.min + 0.75f * range;
+    effect.updateParameter(def.name, target);
+    for (int f = 0; f < 3; ++f) {
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    const float eps = fmaxf(1e-3f, 1e-3f * range);
+    const bool persisted = fabsf(def.get() - target) <= eps;
+    if (!persisted)
+      std::printf("  DEAD SLIDER %s::%s — wrote %.4f, engine reverted to %.4f "
+                  "(markAnimated / markReadonly / drive a private member)\n",
+                  name, def.name, static_cast<double>(target),
+                  static_cast<double>(def.get()));
+    HS_EXPECT(persisted, "editable param must persist across frames");
+  }
 }
 
 inline int run_effects_tests() {

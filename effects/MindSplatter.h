@@ -30,18 +30,27 @@ public:
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
     registerParam("Particles", &params.active_count, 0.0f,
                   (float)NUM_PARTICLES);
-    registerParam("Run Presets", &run_presets, true);
+    // The preset Lerp drives these four every cycle; flag them so the standard
+    // "Pause Animation" toggle replaces the old bespoke "Run Presets" control
+    // (touching one pauses the presets and hands the value to the user).
+    markAnimated("Friction");
+    markAnimated("Well Str");
+    markAnimated("Init Spd");
+    markAnimated("Ang Spd");
+    // Particles is an engine-written active count, not an input.
+    markReadonly("Particles");
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
 
     auto preset_timer = Animation::PeriodicTimer(
         160,
         [this](Canvas &) {
-          if (!run_presets)
+          if (animationsPaused())
             return;
           presets.next();
           timeline.add(0, Animation::Lerp(params, presets.prev_get(),
-                                          presets.get(), 48, ease_mid));
+                                          presets.get(), 48, ease_mid,
+                                          &anims_paused_));
         },
         true);
     timeline.add(0, preset_timer);
@@ -58,6 +67,9 @@ public:
     timeline.step(canvas);
 
     particle_system.friction = params.friction;
+    // Apply Well Str live (attractors otherwise captured it once at rebuild()).
+    for (size_t i = 0; i < particle_system.attractors.size(); ++i)
+      particle_system.attractors[i].strength = params.well_strength;
     particle_system.step(canvas);
     params.active_count = (float)particle_system.active_count;
 
@@ -65,6 +77,14 @@ public:
   }
 
 private:
+  // Pool footprint (identical on the 32-bit device and the 64-bit native build,
+  // since VectorTrail's circular-buffer indices are uint32_t — see
+  // static_circular_buffer.h):
+  //   Particle<23> = pos(12) + vel(12) + seed(2) + life(2) + VectorTrail<23>(288)
+  //              = 316 B; pool = 1024 * 316 = 316 KB.
+  // That leaves ~19 KB under the 335 KB arena to cover the 11 KB scratch carve
+  // (see init()) plus the baked palette + attractors/emitters, so the device
+  // fits with headroom.
   static const int NUM_PARTICLES = 1024;
 
   typedef Solids::Cube EmitSolid;
@@ -110,7 +130,6 @@ private:
   // Warp params
   MobiusParams mobius;
   float warp_scale = 0.6f;
-  bool run_presets = true;
 
   FLASHMEM void rebuild() {
     particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);

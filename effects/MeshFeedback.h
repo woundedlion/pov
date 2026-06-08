@@ -54,8 +54,15 @@ public:
     registerParam("Distort Speed", &style.speed, 0.0f, 5.0f);
     registerParam("Noise Scale", &style.scale, 0.1f, 50.0f);
     registerParam("Hue Shift", &style.hue_shift, 0.0f, 0.1f);
-    registerParam("Pause Presets", &preset_paused, preset_paused);
     registerParam("Feedback", &feedback_enabled, feedback_enabled);
+    // The preset cycle drives the six style params; flag them so the standard
+    // "Pause Animation" toggle replaces the old bespoke "Pause Presets" control.
+    markAnimated("Fade");
+    markAnimated("Distort Amp");
+    markAnimated("Distort Freq");
+    markAnimated("Distort Speed");
+    markAnimated("Noise Scale");
+    markAnimated("Hue Shift");
 
     timeline.add(0, Animation::Noise(noise_params));
     timeline.add(
@@ -65,13 +72,14 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         NO_LERP_FRAMES + LERP_FRAMES,
                         [this](Canvas &) {
-                          if (preset_paused)
+                          if (animationsPaused())
                             return;
                           presets.next();
                           timeline.add(
                               0, Animation::Lerp(style, presets.prev_get(),
                                                  presets.get(), LERP_FRAMES,
-                                                 ease_in_out_sin));
+                                                 ease_in_out_sin,
+                                                 &anims_paused_));
                         },
                         true));
 
@@ -148,7 +156,6 @@ private:
                                             {Style::Shatter()},
                                             {Style::Drift()}}},
                                .current_idx = 0};
-  bool preset_paused = false;
   bool feedback_enabled = true;
   NoiseParams noise_params;
 

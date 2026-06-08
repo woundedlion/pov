@@ -295,8 +295,10 @@ public:
         entry.set("min", def.min);
         entry.set("max", def.max);
       }
-      // Animation-driven params surface as auto-pausing sliders in the GUI.
+      // Animation-driven params surface as auto-pausing sliders in the GUI;
+      // read-only params are shown live but disabled for editing.
       entry.set("animated", val(def.animated));
+      entry.set("readonly", val(def.readonly));
       result.set(i++, entry);
     }
     return result;

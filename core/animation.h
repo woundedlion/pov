@@ -729,9 +729,10 @@ class Lerp : public AnimationBase<Lerp> {
 public:
   template <typename T, typename Easing>
   Lerp(T &subject, const T &start, const T &target, int duration,
-       Easing easing_fn)
+       Easing easing_fn, const bool *paused = nullptr)
       : AnimationBase(duration, false), subject_ptr(&subject),
-        start_ptr(&start), target_ptr(&target), easing(easing_fn) {
+        start_ptr(&start), target_ptr(&target), easing(easing_fn),
+        paused_(paused) {
     do_lerp = [](void *subj, const void *s, const void *tgt, float t) {
       static_cast<T *>(subj)->lerp(*static_cast<const T *>(s),
                                    *static_cast<const T *>(tgt), t);
@@ -754,7 +755,13 @@ public:
   Lerp(T &subject, const T &&start, const T &&target, int duration,
        Easing easing_fn) = delete;
 
+  // Freezes while a wired pause flag is set (see Mutation::step). Preset-cycling
+  // effects pass an Effect's `anims_paused_` so a paused lerp neither advances
+  // nor writes its subject, and (for `.then`-chained lerps) never completes — so
+  // the whole preset chain halts and the slider-bound subject holds.
   void step(Canvas &canvas) override {
+    if (paused_ && *paused_)
+      return;
     AnimationBase::step(canvas);
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     do_lerp(subject_ptr, start_ptr, target_ptr, easing(progress));
@@ -766,6 +773,7 @@ private:
   const void *target_ptr;
   EasingFn easing;
   void (*do_lerp)(void *, const void *, const void *, float);
+  const bool *paused_ = nullptr;
 };
 
 /**
@@ -787,12 +795,12 @@ public:
    */
   Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
          EasingFn fade_in_easing_fn = ease_mid, int fade_out_duration = 0,
-         EasingFn fade_out_easing_fn = ease_mid)
+         EasingFn fade_out_easing_fn = ease_mid, const bool *paused = nullptr)
       : AnimationBase(duration, false), draw_fn(std::move(draw_fn)),
         fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
         fade_in_easing(std::move(fade_in_easing_fn)),
-        fade_out_easing(std::move(fade_out_easing_fn)) {}
+        fade_out_easing(std::move(fade_out_easing_fn)), paused_(paused) {}
 
   /**
    * @brief Updates the drawing function used by the sprite.
@@ -804,7 +812,13 @@ public:
    * the draw function.
    */
   void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
+    // Paused: hold the frame — don't advance the timer (so the sprite neither
+    // fades nor expires) but keep drawing at the current opacity. Lets a paused,
+    // param-driven effect keep rendering its held state instead of going blank
+    // when the sprite that renders it would otherwise run out (see HankinSolids,
+    // whose render sprite is the same length as the angle Mutation it pauses).
+    if (!(paused_ && *paused_))
+      AnimationBase::step(canvas);
     float opacity = 1.0f;
 
     // Fade in
@@ -829,6 +843,8 @@ private:
   int fade_out_duration;    /**< Duration of fade-out phase in frames. */
   EasingFn fade_in_easing;  /**< Easing curve for fade-in. */
   EasingFn fade_out_easing; /**< Easing curve for fade-out. */
+  const bool *paused_ = nullptr; /**< Optional pause gate; holds the frame (no
+                                    timer advance, still draws) when set. */
 };
 
 /**

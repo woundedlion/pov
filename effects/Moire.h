@@ -38,6 +38,9 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Density", &params.density, 1.0f, 100.0f);
     registerParam("Amp", &params.amp, 0.0f, 1.0f);
+    // Amp is driven by the Mutation below; flag it so the GUI auto-pauses the
+    // animation when the user grabs the slider.
+    markAnimated("Amp");
 
     timeline
         .add(0, Animation::PeriodicTimer(80, [this](auto &) { color_wipe(); }))
@@ -48,7 +51,7 @@ public:
                     .then([this]() { rotation = 0.0f; }))
         .add(0,
              Animation::Mutation(params.amp, sin_wave(0.1f, 0.5f, 1.0f, 0.0f),
-                                 160, ease_mid, true));
+                                 160, ease_mid, true, &anims_paused_));
   }
 
   void draw_frame() override {

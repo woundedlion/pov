@@ -22,6 +22,12 @@ public:
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
     registerParam("Drift", &params.drift, 0.0f, 2.0f);
     registerParam("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
+    // Every param is driven by the continuous preset lerp; flag them so the
+    // standard "Pause Animation" toggle lets the user take a slider over.
+    for (const char *n :
+         {"Warp Scale", "Warp Strength", "Pattern Freq", "Speed", "Pole Fade",
+          "Drift", "Hue Shift"})
+      markAnimated(n);
 
     // Start with tangent plane at -Z, then rotate around Y
     orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
@@ -42,7 +48,7 @@ public:
     constexpr int LERP_FRAMES = 480;
     presets.next();
     timeline.add(0, Animation::Lerp(params, presets.prev_get(), presets.get(),
-                                    LERP_FRAMES, ease_in_out_sin)
+                                    LERP_FRAMES, ease_in_out_sin, &anims_paused_)
                         .then([this]() { next_preset(); }));
   }
 
