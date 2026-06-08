@@ -367,6 +367,35 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 }
 
 /**
+ * @brief Run the shared per-primitive draw ritual.
+ *
+ * Every Plot primitive opens a ScratchScope, binds a Fragments buffer, fills it,
+ * applies the optional vertex shader, and rasterizes. The ScratchScope must
+ * outlive the rasterize call (the arena backs the fragments), so the whole
+ * sequence lives in one helper rather than being split. `fill` is a callable
+ * (Fragments &) -> void carrying each primitive's own sampling; it inlines at
+ * -O3, so this is a zero-cost replacement for the per-primitive copies.
+ *
+ * @param capacity  Fragment buffer reservation (per-primitive).
+ * @param close_loop Passed through to rasterize (closes last→first edge).
+ * @param planar_basis Optional planar projection basis (nullptr for geodesic).
+ */
+template <int W, int H, typename FillFn>
+inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
+                           VertexShaderRef vertex_shader,
+                           FragmentShaderFn fragment_shader, size_t capacity,
+                           bool close_loop, const Basis *planar_basis,
+                           FillFn &&fill) {
+  ScratchScope _frag(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, capacity);
+  fill(points);
+  apply_vertex_shader(vertex_shader, points);
+  rasterize<W, H>(pipeline, canvas, points, fragment_shader, close_loop, 0.0f,
+                  planar_basis);
+}
+
+/**
  * @brief Draws a geodesic line between two points.
  * Registers:
  *  v0: line progress (0..1)
@@ -439,14 +468,9 @@ struct Line {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, 4);
-    sample(points, f1, f2);
-
-    apply_vertex_shader(vertex_shader, points);
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
-                    nullptr);
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader, 4,
+                         false, nullptr,
+                         [&](Fragments &points) { sample(points, f1, f2); });
   }
 
   template <int W, int H>
@@ -573,16 +597,12 @@ struct Multiline {
   static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, vertices.size() + 2);
-    sample(points, vertices, closed);
-
-    apply_vertex_shader(vertex_shader, points);
-
-    // We manually closed it if requested, so pass false to rasterize
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
-                    nullptr);
+    // We manually close the loop in sample() if requested, so pass false to
+    // rasterize (close_loop).
+    draw_fragments<W, H>(
+        pipeline, canvas, vertex_shader, fragment_shader, vertices.size() + 2,
+        false, nullptr,
+        [&](Fragments &points) { sample(points, vertices, closed); });
   }
 
   template <int W, int H>
@@ -675,15 +695,10 @@ struct Ring {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, W + 2);
     // Use W samples for smooth circles (fixes pinching at poles)
-    sample(points, basis, radius, W, phase);
-
-    apply_vertex_shader(vertex_shader, points);
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
-                    nullptr);
+    draw_fragments<W, H>(
+        pipeline, canvas, vertex_shader, fragment_shader, W + 2, true, nullptr,
+        [&](Fragments &points) { sample(points, basis, radius, W, phase); });
   }
 
   template <int W, int H>
@@ -735,14 +750,10 @@ struct PlanarPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, num_sides + 2);
-    sample(points, basis, radius, num_sides, phase);
-
-    apply_vertex_shader(vertex_shader, points);
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
-                    &basis);
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         num_sides + 2, true, &basis, [&](Fragments &points) {
+                           sample(points, basis, radius, num_sides, phase);
+                         });
   }
 
   template <int W, int H>
@@ -799,14 +810,10 @@ struct SphericalPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, num_sides + 2);
-    sample(points, basis, radius, num_sides, phase);
-
-    apply_vertex_shader(vertex_shader, points);
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
-                    nullptr);
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         num_sides + 2, true, nullptr, [&](Fragments &points) {
+                           sample(points, basis, radius, num_sides, phase);
+                         });
   }
 
   template <int W, int H>
@@ -937,14 +944,10 @@ struct DistortedRing {
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, W + 2);
-    sample<W, H>(points, basis, radius, shift_fn, phase);
-
-    apply_vertex_shader(vertex_shader, points);
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
-                    nullptr);
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader, W + 2,
+                         true, nullptr, [&](Fragments &points) {
+                           sample<W, H>(points, basis, radius, shift_fn, phase);
+                         });
   }
 
   template <int W, int H>
@@ -998,14 +1001,9 @@ struct Spiral {
   static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments frags;
-    frags.bind(scratch_arena_a, n);
-    sample(frags, n, eps);
-
-    apply_vertex_shader(vertex_shader, frags);
-    rasterize<W, H>(pipeline, canvas, frags, fragment_shader, false, 0.0f,
-                    nullptr);
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader, n,
+                         false, nullptr,
+                         [&](Fragments &frags) { sample(frags, n, eps); });
   }
 
   template <int W, int H>
@@ -1097,13 +1095,6 @@ struct Star {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, num_sides * 2 + 2);
-    sample(points, basis, radius, num_sides, phase);
-
-    apply_vertex_shader(vertex_shader, points);
-
     Vector center = basis.v;
     if (radius > 1.0f)
       center = -center;
@@ -1114,8 +1105,12 @@ struct Star {
     Vector u = cross(v, ref).normalized();
     Vector w = cross(v, u).normalized();
     Basis planar_basis = {u, v, w};
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
-                    &planar_basis);
+
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         num_sides * 2 + 2, true, &planar_basis,
+                         [&](Fragments &points) {
+                           sample(points, basis, radius, num_sides, phase);
+                         });
   }
 
   template <int W, int H>
@@ -1212,13 +1207,6 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, num_sides * 2 + 2);
-    sample(points, basis, radius, num_sides, phase);
-
-    apply_vertex_shader(vertex_shader, points);
-
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     Vector center = work_basis.v;
@@ -1230,8 +1218,12 @@ struct Flower {
     Vector u_p = cross(center, ref).normalized();
     Vector w_p = cross(center, u_p).normalized();
     Basis planar_basis = {u_p, center, w_p};
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, true, 0.0f,
-                    &planar_basis);
+
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         num_sides * 2 + 2, true, &planar_basis,
+                         [&](Fragments &points) {
+                           sample(points, basis, radius, num_sides, phase);
+                         });
   }
 
   template <int W, int H>
@@ -1506,14 +1498,11 @@ struct Bezier {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader = {}, int num_samples = 32,
                    SplineMode mode = SplineMode::Geodesic) {
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, num_samples + 1);
-    sample(points, p0, p1, p2, p3, num_samples, mode);
-
-    apply_vertex_shader(vertex_shader, points);
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
-                    nullptr);
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         num_samples + 1, false, nullptr,
+                         [&](Fragments &points) {
+                           sample(points, p0, p1, p2, p3, num_samples, mode);
+                         });
   }
 
   /// Convenience overload taking Fragment references (uses .pos).
@@ -1546,55 +1535,53 @@ struct SplineChain {
     if (n < 2)
       return;
 
-    ScratchScope _frag(scratch_arena_a);
-    Fragments points;
     // Segment 0 emits samples_per_segment+1 points (j=0..S); each later segment
     // emits S (j=1..S, sharing the previous segment's endpoint). Total is
     // seg_count*S + 1 for BOTH closed and open.
     const size_t frag_count =
         (closed ? n : (n - 1)) * samples_per_segment + 1;
-    points.bind(scratch_arena_a, frag_count);
 
-    float cumulative_len = 0.0f;
-    Vector last_pos;
-    bool first_point = true;
+    draw_fragments<W, H>(
+        pipeline, canvas, vertex_shader, fragment_shader, frag_count, false,
+        nullptr, [&](Fragments &points) {
+          float cumulative_len = 0.0f;
+          Vector last_pos;
+          bool first_point = true;
 
-    size_t seg_count = closed ? n : n - 1;
-    for (size_t i = 0; i < seg_count; ++i) {
-      size_t i0 = (i == 0 && !closed) ? 0 : (i - 1 + n) % n;
-      size_t i1 = i;
-      size_t i2 = (i + 1) % n;
-      size_t i3 = (i + 2 >= n && !closed) ? n - 1 : (i + 2) % n;
+          size_t seg_count = closed ? n : n - 1;
+          for (size_t i = 0; i < seg_count; ++i) {
+            size_t i0 = (i == 0 && !closed) ? 0 : (i - 1 + n) % n;
+            size_t i1 = i;
+            size_t i2 = (i + 1) % n;
+            size_t i3 = (i + 2 >= n && !closed) ? n - 1 : (i + 2) % n;
 
-      Vector cp1, cp2;
-      Spline::catmull_rom_tangents(
-          control_points[i0].pos, control_points[i1].pos,
-          control_points[i2].pos, control_points[i3].pos, tension, cp1, cp2);
+            Vector cp1, cp2;
+            Spline::catmull_rom_tangents(
+                control_points[i0].pos, control_points[i1].pos,
+                control_points[i2].pos, control_points[i3].pos, tension, cp1,
+                cp2);
 
-      int start_j = (i == 0) ? 0 : 1;
-      for (int j = start_j; j <= samples_per_segment; ++j) {
-        float local_t = static_cast<float>(j) / samples_per_segment;
-        Vector pos = Spline::cubic(control_points[i1].pos, cp1, cp2,
-                                   control_points[i2].pos, local_t, mode);
+            int start_j = (i == 0) ? 0 : 1;
+            for (int j = start_j; j <= samples_per_segment; ++j) {
+              float local_t = static_cast<float>(j) / samples_per_segment;
+              Vector pos = Spline::cubic(control_points[i1].pos, cp1, cp2,
+                                         control_points[i2].pos, local_t, mode);
 
-        if (!first_point)
-          cumulative_len += angle_between(last_pos, pos);
-        last_pos = pos;
-        first_point = false;
+              if (!first_point)
+                cumulative_len += angle_between(last_pos, pos);
+              last_pos = pos;
+              first_point = false;
 
-        Fragment f =
-            Fragment::lerp(control_points[i1], control_points[i2], local_t);
-        f.pos = pos;
-        f.v0 = (static_cast<float>(i) + local_t) / seg_count;
-        f.v1 = cumulative_len;
-        f.v2 = static_cast<float>(i);
-        points.push_back(f);
-      }
-    }
-
-    apply_vertex_shader(vertex_shader, points);
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
-                    nullptr);
+              Fragment f = Fragment::lerp(control_points[i1],
+                                          control_points[i2], local_t);
+              f.pos = pos;
+              f.v0 = (static_cast<float>(i) + local_t) / seg_count;
+              f.v1 = cumulative_len;
+              f.v2 = static_cast<float>(i);
+              points.push_back(f);
+            }
+          }
+        });
   }
 };
 

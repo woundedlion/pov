@@ -176,6 +176,84 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
 }
 
 /**
+ * @brief Map an angular band [phi_min, phi_max] (radians, polar angle) to the
+ * inclusive scanline row range it covers, clamped to [0, H-1].
+ *
+ * phi spans [0,π] over (H+H_OFFSET-1) virtual rows; the lower edge floors and
+ * the upper edge ceils so a partially-covered row is never dropped. The
+ * leaf shapes' get_vertical_bounds all close with this conversion — extracted
+ * to share it rather than repeat the floor/ceil cast.
+ */
+template <int H> inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  int y_min =
+      std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
+  int y_max =
+      std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
+  return {y_min, y_max};
+}
+
+/**
+ * @brief Clamp an annular band's edge cosines to the visible scan range and
+ * return its angular half-extents [angle_min, angle_max] (radians from the
+ * shape's azimuth), or false if the band misses this row.
+ *
+ * cos_outer/cos_inner are the great-circle cosines of the band's far/near
+ * edges; (ny, cos_phi, denom = R·sinφ) describe the row. cos decreases with
+ * angle, so the larger cosine (cos_inner) yields the smaller angle. Shared by
+ * the annular scanline emitters.
+ */
+inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
+                                float cos_phi, float denom, float &angle_min,
+                                float &angle_max) {
+  float C_min = (cos_outer - ny * cos_phi) / denom;
+  float C_max = (cos_inner - ny * cos_phi) / denom;
+  float min_cos = std::max(-1.0f, C_min);
+  float max_cos = std::min(1.0f, C_max);
+  if (min_cos > max_cos)
+    return false; // Empty row
+  angle_min = fast_acos(max_cos);
+  angle_max = fast_acos(min_cos);
+  return true;
+}
+
+/**
+ * @brief Emit the horizontal scanline interval(s) where a row crosses an
+ * annular band, handling the two pole-wraparound degeneracies (a band touching
+ * the near/far pole collapses its two arcs into a single span).
+ *
+ * Centred on an axis with azimuth `alpha_angle`; band edges and row described
+ * as in annular_band_angles. Shared by Ring and DistortedRing, whose annular
+ * scanline math is otherwise byte-identical. Emits nothing for a missed row;
+ * the caller reports the row handled either way.
+ */
+template <int W, typename OutputIt>
+inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
+                              float cos_phi, float denom, float alpha_angle,
+                              OutputIt out) {
+  float angle_min, angle_max;
+  if (!annular_band_angles(cos_outer, cos_inner, ny, cos_phi, denom, angle_min,
+                           angle_max))
+    return;
+
+  float scale = W / (2.0f * PI_F);
+  float safe_threshold = 2.0f * PI_F / W;
+
+  if (angle_min <= safe_threshold) {
+    out(floorf((alpha_angle - angle_max) * scale),
+        ceilf((alpha_angle + angle_max) * scale));
+  } else if (angle_max >= PI_F - safe_threshold) {
+    out(floorf((alpha_angle + angle_min) * scale),
+        ceilf((alpha_angle + 2 * PI_F - angle_min) * scale));
+  } else {
+    out(floorf((alpha_angle - angle_max) * scale),
+        ceilf((alpha_angle - angle_min) * scale));
+    out(floorf((alpha_angle + angle_min) * scale),
+        ceilf((alpha_angle + angle_max) * scale));
+  }
+}
+
+/**
  * @brief Calculates signed distance to a ring.
  * Returns:
  *  dist: Signed distance (negative inside)
@@ -228,7 +306,6 @@ struct Ring {
   }
 
   template <int H> Bounds get_vertical_bounds() const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
     float a1 = center_phi - target_angle;
     float a2 = center_phi + target_angle;
     float phi_min = 0, phi_max = PI_F;
@@ -248,11 +325,7 @@ struct Ring {
     float f_phi_min = std::max(0.0f, phi_min - eff_th);
     float f_phi_max = std::min(PI_F, phi_max + eff_th);
 
-    int y_min = std::max(
-        0, static_cast<int>(floorf((f_phi_min * (H_VIRT - 1)) / PI_F)));
-    int y_max = std::min(
-        H - 1, static_cast<int>(ceilf((f_phi_max * (H_VIRT - 1)) / PI_F)));
-    return {y_min, y_max};
+    return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
   }
 
   /**
@@ -301,38 +374,7 @@ struct Ring {
     }
 
     // Annular band: exact intervals for near-tangent / out-of-range rows
-    float C_min = (cos_min - ny * cos_phi) / denom;
-    float C_max = (cos_max - ny * cos_phi) / denom;
-    float min_cos = std::max(-1.0f, C_min);
-    float max_cos = std::min(1.0f, C_max);
-
-    if (min_cos > max_cos)
-      return true; // Empty row
-
-    float angle_min = fast_acos(max_cos);
-    float angle_max = fast_acos(min_cos);
-
-    float pixel_width = 2.0f * PI_F / W;
-    float safe_threshold = pixel_width;
-
-    if (angle_min <= safe_threshold) {
-      float f_x1 = (alpha_angle - angle_max) * scale;
-      float f_x2 = (alpha_angle + angle_max) * scale;
-      out(floorf(f_x1), ceilf(f_x2));
-    } else if (angle_max >= PI_F - safe_threshold) {
-      float f_x1 = (alpha_angle + angle_min) * scale;
-      float f_x2 = (alpha_angle + 2 * PI_F - angle_min) * scale;
-      out(floorf(f_x1), ceilf(f_x2));
-    } else {
-      float f_x1 = (alpha_angle - angle_max) * scale;
-      float f_x2 = (alpha_angle - angle_min) * scale;
-      float f_x3 = (alpha_angle + angle_min) * scale;
-      float f_x4 = (alpha_angle + angle_max) * scale;
-
-      out(floorf(f_x1), ceilf(f_x2));
-      out(floorf(f_x3), ceilf(f_x4));
-    }
-
+    emit_annular_band<W>(cos_min, cos_max, ny, cos_phi, denom, alpha_angle, out);
     return true;
   }
 
@@ -429,7 +471,6 @@ struct DistortedRing {
   }
 
   template <int H> Bounds get_vertical_bounds() const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
     float a1 = center_phi - target_angle;
     float a2 = center_phi + target_angle;
     float phi_min = 0, phi_max = PI_F;
@@ -449,11 +490,7 @@ struct DistortedRing {
     float f_phi_min = std::max(0.0f, phi_min - margin);
     float f_phi_max = std::min(PI_F, phi_max + margin);
 
-    int y_min = std::max(
-        0, static_cast<int>(floorf((f_phi_min * (H_VIRT - 1)) / PI_F)));
-    int y_max = std::min(
-        H - 1, static_cast<int>(ceilf((f_phi_max * (H_VIRT - 1)) / PI_F)));
-    return {y_min, y_max};
+    return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
   }
 
   template <int W, int H, typename OutputIt>
@@ -470,36 +507,8 @@ struct DistortedRing {
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
-    float C_min = (cos_min_limit - ny * cos_phi) / denom;
-    float C_max = (cos_max_limit - ny * cos_phi) / denom;
-    float min_cos = std::max(-1.0f, C_min);
-    float max_cos = std::min(1.0f, C_max);
-
-    if (min_cos > max_cos)
-      return true; // Empty row
-
-    float angle_min = fast_acos(max_cos);
-    float angle_max = fast_acos(min_cos);
-
-    float pixel_width = 2.0f * PI_F / W;
-    float safe_threshold = pixel_width;
-
-    if (angle_min <= safe_threshold) {
-      float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
-      float f_x2 = (alpha_angle + angle_max) * W / (2 * PI_F);
-      out(floorf(f_x1), ceilf(f_x2));
-    } else if (angle_max >= PI_F - safe_threshold) {
-      float f_x1 = (alpha_angle + angle_min) * W / (2 * PI_F);
-      float f_x2 = (alpha_angle + 2 * PI_F - angle_min) * W / (2 * PI_F);
-      out(floorf(f_x1), ceilf(f_x2));
-    } else {
-      float f_x1 = (alpha_angle - angle_max) * W / (2 * PI_F);
-      float f_x2 = (alpha_angle - angle_min) * W / (2 * PI_F);
-      float f_x3 = (alpha_angle + angle_min) * W / (2 * PI_F);
-      float f_x4 = (alpha_angle + angle_max) * W / (2 * PI_F);
-      out(floorf(f_x1), ceilf(f_x2));
-      out(floorf(f_x3), ceilf(f_x4));
-    }
+    emit_annular_band<W>(cos_min_limit, cos_max_limit, ny, cos_phi, denom,
+                         alpha_angle, out);
     return true;
   }
 
@@ -1900,17 +1909,10 @@ struct Flower {
     float ang_max = thickness;
     float cos_limit = cosf(ang_max);
 
-    float C_min = (cos_limit - scan_ny * cos_phi) / denom;
-    float C_max = (1.0f - scan_ny * cos_phi) / denom;
-
-    float min_cos = std::max(-1.0f, C_min);
-    float max_cos = std::min(1.0f, C_max);
-
-    if (min_cos > max_cos)
+    float angle_min, angle_max;
+    if (!annular_band_angles(cos_limit, 1.0f, scan_ny, cos_phi, denom, angle_min,
+                             angle_max))
       return true;
-
-    float angle_min = fast_acos(max_cos);
-    float angle_max = fast_acos(min_cos);
 
     float f_x1 = (scan_alpha - angle_max) * W / (2 * PI_F);
     float f_x2 = (scan_alpha - angle_min) * W / (2 * PI_F);
@@ -2034,12 +2036,7 @@ struct Line {
   }
 
   template <int H> Bounds get_vertical_bounds() const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    int y_min =
-        std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
-    int y_max = std::min(
-        H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
-    return {y_min, y_max};
+    return phi_bounds_to_rows<H>(phi_min, phi_max);
   }
 
   DistanceResult distance(const Vector &p) const {
