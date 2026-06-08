@@ -108,6 +108,53 @@ inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
 }
 
 /**
+ * @brief Emit one output face per source-vertex orbit (the shared dual/ambo/
+ *        expand/snub scaffold).
+ *
+ * Walks every half-edge once, and for each not-yet-visited origin vertex builds
+ * its orbit via vertex_orbit<DIR>, mapping each visited half-edge to an output
+ * vertex index through `value_of(idx)`, then emits the collected indices as one
+ * face (skipping degenerate <3-gons). `reverse` flips the winding for the
+ * pair->next ('N') orbits whose natural order is opposite the desired front.
+ *
+ * @param visited_verts caller-allocated bool[V] scratch (filled here).
+ * @param orbit_buf      caller-allocated uint16_t[I] scratch.
+ */
+template <char DIR, typename ValueFn>
+inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
+                                    PolyMesh &out_mesh, bool *visited_verts,
+                                    uint16_t *orbit_buf, size_t V, size_t I,
+                                    bool reverse, ValueFn &&value_of) {
+  std::fill_n(visited_verts, V, false);
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    uint16_t he_start_idx = static_cast<uint16_t>(i);
+    const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
+
+    uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
+    if (visited_verts[origin_idx])
+      continue;
+    visited_verts[origin_idx] = true;
+
+    int orbit_count = 0;
+    vertex_orbit<DIR>(he_mesh, he_start_idx, [&](uint16_t idx) {
+      HS_CHECK(orbit_count < (int)I);
+      orbit_buf[orbit_count++] = static_cast<uint16_t>(value_of(idx));
+    });
+
+    if (orbit_count >= 3) {
+      out_mesh.face_counts.push_back(orbit_count);
+      if (reverse) {
+        for (int k = orbit_count - 1; k >= 0; --k)
+          out_mesh.faces.push_back(orbit_buf[k]);
+      } else {
+        for (int k = 0; k < orbit_count; ++k)
+          out_mesh.faces.push_back(orbit_buf[k]);
+      }
+    }
+  }
+}
+
+/**
  * @brief Transforms a MeshState into a target MeshState using the provided
  * transformers.
  * @param local_state The source mesh state (centered around origin).
@@ -209,34 +256,16 @@ FLASHMEM static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
 
     bool *visited_verts = static_cast<bool *>(
         target.allocate(V * sizeof(bool), alignof(bool)));
-    std::fill_n(visited_verts, V, false);
 
     // Per-orbit scratch buffer sized to the absolute upper bound on valence.
     uint16_t *orbit_buf = static_cast<uint16_t *>(
         target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
 
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_start_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-
-      uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
-      if (visited_verts[origin_idx])
-        continue;
-      visited_verts[origin_idx] = true;
-
-      int orbit_count = 0;
-      vertex_orbit<'P'>(he_mesh, he_start_idx, [&](uint16_t idx) {
-        HS_CHECK(orbit_count < (int)I);
-        orbit_buf[orbit_count++] = he_mesh.half_edges[idx].face;
-      });
-
-      if (orbit_count >= 3) {
-        out_mesh.face_counts.push_back(orbit_count);
-        for (int k = 0; k < orbit_count; ++k) {
-          out_mesh.faces.push_back(orbit_buf[k]);
-        }
-      }
-    }
+    // One face per source vertex: its orbit's incident faces become the dual
+    // face's vertices.
+    emit_vertex_orbit_faces<'P'>(
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
+        [&](uint16_t idx) { return he_mesh.half_edges[idx].face; });
   }
   return out_mesh;
 }
@@ -364,29 +393,9 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
     }
 
     // 5. Build Vertex Orbits (New Faces)
-    std::fill_n(visited_verts, V, false);
-
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_start_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-
-      uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
-      if (visited_verts[origin_idx])
-        continue;
-      visited_verts[origin_idx] = true;
-
-      int orbit_count = 0;
-      vertex_orbit<'P'>(he_mesh, he_start_idx, [&](uint16_t idx) {
-        HS_CHECK(orbit_count < (int)I);
-        orbit_buf[orbit_count++] = edge_to_vert[idx];
-      });
-
-      if (orbit_count >= 3) {
-        out_mesh.face_counts.push_back(orbit_count);
-        for (int k = 0; k < orbit_count; ++k)
-          out_mesh.faces.push_back(orbit_buf[k]);
-      }
-    }
+    emit_vertex_orbit_faces<'P'>(
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
+        [&](uint16_t idx) { return edge_to_vert[idx]; });
   }
   normalize(out_mesh);
   return out_mesh;
@@ -492,35 +501,16 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
       }
     }
 
-    std::fill_n(visited_verts, V, false);
-
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_start_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-
-      uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
-      if (visited_verts[origin_idx])
-        continue;
-      visited_verts[origin_idx] = true;
-
-      int orbit_count = 0;
-      vertex_orbit<'P'>(he_mesh, he_start_idx, [&](uint16_t idx) {
-        const HalfEdge &curr_he = he_mesh.half_edges[idx];
-        uint16_t vi = he_mesh.half_edges[curr_he.prev].vertex;
-        uint16_t vj = curr_he.vertex;
-        uint16_t k1 = std::min(vi, vj);
-        std::pair<int16_t, int16_t> new_verts = edge_to_vert[idx];
-        HS_CHECK(orbit_count < (int)I);
-        orbit_buf[orbit_count++] =
-            (vi == k1) ? new_verts.first : new_verts.second;
-      });
-
-      if (orbit_count >= 3) {
-        out_mesh.face_counts.push_back(orbit_count);
-        for (int k = 0; k < orbit_count; ++k)
-          out_mesh.faces.push_back(orbit_buf[k]);
-      }
-    }
+    emit_vertex_orbit_faces<'P'>(
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
+        [&](uint16_t idx) {
+          const HalfEdge &curr_he = he_mesh.half_edges[idx];
+          uint16_t vi = he_mesh.half_edges[curr_he.prev].vertex;
+          uint16_t vj = curr_he.vertex;
+          uint16_t k1 = std::min(vi, vj);
+          std::pair<int16_t, int16_t> new_verts = edge_to_vert[idx];
+          return (vi == k1) ? new_verts.first : new_verts.second;
+        });
   }
   normalize(out_mesh);
   return out_mesh;
@@ -583,28 +573,11 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
       }
     }
 
-    std::fill_n(visited_verts, V, false);
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_start_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-
-      uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
-      if (visited_verts[origin_idx])
-        continue;
-      visited_verts[origin_idx] = true;
-
-      int orbit_count = 0;
-      vertex_orbit<'N'>(he_mesh, he_start_idx, [&](uint16_t idx) {
-        HS_CHECK(orbit_count < (int)I);
-        orbit_buf[orbit_count++] = he_to_vert_idx[he_mesh.half_edges[idx].prev];
-      });
-
-      if (orbit_count >= 3) {
-        out_mesh.face_counts.push_back(orbit_count);
-        for (int k = orbit_count - 1; k >= 0; --k)
-          out_mesh.faces.push_back(orbit_buf[k]);
-      }
-    }
+    emit_vertex_orbit_faces<'N'>(
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
+        [&](uint16_t idx) {
+          return he_to_vert_idx[he_mesh.half_edges[idx].prev];
+        });
 
     std::fill_n(visited_edges, I, false);
 
@@ -826,10 +799,21 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
         movements[i] = force;
       }
 
+      float max_move_sq = 0.0f;
       for (size_t i = 0; i < V; ++i) {
+        max_move_sq = std::max(max_move_sq, dot(movements[i], movements[i]));
         out_mesh.vertices[i] =
             (out_mesh.vertices[i] + movements[i]).normalized();
       }
+
+      // Converged: the largest per-vertex move this pass is below ~1e-4 rad
+      // (sub-pixel on the unit sphere), so the remaining fixed iterations would
+      // be visual no-ops — stop early. The guard only fires once the spring
+      // system has settled, so the result is unchanged within tolerance vs. the
+      // old fixed-count loop (and a still-moving mesh runs the full budget).
+      constexpr float RELAX_CONVERGE_EPS_SQ = 1e-8f;
+      if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
+        break;
     }
   }
   return out_mesh;
@@ -906,28 +890,11 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
 
     bool *visited_verts = static_cast<bool *>(
         temp.allocate(V * sizeof(bool), alignof(bool)));
-    std::fill_n(visited_verts, V, false);
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_start_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-
-      uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
-      if (visited_verts[origin_idx])
-        continue;
-      visited_verts[origin_idx] = true;
-
-      int orbit_count = 0;
-      vertex_orbit<'N'>(he_mesh, he_start_idx, [&](uint16_t idx) {
-        HS_CHECK(orbit_count < (int)I);
-        orbit_buf[orbit_count++] = he_to_vert_idx[he_mesh.half_edges[idx].prev];
-      });
-
-      if (orbit_count >= 3) {
-        out_mesh.face_counts.push_back(orbit_count);
-        for (int k = orbit_count - 1; k >= 0; --k)
-          out_mesh.faces.push_back(orbit_buf[k]);
-      }
-    }
+    emit_vertex_orbit_faces<'N'>(
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
+        [&](uint16_t idx) {
+          return he_to_vert_idx[he_mesh.half_edges[idx].prev];
+        });
 
     bool *visited_edges = static_cast<bool *>(
         temp.allocate(I * sizeof(bool), alignof(bool)));
