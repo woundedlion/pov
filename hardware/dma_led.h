@@ -39,7 +39,10 @@
  * HD107S frame layout:
  *   Start frame : 4 bytes of 0x00
  *   Per pixel   : [0xFF] [B] [G] [R]   (brightness byte fixed at max)
- *   End frame   : ceil((N+1)/2) bytes of 0x00
+ *   End frame   : (N/2)+1 bytes of 0x00 — a deliberately generous trailer.
+ *                 The spec only needs ceil(N/2) extra *clocks* to flush data
+ *                 through the chain, i.e. ceil(N/16) bytes; we send ~8× that.
+ *                 Surplus zeros are harmless and give timing margin.
  *
  * Color correction pipeline (all in linear 16-bit space):
  *   1. sRGB 8-bit → linear 16-bit   (srgb_to_linear_lut, PROGMEM)
@@ -51,7 +54,9 @@
 template <int N>
 class HD107SFrame {
 public:
-  /// End-frame size per SK9822/HD107S convention.
+  /// Generous end-frame trailer: spec needs ceil(N/2) clocks (= ceil(N/16)
+  /// bytes) to flush the chain; (N/2)+1 bytes is ~8× that. Extra zeros are
+  /// harmless and give timing margin.
   static constexpr int END_FRAME_BYTES = (N / 2) + 1;
   /// Single-frame buffer size in bytes.
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
