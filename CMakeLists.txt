@@ -83,11 +83,13 @@ if(EMSCRIPTEN)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots")
 
-    # Record the engine commit this WASM module was built from, alongside it.
-    # The daydream deploy gate reads this to pin its engine checkout to the exact
-    # source the committed module corresponds to, instead of testing a decoupled
-    # engine HEAD. Captured at install time (immediately after the build) via
-    # git rev-parse; committed together with the .wasm it describes.
+    # Record the engine commit this WASM module was built from, plus the module's
+    # own content hash, alongside it. The daydream deploy gate reads the SHA to pin
+    # its engine checkout to the exact source the committed module corresponds to
+    # (instead of a decoupled engine HEAD), and asserts the committed .wasm matches
+    # the recorded hash so a stale or swapped binary can't ride a green gate. Both
+    # are captured at install time (immediately after the build) from the same
+    # build event, and committed together with the .wasm they describe.
     install(CODE "
       execute_process(
         COMMAND git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" rev-parse HEAD
@@ -98,8 +100,14 @@ if(EMSCRIPTEN)
         file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\" \"\${HS_ENGINE_SHA}\\n\")
         message(STATUS \"Wrote engine provenance ${TARGET_NAME}.sha: \${HS_ENGINE_SHA}\")
       else()
-        message(WARNING \"git rev-parse failed; ${TARGET_NAME}.sha not written (deploy gate will fall back to engine HEAD)\")
+        message(WARNING \"git rev-parse failed; ${TARGET_NAME}.sha not written (deploy gate will fail without it)\")
       endif()
+
+      # sha256sum -c format ('<hash>  <filename>'), checked from the daydream root.
+      file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
+      file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
+           \"\${HS_WASM_SHA256}  ${TARGET_NAME}.wasm\\n\")
+      message(STATUS \"Wrote artifact hash ${TARGET_NAME}.wasm.sha256: \${HS_WASM_SHA256}\")
     ")
   else()
     message(STATUS
