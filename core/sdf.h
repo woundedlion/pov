@@ -193,13 +193,13 @@ struct Ring {
     float phi_min = 0, phi_max = PI_F;
 
     if (a1 > 0) {
-      float p1 = a1;
+      float p1 = clamp_phi(a1);
       float p2 = clamp_phi(a2);
       phi_min = std::min(p1, p2);
     }
     if (a2 < PI_F) {
       float p1 = clamp_phi(a1);
-      float p2 = a2;
+      float p2 = clamp_phi(a2);
       phi_max = std::max(p1, p2);
     }
 

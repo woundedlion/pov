@@ -21,10 +21,17 @@
  *   - Pixel::ChromaticShift::plot — channel-split fan-out
  *   - Pixel::Feedback — Style binding accessor, set_enabled
  *
- * SKIPPED (require a live Canvas/Effect render — listed for later extension):
- *   - Pipeline::plot / flush end-to-end routing (needs a Canvas bound to an
- *     Effect; constructing Canvas spins on buffer_free()).
- *   - Pixel::Feedback::flush warp-field math (operates on cv.prev / arenas).
+ * End-to-end (live Canvas via the test_canvas/test_scan advance_display pattern,
+ * which dissolves the buffer_free() ctor spin):
+ *   - Pipeline 2D sink plot — int + float overloads, alpha blend, x-wrap, clip
+ *   - Pipeline 3D sink plot — vector_to_pixel routing to the Canvas
+ *   - World filter routing — World::Replicate fans out through the 3D->2D sink
+ *   - 2D->3D mismatch — a 2D coord into a 3D-headed pipeline round-trips
+ *     pixel_to_vector -> vector_to_pixel
+ *   - Screen filter routing — Screen::AntiAlias forwards to the sink
+ *   - Pixel::Feedback::flush — warp-field flush blends the (faded) prev frame
+ *
+ * STILL SKIPPED (covered elsewhere or need separate scaffolding):
  *   - World filters that call tween(Orientation, ...) — need a populated
  *     Orientation and exercise geometry, covered by test_geometry.
  *   - World::Trails encode/decode + ring buffer (private; needs init_storage
@@ -33,6 +40,7 @@
 #pragma once
 
 #include "core/filter.h"
+#include "core/canvas.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -369,6 +377,195 @@ inline void test_feedback_plot_is_passthrough() {
 }
 
 // ============================================================================
+// End-to-end pipeline routing through a live Canvas
+//
+// The test_canvas/test_scan pattern: a Canvas spins in its ctor while
+// !buffer_free(), so every drawn frame MUST advance_display() before the next
+// Canvas is constructed. With that, the full Pipeline::plot/flush routing
+// (which the per-call helper tests above cannot reach) is exercisable.
+// ============================================================================
+
+// Minimal concrete Effect for binding a live Canvas.
+struct PipeFx : public Effect {
+  PipeFx(int W, int H) : Effect(W, H) {}
+  void draw_frame() override {}
+  bool show_bg() const override { return false; }
+};
+
+inline bool px_black(const Pixel &p) {
+  return p.r == 0 && p.g == 0 && p.b == 0;
+}
+
+inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
+  return p.r == r && p.g == g && p.b == b;
+}
+
+inline size_t count_lit(const PipeFx &fx) {
+  size_t n = 0;
+  for (int y = 0; y < fx.height(); ++y)
+    for (int x = 0; x < fx.width(); ++x)
+      if (!px_black(fx.get_pixel(x, y))) ++n;
+  return n;
+}
+
+// Bare 2D sink: int + float overloads, exact (alpha=1) write, x-wrap, clip.
+inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
+  constexpr int W = 16, H = 8;
+  PipeFx fx(W, H);
+  Pipeline<W, H> pipe;
+  {
+    Canvas c(fx);
+    // Integer overload, full alpha over a black buffer -> exact source colour.
+    pipe.plot(c, 4, 3, Pixel(100, 200, 300), 0.0f, 1.0f);
+    // x = W+2 is in the sink's [-W, 2W) contract window and wraps to column 2.
+    pipe.plot(c, W + 2, 5, Pixel(10, 20, 30), 0.0f, 1.0f);
+    // Float overload rounds to the nearest pixel.
+    pipe.plot(c, 7.4f, 1.6f, Pixel(1, 2, 3), 0.0f, 1.0f);
+  }
+  fx.advance_display();
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(4, 3), 100, 200, 300));
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 5), 10, 20, 30)); // wrapped
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(7, 2), 1, 2, 3));    // rounded
+
+  // A second frame: a plot outside the clip band is dropped.
+  PipeFx fx2(W, H);
+  fx2.set_clip(2, 5, 0, W); // rows [2,5)
+  fx2.clip.margin = 0;
+  {
+    Canvas c(fx2);
+    pipe.plot(c, 8, 6, Pixel(500, 0, 0), 0.0f, 1.0f); // row 6 outside band
+    pipe.plot(c, 8, 3, Pixel(0, 500, 0), 0.0f, 1.0f); // row 3 inside band
+  }
+  fx2.advance_display();
+  HS_EXPECT_TRUE(px_black(fx2.get_pixel(8, 6)));
+  HS_EXPECT_TRUE(pix_eq(fx2.get_pixel(8, 3), 0, 500, 0));
+}
+
+// 3D sink overload: a unit vector is routed via vector_to_pixel and written.
+inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
+  constexpr int W = 32, H = 16;
+  PipeFx fx(W, H);
+  Pipeline<W, H> pipe;
+  Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
+  {
+    Canvas c(fx);
+    pipe.plot(c, v, Pixel(40000, 20000, 10000), 0.0f, 1.0f);
+  }
+  fx.advance_display();
+
+  // Exactly one pixel lit, carrying the source colour, at the coordinate
+  // vector_to_pixel predicts.
+  HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+  PixelCoords pc = vector_to_pixel<W, H>(v);
+  int ex = fast_wrap(static_cast<int>(std::round(pc.x)), W);
+  int ey = static_cast<int>(std::round(pc.y));
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(ex, ey), 40000, 20000, 10000));
+}
+
+// World filter (3D) head fans out through the 3D->2D sink conversion.
+inline void test_pipeline_world_replicate_fans_out() {
+  constexpr int W = 32, H = 16;
+  PipeFx fx(W, H);
+  // Replicate(2): original + one copy rotated 180 deg about Y (same latitude,
+  // longitude + W/2) -> two distinct columns -> two lit pixels.
+  Pipeline<W, H, Filter::World::Replicate<W>> pipe(Filter::World::Replicate<W>(2));
+  Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
+  {
+    Canvas c(fx);
+    pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
+  }
+  fx.advance_display();
+  HS_EXPECT_EQ(count_lit(fx), (size_t)2);
+}
+
+// 2D coordinate into a 3D-headed pipeline: the float-plot mismatch branch maps
+// pixel_to_vector, the identity filter passes it, and the sink maps it back.
+inline void test_pipeline_2d_into_3d_head_roundtrips() {
+  constexpr int W = 32, H = 16;
+  PipeFx fx(W, H);
+  // Replicate(1) clamps to a single emission -> identity pass-through.
+  Pipeline<W, H, Filter::World::Replicate<W>> pipe(Filter::World::Replicate<W>(1));
+  const int px = 16, py = 8; // interior, away from poles/seam
+  {
+    Canvas c(fx);
+    pipe.plot(c, static_cast<float>(px), static_cast<float>(py),
+              Pixel(0, 60000, 0), 0.0f, 1.0f);
+  }
+  fx.advance_display();
+
+  // One pixel lit, within a pixel of the input after the trig round-trip.
+  HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+  bool near_input = false;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      if (!px_black(fx.get_pixel(x, y)))
+        near_input = (std::abs(x - px) <= 1 && std::abs(y - py) <= 1);
+  HS_EXPECT_TRUE(near_input);
+}
+
+// Screen filter (2D) head forwards to the sink. An integer coordinate collapses
+// AntiAlias to a single tap, so the routed result is one exact pixel.
+inline void test_pipeline_screen_antialias_routes_to_sink() {
+  constexpr int W = 32, H = 16;
+  PipeFx fx(W, H);
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipe;
+  {
+    Canvas c(fx);
+    pipe.plot(c, 10.0f, 5.0f, Pixel(50000, 0, 25000), 0.0f, 1.0f);
+  }
+  fx.advance_display();
+  HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 50000, 0, 25000));
+}
+
+// Pixel::Feedback::flush warp-field path. A Smoke style with no bound
+// NoiseParams makes noise_warp an identity map, so the flush blends the previous
+// frame back at the same location, faded by style.fade — deterministic.
+inline void test_feedback_flush_blends_prev_frame() {
+  constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
+  PipeFx fx(W, H);
+  ::Feedback::Style style = ::Feedback::Style::Smoke(); // noise stays nullptr
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  // Frame 1: a bright horizontal band becomes the "previous" frame.
+  {
+    Canvas c(fx);
+    for (int y = 6; y <= 9; ++y)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(40000, 40000, 40000);
+  }
+  fx.advance_display();
+
+  // Frame 2: empty buffer; flush warps+blends the prev band into it.
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  // Interior band row carried over and was faded (fade=0.9 -> ~36000), not the
+  // original brightness. A row far from the band stays black (identity warp,
+  // no spill that far).
+  const Pixel &band = fx.get_pixel(W / 2, 8);
+  HS_EXPECT_FALSE(px_black(band));
+  HS_EXPECT_GT((int)band.r, 30000);
+  HS_EXPECT_LT((int)band.r, 40000);
+  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 0)));
+
+  // Disabled feedback short-circuits flush: a fresh frame stays black.
+  pipe.get<Filter::Pixel::Feedback<W, H>>().set_enabled(false);
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 8)));
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -393,6 +590,13 @@ inline int run_filter_tests() {
 
   test_feedback_style_binding();
   test_feedback_plot_is_passthrough();
+
+  test_pipeline_sink_2d_plot_blends_wraps_clips();
+  test_pipeline_sink_3d_plot_routes_to_canvas();
+  test_pipeline_world_replicate_fans_out();
+  test_pipeline_2d_into_3d_head_roundtrips();
+  test_pipeline_screen_antialias_routes_to_sink();
+  test_feedback_flush_blends_prev_frame();
 
   return hs_test::end_module(scope);
 }
