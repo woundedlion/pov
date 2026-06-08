@@ -162,17 +162,21 @@ inline void test_update_parameter_by_name() {
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
   fx.add_bool("Flag", &fx.flag, false);
 
-  fx.updateParameter("Speed", 7.25f);
+  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.25f));
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
   // Bool target uses a 0.5 threshold.
-  fx.updateParameter("Flag", 0.2f);
+  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.2f));
   HS_EXPECT_FALSE(fx.flag);
-  fx.updateParameter("Flag", 0.8f);
+  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.8f));
   HS_EXPECT_TRUE(fx.flag);
 
-  // Unknown name is a safe no-op.
-  fx.updateParameter("Nope", 99.0f);
+  // Unknown name is a safe no-op and now reports false to the caller.
+  HS_EXPECT_FALSE(fx.updateParameter("Nope", 99.0f));
+  HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
+
+  // Non-finite values are rejected and also report false.
+  HS_EXPECT_FALSE(fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()));
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 

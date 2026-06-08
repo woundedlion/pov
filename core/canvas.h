@@ -246,20 +246,25 @@ public:
    * @brief Updates a parameter's value by name.
    * @param name The name of the parameter.
    * @param value The new value (mapped to bool if necessary).
+   * @return true if the value was applied; false if the name is unknown (a
+   *         stale/typo'd UI string) or the value was rejected as non-finite.
+   *         The WASM bridge propagates this so the frontend can detect a
+   *         no-op rather than silently dropping the write.
    */
-  void updateParameter(const char *name, float value) {
+  bool updateParameter(const char *name, float value) {
     auto *def = parameters.find(name);
     if (def == nullptr)
-      return;
+      return false;
     // This is the (untrusted) JS boundary — the only caller is WASM
     // setParameter. Reject non-finite input outright (a NaN/Inf would silently
     // poison render math), and clamp floats to the registered [min,max] the GUI
     // advertises. Bools are not range-clamped (set() thresholds them at 0.5).
     if (!std::isfinite(value))
-      return;
+      return false;
     if (!def->is_bool())
       value = hs::clamp(value, def->min, def->max);
     def->set(value);
+    return true;
   }
 
   /**

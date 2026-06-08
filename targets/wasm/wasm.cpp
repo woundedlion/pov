@@ -163,7 +163,10 @@ public:
     return true;
   }
 
-  void setEffect(std::string name) {
+  // Returns true iff an effect was actually instantiated. Returns false for an
+  // unknown/stale effect name or an unsupported resolution, so the frontend can
+  // detect a no-op instead of believing the switch took.
+  bool setEffect(std::string name) {
     // hs::log is printf-style: pass name as an arg, never as the format string
     // (an effect name containing '%' would otherwise read nonexistent varargs).
     hs::log("WASM: setEffect called with %s", name.c_str());
@@ -185,17 +188,21 @@ public:
     if (!created) {
       // Unreachable in practice: setResolution() only admits supported sizes.
       hs::log("WASM: Unsupported resolution for factory!");
-      return;
+      return false;
     }
-    if (currentEffect) {
-      currentEffect->init();
-      // Log init stack HWM, then repaint to isolate render HWM
-      char hwm_buf[80];
-      snprintf(hwm_buf, sizeof(hwm_buf), "WASM: init stack HWM = %u bytes",
-               (unsigned)stack_high_water_mark());
-      hs::log(hwm_buf);
-      stack_paint_canary();
+    if (!currentEffect) {
+      // create_effect() returned null: the name was unknown (typo'd/stale UI
+      // string). Already logged there; report the no-op to JS.
+      return false;
     }
+    currentEffect->init();
+    // Log init stack HWM, then repaint to isolate render HWM
+    char hwm_buf[80];
+    snprintf(hwm_buf, sizeof(hwm_buf), "WASM: init stack HWM = %u bytes",
+             (unsigned)stack_high_water_mark());
+    hs::log(hwm_buf);
+    stack_paint_canary();
+    return true;
   }
 
   bool setClip(int y0, int y1, int x0, int x1) {
@@ -261,10 +268,10 @@ public:
 
   int getBufferLength() { return pixel_width * pixel_height * 3; }
 
-  void setParameter(std::string name, float value) {
-    if (currentEffect) {
-      currentEffect->updateParameter(name.c_str(), value);
-    }
+  bool setParameter(std::string name, float value) {
+    if (!currentEffect)
+      return false;
+    return currentEffect->updateParameter(name.c_str(), value);
   }
 
   void setAnimationsPaused(bool paused) {
@@ -418,12 +425,32 @@ struct MeshOpsWrapper {
 
     // Vertices: Float32Array [x, y, z, ...]
     std::vector<float> vData = convertJSArrayToNumberVector<float>(vertices);
+    // This is the untrusted JS mesh-editor boundary. A vertex array whose length
+    // is not a multiple of 3 would over-read vData[i+1]/[i+2] past the end;
+    // reject it (return null, mirroring setClip) rather than trap, so a bad
+    // editor call doesn't abort the whole WASM module.
+    if (vData.size() % 3 != 0) {
+      hs::log("WASM: fromData vertices length %zu not a multiple of 3 — ignored",
+              vData.size());
+      return nullptr;
+    }
     for (size_t i = 0; i < vData.size(); i += 3) {
       m.vertices.emplace_back(vData[i], vData[i + 1], vData[i + 2]);
     }
+    const int num_verts = static_cast<int>(m.vertices.size());
 
     // Faces: Flat Int32Array with -1 delimiter
     std::vector<int> fData = convertJSArrayToNumberVector<int>(faces);
+    // Every entry must be the -1 delimiter or a vertex index in [0, num_verts).
+    // An out-of-range index would later dereference a nonexistent vertex; reject
+    // the whole mesh up front.
+    for (int idx : fData) {
+      if (idx < -1 || idx >= num_verts) {
+        hs::log("WASM: fromData face index %d out of range [0,%d) — ignored",
+                idx, num_verts);
+        return nullptr;
+      }
+    }
 
     // First pass: count faces to allocate face_counts
     int num_faces = 0;
