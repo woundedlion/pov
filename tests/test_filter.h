@@ -566,6 +566,121 @@ inline void test_feedback_flush_blends_prev_frame() {
 }
 
 // ============================================================================
+// World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
+//
+// Trails are history-bearing filters: plot() encodes the world position into a
+// quantized int16 ring entry, flush() ages, evicts, decodes and re-emits. The
+// quantization round-trip and ring mechanics had no direct coverage.
+// ============================================================================
+
+inline void test_world_trails_int16_quantization_roundtrip() {
+  constexpr int W = 32, Cap = 8;
+  static uint8_t buf[Cap * 16];
+  Arena arena(buf, sizeof(buf));
+  Filter::World::Trails<W, Cap> trails(/*lifetime=*/10);
+  trails.init_storage(arena);
+
+  const Vector v0 = Vector(0.3f, -0.6f, 0.74f).normalized();
+
+  // plot() passes the current frame through and (age=0 -> ttl=10>0) stores it.
+  int passthru = 0;
+  trails.plot(v0, Pixel(100, 100, 100), 0.0f, 1.0f,
+              [&](const Vector &, const Pixel &, float, float) { ++passthru; });
+  HS_EXPECT_EQ(passthru, 1);
+  HS_EXPECT_EQ(trails.size(), (size_t)1);
+
+  // flush() ages (10->9, still alive), decodes the int16 entry and re-emits it.
+  Vector decoded(0, 0, 0);
+  int emitted = 0;
+  auto trail = [](const Vector &, float) {
+    return Color4(Pixel(60000, 60000, 60000), 1.0f);
+  };
+  trails.flush(WorldTrailFn(trail), 1.0f,
+               [&](const Vector &v, const Pixel &, float, float) {
+                 decoded = v;
+                 ++emitted;
+               });
+  HS_EXPECT_EQ(emitted, 1);
+  // Quantization is v*32767 truncated to int16 then *(1/32767): |err| < 1/32767.
+  HS_EXPECT_NEAR(decoded.x, v0.x, 1e-4f);
+  HS_EXPECT_NEAR(decoded.y, v0.y, 1e-4f);
+  HS_EXPECT_NEAR(decoded.z, v0.z, 1e-4f);
+}
+
+inline void test_world_trails_ring_evicts_oldest() {
+  constexpr int W = 32, Cap = 4;
+  static uint8_t buf[Cap * 16];
+  Arena arena(buf, sizeof(buf));
+  Filter::World::Trails<W, Cap> trails(/*lifetime=*/100);
+  trails.init_storage(arena);
+
+  auto noop = [](const Vector &, const Pixel &, float, float) {};
+  for (int i = 0; i < Cap + 3; ++i) {
+    Vector v = Vector(static_cast<float>(i + 1), 1.0f, 0.5f).normalized();
+    trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
+  }
+  // Capacity is a hard ring bound; the oldest entries were dropped on overflow.
+  HS_EXPECT_EQ(trails.size(), (size_t)Cap);
+}
+
+inline void test_world_trails_ttl_expiry() {
+  constexpr int W = 32, Cap = 4;
+  static uint8_t buf[Cap * 16];
+  Arena arena(buf, sizeof(buf));
+  Filter::World::Trails<W, Cap> trails(/*lifetime=*/2);
+  trails.init_storage(arena);
+
+  auto noop = [](const Vector &, const Pixel &, float, float) {};
+  trails.plot(Vector(0, 1, 0), Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl = 2
+  HS_EXPECT_EQ(trails.size(), (size_t)1);
+
+  auto trail = [](const Vector &, float) {
+    return Color4(Pixel(1, 1, 1), 1.0f);
+  };
+  auto sink = [](const Vector &, const Pixel &, float, float) {};
+  trails.flush(WorldTrailFn(trail), 1.0f, sink); // ttl 2 -> 1, alive
+  HS_EXPECT_EQ(trails.size(), (size_t)1);
+  trails.flush(WorldTrailFn(trail), 1.0f, sink); // ttl 1 -> 0, popped
+  HS_EXPECT_EQ(trails.size(), (size_t)0);
+}
+
+// Screen::Trails stores float DecayPixels (no int16 quantization — that path is
+// World::Trails-specific); exercise its store / emit / decay lifecycle.
+inline void test_screen_trails_store_emit_decay() {
+  constexpr int W = 32, MAXP = 16;
+  static uint8_t buf[MAXP * 32];
+  Arena arena(buf, sizeof(buf));
+  Filter::Screen::Trails<W, MAXP> trails(/*lifetime=*/3);
+  trails.init_storage(arena);
+
+  PipeFx fx(W, 8); // flush takes a Canvas& (unused by Screen::Trails)
+  Canvas c(fx);
+
+  // age=1 (>0): stored, NOT passed through (pass-through is age<=0 only).
+  int passthru = 0;
+  trails.plot(10.0f, 4.0f, Pixel(5, 6, 7), 1.0f, 1.0f,
+              [&](float, float, const Pixel &, float, float) { ++passthru; });
+  HS_EXPECT_EQ(passthru, 0);
+
+  auto trail = [](float, float, float) {
+    return Color4(Pixel(9, 9, 9), 1.0f);
+  };
+  // Stored ttl = lifetime - age = 2. Each flush emits then decays (--ttl).
+  int emitted = 0;
+  auto counting_sink = [&](float, float, const Pixel &, float, float) {
+    ++emitted;
+  };
+  trails.flush(c, ScreenTrailFn(trail), 1.0f, counting_sink); // emit, ttl 2->1
+  HS_EXPECT_EQ(emitted, 1);
+  emitted = 0;
+  trails.flush(c, ScreenTrailFn(trail), 1.0f, counting_sink); // emit, ttl 1->0
+  HS_EXPECT_EQ(emitted, 1);
+  emitted = 0;
+  trails.flush(c, ScreenTrailFn(trail), 1.0f, counting_sink); // decayed out
+  HS_EXPECT_EQ(emitted, 0);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -597,6 +712,11 @@ inline int run_filter_tests() {
   test_pipeline_2d_into_3d_head_roundtrips();
   test_pipeline_screen_antialias_routes_to_sink();
   test_feedback_flush_blends_prev_frame();
+
+  test_world_trails_int16_quantization_roundtrip();
+  test_world_trails_ring_evicts_oldest();
+  test_world_trails_ttl_expiry();
+  test_screen_trails_store_emit_decay();
 
   return hs_test::end_module(scope);
 }

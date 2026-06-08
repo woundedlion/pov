@@ -532,6 +532,54 @@ inline void test_persist_scratch_offset_restored() {
   HS_EXPECT_EQ(scratch.get_offset(), scratch_before);
 }
 
+// Compaction: the documented Persist use case (HankinSolids' shape rebuild) is
+// not a bare reset — it evacuates survivors, resets persistent, RE-LAYS the
+// long-lived data more tightly, then restores. The survivor must come back
+// intact at its NEW (relocated) address, sitting after the compacted data
+// without clobbering it.
+inline void test_persist_compaction_relocates_survivor() {
+  Arena persistent(test_buf_a, sizeof(test_buf_a));
+  Arena scratch(test_buf_b, sizeof(test_buf_b));
+
+  // Pre-compaction: a large junk block FIRST pushes the survivor to a high base.
+  ArenaVector<int> junk;
+  junk.bind(persistent, 256);
+  for (int i = 0; i < 256; ++i) junk.push_back(i);
+
+  TestPayload live;
+  live.data.bind(persistent, 3);
+  live.data.push_back(100);
+  live.data.push_back(200);
+  live.data.push_back(300);
+  live.summary = 42;
+  const int *base_before = &live.data[0];
+
+  ArenaVector<int> compacted_other; // outlives the Persist block
+  {
+    Persist<TestPayload> p(live, scratch, persistent);
+    persistent.reset();   // free junk + survivor
+    live = TestPayload();
+    // Compaction: place the survivors of the rebuild first, far smaller than
+    // the old junk, so the restored survivor lands at a different address.
+    compacted_other.bind(persistent, 2);
+    compacted_other.push_back(7);
+    compacted_other.push_back(8);
+  } // ~Persist clones the backup into persistent AFTER compacted_other
+
+  // Survivor restored intact...
+  HS_EXPECT_EQ(live.data.size(), (size_t)3);
+  HS_EXPECT_EQ(live.data[0], 100);
+  HS_EXPECT_EQ(live.data[1], 200);
+  HS_EXPECT_EQ(live.data[2], 300);
+  HS_EXPECT_EQ(live.summary, 42);
+  // ...relocated (no longer sitting after the now-freed junk)...
+  HS_EXPECT_TRUE(&live.data[0] != base_before);
+  // ...and the compacted data it was restored after is untouched.
+  HS_EXPECT_EQ(compacted_other.size(), (size_t)2);
+  HS_EXPECT_EQ(compacted_other[0], 7);
+  HS_EXPECT_EQ(compacted_other[1], 8);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -581,6 +629,7 @@ inline int run_memory_tests() {
 
   test_persist_restores_target();
   test_persist_scratch_offset_restored();
+  test_persist_compaction_relocates_survivor();
 
   return hs_test::end_module(scope);
 }
