@@ -36,6 +36,7 @@ public:
     for (int i = 0; i < MAX_RINGS; ++i) {
       rings[i].active = false;
     }
+    next_hue = 0.0f; // Deterministic hue start on every (re)init.
 
     // Initialize Timeline
     init_timeline();
@@ -95,7 +96,10 @@ private:
     }
   }
 
-  static float next_hue;
+  // Per-instance hue cursor (was a class static, which leaked hue state across
+  // effect re-instantiations and broke the fixed-seed determinism the segmented
+  // driver relies on). Reset in init().
+  float next_hue = 0.0f;
 
   void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
@@ -191,8 +195,6 @@ private:
     Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
   }
 };
-
-template <int W, int H> float PetalFlow<W, H>::next_hue = 0.0f;
 
 #include "core/effect_registry.h"
 REGISTER_EFFECT(PetalFlow)
