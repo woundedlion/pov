@@ -510,6 +510,16 @@ inline __attribute__((always_inline)) int clamp(int v, int lo, int hi) {
   return (v < lo) ? lo : ((v > hi) ? hi : v);
 }
 
+// Branch-free scalar lerp. Qualify calls as hs::lerp instead of an unqualified
+// `lerp`: the latter resolves to a platform-specific global overload (only the
+// non-Arduino branch of this header defines one) or a std::lerp global leak,
+// neither guaranteed on every build. This naive form matches the prior
+// resolution exactly, so numerics and hot-path cost are unchanged.
+inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
+                                                           float t) {
+  return a + (b - a) * t;
+}
+
 } // namespace hs
 
 // ---------------------------------------------------------------------------
