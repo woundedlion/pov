@@ -54,7 +54,7 @@ public:
     registerParam("Distort Speed", &style.speed, 0.0f, 5.0f);
     registerParam("Noise Scale", &style.scale, 0.1f, 50.0f);
     registerParam("Hue Shift", &style.hue_shift, 0.0f, 0.1f);
-    registerParam("Feedback", &feedback_enabled, feedback_enabled);
+    registerParam("Feedback", &feedback_enabled);
     // The preset cycle drives these six style params; flag them so the standard
     // "Pause Animation" toggle gates the cycling.
     markAnimated("Fade");

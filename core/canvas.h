@@ -301,8 +301,12 @@ protected:
    * one engages "Pause Animation"). Call after the matching registerParam.
    */
   void markAnimated(const char *name) {
-    if (auto *def = parameters.find(name))
-      def->animated = true;
+    auto *def = parameters.find(name);
+    // A misspelled name silently no-ops, leaving the param un-flagged and the
+    // "Pause Animation" gate broken with no diagnostic. Trap instead — this is
+    // cold setup code, the fail-fast doctrine's intended home.
+    HS_CHECK(def && "markAnimated: unknown parameter name");
+    def->animated = true;
   }
 
   /**
@@ -311,8 +315,9 @@ protected:
    * output-only values clobbered every frame (e.g. an active-particle count).
    */
   void markReadonly(const char *name) {
-    if (auto *def = parameters.find(name))
-      def->readonly = true;
+    auto *def = parameters.find(name);
+    HS_CHECK(def && "markReadonly: unknown parameter name");
+    def->readonly = true;
   }
 
   /**
@@ -335,15 +340,15 @@ protected:
   /**
    * @brief Registers a boolean parameter.
    * @param name The name to expose.
-   * @param ptr Pointer to the bool variable.
-   * @param defaultValue Initial value.
+   * @param ptr Pointer to the bool variable; its current value becomes the GUI
+   *   default. Registration never mutates the target — symmetric with the float
+   *   overload, which likewise captures `*ptr` and leaves it untouched.
    */
-  void registerParam(const char *name, bool *ptr, bool defaultValue = false) {
-    *ptr = defaultValue;
+  void registerParam(const char *name, bool *ptr) {
     HS_CHECK(parameters.count < parameters.elements.size() &&
              "registerParam: exceeded ParamList capacity");
     parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
-                                               (float)defaultValue};
+                                               (float)*ptr};
   }
 
 private:

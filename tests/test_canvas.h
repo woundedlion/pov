@@ -32,7 +32,10 @@ struct TestEffect : public Effect {
   void add_float(const char *n, float *p, float mn, float mx) {
     registerParam(n, p, mn, mx);
   }
-  void add_bool(const char *n, bool *p, bool d) { registerParam(n, p, d); }
+  void add_bool(const char *n, bool *p, bool d) {
+    *p = d; // registerParam(bool) captures *ptr as the default; set it first
+    registerParam(n, p);
+  }
 };
 
 inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
@@ -209,8 +212,8 @@ inline void test_register_float_and_bool_params() {
   const auto *fl = params.find("Flag");
   HS_EXPECT_TRUE(fl != nullptr);
   HS_EXPECT_TRUE(fl->is_bool());
-  HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f); // default true → bool reads as 1.0
-  HS_EXPECT_TRUE(fx.flag);                // registerParam(bool) writes *ptr
+  HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f); // captured *ptr (true) → reads as 1.0
+  HS_EXPECT_TRUE(fx.flag);                // registerParam(bool) leaves *ptr as-is
 
   HS_EXPECT_TRUE(params.find("Missing") == nullptr);
 }
