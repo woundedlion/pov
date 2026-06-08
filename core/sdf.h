@@ -135,6 +135,45 @@ struct DistanceResult {
 };
 
 /**
+ * @brief Emit the single horizontal interval where a row crosses a great-circle
+ * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
+ * the scan plane is (ny, R_val, alpha_angle). Shared by Polygon / Spherical
+ * Polygon / Star, whose scanline math is otherwise identical.
+ *
+ * @param cos_cap    cos of the cap's angular radius (cosf(thickness) etc.).
+ * @param reject_full_width  Star-only: drop the row to a full scan when the
+ *        interval would span the whole width (the others never set this).
+ * @return false to request a full-width fallback scan, true if the (possibly
+ *         empty) interval was handled.
+ */
+template <int W, typename OutputIt>
+inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
+                              float alpha_angle, float cos_phi, float sin_phi,
+                              bool reject_full_width, OutputIt out) {
+  if (R_val < MIN_HORIZONTAL_PROJ)
+    return false;
+
+  float denom = R_val * sin_phi;
+  if (std::abs(denom) < INTERVAL_DENOM_EPS)
+    return false;
+
+  float C_min = (cos_cap - ny * cos_phi) / denom;
+  if (C_min > 1.0f)
+    return true; // Completely outside the cap
+  if (C_min < -1.0f)
+    return false; // Full scan fallback (simplification)
+
+  float d_alpha = acosf(C_min);
+  float scale = W / (2.0f * PI_F);
+  float x1 = floorf((alpha_angle - d_alpha) * scale);
+  float x2 = ceilf((alpha_angle + d_alpha) * scale);
+  if (reject_full_width && x2 - x1 >= W)
+    return false;
+  out(x1, x2);
+  return true;
+}
+
+/**
  * @brief Calculates signed distance to a ring.
  * Returns:
  *  dist: Signed distance (negative inside)
@@ -1555,31 +1594,8 @@ struct Polygon {
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     float phi = y_to_phi<H>(static_cast<float>(y));
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
-
-    if (R_val < MIN_HORIZONTAL_PROJ)
-      return false;
-
-    float ang_high = thickness;
-    float D_min = cosf(ang_high);
-
-    float denom = R_val * sin_phi;
-    if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      return false;
-
-    float C_min = (D_min - ny * cos_phi) / denom;
-
-    if (C_min > 1.0f)
-      return true; // Completely outside the cap
-    if (C_min < -1.0f)
-      return false; // Full scan fallback (simplification)
-
-    float d_alpha = acosf(C_min);
-    float f_x1 = (alpha_angle - d_alpha) * W / (2 * PI_F);
-    float f_x2 = (alpha_angle + d_alpha) * W / (2 * PI_F);
-    out(floorf(f_x1), ceilf(f_x2));
-    return true;
+    return emit_cap_interval<W>(cosf(thickness), ny, R_val, alpha_angle,
+                                cosf(phi), sinf(phi), false, out);
   }
 
   /**
@@ -1679,29 +1695,8 @@ struct SphericalPolygon {
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     float phi = y_to_phi<H>(static_cast<float>(y));
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
-
-    if (R_val < MIN_HORIZONTAL_PROJ)
-      return false;
-
-    float ang_high = circumradius;
-    float D_min = cosf(ang_high);
-    float denom = R_val * sin_phi;
-    if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      return false;
-
-    float C_min = (D_min - ny * cos_phi) / denom;
-    if (C_min > 1.0f)
-      return true;
-    if (C_min < -1.0f)
-      return false;
-
-    float d_alpha = acosf(C_min);
-    float f_x1 = (alpha_angle - d_alpha) * W / (2 * PI_F);
-    float f_x2 = (alpha_angle + d_alpha) * W / (2 * PI_F);
-    out(floorf(f_x1), ceilf(f_x2));
-    return true;
+    return emit_cap_interval<W>(cosf(circumradius), ny, R_val, alpha_angle,
+                                cosf(phi), sinf(phi), false, out);
   }
 
   DistanceResult distance(const Vector &p) const {
@@ -1795,41 +1790,11 @@ struct Star {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // Bounding circle
+    // Bounding circle; pad the cap by one pixel and reject full-width rows.
     float phi = y_to_phi<H>(static_cast<float>(y));
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
-
-    if (scan_r < MIN_HORIZONTAL_PROJ)
-      return false;
-
     float pixel_width = 2.0f * PI_F / W;
-    float D_min = cosf(thickness + pixel_width);
-    float denom = scan_r * sin_phi;
-
-    if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      return false;
-
-    float C_min = (D_min - scan_ny * cos_phi) / denom;
-
-    if (C_min > 1.0f)
-      return true;
-    if (C_min < -1.0f)
-      return false;
-
-    float d_alpha = acosf(C_min);
-    float t1 = scan_alpha - d_alpha;
-    float t2 = scan_alpha + d_alpha;
-    float f_x1 = (t1 * W) / (2 * PI_F);
-    float f_x2 = (t2 * W) / (2 * PI_F);
-    float x1 = floorf(f_x1);
-    float x2 = ceilf(f_x2);
-
-    if (x2 - x1 >= W)
-      return false;
-
-    out(x1, x2);
-    return true;
+    return emit_cap_interval<W>(cosf(thickness + pixel_width), scan_ny, scan_r,
+                                scan_alpha, cosf(phi), sinf(phi), true, out);
   }
 
   DistanceResult distance(const Vector &p) const {
