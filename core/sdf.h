@@ -1006,7 +1006,7 @@ struct Face {
   float lut_safe_dist = 0.0f; // per-face: cell diagonal
 
   Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
-       float th, FaceScratchBuffer &scratch, int h_virt, int height, int width)
+       float th, FaceScratchBuffer &scratch, int h_virt, int height)
       : thickness(th), full_width(true) {
 
     // Early Vertical Exit
@@ -1178,9 +1178,14 @@ struct Face {
     dist_lut = scratch.dist_lut.data();
     float step_x = (2.0f * lut_Rx) / (LUT_N - 1);
     float step_y = (2.0f * lut_Ry) / (LUT_N - 1);
-    // 1.8 pixel-columns of azimuth (2π/width radians per column). Scales with
-    // the actual canvas width instead of assuming the 288-wide canvas.
-    lut_safe_dist = 1.8f * 2 * PI_F / static_cast<float>(width);
+    // Bilinear interpolation is trusted only when no zero-isocontour can cross
+    // the cell. The plane SDF is 1-Lipschitz in (px,py), so a zero anywhere in a
+    // cell forces every corner to lie within one cell diagonal of it; requiring
+    // the smallest corner magnitude to exceed the diagonal therefore guarantees
+    // a sign-pure cell. This is a true per-face bound (it scales with the face's
+    // own LUT cell size) — unlike the old canvas-width azimuth heuristic, which
+    // under-bounded large faces and mis-signed their edges.
+    lut_safe_dist = sqrtf(step_x * step_x + step_y * step_y);
     for (int gy = 0; gy < LUT_N; ++gy) {
       float qy = (lut_cy - lut_Ry) + gy * step_y;
       for (int gx = 0; gx < LUT_N; ++gx) {

@@ -464,7 +464,7 @@ struct Mesh {
 
       static hs::CycleCounter hs_ctr_face_setup("scan_face_setup");
       auto fs0 = HS_OS_CYCLES();
-      SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H, W);
+      SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
       hs_ctr_face_setup.cycles += (HS_OS_CYCLES() - fs0);
       hs_ctr_face_setup.count++;
 
