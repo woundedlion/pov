@@ -42,16 +42,20 @@ public:
     }
 
     init_fibers();
+    // Ambient Y-axis spin is intentionally left ungated (keeps running while
+    // paused, per the setAnimationsPaused contract). The flow/tumble Drivers
+    // ARE gated so "Pause Animation" actually freezes the fiber motion.
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_mid, true));
     flow_driver_ = timeline.add_get(
-        0, Animation::Driver(flow_offset, FLOW_RATE * params.flow_speed, false));
+        0, Animation::Driver(flow_offset, FLOW_RATE * params.flow_speed, false,
+                             &anims_paused_));
     tumble_x_driver_ = timeline.add_get(
         0, Animation::Driver(tumble_angle_x, TUMBLE_X_RATE * params.tumble_speed,
-                             false));
+                             false, &anims_paused_));
     tumble_y_driver_ = timeline.add_get(
         0, Animation::Driver(tumble_angle_y, TUMBLE_Y_RATE * params.tumble_speed,
-                             false));
+                             false, &anims_paused_));
   }
 
   bool show_bg() const override { return false; }

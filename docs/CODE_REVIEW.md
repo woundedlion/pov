@@ -147,7 +147,7 @@ No defect corrupts the shipped artifact's output silently or crashes on normal d
 
 ### P2 — Robustness, performance, and live-art hygiene
 
-6. **Wire HopfFibration's pause gate** — pass `&anims_paused_` to its three `Driver`s and the `Rotation` ([HopfFibration.h:45-54](../effects/HopfFibration.h#L45)); the toggle is currently inert. And **apply `markAnimated`/`markReadonly` across the RD/Hopf/Islamic/SH group**, which uses neither, for GUI consistency.
+6. ✅ ~~**Wire HopfFibration's pause gate**~~ **FIXED (2026-06-07).** Validated and partially corrected. The genuine defect: HopfFibration's three flow/tumble `Driver`s took the default `nullptr` pause gate, so "Pause Animation" was inert for the effect's primary motion. Fixed by passing `&anims_paused_` to all three ([HopfFibration.h:47-55](../effects/HopfFibration.h#L47)). The two other parts of the finding were re-derived as **invalid**: (a) gating the ambient Y-axis `Rotation` would contradict the `setAnimationsPaused` contract ([canvas.h:264](../core/canvas.h#L264)) and the confirmed-live MobiusGrid precedent, both of which deliberately keep ambient rotation/camera/palette running while paused — and `Rotation` carries no pause-gate parameter at all; (b) no registered param in the RD/Hopf/Islamic/SH group is animation-driven (all are direct user inputs), so `markAnimated` does not apply — HankinSolids already correctly marks its one swept param (`Angle`), and marking manual sliders would wrongly auto-pause them.
 
 7. **Fix DreamBalls `Warp` latency** ([DreamBalls.h:168](../effects/DreamBalls.h#L168)) — re-seed the mobius generator when `warp_scale` changes (or read it live per vertex), so the slider isn't ~5 s laggy.
 

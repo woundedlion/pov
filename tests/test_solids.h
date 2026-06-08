@@ -21,10 +21,6 @@
  *     (fail-fast), so only the valid boundary (last index) is exercised here.
  *   - Determinism: building the same registry entry twice yields identical
  *     vertex counts and positions.
- *
- * NOTE: solids.h:20-21 defines a TRIBONACCI constant that looks mathematically
- * wrong, but it is unused (T_SNUB_CUBE uses TRIBONACCI_CONST instead), so it is
- * deliberately not exercised here.
  */
 #pragma once
 

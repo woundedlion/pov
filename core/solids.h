@@ -15,10 +15,6 @@
 
 // --- Constants for Procedural Generation ---
 static constexpr float SQRT2 = 1.414213562373095f;
-// NOTE: this expression evaluates to ~1.5595, NOT the tribonacci constant; it
-// is currently unused. The actual tribonacci constant is TRIBONACCI_CONST below.
-static constexpr float TRIBONACCI =
-    (1.0f + 1.839286755214161f + 1.839286755214161f) / 3.0f;
 // Tribonacci constant t, the real root of t^3 - t^2 - t - 1 = 0 (~1.83928676).
 static constexpr float TRIBONACCI_CONST = 1.839286755214161f;
 static constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);

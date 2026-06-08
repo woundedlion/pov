@@ -1,0 +1,229 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Holosphere.ino" />
+    <ClCompile Include="..\..\core\memory.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\core\reaction_graph.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{4903c6ea-beb7-4f4c-b355-bf3c0f874744}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="effects">
+      <UniqueIdentifier>{983cbd76-d837-496c-9218-8d62201d9dce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hardware">
+      <UniqueIdentifier>{e02f58ce-fb81-4706-8654-502597cabf46}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\core\3dmath.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\animation.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\canvas.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\color.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\color_luts.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\concepts.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\constants.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\conway.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\easing.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\effect_registry.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\effects.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\effects_engine.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\effects_legacy.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\FastNoiseLite.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\FastNoiseLite_config.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\filter.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\generators.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\geometry.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\hankin.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\led.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\memory.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\mesh.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\palettes.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\platform.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\plot.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\presets.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\reaction_graph.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\rotate.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\scan.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\sdf.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\solids.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\spatial.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\static_circular_buffer.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\styles.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\transformers.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\util.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\core\waves.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\hardware\dma_led.h">
+      <Filter>hardware</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\hardware\pov_segmented.h">
+      <Filter>hardware</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\hardware\pov_single.h">
+      <Filter>hardware</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\BZReactionDiffusion.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\ChaoticStrings.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Comets.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\DreamBalls.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Dynamo.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\FlowField.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Flyby.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\GnomonicStars.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\GSReactionDiffusion.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\HankinSolids.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\HopfFibration.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\IslamicStars.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Liquid2D.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\MeshFeedback.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Metaballs.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\MindSplatter.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\MobiusGrid.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Moire.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\PetalFlow.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Raymarch.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\RingShower.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\RingSpin.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\SphericalHarmonics.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\SplineFlow.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\DistortedRing.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\ShapeShifter.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Thrusters.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\effects\Voronoi.h">
+      <Filter>effects</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

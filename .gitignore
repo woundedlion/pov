@@ -1,0 +1,25 @@
+# CMake / build outputs
+/build/
+/build_debug/
+/build_release/
+/build_test/
+/build_test_cmake/
+*.obj
+*.o
+*.pdb
+*.ilk
+build.log
+
+# CMake user presets (machine-local overrides)
+CMakeUserPresets.json
+
+# Dependencies / generated
+/node_modules/
+package-lock.json
+
+# IDE / tooling
+/.vs/
+/out/
+/obj/
+/__vm/
+.clangd

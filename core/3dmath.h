@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cfloat>
 #include <limits>
-#include <cassert>
 #include <algorithm>
 #include "platform.h"
 #include "FastNoiseLite.h"

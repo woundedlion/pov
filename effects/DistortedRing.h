@@ -13,8 +13,6 @@ public:
       : Effect(W, H),
         ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),
-        polyPalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
-                    BrightnessProfile::CUP),
         normal(X_AXIS),
         amplitude_mut(
             amplitude,
@@ -96,7 +94,6 @@ private:
   float amplitude = 0;
 
   GenerativePalette ringPalette;
-  GenerativePalette polyPalette;
   Vector normal;
   Orientation<W> orientation;
   Animation::Mutation amplitude_mut;

@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <Keyword>Linux</Keyword>
+    <RootNamespace>
+    </RootNamespace>
+    <ProjectName>Holosphere</ProjectName>
+    <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
+    <ApplicationType>Linux</ApplicationType>
+    <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
+    <TargetLinuxPlatform>Generic</TargetLinuxPlatform>
+    <LinuxProjectType>{D51BCBC9-82E9-4017-911E-C93873C4EA2B}</LinuxProjectType>
+    <ProjectGuid>{6E8F0506-DA52-14DE-DB77-0EFE078EB1F3}</ProjectGuid>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <LinuxIncludePath>c:\visualmicro\ignore</LinuxIncludePath>
+    <wiringPiIncludePath>c:\visualmicro\pi-ignore</wiringPiIncludePath>
+    <TargetOSAndVersion>Arduino</TargetOSAndVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <ImportGroup Label="ExtensionTargets" />
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <IncludePath>$(ProjectDir)..\Holosphere;$(ProjectDir)..\..\..\..\Users\gabe\AppData\Local\arduino15\packages\teensy\hardware\avr\1.59.0\cores\teensy4;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include\c++\11.3.1;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include\c++\11.3.1\arm-none-eabi\thumb\v7e-m+dp\hard;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include\c++\11.3.1\backward;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\lib\gcc\arm-none-eabi\11.3.1\include;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\lib\gcc\arm-none-eabi\11.3.1\include-fixed;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include;$(ProjectDir)..\..\core;$(ProjectDir)..\..\effects;$(ProjectDir)..\..\hardware</IncludePath>
+    <RemoteCCompileToolExe>$(ProjectDir)..\..\..\..\Users\gabe\AppData\Local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\bin\arm-none-eabi-g++</RemoteCCompileToolExe>
+    <RemoteCppCompileToolExe>$(ProjectDir)..\..\..\..\Users\gabe\AppData\Local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\bin\arm-none-eabi-g++</RemoteCppCompileToolExe>
+    <ValidateArchitecture>false</ValidateArchitecture>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectCapability Include="VisualMicro" />
+    <ProjectCapability Include="VisualMicroLinux" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\core\memory.cpp" />
+    <ClCompile Include="..\..\core\reaction_graph.cpp" />
+    <ClCompile Include="Holosphere.ino">
+      <FileType>CppCode</FileType>
+      <DeploymentContent>true</DeploymentContent>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\core\3dmath.h" />
+    <ClInclude Include="..\..\core\animation.h" />
+    <ClInclude Include="..\..\core\canvas.h" />
+    <ClInclude Include="..\..\core\color.h" />
+    <ClInclude Include="..\..\core\color_luts.h" />
+    <ClInclude Include="..\..\core\concepts.h" />
+    <ClInclude Include="..\..\core\constants.h" />
+    <ClInclude Include="..\..\core\conway.h" />
+    <ClInclude Include="..\..\core\easing.h" />
+    <ClInclude Include="..\..\core\effects.h" />
+    <ClInclude Include="..\..\core\effects_engine.h" />
+    <ClInclude Include="..\..\core\effects_legacy.h" />
+    <ClInclude Include="..\..\core\effect_registry.h" />
+    <ClInclude Include="..\..\core\FastNoiseLite.h" />
+    <ClInclude Include="..\..\core\FastNoiseLite_config.h" />
+    <ClInclude Include="..\..\core\filter.h" />
+    <ClInclude Include="..\..\core\generators.h" />
+    <ClInclude Include="..\..\core\geometry.h" />
+    <ClInclude Include="..\..\core\hankin.h" />
+    <ClInclude Include="..\..\core\led.h" />
+    <ClInclude Include="..\..\core\memory.h" />
+    <ClInclude Include="..\..\core\mesh.h" />
+    <ClInclude Include="..\..\core\palettes.h" />
+    <ClInclude Include="..\..\core\platform.h" />
+    <ClInclude Include="..\..\core\plot.h" />
+    <ClInclude Include="..\..\core\presets.h" />
+    <ClInclude Include="..\..\core\reaction_graph.h" />
+    <ClInclude Include="..\..\core\rotate.h" />
+    <ClInclude Include="..\..\core\scan.h" />
+    <ClInclude Include="..\..\core\sdf.h" />
+    <ClInclude Include="..\..\core\solids.h" />
+    <ClInclude Include="..\..\core\spatial.h" />
+    <ClInclude Include="..\..\core\static_circular_buffer.h" />
+    <ClInclude Include="..\..\core\styles.h" />
+    <ClInclude Include="..\..\core\transformers.h" />
+    <ClInclude Include="..\..\core\util.h" />
+    <ClInclude Include="..\..\core\waves.h" />
+    <ClInclude Include="..\..\effects\BZReactionDiffusion.h" />
+    <ClInclude Include="..\..\effects\ChaoticStrings.h" />
+    <ClInclude Include="..\..\effects\Comets.h" />
+    <ClInclude Include="..\..\effects\DreamBalls.h" />
+    <ClInclude Include="..\..\effects\Dynamo.h" />
+    <ClInclude Include="..\..\effects\FlowField.h" />
+    <ClInclude Include="..\..\effects\Flyby.h" />
+    <ClInclude Include="..\..\effects\GnomonicStars.h" />
+    <ClInclude Include="..\..\effects\GSReactionDiffusion.h" />
+    <ClInclude Include="..\..\effects\HankinSolids.h" />
+    <ClInclude Include="..\..\effects\HopfFibration.h" />
+    <ClInclude Include="..\..\effects\IslamicStars.h" />
+    <ClInclude Include="..\..\effects\Liquid2D.h" />
+    <ClInclude Include="..\..\effects\MeshFeedback.h" />
+    <ClInclude Include="..\..\effects\Metaballs.h" />
+    <ClInclude Include="..\..\effects\MindSplatter.h" />
+    <ClInclude Include="..\..\effects\MobiusGrid.h" />
+    <ClInclude Include="..\..\effects\Moire.h" />
+    <ClInclude Include="..\..\effects\PetalFlow.h" />
+    <ClInclude Include="..\..\effects\Raymarch.h" />
+    <ClInclude Include="..\..\effects\RingShower.h" />
+    <ClInclude Include="..\..\effects\RingSpin.h" />
+    <ClInclude Include="..\..\effects\SphericalHarmonics.h" />
+    <ClInclude Include="..\..\effects\SplineFlow.h" />
+    <ClInclude Include="..\..\effects\DistortedRing.h" />
+    <ClInclude Include="..\..\effects\ShapeShifter.h" />
+    <ClInclude Include="..\..\effects\Thrusters.h" />
+    <ClInclude Include="..\..\effects\Voronoi.h" />
+    <ClInclude Include="..\..\hardware\dma_led.h" />
+    <ClInclude Include="..\..\hardware\pov_segmented.h" />
+    <ClInclude Include="..\..\hardware\pov_single.h" />
+  </ItemGroup>
+  <PropertyGroup>
+    <DebuggerFlavor>VisualMicroDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Holosphere;$(ProjectDir)..\..\..\..\Users\gabe\AppData\Local\arduino15\packages\teensy\hardware\avr\1.59.0\cores\teensy4;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include\c++\11.3.1;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include\c++\11.3.1\arm-none-eabi\thumb\v7e-m+dp\hard;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include\c++\11.3.1\backward;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\lib\gcc\arm-none-eabi\11.3.1\include;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\lib\gcc\arm-none-eabi\11.3.1\include-fixed;$(ProjectDir)..\..\..\..\users\gabe\appdata\local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\arm-none-eabi\include;$(ProjectDir)..\..\core;$(ProjectDir)..\..\effects;$(ProjectDir)..\..\hardware;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <GccToolChain>$(ProjectDir)..\..\..\..\Users\gabe\AppData\Local\arduino15\packages\teensy\tools\teensy-compile\11.3.1\arm\bin\arm-none-eabi-g++</GccToolChain>
+      <CppLanguageStandard>gnu++20</CppLanguageStandard>
+      <CLanguageStandard>gnu11</CLanguageStandard>
+      <CAdditionalWarning />
+      <CppAdditionalWarning />
+      <ForcedIncludeFiles>$(ProjectDir)..\..\..\..\program files\microsoft visual studio\18\community\common7\ide\extensions\ar2twp2j.msb\Micro Platforms\default\vm-intelli-pre.h;$(ProjectDir)..\..\..\..\Users\gabe\AppData\Local\Temp\VMBuilds\Holosphere\teensy40\Release\.vmintelli\c5883eed9391030561521103703de959\vm-intelli-gcc-defines.h;$(ProjectDir)..\..\..\..\program files\microsoft visual studio\18\community\common7\ide\extensions\ar2twp2j.msb\Micro Platforms\default\vm-intelli-post.h;$(ProjectDir)__vm\.Holosphere.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <UndefineAllPreprocessorDefinitions>true</UndefineAllPreprocessorDefinitions>
+      <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
+      <PreprocessorDefinitions>_VMICRO_INTELLISENSE;__TEENSY4_imxrt1062__;__TEENSY4_IMXRT1062__;__IMXRT1062__;TEENSYDUINO=159;ARDUINO=108010;ARDUINO_TEENSY40;F_CPU=600000000;USB_SERIAL;LAYOUT_US_ENGLISH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties arduino.upload.port="COM3" custom_teensy40_opt="o3std" VM_ADDITIONAL_COMPILER_C_ELF_FLAGS="" VM_ADDITIONAL_COMPILER_CPP_FLAGS="-I{build.source.path}/../../ -Wno-psabi -Wno-deprecated -Wno-attributes -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-use-cxa-atexit" />
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>

@@ -390,9 +390,6 @@ public:
   /**
    * @brief Flushes the back frame and triggers async DMA transfer.
    * Call after all packPixel() calls on backFrame().
-   */
-  /**
-   * @brief Flushes the back frame and triggers async DMA transfer.
    * @param withBg If true, DMAs the composite buffer (image + trailing
    *               black frame) in a single transfer — zero gap, no spin.
    */
