@@ -91,6 +91,14 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   for (size_t i = 0; i < V; ++i) {
     compiled.base_vertices.push_back(mesh.vertices[i]);
   }
+  // Hankin emits up to (I/2)+1 static midpoint vertices plus I dynamic vertices;
+  // the combined index (static_offset + dyn_idx, emitted below) must fit the
+  // int16_t topology range. narrow_index() would trap an overflow mid-build, but
+  // the ceiling is knowable here — fail fast at the binding site with a clear
+  // message if MAX_INDICES is ever raised past what the index width allows.
+  HS_CHECK((I / 2) + 1 + I <= static_cast<size_t>(INT16_MAX) &&
+           "Hankin output vertex count exceeds int16_t index range "
+           "(MAX_INDICES raised too high?)");
   compiled.static_vertices.bind(target_arena, (I / 2) + 1);
   compiled.dynamic_vertices.bind(target_arena, I);
   compiled.dynamic_instructions.bind(target_arena, I);
@@ -161,6 +169,10 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
 
         HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
 
+        // Same guard as get_midpoint_idx: the pair fallback reads
+        // half_edges[prev_he.pair], which is OOB when both prev and pair are
+        // HE_NONE (degenerate / non-manifold edge). Trap the bad input.
+        HS_CHECK(prev_he.prev != HE_NONE || prev_he.pair != HE_NONE);
         uint16_t i_corner = prev_he.vertex;
         uint16_t i_prev = prev_he.prev != HE_NONE
                              ? he_mesh.half_edges[prev_he.prev].vertex
