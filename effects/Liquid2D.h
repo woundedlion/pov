@@ -189,9 +189,12 @@ private:
   Animation::Driver *time_driver_ = nullptr;
   Animation::Driver *cycle_driver_ = nullptr;
 
+  // All 7 Params fields are listed explicitly per preset. Omitting the
+  // trailing cycle_speed would silently fall back to its default member
+  // initializer rather than the preset's intent.
   Presets<Params, 2> presets = {{{
-      {{1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.4f}},
-      {{1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 1.4f}},
+      {{1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.4f, 0.05f}},
+      {{1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 1.4f, 0.05f}},
   }}};
 };
 
