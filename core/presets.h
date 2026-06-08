@@ -28,6 +28,7 @@ public:
   void prev() {
     if constexpr (Size == 0)
       return;
+    prev_idx = current_idx;
     current_idx = (current_idx - 1 + Size) % Size;
   }
 
@@ -39,7 +40,7 @@ public:
 
   std::array<Entry, Size> entries;
   int current_idx = 0;
-  int prev_idx = 0; // index active before the last next(); for crossfades. Not updated by prev().
+  int prev_idx = 0; // index active before the last next()/prev(); for crossfades.
 
   const Params &prev_get() const { return entries[prev_idx].params; }
 };
