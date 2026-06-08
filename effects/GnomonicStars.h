@@ -25,8 +25,12 @@ public:
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
     registerParam("Debug BB", &params.debug_bb);
 
-    // Spawn the evolving warp and get its animation reference
-    auto *anim = transformer.spawn(0, 0.5f, 0.035f);
+    // Spawn the evolving warp and retain its animation reference for the live
+    // "Warp Speed" param. The warp is infinite and added before any other
+    // timeline event, so pinning it is the safe retained-handle path: if a
+    // future edit ever inserts a finite event ahead of it, compaction traps
+    // loudly rather than dangling this pointer the GUI reads every frame.
+    auto *anim = transformer.spawn_pinned(0, 0.5f, 0.035f);
     if (anim) {
       registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
     }

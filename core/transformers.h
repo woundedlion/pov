@@ -43,8 +43,32 @@ public:
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no slots.
+   *
+   * pin=false: the returned pointer is transient (used at the call site, not
+   * retained across frames). These animations are often finite and are compacted
+   * normally; pinning them would trap on routine completion.
    */
   template <typename... Args> AnimT *spawn(int in_frames, Args &&...args) {
+    return spawn_impl(/*pin=*/false, in_frames, std::forward<Args>(args)...);
+  }
+
+  /**
+   * @brief Like spawn(), but pins the event so the returned pointer may be
+   * RETAINED across frames (e.g. registered as a live GUI param).
+   *
+   * Only valid when the spawned animation is infinite and added before any
+   * finite timeline event, so compaction never shifts it — the standard
+   * retained-handle contract (see Timeline::add_get). If that invariant is ever
+   * broken, step()'s compaction traps loudly instead of dangling the pointer.
+   */
+  template <typename... Args>
+  AnimT *spawn_pinned(int in_frames, Args &&...args) {
+    return spawn_impl(/*pin=*/true, in_frames, std::forward<Args>(args)...);
+  }
+
+private:
+  template <typename... Args>
+  AnimT *spawn_impl(bool pin, int in_frames, Args &&...args) {
     // Linear scan for a free slot
     for (auto &e : entities) {
       if (!e.active) {
@@ -53,20 +77,19 @@ public:
         // Create animation with reference to the stable entity params
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         bool repeats = anim.repeats();
-        // pin=false: the returned pointer is transient (used at the call site,
-        // not retained across frames). These animations are often finite and are
-        // compacted normally; pinning them would trap on routine completion.
         return timeline.add_get(in_frames,
                                 std::move(anim).then([&e, repeats]() {
                                   if (!repeats)
                                     e.active = false;
                                 }),
-                                /*pin=*/false);
+                                pin);
       }
     }
     // If we get here, no free slots. Drop the spawn (safe failure).
     return nullptr;
   }
+
+public:
 
   /**
    * @brief Prepares per-frame cached state for all active entities.
