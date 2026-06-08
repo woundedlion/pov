@@ -38,7 +38,6 @@ public:
     markAnimated("Rings");
     markAnimated("Lines");
 
-    // Use Generator
     mobius_gen.spawn(0, 1.0f, 160, true);
 
     timeline

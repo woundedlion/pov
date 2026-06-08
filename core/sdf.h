@@ -29,7 +29,7 @@ static constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 /** Threshold for near-pole ring approximation safety. */
 static constexpr float POLE_SAFE_MARGIN = 0.05f;
-/** Inner/outer radius ratio for star shapes (≈ golden ratio conjugate). */
+/** Inner/outer radius ratio for star shapes (1/φ² ≈ 0.382). */
 static constexpr float STAR_INNER_RATIO = 0.382f;
 /** Vertex phi-span threshold below which Face uses the fast vertex-only
  *  bounding path instead of the full arc-extrema computation. */
@@ -891,7 +891,7 @@ template <typename Shape> struct AngularRepeat {
                ax.x * u.y - ax.y * u.x);
   }
 
-  /// Repeat around the Y-axis (legacy behavior).
+  /// Repeat around the Y-axis.
   AngularRepeat(const Shape &s, int reps)
       : AngularRepeat(s, reps, Vector(0, 1, 0)) {}
 
@@ -1736,7 +1736,7 @@ struct SphericalPolygon {
  * @brief Calculates signed distance to a star shape.
  * Returns:
  *  dist: Signed distance from edge (negative inside)
- *  t: Normalized polar distance (polar / thickness)
+ *  t: Normalized azimuth (azimuth / 2PI)
  *  raw_dist: Polar distance from center
  */
 struct Star {
@@ -2178,7 +2178,6 @@ struct Torus {
   /// Populate a Fragment's registers for shading.
   /// v0 = ring angle (0-1, for palette lookup)
   /// v1,v2,v3 = surface normal (x,y,z)
-  /// size = signed distance (for AA edge alpha)
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
     frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / (2.0f * PI_F);

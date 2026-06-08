@@ -86,6 +86,14 @@ public:
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
     float a = angle_between(v, palette_normal);
 
+    // palettes[i+1] below is always in range. Invariant: palettes.size() ==
+    // palette_boundaries.size() + 1, held rigidly because color_wipe() pushes
+    // one of each together (guarded by palettes.is_full()) and the .then()
+    // callback pops one of each together. Independently, palette_boundaries'
+    // capacity is MAX_PALETTES-1, so i+1 <= MAX_PALETTES-1 < palettes capacity
+    // even if that invariant were ever violated. (Do NOT "fix" the boundary
+    // buffer to MAX_PALETTES — that removes this second guard and *introduces*
+    // the OOB.)
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;

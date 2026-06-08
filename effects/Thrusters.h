@@ -38,21 +38,49 @@ public:
     if (!warp_anim.done()) {
       warp_anim.step(canvas);
     }
+
+    // Expire finished thrusters from the front (FIFO: oldest spawned first; all
+    // share the same LIFE, so the front always expires first).
+    while (!thrusters.is_empty() &&
+           thrusters.front().age >= ThrusterContext::LIFE) {
+      thrusters.pop();
+    }
+
+    // Advance and draw each live thruster directly from the ring. Lifetime,
+    // motion and fade are driven here rather than by per-thruster animations
+    // capturing &ctx: ctx is a recyclable ring slot, so an animation outliving
+    // the slot's reuse would step/draw whatever thruster later lands in it.
+    // Opacity is full at spawn and fades via ease_out_expo across LIFE frames.
+    for (size_t i = 0; i < thrusters.size(); ++i) {
+      ThrusterContext &ctx = thrusters[i];
+      ctx.motion.step(canvas);
+      float progress = static_cast<float>(ctx.age) / ThrusterContext::LIFE;
+      float opacity = 1.0f - ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
+      draw_thruster(canvas, ctx, opacity);
+      ++ctx.age;
+    }
+
     t_global++;
   }
 
 private:
   struct ThrusterContext {
+    // Visible lifetime in frames.
+    static constexpr int LIFE = 16;
+
     Orientation<W> orientation;
     Vector point;
     float radius;
+    int age;
     Animation::Transition motion;
 
-    ThrusterContext() : radius(0), motion(radius, 0.3f, 8, ease_mid) {}
+    ThrusterContext() : radius(0), age(0), motion(radius, 0.3f, 8, ease_mid) {}
 
+    // Copy/assign rebind motion's mutant reference to this instance's own
+    // radius; otherwise the copy would still drive the source's radius.
     ThrusterContext(const ThrusterContext &other)
         : orientation(other.orientation), point(other.point),
-          radius(other.radius), motion(other.motion) {
+          radius(other.radius), age(other.age), motion(other.motion) {
       motion.rebind_mutant(radius);
     }
 
@@ -61,6 +89,7 @@ private:
         orientation = other.orientation;
         point = other.point;
         radius = other.radius;
+        age = other.age;
         motion = other.motion;
         motion.rebind_mutant(radius);
       }
@@ -71,6 +100,7 @@ private:
       orientation = o;
       point = p;
       radius = 0.0f;
+      age = 0;
       motion = Animation::Transition(radius, 0.3f, 8, ease_mid);
     }
   };
@@ -108,15 +138,10 @@ private:
     if (thrusters.is_full())
       thrusters.pop();
     thrusters.push_back(ThrusterContext());
-    ThrusterContext &ctx = thrusters.back();
-    ctx.reset(orientation, point);
-
-    timeline.add(0, Animation::Sprite(
-                        [this, &ctx](Canvas &c, float opacity) {
-                          ctx.motion.step(c);
-                          draw_thruster(c, ctx, opacity);
-                        },
-                        16, 0, ease_mid, 16, ease_out_expo));
+    thrusters.back().reset(orientation, point);
+    // Lifetime, fade and motion are advanced in draw_frame() by iterating the
+    // ring rather than by a per-thruster animation capturing this slot
+    // (see draw_frame()).
   }
 
   float ring_fn(float t) {

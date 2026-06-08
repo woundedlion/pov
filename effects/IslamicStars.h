@@ -141,13 +141,14 @@ private:
     // 3. Flip front eagerly for the overlapping sprite
     carousel.set_front(back);
 
-    // Live-read the Duration slider per shape cycle (was a dead literal 160).
+    // Live-read the Duration slider per shape cycle.
     int dur = static_cast<int>(params.duration);
     int fade = static_cast<int>(params.fade);
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_mid, fade,
                                       ease_mid));
 
-    // After transition(), front has flipped, so capture_idx is now front
+    // Front was flipped to back in step 3, and back == capture_idx, so
+    // capture_idx is now the front slot.
     ArenaVector<int> &faceIndices = carousel.slot(capture_idx).topology;
     for (size_t i = 0; i < faceIndices.size(); ++i) {
       faceIndices[i] = faceIndices[i] % NUM_PALETTES;
@@ -167,7 +168,7 @@ private:
   }
 
   struct Params {
-    float duration = 160.0f; // shape display period (was a dead literal 160)
+    float duration = 160.0f; // shape display period, in frames
     float fade = 32.0f;
     int burst_size = 4;
     bool debug_bb = false;

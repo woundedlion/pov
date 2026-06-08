@@ -2,11 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Holosphere — Single-Teensy POV display (96×20 physical strip)
+ * Holosphere — Single-Teensy POV display
  *
  * Target: Teensy 4.0
- * Physical LEDs: 40 (20 per arm × 2 sides)
- * Virtual canvas: 288×144 (or 96×20 for legacy effects)
+ * Physical LEDs: 288 (144 per arm × 2 sides)
+ * Virtual canvas: 288×144
  */
 #include <FastLED.h>
 #include <SPI.h>

@@ -49,8 +49,6 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-
-    // Refresh Params
   }
 
   void drawFn(Canvas &canvas, float opacity) {

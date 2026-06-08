@@ -101,11 +101,10 @@ static constexpr ProceduralPalette peachPop({1.000f, 0.144f, 0.175f},
 
 /// Shared 5-palette "mesh effect" bank used by HankinSolids / IslamicStars (and
 /// any future mesh effect). Bundles the standard source-palette set, the
-/// bake-all step, and the per-shape index shuffle that those effects each
-/// previously hand-rolled identically. Zero-overhead: the source list is
-/// constexpr and every accessor is a thin inline wrapper over BakedPaletteBank,
-/// so the per-pixel lookup remains BakedPalette::get() with no added
-/// indirection.
+/// bake-all step, and the per-shape index shuffle these effects share.
+/// Zero-overhead: the source list is constexpr and every accessor is a thin
+/// inline wrapper over BakedPaletteBank, so the per-pixel lookup remains
+/// BakedPalette::get() with no added indirection.
 struct MeshPaletteBank {
   static constexpr int N = BakedPaletteBank::N; // 5
 

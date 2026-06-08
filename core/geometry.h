@@ -33,7 +33,8 @@ struct Fragment {
    * @param a Start fragment.
    * @param b End fragment.
    * @param t Interpolation factor (0.0 to 1.0).
-   * @return The interpolated fragment.
+   * @return The interpolated fragment. Interpolates pos, v0-v3, and age;
+   * size and color are left at their defaults.
    */
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
     Fragment f;
@@ -557,7 +558,7 @@ inline Vector lissajous(float m1, float m2, float a, float t) {
 }
 
 /**
- * @brief Creates a basis { u, v, w } from an orientation and normal.
+ * @brief An orthonormal basis { u, v, w }.
  */
 struct Basis {
   Vector u, v, w;
@@ -566,7 +567,7 @@ struct Basis {
 /**
  * @brief Creates a basis { u, v, w } from an orientation and normal.
  * @param orientation The orientation quaternion.
- * @param normal The normal vector (approximate 'v' axis).
+ * @param normal The normal vector; after rotation it becomes the 'v' axis.
  * @return The constructed Basis.
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {

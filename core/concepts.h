@@ -90,6 +90,10 @@ using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 
+// Non-owning, type-erased handle to a rasterizer pipeline. Forwards plot()
+// calls (2D screen-space or 3D world-space) to the wrapped object's plot()
+// methods. Like FunctionRef, it borrows the target and must not outlive it.
+// Used by Plot::*::draw() so call sites can pass any pipeline without templating.
 class PipelineRef {
   void *ctx_;
   void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);

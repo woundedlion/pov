@@ -30,7 +30,7 @@ struct ClipRegion {
   int w       = MAX_W;
   int h       = MAX_H;
 
-  // Render bounds (expanded by margin, clamped to canvas)
+  // Render bounds (expanded by margin): y clamped to [0,h], x wrapped mod w (cylindrical)
   int render_y_start() const { return y_start - margin > 0 ? y_start - margin : 0; }
   int render_y_end()   const { return y_end + margin < h ? y_end + margin : h; }
   int render_x_start() const { return (x_start - margin + w) % w; }

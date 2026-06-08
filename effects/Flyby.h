@@ -68,7 +68,7 @@ public:
       float pattern = sample(w, t);
       float value = attenuate(pattern, r_sq);
       Color4 c = palette.get(value);
-      c.alpha *= (1.0f - value); // Linear falloff (was powf, saves ~8ms)
+      c.alpha *= (1.0f - value); // Linear alpha falloff toward bright values
       c = hue_rotate(c, -displacement * params.hue_shift);
       return c;
     };

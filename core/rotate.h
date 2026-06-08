@@ -14,7 +14,7 @@ static constexpr float radians = PI_F / 180;
 /** @brief Multiplication factor to convert radians to degrees. */
 static constexpr float degrees = 180 / PI_F;
 
-/** @brief Wraps an angle into [0, 2PI) for any input period (not just one). */
+/** @brief Wraps an angle of any magnitude into [0, 2PI). */
 inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
 
 /** @brief Wraps a floating point index into a range [0, m).
@@ -97,6 +97,8 @@ public:
     return p;
   }
 
+  /** @brief Accumulates rotation by (lambda, phi, gamma) increments in
+   *  degrees, then caches the phi/gamma sin/cos used by project(). */
   Projection &rotate(uint16_t dl, uint16_t dp, uint16_t dg) {
     delta_lambda = mod_tau(delta_lambda + ((dl % 360) * radians));
     delta_phi = mod_tau(delta_phi + ((dp % 360) * radians));

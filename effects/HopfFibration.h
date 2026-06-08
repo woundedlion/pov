@@ -87,8 +87,8 @@ private:
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
   // Per-unit driver speeds (multiplied by the corresponding tuning param).
-  // Defined once and shared between the initial Driver setup and the per-frame
-  // set_speed() in advance_tumble(), which previously repeated the literals.
+  // Shared between the initial Driver setup and the per-frame set_speed() in
+  // advance_tumble().
   static constexpr float FLOW_RATE = 0.02f * 0.2f; // flow_offset / flow_speed
   static constexpr float TUMBLE_X_RATE = 0.003f;   // tumble_angle_x / tumble_speed
   static constexpr float TUMBLE_Y_RATE = 0.005f;   // tumble_angle_y / tumble_speed
@@ -109,7 +109,8 @@ private:
   Timeline<W> timeline;
   BakedPalette baked_sunset;
 
-  // Two pipelines: fibers go through Orient+AA, trails go through AA only
+  // fiber_pipeline applies Orient+AA; trail_pipeline applies AA only (trail
+  // points are oriented by hand in render_trails before rasterizing).
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       fiber_pipeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> trail_pipeline;

@@ -1456,7 +1456,7 @@ private:
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
 public:
   /**
-   * @brief Constructs a MobiusGenerate animation.
+   * @brief Constructs a MobiusWarpEvolving animation.
    * @param params The params to animate.
    * @param scale Magnitude of modulation.
    * @param speed Speed of the animation.
@@ -1466,7 +1466,7 @@ public:
       : speed(speed), scale(scale), params(params), base(params),
         seed(hs::random()()) {}
 
-  /// Derive per-channel phase offset from seed (replaces float phases[8]).
+  /// Derive a per-channel phase offset from the seed and channel index.
   float phase(int i) const {
     uint32_t h = seed ^ (static_cast<uint32_t>(i) * 2654435761u);
     return (h & 0xFFFF) * (100.0f / 65535.0f);
@@ -1499,12 +1499,6 @@ private:
   MobiusParams base;
   uint32_t seed;
 };
-
-/**
- * @brief Adapts an arbitrary behavior function to the Animation system for
- * Palettes. Uses shared state to allow multiple copies (e.g. in Timeline and
- * AnimatedPalette) to sync.
- */
 
 /**
  * @brief Parameters for a ripple wave effect.
@@ -1915,12 +1909,14 @@ public:
    *
    * @param timeline The timeline to schedule the crossfade onto.
    * @param generate_fn Produces a PolyMesh into scratch arenas.
-   * @param draw_fn Called each frame with (Canvas&, float opacity).
+   * @param draw_outgoing Draws the old (front) shape; accepted for symmetry but
+   *        currently unused (the eager front-flip makes the new shape the front).
+   * @param draw_incoming Draws the new shape each frame: (Canvas&, float opacity).
    * @param duration Total sprite duration in frames.
    * @param fade_in Fade-in frames (0 = instant appear).
    * @param fade_out Fade-out frames (0 = instant disappear).
-   * @param easing Easing function for fades.
    * @param classify If true, runs classify_faces_by_topology.
+   * @param easing Easing function for fades.
    */
   template <typename GenerateFn, typename DrawOutgoingFn,
             typename DrawIncomingFn>

@@ -11,7 +11,7 @@
 #include "3dmath.h"
 
 /**
- * @brief Easing function: Bi-Cubic Interpolation (In-Out).
+ * @brief Easing function: Cubic Interpolation (In-Out).
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */

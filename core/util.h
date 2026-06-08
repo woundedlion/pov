@@ -47,6 +47,10 @@ inline int wrap(int x, int m) {
   return r < 0 ? r + m : r;
 }
 
+/**
+ * @brief Single-step integer wrap into [0, W), assuming x is at most one period
+ * out of range (i.e. x is in [-W, 2*W)).
+ */
 inline int fast_wrap(int x, int W) {
   if (x >= W)
     return x - W;

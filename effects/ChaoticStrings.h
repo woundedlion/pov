@@ -84,8 +84,7 @@ public:
     noise_xform.params.speed = params.speed;
     noise_xform.params.sync();
 
-    // Initialize Lissajous functions
-
+    // Build the initial Lissajous path and start the noise transformer
     update_path();
     noise_xform.spawn(0, -1);
 

@@ -515,7 +515,9 @@ struct Shader {
       #endif
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      // Generalized rotated-grid sub-pixel offsets
+      // Sub-pixel sample offsets: the four pixel corners (±0.5, ±0.5),
+      // selected by the low two bits of the sample index. SAMPLES > 4 reuses
+      // the same four corners.
       struct SampleOffsets {
         float x[SAMPLES];
         float y[SAMPLES];
@@ -523,9 +525,7 @@ struct Shader {
       constexpr float eps = 0.5f;
       constexpr SampleOffsets offsets = [&]() constexpr {
         SampleOffsets o{};
-        // Rotated grid: distribute samples at equal angular spacing
         for (int i = 0; i < SAMPLES; ++i) {
-          // Map index to quadrant-based pattern
           int qx = (i & 1) ? -1 : 1;
           int qy = (i & 2) ? -1 : 1;
           o.x[i] = eps * qx;

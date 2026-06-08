@@ -46,7 +46,8 @@ private:
   // --- Helper functions ---
 
   /// Metallic Blinn-Phong: half-Lambert diffuse, tight specular, Fresnel rim.
-  /// All components tinted by surface color (metallic reflection).
+  /// Returns a scalar shade factor (ambient base + weighted terms); the caller
+  /// multiplies it by the surface color for the metallic look.
   float shadeBlinnPhong(const Vector &normal_w, const Vector &light_dir,
                         const Vector &view_dir, const Vector &tangent) {
     // Diffuse: half-Lambert wrap using light direction

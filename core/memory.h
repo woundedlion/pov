@@ -430,12 +430,12 @@ public:
 };
 
 // ============================================================================
-// 3. Non-Owning Span (Explicit Borrow)
+// 4. Non-Owning Span (Explicit Borrow)
 // ============================================================================
 
 /// A read-only, non-owning view into arena-allocated data.
 /// Makes the distinction between owned (ArenaVector) and borrowed data
-/// visible at the type level. Used to replace shallow_copy in transforms.
+/// visible at the type level.
 ///
 /// LIFETIME CONTRACT: a span snapshots its source vector's data_ pointer at
 /// construction. In debug builds two independent stamps fault on a stale span:
@@ -515,7 +515,7 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
 void configure_arenas_default();
 
 // ============================================================================
-// 4. ScratchScope — RAII Guard + Factory for Temporary Memory
+// 5. ScratchScope — RAII Guard + Factory for Temporary Memory
 // ============================================================================
 
 /// RAII guard that saves/restores an arena offset and provides a typed
@@ -540,7 +540,7 @@ struct ScratchScope {
 };
 
 // ============================================================================
-// 5. RAII Arena Evacuator
+// 6. RAII Arena Evacuator
 // ============================================================================
 
 /// Concept: T must provide static void clone(const T&, T&, Arena&)

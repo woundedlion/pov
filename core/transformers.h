@@ -130,10 +130,10 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
 }
 
 /**
- * @brief Applies 3D noise distortion to a vector.
+ * @brief Rotates a point along a Ricker-wavelet ripple radiating from a center.
  * @param v The vector to transform.
- * @param params The noise parameters.
- * @return The distorted vector.
+ * @param params The ripple parameters.
+ * @return The displaced vector.
  */
 inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   // fast reject
@@ -252,8 +252,8 @@ using MobiusWarpTransformer =
                 CAPACITY>;
 
 /**
- * @brief Performs circular Mobius warps stay warped throughout suitable for
- * repeating animations
+ * @brief Performs circular Mobius warps that stay warped throughout, suitable
+ * for repeating animations.
  */
 template <int W, int CAPACITY>
 using MobiusWarpCircularTransformer =

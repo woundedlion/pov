@@ -42,8 +42,8 @@ void setup() {
 // (HS_EFFECT_LIST in core/effects.h) rather than hand-maintained, so the
 // firmware roster cannot silently drift from the shipped effect set: an effect
 // added to the roster joins the show automatically, and one renamed/removed
-// from it (e.g. the old Test → DistortedRing rename) becomes a compile error
-// here instead of a stale entry. Every effect runs for the same 120 rotations.
+// from it becomes a compile error here instead of a stale entry. Every effect
+// runs for the same 120 seconds.
 FLASHMEM static void run_show_sequence() {
 #define HS_SHOW_ONE(name) pov->show<name<288, 144>>(120);
   HS_EFFECT_LIST(HS_SHOW_ONE)

@@ -6,28 +6,42 @@
 
 #include "mesh.h"
 
+/*
+ * Hankin (polygons-in-contact) star-and-rosette pattern generation on a
+ * spherical mesh. Each edge of the input mesh contributes a midpoint, and from
+ * every corner two "contact" rays leave the edge midpoints at a fixed contact
+ * angle; where neighbouring rays meet they form the star points whose position
+ * varies with the angle. compile_hankin() bakes the angle-independent topology
+ * once; update_hankin() then recomputes only the angle-dependent vertices.
+ */
+
 /**
- * @brief Structure returned by compile_hankin.
+ * @brief One angle-dependent (dynamic) vertex's input topology, consumed by
+ * update_hankin to position a star point.
  */
 struct HankinInstruction {
-  uint16_t v_corner; /**< Index to base_vertices for corner vertex. */
-  uint16_t v_prev;   /**< Index to base_vertices for previous vertex. */
-  uint16_t v_next;   /**< Index to base_vertices for next vertex. */
-  uint16_t idx_m1;   /**< Index of first midpoint (static vertex). */
-  uint16_t idx_m2;   /**< Index of second midpoint (static vertex). */
+  uint16_t v_corner; /**< Index into base_vertices of the corner vertex. */
+  uint16_t v_prev;   /**< Index into base_vertices of the previous corner. */
+  uint16_t v_next;   /**< Index into base_vertices of the next corner. */
+  uint16_t idx_m1;   /**< Index into static_vertices of the first edge midpoint. */
+  uint16_t idx_m2;   /**< Index into static_vertices of the second edge midpoint. */
 };
 
 /**
  * @brief Compiled topological data for fast Hankin pattern updates.
+ *
+ * The output mesh concatenates static vertices then dynamic vertices, so an
+ * index < static_offset refers to static_vertices and an index >=
+ * static_offset refers to dynamic_vertices[index - static_offset].
  */
 struct CompiledHankin {
-  ArenaVector<Vector> base_vertices;
-  ArenaVector<Vector> static_vertices;
-  ArenaVector<Vector> dynamic_vertices;
-  ArenaVector<HankinInstruction> dynamic_instructions;
-  ArenaVector<uint8_t> face_counts;
-  ArenaVector<uint16_t> faces;
-  int static_offset = 0;
+  ArenaVector<Vector> base_vertices;  /**< Input mesh corner vertices. */
+  ArenaVector<Vector> static_vertices;  /**< Edge midpoints; angle-independent. */
+  ArenaVector<Vector> dynamic_vertices; /**< Star points; recomputed per angle. */
+  ArenaVector<HankinInstruction> dynamic_instructions; /**< One per dynamic vertex. */
+  ArenaVector<uint8_t> face_counts; /**< Vertex count of each output face. */
+  ArenaVector<uint16_t> faces;      /**< Flat vertex indices for all faces. */
+  int static_offset = 0; /**< static_vertices.size(); base for dynamic indices in faces. */
 
   void clear() {
     base_vertices.clear();
@@ -56,13 +70,15 @@ struct CompiledHankin {
   }
 };
 
-/**
- * @brief Operations on meshes (Hankin pattern operators).
- */
 namespace MeshOps {
 
 /**
- * @brief Compiles the topology for a Hankin pattern.
+ * @brief Bakes the angle-independent Hankin topology for a mesh.
+ *
+ * Builds a half-edge mesh, emits one shared midpoint per edge into
+ * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
+ * records the star and rosette faces. @p compiled is allocated from
+ * @p target_arena; @p temp_arena holds the transient half-edge structures.
  */
 template <typename MeshT>
 FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
@@ -173,9 +189,9 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
         temp_arena.allocate(V * sizeof(bool), alignof(bool)));
     std::fill_n(visited_verts, V, false);
 
-    // Per-orbit scratch buffer sized to the absolute upper bound on valence
-    // (= total half-edges). Replaces a fixed `face_indices[100]` stack array
-    // that silently truncated high-valence orbits.
+    // Per-orbit scratch buffer. Each orbit step appends two indices (a
+    // midpoint and a dynamic vertex), so the absolute upper bound on entries
+    // is twice the total half-edge count.
     int16_t *face_indices = static_cast<int16_t *>(
         temp_arena.allocate(2 * I * sizeof(int16_t), alignof(int16_t)));
 
@@ -216,6 +232,14 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   }
 }
 
+/**
+ * @brief Positions the angle-dependent vertices and writes the final mesh.
+ *
+ * @param angle Contact angle in radians. At ~0 the star points collapse onto
+ *   their corners (flat tiling); larger angles push the rays out so the rays
+ *   from adjacent edges intersect to form sharper star points. @p out_mesh is
+ *   allocated from @p target_arena.
+ */
 template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
@@ -297,6 +321,14 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     out_mesh.faces.push_back(compiled.faces[i]);
 }
 
+/**
+ * @brief One-shot Hankin pattern: compile then update, returning the new mesh.
+ *
+ * Convenience wrapper for callers that do not vary the angle. The compiled
+ * topology is built in @p temp and discarded; only @p out is allocated from
+ * @p target. To animate the angle, keep a CompiledHankin and call
+ * update_hankin repeatedly instead.
+ */
 FLASHMEM static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
                                 float angle) {
   PolyMesh out;

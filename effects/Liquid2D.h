@@ -151,6 +151,9 @@ private:
     float pole_fade = 1.4f;
     float cycle_speed = 0.05f;
 
+    /// Staggered interpolation from a to b over t in [0,1]: only the fields
+    /// that actually change are animated, each in its own equal time slice so
+    /// they transition one after another rather than all at once.
     void lerp(const Params &a, const Params &b, float t) {
       constexpr int N = 7;
       float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq, &time_speed,

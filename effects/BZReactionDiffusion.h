@@ -184,7 +184,7 @@ private:
                  static_cast<uint16_t>(hs::clamp(bl, 0.0f, 65535.0f)));
   }
 
-  /** Find the closest node by walking from a cubemap seed through neighbors. */
+  /** Refine a cubemap seed to its closest node by checking direct neighbors. */
   static int refine_nearest_node(const Vector &rv, const Vector *nodes,
                                  int center_node) {
     float best_d = dist2(rv, nodes[center_node]);

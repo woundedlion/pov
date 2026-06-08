@@ -145,6 +145,7 @@ private:
 
     float twist_angle = (ring.rho / SPACING) * params.twist_factor;
 
+    // Radial wobble around the ring: three lobes per revolution form the petals.
     auto get_shift = [](float t) -> float {
       return 0.6f * std::abs(sinf(3.0f * PI_F * t));
     };
@@ -159,6 +160,8 @@ private:
       float rho_val = ring.rho + get_shift(t_norm);
       float final_theta = theta + twist_angle;
 
+      // Inverse stereographic projection of the planar point at
+      // (radius R=exp(rho_val), angle final_theta) onto the unit sphere.
       float R = expf(rho_val);
 
       float r2 = R * R;

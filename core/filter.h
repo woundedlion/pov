@@ -341,7 +341,8 @@ private:
 /**
  * @brief Replicates geometry onto the vertices of a solid.
  * Precomputes rotation quaternions from vertex[0] to each other vertex.
- * Applies an optional per-copy color shift (e.g., palette offset).
+ * Each copy is emitted with age offset by its vertex index, so downstream
+ * age-driven palettes can tint copies differently.
  */
 template <int W, int N> class VertexReplicate : public Is3D {
 public:
@@ -842,6 +843,10 @@ private:
   bool enabled_ = true;
 };
 
+/**
+ * @brief Splits RGB into per-channel copies offset by 1/2/3 columns,
+ * producing a chromatic-aberration fringe.
+ */
 template <int W> class ChromaticShift : public Is2D {
 public:
   ChromaticShift() {}

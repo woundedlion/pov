@@ -27,10 +27,9 @@ public:
   bool show_bg() const override { return false; }
 
   void init() override {
-    // Moire relies on DistortedRing parsing loops.
-    // It allocates ~9.2KB for the Ring points and ~8.1KB for rasterization
-    // caches. Give it 32KB of Scratch A to safely handle iterations, and 16KB
-    // of Scratch B for AA filters.
+    // Each frame draws many concentric DistortedRing layers, each of which
+    // binds W+2 ring points and rasterization buffers into Scratch A. Give it
+    // 32KB of Scratch A for those, and 16KB of Scratch B for the AA filter.
     configure_arenas(GLOBAL_ARENA_SIZE - 48 * 1024, 32 * 1024, 16 * 1024);
 
     params.density = W <= 96 ? 10.0f : 45.0f;
@@ -58,7 +57,8 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Calculate rotations (matching inv_transform/transform logic conceptually)
+    // Two layers counter-rotate (opposite-signed axes) so their rings beat
+    // against each other, producing the moire interference.
     Quaternion q_base =
         make_rotation(-X_AXIS, rotation) * make_rotation(-Z_AXIS, rotation);
     Quaternion q_int =

@@ -19,8 +19,8 @@ public:
         particle_system() {}
 
   void init() override {
-    // The particle pool needs the bulk of the arena; carve a small scratch_a
-    // (11 KiB) for it and give scratch_b nothing.
+    // The particle pool needs the bulk of the arena, so leave the persistent
+    // arena large: carve only a small scratch_a (11 KiB) and no scratch_b.
     static constexpr size_t SCRATCH_BYTES = 11 * 1024; // 11264
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
@@ -30,9 +30,9 @@ public:
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
     registerParam("Particles", &params.active_count, 0.0f,
                   (float)NUM_PARTICLES);
-    // The preset Lerp drives these four every cycle; flag them so the standard
-    // "Pause Animation" toggle replaces the old bespoke "Run Presets" control
-    // (touching one pauses the presets and hands the value to the user).
+    // The preset Lerp drives these four every cycle; flag them as animated so
+    // the standard "Pause Animation" toggle governs them (touching one pauses
+    // the presets and hands the value to the user).
     markAnimated("Friction");
     markAnimated("Well Str");
     markAnimated("Init Spd");
@@ -171,8 +171,9 @@ private:
   }
 
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
-    // Precompute cos thresholds for dot-product fast-reject
-    // cos(event_horizon) — points further than this have dot > threshold
+    // Precompute cos thresholds for dot-product fast-reject:
+    // cos(event_horizon). Points beyond the horizon have dot < this threshold,
+    // so they fall outside the well's influence and are skipped below.
     std::array<float, AttractSolid::NUM_VERTS> cos_eh;
     for (size_t i = 0; i < particle_system.attractors.size(); ++i) {
       cos_eh[i] = fast_cosf(particle_system.attractors[i].event_horizon);

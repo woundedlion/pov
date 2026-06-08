@@ -40,9 +40,9 @@ inline Vector face_centroid(const HalfEdgeMesh &he_mesh,
 
 /**
  * @brief Newell's method face normal — robust to non-planar faces and
- * collinear vertex triplets. Walks the half-edge loop and accumulates
- * cross products between adjacent edge midpoints. Returns the unnormalized
- * normal; caller normalizes if needed.
+ * collinear vertex triplets. Walks the half-edge loop, summing the Newell
+ * contribution of each edge (consecutive vertex pair). Returns the
+ * unnormalized normal; caller normalizes if needed.
  */
 template <typename MeshT>
 inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
@@ -155,12 +155,12 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 }
 
 /**
- * @brief Transforms a MeshState into a target MeshState using the provided
- * transformers.
+ * @brief Copies a mesh's topology (views) and vertices into a target mesh.
+ * Base case of the variadic overload below: no transformers, so vertices are
+ * copied verbatim.
  * @param local_state The source mesh state (centered around origin).
  * @param world_state The destination mesh state to populate.
  * @param arena The memory arena to allocate vertices.
- * @param transformers A list of transformation functions.
  */
 template <typename MeshT>
 inline void transform(const MeshT &local_state, MeshT &world_state,
@@ -214,9 +214,8 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
 // per-orbit index buffers); both arenas are checkpointed via ScratchScope.
 //
 // Per-vertex orbit construction uses an arena scratch buffer sized to the
-// maximum possible valence (= total half-edges). Previously the orbit was
-// collected into a fixed `local_face[100]` stack array which silently
-// truncated for high-valence vertices — see commit history.
+// maximum possible valence (= total half-edges), so high-valence vertices
+// never overflow.
 // ---------------------------------------------------------------------------
 
 /**
@@ -780,10 +779,9 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
             int ni = he_mesh.half_edges[curr_he.prev].vertex;
             Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
             // Compare SQUARED length against the squared tolerance (the
-            // codebase idiom; cf. conway.h:1064, hankin.h:266). The old guard
-            // compared a length against EPS_LEN_SQ, so edges with length in
-            // [1e-6, 1e-3] slipped through and made 1/dist explode into a huge
-            // force spike. sqrt only for non-degenerate edges.
+            // codebase idiom), so near-zero edges are skipped before 1/dist
+            // can explode into a huge force spike. sqrt only runs for
+            // non-degenerate edges.
             float len_sq = dot(vec, vec);
             if (len_sq > math::EPS_LEN_SQ) {
               float dist = sqrtf(len_sq);
@@ -807,10 +805,9 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
       }
 
       // Converged: the largest per-vertex move this pass is below ~1e-4 rad
-      // (sub-pixel on the unit sphere), so the remaining fixed iterations would
-      // be visual no-ops — stop early. The guard only fires once the spring
-      // system has settled, so the result is unchanged within tolerance vs. the
-      // old fixed-count loop (and a still-moving mesh runs the full budget).
+      // (sub-pixel on the unit sphere), so the remaining iterations would be
+      // visual no-ops — stop early. The guard only fires once the spring system
+      // has settled; a still-moving mesh runs the full iteration budget.
       constexpr float RELAX_CONVERGE_EPS_SQ = 1e-8f;
       if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
         break;

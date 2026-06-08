@@ -355,7 +355,7 @@ static uint32_t fmix32(uint32_t h) {
   return h;
 }
 
-// A simple hash combine block
+// Mixes a value into a running hash seed.
 static inline void hash_combine(uint32_t &seed, uint32_t v) {
   seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }

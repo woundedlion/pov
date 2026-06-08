@@ -4,6 +4,10 @@
  */
 #pragma once
 
+// Umbrella header for the effects engine: pulls in the full public API
+// (geometry, color, animation, plotting, palettes, presets, ...) that every
+// effect in effects/ includes via this one file.
+
 #include <algorithm>
 #include <array>
 #include <cassert>

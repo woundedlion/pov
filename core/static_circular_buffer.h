@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <utility>
 #include "platform.h"
@@ -49,7 +50,7 @@ public:
       // Drop the tail (oldest in this context) to make room
       pop_back_internal();
     }
-    head = (head - 1 + N) % N;
+    head = (head + N - 1) % N; // + N first: never underflows (head is uint32_t)
     buffer[head] = item;
     count++;
   }
@@ -58,7 +59,7 @@ public:
     if (is_full()) {
       pop_back_internal();
     }
-    head = (head - 1 + N) % N;
+    head = (head + N - 1) % N; // + N first: never underflows (head is uint32_t)
     buffer[head] = std::move(item);
     count++;
   }
@@ -67,7 +68,7 @@ public:
     if (is_full()) {
       pop_back_internal();
     }
-    head = (head - 1 + N) % N;
+    head = (head + N - 1) % N; // + N first: never underflows (head is uint32_t)
     buffer[head] = T(std::forward<Args>(args)...);
     count++;
     return buffer[head];
@@ -162,13 +163,20 @@ public:
   const_iterator end() const { return const_iterator(this, size()); }
 
 private:
+  // Indices are uint32_t, not size_t, so pooled structs (Particle, VectorTrail,
+  // OrientationTrail) have an identical layout on the 32-bit device and the
+  // 64-bit native build — size_t would widen these three fields to 8 B on the
+  // host and make per-effect arena footprints unrepresentative of the device
+  // (see memory.h:15-22). On the device size_t IS uint32_t, so this is a
+  // host-only narrowing with identical codegen and behavior on hardware.
+  static_assert(N <= 0xFFFFFFFFu, "StaticCircularBuffer capacity exceeds uint32_t");
   std::array<T, N> buffer;
-  size_t head;
-  size_t tail;
-  size_t count;
+  uint32_t head;
+  uint32_t tail;
+  uint32_t count;
 
   void pop_back_internal() {
-    tail = (tail - 1 + N) % N;
+    tail = (tail + N - 1) % N; // + N first: never underflows (tail is uint32_t)
     count--;
   }
 

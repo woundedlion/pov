@@ -13,7 +13,8 @@ public:
 
   static constexpr int MORPH_FRAMES = 160;
   static constexpr int NO_MORPH_FRAMES =
-      81; // morph period 241 is prime → coprime with preset cycle
+      81; // shape-cycle period; coprime with the 241-frame preset cycle (prime)
+          // so the two cycles stay out of phase
   static constexpr int LERP_FRAMES = 0;
   static constexpr int NO_LERP_FRAMES = 241;
 
@@ -55,8 +56,8 @@ public:
     registerParam("Noise Scale", &style.scale, 0.1f, 50.0f);
     registerParam("Hue Shift", &style.hue_shift, 0.0f, 0.1f);
     registerParam("Feedback", &feedback_enabled, feedback_enabled);
-    // The preset cycle drives the six style params; flag them so the standard
-    // "Pause Animation" toggle replaces the old bespoke "Pause Presets" control.
+    // The preset cycle drives these six style params; flag them so the standard
+    // "Pause Animation" toggle gates the cycling.
     markAnimated("Fade");
     markAnimated("Distort Amp");
     markAnimated("Distort Freq");

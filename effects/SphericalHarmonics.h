@@ -187,10 +187,10 @@ public:
 
 private:
   void start_morph() {
-    // Pick a random new harmonic (Modes 1 to 24 look the best)
+    // Pick a random new harmonic (low modes 1..23 look the best)
     next_idx = static_cast<int>(hs::rand_int(1, 24));
 
-    // Animate morph_alpha 0->1 over 90 frames using Sine Easing
+    // Animate morph_alpha 0->1 over 64 frames with linear easing
     timeline.add(
         0, Animation::Transition(morph_alpha, 1.0f, 64, ease_mid, false, false)
                .then([this]() {

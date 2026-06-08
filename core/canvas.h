@@ -119,8 +119,9 @@ public:
    */
   [[nodiscard]] inline int height() const { return height_; }
   /**
-   * @brief Checks if the display buffer and drawing buffer are synced.
-   * @return True if the current frame is ready to be shown.
+   * @brief Checks whether the queued frame has been picked up for display.
+   * @return True when `prev_ == next_` (no frame still waiting to be shown), so
+   *         the writer is free to claim the other buffer.
    */
   [[nodiscard]] inline bool buffer_free() const {
     return prev_.load(std::memory_order_relaxed) ==

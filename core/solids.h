@@ -15,9 +15,11 @@
 
 // --- Constants for Procedural Generation ---
 static constexpr float SQRT2 = 1.414213562373095f;
+// NOTE: this expression evaluates to ~1.5595, NOT the tribonacci constant; it
+// is currently unused. The actual tribonacci constant is TRIBONACCI_CONST below.
 static constexpr float TRIBONACCI =
-    (1.0f + 1.839286755214161f + 1.839286755214161f) / 3.0f; // Approx
-// Real tribonacci constant t: t^3 - t^2 - t - 1 = 0. ~1.839286755214161
+    (1.0f + 1.839286755214161f + 1.839286755214161f) / 3.0f;
+// Tribonacci constant t, the real root of t^3 - t^2 - t - 1 = 0 (~1.83928676).
 static constexpr float TRIBONACCI_CONST = 1.839286755214161f;
 static constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
 static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
@@ -27,9 +29,11 @@ namespace Solids {
 static constexpr int MAX_VERTS = 8700;
 static constexpr int MAX_FACES = 1000;
 static constexpr int MAX_INDICES = 20000;
-// Conway/Hankin store vertex indices as int16_t (edge_to_vert uses -1 as a
-// sentinel) and half-edge/face indices as uint16_t, so the mesh budgets must
-// fit those index widths or they would silently truncate.
+// Conway/Hankin store topology indices as uint16_t (faces, HE_NONE=0xFFFF
+// sentinel), but some operators' scratch lands them in int16_t (-1 sentinel), so
+// the budgets must fit those index widths or they would silently truncate.
+// INT16_MAX is the narrowest type a vertex index reaches; see narrow_index in
+// mesh.h.
 static_assert(MAX_VERTS <= INT16_MAX,
               "MAX_VERTS must fit int16_t vertex indices");
 static_assert(MAX_INDICES <= UINT16_MAX,
@@ -606,7 +610,7 @@ struct Entry {
 };
 
 // Centralized Registry
-// Order: Platonic (0-4), Archimedean (5-17)
+// Order: Platonic (0-4), Archimedean (5-15)
 inline constexpr Entry simple_registry[] = {
 
     // Platonic

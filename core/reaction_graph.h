@@ -16,7 +16,7 @@ static constexpr int RD_K = 6;
 /// kernels (BZ / GS). Precomputed because std::sqrt isn't constexpr here.
 static constexpr float D_AVG = 0.04044f; // sqrt(4π / 7680)
 
-/** Compute Fibonacci lattice node i (avoids storing 180KB in flash). */
+/** Compute Fibonacci lattice node i (avoids storing 90KB in flash). */
 inline Vector node(int i) {
   constexpr float phi = 2.399963229728653f;
   float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;

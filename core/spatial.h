@@ -42,7 +42,7 @@ struct AABB {
       max_val.z = p.z;
   }
 
-  // Optimize union
+  // Grow this box to also enclose box.
   void union_with(const AABB &box) {
     if (box.min_val.x < min_val.x)
       min_val.x = box.min_val.x;
@@ -99,13 +99,11 @@ struct AABB {
 };
 
 /**
- * @brief k-d Tree implementation for 3D points using static memory.
- * @details Stores points and allows nearest neighbor search.
+ * @brief A single node of the KDTree.
  */
 struct KDNode {
-  // We store a COPY of the point to avoid lifetime issues,
-  // or we could store an index if we had a reference to the point array.
-  // Storing copy is safer and simpler for now.
+  // Stores a copy of the point (not an index into the source array) to avoid
+  // lifetime dependence on that array.
   Vector point;
   uint16_t original_index = 0; // Index in the source array
   int16_t axis = 0;           // 0=x, 1=y, 2=z
@@ -113,6 +111,10 @@ struct KDNode {
   int16_t right = -1;
 };
 
+/**
+ * @brief k-d Tree over 3D points using arena storage; supports k-nearest
+ * neighbor search.
+ */
 class KDTree {
 public:
   static constexpr int MAX_K = 5;
@@ -161,8 +163,8 @@ public:
     // more neighbors than points exist is fine — that legitimately caps below.)
     HS_CHECK(k <= static_cast<size_t>(MAX_K));
 
-    // Max-Heap behavior scratch buffer
-    // We store pairs of <distanceSq, node_idx>
+    // Bounded scratch buffer of the k best candidates so far, kept unsorted.
+    // Each entry pairs a squared distance with its node index.
     struct Candidate {
       float d_sq;
       int idx;
@@ -171,10 +173,9 @@ public:
 
     auto push_heap = [&](float d_sq, int idx) {
       if (heap.size() < static_cast<size_t>(k)) {
+        // Kept unsorted: with small K (1-5) a linear scan for the max is
+        // cheaper than maintaining real heap order.
         heap.push_back({d_sq, idx});
-        // Maintain max-heap property: bubble up?
-        // With small K (1-5), linear insert/sort is faster than heap complexity
-        // Just unsorted push, then find max when needed.
       } else {
         // Replace worst if better
         float max_d = -1.0f;

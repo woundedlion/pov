@@ -36,7 +36,8 @@ struct NoColorCorrection {};
 struct NoTempCorrection {};
 #else
 /**
- * @brief RAII guard to temporarily disable FastLED's color correction.
+ * @brief RAII guard to disable both color and temperature correction for its
+ * scope, restoring TypicalLEDStrip/Candle defaults on destruction.
  */
 struct NoColorCorrection {
   NoColorCorrection() {
@@ -50,7 +51,8 @@ struct NoColorCorrection {
 };
 
 /**
- * @brief RAII guard to temporarily disable FastLED's temperature correction.
+ * @brief RAII guard to disable temperature correction (keeping TypicalLEDStrip
+ * color correction) for its scope, restoring the Candle default on destruction.
  */
 struct NoTempCorrection {
   NoTempCorrection() {

@@ -304,6 +304,11 @@ inline auto blend_accumulate(float a) {
   };
 }
 
+/**
+ * @brief Overwrites with the source, but never dims below the destination's
+ * brightness: if the destination is brighter, the source is scaled up to match
+ * the destination's magnitude (preserving the source's hue). c2==0 keeps c1.
+ */
 inline Pixel blend_over_max(const Pixel &c1, const Pixel &c2) {
   float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b;
   float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
@@ -317,6 +322,12 @@ inline Pixel blend_over_max(const Pixel &c1, const Pixel &c2) {
   return c2;
 }
 
+/**
+ * @brief Overwrites with the source, but never brightens above the
+ * destination's brightness: if the destination is darker, the source is scaled
+ * down to match the destination's magnitude (preserving the source's hue).
+ * c2==0 yields black.
+ */
 inline Pixel blend_over_min(const Pixel &c1, const Pixel &c2) {
   float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b;
   float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
@@ -371,8 +382,8 @@ enum class BrightnessProfile { ASCENDING, DESCENDING, FLAT, BELL, CUP };
 enum class SaturationProfile { PASTEL, MID, VIBRANT };
 
 /**
- * @brief Converts a float in the range [0.0, 1.0] to a 16-bit integer for
- * FastLED lerping.
+ * @brief Converts a float in the range [0.0, 1.0] to a 16-bit fraction
+ * (0..65535) for lerp16.
  */
 inline uint16_t to_short(float zero_to_one) {
   return std::clamp(static_cast<int>(std::round(zero_to_one * 65535.0f)), 0,
@@ -397,9 +408,6 @@ struct CPixel {
   operator Pixel() const { return CRGB(r, g, b); }
 };
 
-/**
- * @brief A class representing a discrete color gradient/lookup table.
- */
 // Helper for high-precision conversion (sRGB float 0-1 -> Linear float 0-1)
 // Not constexpr: powf is not a constant expression, so a constexpr marking here
 // could never be evaluated at compile time (ill-formed NDR). inline for ODR.
@@ -530,6 +538,11 @@ public:
   virtual ~Modifier() = default;
 };
 
+/**
+ * @brief A palette backed by a precomputed 256-entry linear-RGB lookup table,
+ * filled at construction by interpolating between the color stops in linear
+ * space.
+ */
 class Gradient : public Palette {
 public:
   Pixel entries[256];
@@ -940,7 +953,8 @@ struct RippleModifier : public Modifier {
 
 /**
  * @brief Folds the palette back and forth like a kaleidoscope.
- * A folds value of 2.0 maps [0...1] to [0 -> 1 -> 0 -> 1 -> 0].
+ * A folds value of 2.0 maps [0...1] to [1 -> 0 -> 1] (one full bounce);
+ * each unit of folds adds another half-bounce.
  */
 struct FoldModifier : public Modifier {
   const float *phase;

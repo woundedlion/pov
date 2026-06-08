@@ -51,7 +51,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Cycle shapes every n frames
+    // Advance to the next shape type every 48 frames
     frame_count_++;
     if (frame_count_ % 48 == 0) {
       int next = (static_cast<int>(current_shape) + 1) % 4;

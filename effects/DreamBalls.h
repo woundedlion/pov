@@ -176,8 +176,7 @@ private:
 
       // Render from the live, slider-bound params (not a fresh preset copy) so
       // the registered Copies/Radius/Speed/Alpha sliders actually affect the
-      // output. spawn_sprite() seeds params from the preset at each cycle, so
-      // edits apply live and persist until the next preset cycle.
+      // output.
       this->draw_scene(canvas, this->params, opacity, preset.mesh_state,
                        target_mesh, preset.tangents, preset.edges);
     };
@@ -196,6 +195,9 @@ private:
                  false));
   }
 
+  // Orbit each vertex in a small circle of radius r within its own tangent
+  // plane (u,v frame), then re-project onto the unit sphere. The per-vertex
+  // phase (i * 0.1) staggers the orbits so the surface ripples.
   void update_displaced_mesh(const MeshState &base, MeshState &target,
                              const ArenaVector<Tangent> &tangents,
                              const Params &p, float angle_offset) {

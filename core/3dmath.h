@@ -28,7 +28,7 @@ static constexpr float G = 1 / PHI;
  * what is being compared, not the magnitude:
  *
  *   EPS_UNIT       — unit-vector length test (1e-3f)
- *   TOLERANCE      — generic float compare (1e-4f, formerly the only one)
+ *   TOLERANCE      — generic float compare (1e-4f)
  *   EPS_GEOMETRIC  — geometric near-equality (positions, angles) (1e-5f)
  *   EPS_LEN_SQ     — degenerate squared edge length (1e-6f)
  *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared) (1e-8f)
@@ -191,8 +191,7 @@ struct Vector {
   [[nodiscard]] float magnitude() const { return length(); }
 
   /**
-   * @brief Normalizes the vector (scales to unit length).
-   * @return Reference to the normalized vector.
+   * @brief Normalizes the vector in place (scales to unit length).
    */
   void normalize() {
     float m = length();
@@ -236,10 +235,6 @@ struct Vector {
   return Vector(v.x / m, v.y / m, v.z / m);
 }
 
-/**
- * @brief Constructs a Spherical coordinate from a 3D Vector.
- * @param v The Cartesian vector.
- */
 // Fast atan2: 0.273-Hastings polynomial. Peak abs error ~0.0038 rad (~0.22°)
 // measured over a dense sweep; worst near r ~= 0.7 in each octant.
 inline float fast_atan2(float y, float x) {
@@ -405,8 +400,7 @@ struct Quaternion {
   }
 
   /**
-   * @brief Normalizes the quaternion (scales to unit magnitude).
-   * @return Reference to the normalized quaternion.
+   * @brief Normalizes the quaternion in place (scales to unit magnitude).
    */
   void normalize() {
     auto m = magnitude();
@@ -596,7 +590,8 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
 
 /**
  * @brief Gnomonic Projection: Sphere -> Plane (Equator at Infinity).
- * Projects from center (0,0,0) to plane z=1 (tangent at North Pole, i.e., k=1).
+ * Projects from center (0,0,0) to the plane y=1 (tangent at the North Pole
+ * (0,1,0), i.e. j=1).
  */
 inline Complex gnomonic(const Vector &v) {
   // Equator handling is two-stage and round-trips consistently with
@@ -620,7 +615,8 @@ inline Complex gnomonic(const Vector &v) {
 /**
  * @brief Inverse Gnomonic: Plane -> Sphere.
  * @param z Complex point on the plane.
- * @param original_sign The sign of the z-component (k) of the original vector.
+ * @param original_sign Sign of the y-component (j) of the original vector, used
+ * to restore the hemisphere the forward projection collapsed.
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
   // Recognize clamped-to-infinity → return the pole. gnomonic() clamps each

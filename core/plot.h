@@ -21,7 +21,7 @@
 
 namespace Plot {
 
-/** Inner/outer radius ratio for star shapes (≈ golden-ratio conjugate; mirrors
+/** Inner/outer radius ratio for star shapes (1/φ² ≈ 0.382; mirrors
  *  SDF::STAR_INNER_RATIO). */
 static constexpr float STAR_INNER_RATIO = 0.382f;
 
@@ -124,16 +124,15 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   // total_dist drives the step count, so it must be the path's true on-sphere
   // length: the projected chord over-estimates it (the stretched tangential
   // metric) while the geodesic arc under-estimates it. Summing great-circle
-  // arcs between a few samples gives the real length — these are the same setup
-  // evals the old code already spent on total_dist.
+  // arcs between a few samples gives the real length.
   //
   // The table additionally lets map() take an ARC-length fraction and invert it
   // back to a projection parameter. Projection-uniform stepping is NOT
   // arc-uniform under the anisotropic azimuthal metric, so feeding the
-  // rasterizer's arc-fraction t straight into the projection-linear map (as
-  // before) clustered/gapped samples. The inversion makes planar sampling
-  // arc-uniform — matching the geodesic strategy — at the cost of a trig-free
-  // table scan per sample (no new trig anywhere).
+  // rasterizer's arc-fraction t straight into the projection-linear map would
+  // cluster/gap samples. The inversion makes planar sampling arc-uniform —
+  // matching the geodesic strategy — at the cost of a trig-free table scan per
+  // sample (no new trig anywhere).
   constexpr int LEN_SAMPLES = 4;
   std::array<float, LEN_SAMPLES + 1> arc_cumul;
   arc_cumul[0] = 0.0f;
@@ -218,9 +217,8 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each
   // step advances ≈ one pixel column, so a single segment needs ≲ W steps (a
   // great-circle arc crosses each longitude ~once; the sinφ≥0.05 clamp caps the
-  // pole case). Size off W (2× headroom) — NOT the old control-point heuristic,
-  // which under-sized to 256 for few-vertex shapes (< W) and over-sized for
-  // W+2-point rings. The simulation loop breaks at capacity as a backstop.
+  // pole case). Size off W with 2× headroom; the simulation loop breaks at
+  // capacity as a backstop.
   size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
   _steps_cache.bind(scratch_arena_a, max_cache);
 
@@ -377,9 +375,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 struct Line {
   /**
    * @brief Samples a geodesic line between two points.
-   * @param v1 Start point.
-   * @param v2 End point.
-   * @return Fragments Two fragments representing the line endpoints.
+   * @param points Output fragment list; density+1 fragments are appended.
+   * @param f1 Start fragment.
+   * @param f2 End fragment.
+   * @param density Number of sub-segments (>=1); the line is sampled at
+   *                density+1 evenly-parameterized points.
    */
   static void sample(Fragments &points, const Fragment &f1, const Fragment &f2,
                      int density = 1) {
@@ -489,9 +489,10 @@ struct Vertices {
 struct Multiline {
   /**
    * @brief Samples a multiline path from a container of vertices.
-   * @param vertices Iterable container of Vector.
+   * @param points Output fragment list; arc-length-parameterized fragments are
+   *               appended.
+   * @param vertices Iterable container of Fragment.
    * @param closed If true, connects the last point to the first.
-   * @return Fragments List of fragments with arc-length parameterization.
    */
   static void sample(Fragments &points, const auto &vertices,
                      bool closed = false) {
@@ -563,7 +564,7 @@ struct Multiline {
    * @tparam W Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
-   * @param vertices Iterable container of Vector.
+   * @param vertices Iterable container of Fragment.
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
    * @param closed If true, connects the last point to the first.
@@ -989,7 +990,7 @@ struct Spiral {
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param n Number of points.
-   * @param eps Parameter.
+   * @param eps Epsilon offset shifting points off the poles.
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
    */
@@ -1133,9 +1134,6 @@ struct Star {
  *  v1: Arc Length (radians)
  *  v2: Vertex index
  */
-/**
- * @brief Flower primitive.
- */
 struct Flower {
   /**
    * @brief Samples a flower shape.
@@ -1250,7 +1248,7 @@ struct Flower {
  * Registers:
  *  v0: Edge Progress t (0.0 -> 1.0) per edge
  *  v1: Cumulative Arc Length (radians) per edge
- *  v2: Vertex index
+ *  v2: Edge index
  */
 struct Mesh {
   /**
@@ -1269,7 +1267,7 @@ struct Mesh {
                    VertexShaderRef vertex_shader) {
     int edge_index = 0;
 
-    // O(1) edge dedup — 1016 bytes vs 16kB for the old linear-scan buffer
+    // O(1) edge dedup in 1016 bytes (triangular bit matrix over 128 vertices)
     TriangularBitset<128> visited;
     visited.clear();
 
@@ -1552,8 +1550,7 @@ struct SplineChain {
     Fragments points;
     // Segment 0 emits samples_per_segment+1 points (j=0..S); each later segment
     // emits S (j=1..S, sharing the previous segment's endpoint). Total is
-    // seg_count*S + 1 for BOTH closed and open — the closed case was missing the
-    // +1, so the final push_back overflowed the buffer by exactly one.
+    // seg_count*S + 1 for BOTH closed and open.
     const size_t frag_count =
         (closed ? n : (n - 1)) * samples_per_segment + 1;
     points.bind(scratch_arena_a, frag_count);
