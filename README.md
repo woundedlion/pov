@@ -195,7 +195,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── FastNoiseLite.h         Third-party: single-header noise library
 │   └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    27 effect headers (BZReactionDiffusion.h, HopfFibration.h,
+├── effects/                    28 effect headers (BZReactionDiffusion.h, HopfFibration.h,
 │                                IslamicStars.h, Raymarch.h, …) — see §9 Effects Reference
 │
 ├── hardware/                   Hardware drivers
@@ -234,6 +234,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 ├── gui.js                      lil-gui wrapper used by the main page and tools
 ├── sidebar.js                  Effect list + sort + keyboard navigation
 ├── recorder.js                 MediaRecorder pipeline (mp4 / webm), sim-synced
+├── segment_controller.js       Orchestrates the segmented-POV worker pool:
+│                                  dispatch, generation fence, and compositing
 ├── segment_worker.js           Web Worker that hosts one WASM instance per
 │                                  Phantasm hardware segment (parallel render)
 ├── styles/                     CSS for the main page and tools
@@ -268,7 +270,7 @@ Three build targets share a common engine:
 │  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (27 visual algorithms)            │    │
+│  │ Phantasm/    │   │  effects/  (28 visual algorithms)            │    │
 │  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
@@ -674,8 +676,8 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 | `SDF::HarmonicBlob` | Shape defined by a spherical harmonic Yˡₘ function |
 | `SDF::Line` | Geodesic line segment between two sphere-surface points |
 | `SDF::Face` | Planar polygon face (used for mesh rendering) |
-| `SDF::Torus` | Torus SDF with configurable major/minor radii |
-| `SDF::TwistedTorus` | Torus with configurable twist deformation and amplitude |
+| `SDF::Torus` | 3D volumetric torus SDF with configurable major/minor radii (Cartesian ray-space, not a 2D sphere-surface shape) |
+| `SDF::Warp::Twist` | Domain warp composed with a volumetric SDF via `SDF::WarpedVolume<Shape, Warp>` — e.g. `WarpedVolume<Torus, Warp::Twist>` twists a torus by oscillating Y around the ring azimuth, with an analytic Lipschitz bound for safe sphere-tracing (used by Raymarch) |
 
 #### CSG Operations (`sdf.h`)
 
@@ -767,6 +769,7 @@ The `Timeline<W>` class manages a list of running `IAnimation` objects. Each fra
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `Noise` | Animates `NoiseParams` over time for flowing distortion fields |
+| `MeshMorph` | Morphs one `MeshState` into another by cloning both, building a nearest-vertex correspondence, and interpolating positions over a duration. The vertex-level primitive beneath `MeshCarousel`. |
 | `MeshCarousel<W>` | Double-buffered mesh transition system with crossfade. Manages a pair of `MeshState` buffers and an `Animation::Lerp` to morph between shapes. Used by IslamicStars, MeshFeedback, and HankinSolids for smooth geometry transitions. |
 
 #### Orientation and Motion Blur
@@ -1161,7 +1164,7 @@ The top arm's physical LED ordering is reversed (LED 0 at the tip, descending in
 |---|---|
 | S (total pixels) | 40 |
 | RPM | 480 |
-| Column interval | ~434 µs |
+| Column interval | ~1302 µs (= 125 ms / 96 columns) |
 | ISR duration | ~20 µs |
 
 #### Multi-Teensy Segmented POV Driver (`pov_segmented.h`)
@@ -1294,7 +1297,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
 
 Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph (`ReactionGraph`: 7680 nodes, 6 neighbors each, precomputed Fibonacci lattice) with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
 
-**Parameters**: Alpha (color intensity), Diff (diffusion rate), Speed (time step), GlobalAlpha
+**Parameters**: Alpha (color intensity), Diff (diffusion rate), Speed (time step)
 
 </td></tr></table>
 
@@ -1538,7 +1541,7 @@ Volumetric raymarcher that renders twisted tori at the 20 vertices of a dodecahe
 
 Stereographic-projection shader (extends `Effect` directly) with noise-driven warp distortion. A single `Rotation` animation continuously rotates the tangent plane around the Y-axis, producing a fly-through effect on the sphere surface. Uses `Scan::Shader::draw` for full-screen pixel shading with a baked palette.
 
-**Parameters**: Warp Scale, Warp Strength, Pattern Freq, Speed, Pole Fade, Falloff, Drift, Hue Shift
+**Parameters**: Warp Scale, Warp Strength, Pattern Freq, Speed, Pole Fade, Drift, Hue Shift
 
 </td></tr></table>
 
@@ -1554,9 +1557,23 @@ Catmull-Rom spline curves whose control points drift via independent random walk
 
 </td></tr></table>
 
+The two effects below are registered and selectable but not pictured here:
+
+#### DistortedRing
+
+Concentric rings built from per-azimuth distorted ring SDFs, their radii oscillating via a sine-wave amplitude mutation while a random walk slowly reorients the stack.
+
+**Parameters**: Alpha, MaxAmplitude, Thickness, Rings, Show Bounding
+
+#### ShapeShifter
+
+Layered polygons, stars, and flowers (planar or spherical) that morph between shape types and twist over time, drawn through either the `Plot` or `Scan` rasterizer with independent per-ring orientations.
+
+**Parameters**: Alpha, Count, Radius, Sides, Twist, Debug BB
+
 ### Legacy Effects (`effects_legacy.h`)
 
-TheMatrix, ChainWiggle, RingRotate, RingTwist, Curves, Kaleidoscope, StarsFade, DotTrails, Burnout, Spinner, Spiral — built before the current engine and using an older rendering API. Functional but not representative of current architecture.
+TheMatrix, ChainWiggle, RingRotate, RingTwist, Curves, Kaleidoscope, StarsFade, DotTrails, Burnout, Fire, Spinner, Spiral, WaveTrails, RingTrails — built before the current engine and using an older rendering API. Functional but not representative of current architecture.
 
 ---
 
@@ -1598,18 +1615,21 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 
 | Method | Description |
 |---|---|
-| `setResolution(w, h)` | Switch active resolution (96×20 or 288×144) |
-| `setEffect(name)` | Instantiate a new effect by string name; resets all arenas to defaults |
+| `setResolution(w, h)` → `bool` | Switch active resolution (96×20 or 288×144); returns `false` on an unsupported size |
+| `setEffect(name)` → `bool` | Instantiate a new effect by string name; resets all arenas to defaults; returns `false` on an unknown name |
 | `drawFrame()` | Advance one frame and copy pixels to the output buffer |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory |
-| `setParameter(name, value)` | Update a live effect parameter |
+| `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view |
+| `setParameter(name, value)` → `bool` | Update a live effect parameter; returns `false` on an unknown name |
+| `setAnimationsPaused(paused)` | Freeze/resume the current effect's animation drivers (the GUI "Pause Animation" toggle) |
 | `getParameterDefinitions()` | Return the full `[{name, value, min, max}]` parameter list |
 | `getParamValues()` | Return current parameter values (including animation-driven updates) |
 | `getArenaMetrics()` | Memory usage stats for geometry, scratch, and tooling arenas, plus the stack high-water mark (see below) |
 | `getEffectSizes()` | Return `sizeof` for every registered effect at the current resolution |
-| `setClip(y0, y1, x0, x1)` | Restrict rendering to a sub-rectangle (used by segment workers) |
+| `setClip(y0, y1, x0, x1)` → `bool` | Restrict rendering to a sub-rectangle (used by segment workers) |
+| `getRenderUs()` → `double` | Last frame's rasterization time in microseconds (per-frame profiling) |
 
-The bridge also exposes a `MeshOps` class for the JavaScript tools, with dedicated 8 MB tooling arenas (separate from the engine's 335 KB arena) for interactive solid manipulation.
+The bridge also exposes a `MeshOps` class for the JavaScript tools, with dedicated tooling arenas (an 8 MB persistent arena plus two 4 MB scratch arenas — 16 MB total, separate from the engine's 335 KB arena) for interactive solid manipulation.
 
 The WASM bridge includes stack high-water-mark instrumentation: `stack_paint_canary()` fills the stack with a known pattern at init time, and `stack_high_water_mark()` scans for the deepest overwrite. This is reported via `getArenaMetrics()` and logged on every effect switch to catch stack-hungry template instantiations early.
 
@@ -1678,15 +1698,15 @@ params.forEach(p => {
 
 ### 10.7 Segmented POV Workers (`segment_worker.js`)
 
-Phantasm in hardware is four Teensys each rendering a Y-band of the canvas (§7.10). Daydream reproduces this in software so the partitioning is exercised before fabrication:
+Phantasm in hardware is four Teensys each rendering a Y-band of the canvas (§7.10). Daydream reproduces this in software so the partitioning is exercised before fabrication. A `SegmentController` (`segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `segment_worker.js` hosts one WASM instance:
 
 ```
 Main thread                  Workers (one WASM each)
 ───────────                  ──────────────────────────
 drawFrame() {                postMessage({type:'render'})
   if (pendingSegmentFrame)
-    compositeSegments();       worker N:
-  renderSegmentsParallel();      engine.setClip(yN0, yN1, xN0, xN1)
+    controller.composite();    worker N:
+  controller.renderParallel();   engine.setClip(yN0, yN1, xN0, xN1)
 }                                engine.drawFrame()
                                  postMessage({type:'frame', pixels:Transferable})
 ```
@@ -1720,8 +1740,8 @@ Codec priority is MP4/H.264 → WebM/VP9 → WebM/VP8, with optional offscreen-c
 
 | Name | Width × Height | Notes |
 |---|---|---|
-| Holosphere (20×96) | 96 × 20 | Matches the original Holosphere hardware |
-| Phantasm (144×288) | 288 × 144 | Matches Phantasm; default in the web simulator |
+| `Holosphere (20x96)` | 96 × 20 | Matches the original Holosphere hardware |
+| `Phantasm (144x288)` | 288 × 144 | Matches Phantasm; default in the web simulator |
 
 Switching presets does a full WASM reset: `setResolution(w, h)` reallocates buffers, `setEffect(name)` rebuilds the effect at the new template instantiation. The sidebar swaps to the matching favorites list (§10.5).
 
@@ -1734,7 +1754,7 @@ Five standalone HTML pages that share the engine's WASM `MeshOps` but render wit
 | `lissajous.html` | Designs spherical Lissajous curves with live frequency / phase / amplitude sliders; outputs the C++ literal needed by `ChaoticStrings`. |
 | `mobius.html` | Visualizes Möbius transformations on the sphere via stereographic projection; lets you sweep the four complex coefficients and see the warp on a latitude-longitude grid. |
 | `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules; exports the C++ initializer. |
-| `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated 8 MB tooling arenas. |
+| `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 335 KB arena). |
 | `splines.html` | Catmull-Rom spline designer with closed-loop and open-chain modes; click to add control points, drag to edit, export to a C++ `Plot::SplineChain` initializer. |
 
 All five reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
