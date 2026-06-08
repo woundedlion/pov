@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include <array>
 #include "core/effects_engine.h"
 
 template <int W, int H> class ChaoticStrings : public Effect {
@@ -33,9 +32,7 @@ public:
   FLASHMEM ChaoticStrings()
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
-        palette_variant(), cycle_phase(0.0f),
-        functions{{{12.0f, 5.0f, 0, 2 * PI_F}}}, cur_function_idx(0),
-        noise_xform(timeline) {}
+        palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
   void init() override {
 
@@ -70,27 +67,11 @@ public:
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
-    // Retain the cycle-derived handles so the Cycle Dur slider can be applied
-    // live (their durations/periods were otherwise captured once at init).
+    // Retain the motion handle so the Cycle Dur slider can be applied live
+    // (its duration was otherwise captured once at init).
     motion_ = timeline.add_get(
         0, Animation::Motion<W, 16>(node->orientation, path,
                                     (int)params.cycle_duration, true));
-    func_timer_ = timeline.add_get(
-        0, Animation::PeriodicTimer(
-               2 * (int)params.cycle_duration,
-               [this](Canvas &c) {
-                 cur_function_idx = (cur_function_idx + 1) % functions.size();
-                 update_path();
-               },
-               true));
-    cycle_timer_ = timeline.add_get(
-        0, Animation::PeriodicTimer(
-               4 * (int)params.cycle_duration,
-               [this](Canvas &c) {
-                 cur_function_idx =
-                     static_cast<int>(hs::rand_int(0, functions.size()));
-               },
-               true));
 
     driver_ =
         timeline.add_get(0, Animation::Driver(cycle_phase, params.cycleSpeed));
@@ -126,18 +107,13 @@ public:
       driver_->set_speed(params.cycleSpeed);
     }
 
-    // Live-apply the Cycle Dur slider to the motion + cycle-derived timers
-    // (guarded: set_period reschedules from now, so calling it every frame would
-    // perpetually defer the trigger).
+    // Live-apply the Cycle Dur slider to the motion
+    // (guarded: set_duration reschedules from now, so calling it every frame
+    // would perpetually defer the trigger).
     if (params.cycle_duration != last_cycle_duration_) {
       last_cycle_duration_ = params.cycle_duration;
-      int cd = (int)params.cycle_duration;
       if (motion_)
-        motion_->set_duration(cd);
-      if (func_timer_)
-        func_timer_->set_period(2 * cd);
-      if (cycle_timer_)
-        cycle_timer_->set_period(4 * cd);
+        motion_->set_duration((int)params.cycle_duration);
     }
 
     // Record the current orientation snapshot
@@ -168,8 +144,8 @@ public:
 
 private:
   void update_path() {
-    const LissajousParams &config = functions[cur_function_idx];
-    path.f = [&config](float t) {
+    static constexpr LissajousParams config{12.0f, 5.0f, 0, 2 * PI_F};
+    path.f = [](float t) {
       return lissajous(config.m1, config.m2, config.a, t * config.domain);
     };
   }
@@ -185,12 +161,8 @@ private:
   StaticPalette<ProceduralPalette, ScaleModifier, CycleModifier> static_palette;
   Animation::Driver *driver_ = nullptr;
   Animation::Motion<W, 16> *motion_ = nullptr;
-  Animation::PeriodicTimer *func_timer_ = nullptr;
-  Animation::PeriodicTimer *cycle_timer_ = nullptr;
   float last_cycle_duration_ = -1.0f;
   float cycle_phase = 0.0f;
-  std::array<LissajousParams, 1> functions;
-  int cur_function_idx;
   Node *node = nullptr;
   NoiseTransformer<W, 1> noise_xform;
 };
