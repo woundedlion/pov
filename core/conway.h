@@ -402,11 +402,19 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
 
 /**
  * @brief Truncate operator: Cuts corners off the polyhedron.
- * @param t Truncation depth [0..0.5].
+ * @param t Truncation depth, the fraction along each edge at which the two cut
+ *   points sit, in [0..1]. Each edge `(k1,k2)` yields `k1+(k2-k1)*t` and
+ *   `k2+(k1-k2)*t`. For `t<0.5` the cut points stay on their own half; at
+ *   exactly `0.5` both reach the midpoint and this short-circuits to `ambo`;
+ *   for `t>0.5` the two points cross past each other, producing intentional
+ *   self-intersecting cut faces (used by the `*_truncate50d_*` solids). `t`
+ *   outside `[0..1]` would place a cut point beyond the edge endpoints, so it
+ *   traps per the fail-fast doctrine.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
                                   float t = 0.25f) {
+  HS_CHECK(t >= 0.0f && t <= 1.0f);
   if (std::abs(t - 0.5f) < math::TOLERANCE) {
     return ambo(mesh, target, temp);
   }
