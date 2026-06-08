@@ -799,4 +799,20 @@ FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
   return finalize_solid(Platonic::cube(a, b), geom); // unreachable (trap above)
 }
 
+// Non-trapping name lookup. Trusted (firmware) callers use get_by_name() with
+// its fail-fast contract; untrusted boundaries (e.g. the WASM/JS mesh editor)
+// must validate with this first and reject unknown names rather than abort.
+inline bool has_name(std::string_view name) {
+  for (const auto &entry : simple_registry)
+    if (name == entry.name)
+      return true;
+  for (const auto &entry : catalan_registry)
+    if (name == entry.name)
+      return true;
+  for (const auto &entry : islamic_registry)
+    if (name == entry.name)
+      return true;
+  return false;
+}
+
 } // namespace Solids

@@ -414,6 +414,14 @@ struct MeshOpsWrapper {
 
   // Factory
   static std::unique_ptr<MeshOpsWrapper> fromSolid(int index) {
+    // Untrusted JS boundary: a stale/out-of-range index from the mesh editor
+    // would trip Solids::get()'s fail-fast HS_CHECK and abort the whole module.
+    // Reject it (return null, mirroring fromData) instead.
+    if (index < 0 || index >= Solids::NUM_ENTRIES) {
+      hs::log("WASM: fromSolid index %d out of range [0, %d) — ignored", index,
+              Solids::NUM_ENTRIES);
+      return nullptr;
+    }
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::get(
@@ -421,6 +429,12 @@ struct MeshOpsWrapper {
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
+    // Untrusted JS boundary: a typo'd/stale name would trip get_by_name()'s
+    // fail-fast HS_CHECK and abort the module. Reject unknown names instead.
+    if (!Solids::has_name(name)) {
+      hs::log("WASM: fromSolidName unknown solid '%s' — ignored", name.c_str());
+      return nullptr;
+    }
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::get_by_name(
