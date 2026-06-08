@@ -985,16 +985,21 @@ FLASHMEM static PolyMesh bevel(const MeshT &mesh, Arena &target, Arena &temp,
 // Add them under a separate change with a dedicated test for blade winding.
 
 /**
- * @brief Computes KDTree and Adjacency map for the mesh (caching it).
+ * @brief (Re)builds the mesh KDTree into the supplied arena.
+ *
+ * The tree's nodes live in `arena`. Every caller passes a scratch/temp arena
+ * that is reset between frames, so the tree CANNOT be cached across calls: a
+ * persistent `cache_valid` flag would leave `mesh.kd_tree.nodes` dangling into
+ * reset/overwritten scratch on the next call and return silent garbage
+ * nearest-neighbours in release (the stale-binding guard that would catch this
+ * is debug-only). We therefore rebuild every call, mirroring
+ * closest_point_on_mesh_graph(), which already rebuilds the HalfEdgeMesh — the
+ * dominant cost — each call, so the KDTree rebuild adds little.
  */
 FLASHMEM static void compute_kdtree(const PolyMesh &mesh, Arena &arena) {
-  if (mesh.cache_valid)
-    return;
-
   mesh.kd_tree =
       KDTree(arena, std::span<const Vector>(mesh.vertices.data(),
                                             mesh.vertices.size()));
-  mesh.cache_valid = true;
 }
 
 inline Vector closest_point_on_mesh_graph(const Vector &p, const PolyMesh &mesh,
