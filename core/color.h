@@ -542,6 +542,14 @@ public:
     if (points.size() == 0)
       return;
 
+    // Stop positions index entries[256] via static_cast<int>(pos * 255); a pos
+    // outside [0,1] is an out-of-bounds write into the table. Gradient literals
+    // are authored once at construction (cold), so trap always-on rather than
+    // corrupt adjacent memory under NDEBUG on-device.
+    for (const auto &stop : points)
+      HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f &&
+               "Gradient stop position out of [0,1]");
+
     auto it = points.begin();
     float prevPos = it->first;
     CPixel prevColor = it->second;
@@ -1043,6 +1051,11 @@ public:
   StaticPalette() = default;
 
   void bind(const Source *src, const Mods *...ms) {
+    // Cold wiring (init only): the per-pixel get() guards source_ with a
+    // debug-only assert (stripped on-device), so without a trap here a null
+    // source silently dereferences null on hardware. Trap always-on at this
+    // cold seam so the wiring bug faults at the bench, not in the show.
+    HS_CHECK(src != nullptr && "StaticPalette bound to null source");
     source_ = src;
     mods_ = std::make_tuple(ms...);
   }
