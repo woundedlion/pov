@@ -33,6 +33,10 @@ public:
     registerParam("Rings", &params.num_rings, 0.0f, 20.0f);
     registerParam("Lines", &params.num_lines, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    // Rings/Lines are driven by the Mutations below; flag them so the GUI
+    // auto-pauses the animation when the user grabs the slider.
+    markAnimated("Rings");
+    markAnimated("Lines");
 
     // Use Generator
     mobius_gen.spawn(0, 1.0f, 160, true);
@@ -44,10 +48,10 @@ public:
                     120, [this](auto &) { wipe_palette(); }, true))
         .add(0, Animation::Mutation(params.num_rings,
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
-                                    ease_mid, true))
+                                    ease_mid, true, &anims_paused_))
         .add(160, Animation::Mutation(params.num_lines,
                                       sin_wave(12.0f, 1.0f, 1.0f, PI_F / 2.0f),
-                                      320, ease_mid, true));
+                                      320, ease_mid, true, &anims_paused_));
   }
 
   void draw_frame() override {

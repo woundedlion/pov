@@ -616,14 +616,21 @@ public:
    * @param repeat If true, the mutation repeats indefinitely.
    */
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
-           bool repeat = false)
+           bool repeat = false, const bool *paused = nullptr)
       : AnimationBase(duration, repeat), mutant(mutant), from(mutant),
-        f(std::move(f)), easing_fn(std::move(easing_fn)) {}
+        f(std::move(f)), easing_fn(std::move(easing_fn)), paused_(paused) {}
 
   /**
    * @brief Performs one step of the mutation.
+   *
+   * When wired to a pause flag (an effect's `anims_paused_`), the mutation
+   * freezes while paused: it neither advances its timer nor writes the mutant,
+   * so a GUI slider bound to the same member is the sole writer and the user's
+   * value holds. Resuming hands the member back to the curve.
    */
   void step(Canvas &canvas) override {
+    if (paused_ && *paused_)
+      return;
     if (t == 0) {
       from = mutant;
     }
@@ -645,6 +652,8 @@ private:
                  context). */
   ScalarFn f; /**< The custom function to apply. */
   EasingFn easing_fn; /**< Easing curve. */
+  const bool *paused_; /**< Optional pause gate; freezes the mutation when set
+                          and true. Null = always runs. */
 };
 
 /**
@@ -663,13 +672,19 @@ public:
    * @param mutant The float variable to modify.
    * @param speed The amount to add per frame.
    */
-  Driver(float &mutant, float speed, bool wrap = true)
-      : AnimationBase(1, true), mutant(mutant), speed(speed), wrap_(wrap) {}
+  Driver(float &mutant, float speed, bool wrap = true,
+         const bool *paused = nullptr)
+      : AnimationBase(1, true), mutant(mutant), speed(speed), wrap_(wrap),
+        paused_(paused) {}
 
   /**
    * @brief Performs one step by adding the speed to the mutant.
+   *
+   * Freezes while a wired pause flag is set (see Mutation::step).
    */
   void step(Canvas &canvas) override {
+    if (paused_ && *paused_)
+      return;
     AnimationBase::step(canvas);
     mutant.get() += speed;
     if (wrap_) {
@@ -701,6 +716,8 @@ private:
   std::reference_wrapper<float> mutant; /**< Reference to the float variable. */
   float speed;                          /**< Amount added per frame. */
   bool wrap_;                           /**< If true, wraps value to 0-1 range. */
+  const bool *paused_; /**< Optional pause gate; freezes the driver when set and
+                          true. Null = always runs. */
 };
 
 /**

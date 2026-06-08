@@ -41,6 +41,9 @@ public:
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
     registerParam("Debug BB", &params.debug_bb);
+    // Twist is driven by the Mutation in rebuild(); flag it so the GUI
+    // auto-pauses the animation when the user grabs the slider.
+    markAnimated("Twist");
 
     rebuild();
   }
@@ -77,7 +80,7 @@ public:
     timeline.add(0, Animation::Mutation(
                         params.twist,
                         [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
-                        480, ease_mid, true));
+                        480, ease_mid, true, &anims_paused_));
 
     for (int i = params.num_shapes - 1; i >= 0; --i) {
       float t = static_cast<float>(i) /

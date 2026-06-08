@@ -167,6 +167,8 @@ public:
     float min = 0;          /**< Minimum value (for floats). */
     float max = 1;          /**< Maximum value (for floats). */
     float defaultValue = 0; /**< Default value. */
+    bool animated = false;  /**< True if an animation drives this member; the GUI
+                               surfaces these as auto-pausing sliders. */
 
     /** @brief Read the current value as float (bool maps to 0/1). */
     float get() const {
@@ -251,6 +253,17 @@ public:
    */
   const ParamList &getParameters() const { return parameters; }
 
+  /**
+   * @brief Pause/resume the effect's parameter-driving animations.
+   * @details Wired to the `Mutation`/`Driver` gate via `anims_paused_`. Paused,
+   * those animations freeze and the GUI slider bound to the same member is the
+   * sole writer, so a user edit holds; resuming hands the member back to the
+   * animation. Ambient motion (rotation/camera/palette) is not gated and keeps
+   * running. The GUI surfaces this as the standard "Pause Animation" toggle.
+   */
+  void setAnimationsPaused(bool paused) { anims_paused_ = paused; }
+  bool animationsPaused() const { return anims_paused_; }
+
 protected:
   /**
    * @brief Flag indicating if the previous frame's pixels should be copied to
@@ -258,6 +271,18 @@ protected:
    */
   bool persist_pixels;
   ParamList parameters; /**< List of parameters. */
+  bool anims_paused_ = false; /**< Pause gate for parameter-driving animations;
+                                 pass `&anims_paused_` to Mutation/Driver. */
+
+  /**
+   * @brief Flag a registered param as animation-driven.
+   * @details The GUI renders flagged params as auto-pausing sliders (touching
+   * one engages "Pause Animation"). Call after the matching registerParam.
+   */
+  void markAnimated(const char *name) {
+    if (auto *def = parameters.find(name))
+      def->animated = true;
+  }
 
   /**
    * @brief Registers a floating-point parameter.

@@ -269,6 +269,12 @@ public:
     }
   }
 
+  void setAnimationsPaused(bool paused) {
+    if (currentEffect) {
+      currentEffect->setAnimationsPaused(paused);
+    }
+  }
+
   val getParameterDefinitions() {
     if (!currentEffect)
       return val::array();
@@ -289,6 +295,8 @@ public:
         entry.set("min", def.min);
         entry.set("max", def.max);
       }
+      // Animation-driven params surface as auto-pausing sliders in the GUI.
+      entry.set("animated", val(def.animated));
       result.set(i++, entry);
     }
     return result;
@@ -644,6 +652,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getPixels", &HolosphereEngine::getPixels)
       .function("getBufferLength", &HolosphereEngine::getBufferLength)
       .function("setParameter", &HolosphereEngine::setParameter)
+      .function("setAnimationsPaused", &HolosphereEngine::setAnimationsPaused)
       .function("getParameterDefinitions",
                 &HolosphereEngine::getParameterDefinitions)
       .function("getParamValues", &HolosphereEngine::getParamValues)

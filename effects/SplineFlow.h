@@ -53,8 +53,12 @@ public:
                         orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    // Phase accumulator for draw-head position
-    timeline.add(0, Animation::Driver(draw_head, params.speed, true));
+    // Phase accumulator for draw-head position. Retain the handle so the Speed
+    // slider can be re-applied live (the Driver copies speed by value at
+    // construction). Added after the infinite walks above and itself infinite,
+    // so the timeline never compacts and the handle stays valid.
+    draw_head_driver_ =
+        timeline.add_get(0, Animation::Driver(draw_head, params.speed, true));
   }
 
   bool show_bg() const override { return false; }
@@ -70,6 +74,13 @@ public:
       for (auto *w : point_walks_)
         if (w)
           w->set_speed(walk_speed);
+    }
+
+    // Live-apply the Speed slider to the draw-head Driver.
+    if (params.speed != last_speed_) {
+      last_speed_ = params.speed;
+      if (draw_head_driver_)
+        draw_head_driver_->set_speed(params.speed);
     }
 
     int n = hs::clamp(static_cast<int>(params.num_points), 4, MAX_POINTS);
@@ -114,7 +125,9 @@ private:
   Orientation<W> orientation;
   Orientation<W> point_orientations[MAX_POINTS];
   Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {};
+  Animation::Driver *draw_head_driver_ = nullptr;
   float last_drift_ = -1.0f;
+  float last_speed_ = -1.0f;
   FastNoiseLite noise;
   Timeline<W> timeline;
   ProceduralPalette palette = Palettes::lavenderLake;
