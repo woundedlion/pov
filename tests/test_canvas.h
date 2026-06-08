@@ -109,6 +109,64 @@ inline void test_persist_pixels_copies_previous_frame() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
 }
 
+// The relaxed-atomic double-buffer hand-off (canvas.h ctor reasoning): the
+// writer (main loop, cur_) must never claim the buffer the display side (ISR,
+// prev_) is reading, and a queued-but-not-displayed frame must not disturb the
+// live frame. True ISR concurrency isn't deterministically unit-testable, but
+// the single-threaded state machine that the relaxed atomics implement is —
+// drive many cycles and assert the non-aliasing / no-torn-read guarantee
+// observably.
+inline void test_double_buffer_handoff_no_aliasing() {
+  TestEffect fx(8, 4);
+  const int N = 8 * 4;
+
+  const Pixel *seen[2] = {nullptr, nullptr};
+  int distinct = 0;
+  auto record_ptr = [&](const Pixel *p) {
+    for (int i = 0; i < distinct; ++i)
+      if (seen[i] == p) return;
+    if (distinct < 2) seen[distinct++] = p;
+  };
+
+  const Pixel colors[6] = {Pixel(10, 0, 0), Pixel(0, 20, 0), Pixel(0, 0, 30),
+                           Pixel(40, 0, 0), Pixel(0, 50, 0), Pixel(0, 0, 60)};
+
+  // Frame 0 establishes a displayed baseline.
+  { Canvas c(fx); for (int i = 0; i < N; ++i) c(i) = colors[0]; }
+  fx.advance_display();
+  record_ptr(fx.display_buffer());
+  HS_EXPECT_TRUE(fx.buffer_free());
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), 10, 0, 0));
+
+  for (int f = 1; f < 6; ++f) {
+    const Pixel *display_before = fx.display_buffer();
+
+    // Draw the next frame but do NOT advance the display.
+    { Canvas c(fx); for (int i = 0; i < N; ++i) c(i) = colors[f]; }
+
+    // Frame queued: the writer claimed the OTHER buffer, so the displayed
+    // pointer is unchanged and still shows the PREVIOUS frame — the newly
+    // written frame is invisible until the display side picks it up.
+    HS_EXPECT_FALSE(fx.buffer_free());
+    HS_EXPECT_TRUE(fx.display_buffer() == display_before);
+    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), colors[f - 1].r, colors[f - 1].g,
+                          colors[f - 1].b));
+
+    fx.advance_display();
+
+    // Display side advanced to the queued frame; the writer's next buffer is a
+    // DIFFERENT physical buffer than the one just displayed.
+    HS_EXPECT_TRUE(fx.buffer_free());
+    HS_EXPECT_TRUE(
+        pix_eq(fx.get_pixel(0, 0), colors[f].r, colors[f].g, colors[f].b));
+    HS_EXPECT_TRUE(fx.display_buffer() != display_before);
+    record_ptr(fx.display_buffer());
+  }
+
+  // Only two physical buffers were ever displayed across all cycles.
+  HS_EXPECT_EQ(distinct, 2);
+}
+
 // ============================================================================
 // Canvas access
 // ============================================================================
@@ -226,6 +284,7 @@ inline int run_canvas_tests() {
   test_frame_visible_only_after_advance_display();
   test_consecutive_frames_alternate_buffers();
   test_persist_pixels_copies_previous_frame();
+  test_double_buffer_handoff_no_aliasing();
   test_canvas_2d_and_1d_access_and_prev();
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
