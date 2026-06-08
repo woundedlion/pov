@@ -201,7 +201,7 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
     return v;
   }
 
-  float d = acosf(hs::clamp(cos_d, -1.0f, 1.0f));
+  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
   float dist_from_peak = d - params.phase;
 
   float half_width = params.thickness * 0.5f;

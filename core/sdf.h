@@ -1736,9 +1736,9 @@ struct SphericalPolygon {
 
     // Angular distance to the nearest great circle edge via precomputed normal
     // cos(local) is even, so sector folding works automatically
-    float sin_p = sinf(polar);
-    float cos_p = cosf(polar);
-    float dp = edge_nv * cos_p + edge_nu * cosf(local) * sin_p;
+    float sin_p = fast_sinf(polar);
+    float cos_p = fast_cosf(polar);
+    float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
     float dist_edge = asinf(hs::clamp(dp, -1.0f, 1.0f));
 
     float t_val = ComputeUVs ? polar / circumradius : 0.0f;
@@ -1836,8 +1836,8 @@ struct Star {
         wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
     local_azimuth = std::abs(local_azimuth);
 
-    float px = scan_dist * cosf(local_azimuth);
-    float py = scan_dist * sinf(local_azimuth);
+    float px = scan_dist * fast_cosf(local_azimuth);
+    float py = scan_dist * fast_sinf(local_azimuth);
 
     float dist_to_edge = px * nx + py * ny + plane_d;
 
@@ -1945,7 +1945,7 @@ struct Flower {
     float sector = 2 * PI_F / sides;
     float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
 
-    float dist_edge = polar * cosf(local) - apothem;
+    float dist_edge = polar * fast_cosf(local) - apothem;
     float t_val = ComputeUVs ? scan_dist / thickness : 0.0f;
 
     res = DistanceResult(-dist_edge, t_val, scan_dist, 0.0f, thickness);
@@ -1985,7 +1985,7 @@ struct HarmonicBlob {
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     Vector v = rotate(p, inv_q);
-    float phi = acosf(std::max(-1.0f, std::min(1.0f, v.y)));
+    float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
     float theta = fast_atan2(v.z, v.x);
     float harmonic_val = harmonic_fn(l, m, theta, phi);
 
@@ -2190,7 +2190,7 @@ struct Twist {
   Vector apply(const Vector &p, Ctx /*s*/) const {
     float theta = fast_atan2(p.z, p.x);
     return Vector(
-        p.x, p.y - amplitude * sinf(static_cast<float>(twist) * theta), p.z);
+        p.x, p.y - amplitude * fast_sinf(static_cast<float>(twist) * theta), p.z);
   }
 
   /// Analytical Lipschitz constant at point p.
@@ -2211,7 +2211,7 @@ struct Twist {
     float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
     float theta = fast_atan2(p.z, p.x);
     float n_theta = static_cast<float>(twist) * theta;
-    float dh_dtheta = -amplitude * static_cast<float>(twist) * cosf(n_theta);
+    float dh_dtheta = -amplitude * static_cast<float>(twist) * fast_cosf(n_theta);
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;

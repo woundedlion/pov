@@ -860,6 +860,9 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @return The angle in radians.
  */
 inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
+  // Exact acosf (unlike the Vector overload's fast_acos): quaternion variants are
+  // orientation-level ops invoked at most per-object per-frame, never per-pixel,
+  // so the cycles are immaterial while drift-free rotation fidelity is not.
   return acosf(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
@@ -985,6 +988,9 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     return r.normalized();
   }
 
+  // Exact acosf/sinf (unlike the Vector slerp's fast_*): orientation interpolation
+  // runs at most per-object per-frame, not per-pixel, so exact trig costs nothing
+  // measurable here and keeps rotation paths free of approximation drift.
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   if (sin_theta < 0.0001f) {

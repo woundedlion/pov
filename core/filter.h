@@ -284,7 +284,7 @@ public:
     float projection =
         v.x * axis.x + v.y * axis.y + v.z * axis.z; // dot product
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
-    float t = 1.0f - acosf(dot_val) / PI_F;
+    float t = 1.0f - fast_acos(dot_val) / PI_F;
 
     size_t count = orientations.size();
     if (count == 0) {
