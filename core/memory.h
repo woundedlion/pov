@@ -16,10 +16,15 @@
 // (HS_TEST_BUILD) widens it so the effect smoke harness can exercise every
 // effect's full render path regardless of per-effect arena tuning; the device
 // footprint is unchanged. NOTE: the native harness is a 64-bit build, so
-// per-effect arena footprints measured there are LARGER than on the 32-bit
-// device (size_t/pointer width inflates pooled structs); do not compare its
-// high-water mark against this 335 KB device constant. Effects tune their own
-// split via configure_arenas() to fit the device budget.
+// per-effect arena footprints measured there can be LARGER than on the 32-bit
+// device wherever a pooled struct embeds a POINTER (8 B host / 4 B device:
+// ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut_). Index/count
+// widths no longer diverge — StaticCircularBuffer uses uint32_t, so the big
+// pooled structs (Particle/VectorTrail/OrientationTrail) are byte-identical on
+// both builds. Pointer-bearing container HEADERS are not multiplied across pool
+// elements, so the residual host/device delta is small but nonzero; do not
+// treat the host high-water mark as an exact device figure. Effects tune their
+// own split via configure_arenas() to fit the device budget.
 #ifdef HS_TEST_BUILD
 constexpr size_t GLOBAL_ARENA_SIZE = 8 * 1024 * 1024;
 #else
@@ -187,6 +192,11 @@ private:
 #ifndef NDEBUG
   Arena *source_arena_ = nullptr;
   uint32_t birth_generation_ = 0;
+  // Bumps on every fresh allocation in bind() (the grow / re-bind path). A
+  // grow swaps data_ for a new block WITHOUT touching the arena generation,
+  // so this is the only signal an ArenaSpan can use to detect that its
+  // snapshotted pointer was abandoned by a re-grow of the source vector.
+  uint32_t rebind_generation_ = 0;
 
   void check_alive() const {
     if (source_arena_ && source_arena_->get_generation() != birth_generation_) {
@@ -216,6 +226,7 @@ public:
 #ifndef NDEBUG
     source_arena_ = other.source_arena_;
     birth_generation_ = other.birth_generation_;
+    rebind_generation_ = other.rebind_generation_;
 #endif
     other.data_ = nullptr;
     other.size_ = 0;
@@ -224,6 +235,7 @@ public:
 #ifndef NDEBUG
     other.source_arena_ = nullptr;
     other.birth_generation_ = 0;
+    other.rebind_generation_ = 0;
 #endif
   }
 
@@ -236,6 +248,7 @@ public:
 #ifndef NDEBUG
       source_arena_ = other.source_arena_;
       birth_generation_ = other.birth_generation_;
+      rebind_generation_ = other.rebind_generation_;
 #endif
       other.data_ = nullptr;
       other.size_ = 0;
@@ -244,6 +257,7 @@ public:
 #ifndef NDEBUG
       other.source_arena_ = nullptr;
       other.birth_generation_ = 0;
+      other.rebind_generation_ = 0;
 #endif
     }
     return *this;
@@ -301,6 +315,10 @@ public:
 #ifndef NDEBUG
     source_arena_ = &arena;
     birth_generation_ = arena.get_generation();
+    // A fresh block: any span taken before this point now dangles. Bump so its
+    // check_alive() trips (the arena generation alone won't — a grow leaves it
+    // untouched).
+    rebind_generation_++;
 #endif
   }
 
@@ -371,9 +389,19 @@ public:
 
   void clear() {
     check_alive();
+    // No check_bound() here on purpose: clear() only resets size_ (it neither
+    // frees nor touches data_), so it is a defined no-op on an unbound vector.
+    // MeshState::clear() relies on this to reset members that may never have
+    // been bound.
     size_ = 0; // Does not free memory or reallocate
   }
 
+  // No check_bound() on data()/begin()/end() on purpose: an unbound (or moved-
+  // from) vector is data_==nullptr with size_==0, i.e. a well-defined EMPTY
+  // range. Callers rely on that idiom — mesh.h/spatial.h's *_data() accessors,
+  // std::span(vertices.data(), size()), and std::sort(data(), data()+count) all
+  // pass these on a size-0 vector. A bound-precondition here would false-fire on
+  // correct code. The use-after-free guard (check_alive) still applies.
   T *data() {
     check_alive();
     return data_;
@@ -410,22 +438,29 @@ public:
 /// visible at the type level. Used to replace shallow_copy in transforms.
 ///
 /// LIFETIME CONTRACT: a span snapshots its source vector's data_ pointer at
-/// construction. The debug generation stamp catches an arena RESET out from
-/// under the span, but NOT a bind()-driven RE-GROW of the source vector: a grow
-/// allocates a fresh block and rebinds data_ without bumping the arena
-/// generation, leaving the span pointing at the abandoned (still-mapped but
-/// stale) block with no fault. Do not retain a span across any bind()/grow of
-/// the vector it views; re-take the span afterward.
+/// construction. In debug builds two independent stamps fault on a stale span:
+/// the arena generation catches an arena RESET out from under the span, and the
+/// source vector's per-vector rebind counter catches a bind()-driven RE-GROW (a
+/// grow allocates a fresh block and rebinds data_ WITHOUT bumping the arena
+/// generation, so the rebind counter is the only signal). Re-taking the span
+/// after a grow is still the right pattern; the counter just converts a silent
+/// dangle into a debug fault.
 template <typename T> class ArenaSpan {
   const T *data_;
   size_t size_;
 #ifndef NDEBUG
   Arena *source_arena_ = nullptr;
   uint32_t birth_generation_ = 0;
+  const ArenaVector<T> *source_vec_ = nullptr;
+  uint32_t source_rebind_generation_ = 0;
 
   void check_alive() const {
     if (source_arena_ && source_arena_->get_generation() != birth_generation_) {
       assert(false && "ArenaSpan use-after-free!");
+    }
+    if (source_vec_ &&
+        source_vec_->rebind_generation_ != source_rebind_generation_) {
+      assert(false && "ArenaSpan source vector re-grown out from under span!");
     }
   }
 #else
@@ -444,7 +479,8 @@ public:
 #ifndef NDEBUG
         ,
         source_arena_(source.source_arena_),
-        birth_generation_(source.birth_generation_)
+        birth_generation_(source.birth_generation_), source_vec_(&source),
+        source_rebind_generation_(source.rebind_generation_)
 #endif
   {
   }

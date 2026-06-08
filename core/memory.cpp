@@ -15,8 +15,11 @@ void __verbose_terminate_handler() {
 }
 } // namespace __gnu_cxx
 
-// Single contiguous memory block — all arenas partition this
-static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
+// Single contiguous memory block — all arenas partition this. alignas keeps
+// the block's base (and thus persistent_arena's base) maximally aligned, so
+// Arena::allocate's first allocation in each arena needs no leading padding;
+// configure_arenas() likewise aligns the inter-arena boundaries.
+alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
 Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
 Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE,
@@ -31,16 +34,24 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
   // it requested, which then over-runs later — relocating the corruption into
   // the rendered output. Trap at init() so the bad request is caught on the
   // bench; the log preserves the numbers for diagnosis before the trap.
-  size_t total = persistent + scratch_a + scratch_b;
+  // Align each inter-arena boundary up to max_align_t so every arena base is
+  // maximally aligned (the block base already is, via alignas). For the real
+  // callers — all sizes are multiples of 1 KiB — these rounds are no-ops, so
+  // the layout is byte-identical; they only matter for arbitrary sizes. The
+  // budget check uses the ALIGNED end so rounding can't silently overrun.
+  constexpr size_t A = alignof(std::max_align_t);
+  auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
+  size_t a_base = align_up(persistent);
+  size_t b_base = align_up(a_base + scratch_a);
+  size_t total = b_base + scratch_b;
   if (total > GLOBAL_ARENA_SIZE) {
     hs::log("[FATAL] configure_arenas: requested %zu > available %zu",
             total, GLOBAL_ARENA_SIZE);
     HS_CHECK(false);
   }
   persistent_arena.rebind(global_arena_block, persistent);
-  scratch_arena_a.rebind(global_arena_block + persistent, scratch_a);
-  scratch_arena_b.rebind(global_arena_block + persistent + scratch_a,
-                         scratch_b);
+  scratch_arena_a.rebind(global_arena_block + a_base, scratch_a);
+  scratch_arena_b.rebind(global_arena_block + b_base, scratch_b);
 }
 
 void configure_arenas_default() {
