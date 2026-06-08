@@ -445,11 +445,12 @@ public:
    * @return Reference to the Orientation object.
    */
   Orientation &push(const Quaternion &q) {
-    if (num_frames < CAPACITY) {
-      orientations[num_frames++] = q;
-    } else {
-      hs::log("Orientation full, dropping frame!");
-    }
+    // Overflow means a caller emitted more motion substeps than the history
+    // holds — an invariant violation, not a recoverable transient. Fail fast
+    // rather than silently dropping the frame (a soft log is invisible
+    // on-device and corrupts the motion-blur trail).
+    HS_CHECK(num_frames < CAPACITY);
+    orientations[num_frames++] = q;
     return *this;
   }
 
