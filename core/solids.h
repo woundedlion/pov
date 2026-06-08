@@ -437,14 +437,14 @@ FLASHMEM static PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b).kis().gyro().build();
 }
 FLASHMEM static PolyMesh
-truncatedIcosidodecahedron_truncate05_ambo_dual(Arena &a, Arena &b) {
+truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
   return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b)
       .truncate(50.0f * D2R)
       .ambo()
       .dual()
       .build();
 }
-FLASHMEM static PolyMesh icosidodecahedron_truncate05_ambo_dual(Arena &a,
+FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                 Arena &b) {
   return SolidBuilder(icosidodecahedron(a, b), a, b)
       .truncate(5.0f * D2R)
@@ -452,7 +452,7 @@ FLASHMEM static PolyMesh icosidodecahedron_truncate05_ambo_dual(Arena &a,
       .dual()
       .build();
 }
-FLASHMEM static PolyMesh snubDodecahedron_truncate05_ambo_dual(Arena &a,
+FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                Arena &b) {
   return SolidBuilder(snubDodecahedron(a, b), a, b)
       .truncate(5.0f * D2R)
@@ -498,7 +498,7 @@ FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
       .hankin(20.0f * D2R)
       .build();
 }
-FLASHMEM static PolyMesh truncatedIcosahedron_truncate05_ambo_dual(Arena &a,
+FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
                                                                    Arena &b) {
   return SolidBuilder(truncatedIcosahedron(a, b), a, b)
       .truncate(50.0f * D2R)
@@ -698,14 +698,14 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::octahedron_hk17_ambo_hk72, Category::Complex},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
      Category::Complex},
-    {"truncatedIcosidodecahedron_truncate05_ambo_dual",
-     IslamicStarPatterns::truncatedIcosidodecahedron_truncate05_ambo_dual,
+    {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
+     IslamicStarPatterns::truncatedIcosidodecahedron_truncate50d_ambo_dual,
      Category::Complex},
-    {"icosidodecahedron_truncate05_ambo_dual",
-     IslamicStarPatterns::icosidodecahedron_truncate05_ambo_dual,
+    {"icosidodecahedron_truncate5d_ambo_dual",
+     IslamicStarPatterns::icosidodecahedron_truncate5d_ambo_dual,
      Category::Complex},
-    {"snubDodecahedron_truncate05_ambo_dual",
-     IslamicStarPatterns::snubDodecahedron_truncate05_ambo_dual,
+    {"snubDodecahedron_truncate5d_ambo_dual",
+     IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual,
      Category::Complex},
     {"octahedron_hk34_ambo_hk72",
      IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::Complex},
@@ -719,8 +719,8 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::Complex},
     {"dodecahedron_hk72_ambo_dual_hk20",
      IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::Complex},
-    {"truncatedIcosahedron_truncate05_ambo_dual",
-     IslamicStarPatterns::truncatedIcosahedron_truncate05_ambo_dual,
+    {"truncatedIcosahedron_truncate50d_ambo_dual",
+     IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual,
      Category::Complex},
     {"icosahedron_snub_relax_truncate033_hankin62",
      IslamicStarPatterns::icosahedron_snub_relax_truncate033_hankin62,
