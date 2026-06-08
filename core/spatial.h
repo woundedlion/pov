@@ -360,28 +360,31 @@ struct MeshState {
   /// Check if any member vector is bound (has been allocated).
   bool is_bound() const { return vertices.is_bound(); }
 
-  // Unified accessors: return whichever is populated (owned or borrowed)
+  // Unified accessors: return owned data in owned mode, the borrowed view in
+  // borrowed mode. Discriminate on is_bound() (which mode this is), NOT on
+  // empty(): an owned-but-legitimately-empty mesh is bound with size 0, and
+  // gating on empty() would wrongly fall through to a stale/unset borrowed view.
   const uint8_t *get_face_counts_data() const {
-    return face_counts.empty() ? face_counts_view.data() : face_counts.data();
+    return face_counts.is_bound() ? face_counts.data() : face_counts_view.data();
   }
   size_t get_face_counts_size() const {
-    return face_counts.empty() ? face_counts_view.size() : face_counts.size();
+    return face_counts.is_bound() ? face_counts.size() : face_counts_view.size();
   }
 
   const uint16_t *get_faces_data() const {
-    return faces.empty() ? faces_view.data() : faces.data();
+    return faces.is_bound() ? faces.data() : faces_view.data();
   }
   size_t get_faces_size() const {
-    return faces.empty() ? faces_view.size() : faces.size();
+    return faces.is_bound() ? faces.size() : faces_view.size();
   }
 
   const uint16_t *get_face_offsets_data() const {
-    return face_offsets.empty() ? face_offsets_view.data()
-                                : face_offsets.data();
+    return face_offsets.is_bound() ? face_offsets.data()
+                                   : face_offsets_view.data();
   }
   size_t get_face_offsets_size() const {
-    return face_offsets.empty() ? face_offsets_view.size()
-                                : face_offsets.size();
+    return face_offsets.is_bound() ? face_offsets.size()
+                                   : face_offsets_view.size();
   }
 
   // Helper for size accessors if needed, but direct vector access is preferred.

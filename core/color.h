@@ -946,6 +946,11 @@ public:
 
 /**
  * @brief Linearly cycles the palette coordinate.
+ *
+ * The offset driver is optional by design (defaults to null): a null driver is
+ * a deliberate "no cycling, static palette" mode, not an error — so modify()
+ * passes t through. Contrast BreatheModifier/RippleModifier, whose driver is
+ * mandatory and trapped at construction.
  */
 struct CycleModifier : public Modifier {
   const float *offset;
@@ -963,11 +968,14 @@ struct BreatheModifier : public Modifier {
   float amplitude;
 
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
-      : phase(driver_phase), amplitude(amp) {}
+      : phase(driver_phase), amplitude(amp) {
+    // The phase driver is mandatory (no default): a null one would silently
+    // freeze the breathe with no diagnostic. Trap at construction (cold path)
+    // so the per-pixel modify() can dereference unconditionally.
+    HS_CHECK(phase && "BreatheModifier: phase driver must not be null");
+  }
 
   float modify(float t) const override {
-    if (!phase)
-      return t;
     return t + fast_sinf(*phase) * amplitude;
   }
 };
@@ -983,11 +991,13 @@ struct RippleModifier : public Modifier {
   float amplitude;
 
   RippleModifier(const float *phase, float freq = 3.0f, float amp = 0.1f)
-      : phase(phase), frequency(freq), amplitude(amp) {}
+      : phase(phase), frequency(freq), amplitude(amp) {
+    // Mandatory phase driver (no default) — trap a null one at construction
+    // rather than silently passing t through on every pixel.
+    HS_CHECK(phase && "RippleModifier: phase driver must not be null");
+  }
 
   float modify(float t) const override {
-    if (!phase)
-      return t;
     // Calculate a local distortion based on the current t position
     return t + sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
   }
@@ -997,6 +1007,9 @@ struct RippleModifier : public Modifier {
  * @brief Folds the palette back and forth like a kaleidoscope.
  * A folds value of 2.0 maps [0...1] to [1 -> 0 -> 1] (one full bounce);
  * each unit of folds adds another half-bounce.
+ *
+ * The phase driver is optional by design (defaults to null) — a null driver is
+ * the deliberate "no phase offset" mode (shift = 0), not an error.
  */
 struct FoldModifier : public Modifier {
   const float *phase;
