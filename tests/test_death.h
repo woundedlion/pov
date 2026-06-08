@@ -169,6 +169,17 @@ inline void case_timeline_handled_relocation() {
   src.move_into(dst); // HS_CHECK(!handled) -> trap
 }
 
+// Animation surface: two simultaneously-live Timelines. Every Timeline shares
+// the single global event array, so a second live instance would silently stomp
+// the first's events; the construction guard traps instead. The real app holds
+// exactly one (the old effect is destroyed before the next is built).
+inline void case_timeline_double_construct() {
+  Timeline<32> a;
+  Timeline<32> b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
+  if (Timeline<32>::num_events == opaque(42))
+    std::printf("x");
+}
+
 // Mesh-topology surface: an output index past the int16 topology range. Both
 // conway.h and hankin.h route every output vertex/face-index narrowing through
 // this shared MeshOps guard (the fail-fast parity fix), so a future MAX_VERTS
@@ -275,6 +286,7 @@ inline const Case *all_cases(int &n) {
       {"circular_buffer_oob", case_circular_buffer_oob},
       {"arena_oversubscribed", case_arena_oversubscribed},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
+      {"timeline_double_construct", case_timeline_double_construct},
       {"mesh_narrow_index", case_mesh_narrow_index},
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},

@@ -60,5 +60,9 @@ void configure_arenas_default() {
 }
 
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
+// Single live-Timeline guard. Non-templated on purpose: the event array above is
+// shared across every Timeline<W,CAPACITY>, so the "only one alive" invariant
+// must span all instantiations, not be per-instantiation static state.
+bool global_timeline_live = false;
 DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
 DMAMEM Pixel Effect::buffer_b[MAX_W * MAX_H];

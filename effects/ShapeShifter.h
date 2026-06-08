@@ -70,7 +70,7 @@ public:
 
   FLASHMEM void rebuild() {
     shapes.clear();
-    timeline = Timeline<W>();
+    timeline.clear();
 
     // Single camera tumble
     timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},

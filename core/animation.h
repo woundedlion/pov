@@ -1727,6 +1727,11 @@ struct TimelineEvent {
  */
 static constexpr int TIMELINE_MAX_EVENTS = 64;
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
+// True while a Timeline instance is alive. Guards the single-singleton invariant
+// (see global_timeline_events): every Timeline<W,CAPACITY> shares that one event
+// array, so a second live instance would silently stomp the first's events.
+// Non-templated on purpose, so the guard spans all instantiations.
+extern bool global_timeline_live;
 
 /**
  * @brief Manages all active animations and their execution over time.
@@ -1735,13 +1740,33 @@ template <int W, int CAPACITY = 32> class Timeline {
 public:
   /**
    * @brief Constructs a Timeline.
+   *
+   * Traps if one is already alive: all Timelines share global_timeline_events,
+   * so two live instances would corrupt each other's events. The real app keeps
+   * exactly one (destroys the old effect before building the next); this makes
+   * the latent footgun a bench-time crash instead of silent stomping.
    */
-  Timeline() { clear(); }
+  Timeline() {
+    HS_CHECK(!global_timeline_live);
+    global_timeline_live = true;
+    clear();
+  }
 
   /**
    * @brief Cleans up remaining animations, invoked on effect destruction.
    */
-  ~Timeline() { clear(); }
+  ~Timeline() {
+    clear();
+    global_timeline_live = false;
+  }
+
+  // Singleton over global state: copying/moving would either bypass the live
+  // guard or leave a moved-from husk whose dtor clears the survivor's events.
+  // To reset in place, call clear() rather than reassigning a fresh instance.
+  Timeline(const Timeline &) = delete;
+  Timeline &operator=(const Timeline &) = delete;
+  Timeline(Timeline &&) = delete;
+  Timeline &operator=(Timeline &&) = delete;
 
   void clear() {
     for (int i = 0; i < num_events; ++i) {
