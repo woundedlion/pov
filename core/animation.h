@@ -1432,6 +1432,18 @@ public:
  * interpolates each frame. Transients are released when the animation
  * completes and the TimelineEvent is destroyed; call compact on the
  * arena afterward to reclaim the space.
+ *
+ * Crossfade contract (intentional, not a bug): only the incoming mesh
+ * (mesh_B, carrying dest topology) morphs — each frame its vertices SLERP
+ * from their nearest source vertex toward their dest position. The outgoing
+ * mesh (mesh_A, a clone of source) holds its geometry and fades out via
+ * opacity (op_A = 1 - alpha) while the incoming fades in; the opacities sum
+ * to 1 for constant total brightness across the topology swap. The source is
+ * cloned (not borrowed) so the animation is self-contained against the
+ * caller recycling/mutating source mid-morph, consistent with the borrow
+ * contract enforced on the draw callbacks below. The separate
+ * draw_outgoing/draw_incoming callbacks exist precisely to shade the two
+ * halves independently (see HankinSolids).
  */
 class MeshMorph : public AnimationBase<MeshMorph> {
 public:
