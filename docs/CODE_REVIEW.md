@@ -75,32 +75,69 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 ## 4. Prioritized Fixes
 
 **P0 — latent correctness (no crash today, real bug surface):**
+
 1. ✅ **Clamp `lerp_oklch` inputs / outputs** (`color.h:509-526`). Extrapolated `t` (reachable via unbounded lerp amounts) drives L or C negative → wrong, often near-black, colors. Clamp `t` at entry or L/C at exit. *Fixed: L clamped to [0,1] and C to ≥0 at the convergence point (hue left free to wrap); regression test `test_lerp_oklch_extrapolation_clamped` added.*
+
 2. **Make `Pixel::Feedback::flush` honor `canvas.clip()`** (`filter.h:817-857`). Full-canvas iteration means a feedback effect on segmented Phantasm has every board composite the whole sphere into its own Y-band — both wrong output and wasted work. Every other rasterizer respects the clip.
+
 3. **Fix `blend_alpha` cast-before-clamp** (`color.h:268-271`). `(int)(a*65535)` before `std::clamp` is UB for NaN/large `a` — the exact hazard `operator*` (`color.h:82`) guards against. Route through a clamp-then-round helper.
+
 4. **Resolve the `Plot::rasterize` ↔ `Pixel::Feedback` scratch-arena-a aliasing** (`plot.h:290`, `filter.h:781`). Both hard-code `scratch_arena_a`; they don't collide today only because `plot()` and `flush()` are separate phases. Document the invariant or move one to `scratch_arena_b` before a future filter allocates from `a` inside its `plot()` path.
 
 **P1 — fail-fast consistency & doctrine:**
 5. ✅ **`KDTree::build` silent subtree drop** (`spatial.h:219-263`). Convert the pool-exhaustion `-1` return to an `HS_CHECK`, or remove the now-dead guard — as written it is the one place that would corrupt silently rather than trap. *Fixed: the pool-exhaustion `-1` return is now an `HS_CHECK` (the legitimate empty-subtree base case keeps its `-1`), so a broken capacity invariant traps loud instead of silently dropping a subtree.*
+
 6. ✅ **Guard `uint8_t` face-count narrowing** (`conway.h:145,583`, `hankin.h:196,238`). Add a `narrow_face_count()` mirror of the existing `narrow_index` so a >255-sided face traps instead of truncating. *Fixed: added `narrow_face_count()` to `mesh.h` (traps on `<0` or `>255`) and routed the four computed `int`→`uint8_t face_counts` narrowings through it (`orbit_count`, `count*2`, and the two Hankin rosette walks); the constant pushes (3/4/6) and already-`uint8_t` copies need no guard.*
+
 7. ⛔ **~~Add the missing rvalue-delete borrow guards~~** to `MobiusWarpCircular`, `MobiusWarpEvolving`, `ColorWipe`, and `RandomWalk` (`animation.h:1407,1568,1255,1174`) to match the contract their siblings already enforce. *Invalidated on review (false positive): all four store their cross-frame reference via a **non-const lvalue reference** parameter (`Orientation&`, `FastNoiseLite&`, `GenerativePalette&`, `MobiusParams&`), which already forbids binding a temporary at compile time — the exact reason `Lerp` deletes only its `const T&` start/target overloads, not its `T& subject` (`animation.h:797-811`). The lone `const&` params (`v_start`, `to_palette`) are copied/snapshotted in the ctor, never stored. `std::reference_wrapper` also `=delete`s its own rvalue ctor. Adding rvalue-deletes here would be inert and contradict the codebase's convention. No code change.*
+
 8. ✅ **`square_wave` negative-phase** (`waves.h:59`): use `wrap(...)` like `tri_wave`, not raw `fmod`. *Fixed: `fmod` (which keeps the dividend's sign, so a negative `t*freq+phase` is always `< dutyCycle` and latches the wave "on") replaced with `wrap(...)`, folding into `[0,1)` like `tri_wave`. Adds `test_square_wave_negative_phase` (periodicity across the sign boundary).*
 
 **P2 — documentation drift (cheap, high-credibility-impact):**
+
 9. Regenerate every effect's README "Parameters" line from its `registerParam` calls (IslamicStars, Metaballs, Voronoi, MobiusGrid at minimum).
-10. Rewrite the **Dynamo** description (it documents an effect that doesn't exist) and split the **RingSpin/RingShower** blurb (fits neither).
-11. Correct `getParameterDefinitions()` shape in README §10.2, the AntiAlias "quintic both axes" claim (§7.1/§6), the MeshCarousel "crossfade" wording (§7.3), the "tools share WASM `MeshOps`" claim (§10.2/§10.11 — only `solids.html` does), and the stale "64MB" comment (`tools/solids.html:1417`).
-12. Note that `Solids::get(index)` is WASM-tooling-only, or compile it on firmware too.
+
+10. Rewrite the **Dynamo** description (it documents an effect that doesn't exist).
+
+11. Split the **RingSpin/RingShower** blurb (fits neither).
+
+12. Correct the `getParameterDefinitions()` shape in README §10.2 (`wasm.cpp:339-355` emits `animated`/`readonly` and omits bool `min`/`max`).
+
+13. Correct the AntiAlias "quintic both axes" claim (§7.1/§6 — X is linear-after-sin, `filter.h:592-595`).
+
+14. Correct the MeshCarousel "crossfade" wording (§7.3 — the outgoing shape is not drawn).
+
+15. Correct the "tools share WASM `MeshOps`" claim (§10.2/§10.11 — only `solids.html` does).
+
+16. Correct the stale "64MB" arena comment (`tools/solids.html:1417`; actual is 16 MB).
+
+17. Note that `Solids::get(index)` is WASM-tooling-only, or compile it on firmware too.
 
 **P3 — maintainability / duplication:**
-13. Extract a `StereoShaderEffect<W,H>` base for Liquid2D/Flyby; a `PresetCycler<Params>` for the four preset-cycle effects; an `apply_if_changed` helper for the three live-slider effects.
-14. Route the SDF shape family's `get_vertical_bounds` through the existing `phi_bounds_to_rows<H>` and factor the Plot close-loop skeleton into one parametric-ring sampler.
-15. De-magic Dynamo's triplicated `10000` trail capacity into a `static constexpr`.
+
+18. Extract a `StereoShaderEffect<W,H>` base for Liquid2D/Flyby.
+
+19. Extract a `PresetCycler<Params>` for the four preset-cycle effects.
+
+20. Extract an `apply_if_changed` helper for the three live-slider effects.
+
+21. Route the SDF shape family's `get_vertical_bounds` through the existing `phi_bounds_to_rows<H>`.
+
+22. Factor the Plot close-loop skeleton into one parametric-ring sampler.
+
+23. De-magic Dynamo's triplicated `10000` trail capacity into a `static constexpr`.
 
 **P4 — testing & hygiene:**
-16. Add host coverage for `param_marshal`'s memory-stability contract and a `SegmentController.tick()` state-machine test (the riskiest untested glue).
-17. Gate the unconditional per-frame `Serial.print` in `pov_segmented.h:316-336` behind `hs::debug` (parity with `pov_single.h`).
-18. Confirm or remove the apparently-dead CRGB `DMALEDController::show()` path (`dma_led.h:207`); route `memory.cpp`'s OOM `printf` through `hs::log`.
+
+24. Add host coverage for `param_marshal`'s memory-stability contract.
+
+25. Add a `SegmentController.tick()` state-machine test (the riskiest untested glue).
+
+26. Gate the unconditional per-frame `Serial.print` in `pov_segmented.h:316-336` behind `hs::debug` (parity with `pov_single.h`).
+
+27. Confirm or remove the apparently-dead CRGB `DMALEDController::show()` path (`dma_led.h:207`).
+
+28. Route `memory.cpp`'s OOM `printf` through `hs::log`.
 
 ---
 
