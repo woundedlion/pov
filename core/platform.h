@@ -73,6 +73,22 @@ inline void flush_log() { Serial.flush(); }
 
 /**
  * @brief Returns the global deterministic random number generator.
+ *
+ * DETERMINISM CONTRACT: this `mt19937(1337)` is the *only* RNG that is
+ * bit-identical device-vs-simulator — the host build (see the `#else` branch
+ * below) returns the same seeded `mt19937`. Effects that must render
+ * identically on hardware and in the byte-deterministic simulator therefore
+ * draw through this generator: `hs::random()`, `hs::rand_f`, `hs::rand_int`.
+ *
+ * The bare FastLED `random8()`/`random16()`/Arduino `random()` are NOT covered
+ * by this contract: on device they resolve to FastLED's LCG (seeded by
+ * `randomSeed(1337)` in pov_single.h), but the host mocks route them through
+ * this `mt19937` — a *different* algorithm, so the two diverge. Only legacy
+ * effects (`effects_legacy.h`) use that path; modern effects must not, and the
+ * cheap LCG is deliberately not adopted on the hot path because it would break
+ * this contract for no measurable gain (RNG is spawn/setup-time, never
+ * per-pixel). A future per-pixel RNG need should add a fast *deterministic*
+ * PRNG here (xorshift/PCG), not reach for the platform LCG.
  */
 inline std::mt19937& random() {
   static std::mt19937 gen(1337);
@@ -299,6 +315,10 @@ inline void flush_log() { fflush(stdout); }
 
 /**
  * @brief Returns the global deterministic random number generator.
+ *
+ * Mirrors the device `mt19937(1337)` so that `hs::random()`/`hs::rand_*`
+ * reproduce hardware bit-for-bit — see the determinism contract on the ARDUINO
+ * branch's `hs::random()` for which paths are (and are not) covered.
  */
 inline std::mt19937& random() {
   static std::mt19937 gen(1337);
@@ -376,6 +396,11 @@ struct SerialMock {
 inline SerialMock Serial;
 
 // --- FastLED Mocks ---
+// NOTE: these route through hs::random() (mt19937) only to give the host a
+// reproducible stream — they do NOT match the device, where random8/random16
+// are FastLED's LCG. This path is therefore per-platform and used only by
+// legacy effects; modern effects use hs::rand_* (see the determinism contract
+// on the ARDUINO branch's hs::random()).
 inline uint8_t random8() { return hs::random()() % 256; }
 inline uint8_t random8(uint8_t top) { return hs::random()() % top; }
 inline uint16_t random16() { return hs::random()() % 65536; }

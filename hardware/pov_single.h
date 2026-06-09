@@ -42,6 +42,10 @@ public:
    */
   POVDisplay() {
 #ifdef ARDUINO
+    // Seeds FastLED's LCG only — i.e. the bare random8()/random16()/random()
+    // path used by legacy effects. Modern effects draw from the separate
+    // hs::random() mt19937(1337), which is what the simulator reproduces; see
+    // the determinism contract in platform.h.
     randomSeed(1337);
   #ifdef USE_DMA_LEDS
     ledController_.begin();
