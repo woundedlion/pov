@@ -287,22 +287,26 @@ struct Ring {
     nz = normal.z;
 
     target_angle = radius * (PI_F / 2.0f);
-    center_phi = fast_acos(ny);
+    // Cold path (ctor, once per shape): full-precision trig, matching the
+    // polygon family. The precomputed cos/sin constants below feed the
+    // per-pixel reject and centerline distance, so exact values here cost
+    // nothing in the hot loop while keeping the SDF accurate.
+    center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
 
     float ang_min = std::max(0.0f, target_angle - thickness);
     float ang_max = std::min(PI_F, target_angle + thickness);
-    cos_max = fast_cosf(ang_min);
-    cos_min = fast_cosf(ang_max);
-    cos_target = fast_cosf(target_angle);
+    cos_max = cosf(ang_min);
+    cos_min = cosf(ang_max);
+    cos_target = cosf(target_angle);
 
-    sin_target = fast_sinf(target_angle);
+    sin_target = sinf(target_angle);
     bool safe_approx = (target_angle > POLE_SAFE_MARGIN &&
                         target_angle < PI_F - POLE_SAFE_MARGIN);
     inv_sin_target = safe_approx ? (1.0f / sin_target) : 0.0f;
 
     // For get_horizontal_bounds
     r_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = fast_atan2(nz, nx);
+    alpha_angle = atan2f(nz, nx);
   }
 
   template <int H> Bounds get_vertical_bounds() const {
@@ -457,17 +461,18 @@ struct DistortedRing {
     ny = normal.y;
     nz = normal.z;
     target_angle = radius * (PI_F / 2.0f);
-    center_phi = fast_acos(ny);
+    // Cold path (ctor): full-precision trig, matching Ring and the polygon
+    // family. Runs once per shape, never per pixel.
+    center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     max_thickness = thickness + max_distortion;
 
     r_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = fast_atan2(nz, nx);
+    alpha_angle = atan2f(nz, nx);
 
     float ang_min = std::max(0.0f, target_angle - max_thickness);
     float ang_max = std::min(PI_F, target_angle + max_thickness);
-    // Match Ring (and the rest of this ctor): fast trig for these cull limits.
-    cos_max_limit = fast_cosf(ang_min);
-    cos_min_limit = fast_cosf(ang_max);
+    cos_max_limit = cosf(ang_min);
+    cos_min_limit = cosf(ang_max);
   }
 
   template <int H> Bounds get_vertical_bounds() const {
