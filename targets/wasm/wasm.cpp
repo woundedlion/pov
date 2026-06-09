@@ -55,6 +55,25 @@ Arena tooling_arena(tooling_buf, sizeof(tooling_buf));
 Arena tooling_scratch_a(tooling_scratch_buf_a, sizeof(tooling_scratch_buf_a));
 Arena tooling_scratch_b(tooling_scratch_buf_b, sizeof(tooling_scratch_buf_b));
 
+// Shared by HolosphereEngine and MeshOpsWrapper: build a {usage, high_water_mark,
+// capacity} report for the four engine arenas. Callers that also want stack
+// metrics append them to the returned object.
+static val collect_arena_metrics() {
+  val metrics = val::object();
+  auto add_metrics = [&](const char *name, Arena &arena) {
+    val m = val::object();
+    m.set("usage", arena.get_offset());
+    m.set("high_water_mark", arena.get_high_water_mark());
+    m.set("capacity", arena.get_capacity());
+    metrics.set(name, m);
+  };
+  add_metrics("scratch_arena_a", scratch_arena_a);
+  add_metrics("scratch_arena_b", scratch_arena_b);
+  add_metrics("persistent_arena", persistent_arena);
+  add_metrics("tooling_arena", tooling_arena);
+  return metrics;
+}
+
 // Build a concrete factory table from the self-registering entries
 template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
   static std::vector<FactoryEntry> table = []() {
@@ -353,20 +372,7 @@ public:
   }
 
   val getArenaMetrics() {
-    val metrics = val::object();
-
-    auto add_metrics = [&](const char *name, Arena &arena) {
-      val m = val::object();
-      m.set("usage", arena.get_offset());
-      m.set("high_water_mark", arena.get_high_water_mark());
-      m.set("capacity", arena.get_capacity());
-      metrics.set(name, m);
-    };
-
-    add_metrics("scratch_arena_a", scratch_arena_a);
-    add_metrics("scratch_arena_b", scratch_arena_b);
-    add_metrics("persistent_arena", persistent_arena);
-    add_metrics("tooling_arena", tooling_arena);
+    val metrics = collect_arena_metrics();
 
     // Stack metrics (same format as arenas)
     {
@@ -730,24 +736,7 @@ struct MeshOpsWrapper {
     return stats;
   }
 
-  static val getArenaMetrics() {
-    val metrics = val::object();
-
-    auto add_metrics = [&](const char *name, Arena &arena) {
-      val m = val::object();
-      m.set("usage", arena.get_offset());
-      m.set("high_water_mark", arena.get_high_water_mark());
-      m.set("capacity", arena.get_capacity());
-      metrics.set(name, m);
-    };
-
-    add_metrics("scratch_arena_a", scratch_arena_a);
-    add_metrics("scratch_arena_b", scratch_arena_b);
-    add_metrics("persistent_arena", persistent_arena);
-    add_metrics("tooling_arena", tooling_arena);
-
-    return metrics;
-  }
+  static val getArenaMetrics() { return collect_arena_metrics(); }
 };
 
 // Expose to JavaScript

@@ -23,7 +23,6 @@ static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 namespace Solids {
 
 static constexpr int MAX_VERTS = 8700;
-static constexpr int MAX_FACES = 1000;
 static constexpr int MAX_INDICES = 20000;
 // Conway/Hankin store topology indices as uint16_t (faces, HE_NONE=0xFFFF
 // sentinel), but some operators' scratch lands them in int16_t (-1 sentinel), so

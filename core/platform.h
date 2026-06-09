@@ -607,7 +607,6 @@ struct ScanMetrics {
   void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = lut_hits = exact_hits = 0; }
 };
 inline ScanMetrics g_scan_metrics;
-inline uint32_t g_plot_cycles = 0; // kept for backward compat
 
 } // namespace hs
 

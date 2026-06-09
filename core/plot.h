@@ -625,7 +625,7 @@ struct Ring {
    */
   static Vector calcPoint(float a, float radius, const Vector &u,
                           const Vector &v, const Vector &w) {
-    auto d = sqrtf((1 - radius) * (1 - radius));
+    auto d = fabsf(1 - radius); // sqrtf((1-radius)^2) == |1-radius|
     return Vector(d * v.x + radius * u.x * cosf(a) + radius * w.x * sinf(a),
                   d * v.y + radius * u.y * cosf(a) + radius * w.y * sinf(a),
                   d * v.z + radius * u.z * cosf(a) + radius * w.z * sinf(a))
