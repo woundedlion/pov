@@ -18,7 +18,9 @@ concurrency:
 jobs:
   tests:
     name: Native unit tests (Clang)
-    runs-on: ubuntu-latest
+    # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
+    # and the suite isn't silently re-hosted on a new runner image.
+    runs-on: ubuntu-24.04
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
@@ -27,7 +29,11 @@ jobs:
       - name: Install Clang + Ninja + ccache
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build ccache
+          # Pin the compiler version (clang-18 is the default LLVM on Ubuntu
+          # 24.04) so the native suite — including the __attribute__ /
+          # __builtin_trap death-harness semantics — runs on a known compiler
+          # rather than whatever the rolling 'clang' metapackage resolves to.
+          sudo apt-get install -y clang-18 ninja-build ccache
           # cmake is preinstalled on GitHub runners (>= 3.21 required).
 
       # Persist the compile cache across runs. CMakeLists auto-detects ccache
@@ -40,10 +46,13 @@ jobs:
           key: ccache-tests-${{ github.run_id }}
           restore-keys: ccache-tests-
 
-      # The 'tests' preset's toolchain falls back to clang/clang++ on PATH when
-      # EMSDK is unset (Linux CI). Don't auto-touch git config in CI.
+      # Pass the versioned compiler explicitly so the build is reproducible; the
+      # 'tests' toolchain respects a pre-set CMAKE_CXX_COMPILER and skips its
+      # EMSDK/PATH auto-detection. Don't auto-touch git config in CI.
       - name: Configure
-        run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+        run: >
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
 
       - name: Build
         run: cmake --build --preset tests
@@ -53,7 +62,7 @@ jobs:
 
   wasm:
     name: WASM build (Emscripten)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
@@ -63,9 +72,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
 
       # Pinned to match the local toolchain (emsdk 5.0.0). Bump deliberately.
-      # actions-cache-folder persists the emsdk install across runs.
+      # actions-cache-folder persists the emsdk install across runs. This is the
+      # one third-party action and it provisions the toolchain, so it is pinned
+      # to a full commit SHA (not a mutable tag) to prevent a retagged v14 from
+      # silently swapping the compiler.
       - name: Set up Emscripten
-        uses: mymindstorm/setup-emsdk@v14
+        uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
         with:
           version: 5.0.0
           actions-cache-folder: emsdk-cache-5.0.0
@@ -81,8 +93,36 @@ jobs:
 
       - name: Configure + build WASM (compile check)
         run: |
-          cmake --preset wasm-release
+          # Create a throwaway daydream checkout so the install() rules are active
+          # (DAYDREAM_DIR is resolved at configure time and must already exist).
+          # This lets the job exercise the provenance/install path below.
+          mkdir -p "${{ runner.temp }}/daydream-install"
+          cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release
+
+      - name: Exercise install + provenance path
+        # The daydream deploy gate consumes the provenance trio (.wasm, .sha,
+        # .wasm.sha256) this install writes, but nothing previously verified the
+        # install rules actually produce them. Run the install target and assert
+        # the trio exists and the recorded hash verifies (the same sha256 check
+        # the gate runs) so a broken provenance step fails here, not at deploy.
+        run: |
+          cmake --build --preset wasm-release-install
+          dd="${{ runner.temp }}/daydream-install"
+          for f in holosphere_wasm.wasm holosphere_wasm.sha holosphere_wasm.wasm.sha256; do
+            if [ ! -f "$dd/$f" ]; then
+              echo "::error::install did not produce $f — the deploy gate depends on it"
+              exit 1
+            fi
+          done
+          # A clean CI checkout must record a bare 40-hex SHA (no -dirty marker).
+          if grep -q -- '-dirty' "$dd/holosphere_wasm.sha"; then
+            echo "::error::engine .sha recorded as -dirty on a clean CI checkout"
+            cat "$dd/holosphere_wasm.sha"
+            exit 1
+          fi
+          ( cd "$dd" && sha256sum -c holosphere_wasm.wasm.sha256 )
+          echo "Provenance trio produced and artifact hash verified."
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@v4

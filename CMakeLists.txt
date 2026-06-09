@@ -96,6 +96,20 @@ if(EMSCRIPTEN)
         OUTPUT_VARIABLE HS_ENGINE_SHA
         OUTPUT_STRIP_TRAILING_WHITESPACE
         RESULT_VARIABLE HS_GIT_RC)
+      # Dirty-tree guard: a module built from uncommitted (tracked) source records
+      # provenance the deploy gate cannot reproduce — the gate checks out the bare
+      # SHA (clean) and tests that, while the shipped binary came from dirty source.
+      # Mark the SHA -dirty (git describe convention) so the gate's checkout of that
+      # ref fails hard instead of deploying an unverifiable artifact. Untracked files
+      # don't count (build output, node_modules); only tracked modifications do.
+      execute_process(
+        COMMAND git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" status --porcelain --untracked-files=no
+        OUTPUT_VARIABLE HS_GIT_DIRTY
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(NOT \"\${HS_GIT_DIRTY}\" STREQUAL \"\")
+        set(HS_ENGINE_SHA \"\${HS_ENGINE_SHA}-dirty\")
+        message(WARNING \"Engine tree has uncommitted changes; recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
+      endif()
       if(HS_GIT_RC EQUAL 0)
         file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\" \"\${HS_ENGINE_SHA}\\n\")
         message(STATUS \"Wrote engine provenance ${TARGET_NAME}.sha: \${HS_ENGINE_SHA}\")
