@@ -123,7 +123,7 @@ Above typical maker-project infra: dual-mode CMake selected by toolchain, correc
 
 ### P2 — Unenforced invariants & robustness
 9. **Bound the DMA/`buffer_free` spins with a watchdog or `HS_CHECK`** — an unbounded busy-wait is a silent headless freeze ([`hardware/dma_led.h:104-106`](../hardware/dma_led.h#L104-L106), [`core/canvas.h:389-390`](../core/canvas.h#L389-L390)).
-10. **`Orientation::upsample(count)`** — `HS_CHECK(count >= 1)` and special-case `count == 1` to stop the `0/0` NaN write ([`core/geometry.h:528`](../core/geometry.h#L528)).
+10. ✅ **`Orientation::upsample(count)`** — added `HS_CHECK(count >= 1)`. The `t = i/(count-1)` divide-by-zero was latent, not live: `num_frames` is always ≥ 1 (every constructor routes through `set()`), so the `num_frames >= count` early return already makes the interpolation loop reachable only when `count >= 2`. The check fails fast on a nonsensical count and documents why the `0/0` can't fire ([`core/geometry.h:515`](../core/geometry.h#L515)).
 11. **Trail TTL guards** — `HS_CHECK(lifetime <= 255)` in `World::Trails`; clamp `t`/guard `age <= lifetime` in `Screen::Trails` ([`core/filter.h:436`](../core/filter.h#L436), [`:592`](../core/filter.h#L592)).
 12. **`Scan::Volume` precondition** — convert the comment-only `bounds_center == center` invariant to `HS_CHECK` ([`core/scan.h:795-798`](../core/scan.h#L795-L798)).
 13. **`Driver` wrap** — use `hs::wrap`/`fmod` (or assert the `|speed| < 1` contract) so phase can't escape `[0,1)` ([`core/animation.h:705-710`](../core/animation.h#L705-L710)).

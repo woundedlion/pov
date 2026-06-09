@@ -513,6 +513,11 @@ public:
    * @param count The target number of steps in the history.
    */
   void upsample(int count) {
+    // A history must hold at least one frame; count < 1 is a caller bug. This
+    // also forecloses the 0/0 in t = i/(count-1) below: num_frames is always
+    // >= 1 (every constructor routes through set()), so the early return makes
+    // the interpolation loop reachable only when count >= 2 (i.e. count-1 >= 1).
+    HS_CHECK(count >= 1);
     if (num_frames >= count)
       return;
     if (count > CAPACITY)
