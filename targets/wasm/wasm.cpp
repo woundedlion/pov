@@ -243,12 +243,27 @@ public:
     // full buffer before transferring it, so out-of-clip pixels here are
     // discarded JS-side rather than shaded here (README §10.7).
     int idx = 0;
-    for (int y = 0; y < pixel_height; y++) {
-      for (int x = 0; x < pixel_width; x++) {
-        const Pixel &p = currentEffect->get_pixel(x, y);
-        pixelBuffer[idx++] = p.r;
-        pixelBuffer[idx++] = p.g;
-        pixelBuffer[idx++] = p.b;
+    const int count = pixel_width * pixel_height;
+    if (!currentEffect->overrides_get_pixel()) {
+      // Fast path: for any effect that does not override get_pixel (every
+      // modern effect), display_buffer()[i] == get_pixel(x, y), so copy the
+      // contiguous buffer directly and skip per-pixel virtual dispatch. The
+      // effect's width()/height() equal pixel_width/pixel_height (the effect is
+      // instantiated at this resolution), so the strides match exactly.
+      const Pixel *buf = currentEffect->display_buffer();
+      for (int i = 0; i < count; i++) {
+        pixelBuffer[idx++] = buf[i].r;
+        pixelBuffer[idx++] = buf[i].g;
+        pixelBuffer[idx++] = buf[i].b;
+      }
+    } else {
+      for (int y = 0; y < pixel_height; y++) {
+        for (int x = 0; x < pixel_width; x++) {
+          const Pixel &p = currentEffect->get_pixel(x, y);
+          pixelBuffer[idx++] = p.r;
+          pixelBuffer[idx++] = p.g;
+          pixelBuffer[idx++] = p.b;
+        }
       }
     }
   }
