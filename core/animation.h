@@ -109,6 +109,11 @@ public:
   virtual void post_callback() = 0;
   /// Override in types that own an Orientation to collapse it.
   virtual void collapse_orientation() {}
+  /// Identity of the owned Orientation (nullptr if none). Used by Timeline to
+  /// collapse each distinct Orientation exactly once per frame, so animations
+  /// sharing one Orientation compose their motion-blur history instead of
+  /// clobbering it.
+  virtual const void *orientation_id() const { return nullptr; }
 };
 
 namespace Animation {
@@ -911,6 +916,7 @@ public:
    */
   Orientation<W, CAP> &get_orientation() const { return orientation.get(); }
   void collapse_orientation() override { get_orientation().collapse(); }
+  const void *orientation_id() const override { return &get_orientation(); }
 
   /// Live-update the traversal duration (frames per path loop). Guards against
   /// 0 (which would divide-by-zero in step()'s `t / duration`), matching the
@@ -1018,6 +1024,7 @@ public:
    */
   Orientation<W, CAP> &get_orientation() const { return *orientation; }
   void collapse_orientation() override { get_orientation().collapse(); }
+  const void *orientation_id() const override { return orientation; }
 
   /**
    * @brief Check if the rotation has a valid orientation bound.
@@ -1155,6 +1162,7 @@ public:
    */
   Orientation<W, CAP> &get_orientation() const { return orientation.get(); }
   void collapse_orientation() override { get_orientation().collapse(); }
+  const void *orientation_id() const override { return &get_orientation(); }
 
   /**
    * @brief Steps the walk: pivots direction based on noise, then rotates the
@@ -1853,6 +1861,39 @@ public:
     int active_cnt = num_events; // Snapshot count before callbacks
                                  // potentially add more
 
+    // Collapse each distinct Orientation exactly once, before any animation
+    // steps it. Collapsing per-animation (the old behavior) discarded the
+    // sub-frame motion-blur history an earlier animation sharing the same
+    // Orientation had already built this frame — silently breaking the
+    // multi-animation motion blur the engine advertises. An Orientation is
+    // collapsed only by the first started animation that references it (no
+    // extra storage: O(active) per orientation-owning event, and most events
+    // own none).
+    for (int i = 0; i < active_cnt; ++i) {
+      auto &e = global_timeline_events[i];
+      if (t < e.start)
+        continue;
+      IAnimation *anim = e.animation();
+      if (!anim)
+        continue;
+      const void *id = anim->orientation_id();
+      if (!id)
+        continue;
+      bool already_collapsed = false;
+      for (int j = 0; j < i; ++j) {
+        auto &prev = global_timeline_events[j];
+        if (t < prev.start)
+          continue;
+        IAnimation *prev_anim = prev.animation();
+        if (prev_anim && prev_anim->orientation_id() == id) {
+          already_collapsed = true;
+          break;
+        }
+      }
+      if (!already_collapsed)
+        anim->collapse_orientation();
+    }
+
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
 
@@ -1865,15 +1906,12 @@ public:
         continue;
       }
 
-      // 2. Collapse Orientation (virtual no-op for most types)
+      // 2. Step (Orientation already collapsed once-per-frame above)
       IAnimation *anim = e.animation();
       if (!anim) {
         write_idx++;
         continue;
       }
-      anim->collapse_orientation();
-
-      // 3. Step
       anim->step(canvas);
 
       // 4. Completion & Cleanup

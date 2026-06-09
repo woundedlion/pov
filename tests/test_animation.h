@@ -456,6 +456,43 @@ inline void test_rotation_substeps_shared_and_tight() {
   }
 }
 
+// Two animations sharing one Orientation must COMPOSE their sub-frame
+// motion-blur history within a frame, not clobber it. The earlier bug
+// collapsed the Orientation once per animation, so the second animation's
+// collapse discarded the first's freshly-built sub-frame trail. The decisive
+// signature is the OLDEST sub-frame (index 0): with composition it still
+// reflects the pre-frame orientation (identity here); with the bug it has
+// already advanced by the first rotation's full sweep. (Unlike most tests in
+// this file we DO touch the global Timeline; Rotation::step never dereferences
+// the canvas, and we reset the inline-static state around the test.)
+inline void test_timeline_shared_orientation_composes_motion_blur() {
+  using Ori = Orientation<288, 16>;
+  Timeline<288>::num_events = 0;
+  Timeline<288>::t = 0;
+
+  Ori o; // identity, single frame
+  Timeline<288> tl;
+  // Two world-space rotations about the SAME axis, each a quarter turn,
+  // completing in one frame so the single step sweeps the full angle.
+  tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_mid));
+  tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_mid));
+  tl.step(fake_canvas());
+
+  // A motion-blur trail, not a single collapsed frame.
+  HS_EXPECT_GE(o.length(), 2);
+  // Oldest sub-frame is the pre-frame orientation (identity): +X stays +X.
+  // (Bug: index 0 already rotated by the first quarter turn -> +Y.)
+  Vector oldest = o.orient(X_AXIS, 0);
+  HS_EXPECT_NEAR(oldest.x, 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(oldest.y, 0.0f, 1e-3f);
+  // Newest sub-frame reflects BOTH rotations (a half turn): +X -> -X.
+  Vector newest = o.orient(X_AXIS, o.length() - 1);
+  HS_EXPECT_NEAR(newest.x, -1.0f, 1e-3f);
+
+  Timeline<288>::num_events = 0;
+  Timeline<288>::t = 0;
+}
+
 inline int run_animation_tests() {
   auto scope = hs_test::begin_module("animation");
 
@@ -488,6 +525,7 @@ inline int run_animation_tests() {
   test_easing_elastic_anchors();
 
   test_rotation_substeps_shared_and_tight();
+  test_timeline_shared_orientation_composes_motion_blur();
 
   return hs_test::end_module(scope);
 }
