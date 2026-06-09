@@ -236,7 +236,12 @@ public:
     currentEffect->draw_frame();
     currentEffect->advance_display();
 
-    // Output 16-bit Linear values directly
+    // Output 16-bit Linear values directly. The readback copies the FULL
+    // canvas regardless of any active clip region: a clip restricts *rendering*
+    // (scanline culling skips out-of-clip rows/cols) but not this readback. In
+    // segmented mode segment_worker.js extracts just its quadrant from this
+    // full buffer before transferring it, so out-of-clip pixels here are
+    // discarded JS-side rather than shaded here (README §10.7).
     int idx = 0;
     for (int y = 0; y < pixel_height; y++) {
       for (int x = 0; x < pixel_width; x++) {

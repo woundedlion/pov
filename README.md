@@ -1716,7 +1716,7 @@ drawFrame() {                postMessage({type:'render'})
 
 Key properties:
 - **Isolated WASM instances per worker** — each segment has its own arena, its own random seed (`std::mt19937(1337)` is deterministic, so all workers produce the same result), and its own effect state.
-- **`setClip(y0, y1, x0, x1)`** — the WASM engine restricts rendering and pixel readback to the worker's quadrant; the rest of the canvas isn't even visited.
+- **`setClip(y0, y1, x0, x1)`** — the WASM engine restricts *rendering* to the worker's quadrant: the rasterizer's scanline culling skips out-of-clip rows and columns, so out-of-band pixels are never shaded. The pixel readback in `drawFrame()` still copies the full canvas buffer; `segment_worker.js` then extracts just the quadrant rectangle from it (`segment_worker.js:149-159`) before transferring the result back, so only the quadrant crosses the worker boundary.
 - **One-frame pipeline** — frame N's render is dispatched fire-and-forget; frame N-1's results are composited synchronously when they arrive. Wall-clock time is measured against the slowest worker — exactly what the multi-Teensy hardware sees.
 - **Boundary overlay** — a "Show Boundaries" toggle paints cyan markers on the segment edges in the composite buffer to make the partition visible.
 
