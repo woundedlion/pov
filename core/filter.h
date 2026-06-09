@@ -557,7 +557,13 @@ namespace Screen {
  */
 template <int W, int H> class AntiAlias : public Is2D {
 public:
-  AntiAlias() {}
+  // Cold one-time touch of the phi LUT so the per-sub-pixel plot() path can read
+  // it unconditionally. In production init_geometry_luts() has already filled the
+  // table; this guarded call is the lazy fallback for callers that skip engine
+  // setup. Hoisting it here keeps the hot loop free of the init branch.
+  AntiAlias() {
+    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+  }
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
@@ -576,7 +582,7 @@ public:
     // Spherical density compensation: scale X fractional by sin(phi).
     // At poles, all columns converge to the same point — snap to nearest.
     // At equator, sin(phi)=1 so behavior is unchanged.
-    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
+    // (LUT init hoisted to the constructor — see above.)
     int yi0 = hs::clamp(static_cast<int>(y_i), 0,
                         TrigLUT<W, H>::H_VIRT - 1);
     int yi1 = hs::clamp(static_cast<int>(y_i) + 1, 0,

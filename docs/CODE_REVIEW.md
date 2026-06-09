@@ -139,7 +139,7 @@ Operates above commercial-average. Correct, *documented* `-fno-finite-math-only`
 - **[P4-1] Add a `LiveParam`/`BoundDriver` engine helper** to absorb the ~6× "retain handle + re-sync slider every frame" idiom, plus a reflective param-lerp to absorb the per-preset `lerp()` boilerplate.
 - **[P4-2] Extract MobiusGrid's duplicated `draw_axis_rings`/`draw_longitudes`** into one helper taking the per-fragment shader.
 - **[P4-3] Promote magic constants** (Metaballs/PetalFlow/SphericalHarmonics field/AO literals, Raymarch's literal `20` vertex count) to named `constexpr`.
-- **[P4-4] Hoist `AntiAlias` LUT init** out of the per-sub-pixel hot path into the filter constructor / a `prepare_frame()` seam.
+- ✅ **[P4-4] Hoist `AntiAlias` LUT init** out of the per-sub-pixel hot path — `plot()` ran an `if (!TrigLUT::initialized) init()` lazy-init branch on *every* sub-pixel splat, the highest-frequency caller of that idiom (per-fragment, vs. per-row in the SDF/scan paths). **Fixed:** moved the guarded one-time touch into the `AntiAlias` constructor so the per-fragment body reads the LUT unconditionally. Semantics-preserving: in production `init_geometry_luts()` already fills the table before the first frame, and `TrigLUT::initialized` is a write-once static that nothing clears, so the constructor's lazy fallback covers the skip-engine-setup path exactly as the inline guard did. Performance-positive (drops a load+branch from the hot loop, adds one guarded check per filter construction). Native test suite passes. ([filter.h:558-609](../core/filter.h#L558-L609))
 
 ### P5 — Test waist (closes the gap to A)
 - **[P5-1] Test the OKLCH shortest-arc midpoint** (the marquee color feature, currently unguarded).
