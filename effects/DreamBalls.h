@@ -65,6 +65,10 @@ private:
   float t = 0;
   int last_preset_idx_ = -1; // last preset whose values were copied into params
 
+  // Per-vertex phase increment (radians) for the orbit stagger: vertex i leads
+  // the next by this much so the surface ripples instead of pulsing in unison.
+  static constexpr float VERTEX_PHASE_STAGGER = 0.1f;
+
   struct Tangent {
     Vector u;
     Vector v;
@@ -201,7 +205,7 @@ private:
 
   // Orbit each vertex in a small circle of radius r within its own tangent
   // plane (u,v frame), then re-project onto the unit sphere. The per-vertex
-  // phase (i * 0.1) staggers the orbits so the surface ripples.
+  // phase (i * VERTEX_PHASE_STAGGER) staggers the orbits so the surface ripples.
   void update_displaced_mesh(const MeshState &base, MeshState &target,
                              const ArenaVector<Tangent> &tangents,
                              const Params &p, float angle_offset) {
@@ -213,7 +217,7 @@ private:
       const Vector &v = base.vertices[i];
       const auto &tan = tangents[i];
 
-      float phase = i * 0.1f;
+      float phase = i * VERTEX_PHASE_STAGGER;
       float angle = t * speed * 2 * PI_F + phase + angle_offset;
 
       float cosA = fast_cosf(angle);
@@ -235,8 +239,13 @@ private:
       f.color = c;
     };
 
-    for (int i = 0; i < p.num_copies; ++i) {
-      float offset = (static_cast<float>(i) / p.num_copies) * 2 * PI_F;
+    // num_copies is a float param (slider/preset), but it is a count: hoist it
+    // to an int bound so the loop compares int-to-int instead of promoting the
+    // counter to float each iteration. Identical for the integer values it ever
+    // holds (presets and the slider's whole-number stops).
+    const int num_copies = static_cast<int>(p.num_copies);
+    for (int i = 0; i < num_copies; ++i) {
+      float offset = (static_cast<float>(i) / num_copies) * 2 * PI_F;
       update_displaced_mesh(base, target, tangents, p, offset);
 
       for (size_t vi = 0; vi < target.vertices.size(); ++vi) {

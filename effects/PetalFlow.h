@@ -55,6 +55,9 @@ private:
   static constexpr float START_RHO = -3.75f;
   static constexpr float END_RHO = 3.75f;
   static constexpr float SPACING = 0.3f; // Spacing in rho units
+  // Rho advanced per frame per unit of the Speed slider — the conversion from
+  // the (unitless) Speed control to per-frame motion along the path.
+  static constexpr float RHO_PER_SPEED = 0.009375f;
   // Petal shaping for the per-ring radial wobble: lobe count per revolution and
   // wobble depth in rho units.
   static constexpr float PETAL_LOBES = 3.0f;
@@ -91,7 +94,7 @@ private:
   }
 
   void check_spawn() {
-    float move_dist = params.speed * 0.009375f;
+    float move_dist = params.speed * RHO_PER_SPEED;
     gap_accumulator += move_dist;
 
     while (gap_accumulator >= SPACING) {
@@ -118,7 +121,7 @@ private:
   }
 
   void update_and_draw_rings(Canvas &canvas) {
-    float move_dist = params.speed * 0.009375f;
+    float move_dist = params.speed * RHO_PER_SPEED;
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active)
         continue;

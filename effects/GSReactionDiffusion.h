@@ -78,13 +78,23 @@ private:
   // Q16: 16-bit fixed point needed for GS cubic reaction term precision
   static constexpr float Q16_SCALE = 65535.0f;
   static constexpr float Q16_INV = 1.0f / Q16_SCALE;
+
+  // Simulation tuning.
+  static constexpr int NUM_SEED_CLUSTERS = 30; // initial B blobs at init
+  static constexpr int STEPS_PER_FRAME = 16;   // physics substeps per render
+  // Render mapping for the B concentration: pixels below the floor are
+  // transparent; [B_COLOR_FLOOR, B_COLOR_FLOOR + 1/B_COLOR_SCALE] maps to the
+  // full palette range [0,1].
+  static constexpr float B_CULL_THRESHOLD = 0.05f;
+  static constexpr float B_COLOR_FLOOR = 0.1f;
+  static constexpr float B_COLOR_SCALE = 4.0f;
   static inline float from_q16(uint16_t v) { return v * Q16_INV; }
   static inline uint16_t to_q16(float v) {
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE);
   }
 
   void seed_clusters() {
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < NUM_SEED_CLUSTERS; i++) {
       int idx = hs::rand_int(0, RD_N - 1);
       state.B[idx] = 65535;
       for (int nb : ReactionGraph::neighbors[idx])
@@ -140,7 +150,7 @@ private:
     uint16_t *sB = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
 
-    for (int k = 0; k < 16; k++)
+    for (int k = 0; k < STEPS_PER_FRAME; k++)
       step_physics(sA, sB);
 
     // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
@@ -149,10 +159,10 @@ private:
       int nearest = cube_lut.lookup(rv);
       float b = interpolate_b(rv, nearest, nodes);
 
-      if (b < 0.05f)
+      if (b < B_CULL_THRESHOLD)
         return Color4(Pixel(0, 0, 0), 0.0f);
 
-      float t = hs::clamp((b - 0.1f) * 4.0f, 0.0f, 1.0f);
+      float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
       return palette.get(t);
     };
 

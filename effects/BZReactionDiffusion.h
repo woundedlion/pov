@@ -86,6 +86,12 @@ private:
     return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * 255.0f);
   }
 
+  // Simulation tuning.
+  static constexpr int CLUSTERS_PER_SPECIES = 3; // seed blobs per species at init
+  static constexpr int STEPS_PER_FRAME = 2;      // physics substeps per render
+  static constexpr int NUM_PERTURBATIONS = 8;    // random nudges per physics step
+  static constexpr int PERTURB_AMOUNT = 3;       // Q8 magnitude of each nudge
+
   // ---------------------------------------------------------------------------
   // Initialization helpers
   // ---------------------------------------------------------------------------
@@ -103,11 +109,12 @@ private:
   // Seeding
   // ---------------------------------------------------------------------------
 
-  /** Seed 3 clusters per species to ensure all 3 are always present. */
+  /** Seed CLUSTERS_PER_SPECIES clusters per species to ensure all 3 are always
+   *  present. */
   void seed_spiral_nuclei() {
     uint8_t *species[] = {state.A, state.B, state.C};
     for (int s = 0; s < 3; s++) {
-      for (int k = 0; k < 3; k++) {
+      for (int k = 0; k < CLUSTERS_PER_SPECIES; k++) {
         int center = hs::rand_int(0, RD_N - 1);
         species[s][center] = 255;
         for (int nb : ReactionGraph::neighbors[center])
@@ -131,12 +138,12 @@ private:
   /** Apply stochastic perturbation to prevent convergence on closed manifold.
    */
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
-    for (int p = 0; p < 8; p++) {
+    for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N - 1);
       int s = hs::rand_int(0, 2);
       uint8_t *t = (s == 0) ? nA : (s == 1) ? nB : nC;
-      t[idx] =
-          static_cast<uint8_t>(std::min(static_cast<int>(t[idx]) + 3, 255));
+      t[idx] = static_cast<uint8_t>(
+          std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 255));
     }
   }
 
@@ -227,7 +234,7 @@ private:
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
 
-    for (int k = 0; k < 2; k++)
+    for (int k = 0; k < STEPS_PER_FRAME; k++)
       step_physics(sA, sB, sC);
 
     // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
