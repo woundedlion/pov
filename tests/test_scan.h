@@ -293,6 +293,107 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   HS_EXPECT_GT(fabsf(a_thin - a_thick), 0.1f);
 }
 
+// A ring of normalized radius r is centered on the basis axis at polar angle
+// target = r*(PI/2), so it lights a single latitude band whose center row is
+// phi_to_y(target). Assert the rasterizer output actually lands there (an
+// analytic position check, not just "some pixels, not all") and that rows well
+// away from the band stay dark.
+inline void test_ring_rasterize_lights_expected_row() {
+  constexpr int W = 96, H = 48;
+
+  auto centroid_and_band = [](float radius) {
+    ScanFx fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      Basis basis = make_basis(Quaternion(), Y_AXIS); // axis = north pole (+Y)
+      Scan::Ring::draw<W, H, false>(
+          pipe, c, basis, radius, /*thickness=*/0.05f,
+          [](const Vector &, Fragment &f) {
+            f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+          });
+    }
+    fx.advance_display();
+
+    int lit[H] = {0};
+    long total = 0, weighted = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        if (!is_black(fx.get_pixel(x, y))) {
+          lit[y]++;
+          total++;
+          weighted += y;
+        }
+    struct R { float centroid; int total; int lit[H]; };
+    R r;
+    r.centroid = total ? static_cast<float>(weighted) / total : -1.0f;
+    r.total = static_cast<int>(total);
+    for (int y = 0; y < H; ++y) r.lit[y] = lit[y];
+    return r;
+  };
+
+  for (float radius : {0.5f, 1.0f}) {
+    float target = radius * (PI_F / 2.0f);
+    float expected_y = phi_to_y<H>(target);
+    auto r = centroid_and_band(radius);
+
+    // The ring is a full circle of latitude: most columns light up its row.
+    HS_EXPECT_GT(r.total, W / 2);
+    // Lit-pixel centroid lands on the analytically predicted row.
+    HS_EXPECT_NEAR(r.centroid, expected_y, 1.0f);
+    // Rows far from the band (> 4 px away) are dark.
+    int ey = static_cast<int>(expected_y + 0.5f);
+    for (int y = 0; y < H; ++y)
+      if (std::abs(y - ey) > 4)
+        HS_EXPECT_EQ(r.lit[y], 0);
+  }
+}
+
+// The stroke anti-aliasing alpha is a monotone ramp from ~1 at the ring
+// centerline to 0 at its outer surface — not a hard binary edge. Sample the AA
+// alpha process_pixel produces while marching a point radially outward across
+// the band and assert it decreases monotonically through intermediate values.
+inline void test_stroke_aa_is_monotone_ramp() {
+  constexpr int W = 288, H = 144;
+  ScanFx fx(W, H);
+  Canvas c(fx);
+
+  const float radius = 0.5f;            // centerline at polar PI/4
+  const float thickness = 0.10f;        // band half-width in radians
+  const float target = radius * (PI_F / 2.0f);
+  Basis basis = make_basis(Quaternion(), Y_AXIS);
+  SDF::Ring ring(basis, radius, thickness);
+
+  // March outward from the centerline along the az=0 meridian. raw distance to
+  // the centerline grows with the offset, so the signed distance crosses 0 at
+  // the surface and the alpha should fall 1 -> 0.
+  const int N = 12;
+  float prev = 2.0f;
+  bool saw_one = false, saw_zero = false, saw_mid = false;
+  for (int i = 0; i < N; ++i) {
+    float delta = (thickness * 1.4f) * i / (N - 1); // 0 .. 1.4*thickness
+    float ph = target + delta;
+    Vector p(sinf(ph), cosf(ph), 0.0f); // az=0, polar angle ph
+    int count = 0;
+    float a = scan_alpha_at<W, H>(ring, p, c, &count);
+    if (count == 0) a = 0.0f; // outside the stroke -> not drawn -> alpha 0
+
+    // Monotone non-increasing as we move outward.
+    HS_EXPECT_LE(a, prev + 1e-4f);
+    prev = a;
+
+    if (a > 0.95f) saw_one = true;
+    if (a < 0.05f) saw_zero = true;
+    if (a > 0.1f && a < 0.9f) saw_mid = true;
+  }
+
+  // Centerline ~opaque, far edge ~transparent, with a genuine ramp between
+  // (a hard edge would jump 1 -> 0 with no intermediate sample).
+  HS_EXPECT_TRUE(saw_one);
+  HS_EXPECT_TRUE(saw_zero);
+  HS_EXPECT_TRUE(saw_mid);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -304,6 +405,8 @@ inline int run_scan_tests() {
   test_shader_positional_maps_latitude();
   test_shader_respects_clip_band();
   test_ring_rasterize_produces_bounded_output();
+  test_ring_rasterize_lights_expected_row();
+  test_stroke_aa_is_monotone_ramp();
   test_ring_rasterize_empty_clip_draws_nothing();
   test_scan_region_seam_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
