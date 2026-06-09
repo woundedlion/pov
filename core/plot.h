@@ -287,6 +287,12 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   #endif
 
   size_t count = close_loop ? len : len - 1;
+  // SCRATCH ARENA CONTRACT (load-bearing): this rasterizer and
+  // Pixel::Feedback::flush (filter.h) both checkpoint scratch_arena_a. That is
+  // safe ONLY because plot() and flush() are temporally disjoint phases within
+  // a frame — neither runs while the other holds a live allocation here. Keep
+  // it that way: do not call into a feedback flush from inside a plot, and do
+  // not allocate from scratch_arena_a across a plot/flush boundary.
   ScratchScope _sc(scratch_arena_a);
   ArenaVector<float> _steps_cache;
   // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each
