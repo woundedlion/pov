@@ -396,12 +396,10 @@ private:
 /**
  * @brief Replicates geometry onto the vertices of a solid.
  * Precomputes rotation quaternions from vertex[0] to each other vertex.
- *
- * Age-channel contract: each copy is emitted with an *integer* `age + i` offset
- * keyed on its vertex index, so downstream age-driven palettes can tint copies
- * differently. This is a per-copy discriminator, not temporal blur — distinct
- * from `Orient`'s fractional `(1 - t)` motion-blur offset and from `Replicate`,
- * which shares one age across all copies.
+ * Every copy carries the source point's age unchanged: age is the temporal
+ * channel (motion blur, trail TTL), not a per-copy discriminator — replication
+ * is spatial and must not steer age-driven palettes. This matches Replicate;
+ * only Orient/OrientSlice adjust age, via their fractional motion-blur tween.
  */
 template <int W, int N> class VertexReplicate : public Is3D {
 public:
@@ -415,7 +413,7 @@ public:
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     for (int i = 0; i < N; ++i) {
-      pass(rotate(v, rotations[i]), color, age + static_cast<float>(i), alpha);
+      pass(rotate(v, rotations[i]), color, age, alpha);
     }
   }
 
