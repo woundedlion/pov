@@ -276,6 +276,7 @@ private:
     // effect_. Keep these two writes bracketing the attach/detach pair.
     effect_ = e;
     x_ = 0;
+    sync_seeded_ = false; // re-seed frame-sync parity for this run (see ISR)
 
     // Attach column + frame sync ISRs.
     //
@@ -395,12 +396,26 @@ private:
       digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
       return;
     }
-    // A single-wire pulse can't say which boundary it is, so snap x_ to
-    // whichever of {0, w/2} it is nearest. Real drift is a few columns at most
-    // (well under w/4), so this both selects the right boundary and absorbs the
-    // drift the sync exists to correct. At x==0 this matches the old behavior.
+    // A single-wire pulse can't say which boundary it is. Segment 0 pulses at
+    // BOTH boundaries (x==0 and x==w/2), so the boundaries strictly alternate:
+    // 0, w/2, 0, w/2, … We track that parity absolutely rather than guessing
+    // from proximity. Proximity (nearest of {0, w/2}) only holds while drift
+    // stays under w/4 — past that it latches a permanent half-revolution error.
+    // Counting pulses is drift-independent: the only assumption is that the
+    // dedicated frame-sync wire itself doesn't drop/duplicate a pulse.
+    //
+    // The first pulse seeds the parity by proximity: right after run() sets
+    // x_=0, drift is ≈0, so proximity unambiguously names that boundary. Every
+    // pulse after just toggles, regardless of how far the column clock has since
+    // drifted.
     const int w = effect_->width();
-    x_ = (x_ < w / 4 || x_ >= 3 * w / 4) ? 0 : w / 2;
+    if (sync_seeded_) {
+      sync_at_zero_ = !sync_at_zero_;
+    } else {
+      sync_at_zero_ = (x_ < w / 4 || x_ >= 3 * w / 4);
+      sync_seeded_  = true;
+    }
+    x_ = sync_at_zero_ ? 0 : w / 2;
   }
 
   // ── Static state ────────────────────────────────────────────────────
@@ -413,6 +428,12 @@ private:
   // volatile) is race-free only under the equal-priority non-preemption
   // invariant documented at the ISR attach site in run().
   static int x_;
+  // Frame-sync boundary parity (downstream boards only; see frame_sync_isr).
+  // sync_at_zero_ names the boundary the current pulse marks; sync_seeded_ is
+  // false until the first pulse anchors the parity by proximity. Touched only
+  // in frame_sync_isr (single ISR), so no cross-handler sharing beyond x_.
+  static bool sync_seeded_;
+  static bool sync_at_zero_;
   static int segment_id_;
   static bool arm_b_;
   static int y_base_;
@@ -429,6 +450,12 @@ int POVSegmented<S, N, RPM>::x_ = 0;
 
 template <int S, int N, int RPM>
 Effect *POVSegmented<S, N, RPM>::effect_ = nullptr;
+
+template <int S, int N, int RPM>
+bool POVSegmented<S, N, RPM>::sync_seeded_ = false;
+
+template <int S, int N, int RPM>
+bool POVSegmented<S, N, RPM>::sync_at_zero_ = true;
 
 template <int S, int N, int RPM>
 int POVSegmented<S, N, RPM>::segment_id_ = 0;
