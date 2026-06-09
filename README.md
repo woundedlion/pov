@@ -1505,7 +1505,9 @@ Random-walk particle system with Möbius warp bursts.
 
 #### Dynamo
 
-Rotating ring-pair patterns whose axes precess relative to each other.
+A vertical strand of points — one per latitude row — drifts horizontally around the sphere, each row dragging the next under a gap constraint so the chain wavers like a wind-blown curtain. The strand leaves motion trails, is replicated three times around the sphere, periodically reverses direction, and tumbles under random-axis rotations, while periodic color wipes sweep freshly generated analogous palettes across it.
+
+**Parameters**: Speed, Gap, Trail Len, Wipe Dur
 
 </td></tr></table>
 

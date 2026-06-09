@@ -97,7 +97,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 9. ✅ Regenerate every effect's README "Parameters" line from its `registerParam` calls (IslamicStars, Metaballs, Voronoi, MobiusGrid at minimum). *Fixed: IslamicStars now lists all eight registered params (added Fade, Burst, Debug BB); Metaballs (Max Infl, Gravity, Num Balls, Radius, Velocity, Noise Str, Noise Spd), MobiusGrid (Rings, Lines, Alpha), and Voronoi (Num Sites, Speed, Smoothness, Border Thick) gained the Parameters line they were missing — all transcribed verbatim from each effect's `registerParam` labels.*
 
-10. Rewrite the **Dynamo** description (it documents an effect that doesn't exist).
+10. ✅ Rewrite the **Dynamo** description (it documents an effect that doesn't exist). *Fixed: replaced the "rotating ring-pair / precessing axes" blurb (which matches no code) with a faithful description of the actual effect — a per-latitude-row chain of points (`nodes[i].y = i`, one per `H_VIRT` row) that drift horizontally under a gap-constrained drag, leave `Trails`, are `Replicate`d 3×, periodically `reverse()`/`rotate()`, with `color_wipe()` sweeping new generative palettes — and added the missing Parameters line (Speed, Gap, Trail Len, Wipe Dur).*
 
 11. Split the **RingSpin/RingShower** blurb (fits neither).
 
