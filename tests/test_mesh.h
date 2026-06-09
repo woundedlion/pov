@@ -28,8 +28,9 @@ inline uint8_t mesh_arena_b[256 * 1024];
 
 template <typename Solid>
 inline void build_solid(PolyMesh &mesh, Arena &arena) {
-  mesh.initialize(arena, Solid::NUM_VERTS, Solid::NUM_FACES,
-                  Solid::faces.size());
+  mesh.vertices.bind(arena, Solid::NUM_VERTS);
+  mesh.face_counts.bind(arena, Solid::NUM_FACES);
+  mesh.faces.bind(arena, Solid::faces.size());
   for (const auto &v : Solid::vertices) mesh.vertices.push_back(v);
   for (auto fc : Solid::face_counts) mesh.face_counts.push_back(fc);
   for (auto fi : Solid::faces)
@@ -47,10 +48,12 @@ inline void test_polymesh_default_state() {
   HS_EXPECT_EQ(m.faces.size(), (size_t)0);
 }
 
-inline void test_polymesh_initialize_binds_arrays() {
+inline void test_polymesh_bind_arrays() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh m;
-  m.initialize(arena, /*verts*/ 8, /*faces*/ 6, /*indices*/ 24);
+  m.vertices.bind(arena, /*verts*/ 8);
+  m.face_counts.bind(arena, /*faces*/ 6);
+  m.faces.bind(arena, /*indices*/ 24);
   HS_EXPECT_TRUE(m.vertices.is_bound());
   HS_EXPECT_TRUE(m.face_counts.is_bound());
   HS_EXPECT_TRUE(m.faces.is_bound());
@@ -214,7 +217,9 @@ inline void test_compile_drops_degenerate_faces() {
   Arena dst(mesh_arena_b, sizeof(mesh_arena_b));
 
   PolyMesh m;
-  m.initialize(src, /*verts*/ 4, /*faces*/ 3, /*indices*/ 7);
+  m.vertices.bind(src, /*verts*/ 4);
+  m.face_counts.bind(src, /*faces*/ 3);
+  m.faces.bind(src, /*indices*/ 7);
   // 4 vertices on a tetrahedron-ish layout (positions don't matter here)
   m.vertices.push_back(Vector(1, 0, 0));
   m.vertices.push_back(Vector(0, 1, 0));
@@ -334,7 +339,7 @@ inline int run_mesh_tests() {
   auto scope = hs_test::begin_module("mesh");
 
   test_polymesh_default_state();
-  test_polymesh_initialize_binds_arrays();
+  test_polymesh_bind_arrays();
   test_polymesh_clear_resets_data();
   test_polymesh_unified_accessors();
 

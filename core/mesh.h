@@ -37,13 +37,6 @@ struct PolyMesh {
 
   PolyMesh() = default;
 
-  void initialize(Arena &arena, size_t num_verts, size_t num_faces,
-                  size_t num_indices) {
-    vertices.bind(arena, num_verts);
-    face_counts.bind(arena, num_faces);
-    faces.bind(arena, num_indices);
-  }
-
   inline void clear() {
     vertices.clear();
     face_counts.clear();

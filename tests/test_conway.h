@@ -31,8 +31,9 @@ inline uint8_t conway_temp_buf[256 * 1024];
 // Build a PolyMesh from a Solids::* descriptor into the given arena.
 template <typename Solid>
 inline void build_solid(PolyMesh &mesh, Arena &arena) {
-  mesh.initialize(arena, Solid::NUM_VERTS, Solid::NUM_FACES,
-                  Solid::faces.size());
+  mesh.vertices.bind(arena, Solid::NUM_VERTS);
+  mesh.face_counts.bind(arena, Solid::NUM_FACES);
+  mesh.faces.bind(arena, Solid::faces.size());
   for (const auto &v : Solid::vertices) mesh.vertices.push_back(v);
   for (auto fc : Solid::face_counts) mesh.face_counts.push_back(fc);
   for (auto fi : Solid::faces)
@@ -289,7 +290,9 @@ inline void test_input_tetrahedron_winding() {
 inline void test_normalize_pushes_to_unit_sphere() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
   PolyMesh m;
-  m.initialize(arena, 3, 1, 3);
+  m.vertices.bind(arena, 3);
+  m.face_counts.bind(arena, 1);
+  m.faces.bind(arena, 3);
   m.vertices.push_back(Vector(3, 4, 0));     // length 5
   m.vertices.push_back(Vector(0, 0, 7));     // length 7
   m.vertices.push_back(Vector(2, 2, 2));     // length √12
@@ -645,7 +648,9 @@ inline void check_no_degenerate_faces(const PolyMesh &m) {
 // HalfEdgeMesh accepts it (it has no <3-sided guard), so it reaches the
 // primary-face loop of expand/chamfer/snub with count == 2.
 inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
-  m.initialize(arena, 2, 1, 2);
+  m.vertices.bind(arena, 2);
+  m.face_counts.bind(arena, 1);
+  m.faces.bind(arena, 2);
   m.vertices.push_back(Vector(1.0f, 0.0f, 0.0f));
   m.vertices.push_back(Vector(-1.0f, 0.0f, 0.0f));
   m.face_counts.push_back(2);

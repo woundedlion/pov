@@ -28,8 +28,9 @@ inline uint8_t hankin_temp_buf[256 * 1024];
 // Build a PolyMesh from a Solids descriptor into the given arena.
 template <typename Solid>
 inline void build_solid(PolyMesh &mesh, Arena &arena) {
-  mesh.initialize(arena, Solid::NUM_VERTS, Solid::NUM_FACES,
-                  Solid::faces.size());
+  mesh.vertices.bind(arena, Solid::NUM_VERTS);
+  mesh.face_counts.bind(arena, Solid::NUM_FACES);
+  mesh.faces.bind(arena, Solid::faces.size());
   for (const auto &v : Solid::vertices) mesh.vertices.push_back(v);
   for (auto fc : Solid::face_counts) mesh.face_counts.push_back(fc);
   for (auto fi : Solid::faces)
