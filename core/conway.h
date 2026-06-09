@@ -142,7 +142,7 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
     });
 
     if (orbit_count >= 3) {
-      out_mesh.face_counts.push_back(orbit_count);
+      out_mesh.face_counts.push_back(narrow_face_count(orbit_count));
       if (reverse) {
         for (int k = orbit_count - 1; k >= 0; --k)
           out_mesh.faces.push_back(orbit_buf[k]);
@@ -580,7 +580,7 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
       uint16_t start = he_mesh.faces[fi].half_edge;
       int count = face_side_count(he_mesh, start);
       if (count >= 3) {
-        out_mesh.face_counts.push_back(count * 2);
+        out_mesh.face_counts.push_back(narrow_face_count(count * 2));
         uint16_t he_idx = start;
         do {
           auto [tail_cut, head_cut] =

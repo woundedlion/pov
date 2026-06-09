@@ -82,7 +82,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 **P1 — fail-fast consistency & doctrine:**
 5. ✅ **`KDTree::build` silent subtree drop** (`spatial.h:219-263`). Convert the pool-exhaustion `-1` return to an `HS_CHECK`, or remove the now-dead guard — as written it is the one place that would corrupt silently rather than trap. *Fixed: the pool-exhaustion `-1` return is now an `HS_CHECK` (the legitimate empty-subtree base case keeps its `-1`), so a broken capacity invariant traps loud instead of silently dropping a subtree.*
-6. **Guard `uint8_t` face-count narrowing** (`conway.h:145,583`, `hankin.h:196,238`). Add a `narrow_face_count()` mirror of the existing `narrow_index` so a >255-sided face traps instead of truncating.
+6. ✅ **Guard `uint8_t` face-count narrowing** (`conway.h:145,583`, `hankin.h:196,238`). Add a `narrow_face_count()` mirror of the existing `narrow_index` so a >255-sided face traps instead of truncating. *Fixed: added `narrow_face_count()` to `mesh.h` (traps on `<0` or `>255`) and routed the four computed `int`→`uint8_t face_counts` narrowings through it (`orbit_count`, `count*2`, and the two Hankin rosette walks); the constant pushes (3/4/6) and already-`uint8_t` copies need no guard.*
 7. **Add the missing rvalue-delete borrow guards** to `MobiusWarpCircular`, `MobiusWarpEvolving`, `ColorWipe`, and `RandomWalk` (`animation.h:1407,1568,1255,1174`) to match the contract their siblings already enforce.
 8. **`square_wave` negative-phase** (`waves.h:59`): use `wrap(...)` like `tri_wave`, not raw `fmod`.
 

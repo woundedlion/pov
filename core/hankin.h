@@ -235,7 +235,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       } while (curr_idx != HE_NONE && curr_idx != start_orbit);
 
       if (count > 2) {
-        compiled.face_counts.push_back(count);
+        compiled.face_counts.push_back(narrow_face_count(count));
         for (int k = count - 1; k >= 0; --k) {
           compiled.faces.push_back(face_indices[k]);
         }
