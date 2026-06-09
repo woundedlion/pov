@@ -149,15 +149,25 @@ private:
 
   /** Full physics step: reaction-diffusion + perturbation + swap. */
   void step_physics(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
-    auto from = [](uint8_t v) { return from_q8(v); };
     for (int i = 0; i < RD_N; i++) {
       float a = from_q8(state.A[i]);
       float b = from_q8(state.B[i]);
       float c = from_q8(state.C[i]);
 
-      nA[i] = advance_species(a, c, graph_laplacian(state.A, i, a, from));
-      nB[i] = advance_species(b, a, graph_laplacian(state.B, i, b, from));
-      nC[i] = advance_species(c, b, graph_laplacian(state.C, i, c, from));
+      // All three species' Laplacians share one neighbor walk (fused on
+      // purpose, per graph_laplacian's note: three single-field calls would
+      // triple the lattice reads on this dominant loop). Each Σ runs over the
+      // same neighbor order, so the result is identical to the split form.
+      float lA = 0, lB = 0, lC = 0;
+      for_each_neighbor(i, [&](int ni) {
+        lA += from_q8(state.A[ni]) - a;
+        lB += from_q8(state.B[ni]) - b;
+        lC += from_q8(state.C[ni]) - c;
+      });
+
+      nA[i] = advance_species(a, c, lA);
+      nB[i] = advance_species(b, a, lB);
+      nC[i] = advance_species(c, b, lC);
     }
 
     perturb_state(nA, nB, nC);
