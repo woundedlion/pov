@@ -111,8 +111,12 @@ public:
             secSite.color.color.b + (c.color.b - secSite.color.color.b) * t);
       }
 
-      // Borders
-      if (showBorders && hasSecond) {
+      // Borders — driven entirely by the "Border Thick" slider: a thickness of
+      // 0 disables them (and skips the two acosf calls below), any positive
+      // value paints the seam between the nearest two sites. knn[0] is the
+      // nearest, so maxDot1 >= maxDot2 → dist1 <= dist2 and the cell gap is
+      // non-negative.
+      if (params.borderThickness > 0.0f && hasSecond) {
         float dist1 = acosf(std::min(1.0f, maxDot1));
         float dist2 = acosf(std::min(1.0f, maxDot2));
         if (dist2 - dist1 < params.borderThickness) {
@@ -131,8 +135,6 @@ public:
     float borderThickness = 0.0f;
     float smoothness = 100.0f;
   } params;
-
-  bool showBorders = true;
 
   // The sites buffer is allocated once at MAX_SITES; the active count varies
   // with the "Num Sites" slider and is re-seeded (clear + refill, no realloc)
