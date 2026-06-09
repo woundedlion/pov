@@ -115,9 +115,9 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 **P3 — maintainability / duplication:**
 
-18. Extract a `StereoShaderEffect<W,H>` base for Liquid2D/Flyby.
+18. ❌ **Rejected** — Extract a `StereoShaderEffect<W,H>` base for Liquid2D/Flyby. The genuinely shared math is already factored into free functions (`stereo`, `stereo_noise_warp`/`StereoWarpResult`, `pole_attenuation`); the only line-for-line overlap left is the 3-line `attenuate()`. Everything else differs (Liquid2D: dual orientation + glitch lens, static_palette, RandomTimer cycle; Flyby: single `unorient`, plain palette + alpha falloff + `hue_rotate`, chained-Lerp cycle). Worse, `project/warp/sample/attenuate/shader` run **per-pixel inside `Scan::Shader::draw`**; a base class would either make them virtual (per-pixel dispatch — a hot-loop perf regression) or be a hollow CRTP shell that each derived overrides anyway. Not worth the indirection.
 
-19. Extract a `PresetCycler<Params>` for the four preset-cycle effects.
+19. ❌ **Rejected** — Extract a `PresetCycler<Params>` for the preset-cycle effects. The finding's count is off (DreamBalls doesn't cycle — it reads `get()`/`get_entries()` once), and the four that do cycle use genuinely different models: Liquid2D (`RandomTimer` + staggered per-field Lerp), MindSplatter (`PeriodicTimer` + uniform Lerp), Flyby (no timer, recursive chained `Lerp.then(next_preset)`), MeshFeedback (`PeriodicTimer` + `apply()` hard-cut, no Lerp). The shared kernel is ~3 lines and fits only 2 of the 4; a generic cycler would have to parametrize timer type, period, frames, easing, staggered-vs-uniform, and lerp-vs-hardcut — more boilerplate than it removes. The real duplication is already centralized in the `Presets<>` container.
 
 20. ✅ Extract an `apply_if_changed` helper for the three live-slider effects. *Fixed: added `apply_if_changed(current, last, apply)` to `util.h` — it latches `last` and runs `apply(current)` only when the value moves — and routed Comets, ChaoticStrings, and SplineFlow's hand-rolled "live-apply slider on change" blocks through it. Pure inline (same compare/branch, callable invoked at most once per change), so the reschedule-from-now setters still fire only on actual parameter motion.*
 
