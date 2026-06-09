@@ -59,6 +59,22 @@ inline float sphericalHarmonic(int l, int m, float theta, float cos_phi, float N
   float P = associatedLegendre(l, absM, cos_phi);
   return N * P * ((m > 0) ? fast_cosf(m * theta) : (m < 0) ? fast_sinf(absM * theta) : 1.0f);
 }
+
+// Flat harmonic index -> (l, m): idx = l*l + l + m, so l = floor(sqrt(idx)) and
+// m = idx - l*l - l lands in [-l, l]. Seed l from a float sqrt, then snap it to
+// the exact integer floor: sqrtf at (or just below) a perfect square can round
+// to l-epsilon and truncate to l-1, which would push m to +l — outside the
+// level's valid [-l, l] band and into the next level's order. The correction
+// loops make l provably exact (l*l <= idx < (l+1)*(l+1)), so the returned order
+// is always valid. Cold path (a few calls per frame).
+inline std::pair<int, int> decode_lm(int idx) {
+  int l = static_cast<int>(sqrtf(static_cast<float>(idx)));
+  while ((l + 1) * (l + 1) <= idx)
+    ++l;
+  while (l > 0 && l * l > idx)
+    --l;
+  return {l, idx - l * l - l};
+}
 } // namespace SHMath
 
 template <int W, int H> class SphericalHarmonics : public Effect {
@@ -146,8 +162,8 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    auto [l1, m1] = decode_lm(current_idx);
-    auto [l2, m2] = decode_lm(next_idx);
+    auto [l1, m1] = SHMath::decode_lm(current_idx);
+    auto [l2, m2] = SHMath::decode_lm(next_idx);
     HarmonicField field(l1, m1, l2, m2, morph_alpha, orientation.get());
 
     auto shader = [&](const Vector &p, Fragment &frag) {
@@ -183,12 +199,6 @@ public:
   }
 
 private:
-  // Flat harmonic index -> (l, m): idx = l*l + l + m, with l = floor(sqrt(idx)).
-  static std::pair<int, int> decode_lm(int idx) {
-    int l = static_cast<int>(sqrtf(static_cast<float>(idx)));
-    return {l, idx - l * l - l};
-  }
-
   // Ambient-occlusion shaping (see draw_frame shader): field magnitude at which
   // shading saturates, the ambient floor, and the range above it (AMBIENT +
   // RANGE = 1.0 → full brightness at saturation).

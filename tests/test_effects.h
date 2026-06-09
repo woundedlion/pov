@@ -240,8 +240,40 @@ inline void determinism_one(const char *name) {
             "effect must render identically across runs under a fixed clock");
 }
 
+// SHMath::decode_lm must return a valid spherical-harmonic order for every flat
+// index: l = floor(sqrt(idx)) and m in [-l, l], with idx == l*l + l + m. The
+// risk is float sqrtf rounding at perfect squares truncating l low and pushing m
+// out of band; sweep a wide range (well past the effect's idx<=23) so every
+// perfect square and its neighbours — including the large ones where sqrtf
+// actually misrounds — are exercised.
+inline void test_sh_decode_lm_valid_order() {
+  auto check = [](int idx) {
+    auto [l, m] = SHMath::decode_lm(idx);
+    HS_EXPECT_EQ(l * l + l + m, idx);   // round-trips the index
+    HS_EXPECT_TRUE(m >= -l && m <= l);  // order within the level's band
+    HS_EXPECT_TRUE(l * l <= idx && idx < (l + 1) * (l + 1)); // l is the floor
+  };
+
+  // Dense sweep over the range the effect actually uses and well beyond.
+  for (int idx = 0; idx <= 4096; ++idx)
+    check(idx);
+
+  // Targeted large indices where float sqrtf genuinely misrounds: once k^2
+  // exceeds 2^24 it is no longer exactly representable, and for k beyond ~2900 a
+  // just-below-square index sqrt-rounds *up* to k. Both truncate l one level low
+  // on the old code and push m out of [-l, l]. (k kept under ~46340 so (l+1)^2
+  // stays within int.) These are the cases the fix exists for.
+  for (long long k : {3000LL, 5000LL, 12345LL, 40000LL}) {
+    long long sq = k * k;
+    for (long long idx : {sq - 1, sq, sq + 1, sq + k, sq + 2 * k})
+      check(static_cast<int>(idx));
+  }
+}
+
 inline int run_effects_tests() {
   auto scope = hs_test::begin_module("effects");
+
+  test_sh_decode_lm_valid_order();
 
   // Smoke every registered effect. The list is GENERATED from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST) rather than hand-maintained here,
