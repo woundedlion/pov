@@ -31,6 +31,7 @@
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
 #include "tests/test_hd107s_frame.h"
+#include "tests/test_pov_segmented.h"
 #include "tests/test_param_marshal.h"
 #include "tests/test_death.h"
 
@@ -78,6 +79,7 @@ int main(int argc, char **argv) {
   failures += hs_test::animation_tests::run_animation_tests();
   failures += hs_test::effects_tests::run_effects_tests();
   failures += hs_test::hd107s_tests::run_hd107s_tests();
+  failures += hs_test::pov_segmented_tests::run_pov_segmented_tests();
   failures += hs_test::param_marshal_tests::run_param_marshal_tests();
   failures += hs_test::death::run_death_tests();
   return failures;

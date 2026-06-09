@@ -39,6 +39,7 @@
  */
 #pragma once
 #include "led.h"
+#include "pov_segment_map.h" // pure index math (host-testable; see that file)
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -238,18 +239,10 @@ private:
    *                         (strip physically reversed)
    */
   void configure_segment() {
-    arm_b_   = (segment_id_ >= SEGS_PER_ARM);
-    int arm_seg = segment_id_ % SEGS_PER_ARM;
-
-    if (arm_seg == 0) {
-      // Top strip: LED 0 at N pole, counting toward junction
-      y_base_ = 0;
-      y_step_ = 1;
-    } else {
-      // Bottom strip: LED 0 at S pole, counting toward junction (reversed)
-      y_base_ = ROWS - 1;
-      y_step_ = -1;
-    }
+    const pov::SegmentMap m = pov::segment_map(segment_id_, S, N);
+    arm_b_  = m.arm_b;
+    y_base_ = m.y_base;
+    y_step_ = m.y_step;
   }
 
   // ── Clock ───────────────────────────────────────────────────────────
@@ -364,7 +357,7 @@ private:
    */
   static FASTRUN void show_col() {
     const int w = effect_->width();
-    const int x_col = arm_b_ ? (x_ + w / 2) % w : x_;
+    const int x_col = pov::segment_x_col(arm_b_, x_, w);
 
     // ISR fast path: fetch the display buffer base once and index it directly,
     // dropping PPS per-pixel virtual get_pixel() dispatches per column. Sound
