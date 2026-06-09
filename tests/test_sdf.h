@@ -110,9 +110,9 @@ inline void test_ring_just_outside_band() {
 
 inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
-  // 6-gon, thickness=0.5 (radians), phase=0, h_virt=144, height=144
+  // 6-gon, thickness=0.5 (radians), phase=0
   SDF::PlanarPolygon poly(b, /*r*/ 0.0f, /*thickness*/ 0.5f, /*sides*/ 6,
-                          /*phase*/ 0.0f, 144, 144);
+                          /*phase*/ 0.0f);
 
   // Point at center of polygon (basis.v direction) is inside.
   auto r = poly.distance(Vector(0, 1, 0));
@@ -124,7 +124,7 @@ inline void test_polygon_at_center_inside() {
 
 inline void test_polygon_far_point_outside() {
   Basis b = equator_basis();
-  SDF::PlanarPolygon poly(b, 0.0f, 0.3f, 6, 0.0f, 144, 144);
+  SDF::PlanarPolygon poly(b, 0.0f, 0.3f, 6, 0.0f);
 
   // Point at the opposite pole (-Y) is π away from the polygon center → outside.
   auto r = poly.distance(Vector(0, -1, 0));
@@ -137,8 +137,7 @@ inline void test_polygon_far_point_outside() {
 
 inline void test_spherical_polygon_center_inside() {
   Basis b = equator_basis();
-  SDF::SphericalPolygon sp(b, /*radius*/ 0.5f, /*sides*/ 5, /*phase*/ 0.0f,
-                           144, 144);
+  SDF::SphericalPolygon sp(b, /*radius*/ 0.5f, /*sides*/ 5, /*phase*/ 0.0f);
   auto r = sp.distance(Vector(0, 1, 0));
   // Center of polygon is strictly inside (negative signed distance).
   HS_EXPECT_TRUE(r.dist < 0.0f);
@@ -146,7 +145,7 @@ inline void test_spherical_polygon_center_inside() {
 
 inline void test_spherical_polygon_far_outside() {
   Basis b = equator_basis();
-  SDF::SphericalPolygon sp(b, 0.3f, 6, 0.0f, 144, 144);
+  SDF::SphericalPolygon sp(b, 0.3f, 6, 0.0f);
   auto r = sp.distance(Vector(0, -1, 0)); // antipode
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
@@ -157,14 +156,14 @@ inline void test_spherical_polygon_far_outside() {
 
 inline void test_star_center_inside() {
   Basis b = equator_basis();
-  SDF::Star star(b, /*radius*/ 0.6f, /*sides*/ 5, /*phase*/ 0.0f, 144, 144);
+  SDF::Star star(b, /*radius*/ 0.6f, /*sides*/ 5, /*phase*/ 0.0f);
   auto r = star.distance(Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f); // center is interior
 }
 
 inline void test_star_far_outside() {
   Basis b = equator_basis();
-  SDF::Star star(b, 0.4f, 5, 0.0f, 144, 144);
+  SDF::Star star(b, 0.4f, 5, 0.0f);
   auto r = star.distance(Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
@@ -611,17 +610,17 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       total_interior += expect_cull_covers_interior<W, H>(ring);
 
       // SphericalPolygon (solid, great-circle edges, geodesic cap).
-      SDF::SphericalPolygon spoly(basis, radius, /*sides=*/5, 0.0f, HV, H);
+      SDF::SphericalPolygon spoly(basis, radius, /*sides=*/5, 0.0f);
       total_interior += expect_cull_covers_interior<W, H>(spoly);
 
       // Star (solid, padded bounding cap).
-      SDF::Star star(basis, radius, /*sides=*/5, 0.0f, HV, H);
+      SDF::Star star(basis, radius, /*sides=*/5, 0.0f);
       total_interior += expect_cull_covers_interior<W, H>(star);
 
       // PlanarPolygon (solid, tangent-plane cap; `thickness` is its angular
       // circumradius).
       SDF::PlanarPolygon ppoly(basis, /*radius=*/radius, /*thickness=*/radius,
-                               /*sides=*/6, 0.0f, HV, H);
+                               /*sides=*/6, 0.0f);
       total_interior += expect_cull_covers_interior<W, H>(ppoly);
     }
   }

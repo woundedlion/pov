@@ -121,7 +121,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 20. ✅ Extract an `apply_if_changed` helper for the three live-slider effects. *Fixed: added `apply_if_changed(current, last, apply)` to `util.h` — it latches `last` and runs `apply(current)` only when the value moves — and routed Comets, ChaoticStrings, and SplineFlow's hand-rolled "live-apply slider on change" blocks through it. Pure inline (same compare/branch, callable invoked at most once per change), so the reschedule-from-now setters still fire only on actual parameter motion.*
 
-21. Route the SDF shape family's `get_vertical_bounds` through the existing `phi_bounds_to_rows<H>`.
+21. ✅ Route the SDF shape family's `get_vertical_bounds` through the existing `phi_bounds_to_rows<H>`. *Fixed: split `phi_bounds_to_rows` into a runtime core `(phi_min, phi_max, h_virt, height)` with the templated `<H>` form delegating to it, so the floor/ceil conversion lives in exactly one place. PlanarPolygon, SphericalPolygon, Star, and Flower now store the phi band (like `Line`) and close `get_vertical_bounds<H>()` through `phi_bounds_to_rows<H>`, dropping their unused `h_virt`/`height` ctor params; the Face's three construction-time bound blocks (early reject, fast, full) route through the runtime core. Output is bit-identical (the pre-clamps were redundant with the row clamps), confirmed by the cull-vs-brute-force equivalence test; no per-pixel cost (one conversion moved from ctor to the once-per-rasterize bounds call).*
 
 22. Factor the Plot close-loop skeleton into one parametric-ring sampler.
 

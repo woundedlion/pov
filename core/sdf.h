@@ -177,20 +177,32 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
 
 /**
  * @brief Map an angular band [phi_min, phi_max] (radians, polar angle) to the
- * inclusive scanline row range it covers, clamped to [0, H-1].
+ * inclusive scanline row range it covers, clamped to [0, height-1].
  *
- * phi spans [0,π] over (H+H_OFFSET-1) virtual rows; the lower edge floors and
- * the upper edge ceils so a partially-covered row is never dropped. The
- * leaf shapes' get_vertical_bounds all close with this conversion — extracted
- * to share it rather than repeat the floor/ceil cast.
+ * phi spans [0,π] over (h_virt-1) virtual rows; the lower edge floors and the
+ * upper edge ceils so a partially-covered row is never dropped. Out-of-range
+ * phi needs no pre-clamp: the row clamps fold a sub-0 lower edge to 0 and a
+ * past-π upper edge to height-1. This runtime form is the single source for the
+ * floor/ceil conversion — the templated `phi_bounds_to_rows<H>` and the Face's
+ * construction-time bounds (which only know `h_virt`/`height` at runtime) both
+ * route through it.
+ */
+inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
+                                 int height) {
+  int y_min =
+      std::max(0, static_cast<int>(floorf((phi_min * (h_virt - 1)) / PI_F)));
+  int y_max = std::min(
+      height - 1, static_cast<int>(ceilf((phi_max * (h_virt - 1)) / PI_F)));
+  return {y_min, y_max};
+}
+
+/**
+ * @brief Compile-time-H wrapper over the runtime conversion above; the leaf
+ * shapes' get_vertical_bounds all close with this. phi spans [0,π] over
+ * (H+H_OFFSET-1) virtual rows.
  */
 template <int H> inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  int y_min =
-      std::max(0, static_cast<int>(floorf((phi_min * (H_VIRT - 1)) / PI_F)));
-  int y_max =
-      std::min(H - 1, static_cast<int>(ceilf((phi_max * (H_VIRT - 1)) / PI_F)));
-  return {y_min, y_max};
+  return phi_bounds_to_rows(phi_min, phi_max, H + hs::H_OFFSET, H);
 }
 
 /**
@@ -1148,17 +1160,11 @@ struct Face {
     max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     float margin_check = thickness + BOUNDS_MARGIN;
 
-    int y_min_check = std::max(
-        0, static_cast<int>(floorf(
-               (std::max(0.0f, min_phi_check - margin_check) * (h_virt - 1)) /
-               PI_F)));
-    int y_max_check = std::min(
-        height - 1,
-        static_cast<int>(ceilf(
-            (std::min(PI_F, max_phi_check + margin_check) * (h_virt - 1)) /
-            PI_F)));
+    Bounds rows = phi_bounds_to_rows(min_phi_check - margin_check,
+                                     max_phi_check + margin_check, h_virt,
+                                     height);
 
-    return y_min_check > y_max_check;
+    return rows.y_min > rows.y_max;
   }
 
   /// Build the local tangent frame (basis_u/v/w), the gnomonic 2D projection
@@ -1424,14 +1430,10 @@ struct Face {
       scratch.thetas[i] = theta;
     }
     float margin = thickness + BOUNDS_MARGIN;
-    y_min_out = std::max(
-        0,
-        static_cast<int>(floorf(
-            (std::max(0.0f, min_phi_check - margin) * (h_virt - 1)) / PI_F)));
-    y_max_out = std::min(
-        height - 1,
-        static_cast<int>(ceilf(
-            (std::min(PI_F, max_phi_check + margin) * (h_virt - 1)) / PI_F)));
+    Bounds rows = phi_bounds_to_rows(min_phi_check - margin,
+                                     max_phi_check + margin, h_virt, height);
+    y_min_out = rows.y_min;
+    y_max_out = rows.y_max;
   }
 
   /// Full-path bounds: arc extrema + pole containment for large faces.
@@ -1521,13 +1523,10 @@ struct Face {
     if (sp_inside)
       max_phi = PI_F;
     float margin = thickness + BOUNDS_MARGIN;
-    y_min_out = std::max(
-        0, static_cast<int>(floorf(
-               (std::max(0.0f, min_phi - margin) * (h_virt - 1)) / PI_F)));
-    y_max_out = std::min(
-        height - 1,
-        static_cast<int>(
-            ceilf((std::min(PI_F, max_phi + margin) * (h_virt - 1)) / PI_F)));
+    Bounds rows =
+        phi_bounds_to_rows(min_phi - margin, max_phi + margin, h_virt, height);
+    y_min_out = rows.y_min;
+    y_max_out = rows.y_max;
     return planes_count;
   }
 
@@ -1639,11 +1638,10 @@ struct PlanarPolygon {
   float phase;
   float apothem;
   float nx, ny, nz, R_val, alpha_angle;
-  int y_min, y_max;
+  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
   static constexpr bool is_solid = true;
 
-  PlanarPolygon(const Basis &b, float r, float th, int s, float ph, int h_virt,
-                int height)
+  PlanarPolygon(const Basis &b, float r, float th, int s, float ph)
       : basis(b), thickness(th), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
     apothem = thickness * cosf(PI_F / sides);
@@ -1655,16 +1653,13 @@ struct PlanarPolygon {
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     float margin = thickness + BOUNDS_MARGIN_WIDE;
-    y_min = std::max(
-        0, static_cast<int>(floorf(
-               (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
-    y_max = std::min(
-        height - 1,
-        static_cast<int>(ceilf(
-            (std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
+    phi_min = std::max(0.0f, center_phi - margin);
+    phi_max = std::min(PI_F, center_phi + margin);
   }
 
-  template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
+  template <int H> Bounds get_vertical_bounds() const {
+    return phi_bounds_to_rows<H>(phi_min, phi_max);
+  }
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -1723,12 +1718,11 @@ struct SphericalPolygon {
   float circumradius; // angular distance from center to vertex
   float edge_nv;      // edge normal · center
   float edge_nu;      // edge normal · u-axis
-  int y_min, y_max;
+  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
   float nx, ny, nz, R_val, alpha_angle;
   static constexpr bool is_solid = true;
 
-  SphericalPolygon(const Basis &b, float radius, int s, float ph, int h_virt,
-                   int height)
+  SphericalPolygon(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
     circumradius = radius * (PI_F / 2.0f);
@@ -1765,16 +1759,13 @@ struct SphericalPolygon {
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     float margin = circumradius + BOUNDS_MARGIN_WIDE;
-    y_min = std::max(
-        0, static_cast<int>(floorf(
-               (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
-    y_max = std::min(
-        height - 1,
-        static_cast<int>(ceilf(
-            (std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
+    phi_min = std::max(0.0f, center_phi - margin);
+    phi_max = std::min(PI_F, center_phi + margin);
   }
 
-  template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
+  template <int H> Bounds get_vertical_bounds() const {
+    return phi_bounds_to_rows<H>(phi_min, phi_max);
+  }
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -1837,9 +1828,9 @@ struct Star {
 
   // Scan
   float scan_ny, scan_nx, scan_nz, scan_r, scan_alpha;
-  int y_min, y_max;
+  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
 
-  Star(const Basis &b, float radius, int s, float ph, int h_virt, int height)
+  Star(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
     float outer_radius = radius * (PI_F / 2.0f);
@@ -1866,16 +1857,13 @@ struct Star {
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.y)));
     float margin = outer_radius + BOUNDS_MARGIN_WIDE;
-    y_min = std::max(
-        0, static_cast<int>(floorf(
-               (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
-    y_max = std::min(
-        height - 1,
-        static_cast<int>(
-            ceilf((std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
+    phi_min = std::max(0.0f, center_phi - margin);
+    phi_max = std::min(PI_F, center_phi + margin);
   }
 
-  template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
+  template <int H> Bounds get_vertical_bounds() const {
+    return phi_bounds_to_rows<H>(phi_min, phi_max);
+  }
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -1935,10 +1923,10 @@ struct Flower {
   float apothem;
   Vector antipode;
   float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha;
-  int y_min, y_max;
+  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
   static constexpr bool is_solid = true;
 
-  Flower(const Basis &b, float radius, int s, float ph, int h_virt, int height)
+  Flower(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
     float outer = radius * (PI_F / 2.0f);
@@ -1954,16 +1942,13 @@ struct Flower {
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.y)));
     float margin = thickness + BOUNDS_MARGIN_WIDE;
-    y_min = std::max(
-        0, static_cast<int>(floorf(
-               (std::max(0.0f, center_phi - margin) * (h_virt - 1)) / PI_F)));
-    y_max = std::min(
-        height - 1,
-        static_cast<int>(ceilf(
-            (std::min(PI_F, center_phi + margin) * (h_virt - 1)) / PI_F)));
+    phi_min = std::max(0.0f, center_phi - margin);
+    phi_max = std::min(PI_F, center_phi + margin);
   }
 
-  template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
+  template <int H> Bounds get_vertical_bounds() const {
+    return phi_bounds_to_rows<H>(phi_min, phi_max);
+  }
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
