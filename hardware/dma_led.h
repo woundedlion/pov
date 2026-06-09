@@ -181,7 +181,7 @@ public:
       // at best extends the ISR past the next column tick. A dropped frame is a
       // transient (platform.h), not an invariant violation: the in-flight DMA
       // keeps the previous column; the next tick repacks and retries.
-      overrunCount_++;
+      overrunCount_.fetch_add(1, std::memory_order_relaxed);
       return;
     }
 
@@ -189,7 +189,7 @@ public:
     frames_[back].load(pixels, N);
     spi_.transmitAsync(frames_[back].data(), frames_[back].size());
     activeBuffer_ = back;
-    transferCount_++;
+    transferCount_.fetch_add(1, std::memory_order_relaxed);
   }
 
   /**
@@ -211,7 +211,7 @@ public:
       // Drop on overrun — never enter transmitAsync()'s waitComplete() spin
       // from the column ISR (see show() for the deadlock rationale). The
       // already-packed back buffer is simply discarded; the next column repacks.
-      overrunCount_++;
+      overrunCount_.fetch_add(1, std::memory_order_relaxed);
       return;
     }
     int back = 1 - activeBuffer_;
@@ -219,15 +219,25 @@ public:
     size_t len = withBg ? frames_[back].sizeWithBg() : frames_[back].size();
     spi_.transmitAsync(frames_[back].data(), len);
     activeBuffer_ = back;
-    transferCount_++;
+    transferCount_.fetch_add(1, std::memory_order_relaxed);
   }
 
   bool isReady() const { return spi_.isComplete(); }
   void waitForCompletion() { spi_.waitComplete(); }
 
   // --- Diagnostics ---
-  uint32_t getTransferCount() const { return transferCount_; }
-  uint32_t getOverrunCount() const { return overrunCount_; }
+  // These counters are this driver's telemetry surface. They are intentionally
+  // NOT mirrored into a read-only registered param (the MindSplatter "Particles"
+  // pattern): the param system's only consumer is the daydream WASM GUI, which
+  // is absent from this ARDUINO-only build, and Phantasm.ino has no param
+  // reader. A caller that wants them (e.g. a future serial telemetry path) reads
+  // them here.
+  uint32_t getTransferCount() const {
+    return transferCount_.load(std::memory_order_relaxed);
+  }
+  uint32_t getOverrunCount() const {
+    return overrunCount_.load(std::memory_order_relaxed);
+  }
 
   // --- Configuration pass-throughs ---
 
@@ -247,8 +257,12 @@ private:
   HD107SFrame<N> frames_[2];
   TeensySPIDMA spi_;
   int activeBuffer_;
-  volatile uint32_t transferCount_;
-  volatile uint32_t overrunCount_;
+  // Atomic, not volatile: incremented in the column-ISR context (show/
+  // submitFrame) and read elsewhere; volatile makes neither the RMW nor the
+  // cross-context read well-defined. Relaxed ordering suffices — these are
+  // independent monotonic counters, not a happens-before signal.
+  std::atomic<uint32_t> transferCount_;
+  std::atomic<uint32_t> overrunCount_;
 };
 
 #endif // ARDUINO
