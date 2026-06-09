@@ -447,6 +447,21 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 }
 
 /**
+ * @brief Per-primitive geometry/rasterization options for draw_fragments.
+ *
+ * Groups the three settings that vary per primitive into a named aggregate so
+ * call sites read as designated initializers (`{.capacity = …, .close_loop =
+ * …}`) instead of an unlabeled `size_t, bool, const Basis*` trio. `close_loop`
+ * and `planar_basis` default to the common (geodesic, open) case, so most
+ * primitives only spell out `.capacity`.
+ */
+struct FragmentDrawParams {
+  size_t capacity;            ///< Fragment buffer reservation (per-primitive).
+  bool close_loop = false;    ///< Passed to rasterize (closes last→first edge).
+  const Basis *planar_basis = nullptr; ///< Planar projection basis (null = geodesic).
+};
+
+/**
  * @brief Run the shared per-primitive draw ritual.
  *
  * Every Plot primitive opens a ScratchScope, binds a Fragments buffer, fills it,
@@ -456,23 +471,20 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
  * (Fragments &) -> void carrying each primitive's own sampling; it inlines at
  * -O3, so this is a zero-cost replacement for the per-primitive copies.
  *
- * @param capacity  Fragment buffer reservation (per-primitive).
- * @param close_loop Passed through to rasterize (closes last→first edge).
- * @param planar_basis Optional planar projection basis (nullptr for geodesic).
+ * @param params Per-primitive capacity / close-loop / planar-basis options.
  */
 template <int W, int H, typename FillFn>
 inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
                            VertexShaderRef vertex_shader,
-                           FragmentShaderFn fragment_shader, size_t capacity,
-                           bool close_loop, const Basis *planar_basis,
-                           FillFn &&fill) {
+                           FragmentShaderFn fragment_shader,
+                           const FragmentDrawParams &params, FillFn &&fill) {
   ScratchScope _frag(scratch_arena_a);
   Fragments points;
-  points.bind(scratch_arena_a, capacity);
+  points.bind(scratch_arena_a, params.capacity);
   fill(points);
   apply_vertex_shader(vertex_shader, points);
-  rasterize<W, H>(pipeline, canvas, points, fragment_shader, close_loop, 0.0f,
-                  planar_basis);
+  rasterize<W, H>(pipeline, canvas, points, fragment_shader, params.close_loop,
+                  0.0f, params.planar_basis);
 }
 
 /**
@@ -548,8 +560,8 @@ struct Line {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader, 4,
-                         false, nullptr,
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         {.capacity = 4},
                          [&](Fragments &points) { sample(points, f1, f2); });
   }
 
@@ -680,8 +692,8 @@ struct Multiline {
     // We manually close the loop in sample() if requested, so pass false to
     // rasterize (close_loop).
     draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader, vertices.size() + 2,
-        false, nullptr,
+        pipeline, canvas, vertex_shader, fragment_shader,
+        {.capacity = vertices.size() + 2},
         [&](Fragments &points) { sample(points, vertices, closed); });
   }
 
@@ -777,7 +789,8 @@ struct Ring {
                    VertexShaderRef vertex_shader, float phase = 0) {
     // Use W samples for smooth circles (fixes pinching at poles)
     draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader, W + 2, true, nullptr,
+        pipeline, canvas, vertex_shader, fragment_shader,
+        {.capacity = W + 2, .close_loop = true},
         [&](Fragments &points) { sample(points, basis, radius, W, phase); });
   }
 
@@ -831,7 +844,9 @@ struct PlanarPolygon {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         num_sides + 2, true, &basis, [&](Fragments &points) {
+                         {.capacity = static_cast<size_t>(num_sides + 2),
+                          .close_loop = true, .planar_basis = &basis},
+                         [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
   }
@@ -891,7 +906,9 @@ struct SphericalPolygon {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         num_sides + 2, true, nullptr, [&](Fragments &points) {
+                         {.capacity = static_cast<size_t>(num_sides + 2),
+                          .close_loop = true},
+                         [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
   }
@@ -1024,8 +1041,9 @@ struct DistortedRing {
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader, W + 2,
-                         true, nullptr, [&](Fragments &points) {
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         {.capacity = W + 2, .close_loop = true},
+                         [&](Fragments &points) {
                            sample<W, H>(points, basis, radius, shift_fn, phase);
                          });
   }
@@ -1081,8 +1099,8 @@ struct Spiral {
   static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader, n,
-                         false, nullptr,
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         {.capacity = n},
                          [&](Fragments &frags) { sample(frags, n, eps); });
   }
 
@@ -1187,7 +1205,8 @@ struct Star {
     Basis planar_basis = {u, v, w};
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         num_sides * 2 + 2, true, &planar_basis,
+                         {.capacity = static_cast<size_t>(num_sides * 2 + 2),
+                          .close_loop = true, .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
@@ -1300,7 +1319,8 @@ struct Flower {
     Basis planar_basis = {u_p, center, w_p};
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         num_sides * 2 + 2, true, &planar_basis,
+                         {.capacity = static_cast<size_t>(num_sides * 2 + 2),
+                          .close_loop = true, .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
@@ -1579,7 +1599,7 @@ struct Bezier {
                    VertexShaderRef vertex_shader = {}, int num_samples = 32,
                    SplineMode mode = SplineMode::Geodesic) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         num_samples + 1, false, nullptr,
+                         {.capacity = num_samples + 1},
                          [&](Fragments &points) {
                            sample(points, p0, p1, p2, p3, num_samples, mode);
                          });
@@ -1622,8 +1642,8 @@ struct SplineChain {
         (closed ? n : (n - 1)) * samples_per_segment + 1;
 
     draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader, frag_count, false,
-        nullptr, [&](Fragments &points) {
+        pipeline, canvas, vertex_shader, fragment_shader, {.capacity = frag_count},
+        [&](Fragments &points) {
           float cumulative_len = 0.0f;
           Vector last_pos;
           bool first_point = true;
