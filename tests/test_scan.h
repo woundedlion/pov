@@ -293,41 +293,6 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   HS_EXPECT_GT(fabsf(a_thin - a_thick), 0.1f);
 }
 
-// Stroke shapes must anti-alias their OUTER edge. A pixel whose center sits
-// just OUTSIDE the surface (signed distance d > 0) used to be dropped entirely
-// (threshold 0 admitted only d < 0), giving a hard outer edge against the soft
-// interior. After the fix it receives partial coverage from the one-pixel skirt,
-// and the falloff is monotone across the surface (soft on both sides).
-inline void test_stroke_outer_edge_is_antialiased() {
-  constexpr int W = 288, H = 144;
-  ScanFx fx(W, H);
-  Canvas c(fx);
-
-  const float T = 0.08f;
-  const float pw = 2.0f * PI_F / W;
-  SDF::Line line(Vector(1, 0, 0), Vector(0, 0, 1), T);
-
-  // A point at signed perpendicular distance `s` from the equatorial arc
-  // (s > 0 outside the tube), projecting to azimuth 45 deg (inside the arc).
-  auto point_at = [&](float s) {
-    float ds = T + s; // geodesic distance from the center line
-    return Vector(cosf(ds) * cosf(PI_F / 4), sinf(ds),
-                  cosf(ds) * sinf(PI_F / 4));
-  };
-
-  // Just OUTSIDE the surface: previously not drawn, now part of the AA skirt.
-  int n_out = 0;
-  float a_out = scan_alpha_at<W, H>(line, point_at(0.1f * pw), c, &n_out);
-  HS_EXPECT_EQ(n_out, 1);
-  HS_EXPECT_GT(a_out, 0.001f);
-
-  // Just INSIDE the surface: drawn with MORE coverage than the outside point.
-  int n_in = 0;
-  float a_in = scan_alpha_at<W, H>(line, point_at(-0.1f * pw), c, &n_in);
-  HS_EXPECT_EQ(n_in, 1);
-  HS_EXPECT_GT(a_in, a_out);
-}
-
 // ============================================================================
 // Runner
 // ============================================================================
@@ -343,7 +308,6 @@ inline int run_scan_tests() {
   test_scan_region_seam_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
-  test_stroke_outer_edge_is_antialiased();
 
   return hs_test::end_module(scope);
 }

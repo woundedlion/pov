@@ -39,11 +39,8 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
 
   float d = result_scratch.dist;
   float pixel_width = 2.0f * PI_F / W;
-  // Admit a one-pixel band outside the surface for BOTH solid and stroke
-  // shapes. Stroke shapes previously used threshold 0, so only pixels strictly
-  // inside (d < 0) were considered — the surface (d == 0) and the outer skirt
-  // were dropped, leaving a hard, aliased outer edge against the soft interior.
-  float threshold = pixel_width;
+  bool is_solid = shape.is_solid;
+  float threshold = is_solid ? pixel_width : 0.0f;
 
   if (debug_bb || d < threshold) {
     float alpha = 1.0f;
@@ -66,13 +63,7 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       // a thicker sibling's width and blow out the AA ramp at the boundary.
       float aa_thickness = result_scratch.size;
       if (aa_thickness > 0) {
-        // Bias the distance outward by half the AA border (pixel_width) so the
-        // falloff crosses zero half a pixel OUTSIDE the surface instead of at
-        // it. The surface (d == 0) and a symmetric one-pixel skirt now receive
-        // partial coverage — anti-aliasing the outer edge — while the
-        // thickness-wide soft interior glow is preserved (deep interior still
-        // clamps to 1).
-        alpha = quintic_kernel((0.5f * pixel_width - d) / aa_thickness);
+        alpha = quintic_kernel(-d / aa_thickness);
       }
     }
 
