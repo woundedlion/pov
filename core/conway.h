@@ -155,6 +155,56 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 }
 
 /**
+ * @brief Count the sides of a face by walking its half-edge loop.
+ *
+ * Returns 0 for an empty face (half_edge == HE_NONE). The shared "how many
+ * sides does this face have" walk used by ambo/truncate before they re-walk to
+ * emit; matches the counting half of face_centroid without the accumulation.
+ */
+inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
+  int count = 0;
+  if (start_he != HE_NONE) {
+    uint16_t he_idx = start_he;
+    do {
+      count++;
+      he_idx = he_mesh.half_edges[he_idx].next;
+    } while (he_idx != HE_NONE && he_idx != start_he);
+  }
+  return count;
+}
+
+/**
+ * @brief Walk every undirected edge once, invoking visitor(he_idx, he) for each
+ *        interior edge (one with a pair).
+ *
+ * The shared edge-dedup scaffold behind expand/chamfer/snub's "new face per
+ * edge" pass: each half-edge and its pair are marked visited so an undirected
+ * edge is emitted exactly once, and boundary edges (no pair) are skipped — the
+ * callers never produced an edge face for them either.
+ *
+ * @param visited_edges caller-allocated bool[I] scratch (filled here).
+ */
+template <typename VisitorFn>
+inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
+                          size_t I, VisitorFn &&visitor) {
+  std::fill_n(visited_edges, I, false);
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    uint16_t he_idx = static_cast<uint16_t>(i);
+    const HalfEdge &he = he_mesh.half_edges[he_idx];
+
+    if (visited_edges[he_idx])
+      continue;
+
+    visited_edges[he_idx] = true;
+    if (he.pair == HE_NONE)
+      continue;
+    visited_edges[he.pair] = true;
+
+    visitor(he_idx, he);
+  }
+}
+
+/**
  * @brief Copies a mesh's topology (views) and vertices into a target mesh.
  * Base case of the variadic overload below: no transformers, so vertices are
  * copied verbatim.
@@ -409,24 +459,15 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
 
     // 4. Reconstruct Original Faces (Shrunk)
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
-      const HEFace &face = he_mesh.faces[fi];
-      uint16_t he_idx = face.half_edge;
-      int count = 0;
-      if (he_idx != HE_NONE) {
-        uint16_t start = he_idx;
+      uint16_t start = he_mesh.faces[fi].half_edge;
+      int count = face_side_count(he_mesh, start);
+      if (count >= 3) {
+        out_mesh.face_counts.push_back(count);
+        uint16_t he_idx = start;
         do {
-          count++;
+          out_mesh.faces.push_back(edge_to_vert[he_idx]);
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
-
-        if (count >= 3) {
-          out_mesh.face_counts.push_back(count);
-          he_idx = start;
-          do {
-            out_mesh.faces.push_back(edge_to_vert[he_idx]);
-            he_idx = he_mesh.half_edges[he_idx].next;
-          } while (he_idx != HE_NONE && he_idx != start);
-        }
       }
     }
 
@@ -513,37 +554,28 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
     }
 
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
-      const HEFace &face = he_mesh.faces[fi];
-      uint16_t he_idx = face.half_edge;
-      int count = 0;
-      if (he_idx != HE_NONE) {
-        uint16_t start = he_idx;
+      uint16_t start = he_mesh.faces[fi].half_edge;
+      int count = face_side_count(he_mesh, start);
+      if (count >= 3) {
+        out_mesh.face_counts.push_back(count * 2);
+        uint16_t he_idx = start;
         do {
-          count++;
+          const HalfEdge &he = he_mesh.half_edges[he_idx];
+          uint16_t vi = he_mesh.half_edges[he.prev].vertex;
+          uint16_t vj = he.vertex;
+          uint16_t k1 = std::min(vi, vj);
+          std::pair<int16_t, int16_t> new_verts = edge_to_vert[he_idx];
+
+          if (vi == k1) {
+            out_mesh.faces.push_back(new_verts.first);
+            out_mesh.faces.push_back(new_verts.second);
+          } else {
+            out_mesh.faces.push_back(new_verts.second);
+            out_mesh.faces.push_back(new_verts.first);
+          }
+
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
-
-        if (count >= 3) {
-          out_mesh.face_counts.push_back(count * 2);
-          he_idx = start;
-          do {
-            const HalfEdge &he = he_mesh.half_edges[he_idx];
-            uint16_t vi = he_mesh.half_edges[he.prev].vertex;
-            uint16_t vj = he.vertex;
-            uint16_t k1 = std::min(vi, vj);
-            std::pair<int16_t, int16_t> new_verts = edge_to_vert[he_idx];
-
-            if (vi == k1) {
-              out_mesh.faces.push_back(new_verts.first);
-              out_mesh.faces.push_back(new_verts.second);
-            } else {
-              out_mesh.faces.push_back(new_verts.second);
-              out_mesh.faces.push_back(new_verts.first);
-            }
-
-            he_idx = he_mesh.half_edges[he_idx].next;
-          } while (he_idx != HE_NONE && he_idx != start);
-        }
       }
     }
 
@@ -634,27 +666,15 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
           return he_to_vert_idx[he_mesh.half_edges[idx].prev];
         });
 
-    std::fill_n(visited_edges, I, false);
-
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he = he_mesh.half_edges[he_idx];
-
-      if (visited_edges[he_idx])
-        continue;
-
-      visited_edges[he_idx] = true;
-      if (he.pair != HE_NONE)
-        visited_edges[he.pair] = true;
-
-      if (he.pair != HE_NONE) {
-        out_mesh.face_counts.push_back(4);
-        out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
-        out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
-        out_mesh.faces.push_back(he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
-        out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
-      }
-    }
+    for_each_edge(he_mesh, visited_edges, I,
+                  [&](uint16_t he_idx, const HalfEdge &he) {
+                    out_mesh.face_counts.push_back(4);
+                    out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
+                    out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
+                    out_mesh.faces.push_back(
+                        he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
+                    out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
+                  });
   }
   normalize(out_mesh);
   return out_mesh;
@@ -738,33 +758,22 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
     // 3. Generate Hexagon faces for edges
     bool *visited_edges = static_cast<bool *>(
         temp.allocate(I * sizeof(bool), alignof(bool)));
-    std::fill_n(visited_edges, I, false);
 
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he = he_mesh.half_edges[he_idx];
+    for_each_edge(he_mesh, visited_edges, I,
+                  [&](uint16_t he_idx, const HalfEdge &he) {
+                    out_mesh.face_counts.push_back(6);
 
-      if (visited_edges[he_idx])
-        continue;
+                    uint16_t A = he_mesh.half_edges[he.prev].vertex;
+                    uint16_t B = he.vertex;
 
-      visited_edges[he_idx] = true;
-      if (he.pair != HE_NONE)
-        visited_edges[he.pair] = true;
-
-      if (he.pair != HE_NONE) {
-        out_mesh.face_counts.push_back(6);
-
-        uint16_t A = he_mesh.half_edges[he.prev].vertex;
-        uint16_t B = he.vertex;
-
-        out_mesh.faces.push_back(A);
-        out_mesh.faces.push_back(he_to_new_v[he_mesh.half_edges[he.pair].next]);
-        out_mesh.faces.push_back(he_to_new_v[he.pair]);
-        out_mesh.faces.push_back(B);
-        out_mesh.faces.push_back(he_to_new_v[he.next]);
-        out_mesh.faces.push_back(he_to_new_v[he_idx]);
-      }
-    }
+                    out_mesh.faces.push_back(A);
+                    out_mesh.faces.push_back(
+                        he_to_new_v[he_mesh.half_edges[he.pair].next]);
+                    out_mesh.faces.push_back(he_to_new_v[he.pair]);
+                    out_mesh.faces.push_back(B);
+                    out_mesh.faces.push_back(he_to_new_v[he.next]);
+                    out_mesh.faces.push_back(he_to_new_v[he_idx]);
+                  });
   }
   normalize(out_mesh);
   return out_mesh;
@@ -965,31 +974,20 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
 
     bool *visited_edges = static_cast<bool *>(
         temp.allocate(I * sizeof(bool), alignof(bool)));
-    std::fill_n(visited_edges, I, false);
 
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he = he_mesh.half_edges[he_idx];
+    for_each_edge(he_mesh, visited_edges, I,
+                  [&](uint16_t he_idx, const HalfEdge &he) {
+                    out_mesh.face_counts.push_back(3);
+                    out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
+                    out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
+                    out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
 
-      if (visited_edges[he_idx])
-        continue;
-
-      visited_edges[he_idx] = true;
-      if (he.pair != HE_NONE)
-        visited_edges[he.pair] = true;
-
-      if (he.pair != HE_NONE) {
-        out_mesh.face_counts.push_back(3);
-        out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
-        out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
-        out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
-
-        out_mesh.face_counts.push_back(3);
-        out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
-        out_mesh.faces.push_back(he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
-        out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
-      }
-    }
+                    out_mesh.face_counts.push_back(3);
+                    out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
+                    out_mesh.faces.push_back(
+                        he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
+                    out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
+                  });
   }
   normalize(out_mesh);
   return out_mesh;
