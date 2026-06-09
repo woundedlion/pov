@@ -133,7 +133,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 25. ✅ Add a `SegmentController.tick()` state-machine test (the riskiest untested glue). *Fixed (in the daydream repo): `tests/segment_controller.test.js` gained five cases that walk a full one-frame-deep pipeline cycle (dispatch → arm pendingFrame → composite → re-dispatch) plus the not-ready and faulted guard states, driven DOM-free via a document stub.*
 
-26. Gate the unconditional per-frame `Serial.print` in `pov_segmented.h:316-336` behind `hs::debug` (parity with `pov_single.h`).
+26. ✅ Gate the unconditional per-frame `Serial.print` in `pov_segmented.h:316-336` behind `hs::debug` (parity with `pov_single.h`). *Fixed: the per-frame `ft` line and the on-change `overrun` line are now both wrapped in `if (hs::debug)`, so production firmware leaves the foreground render loop's Serial output silent — matching pov_single.h.*
 
 27. Confirm or remove the apparently-dead CRGB `DMALEDController::show()` path (`dma_led.h:207`).
 

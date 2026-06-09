@@ -317,8 +317,12 @@ private:
       unsigned long t0 = micros();
       e->draw_frame();
       unsigned long dt = micros() - t0;
-      Serial.print("ft ");
-      Serial.println(dt);
+      // Gate per-frame telemetry behind hs::debug (parity with pov_single.h):
+      // the production firmware leaves this loop's Serial output silent.
+      if (hs::debug) {
+        Serial.print("ft ");
+        Serial.println(dt);
+      }
 #if defined(USE_DMA_LEDS)
       // Surface the DMA frame-drop counter the column ISR maintains: it drops a
       // frame (rather than blocking) when a transfer is still in flight, so a
@@ -328,8 +332,10 @@ private:
       // on change to avoid drowning the per-frame `ft` telemetry.
       const uint32_t overruns = ledController_.getOverrunCount();
       if (overruns != last_overrun) {
-        Serial.print("overrun ");
-        Serial.println(overruns);
+        if (hs::debug) {
+          Serial.print("overrun ");
+          Serial.println(overruns);
+        }
         last_overrun = overruns;
       }
 #endif
