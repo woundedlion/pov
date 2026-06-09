@@ -210,8 +210,27 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
 //
 // All operators take a const MeshT& input (PolyMesh or MeshState — both
 // expose the same vertices/face_counts/faces shape) and return a fresh
-// PolyMesh in `target`. `temp` is used for scratch (HalfEdgeMesh build,
-// per-orbit index buffers); both arenas are checkpointed via ScratchScope.
+// PolyMesh in `target`. Both arenas are checkpointed via ScratchScope, so all
+// scratch (the HalfEdgeMesh build plus the per-orbit index/flag buffers) is
+// reclaimed when the operator returns — only the output mesh persists in
+// `target`.
+//
+// SCRATCH ARENA CONTRACT (load-bearing — do not "standardize" blindly):
+// The HalfEdgeMesh always builds in `temp`. The per-orbit index/flag buffers,
+// however, are deliberately split:
+//   - dual / ambo / truncate / expand  -> index buffers in `target`
+//   - chamfer / snub                   -> index buffers in `temp`
+//   - kis / relax                      -> no extra index buffers
+// This is NOT drift. SolidBuilder ping-pongs the two arenas (target/temp swap
+// each op) WITHOUT resetting between ops, so every intermediate mesh accumulates
+// until the chain ends — and the two arenas can be small and ASYMMETRIC
+// (HankinSolids runs the whole chain through a 16 KB / 32 KB pair). At the peak
+// op `temp` already carries the live input mesh + the HalfEdgeMesh, so placing
+// the index buffers in `target` SPLITS the transient load across both arenas
+// instead of piling it onto the already-loaded side. Moving a buffer between
+// arenas shifts that arena's high-water mark and can overflow the tight budget,
+// so any change here must be measured against the configured arena split, not
+// applied for uniformity.
 //
 // Per-vertex orbit construction uses an arena scratch buffer sized to the
 // maximum possible valence (= total half-edges), so high-valence vertices
