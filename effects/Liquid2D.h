@@ -177,7 +177,7 @@ private:
           continue;
         }
         float tl = hs::clamp((t - slot * slice) / slice, 0.0f, 1.0f);
-        *dst[i] = ::lerp(src[i], tgt[i], tl);
+        *dst[i] = hs::lerp(src[i], tgt[i], tl);
         ++slot;
       }
     }

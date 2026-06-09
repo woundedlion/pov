@@ -71,12 +71,12 @@ struct Style {
   NoiseParams *noise = nullptr;
 
   void lerp(const Style &a, const Style &b, float t) {
-    fade      = ::lerp(a.fade,      b.fade,      t);
-    hue_shift = ::lerp(a.hue_shift, b.hue_shift, t);
-    amplitude = ::lerp(a.amplitude, b.amplitude, t);
-    frequency = ::lerp(a.frequency, b.frequency, t);
-    speed     = ::lerp(a.speed,     b.speed,     t);
-    scale     = ::lerp(a.scale,     b.scale,     t);
+    fade      = hs::lerp(a.fade,      b.fade,      t);
+    hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
+    amplitude = hs::lerp(a.amplitude, b.amplitude, t);
+    frequency = hs::lerp(a.frequency, b.frequency, t);
+    speed     = hs::lerp(a.speed,     b.speed,     t);
+    scale     = hs::lerp(a.scale,     b.scale,     t);
     // Function pointers and discrete tuning snap at midpoint
     space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
     color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;

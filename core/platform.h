@@ -173,10 +173,6 @@ inline void clear_mock_time() { use_mock_time = false; }
 inline unsigned long millis(); // defined below; beatsin* route through it
 } // namespace hs
 
-template <typename T, typename U> constexpr T lerp(T a, T b, U t) {
-  return (T)(a + (b - a) * t);
-}
-
 /**
  * @brief HSV Color structure for non-Arduino platforms.
  */
@@ -357,6 +353,11 @@ enum ColorOrder { RGB };
 #define DATA_RATE_MHZ(x) x
 
 // --- Mock Arduino Functions ---
+// These are deliberately at global scope to mirror Arduino/FastLED, which
+// expose random()/map() as free globals; unqualified callers (e.g. the legacy
+// effects) must resolve identically on host and device. Unlike the former
+// global `lerp` (which had no Arduino counterpart and so lived only here), these
+// are a faithful mock of an existing platform API, not host-only pollution.
 inline int random(int max) { return hs::random()() % max; }
 inline int random(int min, int max) { return min + (hs::random()() % (max - min)); }
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {

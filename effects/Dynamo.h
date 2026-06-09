@@ -112,7 +112,7 @@ public:
 
         uint16_t fract = to_short(clamped_blend_factor);
         return Color4(c1.color.lerp16(c2.color, fract),
-                      lerp(c1.alpha, c2.alpha, clamped_blend_factor));
+                      hs::lerp(c1.alpha, c2.alpha, clamped_blend_factor));
       }
 
       auto next_boundary_lower_edge =
