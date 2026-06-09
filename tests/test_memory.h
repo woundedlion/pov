@@ -377,6 +377,21 @@ inline void test_arenavec_rebind_reuses() {
   HS_EXPECT_EQ(v.data(), data_before);
 }
 
+// Re-binding to a LARGER capacity is a supported grow: it allocates a fresh
+// block (abandoning the old one until the next arena reset — see bind()'s note)
+// and adopts the new capacity. A debug build also logs the abandoned bytes.
+inline void test_arenavec_rebind_grows() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  ArenaVector<int> v(a, 8);
+  v.push_back(7);
+  int *data_before = v.data();
+
+  v.bind(a, 32);
+  HS_EXPECT_EQ(v.size(), (size_t)0);
+  HS_EXPECT_EQ(v.capacity(), (size_t)32);
+  HS_EXPECT_NE(v.data(), data_before); // fresh allocation, old block abandoned
+}
+
 inline void test_arenavec_zero_capacity() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 0);
@@ -618,6 +633,7 @@ inline int run_memory_tests() {
   test_arenavec_move_construct();
   test_arenavec_move_assign();
   test_arenavec_rebind_reuses();
+  test_arenavec_rebind_grows();
   test_arenavec_zero_capacity();
 
   test_arenaspan_default();

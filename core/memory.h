@@ -305,6 +305,18 @@ public:
     // compactions). So no double-bind assert here. The genuine hard failures
     // are still trapped: OOM in Arena::allocate (HS_CHECK), capacity overflow in
     // push_back/append_bulk (HS_CHECK), and use-after-free in check_alive().
+#ifndef NDEBUG
+    // Reaching here with a still-live binding means a genuine grow against the
+    // same arena/generation (the in-place reuse above already returned, and a
+    // stale binding was dropped to bound_=false). The old block is abandoned
+    // until the next reset — supported, but otherwise observable only via the
+    // arena high-water mark. Log it so the silent consumption is visible,
+    // matching the project's fail-loud habit. Debug-only: this is a development
+    // signal, not a device-release concern.
+    if (bound_)
+      hs::log("ArenaVector grow abandons %zu bytes (cap %zu -> %zu)",
+              capacity_ * sizeof(T), capacity_, exact_capacity);
+#endif
     if (exact_capacity > 0) {
       // A capacity so large that exact_capacity * sizeof(T) overflows size_t
       // would wrap to a small byte count that slips past Arena::allocate's
