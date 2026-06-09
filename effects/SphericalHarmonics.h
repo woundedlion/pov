@@ -7,6 +7,7 @@
 
 #include "core/effects_engine.h"
 #include <cmath>
+#include <utility>
 
 namespace SHMath {
 inline float factorial(int n) {
@@ -62,29 +63,31 @@ inline float sphericalHarmonic(int l, int m, float theta, float cos_phi, float N
 
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
-  struct HarmonicBlob {
+  // Field sampler for the visualizer. Intentionally NOT a deforming SDF: on the
+  // unit-sphere display every pixel samples r=1, so a lobe-radius distance would
+  // only modulate coverage near the harmonic's nodes. We want full coverage and
+  // let the shader paint the harmonic value, so distance() reports a constant
+  // "fully inside" and the field value rides out through raw_dist (frag.v1).
+  struct HarmonicField {
     int l1, m1;
     int l2, m2;
     float blend;
-    float amplitude;
     Quaternion orientation;
+    float N1, N2; // Normalization factors, precomputed once per shape.
     static constexpr bool is_solid = true;
-    float N1, N2; // Precomputed normalization factors
 
-    HarmonicBlob(int l1, int m1, int l2, int m2, float blend, float amp,
-                 Quaternion q)
-        : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend), amplitude(amp),
-          orientation(q),
+    HarmonicField(int l1, int m1, int l2, int m2, float blend, Quaternion q)
+        : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend), orientation(q),
           N1(SHMath::normalization(l1, m1)),
           N2(SHMath::normalization(l2, m2)) {}
 
+    // Full-sphere scan: lobes can occupy any region, so no static bounding.
     template <int H_> SDF::Bounds get_vertical_bounds() const {
-      return {0, H_ - 1}; // Full Scan fallback
+      return {0, H_ - 1};
     }
-
     template <int W_scan, int H_, typename OutputIt>
-    bool get_horizontal_intervals(int y, OutputIt out) const {
-      return false; // Full Scan fallback
+    bool get_horizontal_intervals(int, OutputIt) const {
+      return false;
     }
 
     SDF::DistanceResult distance(const Vector &p) const {
@@ -100,19 +103,17 @@ public:
       float theta = fast_atan2(local.z, local.x);
       if (theta < 0)
         theta += 2 * PI_F;
-      // local.y IS cos(phi) — skip fast_acos + cosf roundtrip
+      // local.y IS cos(phi) — skip the fast_acos + cosf roundtrip.
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
-      // Evaluate primary shape (N1 precomputed per-frame)
-      float val1 = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
-      float val = val1;
-
-      // Only pay the math cost for the second shape if we are actively blending
+      float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
+      // Only pay for the second harmonic while actively blending.
       if (blend > 0.001f) {
         float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
-        val = val1 + (val2 - val1) * blend;
+        val += (val2 - val) * blend;
       }
 
+      // Constant "inside" (see struct comment); field value -> frag.v1.
       res = SDF::DistanceResult(-1.0f, 0.0f, val, 0.0f, 1.0f);
     }
   };
@@ -145,15 +146,9 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Decode flat indices into (l, m) pairs
-    int l1 = (int)sqrtf((float)current_idx);
-    int m1 = current_idx - l1 * l1 - l1;
-
-    int l2 = (int)sqrtf((float)next_idx);
-    int m2 = next_idx - l2 * l2 - l2;
-
-    HarmonicBlob blob(l1, m1, l2, m2, morph_alpha, params.amplitude,
-                      orientation.get());
+    auto [l1, m1] = decode_lm(current_idx);
+    auto [l2, m2] = decode_lm(next_idx);
+    HarmonicField field(l1, m1, l2, m2, morph_alpha, orientation.get());
 
     auto shader = [&](const Vector &p, Fragment &frag) {
       float val = frag.v1;
@@ -184,10 +179,16 @@ public:
       frag.color = base;
     };
 
-    Scan::rasterize<W, H>(filters, canvas, blob, shader, params.debug_bb);
+    Scan::rasterize<W, H>(filters, canvas, field, shader, params.debug_bb);
   }
 
 private:
+  // Flat harmonic index -> (l, m): idx = l*l + l + m, with l = floor(sqrt(idx)).
+  static std::pair<int, int> decode_lm(int idx) {
+    int l = static_cast<int>(sqrtf(static_cast<float>(idx)));
+    return {l, idx - l * l - l};
+  }
+
   // Ambient-occlusion shaping (see draw_frame shader): field magnitude at which
   // shading saturates, the ambient floor, and the range above it (AMBIENT +
   // RANGE = 1.0 → full brightness at saturation).

@@ -2010,61 +2010,6 @@ struct Flower {
   }
 };
 
-/**
- * @brief Signed distance to a spherical harmonic "blob".
- *
- * Vertical and horizontal culling are intentionally disabled:
- * spherical harmonic lobes for arbitrary (l,m) can occupy any
- * region of the sphere, so no static bounding is possible
- * without per-(l,m) analysis.  Full-sphere scan is correct.
- */
-struct HarmonicBlob {
-  int l;
-  int m;
-  float amplitude;
-  Quaternion inv_q;
-  HarmonicWaveFn harmonic_fn;
-  static constexpr bool is_solid = true;
-
-  HarmonicBlob(int l, int m, float amplitude, const Quaternion &orientation,
-               HarmonicWaveFn harmonic_fn)
-      : l(l), m(m), amplitude(amplitude), harmonic_fn(harmonic_fn) {
-    inv_q = orientation.inverse();
-  }
-
-  template <int H> Bounds get_vertical_bounds() const { return {0, H - 1}; }
-
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    Vector v = rotate(p, inv_q);
-    float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
-    float theta = fast_atan2(v.z, v.x);
-    float harmonic_val = harmonic_fn(l, m, theta, phi);
-
-    float lobe_radius = 1.0f + std::abs(harmonic_val) * amplitude;
-    float d = 1.0f - lobe_radius;
-
-    float t_val = 0.0f;
-    if constexpr (ComputeUVs) {
-      t_val = tanhf(std::abs(harmonic_val) * amplitude);
-    }
-
-    res = DistanceResult(d, t_val, harmonic_val, 0.0f, 1.0f);
-  }
-
-  /// Full-sphere scan (see struct doc).
-  template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const {
-    return false;
-  }
-};
-
 struct Line {
   Vector a, b;
   float thickness;

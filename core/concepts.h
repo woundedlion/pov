@@ -138,7 +138,6 @@ using SpriteFn = Fn<void(Canvas &, float), 8>;
 using TimerFn = Fn<void(Canvas &), 16>;
 using ScalarFn = Fn<float(float), 32>;
 using EasingFn = float (*)(float);
-using HarmonicWaveFn = Fn<float(int, int, float, float), 8>;
 
 /**
  * @brief Concept for any object that maintains a history or sequence accessible

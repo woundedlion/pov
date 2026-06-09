@@ -440,17 +440,6 @@ struct SphericalPolygon {
   }
 };
 
-struct HarmonicBlob {
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, int l, int m,
-                   float amplitude, const Quaternion &orientation,
-                   HarmonicWaveFn harmonic_fn, FragmentShaderFn fragment_shader,
-                   bool debug_bb = false) {
-    SDF::HarmonicBlob shape(l, m, amplitude, orientation, harmonic_fn);
-    Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
-  }
-};
-
 struct Mesh {
   // MeshState overload
   template <int W, int H, typename PipelineT = PipelineRef>
