@@ -267,6 +267,13 @@ namespace World {
 
 /**
  * @brief Rotates 3D points based on a dynamic Orientation.
+ *
+ * Age-channel contract: this filter sweeps the orientation's intra-frame
+ * SLERP history (`tween` walks t: 0→1, oldest→newest sub-position) and offsets
+ * `age` by the *fractional* `(1 - t)`, spreading the sweep across one frame's
+ * worth of age — i.e. genuine temporal motion blur, where the trailing
+ * sub-positions fade as if one frame older. Contrast the two Replicate filters,
+ * whose age offsets are spatial/index, not temporal (see their notes).
  */
 template <int W> class Orient : public Is3D {
 public:
@@ -360,6 +367,11 @@ template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
 
 /**
  * @brief Replicates geometry by rotating it around the Y-axis.
+ *
+ * Age-channel contract: every copy is emitted with the *same* source `age`.
+ * The replicas are simultaneous spatial mirrors of a single instant, so they
+ * must share one age — there is deliberately no per-copy offset here (unlike
+ * `Orient`'s fractional motion-blur offset or `VertexReplicate`'s index offset).
  */
 template <int W> class Replicate : public Is3D {
 public:
@@ -384,8 +396,12 @@ private:
 /**
  * @brief Replicates geometry onto the vertices of a solid.
  * Precomputes rotation quaternions from vertex[0] to each other vertex.
- * Each copy is emitted with age offset by its vertex index, so downstream
- * age-driven palettes can tint copies differently.
+ *
+ * Age-channel contract: each copy is emitted with an *integer* `age + i` offset
+ * keyed on its vertex index, so downstream age-driven palettes can tint copies
+ * differently. This is a per-copy discriminator, not temporal blur — distinct
+ * from `Orient`'s fractional `(1 - t)` motion-blur offset and from `Replicate`,
+ * which shares one age across all copies.
  */
 template <int W, int N> class VertexReplicate : public Is3D {
 public:
