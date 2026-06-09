@@ -125,7 +125,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 22. ✅ Factor the Plot close-loop skeleton into one parametric-ring sampler. *Fixed: added `Plot::sample_closed_ring(points, num_verts, pos_fn)` — it runs the sample loop (great-circle arc-length accumulation, v0/v1/v2 registers) and appends the overlap-close vertex once. Star, Flower, and DistortedRing now supply only their per-vertex position lambda and share the skeleton; the lambda is inlined so codegen is unchanged. Ring and the polygons that delegate to it keep their analytic arc-length path (different v1 semantics). Verbatim math extraction, validated by the full suite.*
 
-23. De-magic Dynamo's triplicated `10000` trail capacity into a `static constexpr`.
+23. ✅ De-magic Dynamo's triplicated `10000` trail capacity into a `static constexpr`. *Fixed: added `static constexpr int TRAIL_CAPACITY = 10000;` (with a comment noting it is the compile-time Trails storage bound the runtime Trail Len slider fills) and routed all three `Trails<W, 10000>` sites (ctor, `init_storage`, and the `Pipeline` member type) through it, so the capacity has a single named source. Pure rename — no behavior change.*
 
 **P4 — testing & hygiene:**
 

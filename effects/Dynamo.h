@@ -24,7 +24,8 @@ public:
             {GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,
                                BrightnessProfile::ASCENDING)}),
         palette_normal(Z_AXIS),
-        filters(Filter::World::Trails<W, 10000>((uint32_t)params.trail_length),
+        filters(Filter::World::Trails<W, TRAIL_CAPACITY>(
+                    (uint32_t)params.trail_length),
                 Filter::World::Replicate<W>(3),
                 Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
@@ -32,7 +33,7 @@ public:
   bool show_bg() const override { return false; }
 
   void init() override {
-    static_cast<Filter::World::Trails<W, 10000> &>(filters).init_storage(
+    static_cast<Filter::World::Trails<W, TRAIL_CAPACITY> &>(filters).init_storage(
         persistent_arena);
 
     registerParam("Speed", &params.speed, -10.0f, 10.0f);
@@ -200,6 +201,9 @@ private:
   static constexpr size_t MAX_PALETTES = 16;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static constexpr size_t NUM_NODES = H_VIRT;
+  // Compile-time Trails storage capacity (max trail points); the runtime
+  // Trail Len slider sets the active length within this bound.
+  static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes;
   StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries;
 
@@ -215,7 +219,8 @@ private:
 
   Orientation<W> orientation;
 
-  Pipeline<W, H, Filter::World::Trails<W, 10000>, Filter::World::Replicate<W>,
+  Pipeline<W, H, Filter::World::Trails<W, TRAIL_CAPACITY>,
+           Filter::World::Replicate<W>,
            Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 };
