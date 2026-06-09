@@ -76,6 +76,13 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
       };                                                               \
       e.size = sizeof(ClassName<W, H>);                                \
     }                                                                  \
+    /* used+retain anchor the registrar: nothing references _reg, so under   \
+     * LTO / --gc-sections the dynamic initializer (and thus the whole        \
+     * registration side effect) could be discarded, silently dropping the    \
+     * effect from the registry. `used` keeps the compiler from eliding it    \
+     * (and roots it for wasm-ld via llvm.used); `retain` additionally        \
+     * survives an ELF linker's --gc-sections. */                             \
+    __attribute__((used, retain))                                            \
     static inline int _reg = EffectRegistry::add({                     \
       &fill<96, 20>,                                                   \
       &fill<288, 144>                                                  \
