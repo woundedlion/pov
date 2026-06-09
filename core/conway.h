@@ -481,6 +481,29 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
 }
 
 /**
+ * @brief Recover a truncate edge's two cut vertices in half-edge walk order.
+ *
+ * `edge_to_vert` stores each edge's pair canonically as {near-k1, near-k2} with
+ * `k1 = min(endpoint indices)`. A half-edge runs tail->head; when the tail is
+ * the canonical k1 the stored order already matches the walk, otherwise it is
+ * reversed. Returns {tail-side cut, head-side cut} so every caller emits a
+ * consistent winding from one place instead of re-deriving `vi==k1` inline.
+ */
+inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
+    const HalfEdgeMesh &he_mesh,
+    const std::pair<int16_t, int16_t> *edge_to_vert, uint16_t he_idx) {
+  const HalfEdge &he = he_mesh.half_edges[he_idx];
+  uint16_t tail = he_mesh.half_edges[he.prev].vertex;
+  uint16_t head = he.vertex;
+  const std::pair<int16_t, int16_t> &cut = edge_to_vert[he_idx];
+  return (tail <= head)
+             ? std::pair<uint16_t, uint16_t>{static_cast<uint16_t>(cut.first),
+                                             static_cast<uint16_t>(cut.second)}
+             : std::pair<uint16_t, uint16_t>{static_cast<uint16_t>(cut.second),
+                                             static_cast<uint16_t>(cut.first)};
+}
+
+/**
  * @brief Truncate operator: Cuts corners off the polyhedron.
  * @param t Truncation depth, the fraction along each edge at which the two cut
  *   points sit, in [0..1]. Each edge `(k1,k2)` yields `k1+(k2-k1)*t` and
@@ -560,19 +583,10 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
         out_mesh.face_counts.push_back(count * 2);
         uint16_t he_idx = start;
         do {
-          const HalfEdge &he = he_mesh.half_edges[he_idx];
-          uint16_t vi = he_mesh.half_edges[he.prev].vertex;
-          uint16_t vj = he.vertex;
-          uint16_t k1 = std::min(vi, vj);
-          std::pair<int16_t, int16_t> new_verts = edge_to_vert[he_idx];
-
-          if (vi == k1) {
-            out_mesh.faces.push_back(new_verts.first);
-            out_mesh.faces.push_back(new_verts.second);
-          } else {
-            out_mesh.faces.push_back(new_verts.second);
-            out_mesh.faces.push_back(new_verts.first);
-          }
+          auto [tail_cut, head_cut] =
+              truncate_oriented_cut(he_mesh, edge_to_vert, he_idx);
+          out_mesh.faces.push_back(tail_cut);
+          out_mesh.faces.push_back(head_cut);
 
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
@@ -582,12 +596,9 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
     emit_vertex_orbit_faces<'P'>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) {
-          const HalfEdge &curr_he = he_mesh.half_edges[idx];
-          uint16_t vi = he_mesh.half_edges[curr_he.prev].vertex;
-          uint16_t vj = curr_he.vertex;
-          uint16_t k1 = std::min(vi, vj);
-          std::pair<int16_t, int16_t> new_verts = edge_to_vert[idx];
-          return (vi == k1) ? new_verts.first : new_verts.second;
+          // Orbit walks the half-edges leaving this vertex; each contributes
+          // its tail-side cut (the cut point nearest the shared vertex).
+          return truncate_oriented_cut(he_mesh, edge_to_vert, idx).first;
         });
   }
   normalize(out_mesh);
