@@ -229,6 +229,43 @@ inline void test_lerp_oklch_achromatic_hue() {
   HS_EXPECT_NEAR(from_gray.h, red.h, 1e-6f);
 }
 
+// The marquee color feature: hue interpolates along the SHORT arc, wrapping
+// across the +/-PI seam rather than sweeping the long way around the wheel.
+// atan2f puts h in [-PI, PI], so two hues straddling that seam are only a small
+// arc apart even though their numeric difference is ~2*PI. A naive linear lerp
+// would pass through h=0 (the opposite side of the wheel); the shortest-arc lerp
+// must pass through the seam at +/-PI instead.
+inline void test_lerp_oklch_shortest_arc_midpoint() {
+  const float L = 0.6f, C = 0.15f;
+
+  // Straddle the +/-PI seam: 2.8 and -2.8 rad are ~0.68 rad apart the short way
+  // (through +/-PI), but ~5.6 rad apart the long way (through 0).
+  OKLCH a{L, C, 2.8f};
+  OKLCH b{L, C, -2.8f};
+  OKLCH mid = lerp_oklch(a, b, 0.5f);
+  // Short arc midpoint sits at the seam (+/-PI), NOT at 0.
+  HS_EXPECT_NEAR(std::fabs(mid.h), PI_F, 1e-4f);
+  // L and C interpolate linearly regardless of the hue path.
+  HS_EXPECT_NEAR(mid.L, L, 1e-5f);
+  HS_EXPECT_NEAR(mid.C, C, 1e-5f);
+
+  // Same seam, opposite winding: still resolves to the seam, never through 0.
+  OKLCH c{L, C, 3.0f};
+  OKLCH d{L, C, -3.0f};
+  OKLCH mid2 = lerp_oklch(c, d, 0.5f);
+  HS_EXPECT_NEAR(std::fabs(mid2.h), PI_F, 1e-4f);
+
+  // A non-seam-crossing pair interpolates directly (no spurious wrap).
+  OKLCH e{L, C, 0.5f};
+  OKLCH f{L, C, 1.5f};
+  HS_EXPECT_NEAR(lerp_oklch(e, f, 0.5f).h, 1.0f, 1e-4f);
+
+  // Staying on the short arc keeps chroma at its endpoints' value; a through-0
+  // detour would not (the L/C lerp is path-independent, but pinning C here
+  // documents that the seam crossing didn't perturb the other channels).
+  HS_EXPECT_NEAR(mid.C, C, 1e-5f);
+}
+
 inline void test_lerp_oklch_endpoints() {
   OKLCH a = srgb_to_oklch(200, 30, 30);
   OKLCH b = srgb_to_oklch(30, 30, 200);
@@ -492,6 +529,7 @@ inline int run_color_tests() {
   test_oklch_roundtrip();
   test_oklch_gray_is_achromatic();
   test_lerp_oklch_achromatic_hue();
+  test_lerp_oklch_shortest_arc_midpoint();
   test_lerp_oklch_endpoints();
   test_oklch_to_pixel_bounded();
 
