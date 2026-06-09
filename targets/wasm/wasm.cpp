@@ -703,6 +703,12 @@ struct MeshOpsWrapper {
     const char *mi_name = "";
 
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
+      // Each solid is measured independently, so reset the finalize arena too —
+      // not just the scratch pair. Otherwise every Solids::get accumulates its
+      // mesh into tooling_arena, and the summed size across the roster can
+      // exceed its capacity and trip the fail-fast trap, aborting the module —
+      // exactly the outcome the rest of this file avoids with reject guards.
+      tooling_arena.reset();
       tooling_scratch_a.reset();
       tooling_scratch_b.reset();
       PolyMesh temp =
@@ -725,6 +731,9 @@ struct MeshOpsWrapper {
         mi_name = Solids::get_entry(i).name;
       }
     }
+
+    // Don't leave the last solid's mesh occupying the arena after we return.
+    tooling_arena.reset();
 
     val stats = val::object();
     stats.set("max_v", max_v);
