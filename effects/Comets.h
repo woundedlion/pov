@@ -63,14 +63,12 @@ public:
     timeline.step(canvas);
 
     // Live-apply the Cycle Dur slider to the motion duration + cycle timer.
-    int cd = (int)params.cycle_duration;
-    if (cd != last_cycle_dur_) {
-      last_cycle_dur_ = cd;
+    apply_if_changed((int)params.cycle_duration, last_cycle_dur_, [&](int cd) {
       if (motion_)
         motion_->set_duration(cd);
       if (cycle_timer_)
         cycle_timer_->set_period(2 * cd);
-    }
+    });
 
     // Re-bake animated palette each frame (256 lookups vs ~1700)
     baked_palette.rebake(palette);

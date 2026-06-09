@@ -65,13 +65,12 @@ public:
     timeline.step(canvas);
 
     // Live-apply the Drift slider to the control-point walk speeds.
-    if (params.drift != last_drift_) {
-      last_drift_ = params.drift;
-      float walk_speed = params.drift * 0.02f;
+    apply_if_changed(params.drift, last_drift_, [&](float drift) {
+      float walk_speed = drift * 0.02f;
       for (auto *w : point_walks_)
         if (w)
           w->set_speed(walk_speed);
-    }
+    });
 
     int n = hs::clamp(static_cast<int>(params.num_points), 4, MAX_POINTS);
 

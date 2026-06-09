@@ -119,7 +119,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 19. Extract a `PresetCycler<Params>` for the four preset-cycle effects.
 
-20. Extract an `apply_if_changed` helper for the three live-slider effects.
+20. ✅ Extract an `apply_if_changed` helper for the three live-slider effects. *Fixed: added `apply_if_changed(current, last, apply)` to `util.h` — it latches `last` and runs `apply(current)` only when the value moves — and routed Comets, ChaoticStrings, and SplineFlow's hand-rolled "live-apply slider on change" blocks through it. Pure inline (same compare/branch, callable invoked at most once per change), so the reschedule-from-now setters still fire only on actual parameter motion.*
 
 21. Route the SDF shape family's `get_vertical_bounds` through the existing `phi_bounds_to_rows<H>`.
 

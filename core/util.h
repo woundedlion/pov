@@ -93,3 +93,25 @@ constexpr float fwd_distance(float a, float b, float m) {
   return d;
 }
 
+/**
+ * @brief Invokes `apply(current)` only when `current` differs from `last`,
+ * then latches `last = current`.
+ * @details Encodes the "live-apply a slider value, but only on change" idiom:
+ *   several effects retain an animation handle whose setter reschedules from
+ *   "now" (e.g. `set_duration`/`set_period`), so calling it every frame would
+ *   perpetually defer the trigger — it must fire only when the parameter
+ *   actually moves. The comparison/branch is identical to the hand-rolled form
+ *   and `apply` is invoked at most once per change, so this is a zero-overhead
+ *   inline.
+ * @param current The latest parameter value to test against the cached one.
+ * @param last The cached value; updated to `current` when they differ.
+ * @param apply Callable receiving the new value; run only on change.
+ */
+template <typename T, typename F>
+inline void apply_if_changed(const T &current, T &last, F &&apply) {
+  if (current != last) {
+    last = current;
+    apply(current);
+  }
+}
+

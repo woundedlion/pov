@@ -125,11 +125,10 @@ public:
     // Live-apply the Cycle Dur slider to the motion
     // (guarded: set_duration reschedules from now, so calling it every frame
     // would perpetually defer the trigger).
-    if (params.cycle_duration != last_cycle_duration_) {
-      last_cycle_duration_ = params.cycle_duration;
+    apply_if_changed(params.cycle_duration, last_cycle_duration_, [&](float cd) {
       if (motion_)
-        motion_->set_duration((int)params.cycle_duration);
-    }
+        motion_->set_duration((int)cd);
+    });
 
     // Record the current orientation snapshot
     node->trail.record(node->orientation);
