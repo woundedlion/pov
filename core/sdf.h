@@ -1640,6 +1640,7 @@ struct Polygon {
   Polygon(const Basis &b, float r, float th, int s, float ph, int h_virt,
           int height)
       : basis(b), thickness(th), sides(s), phase(ph) {
+    HS_CHECK(sides > 0); // sector folding divides by sides
     apothem = thickness * cosf(PI_F / sides);
     nx = basis.v.x;
     ny = basis.v.y;
@@ -1718,6 +1719,7 @@ struct SphericalPolygon {
   SphericalPolygon(const Basis &b, float radius, int s, float ph, int h_virt,
                    int height)
       : basis(b), sides(s), phase(ph) {
+    HS_CHECK(sides > 0); // sector folding divides by sides
     circumradius = radius * (PI_F / 2.0f);
 
     // Build canonical edge: between vertices at azimuth ±π/n from
@@ -1826,6 +1828,7 @@ struct Star {
 
   Star(const Basis &b, float radius, int s, float ph, int h_virt, int height)
       : basis(b), sides(s), phase(ph) {
+    HS_CHECK(sides > 0); // sector folding divides by sides
     float outer_radius = radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
     float angle_step = PI_F / sides;
@@ -1924,6 +1927,7 @@ struct Flower {
 
   Flower(const Basis &b, float radius, int s, float ph, int h_virt, int height)
       : basis(b), sides(s), phase(ph) {
+    HS_CHECK(sides > 0); // sector folding divides by sides
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
     thickness = outer;

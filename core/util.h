@@ -15,6 +15,11 @@
 /**
  * @brief Wraps a floating-point value around a modulo base (m).
  * @details Ensures the result is always non-negative and in [0, m).
+ *   Overload resolution: this `fmod`-based template is selected for any call
+ *   that is not an exact `(int, int)` match; the non-template `wrap(int, int)`
+ *   below is preferred only for two `int` arguments. A mixed call such as
+ *   `wrap(int_x, float_m)` therefore resolves here (float math), not to the
+ *   integer overload. Precondition: m > 0 (m <= 0 yields NaN/garbage).
  * @tparam T The type of the value being wrapped (e.g., float).
  * @tparam U The type of the modulo base.
  * @param x The value to wrap.

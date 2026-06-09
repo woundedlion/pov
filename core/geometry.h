@@ -172,6 +172,7 @@ inline float phi_to_y(float phi, int h_virt) {
 
 template <int H> inline float phi_to_y(float phi) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
+  static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
   return (phi * (H_VIRT - 1)) / PI_F;
 }
 
@@ -209,6 +210,7 @@ template <int H> inline float y_to_phi(float y) {
     }
   }
   constexpr int H_VIRT = H + hs::H_OFFSET;
+  static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
   return (y * PI_F) / (H_VIRT - 1);
 }
 
