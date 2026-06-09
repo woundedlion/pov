@@ -167,6 +167,31 @@ inline void test_emplace_front_constructs_in_place() {
   HS_EXPECT_EQ(buf.back().x, 1);
 }
 
+// A type that is constructible but NOT assignable. The previous emplace
+// implementation (`buffer[i] = T(args...)`) move-assigned a temporary and would
+// fail to compile for this type; that it compiles and works here proves emplace
+// now constructs the value directly in the slot's storage.
+struct EmplaceOnly {
+  int x, y;
+  EmplaceOnly() : x(-1), y(-1) {}
+  EmplaceOnly(int a, int b) : x(a), y(b) {}
+  EmplaceOnly(const EmplaceOnly &) = default;
+  EmplaceOnly &operator=(const EmplaceOnly &) = delete;
+  EmplaceOnly &operator=(EmplaceOnly &&) = delete;
+};
+
+inline void test_emplace_constructs_non_assignable_type() {
+  StaticCircularBuffer<EmplaceOnly, 3> buf;
+  EmplaceOnly &b = buf.emplace_back(3, 4);
+  HS_EXPECT_EQ(b.x, 3);
+  HS_EXPECT_EQ(b.y, 4);
+  EmplaceOnly &f = buf.emplace_front(7, 9);
+  HS_EXPECT_EQ(f.x, 7);
+  HS_EXPECT_EQ(buf.size(), (size_t)2);
+  HS_EXPECT_EQ(buf.front().x, 7);
+  HS_EXPECT_EQ(buf.back().x, 3);
+}
+
 // ============================================================================
 // pop / pop_back / clear
 // ============================================================================
@@ -343,6 +368,7 @@ inline int run_static_circular_buffer_tests() {
 
   test_emplace_back_constructs_in_place();
   test_emplace_front_constructs_in_place();
+  test_emplace_constructs_non_assignable_type();
 
   test_pop_removes_front();
   test_pop_back_removes_last();

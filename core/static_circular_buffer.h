@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <new>
 #include <utility>
 #include "platform.h"
 
@@ -69,9 +70,8 @@ public:
       pop_back_internal();
     }
     head = (head + N - 1) % N; // + N first: never underflows (head is uint32_t)
-    buffer[head] = T(std::forward<Args>(args)...);
     count++;
-    return buffer[head];
+    return construct_in_place(head, std::forward<Args>(args)...);
   }
 
   void push_back(const T &item) {
@@ -97,11 +97,10 @@ public:
     if (is_full()) {
       pop_front_internal();
     }
-    buffer[tail] = T(std::forward<Args>(args)...);
-    T &emplaced_item = buffer[tail];
+    uint32_t slot = tail;
     tail = (tail + 1) % N;
     count++;
-    return emplaced_item;
+    return construct_in_place(slot, std::forward<Args>(args)...);
   }
 
   void pop_back() {
@@ -183,6 +182,19 @@ private:
   void pop_front_internal() {
     head = (head + 1) % N;
     count--;
+  }
+
+  // True in-place construction for emplace_back/emplace_front. Every std::array
+  // slot is a live object for the buffer's lifetime, so we end the existing
+  // object's lifetime and construct the new value directly in its storage.
+  // Unlike `buffer[idx] = T(args...)` this builds no temporary and requires only
+  // that T be constructible from Args, not assignable. We return the reference
+  // yielded by placement-new so the result never reads through the prior object.
+  template <typename... Args>
+  T &construct_in_place(uint32_t idx, Args &&...args) {
+    T *slot = &buffer[idx];
+    slot->~T();
+    return *::new (static_cast<void *>(slot)) T(std::forward<Args>(args)...);
   }
 
   /// CRTP base providing all random-access iterator operators.
