@@ -21,7 +21,7 @@ package-lock.json
 /docs/CODE_REVIEW.md
 
 # IDE / tooling
-/.vs/
+.vs/
 /out/
 /obj/
 /__vm/
