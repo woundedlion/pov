@@ -483,6 +483,52 @@ inline void test_transform_applies_translation_chain() {
   HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
 }
 
+// Regression: transform() yields a BORROWED-mode mesh (owned vertices, topology
+// via *_view). If the destination is REUSED from a prior owned-mode life its
+// still-bound owned topology would shadow the freshly set views — the accessors
+// discriminate on is_bound(), and clear() does not unbind. transform() must
+// reset the owned topology so the views win. Fails on the old code, where the
+// stale owned sizes (2 / 9) leak through the accessors instead of the source's
+// (1 / 3).
+inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
+  Arena src_arena(conway_target_buf, sizeof(conway_target_buf) / 2);
+  Arena dst_arena(conway_target_buf + sizeof(conway_target_buf) / 2,
+                  sizeof(conway_target_buf) / 2);
+
+  MeshState src;
+  src.vertices.bind(src_arena, 3);
+  src.vertices.push_back(Vector(1, 0, 0));
+  src.vertices.push_back(Vector(0, 1, 0));
+  src.vertices.push_back(Vector(0, 0, 1));
+  src.face_counts.bind(src_arena, 1);
+  src.face_counts.push_back(3);
+  src.faces.bind(src_arena, 3);
+  src.faces.push_back(0);
+  src.faces.push_back(1);
+  src.faces.push_back(2);
+
+  // Destination arrives in OWNED mode with stale topology (2 faces / 9 indices),
+  // as it would after a previous owned-mode build into the same object.
+  MeshState dst;
+  dst.face_counts.bind(dst_arena, 2);
+  dst.face_counts.push_back(4);
+  dst.face_counts.push_back(4);
+  dst.faces.bind(dst_arena, 9);
+  for (int i = 0; i < 9; ++i)
+    dst.faces.push_back(9);
+
+  MeshOps::transform(src, dst, dst_arena);
+
+  // Accessors must reflect the SOURCE topology (the borrowed view), not the
+  // stale owned buffers that were bound on entry.
+  HS_EXPECT_EQ(dst.get_face_counts_size(), (size_t)1);
+  HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
+  HS_EXPECT_EQ((int)dst.get_face_counts_data()[0], 3);
+  HS_EXPECT_EQ((int)dst.get_faces_data()[0], 0);
+  HS_EXPECT_EQ((int)dst.get_faces_data()[1], 1);
+  HS_EXPECT_EQ((int)dst.get_faces_data()[2], 2);
+}
+
 // ---------------------------------------------------------------------------
 // face_centroid + vertex_orbit (low-level half-edge helpers)
 // ---------------------------------------------------------------------------
@@ -577,6 +623,7 @@ inline int run_conway_tests() {
   test_snub_cube_is_well_formed();
   test_conway_ops_drop_degenerate_primary_faces();
   test_transform_applies_translation_chain();
+  test_transform_unbinds_stale_owned_topology_on_reuse();
   test_face_centroid_for_cube_top_face();
 
   return hs_test::end_module(scope);
