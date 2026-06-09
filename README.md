@@ -611,7 +611,7 @@ Scan::Ring::draw<W, H>(pipeline, canvas, basis, radius, thickness, shader);
 
 Each rasterizer family populates the Fragment registers with a consistent convention. Shaders can rely on these semantics:
 
-**SDF Scanline Path** (`Scan::Ring`, `Scan::Star`, `Scan::Polygon`, `Scan::Flower`, `Scan::Line`, `Scan::Mesh`):
+**SDF Scanline Path** (`Scan::Ring`, `Scan::Star`, `Scan::PlanarPolygon`, `Scan::Flower`, `Scan::Line`, `Scan::Mesh`):
 
 | Register | Source | Meaning |
 |---|---|---|
@@ -633,7 +633,7 @@ struct DistanceResult {
 };
 ```
 
-**Curve Plot Path** (`Plot::Line`, `Plot::Multiline`, `Plot::Ring`, `Plot::Polygon`, `Plot::SplineChain`, `Plot::Bezier`):
+**Curve Plot Path** (`Plot::Line`, `Plot::Multiline`, `Plot::Ring`, `Plot::PlanarPolygon`, `Plot::SplineChain`, `Plot::Bezier`):
 
 | Register | Meaning |
 |---|---|
@@ -672,7 +672,7 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 |---|---|
 | `SDF::Ring` | Geodesic circle at a given radius and thickness |
 | `SDF::DistortedRing` | Ring with per-azimuth radius perturbation via a callback |
-| `SDF::Polygon` | Regular N-gon in the tangent plane of a basis vector |
+| `SDF::PlanarPolygon` | Regular N-gon in the tangent plane of a basis vector |
 | `SDF::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `SDF::Star` | N-pointed star using the standard inradius/circumradius construction |
 | `SDF::Flower` | Inverted star (N-petal flower shape from the antipodal perspective) |
@@ -686,10 +686,10 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 Shapes can be combined using Constructive Solid Geometry:
 
 ```cpp
-SDF::Union<Ring, Polygon>        // min(d_A, d_B)
-SDF::SmoothUnion<Ring, Polygon>  // smooth minimum with blending radius
-SDF::Subtract<Ring, Polygon>     // max(d_A, -d_B)
-SDF::Intersection<Ring, Polygon> // max(d_A, d_B) with interval intersection
+SDF::Union<Ring, PlanarPolygon>        // min(d_A, d_B)
+SDF::SmoothUnion<Ring, PlanarPolygon>  // smooth minimum with blending radius
+SDF::Subtract<Ring, PlanarPolygon>     // max(d_A, -d_B)
+SDF::Intersection<Ring, PlanarPolygon> // max(d_A, d_B) with interval intersection
 SDF::AngularRepeat<Shape>        // N-fold angular repetition around an axis
 ```
 

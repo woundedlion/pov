@@ -6,7 +6,7 @@
  *
  * Coverage:
  *   - clamp_phi utility
- *   - Spherical SDF primitives (Ring, Polygon, SphericalPolygon, Star, Line)
+ *   - Spherical SDF primitives (Ring, PlanarPolygon, SphericalPolygon, Star, Line)
  *   - 3D Torus
  *   - CSG operators (Union, SmoothUnion, Subtract, Intersection)
  *   - AngularRepeat
@@ -103,14 +103,14 @@ inline void test_ring_just_outside_band() {
 }
 
 // ============================================================================
-// Polygon  (Basis at top of sphere; distance to nearest edge)
+// PlanarPolygon  (Basis at top of sphere; distance to nearest edge)
 // ============================================================================
 
 inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
   // 6-gon, thickness=0.5 (radians), phase=0, h_virt=144, height=144
-  SDF::Polygon poly(b, /*r*/ 0.0f, /*thickness*/ 0.5f, /*sides*/ 6, /*phase*/ 0.0f,
-                    144, 144);
+  SDF::PlanarPolygon poly(b, /*r*/ 0.0f, /*thickness*/ 0.5f, /*sides*/ 6,
+                          /*phase*/ 0.0f, 144, 144);
 
   // Point at center of polygon (basis.v direction) is inside.
   auto r = poly.distance(Vector(0, 1, 0));
@@ -122,7 +122,7 @@ inline void test_polygon_at_center_inside() {
 
 inline void test_polygon_far_point_outside() {
   Basis b = equator_basis();
-  SDF::Polygon poly(b, 0.0f, 0.3f, 6, 0.0f, 144, 144);
+  SDF::PlanarPolygon poly(b, 0.0f, 0.3f, 6, 0.0f, 144, 144);
 
   // Point at the opposite pole (-Y) is π away from the polygon center → outside.
   auto r = poly.distance(Vector(0, -1, 0));

@@ -137,8 +137,8 @@ struct DistanceResult {
 /**
  * @brief Emit the single horizontal interval where a row crosses a great-circle
  * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
- * the scan plane is (ny, R_val, alpha_angle). Shared by Polygon / Spherical
- * Polygon / Star, whose scanline math is otherwise identical.
+ * the scan plane is (ny, R_val, alpha_angle). Shared by PlanarPolygon /
+ * SphericalPolygon / Star, whose scanline math is otherwise identical.
  *
  * @param cos_cap    cos of the cap's angular radius (cosf(thickness) etc.).
  * @param reject_full_width  Star-only: drop the row to a full scan when the
@@ -1627,7 +1627,7 @@ struct Face {
  *  t: Normalized polar distance (polar / thickness)
  *  raw_dist: Polar distance from center
  */
-struct Polygon {
+struct PlanarPolygon {
   const Basis &basis;
   float thickness;
   int sides;
@@ -1637,8 +1637,8 @@ struct Polygon {
   int y_min, y_max;
   static constexpr bool is_solid = true;
 
-  Polygon(const Basis &b, float r, float th, int s, float ph, int h_virt,
-          int height)
+  PlanarPolygon(const Basis &b, float r, float th, int s, float ph, int h_virt,
+                int height)
       : basis(b), thickness(th), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
     apothem = thickness * cosf(PI_F / sides);
@@ -1671,7 +1671,11 @@ struct Polygon {
   }
 
   /**
-   * @brief Signed distance to Polygon edge.
+   * @brief Signed distance to the planar polygon edge.
+   *
+   * Treats the polar angle as a flat radius (tangent-plane approximation), so
+   * it is accurate for small caps and diverges from the true geodesic distance
+   * as the radius grows. Use SphericalPolygon for geodesic great-circle edges.
    */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -1694,7 +1698,9 @@ struct Polygon {
     float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
 
     float dist_edge = polar * fast_cosf(local) - apothem;
-    float t_val = ComputeUVs ? polar / thickness : 0.0f;
+    float t_val = 0.0f;
+    if constexpr (ComputeUVs)
+      t_val = polar / thickness;
 
     res = DistanceResult(dist_edge, t_val, polar, 0.0f, apothem);
   }
@@ -1745,7 +1751,7 @@ struct SphericalPolygon {
     edge_nv = dot(en, basis.v);
     edge_nu = dot(en, basis.u);
 
-    // Vertical/horizontal bounds (same as SDF::Polygon)
+    // Vertical/horizontal bounds (same as SDF::PlanarPolygon)
     nx = basis.v.x;
     ny = basis.v.y;
     nz = basis.v.z;
@@ -1801,7 +1807,9 @@ struct SphericalPolygon {
     float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
     float dist_edge = asinf(hs::clamp(dp, -1.0f, 1.0f));
 
-    float t_val = ComputeUVs ? polar / circumradius : 0.0f;
+    float t_val = 0.0f;
+    if constexpr (ComputeUVs)
+      t_val = polar / circumradius;
     res = DistanceResult(dist_edge, t_val, polar, 0.0f, circumradius);
   }
 };
@@ -2008,7 +2016,9 @@ struct Flower {
     float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
 
     float dist_edge = polar * fast_cosf(local) - apothem;
-    float t_val = ComputeUVs ? scan_dist / thickness : 0.0f;
+    float t_val = 0.0f;
+    if constexpr (ComputeUVs)
+      t_val = scan_dist / thickness;
 
     res = DistanceResult(-dist_edge, t_val, scan_dist, 0.0f, thickness);
   }
