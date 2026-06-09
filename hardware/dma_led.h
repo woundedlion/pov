@@ -116,9 +116,9 @@ public:
     // ~2 orders of magnitude above the worst real transfer. On timeout, name
     // the site on Serial (the trap is a bare illegal instruction with no
     // message) then trap; a truncated Serial write is harmless since we halt
-    // immediately, and that holds even in the column-ISR context show() can
-    // reach (in normal operation show()/submitFrame() overrun-drop instead of
-    // entering this spin — see show()).
+    // immediately, and that holds even in the column-ISR context submitFrame()
+    // runs in (in normal operation submitFrame() overrun-drops instead of
+    // entering this spin — see submitFrame()).
     const unsigned long wait_start = micros();
     while (!transferComplete_.load(std::memory_order_relaxed)) {
       if (micros() - wait_start >= kTransferWatchdogUs) {
@@ -181,8 +181,10 @@ TeensySPIDMA* TeensySPIDMA::instance_ = nullptr;
  * @brief High-level double-buffered DMA LED controller for HD107S strips.
  * @tparam N Number of pixels.
  *
- * Typical ISR usage:
- *   controller.show(leds);    // triggers async DMA, returns immediately
+ * Typical ISR usage (per column):
+ *   auto& f = controller.backFrame();  // back buffer (not being DMA'd)
+ *   // ... pack pixels into f via packPixel() ...
+ *   controller.submitFrame();          // triggers async DMA, returns immediately
  *   // ISR exits → DMA transfers in background → main loop gets more CPU
  */
 template <int N>
@@ -195,33 +197,6 @@ public:
    */
   void begin() {
     spi_.init();
-  }
-
-  /**
-   * @brief Applies corrections, loads the back buffer, and triggers DMA.
-   * @param pixels Array of CRGB pixels.
-   *
-   * Non-blocking: returns as soon as DMA is triggered. The previous DMA
-   * transfer is guaranteed complete before we start the next one.
-   */
-  void show(const CRGB* pixels) {
-    if (!spi_.isComplete()) {
-      // Drop the frame on overrun rather than fall through to transmitAsync(),
-      // which would spin in waitComplete(). When called from the column ISR
-      // that spin can deadlock — transferComplete_ is only set by the DMA
-      // completion ISR, which cannot preempt an equal/lower-priority ISR — and
-      // at best extends the ISR past the next column tick. A dropped frame is a
-      // transient (platform.h), not an invariant violation: the in-flight DMA
-      // keeps the previous column; the next tick repacks and retries.
-      overrunCount_.fetch_add(1, std::memory_order_relaxed);
-      return;
-    }
-
-    int back = 1 - activeBuffer_;
-    frames_[back].load(pixels, N);
-    spi_.transmitAsync(frames_[back].data(), frames_[back].size());
-    activeBuffer_ = back;
-    transferCount_.fetch_add(1, std::memory_order_relaxed);
   }
 
   /**
@@ -240,9 +215,13 @@ public:
    */
   void submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
-      // Drop on overrun — never enter transmitAsync()'s waitComplete() spin
-      // from the column ISR (see show() for the deadlock rationale). The
-      // already-packed back buffer is simply discarded; the next column repacks.
+      // Drop on overrun — never enter transmitAsync()'s waitComplete() spin from
+      // the column ISR. That spin can deadlock: transferComplete_ is only set by
+      // the DMA-completion ISR, which cannot preempt an equal/lower-priority ISR,
+      // so at best it extends the ISR past the next column tick. A dropped frame
+      // is a transient (platform.h), not an invariant violation: the in-flight
+      // DMA keeps the previous column; the already-packed back buffer is simply
+      // discarded and the next column repacks.
       overrunCount_.fetch_add(1, std::memory_order_relaxed);
       return;
     }
@@ -289,8 +268,8 @@ private:
   HD107SFrame<N> frames_[2];
   TeensySPIDMA spi_;
   // Plain int, no atomic/volatile needed: every access lives in the single
-  // column-ISR context — the reads in backFrame()/show()/submitFrame() and the
-  // writes in the latter two all run from show_col(). The DMA-completion ISR
+  // column-ISR context — the reads in backFrame()/submitFrame() and the write in
+  // submitFrame() all run from show_col(). The DMA-completion ISR
   // touches only transferComplete_, never this index, so there is no
   // cross-context reader to synchronize and a barrier here would be pure cost
   // (same single-observer model as the transferComplete_/instance_ notes). The

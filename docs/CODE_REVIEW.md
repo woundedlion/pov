@@ -135,7 +135,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 26. ✅ Gate the unconditional per-frame `Serial.print` in `pov_segmented.h:316-336` behind `hs::debug` (parity with `pov_single.h`). *Fixed: the per-frame `ft` line and the on-change `overrun` line are now both wrapped in `if (hs::debug)`, so production firmware leaves the foreground render loop's Serial output silent — matching pov_single.h.*
 
-27. Confirm or remove the apparently-dead CRGB `DMALEDController::show()` path (`dma_led.h:207`).
+27. ✅ Confirm or remove the apparently-dead CRGB `DMALEDController::show()` path (`dma_led.h:207`). *Fixed: confirmed dead — the column ISR drives the strip via `backFrame()`/`submitFrame()` and `show(const CRGB*)` had no callers anywhere in the tree. Removed it and its stale class-doc usage example; the column-ISR deadlock rationale it carried moved into `submitFrame()`, the sole remaining overrun-drop site.*
 
 28. Route `memory.cpp`'s OOM `printf` through `hs::log`.
 
