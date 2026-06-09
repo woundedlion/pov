@@ -30,10 +30,12 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
-    time_driver_ = timeline.add_get(
-        0, Animation::Driver(accumulated_time, params.time_speed, false));
-    cycle_driver_ = timeline.add_get(
-        0, Animation::Driver(cycle_phase, params.cycle_speed, false));
+    // Bound Drivers pull the live Time/Cycle Speed sliders each step, so no
+    // per-frame set_speed re-sync (and no retained handles) are needed.
+    timeline.add(0, Animation::Driver(accumulated_time, &params.time_speed, 1.0f,
+                                      false));
+    timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f,
+                                      false));
 
     // Bake the generative palette into a fast 16-bit LUT
     palette.bake(persistent_arena,
@@ -65,9 +67,6 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
-
-    time_driver_->set_speed(params.time_speed);
-    cycle_driver_->set_speed(params.cycle_speed);
 
     float t = accumulated_time;
     float t_08 = t * 0.8f;
@@ -186,8 +185,6 @@ private:
   Params params;
   float accumulated_time = 0.0f;
   float cycle_phase = 0.0f;
-  Animation::Driver *time_driver_ = nullptr;
-  Animation::Driver *cycle_driver_ = nullptr;
 
   // All 7 Params fields are listed explicitly per preset. Omitting the
   // trailing cycle_speed would silently fall back to its default member

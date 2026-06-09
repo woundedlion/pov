@@ -45,15 +45,14 @@ public:
     // ARE gated so "Pause Animation" actually freezes the fiber motion.
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_mid, true));
-    flow_driver_ = timeline.add_get(
-        0, Animation::Driver(flow_offset, FLOW_RATE * params.flow_speed, false,
-                             &anims_paused_));
-    tumble_x_driver_ = timeline.add_get(
-        0, Animation::Driver(tumble_angle_x, TUMBLE_X_RATE * params.tumble_speed,
-                             false, &anims_paused_));
-    tumble_y_driver_ = timeline.add_get(
-        0, Animation::Driver(tumble_angle_y, TUMBLE_Y_RATE * params.tumble_speed,
-                             false, &anims_paused_));
+    // Bound Drivers: each pulls its tuning slider (× per-unit rate) every step,
+    // so the flow/tumble speeds stay live without a per-frame set_speed re-sync.
+    timeline.add(0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE,
+                                      false, &anims_paused_));
+    timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
+                                      TUMBLE_X_RATE, false, &anims_paused_));
+    timeline.add(0, Animation::Driver(tumble_angle_y, &params.tumble_speed,
+                                      TUMBLE_Y_RATE, false, &anims_paused_));
   }
 
   bool show_bg() const override { return false; }
@@ -88,9 +87,8 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
-  // Per-unit driver speeds (multiplied by the corresponding tuning param).
-  // Shared between the initial Driver setup and the per-frame set_speed() in
-  // advance_tumble().
+  // Per-unit driver speeds (multiplied by the corresponding tuning param via
+  // the bound Drivers set up in init()).
   static constexpr float FLOW_RATE = 0.02f * 0.2f; // flow_offset / flow_speed
   static constexpr float TUMBLE_X_RATE = 0.003f;   // tumble_angle_x / tumble_speed
   static constexpr float TUMBLE_Y_RATE = 0.005f;   // tumble_angle_y / tumble_speed
@@ -100,9 +98,6 @@ private:
   float tumble_angle_y = 0.0f;
   Vector *fibers = nullptr;
   Animation::VectorTrail<TRAIL_LEN> *trails = nullptr;
-  Animation::Driver *flow_driver_ = nullptr;
-  Animation::Driver *tumble_x_driver_ = nullptr;
-  Animation::Driver *tumble_y_driver_ = nullptr;
 
   // Cached tumble rotation values (per-frame)
   float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
@@ -127,9 +122,6 @@ private:
   }
 
   void advance_tumble() {
-    flow_driver_->set_speed(FLOW_RATE * params.flow_speed);
-    tumble_x_driver_->set_speed(TUMBLE_X_RATE * params.tumble_speed);
-    tumble_y_driver_->set_speed(TUMBLE_Y_RATE * params.tumble_speed);
     cx = fast_cosf(tumble_angle_x);
     sx = fast_sinf(tumble_angle_x);
     cy = fast_cosf(tumble_angle_y);

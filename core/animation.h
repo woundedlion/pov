@@ -699,6 +699,21 @@ public:
         paused_(paused) {}
 
   /**
+   * @brief Constructs a Driver whose speed tracks a live param every step.
+   * @param mutant The float variable to modify.
+   * @param speed_src Pointer to a live value (e.g. a registered slider); the
+   *   effective speed is `*speed_src * scale`, re-read each step.
+   * @param scale Per-unit multiplier applied to *speed_src.
+   * @details Replaces the "retain the Driver handle and re-sync it with
+   *   set_speed(scale * params.x) every frame" idiom: the Driver pulls the
+   *   slider itself, so callers can `timeline.add(...)` and drop the handle.
+   */
+  Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
+         const bool *paused = nullptr)
+      : AnimationBase(1, true), mutant(mutant), speed(*speed_src * scale),
+        wrap_(wrap), paused_(paused), speed_src_(speed_src), scale_(scale) {}
+
+  /**
    * @brief Performs one step by adding the speed to the mutant.
    *
    * Freezes while a wired pause flag is set (see Mutation::step).
@@ -707,6 +722,10 @@ public:
     if (paused_ && *paused_)
       return;
     AnimationBase::step(canvas);
+    // A bound Driver re-reads its live speed source each step (one load +
+    // multiply on the once-per-frame timeline path, not the pixel loop).
+    if (speed_src_)
+      speed = *speed_src_ * scale_;
     mutant.get() += speed;
     if (wrap_) {
       // wrap_t (fract) folds the phase back into [0,1) for any magnitude. The
@@ -739,6 +758,9 @@ private:
   bool wrap_;                           /**< If true, wraps value to 0-1 range. */
   const bool *paused_; /**< Optional pause gate; freezes the driver when set and
                           true. Null = always runs. */
+  const float *speed_src_ =
+      nullptr;            /**< Live speed source; null = fixed speed. */
+  float scale_ = 1.0f;   /**< Multiplier applied to *speed_src_. */
 };
 
 /**
