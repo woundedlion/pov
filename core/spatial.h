@@ -251,6 +251,12 @@ private:
     // corrupting the tree. Cold path (once per node during build).
     HS_CHECK(new_node_idx <= INT16_MAX,
              "KDTree node index exceeds int16_t child-link range");
+    // original_index is uint16_t, so a source set larger than 65535 points
+    // would silently fold a high index back into the wrong vertex. The node
+    // guard above bounds node_count, not the source index, so trap the vertex
+    // range too. Cold path (once per node during build).
+    HS_CHECK(median_idx <= UINT16_MAX,
+             "KDTree vertex index exceeds uint16_t original_index range");
     nodes.emplace_back();
     nodes[new_node_idx].point = points[median_idx];
     nodes[new_node_idx].original_index = (uint16_t)median_idx; // Store index
