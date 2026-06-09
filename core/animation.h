@@ -20,6 +20,7 @@
 #include "spatial.h"
 #include "static_circular_buffer.h"
 #include "rotate.h"
+#include "util.h" // wrap_t
 namespace Animation {
 class Noise;
 } // namespace Animation
@@ -703,10 +704,10 @@ public:
     AnimationBase::step(canvas);
     mutant.get() += speed;
     if (wrap_) {
-      if (mutant.get() >= 1.0f)
-        mutant.get() -= 1.0f;
-      else if (mutant.get() < 0.0f)
-        mutant.get() += 1.0f;
+      // wrap_t (fract) folds the phase back into [0,1) for any magnitude. The
+      // old single ±1 correction only undid one period, so |speed| >= 1 or a
+      // resume-jump that set mutant far outside the range would escape it.
+      mutant.get() = wrap_t(mutant.get());
     }
   }
 
