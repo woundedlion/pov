@@ -591,7 +591,14 @@ public:
         + (TrigLUT<W, H>::sin_phi[yi1] - TrigLUT<W, H>::sin_phi[yi0]) * y_m;
     float x_frac = hs::clamp(x_m * sin_phi, 0.0f, 1.0f);
 
-    float xs = x_frac;  // sin(phi) already provides smooth pole collapse
+    // Ease both axes with the same quintic kernel so the bilinear weight has
+    // vanishing 1st/2nd derivatives at the cell edges — without it, a point
+    // drifting across a column boundary ramps linearly in X while Y stays
+    // smooth (most visible at the equator, where sin(phi)=1 and x_frac==x_m).
+    // sin(phi) is an orthogonal density compensation, not a substitute for the
+    // easing; at the poles x_frac->0 so quintic_kernel(0)=0 still snaps to the
+    // nearest column.
+    float xs = quintic_kernel(x_frac);
     float ys = quintic_kernel(y_m);
 
     float v00 = (1 - xs) * (1 - ys);
