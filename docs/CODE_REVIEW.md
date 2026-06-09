@@ -78,7 +78,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 1. ✅ **Clamp `lerp_oklch` inputs / outputs** (`color.h:509-526`). Extrapolated `t` (reachable via unbounded lerp amounts) drives L or C negative → wrong, often near-black, colors. Clamp `t` at entry or L/C at exit. *Fixed: L clamped to [0,1] and C to ≥0 at the convergence point (hue left free to wrap); regression test `test_lerp_oklch_extrapolation_clamped` added.*
 
-2. **Make `Pixel::Feedback::flush` honor `canvas.clip()`** (`filter.h:817-857`). Full-canvas iteration means a feedback effect on segmented Phantasm has every board composite the whole sphere into its own Y-band — both wrong output and wasted work. Every other rasterizer respects the clip.
+2. ✅ **Make `Pixel::Feedback::flush` honor `canvas.clip()`** (`filter.h:817-857`). Full-canvas iteration means a feedback effect on segmented Phantasm has every board composite the whole sphere into its own Y-band — both wrong output and wasted work. Every other rasterizer respects the clip. *Fixed: the full-res output loop now iterates the margin-expanded render band and skips x columns outside the cylindrical x clip (the `contains_x` test hoisted out of the loop); regression test `test_feedback_flush_respects_clip` added.*
 
 3. **Fix `blend_alpha` cast-before-clamp** (`color.h:268-271`). `(int)(a*65535)` before `std::clamp` is UB for NaN/large `a` — the exact hazard `operator*` (`color.h:82`) guards against. Route through a clamp-then-round helper.
 

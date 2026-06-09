@@ -774,6 +774,49 @@ inline void test_feedback_flush_blends_prev_frame() {
   HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 8)));
 }
 
+// flush() must honor the segment clip like every other rasterizer: on
+// segmented hardware each board owns a Y-band, and a feedback flush that
+// iterated the full canvas would composite the whole sphere into every board's
+// buffer (wrong output + wasted work). Here the prev frame is bright at every
+// row but the clip restricts rendering to a sub-band; rows outside the
+// margin-expanded render band must stay untouched.
+inline void test_feedback_flush_respects_clip() {
+  constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
+  PipeFx fx(W, H);
+  ::Feedback::Style style = ::Feedback::Style::Smoke(); // identity warp
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  // Frame 1: bright across the WHOLE canvas becomes the "previous" frame.
+  {
+    Canvas c(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(40000, 40000, 40000);
+  }
+  fx.advance_display();
+
+  // Restrict this board to the y-band [8,12). With the default margin of 1 the
+  // render band is [7,13); rows outside it must not be written.
+  fx.set_clip(8, 12, 0, W);
+
+  // Frame 2: empty buffer; clipped flush warps+blends only within the band.
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  // Inside the band: carried over and faded.
+  HS_EXPECT_FALSE(px_black(fx.get_pixel(W / 2, 9)));
+  // Outside the render band: untouched despite the prev frame being lit there.
+  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 0)));
+  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 5)));
+  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 15)));
+}
+
 // ============================================================================
 // World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
 //
@@ -997,6 +1040,7 @@ inline int run_filter_tests() {
   test_pipeline_2d_into_3d_head_roundtrips();
   test_pipeline_screen_antialias_routes_to_sink();
   test_feedback_flush_blends_prev_frame();
+  test_feedback_flush_respects_clip();
 
   test_world_trails_int16_quantization_roundtrip();
   test_world_trails_clamps_out_of_range();

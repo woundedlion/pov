@@ -811,10 +811,26 @@ public:
     }
 
     // 2) Sample at full res, bilerping the coarse warp field per pixel.
+    //    Honor the segment clip exactly like every other rasterizer (scan.h):
+    //    iterate y over the margin-expanded render band and skip x columns
+    //    outside the cylindrical x clip. Without this, a feedback effect on
+    //    segmented Phantasm would have every board composite the whole sphere
+    //    instead of just its own band — wrong output and 4x wasted work.
     constexpr float INV_Q = 1.0f / Q;
     const float inv_ds = 1.0f / ds;
     const float fade = style_->fade;
-    for (int y = 0; y < H; ++y) {
+    const auto &cr = cv.clip();
+    const int y_lo = cr.render_y_start();
+    const int y_hi = cr.render_y_end();
+    // Precompute the cylindrical x-clip test once (ClipRegion::contains_x, but
+    // hoisted out of the W*H loop). A full-width x range — or one whose margin
+    // expansion wraps to cover the whole circumference (rx_s == rx_e) — needs no
+    // x clipping; only a genuine sub-arc does.
+    const int rx_s = cr.render_x_start();
+    const int rx_e = cr.render_x_end();
+    const bool clip_x = (cr.x_end - cr.x_start) < W && rx_s != rx_e;
+    const bool rx_wrap = rx_s > rx_e;
+    for (int y = y_lo; y < y_hi; ++y) {
       int cy0 = y / ds;
       int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
       float fy = (y - cy0 * ds) * inv_ds;
@@ -825,32 +841,39 @@ public:
       // (ds divides W, guaranteed above): cx0 ticks every ds columns, fx ramps
       // 0..(ds-1)/ds and resets, cx1 wraps to 0 at the longitude seam. `sub`
       // tracks x - cx0*ds, so fx here is bit-identical to (x - cx0*ds)*inv_ds.
+      // The bookkeeping advances every column even for clipped x so the ramp
+      // stays in lockstep with the absolute coordinate.
       int cx0 = 0, sub = 0;
       for (int x = 0; x < W; ++x) {
         int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
         float fx = sub * inv_ds;
-        float wx0 = 1.0f - fx, wx1 = fx;
 
-        int i00 = row0 + cx0;
-        int i10 = row0 + cx1;
-        int i01 = row1 + cx0;
-        int i11 = row1 + cx1;
+        bool x_outside = clip_x && (rx_wrap ? (x < rx_s && x >= rx_e)
+                                            : (x < rx_s || x >= rx_e));
+        if (!x_outside) {
+          float wx0 = 1.0f - fx, wx1 = fx;
 
-        float w00 = wx0 * wy0, w10 = wx1 * wy0;
-        float w01 = wx0 * wy1, w11 = wx1 * wy1;
+          int i00 = row0 + cx0;
+          int i10 = row0 + cx1;
+          int i01 = row1 + cx0;
+          int i11 = row1 + cx1;
 
-        float ddx = (dx[i00] * w00 + dx[i10] * w10
-                   + dx[i01] * w01 + dx[i11] * w11) * INV_Q;
-        float ddy = (dy[i00] * w00 + dy[i10] * w10
-                   + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
+          float w00 = wx0 * wy0, w10 = wx1 * wy0;
+          float w01 = wx0 * wy1, w11 = wx1 * wy1;
 
-        ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
-        ::Pixel p = style_->color_fn(sample, fade, *style_);
+          float ddx = (dx[i00] * w00 + dx[i10] * w10
+                     + dx[i01] * w01 + dx[i11] * w11) * INV_Q;
+          float ddy = (dy[i00] * w00 + dy[i10] * w10
+                     + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
 
-        // x is already in [0,W) and the canvas is H tall, so the old
-        // fast_wrap(x,W) and y-bounds guard here were both no-ops.
-        if (p.r | p.g | p.b)
-          cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
+          ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
+          ::Pixel p = style_->color_fn(sample, fade, *style_);
+
+          // x is already in [0,W) and y is within the render band, so the old
+          // fast_wrap(x,W) and y-bounds guard here were both no-ops.
+          if (p.r | p.g | p.b)
+            cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
+        }
 
         if (++sub == ds) { sub = 0; ++cx0; }
       }
