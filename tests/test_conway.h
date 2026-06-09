@@ -173,6 +173,89 @@ inline void check_basic_invariants(const PolyMesh &m) {
   check_consistent_winding(m);
 }
 
+// Euler / manifold invariant. Conway operators map a genus-0 seed to another
+// genus-0 closed polyhedron, so the result must be a closed 2-manifold
+// (every undirected edge shared by exactly two faces) satisfying Euler's
+// formula V - E + F == 2. A boundary edge (shared once) or a non-manifold edge
+// (shared >2) breaks the topology the renderer assumes; this catches both.
+inline void check_euler_genus0(const PolyMesh &m) {
+  // Undirected edges (min,max) gathered from every face.
+  std::vector<std::pair<uint16_t, uint16_t>> edges;
+  edges.reserve(m.faces.size());
+  size_t offset = 0;
+  for (size_t fi = 0; fi < m.face_counts.size(); ++fi) {
+    int count = m.face_counts[fi];
+    for (int k = 0; k < count; ++k) {
+      uint16_t u = m.faces[offset + k];
+      uint16_t v = m.faces[offset + (k + 1) % count];
+      if (u > v) std::swap(u, v);
+      edges.push_back({u, v});
+    }
+    offset += count;
+  }
+  std::sort(edges.begin(), edges.end());
+
+  // Distinct edge count, asserting each appears exactly twice (closed manifold).
+  int E = 0;
+  for (size_t i = 0; i < edges.size();) {
+    size_t j = i;
+    while (j < edges.size() && edges[j] == edges[i]) ++j;
+    HS_EXPECT_EQ((int)(j - i), 2); // each edge bounds exactly two faces
+    ++E;
+    i = j;
+  }
+
+  int V = (int)m.vertices.size();
+  int F = (int)m.face_counts.size();
+  HS_EXPECT_EQ(V - E + F, 2);
+}
+
+// Run every primitive Conway operator on one seed and assert the result is a
+// closed genus-0 manifold. Templated on the seed so it covers triangle-, quad-,
+// and pentagon-faced Platonic solids from one body.
+template <typename Solid>
+inline void check_euler_for_seed() {
+  // Each op gets a fresh target/temp pair; the seed is rebuilt into temp (the
+  // op checkpoints temp above it, exactly as the per-operator tests do).
+#define HS_EULER_OP(CALL)                                                      \
+  do {                                                                         \
+    Arena target(conway_target_buf, sizeof(conway_target_buf));               \
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));                      \
+    PolyMesh seed;                                                             \
+    build_solid<Solid>(seed, temp);                                           \
+    check_euler_genus0(MeshOps::CALL);                                        \
+  } while (0)
+
+  // The seed itself first.
+  {
+    Arena arena(conway_target_buf, sizeof(conway_target_buf));
+    PolyMesh seed;
+    build_solid<Solid>(seed, arena);
+    check_euler_genus0(seed);
+  }
+  HS_EULER_OP(dual(seed, target, temp));
+  HS_EULER_OP(kis(seed, target, temp));
+  HS_EULER_OP(ambo(seed, target, temp));
+  HS_EULER_OP(truncate(seed, target, temp));
+  HS_EULER_OP(expand(seed, target, temp));
+  HS_EULER_OP(chamfer(seed, target, temp));
+  HS_EULER_OP(bitruncate(seed, target, temp));
+  HS_EULER_OP(snub(seed, target, temp));
+  HS_EULER_OP(gyro(seed, target, temp));
+  HS_EULER_OP(meta(seed, target, temp));
+  HS_EULER_OP(needle(seed, target, temp));
+  HS_EULER_OP(zip(seed, target, temp));
+  HS_EULER_OP(bevel(seed, target, temp));
+#undef HS_EULER_OP
+}
+
+inline void test_conway_ops_preserve_euler_characteristic() {
+  check_euler_for_seed<Solids::Tetrahedron>();
+  check_euler_for_seed<Solids::Cube>();
+  check_euler_for_seed<Solids::Icosahedron>();
+  check_euler_for_seed<Solids::Dodecahedron>();
+}
+
 // ---------------------------------------------------------------------------
 // Input fixture: the unit-sphere cube. Vertex magnitudes are 1/√3 each, so
 // |v|=1 — confirms our cube data is correctly normalised.
@@ -621,6 +704,7 @@ inline int run_conway_tests() {
   test_zip_cube();
   test_bevel_cube();
   test_snub_cube_is_well_formed();
+  test_conway_ops_preserve_euler_characteristic();
   test_conway_ops_drop_degenerate_primary_faces();
   test_transform_applies_translation_chain();
   test_transform_unbinds_stale_owned_topology_on_reuse();
