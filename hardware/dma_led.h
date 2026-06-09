@@ -278,6 +278,14 @@ public:
 private:
   HD107SFrame<N> frames_[2];
   TeensySPIDMA spi_;
+  // Plain int, no atomic/volatile needed: every access lives in the single
+  // column-ISR context — the reads in backFrame()/show()/submitFrame() and the
+  // writes in the latter two all run from show_col(). The DMA-completion ISR
+  // touches only transferComplete_, never this index, so there is no
+  // cross-context reader to synchronize and a barrier here would be pure cost
+  // (same single-observer model as the transferComplete_/instance_ notes). The
+  // frames_[] buffer it selects is made coherent for the DMA engine by the
+  // cache flush in transmitAsync() (see above), not by this index.
   int activeBuffer_;
   // Atomic, not volatile: incremented in the column-ISR context (show/
   // submitFrame) and read elsewhere; volatile makes neither the RMW nor the
