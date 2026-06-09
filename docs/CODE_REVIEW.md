@@ -105,7 +105,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 13. Correct the AntiAlias "quintic both axes" claim (§7.1/§6 — X is linear-after-sin, `filter.h:592-595`).
 
-14. Correct the MeshCarousel "crossfade" wording (§7.3 — the outgoing shape is not drawn).
+14. ✅ Correct the MeshCarousel "crossfade" wording (§7.3 — the outgoing shape is not drawn). *Fixed: `MeshCarousel::transition()` only schedules a `Sprite` for `draw_incoming`; its `draw_outgoing` hook is "accepted for symmetry but currently unused" because `front_` flips eagerly to the new shape. The §7.3 table now describes it as fading the incoming shape in and notes the outgoing shape is not drawn, instead of claiming a crossfade between shapes.*
 
 15. Correct the "tools share WASM `MeshOps`" claim (§10.2/§10.11 — only `solids.html` does).
 
