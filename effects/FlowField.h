@@ -26,6 +26,14 @@ public:
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.SetSeed(hs::rand_int(0, 65535));
 
+    // Drive the whole-sphere drift consumed by the Filter::World::Orient stage.
+    // Without an animation the orientation stays at identity and the filter
+    // (plus its SLERP motion-blur sweep) is a no-op. `orient_noise` is a
+    // dedicated generator so RandomWalk never reconfigures the flow-field noise.
+    timeline.add(0, Animation::RandomWalk<W>(
+                        orientation, random_vector(), orient_noise,
+                        Animation::RandomWalk<W>::Options::Languid()));
+
     particle_system.init(persistent_arena, 0.96f, 0.0f, 300.0f);
 
     particle_system.add_emitter([this](ParticleSystem &sys) mutable {
@@ -75,6 +83,7 @@ public:
     Canvas canvas(*this);
     t += params.time_scale;
 
+    timeline.step(canvas);
     particle_system.step(canvas);
 
     // Rotation is owned by the Filter::World::Orient stage in `filters`, which
@@ -109,9 +118,11 @@ private:
 
   float t = 0;
   FastNoiseLite noise_generator;
+  FastNoiseLite orient_noise;
   GenerativePalette palette;
   ParticleSystem particle_system;
   Orientation<W> orientation;
+  Timeline<W> timeline;
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
