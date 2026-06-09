@@ -6,29 +6,91 @@
  *
  * These mocks stand in for <FastLED.h> and the Arduino runtime in the native
  * and WASM builds, so any divergence from the device's integer semantics makes
- * the simulator lie about the hardware. We pin the LUT-exact sine, the scale8
- * range fit, the FastLED map8 mapping, the degenerate-range guard on map(), and
- * the now-faithful Serial.printf — the seams the old "rough approximation"
- * stubs got wrong.
+ * the simulator lie about the hardware — and the determinism contract requires
+ * the sim to match the device bit-for-bit. We pin golden vectors for the FastLED
+ * sine/scale primitives (sin8, sin16, scale8/scale16, beatsin16): hand-traced
+ * cardinal anchors plus a full-period accuracy bound against the true sine, so a
+ * regression in sin16's byte-truncated secoffset8 (or any LUT/slope drift) is
+ * caught even where it still hits the anchors. We also pin the FastLED map8
+ * mapping, the degenerate-range guard on map(), and the now-faithful
+ * Serial.printf — the seams the old "rough approximation" stubs got wrong.
  */
 #pragma once
 
 #include "core/platform.h"
 #include "tests/test_harness.h"
 
+#include <cmath>
+#include <cstdlib>
 #include <sstream>
 #include <string>
 
 namespace hs_test {
 namespace platform_tests {
 
+static constexpr double kTwoPi = 6.283185307179586;
+
 // sin8 must be bit-exact with FastLED's sin8_C LUT: centred on 128, peak at
-// theta=64, trough near theta=192.
-inline void test_sin8_lut_exact() {
+// theta=64, trough near theta=192. Beyond the cardinal anchors, sweep the full
+// period and bound the LUT error against the true sine, so a regression in the
+// interleaved-slope math is caught even where it still hits the anchors.
+inline void test_sin8_golden() {
+  // Exact anchors (FastLED sin8_C).
   HS_EXPECT_EQ(sin8(0), 128);
   HS_EXPECT_EQ(sin8(64), 255); // quarter cycle -> peak
   HS_EXPECT_EQ(sin8(128), 128);
   HS_EXPECT_EQ(sin8(192), 1); // three-quarter -> trough
+
+  int max_err = 0;
+  for (int t = 0; t < 256; ++t) {
+    double truth = 128.0 + 127.0 * std::sin(kTwoPi * t / 256.0);
+    int err = std::abs(static_cast<int>(sin8(static_cast<uint8_t>(t))) -
+                       static_cast<int>(std::lround(truth)));
+    if (err > max_err) max_err = err;
+  }
+  // sin8_C tracks the true sine to within a few LSBs (measured worst case 3).
+  HS_EXPECT_LT(max_err, 6);
+}
+
+// sin16 is FastLED's sin16_C: signed -32767..32767, with the byte-truncated
+// secoffset8 the review flagged as not self-evidently correct. Pin hand-traced
+// cardinal anchors AND bound the full-period LUT error against the true sine, so
+// a truncation/slope regression that still happens to hit the anchors is caught.
+inline void test_sin16_golden() {
+  // Exact anchors traced through sin16_C.
+  HS_EXPECT_EQ(sin16(0), 0);
+  HS_EXPECT_EQ(sin16(8192), 23170);   // 45 deg
+  HS_EXPECT_EQ(sin16(16384), 32645);  // 90 deg (LUT peak, just under 32767)
+  HS_EXPECT_EQ(sin16(32768), 0);      // 180 deg
+  HS_EXPECT_EQ(sin16(49152), -32645); // 270 deg
+
+  int max_err = 0;
+  for (int t = 0; t < 65536; t += 3) {
+    double truth = 32767.0 * std::sin(kTwoPi * t / 65536.0);
+    int err = std::abs(static_cast<int>(sin16(static_cast<uint16_t>(t))) -
+                       static_cast<int>(std::lround(truth)));
+    if (err > max_err) max_err = err;
+  }
+  // sin16_C's 8-section linear LUT tracks the true sine to within ~226 of 32767
+  // (~0.7%); a broken secoffset8 truncation or slope table would blow far past.
+  HS_EXPECT_LT(max_err, 300);
+}
+
+// scale8/scale16 are exact fixed-point fades: (i*sc)>>8 and (i*sc)>>16. Pin the
+// full-scale, half-scale, and zero corners that effects rely on.
+inline void test_scale_golden() {
+  HS_EXPECT_EQ(scale8(255, 255), 254); // 255*255>>8
+  HS_EXPECT_EQ(scale8(255, 128), 127);
+  HS_EXPECT_EQ(scale8(128, 255), 127);
+  HS_EXPECT_EQ(scale8(200, 100), 78); // 20000>>8
+  HS_EXPECT_EQ(scale8(1, 255), 0);
+  HS_EXPECT_EQ(scale8(0, 255), 0);
+
+  HS_EXPECT_EQ(scale16(65535, 65535), 65534);
+  HS_EXPECT_EQ(scale16(65535, 32768), 32767);
+  HS_EXPECT_EQ(scale16(32768, 65535), 32767);
+  HS_EXPECT_EQ(scale16(1000, 5000), 76); // 5,000,000>>16
+  HS_EXPECT_EQ(scale16(0, 65535), 0);
 }
 
 inline void test_scale8_fractional() {
@@ -92,7 +154,20 @@ inline void test_beatsin8_faithful() {
   hs::clear_mock_time();
 }
 
-inline void test_beatsin16_in_range() {
+// beatsin16 = lowest + scale16(sin16(beat16(...)) + 32768, highest-lowest). Pin
+// it value-exact at t=0 (beat phase 0) while sweeping phase_offset onto the
+// sin16 anchors above — this catches the arg-swap / dropped-offset / missing
+// +32768 regressions the comment in platform.h warns about — then confirm the
+// range fit holds across a full cycle.
+inline void test_beatsin16_golden() {
+  hs::set_mock_time(0, 0);
+  // phase 0:      sin16(0)=0      -> +32768 -> scale16(32768,4000)=2000 -> 3000
+  HS_EXPECT_EQ(beatsin16(90, 1000, 5000, 0, 0), 3000);
+  // phase 16384:  sin16=32645     -> 65413  -> scale16(65413,4000)=3992 -> 4992
+  HS_EXPECT_EQ(beatsin16(90, 1000, 5000, 0, 16384), 4992);
+  // phase 49152:  sin16=-32645    -> 123    -> scale16(123,4000)=7      -> 1007
+  HS_EXPECT_EQ(beatsin16(90, 1000, 5000, 0, 49152), 1007);
+
   for (unsigned long ms = 0; ms < 1000; ms += 53) {
     hs::set_mock_time(ms, ms * 1000);
     uint16_t v = beatsin16(90, 1000, 5000);
@@ -115,12 +190,14 @@ inline void test_serial_printf_formats_varargs() {
 inline int run_platform_tests() {
   auto scope = hs_test::begin_module("platform");
 
-  test_sin8_lut_exact();
+  test_sin8_golden();
+  test_sin16_golden();
   test_scale8_fractional();
+  test_scale_golden();
   test_map8_fastled_semantics();
   test_map_degenerate_range();
   test_beatsin8_faithful();
-  test_beatsin16_in_range();
+  test_beatsin16_golden();
   test_serial_printf_formats_varargs();
 
   return hs_test::end_module(scope);
