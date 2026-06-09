@@ -434,9 +434,13 @@ public:
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
   // lifetime is a per-frame divisor (fade alpha); a zero/negative trail length
-  // is a cold authoring error that would feed inf/NaN into blend_alpha. Trap at
+  // is a cold authoring error that would feed inf/NaN into blend_alpha. The
+  // upper bound is structural: ttl is stored as uint8_t and encode() truncates,
+  // so lifetime > 255 would silently wrap the trail length. Trap both at
   // construction (cold path) rather than producing garbage per pixel.
-  Trails(int lifetime) : lifetime(lifetime) { HS_CHECK(lifetime > 0); }
+  Trails(int lifetime) : lifetime(lifetime) {
+    HS_CHECK(lifetime > 0 && lifetime <= 255);
+  }
 
   /// Allocate ring buffer storage from persistent arena.
   /// Must be called from effect init(), not constructor (arenas aren't ready
@@ -606,8 +610,13 @@ public:
       return;
 
     if (age >= 0) {
-      if (ttls_ && num_pixels < MAX_PIXELS) {
-        ttls_[num_pixels++] = {x, y, static_cast<float>(lifetime - age)};
+      // Only seed live trail points. age >= lifetime means the point is already
+      // dead; seeding it stores a negative ttl, which pushes t = 1-(ttl/lifetime)
+      // above 1 (out of range for trailFn) and the pass-age above lifetime.
+      // Mirror World::Trails' ttl>0 gate.
+      float ttl = static_cast<float>(lifetime) - age;
+      if (ttl > 0.0f && ttls_ && num_pixels < MAX_PIXELS) {
+        ttls_[num_pixels++] = {x, y, ttl};
       }
     }
     if (age <= 0) {
