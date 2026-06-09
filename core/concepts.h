@@ -93,7 +93,14 @@ using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 // Non-owning, type-erased handle to a rasterizer pipeline. Forwards plot()
 // calls (2D screen-space or 3D world-space) to the wrapped object's plot()
 // methods. Like FunctionRef, it borrows the target and must not outlive it.
-// Used by Plot::*::draw() so call sites can pass any pipeline without templating.
+// Used by Plot::*/Scan::*::draw() so call sites can pass any pipeline without
+// templating. This erasure is a deliberate code-size choice: erasing the
+// pipeline here (and the shader, via FragmentShaderFn) at the draw() boundary
+// costs one indirect plot() call per pixel, but instantiates the whole scanline
+// machine once per <W,H> instead of once per (shape x shader-lambda x
+// filter-stack) — the latter would explode device flash / wasm size across the
+// 28 effects' distinct shader closures and variadic filter-stack types.
+// Per-pixel inlining is intentionally traded for a bounded binary.
 class PipelineRef {
   void *ctx_;
   void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);

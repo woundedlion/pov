@@ -27,6 +27,12 @@ namespace Scan {
 
 /**
  * @brief Processes a single pixel for rasterization.
+ *
+ * The shader and pipeline are intentionally type-erased (FragmentShaderFn /
+ * PipelineRef), so the two per-pixel indirect calls below — the shader at
+ * fragment_shader() and the plot at pipeline.plot() — do not inline. This is a
+ * deliberate code-size tradeoff (one scanline instantiation per <W,H> rather
+ * than per shader/pipeline combination); see the PipelineRef note in concepts.h.
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
