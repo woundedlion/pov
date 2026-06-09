@@ -219,6 +219,62 @@ inline void test_plot_line_over_pole_reaches_row0() {
   HS_EXPECT_GT(row0, (size_t)0);
 }
 
+// A CSG composite of strokes must render each stroke with its OWN thickness
+// soft falloff — not as a hard solid band (the old is_solid=true path), and not
+// scaled by a sibling's thickness (the old shape.thickness AA). We drive
+// process_pixel with a point a known geodesic distance INSIDE the thin line of
+// a Union<thin, thick> and check the AA alpha matches the thin line's falloff.
+inline void test_csg_stroke_aa_uses_winning_child_thickness() {
+  constexpr int W = 288, H = 144;
+
+  // Mock sink recording the alpha process_pixel forwards (avoids canvas-blend
+  // round-trip): plot() last arg is frag.alpha (=1) * the AA alpha.
+  struct RecordSink {
+    float last_alpha = -1.0f;
+    int count = 0;
+    void plot(Canvas &, int, int, const Pixel &, float, float a) {
+      last_alpha = a;
+      ++count;
+    }
+  } sink;
+
+  ScanFx fx(W, H);
+  Canvas c(fx);
+
+  const float thin = 0.05f, thick = 0.30f;
+  // Thin line: equatorial arc +X -> +Z (great circle in the y=0 plane).
+  SDF::Line thin_line(Vector(1, 0, 0), Vector(0, 0, 1), thin);
+  // Thick line: opposite equatorial quadrant, far from the test point so the
+  // Union always selects the thin line; it exists only to push the wrapper's
+  // max-thickness up to `thick`.
+  SDF::Line thick_line(Vector(-1, 0, 0), Vector(0, 0, -1), thick);
+  SDF::Union<SDF::Line, SDF::Line> u(thin_line, thick_line);
+
+  // A composite of two strokes is itself a stroke.
+  HS_EXPECT_FALSE((SDF::Union<SDF::Line, SDF::Line>::is_solid));
+
+  // Point at geodesic distance 0.025 (half the thin thickness) north of the
+  // thin arc, projecting to azimuth 45 deg (well inside the arc).
+  const float dist = 0.025f;
+  Vector p(cosf(dist) * cosf(PI_F / 4), sinf(dist),
+           cosf(dist) * sinf(PI_F / 4));
+
+  SDF::DistanceResult res;
+  Fragment frag;
+  Scan::process_pixel<W, H, false>(
+      0, 0, p, sink, c, u,
+      [](const Vector &, Fragment &f) {
+        f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+      },
+      /*debug_bb=*/false, res, frag);
+
+  HS_EXPECT_EQ(sink.count, 1);
+  // -d/size = (thin - dist)/thin = 0.025/0.05 = 0.5 -> quintic(0.5) = 0.5.
+  // Bug A (shape.thickness = max = 0.30): 0.025/0.30 ~ 0.083 -> ~0.006.
+  // Bug B (is_solid solid path): pixel fully inside -> alpha == 1.0.
+  HS_EXPECT_NEAR(sink.last_alpha, 0.5f, 1e-2f);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -233,6 +289,7 @@ inline int run_scan_tests() {
   test_ring_rasterize_empty_clip_draws_nothing();
   test_scan_region_seam_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
+  test_csg_stroke_aa_uses_winning_child_thickness();
 
   return hs_test::end_module(scope);
 }

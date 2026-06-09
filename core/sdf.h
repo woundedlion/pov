@@ -561,7 +561,11 @@ template <typename A, typename B> struct Union {
   const A &a;
   const B &b;
   float thickness;
-  static constexpr bool is_solid = true;
+  // A composite renders solid (1px silhouette AA) only if every child is solid.
+  // If any child is a stroke, the result is a stroke so the rasterizer takes
+  // the thickness-falloff AA path and each child keeps its own soft edge —
+  // matching how that child looks drawn on its own.
+  static constexpr bool is_solid = A::is_solid && B::is_solid;
 
   Union(const A &shape_a, const B &shape_b)
       : a(shape_a), b(shape_b),
@@ -706,7 +710,9 @@ template <typename A, typename B> struct Subtract {
   const A &a;
   const B &b;
   float thickness;
-  static constexpr bool is_solid = true;
+  // Solid only if every child is solid (see Union); a stroke child routes the
+  // composite through the thickness-falloff AA path.
+  static constexpr bool is_solid = A::is_solid && B::is_solid;
 
   Subtract(const A &shape_a, const B &shape_b)
       : a(shape_a), b(shape_b), thickness(shape_a.thickness) {}
@@ -831,7 +837,9 @@ template <typename A, typename B> struct Intersection {
   const A &a;
   const B &b;
   float thickness;
-  static constexpr bool is_solid = true;
+  // Solid only if every child is solid (see Union); a stroke child routes the
+  // composite through the thickness-falloff AA path.
+  static constexpr bool is_solid = A::is_solid && B::is_solid;
 
   Intersection(const A &shape_a, const B &shape_b)
       : a(shape_a), b(shape_b),

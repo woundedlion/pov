@@ -56,9 +56,14 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
         alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
       }
     } else {
-      // Stroke Falloff: Opacity fades over the entire thickness
-      if (shape.thickness > 0) {
-        alpha = quintic_kernel(-d / shape.thickness);
+      // Stroke Falloff: opacity fades over the winning surface's own thickness.
+      // Drive the ramp from result.size (the leaf that produced this distance)
+      // rather than shape.thickness: for a CSG composite of strokes the wrapper
+      // carries a min/max thickness, which would scale a thin child's falloff by
+      // a thicker sibling's width and blow out the AA ramp at the boundary.
+      float aa_thickness = result_scratch.size;
+      if (aa_thickness > 0) {
+        alpha = quintic_kernel(-d / aa_thickness);
       }
     }
 
