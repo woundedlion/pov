@@ -80,7 +80,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 2. ✅ **Make `Pixel::Feedback::flush` honor `canvas.clip()`** (`filter.h:817-857`). Full-canvas iteration means a feedback effect on segmented Phantasm has every board composite the whole sphere into its own Y-band — both wrong output and wasted work. Every other rasterizer respects the clip. *Fixed: the full-res output loop now iterates the margin-expanded render band and skips x columns outside the cylindrical x clip (the `contains_x` test hoisted out of the loop); regression test `test_feedback_flush_respects_clip` added.*
 
-3. **Fix `blend_alpha` cast-before-clamp** (`color.h:268-271`). `(int)(a*65535)` before `std::clamp` is UB for NaN/large `a` — the exact hazard `operator*` (`color.h:82`) guards against. Route through a clamp-then-round helper.
+3. ✅ **Fix `blend_alpha` cast-before-clamp** (`color.h:268-271`). `(int)(a*65535)` before `std::clamp` is UB for NaN/large `a` — the exact hazard `operator*` (`color.h:82`) guards against. Route through a clamp-then-round helper. *Fixed: clamp in float first via `hs::clamp(a*65535, 0, 65535)` (mirrors `operator*`; also maps NaN to the hi bound). Truncation preserved so valid alphas stay bit-identical; regression test `test_blend_alpha_clamps_before_cast` added.*
 
 4. **Resolve the `Plot::rasterize` ↔ `Pixel::Feedback` scratch-arena-a aliasing** (`plot.h:290`, `filter.h:781`). Both hard-code `scratch_arena_a`; they don't collide today only because `plot()` and `flush()` are separate phases. Document the invariant or move one to `scratch_arena_b` before a future filter allocates from `a` inside its `plot()` path.
 

@@ -182,6 +182,25 @@ inline void test_blend_max_with_black_identity() {
   HS_EXPECT_TRUE(blend_max(c, black) == c);
 }
 
+inline void test_blend_alpha_clamps_before_cast() {
+  Pixel16 a(0, 0, 0);
+  Pixel16 b(60000, 40000, 20000);
+
+  // In-range alphas behave exactly as before (truncating quantization).
+  HS_EXPECT_TRUE(blend_alpha(0.0f)(a, b) == a); // fully a
+  HS_EXPECT_TRUE(blend_alpha(1.0f)(a, b) == b); // fully b
+
+  // Out-of-range alpha must saturate, not invoke UB in the float->int cast.
+  // a >= 1 -> full b; a <= 0 -> full a.
+  HS_EXPECT_TRUE(blend_alpha(1000.0f)(a, b) == b);
+  HS_EXPECT_TRUE(blend_alpha(-5.0f)(a, b) == a);
+  // A huge alpha that would overflow int in the old (int)(a*65535) path.
+  HS_EXPECT_TRUE(blend_alpha(1e9f)(a, b) == b);
+  // NaN must not propagate into the cast; hs::clamp maps it to the hi bound.
+  Pixel16 nan_res = blend_alpha(NAN)(a, b);
+  HS_EXPECT_TRUE(nan_res == b);
+}
+
 // ============================================================================
 // OKLab / OKLCH round-trips
 // ============================================================================
@@ -816,6 +835,7 @@ inline int run_color_tests() {
   test_blend_add_identity_with_black();
   test_blend_add_saturates();
   test_blend_max_with_black_identity();
+  test_blend_alpha_clamps_before_cast();
 
   test_oklab_roundtrip();
   test_oklch_roundtrip();

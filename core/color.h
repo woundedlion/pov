@@ -266,7 +266,12 @@ inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
 }
 
 inline auto blend_alpha(float a) {
-  uint16_t ai = std::clamp((int)(a * 65535), 0, 65535);
+  // Clamp in float before the cast, mirroring Pixel16::operator*: the old
+  // (int)(a * 65535) converts before clamping, which is UB when a is NaN or
+  // large enough to overflow int. hs::clamp is a hardware min/max that also
+  // maps NaN to the hi bound instead of letting it reach the cast. Truncation
+  // (no rounding bias) is preserved, so valid alphas stay bit-identical.
+  uint16_t ai = (uint16_t)hs::clamp(a * 65535.0f, 0.0f, 65535.0f);
   return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
 
