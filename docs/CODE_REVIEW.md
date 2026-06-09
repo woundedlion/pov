@@ -111,7 +111,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 16. ✅ Correct the stale "64MB" arena comment (`tools/solids.html:1417`; actual is 16 MB). *Fixed (in the daydream repo): the WASM tooling memory is three arenas — `tooling_buf` (8 MB) + `tooling_scratch_buf_a/b` (4 MB each) = 16 MB (`wasm.cpp:51-56`), all reset by `clearToolingMemory()`. The `solids.html` comment now reads "Flush the 16 MB tooling arenas (8 MB + 4 MB + 4 MB)" instead of "the 64MB arena".*
 
-17. Note that `Solids::get(index)` is WASM-tooling-only, or compile it on firmware too.
+17. ✅ Note that `Solids::get(index)` is WASM-tooling-only, or compile it on firmware too. *Fixed (doc note, no code/perf change): `Solids::get(arena, a, b, index)` is `#ifdef EMSCRIPTEN`-guarded (`solids.h:775-779`), so only the WASM build has it; `get_by_name` is unguarded and is the firmware entry point. README §7.7 now states this — by-name is the firmware path, by-index is WASM-only for the geometry tools — instead of presenting both as general entry points.*
 
 **P3 — maintainability / duplication:**
 

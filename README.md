@@ -1065,7 +1065,7 @@ All Conway operators are templated on input mesh type and take `(const MeshT& me
 
 #### Solids Library (`solids.h`)
 
-`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families. The solids are organized into three registries, unified under `Solids::get(arena, a, b, index)` and `Solids::get_by_name(arena, a, b, name)`:
+`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families. The solids are organized into three registries, accessed by name via `Solids::get_by_name(arena, a, b, name)` (the firmware entry point) or by registry index via `Solids::get(arena, a, b, index)` — the latter is compiled only for the WASM build (`#ifdef EMSCRIPTEN`), where the geometry tools drive solids by numeric index:
 
 | Registry | Count | Description |
 |---|---|---|
