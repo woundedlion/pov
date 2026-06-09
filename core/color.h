@@ -648,8 +648,10 @@ public:
     int lo = static_cast<int>(idx);
     if (lo >= 255) return Color4(entries[255], 1.0f);
     float frac = idx - lo;
-    return Color4(entries[lo].lerp16(entries[lo + 1],
-                                     static_cast<uint16_t>(frac * 65535.0f)),
+    // Round (+0.5f) the blend weight via the shared helper rather than
+    // truncating — truncation biased every interpolated sample down by up to
+    // ~1/65535.
+    return Color4(entries[lo].lerp16(entries[lo + 1], float_to_pixel16(frac)),
                   1.0f);
   }
 

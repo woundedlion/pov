@@ -899,6 +899,13 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
  * @return The resulting unit rotation quaternion.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
+  // Inputs must be unit: the d>1-eps / d<-1+eps branch tests below assume |from|
+  // = |to| = 1, and a non-unit input silently skews the angle. Trap it, matching
+  // make_basis's unit-quaternion guard. (dot(v,v) avoids the sqrt; the 0.02
+  // squared-magnitude band is the ~1% magnitude tolerance make_basis uses.)
+  HS_CHECK(std::abs(dot(from, from) - 1.0f) < 0.02f &&
+               std::abs(dot(to, to) - 1.0f) < 0.02f,
+           "make_rotation(from, to): inputs must be unit vectors");
   float d = dot(from, to);
 
   // Handle antiparallel vectors (180 degrees apart)

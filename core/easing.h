@@ -16,7 +16,7 @@
  * @return The eased factor.
  */
 static inline float ease_in_out_bicubic(float t) {
-  return t < 0.5 ?
+  return t < 0.5f ?
     4 * t * t * t :
     1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
 }
@@ -81,7 +81,10 @@ static inline float ease_mid(float t) {
  * @return The eased factor.
  */
 static inline float ease_out_expo(float t) {
-  return t == 1 ? 1 : 1 - powf(2.0f, -10 * t);
+  // Exact-endpoint guard (callers pass exactly 1.0f at sequence end): without it
+  // the formula returns 1 - 2^-10 ~= 0.999 there. The compare is float-typed so
+  // t is not promoted to double.
+  return t == 1.0f ? 1.0f : 1.0f - powf(2.0f, -10.0f * t);
 }
 
 /**
@@ -109,7 +112,9 @@ static inline float ease_out_cubic(float t) {
  */
 static inline float ease_out_elastic(float x) {
   const float c4 = (2 * PI_F) / 3;
-  return x == 0 ?
-    0 : x == 1 ?
-    1 : powf(2, -10 * x) * sinf((x * 10 - 0.75f) * c4) + 1;
+  // Exact-endpoint guards (callers pass exactly 0.0f / 1.0f at the ends); the
+  // float-typed compares keep x in float.
+  return x == 0.0f ?
+    0.0f : x == 1.0f ?
+    1.0f : powf(2.0f, -10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
 }

@@ -716,8 +716,14 @@ public:
    */
   Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
          const bool *paused = nullptr)
-      : AnimationBase(1, true), mutant(mutant), speed(*speed_src * scale),
-        wrap_(wrap), paused_(paused), speed_src_(speed_src), scale_(scale) {}
+      : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap_(wrap),
+        paused_(paused), speed_src_(speed_src), scale_(scale) {
+    // Guard the live source before dereferencing it — the old member-init list
+    // computed `*speed_src * scale` first, so a null source was deref'd before
+    // any check.
+    HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
+    speed = *speed_src * scale;
+  }
 
   /**
    * @brief Performs one step by adding the speed to the mutant.

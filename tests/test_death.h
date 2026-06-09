@@ -240,6 +240,28 @@ inline void case_make_basis_nan() {
     std::printf("x");
 }
 
+// Math-core surface: make_rotation(from, to) with a finite but non-unit source.
+// The d-based parallel/antiparallel branches assume |from| = |to| = 1, so a
+// non-unit input must trap at the new unit-vector guard rather than silently
+// skewing the rotation angle.
+inline void case_make_rotation_nonunit() {
+  Vector from{opaque(2.0f), opaque(0.0f), opaque(0.0f)}; // |from| = 2
+  Vector to{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  Quaternion q = make_rotation(from, to); // |from| != 1 -> HS_CHECK
+  if (q.r == 42.0f)
+    std::printf("x");
+}
+
+// Animation surface: a live-source Driver built with a null speed pointer must
+// trap at the guard rather than dereferencing it in the member-init list.
+inline void case_driver_null_speed_src() {
+  static float mutant = 0.0f;
+  Animation::Driver d(mutant, opaque<const float *>(nullptr), 1.0f); // -> HS_CHECK
+  (void)d;
+  if (mutant == 42.0f)
+    std::printf("x");
+}
+
 // Concrete Effect for the canvas/scan death cases — fixed 32×16 so its trig LUTs
 // match the well-exercised host config. Exposes registerParam and set_clip.
 struct DeathEffect : public Effect {
@@ -324,7 +346,9 @@ inline const Case *all_cases(int &n) {
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
       {"make_rotation_angle_nan", case_make_rotation_angle_nan},
+      {"make_rotation_nonunit", case_make_rotation_nonunit},
       {"make_basis_nan", case_make_basis_nan},
+      {"driver_null_speed_src", case_driver_null_speed_src},
       {"register_param_overflow", case_register_param_overflow},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
