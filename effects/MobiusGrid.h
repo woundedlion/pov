@@ -88,26 +88,33 @@ private:
     timeline.add(0, Animation::ColorWipe(palette, next_palette, 60, ease_mid));
   }
 
-  void draw_axis_rings(Canvas &canvas, const Vector &normal, float num,
-                       float phase, const Quaternion &q) {
-    const float log_min = -2.5f;
-    const float log_max = 2.5f;
-    const float range = log_max - log_min;
-    int count = static_cast<int>(std::ceil(num));
+  // A single Möbius-warped curve to draw: the spherical-polygon basis and the
+  // sampling radius for ring/line `i`.
+  struct Curve {
+    Basis basis;
+    float radius;
+  };
 
+  // Shared body for both grid passes. For each of ceil(num) curves it asks
+  // `curve_fn(i)` for the {basis, radius}, samples a spherical polygon, warps
+  // every point through the Möbius transform + counter-rotation `q`, then
+  // rasterizes with `shade(i, opacity, fragment)` coloring each fragment. The
+  // two callbacks are the only thing that differed between the ring and
+  // longitude passes; templating on them keeps the helper fully inlined.
+  template <typename CurveFn, typename ShadeFn>
+  void draw_curves(Canvas &canvas, float num, const Quaternion &q,
+                   CurveFn curve_fn, ShadeFn shade) {
+    int count = static_cast<int>(std::ceil(num));
     for (int i = 0; i < count; ++i) {
       ScratchScope _frag(scratch_arena_a);
-      float t = wrap((static_cast<float>(i) / num) + phase, 1.0f);
-      float log_r = log_min + t * range;
-      float r_val = expf(log_r);
-      float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
+      Curve curve = curve_fn(i);
 
       Fragments m_points;
       // SphericalPolygon::sample emits W/4 + 1 points (one closing overlap);
       // size to that, not a fixed constant, so the bind scales with resolution.
       m_points.bind(scratch_arena_a, W / 4 + 2);
-      Basis basis = make_basis(Quaternion(), normal);
-      Plot::SphericalPolygon::sample(m_points, basis, radius, W / 4);
+      Plot::SphericalPolygon::sample(m_points, curve.basis, curve.radius,
+                                     W / 4);
 
       Fragments m_fragments;
       m_fragments.bind(scratch_arena_a, W / 4 + 2);
@@ -122,9 +129,7 @@ private:
       float opacity = hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
 
       auto fragment_shader = [&](const Vector &, Fragment &f_val) {
-        Color4 c = palette.get(static_cast<float>(i) / num);
-        c.alpha *= opacity * params.alpha;
-        f_val.color = c;
+        shade(i, opacity, f_val);
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
@@ -132,54 +137,54 @@ private:
     }
   }
 
+  void draw_axis_rings(Canvas &canvas, const Vector &normal, float num,
+                       float phase, const Quaternion &q) {
+    const float log_min = -2.5f;
+    const float log_max = 2.5f;
+    const float range = log_max - log_min;
+
+    draw_curves(
+        canvas, num, q,
+        [&](int i) -> Curve {
+          float t = wrap((static_cast<float>(i) / num) + phase, 1.0f);
+          float r_val = expf(log_min + t * range);
+          float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
+          return {make_basis(Quaternion(), normal), radius};
+        },
+        [&](int i, float opacity, Fragment &f_val) {
+          Color4 c = palette.get(static_cast<float>(i) / num);
+          c.alpha *= opacity * params.alpha;
+          f_val.color = c;
+        });
+  }
+
   void draw_longitudes(Canvas &canvas, float num, float phase,
                        const Quaternion &q) {
-    int count = static_cast<int>(std::ceil(num));
-    for (int i = 0; i < count; ++i) {
-      ScratchScope _frag(scratch_arena_a);
-      float theta = (static_cast<float>(i) / num) * PI_F;
-      Vector normal(cosf(theta), 0.0f, -sinf(theta));
+    draw_curves(
+        canvas, num, q,
+        [&](int i) -> Curve {
+          float theta = (static_cast<float>(i) / num) * PI_F;
+          Vector normal(cosf(theta), 0.0f, -sinf(theta));
+          // Explicit basis construction to match JS texture alignment.
+          Vector v = normal;
+          Vector w = Y_AXIS;
+          Vector u = cross(v, w).normalized();
+          return {Basis{u, v, w}, 1.0f};
+        },
+        [&](int, float opacity, Fragment &f_val) {
+          float t_line = f_val.v0;
+          float z = sinf(t_line * 2.0f * PI_F);
 
-      Fragments m_points;
-      m_points.bind(scratch_arena_a, W / 4 + 2);
-      // Explicit basis construction to match JS texture alignment
-      Vector v = normal;
-      Vector w = Y_AXIS;
-      Vector u = cross(v, w).normalized();
-      Basis basis = {u, v, w};
+          float R = sqrtf((1.0f + z) / (1.0f - z));
+          float log_r = logf(R);
+          const float log_min = -2.5f;
+          const float log_max = 2.5f;
+          float t = (log_r - log_min) / (log_max - log_min);
 
-      Plot::SphericalPolygon::sample(m_points, basis, 1.0f, W / 4);
-
-      Fragments m_fragments;
-      m_fragments.bind(scratch_arena_a, W / 4 + 2);
-      for (size_t k = 0; k < m_points.size(); ++k) {
-        Vector transformed = mobius_gen.transform(m_points[k].pos);
-        Fragment f;
-        f.pos = normalized_or(rotate(transformed, q), Vector(1, 0, 0));
-        f.v0 = (m_points.size() > 1) ? (float)k / (m_points.size() - 1) : 0.0f;
-        m_fragments.push_back(f);
-      }
-
-      float opacity = hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
-
-      auto fragment_shader = [&](const Vector &, Fragment &f_val) {
-        float t_line = f_val.v0;
-        float z = sinf(t_line * 2.0f * PI_F);
-
-        float R = sqrtf((1.0f + z) / (1.0f - z));
-        float log_r = logf(R);
-        const float log_min = -2.5f;
-        const float log_max = 2.5f;
-        float t = (log_r - log_min) / (log_max - log_min);
-
-        Color4 c = palette.get(wrap(t - phase, 1.0f));
-        c.alpha *= opacity * params.alpha;
-        f_val.color = c;
-      };
-
-      Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
-                            true);
-    }
+          Color4 c = palette.get(wrap(t - phase, 1.0f));
+          c.alpha *= opacity * params.alpha;
+          f_val.color = c;
+        });
   }
 
   GenerativePalette palette;
