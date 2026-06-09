@@ -219,25 +219,42 @@ inline void test_plot_line_over_pole_reaches_row0() {
   HS_EXPECT_GT(row0, (size_t)0);
 }
 
+// Records the AA alpha process_pixel forwards (avoids the canvas-blend round
+// trip): plot()'s last arg is frag.alpha (=1) * the AA alpha. count gates
+// whether the pixel was drawn at all.
+struct AlphaSink {
+  float last_alpha = -1.0f;
+  int count = 0;
+  void plot(Canvas &, int, int, const Pixel &, float, float a) {
+    last_alpha = a;
+    ++count;
+  }
+};
+
+template <int W, int H>
+inline float scan_alpha_at(const auto &shape, const Vector &p, Canvas &c,
+                           int *count = nullptr) {
+  AlphaSink sink;
+  SDF::DistanceResult res;
+  Fragment frag;
+  Scan::process_pixel<W, H, false>(
+      0, 0, p, sink, c, shape,
+      [](const Vector &, Fragment &f) {
+        f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+      },
+      /*debug_bb=*/false, res, frag);
+  if (count)
+    *count = sink.count;
+  return sink.last_alpha;
+}
+
 // A CSG composite of strokes must render each stroke with its OWN thickness
-// soft falloff — not as a hard solid band (the old is_solid=true path), and not
-// scaled by a sibling's thickness (the old shape.thickness AA). We drive
-// process_pixel with a point a known geodesic distance INSIDE the thin line of
-// a Union<thin, thick> and check the AA alpha matches the thin line's falloff.
+// (not as a hard solid band, and not scaled by a sibling's thickness). The
+// formula-independent invariant: a Union<thin, thick> evaluated at a point
+// inside the thin stroke yields the SAME AA alpha as the bare thin Line, and a
+// DIFFERENT alpha from the bare thick Line.
 inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   constexpr int W = 288, H = 144;
-
-  // Mock sink recording the alpha process_pixel forwards (avoids canvas-blend
-  // round-trip): plot() last arg is frag.alpha (=1) * the AA alpha.
-  struct RecordSink {
-    float last_alpha = -1.0f;
-    int count = 0;
-    void plot(Canvas &, int, int, const Pixel &, float, float a) {
-      last_alpha = a;
-      ++count;
-    }
-  } sink;
-
   ScanFx fx(W, H);
   Canvas c(fx);
 
@@ -249,6 +266,8 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   // max-thickness up to `thick`.
   SDF::Line thick_line(Vector(-1, 0, 0), Vector(0, 0, -1), thick);
   SDF::Union<SDF::Line, SDF::Line> u(thin_line, thick_line);
+  // Same geometry as `thick_line` but standalone, for the contrast check.
+  SDF::Line thick_solo(Vector(1, 0, 0), Vector(0, 0, 1), thick);
 
   // A composite of two strokes is itself a stroke.
   HS_EXPECT_FALSE((SDF::Union<SDF::Line, SDF::Line>::is_solid));
@@ -259,20 +278,54 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   Vector p(cosf(dist) * cosf(PI_F / 4), sinf(dist),
            cosf(dist) * sinf(PI_F / 4));
 
-  SDF::DistanceResult res;
-  Fragment frag;
-  Scan::process_pixel<W, H, false>(
-      0, 0, p, sink, c, u,
-      [](const Vector &, Fragment &f) {
-        f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-      },
-      /*debug_bb=*/false, res, frag);
+  int n_union = 0, n_bare = 0;
+  float a_union = scan_alpha_at<W, H>(u, p, c, &n_union);
+  float a_thin = scan_alpha_at<W, H>(thin_line, p, c, &n_bare);
+  float a_thick = scan_alpha_at<W, H>(thick_solo, p, c);
 
-  HS_EXPECT_EQ(sink.count, 1);
-  // -d/size = (thin - dist)/thin = 0.025/0.05 = 0.5 -> quintic(0.5) = 0.5.
-  // Bug A (shape.thickness = max = 0.30): 0.025/0.30 ~ 0.083 -> ~0.006.
-  // Bug B (is_solid solid path): pixel fully inside -> alpha == 1.0.
-  HS_EXPECT_NEAR(sink.last_alpha, 0.5f, 1e-2f);
+  HS_EXPECT_EQ(n_union, 1);
+  HS_EXPECT_EQ(n_bare, 1);
+  // The composite reproduces the winning child's own AA exactly...
+  HS_EXPECT_NEAR(a_union, a_thin, 1e-4f);
+  // ...and the thin/thick falloffs are clearly separable, so reproducing thin
+  // (not the wrapper-max thick) is a meaningful distinction (the old bug used
+  // the wrapper max and would have matched a_thick instead).
+  HS_EXPECT_GT(fabsf(a_thin - a_thick), 0.1f);
+}
+
+// Stroke shapes must anti-alias their OUTER edge. A pixel whose center sits
+// just OUTSIDE the surface (signed distance d > 0) used to be dropped entirely
+// (threshold 0 admitted only d < 0), giving a hard outer edge against the soft
+// interior. After the fix it receives partial coverage from the one-pixel skirt,
+// and the falloff is monotone across the surface (soft on both sides).
+inline void test_stroke_outer_edge_is_antialiased() {
+  constexpr int W = 288, H = 144;
+  ScanFx fx(W, H);
+  Canvas c(fx);
+
+  const float T = 0.08f;
+  const float pw = 2.0f * PI_F / W;
+  SDF::Line line(Vector(1, 0, 0), Vector(0, 0, 1), T);
+
+  // A point at signed perpendicular distance `s` from the equatorial arc
+  // (s > 0 outside the tube), projecting to azimuth 45 deg (inside the arc).
+  auto point_at = [&](float s) {
+    float ds = T + s; // geodesic distance from the center line
+    return Vector(cosf(ds) * cosf(PI_F / 4), sinf(ds),
+                  cosf(ds) * sinf(PI_F / 4));
+  };
+
+  // Just OUTSIDE the surface: previously not drawn, now part of the AA skirt.
+  int n_out = 0;
+  float a_out = scan_alpha_at<W, H>(line, point_at(0.1f * pw), c, &n_out);
+  HS_EXPECT_EQ(n_out, 1);
+  HS_EXPECT_GT(a_out, 0.001f);
+
+  // Just INSIDE the surface: drawn with MORE coverage than the outside point.
+  int n_in = 0;
+  float a_in = scan_alpha_at<W, H>(line, point_at(-0.1f * pw), c, &n_in);
+  HS_EXPECT_EQ(n_in, 1);
+  HS_EXPECT_GT(a_in, a_out);
 }
 
 // ============================================================================
@@ -290,6 +343,7 @@ inline int run_scan_tests() {
   test_scan_region_seam_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
+  test_stroke_outer_edge_is_antialiased();
 
   return hs_test::end_module(scope);
 }
