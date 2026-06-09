@@ -490,16 +490,19 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
   return oklab_to_oklch(linear_rgb_to_oklab(rf, gf, bf));
 }
 
+/// Quantize a [0,1] linear channel to a 16-bit Pixel component. Clamps, then
+/// rounds (+0.5f) rather than truncating — truncation biases every channel down
+/// by up to ~1/65535. The single home for the conversion the float->Pixel
+/// helpers below (oklch_to_pixel, srgb_to_linear_interp) all repeated by hand.
+inline uint16_t float_to_pixel16(float v) {
+  return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
+}
+
 /// OKLCH -> 16-bit linear Pixel (gamut-clamped)
 inline Pixel oklch_to_pixel(OKLCH lch) {
   float r, g, b;
   oklab_to_linear_rgb(oklch_to_oklab(lch), r, g, b);
-  // Round (+0.5f), don't truncate, for parity with the sibling conversions
-  // (srgb_to_linear_interp, to_crgb, float_to_pixel16) — truncation biased
-  // every channel down by up to ~1/65535.
-  return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 1.0f) * 65535.0f + 0.5f),
-               static_cast<uint16_t>(hs::clamp(g, 0.0f, 1.0f) * 65535.0f + 0.5f),
-               static_cast<uint16_t>(hs::clamp(b, 0.0f, 1.0f) * 65535.0f + 0.5f));
+  return Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
 }
 
 /// Interpolate two OKLCH colors (shortest-arc hue)
@@ -617,11 +620,8 @@ public:
           float g_lin = pg * (1.0f - t) + ng * t;
           float b_lin = pb * (1.0f - t) + nb * t;
 
-          // Round (+0.5f), not truncate — parity with the sibling conversions.
-          entries[i] = Pixel(
-            static_cast<uint16_t>(hs::clamp(r_lin, 0.0f, 1.0f) * 65535.0f + 0.5f),
-            static_cast<uint16_t>(hs::clamp(g_lin, 0.0f, 1.0f) * 65535.0f + 0.5f),
-            static_cast<uint16_t>(hs::clamp(b_lin, 0.0f, 1.0f) * 65535.0f + 0.5f));
+          entries[i] = Pixel(float_to_pixel16(r_lin), float_to_pixel16(g_lin),
+                             float_to_pixel16(b_lin));
         }
       }
       prevPos = nextPos;
