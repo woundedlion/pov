@@ -272,8 +272,9 @@ namespace World {
  * SLERP history (`tween` walks t: 0→1, oldest→newest sub-position) and offsets
  * `age` by the *fractional* `(1 - t)`, spreading the sweep across one frame's
  * worth of age — i.e. genuine temporal motion blur, where the trailing
- * sub-positions fade as if one frame older. Contrast the two Replicate filters,
- * whose age offsets are spatial/index, not temporal (see their notes).
+ * sub-positions fade as if one frame older. This is the only filter that
+ * adjusts age: the Replicate filters pass it through untouched, since their
+ * copies are spatial, not temporal (see their notes).
  */
 template <int W> class Orient : public Is3D {
 public:
@@ -370,8 +371,8 @@ template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
  *
  * Age-channel contract: every copy is emitted with the *same* source `age`.
  * The replicas are simultaneous spatial mirrors of a single instant, so they
- * must share one age — there is deliberately no per-copy offset here (unlike
- * `Orient`'s fractional motion-blur offset or `VertexReplicate`'s index offset).
+ * must share one age — there is deliberately no per-copy offset here, matching
+ * `VertexReplicate`; only `Orient` adjusts age, via its motion-blur tween.
  */
 template <int W> class Replicate : public Is3D {
 public:
