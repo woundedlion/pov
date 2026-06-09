@@ -34,6 +34,9 @@ public:
   bool show_bg() const override { return false; }
 
   void init() override {
+    // Bound once to a fixed capacity and never re-bound: per-ring animations
+    // capture references into these slots, so the block must not relocate (see
+    // spawnRing's capture contract).
     shapes.bind(persistent_arena, 128);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Count", &params.num_shapes, 1.0f, 16.0f);
@@ -69,8 +72,13 @@ public:
   }
 
   FLASHMEM void rebuild() {
-    shapes.clear();
+    // Teardown order is load-bearing: the per-ring animations (Rotation binds
+    // `ring.orientation`, the Sprite lambda captures `&ring`) hold references
+    // into `shapes`' storage, so clear the timeline FIRST to drop every
+    // dangling reference before the Ring slots are destroyed. (See the capture
+    // contract in spawnRing.)
     timeline.clear();
+    shapes.clear();
 
     // Single camera tumble
     timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
@@ -93,6 +101,15 @@ public:
 
   void spawnRing(const Vector &normal, float scale, const Color4 &color,
                  RenderMode mode, int layer_index) {
+    // Capture contract: the Rotation below binds `ring.orientation` by
+    // reference and the Sprite lambda captures `&ring`, so both depend on the
+    // Ring's address staying valid for the animation's lifetime. That holds
+    // because `shapes` is bound once to a fixed capacity (never re-bound) and
+    // ArenaVector::clear() only resets size_ — it neither frees nor reallocates
+    // the block — so a slot's address is stable across clear()+re-emplace. The
+    // guard below is therefore load-bearing: it refuses to grow past capacity
+    // (which would reallocate and dangle every live capture). The matching
+    // teardown order in rebuild() keeps these references from outliving a slot.
     if (shapes.size() == shapes.capacity())
       return;
     shapes.emplace_back(normal, scale, color, mode, layer_index);
