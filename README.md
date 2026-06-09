@@ -1451,9 +1451,23 @@ Particles with long orientation-trail-based tails, launched in bursts and influe
 <td width="300"><img src="docs/screenshots/RingSpin.png" alt="RingSpin" width="280"></td>
 <td valign="top">
 
-#### RingSpin / RingShower
+#### RingSpin
 
-Animated concentric ring patterns using `Scan::Ring` with per-ring phase offsets.
+Four great-circle rings tumble continuously under energetic random-walk rotation, each leaving a fading motion-blur trail of its recent orientations (drawn with `Scan::Ring`, head and tail of the trail thickened). Each ring is colored by a baked vignette palette.
+
+**Parameters**: Alpha, Thickness, Show Bounding
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><img src="docs/screenshots/RingShower.png" alt="RingShower" width="280"></td>
+<td valign="top">
+
+#### RingShower
+
+Rings bloom at random orientations and expand outward: each spawns on a random axis, grows its radius from zero, and fades in and out as a `Sprite` (drawn with `Plot::Ring`), colored by a generative circular analogous palette — a continuous shower of expanding rings.
+
+**Parameters**: Alpha
 
 </td></tr></table>
 

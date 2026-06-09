@@ -99,7 +99,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 10. ✅ Rewrite the **Dynamo** description (it documents an effect that doesn't exist). *Fixed: replaced the "rotating ring-pair / precessing axes" blurb (which matches no code) with a faithful description of the actual effect — a per-latitude-row chain of points (`nodes[i].y = i`, one per `H_VIRT` row) that drift horizontally under a gap-constrained drag, leave `Trails`, are `Replicate`d 3×, periodically `reverse()`/`rotate()`, with `color_wipe()` sweeping new generative palettes — and added the missing Parameters line (Speed, Gap, Trail Len, Wipe Dur).*
 
-11. Split the **RingSpin/RingShower** blurb (fits neither).
+11. ✅ Split the **RingSpin/RingShower** blurb (fits neither). *Fixed: the shared "concentric rings with per-ring phase offsets" line described neither effect. Now two entries: RingSpin (four great-circle rings tumbling under energetic random-walk with fading orientation-trail motion blur via `Scan::Ring`; params Alpha, Thickness, Show Bounding) and RingShower (rings spawning on random axes and expanding outward as fading `Sprite`s via `Plot::Ring`; param Alpha), each with its own screenshot.*
 
 12. Correct the `getParameterDefinitions()` shape in README §10.2 (`wasm.cpp:339-355` emits `animated`/`readonly` and omits bool `min`/`max`).
 
