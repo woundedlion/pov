@@ -119,11 +119,21 @@ struct Vector {
       : x(sinf(s.phi) * cosf(s.theta)), y(cosf(s.phi)),
         z(sinf(s.phi) * sinf(s.theta)) {}
   /**
-   * @brief Constructs a vector from theta and phi angles.
+   * @brief Builds a unit vector from spherical angles.
+   *
+   * Named (not a 2-arg constructor) on purpose: `Vector(a, b)` reads as a
+   * Cartesian point with z=0, but the spherical reading normalizes onto the
+   * unit sphere. A 2-arg constructor made those two meanings indistinguishable
+   * at the call site and silently picked the spherical one — dropping the third
+   * Cartesian argument compiled into a different point. The factory forces the
+   * intent to be spelled out.
    * @param theta Azimuthal angle.
    * @param phi Polar angle.
+   * @return Unit vector at (theta, phi).
    */
-  Vector(float theta, float phi) : Vector(Spherical(theta, phi)) {}
+  static Vector from_spherical(float theta, float phi) {
+    return Vector(Spherical(theta, phi));
+  }
 
   /**
    * @brief Copy assignment. Defaulted (trivial) — see the copy constructor;

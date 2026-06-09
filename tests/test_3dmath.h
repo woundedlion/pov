@@ -175,16 +175,18 @@ inline void test_vector_construction() {
 
 inline void test_vector_spherical_construction() {
   // theta=0, phi=π/2 → +X axis
-  HS_EXPECT_VEC(Vector(0.0f, PI_F * 0.5f), Vector(1, 0, 0), 2e-3f);
+  HS_EXPECT_VEC(Vector::from_spherical(0.0f, PI_F * 0.5f), Vector(1, 0, 0),
+                2e-3f);
   // theta=π/2, phi=π/2 → +Z axis
-  HS_EXPECT_VEC(Vector(PI_F * 0.5f, PI_F * 0.5f), Vector(0, 0, 1), 2e-3f);
+  HS_EXPECT_VEC(Vector::from_spherical(PI_F * 0.5f, PI_F * 0.5f),
+                Vector(0, 0, 1), 2e-3f);
   // phi=0 → +Y (north pole)
-  HS_EXPECT_VEC(Vector(0.0f, 0.0f), Vector(0, 1, 0), 2e-3f);
+  HS_EXPECT_VEC(Vector::from_spherical(0.0f, 0.0f), Vector(0, 1, 0), 2e-3f);
   // phi=π → -Y (south pole)
-  HS_EXPECT_VEC(Vector(0.0f, PI_F), Vector(0, -1, 0), 2e-3f);
+  HS_EXPECT_VEC(Vector::from_spherical(0.0f, PI_F), Vector(0, -1, 0), 2e-3f);
 
   // Spherical-built unit vectors stay unit
-  Vector u(0.8f, 1.1f);
+  Vector u = Vector::from_spherical(0.8f, 1.1f);
   HS_EXPECT_NEAR(u.length(), 1.0f, 2e-3f);
 }
 
