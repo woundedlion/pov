@@ -81,7 +81,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 4. **Resolve the `Plot::rasterize` ↔ `Pixel::Feedback` scratch-arena-a aliasing** (`plot.h:290`, `filter.h:781`). Both hard-code `scratch_arena_a`; they don't collide today only because `plot()` and `flush()` are separate phases. Document the invariant or move one to `scratch_arena_b` before a future filter allocates from `a` inside its `plot()` path.
 
 **P1 — fail-fast consistency & doctrine:**
-5. **`KDTree::build` silent subtree drop** (`spatial.h:219-263`). Convert the pool-exhaustion `-1` return to an `HS_CHECK`, or remove the now-dead guard — as written it is the one place that would corrupt silently rather than trap.
+5. ✅ **`KDTree::build` silent subtree drop** (`spatial.h:219-263`). Convert the pool-exhaustion `-1` return to an `HS_CHECK`, or remove the now-dead guard — as written it is the one place that would corrupt silently rather than trap. *Fixed: the pool-exhaustion `-1` return is now an `HS_CHECK` (the legitimate empty-subtree base case keeps its `-1`), so a broken capacity invariant traps loud instead of silently dropping a subtree.*
 6. **Guard `uint8_t` face-count narrowing** (`conway.h:145,583`, `hankin.h:196,238`). Add a `narrow_face_count()` mirror of the existing `narrow_index` so a >255-sided face traps instead of truncating.
 7. **Add the missing rvalue-delete borrow guards** to `MobiusWarpCircular`, `MobiusWarpEvolving`, `ColorWipe`, and `RandomWalk` (`animation.h:1407,1568,1255,1174`) to match the contract their siblings already enforce.
 8. **`square_wave` negative-phase** (`waves.h:59`): use `wrap(...)` like `tri_wave`, not raw `fmod`.

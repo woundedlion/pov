@@ -215,9 +215,14 @@ public:
 private:
   int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
-      return -1;
-    if (nodes.size() >= nodes.capacity())
-      return -1;
+      return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
+    // The node pool is bound to exactly points.size() and build() emits exactly
+    // one node per point, so this can never fire. Trap rather than return -1:
+    // a -1 here is indistinguishable from the empty-subtree sentinel above, so
+    // pool exhaustion would silently drop an entire subtree instead of failing
+    // loud. Cold path (once per node during build).
+    HS_CHECK(nodes.size() < nodes.capacity(),
+             "KDTree node pool exhausted during build");
 
     int axis = depth % 3;
     int mid = count / 2;
