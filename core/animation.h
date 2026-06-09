@@ -1322,10 +1322,10 @@ public:
       lines = 1.0f;
     float angle = progress * (2 * PI_F / lines);
 
-    params.get().aRe = s * cosf(angle);
-    params.get().aIm = s * sinf(angle);
-    params.get().dRe = (1.0f / s) * cosf(-angle);
-    params.get().dIm = (1.0f / s) * sinf(-angle);
+    params.get().a.re = s * cosf(angle);
+    params.get().a.im = s * sinf(angle);
+    params.get().d.re = (1.0f / s) * cosf(-angle);
+    params.get().d.im = (1.0f / s) * sinf(-angle);
   }
 
 private:
@@ -1373,8 +1373,8 @@ public:
     float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
     float s = scale_ref_ ? *scale_ref_ : scale;
-    params.get().bRe = s * (cosf(angle) - 1.0f);
-    params.get().bIm = s * sinf(angle);
+    params.get().b.re = s * (cosf(angle) - 1.0f);
+    params.get().b.im = s * sinf(angle);
   }
 
   std::reference_wrapper<MobiusParams> params;
@@ -1411,8 +1411,8 @@ public:
     float t_norm = static_cast<float>(t) / duration;
     float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    params.get().bRe = scale * cosf(angle);
-    params.get().bIm = -scale * sinf(angle);
+    params.get().b.re = scale * cosf(angle);
+    params.get().b.im = -scale * sinf(angle);
   }
 
 private:
@@ -1576,17 +1576,17 @@ public:
     float s = scale;
 
     // Use prime-ish number ratios for frequencies to minimize repetition cycle
-    params.get().aRe = base.aRe + sinf(time * 1.0f + phase(0)) * s;
-    params.get().aIm = base.aIm + cosf(time * 1.13f + phase(1)) * s;
+    params.get().a.re = base.a.re + sinf(time * 1.0f + phase(0)) * s;
+    params.get().a.im = base.a.im + cosf(time * 1.13f + phase(1)) * s;
 
-    params.get().bRe = base.bRe + sinf(time * 1.27f + phase(2)) * s;
-    params.get().bIm = base.bIm + cosf(time * 1.39f + phase(3)) * s;
+    params.get().b.re = base.b.re + sinf(time * 1.27f + phase(2)) * s;
+    params.get().b.im = base.b.im + cosf(time * 1.39f + phase(3)) * s;
 
-    params.get().cRe = base.cRe + sinf(time * 0.71f + phase(4)) * s;
-    params.get().cIm = base.cIm + cosf(time * 0.83f + phase(5)) * s;
+    params.get().c.re = base.c.re + sinf(time * 0.71f + phase(4)) * s;
+    params.get().c.im = base.c.im + cosf(time * 0.83f + phase(5)) * s;
 
-    params.get().dRe = base.dRe + sinf(time * 0.97f + phase(6)) * s;
-    params.get().dIm = base.dIm + cosf(time * 1.09f + phase(7)) * s;
+    params.get().d.re = base.d.re + sinf(time * 0.97f + phase(6)) * s;
+    params.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
   }
 
   float speed;

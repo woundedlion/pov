@@ -685,18 +685,24 @@ inline void test_complex_arithmetic() {
 // ============================================================================
 
 inline void test_mobius_params_accessors() {
+  // The eight-float constructor fills the four Complex coefficients in order.
   MobiusParams p(1, 2, 3, 4, 5, 6, 7, 8);
-  HS_EXPECT_COMPLEX(p.getA(), Complex(1, 2), 0.0f);
-  HS_EXPECT_COMPLEX(p.getB(), Complex(3, 4), 0.0f);
-  HS_EXPECT_COMPLEX(p.getC(), Complex(5, 6), 0.0f);
-  HS_EXPECT_COMPLEX(p.getD(), Complex(7, 8), 0.0f);
+  HS_EXPECT_COMPLEX(p.a, Complex(1, 2), 0.0f);
+  HS_EXPECT_COMPLEX(p.b, Complex(3, 4), 0.0f);
+  HS_EXPECT_COMPLEX(p.c, Complex(5, 6), 0.0f);
+  HS_EXPECT_COMPLEX(p.d, Complex(7, 8), 0.0f);
+
+  // The Complex-tuple constructor stores the coefficients as given.
+  MobiusParams q(Complex(1, 2), Complex(3, 4), Complex(5, 6), Complex(7, 8));
+  HS_EXPECT_COMPLEX(q.a, Complex(1, 2), 0.0f);
+  HS_EXPECT_COMPLEX(q.d, Complex(7, 8), 0.0f);
 
   // Default constructor builds the identity Mobius (a=d=1, b=c=0)
   MobiusParams id;
-  HS_EXPECT_COMPLEX(id.getA(), Complex(1, 0), 0.0f);
-  HS_EXPECT_COMPLEX(id.getB(), Complex(0, 0), 0.0f);
-  HS_EXPECT_COMPLEX(id.getC(), Complex(0, 0), 0.0f);
-  HS_EXPECT_COMPLEX(id.getD(), Complex(1, 0), 0.0f);
+  HS_EXPECT_COMPLEX(id.a, Complex(1, 0), 0.0f);
+  HS_EXPECT_COMPLEX(id.b, Complex(0, 0), 0.0f);
+  HS_EXPECT_COMPLEX(id.c, Complex(0, 0), 0.0f);
+  HS_EXPECT_COMPLEX(id.d, Complex(1, 0), 0.0f);
 }
 
 inline void test_mobius_transform() {

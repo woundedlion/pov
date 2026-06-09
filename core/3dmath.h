@@ -555,29 +555,21 @@ inline Vector fold_to_hemisphere(const Vector &v) {
 }
 
 /**
- * @brief Class to hold Mobius parameters with mutable components.
+ * @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d).
+ *
+ * Stores the four coefficients as first-class `Complex` values; animators mutate
+ * the `.re`/`.im` components in place. The eight-float constructor is retained
+ * for terse literal initialization.
  */
 struct MobiusParams {
-  float aRe, /**< Real part of a. */
-      aIm,   /**< Imaginary part of a. */
-      bRe,   /**< Real part of b. */
-      bIm,   /**< Imaginary part of b. */
-      cRe,   /**< Real part of c. */
-      cIm,   /**< Imaginary part of c. */
-      dRe,   /**< Real part of d. */
-      dIm;   /**< Imaginary part of d. */
+  Complex a, b, c, d;
 
-  constexpr MobiusParams()
-      : aRe(1), aIm(0), bRe(0), bIm(0), cRe(0), cIm(0), dRe(1), dIm(0) {}
+  constexpr MobiusParams() : a(1, 0), b(0, 0), c(0, 0), d(1, 0) {}
+  constexpr MobiusParams(Complex a_, Complex b_, Complex c_, Complex d_)
+      : a(a_), b(b_), c(c_), d(d_) {}
   constexpr MobiusParams(float ar, float ai, float br, float bi, float cr,
                          float ci, float dr, float di)
-      : aRe(ar), aIm(ai), bRe(br), bIm(bi), cRe(cr), cIm(ci), dRe(dr), dIm(di) {
-  }
-
-  Complex getA() const { return Complex(aRe, aIm); }
-  Complex getB() const { return Complex(bRe, bIm); }
-  Complex getC() const { return Complex(cRe, cIm); }
-  Complex getD() const { return Complex(dRe, dIm); }
+      : a(ar, ai), b(br, bi), c(cr, ci), d(dr, di) {}
 };
 
 /**
@@ -617,8 +609,8 @@ inline Vector inv_stereo(const Complex &z) {
  * @brief Mobius Transformation: f(z) = (az + b) / (cz + d).
  */
 inline Complex mobius(const Complex &z, const MobiusParams &params) {
-  Complex num = (params.getA() * z) + params.getB();
-  Complex den = (params.getC() * z) + params.getD();
+  Complex num = (params.a * z) + params.b;
+  Complex den = (params.c * z) + params.d;
   return num / den;
 }
 
