@@ -132,9 +132,13 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    for (int i = std::abs((int)params.speed) - 1; i >= 0; --i) {
+    // Hoist the divisor so the i/steps division is provably guarded: the loop
+    // body only runs when steps >= 1, so speed == 0 produces zero iterations
+    // (no divide-by-zero) and falls straight through to the flush below.
+    const int steps = std::abs((int)params.speed);
+    for (int i = steps - 1; i >= 0; --i) {
       pull(0);
-      draw_nodes(canvas, static_cast<float>(i) / std::abs((int)params.speed));
+      draw_nodes(canvas, static_cast<float>(i) / steps);
     }
 
     filters.flush(

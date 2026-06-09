@@ -93,7 +93,7 @@ CMake-preset build, opt-out pre-commit hook running the suite, presubmit CI comp
 
 ### Low
 13. **`util.h:24-30` `wrap`** lacks an `HS_CHECK(m > 0)` and the int-vs-float overload dispatch is subtle; **`geometry.h` `y_to_phi`/`phi_to_y`** divide by `(H_VIRT−1)` with no `static_assert(H_VIRT > 1)`.
-14. **`Dynamo.h:135-138` latent divide-by-zero** on `speed==0` (currently saved only by the loop guard); add an explicit early return.
+14. ✅ **`Dynamo.h:135-138` latent divide-by-zero** on `speed==0` (currently saved only by the loop guard); add an explicit early return. *Fixed: hoisted `std::abs(speed)` into a named `steps` divisor so the `i/steps` division is provably guarded by the loop bound (zero iterations when `speed==0`), also removing the redundant per-iteration `std::abs`.*
 15. **`init()` is not idempotent** in `dma_led.h:65-84` (re-`SPI.begin()`, leaked transaction); guard with a single-init flag/`HS_CHECK`, and document "never call `transmitAsync` from ISR context."
 16. **Per-frame WASM readback uses virtual `get_pixel`** (`wasm.cpp:245-253`); copy from `display_buffer()` when `!overrides_get_pixel()`.
 17. **Dead/duplicated code**: `MAX_FACES` (`solids.h:26`), `g_plot_cycles` (`platform.h:610`), `getArenaMetrics` duplication (`wasm.cpp:340-369` vs `718-735`), the four `SegmentController` broadcast loops and twice-written boundary blit, `solids.html` 404-prone importmap entries, `Ring::calcPoint` `sqrtf((1-r)²)` = `|1-r|`.
