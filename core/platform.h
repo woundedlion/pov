@@ -26,10 +26,20 @@
 //
 // Reserve bounded/soft handling for genuine *transient* conditions (DMA
 // overrun, dropped frame); those are not invariant violations.
-#define HS_CHECK(cond)                                                          \
+//
+// On failure it logs "HS_CHECK failed: <file>:<line>: (<cond>) <msg>" and
+// flushes the log *before* trapping, so a release/device build leaves a
+// breadcrumb identifying exactly which check fired. The message is an optional
+// printf-style format + args:
+//   HS_CHECK(i < n);
+//   HS_CHECK(i < n, "index out of range");
+//   HS_CHECK(i < n, "i=%d n=%d", i, n);
+// hs::check_fail is defined later in this header; the macro only expands in
+// translation units that include the whole file, so the forward use is fine.
+#define HS_CHECK(cond, ...)                                                     \
   do {                                                                          \
     if (!(cond))                                                                \
-      __builtin_trap();                                                         \
+      ::hs::check_fail(__FILE__, __LINE__, #cond, "" __VA_ARGS__);             \
   } while (0)
 
 #include <random>
@@ -56,6 +66,9 @@ inline void log(const char *msg, ...) {
   va_end(args);
   Serial.println(buf);
 }
+
+/** @brief Blocks until pending Serial output has drained (used before trap). */
+inline void flush_log() { Serial.flush(); }
 
 /**
  * @brief Returns the global deterministic random number generator.
@@ -277,6 +290,9 @@ inline void log(const char *fmt, ...) {
   printf("\n");
 }
 
+/** @brief Flushes stdout (used before trap so the breadcrumb is not lost). */
+inline void flush_log() { fflush(stdout); }
+
 /**
  * @brief Returns the global deterministic random number generator.
  */
@@ -468,6 +484,33 @@ inline int rand_int(int min, int max) {
     return min + (hs::random()() % (max - min));
   }
   return min;
+}
+
+/**
+ * @brief Backing routine for HS_CHECK: logs a located breadcrumb and flushes
+ *        the log before trapping, so a release/device build records which
+ *        invariant fired and where. Formats msg into a fixed stack buffer (no
+ *        heap) so it is safe to call from a corrupted-arena / OOM context.
+ */
+[[noreturn]] inline void check_fail(const char *file, int line,
+                                    const char *cond, const char *fmt, ...) {
+  char msg[96];
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, sizeof(msg), fmt, args);
+  va_end(args);
+#ifdef __EMSCRIPTEN__
+  // Route straight to console.error: synchronous (the trap can't drop it) and
+  // visible even if stdout is not wired to the page console.
+  char buf[176];
+  snprintf(buf, sizeof(buf), "HS_CHECK failed: %s:%d: (%s) %s", file, line,
+           cond, msg);
+  EM_ASM({ console.error(UTF8ToString($0)); }, buf);
+#else
+  hs::log("HS_CHECK failed: %s:%d: (%s) %s", file, line, cond, msg);
+  hs::flush_log();
+#endif
+  __builtin_trap();
 }
 
 /** @brief Scanline profiling counters (platform-agnostic). */
