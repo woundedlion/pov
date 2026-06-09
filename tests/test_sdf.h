@@ -18,10 +18,12 @@
 #pragma once
 
 #include "core/sdf.h"
+#include "core/scan.h"
 #include "core/geometry.h"
 #include "tests/test_3dmath.h"
 #include "tests/test_harness.h"
 
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -519,6 +521,252 @@ inline void test_angular_repeat_creates_copies() {
 }
 
 // ============================================================================
+// Interval-cull conservativeness  ("interval cull == full-row scan")
+//
+// The rasterizer culls in two tiers: get_vertical_bounds<H> picks the row band,
+// get_horizontal_intervals<W,H> picks the column spans within each row.
+// scan_region only visits the culled spans; process_pixel then accepts/rejects
+// each visited pixel via the exact distance(). So the cull must be
+// *conservative* — it may over-visit (the exact test rejects extras) but it must
+// never drop a pixel that belongs to the shape. The load-bearing invariant: a
+// pixel clearly inside the shape — distance().dist < -pixel_width, i.e. at least
+// one pixel deep into the body (solid) or stroke band (stroke) — is among the
+// pixels scan_region visits.
+//
+// The one-pixel margin is deliberate, not a fudge: it scopes the test to the
+// invariant the cull actually promises and away from two soft edge behaviours it
+// does NOT — a stroke's outer ~5% rim, which the interval generator drops
+// because the AA kernel there is ~0.001, and a solid's sub-pixel AA halo, which
+// process_pixel paints just *outside* the geometric boundary (so outside the
+// caps). It also clears the ~0.004 rad fast-trig noise between distance() and the
+// cap math. The endpoint-only Line/great-circle vertical cull is finding #2 and
+// is handled separately.
+// ============================================================================
+
+// Record every pixel scan_region visits for `shape`, exactly as rasterize()
+// drives it (full canvas, no clip).
+template <int W, int H, typename Shape>
+inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
+  visited.assign(static_cast<size_t>(W) * H, 0);
+  auto bounds = shape.template get_vertical_bounds<H>();
+  int y_lo = std::max(0, bounds.y_min);
+  int y_hi = std::min(H - 1, bounds.y_max);
+  if (y_lo > y_hi)
+    return;
+  Scan::scan_region<W, H>(
+      y_lo, y_hi,
+      [&](int y, auto &&out) {
+        return shape.template get_horizontal_intervals<W, H>(y, out);
+      },
+      [&](int wx, int y, const Vector &) {
+        if (wx >= 0 && wx < W && y >= 0 && y < H)
+          visited[static_cast<size_t>(y) * W + wx] = 1;
+      });
+}
+
+// Assert no pixel clearly inside the shape (dist < -pixel_width) is dropped by
+// the cull, by a brute-force full-canvas exact distance scan. Returns the
+// interior-pixel count so the caller can confirm the case was non-trivial.
+template <int W, int H, typename Shape>
+inline int expect_cull_covers_interior(const Shape &shape) {
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+  std::vector<uint8_t> visited;
+  cull_visited<W, H>(shape, visited);
+
+  const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+  const float pixel_width = 2.0f * PI_F / W;
+  int interior = 0;
+  for (int y = 0; y < H; ++y) {
+    float sp = TrigLUT<W, H>::sin_phi[y];
+    float cp = TrigLUT<W, H>::cos_phi[y];
+    for (int x = 0; x < W; ++x) {
+      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      if (shape.distance(p).dist < -pixel_width) {
+        ++interior;
+        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
+      }
+    }
+  }
+  return interior;
+}
+
+inline void test_cull_covers_interior_over_orientation_grid() {
+  constexpr int W = 96, H = 48;
+  constexpr int HV = H + hs::H_OFFSET;
+
+  // Poles, equator, and oblique tilts — the cull math is orientation-dependent.
+  const Vector axes[] = {
+      Vector(0, 1, 0),         Vector(0, -1, 0),        Vector(1, 0, 0),
+      Vector(0, 0, 1),         Vector(1, 1, 0.4f),      Vector(-0.5f, 0.7f, -0.6f),
+      Vector(0.3f, -0.8f, 0.5f)};
+
+  int total_interior = 0;
+  for (const Vector &axis : axes) {
+    Basis basis = make_basis(Quaternion(), axis);
+    for (float radius : {0.3f, 0.6f, 0.9f}) {
+      // Ring (stroke): both annular-band arcs must cover the whole band.
+      SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
+      total_interior += expect_cull_covers_interior<W, H>(ring);
+
+      // SphericalPolygon (solid, great-circle edges, geodesic cap).
+      SDF::SphericalPolygon spoly(basis, radius, /*sides=*/5, 0.0f, HV, H);
+      total_interior += expect_cull_covers_interior<W, H>(spoly);
+
+      // Star (solid, padded bounding cap).
+      SDF::Star star(basis, radius, /*sides=*/5, 0.0f, HV, H);
+      total_interior += expect_cull_covers_interior<W, H>(star);
+
+      // PlanarPolygon (solid, tangent-plane cap; `thickness` is its angular
+      // circumradius).
+      SDF::PlanarPolygon ppoly(basis, /*radius=*/radius, /*thickness=*/radius,
+                               /*sides=*/6, 0.0f, HV, H);
+      total_interior += expect_cull_covers_interior<W, H>(ppoly);
+    }
+  }
+  // The grid exercised a non-trivial number of interior pixels.
+  HS_EXPECT_GT(total_interior, 1000);
+}
+
+// ============================================================================
+// Face distance LUT vs exact  (LUT bilinear vs an independent exact oracle)
+//
+// Face::distance interpolates a 32x32 baked distance LUT in cells that are
+// sign-pure and at least one cell-diagonal (lut_safe_dist) from any edge, and
+// falls back to the exact per-edge scan otherwise. The review conjectured the
+// bilinear error is "< cell-diagonal", but that is not the right bound: away
+// from the boundary, in the medial-axis gradient creases of a face's vertex
+// fans, bilinear interpolation of the (otherwise 1-Lipschitz) field is much less
+// accurate — the measured worst case is ~1.3x the cell diagonal for a pentagon
+// and ~4x for a sharp-vertexed triangle. lut_safe_dist bounds distance to the
+// *zero set* (sign purity), not to those creases.
+//
+// What actually matters for rendering, and what this pins against an independent
+// exact point-to-polygon scan, is therefore two stronger invariants:
+//
+//   1. SIGN is always correct — the load-bearing guarantee for solid fill. The
+//      sign-purity guard makes it exact, never a flipped pixel.
+//   2. The LUT NEVER reports a near-boundary magnitude. It fires only when all
+//      four corners are same-sign with magnitude > cell-diagonal, so the
+//      bilinear value (a convex combination) also has magnitude >= cell-diagonal.
+//      The renderer only consults the distance magnitude for the AA ramp, which
+//      spans +-pixel_width; since cell-diagonal exceeds a pixel here, an
+//      LUT-served pixel is always unambiguously inside or outside and its AA
+//      ramp is inactive — so AA accuracy never depends on the LUT's magnitude,
+//      only on its (exact) sign.
+//
+// The exact fallback path must reproduce the oracle to float precision.
+// ============================================================================
+
+// Build one tilted N-gon face and scan its gnomonic box; assert sign agreement
+// and bounded magnitude error on the LUT path. Returns the LUT-path sample count.
+inline int check_face_lut(int sides, float rho, const Vector &axis) {
+  constexpr int H = 144;
+  constexpr int HV = H + hs::H_OFFSET;
+  HS_EXPECT_TRUE(sides <= 8);
+
+  Basis basis = make_basis(Quaternion(), axis);
+  Vector verts3d[8];
+  uint16_t idx[8];
+  for (int i = 0; i < sides; ++i) {
+    float a = (2.0f * PI_F * i) / sides + 0.37f;
+    verts3d[i] = (basis.v * cosf(rho) +
+                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
+                     .normalized();
+    idx[i] = static_cast<uint16_t>(i);
+  }
+
+  SDF::FaceScratchBuffer scratch;
+  SDF::Face face(std::span<const Vector>(verts3d, sides),
+                 std::span<const uint16_t>(idx, sides), /*thickness=*/0.0f,
+                 scratch, HV, H);
+
+  const float cell_diag = face.lut_safe_dist;
+  HS_EXPECT_GT(cell_diag, 0.0f);
+
+  int lut_samples = 0, sign_mismatches = 0;
+  float min_lut_mag = FLT_MAX;
+  // March a grid across the gnomonic tangent-plane box the face occupies. A
+  // point with gnomonic coords (px,py) is normalize(center + u*px + w*py): then
+  // dot(p,center)=k, dot(p,u)=k*px, dot(p,w)=k*py, so distance() recovers (px,py)
+  // exactly after dividing by dot(p,center).
+  const float reach = face.max_dist * 0.98f;
+  constexpr int G = 64;
+  for (int gi = 0; gi <= G; ++gi) {
+    for (int gj = 0; gj <= G; ++gj) {
+      float px = -reach + (2.0f * reach) * gi / G;
+      float py = -reach + (2.0f * reach) * gj / G;
+      Vector p =
+          (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
+
+      hs::g_scan_metrics.lut_hits = 0;
+      hs::g_scan_metrics.exact_hits = 0;
+      SDF::DistanceResult res = face.distance(p);
+      bool took_lut = hs::g_scan_metrics.lut_hits > 0;
+      bool took_exact = hs::g_scan_metrics.exact_hits > 0;
+      if (!took_lut && !took_exact)
+        continue; // culled (outside max_dist / behind the center)
+
+      // Independent exact oracle: point-to-polygon in the same tangent plane,
+      // over the face's packed edges (mirrors Face::distance's fallback).
+      float dmin = FLT_MAX;
+      bool inside = false;
+      for (int i = 0; i < face.count; ++i) {
+        const auto &ep = face.packed_edges[i];
+        float wx = px - ep.vx, wy = py - ep.vy;
+        float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
+        float cv = hs::clamp(t, 0.0f, 1.0f);
+        float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
+        float dsq = bx * bx + by * by;
+        if (dsq < dmin)
+          dmin = dsq;
+        if ((ep.vy > py) != (ep.next_vy > py)) {
+          float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
+          if (px < isx)
+            inside = !inside;
+        }
+      }
+      float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
+      float exact_angular = fast_atan2(plane_exact, 1.0f);
+
+      if (took_lut) {
+        ++lut_samples;
+        if ((res.raw_dist < 0.0f) != (exact_angular < 0.0f))
+          ++sign_mismatches;
+        float mag = std::abs(res.raw_dist);
+        if (mag < min_lut_mag)
+          min_lut_mag = mag;
+      } else {
+        // Exact path must reproduce the oracle to float precision.
+        HS_EXPECT_NEAR(res.raw_dist, exact_angular, 1e-4f);
+      }
+    }
+  }
+  // (1) The sign-purity guard never lets the LUT path mis-sign a pixel.
+  HS_EXPECT_EQ(sign_mismatches, 0);
+  // (2) The LUT never serves a near-boundary magnitude: every LUT-path result is
+  // at least ~atan(cell_diagonal) from zero (the convex-combination floor), so it
+  // lands outside the AA ramp and only its (exact) sign drives the pixel. Allow a
+  // small slack for the fast_atan2 approximation.
+  if (lut_samples > 0) {
+    float floor_mag = fast_atan2(cell_diag, 1.0f) - 0.01f;
+    HS_EXPECT_GT(min_lut_mag, floor_mag);
+  }
+  return lut_samples;
+}
+
+inline void test_face_lut_matches_exact_within_cell_diagonal() {
+  // A spread of polygons (triangle, pentagon, hexagon) and tilts.
+  int lut_samples = 0;
+  lut_samples += check_face_lut(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
+  lut_samples += check_face_lut(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
+  lut_samples += check_face_lut(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
+  // The grid actually fired the LUT path (otherwise the bounds are untested).
+  HS_EXPECT_GT(lut_samples, 300);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -571,6 +819,9 @@ inline int run_sdf_tests() {
 
   test_angular_repeat_matches_base_at_zero_angle();
   test_angular_repeat_creates_copies();
+
+  test_cull_covers_interior_over_orientation_grid();
+  test_face_lut_matches_exact_within_cell_diagonal();
 
   return hs_test::end_module(scope);
 }
