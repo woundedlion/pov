@@ -93,11 +93,89 @@ inline void check_one(const char *name) {
   }
 }
 
+// Tally an effect's parameter count so the stability pass below can size its
+// reserve to the roster's worst case.
+template <template <int, int> class E>
+inline void count_one(size_t &max_count) {
+  configure_arenas_default();
+  Timeline<kW>().clear();
+  global_timeline_t = 0;
+
+  E<kW, kH> effect;
+  effect.init();
+
+  size_t n = 0;
+  for (const auto &def : effect.getParameters()) {
+    (void)def;
+    ++n;
+  }
+  if (n > max_count)
+    max_count = n;
+}
+
+// Memory-stability contract. wasm.cpp exposes the value stream to JS as a raw
+// pointer into WASM linear memory (`paramValues.data()`), read every frame, and
+// reuses a single vector across frames AND effect switches. collect_param_views
+// / fill_param_values promise that — given a caller that reserves capacity once
+// up front — clear()+push_back never reallocates, so the exported address stays
+// valid. A regression that dropped the reserve or pushed past it would silently
+// hand JS a dangling pointer with no crash on the C++ side. Refill the SAME
+// reserved vector and assert its backing storage (.data()) and capacity never
+// move.
+template <template <int, int> class E>
+inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
+                                std::vector<float> &values,
+                                const hs_wasm::ParamView *view_data,
+                                size_t view_cap, const float *value_data,
+                                size_t value_cap) {
+  configure_arenas_default();
+  Timeline<kW>().clear();
+  global_timeline_t = 0;
+
+  E<kW, kH> effect;
+  effect.init();
+
+  hs_wasm::collect_param_views(effect, views);
+  hs_wasm::fill_param_values(effect, values);
+
+  HS_EXPECT(views.data() == view_data,
+            "collect_param_views reused the reserved buffer (no realloc)");
+  HS_EXPECT(values.data() == value_data,
+            "fill_param_values reused the reserved buffer (no realloc)");
+  HS_EXPECT_EQ(views.capacity(), view_cap);
+  HS_EXPECT_EQ(values.capacity(), value_cap);
+}
+
 inline int run_param_marshal_tests() {
   auto scope = hs_test::begin_module("param_marshal");
 #define HS_PARAM_ONE(name) check_one<name>(#name);
   HS_EFFECT_LIST(HS_PARAM_ONE)
 #undef HS_PARAM_ONE
+
+  // Size a single pair of vectors to the roster's largest parameter set, then
+  // marshal every effect through them in turn (the effect-switch path) and
+  // confirm the backing storage is never reallocated — the per-frame memory-view
+  // stability the WASM bridge depends on.
+  size_t max_count = 0;
+#define HS_PARAM_COUNT(name) count_one<name>(max_count);
+  HS_EFFECT_LIST(HS_PARAM_COUNT)
+#undef HS_PARAM_COUNT
+
+  std::vector<hs_wasm::ParamView> views;
+  std::vector<float> values;
+  views.reserve(max_count);
+  values.reserve(max_count);
+  const hs_wasm::ParamView *view_data = views.data();
+  const float *value_data = values.data();
+  const size_t view_cap = views.capacity();
+  const size_t value_cap = values.capacity();
+
+#define HS_PARAM_STAB(name)                                                    \
+  check_stability_one<name>(views, values, view_data, view_cap, value_data,    \
+                            value_cap);
+  HS_EFFECT_LIST(HS_PARAM_STAB)
+#undef HS_PARAM_STAB
+
   return hs_test::end_module(scope);
 }
 

@@ -129,9 +129,9 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 **P4 — testing & hygiene:**
 
-24. Add host coverage for `param_marshal`'s memory-stability contract.
+24. ✅ Add host coverage for `param_marshal`'s memory-stability contract. *Fixed: `tests/test_param_marshal.h` now reserves one value/view vector pair to the roster's largest parameter set, then marshals every effect through it and asserts the backing storage (`.data()`/capacity) never reallocates — the per-frame WASM memory-view stability the bridge depends on.*
 
-25. Add a `SegmentController.tick()` state-machine test (the riskiest untested glue).
+25. ✅ Add a `SegmentController.tick()` state-machine test (the riskiest untested glue). *Fixed (in the daydream repo): `tests/segment_controller.test.js` gained five cases that walk a full one-frame-deep pipeline cycle (dispatch → arm pendingFrame → composite → re-dispatch) plus the not-ready and faulted guard states, driven DOM-free via a document stub.*
 
 26. Gate the unconditional per-frame `Serial.print` in `pov_segmented.h:316-336` behind `hs::debug` (parity with `pov_single.h`).
 
