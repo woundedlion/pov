@@ -61,8 +61,14 @@ public:
   /**
    * @brief Initializes SPI and DMA hardware. Must be called from setup(),
    *        not from global constructors (peripherals may not be ready yet).
+   *
+   * Call exactly once. A second call would re-run SPI.begin() and leak the
+   * already-open SPI transaction, so re-initialization is a programming error
+   * that fail-fast traps rather than silently corrupting the peripheral state.
    */
   void init() {
+    HS_CHECK(!initialized_, "TeensySPIDMA::init() called twice");
+    initialized_ = true;
     instance_ = this;
 
     SPI.begin();
@@ -148,6 +154,10 @@ private:
   // acquire/release expecting a visibility fix — it only adds DMB cost here.
   std::atomic<bool> transferComplete_;
   SPISettings spiSettings_;
+
+  // Single-init guard: init() touches global SPI/DMA peripheral state that is
+  // not safe to re-run. Set once on the first (setup-time) init() call.
+  bool initialized_ = false;
 
   /**
    * @brief Singleton pointer for ISR callback dispatch.
