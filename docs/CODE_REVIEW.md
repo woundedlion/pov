@@ -107,7 +107,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 14. ✅ Correct the MeshCarousel "crossfade" wording (§7.3 — the outgoing shape is not drawn). *Fixed: `MeshCarousel::transition()` only schedules a `Sprite` for `draw_incoming`; its `draw_outgoing` hook is "accepted for symmetry but currently unused" because `front_` flips eagerly to the new shape. The §7.3 table now describes it as fading the incoming shape in and notes the outgoing shape is not drawn, instead of claiming a crossfade between shapes.*
 
-15. Correct the "tools share WASM `MeshOps`" claim (§10.2/§10.11 — only `solids.html` does).
+15. ✅ Correct the "tools share WASM `MeshOps`" claim (§10.2/§10.11 — only `solids.html` does). *Fixed: verified that only `solids.html` imports `holosphere_wasm.js`/`MeshOps`; the other four tools (lissajous, mobius, palettes, splines) have no WASM references. §10.11 no longer claims all five share the WASM `MeshOps` — it states only `solids.html` is WASM-backed and the rest do their geometry math in JS; §10.2 now scopes the `MeshOps` class to the `solids.html` tool.*
 
 16. Correct the stale "64MB" arena comment (`tools/solids.html:1417`; actual is 16 MB).
 

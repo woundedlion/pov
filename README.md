@@ -1653,7 +1653,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 | `setClip(y0, y1, x0, x1)` → `bool` | Restrict rendering to a sub-rectangle (used by segment workers) |
 | `getRenderUs()` → `double` | Last frame's rasterization time in microseconds (per-frame profiling) |
 
-The bridge also exposes a `MeshOps` class for the JavaScript tools, with dedicated tooling arenas (an 8 MB persistent arena plus two 4 MB scratch arenas — 16 MB total, separate from the engine's 335 KB arena) for interactive solid manipulation.
+The bridge also exposes a `MeshOps` class — used by the `solids.html` geometry tool — with dedicated tooling arenas (an 8 MB persistent arena plus two 4 MB scratch arenas — 16 MB total, separate from the engine's 335 KB arena) for interactive solid manipulation.
 
 The WASM bridge includes stack high-water-mark instrumentation: `stack_paint_canary()` fills the stack with a known pattern at init time, and `stack_high_water_mark()` scans for the deepest overwrite. This is reported via `getArenaMetrics()` and logged on every effect switch to catch stack-hungry template instantiations early.
 
@@ -1771,7 +1771,7 @@ Switching presets does a full WASM reset: `setResolution(w, h)` reallocates buff
 
 ### 10.11 Geometry Tools (`daydream/tools/`)
 
-Five standalone HTML pages that share the engine's WASM `MeshOps` but render with their own Three.js scenes:
+Five standalone HTML pages, each rendering with its own Three.js scene. Only `solids.html` is backed by the engine's WASM `MeshOps` bridge; the other four implement their geometry math directly in JavaScript:
 
 | Tool | What it does |
 |---|---|
