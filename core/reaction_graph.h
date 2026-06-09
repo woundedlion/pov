@@ -89,9 +89,9 @@ private:
     else if (face == 3) dir = Vector(u, -1.0f,  v);  // -Y
     else if (face == 4) dir = Vector(u, v,  1.0f);   // +Z
     else                dir = Vector(-u, v, -1.0f);   // -Z
-    float len = sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-    dir.x /= len; dir.y /= len; dir.z /= len;
-    return dir;
+    // One axis is always ±1, so the length is >= 1; the strict normalized()
+    // traps if that invariant is ever broken instead of dividing by zero.
+    return dir.normalized();
   }
 
   /** Greedy walk from a latitude seed to the true nearest Fibonacci node. */
