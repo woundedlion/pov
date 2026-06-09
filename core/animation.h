@@ -2184,7 +2184,10 @@ void tween(const Orientation<W, CAP> &o, TweenFn callback) {
   int len = o.length();
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {
-    float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 0.0f;
+    // A lone snapshot is the newest sub-position, so t = 1 (age-neutral); the
+    // multi-frame sweep already ends at t = 1 for i = len - 1. Emitting t = 0
+    // here would push age + 1 on every static orientation (see World::Orient).
+    float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 1.0f;
     callback(o.get(i), t);
   }
 }

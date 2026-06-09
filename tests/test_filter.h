@@ -440,7 +440,9 @@ inline void test_world_hole_masks_cap() {
 
 // Orient rotates by the bound Orientation. For a single-frame (stationary)
 // orientation the motion-blur tween emits one tap, rotated by the current
-// quaternion, with age offset by +1 (the t=0 end of the (1 - t) ramp).
+// quaternion, with age left untouched: a lone snapshot is the newest
+// sub-position (t = 1), so the (1 - t) age offset is zero. A static orientation
+// must not drift the temporal channel frame over frame.
 inline void test_world_orient_rotates_and_offsets_age() {
   constexpr int W = 32;
   Quaternion q = make_rotation(Y_AXIS, PI_F / 2); // 90 deg about +Y
@@ -459,7 +461,7 @@ inline void test_world_orient_rotates_and_offsets_age() {
   HS_EXPECT_NEAR(got.v.x, expected.x, 1e-4f);
   HS_EXPECT_NEAR(got.v.y, expected.y, 1e-4f);
   HS_EXPECT_NEAR(got.v.z, expected.z, 1e-4f);
-  HS_EXPECT_NEAR(got.age, 6.0f, 1e-4f); // age + (1 - t), t = 0
+  HS_EXPECT_NEAR(got.age, 5.0f, 1e-4f); // age + (1 - t), t = 1 (age-neutral)
 }
 
 // With a 3-frame history the tween sweeps the trailing sub-positions (i = 1..n-1)
