@@ -56,7 +56,10 @@ inline auto tri_wave(float from, float to, float freq, float phase) {
 inline auto square_wave(float from, float to, float freq, float dutyCycle,
                         float phase) {
   return [=](float t) -> float {
-    if (fmod(t * freq + phase, 1.0f) < dutyCycle) {
+    // wrap() (not raw fmod) so a negative t*freq+phase folds into [0,1) like
+    // tri_wave; fmod keeps the dividend's sign, leaving a negative phase always
+    // < dutyCycle and wrongly latching the wave "on".
+    if (wrap(t * freq + phase, 1.0f) < dutyCycle) {
       return to;
     }
     return from;

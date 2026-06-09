@@ -136,6 +136,20 @@ inline void test_square_wave_binary() {
   HS_EXPECT_NEAR(w(0.9f), 0.0f, 1e-5f);
 }
 
+// Regression: a negative t*freq+phase must fold into [0,1) like tri_wave.
+// Raw fmod keeps the dividend's sign, leaving any negative argument < dutyCycle
+// and latching the wave permanently "on"; wrap() makes it periodic.
+inline void test_square_wave_negative_phase() {
+  auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
+  HS_EXPECT_NEAR(w(-0.25f), 0.0f, 1e-5f); // wrap(-0.25)=0.75 -> low, not latched
+  HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f);  // wrap(-0.9)=0.1 -> high
+  // Periodicity across the sign boundary: w(t-1) == w(t) over a full sweep.
+  for (int i = 0; i < N; ++i) {
+    float ft = frac(i); // [0,1)
+    HS_EXPECT_NEAR(w(ft - 1.0f), w(ft), 1e-5f);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -150,6 +164,7 @@ inline int run_easing_waves_tests() {
   test_sin_wave_bounds_and_phase();
   test_tri_wave_shape();
   test_square_wave_binary();
+  test_square_wave_negative_phase();
 
   return hs_test::end_module(scope);
 }
