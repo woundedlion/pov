@@ -135,7 +135,7 @@ public:
       // saturates color_t past 1 within seconds, pinning the palette endpoint.
       float color_t = frag.v3;
       frag.color = static_palette.get(color_t);
-      frag.color.alpha *= quintic_kernel(frag.v3);
+      frag.color.alpha *= quintic_kernel(frag.v3) * params.alpha;
     };
 
     Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);

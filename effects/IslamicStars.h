@@ -28,6 +28,8 @@ public:
     ripple_gen.params.decay = 0.1f;
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
+    registerParam("Fade", &params.fade, 0.0f, 96.0f);
+    registerParam("Burst", &params.burst_size, 1.0f, 8.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
     registerParam("Ripp Width", &ripple_gen.params.thickness, 0.1f, 1.0f);
     registerParam("Ripp Decay", &ripple_gen.params.decay, 0.0f, 5.0f);
@@ -68,7 +70,7 @@ private:
 
   void ripple(Canvas &canvas) {
     Vector origin = random_vector();
-    for (int i = 0; i < params.burst_size; i++) {
+    for (int i = 0; i < (int)params.burst_size; i++) {
       ripple_gen.spawn(i * 16, origin, PI_F / ripple_duration,
                        static_cast<int>(ripple_duration));
     }
@@ -170,7 +172,7 @@ private:
   struct Params {
     float duration = 160.0f; // shape display period, in frames
     float fade = 32.0f;
-    int burst_size = 4;
+    float burst_size = 4.0f; // ripples per burst; float-backed for registerParam
     bool debug_bb = false;
   } params;
 };

@@ -31,9 +31,11 @@ public:
     // future edit ever inserts a finite event ahead of it, compaction traps
     // loudly rather than dangling this pointer the GUI reads every frame.
     auto *anim = transformer.spawn_pinned(0, 0.5f, 0.035f);
-    if (anim) {
-      registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
-    }
+    // First, pinned spawn into a fresh transformer: a slot is always free, so a
+    // null here is a structural bug, not a runtime condition. Trap (cold setup
+    // code) instead of silently dropping the "Warp Speed" slider.
+    HS_CHECK(anim && "GnomonicStars: pinned warp spawn must succeed");
+    registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, UP, noise,

@@ -80,7 +80,7 @@ public:
     deep_tween(node->trail, [&](const Quaternion &q, float t) {
       auto fragment_shader = [&](const Vector &, Fragment &f) {
         f.color = baked_palette.get(t);
-        f.color.alpha *= quintic_kernel(t);
+        f.color.alpha *= quintic_kernel(t) * params.alpha;
       };
 
       Vector v_local = rotate(node->v, q);
