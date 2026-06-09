@@ -89,7 +89,7 @@ private:
   static constexpr int NUM_VERTS = Solids::Dodecahedron::NUM_VERTS;
 
   void drawFn(Canvas &canvas, float opacity) {
-    float t = static_cast<float>(timeline.t) / 60.0f;
+    float t = static_cast<float>(global_timeline_t) / 60.0f;
     float anim_t = t * params.pulse_speed;
 
     float major_r = params.core_size * 0.45f;

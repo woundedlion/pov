@@ -1769,6 +1769,13 @@ extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 // array, so a second live instance would silently stomp the first's events.
 // Non-templated on purpose, so the guard spans all instantiations.
 extern bool global_timeline_live;
+// Bookkeeping cursors into global_timeline_events. Non-templated for the same
+// reason as the array and the live guard: the storage is one shared singleton,
+// so its frame counter and active-event count must be too. Were these
+// per-instantiation Timeline<W,CAPACITY> statics, two specializations indexing
+// the one shared array would desync their counts from its real contents.
+extern int global_timeline_t;          // current global frame count
+extern int global_timeline_num_events; // current number of active events
 
 /**
  * @brief Manages all active animations and their execution over time.
@@ -1806,11 +1813,11 @@ public:
   Timeline &operator=(Timeline &&) = delete;
 
   void clear() {
-    for (int i = 0; i < num_events; ++i) {
+    for (int i = 0; i < global_timeline_num_events; ++i) {
       global_timeline_events[i].destroy();
     }
-    num_events = 0;
-    t = 0;
+    global_timeline_num_events = 0;
+    global_timeline_t = 0;
   }
 
   /**
@@ -1823,12 +1830,12 @@ public:
   template <typename A> Timeline &add(float in_frames, A animation) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
-    if (num_events >= MAX_EVENTS) {
+    if (global_timeline_num_events >= MAX_EVENTS) {
       hs::log("Timeline full, failed to add animation!");
       return *this;
     }
-    auto &e = global_timeline_events[num_events++];
-    e.start = t + (int)in_frames;
+    auto &e = global_timeline_events[global_timeline_num_events++];
+    e.start = global_timeline_t + (int)in_frames;
     e.handled = false; // global slots are reused — clear any stale handled flag
     new (e.storage) A(std::move(animation));
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
@@ -1857,12 +1864,12 @@ public:
   template <typename A> A *add_get(float in_frames, A animation, bool pin = true) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
-    if (num_events >= MAX_EVENTS) {
+    if (global_timeline_num_events >= MAX_EVENTS) {
       hs::log("Timeline full, failed to add animation!");
       return nullptr;
     }
-    auto &e = global_timeline_events[num_events++];
-    e.start = t + (int)in_frames;
+    auto &e = global_timeline_events[global_timeline_num_events++];
+    e.start = global_timeline_t + (int)in_frames;
     // A pinned (retained) handle must stay put: step()'s compaction traps in
     // move_into if a later change ever tries to relocate this event.
     e.handled = pin;
@@ -1883,10 +1890,10 @@ public:
    * @param canvas The current canvas buffer.
    */
   void step(Canvas &canvas) {
-    ++t;
+    ++global_timeline_t;
 
     int write_idx = 0;
-    int active_cnt = num_events; // Snapshot count before callbacks
+    int active_cnt = global_timeline_num_events; // Snapshot count before callbacks
                                  // potentially add more
 
     // Collapse each distinct Orientation exactly once, before any animation
@@ -1899,7 +1906,7 @@ public:
     // own none).
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
-      if (t < e.start)
+      if (global_timeline_t < e.start)
         continue;
       IAnimation *anim = e.animation();
       if (!anim)
@@ -1910,7 +1917,7 @@ public:
       bool already_collapsed = false;
       for (int j = 0; j < i; ++j) {
         auto &prev = global_timeline_events[j];
-        if (t < prev.start)
+        if (global_timeline_t < prev.start)
           continue;
         IAnimation *prev_anim = prev.animation();
         if (prev_anim && prev_anim->orientation_id() == id) {
@@ -1926,7 +1933,7 @@ public:
       auto &e = global_timeline_events[i];
 
       // 1. Check start time
-      if (t < e.start) {
+      if (global_timeline_t < e.start) {
         if (i != write_idx) {
           e.move_into(global_timeline_events[write_idx]);
         }
@@ -1975,7 +1982,7 @@ public:
     //    was handed back to the caller and must not move. Callback-spawners use
     //    pin=false today (TransformerPool::spawn), so the gap-fill is safe; the
     //    trap stands as the fail-fast guard if that ever changes.
-    int new_vals_count = num_events - active_cnt;
+    int new_vals_count = global_timeline_num_events - active_cnt;
     if (new_vals_count > 0 && write_idx < active_cnt) {
       for (int i = 0; i < new_vals_count; ++i) {
         global_timeline_events[active_cnt + i].move_into(
@@ -1983,12 +1990,13 @@ public:
       }
     }
 
-    num_events = write_idx + new_vals_count;
+    global_timeline_num_events = write_idx + new_vals_count;
   }
 
-  inline static int t = 0;          /**< The current global frame count. */
-  inline static int num_events = 0; /**< Current number of active events. */
-
+  // Frame counter (`global_timeline_t`) and active-event count
+  // (`global_timeline_num_events`) live as non-templated globals, not statics
+  // here, so they stay one shared singleton with global_timeline_events rather
+  // than forking per Timeline<W,CAPACITY> specialization.
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 };

@@ -85,7 +85,7 @@ inline void smoke_one(const char *name) {
   // this, one effect's leftover events reference the previous (now-destroyed)
   // effect instance, and the next effect's step() would deref freed state.
   Timeline<kW>().clear();
-  Timeline<kW>::t = 0;
+  global_timeline_t = 0;
 
   E<kW, kH> effect;
   effect.init();
@@ -184,7 +184,7 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
   hs::random().seed(1337u);
   configure_arenas_default();
   Timeline<kW>().clear();
-  Timeline<kW>::t = 0;
+  global_timeline_t = 0;
   // The global generative-hue cursor drifts across palette constructions by
   // design (see GenerativePalette); pin it so both runs start from identical
   // global state — without this, the second run's palettes are hue-rotated.

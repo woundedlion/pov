@@ -32,7 +32,7 @@ template <template <int, int> class E>
 inline void check_one(const char *name) {
   configure_arenas_default();
   Timeline<kW>().clear();
-  Timeline<kW>::t = 0;
+  global_timeline_t = 0;
 
   E<kW, kH> effect;
   effect.init();

@@ -57,7 +57,7 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    float phase = fmodf(static_cast<float>(timeline.t), 120.0f) / 120.0f;
+    float phase = fmodf(static_cast<float>(global_timeline_t), 120.0f) / 120.0f;
 
     // Calculate Stabilizing Counter-Rotation
     Vector n_in = Y_AXIS;

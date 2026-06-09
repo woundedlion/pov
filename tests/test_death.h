@@ -178,7 +178,7 @@ inline void case_timeline_handled_relocation() {
 inline void case_timeline_double_construct() {
   Timeline<32> a;
   Timeline<32> b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
-  if (Timeline<32>::num_events == opaque(42))
+  if (global_timeline_num_events == opaque(42))
     std::printf("x");
 }
 

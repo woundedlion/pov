@@ -172,7 +172,7 @@ inline void test_transformer_no_entities_is_identity() {
 // destructor clears the global event buffer on scope exit.
 inline void test_transformer_spawn_applies_and_composes() {
   Timeline<32> tl;
-  Timeline<32>::t = 0;
+  global_timeline_t = 0;
   NoiseTransformer<32, 4> nt(tl);
   nt.params.amplitude = 0.6f;
   nt.params.scale = 4.0f;

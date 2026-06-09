@@ -464,11 +464,11 @@ inline void test_rotation_substeps_shared_and_tight() {
 // reflects the pre-frame orientation (identity here); with the bug it has
 // already advanced by the first rotation's full sweep. (Unlike most tests in
 // this file we DO touch the global Timeline; Rotation::step never dereferences
-// the canvas, and we reset the inline-static state around the test.)
+// the canvas, and we reset the global cursor state around the test.)
 inline void test_timeline_shared_orientation_composes_motion_blur() {
   using Ori = Orientation<288, 16>;
-  Timeline<288>::num_events = 0;
-  Timeline<288>::t = 0;
+  global_timeline_num_events = 0;
+  global_timeline_t = 0;
 
   Ori o; // identity, single frame
   Timeline<288> tl;
@@ -489,8 +489,8 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
   Vector newest = o.orient(X_AXIS, o.length() - 1);
   HS_EXPECT_NEAR(newest.x, -1.0f, 1e-3f);
 
-  Timeline<288>::num_events = 0;
-  Timeline<288>::t = 0;
+  global_timeline_num_events = 0;
+  global_timeline_t = 0;
 }
 
 // Timeline schedules events by start frame: an event added with in_frames > 0
@@ -499,7 +499,7 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
 // (Uses the global Timeline; each Timeline is scoped so the live-guard balances,
 // and Transition::step never dereferences the canvas.)
 inline void test_timeline_sequences_events_by_start_frame() {
-  Timeline<16> tl; // ctor clears its statics; dtor releases the global live guard
+  Timeline<16> tl; // ctor clears the global cursors; dtor releases the live guard
   float a = 0.0f, b = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 2, ease_mid)); // starts now
   tl.add(3, Animation::Transition(b, 20.0f, 2, ease_mid)); // delayed 3 frames
@@ -511,7 +511,7 @@ inline void test_timeline_sequences_events_by_start_frame() {
   tl.step(fake_canvas()); // t=2: a completes (reaches target) and is removed
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
   HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // still dormant (start=3)
-  HS_EXPECT_EQ(Timeline<16>::num_events, 1); // only b remains scheduled
+  HS_EXPECT_EQ(global_timeline_num_events, 1); // only b remains scheduled
 
   tl.step(fake_canvas()); // t=3: b finally starts ramping
   HS_EXPECT_GT(b, 0.0f);
@@ -519,7 +519,7 @@ inline void test_timeline_sequences_events_by_start_frame() {
 
   tl.step(fake_canvas()); // t=4: b completes
   HS_EXPECT_NEAR(b, 20.0f, 1e-3f);
-  HS_EXPECT_EQ(Timeline<16>::num_events, 0); // both done and removed
+  HS_EXPECT_EQ(global_timeline_num_events, 0); // both done and removed
 }
 
 // A repeating animation rewinds at the end of each cycle instead of being
@@ -540,7 +540,7 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
 
   // Repeating events are never removed.
-  HS_EXPECT_EQ(Timeline<16>::num_events, 1);
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
 }
 
 // Orientation::upsample SLERP-interpolates the recorded sub-frames up to a target
