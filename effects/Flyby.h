@@ -117,13 +117,13 @@ private:
     float hue_shift = 0.15f;
 
     void lerp(const Params &a, const Params &b, float t) {
-      warp_scale = ::lerp(a.warp_scale, b.warp_scale, t);
-      warp_strength = ::lerp(a.warp_strength, b.warp_strength, t);
-      pattern_freq = ::lerp(a.pattern_freq, b.pattern_freq, t);
-      speed = ::lerp(a.speed, b.speed, t);
-      pole_fade = ::lerp(a.pole_fade, b.pole_fade, t);
-      drift = ::lerp(a.drift, b.drift, t);
-      hue_shift = ::lerp(a.hue_shift, b.hue_shift, t);
+      warp_scale = hs::lerp(a.warp_scale, b.warp_scale, t);
+      warp_strength = hs::lerp(a.warp_strength, b.warp_strength, t);
+      pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
+      speed = hs::lerp(a.speed, b.speed, t);
+      pole_fade = hs::lerp(a.pole_fade, b.pole_fade, t);
+      drift = hs::lerp(a.drift, b.drift, t);
+      hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
     }
   };
   Params params;
