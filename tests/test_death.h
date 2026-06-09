@@ -38,8 +38,10 @@
 #include "core/animation.h"
 #include "core/canvas.h"
 #include "core/geometry.h"
+#include "core/filter.h"
 #include "core/memory.h"
 #include "core/mesh.h"
+#include "core/plot.h"
 #include "core/scan.h"
 #include "core/solids.h"
 #include "core/spatial.h"
@@ -269,6 +271,37 @@ inline void case_scan_clip_out_of_bounds() {
       c, [](const Vector &) { return Color4(Pixel(0, 0, 0), 1.0f); });
 }
 
+// Plot surface: a mesh face referencing a vertex index past the edge-dedup
+// bitset's capacity (TriangularBitset<128>). The face-walk overload now traps
+// on the cold per-edge setup path instead of silently dropping the edge, which
+// would have left a wireframe with missing lines and masked the mesh-sizing
+// bug. First Plot death case.
+inline void case_plot_mesh_vertex_over_capacity() {
+  constexpr int W = 32, H = 16;
+  // Minimal duck-typed mesh: one 2-gon face whose second index (130) exceeds
+  // the bitset capacity. The trap fires before any vertex or pipeline access,
+  // so the vertex store only needs to satisfy the interface.
+  struct MockMesh {
+    struct Verts {
+      Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
+      size_t size() const { return 1; }
+    } vertices;
+    uint8_t fc[1];
+    uint16_t fi[2];
+    // Store the over-capacity index at runtime so the optimizer can't prove the
+    // trap at compile time and reshape the case (see opaque()).
+    MockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
+    const uint8_t *get_face_counts_data() const { return fc; }
+    size_t get_face_counts_size() const { return 1; }
+    const uint16_t *get_faces_data() const { return fi; }
+  } mesh;
+  DeathEffect fx;
+  Canvas c(fx);
+  Pipeline<W, H> pipe;
+  Plot::Mesh::draw<W, H>(pipe, c, mesh,
+                         [](const Vector &, Fragment &) {}); // index 130 -> trap
+}
+
 struct Case {
   const char *name;
   void (*fn)();
@@ -294,6 +327,7 @@ inline const Case *all_cases(int &n) {
       {"make_basis_nan", case_make_basis_nan},
       {"register_param_overflow", case_register_param_overflow},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
+      {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;

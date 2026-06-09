@@ -1267,11 +1267,11 @@ struct Mesh {
       int small = std::min(u, v);
       int large = std::max(u, v);
 
-      // Guard against vertex indices exceeding TriangularBitset capacity
-      if (large >= 128) {
-        hs::log("Plot::Mesh: vertex index exceeds TriangularBitset<128>");
-        return;
-      }
+      // A vertex index past the dedup bitset's capacity is a mesh-sizing bug
+      // with no valid recovery: silently dropping the edge would mask it and
+      // leave a wireframe with missing lines. Trap on the cold per-edge setup
+      // path, consistent with the OOB guard below (platform.h).
+      HS_CHECK(large < 128);
 
       if (visited.test_and_set(small, large))
         return;
