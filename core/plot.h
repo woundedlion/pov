@@ -80,44 +80,45 @@ struct Point {
  */
 // --- Strategy Helpers ---
 
+// Azimuthal-equidistant projection, shared by the planar rasterization strategy
+// and the clip-cull arc-extent sampler. The forward map sends a sphere point to
+// plane coordinates whose radius is the great-circle angle from the basis center
+// and whose azimuth follows the basis u/w axes; the inverse map reverses it.
+static inline std::pair<float, float> azimuthal_project(const Vector &p,
+                                                        const Basis &basis) {
+  float R = angle_between(p, basis.v);
+  if (R < math::EPS_GEOMETRIC)
+    return {0.0f, 0.0f};
+  float theta = fast_atan2(dot(p, basis.w), dot(p, basis.u));
+  return {R * fast_cosf(theta), R * fast_sinf(theta)};
+}
+
+static inline Vector azimuthal_unproject(float Px, float Py,
+                                         const Basis &basis) {
+  float R = sqrtf(Px * Px + Py * Py);
+  if (R < math::EPS_GEOMETRIC)
+    return basis.v;
+  float theta = fast_atan2(Py, Px);
+  Vector axis = (basis.u * fast_cosf(theta)) + (basis.w * fast_sinf(theta));
+  return (basis.v * fast_cosf(R)) + (axis * fast_sinf(R));
+}
+
 // Planar Strategy
 template <typename ProcessSegmentFn>
 static void
 rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
                           const Basis &planar_basis, bool isLastSegment,
                           ProcessSegmentFn &&process_segment) {
-  const Vector &u = planar_basis.u;
-  const Vector &center = planar_basis.v;
-  const Vector &w = planar_basis.w;
-
-  auto project = [&](const Vector &p) -> std::pair<float, float> {
-    float R = angle_between(p, center);
-    if (R < math::EPS_GEOMETRIC)
-      return {0.0f, 0.0f};
-    float x = dot(p, u);
-    float y = dot(p, w);
-    float theta = fast_atan2(y, x);
-    return {R * fast_cosf(theta), R * fast_sinf(theta)};
-  };
-
-  auto proj1 = project(curr.pos);
-  auto proj2 = project(next.pos);
+  auto proj1 = azimuthal_project(curr.pos, planar_basis);
+  auto proj2 = azimuthal_project(next.pos, planar_basis);
   float dx = proj2.first - proj1.first;
   float dy = proj2.second - proj1.second;
 
   // The path is a straight line in the azimuthal-equidistant projection,
   // parameterized here by the PROJECTION fraction p in [0,1] (not arc length).
-  auto unproject = [=](float p) -> Vector {
-    float Px = proj1.first + dx * p;
-    float Py = proj1.second + dy * p;
-
-    float R = sqrtf(Px * Px + Py * Py);
-    if (R < math::EPS_GEOMETRIC)
-      return center;
-
-    float theta = fast_atan2(Py, Px);
-    Vector axis = (u * fast_cosf(theta)) + (w * fast_sinf(theta));
-    return (center * fast_cosf(R)) + (axis * fast_sinf(R));
+  auto unproject = [=, &planar_basis](float p) -> Vector {
+    return azimuthal_unproject(proj1.first + dx * p, proj1.second + dy * p,
+                               planar_basis);
   };
 
   // Cumulative on-sphere arc length at evenly-spaced PROJECTION samples.
@@ -196,6 +197,80 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
       return (v1 * c) + (v_perp * s);
     };
     process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
+  }
+}
+
+// Conservative screen-row span of a rendered edge, including the arc's interior
+// latitude bulge. The clip cull must not test endpoints alone: a great-circle
+// (or planar-projected) edge between two points outside a clip band can still
+// bulge through it, and an endpoint-only test silently drops the arc — a gap at
+// a segment boundary on Phantasm hardware, where each board renders a Y-band.
+// Rows are computed via the canvas mapping row = phi_to_y(acos(y)); we extend
+// the endpoint rows by the arc's interior latitude extremum. Runs once per
+// coarse edge on the clip-only path.
+template <int W, int H>
+static inline void edge_row_span(const Vector &a, const Vector &b,
+                                 const Basis *planar_basis, float &row_lo,
+                                 float &row_hi) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  auto y_to_row = [](float y) {
+    return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
+  };
+  float ra = y_to_row(a.y);
+  float rb = y_to_row(b.y);
+  row_lo = std::min(ra, rb);
+  row_hi = std::max(ra, rb);
+
+  if (planar_basis == nullptr) {
+    // Geodesic edge: the arc y(t) = a.y·cos + v_perp.y·sin has its turning
+    // point inside the span iff the forward tangent's y-component flips sign
+    // between the endpoints. The extremal |y| is the great circle's peak
+    // latitude sqrt(1 - n.y²) (n = arc pole), reached only when present.
+    Vector axis = cross(a, b);
+    float L2 = dot(axis, axis);
+    if (L2 > math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
+      Vector n = axis * (1.0f / sqrtf(L2));
+      float t0 = cross(n, a).y; // forward tangent y at a
+      float t1 = cross(n, b).y; // forward tangent y at b
+      if ((t0 > 0.0f) != (t1 > 0.0f)) {
+        float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
+        float rp = y_to_row(t0 > 0.0f ? peak : -peak);
+        row_lo = std::min(row_lo, rp);
+        row_hi = std::max(row_hi, rp);
+      }
+    }
+  } else {
+    // Planar edge: an azimuthal-equidistant straight line is not a great circle,
+    // so there is no closed-form latitude extremum. Sample the arc with the same
+    // unprojection the rasterizer uses (so the cull and the renderer agree to
+    // the bit), then widen by the arc's Lipschitz bound. Working in row space
+    // keeps the margin uniform (it would blow up near the poles in y): phi is
+    // 1-Lipschitz in angular distance, so between samples |Δrow| ≤
+    // (Δarc)·(H_VIRT−1)/π, and the projected chord length over-estimates the
+    // on-sphere arc (the projection stretches tangential distance). That margin
+    // makes the span provably gap-free without dense sampling.
+    auto p1 = azimuthal_project(a, *planar_basis);
+    auto p2 = azimuthal_project(b, *planar_basis);
+    float dX = p2.first - p1.first;
+    float dY = p2.second - p1.second;
+    constexpr int SAMPLES = 8;
+    for (int k = 1; k < SAMPLES; ++k) {
+      float p = static_cast<float>(k) / SAMPLES;
+      float y = azimuthal_unproject(p1.first + dX * p, p1.second + dY * p,
+                                    *planar_basis)
+                    .y;
+      float r = y_to_row(y);
+      row_lo = std::min(row_lo, r);
+      row_hi = std::max(row_hi, r);
+    }
+    // Lipschitz margin (covers the hump between samples) plus a one-row epsilon
+    // that absorbs the sub-pixel difference between the unprojected sample (≈unit
+    // to fast-math precision) and the renderer's normalized plot position.
+    float margin = (sqrtf(dX * dX + dY * dY) / SAMPLES) *
+                       (static_cast<float>(H_VIRT - 1) / PI_F) +
+                   1.0f;
+    row_lo -= margin;
+    row_hi += margin;
   }
 }
 
@@ -335,26 +410,31 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     const Fragment &next = points[(i + 1) % len];
     bool isLastSegment = (i == count - 1);
 
-    // Tier 3: Segment culling — skip if both endpoints are outside clip region
-    if (clip_active) {
-      auto p1 = vector_to_pixel<W, H>(curr.pos);
-      auto p2 = vector_to_pixel<W, H>(next.pos);
-      if (!cr.could_intersect_y(p1.y, p2.y))
-        continue;
-    }
-
     // --- Interpolation Strategy Selection ---
     // Branch-cut guard: the planar projection is singular at the basis antipode,
     // so a segment with an endpoint there would project to a garbage azimuth and
     // interpolate wildly. Fall back to a (well-defined) geodesic edge for that
     // segment — near the antipode the "straight in projection" intent is
     // meaningless anyway. Two dot products on the planar path only; no cost to
-    // the geodesic callers.
+    // the geodesic callers. Decided before the cull so the row-span bound below
+    // matches the arc shape that will actually be rendered.
     const Vector *pc = planar_basis ? &planar_basis->v : nullptr;
     const bool antipodal_seam =
         pc && (dot(curr.pos, *pc) < -COS_PLANAR_ANTIPODE ||
                dot(next.pos, *pc) < -COS_PLANAR_ANTIPODE);
-    if (planar_basis && !antipodal_seam) {
+    const bool use_planar = planar_basis && !antipodal_seam;
+
+    // Tier 3: Segment culling — skip if the edge's full screen-row span (arc
+    // latitude bulge included) lies outside the clip band.
+    if (clip_active) {
+      float row_lo, row_hi;
+      edge_row_span<W, H>(curr.pos, next.pos, use_planar ? planar_basis : nullptr,
+                          row_lo, row_hi);
+      if (!cr.could_intersect_y(row_lo, row_hi))
+        continue;
+    }
+
+    if (use_planar) {
       rasterize_planar_strategy(curr, next, *planar_basis, isLastSegment,
                                 process_segment);
     } else {

@@ -197,6 +197,112 @@ inline void test_clip_could_intersect_y() {
 }
 
 // ============================================================================
+// Plot::edge_row_span — arc-aware clip cull (CODE_REVIEW #2)
+// ============================================================================
+
+// An orthonormal basis from a unit normal (mirrors make_basis's construction
+// without needing a quaternion). v is the normal; u, w span the tangent plane.
+inline Basis basis_from_normal(const Vector &n) {
+  Vector v = n.normalized();
+  Vector ref = std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL ? Y_AXIS : X_AXIS;
+  Vector u = cross(v, ref).normalized();
+  Vector w = cross(v, u).normalized();
+  return {u, v, w};
+}
+
+// edge_row_span must conservatively cover the actual rendered arc's screen-row
+// extent — including the interior latitude bulge that an endpoint-only test
+// silently drops (the curve-clip-cull gap). We densely sample the true arc for
+// both the geodesic and planar strategies and assert the span contains it, and
+// that the bulge case (where endpoints alone would under-cover) is exercised.
+inline void test_edge_row_span_covers_arc_bulge() {
+  constexpr int TW = 288, TH = 144;
+  auto row_of = [](const Vector &v) {
+    return vector_to_pixel<TW, TH>(v.normalized()).y;
+  };
+
+  hs::random().seed(20260609);
+  int bulge_cases = 0; // edges where endpoints alone under-cover the true arc
+
+  for (int trial = 0; trial < 6000; ++trial) {
+    const bool planar = (trial & 1);
+    Vector a, b;
+    Basis basis;
+    const Basis *pb = nullptr;
+
+    if (planar) {
+      // A planar-polygon edge: two points on a disk of angular radius `radius`
+      // about a random center, joined by an azimuthal-equidistant straight line.
+      Vector center(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (center.length() < 0.1f) continue;
+      basis = basis_from_normal(center.normalized());
+      pb = &basis;
+      float radius = hs::rand_f(0.2f, 1.4f);
+      auto on_disk = [&](float ang) {
+        Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
+        return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
+      };
+      float a0 = hs::rand_f(0, 2 * PI_F);
+      a = on_disk(a0);
+      b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+      // Antipodal-seam edges fall back to the geodesic strategy; skip them.
+      if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+          dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+        continue;
+    } else {
+      Vector ra(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      Vector rb(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (ra.length() < 0.1f || rb.length() < 0.1f) continue;
+      a = ra.normalized();
+      b = rb.normalized();
+      if (angle_between(a, b) < 0.05f) continue;
+    }
+
+    // Dense ground truth: the true rendered arc's row extent.
+    float t_lo = 1e9f, t_hi = -1e9f;
+    constexpr int N = 2000;
+    std::pair<float, float> p1{}, p2{};
+    float ang = 0.0f;
+    Vector vperp = a;
+    if (planar) {
+      p1 = Plot::azimuthal_project(a, basis);
+      p2 = Plot::azimuthal_project(b, basis);
+    } else {
+      ang = angle_between(a, b);
+      vperp = cross(cross(a, b).normalized(), a);
+    }
+    for (int i = 0; i <= N; ++i) {
+      float t = static_cast<float>(i) / N;
+      Vector p = planar ? Plot::azimuthal_unproject(
+                              p1.first + (p2.first - p1.first) * t,
+                              p1.second + (p2.second - p1.second) * t, basis)
+                        : (a * cosf(ang * t) + vperp * sinf(ang * t));
+      float r = row_of(p);
+      t_lo = std::min(t_lo, r);
+      t_hi = std::max(t_hi, r);
+    }
+
+    float n_lo, n_hi;
+    Plot::edge_row_span<TW, TH>(a, b, pb, n_lo, n_hi);
+
+    // The span must conservatively contain the true arc (sub-pixel tolerance for
+    // fast-math; the real render band additionally expands by >=1px margin).
+    HS_EXPECT_LE(n_lo, t_lo + 0.25f);
+    HS_EXPECT_GE(n_hi, t_hi - 0.25f);
+
+    // Count edges whose interior bulges past the endpoints — the case the old
+    // endpoint-only cull dropped. Confirms the test actually exercises it.
+    float e_lo = std::min(row_of(a), row_of(b));
+    float e_hi = std::max(row_of(a), row_of(b));
+    if (t_lo < e_lo - 1.0f || t_hi > e_hi + 1.0f) bulge_cases++;
+  }
+
+  // The randomized sweep must have produced many genuine bulge cases, else the
+  // test would pass vacuously without ever exercising the fix.
+  HS_EXPECT_GT(bulge_cases, 500);
+}
+
+// ============================================================================
 // Plot::Ring::calcPoint / Ring::sample
 // ============================================================================
 
@@ -430,6 +536,7 @@ inline int run_plot_scan_tests() {
   test_line_sample_antipodal_stable_axis();
 
   test_clip_could_intersect_y();
+  test_edge_row_span_covers_arc_bulge();
 
   test_ring_calc_point_unit_length();
   test_ring_sample_unit_length_and_progress();
