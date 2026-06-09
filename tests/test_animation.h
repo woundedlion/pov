@@ -4,15 +4,18 @@
  *
  * Unit tests for core/animation.h and core/easing.h.
  *
- * Scope: the PURE, non-render parts of the animation system. These tests
- * deliberately avoid constructing a live Canvas (its ctor busy-waits on the
- * render buffer and its dtor queues a frame). The animations exercised here
- * (Transition, Mutation, Lerp, Driver) take a `Canvas&` in step() but never
- * dereference it — AnimationBase::step only increments the frame counter and
- * the derived steps tested here only touch their bound float/subject. We pass
- * a reference into raw aligned storage (never read/written through it) so no
- * Canvas member is ever accessed. Timeline is intentionally NOT exercised
- * (inline-static shared global state; pulls the render stack).
+ * Scope: the PURE, non-render parts of the animation system. The animations
+ * exercised here (Transition, Mutation, Lerp, Driver, Rotation) take a `Canvas&`
+ * in step() but never dereference it — AnimationBase::step only increments the
+ * frame counter and the derived steps tested here only touch their bound
+ * float/subject/orientation. A single genuine Canvas over a tiny static Effect
+ * is shared (see fake_canvas()), so the reference is always valid yet untouched.
+ *
+ * Timeline IS exercised here. Its step() only drives the canvas-agnostic
+ * animations above, so the shared fake_canvas() suffices — no render stack is
+ * pulled. Every Timeline<W,CAPACITY> shares one global event array (plus the
+ * live-guard and frame/count cursors), so each test scopes its Timeline locally
+ * (balancing the guard) and resets the global cursors when it pokes them.
  *
  * Coverage:
  *   - Path::get_point: empty guard, endpoints, end-of-path clamp, midpoint
@@ -22,6 +25,9 @@
  *   - Driver: per-frame increment + wrap
  *   - Lerp: type-erased lerp(start,target,t) driven by easing
  *   - OrientationTrail: record/get ordering (index 0 is OLDEST — see note)
+ *   - Timeline: start-frame sequencing, one-shot removal + survivor compaction,
+ *     repeating rewind, .then()-chained event addition, clear(), capacity guard,
+ *     shared-orientation motion-blur composition
  *   - easing.h: ease(0)~0, ease(1)~1 for in/out variants; output finite
  */
 #pragma once
@@ -543,6 +549,95 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   HS_EXPECT_EQ(global_timeline_num_events, 1);
 }
 
+// When a non-repeating event completes and is removed, step() compacts the
+// array: later survivors are relocated (move_into) into the freed slots and must
+// keep stepping correctly from their new positions. Decisive check: the
+// originally-LAST event (relocated furthest) still reaches its own target.
+inline void test_timeline_compaction_preserves_later_events() {
+  Timeline<16> tl;
+  float a = 0.0f, b = 0.0f, c = 0.0f;
+  tl.add(0, Animation::Transition(a, 10.0f, 1, ease_mid));  // completes at t=1
+  tl.add(0, Animation::Transition(b, 100.0f, 5, ease_mid)); // in-flight survivor
+  tl.add(0, Animation::Transition(c, 200.0f, 5, ease_mid)); // in-flight survivor
+  HS_EXPECT_EQ(global_timeline_num_events, 3);
+
+  tl.step(fake_canvas()); // t=1: a done+removed; b,c step once and shift down
+  HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
+  HS_EXPECT_GT(b, 0.0f);
+  HS_EXPECT_GT(c, 0.0f);
+  HS_EXPECT_EQ(global_timeline_num_events, 2); // a gone; b,c compacted to 0,1
+  float b_after1 = b, c_after1 = c;
+
+  for (int i = 0; i < 4; ++i)
+    tl.step(fake_canvas()); // t=2..5: finish the relocated survivors
+  HS_EXPECT_GT(b, b_after1);            // kept advancing post-relocation
+  HS_EXPECT_GT(c, c_after1);
+  HS_EXPECT_NEAR(b, 100.0f, 1e-2f);
+  HS_EXPECT_NEAR(c, 200.0f, 1e-2f);     // last event survived relocation intact
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
+// .then() fires on completion; a callback may schedule a follow-up on the same
+// Timeline mid-step. step() appends such events past the active snapshot, then
+// gap-fills them into the freed slots — the add-during-callback path. The
+// follow-up is added this frame but only runs on the next.
+inline void test_timeline_then_chains_follow_up_event() {
+  Timeline<16> tl;
+  float a = 0.0f, b = 0.0f;
+  // 'a' completes in one frame; its .then() schedules 'b' to start immediately.
+  tl.add(0, Animation::Transition(a, 10.0f, 1, ease_mid).then([&]() {
+    tl.add(0, Animation::Transition(b, 20.0f, 1, ease_mid));
+  }));
+
+  tl.step(fake_canvas()); // t=1: a completes -> callback adds b (gap-filled in)
+  HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
+  HS_EXPECT_NEAR(b, 0.0f, 1e-6f);              // b added this frame, not yet run
+  HS_EXPECT_EQ(global_timeline_num_events, 1); // a removed, b now scheduled
+
+  tl.step(fake_canvas()); // t=2: the chained event runs and completes
+  HS_EXPECT_NEAR(b, 20.0f, 1e-3f);
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
+// clear() destroys all events and resets the frame cursor, leaving the timeline
+// reusable from t=0 — the in-place reset the singleton offers in lieu of
+// reassignment.
+inline void test_timeline_clear_resets_state() {
+  Timeline<16> tl;
+  float a = 0.0f;
+  tl.add(0, Animation::Transition(a, 10.0f, 5, ease_mid));
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
+  HS_EXPECT_EQ(global_timeline_t, 1);
+
+  tl.clear();
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+  HS_EXPECT_EQ(global_timeline_t, 0); // cursor rewound
+
+  // Reusable: a fresh one-frame event schedules from t=0 and completes.
+  float b = 0.0f;
+  tl.add(0, Animation::Transition(b, 5.0f, 1, ease_mid));
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(b, 5.0f, 1e-3f);
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
+// add() is bounded by MAX_EVENTS (the shared global array size): once full, a
+// further add is rejected (logged) rather than overrunning the array.
+inline void test_timeline_full_guard_rejects_overflow() {
+  Timeline<16> tl;
+  float sink = 0.0f;
+  // Targets share one float — this test asserts the count guard, not values, and
+  // never steps. Fill to capacity.
+  for (int i = 0; i < Timeline<16>::MAX_EVENTS; ++i)
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_mid));
+  HS_EXPECT_EQ(global_timeline_num_events, Timeline<16>::MAX_EVENTS);
+
+  tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_mid)); // one past full
+  HS_EXPECT_EQ(global_timeline_num_events,
+               Timeline<16>::MAX_EVENTS); // rejected, count unchanged
+}
+
 // Orientation::upsample SLERP-interpolates the recorded sub-frames up to a target
 // count (preserving the endpoints), and collapse() discards all but the newest —
 // the two primitives multi-animation motion blur is built on.
@@ -611,6 +706,10 @@ inline int run_animation_tests() {
   test_timeline_shared_orientation_composes_motion_blur();
   test_timeline_sequences_events_by_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
+  test_timeline_compaction_preserves_later_events();
+  test_timeline_then_chains_follow_up_event();
+  test_timeline_clear_resets_state();
+  test_timeline_full_guard_rejects_overflow();
   test_orientation_upsample_then_collapse();
 
   return hs_test::end_module(scope);
