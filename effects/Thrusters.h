@@ -9,8 +9,11 @@
 template <int W, int H> class Thrusters : public Effect {
 public:
   FLASHMEM Thrusters()
-      : Effect(W, H), palette({0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f},
-                              {0.3f, 0.3f, 0.3f}, {0.0f, 0.2f, 0.6f}),
+      // Inigo Quilez cosine palette: color(t) = bias + amp*cos(2π(freq*t + phase)).
+      : Effect(W, H), palette(/*bias*/ {0.5f, 0.5f, 0.5f},
+                              /*amp*/ {0.5f, 0.5f, 0.5f},
+                              /*freq*/ {0.3f, 0.3f, 0.3f},
+                              /*phase*/ {0.0f, 0.2f, 0.6f}),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
         warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid) {}

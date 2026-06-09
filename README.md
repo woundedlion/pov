@@ -200,6 +200,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
+│   ├── hd107s_frame.h          HD107S protocol buffer + inline color correction (host-testable)
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
 │   └── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │

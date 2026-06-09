@@ -87,6 +87,11 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
+  // Stereographic-projection guard: the denominator is (1 + eps) - q3, so the
+  // projection pole (q3 == 1) maps to a finite 1/eps instead of dividing by
+  // zero. normalized_or() then absorbs the degenerate direction.
+  static constexpr float STEREO_POLE_EPSILON = 0.001f;
+
   // Per-unit driver speeds (multiplied by the corresponding tuning param via
   // the bound Drivers set up in init()).
   static constexpr float FLOW_RATE = 0.02f * 0.2f; // flow_offset / flow_speed
@@ -163,7 +168,7 @@ private:
 
     // Stereographic S3 → R3. At a fiber pole (q0=q1=q2=0) the projected
     // direction is undefined; fall back to a stable axis instead of trapping.
-    float factor = 1.0f / (1.001f - q3);
+    float factor = 1.0f / ((1.0f + STEREO_POLE_EPSILON) - q3);
     return normalized_or(Vector(q0 * factor, q1 * factor, q2 * factor),
                          Vector(1, 0, 0));
   }

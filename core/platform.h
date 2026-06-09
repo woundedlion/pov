@@ -58,6 +58,7 @@ namespace hs {
  * @brief On-device logging to Serial: formats into a fixed 128-byte stack
  *        buffer with vsnprintf (no heap), then writes one line.
  */
+inline void log(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
@@ -279,9 +280,12 @@ inline uint8_t qsub8(uint8_t i, uint8_t j) {
   return t;
 }
 
+#ifndef PI // Arduino/FastLED define PI on-device; guard the host definition.
 #define PI 3.1415926535897932384626433832795
+#endif
 
 namespace hs {
+inline void log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
@@ -571,6 +575,9 @@ inline int rand_int(int min, int max) {
  *        invariant fired and where. Formats msg into a fixed stack buffer (no
  *        heap) so it is safe to call from a corrupted-arena / OOM context.
  */
+[[noreturn]] inline void check_fail(const char *file, int line,
+                                    const char *cond, const char *fmt, ...)
+    __attribute__((format(printf, 4, 5)));
 [[noreturn]] inline void check_fail(const char *file, int line,
                                     const char *cond, const char *fmt, ...) {
   char msg[96];
