@@ -51,6 +51,18 @@ struct Fragment {
 };
 
 /**
+ * @brief Normalized distance from the nearest face edge for a rasterized
+ * fragment. The mesh rasterizer packs the signed edge distance into
+ * Fragment::v1 (negative inside the face) and the face's reference size into
+ * Fragment::size, so `-v1 / size` is the inward depth in face-relative units.
+ * Returns 0 for degenerate (near-zero-size) faces. Shared by the topology
+ * shaders (HankinSolids/IslamicStars) which both gradient-map this depth.
+ */
+inline float fragment_edge_dist(const Fragment &f) {
+  return (f.size > 0.0001f) ? (-f.v1 / f.size) : 0.0f;
+}
+
+/**
  * @brief A list of fragments, equivalent to 'Points' in the JS context but with
  * full register support.
  */

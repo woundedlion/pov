@@ -102,10 +102,7 @@ private:
                         ? topology[faceIdx]
                         : 0;
 
-      float distFromEdge = -f.v1;
-      float normalizedDist =
-          (f.size > 0.0001f) ? (distFromEdge / f.size) : 0.0f;
-      float t = hs::clamp(normalizedDist * params.intensity, 0.0f, 1.0f);
+      float t = hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
 
       f.color = palette_bank_[palette_idx[topoIdx % NUM_PALETTES]].get(t);
       f.color.alpha *= opacity;

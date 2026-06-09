@@ -270,6 +270,21 @@ struct StereoWarpResult {
 };
 
 /**
+ * @brief Smooth pole attenuation for stereographic-space effects.
+ * Stereographic projection sends the far pole to infinity, so |z|² grows
+ * without bound near it; this returns a 1/(1 + r²/pole_fade²) falloff that is
+ * 1 at the projection origin and decays toward 0 with distance, taming that
+ * singularity. Shared by stereo_noise_warp and the stereo pattern effects
+ * (Flyby/Liquid2D) so the falloff stays identical across warp and shading.
+ *
+ * @param r_sq      Pre-computed |z|² (z.re² + z.im²).
+ * @param pole_fade Attenuation radius (larger = wider fade zone).
+ */
+inline float pole_attenuation(float r_sq, float pole_fade) {
+  return 1.0f / (1.0f + (r_sq / (pole_fade * pole_fade)));
+}
+
+/**
  * @brief Applies noise-based displacement in stereographic space.
  * Displacement is attenuated near the projection pole to prevent
  * singularity blowup. Returns both the warped coordinate and the
@@ -287,7 +302,7 @@ inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
                                           const FastNoiseLite &noise,
                                           float scale, float strength,
                                           float pole_fade, float time) {
-  float atten = 1.0f / (1.0f + (r_sq / (pole_fade * pole_fade)));
+  float atten = pole_attenuation(r_sq, pole_fade);
   float s = strength * atten;
   float dx = noise.GetNoise(z.re * scale, z.im * scale, time) * s;
   float dy =

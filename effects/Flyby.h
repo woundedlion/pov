@@ -96,7 +96,7 @@ private:
 
   /// Pole attenuation applied to pattern, normalized to [0,1].
   float attenuate(float pattern, float r_sq) const {
-    float fade = 1.0f / (1.0f + (r_sq / (params.pole_fade * params.pole_fade)));
+    float fade = pole_attenuation(r_sq, params.pole_fade);
     return (pattern * fade + 1.0f) * 0.5f;
   }
 

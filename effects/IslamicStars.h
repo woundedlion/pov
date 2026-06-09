@@ -93,9 +93,7 @@ private:
       int faceIdx = static_cast<int>(frag.v2);
       int topoIdx = raw_indices[faceIdx];
 
-      float size = frag.size;
-      float intensity = (size > 0.0001f) ? (-frag.v1 / size) : 0.0f;
-      intensity = hs::clamp(intensity, 0.0f, 1.0f);
+      float intensity = hs::clamp(fragment_edge_dist(frag), 0.0f, 1.0f);
 
       frag.color =
           palette_bank_[palette_idx[topoIdx % NUM_PALETTES]].get(intensity);
