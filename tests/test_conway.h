@@ -503,6 +503,58 @@ inline void test_face_centroid_for_cube_top_face() {
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
+// Degenerate-face regression — expand/chamfer/snub must not emit a primary
+// face with fewer than 3 sides.
+// ---------------------------------------------------------------------------
+
+inline void check_no_degenerate_faces(const PolyMesh &m) {
+  for (size_t i = 0; i < m.face_counts.size(); ++i)
+    HS_EXPECT_TRUE(m.face_counts[i] >= 3);
+}
+
+// A minimal malformed input: 2 vertices forming a single 2-gon face.
+// HalfEdgeMesh accepts it (it has no <3-sided guard), so it reaches the
+// primary-face loop of expand/chamfer/snub with count == 2.
+inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
+  m.initialize(arena, 2, 1, 2);
+  m.vertices.push_back(Vector(1.0f, 0.0f, 0.0f));
+  m.vertices.push_back(Vector(-1.0f, 0.0f, 0.0f));
+  m.face_counts.push_back(2);
+  m.faces.push_back(0);
+  m.faces.push_back(1);
+}
+
+// Regression: expand/chamfer/snub pushed face_counts(count) before the
+// count>=3 guard, so a malformed intermediate mesh leaked a sub-triangular
+// primary face that only compile() later stripped. Each operator must now drop
+// the degenerate primary face (matching ambo/truncate and the vertex-orbit
+// emitter), so no output face has fewer than 3 sides. Fails on the old code,
+// which emitted the count==2 primary face.
+inline void test_conway_ops_drop_degenerate_primary_faces() {
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh m;
+    build_degenerate_digon(m, temp);
+    check_no_degenerate_faces(MeshOps::expand(m, target, temp));
+  }
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh m;
+    build_degenerate_digon(m, temp);
+    check_no_degenerate_faces(MeshOps::chamfer(m, target, temp, 0.5f));
+  }
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh m;
+    build_degenerate_digon(m, temp);
+    check_no_degenerate_faces(MeshOps::snub(m, target, temp));
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 inline int run_conway_tests() {
   auto scope = hs_test::begin_module("conway");
@@ -523,6 +575,7 @@ inline int run_conway_tests() {
   test_zip_cube();
   test_bevel_cube();
   test_snub_cube_is_well_formed();
+  test_conway_ops_drop_degenerate_primary_faces();
   test_transform_applies_translation_chain();
   test_face_centroid_for_cube_top_face();
 

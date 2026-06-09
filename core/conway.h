@@ -564,7 +564,15 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
       uint16_t start = he_mesh.faces[fi].half_edge;
       uint16_t he_idx = start;
 
-      out_mesh.face_counts.push_back(count);
+      // Emit the shrunk primary face only when it is well-formed (>=3 sides),
+      // matching ambo/truncate and the vertex-orbit emitter. The new vertices
+      // and their he->vertex mapping are still created unconditionally because
+      // the edge and orbit faces below reference them; only a degenerate
+      // primary face is dropped (a malformed intermediate would otherwise leak
+      // a sub-triangular face that just gets stripped later by compile()).
+      const bool well_formed = count >= 3;
+      if (well_formed)
+        out_mesh.face_counts.push_back(count);
       he_idx = start;
       if (he_idx != HE_NONE) {
         do {
@@ -574,7 +582,8 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
           int idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_vert_idx[he_idx] = idx;
 
-          out_mesh.faces.push_back(idx);
+          if (well_formed)
+            out_mesh.faces.push_back(idx);
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
       }
@@ -659,7 +668,13 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
       uint16_t start = he_mesh.faces[fi].half_edge;
       uint16_t he_idx = start;
 
-      out_mesh.face_counts.push_back(count);
+      // Emit the shrunk primary face only when well-formed (>=3 sides); the new
+      // vertices and he->vertex mapping are created unconditionally for the
+      // edge hexagons below. Mirrors ambo/truncate and the orbit emitter,
+      // dropping a degenerate primary face instead of leaking a <3-gon.
+      const bool well_formed = count >= 3;
+      if (well_formed)
+        out_mesh.face_counts.push_back(count);
       he_idx = start;
 
       if (he_idx != HE_NONE) {
@@ -673,7 +688,8 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
           uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_new_v[he_idx] = idx;
 
-          out_mesh.faces.push_back(idx);
+          if (well_formed)
+            out_mesh.faces.push_back(idx);
 
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
@@ -869,7 +885,13 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
         normal = centroid.normalized();
       }
 
-      out_mesh.face_counts.push_back(count);
+      // Emit the twisted primary face only when well-formed (>=3 sides); the
+      // new vertices and he->vertex mapping are created unconditionally for the
+      // edge triangles below. Mirrors ambo/truncate and the orbit emitter,
+      // dropping a degenerate primary face instead of leaking a <3-gon.
+      const bool well_formed = count >= 3;
+      if (well_formed)
+        out_mesh.face_counts.push_back(count);
       he_idx = start;
       if (he_idx != HE_NONE) {
         do {
@@ -886,7 +908,8 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
           int idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_vert_idx[he_idx] = idx;
 
-          out_mesh.faces.push_back(idx);
+          if (well_formed)
+            out_mesh.faces.push_back(idx);
 
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
