@@ -637,16 +637,20 @@ public:
       entries[i] = lastLinear;
   }
 
-  /// Fast LUT lookup — nearest-index, no interpolation between entries.
-  /// For smooth gradients at low t resolution, use GenerativePalette or
-  /// BakedPalette which interpolate between stops.
+  /// LUT lookup with linear interpolation between adjacent entries, mirroring
+  /// BakedPalette::get — the engine's premise is smooth 16-bit gradients, so a
+  /// nearest-index lookup would band visibly at low t resolution.
   Color4 get(float t) const override {
-    // Clamp before the cast: t > 1 would wrap (256 -> index 0, the first stop
-    // instead of the last) and t < 0 is UB for the float->uint8_t conversion.
-    // Identity for the valid t in [0,1] range; matches the index clamping the
-    // sibling LUT palettes (e.g. BakedPalette::get) already do.
-    uint8_t index = static_cast<uint8_t>(hs::clamp(t, 0.0f, 1.0f) * 255);
-    return Color4(entries[index], 1.0f);
+    // Clamp before scaling: t > 1 would index past the table and t < 0 is UB for
+    // the float->int conversion. After the clamp idx is in [0,255], so lo is a
+    // valid index and lo+1 only overruns at the t==1 endpoint, handled below.
+    float idx = hs::clamp(t, 0.0f, 1.0f) * 255.0f;
+    int lo = static_cast<int>(idx);
+    if (lo >= 255) return Color4(entries[255], 1.0f);
+    float frac = idx - lo;
+    return Color4(entries[lo].lerp16(entries[lo + 1],
+                                     static_cast<uint16_t>(frac * 65535.0f)),
+                  1.0f);
   }
 
   ~Gradient() {}

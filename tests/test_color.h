@@ -495,6 +495,22 @@ inline void test_gradient_solid_color() {
   HS_EXPECT_EQ(a.color.b, b.color.b);
 }
 
+inline void test_gradient_interpolates_between_entries() {
+  // Two t values that fall inside the same LUT cell (both truncate to index 200)
+  // must yield DISTINCT colors — the old nearest-index lookup returned the same
+  // entry for both, which is the visible banding this fix removes. The
+  // interpolated samples must also stay bracketed by their neighbouring entries.
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+  Color4 lo = grad.get(200.25f / 255.0f);
+  Color4 hi = grad.get(200.75f / 255.0f);
+  HS_EXPECT_GT(hi.color.r, lo.color.r); // fails under nearest-index (equal)
+
+  Color4 e_lo = grad.get(200.0f / 255.0f);
+  Color4 e_hi = grad.get(201.0f / 255.0f);
+  HS_EXPECT_GE(lo.color.r, e_lo.color.r);
+  HS_EXPECT_LE(hi.color.r, e_hi.color.r);
+}
+
 // ============================================================================
 // BakedPalette::get  (requires an Arena)
 // ============================================================================
@@ -803,6 +819,7 @@ inline int run_color_tests() {
   test_gradient_endpoints();
   test_gradient_in_range_valid_and_monotone();
   test_gradient_solid_color();
+  test_gradient_interpolates_between_entries();
 
   test_baked_palette_matches_source_endpoints();
   test_baked_palette_in_range();
