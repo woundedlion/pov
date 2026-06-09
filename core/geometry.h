@@ -525,6 +525,19 @@ public:
    * @brief Increases the resolution of the history to 'count' steps, preserving
    * shape via Slerp.
    * @param count The target number of steps in the history.
+   * @note When `count > CAPACITY` the trail is upsampled to `CAPACITY` instead.
+   * This is intentional graceful degradation, not a trap: a `count` past
+   * capacity means the per-frame angular speed exceeds what the trail can
+   * sub-sample within the `MAX_ANGLE` (one-column) smoothness threshold — a
+   * transient artistic input (e.g. a cranked speed slider), not a structural
+   * invariant violation. The clamp keeps the write provably in-bounds, the
+   * current orientation is always exact (`collapse()` retains the latest), and
+   * the only consequence is that the motion-blur smear is sampled more coarsely
+   * at extreme speed. Fail-fast (`HS_CHECK`) is reserved for cold seams and
+   * memory/structural invariants; this is a per-frame hot path and the bounded
+   * soft-degrade is the correct response here (cf. the DMA overrun-drop). To
+   * trade RAM + per-frame slerp work for a smoother fast smear, raise `CAP` on
+   * the affected `Orientation` rather than reintroducing a trap.
    */
   void upsample(int count) {
     // A history must hold at least one frame; count < 1 is a caller bug. This
@@ -534,7 +547,7 @@ public:
     HS_CHECK(count >= 1);
     if (num_frames >= count)
       return;
-    if (count > CAPACITY)
+    if (count > CAPACITY) // soft-degrade past capacity — see @note above
       count = CAPACITY;
 
     std::array<Quaternion, CAPACITY> old_orientations;

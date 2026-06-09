@@ -964,7 +964,8 @@ public:
     float total_angle = angle_between(current_v, target_v);
     int num_steps = rotation_substeps(total_angle, MAX_ANGLE);
 
-    // Ensure sufficient resolution
+    // Ensure sufficient resolution. Past CAP this soft-clamps and the smear
+    // sub-samples (graceful degradation, never a trap) — see Orientation::upsample.
     orientation.get().upsample(num_steps + 1);
     int len = orientation.get().length();
 
@@ -1080,6 +1081,8 @@ public:
     // Same tight substep count as Motion (was `1 + ceil(...)`, one subdivision
     // more than needed — now unified via rotation_substeps).
     int num_steps = rotation_substeps(std::abs(delta), MAX_ANGLE);
+    // Past CAP this soft-clamps and the smear sub-samples (graceful
+    // degradation, never a trap) — see Orientation::upsample.
     orientation->upsample(num_steps + 1);
     int len = orientation->length();
 
