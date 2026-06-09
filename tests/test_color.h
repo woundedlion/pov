@@ -84,6 +84,47 @@ inline void test_lerp16_bounded() {
   }
 }
 
+// Round-to-nearest div-by-65535 reference, in double.
+inline uint16_t lerp16_reference(uint16_t a, uint16_t b, uint16_t frac) {
+  double t = static_cast<double>(frac) / 65535.0;
+  return static_cast<uint16_t>(a * (1.0 - t) + b * t + 0.5);
+}
+
+// lerp16 must be correct across the FULL 0..65535 operand range, not just the
+// lower half. A prior ARM build packed the two channel products into a single
+// `smlad` — a SIGNED 16x16 dual-MAC — so any operand >= 32768 (a frac, an
+// inverse-frac, or simply a bright channel) was read as negative and the
+// product was wrong for the entire upper half of the range, diverging from the
+// true value by as much as a full 65535. The multiply is now a plain 32-bit MAC
+// on every target; this pins the full-range contract that the broken signed
+// path violated (the native build can't execute the ARM asm, so this guards the
+// behavior the device must match, not the instruction).
+inline void test_lerp16_full_range_correct() {
+  // Midpoint of two maximal channels stays maximal — the canonical case the
+  // signed-smlad path collapsed (65535 read as -1 -> product ~0).
+  Pixel16 hi(65535, 65535, 65535), lo(0, 0, 0);
+  Pixel16 mid = hi.lerp16(lo, 32768);
+  HS_EXPECT_NEAR(static_cast<float>(mid.r), 32768.0f, 2.0f);
+  HS_EXPECT_NEAR(static_cast<float>(mid.g), 32768.0f, 2.0f);
+
+  // Bright endpoints recovered exactly.
+  Pixel16 a(65535, 49152, 40000), b(32768, 60000, 33000);
+  HS_EXPECT_TRUE(a.lerp16(b, 0) == a);
+  HS_EXPECT_TRUE(a.lerp16(b, 65535) == b);
+
+  // Sweep high-operand pairs (all >= 32768) against the double reference; this
+  // is precisely the regime where the old signed path diverged wildly.
+  const uint16_t vals[] = {32768, 40000, 49152, 60000, 65535};
+  for (uint16_t av : vals)
+    for (uint16_t bv : vals)
+      for (uint32_t f = 0; f <= 65535; f += 8191) {
+        Pixel16 pa(av, 0, 0), pb(bv, 0, 0);
+        uint16_t got = pa.lerp16(pb, static_cast<uint16_t>(f)).r;
+        uint16_t ref = lerp16_reference(av, bv, static_cast<uint16_t>(f));
+        HS_EXPECT_TRUE(std::abs(static_cast<int>(got) - static_cast<int>(ref)) <= 1);
+      }
+}
+
 // ============================================================================
 // Blend modes
 // ============================================================================
@@ -507,6 +548,220 @@ inline void test_baked_palette_in_range() {
 }
 
 // ============================================================================
+// Palette layer: source palettes, modifiers, compositions, and wrappers
+// ============================================================================
+
+// ProceduralPalette: C(t) = a + b*cos(2*PI*(c*t + d)) in sRGB, then to linear.
+// A {a=.5,b=.5,c=1,d=0} channel is cos-driven: t=0 -> 1.0 (full), t=0.5 -> 0.0.
+inline void test_procedural_palette_cosine() {
+  ProceduralPalette pp({0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f},
+                       {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f});
+  Color4 c0 = pp.get(0.0f);
+  Color4 chalf = pp.get(0.5f);
+  HS_EXPECT_EQ(c0.color.r, 65535); // 0.5 + 0.5*cos(0) = 1.0
+  HS_EXPECT_EQ(chalf.color.r, 0);  // 0.5 + 0.5*cos(PI) = 0.0
+  HS_EXPECT_NEAR(c0.alpha, 1.0f, 1e-6f);
+}
+
+// MutatingPalette: mutate(0) reproduces palette #1, mutate(1) reproduces #2,
+// and an interior amount lands between them.
+inline void test_mutating_palette_blends_endpoints() {
+  // #1 -> white at t=0 ; #2 -> black everywhere.
+  MutatingPalette m({0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f},
+                    {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f},
+                    {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f});
+  m.mutate(0.0f);
+  HS_EXPECT_EQ(m.get(0.0f).color.r, 65535);
+  m.mutate(1.0f);
+  HS_EXPECT_EQ(m.get(0.0f).color.r, 0);
+  m.mutate(0.5f); // a=.25, b=.25 -> 0.25 + 0.25*cos(0) = 0.5 sRGB
+  uint16_t mid = m.get(0.0f).color.r;
+  HS_EXPECT_GT(mid, 0);
+  HS_EXPECT_LT(mid, 65535);
+}
+
+// GenerativePalette with a manual seed and rand-free profiles
+// (FLAT/VIBRANT/TRIADIC use no RNG) is fully deterministic.
+inline void test_generative_palette_deterministic() {
+  auto make = [](int seed) {
+    return GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                             BrightnessProfile::FLAT, SaturationProfile::VIBRANT,
+                             seed);
+  };
+  GenerativePalette g1 = make(0), g2 = make(0), g3 = make(128);
+  bool g3_differs = false;
+  for (int i = 0; i <= 16; ++i) {
+    float t = i / 16.0f;
+    Color4 a = g1.get(t), b = g2.get(t), c = g3.get(t);
+    // Same seed/params -> bit-identical.
+    HS_EXPECT_EQ(a.color.r, b.color.r);
+    HS_EXPECT_EQ(a.color.g, b.color.g);
+    HS_EXPECT_EQ(a.color.b, b.color.b);
+    if (c.color.r != a.color.r || c.color.g != a.color.g) g3_differs = true;
+  }
+  HS_EXPECT_TRUE(g3_differs); // a different seed must change the palette
+}
+
+// The auto-seed cursor advances per construction, so two consecutive auto-seeded
+// palettes differ; reset_hue_seed restores the cursor for reproducibility.
+inline void test_generative_palette_auto_seed_advances() {
+  GenerativePalette::reset_hue_seed(0);
+  GenerativePalette a(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                      BrightnessProfile::FLAT, SaturationProfile::VIBRANT);
+  GenerativePalette b(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                      BrightnessProfile::FLAT, SaturationProfile::VIBRANT);
+  HS_EXPECT_TRUE(a.get(0.0f).color.r != b.get(0.0f).color.r ||
+                 a.get(0.0f).color.g != b.get(0.0f).color.g);
+
+  // Resetting the cursor reproduces the first palette exactly.
+  GenerativePalette::reset_hue_seed(0);
+  GenerativePalette a2(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                       BrightnessProfile::FLAT, SaturationProfile::VIBRANT);
+  HS_EXPECT_EQ(a.get(0.3f).color.r, a2.get(0.3f).color.r);
+  HS_EXPECT_EQ(a.get(0.3f).color.g, a2.get(0.3f).color.g);
+}
+
+// GenerativePalette::lerp(snapshot, snapshot, amount) drives a cross-fade: at
+// amount 0/1 it reproduces the endpoint palettes (within the OKLCH round-trip).
+inline void test_generative_palette_snapshot_lerp() {
+  GenerativePalette from(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                         BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 0);
+  GenerativePalette to(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                       BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 128);
+  // Endpoints must be clearly distinct for the test to mean anything.
+  HS_EXPECT_TRUE(std::abs(static_cast<int>(from.get(0.0f).color.r) -
+                          static_cast<int>(to.get(0.0f).color.r)) > 4000 ||
+                 std::abs(static_cast<int>(from.get(0.0f).color.g) -
+                          static_cast<int>(to.get(0.0f).color.g)) > 4000);
+
+  GenerativePalette mixed(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                          BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 0);
+  // amount 0 -> ~from, amount 1 -> ~to (OKLCH round-trip tolerance in linear).
+  const float tol = 2500.0f;
+  mixed.lerp(from.snapshot(), to.snapshot(), 0.0f);
+  HS_EXPECT_NEAR(static_cast<float>(mixed.get(0.0f).color.r),
+                 static_cast<float>(from.get(0.0f).color.r), tol);
+  mixed.lerp(from.snapshot(), to.snapshot(), 1.0f);
+  HS_EXPECT_NEAR(static_cast<float>(mixed.get(0.0f).color.r),
+                 static_cast<float>(to.get(0.0f).color.r), tol);
+}
+
+// Modifiers transform the palette coordinate; test each modify() in isolation.
+inline void test_palette_modifiers() {
+  // Scale multiplies the coordinate.
+  HS_EXPECT_NEAR(ScaleModifier(2.0f).modify(0.3f), 0.6f, 1e-5f);
+  float dyn_scale = 3.0f;
+  HS_EXPECT_NEAR(ScaleModifier(1.0f, &dyn_scale).modify(0.2f), 0.6f, 1e-5f);
+
+  // Cycle adds the driver offset; a null driver is a deliberate pass-through.
+  float off = 0.25f;
+  HS_EXPECT_NEAR(CycleModifier(&off).modify(0.5f), 0.75f, 1e-5f);
+  HS_EXPECT_NEAR(CycleModifier(nullptr).modify(0.5f), 0.5f, 1e-5f);
+
+  // Quantize snaps to the nearest step: round(0.3*4)/4 = 1/4 = 0.25.
+  HS_EXPECT_NEAR(QuantizeModifier(4.0f).modify(0.3f), 0.25f, 1e-5f);
+
+  // Fold is a triangle wave: 0->1, 0.25->0.5, 0.5->0.
+  FoldModifier fold(2.0f);
+  HS_EXPECT_NEAR(fold.modify(0.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(fold.modify(0.25f), 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(fold.modify(0.5f), 0.0f, 1e-5f);
+
+  // Breathe with a zero-phase driver is identity; a quarter-turn shifts by amp.
+  float phase0 = 0.0f;
+  HS_EXPECT_NEAR(BreatheModifier(&phase0, 0.1f).modify(0.5f), 0.5f, 1e-3f);
+
+  // Ripple at t=0, phase=0 leaves the coordinate fixed (sin(0) = 0).
+  float rphase = 0.0f;
+  HS_EXPECT_NEAR(RippleModifier(&rphase, 3.0f, 0.1f).modify(0.0f), 0.0f, 1e-5f);
+
+  // Pinch (positive tension) pulls an off-center coordinate toward 0.5.
+  float tension = 0.5f;
+  float pinched = PinchModifier(&tension).modify(0.25f);
+  HS_EXPECT_GT(pinched, 0.25f);
+  HS_EXPECT_LT(pinched, 0.5f);
+  // A null tension driver passes through.
+  HS_EXPECT_NEAR(PinchModifier(nullptr).modify(0.3f), 0.3f, 1e-5f);
+}
+
+// StaticPalette folds its modifier chain (in order) then queries the source.
+inline void test_static_palette_composition() {
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+
+  // Single modifier: scale=2 turns get(0.25) into source.get(0.5).
+  ScaleModifier scale(2.0f);
+  StaticPalette<Gradient, ScaleModifier> sp;
+  sp.bind(&grad, &scale);
+  HS_EXPECT_EQ(sp.get(0.25f).color.r, grad.get(0.5f).color.r);
+
+  // Two modifiers apply in tuple order (scale THEN cycle): 0.2 -> 0.4 -> 0.5.
+  float off = 0.1f;
+  CycleModifier cycle(&off);
+  StaticPalette<Gradient, ScaleModifier, CycleModifier> sp2;
+  sp2.bind(&grad, &scale, &cycle);
+  HS_EXPECT_EQ(sp2.get(0.2f).color.r, grad.get(0.5f).color.r);
+}
+
+// AnimatedPalette applies its registered modifiers then queries the source.
+inline void test_animated_palette_applies_modifiers() {
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+  ScaleModifier scale(2.0f);
+  AnimatedPalette ap(&grad);
+  ap.add(scale);
+  HS_EXPECT_EQ(ap.get(0.25f).color.r, grad.get(0.5f).color.r);
+}
+
+// Falloff function for AlphaFalloffPalette (must be a plain function pointer).
+inline float test_half_falloff(float) { return 0.5f; }
+
+// Palette wrappers remap the coordinate / alpha around a source palette, and
+// fall back to transparent black when the source is null.
+inline void test_palette_wrappers() {
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+
+  // Reverse: t -> 1-t.
+  ReversePalette rev(&grad);
+  HS_EXPECT_GT(rev.get(0.0f).color.r, 60000); // was white at t=1
+  HS_EXPECT_EQ(rev.get(1.0f).color.r, 0);     // was black at t=0
+
+  // Circular: [0,1] -> [0,1,0]; the midpoint reaches the far end of the source.
+  CircularPalette circ(&grad);
+  HS_EXPECT_EQ(circ.get(0.0f).color.r, 0);
+  HS_EXPECT_GT(circ.get(0.5f).color.r, 60000);
+  HS_EXPECT_EQ(circ.get(1.0f).color.r, 0);
+
+  // Vignette: fades to black at the edges, source color in the middle band.
+  VignettePalette vig(&grad);
+  HS_EXPECT_LT(vig.get(0.0f).color.r, 1000); // edge -> ~black
+  uint16_t vmid = vig.get(0.5f).color.r;     // middle -> source.get(0.5)
+  HS_EXPECT_GT(vmid, 1000);
+  HS_EXPECT_LT(vmid, 64000);
+
+  // TransparentVignette: alpha (not color) fades at the edges.
+  TransparentVignette tv(&grad);
+  HS_EXPECT_NEAR(tv.get(0.0f).alpha, 0.0f, 1e-3f); // edge -> transparent
+  HS_EXPECT_NEAR(tv.get(0.1f).alpha, 0.5f, 1e-2f); // quintic(0.5) = 0.5
+  HS_EXPECT_NEAR(tv.get(0.5f).alpha, 1.0f, 1e-3f); // middle -> opaque
+
+  // AlphaFalloff scales alpha by the falloff function.
+  AlphaFalloffPalette afp(test_half_falloff, &grad);
+  HS_EXPECT_NEAR(afp.get(0.5f).alpha, 0.5f, 1e-5f);
+  HS_EXPECT_EQ(afp.get(0.5f).color.r, grad.get(0.5f).color.r);
+
+  // Solid color ignores t.
+  SolidColorPalette solid(Color4(Pixel(111, 222, 333), 0.7f));
+  HS_EXPECT_EQ(solid.get(0.9f).color.g, 222);
+  HS_EXPECT_NEAR(solid.get(0.1f).alpha, 0.7f, 1e-6f);
+
+  // Null source -> transparent black (no crash).
+  ReversePalette rev_null(nullptr);
+  HS_EXPECT_EQ(rev_null.get(0.5f).color.r, 0);
+  HS_EXPECT_NEAR(rev_null.get(0.5f).alpha, 0.0f, 1e-6f);
+  VignettePalette vig_null(nullptr);
+  HS_EXPECT_NEAR(vig_null.get(0.5f).alpha, 0.0f, 1e-6f);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -516,6 +771,7 @@ inline int run_color_tests() {
   test_lerp16_endpoints();
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();
+  test_lerp16_full_range_correct();
   test_lerp16_bounded();
 
   test_blend_over_under();
@@ -550,6 +806,16 @@ inline int run_color_tests() {
 
   test_baked_palette_matches_source_endpoints();
   test_baked_palette_in_range();
+
+  test_procedural_palette_cosine();
+  test_mutating_palette_blends_endpoints();
+  test_generative_palette_deterministic();
+  test_generative_palette_auto_seed_advances();
+  test_generative_palette_snapshot_lerp();
+  test_palette_modifiers();
+  test_static_palette_composition();
+  test_animated_palette_applies_modifiers();
+  test_palette_wrappers();
 
   return hs_test::end_module(scope);
 }

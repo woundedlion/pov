@@ -23,12 +23,6 @@ __attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a,
   __asm__ volatile("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
   return res;
 }
-
-__attribute__((always_inline)) static inline uint32_t inline_smlad(uint32_t a, uint32_t b, uint32_t c) {
-  uint32_t res;
-  __asm__ volatile("smlad %0, %1, %2, %3" : "=r"(res) : "r"(a), "r"(b), "r"(c));
-  return res;
-}
 #endif
 
 inline uint16_t srgb_to_linear(uint8_t srgb);
@@ -103,30 +97,21 @@ struct Pixel16 {
     // adding half the divisor (32768) before the >>16 rounds instead of
     // truncating, matching the +0.5f round-to-nearest parity used by the rest
     // of this file. Still exact at the endpoints (frac 0/65535 -> a/b) because
-    // the bias stays strictly below one output quantum. The reconstruction tail
-    // below is shared by the ARM smlad and the portable path, so both round
-    // identically.
+    // the bias stays strictly below one output quantum.
+    //
+    // The two channel products are computed with plain 32-bit MACs on every
+    // target. A previous ARM build packed both into a single `smlad`, but
+    // `smlad` is a *signed* 16x16 dual-MAC: any operand >= 32768 (a frac, an
+    // inverse-frac, or just a bright channel) reads as negative, so the product
+    // is wrong for the entire upper half of the range. On a Cortex-M7 a `mul` +
+    // `mla` per channel is single-cycle and dual-issuable, so the correct
+    // portable form costs at most a cycle or two over the (broken) packed path.
+    // (The unsigned `uqadd16` used by operator+= is fine — only the signed
+    // multiply was unsound for unsigned operands.)
     uint16_t inv = 65535 - frac;
-#if defined(__ARM_FEATURE_DSP)
-    // Pack multipliers: [ frac | inv ]
-    uint32_t mults = ((uint32_t)frac << 16) | inv;
-    
-    // Process r and g first. We need 32-bit accumulations. inline_smlad does exactly:
-    // val = (op1_lower * op2_lower) + (op1_upper * op2_upper) + op3
-    // We want: (r * inv) + (other.r * frac)
-    uint32_t r_packed = ((uint32_t)other.r << 16) | r;
-    uint32_t xr = inline_smlad(r_packed, mults, 0);
-    
-    uint32_t g_packed = ((uint32_t)other.g << 16) | g;
-    uint32_t xg = inline_smlad(g_packed, mults, 0);
-    
-    uint32_t b_packed = ((uint32_t)other.b << 16) | b;
-    uint32_t xb = inline_smlad(b_packed, mults, 0);
-#else
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
     uint32_t xb = (uint32_t)b * inv + (uint32_t)other.b * frac;
-#endif
     uint32_t r32 = (xr + (xr >> 16) + 32768) >> 16;
     uint32_t g32 = (xg + (xg >> 16) + 32768) >> 16;
     uint32_t b32 = (xb + (xb >> 16) + 32768) >> 16;
