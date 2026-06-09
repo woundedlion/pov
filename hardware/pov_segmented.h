@@ -148,6 +148,22 @@ public:
   }
 
   /**
+   * @brief Total DMA frames dropped on overrun since boot.
+   *
+   * The column ISR drops a frame (rather than blocking on waitComplete) when a
+   * prior DMA transfer is still in flight, so a nonzero — and especially a
+   * rising — value means the per-column ISR/transfer budget is being exceeded.
+   * Always 0 on the FastLED build, which has no DMA controller.
+   */
+  uint32_t overrun_count() const {
+#if defined(USE_DMA_LEDS)
+    return ledController_.getOverrunCount();
+#else
+    return 0;
+#endif
+  }
+
+  /**
    * @brief Runs a specific effect for a given duration.
    * @tparam E The Effect class to instantiate and run.
    * @param duration Time in seconds to display the effect.
@@ -301,12 +317,29 @@ private:
     attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN),
                     frame_sync_isr, RISING);
 
+#if defined(USE_DMA_LEDS)
+    uint32_t last_overrun = ledController_.getOverrunCount();
+#endif
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       e->draw_frame();
       unsigned long dt = micros() - t0;
       Serial.print("ft ");
       Serial.println(dt);
+#if defined(USE_DMA_LEDS)
+      // Surface the DMA frame-drop counter the column ISR maintains: it drops a
+      // frame (rather than blocking) when a transfer is still in flight, so a
+      // rising count is the on-device signal that the per-column ISR/transfer
+      // budget is being exceeded. Polled here in the foreground render loop —
+      // never in the ISR — so it adds nothing to the hot path, and only emitted
+      // on change to avoid drowning the per-frame `ft` telemetry.
+      const uint32_t overruns = ledController_.getOverrunCount();
+      if (overruns != last_overrun) {
+        Serial.print("overrun ");
+        Serial.println(overruns);
+        last_overrun = overruns;
+      }
+#endif
     }
 
     detachInterrupt(digitalPinToInterrupt(PIN_COLUMN_SYNC));
