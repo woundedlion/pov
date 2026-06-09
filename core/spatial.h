@@ -120,7 +120,6 @@ public:
   static constexpr int MAX_K = 5;
 
   ArenaVector<KDNode> nodes;
-  size_t node_count = 0;
   int root_index = -1;
 
   KDTree() = default;
@@ -144,10 +143,7 @@ public:
     root_index = build(points, indices, count, 0);
   }
 
-  void clear() {
-    node_count = 0;
-    root_index = -1;
-  }
+  void clear() { root_index = -1; }
 
   // Nearest neighbor search
   // Returns up to K results (Nodes, so we get index + point)
@@ -220,7 +216,7 @@ private:
   int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1;
-    if (node_count >= nodes.capacity())
+    if (nodes.size() >= nodes.capacity())
       return -1;
 
     int axis = depth % 3;
@@ -243,17 +239,17 @@ private:
 
     int median_idx = indices[mid];
 
-    int new_node_idx = node_count++;
+    int new_node_idx = static_cast<int>(nodes.size());
     // Child links (left/right) are stored as int16_t with -1 as the sentinel,
     // so a node pool bumped past INT16_MAX would silently truncate them into
-    // garbage links. The pool-capacity guard above caps node_count, but trap the
-    // index range explicitly so a future capacity bump fails loud instead of
+    // garbage links. The pool-capacity guard above caps nodes.size(), but trap
+    // the index range explicitly so a future capacity bump fails loud instead of
     // corrupting the tree. Cold path (once per node during build).
     HS_CHECK(new_node_idx <= INT16_MAX,
              "KDTree node index exceeds int16_t child-link range");
     // original_index is uint16_t, so a source set larger than 65535 points
     // would silently fold a high index back into the wrong vertex. The node
-    // guard above bounds node_count, not the source index, so trap the vertex
+    // guard above bounds nodes.size(), not the source index, so trap the vertex
     // range too. Cold path (once per node during build).
     HS_CHECK(median_idx <= UINT16_MAX,
              "KDTree vertex index exceeds uint16_t original_index range");

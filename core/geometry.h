@@ -182,6 +182,13 @@ template <int H> inline float phi_to_y(float phi) {
 template <int H> struct PhiLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static std::array<float, H_VIRT> data;
+  // Lazy-init guard. THREAD-SAFETY CONTRACT: the `if (!initialized) init()`
+  // pattern at the call sites is a non-atomic check-then-set and is safe ONLY
+  // because rendering is single-threaded — every consumer (the scanline
+  // rasterizers, y_to_phi) runs on the render thread, and engine setup calls
+  // init_geometry_luts() eagerly before the first frame, so on hardware the
+  // column-sweep ISR never observes a half-filled table. It is NOT a
+  // concurrency safeguard; a second writer would race. See init_geometry_luts.
   static bool initialized;
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {
@@ -226,6 +233,9 @@ template <int W, int H> struct TrigLUT {
   static std::array<float, W> cos_theta;
   static std::array<float, H_VIRT> sin_phi;
   static std::array<float, H_VIRT> cos_phi;
+  // Lazy-init guard. Same non-atomic check-then-set thread-safety contract as
+  // PhiLUT::initialized above: single-render-thread only, with eager
+  // init_geometry_luts() at engine setup as the production first-touch.
   static bool initialized;
   static void init() {
     if (!PhiLUT<H>::initialized) {
@@ -261,8 +271,11 @@ template <int W, int H> bool TrigLUT<W, H>::initialized = false;
  * init in place the per-call `if (!initialized) init()` guards scattered
  * through the scanline rasterizers (Scan/Plot/SDF/Filter, `pixel_to_vector`)
  * are never the *first* touch in production; they remain only as a
- * self-healing fallback for unit tests and offline tools that render at other
- * resolutions without going through engine setup. Idempotent.
+ * lazy fallback for unit tests and offline tools that render at other
+ * resolutions without going through engine setup. Those guards are a
+ * non-atomic check-then-set, NOT a concurrency safeguard: their correctness
+ * rests on this eager call and on the single-render-thread assumption (see the
+ * THREAD-SAFETY CONTRACT on PhiLUT/TrigLUT::initialized). Idempotent.
  */
 template <int W, int H> inline void init_geometry_luts() {
   PhiLUT<H>::init();
