@@ -636,18 +636,16 @@ public:
     if (alpha <= 0.001f)
       return;
 
-    if (age >= 0) {
-      // Only seed live trail points. age >= lifetime means the point is already
-      // dead; seeding it stores a negative ttl, which pushes t = 1-(ttl/lifetime)
-      // above 1 (out of range for trailFn) and the pass-age above lifetime.
-      // Mirror World::Trails' ttl>0 gate.
-      float ttl = static_cast<float>(lifetime) - age;
-      if (ttl > 0.0f && ttls_ && num_pixels < MAX_PIXELS) {
-        ttls_[num_pixels++] = {x, y, ttl};
-      }
-    }
-    if (age <= 0) {
-      pass(x, y, color, age, alpha);
+    pass(x, y, color, age, alpha); // Pass through current frame (mirror World::Trails)
+
+    // Only seed live trail points. age >= lifetime gives a non-positive ttl: the
+    // point is already dead, and seeding it would push t = 1-(ttl/lifetime) out
+    // of trailFn's range and the re-emitted age past lifetime. The ttl>0 gate
+    // mirrors World::Trails; unlike the old age>=0 guard it does not also drop
+    // the forward, so an already-aged emission still paints this frame.
+    float ttl = static_cast<float>(lifetime) - age;
+    if (ttl > 0.0f && ttls_ && num_pixels < MAX_PIXELS) {
+      ttls_[num_pixels++] = {x, y, ttl};
     }
   }
 

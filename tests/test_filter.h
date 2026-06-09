@@ -892,11 +892,17 @@ inline void test_screen_trails_store_emit_decay() {
   PipeFx fx(W, 8); // flush takes a Canvas& (unused by Screen::Trails)
   Canvas c(fx);
 
-  // age=1 (>0): stored, NOT passed through (pass-through is age<=0 only).
+  // age=1 (0<age<lifetime): forwarded this frame AND stored. The forward
+  // mirrors World::Trails — every live point paints the current frame.
   int passthru = 0;
+  float fwd_age = -1.0f;
   trails.plot(10.0f, 4.0f, Pixel(5, 6, 7), 1.0f, 1.0f,
-              [&](float, float, const Pixel &, float, float) { ++passthru; });
-  HS_EXPECT_EQ(passthru, 0);
+              [&](float, float, const Pixel &, float a, float) {
+                fwd_age = a;
+                ++passthru;
+              });
+  HS_EXPECT_EQ(passthru, 1);
+  HS_EXPECT_NEAR(fwd_age, 1.0f, 1e-6f); // forwarded verbatim
 
   auto trail = [](float, float, float) {
     return Color4(Pixel(9, 9, 9), 1.0f);
@@ -914,6 +920,40 @@ inline void test_screen_trails_store_emit_decay() {
   emitted = 0;
   trails.flush(c, ScreenTrailFn(trail), 1.0f, counting_sink); // decayed out
   HS_EXPECT_EQ(emitted, 0);
+}
+
+// Regression: Screen::Trails must forward an already-aged emission, matching
+// World::Trails. Before the alignment a point with 0 < age < lifetime was
+// seeded but never passed, so it silently vanished from the current frame. A
+// point at/past lifetime is still forwarded, but ttl<=0 keeps it out of storage.
+inline void test_screen_trails_forwards_aged_emission() {
+  constexpr int W = 32, MAXP = 16;
+  static uint8_t buf[MAXP * 32];
+  Arena arena(buf, sizeof(buf));
+  Filter::Screen::Trails<W, MAXP> trails(/*lifetime=*/5);
+  trails.init_storage(arena);
+
+  PipeFx fx(W, 8);
+  Canvas c(fx);
+  auto trail = [](float, float, float) { return Color4(Pixel(9, 9, 9), 1.0f); };
+
+  // 0 < age < lifetime: forwarded this frame (the regression) and seeded.
+  int fwd = 0;
+  trails.plot(3.0f, 4.0f, Pixel(1, 2, 3), 2.0f, 1.0f,
+              [&](float, float, const Pixel &, float, float) { ++fwd; });
+  HS_EXPECT_EQ(fwd, 1);
+
+  // age == lifetime: dead point is still forwarded, but ttl<=0 so not seeded.
+  fwd = 0;
+  trails.plot(7.0f, 4.0f, Pixel(1, 2, 3), 5.0f, 1.0f,
+              [&](float, float, const Pixel &, float, float) { ++fwd; });
+  HS_EXPECT_EQ(fwd, 1);
+
+  // Only the live (age=2) point was seeded -> exactly one flush emission.
+  int emitted = 0;
+  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+               [&](float, float, const Pixel &, float, float) { ++emitted; });
+  HS_EXPECT_EQ(emitted, 1);
 }
 
 // ============================================================================
@@ -961,6 +1001,7 @@ inline int run_filter_tests() {
   test_world_trails_ring_evicts_oldest();
   test_world_trails_ttl_expiry();
   test_screen_trails_store_emit_decay();
+  test_screen_trails_forwards_aged_emission();
 
   return hs_test::end_module(scope);
 }
