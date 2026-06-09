@@ -1,0 +1,193 @@
+# Holosphere — Code Quality Review
+
+**Scope:** The C++ rendering engine (`core/`, `effects/`, `hardware/`, `targets/wasm/`), the native test suite (`tests/`), the build/CI infrastructure, and the **daydream** web simulator (Three.js + WASM bridge, segmented-POV workers, geometry tools).
+**Out of scope (per review charter):** `core/effects_legacy.h` and the `*.ino` entry points.
+**Method:** The README was read in full first to establish intent and conventions; thirteen sub-agents then examined every in-scope file against a shared rubric (correctness, architectural elegance, interface expressiveness, readability, documentation, error handling, performance, testability, maintainability, consistency), each grounding its scope in the README. This report synthesizes those passes.
+
+> **Independence note:** §10 (Overall Impression & Appraisal) is formed fresh from this pass's evidence. It does **not** inherit or paraphrase the prior review's appraisal text.
+
+---
+
+## 1. Overall Grade: **A−**
+
+A single-author engine of genuinely professional discipline at its core, with a visibly less-uniform periphery. The architecture — a compile-time-specialized, zero-allocation, arena-backed pipeline that runs the *same* renderer on a 600 MHz Cortex-M7 and in a browser — is excellent, and the supporting rigor (proven relaxed-atomic double buffering, a death-harness that asserts traps actually fire, cryptographically-pinned deploy provenance, self-documenting numerical error bounds) is above professional-average. The grade is held below an unqualified A by a thin band of real defects concentrated exactly where the automated tests don't reach: a few silent-correctness bugs (motion-blur collapse, an un-animated orientation, quantization without clamping), pervasive copy-paste idioms in the effect layer, and untested rasterizer-output / failure-path seams.
+
+---
+
+## 2. Quality Dimensions — Composite Letter Grades
+
+| Dimension | Grade | One-line justification |
+|---|---|---|
+| Correctness | **B+ → A−** | Core algebra, memory, and concurrency are carefully reasoned and largely correct; a handful of genuine silent bugs (FlowField identity-Orient, Timeline shared-Orientation collapse, World::Trails unclamped quantization) and dead/unwired parameters pull the effect layer down. |
+| Architecture / Elegance | **A** | The variadic compile-time filter pipeline, functional `(Arena& target, Arena& temp)` discipline, CRTP shared bases, and the orbit-scaffold Conway algebra are textbook-quality factorings of inherently messy domains. |
+| Interface Expressiveness | **A−** | `Pipeline<W,H,World::…,Screen::…,Pixel::…>` reads like a render graph and the `Fragment`/`FunctionRef` shader surface is tiny and uniform; recurring "retain handle + re-sync slider every frame" boilerplate signals one missing abstraction. |
+| Readability | **A−** | Consistent naming, short methods, and exceptional "why" comments; the hottest functions (`scan_region`, `Feedback::flush`, `Face` ctor, `Daydream.render`) are long and dense. |
+| Documentation | **A** | Among the best-commented embedded codebases reviewed — invariants, error bounds, and fail-fast rationale are documented at the site that needs them; a few stale comments and README↔code drifts remain. |
+| Error Handling | **A−** | The cold-path `HS_CHECK` (always-on trap) / hot-path `assert` / `normalized_or` taxonomy is principled and applied consistently; a few silent `return`/drop paths violate the project's own fail-fast doctrine. |
+| Performance | **A** | LUTs, fast-trig with published error bounds, analytic culling, branch-free SIMD clamp, single-draw-call instancing, zero steady-state JS allocation — tuned correctly for both targets. |
+| Testability | **B** | Pure functional cores plus a strong death harness, undercut by global-static `Timeline`/registry state, logic buried in `draw_frame` lambdas, and rasterizer output verified only by smoke. |
+| Maintainability | **A−** | Strong shared helpers and documented invariants; cross-effect duplication, a few change-amplifier `#ifdef` blocks, and triplicated resolution/version literals are the long-term hazards. |
+| Consistency | **A−** | Naming, trap placement, and arena-passing conventions are uniform; localized drift (scratch-arena source `target` vs `temp`, exact-vs-fast trig in constructors, dead `Alpha` params) keeps it off A. |
+
+---
+
+## 3. Component Scorecard
+
+| # | Component | Grade |
+|---|---|---|
+| 3.1 | Core — Math / Geometry / Concepts (`3dmath.h`, `geometry.h`, `concepts.h`, `util.h`, `easing.h`, `waves.h`, `rotate.h`) | **A−** |
+| 3.2 | Core — Color system (`color.h`, `palettes.h`, `color_luts.h`) | **A−** |
+| 3.3 | Core — Rasterizers (`sdf.h`, `scan.h`, `plot.h`) | **A−** |
+| 3.4 | Core — Filter pipeline + transformers + canvas (`filter.h`, `transformers.h`, `styles.h`, `canvas.h`) | **A−** |
+| 3.5 | Core — Animation / Generators / Presets (`animation.h`, `generators.h`, `presets.h`, `static_circular_buffer.h`) | **B+** |
+| 3.6 | Core — Mesh system (`mesh.h`, `conway.h`, `hankin.h`, `spatial.h`, `solids.h`) | **A−** |
+| 3.7 | Core — Memory / Platform / Registry / Reaction graph (`memory.*`, `platform.h`, `effect_registry.h`, `reaction_graph.*`) | **A** |
+| 3.8 | Effects — Group A (15 headers incl. `ReactionDiffusionBase`) | **B+** |
+| 3.9 | Effects — Group B (14 headers) | **B+ / A−** |
+| 3.10 | Hardware drivers + WASM bridge (`dma_led.h`, `hd107s_frame.h`, `pov_single.h`, `pov_segmented.h`, `wasm.cpp`) | **A−** |
+| 3.11 | Test suite (`tests/`) | **A−** |
+| 3.12 | Daydream simulator — core JS (`daydream.js`, `driver.js`, `state.js`, `geometry.js`, `gui.js`, `sidebar.js`, `recorder.js`, `vendor-importmap.js`) | **A / A−** |
+| 3.13 | Daydream — segmented workers + geometry tools | **A− / B+** |
+| 3.14 | Build / CI / provenance | **A / A−** |
+
+---
+
+## 4. Top Strengths
+
+1. **The compile-time filter pipeline is the centerpiece and earns it.** `Pipeline<W,H,Filters...>` recursively chains World(3D)/Screen(2D)/Pixel(terminal) stages and lifts/projects coordinates *at compile time* via `if constexpr (Head::is_2d)`, with a `static_assert` that turns "a terminal filter silently swallows downstream stages" into a one-line compile error. Zero runtime cost, fully type-checked. ([filter.h:176-234](../core/filter.h#L176-L234))
+2. **Concurrency that is proven, not hoped.** The relaxed-atomic triple-index double buffer is accompanied by a rigorous argument for *why* relaxed ordering is correct on a single-core Cortex-M7 (the ISR is the same observer, not a second core), and crucially that buffer→DMA coherency comes from `arm_dcache_flush_delete()` (a cache flush + DSB), **not** from the atomic. ([canvas.h:380-415](../core/canvas.h#L380-L415), [dma_led.h:139-160](../hardware/dma_led.h#L139-L160))
+3. **Fail-fast applied with judgment.** Every `HS_CHECK` guards a *cold* seam (OOM, capacity, non-manifold mesh, oversubscribed arena config) and carries a comment naming the silent-corruption mode it prevents; hot paths use stripped `assert` backed by a cold trap at the bind site. A death harness re-execs child processes and asserts the exact `SIGILL`/`STATUS_ILLEGAL_INSTRUCTION`, so the safety net is *verified*.
+4. **Memory discipline without hidden state.** A single 335 KB block, three bump arenas, RAII offset restore, `Persist<T>` compaction, and dual generation/rebind stamps for use-after-free detection — with the subtle no-integer-overflow bounds check in `Arena::allocate` documented and matched by an overflow trap at the multiply site. ([memory.h:56-95](../core/memory.h#L56-L95))
+5. **Perceptually-correct color inside the per-pixel budget.** `hue_rotate` fuses linear→OKLab, an in-plane (a,b) rotation, and OKLab→linear into one inlined routine, choosing `fast_cbrt` forward / exact cubes inverse and avoiding any `atan2`/`sqrt`, with the error budget documented. ([color.h:451-480](../core/color.h#L451-L480))
+6. **One renderer, two targets, bit-exact.** The same effect classes, arenas, and `Pixel16[]` buffer drive a spinning LED arm and a browser twin; daydream handles the zero-copy `typed_memory_view` detachment hazard correctly, and the deploy gate cryptographically binds the shipped `.wasm` to its source commit and verifies it three ways.
+
+---
+
+## 5. Detailed Findings by Subsystem
+
+### 5.1 Core — Math / Geometry / Concepts — **A−**
+Disciplined numerics: a strict-`normalized()`-vs-graceful-`normalized_or()` taxonomy enumerating the legitimate zero-vector sites, single-source projection sentinels (`STEREO_INF`/`RECOGNIZE`/`POLE_EPS`), measured fast-trig (atan2 ~0.22°, acos ~0.0072°), a split TrigLUT reconstructing a sphere vector in 3 multiplies, and zero-alloc `FunctionRef`/`PipelineRef`. Weak spots: a few genuinely-degenerate paths that silently produce NaN/Inf (`phi_to_y` with `h_virt==1`, `Fragment::lerp` dropping `size`/`color`) and two interface footguns (`Vector(float,float)` meaning *spherical*; `wrap`'s seam clamp to 0).
+
+### 5.2 Core — Color — **A−**
+Layered palette polymorphism + compile-time `StaticPalette` fold + arena-backed `BakedPalette`, correct shortest-arc OKLCH hue interpolation with proper achromatic-endpoint handling, ARM DSP intrinsics on the hot lerp. The one real blemish: `lerp16` is documented as "exact div-by-65535" but actually *floors* (always-downward error approaching 1 LSB), contradicting the `+0.5f` round-to-nearest parity the rest of the file deliberately maintains. The ARM `smlad` path is untested on the native build.
+
+### 5.3 Core — Rasterizers — **A−**
+Two-phase analytic culling (vertical band + per-row intervals before any distance eval), a per-face SDF LUT with a *provably correct* Lipschitz trust bound, and arc-length-uniform planar stepping via a tiny inversion table. Degeneracies (antipodes, poles, seam crossings) are each handled with a comment. Bugs: CSG combinators can apply the wrong child thickness to AA; the stroke admission test produces asymmetric AA (hard outer edge); `Plot::Mesh` silently *drops* edges past 128 vertices instead of trapping.
+
+### 5.4 Core — Filter pipeline + transformers + canvas — **A−**
+The system's intellectual core (see §4.1). Transformers use active-slot compaction with documented non-commutative ordering; the feedback filter warps in *delta* space to stay continuous across the θ-seam. Issues: `World::Trails::encode` quantizes to `int16` without clamping (a transiently >1 component wraps to a garbage trail point); inconsistent motion-blur age offsets across `Replicate` (none) vs `VertexReplicate` (`+i`) vs `Orient` (SLERP sweep); `AntiAlias` re-checks LUT init on every plotted sub-pixel.
+
+### 5.5 Core — Animation / Generators / Presets — **B+**
+The "animations mutate state, never render" separation is rigorous and the borrow-contract `= delete` overloads convert the most dangerous pattern (storing refs across frames) into compile errors. **Lowest core grade** because of the one real silent-correctness bug in the set: `Timeline::step` calls `collapse_orientation()` unconditionally before each animation, so two animations sharing one `Orientation` (the exact multi-animation motion-blur case the README advertises) silently lose all but the last's sub-frame history. Global-static `Timeline` state also hurts testability.
+
+### 5.6 Core — Mesh system — **A−**
+The `vertex_orbit` / `emit_vertex_orbit_faces` scaffold collapses five near-duplicate operator loops into one parameterized walk; `SolidBuilder` makes the 52-solid registry read as declarative data; the Hankin compile/update split recomputes only angle-dependent star points per frame. Issues: `expand`/`chamfer`/`snub` push face counts before guarding `count >= 3` (malformed intermediate meshes, rescued only by `compile()`); scratch-arena source alternates `target` vs `temp` across operators without a stated rule; `PolyMesh` clone duplicates `MeshState::clone` and can drift on `topology`.
+
+### 5.7 Core — Memory / Platform / Registry / Reaction graph — **A** (highest)
+Exemplary. The no-integer-overflow `Arena::allocate` bounds check, dual generation/rebind use-after-free stamps, `Persist<T>` member-ordering correctness (documented), and aligned-end budget check in `configure_arenas` are all model embedded code. Minor: `REGISTER_EFFECT` relies on inline-static dynamic init that LTO/GC-sections could theoretically elide (a count-checked backstop exists but won't catch a single dropped TU); `PROGMEM` on the reaction-graph table is decorative/misleading (direct-addressed, correct only on Teensy 4); the OOM path uses raw `printf` instead of `hs::log`.
+
+### 5.8 Effects — Group A (15) — **B+**
+Strong, idiomatic engine consumers (Timeline + Pipeline + Scan/Plot + arena APIs used as designed; `ReactionDiffusionBase` is a model CRTP base). Dragged down by copy-paste drift: a recurring per-frame "retain `add_get` handle + re-push slider values" idiom across ~6 effects (a missing engine abstraction), several **dead registered parameters** (ChaoticStrings/Comets `Alpha` never read), and one real bug — **FlowField's `orientation` is never animated**, so its `World::Orient` filter rotates by identity every frame.
+
+### 5.9 Effects — Group B (14) — **B+ / A−**
+Higher floor than Group A — no crash-class defects. Raymarch is the standout file (documented Blinn-Phong, analytic Lipschitz-safe `bounds_radius`, GUI-clamped step count). Issues are mostly polish: Voronoi's `showBorders` is hardcoded (not registered) while `Border Thick` is tunable; MobiusGrid duplicates ~50 lines across two near-identical draw functions; scattered un-named magic constants where Raymarch/Thrusters set the documentation bar.
+
+### 5.10 Hardware drivers + WASM bridge — **A−**
+Best-reasoned concurrency in the codebase (see §4.2), a clean three-layer stack, a branchless boot-time-resolved segmented ISR, and a compile-time eDMA 15-bit-limit guard. The load-bearing claim — segmented ISR ~96 µs vs ~434 µs column interval — is **asserted, never measured on-device**, and `overrunCount_` is read by nobody on hardware. The frame-sync nearest-boundary snap silently latches a half-rotation error if drift ever exceeds ¼ revolution (the very failure it exists to correct). The WASM zero-copy view contract is rigorously maintained.
+
+### 5.11 Test suite — **A−**
+Property/invariant-style assertions (Euler characteristic, partition-of-unity AA weights, K-NN reciprocity, manifold winding via Newell normals), a best-in-class death harness, and an effect smoke harness with cross-run determinism + a dead-slider lint. Gaps cluster where the other reviewers found bugs: **the headline OKLCH shortest-arc hue claim has no midpoint test**, the palette layer (StaticPalette/Procedural/Generative/modifiers) and the ARM `smlad` lerp16 path are nearly absent, rasterizer *output* is smoke-only, and `Timeline` scheduling + multi-animation `upsample` collapse are reached only transitively.
+
+### 5.12 Daydream — core JS — **A / A−**
+The strongest periphery. Zero-copy WASM view detachment handled exactly right (`byteLength === 0` re-fetch + null-on-resize); name-keyed (not index-keyed) parameter binding designs out a cross-language mis-bind; a single URL writer eliminates a clobber race; disciplined `dispose()`/`pagehide` teardown; effectively zero per-frame allocation with one instanced draw call and GPU-side cull. Minor: an empty `mimeType` can reach `MediaRecorder`; `pixelToSpherical` divides by `H−1` (a simulator-vs-engine pole-row mismatch).
+
+### 5.13 Daydream — segmented workers + tools — **A− / B+**
+Worker pipeline is correct and well-documented: a monotonic generation fence drops stale-rectangle results without hanging the promise, Transferable ownership is clean (fresh copy per frame, never a detached buffer), and the composite-aliasing invariant is *asserted*. The grade is pulled down by the tool pages' codegen: `solids.html` truncate-suffix name mangling can collide (`0.05`/`0.5`), the registry-namespace export hard-codes `Archimedean` for Platonic/Catalan bases (won't compile), and `palettes.html` reimplements GenerativePalette in JS that must be hand-kept-in-lockstep with the C++.
+
+### 5.14 Build / CI / Provenance — **A / A−**
+Operates above commercial-average. Correct, *documented* `-fno-finite-math-only`-after-`-ffast-math` ordering; pinned runner image + Clang 18 + SHA-pinned `setup-emsdk`; a three-layer test gate (pre-commit → presubmit CI → SHA-pinned deploy gate) with a provenance trio (`.wasm` + `.sha` + `.wasm.sha256`) and a dirty-tree guard that makes a stale binary fail the gate hard. Minor surfaces: no CDN SRI, a spurious `gui` npm dependency, and a few first-party Actions floating on major tags.
+
+---
+
+## 6. Prioritized Fix List
+
+### P1 — Correctness / robustness (fix first)
+- ✅ **[P1-1] FlowField orientation is never animated** — `World::Orient<W>(orientation)` rotated by identity every frame; the implied whole-sphere motion was dead. **Fixed:** added a `Timeline` + `RandomWalk` (driven by a dedicated `orient_noise` generator so the flow-field noise is untouched) that animates `orientation` in `init()`, and step it each frame. ([FlowField.h](../effects/FlowField.h))
+- ✅ **[P1-2] Timeline shared-Orientation collapse loses multi-animation motion blur** — `collapse_orientation()` ran once *per animation* before its `step()`, discarding history a prior animation built this frame. **Fixed:** `Timeline::step` now collapses each distinct Orientation exactly once per frame in a pre-pass (deduplicating via a new `IAnimation::orientation_id()`), so animations sharing one Orientation compose their sub-frame trails instead of clobbering them. Added a regression test (`test_timeline_shared_orientation_composes_motion_blur`) that fails on the old behavior. ([animation.h](../core/animation.h))
+- ✅ **[P1-3] `World::Trails::encode` quantizes to int16 without clamping** — an upstream component >1 (Möbius/ripple can transiently exceed unit length) overflowed int16 and seeded a garbage trail point on the far side of the sphere. **Fixed:** clamp each component to `[-1,1]` before `*Q` (cheap; not on the per-pixel path). Added a regression test (`test_world_trails_clamps_out_of_range`) that fails on the old behavior. ([filter.h](../core/filter.h))
+- ✅ **[P1-4] CSG AA uses the wrong child thickness** — investigation showed the defect was two coupled issues: `Union`/`Intersection`/`Subtract` were hardcoded `is_solid = true`, so a composite of *strokes* rendered as hard solid bands (losing each stroke's soft falloff); and the stroke-falloff AA normalized by the wrapper's `min/max` thickness rather than the winning child's. **Fixed:** a composite is now solid only if *all* children are solid (`A::is_solid && B::is_solid`), routing stroke composites through the falloff path; and that path now drives the ramp from `result.size` (the winning leaf's own thickness) instead of `shape.thickness`. Added a regression test (`test_csg_stroke_aa_uses_winning_child_thickness`) that fails on both old behaviors. ([sdf.h](../core/sdf.h), [scan.h:58-68](../core/scan.h#L58-L68))
+- ⚠️ **[P1-5] Stroke AA is asymmetric — WON'T FIX as specified (reverted).** stroke shapes use `threshold == 0`, so only pixels strictly inside the surface (`d < 0`) are admitted, leaving a theoretically hard outer edge. A fix was attempted (admit a one-pixel band + bias the falloff outward by half the AA border) but **reverted**: a soft-glow stroke reaches alpha 0 *at* its surface, so there is nothing to anti-alias outside it without dilating the stroke into a solid core. For any stroke thinner than ~½ pixel the entire interior clamped to alpha 1 — destroying the soft radial glow (regression observed in **Comets**, which draws soft dots via `Scan::Point`→`Ring`). The asymmetry is an inherent trade-off: outer-edge AA and a soft thin-stroke glow are mutually exclusive in this single-sample rasterizer. Left as-is (soft glow preserved); a real fix would require supersampling or a coverage-based stroke model. The CSG-thickness test (P1-4) was kept in its formula-independent form. ([scan.h:40-72](../core/scan.h#L40-L72))
+
+### P2 — Unenforced invariants & silent drops (align with fail-fast doctrine)
+- ✅ **[P2-1] `Plot::Mesh` silently drops edges past 128 vertices** — the face-walk edge loop did `hs::log` + `return` when a vertex index exceeded the `TriangularBitset<128>` dedup capacity, silently dropping wireframe edges and masking the mesh-sizing bug, two lines above an always-on `HS_CHECK`. **Fixed:** replaced the silent guard with `HS_CHECK(large < 128)` so the cold per-edge setup path traps, consistent with the OOB vertex guard beside it; performance unaffected (per-edge setup, not per-pixel). Added a death-harness case (`plot_mesh_vertex_over_capacity`) asserting the trap fires. ([plot.h](../core/plot.h))
+- ✅ **[P2-2] Conway `expand`/`chamfer`/`snub` push face counts before the `count >= 3` guard** — each operator's primary-face loop pushed `face_counts(count)` unconditionally, so a malformed intermediate mesh (a `<3`-gon face) leaked a sub-triangular face that only `compile()` later stripped — unlike `ambo`/`truncate` and the shared vertex-orbit emitter, which already guard `count >= 3`. **Fixed:** gate the primary face record on `count >= 3` in all three operators while still creating the new vertices + half-edge→vertex mapping unconditionally (the edge and orbit faces reference them), mirroring `truncate`. Performance-neutral (one branch per face, not per pixel). Added a regression test (`test_conway_ops_drop_degenerate_primary_faces`) that feeds a 2-gon input and fails on the old behavior. ([conway.h](../core/conway.h))
+- **[P2-3] Segmented ISR timing budget is unverified on-device** — add a debug `micros()` delta + `HS_CHECK` that ISR duration < column interval, and surface `getOverrunCount()` to the Phantasm target. ([pov_segmented.h:331-377](../hardware/pov_segmented.h#L331-L377))
+- **[P2-4] Frame-sync snap silently latches a half-rotation error past ¼-rev drift** — track pulse parity to disambiguate the boundary, or document drift > w/4 as unrecoverable by design. ([pov_segmented.h:402-403](../hardware/pov_segmented.h#L402-L403))
+- ✅ **[P2-5] `lerp16` floors but is documented "exact"** — the `(x + (x>>16) + 1) >> 16` reconstruction truncated, giving an always-downward error approaching 1 LSB while the comment claimed exactness. **Fixed:** changed the bias to `+ 32768` so the shared reconstruction tail rounds to nearest (matching the `+0.5f` parity elsewhere in the file) while staying exact at the endpoints; corrected the comment. Added a regression test (`test_lerp16_rounds_to_nearest`) at `frac = 49152` that fails on the old floor behavior and exercises the tail shared by the portable and `smlad` paths. ([color.h:97-131](../core/color.h#L97-L131))
+- ✅ **[P2-6] `REGISTER_EFFECT` init can be elided under LTO/GC-sections** — the per-effect `_reg` static has no referents, so its dynamic initializer (the sole carrier of the registration side effect) could be discarded under LTO/`--gc-sections`, silently dropping an effect from the WASM registry. **Fixed:** marked `_reg` `__attribute__((used, retain))` — `used` roots it for wasm-ld via `llvm.used` and blocks compiler elision, `retain` survives an ELF linker's `--gc-sections`. Verified the `wasm-release` build compiles clean (no ignored-attribute warning) with the anchor. ([effect_registry.h:79-85](../core/effect_registry.h#L79-L85))
+- ✅ **[P2-7] tools/solids.html codegen** — the registry exporter hardcoded `Archimedean::` for every Simple solid, so a Catalan-base recipe (`getRegistry()` does surface Catalan solids) emitted `Archimedean::<fn>`, which cannot resolve a name defined in `namespace Catalan` → the pasted entry won't compile. **Fixed:** qualify Catalan bases with `Catalan::` (Archimedean/Platonic bases keep `Archimedean::`, which `using`s Platonic, so both resolve). Also hardened the op-suffix codegen: `t.toString().replace('0.','')` was actually injective for clean 0.01-step values (the literal `0.05`/`0.5` → `"05"`/`"5"` do **not** collide), but produced junk identifiers for float-error inputs (`0.30000000000000004`) and read ambiguously — replaced it with a two-digit `Math.round(t*100)` percentage (`"05"`/`"50"`). Validated the embedded module still parses (`node --check`). ([solids.html](../../daydream/tools/solids.html))
+
+### P3 — Design consistency & dead code
+- **[P3-1] Dead registered parameters** — ChaoticStrings/Comets `Alpha` never read; IslamicStars `fade`/`burst_size` used but unregistered; GnomonicStars `Warp Speed` conditionally registered. Wire them in or remove. ([ChaoticStrings.h:50](../effects/ChaoticStrings.h#L50), [Comets.h:33](../effects/Comets.h#L33))
+- **[P3-2] Voronoi `showBorders` hardcoded `true`** while `Border Thick` is tunable — register it or drive borders off thickness. ([Voronoi.h:135](../effects/Voronoi.h#L135))
+- **[P3-3] Conway scratch-arena source inconsistency** (`target` vs `temp`) — standardize on `temp` for transient scratch and document the operator contract.
+- **[P3-4] Motion-blur age-offset inconsistency** across `Replicate`/`VertexReplicate`/`Orient` — document the intent or unify.
+- **[P3-5] README↔code drift** — DreamBalls docs promise `OrientSlice` but the code uses a whole-sphere `Rotation` (with a dead `enable_slice` field); ReactionDiffusionBase comment says nodes are "rebuilt each frame" though both derivatives build once.
+- **[P3-6] `Vector(float,float)` spherical-constructor footgun** — make it a named factory (`Vector::from_spherical`).
+
+### P4 — Readability / DRY / idiom
+- **[P4-1] Add a `LiveParam`/`BoundDriver` engine helper** to absorb the ~6× "retain handle + re-sync slider every frame" idiom, plus a reflective param-lerp to absorb the per-preset `lerp()` boilerplate.
+- **[P4-2] Extract MobiusGrid's duplicated `draw_axis_rings`/`draw_longitudes`** into one helper taking the per-fragment shader.
+- **[P4-3] Promote magic constants** (Metaballs/PetalFlow/SphericalHarmonics field/AO literals, Raymarch's literal `20` vertex count) to named `constexpr`.
+- **[P4-4] Hoist `AntiAlias` LUT init** out of the per-sub-pixel hot path into the filter constructor / a `prepare_frame()` seam.
+
+### P5 — Test waist (closes the gap to A)
+- **[P5-1] Test the OKLCH shortest-arc midpoint** (the marquee color feature, currently unguarded).
+- **[P5-2] Cover the palette layer** (StaticPalette/Procedural/Generative/modifiers) and the `smlad` lerp16 path.
+- **[P5-3] Assert analytic rasterizer output** (known-radius ring lights the expected row; an AA edge is a monotone 1-px ramp) instead of boundedness-only.
+- **[P5-4] Add direct tests** for Timeline sequencing/rewind, multi-animation `upsample` collapse, and the untested World/Screen filters (Orient/OrientSlice/Hole/Mobius/VertexReplicate).
+
+---
+
+## 7. Cross-Cutting Observations
+
+- **The defect gradient runs center→edge.** The core (memory, math, concurrency, color) would withstand scrutiny in a strong professional graphics codebase. The effect layer and the untested seams would not, quite. Every P1 bug lives in the effect/animation/filter periphery, not the foundation — and almost all of them are *silent* failures in an otherwise loudly-fail-fast codebase, which is precisely why they survived.
+- **Documentation quality is a genuine asset, but a few comments have outlived their code.** The "why" comments are the best the reviewers had seen in embedded work; the risk now is staleness (DreamBalls/ReactionDiffusionBase drifts, the `lerp16` "exact" claim) — comments load-bearing enough to mislead.
+- **Testability is the structural ceiling.** Global-static `Timeline`/registry state and logic buried in `draw_frame` lambdas mean whole subsystems are reachable only through end-to-end smoke. The death harness and property tests are excellent; the missing waist is unit-level seams for the animation/filter/rasterizer-output layers.
+- **One missing abstraction explains much of the effect-layer duplication.** The "live-bound parameter" pattern (register a `float*` + an animation field that auto-syncs) is hand-rolled ~6 times; providing it once would remove the single largest source of effect-layer boilerplate and a class of dead-parameter bugs.
+
+---
+
+## 8. What Would Move This to an Unqualified A
+
+The gap is small and well-scoped: close the five P1 correctness bugs, convert the P2 silent drops to traps (or document them as designed), and extend the test waist (P5) to the rasterizer output and the animation/filter seams. None requires architectural change — the architecture is already A-grade. The work is making the periphery as uniformly disciplined as the core, and proving it with tests that reach where the smoke harness currently doesn't.
+
+---
+
+## 9. Comprehensive Dimension Notes
+
+**Correctness (B+→A−).** No crash-class defects were found anywhere in scope. The bugs that exist are silent-semantic: an identity rotation, a lost history collapse, an unclamped quantization, asymmetric AA. All are in the effect/animation/filter layer; the memory/math/concurrency core is clean.
+
+**Architectural elegance (A).** The variadic pipeline, functional arena passing, CRTP bases, orbit-scaffold operator algebra, and Style-as-POD-value-handle are each the *right* abstraction for their problem, composed at compile time with zero runtime tax. This is the dimension the project is strongest on and it is not close.
+
+**Interface expressiveness (A−).** Effects declare *what state exists* and *what animations drive it* and almost never hand-interpolate; the render-graph-shaped pipeline type and the tiny `Fragment`/`FunctionRef` shader surface are highly expressive. The one expressive gap is the missing live-bound-param abstraction.
+
+**Performance (A).** Correct hot-path engineering on both targets: published-error fast-trig, analytic culling, a per-face Lipschitz LUT, branch-free SIMD clamp, the 16-bit-linear pipeline reaching the SPI wire with no 8-bit intermediate, and a browser side with one instanced draw call and zero steady-state allocation.
+
+**Testability (B).** The honest weak point. Strong where the design allows purity (math, memory, solids, death traps); blocked elsewhere by global state and lambda-buried logic.
+
+---
+
+## 10. Overall Impression & Appraisal *(independent assessment)*
+
+**What this is.** A from-scratch real-time graphics *engine* — not a sketch, not a demo — that compiles one body of resolution-templated C++ to two radically different runtimes: a microsecond-deadline ISR on a 600 MHz microcontroller painting a spinning LED arm, and a WebAssembly twin in a browser. The engineering center of gravity is unusually high for single-author work: arena allocation with use-after-free instrumentation, a relaxed-atomic double buffer whose correctness is *argued* rather than assumed, perceptual OKLab color folded into a per-pixel budget, SDF sphere-tracing with analytic Lipschitz bounds, and a deploy pipeline that cryptographically pins the shipped binary to its source commit. These are the marks of a practitioner who has internalized how the hardware actually behaves.
+
+**Technical standing.** Measured against the field, the discriminator is not any single algorithm but the *operating envelope*. Plenty of projects render reaction-diffusion or a Hopf fibration — on a desktop GPU, with gigabytes of RAM and a garbage collector. Doing it inside a 335 KB partitioned arena with no heap churn and a hard ISR deadline, while keeping a browser build bit-exact for iteration, is a different and harder discipline, and the codebase meets it with room to spare in its core. Against open-source LED/POV firmware (FastLED demos, bitmap scrollers, Instructables builds) it is simply not the same category of artifact. Against commercial LED-art engines it is competitive on sophistication and *ahead* on several rigor axes (provenance-pinned deploys, a trap-verifying death harness, self-documenting numerical error bounds) that commercial teams routinely skip.
+
+**Relative to academia and the state of the art.** The constituent techniques are drawn from the literature — Hankin's method for Islamic star patterns, Conway/Goldberg polyhedron operators, Belousov–Zhabotinsky / Gray-Scott systems on geodesic graphs, the Hopf fibration, OKLab color, Lipschitz-bounded sphere tracing. The novelty is *not* theoretical; it is synthesis under constraint. The contribution is that all of these coexist behind one zero-allocation, compile-time-specialized pipeline that runs on a rotating arm. It would not be mistaken for a research result, and it does not try to be; it is a credible, well-executed integration of a dozen things that usually appear only in isolation.
+
+**Artistic standing.** At its ceiling the effect set is genuinely gallery-credible — an authentic 4D-tumbling fibration, reaction-diffusion on a 7680-node Fibonacci lattice, raymarched twisted tori at the vertices of a dodecahedron, procedurally-generated Islamic geometry that crossfade-morphs and ripples. That is well above the visual vocabulary of typical LED art, and the *breadth* (geometry, fluids, fibrations, volumetrics, particle systems, perceptual color) demonstrates real range. The curation sits a notch below the ceiling: a minority of pieces (the simpler ring/shower/thruster effects, Metaballs, Moire) are pleasant but conventional, and a few carry the small defects catalogued above (a dead rotation here, a silently-lost trail there). The best work is excellent; the median is good; the floor is competent.
+
+**The honest reservation.** This is an A− rather than an A for one reason, and it is worth stating plainly: *quality is not yet uniform from center to edge.* The core is professional-grade. The periphery — the effect layer and the seams the automated tests don't reach — is one tier behind it, and that is exactly where every silent correctness bug lives. The encouraging corollary is that the gap is mechanical, not structural: the defects are individually minor and almost entirely concentrated outside the test waist, so closing the named P1/P2 items and extending tests to the rasterizer and failure paths would largely erase the distance.
+
+**Bottom line.** An exceptional, internally-coherent, single-author engineering achievement with real artistic ambition and the rare property of running the *same* sophisticated renderer on a microcontroller and in a browser. It decisively outclasses hobbyist POV/LED projects, holds its own against professional LED-art engines, and reads as a skilled engineer's integration of academic techniques rather than a research contribution. The ceiling is high and the foundation is sound; what remains is to make the edge as good as the middle. **Composite: A−**, with a short, clearly-marked path to A.
