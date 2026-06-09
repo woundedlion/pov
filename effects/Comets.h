@@ -92,8 +92,8 @@ public:
 
 private:
   void update_path() {
-    const LissajousParams &config = functions[cur_function_idx];
-    path.f = [&config](float t) {
+    LissajousParams config = functions[cur_function_idx];
+    path.f = [config](float t) {
       return lissajous(config.m1, config.m2, config.a, t * config.domain);
     };
   }
