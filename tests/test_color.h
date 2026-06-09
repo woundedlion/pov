@@ -318,6 +318,26 @@ inline void test_lerp_oklch_endpoints() {
   HS_EXPECT_NEAR(at1.C, b.C, 1e-5f);
 }
 
+inline void test_lerp_oklch_extrapolation_clamped() {
+  // Amounts outside [0,1] reach lerp_oklch via the unbounded
+  // GenerativePalette::lerp / ColorWipe paths. An overshoot must not produce an
+  // invalid OKLCH: L stays in [0,1] and C stays non-negative (a negative C
+  // would flip the hue 180deg and a negative L would render near-black).
+  OKLCH dark{0.1f, 0.05f, 0.0f};
+  OKLCH bright{0.9f, 0.20f, 1.0f};
+
+  OKLCH under = lerp_oklch(dark, bright, -2.0f); // overshoots below dark
+  HS_EXPECT_GE(under.L, 0.0f);
+  HS_EXPECT_GE(under.C, 0.0f);
+
+  OKLCH over = lerp_oklch(bright, dark, 3.0f); // overshoots past dark toward 0
+  HS_EXPECT_GE(over.L, 0.0f);
+  HS_EXPECT_GE(over.C, 0.0f);
+
+  OKLCH high = lerp_oklch(dark, bright, 5.0f); // overshoots above bright
+  HS_EXPECT_LE(high.L, 1.0f);
+}
+
 inline void test_oklch_to_pixel_bounded() {
   // Out-of-gamut request must be clamped into [0,65535] per channel.
   OKLCH vivid{0.7f, 0.4f, 1.0f};
@@ -803,6 +823,7 @@ inline int run_color_tests() {
   test_lerp_oklch_achromatic_hue();
   test_lerp_oklch_shortest_arc_midpoint();
   test_lerp_oklch_endpoints();
+  test_lerp_oklch_extrapolation_clamped();
   test_oklch_to_pixel_bounded();
 
   test_fast_cbrt_accuracy();

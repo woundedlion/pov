@@ -522,7 +522,14 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
     if (dh < -PI_F) dh += 2.0f * PI_F;
     h = a.h + dh * t;
   }
-  return {a.L + (b.L - a.L) * t, a.C + (b.C - a.C) * t, h};
+  // Clamp the magnitude channels. An extrapolated t (amount outside [0,1],
+  // reachable via the unbounded GenerativePalette::lerp / ColorWipe paths) can
+  // overshoot a valid endpoint into an invalid OKLCH: negative L renders
+  // near-black, negative C flips the hue 180°. In-range t is unaffected since
+  // both endpoints are already valid. Hue is left free to wrap.
+  float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
+  float C = __builtin_fmaxf(0.0f, a.C + (b.C - a.C) * t);
+  return {L, C, h};
 }
 
 /// Interpolate two sRGB CPixels in OKLCH space -> 16-bit linear Pixel
