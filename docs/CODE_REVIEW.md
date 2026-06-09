@@ -137,7 +137,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 27. ✅ Confirm or remove the apparently-dead CRGB `DMALEDController::show()` path (`dma_led.h:207`). *Fixed: confirmed dead — the column ISR drives the strip via `backFrame()`/`submitFrame()` and `show(const CRGB*)` had no callers anywhere in the tree. Removed it and its stale class-doc usage example; the column-ISR deadlock rationale it carried moved into `submitFrame()`, the sole remaining overrun-drop site.*
 
-28. Route `memory.cpp`'s OOM `printf` through `hs::log`.
+28. ✅ Route `memory.cpp`'s OOM `printf` through `hs::log`. *Fixed: the OOM diagnostic lives in `Arena::allocate` (`memory.h`, not `memory.cpp`); its `#ifdef ARDUINO` `Serial.printf`/`printf` split is now a single `hs::log` call, which formats via vsnprintf into a fixed stack buffer — keeping raw stdio out of the device image per the NDEBUG strategy. The death harness still pins the subsequent trap.*
 
 ---
 

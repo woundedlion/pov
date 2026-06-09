@@ -71,14 +71,12 @@ public:
     // offset <= capacity is an invariant, so (capacity - offset) is safe; guard
     // the padding step against it, then compare the remaining room against size.
     if (padding > capacity - offset || size > capacity - offset - padding) {
-#ifdef ARDUINO
-      Serial.printf("[OOM] Arena: req %u, offset %u / cap %u\n",
-                    (unsigned)size, (unsigned)(offset + padding),
-                    (unsigned)capacity);
-#else
-      printf("[OOM] Arena: req %zu, offset %zu / cap %zu\n",
-             size, offset + padding, capacity);
-#endif
+      // Route through hs::log (Serial on device, stdout on host) instead of a
+      // raw Serial.printf/printf split: hs::log formats with vsnprintf into a
+      // fixed stack buffer, so the OOM diagnostic pulls in no extra stdio that
+      // the device build's NDEBUG strategy works to keep out of the image.
+      hs::log("[OOM] Arena: req %zu, offset %zu / cap %zu", size,
+              offset + padding, capacity);
       // Over-allocation is a sizing/logic bug, not a recoverable runtime
       // condition: there is no valid recovery, and returning null only relocates
       // the corruption into whatever derefs the result (callers do not check).
