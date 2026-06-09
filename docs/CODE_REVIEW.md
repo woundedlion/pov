@@ -123,7 +123,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 21. ✅ Route the SDF shape family's `get_vertical_bounds` through the existing `phi_bounds_to_rows<H>`. *Fixed: split `phi_bounds_to_rows` into a runtime core `(phi_min, phi_max, h_virt, height)` with the templated `<H>` form delegating to it, so the floor/ceil conversion lives in exactly one place. PlanarPolygon, SphericalPolygon, Star, and Flower now store the phi band (like `Line`) and close `get_vertical_bounds<H>()` through `phi_bounds_to_rows<H>`, dropping their unused `h_virt`/`height` ctor params; the Face's three construction-time bound blocks (early reject, fast, full) route through the runtime core. Output is bit-identical (the pre-clamps were redundant with the row clamps), confirmed by the cull-vs-brute-force equivalence test; no per-pixel cost (one conversion moved from ctor to the once-per-rasterize bounds call).*
 
-22. Factor the Plot close-loop skeleton into one parametric-ring sampler.
+22. ✅ Factor the Plot close-loop skeleton into one parametric-ring sampler. *Fixed: added `Plot::sample_closed_ring(points, num_verts, pos_fn)` — it runs the sample loop (great-circle arc-length accumulation, v0/v1/v2 registers) and appends the overlap-close vertex once. Star, Flower, and DistortedRing now supply only their per-vertex position lambda and share the skeleton; the lambda is inlined so codegen is unchanged. Ring and the polygons that delegate to it keep their analytic arc-length path (different v1 semantics). Verbatim math extraction, validated by the full suite.*
 
 23. De-magic Dynamo's triplicated `10000` trail capacity into a `static constexpr`.
 

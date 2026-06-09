@@ -711,6 +711,47 @@ struct Multiline {
 };
 
 /**
+ * @brief Samples a closed parametric ring of `num_verts` vertices and appends
+ * the overlap-close vertex.
+ *
+ * `pos_fn(i)` returns the unit-sphere position of vertex `i` (i in
+ * [0, num_verts)). Each vertex carries the standard ring registers — v0:
+ * perimeter progress (i / num_verts), v1: accumulated great-circle arc length
+ * from vertex 0, v2: vertex index, age: 0. The trailing close vertex duplicates
+ * vertex 0's position with v0 = 1, the arc length continued across the wrap edge,
+ * and v2 = num_verts, so a `close_loop` rasterize draws the final edge back to
+ * the start without a UV seam. This is the shared skeleton for the
+ * accumulated-arc closed rings (Star, Flower, DistortedRing); Ring itself uses
+ * an analytic arc length and keeps its own loop.
+ */
+template <typename PosFn>
+inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
+  float cumulative_len = 0.0f;
+  size_t start_idx = points.size();
+  for (int i = 0; i < num_verts; i++) {
+    Fragment f;
+    f.pos = pos_fn(i);
+    if (i > 0)
+      cumulative_len += angle_between(points.back().pos, f.pos);
+    f.v0 = static_cast<float>(i) / num_verts;
+    f.v1 = cumulative_len;
+    f.v2 = static_cast<float>(i);
+    f.age = 0;
+    points.push_back(f);
+  }
+
+  // Manual close (overlap): duplicate vertex 0 with continued arc length.
+  if (points.size() > start_idx) {
+    Fragment last = points[start_idx];
+    cumulative_len += angle_between(points.back().pos, last.pos);
+    last.v0 = 1.0f;
+    last.v1 = cumulative_len;
+    last.v2 = static_cast<float>(num_verts);
+    points.push_back(last);
+  }
+}
+
+/**
  * @brief Ring primitives.
  * Registers:
  *  v0: Angular progress (0.0 -> 1.0)
@@ -982,10 +1023,9 @@ struct DistortedRing {
     const float cos_phase = cosf(phase);
     const float sin_phase = sinf(phase);
 
-    float cumulative_len = 0.0f;
-    Vector last_pos;
-
-    for (int i = 0; i < num_samples; i++) {
+    // Per-vertex point carries the shift-fn radial distortion; the loop, arc-
+    // length accumulation, and overlap close are the shared closed-ring skeleton.
+    sample_closed_ring(points, num_samples, [&](int i) {
       float theta = i * step;
       // Angle-addition identity: cos/sin(θ+φ) from precomputed LUT
       float cos_t = TrigLUT<W, H>::cos_theta[i] * cos_phase -
@@ -1001,33 +1041,8 @@ struct DistortedRing {
       float v_scale = d_val * cos_shift - r_val * sin_shift;
       float u_scale = r_val * cos_shift + d_val * sin_shift;
 
-      Fragment f;
-      f.pos = ((v * v_scale) + (u_temp * u_scale)).normalized();
-
-      if (i > 0) {
-        cumulative_len += angle_between(last_pos, f.pos);
-      }
-      last_pos = f.pos;
-
-      f.v0 = static_cast<float>(i) / num_samples;
-      f.v1 = cumulative_len;
-      f.v2 = static_cast<float>(i);
-      f.age = 0;
-      points.push_back(f);
-    }
-
-    // Manual Close (Overlap)
-    if (num_samples > 0) {
-      Fragment f;
-      const Fragment &first = points[0];
-      f.pos = first.pos;
-      cumulative_len += angle_between(last_pos, f.pos);
-      f.v0 = 1.0f;
-      f.v1 = cumulative_len;
-      f.v2 = static_cast<float>(num_samples);
-      f.age = 0;
-      points.push_back(f);
-    }
+      return ((v * v_scale) + (u_temp * u_scale)).normalized();
+    });
   }
 
   /**
@@ -1142,44 +1157,19 @@ struct Star {
     float inner_radius = outer_radius * STAR_INNER_RATIO;
     float angle_step = PI_F / num_sides;
 
-    float cumulative_len = 0.0f;
-    size_t start_idx = points.size();
-
-    for (int i = 0; i < num_sides * 2; i++) {
+    // Alternating outer/inner radius per vertex; everything else is the shared
+    // closed-ring skeleton.
+    sample_closed_ring(points, num_sides * 2, [&](int i) {
       float theta = phase + i * angle_step;
       float r = (i % 2 == 0) ? outer_radius : inner_radius;
-
       float sin_r = sinf(r);
       float cos_r = cosf(r);
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
-
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
       p.normalize();
-
-      Fragment f;
-      f.pos = p;
-      if (i > 0) {
-        cumulative_len += angle_between(points.back().pos, p);
-      }
-
-      f.v0 = static_cast<float>(i) / (num_sides * 2);
-      f.v1 = cumulative_len;
-      f.v2 = static_cast<float>(i);
-      f.age = 0;
-      points.push_back(f);
-    }
-
-    // Manual Close
-    if (points.size() > start_idx) {
-      const Fragment &first = points[start_idx];
-      Fragment last = first;
-      cumulative_len += angle_between(points.back().pos, first.pos);
-      last.v0 = 1.0f;
-      last.v1 = cumulative_len;
-      last.v2 = static_cast<float>(num_sides * 2);
-      points.push_back(last);
-    }
+      return p;
+    });
   }
 
   /**
@@ -1253,46 +1243,19 @@ struct Flower {
     float safe_apothem = std::min(apothem, PI_F - 1e-4f);
     float angle_step = PI_F / num_sides;
 
-    float cumulative_length = 0.0f;
-    size_t start_idx = points.size();
-
-    for (int i = 0; i < num_sides * 2; i++) {
+    // Constant polar radius per vertex; everything else is the shared closed-
+    // ring skeleton.
+    sample_closed_ring(points, num_sides * 2, [&](int i) {
       float theta = phase + i * angle_step;
-      float R = safe_apothem;
-
-      float sin_r = sinf(R);
-      float cos_r = cosf(R);
+      float sin_r = sinf(safe_apothem);
+      float cos_r = cosf(safe_apothem);
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
-
       // Unproject Polar -> Sphere
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
       p.normalize(); // Ensure unit vector
-
-      Fragment f;
-      f.pos = p;
-
-      if (i > 0) {
-        cumulative_length += angle_between(points.back().pos, p);
-      }
-
-      f.v0 = static_cast<float>(i) / (num_sides * 2);
-      f.v1 = cumulative_length;
-      f.v2 = static_cast<float>(i);
-      f.age = 0;
-      points.push_back(f);
-    }
-
-    // Close Loop
-    if (points.size() > start_idx) {
-      const Fragment &first = points[start_idx];
-      Fragment last = first; // copy
-      cumulative_length += angle_between(points.back().pos, first.pos);
-      last.v0 = 1.0f;
-      last.v1 = cumulative_length;
-      last.v2 = static_cast<float>(num_sides * 2);
-      points.push_back(last);
-    }
+      return p;
+    });
   }
 
   /**
