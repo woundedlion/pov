@@ -450,11 +450,17 @@ private:
         // Drag
         p.velocity *= friction;
 
-        // Move
+        // Move. The surface-rotation axis is cross(pos, velocity); it vanishes
+        // when the velocity is purely radial (parallel to pos) even though
+        // speed is non-zero — e.g. once a non-tangent external force (the flow-
+        // field noise) has pushed the velocity off the tangent plane. A radial
+        // velocity produces no motion along the sphere, so skip the step rather
+        // than normalize a zero-length axis (mirrors the normalized_or guard on
+        // the gravity branch above).
         float speed = p.velocity.magnitude();
-        if (speed > 0.000001f) {
-          Vector axis = cross(pos, p.velocity).normalized();
-          Quaternion dq = make_rotation(axis, speed);
+        Vector axis = cross(pos, p.velocity);
+        if (speed > 0.000001f && axis.magnitude() > 0.000001f) {
+          Quaternion dq = make_rotation(axis.normalized(), speed);
           p.position = rotate(p.position, dq);
           p.velocity = rotate(p.velocity, dq);
         }
