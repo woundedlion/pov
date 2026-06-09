@@ -10,6 +10,12 @@
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
+  // Each trail frame is an Orientation holding up to ORIENTATION_SUBSTEPS
+  // sub-frames; deep_tween() emits one Fragment per (frame, sub-frame). The
+  // product is the strict worst-case vertex count per draw, and it sizes both
+  // the scratch vertex buffer and the scratch arena carve below.
+  static constexpr int ORIENTATION_SUBSTEPS = 16;
+  static constexpr int MAX_FRAGMENTS = TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
   struct Params {
     float alpha = 1.0f;
@@ -22,8 +28,10 @@ public:
   } params;
 
   struct Node {
-    Orientation<W, 16> orientation;
-    Animation::OrientationTrail<Orientation<W, 16>, TRAIL_LENGTH> trail;
+    Orientation<W, ORIENTATION_SUBSTEPS> orientation;
+    Animation::OrientationTrail<Orientation<W, ORIENTATION_SUBSTEPS>,
+                                TRAIL_LENGTH>
+        trail;
     Vector v;
 
     Node() : v(Y_AXIS) {}
@@ -34,9 +42,16 @@ public:
         path([this](float t) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
+  // Scratch A holds the per-frame Fragment buffer (MAX_FRAGMENTS) plus headroom
+  // for the downstream Multiline draw. Tie the carve to that worst case so the
+  // buffer can never overrun its arena, with margin above the bare requirement.
+  static constexpr size_t SCRATCH_A_BYTES = 200 * 1024;
+  static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(Fragment),
+                "scratch arena A must fit the worst-case fragment buffer");
+
   void init() override {
 
-    configure_arenas(GLOBAL_ARENA_SIZE - 200 * 1024, 200 * 1024, 0);
+    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
@@ -70,8 +85,8 @@ public:
     // Retain the motion handle so the Cycle Dur slider can be applied live
     // (its duration was otherwise captured once at init).
     motion_ = timeline.add_get(
-        0, Animation::Motion<W, 16>(node->orientation, path,
-                                    (int)params.cycle_duration, true));
+        0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
+               node->orientation, path, (int)params.cycle_duration, true));
 
     driver_ =
         timeline.add_get(0, Animation::Driver(cycle_phase, params.cycleSpeed));
@@ -84,7 +99,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     ScratchScope _(scratch_arena_a);
-    ArenaVector<Fragment> vertices(scratch_arena_a, 2000);
+    ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
     noise_xform.params.frequency = params.noiseFreq;
@@ -131,8 +146,7 @@ public:
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       // Drive color and fade from the normalized trail parameter (v3), as the
-      // sibling Comets effect does. Scaling by the unbounded timeline counter
-      // saturates color_t past 1 within seconds, pinning the palette endpoint.
+      // sibling Comets effect does.
       float color_t = frag.v3;
       frag.color = static_palette.get(color_t);
       frag.color.alpha *= quintic_kernel(frag.v3) * params.alpha;
@@ -159,7 +173,7 @@ private:
   ProceduralPalette palette_variant;
   StaticPalette<ProceduralPalette, ScaleModifier, CycleModifier> static_palette;
   Animation::Driver *driver_ = nullptr;
-  Animation::Motion<W, 16> *motion_ = nullptr;
+  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ = nullptr;
   float last_cycle_duration_ = -1.0f;
   float cycle_phase = 0.0f;
   Node *node = nullptr;
