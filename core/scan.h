@@ -729,8 +729,19 @@ struct Volume {
                    bounds_center.z - bc_dot_vd * vd.z);
     float bounds_r2 = bounds_radius * bounds_radius;
 
-    // Precompute local-space view direction (shared across all pixels)
-    auto [dummy_ro, local_vd] = shape.ray_to_local(Vector(0, 0, 0), vd);
+    // Precompute local-space view direction (shared across all pixels) and, on
+    // the same cold transform, validate the volume preconditions. The per-step
+    // early-out below compares a local-space dot product against the world-space
+    // bounds_radius, which holds only if ray_to_local is length-preserving
+    // (no scale → |local_vd| == 1) and bounds_center coincides with the shape's
+    // local origin (transforms to ~0). A scaling shape or an off-center
+    // bounds_center would silently corrupt the cull; trap it here (once per
+    // draw) rather than mis-rendering every pixel.
+    auto [local_bc, local_vd] = shape.ray_to_local(bounds_center, vd);
+    HS_CHECK(fabsf(local_vd.x * local_vd.x + local_vd.y * local_vd.y +
+                   local_vd.z * local_vd.z - 1.0f) < TOLERANCE);
+    HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
+             local_bc.z * local_bc.z < TOLERANCE);
 
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
 
@@ -789,9 +800,10 @@ struct Volume {
             // this is correct only because ray_to_local is length-preserving
             // (rotation + translation, no scale) so local_vd is unit and
             // local_p.local_vd == (p_world - center).vd, AND callers pass the
-            // shape center as bounds_center (so center == bounds_center). A
-            // future shape with a scaling transform, or a bounds_center distinct
-            // from the shape center, would need this threshold recomputed.
+            // shape center as bounds_center (so center == bounds_center). Both
+            // preconditions are HS_CHECKed once per draw at the top of this
+            // function; a scaling transform or off-center bounds_center traps
+            // there rather than silently mis-culling here.
             if (local_p.x * local_vd.x + local_p.y * local_vd.y +
                     local_p.z * local_vd.z >
                 bounds_radius)
