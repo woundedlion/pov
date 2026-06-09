@@ -1,0 +1,136 @@
+# Holosphere — Code Quality Review
+
+*A persistence-of-vision LED sphere rendering engine (C++20 → Teensy firmware + WebAssembly) and its Three.js web simulator (daydream).*
+
+**Review method.** The README was read in full to establish intended scope, philosophy, and architecture. Nine specialist sub-agents then audited the codebase cluster by cluster — math/color, the rasterization/filter pipeline, memory/mesh, animation/platform, the 28 effects, hardware drivers + WASM bridge, the test suite, the daydream JS simulator, and the build/CI/hygiene layer — each reading every in-scope file line by line and citing `file:line` evidence. This report synthesizes those audits.
+
+**Out of scope (per instruction):** `core/effects_legacy.h` and `targets/Holosphere/Holosphere.ino`. The vendored `three.js/` tree and the generated `holosphere_wasm.{js,wasm}` are third-party/build output and were not graded.
+
+---
+
+## 1. Executive Summary
+
+Holosphere is an exceptional piece of engineering for what it is: a two-person (effectively single-author) generative-art project that targets a 600 MHz Cortex-M7 with 335 KB of working RAM *and* a browser, from one shared C++ codebase. The quality bar is far above hobby-grade and competitive with professional embedded-graphics and creative-coding work. The defining characteristics are a **coherent, documented engineering doctrine that is actually enforced in the code** (fail-fast `HS_CHECK` on cold seams, 16-bit linear/OKLCH color, compile-time resolution, arena allocation with explicit lifetimes, ISR-safe double buffering) and a **comment culture that explains *why*** — the non-obvious numerical, concurrency, and memory decisions almost always carry their rationale inline.
+
+The weaknesses are real but localized and mostly non-critical: a handful of genuine correctness sharp-edges (an unclamped `Gradient::get`, a dimensionally-incoherent label test in the simulator, a silent worker-fault freeze), pervasive-but-shallow duplication in the Conway operators and SDF/Plot primitive families, a few global-singleton designs that cap testability, committed IDE/build cruft, and a missing `.gitignore` in the daydream repo.
+
+**Overall project grade: A−**
+
+| Dimension | Grade |
+|---|---|
+| Architecture & design | A |
+| Correctness & robustness | A− |
+| Interface expressiveness & API design | A |
+| Code readability & naming | A |
+| Documentation (code + README) | A |
+| Performance engineering | A |
+| Error handling (fail-fast doctrine) | A |
+| Testing | A− |
+| Concurrency / real-time safety | B+ |
+| Code duplication | B |
+| Build / CI / release engineering | A− |
+| Repository hygiene | C+ |
+| Type safety (JS side) | C+ |
+| **Architectural elegance (subjective)** | A |
+| **Artistic / algorithmic merit (subjective)** | A |
+
+---
+
+## 2. Component Grades
+
+| Component | Grade | One-line justification |
+|---|---|---|
+| **core — math / color** (`3dmath.h`, `geometry.h`, `color.h`, `palettes.h`, `color_luts.h`, `util.h`, `easing.h`, `waves.h`, `rotate.h`) | A− | Best-in-class numerical doctrine and documented sentinels; let down by `Gradient::get` banding, a `uint8_t`-templated `Projection` that can't represent W=288, and OKLab-forward duplication. |
+| **core — rasterization / filters** (`canvas.h`, `concepts.h`, `filter.h`, `sdf.h`, `scan.h`, `plot.h`, `styles.h`) | A− | Elegant compile-time domain-transition pipeline and superb invariant docs; shader/pipeline type-erasure costs inlining in the per-pixel hot loop, and `sdf.h`/`plot.h` carry heavy primitive-boilerplate duplication. |
+| **core — memory / mesh** (`memory.*`, `mesh.h`, `conway.h`, `hankin.h`, `spatial.h`, `solids.h`, `static_circular_buffer.h`, `generators.h`, `reaction_graph.*`) | A− | Rigorous overflow-safe arena math and host/device layout parity; `MeshState`'s owned-vs-view duality is an unenforced footgun and use-after-free detection vanishes under `NDEBUG`. |
+| **core — animation / platform** (`animation.h`, `transformers.h`, `presets.h`, `effect_registry.h`, `canvas.h`, `platform.h`, `effects*.h`, `constants.h`, `led.h`) | A− | Beautiful type-erased `Lerp` and once-per-frame orientation collapse; `platform.h` is the weak file (lossy FastLED mocks, cross-instantiation Timeline statics). |
+| **effects** (28 headers) | A | Highly consistent skeleton, strong engine leverage, genuinely sophisticated math (reaction-diffusion, Hopf, raymarching, Hankin tilings, exact KD-tree Voronoi); minor dead members and Hankin-family shader duplication. |
+| **hardware + WASM bridge** (`dma_led.h`, `hd107s_frame.h`, `pov_single.h`, `pov_segmented.h`, `wasm.cpp`, `param_marshal.h`, `Phantasm.ino`) | A− | Deep, documented ISR/DMA/coherency reasoning and exemplary WASM memory-view contract; two real concurrency gaps where shared mutables lack the rationale guarding their siblings. |
+| **tests** (25 `test_*.h` + driver) | A− | A cross-process death harness that *verifies* the fail-fast claim, determinism-as-correctness for generative art, invariant-based assertions; the POV ISR/segmented-sync logic and per-effect behavior are the coverage holes. |
+| **daydream simulator** (JS/Three.js) | B+ | Senior-level zero-copy WASM interop, a correct multi-worker generation fence, thorough resource disposal; no type discipline on the worker message bus, a god-module `driver.js`, and a silent worker-fault freeze. |
+| **build / CI / hygiene** | A− / C+ | Tamper-evident WASM provenance chain and an un-bypassable 3-layer test gate (A−); dragged down by committed `__vm/`/`.vcxproj.user` cruft, no daydream `.gitignore`, and no JS lockfile (C+ hygiene). |
+
+---
+
+## 3. Per-Dimension Assessment
+
+### Architecture & Design — A
+The three-target-one-engine structure (Teensy single / Teensy segmented / WASM) is realized cleanly through `platform.h` symbol abstraction and `<W,H>` compile-time parameterization, so the *same* effect code paints a 96×20 spinning strip, a 288×144 four-Teensy ring, and a browser sphere with no per-target branches in the effects. The rendering pipeline's compile-time domain-transition machinery (world → screen → pixel, auto-lifting/projecting via `if constexpr` and dimension traits in `filter.h:143-255`) is the architectural high point — a zero-overhead, hard-to-misuse composition model. The split between SDF *definition* (`sdf.h`) and *rasterization* (`scan.h`), and between animation-state-mutation (`Timeline`/`IAnimation`) and rendering, are textbook separations. Principal architectural smells: global-singleton state (the `Timeline` static event array and frame counter shared across template instantiations, `animation.h:1989-1990`; two static pixel buffers in `canvas.h`), the `MeshState` owned/borrowed duality, and `driver.js` concentrating six responsibilities.
+
+### Correctness & Robustness — A−
+The numerical core is meticulous: pole/singularity sentinels with matched forward/inverse thresholds (`3dmath.h:458-476`), no-wrap subtractive overflow checks in `Arena::allocate` (`memory.h:66-88`), `exact_capacity * sizeof(T)` multiply-overflow traps in `bind`, antipodal-axis fallbacks in geodesic sampling, and pervasive NaN/divide guards across the effects. The death harness proves these traps actually fire. Concrete defects found (none catastrophic): `Gradient::get` is nearest-index with visible banding despite being a core gradient type (`color.h:643-650`); `Projection<uint8_t W,H>` overflows for W=288 (`rotate.h:38`); the daydream label-visibility test is dimensionally incoherent (`driver.js:299`); `wrap()` silently collapses the high edge to 0 (`util.h:24-30`); `MeshState::transform()` writes only the view members, leaving owned vectors stale if an output is reused (`conway.h:166-206`).
+
+### Interface Expressiveness & API Design — A
+Named factories with documented rationale for *not* providing the obvious constructor (`from_spherical`, `3dmath.h:121-136`), intention-revealing pairs (`normalized()` traps vs `normalized_or(fallback)`), the type-safe `Pipeline::get<T>()` with a dependent-`static_assert` "filter not found" diagnostic, and the type-erased `Lerp` whose `=delete` overloads turn a dangling-temporary read into a *compile error* (`animation.h:799-805`) are all top-tier. The `.then()` animation-chaining model and the self-registering `REGISTER_EFFECT` factory give effects a clean, declarative surface. The WASM bridge's reject-don't-trap discipline at the JS boundary is exactly the right call. Weak spot: the palette ecosystem has two parallel mechanisms (a zoo of virtual one-method wrapper classes *and* compile-time `StaticPalette`+`Modifier` composition) for the same job.
+
+### Readability & Naming — A
+Names are precise and domain-appropriate; tolerances are centralized "so they are reviewed in one place" (`3dmath.h:38-49`); each file opens with a coverage/intent manifest in the tests. The drags are concentrated: `sdf.h`'s `Face` constructor is a ~280-line monolith (`sdf.h:1070-1348`), `driver.js`'s `render()` is a 125-line six-job method, and a few dense single-letter clusters in the SDF inner loops.
+
+### Documentation — A
+Genuinely reference-quality for this class of code. The README is a 1,800-line architectural document that matches the code (pin assignments, ISR durations, parity logic, arena sizes all verified accurate). Inline, the lock-free double-buffer non-TOCTOU proof (`canvas.h:381-406`), the per-face Lipschitz-bound derivation (`sdf.h:1243-1250`), the relaxed-atomics single-observer justification (`dma_led.h:139-149`), and the `lerp16` writeup explaining why a signed dual-MAC was unsound for unsigned operands (`color.h:104-118`) are the kind of comments that prevent a future maintainer from "optimizing" correct code back into a bug. Minor gaps: a 64 KB generated LUT with no integrity hash, and README parameter drift for IslamicStars.
+
+### Performance Engineering — A
+Appropriate and disciplined for the target: trig LUTs with vector reconstruction (~145× memory saving, `geometry.h:204-285`), analytic per-row scanline interval culling, AA fast-paths that skip the kernel for full-interior pixels, `fast_*` approximations with documented error bounds on hot paths and exact math on cold ones, ARM saturating-add intrinsics guarded by feature macros, and zero per-frame heap allocation anywhere on the render or ISR path. The simulator mirrors this with persistent scratch objects, a recycling `LabelPool`, single-draw-call instancing, and correct `StreamDraw`/`StaticDraw` usage hints. The one systemic cost is shader/pipeline type-erasure (`FunctionRef`/`PipelineRef`) in the per-pixel loop defeating inlining, and a double full-canvas scan in `Pixel::Feedback`.
+
+### Error Handling — A
+The fail-fast doctrine is not just documented but uniformly enforced and *tested*: cold seams trap via always-on `HS_CHECK` (survives `NDEBUG`), hot paths use stripped `assert` backed by a cold trap at the bind site, transient conditions (DMA overrun, dropped frame) get bounded soft handling, and the JS boundary rejects rather than traps. The cross-process death harness asserting exact `SIGILL`/`STATUS_ILLEGAL_INSTRUCTION` status closes the loop. The main inconsistency: use-after-free detection for `ArenaSpan`/`ArenaVector` is `#ifndef NDEBUG` only — disabled in exactly the device build where silent corruption is most dangerous.
+
+### Testing — A−
+~10.5 K lines, native-Clang with asserts forced on, single-sourced effect roster so new effects auto-enroll in smoke + determinism + param-marshal passes. Assertions are overwhelmingly meaningful (Hamilton quaternion identities, swept double-reference `lerp16`, KD-tree vs brute force, Euler-characteristic invariants per Conway op, analytic rasterizer position checks) rather than smoke-only. Determinism-under-injected-clock is a smart substitute for flaky golden-image hashing. Coverage holes: the POV ISR / segmented multi-Teensy sync has no host-testable seam, `Scan::Volume`/`WarpedVolume` (Raymarch's core) is untested at the rasterizer level, and per-effect *behavioral* correctness is unverified (only crash-freedom + reproducibility).
+
+### Concurrency / Real-Time Safety — B+
+The double-buffer atomics are correct and the relaxed-ordering reasoning is rare-in-the-wild correct. Two gaps keep this below the rest: `dma_led.h`'s `activeBuffer_` is a plain `int` shared across ISR contexts without the rationale comment that guards every *other* shared mutable, and the segmented driver publishes `effect_`/`x_` against a free-running clock with no memory barrier (`pov_segmented.h:293-347`) — currently safe by a shared-vector-serialization argument, but load-bearing and refactor-fragile. On the JS side, a single worker WASM trap permanently hangs the segmented frame with only a console error.
+
+### Code Duplication — B
+The weakest *core* dimension. Every Conway operator repeats the same face-perimeter walk and `visited_edges`-gated edge loop (~5×, `conway.h`); every SDF leaf shape repeats the phi-bounds-to-rows tail and the `distance()` non-template forwarder (~6-10×); every Plot primitive has a vertex-shader/`{}`-forwarding overload pair (~12×). The Hankin-family effects and the Flyby/Liquid2D stereographic shaders each duplicate ~80 lines. None of this is incorrect, but a single fix must be applied in many copies. Counter-examples exist (the shared `correct()` in `hd107s_frame.h`, `param_marshal.h`), showing the author knows how to factor — the SDF/Conway families just haven't received the same treatment.
+
+### Build / CI / Hygiene — A− / C+
+One `CMakeLists.txt` + presets gives genuine one-command cross-platform builds; the native Clang toolchain file even fabricates `lld-link` and locates `rc.exe` on Windows. The standout is a tamper-evident provenance chain binding the deployed `.wasm` to its exact engine commit, with a hard-failing 3-layer test gate (pre-commit → CI → deploy) that runs the same suite and is itself exercised in CI. Hygiene is the laggard: committed Visual Micro `__vm/` files and a `.vcxproj.user`, **no `.gitignore` at all in the daydream repo**, no JS lockfile (floating `^` ranges), and a stray `gui` dependency. Licensing is coherent and per-file annotated.
+
+---
+
+## 4. Prioritized Fix List
+
+### High
+1. **daydream worker-fault silent freeze** (`segment_controller.js:139`). A single worker trap never settles the frame promise → permanent freeze with only a console error. Decrement `pending`/settle on `onerror` and surface a visible UI state.
+2. **Add a `.gitignore` to the daydream repo.** A publicly-published repo with `node_modules/` and `three.js/` on disk and nothing ignoring them invites accidental vendoring commits and a bloated Pages artifact.
+3. **`MeshState::transform()` view/owned divergence** (`conway.h:166-206`, `spatial.h:303-388`). Clear/unbind the owned vectors (or assert `!is_bound()`) on entry so the owned-vs-borrowed mode is unambiguous when an output `MeshState` is reused.
+4. **Promote arena use-after-free detection out of `#ifndef NDEBUG`** (`memory.h:209-216, 465-473`). Per the project's own doctrine, a stale-span deref is exactly the silent-corruption-to-LEDs failure fail-fast exists to prevent; at minimum make the arena-generation check an always-on `HS_CHECK` on first deref.
+5. **Remove committed IDE/build cruft** (`targets/Holosphere/__vm/*`, `Holosphere.vcxproj.user`). `git rm --cached` them; they are inert in `.gitignore` only because they predate the rule.
+
+### Medium
+6. **Shader/pipeline type-erasure in the per-pixel hot loop** (`scan.h:81,91`). Template `process_pixel`/`rasterize` on `ShaderFn&&` (as `Scan::Shader::draw` already does) and prefer the `PipelineT`-templated `plot` path; reserve `FunctionRef`/`PipelineRef` for cold/registered callbacks.
+7. **`Pixel::Feedback` double full-canvas scan per frame** (`filter.h:876-887` + `820-855`). Fold row-active detection into the warp loop's first read.
+8. **`Gradient::get` banding** (`color.h:643-650`). Interpolate between adjacent LUT entries like `BakedPalette::get` already does — the engine's whole premise is smooth 16-bit gradients.
+9. **`platform.h` lossy FastLED mocks**: `SerialMock::printf` drops varargs (`:352`), `beatsin8/16` diverge from FastLED's sawtooth-LUT semantics and don't clamp (`:370-391`), `map`/`map8` divide unguarded (`:338,395`). Sim ≠ hardware for any effect using these.
+10. **Cross-instantiation Timeline statics** (`animation.h:1989-1990`). Make `t`/`num_events` instance members, or assert exactly one specialization is instantiated.
+11. **Two real concurrency gaps**: document+barrier `activeBuffer_` (`dma_led.h`) and bracket the segmented `effect_`/`x_` publish in `disable/enable_interrupts()` (`pov_segmented.h:293-347`).
+12. **Commit a JS lockfile and drop the stray `gui` dependency** (`daydream/package.json`) — the weakest reproducibility link in an otherwise hash-pinned pipeline.
+13. **Add a `<96,20>` effect smoke pass** and one periodic deep-frame pass to CI; effects are currently smoke-tested only at 288×144 for 8 frames, missing the `H_OFFSET≠0` divergence class and cyclic-state bugs.
+14. **Extract a host-testable POV-ISR seam** (`pov_single.h`/`pov_segmented.h`) mirroring how `HD107SFrame` was extracted — the largest test blind spot.
+
+### Low
+15. De-duplicate the Conway face/edge walks and the SDF/Plot primitive boilerplate via shared helpers/CRTP.
+16. Extract a shared `make_topology_shader` for the Hankin-family effects and a `StereoPatternBase` for Flyby/Liquid2D.
+17. Fix `Projection<uint8_t W,H>` → `int` (`rotate.h:38`) and use `fast_*` trig in its per-point path.
+18. Decompose the `Face` constructor (`sdf.h:1070-1348`) and `driver.js`'s `render()`/`_updateStats`.
+19. Add `// @ts-check` + a shared `@typedef` for the worker message protocol (`segment_worker.js`/`segment_controller.js`).
+20. Fix the `markAnimated`/`markReadonly` `HS_CHECK(def && "msg")` idiom to use the message slot (`canvas.h:308,319`).
+21. Name the residual magic numbers (reaction-diffusion substep counts/thresholds, PetalFlow's `0.009375f`, DreamBalls' per-vertex phase) and fix the int/float loop bounds.
+22. Add `.catch` to the Export clipboard write (`daydream.js:206`); pin first-party GitHub Actions to SHAs; add POSIX build wrappers; add an `arduino-cli` firmware-compile CI job.
+
+---
+
+## 5. Overall Impression & Comparative Appraisal
+
+*This appraisal is formed independently from the agent audits above, weighing what the codebase actually achieves against comparable work I am aware of.*
+
+Holosphere is, frankly, one of the more impressive solo-scale systems-and-art codebases I have examined. What elevates it is not any single trick but the **rare combination of three things that usually don't co-occur**: genuine real-time-embedded discipline, genuine graphics/mathematical sophistication, and genuine software-craftsmanship hygiene. Most projects that nail one of these are weak in the other two. Embedded LED-art codebases are typically a pile of `loop()`-driven `FastLED` calls with 8-bit sRGB blending, magic numbers, no tests, and no abstraction. Academic graphics code is often mathematically deep but a build-and-readability disaster. Polished application software rarely touches a microcontroller ISR. Holosphere does all three at once, from a *single* C++ source that compiles to firmware and to the browser.
+
+**Technical merit.** The standout technical achievements are: (1) a compile-time, zero-overhead filter pipeline that auto-converts between world/screen/pixel coordinate domains — a design I'd be happy to see in a professional renderer; (2) a 16-bit linear / OKLCH perceptual color pipeline that reaches unbroken from the canvas to the SPI wire, which is *better* color practice than the vast majority of shipping LED products and even many game engines; (3) an arena allocator whose overflow arithmetic is provably wrap-safe and whose lifetimes are explicit function parameters rather than hidden state; and (4) a fail-fast safety doctrine that is documented, uniformly applied, *and verified by a cross-process death harness*. Against the state of the art: the individual algorithms (Gray-Scott/BZ reaction-diffusion on a Fibonacci-lattice KNN graph, Hopf fibration, Lipschitz-bounded twisted-torus sphere tracing, Hankin Islamic tilings, exact KD-tree spherical Voronoi) are textbook-correct implementations of published techniques rather than novel research — but assembling that breadth, on a sphere, on an MCU, with this level of polish, is itself a non-trivial contribution. It compares favorably to professional creative-coding frameworks (openFrameworks, Processing, TouchDesigner projects) on engineering rigor while being far more memory- and real-time-constrained than any of them. It is well above typical maker/Adafruit-tier POV projects, and above most published "LED globe" academic demos, which rarely ship a reusable engine, a test suite, or a deterministic simulator.
+
+Where it falls short of a top-tier *professional* product is breadth of validation, not depth of design: the concurrency gaps rely on serialization arguments rather than enforced barriers, the duplication would slow a team's iteration, the device-build disabling of memory-safety checks contradicts the project's own philosophy, and per-effect output is unverified. These are the things a hardened commercial firmware team or a graphics-middleware vendor would close — and notably, the codebase already contains the machinery (death harness, determinism harness, provenance chain) to close them.
+
+**Artistic merit.** The effects are tasteful and mathematically grounded rather than gimmicky — the choice to render Islamic geometric patterns via authentic Hankin construction, the perceptually-uniform palette interpolation, the motion-blur-from-orientation-history, and the physically-motivated feedback styles all reflect an artist's eye backed by a mathematician's rigor. The output (judging from the documented screenshots and the effect algorithms) sits comfortably in gallery/installation territory rather than novelty-lighting territory. The simulator deserves special mention: shipping a byte-deterministic, shareable-URL, recordable web twin of a physical device — that also exercises the four-Teensy partitioning *in software before fabrication* — is a level of artistic-engineering tooling that professional studios often lack.
+
+**Bottom line.** This is A−/A work: a cohesive, philosophically-consistent, beautifully-documented engine whose remaining gaps are the ordinary debt of a fast-moving solo project (duplication, a few enforced-vs-argued invariants, hygiene) rather than any architectural rot. With the High/Medium fixes above addressed, it would stand as a genuinely reference-quality example of how to build embedded generative-art software. Relative to its peer set — maker projects, creative-coding frameworks, academic LED-display demos, and commercial lighting firmware — it ranks at or near the top on engineering rigor and is distinguished by something most of them never attempt: doing it all from one disciplined codebase that runs on a microcontroller and in a browser at the same time.
