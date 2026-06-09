@@ -497,8 +497,14 @@ private:
 
   static constexpr float Q = 32767.0f;
   static Item encode(const Vector &v, uint8_t ttl) {
-    return {static_cast<int16_t>(v.x * Q), static_cast<int16_t>(v.y * Q),
-            static_cast<int16_t>(v.z * Q), ttl, 0};
+    // Saturate each component to the unit cube before quantizing. An upstream
+    // World filter (Mobius warp, ripple) can transiently push a component past
+    // 1; without the clamp v.x*Q overflows int16 and wraps to a garbage point
+    // that lands on the opposite side of the sphere. Clamping pins the stray
+    // sample to the surface instead.
+    return {static_cast<int16_t>(hs::clamp(v.x, -1.0f, 1.0f) * Q),
+            static_cast<int16_t>(hs::clamp(v.y, -1.0f, 1.0f) * Q),
+            static_cast<int16_t>(hs::clamp(v.z, -1.0f, 1.0f) * Q), ttl, 0};
   }
   static Vector decode(const Item &item) {
     constexpr float INV_Q = 1.0f / Q;

@@ -618,6 +618,35 @@ inline void test_world_trails_int16_quantization_roundtrip() {
   HS_EXPECT_NEAR(decoded.z, v0.z, 1e-4f);
 }
 
+// Regression: a component pushed past the unit cube by an upstream warp must
+// SATURATE, not overflow int16 and wrap to a garbage point on the far side of
+// the sphere. encode() clamps to [-1, 1] before quantizing.
+inline void test_world_trails_clamps_out_of_range() {
+  constexpr int W = 32, Cap = 4;
+  static uint8_t buf[Cap * 16];
+  Arena arena(buf, sizeof(buf));
+  Filter::World::Trails<W, Cap> trails(/*lifetime=*/10);
+  trails.init_storage(arena);
+
+  // x = 1.8 > 1: 1.8*32767 = 58980 overflows int16 and (before the fix) wrapped
+  // to ~-0.2 on decode. z = -1.5 likewise. Both must saturate to +/-1.
+  const Vector v = Vector(1.8f, 0.5f, -1.5f);
+  trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
+              [](const Vector &, const Pixel &, float, float) {});
+
+  Vector decoded(0, 0, 0);
+  auto trail = [](const Vector &, float) {
+    return Color4(Pixel(60000, 60000, 60000), 1.0f);
+  };
+  trails.flush(WorldTrailFn(trail), 1.0f,
+               [&](const Vector &d, const Pixel &, float, float) {
+                 decoded = d;
+               });
+  HS_EXPECT_NEAR(decoded.x, 1.0f, 1e-3f);   // saturated, not wrapped negative
+  HS_EXPECT_NEAR(decoded.y, 0.5f, 1e-3f);   // in range: untouched
+  HS_EXPECT_NEAR(decoded.z, -1.0f, 1e-3f);  // saturated
+}
+
 inline void test_world_trails_ring_evicts_oldest() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
@@ -725,6 +754,7 @@ inline int run_filter_tests() {
   test_feedback_flush_blends_prev_frame();
 
   test_world_trails_int16_quantization_roundtrip();
+  test_world_trails_clamps_out_of_range();
   test_world_trails_ring_evicts_oldest();
   test_world_trails_ttl_expiry();
   test_screen_trails_store_emit_decay();
