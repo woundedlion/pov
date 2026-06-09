@@ -11,8 +11,9 @@
  * @brief CRTP base for the spherical reaction-diffusion effects (BZ, Gray-Scott).
  *
  * Both systems run on the same 7680-node Fibonacci-lattice K-NN graph, share a
- * Languid random-walk view orientation, rebuild the cached node positions each
- * frame, and interpolate with the same Wendland C2 kernel. This base captures
+ * Languid random-walk view orientation, build the cached node positions once at
+ * init (the lattice is static), and interpolate with the same Wendland C2
+ * kernel. This base captures
  * exactly that shared scaffolding. The physics (Lotka-Volterra 3-species Q8 vs
  * Gray-Scott 2-species Q16), state representation, seeding, params, palette, and
  * rendering are fundamentally different and stay in the derived classes.
@@ -57,7 +58,8 @@ protected:
                         Animation::RandomWalk<W>::Options::Languid()));
   }
 
-  /** Rebuild the cached lattice node positions (RD_N entries) into `nodes`. */
+  /** Build the cached lattice node positions (RD_N entries) into `nodes`.
+   *  Called once at init — the Fibonacci lattice is static, not per-frame. */
   static void build_nodes(Vector *nodes) {
     for (int i = 0; i < RD_N; ++i)
       nodes[i] = ReactionGraph::node(i);
