@@ -493,6 +493,89 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
   Timeline<288>::t = 0;
 }
 
+// Timeline schedules events by start frame: an event added with in_frames > 0
+// stays dormant until t reaches its start, then steps; a one-shot animation is
+// removed once done, so a later event can run after an earlier one finishes.
+// (Uses the global Timeline; each Timeline is scoped so the live-guard balances,
+// and Transition::step never dereferences the canvas.)
+inline void test_timeline_sequences_events_by_start_frame() {
+  Timeline<16> tl; // ctor clears its statics; dtor releases the global live guard
+  float a = 0.0f, b = 0.0f;
+  tl.add(0, Animation::Transition(a, 10.0f, 2, ease_mid)); // starts now
+  tl.add(3, Animation::Transition(b, 20.0f, 2, ease_mid)); // delayed 3 frames
+
+  tl.step(fake_canvas()); // t=1: a ramps, b dormant
+  HS_EXPECT_GT(a, 0.0f);
+  HS_EXPECT_NEAR(b, 0.0f, 1e-6f);
+
+  tl.step(fake_canvas()); // t=2: a completes (reaches target) and is removed
+  HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
+  HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // still dormant (start=3)
+  HS_EXPECT_EQ(Timeline<16>::num_events, 1); // only b remains scheduled
+
+  tl.step(fake_canvas()); // t=3: b finally starts ramping
+  HS_EXPECT_GT(b, 0.0f);
+  HS_EXPECT_LT(b, 20.0f);
+
+  tl.step(fake_canvas()); // t=4: b completes
+  HS_EXPECT_NEAR(b, 20.0f, 1e-3f);
+  HS_EXPECT_EQ(Timeline<16>::num_events, 0); // both done and removed
+}
+
+// A repeating animation rewinds at the end of each cycle instead of being
+// removed, so its bound value replays the curve. Mutation writes
+// f(easing(t/duration)) each step, so after completion + rewind the next step
+// drops back to the mid-cycle value (a non-rewinding timer would clamp at 1).
+inline void test_timeline_repeating_animation_rewinds_each_cycle() {
+  Timeline<16> tl;
+  float v = -1.0f;
+  tl.add(0, Animation::Mutation(
+                v, [](float e) { return e; }, 2, ease_mid, /*repeat=*/true));
+
+  tl.step(fake_canvas()); // t=1 -> v = eased(0.5) = 0.5
+  HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
+  tl.step(fake_canvas()); // t=2 -> v = eased(1.0) = 1.0, done -> rewind
+  HS_EXPECT_NEAR(v, 1.0f, 1e-3f);
+  tl.step(fake_canvas()); // rewound: t=1 again -> v = 0.5 (proves the rewind)
+  HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
+
+  // Repeating events are never removed.
+  HS_EXPECT_EQ(Timeline<16>::num_events, 1);
+}
+
+// Orientation::upsample SLERP-interpolates the recorded sub-frames up to a target
+// count (preserving the endpoints), and collapse() discards all but the newest —
+// the two primitives multi-animation motion blur is built on.
+inline void test_orientation_upsample_then_collapse() {
+  Orientation<32, 8> o; // identity, 1 frame
+  o.push(make_rotation(Z_AXIS, PI_F / 2)); // 2 frames: identity, +90 about Z
+  HS_EXPECT_EQ(o.length(), 2);
+
+  o.upsample(5);
+  HS_EXPECT_EQ(o.length(), 5);
+
+  // Endpoints preserved: frame 0 ~ identity (+X stays +X); frame 4 ~ the +90
+  // rotation about Z (+X -> +Y).
+  Vector f0 = o.orient(X_AXIS, 0);
+  HS_EXPECT_NEAR(f0.x, 1.0f, 1e-3f);
+  Vector f4 = o.orient(X_AXIS, 4);
+  HS_EXPECT_NEAR(f4.y, 1.0f, 1e-3f);
+
+  // SLERP is monotone: the +X component decreases across the interpolated frames.
+  float prevx = 2.0f;
+  for (int i = 0; i < 5; ++i) {
+    float x = o.orient(X_AXIS, i).x;
+    HS_EXPECT_LE(x, prevx + 1e-4f);
+    prevx = x;
+  }
+
+  // collapse() keeps only the newest sub-frame (the +90 rotation survives).
+  o.collapse();
+  HS_EXPECT_EQ(o.length(), 1);
+  Vector c = o.orient(X_AXIS, 0);
+  HS_EXPECT_NEAR(c.y, 1.0f, 1e-3f);
+}
+
 inline int run_animation_tests() {
   auto scope = hs_test::begin_module("animation");
 
@@ -526,6 +609,9 @@ inline int run_animation_tests() {
 
   test_rotation_substeps_shared_and_tight();
   test_timeline_shared_orientation_composes_motion_blur();
+  test_timeline_sequences_events_by_start_frame();
+  test_timeline_repeating_animation_rewinds_each_cycle();
+  test_orientation_upsample_then_collapse();
 
   return hs_test::end_module(scope);
 }

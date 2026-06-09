@@ -39,6 +39,9 @@
  */
 #pragma once
 
+#include <array>
+#include <span>
+
 #include "core/filter.h"
 #include "core/canvas.h"
 #include "tests/test_harness.h"
@@ -385,6 +388,199 @@ inline void test_feedback_plot_is_passthrough() {
   HS_EXPECT_NEAR(kx, 3.0f, 1e-6f);
   HS_EXPECT_NEAR(ky, 4.0f, 1e-6f);
   HS_EXPECT_NEAR(ka, 0.75f, 1e-6f);
+}
+
+// ============================================================================
+// World filters — direct plot() coverage (no Canvas; capture the PassFn3D taps)
+// ============================================================================
+
+// A small recorder for the (vector,color,age,alpha) tuples a World filter emits.
+struct Tap3D {
+  Vector v;
+  Pixel c;
+  float age, alpha;
+};
+
+// Hole masks a spherical cap centered on `origin`: outside the radius the point
+// passes through untouched; inside, the color is scaled by quintic_kernel(d/r),
+// so the very center is fully extinguished.
+inline void test_world_hole_masks_cap() {
+  constexpr int W = 32;
+  Filter::World::Hole<W> hole(Vector(0, 1, 0), 0.5f); // cap at +Y, radius 0.5 rad
+
+  // Far point (south pole) is well outside -> verbatim passthrough.
+  int n = 0;
+  Tap3D got{};
+  hole.plot(Vector(0, -1, 0), Pixel(10000, 20000, 30000), 4.0f, 0.8f,
+            [&](const Vector &v, const Pixel &c, float age, float a) {
+              got = {v, c, age, a};
+              ++n;
+            });
+  HS_EXPECT_EQ(n, 1);
+  HS_EXPECT_EQ((int)got.c.r, 10000);
+  HS_EXPECT_EQ((int)got.c.g, 20000);
+  HS_EXPECT_NEAR(got.age, 4.0f, 1e-6f);
+  HS_EXPECT_NEAR(got.alpha, 0.8f, 1e-6f);
+  HS_EXPECT_NEAR(got.v.y, -1.0f, 1e-6f);
+
+  // Exact center: d=0 -> quintic_kernel(0)=0 -> color fully masked to black.
+  hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  HS_EXPECT_EQ((int)got.c.r, 0);
+  HS_EXPECT_EQ((int)got.c.g, 0);
+  HS_EXPECT_EQ((int)got.c.b, 0);
+
+  // Half-radius (d = 0.25 rad): scaled by quintic_kernel(0.5) = 0.5.
+  Vector half(sinf(0.25f), cosf(0.25f), 0.0f); // 0.25 rad from +Y
+  hole.plot(half, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  HS_EXPECT_NEAR((float)got.c.r, 5000.0f, 50.0f);
+  HS_EXPECT_NEAR((float)got.c.g, 10000.0f, 50.0f);
+}
+
+// Orient rotates by the bound Orientation. For a single-frame (stationary)
+// orientation the motion-blur tween emits one tap, rotated by the current
+// quaternion, with age offset by +1 (the t=0 end of the (1 - t) ramp).
+inline void test_world_orient_rotates_and_offsets_age() {
+  constexpr int W = 32;
+  Quaternion q = make_rotation(Y_AXIS, PI_F / 2); // 90 deg about +Y
+  Orientation<W> ori(q);
+  Filter::World::Orient<W> orient(ori);
+
+  int n = 0;
+  Tap3D got{};
+  orient.plot(X_AXIS, Pixel(1, 2, 3), 5.0f, 1.0f,
+              [&](const Vector &v, const Pixel &c, float age, float a) {
+                got = {v, c, age, a};
+                ++n;
+              });
+  HS_EXPECT_EQ(n, 1);
+  Vector expected = rotate(X_AXIS, q);
+  HS_EXPECT_NEAR(got.v.x, expected.x, 1e-4f);
+  HS_EXPECT_NEAR(got.v.y, expected.y, 1e-4f);
+  HS_EXPECT_NEAR(got.v.z, expected.z, 1e-4f);
+  HS_EXPECT_NEAR(got.age, 6.0f, 1e-4f); // age + (1 - t), t = 0
+}
+
+// With a 3-frame history the tween sweeps the trailing sub-positions (i = 1..n-1)
+// and spreads age across one frame: offsets (1 - t) for t in {0.5, 1.0}.
+inline void test_world_orient_motion_blur_sweep_ages() {
+  constexpr int W = 32;
+  Orientation<W> ori; // identity, 1 frame
+  ori.push(make_rotation(Y_AXIS, PI_F / 4));
+  ori.push(make_rotation(Y_AXIS, PI_F / 2)); // now 3 frames
+  Filter::World::Orient<W> orient(ori);
+
+  int n = 0;
+  float ages[4] = {0};
+  orient.plot(X_AXIS, Pixel(1, 1, 1), 10.0f, 1.0f,
+              [&](const Vector &, const Pixel &, float age, float) {
+                if (n < 4) ages[n] = age;
+                ++n;
+              });
+  // tween emits len-1 = 2 taps (i=1,2), t in {0.5, 1.0} -> age + {0.5, 0.0}.
+  HS_EXPECT_EQ(n, 2);
+  HS_EXPECT_NEAR(ages[0], 10.5f, 1e-4f);
+  HS_EXPECT_NEAR(ages[1], 10.0f, 1e-4f);
+}
+
+// OrientSlice picks an orientation from a list by the point's projection onto an
+// axis, then rotates by it. Two distinct orientations: a point near +axis
+// selects the last, near -axis selects the first; disabled is a passthrough.
+inline void test_world_orient_slice_selects_by_projection() {
+  constexpr int W = 32;
+  Orientation<W> oris[2];
+  oris[0].set(make_rotation(X_AXIS, PI_F / 2)); // index 0
+  oris[1].set(make_rotation(Z_AXIS, PI_F / 2)); // index 1
+  std::span<const Orientation<W>> span(oris, 2);
+  Filter::World::OrientSlice<W> slice(span, Y_AXIS);
+
+  auto first_tap = [&](const Vector &probe) {
+    Vector out{};
+    slice.plot(probe, Pixel(1, 1, 1), 0.0f, 1.0f,
+               [&](const Vector &v, const Pixel &, float, float) { out = v; });
+    return out;
+  };
+
+  // Probe near +Y (projection ~ +1 -> t ~ 1 -> last index 1 = Z rotation).
+  Vector near_pos = Vector(0.15f, 0.98f, 0.0f).normalized();
+  Vector exp_pos = rotate(near_pos, oris[1].get());
+  Vector got_pos = first_tap(near_pos);
+  HS_EXPECT_NEAR(got_pos.x, exp_pos.x, 1e-3f);
+  HS_EXPECT_NEAR(got_pos.y, exp_pos.y, 1e-3f);
+  HS_EXPECT_NEAR(got_pos.z, exp_pos.z, 1e-3f);
+
+  // Probe near -Y (projection ~ -1 -> t ~ 0 -> first index 0 = X rotation).
+  Vector near_neg = Vector(0.15f, -0.98f, 0.0f).normalized();
+  Vector exp_neg = rotate(near_neg, oris[0].get());
+  Vector got_neg = first_tap(near_neg);
+  HS_EXPECT_NEAR(got_neg.x, exp_neg.x, 1e-3f);
+  HS_EXPECT_NEAR(got_neg.y, exp_neg.y, 1e-3f);
+
+  // Disabled -> verbatim passthrough (no rotation).
+  slice.enabled = false;
+  Vector pass = first_tap(near_pos);
+  HS_EXPECT_NEAR(pass.x, near_pos.x, 1e-6f);
+  HS_EXPECT_NEAR(pass.y, near_pos.y, 1e-6f);
+  HS_EXPECT_NEAR(pass.z, near_pos.z, 1e-6f);
+}
+
+// VertexReplicate fans a point onto N copies via rotations from vertices[0] to
+// each vertex; every copy carries the SAME source age (replication is spatial,
+// not temporal — the P3-4 contract). Probing with vertices[0] maps copy i back
+// to vertices[i] exactly.
+inline void test_world_vertex_replicate_fanout_and_age() {
+  constexpr int W = 32, N = 3;
+  std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
+  Filter::World::VertexReplicate<W, N> vr(verts);
+
+  Tap3D taps[N];
+  int n = 0;
+  vr.plot(X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
+          [&](const Vector &v, const Pixel &c, float age, float a) {
+            if (n < N) taps[n] = {v, c, age, a};
+            ++n;
+          });
+  HS_EXPECT_EQ(n, N);
+  // rotate(vertices[0], make_rotation(v0, v_i)) == v_i.
+  for (int i = 0; i < N; ++i) {
+    HS_EXPECT_NEAR(taps[i].v.x, verts[i].x, 1e-4f);
+    HS_EXPECT_NEAR(taps[i].v.y, verts[i].y, 1e-4f);
+    HS_EXPECT_NEAR(taps[i].v.z, verts[i].z, 1e-4f);
+    // Age is unchanged for every copy (no per-copy +i offset).
+    HS_EXPECT_NEAR(taps[i].age, 7.0f, 1e-6f);
+  }
+}
+
+// Mobius warps via stereographic -> Mobius -> inverse stereographic. The default
+// MobiusParams is the identity map (a=1,b=0,c=0,d=1), so an interior point round
+// trips back to itself; a non-identity map actually moves it.
+inline void test_world_mobius_identity_and_transform() {
+  constexpr int W = 32;
+  MobiusParams identity; // a=1,b=0,c=0,d=1
+  Filter::World::Mobius<W> mob(identity);
+
+  const Vector v = Vector(0.4f, 0.3f, 0.86f).normalized();
+  Vector out{};
+  int n = 0;
+  mob.plot(v, Pixel(1, 2, 3), 2.0f, 0.5f,
+           [&](const Vector &o, const Pixel &, float, float) {
+             out = o;
+             ++n;
+           });
+  HS_EXPECT_EQ(n, 1);
+  HS_EXPECT_NEAR(out.x, v.x, 1e-3f);
+  HS_EXPECT_NEAR(out.y, v.y, 1e-3f);
+  HS_EXPECT_NEAR(out.z, v.z, 1e-3f);
+
+  // A translation map f(z) = z + 1 moves the point and keeps it on the sphere.
+  MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0); // a=1, b=1, c=0, d=1
+  Filter::World::Mobius<W> mob2(shift);
+  Vector out2{};
+  mob2.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
+            [&](const Vector &o, const Pixel &, float, float) { out2 = o; });
+  HS_EXPECT_NEAR(out2.length(), 1.0f, 1e-3f);
+  HS_EXPECT_GT(distance_between(out2, v), 0.05f); // actually transformed
 }
 
 // ============================================================================
@@ -745,6 +941,13 @@ inline int run_filter_tests() {
 
   test_feedback_style_binding();
   test_feedback_plot_is_passthrough();
+
+  test_world_hole_masks_cap();
+  test_world_orient_rotates_and_offsets_age();
+  test_world_orient_motion_blur_sweep_ages();
+  test_world_orient_slice_selects_by_projection();
+  test_world_vertex_replicate_fanout_and_age();
+  test_world_mobius_identity_and_transform();
 
   test_pipeline_sink_2d_plot_blends_wraps_clips();
   test_pipeline_sink_3d_plot_routes_to_canvas();
