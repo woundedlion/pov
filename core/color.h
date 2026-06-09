@@ -97,7 +97,15 @@ struct Pixel16 {
   // Lerp (Linear interpolation 16-bit)
   Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
     // frac 0..65535
-    // Exact div-by-65535 via shifts: x/65535 == (x + (x>>16) + 1) >> 16
+    // Round-to-nearest div-by-65535 via shifts:
+    //   round(x/65535) == (x + (x>>16) + 32768) >> 16
+    // The (x + (x>>16)) term reconstructs x*65536/65535 to within <1 LSB;
+    // adding half the divisor (32768) before the >>16 rounds instead of
+    // truncating, matching the +0.5f round-to-nearest parity used by the rest
+    // of this file. Still exact at the endpoints (frac 0/65535 -> a/b) because
+    // the bias stays strictly below one output quantum. The reconstruction tail
+    // below is shared by the ARM smlad and the portable path, so both round
+    // identically.
     uint16_t inv = 65535 - frac;
 #if defined(__ARM_FEATURE_DSP)
     // Pack multipliers: [ frac | inv ]
@@ -119,9 +127,9 @@ struct Pixel16 {
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
     uint32_t xb = (uint32_t)b * inv + (uint32_t)other.b * frac;
 #endif
-    uint32_t r32 = (xr + (xr >> 16) + 1) >> 16;
-    uint32_t g32 = (xg + (xg >> 16) + 1) >> 16;
-    uint32_t b32 = (xb + (xb >> 16) + 1) >> 16;
+    uint32_t r32 = (xr + (xr >> 16) + 32768) >> 16;
+    uint32_t g32 = (xg + (xg >> 16) + 32768) >> 16;
+    uint32_t b32 = (xb + (xb >> 16) + 32768) >> 16;
     return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
   }
 

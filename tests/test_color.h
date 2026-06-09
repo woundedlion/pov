@@ -54,6 +54,22 @@ inline void test_lerp16_midpoint() {
   HS_EXPECT_EQ(mid.b, 65535); // both endpoints equal -> stays put
 }
 
+// lerp16 must round to nearest, not floor. The shared reconstruction tail
+// (x + (x>>16) + 32768) >> 16 biases by half a quantum; the old +1 bias
+// truncated, producing an always-downward error approaching 1 LSB. At
+// frac = 49152 (~0.75) the two disagree on every channel below, so this
+// pins the rounding behavior for both the portable and the smlad paths.
+inline void test_lerp16_rounds_to_nearest() {
+  Pixel16 a(0, 0, 0);
+  Pixel16 b(1, 2, 4);
+  Pixel16 m = a.lerp16(b, 49152); // 0.75
+  // True values 0.75 / 1.5 / 3.0 -> round-to-nearest 1 / 2 / 3.
+  // Old floor behavior would have yielded 0 / 1 / 2.
+  HS_EXPECT_EQ(m.r, 1);
+  HS_EXPECT_EQ(m.g, 2);
+  HS_EXPECT_EQ(m.b, 3);
+}
+
 inline void test_lerp16_bounded() {
   Pixel16 a(123, 45678, 65535);
   Pixel16 b(65535, 0, 12345);
@@ -462,6 +478,7 @@ inline int run_color_tests() {
 
   test_lerp16_endpoints();
   test_lerp16_midpoint();
+  test_lerp16_rounds_to_nearest();
   test_lerp16_bounded();
 
   test_blend_over_under();
