@@ -777,8 +777,7 @@ public:
     const int hw = W / ds;
     const int hh = H / ds;
 
-    scan_row_active(cv);
-    if (is_frame_empty()) return;
+    if (!any_pixel_lit(cv)) return;
 
     // Allocate coarse warp deltas (signed 8.8 fixed-point) from scratch.
     ScratchScope scope(scratch_arena_a);
@@ -822,17 +821,22 @@ public:
       int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
       float fy = (y - cy0 * ds) * inv_ds;
       float wy0 = 1.0f - fy, wy1 = fy;
+      const int row0 = cy0 * hw, row1 = cy1 * hw;
 
+      // cx0 / cx1 / fx advance with x rather than a per-pixel divide+modulo
+      // (ds divides W, guaranteed above): cx0 ticks every ds columns, fx ramps
+      // 0..(ds-1)/ds and resets, cx1 wraps to 0 at the longitude seam. `sub`
+      // tracks x - cx0*ds, so fx here is bit-identical to (x - cx0*ds)*inv_ds.
+      int cx0 = 0, sub = 0;
       for (int x = 0; x < W; ++x) {
-        int cx0 = x / ds;
-        int cx1 = (cx0 + 1) % hw;
-        float fx = (x - cx0 * ds) * inv_ds;
+        int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
+        float fx = sub * inv_ds;
         float wx0 = 1.0f - fx, wx1 = fx;
 
-        int i00 = cy0 * hw + cx0;
-        int i10 = cy0 * hw + cx1;
-        int i01 = cy1 * hw + cx0;
-        int i11 = cy1 * hw + cx1;
+        int i00 = row0 + cx0;
+        int i10 = row0 + cx1;
+        int i01 = row1 + cx0;
+        int i11 = row1 + cx1;
 
         float w00 = wx0 * wy0, w10 = wx1 * wy0;
         float w01 = wx0 * wy1, w11 = wx1 * wy1;
@@ -845,12 +849,12 @@ public:
         ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
         ::Pixel p = style_->color_fn(sample, fade, *style_);
 
-        if (p.r | p.g | p.b) {
-          int xi = fast_wrap(x, W);
-          if (y >= 0 && y < cv.height()) {
-            cv(xi, y) = blend_alpha(alpha)(cv(xi, y), p);
-          }
-        }
+        // x is already in [0,W) and the canvas is H tall, so the old
+        // fast_wrap(x,W) and y-bounds guard here were both no-ops.
+        if (p.r | p.g | p.b)
+          cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
+
+        if (++sub == ds) { sub = 0; ++cx0; }
       }
     }
   }
@@ -863,46 +867,26 @@ public:
   const ::Feedback::Style &style() const { return *style_; }
 
 private:
-  // --- Row-active bitmask for read-side optimizations ---
-  static constexpr int ROW_BITMASK_SIZE = (H + 7) / 8;
-  uint8_t row_active_[ROW_BITMASK_SIZE] = {};
-
-  static bool is_row_active(const uint8_t *bitmask, int row) {
-    return (bitmask[row >> 3] >> (row & 7)) & 1;
-  }
-
-  /// Scan the previous frame buffer and set one bit per row that has
-  /// at least one non-black pixel.
-  void scan_row_active(const Canvas &cv) {
-    std::memset(row_active_, 0, ROW_BITMASK_SIZE);
-    for (int y = 0; y < H; ++y) {
+  /// True if the previous frame has any non-black pixel. Returns on the first
+  /// lit pixel, so a non-empty frame (the common warm case) costs ~one read;
+  /// only a fully black frame — exactly when the expensive flush below is
+  /// skipped anyway — pays a full scan. Per-row culling was dropped: a warped
+  /// trail lights at least one pixel in nearly every row, so the row mask
+  /// saturated and never saved a sample while costing a full-height pre-scan.
+  static bool any_pixel_lit(const Canvas &cv) {
+    for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
         ::Pixel p = cv.prev(x, y);
-        if (p.r | p.g | p.b) {
-          row_active_[y >> 3] |= (1 << (y & 7));
-          break;
-        }
+        if (p.r | p.g | p.b) return true;
       }
-    }
-  }
-
-  bool is_frame_empty() const {
-    for (int i = 0; i < ROW_BITMASK_SIZE; ++i) {
-      if (row_active_[i]) return false;
-    }
-    return true;
+    return false;
   }
 
   /// Bilinear sample from the Canvas front buffer (previous frame).
-  /// Early-outs to black when both source rows are inactive.
   ::Pixel sample_bilinear_prev(const Canvas &cv, float bx, float by) const {
     float fy0 = std::floor(by);
     int y0 = static_cast<int>(fy0);
     int y1 = y0 + 1;
-
-    bool r0_active = (y0 >= 0 && y0 < H) && is_row_active(row_active_, y0);
-    bool r1_active = (y1 >= 0 && y1 < H) && is_row_active(row_active_, y1);
-    if (!r0_active && !r1_active) return ::Pixel(0, 0, 0);
 
     float fx0 = std::floor(bx);
     int x0 = static_cast<int>(fx0);
