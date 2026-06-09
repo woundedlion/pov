@@ -305,7 +305,7 @@ protected:
     // A misspelled name silently no-ops, leaving the param un-flagged and the
     // "Pause Animation" gate broken with no diagnostic. Trap instead — this is
     // cold setup code, the fail-fast doctrine's intended home.
-    HS_CHECK(def && "markAnimated: unknown parameter name");
+    HS_CHECK(def, "markAnimated: unknown parameter name");
     def->animated = true;
   }
 
@@ -316,7 +316,7 @@ protected:
    */
   void markReadonly(const char *name) {
     auto *def = parameters.find(name);
-    HS_CHECK(def && "markReadonly: unknown parameter name");
+    HS_CHECK(def, "markReadonly: unknown parameter name");
     def->readonly = true;
   }
 
@@ -332,7 +332,7 @@ protected:
     // Overflowing the fixed ParamList is an effect-authoring bug (too many
     // params); silently dropping the registration hides it and desyncs the GUI.
     // Trap instead. (Also upholds the WASM no-realloc memory-view invariant.)
-    HS_CHECK(parameters.count < parameters.elements.size() &&
+    HS_CHECK(parameters.count < parameters.elements.size(),
              "registerParam: exceeded ParamList capacity");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
   }
@@ -345,7 +345,7 @@ protected:
    *   overload, which likewise captures `*ptr` and leaves it untouched.
    */
   void registerParam(const char *name, bool *ptr) {
-    HS_CHECK(parameters.count < parameters.elements.size() &&
+    HS_CHECK(parameters.count < parameters.elements.size(),
              "registerParam: exceeded ParamList capacity");
     parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
                                                (float)*ptr};

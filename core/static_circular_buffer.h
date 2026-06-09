@@ -123,32 +123,32 @@ public:
   }
 
   T &front() {
-    HS_CHECK(!is_empty() && "front() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "front() on empty StaticCircularBuffer");
     return buffer[head];
   }
 
   const T &front() const {
-    HS_CHECK(!is_empty() && "front() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "front() on empty StaticCircularBuffer");
     return buffer[head];
   }
 
   T &back() {
-    HS_CHECK(!is_empty() && "back() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "back() on empty StaticCircularBuffer");
     return buffer[(head + count - 1) % N];
   }
 
   const T &back() const {
-    HS_CHECK(!is_empty() && "back() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "back() on empty StaticCircularBuffer");
     return buffer[(head + count - 1) % N];
   }
 
   T &operator[](size_t index) {
-    HS_CHECK(index < count && "StaticCircularBuffer index out of range");
+    HS_CHECK(index < count, "StaticCircularBuffer index out of range");
     return buffer[(head + index) % N];
   }
 
   const T &operator[](size_t index) const {
-    HS_CHECK(index < count && "StaticCircularBuffer index out of range");
+    HS_CHECK(index < count, "StaticCircularBuffer index out of range");
     return buffer[(head + index) % N];
   }
 

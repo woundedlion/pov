@@ -34,7 +34,7 @@ public:
     // First, pinned spawn into a fresh transformer: a slot is always free, so a
     // null here is a structural bug, not a runtime condition. Trap (cold setup
     // code) instead of silently dropping the "Warp Speed" slider.
-    HS_CHECK(anim && "GnomonicStars: pinned warp spawn must succeed");
+    HS_CHECK(anim, "GnomonicStars: pinned warp spawn must succeed");
     registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(

@@ -310,7 +310,7 @@ public:
       // would wrap to a small byte count that slips past Arena::allocate's
       // bounds check — a silent under-allocation. Trap the overflow here, where
       // the multiply happens. Cold path (binding, not per-element).
-      HS_CHECK(exact_capacity <= SIZE_MAX / sizeof(T) &&
+      HS_CHECK(exact_capacity <= SIZE_MAX / sizeof(T),
                "ArenaVector capacity * sizeof(T) overflows size_t!");
       data_ = static_cast<T *>(
           arena.allocate(exact_capacity * sizeof(T), alignof(T)));
@@ -338,7 +338,7 @@ public:
     // Cold-path capacity guard: a fixed-capacity overflow is a sizing bug.
     // HS_CHECK survives NDEBUG so this traps in the device build instead of
     // silently writing past the arena allocation.
-    HS_CHECK(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
+    HS_CHECK(size_ < capacity_, "ArenaVector exact capacity exceeded!");
     new (&data_[size_]) T(value);
     size_++;
   }
@@ -349,7 +349,7 @@ public:
                   "append_bulk memcpy's the source; T must be trivially copyable");
     check_alive();
     check_bound();
-    HS_CHECK(size_ + count <= capacity_ &&
+    HS_CHECK(size_ + count <= capacity_,
              "ArenaVector bulk append exceeds capacity!");
     memcpy(static_cast<void*>(data_ + size_), src, count * sizeof(T));
     size_ += count;
@@ -358,7 +358,7 @@ public:
   template <typename... Args> T &emplace_back(Args &&...args) {
     check_alive();
     check_bound();
-    HS_CHECK(size_ < capacity_ && "ArenaVector exact capacity exceeded!");
+    HS_CHECK(size_ < capacity_, "ArenaVector exact capacity exceeded!");
     T *ptr = new (&data_[size_]) T(std::forward<Args>(args)...);
     size_++;
     return *ptr;

@@ -52,7 +52,7 @@ using IntervalBuffer = StaticCircularBuffer<std::pair<float, float>, 32>;
  * site instead of dropping coverage (fail-fast).
  */
 inline void push_interval(IntervalBuffer &buf, float start, float end) {
-  HS_CHECK(!buf.is_full() &&
+  HS_CHECK(!buf.is_full(),
            "SDF scanline interval buffer overflow (>32 spans in one row)");
   buf.push_back({start, end});
 }
@@ -1106,7 +1106,7 @@ struct Face {
     count = indices.size();
     // A face with more vertices than the scratch budget would build wrong
     // geometry from a truncated index list — trap instead of silently masking.
-    HS_CHECK(count <= FaceScratchBuffer::MAX_VERTS &&
+    HS_CHECK(count <= FaceScratchBuffer::MAX_VERTS,
              "Face: vertex count exceeds MAX_VERTS");
 
     center = Vector(0, 0, 0);

@@ -760,7 +760,7 @@ inline const Entry &get_entry(size_t index) {
   // An out-of-range index is a caller/sizing bug, not a recoverable condition:
   // silently substituting a different solid hides the bug and renders the wrong
   // shape. Trap at the violation site (fail-fast philosophy).
-  HS_CHECK(index < static_cast<size_t>(NUM_ENTRIES) &&
+  HS_CHECK(index < static_cast<size_t>(NUM_ENTRIES),
            "Solids::get_entry: index out of range");
 
   if (index < std::size(simple_registry))
@@ -795,7 +795,7 @@ FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
   }
   // An unknown name is a typo'd/stale caller bug: a wrong solid rendered with no
   // signal is worse than a bench-time crash. Trap rather than fall back to cube.
-  HS_CHECK(false && "Solids::get_by_name: unknown solid name");
+  HS_CHECK(false, "Solids::get_by_name: unknown solid name");
   return finalize_solid(Platonic::cube(a, b), geom); // unreachable (trap above)
 }
 

@@ -117,7 +117,7 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
     // or 2 (interior) half-edges. A run of >2 is a non-manifold edge — a build
     // invariant violation — so fail fast rather than pair two arbitrarily and
     // silently drop the rest.
-    HS_CHECK(j - i <= 2 && "non-manifold edge: >2 half-edges share an edge");
+    HS_CHECK(j - i <= 2, "non-manifold edge: >2 half-edges share an edge");
     if (j - i == 2)
       set_pair(records[i].he, records[i + 1].he);
     i = j;
@@ -148,7 +148,7 @@ private:
 
     // All vertex/face/half-edge indices are stored as uint16_t below; a mesh
     // past that range would silently truncate. Trap instead (fail-fast).
-    HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX &&
+    HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
              "half-edge mesh exceeds 16-bit index range");
 
     vertices.bind(arena, num_verts);
@@ -233,7 +233,7 @@ namespace MeshOps {
  * emitted vertex during a rebuild, never per pixel.
  */
 inline uint16_t narrow_index(size_t i) {
-  HS_CHECK(i <= static_cast<size_t>(INT16_MAX) &&
+  HS_CHECK(i <= static_cast<size_t>(INT16_MAX),
            "mesh index exceeds int16_t topology range (MAX_VERTS bumped?)");
   return static_cast<uint16_t>(i);
 }

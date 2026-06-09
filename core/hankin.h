@@ -96,7 +96,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   // int16_t topology range. narrow_index() would trap an overflow mid-build, but
   // the ceiling is knowable here — fail fast at the binding site with a clear
   // message if MAX_INDICES is ever raised past what the index width allows.
-  HS_CHECK((I / 2) + 1 + I <= static_cast<size_t>(INT16_MAX) &&
+  HS_CHECK((I / 2) + 1 + I <= static_cast<size_t>(INT16_MAX),
            "Hankin output vertex count exceeds int16_t index range "
            "(MAX_INDICES raised too high?)");
   compiled.static_vertices.bind(target_arena, (I / 2) + 1);

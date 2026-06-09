@@ -579,7 +579,7 @@ public:
     // are authored once at construction (cold), so trap always-on rather than
     // corrupt adjacent memory under NDEBUG on-device.
     for (const auto &stop : points)
-      HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f &&
+      HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f,
                "Gradient stop position out of [0,1]");
 
     auto it = points.begin();
@@ -969,7 +969,7 @@ struct BreatheModifier : public Modifier {
     // The phase driver is mandatory (no default): a null one would silently
     // freeze the breathe with no diagnostic. Trap at construction (cold path)
     // so the per-pixel modify() can dereference unconditionally.
-    HS_CHECK(phase && "BreatheModifier: phase driver must not be null");
+    HS_CHECK(phase, "BreatheModifier: phase driver must not be null");
   }
 
   float modify(float t) const override {
@@ -991,7 +991,7 @@ struct RippleModifier : public Modifier {
       : phase(phase), frequency(freq), amplitude(amp) {
     // Mandatory phase driver (no default) — trap a null one at construction
     // rather than silently passing t through on every pixel.
-    HS_CHECK(phase && "RippleModifier: phase driver must not be null");
+    HS_CHECK(phase, "RippleModifier: phase driver must not be null");
   }
 
   float modify(float t) const override {
@@ -1121,7 +1121,7 @@ public:
     // debug-only assert (stripped on-device), so without a trap here a null
     // source silently dereferences null on hardware. Trap always-on at this
     // cold seam so the wiring bug faults at the bench, not in the show.
-    HS_CHECK(src != nullptr && "StaticPalette bound to null source");
+    HS_CHECK(src != nullptr, "StaticPalette bound to null source");
     source_ = src;
     mods_ = std::make_tuple(ms...);
   }
@@ -1170,7 +1170,7 @@ public:
   AnimatedPalette &add(const Modifier &modifier) {
     // Exceeding MAX_MODIFIERS is a wiring bug; silently dropping a modifier
     // changes the visual with no signal. Trap (fail-fast).
-    HS_CHECK(num_modifiers < MAX_MODIFIERS &&
+    HS_CHECK(num_modifiers < MAX_MODIFIERS,
              "AnimatedPalette::add: exceeded MAX_MODIFIERS");
     modifiers[num_modifiers++] = &modifier;
     return *this;
@@ -1279,7 +1279,7 @@ public:
     // Cold (per-frame at most, never per-pixel): a null lut_ here means rebake()
     // was called before bake() — a wiring bug with no valid recovery. Trap
     // always-on (survives NDEBUG on-device) rather than write through null.
-    HS_CHECK(lut_ != nullptr && "BakedPalette::rebake before bake()");
+    HS_CHECK(lut_ != nullptr, "BakedPalette::rebake before bake()");
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
       lut_[i] = source.get(t);

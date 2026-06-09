@@ -249,7 +249,7 @@ private:
     // garbage links. The pool-capacity guard above caps node_count, but trap the
     // index range explicitly so a future capacity bump fails loud instead of
     // corrupting the tree. Cold path (once per node during build).
-    HS_CHECK(new_node_idx <= INT16_MAX &&
+    HS_CHECK(new_node_idx <= INT16_MAX,
              "KDTree node index exceeds int16_t child-link range");
     nodes.emplace_back();
     nodes[new_node_idx].point = points[median_idx];
