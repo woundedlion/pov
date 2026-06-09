@@ -309,7 +309,7 @@ The `platform.h` header abstracts all target-specific differences:
 | `DMAMEM` | Teensy DMA-accessible RAM segment | No-op macro |
 | `hs::log()` | `Serial.println()` | `std::cout` |
 | `hs::millis()` | `::millis()` | `std::chrono` |
-| `hs::rand_f()` | `random()` | `std::mt19937` |
+| `hs::rand_f()` | `std::mt19937(1337)` | `std::mt19937(1337)` |
 | `hs::disable_interrupts()` | `noInterrupts()` | No-op |
 | `CRGB`, `CHSV` | FastLED types | Struct mocks |
 
@@ -619,7 +619,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 | `v0` | `DistanceResult.t` | Normalized parameter (0–1) — azimuthal angle for rings, perimeter progress for polygons |
 | `v1` | `DistanceResult.raw_dist` | Unsigned distance to shape centerline (for distance-based effects) |
 | `v2` | Set by rasterizer | Face index for `Scan::Mesh` (0 otherwise) |
-| `v3` | `DistanceResult.aux` | Auxiliary — barycentric coordinate for faces, secondary parameter for others |
+| `v3` | `DistanceResult.aux` | Auxiliary — shape-dependent secondary parameter (0 when unused, including faces) |
 | `size` | `DistanceResult.size` | Shape radius or apothem for normalization |
 
 The `DistanceResult` struct is returned by each SDF shape's `distance<ComputeUVs>()` method:
@@ -772,7 +772,7 @@ The `Timeline<W>` class manages a list of running `IAnimation` objects. Each fra
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `Noise` | Animates `NoiseParams` over time for flowing distortion fields |
 | `MeshMorph` | Morphs one `MeshState` into another by cloning both, building a nearest-vertex correspondence, and interpolating positions over a duration. The vertex-level primitive beneath `MeshCarousel`. |
-| `MeshCarousel<W>` | Double-buffered mesh transition system with crossfade. Manages a pair of `MeshState` buffers and an `Animation::Lerp` to morph between shapes. Used by IslamicStars, MeshFeedback, and HankinSolids for smooth geometry transitions. |
+| `MeshCarousel<W>` | Double-buffered mesh transition system with crossfade. Manages a pair of `MeshState` buffers and schedules an `Animation::Sprite` to crossfade between shapes. Used by IslamicStars, MeshFeedback, and HankinSolids for smooth geometry transitions. |
 
 #### Orientation and Motion Blur
 
@@ -828,7 +828,7 @@ GenerativePalette palette;
 
 // Timeline drives state via animations:
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, TAU, 600, ease_mid, true));
-timeline.add(0, Animation::Transition(twist, 2.5f, 1000, easing::cubic_in_out));
+timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_bicubic));
 timeline.add(0, Animation::ColorWipe(palette, target_palette, 2000));
 
 // Rendering reads state — no manual updates needed:
@@ -886,7 +886,7 @@ Effects that need more scratch memory can repartition at init time:
 configure_arenas(271 * 1024, 32 * 1024, 32 * 1024);  // 271 + 32 + 32 = 335 KB
 ```
 
-`ScratchScope` (aliased as `ScopedScratch` for backward compatibility) provides stack-like RAII lifetime:
+`ScratchScope` provides stack-like RAII lifetime:
 
 ```cpp
 {
@@ -1132,7 +1132,7 @@ Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 
 
 | Class | Role |
 |---|---|
-| `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel16` values directly into the frame buffer with inline color correction (color correction → temperature → gamma → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and flushed with `arm_dcache_flush_delete()` for cache coherency. |
+| `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel16` values directly into the frame buffer with inline color correction (color correction → temperature → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and flushed with `arm_dcache_flush_delete()` for cache coherency. |
 | `TeensySPIDMA` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
 | `DMALEDController<N>` | Double-buffered high-level controller. `show(leds)` loads the back buffer and triggers DMA, returning immediately. The previous transfer is guaranteed complete before the next begins. |
 
