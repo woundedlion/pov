@@ -1333,7 +1333,7 @@ Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base
 
 Procedurally generates authentic Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.). Ripple waves periodically distort the geometry.
 
-**Parameters**: Duration, Ripp Amp, Ripp Width, Ripp Decay, Ripp Dur
+**Parameters**: Duration, Fade, Burst, Ripp Amp, Ripp Width, Ripp Decay, Ripp Dur, Debug BB
 
 </td></tr></table>
 
@@ -1367,6 +1367,8 @@ Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field
 
 Spherical metaballs: N point-sources on the sphere whose implicit field functions sum and threshold into a rendered surface.
 
+**Parameters**: Max Infl, Gravity, Num Balls, Radius, Velocity, Noise Str, Noise Spd
+
 </td></tr></table>
 
 <table border="0"><tr>
@@ -1376,6 +1378,8 @@ Spherical metaballs: N point-sources on the sphere whose implicit field function
 #### MobiusGrid
 
 A latitude-longitude grid that undergoes live Möbius transformation animation via `MobiusWarpCircularTransformer`.
+
+**Parameters**: Rings, Lines, Alpha
 
 </td></tr></table>
 
@@ -1406,6 +1410,8 @@ FastNoiseLite-driven curl flow field. Particles follow the gradient of a 3D nois
 #### Voronoi
 
 Spherical Voronoi diagram with animated seed positions. Cell boundaries are drawn as geodesic edges; cells are optionally filled.
+
+**Parameters**: Num Sites, Speed, Smoothness, Border Thick
 
 </td></tr></table>
 

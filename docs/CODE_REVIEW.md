@@ -95,7 +95,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 **P2 — documentation drift (cheap, high-credibility-impact):**
 
-9. Regenerate every effect's README "Parameters" line from its `registerParam` calls (IslamicStars, Metaballs, Voronoi, MobiusGrid at minimum).
+9. ✅ Regenerate every effect's README "Parameters" line from its `registerParam` calls (IslamicStars, Metaballs, Voronoi, MobiusGrid at minimum). *Fixed: IslamicStars now lists all eight registered params (added Fade, Burst, Debug BB); Metaballs (Max Infl, Gravity, Num Balls, Radius, Velocity, Noise Str, Noise Spd), MobiusGrid (Rings, Lines, Alpha), and Voronoi (Num Sites, Speed, Smoothness, Border Thick) gained the Parameters line they were missing — all transcribed verbatim from each effect's `registerParam` labels.*
 
 10. Rewrite the **Dynamo** description (it documents an effect that doesn't exist).
 
