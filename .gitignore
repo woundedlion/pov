@@ -17,6 +17,9 @@ CMakeUserPresets.json
 /node_modules/
 package-lock.json
 
+# Local code-review state (not tracked)
+/docs/CODE_REVIEW.md
+
 # IDE / tooling
 /.vs/
 /out/
