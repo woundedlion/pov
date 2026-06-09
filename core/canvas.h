@@ -392,7 +392,26 @@ public:
     // same observer; no multi-core reordering to fence). The 2-buffer + this
     // gate is correct by design — there is no RAM for a third buffer, and the
     // gate (not a third buffer) is what prevents tearing.
-    while (!effect_.buffer_free()) {
+    //
+    // Watchdog: buffer_free() is re-satisfied only when the display ISR runs
+    // advance_display() at a frame boundary — at most once per revolution. An
+    // unbounded wait here means that ISR stopped advancing (stalled rotor,
+    // detached timer, priority inversion): a silent headless freeze, which the
+    // fail-fast doctrine says must trap, not hang. The bound is far above one
+    // revolution at any sane RPM, so a slow spin-up never false-trips (the
+    // first frame doesn't wait at all — prev_==next_==0 at construction). On
+    // timeout, name the site on Serial (the trap is a bare illegal instruction
+    // with no message) then trap; a truncated Serial write is harmless since we
+    // halt immediately. Skipping the micros() read on the common no-wait path
+    // keeps this zero-cost when the buffer is already free.
+    if (!effect_.buffer_free()) {
+      const unsigned long wait_start = micros();
+      while (!effect_.buffer_free()) {
+        if (micros() - wait_start >= kBufferFreeWatchdogUs) {
+          hs::log("FATAL: buffer_free watchdog timeout — display ISR stalled");
+          __builtin_trap();
+        }
+      }
     }
     start_time = micros();
     effect_.advance_buffer();
@@ -467,6 +486,10 @@ public:
   inline bool debug() const { return effect_.debug_visuals; }
 
 private:
+  /** Watchdog bound for the ctor buffer_free() spin (µs). One display
+   *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
+   *  that, so only a genuinely stalled display ISR trips it. */
+  static constexpr unsigned long kBufferFreeWatchdogUs = 2000000UL;
   Effect &effect_;          /**< Reference to the owning Effect instance. */
   unsigned long start_time; /**< Tracks frame drawing duration (debug). */
 };

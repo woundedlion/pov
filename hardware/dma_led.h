@@ -102,10 +102,32 @@ public:
   }
 
   void waitComplete() {
-    while (!transferComplete_.load(std::memory_order_relaxed)) { /* spin */ }
+    if (transferComplete_.load(std::memory_order_relaxed)) return;
+    // Watchdog: a healthy frame clocks out in well under a millisecond at
+    // 12 MHz SPI (the largest strips are still single-digit ms). An unbounded
+    // spin means the DMA completion ISR never fired — a wedged channel — which
+    // a fail-fast headless device must surface, not freeze on. The bound is
+    // ~2 orders of magnitude above the worst real transfer. On timeout, name
+    // the site on Serial (the trap is a bare illegal instruction with no
+    // message) then trap; a truncated Serial write is harmless since we halt
+    // immediately, and that holds even in the column-ISR context show() can
+    // reach (in normal operation show()/submitFrame() overrun-drop instead of
+    // entering this spin — see show()).
+    const unsigned long wait_start = micros();
+    while (!transferComplete_.load(std::memory_order_relaxed)) {
+      if (micros() - wait_start >= kTransferWatchdogUs) {
+        hs::log("FATAL: DMA transfer watchdog timeout — completion ISR never fired");
+        __builtin_trap();
+      }
+    }
   }
 
 private:
+  // Watchdog bound for waitComplete() (µs). A full-frame DMA is single-digit
+  // ms even for the largest strips at 12 MHz; 100 ms is far above any real
+  // transfer, so only a wedged DMA channel trips it.
+  static constexpr unsigned long kTransferWatchdogUs = 100000UL;
+
   static void FASTRUN dmaISR() {
     if (instance_) {
       instance_->dma_.clearInterrupt();
