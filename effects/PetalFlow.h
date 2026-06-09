@@ -55,6 +55,10 @@ private:
   static constexpr float START_RHO = -3.75f;
   static constexpr float END_RHO = 3.75f;
   static constexpr float SPACING = 0.3f; // Spacing in rho units
+  // Petal shaping for the per-ring radial wobble: lobe count per revolution and
+  // wobble depth in rho units.
+  static constexpr float PETAL_LOBES = 3.0f;
+  static constexpr float PETAL_DEPTH = 0.6f;
 
   struct Ring {
     float rho;
@@ -149,9 +153,10 @@ private:
 
     float twist_angle = (ring.rho / SPACING) * params.twist_factor;
 
-    // Radial wobble around the ring: three lobes per revolution form the petals.
+    // Radial wobble around the ring: PETAL_LOBES lobes per revolution form the
+    // petals.
     auto get_shift = [](float t) -> float {
-      return 0.6f * std::abs(sinf(3.0f * PI_F * t));
+      return PETAL_DEPTH * std::abs(sinf(PETAL_LOBES * PI_F * t));
     };
 
     ScratchScope _(scratch_arena_a);

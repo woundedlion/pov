@@ -174,9 +174,11 @@ public:
           quintic_kernel(hs::clamp(val / transition * 0.5f + 0.5f, 0.0f, 1.0f));
       Color4 base = pos.lerp(neg, 1.0f - blend_t);
 
-      // Ambient Occlusion
-      float shadow = hs::clamp((abs_val * params.amplitude) / 0.4f, 0.0f, 1.0f);
-      float occlusion = 0.15f + 0.85f * shadow;
+      // Ambient Occlusion: scale brightness from an ambient floor up to full as
+      // the (amplitude-weighted) field magnitude saturates.
+      float shadow =
+          hs::clamp((abs_val * params.amplitude) / AO_FALLOFF, 0.0f, 1.0f);
+      float occlusion = AO_AMBIENT + AO_RANGE * shadow;
       base.color = base.color * occlusion;
 
       frag.color = base;
@@ -186,6 +188,13 @@ public:
   }
 
 private:
+  // Ambient-occlusion shaping (see draw_frame shader): field magnitude at which
+  // shading saturates, the ambient floor, and the range above it (AMBIENT +
+  // RANGE = 1.0 → full brightness at saturation).
+  static constexpr float AO_FALLOFF = 0.4f;
+  static constexpr float AO_AMBIENT = 0.15f;
+  static constexpr float AO_RANGE = 0.85f;
+
   void start_morph() {
     // Pick a random new harmonic (low modes 1..23 look the best)
     next_idx = static_cast<int>(hs::rand_int(1, 24));

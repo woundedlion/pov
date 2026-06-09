@@ -22,7 +22,7 @@ public:
     registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
     // Precompute frame quaternions — dodecahedron vertices are constexpr
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < NUM_VERTS; ++i) {
       raw_quats[i] = make_rotation(Y_AXIS, Solids::Dodecahedron::vertices[i]);
     }
 
@@ -128,7 +128,8 @@ private:
 
         float ring_angle = (atan2f(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
         float palette_t = fmodf(
-            ring_angle + anim_t * 0.05f + static_cast<float>(vi) / 20.0f, 1.0f);
+            ring_angle + anim_t * 0.05f + static_cast<float>(vi) / NUM_VERTS,
+            1.0f);
         Color4 c = palette.get(palette_t);
         frag.color = Color4(c.color * shade, opacity);
       };
@@ -153,7 +154,7 @@ private:
   FastNoiseLite noise;
   Vector normal = Y_AXIS;
   Orientation<W> camera;
-  std::array<Quaternion, 20> raw_quats;
+  std::array<Quaternion, NUM_VERTS> raw_quats;
   Timeline<W> timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,

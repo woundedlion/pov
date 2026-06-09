@@ -73,9 +73,10 @@ public:
       float sum = 0.0f;
       for (const auto &b : balls) {
         float dist_sq = distance_squared(v, b.p);
-        // Avoid div by zero
-        if (dist_sq < 0.0001f)
-          dist_sq = 0.0001f;
+        // Clamp away the r→0 field singularity (avoids div-by-zero / a blown-up
+        // influence sum at a ball's exact center).
+        if (dist_sq < MIN_DIST_SQ)
+          dist_sq = MIN_DIST_SQ;
         // Radius slider applied live (b.r is the base radius); a size tweak
         // grows the field without re-seeding ball positions.
         float br = b.r * params.radius_scale;
@@ -104,6 +105,9 @@ public:
 
 private:
   static constexpr int BALL_CAPACITY = 50;
+  // Floor on squared distance in the 1/d² metaball field, clamping the
+  // singularity at a ball's center.
+  static constexpr float MIN_DIST_SQ = 0.0001f;
 
   StaticCircularBuffer<Ball, BALL_CAPACITY> balls;
   ProceduralPalette palette; // initialized in the ctor (Palettes::richSunset)
