@@ -1071,7 +1071,63 @@ struct Face {
        float th, FaceScratchBuffer &scratch, int h_virt, int height)
       : thickness(th), full_width(true) {
 
-    // Early Vertical Exit
+    // Early vertical exit: a face whose latitude band (plus thickness margin)
+    // maps to an empty row range can never be rasterized.
+    float min_phi_check, max_phi_check;
+    if (compute_phi_extent(vertices, indices, h_virt, height, min_phi_check,
+                           max_phi_check)) {
+      y_min = 1;
+      y_max = 0;
+      return;
+    }
+
+    count = indices.size();
+    // A face with more vertices than the scratch budget would build wrong
+    // geometry from a truncated index list — trap instead of silently masking.
+    HS_CHECK(count <= FaceScratchBuffer::MAX_VERTS,
+             "Face: vertex count exceeds MAX_VERTS");
+
+    setup_frame_and_polygon(vertices, indices, scratch);
+    compute_inradius(scratch);
+
+    // Vertical bounds: large faces need the full arc-extrema + pole analysis;
+    // small faces use the cheaper vertex-only phi span.
+    int planes_count = 0;
+    if (max_phi_check - min_phi_check < FAST_BOUNDS_PHI_THRESHOLD) {
+      compute_fast_bounds(scratch, vertices, indices, count, thickness,
+                          min_phi_check, max_phi_check, h_virt, height, y_min,
+                          y_max);
+    } else {
+      planes_count =
+          compute_full_bounds(scratch, vertices, indices, count, center,
+                              thickness, h_virt, height, y_min, y_max);
+    }
+
+    edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
+    edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
+    inv_edge_lengths_sq = std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
+    inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
+    planes = std::span<Vector>(scratch.planes.data(), planes_count);
+
+    pack_edges(scratch);
+    build_distance_lut(scratch);
+    compute_azimuth_intervals(scratch);
+    apply_pole_containment(height);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Construction phases. Each is a single-call-site helper factored out of the
+  // constructor for readability; all are force-inlined so codegen (and the
+  // per-frame Mesh::draw face-setup cost) is identical to the original monolith.
+  // ---------------------------------------------------------------------------
+
+  /// Latitude-band reject. Returns true when the face's phi extent (plus
+  /// thickness margin) maps to an empty canvas-row range. Always outputs the
+  /// raw phi extent, which the bounds computation below reuses.
+  __attribute__((always_inline)) bool
+  compute_phi_extent(std::span<const Vector> vertices,
+                     std::span<const uint16_t> indices, int h_virt, int height,
+                     float &min_phi_check, float &max_phi_check) const {
     float min_y_val = 2.0f;
     float max_y_val = -2.0f;
 
@@ -1083,8 +1139,8 @@ struct Face {
         max_y_val = y;
     }
 
-    float min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
-    float max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
+    min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
+    max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     float margin_check = thickness + BOUNDS_MARGIN;
 
     int y_min_check = std::max(
@@ -1097,18 +1153,15 @@ struct Face {
             (std::min(PI_F, max_phi_check + margin_check) * (h_virt - 1)) /
             PI_F)));
 
-    if (y_min_check > y_max_check) {
-      y_min = 1;
-      y_max = 0;
-      return;
-    }
+    return y_min_check > y_max_check;
+  }
 
-    count = indices.size();
-    // A face with more vertices than the scratch budget would build wrong
-    // geometry from a truncated index list — trap instead of silently masking.
-    HS_CHECK(count <= FaceScratchBuffer::MAX_VERTS,
-             "Face: vertex count exceeds MAX_VERTS");
-
+  /// Build the local tangent frame (basis_u/v/w), the gnomonic 2D projection
+  /// (poly_2d) with its circumradius, and the 3D vertex/edge-normal arrays.
+  __attribute__((always_inline)) void
+  setup_frame_and_polygon(std::span<const Vector> vertices,
+                          std::span<const uint16_t> indices,
+                          FaceScratchBuffer &scratch) {
     center = Vector(0, 0, 0);
     for (int i = 0; i < count; ++i)
       center = center + vertices[indices[i]];
@@ -1154,7 +1207,12 @@ struct Face {
           (len > 1e-9f) ? n * (1.0f / len) : Vector(0, 0, 0);
     }
     edge_normals = std::span<Vector>(scratch.edge_normals.data(), count);
+  }
 
+  /// Face "size" = inradius (min distance from the projected centroid to any
+  /// edge), floored to a fraction of the circumradius for degenerate slivers.
+  __attribute__((always_inline)) void
+  compute_inradius(FaceScratchBuffer &scratch) {
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
       Vector v1 = scratch.poly_2d[i];
@@ -1177,29 +1235,10 @@ struct Face {
 
     if (size < radius * MIN_SIZE_RADIUS_RATIO)
       size = radius * MIN_SIZE_RADIUS_RATIO;
+  }
 
-    float vertex_phi_span = max_phi_check - min_phi_check;
-    bool use_fast_bounds = (vertex_phi_span < FAST_BOUNDS_PHI_THRESHOLD);
-
-    int planes_count = 0;
-
-    if (use_fast_bounds) {
-      compute_fast_bounds(scratch, vertices, indices, count, thickness,
-                          min_phi_check, max_phi_check, h_virt, height, y_min,
-                          y_max);
-    } else {
-      planes_count =
-          compute_full_bounds(scratch, vertices, indices, count, center,
-                              thickness, h_virt, height, y_min, y_max);
-    }
-
-    edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
-    edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
-    inv_edge_lengths_sq = std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
-    inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
-    planes = std::span<Vector>(scratch.planes.data(), planes_count);
-
-    // Pack per-edge data contiguously for cache-friendly fallback
+  /// Pack per-edge data contiguously for the cache-friendly distance() fallback.
+  __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
     for (int i = 0; i < count; ++i) {
       auto &ep = scratch.packed_edges[i];
       ep.vx = poly_2d[i].x;
@@ -1211,8 +1250,11 @@ struct Face {
       ep.next_vy = poly_2d[i + 1].y;
     }
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
+  }
 
-    // Precompute signed distance LUT (anisotropic)
+  /// Precompute the anisotropic signed-distance LUT over the face bounding box.
+  __attribute__((always_inline)) void
+  build_distance_lut(FaceScratchBuffer &scratch) {
     float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
     float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
@@ -1273,7 +1315,13 @@ struct Face {
             (is_inside ? -1.0f : 1.0f) * sqrtf(d_sq);
       }
     }
+  }
 
+  /// Azimuth coverage: find the largest angular gap between vertices; if it
+  /// exceeds pi the face does not wrap, so emit the complementary horizontal
+  /// interval(s). Otherwise the face spans the full width.
+  __attribute__((always_inline)) void
+  compute_azimuth_intervals(FaceScratchBuffer &scratch) {
     std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
     float max_gap = 0;
     float gap_start = 0;
@@ -1304,9 +1352,11 @@ struct Face {
     }
     intervals = std::span<std::pair<float, float>>(scratch.intervals.data(),
                                                    interval_count);
+  }
 
-    // Pole containment: if a face encircles a pole, extend vertical bounds
-    // to cover it.
+  /// Pole containment: if the face encircles the north or south pole, extend the
+  /// vertical bounds to it and force full-width azimuth coverage.
+  __attribute__((always_inline)) void apply_pole_containment(int height) {
     if (center.y > 0.01f) {
       float inv_c = 1.0f / center.y;
       float ppx = basis_u.y * inv_c;
