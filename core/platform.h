@@ -336,6 +336,12 @@ enum ColorOrder { RGB };
 inline int random(int max) { return hs::random()() % max; }
 inline int random(int min, int max) { return min + (hs::random()() % (max - min)); }
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
+  // Arduino's map() divides by (in_max - in_min) with no guard. A degenerate
+  // input range raises SIGFPE on the host (x86 integer div-by-zero) while the
+  // Cortex-M7 device returns 0 from the divide (SDIV-by-zero traps are off), so
+  // map() there yields out_min. Match the device — return out_min — rather than
+  // crashing only in the simulator.
+  if (in_max == in_min) return out_min;
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
@@ -350,8 +356,17 @@ struct SerialMock {
   void println(int val) { std::cout << val << std::endl; }
   void println(unsigned long val) { std::cout << val << std::endl; }
   void printf(const char *fmt, ...) {
-    // simplified
-    std::cout << fmt << std::endl;
+    // Match Arduino's Serial.printf: actually expand the format. The old stub
+    // wrote the raw format string and dropped every argument, so a host/sim
+    // diagnostic like "req %u / cap %u" printed literal "%u"s instead of the
+    // values — useless and unlike the device. Format into a stack buffer (no
+    // heap) and emit, mirroring hs::log's vsnprintf path.
+    char buf[256];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    std::cout << buf;
   }
 };
 inline SerialMock Serial;
@@ -362,38 +377,102 @@ inline uint8_t random8(uint8_t top) { return hs::random()() % top; }
 inline uint16_t random16() { return hs::random()() % 65536; }
 inline void random16_add_entropy(uint16_t) {}
 
-/**
- * @brief Generates a sine wave beat using system clock.
- * @details Mocks FastLED's beatsin8: oscillates between low and high at
- * the given BPM. Phase is a 16-bit offset into the wave cycle.
- */
-inline uint8_t beatsin8(uint16_t bpm, uint8_t low, uint8_t high,
-                        uint16_t phase = 0, uint16_t offset = 0) {
-  // Route through hs::millis() (same wall-clock source in production) so the
-  // test time-injection seam makes beats deterministic too. This is a host-only
-  // FastLED mock; the absolute time only sets a sine phase, so the prior direct
-  // chrono read and this are interchangeable.
-  float t = hs::millis() / 1000.0f;
-  float beats = t * bpm / 60.0f;
-  float wave = (sinf(beats * 2.0f * PI + phase / 65536.0f * 2.0f * PI) + 1.0f) * 0.5f;
-  return low + static_cast<uint8_t>(wave * (high - low));
+// FastLED fixed-point sine + scaling primitives. The device build pulls these
+// from <FastLED.h>; the host mock reproduces their exact integer semantics (LUT
+// sine, 8.8 beat sawtooth, scale8 range fit) so the simulator predicts the
+// device instead of approximating it with a smooth float sine of a different
+// shape, phase convention, and parameter order.
+
+// scale8(i, sc) = i * sc / 256 — FastLED's unsigned 8-bit fractional scale.
+inline uint8_t scale8(uint8_t i, uint8_t sc) {
+  return (static_cast<uint16_t>(i) * static_cast<uint16_t>(sc)) >> 8;
+}
+// scale16(i, sc) = i * sc / 65536 — the 16-bit counterpart.
+inline uint16_t scale16(uint16_t i, uint16_t sc) {
+  return (static_cast<uint32_t>(i) * static_cast<uint32_t>(sc)) >> 16;
+}
+
+// sin8: FastLED's 8-bit LUT sine (sin8_C); 0..255 output centred on 128, so
+// sin8(0)=128 and sin8(64)=255. Bit-exact with the device.
+inline uint8_t sin8(uint8_t theta) {
+  static const uint8_t b_m16_interleave[] = {0, 49, 49, 41, 90, 27, 117, 10};
+  uint8_t offset = theta;
+  if (theta & 0x40) offset = 255 - offset;
+  offset &= 0x3F;
+  uint8_t secoffset = offset & 0x0F;
+  if (theta & 0x40) secoffset++;
+  uint8_t section = offset >> 4;
+  const uint8_t *p = b_m16_interleave + section * 2;
+  uint8_t b = *p++;
+  uint8_t m16 = *p;
+  uint8_t mx = (m16 * secoffset) >> 4;
+  int8_t y = mx + b;
+  if (theta & 0x80) y = -y;
+  return static_cast<uint8_t>(y + 128);
+}
+
+// sin16: FastLED's 16-bit LUT sine (sin16_C); signed, -32767..32767.
+inline int16_t sin16(uint16_t theta) {
+  static const uint16_t base[] = {0,     6393,  12539, 18204,
+                                  23170, 27245, 30273, 32137};
+  static const uint8_t slope[] = {49, 48, 44, 38, 31, 23, 14, 4};
+  uint16_t offset = (theta & 0x3FFF) >> 3; // 0..2047
+  if (theta & 0x4000) offset = 2047 - offset;
+  uint8_t section = offset / 256; // 0..7
+  uint16_t b = base[section];
+  uint8_t m = slope[section];
+  uint8_t secoffset8 = static_cast<uint8_t>(offset) / 2;
+  int16_t y = static_cast<int16_t>(m * secoffset8) + b;
+  if (theta & 0x8000) y = -y;
+  return y;
+}
+
+// beat88/16/8: a free-running 16-bit sawtooth phase at the given BPM, sourced
+// from hs::millis() so the test time-injection seam keeps beats deterministic.
+// The * 280 constant is FastLED's (≈ 65536 * 1000 / 60000) ms→phase scale.
+inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
+  return ((hs::millis() - timebase) * bpm88 * 280) >> 16;
+}
+inline uint16_t beat16(uint16_t bpm, uint32_t timebase = 0) {
+  return beat88(static_cast<uint16_t>(bpm << 8), timebase);
+}
+inline uint8_t beat8(uint16_t bpm, uint32_t timebase = 0) {
+  return beat16(bpm, timebase) >> 8;
 }
 
 /**
- * @brief 16-bit version of beatsin8.
+ * @brief FastLED-faithful beatsin8: a sin8 oscillation between lowest and
+ * highest at the given BPM. `timebase` shifts the zero of time; `phase_offset`
+ * shifts the wave — the parameter order and LUT match <FastLED.h>, and the
+ * scale8 range fit keeps the result within [lowest, highest] (the old mock
+ * swapped phase/timebase, dropped the 5th argument, and used a float sine).
  */
-inline uint16_t beatsin16(uint16_t bpm, uint16_t low, uint16_t high,
-                          uint16_t phase = 0, uint16_t offset = 0) {
-  float t = hs::millis() / 1000.0f;
-  float beats = t * bpm / 60.0f;
-  float wave = (sinf(beats * 2.0f * PI + phase / 65536.0f * 2.0f * PI) + 1.0f) * 0.5f;
-  return low + static_cast<uint16_t>(wave * (high - low));
+inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
+                        uint32_t timebase = 0, uint8_t phase_offset = 0) {
+  uint8_t s = sin8(beat8(bpm, timebase) + phase_offset);
+  return lowest + scale8(s, highest - lowest);
+}
+
+/**
+ * @brief FastLED-faithful beatsin16: the 16-bit counterpart (sin16 + scale16).
+ */
+inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
+                          uint16_t highest = 65535, uint32_t timebase = 0,
+                          uint16_t phase_offset = 0) {
+  uint16_t s = static_cast<uint16_t>(sin16(beat16(bpm, timebase) + phase_offset) +
+                                     32768);
+  return lowest + scale16(s, highest - lowest);
 }
 
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) { return (a + b) % m; }
 
-inline uint8_t map8(uint8_t x, uint8_t in_min, uint8_t in_max) {
-  return (x - in_min) * 255 / (in_max - in_min); // rough approximation
+// FastLED map8(in, rangeStart, rangeEnd): maps the full 0..255 input onto
+// [rangeStart, rangeEnd] via scale8 — NOT a remap of [in_min,in_max]→[0,255].
+// The old mock had the inverse semantics (and an unguarded divide), so any
+// effect indexing a palette through map8 sampled a different range in the sim
+// than on the device. Match FastLED.
+inline uint8_t map8(uint8_t in, uint8_t rangeStart, uint8_t rangeEnd) {
+  return rangeStart + scale8(in, rangeEnd - rangeStart);
 }
 
 inline uint8_t triwave8(uint8_t in) {

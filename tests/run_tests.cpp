@@ -21,6 +21,7 @@
 #include "tests/test_reaction_graph.h"
 #include "tests/test_color.h"
 #include "tests/test_easing_waves.h"
+#include "tests/test_platform.h"
 #include "tests/test_filter.h"
 #include "tests/test_plot_scan.h"
 #include "tests/test_canvas.h"
@@ -67,6 +68,7 @@ int main(int argc, char **argv) {
   failures += hs_test::reaction_graph_tests::run_reaction_graph_tests();
   failures += hs_test::color_tests::run_color_tests();
   failures += hs_test::easing_waves_tests::run_easing_waves_tests();
+  failures += hs_test::platform_tests::run_platform_tests();
   failures += hs_test::filter_tests::run_filter_tests();
   failures += hs_test::plot_scan_tests::run_plot_scan_tests();
   failures += hs_test::canvas_tests::run_canvas_tests();
