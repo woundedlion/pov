@@ -109,7 +109,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 15. ✅ Correct the "tools share WASM `MeshOps`" claim (§10.2/§10.11 — only `solids.html` does). *Fixed: verified that only `solids.html` imports `holosphere_wasm.js`/`MeshOps`; the other four tools (lissajous, mobius, palettes, splines) have no WASM references. §10.11 no longer claims all five share the WASM `MeshOps` — it states only `solids.html` is WASM-backed and the rest do their geometry math in JS; §10.2 now scopes the `MeshOps` class to the `solids.html` tool.*
 
-16. Correct the stale "64MB" arena comment (`tools/solids.html:1417`; actual is 16 MB).
+16. ✅ Correct the stale "64MB" arena comment (`tools/solids.html:1417`; actual is 16 MB). *Fixed (in the daydream repo): the WASM tooling memory is three arenas — `tooling_buf` (8 MB) + `tooling_scratch_buf_a/b` (4 MB each) = 16 MB (`wasm.cpp:51-56`), all reset by `clearToolingMemory()`. The `solids.html` comment now reads "Flush the 16 MB tooling arenas (8 MB + 4 MB + 4 MB)" instead of "the 64MB arena".*
 
 17. Note that `Solids::get(index)` is WASM-tooling-only, or compile it on firmware too.
 
