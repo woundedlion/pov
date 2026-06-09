@@ -166,14 +166,20 @@ private:
                  solid_idx = next_idx;
                  carousel.set_front(new_slot);
                  promote_staged_hankin();
-                 // Manual compaction: preserve both carousel slots +
-                 // compiled_hankin
+                 // Manual compaction. Only the front slot survives: the back
+                 // slot is dead here (the next start_morph_cycle regenerates it
+                 // via load_shape's clear()+rebuild), so persisting it would be
+                 // wasted clone work and arena fragmentation. Drop its handle to
+                 // a fresh MeshState first so its now-dangling ArenaVectors
+                 // (pointing into the about-to-be-reset arena) are not restored.
+                 // MeshState -> scratch_arena_a; CompiledHankin + palette bank ->
+                 // scratch_arena_b (kept on separate scratch arenas so neither
+                 // overflows; see init()'s arena sizing).
+                 carousel.slot(1 - new_slot) = MeshState();
                  {
                    Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_b,
                                               persistent_arena);
-                   Persist<MeshState> p0(carousel.slot(0), scratch_arena_a,
-                                         persistent_arena);
-                   Persist<MeshState> p1(carousel.slot(1), scratch_arena_a,
+                   Persist<MeshState> pf(carousel.current(), scratch_arena_a,
                                          persistent_arena);
                    Persist<MeshPaletteBank> pp(palette_bank_, scratch_arena_b,
                                                persistent_arena);
