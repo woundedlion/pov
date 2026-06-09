@@ -101,7 +101,7 @@ The `HS_CHECK` philosophy is the codebase's spine and is applied with rare consi
 
 11. ✅ Split the **RingSpin/RingShower** blurb (fits neither). *Fixed: the shared "concentric rings with per-ring phase offsets" line described neither effect. Now two entries: RingSpin (four great-circle rings tumbling under energetic random-walk with fading orientation-trail motion blur via `Scan::Ring`; params Alpha, Thickness, Show Bounding) and RingShower (rings spawning on random axes and expanding outward as fading `Sprite`s via `Plot::Ring`; param Alpha), each with its own screenshot.*
 
-12. Correct the `getParameterDefinitions()` shape in README §10.2 (`wasm.cpp:339-355` emits `animated`/`readonly` and omits bool `min`/`max`).
+12. ✅ Correct the `getParameterDefinitions()` shape in README §10.2 (`wasm.cpp:339-355` emits `animated`/`readonly` and omits bool `min`/`max`). *Fixed: the §10.2 table now documents each entry as `{name, value, animated, readonly}`, with float params additionally carrying `{min, max}` and bool params omitting them while returning `value` as a JS boolean — matching `wasm.cpp:339-355`.*
 
 13. Correct the AntiAlias "quintic both axes" claim (§7.1/§6 — X is linear-after-sin, `filter.h:592-595`).
 
