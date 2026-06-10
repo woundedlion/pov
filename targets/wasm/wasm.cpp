@@ -513,7 +513,15 @@ struct MeshOpsWrapper {
           }
         } else {
           num_face_verts++;
-          run++;
+          // A face_count is stored in a uint8_t, so a face with more than
+          // UINT8_MAX vertices would wrap on the (uint8_t) casts below (256 -> 0
+          // verts, corrupting topology). Reject it up front like the other
+          // malformed-input cases rather than routing through narrow_face_count,
+          // whose HS_CHECK would trap and abort the whole WASM module.
+          if (++run > UINT8_MAX) {
+            hs::log("WASM: fromData face has > %d vertices — ignored", UINT8_MAX);
+            return nullptr;
+          }
         }
       }
       if (run > 0)
@@ -553,6 +561,8 @@ struct MeshOpsWrapper {
     m.faces.bind(tooling_arena, num_face_verts);
     m.face_counts.bind(tooling_arena, num_faces);
 
+    // current_count is bounded to UINT8_MAX by the counting pass above, so the
+    // (uint8_t) casts below cannot wrap.
     int current_count = 0;
     for (int idx : fData) {
       if (idx == -1) {
