@@ -44,13 +44,12 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
 
   float d = result_scratch.dist;
   float pixel_width = 2.0f * PI_F / W;
-  bool is_solid = shape.is_solid;
-  float threshold = is_solid ? pixel_width : 0.0f;
+  constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
+  float threshold = solid ? pixel_width : 0.0f;
 
   if (debug_bb || d < threshold) {
     float alpha = 1.0f;
 
-    constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
     if constexpr (solid) {
       if (d <= -pixel_width) {
         // FAST PATH: Pixel is fully inside the shape. Skip AA
