@@ -1276,14 +1276,15 @@ struct Flower {
                    VertexShaderRef vertex_shader, float phase = 0) {
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
-    // The petal ring sits at colatitude apothem = PI - outer >= PI/2 from
-    // work_basis.v (see sample()), i.e. clustered on the *antipodal* pole. Center
-    // the azimuthal-equidistant chart there so the ring lands within PI/2 of the
-    // center, in the projection's well-conditioned region — matching SDF/Scan
-    // Flower, which center on -basis.v. Centering on +work_basis.v would push the
-    // ring out to R~PI (near the chart singularity) and force the per-segment
-    // antipode guard to drop small-radius rings to a geodesic fallback.
-    Vector center = -work_basis.v;
+    // Center the planar chart on work_basis.v, the pole *opposite* the petal ring
+    // (which sits at colatitude apothem = PI - outer >= PI/2, near -work_basis.v).
+    // This is intentional and load-bearing for the look, NOT a bug: the ring is a
+    // constant-radius polygon, so it only reads as a flower because projecting it
+    // through the far-pole chart (where R -> PI) bows the straight edges outward
+    // into petals. Centering on -work_basis.v (the ring's own pole, as SDF/Scan
+    // Flower do for their sector-folded geometry) collapses the edges to clean
+    // tangent-plane chords -- i.e. a plain planar polygon, not a flower.
+    Vector center = work_basis.v;
 
     // Construct a planar basis aligned with the center
     Vector ref =
