@@ -55,14 +55,17 @@
 
 namespace hs {
 /**
- * @brief On-device logging to Serial: formats into a fixed 128-byte stack
- *        buffer with vsnprintf (no heap), then writes one line.
+ * @brief On-device logging to Serial: formats into a fixed 256-byte stack
+ *        buffer with vsnprintf (no heap), then writes one line. Sized to hold a
+ *        full check_fail() breadcrumb ("HS_CHECK failed: file:line: (cond) msg")
+ *        without truncating the message tail; a smaller buffer dropped it once
+ *        the file/cond/message together ran long.
  */
 inline void log(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
-  char buf[128];
+  char buf[256];
   vsnprintf(buf, sizeof(buf), msg, args);
   va_end(args);
   Serial.println(buf);
@@ -611,15 +614,23 @@ inline int rand_int(int min, int max) {
   va_start(args, fmt);
   vsnprintf(msg, sizeof(msg), fmt, args);
   va_end(args);
+  // Strip the directory from __FILE__: the compiler bakes in an absolute build
+  // path that can be far longer than the basename, and on the bounded log buffer
+  // below it would crowd out the cond/message tail — the part that actually
+  // identifies the failure. Keep just the filename.
+  const char *base = file;
+  for (const char *p = file; *p; ++p) {
+    if (*p == '/' || *p == '\\') base = p + 1;
+  }
 #ifdef __EMSCRIPTEN__
   // Route straight to console.error: synchronous (the trap can't drop it) and
   // visible even if stdout is not wired to the page console.
-  char buf[176];
-  snprintf(buf, sizeof(buf), "HS_CHECK failed: %s:%d: (%s) %s", file, line,
+  char buf[256];
+  snprintf(buf, sizeof(buf), "HS_CHECK failed: %s:%d: (%s) %s", base, line,
            cond, msg);
   EM_ASM({ console.error(UTF8ToString($0)); }, buf);
 #else
-  hs::log("HS_CHECK failed: %s:%d: (%s) %s", file, line, cond, msg);
+  hs::log("HS_CHECK failed: %s:%d: (%s) %s", base, line, cond, msg);
   hs::flush_log();
 #endif
   __builtin_trap();
