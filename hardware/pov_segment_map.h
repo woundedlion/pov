@@ -44,7 +44,9 @@ struct SegmentMap {
 constexpr SegmentMap segment_map(int segment_id, int S, int N) {
   const int segs_per_arm = N / 2;
   const int rows = S / 2;
-  const int arm_seg = segment_id % segs_per_arm;
+  // segs_per_arm = N/2 is a power of two (N is validated power-of-two, <= 4),
+  // so mask instead of modulo — same bitwise idiom as read_id()'s `& (N - 1)`.
+  const int arm_seg = segment_id & (segs_per_arm - 1);
   SegmentMap m{};
   m.arm_b = segment_id >= segs_per_arm;
   if (arm_seg == 0) {
