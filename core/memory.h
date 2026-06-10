@@ -503,6 +503,10 @@ public:
   {
   }
 
+  /// Borrowing from a temporary ArenaVector would leave the data pointer and
+  /// (in debug) source_vec_ dangling the moment the temporary dies. Forbid it.
+  explicit ArenaSpan(const ArenaVector<T> &&) = delete;
+
   const T &operator[](size_t i) const {
     check_alive();
     assert(i < size_);
