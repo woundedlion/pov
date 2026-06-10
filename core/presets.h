@@ -13,21 +13,22 @@ template <typename Params> struct PresetEntry {
 };
 
 template <typename Params, size_t Size> class Presets {
+  // An empty preset set is meaningless for a selector and would make get()/
+  // apply()/prev_get() index a zero-length array (UB). Reject it up front so
+  // every accessor has at least one valid entry.
+  static_assert(Size > 0, "Presets requires at least one entry");
+
 public:
   using Entry = PresetEntry<Params>;
 
   const Params &get() const { return entries[current_idx].params; }
 
   void next() {
-    if constexpr (Size == 0)
-      return;
     prev_idx = current_idx;
     current_idx = (current_idx + 1) % Size;
   }
 
   void prev() {
-    if constexpr (Size == 0)
-      return;
     prev_idx = current_idx;
     current_idx = (current_idx - 1 + Size) % Size;
   }
