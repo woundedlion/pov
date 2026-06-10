@@ -171,7 +171,7 @@ private:
   static TeensySPIDMA* instance_;
 };
 
-TeensySPIDMA* TeensySPIDMA::instance_ = nullptr;
+inline TeensySPIDMA* TeensySPIDMA::instance_ = nullptr;
 
 // ============================================================================
 // DMALEDController — Double-buffered async LED controller
