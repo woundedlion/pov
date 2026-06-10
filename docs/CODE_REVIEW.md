@@ -113,7 +113,7 @@ The five philosophies (16-bit linear color; compile-time resolution; fail-fast c
 
 10. ✅ **WASM init-HWM log passes a runtime buffer as the printf format string.** `setEffect()` does `snprintf` into `hwm_buf` then `hs::log(hwm_buf)`, passing a runtime buffer as the format argument of a `format(printf,1,2)` function — directly against the convention the same file documents 30 lines above and applies correctly elsewhere. Harmless today (the literal is `%`-free) but a latent format footgun and a redundant two-step. *Fix:* `hs::log("WASM: init stack HWM = %u bytes", (unsigned)stack_high_water_mark());`, dropping `hwm_buf`. `targets/wasm/wasm.cpp:222-225`.
 
-11. **Death-test header seam enumeration omits the Plot case.** The `test_death.h` file-level comment lists the death-suite seams (memory/arena, math, mesh-topology, registry, container, spatial, animation, canvas, scan) but omits `plot`, even though `case_plot_mesh_vertex_over_capacity` is defined and registered in `all_cases()` — so the canonical coverage index understates what the suite actually guards. *Fix:* add `plot` to the enumerated seam list. `tests/test_death.h:6`.
+11. ✅ **Death-test header seam enumeration omits the Plot case.** The `test_death.h` file-level comment lists the death-suite seams (memory/arena, math, mesh-topology, registry, container, spatial, animation, canvas, scan) but omits `plot`, even though `case_plot_mesh_vertex_over_capacity` is defined and registered in `all_cases()` — so the canonical coverage index understates what the suite actually guards. *Fix:* add `plot` to the enumerated seam list. `tests/test_death.h:6`.
 
 ### 4a. Verified and dismissed this pass
 

@@ -4,7 +4,7 @@
  *
  * Death tests — the suite's coverage of the fail-fast philosophy the project
  * markets, spanning the memory/arena, math core, mesh-topology, registry,
- * container, spatial (KDTree), animation, canvas, and scan seams (including non-finite-input
+ * container, spatial (KDTree), animation, canvas, scan, and plot seams (including non-finite-input
  * faults: NaN fed to normalize/slerp/make_rotation/make_basis must trap, not
  * propagate into geometry). An HS_CHECK violation is a deliberate __builtin_trap() that
  * aborts the whole process; the in-process HS_EXPECT_* harness cannot catch it.
