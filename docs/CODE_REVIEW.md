@@ -108,7 +108,7 @@ The four design philosophies (16-bit linear color, compile-time resolution, fail
 
 15. Extract a `StereoShaderBase` CRTP for Liquid2D + Flyby (largest single dedup).
 16. Factor the live-param-sync and orientation-trail-render idioms shared across several effects.
-17. Unify the two `Scan::Shader` SSAA loops.
+17. ✅ Unify the two `Scan::Shader` SSAA loops. *Fixed: the copy-pasted sub-pixel offset table, the per-sample theta/phi→vector projection, and the LUT-domain `HS_CHECK` are now shared `Shader` helpers (`make_sample_offsets`, `ssaa_sample_vector`, `check_lut_domain`) called by both `draw()` overloads (`scan.h`). The projection trig is kept verbatim so SSAA output is byte-identical (determinism harness green); the helpers are `constexpr`/`inline`, so codegen is unchanged.*
 18. Call `quintic_kernel()` from DistortedRing instead of its inline re-implementation.
 19. Reconcile README drift: the WASM divide-by-65535 sample, stale effect parameter lists (IslamicStars/Metaballs/Voronoi/MobiusGrid), and the §7.10 segmented row-range wording.
 20. Add `test_util.h`, `test_presets.h`, and direct `styles.h` coverage.

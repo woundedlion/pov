@@ -485,16 +485,54 @@ struct Mesh {
  * The utility calls it SAMPLES× per pixel at sub-pixel offsets and averages.
  */
 struct Shader {
-  template <int W, int H, int SAMPLES = 1, typename ShaderFn>
-  static void draw(Canvas &canvas, ShaderFn &&shader) {
+  // --- Shared SSAA helpers (used by both draw() overloads) -------------------
+  // Sub-pixel sample offsets: the four pixel corners (±0.5, ±0.5), selected by
+  // the low two bits of the sample index. SAMPLES > 4 reuses the same four
+  // corners. Fully compile-time, so it costs nothing at runtime.
+  template <int SAMPLES> struct SampleOffsets {
+    float x[SAMPLES];
+    float y[SAMPLES];
+  };
+  template <int SAMPLES>
+  static constexpr SampleOffsets<SAMPLES> make_sample_offsets() {
+    constexpr float eps = 0.5f;
+    SampleOffsets<SAMPLES> o{};
+    for (int i = 0; i < SAMPLES; ++i) {
+      int qx = (i & 1) ? -1 : 1;
+      int qy = (i & 2) ? -1 : 1;
+      o.x[i] = eps * qx;
+      o.y[i] = eps * qy;
+    }
+    return o;
+  }
+
+  // Project a sub-pixel coordinate (pixel index + corner offset) to its
+  // world-space unit vector. Kept as explicit theta/phi trig — identical to the
+  // former inline bodies — so SSAA output stays byte-for-byte stable.
+  template <int W, int H>
+  static inline Vector ssaa_sample_vector(float px, float py) {
     constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
     constexpr float w_float = static_cast<float>(W);
+    float theta = (px * 2.0f * PI_F) / w_float;
+    float phi = (py * PI_F) / h_virt_minus_1;
+    float sin_phi = sinf(phi);
+    return Vector(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
+  }
 
-    const auto &cr = canvas.clip();
-    // LUT-domain invariant (checked once per draw, not per pixel): every (x,y)
-    // the loops feed to pixel_to_vector indexes the trig LUTs within bounds.
+  // LUT-domain invariant shared by both overloads (checked once per draw, not
+  // per pixel): every (x,y) the loops feed to pixel_to_vector indexes the trig
+  // LUTs within bounds.
+  template <int W, int H>
+  static void check_lut_domain(const ClipRegion &cr) {
     HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
              cr.render_y_end() <= PhiLUT<H>::H_VIRT);
+  }
+  // --------------------------------------------------------------------------
+
+  template <int W, int H, int SAMPLES = 1, typename ShaderFn>
+  static void draw(Canvas &canvas, ShaderFn &&shader) {
+    const auto &cr = canvas.clip();
+    check_lut_domain<W, H>(cr);
 
     if constexpr (SAMPLES == 1) {
       // 1× — single sample at pixel center (no SSAA)
@@ -513,24 +551,7 @@ struct Shader {
       #endif
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      // Sub-pixel sample offsets: the four pixel corners (±0.5, ±0.5),
-      // selected by the low two bits of the sample index. SAMPLES > 4 reuses
-      // the same four corners.
-      struct SampleOffsets {
-        float x[SAMPLES];
-        float y[SAMPLES];
-      };
-      constexpr float eps = 0.5f;
-      constexpr SampleOffsets offsets = [&]() constexpr {
-        SampleOffsets o{};
-        for (int i = 0; i < SAMPLES; ++i) {
-          int qx = (i & 1) ? -1 : 1;
-          int qy = (i & 2) ? -1 : 1;
-          o.x[i] = eps * qx;
-          o.y[i] = eps * qy;
-        }
-        return o;
-      }();
+      constexpr auto offsets = make_sample_offsets<SAMPLES>();
 
       #ifdef __EMSCRIPTEN__
       double _t0 = emscripten_get_now();
@@ -540,13 +561,9 @@ struct Shader {
           Color4 accum(Pixel(0, 0, 0), 0.0f);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            float px = static_cast<float>(x) + offsets.x[i];
-            float py = static_cast<float>(y) + offsets.y[i];
-
-            float theta = (px * 2.0f * PI_F) / w_float;
-            float phi = (py * PI_F) / h_virt_minus_1;
-            float sin_phi = sinf(phi);
-            Vector v(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
+            Vector v = ssaa_sample_vector<W, H>(
+                static_cast<float>(x) + offsets.x[i],
+                static_cast<float>(y) + offsets.y[i]);
 
             Color4 sample = shader(v);
             sample *= inv_samples;
@@ -571,15 +588,11 @@ struct Shader {
   template <int W, int H, int SAMPLES = 4>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
-    constexpr float w_float = static_cast<float>(W);
-
     Fragment frag_base;
 
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
-      HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
-               cr.render_y_end() <= PhiLUT<H>::H_VIRT);
+      check_lut_domain<W, H>(cr);
       #ifdef __EMSCRIPTEN__
       double _t0 = emscripten_get_now();
       #endif
@@ -597,25 +610,10 @@ struct Shader {
       #endif
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      struct SampleOffsets {
-        float x[SAMPLES];
-        float y[SAMPLES];
-      };
-      constexpr float eps = 0.5f;
-      constexpr SampleOffsets offsets = [&]() constexpr {
-        SampleOffsets o{};
-        for (int i = 0; i < SAMPLES; ++i) {
-          int qx = (i & 1) ? -1 : 1;
-          int qy = (i & 2) ? -1 : 1;
-          o.x[i] = eps * qx;
-          o.y[i] = eps * qy;
-        }
-        return o;
-      }();
+      constexpr auto offsets = make_sample_offsets<SAMPLES>();
 
       const auto &cr = canvas.clip();
-      HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
-               cr.render_y_end() <= PhiLUT<H>::H_VIRT);
+      check_lut_domain<W, H>(cr);
       #ifdef __EMSCRIPTEN__
       double _t0 = emscripten_get_now();
       #endif
@@ -629,12 +627,9 @@ struct Shader {
           Color4 accum(Pixel(0, 0, 0), 0.0f);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            float px = static_cast<float>(x) + offsets.x[i];
-            float py = static_cast<float>(y) + offsets.y[i];
-            float theta = (px * 2.0f * PI_F) / w_float;
-            float phi = (py * PI_F) / h_virt_minus_1;
-            float sin_phi = sinf(phi);
-            Vector v(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
+            Vector v = ssaa_sample_vector<W, H>(
+                static_cast<float>(x) + offsets.x[i],
+                static_cast<float>(y) + offsets.y[i]);
 
             Fragment sub_frag = frag_base;
             sub_frag.pos = v;
