@@ -4,7 +4,6 @@
  * permission.
  */
 #pragma once
-#include <functional>
 
 #include "core/effects_engine.h"
 

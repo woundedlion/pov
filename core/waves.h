@@ -6,7 +6,6 @@
 
 #include "3dmath.h"
 #include <cmath>
-#include <functional>
 #include "util.h"
 
 /**

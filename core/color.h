@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <functional>
 
 #include "platform.h"
 #include "3dmath.h"

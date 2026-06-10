@@ -27,13 +27,10 @@ class GSReactionDiffusion
   // Bring dependent-base names into scope (template base requires this).
   using Base::build_nodes;
   using Base::cube_lut;
-  using Base::dist2;
   using Base::for_each_neighbor;
   using Base::init_orientation_animation;
-  using Base::INV_R2;
   using Base::kernel_accumulate;
   using Base::orientation;
-  using Base::RD_K;
   using Base::RD_N;
   using Base::registerParam;
 

@@ -27,7 +27,6 @@ class ReactionDiffusionBase : public Effect {
 public:
   static constexpr int RD_N = ReactionGraph::RD_N;
   static constexpr int RD_K = ReactionGraph::RD_K;
-  static constexpr int H_VIRT = H + hs::H_OFFSET;
 
   ReactionDiffusionBase() : Effect(W, H) { persist_pixels = false; }
 

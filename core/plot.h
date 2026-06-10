@@ -3,7 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
-#include <functional>
 #include <utility>
 #include <type_traits>
 #include <algorithm>

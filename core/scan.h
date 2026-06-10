@@ -5,7 +5,6 @@
 #pragma once
 
 #include <utility>
-#include <functional>
 #include "sdf.h"
 #include "color.h"
 #include "filter.h"
