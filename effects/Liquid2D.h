@@ -88,7 +88,7 @@ public:
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
       float r_sq = z.re * z.re + z.im * z.im;
-      auto [w, displacement] = warp(z, r_sq, t);
+      Complex w = warp(z, r_sq, t).coords; // displacement unused (unlike Flyby)
       float pattern = sample(w, sin_phase, cos_phase);
       float value = attenuate(pattern, r_sq);
       return static_palette.get(value);
