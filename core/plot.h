@@ -1276,7 +1276,14 @@ struct Flower {
                    VertexShaderRef vertex_shader, float phase = 0) {
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
-    Vector center = work_basis.v;
+    // The petal ring sits at colatitude apothem = PI - outer >= PI/2 from
+    // work_basis.v (see sample()), i.e. clustered on the *antipodal* pole. Center
+    // the azimuthal-equidistant chart there so the ring lands within PI/2 of the
+    // center, in the projection's well-conditioned region — matching SDF/Scan
+    // Flower, which center on -basis.v. Centering on +work_basis.v would push the
+    // ring out to R~PI (near the chart singularity) and force the per-segment
+    // antipode guard to drop small-radius rings to a geodesic fallback.
+    Vector center = -work_basis.v;
 
     // Construct a planar basis aligned with the center
     Vector ref =
