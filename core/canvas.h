@@ -402,8 +402,11 @@ public:
     // first frame doesn't wait at all — prev_==next_==0 at construction). On
     // timeout, name the site on Serial (the trap is a bare illegal instruction
     // with no message) then trap; a truncated Serial write is harmless since we
-    // halt immediately. Skipping the micros() read on the common no-wait path
-    // keeps this zero-cost when the buffer is already free.
+    // halt immediately. The outer buffer_free() guard skips the whole block —
+    // and thus every micros() read — on the common no-wait path, keeping this
+    // zero-cost when the buffer is already free. On the slow path, wait_start is
+    // sampled once at wait entry; the deadline is then re-evaluated via micros()
+    // inside the spin on every iteration, so the bound measures from wait entry.
     if (!effect_.buffer_free()) {
       const unsigned long wait_start = micros();
       while (!effect_.buffer_free()) {
@@ -432,10 +435,10 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int x, int y) {
-    // Per-pixel hot path: bounds guard is debug-only by design (stripped on the
-    // device, as the README documents — "No bounds checking"). Deliberately NOT
-    // HS_CHECK: an always-on branch on every pixel access is the one place
-    // HS_CHECK's own contract says it must never go.
+    // Use assert here, NOT HS_CHECK — this is the one hot-loop exception. The
+    // bounds guard is debug-only by design (stripped on the device, as the
+    // README documents — "No bounds checking"); an always-on HS_CHECK branch on
+    // every pixel access is the single place HS_CHECK's own contract forbids it.
     assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
     return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)]
                         [y * effect_.width_ + x];
