@@ -2,22 +2,32 @@
 // lets it animate, and saves a PNG screenshot to docs/screenshots/.
 // Effects can be overridden via CLI args; otherwise the full EFFECTS list runs.
 import { chromium } from 'playwright';
-import { mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { mkdir, readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const BASE_URL = process.env.SIM_URL || 'https://localhost/';
 const RESOLUTION = 'Phantasm (144x288)';
 const OUT_DIR = 'docs/screenshots';
 const WAIT_MS = parseInt(process.env.WAIT_MS || '30000', 10);
 
-const EFFECTS = [
-  'BZReactionDiffusion', 'GSReactionDiffusion', 'HopfFibration', 'IslamicStars',
-  'HankinSolids', 'SphericalHarmonics', 'Metaballs', 'MobiusGrid',
-  'Moire', 'FlowField', 'Voronoi', 'PetalFlow', 'DreamBalls', 'Comets',
-  'RingSpin', 'RingShower', 'ChaoticStrings', 'MeshFeedback', 'Liquid2D',
-  'MindSplatter', 'Dynamo', 'Thrusters', 'GnomonicStars', 'Raymarch',
-  'Flyby', 'SplineFlow',
-];
+// Single source of truth for the effect roster: parse the HS_EFFECT_LIST X-macro
+// in core/effects.h rather than hand-maintaining a list here. That macro is the
+// same roster the WASM startup check and the native smoke suite are derived from,
+// so the gallery can never silently drift from the registered effect set when an
+// effect is added or removed.
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+async function loadEffectRoster() {
+  const src = await readFile(join(REPO_ROOT, 'core', 'effects.h'), 'utf8');
+  const block = src.match(/#define HS_EFFECT_LIST\(X\)([\s\S]*?)\r?\n\r?\n/);
+  if (!block) throw new Error('Could not locate HS_EFFECT_LIST in core/effects.h');
+  const names = [...block[1].matchAll(/X\((\w+)\)/g)].map(m => m[1]);
+  if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
+  return names;
+}
+
+const EFFECTS = await loadEffectRoster();
 
 await mkdir(OUT_DIR, { recursive: true });
 
