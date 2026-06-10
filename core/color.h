@@ -1313,10 +1313,17 @@ public:
     // deliberately NOT HS_CHECK — a branch here costs on every pixel on-device.
     // The unbaked-palette wiring bug is trapped always-on at the cold rebake().
     assert(lut_ != nullptr && "BakedPalette::get before bake()");
-    float idx = t * (LUT_SIZE - 1);
+    // Clamp in float space before the int cast (parity with the NaN-safe
+    // Gradient::get): static_cast<int>(NaN) is UB and a NaN idx would slip past
+    // both integer bound guards below. hs::clamp is a branchless hardware
+    // min/max that maps NaN to the hi bound, so NaN resolves to the last entry.
+    // Valid t in [0,1] is unchanged (no-op clamp), so the per-pixel hot path
+    // keeps its cost — the clamp guarantees idx >= 0, so the old `lo < 0` branch
+    // is now dead and dropped.
+    float idx = hs::clamp(t * (LUT_SIZE - 1), 0.0f,
+                          static_cast<float>(LUT_SIZE - 1));
     int lo = static_cast<int>(idx);
     if (lo >= LUT_SIZE - 1) return lut_[LUT_SIZE - 1];
-    if (lo < 0) return lut_[0];
     float frac = idx - lo;
     const Color4 &a = lut_[lo];
     const Color4 &b = lut_[lo + 1];
