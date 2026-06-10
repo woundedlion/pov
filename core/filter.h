@@ -507,8 +507,13 @@ public:
       Color4 c = trailFn(v, t);
 
       if (c.alpha > 0.001f) {
-        pass(v, c.color, static_cast<float>(lifetime - item.ttl),
-             c.alpha * alpha);
+        // lifetime can shrink mid-run via set_lifetime() while older points
+        // still carry a ttl encoded under the previous (larger) lifetime, which
+        // makes (lifetime - ttl) negative; clamp to honor the age >= 0 contract.
+        int age = lifetime - static_cast<int>(item.ttl);
+        if (age < 0)
+          age = 0;
+        pass(v, c.color, static_cast<float>(age), c.alpha * alpha);
       }
     }
   }
