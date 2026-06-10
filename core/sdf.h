@@ -975,6 +975,16 @@ template <typename Shape> struct AngularRepeat {
       : AngularRepeat(s, reps, Vector(0, 1, 0)) {}
 
   template <int H> Bounds get_vertical_bounds() const {
+    // Only a fold about the Y axis preserves latitude (the axis component, which
+    // becomes a copy's invariant, is then the row axis), so the un-repeated
+    // child's latitude band still bounds every copy. For any other axis the
+    // copies sweep through latitudes the child never occupies; forwarding the
+    // child's narrow band would row-clip those copies out of the scan and drop
+    // them silently. Fall back to the full canvas there — conservative, and the
+    // common Y-axis path keeps its tight bound. (axis is unit length, as the
+    // distance() projection basis requires, so axis.y near ±1 is the Y fold.)
+    if (fabsf(axis.y) < 1.0f - TOLERANCE)
+      return {0, H - 1};
     return shape.template get_vertical_bounds<H>();
   }
 

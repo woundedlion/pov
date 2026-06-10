@@ -628,6 +628,24 @@ inline void test_cull_covers_interior_over_orientation_grid() {
   HS_EXPECT_GT(total_interior, 1000);
 }
 
+// AngularRepeat around a non-Y axis sweeps the folded copies through latitudes
+// the un-repeated child never occupies, so the child's vertical band no longer
+// bounds them. get_vertical_bounds must fall back to the full canvas for a
+// non-Y axis; forwarding the child's narrow band (the bug) row-clips every
+// off-band copy out of the scan and silently drops it.
+inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
+  constexpr int W = 96, H = 48;
+  // A short stroke arc near the north pole (+Y), folded into 4 sectors around
+  // X. X-fold's canonical sector is centered on +Y, so the child sits in it and
+  // its copies rotate to +Z / -Y / -Z — the equator and the opposite pole, far
+  // below the child's near-pole band. The full-canvas cull must reach them.
+  SDF::Line ln(Vector(0.25f, 1, 0).normalized(),
+               Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
+  SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, Vector(1, 0, 0));
+  int interior = expect_cull_covers_interior<W, H>(rep);
+  HS_EXPECT_GT(interior, 0);
+}
+
 // ============================================================================
 // Face distance LUT vs exact  (LUT bilinear vs an independent exact oracle)
 //
@@ -820,6 +838,7 @@ inline int run_sdf_tests() {
   test_angular_repeat_creates_copies();
 
   test_cull_covers_interior_over_orientation_grid();
+  test_angular_repeat_non_y_axis_cull_covers_copies();
   test_face_lut_matches_exact_within_cell_diagonal();
 
   return hs_test::end_module(scope);
