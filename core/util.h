@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include "platform.h"
@@ -57,6 +58,12 @@ inline int wrap(int x, int m) {
  * out of range (i.e. x is in [-W, 2*W)).
  */
 inline int fast_wrap(int x, int W) {
+  // Single-step correction only: a value more than one period out of range is
+  // left out of range. Trap the [-W, 2*W) precondition debug-only — stripped
+  // under NDEBUG on device (zero cost), fires in the native tests / WASM-debug
+  // if a caller forwards an unbounded coordinate this would silently fail to
+  // wrap.
+  assert(x >= -W && x < 2 * W);
   if (x >= W)
     return x - W;
   if (x < 0)

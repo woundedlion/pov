@@ -567,6 +567,10 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
+    // age/alpha are non-negative by contract; a negative alpha would silently
+    // drop all four taps (alpha*weight < 1e-8f). Debug-only trap — stripped on
+    // device, fires in the native tests / WASM-debug.
+    assert(age >= 0.0f && alpha >= 0.0f);
     float y_i;
     float y_m = std::modf(y, &y_i);
 
@@ -996,6 +1000,9 @@ public:
 
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
             PassFn2D pass) {
+    // age/alpha are non-negative by contract. Debug-only trap — stripped on
+    // device, fires in the native tests / WASM-debug.
+    assert(age >= 0.0f && alpha >= 0.0f);
     pass(x, y, c, age, alpha);
 
     ::Pixel r_col = c;
