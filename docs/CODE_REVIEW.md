@@ -97,7 +97,7 @@ The four design philosophies (16-bit linear color, compile-time resolution, fail
 
 **P2 — consistency & cosmetic correctness**
 
-9. Make `BakedPalette::get` round via `float_to_pixel16` for parity with `Gradient::get` and the file's own anti-truncation rule (`color.h:1316`).
+9. ✅ Make `BakedPalette::get` round via `float_to_pixel16` for parity with `Gradient::get` and the file's own anti-truncation rule (`color.h:1316`). *Fixed: the blend weight now rounds (`frac * 65535.0f + 0.5f`) instead of truncating, matching `float_to_pixel16`/`Gradient::get` and removing the ~1/65535 down-bias on every interpolated sample. `float_to_pixel16`'s clamp is intentionally not reused at this call site — `frac` is already in `[0,1)` after the bounds checks and `get()` is a per-pixel hot path — so the fix adds no per-pixel cost; tests green.*
 10. Add the always-on orbit-spin `HS_CHECK` to `face_centroid`/`face_normal`/`face_side_count` (`conway.h`).
 11. Add a stripped `assert` to `fast_wrap` and the non-negativity preconditions in `AntiAlias`/`ChromaticShift`.
 12. ✅ Gate Comets' per-frame palette rebake on an active color wipe. *Fixed: Comets now arms a frame countdown when the cycle timer schedules a `ColorWipe` and rebakes the 256-entry LUT only while that wipe is mutating `palette` — static between wipes, so the per-frame rebake is skipped the vast majority of frames (`Comets.h`).*

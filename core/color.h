@@ -1313,7 +1313,13 @@ public:
     float frac = idx - lo;
     const Color4 &a = lut_[lo];
     const Color4 &b = lut_[lo + 1];
-    return Color4(a.color.lerp16(b.color, static_cast<uint16_t>(frac * 65535.0f)),
+    // Round (+0.5f) the blend weight rather than truncating, matching
+    // float_to_pixel16 / Gradient::get — bare truncation biased every
+    // interpolated sample down by up to ~1/65535. The helper's clamp is skipped
+    // here: frac is already in [0,1) after the bounds checks above, and get() is
+    // a per-pixel hot path.
+    return Color4(a.color.lerp16(b.color,
+                                 static_cast<uint16_t>(frac * 65535.0f + 0.5f)),
                   a.alpha + (b.alpha - a.alpha) * frac);
   }
 
