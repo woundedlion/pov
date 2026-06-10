@@ -110,7 +110,7 @@ public:
         Color4 c1 = palettes[i].get(t);
         Color4 c2 = palettes[i + 1].get(t);
 
-        uint16_t fract = to_short(clamped_blend_factor);
+        uint16_t fract = float_to_pixel16(clamped_blend_factor);
         return Color4(c1.color.lerp16(c2.color, fract),
                       hs::lerp(c1.alpha, c2.alpha, clamped_blend_factor));
       }

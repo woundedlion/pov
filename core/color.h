@@ -316,18 +316,6 @@ enum class BrightnessProfile { ASCENDING, DESCENDING, FLAT, BELL, CUP };
  */
 enum class SaturationProfile { PASTEL, MID, VIBRANT };
 
-/**
- * @brief Converts a float in the range [0.0, 1.0] to a 16-bit fraction
- * (0..65535) for lerp16.
- */
-inline uint16_t to_short(float zero_to_one) {
-  // Clamp in float space before the cast (mirrors float_to_pixel16): a
-  // float->int conversion is UB outside the int range, so the int-domain
-  // clamp could never fire on an overflowing/NaN input.
-  return static_cast<uint16_t>(hs::clamp(zero_to_one, 0.0f, 1.0f) * 65535.0f +
-                               0.5f);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -1346,11 +1334,11 @@ inline Color4 VignettePalette::get(float t) const {
 
   if (t < 0.2f) {
     return Color4(vignette_color.lerp16(get_color(*palette, 0.0f).color,
-                                        to_short(quintic_kernel(t / 0.2f))),
+                                        float_to_pixel16(quintic_kernel(t / 0.2f))),
                   1.0f);
   } else if (t >= 0.8f) {
     return Color4(get_color(*palette, 1.0f)
-                      .color.lerp16(vignette_color, to_short(quintic_kernel(
+                      .color.lerp16(vignette_color, float_to_pixel16(quintic_kernel(
                                                         (t - 0.8f) / 0.2f))),
                   1.0f);
   } else {
