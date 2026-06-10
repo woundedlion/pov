@@ -806,6 +806,41 @@ public:
     // returns null, so a "skip this frame" fallback would be dead code that
     // also implies a recovery path the fail-fast model deliberately rejects.
 
+    // Step 2 (sampling) honors the segment's cylindrical x-clip; precompute that
+    // clip here so step 1 populates ONLY the coarse columns the sampling pass
+    // will read. Without this, a feedback effect on segmented Phantasm recomputes
+    // the whole sphere's warp field on every board (4x wasted space_fn) and then
+    // uses only its own band.
+    const auto &cr = cv.clip();
+    const int y_lo = cr.render_y_start();
+    const int y_hi = cr.render_y_end();
+    // A full-width x range — or one whose margin expansion wraps to cover the
+    // whole circumference (rx_s == rx_e) — needs no x clipping; only a genuine
+    // sub-arc does.
+    const int rx_s = cr.render_x_start();
+    const int rx_e = cr.render_x_end();
+    const bool clip_x = (cr.x_end - cr.x_start) < W && rx_s != rx_e;
+    const bool rx_wrap = rx_s > rx_e;
+
+    // Mark the coarse columns the clipped sampling pass actually touches. Step 2
+    // reads, for each in-band full-res x, coarse column cx0 = x/ds and its
+    // seam-wrapping right neighbour cx1; mark exactly those (the x_outside test
+    // mirrors step 2's below). Unmarked columns are never sampled, so leaving
+    // their dx/dy uninitialized is safe. Sized to W (>= hw, since ds >= 1).
+    bool col_used[W];
+    if (clip_x) {
+      for (int cx = 0; cx < hw; ++cx) col_used[cx] = false;
+      for (int x = 0; x < W; ++x) {
+        bool x_outside = rx_wrap ? (x < rx_s && x >= rx_e)
+                                 : (x < rx_s || x >= rx_e);
+        if (x_outside) continue;
+        int cx0 = x / ds;
+        int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
+        col_used[cx0] = true;
+        col_used[cx1] = true;
+      }
+    }
+
     // 1) Populate coarse warp field. Delta encoding keeps the bilerp safe
     //    across the longitude seam — neighbouring absolute bx values can
     //    straddle x=W ↔ x=0, but their deltas are continuous.
@@ -813,6 +848,7 @@ public:
     for (int cy = 0; cy < hh; ++cy) {
       int y = cy * ds;
       for (int cx = 0; cx < hw; ++cx) {
+        if (clip_x && !col_used[cx]) continue;
         int x = cx * ds;
         Vector v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
         Spherical s(v_dist);
@@ -832,23 +868,13 @@ public:
     // 2) Sample at full res, bilerping the coarse warp field per pixel.
     //    Honor the segment clip exactly like every other rasterizer (scan.h):
     //    iterate y over the margin-expanded render band and skip x columns
-    //    outside the cylindrical x clip. Without this, a feedback effect on
-    //    segmented Phantasm would have every board composite the whole sphere
-    //    instead of just its own band — wrong output and 4x wasted work.
+    //    outside the cylindrical x clip (clip computed above for step 1).
+    //    Without this, a feedback effect on segmented Phantasm would have every
+    //    board composite the whole sphere instead of just its own band — wrong
+    //    output and 4x wasted work.
     constexpr float INV_Q = 1.0f / Q;
     const float inv_ds = 1.0f / ds;
     const float fade = style_->fade;
-    const auto &cr = cv.clip();
-    const int y_lo = cr.render_y_start();
-    const int y_hi = cr.render_y_end();
-    // Precompute the cylindrical x-clip test once (ClipRegion::contains_x, but
-    // hoisted out of the W*H loop). A full-width x range — or one whose margin
-    // expansion wraps to cover the whole circumference (rx_s == rx_e) — needs no
-    // x clipping; only a genuine sub-arc does.
-    const int rx_s = cr.render_x_start();
-    const int rx_e = cr.render_x_end();
-    const bool clip_x = (cr.x_end - cr.x_start) < W && rx_s != rx_e;
-    const bool rx_wrap = rx_s > rx_e;
     for (int y = y_lo; y < y_hi; ++y) {
       int cy0 = y / ds;
       int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;

@@ -83,7 +83,7 @@ The four design philosophies (16-bit linear color, compile-time resolution, fail
 
 **P0 — correctness on real hardware / latent semantic traps**
 1. Fix the Phantasm frame-sync vs `advance_display` desync (`pov_segmented.h:420-451`): drive the buffer flip from the authoritative frame-sync pulse, or perform `advance_display()` when a snap crosses a boundary. *Only finding that mis-paints hardware.*
-2. Make `Pixel::Feedback::flush` honor the x-clip when populating the coarse warp grid (`filter.h:813-830`) — correctness-of-intent on segmented hardware plus a 4× perf win.
+2. ✅ Make `Pixel::Feedback::flush` honor the x-clip when populating the coarse warp grid (`filter.h:813-830`) — correctness-of-intent on segmented hardware plus a 4× perf win. *Fixed: step 1 now marks and populates only the coarse columns the clipped sampling pass reads (`cx0`/seam-wrapping `cx1`); sampled output is byte-identical, the full-grid `space_fn` waste on out-of-band columns is removed.*
 3. Confirm/unify `Liquid2D`'s `accumulated_time` Driver wrap semantics against `animation.h`; if it wraps at 1.0, switch to Flyby's unbounded accumulator (`Liquid2D.h:35,71`).
 4. Route `hankin.h:196`'s `face_counts.push_back(count)` through `narrow_face_count` — the one reachable un-narrowed cast; apply to the other four sites (`conway.h:465/657/747/953`) for consistency.
 
