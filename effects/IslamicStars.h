@@ -151,12 +151,11 @@ private:
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_mid, fade,
                                       ease_mid));
 
-    // Front was flipped to back in step 3, and back == capture_idx, so
-    // capture_idx is now the front slot.
-    ArenaVector<int> &faceIndices = carousel.slot(capture_idx).topology;
-    for (size_t i = 0; i < faceIndices.size(); ++i) {
-      faceIndices[i] = faceIndices[i] % NUM_PALETTES;
-    }
+    // Topology indices are NOT pre-reduced here: draw_shape applies
+    // `topoIdx % NUM_PALETTES` at render time, so reducing the stored topology
+    // in place would be a redundant double-modulo (and a surprising mutation of
+    // the carousel's mesh state). HankinSolids relies on the same render-time
+    // modulo.
 
     // Log
     const auto &entry = solids[solid_idx];
