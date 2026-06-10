@@ -1,12 +1,22 @@
 // Headless Playwright script that loads the WebGL simulator for each effect,
 // lets it animate, and saves a PNG screenshot to docs/screenshots/.
 // Effects can be overridden via CLI args; otherwise the full EFFECTS list runs.
+//
+// Usage (from the Holosphere repo root):
+//   1. Serve the sibling daydream checkout (see README §"Running the Simulator"):
+//          cd ../daydream && python3 -m http.server 8080
+//   2. Install the Playwright browser once:  npx playwright install chromium
+//   3. Capture the gallery:                  npm run screenshots
+//      (equivalently:  node scripts/capture_screenshots.mjs [Effect ...])
+//
+// SIM_URL overrides the simulator origin (defaults to the README's local
+// http.server port); WAIT_MS overrides the per-effect animation settle time.
 import { chromium } from 'playwright';
 import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const BASE_URL = process.env.SIM_URL || 'https://localhost/';
+const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
 const RESOLUTION = 'Phantasm (144x288)';
 const OUT_DIR = 'docs/screenshots';
 const WAIT_MS = parseInt(process.env.WAIT_MS || '30000', 10);
