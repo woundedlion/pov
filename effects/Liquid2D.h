@@ -68,14 +68,28 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
+    // accumulated_time (Driver-advanced) is the unbounded noise-time axis:
+    // OpenSimplex2 is not periodic, so it cannot be wrapped without a visible
+    // jump, and GetNoise degrades gracefully with large coordinates.
     float t = accumulated_time;
-    float t_08 = t * 0.8f;
+    // The pattern's inner fast_sinf/fast_cosf are the range-reduction hazard, so
+    // their time terms ride phases wrapped to 2pi. Each advances by this frame's
+    // delta of t (scaled by the term's coefficient), so the wrap is exact.
+    constexpr float TWO_PI = 2.0f * PI_F;
+    float dt = t - prev_time;
+    prev_time = t;
+    sin_phase = fmodf(sin_phase + dt, TWO_PI);
+    cos_phase = fmodf(cos_phase + 0.8f * dt, TWO_PI);
+    // cycle_phase feeds BreatheModifier's fast_sinf with coefficient 1; its only
+    // producer is the additive Driver and its only consumer that 2pi-periodic
+    // sin, so wrapping it in place is exact and invisible.
+    cycle_phase = fmodf(cycle_phase, TWO_PI);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
       float r_sq = z.re * z.re + z.im * z.im;
       auto [w, displacement] = warp(z, r_sq, t);
-      float pattern = sample(w, t, t_08);
+      float pattern = sample(w, sin_phase, cos_phase);
       float value = attenuate(pattern, r_sq);
       return static_palette.get(value);
     };
@@ -97,12 +111,14 @@ private:
                              params.warp_strength, params.pole_fade, t * 0.5f);
   }
 
-  /// Cross-coupled sinusoidal pattern with complexity modulation.
-  float sample(const Complex &w, float t, float t_08) const {
+  /// Cross-coupled sinusoidal pattern with complexity modulation. `sin_phase`
+  /// is the wrapped `+t` term, `cos_phase` the wrapped `0.8*t` term (see
+  /// draw_frame).
+  float sample(const Complex &w, float sin_phase, float cos_phase) const {
     float pu = w.re * params.pattern_freq;
     float pv = w.im * params.pattern_freq;
-    return fast_sinf(pu + params.complexity * fast_sinf(pv + t)) *
-           fast_cosf(pv + params.complexity * fast_cosf(pu - t_08));
+    return fast_sinf(pu + params.complexity * fast_sinf(pv + sin_phase)) *
+           fast_cosf(pv + params.complexity * fast_cosf(pu - cos_phase));
   }
 
   /// Pole attenuation applied to pattern, normalized to [0,1].
@@ -183,8 +199,11 @@ private:
     }
   };
   Params params;
-  float accumulated_time = 0.0f;
-  float cycle_phase = 0.0f;
+  float accumulated_time = 0.0f; // unbounded noise-time axis (see draw_frame)
+  float cycle_phase = 0.0f;      // wrapped to [0, 2pi) each frame for breathe
+  float prev_time = 0.0f;   // last frame's accumulated_time (for the trig phases)
+  float sin_phase = 0.0f;   // wrapped to [0, 2pi): pattern's +t term
+  float cos_phase = 0.0f;   // wrapped to [0, 2pi): pattern's 0.8*t term
 
   // All 7 Params fields are listed explicitly per preset. Omitting the
   // trailing cycle_speed would silently fall back to its default member

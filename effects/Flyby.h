@@ -58,14 +58,24 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    phase += params.speed;
-    float t = phase;
+    // Noise time axis: grows unbounded. OpenSimplex2 is not periodic, so this
+    // cannot be wrapped without a visible jump in the warp; it feeds GetNoise
+    // (which degrades gracefully with large coordinates), not fast_sinf, so it
+    // is not the range-reduction hazard the trig phases are.
+    noise_time += params.speed;
+    // Trig phases ARE wrapped to 2pi so fast_sinf/fast_cosf keep precise range
+    // reduction over multi-hour runs. Each tracks its own time coefficient so
+    // the wrap stays invisible (the pattern uses +t in sin and -drift*t in cos);
+    // for the shipped presets drift == 0, so drift_phase stays 0.
+    constexpr float TWO_PI = 2.0f * PI_F;
+    sin_phase = fmodf(sin_phase + params.speed, TWO_PI);
+    drift_phase = fmodf(drift_phase + params.speed * params.drift, TWO_PI);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
       float r_sq = z.re * z.re + z.im * z.im;
-      auto [w, displacement] = warp(z, r_sq, t);
-      float pattern = sample(w, t);
+      auto [w, displacement] = warp(z, r_sq, noise_time);
+      float pattern = sample(w, sin_phase, drift_phase);
       float value = attenuate(pattern, r_sq);
       Color4 c = palette.get(value);
       c.alpha *= (1.0f - value); // Linear alpha falloff toward bright values
@@ -88,10 +98,11 @@ private:
                              params.warp_strength, params.pole_fade, t * 0.3f);
   }
 
-  /// Cartesian grid pattern from warped coordinates.
-  float sample(const Complex &w, float t) const {
-    return fast_sinf(w.re * params.pattern_freq + t) *
-           fast_cosf(w.im * params.pattern_freq - t * params.drift);
+  /// Cartesian grid pattern from warped coordinates. `sin_phase` is the wrapped
+  /// `+t` term; `drift_phase` is the wrapped `drift*t` term (see draw_frame).
+  float sample(const Complex &w, float sin_phase, float drift_phase) const {
+    return fast_sinf(w.re * params.pattern_freq + sin_phase) *
+           fast_cosf(w.im * params.pattern_freq - drift_phase);
   }
 
   /// Pole attenuation applied to pattern, normalized to [0,1].
@@ -103,7 +114,9 @@ private:
   Timeline<W> timeline;
   Orientation<W> orientation;
   FastNoiseLite noise;
-  float phase = 0.0f;
+  float noise_time = 0.0f;   // unbounded noise-time axis (see draw_frame)
+  float sin_phase = 0.0f;    // wrapped to [0, 2pi): the pattern's +t term
+  float drift_phase = 0.0f;  // wrapped to [0, 2pi): the pattern's drift*t term
 
   BakedPalette palette;
 
