@@ -116,6 +116,11 @@ private:
     float drift = 0.7f;
     float hue_shift = 0.15f;
 
+    /// Parallel interpolation: every field morphs simultaneously over t.
+    /// Deliberately unlike Liquid2D's staggered, one-field-at-a-time slicing —
+    /// Flyby's presets read as a single coherent camera/warp pose, so a
+    /// straight simultaneous blend keeps the fly-through fluid, whereas
+    /// sequencing the fields would make the motion stutter field by field.
     void lerp(const Params &a, const Params &b, float t) {
       warp_scale = hs::lerp(a.warp_scale, b.warp_scale, t);
       warp_strength = hs::lerp(a.warp_strength, b.warp_strength, t);
