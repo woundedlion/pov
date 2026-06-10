@@ -644,8 +644,8 @@ public:
    */
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            bool repeat = false, const bool *paused = nullptr)
-      : AnimationBase(duration, repeat), mutant(mutant), from(mutant),
-        f(std::move(f)), easing_fn(std::move(easing_fn)), paused_(paused) {}
+      : AnimationBase(duration, repeat), mutant(mutant), f(std::move(f)),
+        easing_fn(std::move(easing_fn)), paused_(paused) {}
 
   /**
    * @brief Performs one step of the mutation.
@@ -658,9 +658,6 @@ public:
   void step(Canvas &canvas) override {
     if (paused_ && *paused_)
       return;
-    if (t == 0) {
-      from = mutant;
-    }
     AnimationBase::step(canvas);
     auto t_norm = std::min(1.0f, static_cast<float>(this->t) / duration);
     mutant.get() = f(easing_fn(t_norm));
@@ -675,8 +672,6 @@ public:
 private:
   std::reference_wrapper<float>
       mutant; /**< Reference to the float variable being modified. */
-  float from; /**< Starting value (unused by most MutateFns, but saved for
-                 context). */
   ScalarFn f; /**< The custom function to apply. */
   EasingFn easing_fn; /**< Easing curve. */
   const bool *paused_; /**< Optional pause gate; freezes the mutation when set
