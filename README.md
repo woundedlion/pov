@@ -1051,8 +1051,6 @@ All Conway operators are templated on input mesh type and take `(const MeshT& me
 | `MeshOps::bevel` | Bevel operator = truncate ∘ ambo |
 | `MeshOps::relax` | Edge-length relaxation by spring forces on the unit sphere. |
 | `MeshOps::normalize` | Project all vertices onto the unit sphere |
-| `MeshOps::compute_kdtree` | Build a KDTree for nearest-neighbor queries on mesh vertices |
-| `MeshOps::closest_point_on_mesh_graph` | Find the closest point on a mesh edge graph |
 
 #### Hankin Pattern System (`hankin.h`)
 
