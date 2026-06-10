@@ -90,5 +90,7 @@ int main(int argc, char **argv) {
   failures += hs_test::presets_tests::run_presets_tests();
   failures += hs_test::styles_tests::run_styles_tests();
   failures += hs_test::death::run_death_tests();
-  return failures;
+  // Collapse to 0/1: a process exit status is only 8 bits on POSIX, so
+  // returning a raw count would wrap (e.g. 256 failures -> 0 -> green CI).
+  return failures ? 1 : 0;
 }
