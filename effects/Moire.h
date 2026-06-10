@@ -90,16 +90,15 @@ private:
   void draw_layer(Canvas &canvas, Quaternion layer_rotation,
                   const GenerativePalette &pal) {
     int count = static_cast<int>(std::ceil(params.density));
+    // Loop-invariant: layer_rotation and Z_AXIS do not change across rings.
+    Basis basis = make_basis(layer_rotation, Z_AXIS);
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
+      Color4 c = pal.get(f.v0);
+      c.alpha *= params.alpha;
+      f.color = c;
+    };
     for (int i = 0; i <= count; ++i) {
-      float t = static_cast<float>(i) / count;
-      float r = t * 2.0f;
-
-      Basis basis = make_basis(layer_rotation, Z_AXIS);
-      auto fragment_shader = [&](const Vector &, Fragment &f) {
-        Color4 c = pal.get(f.v0);
-        c.alpha *= params.alpha;
-        f.color = c;
-      };
+      float r = static_cast<float>(i) / count * 2.0f;
 
       Plot::DistortedRing::draw<W, H>(
           filters, canvas, basis, r,
