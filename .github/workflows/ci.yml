@@ -100,6 +100,16 @@ jobs:
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release
 
+      - name: Smoke-test the WASM module at runtime
+        # The build above only proves the module compiles and links. Instantiate
+        # it the way the browser does and drive the engine across every
+        # registered effect at both resolutions, so a SIMD-codegen fault, an
+        # embind signature mismatch, an 8 KB stack overflow, or an
+        # ALLOW_MEMORY_GROWTH detachment regression fails here instead of riding
+        # a green build to deploy. (Node is preinstalled on the runner; the
+        # script has no dependencies.)
+        run: node scripts/wasm_smoke.mjs build/wasm-release/holosphere_wasm.js
+
       - name: Exercise install + provenance path
         # The daydream deploy gate consumes the provenance trio (.wasm, .sha,
         # .wasm.sha256) this install writes, but nothing previously verified the

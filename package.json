@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "screenshots": "node scripts/capture_screenshots.mjs"
+    "screenshots": "node scripts/capture_screenshots.mjs",
+    "wasm-smoke": "node scripts/wasm_smoke.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"
