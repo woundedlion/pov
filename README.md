@@ -1103,11 +1103,13 @@ template <typename GenerateFn, typename... Args>
 auto generate(Arena &target, GenerateFn &&fn, Args &&...args);
 ```
 
-It resets and scopes both scratch arenas, then invokes `fn(target, scratch_a, scratch_b, args...)`. All procedural geometry creation goes through this wrapper to ensure deterministic arena lifecycle:
+It resets and scopes both scratch arenas, then invokes `fn(target, scratch_a, scratch_b, args...)`. Direct registry lookups and effect geometry creation go through this wrapper for a deterministic arena lifecycle:
 
 ```cpp
 auto mesh = generate(persistent_arena, Solids::get_by_name, std::string_view("icosahedron"));
 ```
+
+One deliberate exception: `SolidBuilder`'s fluent Conway chain (`solids.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.
 
 ### 7.9 The Preset System (`presets.h`)
 
