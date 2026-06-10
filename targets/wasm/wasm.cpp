@@ -744,6 +744,32 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              v.set("z", r.z);
              return v;
            }));
+  // Catmull-Rom tangent estimation — returns the two Bézier control points
+  // {cp1:{x,y,z}, cp2:{x,y,z}} for the segment start->end.
+  function("spline_catmull_rom_tangents",
+           optional_override([](float prevx, float prevy, float prevz,
+                                float startx, float starty, float startz,
+                                float endx, float endy, float endz, float nextx,
+                                float nexty, float nextz, float tension) -> val {
+             Vector cp1, cp2;
+             Spline::catmull_rom_tangents({prevx, prevy, prevz},
+                                          {startx, starty, startz},
+                                          {endx, endy, endz},
+                                          {nextx, nexty, nextz}, tension, cp1,
+                                          cp2);
+             val c1 = val::object();
+             c1.set("x", cp1.x);
+             c1.set("y", cp1.y);
+             c1.set("z", cp1.z);
+             val c2 = val::object();
+             c2.set("x", cp2.x);
+             c2.set("y", cp2.y);
+             c2.set("z", cp2.z);
+             val v = val::object();
+             v.set("cp1", c1);
+             v.set("cp2", c2);
+             return v;
+           }));
 }
 
 #endif
