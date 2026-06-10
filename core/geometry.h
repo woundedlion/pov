@@ -378,19 +378,6 @@ inline LogPolar vectorToLogPolar(const Vector &v) {
   return {rho, theta};
 }
 
-#if __cplusplus < 202002L
-/**
- * @brief Linearly interpolates between two values.
- * @param from The starting value.
- * @param to The ending value.
- * @param t The interpolation factor (0.0 to 1.0).
- * @return The interpolated value.
- */
-constexpr float lerp(float from, float to, float t) {
-  return ((to - from) * t) + from;
-}
-#endif
-
 /**
  * @brief Calculates a point on the Fibonacci spiral on the unit sphere.
  * @param n The total number of points in the spiral.
