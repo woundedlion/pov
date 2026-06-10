@@ -360,11 +360,20 @@ inline Vector logPolarToVector(float rho, float theta) {
  * @return Log-Polar coordinates.
  */
 inline LogPolar vectorToLogPolar(const Vector &v) {
+  // Both poles are stereographic singularities: at the north pole (v.y -> +1)
+  // the planar radius R -> +inf, at the south pole (v.y -> -1) it goes R -> 0,
+  // so rho = 0.5*log((1+y)/(1-y)) tends to +inf and -inf respectively. Clamp
+  // each to a symmetric finite sentinel so neither pole leaks a non-finite rho
+  // into downstream arithmetic (the south pole previously returned -inf).
+  const float numer = 1.0f + v.y;
   const float denom = 1.0f - v.y;
   if (std::abs(denom) < 0.00001f) {
-    return {10.0f, 0.0f}; // Handle North Pole singularity
+    return {10.0f, 0.0f}; // North pole sentinel (rho -> +inf)
   }
-  const float rho = 0.5f * logf((1.0f + v.y) / denom);
+  if (std::abs(numer) < 0.00001f) {
+    return {-10.0f, 0.0f}; // South pole sentinel (rho -> -inf)
+  }
+  const float rho = 0.5f * logf(numer / denom);
   const float theta = fast_atan2(v.z, v.x);
   return {rho, theta};
 }

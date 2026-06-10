@@ -243,6 +243,14 @@ inline void test_log_polar_north_pole_sentinel() {
   HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
 }
 
+inline void test_log_polar_south_pole_sentinel() {
+  // South pole maps to the symmetric sentinel (rho=-10, theta=0); without the
+  // guard rho would be -inf.
+  LogPolar lp = vectorToLogPolar(Vector(0, -1, 0));
+  HS_EXPECT_NEAR(lp.rho, -10.0f, 1e-3f);
+  HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
+}
+
 // ============================================================================
 // fib_spiral
 // ============================================================================
@@ -448,6 +456,7 @@ inline int run_geometry_tests() {
 
   test_log_polar_roundtrip();
   test_log_polar_north_pole_sentinel();
+  test_log_polar_south_pole_sentinel();
 
   test_fib_spiral_unit_length();
   test_fib_spiral_deterministic();
