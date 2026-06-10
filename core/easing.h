@@ -15,7 +15,7 @@
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_in_out_bicubic(float t) {
+static inline float ease_in_out_cubic(float t) {
   return t < 0.5f ?
     4 * t * t * t :
     1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;

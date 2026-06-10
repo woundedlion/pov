@@ -329,7 +329,7 @@ inline void test_easing_in_out_endpoints() {
     const char *name;
     EasingFn fn;
   } fns[] = {
-      {"ease_in_out_bicubic", ease_in_out_bicubic},
+      {"ease_in_out_cubic", ease_in_out_cubic},
       {"ease_in_out_sin", ease_in_out_sin},
       {"ease_in_sin", ease_in_sin},
       {"ease_out_sin", ease_out_sin},
@@ -347,7 +347,7 @@ inline void test_easing_in_out_endpoints() {
 }
 
 inline void test_easing_output_finite_over_range() {
-  EasingFn fns[] = {ease_in_out_bicubic, ease_in_out_sin, ease_in_sin,
+  EasingFn fns[] = {ease_in_out_cubic, ease_in_out_sin, ease_in_sin,
                     ease_out_sin,        ease_in_cubic,   ease_in_circ,
                     ease_mid,            ease_out_expo,   ease_out_circ,
                     ease_out_cubic,      ease_out_elastic};

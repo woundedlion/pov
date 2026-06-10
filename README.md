@@ -829,7 +829,7 @@ GenerativePalette palette;
 
 // Timeline drives state via animations:
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, TAU, 600, ease_mid, true));
-timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_bicubic));
+timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_cubic));
 timeline.add(0, Animation::ColorWipe(palette, target_palette, 2000));
 
 // Rendering reads state — no manual updates needed:

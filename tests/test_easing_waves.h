@@ -45,8 +45,8 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
 
 inline void test_easing_endpoints() {
   // "In" curves anchor at f(0)=0; "out" curves anchor at f(1)=1; "in-out" both.
-  HS_EXPECT_NEAR(ease_in_out_bicubic(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_out_bicubic(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(ease_in_out_cubic(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(ease_in_out_cubic(1.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_in_out_sin(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_in_out_sin(1.0f), 1.0f, 1e-5f);
 
@@ -71,7 +71,7 @@ inline void test_easing_endpoints() {
 
 inline void test_easing_finite_and_monotone() {
   // Monotone non-decreasing curves.
-  check_curve(ease_in_out_bicubic, true, "ease_in_out_bicubic");
+  check_curve(ease_in_out_cubic, true, "ease_in_out_cubic");
   check_curve(ease_in_out_sin, true, "ease_in_out_sin");
   check_curve(ease_in_sin, true, "ease_in_sin");
   check_curve(ease_out_sin, true, "ease_out_sin");
@@ -88,7 +88,7 @@ inline void test_easing_finite_and_monotone() {
 inline void test_easing_in_out_symmetry_midpoint() {
   // In-out curves pass through 0.5 at the midpoint.
   HS_EXPECT_NEAR(ease_in_out_sin(0.5f), 0.5f, 1e-4f);
-  HS_EXPECT_NEAR(ease_in_out_bicubic(0.5f), 0.5f, 1e-4f);
+  HS_EXPECT_NEAR(ease_in_out_cubic(0.5f), 0.5f, 1e-4f);
 }
 
 // ---------------------------------------------------------------------------
