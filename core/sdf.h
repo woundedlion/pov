@@ -1989,18 +1989,11 @@ struct Flower {
     float ang_max = thickness;
     float cos_limit = cosf(ang_max);
 
-    float angle_min, angle_max;
-    if (!annular_band_angles(cos_limit, 1.0f, scan_ny, cos_phi, denom, angle_min,
-                             angle_max))
-      return true;
-
-    float f_x1 = (scan_alpha - angle_max) * W / (2 * PI_F);
-    float f_x2 = (scan_alpha - angle_min) * W / (2 * PI_F);
-    float f_x3 = (scan_alpha + angle_min) * W / (2 * PI_F);
-    float f_x4 = (scan_alpha + angle_max) * W / (2 * PI_F);
-
-    out(floorf(f_x1), ceilf(f_x2));
-    out(floorf(f_x3), ceilf(f_x4));
+    // Route through the shared annular-band emitter (like Ring/DistortedRing) so
+    // the two pole-wraparound degeneracies collapse into a single span instead
+    // of emitting holey two-arc intervals near the antipode for large radii.
+    emit_annular_band<W>(cos_limit, 1.0f, scan_ny, cos_phi, denom, scan_alpha,
+                         out);
     return true;
   }
 
