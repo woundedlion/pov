@@ -174,6 +174,14 @@ private:
           float t_line = f_val.v0;
           float z = sinf(t_line * 2.0f * PI_F);
 
+          // Conformal radius of the stereographic longitude. Singular where
+          // z = ±1 (t_line = 0.25 and 0.75): the division by (1 - z) blows R up
+          // to ±inf, log_r follows, and wrap() turns the inf into NaN. This is
+          // intentional and visually acceptable — palette.get clamps the NaN
+          // (hardware min/max) to a palette endpoint, so the line just reaches
+          // its terminal color at the pole rather than misbehaving. Left
+          // unguarded so the saturation stays exact; do not "fix" by nudging
+          // (1 - z) off zero without checking the endpoint color is unchanged.
           float R = sqrtf((1.0f + z) / (1.0f - z));
           float log_r = logf(R);
           const float log_min = -2.5f;
