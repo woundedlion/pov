@@ -462,7 +462,7 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
       uint16_t start = he_mesh.faces[fi].half_edge;
       int count = face_side_count(he_mesh, start);
       if (count >= 3) {
-        out_mesh.face_counts.push_back(count);
+        out_mesh.face_counts.push_back(narrow_face_count(count));
         uint16_t he_idx = start;
         do {
           out_mesh.faces.push_back(edge_to_vert[he_idx]);
@@ -654,7 +654,7 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
       // a sub-triangular face that just gets stripped later by compile()).
       const bool well_formed = count >= 3;
       if (well_formed)
-        out_mesh.face_counts.push_back(count);
+        out_mesh.face_counts.push_back(narrow_face_count(count));
       he_idx = start;
       if (he_idx != HE_NONE) {
         do {
@@ -744,7 +744,7 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
       // dropping a degenerate primary face instead of leaking a <3-gon.
       const bool well_formed = count >= 3;
       if (well_formed)
-        out_mesh.face_counts.push_back(count);
+        out_mesh.face_counts.push_back(narrow_face_count(count));
       he_idx = start;
 
       if (he_idx != HE_NONE) {
@@ -950,7 +950,7 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
       // dropping a degenerate primary face instead of leaking a <3-gon.
       const bool well_formed = count >= 3;
       if (well_formed)
-        out_mesh.face_counts.push_back(count);
+        out_mesh.face_counts.push_back(narrow_face_count(count));
       he_idx = start;
       if (he_idx != HE_NONE) {
         do {

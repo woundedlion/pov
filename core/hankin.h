@@ -193,7 +193,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
         he_idx = curr_he.next;
       } while (he_idx != HE_NONE && he_idx != start_he);
 
-      compiled.face_counts.push_back(count);
+      compiled.face_counts.push_back(narrow_face_count(count));
     }
 
     // Rosette faces
