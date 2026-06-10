@@ -151,9 +151,12 @@ struct Color4 {
   Color4(const Color4 &c, float a) : color(c.color), alpha(a) {}
 
   Color4 lerp(const Color4 &other, float t) const {
-    uint16_t frac = static_cast<uint16_t>(hs::clamp(t, 0.0f, 1.0f) * 65535.0f);
+    // Clamp t once and drive both channels from it: previously color saturated
+    // (clamped frac) while alpha extrapolated on the raw t for out-of-range t.
+    const float ct = hs::clamp(t, 0.0f, 1.0f);
+    uint16_t frac = static_cast<uint16_t>(ct * 65535.0f);
     Pixel blended = color.lerp16(other.color, frac);
-    float blended_a = alpha + (other.alpha - alpha) * t;
+    float blended_a = alpha + (other.alpha - alpha) * ct;
     return Color4(blended, blended_a);
   }
 
