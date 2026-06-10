@@ -91,7 +91,7 @@ The four design philosophies (16-bit linear color, compile-time resolution, fail
 **P1 — verification & resource risks**
 
 5. Confirm where the 301 KB reaction-graph table physically lands on Teensy (bare `PROGMEM` is a no-op on Cortex-M7); use an explicit flash-section attribute or document/`static_assert` the placement (`reaction_graph.cpp:4`).
-6. Add the non-segment-mode pixel-buffer alias assertion in `daydream.js` mirroring `composite()`'s `dst === Daydream.pixels` check, or unconditionally re-point the three aliased views after a resize.
+6. ✅ Add the non-segment-mode pixel-buffer alias assertion in `daydream.js` mirroring `composite()`'s `dst === Daydream.pixels` check, or unconditionally re-point the three aliased views after a resize. *Fixed: the normal (single-engine) `drawFrame` path now asserts, right after `refreshPixelView()`, that all three aliases (`wasmMemoryView`, `Daydream.pixels`, `daydream.dotMesh.instanceColor.array`) point at the one WASM view — the same invariant `composite()` already enforces on the segment path. The lazy re-aliasing was previously unguarded here, so a future change re-pointing only some of the three would have silently cleared/displayed a buffer the engine never rendered into; it now throws loudly. One reference-equality check per frame, no hot-path cost.*
 7. Document the WASM exceptions-abort-the-module contract on the JS-facing MeshOps surface (allocation failure aborts, not throws), or enable exception catching for the tooling path.
 8. Enlarge `check_fail`'s format buffer to 256 and/or basename `__FILE__` so the on-device breadcrumb can't truncate (`platform.h:617`).
 
