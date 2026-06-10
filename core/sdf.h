@@ -1188,7 +1188,17 @@ struct Face {
     max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
       const Vector &v = vertices[indices[i]];
+      // Gnomonic projection divides by d = cos(angle from the face center); it
+      // is singular as a vertex approaches the center's antipode (d -> 0),
+      // yielding ±inf/NaN coordinates. Registered solids never produce an
+      // in-face vertex that far from its own face center, so this cannot fire on
+      // shipped geometry — but guard it for parity with the plot-path planar
+      // projection (plot.h COS_PLANAR_ANTIPODE) and the fast_atan2 origin guard.
+      // Clamp d away from zero, preserving its sign so the projection stays on
+      // the correct side.
       float d = dot(v, basis_v);
+      if (fabsf(d) < math::TOLERANCE)
+        d = copysignf(math::TOLERANCE, d);
       float px = dot(v, basis_u) / d;
       float py = dot(v, basis_w) / d;
 
