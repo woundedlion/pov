@@ -121,13 +121,27 @@ struct Bounds {
 struct Interval {
   int start, end;
 };
-/** @brief Result of a signed distance query. */
+/**
+ * @brief Result of a signed distance query.
+ *
+ * `dist` and `size` have fixed meanings, but `t`, `raw_dist` and `aux` are
+ * deliberately overloaded per shape — each shape packs whatever supplementary
+ * value its fragment shader needs into them, so the authoritative meaning for a
+ * given shape is that shape's own "Returns:" docblock (e.g. Ring, Flower,
+ * SphericalPolygon). The scan rasterizer copies them straight into the Fragment
+ * register file with no reinterpretation (see Scan::process_pixel):
+ *   t        -> Fragment::v0
+ *   raw_dist -> Fragment::v1
+ *   aux      -> Fragment::v3
+ *   size     -> Fragment::size
+ * (Fragment::v2 is reserved and always 0.)
+ */
 struct DistanceResult {
-  float dist;        // Signed distance (negative inside)
-  float t;           // Normalized parameter (0-1) or angle
-  float raw_dist;    // Unsigned or supplementary distance
-  float aux;         // Auxiliary value (e.g. barycentric coordinate)
-  float size = 1.0f; // Size metric for normalization
+  float dist;        // Signed distance (negative inside); always this meaning.
+  float t;           // Per-shape: normalized parameter (0-1) or angle.
+  float raw_dist;    // Per-shape: unsigned or supplementary distance.
+  float aux;         // Per-shape: auxiliary value (e.g. barycentric coordinate).
+  float size = 1.0f; // Size metric for AA-falloff normalization.
 
   DistanceResult() = default;
   DistanceResult(float d, float t_val, float rd, float ax, float sz)
@@ -1730,6 +1744,11 @@ struct PlanarPolygon {
  * @brief Calculates signed distance to a spherical polygon (great circle
  * edges). Uses sector folding + precomputed great circle plane normal for
  * O(1) per-pixel distance, with exact angular distances for smooth AA.
+ * Returns:
+ *  dist: Signed angular distance to the nearest great-circle edge (negative
+ *        inside)
+ *  t: Normalized radial position (polar / circumradius)
+ *  raw_dist: Polar angle from the polygon center
  */
 struct SphericalPolygon {
   const Basis &basis;
