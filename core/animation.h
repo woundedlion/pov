@@ -963,6 +963,28 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase<Motion<W, CAP>>::step(canvas);
+
+    // Drift correction. Motion advances the orientation by dead reckoning:
+    // each frame multiplies a delta rotation onto the previous orientation and
+    // never re-derives it from the path. Across thousands of repeated cycles
+    // the float error in that quaternion chain accumulates without bound,
+    // warping the traced curve into a progressively "squiggly", corrupted
+    // shape. Anchor the integration: capture the start orientation on the first
+    // step, and at the top of every repeated cycle reset to it, so each cycle
+    // integrates from an identical, drift-free base (each cycle then behaves
+    // exactly like the first — the accumulation is gone). The reset discards
+    // the per-cycle holonomy twist the dead reckoning would otherwise pile up;
+    // for a path-following point head that twist is about the head's own axis
+    // and invisible, whereas the unbounded warp it caused is removed. Cost is
+    // one quaternion copy per cycle on the once-per-frame timeline path, never
+    // per pixel.
+    if (!anchor_captured_) {
+      anchor_ = orientation.get().get();
+      anchor_captured_ = true;
+    } else if (this->repeat && this->t == 1) {
+      orientation.get().set(anchor_);
+    }
+
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -1019,6 +1041,9 @@ private:
       orientation;               /**< Reference to the Orientation state. */
   Fn<Vector(float), 16> path_fn; /**< Function to retrieve path points. */
   Space space;                   /**< The coordinate space for rotation. */
+  Quaternion anchor_;            /**< Start orientation, captured on first step;
+                                      restored at each cycle to bound drift. */
+  bool anchor_captured_ = false; /**< Whether anchor_ has been captured yet. */
 };
 
 /**

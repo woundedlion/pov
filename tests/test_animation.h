@@ -671,6 +671,69 @@ inline void test_orientation_upsample_then_collapse() {
   HS_EXPECT_NEAR(c.y, 1.0f, 1e-3f);
 }
 
+// A repeating Motion integrates its Orientation by dead reckoning. Without
+// re-anchoring, the float error in that per-frame quaternion chain accumulates
+// without bound and warps the traced curve into a "squiggly" mess after many
+// cycles (the Comets path-corruption bug). The fix snaps the orientation back
+// to its captured start at every cycle boundary, so each cycle integrates from
+// an identical base and the shape stops drifting.
+//
+// The decisive, precession-immune signature is the set of rotation-INVARIANT
+// internal angles between heads sampled at fixed phases within a cycle: a rigid
+// drift (holonomy) leaves them unchanged, so any growth is genuine warp. We
+// compare a late cycle against the ideal Lissajous internal angles; with the
+// bug these diverge by > 1 rad, with the fix they stay at the first cycle's
+// tiny discretization residual.
+inline void test_motion_repeating_does_not_drift() {
+  using Ori = Orientation<288, 16>;
+  global_timeline_num_events = 0;
+  global_timeline_t = 0;
+
+  const int duration = 40;
+  ProceduralPath path;
+  // A representative Comets Lissajous figure; lissajous(.,.,.,0) == +Y, so the
+  // identity-start orientation places the head exactly on the path at phase 0.
+  path.f = [](float t) { return lissajous(1.06f, 1.06f, 0.0f, t * 5.909f); };
+
+  Ori o; // identity, single frame; orient(+Y) starts on the path
+  const Vector node_v = Y_AXIS;
+
+  Timeline<288> tl;
+  tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
+
+  // Ideal internal angles between three fixed within-cycle phases.
+  const int pa = 10, pb = 20, pc = 30;
+  Vector Ia = path.f((float)pa / duration);
+  Vector Ib = path.f((float)pb / duration);
+  Vector Ic = path.f((float)pc / duration);
+  float ideal_ab = angle_between(Ia, Ib);
+  float ideal_ac = angle_between(Ia, Ic);
+  float ideal_bc = angle_between(Ib, Ic);
+
+  Vector Pa, Pb, Pc;
+  const int cycles = 600; // ~24k frames; bug reaches multi-radian warp well before
+  for (int c = 0; c < cycles; ++c) {
+    for (int fr = 1; fr <= duration; ++fr) {
+      tl.step(fake_canvas());
+      // global_timeline_t advances with each step; the Motion's own phase is
+      // (t-1 within the cycle). Sample by position in this inner loop.
+      if (fr == pa) Pa = o.orient(node_v);
+      if (fr == pb) Pb = o.orient(node_v);
+      if (fr == pc) Pc = o.orient(node_v);
+    }
+  }
+
+  // After 600 cycles the reconstructed internal angles must still match the
+  // ideal within the first-cycle discretization residual (< 0.1 rad). The
+  // pre-fix integrator fails this by more than an order of magnitude.
+  HS_EXPECT_NEAR(angle_between(Pa, Pb), ideal_ab, 0.1f);
+  HS_EXPECT_NEAR(angle_between(Pa, Pc), ideal_ac, 0.1f);
+  HS_EXPECT_NEAR(angle_between(Pb, Pc), ideal_bc, 0.1f);
+
+  global_timeline_num_events = 0;
+  global_timeline_t = 0;
+}
+
 inline int run_animation_tests() {
   auto scope = hs_test::begin_module("animation");
 
@@ -711,6 +774,7 @@ inline int run_animation_tests() {
   test_timeline_clear_resets_state();
   test_timeline_full_guard_rejects_overflow();
   test_orientation_upsample_then_collapse();
+  test_motion_repeating_does_not_drift();
 
   return hs_test::end_module(scope);
 }
