@@ -1042,9 +1042,13 @@ inline Vector cubic_fast(const Vector &p0, const Vector &p1, const Vector &p2,
   float u = 1.0f - t;
   float uu = u * u;
   float tt = t * t;
-  return (p0 * (uu * u) + p1 * (3.0f * uu * t) + p2 * (3.0f * u * tt) +
-          p3 * (tt * t))
-      .normalized();
+  Vector blended = p0 * (uu * u) + p1 * (3.0f * uu * t) + p2 * (3.0f * u * tt) +
+                   p3 * (tt * t);
+  // Antipodal / coincident control points can sum to a near-zero vector —
+  // legitimate geometry, not a bug — and the strict normalized() would trap.
+  // Degrade gracefully to p1, matching the robustness cubic_slerp already gets
+  // from slerp's normalized_or fallback.
+  return normalized_or(blended, p1);
 }
 
 /// Accurate: de Casteljau with SLERP. 6 SLERPs per sample.

@@ -784,6 +784,15 @@ inline void test_spline_cubic_endpoints() {
                 mSlerp, 1e-4f);
 }
 
+inline void test_spline_cubic_fast_degenerate_fallback() {
+  // Control points chosen so the t=0.5 Bezier blend sums to the zero vector:
+  // weights are 0.125/0.375/0.375/0.125, so 0.125*p0 + 0.375*p1 + 0.375*p2 +
+  // 0.125*p3 cancels to (0,0,0). The strict normalized() would trap on this
+  // legitimate (antipodal) geometry; cubic_fast must degrade gracefully to p1.
+  const Vector p0(1, 0, 0), p1(1, 0, 0), p2(-1, 0, 0), p3(-1, 0, 0);
+  HS_EXPECT_VEC(Spline::cubic_fast(p0, p1, p2, p3, 0.5f), p1, 1e-6f);
+}
+
 inline void test_spline_catmull_rom() {
   const Vector prev(1, 0, 0);
   Vector start(0.7f, 0.7f, 0);
@@ -892,6 +901,7 @@ inline int run_3dmath_tests() {
   test_gnomonic_roundtrip();
 
   test_spline_cubic_endpoints();
+  test_spline_cubic_fast_degenerate_fallback();
   test_spline_catmull_rom();
 
   test_wrap_index();
