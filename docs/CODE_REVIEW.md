@@ -103,7 +103,7 @@ The five philosophies (16-bit linear color; compile-time resolution; fail-fast c
 
 **P3 — doc drift & cleanup**
 
-6. **`to_short` casts float→int before clamping.** `std::clamp(static_cast<int>(std::round(t * 65535.0f)), 0, 65535)` performs the cast before the int-domain clamp, so a NaN/overflow input is UB before the clamp can fire; all three live callers feed pre-sanitized values today, so it is latent, but it diverges from the blessed `float_to_pixel16`, which clamps in float space first. *Fix:* `static_cast<uint16_t>(hs::clamp(t, 0.0f, 1.0f) * 65535.0f + 0.5f)`. `core/color.h:366-369`.
+6. ✅ **`to_short` casts float→int before clamping.** `std::clamp(static_cast<int>(std::round(t * 65535.0f)), 0, 65535)` performs the cast before the int-domain clamp, so a NaN/overflow input is UB before the clamp can fire; all three live callers feed pre-sanitized values today, so it is latent, but it diverges from the blessed `float_to_pixel16`, which clamps in float space first. *Fix:* `static_cast<uint16_t>(hs::clamp(t, 0.0f, 1.0f) * 65535.0f + 0.5f)`. `core/color.h:366-369`.
 
 7. **Redundant `std::round()` over an already-integer RNG result.** `RandomTimer::reset()` computes `t + static_cast<int>(std::round(hs::rand_int(min, max)))`, but `hs::rand_int` already returns an `int`, so the round is a dead no-op that misleadingly implies a fractional result; it is also the only one of ~25 `rand_int` call sites that rounds. *Fix:* `next = t + hs::rand_int(min, max);`. `core/animation.h:505`.
 

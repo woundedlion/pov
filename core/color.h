@@ -364,8 +364,11 @@ enum class SaturationProfile { PASTEL, MID, VIBRANT };
  * (0..65535) for lerp16.
  */
 inline uint16_t to_short(float zero_to_one) {
-  return std::clamp(static_cast<int>(std::round(zero_to_one * 65535.0f)), 0,
-                    65535);
+  // Clamp in float space before the cast (mirrors float_to_pixel16): a
+  // float->int conversion is UB outside the int range, so the int-domain
+  // clamp could never fire on an overflowing/NaN input.
+  return static_cast<uint16_t>(hs::clamp(zero_to_one, 0.0f, 1.0f) * 65535.0f +
+                               0.5f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
