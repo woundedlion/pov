@@ -773,7 +773,7 @@ The `Timeline<W>` class manages a list of running `IAnimation` objects. Each fra
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `Noise` | Animates `NoiseParams` over time for flowing distortion fields |
 | `MeshMorph` | Morphs one `MeshState` into another by cloning both, building a nearest-vertex correspondence, and interpolating positions over a duration. The vertex-level primitive beneath `MeshCarousel`. |
-| `MeshCarousel<W>` | Double-buffered mesh transition system. Manages a pair of `MeshState` buffers and schedules an `Animation::Sprite` that fades the **incoming** shape in. Despite the loose "crossfade" name, the outgoing shape is not drawn — the front index flips eagerly to the new shape, so only the incoming shape is faded in. Used by IslamicStars, MeshFeedback, and HankinSolids for smooth geometry transitions. |
+| `MeshCarousel<W>` | Double-buffered mesh transition system. Manages a pair of `MeshState` buffers and flips the front index eagerly so a freshly-scheduled `Animation::Sprite` captures the new shape. The crossfade emerges from **overlapping** sprites across consecutive transitions: each transition fades only its own incoming shape in (and back out), while the previous transition's sprite — still alive in its fade-out tail — keeps drawing the outgoing shape. No single call ever draws both meshes. Used by IslamicStars (sprite crossfade); MeshFeedback and HankinSolids reuse the buffered pair but drive vertex-level `MeshMorph` transitions over it instead. |
 
 #### Orientation and Motion Blur
 
