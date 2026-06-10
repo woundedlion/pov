@@ -33,6 +33,9 @@
 #include "tests/test_hd107s_frame.h"
 #include "tests/test_pov_segmented.h"
 #include "tests/test_param_marshal.h"
+#include "tests/test_util.h"
+#include "tests/test_presets.h"
+#include "tests/test_styles.h"
 #include "tests/test_death.h"
 
 int main(int argc, char **argv) {
@@ -81,6 +84,9 @@ int main(int argc, char **argv) {
   failures += hs_test::hd107s_tests::run_hd107s_tests();
   failures += hs_test::pov_segmented_tests::run_pov_segmented_tests();
   failures += hs_test::param_marshal_tests::run_param_marshal_tests();
+  failures += hs_test::util_tests::run_util_tests();
+  failures += hs_test::presets_tests::run_presets_tests();
+  failures += hs_test::styles_tests::run_styles_tests();
   failures += hs_test::death::run_death_tests();
   return failures;
 }
