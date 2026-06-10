@@ -593,7 +593,6 @@ inline int expect_cull_covers_interior(const Shape &shape) {
 
 inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
-  constexpr int HV = H + hs::H_OFFSET;
 
   // Poles, equator, and oblique tilts — the cull math is orientation-dependent.
   const Vector axes[] = {
