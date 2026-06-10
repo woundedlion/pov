@@ -98,8 +98,22 @@ public:
 private:
   void update_path() {
     LissajousParams config = functions[cur_function_idx];
-    path.f = [config](float t) {
-      return lissajous(config.m1, config.m2, config.a, t * config.domain);
+    // Snap the traversal length so the curve closes exactly. A spherical
+    // Lissajous point is (sin(m2 t)*cos(...), cos(m2 t), sin(m2 t)*sin(...)), so
+    // it returns to the t=0 start (0,1,0) only when sin(m2 t)=0 and cos(m2 t)=1,
+    // i.e. when m2*domain is an exact multiple of 2*PI (the m1/phase terms drop
+    // out once sin(m2 t)=0). The authored domains miss that by up to ~1.4 deg.
+    // Motion advances the head from path_fn(0) and then hard-resets to the start
+    // anchor every cycle (drift correction); when the endpoint doesn't coincide
+    // with the start, that reset teleports the head by the gap — a small jump
+    // that reads as a path discontinuity, most visibly right when the function
+    // switches. Snapping to the nearest closing length (a <0.3% domain nudge,
+    // invisible to the shape) makes path_fn(domain) == path_fn(0) so the reset
+    // is a no-op and the trace stays continuous across loops and switches.
+    float closed_domain =
+        2 * PI_F * std::round(config.m2 * config.domain / (2 * PI_F)) / config.m2;
+    path.f = [config, closed_domain](float t) {
+      return lissajous(config.m1, config.m2, config.a, t * closed_domain);
     };
   }
 
