@@ -82,18 +82,21 @@ The four design philosophies (16-bit linear color, compile-time resolution, fail
 ## 4. Prioritized Fix List
 
 **P0 — correctness on real hardware / latent semantic traps**
+
 1. Fix the Phantasm frame-sync vs `advance_display` desync (`pov_segmented.h:420-451`): drive the buffer flip from the authoritative frame-sync pulse, or perform `advance_display()` when a snap crosses a boundary. *Only finding that mis-paints hardware.*
 2. ✅ Make `Pixel::Feedback::flush` honor the x-clip when populating the coarse warp grid (`filter.h:813-830`) — correctness-of-intent on segmented hardware plus a 4× perf win. *Fixed: step 1 now marks and populates only the coarse columns the clipped sampling pass reads (`cx0`/seam-wrapping `cx1`); sampled output is byte-identical, the full-grid `space_fn` waste on out-of-band columns is removed.*
 3. ✅ Confirm/unify `Liquid2D`'s `accumulated_time` Driver wrap semantics against `animation.h`; if it wraps at 1.0, switch to Flyby's unbounded accumulator (`Liquid2D.h:35,71`). *Confirmed — not a bug, no change. The `Driver` is constructed with `wrap=false` (`Liquid2D.h:35`), so `Driver::step` skips the `wrap_t` fold and `accumulated_time` grows unbounded — already equivalent to Flyby's inline `phase += speed`. The premise that it wraps at 1.0 is incorrect; nothing hitches.*
 4. ✅ Route `hankin.h:196`'s `face_counts.push_back(count)` through `narrow_face_count` — the one reachable un-narrowed cast; apply to the other four sites (`conway.h:465/657/747/953`) for consistency. *Fixed: all five `int` face counts now narrow through the trapping `narrow_face_count`, matching the existing `conway.h:145/583` sites; valid solids are unaffected (tests green), an over-wide face now traps at the bench instead of silently wrapping.*
 
 **P1 — verification & resource risks**
+
 5. Confirm where the 301 KB reaction-graph table physically lands on Teensy (bare `PROGMEM` is a no-op on Cortex-M7); use an explicit flash-section attribute or document/`static_assert` the placement (`reaction_graph.cpp:4`).
 6. Add the non-segment-mode pixel-buffer alias assertion in `daydream.js` mirroring `composite()`'s `dst === Daydream.pixels` check, or unconditionally re-point the three aliased views after a resize.
 7. Document the WASM exceptions-abort-the-module contract on the JS-facing MeshOps surface (allocation failure aborts, not throws), or enable exception catching for the tooling path.
 8. Enlarge `check_fail`'s format buffer to 256 and/or basename `__FILE__` so the on-device breadcrumb can't truncate (`platform.h:617`).
 
 **P2 — consistency & cosmetic correctness**
+
 9. Make `BakedPalette::get` round via `float_to_pixel16` for parity with `Gradient::get` and the file's own anti-truncation rule (`color.h:1316`).
 10. Add the always-on orbit-spin `HS_CHECK` to `face_centroid`/`face_normal`/`face_side_count` (`conway.h`).
 11. Add a stripped `assert` to `fast_wrap` and the non-negativity preconditions in `AntiAlias`/`ChromaticShift`.
@@ -102,6 +105,7 @@ The four design philosophies (16-bit linear color, compile-time resolution, fail
 14. Replace `innerHTML` interpolation of worker-fault messages / tool labels with `textContent` (the codebase already knows better elsewhere).
 
 **P3 — duplication & doc drift (quality, not bugs)**
+
 15. Extract a `StereoShaderBase` CRTP for Liquid2D + Flyby (largest single dedup).
 16. Factor the live-param-sync and orientation-trail-render idioms shared across several effects.
 17. Unify the two `Scan::Shader` SSAA loops.
