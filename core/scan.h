@@ -144,6 +144,8 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
           full_row = true;
           break;
         }
+        // SDF emit_* can hand back a negative start when a shape straddles θ=0;
+        // fmodf(negative, W) is itself negative in C, so re-wrap into [0,W).
         float s = fmodf(iv.first, static_cast<float>(W));
         if (s < 0.0f)
           s += static_cast<float>(W);

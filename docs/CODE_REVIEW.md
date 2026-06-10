@@ -88,7 +88,7 @@ The five design philosophies (16-bit linear color; compile-time resolution; fail
 
 **P2 — consistency & cosmetic correctness**
 
-3. Add a one-line comment to the interval re-wrap in `Scan::scan_region` (`core/scan.h:147-149`). `fmodf(iv.first, W)` followed by `if (s < 0) s += W` is correct — `fmodf` of a negative operand is negative in C, and SDF `emit_*` functions can emit a negative start when a shape straddles θ=0 — but the surrounding comment (`:131-138`) explains the *purpose* of wrapping without noting *why a negative can arise* at the point of execution. A single line (`// fmodf(negative, W) is negative; re-wrap into [0,W).`) closes the gap, matching the file's "comments encode why" standard.
+3. ✅ **Fixed.** Add a one-line comment to the interval re-wrap in `Scan::scan_region` (`core/scan.h:147-149`). `fmodf(iv.first, W)` followed by `if (s < 0) s += W` is correct — `fmodf` of a negative operand is negative in C, and SDF `emit_*` functions can emit a negative start when a shape straddles θ=0 — but the surrounding comment (`:131-138`) explained the *purpose* of wrapping without noting *why a negative can arise* at the point of execution. *Resolved by adding the two-line note recording that `emit_*` can return a negative start and that `fmodf(negative, W)` is itself negative, matching the file's "comments encode why" standard.*
 
 **P3 — doc drift & cleanup**
 
