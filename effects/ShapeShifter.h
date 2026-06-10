@@ -12,43 +12,23 @@ public:
   enum class ShapeType { PlanarPolygon, SphericalPolygon, Flower, Star };
   enum class RenderMode { Plot, Scan };
 
-  struct Ring {
-    Vector normal;
-    float scale;
-    Color4 color;
-    RenderMode mode;
-    int layer_index;
-    Orientation<W> orientation;
-
-    Ring()
-        : scale(1.0f), color(Color4(0, 0, 0, 0)), mode(RenderMode::Plot),
-          layer_index(0) {}
-
-    Ring(const Vector &n, float s, const Color4 &c, RenderMode m, int l)
-        : normal(n), scale(s), color(c), mode(m), layer_index(l) {}
-  };
-
   FLASHMEM ShapeShifter()
       : Effect(W, H), current_shape(ShapeType::PlanarPolygon) {}
 
   bool show_bg() const override { return false; }
 
   void init() override {
-    // Bound once to a fixed capacity and never re-bound: per-ring animations
-    // capture references into these slots, so the block must not relocate (see
-    // spawnRing's capture contract).
-    shapes.bind(persistent_arena, 128);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Count", &params.num_shapes, 1.0f, 16.0f);
+    registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
     registerParam("Debug BB", &params.debug_bb);
-    // Twist is driven by the Mutation in rebuild(); flag it so the GUI
+    // Twist is driven by the Mutation in build(); flag it so the GUI
     // auto-pauses the animation when the user grabs the slider.
     markAnimated("Twist");
 
-    rebuild();
+    build();
   }
 
   void draw_frame() override {
@@ -61,84 +41,81 @@ public:
       current_shape = static_cast<ShapeType>(next);
     }
 
-    // Rebuild if count changed via GUI
-    int count = static_cast<int>(params.num_shapes);
-    if (count != last_num_shapes_) {
-      last_num_shapes_ = count;
-      rebuild();
-    }
-
     timeline.step(canvas);
   }
 
-  FLASHMEM void rebuild() {
-    // Teardown order is load-bearing: the per-ring animations (Rotation binds
-    // `ring.orientation`, the Sprite lambda captures `&ring`) hold references
-    // into `shapes`' storage, so clear the timeline FIRST to drop every
-    // dangling reference before the Ring slots are destroyed. (See the capture
-    // contract in spawnRing.)
+  // The whole effect runs on a *fixed* five-slot timeline regardless of Count:
+  // the camera tumble, the twist Mutation, two shared orientation tumbles (one
+  // per render mode), and a single draw event that walks the live Count each
+  // frame. The per-ring Sprite+Rotation pair the effect used to spawn was pure
+  // overhead — the Sprite never faded (constant opacity 1) and every Plot ring
+  // shared one identical rotation, as did every Scan ring — so it cost two
+  // global-timeline slots per shape and overflowed the 64-slot array at
+  // Count 16 (2 + 4*16 = 66), silently dropping the last ring's animations.
+  // Collapsing to two shared orientations is visually identical (the per-ring
+  // rotations were already in lockstep) and lets Count scale to the raster
+  // budget, not the slot budget.
+  FLASHMEM void build() {
     timeline.clear();
-    shapes.clear();
 
-    // Single camera tumble
+    // Single camera tumble.
     timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
                                              hs::rand_int(0, 65535)));
 
-    // Twist Mutation: sin wave
+    // Twist Mutation: sin wave.
     timeline.add(0, Animation::Mutation(
                         params.twist,
                         [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
                         480, ease_mid, true, &anims_paused_));
 
-    for (int i = params.num_shapes - 1; i >= 0; --i) {
-      float t = static_cast<float>(i) /
-                (params.num_shapes > 1 ? params.num_shapes - 1 : 1);
+    // Two shared tumbles: every Plot ring rides plot_orient_ (+X), every Scan
+    // ring rides scan_orient_ (-X). These also drive the once-per-frame
+    // orientation collapse (motion blur) before the draw event runs below.
+    timeline.add(0, Animation::Rotation<W>(plot_orient_, X_AXIS, 2 * PI_F, 160,
+                                           ease_mid, true,
+                                           Animation::Space::Local));
+    timeline.add(0, Animation::Rotation<W>(scan_orient_, -X_AXIS, 2 * PI_F, 160,
+                                           ease_mid, true,
+                                           Animation::Space::Local));
+
+    // One draw event for every shape. Reads Count live, so a GUI change needs no
+    // rebuild. Added last so it steps after the rotations have collapsed.
+    timeline.add(0, Animation::Sprite(
+                        [this](Canvas &canvas, float) { drawAll(canvas); }, -1,
+                        0, ease_mid, 0, ease_mid));
+  }
+
+  void drawAll(Canvas &canvas) {
+    int count = static_cast<int>(params.num_shapes);
+    if (count < 1)
+      count = 1;
+
+    // Basis is identical across all rings of a mode (shared orientation + fixed
+    // normal), so compute each once per frame instead of once per ring.
+    Quaternion cam_q = camera.get();
+    Basis plot_basis = make_basis(cam_q * plot_orient_.get(), X_AXIS);
+    Basis scan_basis = make_basis(cam_q * scan_orient_.get(), -X_AXIS);
+
+    for (int i = count - 1; i >= 0; --i) {
+      float t = static_cast<float>(i) / (count > 1 ? count - 1 : 1);
       Color4 color = Palettes::richSunset.get(t);
-      spawnRing(X_AXIS, t, color, RenderMode::Plot, i);
-      spawnRing(-X_AXIS, t, color, RenderMode::Scan, i);
+      drawRing(canvas, plot_basis, RenderMode::Plot, t, color, i);
+      drawRing(canvas, scan_basis, RenderMode::Scan, t, color, i);
     }
   }
 
-  void spawnRing(const Vector &normal, float scale, const Color4 &color,
-                 RenderMode mode, int layer_index) {
-    // Capture contract: the Rotation below binds `ring.orientation` by
-    // reference and the Sprite lambda captures `&ring`, so both depend on the
-    // Ring's address staying valid for the animation's lifetime. That holds
-    // because `shapes` is bound once to a fixed capacity (never re-bound) and
-    // ArenaVector::clear() only resets size_ — it neither frees nor reallocates
-    // the block — so a slot's address is stable across clear()+re-emplace. The
-    // guard below is therefore load-bearing: it refuses to grow past capacity
-    // (which would reallocate and dangle every live capture). The matching
-    // teardown order in rebuild() keeps these references from outliving a slot.
-    if (shapes.size() == shapes.capacity())
-      return;
-    shapes.emplace_back(normal, scale, color, mode, layer_index);
-    Ring &ring = shapes.back();
-
-    timeline.add(0, Animation::Rotation<W>(ring.orientation, ring.normal,
-                                           2 * PI_F, 160, ease_mid, true,
-                                           Animation::Space::Local));
-    timeline.add(0, Animation::Sprite(
-                        [this, &ring](Canvas &canvas, float opacity) {
-                          this->drawShape(canvas, ring, opacity);
-                        },
-                        -1, 0, ease_mid, 0, ease_mid));
-  }
-
-  void drawShape(Canvas &canvas, const Ring &ring, float sprite_alpha) {
+  void drawRing(Canvas &canvas, const Basis &basis, RenderMode mode, float scale,
+                const Color4 &color, int layer_index) {
     auto fragment_shader = [&](const Vector &p, Fragment &f) {
-      Color4 c = ring.color;
-      c.alpha = c.alpha * this->params.alpha * sprite_alpha;
+      Color4 c = color;
+      c.alpha = c.alpha * this->params.alpha;
       f.color = c;
     };
 
-    float phase = ring.layer_index * this->params.twist;
-    float r = this->params.radius * ring.scale;
-
-    Quaternion cam_q = camera.get();
-    Basis basis = make_basis(cam_q * ring.orientation.get(), ring.normal);
+    float phase = layer_index * this->params.twist;
+    float r = this->params.radius * scale;
     int sides_int = (int)params.sides;
-    if (ring.mode == RenderMode::Plot) {
+    if (mode == RenderMode::Plot) {
       dispatchPlot(canvas, basis, r, sides_int, fragment_shader, phase);
     } else {
       dispatchScan(canvas, basis, r, sides_int, fragment_shader, phase);
@@ -198,7 +175,10 @@ private:
   FastNoiseLite noise;
   Timeline<W> timeline;
   Orientation<W> camera;
-  ArenaVector<Ring> shapes;
+  // Shared tumbles — one per render mode. Declared after `timeline` so they
+  // outlive it: ~Timeline clears the Rotations that point here on teardown.
+  Orientation<W> plot_orient_;
+  Orientation<W> scan_orient_;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
   Pipeline<W, H> scan_filters;
 
@@ -213,7 +193,6 @@ private:
 
   ShapeType current_shape;
   int frame_count_ = 0;
-  int last_num_shapes_ = 7;
 };
 
 #include "core/effect_registry.h"
