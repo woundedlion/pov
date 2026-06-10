@@ -29,25 +29,12 @@ namespace conway_tests {
 inline uint8_t conway_target_buf[256 * 1024];
 inline uint8_t conway_temp_buf[256 * 1024];
 
-// build_solid() and check_all_unit_vertices() live in tests/mesh_test_util.h.
+// build_solid(), check_all_unit_vertices(), check_face_counts_consistent(),
+// and check_indices_in_range() live in tests/mesh_test_util.h.
 
 // ---------------------------------------------------------------------------
 // Structural invariants — used by every Conway-op test
 // ---------------------------------------------------------------------------
-
-inline void check_face_counts_consistent(const PolyMesh &m) {
-  size_t total = 0;
-  for (size_t i = 0; i < m.face_counts.size(); ++i)
-    total += m.face_counts[i];
-  HS_EXPECT_EQ(total, m.faces.size());
-}
-
-inline void check_indices_in_range(const PolyMesh &m) {
-  size_t V = m.vertices.size();
-  for (size_t i = 0; i < m.faces.size(); ++i) {
-    HS_EXPECT_TRUE(m.faces[i] < V);
-  }
-}
 
 // Newell's method face normal — robust for non-planar faces (curved faces
 // on the unit sphere). Returns the unnormalised normal vector.

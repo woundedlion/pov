@@ -36,4 +36,19 @@ inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
   }
 }
 
+// Σ face_counts must equal the flat face-index array length.
+inline void check_face_counts_consistent(const PolyMesh &m) {
+  size_t total = 0;
+  for (size_t i = 0; i < m.face_counts.size(); ++i)
+    total += m.face_counts[i];
+  HS_EXPECT_EQ(total, m.faces.size());
+}
+
+// Every face index must reference a valid vertex.
+inline void check_indices_in_range(const PolyMesh &m) {
+  size_t V = m.vertices.size();
+  for (size_t i = 0; i < m.faces.size(); ++i)
+    HS_EXPECT_TRUE(m.faces[i] < V);
+}
+
 } // namespace hs_test

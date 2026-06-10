@@ -28,6 +28,7 @@
 #include <cstdint>
 #include "core/mesh.h"
 #include "core/solids.h"
+#include "tests/mesh_test_util.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -45,22 +46,10 @@ inline uint8_t solids_scratch_a[4 * 1024 * 1024];
 inline uint8_t solids_scratch_b[4 * 1024 * 1024];
 
 // ---------------------------------------------------------------------------
-// Structural invariants (mirrors the helpers in test_conway.h, but operate on
-// the finalized PolyMesh returned by the registry).
+// Structural invariants. check_face_counts_consistent(), check_indices_in_range(),
+// and the unit-sphere check (check_all_unit_vertices) live in
+// tests/mesh_test_util.h; the rest are specific to the registry path here.
 // ---------------------------------------------------------------------------
-
-inline void check_face_counts_consistent(const PolyMesh &m) {
-  size_t total = 0;
-  for (size_t i = 0; i < m.face_counts.size(); ++i)
-    total += m.face_counts[i];
-  HS_EXPECT_EQ(total, m.faces.size());
-}
-
-inline void check_indices_in_range(const PolyMesh &m) {
-  size_t V = m.vertices.size();
-  for (size_t i = 0; i < m.faces.size(); ++i)
-    HS_EXPECT_TRUE(m.faces[i] < V);
-}
 
 inline void check_all_finite(const PolyMesh &m) {
   for (size_t i = 0; i < m.vertices.size(); ++i) {
@@ -68,11 +57,6 @@ inline void check_all_finite(const PolyMesh &m) {
     HS_EXPECT_TRUE(std::isfinite(v.x) && std::isfinite(v.y) &&
                    std::isfinite(v.z));
   }
-}
-
-inline void check_all_unit(const PolyMesh &m) {
-  for (size_t i = 0; i < m.vertices.size(); ++i)
-    HS_EXPECT_NEAR(m.vertices[i].length(), 1.0f, 1e-3f);
 }
 
 inline void check_nonempty(const PolyMesh &m) {
@@ -107,7 +91,7 @@ inline void test_simple_registry_solids_are_spherical_and_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(i, geom);
     check_basic(m);
-    check_all_unit(m); // Platonic/Archimedean seeds + ops stay on unit sphere
+    check_all_unit_vertices(m, 1e-3f); // Platonic/Archimedean seeds + ops stay on unit sphere
   }
 }
 
@@ -118,7 +102,7 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(base + k, geom);
     check_basic(m);
-    check_all_unit(m); // Catalan = dual of an Archimedean; ops re-normalize
+    check_all_unit_vertices(m, 1e-3f); // Catalan = dual of an Archimedean; ops re-normalize
   }
 }
 
@@ -191,7 +175,7 @@ inline void test_get_entry_last_valid_index_builds() {
   Arena b(solids_scratch_b, sizeof(solids_scratch_b));
   PolyMesh m = Solids::finalize_solid(e.generate(a, b), geom);
   check_basic(m);
-  check_all_unit(m);
+  check_all_unit_vertices(m, 1e-3f);
 }
 
 inline void test_get_by_name_known_returns_that_solid() {
@@ -200,7 +184,7 @@ inline void test_get_by_name_known_returns_that_solid() {
   Arena b(solids_scratch_b, sizeof(solids_scratch_b));
   PolyMesh m = Solids::get_by_name(geom, a, b, "octahedron");
   check_basic(m);
-  check_all_unit(m);
+  check_all_unit_vertices(m, 1e-3f);
   HS_EXPECT_EQ(m.vertices.size(), (size_t)6);
   HS_EXPECT_EQ(m.face_counts.size(), (size_t)8);
 }
