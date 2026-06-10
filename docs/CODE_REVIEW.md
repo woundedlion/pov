@@ -118,7 +118,7 @@ Split-table LUT reconstruction, sentinel-unified projection algebra, shared SDF 
 
 ### Low
 
-12. **`easing.h` uses `static inline` free functions** — `core/easing.h:18-119` — internal linkage gives per-TU copies and non-identity `EasingFn` pointers, inconsistent with the rest of the math layer. → Drop `static`, leaving plain `inline`.
+12. ✅ **`easing.h` uses `static inline` free functions** — `core/easing.h:18-119` — internal linkage gives per-TU copies and non-identity `EasingFn` pointers, inconsistent with the rest of the math layer. → Drop `static`, leaving plain `inline`. **Fixed:** all eleven easing functions are now plain `inline`, giving each a single external-linkage definition and one stable `EasingFn` address across translation units.
 13. **Dead C++<20 `lerp` fallback in a C++20 codebase** — `core/geometry.h:381-392` — re-introduces exactly the global-`lerp` ambiguity `platform.h` warns against. → Remove the `#if` block; standardize on `hs::lerp`.
 14. **`BakedPalette::get` does not clamp `t`; NaN is UB** — `core/color.h:1316` — `static_cast<int>(NaN)` slips past both bound guards, unlike the NaN-safe sibling `Gradient::get`. → Add `if (!(idx >= 0.0f)) return lut_[0];` (also catches NaN) or clamp idx.
 15. **Dead, untested blend modes** — `core/color.h:279` (`blend_accumulate`/`blend_over_max`/`blend_over_min`) — no callers, no tests, nontrivial unverified magnitude-matching logic. → Remove them, or add tests pinning the `c2==0` epsilon branches.

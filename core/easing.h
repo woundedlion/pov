@@ -15,7 +15,7 @@
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_in_out_cubic(float t) {
+inline float ease_in_out_cubic(float t) {
   return t < 0.5f ?
     4 * t * t * t :
     1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
@@ -26,7 +26,7 @@ static inline float ease_in_out_cubic(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_in_out_sin(float t) {
+inline float ease_in_out_sin(float t) {
   return -(cosf(PI_F * t) - 1) / 2;
 }
 
@@ -35,7 +35,7 @@ static inline float ease_in_out_sin(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_in_sin(float t) {
+inline float ease_in_sin(float t) {
   return 1 - cosf((t * PI_F) / 2);
 }
 
@@ -44,7 +44,7 @@ static inline float ease_in_sin(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_out_sin(float t) {
+inline float ease_out_sin(float t) {
   return sinf((t * PI_F) / 2);
 }
 
@@ -53,7 +53,7 @@ static inline float ease_out_sin(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_in_cubic(float t) {
+inline float ease_in_cubic(float t) {
   return t * t * t;
 }
 
@@ -62,7 +62,7 @@ static inline float ease_in_cubic(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_in_circ(float t) {
+inline float ease_in_circ(float t) {
   return 1 - sqrtf(1 - t * t);
 }
 
@@ -71,7 +71,7 @@ static inline float ease_in_circ(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_mid(float t) {
+inline float ease_mid(float t) {
   return t;
 }
 
@@ -80,7 +80,7 @@ static inline float ease_mid(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_out_expo(float t) {
+inline float ease_out_expo(float t) {
   // Exact-endpoint guard (callers pass exactly 1.0f at sequence end): without it
   // the formula returns 1 - 2^-10 ~= 0.999 there. The compare is float-typed so
   // t is not promoted to double.
@@ -92,7 +92,7 @@ static inline float ease_out_expo(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_out_circ(float t) {
+inline float ease_out_circ(float t) {
   return sqrtf(1 - (t - 1) * (t - 1));
 }
 
@@ -101,7 +101,7 @@ static inline float ease_out_circ(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_out_cubic(float t) {
+inline float ease_out_cubic(float t) {
   return 1 - powf(1 - t, 3);
 }
 
@@ -110,7 +110,7 @@ static inline float ease_out_cubic(float t) {
  * @param x The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-static inline float ease_out_elastic(float x) {
+inline float ease_out_elastic(float x) {
   const float c4 = (2 * PI_F) / 3;
   // Exact-endpoint guards (callers pass exactly 0.0f / 1.0f at the ends); the
   // float-typed compares keep x in float.
