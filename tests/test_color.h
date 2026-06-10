@@ -201,6 +201,24 @@ inline void test_blend_alpha_clamps_before_cast() {
   HS_EXPECT_TRUE(nan_res == b);
 }
 
+inline void test_pixel16_scale_clamps_before_cast() {
+  Pixel16 c(100, 2000, 30000);
+
+  // In-range scales behave exactly as before (truncating quantization).
+  HS_EXPECT_TRUE(c * 0.0f == Pixel16(0, 0, 0));
+  HS_EXPECT_TRUE(c * 1.0f == c);
+  HS_EXPECT_TRUE(c * 2.0f == Pixel16(200, 4000, 60000));
+
+  // A scale large enough to overflow each channel saturates at 65535 rather
+  // than wrapping or invoking UB in the float->int cast.
+  HS_EXPECT_TRUE(c * 1e9f == Pixel16(65535, 65535, 65535));
+  // Negative scale clamps to zero.
+  HS_EXPECT_TRUE(c * -3.0f == Pixel16(0, 0, 0));
+  // NaN scale must not propagate into the cast; hs::clamp maps it to the hi
+  // bound (matches blend_alpha's contract).
+  HS_EXPECT_TRUE(c * NAN == Pixel16(65535, 65535, 65535));
+}
+
 // ============================================================================
 // OKLab / OKLCH round-trips
 // ============================================================================
@@ -864,6 +882,7 @@ inline int run_color_tests() {
   test_blend_add_saturates();
   test_blend_max_with_black_identity();
   test_blend_alpha_clamps_before_cast();
+  test_pixel16_scale_clamps_before_cast();
 
   test_oklab_roundtrip();
   test_oklch_roundtrip();

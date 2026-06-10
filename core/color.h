@@ -81,10 +81,12 @@ struct Pixel16 {
   Pixel16 operator*(float s) const {
     // Clamp in float before the cast: r*s can exceed INT_MAX for large s,
     // and float->int conversion is UB out of range (would bite before an
-    // int clamp could fire).
-    return Pixel16((uint16_t)std::clamp(r * s, 0.0f, 65535.0f),
-                   (uint16_t)std::clamp(g * s, 0.0f, 65535.0f),
-                   (uint16_t)std::clamp(b * s, 0.0f, 65535.0f));
+    // int clamp could fire). hs::clamp (not std::clamp) additionally maps a
+    // NaN scale to the hi bound instead of letting NaN reach the cast — the
+    // same NaN-safety blend_alpha relies on; bit-identical for valid inputs.
+    return Pixel16((uint16_t)hs::clamp(r * s, 0.0f, 65535.0f),
+                   (uint16_t)hs::clamp(g * s, 0.0f, 65535.0f),
+                   (uint16_t)hs::clamp(b * s, 0.0f, 65535.0f));
   }
 
   // Lerp (Linear interpolation 16-bit)
