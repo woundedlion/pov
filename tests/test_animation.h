@@ -33,9 +33,11 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
 #include "core/animation.h"
 #include "core/canvas.h"
 #include "core/easing.h"
+#include "core/mesh.h" // PolyMesh, MeshOps::compile (MeshMorph fixtures)
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -743,6 +745,237 @@ inline void test_motion_repeating_does_not_drift() {
   global_timeline_t = 0;
 }
 
+// ============================================================================
+// ParticleSystem
+// ----------------------------------------------------------------------------
+// step() only advances the base frame counter and runs emitter/physics updates;
+// it never dereferences the canvas, so fake_canvas() suffices. These cover the
+// three pool-state transitions the system exists to manage: spawn (+ capacity
+// guard), life-expiry with trail drain, and attractor kill-radius removal.
+// ============================================================================
+
+inline void test_particle_system_spawn_and_capacity_guard() {
+  static uint8_t buf[256 * 1024];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 4> ps; // CAPACITY = 4
+  ps.init(arena);
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
+
+  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+  ps.spawn(Vector(0, 1, 0), Vector(0, 0, 0), 1);
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 2);
+
+  // Fill to capacity and then one past — the extra spawn is silently dropped,
+  // never overrunning the fixed pool.
+  ps.spawn(Vector(0, 0, 1), Vector(0, 0, 0), 2);
+  ps.spawn(Vector(-1, 0, 0), Vector(0, 0, 0), 3);
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 4);
+  ps.spawn(Vector(0, -1, 0), Vector(0, 0, 0), 4); // capacity is 4 — rejected
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 4);
+}
+
+inline void test_particle_system_expires_after_life_and_trail_drain() {
+  static uint8_t buf[256 * 1024];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 4> ps;
+  // gravity 0 + zero velocity => the particle never moves; the only thing that
+  // ends it is life reaching 0 and its recorded trail draining to empty.
+  ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/3.0f);
+  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1); // still alive
+
+  // life (3) plus the trail length (default 8) plus slack is a hard upper bound
+  // on how long a dead particle lingers while its history expires one per frame.
+  for (int i = 0; i < 3 + 8 + 4; ++i)
+    ps.step(fake_canvas());
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
+}
+
+inline void test_particle_system_attractor_kills_within_radius() {
+  static uint8_t buf[256 * 1024];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 4> ps;
+  ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.001f, /*max_life=*/600.0f);
+  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+  // Attractor co-located with the particle: distance 0 < kill_radius, so the
+  // particle is removed by the kill check — not by life expiry (life is 600).
+  ps.add_attractor(Vector(1, 0, 0), /*strength=*/1.0f, /*kill_radius=*/0.5f,
+                   /*event_horizon=*/2.0f);
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
+}
+
+// ============================================================================
+// Sprite (opacity envelope + paused-hold)
+// ----------------------------------------------------------------------------
+// Sprite::step never touches the canvas itself — it computes an opacity and
+// forwards it to the user draw_fn. We capture that opacity to assert the
+// fade-in/plateau/fade-out envelope and the paused-hold contract (no timer
+// advance, no expiry, still drawing).
+// ============================================================================
+
+inline void test_sprite_fade_in_plateau_fade_out_envelope() {
+  std::vector<float> ops;
+  const int dur = 10, fade_in = 3, fade_out = 3;
+  Animation::Sprite s(
+      [&](Canvas &, float o) { ops.push_back(o); }, dur, fade_in, ease_mid,
+      fade_out, ease_mid);
+  for (int i = 0; i < dur; ++i)
+    s.step(fake_canvas()); // observed at t = 1..10
+
+  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  // Fade-in: first sample is partial and rising (linear ease => t/fade_in).
+  HS_EXPECT_NEAR(ops[0], 1.0f / 3.0f, 1e-3f); // t=1
+  HS_EXPECT_GT(ops[1], ops[0]);               // t=2 brighter
+  // Plateau: fully opaque once past fade-in and before fade-out (t=3..7).
+  HS_EXPECT_NEAR(ops[3], 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(ops[5], 1.0f, 1e-3f);
+  // Fade-out: descends to fully transparent on the final frame (t=10).
+  HS_EXPECT_LT(ops[8], ops[5]);
+  HS_EXPECT_NEAR(ops[9], 0.0f, 1e-3f);
+  HS_EXPECT_TRUE(s.done());
+}
+
+inline void test_sprite_paused_holds_frame() {
+  bool paused = true;
+  int draws = 0;
+  float last_op = -1.0f;
+  // No fade in/out => held opacity is full; duration 3 would normally expire.
+  Animation::Sprite s(
+      [&](Canvas &, float o) { draws++; last_op = o; }, /*duration=*/3,
+      /*fade_in=*/0, ease_mid, /*fade_out=*/0, ease_mid, &paused);
+
+  for (int i = 0; i < 10; ++i)
+    s.step(fake_canvas());
+  HS_EXPECT_FALSE(s.done());          // timer never advanced while paused
+  HS_EXPECT_EQ(draws, 10);            // but it kept drawing every frame
+  HS_EXPECT_NEAR(last_op, 1.0f, 1e-6f); // at its held (full) opacity
+
+  // Unpausing lets the timer advance and the sprite finally completes.
+  paused = false;
+  for (int i = 0; i < 3; ++i)
+    s.step(fake_canvas());
+  HS_EXPECT_TRUE(s.done());
+}
+
+// ============================================================================
+// deep_tween (global_t span)
+// ----------------------------------------------------------------------------
+// deep_tween walks an OrientationTrail's frames and, within each frame, its
+// sub-frames, emitting a global parameter t in [0,1] across the whole trail. It
+// skips sub-frame 0 of every frame after the first (the shared boundary), so the
+// emitted count is M + (N-1)*(M-1) for N frames of M sub-frames. We assert the
+// span endpoints, monotonicity, and that exact count.
+// ============================================================================
+
+inline void test_deep_tween_global_t_spans_unit_interval() {
+  using Ori = Orientation<32, 8>;
+  Animation::OrientationTrail<Ori, 8> trail;
+  const int N = 3, M = 3;
+  for (int k = 0; k < N; ++k) {
+    Ori o;                                       // identity, length 1
+    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1))); // length 2
+    o.upsample(M);                               // length M sub-frames
+    trail.record(o);
+  }
+
+  std::vector<float> gts;
+  deep_tween(trail,
+             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+
+  // M for the first frame + (M-1) for each subsequent frame (sub-frame 0 of
+  // frames 1..N-1 is the skipped shared boundary).
+  HS_EXPECT_EQ(gts.size(), static_cast<size_t>(M + (N - 1) * (M - 1)));
+  HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
+  for (size_t i = 1; i < gts.size(); ++i)
+    HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f); // non-decreasing across the trail
+}
+
+// ============================================================================
+// MeshMorph (nearest-vertex SLERP + crossfade invariant)
+// ----------------------------------------------------------------------------
+// MeshMorph maps each destination vertex to its nearest source vertex, SLERPs
+// between them by an eased alpha, and crossfades the two shaded meshes with
+// op_A = 1 - alpha. Using an octahedron as BOTH source and dest makes the
+// nearest-vertex map the identity (vertices are 90 deg apart, the symmetry-twist
+// is tiny), so the SLERP output must equal the destination at every alpha — a
+// decisive check on both the correspondence and the interpolation. We also
+// capture the two render opacities to assert the op_A + alpha == 1 crossfade.
+// ============================================================================
+
+// Hand-built octahedron: 6 axis vertices, 8 triangular faces. Vertices are well
+// separated so the nearest-vertex correspondence is unambiguous.
+inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
+  static const Vector verts[6] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
+                                  {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
+  static const uint16_t tris[8][3] = {{0, 2, 4}, {2, 1, 4}, {1, 3, 4}, {3, 0, 4},
+                                      {2, 0, 5}, {1, 2, 5}, {3, 1, 5}, {0, 3, 5}};
+  mesh.vertices.bind(arena, 6);
+  mesh.face_counts.bind(arena, 8);
+  mesh.faces.bind(arena, 24);
+  for (const auto &v : verts)
+    mesh.vertices.push_back(v);
+  for (const auto &t : tris) {
+    mesh.face_counts.push_back(3);
+    mesh.faces.push_back(t[0]);
+    mesh.faces.push_back(t[1]);
+    mesh.faces.push_back(t[2]);
+  }
+}
+
+inline void test_meshmorph_identity_self_map_and_crossfade() {
+  static uint8_t buf[1 << 20];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh poly;
+  build_octahedron(poly, arena);
+  MeshState src, dst;
+  MeshOps::compile(poly, src, arena);
+  MeshOps::compile(poly, dst, arena);
+
+  const int duration = 8;
+  float opA = -1.0f, alpha = -1.0f;
+  bool mesh_b_tracks_dest = true;
+
+  // Effect-owned lvalue callables (MeshMorph stores non-owning FunctionRefs and
+  // rejects temporaries — see the borrow_guard static_asserts above).
+  auto draw_out = [&](Canvas &, const MeshState &, float op) { opA = op; };
+  auto draw_in = [&](Canvas &, const MeshState &mb, float a) {
+    alpha = a;
+    if (mb.vertices.size() != dst.vertices.size()) {
+      mesh_b_tracks_dest = false;
+      return;
+    }
+    for (size_t i = 0; i < mb.vertices.size(); ++i) {
+      if ((mb.vertices[i] - dst.vertices[i]).magnitude() > 1e-3f)
+        mesh_b_tracks_dest = false;
+    }
+  };
+
+  Animation::MeshMorph morph(src, dst, arena, draw_out, draw_in, duration);
+
+  bool saw_both_layers = false;
+  for (int i = 0; i < duration; ++i) {
+    opA = -1.0f;
+    alpha = -1.0f;
+    morph.step(fake_canvas());
+    // On any frame where both layers render, their opacities partition unity.
+    if (opA >= 0.0f && alpha >= 0.0f) {
+      saw_both_layers = true;
+      HS_EXPECT_NEAR(opA + alpha, 1.0f, 1e-4f);
+    }
+  }
+
+  HS_EXPECT_TRUE(saw_both_layers);  // the crossfade was actually exercised
+  HS_EXPECT_TRUE(mesh_b_tracks_dest); // identity correspondence + SLERP identity
+  HS_EXPECT_NEAR(alpha, 1.0f, 1e-3f); // fully faded to the incoming mesh
+  HS_EXPECT_TRUE(morph.done());
+}
+
 inline int run_animation_tests() {
   auto scope = hs_test::begin_module("animation");
 
@@ -784,6 +1017,17 @@ inline int run_animation_tests() {
   test_timeline_full_guard_rejects_overflow();
   test_orientation_upsample_then_collapse();
   test_motion_repeating_does_not_drift();
+
+  test_particle_system_spawn_and_capacity_guard();
+  test_particle_system_expires_after_life_and_trail_drain();
+  test_particle_system_attractor_kills_within_radius();
+
+  test_sprite_fade_in_plateau_fade_out_envelope();
+  test_sprite_paused_holds_frame();
+
+  test_deep_tween_global_t_spans_unit_interval();
+
+  test_meshmorph_identity_self_map_and_crossfade();
 
   return hs_test::end_module(scope);
 }
