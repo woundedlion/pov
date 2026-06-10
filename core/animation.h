@@ -2105,8 +2105,6 @@ public:
    *
    * @param timeline The timeline to schedule the crossfade onto.
    * @param generate_fn Produces a PolyMesh into scratch arenas.
-   * @param draw_outgoing Draws the old (front) shape; accepted for symmetry but
-   *        currently unused (the eager front-flip makes the new shape the front).
    * @param draw_incoming Draws the new shape each frame: (Canvas&, float opacity).
    * @param duration Total sprite duration in frames.
    * @param fade_in Fade-in frames (0 = instant appear).
@@ -2114,12 +2112,11 @@ public:
    * @param classify If true, runs classify_faces_by_topology.
    * @param easing Easing function for fades.
    */
-  template <typename GenerateFn, typename DrawOutgoingFn,
-            typename DrawIncomingFn>
+  template <typename GenerateFn, typename DrawIncomingFn>
   void transition(Timeline<W> &timeline, GenerateFn generate_fn,
-                  DrawOutgoingFn draw_outgoing, DrawIncomingFn draw_incoming,
-                  int duration, int fade_in = 0, int fade_out = 0,
-                  bool classify = true, EasingFn easing = ease_mid) {
+                  DrawIncomingFn draw_incoming, int duration, int fade_in = 0,
+                  int fade_out = 0, bool classify = true,
+                  EasingFn easing = ease_mid) {
     int back = 1 - front_;
 
     // Free the old back slot and compact
