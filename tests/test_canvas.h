@@ -12,6 +12,10 @@
  */
 #pragma once
 
+#include <atomic>
+#include <chrono>
+#include <thread>
+
 #include "core/canvas.h"
 #include "tests/test_harness.h"
 
@@ -170,6 +174,56 @@ inline void test_double_buffer_handoff_no_aliasing() {
   HS_EXPECT_EQ(distinct, 2);
 }
 
+// Directly exercises the Canvas ctor's buffer_free() spin-wait — the one
+// synchronization gate the rest of the suite deliberately steps around by
+// calling advance_display() before every ctor. On real hardware the display
+// ISR consumes frames asynchronously; here a helper thread plays that ISR.
+//
+// With a frame queued-but-not-displayed the buffer is busy, so the ctor MUST
+// block. The release is deterministic, not timing-based: the ctor can only
+// return once prev_ == next_, and the sole writer of prev_ is advance_display()
+// — which only the helper runs. So the helper's "ctor has not returned yet"
+// assertion holds by construction (it checks before advancing), and an inverted
+// gate (spin while buffer_free()) would let the ctor return early and fail it.
+// The ctor's 2 s watchdog bounds the spin, so a logic break traps loudly here
+// rather than hanging the suite.
+inline void test_ctor_spin_waits_for_buffer_free() {
+  hs::clear_mock_time(); // use the real wall clock so the spin/watchdog are live
+  TestEffect fx(8, 8);
+
+  // Queue frame 0 WITHOUT advancing the display: the buffer is now busy.
+  {
+    Canvas c(fx);
+    c(0, 0) = Pixel(1, 2, 3);
+  }
+  HS_EXPECT_FALSE(fx.buffer_free());
+
+  std::atomic<bool> ctor_returned{false};
+  std::atomic<bool> released{false};
+
+  std::thread display_isr([&] {
+    // Give the main thread time to actually enter the spin, then confirm the
+    // ctor is still blocked (it cannot have returned while the buffer is busy)
+    // before consuming the frame.
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    HS_EXPECT_FALSE(ctor_returned.load(std::memory_order_acquire));
+    released.store(true, std::memory_order_relaxed);
+    fx.advance_display(); // the "ISR" frees the buffer
+  });
+
+  // Blocks in the ctor spin-wait until the helper advances the display.
+  { Canvas c(fx); }
+  ctor_returned.store(true, std::memory_order_release);
+
+  display_isr.join();
+  HS_EXPECT_TRUE(released.load(std::memory_order_relaxed));
+  // The helper's advance_display() promoted frame 0 to the displayed buffer, so
+  // its pixel is now live. (buffer_free() is back to false here — the second
+  // Canvas's dtor already queued its own frame — so we assert visibility, not
+  // the gate.)
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), 1, 2, 3));
+}
+
 // ============================================================================
 // Canvas access
 // ============================================================================
@@ -288,6 +342,7 @@ inline int run_canvas_tests() {
   test_consecutive_frames_alternate_buffers();
   test_persist_pixels_copies_previous_frame();
   test_double_buffer_handoff_no_aliasing();
+  test_ctor_spin_waits_for_buffer_free();
   test_canvas_2d_and_1d_access_and_prev();
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
