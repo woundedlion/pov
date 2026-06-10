@@ -200,8 +200,10 @@ private:
   static constexpr size_t MAX_PALETTES = 16;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static constexpr size_t NUM_NODES = H_VIRT;
-  // Compile-time Trails storage capacity (max trail points); the runtime
-  // Trail Len slider sets the active length within this bound.
+  // Compile-time Trails storage capacity (max trail points). The active trail
+  // length is captured once from params.trail_length at construction; the
+  // Trails filter stores it as const, so the runtime "Trail Len" slider does
+  // not retune it after init.
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes;
   StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries;
