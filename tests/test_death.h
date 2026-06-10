@@ -4,7 +4,7 @@
  *
  * Death tests — the suite's coverage of the fail-fast philosophy the project
  * markets, spanning the memory/arena, math core, mesh-topology, registry,
- * container, animation, canvas, and scan seams (including non-finite-input
+ * container, spatial (KDTree), animation, canvas, and scan seams (including non-finite-input
  * faults: NaN fed to normalize/slerp/make_rotation/make_basis must trap, not
  * propagate into geometry). An HS_CHECK violation is a deliberate __builtin_trap() that
  * aborts the whole process; the in-process HS_EXPECT_* harness cannot catch it.
@@ -150,6 +150,46 @@ inline void case_circular_buffer_oob() {
   cb.push_back(20);
   int v = cb[opaque<size_t>(5)]; // index >= count -> HS_CHECK
   if (v == 42)
+    std::printf("x");
+}
+
+// Container surface: front() on an empty StaticCircularBuffer. The
+// never-taken opaque(false) push keeps the optimizer from proving the buffer
+// is empty and folding the trap at compile time.
+inline void case_circular_buffer_front_empty() {
+  StaticCircularBuffer<int, 4> cb;
+  if (opaque(false))
+    cb.push_back(1);
+  int v = cb.front(); // is_empty() -> HS_CHECK("front() on empty ...")
+  if (v == 42)
+    std::printf("x");
+}
+
+// Memory surface: ArenaVector::append_bulk past its fixed capacity. This is a
+// distinct seam from the element-at-a-time push_back overflow above — the bulk
+// memcpy path has its own size_+count guard.
+inline void case_arena_vector_append_bulk_overflow() {
+  static uint8_t buf[256];
+  Arena a(buf, sizeof(buf));
+  ArenaVector<int> v(a, 2); // exact capacity 2
+  int src[4] = {1, 2, 3, 4};
+  v.append_bulk(src, opaque<size_t>(4)); // 0 + 4 > 2 -> HS_CHECK
+  if (v.size() == 0x7fff)
+    std::printf("x");
+}
+
+// Spatial surface: requesting more neighbors than the KDTree's MAX_K-sized
+// result/heap buffers can hold. nearest() traps rather than silently capping
+// the result and masking the caller's sizing mistake. First KDTree death case.
+inline void case_spatial_knn_over_max() {
+  static uint8_t buf[512];
+  Arena a(buf, sizeof(buf));
+  Vector pts[2] = {Vector(1.0f, 0.0f, 0.0f), Vector(0.0f, 1.0f, 0.0f)};
+  KDTree tree(a, std::span<const Vector>(pts, 2));
+  // Tree is non-empty and k > 0, so the k <= MAX_K guard is reached.
+  auto r = tree.nearest(Vector(1.0f, 0.0f, 0.0f),
+                        opaque<size_t>(KDTree::MAX_K + 1)); // k > MAX_K -> HS_CHECK
+  if (r.size() == static_cast<size_t>(0x7fff))
     std::printf("x");
 }
 
@@ -339,6 +379,10 @@ inline const Case *all_cases(int &n) {
       {"solids_index_oob", case_solids_index_oob},
       {"solids_unknown_name", case_solids_unknown_name},
       {"circular_buffer_oob", case_circular_buffer_oob},
+      {"circular_buffer_front_empty", case_circular_buffer_front_empty},
+      {"arena_vector_append_bulk_overflow",
+       case_arena_vector_append_bulk_overflow},
+      {"spatial_knn_over_max", case_spatial_knn_over_max},
       {"arena_oversubscribed", case_arena_oversubscribed},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
       {"timeline_double_construct", case_timeline_double_construct},
