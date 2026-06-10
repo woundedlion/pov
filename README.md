@@ -369,8 +369,9 @@ C++: wasmEngine.drawFrame()
 
 JS:  wasmEngine.getPixels()
        → Uint16Array view into WASM linear memory (no copy)
-       → divide by 65535 → Float32Array of linear light values
-       → Three.js DataTexture → sphere mesh material
+       → bound as the instanced dot-mesh's `instanceColor` attribute, declared
+         `normalized` so the GPU scales 0–65535 → 0–1 (no JS-side divide)
+       → WebGL renderer
 ```
 
 ---
@@ -1657,14 +1658,15 @@ The bridge also exposes a `MeshOps` class — used by the `solids.html` geometry
 
 The WASM bridge includes stack high-water-mark instrumentation: `stack_paint_canary()` fills the stack with a known pattern at init time, and `stack_high_water_mark()` scans for the deepest overwrite. This is reported via `getArenaMetrics()` and logged on every effect switch to catch stack-hungry template instantiations early.
 
-Pixel data is 16-bit linear light (`uint16_t` per channel). JavaScript divides by 65535 to produce float linear values that feed directly into Three.js (which expects linear color when `THREE.ColorManagement.enabled = true`):
+Pixel data is 16-bit linear light (`uint16_t` per channel). The zero-copy `Uint16Array` view is bound directly as the instanced dot-mesh's `instanceColor` attribute, declared `normalized` so Three.js scales 0–65535 → 0–1 linear **on the GPU** — there is no per-pixel divide or float copy in JavaScript (Three.js expects linear color when `THREE.ColorManagement.enabled = true`):
 
 ```js
 const wasmPixels = wasmEngine.getPixels();   // Uint16Array view, zero-copy
-for (let i = 0; i < wasmPixels.length; i++) {
-    Daydream.pixels[i] = wasmPixels[i] / 65535.0;  // linear float
-}
-// → instanced sphere mesh per-instance colors → WebGL renderer
+// Bound once as the instance-color buffer; the `true` flag marks it normalized,
+// so the GPU divides by 65535 on read. No JS-side divide or Float32 copy.
+dotMesh.instanceColor =
+    new THREE.InstancedBufferAttribute(wasmPixels, 3, /*normalized=*/ true);
+// → instanced dot-mesh per-instance colors → WebGL renderer
 ```
 
 ### 10.3 The Three.js Renderer (`driver.js`)
@@ -1722,7 +1724,7 @@ params.forEach(p => {
 
 ### 10.7 Segmented POV Workers (`segment_worker.js`)
 
-Phantasm in hardware is four Teensys each rendering a Y-band of the canvas (§7.10). Daydream reproduces this in software so the partitioning is exercised before fabrication. A `SegmentController` (`segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `segment_worker.js` hosts one WASM instance:
+Phantasm in hardware is four Teensys each rendering a quadrant of the canvas — one arm's half-width crossed with a Y-band, mirroring `computeSegmentRange()` (§7.10). Daydream reproduces this in software so the partitioning is exercised before fabrication. A `SegmentController` (`segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `segment_worker.js` hosts one WASM instance:
 
 ```
 Main thread                  Workers (one WASM each)
