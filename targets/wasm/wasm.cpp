@@ -11,6 +11,7 @@
 #include "core/effect_registry.h"
 #include "platform.h"
 #include "targets/wasm/param_marshal.h" // pure, host-tested param marshaling
+#include "targets/wasm/mesh_marshal.h"  // pure, host-tested mesh validate/build
 #include <string_view>
 #include <cstring>
 
@@ -466,129 +467,26 @@ struct MeshOpsWrapper {
   }
 
   static std::unique_ptr<MeshOpsWrapper> fromData(val vertices, val faces) {
-    // Vertices: Float32Array [x, y, z, ...]
+    // Untrusted JS mesh-editor boundary. Convert the two flat arrays
+    // (Float32Array [x, y, z, ...] vertices; Int32Array faces with -1 face
+    // delimiters), then hand the raw data to the pure, host-tested
+    // validate-and-build layer (mesh_marshal.h). A malformed mesh is rejected
+    // (return null, mirroring setClip/fromSolid) rather than trapping and
+    // aborting the whole WASM module; build_mesh_from_flat logs the specific
+    // reason. See tests/test_mesh_marshal.h for the per-reject-branch coverage.
     std::vector<float> vData = convertJSArrayToNumberVector<float>(vertices);
-    // This is the untrusted JS mesh-editor boundary. A vertex array whose length
-    // is not a multiple of 3 would over-read vData[i+1]/[i+2] past the end;
-    // reject it (return null, mirroring setClip) rather than trap, so a bad
-    // editor call doesn't abort the whole WASM module.
-    if (vData.size() % 3 != 0) {
-      hs::log("WASM: fromData vertices length %zu not a multiple of 3 — ignored",
-              vData.size());
-      return nullptr;
-    }
-    const int num_verts = static_cast<int>(vData.size() / 3);
-
-    // Faces: Flat Int32Array with -1 delimiter
     std::vector<int> fData = convertJSArrayToNumberVector<int>(faces);
-    // Every entry must be the -1 delimiter or a vertex index in [0, num_verts).
-    // An out-of-range index would later dereference a nonexistent vertex; reject
-    // the whole mesh up front.
-    for (int idx : fData) {
-      if (idx < -1 || idx >= num_verts) {
-        hs::log("WASM: fromData face index %d out of range [0,%d) — ignored",
-                idx, num_verts);
-        return nullptr;
-      }
-    }
-
-    // Size the arenas by simulating the build pass below rather than tallying
-    // delimiters: an empty face (a leading or consecutive -1) emits no
-    // face_count, while a trailing face with no final -1 still counts. A naive
-    // "one face per -1" count would over-allocate face_counts on empty faces,
-    // and the "size minus delimiters" trick would under-size faces when the
-    // stream doesn't end on a -1. Counting exactly what the loop pushes keeps
-    // both arenas right-sized.
-    int num_faces = 0;      // non-empty faces => face_counts entries
-    int num_face_verts = 0; // total vertex indices => faces entries
-    {
-      int run = 0;
-      for (int idx : fData) {
-        if (idx == -1) {
-          if (run > 0) {
-            num_faces++;
-            run = 0;
-          }
-        } else {
-          num_face_verts++;
-          // A face_count is stored in a uint8_t, so a face with more than
-          // UINT8_MAX vertices would wrap on the (uint8_t) casts below (256 -> 0
-          // verts, corrupting topology). Reject it up front like the other
-          // malformed-input cases rather than routing through narrow_face_count,
-          // whose HS_CHECK would trap and abort the whole WASM module.
-          if (++run > UINT8_MAX) {
-            hs::log("WASM: fromData face has > %d vertices — ignored", UINT8_MAX);
-            return nullptr;
-          }
-        }
-      }
-      if (run > 0)
-        num_faces++;
-    }
-
-    // The half-edge builder stores every vertex index and half-edge index in a
-    // uint16_t and traps (build_from_flat's HS_CHECK) past that range. num_verts
-    // bounds the index values pushed into m.faces and num_face_verts is the
-    // half-edge count; either exceeding UINT16_MAX would silently truncate at the
-    // (uint16_t) m.faces store below and then abort the whole module on the next
-    // operator. Reject up front like the other malformed-input cases.
-    if (num_verts > UINT16_MAX || num_face_verts > UINT16_MAX) {
-      hs::log("WASM: fromData mesh exceeds 16-bit index range "
-              "(%d verts, %d face indices) — ignored",
-              num_verts, num_face_verts);
-      return nullptr;
-    }
-
-    // A well-formed mesh can still be too large for the tooling arena. Budget
-    // the three allocations (plus one alignment gap each) and soft-reject an
-    // oversize mesh with null — the index-range check above only bounds values,
-    // not total size, and an over-allocation would otherwise trip the arena
-    // trap and abort the module. Mirrors the reject-don't-trap intent above.
-    const size_t needed = (size_t)num_verts * sizeof(Vector) +
-                          (size_t)num_face_verts * sizeof(uint16_t) +
-                          (size_t)num_faces * sizeof(uint8_t) +
-                          3 * alignof(std::max_align_t);
-    if (needed > tooling_arena.get_capacity()) {
-      hs::log("WASM: fromData mesh needs %zu B > tooling arena %zu B — ignored",
-              needed, tooling_arena.get_capacity());
-      return nullptr;
-    }
-
-    // fromData rebuilds a mesh wholesale and reads no prior arena state, so reset
-    // first. The tooling arena otherwise only frees on an explicit
-    // clearToolingMemory(), so a long editor session would creep toward
-    // overflow; resetting per load reclaims that memory and lets the new mesh
-    // use the arena's full capacity.
-    tooling_arena.reset();
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
 
     PolyMesh m;
-    m.vertices.bind(tooling_arena, num_verts);
-    for (size_t i = 0; i < vData.size(); i += 3) {
-      m.vertices.emplace_back(vData[i], vData[i + 1], vData[i + 2]);
+    if (hs_wasm::build_mesh_from_flat(vData, fData, tooling_arena, m) !=
+        hs_wasm::MeshBuildStatus::kOk) {
+      return nullptr;
     }
 
-    m.faces.bind(tooling_arena, num_face_verts);
-    m.face_counts.bind(tooling_arena, num_faces);
-
-    // current_count is bounded to UINT8_MAX by the counting pass above, so the
-    // (uint8_t) casts below cannot wrap.
-    int current_count = 0;
-    for (int idx : fData) {
-      if (idx == -1) {
-        if (current_count > 0) {
-          m.face_counts.push_back((uint8_t)current_count);
-          current_count = 0;
-        }
-      } else {
-        m.faces.push_back(idx);
-        current_count++;
-      }
-    }
-    if (current_count > 0) {
-      m.face_counts.push_back((uint8_t)current_count);
-    }
+    // The scratch arenas hold transient working memory for the operators that
+    // will run on this fresh mesh; reclaim them now that the build succeeded.
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
 
     return std::make_unique<MeshOpsWrapper>(std::move(m));
   }
