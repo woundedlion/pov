@@ -138,7 +138,7 @@ private:
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N - 1);
-      int s = hs::rand_int(0, 2);
+      int s = hs::rand_int(0, 3);  // half-open [0,3): all three species, incl. C
       uint8_t *t = (s == 0) ? nA : (s == 1) ? nB : nC;
       t[idx] = static_cast<uint8_t>(
           std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 255));
