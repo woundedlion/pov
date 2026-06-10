@@ -89,9 +89,13 @@ private:
 
     const int *raw_indices = faceIndices.data();
 
+    const int num_faces = static_cast<int>(faceIndices.size());
     auto fragment_shader = [&](const Vector &p, Fragment &frag) {
       int faceIdx = static_cast<int>(frag.v2);
-      int topoIdx = raw_indices[faceIdx];
+      // Defensive bounds guard matching HankinSolids: fall back to face 0 on a
+      // malformed face index rather than reading raw_indices out of bounds.
+      int topoIdx =
+          (faceIdx >= 0 && faceIdx < num_faces) ? raw_indices[faceIdx] : 0;
 
       float intensity = hs::clamp(fragment_edge_dist(frag), 0.0f, 1.0f);
 
