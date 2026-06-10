@@ -207,15 +207,15 @@ private:
     pinMode(PIN_ID1, INPUT_PULLUP);
     delay(10);  // settle time for pull-ups
 
-    // ~ binds tighter than &: invert the 2-bit reading (so all-floating
-    // pull-ups => ID 0), then mask off the inverted high bits with & (N-1).
-    // The mask is load-bearing — without it the full-width ~ would set every
-    // upper bit. Parens make the (~...) & (N-1) grouping explicit.
     const int raw0 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
     delay(2);  // re-sample after a brief gap to reject a bouncing/floating pin
     const int raw1 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
     HS_CHECK(raw0 == raw1);  // unstable strap → mis-ID → bus contention
 
+    // ~ binds tighter than &: invert the 2-bit reading (so all-floating
+    // pull-ups => ID 0), then mask off the inverted high bits with & (N-1).
+    // The mask is load-bearing — without it the full-width ~ would set every
+    // upper bit. Parens make the (~...) & (N-1) grouping explicit.
     segment_id_ = (~raw0) & (N - 1);
   }
 
