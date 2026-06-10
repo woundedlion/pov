@@ -86,9 +86,12 @@ private:
 
   void draw_ring(Canvas &canvas, float opacity, size_t index) {
     Ring &ring = rings[index];
-    Basis basis = make_basis(orientation.get(), ring.normal);
+    // Rings are never re-oriented after spawn, so the basis comes straight from
+    // the ring's own normal (identity rotation) and the palette's radial axis is
+    // the fixed X axis — both constant across the ring's fragments.
+    Basis basis = make_basis(Quaternion(), ring.normal);
+    const Vector z = X_AXIS;
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
-      Vector z = orientation.orient(X_AXIS);
       f.color = ring.palette.get(angle_between(z, v) / PI_F);
       f.color.alpha *= opacity * params.alpha;
     };
@@ -99,7 +102,6 @@ private:
   static constexpr size_t MAX_RINGS = 16;
   Ring rings[MAX_RINGS];
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  Orientation<W> orientation;
   Timeline<W> timeline;
 
   struct Params {
