@@ -82,9 +82,13 @@ private:
   // Render mapping for the B concentration: pixels below the floor are
   // transparent; [B_COLOR_FLOOR, B_COLOR_FLOOR + 1/B_COLOR_SCALE] maps to the
   // full palette range [0,1].
-  static constexpr float B_CULL_THRESHOLD = 0.05f;
   static constexpr float B_COLOR_FLOOR = 0.1f;
   static constexpr float B_COLOR_SCALE = 4.0f;
+  // Cull threshold coincides with the color floor: there is no band between the
+  // two, so a pixel is either fully transparent or somewhere on the gradient.
+  // (When the cull sat below the floor, b in [cull, floor) all mapped to t==0
+  // and rendered as an opaque flat plateau of the lowest palette color.)
+  static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
   static inline float from_q16(uint16_t v) { return v * Q16_INV; }
   static inline uint16_t to_q16(float v) {
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE);
@@ -133,8 +137,9 @@ private:
       tw += w;
     });
     // Empty kernel (no node within the support radius): guard the division. A
-    // 0/0 NaN would slip past the b < 0.05 cull in the shader (NaN compares
-    // false) and silently poison palette.get(). Mirrors BZ's sample_kernel.
+    // 0/0 NaN would slip past the b < B_CULL_THRESHOLD cull in the shader (NaN
+    // compares false) and silently poison palette.get(). Mirrors BZ's
+    // sample_kernel.
     if (tw <= 0.0001f)
       return 0.0f;
     return wb / tw;
