@@ -238,10 +238,12 @@ inline uint16_t narrow_index(size_t i) {
  * push it into the `uint8_t face_counts` array. A face wider than 255 sides —
  * reachable as a high-valence vertex orbit (`orbit_count`), a doubled edge count
  * (`count * 2` in snub), or a long Hankin rosette walk (bounded only by 2*I) —
- * would silently wrap, corrupting the face topology. Mirror of `narrow_index`:
- * route those casts through here so an over-wide face traps at the bench instead
- * of emitting garbage geometry. Cold path: once per emitted face during a
- * rebuild, never per pixel.
+ * would silently wrap, corrupting the face topology. Parallel to `narrow_index`
+ * in intent — route the cast through here so an over-wide value traps at the
+ * bench instead of emitting garbage geometry — but a distinct guard: this takes
+ * an `int` and bounds it to `[0, UINT8_MAX]` (side count), where `narrow_index`
+ * takes a `size_t` and bounds it to `INT16_MAX` (vertex index). Cold path: once
+ * per emitted face during a rebuild, never per pixel.
  */
 inline uint8_t narrow_face_count(int count) {
   HS_CHECK(count >= 0 && count <= UINT8_MAX,
