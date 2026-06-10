@@ -1283,6 +1283,9 @@ public:
   /// Deep-copy LUT from another BakedPalette into the given arena.
   /// Used by Persist for arena compaction.
   void clone_from(const BakedPalette &src, Arena &arena) {
+    // Cold path (Persist arena compaction): cloning a never-baked source would
+    // memcpy from null (UB). Trap always-on like rebake() rather than corrupt.
+    HS_CHECK(src.lut_ != nullptr, "BakedPalette::clone_from before src bake()");
     lut_ = static_cast<Color4 *>(
         arena.allocate(LUT_SIZE * sizeof(Color4), alignof(Color4)));
     memcpy(lut_, src.lut_, LUT_SIZE * sizeof(Color4));
