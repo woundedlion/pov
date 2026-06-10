@@ -401,8 +401,18 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       verts.push_back(mesh.vertices[mesh.faces[offset + k]]);
     }
 
-    angles.clear();
+    uint32_t h = 0x12345678;
+    hash_combine(h, static_cast<uint32_t>(count));
+
+    // Interior angles only exist for a real polygon. A degenerate face (1 or 2
+    // vertices) can reach here from the untrusted WASM fromData() path, which
+    // soft-rejects oversized faces but not undersized ones; such faces leave
+    // `angles` empty, so the angle hash-combine must stay inside this guard.
+    // Folding angles[k] in unconditionally would read past the empty scratch
+    // vector and yield a non-deterministic topology id. Degenerate faces hash
+    // on vertex count alone.
     if (count >= 3) {
+      angles.clear();
       for (int k = 0; k < count; ++k) {
         const Vector &prev = verts[(k - 1 + count) % count];
         const Vector &curr = verts[k];
@@ -413,12 +423,9 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         angles.push_back((int)std::round(ang * 180.0f / PI_F));
       }
       std::sort(angles.data(), angles.data() + count);
-    }
-
-    uint32_t h = 0x12345678;
-    hash_combine(h, static_cast<uint32_t>(count));
-    for (int k = 0; k < count; ++k) {
-      hash_combine(h, static_cast<uint32_t>(angles[k]));
+      for (int k = 0; k < count; ++k) {
+        hash_combine(h, static_cast<uint32_t>(angles[k]));
+      }
     }
     h = fmix32(h);
     face_hashes.push_back(h);
