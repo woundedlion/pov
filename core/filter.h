@@ -791,10 +791,12 @@ public:
     // Allocate coarse warp deltas (signed 8.8 fixed-point) from scratch.
     //
     // SCRATCH ARENA CONTRACT (load-bearing): this flush and Plot::rasterize
-    // (plot.h) both checkpoint scratch_arena_a, and they share it safely ONLY
-    // because plot() and flush() never overlap in time — every effect runs them
-    // as separate phases (see MeshFeedback::draw_frame: flush() fully returns,
-    // closing this ScratchScope, before any Plot::Mesh::draw opens its own).
+    // both checkpoint scratch_arena_a TODAY — Plot::rasterize opens its own
+    // reciprocal ScratchScope on it (see the matching contract note at
+    // plot.h rasterize). They share it safely ONLY because plot() and flush()
+    // never overlap in time — every effect runs them as separate phases (see
+    // MeshFeedback::draw_frame: flush() fully returns, closing this
+    // ScratchScope, before any Plot::Mesh::draw opens its own).
     // The dx/dy below stay live for the whole flush, so nothing that also draws
     // from scratch_arena_a may run between here and the end of this function.
     // If a future filter ever allocates from scratch_arena_a inside its own
