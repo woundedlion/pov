@@ -249,6 +249,9 @@ struct Vector {
 // Fast atan2: 0.273-Hastings polynomial. Peak abs error ~0.0038 rad (~0.22°)
 // measured over a dense sweep; worst near r ~= 0.7 in each octant.
 inline float fast_atan2(float y, float x) {
+  // +1e-10f keeps abs_y strictly positive so the (x==0,y==0) origin yields a
+  // finite 0/abs_y ratio instead of a 0/0 NaN; it is far below the ~0.0038 rad
+  // Hastings error above, so it never perturbs a non-degenerate result.
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
   float r, angle;
