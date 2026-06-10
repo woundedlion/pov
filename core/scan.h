@@ -841,7 +841,11 @@ struct Volume {
                                                    (aa_width - hit_threshold));
 
             // ...and fire the occlusion probe to see if this is a false halo!
-            Vector probe = local_p;
+            // Seed from the closest approach, not the march's terminal local_p:
+            // the loop can exit having stepped past the bounding sphere, and
+            // probing forward from there never punches through a thin feature,
+            // leaving the false halo it was meant to cull.
+            Vector probe = closest_local;
             float probed = 0.0f;
             for (int i = 0; i < 4; ++i) {
               float pd = shape.distance(probe);
