@@ -906,6 +906,16 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   // = |to| = 1, and a non-unit input silently skews the angle. Trap it, matching
   // make_basis's unit-quaternion guard. (dot(v,v) avoids the sqrt; the 0.02
   // squared-magnitude band is the ~1% magnitude tolerance make_basis uses.)
+  //
+  // The 0.02 here and the TOLERANCE (1e-4) below are deliberately on different
+  // scales because they measure different things: 0.02 is *input-validity*
+  // slack — how far the caller's vectors may drift from unit length and still
+  // be accepted — and is generous on purpose so accumulated normalization error
+  // never false-traps. TOLERANCE is a *geometric branch threshold* — how close
+  // d = dot(from,to) must be to ±1 to take the (anti)parallel special case (and
+  // how degenerate a cross product must be to swap reference axes) — and is
+  // kept tight so the general path's cross-product normalize stays well-
+  // conditioned. Reconciling them to one scale would be a category error.
   HS_CHECK(std::abs(dot(from, from) - 1.0f) < 0.02f &&
                std::abs(dot(to, to) - 1.0f) < 0.02f,
            "make_rotation(from, to): inputs must be unit vectors");
