@@ -526,6 +526,19 @@ struct MeshOpsWrapper {
         num_faces++;
     }
 
+    // The half-edge builder stores every vertex index and half-edge index in a
+    // uint16_t and traps (build_from_flat's HS_CHECK) past that range. num_verts
+    // bounds the index values pushed into m.faces and num_face_verts is the
+    // half-edge count; either exceeding UINT16_MAX would silently truncate at the
+    // (uint16_t) m.faces store below and then abort the whole module on the next
+    // operator. Reject up front like the other malformed-input cases.
+    if (num_verts > UINT16_MAX || num_face_verts > UINT16_MAX) {
+      hs::log("WASM: fromData mesh exceeds 16-bit index range "
+              "(%d verts, %d face indices) — ignored",
+              num_verts, num_face_verts);
+      return nullptr;
+    }
+
     // A well-formed mesh can still be too large for the tooling arena. Budget
     // the three allocations (plus one alignment gap each) and soft-reject an
     // oversize mesh with null — the index-range check above only bounds values,
