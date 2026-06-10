@@ -677,6 +677,14 @@ template <typename Sig, size_t Cap = 16> using Fn = std::function<Sig>;
 
 namespace hs {
 
+// Float clamp to [lo, hi]. CONTRACT (load-bearing): a NaN `v` maps to `hi`, not
+// to lo or NaN. Both backends compute max(lo, min(v, hi)) with `v` as the FIRST
+// operand to the inner min: hardware minss / __builtin_fminf return the SECOND
+// operand when either input is NaN, so min(NaN, hi) == hi, and then
+// max(lo, hi) == hi. Callers that feed a possibly-NaN value through this as a
+// saturating guard before a float->int cast rely on this (e.g. blend_alpha and
+// Gradient::get; see test_blend_alpha_clamps_before_cast and
+// test_gradient_get_clamps_out_of_range). Do not reorder the min operands.
 #ifdef HS_ARCH_X86
 // --- x86 / x64 EXPLICIT HARDWARE CLAMP ---
 inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {

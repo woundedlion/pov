@@ -55,6 +55,15 @@ namespace animation_tests {
 // construct a second Canvas on this effect, so there's no pending-frame spin and
 // the single dtor (queue_frame) only runs harmlessly at process exit. The
 // animations still never touch it — the reference is simply valid now.
+//
+// COUPLING (load-bearing): nothing a test does with this canvas may invoke
+// queue_frame() — i.e. no test may construct (and destruct) a *second* Canvas on
+// this shared FakeEffect during the run. queue_frame() advances next_, so a
+// second Canvas's ctor would then see buffer_free()==false and spin on a display
+// ISR that never runs in the host harness (a hang). The only queue_frame() that
+// may fire is the single static-dtor one at process exit, after all tests pass.
+// If a future animation test needs to actually queue a frame, give it its own
+// local Canvas/Effect rather than reusing fake_canvas().
 // ============================================================================
 
 struct FakeEffect : public Effect {

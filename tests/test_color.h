@@ -512,7 +512,8 @@ inline void test_gradient_endpoints() {
 }
 
 inline void test_gradient_in_range_valid_and_monotone() {
-  // TODO: t outside [0,1] is unclamped (see review) — only test t in [0,1].
+  // Out-of-[0,1] t is now clamped by Gradient::get and covered by
+  // test_gradient_get_clamps_out_of_range; this test only walks the in-range ramp.
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
   uint16_t prev = 0;
   for (int i = 0; i <= 100; ++i) {
@@ -548,6 +549,33 @@ inline void test_gradient_interpolates_between_entries() {
   Color4 e_hi = grad.get(201.0f / 255.0f);
   HS_EXPECT_GE(lo.color.r, e_lo.color.r);
   HS_EXPECT_LE(hi.color.r, e_hi.color.r);
+}
+
+inline void test_gradient_get_clamps_out_of_range() {
+  // Gradient::get clamps t to [0,1] (color.h) so out-of-range input saturates to
+  // an endpoint and never indexes past the 256-entry table. GenerativePalette::
+  // lerp can hand it t slightly outside the unit interval, so lock the clamp.
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+
+  // t < 0 saturates to the first entry (black).
+  Color4 lo_end = grad.get(0.0f);
+  Color4 below = grad.get(-0.5f);
+  HS_EXPECT_EQ(below.color.r, lo_end.color.r);
+  HS_EXPECT_EQ(below.color.g, lo_end.color.g);
+  HS_EXPECT_EQ(below.color.b, lo_end.color.b);
+
+  // t > 1 saturates to the last entry (white), same as the t==1 endpoint.
+  Color4 hi_end = grad.get(1.0f);
+  Color4 above = grad.get(1.5f);
+  HS_EXPECT_EQ(above.color.r, hi_end.color.r);
+  HS_EXPECT_EQ(above.color.g, hi_end.color.g);
+  HS_EXPECT_EQ(above.color.b, hi_end.color.b);
+
+  // NaN routes through hs::clamp to the hi bound (see the contract on
+  // platform.h's clamp), so it saturates to the last entry rather than
+  // producing UB in the float->int cast.
+  Color4 nan_res = grad.get(NAN);
+  HS_EXPECT_EQ(nan_res.color.r, hi_end.color.r);
 }
 
 // ============================================================================
@@ -859,6 +887,7 @@ inline int run_color_tests() {
 
   test_gradient_endpoints();
   test_gradient_in_range_valid_and_monotone();
+  test_gradient_get_clamps_out_of_range();
   test_gradient_solid_color();
   test_gradient_interpolates_between_entries();
 
