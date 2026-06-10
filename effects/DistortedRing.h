@@ -66,8 +66,9 @@ public:
         f.color = ringPalette.get(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-        float t = 1.0f - norm_dist;
-        float falloff = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+        // t is already in [0,1], so quintic_kernel's clamp is a no-op — the
+        // smootherstep falloff is identical to the former inline polynomial.
+        float falloff = quintic_kernel(1.0f - norm_dist);
 
         f.color.alpha = f.color.alpha * opacity * params.alpha * falloff;
       };
