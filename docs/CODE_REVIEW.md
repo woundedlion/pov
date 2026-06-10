@@ -96,7 +96,7 @@ The four design philosophies (16-bit linear color, compile-time resolution, fail
 **P2 — consistency & cosmetic correctness**
 9. Make `BakedPalette::get` round via `float_to_pixel16` for parity with `Gradient::get` and the file's own anti-truncation rule (`color.h:1316`).
 10. Add the always-on orbit-spin `HS_CHECK` to `face_centroid`/`face_normal`/`face_side_count` (`conway.h`); add a stripped `assert` to `fast_wrap` and the non-negativity preconditions in `AntiAlias`/`ChromaticShift`.
-11. Gate Comets' per-frame palette rebake on an active color wipe; make RingShower's recyclable-slot lifetime explicit (adopt Thrusters' age-driven model).
+11. ✅ Gate Comets' per-frame palette rebake on an active color wipe; make RingShower's recyclable-slot lifetime explicit (adopt Thrusters' age-driven model). *Fixed: Comets now arms a frame countdown when the cycle timer schedules a `ColorWipe` and rebakes the 256-entry LUT only while that wipe is mutating `palette` — static between wipes, so the per-frame rebake is skipped the vast majority of frames (`Comets.h`). RingShower drops the per-ring `Sprite`+`Transition` pair (which split a slot's lifetime across two captured animations and freed it implicitly via `.then`) for Thrusters' model: radius growth, fade-in and expiry are pure functions of a per-slot `age` advanced in `draw_frame()`, so a recycled slot can never be drawn by a stale animation (`RingShower.h`). Render values are preserved (radius/opacity sequences unchanged, whole ring shifted one frame earlier); tests green.*
 12. Replace `innerHTML` interpolation of worker-fault messages / tool labels with `textContent` (the codebase already knows better elsewhere).
 
 **P3 — duplication & doc drift (quality, not bugs)**

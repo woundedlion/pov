@@ -22,42 +22,64 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-    timeline.step(canvas);
+    timeline.step(canvas); // drives the spawn timer only
+
+    // Advance and draw each live ring directly from its slot. Radius growth,
+    // fade-in and lifetime are pure functions of `age` computed here rather
+    // than by per-ring Sprite/Transition animations capturing the slot: a slot
+    // is recyclable, so an animation outliving its reuse would draw whatever
+    // ring later lands in it. Driving everything from `age` makes the slot's
+    // lifetime explicit and self-contained (mirrors Thrusters).
+    for (size_t i = 0; i < MAX_RINGS; ++i) {
+      Ring &ring = rings[i];
+      if (ring.age >= ring.life)
+        continue; // free slot
+      draw_ring(canvas, ring.opacity_at(), i);
+      ++ring.age;
+    }
   }
 
 private:
   struct Ring {
-    Vector normal;
-    float radius;
-    float duration;
-    GenerativePalette palette;
+    // Frames spent fading in from 0 to full opacity (was the Sprite's
+    // fade_in=4; there was no fade-out).
+    static constexpr int FADE_IN_FRAMES = 4;
+    // Ring radius grows from 0 to RADIUS_MAX over its whole life.
+    static constexpr float RADIUS_MAX = 2.0f;
 
-    Ring() : normal(random_vector()), radius(0.0), duration(0.0) {}
+    Vector normal;
+    GenerativePalette palette;
+    int life = 0; // total visible frames
+    int age = 0;  // frames elapsed; age >= life marks the slot free
+
+    Ring() : normal(random_vector()) {}
+
+    // Eased radius for the current age, mirroring the prior Transition. The
+    // Transition stepped once before the first draw, so age + 1 reproduces its
+    // value sequence (the whole ring is shifted one frame earlier overall).
+    float radius_at() const {
+      float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
+      return RADIUS_MAX * ease_mid(t);
+    }
+
+    // Fade-in over the first FADE_IN_FRAMES frames, then hold full; no fade-out.
+    float opacity_at() const {
+      if (age + 1 < FADE_IN_FRAMES)
+        return ease_mid(static_cast<float>(age + 1) / FADE_IN_FRAMES);
+      return 1.0f;
+    }
   };
 
   void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
-      if (rings[i].duration <= 0) {
+      if (rings[i].age >= rings[i].life) { // free slot
         Ring &ring = rings[i];
         ring.normal = random_vector();
-        ring.duration = hs::rand_f() * 72.0f + 8.0f;
-        ring.radius = 0;
+        ring.life = static_cast<int>(hs::rand_f() * 72.0f + 8.0f);
+        ring.age = 0;
         ring.palette =
             GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
                               BrightnessProfile::FLAT);
-
-        timeline.add(0, Animation::Sprite(
-                            [this, i](Canvas &canvas, float opacity) {
-                              this->draw_ring(canvas, opacity, i);
-                            },
-                            static_cast<int>(ring.duration), 4, ease_mid, 0,
-                            ease_mid));
-
-        timeline.add(0, Animation::Transition(ring.radius, 2.0f,
-                                              static_cast<int>(ring.duration),
-                                              ease_mid, false, false)
-                            .then([&ring]() { ring.duration = 0; }));
-
         return;
       }
     }
@@ -71,7 +93,7 @@ private:
       f.color = ring.palette.get(angle_between(z, v) / PI_F);
       f.color.alpha *= opacity * params.alpha;
     };
-    Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius,
+    Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius_at(),
                            fragment_shader);
   }
 

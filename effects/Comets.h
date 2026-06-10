@@ -27,7 +27,8 @@ public:
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
     new (node) Node();
 
-    // Allocate baked palette LUT (refilled each frame)
+    // Allocate baked palette LUT (rebaked only while a ColorWipe is animating
+    // `palette`; see draw_frame()).
     baked_palette.bake(persistent_arena, palette);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -70,8 +71,14 @@ public:
         cycle_timer_->set_period(2 * cd);
     });
 
-    // Re-bake animated palette each frame (256 lookups vs ~1700)
-    baked_palette.rebake(palette);
+    // `palette` only changes while a ColorWipe is mutating it (armed by
+    // update_palette() when the cycle timer rolls the palette over); the rest of
+    // the time it's static, so skip the 256-entry rebake instead of redoing it
+    // every frame.
+    if (wipe_frames_remaining_ > 0) {
+      baked_palette.rebake(palette);
+      --wipe_frames_remaining_;
+    }
 
     node->trail.record(node->orientation);
 
@@ -100,8 +107,17 @@ private:
     next_palette_ =
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::ASCENDING);
-    timeline.add(0, Animation::ColorWipe(palette, next_palette_, 48, ease_mid));
+    timeline.add(0, Animation::ColorWipe(palette, next_palette_, WIPE_FRAMES,
+                                         ease_mid));
+    // Arm the rebake gate for the life of the wipe. The wipe is scheduled inside
+    // timeline.step() and first steps next frame, mutating `palette` for
+    // WIPE_FRAMES frames; +1 covers the arming frame so the count safely spans
+    // every mutated frame (a redundant rebake of an unchanged palette is
+    // harmless).
+    wipe_frames_remaining_ = WIPE_FRAMES + 1;
   }
+
+  static constexpr int WIPE_FRAMES = 48;
 
   FastNoiseLite noise;
   Timeline<W, 32> timeline;
@@ -128,6 +144,7 @@ private:
   Animation::Motion<W, 16> *motion_ = nullptr;
   Animation::PeriodicTimer *cycle_timer_ = nullptr;
   int last_cycle_dur_ = -1;
+  int wipe_frames_remaining_ = 0;
 
   struct Params {
     float alpha = 1.0f;
