@@ -96,7 +96,7 @@ The POV effect works because each revolution takes ~125 ms and the ISR fires eve
 
 ## 2. Engineering Philosophies
 
-The five design decisions below shape the rest of the codebase. Skim them first — every later section makes more sense once you know *why* the engine looks the way it does.
+The five design decisions below account for much of the engine's structure; the rest of the document assumes them.
 
 ### Why 16-bit Linear Color?
 
@@ -104,11 +104,11 @@ Most LED art codebases use gamma-corrected 8-bit values throughout and blend in 
 
 ### Why Compile-Time Resolution?
 
-Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. The hardware target `<96, 20>` runs with no runtime overhead from generality. The simulator builds separate specializations for `<288, 144>`. Binary size increases, but for an embedded firmware this is the right trade-off.
+Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. The hardware target `<96, 20>` runs with no runtime overhead from generality. The simulator builds separate specializations for `<288, 144>`. Each supported resolution is a separate instantiation, so binary size increases in exchange.
 
 ### Why Arena Allocation?
 
-The Teensy heap fragments under heavy mesh subdivision. The single-block partitioned arena design (persistent + scratch A + scratch B, 335 KB total) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `configure_arenas()` function allows effects to repartition the fixed block based on their needs — mesh-heavy effects can claim more persistent space, while subdivision-heavy effects can expand their scratch pools. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — giving total control over the exact memory layout during heavy geometric operations, with no hidden state or implicit arena references.
+The Teensy heap fragments under heavy mesh subdivision. The single-block partitioned arena design (persistent + scratch A + scratch B, 335 KB total) gives deterministic memory behavior: persistent data allocated once and kept; scratch data RAII-scoped to the function that needed it. The `configure_arenas()` function allows effects to repartition the fixed block based on their needs — mesh-heavy effects can claim more persistent space, while subdivision-heavy effects can expand their scratch pools. All functions take explicit `Arena&` parameters — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — so the memory layout during heavy geometric operations is explicit at every call site, with no hidden state or implicit arena references.
 
 ### Why the ISR Double Buffer?
 
@@ -452,7 +452,7 @@ void MyEffect::draw_frame() override {
 
 ### The Filter Pipeline
 
-The most powerful engine component is the **variadic template filter pipeline**:
+The **filter pipeline** is a variadic template that chains filter stages:
 
 ```cpp
 Pipeline<W, H,
@@ -906,7 +906,7 @@ ScratchScope _b(scratch_arena_b);
 PolyMesh result = MeshOps::kis(mesh, scratch_arena_a, scratch_arena_b);
 ```
 
-Conway operators take `(Arena& target, Arena& temp)`, generator functions take `(Arena& a, Arena& b)`, and `classify_faces_by_topology` takes `(Arena& scratch_a, Arena& scratch_b, Arena& persistent)`. This purely functional approach gives total control over the exact memory layout during heavy geometric operations.
+Conway operators take `(Arena& target, Arena& temp)`, generator functions take `(Arena& a, Arena& b)`, and `classify_faces_by_topology` takes `(Arena& scratch_a, Arena& scratch_b, Arena& persistent)`. This purely functional approach makes the memory layout during heavy geometric operations explicit at every call site.
 
 #### Compaction with `Persist<T>`
 
@@ -1332,7 +1332,7 @@ Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base
 
 #### IslamicStars
 
-Procedurally generates authentic Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.). Ripple waves periodically distort the geometry.
+Procedurally generates Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.). Ripple waves periodically distort the geometry.
 
 **Parameters**: Duration, Fade, Burst, Ripp Amp, Ripp Width, Ripp Decay, Ripp Dur, Debug BB
 
@@ -1671,7 +1671,7 @@ dotMesh.instanceColor =
 
 ### 10.3 The Three.js Renderer (`driver.js`)
 
-The `Daydream` class owns the entire render side. Notable features:
+The `Daydream` class owns the entire render side. Features:
 
 | Feature | Details |
 |---|---|
