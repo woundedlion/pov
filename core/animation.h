@@ -502,7 +502,7 @@ public:
    * @brief Calculates the next random trigger time.
    */
   void reset() {
-    next = t + static_cast<int>(std::round(hs::rand_int(min, max)));
+    next = t + hs::rand_int(min, max);
   }
 
   /**
