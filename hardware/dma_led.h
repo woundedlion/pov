@@ -233,9 +233,6 @@ public:
     transferCount_.fetch_add(1, std::memory_order_relaxed);
   }
 
-  bool isReady() const { return spi_.isComplete(); }
-  void waitForCompletion() { spi_.waitComplete(); }
-
   // --- Diagnostics ---
   // These counters are this driver's telemetry surface. They are intentionally
   // NOT mirrored into a read-only registered param (the MindSplatter "Particles"
