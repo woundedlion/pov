@@ -716,10 +716,6 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("bevel", &MeshOpsWrapper::bevel)
       .function("relax", &MeshOpsWrapper::relax);
 
-  register_vector<float>("VectorFloat");
-  register_vector<int>("VectorInt");
-  register_vector<uint8_t>("VectorUInt8");
-
   // Spline evaluation — thin wrappers returning val {x,y,z}
   function("spline_cubic_fast",
            optional_override([](float p0x, float p0y, float p0z, float p1x,
