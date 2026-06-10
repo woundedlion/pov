@@ -19,6 +19,7 @@
 #include <vector>
 #include "core/conway.h"
 #include "core/solids.h"
+#include "tests/mesh_test_util.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -28,17 +29,7 @@ namespace conway_tests {
 inline uint8_t conway_target_buf[256 * 1024];
 inline uint8_t conway_temp_buf[256 * 1024];
 
-// Build a PolyMesh from a Solids::* descriptor into the given arena.
-template <typename Solid>
-inline void build_solid(PolyMesh &mesh, Arena &arena) {
-  mesh.vertices.bind(arena, Solid::NUM_VERTS);
-  mesh.face_counts.bind(arena, Solid::NUM_FACES);
-  mesh.faces.bind(arena, Solid::faces.size());
-  for (const auto &v : Solid::vertices) mesh.vertices.push_back(v);
-  for (auto fc : Solid::face_counts) mesh.face_counts.push_back(fc);
-  for (auto fi : Solid::faces)
-    mesh.faces.push_back(static_cast<uint16_t>(fi));
-}
+// build_solid() and check_all_unit_vertices() live in tests/mesh_test_util.h.
 
 // ---------------------------------------------------------------------------
 // Structural invariants — used by every Conway-op test
@@ -55,13 +46,6 @@ inline void check_indices_in_range(const PolyMesh &m) {
   size_t V = m.vertices.size();
   for (size_t i = 0; i < m.faces.size(); ++i) {
     HS_EXPECT_TRUE(m.faces[i] < V);
-  }
-}
-
-inline void check_all_unit_vertices(const PolyMesh &m) {
-  for (size_t i = 0; i < m.vertices.size(); ++i) {
-    float len = m.vertices[i].length();
-    HS_EXPECT_NEAR(len, 1.0f, 1e-3f);
   }
 }
 
@@ -170,7 +154,7 @@ inline void check_basic_invariants(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.faces.size() > 0);
   check_face_counts_consistent(m);
   check_indices_in_range(m);
-  check_all_unit_vertices(m);
+  check_all_unit_vertices(m, 1e-3f);
   check_consistent_winding(m);
 }
 
@@ -272,7 +256,7 @@ inline void test_input_cube_is_well_formed() {
   HS_EXPECT_EQ(cube.faces.size(), (size_t)24);
   check_face_counts_consistent(cube);
   check_indices_in_range(cube);
-  check_all_unit_vertices(cube);
+  check_all_unit_vertices(cube, 1e-3f);
   check_consistent_winding(cube);
 }
 
@@ -302,7 +286,7 @@ inline void test_normalize_pushes_to_unit_sphere() {
   m.faces.push_back(2);
 
   MeshOps::normalize(m);
-  check_all_unit_vertices(m);
+  check_all_unit_vertices(m, 1e-3f);
 }
 
 // ---------------------------------------------------------------------------
@@ -464,7 +448,7 @@ inline void test_relax_preserves_topology() {
   HS_EXPECT_EQ(c.vertices.size(), cube.vertices.size());
   HS_EXPECT_EQ(c.face_counts.size(), cube.face_counts.size());
   HS_EXPECT_EQ(c.faces.size(), cube.faces.size());
-  check_all_unit_vertices(c);
+  check_all_unit_vertices(c, 1e-3f);
   check_consistent_winding(c);
 }
 

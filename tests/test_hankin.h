@@ -17,6 +17,7 @@
 #include <cstdint>
 #include "core/hankin.h"
 #include "core/solids.h"
+#include "tests/mesh_test_util.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -25,17 +26,7 @@ namespace hankin_tests {
 inline uint8_t hankin_target_buf[256 * 1024];
 inline uint8_t hankin_temp_buf[256 * 1024];
 
-// Build a PolyMesh from a Solids descriptor into the given arena.
-template <typename Solid>
-inline void build_solid(PolyMesh &mesh, Arena &arena) {
-  mesh.vertices.bind(arena, Solid::NUM_VERTS);
-  mesh.face_counts.bind(arena, Solid::NUM_FACES);
-  mesh.faces.bind(arena, Solid::faces.size());
-  for (const auto &v : Solid::vertices) mesh.vertices.push_back(v);
-  for (auto fc : Solid::face_counts) mesh.face_counts.push_back(fc);
-  for (auto fi : Solid::faces)
-    mesh.faces.push_back(static_cast<uint16_t>(fi));
-}
+// build_solid() and check_all_unit_vertices() live in tests/mesh_test_util.h.
 
 inline void check_face_counts_consistent(const PolyMesh &m) {
   size_t total = 0;
@@ -48,13 +39,6 @@ inline void check_indices_in_range(const PolyMesh &m) {
   size_t V = m.vertices.size();
   for (size_t i = 0; i < m.faces.size(); ++i)
     HS_EXPECT_TRUE(m.faces[i] < V);
-}
-
-inline void check_all_unit_vertices(const PolyMesh &m) {
-  for (size_t i = 0; i < m.vertices.size(); ++i) {
-    float len = m.vertices[i].length();
-    HS_EXPECT_NEAR(len, 1.0f, 1e-2f);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +187,7 @@ inline void test_hankin_one_shot_produces_valid_mesh() {
   check_indices_in_range(out);
 
   // Static + dynamic vertices live on (or very near) the unit sphere.
-  check_all_unit_vertices(out);
+  check_all_unit_vertices(out, 1e-2f);
 }
 
 inline void test_hankin_flat_and_twisted_differ() {
