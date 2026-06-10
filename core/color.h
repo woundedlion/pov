@@ -431,6 +431,14 @@ inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
   b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
 }
 
+/// Quantize a [0,1] linear channel to a 16-bit Pixel component. Clamps, then
+/// rounds (+0.5f) rather than truncating — truncation biases every channel down
+/// by up to ~1/65535. The single home for the conversion the float->Pixel
+/// helpers below (oklch_to_pixel, srgb_to_linear_interp) all repeated by hand.
+inline uint16_t float_to_pixel16(float v) {
+  return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
+}
+
 /**
  * @brief Perceptual hue rotation of a Color4 (amount: 0..1 = full turn).
  *
@@ -470,9 +478,12 @@ inline Color4 hue_rotate(const Color4 &c, float amount) {
   oklab_to_linear_rgb({L, A2, B2}, nr, ng, nb);
 
   Color4 result = c;
-  result.color.r = static_cast<uint16_t>(std::clamp(nr * 65535.0f, 0.0f, 65535.0f));
-  result.color.g = static_cast<uint16_t>(std::clamp(ng * 65535.0f, 0.0f, 65535.0f));
-  result.color.b = static_cast<uint16_t>(std::clamp(nb * 65535.0f, 0.0f, 65535.0f));
+  // Round, don't truncate: float_to_pixel16 applies the +0.5f rule (and the
+  // [0,1] gamut clamp) so this per-pixel hot path doesn't bias every channel
+  // down by up to ~1/65535 every frame.
+  result.color.r = float_to_pixel16(nr);
+  result.color.g = float_to_pixel16(ng);
+  result.color.b = float_to_pixel16(nb);
   return result;
 }
 
@@ -492,14 +503,6 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
   float gf = srgb_to_linear_float(g / 255.0f);
   float bf = srgb_to_linear_float(b / 255.0f);
   return oklab_to_oklch(linear_rgb_to_oklab(rf, gf, bf));
-}
-
-/// Quantize a [0,1] linear channel to a 16-bit Pixel component. Clamps, then
-/// rounds (+0.5f) rather than truncating — truncation biases every channel down
-/// by up to ~1/65535. The single home for the conversion the float->Pixel
-/// helpers below (oklch_to_pixel, srgb_to_linear_interp) all repeated by hand.
-inline uint16_t float_to_pixel16(float v) {
-  return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
 /// OKLCH -> 16-bit linear Pixel (gamut-clamped)
