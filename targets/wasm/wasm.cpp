@@ -218,11 +218,9 @@ public:
       return false;
     }
     currentEffect->init();
-    // Log init stack HWM, then repaint to isolate render HWM
-    char hwm_buf[80];
-    snprintf(hwm_buf, sizeof(hwm_buf), "WASM: init stack HWM = %u bytes",
-             (unsigned)stack_high_water_mark());
-    hs::log(hwm_buf);
+    // Log init stack HWM, then repaint to isolate render HWM. Pass the value as
+    // a printf arg, not via a prebuilt buffer as the format string (see above).
+    hs::log("WASM: init stack HWM = %u bytes", (unsigned)stack_high_water_mark());
     stack_paint_canary();
     return true;
   }
