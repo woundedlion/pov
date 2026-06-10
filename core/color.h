@@ -276,51 +276,6 @@ inline auto blend_alpha(float a) {
   return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
 
-inline auto blend_accumulate(float a) {
-  return [a](const Pixel &c1, const Pixel &c2) {
-    // c1 + c2 * a
-    Pixel16 added = c2 * a;
-    return blend_add(c1, added);
-  };
-}
-
-/**
- * @brief Overwrites with the source, but never dims below the destination's
- * brightness: if the destination is brighter, the source is scaled up to match
- * the destination's magnitude (preserving the source's hue). c2==0 keeps c1.
- */
-inline Pixel blend_over_max(const Pixel &c1, const Pixel &c2) {
-  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b;
-  float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
-  if (m2 < 0.001f)
-    return c1;
-
-  if (m1 > m2) {
-    float s = sqrtf(m1 / m2);
-    return c2 * s;
-  }
-  return c2;
-}
-
-/**
- * @brief Overwrites with the source, but never brightens above the
- * destination's brightness: if the destination is darker, the source is scaled
- * down to match the destination's magnitude (preserving the source's hue).
- * c2==0 yields black.
- */
-inline Pixel blend_over_min(const Pixel &c1, const Pixel &c2) {
-  float m1 = (float)c1.r * c1.r + (float)c1.g * c1.g + (float)c1.b * c1.b;
-  float m2 = (float)c2.r * c2.r + (float)c2.g * c2.g + (float)c2.b * c2.b;
-  if (m2 < 0.001f)
-    return Pixel(0, 0, 0);
-
-  if (m1 < m2) {
-    float s = sqrtf(m1 / m2);
-    return c2 * s;
-  }
-  return c2;
-}
-
 /**
  * @brief Blends two pixels by averaging/mean.
  * @param c1 Destination pixel.
