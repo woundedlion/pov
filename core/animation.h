@@ -794,16 +794,19 @@ public:
   // lvalues that outlive the Timeline. `T &subject` already rejects a temporary
   // subject; these deleted overloads reject a temporary start/target too, so an
   // inline `Lerp(x, Foo{...}, bar, ...)` is a compile error instead of a silent
-  // dangling read (mirrors Motion/MeshMorph).
+  // dangling read (mirrors Motion/MeshMorph). The trailing defaulted `paused`
+  // mirrors the real ctor so an rvalue start/target is rejected whether or not a
+  // pause flag is passed — otherwise a 6-arg paused call would skip these 5-arg
+  // overloads and bind the temporary to the real ctor.
   template <typename T, typename Easing>
   Lerp(T &subject, const T &&start, const T &target, int duration,
-       Easing easing_fn) = delete;
+       Easing easing_fn, const bool *paused = nullptr) = delete;
   template <typename T, typename Easing>
   Lerp(T &subject, const T &start, const T &&target, int duration,
-       Easing easing_fn) = delete;
+       Easing easing_fn, const bool *paused = nullptr) = delete;
   template <typename T, typename Easing>
   Lerp(T &subject, const T &&start, const T &&target, int duration,
-       Easing easing_fn) = delete;
+       Easing easing_fn, const bool *paused = nullptr) = delete;
 
   // Freezes while a wired pause flag is set (see Mutation::step). Preset-cycling
   // effects pass an Effect's `anims_paused_` so a paused lerp neither advances
