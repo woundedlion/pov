@@ -210,6 +210,12 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       uint16_t he_start_idx = static_cast<uint16_t>(i);
       const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
+      // Same guard as get_midpoint_idx / the star-face walk: the rosette
+      // origin is the tail vertex of he_start, read via its prev. A closed
+      // manifold always has a valid prev; HE_NONE means a degenerate /
+      // non-manifold edge and half_edges[HE_NONE] would be OOB — trap the bad
+      // input instead.
+      HS_CHECK(he_start.prev != HE_NONE);
       uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
       if (visited_verts[origin_idx])
         continue;
