@@ -130,6 +130,14 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
+
+    // Live "Trail Len" slider: push the (clamped) param into the Trails filter
+    // each frame so dragging it retunes the trail length. Clamp into the
+    // filter's [1,255] domain (the slider tops out at 100) so set_lifetime's
+    // trap only ever fires on a genuine authoring error.
+    static_cast<Filter::World::Trails<W, TRAIL_CAPACITY> &>(filters)
+        .set_lifetime(hs::clamp((int)params.trail_length, 1, 255));
+
     timeline.step(canvas);
 
     // Hoist the divisor so the i/steps division is provably guarded: the loop
@@ -201,9 +209,9 @@ private:
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static constexpr size_t NUM_NODES = H_VIRT;
   // Compile-time Trails storage capacity (max trail points). The active trail
-  // length is captured once from params.trail_length at construction; the
-  // Trails filter stores it as const, so the runtime "Trail Len" slider does
-  // not retune it after init.
+  // length is the runtime "Trail Len" slider, pushed into the Trails filter
+  // each frame via set_lifetime() in draw_frame(); this bound is only the
+  // fixed upper limit on buffered points.
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes;
   StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries;

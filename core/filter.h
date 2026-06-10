@@ -457,6 +457,16 @@ public:
     HS_CHECK(lifetime > 0 && lifetime <= 255);
   }
 
+  // Retune the trail length at runtime (e.g. from a live "Trail Len" slider).
+  // Same bounds as the constructor; a per-frame caller is expected to clamp
+  // into [1,255] first, so this trap fires only on a genuine authoring error,
+  // not on slider motion. Already-buffered points keep their encoded ttl and
+  // age out under the new length within a few frames.
+  void set_lifetime(int new_lifetime) {
+    HS_CHECK(new_lifetime > 0 && new_lifetime <= 255);
+    lifetime = new_lifetime;
+  }
+
   /// Allocate ring buffer storage from persistent arena.
   /// Must be called from effect init(), not constructor (arenas aren't ready
   /// yet).
