@@ -94,7 +94,10 @@ private:
     return dir.normalized();
   }
 
-  /** Greedy walk from a latitude seed to the true nearest Fibonacci node. */
+  /** Near-nearest Fibonacci node via greedy K-NN descent from a latitude seed.
+   *  Hill-climbs to a neighbor each step and stops at a local minimum, so on
+   *  the near-uniform Fibonacci sphere this lands on the true nearest node in
+   *  practice but is not guaranteed to — it is not a global argmin. */
   static int find_nearest_node(const Vector &p) {
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
