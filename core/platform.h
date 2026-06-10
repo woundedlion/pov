@@ -117,6 +117,17 @@ inline bool debug = false;
 #define HS_OS_CYCLES() 0
 #endif
 
+// Virtual rows appended below the physical LED ring. The latitude mapping is
+// phi = y * PI / (H + H_OFFSET - 1), so the bottom physical row y = H-1 lands
+// SHORT of PI: the image is clipped (not stretched) where the LEDs stop short
+// of the south pole. The device has 3 such virtual rows. The host/sim build
+// deliberately sets H_OFFSET = 0 (see the other definition in the non-Arduino
+// branch below), so the simulator maps the full sphere and does NOT reproduce
+// this bottom clipping — an intentional device/host divergence. Because the
+// native build cannot observe a non-zero offset, the regression tests inject
+// the hardware value explicitly (see tests/test_geometry.h). Callers pass H
+// (not H + H_OFFSET) to y_to_phi<H>(), which adds the offset internally;
+// double-applying it is the bug that test guards against.
 static constexpr int H_OFFSET = 3;
 } // namespace hs
 
@@ -557,6 +568,10 @@ inline bool debug = false;
 // shared hs namespace after the #endif below.
 #define HS_OS_CYCLES() 0
 
+// 0 on the host/sim build: the simulator has no physical LED ring to clip
+// against, so it maps the full sphere. This intentionally diverges from the
+// device's H_OFFSET = 3 (see the CORE_TEENSY definition above for the full
+// rationale), so vertical sphere coverage is NOT bit-identical to hardware.
 static constexpr int H_OFFSET = 0;
 } // namespace hs
 
