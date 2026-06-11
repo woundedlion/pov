@@ -50,8 +50,10 @@ namespace effects_tests {
 constexpr int kW = 288;
 constexpr int kH = 144;
 
-// Default smoke frame count — kept small so the full suite stays well under a
-// few seconds (the fast `ctest`/pre-commit path). Set HS_SMOKE_FRAMES=<n> to
+// Default smoke frame count — kept small so the effects smoke pass itself stays
+// quick. (The full pre-commit suite still runs ~25 s, dominated by the
+// death-test subprocess spawns and the multi-board sync simulator, not these
+// smoke frames.) Set HS_SMOKE_FRAMES=<n> to
 // drive long, cyclic code paths (effect morph cycles, particle/trail wraps,
 // arena compaction, and the effect-lifecycle transitions — RingShower slot
 // reuse, Thrusters fire/FIFO expiry, ShapeShifter's 48-frame cut) that only
