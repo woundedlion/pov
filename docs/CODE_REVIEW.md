@@ -583,7 +583,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* The tool's whole purpose is producing paste-ready C++; an export that intermittently fails to compile erodes trust in all of it.
    *Suggested fix:* Keep at least one fractional digit: `s.replace(/0+$/, '').replace(/\.$/, '.0') + 'f'`.
 
-94. **Saved-solid stats always report 0 edges** — `tools/solids.html:932` *(not independently validated)*
+94. ✅ **Saved-solid stats always report 0 edges** — `tools/solids.html:932` *(validated and fixed: confirmed saveSolid read `window.currentMesh.edgeCount || 0` but nothing assigned edgeCount — wasmMeshToJs returns only {vertices, faces} and update() kept the edge-set size in a local used solely for the live label. update() now sets `meshData.edgeCount = edgeIndices.size` after building the edge set; meshData is the same object exposed as window.currentMesh (only assigned in update(), which always computes the set), so every saved card now reports a real E.)*
    saveSolid computes `const eCount = window.currentMesh.edgeCount || 0;` but nothing ever assigns `edgeCount` — wasmMeshToJs returns only {vertices, faces}, and update() computes the edge set into a local `edgeIndices` whose size goes only into the live meshStats label. Every saved card therefore renders stats like "24V 0E 14F".
    *Why it matters:* Visibly wrong data on every saved item; V/E/F counts are the primary way to sanity-check a Conway chain against the Euler characteristic.
    *Suggested fix:* In update(), set `meshData.edgeCount = edgeIndices.size` before assigning window.currentMesh.
