@@ -31,6 +31,13 @@ public:
     filters.template get<Filter::World::Trails<W, MAX_TRAILS>>().init_storage(
         persistent_arena);
 
+    // Bake the immutable palette once into a 256-entry LUT. The trail flush
+    // evaluates the palette per live trail item (~25k/frame); a ProceduralPalette
+    // get() is 3 cosf + sRGB-LUT interp + a virtual call each. BakedPalette::get
+    // is a table lookup + lerp — the same bake-once pattern Raymarch / RingShower
+    // / Moire use. (Reused for the spline shader below too.)
+    baked_palette_.bake(persistent_arena, Palettes::lavenderLake);
+
     registerParam("Tension", &params.tension, 0.0f, 1.0f);
     registerParam("Speed", &params.speed, 0.01f, 0.2f);
     registerParam("Drift", &params.drift, 0.0f, 1.0f);
@@ -88,7 +95,7 @@ public:
       // Color by progress, fade alpha by distance from draw head
       float dist = shortest_distance(f.v0, draw_head, 1.0f);
       float brightness = quintic_kernel(1.0f - dist * 4.0f);
-      f.color = palette.get(f.v0);
+      f.color = baked_palette_.get(f.v0);
       f.color.alpha = brightness * params.alpha;
     };
 
@@ -101,8 +108,8 @@ public:
     // Flush trails
     filters.flush(
         canvas,
-        [](const Vector &, float t) {
-          Color4 c = Palettes::lavenderLake.get(t);
+        [this](const Vector &, float t) {
+          Color4 c = baked_palette_.get(t);
           c.alpha *= (1.0f - t);
           return c;
         },
@@ -117,7 +124,7 @@ private:
   float last_drift_ = -1.0f;
   FastNoiseLite noise;
   Timeline timeline;
-  ProceduralPalette palette = Palettes::lavenderLake;
+  BakedPalette baked_palette_;
 
   Pipeline<W, H, Filter::World::Trails<W, MAX_TRAILS>, Filter::World::Orient<W>,
            Filter::Screen::AntiAlias<W, H>>
