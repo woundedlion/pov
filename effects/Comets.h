@@ -110,8 +110,15 @@ private:
     // switches. Snapping to the nearest closing length (a <0.3% domain nudge,
     // invisible to the shape) makes path_fn(domain) == path_fn(0) so the reset
     // is a no-op and the trace stays continuous across loops and switches.
-    float closed_domain =
-        2 * PI_F * std::round(config.m2 * config.domain / (2 * PI_F)) / config.m2;
+    // Number of whole m2-cycles spanned by the authored domain. Floor at 1: when
+    // m2*domain < PI the round() collapses to 0, which would zero closed_domain
+    // and freeze the head at path_fn(0) (finding 215). All 12 current entries
+    // clear the threshold, but the table is authored data that gets extended.
+    float closing_cycles =
+        std::round(config.m2 * config.domain / (2 * PI_F));
+    if (closing_cycles < 1.0f)
+      closing_cycles = 1.0f;
+    float closed_domain = 2 * PI_F * closing_cycles / config.m2;
     path.f = [config, closed_domain](float t) {
       return lissajous(config.m1, config.m2, config.a, t * closed_domain);
     };
