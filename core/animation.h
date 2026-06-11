@@ -1963,6 +1963,9 @@ public:
   template <typename A> Timeline &add(float in_frames, A animation) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
+    static_assert(alignof(A) <= alignof(std::max_align_t),
+                  "Animation type is over-aligned for TimelineEvent inline "
+                  "storage (placement-new would be misaligned)");
     // Deliberate soft-drop, not the usual fail-fast trap: pool exhaustion here
     // is a recoverable scheduling condition (an effect over-queues for one
     // frame), not a corrupted invariant, and it is pinned by tests. The chained
@@ -2002,6 +2005,9 @@ public:
   template <typename A> A *add_get(float in_frames, A animation, bool pin = true) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
+    static_assert(alignof(A) <= alignof(std::max_align_t),
+                  "Animation type is over-aligned for TimelineEvent inline "
+                  "storage (placement-new would be misaligned)");
     if (global_timeline_num_events >= MAX_EVENTS) {
       hs::log("Timeline full, failed to add animation!");
       return nullptr;
