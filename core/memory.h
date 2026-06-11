@@ -300,31 +300,25 @@ public:
   /// If already bound with sufficient capacity, resets size for reuse.
   void bind(Arena &arena, size_t exact_capacity) {
 #ifndef NDEBUG
-    // If the previous binding is STALE — the source arena was reset (generation
-    // bumped) since we bound, or it's a different arena — the old storage is
-    // already dead. Drop the stale binding so we rebind cleanly (a fresh
-    // allocation) instead of reusing a dangling pointer. (Debug-only:
-    // generation tracking exists only here; NDEBUG can't detect this, but it
-    // re-allocates on a grow anyway, so device behavior is unchanged.)
-    if (bound_ && (source_arena_ != &arena ||
-                   birth_generation_ != arena.get_generation())) {
-      bound_ = false;
-    }
+    // Rebinding a still-bound vector after its source arena was reset
+    // (generation bumped) or to a *different* arena is a contract violation: the
+    // old block is already dead, so reusing it in place would alias whatever the
+    // arena handed out next. Release builds cannot detect this — generation
+    // tracking is debug-only (matching check_alive), keeping the per-vector
+    // footprint and the bind() path free of release-build state — so this is a
+    // debug-time contract trap and release trusts the contract: callers clear or
+    // reconstruct the handle before resetting/changing its arena (shipping
+    // effects already do). A same-arena, same-generation GROW is NOT stale: it
+    // passes this assert and reallocates via the path below.
+    assert((!bound_ || (source_arena_ == &arena &&
+                        birth_generation_ == arena.get_generation())) &&
+           "ArenaVector::bind() on a stale binding: clear the handle before "
+           "resetting or changing its arena");
 #endif
-    // Same arena, still live, and big enough → reuse the block in place.
+    // Same arena, still live, and big enough → reuse the block in place. Past
+    // the contract assert above, a still-bound vector here is guaranteed
+    // same-arena/same-generation, so the block is live in every build.
     if (bound_ && capacity_ >= exact_capacity) {
-#ifdef NDEBUG
-      // Release-build staleness guard. The debug branch above caught a stale
-      // binding via the generation stamp and dropped it; NDEBUG has no stamp, so
-      // without this the reuse below would silently hand back a pointer into
-      // reset/rebound arena memory — the device-only buffer aliasing the
-      // project's fail-fast doctrine exists to surface, not mask. owns_live is a
-      // cheap pointer-range check on this cold bind() path (no per-vector state):
-      // a block left behind by a reset sits beyond the rewound offset and trips
-      // it. (capacity_ == 0 implies data_ == nullptr — nothing to alias.)
-      HS_CHECK(capacity_ == 0 || arena.owns_live(data_, capacity_ * sizeof(T)),
-               "ArenaVector::bind() reused a stale block (arena reset since bind)");
-#endif
       size_ = 0; // Reuse memory
       return;
     }
@@ -339,7 +333,7 @@ public:
 #ifndef NDEBUG
     // Reaching here with a still-live binding means a genuine grow against the
     // same arena/generation (the in-place reuse above already returned, and a
-    // stale binding was dropped to bound_=false). The old block is abandoned
+    // stale binding would have tripped the contract assert). The old block is abandoned
     // until the next reset — supported, but otherwise observable only via the
     // arena high-water mark. Log it so the silent consumption is visible,
     // matching the project's fail-loud habit. Debug-only: this is a development

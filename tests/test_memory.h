@@ -18,8 +18,8 @@
  * in-process here: the bound_ flag through the construct/bind/move lifecycle
  * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
  * the use-after-free generation snapshot via test_arenavec_stale_binding_after_reset
- * (an arena reset marks a live binding stale; the next bind() must drop it and
- * reallocate fresh). Double-bind is NOT a precondition violation at all: a
+ * (an arena reset marks a live binding stale; rebinding it is then a debug
+ * contract trap). Double-bind is NOT a precondition violation at all: a
  * re-bind that grows is a supported pattern (it abandons the old block until the
  * next arena reset — see ArenaVector::bind), covered by test_arenavec_rebind_grows.
  */
@@ -404,14 +404,16 @@ inline void test_arenavec_rebind_grows() {
 }
 
 // Use-after-free precondition: an arena reset bumps the generation the vector
-// snapshotted at bind(), marking its block dead. Re-binding to the reset arena
-// must DROP the stale binding and allocate fresh, never hand back the dangling
-// block. The tell is capacity(): test_arenavec_rebind_reuses (no reset between)
-// reuses in place and KEEPS the old capacity 16; here the generation moved, so
-// bind() takes the fresh-allocation path and adopts the new exact capacity 8.
-// This pins, via the public API, the generation bookkeeping that check_alive()
-// relies on to trap a stale access — the trap itself is a debug-only assert,
-// exercised by integration rather than spawned here.
+// snapshotted at bind(), marking its block dead. Rebinding a still-bound vector
+// to a reset (or different) arena is therefore a CONTRACT VIOLATION — the old
+// block is dead, and release builds cannot detect the staleness (generation
+// tracking is debug-only), so bind() asserts on it in debug and release trusts
+// the contract. Callers must clear/reconstruct the handle before resetting the
+// arena (the Persist/compaction tests below do exactly this — they reset to an
+// unbound state before re-binding). This test pins the generation-bump
+// precondition that both the bind() contract assert and check_alive() rely on;
+// the contract trap itself is a debug-only assert, exercised by integration
+// rather than spawned as a death case (it lowers to abort, not __builtin_trap).
 #ifndef NDEBUG
 inline void test_arenavec_stale_binding_after_reset() {
   Arena a(test_buf_a, sizeof(test_buf_a));
@@ -421,14 +423,8 @@ inline void test_arenavec_stale_binding_after_reset() {
 
   a.reset(); // generation bumps -> v's binding is now stale
   HS_EXPECT_TRUE(a.get_generation() != gen_before);
-
-  v.bind(a, 8); // stale binding dropped -> fresh alloc, NOT an in-place reuse
-  HS_EXPECT_TRUE(v.is_bound());
-  HS_EXPECT_EQ(v.size(), (size_t)0);
-  HS_EXPECT_EQ(v.capacity(), (size_t)8); // 8 (fresh), not 16 (would-be reuse)
-
-  v.push_back(7); // the fresh binding is live and usable
-  HS_EXPECT_EQ(v[0], 7);
+  // Calling v.bind(a, ...) here would now (correctly) trip the stale-binding
+  // contract assert in bind(), so it is not exercised in-process.
 }
 #endif
 
