@@ -769,7 +769,7 @@ The `Timeline` class manages a list of running `IAnimation` objects. Each frame,
 |---|---|
 | `Rotation<W>` | Quaternion rotation of an `Orientation` around an axis, with optional repeat. Supports World and Local coordinate spaces. |
 | `RandomWalk<W>` | Continuously perturbs an `Orientation` with smoothly changing random angular velocity driven by Perlin noise. Configurable via `Options` presets (Languid, Energetic). |
-| `Motion<W, PathT>` | Moves an `Orientation` along a `Path` or `ProceduralPath` |
+| `Motion<W, CAP>` | Moves an `Orientation` along a `Path` or `ProceduralPath` (the path is a constructor argument; `CAP` is the orientation sub-frame capacity, default 4) |
 | `Sprite` | Calls a draw function over a duration with fade-in and fade-out envelopes |
 | `PeriodicTimer` | Fires a callback at regular intervals (once or repeatedly) |
 | `RandomTimer` | Fires a callback after a random delay within a min/max range |
@@ -814,7 +814,7 @@ Two traversal helpers linearize multi-level orientation history into a single ca
 
 | Function | Input | Description |
 |---|---|---|
-| `tween(orientation, callback)` | `Orientation<W>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ [0, 1]`. Used by `World::Orient` to distribute motion blur. |
+| `tween(orientation, callback)` | `Orientation<CAP>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ [0, 1]`. Used by `World::Orient` to distribute motion blur. |
 | `deep_tween(trail, callback)` | Any `Tweenable` (`Orientation` or `OrientationTrail`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets, ChaoticStrings, RingSpin) for rendering trails with full sub-frame accuracy. |
 
 #### Animations and Mutable State
@@ -823,7 +823,7 @@ Animations do not render directly — they mutate external state that the render
 
 | Animation | Target State | What It Mutates |
 |---|---|---|
-| `Rotation`, `RandomWalk`, `Motion` | `Orientation<W>` | Quaternion orientation — pushes sub-frame steps into the orientation history, which `World::Orient` reads for motion blur |
+| `Rotation`, `RandomWalk`, `Motion` | `Orientation<CAP>` | Quaternion orientation — pushes sub-frame steps into the orientation history, which `World::Orient` reads for motion blur |
 | `Transition` | `float*` | Smoothly interpolates any float parameter (e.g. `speed`, `alpha`, `twist`) from current value to target with easing |
 | `Mutation` | `float*` | Applies an arbitrary scalar function `f(t)` to a float over time (more general than `Transition`) |
 | `Driver` | `float*` | Continuously increments a float each frame, wrapping at 0..1 — used for phase accumulators |
@@ -836,14 +836,14 @@ This separation means effects declare *what state exists* (orientations, floats,
 
 ```cpp
 // Effect declares mutable state:
-Orientation<W> orientation;
+Orientation<16> orientation;   // CAP is the sub-frame capacity, not the display width
 float twist = 0.0f;
 GenerativePalette palette;
 
 // Timeline drives state via animations:
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, TAU, 600, ease_mid, true));
 timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_cubic));
-timeline.add(0, Animation::ColorWipe(palette, target_palette, 2000));
+timeline.add(0, Animation::ColorWipe(palette, target_palette, 2000, ease_mid));
 
 // Rendering reads state — no manual updates needed:
 void draw_frame() {
@@ -1294,7 +1294,7 @@ public:
 
 private:
     Pipeline<W, H, ...> filters;
-    Orientation<W> orientation;
+    Orientation<16> orientation;   // CAP is the sub-frame capacity, not the display width
     Timeline timeline;
     float speed = 1.0f;
 };
@@ -1311,8 +1311,8 @@ Effects register themselves into a global registry using the `REGISTER_EFFECT(Cl
 Effects expose live-adjustable parameters via `registerParam()`. These are reflected into the WASM bridge and auto-generate GUI controls in the simulator:
 
 ```cpp
-registerParam("Twist",   &params.twist,      -5.0f, 5.0f);   // float slider
-registerParam("Enabled", &params.enabled,    false);           // boolean toggle
+registerParam("Twist",   &params.twist, -5.0f, 5.0f);   // float slider (min, max)
+registerParam("Enabled", &params.enabled);              // boolean toggle (bool* overload takes no range)
 ```
 
 The parameter list (`ParamList` — a fixed `std::array<ParamDef, 32>`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. Parameters support both `float*` and `bool*` targets via `std::variant`, with automatic bool threshold at 0.5. The animation system can also write to these parameters, allowing effects to animate their own exposed controls.
