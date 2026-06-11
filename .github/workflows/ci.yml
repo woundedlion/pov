@@ -57,6 +57,13 @@ jobs:
       - name: Build
         run: cmake --build --preset tests
 
+      # Surface the cache hit rate so the ccache wiring above is verified to
+      # actually fire, not just assumed. A run showing zero hits means the
+      # compiler-launcher integration regressed and the cache is dead weight.
+      - name: ccache stats
+        if: always()
+        run: ccache -sv
+
       - name: Test
         run: ctest --preset tests --output-on-failure
 
@@ -99,6 +106,13 @@ jobs:
           mkdir -p "${{ runner.temp }}/daydream-install"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release
+
+      # Verify ccache actually fronts em++ here (the comment above claims it
+      # does via CMAKE_CXX_COMPILER_LAUNCHER). Zero hits means the emcc launcher
+      # integration is not engaging and this cache should be reworked or dropped.
+      - name: ccache stats
+        if: always()
+        run: ccache -sv
 
       - name: Smoke-test the WASM module at runtime
         # The build above only proves the module compiles and links. Instantiate
