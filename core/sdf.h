@@ -443,7 +443,7 @@ struct Ring {
       if (azimuth < 0)
         azimuth += 2 * PI_F;
       azimuth += phase;
-      t = azimuth / (2 * PI_F);
+      t = wrap_t(azimuth / (2 * PI_F));
     }
 
     res = DistanceResult(dist - thickness, t, dist, 0.0f, thickness);
@@ -570,8 +570,7 @@ struct DistortedRing {
     if (azimuth < 0)
       azimuth += 2 * PI_F;
 
-    float t_val = azimuth + phase;
-    float t_norm = t_val / (2 * PI_F);
+    float t_norm = wrap_t((azimuth + phase) / (2 * PI_F));
     float shift = shift_fn(t_norm);
 
     if constexpr (!ComputeUVs)
@@ -1942,8 +1941,8 @@ struct Star {
 
     float dist_to_edge = px * nx + py * ny + plane_d;
 
-    res = DistanceResult(-dist_to_edge, azimuth / (2 * PI_F), scan_dist, 0.0f,
-                         thickness);
+    res = DistanceResult(-dist_to_edge, wrap_t(azimuth / (2 * PI_F)), scan_dist,
+                         0.0f, thickness);
   }
 };
 
