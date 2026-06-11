@@ -40,7 +40,7 @@ jobs:
           # __builtin_trap death-harness semantics — runs on a known compiler
           # rather than whatever the rolling 'clang' metapackage resolves to.
           sudo apt-get install -y clang-18 ninja-build ccache
-          # cmake is preinstalled on GitHub runners (>= 3.21 required).
+          # cmake is preinstalled on GitHub runners (>= 3.29 required).
 
       # Persist the compile cache across runs. CMakeLists auto-detects ccache
       # and wires it as the compiler launcher, so unchanged TUs skip recompile.

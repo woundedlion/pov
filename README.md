@@ -1854,7 +1854,7 @@ static constexpr int PIN_RANDOM = 15;
 
 ### WASM Build — Holosphere repo (installs into daydream)
 
-The build is driven by **CMake presets** ([`CMakePresets.json`](CMakePresets.json)) so the same commands work on any platform with CMake ≥ 3.21, Ninja, and [Emscripten](https://emscripten.org/). Set up the Emscripten environment once (`emsdk_env`, which exports `EMSDK`), then:
+The build is driven by **CMake presets** ([`CMakePresets.json`](CMakePresets.json)) so the same commands work on any platform with CMake ≥ 3.29, Ninja, and [Emscripten](https://emscripten.org/). Set up the Emscripten environment once (`emsdk_env`, which exports `EMSDK`), then:
 
 ```bash
 cmake --preset wasm-release                     # configure (Emscripten toolchain)
