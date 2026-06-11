@@ -1337,7 +1337,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
 
 Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (A beats B, B beats C, C beats A) producing rotating spiral waves. The simulation runs on a spherical k-nearest-neighbor graph (`ReactionGraph`: 7680 nodes, 6 neighbors each, precomputed Fibonacci lattice) with configurable diffusion rate and time step. Spiral waves are seeded periodically and evolve continuously.
 
-**Parameters**: Alpha (color intensity), Diff (diffusion rate), Speed (time step)
+**Parameters**: Compete (cyclic-competition/predation coefficient), Diff (diffusion rate), Speed (time step)
 
 </td></tr></table>
 

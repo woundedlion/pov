@@ -60,7 +60,10 @@ public:
     // transient scratch to persistent and stops being recomputed each frame.
     configure_arenas(165 * 1024, GLOBAL_ARENA_SIZE - 165 * 1024, 0);
 
-    registerParam("Alpha", &params.alpha, 0.0f, 4.0f);
+    // "Compete", not "Alpha": this is the Lotka-Volterra predation coefficient,
+    // not an opacity. Naming it "Alpha" collided with the engine-wide
+    // Alpha-as-opacity convention every other effect follows.
+    registerParam("Compete", &params.alpha, 0.0f, 4.0f);
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
 
