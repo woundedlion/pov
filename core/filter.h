@@ -378,7 +378,11 @@ template <int W> class Replicate : public Is3D {
 public:
   Replicate(int count)
       : count(hs::clamp(count, 1, W)),
-        step(make_rotation(Y_AXIS, 2 * PI_F / count)) {}
+        // Use the clamped member, not the parameter: unqualified `count` here
+        // resolves to the ctor parameter, so a raw count > W would span only a
+        // fraction of the circle and count == 0 would feed inf into
+        // make_rotation. `this->count` is initialized first (declared first).
+        step(make_rotation(Y_AXIS, 2 * PI_F / this->count)) {}
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     Vector r = v;
