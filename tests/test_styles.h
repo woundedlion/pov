@@ -61,7 +61,9 @@ inline void test_lerp_scalars_and_snapping() {
   b.downsample = 8;
   b.noise = nullptr;
 
+  NoiseParams subj;
   Feedback::Style mid{};
+  mid.noise = &subj; // the subject's own bound state, distinct from a/b
   mid.lerp(a, b, 0.5f);
   // Scalars interpolate linearly.
   HS_EXPECT_NEAR(mid.fade, 0.5f, 1e-6f);
@@ -71,8 +73,9 @@ inline void test_lerp_scalars_and_snapping() {
   HS_EXPECT_TRUE(mid.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(mid.color_fn == &Feedback::hue_fade);
   HS_EXPECT_EQ(mid.downsample, 8);
-  // The bound noise pointer is preserved from a (never lerped).
-  HS_EXPECT_TRUE(mid.noise == &na);
+  // noise is the subject's bound state: lerping presets must leave it alone,
+  // never pulling a.noise (&na) or b.noise (nullptr) over it.
+  HS_EXPECT_TRUE(mid.noise == &subj);
 
   // Just below the midpoint the discrete fields stay on a.
   Feedback::Style lo{};

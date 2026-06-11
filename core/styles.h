@@ -81,8 +81,10 @@ struct Style {
     space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
     color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;
     downsample = t < 0.5f ? a.downsample : b.downsample;
-    // Bound pointer preserved (not lerped)
-    noise = a.noise;
+    // noise is bound state the effect owns (set at init), not a preset
+    // parameter. Leave the subject's pointer untouched — pulling it from a
+    // preset would overwrite it with that preset's nullptr and silently
+    // degrade noise_warp to identity.
   }
 
   /// Push scalar values into the bound NoiseParams.
