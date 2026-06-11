@@ -339,6 +339,53 @@ inline void test_ring_sample_unit_length_and_progress() {
   HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
 }
 
+// Ring::sample<W,H> (Ring::draw's full-resolution path) builds the ring from
+// the TrigLUT angle-addition identity instead of a per-sample libm cos/sin.
+// Verify each fragment — position and the analytic arc-length register — matches
+// a direct cos/sin(theta+phase) construction of the same ring.
+inline void test_ring_sample_lut_matches_direct() {
+  constexpr int W = 64;
+  constexpr int H = 64;
+
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), W + 2);
+
+  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
+  const float radius = 0.5f;
+  const float phase = 0.7f;
+  Plot::Ring::sample<W, H>(points, b, radius, phase);
+
+  HS_EXPECT_EQ(points.size(), (size_t)(W + 1));
+
+  auto res = get_antipode(b, radius);
+  const Basis &wb = res.first;
+  float wr = res.second;
+  const float theta_eq = wr * (PI_F / 2.0f);
+  const float r_val = sinf(theta_eq);
+  const float d_val = cosf(theta_eq);
+  const float arc_scale = sinf(wr);
+  const float step = 2.0f * PI_F / W;
+
+  for (int i = 0; i < W; ++i) {
+    float theta = i * step;
+    float t = theta + phase;
+    Vector u_temp = (wb.u * cosf(t)) + (wb.w * sinf(t));
+    Vector expected = ((wb.v * d_val) + (u_temp * r_val)).normalized();
+    HS_EXPECT_NEAR(points[i].pos.x, expected.x, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.y, expected.y, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.z, expected.z, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(points[i].v1, theta * arc_scale, 2e-3f);
+  }
+
+  // Close vertex coincides with sample 0 and carries v0 == 1.
+  HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
+  HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
+  HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
+  HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
+}
+
 // ============================================================================
 // Plot::DistortedRing::sample  — angle-addition identity (LUT) vs direct
 // ============================================================================
@@ -540,6 +587,7 @@ inline int run_plot_scan_tests() {
 
   test_ring_calc_point_unit_length();
   test_ring_sample_unit_length_and_progress();
+  test_ring_sample_lut_matches_direct();
 
   test_distorted_ring_sample_angle_addition_identity();
 

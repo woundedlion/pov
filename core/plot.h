@@ -819,6 +819,71 @@ struct Ring {
   }
 
   /**
+   * @brief Full-resolution closed ring (W samples) — LUT-optimized.
+   *
+   * Ring::draw's only sampling configuration is num_samples == W, whose angle
+   * grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta/sin_theta. Replace the
+   * per-sample libm cosf(θ+φ)/sinf(θ+φ) with the precomputed θ-grid and one
+   * angle-addition against cos/sin(φ) — the same optimization DistortedRing::
+   * sample already applies, saving ~2*(W+1) libm trig calls per ring per frame.
+   * Keeps Ring's analytic arc length (θ*arc_scale) and its own overlap close;
+   * see sample_closed_ring's note on why Ring is not folded into that helper.
+   * The runtime int-num_samples overload above stays for the polygon samplers,
+   * whose vertex counts (num_sides, W/4, …) do not match the LUT grid.
+   */
+  template <int W, int H>
+  static void sample(Fragments &points, const Basis &basis, float radius,
+                     float phase = 0) {
+    auto res = get_antipode(basis, radius);
+    const Basis &work_basis = res.first;
+    float work_radius = res.second;
+
+    const Vector &v = work_basis.v;
+    const Vector &u = work_basis.u;
+    const Vector &w = work_basis.w;
+
+    const float theta_eq = work_radius * (PI_F / 2.0f);
+    const float r_val = sinf(theta_eq);
+    const float d_val = cosf(theta_eq);
+    const float arc_scale = sinf(work_radius);
+
+    const float step = 2.0f * PI_F / W;
+
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    const float cos_phase = cosf(phase);
+    const float sin_phase = sinf(phase);
+
+    for (int i = 0; i < W; i++) {
+      // Angle-addition identity: cos/sin(θ+φ) from the precomputed θ-grid.
+      float cos_t = TrigLUT<W, H>::cos_theta[i] * cos_phase -
+                    TrigLUT<W, H>::sin_theta[i] * sin_phase;
+      float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
+                    TrigLUT<W, H>::cos_theta[i] * sin_phase;
+      Vector u_temp = (u * cos_t) + (w * sin_t);
+
+      Fragment f;
+      f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
+      f.v0 = static_cast<float>(i) / W;
+      f.v1 = (i * step) * arc_scale;
+      f.v2 = static_cast<float>(i);
+      f.age = 0;
+
+      points.push_back(f);
+    }
+
+    // Manual Close (Overlap): θ = 2π folds to (cos φ, sin φ) by periodicity.
+    Fragment f;
+    Vector u_temp = (u * cos_phase) + (w * sin_phase);
+    f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
+    f.v0 = 1.0f;
+    f.v1 = (2.0f * PI_F) * arc_scale;
+    f.v2 = static_cast<float>(W);
+    f.age = 0;
+    points.push_back(f);
+  }
+
+  /**
    * @brief Draws a ring.
    * @tparam W Rasterization resolution.
    * @param pipeline Render pipeline.
@@ -837,7 +902,7 @@ struct Ring {
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader,
         {.capacity = W + 2, .close_loop = true},
-        [&](Fragments &points) { sample(points, basis, radius, W, phase); });
+        [&](Fragments &points) { sample<W, H>(points, basis, radius, phase); });
   }
 
   template <int W, int H>
