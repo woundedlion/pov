@@ -309,9 +309,12 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
   if (!TrigLUT<W, H>::initialized) {
     TrigLUT<W, H>::init();
   }
-  // Local avoids the comma in TrigLUT<W, H> splitting HS_CHECK's varargs.
+  // Per-pixel hot path: use a stripped assert (compiled out under NDEBUG on
+  // device), not an always-on HS_CHECK. The LUT-domain invariant is trapped
+  // once per draw on the cold path by Scan::check_lut_domain; this assert only
+  // backs the native/WASM-debug builds. Local avoids the comma in TrigLUT<W, H>.
   constexpr int kHVirt = TrigLUT<W, H>::H_VIRT;
-  HS_CHECK(x >= 0 && x < W && y >= 0 && y < kHVirt);
+  assert(x >= 0 && x < W && y >= 0 && y < kHVirt);
   float sp = TrigLUT<W, H>::sin_phi[y];
   return Vector(sp * TrigLUT<W, H>::cos_theta[x], TrigLUT<W, H>::cos_phi[y],
                 sp * TrigLUT<W, H>::sin_theta[x]);
