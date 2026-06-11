@@ -172,10 +172,11 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 287. **Global Space-key pause handler fires during documented keyboard UI interactions** — `daydream/daydream.js:626`
    The window-level keydown feeds `driver.js`'s handler, which toggles pause on every Space press with no target guard. The sidebar's documented keyboard navigation ("Enter or Space selects") calls preventDefault but not stopPropagation, so selecting an effect with Space also silently pauses the simulation; Space on any focused lil-gui control does the same. Ignore events whose target is an interactive element.
 
-288. **Picture-in-picture renders an exact duplicate of the main view, contradicting its documented purpose** — `daydream/driver.js:453`
+288. ✅ **Picture-in-picture renders an exact duplicate of the main view, contradicting its documented purpose** — `daydream/driver.js:453`
+   **Fixed (README drift):** The exact-copy behavior is intended — the PiP is meant to be a smaller square-cropped duplicate of the main view, not a second fixed-orientation angle. The drift was in README §10.3, now corrected to describe the PiP camera tracking the main camera's position and orientation each frame and rendering a 30%-of-min-dimension square viewport (`aspect` forced to 1.0). `driver.js` is unchanged, so no render-cost change.
    `_renderPip` copies the main camera's position *and quaternion* every frame, so the PiP is always an identical square-cropped copy of the main view — the initial clone pose is irrelevant. README §10.3 documents the PiP as "a fixed orientation … so the front and back of the sphere are visible simultaneously." As written it shows the same hemisphere twice and pays a second scene render for no information; either the copy is a regression or the README is drifted — both cannot be right.
 
-289. **The tool pages' fallback URL-writer debounce shares one timer across all keys; a rapid second param change drops the first from the URL** — `daydream/gui.js:22`
+289. ✅ **The tool pages' fallback URL-writer debounce shares one timer across all keys; a rapid second param change drops the first from the URL** — `daydream/gui.js:22`
    `setUrlParam`'s non-URLSync path (every tool page) keeps a single module-level timer; each call clears it and schedules a closure that writes only its own key. Two controls changed within the 200 ms window lose the first key's write from the shareable deep link. Keep a pending map keyed by param (mirroring `URLSync._adhoc`) and flush once.
 
 290. **An init-phase worker fault never reaches the visible fault overlay: `tick()`'s ready guard precedes the faulted check** — `daydream/segment_controller.js:596`
