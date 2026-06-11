@@ -163,8 +163,11 @@ public:
     // with the ISR, and the flywheel tolerates wake-up jitter by construction
     // (position is time-derived).
 
-    // The flywheel timebase reads DWT->CYCCNT. Teensyduino enables it during
-    // startup; assert that here rather than silently depending on it.
+    // The flywheel timebase reads DWT->CYCCNT. Teensyduino normally enables it
+    // during startup, but enable it explicitly here rather than silently
+    // depending on that: TRCENA gates the DWT block on, then CYCCNTENA starts
+    // the cycle counter. (Enabling unconditionally, not asserting — the counter
+    // is running either way once these two writes land.)
     ARM_DEMCR |= ARM_DEMCR_TRCENA;
     ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
 
