@@ -714,10 +714,10 @@ public:
     b = CPixel(CRGB(CHSV(h2, s2, v2)));
     c = CPixel(CRGB(CHSV(h3, s3, v3)));
 
-    update_luts();
+    update_stops();
   }
 
-  void update_luts() {
+  void update_stops() {
     const CPixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
@@ -761,7 +761,7 @@ public:
     a = lerp_oklch_srgb(from.a, to.a, amount);
     b = lerp_oklch_srgb(from.b, to.b, amount);
     c = lerp_oklch_srgb(from.c, to.c, amount);
-    update_luts();
+    update_stops();
   }
 
   Color4 get(float t) const override {
@@ -793,7 +793,7 @@ public:
     float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
 
     // Interpolate in OKLCH for perceptually uniform gradients. Stops are
-    // pre-converted in update_luts(), so this avoids the per-sample
+    // pre-converted in update_stops(), so this avoids the per-sample
     // sRGB->OKLCH cost (load-bearing on GSReactionDiffusion's 4x-SSAA path).
     return Color4(oklch_to_pixel(lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p)),
                   1.0f);
@@ -841,10 +841,10 @@ private:
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<CPixel, 5> colors;
-  // OKLCH forms of `colors`, cached by update_luts() so the per-sample get()
+  // OKLCH forms of `colors`, cached by update_stops() so the per-sample get()
   // hot path skips the sRGB->OKLCH conversion (6 powf + 6 cbrtf + 2 atan2f per
   // stop). The stops change only on construction and in lerp(), both of which
-  // route through update_luts(), so this stays in sync.
+  // route through update_stops(), so this stays in sync.
   std::array<OKLCH, 5> colors_oklch;
   int size = 0;
 
