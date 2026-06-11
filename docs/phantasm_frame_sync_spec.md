@@ -582,19 +582,29 @@ boundary B.
 multi-millisecond *foreground* operation — arena allocation, mesh builds — not
 an ISR action, and per-board init times differ; an immediate switch would have
 boards starting the new effect on different revolutions, a whole-sphere
-mismatch every 120 s. Instead, EPOCH at boundary B means **commit at boundary
-B+K** (K fixed, ~2 revolutions): on accepting the epoch, each board's
-foreground tears down the old effect and constructs the next one in the
-deterministic roster, displaying **black** for the window (deterministic and
-identical on all boards — never a stale frame on some and black on others); at
-B+K every board flips to the new effect's frame 0 and resets `t=0`
-simultaneously. `HS_CHECK(init_complete)` at the deadline: an effect that
-cannot construct inside K revolutions is an invariant violation and traps
-(fail-fast), rather than silently skewing the show. K is chosen comfortably
-above the slowest measured effect init. Construction itself is deterministic
-across boards: the driver reseeds `hs::random()` (1337) for every effect
-build, so the new instance is bit-identical no matter what a board rendered
-— or whether it even existed — before the epoch.
+mismatch every 120 s. Instead, EPOCH at boundary B means **commit at the
+absolute boundary B+R+K** (R = redundancy repeats, K = construction window,
+both fixed): the countdown runs in two phases. Through the **announce phase**
+(B to B+R — the revolutions carrying the repeats) every board keeps playing
+the outgoing effect. At B+R the **construction window** opens on every board
+at once: each foreground tears down the old effect and constructs the next
+one in the deterministic roster, displaying **black** for exactly K
+revolutions (deterministic and identical on all boards — never a stale frame
+on some and black on others); at B+R+K every board flips to the new effect's
+frame 0 and resets `t=0` simultaneously. A board that accepted a *repeat*
+rather than the primary copy counts down to the **same** boundary — see
+§6.3.1 — which is why construction cannot start before B+R: only then is the
+window's start common knowledge regardless of which copy each board heard,
+and only then does every hearer get the full K-revolution build budget.
+`HS_CHECK(init_complete)` at the deadline: an effect that cannot construct
+inside K revolutions is an invariant violation and traps (fail-fast), rather
+than silently skewing the show — and because the budget is K for every
+hearer, the trap can only mean a firmware bug, never a missed symbol. K is
+chosen comfortably above the slowest measured effect init. Construction
+itself is deterministic across boards: the driver reseeds `hs::random()`
+(1337) for every effect build, so the new instance is bit-identical no
+matter what a board rendered — or whether it even existed — before the
+epoch.
 
 **Epoch dedup:** an accepted EPOCH opens a refractory window (~16 revs) in
 which further EPOCH symbols are ignored — this is what makes the §6.3
@@ -649,12 +659,19 @@ previous one cannot:
 
 1. **Redundancy:** the EPOCH symbol is repeated on the next R ZERO-boundaries
    (R = 3); the §6.1 refractory window makes the repeats idempotent. A board
-   must lose all R+1 in ~R revolutions to miss the advance itself. One
-   accepted residual: a board that misses the primary copy and accepts a
-   repeat anchors its commit at *its* acceptance + K — up to R revolutions
-   later than its peers for that one effect (realigned at the next epoch).
-   The repeats guard a ~never case on a hard wire; the skew is the price of
-   a symbol that carries no "which repeat am I" payload.
+   must lose all R+1 in ~R revolutions to miss the advance itself. The
+   repeats are **lockstep-safe**: the symbol carries no "which repeat am I"
+   payload, but none is needed — the master starts the train exactly when
+   `rev_in_effect` reaches 960, so a board hearing copy j infers j from its
+   own (crossing-exact) revolution count and counts down to the same
+   absolute B+R+K boundary as everyone else (`ContentTracker::
+   on_epoch_symbol`). This also covers the master self-censoring its own
+   primary emission (§5.2): downstream first hears the B+1 repeat and still
+   commits with the master. The one case that cannot infer j — a board that
+   beacon-joined mid-effect, whose revolution count is mod-64, lands outside
+   the train window — falls back to j = 0 and commits up to j revolutions
+   late for that one effect; its first commit re-zeros `rev_in_effect` in
+   step with the master, so the next epoch is lockstep again.
 2. **Absolute index on the beacon (§6.4):** a board that *does* miss every
    repeat — or that booted late, or rebooted mid-show — corrects at the next
    beacon, ≤16 revs (~2 s) later, instead of staying on the wrong effect for up
@@ -713,7 +730,7 @@ separated *in time* on the same wire.
 
 Boards take a constructed effect live only at ZERO boundaries where
 `rev_in_effect ≡ 0 (mod 4)` (`join_grid_revs`; epoch commits are anchored by
-B+K and unaffected). This is what makes **boot** coherent: without it, the
+B+R+K and unaffected). This is what makes **boot** coherent: without it, the
 master would go live at its first boundary while downstream boards waited
 ~1–2 revolutions for beacon identity, leaving the master's `t` a few frames
 ahead of its neighbors for the entire first effect — a visible junction
@@ -734,7 +751,7 @@ All inter-board information now rides this one wire:
 |--------|------------------------|---------|------|
 | HALF | burst of 1 pulse | boundary HALF (`x==W/2`) | 1/rev |
 | ZERO | burst of 3 pulses | boundary ZERO (`x==0`) | 1/rev |
-| ZERO+EPOCH | burst of 5 pulses (repeated R×, §6.3) | boundary ZERO + EPOCH (advance at B+K, §6.1) | 1/effect |
+| ZERO+EPOCH | burst of 5 pulses (repeated R×, §6.3) | boundary ZERO + EPOCH (advance at B+R+K, §6.1) | 1/effect |
 | BEACON | 5 base-8 count digits at x≈W/4 (§6.4) | absolute effect index + rev count, checksummed | rev ≡ 1 (mod 16) + first R revs of an effect; silent during commits |
 | *(invalid)* | any other count / failed checksum | discarded — no snap, no flip, no advance | — |
 
@@ -864,8 +881,8 @@ undefined behavior, not because it is designed against.
 
 Worst-case recovery and expected frequency per failure mode, on the shipped
 DMA LED path (mask window M ≈ 0, so all masked-IRQ modes are non-events).
-Constants: gate G = 4 col, fallback R = 4 rejections, commit K = 2 revs,
-beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
+Constants: gate G = 4 col, fallback R = 4 rejections, construction window
+K = 2 revs (commit at B+R+K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 4,608 col = 16 revs = 2 s; 276,480 col = 960 revs = 120 s.
@@ -956,10 +973,11 @@ strictly cleaner, not weaker.
    R repeats made idempotent by the §6.1 refractory window; absolute effect
    index + revolution count on the mid-rev beacon (≤2 s correction for any
    missed epoch or late-booting board); fail-dark in ACQUIRE rather than
-   assume index 0. Shipped constants: R = 3, beacon period 16 revs,
-   refractory window 16 revs, commit deadline K = 2 revs (HS_CHECK-trapped;
-   confirm against the slowest measured effect init on hardware), join grid
-   4 revs (§6.5).
+   assume index 0. Repeats are lockstep-safe: every heard copy counts down
+   to the same absolute B+R+K boundary (§6.3.1). Shipped constants: R = 3,
+   beacon period 16 revs, refractory window 16 revs, construction window
+   K = 2 revs (HS_CHECK-trapped; confirm against the slowest measured effect
+   init on hardware), join grid 4 revs (§6.5).
 6. **Inter-board flip skew — RESOLVED by construction.** In normal operation
    downstream flips on its **own flywheel crossing** (within ⅛ column of the
    boundary under the oversampled wake grid, §4.1), and symbol
@@ -1031,9 +1049,13 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   ACQUIRE fallback (no rejection deadlock); assert mid-rev beacon bursts are
   never consumed as boundary symbols and vice versa (§6.4 demarcation).
 - **Epoch commit:** simulate per-board init-time spread inside the K-rev
-  window; assert every board flips to the new effect's frame 0 at exactly B+K
-  with black during the window, and that an init exceeding K traps
-  (`HS_CHECK`), never silently skews.
+  window; assert every board flips to the new effect's frame 0 at exactly
+  B+R+K with black during the construction window (and NOT during the
+  announce phase), and that an init exceeding K traps (`HS_CHECK`), never
+  silently skews. Assert repeat-lockstep (§6.3.1): a board deafened for just
+  the primary copy, and the whole downstream side when the master
+  self-censors its primary emission, commit at the same boundary as their
+  peers with equal frame counters after.
 - **Beacon:** corrupt single digits, the checksum, and the digit count; assert
   every corrupted frame is dropped whole (no partial application) and that a
   rebooted board joins at the correct `(effect, rev)` from the next good

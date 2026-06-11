@@ -91,7 +91,11 @@ struct Config {
   uint32_t revs_per_effect = 960; ///< Effect duration in revolutions (120 s).
   int32_t epoch_repeats = 3;      ///< EPOCH redundancy repeats (spec §6.3).
   uint32_t refractory_revs = 16;  ///< EPOCH dedup window (spec §6.1).
-  uint32_t commit_revs = 2;       ///< K: epoch commit deadline (spec §6.1).
+  /// K: the construction window, the last K revolutions before the commit.
+  /// The commit boundary itself is B + epoch_repeats + commit_revs from the
+  /// train's primary copy at B, so a board hearing any repeat still commits
+  /// in lockstep with the full K-rev construction budget (spec §6.1, §6.3.1).
+  uint32_t commit_revs = 2;
   uint32_t beacon_period_revs = 16;            ///< Beacon cadence (spec §6.4).
   int32_t beacon_interdigit_timeout_cols = 24; ///< Stale-frame reset bound.
   int32_t effect_count = 1; ///< Roster length (epoch wraps mod this).
@@ -529,18 +533,54 @@ struct ContentTracker {
                               ///< beacon's mod-64 value — it only feeds the
                               ///< master's schedule and cross-check telemetry.
   bool commit_pending = false;
-  uint32_t commit_in_revs = 0;    ///< ZERO crossings until the B+K commit.
+  uint32_t commit_in_revs = 0;    ///< ZERO crossings until the B+R+K commit.
   uint32_t refractory_revs_left = 0; ///< EPOCH dedup window (spec §6.1).
 
   /// Accepted EPOCH symbol. Returns true if it opened a commit window (false
   /// inside the refractory window — the §6.3 redundancy repeats land here).
+  ///
+  /// The commit boundary is ABSOLUTE: B + R + K, where B is the primary
+  /// copy's boundary (R = epoch_repeats, K = commit_revs). Which copy of the
+  /// train this is (j, 0 = primary) is inferred from the shared revolution
+  /// count — the master starts the train exactly when rev_in_effect reaches
+  /// revs_per_effect, and by the time a symbol is consumed the local crossing
+  /// for its boundary has already incremented rev_in_effect (classification
+  /// completes ~13 columns after the boundary instant). So every board that
+  /// hears ANY copy counts down to the same boundary, and hearing a repeat
+  /// instead of the primary cannot skew the commit (§6.3.1). A board whose
+  /// revolution count is not absolute (it beacon-joined mid-effect, §6.4)
+  /// lands outside the train window and falls back to j = 0 — it commits up
+  /// to j revolutions late, the pre-existing epoch-bounded degradation, now
+  /// confined to that case (and erased at its first commit, which re-zeros
+  /// rev_in_effect in step with the master's).
   bool on_epoch_symbol(const Config &cfg) {
     if (refractory_revs_left > 0)
       return false;
+    uint32_t j = 0;
+    if (rev_in_effect >= cfg.revs_per_effect &&
+        rev_in_effect - cfg.revs_per_effect <=
+            static_cast<uint32_t>(cfg.epoch_repeats))
+      j = rev_in_effect - cfg.revs_per_effect;
     commit_pending = true;
-    commit_in_revs = cfg.commit_revs;
+    commit_in_revs =
+        cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats) - j;
     refractory_revs_left = cfg.refractory_revs;
     return true;
+  }
+
+  /// True at the single crossing/accept where the construction window — the
+  /// last K revolutions before the commit boundary — opens (commit_in_revs
+  /// strictly decreases, so == fires exactly once per window). The announce
+  /// phase before it is what gives a board that hears only the last repeat
+  /// the full K-revolution construction budget; the outgoing effect keeps
+  /// playing through it, so the dark window stays K revolutions.
+  bool construction_opens(const Config &cfg) const {
+    return commit_pending && commit_in_revs == cfg.commit_revs;
+  }
+
+  /// True throughout the construction window (fail-dark, spec §6.1).
+  bool constructing(const Config &cfg) const {
+    return commit_pending && commit_in_revs <= cfg.commit_revs;
   }
 
   /// A ZERO boundary flip happened. Returns true when the commit deadline is
@@ -671,8 +711,8 @@ struct TickActions {
   bool join_boundary = false; ///< ZERO crossing on the join grid: a board
                               ///< with no live effect takes its pending one
                               ///< here (Config::join_grid_revs).
-  bool commit = false;        ///< B+K deadline: swap to the pending effect at
-                              ///< this boundary (trap if it is not ready).
+  bool commit = false;        ///< B+R+K deadline: swap to the pending effect
+                              ///< at this boundary (trap if it is not ready).
   bool pulse = false;         ///< Master: emit one sync pulse (pin-first).
 };
 
@@ -773,10 +813,13 @@ public:
       ++telemetry_.emit_aborted;
 
     // Render decision. Dark whenever phase or content identity is missing,
-    // and during the epoch construction window (deterministic on all boards,
-    // spec §6.1 — never a stale frame on some and black on others).
+    // and during the epoch construction window — the last K revolutions of
+    // the commit countdown, an absolute boundary all boards share, so the
+    // window is deterministic on every board (spec §6.1 — never a stale
+    // frame on some and black on others). The announce phase before it
+    // keeps playing the outgoing effect.
     a.dark = fly_.lock() != LockState::LOCKED || !content_.identity_known ||
-             content_.commit_pending;
+             content_.constructing(cfg_);
     if (!a.dark) {
       const int32_t x = fly_.position(now);
       if (x != last_rendered_x_) { // idempotent wake-up contract (spec §4.1)
@@ -821,7 +864,11 @@ private:
     beacon_done_this_rev_ = false;
     if (content_.identity_known) {
       if (content_.on_zero_crossing(cfg_))
-        a.commit = true; // B+K reached; driver swaps in the pending effect
+        a.commit = true; // B+R+K reached; driver swaps in the pending effect
+      else if (content_.construction_opens(cfg_))
+        // Last K revolutions: ask the foreground to construct the next
+        // effect now, on every board at the same absolute boundary.
+        publish_build((content_.effect_index + 1) % cfg_.effect_count);
       else if (!content_.commit_pending &&
                (content_.rev_in_effect % cfg_.join_grid_revs) == 0)
         a.join_boundary = true;
@@ -900,10 +947,15 @@ private:
     halves_since_snap_ = 0;
     apply_flip(b, a); // backstop flip; deduped if the crossing already fired
     if (sym == Symbol::ZERO_EPOCH && content_.identity_known) {
-      if (content_.on_epoch_symbol(cfg_))
-        publish_build((content_.effect_index + 1) % cfg_.effect_count);
-      else
+      if (content_.on_epoch_symbol(cfg_)) {
+        // Construction normally starts at a later crossing (apply_flip);
+        // a board that heard only the LAST repeat opens the window at the
+        // accept itself.
+        if (content_.construction_opens(cfg_))
+          publish_build((content_.effect_index + 1) % cfg_.effect_count);
+      } else {
         ++telemetry_.epochs_refractory_ignored;
+      }
     }
   }
 
@@ -948,7 +1000,11 @@ private:
       if (epoch_emits_left_ == 0 && !content_.commit_pending &&
           content_.rev_in_effect >= cfg_.revs_per_effect) {
         epoch_emits_left_ = 1 + cfg_.epoch_repeats;
-        if (content_.on_epoch_symbol(cfg_))
+        // j = 0 by construction (the train starts at this crossing); the
+        // build publish follows when the construction window opens —
+        // immediately, if epoch_repeats is zero.
+        if (content_.on_epoch_symbol(cfg_) &&
+            content_.construction_opens(cfg_))
           publish_build((content_.effect_index + 1) % cfg_.effect_count);
       }
       if (epoch_emits_left_ > 0) {

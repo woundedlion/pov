@@ -726,11 +726,24 @@ inline void test_sim_epoch_commit() {
       },
       double(cfg.join_grid_revs) + 2));
 
-  // Run to the epoch window and verify every board is dark mid-window.
+  // Run to the train start. Through the announce phase (the first R revs of
+  // the B+R+K countdown) every board keeps playing the outgoing effect…
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return s.boards[0].board.content().commit_pending; },
       double(cfg.revs_per_effect) + 2));
-  sim.run_revs(1.0); // mid-window (K = 2)
+  sim.run_revs(1.0); // mid-announce
+  for (auto &b : sim.boards) {
+    HS_EXPECT_TRUE(b.board.content().commit_pending);
+    HS_EXPECT_FALSE(b.dark_now);
+  }
+  // …then all go dark together for the K-revolution construction window.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[0].board.content().commit_in_revs <=
+               s.cfg.commit_revs;
+      },
+      double(cfg.epoch_repeats) + 1));
+  sim.run_revs(1.0); // mid-construction (K = 2)
   for (auto &b : sim.boards) {
     HS_EXPECT_TRUE(b.board.content().commit_pending);
     HS_EXPECT_TRUE(b.dark_now);
@@ -1014,6 +1027,92 @@ inline void test_sim_forged_burst() {
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
+// ── Scenario: epoch-repeat lockstep (§6.3.1) ────────────────────────────────
+
+// The EPOCH redundancy repeats are a reliability mechanism, not a per-board
+// reschedule: a board that misses the primary copy at boundary B but accepts
+// a repeat at B+j must still commit at the SAME absolute boundary as its
+// peers, with a frame counter that stays equal afterwards. Two sub-scenarios:
+// one downstream board deafened for exactly the primary copy, and the master
+// masked across B so it self-censors the primary — every downstream board
+// then first hears the B+1 repeat while the master heard "itself" at B.
+inline void test_sim_epoch_repeat_lockstep() {
+  const Config cfg = test_config();
+  const uint64_t rev = 2ull * kPeriod;
+
+  auto boot_join = [&cfg](Sim &sim) {
+    return sim.run_until(
+        [](Sim &s) {
+          for (auto &b : s.boards)
+            if (!b.live)
+              return false;
+          return true;
+        },
+        double(cfg.join_grid_revs) + 2);
+  };
+  // Park one revolution before the train start: master (ppm 0) crosses ZERO
+  // on exact rev multiples, so the primary copy rides the crossing ≈ one rev
+  // from the moment this predicate fires.
+  auto to_pre_train = [&cfg](Sim &sim) {
+    return sim.run_until(
+        [](Sim &s) {
+          return s.boards[0].board.content().rev_in_effect >=
+                 s.cfg.revs_per_effect - 1;
+        },
+        double(cfg.revs_per_effect) + 4);
+  };
+  auto all_on_effect_1 = [](Sim &s) {
+    for (auto &b : s.boards)
+      if (b.live_index != 1)
+        return false;
+    return true;
+  };
+  auto expect_lockstep = [&](Sim &sim) {
+    for (int i = 1; i < 4; ++i) {
+      // Commits land at each board's own crossing of the same boundary —
+      // within a couple of columns of global time, never a revolution apart.
+      const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
+                         static_cast<int64_t>(sim.boards[0].swap_g);
+      HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+      HS_EXPECT_FALSE(sim.boards[i].trapped);
+    }
+    sim.run_revs(2.0);
+    sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+    for (int i = 1; i < 4; ++i)
+      HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+  };
+  const double commit_revs_max =
+      double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8;
+
+  // Sub-scenario 1: board 2 misses ONLY the primary copy at B.
+  {
+    const int32_t ppm[4] = {0, 20, -20, 10};
+    Sim sim(cfg, 4, ppm);
+    HS_EXPECT_TRUE(boot_join(sim));
+    HS_EXPECT_TRUE(to_pre_train(sim));
+    sim.boards[2].drop_from = sim.g + rev - 4 * kCol;
+    sim.boards[2].drop_to = sim.g + rev + rev / 4; // before the B+1 repeat
+    HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
+    expect_lockstep(sim);
+  }
+
+  // Sub-scenario 2: the master self-censors the primary copy (masked across
+  // its own train-start boundary, a designed event — §5.2): it must not
+  // schedule a commit its peers cannot match.
+  {
+    const int32_t ppm[4] = {0, 15, -25, 30};
+    Sim sim(cfg, 4, ppm);
+    HS_EXPECT_TRUE(boot_join(sim));
+    HS_EXPECT_TRUE(to_pre_train(sim));
+    const uint64_t b0 = sim.g + rev;
+    sim.boards[0].masks.push_back({b0 - kCol / 4, b0 + 2 * kCol});
+    HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
+    const Telemetry &tm0 = sim.boards[0].board.telemetry();
+    HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted, 0u);
+    expect_lockstep(sim);
+  }
+}
+
 // ── Runner ──────────────────────────────────────────────────────────────────
 
 inline int run_pov_sync_tests() {
@@ -1036,6 +1135,7 @@ inline int run_pov_sync_tests() {
   test_sim_drops_and_missed_epoch();
   test_sim_reboot();
   test_sim_forged_burst();
+  test_sim_epoch_repeat_lockstep();
 
   return end_module(scope);
 }
