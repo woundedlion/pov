@@ -162,8 +162,11 @@ private:
     Basis basis = make_basis(orientation.get(), ring_vec);
 
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
-      Vector axis = orientation.orient(X_AXIS);
-      float angle = angle_between(axis, orientation.orient(v));
+      // Rotation preserves angles, so angle_between(R·X_AXIS, R·v) ==
+      // angle_between(X_AXIS, v): both orientation rotations cancel. Compute the
+      // gradient directly off the un-rotated axis to skip two per-fragment
+      // orient() calls.
+      float angle = angle_between(X_AXIS, v);
       f.color = palette.get(angle / PI_F);
       f.color.alpha *= params.alpha * opacity;
     };
