@@ -1,4 +1,9 @@
-cmake_minimum_required(VERSION 3.21)
+# 3.29 is the real floor: CMakePresets schema v6 needs >=3.25 (3.21-3.24 reject
+# the file outright) and the native test toolchain's CMAKE_LINKER_TYPE was added
+# in 3.29 (silently ignored on 3.25-3.28, so the Windows tests build falls back
+# to the wrong linker — the exact failure toolchain-native-clang.cmake exists to
+# prevent). Declare it honestly so an old CMake fails loudly instead of mis-linking.
+cmake_minimum_required(VERSION 3.29)
 project(Holosphere CXX)
 
 # Two build modes share this file, selected by the toolchain:

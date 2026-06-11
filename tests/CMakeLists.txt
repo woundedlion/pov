@@ -18,7 +18,10 @@ if(EMSCRIPTEN)
   return()
 endif()
 
-cmake_minimum_required(VERSION 3.16)
+# Matches the root floor: the native-clang toolchain sets CMAKE_LINKER_TYPE
+# (added in CMake 3.29), which is silently ignored on older CMake. This applies
+# to the standalone `cmake -S tests` path too, so gate it here as well.
+cmake_minimum_required(VERSION 3.29)
 
 # Allow standalone configuration (cmake -S tests) as well as being pulled in by
 # a native root build.
