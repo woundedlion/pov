@@ -56,7 +56,14 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    float phase = fmodf(static_cast<float>(global_timeline_t), 120.0f) / 120.0f;
+    // Was fmodf(static_cast<float>(global_timeline_t), 120) / 120, which loses
+    // integer precision once the global frame count passes 2^24 (~77 h
+    // continuous). An effect-local int counter wrapped to the 120-frame period
+    // stays exact and bounded forever (finding 320) — the same effect-local
+    // wrapped-accumulator pattern the sibling components use. timeline.step()
+    // above advanced one frame, so advance in lockstep here.
+    phase_frame_ = (phase_frame_ + 1) % 120;
+    float phase = static_cast<float>(phase_frame_) / 120.0f;
 
     // Calculate Stabilizing Counter-Rotation
     Vector n_in = Y_AXIS;
@@ -219,6 +226,10 @@ private:
 
   Vector holeN;
   Vector holeS;
+
+  // Effect-local frame counter wrapped to the ring/line phase period (was
+  // derived from the global frame count; see draw_frame, finding 320).
+  int phase_frame_ = 0;
 
   Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,
            Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
