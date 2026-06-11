@@ -97,7 +97,11 @@ public:
     Basis scan_basis = make_basis(cam_q * scan_orient_.get(), -X_AXIS);
 
     for (int i = count - 1; i >= 0; --i) {
-      float t = static_cast<float>(i) / (count > 1 ? count - 1 : 1);
+      // (i+1)/count, not i/(count-1): the latter gives the i=0 layer t=0 (radius
+      // 0, invisible) every frame and renders nothing at all at Count=1. This
+      // maps the layers to (0, 1], so the innermost layer keeps a nonzero radius
+      // and Count=1 draws a single full-size ring.
+      float t = static_cast<float>(i + 1) / count;
       Color4 color = Palettes::richSunset.get(t);
       drawRing(canvas, plot_basis, RenderMode::Plot, t, color, i);
       drawRing(canvas, scan_basis, RenderMode::Scan, t, color, i);
