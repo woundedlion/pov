@@ -431,7 +431,7 @@ cube_relax_bevel33_relax_hk68_expand5(Arena &a, Arena &b) {
       .expand(0.5f)
       .build();
 }
-FLASHMEM static PolyMesh icosahedron_hk59_bevel033(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh icosahedron_bevel033_hk59(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b)
       .bevel(0.33f)
       .hankin(59.0f * D2R)
@@ -703,8 +703,8 @@ inline constexpr Entry islamic_registry[] = {
     {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk43",
      IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk43,
      Category::Complex},
-    {"icosahedron_hk59_bevel033",
-     IslamicStarPatterns::icosahedron_hk59_bevel033, Category::Complex},
+    {"icosahedron_bevel033_hk59",
+     IslamicStarPatterns::icosahedron_bevel033_hk59, Category::Complex},
     {"octahedron_hk17_ambo_hk73",
      IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
