@@ -39,12 +39,12 @@ class BZReactionDiffusion
   // Bring dependent-base names into scope (template base requires this).
   using Base::build_nodes;
   using Base::cube_lut;
-  using Base::dist2;
   using Base::for_each_neighbor;
   using Base::init_orientation_animation;
   using Base::kernel_accumulate;
   using Base::orientation;
   using Base::RD_N;
+  using Base::refine_nearest_node;
   using Base::registerParam;
 
 public:
@@ -197,21 +197,6 @@ private:
     return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f)),
                  static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f)),
                  static_cast<uint16_t>(hs::clamp(bl, 0.0f, 65535.0f)));
-  }
-
-  /** Refine a cubemap seed to its closest node by checking direct neighbors. */
-  static int refine_nearest_node(const Vector &rv, const Vector *nodes,
-                                 int center_node) {
-    float best_d = dist2(rv, nodes[center_node]);
-    int best_node = center_node;
-    for_each_neighbor(center_node, [&](int ni) {
-      float d = dist2(rv, nodes[ni]);
-      if (d < best_d) {
-        best_d = d;
-        best_node = ni;
-      }
-    });
-    return best_node;
   }
 
   /** Sample the kernel-interpolated color at a world-space point. */

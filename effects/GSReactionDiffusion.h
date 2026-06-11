@@ -32,6 +32,7 @@ class GSReactionDiffusion
   using Base::kernel_accumulate;
   using Base::orientation;
   using Base::RD_N;
+  using Base::refine_nearest_node;
   using Base::registerParam;
 
 public:
@@ -175,7 +176,11 @@ private:
     // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
     auto shader = [&](const Vector &v) -> Color4 {
       Vector rv = orientation.unorient(v);
-      int nearest = cube_lut.lookup(rv);
+      // Refine the cubemap seed to the genuine nearest node before centering the
+      // kernel — the CubemapLUT quantizes `rv` to a face cell and can return a
+      // not-quite-nearest seed, the quantization bias BZ's refine step removes
+      // (finding 217). Reuses the shared ReactionDiffusionBase refinement.
+      int nearest = refine_nearest_node(rv, nodes, cube_lut.lookup(rv));
       float b = interpolate_b(rv, nearest, nodes);
 
       if (b < B_CULL_THRESHOLD)

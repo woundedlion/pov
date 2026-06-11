@@ -49,6 +49,25 @@ protected:
     return dx * dx + dy * dy + dz * dz;
   }
 
+  /** Refine a cubemap-LUT seed to its closest lattice node by checking the
+   *  seed's direct neighbors. The CubemapLUT quantizes the query direction to a
+   *  face cell, so its seed can be a not-quite-nearest node; centering the kernel
+   *  on the genuine nearest node removes that quantization bias. Shared by both
+   *  systems — without it the interpolation inherits the cubemap grid artifact. */
+  static int refine_nearest_node(const Vector &rv, const Vector *nodes,
+                                 int center_node) {
+    float best_d = dist2(rv, nodes[center_node]);
+    int best_node = center_node;
+    for_each_neighbor(center_node, [&](int ni) {
+      float d = dist2(rv, nodes[ni]);
+      if (d < best_d) {
+        best_d = d;
+        best_node = ni;
+      }
+    });
+    return best_node;
+  }
+
   /** Languid random-walk of the view orientation (shared by both systems). */
   void init_orientation_animation() {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
