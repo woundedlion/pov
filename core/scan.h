@@ -74,6 +74,11 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     if (!debug_bb && alpha <= 0.001f)
       return;
 
+    // Reset color before every shader call (matches Plot::rasterize): the
+    // scratch Fragment is reused across pixels, so a conditionally-writing
+    // shader would otherwise inherit the previous pixel's color *and alpha*,
+    // and the stale `alpha > 0.001f` check below would plot a ghost.
+    frag_scratch.color = Color4(0, 0, 0, 0);
     frag_scratch.pos = p;
     frag_scratch.v0 = result_scratch.t;
     frag_scratch.v1 = result_scratch.raw_dist;
