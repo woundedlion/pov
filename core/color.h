@@ -756,6 +756,13 @@ public:
   }
 
   Color4 get(float t) const override {
+    // Clamp to [0,1] like Gradient::get / BakedPalette::get. Without this a
+    // t < shape[0] (=0) matches no segment and falls through to the size-2
+    // fallback below — returning the LAST segment's start (the middle color for
+    // STRAIGHT) instead of the first stop, a discontinuity at t=0. hs::clamp
+    // also folds NaN to 1.0 (the house contract), so a NaN t yields the last
+    // stop deterministically rather than the same stray fallback.
+    t = hs::clamp(t, 0.0f, 1.0f);
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
       if (t >= shape[i] && t < shape[i + 1]) {

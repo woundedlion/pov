@@ -15,6 +15,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 
 #include "core/color.h"
 #include "tests/test_harness.h"
@@ -703,6 +704,27 @@ inline void test_generative_palette_deterministic() {
   HS_EXPECT_TRUE(g3_differs); // a different seed must change the palette
 }
 
+// get(t) must clamp t to [0,1] like the other palettes: a t < 0 previously
+// matched no segment and fell through to the size-2 fallback, returning the LAST
+// segment's start (the middle color for STRAIGHT) instead of the first stop — a
+// discontinuity at t=0. A NaN t folds to 1.0 (house clamp contract) -> last
+// stop, deterministically.
+inline void test_generative_palette_get_clamps_out_of_range() {
+  GenerativePalette g(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                      BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 0);
+  Color4 first = g.get(0.0f);
+  Color4 below = g.get(-0.5f);
+  HS_EXPECT_EQ(below.color.r, first.color.r); // clamps to the first stop
+  HS_EXPECT_EQ(below.color.g, first.color.g);
+  HS_EXPECT_EQ(below.color.b, first.color.b);
+
+  Color4 last = g.get(1.0f);
+  Color4 nan = g.get(std::numeric_limits<float>::quiet_NaN());
+  HS_EXPECT_EQ(nan.color.r, last.color.r); // NaN -> hi -> last stop
+  HS_EXPECT_EQ(nan.color.g, last.color.g);
+  HS_EXPECT_EQ(nan.color.b, last.color.b);
+}
+
 // The auto-seed cursor advances per construction, so two consecutive auto-seeded
 // palettes differ; reset_hue_seed restores the cursor for reproducibility.
 inline void test_generative_palette_auto_seed_advances() {
@@ -916,6 +938,7 @@ inline int run_color_tests() {
   test_procedural_palette_cosine();
   test_mutating_palette_blends_endpoints();
   test_generative_palette_deterministic();
+  test_generative_palette_get_clamps_out_of_range();
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
   test_palette_modifiers();
