@@ -53,7 +53,11 @@ public:
                     48, 160, [this](auto &) { rotate(); }, true));
   }
 
-  void reverse() { params.speed *= -1; }
+  // Flip travel direction via a private sign rather than mutating the
+  // registered "Speed" slider — writing params.speed here would clobber the
+  // user's value every few seconds and fight the GUI (finding 109). Effective
+  // speed is params.speed * speed_direction_ (applied in draw_frame).
+  void reverse() { speed_direction_ *= -1; }
 
   void rotate() {
     timeline.add(0, Animation::Rotation<W>(orientation, random_vector(), PI_F,
@@ -140,12 +144,19 @@ public:
 
     timeline.step(canvas);
 
-    // Hoist the divisor so the i/steps division is provably guarded: the loop
-    // body only runs when steps >= 1, so speed == 0 produces zero iterations
-    // (no divide-by-zero) and falls straight through to the flush below.
-    const int steps = std::abs((int)params.speed);
+    // Carry the fractional part of |speed| across frames so slow speeds still
+    // advance the strand instead of dead-zoning to zero whenever |speed| < 1
+    // (the old `(int)params.speed` truncation, finding 109). The integer part
+    // is consumed as whole steps this frame; the remainder rolls forward.
+    const float effective_speed = params.speed * speed_direction_;
+    speed_accumulator_ += std::abs(effective_speed);
+    const int steps = static_cast<int>(speed_accumulator_);
+    speed_accumulator_ -= static_cast<float>(steps);
+    // The i/steps division is provably guarded: the loop body only runs when
+    // steps >= 1, so a sub-1 accumulator produces zero iterations (no
+    // divide-by-zero) and falls straight through to the flush below.
     for (int i = steps - 1; i >= 0; --i) {
-      pull(0);
+      pull(0, effective_speed);
       draw_nodes(canvas, static_cast<float>(i) / steps);
     }
 
@@ -176,8 +187,8 @@ private:
     }
   }
 
-  void pull(int leader) {
-    nodes[leader].v = dir((int)params.speed);
+  void pull(int leader, float effective_speed) {
+    nodes[leader].v = dir(effective_speed);
     move(nodes[leader]);
     for (int i = leader - 1; i >= 0; --i) {
       drag(nodes[i + 1], nodes[i]);
@@ -201,7 +212,7 @@ private:
 
   void move(Node &node) { node.x = wrap(node.x + node.v, W); }
 
-  int dir(int speed) const { return speed < 0 ? -1 : 1; }
+  int dir(float speed) const { return speed < 0 ? -1 : 1; }
 
   Timeline timeline;
 
@@ -218,6 +229,13 @@ private:
 
   Vector palette_normal;
   std::array<Node, NUM_NODES> nodes;
+
+  // Travel direction toggled by reverse(); kept separate from the registered
+  // "Speed" slider so animation never clobbers the user's value (finding 109).
+  int speed_direction_ = 1;
+  // Fractional-step carry so |speed| < 1 still advances the strand over
+  // multiple frames instead of truncating to zero (finding 109).
+  float speed_accumulator_ = 0.0f;
 
   struct Params {
     float speed = 2.0f;
