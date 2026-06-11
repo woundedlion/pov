@@ -618,7 +618,9 @@ public:
     float x_m = x - x_floor; // always in [0, 1)
 
     // Spherical density compensation: scale X fractional by sin(phi).
-    // At poles, all columns converge to the same point — snap to nearest.
+    // At poles, all columns converge to the same point, so the compression
+    // drives x_frac->0 and the sample collapses onto its left (floor) column
+    // x0 — a floor-snap, NOT a round-to-nearest (x_m=0.9 still lands on x0).
     // At equator, sin(phi)=1 so behavior is unchanged.
     // (LUT init hoisted to the constructor — see above.)
     int yi0 = hs::clamp(static_cast<int>(y_i), 0,
@@ -634,8 +636,8 @@ public:
     // drifting across a column boundary ramps linearly in X while Y stays
     // smooth (most visible at the equator, where sin(phi)=1 and x_frac==x_m).
     // sin(phi) is an orthogonal density compensation, not a substitute for the
-    // easing; at the poles x_frac->0 so quintic_kernel(0)=0 still snaps to the
-    // nearest column.
+    // easing; at the poles x_frac->0 so quintic_kernel(0)=0 collapses the
+    // sample onto its left (floor) column x0.
     float xs = quintic_kernel(x_frac);
     float ys = quintic_kernel(y_m);
 
