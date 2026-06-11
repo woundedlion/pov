@@ -17,7 +17,6 @@ public:
     Vector pos;
     Vector axis;
     Color4 color;
-    int id;
   };
 
   FLASHMEM Voronoi() : Effect(W, H) {}
@@ -177,7 +176,7 @@ public:
       float t = i / (float)(n > 1 ? n - 1 : 1);
       Color4 color = Palettes::richSunset.get(t);
 
-      sites_buffer.push_back({pos, axis, color, i});
+      sites_buffer.push_back({pos, axis, color});
     }
     current_num_sites = n;
   }

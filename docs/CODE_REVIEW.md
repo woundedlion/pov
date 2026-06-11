@@ -748,7 +748,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* A periodic ~2-second visual stall in an otherwise continuously-morphing effect reads as a glitch on the sphere, and the duplicate-harmonic blend pays the double-evaluation cost for zero visual change.
    *Suggested fix:* Re-roll when the pick equals current_idx, e.g. `do { next_idx = hs::rand_int(1, 24); } while (next_idx == current_idx);` (bounded: 23 candidates), or offset-sample from the remaining 22 indices.
 
-127. **Voronoi Site::id is a write-only member** — `effects/Voronoi.h:16-21, 180` *(not independently validated)*
+127. ✅ **Voronoi Site::id is a write-only member** — `effects/Voronoi.h:16-21, 180` *(validated: id was assigned the loop index in seed_sites and never read — rendering identifies sites via knn[n].original_index; fixed by removing the field and the trailing `i` from the aggregate initializer)*
    `struct Site { Vector pos; Vector axis; Color4 color; int id; };` — `id` is assigned the loop index in seed_sites() (line 180, `sites_buffer.push_back({pos, axis, color, i})`) and never read anywhere. Rendering identifies sites via `knn[n].original_index` from the KD-tree, not via Site::id.
    *Why it matters:* 4 dead bytes per site (1.6 KB of the persistent-arena MAX_SITES allocation) and a misleading hint that sites carry a meaningful identity beyond their buffer index — likely a leftover from the pre-KD-tree per-pixel scan.
    *Suggested fix:* Remove the `id` field and the trailing `i` from the aggregate initializer in seed_sites().
