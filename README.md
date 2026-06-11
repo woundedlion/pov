@@ -1799,7 +1799,7 @@ Codec priority is MP4/H.264 → WebM/VP9 → WebM/VP8, with optional offscreen-c
 | `Holosphere (20x96)` | 96 × 20 | Matches the original Holosphere hardware |
 | `Phantasm (144x288)` | 288 × 144 | Matches Phantasm; default in the web simulator |
 
-Switching presets does a full WASM reset: `setResolution(w, h)` reallocates buffers, `setEffect(name)` rebuilds the effect at the new template instantiation. The sidebar swaps to the matching favorites list (§10.5).
+Switching presets does a full WASM reset: `setResolution(w, h)` updates the active width/height and drops the current effect — the pixel buffer is pre-sized to `MAX_W × MAX_H` and deliberately never resized (a realloc could move its backing store under `ALLOW_MEMORY_GROWTH` and detach every outstanding `getPixels()` view), so `getPixels()` returns a view over just the active prefix. `setEffect(name)` then rebuilds the effect at the new template instantiation. The sidebar swaps to the matching favorites list (§10.5).
 
 ### 10.11 Geometry Tools (`daydream/tools/`)
 
