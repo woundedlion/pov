@@ -1027,6 +1027,27 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
     HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f);
 }
 
+inline void test_deep_tween_all_collapsed_reaches_one() {
+  // Every frame motionless: the backward scan strands last at 0 and frame 0 is
+  // itself a lone snapshot. The sub-frame-0 fallback would emit t = 0.0, leaving
+  // the single plotted orientation at the tail of the age ramp (a static head
+  // renders invisible under quintic_kernel(0)). Like tween(Orientation) for a
+  // lone snapshot, it must read t = 1.0.
+  using Ori = Orientation<8>;
+  Animation::OrientationTrail<Ori, 8> trail;
+  for (int k = 0; k < 3; ++k) {
+    Ori still; // identity, length 1 — no motion any frame
+    trail.record(still);
+  }
+
+  std::vector<float> gts;
+  deep_tween(trail,
+             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+
+  HS_EXPECT_EQ(gts.size(), static_cast<size_t>(1));
+  HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
+}
+
 // ============================================================================
 // MeshMorph (nearest-vertex SLERP + crossfade invariant)
 // ----------------------------------------------------------------------------
@@ -1163,6 +1184,7 @@ inline int run_animation_tests() {
 
   test_deep_tween_global_t_spans_unit_interval();
   test_deep_tween_collapsed_newest_frame_reaches_one();
+  test_deep_tween_all_collapsed_reaches_one();
 
   test_meshmorph_identity_self_map_and_crossfade();
 

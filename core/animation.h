@@ -2272,6 +2272,18 @@ void deep_tween(const Tweenable auto &trail, TweenFn callback) {
   size_t last = trail_len - 1;
   while (last > 0 && trail.get(last).length() <= 1)
     --last;
+
+  // A fully motionless trail collapses to frame 0's lone sub-position — the
+  // newest (and only) plotted orientation. Like the single-snapshot tween()
+  // overload, it must read t = 1.0 (age-neutral), not the 0.0 the sub-frame-0
+  // fallback would yield; otherwise quintic_kernel(0) = 0 renders a static head
+  // invisible. (A length-0 frame 0 emits nothing, matching the main loop.)
+  if (last == 0 && trail.get(0).length() == 1) {
+    const auto &frame = trail.get(0);
+    callback(frame.get(0), 1.0f);
+    return;
+  }
+
   float span = static_cast<float>(last + 1);
 
   for (size_t i = 0; i <= last; ++i) {
