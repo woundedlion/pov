@@ -1675,7 +1675,7 @@ struct PlanarPolygon {
   float phi_min, phi_max; // Vertical bounds as an angular band (radians)
   static constexpr bool is_solid = true;
 
-  PlanarPolygon(const Basis &b, float r, float th, int s, float ph)
+  PlanarPolygon(const Basis &b, float th, int s, float ph)
       : basis(b), thickness(th), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
     apothem = thickness * cosf(PI_F / sides);

@@ -111,8 +111,7 @@ inline void test_ring_just_outside_band() {
 inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
   // 6-gon, thickness=0.5 (radians), phase=0
-  SDF::PlanarPolygon poly(b, /*r*/ 0.0f, /*thickness*/ 0.5f, /*sides*/ 6,
-                          /*phase*/ 0.0f);
+  SDF::PlanarPolygon poly(b, /*thickness*/ 0.5f, /*sides*/ 6, /*phase*/ 0.0f);
 
   // Point at center of polygon (basis.v direction) is inside.
   auto r = poly.distance(Vector(0, 1, 0));
@@ -124,7 +123,7 @@ inline void test_polygon_at_center_inside() {
 
 inline void test_polygon_far_point_outside() {
   Basis b = equator_basis();
-  SDF::PlanarPolygon poly(b, 0.0f, 0.3f, 6, 0.0f);
+  SDF::PlanarPolygon poly(b, 0.3f, 6, 0.0f);
 
   // Point at the opposite pole (-Y) is π away from the polygon center → outside.
   auto r = poly.distance(Vector(0, -1, 0));
@@ -618,8 +617,7 @@ inline void test_cull_covers_interior_over_orientation_grid() {
 
       // PlanarPolygon (solid, tangent-plane cap; `thickness` is its angular
       // circumradius).
-      SDF::PlanarPolygon ppoly(basis, /*radius=*/radius, /*thickness=*/radius,
-                               /*sides=*/6, 0.0f);
+      SDF::PlanarPolygon ppoly(basis, /*thickness=*/radius, /*sides=*/6, 0.0f);
       total_interior += expect_cull_covers_interior<W, H>(ppoly);
     }
   }

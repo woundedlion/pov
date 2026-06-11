@@ -308,7 +308,7 @@ struct PlanarPolygon {
     auto res = get_antipode(basis, radius);
     float thickness = res.second * (PI_F / 2.0f);
 
-    SDF::PlanarPolygon shape(res.first, res.second, thickness, sides, phase);
+    SDF::PlanarPolygon shape(res.first, thickness, sides, phase);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
