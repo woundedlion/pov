@@ -15,6 +15,12 @@
 
 namespace hs_test {
 
+// Single-threaded by contract: the counters are plain ints, so every
+// HS_EXPECT_* must be evaluated on the test's main thread. This keeps the hot
+// assertion path free of atomic RMWs across the whole suite. The one test that
+// spawns a helper thread (test_ctor_spin_waits_for_buffer_free) honours this by
+// capturing its cross-thread observation into a std::atomic and asserting on the
+// main thread after join() — it never calls HS_EXPECT_* from the helper.
 struct Stats {
   int passed = 0;
   int failed = 0;

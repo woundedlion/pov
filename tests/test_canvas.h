@@ -201,13 +201,19 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 
   std::atomic<bool> ctor_returned{false};
   std::atomic<bool> released{false};
+  // The helper records its observation here instead of calling HS_EXPECT_*
+  // itself: the harness counters are single-threaded (see test_harness.h), so
+  // every assertion stays on the main thread, evaluated after join().
+  std::atomic<bool> ctor_blocked_when_checked{false};
 
   std::thread display_isr([&] {
     // Give the main thread time to actually enter the spin, then confirm the
     // ctor is still blocked (it cannot have returned while the buffer is busy)
     // before consuming the frame.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    HS_EXPECT_FALSE(ctor_returned.load(std::memory_order_acquire));
+    ctor_blocked_when_checked.store(
+        !ctor_returned.load(std::memory_order_acquire),
+        std::memory_order_relaxed);
     released.store(true, std::memory_order_relaxed);
     fx.advance_display(); // the "ISR" frees the buffer
   });
@@ -217,6 +223,8 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   ctor_returned.store(true, std::memory_order_release);
 
   display_isr.join();
+  // join() makes the helper's stores visible, so these plain loads are safe.
+  HS_EXPECT_TRUE(ctor_blocked_when_checked.load(std::memory_order_relaxed));
   HS_EXPECT_TRUE(released.load(std::memory_order_relaxed));
   // The helper's advance_display() promoted frame 0 to the displayed buffer, so
   // its pixel is now live. (buffer_free() is back to false here — the second
