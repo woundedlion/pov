@@ -118,6 +118,15 @@ private:
   }
 
   void update_palette() {
+    // Skip the rollover while a wipe is still in flight. The ColorWipe reads
+    // `next_palette_` as its target and mutates `palette` for WIPE_FRAMES frames;
+    // at the Cycle Dur floor the cycle period (2*cycle_dur = 20) is shorter than
+    // WIPE_FRAMES (48), so the timer can fire again mid-wipe. Starting a second
+    // wipe would overwrite the next_palette_ the live wipe still references and
+    // queue a second mutator fighting over `palette` (finding 214). The next
+    // timer tick picks up the rollover once the in-flight wipe drains.
+    if (wipe_frames_remaining_ > 0)
+      return;
     next_palette_ =
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::ASCENDING);

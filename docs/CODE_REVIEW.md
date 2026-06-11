@@ -224,7 +224,7 @@ Sequential numbering continues from the prior audit (1–146); this audit contri
 
 **Effects (A–H)**
 
-214. **Comets: overlapping ColorWipes share one next_palette_ member at low Cycle Dur** — `effects/Comets.h:120`. With the slider at its floor (period 20 < WIPE_FRAMES 48), a new wipe overwrites the member a live wipe still references and two wipes fight over `palette`. Floor the period at WIPE_FRAMES or gate on `wipe_frames_remaining_`.
+214. ✅ **Comets: overlapping ColorWipes share one next_palette_ member at low Cycle Dur** — `effects/Comets.h:120`. With the slider at its floor (period 20 < WIPE_FRAMES 48), a new wipe overwrites the member a live wipe still references and two wipes fight over `palette`. Floor the period at WIPE_FRAMES or gate on `wipe_frames_remaining_`.
 215. **Comets: closed_domain snap can round to zero for future curve entries** — `effects/Comets.h:113`. `round(m2·domain/2π)` yields 0 when m2·domain < π, freezing the head at the path start. All 12 current entries are safe; the table is authored data that gets extended. Guard with max(1, …).
 216. **Dynamo: strand blanks on zero-step frames when Trail Len is 1 and |Speed| < 1** — `effects/Dynamo.h:196`. Fractional-speed frames emit no plots and ttl=1 items are popped before drawing — sub-unit speeds flicker. Pass-through draw on zero-step frames or floor ttl at 2.
 217. **GSReactionDiffusion skips the nearest-node refinement BZ applies, retaining cubemap quantization bias** — `effects/GSReactionDiffusion.h:178`. The Wendland kernel can center on a not-quite-nearest node — the artifact class BZ's refine step was added to remove. Reuse the Base-level refinement.
