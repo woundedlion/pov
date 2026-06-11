@@ -290,7 +290,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 **Daydream: core app**
 
 348. ✅ **Dead exports and never-read precompute state retain ~10 MB at Phantasm resolution** — `daydream/driver.js:93` (`pixelPositions`/`pixelMatrices`, rebuilt per resolution switch), plus exported-but-unreferenced `XY`, `prettify`, `coordsLabel` — the latter latently wrong (double radius scaling) if ever used. *(Fixed: dropped write-only `pixelPositions`/`pixelMatrices` and the unreferenced `XY` export; `prettify`/`coordsLabel` retained as debug aids.)*
-349. **`DeepLinkGUI.remove()` delegates to a method lil-gui 0.21 does not have** — `daydream/gui.js:223`. Any caller would throw "not a function" (controllers are removed via `controller.destroy()`); dead, broken API surface.
+349. ✅ **`DeepLinkGUI.remove()` delegates to a method lil-gui 0.21 does not have** — `daydream/gui.js:223`. Any caller would throw "not a function" (controllers are removed via `controller.destroy()`); dead, broken API surface. *(Fixed: removed the dead `remove()` method.)*
 350. **Unused `GUI` import in driver.js** — `daydream/driver.js:10`. Couples the renderer module to the GUI/state layer; the geometry unit test already has to mock around the import graph.
 351. **Missing `<title>`, `user-scalable=no`, and an unlabeled primary canvas** — `daydream/index.html:4-10,73`. Blank tab/accessibility-tree name; pinch-zoom blocked (WCAG 1.4.4); the page's primary content invisible to assistive tech.
 352. **Listbox ARIA pattern incomplete in the sidebar** — `daydream/sidebar.js:40-55`. No `aria-selected`/`aria-activedescendant`, double tab stops (focusable container *and* native option buttons), and undecorated scroll-arrow glyphs announced by screen readers.
