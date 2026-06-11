@@ -183,6 +183,28 @@ inline void test_transition_quantized_floors_result() {
   HS_EXPECT_NEAR(v, 3.0f, 1e-5f);
 }
 
+inline void test_transition_repeat_retraverses_each_cycle() {
+  // A repeating Transition rewinds t to 0 at the end of each cycle. `from` is
+  // captured once (on the first step), so the second cycle must traverse the
+  // full 0 -> target ramp again. The prior code re-snapshotted from = mutant at
+  // t == 0, by which point mutant == target, freezing every later cycle at the
+  // target (a silent no-op).
+  float v = 0.0f;
+  const int duration = 4;
+  Animation::Transition tr(v, 10.0f, duration, ease_mid, /*quantized=*/false,
+                           /*repeat=*/true);
+  for (int i = 0; i < duration; ++i)
+    tr.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 10.0f, 1e-3f); // first cycle reaches the target
+
+  tr.rewind(); // what Timeline does for a repeating animation
+  tr.step(fake_canvas());
+  HS_EXPECT_LT(v, 10.0f); // second cycle leaves the target (frozen pre-fix)
+  for (int i = 1; i < duration; ++i)
+    tr.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 10.0f, 1e-3f); // and lands on it again
+}
+
 // ============================================================================
 // Mutation
 // ============================================================================
@@ -1051,6 +1073,7 @@ inline int run_animation_tests() {
   test_transition_monotonic_and_starts_from_current();
   test_transition_duration_zero_no_divide_by_zero();
   test_transition_quantized_floors_result();
+  test_transition_repeat_retraverses_each_cycle();
 
   test_mutation_applies_function_of_eased_time();
   test_mutation_duration_zero_finite();

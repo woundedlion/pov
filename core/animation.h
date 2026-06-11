@@ -635,8 +635,15 @@ public:
    * @brief Performs one step of the transition.
    */
   void step(Canvas &canvas) override {
-    if (t == 0) {
+    // Snapshot the start value once, on the first step — not every time t hits
+    // 0. A repeating Transition rewinds t to 0 at the end of each cycle, by
+    // which point mutant == to; re-snapshotting would set from = to and every
+    // subsequent cycle would write the constant `to` (a silent no-op). Capturing
+    // here rather than in the ctor still picks up a mutant changed between
+    // construction and the first step.
+    if (!captured) {
       from = mutant;
+      captured = true;
     }
     AnimationBase::step(canvas);
     auto t_norm = std::min(1.0f, static_cast<float>(this->t) / duration);
@@ -656,10 +663,11 @@ public:
 private:
   std::reference_wrapper<float>
       mutant;         /**< Reference to the float variable being animated. */
-  float from;         /**< Starting value. */
+  float from;         /**< Starting value, captured on the first step. */
   float to;           /**< Target value. */
   EasingFn easing_fn; /**< Easing curve. */
   bool quantized;     /**< Flag to round result to integer. */
+  bool captured = false; /**< True once `from` has been snapshotted. */
 };
 
 /**
