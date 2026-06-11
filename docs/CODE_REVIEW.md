@@ -708,7 +708,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* This is gallery-installation firmware expected to run for many hours; slow visual degradation that only appears after extended runtime is the hardest class of issue to notice in development.
    *Suggested fix:* Apply a mild per-frame damping, e.g. `b.v = b.v * 0.999f;` before integration, or renormalize ball distance toward the shell when |p| exceeds a bound.
 
-119. **libm trig/exp in PetalFlow's per-sample ring loop** — `effects/PetalFlow.h:160-191` *(not independently validated)*
+119. ✅ **libm trig/exp in PetalFlow's per-sample ring loop** — `effects/PetalFlow.h:160-191` *(validated: get_shift and the inverse-stereographic projection call sinf/cosf per sample across many concurrently-active rings; fixed by switching the per-sample theta and petal-wobble terms to fast_sinf/fast_cosf — the established hot-path convention — leaving expf, which has no fast_ variant, as-is)*
    draw_ring's inner loop calls sinf (in get_shift), expf, cosf, and sinf per sample, with W/2 samples per ring and ~21 concurrently active rings (7.5 rho span / 0.3 spacing), i.e. roughly 1,000 libm calls per frame at 96x20 and ~3,000 at 288x144 — every frame. The codebase convention for per-fragment loops is fast_sinf/fast_cosf (used by HopfFibration, Liquid2D, MindSplatter's draw path).
    *Why it matters:* Not a frame-budget breaker on its own, but it is the largest avoidable per-frame cost in this file set on the 600 MHz Teensy and an inconsistency against the established hot-path convention.
    *Suggested fix:* Use fast_sinf/fast_cosf for the per-sample theta and petal-wobble terms (expf has no fast_ variant; it could be precomputed only if the wobble moved out of the exponent, so leave it).

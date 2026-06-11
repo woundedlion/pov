@@ -159,7 +159,7 @@ private:
     // Radial wobble around the ring: PETAL_LOBES lobes per revolution form the
     // petals.
     auto get_shift = [](float t) -> float {
-      return PETAL_DEPTH * std::abs(sinf(PETAL_LOBES * PI_F * t));
+      return PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t));
     };
 
     ScratchScope _(scratch_arena_a);
@@ -178,8 +178,8 @@ private:
 
       float r2 = R * R;
       float denom = 1.0f + r2;
-      float x = 2.0f * R * cosf(final_theta) / denom;
-      float y = 2.0f * R * sinf(final_theta) / denom;
+      float x = 2.0f * R * fast_cosf(final_theta) / denom;
+      float y = 2.0f * R * fast_sinf(final_theta) / denom;
       float z = (r2 - 1.0f) / denom;
 
       Fragment f;
