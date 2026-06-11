@@ -8,6 +8,11 @@
 // (geometry, color, animation, plotting, palettes, presets, ...) that every
 // effect in effects/ includes via this one file.
 
+// platform.h first: on device it defines NDEBUG, which must be set before
+// <cassert> expands the assert macro — otherwise assert-stripping would depend
+// on a prior TU having pulled in platform.h (see canvas.h's identical note).
+#include "platform.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -31,7 +36,6 @@
 #include "transformers.h"
 
 #include "filter.h"
-#include "platform.h"
 #include "plot.h"
 #include "scan.h"
 #include "mesh.h"
