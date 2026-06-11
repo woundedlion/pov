@@ -9,10 +9,7 @@
 #include "spatial.h"
 #include "memory.h"
 
-#include <map>
-#include <set>
 #include <algorithm>
-#include <span>
 #include <cmath>
 #include <type_traits>
 
