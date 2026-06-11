@@ -145,12 +145,17 @@ private:
     }
   }
 
-  /** Full physics step: reaction-diffusion + perturbation + swap. */
-  void step_physics(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+  /** Full physics step: reaction-diffusion + perturbation.
+   *
+   * Pure double-buffered (Jacobi): reads the current buffers, writes the next
+   * ones. The caller owns the ping-pong so the result can be landed back in the
+   * persistent state regardless of substep parity (see render()). */
+  void step_physics(const uint8_t *cA, const uint8_t *cB, const uint8_t *cC,
+                    uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int i = 0; i < RD_N; i++) {
-      float a = from_q8(state.A[i]);
-      float b = from_q8(state.B[i]);
-      float c = from_q8(state.C[i]);
+      float a = from_q8(cA[i]);
+      float b = from_q8(cB[i]);
+      float c = from_q8(cC[i]);
 
       // All three species' Laplacians share one neighbor walk (fused on
       // purpose, per graph_laplacian's note: three single-field calls would
@@ -158,9 +163,9 @@ private:
       // same neighbor order, so the result is identical to the split form.
       float lA = 0, lB = 0, lC = 0;
       for_each_neighbor(i, [&](int ni) {
-        lA += from_q8(state.A[ni]) - a;
-        lB += from_q8(state.B[ni]) - b;
-        lC += from_q8(state.C[ni]) - c;
+        lA += from_q8(cA[ni]) - a;
+        lB += from_q8(cB[ni]) - b;
+        lC += from_q8(cC[ni]) - c;
       });
 
       nA[i] = advance_species(a, c, lA);
@@ -169,10 +174,6 @@ private:
     }
 
     perturb_state(nA, nB, nC);
-
-    std::swap(state.A, nA);
-    std::swap(state.B, nB);
-    std::swap(state.C, nC);
   }
 
   // ---------------------------------------------------------------------------
@@ -242,8 +243,26 @@ private:
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
 
-    for (int k = 0; k < STEPS_PER_FRAME; k++)
-      step_physics(sA, sB, sC);
+    // Ping-pong between the persistent state and the scratch buffers. cur always
+    // names the latest generation; nxt is the write target for the next step.
+    uint8_t *curA = state.A, *curB = state.B, *curC = state.C;
+    uint8_t *nxtA = sA, *nxtB = sB, *nxtC = sC;
+    for (int k = 0; k < STEPS_PER_FRAME; k++) {
+      step_physics(curA, curB, curC, nxtA, nxtB, nxtC);
+      std::swap(curA, nxtA);
+      std::swap(curB, nxtB);
+      std::swap(curC, nxtC);
+    }
+
+    // Land the final generation back in the persistent buffers so it survives
+    // the ScratchScope pop. An even substep count already leaves cur == state
+    // (no copy); an odd count leaves it in scratch and is copied back — making
+    // the effect correct for any STEPS_PER_FRAME, not just even values.
+    if (curA != state.A) {
+      std::memcpy(state.A, curA, RD_N);
+      std::memcpy(state.B, curB, RD_N);
+      std::memcpy(state.C, curC, RD_N);
+    }
 
     // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
     Color4 ca = palette.get(0.0f);

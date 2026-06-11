@@ -106,17 +106,21 @@ private:
 
   // Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A)
   //             dB/dt = dB·∇²B + A·B² - (k+feed)·B
-  void step_physics(uint16_t *nA, uint16_t *nB) {
+  // Pure double-buffered (Jacobi) step: reads the current buffers, writes the
+  // next ones. The caller owns the ping-pong so the result can be landed back
+  // in the persistent state regardless of substep parity (see render()).
+  void step_physics(const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
+                    uint16_t *nB) {
     for (int i = 0; i < RD_N; i++) {
-      float a = from_q16(state.A[i]);
-      float b = from_q16(state.B[i]);
+      float a = from_q16(cA[i]);
+      float b = from_q16(cB[i]);
 
       // Both species' Laplacians share one neighbor walk (fused on purpose:
       // two single-field graph_laplacian() calls would double the lattice reads).
       float lA = 0, lB = 0;
       for_each_neighbor(i, [&](int ni) {
-        lA += from_q16(state.A[ni]) - a;
-        lB += from_q16(state.B[ni]) - b;
+        lA += from_q16(cA[ni]) - a;
+        lB += from_q16(cB[ni]) - b;
       });
 
       float abb = a * b * b;
@@ -125,9 +129,6 @@ private:
       nB[i] = to_q16(b + (params.dB * lB + abb - (params.k + params.feed) * b) *
                              params.dt);
     }
-
-    std::swap(state.A, nA);
-    std::swap(state.B, nB);
   }
 
   float interpolate_b(const Vector &p, int nearest, const Vector *nodes) const {
@@ -152,8 +153,24 @@ private:
     uint16_t *sB = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
 
-    for (int k = 0; k < STEPS_PER_FRAME; k++)
-      step_physics(sA, sB);
+    // Ping-pong between the persistent state and the scratch buffers. cur always
+    // names the latest generation; nxt is the write target for the next step.
+    uint16_t *curA = state.A, *curB = state.B;
+    uint16_t *nxtA = sA, *nxtB = sB;
+    for (int k = 0; k < STEPS_PER_FRAME; k++) {
+      step_physics(curA, curB, nxtA, nxtB);
+      std::swap(curA, nxtA);
+      std::swap(curB, nxtB);
+    }
+
+    // Land the final generation back in the persistent buffers so it survives
+    // the ScratchScope pop. An even substep count already leaves cur == state
+    // (no copy); an odd count leaves it in scratch and is copied back — making
+    // the effect correct for any STEPS_PER_FRAME, not just even values.
+    if (curA != state.A) {
+      std::memcpy(state.A, curA, RD_N * sizeof(uint16_t));
+      std::memcpy(state.B, curB, RD_N * sizeof(uint16_t));
+    }
 
     // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
     auto shader = [&](const Vector &v) -> Color4 {
