@@ -1744,7 +1744,7 @@ The left-edge effect list is a small custom widget:
 - **Persistent button references**: re-sorting by name or size (live `sizeof` from `getEffectSizes()`) re-appends the existing button nodes in the new order without recreating them; `setEffects()` itself rebuilds the list from scratch.
 - **Keyboard navigation**: arrow keys move the focused button; Enter or Space selects.
 - **Mobile horizontal scroll**: when laid out as a horizontal strip, scroll arrows fade in/out based on scroll position via a `ResizeObserver` + scroll listener.
-- **Per-resolution filtering**: each resolution has its own curated effect list — effects outside the active list are still in the WASM registry and can be loaded directly via `?effect=…`, but they won't show in the sidebar.
+- **Per-resolution filtering**: each resolution has its own curated effect list, shown in the sidebar. An effect that is not in the active resolution's list — including one hydrated from a `?effect=…` link — is replaced with that list's first effect, so only curated effects load at a given resolution.
 
 ### 10.6 GUI Auto-Generation
 
