@@ -2242,7 +2242,11 @@ void tween(const Animation::VectorTrail<CAPACITY> &trail,
     return;
 
   for (size_t i = 0; i < len; ++i) {
-    float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 0.0f;
+    // A lone sample is the newest (head) position, so t = 1 (age-neutral) — the
+    // multi-sample sweep already ends at 1 for i = len - 1. Emitting 0 here
+    // would flash a freshly spawned or dying particle at tail brightness for the
+    // one frame its history holds a single point (mirrors tween(Orientation)).
+    float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 1.0f;
     callback(trail.get(i), t);
   }
 }

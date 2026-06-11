@@ -1048,6 +1048,28 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
 }
 
+inline void test_tween_vectortrail_single_sample_reaches_one() {
+  // A freshly spawned or dying particle holds one history point. That lone
+  // sample is the trail head, so it must read t = 1.0 — emitting 0.0 flashed it
+  // at tail brightness for the frame (mirrors tween(Orientation)). The
+  // multi-sample sweep still ramps 0 -> 1 oldest -> newest.
+  Animation::VectorTrail<8> trail;
+  trail.record(Vector(1, 0, 0));
+
+  std::vector<float> ts;
+  tween(trail, [&](const Vector &, float t) { ts.push_back(t); });
+  HS_EXPECT_EQ(ts.size(), static_cast<size_t>(1));
+  HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
+
+  trail.record(Vector(0, 1, 0));
+  trail.record(Vector(0, 0, 1));
+  ts.clear();
+  tween(trail, [&](const Vector &, float t) { ts.push_back(t); });
+  HS_EXPECT_EQ(ts.size(), static_cast<size_t>(3));
+  HS_EXPECT_NEAR(ts.front(), 0.0f, 1e-6f); // oldest = tail
+  HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);  // newest = head
+}
+
 // ============================================================================
 // MeshMorph (nearest-vertex SLERP + crossfade invariant)
 // ----------------------------------------------------------------------------
@@ -1185,6 +1207,7 @@ inline int run_animation_tests() {
   test_deep_tween_global_t_spans_unit_interval();
   test_deep_tween_collapsed_newest_frame_reaches_one();
   test_deep_tween_all_collapsed_reaches_one();
+  test_tween_vectortrail_single_sample_reaches_one();
 
   test_meshmorph_identity_self_map_and_crossfade();
 
