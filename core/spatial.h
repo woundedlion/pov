@@ -199,7 +199,7 @@ public:
       return max_d;
     };
 
-    search_k(root_index, target, k, heap, push_heap, get_worst_dist);
+    search_k(root_index, target, push_heap, get_worst_dist);
 
     // Sort result by distance (closest first)
     std::sort(
@@ -271,20 +271,21 @@ private:
   }
 
   // K-Nearest Search
+  // k and the heap buffer are not passed in: both are already captured by
+  // reference inside the push_heap/get_worst_dist lambdas (see nearest()), so
+  // the traversal reaches them through those callbacks rather than its own
+  // parameters.
   template <typename PushFn, typename MaxDistFn>
-  void search_k(int node_idx, const Vector &target, int k, const auto &heap,
-                PushFn &&push_heap, MaxDistFn &&get_worst_dist) const {
+  void search_k(int node_idx, const Vector &target, PushFn &&push_heap,
+                MaxDistFn &&get_worst_dist) const {
     if (node_idx == -1)
       return;
 
     const KDNode &node = nodes[node_idx];
     float d_sq = distance_squared(node.point, target);
-    float worst_sq = get_worst_dist();
 
-    if (d_sq < worst_sq) {
+    if (d_sq < get_worst_dist())
       push_heap(d_sq, node_idx);
-      worst_sq = get_worst_dist(); // Update after push
-    }
 
     float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
                      : (node.axis == 1) ? (target.y - node.point.y)
@@ -293,12 +294,12 @@ private:
     int near = axis_dist < 0 ? node.left : node.right;
     int far = axis_dist < 0 ? node.right : node.left;
 
-    search_k(near, target, k, heap, push_heap, get_worst_dist);
+    search_k(near, target, push_heap, get_worst_dist);
 
-    // Query worst again
-    worst_sq = get_worst_dist();
-    if ((axis_dist * axis_dist) < worst_sq) {
-      search_k(far, target, k, heap, push_heap, get_worst_dist);
+    // Re-query the worst bound: the near subtree may have filled the heap and
+    // tightened it, so the far side can be pruned.
+    if ((axis_dist * axis_dist) < get_worst_dist()) {
+      search_k(far, target, push_heap, get_worst_dist);
     }
   }
 };
