@@ -250,7 +250,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 321. ✅ **Voronoi's "Smoothness" parameter is semantically inverted** — `effects/Voronoi.h:33`. `factor = min(1, diff·smoothness)` saturates faster as the slider rises, so raising Smoothness *sharpens* cell borders. Rename ("Sharpness") or invert the mapping.
 322. ✅ **SplineFlow: thirteen RandomWalks share one FastNoiseLite whose seed/frequency each constructor stomps** — `effects/SplineFlow.h:43-54`. The last-constructed walk (Languid, 0.02) wins, so the twelve point-walks run at a 33% lower generator frequency than their options specify and all walks sample one identically-seeded field. RingSpin shows the correct one-generator-per-walk pattern.
 323. ✅ **Thrusters comment claims `warp_phase/PI_F` converts radians to cycles; the correct factor is 1/(2π)** — `effects/Thrusters.h:154-157`. Behaviorally benign today (a doubled uniform random phase is still uniform), but the comment documents a wrong conversion and will mislead whoever fixes finding 277.
-324. **README Moire description doesn't match the implementation** — `README.md:1418`. "Angular frequencies slowly drift": ring density is a fixed slider; the interference beat comes from counter-rotation plus an amplitude Mutation, not frequency drift.
+324. ✅ **README Moire description doesn't match the implementation** — `README.md:1418`. "Angular frequencies slowly drift": ring density is a fixed slider; the interference beat comes from counter-rotation plus an amplitude Mutation, not frequency drift.
 
 **Hardware**
 

@@ -1415,7 +1415,7 @@ A latitude-longitude grid that undergoes live Möbius transformation animation v
 
 #### Moire
 
-Overlapping ring families that produce interference patterns as their angular frequencies slowly drift.
+Two counter-rotating families of concentric rings that beat against each other into a shifting moiré interference pattern, driven by an animated ring-distortion amplitude.
 
 </td></tr></table>
 
