@@ -387,6 +387,25 @@ inline void case_plot_extract_edges_vertex_over_capacity() {
   Plot::Mesh::extract_edges(mesh, edges); // index 130 -> trap
 }
 
+// Filter surface: Pixel::Feedback::flush traps on a downsample factor that does
+// not divide the resolution, rather than silently turning the whole feedback
+// effect into a no-op — a cold authoring/config error the project routes to
+// HS_CHECK (enabled_ remains the supported way to switch feedback off). The
+// trap fires before any_pixel_lit / scratch allocation, so no buffers needed.
+inline void case_feedback_downsample_indivisible() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx;
+  Canvas c(fx);
+  ::Feedback::Style style = ::Feedback::Style::Smoke();
+  style.downsample = opaque(5); // 32 % 5 != 0 -> HS_CHECK
+  Filter::Pixel::Feedback<W, H> fb(style);
+  fb.flush(
+      c,
+      ScreenTrailFn(
+          [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); }),
+      1.0f, [](float, float, const ::Pixel &, float, float) {});
+}
+
 struct Case {
   const char *name;
   void (*fn)();
@@ -421,6 +440,8 @@ inline const Case *all_cases(int &n) {
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity},
+      {"feedback_downsample_indivisible",
+       case_feedback_downsample_indivisible},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;

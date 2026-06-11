@@ -797,7 +797,12 @@ public:
     if (!enabled_) return;
 
     const int ds = style_->downsample;
-    if (ds <= 0 || W % ds != 0 || H % ds != 0) return;
+    // Cold authoring/config guard: a downsample that doesn't divide the
+    // resolution would silently no-op the whole effect. Trap so the typo
+    // surfaces instead of feedback simply vanishing (use enabled_ to turn
+    // feedback off). Runs once per flush(), never in the per-pixel loop.
+    HS_CHECK(ds > 0 && W % ds == 0 && H % ds == 0,
+             "feedback downsample %d must be > 0 and divide %dx%d", ds, W, H);
     const int hw = W / ds;
     const int hh = H / ds;
 
