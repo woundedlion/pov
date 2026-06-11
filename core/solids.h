@@ -442,7 +442,7 @@ FLASHMEM static PolyMesh icosahedron_hk59_bitruncate033(Arena &a, Arena &b) {
       .hankin(59.0f * D2R)
       .build();
 }
-FLASHMEM static PolyMesh octahedron_hk17_ambo_hk72(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
   return SolidBuilder(octahedron(a, b), a, b)
       .hankin(17.0f * D2R)
       .ambo()
@@ -710,8 +710,8 @@ inline constexpr Entry islamic_registry[] = {
      Category::Complex},
     {"icosahedron_hk59_bitruncate033",
      IslamicStarPatterns::icosahedron_hk59_bitruncate033, Category::Complex},
-    {"octahedron_hk17_ambo_hk72",
-     IslamicStarPatterns::octahedron_hk17_ambo_hk72, Category::Complex},
+    {"octahedron_hk17_ambo_hk73",
+     IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
      Category::Complex},
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
