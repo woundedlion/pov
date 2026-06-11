@@ -163,6 +163,12 @@ template <int MAX_V> struct TriangularBitset {
 
   /// Bit index for pair (small, large) where small < large.
   static int index(int small, int large) {
+    // The triangular layout is only valid for an ordered, in-range pair: a
+    // swapped pair silently aliases the wrong bit (dedup corruption) and an
+    // out-of-range one writes adjacent memory. This is the one memory-writing
+    // primitive in memory.h with no guard; assert (stripped on device under
+    // NDEBUG, caught on the bench) so an unordered caller is fixed at the source.
+    assert(small >= 0 && small < large && large < MAX_V);
     return small * (2 * MAX_V - small - 1) / 2 + (large - small - 1);
   }
 
