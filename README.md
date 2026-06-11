@@ -1196,9 +1196,9 @@ Arm A                               Arm B (x offset by W/2)
 | Wire | Pin (out) | Pin (in) | Purpose |
 |---|---|---|---|
 | Column clock | 5 (PWM) | 2 (ext. interrupt) | Segment 0 generates a PWM at (RPM/60)×W Hz. All boards fire `show_col()` ISR on each rising edge — zero inter-board phase drift. |
-| Frame sync | 3 (GPIO) | 4 (ext. interrupt) | Segment 0 pulses HIGH at each frame boundary (`x==0` and `x==W/2`, two per revolution). Boards snap `x` to the nearest boundary on this edge, bounding any column drift from missed/spurious pulses to ≤ ½ revolution. |
+| Frame sync | 3 (GPIO) | 4 (ext. interrupt) | Segment 0 pulses HIGH at each frame boundary (`x==0` and `x==W/2`, two per revolution). A single wire can't say *which* boundary, so downstream boards track it by **counting** pulses: the first pulse after `run()` seeds the boundary by proximity (column drift is ≈0 then), and every later pulse just toggles `0 ↔ W/2`, snapping `x` to that boundary. This bounds drift from missed/spurious **clock-line** pulses to ≤ ½ revolution. |
 
-The column clock ensures all 4 boards paint the same column at the same instant.  The frame sync is insurance against electrical noise on the clock line — a spurious or missed pulse would cause permanent 1-column drift without periodic re-alignment.
+The column clock ensures all 4 boards paint the same column at the same instant.  The frame sync corrects drift accumulated on the *clock* line — a spurious or missed clock pulse would otherwise compound into permanent column drift without periodic re-alignment. It assumes the dedicated frame-sync wire is itself reliable: because the boundary is tracked by pulse *parity* rather than an absolute symbol, a dropped or duplicated frame-sync pulse inverts the parity and latches a permanent half-revolution offset until `run()` re-seeds. See [docs/phantasm_frame_sync_spec.md](docs/phantasm_frame_sync_spec.md) for the self-describing-symbol scheme that removes this assumption.
 
 **Branchless ISR**: All per-segment decisions are resolved at boot time into three precomputed values:
 
