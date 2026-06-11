@@ -14,14 +14,20 @@ static constexpr int RD_K = 6;
 /// Mean nearest-neighbor spacing on the unit sphere for an RD_N-point lattice:
 /// sqrt(4π / RD_N). Used as the base radius for reaction-diffusion interpolation
 /// kernels (BZ / GS). Precomputed because std::sqrt isn't constexpr here.
-static constexpr float D_AVG = 0.04044f; // sqrt(4π / 7680)
+static constexpr float D_AVG = 0.04045f; // sqrt(4π / 7680)
 
 /** Compute Fibonacci lattice node i (avoids storing 90KB in flash). */
 inline Vector node(int i) {
-  constexpr float phi = 2.399963229728653f;
+  // theta = golden_angle·i reaches ~18,400 rad at i=RD_N-1, where a float holds
+  // only ~1e-3 rad of azimuth — enough to disagree with the offline
+  // double-precision generator that built neighbors[]. Accumulate and fold to
+  // [0, 2π) in double, then narrow once for the trig. node() runs only at init
+  // (CubemapLUT::build, build_nodes), so the wider math costs nothing per frame.
+  constexpr double golden_angle = 2.399963229728653;
+  constexpr double two_pi = 6.283185307179586;
   float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;
   float radius = sqrtf(1.0f - y * y);
-  float theta = phi * i;
+  float theta = static_cast<float>(std::fmod(golden_angle * i, two_pi));
   return Vector(cosf(theta) * radius, y, sinf(theta) * radius);
 }
 
