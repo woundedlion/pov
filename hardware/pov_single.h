@@ -35,6 +35,19 @@
  * Used by Holosphere (96x20 / 288x144 with one Teensy owning the full strip).
  */
 template <int S, int RPM> class POVDisplay {
+  /**
+   * @brief HD107S SPI clock for the single-board Holosphere DMA path, in Hz.
+   *
+   * The Holosphere runs one Teensy over the full strip at a much wider column
+   * period than Phantasm (~1.3 ms for 96 columns at 480 RPM vs ~434 µs for
+   * Phantasm's 288), so the TeensySPIDMA 12 MHz default already clears the
+   * per-column transfer with ample headroom; the faster 24 MHz Phantasm clock
+   * (see pov_segmented.h) is not needed here. Stated explicitly rather than
+   * relying on the constructor default so the per-board clock choice is on the
+   * record at the call site.
+   */
+  static constexpr uint32_t SPI_CLOCK_HZ = 12000000;
+
 public:
   /**
    * @brief Initializes the LED strip and sets up hardware specific
@@ -195,5 +208,6 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
 
 #if defined(ARDUINO) && defined(USE_DMA_LEDS)
 template <int S, int RPM>
-DMALEDController<S> POVDisplay<S, RPM>::ledController_;
+DMALEDController<S>
+    POVDisplay<S, RPM>::ledController_{POVDisplay<S, RPM>::SPI_CLOCK_HZ};
 #endif
