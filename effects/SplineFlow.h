@@ -52,12 +52,12 @@ public:
           make_rotation(random_vector(), hs::rand_f() * 2 * PI_F));
       point_walks_[i] = timeline.add_get(
           0, Animation::RandomWalk<W>(point_orientations[i], random_vector(),
-                                      noise,
+                                      point_noises_[i],
                                       {params.drift * 0.02f, 0.15f, 0.03f}));
     }
 
     timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS, noise,
+                        orientation, Y_AXIS, orient_noise_,
                         Animation::RandomWalk<W>::Options::Languid()));
 
     // Phase accumulator for draw-head position. A bound Driver pulls the Speed
@@ -122,7 +122,14 @@ private:
   Orientation<> point_orientations[MAX_POINTS];
   Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {};
   float last_drift_ = -1.0f;
-  FastNoiseLite noise;
+  // One noise generator per walk (12 control-point walks + the view walk). The
+  // RandomWalk ctor stamps frequency and a fresh random seed onto whatever
+  // generator it is handed, so a single shared generator let the
+  // last-constructed walk win: the 12 point walks all ran at the Languid view
+  // walk's 0.02 frequency (33% below their intended 0.03) and sampled one
+  // identically-seeded field. RingSpin uses this same per-walk pattern.
+  std::array<FastNoiseLite, MAX_POINTS> point_noises_;
+  FastNoiseLite orient_noise_;
   Timeline timeline;
   BakedPalette baked_palette_;
 
