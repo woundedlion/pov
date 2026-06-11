@@ -895,7 +895,17 @@ public:
     //    across the longitude seam — neighbouring absolute bx values can
     //    straddle x=W ↔ x=0, but their deltas are continuous.
     constexpr float Q = 256.0f;
-    for (int cy = 0; cy < hh; ++cy) {
+    // Step 2 samples only y in [y_lo, y_hi), reading coarse rows cy0 = y/ds and
+    // cy1 = cy0+1 (clamped to hh-1). Populate exactly that coarse-row band so a
+    // y-band-clipped segment (segmented Phantasm) no longer evaluates space_fn
+    // for rows it never composites — finishing the optimization the column
+    // pruning above starts. Rows outside the band stay uninitialized but are
+    // never read, mirroring the col_used pruning. Full canvas spans all hh rows,
+    // so its work is unchanged.
+    const int cy_lo = y_lo / ds;
+    int cy_hi = ((y_hi - 1) / ds) + 1;
+    if (cy_hi > hh - 1) cy_hi = hh - 1;
+    for (int cy = cy_lo; cy <= cy_hi; ++cy) {
       int y = cy * ds;
       for (int cx = 0; cx < hw; ++cx) {
         if (xc.active && !col_used[cx]) continue;
