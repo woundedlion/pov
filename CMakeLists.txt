@@ -48,9 +48,16 @@ if(EMSCRIPTEN)
     "-sSTACK_SIZE=8192")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    message(STATUS "WASM Debug build (-O0 -g -sASSERTIONS)")
+    message(STATUS "WASM Debug build (-O0 -g -sASSERTIONS, 64 KB stack)")
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
-    target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1")
+    # Override the shared 8 KB STACK_SIZE for debug only. -O0 disables inlining
+    # and stack-slot coalescing, inflating frame sizes severalfold over the -O3
+    # release build, so the tight release budget overflows under no optimization.
+    # The debug preset is never exercised by CI or the smoke script, so size it
+    # generously rather than rely on -sASSERTIONS to merely report the abort.
+    # (Last -sSTACK_SIZE on the link line wins; release is unaffected.)
+    target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
+      "-sSTACK_SIZE=65536")
   else()
     # -fno-finite-math-only is required AFTER -ffast-math: -ffast-math implies
     # -ffinite-math-only, which folds std::isfinite() to constant true and lets
