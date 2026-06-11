@@ -183,7 +183,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 290. ✅ **An init-phase worker fault never reaches the visible fault overlay: `tick()`'s ready guard precedes the faulted check** — `daydream/segment_controller.js:596`
    If a worker faults during startup (WASM fetch failure, instantiate OOM — a real mobile risk with four simultaneous instances), `_onWorkerFault` latches `faulted`, but `readyCount` never reaches the segment count, so every `tick()` returns at the first guard and the fault overlay is unreachable: segmented mode freezes black with console-only diagnostics, contradicting the onerror comment's promise of "a visible UI state." The test suite covers ready-gating and faulted-pool no-dispatch separately but not their conflicting combination. Check `faulted` before the ready guard.
 
-291. **The procedural palette export is JS array syntax, not the C++ initializer the README promises** — `daydream/tools/palettes.html:1253`
+291. ✅ **The procedural palette export is JS array syntax, not the C++ initializer the README promises** — `daydream/tools/palettes.html:1253`
    The export emits `[0.500, 0.500, 0.500], // A` — square brackets, no `f` suffixes, no constructor — while the consumer is `constexpr ProceduralPalette name({0.500f, …}, …)`. The generative tab's export *is* valid C++, making the procedural tab the odd one out and forcing error-prone manual conversion in the tool's primary workflow.
 
 292. **~3,500 lines of pure tool logic are locked inside inline HTML scripts the Node suite cannot import; `color.js` has zero tests** — `daydream/tools/palettes.html:364` (and siblings)
