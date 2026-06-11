@@ -424,6 +424,9 @@ private:
         burst = sync_.mailbox().claim();
         bp = &burst;
       }
+      // Retire a stale glitch-filter reference so the cycle counter cannot wrap
+      // out from under it during a long wire silence (spec §8, finding 227).
+      sync_.mailbox().age_prior(now, sync_.glitch_filter_cycles());
       __enable_irq();
     }
 

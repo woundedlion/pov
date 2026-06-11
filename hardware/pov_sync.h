@@ -285,6 +285,23 @@ public:
     return s;
   }
 
+  /// Consumer: retire the glitch-filter reference once the wire has been quiet
+  /// longer than the filter window. The prior accepted edge only suppresses an
+  /// EMI spike within @p glitch_filter_cycles of it; any later edge is accepted
+  /// regardless, so dropping the reference here is behaviourally identical for
+  /// glitch suppression. Its purpose is to keep `now - prior_cycles_` bounded:
+  /// `prior_cycles_` otherwise persists indefinitely, and after ~7.16 s of wire
+  /// silence the cycle counter wraps, making that modular difference
+  /// pseudo-random — with p ≈ glitch/2³² it lands inside the reject window and
+  /// falsely rejects a real edge. The flywheel poll calls this every column, so
+  /// a stale reference is cleared within one column of silence, long before the
+  /// counter can wrap. Must run under the same single-writer discipline as
+  /// claim() (it writes have_prior_, which the edge ISR also writes).
+  void age_prior(uint32_t now, uint32_t glitch_filter_cycles) {
+    if (have_prior_ && (now - prior_cycles_) >= glitch_filter_cycles)
+      have_prior_ = false;
+  }
+
 private:
   uint32_t count_ = 0;
   uint32_t first_cycles_ = 0;
@@ -764,6 +781,7 @@ public:
   /// Device-side helper for the IRQ-off mailbox handoff.
   EdgeMailbox &mailbox() { return mailbox_; }
   uint32_t gap_timeout_cycles() const { return cfg_.gap_timeout_cycles(); }
+  uint32_t glitch_filter_cycles() const { return cfg_.glitch_filter_cycles; }
 
   /**
    * @brief One flywheel wake-up. @p burst is the claimed mailbox burst if one

@@ -124,6 +124,45 @@ inline void test_mailbox() {
   HS_EXPECT_FALSE(m.burst_complete(1000 + 20 * kCol, 4 * kCol));
 }
 
+// Finding 227: the glitch-filter reference must not survive a counter wrap.
+// age_prior() (called every column by the flywheel poll) retires the prior
+// once the wire is quiet past the filter window, so a real edge after wrap is
+// never falsely rejected by a pseudo-random modular difference.
+inline void test_mailbox_prior_staleness() {
+  const uint32_t kGlitch = 60000u;
+
+  // age_prior leaves a within-window reference intact: a genuine spike that
+  // arrives before a poll has aged the prior is still suppressed.
+  {
+    EdgeMailbox m;
+    m.on_edge(1000, kGlitch);
+    m.age_prior(1000 + kGlitch / 2, kGlitch); // still within the window: kept
+    m.on_edge(1000 + kGlitch / 2 + 1, kGlitch); // too close to 1000: rejected
+    HS_EXPECT_TRUE(m.burst_complete(1000 + 100 * kGlitch, 1));
+    HS_EXPECT_EQ(m.claim().count, 1u);
+  }
+
+  // After the wire goes quiet the prior is retired, so a later edge whose
+  // (wrapped) modular distance to the OLD prior lands inside the reject window
+  // is still accepted. Without age_prior this edge would be silently dropped.
+  {
+    EdgeMailbox m;
+    const uint32_t prior = 1000u;
+    m.on_edge(prior, kGlitch); // a one-edge burst…
+    HS_EXPECT_TRUE(m.burst_complete(prior + 10 * kCol, kCol));
+    HS_EXPECT_EQ(m.claim().count, 1u); // …claimed; the prior persists across it.
+    // The flywheel keeps polling during the silence and retires the stale
+    // reference within a column (kCol > kGlitch), long before the counter wraps.
+    m.age_prior(prior + 11 * kCol, kGlitch);
+    // A real edge after the counter has wrapped: its modular distance to the
+    // old prior is only kGlitch/2, which the un-aged filter would reject.
+    const uint32_t wrapped = prior + kGlitch / 2;
+    m.on_edge(wrapped, kGlitch);
+    HS_EXPECT_TRUE(m.burst_complete(wrapped + 10 * kCol, kCol));
+    HS_EXPECT_EQ(m.claim().count, 1u); // accepted as a fresh one-edge burst.
+  }
+}
+
 // §6.4: corrupted beacon frames are dropped whole, never partially applied.
 inline void test_beacon_codec() {
   const Config cfg = test_config();
@@ -1491,6 +1530,7 @@ inline int run_pov_sync_tests() {
   test_alphabet();
   test_flip_gate();
   test_mailbox();
+  test_mailbox_prior_staleness();
   test_beacon_codec();
   test_flywheel_position();
   test_snap_gate();
