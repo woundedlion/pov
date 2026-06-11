@@ -39,9 +39,23 @@ static constexpr int PIN_CLOCK = 13;
 struct NoColorCorrection {};
 struct NoTempCorrection {};
 #else
+// CONTRACT — restore-to-baseline, NOT save/restore. The destructors below
+// reinstate the engine's canonical baseline (TypicalLEDStrip color, Candle
+// temperature — the same values the drivers set once at init, see
+// pov_single.h / pov_segmented.h), not whatever correction happened to be
+// active when the guard was constructed. FastLED exposes no getter for the
+// current global correction (and on device it is per-controller), so a true
+// save/restore is not available here. This is correct for the one supported
+// use — a single per-effect *member* (see effects_legacy.h), with effects
+// constructed and destroyed sequentially so the ambient correction is always
+// the baseline. Consequence: these guards do NOT nest — constructing one inside
+// a non-baseline correction scope would restore the baseline on exit, not the
+// outer scope's value.
+
 /**
  * @brief RAII guard to disable both color and temperature correction for its
- * scope, restoring TypicalLEDStrip/Candle defaults on destruction.
+ * scope, restoring the TypicalLEDStrip/Candle baseline on destruction (see the
+ * restore-to-baseline contract above — not a save/restore of the prior state).
  */
 struct NoColorCorrection {
   NoColorCorrection() {
@@ -56,7 +70,8 @@ struct NoColorCorrection {
 
 /**
  * @brief RAII guard to disable temperature correction (keeping TypicalLEDStrip
- * color correction) for its scope, restoring the Candle default on destruction.
+ * color correction) for its scope, restoring the Candle baseline on destruction
+ * (see the restore-to-baseline contract above — not a save/restore).
  */
 struct NoTempCorrection {
   NoTempCorrection() {
