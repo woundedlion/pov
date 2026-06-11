@@ -8,7 +8,7 @@
  * Focus: PURE sampling / geometry paths that produce Fragments from geometry
  * WITHOUT a live Canvas. The draw()/rasterize() paths (which require an
  * Effect + Canvas) and the entire Scan:: rasterizer are intentionally NOT
- * exercised here — see the SKIPPED note at the bottom of this file.
+ * exercised here — the Scan:: rasterizer is covered separately in test_scan.h.
  *
  * Coverage:
  *   - Plot::Line::sample        : geodesic endpoints unit-length, span, v0/v1;
