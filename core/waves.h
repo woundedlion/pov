@@ -13,12 +13,14 @@
  * @param from The output value at the trough.
  * @param to The output value at the peak.
  * @param freq The frequency (cycles per unit time).
- * @param phase The starting phase offset, in cycles (scaled by 2 internally).
+ * @param phase The starting phase offset, in cycles (phase = 1 is a full cycle),
+ *        matching tri_wave/square_wave so the three are interchangeable.
  * @return A lambda mapping time t to the wave value.
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
-    auto w = (sinf(freq * t * 2 * PI_F - (PI_F / 2) - (2 * phase)) + 1) / 2;
+    auto w =
+        (sinf(freq * t * 2 * PI_F - (PI_F / 2) - (2 * PI_F * phase)) + 1) / 2;
     return hs::lerp(from, to, w);
   };
 }

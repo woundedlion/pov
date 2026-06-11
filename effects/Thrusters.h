@@ -140,7 +140,9 @@ private:
   }
 
   float ring_fn(float t) {
-    return sin_wave(-1, 1, 2, warp_phase)(t) *
+    // warp_phase is a radian-domain value (rand_f()*2*PI_F, shared with the
+    // DistortedRing calls above); sin_wave's phase is in cycles, so convert.
+    return sin_wave(-1, 1, 2, warp_phase / PI_F)(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(t_global % 32) / 32.0f) *
            amplitude;
   }

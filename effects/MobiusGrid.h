@@ -48,7 +48,7 @@ public:
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
                                     ease_mid, true, &anims_paused_))
         .add(160, Animation::Mutation(params.num_lines,
-                                      sin_wave(12.0f, 1.0f, 1.0f, PI_F / 2.0f),
+                                      sin_wave(12.0f, 1.0f, 1.0f, 0.5f),
                                       320, ease_mid, true, &anims_paused_));
   }
 
