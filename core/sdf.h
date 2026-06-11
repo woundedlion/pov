@@ -2066,12 +2066,30 @@ struct Line {
       n = normalized_or(cross(a, b), Vector(1, 0, 0));
     }
 
-    // Compute vertical bounds from endpoint phi values + thickness
+    // Compute vertical bounds from endpoint phi values + thickness. The
+    // endpoints alone are not enough: a great-circle arc bulges toward a pole
+    // between them, so its peak latitude can lie well outside [phi_a, phi_b]
+    // (e.g. two equal-latitude points whose arc passes through a pole). Extend
+    // by the arc's interior latitude extremum when present — the same
+    // tangent-sign-flip test plot.h's edge_row_span uses.
     float phi_a = acosf(std::max(-1.0f, std::min(1.0f, a.y)));
     float phi_b = acosf(std::max(-1.0f, std::min(1.0f, b.y)));
+    float phi_lo = std::min(phi_a, phi_b);
+    float phi_hi = std::max(phi_a, phi_b);
+    // y(t) = a.y·cos + v_perp.y·sin turns inside the arc iff the forward
+    // tangent's y-component (cross(n, p).y) flips sign between the endpoints.
+    // The extremal y is the great circle's peak latitude ±sqrt(1 - n.y²).
+    float t0 = cross(n, a).y;
+    float t1 = cross(n, b).y;
+    if ((t0 > 0.0f) != (t1 > 0.0f)) {
+      float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
+      float phi_ext = acosf(t0 > 0.0f ? peak : -peak);
+      phi_lo = std::min(phi_lo, phi_ext);
+      phi_hi = std::max(phi_hi, phi_ext);
+    }
     float margin = thickness + BOUNDS_MARGIN;
-    phi_min = std::max(0.0f, std::min(phi_a, phi_b) - margin);
-    phi_max = std::min(PI_F, std::max(phi_a, phi_b) + margin);
+    phi_min = std::max(0.0f, phi_lo - margin);
+    phi_max = std::min(PI_F, phi_hi + margin);
   }
 
   template <int H> Bounds get_vertical_bounds() const {

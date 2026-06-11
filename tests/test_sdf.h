@@ -538,8 +538,8 @@ inline void test_angular_repeat_creates_copies() {
 // because the AA kernel there is ~0.001, and a solid's sub-pixel AA halo, which
 // process_pixel paints just *outside* the geometric boundary (so outside the
 // caps). It also clears the ~0.004 rad fast-trig noise between distance() and the
-// cap math. The endpoint-only Line/great-circle vertical cull is finding #2 and
-// is handled separately.
+// cap math. The Line/great-circle arc-bulge vertical cull is covered separately
+// by test_line_arc_bulge_cull_covers_interior.
 // ============================================================================
 
 // Record every pixel scan_region visits for `shape`, exactly as rasterize()
@@ -642,6 +642,19 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
                Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, Vector(1, 0, 0));
   int interior = expect_cull_covers_interior<W, H>(rep);
+  HS_EXPECT_GT(interior, 0);
+}
+
+// A bare Line whose two endpoints share a latitude but whose great-circle arc
+// bulges to a pole between them. Endpoint-only vertical bounds clip the polar
+// portion of the stroke; the arc-extrema test must widen phi to the bulge.
+inline void test_line_arc_bulge_cull_covers_interior() {
+  constexpr int W = 96, H = 48;
+  // Endpoints at phi≈0.4 either side of +Y; the shorter arc passes through the
+  // north pole (phi=0), far above either endpoint's latitude.
+  SDF::Line ln(Vector(0, cosf(0.4f), sinf(0.4f)),
+               Vector(0, cosf(0.4f), -sinf(0.4f)), /*thickness=*/0.15f);
+  int interior = expect_cull_covers_interior<W, H>(ln);
   HS_EXPECT_GT(interior, 0);
 }
 
@@ -838,6 +851,7 @@ inline int run_sdf_tests() {
 
   test_cull_covers_interior_over_orientation_grid();
   test_angular_repeat_non_y_axis_cull_covers_copies();
+  test_line_arc_bulge_cull_covers_interior();
   test_face_lut_matches_exact_within_cell_diagonal();
 
   return hs_test::end_module(scope);
