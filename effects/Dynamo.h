@@ -44,6 +44,14 @@ public:
       nodes[i].y = i;
     }
 
+    // Allocate the baked-palette LUT pool once (one 256-entry Color4 LUT per
+    // possible live palette). bake() allocates; subsequent rebake() refills in
+    // place with no allocation, so push/pop churn never grows the arena. Seed
+    // every slot from the initial palette, then fill the active set.
+    for (auto &bp : baked_palettes_)
+      bp.bake(persistent_arena, palettes[0]);
+    rebake_active_palettes();
+
     timeline
         .add(0, Animation::RandomTimer(
                     4, 64, [this](auto &) { reverse(); }, true))
@@ -74,13 +82,27 @@ public:
                                           HarmonyType::ANALOGOUS,
                                           BrightnessProfile::ASCENDING));
     palette_boundaries.push_front(0);
+    // Re-bake the active set into the LUT pool: the per-pixel color() path reads
+    // baked_palettes_, never the GenerativePalettes directly (finding 110). A
+    // push_front shifts every logical index, so rebake the whole active range.
+    rebake_active_palettes();
 
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
                                           (int)params.wipe_duration, ease_mid)
                         .then([this]() {
                           palette_boundaries.pop_back();
                           palettes.pop_back();
+                          rebake_active_palettes();
                         }));
+  }
+
+  // Refill the baked LUT pool from the live GenerativePalettes so the hot
+  // per-pixel color() path is a table lookup instead of a per-call OKLCH lerp
+  // (finding 110). Called only when the palette set changes (a wipe push/pop,
+  // every 20-64 frames) — never per frame and never per pixel.
+  void rebake_active_palettes() {
+    for (size_t i = 0; i < palettes.size(); ++i)
+      baked_palettes_[i].rebake(palettes[i]);
   }
 
   Color4 color(const Vector &v, float t) {
@@ -104,15 +126,15 @@ public:
       auto upper_edge = boundary + blend_width;
 
       if (a < lower_edge) {
-        return palettes[i].get(t);
+        return baked_palettes_[i].get(t);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
         auto clamped_blend_factor = hs::clamp(blend_factor, 0.0f, 1.0f);
 
-        Color4 c1 = palettes[i].get(t);
-        Color4 c2 = palettes[i + 1].get(t);
+        Color4 c1 = baked_palettes_[i].get(t);
+        Color4 c2 = baked_palettes_[i + 1].get(t);
 
         uint16_t fract = float_to_pixel16(clamped_blend_factor);
         return Color4(c1.color.lerp16(c2.color, fract),
@@ -125,11 +147,11 @@ public:
                : NO_NEXT_BOUNDARY);
 
       if (a > upper_edge && a < next_boundary_lower_edge) {
-        return palettes[i + 1].get(t);
+        return baked_palettes_[i + 1].get(t);
       }
     }
 
-    return palettes[0].get(t);
+    return baked_palettes_[0].get(t);
   }
 
   void draw_frame() override {
@@ -226,6 +248,12 @@ private:
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes;
   StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries;
+  // Baked 256-entry LUTs mirroring palettes[] in logical order. The per-pixel
+  // color() path reads these (fast lerp16 table lookup) instead of evaluating
+  // GenerativePalette's per-call OKLCH lerp thousands of times per frame
+  // (finding 110). Kept in sync by rebake_active_palettes() on every wipe
+  // push/pop; one slot per possible live palette so churn never reallocates.
+  std::array<BakedPalette, MAX_PALETTES> baked_palettes_;
 
   Vector palette_normal;
   std::array<Node, NUM_NODES> nodes;
