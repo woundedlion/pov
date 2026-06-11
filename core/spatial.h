@@ -135,7 +135,12 @@ public:
     size_t count = points.size();
     nodes.bind(arena, count);
 
-    // Temporary index allocation for building the tree
+    // The per-build index array is scratch: build() partitions it in place and
+    // never reads it after returning, and `nodes` is already fully reserved
+    // above. Scope it to a ScratchScope so the arena offset rewinds past it once
+    // build() returns — otherwise ~count*4 bytes (≈34 KB at MAX_VERTS) leak into
+    // the arena for the rest of its lifetime.
+    ScratchScope scratch(arena);
     int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
     for (size_t i = 0; i < count; ++i)
       indices[i] = i;
