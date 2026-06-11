@@ -578,7 +578,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* A user can clear the design, see leftover code, and copy control points that are no longer on screen.
    *Suggested fix:* Call updateExport() before the minPts early return (or at the call sites that mutate controlPoints).
 
-93. **Spline export can emit invalid C++ float literals ("0f", "1f")** — `tools/splines.html:321-324` *(not independently validated)*
+93. ✅ **Spline export can emit invalid C++ float literals ("0f", "1f")** — `tools/splines.html:321-324` *(validated and fixed: confirmed `n.toFixed(6).replace(/\.?0+$/, '') + 'f'` stripped the decimal point for whole values (0 -> "0f", 1 -> "1f"), which do not compile, and that integral coords are reachable via vec3Normalize's degenerate {x:1,y:0,z:0} return. Replaced with `.replace(/0+$/, '').replace(/\.$/, '.0')` so a fractional digit is always kept — verified 0 -> "0.0f", 1 -> "1.0f", 10 -> "10.0f", 1.5 -> "1.5f".)*
    The formatter `const f = (n) => n.toFixed(6).replace(/\.?0+$/, '') + 'f'` strips the decimal point entirely for whole values: 0 → "0.000000" → "0" → "0f", and 1 → "1f". `0f`/`1f` are not valid C++ literals and the exported `constexpr std::array<Vector, N>` will not compile. Exactly-integral coordinates are reachable: vec3Normalize's degenerate branch returns {x:1, y:0, z:0} verbatim, which exports as `Vector(1f, 0f, 0f)`.
    *Why it matters:* The tool's whole purpose is producing paste-ready C++; an export that intermittently fails to compile erodes trust in all of it.
    *Suggested fix:* Keep at least one fractional digit: `s.replace(/0+$/, '').replace(/\.$/, '.0') + 'f'`.
