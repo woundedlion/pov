@@ -1043,10 +1043,6 @@ FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
 //   needle n = kd = kis of dual
 //   zip    z = dk = dual of kis (truncated dual)
 //   bevel  b = ta = truncate of ambo (rectify-then-truncate)
-//
-// Standalone:
-//   propeller — Hart: each face surrounded by quadrilateral propeller blades
-//               and a smaller central face. Implemented standalone.
 // ---------------------------------------------------------------------------
 
 /// meta = kj. Hart's `m` operator. (j = a; kj = kis-of-ambo.)
