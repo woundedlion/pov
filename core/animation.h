@@ -10,6 +10,7 @@
 
 #include <numeric> // for std::iota
 #include <array>
+#include <new> // std::launder
 #include <type_traits>
 #include "3dmath.h"
 #include "platform.h"
@@ -1980,7 +1981,11 @@ public:
     e.handled = false; // global slots are reused — clear any stale handled flag
     e.iface = static_cast<IAnimation *>(new (e.storage) A(std::move(animation)));
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
-      A *obj = reinterpret_cast<A *>(src.storage);
+      // std::launder: the A was placement-new'd into the raw byte storage, so a
+      // bare reinterpret_cast of the array address is not a pointer to the live
+      // object. Launder it to recover a usable A* (matches the iface comment's
+      // reasoning about typed pointer recovery from this same storage).
+      A *obj = std::launder(reinterpret_cast<A *>(src.storage));
       if (dst) {
         dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
       }
@@ -2020,7 +2025,11 @@ public:
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
-      A *obj = reinterpret_cast<A *>(src.storage);
+      // std::launder: the A was placement-new'd into the raw byte storage, so a
+      // bare reinterpret_cast of the array address is not a pointer to the live
+      // object. Launder it to recover a usable A* (matches the iface comment's
+      // reasoning about typed pointer recovery from this same storage).
+      A *obj = std::launder(reinterpret_cast<A *>(src.storage));
       if (dst) {
         dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
       }
