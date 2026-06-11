@@ -2071,6 +2071,15 @@ struct Line {
   Vector n;
   float len;
   float phi_min, phi_max; // Precomputed vertical bounds (radians)
+
+  // Bounding-cap geometry, loop-invariant across scanlines — hoisted out of
+  // get_horizontal_intervals (every other shape precomputes its cap in the
+  // constructor and reads the TrigLUT for per-row phi). cap_horiz_valid is
+  // false when the cap has no horizontal projection (its axis is ~vertical).
+  Vector mid;
+  float mid_ny = 0.0f, mid_r = 0.0f, mid_alpha = 0.0f;
+  float cap_D_min = 0.0f; // cosf(cap_radius)
+  bool cap_horiz_valid = false;
   static constexpr bool is_solid = false;
 
   Line(const Vector &start, const Vector &end, float th)
@@ -2108,6 +2117,17 @@ struct Line {
     float margin = thickness + BOUNDS_MARGIN;
     phi_min = std::max(0.0f, phi_lo - margin);
     phi_max = std::min(PI_F, phi_hi + margin);
+
+    // Bounding cap centered on the segment midpoint — all loop-invariant, so
+    // precompute here instead of per scanline. Antipodal endpoints sum to ~0
+    // (no defined midpoint); guard the normalize.
+    mid = normalized_or(a + b, Vector(1, 0, 0));
+    mid_ny = mid.y;
+    mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
+    mid_alpha = atan2f(mid.z, mid.x);
+    float cap_radius = len * 0.5f + thickness;
+    cap_D_min = cosf(cap_radius);
+    cap_horiz_valid = mid_r >= MIN_HORIZONTAL_PROJ;
   }
 
   template <int H> Bounds get_vertical_bounds() const {
@@ -2158,29 +2178,22 @@ struct Line {
 
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT
-    // (matches every other shape's bounds path; passing H_VIRT double-applied it).
-    float phi = y_to_phi<H>(static_cast<float>(y));
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
-
-    // Bounding cap centered on the midpoint of the line segment. Antipodal
-    // endpoints sum to ~0 (no defined midpoint); guard the normalize.
-    Vector mid = normalized_or(a + b, Vector(1, 0, 0));
-    float mid_ny = mid.y;
-    float mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
-    float mid_alpha = atan2f(mid.z, mid.x);
-
-    if (mid_r < MIN_HORIZONTAL_PROJ)
+    if (!cap_horiz_valid)
       return false;
 
-    float cap_radius = len * 0.5f + thickness;
-    float D_min = cosf(cap_radius);
+    // Per-row phi trig from the LUT (indexed by virtual row, so H_OFFSET is
+    // baked in), matching every other shape; the cap geometry below was
+    // precomputed in the constructor.
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    float cos_phi = TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = TrigLUT<W, H>::sin_phi[y];
+
     float denom = mid_r * sin_phi;
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
-    float C_min = (D_min - mid_ny * cos_phi) / denom;
+    float C_min = (cap_D_min - mid_ny * cos_phi) / denom;
     if (C_min > 1.0f)
       return true; // Row is outside the bounding cap
     if (C_min < -1.0f)
