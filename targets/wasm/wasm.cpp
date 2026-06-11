@@ -192,7 +192,11 @@ public:
     // real registered name keeps the engine valid for that first instant and for
     // any headless/tool use.
     setResolution(96, 20);
-    setEffect("DistortedRing");
+    // Trap if the default name no longer resolves: setEffect returns false on an
+    // unknown name and leaves currentEffect null, so a roster rename would
+    // otherwise ship every fresh engine a null effect behind only a log line.
+    // Same drift class as the HS_EFFECT_COUNT guard above.
+    HS_CHECK(setEffect("DistortedRing"));
   }
 
   // Returns true if the resolution is now active, false if the request was
