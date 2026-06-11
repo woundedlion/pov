@@ -892,7 +892,14 @@ inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
  * @return The resulting unit rotation quaternion.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
-  return Quaternion(fast_cosf(theta / 2), fast_sinf(theta / 2) * axis).normalized();
+  // Exact sinf/cosf (not the Bhaskara fast_* pair): fast_sinf's +1.86% near-zero
+  // error would scale the effective rotation 2*atan2(s,c) by the same factor, a
+  // systematic overshoot of every small incremental rotation that normalization
+  // cannot undo (it preserves the s/c ratio). This is an orientation-level op
+  // invoked at most per-object/per-vertex per frame, never per-pixel, so the
+  // cycles are immaterial while drift-free fidelity is not -- same rationale as
+  // angle_between() and the quaternion slerp overloads above.
+  return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalized();
 }
 
 /**
