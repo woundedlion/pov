@@ -1103,7 +1103,11 @@ public:
     float delta = target_angle - last_angle;
 
     if (std::abs(delta) < TOLERANCE) {
-      last_angle = target_angle;
+      // Leave last_angle untouched so this sub-threshold increment is not
+      // dropped: it accumulates into delta on later frames and is applied once
+      // the sum crosses TOLERANCE. Advancing last_angle to target_angle here
+      // would discard it forever, freezing very slow rotations and
+      // systematically undershooting the slow-start portion of eased ones.
       return;
     }
 

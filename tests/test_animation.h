@@ -473,6 +473,27 @@ inline void test_rotation_substeps_shared_and_tight() {
   }
 }
 
+// Rotation::step must not discard sub-TOLERANCE increments. A rotation slow
+// enough that each frame's delta is below TOLERANCE (1e-4 rad) previously hit
+// the early-out and advanced last_angle to the target anyway, dropping the
+// increment forever — so a very slow rotation never moved at all. With the
+// increment retained, the deltas accumulate and the orientation actually turns.
+// (ease_mid is linear here, so per-frame delta = total_angle / duration.)
+inline void test_rotation_accumulates_subthreshold_deltas() {
+  using Ori = Orientation<288, 16>;
+  Ori o; // identity
+  // 0.05 rad over 1000 frames => 5e-5 rad/frame, half of TOLERANCE, so every
+  // single frame's raw delta is below the early-out threshold.
+  Animation::Rotation<288, 16> rot(o, Z_AXIS, 0.05f, 1000, ease_mid);
+  for (int i = 0; i < 20; ++i)
+    rot.step(fake_canvas());
+  // After 20 frames the accumulated sweep is ~1e-3 rad; a Z rotation sends +X
+  // toward +Y. With the drop bug the orientation never moved (y stays 0).
+  Vector v = o.orient(X_AXIS, o.length() - 1);
+  HS_EXPECT_GT(v.y, 5e-4f);
+  HS_EXPECT_NEAR(v.x, 1.0f, 1e-3f);
+}
+
 // Two animations sharing one Orientation must COMPOSE their sub-frame
 // motion-blur history within a frame, not clobber it. The earlier bug
 // collapsed the Orientation once per animation, so the second animation's
@@ -1008,6 +1029,7 @@ inline int run_animation_tests() {
   test_easing_elastic_anchors();
 
   test_rotation_substeps_shared_and_tight();
+  test_rotation_accumulates_subthreshold_deltas();
   test_timeline_shared_orientation_composes_motion_blur();
   test_timeline_sequences_events_by_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
