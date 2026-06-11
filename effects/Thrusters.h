@@ -91,8 +91,9 @@ private:
       age = 0;
     }
 
-    // Eased ring radius for the current age. Mirrors the prior Transition's
-    // phasing, which stepped once before the first draw (hence age + 1).
+    // Eased ring radius for the frame being drawn. age + 1 (not age) so the
+    // first draw renders one eased step in rather than radius 0, reaching
+    // RADIUS_MAX after RADIUS_GROW_FRAMES frames.
     float radius_at() const {
       float t = hs::clamp(static_cast<float>(age + 1) / RADIUS_GROW_FRAMES,
                           0.0f, 1.0f);

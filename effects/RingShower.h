@@ -40,8 +40,8 @@ public:
 
 private:
   struct Ring {
-    // Frames spent fading in from 0 to full opacity (was the Sprite's
-    // fade_in=4; there was no fade-out).
+    // Frames spent fading in from 0 to full opacity; opacity then holds (no
+    // fade-out).
     static constexpr int FADE_IN_FRAMES = 4;
     // Ring radius grows from 0 to RADIUS_MAX over its whole life.
     static constexpr float RADIUS_MAX = 2.0f;
@@ -53,9 +53,9 @@ private:
 
     Ring() : normal(random_vector()) {}
 
-    // Eased radius for the current age, mirroring the prior Transition. The
-    // Transition stepped once before the first draw, so age + 1 reproduces its
-    // value sequence (the whole ring is shifted one frame earlier overall).
+    // Eased radius for the frame being drawn. age + 1 (not age) so the first
+    // draw renders one eased step in rather than radius 0, and the ring reaches
+    // RADIUS_MAX on its final visible frame (age + 1 == life).
     float radius_at() const {
       float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
       return RADIUS_MAX * ease_mid(t);
