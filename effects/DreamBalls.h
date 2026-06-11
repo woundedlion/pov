@@ -28,6 +28,9 @@ public:
   void init() override {
     setup_presets();
 
+    // Wire the blood-stream composition before any preset bakes through it.
+    bloodStreamComposition.bind(&bloodStreamPalette, &bloodStreamFade);
+
     params = preset_manager.get();
     baked_palette.bake(persistent_arena, *params.palette);
 
@@ -101,8 +104,15 @@ private:
   BakedPalette baked_palette;
 
   ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
-  AlphaFalloffPalette bloodStreamFalloff{[](float t) { return 1.0f - t; },
-                                         &bloodStreamPalette};
+  AlphaFalloffShade bloodStreamFade{[](float t) { return 1.0f - t; }};
+  // Wrap=false samples the source at the raw coordinate (the falloff curve owns
+  // the [0,1] domain, so no wrap). The facade lets the composition sit in the
+  // polymorphic preset table beside plain palettes; it is only ever baked.
+  StaticPalette<ProceduralPalette, Coords<>, Colors<AlphaFalloffShade>,
+                /*Wrap=*/false>
+      bloodStreamComposition;
+  PaletteFacade<decltype(bloodStreamComposition)> bloodStreamFalloff{
+      &bloodStreamComposition};
 
   Presets<Params, 4> preset_manager = {
       .entries = {{{{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,

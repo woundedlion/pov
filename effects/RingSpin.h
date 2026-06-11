@@ -34,9 +34,16 @@ public:
     registerParam("Thickness", &params.thickness, 0.01f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);
 
-    // Bake vignette-wrapped palettes into fast LUTs
+    // Bake transparent-vignette palettes into fast LUTs: inset the source into
+    // the middle band, then fade alpha at the edges. Wrap=false so the top edge
+    // resolves to the source's last stop (wrap_t(1)==0 would fold it to black).
+    InsetModifier inset;
+    EdgeAlphaShade edge_fade;
     for (int i = 0; i < (int)source_palettes.size(); ++i) {
-      TransparentVignette v(&source_palettes[i]);
+      StaticPalette<ProceduralPalette, Coords<InsetModifier>,
+                    Colors<EdgeAlphaShade>, /*Wrap=*/false>
+          v;
+      v.bind(&source_palettes[i], &inset, &edge_fade);
       baked_palettes[i].bake(persistent_arena, v);
     }
 

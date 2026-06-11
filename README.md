@@ -981,7 +981,16 @@ Pixel (sRGB 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, h)
 
 #### Palette Modifiers
 
-Seven modifier types compose with any palette source via `StaticPalette<Source, Mods...>` at compile time:
+Modifiers compose around any palette source at compile time via
+`StaticPalette<Source, Coords<...>, Colors<...>, Wrap>`. There are two axes: a
+**coordinate** chain that remaps the lookup parameter `t` *before* the source is
+sampled, and a **color** chain that reshapes the resulting sample *after*, with
+the original coordinate in hand. Both chains are inlined by fold expression with
+zero runtime overhead. `Wrap` (default `true`) wraps the final coordinate into
+`[0,1)` before the lookup — leave it on for cycling modifiers that overflow the
+range; set it `false` for bounded remaps that must reach the source endpoints.
+
+Coordinate modifiers (`modify(float) -> float`):
 
 | Modifier | Effect |
 |---|---|
@@ -992,24 +1001,35 @@ Seven modifier types compose with any palette source via `StaticPalette<Source, 
 | `PinchModifier` | Non-linearly warps the lookup parameter toward a focal point |
 | `QuantizeModifier` | Posterizes the palette into discrete bands |
 | `ScaleModifier` | Scales and offsets the lookup parameter |
+| `ReverseModifier` | Mirrors the lookup parameter (1.0 - t) |
+| `MirrorModifier` | Maps [0,1] to [0,1,0] for a seamless symmetric loop |
+| `InsetModifier` | Compresses the source domain into an inset window, clamping outside |
+
+Color modifiers (`shade(Color4, float) -> Color4`):
+
+| Modifier | Effect |
+|---|---|
+| `AlphaFalloffShade` | Scales alpha by a caller-supplied falloff curve over the coordinate |
+| `EdgeFadeShade` | Fades the sample color to black near the edges (opaque vignette) |
+| `EdgeAlphaShade` | Fades the sample alpha near the edges (transparent vignette) |
 
 ```cpp
-// Compose a baked palette with a breathing modifier
-StaticPalette<BakedPalette, BreatheModifier> palette;
+// Compose a baked palette with a breathing coordinate modifier
+StaticPalette<BakedPalette, Coords<BreatheModifier>> palette;
+
+// A transparent vignette: inset the source, fade alpha at the edges
+StaticPalette<ProceduralPalette, Coords<InsetModifier>,
+              Colors<EdgeAlphaShade>, /*Wrap=*/false> vignette;
 ```
 
 #### Additional Palette Types
 
 | Type | Description |
 |---|---|
-| `MutatingPalette` | Extends `ProceduralPalette` with continuous random coefficient mutation |
-| `AnimatedPalette` | Wraps any `Palette` with a time-varying lookup offset |
-| `CircularPalette` | Wraps the lookup parameter modulo 1.0 for seamless looping |
-| `ReversePalette` | Mirrors the lookup parameter (1.0 - t) |
-| `VignettePalette` | Applies a radial brightness falloff based on distance from center |
-| `TransparentVignette` | Like `VignettePalette` but fades alpha instead of brightness |
-| `AlphaFalloffPalette` | Applies a custom alpha curve (via callback) over the palette parameter |
-| `BakedPalette` | Precomputes a `GenerativePalette` into a fast 16-bit LUT for O(1) lookup. Arena-allocated. |
+| `MutatingPalette` | Extends `ProceduralPalette` with continuous coefficient mutation between two procedural palettes |
+| `SolidColorPalette` | Returns a single fixed color for every coordinate |
+| `PaletteFacade<SP>` | Exposes a compile-time `StaticPalette` composition through the polymorphic `Palette` API, for preset tables and baking |
+| `BakedPalette` | Precomputes any palette source (a `Palette` or a `StaticPalette`) into a fast 16-bit LUT for O(1) lookup. Arena-allocated. |
 
 ### 7.7 The Mesh System (`mesh.h`, `conway.h`, `hankin.h`, `spatial.h`, `solids.h`)
 

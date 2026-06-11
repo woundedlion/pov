@@ -518,13 +518,6 @@ public:
   virtual ~Palette() = default;
 };
 
-/// Abstract base for all palette modifiers.
-class Modifier {
-public:
-  virtual float modify(float t) const = 0;
-  virtual ~Modifier() = default;
-};
-
 /**
  * @brief A palette backed by a precomputed 256-entry linear-RGB lookup table,
  * filled at construction by interpolating between the color stops in linear
@@ -916,18 +909,18 @@ public:
  * passes t through. Contrast BreatheModifier/RippleModifier, whose driver is
  * mandatory and trapped at construction.
  */
-struct CycleModifier : public Modifier {
+struct CycleModifier {
   const float *offset;
 
   CycleModifier(const float *driver_offset = nullptr) : offset(driver_offset) {}
 
-  float modify(float t) const override { return offset ? t + *offset : t; }
+  float modify(float t) const { return offset ? t + *offset : t; }
 };
 
 /**
  * @brief Oscillates the palette coordinate (Breathing).
  */
-struct BreatheModifier : public Modifier {
+struct BreatheModifier {
   const float *phase;
   float amplitude;
 
@@ -939,7 +932,7 @@ struct BreatheModifier : public Modifier {
     HS_CHECK(phase, "BreatheModifier: phase driver must not be null");
   }
 
-  float modify(float t) const override {
+  float modify(float t) const {
     return t + fast_sinf(*phase) * amplitude;
   }
 };
@@ -949,7 +942,7 @@ struct BreatheModifier : public Modifier {
  * ripple effect. When applied to a spatial coordinate, colors will compress and
  * expand like waves.
  */
-struct RippleModifier : public Modifier {
+struct RippleModifier {
   const float *phase;
   float frequency;
   float amplitude;
@@ -961,7 +954,7 @@ struct RippleModifier : public Modifier {
     HS_CHECK(phase, "RippleModifier: phase driver must not be null");
   }
 
-  float modify(float t) const override {
+  float modify(float t) const {
     // Calculate a local distortion based on the current t position
     return t + sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
   }
@@ -975,14 +968,14 @@ struct RippleModifier : public Modifier {
  * The phase driver is optional by design (defaults to null) — a null driver is
  * the deliberate "no phase offset" mode (shift = 0), not an error.
  */
-struct FoldModifier : public Modifier {
+struct FoldModifier {
   const float *phase;
   float folds;
 
   FoldModifier(float folds = 2.0f, const float *phase = nullptr)
       : phase(phase), folds(folds) {}
 
-  float modify(float t) const override {
+  float modify(float t) const {
     float shift = phase ? *phase : 0.0f;
     float scaled = (t * folds) + shift;
 
@@ -997,12 +990,12 @@ struct FoldModifier : public Modifier {
  * positive tension pulls colors toward the center, negative pushes them to the
  * edges. Creates an elastic, tension-release visual dynamic.
  */
-struct PinchModifier : public Modifier {
+struct PinchModifier {
   const float *tension; // Expects roughly -0.9 to 0.9
 
   PinchModifier(const float *t) : tension(t) {}
 
-  float modify(float t) const override {
+  float modify(float t) const {
     if (!tension)
       return t;
 
@@ -1028,14 +1021,14 @@ struct PinchModifier : public Modifier {
  * By animating the step count or offsetting before quantizing, you get a
  * retro/glitch aesthetic.
  */
-struct QuantizeModifier : public Modifier {
+struct QuantizeModifier {
   const float *dynamic_steps;
   float base_steps;
 
   QuantizeModifier(float steps, const float *d_steps = nullptr)
       : dynamic_steps(d_steps), base_steps(steps) {}
 
-  float modify(float t) const override {
+  float modify(float t) const {
     float s = dynamic_steps ? *dynamic_steps : base_steps;
     if (s < 1.0f)
       s = 1.0f;
@@ -1049,15 +1042,86 @@ struct QuantizeModifier : public Modifier {
  * @brief Multiplies the palette coordinate, increasing the frequency
  * so the palette repeats multiple times across the domain.
  */
-struct ScaleModifier : public Modifier {
+struct ScaleModifier {
   const float *dynamic_scale;
   float base_scale;
 
   ScaleModifier(float s = 1.0f, const float *d_scale = nullptr)
       : dynamic_scale(d_scale), base_scale(s) {}
 
-  float modify(float t) const override {
+  float modify(float t) const {
     return t * (dynamic_scale ? *dynamic_scale : base_scale);
+  }
+};
+
+/// @brief Reverses the palette coordinate (t -> 1 - t).
+struct ReverseModifier {
+  float modify(float t) const { return 1.0f - t; }
+};
+
+/// @brief Mirrors the coordinate so [0,1] maps to [0,1,0] — one symmetric
+/// bounce, for a seamless loop.
+struct MirrorModifier {
+  float modify(float t) const { return 1.0f - fabsf(2.0f * t - 1.0f); }
+};
+
+/// @brief Compresses the source domain into an inset window [lo, hi] -> [0, 1],
+/// clamping outside so t below lo samples the first stop and t above hi the
+/// last. Pairs with EdgeFadeShade / EdgeAlphaShade to build vignettes.
+struct InsetModifier {
+  float lo, hi;
+  InsetModifier(float lo = 0.2f, float hi = 0.8f) : lo(lo), hi(hi) {}
+  float modify(float t) const {
+    return hs::clamp((t - lo) / (hi - lo), 0.0f, 1.0f);
+  }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Color Modifiers — reshape the sample after the source lookup.
+///////////////////////////////////////////////////////////////////////////////
+
+/// @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
+struct AlphaFalloffShade {
+  using FalloffFunction = float (*)(float);
+  FalloffFunction fn;
+  AlphaFalloffShade(FalloffFunction fn) : fn(fn) {}
+  Color4 shade(Color4 c, float t) const {
+    c.alpha *= fn(t);
+    return c;
+  }
+};
+
+/// @brief Fades the sample color to black near the coordinate edges (opaque
+/// vignette). Pair with InsetModifier so the edge bands resolve to the source's
+/// first/last stop before fading.
+struct EdgeFadeShade {
+  float edge;
+  EdgeFadeShade(float edge = 0.2f) : edge(edge) {}
+  Color4 shade(Color4 c, float t) const {
+    CRGB black(0, 0, 0);
+    if (t < edge)
+      return Color4(
+          black.lerp16(c.color, float_to_pixel16(quintic_kernel(t / edge))),
+          1.0f);
+    if (t >= 1.0f - edge)
+      return Color4(c.color.lerp16(black, float_to_pixel16(quintic_kernel(
+                                              (t - (1.0f - edge)) / edge))),
+                    1.0f);
+    return c;
+  }
+};
+
+/// @brief Fades the sample alpha (not color) near the coordinate edges
+/// (transparent vignette). Pair with InsetModifier as with EdgeFadeShade.
+struct EdgeAlphaShade {
+  float edge;
+  EdgeAlphaShade(float edge = 0.2f) : edge(edge) {}
+  Color4 shade(Color4 c, float t) const {
+    if (t < edge)
+      c.alpha *= quintic_kernel(t / edge);
+    else if (t >= 1.0f - edge)
+      c.alpha *= quintic_kernel(1.0f - (t - (1.0f - edge)) / edge);
+    return c;
   }
 };
 
@@ -1065,32 +1129,56 @@ struct ScaleModifier : public Modifier {
 // Compile-Time Palette Composition
 ///////////////////////////////////////////////////////////////////////////////
 
-/// Structural concept: any type with a const modify(float)->float method.
-/// All existing Modifier subclasses satisfy this automatically.
+/// Coordinate modifier: any type with a const modify(float)->float method.
+/// Remaps the lookup coordinate before the source is sampled.
 template <typename T>
-concept PaletteModifier = requires(const T m, float t) {
+concept CoordMod = requires(const T m, float t) {
   { m.modify(t) } -> std::convertible_to<float>;
 };
 
+/// Color modifier: any type with a const shade(Color4, float)->Color4 method.
+/// Reshapes the sample after the lookup, with the original coordinate in hand.
+template <typename T>
+concept ColorMod = requires(const T m, Color4 c, float t) {
+  { m.shade(c, t) } -> std::convertible_to<Color4>;
+};
+
+/// Type-list tags that separate the two modifier axes in a StaticPalette.
+template <typename... M> struct Coords {};
+template <typename... M> struct Colors {};
+
 /**
- * @brief A compile-time composition of a Source palette and N modifiers.
- * @details Default constructible to allow safe wiring in init().
- * Uses a fold expression to inline the modifier chain with zero runtime
- * overhead. Follows the ArenaVector idiom: default construct, then bind().
+ * @brief A compile-time composition of a Source palette, a coordinate-modifier
+ * chain, and a color-modifier chain.
+ * @details Default constructible to allow safe wiring in init(). Both chains are
+ * inlined by fold expression with zero runtime overhead, following the
+ * ArenaVector idiom: default construct, then bind(). get() applies the coord
+ * mods to t (in order), samples the source (wrapping the coordinate unless
+ * Wrap is false), then applies the color mods to the sample with the *original*
+ * coordinate. Wrap=false suits inset/falloff pipelines that must reach the
+ * source's exact endpoints (wrap_t(1)==0 would otherwise fold the top edge).
  */
-template <typename Source, PaletteModifier... Mods>
-class StaticPalette {
+template <typename Source, typename CoordList = Coords<>,
+          typename ColorList = Colors<>, bool Wrap = true>
+class StaticPalette;
+
+template <typename Source, typename... CMods, typename... XMods, bool Wrap>
+class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
+  static_assert((CoordMod<CMods> && ...), "Coords<> entries must be CoordMods");
+  static_assert((ColorMod<XMods> && ...), "Colors<> entries must be ColorMods");
+
 public:
   StaticPalette() = default;
 
-  void bind(const Source *src, const Mods *...ms) {
+  void bind(const Source *src, const CMods *...cms, const XMods *...xms) {
     // Cold wiring (init only): the per-pixel get() guards source_ with a
     // debug-only assert (stripped on-device), so without a trap here a null
     // source silently dereferences null on hardware. Trap always-on at this
     // cold seam so the wiring bug faults at the bench, not in the show.
     HS_CHECK(src != nullptr, "StaticPalette bound to null source");
     source_ = src;
-    mods_ = std::make_tuple(ms...);
+    coords_ = std::make_tuple(cms...);
+    colors_ = std::make_tuple(xms...);
   }
 
   Color4 get(float t) const {
@@ -1099,123 +1187,45 @@ public:
     assert(source_ != nullptr && "StaticPalette used before bind()!");
 
     float ft = t;
-    std::apply([&](const auto *...m) { ((ft = m->modify(ft)), ...); }, mods_);
+    std::apply([&](const auto *...m) { ((ft = m->modify(ft)), ...); }, coords_);
 
-    return source_->get(wrap_t(ft));
+    float u = ft;
+    if constexpr (Wrap)
+      u = wrap_t(ft);
+    Color4 c = source_->get(u);
+
+    std::apply([&](const auto *...m) { ((c = m->shade(c, t)), ...); }, colors_);
+    return c;
   }
 
 private:
   const Source *source_ = nullptr;
-  std::tuple<const Mods *...> mods_{};
+  std::tuple<const CMods *...> coords_{};
+  std::tuple<const XMods *...> colors_{};
 };
 
-class AnimatedPalette;
-class CircularPalette;
-class ReversePalette;
-class VignettePalette;
-class TransparentVignette;
-class AlphaFalloffPalette;
-class SolidColorPalette;
-
-inline Color4 get_color(const Palette &p, float t) { return p.get(t); }
-inline Color4 get_color(const Palette *p, float t) {
-  return p ? p->get(t) : Color4(CRGB(0, 0, 0), 0.0f);
-}
-
 /**
- * @brief A wrapper that applies a chain of modifiers to the palette parameter
- * 't'.
+ * @brief Runtime Palette facade over a compile-time StaticPalette composition.
+ * @details Bridges a zero-overhead StaticPalette into the polymorphic
+ * `const Palette*` world (preset tables, BakedPalette::bake). The virtual call
+ * is paid only where a Palette* is required — at bake time (cold) — never on the
+ * per-pixel path, which runs off the resulting BakedPalette LUT.
  */
-class AnimatedPalette : public Palette {
+template <typename SP> class PaletteFacade : public Palette {
 public:
-  AnimatedPalette(const Palette *source) : source(source) {}
-
-  /**
-   * Explicitly connect a modifier to this palette.
-   * Stores a pointer (modifier must outlive this palette).
-   */
-  AnimatedPalette &add(const Modifier &modifier) {
-    // Exceeding MAX_MODIFIERS is a wiring bug; silently dropping a modifier
-    // changes the visual with no signal. Trap (fail-fast).
-    HS_CHECK(num_modifiers < MAX_MODIFIERS,
-             "AnimatedPalette::add: exceeded MAX_MODIFIERS");
-    modifiers[num_modifiers++] = &modifier;
-    return *this;
+  PaletteFacade() = default;
+  explicit PaletteFacade(const SP *sp) : sp_(sp) {}
+  void bind(const SP *sp) {
+    HS_CHECK(sp != nullptr, "PaletteFacade bound to null composition");
+    sp_ = sp;
+  }
+  Color4 get(float t) const override {
+    assert(sp_ != nullptr && "PaletteFacade used before bind()!");
+    return sp_->get(t);
   }
 
-  Color4 get(float t) const override;
-
 private:
-  static constexpr int MAX_MODIFIERS = 4;
-  const Palette *source;
-  const Modifier *modifiers[MAX_MODIFIERS] = {};
-  int num_modifiers = 0;
-};
-
-/**
- * @brief Palette wrapper that makes the source palette symmetrical/circular.
- * Maps range [0, 1] -> [0, 1, 0].
- */
-class CircularPalette : public Palette {
-public:
-  CircularPalette(const Palette *palette) : palette(palette) {}
-  Color4 get(float t) const override;
-
-private:
-  const Palette *palette;
-};
-
-/**
- * @brief Palette wrapper that reverses the source palette.
- * Maps inputs t -> 1-t.
- */
-class ReversePalette : public Palette {
-public:
-  ReversePalette(const Palette *palette) : palette(palette) {}
-  Color4 get(float t) const override;
-
-private:
-  const Palette *palette;
-};
-
-/**
- * @brief Palette wrapper that applies black vignetting at the edges.
- * fades to black at t < 0.2 and t > 0.8.
- */
-class VignettePalette : public Palette {
-public:
-  VignettePalette(const Palette *palette) : palette(palette) {}
-
-  Color4 get(float t) const override;
-
-private:
-  const Palette *palette;
-};
-
-/**
- * @brief Palette wrapper that applies alpha transparency vignetting at the
- * edges.
- */
-class TransparentVignette : public Palette {
-public:
-  TransparentVignette(const Palette *palette) : palette(palette) {}
-
-  Color4 get(float t) const override;
-
-private:
-  const Palette *palette;
-};
-
-class AlphaFalloffPalette : public Palette {
-public:
-  using FalloffFunction = float (*)(float);
-  AlphaFalloffPalette(FalloffFunction fn, const Palette *source)
-      : fn(fn), source(source) {}
-  Color4 get(float t) const override;
-
-private:
-  FalloffFunction fn;
-  const Palette *source;
+  const SP *sp_ = nullptr;
 };
 
 class SolidColorPalette : public Palette {
@@ -1234,15 +1244,16 @@ public:
 
   BakedPalette() = default;
 
-  /// Bake a palette into a 256-entry LUT in the given arena.
-  void bake(Arena &arena, const Palette &source) {
+  /// Bake any source with a `Color4 get(float) const` into a 256-entry LUT in
+  /// the given arena — a runtime Palette or a compile-time StaticPalette alike.
+  template <typename Source> void bake(Arena &arena, const Source &source) {
     lut_ = static_cast<Color4 *>(
         arena.allocate(LUT_SIZE * sizeof(Color4), alignof(Color4)));
     rebake(source);
   }
 
   /// Refill existing LUT without allocating. Use for animated palettes.
-  void rebake(const Palette &source) {
+  template <typename Source> void rebake(const Source &source) {
     // Cold (per-frame at most, never per-pixel): a null lut_ here means rebake()
     // was called before bake() — a wiring bug with no valid recovery. Trap
     // always-on (survives NDEBUG on-device) rather than write through null.
@@ -1310,71 +1321,3 @@ struct BakedPaletteBank {
       dst.entries[i].clone_from(src.entries[i], arena);
   }
 };
-
-// Implementations that require all palette types to be complete
-inline Color4 AnimatedPalette::get(float t) const {
-  float final_t = t;
-  for (int i = 0; i < num_modifiers; ++i) {
-    final_t = modifiers[i]->modify(final_t);
-  }
-
-  // Fast wrap the final coordinate right before querying the source palette
-  final_t = wrap_t(final_t);
-
-  return get_color(source, final_t);
-}
-
-inline Color4 CircularPalette::get(float t) const {
-  return palette ? get_color(*palette, 1.0f - std::abs(2.0f * t - 1.0f))
-                 : Color4(CRGB(0, 0, 0), 0.0f);
-}
-
-inline Color4 ReversePalette::get(float t) const {
-  return palette ? get_color(*palette, 1.0f - t) : Color4(CRGB(0, 0, 0), 0.0f);
-}
-
-inline Color4 VignettePalette::get(float t) const {
-  CRGB vignette_color(0, 0, 0);
-  if (!palette)
-    return Color4(vignette_color, 0.0f);
-
-  if (t < 0.2f) {
-    return Color4(vignette_color.lerp16(get_color(*palette, 0.0f).color,
-                                        float_to_pixel16(quintic_kernel(t / 0.2f))),
-                  1.0f);
-  } else if (t >= 0.8f) {
-    return Color4(get_color(*palette, 1.0f)
-                      .color.lerp16(vignette_color, float_to_pixel16(quintic_kernel(
-                                                        (t - 0.8f) / 0.2f))),
-                  1.0f);
-  } else {
-    return get_color(*palette, (t - 0.2f) / 0.6f);
-  }
-}
-
-inline Color4 TransparentVignette::get(float t) const {
-  Color4 result;
-  float factor = 1.0f;
-  if (!palette)
-    return result;
-
-  if (t < 0.2f) {
-    result = get_color(*palette, 0.0f);
-    factor = quintic_kernel(t / 0.2f);
-  } else if (t >= 0.8f) {
-    result = get_color(*palette, 1.0f);
-    factor = quintic_kernel(1.0f - (t - 0.8f) / 0.2f);
-  } else {
-    return get_color(*palette, (t - 0.2f) / 0.6f);
-  }
-  result.alpha *= factor;
-  return result;
-}
-
-inline Color4 AlphaFalloffPalette::get(float t) const {
-  if (!source)
-    return Color4(CRGB(0, 0, 0), 0.0f);
-  Color4 c = get_color(*source, t);
-  c.alpha *= fn(t);
-  return c;
-}
