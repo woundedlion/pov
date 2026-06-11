@@ -82,7 +82,13 @@ public:
 
     // Configure DMA channel
     dma_.begin(true);
-    dma_.destination(reinterpret_cast<volatile uint32_t&>(LPSPI4_TDR));
+    // 8-bit destination width to match the byte-stream source. The uint8_t
+    // cast is load-bearing: LPSPI4_TDR is a volatile uint32_t, and binding the
+    // 32-bit destination() overload sets ATTR_DST to 32-bit transfers, which
+    // conflicts with sourceBuffer()'s NBYTES=1 and raises an eDMA configuration
+    // error on enable — nothing transmits. (Same pattern as SPI.cpp's
+    // destination((volatile uint8_t&)port().TDR).)
+    dma_.destination(reinterpret_cast<volatile uint8_t&>(LPSPI4_TDR));
     dma_.triggerAtHardwareEvent(DMAMUX_SOURCE_LPSPI4_TX);
     dma_.disableOnCompletion();
     dma_.interruptAtCompletion();

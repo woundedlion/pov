@@ -104,7 +104,7 @@ Sequential numbering across all priorities. Items marked *(not independently val
 
 Defects that prevent or corrupt output on the physical hardware.
 
-1. **DMA destination configured 32-bit against an 8-bit source buffer — eDMA TCD config error, no frame ever transmits** — `hardware/dma_led.h:85 (destination), 97-104 (transmitAsync)` *(not independently validated)*
+1. ✅ **DMA destination configured 32-bit against an 8-bit source buffer — eDMA TCD config error, no frame ever transmits** — `hardware/dma_led.h:85 (destination), 97-104 (transmitAsync)` *(validated and fixed: destination now cast to `volatile uint8_t&`, binding the 8-bit overload so ATTR_DST matches the byte-stream source — same pattern as the Teensy core's SPI.cpp)*
    TeensySPIDMA::init() does `dma_.destination(reinterpret_cast<volatile uint32_t&>(LPSPI4_TDR))`. LPSPI4_TDR is a volatile uint32_t (imxrt.h:7248/7164), so this binds DMAChannel::destination(volatile unsigned long&), which sets ATTR_DST=2 (32-bit transfers) and NBYTES=4 (DMAChannel.h:220-226: NBYTES==0 after begin(), so the guard assigns 4). Every transmitAsync() then calls dma_.sourceBuffer(data, len), which sets ATTR_SRC=0 (8-bit) and overwrites NBYTES=1 (DMAChannel.h:124-132).
    *Why it matters:* This is the documented production output path for Phantasm (HD107S over DMA). As written it cannot transmit a single byte on hardware, and the failure mode is the silent dark-strip outcome the project's fail-fast philosophy exists to preven…
    *Suggested fix:* Change the destination to an 8-bit register reference: `dma_.destination(reinterpret_cast<volatile uint8_t&>(LPSPI4_TDR));` (matching SPI.cpp).
