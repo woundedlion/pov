@@ -306,6 +306,9 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
   if (!TrigLUT<W, H>::initialized) {
     TrigLUT<W, H>::init();
   }
+  // Local avoids the comma in TrigLUT<W, H> splitting HS_CHECK's varargs.
+  constexpr int kHVirt = TrigLUT<W, H>::H_VIRT;
+  HS_CHECK(x >= 0 && x < W && y >= 0 && y < kHVirt);
   float sp = TrigLUT<W, H>::sin_phi[y];
   return Vector(sp * TrigLUT<W, H>::cos_theta[x], TrigLUT<W, H>::cos_phi[y],
                 sp * TrigLUT<W, H>::sin_theta[x]);
