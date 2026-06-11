@@ -14,10 +14,12 @@
  */
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 
 #include "core/color.h"
+#include "core/util.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -725,6 +727,37 @@ inline void test_generative_palette_get_clamps_out_of_range() {
   HS_EXPECT_EQ(nan.color.b, last.color.b);
 }
 
+// Pins the load-bearing NaN propagation in MobiusGrid::draw_longitudes
+// (effects/MobiusGrid.h): at the stereographic singularity z = +/-1 the
+// conformal radius R = sqrtf((1+z)/(1-z)) blows up to +inf, logf carries the
+// inf through, and wrap() folds it to NaN, which palette.get clamps to a palette
+// endpoint so the longitude saturates to its terminal color rather than
+// misbehaving. The behavior is deliberate (the WASM release build keeps
+// -fno-finite-math-only specifically to preserve it; see CMakeLists.txt). Lock
+// the whole inf -> NaN -> endpoint chain so a future math nudge or a stray
+// -ffinite-math-only that quietly breaks it fails here instead of on the sphere.
+inline void test_mobius_longitude_singularity_saturates_to_endpoint() {
+  const float z = 1.0f; // sinf(0.25 * 2*PI) at the t_line = 0.25 singularity
+  float R = std::sqrt((1.0f + z) / (1.0f - z));
+  HS_EXPECT_TRUE(std::isinf(R)); // division by (1 - z) == 0 blows R up
+
+  float log_r = std::log(R);
+  const float log_min = -2.5f, log_max = 2.5f;
+  float t = (log_r - log_min) / (log_max - log_min);
+  float wrapped = wrap(t, 1.0f); // phase = 0; inf -> fmod -> NaN
+  HS_EXPECT_TRUE(std::isnan(wrapped));
+
+  // Same palette type/shape MobiusGrid uses (default GenerativePalette).
+  GenerativePalette palette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
+                            BrightnessProfile::FLAT, SaturationProfile::VIBRANT,
+                            0);
+  Color4 endpoint = palette.get(1.0f);
+  Color4 singular = palette.get(wrapped);
+  HS_EXPECT_EQ(singular.color.r, endpoint.color.r);
+  HS_EXPECT_EQ(singular.color.g, endpoint.color.g);
+  HS_EXPECT_EQ(singular.color.b, endpoint.color.b);
+}
+
 // The auto-seed cursor advances per construction, so two consecutive auto-seeded
 // palettes differ; reset_hue_seed restores the cursor for reproducibility.
 inline void test_generative_palette_auto_seed_advances() {
@@ -948,6 +981,7 @@ inline int run_color_tests() {
   test_mutating_palette_blends_endpoints();
   test_generative_palette_deterministic();
   test_generative_palette_get_clamps_out_of_range();
+  test_mobius_longitude_singularity_saturates_to_endpoint();
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
   test_palette_modifiers();
