@@ -205,6 +205,27 @@ inline void test_serial_printf_formats_varargs() {
   HS_EXPECT(cap.str() == std::string("req 12 / cap 48"), "printf expands args");
 }
 
+// rand_f() must stay in the half-open interval [0, 1): the top band of RNG
+// draws rounds value/max to exactly 1.0f, which would make (int)(rand_f()*N)
+// index N. random_to_unit() clamps those, and nothing else.
+inline void test_rand_f_half_open() {
+  constexpr uint32_t kMax = 0xFFFFFFFFu; // std::mt19937::max()
+  // The exact boundary the bug hit: the naive ratio is 1.0f, the clamp pulls it
+  // to the float just below.
+  HS_EXPECT_LT(hs::random_to_unit(kMax, kMax), 1.0f);
+  HS_EXPECT_EQ(hs::random_to_unit(kMax, kMax), 0x1.fffffep-1f);
+  HS_EXPECT_LT(hs::random_to_unit(kMax - 64, kMax), 1.0f); // rest of the top band
+  // Ordinary draws pass through unchanged.
+  HS_EXPECT_EQ(hs::random_to_unit(0, kMax), 0.0f);
+  HS_EXPECT_NEAR(hs::random_to_unit(kMax / 2, kMax), 0.5f, 1e-6f);
+  // And the live generator never escapes [0, 1) across a long sweep.
+  for (int i = 0; i < 100000; ++i) {
+    float r = hs::rand_f();
+    HS_EXPECT_GE(r, 0.0f);
+    HS_EXPECT_LT(r, 1.0f);
+  }
+}
+
 inline int run_platform_tests() {
   auto scope = hs_test::begin_module("platform");
 
@@ -215,6 +236,7 @@ inline int run_platform_tests() {
   test_map8_fastled_semantics();
   test_map_degenerate_range();
   test_random_degenerate_range();
+  test_rand_f_half_open();
   test_beatsin8_faithful();
   test_beatsin16_golden();
   test_serial_printf_formats_varargs();

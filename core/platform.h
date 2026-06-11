@@ -610,13 +610,26 @@ inline unsigned long micros() { return hs::micros(); }
 // ---------------------------------------------------------------------------
 namespace hs {
 
+// Maps a raw RNG draw in [0, max] onto the half-open unit interval [0.0, 1.0).
+// The naive value/max can land on exactly 1.0f for the top band of draws (both
+// operands round to 2^32 in float), so (int)(u * N) would occasionally index N —
+// one past the end. Clamp only those top draws to the float just below 1.0f; no
+// float is representable between that constant and 1.0f, so every other draw is
+// byte-for-byte unchanged and the stream stays deterministic. Pure so the
+// boundary is unit-testable without driving the global RNG to its (rare) max.
+inline float random_to_unit(uint32_t value, uint32_t max) {
+  float r = static_cast<float>(value) / static_cast<float>(max);
+  constexpr float kJustBelowOne = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
+  return r > kJustBelowOne ? kJustBelowOne : r;
+}
+
 /**
- * @brief Generates a pseudo-random floating-point number between 0.0 and 1.0.
- * @return A random float in the range [0.0, 1.0].
+ * @brief Generates a pseudo-random floating-point number in [0.0, 1.0).
+ * @return A random float in the half-open range [0.0, 1.0).
  */
 inline float rand_f() {
-  return static_cast<float>(hs::random()()) /
-         static_cast<float>(hs::random().max());
+  return random_to_unit(static_cast<uint32_t>(hs::random()()),
+                        static_cast<uint32_t>(hs::random().max()));
 }
 
 inline float rand_f(float min, float max) {
