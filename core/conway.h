@@ -419,6 +419,25 @@ FLASHMEM static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
 }
 
 /**
+ * @brief Trap if the mesh has a boundary (any unpaired half-edge).
+ *
+ * @details The edge-based operators below size their output pools assuming a
+ * closed manifold — E = I/2 undirected edges — and walk complete edge orbits.
+ * An unpaired half-edge undersizes those pools and the operator overruns them,
+ * surfacing far from the cause as a generic "capacity exceeded" trap. Check the
+ * precondition explicitly and up front (mirroring compile_hankin) so a boundary
+ * mesh fails with a self-explanatory message. Cold path: once per operator at
+ * build time, never in a per-element loop.
+ */
+static void require_closed_manifold(const HalfEdgeMesh &he_mesh,
+                                    const char *op) {
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
+             "MeshOps::%s requires a closed manifold (unpaired half-edge)", op);
+  }
+}
+
+/**
  * @brief Ambo operator: Truncates vertices to edge midpoints.
  */
 template <typename MeshT>
@@ -438,6 +457,7 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
     ScratchScope _target(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
+    require_closed_manifold(he_mesh, "ambo");
 
     uint16_t *edge_to_vert =
         static_cast<uint16_t *>(target.allocate(
@@ -547,6 +567,7 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
     ScratchScope _target(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
+    require_closed_manifold(he_mesh, "truncate");
 
     std::pair<int16_t, int16_t> *edge_to_vert =
         static_cast<std::pair<int16_t, int16_t> *>(
@@ -637,6 +658,7 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
     ScratchScope _target(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
+    require_closed_manifold(he_mesh, "expand");
     int16_t *he_to_vert_idx = static_cast<int16_t *>(
         target.allocate(I * sizeof(int16_t), alignof(int16_t)));
     std::fill_n(he_to_vert_idx, I, -1);
@@ -721,6 +743,7 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
   {
     ScratchScope _(temp);
     HalfEdgeMesh he_mesh(temp, mesh);
+    require_closed_manifold(he_mesh, "chamfer");
 
     uint16_t *he_to_new_v =
         static_cast<uint16_t *>(temp.allocate(
@@ -922,6 +945,7 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
     ScratchScope _(temp);
 
     HalfEdgeMesh he_mesh(temp, mesh);
+    require_closed_manifold(he_mesh, "snub");
     uint16_t *he_to_vert_idx =
         static_cast<uint16_t *>(temp.allocate(
             I * sizeof(uint16_t), alignof(uint16_t)));
