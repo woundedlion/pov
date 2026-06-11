@@ -50,6 +50,15 @@ namespace effects_tests {
 constexpr int kW = 288;
 constexpr int kH = 144;
 
+// The Holosphere hardware target instantiates every effect at <96,20>. The
+// native suite is the only place that specialization runs under asserts (the
+// device forces NDEBUG; the CI WASM smoke runs assert-free), so a second roster
+// pass at this resolution exercises height-20-specific paths (PhiLUT<20>
+// indexing, small-aspect arena sizing, H_OFFSET interactions) that bypass every
+// assert-enabled layer otherwise. Both are in HS_WASM_RESOLUTIONS (wasm.cpp).
+constexpr int kDeviceW = 96;
+constexpr int kDeviceH = 20;
+
 // Default smoke frame count — kept small so the effects smoke pass itself stays
 // quick. (The full pre-commit suite still runs ~25 s, dominated by the
 // death-test subprocess spawns and the multi-board sync simulator, not these
@@ -79,7 +88,7 @@ inline int smoke_frames() {
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
 // Drive one effect type through construct -> init -> render -> read-back.
-template <template <int, int> class E>
+template <template <int, int> class E, int W = kW, int H = kH>
 inline void smoke_one(const char *name) {
   // Deterministic RNG so a given effect takes the same code path each run.
   hs::random().seed(1337u);
@@ -92,11 +101,11 @@ inline void smoke_one(const char *name) {
   Timeline().clear();
   global_timeline_t = 0;
 
-  E<kW, kH> effect;
+  E<W, H> effect;
   effect.init();
 
-  HS_EXPECT_EQ(effect.width(), kW);
-  HS_EXPECT_EQ(effect.height(), kH);
+  HS_EXPECT_EQ(effect.width(), W);
+  HS_EXPECT_EQ(effect.height(), H);
 
   const int frames = smoke_frames();
   for (int f = 0; f < frames; ++f) {
@@ -111,8 +120,8 @@ inline void smoke_one(const char *name) {
   // from being optimized away.
   auto sum_buffer = [&effect]() {
     uint64_t s = 0;
-    for (int y = 0; y < kH; ++y)
-      for (int x = 0; x < kW; ++x) {
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
         const Pixel &p = effect.get_pixel(x, y);
         s += static_cast<uint64_t>(p.r) + p.g + p.b;
       }
@@ -130,9 +139,12 @@ inline void smoke_one(const char *name) {
   // tripping an assert / OOB / hang.
   HS_EXPECT_EQ(acc, sum_buffer());
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
-              frames, kW, kH, static_cast<unsigned long long>(acc));
+              frames, W, H, static_cast<unsigned long long>(acc));
 
-  lint_dead_sliders(effect, name);
+  // The dead-slider lint is resolution-independent (param persistence), so run
+  // it once on the primary pass rather than redundantly at every resolution.
+  if constexpr (W == kW && H == kH)
+    lint_dead_sliders(effect, name);
 }
 
 // Build-time "registered-but-unread" lint for the live-art param system.
@@ -184,7 +196,7 @@ constexpr unsigned long kFrameUs = 33000;
 // Render one effect for `frames` frames under the injected clock and copy the
 // final displayed buffer out. Resets every shared global the smoke path does
 // (RNG seed, arenas, Timeline) so two calls start from an identical state.
-template <template <int, int> class E>
+template <template <int, int> class E, int W = kW, int H = kH>
 inline void render_capture(std::vector<Pixel> &out, int frames) {
   hs::random().seed(1337u);
   configure_arenas_default();
@@ -196,7 +208,7 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
   GenerativePalette::reset_hue_seed(0);
   hs::set_mock_time(0, 0);
 
-  E<kW, kH> effect;
+  E<W, H> effect;
   effect.init();
   for (int f = 0; f < frames; ++f) {
     hs::set_mock_time(static_cast<unsigned long>(f) * kFrameMs,
@@ -205,22 +217,22 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
     effect.advance_display();
   }
 
-  out.resize(static_cast<size_t>(kW) * kH);
-  for (int y = 0; y < kH; ++y)
-    for (int x = 0; x < kW; ++x)
-      out[static_cast<size_t>(y) * kW + x] = effect.get_pixel(x, y);
+  out.resize(static_cast<size_t>(W) * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      out[static_cast<size_t>(y) * W + x] = effect.get_pixel(x, y);
 }
 
 // Cross-run determinism: render the same effect twice under the fixed clock and
 // require byte-identical final frames. The clock seam neutralizes wall-time, so
 // a divergence here is real nondeterminism (uninitialized read, stale global,
 // address-dependent path) — the defect class smoke coverage cannot see.
-template <template <int, int> class E>
+template <template <int, int> class E, int W = kW, int H = kH>
 inline void determinism_one(const char *name) {
   const int frames = smoke_frames();
   std::vector<Pixel> a, b;
-  render_capture<E>(a, frames);
-  render_capture<E>(b, frames);
+  render_capture<E, W, H>(a, frames);
+  render_capture<E, W, H>(b, frames);
   hs::clear_mock_time();
 
   int first_diff = -1;
@@ -231,7 +243,7 @@ inline void determinism_one(const char *name) {
     }
 
   if (first_diff >= 0) {
-    const int x = first_diff % kW, y = first_diff / kW;
+    const int x = first_diff % W, y = first_diff / W;
     std::printf("  NONDETERMINISTIC %-20s pixel (%d,%d): runA (%d,%d,%d) != "
                 "runB (%d,%d,%d) over %d frames\n",
                 name, x, y, static_cast<int>(a[first_diff].r),
@@ -295,6 +307,16 @@ inline int run_effects_tests() {
 #define HS_DET_ONE(name) determinism_one<name>(#name);
   HS_EFFECT_LIST(HS_DET_ONE)
 #undef HS_DET_ONE
+
+  // Repeat both passes at the Holosphere device resolution <96,20>, the only
+  // place that specialization runs under native asserts (see kDeviceW/kDeviceH).
+  std::printf("  -- device resolution %dx%d --\n", kDeviceW, kDeviceH);
+#define HS_SMOKE_ONE_DEV(name) smoke_one<name, kDeviceW, kDeviceH>(#name);
+  HS_EFFECT_LIST(HS_SMOKE_ONE_DEV)
+#undef HS_SMOKE_ONE_DEV
+#define HS_DET_ONE_DEV(name) determinism_one<name, kDeviceW, kDeviceH>(#name);
+  HS_EFFECT_LIST(HS_DET_ONE_DEV)
+#undef HS_DET_ONE_DEV
 
   return hs_test::end_module(scope);
 }
