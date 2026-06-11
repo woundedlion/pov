@@ -40,6 +40,7 @@ struct TestEffect : public Effect {
     *p = d; // registerParam(bool) captures *ptr as the default; set it first
     registerParam(n, p);
   }
+  void mark_readonly(const char *n) { markReadonly(n); }
 };
 
 inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
@@ -295,6 +296,23 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 
+// The untrusted JS boundary must not write readonly (engine-written telemetry)
+// params, even though the GUI already disables their editing.
+inline void test_update_parameter_rejects_readonly() {
+  TestEffect fx(4, 4);
+  float telemetry = 1.0f;
+  fx.add_float("Telemetry", &telemetry, 0.0f, 10.0f);
+  fx.mark_readonly("Telemetry");
+
+  HS_EXPECT_FALSE(fx.updateParameter("Telemetry", 5.0f));
+  HS_EXPECT_NEAR(telemetry, 1.0f, 1e-6f); // engine value left intact
+
+  // An ordinary editable param in the same effect still writes.
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  HS_EXPECT_TRUE(fx.updateParameter("Speed", 4.0f));
+  HS_EXPECT_NEAR(fx.speed, 4.0f, 1e-6f);
+}
+
 inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
   static float vals[32];
@@ -377,6 +395,7 @@ inline int run_canvas_tests() {
   test_canvas_2d_and_1d_access_and_prev();
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
+  test_update_parameter_rejects_readonly();
   test_paramlist_fills_to_capacity();
   test_clip_setters();
   test_pipeline_ref_copy_is_independent_of_source();

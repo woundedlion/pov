@@ -251,18 +251,25 @@ public:
    * @param name The name of the parameter.
    * @param value The new value (mapped to bool if necessary).
    * @return true if the value was applied; false if the name is unknown (a
-   *         stale/typo'd UI string) or the value was rejected as non-finite.
-   *         The WASM bridge propagates this so the frontend can detect a
-   *         no-op rather than silently dropping the write.
+   *         stale/typo'd UI string), the parameter is readonly (engine-written
+   *         telemetry), or the value was rejected as non-finite. The WASM bridge
+   *         propagates this so the frontend can detect a no-op rather than
+   *         silently dropping the write.
    */
   bool updateParameter(const char *name, float value) {
     auto *def = parameters.find(name);
     if (def == nullptr)
       return false;
     // This is the (untrusted) JS boundary — the only caller is WASM
-    // setParameter. Reject non-finite input outright (a NaN/Inf would silently
-    // poison render math), and clamp floats to the registered [min,max] the GUI
-    // advertises. Bools are not range-clamped (set() thresholds them at 0.5).
+    // setParameter. Reject writes the GUI is not allowed to make: readonly
+    // params are engine-written telemetry the GUI shows live but disables
+    // editing, so a write here is a stale/malicious frontend — drop it rather
+    // than trust the client. Then reject non-finite input outright (a NaN/Inf
+    // would silently poison render math), and clamp floats to the registered
+    // [min,max] the GUI advertises. Bools are not range-clamped (set()
+    // thresholds them at 0.5).
+    if (def->readonly)
+      return false;
     if (!std::isfinite(value))
       return false;
     if (!def->is_bool())
