@@ -589,29 +589,6 @@ inline void test_quaternion_slerp() {
 }
 
 // ============================================================================
-// fold_to_hemisphere
-// ============================================================================
-
-inline void test_fold_to_hemisphere() {
-  // North pole maps to itself
-  HS_EXPECT_VEC(fold_to_hemisphere(Vector(0, 1, 0)), Vector(0, 1, 0), 1e-4f);
-  // South pole anchors to +X
-  HS_EXPECT_VEC(fold_to_hemisphere(Vector(0, -1, 0)), Vector(1, 0, 0), 1e-4f);
-
-  // Folded northern-hemisphere point lies on the unit sphere
-  Vector vN = Vector(0.5f, 0.3f, 0.81f).normalized();
-  Vector fN = fold_to_hemisphere(vN);
-  HS_EXPECT_NEAR(fN.length(), 1.0f, 5e-3f);
-  HS_EXPECT_TRUE(fN.y >= -1e-4f);
-
-  // Folded southern-hemisphere point also stays unit & in the upper half
-  Vector vS = Vector(0.5f, -0.5f, 0.7071f).normalized();
-  Vector fS = fold_to_hemisphere(vS);
-  HS_EXPECT_NEAR(fS.length(), 1.0f, 5e-3f);
-  HS_EXPECT_TRUE(fS.y >= -1e-4f);
-}
-
-// ============================================================================
 // Stereographic projection
 // ============================================================================
 
@@ -893,7 +870,6 @@ inline int run_3dmath_tests() {
   test_vector_slerp();
   test_quaternion_slerp();
 
-  test_fold_to_hemisphere();
   test_stereo_roundtrip();
   test_complex_arithmetic();
   test_mobius_params_accessors();

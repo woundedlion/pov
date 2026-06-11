@@ -534,29 +534,6 @@ struct Complex {
   }
 };
 
-inline Vector fold_to_hemisphere(const Vector &v) {
-  // Half-angle identities to calculate the new height (j') and the new
-  // horizontal radius (r')
-  float j_new = sqrtf((1.0f + v.y) * 0.5f);
-  float r_new = sqrtf((1.0f - v.y) * 0.5f);
-
-  // Get the length of the original horizontal components (x and z)
-  float r_old = sqrtf(v.x * v.x + v.z * v.z);
-
-  // Protect against division by zero at the exact poles
-  if (r_old < 1e-7f) {
-    // The North Pole (j=1) stays the North Pole.
-    // The South Pole (j=-1) is stretched into the entire equator ring.
-    // We arbitrarily anchor the singularity to the X-axis (i=1).
-    return v.y > 0.0f ? Vector(0.0f, 1.0f, 0.0f) : Vector(1.0f, 0.0f, 0.0f);
-  }
-
-  // Scale the original x and z coordinates to the new tightened radius
-  float scale = r_new / r_old;
-
-  return Vector(v.x * scale, j_new, v.z * scale);
-}
-
 /**
  * @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d).
  *
