@@ -90,20 +90,23 @@ private:
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const std::array<int, NUM_PALETTES> &palette_idx,
-                 float opacity, const Quaternion &q) {
+                 float opacity) {
     if (mesh.vertices.empty() || opacity < 0.01f)
       return;
 
     ScratchScope _(scratch_arena_a);
     MeshState rotated_mesh;
-    
-    MeshOps::transform(mesh, rotated_mesh, scratch_arena_a);
-
-    for (auto &v : rotated_mesh.vertices)
-      v = rotate(v, q);
+    // Single-pass clone + camera rotation via OrientTransformer, matching the
+    // twin IslamicStars::draw_shape (was a transformer-less clone followed by a
+    // separate manual rotate sweep). orient(v) == rotate(v, orientation.get()),
+    // so the rendered result is unchanged.
+    OrientTransformer<W> camera(orientation);
+    MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
 
     auto fragment_shader = [&](const Vector &p, Fragment &f) {
-      int faceIdx = (int)std::round(f.v2);
+      // Truncating cast (parity with IslamicStars); v2 carries an exact integer
+      // face index, so this matches the old std::round.
+      int faceIdx = static_cast<int>(f.v2);
       int topoIdx = (faceIdx >= 0 && faceIdx < (int)topology.size())
                         ? topology[faceIdx]
                         : 0;
@@ -111,7 +114,7 @@ private:
       float t = hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
 
       f.color = palette_bank_[palette_idx[topoIdx % NUM_PALETTES]].get(t);
-      f.color.alpha *= opacity;
+      f.color.alpha = opacity;
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
@@ -142,7 +145,7 @@ private:
                                         persistent_arena, params.hankin_angle);
                  draw_mesh(c, carousel.slot(front),
                            carousel.slot(front).topology, palettes_slots[front],
-                           opacity, orientation.get());
+                           opacity);
                },
                DURATION, 0, ease_mid, 0, ease_mid, &anims_paused_));
   }
@@ -212,12 +215,12 @@ private:
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_outgoing_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
         draw_mesh(c, m, carousel.slot(morph_old_slot_).topology,
-                  palettes_slots[morph_old_slot_], o, orientation.get());
+                  palettes_slots[morph_old_slot_], o);
       }};
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_incoming_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
         draw_mesh(c, m, carousel.slot(morph_new_slot_).topology,
-                  palettes_slots[morph_new_slot_], o, orientation.get());
+                  palettes_slots[morph_new_slot_], o);
       }};
 
   Orientation<> orientation;
