@@ -179,7 +179,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 289. ✅ **The tool pages' fallback URL-writer debounce shares one timer across all keys; a rapid second param change drops the first from the URL** — `daydream/gui.js:22`
    `setUrlParam`'s non-URLSync path (every tool page) keeps a single module-level timer; each call clears it and schedules a closure that writes only its own key. Two controls changed within the 200 ms window lose the first key's write from the shareable deep link. Keep a pending map keyed by param (mirroring `URLSync._adhoc`) and flush once.
 
-290. **An init-phase worker fault never reaches the visible fault overlay: `tick()`'s ready guard precedes the faulted check** — `daydream/segment_controller.js:596`
+290. ✅ **An init-phase worker fault never reaches the visible fault overlay: `tick()`'s ready guard precedes the faulted check** — `daydream/segment_controller.js:596`
    If a worker faults during startup (WASM fetch failure, instantiate OOM — a real mobile risk with four simultaneous instances), `_onWorkerFault` latches `faulted`, but `readyCount` never reaches the segment count, so every `tick()` returns at the first guard and the fault overlay is unreachable: segmented mode freezes black with console-only diagnostics, contradicting the onerror comment's promise of "a visible UI state." The test suite covers ready-gating and faulted-pool no-dispatch separately but not their conflicting combination. Check `faulted` before the ready guard.
 
 291. **The procedural palette export is JS array syntax, not the C++ initializer the README promises** — `daydream/tools/palettes.html:1253`
