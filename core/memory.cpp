@@ -65,6 +65,13 @@ void configure_arenas_default() {
                    DEFAULT_SCRATCH_B_SIZE);
 }
 
+// These definitions live here, not next to their declarations, on purpose:
+// memory.cpp is the one TU compiled into every target, and these are the
+// program's large statically-allocated buffers. Co-locating them with the
+// arena block keeps every DMAMEM/large-static placement decision in one file
+// the linker map points at — at the cost of this TU pulling in the animation
+// and effect headers. Look here, not in animation.h / effect.h, for where the
+// storage actually lands.
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 // Single live-Timeline guard: the event array above is shared by every Timeline
 // instance, so the "only one alive" invariant is one global flag.
