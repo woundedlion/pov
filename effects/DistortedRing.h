@@ -23,11 +23,19 @@ public:
             32, ease_mid, true) {}
 
   void init() override {
-    params.thickness = 4.0f * (2.0f * PI_F / W);
+    // One pixel of azimuth in ring-space. The default is a 4-pixel stroke and
+    // the slider floor is a 2-pixel stroke, both scaled to the resolution.
+    // A fixed [0.1, 0.75] floor put the 4-pixel default (0.087) BELOW the min at
+    // W=288 (the simulator/Phantasm resolution), so the GUI control started
+    // out-of-range and the default look became unreachable once touched
+    // (finding 113). Scaling the floor with W keeps the default in range at any
+    // resolution.
+    const float px = 2.0f * PI_F / W;
+    params.thickness = 4.0f * px;
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
-    registerParam("Thickness", &params.thickness, 0.1f, 0.75f);
+    registerParam("Thickness", &params.thickness, 2.0f * px, 0.75f);
     registerParam("Rings", &params.numRings, 1.0f, 10.0f);
     registerParam("Show Bounding", &params.debugBB);
 

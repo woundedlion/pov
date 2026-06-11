@@ -678,7 +678,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* Functionally negligible (one node of 7680 is statistically disfavored), but it is an inconsistency with the documented RNG semantics in the same file, and the same pattern copied to a smaller lattice or a per-row index would matter.
    *Suggested fix:* Use `hs::rand_int(0, RD_N)` in all three call sites.
 
-113. **DistortedRing's default thickness falls below the registered slider minimum at 288-wide** — `effects/DistortedRing.h:26-30`
+113. ✅ **DistortedRing's default thickness falls below the registered slider minimum at 288-wide** — `effects/DistortedRing.h:26-30` *(validated and fixed: confirmed the default 4·(2π/W) = 0.087 at W=288 sits below the fixed 0.1 registered minimum (in range only at W=96, where it is 0.262). Registered the Thickness floor resolution-relatively as 2·(2π/W) — a 2-pixel stroke — so the 4-pixel default lands at exactly 2× the min and stays in range at any resolution; max kept at 0.75. Effects + dead-slider lint pass.)*
    init() sets `params.thickness = 4.0f * (2.0f * PI_F / W)` then registers it with range [0.1, 0.75]. At W=96 the default is 0.262 (in range), but at the Phantasm/simulator resolution W=288 it is 0.0873 — below the slider minimum. The GUI control starts out-of-range, and once the user touches the slider the default look (4-pixel stroke) is unreachable.
    *Why it matters:* Auto-generated GUI controls (README section 10.6) assume the live value sits inside the registered range; a below-min default makes the slider misrepresent state at the primary simulator resolution.
    *Suggested fix:* Register the range resolution-relatively (e.g. min = 2.0f * 2*PI_F / W) or lower the floor to 0.05 so both resolutions' defaults are in range.
