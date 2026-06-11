@@ -179,7 +179,9 @@ struct Color4 {
 };
 
 // hue_rotate is a perceptual (OKLab) rotation; defined after the OKLab
-// conversion helpers below.
+// conversion helpers below. The (ca, sa) overload takes a precomputed rotation
+// so frame-constant callers can hoist the sin/cos out of the per-pixel loop.
+inline Color4 hue_rotate(const Color4 &c, float ca, float sa);
 inline Color4 hue_rotate(const Color4 &c, float amount);
 
 #include "color_luts.h"
@@ -407,7 +409,7 @@ inline uint16_t float_to_pixel16(float v) {
  * while the inverse is exact cubes, and the shift is a direct 2D rotation of
  * (a,b) — no atan2/sqrt of a full OKLCH polar round-trip.
  */
-inline Color4 hue_rotate(const Color4 &c, float amount) {
+inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   constexpr float INV16 = 1.0f / 65535.0f;
   float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
 
@@ -421,9 +423,8 @@ inline Color4 hue_rotate(const Color4 &c, float amount) {
   float A = 1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_;
   float B = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
 
-  // Rotate the chroma plane by `amount` turns — preserves L and |(A,B)|.
-  float angle = amount * (2.0f * PI_F);
-  float ca = fast_cosf(angle), sa = fast_sinf(angle);
+  // Rotate the chroma plane by the precomputed (ca, sa) = (cos, sin) of the
+  // turn angle — preserves L and |(A,B)|.
   float A2 = A * ca - B * sa;
   float B2 = A * sa + B * ca;
 
@@ -439,6 +440,16 @@ inline Color4 hue_rotate(const Color4 &c, float amount) {
   result.color.g = float_to_pixel16(ng);
   result.color.b = float_to_pixel16(nb);
   return result;
+}
+
+// Convenience overload: rotate by `amount` turns, computing the rotation per
+// call. On hot paths where `amount` is constant across the frame (the default
+// Feedback::hue_fade) call the (ca, sa) overload with values hoisted out of the
+// per-pixel loop instead (Style::sync_hue populates Style::hue_ca / hue_sa).
+// Callers with a genuinely per-fragment amount (Flyby) use this overload.
+inline Color4 hue_rotate(const Color4 &c, float amount) {
+  float angle = amount * (2.0f * PI_F);
+  return hue_rotate(c, fast_cosf(angle), fast_sinf(angle));
 }
 
 inline OKLCH oklab_to_oklch(OKLab lab) {
@@ -941,6 +952,13 @@ struct CycleModifier {
 struct BreatheModifier {
   const float *phase;
   float amplitude;
+  // Per-instance memo of fast_sinf(*phase). *phase is a frame-constant driver,
+  // so the sine is recomputed only when it advances (once per frame) rather
+  // than for every pixel. mutable: modify() is const but the memo is not part
+  // of the modifier's observable value.
+  mutable float cached_phase_ = 0.0f;
+  mutable float cached_sin_ = 0.0f;
+  mutable bool primed_ = false;
 
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
       : phase(driver_phase), amplitude(amp) {
@@ -951,7 +969,12 @@ struct BreatheModifier {
   }
 
   float modify(float t) const {
-    return t + fast_sinf(*phase) * amplitude;
+    if (!primed_ || *phase != cached_phase_) {
+      cached_phase_ = *phase;
+      cached_sin_ = fast_sinf(*phase);
+      primed_ = true;
+    }
+    return t + cached_sin_ * amplitude;
   }
 };
 

@@ -935,6 +935,10 @@ public:
     constexpr float INV_Q = 1.0f / Q;
     const float inv_ds = 1.0f / ds;
     const float fade = style_->fade;
+    // Precompute hue_shift's rotation once per frame; the default hue_fade
+    // color_fn reads style_->hue_ca/hue_sa instead of recomputing sin/cos of
+    // this frame-constant angle for every one of the W*H pixels below.
+    style_->sync_hue();
     for (int y = y_lo; y < y_hi; ++y) {
       int cy0 = y / ds;
       int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;

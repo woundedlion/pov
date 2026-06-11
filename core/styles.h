@@ -70,6 +70,13 @@ struct Style {
   // --- Bound state (set by effect at init, NOT part of presets) ---
   NoiseParams *noise = nullptr;
 
+  // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
+  // cos/sin of hue_shift's turn angle. hue_fade reads these so the per-pixel
+  // hot path skips recomputing the frame-constant rotation for every pixel.
+  // Defaults to the identity rotation (angle 0) until the first sync_hue().
+  float hue_ca = 1.0f;
+  float hue_sa = 0.0f;
+
   void lerp(const Style &a, const Style &b, float t) {
     fade      = hs::lerp(a.fade,      b.fade,      t);
     hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
@@ -85,6 +92,14 @@ struct Style {
     // parameter. Leave the subject's pointer untouched — pulling it from a
     // preset would overwrite it with that preset's nullptr and silently
     // degrade noise_warp to identity.
+  }
+
+  /// Precompute hue_shift's rotation (cos/sin) for the per-pixel hue_fade hot
+  /// path. Call once per frame before the feedback sampling loop.
+  void sync_hue() {
+    float angle = hue_shift * (2.0f * PI_F);
+    hue_ca = fast_cosf(angle);
+    hue_sa = fast_sinf(angle);
   }
 
   /// Push scalar values into the bound NoiseParams.
@@ -158,7 +173,10 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
 }
 
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
-  return hue_rotate(Color4(p * fade, 1.0f), s.hue_shift).color;
+  // Uses the rotation precomputed once per frame by Style::sync_hue (called
+  // from Feedback::flush) rather than recomputing sin/cos of the frame-constant
+  // hue_shift for every pixel.
+  return hue_rotate(Color4(p * fade, 1.0f), s.hue_ca, s.hue_sa).color;
 }
 
 } // namespace Feedback
