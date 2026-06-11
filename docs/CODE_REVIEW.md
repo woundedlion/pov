@@ -212,7 +212,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 300. ✅ **`GenerativePalette` carries dead members `palette_hue` and `harmony_type`** — `core/color.h:657,835`. Neither participates in any post-construction path; they mislead readers into thinking regeneration-from-harmony is supported. Delete or make the dependency real.
 301. ✅ **Stray `#include "static_circular_buffer.h"` in `color.h`** — `core/color.h:14`. Nothing in the file references it; an unnecessary dependency edge in a header included by virtually the whole engine.
 302. ✅ **`GenerativePalette::update_luts()` is a misnomer — it fills stop arrays, not lookup tables** — `core/color.h:720`. The name suggests a precomputed-table design the class does not have, obscuring the per-call OKLCH cost of finding 274. `update_stops()` describes the behavior.
-303. **README repo map misdescribes `palettes.h`** — `README.md:169`. "ProceduralPalette + Gradient": no Gradient instances live there (they live in effects), and the shared `MeshPaletteBank` — arguably the more notable resident — goes unmentioned.
+303. ✅ **README repo map misdescribes `palettes.h`** — `README.md:169`. "ProceduralPalette + Gradient": no Gradient instances live there (they live in effects), and the shared `MeshPaletteBank` — arguably the more notable resident — goes unmentioned.
 
 **Core: render**
 

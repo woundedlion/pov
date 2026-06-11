@@ -166,7 +166,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 │   ├── geometry.h              Fragment, Dots/Points, PhiLUT/TrigLUT, coord conversions
 │   ├── color.h                 Pixel16 (16-bit linear), Color4, blend helpers, palettes
-│   ├── palettes.h              Named palette instances (ProceduralPalette + Gradient)
+│   ├── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
 │   │
 │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
