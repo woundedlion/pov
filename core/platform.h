@@ -550,7 +550,11 @@ namespace hs {
 inline unsigned long millis() {
   if (use_mock_time) return mock_millis_value;
   using namespace std::chrono;
-  return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+  // steady_clock (monotonic), matching micros(): a wall-clock source would let
+  // an NTP step or manual clock change make millis() jump or go backward, so the
+  // unsigned `now - last` in EVERY_N_MILLIS wraps huge and beat*/beatsin* phases
+  // jump. The device millis() is monotonic; the simulator must match.
+  return duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
       .count();
 }
 inline unsigned long micros() {
