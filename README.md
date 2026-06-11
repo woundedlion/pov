@@ -1464,7 +1464,7 @@ Draws twisting wireframe knotted structures derived from Archimedean solids. Mes
 
 #### Comets
 
-Particles with long orientation-trail-based tails, launched in bursts and influenced by rotational gravity.
+A single head traces spherical Lissajous curves, cycling through a dozen configurations, trailed by a long 115-frame orientation tail and periodically wiping the palette to a fresh triadic scheme.
 
 </td></tr></table>
 
@@ -1498,7 +1498,7 @@ Rings bloom at random orientations and grow their radius from zero, fading in ov
 
 #### ChaoticStrings
 
-Lissajous curves whose frequency ratios slowly sweep through rational approximations, transitioning between closed figures and dense space-filling curves.
+A head traces a fixed 12:5 spherical Lissajous figure whose long trail is continuously warped by a noise transformer, over a slowly cycling gradient palette.
 
 </td></tr></table>
 

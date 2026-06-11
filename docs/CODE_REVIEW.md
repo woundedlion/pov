@@ -116,11 +116,11 @@ Sequential numbering continues from the prior audit (1–146); this audit contri
 150. ✅ **compile_hankin bypasses the unified mesh accessors; borrowed-mode MeshState input silently corrupts in release builds** — `core/hankin.h:86`
    It reads `mesh.face_counts.size()`/`mesh.faces.size()` directly instead of the `get_*_size()` accessors every conway.h operator uses for exactly this case. A borrowed-mode MeshState computes F=I=0, binds zero-capacity buffers, then `get_midpoint_idx` reads uninitialized arena memory — silently wrong geometry in NDEBUG. No current caller hits it, but the template advertises the same MeshT generality the conway operators honor. The one silent hole in an otherwise watertight fail-fast surface. **Fixed:** F and I now come from `mesh.get_face_counts_size()`/`mesh.get_faces_size()`, matching the conway operators and the `HalfEdgeMesh` ctor this function already feeds; vertices stays a direct read since it is always owned. Both `PolyMesh` and `MeshState` expose the accessors, so the `MeshT` template stays general.
 
-151. **Comets README blurb describes an implementation that no longer exists** — `README.md:1465`
-   "Particles … launched in bursts and influenced by rotational gravity": the code has no particle system, bursts, or gravity — it is a single Lissajous-following head with a 115-frame orientation trail and periodic palette wipes.
+151. ✅ **Comets README blurb describes an implementation that no longer exists** — `README.md:1465`
+   "Particles … launched in bursts and influenced by rotational gravity": the code has no particle system, bursts, or gravity — it is a single Lissajous-following head with a 115-frame orientation trail and periodic palette wipes. **Fixed:** the blurb now describes the single head tracing spherical Lissajous curves through a dozen configurations, its 115-frame orientation trail, and the periodic triadic palette wipes.
 
-152. **ChaoticStrings README blurb claims frequency-ratio sweeping the code does not do** — `README.md:1499`
-   The implementation uses one fixed 12:5 Lissajous configuration set at init; nothing sweeps rational approximations. The visual variation comes from noise-transformer jitter and palette cycling.
+152. ✅ **ChaoticStrings README blurb claims frequency-ratio sweeping the code does not do** — `README.md:1499`
+   The implementation uses one fixed 12:5 Lissajous configuration set at init; nothing sweeps rational approximations. The visual variation comes from noise-transformer jitter and palette cycling. **Fixed:** the blurb now states the fixed 12:5 figure, the noise-transformer warping of the trail, and the cycling gradient palette.
 
 153. **HopfFibration accumulates three trig-feeding phases unbounded, against the project's own multi-day precision standard** — `effects/HopfFibration.h:50`
    `flow_offset`, `tumble_angle_x`, `tumble_angle_y` advance with `Driver wrap=false` and feed `fast_sinf/cosf`; float ULP growth produces visible stepping over multi-day installation runs. Flyby and DreamBalls wrap the equivalent phases with comments citing precisely this hazard. Accumulate in wrapped turns and scale at use.
