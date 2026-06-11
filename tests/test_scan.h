@@ -187,6 +187,41 @@ inline void test_scan_region_seam_no_double_plot() {
   HS_EXPECT_EQ(counts[W - 3], 0);
 }
 
+// scan_region forward coalescer: two abutting spans whose shared boundary falls
+// fractionally inside one pixel column must not both plot that column. The float
+// merge alone lets prev end 5.4 (ceil -> paints x=5) and next start 5.6 (floor
+// -> 5) each touch x=5 -> double process_pixel / double alpha. Integer-space
+// clamping (last_x2) fixes it.
+inline void test_scan_region_fractional_boundary_no_double_plot() {
+  constexpr int W = 96, H = 20;
+  int counts[W];
+  for (int i = 0; i < W; ++i)
+    counts[i] = 0;
+  const int y = 10;
+
+  Scan::scan_region<W, H>(
+      y, y,
+      [](int, auto &&out) {
+        out(2.0f, 5.4f); // -> 2,3,4,5
+        out(5.6f, 8.0f); // floor(5.6)=5 would re-plot x=5 without the clamp
+        return true;
+      },
+      [&](int wx, int, const Vector &) {
+        if (wx >= 0 && wx < W)
+          counts[wx]++;
+      });
+
+  for (int x = 0; x < W; ++x)
+    HS_EXPECT_LE(counts[x], 1);
+
+  // Coverage is exactly {2,3,4,5,6,7}; x=5 covered once, not twice.
+  const int covered[] = {2, 3, 4, 5, 6, 7};
+  for (int x : covered)
+    HS_EXPECT_EQ(counts[x], 1);
+  HS_EXPECT_EQ(counts[1], 0);
+  HS_EXPECT_EQ(counts[8], 0);
+}
+
 // A Plot geodesic line passing through the north pole must actually plot the
 // pole row (row 0). Regression: map_geodesic/map_planar build interpolated
 // points with fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel
@@ -409,6 +444,7 @@ inline int run_scan_tests() {
   test_stroke_aa_is_monotone_ramp();
   test_ring_rasterize_empty_clip_draws_nothing();
   test_scan_region_seam_no_double_plot();
+  test_scan_region_fractional_boundary_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
 

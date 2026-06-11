@@ -175,6 +175,11 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         }
 
         float current_end = -FLT_MAX;
+        // Coalesce in integer pixel space too: when two intervals share a pixel
+        // column fractionally (prev end 5.4 paints x=5, next start 5.6 floors to
+        // 5), the float merge alone lets both paint x=5 — double process_pixel,
+        // double alpha. last_x2 clamps each run's start past the prior run's end.
+        int last_x2 = 0;
         for (const auto &iv : norm) {
           if (iv.second <= current_end)
             continue;
@@ -190,6 +195,9 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
             x1 = 0;
           if (x2 > W)
             x2 = W;
+          if (x1 < last_x2)
+            x1 = last_x2;
+          last_x2 = x2;
           for (int x = x1; x < x2; ++x)
             pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
         }
@@ -602,7 +610,10 @@ struct Shader {
           frag_base.pos = center_v;
           vertex_shader(frag_base);
           fragment_shader(center_v, frag_base);
-          canvas(x, y) = frag_base.color.color;
+          // Premultiply by alpha to match the single-callback overload (and the
+          // process_pixel/Volume contract); both overloads must write identical
+          // pixels for a shader that fades via Color4::alpha.
+          canvas(x, y) = frag_base.color.color * frag_base.color.alpha;
         }
       }
       #ifdef __EMSCRIPTEN__
@@ -641,7 +652,9 @@ struct Shader {
             accum += sample;
           }
 
-          canvas(x, y) = accum.color;
+          // Premultiply by accumulated alpha, matching the single-callback
+          // SSAA path (canvas = accum.color * accum.alpha).
+          canvas(x, y) = accum.color * accum.alpha;
         }
       }
       #ifdef __EMSCRIPTEN__
