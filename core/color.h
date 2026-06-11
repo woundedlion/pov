@@ -1004,11 +1004,15 @@ struct FoldModifier : public Modifier {
  * @brief Pinches or expands the center of the palette.
  * positive tension pulls colors toward the center, negative pushes them to the
  * edges. Creates an elastic, tension-release visual dynamic.
+ *
+ * The tension driver is optional by design (defaults to null) — a null driver is
+ * the deliberate "no pinch" pass-through mode, not an error (matching
+ * CycleModifier/FoldModifier).
  */
 struct PinchModifier : public Modifier {
   const float *tension; // Expects roughly -0.9 to 0.9
 
-  PinchModifier(const float *t) : tension(t) {}
+  PinchModifier(const float *t = nullptr) : tension(t) {}
 
   float modify(float t) const override {
     if (!tension)
