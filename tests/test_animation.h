@@ -980,6 +980,34 @@ inline void test_deep_tween_global_t_spans_unit_interval() {
     HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f); // non-decreasing across the trail
 }
 
+inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
+  // A frame recorded with no intra-frame motion collapses to length 1. When the
+  // newest frame collapsed, normalizing by trail_len stranded the age ramp at
+  // (N-1)/N — the leading edge of the trail never reached 1.0. Normalizing
+  // against the newest contentful frame restores the 1.0 endpoint without
+  // re-plotting the boundary the collapsed frame shares with its predecessor.
+  using Ori = Orientation<8>;
+  Animation::OrientationTrail<Ori, 8> trail;
+  for (int k = 0; k < 2; ++k) {
+    Ori o;
+    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1)));
+    o.upsample(3);
+    trail.record(o);
+  }
+  Ori still; // identity, length 1 — no motion this frame
+  trail.record(still);
+
+  std::vector<float> gts;
+  deep_tween(trail,
+             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+
+  HS_EXPECT_GE(gts.size(), static_cast<size_t>(1));
+  HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
+  for (size_t i = 1; i < gts.size(); ++i)
+    HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f);
+}
+
 // ============================================================================
 // MeshMorph (nearest-vertex SLERP + crossfade invariant)
 // ----------------------------------------------------------------------------
@@ -1114,6 +1142,7 @@ inline int run_animation_tests() {
   test_sprite_paused_holds_frame();
 
   test_deep_tween_global_t_spans_unit_interval();
+  test_deep_tween_collapsed_newest_frame_reaches_one();
 
   test_meshmorph_identity_self_map_and_crossfade();
 

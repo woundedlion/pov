@@ -2231,7 +2231,22 @@ void deep_tween(const Tweenable auto &trail, TweenFn callback) {
   if (trail_len == 0)
     return;
 
-  for (size_t i = 0; i < trail_len; ++i) {
+  // The age ramp must end at 1.0 on the newest *plotted* orientation. A frame
+  // recorded with no intra-frame motion collapses to a single sub-frame, whose
+  // lone quaternion is the shared boundary the previous frame already plotted —
+  // it emits nothing after the sub-frame-0 skip, and plotting it would just
+  // double up that junction. So a motionless tail would strand the ramp below
+  // 1.0 if we normalized by trail_len. Find the newest frame that actually
+  // contributes and normalize against it instead; the backward scan stops at
+  // the first contentful frame (O(1) in the common case — not a second pass
+  // over the emitted samples), and for an all-moving trail span == trail_len,
+  // leaving the per-frame mapping unchanged.
+  size_t last = trail_len - 1;
+  while (last > 0 && trail.get(last).length() <= 1)
+    --last;
+  float span = static_cast<float>(last + 1);
+
+  for (size_t i = 0; i <= last; ++i) {
     const auto &frame = trail.get(i);
     size_t frame_size = frame.length();
     size_t start_j = (i == 0) ? 0 : 1;
@@ -2240,7 +2255,7 @@ void deep_tween(const Tweenable auto &trail, TweenFn callback) {
       const auto &q = frame.get(j);
       float sub_t =
           (frame_size > 1) ? static_cast<float>(j) / (frame_size - 1) : 0.0f;
-      float global_t = (static_cast<float>(i) + sub_t) / trail_len;
+      float global_t = (static_cast<float>(i) + sub_t) / span;
       callback(q, global_t);
     }
   }
