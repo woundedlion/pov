@@ -23,7 +23,10 @@ if [ -n "$HS_SKIP_TESTS" ]; then
 fi
 
 # Run only when C++/CMake/test sources are staged; skip doc-only commits.
-CHANGED="$(git diff --cached --name-only --diff-filter=ACM)"
+# Include D (deletions) and R (renames): removing or renaming a C++/build file is
+# exactly the change class most likely to break other checkouts, so it must run
+# the suite too. (A renamed/deleted path still matches the extension grep below.)
+CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 if ! printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/'; then
   echo "[pre-commit] No C++/build changes staged — skipping unit tests."
   exit 0
