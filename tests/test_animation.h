@@ -631,6 +631,22 @@ inline void test_timeline_then_chains_follow_up_event() {
   HS_EXPECT_EQ(global_timeline_num_events, 0);
 }
 
+// A repeating timer (duration=-1, self-resetting) never reaches done(), so the
+// Timeline never fires its per-cycle .then(); the timer must route the hook
+// through post_callback() itself so an attached callback fires on every trigger,
+// matching the then() contract.
+inline void test_repeating_timer_fires_then_each_cycle() {
+  Timeline tl;
+  int triggers = 0, thens = 0;
+  tl.add(0, Animation::PeriodicTimer(
+                3, [&](Canvas &) { triggers++; }, /*repeat=*/true)
+                .then([&]() { thens++; }));
+  for (int i = 0; i < 9; ++i)
+    tl.step(fake_canvas()); // triggers at t=3,6,9
+  HS_EXPECT_EQ(triggers, 3);
+  HS_EXPECT_EQ(thens, 3); // pre-fix: 0 (post_callback never reached)
+}
+
 // clear() destroys all events and resets the frame cursor, leaving the timeline
 // reusable from t=0 — the in-place reset the singleton offers in lieu of
 // reassignment.
@@ -1060,6 +1076,7 @@ inline int run_animation_tests() {
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_compaction_preserves_later_events();
   test_timeline_then_chains_follow_up_event();
+  test_repeating_timer_fires_then_each_cycle();
   test_timeline_clear_resets_state();
   test_timeline_full_guard_rejects_overflow();
   test_orientation_upsample_then_collapse();

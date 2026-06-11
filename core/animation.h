@@ -172,17 +172,25 @@ public:
    *   - One-shot animation (repeat=false): fires exactly once, then the
    *     animation is removed.
    *   - Repeating animation (repeat=true): fires at the end of every cycle,
-   *     just after the timer rewinds.
+   *     just after the timer rewinds. RandomTimer/PeriodicTimer never reach
+   *     done() (duration=-1, self-resetting), so they fire this hook directly
+   *     from their own step() on each trigger to keep the contract.
    *   - Driver (perpetual, one-frame cycle): fires once per frame, since each
    *     step completes a cycle. See the Driver class doc.
    * This is one polymorphic hook by design — per-cycle is the only framing that
    * generalizes across all three, since a driver's "cycle" is a single
    * increment. Do not attach a one-shot callback to a repeating target.
    *
+   * There is a single post slot: then() refuses (HS_CHECK) to overwrite an
+   * already-registered callback rather than silently dropping it — e.g. the
+   * Transformer attaches a slot-recycling callback to every spawned animation,
+   * so a second then() on that handle would leak the slot.
+   *
    * @param callback The function to execute at each completion.
    * @return LValue Reference to the derived animation object.
    */
   Derived &then(Fn<void(), 24> callback) & {
+    HS_CHECK(!post);
     post = std::move(callback);
     return static_cast<Derived &>(*this);
   }
@@ -196,6 +204,7 @@ public:
    * @return RValue Reference to the derived animation object.
    */
   Derived &&then(Fn<void(), 24> callback) && {
+    HS_CHECK(!post);
     post = std::move(callback);
     return static_cast<Derived &&>(*this);
   }
@@ -514,6 +523,12 @@ public:
       f(canvas);
       if (repeat) {
         reset();
+        // A repeating timer is constructed with duration=-1 and resets itself
+        // here, so it never reaches done() and the Timeline never fires its
+        // per-cycle .then(). Fire it directly so an attached callback honors
+        // the documented per-cycle contract (the non-repeating branch reaches
+        // done() via cancel(), so the Timeline fires its callback for it).
+        this->post_callback();
       } else {
         cancel();
       }
@@ -566,6 +581,10 @@ public:
       f(canvas);
       if (repeat) {
         reset();
+        // See RandomTimer::step: a repeating timer never reaches done(), so
+        // route its per-cycle .then() through post_callback() here to honor the
+        // documented contract.
+        this->post_callback();
       } else {
         cancel();
       }
