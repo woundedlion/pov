@@ -580,8 +580,7 @@ struct MeshOpsWrapper {
   }
 
   // Dev-only roster measurement (sizing MAX_VERTS-style constants); no UI
-  // consumer. Compile with -DHS_WASM_DEV_BINDINGS to re-export it. Note it
-  // resets tooling_arena, invalidating every live MeshOps wrapper.
+  // consumer. Compile with -DHS_WASM_DEV_BINDINGS to re-export it.
 #ifdef HS_WASM_DEV_BINDINGS
   static val getMaxBounds() {
     int max_v = 0;
@@ -592,16 +591,16 @@ struct MeshOpsWrapper {
     const char *mi_name = "";
 
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      // Each solid is measured independently, so reset the finalize arena too —
-      // not just the scratch pair. Otherwise every Solids::get accumulates its
-      // mesh into tooling_arena, and the summed size across the roster can
-      // exceed its capacity and trip the fail-fast trap, aborting the module —
-      // exactly the outcome the rest of this file avoids with reject guards.
-      tooling_arena.reset();
+      // Measure each solid in the scratch arenas ONLY — never tooling_arena,
+      // which backs every live MeshOpsWrapper the JS side still holds; resetting
+      // it here would silently invalidate those meshes. Generating straight into
+      // scratch (skipping finalize_solid, which exists only to copy into a
+      // persistent geom arena) yields the same vertex/face/index counts without
+      // touching, growing, or resetting the persistent mesh storage.
       tooling_scratch_a.reset();
       tooling_scratch_b.reset();
       PolyMesh temp =
-          Solids::get(tooling_arena, tooling_scratch_a, tooling_scratch_b, i);
+          Solids::get_entry(i).generate(tooling_scratch_a, tooling_scratch_b);
 
       int v = temp.vertices.size();
       int f = temp.face_counts.size();
@@ -621,8 +620,9 @@ struct MeshOpsWrapper {
       }
     }
 
-    // Don't leave the last solid's mesh occupying the arena after we return.
-    tooling_arena.reset();
+    // tooling_arena was never touched, so live meshes are unaffected.
+    tooling_scratch_a.reset();
+    tooling_scratch_b.reset();
 
     val stats = val::object();
     stats.set("max_v", max_v);
