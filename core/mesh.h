@@ -181,6 +181,15 @@ private:
       for (size_t fi = 0; fi < num_faces; ++fi) {
         int count = counts[fi];
 
+        // A zero-count face emits no half-edges yet still gets its half_edge
+        // set below, mis-linking it to the next face's first half-edge (or
+        // one-past-the-end for a trailing zero-count face) — corrupt topology.
+        // Trap it (fail-fast, matching the 16-bit index trap above). Note we
+        // trap only count==0, not all <3 faces: compile() deliberately accepts
+        // 1-/2-side degenerate faces and strips them downstream (they still
+        // emit linked half-edges here), so a >=3 invariant would be wrong.
+        HS_CHECK(count > 0, "half-edge mesh face has zero sides");
+
         faces.emplace_back();
         uint16_t current_face_idx = static_cast<uint16_t>(faces.size() - 1);
         size_t face_start_he_idx = he_idx;
