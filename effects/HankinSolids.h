@@ -103,7 +103,7 @@ private:
     OrientTransformer<W> camera(orientation);
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
 
-    auto fragment_shader = [&](const Vector &p, Fragment &f) {
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
       // Truncating cast (parity with IslamicStars); v2 carries an exact integer
       // face index, so this matches the old std::round.
       int faceIdx = static_cast<int>(f.v2);

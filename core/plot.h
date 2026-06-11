@@ -175,7 +175,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   float total_dist = angle_between(v1, v2);
 
   if (total_dist < EPS_GEODESIC_SEGMENT) {
-    auto map_degenerate = [=](float t) { return v1; };
+    auto map_degenerate = [=](float) { return v1; };
     process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
   } else {
     Vector axis;
@@ -276,7 +276,7 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
 template <int W, int H, typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
-                      bool close_loop = false, float age = 0.0f,
+                      bool close_loop = false, float = 0.0f,
                       const Basis *planar_basis = nullptr) {
   size_t len = points.size();
   if (len < 2)

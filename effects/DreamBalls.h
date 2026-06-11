@@ -49,7 +49,7 @@ public:
 
     // Start Sequence
     timeline.add(0, Animation::PeriodicTimer(
-                        160, [this](Canvas &c) { this->spin_slices(); }, true));
+                        160, [this](Canvas &) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
                         global_orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
@@ -231,7 +231,7 @@ private:
         .add(period,
              Animation::PeriodicTimer(
                  0,
-                 [this, idx](Canvas &c) {
+                 [this, idx](Canvas &) {
                    // Paused: re-spawn the same preset (params hold); otherwise
                    // advance to the next one.
                    this->spawn_sprite(animationsPaused() ? idx : idx + 1);
@@ -272,7 +272,7 @@ private:
                   const ArenaVector<Plot::Mesh::Edge> &edges,
                   const BakedPalette &baked) {
 
-    auto fragment_shader = [&](const Vector &v, Fragment &f) {
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = baked.get(f.v0);
       c.alpha *= p.alpha * opacity;
       f.color = c;

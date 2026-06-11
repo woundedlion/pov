@@ -110,7 +110,7 @@ public:
 
   void drawRing(Canvas &canvas, const Basis &basis, RenderMode mode, float scale,
                 const Color4 &color, int layer_index) {
-    auto fragment_shader = [&](const Vector &p, Fragment &f) {
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = color;
       c.alpha = c.alpha * this->params.alpha;
       f.color = c;

@@ -548,7 +548,6 @@ inline void test_smooth_union_solidity_follows_children() {
 // ============================================================================
 
 inline void test_angular_repeat_matches_base_at_zero_angle() {
-  Basis b = equator_basis();
   SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps*/ 4, Vector(0, 1, 0));
 

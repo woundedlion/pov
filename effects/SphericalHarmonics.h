@@ -170,7 +170,7 @@ public:
     auto [l2, m2] = SHMath::decode_lm(next_idx);
     HarmonicField field(l1, m1, l2, m2, morph_alpha, orientation.get());
 
-    auto shader = [&](const Vector &p, Fragment &frag) {
+    auto shader = [&](const Vector &, Fragment &frag) {
       float val = frag.v1;
       float abs_val = std::abs(val);
 

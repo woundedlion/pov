@@ -97,7 +97,7 @@ private:
     const int *raw_indices = faceIndices.data();
 
     const int num_faces = static_cast<int>(faceIndices.size());
-    auto fragment_shader = [&](const Vector &p, Fragment &frag) {
+    auto fragment_shader = [&](const Vector &, Fragment &frag) {
       int faceIdx = static_cast<int>(frag.v2);
       // Defensive bounds guard matching HankinSolids: fall back to face 0 on a
       // malformed face index rather than reading raw_indices out of bounds.

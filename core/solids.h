@@ -291,23 +291,23 @@ public:
 
 namespace Platonic {
 // V=4, F=4, I=12
-FLASHMEM static PolyMesh tetrahedron(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh tetrahedron(Arena &a, Arena &) {
   return to_polymesh<Tetrahedron>(a);
 }
 // V=8, F=6, I=24
-FLASHMEM static PolyMesh cube(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh cube(Arena &a, Arena &) {
   return to_polymesh<Cube>(a);
 }
 // V=6, F=8, I=24
-FLASHMEM static PolyMesh octahedron(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh octahedron(Arena &a, Arena &) {
   return to_polymesh<Octahedron>(a);
 }
 // V=20, F=12, I=60
-FLASHMEM static PolyMesh dodecahedron(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh dodecahedron(Arena &a, Arena &) {
   return to_polymesh<Dodecahedron>(a);
 }
 // V=12, F=20, I=60
-FLASHMEM static PolyMesh icosahedron(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh icosahedron(Arena &a, Arena &) {
   return to_polymesh<Icosahedron>(a);
 }
 } // namespace Platonic

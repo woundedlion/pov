@@ -1037,7 +1037,7 @@ private:
 
   // ── Conduct + emit path (master) ──────────────────────────────────────────
 
-  void master_on_crossing(const Crossing &c, uint32_t now, TickActions &a) {
+  void master_on_crossing(const Crossing &c, uint32_t now, TickActions &) {
     Symbol sym = Symbol::HALF;
     if (c.boundary == Boundary::ZERO) {
       // Conductor (spec §6.1): when the effect's revolutions elapse, start

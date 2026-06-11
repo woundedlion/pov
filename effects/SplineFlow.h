@@ -91,7 +91,7 @@ public:
       control_points.push_back(f);
     }
 
-    auto shader = [&](const Vector &v, Fragment &f) {
+    auto shader = [&](const Vector &, Fragment &f) {
       // Color by progress, fade alpha by distance from draw head
       float dist = shortest_distance(f.v0, draw_head, 1.0f);
       float brightness = quintic_kernel(1.0f - dist * 4.0f);

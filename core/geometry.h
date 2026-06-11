@@ -73,7 +73,7 @@ using Fragments = ArenaVector<Fragment>;
  * @brief Logic for no-op vertex shader.
  */
 struct NullVertexShader {
-  void operator()(Fragment &f) const {}
+  void operator()(Fragment &) const {}
 };
 
 /**

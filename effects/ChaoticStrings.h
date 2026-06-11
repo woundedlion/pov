@@ -39,7 +39,7 @@ public:
 
   FLASHMEM ChaoticStrings()
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
-        path([this](float t) { return Vector(0, 1, 0); }), orientation(),
+        path([](float) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
   // Scratch A holds the per-frame Fragment buffer (MAX_FRAGMENTS) plus headroom
@@ -137,7 +137,7 @@ public:
       vertices.push_back(f);
     });
 
-    auto fragment_shader = [&](const Vector &v, Fragment &frag) {
+    auto fragment_shader = [&](const Vector &, Fragment &frag) {
       // Drive color and fade from the normalized trail parameter (v3), as the
       // sibling Comets effect does.
       float color_t = frag.v3;

@@ -235,7 +235,7 @@ inline Pixel blend_max(const Pixel &c1, const Pixel &c2) {
  * @param c2 Source pixel.
  * @return c2 (Source).
  */
-inline Pixel blend_over(const Pixel &c1, const Pixel &c2) { return c2; }
+inline Pixel blend_over(const Pixel &, const Pixel &c2) { return c2; }
 
 /**
  * @brief Blends two pixels by keeping the destination (Under).
@@ -243,7 +243,7 @@ inline Pixel blend_over(const Pixel &c1, const Pixel &c2) { return c2; }
  * @param c2 Source pixel.
  * @return c1 (Destination).
  */
-inline Pixel blend_under(const Pixel &c1, const Pixel &c2) { return c1; }
+inline Pixel blend_under(const Pixel &c1, const Pixel &) { return c1; }
 
 /**
  * @brief Blends two pixels by additive mixing (saturated).
@@ -1297,7 +1297,7 @@ private:
 class SolidColorPalette : public Palette {
 public:
   SolidColorPalette(const Color4 &color) : color(color) {}
-  Color4 get(float t) const override { return color; }
+  Color4 get(float) const override { return color; }
   Color4 color;
 };
 

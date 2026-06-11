@@ -776,7 +776,7 @@ struct Volume {
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
-        [&](int wx, int y, const Vector &p) {
+        [&](int wx, int, const Vector &p) {
           if (vol_xc.clipped(wx))
             return;
           // Back-face cull

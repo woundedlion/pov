@@ -360,7 +360,7 @@ struct FastLEDMock {
   void setCorrection(int) {}
   void setTemperature(int) {}
   template <typename T, int P1, int P2, int P3, int P4>
-  void addLeds(CRGB *data, int nLeds) {}
+  void addLeds(CRGB *, int) {}
   void show() {}
   void showColor(const CRGB &) {}
 };

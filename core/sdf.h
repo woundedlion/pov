@@ -930,7 +930,6 @@ template <typename A, typename B> struct Intersection {
     size_t idx_a = 0;
     size_t idx_b = 0;
 
-    bool found = false;
     while (idx_a < intervals_a.size() && idx_b < intervals_b.size()) {
       auto iv_a = intervals_a[idx_a];
       auto iv_b = intervals_b[idx_b];
@@ -940,7 +939,6 @@ template <typename A, typename B> struct Intersection {
 
       if (start < end) {
         out(start, end);
-        found = true;
       }
 
       if (iv_a.second < iv_b.second) {
@@ -1020,7 +1018,7 @@ template <typename Shape> struct AngularRepeat {
   }
 
   template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const {
+  bool get_horizontal_intervals(int, OutputIt) const {
     // Full scan: repetitions cover the full azimuth
     return false;
   }
@@ -1584,7 +1582,7 @@ struct Face {
   template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
 
   template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const {
+  bool get_horizontal_intervals(int, OutputIt out) const {
     if (full_width)
       return false;
     for (const auto &iv : intervals) {

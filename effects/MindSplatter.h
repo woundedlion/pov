@@ -153,7 +153,7 @@ private:
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
       Vector axis = EmitSolid::vertices[i];
 
-      particle_system.add_emitter([this, i, axis](ParticleSystem &sys) {
+      particle_system.add_emitter([this, i, axis](ParticleSystem &) {
         // Accumulate a wrapped per-emitter phase instead of counter*speed. The
         // old form rescaled all elapsed steps whenever Ang Spd changed
         // (d(angle)=counter·d(speed)), so a "smooth" preset lerp randomized the
@@ -208,7 +208,7 @@ private:
       f.v3 *= holeAlpha;
     };
 
-    auto fragment_shader = [&](const Vector &v, Fragment &f) {
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
 

@@ -29,7 +29,7 @@ constexpr int kW = 288;
 constexpr int kH = 144;
 
 template <template <int, int> class E>
-inline void check_one(const char *name) {
+inline void check_one(const char *) {
   configure_arenas_default();
   Timeline().clear();
   global_timeline_t = 0;

@@ -67,7 +67,7 @@ public:
       };
 
       Basis basis = make_basis(orientation.get(), normal);
-      auto fragment_shader = [&](const Vector &p, Fragment &f) {
+      auto fragment_shader = [&](const Vector &, Fragment &f) {
         // f.v0 is normalized azimuth (0..1)
         // f.v1 is distance from center line
         // f.size is thickness

@@ -281,8 +281,8 @@ inline uint8_t narrow_face_count(int count) {
  * Removes degenerate faces (faces with < 3 vertices) during
  * the process.
  */
-FLASHMEM static void compile(const PolyMesh &src, MeshState &dst,
-                             Arena &geom_arena) {
+FLASHMEM static inline void compile(const PolyMesh &src, MeshState &dst,
+                                    Arena &geom_arena) {
   dst.clear();
 
   size_t valid_faces = 0;
@@ -379,7 +379,7 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
 /**
  * @brief Helper to finish hash.
  */
-static uint32_t fmix32(uint32_t h) {
+static inline uint32_t fmix32(uint32_t h) {
   h ^= h >> 16;
   h *= 0x85ebca6b;
   h ^= h >> 13;

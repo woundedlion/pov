@@ -95,7 +95,7 @@ template <int W, int H> struct Pipeline<W, H> {
   }
 
   // 2D Sink
-  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float, float alpha) {
     HS_PROFILE(filter_blend);
     // fast_wrap() only corrects a single +/-W offset, so the sink relies on the
     // producer keeping x within [-W, 2W). Every current producer does (3D path
@@ -111,7 +111,7 @@ template <int W, int H> struct Pipeline<W, H> {
     plot_virtual(cv, xi, y, p);
   }
 
-  void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
+  void plot(Canvas &cv, float x, float y, const Pixel &c, float,
             float alpha) {
     // Non-finite coords would make the int casts below UB and bypass the wrap,
     // and round() must land within fast_wrap()'s [-W, 2W) window. Both hold for

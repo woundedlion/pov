@@ -101,7 +101,7 @@ public:
 
     // feedback step
     filters.flush(
-        canvas, [](float x, float y, float t) { return Color4(0, 0, 0, 0); },
+        canvas, [](float, float, float) { return Color4(0, 0, 0, 0); },
         1.0f);
 
     if (!morphing && carousel.current().is_bound()) {

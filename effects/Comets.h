@@ -49,7 +49,7 @@ public:
     cycle_timer_ = timeline.add_get(
         0, Animation::PeriodicTimer(
                2 * (int)params.cycle_duration,
-               [this](Canvas &c) {
+               [this](Canvas &) {
                  cur_function_idx = (cur_function_idx + 1) % functions.size();
                  update_path();
                  update_palette();

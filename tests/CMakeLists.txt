@@ -50,9 +50,9 @@ target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 # The native suite is the one build where diagnostics can run: the device/WASM
 # build compiles the arena guards out, so ASan/UBSan here are the only automated
 # cover for the arena-lifetime hazards the death harness can't reach. -Werror is
-# intentionally left off for now — three -Wunused-result warnings (a separate
-# finding) would otherwise break the build; -Wall/-Wextra still surface them.
-target_compile_options(run_tests PRIVATE -Wall -Wextra)
+# on so suite hygiene is self-enforcing — the fail-fast doctrine applied to the
+# build itself; a new warning is a hard failure, not noise scrolled past.
+target_compile_options(run_tests PRIVATE -Wall -Wextra -Werror)
 
 # Opt-in sanitizers. Default OFF so the pre-commit gate and the default
 # `cmake --preset tests` stay fast (ASan ~2x); enable with -DHS_SANITIZE=ON.

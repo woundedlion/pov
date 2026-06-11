@@ -176,7 +176,7 @@ public:
    * @param canvas The canvas buffer (unused by base class, passed to derived
    * classes).
    */
-  void step(Canvas &canvas) override { t++; }
+  void step(Canvas &) override { t++; }
 
   /**
    * @brief Resets the internal timer to zero.
@@ -443,7 +443,7 @@ public:
   }
 
 private:
-  bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
+  bool step_particle(Particle<TRAIL_LEN> &p, float) {
     bool active = p.life > 0;
     if (active) {
       p.life--;
@@ -1196,7 +1196,6 @@ public:
     int len = orientation->length();
 
     float step_angle = delta / (len - 1);
-    Quaternion accumulated_q;
 
     // lambda to apply rotation based on space
     auto apply_rotation = [&](Quaternion &target, const Quaternion &source) {
