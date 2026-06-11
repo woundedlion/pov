@@ -652,7 +652,8 @@ public:
                     BrightnessProfile profile,
                     SaturationProfile sat_profile = SaturationProfile::MID,
                     int manual_seed = -1)
-      : gradient_shape(gradient_shape), harmony_type(harmony_type) {
+      : gradient_shape(gradient_shape) {
+    uint8_t palette_hue;
     if (manual_seed != -1) {
       palette_hue = static_cast<uint8_t>(manual_seed);
     } else {
@@ -836,8 +837,6 @@ private:
   }
 
   GradientShape gradient_shape;
-  HarmonyType harmony_type;
-  uint8_t palette_hue;
   CPixel a, b, c;
 
   static inline uint8_t g_hue_seed = 0;
