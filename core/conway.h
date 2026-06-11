@@ -27,7 +27,13 @@ inline Vector face_centroid(const HalfEdgeMesh &he_mesh,
   uint16_t he_idx = face.half_edge;
   uint16_t start = he_idx;
   if (he_idx != HE_NONE) {
+    // Always-on anti-hang guard (survives NDEBUG): a face loop visits each
+    // half-edge at most once, so exceeding the total half-edge count means the
+    // .next chain is corrupt and would otherwise spin forever — trap so it is
+    // caught on the bench instead of hanging the device (mirrors vertex_orbit).
+    const int max_sides = static_cast<int>(he_mesh.half_edges.size());
     do {
+      HS_CHECK(out_count < max_sides);
       c = c + mesh.vertices[he_mesh.half_edges[he_idx].vertex];
       out_count++;
       he_idx = he_mesh.half_edges[he_idx].next;
@@ -52,7 +58,13 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
   uint16_t he_idx = face.half_edge;
   if (he_idx == HE_NONE) return n;
   uint16_t start = he_idx;
+  // Always-on anti-hang guard plus the per-iteration HE_NONE check that
+  // face_centroid carries: a corrupt .next chain could otherwise spin forever
+  // or dereference half_edges[HE_NONE]. Trap on the bench, never hang.
+  const int max_sides = static_cast<int>(he_mesh.half_edges.size());
+  int sides = 0;
   do {
+    HS_CHECK(sides++ < max_sides);
     const HalfEdge &he = he_mesh.half_edges[he_idx];
     const Vector &curr = mesh.vertices[he.vertex];
     const Vector &next = mesh.vertices[he_mesh.half_edges[he.next].vertex];
@@ -60,7 +72,7 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
     n.y += (curr.z - next.z) * (curr.x + next.x);
     n.z += (curr.x - next.x) * (curr.y + next.y);
     he_idx = he.next;
-  } while (he_idx != start);
+  } while (he_idx != HE_NONE && he_idx != start);
   return n;
 }
 
@@ -164,8 +176,13 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
   int count = 0;
   if (start_he != HE_NONE) {
+    // Always-on anti-hang guard: a face loop touches each half-edge at most
+    // once, so a count past the total means corrupt topology that would
+    // otherwise spin forever — trap on the bench instead of hanging.
+    const int max_sides = static_cast<int>(he_mesh.half_edges.size());
     uint16_t he_idx = start_he;
     do {
+      HS_CHECK(count < max_sides);
       count++;
       he_idx = he_mesh.half_edges[he_idx].next;
     } while (he_idx != HE_NONE && he_idx != start_he);
@@ -494,7 +511,9 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
       if (count >= 3) {
         out_mesh.face_counts.push_back(narrow_face_count(count));
         uint16_t he_idx = start;
+        int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
         do {
+          HS_CHECK(emitted++ < count);
           out_mesh.faces.push_back(edge_to_vert[he_idx]);
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
@@ -613,7 +632,9 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
       if (count >= 3) {
         out_mesh.face_counts.push_back(narrow_face_count(count * 2));
         uint16_t he_idx = start;
+        int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
         do {
+          HS_CHECK(emitted++ < count);
           auto [tail_cut, head_cut] =
               truncate_oriented_cut(he_mesh, edge_to_vert, he_idx);
           out_mesh.faces.push_back(tail_cut);
@@ -689,7 +710,9 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
         out_mesh.face_counts.push_back(narrow_face_count(count));
       he_idx = start;
       if (he_idx != HE_NONE) {
+        int walked = 0; // anti-hang guard: face has `count` half-edges
         do {
+          HS_CHECK(walked++ < count);
           Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
           Vector new_v = v + (centroid - v) * t;
           out_mesh.vertices.push_back(new_v);
@@ -772,7 +795,9 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
       he_idx = start;
 
       if (he_idx != HE_NONE) {
+        int walked = 0; // anti-hang guard: face has `count` half-edges
         do {
+          HS_CHECK(walked++ < count);
           uint16_t vi =
               he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
           Vector v = mesh.vertices[vi];
@@ -985,7 +1010,9 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
         out_mesh.face_counts.push_back(narrow_face_count(count));
       he_idx = start;
       if (he_idx != HE_NONE) {
+        int walked = 0; // anti-hang guard: face has `count` half-edges
         do {
+          HS_CHECK(walked++ < count);
           Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
           Vector new_v = v + (centroid - v) * t;
 
