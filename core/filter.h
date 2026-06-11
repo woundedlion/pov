@@ -699,6 +699,14 @@ public:
     // mirrors World::Trails; unlike the old age>=0 guard it does not also drop
     // the forward, so an already-aged emission still paints this frame.
     float ttl = static_cast<float>(lifetime) - age;
+    // At capacity this drops the NEWEST point — the opposite of World::Trails,
+    // whose ring buffer evicts the oldest so the freshest motion stays visible.
+    // The asymmetry is deliberate: this buffer is an unordered array (decay()
+    // swap-removes dead slots), so there is no front-of-queue "oldest" to evict
+    // without an O(n) min-ttl scan on this per-point hot path. Saturation of the
+    // MAX_PIXELS=1024 budget is a transient edge regime that clears within a few
+    // frames as points decay; paying a per-point scan to reshape it is not worth
+    // it. A saturated buffer briefly favors its existing trail over new seeds.
     if (ttl > 0.0f && ttls_ && num_pixels < MAX_PIXELS) {
       ttls_[num_pixels++] = {x, y, ttl};
     }
