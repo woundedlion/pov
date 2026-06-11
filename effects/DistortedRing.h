@@ -96,7 +96,7 @@ private:
 
   GenerativePalette ringPalette;
   Vector normal;
-  Orientation<W> orientation;
+  Orientation<> orientation;
   Animation::Mutation amplitude_mut;
 };
 

@@ -29,7 +29,7 @@ inline bool finite_vec(const Vector &v) {
 // ============================================================================
 
 inline void test_orient_transformer_identity() {
-  Orientation<32> ori; // default = identity quaternion
+  Orientation<> ori; // default = identity quaternion
   OrientTransformer<32> ot(ori);
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),

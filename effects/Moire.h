@@ -120,7 +120,7 @@ private:
   GenerativePalette int_palette;
   GenerativePalette int_next_palette;
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   Timeline timeline;
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>

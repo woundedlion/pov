@@ -97,7 +97,7 @@ private:
   FastNoiseLite noise;
   Timeline timeline;
 
-  Orientation<W> global_orientation;
+  Orientation<> global_orientation;
 
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   MobiusWarpTransformer<1> mobius_gen;

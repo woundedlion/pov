@@ -174,11 +174,11 @@ private:
 
   FastNoiseLite noise;
   Timeline timeline;
-  Orientation<W> camera;
+  Orientation<> camera;
   // Shared tumbles — one per render mode. Declared after `timeline` so they
   // outlive it: ~Timeline clears the Rotations that point here on teardown.
-  Orientation<W> plot_orient_;
-  Orientation<W> scan_orient_;
+  Orientation<> plot_orient_;
+  Orientation<> scan_orient_;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
   Pipeline<W, H> scan_filters;
 

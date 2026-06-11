@@ -13,8 +13,8 @@ public:
   static constexpr int TRAIL_LENGTH = 115;
 
   struct Node {
-    Orientation<W, 16> orientation;
-    Animation::OrientationTrail<Orientation<W, 16>, TRAIL_LENGTH> trail;
+    Orientation<16> orientation;
+    Animation::OrientationTrail<Orientation<16>, TRAIL_LENGTH> trail;
     Vector v;
 
     Node() : v(Y_AXIS) {}
@@ -137,7 +137,7 @@ private:
   Timeline timeline;
   Pipeline<W, H> filters;
   ProceduralPath path;
-  Orientation<W> orientation;
+  Orientation<> orientation;
   GenerativePalette palette;
   BakedPalette baked_palette;
   std::array<LissajousParams, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},

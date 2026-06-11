@@ -55,7 +55,7 @@ public:
   }
 
 private:
-  Orientation<W> orientation;
+  Orientation<> orientation;
   Timeline timeline;
   Pipeline<W, H> filters;
   RippleTransformer<8> ripple_gen;

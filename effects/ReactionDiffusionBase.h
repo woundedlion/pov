@@ -104,7 +104,7 @@ protected:
     for_each_neighbor(center, visit);
   }
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   FastNoiseLite noise;
   ReactionGraph::CubemapLUT cube_lut;
   Timeline timeline;

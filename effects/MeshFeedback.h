@@ -157,7 +157,7 @@ private:
   bool feedback_enabled = true;
   NoiseParams noise_params;
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   Timeline timeline;
   ProceduralPalette palette;
 

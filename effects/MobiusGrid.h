@@ -204,7 +204,7 @@ private:
     float alpha = 0.2f;
   } params;
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   Timeline timeline;
 
   Vector holeN;

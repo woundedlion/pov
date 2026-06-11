@@ -1,11 +1,11 @@
 #include <cstdio>
 
-// Pull in the engine barrel first, exactly as a real target does. It owns the
-// `template <int W, int CAP = 4> class Orientation;` forward declaration that
-// establishes the default CAP before geometry.h defines the class — filter.h
-// and the effects use the single-argument form Orientation<W>. Including it
-// here (rather than letting individual test headers include geometry.h
-// directly) guarantees correct ordering for the whole translation unit.
+// Pull in the engine barrel first, exactly as a real target does. geometry.h
+// (included via this barrel) defines `template <int CAP = 4> class Orientation`
+// with the default CAP, so filter.h and the effects can use the no-arg form
+// Orientation<>. Including it here (rather than letting individual test headers
+// include geometry.h directly) guarantees correct ordering for the whole
+// translation unit.
 #include "core/effects_engine.h"
 
 #include "tests/test_3dmath.h"

@@ -167,9 +167,9 @@ public:
  * @brief A transformer adapter for an Orientation object.
  */
 template <int W> struct OrientTransformer {
-  const Orientation<W> &orientation;
+  const Orientation<> &orientation;
 
-  explicit OrientTransformer(const Orientation<W> &ori) : orientation(ori) {}
+  explicit OrientTransformer(const Orientation<> &ori) : orientation(ori) {}
 
   Vector transform(const Vector &v) const { return orientation.orient(v); }
 

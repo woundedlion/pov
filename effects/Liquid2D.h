@@ -149,8 +149,8 @@ private:
   }
 
   Timeline timeline;
-  Orientation<W> orientation;
-  Orientation<W> global_orientation;
+  Orientation<> orientation;
+  Orientation<> global_orientation;
   FastNoiseLite noise;
 
   BakedPalette palette;

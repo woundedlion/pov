@@ -112,7 +112,7 @@ private:
   }
 
   Timeline timeline;
-  Orientation<W> orientation;
+  Orientation<> orientation;
   FastNoiseLite noise;
   float noise_time = 0.0f;   // unbounded noise-time axis (see draw_frame)
   float sin_phase = 0.0f;    // wrapped to [0, 2pi): the pattern's +t term

@@ -107,7 +107,7 @@ private:
   // Cached tumble rotation values (per-frame)
   float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   Timeline timeline;
   BakedPalette baked_sunset;
 

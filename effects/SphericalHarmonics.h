@@ -227,7 +227,7 @@ private:
     bool debug_bb = false;
   } params;
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   Timeline timeline;
   Pipeline<W, H> filters;
   BakedPalette baked_palette;

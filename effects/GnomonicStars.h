@@ -78,7 +78,7 @@ public:
   }
 
 private:
-  Orientation<W> orientation;
+  Orientation<> orientation;
   FastNoiseLite noise;
   Timeline timeline;
   Pipeline<W, H> filters;

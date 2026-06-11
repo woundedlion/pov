@@ -278,7 +278,7 @@ namespace World {
  */
 template <int W> class Orient : public Is3D {
 public:
-  Orient(Orientation<W> &orientation) : orientation(orientation) {}
+  Orient(Orientation<> &orientation) : orientation(orientation) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
@@ -288,7 +288,7 @@ public:
   }
 
 private:
-  Orientation<W> &orientation;
+  Orientation<> &orientation;
 };
 
 /**
@@ -297,7 +297,7 @@ private:
  */
 template <int W> class OrientSlice : public Is3D {
 public:
-  OrientSlice(std::span<const Orientation<W>> orientations, const Vector &axis)
+  OrientSlice(std::span<const Orientation<>> orientations, const Vector &axis)
       : enabled(true), axis(axis), orientations(orientations) {}
 
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
@@ -323,7 +323,7 @@ public:
       idx = count - 1;
 
     // Pass to selected orientation
-    const Orientation<W> &q = orientations[idx];
+    const Orientation<> &q = orientations[idx];
     tween(q, [&](const Quaternion &rot, float tween_t) {
       pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha);
     });
@@ -333,7 +333,7 @@ public:
   Vector axis;
 
 private:
-  std::span<const Orientation<W>> orientations;
+  std::span<const Orientation<>> orientations;
 };
 
 /**

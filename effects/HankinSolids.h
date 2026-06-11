@@ -214,7 +214,7 @@ private:
                   palettes_slots[morph_new_slot_], o, orientation.get());
       }};
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   FastNoiseLite noise;
   Timeline timeline;
   Pipeline<W, H> filters;

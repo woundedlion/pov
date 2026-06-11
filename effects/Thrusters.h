@@ -78,14 +78,14 @@ private:
     static constexpr int RADIUS_GROW_FRAMES = 8;
     static constexpr float RADIUS_MAX = 0.3f;
 
-    Orientation<W> orientation;
+    Orientation<> orientation;
     Vector point;
     int age = 0;
 
     // Trivially copyable: the circular buffer relocates slots by plain
     // memberwise copy. No member holds a reference into this slot, so a copy
     // never has to be rebound.
-    void reset(const Orientation<W> &o, const Vector &p) {
+    void reset(const Orientation<> &o, const Vector &p) {
       orientation = o;
       point = p;
       age = 0;
@@ -183,7 +183,7 @@ private:
 
   Timeline timeline;
   Animation::Mutation warp_anim;
-  Orientation<W> orientation;
+  Orientation<> orientation;
 
   struct Params {
     float radius = 1.0f;

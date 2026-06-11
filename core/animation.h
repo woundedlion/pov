@@ -955,7 +955,7 @@ public:
    * @param repeat If true, the motion repeats.
    */
   template <typename P>
-  Motion(Orientation<W, CAP> &orientation, const P &path_obj, int duration,
+  Motion(Orientation<CAP> &orientation, const P &path_obj, int duration,
          bool repeat = false, Space space = Space::World)
       : AnimationBase<Motion<W, CAP>>(duration, repeat),
         orientation(orientation),
@@ -969,13 +969,13 @@ public:
   // dangling silently. (Non-owning by design: see Fn<>/inline-storage budget.)
   template <typename P,
             typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
-  Motion(Orientation<W, CAP> &orientation, P &&path_obj, int duration,
+  Motion(Orientation<CAP> &orientation, P &&path_obj, int duration,
          bool repeat = false, Space space = Space::World) = delete;
 
   /**
    * @brief Access the associated Orientation.
    */
-  Orientation<W, CAP> &get_orientation() const { return orientation.get(); }
+  Orientation<CAP> &get_orientation() const { return orientation.get(); }
   void collapse_orientation() override { get_orientation().collapse(); }
   const void *orientation_id() const override { return &get_orientation(); }
 
@@ -1064,7 +1064,7 @@ private:
   static constexpr float MAX_ANGLE =
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
-  std::reference_wrapper<Orientation<W, CAP>>
+  std::reference_wrapper<Orientation<CAP>>
       orientation;               /**< Reference to the Orientation state. */
   Fn<Vector(float), 16> path_fn; /**< Function to retrieve path points. */
   Space space;                   /**< The coordinate space for rotation. */
@@ -1099,7 +1099,7 @@ public:
    * @param repeat If true, the rotation repeats.
    * @param space The coordinate space for rotation ("World" or "Local").
    */
-  Rotation(Orientation<W, CAP> &orientation, const Vector &axis, float angle,
+  Rotation(Orientation<CAP> &orientation, const Vector &axis, float angle,
            int duration, EasingFn easing_fn, bool repeat = false,
            Space space = Space::World)
       : AnimationBase<Rotation<W, CAP>>(duration, repeat),
@@ -1109,7 +1109,7 @@ public:
   /**
    * @brief Access the associated Orientation.
    */
-  Orientation<W, CAP> &get_orientation() const { return *orientation; }
+  Orientation<CAP> &get_orientation() const { return *orientation; }
   void collapse_orientation() override { get_orientation().collapse(); }
   const void *orientation_id() const override { return orientation; }
 
@@ -1180,7 +1180,7 @@ public:
    * @param easing_fn The easing function to use.
    * @param space The coordinate space for rotation.
    */
-  static void animate(Canvas &canvas, Orientation<W, CAP> &orientation,
+  static void animate(Canvas &canvas, Orientation<CAP> &orientation,
                       const Vector &axis, float_t angle, EasingFn easing_fn,
                       Space space = Space::World) {
     Rotation<W, CAP> r(orientation, axis, angle, 1, easing_fn, false, space);
@@ -1191,7 +1191,7 @@ private:
   static constexpr float MAX_ANGLE =
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
-  Orientation<W, CAP> *orientation; /**< Pointer to the Orientation state. */
+  Orientation<CAP> *orientation; /**< Pointer to the Orientation state. */
   Vector axis;                      /**< The axis of rotation. */
   float total_angle;                /**< The total angle to sweep. */
   EasingFn easing_fn;               /**< Easing curve. */
@@ -1227,7 +1227,7 @@ public:
    * @param noise External noise generator (caller owns lifetime).
    * @param options Configuration options.
    */
-  RandomWalk(Orientation<W, CAP> &orientation, const Vector &v_start,
+  RandomWalk(Orientation<CAP> &orientation, const Vector &v_start,
              FastNoiseLite &noise, Options options = Options(),
              int seed = 0)
       : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
@@ -1253,7 +1253,7 @@ public:
   /**
    * @brief Access the associated Orientation.
    */
-  Orientation<W, CAP> &get_orientation() const { return orientation.get(); }
+  Orientation<CAP> &get_orientation() const { return orientation.get(); }
   void collapse_orientation() override { get_orientation().collapse(); }
   const void *orientation_id() const override { return &get_orientation(); }
 
@@ -1282,7 +1282,7 @@ public:
   }
 
 private:
-  std::reference_wrapper<Orientation<W, CAP>>
+  std::reference_wrapper<Orientation<CAP>>
       orientation;  /**< Reference to the global Orientation state. */
   Vector v;         /**< Current forward direction vector. */
   Vector direction; /**< Current pivoting direction (orthogonal to v). */
@@ -2166,8 +2166,8 @@ private:
  * @param callback The function to call for each frame: `void(const Quaternion&,
  * float t)`.
  */
-template <int W, int CAP>
-void tween(const Orientation<W, CAP> &o, TweenFn callback) {
+template <int CAP>
+void tween(const Orientation<CAP> &o, TweenFn callback) {
   int len = o.length();
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {

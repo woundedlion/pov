@@ -282,9 +282,9 @@ inline void test_lerp_midpoint() {
 // ============================================================================
 
 inline void test_orientation_trail_index_zero_is_oldest() {
-  Animation::OrientationTrail<Orientation<32, 4>, 8> trail;
+  Animation::OrientationTrail<Orientation<4>, 8> trail;
 
-  Orientation<32, 4> a, b, c;
+  Orientation<4> a, b, c;
   a.set(make_rotation(Vector(0, 1, 0), 0.1f));
   b.set(make_rotation(Vector(0, 1, 0), 0.2f));
   c.set(make_rotation(Vector(0, 1, 0), 0.3f));
@@ -300,8 +300,8 @@ inline void test_orientation_trail_index_zero_is_oldest() {
 }
 
 inline void test_orientation_trail_expire_drops_oldest() {
-  Animation::OrientationTrail<Orientation<32, 4>, 8> trail;
-  Orientation<32, 4> a, b;
+  Animation::OrientationTrail<Orientation<4>, 8> trail;
+  Orientation<4> a, b;
   a.set(make_rotation(Vector(0, 1, 0), 0.1f));
   b.set(make_rotation(Vector(0, 1, 0), 0.2f));
   trail.record(a);
@@ -313,8 +313,8 @@ inline void test_orientation_trail_expire_drops_oldest() {
 }
 
 inline void test_orientation_trail_clear() {
-  Animation::OrientationTrail<Orientation<32, 4>, 8> trail;
-  Orientation<32, 4> a;
+  Animation::OrientationTrail<Orientation<4>, 8> trail;
+  Orientation<4> a;
   trail.record(a);
   trail.record(a);
   trail.clear();
@@ -383,7 +383,7 @@ inline void test_easing_elastic_anchors() {
 // call needed). If a refactor turns the SFINAE guard into a no-op, this fails
 // to compile. See P1 #5 in docs/CODE_REVIEW.md.
 namespace borrow_guard {
-using Ori = Orientation<288, 16>;
+using Ori = Orientation<16>;
 using DrawFn = Fn<void(Canvas &, const MeshState &, float), 8>;
 
 // Motion: effect-owned lvalue path OK; temporary path rejected.
@@ -480,7 +480,7 @@ inline void test_rotation_substeps_shared_and_tight() {
 // increment retained, the deltas accumulate and the orientation actually turns.
 // (ease_mid is linear here, so per-frame delta = total_angle / duration.)
 inline void test_rotation_accumulates_subthreshold_deltas() {
-  using Ori = Orientation<288, 16>;
+  using Ori = Orientation<16>;
   Ori o; // identity
   // 0.05 rad over 1000 frames => 5e-5 rad/frame, half of TOLERANCE, so every
   // single frame's raw delta is below the early-out threshold.
@@ -504,7 +504,7 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
 // this file we DO touch the global Timeline; Rotation::step never dereferences
 // the canvas, and we reset the global cursor state around the test.)
 inline void test_timeline_shared_orientation_composes_motion_blur() {
-  using Ori = Orientation<288, 16>;
+  using Ori = Orientation<16>;
   global_timeline_num_events = 0;
   global_timeline_t = 0;
 
@@ -690,7 +690,7 @@ inline void test_timeline_full_guard_rejects_overflow() {
 // count (preserving the endpoints), and collapse() discards all but the newest —
 // the two primitives multi-animation motion blur is built on.
 inline void test_orientation_upsample_then_collapse() {
-  Orientation<32, 8> o; // identity, 1 frame
+  Orientation<8> o; // identity, 1 frame
   o.push(make_rotation(Z_AXIS, PI_F / 2)); // 2 frames: identity, +90 about Z
   HS_EXPECT_EQ(o.length(), 2);
 
@@ -733,7 +733,7 @@ inline void test_orientation_upsample_then_collapse() {
 // bug these diverge by > 1 rad, with the fix they stay at the first cycle's
 // tiny discretization residual.
 inline void test_motion_repeating_does_not_drift() {
-  using Ori = Orientation<288, 16>;
+  using Ori = Orientation<16>;
   global_timeline_num_events = 0;
   global_timeline_t = 0;
 
@@ -935,7 +935,7 @@ inline void test_sprite_paused_holds_frame() {
 // ============================================================================
 
 inline void test_deep_tween_global_t_spans_unit_interval() {
-  using Ori = Orientation<32, 8>;
+  using Ori = Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   const int N = 3, M = 3;
   for (int k = 0; k < N; ++k) {

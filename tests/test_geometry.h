@@ -13,7 +13,7 @@
  *   - logPolarToVector / vectorToLogPolar roundtrip + pole sentinel
  *   - fib_spiral, lissajous, random_vector (all on unit sphere)
  *   - Basis: make_basis (orthonormality), get_antipode (flipping)
- *   - Orientation<W, CAP>: set, push, get, collapse, upsample, orient/unorient
+ *   - Orientation<CAP>: set, push, get, collapse, upsample, orient/unorient
  */
 #pragma once
 
@@ -350,17 +350,17 @@ inline void test_get_antipode_long_arc_flips() {
 }
 
 // ============================================================================
-// Orientation<W, CAP>
+// Orientation<CAP>
 // ============================================================================
 
 inline void test_orientation_default_is_identity() {
-  Orientation<32, 8> o;
+  Orientation<8> o;
   HS_EXPECT_EQ(o.length(), 1);
   HS_EXPECT_QUAT(o.get(), Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
 inline void test_orientation_set_clears_history() {
-  Orientation<32, 8> o;
+  Orientation<8> o;
   o.push(make_rotation(Vector(0, 1, 0), 0.5f));
   o.push(make_rotation(Vector(0, 1, 0), 1.0f));
   HS_EXPECT_EQ(o.length(), 3);
@@ -372,7 +372,7 @@ inline void test_orientation_set_clears_history() {
 }
 
 inline void test_orientation_push_tracks_history() {
-  Orientation<32, 4> o;
+  Orientation<4> o;
   Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.1f);
   Quaternion q2 = make_rotation(Vector(0, 1, 0), 0.2f);
   o.push(q1);
@@ -384,7 +384,7 @@ inline void test_orientation_push_tracks_history() {
 }
 
 inline void test_orientation_orient_round_trips() {
-  Orientation<32, 4> o;
+  Orientation<4> o;
   Quaternion q = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
   o.set(q);
   Vector v(1, 0, 0);
@@ -394,7 +394,7 @@ inline void test_orientation_orient_round_trips() {
 }
 
 inline void test_orientation_collapse_keeps_latest() {
-  Orientation<32, 8> o;
+  Orientation<8> o;
   Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.1f);
   Quaternion q2 = make_rotation(Vector(0, 1, 0), 0.2f);
   o.push(q1);
@@ -407,7 +407,7 @@ inline void test_orientation_collapse_keeps_latest() {
 }
 
 inline void test_orientation_upsample_preserves_endpoints() {
-  Orientation<32, 16> o;
+  Orientation<16> o;
   Quaternion start = Quaternion(1, 0, 0, 0);
   Quaternion end = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
   o.set(start);
@@ -422,7 +422,7 @@ inline void test_orientation_upsample_preserves_endpoints() {
 }
 
 inline void test_orientation_upsample_noop_if_already_long() {
-  Orientation<32, 16> o;
+  Orientation<16> o;
   o.push(make_rotation(Vector(0, 1, 0), 0.1f));
   o.push(make_rotation(Vector(0, 1, 0), 0.2f));
   o.push(make_rotation(Vector(0, 1, 0), 0.3f));

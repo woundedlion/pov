@@ -115,7 +115,7 @@ private:
 
   Presets<Params, 5> presets;
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
   FastNoiseLite noise;
   Timeline timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;

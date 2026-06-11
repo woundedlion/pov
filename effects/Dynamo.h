@@ -226,7 +226,7 @@ private:
     float wipe_duration = 20.0f;
   } params;
 
-  Orientation<W> orientation;
+  Orientation<> orientation;
 
   Pipeline<W, H, Filter::World::Trails<W, TRAIL_CAPACITY>,
            Filter::World::Replicate<W>,

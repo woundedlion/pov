@@ -73,7 +73,7 @@ private:
   float gap_accumulator = 0.0f;
 
   ProceduralPalette palette;
-  Orientation<W> orientation;
+  Orientation<> orientation;
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;

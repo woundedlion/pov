@@ -446,7 +446,7 @@ inline void test_world_hole_masks_cap() {
 inline void test_world_orient_rotates_and_offsets_age() {
   constexpr int W = 32;
   Quaternion q = make_rotation(Y_AXIS, PI_F / 2); // 90 deg about +Y
-  Orientation<W> ori(q);
+  Orientation<> ori(q);
   Filter::World::Orient<W> orient(ori);
 
   int n = 0;
@@ -468,7 +468,7 @@ inline void test_world_orient_rotates_and_offsets_age() {
 // and spreads age across one frame: offsets (1 - t) for t in {0.5, 1.0}.
 inline void test_world_orient_motion_blur_sweep_ages() {
   constexpr int W = 32;
-  Orientation<W> ori; // identity, 1 frame
+  Orientation<> ori; // identity, 1 frame
   ori.push(make_rotation(Y_AXIS, PI_F / 4));
   ori.push(make_rotation(Y_AXIS, PI_F / 2)); // now 3 frames
   Filter::World::Orient<W> orient(ori);
@@ -491,10 +491,10 @@ inline void test_world_orient_motion_blur_sweep_ages() {
 // selects the last, near -axis selects the first; disabled is a passthrough.
 inline void test_world_orient_slice_selects_by_projection() {
   constexpr int W = 32;
-  Orientation<W> oris[2];
+  Orientation<> oris[2];
   oris[0].set(make_rotation(X_AXIS, PI_F / 2)); // index 0
   oris[1].set(make_rotation(Z_AXIS, PI_F / 2)); // index 1
-  std::span<const Orientation<W>> span(oris, 2);
+  std::span<const Orientation<>> span(oris, 2);
   Filter::World::OrientSlice<W> slice(span, Y_AXIS);
 
   auto first_tap = [&](const Vector &probe) {

@@ -111,8 +111,8 @@ public:
 
 private:
   float draw_head = 0.0f;
-  Orientation<W> orientation;
-  Orientation<W> point_orientations[MAX_POINTS];
+  Orientation<> orientation;
+  Orientation<> point_orientations[MAX_POINTS];
   Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {};
   float last_drift_ = -1.0f;
   FastNoiseLite noise;

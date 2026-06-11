@@ -16,8 +16,8 @@ public:
   struct Ring {
     Vector normal;
     BakedPalette *palette;
-    Orientation<W> orientation;
-    Animation::OrientationTrail<Orientation<W>, TRAIL_LENGTH> trail;
+    Orientation<> orientation;
+    Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
     FastNoiseLite noise;
     Ring() : normal(X_AXIS), palette(nullptr) {}
 

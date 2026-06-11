@@ -153,7 +153,7 @@ private:
 
   FastNoiseLite noise;
   Vector normal = Y_AXIS;
-  Orientation<W> camera;
+  Orientation<> camera;
   std::array<Quaternion, NUM_VERTS> raw_quats;
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs

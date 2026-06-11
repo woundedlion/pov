@@ -28,8 +28,8 @@ public:
   } params;
 
   struct Node {
-    Orientation<W, ORIENTATION_SUBSTEPS> orientation;
-    Animation::OrientationTrail<Orientation<W, ORIENTATION_SUBSTEPS>,
+    Orientation<ORIENTATION_SUBSTEPS> orientation;
+    Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>,
                                 TRAIL_LENGTH>
         trail;
     Vector v;
@@ -168,7 +168,7 @@ private:
   Timeline timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ProceduralPath path;
-  Orientation<W> orientation;
+  Orientation<> orientation;
   ScaleModifier scale_mod{200.0f, &params.scaleFactor};
   CycleModifier cycle_mod{&cycle_phase};
   ProceduralPalette palette_variant;

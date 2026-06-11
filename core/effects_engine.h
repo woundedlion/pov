@@ -23,9 +23,7 @@
 #include "canvas.h"
 #include "static_circular_buffer.h"
 
-template <int W, int CAP = 4> class Orientation;
-
-#include "geometry.h" // Provides Fragment
+#include "geometry.h" // Provides Fragment and defines Orientation<CAP = 4>
 #include "reaction_graph.h"
 #include "concepts.h" // Concepts needs fragment
 #include "color.h"
