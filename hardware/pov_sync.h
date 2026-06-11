@@ -1117,7 +1117,12 @@ private:
   uint32_t epoch_emits_left_ = 0;
   bool beacon_done_this_rev_ = false;
   uint32_t build_gen_ = 0;
-  uint32_t build_word_ = 0; ///< (gen << 8) | index; foreground-read.
+  // ISR→foreground handoff: written by publish_build() (ISR), polled by the
+  // foreground via build_word(). volatile — like every sibling handoff word in
+  // POVSegmented — so the foreground re-loads it each poll. Without it the
+  // pre-first-build run_show loop (no other volatile/opaque access on that
+  // path) may hoist the load and never observe the ISR's first publish.
+  volatile uint32_t build_word_ = 0; ///< (gen << 8) | index; foreground-read.
 };
 
 } // namespace sync

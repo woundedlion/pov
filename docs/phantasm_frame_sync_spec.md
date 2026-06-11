@@ -831,7 +831,9 @@ Invariants:
    attach/detach did not carry over). The effect handoff keeps single-writer
    ownership: the foreground constructs and deletes instances; the ISR owns
    the live pointer. Protocol: the foreground polls `SyncBoard::build_word()`
-   (a single aligned word, `generation << 8 | index`); on a generation change
+   (a single aligned `volatile` word, `generation << 8 | index` — `volatile`
+   so the foreground re-loads each poll and observes the ISR's publish, not
+   merely so the aligned word reads without tearing); on a generation change
    it bumps `release_req_`, the ISR drops its live pointer and acks within
    one wake-up, the foreground deletes the old instance, reseeds the RNG,
    constructs the new effect, draws its frame 0 (fresh buffers never block),
