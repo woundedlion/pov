@@ -123,7 +123,11 @@ public:
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
       float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
-      // Only pay for the second harmonic while actively blending.
+      // Skip the second harmonic when not blending. Morphs currently chain
+      // back-to-back (start_morph re-fires the instant morph_alpha commits to
+      // 0), so blend > 0 on all but the single commit frame and this guard
+      // rarely fires — it stays correct and would pay off only if a hold period
+      // between morphs were added.
       if (blend > 0.001f) {
         float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
         val += (val2 - val) * blend;
