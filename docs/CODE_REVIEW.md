@@ -262,7 +262,7 @@ Sequential numbering continues from the prior audit (1–146); this audit contri
 
 **Test suite**
 
-240. **POSIX trap detection depends on the shell exec-optimizing the child command** — `tests/test_death.h:510`. A shell that forks-and-waits makes WIFEXITED true and every death test fail. Accept `(WIFSIGNALED && SIGILL) || (WIFEXITED && status==128+SIGILL)`.
+240. ✅ **POSIX trap detection depends on the shell exec-optimizing the child command** — `tests/test_death.h:510`. A shell that forks-and-waits makes WIFEXITED true and every death test fail. Accept `(WIFSIGNALED && SIGILL) || (WIFEXITED && status==128+SIGILL)`. **Fixed:** `child_trapped()` now accepts both shapes — direct `WIFSIGNALED && WTERMSIG==SIGILL` (exec-optimized shell) and `WIFEXITED && WEXITSTATUS==128+SIGILL` (forks-and-waits shell relaying the signal). No behavior change on the common exec-optimized path.
 241. **Stale header comment references a "SKIPPED note at the bottom of this file" that does not exist** — `tests/test_plot_scan.h:10`. The Scan coverage it pointed to was since added in test_scan.h; the pointer is dead.
 242. **Comment claims the full suite runs "well under a few seconds"; measured ~25 s** — `tests/test_effects.h:54`. The pre-commit hook runs this per commit; the latency characterization is materially stale (death-test spawns and the sync simulator dominate, not smoke frames).
 243. **README Tests section under-describes the suite** — `README.md:1883`. Omits the death harness, the determinism pass, the multi-board sync simulator, the HD107S wire tests, the tiling proofs, and the param-marshal coverage; "add one line" is actually two.

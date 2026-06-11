@@ -507,7 +507,15 @@ inline bool child_trapped(int rc) {
 #if defined(_WIN32)
   return rc == kTrapStatus;
 #else
-  return rc != -1 && WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL;
+  // Normally /bin/sh exec-optimizes the single child command, so SIGILL
+  // propagates directly and WIFSIGNALED holds. A shell that instead forks and
+  // waits relays the death as an ordinary exit with status 128+SIGILL; accept
+  // that shape too so the death tests don't all fail under such a shell.
+  if (rc == -1)
+    return false;
+  if (WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL)
+    return true;
+  return WIFEXITED(rc) && WEXITSTATUS(rc) == 128 + SIGILL;
 #endif
 }
 
