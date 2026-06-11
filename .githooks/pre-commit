@@ -13,6 +13,13 @@
 # Uses the CMake "tests" preset (Ninja + auto-located Clang). Configure is cached
 # and builds are incremental, so a typical commit pays only the changed-file
 # rebuild plus the ~4s test run. Doc-only commits skip the suite entirely.
+#
+# SCOPE: the "run or skip" decision keys on the STAGED paths (git diff --cached),
+# but the build/test below compiles the WORKING TREE, not the index. For whole-
+# file commits these coincide. With partial staging (git add -p) they can differ:
+# the suite then validates unstaged content, so a split commit can pass here while
+# its staged hunks alone do not compile. CI rebuilds from the committed tree and
+# is the authoritative gate for that case; this hook is a fast local pre-filter.
 
 set -e
 
