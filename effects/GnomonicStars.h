@@ -66,10 +66,10 @@ public:
       // Apply Transformer
       v = transformer.transform(v);
 
-      // Orient the star position (using latest orientation)
-      v = orientation.orient(v);
-
-      // Create Basis at the star position (aligned with normal v)
+      // Build the basis at the star position. make_basis() rotates its normal
+      // by the orientation, so passing the raw warp output applies the latest
+      // orientation exactly once — orienting v separately first would rotate it
+      // twice (q*q*v) and drift the field at double the RandomWalk rate.
       Basis basis = make_basis(orientation.get(), v);
 
       Scan::Star::draw<W, H>(filters, canvas, basis, radius, sides,
