@@ -1,19 +1,25 @@
 #include "memory.h"
 #include "animation.h"
 
-// Stubs to prevent the linker pulling in the C++ demangler (~15KB).
-// Chain: std::function -> __cxa_throw -> __verbose_terminate_handler ->
-// d_print_*
+// Stubs to prevent the linker pulling in the C++ demangler (~15KB) on the
+// device. Chain: std::function -> __cxa_throw -> __verbose_terminate_handler ->
+// d_print_*. Only the Arduino/Teensy build needs them: on host (native tests,
+// WASM) the toolchain's real handlers are correct, and defining these would
+// shadow them. A pure-virtual call or a terminate is a fatal invariant
+// violation — flush the log and trap (fail-fast), never spin in while(1), which
+// freezes the display with no breadcrumb and is the hardest failure to diagnose.
+#ifdef ARDUINO
 extern "C" void __cxa_pure_virtual() {
-  while (1)
-    ;
+  hs::flush_log();
+  __builtin_trap();
 }
 namespace __gnu_cxx {
 void __verbose_terminate_handler() {
-  while (1)
-    ;
+  hs::flush_log();
+  __builtin_trap();
 }
 } // namespace __gnu_cxx
+#endif
 
 // Single contiguous memory block — all arenas partition this. alignas keeps
 // the block's base (and thus persistent_arena's base) maximally aligned, so
