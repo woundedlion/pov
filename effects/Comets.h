@@ -119,8 +119,14 @@ private:
     if (closing_cycles < 1.0f)
       closing_cycles = 1.0f;
     float closed_domain = 2 * PI_F * closing_cycles / config.m2;
-    path.f = [config, closed_domain](float t) {
-      return lissajous(config.m1, config.m2, config.a, t * closed_domain);
+    // Capture only the three scalars lissajous() needs plus closed_domain (16 B
+    // total). Capturing the whole LissajousParams (16 B) + closed_domain (4 B)
+    // is 20 B, overflowing PlotFn's Fn<Vector(float), 16> inline capacity — a
+    // hard static_assert on the ARDUINO build, where Fn is teensy's
+    // inplace_function with no heap fallback (host/WASM std::function masks it).
+    const float m1 = config.m1, m2 = config.m2, a = config.a;
+    path.f = [m1, m2, a, closed_domain](float t) {
+      return lissajous(m1, m2, a, t * closed_domain);
     };
   }
 
