@@ -192,6 +192,16 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
 }
 
 /// Fluent builder for chaining Conway operators with automatic arena swapping.
+///
+/// Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_) — a single
+/// swap per call that assumes the PRIMITIVE polarity (output lands in `target`).
+/// The composed ops (bitruncate, gyro, meta, needle, zip, bevel) return their
+/// output in `temp` instead (see COMPOSITION POLARITY in conway.h), so the op
+/// immediately following a composed op runs with its input and output on the
+/// same arena — no asymmetric split for that one step — before alternation
+/// self-restores. This is measured to fit the tuned arena pair; skipping the
+/// swap after a composed op would re-balance it but relocates every downstream
+/// allocation and must be re-measured before adopting.
 class SolidBuilder {
   PolyMesh mesh_;
   Arena *a_;

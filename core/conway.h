@@ -279,11 +279,12 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
 // Conway operators
 //
 // All operators take a const MeshT& input (PolyMesh or MeshState — both
-// expose the same vertices/face_counts/faces shape) and return a fresh
-// PolyMesh in `target`. Both arenas are checkpointed via ScratchScope, so all
-// scratch (the HalfEdgeMesh build plus the per-orbit index/flag buffers) is
-// reclaimed when the operator returns — only the output mesh persists in
-// `target`.
+// expose the same vertices/face_counts/faces shape). PRIMITIVE operators (dual,
+// kis, ambo, truncate, expand, chamfer, snub, relax) return a fresh PolyMesh in
+// `target`. Both arenas are checkpointed via ScratchScope, so all scratch (the
+// HalfEdgeMesh build plus the per-orbit index/flag buffers) is reclaimed when
+// the operator returns — only the output mesh persists. COMPOSED operators
+// return in `temp`, not `target`; see COMPOSITION POLARITY below.
 //
 // SCRATCH ARENA CONTRACT (load-bearing — do not "standardize" blindly):
 // The HalfEdgeMesh always builds in `temp`. The per-orbit index/flag buffers,
@@ -301,6 +302,23 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
 // arenas shifts that arena's high-water mark and can overflow the tight budget,
 // so any change here must be measured against the configured arena split, not
 // applied for uniformity.
+//
+// COMPOSITION POLARITY (load-bearing — do not "fix" for contract uniformity):
+// Composed operators (bitruncate, gyro, meta, needle, zip, bevel) are written
+// as op2(op1(mesh, target, temp), temp, target) so they reuse the SAME ping-pong
+// internally and need NO extra arena: op1 writes to `target`, then op2 reads
+// from `target` and writes to the swapped side. The consequence is that a
+// two-op composition lands its output in `temp`, the OPPOSITE arena from a
+// primitive — this is intended, not a contract slip. SolidBuilder swaps once per
+// op (solids.h), which assumes the primitive polarity, so the single op
+// FOLLOWING a composed op runs with its input and output on the same arena
+// (no asymmetric split) for that one step before alternation self-restores. In
+// the shipping recipes this happens once — the relax() after bitruncate() in
+// IslamicStarPatterns::cube_relax_bitruncate33_relax_hk68_expand5 — and is
+// measured to fit the 16/32 KB pair. Making SolidBuilder skip the swap after a
+// composed op would restore healthy alternation but RELOCATES every downstream
+// allocation across the asymmetric arenas, so it must be re-measured against the
+// high-water mark before adopting, not applied blindly.
 //
 // Per-vertex orbit construction uses an arena scratch buffer sized to the
 // maximum possible valence (= total half-edges), so high-valence vertices
@@ -693,6 +711,8 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
 
 /**
  * @brief Bitruncate operator: Truncate the rectified mesh.
+ * @note Composition (truncate of ambo): returns its output in `temp`, not
+ *       `target` — see COMPOSITION POLARITY at the top of this operator block.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh bitruncate(const MeshT &mesh, Arena &target,
@@ -1004,6 +1024,8 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
   return out_mesh;
 }
 
+/// gyro = dual of snub. Composition: returns its output in `temp`, not
+/// `target` — see COMPOSITION POLARITY at the top of the operator block.
 template <typename MeshT>
 FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
   return dual(snub(mesh, target, temp), temp, target);
@@ -1013,8 +1035,10 @@ FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
 // Compositional operators (Hart's notation)
 //
 // These are defined as compositions of primitive operators. Equivalences are
-// from Hart's reference implementation. Memory-wise, each composition uses
-// the standard ping-pong of (target, temp) arenas.
+// from Hart's reference implementation. Memory-wise, each composition reuses
+// the standard ping-pong of (target, temp) arenas with no extra allocation, and
+// as a result returns its output in `temp`, not `target` (see COMPOSITION
+// POLARITY at the top of the operator block).
 //   meta   m = kj = kis of ambo (j = a)
 //   needle n = kd = kis of dual
 //   zip    z = dk = dual of kis (truncated dual)
