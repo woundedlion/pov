@@ -102,9 +102,21 @@ private:
   }
 
   /** Near-nearest Fibonacci node via greedy K-NN descent from a latitude seed.
-   *  Hill-climbs to a neighbor each step and stops at a local minimum, so on
+   *  Hill-climbs toward closer neighbors and stops at a local minimum, so on
    *  the near-uniform Fibonacci sphere this lands on the true nearest node in
-   *  practice but is not guaranteed to — it is not a global argmin. */
+   *  practice but is not guaranteed to — it is not a global argmin.
+   *
+   *  LOAD-BEARING: the inner loop reassigns `cur` (and `best_d`) the instant it
+   *  sees a closer neighbor, so each later `k` reads `neighbors[cur]` of the
+   *  just-updated node — one `iter` therefore chains through *several* nodes,
+   *  not one. This is not a textbook best-of-neighbors step and the 64-iteration
+   *  cap depends on it: the seed is latitude-only, so for an equatorial query
+   *  the true node can sit dozens of hops away around the longitude circle (the
+   *  RD_N=7680 lattice has long iso-latitude rings). A refactor that scanned all
+   *  RD_K neighbors of a *fixed* `cur` before moving would advance one hop per
+   *  iter, exceed 64 hops near the equator, and silently return a wrong node —
+   *  which the round-trip test cannot catch because it seeds at the answer. Do
+   *  not convert this to best-of-neighbors without also raising the cap. */
   static int find_nearest_node(const Vector &p) {
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
@@ -119,6 +131,8 @@ private:
         int ni = neighbors[cur][k];
         if (ni < 0) continue;
         float d = dist2(p, node(ni));
+        // Mid-scan reassignment is deliberate (see LOAD-BEARING note above):
+        // subsequent k read neighbors of `cur`, chaining multiple hops per iter.
         if (d < best_d) { best_d = d; cur = ni; improved = true; }
       }
       if (!improved) break;
