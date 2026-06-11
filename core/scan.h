@@ -592,8 +592,10 @@ struct Shader {
   template <int W, int H, int SAMPLES = 4>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    Fragment frag_base;
-
+    // frag_base is declared per pixel below, not once for the whole draw: a
+    // vertex shader that writes only some registers (v0-v3/size/age/color) must
+    // not inherit the previous pixel's values — an order-dependent leak. Each
+    // pixel starts from a default-constructed Fragment.
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
@@ -603,6 +605,7 @@ struct Shader {
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
+          Fragment frag_base;
           frag_base.pos = center_v;
           vertex_shader(frag_base);
           fragment_shader(center_v, frag_base);
@@ -628,6 +631,7 @@ struct Shader {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
 
+          Fragment frag_base;
           frag_base.pos = center_v;
           vertex_shader(frag_base);
 
