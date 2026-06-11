@@ -1124,11 +1124,11 @@ struct EdgeFadeShade {
     if (t < edge)
       return Color4(
           black.lerp16(c.color, float_to_pixel16(quintic_kernel(t / edge))),
-          1.0f);
+          c.alpha);
     if (t >= 1.0f - edge)
       return Color4(c.color.lerp16(black, float_to_pixel16(quintic_kernel(
                                               (t - (1.0f - edge)) / edge))),
-                    1.0f);
+                    c.alpha);
     return c;
   }
 };
