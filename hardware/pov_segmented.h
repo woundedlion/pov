@@ -102,6 +102,16 @@ class POVSegmented {
   /** @brief PWM output for column clock (segment 0 / clock master only). */
   static constexpr int PIN_CLOCK_OUT = 5;
 
+  /**
+   * @brief HD107S SPI clock for the Phantasm DMA path, in Hz.
+   *
+   * 24 MHz (vs the TeensySPIDMA 12 MHz default) roughly halves the per-column
+   * transfer time, restoring the ~2× headroom the README §1 Phantasm table
+   * documents over the ~434 µs column period. HD107S (APA102-compatible) parts
+   * clock well past this; the column ISR, not the strip, is the binding budget.
+   */
+  static constexpr uint32_t SPI_CLOCK_HZ = 24000000;
+
 public:
 
   /**
@@ -509,7 +519,7 @@ CRGB POVSegmented<S, N, RPM>::leds_[POVSegmented<S, N, RPM>::PPS];
 #if defined(USE_DMA_LEDS)
 template <int S, int N, int RPM>
 DMALEDController<POVSegmented<S, N, RPM>::PPS>
-    POVSegmented<S, N, RPM>::ledController_;
+    POVSegmented<S, N, RPM>::ledController_{POVSegmented<S, N, RPM>::SPI_CLOCK_HZ};
 #endif
 
 #endif // ARDUINO

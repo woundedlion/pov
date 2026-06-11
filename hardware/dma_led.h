@@ -196,7 +196,13 @@ inline TeensySPIDMA* TeensySPIDMA::instance_ = nullptr;
 template <int N>
 class DMALEDController {
 public:
-  DMALEDController() : activeBuffer_(0), transferCount_(0), overrunCount_(0) {}
+  /**
+   * @brief Constructs the controller, optionally overriding the SPI clock.
+   * @param clock SPI clock in Hz forwarded to TeensySPIDMA (default: 12 MHz).
+   *              The Phantasm driver passes 24 MHz (see pov_segmented.h).
+   */
+  explicit DMALEDController(uint32_t clock = 12000000)
+      : spi_(clock), activeBuffer_(0), transferCount_(0), overrunCount_(0) {}
 
   /**
    * @brief One-time hardware initialization. Call from setup().
