@@ -184,7 +184,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── conway.h                Conway operators (dual, kis, ambo, truncate, etc.)
 │   ├── hankin.h                Hankin pattern compilation and update system
 │   ├── solids.h                Platonic + Archimedean + Catalan + Islamic solid registry
-│   ├── spatial.h               AABB, KDTree, k-nearest-neighbor, MeshState
+│   ├── spatial.h               KDTree, k-nearest-neighbor, MeshState (+ speculative AABB)
 │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   ├── rotate.h                Quaternion projection helpers
 │   ├── generators.h            Universal generate() wrapper for procedural geometry
@@ -1043,7 +1043,7 @@ The mesh system is split across several files:
 - **`mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
 - **`hankin.h`** — Hankin pattern compilation and dynamic update
-- **`spatial.h`** — `MeshState` (flat-array renderer format), `AABB`, `KDTree`
+- **`spatial.h`** — `MeshState` (flat-array renderer format), `KDTree`, and a speculative `AABB` (test-only — no production consumer yet)
 - **`solids.h`** — Platonic + Archimedean + Catalan + Islamic Star Pattern solid geometry data and registry
 
 `PolyMesh` stores vertices and face connectivity via `ArenaVector` arrays. `MeshState` (in `spatial.h`) is the flat compiled format consumed by the renderer. `HalfEdgeMesh` provides a half-edge traversal structure built from either a `PolyMesh` or `MeshState`.

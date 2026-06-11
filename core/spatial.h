@@ -17,6 +17,11 @@
 
 /**
  * @brief Axis-Aligned Bounding Box.
+ *
+ * @note Speculative: the implementation (union_with, ray-slab intersect) is
+ * sound and exercised by test_spatial.h, but it has no production consumer yet —
+ * nothing in the engine constructs or queries an AABB. Wire it to a broad-phase
+ * / culling consumer before relying on it as core spatial machinery.
  */
 struct AABB {
   Vector min_val;
