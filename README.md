@@ -165,7 +165,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   │
 │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 │   ├── geometry.h              Fragment, Dots/Points, PixelLUT, coord conversions
-│   ├── color.h                 Pixel16 (16-bit linear), Color4, blend modes, palettes
+│   ├── color.h                 Pixel16 (16-bit linear), Color4, blend helpers, palettes
 │   ├── palettes.h              Named palette instances (ProceduralPalette + Gradient)
 │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
 │   │
@@ -434,7 +434,7 @@ The filter pipeline operates across three coordinate domains. Each filter declar
 
 **Screen → Pixel**: `AntiAlias` distributes the fractional coordinate to its 4 nearest integer pixels using `quintic_kernel` bilinear weights, with `sin(φ)` density compensation.
 
-**Pixel → Canvas**: The base `Pipeline<W,H>` (the identity terminal) blends the final color into `canvas(x, y)` using the active blend mode.
+**Pixel → Canvas**: The base `Pipeline<W,H>` (the identity terminal) composites the final color into `canvas(x, y)` with straight-alpha (`src * α + dst * (1-α)`) in linear light.
 
 **World filters** operate on the 3D vector before projection — they can rotate, replicate, or warp geometry in spherical coordinates without loss. **Screen filters** operate after projection but before integer snapping — they distribute sub-pixel energy for anti-aliasing and blur. **Pixel filters** operate per-frame on the full canvas — feedback and chromatic aberration read from the previous frame buffer.
 
@@ -727,7 +727,7 @@ Plot::Bezier::draw<W, H>(pipeline, canvas, p0, p1, p2, p3, fragment_shader);
 Plot::SplineChain::draw<W, H>(pipeline, canvas, control_points, tension, shader);
 ```
 
-All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<Fragment>`) where each fragment carries position, texture registers (v0–v3), age, color, and blend mode. The rasterizer supports two interpolation strategies via `SplineMode`:
+All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<Fragment>`) where each fragment carries position, texture registers (v0–v3), age, and color. The rasterizer supports two interpolation strategies via `SplineMode`:
 - **Geodesic**: great-circle arc between segment endpoints (default)
 - **Planar**: planar projection within the tangent plane of a basis (for effects that live in a 2D local space)
 
@@ -943,13 +943,9 @@ Input (sRGB 8-bit) → sRGB→linear LUT → Pixel16 (linear 16-bit) → blend o
 FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel16
 ```
 
-`Color4` wraps `Pixel` with a float alpha channel. Blend modes at the canvas sink:
+`Color4` wraps `Pixel` with a float alpha channel. The canvas sink composites with a single straight-alpha "over" operation — `blend_alpha(α)`, i.e. `dst = src * α + dst * (1-α)`, applied in 16-bit linear light (see `filter.h`). There is no selectable blend-mode tag.
 
-| Tag | Mode | Formula |
-|---|---|---|
-| `BLEND_OVER` (default) | Alpha composite | `dst = src * α + dst * (1-α)` |
-| `BLEND_ADD` | Additive | `dst = src * α + dst` (clamped) |
-| `BLEND_MAX` | Maximum | `dst = max(src * α, dst)` |
+`color.h` additionally provides standalone compositing helpers — `blend_over`, `blend_under`, `blend_add` (with an ARM `uqadd16` saturating-add path), `blend_max`, and `blend_mean` — as building blocks for additive/max/mean mixing. They are not wired into the canvas sink; an effect calls them directly when blending its own intermediate buffers.
 
 #### Palette Types
 
