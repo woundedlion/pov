@@ -1775,15 +1775,15 @@ Switching presets does a full WASM reset: `setResolution(w, h)` reallocates buff
 
 ### 10.11 Geometry Tools (`daydream/tools/`)
 
-Five standalone HTML pages, each rendering with its own Three.js scene. `solids.html` and `splines.html` are backed by the engine's WASM build so their geometry stays identical to the C++ engine — `solids.html` via the `MeshOps` class, `splines.html` via the exported spline evaluators (`spline_cubic_fast` / `spline_cubic_slerp` / `spline_catmull_rom_tangents`); the other three implement their geometry math directly in JavaScript:
+Five standalone HTML pages. Four render with their own Three.js scene; `palettes.html` renders with 2D canvas contexts. `solids.html` and `splines.html` are backed by the engine's WASM build so their geometry stays identical to the C++ engine — `solids.html` via the `MeshOps` class, `splines.html` via the exported spline evaluators (`spline_cubic_fast` / `spline_cubic_slerp` / `spline_catmull_rom_tangents`); the other three implement their geometry math directly in JavaScript:
 
 | Tool | What it does |
 |---|---|
-| `lissajous.html` | Designs spherical Lissajous curves with live frequency / phase / amplitude sliders; outputs the C++ literal needed by `ChaoticStrings`. |
+| `lissajous.html` | Designs spherical Lissajous curves with live frequency / phase / amplitude sliders; outputs a JavaScript snippet (an arrow function plus its parameter domain) for `ChaoticStrings`. |
 | `mobius.html` | Visualizes Möbius transformations on the sphere via stereographic projection; lets you sweep the four complex coefficients and see the warp on a latitude-longitude grid. |
-| `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules; exports the C++ initializer. |
+| `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules and exports the C++ initializer; renders its swatches and graphs on 2D canvas contexts rather than a Three.js scene. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 335 KB arena). |
-| `splines.html` | Dual-mode (Bézier / Catmull-Rom) spherical spline designer with closed-loop and open-chain modes; click to add control points, drag to edit, export the control points as a `constexpr std::array<Vector>` or as `Fragment` positions. |
+| `splines.html` | Dual-mode (Bézier / Catmull-Rom) spherical spline designer with closed-loop and open-chain modes; click to add control points, drag to edit, export the control points as a `constexpr std::array<Vector>` or as `Fragment` positions. Spline evaluation runs through the engine's exported WASM spline functions (the tool's single source of truth). |
 
 All five reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
 
