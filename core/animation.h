@@ -160,7 +160,13 @@ public:
    * @brief Checks if the animation should repeat after finishing.
    * @return True if repeating.
    */
-  bool repeats() const override { return repeat; }
+  // A canceled animation must not repeat: done() is permanently true once
+  // canceled, so without the !canceled guard Timeline::step would see
+  // done()&&repeats(), rewind it, fire its .then() every frame, and never
+  // remove it — a per-frame zombie. Dropping repeat here routes cancel through
+  // the removal branch (fires post_callback once, then erased), exactly as a
+  // canceled one-shot already behaves.
+  bool repeats() const override { return repeat && !canceled; }
   /**
    * @brief Advances the animation state by one frame.
    * @param canvas The canvas buffer (unused by base class, passed to derived

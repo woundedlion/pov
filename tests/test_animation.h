@@ -603,6 +603,25 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   HS_EXPECT_EQ(global_timeline_num_events, 1);
 }
 
+// A canceled repeating animation must be removed, not rewound and replayed
+// forever (finding 283). cancel() makes done() permanently true; repeats() must
+// drop on cancel so Timeline routes it through the removal branch instead of
+// keeping it as a per-frame, callback-firing zombie.
+inline void test_timeline_cancel_removes_repeating_animation() {
+  Timeline tl;
+  float v = -1.0f;
+  auto *h = tl.add_get(0, Animation::Mutation(
+                              v, [](float e) { return e; }, 2, ease_mid,
+                              /*repeat=*/true));
+  tl.step(fake_canvas());
+  tl.step(fake_canvas()); // completes a cycle, rewinds, and stays (repeating)
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
+
+  h->cancel();
+  tl.step(fake_canvas()); // canceled: done() && !repeats() -> removed
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
 // When a non-repeating event completes and is removed, step() compacts the
 // array: later survivors are relocated (move_into) into the freed slots and must
 // keep stepping correctly from their new positions. Decisive check: the
@@ -1125,6 +1144,7 @@ inline int run_animation_tests() {
   test_timeline_shared_orientation_composes_motion_blur();
   test_timeline_sequences_events_by_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
+  test_timeline_cancel_removes_repeating_animation();
   test_timeline_compaction_preserves_later_events();
   test_timeline_then_chains_follow_up_event();
   test_repeating_timer_fires_then_each_cycle();
