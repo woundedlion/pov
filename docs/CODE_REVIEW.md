@@ -613,7 +613,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* These read as AI-chat/changelog residue, age badly, and conflict with the project's own documentation hygiene (current-state descriptions only); the '(This is correct)' self-reassurance actively lowers reader confidence in the closure math …
    *Suggested fix:* Replace each with a one-line statement of current behavior (e.g. derive the closure-domain comment from the M/N math) and delete the rest.
 
-100. **Quick orbit flicks place unintended spline control points** — `tools/splines.html:367-399` *(not independently validated)*
+100. ✅ **Quick orbit flicks place unintended spline control points** — `tools/splines.html:367-399` *(validated and fixed: onMouseDown now records the press position, and onMouseUp requires the pointer to have moved ≤ CLICK_MOVE_TOLERANCE (6px) in addition to the existing <300ms check before placing a point, so a fast camera flick no longer mutates the curve)*
    onMouseUp distinguishes 'place a point' from 'orbit the camera' purely by elapsed time (`if (elapsed > 300) return;`). A fast camera flick — press, drag a few hundred pixels, release within 300 ms — passes the time check, the raycast hits the sphere at the release position, and a control point is appended, mutating the curve the user was only trying to look at.
    *Why it matters:* Orbit-flicking is the natural way to inspect a 3D curve; silently editing the model during navigation is the kind of input bug users blame on themselves.
    *Suggested fix:* Record the mousedown position and skip placement when the pointer moved more than a few pixels, in addition to the time check.
