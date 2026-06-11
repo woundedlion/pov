@@ -419,6 +419,18 @@ private:
   static FASTRUN void flywheel_isr() {
     const uint32_t now = ARM_DWT_CYCCNT;
 
+    // Complete a deferred dark-path sync pulse from the previous wake. On the
+    // dark-latched path the ISR body is only a few dozen instructions (no
+    // render_black / render_column), so a same-wake HIGH→LOW pulse collapses to
+    // ~50–200 ns — two to three orders below spec §5.2's "tens of µs," exactly
+    // during the boot-acquisition window downstream boards lock onto. The dark
+    // path instead holds the pin HIGH and drops it here at the next wake, giving
+    // the pulse a full wake interval (~T0/kOversample) of width.
+    if (sync_low_pending_) {
+      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+      sync_low_pending_ = false;
+    }
+
     // Mailbox handoff (spec §8.2): a brief IRQ-off copy in the consumer.
     pov::sync::BurstSnapshot burst;
     const pov::sync::BurstSnapshot *bp = nullptr;
@@ -483,6 +495,11 @@ private:
     if (a.flip && e)
       e->advance_display();
 
+    // Tracks whether this wake did real LED work between the pulse edges. The
+    // bright path (render_column) and the first dark frame (render_black) take
+    // tens of µs and so width the pulse themselves; the dark-latched path skips
+    // both and must defer the pin drop (below) to keep the pulse spec-wide.
+    bool did_render = false;
     if (a.dark || e == nullptr) {
       // Fail-dark (spec §5.3/§6.3): show nothing rather than the wrong
       // thing. One black frame latches the strip; then stay idle.
@@ -496,15 +513,28 @@ private:
       // column tick (~434 µs) instead of latching indefinitely.
       if (!dark_latched_ && render_black()) {
         dark_latched_ = true;
+        did_render = true;
       }
     } else {
       dark_latched_ = false;
-      if (a.render_column >= 0)
+      if (a.render_column >= 0) {
         render_column(e, a.render_column);
+        did_render = true;
+      }
     }
 
-    if (a.pulse)
-      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+    if (a.pulse) {
+      if (did_render) {
+        // Bright / first-dark path: the ISR body already gave the pulse its
+        // spec width (tens of µs). Drop it now.
+        digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+      } else {
+        // Dark-latched (or render-less) path: the body is too short to width
+        // the pulse. Hold the pin HIGH and drop it at the next wake — see the
+        // deferred-drop at the top of the ISR.
+        sync_low_pending_ = true;
+      }
+    }
   }
 
   // ── Pixel packing ───────────────────────────────────────────────────
@@ -591,6 +621,7 @@ private:
   static volatile uint32_t release_req_;   // foreground-owned
   static volatile uint32_t release_ack_;   // ISR-owned
   static bool dark_latched_;               // ISR-owned
+  static bool sync_low_pending_;           // ISR-owned: dark-path pulse drop deferred to next wake
 
   static int segment_id_;
   static bool arm_b_;
@@ -633,6 +664,9 @@ volatile uint32_t POVSegmented<S, N, RPM>::release_ack_ = 0;
 
 template <int S, int N, int RPM>
 bool POVSegmented<S, N, RPM>::dark_latched_ = false;
+
+template <int S, int N, int RPM>
+bool POVSegmented<S, N, RPM>::sync_low_pending_ = false;
 
 template <int S, int N, int RPM>
 int POVSegmented<S, N, RPM>::segment_id_ = 0;
