@@ -199,10 +199,18 @@ public:
     speed_accumulator_ -= static_cast<float>(steps);
     // The i/steps division is provably guarded: the loop body only runs when
     // steps >= 1, so a sub-1 accumulator produces zero iterations (no
-    // divide-by-zero) and falls straight through to the flush below.
-    for (int i = steps - 1; i >= 0; --i) {
-      pull(0, effective_speed);
-      draw_nodes(canvas, static_cast<float>(i) / steps);
+    // divide-by-zero).
+    if (steps == 0) {
+      // Zero-step frame (|speed| < 1, accumulator still sub-unit): re-emit the
+      // strand at its current position without advancing it. Otherwise no plots
+      // are produced this frame, and a Trail Len of 1 (ttl popped before
+      // drawing) blanks the strand — sub-unit speeds flicker (finding 216).
+      draw_nodes(canvas, 0.0f);
+    } else {
+      for (int i = steps - 1; i >= 0; --i) {
+        pull(0, effective_speed);
+        draw_nodes(canvas, static_cast<float>(i) / steps);
+      }
     }
 
     filters.flush(
