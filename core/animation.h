@@ -1541,6 +1541,11 @@ public:
             EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(duration, false), easing_fn(easing_fn),
         draw_outgoing(draw_outgoing), draw_incoming(draw_incoming) {
+    // An empty source leaves best_idx pinned at 0 and indexes an empty
+    // ArenaVector when building the correspondence below — an OOB read under
+    // NDEBUG. The nearest-vertex map is meaningless without source vertices;
+    // trap at construction (house style).
+    HS_CHECK(!source.vertices.empty());
     // Allocate transient storage on the arena
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
