@@ -4,11 +4,14 @@
  */
 #pragma once
 
+// platform.h first: on device it defines NDEBUG, which must be set before
+// <cassert> expands the assert macro — otherwise assert-stripping would depend
+// on a prior TU having pulled in platform.h, making this header non-self-sufficient.
+#include "platform.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <limits>
-#include "platform.h"
 #include "3dmath.h"
 #include <memory>
 #include <utility>
