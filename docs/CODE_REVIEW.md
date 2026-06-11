@@ -518,7 +518,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* Pure wasted per-row work on a hot setup path; also a small correctness hazard if a child's emission were ever non-deterministic across calls.
    *Suggested fix:* Replay the already-collected buffer: `for (auto &iv : intervals_b) out(iv.first, iv.second); return true;` instead of re-calling the child.
 
-81. **Canvas::start_time is written but never read (dead member)** — `core/canvas.h:419, 497`
+81. ✅ **Canvas::start_time is written but never read (dead member)** — `core/canvas.h:419, 497` *(validated and fixed: repo-wide grep confirmed start_time is only assigned in the ctor and declared — never read; real frame timing lives in render_us. Deleted the member and its `start_time = micros()` assignment, dropping one micros() read per frame on hardware. Full suite still passes.)*
    The Canvas constructor records `start_time = micros();` and the member is documented as 'Tracks frame drawing duration (debug)', but nothing in canvas.h (or the destructor, which only calls queue_frame()) ever reads it. The actual frame timing telemetry lives in render_us via reset_render_us/add_render_us.
    *Why it matters:* Dead state in a per-frame RAII object misleads readers into hunting for the timing consumer, and the micros() call is a (tiny) wasted syscall-equivalent per frame on hardware.
    *Suggested fix:* Delete the member and the assignment, or wire it to a real consumer (e.g. log slow frames over a threshold in ~Canvas under debug).

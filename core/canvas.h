@@ -416,7 +416,6 @@ public:
         }
       }
     }
-    start_time = micros();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       clear_buffer();
@@ -493,7 +492,6 @@ private:
    *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
    *  that, so only a genuinely stalled display ISR trips it. */
   static constexpr unsigned long kBufferFreeWatchdogUs = 2000000UL;
-  Effect &effect_;          /**< Reference to the owning Effect instance. */
-  unsigned long start_time; /**< Tracks frame drawing duration (debug). */
+  Effect &effect_; /**< Reference to the owning Effect instance. */
 };
 
