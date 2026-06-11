@@ -483,6 +483,20 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
   HS_EXPECT_NEAR(r_hard.dist, r_soft.dist, 1e-3f);
 }
 
+// SmoothUnion derives its solidity from its children (like Union/Subtract/
+// Intersection): a stroke child keeps its soft falloff instead of collapsing
+// to a hard 1-px silhouette in process_pixel.
+inline void test_smooth_union_solidity_follows_children() {
+  // Ring is a stroke (is_solid == false); PlanarPolygon is solid.
+  static_assert(!SDF::SmoothUnion<SDF::Ring, SDF::Ring>::is_solid,
+                "two strokes -> falloff path");
+  static_assert(
+      SDF::SmoothUnion<SDF::PlanarPolygon, SDF::PlanarPolygon>::is_solid,
+      "two solids -> silhouette path");
+  static_assert(!SDF::SmoothUnion<SDF::PlanarPolygon, SDF::Ring>::is_solid,
+                "mixed -> falloff path");
+}
+
 // ============================================================================
 // AngularRepeat — folds azimuth into N sectors
 // ============================================================================
@@ -843,6 +857,7 @@ inline int run_sdf_tests() {
   test_intersection_unsorted_child_yields_sorted_result();
 
   test_smooth_union_matches_union_far_from_boundary();
+  test_smooth_union_solidity_follows_children();
 
   test_angular_repeat_matches_base_at_zero_angle();
   test_angular_repeat_creates_copies();

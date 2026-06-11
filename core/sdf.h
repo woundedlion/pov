@@ -662,7 +662,10 @@ template <typename A, typename B> struct SmoothUnion {
   const B &b;
   float k; // Smoothing factor (e.g., 0.1)
   float thickness;
-  static constexpr bool is_solid = true;
+  // Solid only if every child is solid (see Union); a stroke child routes the
+  // composite through the thickness-falloff AA path, so smin-blended strokes
+  // keep their own soft edge instead of collapsing to a hard 1-px silhouette.
+  static constexpr bool is_solid = A::is_solid && B::is_solid;
 
   SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
       : a(shape_a), b(shape_b), k(smoothness),
