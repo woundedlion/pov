@@ -22,6 +22,16 @@ const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
 
 const FRAMES_PER_EFFECT = 3;
 
+// The stack is the one tracked region with no allocator trap: an overrun
+// silently corrupts memory below stack-end, and stack_high_water_mark()
+// saturates at `capacity` because the canary scan begins at stack-end and
+// cannot see past it. So `hwm > capacity` (the arena check) is unsatisfiable
+// for the stack — a fully consumed 8 KB stack reports hwm == capacity and would
+// otherwise pass the exact gate CI claims catches a stack overflow. Require the
+// stack to retain a real margin so a creeping regression trips long before the
+// cliff. Current peak across all effects is ~0.6 KB, so 75% is ample headroom.
+const STACK_MAX_FILL = 0.75;
+
 await access(jsPath).catch(() => {
   console.error(`wasm_smoke: module not found at ${jsPath}\n` +
     `Build it first (cmake --preset wasm-release && cmake --build --preset wasm-release) ` +
@@ -97,8 +107,15 @@ try {
           fail(`${name}: ${region} high-water mark ${hwm} exceeds capacity ${capacity}`);
         }
       }
-      if (m.stack.high_water_mark === 0) {
+      // The stack traps nowhere, so guard it with a margin instead of waiting
+      // for hwm > capacity (which it can never reach — see STACK_MAX_FILL).
+      const stack = m.stack;
+      if (stack.high_water_mark === 0) {
         fail(`${name}: stack high-water mark is 0 (canary tracking is broken)`);
+      } else if (stack.high_water_mark >= stack.capacity * STACK_MAX_FILL) {
+        fail(`${name}: stack high-water mark ${stack.high_water_mark} of ` +
+          `${stack.capacity} bytes leaves under ${Math.round((1 - STACK_MAX_FILL) * 100)}% ` +
+          `margin — approaching overflow`);
       }
     }
   }
