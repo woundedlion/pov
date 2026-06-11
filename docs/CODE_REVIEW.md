@@ -272,7 +272,7 @@ Sequential numbering continues from the prior audit (1–146); this audit contri
 
 **Daydream app**
 
-247. **recorder.toggle() returns true even when start() refused to record, permanently desyncing the Record button** — `c:/work/daydream/recorder.js:74`. When isSupported() is false the UI latches into a phantom recording state with no way to clear it. Return `this.isRecording` after attempting start.
+247. ✅ **recorder.toggle() returns true even when start() refused to record, permanently desyncing the Record button** — `c:/work/daydream/recorder.js:74`. When isSupported() is false the UI latches into a phantom recording state with no way to clear it. Return `this.isRecording` after attempting start. **FIXED:** `toggle()` now returns `this.isRecording` after calling `start()`, so a refused start (unsupported browser, or any early return) reports `false` and the button stays in sync.
 248. **URLSync.reset() cancels the pending debounced flush without merging surviving _adhoc writes** — `c:/work/daydream/state.js:120`. A global-GUI param changed <200 ms before an effect switch silently vanishes from the URL. Merge surviving entries into reset()'s immediate write.
 249. **URLSync._flush never deletes URL keys: setParam(key, null) leaves the stale parameter in the URL forever** — `c:/work/daydream/state.js:142`. The gui.js fallback path does delete on null — the two paths documented as equivalent have divergent null semantics.
 250. **Overridden controller.onChange replays the handler on every registration when applyOnLoad is set** — `c:/work/daydream/gui.js:81`. Re-registering onChange (a legitimate lil-gui pattern) re-fires side effects. Latent; undocumented at the call site.
