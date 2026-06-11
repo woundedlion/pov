@@ -10,7 +10,7 @@
 #include "constants.h"
 #include "3dmath.h"
 #include "color.h"
-#include "mesh.h"
+#include "memory.h" // for ArenaVector (Fragments); geometry must not depend on mesh.h
 #include "waves.h"
 // transformers.h removed to break cycle
 

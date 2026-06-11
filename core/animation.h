@@ -16,6 +16,8 @@
 #include "FastNoiseLite.h"
 #include "generators.h"
 #include "geometry.h"
+#include "concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn (was transitive via geometry->mesh)
+#include "mesh.h"     // MeshOps (was transitive via geometry->mesh)
 #include "memory.h"
 #include "spatial.h"
 #include "static_circular_buffer.h"
