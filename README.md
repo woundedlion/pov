@@ -1058,7 +1058,7 @@ The mesh system is split across several files:
 
 #### Conway Operators (`conway.h`)
 
-All Conway operators are templated on input mesh type and take `(const MeshT& mesh, Arena& target, Arena& temp)`. They produce a `PolyMesh` into `target` and use `temp` for intermediate computation. `MeshT` can be either `PolyMesh` or `MeshState`:
+All Conway operators are templated on input mesh type and take `(const MeshT& mesh, Arena& target, Arena& temp)`. `MeshT` can be either `PolyMesh` or `MeshState`. **Primitive** operators produce their `PolyMesh` into `target` and use `temp` for intermediate computation. **Composed** operators (`bitruncate`, `gyro`, `meta`, `needle`, `zip`, `bevel`) reuse the same internal ping-pong as their two constituent ops, so they return their output in `temp` — the *opposite* arena from a primitive (see the load-bearing COMPOSITION POLARITY note in `conway.h`). Plan arena lifetimes accordingly when invoking a composed operator directly rather than through `SolidBuilder`:
 
 | Operation | Description |
 |---|---|
