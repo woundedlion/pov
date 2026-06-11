@@ -636,19 +636,29 @@ public:
     float v01 = (1 - xs) * ys;
     float v11 = xs * ys;
 
-    // Clamp Y neighbors to valid range (reflect at poles instead of dropping)
-    int y0 = hs::clamp(static_cast<int>(y_i), 0, H - 1);
-    int y1 = hs::clamp(static_cast<int>(y_i) + 1, 0, H - 1);
+    // Clip Y neighbors to the physical row range rather than clamping them. With
+    // H_OFFSET > 0 the LEDs stop short of the south pole, so a virtual sub-pole
+    // row (y >= H) must be dropped — clamping it onto row H-1 would stretch the
+    // bottom of the image onto the last LED row at full weight instead of
+    // clipping it. The sink applies the same contains_y() clip downstream; doing
+    // it here stops a clamped tap from defeating it. (Host builds set
+    // H_OFFSET = 0, so no out-of-range row is produced and behavior is unchanged
+    // — which is why this device-only divergence is invisible to the host suite.)
+    int y0 = static_cast<int>(y_i);
+    int y1 = y0 + 1;
     int x0 = fast_wrap(static_cast<int>(x_floor), W);
     int x1 = fast_wrap(static_cast<int>(x_floor) + 1, W);
 
-    if (v00 > 1e-8f)
+    bool y0_ok = y0 >= 0 && y0 < H;
+    bool y1_ok = y1 >= 0 && y1 < H;
+
+    if (y0_ok && v00 > 1e-8f)
       pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00);
-    if (v10 > 1e-8f)
+    if (y0_ok && v10 > 1e-8f)
       pass(static_cast<float>(x1), static_cast<float>(y0), c, age, alpha * v10);
-    if (v01 > 1e-8f)
+    if (y1_ok && v01 > 1e-8f)
       pass(static_cast<float>(x0), static_cast<float>(y1), c, age, alpha * v01);
-    if (v11 > 1e-8f)
+    if (y1_ok && v11 > 1e-8f)
       pass(static_cast<float>(x1), static_cast<float>(y1), c, age, alpha * v11);
   }
 };
