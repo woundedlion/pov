@@ -872,22 +872,30 @@ public:
     // whose render sprite is the same length as the angle Mutation it pauses).
     if (!(paused_ && *paused_))
       AnimationBase::step(canvas);
-    float opacity = 1.0f;
 
-    // Fade in
+    // Trapezoid envelope as the MIN of an independent fade-in ramp and fade-out
+    // ramp, each 1.0 outside its window. Computing both (rather than an
+    // if/else-if where fade-in masks fade-out) keeps opacity continuous when the
+    // windows overlap (fade_in_duration + fade_out_duration > duration),
+    // degrading smoothly to a triangle instead of jumping at the handoff —
+    // duration and fade are independent GUI sliders, so the overlap is
+    // user-reachable. In the non-overlapping case only one ramp is ever below
+    // 1.0 at a time, so the result is identical to the prior branch logic.
+    float fade_in = 1.0f;
     if (fade_in_duration > 0 && t < fade_in_duration) {
       float progress = static_cast<float>(t) / fade_in_duration;
-      opacity = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
-    }
-    // Fade out
-    else if (duration >= 0 && fade_out_duration > 0 &&
-             t >= (duration - fade_out_duration)) {
-      float elapsed = static_cast<float>(t - (duration - fade_out_duration));
-      float progress = elapsed / fade_out_duration;
-      opacity = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
+      fade_in = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
 
-    draw_fn(canvas, opacity);
+    float fade_out = 1.0f;
+    if (duration >= 0 && fade_out_duration > 0 &&
+        t >= (duration - fade_out_duration)) {
+      float elapsed = static_cast<float>(t - (duration - fade_out_duration));
+      float progress = elapsed / fade_out_duration;
+      fade_out = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
+    }
+
+    draw_fn(canvas, std::min(fade_in, fade_out));
   }
 
 private:

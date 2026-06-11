@@ -861,6 +861,31 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   HS_EXPECT_TRUE(s.done());
 }
 
+// When fade_in + fade_out exceed duration the windows overlap. The envelope
+// must stay continuous (a triangle), not jump where the prior if/else-if handed
+// off from a still-rising fade-in straight to a deep fade-out value. The slider
+// ranges make this configuration user-reachable.
+inline void test_sprite_overlapping_fades_stay_continuous() {
+  std::vector<float> ops;
+  const int dur = 10, fade_in = 8, fade_out = 8; // 8 + 8 > 10 => overlap
+  Animation::Sprite s(
+      [&](Canvas &, float o) { ops.push_back(o); }, dur, fade_in, ease_mid,
+      fade_out, ease_mid);
+  for (int i = 0; i < dur; ++i)
+    s.step(fake_canvas()); // observed at t = 1..10
+
+  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  // Linear ramps of slope 1/8 per frame, so no single-frame opacity step may
+  // exceed ~0.125. The pre-fix handoff jumped ~0.625 at the fade-in/out border.
+  float max_jump = 0.0f;
+  for (size_t i = 1; i < ops.size(); ++i)
+    max_jump = std::max(max_jump, std::abs(ops[i] - ops[i - 1]));
+  HS_EXPECT_LT(max_jump, 0.2f);
+  // Sanity: it still rises to a peak then falls (a triangle), not flat zero.
+  HS_EXPECT_GT(ops[4], ops[0]);
+  HS_EXPECT_GT(ops[4], ops[9]);
+}
+
 inline void test_sprite_paused_holds_frame() {
   bool paused = true;
   int draws = 0;
@@ -1045,6 +1070,7 @@ inline int run_animation_tests() {
   test_particle_system_attractor_kills_within_radius();
 
   test_sprite_fade_in_plateau_fade_out_envelope();
+  test_sprite_overlapping_fades_stay_continuous();
   test_sprite_paused_holds_frame();
 
   test_deep_tween_global_t_spans_unit_interval();
