@@ -48,6 +48,14 @@ using namespace emscripten;
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 static constexpr size_t MAX_PARAMS = 32;
 
+// Pin MAX_PARAMS to ParamList's actual array size: if the backing array grows,
+// the reserve() above would under-provision and getParamValues() could hand JS
+// a dangling Float32Array view after a silent reallocation. Fail at compile time
+// instead.
+static_assert(MAX_PARAMS ==
+                  std::tuple_size<decltype(Effect::ParamList::elements)>::value,
+              "MAX_PARAMS must match Effect::ParamList's fixed array size");
+
 // Dedicated arenas for the JavaScript mesh-editor tools (8 MB build + two 4 MB
 // scratch). These are used ONLY by MeshOpsWrapper, so they are malloc'd lazily
 // on first MeshOps use rather than reserved as 16 MB of file-scope BSS: the
