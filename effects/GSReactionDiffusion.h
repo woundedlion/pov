@@ -50,8 +50,14 @@ public:
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
-    registerParam("dA", &params.dA, 0.0f, 1.0f);
-    registerParam("dB", &params.dB, 0.0f, 1.0f);
+    // dA/dB cap at 0.05, not 1.0: this is explicit Euler, stable only while
+    // dt·D·λmax ≤ 2. The graph Laplacian's |λ|max ≤ 2·6 = 12 (6-NN lattice), so
+    // at the Speed slider's top (dt = 3.0) the joint worst case is 3·0.05·12 =
+    // 1.8 ≤ 2 — stable across the whole GUI. The old 1.0 max ran the sim ~18×
+    // past the bound (defaults are 0.02/0.01, 2-5% of even the new cap), where
+    // the Q16 clamp only degraded the failure to checkerboard flicker.
+    registerParam("dA", &params.dA, 0.0f, 0.05f);
+    registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);
 
     state.A = static_cast<uint16_t *>(
