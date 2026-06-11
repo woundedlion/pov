@@ -1760,6 +1760,16 @@ public:
     }
 
     params.get().amplitude = peak_amplitude * envelope;
+
+    // Re-prepare the fast-reject thresholds against the phase we just advanced.
+    // The transformer's prepare_frame() runs before timeline.step(), so without
+    // this the render samples the wavelet at the NEW phase but rejects against
+    // thresholds cached at the OLD phase — clipping the leading `speed`-wide
+    // slice of every ripple (the whole leading half at extreme Ripp Width / Dur,
+    // where speed approaches the 2·half-width window). Recomputing here keeps
+    // phase and thresholds consistent in any step ordering. Cold (≤ pool-size
+    // ripples per frame, 2 cosf each).
+    params.get().prepare_thresholds();
   }
 
 private:
