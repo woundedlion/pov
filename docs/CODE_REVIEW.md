@@ -229,7 +229,7 @@ Sequential numbering continues from the prior audit (1–146); this audit contri
 216. ✅ **Dynamo: strand blanks on zero-step frames when Trail Len is 1 and |Speed| < 1** — `effects/Dynamo.h:196`. Fractional-speed frames emit no plots and ttl=1 items are popped before drawing — sub-unit speeds flicker. Pass-through draw on zero-step frames or floor ttl at 2.
 217. ✅ **GSReactionDiffusion skips the nearest-node refinement BZ applies, retaining cubemap quantization bias** — `effects/GSReactionDiffusion.h:178`. The Wendland kernel can center on a not-quite-nearest node — the artifact class BZ's refine step was added to remove. Reuse the Base-level refinement.
 218. ✅ **HopfFibration README blurb: fibers are projected to R³, not "back to S³"** — `README.md:1355`. Wrong codomain in an otherwise precise paragraph.
-219. **HankinSolids::classify_mesh_topology bare-resets shared scratch arenas it does not own** — `effects/HankinSolids.h:60`. Safe at the two current call sites, but the only non-RAII hard reset of shared scratch in the effects set; a future caller holding a scratch allocation gets its storage yanked. Convert to ScratchScope or HS_CHECK emptiness.
+219. ✅ **HankinSolids::classify_mesh_topology bare-resets shared scratch arenas it does not own** — `effects/HankinSolids.h:60`. Safe at the two current call sites, but the only non-RAII hard reset of shared scratch in the effects set; a future caller holding a scratch allocation gets its storage yanked. Convert to ScratchScope or HS_CHECK emptiness.
 
 **Effects (I–Z)**
 

@@ -57,8 +57,14 @@ private:
   }
 
   void classify_mesh_topology(MeshState &mesh) {
-    scratch_arena_a.reset();
-    scratch_arena_b.reset();
+    // Save/restore the scratch high-water marks instead of hard-resetting to
+    // base. classify_faces_by_topology uses both arenas as transient workspace
+    // (its result lands in persistent_arena), so it only needs its own
+    // allocations freed on exit — not the whole arena yanked. A bare reset()
+    // would discard any allocation a caller already holds in these shared
+    // arenas; ScratchScope leaves that prior state intact (finding 219).
+    ScratchScope _a(scratch_arena_a);
+    ScratchScope _b(scratch_arena_b);
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
                                         persistent_arena);
   }
