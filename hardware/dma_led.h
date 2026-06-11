@@ -258,8 +258,13 @@ public:
    * Call after all packPixel() calls on backFrame().
    * @param withBg If true, DMAs the composite buffer (image + trailing
    *               black frame) in a single transfer — zero gap, no spin.
+   * @return true if the frame was handed to the DMA engine; false if it was
+   *         dropped on overrun (prior transfer still in flight). Callers that
+   *         must KNOW a specific frame landed — e.g. the fail-dark latch, which
+   *         may not hold a stale bright column — gate on this; the steady-state
+   *         column path ignores it (a dropped image column self-heals next tick).
    */
-  void submitFrame(bool withBg = false) {
+  bool submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
       // Drop on overrun — never enter transmitAsync()'s waitComplete() spin from
       // the column ISR. That spin can deadlock: transferComplete_ is only set by
@@ -273,7 +278,7 @@ public:
       // unreachable spin — is where a wedge actually manifests.
       spi_.checkStaleTransfer();
       overrunCount_.fetch_add(1, std::memory_order_relaxed);
-      return;
+      return false;
     }
     int back = 1 - activeBuffer_;
     frames_[back].flush();
@@ -281,6 +286,7 @@ public:
     spi_.transmitAsync(frames_[back].data(), len);
     activeBuffer_ = back;
     transferCount_.fetch_add(1, std::memory_order_relaxed);
+    return true;
   }
 
   // --- Diagnostics ---

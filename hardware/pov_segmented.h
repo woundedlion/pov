@@ -479,8 +479,15 @@ private:
     if (a.dark || e == nullptr) {
       // Fail-dark (spec §5.3/§6.3): show nothing rather than the wrong
       // thing. One black frame latches the strip; then stay idle.
-      if (!dark_latched_) {
-        render_black();
+      //
+      // Latch only once the black frame is actually accepted: submitFrame()
+      // drops on a DMA overrun (the prior bright column's transfer is still in
+      // flight), and latching on a dropped frame would hold that stale bright
+      // column for the entire dark window — inverting the design's
+      // missed-never-wrong asymmetry. Leaving dark_latched_ false retries on
+      // the next wake until the black frame lands, so a drop self-heals in one
+      // column tick (~434 µs) instead of latching indefinitely.
+      if (!dark_latched_ && render_black()) {
         dark_latched_ = true;
       }
     } else {
@@ -533,16 +540,21 @@ private:
 #endif
   }
 
-  /** @brief Submits one all-black frame (ACQUIRE / construction window). */
-  static FASTRUN void render_black() {
+  /**
+   * @brief Submits one all-black frame (ACQUIRE / construction window).
+   * @return true if the black frame was accepted by the LED transport; false
+   *         if it was dropped on a DMA overrun (caller must retry, not latch).
+   */
+  static FASTRUN bool render_black() {
 #if defined(USE_DMA_LEDS)
     auto &frame = ledController_.backFrame();
     for (int i = 0; i < PPS; ++i) {
       frame.packPixel(i, Pixel(0, 0, 0));
     }
-    ledController_.submitFrame(false);
+    return ledController_.submitFrame(false);
 #else
     FastLED.showColor(CRGB(0, 0, 0));
+    return true; // synchronous path always lands
 #endif
   }
 
