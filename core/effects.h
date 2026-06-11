@@ -19,7 +19,6 @@
 #include "effects/IslamicStars.h"
 #include "effects/Liquid2D.h"
 #include "effects/MeshFeedback.h"
-#include "effects/Metaballs.h"
 #include "effects/MindSplatter.h"
 #include "effects/MobiusGrid.h"
 #include "effects/Moire.h"
@@ -63,7 +62,6 @@
   X(IslamicStars)                                                               \
   X(Liquid2D)                                                                   \
   X(MeshFeedback)                                                               \
-  X(Metaballs)                                                                  \
   X(MindSplatter)                                                               \
   X(MobiusGrid)                                                                 \
   X(Moire)                                                                      \

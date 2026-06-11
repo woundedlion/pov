@@ -133,7 +133,6 @@
     <ClInclude Include="..\..\effects\IslamicStars.h" />
     <ClInclude Include="..\..\effects\Liquid2D.h" />
     <ClInclude Include="..\..\effects\MeshFeedback.h" />
-    <ClInclude Include="..\..\effects\Metaballs.h" />
     <ClInclude Include="..\..\effects\MindSplatter.h" />
     <ClInclude Include="..\..\effects\MobiusGrid.h" />
     <ClInclude Include="..\..\effects\Moire.h" />

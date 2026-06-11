@@ -183,9 +183,6 @@
     <ClInclude Include="..\..\effects\MeshFeedback.h">
       <Filter>effects</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\effects\Metaballs.h">
-      <Filter>effects</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\effects\MindSplatter.h">
       <Filter>effects</Filter>
     </ClInclude>
