@@ -11,7 +11,6 @@
 #include "platform.h"
 #include "3dmath.h"
 #include "util.h"
-#include "static_circular_buffer.h"
 
 #include "memory.h"
 
