@@ -786,7 +786,7 @@ The `Timeline` class manages a list of running `IAnimation` objects. Each frame,
 
 #### Orientation and Motion Blur
 
-`Orientation<W>` stores a history of up to 4 quaternions (configurable via `CAP` template parameter) accumulated during one frame step. The `World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
+`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — effects use a small value like `Orientation<16>`, never `Orientation<288>`. The `World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_mid, true));
