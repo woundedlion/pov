@@ -125,7 +125,10 @@ private:
       BrightnessProfile::FLAT, SaturationProfile::MID};
   BakedPalette baked_palette_;
   std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
-  std::array<int, EmitSolid::NUM_VERTS> emit_counters;
+  // Per-emitter accumulated emission angle (radians, wrapped to [0,2pi)). Driven
+  // by integrating Ang Spd each emission rather than counter*speed, so a live
+  // speed change alters the rate going forward only (finding 318).
+  std::array<float, EmitSolid::NUM_VERTS> emit_phases;
 
   // Warp params
   MobiusParams mobius;
@@ -144,14 +147,22 @@ private:
       emitter_hues[i] = hs::rand_f();
     }
 
-    emit_counters.fill(0);
+    emit_phases.fill(0.0f);
 
     // Add Emitters
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
       Vector axis = EmitSolid::vertices[i];
 
-      particle_system.add_emitter([this, i, axis](ParticleSystem &sys) mutable {
-        float angle = (emit_counters[i]++) * params.angular_speed;
+      particle_system.add_emitter([this, i, axis](ParticleSystem &sys) {
+        // Accumulate a wrapped per-emitter phase instead of counter*speed. The
+        // old form rescaled all elapsed steps whenever Ang Spd changed
+        // (d(angle)=counter·d(speed)), so a "smooth" preset lerp randomized the
+        // emission direction; it also lost precision as the counter grew over
+        // multi-day runs. Integrating speed makes a change affect only the rate
+        // going forward, and the [0,2pi) wrap keeps cos/sin precise.
+        float angle = emit_phases[i];
+        emit_phases[i] =
+            fmodf(emit_phases[i] + params.angular_speed, 2.0f * PI_F);
 
         // Basis
         auto basis = make_basis(Quaternion(), axis);
