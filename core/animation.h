@@ -2082,10 +2082,12 @@ public:
 
       // 2. Step (Orientation already collapsed once-per-frame above)
       IAnimation *anim = e.animation();
-      if (!anim) {
-        write_idx++;
-        continue;
-      }
+      // A started event always carries a live animation: add() sets
+      // manager/iface, and compaction only nulls a slot the loop has already
+      // passed (write_idx <= i). A null here is an upstream invariant
+      // violation — trap rather than the old write_idx++, which silently
+      // counted the moved-out husk as live and left a stale slot behind.
+      HS_CHECK(anim);
       anim->step(canvas);
 
       // 4. Completion & Cleanup
