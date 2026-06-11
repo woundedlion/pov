@@ -891,8 +891,8 @@ hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 |---|---|---|---|
 | Crystal drift between snaps (normal operation) | 0.006 col phase error | 144 col (next snap) | continuous; ~40× below visibility |
 | Lost boundary symbol (discarded burst, glitch-filtered EMI, master self-censor) | coast error 0.006 → 0.01 col | 288 col (1-rev coast) | ≈0 on DMA; harmless at any plausible rate |
-| EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**; rejected ≈ λ ≈ 1/min (telemetry only); misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected |
-| Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤720 col ≈ 313 ms (R rejections = 576 col → ACQUIRE → re-snap ≤144) | effectively never — needs a 2-coincident-error burst *during* a ~2 s ACQUIRE window, or a firmware bug; the fallback bounds it either way |
+| EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected |
+| Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (R rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | effectively never — needs a 2-coincident-error burst *during* a ~2 s ACQUIRE window, or a firmware bug; the fallback bounds it either way |
 | Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | display 144 col; `t`: ≤4,608 col via beacon (stateless) / ≤276,480 col via epoch (stateful) | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | ≤4,608 col (~2 s, next beacon) | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤4,608 col (~2 s): phase ≤144 col, index at next beacon, rejoins at the correct effect on the §6.5 grid | per external reboot event |
@@ -1068,6 +1068,21 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   join grid; rebooted board: dark through ACQUIRE, then rejoins at the
   correct effect — §6.3/§6.4, never "assumes 0" — with `t` offset until the
   next epoch).
+- **Failure-mode budget (§9.1):** one scenario per budget row, asserting both
+  the worst-case artifact bound and the recovery time. A lost boundary
+  symbol: sub-column probe through the 1-rev coast, re-snapped by the next
+  symbol, nothing rejected or misread. The accepted-EMI binding case (forged
+  edge within G with the real symbol censored): seam engages above
+  truncation noise, stays ≤ G, recovered by the next real symbol ≤½ rev
+  later. A corrupted timebase: R suspect-window rejections → ACQUIRE →
+  re-snap, locked and sub-column again within ~2.8 revs, content coherent at
+  the next epoch with no trap. A corrupted beacon frame: rejected whole with
+  nothing applied, next beacon decodes ≤ one period later, zero content or
+  phase effect. A dead wire / dead master: locks held with zero rejections
+  (silence is a coast, not a fault), 2 flips/rev throughout, playlist frozen
+  downstream while the master walks its own, precession matching the §4.5
+  crystal rate, and position arithmetic still valid across a snap-free
+  32-bit counter wrap.
 - **Determinism harness** stays green (device-only ISR changes; host renders
   unaffected). The daydream `segment_controller`/`segment_worker` reproduces the
   4-board partition and is the end-to-end coherence check before fabrication.
