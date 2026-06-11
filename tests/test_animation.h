@@ -274,11 +274,11 @@ inline void test_lerp_midpoint() {
 // ============================================================================
 // OrientationTrail
 // ----------------------------------------------------------------------------
-// DOC CONTRADICTION (animation.h ~230/238 say "0 is newest", ~231 comment says
-// "JS parity: 0 is oldest"). The CODE wins: OrientationTrail::record() calls
-// snapshots.push_back(); StaticCircularBuffer::operator[](0) returns
-// buffer[head], i.e. the FIRST element pushed. So index 0 is the OLDEST
-// snapshot and index length()-1 is the newest. We assert the actual behavior.
+// Index 0 is the OLDEST snapshot, length()-1 the newest (matching the JS
+// simulator's trail ordering, as OrientationTrail::get()'s doc now states):
+// OrientationTrail::record() calls snapshots.push_back(), and
+// StaticCircularBuffer::operator[](0) returns buffer[head] — the first element
+// still live. This test pins that behavior.
 // ============================================================================
 
 inline void test_orientation_trail_index_zero_is_oldest() {

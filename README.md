@@ -773,6 +773,9 @@ The `Timeline` class manages a list of running `IAnimation` objects. Each frame,
 | `ParticleSystem<W>` | Physics simulation with emitters, attractors, friction, gravity. Particles have `VectorTrail` history for trail rendering. |
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
+| `MobiusWarpCircular` | Animates `MobiusParams` for a circular warp that stays warped throughout, suitable for repeating effects |
+| `MobiusWarpEvolving` | Continuously modulates `MobiusParams` over multiple frequencies for a non-repeating, evolving warp |
+| `MobiusFlow` | Animates `MobiusParams` for a continuous loxodromic flow |
 | `Noise` | Animates `NoiseParams` over time for flowing distortion fields |
 | `MeshMorph` | Morphs one `MeshState` into another by cloning both, building a nearest-vertex correspondence, and interpolating positions over a duration. The vertex-level primitive beneath `MeshCarousel`. |
 | `MeshCarousel` | Double-buffered mesh transition system. Manages a pair of `MeshState` buffers and flips the front index eagerly so a freshly-scheduled `Animation::Sprite` captures the new shape. The crossfade emerges from **overlapping** sprites across consecutive transitions: each transition fades only its own incoming shape in (and back out), while the previous transition's sprite — still alive in its fade-out tail — keeps drawing the outgoing shape. No single call ever draws both meshes. Used by IslamicStars (sprite crossfade); MeshFeedback and HankinSolids reuse the buffered pair but drive vertex-level `MeshMorph` transitions over it instead. |
@@ -804,7 +807,7 @@ Two traversal helpers linearize multi-level orientation history into a single ca
 | Function | Input | Description |
 |---|---|---|
 | `tween(orientation, callback)` | `Orientation<W>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ [0, 1]`. Used by `World::Orient` to distribute motion blur. |
-| `deep_tween(trail, callback)` | Any `Tweenable` (`Orientation` or `OrientationTrail`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by `Plot::Mesh::Particle` for rendering trails with full sub-frame accuracy. |
+| `deep_tween(trail, callback)` | Any `Tweenable` (`Orientation` or `OrientationTrail`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets, ChaoticStrings, RingSpin) for rendering trails with full sub-frame accuracy. |
 
 #### Animations and Mutable State
 
