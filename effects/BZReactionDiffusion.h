@@ -112,7 +112,7 @@ private:
     uint8_t *species[] = {state.A, state.B, state.C};
     for (int s = 0; s < 3; s++) {
       for (int k = 0; k < CLUSTERS_PER_SPECIES; k++) {
-        int center = hs::rand_int(0, RD_N - 1);
+        int center = hs::rand_int(0, RD_N);
         species[s][center] = 255;
         for (int nb : ReactionGraph::neighbors[center])
           if (nb >= 0)
@@ -136,7 +136,7 @@ private:
    */
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
-      int idx = hs::rand_int(0, RD_N - 1);
+      int idx = hs::rand_int(0, RD_N);
       int s = hs::rand_int(0, 3);  // half-open [0,3): all three species, incl. C
       uint8_t *t = (s == 0) ? nA : (s == 1) ? nB : nC;
       t[idx] = static_cast<uint8_t>(
