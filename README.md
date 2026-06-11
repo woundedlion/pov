@@ -126,7 +126,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 - **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
 - **Pixel mapping**: `x ∈ [0, W)` → `theta ∈ [0, 2π)`, `y ∈ [0, H)` → `phi ∈ [0, π]`
 - **SDF distances**: in radians on the unit sphere (matching `angle_between()`)
-- All pixel LUTs are pre-computed and lazy-initialized (`PixelLUT<W,H>`) on first use
+- All geometry LUTs (`PhiLUT<H>`, `TrigLUT<W,H>`) are pre-computed eagerly via `init_geometry_luts()` at engine setup
 
 ```
    Side view (looking down −Z):          Top view (looking down −Y):
@@ -164,7 +164,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   │
 │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
-│   ├── geometry.h              Fragment, Dots/Points, PixelLUT, coord conversions
+│   ├── geometry.h              Fragment, Dots/Points, PhiLUT/TrigLUT, coord conversions
 │   ├── color.h                 Pixel16 (16-bit linear), Color4, blend helpers, palettes
 │   ├── palettes.h              Named palette instances (ProceduralPalette + Gradient)
 │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
