@@ -588,7 +588,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* Visibly wrong data on every saved item; V/E/F counts are the primary way to sanity-check a Conway chain against the Euler characteristic.
    *Suggested fix:* In update(), set `meshData.edgeCount = edgeIndices.size` before assigning window.currentMesh.
 
-95. **Möbius preset animations are frame-rate dependent** — `tools/mobius.html:649-655` *(not independently validated)*
+95. ✅ **Möbius preset animations are frame-rate dependent** — `tools/mobius.html:649-655` *(validated and fixed: confirmed onAnimate advanced animationTime by a fixed 0.01 per requestAnimationFrame tick with no delta term, so flow speed scaled with refresh rate. Now advances by real elapsed seconds (performance.now() delta), matching palettes.html's pattern; the 0.6 units/s constant reproduces the original 0.01/frame speed at 60 Hz. lastAnimTime seeds on the first frame and is reset in startPreset so a new preset never sees a stale delta.)*
    The onAnimate hook advances `animationTime += 0.01` once per requestAnimationFrame tick with no delta-time term, so every animated preset (elliptic, hyperbolic, loxodromic, parabolic, etc.) runs at a speed proportional to the display refresh rate — 2.4× faster on a 144 Hz monitor than at 60 Hz. palettes.html in the same directory implements delta-time stepping correctly.
    *Why it matters:* The 'seamless' flow speeds tuned against the grid period (logPeriod / speed) only look as intended at 60 Hz; high-refresh laptops are now the common case.
    *Suggested fix:* Accumulate real elapsed seconds (performance.now() delta) and scale preset phase by it, as palettes.html does.
