@@ -757,6 +757,11 @@ public:
     gate_ = FlipGate{};
     content_ = ContentTracker{};
     telemetry_ = Telemetry{};
+    // A reboot must not inherit wire state from the prior incarnation: a stale
+    // mailbox burst would feed ACQUIRE's unconditional hard-snap, and a stale
+    // emitter queue would resume a half-sent beacon/boundary train (spec §8.5).
+    mailbox_ = EdgeMailbox{};
+    emitter_ = SymbolEmitter{};
     beacon_parser_.reset();
     last_rendered_x_ = -1;
     halves_since_snap_ = 0;

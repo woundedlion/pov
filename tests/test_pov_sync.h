@@ -163,6 +163,26 @@ inline void test_mailbox_prior_staleness() {
   }
 }
 
+// Finding 228: reboot seeding must clear the wire mailbox so a re-seeded board
+// cannot consume a stale pre-reboot burst (which feeds ACQUIRE's unconditional
+// hard-snap). The emitter is reset by the same code path.
+inline void test_seed_clears_mailbox() {
+  const Config cfg = test_config();
+  const uint32_t col = cfg.cycles_per_column();
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  // A burst accumulates on the sync wire before the reboot.
+  board.on_sync_edge(2000u);
+  board.on_sync_edge(2000u + 4 * col);
+  HS_EXPECT_TRUE(board.mailbox().burst_complete(2000u + 100 * col,
+                                                cfg.gap_timeout_cycles()));
+  // Reboot: reseed. The stale burst must be gone.
+  board.seed(3000u, false);
+  HS_EXPECT_FALSE(board.mailbox().burst_complete(3000u + 100 * col,
+                                                 cfg.gap_timeout_cycles()));
+  HS_EXPECT_EQ(board.mailbox().claim().count, 0u);
+}
+
 // §6.4: corrupted beacon frames are dropped whole, never partially applied.
 inline void test_beacon_codec() {
   const Config cfg = test_config();
@@ -1531,6 +1551,7 @@ inline int run_pov_sync_tests() {
   test_flip_gate();
   test_mailbox();
   test_mailbox_prior_staleness();
+  test_seed_clears_mailbox();
   test_beacon_codec();
   test_flywheel_position();
   test_snap_gate();
