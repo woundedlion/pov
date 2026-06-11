@@ -86,6 +86,16 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
   return table;
 }
 
+// Cheap linear scan of the (W,H) factory for a name — used by setEffect() to
+// validate a stale/typo'd UI string BEFORE it tears down the running effect, so
+// an unknown name is a transactional no-op rather than a blanked engine.
+template <int W, int H> bool factory_has_effect(std::string_view name) {
+  for (const auto &entry : get_factory<W, H>())
+    if (name == entry.name)
+      return true;
+  return false;
+}
+
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(std::string_view name) {
   const auto &factory = get_factory<W, H>();
@@ -192,6 +202,23 @@ public:
     // (an effect name containing '%' would otherwise read nonexistent varargs).
     hs::log("WASM: setEffect called with %s", name.c_str());
 
+    // Validate the name against the factory for the CURRENT resolution BEFORE
+    // tearing anything down. setResolution() already keeps the prior valid state
+    // alive on a bad request; setEffect must match — resetting currentEffect and
+    // the arenas first (as it used to) left the engine rendering nothing on a
+    // typo'd/stale UI string. This is the same cheap scan create_effect() does.
+    bool name_valid = false;
+#define X(W, H)                                                                \
+  if (pixel_width == (W) && pixel_height == (H))                               \
+    name_valid = factory_has_effect<W, H>(name);
+    HS_WASM_RESOLUTIONS(X)
+#undef X
+    if (!name_valid) {
+      hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
+              name.c_str());
+      return false;
+    }
+
     currentEffect.reset();
     configure_arenas_default();
 
@@ -213,8 +240,8 @@ public:
       return false;
     }
     if (!currentEffect) {
-      // create_effect() returned null: the name was unknown (typo'd/stale UI
-      // string). Already logged there; report the no-op to JS.
+      // Unreachable: the name was validated against this resolution's factory
+      // above, so create_effect() cannot return null here. Kept as a guard.
       return false;
     }
     currentEffect->init();
