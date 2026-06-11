@@ -71,6 +71,14 @@ Arena tooling_arena(nullptr, 0);
 Arena tooling_scratch_a(nullptr, 0);
 Arena tooling_scratch_b(nullptr, 0);
 
+// Bumped on every clearToolingMemory(). Each MeshOpsWrapper's `mesh` is built
+// into tooling_arena, so a wipe reclaims the storage behind every live wrapper;
+// in NDEBUG the arena's own generation stamps are compiled out, so a stale
+// wrapper would read recycled bytes as silently wrong geometry. Each wrapper
+// records the generation it was built under and traps on use if it no longer
+// matches (MeshOpsWrapper::check_live), making stale use loud in every build.
+static uint32_t tooling_generation = 0;
+
 // Allocate and bind the tooling arenas on first MeshOps use. A no-op once bound,
 // so it is cheap to call at the head of every MeshOps entry point. Reading an
 // unbound arena's metrics (collect_arena_metrics) is safe and reports 0/0/0, so
@@ -505,9 +513,22 @@ private:
 // Wrapper to avoid collision with MeshOps namespace
 struct MeshOpsWrapper {
   PolyMesh mesh;
+  // Generation of the tooling arena this wrapper's mesh was built into. Compared
+  // against the live counter on every use; see check_live().
+  uint32_t generation_ = tooling_generation;
 
   MeshOpsWrapper() {}
   MeshOpsWrapper(PolyMesh &&m) : mesh(std::move(m)) {}
+
+  // Trap if this wrapper outlived a clearToolingMemory() wipe: its mesh now
+  // aliases reclaimed arena storage, which release builds would otherwise read
+  // back as silently wrong geometry. Called at every entry point that touches
+  // `mesh`. This is JS-editor tooling, never the render loop, so the compare is
+  // free.
+  void check_live() const {
+    HS_CHECK(generation_ == tooling_generation &&
+             "MeshOps wrapper used after clearToolingMemory()");
+  }
 
   // Call this from JS whenever you want to wipe the UI memory clean!
   static void clearToolingMemory() {
@@ -517,6 +538,8 @@ struct MeshOpsWrapper {
     tooling_scratch_a.reset_high_water_mark();
     tooling_scratch_b.reset();
     tooling_scratch_b.reset_high_water_mark();
+    // Invalidate every wrapper built before this wipe.
+    ++tooling_generation;
   }
 
   // Factory
@@ -536,6 +559,7 @@ struct MeshOpsWrapper {
 
   // Accessors for JS
   val getVertices() const {
+    check_live();
     std::vector<float> data;
     data.reserve(mesh.vertices.size() * 3);
     for (const auto &v : mesh.vertices) {
@@ -549,6 +573,7 @@ struct MeshOpsWrapper {
   }
 
   val getFaces() const {
+    check_live();
     val faces_arr = val::array();
     int flat_idx = 0;
     for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
@@ -563,6 +588,7 @@ struct MeshOpsWrapper {
   }
 
   val classifyFaces() {
+    check_live();
     ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
@@ -582,6 +608,7 @@ struct MeshOpsWrapper {
   // every lambda inlines, so there is no added cost.
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
+    check_live();
     ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
