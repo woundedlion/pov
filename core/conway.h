@@ -236,9 +236,12 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
 
   world_state.vertices.bind(arena, local_state.vertices.size());
 
-  for (size_t i = 0; i < local_state.vertices.size(); ++i) {
-    world_state.vertices.push_back(local_state.vertices[i]);
-  }
+  // Vertices are copied verbatim (no transformers), so bulk-memcpy them rather
+  // than running up to MAX_VERTS checked push_backs every frame (HankinSolids
+  // calls this per frame). Vector is trivially copyable; capacity was just bound
+  // to exactly the source size above.
+  world_state.vertices.append_bulk(local_state.vertices.data(),
+                                   local_state.vertices.size());
 }
 
 template <typename MeshT, typename T1, typename... Transformers>
