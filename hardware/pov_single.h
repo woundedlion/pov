@@ -26,6 +26,7 @@
 #include "canvas.h"
 #include "geometry.h"
 #include "memory.h"
+#include "pov_single_map.h"  // pure strip index math (host-tested)
 
 /**
  * @brief Manages the display loop for a single-Teensy POV rig.
@@ -140,9 +141,11 @@ private:
    */
   static FASTRUN void show_col() {
     // Top half reads column x_; bottom half reads the opposite column (x_+W/2).
+    // The physical-LED ↔ canvas mapping (pov::strip_*) is host-unit-tested in
+    // tests/test_pov_single.h.
     const int w = effect_->width();
     const int x_top = x_;
-    const int x_bot = (x_ + w / 2) % w;
+    const int x_bot = pov::strip_opposite_col(x_, w);
 
     // ISR fast path: fetch the display buffer base once and index it directly,
     // dropping the S per-column virtual get_pixel() dispatches. Sound because
@@ -157,18 +160,18 @@ private:
     // Direct Pixel16 → HD107S wire packing (no intermediate CRGB array).
     auto& frame = ledController_.backFrame();
     for (int y = 0; y < S / 2; ++y) {
-      // Map to physical strip: top half is inverted, bottom half is straight.
-      frame.packPixel(S / 2 - y - 1,
+      // Map to physical strip: top half is reversed, bottom half is straight.
+      frame.packPixel(pov::strip_top_led(y, S),
           slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
-      frame.packPixel(S / 2 + y,
+      frame.packPixel(pov::strip_bottom_led(y, S),
           slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     ledController_.submitFrame(effect_->show_bg());
 #else
     for (int y = 0; y < S / 2; ++y) {
-      leds_[S / 2 - y - 1] =
+      leds_[pov::strip_top_led(y, S)] =
           slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top];
-      leds_[S / 2 + y] =
+      leds_[pov::strip_bottom_led(y, S)] =
           slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot];
     }
     FastLED.show();
