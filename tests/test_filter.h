@@ -30,12 +30,10 @@
  *     pixel_to_vector -> vector_to_pixel
  *   - Screen filter routing — Screen::AntiAlias forwards to the sink
  *   - Pixel::Feedback::flush — warp-field flush blends the (faded) prev frame
- *
- * STILL SKIPPED (covered elsewhere or need separate scaffolding):
- *   - World filters that call tween(Orientation, ...) — need a populated
- *     Orientation and exercise geometry, covered by test_geometry.
- *   - World::Trails encode/decode + ring buffer (private; needs init_storage
- *     with an Arena and plot/flush driving).
+ *   - World::Orient tween over a populated Orientation history
+ *     (test_world_orient_motion_blur_sweep_ages)
+ *   - World::Trails int16 encode/decode + ring buffer / ttl lifecycle
+ *     (test_world_trails_* — init_storage(arena) + plot/flush driving)
  */
 #pragma once
 
