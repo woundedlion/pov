@@ -105,6 +105,13 @@ inline void test_sin_wave_bounds_and_phase() {
   }
   // Phase convention: at t=0 the wave starts at the `from` end.
   HS_EXPECT_NEAR(sin_wave(0.0f, 1.0f, 1.0f, 0.0f)(0.0f), 0.0f, 1e-3f);
+  // Phase advances forward like tri_wave/square_wave (+phase, not −): a
+  // quarter-cycle phase puts t=0 at the RISING midpoint. The old −phase sign
+  // put it at the falling midpoint — same value, opposite direction.
+  auto wp = sin_wave(0.0f, 1.0f, 1.0f, 0.25f);
+  HS_EXPECT_NEAR(wp(0.0f), 0.5f, 1e-3f);
+  HS_EXPECT(wp(0.05f) > 0.5f, "sin_wave phase 0.25 rises at t=0 like tri_wave");
+  HS_EXPECT_NEAR(wp(0.0f), tri_wave(0.0f, 1.0f, 1.0f, 0.25f)(0.0f), 1e-3f);
 }
 
 inline void test_tri_wave_shape() {
