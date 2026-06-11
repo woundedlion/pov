@@ -227,7 +227,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 306. ✅ **AntiAlias pole comment says "snap to nearest" but the sin(φ) compression floor-snaps** — `core/filter.h:620-630`. A point with x-fraction 0.9 snaps to the column on its *left*; the compression is the documented design, only the comment is wrong.
 307. ✅ **Face-loop walks lack the always-on anti-hang guards that vertex orbits carry; `face_normal` also omits the `HE_NONE` check its sibling has** — `core/conway.h:48` (face_normal), `face_centroid`, `face_side_count`, per-face emission loops. Unreachable from current producers, but inconsistent with the project's own trap-don't-hang doctrine for corrupt-topology walks.
 308. ✅ **`build_from_flat` silently mis-links a zero-count face instead of trapping** — `core/mesh.h:215`. The face is pointed at the next face's first half-edge (or one-past-the-end for a trailing zero-count face). Unreachable today; an `HS_CHECK(count >= 3)` matches the file's treatment of its other input invariants.
-309. **`append_bulk` performs `memcpy` with a null source when copying from an empty vector** — `core/memory.h:397`. Formal UB (UBSan-flagged) via `Solids::finalize_solid` on an empty source; harmless on real implementations; a `count == 0` early-return closes it.
+309. ✅ **`append_bulk` performs `memcpy` with a null source when copying from an empty vector** — `core/memory.h:397`. Formal UB (UBSan-flagged) via `Solids::finalize_solid` on an empty source; harmless on real implementations; a `count == 0` early-return closes it.
 
 **Effects**
 

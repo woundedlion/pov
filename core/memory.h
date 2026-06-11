@@ -388,6 +388,11 @@ public:
     check_bound();
     HS_CHECK(size_ + count <= capacity_,
              "ArenaVector bulk append exceeds capacity!");
+    // An empty append must not reach memcpy: a null src (e.g. an empty source
+    // vector's data()) with count 0 is formal UB that UBSan flags, even though
+    // real libc treats it as a no-op. Bail after the invariant checks.
+    if (count == 0)
+      return;
     memcpy(static_cast<void*>(data_ + size_), src, count * sizeof(T));
     size_ += count;
   }
