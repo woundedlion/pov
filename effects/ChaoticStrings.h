@@ -88,8 +88,10 @@ public:
         0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
                node->orientation, path, (int)params.cycle_duration, true));
 
-    driver_ =
-        timeline.add_get(0, Animation::Driver(cycle_phase, params.cycleSpeed));
+    // Bind the Driver to the live Cycle Speed slider (scale 1.0) so it reads the
+    // value itself each step; no retained handle or per-frame set_speed needed
+    // (the idiom DreamBalls/Liquid2D use).
+    timeline.add(0, Animation::Driver(cycle_phase, &params.cycleSpeed, 1.0f));
 
     last_cycle_duration_ = params.cycle_duration;
   }
@@ -102,11 +104,6 @@ public:
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
-    noise_xform.params.frequency = params.noiseFreq;
-    noise_xform.params.amplitude = params.jitterAmp;
-    noise_xform.params.speed = params.speed;
-    noise_xform.params.sync();
-
     // Push live parameter changes into the active noise entities. The
     // FastNoiseLite re-sync is left to prepare_frame() (which calls
     // NoiseParams::sync on every active entity) rather than hand-rolled here.
@@ -118,11 +115,6 @@ public:
       }
     }
     noise_xform.prepare_frame();
-
-    // Update cycle speed dynamically
-    if (driver_ && &driver_->get_mutant() == &cycle_phase) {
-      driver_->set_speed(params.cycleSpeed);
-    }
 
     // Live-apply the Cycle Dur slider to the motion
     // (guarded: set_duration reschedules from now, so calling it every frame
@@ -174,7 +166,6 @@ private:
   ProceduralPalette palette_variant;
   StaticPalette<ProceduralPalette, Coords<ScaleModifier, CycleModifier>>
       static_palette;
-  Animation::Driver *driver_ = nullptr;
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ = nullptr;
   float last_cycle_duration_ = -1.0f;
   float cycle_phase = 0.0f;
