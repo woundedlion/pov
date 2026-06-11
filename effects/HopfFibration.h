@@ -48,11 +48,11 @@ public:
     // Bound Drivers: each pulls its tuning slider (× per-unit rate) every step,
     // so the flow/tumble speeds stay live without a per-frame set_speed re-sync.
     timeline.add(0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE,
-                                      false, &anims_paused_));
+                                      true, &anims_paused_));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
-                                      TUMBLE_X_RATE, false, &anims_paused_));
+                                      TUMBLE_X_RATE, true, &anims_paused_));
     timeline.add(0, Animation::Driver(tumble_angle_y, &params.tumble_speed,
-                                      TUMBLE_Y_RATE, false, &anims_paused_));
+                                      TUMBLE_Y_RATE, true, &anims_paused_));
   }
 
   bool show_bg() const override { return false; }
@@ -92,20 +92,38 @@ private:
   // zero. normalized_or() then absorbs the degenerate direction.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
-  // Per-unit driver speeds (multiplied by the corresponding tuning param via
-  // the bound Drivers set up in init()).
-  static constexpr float FLOW_RATE = 0.02f * 0.2f; // flow_offset / flow_speed
-  static constexpr float TUMBLE_X_RATE = 0.003f;   // tumble_angle_x / tumble_speed
-  static constexpr float TUMBLE_Y_RATE = 0.005f;   // tumble_angle_y / tumble_speed
+  // Phases accumulate as wrapped fractions of their natural period ("turns")
+  // and are scaled back to radians at the use site, so the arguments handed to
+  // fast_sinf/cosf stay bounded. An unbounded accumulator grows float ULPs
+  // without limit and visibly steps over multi-day installation runs; Flyby and
+  // DreamBalls wrap their trig phases for exactly this reason.
+  //
+  // flow_offset and tumble_angle_y feed only full-angle terms, so their period
+  // is 2pi. tumble_angle_x additionally feeds the half-angle fold_base term
+  // (period 4pi); wrapping it over 4pi keeps BOTH the full-angle (cx/sx) and the
+  // half-angle (fold_base) terms continuous across the wrap.
+  static constexpr float FLOW_PERIOD     = 2 * PI_F;
+  static constexpr float TUMBLE_X_PERIOD = 4 * PI_F;
+  static constexpr float TUMBLE_Y_PERIOD = 2 * PI_F;
 
+  // Per-unit driver rates, in turns of the corresponding period (the original
+  // radians-per-unit-speed rate divided by that period). Multiplied by the
+  // tuning param via the bound Drivers set up in init().
+  static constexpr float FLOW_RATE     = (0.02f * 0.2f) / FLOW_PERIOD;
+  static constexpr float TUMBLE_X_RATE = 0.003f / TUMBLE_X_PERIOD;
+  static constexpr float TUMBLE_Y_RATE = 0.005f / TUMBLE_Y_PERIOD;
+
+  // Wrapped phase accumulators in [0, 1) turns (driven in init()).
   float flow_offset = 0.0f;
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
   Vector *fibers = nullptr;
   Animation::VectorTrail<TRAIL_LEN> *trails = nullptr;
 
-  // Cached tumble rotation values (per-frame)
+  // Cached per-frame values: tumble rotation (cx/sx/cy/sy), the fold_base phase
+  // offset, and the radian-scaled flow/tumble-y phases reused across all fibers.
   float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
+  float flow_rad = 0.0f, ty_rad = 0.0f;
 
   Orientation<> orientation;
   Timeline timeline;
@@ -127,11 +145,18 @@ private:
   }
 
   void advance_tumble() {
-    cx = fast_cosf(tumble_angle_x);
-    sx = fast_sinf(tumble_angle_x);
-    cy = fast_cosf(tumble_angle_y);
-    sy = fast_sinf(tumble_angle_y);
-    fold_base = fast_sinf(tumble_angle_x * 0.5f) * 0.5f;
+    // Scale the wrapped [0,1)-turn phases back to radians at use; the arguments
+    // are now bounded (ax < 4pi, ty_rad < 2pi) instead of growing without limit.
+    const float ax = tumble_angle_x * TUMBLE_X_PERIOD;
+    ty_rad = tumble_angle_y * TUMBLE_Y_PERIOD;
+    flow_rad = flow_offset * FLOW_PERIOD;
+    cx = fast_cosf(ax);
+    sx = fast_sinf(ax);
+    cy = fast_cosf(ty_rad);
+    sy = fast_sinf(ty_rad);
+    // fold_base needs sin(ax/2): ax = tumble_angle_x*4pi, so ax*0.5 spans [0,2pi)
+    // continuously across the 4pi wrap — matching the original sin(x*0.5).
+    fold_base = fast_sinf(ax * 0.5f) * 0.5f;
   }
 
   /// Project a base fiber through: folding → twist → S3 → tumble → stereo
@@ -143,7 +168,7 @@ private:
 
     // Folding
     float eta = theta / 2.0f;
-    eta += fast_sinf(phi * 2.0f + tumble_angle_y + fold_base) * 0.1f *
+    eta += fast_sinf(phi * 2.0f + ty_rad + fold_base) * 0.1f *
            params.tumble_speed * params.folding;
 
     // Twist
@@ -151,7 +176,7 @@ private:
 
     // S3 point
     float phase = i * (PI_F / ACTUAL_FIBERS);
-    float beta = flow_offset + phase;
+    float beta = flow_rad + phase;
     float cos_eta = fast_cosf(eta), sin_eta = fast_sinf(eta);
     float q0 = cos_eta * fast_cosf(phi + beta);
     float q1 = cos_eta * fast_sinf(phi + beta);
