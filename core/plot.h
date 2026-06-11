@@ -1637,6 +1637,7 @@ struct Bezier {
   static void sample(Fragments &points, const Vector &p0, const Vector &p1,
                      const Vector &p2, const Vector &p3, int num_samples,
                      SplineMode mode = SplineMode::Geodesic) {
+    HS_CHECK(num_samples > 0); // t = i / num_samples divides by the sample count
     float cumulative_len = 0.0f;
     Vector last_pos = p0;
 
@@ -1700,6 +1701,7 @@ struct SplineChain {
     size_t n = control_points.size();
     if (n < 2)
       return;
+    HS_CHECK(samples_per_segment > 0); // local_t = j / samples_per_segment
 
     // Segment 0 emits samples_per_segment+1 points (j=0..S); each later segment
     // emits S (j=1..S, sharing the previous segment's endpoint). Total is
