@@ -195,8 +195,9 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── FastNoiseLite.h         Third-party: single-header noise library
 │   └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    28 effect headers (BZReactionDiffusion.h, HopfFibration.h,
-│                                IslamicStars.h, Raymarch.h, …) — see §9 Effects Reference
+├── effects/                    28 effects (29 headers incl. the shared ReactionDiffusionBase.h):
+│                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
+│                                Raymarch.h, … — see §9 Effects Reference
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
@@ -212,7 +213,9 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── Phantasm/
 │   │   └── Phantasm.ino        Phantasm entry — 4×Teensy, TOTAL_PIXELS=288, RPM=480
 │   └── wasm/
-│       └── wasm.cpp            Emscripten bindings — HolosphereEngine JS class
+│       ├── wasm.cpp            Emscripten bindings — HolosphereEngine JS class
+│       ├── mesh_marshal.h      Pure validate-and-build layer for the mesh-editor boundary (host-testable)
+│       └── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
 │
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
 ├── tests/                      Unit tests (CMake subdirectory)
@@ -241,6 +244,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │                                  dispatch, generation fence, and compositing
 ├── segment_worker.js           Web Worker that hosts one WASM instance per
 │                                  Phantasm hardware segment (parallel render)
+├── segment_layout.js           Pure segment-layout math (Node-unit-testable, no WASM/Worker)
+├── worker_protocol.js          JSDoc @typedef contract for main↔worker messages (no runtime code)
 ├── styles/                     CSS for the main page and tools
 │
 ├── tools/                      Standalone geometry tools (own HTML pages)
@@ -1156,14 +1161,15 @@ Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 
 |---|---|
 | `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel16` values directly into the frame buffer with inline color correction (color correction → temperature → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and flushed with `arm_dcache_flush_delete()` for cache coherency. |
 | `TeensySPIDMA` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
-| `DMALEDController<N>` | Double-buffered high-level controller. `show(leds)` loads the back buffer and triggers DMA, returning immediately. The previous transfer is guaranteed complete before the next begins. |
+| `DMALEDController<N>` | Double-buffered high-level controller. The ISR packs pixels into `backFrame()`, then `submitFrame()` flushes it and triggers async DMA, returning immediately. If the previous transfer is still in flight, `submitFrame()` **drops** the new frame (bumping `getOverrunCount()`) rather than spinning — the in-flight DMA keeps showing the previous column; a transfer that never completes is surfaced as a wedged-channel fault. |
 
 The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire with no 8-bit intermediate:
 
 ```cpp
-// ISR path:
-frame.packPixel(i, get_pixel(x, y));   // Pixel16 → HD107S frame
-ledController_.submitFrame();           // non-blocking DMA
+// ISR path (per column): fetch the display buffer once, index it directly
+const Pixel* buf = effect_->display_buffer();   // 16-bit linear pixels
+frame.packPixel(i, buf[y * width + x]);          // Pixel16 → HD107S frame
+ledController_.submitFrame();                     // non-blocking DMA, drops on overrun
 ```
 
 #### Single-Teensy POV Driver (`pov_single.h`)
@@ -1237,9 +1243,10 @@ Symbols are count-coded (odd counts only, distance 2 apart) so a lost or spuriou
 The ISR loop has no branches:
 
 ```cpp
+const Pixel* buf = effect_->display_buffer();   // fast path: no per-pixel virtual dispatch
 int y = y_base_;
 for (int i = 0; i < PPS; ++i, y += y_step_) {
-    frame.packPixel(i, effect_->get_pixel(x_col, y));
+    frame.packPixel(i, buf[y * width + x_col]);
 }
 ```
 
@@ -1426,7 +1433,7 @@ Overlapping ring families that produce interference patterns as their angular fr
 
 #### FlowField
 
-FastNoiseLite-driven curl flow field. Particles follow the gradient of a 3D noise function mapped onto the sphere.
+FastNoiseLite-driven flow field. Three independently offset 3D-noise channels form a per-particle force vector that is added to each particle's velocity (not curl noise, not a scalar gradient).
 
 </td></tr></table>
 
@@ -1436,7 +1443,7 @@ FastNoiseLite-driven curl flow field. Particles follow the gradient of a 3D nois
 
 #### Voronoi
 
-Spherical Voronoi diagram with animated seed positions. Cell boundaries are drawn as geodesic edges; cells are optionally filled.
+Spherical Voronoi diagram with animated seed positions. Cells are always filled with per-site palette colors (smoothly blended across the seam between the nearest two sites); an optional black border seam is painted between neighboring cells when **Border Thick** > 0 (off by default).
 
 **Parameters**: Num Sites, Speed, Smoothness, Border Thick
 
@@ -1492,7 +1499,7 @@ Four great-circle rings tumble continuously under energetic random-walk rotation
 
 #### RingShower
 
-Rings bloom at random orientations and expand outward: each spawns on a random axis, grows its radius from zero, and fades in and out as a `Sprite` (drawn with `Plot::Ring`), colored by a generative circular analogous palette — a continuous shower of expanding rings.
+Rings bloom at random orientations and grow their radius from zero, fading in over the first few frames and then holding (no fade-out), colored by a generative circular analogous palette — a continuous shower of expanding rings drawn with `Plot::Ring`. Each ring's radius, fade, and lifetime are pure functions of its age driven directly from a recyclable slot rather than a per-ring `Sprite`.
 
 **Parameters**: Alpha
 
@@ -1558,7 +1565,9 @@ A vertical strand of points — one per latitude row — drifts horizontally aro
 
 #### Thrusters
 
-Directional particle jets.
+A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic random "fires" kick it onto a new axis and bloom a pair of opposed thrust rings (`Plot::Ring`) that expand from zero and fade out.
+
+**Parameters**: Radius, Alpha
 
 </td></tr></table>
 
@@ -1618,7 +1627,7 @@ Concentric rings built from per-azimuth distorted ring SDFs, their radii oscilla
 
 #### ShapeShifter
 
-Layered polygons, stars, and flowers (planar or spherical) that morph between shape types and twist over time, drawn through either the `Plot` or `Scan` rasterizer with independent per-ring orientations.
+Layered polygon, star, and flower rings (planar and spherical polygon variants) drawn through both the `Plot` and `Scan` rasterizers at once. The shape type hard-cuts to the next of four (planar polygon, spherical polygon, flower, star) every 48 frames while a twist Mutation shears the layers. All `Plot` rings share one tumbling orientation and all `Scan` rings share another, so layer Count scales with the raster budget rather than the timeline.
 
 **Parameters**: Alpha, Count, Radius, Sides, Twist, Debug BB
 
@@ -1732,8 +1741,8 @@ appState.subscribe((key, value, old) => {
 
 The left-edge effect list is a small custom widget:
 
-- **Persistent button references**: items are sorted by name or size (live `sizeof` from `getEffectSizes()`) without recreating DOM nodes — `setEffects()` mutates the existing buttons' positions.
-- **Keyboard navigation**: arrow keys / Home / End move the focused button; Enter selects.
+- **Persistent button references**: re-sorting by name or size (live `sizeof` from `getEffectSizes()`) re-appends the existing button nodes in the new order without recreating them; `setEffects()` itself rebuilds the list from scratch.
+- **Keyboard navigation**: arrow keys move the focused button; Enter or Space selects.
 - **Mobile horizontal scroll**: when laid out as a horizontal strip, scroll arrows fade in/out based on scroll position via a `ResizeObserver` + scroll listener.
 - **Per-resolution filtering**: each resolution has its own curated effect list — effects outside the active list are still in the WASM registry and can be loaded directly via `?effect=…`, but they won't show in the sidebar.
 
@@ -1767,7 +1776,7 @@ drawFrame() {                postMessage({type:'render'})
 
 Key properties:
 - **Isolated WASM instances per worker** — each segment has its own arena, its own random seed (`std::mt19937(1337)` is deterministic, so all workers produce the same result), and its own effect state.
-- **`setClip(y0, y1, x0, x1)`** — the WASM engine restricts *rendering* to the worker's quadrant: the rasterizer's scanline culling skips out-of-clip rows and columns, so out-of-band pixels are never shaded. The pixel readback in `drawFrame()` still copies the full canvas buffer; `segment_worker.js` then extracts just the quadrant rectangle from it (`segment_worker.js:149-159`) before transferring the result back, so only the quadrant crosses the worker boundary.
+- **`setClip(y0, y1, x0, x1)`** — the WASM engine restricts *rendering* to the worker's quadrant: the rasterizer's scanline culling skips out-of-clip rows and columns, so out-of-band pixels are never shaded. The pixel readback in `drawFrame()` still copies the full canvas buffer; `segment_worker.js` then extracts just the quadrant rectangle from it (the `pixelsCopy` loop in the render handler) before transferring the result back, so only the quadrant crosses the worker boundary.
 - **One-frame pipeline** — frame N's render is dispatched fire-and-forget; frame N-1's results are composited synchronously when they arrive. Wall-clock time is measured against the slowest worker — exactly what the multi-Teensy hardware sees.
 - **Boundary overlay** — a "Show Boundaries" toggle paints cyan markers on the segment edges in the composite buffer to make the partition visible.
 
