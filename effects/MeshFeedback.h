@@ -132,9 +132,12 @@ private:
                  morphing = false;
                  carousel.set_front(new_slot);
                  carousel.compact();
-                 timeline.add(0, Animation::Sprite([](Canvas &, float) {},
-                                                   NO_MORPH_FRAMES)
-                                     .then([this]() { start_morph(); }));
+                 // One-shot delay before the next morph, mirroring the initial
+                 // scheduling above (no idle-frame draw_fn dispatch).
+                 timeline.add(
+                     0, Animation::PeriodicTimer(
+                            NO_MORPH_FRAMES,
+                            [this](Canvas &) { start_morph(); }, false));
                }));
   }
 
