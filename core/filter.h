@@ -841,25 +841,20 @@ public:
     const int y_lo = cr.render_y_start();
     const int y_hi = cr.render_y_end();
     // A full-width x range — or one whose margin expansion wraps to cover the
-    // whole circumference (rx_s == rx_e) — needs no x clipping; only a genuine
-    // sub-arc does.
-    const int rx_s = cr.render_x_start();
-    const int rx_e = cr.render_x_end();
-    const bool clip_x = (cr.x_end - cr.x_start) < W && rx_s != rx_e;
-    const bool rx_wrap = rx_s > rx_e;
+    // whole circumference (rs == re) — needs no x clipping; XClip folds both of
+    // those cases into `active`, so this stays in lockstep with scan.h.
+    const auto xc = cr.x_clip();
 
     // Mark the coarse columns the clipped sampling pass actually touches. Step 2
     // reads, for each in-band full-res x, coarse column cx0 = x/ds and its
-    // seam-wrapping right neighbour cx1; mark exactly those (the x_outside test
+    // seam-wrapping right neighbour cx1; mark exactly those (the clip test
     // mirrors step 2's below). Unmarked columns are never sampled, so leaving
     // their dx/dy uninitialized is safe. Sized to W (>= hw, since ds >= 1).
     bool col_used[W];
-    if (clip_x) {
+    if (xc.active) {
       for (int cx = 0; cx < hw; ++cx) col_used[cx] = false;
       for (int x = 0; x < W; ++x) {
-        bool x_outside = rx_wrap ? (x < rx_s && x >= rx_e)
-                                 : (x < rx_s || x >= rx_e);
-        if (x_outside) continue;
+        if (xc.clipped(x)) continue;
         int cx0 = x / ds;
         int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
         col_used[cx0] = true;
@@ -874,7 +869,7 @@ public:
     for (int cy = 0; cy < hh; ++cy) {
       int y = cy * ds;
       for (int cx = 0; cx < hw; ++cx) {
-        if (clip_x && !col_used[cx]) continue;
+        if (xc.active && !col_used[cx]) continue;
         int x = cx * ds;
         Vector v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
         Spherical s(v_dist);
@@ -919,9 +914,7 @@ public:
         int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
         float fx = sub * inv_ds;
 
-        bool x_outside = clip_x && (rx_wrap ? (x < rx_s && x >= rx_e)
-                                            : (x < rx_s || x >= rx_e));
-        if (!x_outside) {
+        if (!xc.clipped(x)) {
           float wx0 = 1.0f - fx, wx1 = fx;
 
           int i00 = row0 + cx0;

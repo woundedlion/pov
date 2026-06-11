@@ -52,6 +52,33 @@ struct ClipRegion {
     return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
   }
 
+  /// Precomputed cylindrical x-clip predicate. Construct once per draw, then
+  /// call clipped(x) per fragment. The wrap-to-full case (a sub-arc whose
+  /// margin expansion sums to exactly w, so rs == re) and the full-width case
+  /// are folded into `active` here, so hot loops cannot reproduce the rs==re
+  /// full-segment blackout by hand-rolling the predicate themselves.
+  struct XClip {
+    int  rs     = 0;
+    int  re     = 0;
+    bool active = false; // false => no x clipping (full width or wrapped to full)
+    bool wrap   = false; // band crosses the seam (rs > re)
+
+    /// True when x lies outside the render band and must be skipped.
+    bool clipped(int x) const {
+      if (!active) return false;
+      return wrap ? (x < rs && x >= re) : (x < rs || x >= re);
+    }
+  };
+
+  XClip x_clip() const {
+    XClip c;
+    c.rs     = render_x_start();
+    c.re     = render_x_end();
+    c.active = (x_end - x_start) < w && c.rs != c.re;
+    c.wrap   = c.rs > c.re;
+    return c;
+  }
+
   /// Conservative AABB test: could a segment between two screen points
   /// produce pixels inside the render region?
   bool could_intersect_y(float y1, float y2) const {

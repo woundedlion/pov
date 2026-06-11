@@ -260,10 +260,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 
   int y_lo, y_hi;
   const auto &cr = canvas.clip();
-  bool clip_x = !cr.is_full();
-  int rx_s = cr.render_x_start();
-  int rx_e = cr.render_x_end();
-  bool rx_wrap = rx_s > rx_e;
+  const auto xc = cr.x_clip();
   auto bounds = shape.template get_vertical_bounds<H>();
   y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
   y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
@@ -283,8 +280,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const Vector &p) {
-        if (clip_x && (rx_wrap ? (wx < rx_s && wx >= rx_e)
-                               : (wx < rx_s || wx >= rx_e)))
+        if (xc.clipped(wx))
           return;
         process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
                                         fragment_shader, effective_debug,
@@ -753,10 +749,7 @@ struct Volume {
 
     // Tier 2: Clamp volume bounds to clip region
     const auto &cr = canvas.clip();
-    bool vol_clip_x = !cr.is_full();
-    int vol_rx_s = cr.render_x_start();
-    int vol_rx_e = cr.render_x_end();
-    bool vol_rx_wrap = vol_rx_s > vol_rx_e;
+    const auto vol_xc = cr.x_clip();
     int vol_y_lo =
         bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
     int vol_y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
@@ -771,8 +764,7 @@ struct Volume {
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
         [&](int wx, int y, const Vector &p) {
-          if (vol_clip_x && (vol_rx_wrap ? (wx < vol_rx_s && wx >= vol_rx_e)
-                                         : (wx < vol_rx_s || wx >= vol_rx_e)))
+          if (vol_xc.clipped(wx))
             return;
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
