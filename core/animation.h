@@ -1944,6 +1944,11 @@ public:
   template <typename A> Timeline &add(float in_frames, A animation) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
+    // Deliberate soft-drop, not the usual fail-fast trap: pool exhaustion here
+    // is a recoverable scheduling condition (an effect over-queues for one
+    // frame), not a corrupted invariant, and it is pinned by tests. The chained
+    // add() form returns *this regardless; callers that need the handle use
+    // add_get(), which returns nullptr here and is null-checked at every site.
     if (global_timeline_num_events >= MAX_EVENTS) {
       hs::log("Timeline full, failed to add animation!");
       return *this;
