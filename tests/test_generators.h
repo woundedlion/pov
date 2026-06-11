@@ -78,7 +78,7 @@ inline void test_generate_nested_target_persists() {
   // is rolled back. Two sequential generate() calls accumulate in target.
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
-  generate(target, [](Arena &t, Arena &a, Arena &, int n) {
+  (void)generate(target, [](Arena &t, Arena &a, Arena &, int n) {
     a.allocate(100);
     for (int i = 0; i < n; ++i)
       t.allocate(16);
@@ -86,7 +86,7 @@ inline void test_generate_nested_target_persists() {
   }, 3);
   HS_EXPECT_EQ(target.get_offset(), (size_t)48);
 
-  generate(target, [](Arena &t, Arena &, Arena &b, int n) {
+  (void)generate(target, [](Arena &t, Arena &, Arena &b, int n) {
     b.allocate(200);
     for (int i = 0; i < n; ++i)
       t.allocate(16);
@@ -109,7 +109,7 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
   size_t inner_start_offset = 999;
   uint8_t outer_value_after_inner = 0;
 
-  generate(target, [&](Arena &t, Arena &a, Arena &, int) {
+  (void)generate(target, [&](Arena &t, Arena &a, Arena &, int) {
     // Outer frame claims some scratch and stamps a sentinel into it.
     uint8_t *outer = static_cast<uint8_t *>(a.allocate(64));
     outer[0] = 0xAB;
