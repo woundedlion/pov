@@ -964,6 +964,13 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
         normal = centroid.normalized();
       }
 
+      // normal and twist are face-invariant, so build the twist quaternion once
+      // per face (a sincos + normalize) rather than once per vertex below.
+      const bool do_twist = twist != 0.0f;
+      Quaternion twist_q;
+      if (do_twist)
+        twist_q = make_rotation(normal, twist);
+
       // Emit the twisted primary face only when well-formed (>=3 sides); the
       // new vertices and he->vertex mapping are created unconditionally for the
       // edge triangles below. Mirrors ambo/truncate and the orbit emitter,
@@ -977,10 +984,9 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
           Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
           Vector new_v = v + (centroid - v) * t;
 
-          if (twist != 0.0f) {
+          if (do_twist) {
             Vector local = new_v - centroid;
-            Quaternion q = make_rotation(normal, twist);
-            new_v = centroid + rotate(local, q);
+            new_v = centroid + rotate(local, twist_q);
           }
 
           out_mesh.vertices.push_back(new_v);
