@@ -65,6 +65,13 @@ jobs:
         run: ccache -sv
 
       - name: Test
+        # Drive the deep smoke pass (default is 8 frames — fast for the local
+        # pre-commit hook, but too short to reach the effect-lifecycle
+        # transitions: RingShower slot reuse, Thrusters fire/FIFO expiry,
+        # ShapeShifter's 48-frame cut). CI runs long enough to cover them so a
+        # regression in the slot-recycling defect class fails here, not on-device.
+        env:
+          HS_SMOKE_FRAMES: 120
         run: ctest --preset tests --output-on-failure
 
   windows-tests:
@@ -98,6 +105,10 @@ jobs:
         run: cmake --build --preset tests
 
       - name: Test
+        # Deep smoke pass (see the Linux job): cover effect-lifecycle
+        # transitions the default 8-frame local run never reaches.
+        env:
+          HS_SMOKE_FRAMES: 120
         run: ctest --preset tests --output-on-failure
 
   wasm:

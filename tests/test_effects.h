@@ -53,8 +53,11 @@ constexpr int kH = 144;
 // Default smoke frame count — kept small so the full suite stays well under a
 // few seconds (the fast `ctest`/pre-commit path). Set HS_SMOKE_FRAMES=<n> to
 // drive long, cyclic code paths (effect morph cycles, particle/trail wraps,
-// arena compaction) that only surface over many frames. That deep mode is
-// opt-in and intentionally NOT part of the default run.
+// arena compaction, and the effect-lifecycle transitions — RingShower slot
+// reuse, Thrusters fire/FIFO expiry, ShapeShifter's 48-frame cut) that only
+// surface over many frames. 8 frames never reaches those windows, so CI sets
+// HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to exercise them on every
+// push/PR while local commits keep the fast 8-frame path.
 constexpr int kDefaultFrames = 8;
 
 inline int smoke_frames() {
