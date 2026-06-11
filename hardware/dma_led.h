@@ -105,12 +105,40 @@ public:
       waitComplete();
     }
     transferComplete_.store(false, std::memory_order_relaxed);
+    // Stamp when this transfer goes in-flight so the overrun-drop path (see
+    // checkStaleTransfer) can tell a transient overrun from a wedged channel.
+    transferStartUs_ = micros();
     dma_.sourceBuffer(data, len);
     dma_.enable();
   }
 
   bool isComplete() const {
     return transferComplete_.load(std::memory_order_relaxed);
+  }
+
+  /**
+   * @brief Surfaces a permanently wedged DMA channel from the overrun-drop path.
+   *
+   * waitComplete()'s spin-watchdog is effectively unreachable in normal
+   * operation: its only caller (transmitAsync) is in turn only reached from
+   * DMALEDController::submitFrame(), which guards with isComplete() and *drops*
+   * on overrun rather than spinning. So a channel whose completion ISR never
+   * fires would otherwise be masked forever — isComplete() stays false, every
+   * submitFrame() drops and bumps overrunCount, and the dark strip the
+   * fail-fast doctrine exists to surface never traps. Called from submitFrame's
+   * overrun branch, this traps once the in-flight transfer has outlived the
+   * same bound waitComplete() uses (healthy transfers finish in single-digit
+   * ms; 100 ms means wedged). Cheap enough for the drop path: one micros() read
+   * and a compare, and the drop path runs at most once per column. No-op while
+   * a transfer is legitimately still completing.
+   */
+  void checkStaleTransfer() {
+    if (transferComplete_.load(std::memory_order_relaxed)) return;
+    if (micros() - transferStartUs_ >= kTransferWatchdogUs) {
+      hs::log("FATAL: DMA channel wedged — in-flight transfer outlived the "
+              "watchdog on the overrun-drop path; completion ISR never fired");
+      __builtin_trap();
+    }
   }
 
   void waitComplete() {
@@ -159,6 +187,12 @@ private:
   // the atomic's memory_order has no effect on. Do not "upgrade" to
   // acquire/release expecting a visibility fix — it only adds DMB cost here.
   std::atomic<bool> transferComplete_;
+  // micros() at which the in-flight transfer was enabled. Written and read only
+  // in the column-ISR context (transmitAsync / checkStaleTransfer, both reached
+  // from submitFrame) — the DMA-completion ISR never touches it — so a plain
+  // scalar is correct, same single-observer model as DMALEDController's
+  // activeBuffer_. Only meaningful while transferComplete_ is false.
+  unsigned long transferStartUs_ = 0;
   SPISettings spiSettings_;
 
   // Single-init guard: init() touches global SPI/DMA peripheral state that is
@@ -233,7 +267,11 @@ public:
       // so at best it extends the ISR past the next column tick. A dropped frame
       // is a transient (platform.h), not an invariant violation: the in-flight
       // DMA keeps the previous column; the already-packed back buffer is simply
-      // discarded and the next column repacks.
+      // discarded and the next column repacks. But a transfer that NEVER
+      // completes is a wedged channel, not a transient: surface it here rather
+      // than dropping forever, since this drop path — not waitComplete()'s
+      // unreachable spin — is where a wedge actually manifests.
+      spi_.checkStaleTransfer();
       overrunCount_.fetch_add(1, std::memory_order_relaxed);
       return;
     }
