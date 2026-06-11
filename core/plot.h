@@ -1061,6 +1061,11 @@ struct DistortedRing {
    */
   static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
                          float angle) {
+    // Mirror sample() exactly (at phase 0, as the renderer is invoked) so the
+    // returned point lands on the *drawn* ring. The previous chord-construction
+    // base (Ring::calcPoint) and shift_fn(angle*PI/2) domain both diverged from
+    // the renderer's theta_eq mapping and shift_fn(theta/2PI) domain, detaching
+    // Thrusters' thrust points from the visible ring off Radius=1.
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     float work_radius = res.second;
@@ -1069,10 +1074,10 @@ struct DistortedRing {
     const Vector &u = work_basis.u;
     const Vector &w = work_basis.w;
 
-    auto vi = Ring::calcPoint(angle, work_radius, u, v, w);
-    auto vp = Ring::calcPoint(angle, 1, u, v, w);
-    Vector axis = cross(v, vp).normalized();
-    return rotate(vi, make_rotation(axis, shift_fn(angle * PI_F / 2)));
+    const float theta_eq = work_radius * (PI_F / 2.0f);
+    const float polar = theta_eq + shift_fn(angle / (2.0f * PI_F));
+    Vector u_temp = (u * cosf(angle)) + (w * sinf(angle));
+    return ((v * cosf(polar)) + (u_temp * sinf(polar))).normalized();
   }
 
   template <int W, int H>
