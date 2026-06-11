@@ -26,6 +26,12 @@ public:
       raw_quats[i] = make_rotation(Y_AXIS, Solids::Dodecahedron::vertices[i]);
     }
 
+    // Bake the fixed-seed palette into a 256-entry LUT once. `palette` is
+    // immutable (constructed with a fixed manual seed, never mutated), so the
+    // per-fragment shader can do a cheap LUT lookup instead of the full
+    // ~2000-cycle dual sRGB->OKLCH conversion on every ray-marched fragment.
+    baked_palette.bake(persistent_arena, palette);
+
     timeline.add(0, Animation::RandomWalk<W>(camera, normal, noise));
 
     timeline.add(0, Animation::Sprite(
@@ -130,7 +136,7 @@ private:
         float palette_t = fmodf(
             ring_angle + anim_t * 0.05f + static_cast<float>(vi) / NUM_VERTS,
             1.0f);
-        Color4 c = palette.get(palette_t);
+        Color4 c = baked_palette.get(palette_t);
         frag.color = Color4(c.color * shade, opacity);
       };
 
@@ -160,6 +166,7 @@ private:
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
                             BrightnessProfile::BELL, SaturationProfile::VIBRANT,
                             219};
+  BakedPalette baked_palette; // LUT baked once from `palette` (immutable) in init()
 };
 
 #include "core/effect_registry.h"
