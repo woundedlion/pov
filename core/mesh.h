@@ -117,6 +117,19 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
   }
 }
 
+// Non-owning (pointer + size) view exposing just the size()/operator[] surface
+// build_from_flat needs. Lets the MeshState ctor feed topology through the
+// unified get_*_data()/get_*_size() accessors: a borrowed-mode MeshState serves
+// its topology through the *_view spans with the owned face_counts/faces left
+// empty, so reading the owned vectors directly would silently build an empty
+// half-edge mesh. POD by value — inlines away, no per-element cost.
+template <typename T> struct FlatView {
+  const T *ptr;
+  size_t n;
+  size_t size() const { return n; }
+  const T &operator[](size_t i) const { return ptr[i]; }
+};
+
 class HalfEdgeMesh {
 public:
   ArenaVector<HEVertex> vertices;
@@ -127,8 +140,14 @@ public:
     build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
   }
 
+  // MeshState's vertices are always owned, but its topology may be borrowed
+  // (view spans); route it through the unified accessors so both modes work.
   explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
-    build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
+    build_from_flat(
+        arena, mesh.vertices,
+        FlatView<uint8_t>{mesh.get_face_counts_data(),
+                          mesh.get_face_counts_size()},
+        FlatView<uint16_t>{mesh.get_faces_data(), mesh.get_faces_size()});
   }
 
 private:
@@ -371,8 +390,14 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
   ScratchScope _(scratch_a);
 
-  size_t F = mesh.face_counts.size();
-  size_t I = mesh.faces.size();
+  // Read topology through the unified accessors: a borrowed-mode MeshState
+  // serves face_counts/faces via its view spans with the owned vectors empty,
+  // so indexing the owned vectors directly would silently classify nothing.
+  // Vertices and topology are always owned, so they stay direct.
+  size_t F = mesh.get_face_counts_size();
+  size_t I = mesh.get_faces_size();
+  const uint8_t *face_counts = mesh.get_face_counts_data();
+  const uint16_t *faces = mesh.get_faces_data();
 
   ArenaVector<uint32_t> face_hashes;
   face_hashes.bind(scratch_a, F);
@@ -383,7 +408,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   // Find max face vertex count for scratch allocation
   int max_count = 0;
   for (size_t i = 0; i < F; ++i) {
-    int c = mesh.face_counts[i];
+    int c = face_counts[i];
     if (c > max_count) max_count = c;
   }
 
@@ -394,11 +419,11 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
-    int count = mesh.face_counts[i];
+    int count = face_counts[i];
 
     verts.clear();
     for (int k = 0; k < count; ++k) {
-      verts.push_back(mesh.vertices[mesh.faces[offset + k]]);
+      verts.push_back(mesh.vertices[faces[offset + k]]);
     }
 
     uint32_t h = 0x12345678;
@@ -453,10 +478,10 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       size_t he_idx = 0;
       size_t face_offset = 0;
       for (size_t fi = 0; fi < F; ++fi) {
-        int count = mesh.face_counts[fi];
+        int count = face_counts[fi];
         for (int k = 0; k < count; ++k) {
-          uint16_t u = mesh.faces[face_offset + k];
-          uint16_t v = mesh.faces[face_offset + (k + 1) % count];
+          uint16_t u = faces[face_offset + k];
+          uint16_t v = faces[face_offset + (k + 1) % count];
           records[he_idx].min_v = std::min(u, v);
           records[he_idx].max_v = std::max(u, v);
           records[he_idx].he = static_cast<uint16_t>(he_idx);
@@ -474,7 +499,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
     offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
-      int count = mesh.face_counts[fi];
+      int count = face_counts[fi];
       uint32_t neighbor_acc = 0;
       for (int k = 0; k < count; ++k) {
         uint16_t p_idx = pair_array[offset + k];
