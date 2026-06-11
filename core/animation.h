@@ -1038,6 +1038,20 @@ public:
     // and invisible, whereas the unbounded warp it caused is removed. Cost is
     // one quaternion copy per cycle on the once-per-frame timeline path, never
     // per pixel.
+    //
+    // SOLE-OWNERSHIP INVARIANT: the reset overwrites the *entire* Orientation
+    // with Motion's own absolute anchor, so a repeating Motion must be the only
+    // animation driving its Orientation. This is incompatible with the
+    // multi-animation motion blur the collapse pre-pass (Timeline::step)
+    // supports: a co-driving animation's accumulated rotation would be clobbered
+    // here at every cycle boundary. A delta-from-anchor reset that preserved the
+    // other contributors is not well-defined — both World rotations (pre-mult)
+    // and Local rotations (post-mult) from two co-drivers do not commute, so the
+    // shared quaternion is an interleaved product with no single factor that is
+    // "Motion's share" to subtract. Composing a repeating Motion with another
+    // contributor on one Orientation would require Motion to track its own
+    // per-cycle contribution separately and re-derive the reset from that — a
+    // redesign. No current effect combines them.
     if (!anchor_captured_) {
       anchor_ = orientation.get().get();
       anchor_captured_ = true;
