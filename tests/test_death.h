@@ -406,6 +406,17 @@ inline void case_feedback_downsample_indivisible() {
       1.0f, [](float, float, const ::Pixel &, float, float) {});
 }
 
+// Animation surface: Path::append_segment with zero samples. The t / samples
+// term divides by zero (easing(0/0) = NaN) and the loop would silently append a
+// garbage point; the samples >= 1 guard traps the authoring error on the cold
+// path-construction seam instead.
+inline void case_path_append_zero_samples() {
+  Path<32> path;
+  path.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f,
+                      opaque(0.0f),
+                      [](float t) { return t; }); // samples < 1 -> HS_CHECK
+}
+
 struct Case {
   const char *name;
   void (*fn)();
@@ -435,6 +446,7 @@ inline const Case *all_cases(int &n) {
       {"make_rotation_nonunit", case_make_rotation_nonunit},
       {"make_basis_nan", case_make_basis_nan},
       {"driver_null_speed_src", case_driver_null_speed_src},
+      {"path_append_zero_samples", case_path_append_zero_samples},
       {"register_param_overflow", case_register_param_overflow},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},

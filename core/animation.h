@@ -48,6 +48,9 @@ public:
     // points is a fixed-capacity ring buffer: overflowing it silently
     // overwrites the oldest points and corrupts the path. A sizing bug should
     // trap on the bench, not degrade. (Cold path — path construction.)
+    // samples >= 1 also keeps the t / samples below from dividing by zero:
+    // easing(0/0) = NaN would silently append a garbage point.
+    HS_CHECK(samples >= 1);
     HS_CHECK(points.size() + static_cast<size_t>(samples) + 1 <= RESOLUTION);
     if (!points.is_empty())
       points.pop_back();
