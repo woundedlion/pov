@@ -65,6 +65,21 @@ inline void test_wrap_int() {
   }
 }
 
+// --- wrap(mixed int/float) --------------------------------------------------
+
+// A mixed (int, float) call resolves to the template, which now returns
+// std::common_type_t (float) instead of T=int — so the fractional part survives
+// instead of being truncated to 0.
+inline void test_wrap_mixed_type() {
+  static_assert(std::is_same_v<decltype(wrap(3, 2.5f)), float>,
+                "wrap(int, float) returns the common type (float)");
+  HS_EXPECT_NEAR(wrap(3, 2.5f), 0.5f, 1e-6f);  // fmod(3,2.5)=0.5, not truncated
+  HS_EXPECT_NEAR(wrap(7, 2.5f), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(-1, 2.5f), 1.5f, 1e-6f); // negative folds up
+  // (float, int) is unchanged: still float math (geometry.h relies on this).
+  HS_EXPECT_NEAR(wrap(7.5f, 5), 2.5f, 1e-6f);
+}
+
 // --- fast_wrap --------------------------------------------------------------
 
 inline void test_fast_wrap() {
@@ -145,6 +160,7 @@ inline int run_util_tests() {
   test_wrap_float();
   test_wrap_t();
   test_wrap_int();
+  test_wrap_mixed_type();
   test_fast_wrap();
   test_shortest_distance();
   test_fwd_distance();

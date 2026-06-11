@@ -12,6 +12,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <type_traits>
 #include "3dmath.h"
 #include <memory>
 #include <utility>
@@ -28,14 +29,18 @@
  * @tparam U The type of the modulo base.
  * @param x The value to wrap.
  * @param m The modulo base.
- * @return The wrapped value in the range [0, m).
+ * @return The wrapped value in the range [0, m), as `std::common_type_t<T, U>`.
+ *   Returning the common type (not T) keeps the float math the comment promises:
+ *   `wrap(3, 2.5f)` yields 0.5f, not a truncated 0.
  */
-template <typename T, typename U> inline T wrap(T x, U m) {
-  T r = std::fmod(x, m);
+template <typename T, typename U>
+inline std::common_type_t<T, U> wrap(T x, U m) {
+  using R = std::common_type_t<T, U>;
+  R r = std::fmod(static_cast<R>(x), static_cast<R>(m));
   if (r < 0) {
     r += m;
   }
-  return (r >= m) ? 0 : r;
+  return (r >= static_cast<R>(m)) ? R{0} : r;
 }
 
 /**
