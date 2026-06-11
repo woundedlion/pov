@@ -77,9 +77,13 @@ public:
     if (is_full()) {
       pop_back_internal();
     }
-    head = (head + N - 1) % N; // + N first: never underflows (head is uint32_t)
+    // Commit head/count only after the (potentially throwing) constructor
+    // succeeds, so a throwing T leaves the buffer's size invariant intact.
+    uint32_t slot = (head + N - 1) % N; // + N first: never underflows
+    T &ref = construct_in_place(slot, std::forward<Args>(args)...);
+    head = slot;
     count++;
-    return construct_in_place(head, std::forward<Args>(args)...);
+    return ref;
   }
 
   void push_back(const T &item) {
@@ -105,10 +109,13 @@ public:
     if (is_full()) {
       pop_front_internal();
     }
+    // Commit tail/count only after the (potentially throwing) constructor
+    // succeeds, so a throwing T leaves the buffer's size invariant intact.
     uint32_t slot = tail;
+    T &ref = construct_in_place(slot, std::forward<Args>(args)...);
     tail = (tail + 1) % N;
     count++;
-    return construct_in_place(slot, std::forward<Args>(args)...);
+    return ref;
   }
 
   void pop_back() {
@@ -196,13 +203,16 @@ private:
   // slot is a live object for the buffer's lifetime, so we end the existing
   // object's lifetime and construct the new value directly in its storage.
   // Unlike `buffer[idx] = T(args...)` this builds no temporary and requires only
-  // that T be constructible from Args, not assignable. We return the reference
-  // yielded by placement-new so the result never reads through the prior object.
+  // that T be constructible from Args, not assignable. The placement-new result
+  // is passed through std::launder so the returned reference is valid even for a
+  // T that is not transparently replaceable (e.g. one with const/reference
+  // members), where reusing the prior object's address is otherwise UB.
   template <typename... Args>
   T &construct_in_place(uint32_t idx, Args &&...args) {
     T *slot = &buffer[idx];
     slot->~T();
-    return *::new (static_cast<void *>(slot)) T(std::forward<Args>(args)...);
+    return *std::launder(::new (static_cast<void *>(slot))
+                             T(std::forward<Args>(args)...));
   }
 
   /// CRTP base providing all random-access iterator operators.
