@@ -76,27 +76,28 @@ inline void test_sin16_golden() {
   HS_EXPECT_LT(max_err, 300);
 }
 
-// scale8/scale16 are exact fixed-point fades: (i*sc)>>8 and (i*sc)>>16. Pin the
+// scale8/scale16 are FastLED's SCALE8_FIXED fades: (i*(1+sc))>>8 and
+// (i*(1+sc))>>16, so a full scale (sc==max) is the identity. Pin the
 // full-scale, half-scale, and zero corners that effects rely on.
 inline void test_scale_golden() {
-  HS_EXPECT_EQ(scale8(255, 255), 254); // 255*255>>8
-  HS_EXPECT_EQ(scale8(255, 128), 127);
-  HS_EXPECT_EQ(scale8(128, 255), 127);
-  HS_EXPECT_EQ(scale8(200, 100), 78); // 20000>>8
-  HS_EXPECT_EQ(scale8(1, 255), 0);
+  HS_EXPECT_EQ(scale8(255, 255), 255); // 255*256>>8 — full scale is identity
+  HS_EXPECT_EQ(scale8(255, 128), 128); // 255*129>>8
+  HS_EXPECT_EQ(scale8(128, 255), 128); // 128*256>>8
+  HS_EXPECT_EQ(scale8(200, 100), 78);  // 200*101>>8
+  HS_EXPECT_EQ(scale8(1, 255), 1);     // 1*256>>8
   HS_EXPECT_EQ(scale8(0, 255), 0);
 
-  HS_EXPECT_EQ(scale16(65535, 65535), 65534);
-  HS_EXPECT_EQ(scale16(65535, 32768), 32767);
-  HS_EXPECT_EQ(scale16(32768, 65535), 32767);
-  HS_EXPECT_EQ(scale16(1000, 5000), 76); // 5,000,000>>16
+  HS_EXPECT_EQ(scale16(65535, 65535), 65535); // full scale is identity
+  HS_EXPECT_EQ(scale16(65535, 32768), 32768); // 65535*32769>>16
+  HS_EXPECT_EQ(scale16(32768, 65535), 32768); // 32768*65536>>16
+  HS_EXPECT_EQ(scale16(1000, 5000), 76); // 1000*5001>>16
   HS_EXPECT_EQ(scale16(0, 65535), 0);
 }
 
 inline void test_scale8_fractional() {
   HS_EXPECT_EQ(scale8(0, 200), 0);
-  HS_EXPECT_EQ(scale8(255, 255), 254); // 255*255>>8
-  HS_EXPECT_EQ(scale8(128, 128), 64);
+  HS_EXPECT_EQ(scale8(255, 255), 255); // 255*256>>8 — full scale is identity
+  HS_EXPECT_EQ(scale8(128, 128), 64);  // 128*129>>8
 }
 
 // FastLED map8(in, start, end) maps the FULL 0..255 input onto [start, end] via
@@ -104,7 +105,7 @@ inline void test_scale8_fractional() {
 // produced an out-of-range (wrapped) palette index for in < start.
 inline void test_map8_fastled_semantics() {
   HS_EXPECT_EQ(map8(0, 100, 140), 100);   // input floor -> rangeStart
-  HS_EXPECT_EQ(map8(255, 100, 140), 139); // input ceil  -> ~rangeEnd
+  HS_EXPECT_EQ(map8(255, 100, 140), 140); // input ceil  -> rangeEnd (FIXED scale)
   // Every input stays inside [start, end] and is monotone non-decreasing.
   int prev = -1;
   for (int in = 0; in <= 255; ++in) {
@@ -131,18 +132,18 @@ inline void test_beatsin8_faithful() {
   // 60 BPM == one cycle per 1000 ms. Quarter cycle (250 ms) -> peak, three-
   // quarter (750 ms) -> trough.
   hs::set_mock_time(250, 250000);
-  HS_EXPECT_EQ(beatsin8(60, 0, 255), 254); // sin8(64)=255 -> scale8(255,255)
+  HS_EXPECT_EQ(beatsin8(60, 0, 255), 255); // sin8(64)=255 -> scale8(255,255)=255
   uint8_t again = beatsin8(60, 0, 255);
-  HS_EXPECT_EQ(again, 254); // deterministic under the same mock time
+  HS_EXPECT_EQ(again, 255); // deterministic under the same mock time
 
   hs::set_mock_time(750, 750000);
-  HS_EXPECT_EQ(beatsin8(60, 0, 255), 0); // sin8(192)=1 -> scale8(1,255)=0
+  HS_EXPECT_EQ(beatsin8(60, 0, 255), 1); // sin8(192)=1 -> scale8(1,255)=1
 
   // phase_offset shifts the wave: at t=0 the bare beat is the LUT midpoint, a
   // +64 offset advances it to the peak. The old mock ignored this 5th argument.
   hs::set_mock_time(0, 0);
-  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 0), 127);   // sin8(0)=128 -> scale8(128,255)
-  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 64), 254);  // sin8(64)=255
+  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 0), 128);   // sin8(0)=128 -> scale8(128,255)=128
+  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 64), 255);  // sin8(64)=255 -> scale8(255,255)=255
 
   // Range fit holds across the whole cycle for a non-trivial [lowest, highest].
   for (unsigned long ms = 0; ms < 1000; ms += 37) {
@@ -163,8 +164,8 @@ inline void test_beatsin16_golden() {
   hs::set_mock_time(0, 0);
   // phase 0:      sin16(0)=0      -> +32768 -> scale16(32768,4000)=2000 -> 3000
   HS_EXPECT_EQ(beatsin16(90, 1000, 5000, 0, 0), 3000);
-  // phase 16384:  sin16=32645     -> 65413  -> scale16(65413,4000)=3992 -> 4992
-  HS_EXPECT_EQ(beatsin16(90, 1000, 5000, 0, 16384), 4992);
+  // phase 16384:  sin16=32645     -> 65413  -> scale16(65413,4000)=3993 -> 4993
+  HS_EXPECT_EQ(beatsin16(90, 1000, 5000, 0, 16384), 4993);
   // phase 49152:  sin16=-32645    -> 123    -> scale16(123,4000)=7      -> 1007
   HS_EXPECT_EQ(beatsin16(90, 1000, 5000, 0, 49152), 1007);
 

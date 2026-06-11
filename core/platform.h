@@ -427,13 +427,17 @@ inline void random16_add_entropy(uint16_t) {}
 // device instead of approximating it with a smooth float sine of a different
 // shape, phase convention, and parameter order.
 
-// scale8(i, sc) = i * sc / 256 — FastLED's unsigned 8-bit fractional scale.
+// scale8(i, sc) = i * (1 + sc) / 256 — FastLED's unsigned 8-bit fractional
+// scale. The (1 + sc) is FastLED's SCALE8_FIXED form (default in modern
+// releases): it makes scale8(x, 255) == x, so a full-scale fade is the
+// identity. The device pulls the FIXED variant from <FastLED.h>; matching it
+// here keeps the simulator bit-exact rather than 1 LSB low on every fade.
 inline uint8_t scale8(uint8_t i, uint8_t sc) {
-  return (static_cast<uint16_t>(i) * static_cast<uint16_t>(sc)) >> 8;
+  return (static_cast<uint16_t>(i) * (1 + static_cast<uint16_t>(sc))) >> 8;
 }
-// scale16(i, sc) = i * sc / 65536 — the 16-bit counterpart.
+// scale16(i, sc) = i * (1 + sc) / 65536 — the 16-bit SCALE8_FIXED counterpart.
 inline uint16_t scale16(uint16_t i, uint16_t sc) {
-  return (static_cast<uint32_t>(i) * static_cast<uint32_t>(sc)) >> 16;
+  return (static_cast<uint32_t>(i) * (1 + static_cast<uint32_t>(sc))) >> 16;
 }
 
 // sin8: FastLED's 8-bit LUT sine (sin8_C); 0..255 output centred on 128, so
