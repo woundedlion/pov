@@ -14,6 +14,7 @@
 #include <string_view>
 #include <cstring>
 #include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
+#include <cmath>   // std::isfinite — validate MeshOps args at the JS boundary
 
 // ---- Stack canary painting for high water mark tracking ----
 static constexpr uint8_t STACK_CANARY = 0xCD;
@@ -616,13 +617,26 @@ struct MeshOpsWrapper {
         op(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
 
+  // Untrusted JS boundary: a non-finite fraction would flow straight into the
+  // geometry math and silently corrupt the mesh — expand/chamfer don't HS_CHECK
+  // their domain the way truncate/bevel do. Reject it the way fromSolidName
+  // rejects an unknown name (log + null) rather than producing NaN geometry.
+  bool finite_arg(float arg, const char *op) const {
+    if (std::isfinite(arg))
+      return true;
+    hs::log("WASM: MeshOps::%s got a non-finite argument — ignored", op);
+    return false;
+  }
+
 #define MESHOP_0(name)                                                         \
   std::unique_ptr<MeshOpsWrapper> name() const {                              \
     return apply(                                                              \
         [](const PolyMesh &m, Arena &a, Arena &b) { return MeshOps::name(m, a, b); });           \
   }
-#define MESHOP_1(name, T)                                                      \
-  std::unique_ptr<MeshOpsWrapper> name(T arg) const {                        \
+#define MESHOP_1F(name)                                                        \
+  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                     \
+    if (!finite_arg(arg, #name))                                              \
+      return nullptr;                                                          \
     return apply([arg](const PolyMesh &m, Arena &a, Arena &b) {               \
       return MeshOps::name(m, a, b, arg);                                     \
     });                                                                        \
@@ -636,19 +650,39 @@ struct MeshOpsWrapper {
   MESHOP_0(meta)
   MESHOP_0(needle)
   MESHOP_0(zip)
-  MESHOP_1(truncate, float)
-  MESHOP_1(expand, float)
-  MESHOP_1(chamfer, float)
-  MESHOP_1(bevel, float)
-  MESHOP_1(relax, int)
+  MESHOP_1F(truncate)
+  MESHOP_1F(expand)
+  MESHOP_1F(chamfer)
+  MESHOP_1F(bevel)
 
 #undef MESHOP_0
-#undef MESHOP_1
+#undef MESHOP_1F
+
+  // Upper bound on relax smoothing passes (the editor caps the slider at 500).
+  static constexpr int kMaxRelaxIterations = 1000;
+
+  // relax is explicit because its int iteration count crosses the JS boundary
+  // unbounded: relax(1e9) would freeze the main thread for billions of passes.
+  // Floor at 0 and clamp to a generous ceiling rather than trusting the caller.
+  std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
+    if (iterations < 0)
+      iterations = 0;
+    if (iterations > kMaxRelaxIterations) {
+      hs::log("WASM: MeshOps::relax clamped %d iterations to %d", iterations,
+              kMaxRelaxIterations);
+      iterations = kMaxRelaxIterations;
+    }
+    return apply([iterations](const PolyMesh &m, Arena &a, Arena &b) {
+      return MeshOps::relax(m, a, b, iterations);
+    });
+  }
 
   // Hankin takes its angle in radians (the unit MeshOps::hankin expects), so it
   // stays explicit rather than fitting the MESHOP_* shape — the comment carries
   // the unit contract the JS caller relies on.
   std::unique_ptr<MeshOpsWrapper> hankin(float radians) const {
+    if (!finite_arg(radians, "hankin"))
+      return nullptr;
     return apply([radians](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::hankin(m, a, b, radians);
     });
