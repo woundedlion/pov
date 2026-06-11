@@ -1631,9 +1631,9 @@ private:
  * @brief Parameters for a ripple wave effect.
  */
 struct RippleParams {
-  Vector center;         /**< Center point of the ripple source. */
-  float amplitude;       /**< Current height of the wave. */
-  float phase;           /**< Current phase offset (time). */
+  Vector center;          /**< Center point of the ripple source. */
+  float amplitude = 0.0f; /**< Current height of the wave. */
+  float phase = 0.0f;     /**< Current phase offset (time). */
   float frequency{20.0}; /**< Spatial frequency of the wave. */
   float decay{5.0};      /**< Spatial decay rate. */
   float thickness{1.0f}; /**< Thickness of the ripple. */
