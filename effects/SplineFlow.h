@@ -28,7 +28,7 @@ public:
                               Filter::Screen::AntiAlias<W, H>()) {}
 
   void init() override {
-    static_cast<Filter::World::Trails<W, MAX_TRAILS> &>(filters).init_storage(
+    filters.template get<Filter::World::Trails<W, MAX_TRAILS>>().init_storage(
         persistent_arena);
 
     registerParam("Tension", &params.tension, 0.0f, 1.0f);

@@ -32,8 +32,8 @@ public:
   bool show_bg() const override { return false; }
 
   void init() override {
-    static_cast<Filter::World::Trails<W, TRAIL_CAPACITY> &>(filters).init_storage(
-        persistent_arena);
+    filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
+        .init_storage(persistent_arena);
 
     registerParam("Speed", &params.speed, -10.0f, 10.0f);
     registerParam("Gap", &params.gap, 1.0f, 20.0f);
@@ -161,7 +161,7 @@ public:
     // each frame so dragging it retunes the trail length. Clamp into the
     // filter's [1,255] domain (the slider tops out at 100) so set_lifetime's
     // trap only ever fires on a genuine authoring error.
-    static_cast<Filter::World::Trails<W, TRAIL_CAPACITY> &>(filters)
+    filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
         .set_lifetime(hs::clamp((int)params.trail_length, 1, 255));
 
     timeline.step(canvas);
