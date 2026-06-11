@@ -226,6 +226,19 @@ inline void test_rand_f_half_open() {
   }
 }
 
+// CRGB's single-argument constructor decodes a 0xRRGGBB colorcode like FastLED,
+// not a grayscale fill: CRGB(0xFF8000) is orange, not black.
+inline void test_crgb_colorcode_constructor() {
+  CRGB orange(0xFF8000u);
+  HS_EXPECT_EQ(orange.r, 0xFF);
+  HS_EXPECT_EQ(orange.g, 0x80);
+  HS_EXPECT_EQ(orange.b, 0x00);
+  CRGB teal(0x008080u);
+  HS_EXPECT_EQ(teal.r, 0x00);
+  HS_EXPECT_EQ(teal.g, 0x80);
+  HS_EXPECT_EQ(teal.b, 0x80);
+}
+
 inline int run_platform_tests() {
   auto scope = hs_test::begin_module("platform");
 
@@ -237,6 +250,7 @@ inline int run_platform_tests() {
   test_map_degenerate_range();
   test_random_degenerate_range();
   test_rand_f_half_open();
+  test_crgb_colorcode_constructor();
   test_beatsin8_faithful();
   test_beatsin16_golden();
   test_serial_printf_formats_varargs();

@@ -204,7 +204,12 @@ struct CRGB {
   uint8_t r, g, b;
   constexpr CRGB() : r(0), g(0), b(0) {}
   constexpr CRGB(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
-  constexpr CRGB(uint8_t gray) : r(gray), g(gray), b(gray) {}
+  // FastLED's single-argument constructor is CRGB(uint32_t colorcode), decoding
+  // 0xRRGGBB — NOT a grayscale fill. The old uint8_t gray overload made
+  // CRGB(0xFF8000) black (0xFF8000 & 0xFF == 0) where the device renders orange.
+  constexpr CRGB(uint32_t colorcode)
+      : r((colorcode >> 16) & 0xFF), g((colorcode >> 8) & 0xFF),
+        b(colorcode & 0xFF) {}
 
   // Convert HSV to RGB (Basic implementation)
   constexpr CRGB(const CHSV &hsv) {
