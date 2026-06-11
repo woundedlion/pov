@@ -290,6 +290,19 @@ inline void test_lissajous_unit_length() {
   }
 }
 
+// Phase A is in RADIANS: lissajous computes cos(m1·t − a), NOT cos(m1·t − a·π).
+// This matches the daydream lissajous designer (radians-labelled slider, raw
+// export); the engine previously scaled a by PI_F, so a pasted phase rendered
+// π× off. With m1=m2=1, a=1, t=1 the phase arg is 1−1=0, so the point is
+// (sin1·cos0, cos1, sin1·sin0) = (sin1, cos1, 0). Under the old ×π convention
+// the arg would be 1−π and x/z would differ sharply — a regression guard.
+inline void test_lissajous_phase_is_radians() {
+  Vector v = lissajous(1.0f, 1.0f, 1.0f, 1.0f);
+  HS_EXPECT_NEAR(v.x, sinf(1.0f), 1e-5f);
+  HS_EXPECT_NEAR(v.y, cosf(1.0f), 1e-5f);
+  HS_EXPECT_NEAR(v.z, 0.0f, 1e-5f);
+}
+
 // ============================================================================
 // random_vector (Marsaglia)
 // ============================================================================
@@ -463,6 +476,7 @@ inline int run_geometry_tests() {
   test_fib_spiral_endpoints();
 
   test_lissajous_unit_length();
+  test_lissajous_phase_is_radians();
   test_random_vector_unit_length();
 
   test_make_basis_orthonormal();

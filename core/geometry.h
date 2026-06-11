@@ -617,7 +617,7 @@ inline Vector random_vector() {
 struct LissajousParams {
   float m1; /**< Frequency coefficient for the axial components (X and Z). */
   float m2; /**< Frequency coefficient for the orbital component (Y). */
-  float a;  /**< Phase shift multiplier (multiplies PI_F). */
+  float a;  /**< Phase shift in radians (matches the daydream lissajous tool). */
   float domain; /**< The total duration (t) over which the curve is drawn. */
 };
 
@@ -626,13 +626,16 @@ struct LissajousParams {
  * Lissajous curve.
  * @param m1 Frequency coefficient for XZ plane.
  * @param m2 Frequency coefficient for Y axis.
- * @param a Phase shift multiplier.
+ * @param a Phase shift in radians. This matches the daydream lissajous designer
+ *          (tools/lissajous.html), whose radians-labelled slider and exported
+ *          snippet feed straight into this function — the phase is used as-is,
+ *          NOT scaled by PI_F.
  * @param t Time variable (or position along the domain).
  * @return The calculated 3D point (unit vector).
  */
 inline Vector lissajous(float m1, float m2, float a, float t) {
-  Vector v(sinf(m2 * t) * cosf(m1 * t - a * PI_F), cosf(m2 * t),
-           sinf(m2 * t) * sinf(m1 * t - a * PI_F));
+  Vector v(sinf(m2 * t) * cosf(m1 * t - a), cosf(m2 * t),
+           sinf(m2 * t) * sinf(m1 * t - a));
   return v.normalized();
 }
 
