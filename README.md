@@ -195,7 +195,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── FastNoiseLite.h         Third-party: single-header noise library
 │   └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    28 effects (29 headers incl. the shared ReactionDiffusionBase.h):
+├── effects/                    27 effects (28 headers incl. the shared ReactionDiffusionBase.h):
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, … — see §9 Effects Reference
 │
@@ -277,7 +277,7 @@ Three build targets share a common engine:
 │  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (28 visual algorithms)            │    │
+│  │ Phantasm/    │   │  effects/  (27 visual algorithms)            │    │
 │  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
@@ -313,7 +313,7 @@ The `platform.h` header abstracts all target-specific differences:
 | Symbol | Arduino/Teensy | WASM/Desktop |
 |---|---|---|
 | `DMAMEM` | Teensy DMA-accessible RAM segment | No-op macro |
-| `hs::log()` | `Serial.println()` | `std::cout` |
+| `hs::log()` | `Serial.println()` | `vprintf`/`printf` |
 | `hs::millis()` | `::millis()` | `std::chrono` |
 | `hs::rand_f()` | `std::mt19937(1337)` | `std::mt19937(1337)` |
 | `hs::disable_interrupts()` | `noInterrupts()` | No-op |

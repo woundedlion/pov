@@ -99,7 +99,7 @@ using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 // costs one indirect plot() call per pixel, but instantiates the whole scanline
 // machine once per <W,H> instead of once per (shape x shader-lambda x
 // filter-stack) — the latter would explode device flash / wasm size across the
-// 28 effects' distinct shader closures and variadic filter-stack types.
+// 27 effects' distinct shader closures and variadic filter-stack types.
 // Per-pixel inlining is intentionally traded for a bounded binary.
 class PipelineRef {
   void *ctx_;
