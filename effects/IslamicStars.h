@@ -29,11 +29,18 @@ public:
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
-    registerParam("Burst", &params.burst_size, 1.0f, 8.0f);
+    // Burst and Ripp Dur ranges are clamped to what the 8-slot ripple pool can
+    // actually hold. Each burst reserves Burst slots at once and holds them for
+    // delay (staggered 16 frames) + Ripp Dur; bursts fire every 96 frames. With
+    // Burst <= 4 and Ripp Dur <= 144 the current burst (4) plus the still-live
+    // previous burst (4) peaks at exactly 8 — no silent drops. Wider ranges
+    // saturate the pool, so the sliders stopped having visible effect well
+    // inside them (raising the pool capacity would be the alternative fix).
+    registerParam("Burst", &params.burst_size, 1.0f, 4.0f);
     registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
     registerParam("Ripp Width", &ripple_gen.params.thickness, 0.1f, 1.0f);
     registerParam("Ripp Decay", &ripple_gen.params.decay, 0.0f, 5.0f);
-    registerParam("Ripp Dur", &ripple_duration, 30.0f, 300.0f);
+    registerParam("Ripp Dur", &ripple_duration, 30.0f, 144.0f);
     registerParam("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
