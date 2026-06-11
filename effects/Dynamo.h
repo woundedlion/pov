@@ -87,13 +87,32 @@ public:
     // push_front shifts every logical index, so rebake the whole active range.
     rebake_active_palettes();
 
+    // On completion, stamp THIS wipe's own boundary slot with the WIPE_COMPLETE
+    // sentinel instead of popping the back here. Overlapping wipes can have
+    // different durations (the slider may change between them), so the
+    // transitions can finish out of order; an unconditional pop_back would evict
+    // the OLDEST — still-animating — boundary rather than this one (finding 111).
+    // The slot address is stable (circular-buffer storage never moves and a live
+    // slot is never reused), so reap_completed_wipes() can collapse finished
+    // wipes from the back in FIFO order without ever touching a live boundary.
+    float *boundary_slot = &palette_boundaries.front();
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
                                           (int)params.wipe_duration, ease_mid)
-                        .then([this]() {
-                          palette_boundaries.pop_back();
-                          palettes.pop_back();
-                          rebake_active_palettes();
-                        }));
+                        .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
+  }
+
+  // Collapse color wipes whose Transition has finished (boundary stamped with
+  // WIPE_COMPLETE). Pop only from the back (oldest first), so a wipe that
+  // finished early while an older one is still animating waits its FIFO turn and
+  // no live boundary is ever evicted (finding 111). pop_back removes the highest
+  // logical index, leaving the front-indexed palettes and their baked LUTs in
+  // place, so no rebake is needed.
+  void reap_completed_wipes() {
+    while (!palette_boundaries.is_empty() &&
+           palette_boundaries.back() >= WIPE_COMPLETE) {
+      palette_boundaries.pop_back();
+      palettes.pop_back();
+    }
   }
 
   // Refill the baked LUT pool from the live GenerativePalettes so the hot
@@ -165,6 +184,10 @@ public:
         .set_lifetime(hs::clamp((int)params.trail_length, 1, 255));
 
     timeline.step(canvas);
+
+    // Collapse any color wipes that finished this step, in FIFO order, before
+    // their boundaries are read below (finding 111).
+    reap_completed_wipes();
 
     // Carry the fractional part of |speed| across frames so slow speeds still
     // advance the strand instead of dead-zoning to zero whenever |speed| < 1
@@ -239,6 +262,10 @@ private:
   Timeline timeline;
 
   static constexpr size_t MAX_PALETTES = 16;
+  // Sentinel a completed wipe writes into its boundary slot so
+  // reap_completed_wipes() can collapse it. Set well above the live boundary
+  // range [0, PI] so it can never collide with an in-flight value (finding 111).
+  static constexpr float WIPE_COMPLETE = 100.0f;
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static constexpr size_t NUM_NODES = H_VIRT;
   // Compile-time Trails storage capacity (max trail points). The active trail
