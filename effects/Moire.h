@@ -31,6 +31,10 @@ public:
     // 32KB of Scratch A for those, and 16KB of Scratch B for the AA filter.
     configure_arenas(GLOBAL_ARENA_SIZE - 48 * 1024, 32 * 1024, 16 * 1024);
 
+    // Allocate the two palette LUTs (rebaked each frame in draw_frame()).
+    base_baked.bake(persistent_arena, base_palette);
+    int_baked.bake(persistent_arena, int_palette);
+
     params.density = W <= 96 ? 10.0f : 45.0f;
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -56,6 +60,11 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
+    // Refresh the LUTs from the (continuously wipe-animated) source palettes.
+    // Once per frame, vs. a full OKLCH interpolation per ring fragment.
+    base_baked.rebake(base_palette);
+    int_baked.rebake(int_palette);
+
     // Two layers counter-rotate (opposite-signed axes) so their rings beat
     // against each other, producing the moire interference.
     Quaternion q_base =
@@ -63,8 +72,8 @@ public:
     Quaternion q_int =
         make_rotation(X_AXIS, rotation) * make_rotation(Z_AXIS, rotation);
 
-    draw_layer(canvas, q_base, base_palette);
-    draw_layer(canvas, q_int, int_palette);
+    draw_layer(canvas, q_base, base_baked);
+    draw_layer(canvas, q_int, int_baked);
   }
 
 private:
@@ -88,7 +97,7 @@ private:
   }
 
   void draw_layer(Canvas &canvas, Quaternion layer_rotation,
-                  const GenerativePalette &pal) {
+                  const BakedPalette &pal) {
     int count = static_cast<int>(std::ceil(params.density));
     // Loop-invariant: layer_rotation and Z_AXIS do not change across rings.
     Basis basis = make_basis(layer_rotation, Z_AXIS);
@@ -119,6 +128,12 @@ private:
   GenerativePalette base_next_palette;
   GenerativePalette int_palette;
   GenerativePalette int_next_palette;
+
+  // 256-entry LUTs rebaked from the two source palettes once per frame (cheap:
+  // 2 x 256 OKLCH evaluations) so the per-fragment shader does a LUT lookup
+  // instead of a full sRGB->OKLCH interpolation on every ring fragment.
+  BakedPalette base_baked;
+  BakedPalette int_baked;
 
   Orientation<> orientation;
   Timeline timeline;
