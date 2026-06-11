@@ -233,7 +233,7 @@ Sequential numbering continues from the prior audit (1–146); this audit contri
 
 **Effects (I–Z)**
 
-220. **MobiusGrid: loop-invariant palette lookup evaluated per fragment in draw_axis_rings** — `effects/MobiusGrid.h:154`. `palette.get(i/num)` is constant across each ring's ~W/4 fragments; hoisting cuts ~73 OKLCH evaluations per ring to 1.
+220. ✅ **MobiusGrid: loop-invariant palette lookup evaluated per fragment in draw_axis_rings** — `effects/MobiusGrid.h:154`. `palette.get(i/num)` is constant across each ring's ~W/4 fragments; hoisting cuts ~73 OKLCH evaluations per ring to 1. **FIXED:** resolve the palette color once per ring (cached on the ring index `i`, with the per-ring opacity folded in) instead of per fragment; rings are drawn sequentially so a single cache slot suffices.
 221. **RingShower: per-fragment GenerativePalette::get on W-sample rings whose palettes are immutable after spawn** — `effects/RingShower.h:95`. Up to ~4,600 OKLCH interpolations per frame; a per-spawn 256-entry bake into a recycled slot amortizes trivially (RingSpin demonstrates the pattern).
 222. **Thrusters: thrust spawn points computed on hardcoded radius 1.0 while the visible ring uses params.radius** — `effects/Thrusters.h:112`. Moving the Radius slider off 1.0 detaches the thrust pairs (and the derived spin axis) from the ring they fire from. Pass params.radius to fn_point.
 223. **IslamicStars: ripple capacity 8 cannot honor the registered Burst×Ripp Dur ranges; bursts silently dropped** — `effects/IslamicStars.h:71`. Slots are held for delay+duration; anything above defaults saturates the pool and the sliders stop having visible effect well inside their ranges. Raise CAPACITY toward worst case (~40) or clamp the ranges.

@@ -142,6 +142,13 @@ private:
     const float log_max = 2.5f;
     const float range = log_max - log_min;
 
+    // The shaded color is constant across a ring's fragments: it depends only on
+    // the ring index i, and opacity is also per-ring (draw_curves passes one
+    // value per ring). draw_curves calls the shader ~W/4 times per ring, so
+    // resolve palette.get once per ring instead. Cache keyed on i; rings are
+    // drawn sequentially, so a single cached entry suffices.
+    int cached_i = -1;
+    Color4 cached_c;
     draw_curves(
         canvas, num, q,
         [&](int i) -> Curve {
@@ -151,9 +158,12 @@ private:
           return {make_basis(Quaternion(), normal), radius};
         },
         [&](int i, float opacity, Fragment &f_val) {
-          Color4 c = palette.get(static_cast<float>(i) / num);
-          c.alpha *= opacity * params.alpha;
-          f_val.color = c;
+          if (i != cached_i) {
+            cached_i = i;
+            cached_c = palette.get(static_cast<float>(i) / num);
+            cached_c.alpha *= opacity * params.alpha;
+          }
+          f_val.color = cached_c;
         });
   }
 
