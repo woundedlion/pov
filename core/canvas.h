@@ -79,7 +79,14 @@ public:
     clip.x_start = x0;
     clip.x_end = x1;
   }
-  /** @brief Driver updates x clip at each half-rotation. */
+  /**
+   * @brief Update only the horizontal clip band, leaving the y bounds intact.
+   *
+   * No device driver calls this — the firmware sets the full segment once via
+   * set_clip(). It exists for callers that retune just the x-band (the web
+   * simulator's segment-mode bridge writes the clip through set_clip(); the
+   * canvas unit tests exercise this narrowing path directly).
+   */
   void set_clip_x(int x0, int x1) {
     clip.x_start = x0;
     clip.x_end = x1;
