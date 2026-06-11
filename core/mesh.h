@@ -304,6 +304,12 @@ FLASHMEM static void compile(const PolyMesh &src, MeshState &dst,
     int count = src.face_counts[i];
     if (count >= 3) {
       dst.face_counts.push_back(static_cast<uint8_t>(count));
+      // face_offsets is uint16_t; current_offset is the cumulative index count
+      // and wraps silently past 65535. Trap instead, matching build_from_flat's
+      // total_indices <= UINT16_MAX gate (not narrow_index's INT16_MAX bound:
+      // offsets count half-edges and legitimately exceed the vertex range).
+      HS_CHECK(current_offset <= UINT16_MAX,
+               "mesh face_offsets exceeds 16-bit index range");
       dst.face_offsets.push_back(static_cast<uint16_t>(current_offset));
       for (int k = 0; k < count; ++k) {
         dst.faces.push_back(src.faces[offset + k]);
@@ -460,6 +466,12 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
   {
     ScratchScope temp_topo(scratch_a);
+
+    // Half-edge ids (he_idx, < I) and face ids (fi, < F) are stored as uint16_t
+    // below; an over-range mesh would silently truncate. Trap up front, the same
+    // discipline as HalfEdgeMesh::build_from_flat.
+    HS_CHECK(I <= UINT16_MAX && F <= UINT16_MAX,
+             "classify_faces_by_topology exceeds 16-bit index range");
 
     uint16_t *he_to_face =
         static_cast<uint16_t *>(scratch_a.allocate(

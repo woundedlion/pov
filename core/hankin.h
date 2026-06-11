@@ -329,6 +329,10 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
   for (size_t i = 0; i < compiled.face_counts.size(); ++i) {
     out_mesh.face_counts.push_back(compiled.face_counts[i]);
     if constexpr (requires { out_mesh.face_offsets; }) {
+      // face_offsets is uint16_t; current_offset (cumulative index count) wraps
+      // silently past 65535 — trap, mirroring MeshOps::compile.
+      HS_CHECK(current_offset <= UINT16_MAX,
+               "mesh face_offsets exceeds 16-bit index range");
       out_mesh.face_offsets.push_back(static_cast<uint16_t>(current_offset));
     }
     current_offset += compiled.face_counts[i];
