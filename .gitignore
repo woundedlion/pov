@@ -15,7 +15,6 @@ CMakeUserPresets.json
 
 # Dependencies / generated
 /node_modules/
-package-lock.json
 
 # IDE / tooling
 .vs/
