@@ -1444,7 +1444,7 @@ Spherical Voronoi diagram with animated seed positions. Cells are always filled 
 
 #### PetalFlow
 
-Flowers constructed from distorted ring SDFs whose radii oscillate via sine waves.
+Polyline rings drift pole-to-pole through an inverse stereographic projection, each wobbled into petal lobes and twisted by an angle that grows with its position; rasterized via Plot.
 
 </td></tr></table>
 
