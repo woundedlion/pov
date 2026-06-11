@@ -12,10 +12,16 @@ public:
   using Style = Feedback::Style;
 
   static constexpr int MORPH_FRAMES = 160;
-  static constexpr int NO_MORPH_FRAMES =
-      81; // shape-cycle period; coprime with the 241-frame preset cycle (prime)
-          // so the two cycles stay out of phase
   static constexpr int PRESET_FRAMES = 241; // preset hard-cut period (prime)
+  // The shape cycle is a no-morph hold followed by a morph, so its PERIOD is
+  // hold + morph — and *that*, not the hold alone, is what must be coprime with
+  // PRESET_FRAMES for the shape and preset cycles to stay out of phase. The
+  // previous 81-frame hold made the period 81+160 = 241 = PRESET_FRAMES exactly,
+  // locking every preset hard-cut to the same shape phase. 241 is prime, so any
+  // period that is not a multiple of it is coprime; 240 (= PRESET_FRAMES - 1)
+  // is coprime and maximises the beat between the two cycles.
+  static constexpr int SHAPE_FRAMES = 240; // shape-cycle period, coprime with PRESET_FRAMES
+  static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES; // 80-frame hold
 
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
