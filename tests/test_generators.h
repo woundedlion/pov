@@ -99,6 +99,50 @@ inline void test_generate_nested_target_persists() {
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 }
 
+inline void test_generate_reentrant_nesting_does_not_clobber() {
+  // generate() is reentrant: a callback may call generate() again. The inner
+  // call must stack its scratch ABOVE the outer frame's live allocations
+  // rather than resetting the arena out from under it.
+  Arena target(gen_target_buf, sizeof(gen_target_buf));
+
+  size_t outer_offset_after_inner = 999;
+  size_t inner_start_offset = 999;
+  uint8_t outer_value_after_inner = 0;
+
+  generate(target, [&](Arena &t, Arena &a, Arena &, int) {
+    // Outer frame claims some scratch and stamps a sentinel into it.
+    uint8_t *outer = static_cast<uint8_t *>(a.allocate(64));
+    outer[0] = 0xAB;
+    const size_t outer_offset_before_inner = a.get_offset();
+
+    // Nested generate() — the foot-gun the old reset() created. It must not
+    // rewind the arena to 0 (that would zero the outer frame).
+    (void)generate(t, [&](Arena &, Arena &ia, Arena &, int) {
+      inner_start_offset = ia.get_offset(); // stacked above outer, not reset
+      uint8_t *inner = static_cast<uint8_t *>(ia.allocate(32));
+      inner[0] = 0xCD; // would corrupt outer[0] if the arena had been reset
+      return 0;
+    }, 0);
+
+    // After the inner call returns, the outer frame is intact: its sentinel
+    // survives and the offset is rewound to exactly where it was pre-nest.
+    outer_value_after_inner = outer[0];
+    outer_offset_after_inner = a.get_offset();
+    HS_EXPECT_EQ(a.get_offset(), outer_offset_before_inner);
+    return 0;
+  }, 0);
+
+  // Inner saw the outer's allocation in front of it (no reset to 0).
+  HS_EXPECT_EQ(inner_start_offset, (size_t)64);
+  // Outer sentinel was never overwritten by the nested allocation.
+  HS_EXPECT_EQ((int)outer_value_after_inner, 0xAB);
+  HS_EXPECT_EQ(outer_offset_after_inner, (size_t)64);
+
+  // Both scratch arenas fully rolled back once the outermost call returns.
+  HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
+  HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -108,6 +152,7 @@ inline int run_generators_tests() {
 
   test_generate_lifecycle_and_forwarding();
   test_generate_nested_target_persists();
+  test_generate_reentrant_nesting_does_not_clobber();
 
   return hs_test::end_module(scope);
 }
