@@ -30,7 +30,9 @@ public:
     registerParam("Num Sites", &params.num_sites, 1.0f,
                   static_cast<float>(MAX_SITES));
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
-    registerParam("Smoothness", &params.smoothness, 1.0f, 500.0f);
+    // "Sharpness", not "Smoothness": a larger value saturates the blend factor
+    // sooner, narrowing the border band — i.e. it sharpens cell edges.
+    registerParam("Sharpness", &params.sharpness, 1.0f, 500.0f);
     registerParam("Border Thick", &params.borderThickness, 0.0f, 0.1f);
 
     // Allocate the buffer once at its maximum; seed_sites() fills the active
@@ -93,11 +95,12 @@ public:
 
       Color4 c = bestSite.color;
 
-      // Smoothing
-      if (hasSecond && params.smoothness > 0.0f) {
+      // Border sharpening: a larger sharpness saturates `factor` for smaller
+      // nearest/second-nearest gaps, shrinking the cross-cell blend band.
+      if (hasSecond && params.sharpness > 0.0f) {
         const auto &secSite = sites_buffer[knn[1].original_index];
         float diff = maxDot1 - maxDot2;
-        float factor = std::min(1.0f, diff * params.smoothness);
+        float factor = std::min(1.0f, diff * params.sharpness);
         factor = quintic_kernel(factor);
         float t = 0.5f + 0.5f * factor;
 
@@ -132,7 +135,7 @@ public:
     float num_sites = 200.0f; // live-tunable (GUI slider), see init/draw_frame
     float speed = 20.0f;
     float borderThickness = 0.0f;
-    float smoothness = 100.0f;
+    float sharpness = 100.0f;
   } params;
 
   // The sites buffer is allocated once at MAX_SITES; the active count varies
