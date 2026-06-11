@@ -13,6 +13,11 @@ public:
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
+    // Allocate each slot's palette LUT once up front; spawn_ring refills it in
+    // place (rebake, no allocation). 16 * 256 entries amortizes trivially.
+    for (size_t i = 0; i < MAX_RINGS; ++i)
+      rings[i].palette.bake(persistent_arena, make_palette());
+
     timeline.add(0, Animation::RandomTimer(
                         4, 48, [this](auto &) { this->spawn_ring(); }, true));
   }
@@ -47,7 +52,10 @@ private:
     static constexpr float RADIUS_MAX = 2.0f;
 
     Vector normal;
-    GenerativePalette palette;
+    // 256-entry LUT: allocated once in init(), rebaked in place each spawn. The
+    // per-fragment lookup is then a cheap LUT read rather than a full
+    // GenerativePalette OKLCH evaluation (the palette is immutable after spawn).
+    BakedPalette palette;
     int life = 0; // total visible frames
     int age = 0;  // frames elapsed; age >= life marks the slot free
 
@@ -69,6 +77,13 @@ private:
     }
   };
 
+  // A fresh random palette for a spawning ring. Each construction reseeds, so
+  // every ring still draws from its own distinct palette.
+  static GenerativePalette make_palette() {
+    return GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
+                             BrightnessProfile::FLAT);
+  }
+
   void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       if (rings[i].age >= rings[i].life) { // free slot
@@ -76,9 +91,7 @@ private:
         ring.normal = random_vector();
         ring.life = static_cast<int>(hs::rand_f() * 72.0f + 8.0f);
         ring.age = 0;
-        ring.palette =
-            GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
-                              BrightnessProfile::FLAT);
+        ring.palette.rebake(make_palette());
         return;
       }
     }
