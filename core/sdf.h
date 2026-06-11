@@ -1701,8 +1701,11 @@ struct PlanarPolygon {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
-    return emit_cap_interval<W>(cosf(thickness), ny, R_val, alpha_angle,
-                                TrigLUT<W, H>::cos_phi[y],
+    // Pad the cap by one pixel so the outer AA fringe at the polygon tips is
+    // scanned, matching Star (process_pixel draws up to d < +pixel_width).
+    float pixel_width = 2.0f * PI_F / W;
+    return emit_cap_interval<W>(cosf(thickness + pixel_width), ny, R_val,
+                                alpha_angle, TrigLUT<W, H>::cos_phi[y],
                                 TrigLUT<W, H>::sin_phi[y], false, out);
   }
 
@@ -1812,8 +1815,11 @@ struct SphericalPolygon {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
-    return emit_cap_interval<W>(cosf(circumradius), ny, R_val, alpha_angle,
-                                TrigLUT<W, H>::cos_phi[y],
+    // Pad the cap by one pixel so the outer AA fringe at the polygon tips is
+    // scanned, matching Star (process_pixel draws up to d < +pixel_width).
+    float pixel_width = 2.0f * PI_F / W;
+    return emit_cap_interval<W>(cosf(circumradius + pixel_width), ny, R_val,
+                                alpha_angle, TrigLUT<W, H>::cos_phi[y],
                                 TrigLUT<W, H>::sin_phi[y], false, out);
   }
 

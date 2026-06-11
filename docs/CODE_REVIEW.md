@@ -508,7 +508,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* An effect author tuning a custom Style at hardware resolution would see feedback simply vanish with no trap, no log — a debugging time sink the codebase's own conventions exist to prevent.
    *Suggested fix:* Replace the silent return with `HS_CHECK(ds > 0 && W % ds == 0 && H % ds == 0)` (the `enabled_` flag remains the supported way to turn feedback off), or at minimum hs::log once on first rejection.
 
-79. **Polygon-family horizontal cap intervals omit the 1-pixel outer AA pad that Star applies** — `core/sdf.h:1702-1704, 1813-1815 vs 1913`
+79. ✅ **Polygon-family horizontal cap intervals omit the 1-pixel outer AA pad that Star applies** — `core/sdf.h:1702-1704, 1813-1815 vs 1913` *(validated and fixed: PlanarPolygon and SphericalPolygon now pad the cap angle by one pixel width (`cosf(thickness + pixel_width)` / `cosf(circumradius + pixel_width)`), matching Star, so the outer AA fringe at polygon tips is scanned instead of clipped. The reject_full_width bool stays false (Star-specific). At most ~2 extra columns per row — negligible. Full plot_scan/scan suites still pass.)*
    For solid shapes, process_pixel draws an AA fringe up to d < +pixel_width OUTSIDE the boundary (scan.h:48-60). Star's scanline path accounts for this: `emit_cap_interval<W>(cosf(thickness + pixel_width), ...)` with the comment 'pad the cap by one pixel' (line 1913).
    *Why it matters:* Visually subtle but systematic AA clipping at exactly the highest-curvature features (polygon tips), and an unexplained inconsistency with the sibling shape that got it right.
    *Suggested fix:* Pad the cap angle by one pixel width in both polygon emitters, matching Star: `cosf(thickness + 2.0f*PI_F/W)`.
