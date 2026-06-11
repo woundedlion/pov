@@ -1233,6 +1233,13 @@ public:
     // source silently dereferences null on hardware. Trap always-on at this
     // cold seam so the wiring bug faults at the bench, not in the show.
     HS_CHECK(src != nullptr, "StaticPalette bound to null source");
+    // A null modifier is the same wiring-bug class as a null source: get()
+    // dereferences each one per pixel, and a null member read does not fault on
+    // Teensy 4.x (address 0 is readable), so the failure is silent garbage on
+    // the device. Trap the whole chain here at the cold seam (empty packs fold
+    // to true) for zero hot-path cost.
+    HS_CHECK(((cms != nullptr) && ...), "StaticPalette bound to null coord modifier");
+    HS_CHECK(((xms != nullptr) && ...), "StaticPalette bound to null color modifier");
     source_ = src;
     coords_ = std::make_tuple(cms...);
     colors_ = std::make_tuple(xms...);
