@@ -74,6 +74,53 @@ jobs:
           HS_SMOKE_FRAMES: 120
         run: ctest --preset tests --output-on-failure
 
+  sanitizers:
+    name: Native unit tests (Clang, ASan + UBSan)
+    # The native suite is the only build where the arena guards compile in
+    # (device/WASM strip them), so ASan+UBSan here is the sole automated cover
+    # for the arena-lifetime UB the death harness can't reach. -DHS_SANITIZE=ON
+    # is wired in tests/CMakeLists.txt: ASan + UBSan with -fno-sanitize-recover,
+    # so the first error is a hard failure. ccache absorbs the recompile cost.
+    runs-on: ubuntu-24.04
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang + Ninja + ccache
+        run: |
+          sudo apt-get update
+          # Same pinned clang-18 as the plain tests job (see its note).
+          sudo apt-get install -y clang-18 ninja-build ccache
+
+      # Separate cache key from the non-sanitized job: ASan/UBSan flags change
+      # the compile command, so their object cache must not collide.
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-sanitizers-${{ github.run_id }}
+          restore-keys: ccache-sanitizers-
+
+      - name: Configure
+        run: >
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON
+          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Build
+        run: cmake --build --preset tests
+
+      - name: ccache stats
+        if: always()
+        run: ccache -sv
+
+      - name: Test
+        # Deep smoke pass (see the plain tests job) so the sanitized run reaches
+        # the same effect-lifecycle transitions and exercises arena lifetimes.
+        env:
+          HS_SMOKE_FRAMES: 120
+        run: ctest --preset tests --output-on-failure
+
   windows-tests:
     name: Native unit tests (Windows / Clang)
     # The native toolchain file's most intricate logic — the lld-link multicall

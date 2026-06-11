@@ -55,8 +55,9 @@ target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(run_tests PRIVATE -Wall -Wextra)
 
 # Opt-in sanitizers. Default OFF so the pre-commit gate and the default
-# `cmake --preset tests` stay fast (ASan ~2x); enable with -DHS_SANITIZE=ON
-# (the Linux CI job runs it). The flavour depends on the runtime the toolchain
+# `cmake --preset tests` stay fast (ASan ~2x); enable with -DHS_SANITIZE=ON.
+# The "sanitizers" CI job (.github/workflows/ci.yml) builds with it on every
+# push and pull request. The flavour depends on the runtime the toolchain
 # ships:
 #   * Linux/full-LLVM: ASan + UBSan with diagnostics (-fno-sanitize-recover
 #     makes the first error a hard failure rather than logged-and-continue).
