@@ -83,9 +83,15 @@ namespace MeshOps {
 template <typename MeshT>
 FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
                                     Arena &target_arena, Arena &temp_arena) {
+  // Topology counts must come through the unified accessors, like every
+  // conway.h operator: a borrowed-mode MeshState serves face_counts/faces via
+  // its *_view spans with the owned vectors left empty, so reading them
+  // directly would yield F == I == 0, bind zero-capacity pools, and silently
+  // build corrupt geometry in release. vertices is always owned, so it stays a
+  // direct read.
   size_t V = mesh.vertices.size();
-  size_t F = mesh.face_counts.size();
-  size_t I = mesh.faces.size();
+  size_t F = mesh.get_face_counts_size();
+  size_t I = mesh.get_faces_size();
 
   compiled.base_vertices.bind(target_arena, V);
   for (size_t i = 0; i < V; ++i) {
