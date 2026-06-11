@@ -292,7 +292,7 @@ User-reachable failures or latching desync modes.
 
 ### P3 — Polish (hygiene, dead code, micro-perf, minor drift)
 
-37. **capture_screenshots.mjs exits 0 even when every capture fails** — `scripts/capture_screenshots.mjs:81-104`
+37. ✅ **capture_screenshots.mjs exits 0 even when every capture fails** — `scripts/capture_screenshots.mjs:81-104` *(validated and fixed: the catch block logged FAILED but never recorded a failure or touched process.exitCode, so a run where every capture threw still exited 0 and the stale gallery shipped. Added a `failures` counter incremented in the catch, and after `browser.close()` the script logs the failed/total count and sets `process.exitCode = 1` when any capture failed — mirroring wasm_smoke.mjs. Also promoted the per-iteration dynamic `import('node:fs/promises')` for writeFile into the static top-of-file import. Node `--check` clean.)*
    The per-effect loop catches all errors with `catch (e) { console.log(`FAILED: ${e.message}`); }` and never records a failure count or sets process.exitCode, so the script always exits 0. Because outputs go to docs/screenshots/&lt;Effect>.png, a failed capture silently leaves the previous (stale) PNG in place, and that stale gallery is then installed into daydream by the WASM install step and served from the live site.
    *Why it matters:* The screenshot gallery is a published artifact (README images + daydream install). A zero exit code on failure means any future automation — or a developer skimming a long 28-effect run — ships stale screenshots without noticing.
    *Suggested fix:* Track a failure counter in the catch block and end with `if (failures) process.exitCode = 1;` (mirroring wasm_smoke.mjs). Add writeFile to the static node:fs/promises import.

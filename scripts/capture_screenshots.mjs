@@ -12,7 +12,7 @@
 // SIM_URL overrides the simulator origin (defaults to the README's local
 // http.server port); WAIT_MS overrides the per-effect animation settle time.
 import { chromium } from 'playwright';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -78,6 +78,7 @@ page.on('console', msg => {
 
 const targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
 
+let failures = 0;
 for (const effect of targets) {
   const url = `${BASE_URL}?effect=${encodeURIComponent(effect)}&resolution=${encodeURIComponent(RESOLUTION)}`;
   process.stdout.write(`Capturing ${effect}... `);
@@ -96,11 +97,20 @@ for (const effect of targets) {
     const b64 = dataUrl.split(',', 2)[1];
     const buf = Buffer.from(b64, 'base64');
     const out = `${OUT_DIR}/${effect}.png`;
-    await (await import('node:fs/promises')).writeFile(out, buf);
+    await writeFile(out, buf);
     console.log(`saved ${out}`);
   } catch (e) {
+    failures++;
     console.log(`FAILED: ${e.message}`);
   }
 }
 
 await browser.close();
+
+// A failed capture leaves the previous (stale) PNG in place, and that gallery is
+// installed into daydream and served live, so a silent exit-0 would ship stale
+// screenshots. Surface any failure to the caller (mirrors wasm_smoke.mjs).
+if (failures) {
+  console.log(`${failures} of ${targets.length} captures failed`);
+  process.exitCode = 1;
+}
