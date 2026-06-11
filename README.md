@@ -161,7 +161,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── effects.h               Include list for all effects
 │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
 │   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
-│   ├── led.h                   Backward-compat shim → hardware/pov_single.h
+│   ├── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   │
 │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 │   ├── geometry.h              Fragment, Dots/Points, PixelLUT, coord conversions
@@ -191,7 +191,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── presets.h               Generic Presets<Params, Size> template
 │   ├── styles.h                Feedback::Style named presets + space/color transform functions
 │   ├── util.h                  wrap(), fast_wrap(), clamp()
-│   ├── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (301 KB table)
+│   ├── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (90 KB / 92,160-byte table)
 │   ├── FastNoiseLite.h         Third-party: single-header noise library
 │   └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
