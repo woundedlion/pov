@@ -46,8 +46,15 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
 /**
  * @brief Fast floating point modulo for 1.0.
  * Safely wraps any float (positive or negative) into the [0.0, 1.0) range.
+ * For tiny negative t in (-2.98e-8, 0), `t - floorf(t)` rounds up to exactly
+ * 1.0f, violating the half-open [0,1) contract; the guard folds that boundary
+ * back to 0, mirroring the sibling `wrap()` template above. The compare lowers
+ * to a branchless select, so the per-call cost is negligible.
  */
-inline float wrap_t(float t) { return t - floorf(t); }
+inline float wrap_t(float t) {
+  float r = t - floorf(t);
+  return r >= 1.0f ? 0.0f : r;
+}
 
 /**
  * @brief Wraps an integer value around a modulo base (m).
