@@ -2290,8 +2290,16 @@ struct Twist {
   float lipschitz(const Vector & /*p*/, Ctx s) const {
     if (twist == 0)
       return 1.0f;
-    return 1.0f + static_cast<float>(twist) * amplitude /
-                      (2.0f * std::max(s, R * 0.5f));
+    // The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and |g| = γ; its
+    // exact operator norm (largest singular value) is γ/2 + √(1 + γ²/4). The
+    // old 1 + γ/2 understates it (~8% at γ=1, ~41% at γ=4), over-estimating the
+    // safe step and letting Raymarch's sphere tracing march through thin
+    // surfaces at high Twist. γ uses |twist·amplitude| so the bound stays
+    // conservative regardless of sign. One sqrtf, and the tighter bound is also
+    // the fewest-steps correct choice.
+    const float gamma =
+        fabsf(static_cast<float>(twist) * amplitude) / std::max(s, R * 0.5f);
+    return 0.5f * gamma + sqrtf(1.0f + 0.25f * gamma * gamma);
   }
 
   /// Maximum possible inflation of the bounding volume.
