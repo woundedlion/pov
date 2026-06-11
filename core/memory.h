@@ -96,6 +96,21 @@ public:
   size_t get_capacity() const { return capacity; }
   size_t get_high_water_mark() const { return high_water_mark; }
 
+  /// True iff [ptr, ptr + bytes) lies entirely within the arena's currently
+  /// live region [buffer, buffer + offset). Cheap pointer-range test (no
+  /// generation stamp), available in every build. Used by ArenaVector::bind()
+  /// to catch a stale reuse on the NDEBUG path, where the debug-only generation
+  /// tracking is absent: a block left behind by a reset sits beyond the rewound
+  /// offset and fails this check.
+  bool owns_live(const void *ptr, size_t bytes) const {
+    auto p = static_cast<const uint8_t *>(ptr);
+    const uint8_t *end = buffer + offset;
+    // Subtractive bound (end - p) avoids a p + bytes pointer overflow; the
+    // p <= end guard keeps that difference non-negative so a block sitting
+    // beyond a rewound offset is rejected rather than wrapping to a huge size.
+    return p >= buffer && p <= end && bytes <= static_cast<size_t>(end - p);
+  }
+
   void set_offset(size_t new_offset) {
     // The allocator's core invariant is offset <= capacity: the no-wrap bounds
     // math in allocate() (capacity - offset) is only safe while it holds. This
@@ -292,6 +307,18 @@ public:
 #endif
     // Same arena, still live, and big enough → reuse the block in place.
     if (bound_ && capacity_ >= exact_capacity) {
+#ifdef NDEBUG
+      // Release-build staleness guard. The debug branch above caught a stale
+      // binding via the generation stamp and dropped it; NDEBUG has no stamp, so
+      // without this the reuse below would silently hand back a pointer into
+      // reset/rebound arena memory — the device-only buffer aliasing the
+      // project's fail-fast doctrine exists to surface, not mask. owns_live is a
+      // cheap pointer-range check on this cold bind() path (no per-vector state):
+      // a block left behind by a reset sits beyond the rewound offset and trips
+      // it. (capacity_ == 0 implies data_ == nullptr — nothing to alias.)
+      HS_CHECK(capacity_ == 0 || arena.owns_live(data_, capacity_ * sizeof(T)),
+               "ArenaVector::bind() reused a stale block (arena reset since bind)");
+#endif
       size_ = 0; // Reuse memory
       return;
     }
