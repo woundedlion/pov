@@ -793,13 +793,13 @@ private:
     }
     case HarmonyType::COMPLEMENTARY: {
       h2 = wrap_hue(h1_int + 128);
-      const int offset = hs::rand_int(-7, 7);
+      const int offset = hs::rand_int(-7, 8);
       h3 = wrap_hue(h1_int + offset);
       break;
     }
     case HarmonyType::ANALOGOUS:
     default: {
-      const int dir = (hs::rand_int(0, 1) == 0) ? 1 : -1;
+      const int dir = (hs::rand_int(0, 2) == 0) ? 1 : -1;
       const int offset1 = dir * hs::rand_int(11, 22);
       h2 = wrap_hue(h1_int + offset1);
       const int offset2 = dir * hs::rand_int(11, 22);
