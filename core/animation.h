@@ -76,8 +76,15 @@ public:
   }
 
   void collapse() {
-    if (points.size() > 1)
-      points = {points.back()};
+    // Keep only the newest point. The old `points = {points.back()}` built a
+    // full StaticCircularBuffer<Vector, RESOLUTION> temporary (~12.3 KB at the
+    // default RESOLUTION=1024) on the stack just to hold one Vector — over the
+    // WASM build's 8 KB stack. Clear in place and re-push the single survivor.
+    if (points.size() > 1) {
+      Vector last = points.back();
+      points.clear();
+      points.push_back(last);
+    }
   }
 
 private:
