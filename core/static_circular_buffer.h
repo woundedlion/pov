@@ -39,7 +39,10 @@ public:
   StaticCircularBuffer(std::initializer_list<T> items)
       : head(0), tail(0), count(0) {
     if (items.size() > N) {
-      hs::log("Buffer Error: Initializer list exceeds capacity. Truncating.");
+      // push_back evicts the oldest on overflow, so the buffer keeps the LAST
+      // N items — say so rather than implying the leading items were kept.
+      hs::log("Buffer Warning: Initializer list exceeds capacity. Keeping last "
+              "N items.");
     }
     for (const T &item : items) {
       push_back(item);
