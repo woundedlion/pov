@@ -107,15 +107,17 @@ public:
     noise_xform.params.speed = params.speed;
     noise_xform.params.sync();
 
-    // Update active noise entities to reflect live parameter changes
+    // Push live parameter changes into the active noise entities. The
+    // FastNoiseLite re-sync is left to prepare_frame() (which calls
+    // NoiseParams::sync on every active entity) rather than hand-rolled here.
     for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;
         e.params.amplitude = params.jitterAmp;
         e.params.speed = params.speed;
-        e.params.sync();
       }
     }
+    noise_xform.prepare_frame();
 
     // Update cycle speed dynamically
     if (driver_ && &driver_->get_mutant() == &cycle_phase) {

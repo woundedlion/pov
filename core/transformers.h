@@ -139,6 +139,14 @@ public:
       if constexpr (requires { e.params.prepare_thresholds(); }) {
         e.params.prepare_thresholds();
       }
+      // Symmetric to prepare_thresholds for RippleParams: NoiseParams::sync()
+      // pushes the (possibly live-updated) frequency into the embedded
+      // FastNoiseLite. Handling it here means a noise effect no longer has to
+      // hand-roll a per-entity sync loop and silently render stale frequency if
+      // it forgets.
+      if constexpr (requires { e.params.sync(); }) {
+        e.params.sync();
+      }
     }
   }
 
