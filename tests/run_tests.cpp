@@ -36,7 +36,6 @@
 #include "tests/test_pov_single.h"
 #include "tests/test_pov_sync.h"
 #include "tests/test_param_marshal.h"
-#include "tests/test_mesh_marshal.h"
 #include "tests/test_util.h"
 #include "tests/test_presets.h"
 #include "tests/test_styles.h"
@@ -91,7 +90,6 @@ int main(int argc, char **argv) {
   failures += hs_test::pov_single_tests::run_pov_single_tests();
   failures += hs_test::pov_sync_tests::run_pov_sync_tests();
   failures += hs_test::param_marshal_tests::run_param_marshal_tests();
-  failures += hs_test::mesh_marshal_tests::run_mesh_marshal_tests();
   failures += hs_test::util_tests::run_util_tests();
   failures += hs_test::presets_tests::run_presets_tests();
   failures += hs_test::styles_tests::run_styles_tests();

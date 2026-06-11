@@ -11,7 +11,6 @@
 #include "core/effect_registry.h"
 #include "platform.h"
 #include "targets/wasm/param_marshal.h" // pure, host-tested param marshaling
-#include "targets/wasm/mesh_marshal.h"  // pure, host-tested mesh validate/build
 #include <string_view>
 #include <cstring>
 
@@ -458,21 +457,6 @@ struct MeshOpsWrapper {
   }
 
   // Factory
-  static std::unique_ptr<MeshOpsWrapper> fromSolid(int index) {
-    // Untrusted JS boundary: a stale/out-of-range index from the mesh editor
-    // would trip Solids::get()'s fail-fast HS_CHECK and abort the whole module.
-    // Reject it (return null, mirroring fromData) instead.
-    if (index < 0 || index >= Solids::NUM_ENTRIES) {
-      hs::log("WASM: fromSolid index %d out of range [0, %d) — ignored", index,
-              Solids::NUM_ENTRIES);
-      return nullptr;
-    }
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::get(
-        tooling_arena, tooling_scratch_a, tooling_scratch_b, index));
-  }
-
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
     // Untrusted JS boundary: a typo'd/stale name would trip get_by_name()'s
     // fail-fast HS_CHECK and abort the module. Reject unknown names instead.
@@ -484,31 +468,6 @@ struct MeshOpsWrapper {
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::get_by_name(
         tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
-  }
-
-  static std::unique_ptr<MeshOpsWrapper> fromData(val vertices, val faces) {
-    // Untrusted JS mesh-editor boundary. Convert the two flat arrays
-    // (Float32Array [x, y, z, ...] vertices; Int32Array faces with -1 face
-    // delimiters), then hand the raw data to the pure, host-tested
-    // validate-and-build layer (mesh_marshal.h). A malformed mesh is rejected
-    // (return null, mirroring setClip/fromSolid) rather than trapping and
-    // aborting the whole WASM module; build_mesh_from_flat logs the specific
-    // reason. See tests/test_mesh_marshal.h for the per-reject-branch coverage.
-    std::vector<float> vData = convertJSArrayToNumberVector<float>(vertices);
-    std::vector<int> fData = convertJSArrayToNumberVector<int>(faces);
-
-    PolyMesh m;
-    if (hs_wasm::build_mesh_from_flat(vData, fData, tooling_arena, m) !=
-        hs_wasm::MeshBuildStatus::kOk) {
-      return nullptr;
-    }
-
-    // The scratch arenas hold transient working memory for the operators that
-    // will run on this fresh mesh; reclaim them now that the build succeeded.
-    tooling_scratch_a.reset();
-    tooling_scratch_b.reset();
-
-    return std::make_unique<MeshOpsWrapper>(std::move(m));
   }
 
   // Accessors for JS
@@ -537,19 +496,6 @@ struct MeshOpsWrapper {
       faces_arr.set(i, face);
     }
     return faces_arr;
-  }
-
-  val getFaceCounts() const {
-    // Array backing is flat so we can pass memory view directly
-    return val::global("Uint8Array")
-        .new_(val(typed_memory_view(mesh.face_counts.size(),
-                                    mesh.face_counts.data())));
-  }
-
-  val getFlatIndices() const {
-    // Array backing is flat so we can pass memory view directly
-    return val::global("Int32Array")
-        .new_(val(typed_memory_view(mesh.faces.size(), mesh.faces.data())));
   }
 
   val classifyFaces() {
@@ -633,6 +579,10 @@ struct MeshOpsWrapper {
     return registry;
   }
 
+  // Dev-only roster measurement (sizing MAX_VERTS-style constants); no UI
+  // consumer. Compile with -DHS_WASM_DEV_BINDINGS to re-export it. Note it
+  // resets tooling_arena, invalidating every live MeshOps wrapper.
+#ifdef HS_WASM_DEV_BINDINGS
   static val getMaxBounds() {
     int max_v = 0;
     int max_f = 0;
@@ -683,6 +633,7 @@ struct MeshOpsWrapper {
     stats.set("i_name", val(mi_name));
     return stats;
   }
+#endif
 
   static val getArenaMetrics() { return collect_arena_metrics(); }
 };
@@ -711,16 +662,14 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
-      .class_function("fromSolid", &MeshOpsWrapper::fromSolid)
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
+#ifdef HS_WASM_DEV_BINDINGS
       .class_function("getMaxBounds", &MeshOpsWrapper::getMaxBounds)
+#endif
       .class_function("getArenaMetrics", &MeshOpsWrapper::getArenaMetrics)
-      .class_function("fromData", &MeshOpsWrapper::fromData)
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
-      .function("getFaceCounts", &MeshOpsWrapper::getFaceCounts)
-      .function("getFlatIndices", &MeshOpsWrapper::getFlatIndices)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
       .function("kis", &MeshOpsWrapper::kis)
       .function("ambo", &MeshOpsWrapper::ambo)
