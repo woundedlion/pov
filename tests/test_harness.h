@@ -29,6 +29,15 @@ inline bool approx(float a, float b, float tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
 }
 
+// Double-domain overload. HS_EXPECT_NEAR captures its operands as double, so the
+// comparison must stay in double — downcasting to float would round both sides
+// to ~1e-7 resolution and silently mask a sub-float-epsilon regression in a
+// double-valued expression. Float call sites bind the float overload above by
+// exact match, so this is additive.
+inline bool approx(double a, double b, double tol) {
+  return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
+}
+
 // Print a single comparison operand in a type-appropriate format, so a failing
 // HS_EXPECT_* line shows the actual values (not just the stringified expr).
 // Non-arithmetic operands fall back to "?" — every comparison-macro call site
@@ -73,8 +82,7 @@ inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
 // Record a near-equality result and, on failure, print operands and delta.
 inline void report_near(double a, double b, double tol, const char *expr,
                         const char *file, int line) {
-  if (approx(static_cast<float>(a), static_cast<float>(b),
-             static_cast<float>(tol))) {
+  if (approx(a, b, tol)) {
     ++stats().passed;
     return;
   }
