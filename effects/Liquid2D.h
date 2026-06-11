@@ -155,7 +155,7 @@ private:
 
   BakedPalette palette;
   BreatheModifier breathe_mod{&cycle_phase, 0.15f};
-  StaticPalette<BakedPalette, BreatheModifier> static_palette;
+  StaticPalette<BakedPalette, Coords<BreatheModifier>> static_palette;
 
   struct Params {
     float warp_scale = 1.5f;

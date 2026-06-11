@@ -813,75 +813,84 @@ inline void test_static_palette_composition() {
 
   // Single modifier: scale=2 turns get(0.25) into source.get(0.5).
   ScaleModifier scale(2.0f);
-  StaticPalette<Gradient, ScaleModifier> sp;
+  StaticPalette<Gradient, Coords<ScaleModifier>> sp;
   sp.bind(&grad, &scale);
   HS_EXPECT_EQ(sp.get(0.25f).color.r, grad.get(0.5f).color.r);
 
   // Two modifiers apply in tuple order (scale THEN cycle): 0.2 -> 0.4 -> 0.5.
   float off = 0.1f;
   CycleModifier cycle(&off);
-  StaticPalette<Gradient, ScaleModifier, CycleModifier> sp2;
+  StaticPalette<Gradient, Coords<ScaleModifier, CycleModifier>> sp2;
   sp2.bind(&grad, &scale, &cycle);
   HS_EXPECT_EQ(sp2.get(0.2f).color.r, grad.get(0.5f).color.r);
 }
 
-// AnimatedPalette applies its registered modifiers then queries the source.
-inline void test_animated_palette_applies_modifiers() {
-  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
-  ScaleModifier scale(2.0f);
-  AnimatedPalette ap(&grad);
-  ap.add(scale);
-  HS_EXPECT_EQ(ap.get(0.25f).color.r, grad.get(0.5f).color.r);
-}
-
-// Falloff function for AlphaFalloffPalette (must be a plain function pointer).
+// Falloff function for AlphaFalloffShade (must be a plain function pointer).
 inline float test_half_falloff(float) { return 0.5f; }
 
-// Palette wrappers remap the coordinate / alpha around a source palette, and
-// fall back to transparent black when the source is null.
+// The coordinate/color modifiers reproduce the former wrapper palettes when
+// composed around a source via StaticPalette. Bounded remaps use Wrap=false so a
+// coordinate landing exactly on 1.0 reaches the source's last stop rather than
+// wrapping to 0.
 inline void test_palette_wrappers() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
 
-  // Reverse: t -> 1-t.
-  ReversePalette rev(&grad);
-  HS_EXPECT_GT(rev.get(0.0f).color.r, 60000); // was white at t=1
-  HS_EXPECT_EQ(rev.get(1.0f).color.r, 0);     // was black at t=0
+  // ReverseModifier: t -> 1-t.
+  ReverseModifier rev;
+  StaticPalette<Gradient, Coords<ReverseModifier>, Colors<>, /*Wrap=*/false> revp;
+  revp.bind(&grad, &rev);
+  HS_EXPECT_GT(revp.get(0.0f).color.r, 60000); // was white at t=1
+  HS_EXPECT_EQ(revp.get(1.0f).color.r, 0);     // was black at t=0
 
-  // Circular: [0,1] -> [0,1,0]; the midpoint reaches the far end of the source.
-  CircularPalette circ(&grad);
-  HS_EXPECT_EQ(circ.get(0.0f).color.r, 0);
-  HS_EXPECT_GT(circ.get(0.5f).color.r, 60000);
-  HS_EXPECT_EQ(circ.get(1.0f).color.r, 0);
+  // MirrorModifier: [0,1] -> [0,1,0]; the midpoint reaches the far end.
+  MirrorModifier mir;
+  StaticPalette<Gradient, Coords<MirrorModifier>, Colors<>, /*Wrap=*/false> mirp;
+  mirp.bind(&grad, &mir);
+  HS_EXPECT_EQ(mirp.get(0.0f).color.r, 0);
+  HS_EXPECT_GT(mirp.get(0.5f).color.r, 60000);
+  HS_EXPECT_EQ(mirp.get(1.0f).color.r, 0);
 
-  // Vignette: fades to black at the edges, source color in the middle band.
-  VignettePalette vig(&grad);
+  // Opaque vignette = InsetModifier + EdgeFadeShade: fades to black at the
+  // edges, source color in the middle band.
+  InsetModifier inset;
+  EdgeFadeShade fade;
+  StaticPalette<Gradient, Coords<InsetModifier>, Colors<EdgeFadeShade>,
+                /*Wrap=*/false>
+      vig;
+  vig.bind(&grad, &inset, &fade);
   HS_EXPECT_LT(vig.get(0.0f).color.r, 1000); // edge -> ~black
   uint16_t vmid = vig.get(0.5f).color.r;     // middle -> source.get(0.5)
   HS_EXPECT_GT(vmid, 1000);
   HS_EXPECT_LT(vmid, 64000);
 
-  // TransparentVignette: alpha (not color) fades at the edges.
-  TransparentVignette tv(&grad);
+  // Transparent vignette = InsetModifier + EdgeAlphaShade: alpha (not color)
+  // fades at the edges.
+  EdgeAlphaShade alpha_fade;
+  StaticPalette<Gradient, Coords<InsetModifier>, Colors<EdgeAlphaShade>,
+                /*Wrap=*/false>
+      tv;
+  tv.bind(&grad, &inset, &alpha_fade);
   HS_EXPECT_NEAR(tv.get(0.0f).alpha, 0.0f, 1e-3f); // edge -> transparent
   HS_EXPECT_NEAR(tv.get(0.1f).alpha, 0.5f, 1e-2f); // quintic(0.5) = 0.5
   HS_EXPECT_NEAR(tv.get(0.5f).alpha, 1.0f, 1e-3f); // middle -> opaque
 
-  // AlphaFalloff scales alpha by the falloff function.
-  AlphaFalloffPalette afp(test_half_falloff, &grad);
+  // AlphaFalloffShade scales alpha by the falloff function.
+  AlphaFalloffShade afs(test_half_falloff);
+  StaticPalette<Gradient, Coords<>, Colors<AlphaFalloffShade>, /*Wrap=*/false>
+      afp;
+  afp.bind(&grad, &afs);
   HS_EXPECT_NEAR(afp.get(0.5f).alpha, 0.5f, 1e-5f);
   HS_EXPECT_EQ(afp.get(0.5f).color.r, grad.get(0.5f).color.r);
+
+  // PaletteFacade exposes a composition through the polymorphic Palette API.
+  PaletteFacade<decltype(afp)> facade(&afp);
+  const Palette &as_palette = facade;
+  HS_EXPECT_NEAR(as_palette.get(0.5f).alpha, 0.5f, 1e-5f);
 
   // Solid color ignores t.
   SolidColorPalette solid(Color4(Pixel(111, 222, 333), 0.7f));
   HS_EXPECT_EQ(solid.get(0.9f).color.g, 222);
   HS_EXPECT_NEAR(solid.get(0.1f).alpha, 0.7f, 1e-6f);
-
-  // Null source -> transparent black (no crash).
-  ReversePalette rev_null(nullptr);
-  HS_EXPECT_EQ(rev_null.get(0.5f).color.r, 0);
-  HS_EXPECT_NEAR(rev_null.get(0.5f).alpha, 0.0f, 1e-6f);
-  VignettePalette vig_null(nullptr);
-  HS_EXPECT_NEAR(vig_null.get(0.5f).alpha, 0.0f, 1e-6f);
 }
 
 // ============================================================================
@@ -943,7 +952,6 @@ inline int run_color_tests() {
   test_generative_palette_snapshot_lerp();
   test_palette_modifiers();
   test_static_palette_composition();
-  test_animated_palette_applies_modifiers();
   test_palette_wrappers();
 
   return hs_test::end_module(scope);

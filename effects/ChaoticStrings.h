@@ -172,7 +172,8 @@ private:
   ScaleModifier scale_mod{200.0f, &params.scaleFactor};
   CycleModifier cycle_mod{&cycle_phase};
   ProceduralPalette palette_variant;
-  StaticPalette<ProceduralPalette, ScaleModifier, CycleModifier> static_palette;
+  StaticPalette<ProceduralPalette, Coords<ScaleModifier, CycleModifier>>
+      static_palette;
   Animation::Driver *driver_ = nullptr;
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ = nullptr;
   float last_cycle_duration_ = -1.0f;
