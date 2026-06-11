@@ -1030,8 +1030,12 @@ struct FoldModifier {
     float scaled = (t * folds) + shift;
 
     // Triangle wave formula: creates symmetrical, continuous bouncing between 0
-    // and 1
-    return fabsf(fmodf(scaled, 2.0f) - 1.0f);
+    // and 1. fmodf keeps the sign of the dividend, so reduce into [0, 2) first
+    // — otherwise negative scaled (e.g. a negative phase shift) folds to values
+    // above 1.
+    float m = fmodf(scaled, 2.0f);
+    if (m < 0.0f) m += 2.0f;
+    return fabsf(m - 1.0f);
   }
 };
 
