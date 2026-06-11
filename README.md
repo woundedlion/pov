@@ -155,7 +155,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 ```
 ├── core/                       Rendering engine
 │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
-│   ├── constants.h             MAX_W, MAX_H (resolution bounds)
+│   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
 │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
 │   ├── effects_engine.h        Master include for the full engine
 │   ├── effects.h               Include list for all effects
@@ -169,7 +169,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── palettes.h              Named palette instances (ProceduralPalette + Gradient)
 │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
 │   │
-│   ├── concepts.h              C++20 concepts: TrailFn, PlotFn, FragmentShaderFn, etc.
+│   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pix
 │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
 │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
@@ -190,7 +190,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── generators.h            Universal generate() wrapper for procedural geometry
 │   ├── presets.h               Generic Presets<Params, Size> template
 │   ├── styles.h                Feedback::Style named presets + space/color transform functions
-│   ├── util.h                  wrap(), fast_wrap(), clamp()
+│   ├── util.h                  wrap(), fast_wrap(), shortest/fwd_distance, apply_if_changed
 │   ├── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (90 KB / 92,160-byte table)
 │   ├── FastNoiseLite.h         Third-party: single-header noise library
 │   └── FastNoiseLite_config.h  FastNoiseLite build configuration
