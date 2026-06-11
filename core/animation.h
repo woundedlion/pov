@@ -1776,9 +1776,16 @@ struct TimelineEvent {
   ///                        dst == nullptr → just destroy src.
   void (*manager)(TimelineEvent &src, TimelineEvent *dst) = nullptr;
 
-  IAnimation *animation() {
-    return manager ? reinterpret_cast<IAnimation *>(storage) : nullptr;
-  }
+  // The animation's IAnimation* view, captured by static_cast at construction
+  // (and re-captured by the manager on every move). reinterpret_cast<IAnimation*>
+  // on the raw storage would be formally UB: animation types are
+  // non-standard-layout (virtual functions), so the standard does not guarantee
+  // the IAnimation base subobject sits at offset 0 — only a properly-typed
+  // upcast performs the (here-zero, but not portably-zero) base adjustment.
+  // Trails `manager` so it lands in the existing tail padding (no extra bytes).
+  IAnimation *iface = nullptr;
+
+  IAnimation *animation() { return manager ? iface : nullptr; }
 
   void move_into(TimelineEvent &dst) {
     // Fail-fast on the add_get() dangling-handle hazard: relocating a handled
@@ -1887,11 +1894,11 @@ public:
     auto &e = global_timeline_events[global_timeline_num_events++];
     e.start = global_timeline_t + (int)in_frames;
     e.handled = false; // global slots are reused — clear any stale handled flag
-    new (e.storage) A(std::move(animation));
+    e.iface = static_cast<IAnimation *>(new (e.storage) A(std::move(animation)));
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
       A *obj = reinterpret_cast<A *>(src.storage);
       if (dst) {
-        new (dst->storage) A(std::move(*obj));
+        dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
       }
       obj->~A();
     };
@@ -1924,10 +1931,11 @@ public:
     // move_into if a later change ever tries to relocate this event.
     e.handled = pin;
     auto *ptr = new (e.storage) A(std::move(animation));
+    e.iface = static_cast<IAnimation *>(ptr);
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
       A *obj = reinterpret_cast<A *>(src.storage);
       if (dst) {
-        new (dst->storage) A(std::move(*obj));
+        dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
       }
       obj->~A();
     };
