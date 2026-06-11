@@ -1319,6 +1319,11 @@ struct Flower {
  *  v2: Edge index
  */
 struct Mesh {
+  /// Max distinct vertices the edge-dedup bitset can track. A mesh exceeding
+  /// this is a sizing bug (traps on the cold setup path), not a recoverable
+  /// case. Sized for a TriangularBitset of 128*127/2 bits = 1016 bytes.
+  static constexpr int kDedupCapacity = 128;
+
   /**
    * @brief Draws a mesh (wireframe).
    * @tparam W Rasterization resolution.
@@ -1336,7 +1341,7 @@ struct Mesh {
     int edge_index = 0;
 
     // O(1) edge dedup in 1016 bytes (triangular bit matrix over 128 vertices)
-    TriangularBitset<128> visited;
+    TriangularBitset<kDedupCapacity> visited;
     visited.clear();
 
     auto process_edge = [&](int u, int v) {
@@ -1347,7 +1352,7 @@ struct Mesh {
       // with no valid recovery: silently dropping the edge would mask it and
       // leave a wireframe with missing lines. Trap on the cold per-edge setup
       // path, consistent with the OOB guard below (platform.h).
-      HS_CHECK(large < 128);
+      HS_CHECK(large < kDedupCapacity);
 
       if (visited.test_and_set(small, large))
         return;
@@ -1414,7 +1419,7 @@ struct Mesh {
   /// Extract unique edges from a mesh (call once at setup time).
   template <typename MeshT>
   static void extract_edges(const MeshT &mesh, ArenaVector<Edge> &edges) {
-    TriangularBitset<128> visited;
+    TriangularBitset<kDedupCapacity> visited;
     visited.clear();
 
     const uint8_t *fc = mesh.get_face_counts_data();
@@ -1429,7 +1434,12 @@ struct Mesh {
         int v = fi[offset + (k + 1) % count];
         int small = std::min(u, v);
         int large = std::max(u, v);
-        if (large < 128 && !visited.test_and_set(small, large)) {
+        // A vertex index past the dedup bitset's capacity is a mesh-sizing
+        // bug with no valid recovery: silently dropping the edge would mask
+        // it and leave a wireframe with missing lines. Trap on this cold
+        // setup path, matching the dynamic draw() overload above.
+        HS_CHECK(large < kDedupCapacity);
+        if (!visited.test_and_set(small, large)) {
           edges.push_back({(uint16_t)u, (uint16_t)v});
         }
       }

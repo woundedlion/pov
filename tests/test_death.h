@@ -364,6 +364,29 @@ inline void case_plot_mesh_vertex_over_capacity() {
                          [](const Vector &, Fragment &) {}); // index 130 -> trap
 }
 
+// Plot surface: the precomputed-edge path. extract_edges() now traps on an
+// over-capacity vertex index on the same cold setup path as the face-walk
+// draw() overload, rather than silently filtering the edge out (which would
+// have produced an edge list with missing lines and masked the sizing bug).
+inline void case_plot_extract_edges_vertex_over_capacity() {
+  // Same over-capacity 2-gon face as the draw() case (second index 130 > 128).
+  struct MockMesh {
+    struct Verts {
+      Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
+      size_t size() const { return 1; }
+    } vertices;
+    uint8_t fc[1];
+    uint16_t fi[2];
+    MockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
+    const uint8_t *get_face_counts_data() const { return fc; }
+    size_t get_face_counts_size() const { return 1; }
+    const uint16_t *get_faces_data() const { return fi; }
+  } mesh;
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(scratch_arena_a, 8);
+  Plot::Mesh::extract_edges(mesh, edges); // index 130 -> trap
+}
+
 struct Case {
   const char *name;
   void (*fn)();
@@ -396,6 +419,8 @@ inline const Case *all_cases(int &n) {
       {"register_param_overflow", case_register_param_overflow},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
+      {"plot_extract_edges_vertex_over_capacity",
+       case_plot_extract_edges_vertex_over_capacity},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
