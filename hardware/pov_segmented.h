@@ -271,6 +271,13 @@ public:
         // regardless of boot or join history.
         hs::random().seed(1337);
         cur = factories_[pov::sync::SyncBoard::build_index_of(bw)]();
+        // ISR seam (project doctrine: trap at the cold construction site, not
+        // the hot ISR): render_column() walks PPS pixels over canvas rows in
+        // [0, ROWS) and indexes buf[y * width + x_col], in-bounds only when the
+        // effect's canvas height equals ROWS (S/2). Trap a resolution mismatch
+        // here, before the flywheel ISR can take this instance live.
+        HS_CHECK(cur->height() == ROWS,
+                 "POVSegmented: effect canvas height must equal S/2 (ROWS)");
         cur->draw_frame(); // frame 0, queued; fresh buffers never block
         hs::disable_interrupts();
         pending_effect_ = cur;

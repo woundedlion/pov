@@ -106,6 +106,13 @@ private:
     const unsigned long start = millis();
     const unsigned long duration_ms = duration * 1000;
     effect_ = e;
+    // ISR seam (project doctrine: trap at the cold bind site, not the hot ISR):
+    // show_col() walks y in [0, S/2) and indexes the display buffer as
+    // buf[y * width + x], in-bounds only when the effect's canvas height equals
+    // the strip's half-height. Trap a driver/effect resolution mismatch here,
+    // before it becomes an unguarded OOB read inside the column ISR.
+    HS_CHECK(effect_->height() == S / 2,
+             "POVDisplay: effect canvas height must equal S/2");
     x_ = 0;
     IntervalTimer timer;
     // sweep the width once per rotation; begin() returns false if no PIT

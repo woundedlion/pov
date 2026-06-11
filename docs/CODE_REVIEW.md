@@ -254,7 +254,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 
 **Hardware**
 
-325. **Both POV drivers index the ISR buffer assuming `effect->height() == S/2` with no cold-seam check** — `hardware/pov_single.h:150` (and the segmented `render_column`). `Effect` exposes virtual `height()`, so a driver/effect resolution mismatch is representable and would be an unguarded OOB read inside the ISR. The project's doctrine prescribes the trap at the bind/setup seam, which exists but carries no `HS_CHECK`.
+325. ✅ **Both POV drivers index the ISR buffer assuming `effect->height() == S/2` with no cold-seam check** — `hardware/pov_single.h:150` (and the segmented `render_column`). `Effect` exposes virtual `height()`, so a driver/effect resolution mismatch is representable and would be an unguarded OOB read inside the ISR. The project's doctrine prescribes the trap at the bind/setup seam, which exists but carries no `HS_CHECK`.
 326. **README says `USE_DMA_LEDS` is enabled in `led.h`; `led.h` deliberately keeps it commented out** — `README.md:1162`. The header documents the opposite convention (targets define it themselves); the README points readers at the wrong file to flip the build mode.
 327. **Comment claims the constructor "asserts" CYCCNT is enabled; the code enables it unconditionally** — `hardware/pov_segmented.h:167`. Enabling is arguably better, but the comment describes a check that does not exist; reword or add the `HS_CHECK`.
 
