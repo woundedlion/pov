@@ -40,13 +40,19 @@ endif()
 
 if(WIN32)
   # CMake's Windows-Clang support links via lld-link, but the emsdk ships only
-  # lld.exe. lld is a multicall binary: copied to lld-link.exe it acts as the
+  # lld.exe. lld is a multicall binary: invoked as lld-link.exe it acts as the
   # COFF linker (and embeds manifests itself, so — unlike MSVC link.exe — it
-  # does not need rc.exe on PATH at link time). Create the alias next to clang
-  # so it is found at both configure and build time.
-  if(_hs_clang_dir AND EXISTS "${_hs_clang_dir}/lld.exe"
-     AND NOT EXISTS "${_hs_clang_dir}/lld-link.exe")
-    file(COPY_FILE "${_hs_clang_dir}/lld.exe" "${_hs_clang_dir}/lld-link.exe")
+  # does not need rc.exe on PATH at link time). Stage the alias in the BUILD
+  # TREE (always writable) rather than writing it into the emsdk install, which
+  # hard-fails on a read-only toolchain checkout; add the build tree to clang's
+  # program-search prefix (-B) so it finds lld-link there at link time without
+  # the alias sitting next to clang or on PATH. (The MSVC-target driver ignores
+  # --ld-path for lld-link, so -B is the mechanism that actually applies.)
+  if(_hs_clang_dir AND EXISTS "${_hs_clang_dir}/lld.exe")
+    if(NOT EXISTS "${CMAKE_BINARY_DIR}/lld-link.exe")
+      file(COPY_FILE "${_hs_clang_dir}/lld.exe" "${CMAKE_BINARY_DIR}/lld-link.exe")
+    endif()
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -B\"${CMAKE_BINARY_DIR}\"")
   endif()
   set(CMAKE_LINKER_TYPE LLD)
 
