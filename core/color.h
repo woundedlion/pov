@@ -1117,7 +1117,10 @@ struct EdgeFadeShade {
   float edge;
   EdgeFadeShade(float edge = 0.2f) : edge(edge) {}
   Color4 shade(Color4 c, float t) const {
-    CRGB black(0, 0, 0);
+    // Pixel (16-bit linear) black, not CRGB: a CRGB temporary here would bind
+    // the low-edge blend to CRGB::lerp16 (quantize -> sRGB lerp -> re-expand),
+    // banding the fade and making it asymmetric with the 16-bit high edge.
+    Pixel black(0, 0, 0);
     if (t < edge)
       return Color4(
           black.lerp16(c.color, float_to_pixel16(quintic_kernel(t / edge))),
