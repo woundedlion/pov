@@ -122,10 +122,12 @@ struct Dot {
   Dot(const Vector &v, const Color4 &color) : position(v), color(color) {}
 
   /**
-   * @brief Copy constructor.
-   * @param d The Dot to copy.
+   * @brief Copy constructor — defaulted to keep Dot trivially copyable so the
+   * 1024-deep StaticCircularBuffer can memcpy/vectorize copies. A hand-written
+   * member-wise body is identical in effect but defeats that (see Vector's
+   * defaulted-copy rationale in 3dmath.h).
    */
-  Dot(const Dot &d) : position(d.position), color(d.color) {}
+  Dot(const Dot &d) = default;
 
   Vector position; /**< The 3D position (unit vector). */
   Color4 color;    /**< The color of the dot. */
