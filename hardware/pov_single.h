@@ -14,7 +14,13 @@
  */
 #pragma once
 #include "led.h"   // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
+#include "pov_single_map.h"  // pure strip index math (host-tested)
 
+// Like POVSegmented, this driver is Arduino-only: it depends on IntervalTimer,
+// FastLED/DMA, and the Teensy runtime, and is instantiated solely by the
+// Holosphere .ino target. The pure strip index math it relies on lives in
+// pov_single_map.h (above, host-tested); the class itself is compiled out off
+// device so there is no half-built non-Arduino path to misuse.
 #ifdef ARDUINO
 #include <Arduino.h>
   #ifdef USE_DMA_LEDS
@@ -22,11 +28,9 @@
   #else
     #include <FastLED.h>
   #endif
-#endif
 #include "canvas.h"
 #include "geometry.h"
 #include "memory.h"
-#include "pov_single_map.h"  // pure strip index math (host-tested)
 
 /**
  * @brief Manages the display loop for a single-Teensy POV rig.
@@ -55,7 +59,6 @@ public:
    * optimizations.
    */
   POVDisplay() {
-#ifdef ARDUINO
     // Seeds FastLED's LCG only — i.e. the bare random8()/random16()/random()
     // path used by legacy effects. Modern effects draw from the separate
     // hs::random() mt19937(1337), which is what the simulator reproduces; see
@@ -72,10 +75,6 @@ public:
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
   #endif
-#else
-    FastLED.setCorrection(TypicalLEDStrip);
-    FastLED.setTemperature(Candle);
-#endif
   }
 
   /**
@@ -108,7 +107,6 @@ private:
     const unsigned long duration_ms = duration * 1000;
     effect_ = e;
     x_ = 0;
-#ifdef ARDUINO
     IntervalTimer timer;
     // sweep the width once per rotation
     timer.begin(show_col,
@@ -123,14 +121,6 @@ private:
       }
     }
     timer.end();
-#else
-    while (millis() - start < duration_ms) {
-      unsigned long t0 = micros();
-      effect_->draw_frame();
-      unsigned long dt = micros() - t0;
-      if (hs::debug) hs::log("ft %lu", dt);
-    }
-#endif
     effect_ = nullptr; // ISR detached above — unpublish; caller deletes e
   }
 
@@ -156,7 +146,7 @@ private:
     const bool slow = effect_->overrides_get_pixel();
     const Pixel *buf = slow ? nullptr : effect_->display_buffer();
 
-#if defined(ARDUINO) && defined(USE_DMA_LEDS)
+#if defined(USE_DMA_LEDS)
     // Direct Pixel16 → HD107S wire packing (no intermediate CRGB array).
     auto& frame = ledController_.backFrame();
     for (int y = 0; y < S / 2; ++y) {
@@ -196,7 +186,7 @@ private:
       *effect_; /**< Pointer to the currently running effect instance. */
   static int
       x_; /**< Current column index being displayed (virtual position). */
-#if defined(ARDUINO) && defined(USE_DMA_LEDS)
+#if defined(USE_DMA_LEDS)
   static DMALEDController<S> ledController_;
 #endif
 };
@@ -209,8 +199,10 @@ template <int S, int RPM> Effect *POVDisplay<S, RPM>::effect_ = nullptr;
 template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
 #endif
 
-#if defined(ARDUINO) && defined(USE_DMA_LEDS)
+#if defined(USE_DMA_LEDS)
 template <int S, int RPM>
 DMALEDController<S>
     POVDisplay<S, RPM>::ledController_{POVDisplay<S, RPM>::SPI_CLOCK_HZ};
 #endif
+
+#endif // ARDUINO
