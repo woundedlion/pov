@@ -29,7 +29,7 @@ inline const uint8_t *pixel(const Frame &f, int i) {
   return f.data() + 4 + i * 4;
 }
 
-// Restore the shared static correction state to unity (255 = scale ×255/256).
+// Restore the shared static correction state to unity (255 = exact ×1.0).
 inline void reset_correction() {
   Frame::setCorrection(255, 255, 255);
   Frame::setTemperature(255, 255, 255);
@@ -87,27 +87,22 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(g, 0u);
   HS_EXPECT_EQ(b, 0u);
 
-  // Unity factors are ×255/256 applied three times (corr·temp·brightness), so
-  // the pipeline is scale-down-only — output never exceeds input, never clamps.
-  auto unity = [](uint32_t v) {
-    v = (v * 255) >> 8;
-    v = (v * 255) >> 8;
-    v = (v * 255) >> 8;
-    return v;
-  };
+  // Unity factors (255) now resolve to ×256/256 = exact identity at every
+  // stage, so full brightness is preserved bit-for-bit (finding 229): a bare
+  // ×255/256 per stage would have lost ~1.2% compounded and capped the peak
+  // below 65535. Output never exceeds input, so the clamp is never reached.
   r = g = b = 65535;
   f.correct(r, g, b);
-  HS_EXPECT_EQ(r, unity(65535));
-  HS_EXPECT_LE(r, 65535u); // clamp invariant holds (and is never reached here)
-  HS_EXPECT_EQ(g, unity(65535));
-  HS_EXPECT_EQ(b, unity(65535));
+  HS_EXPECT_EQ(r, 65535u);
+  HS_EXPECT_EQ(g, 65535u);
+  HS_EXPECT_EQ(b, 65535u);
 
   // Brightness scales down monotonically; 0 zeroes the channel.
   Frame::setBrightness(128);
   uint32_t half = 65535;
   uint32_t dummy = 0;
   f.correct(half, dummy, dummy);
-  HS_EXPECT_LT(half, unity(65535)); // dimmer than full brightness
+  HS_EXPECT_LT(half, 65535u); // dimmer than full brightness
 
   Frame::setBrightness(0);
   uint32_t off = 65535;

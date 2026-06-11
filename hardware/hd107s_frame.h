@@ -195,31 +195,42 @@ public:
   // --- Static correction configuration (shared across all frames) -----------
 
   static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
-    tempR_ = r; tempG_ = g; tempB_ = b;
+    tempR_ = factor(r); tempG_ = factor(g); tempB_ = factor(b);
   }
 
   static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
-    corrR_ = r; corrG_ = g; corrB_ = b;
+    corrR_ = factor(r); corrG_ = factor(g); corrB_ = factor(b);
   }
 
   static void setBrightness(uint8_t brightness) {
-    brightness_ = brightness;
+    brightness_ = factor(brightness);
   }
 
 private:
   uint8_t buffer_[COMPOSITE_SIZE] __attribute__((aligned(32)));
 
-  // Shared correction state — 8-bit scale factors (255 = 1.0)
-  static uint8_t tempR_, tempG_, tempB_;
-  static uint8_t corrR_, corrG_, corrB_;
-  static uint8_t brightness_;
+  // Convert a public 8-bit scale factor (255 = ×1.0, 0 = off) into the internal
+  // multiplier used by correct()'s `(v * f) >> 8`. Storing factor+1 makes 255
+  // resolve to ×256/256 = exact unity (a bare `(v*255)>>8` loses ~0.4% per
+  // stage, ~1.2% compounded over the three stages — full brightness would be
+  // unreachable in a pipeline whose selling point is exact 16-bit fidelity).
+  // 0 is kept at 0 so it still zeroes the channel exactly (256-scale unity and
+  // 0-scale off both stay exact; the cost lives here, off the ISR hot path).
+  static constexpr uint16_t factor(uint8_t f) {
+    return f == 0 ? 0u : static_cast<uint16_t>(f) + 1u;
+  }
+
+  // Shared correction state — internal multipliers (256 = ×1.0, 0 = off).
+  static uint16_t tempR_, tempG_, tempB_;
+  static uint16_t corrR_, corrG_, corrB_;
+  static uint16_t brightness_;
 };
 
-// Static member definitions
-template <int N> uint8_t HD107SFrame<N>::tempR_ = 255;
-template <int N> uint8_t HD107SFrame<N>::tempG_ = 255;
-template <int N> uint8_t HD107SFrame<N>::tempB_ = 255;
-template <int N> uint8_t HD107SFrame<N>::corrR_ = 255;
-template <int N> uint8_t HD107SFrame<N>::corrG_ = 255;
-template <int N> uint8_t HD107SFrame<N>::corrB_ = 255;
-template <int N> uint8_t HD107SFrame<N>::brightness_ = 255;
+// Static member definitions (256 = unity; see factor()).
+template <int N> uint16_t HD107SFrame<N>::tempR_ = 256;
+template <int N> uint16_t HD107SFrame<N>::tempG_ = 256;
+template <int N> uint16_t HD107SFrame<N>::tempB_ = 256;
+template <int N> uint16_t HD107SFrame<N>::corrR_ = 256;
+template <int N> uint16_t HD107SFrame<N>::corrG_ = 256;
+template <int N> uint16_t HD107SFrame<N>::corrB_ = 256;
+template <int N> uint16_t HD107SFrame<N>::brightness_ = 256;
