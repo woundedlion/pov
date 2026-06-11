@@ -546,9 +546,17 @@ public:
     // outside [0,1] is an out-of-bounds write into the table. Gradient literals
     // are authored once at construction (cold), so trap always-on rather than
     // corrupt adjacent memory under NDEBUG on-device.
-    for (const auto &stop : points)
+    // Segments are only filled when end > start (see below), so a descending or
+    // unsorted list silently degenerates to fill-start abutting fill-end. The
+    // table is authored as "a sorted list of (position, color) stops", so trap a
+    // transposed pair at construction rather than rendering wrong.
+    float prevCheck = -1.0f;
+    for (const auto &stop : points) {
       HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f,
                "Gradient stop position out of [0,1]");
+      HS_CHECK(stop.first >= prevCheck, "Gradient stops must be sorted ascending");
+      prevCheck = stop.first;
+    }
 
     auto it = points.begin();
     float prevPos = it->first;

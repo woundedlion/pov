@@ -367,7 +367,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* Roughly 250 lines of maintained, documented, tested API with no consumers; two parallel modifier-composition mechanisms (virtual vs.
    *Suggested fix:* Pick one composition mechanism: drop AnimatedPalette and the virtual Modifier base (keeping the structural PaletteModifier concept), and either adopt or remove the unused wrappers.
 
-51. **Gradient constructor does not validate that stops are sorted ascending** — `core/color.h:537-603`
+51. ✅ **Gradient constructor does not validate that stops are sorted ascending** — `core/color.h:537-603` *(validated and fixed: the construction-time validation loop now also HS_CHECKs each stop position >= the previous one ("Gradient stops must be sorted ascending"), so a transposed pair traps at authoring time instead of silently degenerating to fill-start abutting fill-end. Native tests build clean and pass.)*
    The Gradient constructor (core/color.h:537-603) HS_CHECKs each stop position into [0,1] (lines 549-551) but never checks that stops are sorted ascending, even though README.md documents Gradient as interpolating "a sorted list of (position, color) stops". With a fully descending list, every `if (end > start)` segment test (line 572) fails, all segments are skipped, and the table degenerates to fill-start abutting fill-end.
    *Why it matters:* Gradient literals are authored by hand; a transposed pair of stops is an easy authoring mistake that currently renders silently wrong.
    *Suggested fix:* Inside the existing validation loop, also HS_CHECK that each stop position is >= the previous one ("Gradient stops must be sorted ascending").
