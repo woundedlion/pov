@@ -83,7 +83,11 @@ private:
 
   static inline float from_q8(uint8_t v) { return v * (1.0f / 255.0f); }
   static inline uint8_t to_q8(float v) {
-    return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * 255.0f);
+    // Round to nearest (+0.5f), not truncate: truncation loses every sub-LSB
+    // positive update while negatives still decrement, biasing the dynamics
+    // downward. clamp bounds the product to [0, 255], so +0.5f tops out at
+    // 255.5 -> 255 with no overflow.
+    return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
   }
 
   // Simulation tuning.

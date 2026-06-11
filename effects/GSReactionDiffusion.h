@@ -92,7 +92,12 @@ private:
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
   static inline float from_q16(uint16_t v) { return v * Q16_INV; }
   static inline uint16_t to_q16(float v) {
-    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE);
+    // Round to nearest (+0.5f), not truncate: plain truncation drops every
+    // sub-LSB positive update while still applying negative ones, biasing the
+    // RD dynamics downward (the diffusion dead-zone the default tuning had to
+    // compensate for). clamp keeps the product in [0, 65535], so +0.5f tops out
+    // at 65535.5 -> 65535 with no overflow.
+    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
   }
 
   void seed_clusters() {
