@@ -145,9 +145,11 @@ private:
     // 3. Flip front eagerly for the overlapping sprite
     carousel.set_front(back);
 
-    // Live-read the Duration slider per shape cycle.
+    // Live-read the Duration slider per shape cycle. Clamp fade to dur/2 so
+    // the fade-in/out windows never overlap and the respawn delay (dur - fade)
+    // stays >= dur/2 — a larger fade piles up sprites and per-frame respawns.
     int dur = static_cast<int>(params.duration);
-    int fade = static_cast<int>(params.fade);
+    int fade = std::min(static_cast<int>(params.fade), dur / 2);
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_mid, fade,
                                       ease_mid));
 
