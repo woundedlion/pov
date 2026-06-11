@@ -330,6 +330,37 @@ inline void test_clip_setters() {
   HS_EXPECT_EQ(fx.clip.margin, 3);
 }
 
+// PipelineRef copy must be a real copy, not a ref-to-a-ref. Copying from a
+// non-const lvalue must select the implicit copy ctor (member-wise: same ctx_),
+// not the templated converting ctor (which would wrap the source). Observable
+// without UB: re-point the source after copying; a true copy keeps routing to
+// the original target, a wrapper would follow the source to the new one.
+struct StubPipe {
+  int id;
+  int *last_hit;
+  void plot(Canvas &, float, float, const Pixel &, float, float) {
+    *last_hit = id;
+  }
+  void plot(Canvas &, const Vector &, const Pixel &, float, float) {
+    *last_hit = id;
+  }
+};
+
+inline void test_pipeline_ref_copy_is_independent_of_source() {
+  int hit = 0;
+  StubPipe s1{1, &hit}, s2{2, &hit};
+  PipelineRef a(s1);
+  PipelineRef b(a);    // copy from a non-const lvalue: must copy, not wrap
+  a = PipelineRef(s2); // re-point the source handle at a different pipeline
+  {
+    TestEffect fx(8, 4);
+    Canvas c(fx);
+    b.plot(c, 0.0f, 0.0f, Pixel(0, 0, 0), 0.0f, 0.0f);
+  }
+  // A genuine copy still routes to s1; a ref-to-ref wrapper follows a -> s2.
+  HS_EXPECT_EQ(hit, 1);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -348,6 +379,7 @@ inline int run_canvas_tests() {
   test_update_parameter_by_name();
   test_paramlist_fills_to_capacity();
   test_clip_setters();
+  test_pipeline_ref_copy_is_independent_of_source();
 
   return hs_test::end_module(scope);
 }

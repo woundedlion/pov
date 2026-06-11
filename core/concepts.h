@@ -107,7 +107,13 @@ class PipelineRef {
   void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float);
 
 public:
-  template <typename T> PipelineRef(T &t) : ctx_(std::addressof(t)) {
+  // Exclude PipelineRef itself (mirroring FunctionRef): without this, copying
+  // from a non-const lvalue binds this template (exact T& match) instead of the
+  // implicit copy ctor, wrapping a ref-to-a-ref — an extra plot() indirection
+  // per pixel and a dangling ctx_ if the source dies first.
+  template <typename T>
+    requires(!std::same_as<std::decay_t<T>, PipelineRef>)
+  PipelineRef(T &t) : ctx_(std::addressof(t)) {
     plot2d_ = [](void *ctx, Canvas &cv, float x, float y, const Pixel &c,
                  float age, float alpha) {
       static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
