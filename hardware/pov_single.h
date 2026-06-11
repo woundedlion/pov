@@ -108,9 +108,12 @@ private:
     effect_ = e;
     x_ = 0;
     IntervalTimer timer;
-    // sweep the width once per rotation
-    timer.begin(show_col,
-        static_cast<unsigned long>(1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f));
+    // sweep the width once per rotation; begin() returns false if no PIT
+    // channel is free — an unstarted timer means the column ISR never fires
+    // and the strip stays dark, so trap rather than render to a dead timer.
+    HS_CHECK(timer.begin(show_col,
+        static_cast<unsigned long>(1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f)),
+        "column IntervalTimer failed to start (no PIT channel)");
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       effect_->draw_frame();

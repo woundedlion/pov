@@ -237,7 +237,11 @@ public:
       attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN),
                       sync_edge_isr, RISING);
     }
-    timer_.begin(flywheel_isr, kColumnUs / float(kOversample));
+    // begin() returns false if all four PIT channels are already taken; an
+    // unstarted flywheel is a silent dead board (no timebase, no display), so
+    // trap at the violation site rather than spin forever in the loop below.
+    HS_CHECK(timer_.begin(flywheel_isr, kColumnUs / float(kOversample)),
+             "flywheel IntervalTimer failed to start (no PIT channel)");
 
     // ── Foreground: construct effects on request, render, report ────────
     Effect *cur = nullptr;
