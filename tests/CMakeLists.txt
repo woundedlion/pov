@@ -8,7 +8,7 @@
 #   cmake --build --preset tests
 #   ctest --preset tests
 #
-# build_tests.bat is a thin wrapper over exactly those three commands.
+# The `just test` recipe is a thin wrapper over exactly those three commands.
 #
 # The root CMakeLists.txt (a WASM/Emscripten build) does add_subdirectory(tests);
 # the unit tests are native-only, so we no-op under Emscripten to leave the WASM

@@ -222,7 +222,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color_luts.h)
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   └── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
-└── build_release.bat           WASM release build script
+└── justfile                    Task runner: `just build` / `build-debug` / `test` / `install`
 ```
 
 ### daydream (web simulator)
@@ -1862,7 +1862,7 @@ cmake --build  --preset wasm-release            # build holosphere_wasm.{js,wasm
 cmake --build  --preset wasm-release-install    # build + install into ../daydream/
 ```
 
-Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The Windows convenience wrappers `build_release.bat` / `build_debug.bat` simply forward to these presets.
+Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The `justfile` provides cross-platform shortcuts that forward to these presets: `just build` (release), `just build-debug`, and `just install` (release + install into `../daydream`).
 
 The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
 - Source paths: `targets/wasm/wasm.cpp`, `core/memory.cpp`, `core/reaction_graph.cpp`
@@ -1881,7 +1881,7 @@ The unit suite is a native (non-WASM) Clang build with asserts enabled, also dri
 ```bash
 cmake --preset tests          # configure (cmake/toolchain-native-clang.cmake)
 cmake --build --preset tests  # build the run_tests executable
-ctest --preset tests          # run the suite (or: build_tests.bat)
+ctest --preset tests          # run the suite (or: just test)
 ```
 
 The suite must use Clang — the engine relies on GCC/Clang `__attribute__` extensions MSVC rejects. The native toolchain file ([`cmake/toolchain-native-clang.cmake`](cmake/toolchain-native-clang.cmake)) locates Clang via `EMSDK` (or a sibling `../emsdk`) and, on Windows, transparently handles the resource compiler and `lld-link` so no Visual Studio Developer Prompt is required. Tests build with `-DHS_TEST_BUILD`, which only widens a couple of test-build buffer budgets (MSVC-STL `std::function` is larger than the device's `inplace_function`) — the firmware/WASM footprint is unchanged.

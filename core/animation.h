@@ -1847,7 +1847,8 @@ struct TimelineEvent {
   // (libc++ std::function, 32 B/callable). The native unit-test build uses
   // MSVC's std::function (64 B/callable), which inflates the same animation
   // types past 112 B; HS_TEST_BUILD widens the budget for that build only so
-  // the device's RAM footprint is unchanged. See build_tests.bat.
+  // the device's RAM footprint is unchanged. See the `tests` CMake preset
+  // (or `just test`).
 #ifdef HS_TEST_BUILD
   static constexpr size_t MAX_ANIM_SIZE = 256;
 #else
