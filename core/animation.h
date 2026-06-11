@@ -2046,117 +2046,38 @@ public:
 };
 
 /**
- * @brief Manages double-buffered MeshState transitions on a Timeline.
+ * @brief A double-buffered pair of persistent MeshState slots plus the
+ *        arena-compaction primitives effects need to swap between them.
  *
- * Encapsulates the boilerplate of:
- *   - Two persistent MeshState slots registered with PersistentTracker
- *   - Arena compaction when freeing the old slot
- *   - Scoped scratch generation via a user-provided callback
- *   - Crossfade Sprite scheduling with automatic front/back flip
+ * Holds two MeshState slots in `persistent_arena` and a front/back index.
+ * Effects own the transition policy themselves — they generate into a slot,
+ * schedule whatever animation they want (an opacity-crossfade `Sprite`, a
+ * geometric `MeshMorph`, ...), flip the front index, and reclaim the old
+ * slot's space. This class only provides the slot storage, index management,
+ * and the two compaction helpers (`compact`, `compact_keep_front`) that those
+ * policies share; it intentionally does not encode any single transition shape,
+ * because the real clients (IslamicStars, HankinSolids, MeshFeedback) diverge
+ * on animation type and on the per-slot side-band state they carry.
  *
  * Usage:
  *   MeshCarousel<W> carousel;  // in effect members
  *
- *   // In init():
- *   carousel.load([&](Arena& a, Arena& b) {
- *       return solids[0].generate(a, b);
- *   });
+ *   // Build the initial shape directly into the front slot:
+ *   carousel.current().clear();
+ *   MeshOps::compile(mesh, carousel.current(), persistent_arena);
  *
- *   // To transition:
- *   carousel.transition(timeline, generate_fn, draw_fn, duration, fade);
+ *   // To transition: generate into the back slot, schedule an animation,
+ *   // then flip and compact (see IslamicStars::spawn_shape for the pattern).
  *
- * @tparam W The display width (passed through to Timeline).
+ * @tparam W The display width (passed through to Timeline by clients).
  */
 template <int W> class MeshCarousel {
 public:
   MeshCarousel() {}
 
-  /**
-   * @brief Load the initial shape into the front slot (no crossfade).
-   * @param generate_fn Given two scratch arenas, returns a PolyMesh.
-   * @param classify If true, runs classify_faces_by_topology after loading.
-   */
-  void load(Fn<PolyMesh(Arena &, Arena &), 48> generate_fn,
-            bool classify = true) {
-    scratch_arena_a.reset();
-    scratch_arena_b.reset();
-    {
-      ScratchScope _a(scratch_arena_a);
-      ScratchScope _b(scratch_arena_b);
-      PolyMesh mesh = generate_fn(scratch_arena_a, scratch_arena_b);
-      slots_[front_].clear();
-      MeshOps::compile(mesh, slots_[front_], persistent_arena);
-    }
-    if (classify) {
-      scratch_arena_a.reset();
-      scratch_arena_b.reset();
-      MeshOps::classify_faces_by_topology(slots_[front_], scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-  }
-
-  /**
-   * @brief Trigger a crossfade transition to a new shape.
-   *
-   * Internally: flips the double-buffer, compacts the arena, generates the
-   * new shape into the back slot, then schedules an overlapping Sprite on
-   * the timeline. The front index flips eagerly so the draw lambda captures
-   * the correct slot, enabling overlapping sprites.
-   *
-   * @param timeline The timeline to schedule the crossfade onto.
-   * @param generate_fn Produces a PolyMesh into scratch arenas.
-   * @param draw_incoming Draws the new shape each frame: (Canvas&, float opacity).
-   * @param duration Total sprite duration in frames.
-   * @param fade_in Fade-in frames (0 = instant appear).
-   * @param fade_out Fade-out frames (0 = instant disappear).
-   * @param classify If true, runs classify_faces_by_topology.
-   * @param easing Easing function for fades.
-   */
-  template <typename GenerateFn, typename DrawIncomingFn>
-  void transition(Timeline<W> &timeline, GenerateFn generate_fn,
-                  DrawIncomingFn draw_incoming, int duration, int fade_in = 0,
-                  int fade_out = 0, bool classify = true,
-                  EasingFn easing = ease_mid) {
-    int back = 1 - front_;
-
-    // Free the old back slot and compact
-    {
-      slots_[back] = MeshState();
-      Persist<MeshState> p(slots_[front_], scratch_arena_b, persistent_arena);
-      persistent_arena.reset();
-    }
-
-    // Generate new shape into back slot via unified generate()
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      PolyMesh mesh = generate_fn(a, b);
-      slots_[back].clear();
-      MeshOps::compile(mesh, slots_[back], target);
-    });
-
-    if (classify) {
-      scratch_arena_a.reset();
-      scratch_arena_b.reset();
-      MeshOps::classify_faces_by_topology(slots_[back], scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-
-    // Flip front eagerly so the draw lambda captures the correct slot.
-    // This enables overlapping sprites where the next transition()
-    // is called before the current sprite finishes.
-    front_ = back;
-
-    // Schedule the crossfade sprite using the incoming draw function
-    timeline.add(0, Animation::Sprite(std::move(draw_incoming), duration,
-                                      fade_in, easing, fade_out, easing));
-  }
-
   /// The currently visible (front) mesh.
   const MeshState &current() const { return slots_[front_]; }
   MeshState &current() { return slots_[front_]; }
-
-  /// The incoming (back) mesh — valid during a transition.
-  const MeshState &incoming() const { return slots_[1 - front_]; }
-  MeshState &incoming() { return slots_[1 - front_]; }
 
   /// Direct slot access by index (for effects that need both).
   const MeshState &slot(int i) const { return slots_[i]; }
