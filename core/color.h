@@ -741,6 +741,8 @@ public:
       size = 5;
       break;
     }
+    for (int i = 0; i < size; ++i)
+      colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
   }
 
   /// Lightweight snapshot of just the 3 color keys (9 bytes).
@@ -783,7 +785,6 @@ public:
     float start = shape[seg];
     float end = shape[seg + 1];
     CPixel c1 = colors[seg];
-    CPixel c2 = colors[seg + 1];
 
     float dist = end - start;
     if (dist < 0.0001f)
@@ -791,8 +792,11 @@ public:
 
     float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
 
-    // Interpolate in OKLCH for perceptually uniform gradients
-    return Color4(lerp_oklch(c1, c2, p), 1.0f);
+    // Interpolate in OKLCH for perceptually uniform gradients. Stops are
+    // pre-converted in update_luts(), so this avoids the per-sample
+    // sRGB->OKLCH cost (load-bearing on GSReactionDiffusion's 4x-SSAA path).
+    return Color4(oklch_to_pixel(lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p)),
+                  1.0f);
   }
 
 private:
@@ -839,6 +843,11 @@ private:
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<CPixel, 5> colors;
+  // OKLCH forms of `colors`, cached by update_luts() so the per-sample get()
+  // hot path skips the sRGB->OKLCH conversion (6 powf + 6 cbrtf + 2 atan2f per
+  // stop). The stops change only on construction and in lerp(), both of which
+  // route through update_luts(), so this stays in sync.
+  std::array<OKLCH, 5> colors_oklch;
   int size = 0;
 
 public:

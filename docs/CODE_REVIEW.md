@@ -131,7 +131,8 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 
 ### Medium
 
-274. **`GenerativePalette::get` re-converts its stops sRGB→OKLCH on every call; a full-screen SSAA shader pays it per subsample** — `core/color.h:795`
+274. ✅ **`GenerativePalette::get` re-converts its stops sRGB→OKLCH on every call; a full-screen SSAA shader pays it per subsample** — `core/color.h:795`
+   **Fixed:** `update_luts()` now caches each stop's OKLCH form in a `colors_oklch` array, and `get()` interpolates those directly via `oklch_to_pixel(lerp_oklch(...))` — dropping the 6 `powf` + 6 `cbrtf` + 2 `atan2f` per sample (and per 256-entry bake). The cache populates on every path that mutates the stops (construction, `lerp()`), both of which route through `update_luts()`. The computation is bit-identical to the old `lerp_oklch(CPixel, CPixel, p)` (it just hoists the conversion), so no output changes; native suite green.
    `get()` ends in `lerp_oklch` on CPixel stops, costing ~6 `powf` + 6 `cbrtf` + 2 `atan2f` per sample, though the stops change only at construction and in `lerp()`/`update_luts()`. GSReactionDiffusion calls `palette.get(t)` inside its full-screen 4×-SSAA shader — up to ~166k transcendental-heavy conversions per frame at 288×144. Caching the stops' OKLCH forms where they change reduces `get()` to a lerp plus the exact-cube inverse, and speeds every 256-entry bake as well.
 
 275. **`StaticPalette::bind` traps a null source but silently stores null modifier pointers that `get()` dereferences per pixel** — `core/color.h:1221`
