@@ -26,3 +26,7 @@ CMakeUserPresets.json
 __vm/
 *.vcxproj.user
 .clangd
+
+# Python bytecode cache
+__pycache__/
+*.pyc

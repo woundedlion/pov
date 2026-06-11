@@ -1,7 +1,7 @@
 #pragma once
 #include "platform.h"
 // Generated LUTs for color conversion
-// Source: generate_luts.py (Precise sRGB Transfer Function)
+// Source: scripts/generate_luts.py (Precise sRGB Transfer Function)
 
 // sRGB (0-255) -> Linear (0-65535)
 inline const uint16_t srgb_to_linear_lut[256] PROGMEM = {
