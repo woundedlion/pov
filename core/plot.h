@@ -954,9 +954,24 @@ struct PlanarPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
+    // Far-field radii (> 1) need the planar chart centered on the opposite pole,
+    // exactly as Plot::Star does; without the flip the azimuthal projection bows
+    // the polygon edges (the deliberate far-field petal-bowing Flower exploits)
+    // instead of keeping them straight. radius <= 1 keeps the supplied chart
+    // unchanged.
+    Basis planar_basis = basis;
+    if (radius > 1.0f) {
+      Vector v = -basis.v;
+      Vector ref = (std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
+                                                                        : X_AXIS;
+      Vector u = cross(v, ref).normalized();
+      Vector w = cross(v, u).normalized();
+      planar_basis = {u, v, w};
+    }
+
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides + 2),
-                          .close_loop = true, .planar_basis = &basis},
+                          .close_loop = true, .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
