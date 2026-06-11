@@ -363,7 +363,13 @@ public:
             float max_life = 600.0f) {
     this->friction = friction;
     this->gravity = gravity;
-    this->max_life = max_life;
+    // Clamp before narrowing: a float outside [0, 65535] is UB on conversion to
+    // uint16_t. Particle::init's std::min sits on the far side of this store
+    // (its caller already passes the narrowed member), so the guard has to live
+    // here. Current callers are in range; this keeps a stray value from spawning
+    // particles with a garbage lifetime.
+    this->max_life =
+        static_cast<uint16_t>(std::min(std::max(max_life, 0.0f), 65535.0f));
     active_count = 0;
     pool.bind(arena, CAPACITY);
     // No is_bound() guard: bind() routes through Arena::allocate, which traps on

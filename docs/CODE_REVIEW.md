@@ -198,7 +198,7 @@ Sequential numbering continues from the prior audit (1–146); this audit contri
 
 **Animation & memory**
 
-194. **ParticleSystem::init narrows float max_life to uint16_t without a clamp; Particle::init's clamp is dead** — `core/animation.h:366`. Out-of-range float→unsigned conversion is UB; the existing clamp sits on the wrong side of the conversion. Current callers are in range.
+194. ✅ **ParticleSystem::init narrows float max_life to uint16_t without a clamp; Particle::init's clamp is dead** — `core/animation.h:366`. Out-of-range float→unsigned conversion is UB; the existing clamp sits on the wrong side of the conversion. Current callers are in range.
 195. **Path::collapse() materializes a ~12.3 KB StaticCircularBuffer temporary on the stack; Path itself is production-dead** — `core/animation.h:78`. At default RESOLUTION=1024 this alone exceeds the WASM build's 8 KB stack. Only tests instantiate Path<32>. Remove or rewrite collapse without the temporary.
 196. **Transition with repeat=true silently degenerates to a no-op after the first cycle** — `core/animation.h:630`. The rewind re-snapshots `from = mutant` after the mutant reached `to`, so subsequent cycles write a constant. Document the external-perturbation requirement or capture `from` once.
 197. **deep_tween skips trail frames with orientation history of length 1; global_t never reaches 1.0 for a collapsed newest frame** — `core/animation.h:2218`. A frame recorded with no sub-frame motion contributes no callback — a gap in trail age coverage and inconsistent normalization depending on whether motion occurred.
