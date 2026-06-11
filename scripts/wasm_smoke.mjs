@@ -128,6 +128,85 @@ try {
   engine.delete();
 }
 
+// ── MeshOps tooling bindings + spline exports ───────────────────────────────
+// The engine loop above drives only HolosphereEngine. The MeshOpsWrapper surface
+// (lazy tooling arenas, the clearToolingMemory generation trap, the Conway
+// operators, getVertices/getFaces/classifyFaces) and the exported spline
+// functions are never instantiated — exactly the embind-signature drift this
+// script exists to catch, and a drift there rides a green build straight to the
+// live solids.html / splines.html tools. Exercise them here.
+console.log('\nMeshOps + splines:');
+
+const MeshOps = Module.MeshOps;
+if (!MeshOps) {
+  fail('Module.MeshOps binding is missing');
+} else {
+  // Use a real registry name (anti-drift, like the resolution/effect rosters
+  // above) rather than hardcoding one.
+  const registry = MeshOps.getRegistry();
+  const solidName = registry && registry.length ? registry[0].name : null;
+  if (!solidName) {
+    fail('MeshOps.getRegistry() returned no solids');
+  } else {
+    // Unknown names must be rejected (null), not abort the module.
+    const bogus = MeshOps.fromSolidName('definitely_not_a_solid');
+    if (bogus) { fail('fromSolidName(unknown) should return null'); bogus.delete(); }
+
+    const solid = MeshOps.fromSolidName(solidName);
+    if (!solid) {
+      fail(`fromSolidName("${solidName}") returned null`);
+    } else {
+      const verts = solid.getVertices();
+      if (!verts || verts.length === 0 || verts.length % 3 !== 0) {
+        fail(`${solidName} getVertices(): ${verts && verts.length} floats (want nonzero multiple of 3)`);
+      }
+      if (solid.getFaces().length === 0) fail(`${solidName} getFaces() returned no faces`);
+
+      // Conway operator path: dual() runs apply()/finalize into the tooling arena.
+      const dual = solid.dual();
+      if (!dual) {
+        fail(`${solidName}.dual() returned null`);
+      } else {
+        if (dual.getVertices().length === 0) fail('dual getVertices() empty');
+        if (dual.classifyFaces().length === 0) fail('dual classifyFaces() empty');
+        dual.delete();
+      }
+      solid.delete();
+    }
+
+    // Tooling arena high-water marks must stay within capacity after the ops.
+    const tm = MeshOps.getArenaMetrics();
+    for (const region of Object.keys(tm)) {
+      const { high_water_mark: hwm, capacity } = tm[region];
+      if (hwm > capacity) fail(`MeshOps ${region} high-water mark ${hwm} exceeds capacity ${capacity}`);
+    }
+
+    // The clearToolingMemory generation trap: the wipe reclaims the tooling
+    // arenas; a fresh build afterwards must still succeed.
+    MeshOps.clearToolingMemory();
+    const post = MeshOps.fromSolidName(solidName);
+    if (!post) {
+      fail('fromSolidName after clearToolingMemory() returned null');
+    } else {
+      if (post.getVertices().length === 0) fail('post-wipe getVertices() empty');
+      post.delete();
+    }
+    console.log(`  MeshOps: ${solidName} + dual, classifyFaces, clearToolingMemory OK`);
+  }
+}
+
+// Spline exports used by splines.html — assert finite {x,y,z} / control points.
+const isVec = (v) => v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+const sf = Module.spline_cubic_fast(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
+if (!isVec(sf)) fail(`spline_cubic_fast returned non-finite ${JSON.stringify(sf)}`);
+const ss = Module.spline_cubic_slerp(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
+if (!isVec(ss)) fail(`spline_cubic_slerp returned non-finite ${JSON.stringify(ss)}`);
+const tg = Module.spline_catmull_rom_tangents(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
+if (!tg || !isVec(tg.cp1) || !isVec(tg.cp2)) {
+  fail(`spline_catmull_rom_tangents returned malformed ${JSON.stringify(tg)}`);
+}
+console.log('  splines: cubic_fast, cubic_slerp, catmull_rom_tangents OK');
+
 if (failures > 0) {
   console.error(`\nwasm_smoke: ${failures} failure(s)`);
   process.exit(1);
