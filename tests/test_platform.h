@@ -125,6 +125,23 @@ inline void test_map_degenerate_range() {
   HS_EXPECT_EQ(map(5, 0, 10, 0, 100), 50);    // normal mapping still correct
 }
 
+// random()/random8() must not divide by zero on a degenerate range. The device
+// (Arduino random / FastLED random8) returns the floor there; the host now
+// matches instead of SIGFPE-ing on the modulo.
+inline void test_random_degenerate_range() {
+  HS_EXPECT_EQ(random(0), 0);      // Arduino random(0) -> 0
+  HS_EXPECT_EQ(random(-3), 0);     // non-positive bound -> 0
+  HS_EXPECT_EQ(random(5, 5), 5);   // empty range -> min
+  HS_EXPECT_EQ(random(9, 4), 9);   // inverted range -> min
+  HS_EXPECT_EQ(random8(0), 0);     // FastLED random8(0) -> 0
+  // A normal range still falls inside [min, max).
+  for (int i = 0; i < 64; ++i) {
+    int v = random(3, 7);
+    HS_EXPECT_GE(v, 3);
+    HS_EXPECT_LE(v, 6);
+  }
+}
+
 // beatsin8 oscillates within [lowest, highest] (scale8 fit), is deterministic
 // under the injected clock, applies phase_offset (the old mock dropped it), and
 // reproduces FastLED's LUT phase at known times.
@@ -197,6 +214,7 @@ inline int run_platform_tests() {
   test_scale_golden();
   test_map8_fastled_semantics();
   test_map_degenerate_range();
+  test_random_degenerate_range();
   test_beatsin8_faithful();
   test_beatsin16_golden();
   test_serial_printf_formats_varargs();

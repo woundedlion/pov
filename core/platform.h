@@ -372,8 +372,18 @@ enum ColorOrder { RGB };
 // effects) must resolve identically on host and device. Unlike the former
 // global `lerp` (which had no Arduino counterpart and so lived only here), these
 // are a faithful mock of an existing platform API, not host-only pollution.
-inline int random(int max) { return hs::random()() % max; }
-inline int random(int min, int max) { return min + (hs::random()() % (max - min)); }
+// Degenerate-range guards mirror map() below: Arduino's random() returns 0 for
+// random(0) and `min` for random(min,max) when min>=max, so the device never
+// divides by zero. The host modulo would SIGFPE on a zero divisor — match the
+// device instead of crashing only in the simulator.
+inline int random(int max) {
+  if (max <= 0) return 0;
+  return hs::random()() % max;
+}
+inline int random(int min, int max) {
+  if (max <= min) return min;
+  return min + (hs::random()() % (max - min));
+}
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   // Arduino's map() divides by (in_max - in_min) with no guard. A degenerate
   // input range raises SIGFPE on the host (x86 integer div-by-zero) while the
@@ -417,7 +427,12 @@ inline SerialMock Serial;
 // legacy effects; modern effects use hs::rand_* (see the determinism contract
 // on the ARDUINO branch's hs::random()).
 inline uint8_t random8() { return hs::random()() % 256; }
-inline uint8_t random8(uint8_t top) { return hs::random()() % top; }
+// FastLED's random8(lim) is a scaled multiply ((r*lim)>>8), so random8(0)==0 on
+// the device; the host modulo would SIGFPE. Guard to match (not crash).
+inline uint8_t random8(uint8_t top) {
+  if (top == 0) return 0;
+  return hs::random()() % top;
+}
 inline uint16_t random16() { return hs::random()() % 65536; }
 inline void random16_add_entropy(uint16_t) {}
 
