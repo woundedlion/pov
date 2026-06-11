@@ -35,7 +35,7 @@ namespace hs_test {
 namespace solids_tests {
 
 // Generation budget. The complex Islamic-pattern generators chain many Conway
-// operators (relax/ambo/bitruncate/hankin/...) and the WASM tooling path uses
+// operators (relax/ambo/bevel/hankin/...) and the WASM tooling path uses
 // 4 MB scratch arenas for exactly these, resetting them before each build. We
 // mirror that: two large scratch arenas (reset per solid) plus a geometry arena
 // that holds the finalized result. A second geometry arena lets us build the

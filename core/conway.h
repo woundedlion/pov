@@ -304,7 +304,7 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
 // applied for uniformity.
 //
 // COMPOSITION POLARITY (load-bearing — do not "fix" for contract uniformity):
-// Composed operators (bitruncate, gyro, meta, needle, zip, bevel) are written
+// Composed operators (gyro, meta, needle, zip, bevel) are written
 // as op2(op1(mesh, target, temp), temp, target) so they reuse the SAME ping-pong
 // internally and need NO extra arena: op1 writes to `target`, then op2 reads
 // from `target` and writes to the swapped side. The consequence is that a
@@ -313,8 +313,8 @@ inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
 // op (solids.h), which assumes the primitive polarity, so the single op
 // FOLLOWING a composed op runs with its input and output on the same arena
 // (no asymmetric split) for that one step before alternation self-restores. In
-// the shipping recipes this happens once — the relax() after bitruncate() in
-// IslamicStarPatterns::cube_relax_bitruncate33_relax_hk68_expand5 — and is
+// the shipping recipes this happens once — the relax() after bevel() in
+// IslamicStarPatterns::cube_relax_bevel33_relax_hk68_expand5 — and is
 // measured to fit the 16/32 KB pair. Making SolidBuilder skip the swap after a
 // composed op would restore healthy alternation but RELOCATES every downstream
 // allocation across the asymmetric arenas, so it must be re-measured against the
@@ -707,17 +707,6 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
   }
   normalize(out_mesh);
   return out_mesh;
-}
-
-/**
- * @brief Bitruncate operator: Truncate the rectified mesh.
- * @note Composition (truncate of ambo): returns its output in `temp`, not
- *       `target` — see COMPOSITION POLARITY at the top of this operator block.
- */
-template <typename MeshT>
-FLASHMEM static PolyMesh bitruncate(const MeshT &mesh, Arena &target,
-                                    Arena &temp, float t = 1.0f / 3.0f) {
-  return truncate(ambo(mesh, target, temp), temp, target, t);
 }
 
 /**

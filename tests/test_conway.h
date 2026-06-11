@@ -211,7 +211,6 @@ inline void check_euler_for_seed() {
   HS_EULER_OP(truncate(seed, target, temp));
   HS_EULER_OP(expand(seed, target, temp));
   HS_EULER_OP(chamfer(seed, target, temp));
-  HS_EULER_OP(bitruncate(seed, target, temp));
   HS_EULER_OP(snub(seed, target, temp));
   HS_EULER_OP(gyro(seed, target, temp));
   HS_EULER_OP(meta(seed, target, temp));

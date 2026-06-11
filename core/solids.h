@@ -195,7 +195,7 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
 ///
 /// Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_) — a single
 /// swap per call that assumes the PRIMITIVE polarity (output lands in `target`).
-/// The composed ops (bitruncate, gyro, meta, needle, zip, bevel) return their
+/// The composed ops (gyro, meta, needle, zip, bevel) return their
 /// output in `temp` instead (see COMPOSITION POLARITY in conway.h), so the op
 /// immediately following a composed op runs with its input and output on the
 /// same arena — no asymmetric split for that one step — before alternation
@@ -248,11 +248,6 @@ public:
   }
   SolidBuilder &gyro() {
     mesh_ = MeshOps::gyro(mesh_, *a_, *b_);
-    std::swap(a_, b_);
-    return *this;
-  }
-  SolidBuilder &bitruncate(float t = 1.0f / 3.0f) {
-    mesh_ = MeshOps::bitruncate(mesh_, *a_, *b_, t);
     std::swap(a_, b_);
     return *this;
   }
@@ -337,7 +332,7 @@ FLASHMEM static PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
 }
 FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
-      .bitruncate(1.0f / (2.0f + SQRT2))
+      .bevel(1.0f / (2.0f + SQRT2))
       .relax(50)
       .build();
 }
@@ -364,7 +359,7 @@ FLASHMEM static PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
 }
 FLASHMEM static PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
-      .bitruncate(1.0f / (2.0f + PHI))
+      .bevel(1.0f / (2.0f + PHI))
       .relax(50)
       .build();
 }
@@ -427,18 +422,18 @@ using namespace Archimedean;
 static constexpr float D2R = PI_F / 180.0f;
 
 FLASHMEM static PolyMesh
-cube_relax_bitruncate33_relax_hk68_expand5(Arena &a, Arena &b) {
+cube_relax_bevel33_relax_hk68_expand5(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
       .relax(100)
-      .bitruncate(0.33f)
+      .bevel(0.33f)
       .relax(100)
       .hankin(67.5f * D2R)
       .expand(0.5f)
       .build();
 }
-FLASHMEM static PolyMesh icosahedron_hk59_bitruncate033(Arena &a, Arena &b) {
+FLASHMEM static PolyMesh icosahedron_hk59_bevel033(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b)
-      .bitruncate(0.33f)
+      .bevel(0.33f)
       .hankin(59.0f * D2R)
       .build();
 }
@@ -578,17 +573,17 @@ FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
       .build();
 }
 FLASHMEM static PolyMesh
-truncatedIcosidodecahedron_bitruncate5_relax_hk77(Arena &a, Arena &b) {
+truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
   return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b)
-      .bitruncate(0.5f)
+      .bevel(0.5f)
       .relax(100)
       .hankin(77.0f * D2R)
       .build();
 }
-FLASHMEM static PolyMesh dodecahedron_bitruncate2_relax_gyro(Arena &a,
+FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a,
                                                                     Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
-      .bitruncate(0.2f)
+      .bevel(0.2f)
       .relax(100)
       .gyro()
       .build();
@@ -603,10 +598,10 @@ truncatedIcosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
       .build();
 }
 FLASHMEM static PolyMesh
-dodecahedron_ambo_bitruncate33_relax_hk66(Arena &a, Arena &b) {
+dodecahedron_ambo_bevel33_relax_hk66(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .ambo()
-      .bitruncate(0.33f)
+      .bevel(0.33f)
       .relax(100)
       .hankin(66.0f * D2R)
       .build();
@@ -674,23 +669,23 @@ inline constexpr Entry catalan_registry[] = {
 
 // Islamic Star Patterns
 inline constexpr Entry islamic_registry[] = {
-    {"cube_relax_bitruncate33_relax_hk68_expand5",
+    {"cube_relax_bevel33_relax_hk68_expand5",
      IslamicStarPatterns::
-         cube_relax_bitruncate33_relax_hk68_expand5,
+         cube_relax_bevel33_relax_hk68_expand5,
      Category::Complex},
-    {"dodecahedron_ambo_bitruncate33_relax_hk66",
-     IslamicStarPatterns::dodecahedron_ambo_bitruncate33_relax_hk66,
+    {"dodecahedron_ambo_bevel33_relax_hk66",
+     IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66,
      Category::Complex},
     {"truncatedIcosahedron_ambo_relax_truncate33_hk64",
      IslamicStarPatterns::
          truncatedIcosahedron_ambo_relax_truncate33_hk64,
      Category::Complex},
-    {"dodecahedron_bitruncate2_relax_gyro",
-     IslamicStarPatterns::dodecahedron_bitruncate2_relax_gyro,
+    {"dodecahedron_bevel2_relax_gyro",
+     IslamicStarPatterns::dodecahedron_bevel2_relax_gyro,
      Category::Complex},
-    {"truncatedIcosidodecahedron_bitruncate5_relax_hk77",
+    {"truncatedIcosidodecahedron_bevel5_relax_hk77",
      IslamicStarPatterns::
-         truncatedIcosidodecahedron_bitruncate5_relax_hk77,
+         truncatedIcosidodecahedron_bevel5_relax_hk77,
      Category::Complex},
     {"truncatedOctahedron_gyro_kis_hk17",
      IslamicStarPatterns::truncatedOctahedron_gyro_kis_hk17, Category::Complex},
@@ -708,8 +703,8 @@ inline constexpr Entry islamic_registry[] = {
     {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk43",
      IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk43,
      Category::Complex},
-    {"icosahedron_hk59_bitruncate033",
-     IslamicStarPatterns::icosahedron_hk59_bitruncate033, Category::Complex},
+    {"icosahedron_hk59_bevel033",
+     IslamicStarPatterns::icosahedron_hk59_bevel033, Category::Complex},
     {"octahedron_hk17_ambo_hk73",
      IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,

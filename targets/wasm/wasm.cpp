@@ -600,7 +600,6 @@ struct MeshOpsWrapper {
   MESHOP_1(truncate, float)
   MESHOP_1(expand, float)
   MESHOP_1(chamfer, float)
-  MESHOP_1(bitruncate, float)
   MESHOP_1(bevel, float)
   MESHOP_1(relax, int)
 
@@ -729,7 +728,6 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("dual", &MeshOpsWrapper::dual)
       .function("truncate", &MeshOpsWrapper::truncate)
       .function("chamfer", &MeshOpsWrapper::chamfer)
-      .function("bitruncate", &MeshOpsWrapper::bitruncate)
       .function("expand", &MeshOpsWrapper::expand)
       .function("hankin", &MeshOpsWrapper::hankin)
       .function("meta", &MeshOpsWrapper::meta)
