@@ -12,7 +12,7 @@
 #include "color.h"
 #include "memory.h" // for ArenaVector (Fragments); geometry must not depend on mesh.h
 #include "static_circular_buffer.h" // for StaticCircularBuffer (Dots/Points)
-#include "waves.h"
+#include "util.h" // for wrap() (previously pulled in transitively via waves.h)
 // transformers.h removed to break cycle
 
 /**

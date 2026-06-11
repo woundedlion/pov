@@ -206,7 +206,7 @@ Sequential numbering continues from the prior audits (1–268); this audit contr
 295. ✅ **Always-on `HS_CHECK` plus a lazy-init branch inside per-pixel `pixel_to_vector` contradicts the cold-path-only doctrine** — `core/geometry.h:312`. The function is called per pixel by the full-screen rasterizer and per fragment by the pipeline's 2D→3D lift; the prescribed per-draw cold trap already exists (`Scan::check_lut_domain`). Demote to a stripped assert backed by the existing cold-site guard. (Refines prior finding 177's fix choice.)
 296. ✅ **`iterator`/`const_iterator` are accidentally private nested types** — `core/static_circular_buffer.h:27`. The forward declarations sit before `public:`, so `typename StaticCircularBuffer<T,N>::iterator` fails to compile despite the class's otherwise full STL conformance. Two public usings fix it.
 297. ✅ **`construct_in_place` lacks `std::launder` for general T; `emplace_*` bump count/tail before a potentially-throwing constructor** — `core/static_circular_buffer.h:196`. Latent UB for non-transparently-replaceable types (current payloads are fine) and an exception-window count desync (unreachable in the -fno-exceptions device build).
-298. **`geometry.h` includes `waves.h` solely to get `util.h`'s `wrap()` transitively** — `core/geometry.h:14`. Include-what-you-use violation; include `util.h` directly.
+298. ✅ **`geometry.h` includes `waves.h` solely to get `util.h`'s `wrap()` transitively** — `core/geometry.h:14`. Include-what-you-use violation; include `util.h` directly.
 
 **Core: color**
 
