@@ -162,6 +162,16 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
   X(96, 20)                                                                     \
   X(288, 144)
 
+// Pin every resolution row to the MAX_W×MAX_H pixel-buffer bound. The ctor
+// pre-sizes pixelBuffer to MAX_W*MAX_H*3 and deliberately never resizes it, so
+// a row exceeding either dimension would overflow the buffer at the first
+// drawFrame. Reject it at compile time instead (mirrors the MAX_PARAMS guard).
+#define X(W, H)                                                                 \
+  static_assert((W) <= MAX_W && (H) <= MAX_H,                                   \
+                "HS_WASM_RESOLUTIONS row exceeds the MAX_W×MAX_H pixel buffer");
+HS_WASM_RESOLUTIONS(X)
+#undef X
+
 static bool wasm_resolution_supported(int w, int h) {
 #define X(W, H)                                                                 \
   if (w == (W) && h == (H))                                                     \
