@@ -174,23 +174,37 @@ private:
     }
 
     // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
-    auto shader = [&](const Vector &v) -> Color4 {
+    // Hoist the per-pixel cubemap lookup into the vertex shader (run once at the
+    // pixel center) and keep the per-sub-sample refine + interpolation in the
+    // fragment shader — the same SSAA split BZ uses, sparing ~3 redundant
+    // CubemapLUT lookups per pixel under 4× SSAA. The pixel-center seed only
+    // feeds refine_nearest_node, which re-finds the genuine nearest from the
+    // sub-sample position, so the rendered result is unchanged.
+    auto vertex_shader = [&](Fragment &frag) {
+      Vector rv = orientation.unorient(frag.pos);
+      frag.v0 = static_cast<float>(cube_lut.lookup(rv));
+    };
+
+    auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       Vector rv = orientation.unorient(v);
       // Refine the cubemap seed to the genuine nearest node before centering the
       // kernel — the CubemapLUT quantizes `rv` to a face cell and can return a
       // not-quite-nearest seed, the quantization bias BZ's refine step removes
       // (finding 217). Reuses the shared ReactionDiffusionBase refinement.
-      int nearest = refine_nearest_node(rv, nodes, cube_lut.lookup(rv));
+      int nearest =
+          refine_nearest_node(rv, nodes, static_cast<int>(frag.v0));
       float b = interpolate_b(rv, nearest, nodes);
 
-      if (b < B_CULL_THRESHOLD)
-        return Color4(Pixel(0, 0, 0), 0.0f);
+      if (b < B_CULL_THRESHOLD) {
+        frag.color = Color4(Pixel(0, 0, 0), 0.0f);
+        return;
+      }
 
       float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
-      return palette.get(t);
+      frag.color = palette.get(t);
     };
 
-    Scan::Shader::draw<W, H, 4>(canvas, shader);
+    Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
   }
 
   struct {
