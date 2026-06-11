@@ -49,7 +49,14 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     spawn_sprite(0);
-    timeline.add(0, Animation::Driver(t, 0.01f, false));
+    // Accumulate the orbit phase by integrating the live Speed slider each frame
+    // (wrapped to [0,1)) rather than scaling an ever-growing frame counter by
+    // speed. The old `angle = t * speed` form retroactively rescaled all elapsed
+    // time whenever Speed changed, teleporting every orbit; integrating speed
+    // makes a slider/preset change alter the rate going forward only, and the
+    // wrap keeps fast trig in precise range over multi-day runs.
+    timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
+                                      /*wrap=*/true));
   }
 
   bool show_bg() const override { return false; }
@@ -62,7 +69,8 @@ public:
   Params params;
 
 private:
-  float t = 0;
+  // Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below.
+  float orbit_phase = 0.0f;
   int last_preset_idx_ = -1; // last preset whose values were copied into params
 
   // Per-vertex phase increment (radians) for the orbit stagger: vertex i leads
@@ -211,14 +219,16 @@ private:
                              const Params &p, float angle_offset) {
     size_t count = base.vertices.size();
     float r = p.offset_radius;
-    float speed = p.offset_speed;
 
     for (size_t i = 0; i < count; ++i) {
       const Vector &v = base.vertices[i];
       const auto &tan = tangents[i];
 
+      // orbit_phase already integrates Speed (see the Driver in init()); it is a
+      // fraction of a turn, so scale to radians here. Per-vertex stagger and the
+      // copy's angle_offset spread the orbits in phase.
       float phase = i * VERTEX_PHASE_STAGGER;
-      float angle = t * speed * 2 * PI_F + phase + angle_offset;
+      float angle = orbit_phase * 2 * PI_F + phase + angle_offset;
 
       float cosA = fast_cosf(angle);
       float sinA = fast_sinf(angle);
