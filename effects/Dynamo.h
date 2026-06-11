@@ -139,6 +139,19 @@ public:
     // even if that invariant were ever violated. (Do NOT "fix" the boundary
     // buffer to MAX_PALETTES — that removes this second guard and *introduces*
     // the OOB.)
+    //
+    // Ordering assumption: this scan treats palette_boundaries as monotonically
+    // non-decreasing in index — each color_wipe() push_fronts a fresh boundary
+    // at 0 (index 0 = newest) and animates it up to PI, so in steady state the
+    // newest wipe at the front has the smallest angle and older wipes trail with
+    // larger ones. The "a < lower_edge -> palette[i]" short-circuit and the
+    // next_boundary_lower_edge gap test both rely on that order. A live Wipe-Dur
+    // change between overlapping wipes can break it: a newer (lower-index) wipe
+    // given a shorter duration advances faster and its boundary overtakes an
+    // older one's, transiently inverting the band order in the overlap region.
+    // This is purely cosmetic and self-heals as the wipes complete and drain
+    // (reap_completed_wipes); every index access stays in bounds regardless, per
+    // the size invariant above.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
