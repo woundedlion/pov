@@ -464,11 +464,15 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      static hs::CycleCounter hs_ctr_face_setup("scan_face_setup");
-      auto fs0 = HS_OS_CYCLES();
-      SDF::Face shape(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
-      hs_ctr_face_setup.cycles += (HS_OS_CYCLES() - fs0);
-      hs_ctr_face_setup.count++;
+      // Profile the Face construction through HS_PROFILE — the shared primitive
+      // every other site uses — rather than a hand-rolled CycleCounter. The IIFE
+      // lets the CycleScope close right after the prvalue Face is constructed in
+      // place (guaranteed elision), so the measurement still covers construction
+      // alone, not the rasterize below.
+      SDF::Face shape = [&] {
+        HS_PROFILE(scan_face_setup);
+        return SDF::Face(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
+      }();
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
         f_in.v2 = static_cast<float>(i);
