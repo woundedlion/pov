@@ -1,45 +1,19 @@
 # Phantasm Synchronization Architecture — Design Spec
 
-*Status: IMPLEMENTED. The protocol core lives in `hardware/pov_sync.h` (pure,
-host-tested — flywheel timebase, symbol alphabet, edge mailbox, acceptance
-gate, beacon codec, content tracker, emitter); the device shell is
-`hardware/pov_segmented.h` (two ISRs, pixel packing, effect handoff);
-`targets/Phantasm/Phantasm.ino` supplies the roster factory table; the §12
-test plan is `tests/test_pov_sync.h` (pure units plus a 4-board simulator
-with crystal offsets, single-latch mask windows, EMI, symbol drops, missed
-epochs, and mid-show reboots). Six implementation refinements on top of this
-document:*
-
-1. *Flywheel wake-ups are oversampled 8× per column. The IntervalTimer grid
-   is not phase-locked to the flywheel, so at 1 wake/column both the rendered
-   column and the master's first emitted pulse would lag the true instant by
-   up to a full, beat-drifting column; ⅛-column wakes bound both, keeping the
-   §5.2 self-censor budget meaningful.*
-2. *A join grid (revolution ≡ 0 mod 4 within the effect): boards take a
-   constructed effect live only at grid boundaries, so at boot all four go
-   live at the SAME crossing with frame counters aligned, instead of master
-   leading by however long downstream identity took. 4 divides 64, so a
-   beacon's mod-64 revolution count lands on the same grid.*
-3. *Suspect-burst rejections: in LOCKED, a lone valid-count burst far from
-   every predicted boundary is held until the beacon interdigit window
-   passes — counted as a §5.3 gate rejection only if no data train follows.
-   This keeps the ACQUIRE fallback reachable for a board with a corrupted
-   timebase (whose real boundary symbols all land "far") without beacon
-   first-digits poisoning the rejection counter. Caught by the host
-   simulator: pure positional demarcation routed a lost board's good symbols
-   to the beacon parser forever — exactly the gate deadlock §5.3 forbids.*
-4. *Beacons are emitted on revolution 1 of each period (never rev 0, so a
-   just-powered downstream board meets clean boundary symbols before any
-   data train) and on the first revolutions after a commit; they are
-   suppressed during the commit window, where they would broadcast the
-   outgoing index to joiners.*
-5. *A joining board starts its effect at frame 0: there is no frame
-   fast-forward, so §6.4's `t = 2·rev + parity` join is realized only at the
-   grid-aligned boot; a mid-show rejoiner carries a `t` offset until the
-   next epoch — the inherent §6.2/§6.3 bound.*
-6. *`hs::random()` is reseeded (1337) at every effect construction, so all
-   boards render identical streams regardless of boot/join history — and the
-   device matches the simulator's per-effect determinism contract.*
+*Status: IMPLEMENTED, and this document describes the implementation. The
+protocol core lives in `hardware/pov_sync.h` (pure, host-tested — flywheel
+timebase, symbol alphabet, edge mailbox, acceptance gate, beacon codec,
+content tracker, emitter); the device shell is `hardware/pov_segmented.h`
+(two ISRs, pixel packing, effect handoff); `targets/Phantasm/Phantasm.ino`
+supplies the roster factory table; the §12 test plan is
+`tests/test_pov_sync.h` (pure units plus a 4-board simulator with crystal
+offsets, single-latch mask windows, EMI, symbol drops, missed epochs, and
+mid-show reboots). Refinements that emerged during implementation are folded
+into their sections: oversampled wake-ups (§4.1), the suspect-burst
+demarcation guard (§5.3), the join grid and per-effect RNG reseed (§6.1,
+§6.5), the beacon schedule (§6.4), and the effect-handoff protocol (§8.5).
+One validation item remains open on hardware: measuring the worst-case
+mask window M on the shipped LED path (§11.3).*
 
 *Original status notes: this is a full-stack redesign of Phantasm's
 cross-board timing, of which code-review finding #1 (the
@@ -59,7 +33,7 @@ spurious flip offsets `t` until the next epoch (§8.4, §6.1); (iii) the §9
 **master-dead** row is graceful precession, not a watchdog trap, now that
 downstream owns its columns; (iv) the epoch **absolute index** is promoted toward
 baseline (trap, don't assume index 0) (§6.3); (v) the non-preemption invariant is
-a **downgrade** of today's same-vector guarantee (§8.2). Plus a best-possible
+a **downgrade** of the old design's same-vector guarantee (§8.2). Plus a best-possible
 caveat: this is the best *open-loop* design; a rotor index would supersede it
 (§13).*
 
@@ -76,7 +50,7 @@ cannot poison downstream phase; (d) the flywheel gains a **rebase rule and
 impossible rather than handled; (e) the epoch becomes a **deadline-scheduled
 commit** (§6.1) — "atomic re-init" hid a multi-ms foreground operation with
 per-board skew; (f) a mid-revolution **index beacon** (§6.4) lets a rebooted
-board rejoin at the correct `(effect, t)` within ~2 s instead of trapping or
+board rejoin at the correct effect within ~2 s instead of trapping or
 staying wrong for 120 s. Open decisions §11.2/3/4/5/7 are resolved. The sync
 wire itself is assumed physically reliable — a hard, soldered line by
 construction — so wire-dead is **accepted as out of scope**, not designed for.*
@@ -95,7 +69,7 @@ The insight driving the redesign: aligning the *display* (column + flip) is
 necessary but **not sufficient** for a coherent image. Each board renders its
 own copy of the effect in a free-running loop, so two boards can flip in perfect
 time yet show different animation frames or even different effects. Coherence
-requires a third, content layer that the current design does not synchronize.
+requires a third, content layer that the previous design did not synchronize.
 
 The second insight (this revision): once each board runs a disciplined local
 flywheel, the continuous per-column clock wire is **redundant**. A flywheel that
@@ -123,8 +97,9 @@ Hardware constants (`targets/Phantasm/Phantasm.ino`, `core/platform.h`):
 | Effect duration     | 120 s    | = 960 revolutions                  |
 
 **Rotor model — open-loop (load-bearing).** There is no hall/index/encoder
-input anywhere; both drivers synthesize the column clock at a *fixed* frequency
-from nominal RPM (`pov_single.h:9`, `pov_segmented.h:259`). Therefore:
+input anywhere; both drivers synthesize column timing at a *fixed* frequency
+from nominal RPM (`pov_single.h`'s IntervalTimer period; the nominal
+`cycles_per_half_rev` timebase constant in `pov_sync.h`). Therefore:
 
 - "Sync" means *boards agreeing with master*, never *locking to the physical
   rotor*. Master's flywheel **is** the reference by definition.
@@ -135,12 +110,15 @@ from nominal RPM (`pov_single.h:9`, `pov_segmented.h:259`). Therefore:
 
 **Content clock — frame-counter, not wall-clock (load-bearing, good news).**
 On-device animation advances off a per-frame counter `AnimationBase::t`,
-incremented once per `step()` (`animation.h:160,226`), *not* `millis()`. So
-content sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
-deterministic RNG — and (c) is already done. The remaining gap is that the
-effect **epoch** (playlist advance + `t` reset) is driven by per-board
-`millis()` (`Phantasm.ino:47-53` → `run()`'s `while (millis()-start<…)`), so
-boards change effects at different real moments.
+incremented once per `step()` (`animation.h`), *not* `millis()`. So content
+sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
+deterministic RNG. For (c) the driver reseeds `hs::random()` (1337) at every
+effect construction, so all boards render identical streams regardless of
+boot/join history — the same per-effect determinism contract the simulator
+uses. (a) is the gap the previous design left open: the effect **epoch**
+(playlist advance + `t` reset) was driven by per-board `millis()`
+(`show<E>(120)`'s `while (millis()-start<…)`), so boards changed effects at
+different real moments; §6 replaces it with epoch-counted sequencing.
 
 **The single wire (role in the new design):**
 
@@ -203,10 +181,10 @@ into phase twice per revolution. The drift budget (§4.5) proves a Teensy crysta
 holds sub-column alignment across the 62.5 ms between snaps, so a continuous
 per-column reference buys nothing the snap doesn't already deliver.
 
-This replaces today's design, where every column is an interrupt *slaved* to a
-shared wire (one missed edge = one dropped column, permanent ±1 until the next
-boundary snap). The flywheel inverts the dependency: **columns come from a local
-timebase; the wire only snaps phase.**
+This replaces the previous design, where every column was an interrupt
+*slaved* to a shared wire (one missed edge = one dropped column, permanent ±1
+until the next boundary snap). The flywheel inverts the dependency: **columns
+come from a local timebase; the wire only snaps phase.**
 
 ### 4.1 The flywheel timebase — position from time, not from interrupt count (load-bearing)
 
@@ -230,9 +208,21 @@ being clocked out), so jumping to the time-correct column is not just lossless �
 it is the *correct* behavior. Counting ISR fires would instead resume one column
 behind real angular position and smear.
 
-The `IntervalTimer` at `T0` is therefore only a *wake-up*, not the source of
-truth: it paces ISR entry near each column, but the cycle counter decides which
-column it is. A late, early, or coalesced wake-up cannot inject drift.
+The `IntervalTimer` is therefore only a *wake-up*, not the source of truth:
+it paces ISR entry, but the cycle counter decides which column it is. A late,
+early, or coalesced wake-up cannot inject drift.
+
+**Wake-ups are oversampled 8× per column** (`kOversample` in
+`pov_segmented.h`; the timer runs at T0/8 ≈ 54 µs). The timer grid is not
+phase-locked to the flywheel — a snap shifts the flywheel's boundary instants
+but not the timer — so at one wake per column, both the rendered column and
+the master's first emitted pulse would lag their true instants by up to a
+full, slowly beat-drifting column. Waking 8× per column bounds both
+quantizations to ⅛ column, keeping the §5.2 self-censor budget meaningful
+and the inter-board render skew far below a visible seam. The cost is ~18 kHz
+of near-empty entries (one cycle-counter read, the 64-bit position
+computation, a compare — ≈1 % CPU at 600 MHz); the pixel pack and DMA submit
+still run only on a column change, at the same 2304 Hz as before.
 
 **Wake-up contract.** Because wake-ups are advisory, the ISR must be
 *idempotent* when `x_target` equals the column it last rendered (early or
@@ -303,8 +293,10 @@ cycles_per_column ← (1-α)·cycles_per_column + α·(measured_half_rev / (W/2)
 A slow first-order trim (small `α`) suffices because the quantity being tracked
 — relative crystal offset — drifts only on thermal timescales (seconds to
 minutes), not per-frame. This is a smoothness upgrade layered *on top of* the
-snap, not a replacement for it and not a prerequisite. Ship snap-only first
-(§11.1).
+snap, not a replacement for it and not a prerequisite. Shipped snap-only
+(§11.1): the implementation exposes the trim hook
+(`Flywheel::set_cycles_per_half_rev`, exercised at ±40 ppm by the tests) but
+no estimator.
 
 > This is the disciplined descendant of the full DPLL that earlier drafts
 > proposed. With only one wire it collapses from a fast PI phase-loop (locking
@@ -403,7 +395,7 @@ inline void try_flip(Boundary b) {
 }
 ```
 
-`advance_display` is idempotent at `prev_==next_` (`canvas.h:387`), so a
+`advance_display` is idempotent at `prev_==next_` (`canvas.h`), so a
 redundant call is harmless; `try_flip` makes the common case exact.
 
 Flip paths per board:
@@ -429,8 +421,9 @@ both in one half-rev glitches, self-healing next half-rev.
 ### 5.2 Self-describing boundary symbols (C) — pulse-count encoding (FINAL)
 
 Master codes the boundary into the sync symbol so each one names its boundary
-*absolutely* — deleting the parity counter (`sync_seeded_`/`sync_at_zero_`,
-`pov_segmented.h:444-450`) that today inverts permanently on one dropped pulse.
+*absolutely* — this deleted the previous design's parity counter
+(`sync_seeded_`/`sync_at_zero_`), which inverted permanently on one dropped
+pulse.
 
 **Encoding (decision §11.3, RESOLVED): every symbol is a burst of short pulses
 at fixed pitch; the meaning is the count of rising edges. Pulse widths carry no
@@ -472,34 +465,41 @@ self-censoring — see §9.1, row "lost boundary symbol.")
 
 | Parameter | Value | Rule |
 |-----------|-------|------|
-| Pulse high time | ~½ column (~217 µs) | comfortably above the glitch filter |
+| Pulse high time | one ISR body (pin HIGH at entry, LOW at exit; tens of µs) | width carries no information — only the rising edge registers; the glitch filter constrains edge *spacing*, not width |
 | Pulse pitch | 2 columns (~868 µs) | **pitch > M** ⇒ no edge ever lost to the single latch |
 | Burst gap timeout | 4 columns (~1.7 ms) | **timeout > pitch + M** ⇒ a mask-stretched gap cannot split one burst into two |
 | Glitch filter | reject rising edges <100 µs apart | an EMI spike adds an isolated count → invalid → discard |
 
-Generation (no blocking, no extra peripheral): the master's flywheel ISR emits
-one pulse per entry during a burst — **pin write first, LED work after** — so
-emission timing carries only ISR-entry jitter. If master observes on its own
-cycle counter that it is late at a boundary (entry > ~½ column after the
+Generation (no blocking, no extra peripheral): the master's `SymbolEmitter`
+schedules pulses in cycle time — the first due at the exact boundary instant,
+the rest at 2-column pitch — and the flywheel ISR emits any due pulse at
+wake-up, **pin write first, LED work after**, so emission timing carries only
+the ⅛-column wake quantization (§4.1) plus ISR-entry jitter. If the master is
+late at a boundary (the first pulse would start > ~½ column after the
 boundary instant), it **self-censors**: it skips that boundary's symbol
 entirely rather than emit a late one (downstream coasts one half-rev, ~0.01
-col, §4.5); if it detects lateness *mid-burst* it stops emitting, leaving an
-invalid count that downstream discards. Never emit a lie.
+col, §4.5); lateness detected *mid-burst* stops the remaining pulses. A
+truncated count is usually invalid (discarded downstream); the two valid
+truncations are harmless — 5→3 keeps the right boundary and only drops the
+epoch flag (the §6.3 repeats cover it), and 3→1 names the wrong boundary,
+which the §5.3 gate rejects on identity. Never emit a lie.
 
 Decode (split across the two ISRs — the §8 single-writer model): the sync-wire
 **RISING** ISR is a pure *publisher* — it applies the glitch filter, increments
 the burst's edge count, and records the cycle-counter timestamp of the burst's
-**first** edge into a small mailbox; it touches no flywheel, flip, or epoch
-state. The flywheel ISR — which runs every column anyway — is the sole
-*consumer*: when it observes the line quiet past the gap timeout (compared on
-its own clock; no extra timer needed), it classifies the count, applies the
-§5.3 acceptance gate, and on acceptance snaps `x_` so the first-edge timestamp
-corresponds to the named boundary — compensated for the columns elapsed since —
-then `try_flip`s. This same snap is the Layer-1 phase discipline (§4.2); one
-decode serves both layers. (Classification *completes* up to burst + timeout
-after the boundary — ≈13 columns for EPOCH, plus ≤1 column for the flywheel ISR
-to consume it. That is irrelevant for the snap, which is timestamp-compensated,
-and sets the §11.6 worst-case skew for the backstop flip.)
+**first** edge into a small mailbox (`EdgeMailbox`); it touches no flywheel,
+flip, or epoch state. The flywheel ISR — which wakes ~8× per column anyway —
+is the sole *consumer*: when it observes the line quiet past the gap timeout
+(compared on its own clock; no extra timer needed), it claims the burst under
+a brief IRQ-off copy, classifies the count, applies the §5.3 acceptance gate,
+and on acceptance snaps `x_` so the first-edge timestamp corresponds to the
+named boundary — the elapsed-column compensation falls out for free, because
+position is always derived as "time since epoch" — then `try_flip`s. This
+same snap is the Layer-1 phase discipline (§4.2); one decode serves both
+layers. (Classification *completes* up to burst + timeout after the boundary
+— ≈13 columns for EPOCH, plus ≤⅛ column for the flywheel ISR to consume it.
+That is irrelevant for the snap, which is timestamp-compensated, and sets the
+§11.6 worst-case skew for the backstop flip.)
 
 > Decision §11.4 — RESOLVED: **elapsed-column-compensated snap.** Cheap, removes
 > a visible seam under chronic drift, and under count decoding it is *required*,
@@ -521,13 +521,35 @@ constants are tunables):
   (fail-fast doctrine: show nothing rather than the wrong thing). First
   accepted snap → LOCKED.
 - **LOCKED** (steady state): a valid symbol is accepted only if its implied
-  phase correction is **≤ G columns** (G ≈ 2–4) *and* its boundary identity
+  phase correction is **≤ G columns** (G = 4) *and* its boundary identity
   matches the flywheel's nearest predicted boundary. Anything else is
   *rejected*: counted in telemetry (§8.6), no snap, no flip. After **R
-  consecutive rejections** (R ≈ 4, ≈2 revolutions) the board concludes its own
+  consecutive rejections** (R = 4, ≈2 revolutions) the board concludes its own
   timebase — not the wire — is at fault and falls back to ACQUIRE, hard-snapping
   to the next valid symbol. The fallback is mandatory: a gate without an escape
   deadlocks a genuinely-lost board into rejecting good symbols forever.
+
+Two demarcation guards complete the mechanism (both fell out of host
+simulation, not the original design):
+
+- **ACQUIRE quiet-before guard:** a hard snap is taken only on a burst
+  preceded by ≥ 16 columns of wire silence. Boundary symbols are isolated
+  (half a revolution apart); beacon digits follow each other within ~12
+  columns — so a digit train cannot capture a just-rebooted board mid-frame.
+  (The train's *first* digit can still be mistaken once; the §9.1 mis-snap
+  row bounds the recovery.)
+- **Suspect bursts:** in LOCKED, a lone valid-count burst far (> G) from
+  every predicted boundary cannot be told apart, at decode time, from a
+  beacon's first digit — so it is fed to the beacon parser *and* held as a
+  suspect until the beacon interdigit window (24 columns) passes. If another
+  burst follows inside the window, it was beacon data; if the wire stays
+  silent, it is counted as a gate rejection toward the R-fallback. Without
+  this, a board with a corrupted timebase would route every REAL boundary
+  symbol to the beacon parser (> G from its broken predictions) and never
+  accumulate the R rejections — exactly the deadlock the fallback exists to
+  prevent. Healthy boards pay nothing: a beacon's odd-count first digit is
+  cleared by its own train, and the 2/rev accepted symbols reset the counter
+  anyway.
 
 What the gate buys on top of the alphabet: it rejects (a) the
 two-coincident-edge-error residual — a misclassified boundary implies a ~W/2
@@ -569,7 +591,10 @@ B+K every board flips to the new effect's frame 0 and resets `t=0`
 simultaneously. `HS_CHECK(init_complete)` at the deadline: an effect that
 cannot construct inside K revolutions is an invariant violation and traps
 (fail-fast), rather than silently skewing the show. K is chosen comfortably
-above the slowest measured effect init.
+above the slowest measured effect init. Construction itself is deterministic
+across boards: the driver reseeds `hs::random()` (1337) for every effect
+build, so the new instance is bit-identical no matter what a board rendered
+— or whether it even existed — before the epoch.
 
 **Epoch dedup:** an accepted EPOCH opens a refractory window (~16 revs) in
 which further EPOCH symbols are ignored — this is what makes the §6.3
@@ -605,10 +630,12 @@ together."
   resync instantly if a correct `t` were delivered, whereas a stateful one cannot
   be retro-synced even given `t`. But this design delivers no per-frame shared
   `t` mid-effect, so in practice both are bounded by the epoch reset; stateless
-  just carries a far smaller (1-frame) artifact until then. If the junction seam
-  ever proves visible, the §6.4 beacon already carries the revolution count —
-  a board can detect (and, for stateless effects, correct) a one-frame `t` slip
-  at the next beacon instead of waiting for the epoch.
+  just carries a far smaller (1-frame) artifact until then. The §6.4 beacon
+  carries the revolution count, so a slipped board *detects* the offset at the
+  next beacon (`beacon_rev_mismatches` telemetry, §8.6) — but it does not
+  retro-correct `t`: animation counters live inside each effect's animations
+  and there is no frame fast-forward API, so correction stays epoch-bounded
+  by design.
 - **Stateful integrators** (BZ/GS reaction-diffusion, trails, comets): cannot be
   retro-synced mid-effect (history is unrecoverable). The time-derived flywheel
   (Layer 1) minimizes dropped frames; the **epoch re-init bounds any stateful
@@ -621,15 +648,20 @@ stuck on the previous effect). Three mechanisms stack, each catching what the
 previous one cannot:
 
 1. **Redundancy:** the EPOCH symbol is repeated on the next R ZERO-boundaries
-   (R ≈ 3); the §6.1 refractory window makes the repeats idempotent. A board
-   must lose all R+1 in ~R revolutions to miss the advance itself.
+   (R = 3); the §6.1 refractory window makes the repeats idempotent. A board
+   must lose all R+1 in ~R revolutions to miss the advance itself. One
+   accepted residual: a board that misses the primary copy and accepts a
+   repeat anchors its commit at *its* acceptance + K — up to R revolutions
+   later than its peers for that one effect (realigned at the next epoch).
+   The repeats guard a ~never case on a hard wire; the skew is the price of
+   a symbol that carries no "which repeat am I" payload.
 2. **Absolute index on the beacon (§6.4):** a board that *does* miss every
    repeat — or that booted late, or rebooted mid-show — corrects at the next
    beacon, ≤16 revs (~2 s) later, instead of staying on the wrong effect for up
    to 120 s. No board ever *assumes* index 0; the "all boot together at 0"
-   assumption is gone. (A beacon-corrected joiner starts a stateful effect's
-   history fresh mid-flight — the inherent §6.2 bound; full coherence restores
-   at the next epoch.)
+   assumption is gone. (A beacon-corrected joiner starts the effect's history
+   fresh mid-flight — stateless and stateful alike, since there is no frame
+   fast-forward; full coherence restores at the next epoch.)
 3. **Fail-dark, not fail-wrong:** until a board has established the index from
    an epoch or beacon it displays black (ACQUIRE, §5.3). If the index can never
    be established the segment stays dark — with the wire hard by construction
@@ -644,8 +676,9 @@ belong on them. The beacon is a **data** symbol placed mid-revolution
 emission timing is irrelevant — the timing channel and the data channel are
 separated *in time* on the same wire.
 
-- **Frame:** five base-8 digits, each a burst whose pulse count (1–8) encodes
-  the digit, bursts separated by the standard gap timeout:
+- **Frame:** five base-8 digits, each a burst of `digit + 1` pulses at
+  1-column pitch, bursts separated by five quiet columns (one past the gap
+  timeout, so the decoder reliably terminates each digit):
   `[index_hi, index_lo, rev_hi, rev_lo, checksum]` — effect index (0–63),
   revolution-count-within-effect mod 64, and a mod-8 sum checksum. Fixed digit
   count = end-of-frame detection; total worst-case length ≈ 26 ms at 1-column
@@ -653,17 +686,43 @@ separated *in time* on the same wire.
 - **Integrity model:** unlike boundary symbols (exactness via pitch > M, §5.2),
   the beacon tolerates corruption by *rejection*: any checksum mismatch, wrong
   digit count, or out-of-range digit drops the whole frame — the next beacon
-  arrives ≤2 s later. This is why it may use the tighter 1-column pitch.
+  arrives ≤2 s later. This is why it may use the tighter 1-column pitch. A
+  partial frame staler than the 24-column interdigit timeout is likewise
+  dropped before the next burst starts a fresh frame.
 - **Demarcation from boundary symbols:** a burst whose first edge lands far
-  (> G columns, §5.3) from a predicted boundary begins a beacon frame; the
-  LOCKED gate already excludes such bursts from snap/flip consideration, so the
-  two parsers cannot claim each other's symbols.
-- **Schedule:** every 16th revolution, plus once on each of the R revolutions
-  after an epoch (confirming the new index immediately).
-- **Consumers:** a LOCKED board cross-checks `(effect, rev)` and corrects a
-  missed epoch (§6.3.2) or — for stateless effects — a slipped `t` (§6.2); an
-  ACQUIRE board uses it to join at the correct `(effect, t)`: `t = 2·rev +`
-  boundary parity since the beacon.
+  (> G columns, §5.3) from a predicted boundary is routed to the beacon
+  parser; the LOCKED gate already excludes such bursts from snap/flip
+  consideration, so the two parsers cannot claim each other's symbols. The
+  converse hazard — a lost board's real boundary symbols all landing "far" —
+  is what the §5.3 suspect-burst rule exists for.
+- **Schedule:** revolution 1 of every 16 (rev ≡ 1 mod 16 — never revolution
+  0, so a just-powered board meets clean, isolated boundary symbols before
+  any data train), plus revolutions 1..R of a fresh effect (confirming the
+  post-commit index immediately). Suppressed while a commit is pending: a
+  beacon there would broadcast the outgoing index to joiners.
+- **Consumers:** a LOCKED board cross-checks `(effect, rev)` — a mismatched
+  index corrects a missed epoch (§6.3.2, triggering a rebuild and a §6.5
+  grid-aligned rejoin); a mismatched rev is recorded as telemetry (§6.2). An
+  ACQUIRE/joining board adopts `(effect, rev)` as its content identity and
+  goes live at the next join-grid boundary (§6.5) with the effect at frame 0
+  — there is no frame fast-forward, so only the grid-aligned boot realizes
+  the ideal `t = 2·rev + parity` join; a mid-show rejoiner runs `t`-offset
+  until the next epoch (§6.2).
+
+### 6.5 The join grid — going live in lockstep
+
+Boards take a constructed effect live only at ZERO boundaries where
+`rev_in_effect ≡ 0 (mod 4)` (`join_grid_revs`; epoch commits are anchored by
+B+K and unaffected). This is what makes **boot** coherent: without it, the
+master would go live at its first boundary while downstream boards waited
+~1–2 revolutions for beacon identity, leaving the master's `t` a few frames
+ahead of its neighbors for the entire first effect — a visible junction
+shear on fast effects. With the grid, every board (master included) holds
+dark until the same crossing — typically revolution 4, ~0.5 s after power-on
+— and starts frame 0 together. The grid length divides 64, so a
+beacon-joined board's mod-64 revolution count lands on the same grid as the
+master's true count; a mid-show rejoiner waits ≤ 4 revolutions (500 ms),
+well inside the §9.1 ~2 s rejoin budget.
 
 ---
 
@@ -676,7 +735,7 @@ All inter-board information now rides this one wire:
 | HALF | burst of 1 pulse | boundary HALF (`x==W/2`) | 1/rev |
 | ZERO | burst of 3 pulses | boundary ZERO (`x==0`) | 1/rev |
 | ZERO+EPOCH | burst of 5 pulses (repeated R×, §6.3) | boundary ZERO + EPOCH (advance at B+K, §6.1) | 1/effect |
-| BEACON | 5 base-8 count digits at x≈W/4 (§6.4) | absolute effect index + rev count, checksummed | every 16th rev (+R after epoch) |
+| BEACON | 5 base-8 count digits at x≈W/4 (§6.4) | absolute effect index + rev count, checksummed | rev ≡ 1 (mod 16) + first R revs of an effect; silent during commits |
 | *(invalid)* | any other count / failed checksum | discarded — no snap, no flip, no advance | — |
 
 Boundary pulse pitch 2 columns, gap timeout 4 columns (§5.2); beacon digits at
@@ -688,34 +747,40 @@ flip the frame (Layer 2) and snap the column phase (Layer 1).
 
 ## 8. Concurrency & ISR model
 
-ISRs on each board: **(a)** flywheel `IntervalTimer` — the hot path (one cycle-
-counter read for position, §4.1, plus pixel pack) *and* the sole owner of all
-sync state: it consumes the edge mailbox, runs gap-timeout classification, the
-§5.3 gate, the snap, `try_flip`, and epoch scheduling; **(b)** sync-wire
-**RISING** — a pure *publisher*: glitch filter, edge count, first-edge
-timestamp, written into a small mailbox and nothing else. **The former
-column-wire edge ISR is gone** — there is no per-column input to service, which
-is both one fewer ISR and the removal of the design's only per-column EMI
-surface (§10).
+ISRs on each board: **(a)** flywheel `IntervalTimer` at T0/8 (§4.1) — the hot
+path (one cycle-counter read for position, plus pixel pack on a column
+change) *and* the sole owner of all sync state: `SyncBoard::tick()` consumes
+the edge mailbox, runs gap-timeout classification, the §5.3 gate, the snap,
+`try_flip`, and epoch scheduling; **(b)** sync-wire **RISING** (downstream
+boards only — the master does not listen to its own emissions) — a pure
+*publisher*: glitch filter, edge count, first-edge timestamp, written into a
+small mailbox and nothing else. **The former column-wire edge ISR is gone** —
+there is no per-column input to service, which is both one fewer ISR and the
+removal of the design's only per-column EMI surface (§10).
 
 Invariants:
 
-1. **Hot path stays branchless / time-light.** The per-column ISR does one
-   cycle-counter read to compute `x_target` and packs pixels; no `digitalRead`,
-   no decode logic beyond a single mailbox check (one load + compare per entry;
-   the classify/snap/flip branch is taken ≤ 2/rev). All edge handling lives in
-   the cold sync-wire ISR (≤ 2/rev of boundary edges + the occasional beacon).
+1. **Hot path stays branchless / time-light.** Each wake-up does one
+   cycle-counter read and the 64-bit position computation; ~7 of 8 entries
+   end there (≈1 % CPU at 600 MHz — the foreground keeps the rest for
+   rendering), and only a column change packs pixels and submits DMA
+   (2304 Hz, same as the previous per-column interrupt). No `digitalRead`,
+   no decode logic beyond a single mailbox check; the classify/snap/flip
+   branch is taken ≤ 2/rev. All edge handling lives in the cold sync-wire
+   ISR (≤ 2/rev of boundary edges + the occasional beacon). There is no
+   busy-waiting anywhere in the protocol — emission alignment comes from the
+   oversampled wake grid (§4.1), not from spinning to hit boundary instants.
 2. **Single-writer ownership (replaces the equal-priority invariant).** Every
    piece of sync state — `x_`, `epoch_cycles`, `cycles_per_half_rev`,
    `last_flipped_`, lock state, epoch schedule, telemetry counters — has exactly
    **one writer: the flywheel ISR**. The sync-wire ISR writes only the mailbox
    (`edge_count`, `first_edge_cycles`, `last_edge_cycles`); the foreground only
-   reads published flags. The mailbox handoff is a seqlock or a two-instruction
+   reads published flags. The mailbox handoff is a brief
    IRQ-off copy in the consumer — nanoseconds, not a masked window. With
    single-writer ownership the NVIC priority relationship between the two ISRs
    is **free**: the previous draft's cross-peripheral equal-priority invariant —
-   itself a fragile downgrade of today's same-vector guarantee
-   (`pov_segmented.h:292-306`) — is *deleted*, not restated. The sync ISR may
+   itself a fragile downgrade of the old design's same-vector guarantee —
+   is *deleted*, not restated. The sync ISR may
    preempt the flywheel ISR mid-column with no correctness consequence; worst
    case, a completed burst is consumed one column (434 µs) later, against a
    62.5 ms cadence.
@@ -736,23 +801,38 @@ Invariants:
    benign" is a Layer-2 statement, not a Layer-3 one — though the §5.3 gate
    closes the gap in practice: a spurious flip now requires a forged burst that
    is valid, plausible, *and* boundary-consistent at once.
-5. **Lifecycle & seeding.** The flywheel and sync-wire ISRs attach **once per
-   show and persist across epochs** — the flywheel *is* the timebase and must
-   never be detached between effects (today's per-effect attach/detach in
-   `run()`, `pov_segmented.h:307-345`, does not carry over). The ISR-visible
-   effect pointer is swapped only at the §6.1 commit boundary, with the display
-   black during the construction window, preserving the existing
-   publish-before-read bracketing. Boot seeding: ACQUIRE state (§5.3), display
-   black, `last_flipped_=NONE` (the first accepted boundary flips, `HALF≠NONE`),
-   `epoch_cycles=now`, period nominal.
+5. **Lifecycle & effect handoff.** The flywheel and sync-wire ISRs attach
+   **once per show and persist across epochs** — the flywheel *is* the
+   timebase and is never detached between effects (the previous per-effect
+   attach/detach did not carry over). The effect handoff keeps single-writer
+   ownership: the foreground constructs and deletes instances; the ISR owns
+   the live pointer. Protocol: the foreground polls `SyncBoard::build_word()`
+   (a single aligned word, `generation << 8 | index`); on a generation change
+   it bumps `release_req_`, the ISR drops its live pointer and acks within
+   one wake-up, the foreground deletes the old instance, reseeds the RNG,
+   constructs the new effect, draws its frame 0 (fresh buffers never block),
+   and publishes it to the pending slot under a brief interrupts-off bracket.
+   The ISR swaps pending → live only at a ZERO boundary: the §6.1 commit
+   (`HS_CHECK` that the pending instance exists — the deadline trap) or a
+   §6.5 join-grid crossing. During the dark window the ISR **keeps flipping
+   the live effect** until released — the foreground may be blocked in the
+   Canvas `buffer_free()` gate on its final frame of the outgoing effect, and
+   `advance_display()` is what releases it to go tear the effect down. Boot
+   seeding: ACQUIRE state (§5.3), display black, `last_flipped_=NONE` (the
+   first accepted boundary flips, `HALF≠NONE`), `epoch_cycles=now`, period
+   nominal; master is born LOCKED with identity (effect 0, rev 0) — it *is*
+   the reference.
 6. **Health telemetry (foreground-polled).** The flywheel ISR maintains
-   counters — symbols accepted / rejected (gate) / discarded (invalid count),
-   beacon checksum failures, longest coast interval, lock-state transitions —
-   and the foreground render loop reports changes behind `hs::debug`, exactly
-   like the existing DMA-overrun counter pattern (`Phantasm.ino`). Nothing in
-   any ISR formats or prints. Degradation that the protocol absorbs silently
-   (a discarded symbol, a rejected snap) must still be *visible* in one glance
-   of debug output, or field diagnosis is guesswork.
+   counters — symbols accepted / gate-rejected / discarded (invalid count),
+   beacons decoded / rejected, beacon index corrections and rev mismatches,
+   epochs ignored by the refractory window, lock-state transitions, flips,
+   emissions self-censored / aborted, and the longest coast (half-revs
+   without a snap) — and the foreground render loop reports changes behind
+   `hs::debug` at ≤1 Hz, exactly like the existing DMA-overrun counter
+   pattern. Nothing in any ISR formats or prints. Degradation that the
+   protocol absorbs silently (a discarded symbol, a rejected snap) must still
+   be *visible* in one glance of debug output, or field diagnosis is
+   guesswork.
 
 ---
 
@@ -766,7 +846,7 @@ Invariants:
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
 | 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless: heals next frame (or next beacon, §6.4); stateful: heals next epoch |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by next beacon ≤16 revs (~2 s) |
-| Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until index from beacon (≤2 s), then joins at correct `(effect, t)` |
+| Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until index from beacon (≤2 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes on current effect (epoch never arrives); ACQUIRE boards stay dark |
 | Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes on current effect |
 
@@ -798,7 +878,7 @@ hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤720 col ≈ 313 ms (R rejections = 576 col → ACQUIRE → re-snap ≤144) | effectively never — needs a 2-coincident-error burst *during* a ~2 s ACQUIRE window, or a firmware bug; the fallback bounds it either way |
 | Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | display 144 col; `t`: ≤4,608 col via beacon (stateless) / ≤276,480 col via epoch (stateful) | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | ≤4,608 col (~2 s, next beacon) | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
-| Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤4,608 col (~2 s): phase ≤144 col, index at next beacon, joins at correct `(effect, t)` | per external reboot event |
+| Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤4,608 col (~2 s): phase ≤144 col, index at next beacon, rejoins at the correct effect on the §6.5 grid | per external reboot event |
 | Firmware invariant violation (init > K, flywheel stall) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
 | Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes; arithmetic stays valid (§4.1 rebase) | physical repair | out of scope — hard line by construction |
 
@@ -823,8 +903,9 @@ column ISR into the watchdog.
 
 ## 10. Likelihood (why the flywheel matters)
 
-A missed column today requires one board to coalesce two edges or latch a
-spurious one; ranked causes: (1) interrupt-masked foreground windows > 434 µs —
+In the old slaved-clock design, a missed column required one board to
+coalesce two edges or latch a spurious one; ranked causes: (1)
+interrupt-masked foreground windows > 434 µs —
 dominant on the FastLED/WS2801 bit-bang path (`FastLED.show()` masks IRQs),
 largely designed out on DMA; (2) worst-case ISR overrun; (3) EMI on a motorized
 spinner (spurious edges). At ~1.1 M column edges/min across 4 boards, even a
@@ -843,19 +924,20 @@ strictly cleaner, not weaker.
 
 ---
 
-## 11. Open decisions (resolve before implementing)
+## 11. Decision log (all resolved; shipped values noted)
 
-1. **Frequency trim:** ship snap-only first (§4.2 — simplest, already sub-column)
-   and add the §4.3 frequency trim only if the ~0.006-col seam ever shows.
-   Recommendation: **snap-only first.** If/when trimming, choose `α` and the
-   out-of-window reject guard for the interval estimate.
-2. **Free-running clock source — RESOLVED: `DWT->CYCCNT` + the §4.1 rebase
+1. **Frequency trim — SHIPPED snap-only** (§4.2 — simplest, already
+   sub-column). The trim hook exists (`Flywheel::set_cycles_per_half_rev`,
+   exercised at ±40 ppm by the tests) with no estimator; add §4.3 only if the
+   ~0.006-col seam ever shows, choosing `α` and the out-of-window reject
+   guard then.
+2. **Free-running clock source — SHIPPED: `DWT->CYCCNT` + the §4.1 rebase
    rule.** Highest resolution, free to read; the 7.16 s wrap is made
    structurally impossible by folding `epoch_cycles` forward every boundary
    (the same rule covers `micros()` if CYCCNT is ever unavailable). Position
    math is 64-bit with `cycles_per_half_rev` (= 37,500,000 nominal) as the
    single stored, optionally-trimmed timebase constant (§4.1).
-3. **Symbol encoding — RESOLVED: pulse-count bursts (§5.2).** Alphabet HALF=1 /
+3. **Symbol encoding — SHIPPED: pulse-count bursts (§5.2).** Alphabet HALF=1 /
    ZERO=3 / ZERO+EPOCH=5 rising edges at 2-column pitch, gap-timeout-terminated;
    even/other counts are invalid and discarded whole. Chosen over width because
    the pin's single latched IRQ flag makes edge *counts* exact whenever pitch >
@@ -863,39 +945,60 @@ strictly cleaner, not weaker.
    are corrupted by any mask touching any edge; the odd-only distance-2 alphabet
    turns single edge errors — lost *or* spurious — into discards instead of
    misclassifications, and master self-censors late/interrupted emissions.
-   Remaining implementation prerequisite: **measure M on the shipped LED path**
-   and confirm the pitch/timeout margins in the §5.2 table.
-4. **Snap compensation — RESOLVED: elapsed-column-compensated** (§5.2).
-   Required under count decoding (classification completes columns after the
-   boundary instant), and it removes the visible seam under chronic drift.
-5. **Epoch robustness — RESOLVED: three stacked mechanisms (§6.3/§6.4).**
+   **Still open on hardware: measure M on the shipped LED path** and confirm
+   the pitch/timeout margins in the §5.2 table (expected ≈ 0 on the DMA
+   path; the host simulator already covers M up to several columns).
+4. **Snap compensation — SHIPPED: elapsed-column-compensated** (§5.2).
+   Inherent to position-from-time (a snap re-bases the epoch to the
+   first-edge timestamp and position is always "time since epoch"), required
+   under count decoding, and it removes the visible seam under chronic drift.
+5. **Epoch robustness — SHIPPED: three stacked mechanisms (§6.3/§6.4).**
    R repeats made idempotent by the §6.1 refractory window; absolute effect
    index + revolution count on the mid-rev beacon (≤2 s correction for any
    missed epoch or late-booting board); fail-dark in ACQUIRE rather than
-   assume index 0. Tunables: R (~3), beacon period (~16 revs), refractory
-   window (~16 revs), commit deadline K (~2 revs, must exceed the slowest
-   measured effect init).
-6. **Inter-board flip skew:** in normal operation downstream flips on its **own
-   flywheel crossing** (sub-column phase, §5.1), not the symbol — so skew is
-   sub-column. The worst case is a drifted flywheel letting the symbol flip
-   first, which under count decoding lands at burst + gap timeout after the
-   boundary (≈13 columns / ~5.6 ms for EPOCH, less for HALF/ZERO); still ≪
-   62.5 ms frame and believed invisible. Confirm the crossing reliably precedes
-   symbol classification under normal drift.
-7. **Snap plausibility gate + acquisition states — RESOLVED in mechanism
-   (§5.3).** ACQUIRE (hard snap, fail-dark) ⇄ LOCKED (correction ≤ G columns
-   and boundary identity must match prediction; R consecutive rejections fall
-   back to ACQUIRE so the gate can never deadlock a lost board). Tunables:
-   gate width G (~2–4 columns) and rejection fallback R (~4).
-8. **Share the flywheel with `pov_single`?** The single-board driver already has
-   a local `IntervalTimer`; now that *master itself* runs the time-derived
-   flywheel (no PWM clock-out), factoring a common flywheel core covers all three
-   roles (single, master, downstream) and is more natural than before — but
-   expands scope.
+   assume index 0. Shipped constants: R = 3, beacon period 16 revs,
+   refractory window 16 revs, commit deadline K = 2 revs (HS_CHECK-trapped;
+   confirm against the slowest measured effect init on hardware), join grid
+   4 revs (§6.5).
+6. **Inter-board flip skew — RESOLVED by construction.** In normal operation
+   downstream flips on its **own flywheel crossing** (within ⅛ column of the
+   boundary under the oversampled wake grid, §4.1), and symbol
+   classification cannot complete before burst + gap timeout (≥ ~4.5
+   columns) — so the crossing always leads and skew is sub-column. The
+   backstop case (a drifted flywheel letting the symbol flip first) lands at
+   ≈13 columns / ~5.6 ms worst case for EPOCH; still ≪ 62.5 ms frame. The
+   simulator asserts exactly 2 flips/rev/board across drift, masks, EMI, and
+   drops.
+7. **Snap plausibility gate + acquisition states — SHIPPED (§5.3).** ACQUIRE
+   (hard snap behind the quiet-before guard, fail-dark) ⇄ LOCKED (correction
+   ≤ G columns; with G < W/4 the distance gate subsumes the
+   boundary-identity check; R consecutive rejections — including
+   suspect-burst timeouts — fall back to ACQUIRE so the gate can never
+   deadlock a lost board). Shipped constants: G = 4 columns, R = 4.
+8. **Share the flywheel with `pov_single`? — NOT DONE (future option).** The
+   single-board driver keeps its per-column IntervalTimer ISR. Now that
+   master itself runs the time-derived flywheel, factoring a common flywheel
+   core covering all three roles (single, master, downstream) is natural —
+   but it expands scope and Holosphere has no sync problem to solve.
 
 ---
 
 ## 12. Test plan (host-testable where possible)
+
+Implemented as `tests/test_pov_sync.h`: pure units for every protocol piece
+plus a 4-board event-driven simulator — per-board crystal ppm offsets, a
+single-latch masked-IRQ model (edges during a mask merge and arrive late,
+the i.MX RT pin-flag behavior the count coding is designed around), EMI
+injection, symbol-drop windows, foreground build delays, mid-show reboots,
+and the commit-deadline trap. The simulator earned its keep before any
+hardware existed: it caught a master emitter that went permanently idle
+after its first beacon frame, and the §5.3 demarcation deadlock that the
+suspect-burst rule now closes. Two deltas against the plan below: the
+*spurious-flip* case is realized as forged-burst rejection (the gate makes a
+deliverable spurious flip unconstructible short of a valid + plausible +
+boundary-consistent forgery), and rejoiners are asserted on `(effect, rev)`
+— `t` equality is asserted for the grid-aligned boot and post-epoch, since
+there is no frame fast-forward (§6.4).
 
 Following the `pov_segment_map.h` precedent (pure, host-tested index math):
 
@@ -909,8 +1012,8 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   stream with injected drops/dups/jitter; assert (a) no column lost across a
   masked window (position is time-correct on resume), (b) phase error bounded to
   the §4.5 budget between snaps, (c) phase re-acquired after a burst of glitches.
-  For the optional frequency trim, assert the estimate converges and does not
-  oscillate across the `α` range.
+  (The shipped tests exercise the trim *hook* at ±40 ppm; estimator
+  convergence tests come with §4.3 if it ever ships.)
 - **Layer-2 invariants:** `advance_display` count == 2/rev/board under arbitrary
   column drift; no latched inversion after a single symbol glitch.
 - **Timebase arithmetic:** run the flywheel sim past a 32-bit cycle-counter
@@ -933,14 +1036,16 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   (`HS_CHECK`), never silently skews.
 - **Beacon:** corrupt single digits, the checksum, and the digit count; assert
   every corrupted frame is dropped whole (no partial application) and that a
-  rebooted board joins at the correct `(effect, t)` from the next good beacon.
+  rebooted board joins at the correct `(effect, rev)` from the next good
+  beacon (display from the next §6.5 grid boundary).
 - **Layer-3 content:** simulate 4 boards over a multi-effect playlist with
-  injected per-board render-time jitter, a *spurious* extra flip (§8.4), a
-  dropped epoch, and a mid-show board reboot; assert all boards on the same
-  `(effect, t)` except within the proven bounds (stateless/spurious-flip: ≤1
-  frame until the next beacon/epoch; stateful: ≤ 1 effect; dropped epoch:
-  beacon-corrected ≤16 revs; rebooted board: dark through ACQUIRE, then joins
-  at the correct `(effect, t)` — §6.3/§6.4, never "assumes 0").
+  injected per-board build delays, a forged plausible burst (§8.4's
+  spurious-flip vector, gate-rejected), a dropped epoch train, and a mid-show
+  board reboot; assert all boards on the same `(effect, t)` except within the
+  proven bounds (dropped epoch: beacon-corrected within one beacon period +
+  join grid; rebooted board: dark through ACQUIRE, then rejoins at the
+  correct effect — §6.3/§6.4, never "assumes 0" — with `t` offset until the
+  next epoch).
 - **Determinism harness** stays green (device-only ISR changes; host renders
   unaffected). The daydream `segment_controller`/`segment_worker` reproduces the
   4-board partition and is the end-to-end coherence check before fabrication.
@@ -965,7 +1070,8 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   sensor would give directly. If a sensor is ever fitted, this design is its
   graceful-degradation fallback, not a competitor.
 - **Duplicate-master detection** (a peer holding the same hardware ID) — already
-  out of scope (`pov_segmented.h:199-203`); needs an open-drain arbitration line.
+  out of scope (`pov_segmented.h` `read_id()`); needs an open-drain arbitration
+  line.
 - **A second (column-clock) wire / per-column genlock** — *removed*, not merely
   unused. The flywheel + 2/rev snap is proven sub-column (§4.5), so the
   continuous clock wire earns nothing and is deleted. Re-adding it would only buy
