@@ -498,7 +498,7 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 |---|---|
 | `Screen::AntiAlias<W,H>` | Distributes a sub-pixel coordinate to its 4 nearest integer pixels using `quintic_kernel` bilinear weights. Scales the X fractional by `sin(φ)` from a trig LUT for spherical density compensation near the poles. |
 | `Screen::Blur<W, H>` | Applies a parameterized 3×3 Gaussian convolution kernel at plot time. |
-| `Screen::Trails<W>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. Uses arena-allocated storage. |
+| `Screen::Trails<W, MAX_PIXELS>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. Uses arena-allocated storage (`MAX_PIXELS` capacity, default 1024). |
 
 #### Pixel-Space Filters
 
@@ -875,7 +875,7 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 
 #### Standalone Utilities
 
-`stereo_noise_warp()` (`transformers.h`) is a free function, not a `Transformer<>` specialization — it is called directly by effects rather than managed through the transformer pool. It projects a sphere point to the complex plane via `stereo()`, adds FastNoiseLite-driven displacement with pole attenuation, then reprojects. Returns a `StereoWarpResult` containing the warped coordinates and displacement magnitude (used for hue shift by Liquid2D and Flyby).
+`stereo_noise_warp()` (`transformers.h`) is a free function, not a `Transformer<>` specialization — it is called directly by effects rather than managed through the transformer pool. It takes an already-projected stereographic coordinate `z` (a `Complex`) plus its precomputed `r_sq` (|z|²) — the caller does the `stereo()` projection — and adds FastNoiseLite-driven displacement attenuated near the projection pole. Returns a `StereoWarpResult` containing the warped coordinate and displacement magnitude (used for hue shift by Liquid2D and Flyby).
 
 ### 7.5 Memory Architecture (`memory.h`, `memory.cpp`)
 
