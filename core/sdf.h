@@ -895,11 +895,21 @@ template <typename A, typename B> struct Intersection {
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
+    // A child that returns false wants a full-width scan; intersecting that
+    // full width with the other child is just the other child's intervals,
+    // which we already collected above. Replay the buffer instead of
+    // re-invoking the child — avoids doubling a nested CSG child's per-row
+    // interval work, and is robust to a child whose emission is not identical
+    // across calls.
     if (!has_a) {
-      return b.template get_horizontal_intervals<W, H>(y, out);
+      for (size_t i = 0; i < intervals_b.size(); ++i)
+        out(intervals_b[i].first, intervals_b[i].second);
+      return has_b; // both fell back (has_b == false) -> full scan
     }
     if (!has_b) {
-      return a.template get_horizontal_intervals<W, H>(y, out);
+      for (size_t i = 0; i < intervals_a.size(); ++i)
+        out(intervals_a[i].first, intervals_a[i].second);
+      return true; // has_a is true here
     }
 
     if (intervals_a.is_empty() || intervals_b.is_empty())

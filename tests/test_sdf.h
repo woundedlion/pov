@@ -465,6 +465,53 @@ inline void test_intersection_unsorted_child_yields_sorted_result() {
   HS_EXPECT_NEAR(out[1].second, 80.0f, 1e-4f);
 }
 
+// When one child falls back to a full-width scan, intersecting it with the
+// other is just the other child's intervals. Intersection now replays the
+// buffer it already collected instead of re-invoking the child; this pins the
+// equivalence in both orientations and the both-fall-back full-scan case.
+inline void test_intersection_full_width_child_replays_other() {
+  using P = std::pair<float, float>;
+  using MockI = sdf_subtract_detail::MockIntervalShape;
+  using MockF = sdf_subtract_detail::MockFullWidthShape;
+  std::vector<P> ivs = {{60.0f, 80.0f}, {20.0f, 40.0f}}; // multi, emission order
+  MockI shape{&ivs};
+  MockF full;
+
+  // A full-width, B has intervals -> out == B's intervals (emission order).
+  {
+    SDF::Intersection<MockF, MockI> s(full, shape);
+    std::vector<P> out;
+    bool ok = s.get_horizontal_intervals<256, 128>(
+        0, [&](float st, float en) { out.push_back({st, en}); });
+    HS_EXPECT_TRUE(ok);
+    HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+    HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
+    HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
+  }
+
+  // Symmetric: A has intervals, B full-width -> out == A's intervals.
+  {
+    SDF::Intersection<MockI, MockF> s(shape, full);
+    std::vector<P> out;
+    bool ok = s.get_horizontal_intervals<256, 128>(
+        0, [&](float st, float en) { out.push_back({st, en}); });
+    HS_EXPECT_TRUE(ok);
+    HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+    HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
+    HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
+  }
+
+  // Both fall back -> request a full-scan fallback (return false), no intervals.
+  {
+    SDF::Intersection<MockF, MockF> s(full, full);
+    std::vector<P> out;
+    bool ok = s.get_horizontal_intervals<256, 128>(
+        0, [&](float st, float en) { out.push_back({st, en}); });
+    HS_EXPECT_FALSE(ok);
+    HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
+  }
+}
+
 // ============================================================================
 // SmoothUnion — blends at the boundary
 // ============================================================================
@@ -855,6 +902,7 @@ inline int run_sdf_tests() {
   test_intersection_requires_both_inside();
   test_intersection_thickness_is_min();
   test_intersection_unsorted_child_yields_sorted_result();
+  test_intersection_full_width_child_replays_other();
 
   test_smooth_union_matches_union_far_from_boundary();
   test_smooth_union_solidity_follows_children();
