@@ -551,8 +551,9 @@ struct ContentTracker {
   /// revolution count is not absolute (it beacon-joined mid-effect, §6.4)
   /// lands outside the train window and falls back to j = 0 — it commits up
   /// to j revolutions late, the pre-existing epoch-bounded degradation, now
-  /// confined to that case (and erased at its first commit, which re-zeros
-  /// rev_in_effect in step with the master's).
+  /// confined to that case. The resulting counter slip is then resynced from
+  /// the next beacon's rev cross-check (handle_beacon_burst), so every
+  /// subsequent epoch is lockstep.
   bool on_epoch_symbol(const Config &cfg) {
     if (refractory_revs_left > 0)
       return false;
@@ -847,7 +848,8 @@ public:
   const ContentTracker &content() const { return content_; }
   LockState lock() const { return fly_.lock(); }
   const Flywheel &flywheel() const { return fly_; }
-  Flywheel &flywheel_mut() { return fly_; } // tests only
+  Flywheel &flywheel_mut() { return fly_; }        // tests only
+  ContentTracker &content_mut() { return content_; } // tests only
   const Config &config() const { return cfg_; }
 
 private:
@@ -985,7 +987,28 @@ private:
       ++telemetry_.beacon_index_corrections;
       publish_build(idx);
     } else if (f.rev_count != (content_.rev_in_effect & 63u)) {
-      ++telemetry_.beacon_rev_mismatches; // §6.2: detect, don't retro-correct
+      // The schedule counter slipped against the master's: a late commit
+      // through the §6.3.1 j-fallback, or a crossing hiccup while a
+      // corrupted timebase recovered. Left alone the slip is
+      // self-sustaining — the board's own commit re-zeros the counter at
+      // its own, offset boundary — and it skews every later epoch commit
+      // by mis-inferred j. §6.2's "detect, don't retro-correct" applies to
+      // content frames (t is untouched); the counter itself is resynced by
+      // the signed mod-64 difference, which restores absolute agreement
+      // for any slip under 32 revolutions and so re-arms exact j-inference
+      // before the next train. (A mid-effect joiner's counter is mod-64 in
+      // absolute terms until its first commit; the correction keeps its
+      // residue exact regardless, and full absolute agreement follows that
+      // commit.)
+      ++telemetry_.beacon_rev_mismatches;
+      const int32_t d =
+          ((static_cast<int32_t>(f.rev_count) -
+            static_cast<int32_t>(content_.rev_in_effect & 63u) + 96) %
+           64) -
+          32;
+      const int64_t fixed = static_cast<int64_t>(content_.rev_in_effect) + d;
+      content_.rev_in_effect =
+          fixed >= 0 ? static_cast<uint32_t>(fixed) : f.rev_count;
     }
   }
 

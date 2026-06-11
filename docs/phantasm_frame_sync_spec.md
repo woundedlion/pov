@@ -670,8 +670,11 @@ previous one cannot:
    commits with the master. The one case that cannot infer j — a board that
    beacon-joined mid-effect, whose revolution count is mod-64, lands outside
    the train window — falls back to j = 0 and commits up to j revolutions
-   late for that one effect; its first commit re-zeros `rev_in_effect` in
-   step with the master, so the next epoch is lockstep again.
+   late for that one effect. The resulting counter slip would be
+   self-sustaining (the board's own commit re-zeros the counter at its own,
+   offset boundary), so the §6.4 beacon rev cross-check *resyncs* it by the
+   signed mod-64 difference within one beacon period; every epoch after the
+   first is lockstep.
 2. **Absolute index on the beacon (§6.4):** a board that *does* miss every
    repeat — or that booted late, or rebooted mid-show — corrects at the next
    beacon, ≤16 revs (~2 s) later, instead of staying on the wrong effect for up
@@ -719,7 +722,11 @@ separated *in time* on the same wire.
   beacon there would broadcast the outgoing index to joiners.
 - **Consumers:** a LOCKED board cross-checks `(effect, rev)` — a mismatched
   index corrects a missed epoch (§6.3.2, triggering a rebuild and a §6.5
-  grid-aligned rejoin); a mismatched rev is recorded as telemetry (§6.2). An
+  grid-aligned rejoin); a mismatched rev is recorded as telemetry (§6.2) and
+  resyncs the schedule counter by the signed mod-64 difference (content `t`
+  is untouched — the §6.2 no-retro-correct rule applies to frames, not the
+  counter the §6.3.1 j-inference reads; an uncorrected slip would skew every
+  later epoch commit). An
   ACQUIRE/joining board adopts `(effect, rev)` as its content identity and
   goes live at the next join-grid boundary (§6.5) with the effect at frame 0
   — there is no frame fast-forward, so only the grid-aligned boot realizes
@@ -1059,7 +1066,10 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
 - **Beacon:** corrupt single digits, the checksum, and the digit count; assert
   every corrupted frame is dropped whole (no partial application) and that a
   rebooted board joins at the correct `(effect, rev)` from the next good
-  beacon (display from the next §6.5 grid boundary).
+  beacon (display from the next §6.5 grid boundary). Assert the rev
+  cross-check resyncs a slipped schedule counter within one beacon period
+  (flagged in telemetry) and that the following epoch — taken via a repeat
+  copy, the path that depends on j-inference — commits in lockstep.
 - **Layer-3 content:** simulate 4 boards over a multi-effect playlist with
   injected per-board build delays, a forged plausible burst (§8.4's
   spurious-flip vector, gate-rejected), a dropped epoch train, and a mid-show

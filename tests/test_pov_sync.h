@@ -1113,6 +1113,80 @@ inline void test_sim_epoch_repeat_lockstep() {
   }
 }
 
+// ── Scenario: schedule-counter resync from the beacon rev cross-check ───────
+
+// §6.4: a board whose rev_in_effect slipped against the master — a late
+// commit through the §6.3.1 j-fallback, or a crossing hiccup while a
+// corrupted timebase recovered — would infer j wrongly at every later epoch
+// train and commit out of lockstep by the slip, in either direction,
+// indefinitely (its own commit re-zeros the counter at its own, offset
+// boundary, so the slip is self-sustaining). The beacon rev cross-check must
+// therefore RESYNC the counter (signed mod-64 difference, content t
+// untouched) within one beacon period, restoring exact j-inference before
+// the next train.
+inline void test_sim_rev_resync() {
+  const Config cfg = test_config();
+  const int32_t ppm[4] = {0, 20, -20, 10};
+  Sim sim(cfg, 4, ppm);
+  const uint64_t rev = 2ull * kPeriod;
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (!b.live)
+            return false;
+        return true;
+      },
+      double(cfg.join_grid_revs) + 2));
+  // Settle past the boot beacons (revs 1–3), then slip board 3's counter
+  // by +2: at the next train it would over-count j by 2 and commit 2
+  // revolutions EARLY.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 5; },
+      12.0));
+  sim.boards[3].board.content_mut().rev_in_effect += 2;
+
+  // Detected and corrected at the next beacon (rev 9), within one period.
+  // (Pre-resync the counters differ by 2 — a crossing straddle changes the
+  // gap by at most 1, so this predicate cannot fire spuriously.)
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[3].board.content().rev_in_effect ==
+               s.boards[0].board.content().rev_in_effect;
+      },
+      double(cfg.beacon_period_revs) + 2));
+  HS_EXPECT_GE(sim.boards[3].board.telemetry().beacon_rev_mismatches, 1u);
+
+  // The next epoch commits in lockstep even though board 3 ALSO misses the
+  // primary copy, taking the repeat path that depends on j-inference.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[0].board.content().rev_in_effect >=
+               s.cfg.revs_per_effect - 1;
+      },
+      double(cfg.revs_per_effect) + 4));
+  sim.boards[3].drop_from = sim.g + rev - 4 * kCol;
+  sim.boards[3].drop_to = sim.g + rev + rev / 4;
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (b.live_index != 1)
+            return false;
+        return true;
+      },
+      double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) +
+          8));
+  for (int i = 1; i < 4; ++i) {
+    const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
+                       static_cast<int64_t>(sim.boards[0].swap_g);
+    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+    HS_EXPECT_FALSE(sim.boards[i].trapped);
+  }
+  sim.run_revs(2.0);
+  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  for (int i = 1; i < 4; ++i)
+    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+}
+
 // ── §9.1 failure-mode budget: artifact bounds and recovery times ────────────
 //
 // One scenario per spec §9.1 budget row that the tests above do not already
@@ -1269,10 +1343,11 @@ inline void test_budget_corrupted_timebase() {
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_GE(b2.board.telemetry().lock_transitions, 2u);
 
-  // Content recovers at the epoch layer: by the next commit every board is
-  // on the same effect with no trap. (rev_in_effect — and t — may carry ±1
-  // from the phase jump until that commit, so commit-instant equality is
-  // not asserted here.)
+  // Content recovers fully by the next epoch: any rev_in_effect hiccup from
+  // the phase jump is resynced by the beacon rev cross-check (§6.4) well
+  // before the train, so the commit is lockstep — same boundary, frame
+  // counters re-zeroed together, no trap. (t may carry ±1 from the hiccup
+  // only UNTIL that commit.)
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         for (auto &b : s.boards)
@@ -1281,8 +1356,16 @@ inline void test_budget_corrupted_timebase() {
         return true;
       },
       double(cfg.revs_per_effect) + 12));
-  for (auto &b : sim.boards)
-    HS_EXPECT_FALSE(b.trapped);
+  for (int i = 1; i < 4; ++i) {
+    const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
+                       static_cast<int64_t>(sim.boards[0].swap_g);
+    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+    HS_EXPECT_FALSE(sim.boards[i].trapped);
+  }
+  sim.run_revs(2.0);
+  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  for (int i = 1; i < 4; ++i)
+    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
 
 // Row "corrupted beacon frame": integrity is by rejection — a corrupted
@@ -1422,6 +1505,7 @@ inline int run_pov_sync_tests() {
   test_sim_reboot();
   test_sim_forged_burst();
   test_sim_epoch_repeat_lockstep();
+  test_sim_rev_resync();
 
   test_budget_lost_symbol();
   test_budget_emi_accepted_seam();
