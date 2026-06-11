@@ -32,7 +32,10 @@ public:
     bloodStreamComposition.bind(&bloodStreamPalette, &bloodStreamFade);
 
     params = preset_manager.get();
-    baked_palette.bake(persistent_arena, *params.palette);
+    // Bake both LUT slots up front so each owns its persistent-arena allocation;
+    // spawn_sprite only ever rebakes (no further allocation) thereafter.
+    baked_palettes_[0].bake(persistent_arena, *params.palette);
+    baked_palettes_[1].bake(persistent_arena, *params.palette);
 
     registerParam("Copies", &params.num_copies, 1.0f, 20.0f);
     registerParam("Radius", &params.offset_radius, 0.0f, 1.0f);
@@ -101,7 +104,14 @@ private:
 
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   MobiusWarpTransformer<1> mobius_gen;
-  BakedPalette baked_palette;
+  // Two baked LUTs, ping-ponged per spawn. On a preset change at most two
+  // sprites overlap (the outgoing fade-out and the incoming fade-in); each
+  // sprite captures its own slot so the outgoing one keeps the palette it was
+  // spawned with through its fade instead of hard-cutting to the freshly
+  // rebaked colors (finding 317). The non-color live params stay shared on
+  // purpose (Copies/Radius/Speed/Alpha slider liveness).
+  BakedPalette baked_palettes_[2];
+  int active_bake_ = 0;
 
   ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
   AlphaFalloffShade bloodStreamFade{[](float t) { return 1.0f - t; }};
@@ -192,9 +202,15 @@ private:
     // against timeline compaction.
     if (auto *warp = mobius_gen.spawn(0, this->params.warp_scale, period, false))
       warp->bind_scale(this->params.warp_scale);
-    baked_palette.rebake(*params.palette);
+    // Rebake into the inactive slot so the previous sprite (still fading out)
+    // keeps reading the palette it spawned with. The slot two spawns back is
+    // long gone (sprites overlap at most pairwise), so this never disturbs a
+    // live sprite.
+    active_bake_ ^= 1;
+    baked_palettes_[active_bake_].rebake(*params.palette);
+    const int bake_slot = active_bake_;
 
-    auto draw_fn = [this, safe_idx](Canvas &canvas, float opacity) {
+    auto draw_fn = [this, safe_idx, bake_slot](Canvas &canvas, float opacity) {
       const auto &preset = loaded_presets[safe_idx];
       ScratchScope _(scratch_arena_a);
       MeshState target_mesh;
@@ -202,9 +218,11 @@ private:
 
       // Render from the live, slider-bound params (not a fresh preset copy) so
       // the registered Copies/Radius/Speed/Alpha sliders actually affect the
-      // output.
+      // output, but from this sprite's own baked LUT so its color stays
+      // continuous across a preset change.
       this->draw_scene(canvas, this->params, opacity, preset.mesh_state,
-                       target_mesh, preset.tangents, preset.edges);
+                       target_mesh, preset.tangents, preset.edges,
+                       baked_palettes_[bake_slot]);
     };
 
     timeline
@@ -251,10 +269,11 @@ private:
   void draw_scene(Canvas &canvas, const Params &p, float opacity,
                   const MeshState &base, MeshState &target,
                   const ArenaVector<Tangent> &tangents,
-                  const ArenaVector<Plot::Mesh::Edge> &edges) {
+                  const ArenaVector<Plot::Mesh::Edge> &edges,
+                  const BakedPalette &baked) {
 
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
-      Color4 c = baked_palette.get(f.v0);
+      Color4 c = baked.get(f.v0);
       c.alpha *= p.alpha * opacity;
       f.color = c;
     };
