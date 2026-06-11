@@ -778,7 +778,7 @@ User-reachable failures or latching desync modes.
    *Why it matters:* The codebase's credibility rests on its invariant comments being precise; a wrong priority claim at the one place a reviewer checks preemption relationships undermines that, and could later be 'relied on' for a real shared-state decision.
    *Suggested fix:* Either delete the line and fix the comment (SysTick may preempt the column ISR briefly; it shares no state with it), or actually demote SysTick below 128 (e.g., SCB_SHPR3 = 0xE0E00000) if millis-tick preemption latency in the column ISR is the genuine concern.
 
-133. **Telemetry label says 'frame ms:' but prints microseconds** — `hardware/pov_single.h:104-109` *(not independently validated)*
+133. ✅ **Telemetry label says 'frame ms:' but prints microseconds** — `hardware/pov_single.h:104-109` *(validated: run() computes `dt = micros() - t0` and prints it under "frame ms: ", so a 16 ms frame reads as "frame ms: 16000" — a 1000× misread of frame budget. Fixed by relabeling to the unit-neutral "ft " already used by pov_segmented.h:285, so both on-device frame-time sites agree. (The non-Arduino branch cited in the original finding was removed meanwhile by the finding-135 fix that made POVDisplay Arduino-only.))*
    run() measures `dt = micros() - t0` and prints `Serial.print("frame ms: "); Serial.println(dt);` — the value is in µs, mislabeled as ms (a 16 ms frame prints as 'frame ms: 16000'). The segmented driver and the non-Arduino branch use the unit-neutral 'ft' label for the same quantity.
    *Why it matters:* Anyone profiling frame budget on-device from the serial stream will misread headroom by 1000×.
    *Suggested fix:* Change the label to 'ft ' (matching pov_segmented.h) or 'frame us: '.

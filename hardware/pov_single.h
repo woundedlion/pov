@@ -116,7 +116,10 @@ private:
       effect_->draw_frame();
       unsigned long dt = micros() - t0;
       if (hs::debug) {
-        Serial.print("frame ms: ");
+        // dt is micros() elapsed; the unit-neutral "ft " label matches the
+        // segmented driver (the prior "frame ms:" mislabeled microseconds as
+        // milliseconds).
+        Serial.print("ft ");
         Serial.println(dt);
       }
     }
