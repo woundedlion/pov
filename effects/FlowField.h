@@ -80,7 +80,14 @@ public:
 
   void draw_frame() override {
     Canvas canvas(*this);
-    t += params.time_scale;
+    // Wrap the noise-time accumulator to a large period so it never grows big
+    // enough for the float ULP to swallow the increment and freeze the field
+    // (the unbounded accumulator stalled after ~3 weeks of continuous running).
+    // OpenSimplex2 is not periodic, so the wrap produces a brief flow-field pop
+    // once per period; at 2048 the ULP (~2.4e-4) stays well under the slowest
+    // Time Spd increment (0.001) so t always advances, and the pop is hours
+    // apart at the default rate (and power/show cycles reset it far sooner).
+    t = fmodf(t + params.time_scale, TIME_PERIOD);
 
     timeline.step(canvas);
     particle_system.step(canvas);
@@ -103,6 +110,10 @@ public:
 private:
   static constexpr int k_num_particles = 600;
   static constexpr int k_trail_length = 14;
+  // Wrap period for the noise-time accumulator (see draw_frame): large enough
+  // that pops are far apart, small enough that the ULP never swallows the
+  // increment.
+  static constexpr float TIME_PERIOD = 2048.0f;
 
   typedef Animation::ParticleSystem<W, k_num_particles, k_trail_length, 1, 0>
       ParticleSystem;
