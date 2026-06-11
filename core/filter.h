@@ -145,13 +145,21 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   using Next = Pipeline<W, H, Tail...>;
   Next next;
 
-  // Forwarding Reference Constructor
+  // Forwarding Reference Constructor. The requires guard stops it from hijacking
+  // copy construction: copying from a non-const Pipeline lvalue would otherwise
+  // prefer this template (an exact Pipeline& match) over the implicit copy ctor
+  // (which adds const) and try to construct Head(Pipeline&). Excluding Pipeline
+  // lets the copy ctor win.
   template <typename HArg, typename... TArgs>
+    requires(!std::is_same_v<std::remove_cvref_t<HArg>, Pipeline>)
   Pipeline(HArg &&h, TArgs &&...t)
       : Head(std::forward<HArg>(h)), next(std::forward<TArgs>(t)...) {}
 
-  // Partial Constructor (Head only, Tail default constructed)
+  // Partial Constructor (Head only, Tail default constructed). Same guard: as an
+  // explicit single-arg forwarding ctor it would hijack direct copy construction
+  // the same way.
   template <typename HArg>
+    requires(!std::is_same_v<std::remove_cvref_t<HArg>, Pipeline>)
   explicit Pipeline(HArg &&h) : Head(std::forward<HArg>(h)) {}
 
   Pipeline() = default;
