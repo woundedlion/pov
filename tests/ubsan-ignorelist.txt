@@ -1,0 +1,11 @@
+# UBSan special-case list for the native test build (-DHS_SANITIZE=ON).
+#
+# FastNoiseLite is vendored third-party code whose integer hashing deliberately
+# relies on wrapping signed-int multiplication (e.g. `hash *= 0x27d4eb2d` and
+# `i *= PrimeX` with PrimeX = 501125321). That is technically
+# signed-integer-overflow UB, but it is defined two's-complement wrap on every
+# target we ship and is the library's documented design — not an engine bug.
+# Suppress ONLY that one check in ONLY that file; every other UBSan check stays
+# active there, and all first-party code keeps full signed-overflow coverage.
+[signed-integer-overflow]
+src:*FastNoiseLite.h

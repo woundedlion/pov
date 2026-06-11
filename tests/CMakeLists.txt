@@ -47,5 +47,40 @@ target_compile_definitions(run_tests PRIVATE HS_TEST_BUILD)
 # Headers are included as "tests/..." and "core/..." from the repo root.
 target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 
+# The native suite is the one build where diagnostics can run: the device/WASM
+# build compiles the arena guards out, so ASan/UBSan here are the only automated
+# cover for the arena-lifetime hazards the death harness can't reach. -Werror is
+# intentionally left off for now — three -Wunused-result warnings (a separate
+# finding) would otherwise break the build; -Wall/-Wextra still surface them.
+target_compile_options(run_tests PRIVATE -Wall -Wextra)
+
+# Opt-in sanitizers. Default OFF so the pre-commit gate and the default
+# `cmake --preset tests` stay fast (ASan ~2x); enable with -DHS_SANITIZE=ON
+# (the Linux CI job runs it). The flavour depends on the runtime the toolchain
+# ships:
+#   * Linux/full-LLVM: ASan + UBSan with diagnostics (-fno-sanitize-recover
+#     makes the first error a hard failure rather than logged-and-continue).
+#   * Windows emsdk clang: ships no ASan runtime for the MSVC target, so use
+#     runtime-free UBSan in trap mode — a UB hit becomes an immediate trap,
+#     consistent with the engine's always-on fail-fast doctrine.
+option(HS_SANITIZE "Build the unit tests with sanitizers (ASan+UBSan, or UBSan-trap on Windows)" OFF)
+if(HS_SANITIZE)
+  # Suppress only signed-integer-overflow inside vendored FastNoiseLite (its
+  # hashing wraps signed ints by design); first-party code keeps full coverage.
+  set(_hs_ubsan_ignore "-fsanitize-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/ubsan-ignorelist.txt")
+  if(WIN32)
+    target_compile_options(run_tests PRIVATE
+      -fsanitize=undefined -fsanitize-trap=undefined ${_hs_ubsan_ignore}
+      -fno-omit-frame-pointer -g)
+    message(STATUS "Unit tests: UBSan (trap mode) enabled — no ASan runtime on emsdk clang")
+  else()
+    target_compile_options(run_tests PRIVATE
+      -fsanitize=address,undefined -fno-sanitize-recover=all ${_hs_ubsan_ignore}
+      -fno-omit-frame-pointer -g)
+    target_link_options(run_tests PRIVATE -fsanitize=address,undefined)
+    message(STATUS "Unit tests: ASan + UBSan enabled (HS_SANITIZE=ON)")
+  endif()
+endif()
+
 enable_testing()
 add_test(NAME unit_tests COMMAND run_tests)
