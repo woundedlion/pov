@@ -505,6 +505,13 @@ public:
     // Draw
     for (size_t i = 0; i < count_; ++i) {
       const auto &item = at(i);
+      // Heterogeneous TTLs let an item expire behind a younger one; the pop loop
+      // above only frees front-contiguous dead items, so an expired mid-buffer
+      // item lingers until it reaches the head. Skip it rather than redraw a
+      // frozen ghost at t = 1.0 every frame (it is still popped once it reaches
+      // the front).
+      if (item.ttl == 0)
+        continue;
       Vector v = decode(item);
       float t =
           1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime));
