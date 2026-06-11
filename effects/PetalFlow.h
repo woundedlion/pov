@@ -78,7 +78,7 @@ private:
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 
-  Timeline<W> timeline;
+  Timeline timeline;
   Animation::PeriodicTimer spawner;
 
   FLASHMEM void init_timeline() {

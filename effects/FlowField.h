@@ -121,7 +121,7 @@ private:
   GenerativePalette palette;
   ParticleSystem particle_system;
   Orientation<W> orientation;
-  Timeline<W> timeline;
+  Timeline timeline;
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;

@@ -148,7 +148,7 @@ private:
                   y2 * v.z * (3.0f - 4.0f * z2 * inv_R2));
   }
 
-  Timeline<W> timeline;
+  Timeline timeline;
   Orientation<W> orientation;
   Orientation<W> global_orientation;
   FastNoiseLite noise;

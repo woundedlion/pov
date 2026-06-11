@@ -15,13 +15,12 @@ using Animation::RippleParams;
 
 /**
  * @brief A generic manager for state-based geometry transformations.
- * @tparam W Canvas width (for Timeline).
  * @tparam ParamsT The configuration struct (e.g., RippleParams, MobiusParams).
  * @tparam AnimT The animation class (e.g., Animation::Ripple).
  * @tparam TransformFunc The static function to apply the transformation.
  * @tparam CAPACITY Max number of active transformations.
  */
-template <int W, typename ParamsT, typename AnimT,
+template <typename ParamsT, typename AnimT,
           Vector (*TransformFunc)(const Vector &, const ParamsT &),
           int CAPACITY = 32>
 class Transformer {
@@ -33,9 +32,9 @@ public:
 
   ParamsT params;
   std::array<Entity, CAPACITY> entities;
-  Timeline<W> &timeline;
+  Timeline &timeline;
 
-  Transformer(Timeline<W> &tl) : timeline(tl) {}
+  Transformer(Timeline &tl) : timeline(tl) {}
 
   /**
    * @brief Spawns a new transformation animation.
@@ -313,38 +312,37 @@ inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
 /**
  * @brief Generates ripples that warp the sphere
  */
-template <int W, int CAPACITY>
+template <int CAPACITY>
 using RippleTransformer =
-    Transformer<W, RippleParams, Animation::Ripple, ripple_transform, CAPACITY>;
+    Transformer<RippleParams, Animation::Ripple, ripple_transform, CAPACITY>;
 
 /**
  * @brief Performs Mobius warps that return to the identity.
  */
-template <int W, int CAPACITY>
+template <int CAPACITY>
 using MobiusWarpTransformer =
-    Transformer<W, MobiusParams, Animation::MobiusWarp, mobius_transform,
-                CAPACITY>;
+    Transformer<MobiusParams, Animation::MobiusWarp, mobius_transform, CAPACITY>;
 
 /**
  * @brief Performs circular Mobius warps that stay warped throughout, suitable
  * for repeating animations.
  */
-template <int W, int CAPACITY>
+template <int CAPACITY>
 using MobiusWarpCircularTransformer =
-    Transformer<W, MobiusParams, Animation::MobiusWarpCircular,
-                mobius_transform, CAPACITY>;
+    Transformer<MobiusParams, Animation::MobiusWarpCircular, mobius_transform,
+                CAPACITY>;
 
 /**
  * @brief Performs a changing Mobius warp using gnomonic projection.
  */
-template <int W, int CAPACITY>
+template <int CAPACITY>
 using MobiusWarpGnomonicTransformer =
-    Transformer<W, MobiusParams, Animation::MobiusWarpEvolving,
+    Transformer<MobiusParams, Animation::MobiusWarpEvolving,
                 gnomonic_mobius_transform, CAPACITY>;
 
 /**
  * @brief Applies 3D noise distortion to vectors.
  */
-template <int W, int CAPACITY>
+template <int CAPACITY>
 using NoiseTransformer =
-    Transformer<W, NoiseParams, Animation::Noise, noise_transform, CAPACITY>;
+    Transformer<NoiseParams, Animation::Noise, noise_transform, CAPACITY>;

@@ -84,12 +84,12 @@ private:
   std::array<PresetData, 4> loaded_presets;
 
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
 
   Orientation<W> global_orientation;
 
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  MobiusWarpTransformer<W, 1> mobius_gen;
+  MobiusWarpTransformer<1> mobius_gen;
   BakedPalette baked_palette;
 
   ProceduralPalette bloodStreamPalette = Palettes::bloodStream;

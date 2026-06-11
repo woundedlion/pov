@@ -116,7 +116,7 @@ private:
   Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {};
   float last_drift_ = -1.0f;
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
   ProceduralPalette palette = Palettes::lavenderLake;
 
   Pipeline<W, H, Filter::World::Trails<W, MAX_TRAILS>, Filter::World::Orient<W>,

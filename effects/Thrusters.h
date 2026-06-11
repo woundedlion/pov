@@ -179,7 +179,7 @@ private:
   float warp_phase;
   int t_global;
 
-  Timeline<W> timeline;
+  Timeline timeline;
   Animation::Mutation warp_anim;
   Orientation<W> orientation;
 

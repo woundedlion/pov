@@ -56,13 +56,13 @@ public:
 
 private:
   Orientation<W> orientation;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H> filters;
-  RippleTransformer<W, 8> ripple_gen;
+  RippleTransformer<8> ripple_gen;
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
-  MeshCarousel<W> carousel;
+  MeshCarousel carousel;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;

@@ -60,12 +60,11 @@ void configure_arenas_default() {
 }
 
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
-// Single live-Timeline guard. Non-templated on purpose: the event array above is
-// shared across every Timeline<W,CAPACITY>, so the "only one alive" invariant
-// must span all instantiations, not be per-instantiation static state.
+// Single live-Timeline guard: the event array above is shared by every Timeline
+// instance, so the "only one alive" invariant is one global flag.
 bool global_timeline_live = false;
 // Shared singleton cursors into global_timeline_events (see animation.h):
-// non-templated so every Timeline<W,CAPACITY> reads/writes the same count.
+// free globals so every Timeline instance reads/writes the same count.
 int global_timeline_t = 0;
 int global_timeline_num_events = 0;
 DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];

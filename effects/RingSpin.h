@@ -89,7 +89,7 @@ private:
                         Animation::RandomWalk<W>::Options::Energetic()));
   }
 
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H> filters;
   Ring *rings = nullptr;
   int num_rings = 0;

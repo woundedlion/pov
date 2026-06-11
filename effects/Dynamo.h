@@ -203,7 +203,7 @@ private:
 
   int dir(int speed) const { return speed < 0 ? -1 : 1; }
 
-  Timeline<W> timeline;
+  Timeline timeline;
 
   static constexpr size_t MAX_PALETTES = 16;
   static constexpr int H_VIRT = H + hs::H_OFFSET;

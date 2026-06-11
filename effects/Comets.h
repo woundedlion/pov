@@ -134,7 +134,7 @@ private:
   static constexpr int WIPE_FRAMES = 48;
 
   FastNoiseLite noise;
-  Timeline<W, 32> timeline;
+  Timeline timeline;
   Pipeline<W, H> filters;
   ProceduralPath path;
   Orientation<W> orientation;

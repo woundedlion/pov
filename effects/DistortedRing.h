@@ -81,7 +81,7 @@ public:
 
 private:
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H> filters;
 
   struct Params {

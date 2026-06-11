@@ -228,7 +228,7 @@ private:
   } params;
 
   Orientation<W> orientation;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H> filters;
   BakedPalette baked_palette;
 

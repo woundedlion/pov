@@ -163,7 +163,7 @@ private:
   }
 
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ProceduralPath path;
   Orientation<W> orientation;
@@ -176,7 +176,7 @@ private:
   float last_cycle_duration_ = -1.0f;
   float cycle_phase = 0.0f;
   Node *node = nullptr;
-  NoiseTransformer<W, 1> noise_xform;
+  NoiseTransformer<1> noise_xform;
 };
 
 #include "core/effect_registry.h"

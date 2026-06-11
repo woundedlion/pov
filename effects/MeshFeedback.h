@@ -158,11 +158,11 @@ private:
   NoiseParams noise_params;
 
   Orientation<W> orientation;
-  Timeline<W> timeline;
+  Timeline timeline;
   ProceduralPalette palette;
 
   // Mesh carousel + morph state
-  MeshCarousel<W> carousel;
+  MeshCarousel carousel;
   int solid_idx = 0;
   bool morphing = false;
 

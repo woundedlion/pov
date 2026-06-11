@@ -193,7 +193,7 @@ private:
                }));
   }
 
-  MeshCarousel<W> carousel;
+  MeshCarousel carousel;
   CompiledHankin compiled_hankin;         // Active during hankin cycle
   CompiledHankin compiled_hankin_staging; // Built during morph cycle
   std::array<int, NUM_PALETTES> palettes_slots[2];
@@ -216,7 +216,7 @@ private:
 
   Orientation<W> orientation;
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H> filters;
   int solid_idx = 0;
 

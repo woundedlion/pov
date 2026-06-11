@@ -117,7 +117,7 @@ private:
 
   Orientation<W> orientation;
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   ParticleSystem particle_system;
   GenerativePalette base_palette{

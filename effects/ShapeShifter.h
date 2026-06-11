@@ -173,7 +173,7 @@ private:
   }
 
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
   Orientation<W> camera;
   // Shared tumbles — one per render mode. Declared after `timeline` so they
   // outlive it: ~Timeline clears the Rotations that point here on teardown.

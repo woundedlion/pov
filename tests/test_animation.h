@@ -13,7 +13,7 @@
  *
  * Timeline IS exercised here. Its step() only drives the canvas-agnostic
  * animations above, so the shared fake_canvas() suffices — no render stack is
- * pulled. Every Timeline<W,CAPACITY> shares one global event array (plus the
+ * pulled. Every Timeline shares one global event array (plus the
  * live-guard and frame/count cursors), so each test scopes its Timeline locally
  * (balancing the guard) and resets the global cursors when it pokes them.
  *
@@ -488,7 +488,7 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
   global_timeline_t = 0;
 
   Ori o; // identity, single frame
-  Timeline<288> tl;
+  Timeline tl;
   // Two world-space rotations about the SAME axis, each a quarter turn,
   // completing in one frame so the single step sweeps the full angle.
   tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_mid));
@@ -516,7 +516,7 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
 // (Uses the global Timeline; each Timeline is scoped so the live-guard balances,
 // and Transition::step never dereferences the canvas.)
 inline void test_timeline_sequences_events_by_start_frame() {
-  Timeline<16> tl; // ctor clears the global cursors; dtor releases the live guard
+  Timeline tl; // ctor clears the global cursors; dtor releases the live guard
   float a = 0.0f, b = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 2, ease_mid)); // starts now
   tl.add(3, Animation::Transition(b, 20.0f, 2, ease_mid)); // delayed 3 frames
@@ -544,7 +544,7 @@ inline void test_timeline_sequences_events_by_start_frame() {
 // f(easing(t/duration)) each step, so after completion + rewind the next step
 // drops back to the mid-cycle value (a non-rewinding timer would clamp at 1).
 inline void test_timeline_repeating_animation_rewinds_each_cycle() {
-  Timeline<16> tl;
+  Timeline tl;
   float v = -1.0f;
   tl.add(0, Animation::Mutation(
                 v, [](float e) { return e; }, 2, ease_mid, /*repeat=*/true));
@@ -565,7 +565,7 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
 // keep stepping correctly from their new positions. Decisive check: the
 // originally-LAST event (relocated furthest) still reaches its own target.
 inline void test_timeline_compaction_preserves_later_events() {
-  Timeline<16> tl;
+  Timeline tl;
   float a = 0.0f, b = 0.0f, c = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 1, ease_mid));  // completes at t=1
   tl.add(0, Animation::Transition(b, 100.0f, 5, ease_mid)); // in-flight survivor
@@ -593,7 +593,7 @@ inline void test_timeline_compaction_preserves_later_events() {
 // gap-fills them into the freed slots — the add-during-callback path. The
 // follow-up is added this frame but only runs on the next.
 inline void test_timeline_then_chains_follow_up_event() {
-  Timeline<16> tl;
+  Timeline tl;
   float a = 0.0f, b = 0.0f;
   // 'a' completes in one frame; its .then() schedules 'b' to start immediately.
   tl.add(0, Animation::Transition(a, 10.0f, 1, ease_mid).then([&]() {
@@ -614,7 +614,7 @@ inline void test_timeline_then_chains_follow_up_event() {
 // reusable from t=0 — the in-place reset the singleton offers in lieu of
 // reassignment.
 inline void test_timeline_clear_resets_state() {
-  Timeline<16> tl;
+  Timeline tl;
   float a = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 5, ease_mid));
   tl.step(fake_canvas());
@@ -636,17 +636,17 @@ inline void test_timeline_clear_resets_state() {
 // add() is bounded by MAX_EVENTS (the shared global array size): once full, a
 // further add is rejected (logged) rather than overrunning the array.
 inline void test_timeline_full_guard_rejects_overflow() {
-  Timeline<16> tl;
+  Timeline tl;
   float sink = 0.0f;
   // Targets share one float — this test asserts the count guard, not values, and
   // never steps. Fill to capacity.
-  for (int i = 0; i < Timeline<16>::MAX_EVENTS; ++i)
+  for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_mid));
-  HS_EXPECT_EQ(global_timeline_num_events, Timeline<16>::MAX_EVENTS);
+  HS_EXPECT_EQ(global_timeline_num_events, Timeline::MAX_EVENTS);
 
   tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_mid)); // one past full
   HS_EXPECT_EQ(global_timeline_num_events,
-               Timeline<16>::MAX_EVENTS); // rejected, count unchanged
+               Timeline::MAX_EVENTS); // rejected, count unchanged
 }
 
 // Orientation::upsample SLERP-interpolates the recorded sub-frames up to a target
@@ -709,7 +709,7 @@ inline void test_motion_repeating_does_not_drift() {
   Ori o; // identity, single frame; orient(+Y) starts on the path
   const Vector node_v = Y_AXIS;
 
-  Timeline<288> tl;
+  Timeline tl;
   tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
 
   // Ideal internal angles between three fixed within-cycle phases.

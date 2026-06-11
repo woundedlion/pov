@@ -151,8 +151,8 @@ inline void test_noise_active_stays_on_sphere() {
 // ============================================================================
 
 inline void test_transformer_no_entities_is_identity() {
-  Timeline<32> tl;
-  RippleTransformer<32, 8> rt(tl);
+  Timeline tl;
+  RippleTransformer<8> rt(tl);
   Vector v = Vector(0.6f, 0.2f, 0.77f).normalized();
   Vector r = rt.transform(v); // nothing spawned → all entities inactive
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
@@ -171,9 +171,9 @@ inline void test_transformer_no_entities_is_identity() {
 // immediately — no Canvas / timeline stepping needed. The local Timeline's
 // destructor clears the global event buffer on scope exit.
 inline void test_transformer_spawn_applies_and_composes() {
-  Timeline<32> tl;
+  Timeline tl;
   global_timeline_t = 0;
-  NoiseTransformer<32, 4> nt(tl);
+  NoiseTransformer<4> nt(tl);
   nt.params.amplitude = 0.6f;
   nt.params.scale = 4.0f;
   nt.params.time = 1.0f;

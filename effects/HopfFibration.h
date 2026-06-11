@@ -108,7 +108,7 @@ private:
   float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
 
   Orientation<W> orientation;
-  Timeline<W> timeline;
+  Timeline timeline;
   BakedPalette baked_sunset;
 
   // trail_pipeline applies AA only; trail points are oriented by hand in

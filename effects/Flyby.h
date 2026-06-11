@@ -111,7 +111,7 @@ private:
     return (pattern * fade + 1.0f) * 0.5f;
   }
 
-  Timeline<W> timeline;
+  Timeline timeline;
   Orientation<W> orientation;
   FastNoiseLite noise;
   float noise_time = 0.0f;   // unbounded noise-time axis (see draw_frame)

@@ -155,7 +155,7 @@ private:
   Vector normal = Y_AXIS;
   Orientation<W> camera;
   std::array<Quaternion, NUM_VERTS> raw_quats;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
                             BrightnessProfile::BELL, SaturationProfile::VIBRANT,

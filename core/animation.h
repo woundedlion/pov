@@ -1809,22 +1809,24 @@ struct TimelineEvent {
 static constexpr int TIMELINE_MAX_EVENTS = 64;
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 // True while a Timeline instance is alive. Guards the single-singleton invariant
-// (see global_timeline_events): every Timeline<W,CAPACITY> shares that one event
-// array, so a second live instance would silently stomp the first's events.
-// Non-templated on purpose, so the guard spans all instantiations.
+// (see global_timeline_events): every Timeline shares that one event array, so a
+// second live instance would silently stomp the first's events.
 extern bool global_timeline_live;
-// Bookkeeping cursors into global_timeline_events. Non-templated for the same
-// reason as the array and the live guard: the storage is one shared singleton,
-// so its frame counter and active-event count must be too. Were these
-// per-instantiation Timeline<W,CAPACITY> statics, two specializations indexing
-// the one shared array would desync their counts from its real contents.
+// Bookkeeping cursors into global_timeline_events. Kept as free globals
+// alongside the array (not Timeline statics): the storage is one shared
+// singleton, so its frame counter and active-event count belong with it.
 extern int global_timeline_t;          // current global frame count
 extern int global_timeline_num_events; // current number of active events
 
 /**
  * @brief Manages all active animations and their execution over time.
+ *
+ * Not templated: the entire instance is backed by one global event array
+ * (`global_timeline_events`) sized to hold the largest effect, and the
+ * live-guard permits exactly one instance at a time, so the capacity is a
+ * single process-wide budget (`MAX_EVENTS`), not a per-instance knob.
  */
-template <int W, int CAPACITY = 32> class Timeline {
+class Timeline {
 public:
   /**
    * @brief Constructs a Timeline.
@@ -2038,9 +2040,8 @@ public:
   }
 
   // Frame counter (`global_timeline_t`) and active-event count
-  // (`global_timeline_num_events`) live as non-templated globals, not statics
-  // here, so they stay one shared singleton with global_timeline_events rather
-  // than forking per Timeline<W,CAPACITY> specialization.
+  // (`global_timeline_num_events`) live as free globals, not statics here, so
+  // they stay one shared singleton with global_timeline_events.
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 };
@@ -2060,7 +2061,7 @@ public:
  * on animation type and on the per-slot side-band state they carry.
  *
  * Usage:
- *   MeshCarousel<W> carousel;  // in effect members
+ *   MeshCarousel carousel;  // in effect members
  *
  *   // Build the initial shape directly into the front slot:
  *   carousel.current().clear();
@@ -2068,10 +2069,8 @@ public:
  *
  *   // To transition: generate into the back slot, schedule an animation,
  *   // then flip and compact (see IslamicStars::spawn_shape for the pattern).
- *
- * @tparam W The display width (passed through to Timeline by clients).
  */
-template <int W> class MeshCarousel {
+class MeshCarousel {
 public:
   MeshCarousel() {}
 

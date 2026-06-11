@@ -196,7 +196,7 @@ private:
 
   GenerativePalette palette;
   GenerativePalette next_palette;
-  MobiusWarpCircularTransformer<W, 1> mobius_gen;
+  MobiusWarpCircularTransformer<1> mobius_gen;
 
   struct Params {
     float num_rings = 0.0f;
@@ -205,7 +205,7 @@ private:
   } params;
 
   Orientation<W> orientation;
-  Timeline<W> timeline;
+  Timeline timeline;
 
   Vector holeN;
   Vector holeS;

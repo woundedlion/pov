@@ -216,8 +216,8 @@ inline void case_timeline_handled_relocation() {
 // the first's events; the construction guard traps instead. The real app holds
 // exactly one (the old effect is destroyed before the next is built).
 inline void case_timeline_double_construct() {
-  Timeline<32> a;
-  Timeline<32> b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
+  Timeline a;
+  Timeline b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
   if (global_timeline_num_events == opaque(42))
     std::printf("x");
 }

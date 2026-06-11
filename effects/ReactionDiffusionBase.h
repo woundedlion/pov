@@ -107,5 +107,5 @@ protected:
   Orientation<W> orientation;
   FastNoiseLite noise;
   ReactionGraph::CubemapLUT cube_lut;
-  Timeline<W> timeline;
+  Timeline timeline;
 };

@@ -80,10 +80,10 @@ public:
 private:
   Orientation<W> orientation;
   FastNoiseLite noise;
-  Timeline<W> timeline;
+  Timeline timeline;
   Pipeline<W, H> filters;
 
-  MobiusWarpGnomonicTransformer<W, 1> transformer;
+  MobiusWarpGnomonicTransformer<1> transformer;
 };
 
 #include "core/effect_registry.h"

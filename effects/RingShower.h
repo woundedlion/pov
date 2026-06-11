@@ -102,7 +102,7 @@ private:
   static constexpr size_t MAX_RINGS = 16;
   Ring rings[MAX_RINGS];
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  Timeline<W> timeline;
+  Timeline timeline;
 
   struct Params {
     float alpha = 0.2f;
