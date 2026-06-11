@@ -211,8 +211,6 @@ inline void test_tribitset_test_and_set() {
 inline void test_tribitset_index_uniqueness() {
   // For MAX_V=8, the 28 distinct pairs must map to 28 distinct indices in [0, 28)
   constexpr int N = 8;
-  int indices[N * N];
-  std::memset(indices, 0, sizeof(indices));
   int seen[64] = {};
   int unique = 0;
   for (int a = 0; a < N; ++a) {

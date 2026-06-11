@@ -70,13 +70,20 @@ inline void test_aabb_union_with() {
   HS_EXPECT_VEC(a.max_val, Vector(3, 4, 6), 1e-6f);
 }
 
-inline void test_aabb_union_with_empty_is_noop_when_outside() {
+inline void test_aabb_union_with_empty_and_subset_is_noop() {
   AABB a;
   a.expand(Vector(0, 0, 0));
   a.expand(Vector(1, 1, 1));
   AABB before = a;
 
-  // Union with a more-permissive box should not shrink a.
+  // Union with a default-constructed (empty) box is a true no-op: an empty box
+  // is min=+FLT_MAX, max=-FLT_MAX, so no component of `a` can be widened.
+  AABB empty;
+  a.union_with(empty);
+  HS_EXPECT_VEC(a.min_val, before.min_val, 1e-6f);
+  HS_EXPECT_VEC(a.max_val, before.max_val, 1e-6f);
+
+  // Union with a more-permissive box should grow a to the superset.
   AABB superset;
   superset.expand(Vector(-10, -10, -10));
   superset.expand(Vector(10, 10, 10));
@@ -84,14 +91,13 @@ inline void test_aabb_union_with_empty_is_noop_when_outside() {
   HS_EXPECT_VEC(a.min_val, Vector(-10, -10, -10), 1e-6f);
   HS_EXPECT_VEC(a.max_val, Vector(10, 10, 10), 1e-6f);
 
-  // Union with a contained box should not change a.
+  // Union with a contained box should not shrink a.
   AABB inside;
   inside.expand(Vector(-5, -5, -5));
   inside.expand(Vector(5, 5, 5));
   a.union_with(inside);
   HS_EXPECT_VEC(a.min_val, Vector(-10, -10, -10), 1e-6f);
   HS_EXPECT_VEC(a.max_val, Vector(10, 10, 10), 1e-6f);
-  (void)before;
 }
 
 inline void test_aabb_ray_hit() {
@@ -399,7 +405,7 @@ inline int run_spatial_tests() {
   test_aabb_expand_single_point();
   test_aabb_expand_multiple_points();
   test_aabb_union_with();
-  test_aabb_union_with_empty_is_noop_when_outside();
+  test_aabb_union_with_empty_and_subset_is_noop();
   test_aabb_ray_hit();
   test_aabb_ray_miss();
   test_aabb_ray_from_inside();

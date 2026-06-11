@@ -263,12 +263,8 @@ inline void test_torus_normal_points_outward_on_top() {
 // ============================================================================
 
 inline void test_union_picks_closest_shape() {
-  // Two disjoint torii. Distance to Union = min of distances.
-  SDF::Torus a{2.0f, 0.5f};
-  SDF::Torus b{5.0f, 0.5f};
-  // Note: Torus does not satisfy the .thickness field required by Union<>.
-  // Use Line shapes (which do have .thickness) for the algebra tests instead.
-
+  // Union distance is the min of member distances. Torus has no .thickness field,
+  // which Union<> requires, so the algebra is exercised with Line shapes.
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
   SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
 
