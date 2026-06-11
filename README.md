@@ -890,9 +890,11 @@ A single contiguous memory block (`GLOBAL_ARENA_SIZE = 335 KB`) is partitioned i
 Effects that need more scratch memory can repartition at init time:
 
 ```cpp
-// The three sizes must sum to GLOBAL_ARENA_SIZE (335 KB on device); an
+// The three sizes must not exceed GLOBAL_ARENA_SIZE (335 KB on device); an
 // over-subscribed partition traps at init() via HS_CHECK rather than silently
-// scaling down. Here scratch is doubled at the expense of persistent space:
+// scaling down. Under-subscription is allowed (the surplus is just unused),
+// but partitioning the full budget is the norm. Here scratch is doubled at the
+// expense of persistent space:
 configure_arenas(271 * 1024, 32 * 1024, 32 * 1024);  // 271 + 32 + 32 = 335 KB
 ```
 
