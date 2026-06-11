@@ -553,14 +553,10 @@ struct MeshOpsWrapper {
 #undef MESHOP_0
 #undef MESHOP_1
 
-  // Hankin shares one MeshOps entry point but with two unit conventions, so it
-  // stays explicit rather than fitting the MESHOP_* shape.
-  std::unique_ptr<MeshOpsWrapper> hankin(float angle) const {
-    return apply([angle](const PolyMesh &m, Arena &a, Arena &b) {
-      return MeshOps::hankin(m, a, b, angle * (PI_F / 180.0f));
-    });
-  }
-  std::unique_ptr<MeshOpsWrapper> hankin_rad(float radians) const {
+  // Hankin takes its angle in radians (the unit MeshOps::hankin expects), so it
+  // stays explicit rather than fitting the MESHOP_* shape — the comment carries
+  // the unit contract the JS caller relies on.
+  std::unique_ptr<MeshOpsWrapper> hankin(float radians) const {
     return apply([radians](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::hankin(m, a, b, radians);
     });
@@ -680,7 +676,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("chamfer", &MeshOpsWrapper::chamfer)
       .function("bitruncate", &MeshOpsWrapper::bitruncate)
       .function("expand", &MeshOpsWrapper::expand)
-      .function("hankin", &MeshOpsWrapper::hankin_rad)
+      .function("hankin", &MeshOpsWrapper::hankin)
       .function("meta", &MeshOpsWrapper::meta)
       .function("needle", &MeshOpsWrapper::needle)
       .function("zip", &MeshOpsWrapper::zip)
