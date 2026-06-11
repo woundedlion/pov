@@ -138,8 +138,8 @@ public:
   using EffectFactory = Effect *(*)();
 
   /**
-   * @brief Initializes hardware: reads segment ID, configures LED driver,
-   *        and demotes SysTick priority.
+   * @brief Initializes hardware: reads segment ID and configures the LED
+   *        driver.
    */
   POVSegmented() {
     read_id();
@@ -157,10 +157,11 @@ public:
     FastLED.setTemperature(Candle);
 #endif
 
-    // Keep SysTick demoted. The flywheel tolerates wake-up jitter by
-    // construction — position is time-derived — but there is no reason to
-    // let millis() preempt the column ISR either.
-    SCB_SHPR3 = 0x20200000;
+    // SysTick (millis) runs at NVIC priority 32 — the Teensy 4 boot default —
+    // and so may briefly preempt the flywheel ISR, whose IntervalTimer sits
+    // at the default 128. That is fine: the handler is short, shares no state
+    // with the ISR, and the flywheel tolerates wake-up jitter by construction
+    // (position is time-derived).
 
     // The flywheel timebase reads DWT->CYCCNT. Teensyduino enables it during
     // startup; assert that here rather than silently depending on it.
