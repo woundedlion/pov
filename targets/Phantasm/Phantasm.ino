@@ -18,6 +18,15 @@
  *   ID 2: pin 22 grounded — arm B outer
  *   ID 3: both grounded   — arm B inner
  */
+
+// Select the DMA HD107S output path for this target. Must be defined before any
+// include that pulls in led.h (via pov_segmented.h) so the driver compiles the
+// non-blocking DMA controller (24 MHz, see pov_segmented.h) rather than the
+// engine-default FastLED/WS2801 fallback — the wrong chipset, and its blocking
+// show() cannot meet the column ISR budget. The led.h global toggle stays
+// commented so WASM/sim and single-board builds keep the FastLED path.
+#define USE_DMA_LEDS
+
 #include <FastLED.h>
 #include <SPI.h>
 

@@ -13,8 +13,12 @@
 #pragma once
 #include "platform.h"
 
-// Uncomment to use DMA-based HD107S controller instead of FastLED WS2801.
-// Requires Teensy 4.x hardware. Leave commented for WASM/sim builds.
+// Selects the DMA-based HD107S controller instead of the FastLED WS2801 path.
+// Requires Teensy 4.x hardware; leave undefined for WASM/sim and single-board
+// builds. Targets that need it define USE_DMA_LEDS themselves before including
+// the driver (e.g. targets/Phantasm/Phantasm.ino) rather than toggling it here,
+// so this engine-wide header stays neutral. Uncomment only for a one-off local
+// experiment:
 // #define USE_DMA_LEDS
 
 /**
