@@ -91,15 +91,18 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   for (size_t i = 0; i < V; ++i) {
     compiled.base_vertices.push_back(mesh.vertices[i]);
   }
-  // Hankin emits up to (I/2)+1 static midpoint vertices plus I dynamic vertices;
-  // the combined index (static_offset + dyn_idx, emitted below) must fit the
-  // int16_t topology range. narrow_index() would trap an overflow mid-build, but
-  // the ceiling is knowable here — fail fast at the binding site with a clear
-  // message if MAX_INDICES is ever raised past what the index width allows.
-  HS_CHECK((I / 2) + 1 + I <= static_cast<size_t>(INT16_MAX),
+  // compile_hankin requires a closed manifold (every half-edge paired): each
+  // undirected edge is shared by 2 half-edges that emit one shared midpoint, so
+  // the static pool is exactly I/2 vertices and I is even. The entry check below
+  // enforces this; a boundary mesh would otherwise overrun the pool. Combined
+  // with the I dynamic vertices, the index (static_offset + dyn_idx, emitted
+  // below) must fit the int16_t topology range. narrow_index() would trap an
+  // overflow mid-build, but the ceiling is knowable here — fail fast at the
+  // binding site if MAX_INDICES is ever raised past what the index width allows.
+  HS_CHECK((I / 2) + I <= static_cast<size_t>(INT16_MAX),
            "Hankin output vertex count exceeds int16_t index range "
            "(MAX_INDICES raised too high?)");
-  compiled.static_vertices.bind(target_arena, (I / 2) + 1);
+  compiled.static_vertices.bind(target_arena, I / 2);
   compiled.dynamic_vertices.bind(target_arena, I);
   compiled.dynamic_instructions.bind(target_arena, I);
   compiled.face_counts.bind(target_arena, F + V);
@@ -109,6 +112,17 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
     ScratchScope _(temp_arena);
 
     HalfEdgeMesh he_mesh(temp_arena, mesh);
+
+    // Closed-manifold invariant: every half-edge must be paired. The pool
+    // sizing (I/2 midpoints) and the orbit walks below all assume each edge has
+    // its twin; a boundary half-edge would overrun static_vertices and break the
+    // rosette traversal. Hankin only ever runs on closed convex solids, so an
+    // unpaired edge is a build-invariant violation — trap with a clear message.
+    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+      HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
+               "compile_hankin requires a closed manifold (unpaired half-edge)");
+    }
+
     uint16_t *he_to_midpoint_idx = static_cast<uint16_t *>(
         temp_arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(he_to_midpoint_idx, I, HE_NONE);
@@ -120,17 +134,12 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       if (he_to_midpoint_idx[he_idx] != HE_NONE)
         return he_to_midpoint_idx[he_idx];
       HalfEdge &he = he_mesh.half_edges[he_idx];
-      if (he.pair != HE_NONE && he_to_midpoint_idx[he.pair] != HE_NONE)
+      if (he_to_midpoint_idx[he.pair] != HE_NONE)
         return he_to_midpoint_idx[he.pair];
 
-      // A closed-manifold half-edge always has a valid prev (interior face
-      // loop). If both prev and pair are HE_NONE the edge is degenerate /
-      // non-manifold and the he.pair fallback below would read
-      // half_edges[HE_NONE] out of bounds — trap on the bad input instead.
-      HS_CHECK(he.prev != HE_NONE || he.pair != HE_NONE);
-      Vector p_a = he.prev != HE_NONE
-                      ? mesh.vertices[he_mesh.half_edges[he.prev].vertex]
-                      : mesh.vertices[he_mesh.half_edges[he.pair].vertex];
+      // Closed manifold: prev (the interior face loop) is always valid, so the
+      // edge endpoints are simply prev->vertex and he->vertex.
+      Vector p_a = mesh.vertices[he_mesh.half_edges[he.prev].vertex];
       Vector p_b = mesh.vertices[he.vertex];
       Vector mid = (p_a + p_b) * 0.5f;
       mid.normalize();
@@ -138,8 +147,7 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       compiled.static_vertices.push_back(mid);
       uint16_t idx = narrow_index(compiled.static_vertices.size() - 1);
       he_to_midpoint_idx[he_idx] = idx;
-      if (he.pair != HE_NONE)
-        he_to_midpoint_idx[he.pair] = idx;
+      he_to_midpoint_idx[he.pair] = idx;
       return idx;
     };
 
@@ -169,14 +177,9 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
 
         HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
 
-        // Same guard as get_midpoint_idx: the pair fallback reads
-        // half_edges[prev_he.pair], which is OOB when both prev and pair are
-        // HE_NONE (degenerate / non-manifold edge). Trap the bad input.
-        HS_CHECK(prev_he.prev != HE_NONE || prev_he.pair != HE_NONE);
+        // Closed manifold: prev_he->prev is always valid (interior face loop).
         uint16_t i_corner = prev_he.vertex;
-        uint16_t i_prev = prev_he.prev != HE_NONE
-                             ? he_mesh.half_edges[prev_he.prev].vertex
-                             : he_mesh.half_edges[prev_he.pair].vertex;
+        uint16_t i_prev = he_mesh.half_edges[prev_he.prev].vertex;
         uint16_t i_next = curr_he.vertex;
 
         compiled.dynamic_instructions.push_back({i_corner, i_prev, i_next,
@@ -210,12 +213,8 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       uint16_t he_start_idx = static_cast<uint16_t>(i);
       const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-      // Same guard as get_midpoint_idx / the star-face walk: the rosette
-      // origin is the tail vertex of he_start, read via its prev. A closed
-      // manifold always has a valid prev; HE_NONE means a degenerate /
-      // non-manifold edge and half_edges[HE_NONE] would be OOB — trap the bad
-      // input instead.
-      HS_CHECK(he_start.prev != HE_NONE);
+      // Closed manifold: the rosette origin is he_start's tail vertex, read via
+      // its always-valid prev (interior face loop).
       uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
       if (visited_verts[origin_idx])
         continue;
@@ -229,16 +228,14 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
         const HalfEdge &curr_he = he_mesh.half_edges[curr_idx];
         HS_CHECK(count < (int)(2 * I));
         face_indices[count++] = he_to_midpoint_idx[curr_idx];
-        uint16_t next_edge_idx = curr_he.pair != HE_NONE
-                                   ? he_mesh.half_edges[curr_he.pair].next
-                                   : HE_NONE;
-        if (next_edge_idx == HE_NONE)
-          break;
+        // Closed manifold: pair is always valid, so the orbit closes back on
+        // start_orbit and never hits HE_NONE.
+        uint16_t next_edge_idx = he_mesh.half_edges[curr_he.pair].next;
         HS_CHECK(count < (int)(2 * I));
         face_indices[count++] =
             compiled.static_offset + he_to_dynamic_idx[next_edge_idx];
         curr_idx = next_edge_idx;
-      } while (curr_idx != HE_NONE && curr_idx != start_orbit);
+      } while (curr_idx != start_orbit);
 
       if (count > 2) {
         compiled.face_counts.push_back(narrow_face_count(count));
