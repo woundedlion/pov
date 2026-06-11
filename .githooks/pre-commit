@@ -39,6 +39,12 @@ if ! printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\
   exit 0
 fi
 
+# Caveat: emscripten-only TUs (e.g. targets/wasm/wasm.cpp, guarded entirely by
+# #ifdef __EMSCRIPTEN__) match the grep above and so trigger this hook, but they
+# are NOT part of the native test target — none of their changed code is compiled
+# here. An embind signature typo passes this gate and fails only in CI's wasm
+# job. Catching it locally would require an `emcc` syntax pass (EMSDK-gated),
+# deliberately omitted to keep the per-commit hook fast.
 echo "[pre-commit] Building + running unit tests (cmake --preset tests)..."
 if ! { cmake --preset tests && cmake --build --preset tests && ctest --preset tests --output-on-failure; }; then
   echo "[pre-commit] Unit tests FAILED — commit aborted."
