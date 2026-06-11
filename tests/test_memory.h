@@ -5,13 +5,23 @@
  * Unit tests for core/memory.h — Arena, TriangularBitset, ArenaVector,
  * ArenaSpan, ScratchScope, and Persist<T>.
  *
- * NOTE: This file exercises only the legal behaviors; the fail-fast traps are
- * driven (in forked child processes) by the death harness in tests/test_death.h
- * — case_arena_oom (allocate past capacity), case_arena_set_offset_overflow
- * (rewind past capacity), case_arena_vector_overflow / append_bulk_overflow
- * (fixed-capacity push), and case_arena_oversubscribed. The remaining misuse
- * preconditions (double-bind, unbound access, use-after-free) are not yet in
- * the death harness and are covered only by non-test integration.
+ * NOTE: The always-on HS_CHECK traps are driven (in forked child processes) by
+ * the death harness in tests/test_death.h — case_arena_oom (allocate past
+ * capacity), case_arena_set_offset_overflow (rewind past capacity),
+ * case_arena_vector_overflow / append_bulk_overflow (fixed-capacity push), and
+ * case_arena_oversubscribed.
+ *
+ * The ArenaVector lifetime guards (unbound access, use-after-free) are debug
+ * asserts, not HS_CHECK traps — they compile out under NDEBUG by design, so the
+ * per-access check stays free in the device/WASM build. The death harness
+ * therefore can't cover them; instead the bookkeeping they key on is exercised
+ * in-process here: the bound_ flag through the construct/bind/move lifecycle
+ * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
+ * the use-after-free generation snapshot via test_arenavec_stale_binding_after_reset
+ * (an arena reset marks a live binding stale; the next bind() must drop it and
+ * reallocate fresh). Double-bind is NOT a precondition violation at all: a
+ * re-bind that grows is a supported pattern (it abandons the old block until the
+ * next arena reset — see ArenaVector::bind), covered by test_arenavec_rebind_grows.
  */
 #pragma once
 
@@ -395,6 +405,35 @@ inline void test_arenavec_rebind_grows() {
   HS_EXPECT_NE(v.data(), data_before); // fresh allocation, old block abandoned
 }
 
+// Use-after-free precondition: an arena reset bumps the generation the vector
+// snapshotted at bind(), marking its block dead. Re-binding to the reset arena
+// must DROP the stale binding and allocate fresh, never hand back the dangling
+// block. The tell is capacity(): test_arenavec_rebind_reuses (no reset between)
+// reuses in place and KEEPS the old capacity 16; here the generation moved, so
+// bind() takes the fresh-allocation path and adopts the new exact capacity 8.
+// This pins, via the public API, the generation bookkeeping that check_alive()
+// relies on to trap a stale access — the trap itself is a debug-only assert,
+// exercised by integration rather than spawned here.
+#ifndef NDEBUG
+inline void test_arenavec_stale_binding_after_reset() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  ArenaVector<int> v(a, 16);
+  v.push_back(123);
+  uint32_t gen_before = a.get_generation();
+
+  a.reset(); // generation bumps -> v's binding is now stale
+  HS_EXPECT_TRUE(a.get_generation() != gen_before);
+
+  v.bind(a, 8); // stale binding dropped -> fresh alloc, NOT an in-place reuse
+  HS_EXPECT_TRUE(v.is_bound());
+  HS_EXPECT_EQ(v.size(), (size_t)0);
+  HS_EXPECT_EQ(v.capacity(), (size_t)8); // 8 (fresh), not 16 (would-be reuse)
+
+  v.push_back(7); // the fresh binding is live and usable
+  HS_EXPECT_EQ(v[0], 7);
+}
+#endif
+
 inline void test_arenavec_zero_capacity() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 0);
@@ -637,6 +676,9 @@ inline int run_memory_tests() {
   test_arenavec_move_assign();
   test_arenavec_rebind_reuses();
   test_arenavec_rebind_grows();
+#ifndef NDEBUG
+  test_arenavec_stale_binding_after_reset();
+#endif
   test_arenavec_zero_capacity();
 
   test_arenaspan_default();
