@@ -212,8 +212,7 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
  * @param world_state The destination mesh state to populate.
  * @param arena The memory arena to allocate vertices.
  */
-template <typename MeshT>
-inline void transform(const MeshT &local_state, MeshT &world_state,
+inline void transform(const MeshState &local_state, MeshState &world_state,
                       Arena& arena) {
   // transform() produces a BORROWED-mode mesh: vertices are owned (rebuilt
   // below) but topology is shared through the *_view spans. The per-member
@@ -223,16 +222,11 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
   // Unbind it up front so the borrowed mode is unambiguous on reuse.
   world_state.face_counts = {};
   world_state.faces = {};
-  if constexpr (requires { world_state.face_offsets_view; }) {
-    world_state.face_offsets = {};
-  }
+  world_state.face_offsets = {};
 
   world_state.face_counts_view = ArenaSpan(local_state.face_counts);
   world_state.faces_view = ArenaSpan(local_state.faces);
-
-  if constexpr (requires { world_state.face_offsets_view; }) {
-    world_state.face_offsets_view = ArenaSpan(local_state.face_offsets);
-  }
+  world_state.face_offsets_view = ArenaSpan(local_state.face_offsets);
 
   world_state.vertices.bind(arena, local_state.vertices.size());
 
@@ -244,24 +238,19 @@ inline void transform(const MeshT &local_state, MeshT &world_state,
                                    local_state.vertices.size());
 }
 
-template <typename MeshT, typename T1, typename... Transformers>
-inline void transform(const MeshT &mesh, MeshT &transformed, Arena& arena,
+template <typename T1, typename... Transformers>
+inline void transform(const MeshState &mesh, MeshState &transformed, Arena& arena,
                       const T1 &first_transformer,
                       const Transformers &...transformers) {
   // Borrowed-mode output: unbind any stale owned topology so the views set
   // below are not shadowed on a reused destination (see the base overload).
   transformed.face_counts = {};
   transformed.faces = {};
-  if constexpr (requires { transformed.face_offsets_view; }) {
-    transformed.face_offsets = {};
-  }
+  transformed.face_offsets = {};
 
   transformed.face_counts_view = ArenaSpan(mesh.face_counts);
   transformed.faces_view = ArenaSpan(mesh.faces);
-
-  if constexpr (requires { transformed.face_offsets_view; }) {
-    transformed.face_offsets_view = ArenaSpan(mesh.face_offsets);
-  }
+  transformed.face_offsets_view = ArenaSpan(mesh.face_offsets);
 
   transformed.vertices.bind(arena, mesh.vertices.size());
 
