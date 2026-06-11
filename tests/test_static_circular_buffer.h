@@ -5,8 +5,10 @@
  * Unit tests for core/static_circular_buffer.h.
  *
  * NOTE: front(), back(), and operator[] abort on misuse, so the empty/OOB
- * paths are NOT exercised here — those preconditions are documented as
- * caller responsibilities.
+ * paths are not exercised here — they are driven (in forked child processes)
+ * by the death harness in tests/test_death.h: case_circular_buffer_front_empty
+ * (front() while empty) and case_circular_buffer_oob (operator[] past the live
+ * count).
  */
 #pragma once
 

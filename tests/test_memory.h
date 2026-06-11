@@ -5,10 +5,13 @@
  * Unit tests for core/memory.h — Arena, TriangularBitset, ArenaVector,
  * ArenaSpan, ScratchScope, and Persist<T>.
  *
- * NOTE: Tests deliberately avoid triggering the assert()s in memory.h
- * (double-bind, push-past-capacity, unbound access, use-after-free). Those
- * preconditions are exercised in non-test integration; here we exercise only
- * the legal behaviors.
+ * NOTE: This file exercises only the legal behaviors; the fail-fast traps are
+ * driven (in forked child processes) by the death harness in tests/test_death.h
+ * — case_arena_oom (allocate past capacity), case_arena_set_offset_overflow
+ * (rewind past capacity), case_arena_vector_overflow / append_bulk_overflow
+ * (fixed-capacity push), and case_arena_oversubscribed. The remaining misuse
+ * preconditions (double-bind, unbound access, use-after-free) are not yet in
+ * the death harness and are covered only by non-test integration.
  */
 #pragma once
 
