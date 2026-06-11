@@ -4,7 +4,13 @@
 name: CI
 
 on:
+  # Restrict push to master: a push to a PR branch already fires the
+  # pull_request event, and the two runs key on different refs
+  # (refs/heads/* vs refs/pull/*/merge) so neither concurrency-cancels the
+  # other. Limiting push avoids that double-run while still covering
+  # direct-to-master pushes that open no PR.
   push:
+    branches: [master]
   pull_request:
 
 permissions:
