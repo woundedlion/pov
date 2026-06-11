@@ -112,10 +112,17 @@ private:
     Vector thrust_opp =
         Plot::DistortedRing::fn_point(r_fn, basis, 1.0f, warp_phase + PI_F);
 
-    // warp
+    // warp: decay from peak (0.7) to exactly 0 over the mutation's life so the
+    // ring fully relaxes between fires. A bare 0.7*exp(-2t) bottoms out at
+    // 0.7*e^-2 ~= 0.095 and, once done() freezes it, leaves a residual wobble
+    // until the next fire; the shift-and-renormalize lands it on zero at t=1.
     warp_anim = Animation::Mutation(
-        amplitude, [](float t) { return 0.7f * expf(-2.0f * t); }, 32,
-        ease_mid);
+        amplitude,
+        [](float t) {
+          constexpr float kFloor = 0.1353352832f; // expf(-2)
+          return 0.7f * (expf(-2.0f * t) - kFloor) / (1.0f - kFloor);
+        },
+        32, ease_mid);
 
     // spin
     Vector thrust_axis =
