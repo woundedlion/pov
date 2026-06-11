@@ -87,10 +87,10 @@ Two physical targets share the same rendering engine:
 | Rotation | 480 RPM (8 revolutions/second), 16 FPS from 2 sides of the ring |
 | Virtual resolution | 288 × 144 |
 | Driver | `POVSegmented<288, 4, 480>` in `pov_segmented.h` |
-| Synchronization | 2-wire: column clock (PWM) + frame sync (pulse) |
-| Pin assignments | ID: pins 21–22, Column clock: pin 2 (in) / pin 5 (out), Frame sync: pin 3 (out) / pin 4 (in), SPI: pins 11 + 13 |
+| Synchronization | 1-wire: count-coded sync symbols from segment 0 discipline a per-board flywheel timebase (`hardware/pov_sync.h`) |
+| Pin assignments | ID: pins 21–22, Sync symbols: pin 3 (out, segment 0) / pin 4 (in), SPI: pins 11 + 13 |
 
-The POV effect works because each revolution takes ~125 ms and the ISR fires every `1,000,000 / (RPM/60) / width` microseconds to advance one column. The LED strip is mounted on both sides of a rotating arm: the top half of the strip handles one hemisphere and the bottom half handles the opposite hemisphere, so one full revolution paints a complete sphere.
+The POV effect works because each revolution takes ~125 ms and a new column is painted every `1,000,000 / (RPM/60) / width` microseconds (on Holosphere the IntervalTimer ISR advances one column per fire; on Phantasm each board's flywheel ISR derives the column from the CPU cycle counter — see §7.10). The LED strip is mounted on both sides of a rotating arm: the top half of the strip handles one hemisphere and the bottom half handles the opposite hemisphere, so one full revolution paints a complete sphere.
 
 ---
 
@@ -201,7 +201,9 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
 │   ├── hd107s_frame.h          HD107S protocol buffer + inline color correction (host-testable)
+│   ├── pov_segment_map.h       Pure segment index math (host-testable)
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
+│   ├── pov_sync.h              Phantasm sync protocol core: flywheel timebase, symbol codec, epoch/beacon (host-testable)
 │   └── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │
 ├── targets/                    Per-target entry points
@@ -1189,16 +1191,21 @@ Arm A                               Arm B (x offset by W/2)
 └──────────────────────────┘        └──────────────────────────┘
 ```
 
-**Hardware ID detection**: Each Teensy reads a 2-bit ID from GPIO pins 21–22 (active-low with pull-ups).  All-floating = ID 0 (clock master).  The ID determines which arm and which half this board owns.
+**Hardware ID detection**: Each Teensy reads a 2-bit ID from GPIO pins 21–22 (active-low with pull-ups).  All-floating = ID 0 (sync master).  The ID determines which arm and which half this board owns.
 
-**Synchronization** uses two shared wires:
+**Synchronization** rides a single shared wire (full design: `docs/phantasm_frame_sync_spec.md`; host-tested protocol core: `hardware/pov_sync.h`):
 
 | Wire | Pin (out) | Pin (in) | Purpose |
 |---|---|---|---|
-| Column clock | 5 (PWM) | 2 (ext. interrupt) | Segment 0 generates a PWM at (RPM/60)×W Hz. All boards fire `show_col()` ISR on each rising edge — zero inter-board phase drift. |
-| Frame sync | 3 (GPIO) | 4 (ext. interrupt) | Segment 0 pulses HIGH at each frame boundary (`x==0` and `x==W/2`, two per revolution). A single wire can't say *which* boundary, so downstream boards track it by **counting** pulses: the first pulse after `run()` seeds the boundary by proximity (column drift is ≈0 then), and every later pulse just toggles `0 ↔ W/2`, snapping `x` to that boundary. This bounds drift from missed/spurious **clock-line** pulses to ≤ ½ revolution. |
+| Sync symbols | 3 (GPIO, segment 0) | 4 (ext. interrupt) | Segment 0 emits count-coded pulse bursts: boundary marks at `x==0` (3 pulses) and `x==W/2` (1 pulse), an epoch mark (5 pulses) when the playlist advances, and a checksummed five-digit index beacon mid-revolution. |
 
-The column clock ensures all 4 boards paint the same column at the same instant.  The frame sync corrects drift accumulated on the *clock* line — a spurious or missed clock pulse would otherwise compound into permanent column drift without periodic re-alignment. It assumes the dedicated frame-sync wire is itself reliable: because the boundary is tracked by pulse *parity* rather than an absolute symbol, a dropped or duplicated frame-sync pulse inverts the parity and latches a permanent half-revolution offset until `run()` re-seeds. See [docs/phantasm_frame_sync_spec.md](docs/phantasm_frame_sync_spec.md) for the self-describing-symbol scheme that removes this assumption.
+Each board generates its own columns from a local **flywheel timebase**: the column index derives from the free-running CPU cycle counter (`x = (now − epoch) · (W/2) / cycles_per_half_rev`, 64-bit intermediate, epoch folded forward each half-revolution so the 32-bit counter wrap is unobservable), never from counting timer interrupts — so an interrupt-masked window cannot drop columns; the ISR resumes at the time-correct column.  Three layers ride that timebase:
+
+* **Column phase** — boundary symbols snap each flywheel twice per revolution; worst-case inter-snap crystal drift is ~0.006 column.  In LOCKED state a symbol is accepted only if its implied correction is ≤ 4 columns (plausibility gate); repeated rejections fall back to a hard-snapping ACQUIRE state, during which the board displays black.
+* **Buffer flip** — the local boundary crossing flips the display buffer; the symbol is a deduplicated backstop (`try_flip` keyed on boundary identity), so flips are exactly-once even when both paths fire.
+* **Content** — the playlist is epoch-counted, not `millis()`-gated: the master emits the epoch mark when an effect's 960 revolutions elapse, every board constructs the next roster entry during a 2-revolution commit window (display black), and all swap to its frame 0 at the same boundary.  The beacon broadcasts the absolute effect index so a board that missed the epoch corrects within ~2 s and a rebooted board rejoins at the correct effect — fail-dark, never fail-wrong.
+
+Symbols are count-coded (odd counts only, distance 2 apart) so a lost or spurious edge yields an invalid even count that is discarded whole: a glitch degrades to a *missed* symbol — covered by the local crossing — never a *misclassified* one.  The master self-censors emissions that would start late rather than poison downstream phase.
 
 **Branchless ISR**: All per-segment decisions are resolved at boot time into three precomputed values:
 

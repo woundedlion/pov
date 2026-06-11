@@ -21,14 +21,18 @@
  *     Segment 3 (bottom):  LED 0 at S pole (y=143) → LED 71 at junction (y=72)  ← reversed
  *
  * Each Teensy reads a hardware ID from GPIO pins at boot to determine
- * which segment it owns.  Two shared wires connect all boards:
+ * which segment it owns.  One wire connects all boards
+ * (docs/phantasm_frame_sync_spec.md):
  *
- *   Wire 1 (column clock): Segment 0 generates PWM; all boards trigger
- *          their column ISR on each rising edge.
- *
- *   Wire 2 (frame sync):   Segment 0 pulses HIGH once per revolution
- *          (at x=0).  All boards reset their column counter on this
- *          edge, bounding any drift to ≤ 1 revolution.
+ *   Sync wire: segment 0 (the master/conductor) emits count-coded symbol
+ *   bursts — two boundary marks per revolution, an epoch mark once per
+ *   effect, and a mid-revolution index beacon.  Every board generates its
+ *   own columns from a local flywheel timebase (position derived from the
+ *   free-running cycle counter, never from counting timer interrupts); the
+ *   symbols snap each flywheel's phase and synchronize buffer flips and
+ *   the effect playlist.  All protocol logic lives in pov_sync.h
+ *   (host-tested); this file is the device shell: it reads the cycle
+ *   counter, services two ISRs, packs pixels, and toggles one pin.
  *
  * Effects render the full CANVAS_W × CANVAS_H canvas.  Segmentation is
  * handled entirely in the ISR, which packs only this segment's pixels
@@ -40,6 +44,7 @@
 #pragma once
 #include "led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
+#include "pov_sync.h"        // pure sync protocol (host-testable; see that file)
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -90,17 +95,31 @@ class POVSegmented {
   static constexpr int PIN_ID0 = 21;
   static constexpr int PIN_ID1 = 22;
 
-  /** @brief External interrupt input for shared column clock. */
-  static constexpr int PIN_COLUMN_SYNC = 2;
-
-  /** @brief Frame sync output (segment 0 pulses at x=0). */
+  /** @brief Sync-symbol output (segment 0 / master only). */
   static constexpr int PIN_FRAME_SYNC_OUT = 3;
 
-  /** @brief Frame sync input (all boards reset x on rising edge). */
+  /** @brief Sync-symbol input (downstream boards decode symbol bursts). */
   static constexpr int PIN_FRAME_SYNC_IN = 4;
 
-  /** @brief PWM output for column clock (segment 0 / clock master only). */
-  static constexpr int PIN_CLOCK_OUT = 5;
+  // ── Flywheel timing ─────────────────────────────────────────────────
+
+  /** @brief Nominal column period in µs (T0 ≈ 434 µs at 480 RPM × 288). */
+  static constexpr float kColumnUs =
+      1000000.0f * 60.0f / (float(RPM) * float(CANVAS_W));
+
+  /**
+   * @brief Flywheel wake-up oversampling factor.
+   *
+   * Wake-ups are advisory (position comes from the cycle counter), so the
+   * only cost of a coarse wake grid is quantization: a board renders column
+   * k at its first wake after k's instant, and the master emits a symbol's
+   * first pulse at its first wake after the boundary instant. The timer grid
+   * is not phase-locked to the flywheel, so at 1 wake per column both lags
+   * reach a full column. Waking 8× per column bounds both to ⅛ column — far
+   * inside the §5.2 self-censor budget and below any visible seam — for
+   * ~18 kHz of near-empty ISR entries (a position computation and compare).
+   */
+  static constexpr int kOversample = 8;
 
   /**
    * @brief HD107S SPI clock for the Phantasm DMA path, in Hz.
@@ -114,9 +133,13 @@ class POVSegmented {
 
 public:
 
+  /** @brief Foreground effect constructor: builds, arena-configures, and
+   *  init()s one roster entry, ready to draw its first frame. */
+  using EffectFactory = Effect *(*)();
+
   /**
    * @brief Initializes hardware: reads segment ID, configures LED driver,
-   *        starts clock (master only), and demotes SysTick priority.
+   *        and demotes SysTick priority.
    */
   POVSegmented() {
     read_id();
@@ -134,22 +157,21 @@ public:
     FastLED.setTemperature(Candle);
 #endif
 
-    // Demote SysTick so the column ISR is never preempted by millis().
+    // Keep SysTick demoted. The flywheel tolerates wake-up jitter by
+    // construction — position is time-derived — but there is no reason to
+    // let millis() preempt the column ISR either.
     SCB_SHPR3 = 0x20200000;
 
-    // Configure frame sync pins.
-    if (segment_id_ == 0) {
-      pinMode(PIN_FRAME_SYNC_OUT, OUTPUT);
-      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
-    }
-    pinMode(PIN_FRAME_SYNC_IN, INPUT);
-
-    start_clock();
+    // The flywheel timebase reads DWT->CYCCNT. Teensyduino enables it during
+    // startup; assert that here rather than silently depending on it.
+    ARM_DEMCR |= ARM_DEMCR_TRCENA;
+    ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
 
     Serial.print("[Phantasm] Segment ");
     Serial.print(segment_id_);
     Serial.print(arm_b_ ? " arm-B" : " arm-A");
     Serial.print(y_step_ < 0 ? " (bottom, reversed)" : " (top)");
+    Serial.print(segment_id_ == 0 ? " MASTER" : "");
     Serial.print(" | y_base=");
     Serial.print(y_base_);
     Serial.print(" y_step=");
@@ -161,10 +183,11 @@ public:
   /**
    * @brief Total DMA frames dropped on overrun since boot.
    *
-   * The column ISR drops a frame (rather than blocking on waitComplete) when a
-   * prior DMA transfer is still in flight, so a nonzero — and especially a
-   * rising — value means the per-column ISR/transfer budget is being exceeded.
-   * Always 0 on the FastLED build, which has no DMA controller.
+   * The flywheel ISR drops a frame (rather than blocking on waitComplete)
+   * when a prior DMA transfer is still in flight, so a nonzero — and
+   * especially a rising — value means the per-column ISR/transfer budget is
+   * being exceeded. Always 0 on the FastLED build, which has no DMA
+   * controller.
    */
   uint32_t overrun_count() const {
 #if defined(USE_DMA_LEDS)
@@ -175,20 +198,130 @@ public:
   }
 
   /**
-   * @brief Runs a specific effect for a given duration.
-   * @tparam E The Effect class to instantiate and run.
-   * @param duration Time in seconds to display the effect.
+   * @brief Runs the synchronized show forever (spec §6).
+   *
+   * The playlist is epoch-counted, not millis()-gated: the master counts
+   * revolutions on its own timebase and broadcasts an EPOCH symbol when an
+   * effect's revolutions elapse; every board (master included) then tears
+   * down its current effect, constructs the next roster entry during the
+   * K-revolution commit window (display black), and swaps to its frame 0 at
+   * exactly the same boundary. Downstream boards join the running show via
+   * the index beacon — they never assume the playlist position.
+   *
+   * @param factories     One constructor per roster entry (HS_EFFECT_LIST
+   *                      order — identical on every board).
+   * @param effect_count  Roster length.
    */
-  template <typename E>
-  void show(unsigned long duration) {
-    // Eager-fill the scanline LUTs for this effect's resolution before the
-    // first frame, so the per-board ISRs never observe a half-filled table.
-    GeometryResolution<E>::init();
-    E *e = new E();
-    configure_arenas_default(); // Reset before init so effects can override
-    e->init();
-    run(e, duration);
-    delete e;
+  [[noreturn]] void run_show(const EffectFactory *factories,
+                             int effect_count) {
+    factories_ = factories;
+
+    const pov::sync::Config cfg = pov::sync::phantasm_config(
+        F_CPU, RPM, CANVAS_W, effect_count);
+    HS_CHECK(cfg.valid(), "pov::sync::Config invariants");
+    sync_ = pov::sync::SyncBoard(cfg);
+
+    const bool master = (segment_id_ == 0);
+    if (master) {
+      pinMode(PIN_FRAME_SYNC_OUT, OUTPUT);
+      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+    }
+    pinMode(PIN_FRAME_SYNC_IN, INPUT);
+
+    sync_.seed(ARM_DWT_CYCCNT, master);
+
+    // Attach ONCE per show; the flywheel is the timebase and persists across
+    // epochs (spec §8.5) — there is no per-effect attach/detach.
+    if (!master) {
+      attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN),
+                      sync_edge_isr, RISING);
+    }
+    timer_.begin(flywheel_isr, kColumnUs / float(kOversample));
+
+    // ── Foreground: construct effects on request, render, report ────────
+    Effect *cur = nullptr;
+    uint32_t built_gen = 0;
+#if defined(USE_DMA_LEDS)
+    uint32_t last_overrun = ledController_.getOverrunCount();
+#endif
+    pov::sync::Telemetry last_tm{};
+    unsigned long last_report = millis();
+
+    for (;;) {
+      const uint32_t bw = sync_.build_word();
+      const uint32_t gen = pov::sync::SyncBoard::build_gen_of(bw);
+      if (gen != built_gen) {
+        // The ISR owns the live-effect pointer; ask it to let go before the
+        // old instance is destroyed (it acknowledges within one wake-up).
+        ++release_req_;
+        const unsigned long t0 = micros();
+        while (release_ack_ != release_req_) {
+          HS_CHECK(micros() - t0 < 100000UL,
+                   "flywheel ISR failed to release the live effect");
+        }
+        delete cur;
+        // Deterministic content (spec §2): every board restarts the shared
+        // RNG stream per effect — exactly what the simulator does for a
+        // standalone effect — so frames are identical across boards
+        // regardless of boot or join history.
+        hs::random().seed(1337);
+        cur = factories_[pov::sync::SyncBoard::build_index_of(bw)]();
+        cur->draw_frame(); // frame 0, queued; fresh buffers never block
+        hs::disable_interrupts();
+        pending_effect_ = cur;
+        pending_gen_ = gen;
+        hs::enable_interrupts();
+        built_gen = gen;
+      }
+
+      // Render only once the ISR has taken this instance live; before that
+      // the queued frame 0 is waiting for the commit/join boundary. The
+      // Canvas buffer_free() gate paces this to exactly one step() per flip.
+      if (cur && consumed_gen_ == built_gen) {
+        const unsigned long f0 = micros();
+        cur->draw_frame();
+        if (hs::debug) {
+          Serial.print("ft ");
+          Serial.println(micros() - f0);
+        }
+      }
+
+      // Health telemetry (spec §8.6): foreground-polled, never ISR-printed,
+      // emitted only on change — the existing DMA-overrun pattern. The
+      // snapshot read races the ISR's counter increments; for debug counters
+      // a torn read is benign.
+      if (hs::debug && millis() - last_report >= 1000UL) {
+        last_report = millis();
+        const pov::sync::Telemetry tm = sync_.telemetry();
+        if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
+          Serial.printf("sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu "
+                        "bok=%lu brej=%lu fix=%lu rmis=%lu lock=%lu "
+                        "flip=%lu coast=%lu epi=%lu\r\n",
+                        (unsigned long)tm.symbols_accepted,
+                        (unsigned long)tm.symbols_rejected_gate,
+                        (unsigned long)tm.symbols_discarded_invalid,
+                        (unsigned long)tm.emit_censored,
+                        (unsigned long)tm.emit_aborted,
+                        (unsigned long)tm.beacons_ok,
+                        (unsigned long)tm.beacons_rejected,
+                        (unsigned long)tm.beacon_index_corrections,
+                        (unsigned long)tm.beacon_rev_mismatches,
+                        (unsigned long)tm.lock_transitions,
+                        (unsigned long)tm.flips,
+                        (unsigned long)tm.max_coast_halves,
+                        (unsigned long)tm.epochs_refractory_ignored);
+          last_tm = tm;
+        }
+#if defined(USE_DMA_LEDS)
+        const uint32_t overruns = ledController_.getOverrunCount();
+        if (overruns != last_overrun) {
+          Serial.print("overrun ");
+          Serial.println(overruns);
+          last_overrun = overruns;
+        }
+#endif
+      }
+    }
   }
 
 private:
@@ -199,18 +332,18 @@ private:
    * @brief Reads the 2-bit hardware segment ID from GPIO pins.
    *
    * Pins are configured as INPUT_PULLUP; grounding a pin sets its bit.
-   * The result is inverted so that all-floating = ID 0 (clock master).
+   * The result is inverted so that all-floating = ID 0 (master).
    *
    * A floating or cold-soldered strap reads HIGH, which inverts toward ID 0 —
-   * silently promoting the board to a second clock master and driving the
-   * shared clock/frame-sync wires into contention. To catch unstable straps we
-   * sample twice and trap on disagreement: a stable strap is an invariant.
+   * silently promoting the board to a second master and driving the shared
+   * sync wire into contention. To catch unstable straps we sample twice and
+   * trap on disagreement: a stable strap is an invariant.
    *
    * Note: this validates *this* board's strap only. It cannot detect a *peer*
-   * holding the same ID — both shared wires are push-pull, so a duplicate
-   * master is not observable from a single board without a dedicated
-   * (open-drain) arbitration line. That cross-check is intentionally out of
-   * scope; the debounce above removes the most likely cause (a floating pin).
+   * holding the same ID — the sync wire is push-pull, so a duplicate master
+   * is not observable from a single board without a dedicated (open-drain)
+   * arbitration line. That cross-check is intentionally out of scope; the
+   * debounce above removes the most likely cause (a floating pin).
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
@@ -255,209 +388,161 @@ private:
     y_step_ = m.y_step;
   }
 
-  // ── Clock ───────────────────────────────────────────────────────────
+  // ── ISRs ────────────────────────────────────────────────────────────
 
   /**
-   * @brief Starts the column clock (segment 0 only).
+   * @brief Sync-wire edge ISR (downstream boards only): a pure publisher.
    *
-   * Generates a PWM signal at (RPM / 60) × CANVAS_W Hz on the clock
-   * output pin.  All segments trigger their column ISR from this shared
-   * clock line via external interrupt.
+   * Applies the glitch filter and records the edge into the mailbox; touches
+   * no flywheel, flip, or epoch state (spec §8.2 single-writer model). NVIC
+   * priority relative to the flywheel ISR is therefore free — preemption has
+   * no correctness consequence.
    */
-  void start_clock() {
-    if (segment_id_ == 0) {
-      float col_freq = (RPM / 60.0f) * CANVAS_W;
-      analogWriteFrequency(PIN_CLOCK_OUT, col_freq);
-      analogWrite(PIN_CLOCK_OUT, 128);
-    }
+  static FASTRUN void sync_edge_isr() {
+    sync_.on_sync_edge(ARM_DWT_CYCCNT);
   }
 
-  // ── Effect lifecycle ────────────────────────────────────────────────
-
   /**
-   * @brief Non-template core of show(). Borrows e — the caller (show) retains
-   * ownership and deletes it. Publishes e to the ISR-visible effect_ only while
-   * the column/frame-sync ISRs are attached, then unpublishes it.
-   * @param e        Effect instance (borrowed; not deleted here).
-   * @param duration Display time in seconds.
+   * @brief Flywheel ISR: the sole owner of all sync state (spec §8).
+   *
+   * Paced by an IntervalTimer at T0/kOversample as a wake-up only — the
+   * cycle counter decides which column it is (spec §4.1), so a late, early,
+   * or coalesced wake-up cannot inject drift: the ISR is idempotent when the
+   * column is unchanged and skip-tolerant when it jumped (the skipped
+   * columns were masked precisely because the strip was busy).
    */
-  void run(Effect *e, unsigned long duration) {
-    // Unsigned start + unsigned elapsed (millis() - start) is the overflow-safe
-    // timing idiom: the modular subtraction stays correct across the ~49.7-day
-    // millis() wraparound. A signed start, or a precomputed `start + interval`
-    // deadline, would mis-compare on overflow.
-    const unsigned long start = millis();
-    const unsigned long duration_ms = duration * 1000;
-    // Ordering invariant (the column clock free-runs continuously): publish
-    // effect_ BEFORE attaching show_col, and clear it only AFTER detaching
-    // show_col below. show_col is the sole reader of effect_, so between effects
-    // it is detached while effect_ is null — the ISR can never observe a null
-    // effect_. Keep these two writes bracketing the attach/detach pair.
-    effect_ = e;
-    x_ = 0;
-    sync_seeded_ = false; // re-seed frame-sync parity for this run (see ISR)
+  static FASTRUN void flywheel_isr() {
+    const uint32_t now = ARM_DWT_CYCCNT;
 
-    // Attach column + frame sync ISRs.
-    //
-    // LOAD-BEARING INVARIANT — equal-priority non-preemption. show_col and
-    // frame_sync_isr share the plain int x_ with no lock and no `volatile`:
-    // show_col runs a read-modify-write (x_ = (x_ + 1) % w) while frame_sync_isr
-    // writes x_ = 0. That is race-free ONLY because the two handlers never
-    // preempt each other. Both are GPIO pin interrupts that attachInterrupt
-    // installs at the same default NVIC priority, and a Cortex-M exception
-    // cannot preempt another of equal-or-lower priority — so the two serialize.
-    // On Teensy 4 the guarantee is stronger still: every digital-pin interrupt
-    // is dispatched from a single shared GPIO port vector, so these two ISRs
-    // literally cannot overlap regardless of priority.
-    //
-    // If a future change moves either handler to a different interrupt source,
-    // or raises one's NVIC priority above the other, this assumption breaks and
-    // x_ needs real synchronization. (SysTick is demoted above for the same
-    // non-preemption reason, so millis() can't preempt the column ISR either.)
-    pinMode(PIN_COLUMN_SYNC, INPUT);
-    attachInterrupt(digitalPinToInterrupt(PIN_COLUMN_SYNC),
-                    show_col, RISING);
-    attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN),
-                    frame_sync_isr, RISING);
-
-#if defined(USE_DMA_LEDS)
-    uint32_t last_overrun = ledController_.getOverrunCount();
-#endif
-    while (millis() - start < duration_ms) {
-      unsigned long t0 = micros();
-      e->draw_frame();
-      unsigned long dt = micros() - t0;
-      // Gate per-frame telemetry behind hs::debug (parity with pov_single.h):
-      // the production firmware leaves this loop's Serial output silent.
-      if (hs::debug) {
-        Serial.print("ft ");
-        Serial.println(dt);
+    // Mailbox handoff (spec §8.2): a brief IRQ-off copy in the consumer.
+    pov::sync::BurstSnapshot burst;
+    const pov::sync::BurstSnapshot *bp = nullptr;
+    if (segment_id_ != 0) {
+      __disable_irq();
+      if (sync_.mailbox().burst_complete(now, sync_.gap_timeout_cycles())) {
+        burst = sync_.mailbox().claim();
+        bp = &burst;
       }
-#if defined(USE_DMA_LEDS)
-      // Surface the DMA frame-drop counter the column ISR maintains: it drops a
-      // frame (rather than blocking) when a transfer is still in flight, so a
-      // rising count is the on-device signal that the per-column ISR/transfer
-      // budget is being exceeded. Polled here in the foreground render loop —
-      // never in the ISR — so it adds nothing to the hot path, and only emitted
-      // on change to avoid drowning the per-frame `ft` telemetry.
-      const uint32_t overruns = ledController_.getOverrunCount();
-      if (overruns != last_overrun) {
-        if (hs::debug) {
-          Serial.print("overrun ");
-          Serial.println(overruns);
-        }
-        last_overrun = overruns;
-      }
-#endif
+      __enable_irq();
     }
 
-    detachInterrupt(digitalPinToInterrupt(PIN_COLUMN_SYNC));
-    detachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN));
-    effect_ = nullptr; // ISRs detached above — unpublish; caller deletes e
+    const pov::sync::TickActions a = sync_.tick(now, bp);
+
+    // Pin write first, LED work after (spec §5.2): emission timing carries
+    // only ISR-entry jitter plus the tick() computation.
+    if (a.pulse)
+      digitalWriteFast(PIN_FRAME_SYNC_OUT, HIGH);
+
+    // Release handshake: the foreground wants the live pointer dropped so it
+    // can destroy the instance (epoch teardown / beacon rebuild).
+    if (release_ack_ != release_req_) {
+      live_effect_ = nullptr;
+      release_ack_ = release_req_;
+    }
+
+    // Swap in the foreground-constructed pending effect, only ever at a ZERO
+    // boundary (frame parity). Two paths:
+    //   commit — the B+K epoch deadline (spec §6.1). The next effect MUST be
+    //            ready; an init that outruns K revolutions is an invariant
+    //            violation and traps rather than silently skewing the show.
+    //   join   — first display (boot / beacon join / index correction): take
+    //            the pending effect at the next join-grid boundary once it
+    //            exists. The grid (rev ≡ 0 mod join_grid_revs) is what makes
+    //            all four boards go live at the SAME crossing at boot, frame
+    //            counters aligned.
+    if (a.commit) {
+      HS_CHECK(pending_effect_ &&
+                   pending_gen_ ==
+                       pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
+               "epoch commit: effect init exceeded the K-revolution window");
+      live_effect_ = pending_effect_;
+      consumed_gen_ = pending_gen_;
+    } else if (a.join_boundary && !a.dark && live_effect_ == nullptr) {
+      Effect *p = pending_effect_;
+      const uint32_t pg = pending_gen_;
+      if (p && pg != consumed_gen_ &&
+          pg == pov::sync::SyncBoard::build_gen_of(sync_.build_word())) {
+        live_effect_ = p;
+        consumed_gen_ = pg;
+      }
+    }
+
+    // Flip whenever the effect is live — even during the dark commit window,
+    // where the foreground may be blocked in the Canvas buffer_free() gate on
+    // its final frame of the outgoing effect; advance_display() is what
+    // releases it to go tear the effect down.
+    Effect *e = live_effect_;
+    if (a.flip && e)
+      e->advance_display();
+
+    if (a.dark || e == nullptr) {
+      // Fail-dark (spec §5.3/§6.3): show nothing rather than the wrong
+      // thing. One black frame latches the strip; then stay idle.
+      if (!dark_latched_) {
+        render_black();
+        dark_latched_ = true;
+      }
+    } else {
+      dark_latched_ = false;
+      if (a.render_column >= 0)
+        render_column(e, a.render_column);
+    }
+
+    if (a.pulse)
+      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
   }
 
-  // ── Column ISR ──────────────────────────────────────────────────────
+  // ── Pixel packing ───────────────────────────────────────────────────
 
   /**
-   * @brief ISR called on every rising edge of the shared column clock.
+   * @brief Packs this segment's pixels for canvas column @p x and submits.
    *
-   * Packs this segment's pixels into the DMA frame using the precomputed
-   * y_base_ / y_step_ mapping.  Arm B segments read from x + W/2
-   * (opposite half of the image).
-   *
-   * The loop is branchless — all per-segment decisions are resolved at
-   * boot time in configure_segment().
-   *
-   * When the column counter wraps to 0 or W/2, the display buffer is
-   * advanced (double-buffer flip for the ISR read pointer).
+   * The loop is branchless — all per-segment decisions are resolved at boot
+   * in configure_segment().  Arm B segments read from x + W/2 (opposite half
+   * of the image).
    */
-  static FASTRUN void show_col() {
-    const int w = effect_->width();
-    const int x_col = pov::segment_x_col(arm_b_, x_, w);
+  static FASTRUN void render_column(Effect *e, int x) {
+    const int w = e->width();
+    const int x_col = pov::segment_x_col(arm_b_, x, w);
 
-    // ISR fast path: fetch the display buffer base once and index it directly,
-    // dropping PPS per-pixel virtual get_pixel() dispatches per column. Sound
-    // here because (1) prev_ is stable for this whole column — advance_display()
-    // runs below at x_==0, after the loop — and (2) no effect reachable on this
-    // segmented path overrides get_pixel (only the out-of-scope legacy scroller
-    // does, and it never runs here). buf[y * w + x_col] == get_pixel(x_col, y).
-    const Pixel *buf = effect_->display_buffer();
+    // ISR fast path: fetch the display buffer base once and index it
+    // directly, dropping PPS per-pixel virtual get_pixel() dispatches per
+    // column. Sound here because (1) prev_ is stable for this whole column —
+    // advance_display() runs at the boundary, before rendering — and (2) no
+    // effect reachable on this segmented path overrides get_pixel (only the
+    // out-of-scope legacy scroller does, and it never runs here).
+    const Pixel *buf = e->display_buffer();
 
 #if defined(USE_DMA_LEDS)
     auto &frame = ledController_.backFrame();
-
     int y = y_base_;
     for (int i = 0; i < PPS; ++i, y += y_step_) {
       frame.packPixel(i, buf[y * w + x_col]);
     }
-    ledController_.submitFrame(effect_->show_bg());
-
+    ledController_.submitFrame(e->show_bg());
 #else
     int y = y_base_;
     for (int i = 0; i < PPS; ++i, y += y_step_) {
       leds_[i] = buf[y * w + x_col];
     }
     FastLED.show();
-    if (effect_->show_bg()) {
+    if (e->show_bg()) {
       FastLED.showColor(CRGB(0, 0, 0));
     }
 #endif
-
-    x_ = (x_ + 1) % w;
-    // The display buffer flips at BOTH frame boundaries (x==0 and x==w/2 —
-    // two frames per revolution, one per arm side). Segment 0 pulses the frame
-    // sync line at each boundary so downstream boards re-align twice per rev,
-    // bounding column drift from missed/spurious clock pulses to ≤ ½ rev rather
-    // than a full rev (a mid-revolution frame would otherwise stay misaligned
-    // until the next x==0 edge).
-    if (x_ == 0 || x_ == w / 2) {
-      effect_->advance_display();
-      if (segment_id_ == 0) {
-        digitalWriteFast(PIN_FRAME_SYNC_OUT, HIGH);
-        // Pulse will be cleared by the frame_sync_isr on this board too.
-      }
-    }
   }
 
-  /**
-   * @brief ISR for the frame sync line.  Snaps the column counter to the
-   *        nearest frame boundary (0 or w/2), re-aligning this board if any
-   *        column pulses were missed.
-   *
-   * Fired by segment 0's pulse at each half-revolution boundary.  On segment 0
-   * itself this only clears the sync output.
-   */
-  static FASTRUN void frame_sync_isr() {
-    if (segment_id_ == 0) {
-      // Segment 0 is the clock master: it already advanced x_ directly in
-      // show_col when the counter hit a boundary. Its own pulse returns here
-      // after interrupt latency, during which the free-running clock may have
-      // already advanced x_ to the next column — re-zeroing from the self-pulse
-      // would clobber that and corrupt the master's counter. So only clear the
-      // line; do NOT touch x_. Downstream boards (below) still re-align here.
-      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
-      return;
+  /** @brief Submits one all-black frame (ACQUIRE / construction window). */
+  static FASTRUN void render_black() {
+#if defined(USE_DMA_LEDS)
+    auto &frame = ledController_.backFrame();
+    for (int i = 0; i < PPS; ++i) {
+      frame.packPixel(i, Pixel(0, 0, 0));
     }
-    // A single-wire pulse can't say which boundary it is. Segment 0 pulses at
-    // BOTH boundaries (x==0 and x==w/2), so the boundaries strictly alternate:
-    // 0, w/2, 0, w/2, … We track that parity absolutely rather than guessing
-    // from proximity. Proximity (nearest of {0, w/2}) only holds while drift
-    // stays under w/4 — past that it latches a permanent half-revolution error.
-    // Counting pulses is drift-independent: the only assumption is that the
-    // dedicated frame-sync wire itself doesn't drop/duplicate a pulse.
-    //
-    // The first pulse seeds the parity by proximity: right after run() sets
-    // x_=0, drift is ≈0, so proximity unambiguously names that boundary. Every
-    // pulse after just toggles, regardless of how far the column clock has since
-    // drifted.
-    const int w = effect_->width();
-    if (sync_seeded_) {
-      sync_at_zero_ = !sync_at_zero_;
-    } else {
-      sync_at_zero_ = (x_ < w / 4 || x_ >= 3 * w / 4);
-      sync_seeded_  = true;
-    }
-    x_ = sync_at_zero_ ? 0 : w / 2;
+    ledController_.submitFrame(false);
+#else
+    FastLED.showColor(CRGB(0, 0, 0));
+#endif
   }
 
   // ── Static state ────────────────────────────────────────────────────
@@ -465,17 +550,28 @@ private:
 #ifndef USE_DMA_LEDS
   static CRGB leds_[PPS];
 #endif
-  static Effect *effect_;
-  // Shared between show_col and frame_sync_isr. Plain int (no lock, no
-  // volatile) is race-free only under the equal-priority non-preemption
-  // invariant documented at the ISR attach site in run().
-  static int x_;
-  // Frame-sync boundary parity (downstream boards only; see frame_sync_isr).
-  // sync_at_zero_ names the boundary the current pulse marks; sync_seeded_ is
-  // false until the first pulse anchors the parity by proximity. Touched only
-  // in frame_sync_isr (single ISR), so no cross-handler sharing beyond x_.
-  static bool sync_seeded_;
-  static bool sync_at_zero_;
+
+  // The sync engine: written ONLY by the flywheel ISR (tick()) and the edge
+  // ISR (mailbox publisher) per the spec §8 single-writer model. Foreground
+  // reads are single aligned words (build_word) or debug telemetry.
+  static pov::sync::SyncBoard sync_;
+  static IntervalTimer timer_;
+  static const EffectFactory *factories_;
+
+  // Effect handoff. Ownership: the foreground constructs and deletes; the
+  // ISR only ever dereferences the instance it has been handed. live_effect_
+  // is ISR-written only; pending_* are foreground-written only (published
+  // under a brief interrupts-off bracket); the release_req_/release_ack_
+  // pair is the teardown handshake (foreground bumps req, ISR drops the live
+  // pointer and copies req to ack).
+  static Effect *live_effect_;             // ISR-owned
+  static Effect *volatile pending_effect_; // foreground-owned
+  static volatile uint32_t pending_gen_;   // foreground-owned
+  static volatile uint32_t consumed_gen_;  // ISR-owned
+  static volatile uint32_t release_req_;   // foreground-owned
+  static volatile uint32_t release_ack_;   // ISR-owned
+  static bool dark_latched_;               // ISR-owned
+
   static int segment_id_;
   static bool arm_b_;
   static int y_base_;
@@ -488,16 +584,35 @@ private:
 // ── Static member definitions ───────────────────────────────────────────
 
 template <int S, int N, int RPM>
-int POVSegmented<S, N, RPM>::x_ = 0;
+pov::sync::SyncBoard POVSegmented<S, N, RPM>::sync_{pov::sync::Config{}};
 
 template <int S, int N, int RPM>
-Effect *POVSegmented<S, N, RPM>::effect_ = nullptr;
+IntervalTimer POVSegmented<S, N, RPM>::timer_;
 
 template <int S, int N, int RPM>
-bool POVSegmented<S, N, RPM>::sync_seeded_ = false;
+const typename POVSegmented<S, N, RPM>::EffectFactory
+    *POVSegmented<S, N, RPM>::factories_ = nullptr;
 
 template <int S, int N, int RPM>
-bool POVSegmented<S, N, RPM>::sync_at_zero_ = true;
+Effect *POVSegmented<S, N, RPM>::live_effect_ = nullptr;
+
+template <int S, int N, int RPM>
+Effect *volatile POVSegmented<S, N, RPM>::pending_effect_ = nullptr;
+
+template <int S, int N, int RPM>
+volatile uint32_t POVSegmented<S, N, RPM>::pending_gen_ = 0;
+
+template <int S, int N, int RPM>
+volatile uint32_t POVSegmented<S, N, RPM>::consumed_gen_ = 0;
+
+template <int S, int N, int RPM>
+volatile uint32_t POVSegmented<S, N, RPM>::release_req_ = 0;
+
+template <int S, int N, int RPM>
+volatile uint32_t POVSegmented<S, N, RPM>::release_ack_ = 0;
+
+template <int S, int N, int RPM>
+bool POVSegmented<S, N, RPM>::dark_latched_ = false;
 
 template <int S, int N, int RPM>
 int POVSegmented<S, N, RPM>::segment_id_ = 0;
