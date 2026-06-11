@@ -20,12 +20,6 @@ const DEFAULT_JS = 'build/wasm-release/holosphere_wasm.js';
 const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
 const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
 
-// Resolutions the WASM factory supports (mirrors HS_WASM_RESOLUTIONS in
-// targets/wasm/wasm.cpp). Each effect is exercised at both.
-const RESOLUTIONS = [
-  [96, 20],
-  [288, 144],
-];
 const FRAMES_PER_EFFECT = 3;
 
 await access(jsPath).catch(() => {
@@ -46,6 +40,16 @@ const Module = await createHolosphereModule({
 
 let failures = 0;
 const fail = (msg) => { console.error(`  FAIL: ${msg}`); failures++; };
+
+// The supported (W,H) set is enumerated from the module itself (generated from
+// HS_WASM_RESOLUTIONS in wasm.cpp) rather than hand-mirrored here, so a newly
+// added resolution gets smoke coverage automatically — the same anti-drift
+// guarantee the effect roster already has via getEffectSizes().
+const RESOLUTIONS = Module.HolosphereEngine.getSupportedResolutions();
+if (!RESOLUTIONS || RESOLUTIONS.length === 0) {
+  console.error('wasm_smoke: getSupportedResolutions() returned no resolutions');
+  process.exit(1);
+}
 
 const engine = new Module.HolosphereEngine();
 try {

@@ -405,6 +405,26 @@ public:
     return val::object(); // unsupported/uninitialized — empty map
   }
 
+  // The [W, H] resolutions the factory can build, generated from the same
+  // HS_WASM_RESOLUTIONS list that setResolution()/getEffectSizes() dispatch
+  // through. Callers (e.g. the CI smoke test) can enumerate this instead of
+  // hand-mirroring the list, so the supported set can never silently drift —
+  // the same guarantee getEffectSizes() gives the effect roster.
+  static val getSupportedResolutions() {
+    val out = val::array();
+    int i = 0;
+#define X(W, H)                                                                \
+  {                                                                            \
+    val pair = val::array();                                                   \
+    pair.set(0, (W));                                                          \
+    pair.set(1, (H));                                                          \
+    out.set(i++, pair);                                                        \
+  }
+    HS_WASM_RESOLUTIONS(X)
+#undef X
+    return out;
+  }
+
 private:
   std::unique_ptr<Effect> currentEffect;
   std::vector<uint16_t> pixelBuffer; // 16-bit
@@ -683,6 +703,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getParamValues", &HolosphereEngine::getParamValues)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
+      .class_function("getSupportedResolutions",
+                      &HolosphereEngine::getSupportedResolutions)
       .function("setClip", &HolosphereEngine::setClip)
       .function("getRenderUs", &HolosphereEngine::getRenderUs);
 
