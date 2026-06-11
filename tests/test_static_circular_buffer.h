@@ -265,6 +265,25 @@ inline void test_iterator_traversal() {
   HS_EXPECT_EQ(count, 3);
 }
 
+// Regression guard for finding 296: the iterator types must be nameable from
+// outside the class (the prior tests only ever used `auto`, so private nested
+// iterator types compiled fine and the breakage went unnoticed).
+inline void test_iterator_types_are_public() {
+  using Buf = StaticCircularBuffer<int, 4>;
+  Buf buf{10, 20, 30};
+  int expected = 10;
+  for (Buf::iterator it = buf.begin(); it != buf.end(); ++it) {
+    HS_EXPECT_EQ(*it, expected);
+    expected += 10;
+  }
+  const Buf &cbuf = buf;
+  Buf::const_iterator cit = cbuf.begin();
+  HS_EXPECT_EQ(*cit, 10);
+  // const_iterator is convertible from iterator.
+  Buf::const_iterator from_mut = buf.begin();
+  HS_EXPECT_EQ(*from_mut, 10);
+}
+
 inline void test_iterator_range_for() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3, 4};
   int sum = 0;
@@ -379,6 +398,7 @@ inline int run_static_circular_buffer_tests() {
   test_alternating_push_pop_wraps();
 
   test_iterator_traversal();
+  test_iterator_types_are_public();
   test_iterator_range_for();
   test_iterator_distance_matches_size();
   test_iterator_random_access();

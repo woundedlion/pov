@@ -24,10 +24,15 @@
  *   consistent with the rest of the engine.
  */
 template <typename T, size_t N> class StaticCircularBuffer {
-  class iterator;
-  class const_iterator;
+  // Defined privately at the bottom; surfaced through the public usings below so
+  // external code can name StaticCircularBuffer<T,N>::iterator (the class is
+  // otherwise fully STL-conformant).
+  class Iterator;
+  class ConstIterator;
 
 public:
+  using iterator = Iterator;
+  using const_iterator = ConstIterator;
   using value_type = T;
   using size_type = size_t;
   using difference_type = std::ptrdiff_t;
@@ -266,22 +271,22 @@ private:
     Derived &self() { return static_cast<Derived &>(*this); }
   };
 
-  class iterator
-      : public CircularIterBase<iterator, StaticCircularBuffer *, T &, T *> {
-    using Base = CircularIterBase<iterator, StaticCircularBuffer *, T &, T *>;
+  class Iterator
+      : public CircularIterBase<Iterator, StaticCircularBuffer *, T &, T *> {
+    using Base = CircularIterBase<Iterator, StaticCircularBuffer *, T &, T *>;
 
   public:
     using Base::Base;
   };
 
-  class const_iterator
-      : public CircularIterBase<const_iterator, const StaticCircularBuffer *,
+  class ConstIterator
+      : public CircularIterBase<ConstIterator, const StaticCircularBuffer *,
                                 const T &, const T *> {
-    using Base = CircularIterBase<const_iterator, const StaticCircularBuffer *,
+    using Base = CircularIterBase<ConstIterator, const StaticCircularBuffer *,
                                  const T &, const T *>;
 
   public:
     using Base::Base;
-    const_iterator(const iterator &other) : Base(other.m_buffer, other.m_index) {}
+    ConstIterator(const iterator &other) : Base(other.m_buffer, other.m_index) {}
   };
 };
