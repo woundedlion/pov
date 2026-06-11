@@ -41,7 +41,6 @@ class BZReactionDiffusion
   using Base::cube_lut;
   using Base::dist2;
   using Base::for_each_neighbor;
-  using Base::graph_laplacian;
   using Base::init_orientation_animation;
   using Base::kernel_accumulate;
   using Base::orientation;
@@ -158,7 +157,7 @@ private:
       float c = from_q8(cC[i]);
 
       // All three species' Laplacians share one neighbor walk (fused on
-      // purpose, per graph_laplacian's note: three single-field calls would
+      // purpose, per for_each_neighbor's note: three single-field walks would
       // triple the lattice reads on this dominant loop). Each Σ runs over the
       // same neighbor order, so the result is identical to the split form.
       float lA = 0, lB = 0, lC = 0;

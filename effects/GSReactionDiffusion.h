@@ -116,7 +116,7 @@ private:
       float b = from_q16(cB[i]);
 
       // Both species' Laplacians share one neighbor walk (fused on purpose:
-      // two single-field graph_laplacian() calls would double the lattice reads).
+      // two single-field neighbor walks would double the lattice reads).
       float lA = 0, lB = 0;
       for_each_neighbor(i, [&](int ni) {
         lA += from_q16(cA[ni]) - a;

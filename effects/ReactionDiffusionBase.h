@@ -66,26 +66,17 @@ protected:
 
   /** Invoke `fn(ni)` for each valid K-NN neighbor index of `node`.
    *  The fundamental shared iteration over the lattice graph; the lambda
-   *  inlines, so this is identical codegen to a hand-written neighbor loop. */
+   *  inlines, so this is identical codegen to a hand-written neighbor loop.
+   *  The discrete graph Laplacian of a field is `Σ_neighbors (field[ni] −
+   *  center)`; systems needing several fields per node fuse them into one walk
+   *  here rather than calling a single-field helper per field, which would
+   *  re-read the neighbor list once per species. */
   template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
     for (int k = 0; k < RD_K; ++k) {
       int ni = ReactionGraph::neighbors[node][k];
       if (ni >= 0)
         fn(ni);
     }
-  }
-
-  /** Graph Laplacian (discrete diffusion) of a fixed-point `field` at `node`:
-   *  Σ_neighbors (field[ni] − center). `from_fixed` converts a stored sample to
-   *  float. Single-field; callers needing several fields per node should fuse
-   *  them in one for_each_neighbor walk to avoid re-reading the neighbor list. */
-  template <typename T, typename FromFixed>
-  static float graph_laplacian(const T *field, int node, float center,
-                               FromFixed from_fixed) {
-    float lap = 0;
-    for_each_neighbor(node,
-                      [&](int ni) { lap += from_fixed(field[ni]) - center; });
-    return lap;
   }
 
   /** Wendland C2 kernel walk over `center` and its neighbors. Calls
