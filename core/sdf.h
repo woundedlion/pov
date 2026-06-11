@@ -782,11 +782,15 @@ template <typename A, typename B> struct Subtract {
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
-    // B fell back to full-width: it covers the entire row, so A - B is empty.
-    // Emit nothing and report a definitive (empty) result — passing A through
-    // here would draw geometry the subtraction should have removed.
+    // B fell back to a full-row scan: it could not produce intervals, NOT that
+    // it covers the row. Without B's intervals we cannot compute the set
+    // difference, so request a full-row scan (return false) exactly as
+    // Union/SmoothUnion do — scan_region then evaluates distance() = max(A, -B)
+    // per pixel, which is correct. Returning true + emitting nothing would skip
+    // the row and silently erase all of A (e.g. when B is a near-vertical Ring
+    // or any AngularRepeat, both of which fall back unconditionally).
     if (!has_b)
-      return true;
+      return false;
 
     // B produced no intervals on this row: it removes nothing, so pass A's
     // intervals through unchanged.

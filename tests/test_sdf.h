@@ -331,8 +331,9 @@ struct MockIntervalShape {
   }
 };
 
-// Mock that falls back to full-width coverage: returning false means "no
-// interval restriction", i.e. the shape covers the entire row.
+// Mock that falls back to a full-row scan: returning false means "I cannot
+// produce intervals — caller must scan the whole row with distance()", NOT
+// that the shape covers the row.
 struct MockFullWidthShape {
   float thickness = 0.1f;
   static constexpr bool is_solid = true;
@@ -390,10 +391,12 @@ inline void test_subtract_unsorted_a_passthrough_is_sorted() {
   HS_EXPECT_NEAR(out[1].first, 50.0f, 1e-4f);
 }
 
-// Regression: when B falls back to full-width (covers the whole row), A - B is
-// empty. Before the fix a full-width B was conflated with an empty B, so A was
-// passed through, drawing geometry the subtraction should have removed.
-inline void test_subtract_full_width_b_yields_empty() {
+// Regression: when B cannot produce intervals (returns false), Subtract cannot
+// compute the set difference, so it must request a full-row scan (return false)
+// — like Union/SmoothUnion — letting scan_region evaluate distance()=max(A,-B)
+// per pixel. The earlier code returned true while emitting nothing, which makes
+// scan_region SKIP the row and silently erase all of A.
+inline void test_subtract_full_width_b_requests_full_row_scan() {
   using P = std::pair<float, float>;
   using MockA = sdf_subtract_detail::MockIntervalShape;
   using MockB = sdf_subtract_detail::MockFullWidthShape;
@@ -405,8 +408,8 @@ inline void test_subtract_full_width_b_yields_empty() {
   std::vector<P> out;
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok); // definitive result (not a full-width fallback)...
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0)); // ...and it is empty
+  HS_EXPECT_TRUE(!ok); // false: request a full-row distance scan, NOT a...
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0)); // ...definitive empty row
 }
 
 // ============================================================================
@@ -893,7 +896,7 @@ inline int run_sdf_tests() {
   test_subtract_inside_both_becomes_outside();
   test_subtract_unsorted_b_yields_sorted_set_difference();
   test_subtract_unsorted_a_passthrough_is_sorted();
-  test_subtract_full_width_b_yields_empty();
+  test_subtract_full_width_b_requests_full_row_scan();
 
   test_intersection_requires_both_inside();
   test_intersection_thickness_is_min();
