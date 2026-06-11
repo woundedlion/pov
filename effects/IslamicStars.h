@@ -68,7 +68,7 @@ private:
   MeshPaletteBank palette_bank_;
   std::array<int, NUM_PALETTES> palettes_slots[2];
 
-  void ripple(Canvas &canvas) {
+  void ripple(Canvas &) {
     Vector origin = random_vector();
     for (int i = 0; i < (int)params.burst_size; i++) {
       ripple_gen.spawn(i * 16, origin, PI_F / ripple_duration,
@@ -111,18 +111,20 @@ private:
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
-    int capture_idx = 1 - carousel.front_index();
-    MeshPaletteBank::shuffle_indices(palettes_slots[capture_idx]);
+    // The back slot is the render/generate target for this cycle. Computed
+    // once here so the palette shuffle, the draw_fn capture, and the generate
+    // target below cannot silently diverge if intervening code touches the
+    // front index.
+    int back = 1 - carousel.front_index();
+    MeshPaletteBank::shuffle_indices(palettes_slots[back]);
 
     int idx = solid_idx; // capture for generate lambda
 
-    auto draw_fn = [this, capture_idx](Canvas &canvas, float opacity) {
-      const MeshState &mesh = carousel.slot(capture_idx);
+    auto draw_fn = [this, back](Canvas &canvas, float opacity) {
+      const MeshState &mesh = carousel.slot(back);
       this->draw_shape(canvas, opacity, mesh, mesh.topology,
-                       palettes_slots[capture_idx]);
+                       palettes_slots[back]);
     };
-
-    int back = 1 - carousel.front_index();
 
     // 1. Free the back slot and compact, rebaking palettes into the fresh
     // arena instead of tracking them through the evacuation (saves
