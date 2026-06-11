@@ -162,10 +162,10 @@ private:
     ledController_.submitFrame(effect_->show_bg());
 #else
     for (int y = 0; y < S / 2; ++y) {
-      leds_[pov::strip_top_led(y, S)] =
-          slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top];
-      leds_[pov::strip_bottom_led(y, S)] =
-          slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot];
+      leds_[pov::strip_top_led(y, S)] = static_cast<CRGB>(
+          slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
+      leds_[pov::strip_bottom_led(y, S)] = static_cast<CRGB>(
+          slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     FastLED.show();
     if (effect_->show_bg()) {

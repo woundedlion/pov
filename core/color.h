@@ -53,8 +53,11 @@ struct Pixel16 {
     b = srgb_to_linear(c.b);
   }
 
-  // Explicit forward declaration of conversion
-  operator CRGB() const;
+  // Lossy 16-bit-linear -> 8-bit-sRGB downcast (forward-declared; defined once
+  // CRGB is complete). Explicit so a stray Pixel16 in a CRGB context is a
+  // compile error rather than a silent round-trip through 8-bit gamma — the
+  // FastLED sink call sites that genuinely need the cast spell it out.
+  explicit operator CRGB() const;
 
   // Basic arithmetic
   Pixel16 &operator+=(const Pixel16 &rhs) {
@@ -172,7 +175,7 @@ struct Color4 {
     return *this;
   }
 
-  operator CRGB() const { return color; }
+  operator CRGB() const { return static_cast<CRGB>(color); }
 };
 
 // hue_rotate is a perceptual (OKLab) rotation; defined after the OKLab

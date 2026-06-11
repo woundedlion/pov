@@ -531,7 +531,7 @@ private:
 #else
     int y = y_base_;
     for (int i = 0; i < PPS; ++i, y += y_step_) {
-      leds_[i] = buf[y * w + x_col];
+      leds_[i] = static_cast<CRGB>(buf[y * w + x_col]);
     }
     FastLED.show();
     if (e->show_bg()) {
