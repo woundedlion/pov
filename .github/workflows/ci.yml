@@ -67,6 +67,39 @@ jobs:
       - name: Test
         run: ctest --preset tests --output-on-failure
 
+  windows-tests:
+    name: Native unit tests (Windows / Clang)
+    # The native toolchain file's most intricate logic — the lld-link multicall
+    # alias, CMAKE_LINKER_TYPE LLD, and the Windows SDK rc.exe discovery — only
+    # runs on Windows and was previously exercised on no CI runner at all, on the
+    # very platform the project is developed on. This job configures the tests
+    # preset from a plain shell (no Visual Studio Developer Prompt), which is the
+    # "no VS prompt required" promise the README makes.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # emsdk ships the Clang the toolchain prefers AND the lld.exe it aliases to
+      # lld-link.exe — using it (rather than the runner's preinstalled LLVM)
+      # exercises the alias-copy block, not just the linker-type/rc.exe paths.
+      # Same pinned action + version as the wasm job.
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
+        with:
+          version: 5.0.0
+          actions-cache-folder: emsdk-cache-5.0.0
+
+      # No explicit compiler: let the toolchain auto-locate emsdk's Clang and run
+      # its full Windows branch (lld-link alias, rc.exe glob/NATURAL-sort).
+      - name: Configure
+        run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+
+      - name: Build
+        run: cmake --build --preset tests
+
+      - name: Test
+        run: ctest --preset tests --output-on-failure
+
   wasm:
     name: WASM build (Emscripten)
     runs-on: ubuntu-24.04

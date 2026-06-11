@@ -58,7 +58,10 @@ if(WIN32)
          "C:/Program Files (x86)/Windows Kits/10/bin/*/x64/rc.exe"
          "C:/Program Files/Windows Kits/10/bin/*/x64/rc.exe")
     if(_hs_rc_candidates)
-      list(SORT _hs_rc_candidates)
+      # NATURAL so version components sort numerically (10.0.22621 > 10.0.9...);
+      # a plain lexical sort would rank 10.0.9xxxx above 10.0.22xxx and pick an
+      # older SDK's rc.exe.
+      list(SORT _hs_rc_candidates COMPARE NATURAL)
       list(GET _hs_rc_candidates -1 _hs_rc)  # highest SDK version sorts last
       set(CMAKE_RC_COMPILER "${_hs_rc}" CACHE FILEPATH "")
     endif()
