@@ -13,6 +13,7 @@
 #include "targets/wasm/param_marshal.h" // pure, host-tested param marshaling
 #include <string_view>
 #include <cstring>
+#include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
 
 // ---- Stack canary painting for high water mark tracking ----
 static constexpr uint8_t STACK_CANARY = 0xCD;
@@ -47,13 +48,36 @@ using namespace emscripten;
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 static constexpr size_t MAX_PARAMS = 32;
 
-// Dedicated arena for JavaScript Tools
-static uint8_t tooling_buf[8 * 1024 * 1024];
-static uint8_t tooling_scratch_buf_a[4 * 1024 * 1024];
-static uint8_t tooling_scratch_buf_b[4 * 1024 * 1024];
-Arena tooling_arena(tooling_buf, sizeof(tooling_buf));
-Arena tooling_scratch_a(tooling_scratch_buf_a, sizeof(tooling_scratch_buf_a));
-Arena tooling_scratch_b(tooling_scratch_buf_b, sizeof(tooling_scratch_buf_b));
+// Dedicated arenas for the JavaScript mesh-editor tools (8 MB build + two 4 MB
+// scratch). These are used ONLY by MeshOpsWrapper, so they are malloc'd lazily
+// on first MeshOps use rather than reserved as 16 MB of file-scope BSS: the
+// render engine and every segment worker instantiate this same module but never
+// touch MeshOps, and forcing them to carry 16 MB of unusable linear memory
+// inflated the baseline (and the INITIAL_MEMORY/growth headroom) of every
+// instance (finding 143). The arenas start empty (capacity 0) and are rebound to
+// a single malloc'd block on first use; the block lives for the module's
+// lifetime (reclamation within it is via clearToolingMemory()).
+static constexpr size_t kToolingArenaBytes = 8 * 1024 * 1024;
+static constexpr size_t kToolingScratchBytes = 4 * 1024 * 1024;
+Arena tooling_arena(nullptr, 0);
+Arena tooling_scratch_a(nullptr, 0);
+Arena tooling_scratch_b(nullptr, 0);
+
+// Allocate and bind the tooling arenas on first MeshOps use. A no-op once bound,
+// so it is cheap to call at the head of every MeshOps entry point. Reading an
+// unbound arena's metrics (collect_arena_metrics) is safe and reports 0/0/0, so
+// engine instances that never call MeshOps never trigger this allocation.
+static void ensure_tooling_arenas() {
+  if (tooling_arena.get_capacity() != 0)
+    return; // already allocated
+  const size_t total = kToolingArenaBytes + 2 * kToolingScratchBytes;
+  uint8_t *block = static_cast<uint8_t *>(std::malloc(total));
+  HS_CHECK(block != nullptr); // 16 MB tooling block — fail-fast on OOM
+  tooling_arena.rebind(block, kToolingArenaBytes);
+  tooling_scratch_a.rebind(block + kToolingArenaBytes, kToolingScratchBytes);
+  tooling_scratch_b.rebind(block + kToolingArenaBytes + kToolingScratchBytes,
+                           kToolingScratchBytes);
+}
 
 // Shared by HolosphereEngine and MeshOpsWrapper: build a {usage, high_water_mark,
 // capacity} report for the four engine arenas. Callers that also want stack
@@ -491,6 +515,7 @@ struct MeshOpsWrapper {
       hs::log("WASM: fromSolidName unknown solid '%s' — ignored", name.c_str());
       return nullptr;
     }
+    ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::get_by_name(
@@ -526,6 +551,7 @@ struct MeshOpsWrapper {
   }
 
   val classifyFaces() {
+    ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a,
@@ -544,6 +570,7 @@ struct MeshOpsWrapper {
   // every lambda inlines, so there is no added cost.
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
+    ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
@@ -613,6 +640,7 @@ struct MeshOpsWrapper {
     const char *mf_name = "";
     const char *mi_name = "";
 
+    ensure_tooling_arenas();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       // Measure each solid in the scratch arenas ONLY — never tooling_arena,
       // which backs every live MeshOpsWrapper the JS side still holds; resetting
