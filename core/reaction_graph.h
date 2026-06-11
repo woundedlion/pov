@@ -36,19 +36,26 @@ extern const int16_t neighbors[RD_N][RD_K];
  *  Memory: 6 × RES² × 2B = 48 KB at RES=64. */
 struct CubemapLUT {
   static constexpr int RES = 64;
-  uint16_t *data = nullptr;
+  // Arena-backed rather than a bare uint16_t*: inherits ArenaVector's debug
+  // generation tracking (use-after-free if the arena is reset out from under the
+  // LUT) and bound-check (lookup() before build() traps via operator[]'s
+  // check_bound, instead of a silent null/garbage read). On device (NDEBUG) the
+  // checks compile out, so lookup() is the same single load as before.
+  ArenaVector<uint16_t> data;
 
   /** Allocate and populate the LUT from the given arena (48 KB). */
   void build(Arena &arena) {
-    data = static_cast<uint16_t *>(
-        arena.allocate(6 * RES * RES * sizeof(uint16_t), alignof(uint16_t)));
+    // The triple loop visits texels in linear (face, y, x) order — exactly the
+    // index (face*RES+y)*RES+x used by lookup() — so sequential push_back fills
+    // the table in place with no random-access writes.
+    data.bind(arena, 6 * RES * RES);
     for (int face = 0; face < 6; ++face) {
       for (int y = 0; y < RES; ++y) {
         for (int x = 0; x < RES; ++x) {
           float u = (x + 0.5f) / RES * 2.0f - 1.0f;
           float v = (y + 0.5f) / RES * 2.0f - 1.0f;
-          data[(face * RES + y) * RES + x] =
-              static_cast<uint16_t>(find_nearest_node(texel_direction(face, u, v)));
+          data.push_back(
+              static_cast<uint16_t>(find_nearest_node(texel_direction(face, u, v))));
         }
       }
     }
@@ -76,7 +83,7 @@ struct CubemapLUT {
 
     int ui = hs::clamp(static_cast<int>((u + 1.0f) * 0.5f * RES), 0, RES - 1);
     int vi = hs::clamp(static_cast<int>((v + 1.0f) * 0.5f * RES), 0, RES - 1);
-    return data[(face * RES + vi) * RES + ui];
+    return data[static_cast<size_t>((face * RES + vi) * RES + ui)];
   }
 
 private:
