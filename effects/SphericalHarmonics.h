@@ -207,8 +207,12 @@ private:
   static constexpr float AO_RANGE = 0.85f;
 
   void start_morph() {
-    // Pick a random new harmonic (low modes 1..23 look the best)
-    next_idx = static_cast<int>(hs::rand_int(1, 24));
+    // Pick a random new harmonic (low modes 1..23 look the best). Re-roll on a
+    // match with the current harmonic: blending a mode into itself leaves the
+    // field unchanged, freezing the sphere for the full 64-frame transition.
+    do {
+      next_idx = static_cast<int>(hs::rand_int(1, 24));
+    } while (next_idx == current_idx);
 
     // Animate morph_alpha 0->1 over 64 frames with linear easing
     timeline.add(
