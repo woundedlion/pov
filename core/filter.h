@@ -1241,7 +1241,17 @@ public:
     // 1) Populate coarse warp field. Delta encoding keeps the bilerp safe
     //    across the longitude seam — neighbouring absolute bx values can
     //    straddle x=W ↔ x=0, but their deltas are continuous.
-    constexpr float Q = 256.0f;
+    //
+    // Q is the signed-8.x fixed-point scale for the int16 deltas: range is
+    // ±32767/Q px, precision 1/Q px. A legitimate displacement reaches ±W/2 px
+    // horizontally (after the seam wrap below) and up to ±H px vertically (no
+    // vertical wrap — a melt/swirl warp can pull a row most of the way across
+    // the canvas). At Q=256 the range was only ±128 px, so on a 288×144 canvas
+    // any displacement past 128 px CLAMPED — the sample landed ~15 px off its
+    // true source, reading "a pixel from elsewhere" in a fixed screen band. Q=128
+    // widens the range to ±256 px (covering max(W/2, H) for every current target)
+    // while keeping 1/128 px precision, which is far finer than the warp needs.
+    constexpr float Q = 128.0f;
     // Step 2 samples only y in [y_lo, y_hi), reading coarse rows cy0 = y/ds and
     // cy1 = cy0+1 (clamped to hh-1). Populate exactly that coarse-row band so a
     // y-band-clipped segment (segmented Phantasm) skips space_fn for rows it
