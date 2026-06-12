@@ -50,7 +50,7 @@ jobs:
           } >> Doxyfile
 
       - name: Generate docs
-        run: doxygen Doxyfile
+        run: mkdir -p build/docs && doxygen Doxyfile
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
