@@ -19,3 +19,16 @@ span.tt {
 #page-nav {
     background-color: var(--nav-background-color);
 }
+
+/* Fix 4: section heading rows (e.g. "Public Attributes", "Public Methods") and
+   member description rows in memberdecls tables have no explicit background.
+   Only memItemLeft/Right/memTemplParams get --memdecl-background-color; the
+   heading, description, and title cells fall through to the page background
+   (black in dark mode). Anchor them all to the same memdecl background. */
+tr.heading td,
+td.ititle,
+.inherit_header td,
+td.mdescLeft,
+td.mdescRight {
+    background-color: var(--memdecl-background-color);
+}
