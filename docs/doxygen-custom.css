@@ -19,16 +19,10 @@ span.tt {
     overflow: visible;
 }
 
-/* Fix 2b: doxygen-awesome sets overflow:hidden on the nav/menu containers so
-   the search box's bottom edge is clipped. Omit #top — it is a positioning
-   context for the sidebar and must keep overflow:hidden (changing it shifts the
-   middle panel). The search box lives in #main-nav-mobile > div on desktop
-   with the sidebar-only layout, so all four inner containers need the fix. */
-#main-nav,
-#main-nav ul,
-#main-nav-mobile,
-#main-nav-mobile > div {
-    overflow: visible;
+/* Fix 2b: doxygen-awesome caps #top at a fixed height that clips the search
+   box. Remove the fixed height so the bar sizes to its content. */
+#top {
+    height: auto;
 }
 
 /* Fix 3: the right page-nav panel (page outline / member list) falls back to

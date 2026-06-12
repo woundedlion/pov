@@ -1226,19 +1226,168 @@ Arm A                               Arm B (x offset by W/2)
 
 **Hardware ID detection**: Each Teensy reads a 2-bit ID from GPIO pins 21–22 (active-low with pull-ups).  All-floating = ID 0 (sync master).  The ID determines which arm and which half this board owns.
 
-**Synchronization** rides a single shared wire (full design: `docs/phantasm_frame_sync_spec.md`; host-tested protocol core: `hardware/pov_sync.h`):
+**Frame Sync Protocol (1-wire) — signal datasheet.** Phantasm's four boards stay coherent over **one wire**.  Segment 0 (the **master**) is the conductor; segments 1–3 (**downstream**) listen.  Each board generates its own columns from a local **flywheel timebase** and snaps that timebase to count-coded pulse bursts the master broadcasts on the wire.  Full design: `docs/phantasm_frame_sync_spec.md`; host-tested protocol core: `hardware/pov_sync.h`.
 
-| Wire | Pin (out) | Pin (in) | Purpose |
+The flywheel derives the column index from the free-running CPU cycle counter, never from counting timer interrupts:
+
+```
+x = ( x_boundary + (now − epoch) · (W/2) / cycles_per_half_rev )  mod W
+                                                    └─ 64-bit intermediate
+```
+
+`epoch` is folded forward by exactly one half-revolution at every boundary crossing, so the 32-bit cycle counter's ~7.16 s wrap is structurally unobservable.  An interrupt-masked window (e.g. `FastLED.show()`) cannot drop columns — the ISR that runs after the mask reads the clock and resumes at the *time-correct* column.
+
+**Pin / signal description.**
+
+| Signal | Master (seg 0) | Downstream (seg 1–3) | Electrical | Direction |
+|---|---|---|---|---|
+| `SYNC` | pin 3 (GPIO out) | pin 4 (ext. interrupt in) | 3.3 V CMOS, active-high pulses, idle LOW | master → all |
+| `ID[1:0]` | pins 21–22 | pins 21–22 | active-low, internal pull-ups | strap (board identity) |
+
+`ID[1:0]` straps select the board: all-floating = `00` = master; the other three codes select arm/half.  The former column-clock wire is **deleted** — `SYNC` is the only inter-board connection.  It is assumed physically reliable (a hard, soldered line); a severed wire is out of scope (boards free-run and precess apart at crystal rate, a slow smear, never an instant break).
+
+**Signal levels & symbol waveforms.** The wire idles LOW.  A **symbol** is a burst of short active-high pulses at a fixed pitch; **the meaning is the count of rising edges — pulse width carries no information.**  Each pulse is HIGH for one ISR body (pin set HIGH at ISR entry, LOW at exit; tens of µs) and the rising edge is the only timed event.  Pulses are drawn narrow, to scale against the ~868 µs pitch:
+
+```
+ HALF — 1 pulse — marks boundary x = W/2 (144)
+            ┌┐
+ ───────────┘└──────────────────────────────────────────────────  idle LOW
+            ▲
+            └ boundary instant (x = W/2)
+
+ ZERO — 3 pulses — marks boundary x = 0
+            ┌┐      ┌┐      ┌┐
+ ───────────┘└──────┘└──────┘└───────────────────────────────────
+            ▲   └ 2-col pitch ┘
+            └ boundary instant (x = 0)
+
+ ZERO+EPOCH — 5 pulses — marks x = 0 AND advances the playlist
+            ┌┐      ┌┐      ┌┐      ┌┐      ┌┐
+ ───────────┘└──────┘└──────┘└──────┘└──────┘└───────────────────
+            ▲
+            └ boundary instant (x = 0)
+```
+
+A burst terminates when the wire stays quiet past the **gap timeout** (4 columns).  The consumer counts rising edges and classifies:
+
+| Symbol | Edges | Marks | Carries | Rate |
+|---|---|---|---|---|
+| `HALF` | **1** | boundary `x = W/2` | half-rev phase + flip | 1 / rev |
+| `ZERO` | **3** | boundary `x = 0` | half-rev phase + flip | 1 / rev |
+| `ZERO+EPOCH` | **5** | boundary `x = 0` | phase + flip + **playlist advance** | 1 / effect (×R repeats) |
+| `BEACON` | 5 base-8 digits @ `x ≈ W/4` | — (data channel) | absolute effect index + rev count, checksummed | rev ≡ 1 (mod 16) + first revs of an effect |
+| *invalid* | any **even** count, or > 5 | — | discarded whole: no snap, no flip, no advance | — |
+
+**Why count, not width:** on the i.MX RT each pin has a single latched interrupt flag, so an IRQ-mask window *delays* an edge's ISR but cannot lose the edge unless two edges fall inside one mask window.  With pulse pitch chosen **greater than the worst-case mask window M**, the edge *count* is exact even when `FastLED.show()` masks IRQs mid-symbol (on Phantasm's DMA LED path, M ≈ 0).  The alphabet is **odd-only, distance 2** — a single lost or spurious edge lands on an even (invalid) count and is discarded.  A glitch degrades to a *missed* symbol (covered by the local boundary crossing), **never** a *misclassified* one: *fail to "missed," never to "wrong."*
+
+**AC timing characteristics.** At 480 RPM / 600 MHz / W = 288 (1 column = 434.03 µs = 260,417 cycles):
+
+| Parameter | Symbol | Columns | Time | Cycles | Rule |
+|---|---|---|---|---|---|
+| Column period | T0 | 1 | 434.0 µs | 260,417 | `cycles_per_half_rev / (W/2)` |
+| Boundary pulse pitch | t_PB | 2 | 868.1 µs | 520,833 | **pitch > M** ⇒ no edge lost to the latch |
+| Beacon digit pitch | t_PD | 1 | 434.0 µs | 260,417 | checksum tolerates tighter pitch |
+| Burst gap timeout | t_GAP | 4 | 1.736 ms | 1,041,667 | **> pitch + M** ⇒ a mask can't split one burst |
+| Glitch filter (min edge spacing) | t_GF | — | 100 µs | 60,000 | edges closer than this are EMI — rejected |
+| Master late-censor budget | t_LATE | ½ | 217 µs | 130,208 | first pulse later than this ⇒ skip whole symbol |
+| ACQUIRE quiet-before guard | t_QB | 16 | 6.94 ms | 4,166,667 | a hard snap requires this much prior silence |
+| Beacon interdigit timeout | t_BID | 24 | 10.4 ms | 6,250,000 | stale partial beacon frame dropped after this |
+| Half-revolution | — | 144 | 62.5 ms | 37,500,000 | one image / one flip interval |
+| Revolution | — | 288 | 125 ms | 75,000,000 | two flips, two boundary symbols |
+
+All bursts are ≪ the 62.5 ms half-rev, so consecutive symbols never overlap.
+
+**One-revolution signal map.** Where each symbol lands across a single 125 ms revolution (beacon only on scheduled revolutions):
+
+```
+ column x →    0           72(W/4)        144(W/2)        216           288 ≡ 0
+               │             │              │              │              │
+ SYNC wire   ██ZERO     ░░░BEACON░░░      ██HALF                       ██ZERO
+             (3 edges)  (5 digits, data)  (1 edge)                     (3 edges)
+               │←─────────── half-rev = 62.5 ms ──────────→│
+ display     flip A                       flip B                       flip A
+ layer 1     snap φ                       snap φ                       snap φ
+               │←──────────────────── revolution = 125 ms ────────────────────→│
+```
+
+Boundary symbols (`ZERO`/`HALF`) serve **two** layers at once: they snap the flywheel's column phase (Layer 1) *and* act as the exactly-once flip backstop (Layer 2).  The beacon rides the otherwise-quiet stretch at `x ≈ W/4`, separating the timing channel and the data channel **in time** on the same wire.
+
+**The three disciplined layers.** Every layer reads the same flywheel timebase, so one snap corrects all three coherently; each also has an absolute reference on the wire that pulls it back if it drifts:
+
+* **Layer 1 — Column phase.** Boundary symbols snap each flywheel twice per revolution; worst-case inter-snap crystal drift is **~0.006 column** at 40 ppm — far below a visible seam, which is the quantitative justification for deleting the column-clock wire.  In **LOCKED** a symbol is accepted only if its implied correction is **≤ G = 4 columns** and its boundary identity matches the flywheel's prediction (the plausibility gate).
+* **Layer 2 — Buffer flip.** The local boundary crossing flips the display buffer; the symbol is a deduplicated backstop.  `try_flip`, keyed on boundary identity (boundaries strictly alternate `ZERO, HALF, …`), makes the flip **exactly-once** even when both the crossing and the symbol fire.  Losing both paths in one half-rev is the only glitch, and it self-heals the next half-rev.
+* **Layer 3 — Content.** The playlist is **epoch-counted**, not `millis()`-gated.  The master emits the `EPOCH` mark (plus R = 3 redundancy repeats) when an effect's 960 revolutions elapse; every board counts down to the same **absolute** commit boundary regardless of which copy it heard, constructs the next roster entry during the final K = 2-revolution **construction window** (display black on all boards simultaneously), and all swap to its frame 0 at the same boundary.  The beacon broadcasts the absolute effect index so a board that missed every epoch repeat corrects within ~2 s, and a rebooted board rejoins at the correct effect — **fail-dark, never fail-wrong** (a board with no established identity shows black rather than a guessed effect).
+
+**Index beacon frame format.** The beacon is a **data** symbol (integrity by *rejection*, not by exactness).  Five base-8 digits at 1-column pitch, each digit a burst of `digit + 1` pulses, digits separated by 5 quiet columns (one past the gap timeout, so the decoder reliably terminates each digit):
+
+```
+ Frame = [ idx_hi  idx_lo  rev_hi  rev_lo  checksum ]   (5 digits, base-8)
+           └── effect index 0–63 ──┘ └ rev mod 64 ┘  └ (Σ digits) mod 8
+
+ digit Dk transmitted as (Dk+1) pulses @ 1-col pitch, then a 5-col quiet gap:
+
+         D0          D1               D2          …        D4
+        ┌┐          ┌┐┌┐┌┐           ┌┐┌┐                 ┌┐┌┐┌┐
+ ───────┘└──/ /─────┘└┘└┘└──/ /──────┘└┘└──/ /───────────┘└┘└┘└──────────
+        │←Dk+1 pulses→│   │←5-col quiet (terminates digit)→│
+        │←──────────── frame ≈ 26 ms worst case (≪ half-rev) ───────────→│
+```
+
+Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial frame **drops the whole frame** — the next beacon is ≤ 2 s away.  Schedule: revolution 1 of every 16 (`rev ≡ 1 mod 16` — never rev 0, so a just-powered board meets clean isolated boundary symbols first), plus the first revs of a fresh effect; silent during a pending commit.
+
+**Receiver state machine.** Each downstream board is in one of two states.  The master is born `LOCKED` with identity (effect 0, rev 0) — it *is* the reference and never snaps:
+
+```
+                  first accepted snap
+   ┌──────────────┐ ──────────────────▶ ┌──────────────┐
+   │   ACQUIRE    │                      │    LOCKED    │
+   │  (display    │                      │ (disciplined,│
+   │   black)     │ ◀────────────────── │  rendering)  │
+   └──────────────┘  R = 4 consecutive   └──────────────┘
+                     gate rejections
+                     (~2 revolutions)
+
+ ACQUIRE : accept any *valid* symbol unconditionally (hard snap), but only
+           on a burst preceded by ≥ t_QB (16 col) of wire silence — so a
+           beacon digit train can't capture a just-rebooted board. Renders
+           black until it has BOTH phase (a snap) AND identity (epoch/beacon).
+ LOCKED  : accept a valid symbol only if implied correction ≤ G (4 col) AND
+           boundary identity matches the prediction. Else reject (telemetry,
+           no snap, no flip). After R rejections the board concludes its OWN
+           timebase is at fault and falls back to ACQUIRE (the escape hatch
+           that stops a genuinely-lost board from rejecting good symbols
+           forever).
+```
+
+**Epoch commit sequence.** `EPOCH` at ZERO boundary **B** schedules an absolute commit at **B + R + K** (R = 3 repeats, K = 2 construction revolutions).  A board hearing any repeat infers its position in the train from its own revolution count and lands on the *same* boundary:
+
+```
+ ZERO boundary:   B        B+1      B+2      B+3      B+4      B+5
+ master emits:   ●EPOCH    ○rpt     ○rpt     ○rpt      —        —
+                 (5 edges) (5)      (5)      (5)
+ commit_in_revs:   5        4        3        2        1        0
+                 │←──── announce: keep playing OLD effect ────│
+                                            │←── construct ──→│ swap → NEW
+                                            ░░░ display BLACK ░░░  frame 0
+ all boards:     ─────── outgoing effect ──────────░build/dark░── new effect
+```
+
+The dark window is identical (K revolutions) on every board because construction can't begin before B+R — only then is the window's start common knowledge regardless of which copy each board heard.  An effect that can't construct inside K revolutions trips `HS_CHECK` (fail-fast).  All boards reseed `hs::random()` (1337) per effect build, so the new instance is bit-identical no matter what each board rendered — or whether it even existed — before the epoch.
+
+**Concurrency & failure modes.** Two ISRs per board, **single-writer** by construction.  The sync-wire RISING ISR is a pure *publisher* — glitch filter, edge count, first-edge timestamp into a small mailbox, nothing else.  The flywheel ISR (waking ~8× per column) is the sole *consumer/owner* of all sync state: it claims terminated bursts, classifies, gates, snaps, flips, and runs epoch scheduling.  The hot path is ~7-of-8 wakes doing one cycle-counter read and a 64-bit position compute (≈1 % CPU at 600 MHz); only a column change packs pixels and submits DMA.
+
+| Event | Layer 1 (column) | Layer 2 (flip) | Layer 3 (content) |
 |---|---|---|---|
-| Sync symbols | 3 (GPIO, segment 0) | 4 (ext. interrupt) | Segment 0 emits count-coded pulse bursts: boundary marks at `x==0` (3 pulses) and `x==W/2` (1 pulse), an epoch mark (5 pulses) when the playlist advances, and a checksummed five-digit index beacon mid-revolution. |
+| Masked-IRQ window (`FastLED.show()`) | resumes at time-correct column | unaffected | unaffected |
+| 1 dropped boundary symbol | coasts ≤ 1 rev (~0.01 col); re-snaps next | local crossing still flips | unaffected |
+| 1 spurious / EMI edge | even count discarded, or gate rejects | identity dedup no-ops it | epoch refractory + gate guard it |
+| Late-emitted symbol | master self-censors; residual gate-rejected | crossing flips on time regardless | unaffected |
+| 1 board renders slow (drops a frame) | — | shows prior frame for 1 period | stateless: heals next frame/beacon; stateful: heals next epoch |
+| 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by next beacon (~2 s) |
+| Board reboots mid-show | re-acquires phase from next valid symbol | resumes flipping once LOCKED | rejoins correct effect via beacon, ≤ ~2 s; dark until then |
+| Sync wire severed (out of scope) | free-runs on own crystal; precesses ≥ 1 col in ~10–20 s | keeps flipping locally | holds last effect; slow drift, never an instant break |
 
-Each board generates its own columns from a local **flywheel timebase**: the column index derives from the free-running CPU cycle counter (`x = (now − epoch) · (W/2) / cycles_per_half_rev`, 64-bit intermediate, epoch folded forward each half-revolution so the 32-bit counter wrap is unobservable), never from counting timer interrupts — so an interrupt-masked window cannot drop columns; the ISR resumes at the time-correct column.  Three layers ride that timebase:
-
-* **Column phase** — boundary symbols snap each flywheel twice per revolution; worst-case inter-snap crystal drift is ~0.006 column.  In LOCKED state a symbol is accepted only if its implied correction is ≤ 4 columns (plausibility gate); repeated rejections fall back to a hard-snapping ACQUIRE state, during which the board displays black.
-* **Buffer flip** — the local boundary crossing flips the display buffer; the symbol is a deduplicated backstop (`try_flip` keyed on boundary identity), so flips are exactly-once even when both paths fire.
-* **Content** — the playlist is epoch-counted, not `millis()`-gated: the master emits the epoch mark (with redundancy repeats) when an effect's 960 revolutions elapse, every board counts down to the same absolute commit boundary regardless of which copy it heard, constructs the next roster entry during the final 2-revolution construction window (display black), and all swap to its frame 0 at the same boundary.  The beacon broadcasts the absolute effect index so a board that missed the epoch entirely corrects within ~2 s and a rebooted board rejoins at the correct effect — fail-dark, never fail-wrong.
-
-Symbols are count-coded (odd counts only, distance 2 apart) so a lost or spurious edge yields an invalid even count that is discarded whole: a glitch degrades to a *missed* symbol — covered by the local crossing — never a *misclassified* one.  The master self-censors emissions that would start late rather than poison downstream phase.
+The flywheel ISR maintains telemetry counters (symbols accepted / gate-rejected / discarded, beacons ok / rejected, index corrections, epochs refractory-ignored, lock transitions, flips, emissions censored / aborted, longest coast) that the foreground reports behind `hs::debug` at ≤ 1 Hz — so any degradation the protocol absorbs silently is still visible at a glance.
 
 **Branchless ISR**: All per-segment decisions are resolved at boot time into three precomputed values:
 
