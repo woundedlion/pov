@@ -453,12 +453,10 @@ enum FastLEDCheck {
 struct FastLEDMock {
   /**
    * @brief Sets the color-correction profile (no-op on host).
-   * @param i Correction selector; ignored.
    */
   void setCorrection(int) {}
   /**
    * @brief Sets the color-temperature profile (no-op on host).
-   * @param i Temperature selector; ignored.
    */
   void setTemperature(int) {}
   /**
@@ -468,8 +466,6 @@ struct FastLEDMock {
    * @tparam P2 Second chipset template parameter.
    * @tparam P3 Third chipset template parameter.
    * @tparam P4 Fourth chipset template parameter.
-   * @param leds Pointer to the LED array; ignored.
-   * @param count Number of LEDs; ignored.
    */
   template <typename T, int P1, int P2, int P3, int P4>
   void addLeds(CRGB *, int) {}
@@ -479,7 +475,6 @@ struct FastLEDMock {
   void show() {}
   /**
    * @brief Fills the whole strip with a single color (no-op on host).
-   * @param c Fill color; ignored.
    */
   void showColor(const CRGB &) {}
 };
@@ -545,7 +540,6 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
 struct SerialMock {
   /**
    * @brief Initialises the port (no-op on host).
-   * @param baud Baud rate; ignored.
    */
   void begin(int) {}
   /**
@@ -630,7 +624,6 @@ inline uint8_t random8(uint8_t top) {
 inline uint16_t random16() { return hs::random()() % 65536; }
 /**
  * @brief Mixes additional entropy into the RNG (no-op on host).
- * @param entropy Entropy to mix in; ignored.
  */
 inline void random16_add_entropy(uint16_t) {}
 
@@ -1246,12 +1239,10 @@ struct CycleScope {
 
   /**
    * @brief Deleted copy constructor; a scope guard must not be copied.
-   * @param other Source scope (unused).
    */
   CycleScope(const CycleScope&) = delete;
   /**
    * @brief Deleted copy assignment; a scope guard must not be copied.
-   * @param other Source scope (unused).
    * @return Never returns; deleted.
    */
   CycleScope& operator=(const CycleScope&) = delete;

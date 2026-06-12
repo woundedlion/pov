@@ -304,11 +304,7 @@ inline Color4 hue_rotate(const Color4 &c, float amount);
 
 #include "color_luts.h"
 
-/**
- * @brief Maps an 8-bit sRGB channel value to its 16-bit linear equivalent.
- * @param srgb sRGB channel value in [0, 255].
- * @return 16-bit linear channel value from the LUT.
- */
+// Definition; canonical docs are on the declaration above.
 inline uint16_t srgb_to_linear(uint8_t srgb) {
   return srgb_to_linear_lut[srgb];
 }
@@ -363,7 +359,6 @@ inline Pixel blend_max(const Pixel &c1, const Pixel &c2) {
 
 /**
  * @brief Blends two pixels by overwriting (Painter's algorithm).
- * @param c1 Destination pixel.
  * @param c2 Source pixel.
  * @return c2 (Source).
  */
@@ -372,7 +367,6 @@ inline Pixel blend_over(const Pixel &, const Pixel &c2) { return c2; }
 /**
  * @brief Blends two pixels by keeping the destination (Under).
  * @param c1 Destination pixel.
- * @param c2 Source pixel.
  * @return c1 (Destination).
  */
 inline Pixel blend_under(const Pixel &c1, const Pixel &) { return c1; }
@@ -581,22 +575,16 @@ inline uint16_t float_to_pixel16(float v) {
   return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
-/**
- * @brief Perceptual hue rotation of a Color4 with a precomputed rotation.
- * @param c Source color.
- * @param ca Cosine of the rotation angle.
- * @param sa Sine of the rotation angle.
- * @return The hue-rotated color, gamut-clamped to 16-bit linear.
- * @details Rotates the (a,b) chroma plane in the OKLab perceptual color space,
- * which preserves perceived lightness (L) and chroma (sqrt(a^2+b^2)) across the
- * shift. A linear-RGB rotation cannot: its equal angular steps are not
- * perceptually uniform and its perceived brightness drifts with hue. Hot path:
- * this is the default feedback color transform (Feedback::hue_fade, run per
- * pixel every frame) and Flyby's per-pixel shader. To stay affordable, the
- * forward linear->OKLab nonlinearity uses fast_cbrt (~2e-5 rel error) while the
- * inverse is exact cubes, and the shift is a direct 2D rotation of (a,b) — no
- * atan2/sqrt of a full OKLCH polar round-trip.
- */
+// Definition; canonical docs are on the declaration above. Rotates the (a,b)
+// chroma plane in the OKLab perceptual color space, which preserves perceived
+// lightness (L) and chroma (sqrt(a^2+b^2)) across the shift. A linear-RGB
+// rotation cannot: its equal angular steps are not perceptually uniform and its
+// perceived brightness drifts with hue. Hot path: this is the default feedback
+// color transform (Feedback::hue_fade, run per pixel every frame) and Flyby's
+// per-pixel shader. To stay affordable, the forward linear->OKLab nonlinearity
+// uses fast_cbrt (~2e-5 rel error) while the inverse is exact cubes, and the
+// shift is a direct 2D rotation of (a,b) — no atan2/sqrt of a full OKLCH polar
+// round-trip.
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   constexpr float INV16 = 1.0f / 65535.0f;
   float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
@@ -630,17 +618,12 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   return result;
 }
 
-/**
- * @brief Convenience overload: hue-rotate by `amount` turns.
- * @param c Source color.
- * @param amount Rotation in turns (0..1 = full turn).
- * @return The hue-rotated color.
- * @details Computes the rotation per call. On hot paths where `amount` is
- * constant across the frame (the default Feedback::hue_fade) call the (ca, sa)
- * overload with values hoisted out of the per-pixel loop instead
- * (Style::sync_hue populates Style::hue_ca / hue_sa). Callers with a genuinely
- * per-fragment amount (Flyby) use this overload.
- */
+// Definition; canonical docs are on the declaration above. Computes the
+// rotation per call. On hot paths where `amount` is constant across the frame
+// (the default Feedback::hue_fade) call the (ca, sa) overload with values
+// hoisted out of the per-pixel loop instead (Style::sync_hue populates
+// Style::hue_ca / hue_sa). Callers with a genuinely per-fragment amount (Flyby)
+// use this overload.
 inline Color4 hue_rotate(const Color4 &c, float amount) {
   float angle = amount * (2.0f * PI_F);
   return hue_rotate(c, fast_cosf(angle), fast_sinf(angle));

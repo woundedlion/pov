@@ -75,8 +75,7 @@ using Fragments = ArenaVector<Fragment>;
  */
 struct NullVertexShader {
   /**
-   * @brief Does nothing to the fragment.
-   * @param Fragment to (not) transform; ignored.
+   * @brief Does nothing to the fragment (ignored).
    */
   void operator()(Fragment &) const {}
 };
@@ -88,8 +87,7 @@ struct NullVertexShader {
 struct NullFragmentShader {
   /**
    * @brief Returns a transparent color regardless of input.
-   * @param Sample position; ignored.
-   * @param Source fragment; ignored.
+   * @details The sample position and source fragment are ignored.
    * @return Transparent black Color4(0, 0, 0, 0).
    */
   Color4 operator()(const Vector &, const Fragment &) const {

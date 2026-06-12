@@ -13,7 +13,7 @@
  * @details Style is POD-copyable — safe to store in Presets<> and lerp.
  * Typical usage:
  *   Feedback::Style style = Feedback::Style::Smoke();
- *   style.noise = &my_noise_params;   // bind effect-owned state at init
+ *   style.noise = &amp;my_noise_params;   // bind effect-owned state at init
  *   style.sync_noise();               // push scalars → NoiseParams each frame
  */
 namespace Feedback {
@@ -234,27 +234,15 @@ struct Style {
 
 // --- Deferred inline definitions (Style is now complete) ----------------------
 
-/**
- * @brief Noise-based spatial warping (default space transform).
- * @param v Sample direction on the unit sphere.
- * @param s Style supplying the bound NoiseParams.
- * @return Warped sample direction, or v unchanged if no noise is bound.
- */
+// Returns v unchanged when no noise is bound.
 inline Vector noise_warp(const Vector &v, const Style &s) {
   if (!s.noise) return v;
   return noise_transform(v, *s.noise);
 }
 
-/**
- * @brief Downward melt space transform: slerps toward the north pole so the
- * image drips south, with added noise wobble.
- * @param v Sample direction on the unit sphere.
- * @param s Style supplying speed (drip rate), amplitude (wobble), and noise.
- * @return Warped sample direction.
- * @details speed controls the drip rate; amplitude controls the noise wobble.
- * Noise perturbation is applied only when bound and amplitude exceeds 0.001 to
- * produce organic, uneven drip widths.
- */
+// speed controls the drip rate; amplitude controls the noise wobble. Noise
+// perturbation is applied only when bound and amplitude exceeds 0.001 to
+// produce organic, uneven drip widths.
 inline Vector melt_warp(const Vector &v, const Style &s) {
   // Shift sample toward north pole → image appears to drip south.
   // speed controls drip rate; amplitude controls noise wobble.
@@ -269,15 +257,8 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   return drifted;
 }
 
-/**
- * @brief Hue-rotating fade (default color transform).
- * @param p Source pixel color.
- * @param fade Per-frame scalar fade multiplier in [0, 1].
- * @param s Style supplying the precomputed hue rotation (hue_ca/hue_sa).
- * @return Faded and hue-rotated pixel.
- * @details Uses the rotation precomputed once per frame by Style::sync_hue
- * rather than recomputing sin/cos of the frame-constant hue_shift per pixel.
- */
+// Uses the rotation precomputed once per frame by Style::sync_hue rather than
+// recomputing sin/cos of the frame-constant hue_shift per pixel.
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
   // Uses the rotation precomputed once per frame by Style::sync_hue (called
   // from Feedback::flush) rather than recomputing sin/cos of the frame-constant

@@ -35,7 +35,7 @@
 /**
  * @brief Single source of truth for the registered effect roster, as an X-macro.
  * @param X Function-like macro applied to each effect type name in the roster.
- * @details The #include list above and this X-macro list must stay in lock-step.
+ * @details The `#include` list above and this X-macro list must stay in lock-step.
  *   The coupling is enforced from both build modes so the roster can never
  *   silently drift from what actually ships or gets tested:
  *     * WASM:   the self-registering EffectRegistry size is checked against
@@ -43,7 +43,7 @@
  *     * Native: the effect smoke suite generates exactly one case per entry, so
  *               its coverage is derived from this list, not hand-maintained
  *               (tests/test_effects.h).
- *   Adding an effect therefore means: add the #include above, the
+ *   Adding an effect therefore means: add the `#include` above, the
  *   REGISTER_EFFECT in its header, and one X() row here — miss any and a
  *   build/startup check fires.
  */

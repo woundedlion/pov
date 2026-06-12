@@ -1,6 +1,6 @@
 # Holosphere
 
-### [▶ Play with the live WebAssembly simulator](https://woundedlion.github.io/daydream/)
+### [▶ Play with the live WebAssembly simulator](https://woundedlion.github.io/daydream/) · [📖 API documentation (Doxygen)](https://woundedlion.github.io/pov/)
 
 <p align="center">
   <img src="docs/screenshots/IslamicStars.png" alt="Holosphere — IslamicStars effect" width="640">

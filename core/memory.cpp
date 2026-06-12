@@ -55,9 +55,6 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
 /**
  * @brief Re-partitions the single global block into persistent plus two scratch
  * arenas of the requested byte sizes.
- * @param persistent Size of the persistent arena, in bytes.
- * @param scratch_a Size of the first scratch arena, in bytes.
- * @param scratch_b Size of the second scratch arena, in bytes.
  * @details Called once at init() so an effect can tune the split to the device
  * budget. Each inter-arena boundary is aligned up to max_align_t so every arena
  * base is maximally aligned (the block base already is, via alignas); for the

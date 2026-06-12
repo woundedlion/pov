@@ -229,8 +229,8 @@ public:
   bool repeats() const override { return repeat && !canceled; }
   /**
    * @brief Advances the animation state by one frame.
-   * @param canvas The canvas buffer (unused by base class, passed to derived
-   * classes).
+   * @details The canvas buffer is unused by the base class and passed through
+   * to derived classes.
    */
   void step(Canvas &) override { t++; }
 

@@ -343,13 +343,11 @@ public:
 
   /**
    * @brief Deleted copy constructor.
-   * @param other Source vector (unused).
    * @details Implicit shallow copying is disabled to prevent memory aliasing.
    */
   ArenaVector(const ArenaVector &) = delete;
   /**
    * @brief Deleted copy assignment.
-   * @param other Source vector (unused).
    * @return Reference to this (never invoked).
    * @details Implicit shallow copying is disabled to prevent memory aliasing.
    */
@@ -763,7 +761,6 @@ public:
 
   /**
    * @brief Deleted constructor from a temporary ArenaVector.
-   * @param source Temporary vector (unused).
    * @details Borrowing from a temporary would leave the data pointer and (in
    * debug) source_vec_ dangling the moment the temporary dies. Forbid it.
    */
@@ -873,12 +870,10 @@ struct ScratchScope {
 
   /**
    * @brief Deleted copy constructor (non-copyable).
-   * @param other Source scope (unused).
    */
   ScratchScope(const ScratchScope &) = delete;
   /**
    * @brief Deleted copy assignment (non-copyable).
-   * @param other Source scope (unused).
    * @return Reference to this (never invoked).
    */
   ScratchScope &operator=(const ScratchScope &) = delete;
@@ -940,12 +935,10 @@ public:
 
   /**
    * @brief Deleted copy constructor (non-copyable).
-   * @param other Source evacuator (unused).
    */
   Persist(const Persist &) = delete;
   /**
    * @brief Deleted copy assignment (non-copyable).
-   * @param other Source evacuator (unused).
    * @return Reference to this (never invoked).
    */
   Persist &operator=(const Persist &) = delete;

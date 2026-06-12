@@ -9,7 +9,7 @@
  * @brief Pre-formatted HD107S (APA102-compatible) protocol buffer + color
  *        correction. Pure CPU logic, no Teensy peripherals — split out of
  *        dma_led.h so the wire-format and correction math are host-unit-testable
- *        (see tests/test_hd107s_frame.h). dma_led.h #includes this and adds the
+ *        (see tests/test_hd107s_frame.h). dma_led.h `#includes` this and adds the
  *        DMA/SPI hardware driver on top (Teensy-only).
  *
  * Color correction uses the PROGMEM sRGB<->Linear LUTs from color.h; all

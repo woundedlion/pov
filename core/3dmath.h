@@ -103,7 +103,6 @@ struct Vector {
   /**
    * @brief Constructs a zero vector; the int argument is a tag for
    * inplace_function compatibility and is ignored.
-   * @param unused Ignored tag parameter (inplace_function compat).
    */
   explicit constexpr Vector(int)
       : x(0), y(0), z(0) {} // inplace_function compat
@@ -815,17 +814,10 @@ constexpr Vector operator*(const Vector &v, float s) {
  */
 constexpr Vector operator*(float s, const Vector &v) { return v * s; }
 
-/**
- * @brief Scalar division.
- * @param v Vector.
- * @param s Scalar.
- * @return The resulting vector.
- *
- * Unlike Vector::operator/=, this free operator deliberately does NOT trap on
- * s == 0: it is a per-pixel hot-path primitive, and HS_CHECK is reserved for
- * cold paths (see core/platform.h). A zero divisor yields ±Inf/NaN. Use the
- * compound-assignment form (v /= s) where a guarded divide is wanted.
- */
+// Unlike Vector::operator/=, this free operator deliberately does NOT trap on
+// s == 0: it is a per-pixel hot-path primitive, and HS_CHECK is reserved for
+// cold paths (see core/platform.h). A zero divisor yields ±Inf/NaN. Use the
+// compound-assignment form (v /= s) where a guarded divide is wanted.
 constexpr Vector operator/(const Vector &v, float s) {
   return Vector(v.x / s, v.y / s, v.z / s);
 }
