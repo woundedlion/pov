@@ -1376,7 +1376,7 @@ private:
    * @param cv Canvas whose previous-frame buffer is sampled.
    * @param bx Fractional column; wrapped across the longitude seam.
    * @param by Fractional row; out-of-range rows contribute black.
-   * @return Bilinearly interpolated pixel color.
+   * @return Bilinearly interpolated pixel color, round-to-nearest per channel.
    */
   ::Pixel sample_bilinear_prev(const Canvas &cv, float bx, float by) const {
     float fy0 = std::floor(by);
@@ -1404,11 +1404,22 @@ private:
     float w01 = (1.0f - fx) * fy;
     float w11 = fx * fy;
 
-    ::Pixel result = (p00 * w00);
-    result += (p10 * w10);
-    result += (p01 * w01);
-    result += (p11 * w11);
-    return result;
+    // Accumulate the four weighted taps in float and round the combined sum
+    // once (+0.5) per channel, rather than truncating each Pixel16*float tap
+    // and saturating-adding. Per-tap truncation biases every sample downward by
+    // up to a few LSB; this sample feeds the feedback loop (it is re-sampled
+    // every frame), so a one-directional bias compounds frame over frame into
+    // visible dark grit/moiré on the trails. Rounding the combined sum is
+    // unbiased, so the error no longer accumulates. The weights sum to 1 and
+    // channels are in [0, 65535]; hs::clamp guards the cast against float-error
+    // overshoot and maps a NaN coordinate to the hi bound (matching the old
+    // operator* path) instead of letting it reach the uint16_t cast.
+    float r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
+    float g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
+    float b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+    return ::Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f) + 0.5f),
+                   static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f) + 0.5f),
+                   static_cast<uint16_t>(hs::clamp(b, 0.0f, 65535.0f) + 0.5f));
   }
 
   ::Feedback::Style *style_;  /**< Bound feedback Style (non-owning). */
