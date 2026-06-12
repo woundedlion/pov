@@ -238,19 +238,14 @@ public:
 };
 
 using PlotFn = Fn<Vector(float), 16>;
-// The richer simulator effects (DreamBalls, IslamicStars, HankinSolids) register
-// sprite draw closures capturing [this, idx, slot] — up to 16 B on a 64-bit host,
-// 12 B on 32-bit. The device firmware builds only effects whose sprite captures
-// fit its tuned 8 B budget, so gate on ARDUINO (not pointer width — WASM is
-// 32-bit like the device but DOES build those effects): keep Cap=8 on device
-// (tuned, do not change), widen to 16 for the host/WASM simulator. inplace_function
-// hard-enforces Cap, so an undersized budget is a compile error, not a heap spill.
-#ifdef ARDUINO
-inline constexpr size_t kSpriteFnCap = 8;
-#else
-inline constexpr size_t kSpriteFnCap = 16;
-#endif
-using SpriteFn = Fn<void(Canvas &, float), kSpriteFnCap>;
+// One Cap for every platform — no per-arch split. The sprite draw closures all
+// capture [this, idx, slot]; on a 64-bit host that is this(8) + two ints = 16 B,
+// and pointer alignment rounds any [this, data] capture up to 16 regardless, so
+// 16 is the floor there. 32-bit targets (device + WASM) pack the same capture
+// into 12 B, so 16 covers them with room to spare. It is NOT 8: every target —
+// the device included — builds these effects (the .ino factory runs init() ->
+// spawn_sprite()), and 12 B never fit 8; the historical "8" predates them.
+using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
 using ScalarFn = Fn<float(float), 32>;
 using EasingFn = float (*)(float);
