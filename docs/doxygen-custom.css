@@ -6,9 +6,15 @@ span.tt {
     background-color: transparent;
 }
 
-/* Fix 2: allow the search results dropdown to overflow the container.
-   navtree.css sets `overflow: hidden` on #container, which clips the
-   absolutely-positioned #MSearchResultsWindow when it extends past the header. */
+/* Fix 2: anchor search results to the viewport, not to #doc-content.
+   #MSearchResultsWindow is position:absolute inside #doc-content, so
+   top:0;right:4px places it at the top of the content area rather than near
+   the nav bar. position:fixed makes it viewport-relative, matching where the
+   search input lives. The earlier overflow:visible on #container is kept for
+   any other dropdowns that may still use absolute positioning. */
+#MSearchResultsWindow {
+    position: fixed;
+}
 #container {
     overflow: visible;
 }
@@ -31,4 +37,16 @@ td.ititle,
 td.mdescLeft,
 td.mdescRight {
     background-color: var(--memdecl-background-color);
+}
+
+/* Fix 5: the h2.groupheader inside tr.heading td uses box-shadow with
+   var(--page-background-color) as a "mask" layer on both sides of the text,
+   creating the separator line effect. After Fix 4 the td background is
+   --memdecl-background-color, not --page-background-color, so those mask
+   layers appear as black bars. Match the shadow to the td background. */
+td h2.groupheader {
+    box-shadow: 13px 0 var(--memdecl-background-color),
+               -13px 0 var(--memdecl-background-color),
+                13px 1px var(--group-header-separator-color),
+               -13px 1px var(--group-header-separator-color);
 }
