@@ -284,10 +284,12 @@ template <int MAX_V> struct TriangularBitset {
  * still-live ArenaVector (see bind()'s stale-binding handling), so a
  * handle-driven destructor pass could run on already-reclaimed memory.
  * Consequently, only store types whose destructor need not run for correctness
- * — trivially-destructible PODs, or types like Fn/std::function whose stored
- * captures are themselves trivial (which never own external resources here). A
- * type that owns heap/handles outside the arena must not be stored in an
- * ArenaVector.
+ * — trivially-destructible PODs, or Fn<> (inline-storage on both backends) whose
+ * stored captures are themselves trivial, so the callable owns no external
+ * resource regardless of size. A type that owns heap/handles outside the arena
+ * must not be stored in an ArenaVector — notably a raw std::function, which
+ * heap-allocates any capture past its small-buffer size and would leak when this
+ * handle skips its destructor; that is precisely why Fn<> no longer aliases it.
  */
 template <typename T> class ArenaVector {
   // ArenaSpan borrows our backing data and (in debug builds) our arena
