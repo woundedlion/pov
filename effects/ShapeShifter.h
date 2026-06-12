@@ -7,16 +7,21 @@
 
 #include "core/effects_engine.h"
 
+// Renders concentric rings of a morphing shape (polygon/flower/star) in both
+// Plot and Scan render modes, cycling the shape type and tumbling the camera.
 template <int W, int H> class ShapeShifter : public Effect {
 public:
   enum class ShapeType { PlanarPolygon, SphericalPolygon, Flower, Star };
   enum class RenderMode { Plot, Scan };
 
+  // Construct on a WxH canvas, starting on the planar polygon shape.
   FLASHMEM ShapeShifter()
       : Effect(W, H), current_shape(ShapeType::PlanarPolygon) {}
 
+  // Rings are drawn over a cleared frame; no background pass needed.
   bool show_bg() const override { return false; }
 
+  // Register tunable params and build the animation timeline.
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
@@ -31,10 +36,10 @@ public:
     build();
   }
 
+  // Advance the shape type every 48 frames, then step the timeline.
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Advance to the next shape type every 48 frames
     frame_count_++;
     if (frame_count_ % 48 == 0) {
       int next = (static_cast<int>(current_shape) + 1) % 4;
@@ -44,17 +49,11 @@ public:
     timeline.step(canvas);
   }
 
-  // The whole effect runs on a *fixed* five-slot timeline regardless of Count:
-  // the camera tumble, the twist Mutation, two shared orientation tumbles (one
-  // per render mode), and a single draw event that walks the live Count each
-  // frame. The per-ring Sprite+Rotation pair the effect used to spawn was pure
-  // overhead — the Sprite never faded (constant opacity 1) and every Plot ring
-  // shared one identical rotation, as did every Scan ring — so it cost two
-  // global-timeline slots per shape and overflowed the 64-slot array at
-  // Count 16 (2 + 4*16 = 66), silently dropping the last ring's animations.
-  // Collapsing to two shared orientations is visually identical (the per-ring
-  // rotations were already in lockstep) and lets Count scale to the raster
-  // budget, not the slot budget.
+  // Build a *fixed* five-slot timeline regardless of Count: the camera tumble,
+  // the twist Mutation, two shared orientation tumbles (one per render mode),
+  // and a single draw event that walks the live Count each frame. All rings of
+  // a mode share one orientation, so Count scales to the raster budget rather
+  // than the 64-slot timeline budget.
   FLASHMEM void build() {
     timeline.clear();
 
@@ -85,6 +84,7 @@ public:
                         0, ease_mid, 0, ease_mid));
   }
 
+  // Draw all Count rings, outermost first, in both Plot and Scan modes.
   void drawAll(Canvas &canvas) {
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
@@ -108,6 +108,8 @@ public:
     }
   }
 
+  // Draw one ring: scales radius by `scale`, twists by layer, and dispatches to
+  // the current shape's Plot or Scan renderer with a per-fragment alpha shader.
   void drawRing(Canvas &canvas, const Basis &basis, RenderMode mode, float scale,
                 const Color4 &color, int layer_index) {
     auto fragment_shader = [&](const Vector &, Fragment &f) {
@@ -127,6 +129,8 @@ public:
   }
 
 private:
+  // Plot-rasterize the current shape type. noinline to curb code bloat from the
+  // per-shape template instantiation.
   template <typename F>
   __attribute__((noinline)) void
   dispatchPlot(Canvas &canvas, const Basis &basis, float r, int sides_int,
@@ -151,6 +155,8 @@ private:
     }
   }
 
+  // Scan-rasterize the current shape type. noinline to curb code bloat from the
+  // per-shape template instantiation.
   template <typename F>
   __attribute__((noinline)) void
   dispatchScan(Canvas &canvas, const Basis &basis, float r, int sides_int,

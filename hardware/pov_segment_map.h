@@ -5,13 +5,12 @@
  * @file pov_segment_map.h
  * @brief Pure segment index arithmetic for the segmented POV driver.
  *
- * Split out of pov_segmented.h (which is Arduino-only) so the load-bearing
- * index math — which segment owns which canvas column and rows, and in which
- * direction its physical strip runs — is unit-testable on the host without a
- * Teensy, exactly as hd107s_frame.h was split out of dma_led.h. The driver's
- * boot-time configure_segment() and per-column ISR derive their mapping from
- * these functions, so the host tests cover the real arithmetic. An off-by-one
- * here silently mis-paints the sphere.
+ * Kept free of Arduino dependencies so the load-bearing index math — which
+ * segment owns which canvas column and rows, and in which direction its
+ * physical strip runs — is unit-testable on the host without a Teensy. The
+ * driver's boot-time configure_segment() and per-column ISR derive their
+ * mapping from these functions, so the host tests cover the real arithmetic.
+ * An off-by-one here silently mis-paints the sphere.
  *
  * Layout (N=4, S=288 -> ROWS=144, PPS=72): two arms, two segments each.
  *   Arm A samples canvas column x; arm B samples column (x + W/2) % W.
@@ -45,7 +44,7 @@ constexpr SegmentMap segment_map(int segment_id, int S, int N) {
   const int segs_per_arm = N / 2;
   const int rows = S / 2;
   // segs_per_arm = N/2 is a power of two (N is validated power-of-two, <= 4),
-  // so mask instead of modulo — same bitwise idiom as read_id()'s `& (N - 1)`.
+  // so mask instead of modulo for the within-arm index.
   const int arm_seg = segment_id & (segs_per_arm - 1);
   SegmentMap m{};
   m.arm_b = segment_id >= segs_per_arm;

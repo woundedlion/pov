@@ -11,8 +11,13 @@
 #include <cmath>
 #include <span>
 
+// Spherical Voronoi effect: scatters sites on the unit sphere, animates them,
+// and shades each pixel by its nearest site with edge-sharpening and optional
+// cell borders. W/H are the framebuffer dimensions.
 template <int W, int H> class Voronoi : public Effect {
 public:
+  // One Voronoi seed: position on the unit sphere, the rotation axis it spins
+  // about, and the cell fill color.
   struct Site {
     Vector pos;
     Vector axis;
@@ -21,6 +26,8 @@ public:
 
   FLASHMEM Voronoi() : Effect(W, H) {}
 
+  // Configure arenas, register GUI params, allocate the sites buffer, and seed
+  // the initial sites.
   void init() override {
     // Persistent holds the sites buffer; scratch_arena_a holds the per-frame
     // KD-tree (positions + nodes + build indices, ~15KB at MAX_SITES). Give it
@@ -41,8 +48,11 @@ public:
     seed_sites();
   }
 
+  // Opaque effect: fills every pixel, so no background pass is needed.
   bool show_bg() const override { return false; }
 
+  // Animate the sites, build a per-frame KD-tree, and shade each pixel by its
+  // nearest site (with edge sharpening and optional borders).
   void draw_frame() override {
     Canvas canvas(*this);
 
@@ -69,10 +79,9 @@ public:
 
     // Build a KD-tree over the (moving) site positions once per frame. On the
     // unit sphere nearest-by-Euclidean-distance is exactly nearest-by-max-dot
-    // (|p−s|² = 2 − 2·p·s for unit p,s), so the k=2 query returns the *same*
-    // best/second-best site as the former per-pixel O(N) scan — exactly, not
-    // approximately — turning the O(W·H·N) loop into O(N log N) build +
-    // O(log N) per pixel (and dropping the per-pixel work N≤400 dominated).
+    // (|p−s|² = 2 − 2·p·s for unit p,s), so the k=2 query returns the exact
+    // best/second-best site: O(N log N) build + O(log N) per pixel rather than
+    // an O(W·H·N) per-pixel scan.
     ScratchScope _scope(scratch_arena_a);
     Vector *positions = static_cast<Vector *>(scratch_arena_a.allocate(
         sites_buffer.size() * sizeof(Vector), alignof(Vector)));
@@ -82,8 +91,8 @@ public:
                 std::span<const Vector>(positions, sites_buffer.size()));
 
     // Render via the shared full-screen shader path (clip-aware, instrumented).
-    // SAMPLES=1: one sample at pixel center, identical to the former raw loop —
-    // the per-pixel KD-tree query is too heavy to supersample.
+    // SAMPLES=1: one sample at pixel center — the per-pixel KD-tree query is too
+    // heavy to supersample.
     auto shader = [&](const Vector &p) -> Color4 {
       auto knn = tree.nearest(p, 2);
       // Tree is non-empty (sites_buffer.size() > 0), so there is always a
@@ -145,13 +154,15 @@ public:
   int current_num_sites = 0;
   ArenaVector<Site> sites_buffer;
 
+  // Slider value rounded to an integer and clamped to [1, MAX_SITES].
   int active_site_count() const {
     return std::clamp(static_cast<int>(params.num_sites), 1, MAX_SITES);
   }
 
-  // (Re)seed the active sites for the current "Num Sites" slider value. The
-  // buffer is allocated once at MAX_SITES (in init); here we only clear + refill
-  // up to the active count, so changing the slider never re-allocates the arena.
+  // (Re)seed the active sites for the current "Num Sites" slider value: clear +
+  // refill up to the active count (no re-allocation). Sites are placed via the
+  // Fibonacci-sphere distribution for an even spread, each with a random spin
+  // axis and a palette color.
   void seed_sites() {
     const int n = active_site_count();
     sites_buffer.clear();

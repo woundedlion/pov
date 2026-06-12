@@ -273,6 +273,20 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
   }
 }
 
+/**
+ * @brief Adaptively rasterize a fragment polyline onto the sphere.
+ *
+ * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
+ * strategy per segment, sub-steps each segment at ≈one-pixel-column density
+ * (with a sinφ floor near the poles), and plots through the pipeline. Segments
+ * whose full screen-row span lies outside the active clip band are culled.
+ *
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param close_loop  Also draw the last→first edge.
+ * @param planar_basis Non-null selects azimuthal-equidistant interpolation
+ *                     (straight in the projection); null uses geodesic edges.
+ * The unused float param is an unnamed, ignored slot in the signature.
+ */
 template <int W, int H, typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
@@ -302,10 +316,14 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
   _steps_cache.bind(scratch_arena_a, max_cache);
 
+  // Adaptively sub-step and plot one segment. `map(t)` returns the sphere point
+  // at arc fraction t in [0,1] under the chosen strategy; `total_dist` is the
+  // segment's on-sphere length (radians). Endpoints are omitted on interior /
+  // closed segments so a shared vertex isn't plotted twice.
   auto process_segment = [&](auto &&map, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool isLastSegment) {
-    // Handle Degenerate Segment
+    // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool shouldOmit = (close_loop) ? true : !isLastSegment;
       if (!shouldOmit) {
@@ -644,14 +662,14 @@ struct Multiline {
 
     // 2. Generate fragments
     float current_len = 0.0f;
-    it = std::begin(vertices); // Reset iterator
+    it = std::begin(vertices);
     prev = *it;
 
     // Add first point
     Fragment f = prev;
     f.v0 = 0.0f;
     f.v1 = 0.0f;
-    f.v2 = 0.0f; // Index 0
+    f.v2 = 0.0f;
     points.push_back(f);
 
     ++it;
@@ -673,7 +691,7 @@ struct Multiline {
       float dist = angle_between(prev.pos, first.pos);
       current_len += dist;
       f = first;
-      f.v0 = 1.0f; // Explicitly 1.0
+      f.v0 = 1.0f;
       f.v1 = current_len;
       f.v2 = static_cast<float>(idx);
       points.push_back(f);
@@ -770,6 +788,13 @@ struct Ring {
         .normalized();
   }
 
+  /**
+   * @brief Samples a closed ring at `num_samples` evenly-spaced angles.
+   *
+   * Runtime sample count for the polygon samplers, whose vertex counts do not
+   * match the TrigLUT grid; appends an overlap-close vertex. v1 is the analytic
+   * arc length (theta·sin(radius)).
+   */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_samples, float phase = 0) {
     auto res = get_antipode(basis, radius);
@@ -898,7 +923,7 @@ struct Ring {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    // Use W samples for smooth circles (fixes pinching at poles)
+    // W samples keep circles smooth and avoid pinching at the poles.
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader,
         {.capacity = W + 2, .close_loop = true},
@@ -1062,10 +1087,10 @@ struct DistortedRing {
   static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
                          float angle) {
     // Mirror sample() exactly (at phase 0, as the renderer is invoked) so the
-    // returned point lands on the *drawn* ring. The previous chord-construction
-    // base (Ring::calcPoint) and shift_fn(angle*PI/2) domain both diverged from
-    // the renderer's theta_eq mapping and shift_fn(theta/2PI) domain, detaching
-    // Thrusters' thrust points from the visible ring off Radius=1.
+    // returned point lands on the *drawn* ring: same theta_eq mapping and
+    // shift_fn(theta/2PI) domain. Any divergence here would detach callers'
+    // sampled points (e.g. Thrusters' thrust points) from the visible ring off
+    // Radius=1.
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     float work_radius = res.second;
@@ -1337,7 +1362,7 @@ struct Flower {
       float sin_t = sinf(theta);
       // Unproject Polar -> Sphere
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
-      p.normalize(); // Ensure unit vector
+      p.normalize();
       return p;
     });
   }
@@ -1639,6 +1664,8 @@ struct ParticleSystem {
  *  v2: 0 (single segment)
  */
 struct Bezier {
+  /// Samples num_samples+1 points along a cubic Bézier (control points
+  /// p0..p3); v1 accumulates great-circle arc length between samples.
   static void sample(Fragments &points, const Vector &p0, const Vector &p1,
                      const Vector &p2, const Vector &p3, int num_samples,
                      SplineMode mode = SplineMode::Geodesic) {
@@ -1664,6 +1691,7 @@ struct Bezier {
     }
   }
 
+  /// Draws a cubic Bézier from raw control vectors p0..p3.
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p0,
                    const Vector &p1, const Vector &p2, const Vector &p3,
@@ -1697,6 +1725,13 @@ struct Bezier {
  *  v2: segment index
  */
 struct SplineChain {
+  /**
+   * @brief Draws a Catmull-Rom spline through `control_points`.
+   *
+   * Converts each span to a cubic Bézier via Catmull-Rom tangents and samples
+   * it; `tension` shapes the tangents, `closed` wraps the chain. Endpoints of a
+   * closed/open chain reuse phantom/clamped neighbors for the end tangents.
+   */
   template <int W, int H>
   static void
   draw(PipelineRef pipeline, Canvas &canvas, const Fragments &control_points,

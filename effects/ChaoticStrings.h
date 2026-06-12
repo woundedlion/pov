@@ -7,6 +7,9 @@
 
 #include "core/effects_engine.h"
 
+// Undulating string of orientation trails: a single node random-walks and
+// follows a Lissajous path while a noise transformer warps its trail each
+// frame, drawn as an anti-aliased multiline colored by trail position.
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
@@ -17,6 +20,7 @@ public:
   static constexpr int ORIENTATION_SUBSTEPS = 16;
   static constexpr int MAX_FRAGMENTS = TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
+  // Live-tunable parameters exposed as sliders.
   struct Params {
     float alpha = 1.0f;
     float cycle_duration = 80.0f;
@@ -27,6 +31,8 @@ public:
     float cycleSpeed = 0.1f;
   } params;
 
+  // The single animated body: its orientation, the rolling history of
+  // orientations that forms the drawn trail, and its base direction vector.
   struct Node {
     Orientation<ORIENTATION_SUBSTEPS> orientation;
     Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>,
@@ -37,6 +43,8 @@ public:
     Node() : v(Y_AXIS) {}
   };
 
+  // Construct members; the path seeds to +Y until update_path() installs the
+  // Lissajous curve in init().
   FLASHMEM ChaoticStrings()
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),
@@ -49,6 +57,8 @@ public:
   static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(Fragment),
                 "scratch arena A must fit the worst-case fragment buffer");
 
+  // Carve arenas, allocate the node, bind the palette, register sliders, and
+  // wire up the timeline animations (random walk, path motion, cycle driver).
   void init() override {
 
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
@@ -96,8 +106,12 @@ public:
     last_cycle_duration_ = params.cycle_duration;
   }
 
+  // Skip the engine's background fill so the trail draws on a black field.
   bool show_bg() const override { return false; }
 
+  // Step the timeline, push live slider values into the noise entities, record
+  // the latest orientation into the trail, tween it into per-vertex fragments
+  // warped by noise, and draw the colored multiline.
   void draw_frame() override {
     Canvas canvas(*this);
     ScratchScope _(scratch_arena_a);
@@ -149,6 +163,8 @@ public:
   }
 
 private:
+  // Install the procedural path as a fixed Lissajous curve sampled over its full
+  // domain.
   void update_path() {
     static constexpr LissajousParams config{12.0f, 5.0f, 0, 2 * PI_F};
     path.f = [](float t) {

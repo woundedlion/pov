@@ -38,24 +38,21 @@ class GSReactionDiffusion
 public:
   FLASHMEM GSReactionDiffusion() = default;
 
+  // Carve the persistent arena, register the GUI params, allocate and seed the
+  // A/B state, and build the cubemap LUT and lattice nodes one-time.
   void init() override {
     // 170KB holds the 48KB Cubemap LUT + 30KB State + 90KB node positions. The
     // node array (7680 × Vector) is the fixed Fibonacci lattice — queries are
     // un-oriented onto it (not the reverse), so it does not depend on the
-    // per-frame view orientation and is built ONCE here instead of every frame
-    // (mirrors BZReactionDiffusion). Peak footprint is unchanged: the array was
-    // already allocated per-frame in the scratch arena, so it just moves from
-    // transient scratch to persistent and stops being recomputed each frame.
+    // per-frame view orientation and is built ONCE here instead of every frame.
     configure_arenas(170 * 1024, GLOBAL_ARENA_SIZE - 170 * 1024, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
-    // dA/dB cap at 0.05, not 1.0: this is explicit Euler, stable only while
+    // dA/dB cap at 0.05: this is explicit Euler, stable only while
     // dt·D·λmax ≤ 2. The graph Laplacian's |λ|max ≤ 2·6 = 12 (6-NN lattice), so
     // at the Speed slider's top (dt = 3.0) the joint worst case is 3·0.05·12 =
-    // 1.8 ≤ 2 — stable across the whole GUI. The old 1.0 max ran the sim ~18×
-    // past the bound (defaults are 0.02/0.01, 2-5% of even the new cap), where
-    // the Q16 clamp only degraded the failure to checkerboard flicker.
+    // 1.8 ≤ 2 — stable across the whole GUI.
     registerParam("dA", &params.dA, 0.0f, 0.05f);
     registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);
@@ -92,20 +89,22 @@ private:
   static constexpr float B_COLOR_FLOOR = 0.1f;
   static constexpr float B_COLOR_SCALE = 4.0f;
   // Cull threshold coincides with the color floor: there is no band between the
-  // two, so a pixel is either fully transparent or somewhere on the gradient.
-  // (When the cull sat below the floor, b in [cull, floor) all mapped to t==0
-  // and rendered as an opaque flat plateau of the lowest palette color.)
+  // two, so a pixel is either fully transparent or somewhere on the gradient. A
+  // cull below the floor would map b in [cull, floor) to t==0, rendering an
+  // opaque flat plateau of the lowest palette color.
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
   static inline float from_q16(uint16_t v) { return v * Q16_INV; }
   static inline uint16_t to_q16(float v) {
     // Round to nearest (+0.5f), not truncate: plain truncation drops every
     // sub-LSB positive update while still applying negative ones, biasing the
-    // RD dynamics downward (the diffusion dead-zone the default tuning had to
-    // compensate for). clamp keeps the product in [0, 65535], so +0.5f tops out
-    // at 65535.5 -> 65535 with no overflow.
+    // RD dynamics downward into a diffusion dead-zone. clamp keeps the product
+    // in [0, 65535], so +0.5f tops out at 65535.5 -> 65535 with no overflow.
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
   }
 
+  // Seed the initial pattern: drop NUM_SEED_CLUSTERS blobs of fully-saturated B
+  // (a random node plus its immediate neighbors) so the otherwise-uniform A=1/B=0
+  // field has nucleation sites for the GS instability to grow from.
   void seed_clusters() {
     for (int i = 0; i < NUM_SEED_CLUSTERS; i++) {
       int idx = hs::rand_int(0, RD_N);
@@ -143,6 +142,8 @@ private:
     }
   }
 
+  // Kernel-weighted sample of the B concentration at point `p`, seeded from the
+  // precomputed `nearest` node. Returns the support-radius weighted average of B.
   float interpolate_b(const Vector &p, int nearest, const Vector *nodes) const {
     float tw = 0, wb = 0;
     kernel_accumulate(p, nodes, nearest, [&](int i, float w) {
@@ -151,13 +152,14 @@ private:
     });
     // Empty kernel (no node within the support radius): guard the division. A
     // 0/0 NaN would slip past the b < B_CULL_THRESHOLD cull in the shader (NaN
-    // compares false) and silently poison palette.get(). Mirrors BZ's
-    // sample_kernel.
+    // compares false) and silently poison palette.get().
     if (tw <= 0.0001f)
       return 0.0f;
     return wb / tw;
   }
 
+  // Advance the simulation STEPS_PER_FRAME substeps, then rasterize the B field
+  // onto the sphere via the orientation-aware SSAA shader pipeline.
   void render(Canvas &canvas) {
     ScratchScope _frame(scratch_arena_a);
     uint16_t *sA = static_cast<uint16_t *>(
@@ -177,31 +179,33 @@ private:
 
     // Land the final generation back in the persistent buffers so it survives
     // the ScratchScope pop. An even substep count already leaves cur == state
-    // (no copy); an odd count leaves it in scratch and is copied back — making
-    // the effect correct for any STEPS_PER_FRAME, not just even values.
+    // (no copy); an odd count leaves it in scratch and is copied back — correct
+    // for any STEPS_PER_FRAME parity.
     if (curA != state.A) {
       std::memcpy(state.A, curA, RD_N * sizeof(uint16_t));
       std::memcpy(state.B, curB, RD_N * sizeof(uint16_t));
     }
 
-    // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
-    // Hoist the per-pixel cubemap lookup into the vertex shader (run once at the
-    // pixel center) and keep the per-sub-sample refine + interpolation in the
-    // fragment shader — the same SSAA split BZ uses, sparing ~3 redundant
-    // CubemapLUT lookups per pixel under 4× SSAA. The pixel-center seed only
-    // feeds refine_nearest_node, which re-finds the genuine nearest from the
-    // sub-sample position, so the rendered result is unchanged.
+    // `nodes` is the fixed lattice, built once in init(). Hoist the per-pixel
+    // cubemap lookup into the vertex shader (run once at the pixel center) and
+    // keep the per-sub-sample refine + interpolation in the fragment shader,
+    // sparing ~3 redundant CubemapLUT lookups per pixel under 4× SSAA. The
+    // pixel-center seed only feeds refine_nearest_node, which re-finds the
+    // genuine nearest from the sub-sample position, so the rendered result is
+    // identical to looking the cubemap up per sub-sample.
     auto vertex_shader = [&](Fragment &frag) {
       Vector rv = orientation.unorient(frag.pos);
       frag.v0 = static_cast<float>(cube_lut.lookup(rv));
     };
 
+    // Per sub-sample: refine the seed, sample B, and map to a palette color or
+    // cull to transparent below B_CULL_THRESHOLD.
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       Vector rv = orientation.unorient(v);
       // Refine the cubemap seed to the genuine nearest node before centering the
       // kernel — the CubemapLUT quantizes `rv` to a face cell and can return a
-      // not-quite-nearest seed, the quantization bias BZ's refine step removes
-      // (finding 217). Reuses the shared ReactionDiffusionBase refinement.
+      // not-quite-nearest seed; refine_nearest_node removes that quantization
+      // bias.
       int nearest =
           refine_nearest_node(rv, nodes, static_cast<int>(frag.v0));
       float b = interpolate_b(rv, nearest, nodes);
@@ -222,7 +226,7 @@ private:
     uint16_t *A = nullptr, *B = nullptr;
   } state;
 
-  // Fixed Fibonacci-lattice node positions, built once in init() (see BZ).
+  // Fixed Fibonacci-lattice node positions, built once in init().
   Vector *nodes = nullptr;
 
   GenerativePalette palette{

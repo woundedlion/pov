@@ -6,9 +6,16 @@
 #pragma once
 #include "core/effects_engine.h"
 
+// Renders a rotating sphere of latitude rings and longitude lines, then warps
+// every sampled point through a Möbius transform so the grid continuously
+// inflates/deflates between two "holes" on the sphere. W/H are the cubemap face
+// resolution.
 template <int W, int H> class MobiusGrid : public Effect {
 
 public:
+  // Builds the palettes, Möbius generator, and the render filter pipeline. The
+  // two HoleRef filters fade geometry near the rotated north/south holes; Orient
+  // applies the spinning orientation; AntiAlias smooths the rasterized lines.
   FLASHMEM MobiusGrid()
       : Effect(W, H),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -23,6 +30,9 @@ public:
 
   bool show_bg() const override { return false; }
 
+  // Sizes the arenas, exposes the user params, and arms the timeline animations:
+  // a steady Y-axis spin, a periodic palette wipe, and out-of-phase sine
+  // mutations driving the ring/line counts.
   void init() override {
     // MobiusGrid requires very little persistent memory.
     // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle
@@ -52,16 +62,16 @@ public:
                                       320, ease_mid, true, &anims_paused_));
   }
 
+  // Advances the phase, recomputes the counter-rotation that keeps the two holes
+  // diametrically opposed under the Möbius warp, and draws the rings/longitudes.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Was fmodf(static_cast<float>(global_timeline_t), 120) / 120, which loses
-    // integer precision once the global frame count passes 2^24 (~77 h
-    // continuous). An effect-local int counter wrapped to the 120-frame period
-    // stays exact and bounded forever (finding 320) — the same effect-local
-    // wrapped-accumulator pattern the sibling components use. timeline.step()
-    // above advanced one frame, so advance in lockstep here.
+    // Effect-local frame counter wrapped to the 120-frame phase period: an int
+    // accumulator stays exact and bounded forever, where a float derived from
+    // the global frame count would lose integer precision past 2^24 (~77 h).
+    // timeline.step() above advanced one frame, so advance in lockstep here.
     phase_frame_ = (phase_frame_ + 1) % 120;
     float phase = static_cast<float>(phase_frame_) / 120.0f;
 
@@ -87,6 +97,7 @@ public:
   }
 
 private:
+  // Generates a fresh palette and schedules a 60-frame cross-fade into it.
   void wipe_palette() {
     next_palette = GenerativePalette(GradientShape::CIRCULAR,
                                      HarmonyType::SPLIT_COMPLEMENTARY,
@@ -105,8 +116,8 @@ private:
   // `curve_fn(i)` for the {basis, radius}, samples a spherical polygon, warps
   // every point through the Möbius transform + counter-rotation `q`, then
   // rasterizes with `shade(i, opacity, fragment)` coloring each fragment. The
-  // two callbacks are the only thing that differed between the ring and
-  // longitude passes; templating on them keeps the helper fully inlined.
+  // two callbacks are all that differs between the ring and longitude passes;
+  // templating on them keeps the helper fully inlined.
   template <typename CurveFn, typename ShadeFn>
   void draw_curves(Canvas &canvas, float num, const Quaternion &q,
                    CurveFn curve_fn, ShadeFn shade) {
@@ -143,17 +154,18 @@ private:
     }
   }
 
+  // Draws `num` latitude rings around `normal`. Each ring's radius is spaced
+  // logarithmically (log_min..log_max) and scrolled by `phase`, mapped through
+  // an atan so spacing matches the stereographic projection.
   void draw_axis_rings(Canvas &canvas, const Vector &normal, float num,
                        float phase, const Quaternion &q) {
     const float log_min = -2.5f;
     const float log_max = 2.5f;
     const float range = log_max - log_min;
 
-    // The shaded color is constant across a ring's fragments: it depends only on
-    // the ring index i, and opacity is also per-ring (draw_curves passes one
-    // value per ring). draw_curves calls the shader ~W/4 times per ring, so
-    // resolve palette.get once per ring instead. Cache keyed on i; rings are
-    // drawn sequentially, so a single cached entry suffices.
+    // A ring's color depends only on its index i, but the shader runs ~W/4 times
+    // per ring, so resolve palette.get once and reuse it. Rings draw
+    // sequentially, so a single cache entry keyed on i suffices.
     int cached_i = -1;
     Color4 cached_c;
     draw_curves(
@@ -174,6 +186,9 @@ private:
         });
   }
 
+  // Draws `num` longitude lines (great circles through the poles). The per-line
+  // color comes from each fragment's stereographic conformal radius, so the hue
+  // gradient runs pole-to-pole and scrolls with `phase`.
   void draw_longitudes(Canvas &canvas, float num, float phase,
                        const Quaternion &q) {
     draw_curves(
@@ -215,6 +230,8 @@ private:
   GenerativePalette next_palette;
   MobiusWarpCircularTransformer<1> mobius_gen;
 
+  // User-tunable parameters. num_rings/num_lines are animated counts (driven by
+  // the Mutation timelines); alpha is the overall opacity multiplier.
   struct Params {
     float num_rings = 0.0f;
     float num_lines = 0.0f;
@@ -227,8 +244,7 @@ private:
   Vector holeN;
   Vector holeS;
 
-  // Effect-local frame counter wrapped to the ring/line phase period (was
-  // derived from the global frame count; see draw_frame, finding 320).
+  // Effect-local frame counter wrapped to the ring/line phase period.
   int phase_frame_ = 0;
 
   Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,

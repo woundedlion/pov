@@ -20,6 +20,7 @@
 namespace hs_test {
 namespace transformers_tests {
 
+// True when all three components are finite (no NaN/Inf).
 inline bool finite_vec(const Vector &v) {
   return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
 }
@@ -28,6 +29,7 @@ inline bool finite_vec(const Vector &v) {
 // OrientTransformer
 // ============================================================================
 
+// An identity orientation must leave every sampled direction unchanged.
 inline void test_orient_transformer_identity() {
   Orientation<> ori; // default = identity quaternion
   OrientTransformer<32> ot(ori);
@@ -46,6 +48,8 @@ inline void test_orient_transformer_identity() {
 // mobius_transform / gnomonic_mobius_transform — identity round-trips
 // ============================================================================
 
+// The identity Mobius map must round-trip a point through stereographic
+// projection back to itself, staying on the unit sphere.
 inline void test_mobius_identity_roundtrip() {
   MobiusParams id; // a=1, b=0, c=0, d=1 → identity
   Vector v = Vector(0.5f, 0.1f, 0.3f).normalized(); // away from the N pole
@@ -57,6 +61,8 @@ inline void test_mobius_identity_roundtrip() {
   HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
 }
 
+// The identity Mobius map must round-trip a point through gnomonic
+// projection back to itself.
 inline void test_gnomonic_mobius_identity_roundtrip() {
   MobiusParams id;
   Vector v = Vector(0.3f, 0.7f, 0.2f).normalized(); // y>0 hemisphere
@@ -71,6 +77,7 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
 // ripple_transform
 // ============================================================================
 
+// Zero amplitude must short-circuit the ripple to a no-op.
 inline void test_ripple_zero_amplitude_is_identity() {
   RippleParams p;
   p.center = Vector(0, 1, 0);
@@ -98,6 +105,8 @@ inline void test_ripple_center_point_is_identity() {
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
 }
 
+// An active ripple at the wavelet peak must rotate the point a noticeable
+// amount while keeping it on the unit sphere.
 inline void test_ripple_active_rotates_on_sphere() {
   RippleParams p;
   p.center = Vector(0, 1, 0);
@@ -122,6 +131,7 @@ inline void test_ripple_active_rotates_on_sphere() {
 // noise_transform
 // ============================================================================
 
+// Zero amplitude must short-circuit the noise warp to a no-op.
 inline void test_noise_zero_amplitude_is_identity() {
   NoiseParams p;
   p.amplitude = 0.0f;
@@ -132,6 +142,7 @@ inline void test_noise_zero_amplitude_is_identity() {
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
 }
 
+// An active noise warp must keep every sample finite and on the unit sphere.
 inline void test_noise_active_stays_on_sphere() {
   NoiseParams p;
   p.amplitude = 0.5f;
@@ -150,6 +161,7 @@ inline void test_noise_active_stays_on_sphere() {
 // Transformer<> manager — no active entities is the identity
 // ============================================================================
 
+// A manager with nothing spawned (all entity slots inactive) is the identity.
 inline void test_transformer_no_entities_is_identity() {
   Timeline tl;
   RippleTransformer<8> rt(tl);
@@ -164,12 +176,12 @@ inline void test_transformer_no_entities_is_identity() {
 // Transformer<> active-slot list — spawn applies; multiple entities compose
 // ============================================================================
 
-// Exercises the compact active-slot list that replaced the O(CAPACITY) scan:
-// a spawned entity is applied by transform(), and two active entities compose
-// while staying on the unit sphere. Noise is used (not Ripple) because its ctor
-// leaves the copied amplitude intact, so the spawned entity displaces
-// immediately — no Canvas / timeline stepping needed. The local Timeline's
-// destructor clears the global event buffer on scope exit.
+// Exercises the compact active-slot list: a spawned entity is applied by
+// transform(), and two active entities compose while staying on the unit
+// sphere. Noise is used (rather than Ripple) because its ctor leaves the copied
+// amplitude intact, so the spawned entity displaces immediately — no Canvas /
+// timeline stepping needed. The local Timeline's destructor clears the global
+// event buffer on scope exit.
 inline void test_transformer_spawn_applies_and_composes() {
   Timeline tl;
   global_timeline_t = 0;
@@ -216,6 +228,7 @@ inline void test_transformer_spawn_applies_and_composes() {
 // Runner
 // ============================================================================
 
+// Runs every transformers test case; returns the module's failure count.
 inline int run_transformers_tests() {
   auto scope = hs_test::begin_module("transformers");
 

@@ -6,9 +6,8 @@
  * @brief LED configuration constants and color correction RAII guards.
  *
  * This file provides the shared constants and correction helpers
- * that effects (including legacy effects) depend on. The actual
- * POVDisplay driver lives in hardware/pov_single.h and is included
- * directly by target .ino files.
+ * that effects depend on. The actual POVDisplay driver lives in
+ * hardware/pov_single.h and is included directly by target .ino files.
  */
 #pragma once
 #include "platform.h"
@@ -36,7 +35,9 @@ static constexpr int PIN_CLOCK = 13;
 
 // When using DMA LEDs, correction is done in the DMA pipeline — stubs only.
 #ifdef USE_DMA_LEDS
+/// No-op stub: the DMA pipeline applies no color/temperature correction.
 struct NoColorCorrection {};
+/// No-op stub: the DMA pipeline applies no temperature correction.
 struct NoTempCorrection {};
 #else
 // CONTRACT — restore-to-baseline, NOT save/restore. The destructors below
@@ -55,7 +56,7 @@ struct NoTempCorrection {};
 /**
  * @brief RAII guard to disable both color and temperature correction for its
  * scope, restoring the TypicalLEDStrip/Candle baseline on destruction (see the
- * restore-to-baseline contract above — not a save/restore of the prior state).
+ * restore-to-baseline contract above).
  */
 struct NoColorCorrection {
   NoColorCorrection() {
@@ -71,7 +72,7 @@ struct NoColorCorrection {
 /**
  * @brief RAII guard to disable temperature correction (keeping TypicalLEDStrip
  * color correction) for its scope, restoring the Candle baseline on destruction
- * (see the restore-to-baseline contract above — not a save/restore).
+ * (see the restore-to-baseline contract above).
  */
 struct NoTempCorrection {
   NoTempCorrection() {

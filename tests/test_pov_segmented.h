@@ -85,6 +85,10 @@ inline void check_tiling(int S, int N, int w, int x) {
   }
 }
 
+// Per-segment SegmentMap fields for the 4-segment layout: arm side (A/B), and
+// the y_base/y_step that distinguish top strips (ascending from the pole) from
+// bottom strips (descending, reversed). Also checks the strip endpoints map to
+// the expected pole/junction rows.
 inline void test_segment_derivation() {
   // Phantasm config: N=4, S=288 -> ROWS=144, PPS=72.
   const int S = 288, N = 4;
@@ -117,6 +121,8 @@ inline void test_segment_derivation() {
   HS_EXPECT_EQ(segment_y(s1, 71), 72);
 }
 
+// Arm-B columns sit half an image (w/2) ahead of the rotation column and wrap
+// modulo w; arm A samples the column unshifted.
 inline void test_arm_b_offset() {
   const int w = 288;
   HS_EXPECT_EQ(segment_x_col(false, 0, w), 0);
@@ -126,6 +132,7 @@ inline void test_arm_b_offset() {
   HS_EXPECT_EQ(segment_x_col(true, 287, w), 143); // (287 + 144) % 288
 }
 
+// Module entry point: runs the segmented-POV cases and returns the failure count.
 inline int run_pov_segmented_tests() {
   auto scope = begin_module("pov_segmented");
 

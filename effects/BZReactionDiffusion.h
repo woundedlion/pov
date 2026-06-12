@@ -50,19 +50,16 @@ class BZReactionDiffusion
 public:
   FLASHMEM BZReactionDiffusion() = default;
 
+  /** Carve the arenas, register tunable params, build the lattice, and seed. */
   void init() override {
-    // 165KB holds the 48KB Cubemap LUT + 23KB State + 90KB node positions. The
-    // node array (7680 × Vector) is the fixed Fibonacci lattice — it does not
+    // 165KB persistent: 48KB Cubemap LUT + 23KB State + 90KB node positions. The
+    // node array (7680 × Vector) is the fixed Fibonacci lattice and does not
     // depend on the per-frame view orientation (queries are un-oriented onto it,
-    // not the reverse), so it is built ONCE here instead of every frame. This is
-    // not a net RAM increase: the array was already allocated per-frame in the
-    // scratch arena, so the peak footprint is unchanged — it just moves from
-    // transient scratch to persistent and stops being recomputed each frame.
+    // not the reverse), so it lives in the persistent arena and is built once.
     configure_arenas(165 * 1024, GLOBAL_ARENA_SIZE - 165 * 1024, 0);
 
-    // "Compete", not "Alpha": this is the Lotka-Volterra predation coefficient,
-    // not an opacity. Naming it "Alpha" collided with the engine-wide
-    // Alpha-as-opacity convention every other effect follows.
+    // "Compete" is the Lotka-Volterra predation coefficient, not an opacity;
+    // the name avoids clashing with the engine-wide Alpha-as-opacity convention.
     registerParam("Compete", &params.alpha, 0.0f, 4.0f);
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
@@ -246,16 +243,16 @@ private:
     }
 
     // Land the final generation back in the persistent buffers so it survives
-    // the ScratchScope pop. An even substep count already leaves cur == state
-    // (no copy); an odd count leaves it in scratch and is copied back — making
-    // the effect correct for any STEPS_PER_FRAME, not just even values.
+    // the ScratchScope pop. An even substep count leaves cur == state (no copy);
+    // an odd count leaves the result in scratch, so copy it back. Correct for any
+    // STEPS_PER_FRAME parity.
     if (curA != state.A) {
       std::memcpy(state.A, curA, RD_N);
       std::memcpy(state.B, curB, RD_N);
       std::memcpy(state.C, curC, RD_N);
     }
 
-    // `nodes` is the fixed lattice, built once in init() — not rebuilt here.
+    // `nodes` is the fixed lattice, built once in init().
     Color4 ca = palette.get(0.0f);
     Color4 cb = palette.get(0.5f);
     Color4 cc = palette.get(1.0f);

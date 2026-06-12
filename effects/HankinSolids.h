@@ -9,6 +9,9 @@
 
 #include <algorithm>
 
+/// Renders Hankin interlace patterns over Platonic/Archimedean solids, with a
+/// continuously sweeping interlace angle and periodic morphs between solids.
+/// Faces are colored by topology class via shuffled mesh palettes.
 template <int W, int H> class HankinSolids : public Effect {
 public:
   FLASHMEM HankinSolids() : Effect(W, H), filters() {}
@@ -50,19 +53,21 @@ private:
   MeshPaletteBank palette_bank_;
 
 
+  /// Build and finalize the idx-th base solid from the simple-solids collection.
   PolyMesh generate_base_solid(int idx, Arena &a, Arena &b) {
     auto solids = Solids::Collections::get_simple_solids();
     hs::log("Loading shape: '%s'", solids[idx].name);
     return Solids::finalize_solid(solids[idx].generate(a, b), a);
   }
 
+  /// Classify mesh faces into topology groups (result stored in persistent_arena).
   void classify_mesh_topology(MeshState &mesh) {
     // Save/restore the scratch high-water marks instead of hard-resetting to
     // base. classify_faces_by_topology uses both arenas as transient workspace
     // (its result lands in persistent_arena), so it only needs its own
     // allocations freed on exit — not the whole arena yanked. A bare reset()
     // would discard any allocation a caller already holds in these shared
-    // arenas; ScratchScope leaves that prior state intact (finding 219).
+    // arenas; ScratchScope leaves that prior state intact.
     ScratchScope _a(scratch_arena_a);
     ScratchScope _b(scratch_arena_b);
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
@@ -87,6 +92,8 @@ private:
     MeshPaletteBank::shuffle_indices(out_palette_idx);
   }
 
+  /// Camera-rotate and rasterize one mesh, coloring each face by its topology
+  /// class through palette_idx and shading edges by distance. opacity 0..1.
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const std::array<int, NUM_PALETTES> &palette_idx,
@@ -96,16 +103,13 @@ private:
 
     ScratchScope _(scratch_arena_a);
     MeshState rotated_mesh;
-    // Single-pass clone + camera rotation via OrientTransformer, matching the
-    // twin IslamicStars::draw_shape (was a transformer-less clone followed by a
-    // separate manual rotate sweep). orient(v) == rotate(v, orientation.get()),
-    // so the rendered result is unchanged.
+    // Single-pass clone + camera rotation via OrientTransformer: orient(v) ==
+    // rotate(v, orientation.get()).
     OrientTransformer<W> camera(orientation);
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
-      // Truncating cast (parity with IslamicStars); v2 carries an exact integer
-      // face index, so this matches the old std::round.
+      // v2 carries an exact integer face index, so a truncating cast recovers it.
       int faceIdx = static_cast<int>(f.v2);
       int topoIdx = (faceIdx >= 0 && faceIdx < (int)topology.size())
                         ? topology[faceIdx]
@@ -121,11 +125,14 @@ private:
                            scratch_arena_a, params.debug_bb);
   }
 
+  /// Make the staged (morph-target) compiled mesh the active one and clear staging.
   void promote_staged_hankin() {
     compiled_hankin = std::move(compiled_hankin_staging);
     compiled_hankin_staging = CompiledHankin();
   }
 
+  /// Schedule one interlace-angle sweep plus the sprite that re-evaluates and
+  /// draws the front mesh each frame; chains into a morph when the sweep ends.
   void start_hankin_cycle() {
     constexpr int DURATION = 64;
     timeline.add(0, Animation::Mutation(params.hankin_angle,
@@ -150,6 +157,9 @@ private:
                DURATION, 0, ease_mid, 0, ease_mid, &anims_paused_));
   }
 
+  /// Build the next solid into the back slot, schedule a MeshMorph from the
+  /// current to the next, and on completion swap slots, compact arenas, and
+  /// restart the hankin cycle.
   FLASHMEM void start_morph_cycle() {
     constexpr int MORPH_FRAMES = 16;
     auto solids = Solids::Collections::get_simple_solids();

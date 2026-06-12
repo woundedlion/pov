@@ -27,10 +27,12 @@ struct AABB {
   Vector min_val;
   Vector max_val;
 
+  // Construct an inverted/empty box (min > max) so the first expand() seeds it.
   AABB()
       : min_val(FLT_MAX, FLT_MAX, FLT_MAX),
         max_val(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
 
+  // Grow this box to also enclose point p.
   void expand(const Vector &p) {
     if (p.x < min_val.x)
       min_val.x = p.x;
@@ -64,6 +66,8 @@ struct AABB {
       max_val.z = box.max_val.z;
   }
 
+  // Test whether the ray from origin along direction hits this box. direction
+  // need not be normalized. Returns false for an inverted/empty box.
   bool intersect_ray(const Vector &origin, const Vector &direction) const {
     float tmin = -FLT_MAX;
     float tmax = FLT_MAX;
@@ -71,9 +75,8 @@ struct AABB {
     // Slab test, one axis at a time. A zero direction component means the ray
     // runs parallel to that pair of slab planes: it can only intersect if the
     // origin already lies within the slab, otherwise it misses. Guarding this
-    // avoids the naive (plane - origin) / 0 — which is ±inf for a glancing ray
-    // (the old comparisons happened to tolerate that) but 0/0 = NaN when the
-    // origin sits exactly on a slab plane, silently breaking every subsequent
+    // avoids (plane - origin) / 0, which yields 0/0 = NaN when the origin sits
+    // exactly on a slab plane and would silently break every subsequent
     // comparison.
     auto slab = [&](float mn, float mx, float o, float d) -> bool {
       if (d != 0.0f) {
@@ -155,8 +158,8 @@ public:
 
   void clear() { root_index = -1; }
 
-  // Nearest neighbor search
-  // Returns up to K results (Nodes, so we get index + point)
+  // Find the k nearest neighbors of target, sorted closest-first. Returns whole
+  // nodes (index + point), up to k (capped at MAX_K, and at the point count).
   StaticCircularBuffer<KDNode, MAX_K> nearest(const Vector &target,
                                               size_t k = 1) const {
     StaticCircularBuffer<KDNode, MAX_K> result;
@@ -177,13 +180,15 @@ public:
     };
     StaticCircularBuffer<Candidate, MAX_K> heap;
 
+    // Offer a candidate to the k-best set: append while under k, otherwise
+    // displace the current worst entry if this one is closer.
     auto push_heap = [&](float d_sq, int idx) {
       if (heap.size() < static_cast<size_t>(k)) {
         // Kept unsorted: with small K (1-5) a linear scan for the max is
         // cheaper than maintaining real heap order.
         heap.push_back({d_sq, idx});
       } else {
-        // Replace worst if better
+        // Heap full: replace the current worst candidate only if d_sq beats it.
         float max_d = -1.0f;
         int max_i = -1;
         for (size_t i = 0; i < heap.size(); ++i) {
@@ -198,6 +203,8 @@ public:
       }
     };
 
+    // Pruning bound: largest squared distance currently held. Returns FLT_MAX
+    // until the set holds k entries so nothing is pruned before it fills.
     auto get_worst_dist = [&]() -> float {
       if (heap.size() < k)
         return FLT_MAX;
@@ -211,7 +218,6 @@ public:
 
     search_k(root_index, target, push_heap, get_worst_dist);
 
-    // Sort result by distance (closest first)
     std::sort(
         heap.begin(), heap.end(),
         [](const Candidate &a, const Candidate &b) { return a.d_sq < b.d_sq; });
@@ -223,6 +229,9 @@ public:
   }
 
 private:
+  // Recursively build a balanced subtree over indices[0..count) and return its
+  // root node index (-1 if empty). Cycles the split axis by depth%3,
+  // partitioning around the median along that axis. Reorders indices in place.
   int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
@@ -237,8 +246,6 @@ private:
     int axis = depth % 3;
     int mid = count / 2;
 
-    // nth_element / partition
-    // We need to partition the indices based on the points they point to
     auto *start = indices;
     auto *end = indices + count;
 
@@ -270,7 +277,7 @@ private:
              "KDTree vertex index exceeds uint16_t original_index range");
     nodes.emplace_back();
     nodes[new_node_idx].point = points[median_idx];
-    nodes[new_node_idx].original_index = (uint16_t)median_idx; // Store index
+    nodes[new_node_idx].original_index = (uint16_t)median_idx;
     nodes[new_node_idx].axis = (int16_t)axis;
 
     nodes[new_node_idx].left = (int16_t)build(points, start, mid, depth + 1);
@@ -280,11 +287,10 @@ private:
     return new_node_idx;
   }
 
-  // K-Nearest Search
-  // k and the heap buffer are not passed in: both are already captured by
-  // reference inside the push_heap/get_worst_dist lambdas (see nearest()), so
-  // the traversal reaches them through those callbacks rather than its own
-  // parameters.
+  // Recursive k-NN traversal: descends the near child first, then prunes the
+  // far child when the splitting plane is farther than the current worst hit.
+  // The k-best set and k itself are reached only through the push_heap /
+  // get_worst_dist callbacks, which capture them by reference in nearest().
   template <typename PushFn, typename MaxDistFn>
   void search_k(int node_idx, const Vector &target, PushFn &&push_heap,
                 MaxDistFn &&get_worst_dist) const {
@@ -347,6 +353,8 @@ struct MeshState {
     other.face_offsets_view = {};
   }
 
+  // Move-assign, transferring owned buffers and views and clearing the source
+  // views so the moved-from mesh holds no dangling borrows.
   MeshState &operator=(MeshState &&other) noexcept {
     if (this != &other) {
       vertices = std::move(other.vertices);
@@ -364,6 +372,7 @@ struct MeshState {
     return *this;
   }
 
+  // Reset to empty: clear owned buffers and drop the borrowed views.
   void clear() {
     vertices.clear();
     face_counts.clear();
@@ -405,7 +414,6 @@ struct MeshState {
                                    : face_offsets_view.size();
   }
 
-  // Helper for size accessors if needed, but direct vector access is preferred.
   size_t num_vertices() const { return vertices.size(); }
   size_t num_faces() const { return get_face_counts_size(); }
 

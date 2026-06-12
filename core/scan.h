@@ -296,6 +296,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   #endif
 }
 
+/// Draws a ring whose radius is modulated around the circumference by shift_fn.
 struct DistortedRing {
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
@@ -309,6 +310,7 @@ struct DistortedRing {
   }
 };
 
+/// Draws a flat (tangent-plane) regular polygon projected onto the sphere.
 struct PlanarPolygon {
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
@@ -323,6 +325,7 @@ struct PlanarPolygon {
   }
 };
 
+/// Draws a great-circle line segment of given thickness between two vectors.
 struct Line {
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &v1,
@@ -447,8 +450,9 @@ struct SphericalPolygon {
   }
 };
 
+/// Rasterizes a polygonal mesh by drawing each face as an SDF::Face, threading
+/// the face index through register v2 so the shader can vary color per face.
 struct Mesh {
-  // MeshState overload
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
@@ -520,8 +524,8 @@ struct Shader {
   }
 
   // Project a sub-pixel coordinate (pixel index + corner offset) to its
-  // world-space unit vector. Kept as explicit theta/phi trig — identical to the
-  // former inline bodies — so SSAA output stays byte-for-byte stable.
+  // world-space unit vector via explicit theta/phi trig (matching the
+  // non-SSAA pixel_to_vector path so SSAA output stays byte-for-byte stable).
   template <int W, int H>
   static inline Vector ssaa_sample_vector(float px, float py) {
     constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);

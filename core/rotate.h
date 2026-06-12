@@ -17,12 +17,12 @@ static constexpr float degrees = 180 / PI_F;
 /** @brief Wraps an angle of any magnitude into [0, 2PI). */
 inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
 
-/** @brief Wraps a floating point index into a range [0, m).
+/** @brief Wraps a floating-point index into [0, m), preserving the fraction.
  *
- * floorf (not a truncating cast) so negative inputs floor toward -inf, and the
- * double-mod `((i % m) + m) % m` keeps the integer part non-negative — a plain
- * truncating cast returns a negative result for x < 0 (e.g. -0.5 -> -0.5),
- * violating the [0, m) contract and yielding a negative pixel x downstream. */
+ * Uses floorf (not a truncating cast) so negative inputs floor toward -inf, and
+ * the double-mod `((i % m) + m) % m` keeps the integer part non-negative. This
+ * guarantees the [0, m) contract even for x < 0, avoiding a negative pixel x
+ * downstream. */
 inline float wrap_index(float x, int m) {
   int i = static_cast<int>(floorf(x));
   int w = ((i % m) + m) % m;
@@ -37,6 +37,10 @@ inline float wrap_index(float x, int m) {
  */
 template <uint8_t W, uint8_t H> class Projection {
 public:
+  /** @brief A pixel in the WxH equirectangular image paired with its spherical
+   *  coordinates: lambda (longitude) in [-PI, PI) and phi (latitude) in
+   *  [-PI/2, PI/2]. The constructors derive lambda/phi from the pixel (x, y);
+   *  y is measured top-down, so phi is flipped via (H - y). */
   struct Point {
     Point(int x, int y)
         : x(x), y(y), lambda(x * tau / W - PI_F),
@@ -52,22 +56,31 @@ public:
 
     Point(const Point &p) : x(p.x), y(p.y), lambda(p.lambda), phi(p.phi) {}
 
+    /** @brief Rounds x to the nearest pixel column, wrapped into [0, W). */
     int xi() { return static_cast<int>(x + 0.5f) % W; }
+    /** @brief Rounds y to the nearest pixel row. */
     int yi() { return static_cast<int>(y + 0.5f); }
 
     float x;
     float y;
-    float lambda;
-    float phi;
+    float lambda; ///< longitude in [-PI, PI)
+    float phi;    ///< latitude in [-PI/2, PI/2]
   };
 
+  /** @brief Constructs an identity projection (no rotation applied). */
   Projection() {}
 
+  /** @brief Projects pixel (bx, by) through the accumulated rotation. */
   Point project(uint8_t bx, uint8_t by) const {
     Point p(bx, by);
     return project(p);
   }
 
+  /** @brief Maps a source point to its rotated equirectangular pixel.
+   *
+   * Applies the lambda offset, converts to a Cartesian unit vector, rotates by
+   * the cached phi/gamma terms, then projects back to (x, y). The returned
+   * Point's x/y are the source pixel to sample for this destination. */
   Point project(const Point &src) const {
     Point p(src);
 
@@ -112,6 +125,7 @@ public:
     return *this;
   }
 
+  /** @brief Clears the accumulated rotation back to identity. */
   Projection &reset() {
     delta_lambda = 0;
     delta_phi = 0;

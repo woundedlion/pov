@@ -48,7 +48,7 @@ static constexpr float EPS_NORMAL_SQ  = 1e-9f;
 // near-parallel (~0.8°) — the minimal-necessary guard.
 static constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
 }
-// Back-compat alias — prefer math::TOLERANCE in new code.
+// Global alias for math::TOLERANCE; prefer the namespaced name in new code.
 static constexpr float TOLERANCE = math::TOLERANCE;
 /**
  * @brief Floating-point representation of PI.
@@ -121,12 +121,10 @@ struct Vector {
   /**
    * @brief Builds a unit vector from spherical angles.
    *
-   * Named (not a 2-arg constructor) on purpose: `Vector(a, b)` reads as a
-   * Cartesian point with z=0, but the spherical reading normalizes onto the
-   * unit sphere. A 2-arg constructor made those two meanings indistinguishable
-   * at the call site and silently picked the spherical one — dropping the third
-   * Cartesian argument compiled into a different point. The factory forces the
-   * intent to be spelled out.
+   * A named factory rather than a 2-arg constructor on purpose: `Vector(a, b)`
+   * would be ambiguous with a Cartesian point (z=0), and the spherical reading
+   * normalizes onto the unit sphere — two distinct meanings the call site must
+   * not confuse. The factory forces the spherical intent to be spelled out.
    * @param theta Azimuthal angle.
    * @param phi Polar angle.
    * @return Unit vector at (theta, phi).

@@ -95,6 +95,11 @@ inline void check_strip_tiling(int S, int w, int x) {
   }
 }
 
+/**
+ * @brief Pin down the top/bottom strip split for the production 96x20 config:
+ * the top half [0, ROWS) maps reversed, the bottom half straight, and the two
+ * halves partition the physical LED range [0, S) with no overlap.
+ */
 inline void test_strip_derivation() {
   // Holosphere 96x20 config: S=40 -> ROWS=20.
   const int S = 40;
@@ -116,6 +121,10 @@ inline void test_strip_derivation() {
   }
 }
 
+/**
+ * @brief Verify the bottom-half column offset is (x + w/2) mod w, including the
+ * wrap at the seam where x >= w/2 folds back to the low columns.
+ */
 inline void test_opposite_col_offset() {
   const int w = 96;
   HS_EXPECT_EQ(strip_opposite_col(0, w), 48);
@@ -124,6 +133,12 @@ inline void test_opposite_col_offset() {
   HS_EXPECT_EQ(strip_opposite_col(95, w), 47); // (95 + 48) % 96
 }
 
+/**
+ * @brief Run the single-board POV index-math suite and return the failure count.
+ * Exercises the strip split and column offset directly, then the full tiling
+ * invariant across the two production configs and a small config swept over
+ * every rotation column.
+ */
 inline int run_pov_single_tests() {
   auto scope = begin_module("pov_single");
 

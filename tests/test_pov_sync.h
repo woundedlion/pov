@@ -47,6 +47,8 @@ constexpr uint32_t kCol = kPeriod / 144u;
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
+// Integer floor-div/mod and circular column distance, plus the derived Config
+// timing fields (half-rev/column cycle counts, glitch window) at full rate.
 inline void test_helpers() {
   HS_EXPECT_EQ(floor_div(7, 2), 3);
   HS_EXPECT_EQ(floor_div(-7, 2), -4);
@@ -64,6 +66,9 @@ inline void test_helpers() {
   HS_EXPECT_EQ(c.glitch_filter_cycles, 60000u); // 100 µs
 }
 
+// Symbol/boundary mapping: odd pulse counts classify to HALF/ZERO/ZERO_EPOCH,
+// even or out-of-range counts are INVALID, and each symbol maps to its
+// boundary column.
 inline void test_alphabet() {
   HS_EXPECT_TRUE(classify_count(1) == Symbol::HALF);
   HS_EXPECT_TRUE(classify_count(3) == Symbol::ZERO);
@@ -101,6 +106,9 @@ inline void test_flip_gate() {
   HS_EXPECT_EQ(flips, 10);
 }
 
+// Edge mailbox burst accumulation and the 100 µs glitch filter: sub-window
+// spikes are rejected without resetting the filter reference, burst_complete
+// fires only after the gap, and claim() snapshots count + first/last edge.
 inline void test_mailbox() {
   const uint32_t kGlitch = 60000u;
   EdgeMailbox m;
@@ -124,10 +132,10 @@ inline void test_mailbox() {
   HS_EXPECT_FALSE(m.burst_complete(1000 + 20 * kCol, 4 * kCol));
 }
 
-// Finding 227: the glitch-filter reference must not survive a counter wrap.
-// age_prior() (called every column by the flywheel poll) retires the prior
-// once the wire is quiet past the filter window, so a real edge after wrap is
-// never falsely rejected by a pseudo-random modular difference.
+// The glitch-filter reference must not survive a counter wrap. age_prior()
+// (called every column by the flywheel poll) retires the prior once the wire
+// is quiet past the filter window, so a real edge after wrap is never falsely
+// rejected by a pseudo-random modular difference.
 inline void test_mailbox_prior_staleness() {
   const uint32_t kGlitch = 60000u;
 
@@ -163,8 +171,8 @@ inline void test_mailbox_prior_staleness() {
   }
 }
 
-// Finding 228: reboot seeding must clear the wire mailbox so a re-seeded board
-// cannot consume a stale pre-reboot burst (which feeds ACQUIRE's unconditional
+// Reboot seeding must clear the wire mailbox so a re-seeded board cannot
+// consume a stale pre-reboot burst (which feeds ACQUIRE's unconditional
 // hard-snap). The emitter is reset by the same code path.
 inline void test_seed_clears_mailbox() {
   const Config cfg = test_config();
@@ -194,6 +202,9 @@ inline void test_beacon_codec() {
   HS_EXPECT_EQ(d[3], 5);
   HS_EXPECT_EQ(d[4], (3 + 3 + 5 + 5) & 7);
 
+  // Feed all five digit bursts through a fresh parser, optionally corrupting
+  // digit 1 or the checksum; returns true iff the frame decoded with no
+  // rejection.
   auto feed_frame = [&cfg](const uint8_t digits[5], bool corrupt_digit,
                            bool corrupt_checksum, BeaconFrame *out) {
     BeaconParser p;
@@ -269,6 +280,10 @@ inline void test_beacon_codec() {
 
 // ── Flywheel position math (§4.1): 64-bit, rebase rule, wrap, trim ─────────
 
+// Flywheel column position and fold cadence: zero truncation drift vs a
+// long-double reference at nominal and ±40 ppm trim, correct signed-past
+// folding, one crossing per half-rev, and exactness preserved across thousands
+// of 32-bit counter wraps via the rebase rule.
 inline void test_flywheel_position() {
   const Config cfg = test_config();
 
@@ -351,6 +366,10 @@ inline void test_flywheel_position() {
 
 // ── Acceptance gate + acquisition states (§5.3) ─────────────────────────────
 
+// Snap acceptance gate and ACQUIRE/LOCKED transitions: small corrections
+// accepted, an implied W/2 correction rejected, R consecutive rejections fall
+// back to ACQUIRE (no deadlock), and a hard snap relocks — exercised for both
+// a forged boundary and a fully corrupted timebase.
 inline void test_snap_gate() {
   const Config cfg = test_config();
 
@@ -417,6 +436,10 @@ inline void test_snap_gate() {
 
 // ── Master emission self-censor (§5.2) ──────────────────────────────────────
 
+// Master symbol/beacon emission: on-time bursts pulse at 2-column pitch on the
+// oversampled grid, a late boundary is censored whole, a mid-burst mask past
+// the budget aborts the remaining pulses, and the emitter→mailbox→parser loop
+// round-trips a beacon frame.
 inline void test_emitter() {
   const Config cfg = test_config();
   bool aborted = false;
@@ -495,6 +518,9 @@ inline void test_emitter() {
 
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
+// One simulated board: its SyncBoard engine plus the host-side state the
+// simulator models around it — crystal offset/phase, the masked-IRQ latch,
+// symbol-drop and EMI windows, the foreground build/commit model, and probes.
 struct SimBoard {
   SyncBoard board;
   bool master = false;
@@ -527,6 +553,9 @@ struct SimBoard {
   explicit SimBoard(const Config &c) : board(c) {}
 };
 
+// Event-driven multi-board simulator: advances the earliest-due flywheel wake
+// across all boards, routes master pulses and injected EMI to downstream edge
+// ISRs through the masked-IRQ model, and drives each board's foreground state.
 class Sim {
 public:
   Config cfg;
@@ -535,6 +564,9 @@ public:
   std::vector<std::pair<uint64_t, int>> emi;       // (g, target) sorted
   size_t emi_pos = 0;
 
+  /// Build @p n boards (index 0 is the master) with per-board crystal offset
+  /// @p ppm and a common starting clock @p phase0; each flywheel polls on a
+  /// ⅛-column grid scaled by its ppm, with a small per-board boot stagger.
   Sim(const Config &c, int n, const int32_t *ppm, uint64_t phase0 = 0)
       : cfg(c) {
     const double step0 = double(c.cycles_per_half_rev) / (c.W / 2) / 8.0;
@@ -551,11 +583,15 @@ public:
     }
   }
 
+  /// Board @p b's local 32-bit cycle counter at global cycle @p gg: phase
+  /// offset plus crystal skew (ppm), truncated to 32 bits to model CYCCNT wrap.
   static uint32_t local_now(const SimBoard &b, uint64_t gg) {
     const int64_t skew = static_cast<int64_t>(gg) * b.ppm / 1000000;
     return static_cast<uint32_t>(gg + b.phase0 + static_cast<uint64_t>(skew));
   }
 
+  /// If global cycle @p at falls inside one of @p b's IRQ-mask windows, the
+  /// window's end (when delivery resumes); 0 if unmasked.
   uint64_t masked_until(const SimBoard &b, uint64_t at) const {
     for (const auto &w : b.masks)
       if (at >= w.first && at < w.second)
@@ -563,6 +599,9 @@ public:
     return 0;
   }
 
+  /// Route a sync-wire edge at global cycle @p at to downstream board
+  /// @p target: dropped if in its deafen window, latched/merged if masked,
+  /// otherwise fed to its edge ISR at the board-local timestamp.
   void deliver_edge(int target, uint64_t at) {
     SimBoard &b = boards[target];
     if (b.master)
@@ -577,11 +616,15 @@ public:
     b.board.on_sync_edge(local_now(b, at));
   }
 
+  /// Board @p b's next wake in global cycles, pushed to the mask end if its
+  /// scheduled slot lands inside a mask (coalesced wakes).
   double effective_tick(const SimBoard &b) const {
     const uint64_t m = masked_until(b, static_cast<uint64_t>(b.next_tick));
     return m ? double(m) : b.next_tick;
   }
 
+  /// Advance global time to the earliest-due board wake, delivering any EMI
+  /// edges before it, then run that board's tick.
   void step() {
     int bi = 0;
     double best = effective_tick(boards[0]);
@@ -602,6 +645,7 @@ public:
     g = tg;
   }
 
+  /// Step until @p revs revolutions of global time have elapsed.
   void run_revs(double revs) {
     const uint64_t until =
         g + static_cast<uint64_t>(revs * 2 * cfg.cycles_per_half_rev);
@@ -609,6 +653,7 @@ public:
       step();
   }
 
+  /// Step until @p pred holds (returns true) or @p max_revs elapse (false).
   template <typename Pred> bool run_until(Pred pred, double max_revs) {
     const uint64_t until =
         g + static_cast<uint64_t>(max_revs * 2 * cfg.cycles_per_half_rev);
@@ -620,6 +665,8 @@ public:
     return false;
   }
 
+  /// Board @p i's current flywheel column position, evaluated at its own
+  /// local clock at the present global time.
   int32_t board_pos(int i) const {
     return boards[i].board.flywheel().position(local_now(boards[i], g));
   }
@@ -639,6 +686,10 @@ public:
   }
 
 private:
+  /// Run one flywheel wake for board @p b at global cycle @p tg: advance its
+  /// poll grid, deliver any latched edge, drive board.tick(), fan master
+  /// pulses to downstream boards, then step the foreground build/commit/pacing
+  /// model and update probes.
   void run_tick(SimBoard &b, uint64_t tg) {
     // This wake is consumed: the grid resumes at the next slot strictly
     // after it (a mask may have swallowed several slots — they coalesced
@@ -704,6 +755,10 @@ private:
 
 // ── Scenario: clean 4-board run (boot join, phase, flips, wrap) ─────────────
 
+// Clean 4-board run: every board locks within a revolution, joins live at the
+// same boundary with the same effect and frame counter, and holds sub-2-column
+// phase, equal frame counters, and ~2 flips/rev through a 32-bit clock wrap —
+// with no gate rejections, invalid symbols, or traps.
 inline void test_sim_boot_and_phase() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -20, 40};
@@ -770,6 +825,10 @@ inline void test_sim_boot_and_phase() {
 
 // ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
 
+// Epoch commit lockstep: all four boards play through the announce phase, go
+// dark together for the K-rev construction window, then swap to the next
+// effect at the same boundary with frame counters re-zeroed together; the
+// cadence holds across a second epoch (roster wraps mod effect_count).
 inline void test_sim_epoch_commit() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 30, -25, 10};
@@ -866,6 +925,10 @@ inline void test_sim_commit_deadline_trap() {
 
 // ── Scenario: masked-IRQ windows (§4.1, §5.2) ───────────────────────────────
 
+// Masked-IRQ windows: boundary masks truncate burst counts (symbol degrades to
+// missed, never misclassified), mid-rev masks coalesce wakes harmlessly, and a
+// master masked across its own boundary self-censors rather than emitting late
+// — phase and content stay coherent throughout.
 inline void test_sim_masked_windows() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 25, -25, 15};
@@ -919,6 +982,10 @@ inline void test_sim_masked_windows() {
 
 // ── Scenario: EMI on the sync wire (§5.2, §5.3, §9.1) ───────────────────────
 
+// EMI on the sync wire: isolated spurious edges form valid HALF symbols the
+// LOCKED gate rejects, edges injected inside real bursts corrupt the count to
+// invalid (discarded whole), and a single edge within G of a predicted
+// boundary is the bounded accepted case — none unlock or desync the show.
 inline void test_sim_emi() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -30, 5};
@@ -963,6 +1030,10 @@ inline void test_sim_emi() {
 
 // ── Scenario: dropped symbols → coast; dropped epoch → beacon fix (§6.3) ───
 
+// Dropped-symbol recovery: a multi-rev symbol gap is a coast on the crystal
+// that silently re-snaps, and a board that misses an entire EPOCH train stays
+// visibly stale on the old effect until the next index beacon corrects it and
+// it rejoins on the join grid — never a wrong frame, never a trap.
 inline void test_sim_drops_and_missed_epoch() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 35, -35, 20};
@@ -1017,6 +1088,10 @@ inline void test_sim_drops_and_missed_epoch() {
 
 // ── Scenario: mid-show reboot — fail-dark, rejoin at correct effect ─────────
 
+// Mid-show reboot: a board reseeded with fresh engine state re-acquires phase
+// within ~one boundary symbol, stays dark through ACQUIRE, then rejoins at the
+// master's current effect from the next beacon + join-grid boundary — never a
+// wrong frame in between.
 inline void test_sim_reboot() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 15, -15, 30};
@@ -1054,6 +1129,9 @@ inline void test_sim_reboot() {
 
 // ── Scenario: forged plausible burst (§8.4 spurious-flip hole, closed) ──────
 
+// Forged plausible burst: the strongest cheap spurious-flip attack is held as
+// a suspect and rejected, never snapped or flipped; flip cadence and content
+// stay intact (attack construction detailed below).
 inline void test_sim_forged_burst() {
   const Config cfg = test_config();
   const int32_t ppm[2] = {0, 10};
@@ -1099,6 +1177,7 @@ inline void test_sim_epoch_repeat_lockstep() {
   const Config cfg = test_config();
   const uint64_t rev = 2ull * kPeriod;
 
+  // Run until every board has gone live (boot join complete).
   auto boot_join = [&cfg](Sim &sim) {
     return sim.run_until(
         [](Sim &s) {
@@ -1120,12 +1199,15 @@ inline void test_sim_epoch_repeat_lockstep() {
         },
         double(cfg.revs_per_effect) + 4);
   };
+  // Predicate: all boards have committed to effect 1.
   auto all_on_effect_1 = [](Sim &s) {
     for (auto &b : s.boards)
       if (b.live_index != 1)
         return false;
     return true;
   };
+  // Assert every downstream board committed at the same boundary as the master
+  // (≤3 columns apart, no trap) and holds an equal frame counter afterward.
   auto expect_lockstep = [&](Sim &sim) {
     for (int i = 1; i < 4; ++i) {
       // Commits land at each board's own crossing of the same boundary —
@@ -1543,6 +1625,7 @@ inline void test_budget_wire_dead() {
 
 // ── Runner ──────────────────────────────────────────────────────────────────
 
+// Run every pov_sync test in order; returns the module's failure count.
 inline int run_pov_sync_tests() {
   auto scope = begin_module("pov_sync");
 

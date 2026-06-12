@@ -18,9 +18,6 @@ struct HEVertex;
 struct HEFace;
 struct HalfEdge;
 
-/**
- * @brief Forward declaration of MeshState for HalfEdgeMesh.
- */
 struct MeshState;
 
 /**
@@ -34,6 +31,7 @@ struct PolyMesh {
 
   PolyMesh() = default;
 
+  // Resets all arrays to empty without releasing arena storage.
   inline void clear() {
     vertices.clear();
     face_counts.clear();
@@ -49,8 +47,11 @@ struct PolyMesh {
   size_t get_faces_size() const { return faces.size(); }
 };
 
-constexpr uint16_t HE_NONE = 0xFFFF;
+constexpr uint16_t HE_NONE = 0xFFFF; /**< Null index sentinel for half-edge connectivity. */
 
+/**
+ * @brief One directed half of an undirected edge in the half-edge mesh.
+ */
 struct HalfEdge {
   uint16_t vertex = HE_NONE; /**< Vertex at the end of this half-edge. */
   uint16_t face = HE_NONE;   /**< Face this half-edge belongs to. */
@@ -59,11 +60,17 @@ struct HalfEdge {
   uint16_t pair = HE_NONE;   /**< Opposite half-edge. */
 };
 
+/**
+ * @brief Mesh vertex; entry point into the half-edge ring around it.
+ */
 struct HEVertex {
   uint16_t half_edge =
       HE_NONE; /**< One of the half-edges pointing to this vertex. */
 };
 
+/**
+ * @brief Mesh face; entry point into its bordering half-edge loop.
+ */
 struct HEFace {
   uint16_t half_edge =
       HE_NONE; /**< One of the half-edges bordering this face. */
@@ -127,6 +134,10 @@ template <typename T> struct FlatView {
   const T &operator[](size_t i) const { return ptr[i]; }
 };
 
+/**
+ * @brief Half-edge connectivity built from a flat face list, giving O(1)
+ * adjacency (next/prev/pair) for traversal-based mesh operators.
+ */
 class HalfEdgeMesh {
 public:
   ArenaVector<HEVertex> vertices;
@@ -148,6 +159,13 @@ public:
   }
 
 private:
+  /**
+   * @brief Builds the half-edge structure from a flat (vertices, per-face side
+   * counts, face index list) representation: emits one half-edge per face index,
+   * links each face's next/prev loop, then pairs opposite half-edges by
+   * undirected vertex key. Templated over the container types so it accepts both
+   * owned ArenaVectors and borrowed FlatViews.
+   */
   template <typename Verts, typename Counts, typename Faces>
   void build_from_flat(Arena &arena, const Verts &verts, const Counts &counts,
                        const Faces &faces_arr) {
@@ -377,7 +395,8 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
 }
 
 /**
- * @brief Helper to finish hash.
+ * @brief MurmurHash3 32-bit finalizer: avalanches the bits of an accumulated
+ * hash so small input differences spread across the whole word.
  */
 static inline uint32_t fmix32(uint32_t h) {
   h ^= h >> 16;

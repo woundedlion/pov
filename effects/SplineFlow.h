@@ -8,6 +8,9 @@
 #include <array>
 #include "core/effects_engine.h"
 
+// Closed geodesic spline whose control points drift over the sphere via
+// independent random walks, drawn as a fading trail that sweeps around a moving
+// draw head. Colored from a baked palette by spline progress.
 template <int W, int H> class SplineFlow : public Effect {
 public:
   static constexpr int MAX_TRAILS = 30000;
@@ -27,15 +30,16 @@ public:
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {}
 
+  // Allocate trail storage, bake the palette, register sliders, and seed the
+  // control-point/orientation/draw-head animations on the timeline.
   void init() override {
     filters.template get<Filter::World::Trails<W, MAX_TRAILS>>().init_storage(
         persistent_arena);
 
     // Bake the immutable palette once into a 256-entry LUT. The trail flush
     // evaluates the palette per live trail item (~25k/frame); a ProceduralPalette
-    // get() is 3 cosf + sRGB-LUT interp + a virtual call each. BakedPalette::get
-    // is a table lookup + lerp — the same bake-once pattern Raymarch / RingShower
-    // / Moire use. (Reused for the spline shader below too.)
+    // get() costs 3 cosf + sRGB-LUT interp + a virtual call each, whereas
+    // BakedPalette::get is a table lookup + lerp. Reused by the spline shader too.
     baked_palette_.bake(persistent_arena, Palettes::lavenderLake);
 
     registerParam("Tension", &params.tension, 0.0f, 1.0f);
@@ -67,6 +71,8 @@ public:
 
   bool show_bg() const override { return false; }
 
+  // Advance animations, rebuild the closed spline from the drifting control
+  // points, draw it through the trail pipeline, and flush faded trails.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -122,12 +128,9 @@ private:
   Orientation<> point_orientations[MAX_POINTS];
   Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {};
   float last_drift_ = -1.0f;
-  // One noise generator per walk (12 control-point walks + the view walk). The
-  // RandomWalk ctor stamps frequency and a fresh random seed onto whatever
-  // generator it is handed, so a single shared generator let the
-  // last-constructed walk win: the 12 point walks all ran at the Languid view
-  // walk's 0.02 frequency (33% below their intended 0.03) and sampled one
-  // identically-seeded field. RingSpin uses this same per-walk pattern.
+  // One noise generator per control-point walk. The RandomWalk ctor stamps its
+  // frequency and seed onto the generator it is handed, so each walk needs its
+  // own to keep its intended frequency and an independent noise field.
   std::array<FastNoiseLite, MAX_POINTS> point_noises_;
   FastNoiseLite orient_noise_;
   Timeline timeline;

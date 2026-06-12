@@ -6,9 +6,9 @@
  *
  * Tests deliberately avoid invoking the asserts in dependent types
  * (out-of-bounds, unbound access). Zero-component (axis-aligned) ray
- * directions for AABB::intersect_ray ARE exercised here — including the
- * grazing on-face case that previously produced a 0/0 NaN — now that the
- * slab test guards parallel rays explicitly.
+ * directions for AABB::intersect_ray are exercised here, including the
+ * grazing on-face case where the slab test must guard parallel rays
+ * explicitly to avoid a 0/0 NaN.
  */
 #pragma once
 
@@ -23,8 +23,6 @@ namespace spatial {
 
 using hs_test::math3d::approx_vec;
 
-// Reuse the math3d HS_EXPECT_VEC macro (defined in test_3dmath.h)
-
 // Dedicated arena buffer to keep KDTree/MeshState scratch isolated from the
 // memory-test arenas.
 inline uint8_t spatial_buf[128 * 1024];
@@ -33,13 +31,16 @@ inline uint8_t spatial_buf[128 * 1024];
 // AABB
 // ============================================================================
 
+// A default-constructed AABB is the degenerate "empty" box, ready to be
+// widened by the first expand(): min = +FLT_MAX, max = -FLT_MAX.
 inline void test_aabb_default_empty() {
   AABB box;
-  // Empty box: min initialized to +FLT_MAX, max to -FLT_MAX (degenerate).
   HS_EXPECT_TRUE(box.min_val.x >= FLT_MAX * 0.5f);
   HS_EXPECT_TRUE(box.max_val.x <= -FLT_MAX * 0.5f);
 }
 
+// Expanding an empty box by one point collapses it to a zero-volume box at
+// that point (min == max).
 inline void test_aabb_expand_single_point() {
   AABB box;
   box.expand(Vector(1, 2, 3));
@@ -47,6 +48,8 @@ inline void test_aabb_expand_single_point() {
   HS_EXPECT_VEC(box.max_val, Vector(1, 2, 3), 1e-6f);
 }
 
+// expand() takes the component-wise min/max across all added points, so the
+// final box is the tight bound of the point set.
 inline void test_aabb_expand_multiple_points() {
   AABB box;
   box.expand(Vector(1, 2, 3));
@@ -56,6 +59,8 @@ inline void test_aabb_expand_multiple_points() {
   HS_EXPECT_VEC(box.max_val, Vector(4, 5, 3), 1e-6f);
 }
 
+// union_with() merges another box into this one, yielding the bound that
+// encloses both.
 inline void test_aabb_union_with() {
   AABB a;
   a.expand(Vector(0, 0, 0));
@@ -70,6 +75,8 @@ inline void test_aabb_union_with() {
   HS_EXPECT_VEC(a.max_val, Vector(3, 4, 6), 1e-6f);
 }
 
+// union_with() never shrinks a box: merging an empty box or a fully-contained
+// box leaves it unchanged, while merging a superset grows it.
 inline void test_aabb_union_with_empty_and_subset_is_noop() {
   AABB a;
   a.expand(Vector(0, 0, 0));
@@ -100,6 +107,8 @@ inline void test_aabb_union_with_empty_and_subset_is_noop() {
   HS_EXPECT_VEC(a.max_val, Vector(10, 10, 10), 1e-6f);
 }
 
+// Rays aimed at the box from outside report a hit: axis-aligned and diagonal
+// directions all pass the slab test.
 inline void test_aabb_ray_hit() {
   AABB box;
   box.expand(Vector(-1, -1, -1));
@@ -114,6 +123,8 @@ inline void test_aabb_ray_hit() {
                                   Vector(-1, -1, -1).normalized()));
 }
 
+// Rays that pass beside the box or point away from it must report a miss,
+// including the "behind and receding" case where the entry t is negative.
 inline void test_aabb_ray_miss() {
   AABB box;
   box.expand(Vector(-1, -1, -1));
@@ -129,23 +140,26 @@ inline void test_aabb_ray_miss() {
   HS_EXPECT_FALSE(box.intersect_ray(Vector(-5, 0, 0), Vector(-1, 0, 0)));
 }
 
+// A ray whose origin is inside the box always hits, since the slab test
+// admits a negative entry t.
 inline void test_aabb_ray_from_inside() {
   AABB box;
   box.expand(Vector(-1, -1, -1));
   box.expand(Vector(1, 1, 1));
-  // A ray starting inside the box always hits — slab test allows negative t.
   HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 0, 0), Vector(1, 0, 0)));
   HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 0, 0), Vector(0, 1, 0)));
 }
 
+// Rays with a zero direction component run parallel to an axis slab. The slab
+// guard must treat them as "hit only if the origin is within the slab",
+// avoiding the 0/0 NaN of dividing the slab distance by a zero direction.
 inline void test_aabb_ray_parallel_grazing() {
   AABB box;
   box.expand(Vector(-1, -1, -1));
   box.expand(Vector(1, 1, 1));
-  // Origin lies exactly ON the +Y face and the ray runs parallel to it. The
-  // naive (max_val.y - origin.y) / 0 == 0/0 == NaN; the slab guard treats a zero
-  // direction component as "hit only if the origin is within the slab", so an
-  // on-face grazing ray still counts as touching the box.
+  // Origin lies exactly ON the +Y face, ray parallel to it: the zero Y
+  // direction component means (max_val.y - origin.y) / 0 would be 0/0, so the
+  // guard counts this on-face grazing ray as touching the box.
   HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 1, 0), Vector(1, 0, 0)));
   // Same parallel direction but origin just outside the +Y face → clean miss.
   HS_EXPECT_FALSE(box.intersect_ray(Vector(0, 1.5f, 0), Vector(1, 0, 0)));
@@ -157,6 +171,8 @@ inline void test_aabb_ray_parallel_grazing() {
 // KDTree
 // ============================================================================
 
+// Building from a zero-length span leaves the tree unbuilt (root_index == -1)
+// and queries return nothing.
 inline void test_kdtree_empty_input() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[1] = {Vector(0, 0, 0)};
@@ -169,6 +185,8 @@ inline void test_kdtree_empty_input() {
   HS_EXPECT_TRUE(r.is_empty());
 }
 
+// A one-point tree builds a root and returns that point (with its original
+// index) for any query.
 inline void test_kdtree_single_point() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[1] = {Vector(3, 4, 5)};
@@ -182,6 +200,8 @@ inline void test_kdtree_single_point() {
   HS_EXPECT_EQ(r[0].original_index, (uint16_t)0);
 }
 
+// nearest(k=1) returns the correct point and original index for queries near
+// distinct points, including a query landing exactly on a point (dist 0).
 inline void test_kdtree_nearest_known_set() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[6] = {
@@ -214,6 +234,7 @@ inline void test_kdtree_nearest_known_set() {
   HS_EXPECT_EQ(r3[0].original_index, (uint16_t)4);
 }
 
+// A k>1 query returns exactly k neighbors ordered nearest-first.
 inline void test_kdtree_k_nearest_sorted() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[5] = {
@@ -234,8 +255,8 @@ inline void test_kdtree_k_nearest_sorted() {
   HS_EXPECT_VEC(r[2].point, Vector(2, 0, 0), 1e-6f);
 }
 
+// Requesting more neighbors than exist returns all available points, not k.
 inline void test_kdtree_k_caps_at_size() {
-  // Request more neighbors than exist → returns all available.
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[3] = {Vector(0, 0, 0), Vector(1, 0, 0), Vector(2, 0, 0)};
   std::span<Vector> sp(pts, 3);
@@ -245,14 +266,17 @@ inline void test_kdtree_k_caps_at_size() {
   HS_EXPECT_EQ(r.size(), (size_t)3);
 }
 
+// A default-constructed (never-built) KDTree reports root_index == -1 and
+// answers queries with an empty result.
 inline void test_kdtree_default_unbuilt() {
-  // A default-constructed KDTree (no build) has root_index == -1.
   KDTree tree;
   HS_EXPECT_EQ(tree.root_index, -1);
   auto r = tree.nearest(Vector(1, 2, 3), 1);
   HS_EXPECT_TRUE(r.is_empty());
 }
 
+// clear() detaches the root so the tree is logically empty again; node storage
+// is reclaimed on the next build via nodes.bind.
 inline void test_kdtree_clear() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[2] = {Vector(0, 0, 0), Vector(1, 1, 1)};
@@ -261,8 +285,6 @@ inline void test_kdtree_clear() {
   HS_EXPECT_NE(tree.root_index, -1);
 
   tree.clear();
-  // clear() resets the tree to logically empty: root detached, so a search
-  // returns nothing (node storage is reset on the next build via nodes.bind).
   HS_EXPECT_EQ(tree.root_index, -1);
   auto r = tree.nearest(Vector(0, 0, 0), 1);
   HS_EXPECT_TRUE(r.is_empty());
@@ -305,6 +327,8 @@ inline void test_kdtree_matches_brute_force() {
 // MeshState
 // ============================================================================
 
+// A default-constructed MeshState owns no arena storage: unbound, zero
+// vertices, zero faces.
 inline void test_meshstate_default_unbound() {
   MeshState m;
   HS_EXPECT_FALSE(m.is_bound());
@@ -312,6 +336,8 @@ inline void test_meshstate_default_unbound() {
   HS_EXPECT_EQ(m.num_faces(), (size_t)0);
 }
 
+// clone() deep-copies vertices, face counts, and faces into the destination
+// arena, so the copy is value-equal yet backed by separate storage.
 inline void test_meshstate_clone_deep_copies() {
   Arena src_arena(spatial_buf, sizeof(spatial_buf));
   Arena dst_arena(spatial_buf + 64 * 1024, sizeof(spatial_buf) - 64 * 1024);
@@ -348,6 +374,8 @@ inline void test_meshstate_clone_deep_copies() {
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
 }
 
+// clear() empties the mesh's vertex and face views, returning the counts to
+// zero.
 inline void test_meshstate_clear_resets_views() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   MeshState m;
@@ -363,6 +391,8 @@ inline void test_meshstate_clear_resets_views() {
   HS_EXPECT_EQ(m.num_faces(), (size_t)0);
 }
 
+// Move-constructing a MeshState transfers ownership: the destination holds the
+// data and the source is left unbound and empty.
 inline void test_meshstate_move_invalidates_source() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   MeshState src;
@@ -377,9 +407,9 @@ inline void test_meshstate_move_invalidates_source() {
   HS_EXPECT_VEC(dst.vertices[1], Vector(4, 5, 6), 1e-6f);
 }
 
+// When the owned face_counts vector is empty but face_counts_view is set, the
+// unified accessors fall through to the external view.
 inline void test_meshstate_view_fallback() {
-  // When face_counts is empty but face_counts_view is set, the unified
-  // accessor must return the view.
   Arena arena(spatial_buf, sizeof(spatial_buf));
   ArenaVector<uint8_t> owner(arena, 2);
   owner.push_back(3);
@@ -398,6 +428,8 @@ inline void test_meshstate_view_fallback() {
 // Runner
 // ============================================================================
 
+// Runs every spatial test case under the "spatial" module scope; returns the
+// module's failure count.
 inline int run_spatial_tests() {
   auto scope = hs_test::begin_module("spatial");
 

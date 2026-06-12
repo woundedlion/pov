@@ -8,13 +8,14 @@
  * @file dma_led.h
  * @brief Non-blocking DMA LED controller for HD107S (APA102-compatible) LEDs.
  *
- * Replaces FastLED's blocking SPI with an async DMA pipeline:
+ * Drives the strip via an async DMA pipeline so the main loop never blocks on
+ * SPI:
  *   HD107SFrame  — pre-formatted protocol buffer with inline color correction
  *   TeensySPIDMA — low-level DMA+SPI hardware driver
  *   DMALEDController — double-buffered high-level controller
  *
- * Color correction uses the existing PROGMEM sRGB↔Linear LUTs from
- * color_luts.h. All corrections are applied in linear 16-bit space.
+ * Color correction uses the PROGMEM sRGB↔Linear LUTs from color_luts.h.
+ * All corrections are applied in linear 16-bit space.
  *
  * Only compiles on Teensy 4.x (ARDUINO defined). On WASM/sim builds this
  * header is a no-op.
@@ -112,6 +113,7 @@ public:
     dma_.enable();
   }
 
+  /// True once the in-flight transfer's completion ISR has fired.
   bool isComplete() const {
     return transferComplete_.load(std::memory_order_relaxed);
   }
@@ -141,6 +143,9 @@ public:
     }
   }
 
+  /**
+   * @brief Spins until the in-flight transfer completes, trapping if it wedges.
+   */
   void waitComplete() {
     if (transferComplete_.load(std::memory_order_relaxed)) return;
     // Watchdog: a healthy frame clocks out in well under a millisecond at
@@ -168,6 +173,7 @@ private:
   // transfer, so only a wedged DMA channel trips it.
   static constexpr unsigned long kTransferWatchdogUs = 100000UL;
 
+  // DMA completion ISR: clears the interrupt and marks the transfer done.
   static void FASTRUN dmaISR() {
     if (instance_) {
       instance_->dma_.clearInterrupt();

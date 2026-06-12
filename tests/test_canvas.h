@@ -43,6 +43,7 @@ struct TestEffect : public Effect {
   void mark_readonly(const char *n) { markReadonly(n); }
 };
 
+// True if pixel p has exactly the given r/g/b channel values.
 inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
   return p.r == r && p.g == g && p.b == b;
 }
@@ -51,6 +52,8 @@ inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
 // Construction
 // ============================================================================
 
+// A freshly constructed Effect reports its dimensions, starts fully black with a
+// free display buffer, and has its clip set to the whole canvas.
 inline void test_construction_dims_and_clear() {
   TestEffect fx(96, 20);
   HS_EXPECT_EQ(fx.width(), 96);
@@ -68,6 +71,8 @@ inline void test_construction_dims_and_clear() {
 // Double-buffer state machine
 // ============================================================================
 
+// A drawn frame stays invisible until advance_display() promotes it: the display
+// shows the old buffer while drawing and while the frame is merely queued.
 inline void test_frame_visible_only_after_advance_display() {
   TestEffect fx(8, 8);
 
@@ -88,6 +93,8 @@ inline void test_frame_visible_only_after_advance_display() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 100, 200, 300));
 }
 
+// Without persist, each frame draws into a freshly cleared buffer, so pixels from
+// the previous frame do not survive into the next.
 inline void test_consecutive_frames_alternate_buffers() {
   TestEffect fx(8, 8);
 
@@ -103,6 +110,8 @@ inline void test_consecutive_frames_alternate_buffers() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 0, 0, 0)); // cleared
 }
 
+// With persist_pixels set, each new frame inherits the previous frame's contents,
+// so undrawn pixels retain their prior color.
 inline void test_persist_pixels_copies_previous_frame() {
   TestEffect fx(8, 8);
   fx.set_persist(true);
@@ -237,6 +246,8 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 // Canvas access
 // ============================================================================
 
+// Canvas exposes 2D (x,y) and 1D (row-major index) writes that target the same
+// buffer, and prev() reads the previously displayed frame.
 inline void test_canvas_2d_and_1d_access_and_prev() {
   TestEffect fx(8, 8);
   {
@@ -257,6 +268,9 @@ inline void test_canvas_2d_and_1d_access_and_prev() {
 // Parameter system
 // ============================================================================
 
+// registerParam captures each param's current pointee as its default and exposes
+// type (float vs bool), value, and min/max through getParameters(); find() of an
+// unregistered name returns null.
 inline void test_register_float_and_bool_params() {
   TestEffect fx(4, 4);
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
@@ -281,6 +295,9 @@ inline void test_register_float_and_bool_params() {
   HS_EXPECT_TRUE(params.find("Missing") == nullptr);
 }
 
+// updateParameter writes a float param by name, thresholds at 0.5 for bool
+// params, and returns false (leaving values untouched) for unknown names or
+// non-finite inputs.
 inline void test_update_parameter_by_name() {
   TestEffect fx(4, 4);
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
@@ -295,7 +312,7 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.8f));
   HS_EXPECT_TRUE(fx.flag);
 
-  // Unknown name is a safe no-op and now reports false to the caller.
+  // Unknown name is a safe no-op and reports false to the caller.
   HS_EXPECT_FALSE(fx.updateParameter("Nope", 99.0f));
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
@@ -321,12 +338,13 @@ inline void test_update_parameter_rejects_readonly() {
   HS_EXPECT_NEAR(fx.speed, 4.0f, 1e-6f);
 }
 
+// ParamList holds its full capacity of registered params.
 inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
   static float vals[32];
   // Registering exactly ParamList's capacity (std::array<ParamDef, 32>) is
-  // valid. Registering a 33rd now TRAPS (an effect-authoring bug, fail-fast),
-  // so the overflow path can't be exercised here without death-test infra.
+  // valid. A 33rd registration TRAPS (an effect-authoring bug, fail-fast), so
+  // the overflow path can't be exercised here without death-test infra.
   for (int i = 0; i < 32; ++i) {
     vals[i] = static_cast<float>(i);
     fx.add_float("p", &vals[i], 0.0f, 100.0f);
@@ -338,6 +356,8 @@ inline void test_paramlist_fills_to_capacity() {
 // Clip setters
 // ============================================================================
 
+// The clip setters write the expected fields: set_clip sets all four bounds (and
+// clears is_full), set_clip_x touches only x bounds, and set_margin sets margin.
 inline void test_clip_setters() {
   TestEffect fx(96, 20);
   fx.set_clip(2, 10, 5, 40);
@@ -356,11 +376,8 @@ inline void test_clip_setters() {
   HS_EXPECT_EQ(fx.clip.margin, 3);
 }
 
-// PipelineRef copy must be a real copy, not a ref-to-a-ref. Copying from a
-// non-const lvalue must select the implicit copy ctor (member-wise: same ctx_),
-// not the templated converting ctor (which would wrap the source). Observable
-// without UB: re-point the source after copying; a true copy keeps routing to
-// the original target, a wrapper would follow the source to the new one.
+// Stand-in pipeline target whose plot() overloads record their id into a shared
+// counter, so a PipelineRef's routing destination is observable.
 struct StubPipe {
   int id;
   int *last_hit;
@@ -372,6 +389,11 @@ struct StubPipe {
   }
 };
 
+// PipelineRef copy must be a real copy, not a ref-to-a-ref. Copying from a
+// non-const lvalue must select the implicit copy ctor (member-wise: same ctx_),
+// not the templated converting ctor (which would wrap the source). Observable
+// without UB: re-point the source after copying; a true copy keeps routing to
+// the original target, a wrapper would follow the source to the new one.
 inline void test_pipeline_ref_copy_is_independent_of_source() {
   int hit = 0;
   StubPipe s1{1, &hit}, s2{2, &hit};
@@ -391,6 +413,7 @@ inline void test_pipeline_ref_copy_is_independent_of_source() {
 // Runner
 // ============================================================================
 
+// Runs every canvas test in order and returns the module's failure count.
 inline int run_canvas_tests() {
   auto scope = hs_test::begin_module("canvas");
 

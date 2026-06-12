@@ -112,8 +112,8 @@ public:
    * ISR fast path: lets a column loop index pixels directly and skip the
    * per-pixel virtual `get_pixel` dispatch. Valid only until the next
    * `advance_display()` flip — re-fetch after one. Effects that override
-   * `get_pixel` (none in the modern engine; only the legacy scroller) must NOT
-   * use this, as it bypasses their transform.
+   * `get_pixel` (e.g. the RingTwist scroller) must NOT use this, as it bypasses
+   * their transform; check `overrides_get_pixel()` first.
    */
   [[nodiscard]] const Pixel *display_buffer() const {
     return bufs_[prev_.load(std::memory_order_relaxed)];
@@ -125,9 +125,9 @@ public:
    *
    * Base effects return false: `display_buffer()[y * width() + x]` equals
    * `get_pixel(x, y)`, so ISR fast paths may index the buffer directly. The
-   * legacy scroller (RingTwist) reads through a per-row offset in its get_pixel
-   * override and returns true here, forcing those fast paths to fall back to
-   * virtual dispatch. One cheap virtual call per column gates the bulk loop.
+   * RingTwist scroller reads through a per-row offset in its get_pixel override
+   * and returns true here, forcing those fast paths to fall back to virtual
+   * dispatch. One cheap virtual call per column gates the bulk loop.
    */
   [[nodiscard]] virtual bool overrides_get_pixel() const { return false; }
 
@@ -226,6 +226,11 @@ public:
     bool is_bool() const { return std::holds_alternative<bool *>(target); }
   };
 
+  /**
+   * @brief Fixed-capacity registry of an effect's runtime parameters.
+   * @details Stack-allocated array (no heap) to uphold the WASM no-realloc
+   * memory-view invariant; capacity 32 is enforced at registration time.
+   */
   struct ParamList {
     std::array<ParamDef, 32> elements;
     size_t count = 0;

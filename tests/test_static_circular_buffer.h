@@ -23,6 +23,8 @@ namespace scb {
 // Construction
 // ============================================================================
 
+// A freshly constructed buffer is empty, reports zero size, full capacity, and
+// has begin() == end().
 inline void test_default_state() {
   StaticCircularBuffer<int, 8> buf;
   HS_EXPECT_TRUE(buf.is_empty());
@@ -32,6 +34,7 @@ inline void test_default_state() {
   HS_EXPECT_EQ(buf.begin(), buf.end());
 }
 
+// An initializer list smaller than capacity populates the buffer in order.
 inline void test_initializer_list_within_capacity() {
   StaticCircularBuffer<int, 4> buf{10, 20, 30};
   HS_EXPECT_EQ(buf.size(), (size_t)3);
@@ -43,9 +46,9 @@ inline void test_initializer_list_within_capacity() {
   HS_EXPECT_EQ(buf.back(), 30);
 }
 
+// An initializer list larger than capacity evicts the oldest entries (FIFO);
+// only the last N items survive.
 inline void test_initializer_list_overflow() {
-  // Items beyond capacity evict the oldest entries (FIFO) — only the last
-  // N items survive.
   StaticCircularBuffer<int, 3> buf{1, 2, 3, 4, 5};
   HS_EXPECT_EQ(buf.size(), (size_t)3);
   HS_EXPECT_TRUE(buf.is_full());
@@ -60,6 +63,7 @@ inline void test_initializer_list_overflow() {
 // push_back / push_front basics
 // ============================================================================
 
+// push_back appends to the tail; elements stay in insertion order.
 inline void test_push_back_order() {
   StaticCircularBuffer<int, 4> buf;
   buf.push_back(1);
@@ -75,6 +79,7 @@ inline void test_push_back_order() {
   HS_EXPECT_FALSE(buf.is_full());
 }
 
+// Pushing exactly capacity items marks the buffer full.
 inline void test_push_back_fills_to_capacity() {
   StaticCircularBuffer<int, 3> buf;
   buf.push_back(1);
@@ -84,6 +89,7 @@ inline void test_push_back_fills_to_capacity() {
   HS_EXPECT_EQ(buf.size(), (size_t)3);
 }
 
+// push_back past capacity drops the oldest (front) element.
 inline void test_push_back_overflow_drops_oldest() {
   StaticCircularBuffer<int, 3> buf;
   for (int i = 1; i <= 5; ++i) buf.push_back(i);
@@ -95,12 +101,12 @@ inline void test_push_back_overflow_drops_oldest() {
   HS_EXPECT_EQ(buf.back(), 5);
 }
 
+// push_front prepends to the head; the most recently pushed item is at front.
 inline void test_push_front_order() {
   StaticCircularBuffer<int, 4> buf;
   buf.push_front(1);
   buf.push_front(2);
   buf.push_front(3);
-  // Newest-first: 3 is at the front
   HS_EXPECT_EQ(buf.size(), (size_t)3);
   HS_EXPECT_EQ(buf.front(), 3);
   HS_EXPECT_EQ(buf.back(), 1);
@@ -109,11 +115,11 @@ inline void test_push_front_order() {
   HS_EXPECT_EQ(buf[2], 1);
 }
 
+// push_front past capacity evicts the tail; the newest 3 items survive with
+// the latest push at front.
 inline void test_push_front_overflow_drops_back() {
   StaticCircularBuffer<int, 3> buf;
   for (int i = 1; i <= 5; ++i) buf.push_front(i);
-  // After 5 push_fronts on capacity-3 buffer: newest 3 items are 5,4,3
-  // with 5 at front and 3 at back (since push_front always evicts the tail).
   HS_EXPECT_EQ(buf.size(), (size_t)3);
   HS_EXPECT_EQ(buf.front(), 5);
   HS_EXPECT_EQ(buf.back(), 3);
@@ -122,6 +128,7 @@ inline void test_push_front_overflow_drops_back() {
   HS_EXPECT_EQ(buf[2], 3);
 }
 
+// push_back accepts an rvalue (move) overload.
 inline void test_push_back_rvalue() {
   StaticCircularBuffer<int, 4> buf;
   int x = 7;
@@ -130,6 +137,7 @@ inline void test_push_back_rvalue() {
   HS_EXPECT_EQ(buf[0], 7);
 }
 
+// push_front accepts an rvalue (move) overload.
 inline void test_push_front_rvalue() {
   StaticCircularBuffer<int, 4> buf;
   int x = 99;
@@ -142,12 +150,14 @@ inline void test_push_front_rvalue() {
 // emplace_back / emplace_front
 // ============================================================================
 
+// Default- and value-constructible 2D point used to test in-place construction.
 struct Pt {
   int x, y;
   Pt() : x(0), y(0) {}
   Pt(int a, int b) : x(a), y(b) {}
 };
 
+// emplace_back constructs the element in place and returns a reference to it.
 inline void test_emplace_back_constructs_in_place() {
   StaticCircularBuffer<Pt, 4> buf;
   Pt &ref = buf.emplace_back(3, 4);
@@ -158,6 +168,7 @@ inline void test_emplace_back_constructs_in_place() {
   HS_EXPECT_EQ(buf[0].y, 4);
 }
 
+// emplace_front constructs the element in place at the head and returns it.
 inline void test_emplace_front_constructs_in_place() {
   StaticCircularBuffer<Pt, 4> buf;
   buf.emplace_back(1, 1);
@@ -169,10 +180,9 @@ inline void test_emplace_front_constructs_in_place() {
   HS_EXPECT_EQ(buf.back().x, 1);
 }
 
-// A type that is constructible but NOT assignable. The previous emplace
-// implementation (`buffer[i] = T(args...)`) move-assigned a temporary and would
-// fail to compile for this type; that it compiles and works here proves emplace
-// now constructs the value directly in the slot's storage.
+// Constructible but non-assignable type. emplace must construct directly in the
+// slot's storage rather than assign a temporary; using this type forces that
+// path to compile and run.
 struct EmplaceOnly {
   int x, y;
   EmplaceOnly() : x(-1), y(-1) {}
@@ -182,6 +192,8 @@ struct EmplaceOnly {
   EmplaceOnly &operator=(EmplaceOnly &&) = delete;
 };
 
+// emplace_back/emplace_front work for a type with no assignment operator,
+// proving they construct in place.
 inline void test_emplace_constructs_non_assignable_type() {
   StaticCircularBuffer<EmplaceOnly, 3> buf;
   EmplaceOnly &b = buf.emplace_back(3, 4);
@@ -198,14 +210,16 @@ inline void test_emplace_constructs_non_assignable_type() {
 // pop / pop_back / clear
 // ============================================================================
 
+// pop removes the front (oldest) element.
 inline void test_pop_removes_front() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
-  buf.pop(); // remove front
+  buf.pop();
   HS_EXPECT_EQ(buf.size(), (size_t)2);
   HS_EXPECT_EQ(buf.front(), 2);
   HS_EXPECT_EQ(buf.back(), 3);
 }
 
+// pop_back removes the back (newest) element.
 inline void test_pop_back_removes_last() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
   buf.pop_back();
@@ -214,38 +228,39 @@ inline void test_pop_back_removes_last() {
   HS_EXPECT_EQ(buf.back(), 2);
 }
 
+// pop and pop_back on an empty buffer are safe no-ops (they must not crash).
 inline void test_pop_on_empty_is_noop() {
   StaticCircularBuffer<int, 4> buf;
-  buf.pop();      // must not crash
-  buf.pop_back(); // must not crash
+  buf.pop();
+  buf.pop_back();
   HS_EXPECT_TRUE(buf.is_empty());
   HS_EXPECT_EQ(buf.size(), (size_t)0);
 }
 
+// clear empties the buffer (size 0) without changing capacity, and the buffer
+// stays usable afterward.
 inline void test_clear_empties_buffer() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
   buf.clear();
   HS_EXPECT_TRUE(buf.is_empty());
   HS_EXPECT_EQ(buf.size(), (size_t)0);
-  HS_EXPECT_EQ(buf.capacity(), (size_t)4); // capacity unchanged
+  HS_EXPECT_EQ(buf.capacity(), (size_t)4);
   HS_EXPECT_FALSE(buf.is_full());
 
-  // Buffer remains usable after clear
   buf.push_back(42);
   HS_EXPECT_EQ(buf.size(), (size_t)1);
   HS_EXPECT_EQ(buf[0], 42);
 }
 
+// Interleaving pushes and pops drives the head/tail indices around the ring;
+// the buffer stays consistent and back() always holds the most recent push.
 inline void test_alternating_push_pop_wraps() {
-  // Exercise the ring wraparound by interleaving pushes and pops.
   StaticCircularBuffer<int, 3> buf;
   for (int i = 0; i < 10; ++i) {
     buf.push_back(i);
     if (i % 2 == 1) buf.pop();
   }
-  // After this sequence, the buffer must remain consistent.
   HS_EXPECT_TRUE(buf.size() <= 3);
-  // Verify back is always the most recent value pushed
   HS_EXPECT_EQ(buf.back(), 9);
 }
 
@@ -253,6 +268,7 @@ inline void test_alternating_push_pop_wraps() {
 // Iterators
 // ============================================================================
 
+// begin()..end() iteration visits every element in logical (front-to-back) order.
 inline void test_iterator_traversal() {
   StaticCircularBuffer<int, 4> buf{10, 20, 30};
   int expected = 10;
@@ -265,9 +281,9 @@ inline void test_iterator_traversal() {
   HS_EXPECT_EQ(count, 3);
 }
 
-// Regression guard for finding 296: the iterator types must be nameable from
-// outside the class (the prior tests only ever used `auto`, so private nested
-// iterator types compiled fine and the breakage went unnoticed).
+// The nested iterator and const_iterator types must be publicly nameable from
+// outside the class (not just usable via `auto`), and const_iterator must be
+// constructible from a non-const iterator.
 inline void test_iterator_types_are_public() {
   using Buf = StaticCircularBuffer<int, 4>;
   Buf buf{10, 20, 30};
@@ -284,6 +300,7 @@ inline void test_iterator_types_are_public() {
   HS_EXPECT_EQ(*from_mut, 10);
 }
 
+// The buffer works with a range-based for loop.
 inline void test_iterator_range_for() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3, 4};
   int sum = 0;
@@ -291,11 +308,13 @@ inline void test_iterator_range_for() {
   HS_EXPECT_EQ(sum, 10);
 }
 
+// std::distance(begin, end) equals size().
 inline void test_iterator_distance_matches_size() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
   HS_EXPECT_EQ(std::distance(buf.begin(), buf.end()), (std::ptrdiff_t)3);
 }
 
+// The iterator supports random-access operations: +, -, +=, -=, [], and end-begin.
 inline void test_iterator_random_access() {
   StaticCircularBuffer<int, 4> buf{10, 20, 30, 40};
   auto it = buf.begin();
@@ -309,6 +328,7 @@ inline void test_iterator_random_access() {
   HS_EXPECT_EQ(end - buf.begin(), (std::ptrdiff_t)4);
 }
 
+// The iterator supports the full set of relational and equality comparisons.
 inline void test_iterator_comparisons() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
   auto a = buf.begin();
@@ -321,9 +341,9 @@ inline void test_iterator_comparisons() {
   HS_EXPECT_FALSE(a == b);
 }
 
+// When the head index has wrapped into the middle of the underlying array,
+// iteration still visits all elements in logical order.
 inline void test_iterator_after_wrap() {
-  // Force the head pointer to wrap into the middle of the underlying array,
-  // then verify iteration still visits all elements in logical order.
   StaticCircularBuffer<int, 3> buf;
   for (int i = 1; i <= 5; ++i) buf.push_back(i); // ends as [3, 4, 5] logical
   int values[3];
@@ -335,6 +355,8 @@ inline void test_iterator_after_wrap() {
   HS_EXPECT_EQ(values[2], 5);
 }
 
+// A const buffer yields const_iterators that traverse correctly, and a non-const
+// iterator converts implicitly to a const_iterator.
 inline void test_const_iterator() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
   const auto &cref = buf;
@@ -342,12 +364,12 @@ inline void test_const_iterator() {
   for (auto it = cref.begin(); it != cref.end(); ++it) sum += *it;
   HS_EXPECT_EQ(sum, 6);
 
-  // Conversion from non-const iterator to const_iterator is allowed.
   auto ci = cref.begin();
   ci = buf.begin(); // implicit construction from non-const iterator
   HS_EXPECT_EQ(*ci, 1);
 }
 
+// The iterator's operator-> accesses members of the pointed-to element.
 inline void test_iterator_arrow_operator() {
   StaticCircularBuffer<Pt, 4> buf;
   buf.emplace_back(7, 11);
@@ -360,6 +382,7 @@ inline void test_iterator_arrow_operator() {
 // operator[] mutation
 // ============================================================================
 
+// operator[] returns a mutable reference, allowing in-place element assignment.
 inline void test_index_assignment() {
   StaticCircularBuffer<int, 4> buf{10, 20, 30};
   buf[1] = 99;
@@ -372,6 +395,7 @@ inline void test_index_assignment() {
 // Runner
 // ============================================================================
 
+// Runs every StaticCircularBuffer test case; returns the module's failure count.
 inline int run_static_circular_buffer_tests() {
   auto scope = hs_test::begin_module("static_circular_buffer");
 

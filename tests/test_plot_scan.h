@@ -13,7 +13,7 @@
  * Coverage:
  *   - Plot::Line::sample        : geodesic endpoints unit-length, span, v0/v1;
  *                                 degenerate (zero-length) segment handled.
- *   - ClipRegion::could_intersect_y : y-range cull culling (constants.h).
+ *   - ClipRegion::could_intersect_y : y-range cull (constants.h).
  *   - Plot::Ring::calcPoint / Ring::sample : unit-length, angular progress.
  *   - Plot::DistortedRing::sample : angle-addition identity (LUT) matches
  *                                   direct cos/sin within tolerance.
@@ -50,6 +50,9 @@ inline Arena &plot_arena() {
 // Plot::Line::sample
 // ============================================================================
 
+// Line::sample emits density+1 great-circle fragments: endpoints land exactly
+// on the inputs, every position is unit length, v0 (progress) spans 0..1, and
+// v1 (arc length) ends at the segment's subtended angle.
 inline void test_line_sample_endpoints_and_unit_length() {
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -82,6 +85,8 @@ inline void test_line_sample_endpoints_and_unit_length() {
   HS_EXPECT_NEAR(total_angle, PI_F * 0.5f, 1e-4f); // x-axis to y-axis = 90deg
 }
 
+// Interior Line::sample fragments stay finite and lie on the minor arc: each
+// is no farther from either endpoint than the endpoints are from each other.
 inline void test_line_sample_interior_between_endpoints() {
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -104,6 +109,8 @@ inline void test_line_sample_interior_between_endpoints() {
   }
 }
 
+// A zero-length segment (coincident endpoints) emits a dot: two coincident,
+// finite, unit-length fragments rather than NaN or a crash.
 inline void test_line_sample_degenerate_segment() {
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -125,14 +132,17 @@ inline void test_line_sample_degenerate_segment() {
   }
 }
 
+// Antipodal endpoints (angle == pi) make cross(a, b) == 0, so the rotation axis
+// is degenerate. Line::sample must pick a stable perpendicular axis so the arc
+// stays finite, unit-length, and passes through a real ~90deg midpoint rather
+// than collapsing to the start point or NaN.
 inline void test_line_sample_antipodal_stable_axis() {
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 16);
 
-  // Antipodal endpoints: angle == pi, so cross(a, b) == 0. Without a stable-axis
-  // fallback this normalizes a ~zero vector into a garbage axis, collapsing the
-  // interior to the start point (or NaN). The fix picks a perpendicular axis.
+  // Antipodal endpoints: angle == pi, so cross(a, b) == 0 and a perpendicular
+  // fallback axis is required.
   Fragment a, b;
   a.pos = Vector(1, 0, 0);
   b.pos = Vector(-1, 0, 0);
@@ -152,7 +162,7 @@ inline void test_line_sample_antipodal_stable_axis() {
   }
 
   // Discriminating check: the midpoint is a real point ~90deg from each
-  // antipodal endpoint (without the fix it collapses to the start, angle 0).
+  // antipodal endpoint (a degenerate axis would collapse it to angle 0).
   const Vector &mid = points[density / 2].pos;
   HS_EXPECT_NEAR(angle_between(a.pos, mid), PI_F * 0.5f, 1e-3f);
   HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
@@ -162,6 +172,9 @@ inline void test_line_sample_antipodal_stable_axis() {
 // ClipRegion::could_intersect_y  (constants.h — pure clip culling)
 // ============================================================================
 
+// could_intersect_y culls segments by screen-row range: segments overlapping
+// the clip band pass, segments fully above or below are rejected, and the test
+// is order-independent in its two y arguments.
 inline void test_clip_could_intersect_y() {
   // A clip window covering the middle band of a 144-row canvas.
   ClipRegion cr;
@@ -197,7 +210,7 @@ inline void test_clip_could_intersect_y() {
 }
 
 // ============================================================================
-// Plot::edge_row_span — arc-aware clip cull (CODE_REVIEW #2)
+// Plot::edge_row_span — arc-aware clip cull
 // ============================================================================
 
 // An orthonormal basis from a unit normal (mirrors make_basis's construction
@@ -211,10 +224,10 @@ inline Basis basis_from_normal(const Vector &n) {
 }
 
 // edge_row_span must conservatively cover the actual rendered arc's screen-row
-// extent — including the interior latitude bulge that an endpoint-only test
-// silently drops (the curve-clip-cull gap). We densely sample the true arc for
-// both the geodesic and planar strategies and assert the span contains it, and
-// that the bulge case (where endpoints alone would under-cover) is exercised.
+// extent — including the interior latitude bulge, where the arc reaches rows
+// beyond both endpoints. We densely sample the true arc for both the geodesic
+// and planar strategies, assert the span contains it, and confirm the sweep
+// actually produces many bulge cases (so the check is not vacuous).
 inline void test_edge_row_span_covers_arc_bulge() {
   constexpr int TW = 288, TH = 144;
   auto row_of = [](const Vector &v) {
@@ -290,15 +303,15 @@ inline void test_edge_row_span_covers_arc_bulge() {
     HS_EXPECT_LE(n_lo, t_lo + 0.25f);
     HS_EXPECT_GE(n_hi, t_hi - 0.25f);
 
-    // Count edges whose interior bulges past the endpoints — the case the old
-    // endpoint-only cull dropped. Confirms the test actually exercises it.
+    // Count edges whose interior bulges past the endpoints — the case a plain
+    // endpoint-only span would under-cover. Confirms the test exercises it.
     float e_lo = std::min(row_of(a), row_of(b));
     float e_hi = std::max(row_of(a), row_of(b));
     if (t_lo < e_lo - 1.0f || t_hi > e_hi + 1.0f) bulge_cases++;
   }
 
-  // The randomized sweep must have produced many genuine bulge cases, else the
-  // test would pass vacuously without ever exercising the fix.
+  // The randomized sweep must produce many genuine bulge cases, else the span
+  // contains-arc assertion above would pass vacuously on degenerate inputs.
   HS_EXPECT_GT(bulge_cases, 500);
 }
 
@@ -306,6 +319,7 @@ inline void test_edge_row_span_covers_arc_bulge() {
 // Plot::Ring::calcPoint / Ring::sample
 // ============================================================================
 
+// Ring::calcPoint returns a unit-length point on the sphere for every angle.
 inline void test_ring_calc_point_unit_length() {
   Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
   for (float a = 0.0f; a < 6.28f; a += 0.4f) {
@@ -314,6 +328,8 @@ inline void test_ring_calc_point_unit_length() {
   }
 }
 
+// Ring::sample emits N unit-length fragments plus one closing overlap fragment;
+// angular progress v0 runs 0..1 and the closing fragment coincides with sample 0.
 inline void test_ring_sample_unit_length_and_progress() {
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -390,11 +406,10 @@ inline void test_ring_sample_lut_matches_direct() {
 // Plot::DistortedRing::sample  — angle-addition identity (LUT) vs direct
 // ============================================================================
 
+// With a zero shift function, DistortedRing::sample reduces to a plain ring
+// built via the TrigLUT angle-addition identity cos/sin(theta+phase); verify
+// each fragment matches a direct cos/sin construction of the same ring.
 inline void test_distorted_ring_sample_angle_addition_identity() {
-  // With a zero shift function, DistortedRing::sample reduces to a plain ring
-  // built via the TrigLUT angle-addition identity cos/sin(theta+phase). We
-  // verify each fragment matches a direct cos/sin construction of the same
-  // ring, confirming the precomputed-LUT identity is correct.
   constexpr int W = 64;
   constexpr int H = 64;
 
@@ -437,6 +452,8 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
 // Plot::Spiral::sample
 // ============================================================================
 
+// Spiral::sample emits N unit-length fragments with non-decreasing cumulative
+// arc length (v1) and progress v0 spanning 0..1.
 inline void test_spiral_sample_unit_length_and_monotone_arc() {
   ScratchScope sc(plot_arena());
   Fragments frags;
@@ -461,6 +478,9 @@ inline void test_spiral_sample_unit_length_and_monotone_arc() {
 // Plot::Multiline::sample
 // ============================================================================
 
+// Multiline::sample arc-length-parameterizes the polyline: v0 progress is
+// monotone 0..1, v2 carries the vertex index, and v1 cumulative arc length sums
+// the per-edge angles.
 inline void test_multiline_sample_arclength_param() {
   ScratchScope sc(plot_arena());
 
@@ -496,6 +516,9 @@ inline void test_multiline_sample_arclength_param() {
 // Plot::Bezier::sample
 // ============================================================================
 
+// Bezier::sample emits N+1 fragments: endpoints land on the outer control
+// points, samples stay on the unit sphere, arc length is monotone, and v0
+// progress spans 0..1.
 inline void test_bezier_sample_endpoints_and_monotone_arc() {
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -531,6 +554,8 @@ inline void test_bezier_sample_endpoints_and_monotone_arc() {
 // Plot::Star::sample / Plot::Flower::sample
 // ============================================================================
 
+// Star::sample emits 2*sides unit-length vertices plus one closing fragment
+// that matches the first vertex (closed loop, v0 == 1 at close).
 inline void test_star_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -551,6 +576,8 @@ inline void test_star_sample_unit_length_closed() {
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
 }
 
+// Flower::sample emits 2*sides unit-length vertices plus one closing fragment
+// that matches the first vertex (closed loop).
 inline void test_flower_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -572,6 +599,7 @@ inline void test_flower_sample_unit_length_closed() {
 // Runner
 // ============================================================================
 
+// Runs every plot/scan sampling test in this module; returns the failure count.
 inline int run_plot_scan_tests() {
   auto scope = hs_test::begin_module("plot_scan");
 

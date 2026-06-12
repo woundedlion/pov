@@ -5,23 +5,23 @@
  * Unit tests for core/memory.h — Arena, TriangularBitset, ArenaVector,
  * ArenaSpan, ScratchScope, and Persist<T>.
  *
- * NOTE: The always-on HS_CHECK traps are driven (in forked child processes) by
- * the death harness in tests/test_death.h — case_arena_oom (allocate past
+ * The always-on HS_CHECK traps are driven (in forked child processes) by the
+ * death harness in tests/test_death.h — case_arena_oom (allocate past
  * capacity), case_arena_set_offset_overflow (rewind past capacity),
  * case_arena_vector_overflow / append_bulk_overflow (fixed-capacity push), and
  * case_arena_oversubscribed.
  *
  * The ArenaVector lifetime guards (unbound access, use-after-free) are debug
- * asserts, not HS_CHECK traps — they compile out under NDEBUG by design, so the
- * per-access check stays free in the device/WASM build. The death harness
- * therefore can't cover them; instead the bookkeeping they key on is exercised
- * in-process here: the bound_ flag through the construct/bind/move lifecycle
+ * asserts, not HS_CHECK traps — they compile out under NDEBUG so the per-access
+ * check stays free in the device/WASM build. The death harness therefore can't
+ * cover them; instead the bookkeeping they key on is exercised in-process here:
+ * the bound_ flag through the construct/bind/move lifecycle
  * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
  * the use-after-free generation snapshot via test_arenavec_stale_binding_after_reset
  * (an arena reset marks a live binding stale; rebinding it is then a debug
- * contract trap). Double-bind is NOT a precondition violation at all: a
- * re-bind that grows is a supported pattern (it abandons the old block until the
- * next arena reset — see ArenaVector::bind), covered by test_arenavec_rebind_grows.
+ * contract trap). A re-bind that grows is a supported pattern (it abandons the
+ * old block until the next arena reset — see ArenaVector::bind), covered by
+ * test_arenavec_rebind_grows.
  */
 #pragma once
 
@@ -43,6 +43,7 @@ inline uint8_t test_buf_b[16 * 1024];
 // Arena — construction, allocation, alignment
 // ============================================================================
 
+// A fresh arena reports full capacity and zero offset / high-water mark.
 inline void test_arena_construction() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   HS_EXPECT_EQ(a.get_capacity(), sizeof(test_buf_a));
@@ -50,6 +51,8 @@ inline void test_arena_construction() {
   HS_EXPECT_EQ(a.get_high_water_mark(), (size_t)0);
 }
 
+// Sequential allocations hand back distinct, monotonically increasing pointers
+// and track the offset / high-water mark.
 inline void test_arena_basic_allocation() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   void *p = a.allocate(64);
@@ -64,6 +67,7 @@ inline void test_arena_basic_allocation() {
                  reinterpret_cast<uintptr_t>(p));
 }
 
+// allocate() honors the requested alignment for the returned pointer.
 inline void test_arena_alignment() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   // Eat one byte to force a non-aligned offset
@@ -77,6 +81,8 @@ inline void test_arena_alignment() {
   HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(p32) % 32, (uintptr_t)0);
 }
 
+// High-water mark tracks the peak offset: it only ever rises, never falls on
+// rewind or smaller re-allocation.
 inline void test_arena_high_water_mark() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(100);
@@ -97,16 +103,18 @@ inline void test_arena_high_water_mark() {
   HS_EXPECT_TRUE(a.get_high_water_mark() >= 200);
 }
 
+// reset() zeroes the offset but preserves the high-water mark (peak usage stays
+// observable across resets).
 inline void test_arena_reset() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(100);
   size_t hwm = a.get_high_water_mark();
   a.reset();
   HS_EXPECT_EQ(a.get_offset(), (size_t)0);
-  // reset() does NOT clear the high water mark (per implementation)
   HS_EXPECT_EQ(a.get_high_water_mark(), hwm);
 }
 
+// set_offset() rewinds the arena to a previously saved offset (manual scratch).
 inline void test_arena_set_offset() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(256);
@@ -117,12 +125,11 @@ inline void test_arena_set_offset() {
   HS_EXPECT_EQ(a.get_offset(), saved);
 }
 
+// Verify the legal boundary: an allocation that fills the arena exactly to
+// capacity succeeds with in-range pointers. Over-allocation is an invariant
+// violation that HS_CHECK-traps inside allocate(), exercised by the death
+// harness rather than here.
 inline void test_arena_fills_to_capacity() {
-  // Fail-fast contract: over-allocation is an invariant violation that
-  // HS_CHECK-traps inside allocate() (it no longer returns nullptr for callers
-  // to deref blindly). Like the other precondition traps in memory.h, that is
-  // exercised on the bench, not here — we verify only the legal boundary: an
-  // allocation that fills exactly to capacity succeeds with in-range pointers.
   uint8_t tiny[64];
   Arena a(tiny, sizeof(tiny));
   void *p = a.allocate(32, 1);
@@ -136,6 +143,8 @@ inline void test_arena_fills_to_capacity() {
   HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(q), base + 32);
 }
 
+// rebind() re-points the arena at fresh backing storage, resetting offset and
+// high-water mark; subsequent allocations land in the new buffer.
 inline void test_arena_rebind() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(100);
@@ -151,6 +160,8 @@ inline void test_arena_rebind() {
   HS_EXPECT_TRUE(addr >= base && addr < base + sizeof(test_buf_b));
 }
 
+// reset_high_water_mark() drops the HWM to the current offset (re-baselining
+// peak-usage measurement mid-run).
 inline void test_arena_reset_high_water_mark() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(500);
@@ -159,6 +170,8 @@ inline void test_arena_reset_high_water_mark() {
   HS_EXPECT_EQ(a.get_high_water_mark(), (size_t)100);
 }
 
+// reset() and rebind() each bump the debug-only generation counter that backs
+// ArenaVector's stale-binding detection. Debug builds only.
 #ifndef NDEBUG
 inline void test_arena_generation_bumps() {
   Arena a(test_buf_a, sizeof(test_buf_a));
@@ -177,6 +190,8 @@ inline void test_arena_generation_bumps() {
 // TriangularBitset
 // ============================================================================
 
+// BITS/BYTES are the compile-time size of the upper-triangular pair matrix:
+// MAX_V*(MAX_V-1)/2 bits, ceil(bits/8) bytes.
 inline void test_tribitset_sizes() {
   // MAX_V=10 → 10*9/2 = 45 bits → ceil(45/8) = 6 bytes
   HS_EXPECT_EQ(TriangularBitset<10>::BITS, 45);
@@ -186,6 +201,7 @@ inline void test_tribitset_sizes() {
   HS_EXPECT_EQ(TriangularBitset<16>::BYTES, 15);
 }
 
+// After clear(), every pair reads unset.
 inline void test_tribitset_clear_and_test() {
   TriangularBitset<8> bs;
   bs.clear();
@@ -194,22 +210,21 @@ inline void test_tribitset_clear_and_test() {
       HS_EXPECT_FALSE(bs.test(a, b));
 }
 
+// test_and_set() returns the prior bit (false on first insert, true thereafter)
+// and leaves neighboring pairs untouched.
 inline void test_tribitset_test_and_set() {
   TriangularBitset<10> bs;
   bs.clear();
-  // First insertion of (2, 5) returns false (newly inserted)
   HS_EXPECT_FALSE(bs.test_and_set(2, 5));
-  // Second insertion of (2, 5) returns true (already present)
   HS_EXPECT_TRUE(bs.test_and_set(2, 5));
-  // test() agrees
   HS_EXPECT_TRUE(bs.test(2, 5));
-  // Other pairs untouched
   HS_EXPECT_FALSE(bs.test(2, 6));
   HS_EXPECT_FALSE(bs.test(3, 5));
 }
 
+// index(a,b) is a bijection from the MAX_V*(MAX_V-1)/2 unordered pairs onto the
+// bit range [0, BITS) — no two pairs collide, and all indices are covered.
 inline void test_tribitset_index_uniqueness() {
-  // For MAX_V=8, the 28 distinct pairs must map to 28 distinct indices in [0, 28)
   constexpr int N = 8;
   int seen[64] = {};
   int unique = 0;
@@ -225,10 +240,11 @@ inline void test_tribitset_index_uniqueness() {
   HS_EXPECT_EQ(unique, TriangularBitset<N>::BITS);
 }
 
+// Setting one set of pairs leaves disjoint pairs unset — bits are independent.
 inline void test_tribitset_all_pairs_independent() {
   TriangularBitset<8> bs;
   bs.clear();
-  // Set every other pair (i, i+2) and verify intermediate pairs are unset.
+  // Set every (i, i+2) and verify the (i, i+1) pairs stay unset.
   for (int i = 0; i + 2 < 8; ++i) bs.test_and_set(i, i + 2);
   for (int i = 0; i + 2 < 8; ++i) HS_EXPECT_TRUE(bs.test(i, i + 2));
   for (int i = 0; i + 1 < 8; ++i) HS_EXPECT_FALSE(bs.test(i, i + 1));
@@ -238,6 +254,7 @@ inline void test_tribitset_all_pairs_independent() {
 // ArenaVector
 // ============================================================================
 
+// A default-constructed vector is unbound: no arena, zero size and capacity.
 inline void test_arenavec_default_unbound() {
   ArenaVector<int> v;
   HS_EXPECT_FALSE(v.is_bound());
@@ -246,6 +263,7 @@ inline void test_arenavec_default_unbound() {
   HS_EXPECT_TRUE(v.empty());
 }
 
+// bind() reserves fixed capacity from an arena and marks the vector bound.
 inline void test_arenavec_bind() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v;
@@ -255,6 +273,7 @@ inline void test_arenavec_bind() {
   HS_EXPECT_EQ(v.size(), (size_t)0);
 }
 
+// The (arena, capacity) constructor binds in one step.
 inline void test_arenavec_constructor_with_arena() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 16);
@@ -262,6 +281,7 @@ inline void test_arenavec_constructor_with_arena() {
   HS_EXPECT_EQ(v.capacity(), (size_t)16);
 }
 
+// push_back() appends in order and operator[] reads elements back by index.
 inline void test_arenavec_push_back_indexing() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 8);
@@ -270,6 +290,7 @@ inline void test_arenavec_push_back_indexing() {
   for (int i = 0; i < 8; ++i) HS_EXPECT_EQ(v[i], i * 10);
 }
 
+// back() returns the most recently pushed element.
 inline void test_arenavec_back() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 4);
@@ -281,6 +302,7 @@ inline void test_arenavec_back() {
   HS_EXPECT_EQ(v.back(), 3);
 }
 
+// emplace_back() constructs in place and returns a reference to the new element.
 inline void test_arenavec_emplace_back() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   struct Pair { int x; int y; Pair(int xx, int yy) : x(xx), y(yy) {} };
@@ -292,6 +314,7 @@ inline void test_arenavec_emplace_back() {
   HS_EXPECT_EQ(v.size(), (size_t)1);
 }
 
+// append_bulk() copies a contiguous run of elements and appends across calls.
 inline void test_arenavec_append_bulk() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 16);
@@ -307,6 +330,8 @@ inline void test_arenavec_append_bulk() {
   HS_EXPECT_EQ(v[7], 80);
 }
 
+// clear() resets size to zero while keeping the binding and capacity, so the
+// vector can be refilled without re-allocating.
 inline void test_arenavec_clear() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 4);
@@ -325,6 +350,7 @@ inline void test_arenavec_clear() {
   HS_EXPECT_EQ(v[0], 99);
 }
 
+// begin()/end() iterators and range-based for both visit every element.
 inline void test_arenavec_iteration() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 8);
@@ -340,6 +366,8 @@ inline void test_arenavec_iteration() {
   HS_EXPECT_EQ(count, 5);
 }
 
+// Move-construction transfers the data pointer (no copy) and leaves the source
+// unbound and empty.
 inline void test_arenavec_move_construct() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> src(a, 4);
@@ -358,6 +386,7 @@ inline void test_arenavec_move_construct() {
   HS_EXPECT_EQ(dst[1], 8);
 }
 
+// Move-assignment likewise steals the source's storage and leaves it unbound.
 inline void test_arenavec_move_assign() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> src(a, 4);
@@ -374,14 +403,14 @@ inline void test_arenavec_move_assign() {
   HS_EXPECT_EQ(dst.data(), src_data);
 }
 
+// Re-binding to a smaller-or-equal capacity reuses the existing block (same
+// data pointer, original capacity retained) and only resets the size.
 inline void test_arenavec_rebind_reuses() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 16);
   v.push_back(42);
   int *data_before = v.data();
 
-  // Re-binding with smaller-or-equal capacity should reuse storage and
-  // reset size — not re-allocate.
   v.bind(a, 8);
   HS_EXPECT_EQ(v.size(), (size_t)0);
   HS_EXPECT_EQ(v.capacity(), (size_t)16);
@@ -389,8 +418,8 @@ inline void test_arenavec_rebind_reuses() {
 }
 
 // Re-binding to a LARGER capacity is a supported grow: it allocates a fresh
-// block (abandoning the old one until the next arena reset — see bind()'s note)
-// and adopts the new capacity. A debug build also logs the abandoned bytes.
+// block (abandoning the old one until the next arena reset — see bind()) and
+// adopts the new capacity.
 inline void test_arenavec_rebind_grows() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 8);
@@ -405,15 +434,12 @@ inline void test_arenavec_rebind_grows() {
 
 // Use-after-free precondition: an arena reset bumps the generation the vector
 // snapshotted at bind(), marking its block dead. Rebinding a still-bound vector
-// to a reset (or different) arena is therefore a CONTRACT VIOLATION — the old
-// block is dead, and release builds cannot detect the staleness (generation
-// tracking is debug-only), so bind() asserts on it in debug and release trusts
-// the contract. Callers must clear/reconstruct the handle before resetting the
-// arena (the Persist/compaction tests below do exactly this — they reset to an
-// unbound state before re-binding). This test pins the generation-bump
-// precondition that both the bind() contract assert and check_alive() rely on;
-// the contract trap itself is a debug-only assert, exercised by integration
-// rather than spawned as a death case (it lowers to abort, not __builtin_trap).
+// to a reset (or different) arena is therefore a contract violation that bind()
+// asserts on in debug; release trusts the contract since generation tracking is
+// debug-only. Callers must clear/reconstruct the handle before resetting the
+// arena (the Persist tests below do exactly this). This test only pins the
+// generation-bump that the bind() assert and check_alive() key on — it does not
+// trip the assert itself (which lowers to abort, not a death-case trap).
 #ifndef NDEBUG
 inline void test_arenavec_stale_binding_after_reset() {
   Arena a(test_buf_a, sizeof(test_buf_a));
@@ -428,6 +454,7 @@ inline void test_arenavec_stale_binding_after_reset() {
 }
 #endif
 
+// Binding with zero capacity is legal: the vector is bound but empty.
 inline void test_arenavec_zero_capacity() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 0);
@@ -440,6 +467,7 @@ inline void test_arenavec_zero_capacity() {
 // ArenaSpan
 // ============================================================================
 
+// A default span is empty: null data, zero size, begin() == end().
 inline void test_arenaspan_default() {
   ArenaSpan<int> sp;
   HS_EXPECT_EQ(sp.size(), (size_t)0);
@@ -448,6 +476,8 @@ inline void test_arenaspan_default() {
   HS_EXPECT_EQ(sp.begin(), sp.end());
 }
 
+// A span built from a vector aliases its storage (same data pointer and size)
+// and supports indexing and iteration.
 inline void test_arenaspan_from_vector() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 4);
@@ -463,7 +493,6 @@ inline void test_arenaspan_from_vector() {
   HS_EXPECT_EQ(sp[1], 22);
   HS_EXPECT_EQ(sp[2], 33);
 
-  // Iteration
   int sum = 0;
   for (int x : sp) sum += x;
   HS_EXPECT_EQ(sum, 66);
@@ -473,6 +502,7 @@ inline void test_arenaspan_from_vector() {
 // ScratchScope
 // ============================================================================
 
+// A ScratchScope rolls the arena offset back to its entry value on destruction.
 inline void test_scratch_basic_restore() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(256);
@@ -485,6 +515,8 @@ inline void test_scratch_basic_restore() {
   HS_EXPECT_EQ(a.get_offset(), before);
 }
 
+// make_vector() yields a vector backed by the scope's arena; its storage is
+// reclaimed when the scope exits.
 inline void test_scratch_make_vector() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   size_t before = a.get_offset();
@@ -499,6 +531,7 @@ inline void test_scratch_make_vector() {
   HS_EXPECT_EQ(a.get_offset(), before);
 }
 
+// Nested scopes unwind in LIFO order, each restoring its own entry offset.
 inline void test_scratch_nested() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   size_t l0 = a.get_offset();
@@ -520,6 +553,9 @@ inline void test_scratch_nested() {
 // Persist<T> — Cloneable evacuator
 // ============================================================================
 
+// Minimal Cloneable payload for the Persist<T> tests: an arena-backed vector
+// plus a scalar. clone() is the evacuator hook Persist calls to deep-copy the
+// payload into another arena.
 struct TestPayload {
   ArenaVector<int> data;
   int summary = 0;
@@ -528,6 +564,7 @@ struct TestPayload {
   TestPayload(TestPayload &&) noexcept = default;
   TestPayload &operator=(TestPayload &&) noexcept = default;
 
+  // Deep-copy src into dst, allocating dst's storage from arena.
   static void clone(const TestPayload &src, TestPayload &dst, Arena &arena) {
     dst.data.bind(arena, src.data.size());
     for (size_t i = 0; i < src.data.size(); ++i) dst.data.push_back(src.data[i]);
@@ -535,6 +572,9 @@ struct TestPayload {
   }
 };
 
+// Persist evacuates the live payload to a scratch arena, survives a destructive
+// reset of the persistent arena, and rebuilds the payload from the backup on
+// scope exit.
 inline void test_persist_restores_target() {
   Arena persistent(test_buf_a, sizeof(test_buf_a));
   Arena scratch(test_buf_b, sizeof(test_buf_b));
@@ -563,6 +603,8 @@ inline void test_persist_restores_target() {
   HS_EXPECT_EQ(live.summary, 99);
 }
 
+// Persist's embedded ScratchScope rolls the scratch arena's offset back to its
+// pre-evacuation value, so the backup leaves no permanent footprint.
 inline void test_persist_scratch_offset_restored() {
   Arena persistent(test_buf_a, sizeof(test_buf_a));
   Arena scratch(test_buf_b, sizeof(test_buf_b));
@@ -635,6 +677,7 @@ inline void test_persist_compaction_relocates_survivor() {
 // Runner
 // ============================================================================
 
+// Run every memory test case in this module; returns the harness exit code.
 inline int run_memory_tests() {
   auto scope = hs_test::begin_module("memory");
 

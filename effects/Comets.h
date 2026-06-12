@@ -8,10 +8,15 @@
 #include <array>
 #include "core/effects_engine.h"
 
+// A comet whose head traces a spherical Lissajous curve, dragging a fading
+// trail behind it. The path function and color palette periodically roll over
+// to the next entry in the function table, cross-fading via a ColorWipe.
 template <int W, int H> class Comets : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
 
+  // The comet head: its world orientation, the recorded trail of past
+  // orientations, and the local direction vector being drawn (the body axis).
   struct Node {
     Orientation<16> orientation;
     Animation::OrientationTrail<Orientation<16>, TRAIL_LENGTH> trail;
@@ -22,6 +27,9 @@ public:
 
   FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {}
 
+  // Allocate the node, bake the palette LUT, register params, and wire up the
+  // timeline: an infinite RandomWalk + Motion + cycle timer, plus the periodic
+  // palette/path rollover.
   void init() override {
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
@@ -59,6 +67,8 @@ public:
 
   bool show_bg() const override { return false; }
 
+  // Step the timeline, live-apply Cycle Dur, rebake the palette while a wipe is
+  // in flight, record the trail, and draw the comet body along the trail.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -96,6 +106,8 @@ public:
   }
 
 private:
+  // Rebuild the path function from the current table entry, snapping its
+  // traversal length so the spherical Lissajous curve closes exactly.
   void update_path() {
     LissajousParams config = functions[cur_function_idx];
     // Snap the traversal length so the curve closes exactly. A spherical
@@ -112,8 +124,8 @@ private:
     // is a no-op and the trace stays continuous across loops and switches.
     // Number of whole m2-cycles spanned by the authored domain. Floor at 1: when
     // m2*domain < PI the round() collapses to 0, which would zero closed_domain
-    // and freeze the head at path_fn(0) (finding 215). All 12 current entries
-    // clear the threshold, but the table is authored data that gets extended.
+    // and freeze the head at path_fn(0). All 12 current entries clear the
+    // threshold, but the table is authored data that gets extended.
     float closing_cycles =
         std::round(config.m2 * config.domain / (2 * PI_F));
     if (closing_cycles < 1.0f)
@@ -130,14 +142,16 @@ private:
     };
   }
 
+  // Roll the palette over to a freshly generated one via a ColorWipe, arming
+  // the rebake gate for the wipe's duration.
   void update_palette() {
     // Skip the rollover while a wipe is still in flight. The ColorWipe reads
     // `next_palette_` as its target and mutates `palette` for WIPE_FRAMES frames;
     // at the Cycle Dur floor the cycle period (2*cycle_dur = 20) is shorter than
     // WIPE_FRAMES (48), so the timer can fire again mid-wipe. Starting a second
     // wipe would overwrite the next_palette_ the live wipe still references and
-    // queue a second mutator fighting over `palette` (finding 214). The next
-    // timer tick picks up the rollover once the in-flight wipe drains.
+    // queue a second mutator fighting over `palette`. The next timer tick picks
+    // up the rollover once the in-flight wipe drains.
     if (wipe_frames_remaining_ > 0)
       return;
     next_palette_ =

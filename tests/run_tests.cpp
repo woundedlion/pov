@@ -42,10 +42,9 @@
 #include "tests/test_styles.h"
 #include "tests/test_death.h"
 
-// Test-module roster: short name -> entry point. The order mirrors the
-// historical full-suite sequence, so an unfiltered run is byte-for-byte the
-// same work as before. Passing one or more names on argv runs ONLY those
-// modules, in the order given — the iteration-speed counterpart to the
+// Test-module roster: short name -> entry point. An unfiltered run executes
+// every module in array order; passing one or more names on argv runs ONLY
+// those modules, in the order given — the iteration-speed counterpart to the
 // HS_DEATH_CASE single-case dispatch below. Modules are independent (each owns
 // its own fixtures; the only cross-cutting state, self_exe(), is set
 // unconditionally in main), so any subset is safe to run in isolation.
@@ -89,12 +88,17 @@ static const TestModule kModules[] = {
     {"death", hs_test::death::run_death_tests},
 };
 
+// Print the roster's module names, one indented per line, to `out`.
 static void print_modules(std::FILE *out) {
   for (const TestModule &m : kModules)
     std::fprintf(out, "  %s\n", m.name);
 }
 
+// Test-suite entry point. Dispatches the HS_DEATH_CASE child case if set, else
+// runs the full roster or the modules named on argv. Returns 0 on success, 1 if
+// any test failed, 2 on an unknown module name.
 int main(int argc, char **argv) {
+  // Unbuffered stdout so progress survives a trap/abort in a death-case child.
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   hs_test::death::self_exe() = (argc > 0) ? argv[0] : nullptr;

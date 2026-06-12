@@ -58,8 +58,7 @@ namespace hs {
  * @brief On-device logging to Serial: formats into a fixed 256-byte stack
  *        buffer with vsnprintf (no heap), then writes one line. Sized to hold a
  *        full check_fail() breadcrumb ("HS_CHECK failed: file:line: (cond) msg")
- *        without truncating the message tail; a smaller buffer dropped it once
- *        the file/cond/message together ran long.
+ *        without truncating the message tail.
  */
 inline void log(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *msg, ...) {
@@ -205,8 +204,7 @@ struct CRGB {
   constexpr CRGB() : r(0), g(0), b(0) {}
   constexpr CRGB(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
   // FastLED's single-argument constructor is CRGB(uint32_t colorcode), decoding
-  // 0xRRGGBB — NOT a grayscale fill. The old uint8_t gray overload made
-  // CRGB(0xFF8000) black (0xFF8000 & 0xFF == 0) where the device renders orange.
+  // 0xRRGGBB — a packed color, not a grayscale fill.
   constexpr CRGB(uint32_t colorcode)
       : r((colorcode >> 16) & 0xFF), g((colorcode >> 8) & 0xFF),
         b(colorcode & 0xFF) {}
@@ -374,9 +372,7 @@ enum ColorOrder { RGB };
 // --- Mock Arduino Functions ---
 // These are deliberately at global scope to mirror Arduino/FastLED, which
 // expose random()/map() as free globals; unqualified callers (e.g. the legacy
-// effects) must resolve identically on host and device. Unlike the former
-// global `lerp` (which had no Arduino counterpart and so lived only here), these
-// are a faithful mock of an existing platform API, not host-only pollution.
+// effects) must resolve identically on host and device.
 // Degenerate-range guards mirror map() below: Arduino's random() returns 0 for
 // random(0) and `min` for random(min,max) when min>=max, so the device never
 // divides by zero. The host modulo would SIGFPE on a zero divisor — match the
@@ -410,10 +406,7 @@ struct SerialMock {
   void println(int val) { std::cout << val << std::endl; }
   void println(unsigned long val) { std::cout << val << std::endl; }
   void printf(const char *fmt, ...) {
-    // Match Arduino's Serial.printf: actually expand the format. The old stub
-    // wrote the raw format string and dropped every argument, so a host/sim
-    // diagnostic like "req %u / cap %u" printed literal "%u"s instead of the
-    // values — useless and unlike the device. Format into a stack buffer (no
+    // Match Arduino's Serial.printf: expand the format into a stack buffer (no
     // heap) and emit, mirroring hs::log's vsnprintf path.
     char buf[256];
     va_list args;
@@ -512,8 +505,7 @@ inline uint8_t beat8(uint16_t bpm, uint32_t timebase = 0) {
  * @brief FastLED-faithful beatsin8: a sin8 oscillation between lowest and
  * highest at the given BPM. `timebase` shifts the zero of time; `phase_offset`
  * shifts the wave — the parameter order and LUT match <FastLED.h>, and the
- * scale8 range fit keeps the result within [lowest, highest] (the old mock
- * swapped phase/timebase, dropped the 5th argument, and used a float sine).
+ * scale8 range fit keeps the result within [lowest, highest].
  */
 inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
                         uint32_t timebase = 0, uint8_t phase_offset = 0) {
@@ -532,17 +524,16 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
   return lowest + scale16(s, highest - lowest);
 }
 
+// FastLED addmod8: (a + b) mod m.
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) { return (a + b) % m; }
 
 // FastLED map8(in, rangeStart, rangeEnd): maps the full 0..255 input onto
-// [rangeStart, rangeEnd] via scale8 — NOT a remap of [in_min,in_max]→[0,255].
-// The old mock had the inverse semantics (and an unguarded divide), so any
-// effect indexing a palette through map8 sampled a different range in the sim
-// than on the device. Match FastLED.
+// [rangeStart, rangeEnd] via scale8 — not a remap of an arbitrary input range.
 inline uint8_t map8(uint8_t in, uint8_t rangeStart, uint8_t rangeEnd) {
   return rangeStart + scale8(in, rangeEnd - rangeStart);
 }
 
+// FastLED triwave8: 0..255 input to a symmetric triangle wave (0->0, 128->254).
 inline uint8_t triwave8(uint8_t in) {
   if (in & 0x80) {
     in = 255 - in;
@@ -637,6 +628,7 @@ inline float rand_f() {
                         static_cast<uint32_t>(hs::random().max()));
 }
 
+/** @brief Pseudo-random float in [min, max). */
 inline float rand_f(float min, float max) {
   return min + rand_f() * (max - min);
 }
@@ -773,8 +765,7 @@ inline __attribute__((always_inline)) int clamp(int v, int lo, int hi) {
 // Branch-free scalar lerp. Qualify calls as hs::lerp instead of an unqualified
 // `lerp`: the latter resolves to a platform-specific global overload (only the
 // non-Arduino branch of this header defines one) or a std::lerp global leak,
-// neither guaranteed on every build. This naive form matches the prior
-// resolution exactly, so numerics and hot-path cost are unchanged.
+// neither guaranteed on every build.
 inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
                                                            float t) {
   return a + (b - a) * t;
@@ -790,6 +781,13 @@ inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
 // ---------------------------------------------------------------------------
 namespace hs {
 
+/**
+ * @brief Named cumulative cycle accumulator. Each instance self-registers into
+ *        a static intrusive list at construction so log_all()/reset_all() can
+ *        walk every counter without a central registry. Counters nest: a
+ *        CycleScope sets `parent` to whichever counter was active when this one
+ *        started, giving log_all() a call tree with per-parent percentages.
+ */
 struct CycleCounter {
   static constexpr uint32_t CYCLES_PER_US = 600; // Teensy 4 @ 600 MHz
 
@@ -803,12 +801,14 @@ struct CycleCounter {
 
   void reset() { cycles = 0; count = 0; }
 
+  /** @brief Logs every root counter (no parent) and its subtree as a tree. */
   static void log_all() {
     hs::log("--- Cycle Counters ---");
     for (auto* c = head_; c; c = c->next)
       if (!c->parent && c->count) log_node(c, 0);
   }
 
+  /** @brief Zeroes every registered counter (between profiling runs). */
   static void reset_all() {
     for (auto* c = head_; c; c = c->next)
       c->reset();
@@ -819,6 +819,9 @@ private:
   static inline CycleCounter* active_ = nullptr;
   friend struct CycleScope;
 
+  // Recursively logs one node and its children. `depth` drives indentation;
+  // the reported percentage is this node's cycles over its parent's (or 100%
+  // for a root), and cycles are converted to microseconds via CYCLES_PER_US.
   static void log_node(const CycleCounter* node, int depth) {
     if (!node->count) return;
     uint32_t ref = node->parent ? node->parent->cycles : node->cycles;
@@ -835,6 +838,13 @@ private:
   }
 };
 
+/**
+ * @brief RAII guard that times its enclosing scope and accumulates the elapsed
+ *        cycles into a CycleCounter. On construction it makes its counter the
+ *        active one (recording the previously-active counter as parent on first
+ *        use) and snapshots the cycle counter; the destructor adds the delta and
+ *        restores the previous active counter, rebuilding the nesting tree.
+ */
 struct CycleScope {
   CycleCounter& counter;
   CycleCounter* prev_active;

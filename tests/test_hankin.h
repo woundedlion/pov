@@ -33,6 +33,8 @@ inline uint8_t hankin_temp_buf[256 * 1024];
 // compile_hankin
 // ---------------------------------------------------------------------------
 
+// Verifies compile_hankin fills every CompiledHankin array with the expected
+// sizes and self-consistent contents for a cube input.
 inline void test_compile_hankin_populates_arrays() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
@@ -81,6 +83,8 @@ inline void test_compile_hankin_populates_arrays() {
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
 }
 
+// Every dynamic instruction must reference base-vertex and static-vertex
+// indices within their respective array bounds.
 inline void test_compile_hankin_instruction_indices_in_range() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
@@ -108,6 +112,7 @@ inline void test_compile_hankin_instruction_indices_in_range() {
 // normalised corner positions.
 // ---------------------------------------------------------------------------
 
+// At angle 0, each dynamic vertex must land on the normalised corner position.
 inline void test_update_hankin_flat_collapses_to_corners() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
@@ -131,6 +136,8 @@ inline void test_update_hankin_flat_collapses_to_corners() {
   }
 }
 
+// update_hankin at a non-zero angle must emit an output mesh whose vertex,
+// face-count, and face arrays match the compiled sizes and stay consistent.
 inline void test_update_hankin_populates_output_mesh() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
@@ -159,6 +166,8 @@ inline void test_update_hankin_populates_output_mesh() {
 // hankin() one-shot wrapper
 // ---------------------------------------------------------------------------
 
+// The one-shot hankin() wrapper must return a non-empty, self-consistent mesh
+// whose vertices all lie on (or near) the unit sphere.
 inline void test_hankin_one_shot_produces_valid_mesh() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
@@ -178,6 +187,8 @@ inline void test_hankin_one_shot_produces_valid_mesh() {
   check_all_unit_vertices(out, 1e-2f);
 }
 
+// Flat (angle 0) and twisted (angle > 0) meshes share topology but must differ
+// geometrically in at least one vertex.
 inline void test_hankin_flat_and_twisted_differ() {
   Arena target_a(hankin_target_buf, sizeof(hankin_target_buf) / 2);
   Arena target_b(hankin_target_buf + sizeof(hankin_target_buf) / 2,
@@ -213,6 +224,8 @@ inline void test_hankin_flat_and_twisted_differ() {
 // CompiledHankin::clone — deep copy into a separate arena
 // ---------------------------------------------------------------------------
 
+// clone() must produce a structurally equal copy with independent backing
+// storage (distinct data pointers) and matching element values.
 inline void test_compiled_hankin_clone_deep_copies() {
   Arena src_arena(hankin_target_buf, sizeof(hankin_target_buf) / 2);
   Arena dst_arena(hankin_target_buf + sizeof(hankin_target_buf) / 2,
@@ -251,6 +264,7 @@ inline void test_compiled_hankin_clone_deep_copies() {
   }
 }
 
+// clear() must reset every CompiledHankin array back to empty.
 inline void test_compiled_hankin_clear() {
   Arena arena(hankin_target_buf, sizeof(hankin_target_buf));
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
@@ -275,6 +289,7 @@ inline void test_compiled_hankin_clear() {
 // Runner
 // ---------------------------------------------------------------------------
 
+// Runs all hankin test cases under one module scope; returns the failure count.
 inline int run_hankin_tests() {
   auto scope = hs_test::begin_module("hankin");
 

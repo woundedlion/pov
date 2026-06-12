@@ -31,6 +31,7 @@ using hs_test::math3d::approx_quat;
 // Axis constants
 // ============================================================================
 
+// X/Y/Z_AXIS are the canonical unit axes and UP aliases Y_AXIS.
 inline void test_axis_constants() {
   HS_EXPECT_VEC(X_AXIS, Vector(1, 0, 0), 0.0f);
   HS_EXPECT_VEC(Y_AXIS, Vector(0, 1, 0), 0.0f);
@@ -42,6 +43,7 @@ inline void test_axis_constants() {
 // Fragment::lerp
 // ============================================================================
 
+// lerp at t=0 returns a and at t=1 returns b for pos/scalar/age fields.
 inline void test_fragment_lerp_endpoints() {
   Fragment a;
   a.pos = Vector(1, 0, 0);
@@ -69,6 +71,7 @@ inline void test_fragment_lerp_endpoints() {
   HS_EXPECT_NEAR(at1.v3, b.v3, 1e-6f);
 }
 
+// lerp at t=0.5 averages position and scalar fields component-wise.
 inline void test_fragment_lerp_midpoint() {
   Fragment a, b;
   a.pos = Vector(2, 4, 6);
@@ -86,18 +89,21 @@ inline void test_fragment_lerp_midpoint() {
 // y_to_phi / phi_to_y
 // ============================================================================
 
+// y_to_phi maps row 0→0, top row→PI, midpoint→PI/2 (phi = y*PI/(h_virt-1)).
 inline void test_y_to_phi_free_function() {
   HS_EXPECT_NEAR(y_to_phi(0.0f, 145), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(y_to_phi(144.0f, 145), PI_F, 1e-5f);
   HS_EXPECT_NEAR(y_to_phi(72.0f, 145), PI_F * 0.5f, 1e-5f);
 }
 
+// phi_to_y is the inverse of y_to_phi: 0→0, PI→top row, PI/2→midpoint.
 inline void test_phi_to_y_free_function() {
   HS_EXPECT_NEAR(phi_to_y(0.0f, 145), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(phi_to_y(PI_F, 145), 144.0f, 1e-5f);
   HS_EXPECT_NEAR(phi_to_y(PI_F * 0.5f, 145), 72.0f, 1e-5f);
 }
 
+// phi_to_y(y_to_phi(i)) recovers i for every row across several heights.
 inline void test_y_phi_roundtrip() {
   for (int h_virt : {16, 64, 145}) {
     for (int i = 0; i < h_virt; ++i) {
@@ -108,9 +114,9 @@ inline void test_y_phi_roundtrip() {
   }
 }
 
+// The templated y_to_phi<H> (integer and float overloads) uses the PhiLUT and
+// agrees with the offset-aware free function for every row.
 inline void test_y_to_phi_templated_LUT() {
-  // Both integer and float template overloads hit the PhiLUT path for
-  // integer inputs and agree with the free function.
   constexpr int H = 32;
   for (int y = 0; y < H; ++y) {
     float lut = y_to_phi<H>(y);
@@ -118,7 +124,7 @@ inline void test_y_to_phi_templated_LUT() {
     HS_EXPECT_NEAR(lut, direct, 1e-5f);
   }
 
-  // After a previous call, PhiLUT must be initialised.
+  // Using the LUT lazily initialises it.
   HS_EXPECT_TRUE(PhiLUT<H>::initialized);
 
   // Float version with integer-valued input also hits the LUT.
@@ -126,18 +132,16 @@ inline void test_y_to_phi_templated_LUT() {
   HS_EXPECT_NEAR(lut_f, y_to_phi<H>(5), 1e-5f);
 }
 
-// Offset-injection regression guard for the H_OFFSET double-apply bug.
+// Pins the offset semantics of the phi mapping by injecting a non-zero offset
+// directly through the free function (the building block the templated path
+// mirrors), so the formula holds even though the native build has H_OFFSET==0.
 //
 // H_OFFSET adds virtual rows so the image is CLIPPED (not stretched) at the
 // bottom of the ring, where the LEDs stop short of the south pole. The mapping
 // is phi = y*PI/(H_VIRT-1) with H_VIRT = H + H_OFFSET, so the bottom physical
-// row y=H-1 lands short of PI. The bug passed H_VIRT (already = H+H_OFFSET) as
-// the template arg to y_to_phi<H>(), which re-adds H_OFFSET internally — a
-// double-apply that divides by (H + 2*H_OFFSET - 1) instead. On the native
-// build H_OFFSET==0 so the bug is invisible; this test injects the real
-// hardware offset through the offset-parameterised free function (the building
-// block the templated path mirrors) so the formula and the clipping intent are
-// pinned regardless of the compile-time offset.
+// row y=H-1 lands short of PI while the virtual bottom row reaches PI exactly.
+// The guard also asserts the offset is applied once, not twice (dividing by
+// H + 2*OFF - 1 would push the bottom row even further from the pole).
 inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
   constexpr int H = 20;          // Holosphere hardware height
   constexpr int OFF = 3;         // hardware H_OFFSET
@@ -149,8 +153,8 @@ inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
   HS_EXPECT_NEAR(correct, bottom_phys * PI_F / (H_VIRT - 1), 1e-5f);
   HS_EXPECT_TRUE(correct < PI_F); // clipped, not reaching the south pole
 
-  // The double-applied denominator (the bug) divides by (H + 2*OFF - 1) = 25
-  // and must NOT match the correct value — guards against reintroducing it.
+  // A double-applied offset would divide by (H + 2*OFF - 1) = 25; that value
+  // must stay clearly distinct from the correct single-offset mapping.
   float double_applied = bottom_phys * PI_F / (H + 2 * OFF - 1); // 19*PI/24
   HS_EXPECT_TRUE(std::abs(correct - double_applied) > 1e-2f);
 
@@ -162,6 +166,8 @@ inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
 // TrigLUT / pixel_to_vector / vector_to_pixel
 // ============================================================================
 
+// pixel_to_vector returns unit vectors across the full virtual grid, and using
+// it lazily initialises the TrigLUT.
 inline void test_pixel_to_vector_unit_length() {
   constexpr int W = 32, H = 32;
   for (int y = 0; y < H + hs::H_OFFSET; ++y) {
@@ -170,10 +176,11 @@ inline void test_pixel_to_vector_unit_length() {
       HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
     }
   }
-  // After use, the TrigLUT must be initialised.
   HS_EXPECT_TRUE((TrigLUT<W, H>::initialized));
 }
 
+// pixel_to_vector lands on the expected directions at the equator and north
+// pole (the two anchors of the spherical mapping).
 inline void test_pixel_to_vector_known_samples() {
   constexpr int W = 32, H = 32;
   // (x=0, y near H/2) → near equator. Integer y rarely lands exactly on
@@ -187,11 +194,10 @@ inline void test_pixel_to_vector_known_samples() {
 }
 
 // Pins pixel_to_vector's fractional-y (float) branch to y_to_phi<H>, the same
-// phi source the integer LUT path and every SDF/scan shape use. If the float
-// branch ever diverges (e.g. a y_to_phi<H_VIRT> double-apply reappears) on a
-// build with a non-zero H_OFFSET, the float and LUT paths disagree and this
-// fails. At x=0, Vector(Spherical(0, phi)) = (sin phi, cos phi, 0), so the
-// recovered phi is acos(v.y).
+// phi source the integer LUT path and every SDF/scan shape use, so the two
+// paths cannot diverge on a build with non-zero H_OFFSET. At x=0,
+// Vector(Spherical(0, phi)) = (sin phi, cos phi, 0), so the recovered phi is
+// acos(v.y).
 inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
   constexpr int W = 32, H = 32;
   for (float y : {0.5f, 5.25f, 12.75f, 20.5f}) {
@@ -201,6 +207,8 @@ inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
   }
 }
 
+// vector_to_pixel inverts pixel_to_vector to within half a pixel for
+// non-degenerate samples (poles are excluded, where azimuth wrap is undefined).
 inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
   constexpr int W = 64, H = 64;
   // Pick representative non-degenerate samples (avoiding poles where wrap is
@@ -221,6 +229,7 @@ inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
 // Log-polar projection (sphere ↔ complex plane via stereographic)
 // ============================================================================
 
+// logPolarToVector inverts vectorToLogPolar for points away from the poles.
 inline void test_log_polar_roundtrip() {
   Vector samples[] = {
       Vector(0.6f, 0.0f, 0.8f),
@@ -236,16 +245,17 @@ inline void test_log_polar_roundtrip() {
   }
 }
 
+// North pole has no finite log-polar image, so it maps to a sentinel.
 inline void test_log_polar_north_pole_sentinel() {
-  // North pole maps to the sentinel (rho=10, theta=0).
+  // Sentinel is (rho=10, theta=0).
   LogPolar lp = vectorToLogPolar(Vector(0, 1, 0));
   HS_EXPECT_NEAR(lp.rho, 10.0f, 1e-3f);
   HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
 }
 
+// South pole would yield rho=-inf, so it maps to a symmetric sentinel.
 inline void test_log_polar_south_pole_sentinel() {
-  // South pole maps to the symmetric sentinel (rho=-10, theta=0); without the
-  // guard rho would be -inf.
+  // Symmetric sentinel is (rho=-10, theta=0); without the guard rho is -inf.
   LogPolar lp = vectorToLogPolar(Vector(0, -1, 0));
   HS_EXPECT_NEAR(lp.rho, -10.0f, 1e-3f);
   HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
@@ -255,6 +265,7 @@ inline void test_log_polar_south_pole_sentinel() {
 // fib_spiral
 // ============================================================================
 
+// Every fib_spiral sample lies on the unit sphere.
 inline void test_fib_spiral_unit_length() {
   for (int i = 0; i < 32; ++i) {
     Vector v = fib_spiral(32, 0.5f, i);
@@ -262,16 +273,16 @@ inline void test_fib_spiral_unit_length() {
   }
 }
 
+// fib_spiral is a pure function: same args give the same vector.
 inline void test_fib_spiral_deterministic() {
   Vector v1 = fib_spiral(64, 0.5f, 7);
   Vector v2 = fib_spiral(64, 0.5f, 7);
   HS_EXPECT_VEC(v1, v2, 1e-6f);
 }
 
+// First and last fib_spiral samples are unit-length and sit on opposite
+// hemispheres (i=0 near one pole, i=N-1 near the other) for N>=4.
 inline void test_fib_spiral_endpoints() {
-  // i=0 → near south pole region (y ≈ 1 - 2*eps/N for first sample)
-  // i=N-1 → near north pole region
-  // Both endpoints are unit-length and lie on opposite hemispheres for N>=4.
   Vector first = fib_spiral(16, 0.5f, 0);
   Vector last = fib_spiral(16, 0.5f, 15);
   HS_EXPECT_NEAR(first.length(), 1.0f, 1e-3f);
@@ -283,6 +294,7 @@ inline void test_fib_spiral_endpoints() {
 // lissajous
 // ============================================================================
 
+// Every lissajous sample lies on the unit sphere across a full period.
 inline void test_lissajous_unit_length() {
   for (float t = 0.0f; t < 6.28f; t += 0.3f) {
     Vector v = lissajous(3, 2, 0.5f, t);
@@ -290,12 +302,11 @@ inline void test_lissajous_unit_length() {
   }
 }
 
-// Phase A is in RADIANS: lissajous computes cos(m1·t − a), NOT cos(m1·t − a·π).
-// This matches the daydream lissajous designer (radians-labelled slider, raw
-// export); the engine previously scaled a by PI_F, so a pasted phase rendered
-// π× off. With m1=m2=1, a=1, t=1 the phase arg is 1−1=0, so the point is
-// (sin1·cos0, cos1, sin1·sin0) = (sin1, cos1, 0). Under the old ×π convention
-// the arg would be 1−π and x/z would differ sharply — a regression guard.
+// Phase a is in RADIANS: lissajous computes cos(m1*t - a), matching the
+// daydream designer's radians-labelled slider and raw export. With
+// m1=m2=1, a=1, t=1 the phase arg is 1-1=0, so the point is
+// (sin1*cos0, cos1, sin1*sin0) = (sin1, cos1, 0). A scale-by-PI convention
+// would put the arg at 1-PI and shift x/z sharply, which this rules out.
 inline void test_lissajous_phase_is_radians() {
   Vector v = lissajous(1.0f, 1.0f, 1.0f, 1.0f);
   HS_EXPECT_NEAR(v.x, sinf(1.0f), 1e-5f);
@@ -307,6 +318,7 @@ inline void test_lissajous_phase_is_radians() {
 // random_vector (Marsaglia)
 // ============================================================================
 
+// random_vector (Marsaglia) always returns a unit-length direction.
 inline void test_random_vector_unit_length() {
   for (int i = 0; i < 32; ++i) {
     Vector v = random_vector();
@@ -318,8 +330,9 @@ inline void test_random_vector_unit_length() {
 // Basis: make_basis / get_antipode
 // ============================================================================
 
+// make_basis produces an orthonormal frame whose v axis is the given normal.
 inline void test_make_basis_orthonormal() {
-  // Identity quaternion → basis aligned with normal.
+  // Identity quaternion: basis aligned with normal.
   Quaternion id(1, 0, 0, 0);
   Basis b = make_basis(id, Vector(0, 1, 0));
   HS_EXPECT_VEC(b.v, Vector(0, 1, 0), 1e-4f);
@@ -331,6 +344,7 @@ inline void test_make_basis_orthonormal() {
   HS_EXPECT_NEAR(dot(b.u, b.w), 0.0f, 1e-4f);
 }
 
+// make_basis stays orthonormal and v-aligned for an off-axis tilted normal.
 inline void test_make_basis_alternate_normals() {
   Quaternion id(1, 0, 0, 0);
   // A tilted normal
@@ -343,16 +357,18 @@ inline void test_make_basis_alternate_normals() {
   HS_EXPECT_NEAR(b.w.length(), 1.0f, 1e-3f);
 }
 
+// get_antipode leaves the basis and radius untouched when radius <= 1.
 inline void test_get_antipode_short_arc_unchanged() {
   Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
   auto [nb, nr] = get_antipode(b, 0.5f);
-  // radius <= 1 → identity
+  // radius <= 1: identity
   HS_EXPECT_VEC(nb.u, b.u, 1e-6f);
   HS_EXPECT_VEC(nb.v, b.v, 1e-6f);
   HS_EXPECT_VEC(nb.w, b.w, 1e-6f);
   HS_EXPECT_NEAR(nr, 0.5f, 1e-6f);
 }
 
+// For radius > 1, get_antipode flips u and v, keeps w, and returns 2 - radius.
 inline void test_get_antipode_long_arc_flips() {
   Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
   auto [nb, nr] = get_antipode(b, 1.4f);
@@ -366,12 +382,14 @@ inline void test_get_antipode_long_arc_flips() {
 // Orientation<CAP>
 // ============================================================================
 
+// A fresh Orientation holds a single identity rotation.
 inline void test_orientation_default_is_identity() {
   Orientation<8> o;
   HS_EXPECT_EQ(o.length(), 1);
   HS_EXPECT_QUAT(o.get(), Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
+// set() discards accumulated history, leaving only the new orientation.
 inline void test_orientation_set_clears_history() {
   Orientation<8> o;
   o.push(make_rotation(Vector(0, 1, 0), 0.5f));
@@ -384,6 +402,7 @@ inline void test_orientation_set_clears_history() {
   HS_EXPECT_QUAT(o.get(), target, 1e-6f);
 }
 
+// push() appends to the history; get(i) indexes it and get() returns the latest.
 inline void test_orientation_push_tracks_history() {
   Orientation<4> o;
   Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.1f);
@@ -396,6 +415,7 @@ inline void test_orientation_push_tracks_history() {
   HS_EXPECT_QUAT(o.get(), q2, 1e-6f);
 }
 
+// unorient inverts orient, recovering the original vector.
 inline void test_orientation_orient_round_trips() {
   Orientation<4> o;
   Quaternion q = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
@@ -406,6 +426,7 @@ inline void test_orientation_orient_round_trips() {
   HS_EXPECT_VEC(back, v, 1e-3f);
 }
 
+// collapse() reduces history to just the most recent orientation.
 inline void test_orientation_collapse_keeps_latest() {
   Orientation<8> o;
   Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.1f);
@@ -419,6 +440,7 @@ inline void test_orientation_collapse_keeps_latest() {
   HS_EXPECT_QUAT(o.get(), q2, 1e-6f);
 }
 
+// upsample(n) slerp-interpolates to n entries while preserving both endpoints.
 inline void test_orientation_upsample_preserves_endpoints() {
   Orientation<16> o;
   Quaternion start = Quaternion(1, 0, 0, 0);
@@ -434,6 +456,7 @@ inline void test_orientation_upsample_preserves_endpoints() {
   HS_EXPECT_NEAR(std::abs(dot(o.get(7), end)), 1.0f, 1e-3f);
 }
 
+// upsample is a no-op when the requested length is not greater than current.
 inline void test_orientation_upsample_noop_if_already_long() {
   Orientation<16> o;
   o.push(make_rotation(Vector(0, 1, 0), 0.1f));
@@ -448,6 +471,7 @@ inline void test_orientation_upsample_noop_if_already_long() {
 // Runner
 // ============================================================================
 
+// Runs every geometry test case; returns the module's failure count.
 inline int run_geometry_tests() {
   auto scope = hs_test::begin_module("geometry");
 

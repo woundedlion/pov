@@ -255,6 +255,15 @@ inline void transform(const MeshState &local_state, MeshState &world_state,
                                    local_state.vertices.size());
 }
 
+/**
+ * @brief Copies a mesh's topology (views) and vertices into a target mesh,
+ * applying each transformer to every vertex in order.
+ * @param mesh The source mesh state.
+ * @param transformed The destination mesh state to populate.
+ * @param arena The memory arena to allocate vertices.
+ * @param first_transformer,transformers Vertex transformers applied left to
+ *   right; the remaining ones are unrolled at compile time via a fold.
+ */
 template <typename T1, typename... Transformers>
 inline void transform(const MeshState &mesh, MeshState &transformed, Arena& arena,
                       const T1 &first_transformer,
@@ -274,10 +283,9 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
   for (size_t i = 0; i < mesh.vertices.size(); ++i) {
     Vector v = mesh.vertices[i];
 
-    // Apply first transformer
     v = first_transformer(v);
 
-    // Unroll remaining transformers at compile time using a fold expression
+    // Unroll the remaining transformers at compile time via a fold expression.
     (..., (v = transformers(v)));
 
     transformed.vertices.push_back(v);

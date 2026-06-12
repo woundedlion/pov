@@ -34,6 +34,9 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
                           DEFAULT_SCRATCH_A_SIZE,
                       DEFAULT_SCRATCH_B_SIZE);
 
+// Re-partition the single global block into persistent + two scratch arenas of
+// the requested byte sizes, called once at init() so an effect can tune the
+// split to the device budget.
 void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
   // An over-subscribed partition is a sizing/config bug, not a recoverable
   // condition. Silently scaling it down hands the effect a smaller layout than
@@ -60,6 +63,7 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
   scratch_arena_b.rebind(global_arena_block + b_base, scratch_b);
 }
 
+// Partition the global block using the compiled-in DEFAULT_* sizes.
 void configure_arenas_default() {
   configure_arenas(DEFAULT_PERSISTENT_SIZE, DEFAULT_SCRATCH_A_SIZE,
                    DEFAULT_SCRATCH_B_SIZE);

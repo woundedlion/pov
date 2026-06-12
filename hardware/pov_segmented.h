@@ -451,7 +451,7 @@ private:
         bp = &burst;
       }
       // Retire a stale glitch-filter reference so the cycle counter cannot wrap
-      // out from under it during a long wire silence (spec §8, finding 227).
+      // out from under it during a long wire silence (spec §8).
       sync_.mailbox().age_prior(now, sync_.glitch_filter_cycles());
       __enable_irq();
     }
@@ -564,8 +564,8 @@ private:
     // directly, dropping PPS per-pixel virtual get_pixel() dispatches per
     // column. Sound here because (1) prev_ is stable for this whole column —
     // advance_display() runs at the boundary, before rendering — and (2) no
-    // effect reachable on this segmented path overrides get_pixel (only the
-    // out-of-scope legacy scroller does, and it never runs here).
+    // effect reachable on this segmented path overrides get_pixel (the one
+    // effect that does is out of scope here and never runs on this path).
     const Pixel *buf = e->display_buffer();
 
 #if defined(USE_DMA_LEDS)

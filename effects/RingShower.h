@@ -6,6 +6,9 @@
 #pragma once
 #include "core/effects_engine.h"
 
+// Continuously spawns randomly-oriented rings that grow and fade in over a
+// short lifetime, then recycle their fixed slot. A RandomTimer drives spawning;
+// each live ring is advanced and drawn purely from its `age` (see draw_frame).
 template <int W, int H> class RingShower : public Effect {
 public:
   FLASHMEM RingShower() : Effect(W, H) {}
@@ -44,6 +47,8 @@ public:
   }
 
 private:
+  // One ring slot: orientation, baked palette, and age/life timing. A slot is
+  // free when age >= life and is reused by spawn_ring without reallocating.
   struct Ring {
     // Frames spent fading in from 0 to full opacity; opacity then holds (no
     // fade-out).

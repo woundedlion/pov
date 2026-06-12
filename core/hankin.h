@@ -55,6 +55,7 @@ struct CompiledHankin {
   /// Deep-copy all owned data into a target arena. Required by Cloneable.
   static void clone(const CompiledHankin &src, CompiledHankin &dst,
                     Arena &arena) {
+    // Bind a fresh arena-backed vector and deep-copy a source vector into it.
     auto push = [&arena](const auto &s_vec, auto &d_vec) {
       d_vec.bind(arena, s_vec.size());
       for (size_t i = 0; i < s_vec.size(); ++i)
@@ -136,6 +137,8 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
         temp_arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
     std::fill_n(he_to_dynamic_idx, I, HE_NONE);
 
+    // Return the shared midpoint index for a half-edge, lazily creating and
+    // caching it (under both the edge and its pair) on first encounter.
     auto get_midpoint_idx = [&](uint16_t he_idx) {
       if (he_to_midpoint_idx[he_idx] != HE_NONE)
         return he_to_midpoint_idx[he_idx];

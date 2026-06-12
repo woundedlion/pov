@@ -43,12 +43,11 @@ template <int S, int RPM> class POVDisplay {
   /**
    * @brief HD107S SPI clock for the single-board Holosphere DMA path, in Hz.
    *
-   * The Holosphere runs one Teensy over the full strip at a much wider column
-   * period than Phantasm (~1.3 ms for 96 columns at 480 RPM vs ~434 µs for
-   * Phantasm's 288), so the TeensySPIDMA 12 MHz default already clears the
-   * per-column transfer with ample headroom; the faster 24 MHz Phantasm clock
-   * (see pov_segmented.h) is not needed here. Stated explicitly rather than
-   * relying on the constructor default so the per-board clock choice is on the
+   * The Holosphere runs one Teensy over the full strip at a wide column period
+   * (~1.3 ms for 96 columns at 480 RPM), so the TeensySPIDMA 12 MHz default
+   * clears the per-column transfer with ample headroom; the 24 MHz clock used
+   * by the segmented driver is not needed here. Stated explicitly rather than
+   * left to the constructor default so the per-board clock choice is on the
    * record at the call site.
    */
   static constexpr uint32_t SPI_CLOCK_HZ = 12000000;
@@ -127,8 +126,7 @@ private:
       unsigned long dt = micros() - t0;
       if (hs::debug) {
         // dt is micros() elapsed; the unit-neutral "ft " label matches the
-        // segmented driver (the prior "frame ms:" mislabeled microseconds as
-        // milliseconds).
+        // segmented driver.
         Serial.print("ft ");
         Serial.println(dt);
       }
@@ -200,7 +198,8 @@ private:
   static int
       x_; /**< Current column index being displayed (virtual position). */
 #if defined(USE_DMA_LEDS)
-  static DMALEDController<S> ledController_;
+  static DMALEDController<S>
+      ledController_; /**< HD107S DMA controller driving the physical strip. */
 #endif
 };
 

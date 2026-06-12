@@ -17,10 +17,8 @@
  *
  * Reentrant: a generator callback may itself call generate(). The full
  * arena reset happens only at the outermost call; a nested call sub-scopes
- * off the caller's live frame (via ScratchScope), so its scratch stacks
- * above the outer allocations rather than clobbering them. The nested call
- * therefore sees the scratch headroom remaining above the outer frame, not
- * a fresh full arena.
+ * off the caller's live frame (via ScratchScope), so it sees only the
+ * scratch headroom above the outer allocations rather than clobbering them.
  *
  * @param target The arena for persistent output (e.g., persistent_arena).
  * @param fn     The generation function or callable.

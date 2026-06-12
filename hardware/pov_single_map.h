@@ -5,11 +5,10 @@
  * @file pov_single_map.h
  * @brief Pure strip index arithmetic for the single-board POV driver.
  *
- * Split out of pov_single.h (which is Arduino-only) so the load-bearing index
- * math — which physical LED samples which canvas column and row — is
- * unit-testable on the host without a Teensy, exactly as pov_segment_map.h was
- * split out of pov_segmented.h. The single-board show_col() ISR derives its
- * mapping from these functions, so the host tests cover the real arithmetic. An
+ * Kept free of Arduino dependencies so the load-bearing index math — which
+ * physical LED samples which canvas column and row — is unit-testable on the
+ * host without a Teensy. The single-board show_col() ISR derives its mapping
+ * from these functions, so the host tests cover the real arithmetic. An
  * off-by-one here silently mis-paints the sphere.
  *
  * Layout (one Teensy owns the whole S-LED strip; ROWS = S/2 = canvas height):

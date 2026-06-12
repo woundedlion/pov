@@ -19,9 +19,8 @@
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
-    // +2π·phase (not −): increasing phase advances the wave in the same
-    // direction as tri_wave/square_wave's +phase, so the three are genuinely
-    // interchangeable. The −π/2 still anchors t=0, phase=0 at the trough.
+    // +2π·phase advances the wave in the same direction as tri_wave/
+    // square_wave's +phase. The −π/2 anchors t=0, phase=0 at the trough.
     auto w =
         (sinf(freq * t * 2 * PI_F - (PI_F / 2) + (2 * PI_F * phase)) + 1) / 2;
     return hs::lerp(from, to, w);

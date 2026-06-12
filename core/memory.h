@@ -20,7 +20,7 @@
 // per-effect arena footprints measured there can be LARGER than on the 32-bit
 // device wherever a pooled struct embeds a POINTER (8 B host / 4 B device:
 // ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut_). Index/count
-// widths no longer diverge — StaticCircularBuffer uses uint32_t, so the big
+// widths match across builds — StaticCircularBuffer uses uint32_t, so the big
 // pooled structs (Particle/VectorTrail/OrientationTrail) are byte-identical on
 // both builds. Pointer-bearing container HEADERS are not multiplied across pool
 // elements, so the residual host/device delta is small but nonzero; do not
@@ -40,6 +40,11 @@ constexpr size_t DEFAULT_PERSISTENT_SIZE =
 // ============================================================================
 // 1. Core Arena Allocator
 // ============================================================================
+
+/// Bump allocator over a fixed caller-owned buffer. Allocation is offset
+/// advancement; individual frees are unsupported — memory is reclaimed wholesale
+/// via reset() (rewind to 0) or set_offset() (rewind to a saved mark). Over-
+/// allocation traps rather than returning null (see allocate()).
 class Arena {
   uint8_t *buffer;
   size_t capacity;
@@ -53,6 +58,9 @@ public:
   Arena(uint8_t *buf, size_t size)
       : buffer(buf), capacity(size), offset(0), high_water_mark(0) {}
 
+  /// Bump-allocate `size` bytes aligned to `align`, advancing the offset.
+  /// Returns a pointer into the buffer; traps (HS_CHECK) on over-allocation
+  /// rather than returning null. Updates the high-water mark.
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
     // `padding` is a byte count derived from the TRUE address (buffer+offset),
     // which is the robust form (correct for any base alignment, including the
@@ -120,6 +128,8 @@ public:
     offset = new_offset;
   }
 
+  /// Rewind to empty, reclaiming all allocations at once. Bumps the debug
+  /// generation so any live ArenaVector/ArenaSpan into the old contents faults.
   void reset() {
     offset = 0;
 #ifndef NDEBUG
@@ -127,6 +137,8 @@ public:
 #endif
   }
 
+  /// Point the arena at a different buffer/capacity and reset to empty (used by
+  /// configure_arenas to repartition the global budget at runtime).
   void rebind(uint8_t *buf, size_t new_capacity) {
     buffer = buf;
     capacity = new_capacity;
@@ -137,6 +149,8 @@ public:
 #endif
   }
 
+  /// Reset peak-usage tracking to the current offset (e.g. to measure a single
+  /// frame's allocation peak in isolation).
   void reset_high_water_mark() { high_water_mark = offset; }
 
 #ifndef NDEBUG
@@ -172,6 +186,7 @@ template <int MAX_V> struct TriangularBitset {
     return small * (2 * MAX_V - small - 1) / 2 + (large - small - 1);
   }
 
+  /// True iff pair (a, b) is set. Requires a < b (see index()).
   bool test(int a, int b) const {
     int bit = index(a, b);
     return (data[bit >> 3] >> (bit & 7)) & 1;
@@ -319,7 +334,7 @@ public:
     // the contract assert above, a still-bound vector here is guaranteed
     // same-arena/same-generation, so the block is live in every build.
     if (bound_ && capacity_ >= exact_capacity) {
-      size_ = 0; // Reuse memory
+      size_ = 0;
       return;
     }
     // Otherwise (unbound, or a deliberate grow that abandons the old block) →
@@ -443,7 +458,7 @@ public:
     // frees nor touches data_), so it is a defined no-op on an unbound vector.
     // MeshState::clear() relies on this to reset members that may never have
     // been bound.
-    size_ = 0; // Does not free memory or reallocate
+    size_ = 0;
   }
 
   // No check_bound() on data()/begin()/end() on purpose: an unbound (or moved-

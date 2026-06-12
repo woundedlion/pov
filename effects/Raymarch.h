@@ -7,10 +7,15 @@
 
 #include "core/effects_engine.h"
 
+/// Ray-marches a twisted torus SDF once per dodecahedron vertex, shading each
+/// with a metallic headlight model and a baked OKLCH palette. W/H are the
+/// effect's render dimensions.
 template <int W, int H> class Raymarch : public Effect {
 public:
   FLASHMEM Raymarch() : Effect(W, H) {}
 
+  /// Register tunable params, precompute per-vertex quaternions, bake the
+  /// palette LUT, and install the camera walk and per-frame draw on the timeline.
   void init() override {
     registerParam("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
     registerParam("Core Size", &params.core_size, 0.1f, 0.8f);
@@ -43,6 +48,7 @@ public:
 
   bool show_bg() const override { return false; }
 
+  /// Step the timeline against a fresh canvas, driving the per-frame ray march.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -94,6 +100,9 @@ private:
 
   static constexpr int NUM_VERTS = Solids::Dodecahedron::NUM_VERTS;
 
+  /// Ray-march and shade the twisted torus at every dodecahedron vertex for the
+  /// current frame. `opacity` is the sprite's fade alpha, written into each
+  /// fragment's color.
   void drawFn(Canvas &canvas, float opacity) {
     float t = static_cast<float>(global_timeline_t) / 60.0f;
     float anim_t = t * params.pulse_speed;

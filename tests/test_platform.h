@@ -12,8 +12,8 @@
  * cardinal anchors plus a full-period accuracy bound against the true sine, so a
  * regression in sin16's byte-truncated secoffset8 (or any LUT/slope drift) is
  * caught even where it still hits the anchors. We also pin the FastLED map8
- * mapping, the degenerate-range guard on map(), and the now-faithful
- * Serial.printf — the seams the old "rough approximation" stubs got wrong.
+ * mapping, the degenerate-range guard on map(), and Serial.printf varargs
+ * expansion — the seams most prone to diverging from FastLED.
  */
 #pragma once
 
@@ -52,10 +52,10 @@ inline void test_sin8_golden() {
   HS_EXPECT_LT(max_err, 6);
 }
 
-// sin16 is FastLED's sin16_C: signed -32767..32767, with the byte-truncated
-// secoffset8 the review flagged as not self-evidently correct. Pin hand-traced
-// cardinal anchors AND bound the full-period LUT error against the true sine, so
-// a truncation/slope regression that still happens to hit the anchors is caught.
+// sin16 is FastLED's sin16_C: signed -32767..32767, with a byte-truncated
+// secoffset8 that is not self-evidently correct. Pin hand-traced cardinal
+// anchors AND bound the full-period LUT error against the true sine, so a
+// truncation/slope regression that still happens to hit the anchors is caught.
 inline void test_sin16_golden() {
   // Exact anchors traced through sin16_C.
   HS_EXPECT_EQ(sin16(0), 0);
@@ -94,6 +94,8 @@ inline void test_scale_golden() {
   HS_EXPECT_EQ(scale16(0, 65535), 0);
 }
 
+// scale8 at fractional scales: zero in -> zero, full scale is identity, and the
+// SCALE8_FIXED rounding (i*(1+sc))>>8 holds at the half point.
 inline void test_scale8_fractional() {
   HS_EXPECT_EQ(scale8(0, 200), 0);
   HS_EXPECT_EQ(scale8(255, 255), 255); // 255*256>>8 — full scale is identity
@@ -101,11 +103,11 @@ inline void test_scale8_fractional() {
 }
 
 // FastLED map8(in, start, end) maps the FULL 0..255 input onto [start, end] via
-// scale8 — the inverse of the old mock, which remapped [start,end]->[0,255] and
-// produced an out-of-range (wrapped) palette index for in < start.
+// scale8, so every input stays in range — confirm the floor/ceil endpoints and
+// that the mapping is monotone non-decreasing.
 inline void test_map8_fastled_semantics() {
   HS_EXPECT_EQ(map8(0, 100, 140), 100);   // input floor -> rangeStart
-  HS_EXPECT_EQ(map8(255, 100, 140), 140); // input ceil  -> rangeEnd (FIXED scale)
+  HS_EXPECT_EQ(map8(255, 100, 140), 140); // input ceil  -> rangeEnd
   // Every input stays inside [start, end] and is monotone non-decreasing.
   int prev = -1;
   for (int in = 0; in <= 255; ++in) {
@@ -118,7 +120,7 @@ inline void test_map8_fastled_semantics() {
 }
 
 // map() must not divide by zero on a degenerate input range. The device's
-// Cortex-M7 yields out_min there; the host now matches instead of SIGFPE-ing.
+// Cortex-M7 yields out_min there, so the host must match rather than SIGFPE.
 inline void test_map_degenerate_range() {
   HS_EXPECT_EQ(map(5, 10, 10, 0, 100), 0);    // in_min == in_max -> out_min
   HS_EXPECT_EQ(map(42, 7, 7, 3, 9), 3);
@@ -126,8 +128,8 @@ inline void test_map_degenerate_range() {
 }
 
 // random()/random8() must not divide by zero on a degenerate range. The device
-// (Arduino random / FastLED random8) returns the floor there; the host now
-// matches instead of SIGFPE-ing on the modulo.
+// (Arduino random / FastLED random8) returns the floor there, so the host must
+// match rather than SIGFPE on the modulo.
 inline void test_random_degenerate_range() {
   HS_EXPECT_EQ(random(0), 0);      // Arduino random(0) -> 0
   HS_EXPECT_EQ(random(-3), 0);     // non-positive bound -> 0
@@ -143,8 +145,8 @@ inline void test_random_degenerate_range() {
 }
 
 // beatsin8 oscillates within [lowest, highest] (scale8 fit), is deterministic
-// under the injected clock, applies phase_offset (the old mock dropped it), and
-// reproduces FastLED's LUT phase at known times.
+// under the injected clock, applies phase_offset, and reproduces FastLED's LUT
+// phase at known times.
 inline void test_beatsin8_faithful() {
   // 60 BPM == one cycle per 1000 ms. Quarter cycle (250 ms) -> peak, three-
   // quarter (750 ms) -> trough.
@@ -156,8 +158,8 @@ inline void test_beatsin8_faithful() {
   hs::set_mock_time(750, 750000);
   HS_EXPECT_EQ(beatsin8(60, 0, 255), 1); // sin8(192)=1 -> scale8(1,255)=1
 
-  // phase_offset shifts the wave: at t=0 the bare beat is the LUT midpoint, a
-  // +64 offset advances it to the peak. The old mock ignored this 5th argument.
+  // phase_offset (5th arg) shifts the wave: at t=0 the bare beat is the LUT
+  // midpoint, a +64 offset advances it to the peak.
   hs::set_mock_time(0, 0);
   HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 0), 128);   // sin8(0)=128 -> scale8(128,255)=128
   HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 64), 255);  // sin8(64)=255 -> scale8(255,255)=255
@@ -174,9 +176,8 @@ inline void test_beatsin8_faithful() {
 
 // beatsin16 = lowest + scale16(sin16(beat16(...)) + 32768, highest-lowest). Pin
 // it value-exact at t=0 (beat phase 0) while sweeping phase_offset onto the
-// sin16 anchors above — this catches the arg-swap / dropped-offset / missing
-// +32768 regressions the comment in platform.h warns about — then confirm the
-// range fit holds across a full cycle.
+// sin16 anchors above — this catches an arg swap, a dropped offset, or a missing
+// +32768 — then confirm the range fit holds across a full cycle.
 inline void test_beatsin16_golden() {
   hs::set_mock_time(0, 0);
   // phase 0:      sin16(0)=0      -> +32768 -> scale16(32768,4000)=2000 -> 3000
@@ -195,8 +196,8 @@ inline void test_beatsin16_golden() {
   hs::clear_mock_time();
 }
 
-// Serial.printf must expand its varargs (Arduino behaviour). The old stub wrote
-// the raw format string and dropped every argument.
+// Serial.printf must expand its varargs (Arduino behaviour), not emit the raw
+// format string.
 inline void test_serial_printf_formats_varargs() {
   std::ostringstream cap;
   std::streambuf *saved = std::cout.rdbuf(cap.rdbuf());
@@ -207,11 +208,11 @@ inline void test_serial_printf_formats_varargs() {
 
 // rand_f() must stay in the half-open interval [0, 1): the top band of RNG
 // draws rounds value/max to exactly 1.0f, which would make (int)(rand_f()*N)
-// index N. random_to_unit() clamps those, and nothing else.
+// index N out of bounds. random_to_unit() clamps those, and nothing else.
 inline void test_rand_f_half_open() {
   constexpr uint32_t kMax = 0xFFFFFFFFu; // std::mt19937::max()
-  // The exact boundary the bug hit: the naive ratio is 1.0f, the clamp pulls it
-  // to the float just below.
+  // The boundary case: the naive ratio is 1.0f, the clamp pulls it to the float
+  // just below.
   HS_EXPECT_LT(hs::random_to_unit(kMax, kMax), 1.0f);
   HS_EXPECT_EQ(hs::random_to_unit(kMax, kMax), 0x1.fffffep-1f);
   HS_EXPECT_LT(hs::random_to_unit(kMax - 64, kMax), 1.0f); // rest of the top band
@@ -239,6 +240,8 @@ inline void test_crgb_colorcode_constructor() {
   HS_EXPECT_EQ(teal.b, 0x80);
 }
 
+// Run every platform-mock test under the "platform" module scope; returns the
+// module's failure count.
 inline int run_platform_tests() {
   auto scope = hs_test::begin_module("platform");
 

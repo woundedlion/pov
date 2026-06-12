@@ -73,6 +73,9 @@ public:
       "HD107SFrame composite buffer exceeds the 15-bit eDMA single-transfer "
       "limit (CITER/BITER); split the transfer or reduce N");
 
+  /// Zero the composite buffer, then prime every pixel's brightness byte to
+  /// 0xFF (max) in both the image frame and the trailing black frame. Only the
+  /// B/G/R color bytes change at runtime; start/end frames stay zero.
   HD107SFrame() {
     memset(buffer_, 0, COMPOSITE_SIZE);
     // Image frame: set brightness bytes
@@ -187,21 +190,26 @@ public:
     arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
   }
 
+  /// Pointer to the start of the composite DMA buffer.
   const uint8_t* data() const { return buffer_; }
+  /// Size of a single image frame in bytes (excludes the trailing black frame).
   constexpr size_t size() const { return BUFFER_SIZE; }
   /// Size including trailing black frame (for show_bg composite DMA).
   constexpr size_t sizeWithBg() const { return COMPOSITE_SIZE; }
 
   // --- Static correction configuration (shared across all frames) -----------
 
+  /// Set the white-balance temperature factors (per-channel 8-bit scale).
   static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
     tempR_ = factor(r); tempG_ = factor(g); tempB_ = factor(b);
   }
 
+  /// Set the per-channel color-correction factors (8-bit scale).
   static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
     corrR_ = factor(r); corrG_ = factor(g); corrB_ = factor(b);
   }
 
+  /// Set the global brightness factor (8-bit scale, 255 = full).
   static void setBrightness(uint8_t brightness) {
     brightness_ = factor(brightness);
   }

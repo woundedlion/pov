@@ -26,11 +26,13 @@ struct Stats {
   int failed = 0;
 };
 
+// The single process-wide pass/fail counter shared by all suites.
 inline Stats &stats() {
   static Stats s;
   return s;
 }
 
+// True iff both values are finite and within tol of each other.
 inline bool approx(float a, float b, float tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
 }
@@ -97,17 +99,21 @@ inline void report_near(double a, double b, double tol, const char *expr,
               b, std::fabs(a - b));
 }
 
+// Snapshot of the global counter taken when a module starts, so end_module
+// can report that module's tally as a delta.
 struct ModuleScope {
   const char *name;
   int passed_before;
   int failed_before;
 };
 
+// Print a module header and capture the current counter baseline.
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
   return {name, stats().passed, stats().failed};
 }
 
+// Print the module's pass/fail delta since begin_module; return its fail count.
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
   int failed = stats().failed - m.failed_before;
@@ -117,6 +123,9 @@ inline int end_module(const ModuleScope &m) {
 
 } // namespace hs_test
 
+// Core assertion: bump the global counter and, on failure, print msg with
+// source location. All other HS_EXPECT_* macros funnel through this or the
+// report_* helpers.
 #define HS_EXPECT(cond, msg)                                                   \
   do {                                                                         \
     if (cond) {                                                                \

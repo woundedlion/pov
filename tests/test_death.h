@@ -180,7 +180,7 @@ inline void case_arena_vector_append_bulk_overflow() {
 
 // Spatial surface: requesting more neighbors than the KDTree's MAX_K-sized
 // result/heap buffers can hold. nearest() traps rather than silently capping
-// the result and masking the caller's sizing mistake. First KDTree death case.
+// the result and masking the caller's sizing mistake.
 inline void case_spatial_knn_over_max() {
   static uint8_t buf[512];
   Arena a(buf, sizeof(buf));
@@ -224,9 +224,8 @@ inline void case_timeline_double_construct() {
 
 // Mesh-topology surface: an output index past the int16 topology range. Both
 // conway.h and hankin.h route every output vertex/face-index narrowing through
-// this shared MeshOps guard (the fail-fast parity fix), so a future MAX_VERTS
-// bump traps at the bench instead of silently wrapping an index and corrupting
-// topology. This is the conway/hankin subsystems' first death coverage.
+// this shared MeshOps guard, so a future MAX_VERTS bump traps at the bench
+// instead of silently wrapping an index and corrupting topology.
 inline void case_mesh_narrow_index() {
   size_t over = static_cast<size_t>(INT16_MAX) + 1;
   uint16_t i = MeshOps::narrow_index(opaque(over)); // > INT16_MAX -> HS_CHECK
@@ -236,8 +235,8 @@ inline void case_mesh_narrow_index() {
 
 // Math-core surface: a NaN endpoint poisons slerp's interpolation through both
 // branches into the final strict normalized(), which traps rather than emitting
-// a NaN direction into geometry. Pairs with case_normalize_nan to prove the
-// non-finite input is caught at the slerp seam, not just at bare normalize().
+// a NaN direction into geometry. Proves the non-finite input is caught at the
+// slerp seam, not just at bare normalize().
 inline void case_slerp_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector bad{nan, opaque(0.0f), opaque(0.0f)};
@@ -282,7 +281,7 @@ inline void case_make_basis_nan() {
 
 // Math-core surface: make_rotation(from, to) with a finite but non-unit source.
 // The d-based parallel/antiparallel branches assume |from| = |to| = 1, so a
-// non-unit input must trap at the new unit-vector guard rather than silently
+// non-unit input must trap at the unit-vector guard rather than silently
 // skewing the rotation angle.
 inline void case_make_rotation_nonunit() {
   Vector from{opaque(2.0f), opaque(0.0f), opaque(0.0f)}; // |from| = 2
@@ -313,7 +312,7 @@ struct DeathEffect : public Effect {
 
 // Canvas surface: overflowing the fixed 32-slot ParamList. registerParam traps
 // rather than silently dropping a registration (which would desync the GUI and,
-// on WASM, break the no-realloc memory-view invariant). First canvas death case.
+// on WASM, break the no-realloc memory-view invariant).
 inline void case_register_param_overflow() {
   DeathEffect fx;
   static float slot = 0.0f;
@@ -323,7 +322,7 @@ inline void case_register_param_overflow() {
 
 // Scan surface: the per-draw LUT-domain invariant. A clip whose x_end exceeds W
 // would index the trig LUTs out of bounds; Scan::Shader::draw traps once per
-// draw (not per pixel) before the loop runs. First scan death case.
+// draw (not per pixel) before the loop runs.
 inline void case_scan_clip_out_of_bounds() {
   constexpr int W = 32, H = 16;
   DeathEffect fx;
@@ -334,10 +333,9 @@ inline void case_scan_clip_out_of_bounds() {
 }
 
 // Plot surface: a mesh face referencing a vertex index past the edge-dedup
-// bitset's capacity (TriangularBitset<128>). The face-walk overload now traps
-// on the cold per-edge setup path instead of silently dropping the edge, which
-// would have left a wireframe with missing lines and masked the mesh-sizing
-// bug. First Plot death case.
+// bitset's capacity (TriangularBitset<128>). The face-walk overload traps on
+// the cold per-edge setup path instead of silently dropping the edge, which
+// would leave a wireframe with missing lines and mask the mesh-sizing bug.
 inline void case_plot_mesh_vertex_over_capacity() {
   constexpr int W = 32, H = 16;
   // Minimal duck-typed mesh: one 2-gon face whose second index (130) exceeds
@@ -364,10 +362,10 @@ inline void case_plot_mesh_vertex_over_capacity() {
                          [](const Vector &, Fragment &) {}); // index 130 -> trap
 }
 
-// Plot surface: the precomputed-edge path. extract_edges() now traps on an
+// Plot surface: the precomputed-edge path. extract_edges() traps on an
 // over-capacity vertex index on the same cold setup path as the face-walk
 // draw() overload, rather than silently filtering the edge out (which would
-// have produced an edge list with missing lines and masked the sizing bug).
+// produce an edge list with missing lines and mask the sizing bug).
 inline void case_plot_extract_edges_vertex_over_capacity() {
   // Same over-capacity 2-gon face as the draw() case (second index 130 > 128).
   struct MockMesh {
@@ -417,11 +415,14 @@ inline void case_path_append_zero_samples() {
                       [](float t) { return t; }); // samples < 1 -> HS_CHECK
 }
 
+// A named death case: HS_DEATH_CASE selects one by `name` in the child.
 struct Case {
   const char *name;
   void (*fn)();
 };
 
+// The full death-case table; sets `n` to its length. Single source of truth
+// shared by the child dispatcher and the parent's per-case spawn loop.
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
       {"arena_oom", case_arena_oom},
@@ -561,6 +562,9 @@ inline void report_unrunnable(const char *why, int rc) {
   }
 }
 
+// PARENT entry point for the death module: spawn-check the harness, then run
+// every case in a child and assert each died by the exact trap status. Returns
+// the module's failure count.
 inline int run_death_tests() {
   auto scope = hs_test::begin_module("death");
 

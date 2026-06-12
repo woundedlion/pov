@@ -52,6 +52,7 @@ inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
   return n;
 }
 
+// Arithmetic mean of a face's vertex positions (unweighted centroid).
 inline Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
                                 int count) {
   Vector c(0, 0, 0);
@@ -91,8 +92,6 @@ inline int count_same_direction_edge_violations(const PolyMesh &m) {
   for (size_t i = 0; i < m.face_counts.size(); ++i)
     total_edges += m.face_counts[i];
 
-  // Use stack arrays via std::vector replacement: ArenaVector requires arena.
-  // We're test code — std::vector is fine here.
   std::vector<DirEdge> edges;
   edges.reserve(total_edges);
 
@@ -121,6 +120,8 @@ inline int count_same_direction_edge_violations(const PolyMesh &m) {
   return dup;
 }
 
+// Asserts the mesh is wound consistently: every face faces outward and no
+// directed edge is reused in the same direction.
 inline void check_consistent_winding(const PolyMesh &m) {
   int inward = count_inward_winding(m);
   if (inward != 0)
@@ -135,6 +136,9 @@ inline void check_consistent_winding(const PolyMesh &m) {
   HS_EXPECT_EQ(dups, 0);
 }
 
+// Bundles the structural checks shared by every Conway-op test: non-empty
+// arrays, internally consistent face_counts/faces, in-range indices, vertices
+// on the unit sphere, and consistent winding.
 inline void check_basic_invariants(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.vertices.size() > 0);
   HS_EXPECT_TRUE(m.face_counts.size() > 0);
@@ -419,7 +423,6 @@ inline void test_chamfer_cube() {
 // ---------------------------------------------------------------------------
 // relax — spring-based edge-length relaxation on the unit sphere. Output
 // must keep the same topology and all vertices must remain on the sphere.
-// (Renamed from `canonicalize` — see core/conway.h docstring for why.)
 // ---------------------------------------------------------------------------
 
 inline void test_relax_preserves_topology() {
@@ -439,10 +442,10 @@ inline void test_relax_preserves_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Compositional + standalone operators added alongside the originals.
-// We only check structural invariants — exact topology counts for
-// compositions like meta/needle/zip/bevel are derived from their primitive
-// definitions and would just duplicate the test for the primitives.
+// Compositional + standalone operators. We only check structural invariants —
+// exact topology counts for compositions like meta/needle/zip/bevel are
+// derived from their primitive definitions and would just duplicate the test
+// for the primitives.
 // ---------------------------------------------------------------------------
 
 inline void test_meta_cube() {
@@ -539,13 +542,12 @@ inline void test_transform_applies_translation_chain() {
   HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
 }
 
-// Regression: transform() yields a BORROWED-mode mesh (owned vertices, topology
-// via *_view). If the destination is REUSED from a prior owned-mode life its
-// still-bound owned topology would shadow the freshly set views — the accessors
-// discriminate on is_bound(), and clear() does not unbind. transform() must
-// reset the owned topology so the views win. Fails on the old code, where the
-// stale owned sizes (2 / 9) leak through the accessors instead of the source's
-// (1 / 3).
+// transform() yields a BORROWED-mode mesh (owned vertices, topology via
+// *_view). Accessors discriminate on is_bound() and clear() does not unbind, so
+// a destination reused from a prior owned-mode life carries still-bound owned
+// topology that would shadow the freshly set views. Pins that transform() resets
+// the owned topology, so the source views (sizes 1 / 3) win over the stale owned
+// sizes (2 / 9).
 inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
   Arena src_arena(conway_target_buf, sizeof(conway_target_buf) / 2);
   Arena dst_arena(conway_target_buf + sizeof(conway_target_buf) / 2,
@@ -603,12 +605,11 @@ inline void test_face_centroid_for_cube_top_face() {
 }
 
 // ---------------------------------------------------------------------------
-// Runner
-// ---------------------------------------------------------------------------
-// Degenerate-face regression — expand/chamfer/snub must not emit a primary
-// face with fewer than 3 sides.
+// Degenerate-face checks — expand/chamfer/snub must not emit a primary face
+// with fewer than 3 sides.
 // ---------------------------------------------------------------------------
 
+// Asserts every face has at least 3 sides.
 inline void check_no_degenerate_faces(const PolyMesh &m) {
   for (size_t i = 0; i < m.face_counts.size(); ++i)
     HS_EXPECT_TRUE(m.face_counts[i] >= 3);
@@ -628,12 +629,9 @@ inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
   m.faces.push_back(1);
 }
 
-// Regression: expand/chamfer/snub pushed face_counts(count) before the
-// count>=3 guard, so a malformed intermediate mesh leaked a sub-triangular
-// primary face that only compile() later stripped. Each operator must now drop
-// the degenerate primary face (matching ambo/truncate and the vertex-orbit
-// emitter), so no output face has fewer than 3 sides. Fails on the old code,
-// which emitted the count==2 primary face.
+// Feeding expand/chamfer/snub a digon must not leak a sub-triangular primary
+// face: each operator drops a degenerate primary face (matching ambo/truncate
+// and the vertex-orbit emitter) so no output face has fewer than 3 sides.
 inline void test_conway_ops_drop_degenerate_primary_faces() {
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -660,6 +658,8 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
 
 // ---------------------------------------------------------------------------
 
+// Runs every Conway test under a "conway" module scope; returns the failure
+// count from end_module.
 inline int run_conway_tests() {
   auto scope = hs_test::begin_module("conway");
 

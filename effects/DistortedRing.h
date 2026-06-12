@@ -7,8 +7,14 @@
 
 #include "core/effects_engine.h"
 
+// Concentric rings drawn in ring-space and warped by a sinusoidal radial
+// displacement whose amplitude is animated. Orientation random-walks over time
+// and each ring is shaded from a circular split-complementary palette.
 template <int W, int H> class DistortedRing : public Effect {
 public:
+  // Build the effect: circular split-complementary palette, X-axis ring normal,
+  // and an amplitude mutation that sweeps amplitude over [-max_amplitude,
+  // +max_amplitude] as a unit sine wave (32 steps, eased, looping).
   FLASHMEM DistortedRing()
       : Effect(W, H),
         ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -22,14 +28,12 @@ public:
             },
             32, ease_mid, true) {}
 
+  // Register params and build the timeline (ring sprite, orientation random
+  // walk, amplitude mutation).
   void init() override {
-    // One pixel of azimuth in ring-space. The default is a 4-pixel stroke and
-    // the slider floor is a 2-pixel stroke, both scaled to the resolution.
-    // A fixed [0.1, 0.75] floor put the 4-pixel default (0.087) BELOW the min at
-    // W=288 (the simulator/Phantasm resolution), so the GUI control started
-    // out-of-range and the default look became unreachable once touched
-    // (finding 113). Scaling the floor with W keeps the default in range at any
-    // resolution.
+    // One pixel of azimuth in ring-space. Default stroke is 4 px and the
+    // Thickness slider floor is 2 px, both scaled by resolution so the default
+    // stays within slider range at any W.
     const float px = 2.0f * PI_F / W;
     params.thickness = 4.0f * px;
 
@@ -50,13 +54,18 @@ public:
     timeline.add(0, amplitude_mut);
   }
 
+  // Rings draw over the prior frame; no background clear.
   bool show_bg() const override { return false; }
 
+  // Advance and render the timeline for one frame.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
   }
 
+  // Draw all rings for this frame. opacity is the sprite's animated fade [0,1],
+  // multiplied into each fragment's alpha. Ring radii are evenly spaced and the
+  // displacement wave amplitude tracks the animated `amplitude` field.
   void drawFn(Canvas &canvas, float opacity) {
     int nRings = static_cast<int>(params.numRings);
 
@@ -74,8 +83,8 @@ public:
         f.color = ringPalette.get(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-        // t is already in [0,1], so quintic_kernel's clamp is a no-op — the
-        // smootherstep falloff is identical to the former inline polynomial.
+        // Smootherstep falloff: full alpha at the center line, fading to 0 at
+        // the stroke edge.
         float falloff = quintic_kernel(1.0f - norm_dist);
 
         f.color.alpha = f.color.alpha * opacity * params.alpha * falloff;
@@ -92,6 +101,7 @@ private:
   Timeline timeline;
   Pipeline<W, H> filters;
 
+  // Slider-backed parameters; defaults are pre-registration starting values.
   struct Params {
     float alpha = 0.3f;
     float max_amplitude = 0.3f;

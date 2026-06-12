@@ -8,11 +8,15 @@
 #include <array>
 #include "core/effects_engine.h"
 
+// Spinning great-circle rings that wander the sphere via random-walk
+// orientation, each leaving a motion-blur trail that fades along its length.
 template <int W, int H> class RingSpin : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 19;
+  static constexpr int TRAIL_LENGTH = 19; // trail samples per ring
   static constexpr int NUM_RINGS = 4;
 
+  // One ring: its great-circle plane, palette, current orientation, and the
+  // history trail used to render the fading motion blur.
   struct Ring {
     Vector normal;
     BakedPalette *palette;
@@ -26,6 +30,8 @@ public:
 
   FLASHMEM RingSpin() : Effect(W, H) {}
 
+  // Allocate rings, register params, bake the vignette palettes, and spawn the
+  // initial set of rings.
   void init() override {
     rings = static_cast<Ring *>(
         persistent_arena.allocate(NUM_RINGS * sizeof(Ring), alignof(Ring)));
@@ -55,6 +61,8 @@ public:
 
   bool show_bg() const override { return false; }
 
+  // Advance the timeline and draw each ring's trail back-to-front, fading color
+  // and alpha along the trail.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -85,6 +93,8 @@ public:
   }
 
 private:
+  // Construct one more ring and start its energetic random-walk on the timeline;
+  // no-op once NUM_RINGS are live.
   void spawn_ring(const Vector &normal, BakedPalette *palette) {
     if (num_rings >= NUM_RINGS)
       return;

@@ -71,6 +71,8 @@ constexpr int kDeviceH = 20;
 // push/PR while local commits keep the fast 8-frame path.
 constexpr int kDefaultFrames = 8;
 
+// Frames to render per effect: HS_SMOKE_FRAMES if set to a positive int, else
+// kDefaultFrames.
 inline int smoke_frames() {
   // getenv is the simplest way to parameterize a test binary; the MSVC CRT
   // flags it deprecated in favor of _dupenv_s, but the standard call is fine
@@ -129,14 +131,13 @@ inline void smoke_one(const char *name) {
   };
   const uint64_t acc = sum_buffer();
 
-  // Real post-condition (not the old tautological `acc + 1 > 0`): get_pixel is a
-  // pure, stable accessor over the displayed buffer, so re-reading the very same
-  // frame must yield the identical sum. A get_pixel that mutated state, indexed
-  // nondeterministically, or read outside the buffer would diverge here — and
-  // unlike `acc > 0` this holds for effects that legitimately render black
-  // (e.g. RingShower sums to 0 at this frame count). Reaching this point also
-  // proves the effect constructed, init'd, rendered, and read back without
-  // tripping an assert / OOB / hang.
+  // Post-condition: get_pixel is a pure, stable accessor over the displayed
+  // buffer, so re-reading the very same frame must yield the identical sum. A
+  // get_pixel that mutated state, indexed nondeterministically, or read outside
+  // the buffer would diverge here. Unlike `acc > 0` this also holds for effects
+  // that legitimately render black (e.g. RingShower sums to 0 at this frame
+  // count). Reaching this point also proves the effect constructed, init'd,
+  // rendered, and read back without tripping an assert / OOB / hang.
   HS_EXPECT_EQ(acc, sum_buffer());
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, W, H, static_cast<unsigned long long>(acc));
@@ -277,9 +278,9 @@ inline void test_sh_decode_lm_valid_order() {
 
   // Targeted large indices where float sqrtf genuinely misrounds: once k^2
   // exceeds 2^24 it is no longer exactly representable, and for k beyond ~2900 a
-  // just-below-square index sqrt-rounds *up* to k. Both truncate l one level low
-  // on the old code and push m out of [-l, l]. (k kept under ~46340 so (l+1)^2
-  // stays within int.) These are the cases the fix exists for.
+  // just-below-square index sqrt-rounds *up* to k. Both would truncate l one
+  // level low and push m out of [-l, l] if decode_lm did not compensate. (k kept
+  // under ~46340 so (l+1)^2 stays within int.)
   for (long long k : {3000LL, 5000LL, 12345LL, 40000LL}) {
     long long sq = k * k;
     for (long long idx : {sq - 1, sq, sq + 1, sq + k, sq + 2 * k})
@@ -287,17 +288,19 @@ inline void test_sh_decode_lm_valid_order() {
   }
 }
 
+// Module entry point: runs the SH-decode check, then both smoke and determinism
+// passes over the full effect roster at the production and device resolutions.
 inline int run_effects_tests() {
   auto scope = hs_test::begin_module("effects");
 
   test_sh_decode_lm_valid_order();
 
   // Smoke every registered effect. The list is GENERATED from the single-source
-  // roster in core/effects.h (HS_EFFECT_LIST) rather than hand-maintained here,
-  // so it can no longer silently drift from the shipped set: an effect added to
-  // the roster is smoke-tested automatically (and one in the roster but not
-  // #included is a compile error). The matching WASM-registry count is checked
-  // against HS_EFFECT_COUNT at engine startup (targets/wasm/wasm.cpp).
+  // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
+  // shipped set: an effect added to the roster is smoke-tested automatically
+  // (and one in the roster but not #included is a compile error). The matching
+  // WASM-registry count is checked against HS_EFFECT_COUNT at engine startup
+  // (targets/wasm/wasm.cpp).
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE)
 #undef HS_SMOKE_ONE

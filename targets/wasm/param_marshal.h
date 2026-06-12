@@ -8,10 +8,10 @@
  * The JS frontend consumes two parallel streams from the engine: the parameter
  * *definitions* (getParameterDefinitions) and the per-frame *values*
  * (getParamValues). They MUST agree on order — values[i] describes
- * definitions[i] — or every slider mis-binds (the P2-12 class of bug). Both are
- * derived here from a single pass over Effect::getParameters(), so the order is
- * defined in exactly one place. Factored out of wasm.cpp (which only adds the
- * emscripten::val translation on top) so the contract is host-unit-testable
+ * definitions[i] — or every slider mis-binds. Both are derived here from a
+ * single pass over Effect::getParameters(), so the order is defined in exactly
+ * one place. This layer carries no Emscripten dependency (wasm.cpp adds the
+ * emscripten::val translation on top), so the contract is host-unit-testable
  * without an Emscripten toolchain — see tests/test_param_marshal.h.
  */
 #pragma once

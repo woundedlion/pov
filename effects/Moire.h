@@ -6,8 +6,14 @@
 #pragma once
 #include "core/effects_engine.h"
 
+// Moire interference effect: two counter-rotating stacks of concentric
+// DistortedRing layers beat against each other to produce a shimmering moire
+// pattern, tinted by two wipe-animated generative palettes.
 template <int W, int H> class Moire : public Effect {
 public:
+  // Builds the two palette pairs with deliberately contrasting brightness
+  // profiles (BELL base vs CUP interference) so the layers stay visually
+  // distinct, and wires the world-orient + screen anti-alias filter pipeline.
   FLASHMEM Moire()
       : Effect(W, H),
         base_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -23,8 +29,11 @@ public:
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
+  // Rings are drawn over a transparent background.
   bool show_bg() const override { return false; }
 
+  // One-time setup: size the scratch arenas, bake the palette LUTs, register
+  // the user params, and arm the rotation / wipe / amplitude animations.
   void init() override {
     // Each frame draws many concentric DistortedRing layers, each of which
     // binds W+2 ring points and rasterization buffers into Scratch A. Give it
@@ -56,6 +65,8 @@ public:
                                  160, ease_mid, true, &anims_paused_));
   }
 
+  // Per-frame: advance animations, refresh the palette LUTs, then draw the two
+  // counter-rotating ring layers so they interfere.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -77,6 +88,8 @@ public:
   }
 
 private:
+  // Picks fresh target palettes and schedules a wipe to them; called
+  // periodically to keep the colors drifting.
   void color_wipe() {
     // The two counter-rotating layers are deliberately contrasting: the base
     // layer starts BELL, the interference layer CUP (see the constructor). Keep
@@ -96,6 +109,9 @@ private:
         0, Animation::ColorWipe(int_palette, int_next_palette, 80, ease_mid));
   }
 
+  // Draws one stack of `density` concentric DistortedRings under the given
+  // layer rotation, radius stepping from 0 to 2, shaded by `pal`. The rings are
+  // wobbled by a sine wave whose amplitude is the animated `amp` param.
   void draw_layer(Canvas &canvas, Quaternion layer_rotation,
                   const BakedPalette &pal) {
     int count = static_cast<int>(std::ceil(params.density));
@@ -116,6 +132,7 @@ private:
     }
   }
 
+  // User-tunable params: per-ring opacity, ring count, and wobble amplitude.
   struct Params {
     float alpha = 0.2f;
     float density = 10.0f;

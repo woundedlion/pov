@@ -12,8 +12,7 @@
 #include "color.h"
 #include "memory.h" // for ArenaVector (Fragments); geometry must not depend on mesh.h
 #include "static_circular_buffer.h" // for StaticCircularBuffer (Dots/Points)
-#include "util.h" // for wrap() (previously pulled in transitively via waves.h)
-// transformers.h removed to break cycle
+#include "util.h"                    // for wrap()
 
 /**
  * @brief Represents a "Fragment" or a potential pixel/vertex with associated
@@ -40,8 +39,8 @@ struct Fragment {
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
     Fragment f;
     f.pos =
-        a.pos + (b.pos - a.pos) * t; // Note: This is linear, not slerp. Slerp
-                                     // usually happens known externally.
+        a.pos + (b.pos - a.pos) * t; // Linear, not slerp: any slerp of pos is
+                                     // applied by the caller.
     f.v0 = a.v0 + (b.v0 - a.v0) * t;
     f.v1 = a.v1 + (b.v1 - a.v1) * t;
     f.v2 = a.v2 + (b.v2 - a.v2) * t;
@@ -173,6 +172,10 @@ inline float phi_to_y(float phi, int h_virt) {
   return (phi * (h_virt - 1)) / PI_F;
 }
 
+/**
+ * @brief phi -> pixel-y for a compile-time height H. Derives H_VIRT from H plus
+ * hs::H_OFFSET so callers pass the logical height, not the virtual one.
+ */
 template <int H> inline float phi_to_y(float phi) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
   static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
@@ -204,6 +207,10 @@ template <int H> struct PhiLUT {
 template <int H> std::array<float, PhiLUT<H>::H_VIRT> PhiLUT<H>::data;
 template <int H> bool PhiLUT<H>::initialized = false;
 
+/**
+ * @brief LUT-backed pixel-y -> phi for integer rows at compile-time height H.
+ * Lazily fills PhiLUT on first touch; traps an out-of-range row via HS_CHECK.
+ */
 template <int H> inline float y_to_phi(int y) {
   if (!PhiLUT<H>::initialized) {
     PhiLUT<H>::init();
@@ -212,6 +219,10 @@ template <int H> inline float y_to_phi(int y) {
   return PhiLUT<H>::data[y];
 }
 
+/**
+ * @brief Pixel-y -> phi for fractional rows at compile-time height H. Snaps to
+ * the LUT for near-integer y; otherwise computes the angle analytically.
+ */
 template <int H> inline float y_to_phi(float y) {
   if (std::abs(y - std::floor(y)) < TOLERANCE) {
     int iy = static_cast<int>(y);
@@ -320,6 +331,11 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
                 sp * TrigLUT<W, H>::sin_theta[x]);
 }
 
+/**
+ * @brief Reconstruct a unit vector from fractional pixel coordinates. Snaps to
+ * the integer LUT path when both coordinates are near-integer; otherwise builds
+ * the vector analytically from spherical angles.
+ */
 template <int W, int H> Vector pixel_to_vector(float x, float y) {
   if (std::abs(x - floor(x)) < TOLERANCE &&
       std::abs(y - floor(y)) < TOLERANCE) {
@@ -373,7 +389,7 @@ inline LogPolar vectorToLogPolar(const Vector &v) {
   // the planar radius R -> +inf, at the south pole (v.y -> -1) it goes R -> 0,
   // so rho = 0.5*log((1+y)/(1-y)) tends to +inf and -inf respectively. Clamp
   // each to a symmetric finite sentinel so neither pole leaks a non-finite rho
-  // into downstream arithmetic (the south pole previously returned -inf).
+  // into downstream arithmetic.
   const float numer = 1.0f + v.y;
   const float denom = 1.0f - v.y;
   if (std::abs(denom) < 0.00001f) {
@@ -599,7 +615,6 @@ private:
  * @return A normalized random Vector.
  */
 inline Vector random_vector() {
-  // Marsaglia's method
   float v1, v2, s;
   do {
     v1 = 2.0f * hs::rand_f() - 1.0f;
@@ -626,10 +641,9 @@ struct LissajousParams {
  * Lissajous curve.
  * @param m1 Frequency coefficient for XZ plane.
  * @param m2 Frequency coefficient for Y axis.
- * @param a Phase shift in radians. This matches the daydream lissajous designer
- *          (tools/lissajous.html), whose radians-labelled slider and exported
- *          snippet feed straight into this function — the phase is used as-is,
- *          NOT scaled by PI_F.
+ * @param a Phase shift in radians, used as-is. Matches the daydream lissajous
+ *          designer (tools/lissajous.html), whose radians-labelled slider and
+ *          exported snippet feed straight into this function.
  * @param t Time variable (or position along the domain).
  * @return The calculated 3D point (unit vector).
  */

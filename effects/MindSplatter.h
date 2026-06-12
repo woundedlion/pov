@@ -7,6 +7,10 @@
 
 #include "core/effects_engine.h"
 
+// Particle effect: emitters on a cube's vertices spray particles that are
+// pulled toward attractors on an octahedron's vertices, drawn through a
+// Mobius warp. Presets cyclically lerp friction/well-strength/speed params,
+// and the whole field is randomly re-warped on a timer.
 template <int W, int H> class MindSplatter : public Effect {
 public:
   FLASHMEM MindSplatter()
@@ -18,10 +22,12 @@ public:
         filters(Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
+  // Register params, build the particle system + presets timeline, bake the
+  // palette, and kick off the warp scheduler.
   void init() override {
     // The particle pool needs the bulk of the arena, so leave the persistent
     // arena large: carve only a small scratch_a (11 KiB) and no scratch_b.
-    static constexpr size_t SCRATCH_BYTES = 11 * 1024; // 11264
+    static constexpr size_t SCRATCH_BYTES = 11 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
     registerParam("Friction", &params.friction, 0.5f, 1.0f);
@@ -30,9 +36,9 @@ public:
     registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
     registerParam("Particles", &params.active_count, 0.0f,
                   (float)NUM_PARTICLES);
-    // The preset Lerp drives these four every cycle; flag them as animated so
-    // the standard "Pause Animation" toggle governs them (touching one pauses
-    // the presets and hands the value to the user).
+    // The preset Lerp drives these four every cycle; flag them animated so the
+    // "Pause Animation" toggle governs them (touching one pauses the presets
+    // and hands the value to the user).
     markAnimated("Friction");
     markAnimated("Well Str");
     markAnimated("Init Spd");
@@ -62,6 +68,8 @@ public:
 
   bool show_bg() const override { return false; }
 
+  // Step the timeline, push live params into the particle system, advance it,
+  // then render the particles.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -94,7 +102,7 @@ private:
                                     AttractSolid::NUM_VERTS>
       ParticleSystem;
 
-  // Params
+  // Animated effect parameters; active_count is engine-written (read-only).
   struct Params {
     float friction = 0.85f;
     float well_strength = 1.0f;
@@ -102,6 +110,7 @@ private:
     float angular_speed = 0.2f;
     float active_count = 0.0f;
 
+    // Linearly interpolate each field between two preset snapshots (t in [0,1]).
     void lerp(const Params &start, const Params &target, float t) {
       friction = start.friction + (target.friction - start.friction) * t;
       well_strength = start.well_strength +
@@ -126,53 +135,49 @@ private:
   BakedPalette baked_palette_;
   std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
   // Per-emitter accumulated emission angle (radians, wrapped to [0,2pi)). Driven
-  // by integrating Ang Spd each emission rather than counter*speed, so a live
-  // speed change alters the rate going forward only (finding 318).
+  // by integrating Ang Spd each emission, so a live speed change alters the
+  // emission rate going forward only.
   std::array<float, EmitSolid::NUM_VERTS> emit_phases;
 
   // Warp params
   MobiusParams mobius;
   float warp_scale = 0.6f;
 
+  // (Re)build the particle system: init the pool, place attractors on the
+  // octahedron vertices, seed emitter hues/phases, and install an emitter at
+  // each cube vertex.
   FLASHMEM void rebuild() {
     particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);
 
-    // Add Attractors
     for (const auto &v : AttractSolid::vertices) {
       particle_system.add_attractor(v, params.well_strength, 0.003f, 0.2f);
     }
 
-    // Emitter Hues
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
       emitter_hues[i] = hs::rand_f();
     }
 
     emit_phases.fill(0.0f);
 
-    // Add Emitters
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
       Vector axis = EmitSolid::vertices[i];
 
       particle_system.add_emitter([this, i, axis](ParticleSystem &) {
-        // Accumulate a wrapped per-emitter phase instead of counter*speed. The
-        // old form rescaled all elapsed steps whenever Ang Spd changed
-        // (d(angle)=counter·d(speed)), so a "smooth" preset lerp randomized the
-        // emission direction; it also lost precision as the counter grew over
-        // multi-day runs. Integrating speed makes a change affect only the rate
-        // going forward, and the [0,2pi) wrap keeps cos/sin precise.
+        // Integrate Ang Spd into a wrapped per-emitter phase so a live speed
+        // change affects only the rate going forward; the [0,2pi) wrap keeps
+        // cos/sin precise over long runs.
         float angle = emit_phases[i];
         emit_phases[i] =
             fmodf(emit_phases[i] + params.angular_speed, 2.0f * PI_F);
 
-        // Basis
+        // Velocity in the emitter's tangent plane, rotated by the phase angle.
         auto basis = make_basis(Quaternion(), axis);
         Vector vel = (basis.u * cosf(angle) + basis.w * sinf(angle)) *
                      params.initial_speed;
 
-        // Update Hue
+        // Advance hue by the golden ratio for an even spread across emissions.
         emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
 
-        // Spawn with hue seed
         if (particle_system.active_count < particle_system.pool.capacity()) {
           uint16_t seed_u16 = static_cast<uint16_t>(emitter_hues[i] * 65535.0f);
           particle_system.spawn(axis, vel, seed_u16);
@@ -181,15 +186,19 @@ private:
     }
   }
 
+  // Render all particles through the Mobius warp, dimming each fragment by the
+  // attractor "event horizon" kernels and coloring it from the baked palette.
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
-    // Precompute cos thresholds for dot-product fast-reject:
-    // cos(event_horizon). Points beyond the horizon have dot < this threshold,
-    // so they fall outside the well's influence and are skipped below.
+    // Precompute cos(event_horizon) per attractor for a dot-product fast-reject:
+    // points with dot < this threshold lie beyond the horizon (no influence)
+    // and are skipped below.
     std::array<float, AttractSolid::NUM_VERTS> cos_eh;
     for (size_t i = 0; i < particle_system.attractors.size(); ++i) {
       cos_eh[i] = fast_cosf(particle_system.attractors[i].event_horizon);
     }
 
+    // Accumulate per-attractor alpha falloff from the pre-warp position, then
+    // apply the Mobius warp and orientation to the fragment position.
     auto vertex_shader = [&](Fragment &f) {
       Vector original_pos = f.pos;
       float holeAlpha = 1.0f;
@@ -208,6 +217,8 @@ private:
       f.v3 *= holeAlpha;
     };
 
+    // Color the fragment from the per-particle hue seed (skipping inactive
+    // particles), squaring alpha for a softer falloff.
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
@@ -229,14 +240,17 @@ private:
                                      fragment_shader, vertex_shader);
   }
 
+  // Begin the self-rescheduling warp cycle.
   void start_warp() { schedule_warp(); }
 
+  // Arm a one-shot timer (180-300 steps) that triggers the next warp.
   void schedule_warp() {
     auto timer =
         Animation::RandomTimer(180, 300, [this](Canvas &) { perform_warp(); });
     timeline.add(0, timer);
   }
 
+  // Run one Mobius warp animation, then re-arm the timer for the next.
   void perform_warp() {
     auto warp = Animation::MobiusWarp(mobius, warp_scale, 160, false);
     warp.then([this]() { schedule_warp(); });

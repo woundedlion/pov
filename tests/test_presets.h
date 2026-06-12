@@ -17,11 +17,14 @@
 namespace hs_test {
 namespace presets_tests {
 
+// Minimal stand-in payload so the container is exercised without depending on
+// any real preset struct; id doubles as an identity marker in assertions.
 struct DummyParams {
   int id;
   float value;
 };
 
+// Builds a 3-entry Presets with ids 1..3 for the common test fixture.
 inline auto make_presets() {
   return Presets<DummyParams, 3>{std::array<PresetEntry<DummyParams>, 3>{{
       {DummyParams{1, 1.5f}},
@@ -30,6 +33,7 @@ inline auto make_presets() {
   }}};
 }
 
+// A freshly built container points at the first entry, with prev mirroring it.
 inline void test_initial_state() {
   auto p = make_presets();
   HS_EXPECT_EQ(p.get().id, 1);
@@ -39,6 +43,8 @@ inline void test_initial_state() {
   HS_EXPECT_EQ(static_cast<int>(p.get_entries().size()), 3);
 }
 
+// next() advances forward, wraps past the last entry, and leaves prev_get()
+// pointing at the entry that was current before the call.
 inline void test_next_cycles_forward_and_tracks_prev() {
   auto p = make_presets();
 
@@ -56,6 +62,7 @@ inline void test_next_cycles_forward_and_tracks_prev() {
   HS_EXPECT_EQ(p.prev_get().id, 3);
 }
 
+// prev() steps backward and wraps from the first entry to the last.
 inline void test_prev_cycles_backward() {
   auto p = make_presets();
 
@@ -69,6 +76,7 @@ inline void test_prev_cycles_backward() {
   HS_EXPECT_EQ(p.prev_get().id, 3);
 }
 
+// apply() overwrites the caller's target with a copy of the current entry.
 inline void test_apply_copies_current() {
   auto p = make_presets();
   p.next(); // now on id 2
@@ -79,6 +87,7 @@ inline void test_apply_copies_current() {
   HS_EXPECT_NEAR(target.value, 2.5f, 1e-6f);
 }
 
+// With a single entry, next()/prev() are no-ops that keep current_idx at 0.
 inline void test_single_entry_wraps_in_place() {
   Presets<DummyParams, 1> p{std::array<PresetEntry<DummyParams>, 1>{{
       {DummyParams{42, 0.0f}},
@@ -91,6 +100,8 @@ inline void test_single_entry_wraps_in_place() {
   HS_EXPECT_EQ(p.current_idx, 0);
 }
 
+// Class template argument deduction infers the entry type and count from the
+// array, so Presets can be constructed without spelling out <DummyParams, 2>.
 inline void test_ctad_deduces_size() {
   // The deduction guide deduces <DummyParams, 2> from the array's element count.
   Presets ctad{std::array<PresetEntry<DummyParams>, 2>{{
@@ -102,6 +113,7 @@ inline void test_ctad_deduces_size() {
   HS_EXPECT_EQ(ctad.get().id, 8);
 }
 
+// Runs all preset-container cases; returns the module's failure count.
 inline int run_presets_tests() {
   auto scope = hs_test::begin_module("presets");
 

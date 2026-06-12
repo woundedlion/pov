@@ -22,6 +22,10 @@ namespace generators_tests {
 
 inline uint8_t gen_target_buf[8 * 1024];
 
+// Verifies the full generate() contract in one pass: scratch arenas are reset
+// before fn runs, fn receives the two globals plus the caller's target, scratch
+// allocations roll back on return, target allocations persist, and the extra
+// arg and return value are forwarded.
 inline void test_generate_lifecycle_and_forwarding() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
@@ -73,9 +77,9 @@ inline void test_generate_lifecycle_and_forwarding() {
   HS_EXPECT_EQ(target.get_offset(), (size_t)32);
 }
 
+// A generator can write into target while using scratch; only scratch is rolled
+// back. Confirms two sequential generate() calls accumulate in target.
 inline void test_generate_nested_target_persists() {
-  // A generator can itself write into target while using scratch; only scratch
-  // is rolled back. Two sequential generate() calls accumulate in target.
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
   (void)generate(target, [](Arena &t, Arena &a, Arena &, int n) {
@@ -99,10 +103,10 @@ inline void test_generate_nested_target_persists() {
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 }
 
+// generate() is reentrant: a callback may call generate() again. The inner call
+// must stack its scratch above the outer frame's live allocations rather than
+// resetting the arena out from under it. Checks the outer sentinel survives.
 inline void test_generate_reentrant_nesting_does_not_clobber() {
-  // generate() is reentrant: a callback may call generate() again. The inner
-  // call must stack its scratch ABOVE the outer frame's live allocations
-  // rather than resetting the arena out from under it.
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
   size_t outer_offset_after_inner = 999;
@@ -115,8 +119,8 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
     outer[0] = 0xAB;
     const size_t outer_offset_before_inner = a.get_offset();
 
-    // Nested generate() — the foot-gun the old reset() created. It must not
-    // rewind the arena to 0 (that would zero the outer frame).
+    // Nested generate() must not rewind the arena to 0 (that would zero the
+    // outer frame); its scratch stacks above the outer allocations.
     (void)generate(t, [&](Arena &, Arena &ia, Arena &, int) {
       inner_start_offset = ia.get_offset(); // stacked above outer, not reset
       uint8_t *inner = static_cast<uint8_t *>(ia.allocate(32));
@@ -147,6 +151,7 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
 // Runner
 // ============================================================================
 
+// Runs every generators test case and returns the module's failure count.
 inline int run_generators_tests() {
   auto scope = hs_test::begin_module("generators");
 

@@ -15,7 +15,7 @@
 #include "memory.h"
 
 #if defined(__ARM_FEATURE_DSP)
-// Inline assembly fallbacks to avoid CMSIS header dependency nightmares
+// Inline assembly avoids a CMSIS header dependency for the saturating add.
 __attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
   uint32_t res;
   __asm__ volatile("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
@@ -81,11 +81,10 @@ struct Pixel16 {
   }
 
   Pixel16 operator*(float s) const {
-    // Clamp in float before the cast: r*s can exceed INT_MAX for large s,
-    // and float->int conversion is UB out of range (would bite before an
-    // int clamp could fire). hs::clamp (not std::clamp) additionally maps a
-    // NaN scale to the hi bound instead of letting NaN reach the cast — the
-    // same NaN-safety blend_alpha relies on; bit-identical for valid inputs.
+    // Clamp in float before the cast: r*s can exceed INT_MAX for large s, and
+    // float->int conversion is UB out of range, so an int clamp would fire too
+    // late. hs::clamp (not std::clamp) also maps a NaN scale to the hi bound
+    // instead of letting NaN reach the cast.
     return Pixel16((uint16_t)hs::clamp(r * s, 0.0f, 65535.0f),
                    (uint16_t)hs::clamp(g * s, 0.0f, 65535.0f),
                    (uint16_t)hs::clamp(b * s, 0.0f, 65535.0f));
@@ -102,15 +101,14 @@ struct Pixel16 {
     // of this file. Still exact at the endpoints (frac 0/65535 -> a/b) because
     // the bias stays strictly below one output quantum.
     //
-    // The two channel products are computed with plain 32-bit MACs on every
-    // target. A previous ARM build packed both into a single `smlad`, but
-    // `smlad` is a *signed* 16x16 dual-MAC: any operand >= 32768 (a frac, an
-    // inverse-frac, or just a bright channel) reads as negative, so the product
-    // is wrong for the entire upper half of the range. On a Cortex-M7 a `mul` +
-    // `mla` per channel is single-cycle and dual-issuable, so the correct
-    // portable form costs at most a cycle or two over the (broken) packed path.
-    // (The unsigned `uqadd16` used by operator+= is fine — only the signed
-    // multiply was unsound for unsigned operands.)
+    // The two channel products use plain 32-bit MACs on every target rather
+    // than a packed `smlad`: `smlad` is a *signed* 16x16 dual-MAC, so any
+    // operand >= 32768 (a frac, an inverse-frac, or a bright channel) reads as
+    // negative and the product is wrong across the upper half of the range. On a
+    // Cortex-M7 a `mul` + `mla` per channel is single-cycle and dual-issuable,
+    // so the portable form costs at most a cycle or two. (The unsigned `uqadd16`
+    // in operator+= is fine — only signed multiply is unsound for unsigned
+    // operands.)
     uint16_t inv = 65535 - frac;
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
@@ -152,9 +150,10 @@ struct Color4 {
         alpha(a) {}
   Color4(const Color4 &c, float a) : color(c.color), alpha(a) {}
 
+  /// Interpolate color (16-bit linear) and alpha by t, clamped to [0,1] so an
+  /// out-of-range t saturates both channels at an endpoint rather than letting
+  /// alpha extrapolate while color stays clamped.
   Color4 lerp(const Color4 &other, float t) const {
-    // Clamp t once and drive both channels from it: previously color saturated
-    // (clamped frac) while alpha extrapolated on the raw t for out-of-range t.
     const float ct = hs::clamp(t, 0.0f, 1.0f);
     uint16_t frac = static_cast<uint16_t>(ct * 65535.0f);
     Pixel blended = color.lerp16(other.color, frac);
@@ -273,12 +272,12 @@ inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
 #endif
 }
 
+/// Returns a blend functor that lerps c1->c2 by alpha `a` (0..1).
 inline auto blend_alpha(float a) {
-  // Clamp in float before the cast, mirroring Pixel16::operator*: the old
-  // (int)(a * 65535) converts before clamping, which is UB when a is NaN or
-  // large enough to overflow int. hs::clamp is a hardware min/max that also
-  // maps NaN to the hi bound instead of letting it reach the cast. Truncation
-  // (no rounding bias) is preserved, so valid alphas stay bit-identical.
+  // Clamp in float before the cast, mirroring Pixel16::operator*: casting an
+  // unclamped a*65535 to int is UB when a is NaN or overflows int. hs::clamp is
+  // a hardware min/max that also maps NaN to the hi bound. Truncation (no
+  // rounding bias) is intentional here.
   uint16_t ai = (uint16_t)hs::clamp(a * 65535.0f, 0.0f, 65535.0f);
   return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
@@ -387,9 +386,9 @@ inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
 }
 
 /// Quantize a [0,1] linear channel to a 16-bit Pixel component. Clamps, then
-/// rounds (+0.5f) rather than truncating — truncation biases every channel down
-/// by up to ~1/65535. The single home for the conversion the float->Pixel
-/// helpers below (oklch_to_pixel, srgb_to_linear_interp) all repeated by hand.
+/// rounds (+0.5f) rather than truncating — truncation would bias every channel
+/// down by up to ~1/65535. Shared by the float->Pixel helpers below
+/// (oklch_to_pixel, srgb_to_linear_interp).
 inline uint16_t float_to_pixel16(float v) {
   return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
@@ -451,12 +450,14 @@ inline Color4 hue_rotate(const Color4 &c, float amount) {
   return hue_rotate(c, fast_cosf(angle), fast_sinf(angle));
 }
 
+/// OKLab (Cartesian a,b) -> OKLCH (polar chroma C, hue h in radians).
 inline OKLCH oklab_to_oklch(OKLab lab) {
   float C = sqrtf(lab.a * lab.a + lab.b * lab.b);
   float h = atan2f(lab.b, lab.a);
   return {lab.L, C, h};
 }
 
+/// OKLCH (polar) -> OKLab (Cartesian).
 inline OKLab oklch_to_oklab(OKLCH lch) {
   return {lch.L, lch.C * cosf(lch.h), lch.C * sinf(lch.h)};
 }
@@ -628,7 +629,7 @@ public:
     if (lo >= 255) return Color4(entries[255], 1.0f);
     float frac = idx - lo;
     // Round (+0.5f) the blend weight via the shared helper rather than
-    // truncating — truncation biased every interpolated sample down by up to
+    // truncating, which would bias every interpolated sample down by up to
     // ~1/65535.
     return Color4(entries[lo].lerp16(entries[lo + 1], float_to_pixel16(frac)),
                   1.0f);
@@ -647,6 +648,9 @@ public:
       : GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                           BrightnessProfile::FLAT) {}
 
+  /// Build a 3-key palette from a base hue, a harmony rule, and brightness/
+  /// saturation profiles. The base hue comes from manual_seed when >= 0, else
+  /// from the global golden-ratio hue cursor (which is then advanced).
   GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
                     BrightnessProfile profile,
                     SaturationProfile sat_profile = SaturationProfile::MID,
@@ -717,6 +721,9 @@ public:
     update_stops();
   }
 
+  /// Rebuild the stop positions/colors for the current gradient_shape from the
+  /// three keys a/b/c, then cache their OKLCH forms for get(). Call after any
+  /// change to a/b/c or gradient_shape.
   void update_stops() {
     const CPixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
@@ -752,11 +759,14 @@ public:
 
   Snapshot snapshot() const { return {a, b, c}; }
 
+  /// Set this palette's keys to the OKLCH interpolation between two palettes.
   void lerp(const GenerativePalette &from, const GenerativePalette &to,
             float amount) {
     lerp(from.snapshot(), to.snapshot(), amount);
   }
 
+  /// Set this palette's keys to the per-key OKLCH interpolation between two
+  /// snapshots, then rebuild the stops.
   void lerp(const Snapshot &from, const Snapshot &to, float amount) {
     a = lerp_oklch_srgb(from.a, to.a, amount);
     b = lerp_oklch_srgb(from.b, to.b, amount);
@@ -800,8 +810,11 @@ public:
   }
 
 private:
+  /// Wrap an integer hue into [0,255], correct for negative inputs.
   uint8_t wrap_hue(int hue) const { return (hue % 256 + 256) % 256; }
 
+  /// Derive the two companion hues (h2, h3) from base hue h1 per the chosen
+  /// harmony. Some harmonies add randomized jitter, so output is not pure.
   void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
                  HarmonyType harmony_type) const {
     const int h1_int = h1;
@@ -915,6 +928,8 @@ public:
     mutate(0.0f);
   }
 
+  /// Set the active cosine parameters to the t-interpolation (t in [0,1])
+  /// between the two endpoint parameter sets, blending one palette into another.
   void mutate(float t) {
     for (int i = 0; i < 3; ++i) {
       a[i] = lerp(a1[i], a2[i], t);
@@ -1294,6 +1309,7 @@ private:
   const SP *sp_ = nullptr;
 };
 
+/// Palette that returns one fixed color for every coordinate.
 class SolidColorPalette : public Palette {
 public:
   SolidColorPalette(const Color4 &color) : color(color) {}
@@ -1341,8 +1357,8 @@ public:
     // both integer bound guards below. hs::clamp is a branchless hardware
     // min/max that maps NaN to the hi bound, so NaN resolves to the last entry.
     // Valid t in [0,1] is unchanged (no-op clamp), so the per-pixel hot path
-    // keeps its cost — the clamp guarantees idx >= 0, so the old `lo < 0` branch
-    // is now dead and dropped.
+    // keeps its cost. The clamp guarantees idx >= 0, so no `lo < 0` guard is
+    // needed.
     float idx = hs::clamp(t * (LUT_SIZE - 1), 0.0f,
                           static_cast<float>(LUT_SIZE - 1));
     int lo = static_cast<int>(idx);
@@ -1351,7 +1367,7 @@ public:
     const Color4 &a = lut_[lo];
     const Color4 &b = lut_[lo + 1];
     // Round (+0.5f) the blend weight rather than truncating, matching
-    // float_to_pixel16 / Gradient::get — bare truncation biased every
+    // float_to_pixel16 / Gradient::get — bare truncation would bias every
     // interpolated sample down by up to ~1/65535. The helper's clamp is skipped
     // here: frac is already in [0,1) after the bounds checks above, and get() is
     // a per-pixel hot path.

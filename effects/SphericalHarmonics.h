@@ -10,6 +10,7 @@
 #include <utility>
 
 namespace SHMath {
+/// Factorial of n as a float (n small; large n would overflow float precision).
 inline float factorial(int n) {
   if (n <= 1)
     return 1.0f;
@@ -19,6 +20,8 @@ inline float factorial(int n) {
   return result;
 }
 
+/// Associated Legendre polynomial P_l^m(x) via the standard upward recurrence:
+/// seed P_m^m, then P_{m+1}^m, then recur in l. x is cos(phi), |x| <= 1.
 inline float associatedLegendre(int l, int m, float x) {
   float pmm = 1.0f;
   if (m > 0) {
@@ -77,6 +80,8 @@ inline std::pair<int, int> decode_lm(int idx) {
 }
 } // namespace SHMath
 
+/// Visualizer that paints real spherical harmonics on the unit sphere,
+/// continuously morphing between randomly chosen modes.
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
   // Field sampler for the visualizer. Intentionally NOT a deforming SDF: on the
@@ -106,12 +111,16 @@ public:
       return false;
     }
 
+    /// Convenience wrapper returning a fresh DistanceResult.
     SDF::DistanceResult distance(const Vector &p) const {
       SDF::DistanceResult res;
       distance<true>(p, res);
       return res;
     }
 
+    /// Sample the (possibly blended) harmonic at world point p. Rotates p into
+    /// the shape's local frame, evaluates both modes in spherical coords, and
+    /// emits the field value through frag.v1 with a constant "inside" distance.
     template <bool ComputeUVs = true>
     void distance(const Vector &p, SDF::DistanceResult &res) const {
       Vector local = rotate(p, orientation.conjugate());
@@ -123,11 +132,9 @@ public:
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
       float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
-      // Skip the second harmonic when not blending. Morphs currently chain
-      // back-to-back (start_morph re-fires the instant morph_alpha commits to
-      // 0), so blend > 0 on all but the single commit frame and this guard
-      // rarely fires — it stays correct and would pay off only if a hold period
-      // between morphs were added.
+      // Skip the second harmonic when not blending. Morphs chain back-to-back,
+      // so blend > 0 on all but the single commit frame; the guard is cheap
+      // insurance for any future hold period between morphs.
       if (blend > 0.001f) {
         float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
         val += (val2 - val) * blend;
@@ -140,6 +147,8 @@ public:
 
   FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {}
 
+  /// One-time setup: register params, bake the palette, seed the shape and the
+  /// continuous spin, and kick off the first morph.
   void init() override {
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
     registerParam("Debug BB", &params.debug_bb);
@@ -162,6 +171,8 @@ public:
 
   bool show_bg() const override { return false; }
 
+  /// Decode the current and target modes, build the field for this frame's
+  /// morph state, and rasterize with the harmonic-coloring shader.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -170,6 +181,8 @@ public:
     auto [l2, m2] = SHMath::decode_lm(next_idx);
     HarmonicField field(l1, m1, l2, m2, morph_alpha, orientation.get());
 
+    // Map the field value (carried in frag.v1) to color: diverging positive/
+    // negative palettes crossfaded at the zero-crossing, then AO brightness.
     auto shader = [&](const Vector &, Fragment &frag) {
       float val = frag.v1;
       float abs_val = std::abs(val);
@@ -210,6 +223,8 @@ private:
   static constexpr float AO_AMBIENT = 0.15f;
   static constexpr float AO_RANGE = 0.85f;
 
+  /// Choose the next harmonic and animate the morph toward it; on completion
+  /// commit it as current and recurse, yielding an endless morph chain.
   void start_morph() {
     // Pick a random new harmonic (low modes 1..23 look the best). Re-roll on a
     // match with the current harmonic: blending a mode into itself leaves the

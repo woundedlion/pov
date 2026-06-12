@@ -30,8 +30,8 @@
  * @param x The value to wrap.
  * @param m The modulo base.
  * @return The wrapped value in the range [0, m), as `std::common_type_t<T, U>`.
- *   Returning the common type (not T) keeps the float math the comment promises:
- *   `wrap(3, 2.5f)` yields 0.5f, not a truncated 0.
+ *   Returning the common type rather than T preserves the float math, so
+ *   `wrap(3, 2.5f)` yields 0.5f rather than a truncated 0.
  */
 template <typename T, typename U>
 inline std::common_type_t<T, U> wrap(T x, U m) {

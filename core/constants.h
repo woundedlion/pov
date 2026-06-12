@@ -53,10 +53,10 @@ struct ClipRegion {
   }
 
   /// Precomputed cylindrical x-clip predicate. Construct once per draw, then
-  /// call clipped(x) per fragment. The wrap-to-full case (a sub-arc whose
-  /// margin expansion sums to exactly w, so rs == re) and the full-width case
-  /// are folded into `active` here, so hot loops cannot reproduce the rs==re
-  /// full-segment blackout by hand-rolling the predicate themselves.
+  /// call clipped(x) per fragment. The full-width case and the wrap-to-full
+  /// case (a sub-arc whose margin expansion sums to exactly w, so rs == re)
+  /// both fold into `active == false`, so hot loops can't accidentally blank a
+  /// full segment by treating rs == re as an empty band.
   struct XClip {
     int  rs     = 0;
     int  re     = 0;

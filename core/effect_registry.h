@@ -36,6 +36,8 @@ struct EffectRegistration {
   FillFn fill_288_144;
 };
 
+// Global table of registered effects, populated at static-init time by
+// REGISTER_EFFECT. Meyers-singleton vector avoids static-init-order issues.
 class EffectRegistry {
 public:
   static std::vector<EffectRegistration>& entries() {
@@ -91,7 +93,7 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
   }
 
 #else
-// Non-WASM targets: no-op (extern template + explicit instantiation was
-// attempted but GCC ARM 11.3.1 still emits weak symbols, ignoring FLASHMEM)
+// Non-WASM targets (Teensy): no-op, so effect registration pulls in no
+// std::vector/std::function overhead and effects are selected statically.
 #define REGISTER_EFFECT(ClassName)
 #endif

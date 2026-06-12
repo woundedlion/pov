@@ -7,10 +7,16 @@
 
 #include "core/effects_engine.h"
 
+/// Full-sphere liquid effect: domain-warped OpenSimplex noise feeds a
+/// cross-coupled sinusoidal pattern, stereographically projected and colored
+/// through a breathing generative palette. Presets cycle on a random timer.
 template <int W, int H> class Liquid2D : public Effect {
 public:
+  /// Shader writes every pixel each frame, so no inter-frame persistence.
   FLASHMEM Liquid2D() : Effect(W, H) { persist_pixels = false; }
 
+  /// Register sliders, seed the timeline drivers/orientations, bake the palette,
+  /// and arm the preset-cycling timer; then load the first preset.
   void init() override {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
@@ -62,8 +68,12 @@ public:
     params = presets.get();
   }
 
+  /// Shader fills every pixel, so request the background pass.
   bool show_bg() const override { return true; }
 
+  /// Advance the timeline, maintain the wrapped trig phases, then shade every
+  /// pixel: project to the sphere, warp in stereographic space, sample the
+  /// pattern, attenuate near the poles, and map through the palette.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -88,7 +98,7 @@ public:
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
       float r_sq = z.re * z.re + z.im * z.im;
-      Complex w = warp(z, r_sq, t).coords; // displacement unused (unlike Flyby)
+      Complex w = warp(z, r_sq, t).coords; // only the warped coords feed sample
       float pattern = sample(w, sin_phase, cos_phase);
       float value = attenuate(pattern, r_sq);
       return static_palette.get(value);
@@ -157,6 +167,8 @@ private:
   BreatheModifier breathe_mod{&cycle_phase, 0.15f};
   StaticPalette<BakedPalette, Coords<BreatheModifier>> static_palette;
 
+  /// Tunable per-frame parameters, exposed as sliders and interpolated between
+  /// presets. Defaults double as preset 0.
   struct Params {
     float warp_scale = 1.5f;
     float warp_strength = 0.5f;

@@ -13,8 +13,8 @@
  * Both systems run on the same 7680-node Fibonacci-lattice K-NN graph, share a
  * Languid random-walk view orientation, build the cached node positions once at
  * init (the lattice is static), and interpolate with the same Wendland C2
- * kernel. This base captures
- * exactly that shared scaffolding. The physics (Lotka-Volterra 3-species Q8 vs
+ * kernel. This base captures exactly that shared scaffolding. The physics
+ * (Lotka-Volterra 3-species Q8 vs
  * Gray-Scott 2-species Q16), state representation, seeding, params, palette, and
  * rendering are fundamentally different and stay in the derived classes.
  *
@@ -28,10 +28,15 @@ public:
   static constexpr int RD_N = ReactionGraph::RD_N;
   static constexpr int RD_K = ReactionGraph::RD_K;
 
+  /** Each frame is fully repainted from lattice state, so the framebuffer
+   *  need not persist between frames. */
   ReactionDiffusionBase() : Effect(W, H) { persist_pixels = false; }
 
+  /** Both systems composite over the framebuffer background. */
   bool show_bg() const override { return true; }
 
+  /** Advance the orientation timeline, then statically dispatch to
+   *  Derived::render() for the system-specific physics and drawing. */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -44,6 +49,7 @@ protected:
   static constexpr float KERNEL_R = 1.5f * D_AVG;
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R);
 
+  /** Squared Euclidean distance between two points (no sqrt). */
   static float dist2(const Vector &a, const Vector &b) {
     float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
     return dx * dx + dy * dy + dz * dz;

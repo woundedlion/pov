@@ -77,6 +77,8 @@ struct Style {
   float hue_ca = 1.0f;
   float hue_sa = 0.0f;
 
+  /// Interpolate this Style between a and b at t in [0,1]: scalar params blend
+  /// continuously while function pointers and discrete tuning snap at midpoint.
   void lerp(const Style &a, const Style &b, float t) {
     fade      = hs::lerp(a.fade,      b.fade,      t);
     hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
@@ -84,7 +86,6 @@ struct Style {
     frequency = hs::lerp(a.frequency, b.frequency, t);
     speed     = hs::lerp(a.speed,     b.speed,     t);
     scale     = hs::lerp(a.scale,     b.scale,     t);
-    // Function pointers and discrete tuning snap at midpoint
     space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
     color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;
     downsample = t < 0.5f ? a.downsample : b.downsample;

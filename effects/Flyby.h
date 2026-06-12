@@ -7,10 +7,14 @@
 
 #include "core/effects_engine.h"
 
+/// Stereographic fly-through: noise-warped Cartesian grid on a sphere,
+/// rotating around Y, blending continuously between camera/warp presets.
 template <int W, int H> class Flyby : public Effect {
 public:
   FLASHMEM Flyby() : Effect(W, H) { persist_pixels = false; }
 
+  /// Register animated params, seed orientation and rotation, bake the
+  /// palette LUT, and kick off the looping preset blend.
   void init() override {
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -44,6 +48,8 @@ public:
     next_preset();
   }
 
+  /// Advance to the next preset and schedule a LERP_FRAMES blend into it,
+  /// re-arming itself on completion to loop forever.
   void next_preset() {
     constexpr int LERP_FRAMES = 480;
     presets.next();
@@ -52,8 +58,12 @@ public:
                         .then([this]() { next_preset(); }));
   }
 
+  /// Draw atop the persistent background buffer (this effect is translucent).
   bool show_bg() const override { return true; }
 
+  /// Advance phases, then shade each pixel: project to stereographic space,
+  /// warp by noise, sample the grid pattern, attenuate near the pole, and
+  /// color via the palette with hue rotated by the local warp displacement.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -120,6 +130,7 @@ private:
 
   BakedPalette palette;
 
+  /// Tunable warp/pattern/color state, one snapshot per preset.
   struct Params {
     float warp_scale = 1.5f;
     float warp_strength = 0.5f;

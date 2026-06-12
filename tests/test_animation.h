@@ -47,16 +47,10 @@ namespace animation_tests {
 // Stand-in Canvas reference
 // ----------------------------------------------------------------------------
 // The animations under test (Transition/Mutation/Lerp/Driver) take a Canvas& in
-// step() but never dereference it. Previously this handed step() a reference
-// into raw aligned storage with no Canvas ever constructed — undefined behavior,
-// since binding a reference to (and later forming a glvalue for) an object that
-// doesn't exist is UB even if it's never read through.
-//
-// Instead we construct ONE genuine Canvas over a tiny static Effect and reuse
-// it. A fresh effect's buffer_free() is true, so the ctor doesn't spin; we never
-// construct a second Canvas on this effect, so there's no pending-frame spin and
-// the single dtor (queue_frame) only runs harmlessly at process exit. The
-// animations still never touch it — the reference is simply valid now.
+// step() but never dereference it. We construct ONE genuine Canvas over a tiny
+// static Effect and reuse it, so the reference is always valid. A fresh effect's
+// buffer_free() is true, so the ctor doesn't spin; the single dtor (queue_frame)
+// runs harmlessly at process exit.
 //
 // COUPLING (load-bearing): nothing a test does with this canvas may invoke
 // queue_frame() — i.e. no test may construct (and destruct) a *second* Canvas on
@@ -68,12 +62,14 @@ namespace animation_tests {
 // local Canvas/Effect rather than reusing fake_canvas().
 // ============================================================================
 
+// Tiny 8x8 effect that draws nothing; backs the shared fake_canvas().
 struct FakeEffect : public Effect {
   FakeEffect() : Effect(8, 8) {}
   void draw_frame() override {}
   bool show_bg() const override { return false; }
 };
 
+// Lazily-built shared Canvas; valid but never dereferenced by the animations.
 inline Canvas &fake_canvas() {
   static FakeEffect fx;
   static Canvas canvas(fx);
@@ -84,6 +80,7 @@ inline Canvas &fake_canvas() {
 // Path::get_point
 // ============================================================================
 
+// An empty Path returns the origin for any t (the no-points guard).
 inline void test_path_empty_returns_origin() {
   Path<32> p;
   Vector v = p.get_point(0.0f);
@@ -95,6 +92,8 @@ inline void test_path_empty_returns_origin() {
   HS_EXPECT_NEAR(v1.x, 0.0f, 0.0f);
 }
 
+// get_point hits the exact endpoints at t=0/1, clamps to back() past t=1, and
+// interpolates linearly between samples.
 inline void test_path_endpoints_and_clamp() {
   Path<32> p;
   // Plot a straight ramp along X: f(s) = (s, 0, 0), domain 1, 4 samples,
@@ -117,6 +116,8 @@ inline void test_path_endpoints_and_clamp() {
   HS_EXPECT_NEAR(mid.x, 0.5f, 1e-5f);
 }
 
+// collapse() reduces the path to its last point; get_point then returns it for
+// any t.
 inline void test_path_collapse_keeps_last() {
   Path<32> p;
   p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4.0f,
@@ -134,6 +135,8 @@ inline void test_path_collapse_keeps_last() {
 // Transition
 // ============================================================================
 
+// A Transition steps its bound float from start to target over `duration`
+// frames and reports done() only once it lands on the target.
 inline void test_transition_reaches_target_linear() {
   float v = 0.0f;
   const int duration = 10;
@@ -146,6 +149,8 @@ inline void test_transition_reaches_target_linear() {
   HS_EXPECT_NEAR(v, 100.0f, 1e-3f);
 }
 
+// `from` is captured from the live value at the first step, and a forward
+// Transition advances monotonically toward the target.
 inline void test_transition_monotonic_and_starts_from_current() {
   float v = 5.0f; // 'from' is captured from the live value at t==0
   const int duration = 8;
@@ -162,6 +167,8 @@ inline void test_transition_monotonic_and_starts_from_current() {
   HS_EXPECT_NEAR(v, 25.0f, 1e-3f);
 }
 
+// A zero-duration Transition coerces to 1 frame: no divide-by-zero, and a single
+// step completes it.
 inline void test_transition_duration_zero_no_divide_by_zero() {
   // AnimationBase coerces duration 0 -> 1, so the t/duration ratio is finite.
   float v = 0.0f;
@@ -172,6 +179,7 @@ inline void test_transition_duration_zero_no_divide_by_zero() {
   HS_EXPECT_TRUE(tr.done());
 }
 
+// A quantized Transition floors the eased value, landing on an integer.
 inline void test_transition_quantized_floors_result() {
   float v = 0.0f;
   const int duration = 4;
@@ -183,12 +191,10 @@ inline void test_transition_quantized_floors_result() {
   HS_EXPECT_NEAR(v, 3.0f, 1e-5f);
 }
 
+// A repeating Transition rewinds t to 0 at the end of each cycle. `from` is
+// captured once (on the first step), so the second cycle must traverse the full
+// 0 -> target ramp again rather than freezing at the target.
 inline void test_transition_repeat_retraverses_each_cycle() {
-  // A repeating Transition rewinds t to 0 at the end of each cycle. `from` is
-  // captured once (on the first step), so the second cycle must traverse the
-  // full 0 -> target ramp again. The prior code re-snapshotted from = mutant at
-  // t == 0, by which point mutant == target, freezing every later cycle at the
-  // target (a silent no-op).
   float v = 0.0f;
   const int duration = 4;
   Animation::Transition tr(v, 10.0f, duration, ease_mid, /*quantized=*/false,
@@ -199,7 +205,7 @@ inline void test_transition_repeat_retraverses_each_cycle() {
 
   tr.rewind(); // what Timeline does for a repeating animation
   tr.step(fake_canvas());
-  HS_EXPECT_LT(v, 10.0f); // second cycle leaves the target (frozen pre-fix)
+  HS_EXPECT_LT(v, 10.0f); // second cycle leaves the target
   for (int i = 1; i < duration; ++i)
     tr.step(fake_canvas());
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f); // and lands on it again
@@ -209,6 +215,7 @@ inline void test_transition_repeat_retraverses_each_cycle() {
 // Mutation
 // ============================================================================
 
+// Each step Mutation writes f(easing(t/duration)) into its bound float.
 inline void test_mutation_applies_function_of_eased_time() {
   float v = 0.0f;
   const int duration = 5;
@@ -222,6 +229,7 @@ inline void test_mutation_applies_function_of_eased_time() {
   HS_EXPECT_TRUE(m.done());
 }
 
+// A zero-duration Mutation coerces to 1 frame and yields a finite result.
 inline void test_mutation_duration_zero_finite() {
   float v = 0.0f;
   Animation::Mutation m(
@@ -235,6 +243,8 @@ inline void test_mutation_duration_zero_finite() {
 // Driver
 // ============================================================================
 
+// A wrapping Driver adds its per-frame increment each step and wraps back into
+// [0,1) when it reaches 1.
 inline void test_driver_increments_and_wraps() {
   float v = 0.0f;
   Animation::Driver d(v, 0.25f, /*wrap=*/true);
@@ -248,6 +258,7 @@ inline void test_driver_increments_and_wraps() {
   HS_EXPECT_NEAR(d.get_mutant(), 0.0f, 1e-5f);
 }
 
+// A non-wrapping Driver accumulates its increment past 1 without bound.
 inline void test_driver_no_wrap_accumulates() {
   float v = 0.0f;
   Animation::Driver d(v, 0.5f, /*wrap=*/false);
@@ -261,6 +272,8 @@ inline void test_driver_no_wrap_accumulates() {
 // ============================================================================
 
 namespace {
+// Minimal subject satisfying the lerp(start, target, t) interface Animation::Lerp
+// drives via type erasure.
 struct Lerpable {
   float value = 0.0f;
   void lerp(const Lerpable &a, const Lerpable &b, float t) {
@@ -269,6 +282,8 @@ struct Lerpable {
 };
 } // namespace
 
+// Lerp drives its subject from start to target over `duration` frames, landing
+// on the target and reporting done().
 inline void test_lerp_drives_subject_to_target() {
   Lerpable subject, start, target;
   start.value = 0.0f;
@@ -282,6 +297,8 @@ inline void test_lerp_drives_subject_to_target() {
   HS_EXPECT_TRUE(l.done());
 }
 
+// At the halfway eased progress the subject sits exactly between start and
+// target.
 inline void test_lerp_midpoint() {
   Lerpable subject, start, target;
   start.value = 10.0f;
@@ -297,12 +314,14 @@ inline void test_lerp_midpoint() {
 // OrientationTrail
 // ----------------------------------------------------------------------------
 // Index 0 is the OLDEST snapshot, length()-1 the newest (matching the JS
-// simulator's trail ordering, as OrientationTrail::get()'s doc now states):
+// simulator's trail ordering):
 // OrientationTrail::record() calls snapshots.push_back(), and
 // StaticCircularBuffer::operator[](0) returns buffer[head] — the first element
 // still live. This test pins that behavior.
 // ============================================================================
 
+// Recorded snapshots are ordered oldest-first: index 0 is the first recorded,
+// the last index the newest.
 inline void test_orientation_trail_index_zero_is_oldest() {
   Animation::OrientationTrail<Orientation<4>, 8> trail;
 
@@ -321,6 +340,7 @@ inline void test_orientation_trail_index_zero_is_oldest() {
   HS_EXPECT_NEAR(std::abs(dot(trail.get(2).get(), c.get())), 1.0f, 1e-4f);
 }
 
+// expire() removes the oldest snapshot, leaving the survivor at index 0.
 inline void test_orientation_trail_expire_drops_oldest() {
   Animation::OrientationTrail<Orientation<4>, 8> trail;
   Orientation<4> a, b;
@@ -334,6 +354,7 @@ inline void test_orientation_trail_expire_drops_oldest() {
   HS_EXPECT_NEAR(std::abs(dot(trail.get(0).get(), b.get())), 1.0f, 1e-4f);
 }
 
+// clear() empties the trail.
 inline void test_orientation_trail_clear() {
   Animation::OrientationTrail<Orientation<4>, 8> trail;
   Orientation<4> a;
@@ -347,8 +368,8 @@ inline void test_orientation_trail_clear() {
 // easing.h sanity
 // ============================================================================
 
+// Every in/out easing variant anchors at f(0)==0 and f(1)==1.
 inline void test_easing_in_out_endpoints() {
-  // In/out variants should anchor at 0 and 1.
   struct {
     const char *name;
     EasingFn fn;
@@ -370,6 +391,7 @@ inline void test_easing_in_out_endpoints() {
   }
 }
 
+// Every easing function stays finite across its documented [0,1] domain.
 inline void test_easing_output_finite_over_range() {
   EasingFn fns[] = {ease_in_out_cubic, ease_in_out_sin, ease_in_sin,
                     ease_out_sin,        ease_in_cubic,   ease_in_circ,
@@ -387,8 +409,9 @@ inline void test_easing_output_finite_over_range() {
   }
 }
 
+// ease_out_elastic anchors at f(0)==0 and f(1)==1 even though it overshoots in
+// between (it is not part of an in/out pair).
 inline void test_easing_elastic_anchors() {
-  // ease_out_elastic is not an in/out pair but is defined to hit 0 and 1.
   HS_EXPECT_NEAR(ease_out_elastic(0.0f), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(ease_out_elastic(1.0f), 1.0f, 1e-3f);
 }
@@ -403,7 +426,7 @@ inline void test_easing_elastic_anchors() {
 // contract: an effect-owned lvalue must be accepted, a temporary must be
 // rejected. They live at namespace scope (checked at compile time; no runner
 // call needed). If a refactor turns the SFINAE guard into a no-op, this fails
-// to compile. See P1 #5 in docs/CODE_REVIEW.md.
+// to compile.
 namespace borrow_guard {
 using Ori = Orientation<16>;
 using DrawFn = Fn<void(Canvas &, const MeshState &, float), 8>;
@@ -495,11 +518,9 @@ inline void test_rotation_substeps_shared_and_tight() {
   }
 }
 
-// Rotation::step must not discard sub-TOLERANCE increments. A rotation slow
-// enough that each frame's delta is below TOLERANCE (1e-4 rad) previously hit
-// the early-out and advanced last_angle to the target anyway, dropping the
-// increment forever — so a very slow rotation never moved at all. With the
-// increment retained, the deltas accumulate and the orientation actually turns.
+// Rotation::step must not discard sub-TOLERANCE increments: a rotation slow
+// enough that each frame's delta is below TOLERANCE (1e-4 rad) must still
+// accumulate those deltas so the orientation actually turns over many frames.
 // (ease_mid is linear here, so per-frame delta = total_angle / duration.)
 inline void test_rotation_accumulates_subthreshold_deltas() {
   using Ori = Orientation<16>;
@@ -510,21 +531,20 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
   for (int i = 0; i < 20; ++i)
     rot.step(fake_canvas());
   // After 20 frames the accumulated sweep is ~1e-3 rad; a Z rotation sends +X
-  // toward +Y. With the drop bug the orientation never moved (y stays 0).
+  // toward +Y.
   Vector v = o.orient(X_AXIS, o.length() - 1);
   HS_EXPECT_GT(v.y, 5e-4f);
   HS_EXPECT_NEAR(v.x, 1.0f, 1e-3f);
 }
 
 // Two animations sharing one Orientation must COMPOSE their sub-frame
-// motion-blur history within a frame, not clobber it. The earlier bug
-// collapsed the Orientation once per animation, so the second animation's
-// collapse discarded the first's freshly-built sub-frame trail. The decisive
-// signature is the OLDEST sub-frame (index 0): with composition it still
-// reflects the pre-frame orientation (identity here); with the bug it has
-// already advanced by the first rotation's full sweep. (Unlike most tests in
-// this file we DO touch the global Timeline; Rotation::step never dereferences
-// the canvas, and we reset the global cursor state around the test.)
+// motion-blur history within a frame, not clobber it (a per-animation collapse
+// would discard the first animation's freshly-built sub-frame trail). The
+// decisive signature is the OLDEST sub-frame (index 0): with composition it
+// still reflects the pre-frame orientation (identity here). (Unlike most tests
+// in this file we DO touch the global Timeline; Rotation::step never
+// dereferences the canvas, and we reset the global cursor state around the
+// test.)
 inline void test_timeline_shared_orientation_composes_motion_blur() {
   using Ori = Orientation<16>;
   global_timeline_num_events = 0;
@@ -541,7 +561,6 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
   // A motion-blur trail, not a single collapsed frame.
   HS_EXPECT_GE(o.length(), 2);
   // Oldest sub-frame is the pre-frame orientation (identity): +X stays +X.
-  // (Bug: index 0 already rotated by the first quarter turn -> +Y.)
   Vector oldest = o.orient(X_AXIS, 0);
   HS_EXPECT_NEAR(oldest.x, 1.0f, 1e-3f);
   HS_EXPECT_NEAR(oldest.y, 0.0f, 1e-3f);
@@ -604,9 +623,9 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
 }
 
 // A canceled repeating animation must be removed, not rewound and replayed
-// forever (finding 283). cancel() makes done() permanently true; repeats() must
-// drop on cancel so Timeline routes it through the removal branch instead of
-// keeping it as a per-frame, callback-firing zombie.
+// forever. cancel() makes done() permanently true; repeats() must drop on cancel
+// so Timeline routes it through the removal branch instead of keeping it as a
+// per-frame, callback-firing zombie.
 inline void test_timeline_cancel_removes_repeating_animation() {
   Timeline tl;
   float v = -1.0f;
@@ -685,7 +704,7 @@ inline void test_repeating_timer_fires_then_each_cycle() {
   for (int i = 0; i < 9; ++i)
     tl.step(fake_canvas()); // triggers at t=3,6,9
   HS_EXPECT_EQ(triggers, 3);
-  HS_EXPECT_EQ(thens, 3); // pre-fix: 0 (post_callback never reached)
+  HS_EXPECT_EQ(thens, 3); // the .then() hook fires once per trigger
 }
 
 // clear() destroys all events and resets the frame cursor, leaving the timeline
@@ -760,19 +779,17 @@ inline void test_orientation_upsample_then_collapse() {
   HS_EXPECT_NEAR(c.y, 1.0f, 1e-3f);
 }
 
-// A repeating Motion integrates its Orientation by dead reckoning. Without
-// re-anchoring, the float error in that per-frame quaternion chain accumulates
-// without bound and warps the traced curve into a "squiggly" mess after many
-// cycles (the Comets path-corruption bug). The fix snaps the orientation back
-// to its captured start at every cycle boundary, so each cycle integrates from
-// an identical base and the shape stops drifting.
+// A repeating Motion integrates its Orientation by dead reckoning. To stop
+// unbounded float error in that per-frame quaternion chain from warping the
+// traced curve over many cycles, the orientation is snapped back to its captured
+// start at every cycle boundary, so each cycle integrates from an identical base
+// and the shape stops drifting.
 //
 // The decisive, precession-immune signature is the set of rotation-INVARIANT
 // internal angles between heads sampled at fixed phases within a cycle: a rigid
 // drift (holonomy) leaves them unchanged, so any growth is genuine warp. We
-// compare a late cycle against the ideal Lissajous internal angles; with the
-// bug these diverge by > 1 rad, with the fix they stay at the first cycle's
-// tiny discretization residual.
+// compare a late cycle against the ideal Lissajous internal angles; they must
+// stay at the first cycle's tiny discretization residual.
 inline void test_motion_repeating_does_not_drift() {
   using Ori = Orientation<16>;
   global_timeline_num_events = 0;
@@ -813,8 +830,7 @@ inline void test_motion_repeating_does_not_drift() {
   }
 
   // After 600 cycles the reconstructed internal angles must still match the
-  // ideal within the first-cycle discretization residual (< 0.1 rad). The
-  // pre-fix integrator fails this by more than an order of magnitude.
+  // ideal within the first-cycle discretization residual (< 0.1 rad).
   HS_EXPECT_NEAR(angle_between(Pa, Pb), ideal_ab, 0.1f);
   HS_EXPECT_NEAR(angle_between(Pa, Pc), ideal_ac, 0.1f);
   HS_EXPECT_NEAR(angle_between(Pb, Pc), ideal_bc, 0.1f);
@@ -896,6 +912,8 @@ inline void test_particle_system_attractor_kills_within_radius() {
 // advance, no expiry, still drawing).
 // ============================================================================
 
+// Sprite drives a fade-in -> full-opacity plateau -> fade-out envelope across
+// its duration, completing on the final frame.
 inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   std::vector<float> ops;
   const int dur = 10, fade_in = 3, fade_out = 3;
@@ -918,10 +936,10 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   HS_EXPECT_TRUE(s.done());
 }
 
-// When fade_in + fade_out exceed duration the windows overlap. The envelope
-// must stay continuous (a triangle), not jump where the prior if/else-if handed
-// off from a still-rising fade-in straight to a deep fade-out value. The slider
-// ranges make this configuration user-reachable.
+// When fade_in + fade_out exceed duration the windows overlap. The opacity
+// envelope must stay continuous (a triangle), with no jump where the fade-in
+// hands off to the fade-out. The slider ranges make this configuration
+// user-reachable.
 inline void test_sprite_overlapping_fades_stay_continuous() {
   std::vector<float> ops;
   const int dur = 10, fade_in = 8, fade_out = 8; // 8 + 8 > 10 => overlap
@@ -933,7 +951,7 @@ inline void test_sprite_overlapping_fades_stay_continuous() {
 
   HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
   // Linear ramps of slope 1/8 per frame, so no single-frame opacity step may
-  // exceed ~0.125. The pre-fix handoff jumped ~0.625 at the fade-in/out border.
+  // exceed ~0.125.
   float max_jump = 0.0f;
   for (size_t i = 1; i < ops.size(); ++i)
     max_jump = std::max(max_jump, std::abs(ops[i] - ops[i - 1]));
@@ -943,6 +961,8 @@ inline void test_sprite_overlapping_fades_stay_continuous() {
   HS_EXPECT_GT(ops[4], ops[9]);
 }
 
+// While its paused flag is set a Sprite holds its current frame: the timer never
+// advances and it never expires, yet it keeps drawing at its held opacity.
 inline void test_sprite_paused_holds_frame() {
   bool paused = true;
   int draws = 0;
@@ -975,6 +995,9 @@ inline void test_sprite_paused_holds_frame() {
 // span endpoints, monotonicity, and that exact count.
 // ============================================================================
 
+// deep_tween emits a global t spanning [0,1] across the whole trail, with the
+// expected M + (N-1)*(M-1) sample count (shared frame boundaries skipped) and
+// non-decreasing t.
 inline void test_deep_tween_global_t_spans_unit_interval() {
   using Ori = Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
@@ -999,12 +1022,11 @@ inline void test_deep_tween_global_t_spans_unit_interval() {
     HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f); // non-decreasing across the trail
 }
 
+// A frame recorded with no intra-frame motion collapses to length 1. When the
+// newest frame is collapsed, deep_tween normalizes against the newest contentful
+// frame so the global t still reaches 1.0 at the leading edge, without
+// re-plotting the boundary the collapsed frame shares with its predecessor.
 inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
-  // A frame recorded with no intra-frame motion collapses to length 1. When the
-  // newest frame collapsed, normalizing by trail_len stranded the age ramp at
-  // (N-1)/N — the leading edge of the trail never reached 1.0. Normalizing
-  // against the newest contentful frame restores the 1.0 endpoint without
-  // re-plotting the boundary the collapsed frame shares with its predecessor.
   using Ori = Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   for (int k = 0; k < 2; ++k) {
@@ -1027,12 +1049,11 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
     HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f);
 }
 
+// Every frame motionless: the whole trail collapses to a single lone snapshot.
+// That sole plotted orientation is the trail head, so it must read t = 1.0 (like
+// tween(Orientation) for a lone snapshot); t = 0.0 would render it invisible
+// under quintic_kernel(0).
 inline void test_deep_tween_all_collapsed_reaches_one() {
-  // Every frame motionless: the backward scan strands last at 0 and frame 0 is
-  // itself a lone snapshot. The sub-frame-0 fallback would emit t = 0.0, leaving
-  // the single plotted orientation at the tail of the age ramp (a static head
-  // renders invisible under quintic_kernel(0)). Like tween(Orientation) for a
-  // lone snapshot, it must read t = 1.0.
   using Ori = Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   for (int k = 0; k < 3; ++k) {
@@ -1048,11 +1069,10 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
 }
 
+// A freshly spawned or dying particle holds one history point. That lone sample
+// is the trail head, so it must read t = 1.0 (mirrors tween(Orientation)), while
+// a multi-sample sweep still ramps 0 -> 1 oldest -> newest.
 inline void test_tween_vectortrail_single_sample_reaches_one() {
-  // A freshly spawned or dying particle holds one history point. That lone
-  // sample is the trail head, so it must read t = 1.0 — emitting 0.0 flashed it
-  // at tail brightness for the frame (mirrors tween(Orientation)). The
-  // multi-sample sweep still ramps 0 -> 1 oldest -> newest.
   Animation::VectorTrail<8> trail;
   trail.record(Vector(1, 0, 0));
 
@@ -1102,6 +1122,9 @@ inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
   }
 }
 
+// Morphing an octahedron onto itself: the nearest-vertex map is the identity, so
+// the SLERP output equals the destination at every alpha, and the two render
+// opacities partition unity (op_A + alpha == 1).
 inline void test_meshmorph_identity_self_map_and_crossfade() {
   static uint8_t buf[1 << 20];
   Arena arena(buf, sizeof(buf));
@@ -1150,6 +1173,7 @@ inline void test_meshmorph_identity_self_map_and_crossfade() {
   HS_EXPECT_TRUE(morph.done());
 }
 
+// Runs every animation/easing test case and returns the module's failure count.
 inline int run_animation_tests() {
   auto scope = hs_test::begin_module("animation");
 

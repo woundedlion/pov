@@ -18,6 +18,7 @@ namespace util_tests {
 
 // --- wrap(float, m) / wrap_t ------------------------------------------------
 
+// wrap(float, m) folds any real into [0, m) for an arbitrary base m.
 inline void test_wrap_float() {
   // In range is unchanged.
   HS_EXPECT_NEAR(wrap(0.25f, 1.0f), 0.25f, 1e-6f);
@@ -38,6 +39,7 @@ inline void test_wrap_float() {
   }
 }
 
+// wrap_t folds any real into the unit interval [0, 1) (the m==1 case).
 inline void test_wrap_t() {
   HS_EXPECT_NEAR(wrap_t(0.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(wrap_t(0.4f), 0.4f, 1e-6f);
@@ -52,6 +54,7 @@ inline void test_wrap_t() {
 
 // --- wrap(int, int) ---------------------------------------------------------
 
+// wrap(int, int) folds an integer into [0, m) using the integer overload.
 inline void test_wrap_int() {
   HS_EXPECT_EQ(wrap(3, 5), 3);
   HS_EXPECT_EQ(wrap(5, 5), 0);
@@ -67,21 +70,23 @@ inline void test_wrap_int() {
 
 // --- wrap(mixed int/float) --------------------------------------------------
 
-// A mixed (int, float) call resolves to the template, which now returns
-// std::common_type_t (float) instead of T=int — so the fractional part survives
-// instead of being truncated to 0.
+// A mixed (int, float) call resolves to the template returning
+// std::common_type_t (float), so the fractional part survives rather than
+// being truncated to an int.
 inline void test_wrap_mixed_type() {
   static_assert(std::is_same_v<decltype(wrap(3, 2.5f)), float>,
                 "wrap(int, float) returns the common type (float)");
-  HS_EXPECT_NEAR(wrap(3, 2.5f), 0.5f, 1e-6f);  // fmod(3,2.5)=0.5, not truncated
+  HS_EXPECT_NEAR(wrap(3, 2.5f), 0.5f, 1e-6f);  // fmod(3, 2.5) == 0.5
   HS_EXPECT_NEAR(wrap(7, 2.5f), 2.0f, 1e-6f);
   HS_EXPECT_NEAR(wrap(-1, 2.5f), 1.5f, 1e-6f); // negative folds up
-  // (float, int) is unchanged: still float math (geometry.h relies on this).
+  // (float, int) also uses float math; geometry.h relies on this.
   HS_EXPECT_NEAR(wrap(7.5f, 5), 2.5f, 1e-6f);
 }
 
 // --- fast_wrap --------------------------------------------------------------
 
+// fast_wrap assumes x is at most one period out of range: a single add or
+// subtract suffices, valid only for x in [-W, 2W).
 inline void test_fast_wrap() {
   constexpr int W = 8;
   // In range: identity.
@@ -103,6 +108,8 @@ inline void test_fast_wrap() {
 
 // --- shortest_distance / fwd_distance ---------------------------------------
 
+// shortest_distance returns the smaller of the two arc lengths around the
+// circular domain, symmetric in its arguments and bounded by [0, m/2].
 inline void test_shortest_distance() {
   // Symmetric, in [0, m/2].
   HS_EXPECT_NEAR(shortest_distance(0.0f, 1.0f, 10.0f), 1.0f, 1e-5f);
@@ -118,6 +125,8 @@ inline void test_shortest_distance() {
   }
 }
 
+// fwd_distance measures the arc from a to b in the positive direction only,
+// wrapping across the seam; result in [0, m).
 inline void test_fwd_distance() {
   // Forward (positive direction), in [0, m).
   HS_EXPECT_NEAR(fwd_distance(1.0f, 4.0f, 10.0f), 3.0f, 1e-5f);
@@ -132,6 +141,8 @@ inline void test_fwd_distance() {
 
 // --- apply_if_changed -------------------------------------------------------
 
+// apply_if_changed invokes the callable only when the incoming value differs
+// from the latched `last`, then updates `last` — the live-slider debounce idiom.
 inline void test_apply_if_changed() {
   int last = 5;
   int applied = -1;
@@ -154,6 +165,7 @@ inline void test_apply_if_changed() {
   HS_EXPECT_EQ(last, 8);
 }
 
+// Runs every util test case; returns the module's failure count.
 inline int run_util_tests() {
   auto scope = hs_test::begin_module("util");
 

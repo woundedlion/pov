@@ -129,7 +129,7 @@ struct MeshPaletteBank {
     std::shuffle(out.begin(), out.end(), hs::random());
   }
 
-  /// Baked LUT for a slot index. Hot-path lookup is unchanged: bank[slot].get(t).
+  /// Baked LUT for a slot index. Hot-path lookup is bank[slot].get(t).
   const BakedPalette &operator[](int i) const { return bank.entries[i]; }
   BakedPalette &operator[](int i) { return bank.entries[i]; }
 

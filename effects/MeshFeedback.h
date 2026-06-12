@@ -7,6 +7,10 @@
 
 #include "core/effects_engine.h"
 
+/// Feedback effect over a morphing carousel of Platonic solids: draws the
+/// current mesh, cycles style presets on a hard-cut timer, and cross-morphs to
+/// the next solid on a separate timer. The two cycle periods are kept coprime
+/// so preset cuts and shape morphs drift out of phase rather than locking.
 template <int W, int H> class MeshFeedback : public Effect {
 public:
   using Style = Feedback::Style;
@@ -14,15 +18,15 @@ public:
   static constexpr int MORPH_FRAMES = 160;
   static constexpr int PRESET_FRAMES = 241; // preset hard-cut period (prime)
   // The shape cycle is a no-morph hold followed by a morph, so its PERIOD is
-  // hold + morph — and *that*, not the hold alone, is what must be coprime with
-  // PRESET_FRAMES for the shape and preset cycles to stay out of phase. The
-  // previous 81-frame hold made the period 81+160 = 241 = PRESET_FRAMES exactly,
-  // locking every preset hard-cut to the same shape phase. 241 is prime, so any
-  // period that is not a multiple of it is coprime; 240 (= PRESET_FRAMES - 1)
-  // is coprime and maximises the beat between the two cycles.
+  // hold + morph — and that, not the hold alone, must be coprime with
+  // PRESET_FRAMES for the shape and preset cycles to stay out of phase. 241 is
+  // prime, so any period that is not a multiple of it is coprime; 240
+  // (= PRESET_FRAMES - 1) is coprime and maximises the beat between the cycles.
   static constexpr int SHAPE_FRAMES = 240; // shape-cycle period, coprime with PRESET_FRAMES
   static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES; // 80-frame hold
 
+  /// Wire up palette, noise, orientation, and the World/Screen/Pixel filter
+  /// pipeline; the Feedback pixel filter reads `style` by reference.
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
         palette(Palettes::peachPop),
@@ -30,6 +34,8 @@ public:
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H>(style)) {}
 
+  /// One-time setup: bind shared noise into presets, build the first solid,
+  /// register tunable params, and schedule the noise/walk/preset/shape timers.
   void init() override {
     // Bind mutable state into all presets
     for (auto &e : presets.entries) {
@@ -93,8 +99,12 @@ public:
                NO_MORPH_FRAMES, [this](Canvas &) { start_morph(); }, false));
   }
 
+  /// Suppress the engine background clear; the feedback flush owns the frame.
   bool show_bg() const override { return false; }
 
+  /// Per-frame: apply params, run the feedback decay flush, draw the current
+  /// mesh (skipped while morphing — the morph animation draws instead), then
+  /// advance the timeline.
   void draw_frame() override {
     Canvas canvas(*this);
     apply_params();
@@ -116,6 +126,9 @@ public:
   }
 
 private:
+  /// Advance to the next solid: compile it into the carousel's back slot, run a
+  /// MeshMorph from front to back over MORPH_FRAMES, and on completion swap the
+  /// front, compact, and re-arm the hold timer for the following morph.
   void start_morph() {
     auto solids = Solids::Collections::get_platonic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
@@ -138,8 +151,8 @@ private:
                  morphing = false;
                  carousel.set_front(new_slot);
                  carousel.compact();
-                 // One-shot delay before the next morph, mirroring the initial
-                 // scheduling above (no idle-frame draw_fn dispatch).
+                 // One-shot hold timer before the next morph; non-repeating so
+                 // no draw_fn fires on the idle hold frames.
                  timeline.add(
                      0, Animation::PeriodicTimer(
                             NO_MORPH_FRAMES,
@@ -147,6 +160,8 @@ private:
                }));
   }
 
+  /// Push UI-tunable state into the live style/filters each frame: refresh the
+  /// noise binding and toggle the feedback filter from `feedback_enabled`.
   void apply_params() {
     style.sync_noise();
     filters.template get<Filter::Pixel::Feedback<W, H>>().set_enabled(

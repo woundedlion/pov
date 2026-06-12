@@ -23,6 +23,7 @@ namespace easing_waves_tests {
 
 constexpr int N = 64; // sample count over [0,1]
 
+// Sample index i mapped to its exact rational fraction i/N of [0,1].
 static inline float frac(int i) { return static_cast<float>(i) / N; }
 
 // Assert a function is finite over [0,1] and (optionally) monotone non-decreasing.
@@ -43,8 +44,9 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
 // easing.h — endpoints
 // ---------------------------------------------------------------------------
 
+// Each easing curve anchors its endpoints: "in" curves at f(0)=0, "out" curves
+// at f(1)=1, "in-out" curves at both; ease_mid is the linear identity.
 inline void test_easing_endpoints() {
-  // "In" curves anchor at f(0)=0; "out" curves anchor at f(1)=1; "in-out" both.
   HS_EXPECT_NEAR(ease_in_out_cubic(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_in_out_cubic(1.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_in_out_sin(0.0f), 0.0f, 1e-5f);
@@ -69,6 +71,8 @@ inline void test_easing_endpoints() {
   HS_EXPECT_NEAR(ease_mid(1.0f), 1.0f, 1e-6f);
 }
 
+// Every easing curve stays finite over [0,1]; the non-overshooting ones are also
+// monotone non-decreasing. Expo/elastic overshoot, so they get finiteness only.
 inline void test_easing_finite_and_monotone() {
   // Monotone non-decreasing curves.
   check_curve(ease_in_out_cubic, true, "ease_in_out_cubic");
@@ -85,8 +89,8 @@ inline void test_easing_finite_and_monotone() {
   check_curve(ease_out_elastic, false, "ease_out_elastic");
 }
 
+// In-out curves are symmetric about the midpoint, passing through 0.5 at t=0.5.
 inline void test_easing_in_out_symmetry_midpoint() {
-  // In-out curves pass through 0.5 at the midpoint.
   HS_EXPECT_NEAR(ease_in_out_sin(0.5f), 0.5f, 1e-4f);
   HS_EXPECT_NEAR(ease_in_out_cubic(0.5f), 0.5f, 1e-4f);
 }
@@ -95,6 +99,8 @@ inline void test_easing_in_out_symmetry_midpoint() {
 // waves.h — sin / tri / square generators
 // ---------------------------------------------------------------------------
 
+// sin_wave stays within [from,to] and starts at the `from` end at t=0. Phase
+// advances forward (+phase) consistently with tri_wave/square_wave.
 inline void test_sin_wave_bounds_and_phase() {
   auto w = sin_wave(2.0f, 5.0f, 1.0f, 0.0f);
   for (int i = 0; i <= N; ++i) {
@@ -105,15 +111,16 @@ inline void test_sin_wave_bounds_and_phase() {
   }
   // Phase convention: at t=0 the wave starts at the `from` end.
   HS_EXPECT_NEAR(sin_wave(0.0f, 1.0f, 1.0f, 0.0f)(0.0f), 0.0f, 1e-3f);
-  // Phase advances forward like tri_wave/square_wave (+phase, not −): a
-  // quarter-cycle phase puts t=0 at the RISING midpoint. The old −phase sign
-  // put it at the falling midpoint — same value, opposite direction.
+  // A quarter-cycle phase puts t=0 at the RISING midpoint (forward phase),
+  // matching tri_wave's direction at the same value.
   auto wp = sin_wave(0.0f, 1.0f, 1.0f, 0.25f);
   HS_EXPECT_NEAR(wp(0.0f), 0.5f, 1e-3f);
   HS_EXPECT(wp(0.05f) > 0.5f, "sin_wave phase 0.25 rises at t=0 like tri_wave");
   HS_EXPECT_NEAR(wp(0.0f), tri_wave(0.0f, 1.0f, 1.0f, 0.25f)(0.0f), 1e-3f);
 }
 
+// tri_wave traces a symmetric triangle from trough to peak and back, staying
+// within [from,to] across multiple periods.
 inline void test_tri_wave_shape() {
   auto w = tri_wave(0.0f, 1.0f, 1.0f, 0.0f);
   HS_EXPECT_NEAR(w(0.0f), 0.0f, 1e-4f);   // trough at start
@@ -127,6 +134,8 @@ inline void test_tri_wave_shape() {
   }
 }
 
+// square_wave emits only `from` or `to`, switching at the duty-cycle boundary
+// (here 0.5: first half of the period high, second half low).
 inline void test_square_wave_binary() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   // Only ever emits `from` or `to`.
@@ -143,9 +152,9 @@ inline void test_square_wave_binary() {
   HS_EXPECT_NEAR(w(0.9f), 0.0f, 1e-5f);
 }
 
-// Regression: a negative t*freq+phase must fold into [0,1) like tri_wave.
-// Raw fmod keeps the dividend's sign, leaving any negative argument < dutyCycle
-// and latching the wave permanently "on"; wrap() makes it periodic.
+// A negative t*freq+phase must fold into [0,1) so the wave stays periodic across
+// the sign boundary. wrap() (unlike sign-preserving fmod, which would leave a
+// negative argument < dutyCycle and latch the wave permanently "on") achieves this.
 inline void test_square_wave_negative_phase() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.0f, 1e-5f); // wrap(-0.25)=0.75 -> low, not latched
@@ -161,6 +170,7 @@ inline void test_square_wave_negative_phase() {
 // Runner
 // ---------------------------------------------------------------------------
 
+// Run the full easing/waves suite under its own module scope; returns failures.
 inline int run_easing_waves_tests() {
   auto scope = hs_test::begin_module("easing_waves");
 

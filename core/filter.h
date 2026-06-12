@@ -698,8 +698,8 @@ public:
     // Only seed live trail points. age >= lifetime gives a non-positive ttl: the
     // point is already dead, and seeding it would push t = 1-(ttl/lifetime) out
     // of trailFn's range and the re-emitted age past lifetime. The ttl>0 gate
-    // mirrors World::Trails; unlike the old age>=0 guard it does not also drop
-    // the forward, so an already-aged emission still paints this frame.
+    // mirrors World::Trails and gates only the seed, not the forward above, so an
+    // already-aged emission still paints this frame.
     float ttl = static_cast<float>(lifetime) - age;
     // At capacity this drops the NEWEST point — the opposite of World::Trails,
     // whose ring buffer evicts the oldest so the freshest motion stays visible.
@@ -727,6 +727,7 @@ public:
     decay();
   }
 
+  // Age every point one frame and swap-remove dead slots (unordered compaction).
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
       if (--ttls_[i].ttl <= 0.0f) {
@@ -907,11 +908,11 @@ public:
     constexpr float Q = 256.0f;
     // Step 2 samples only y in [y_lo, y_hi), reading coarse rows cy0 = y/ds and
     // cy1 = cy0+1 (clamped to hh-1). Populate exactly that coarse-row band so a
-    // y-band-clipped segment (segmented Phantasm) no longer evaluates space_fn
-    // for rows it never composites — finishing the optimization the column
-    // pruning above starts. Rows outside the band stay uninitialized but are
-    // never read, mirroring the col_used pruning. Full canvas spans all hh rows,
-    // so its work is unchanged.
+    // y-band-clipped segment (segmented Phantasm) skips space_fn for rows it
+    // never composites — the y-axis counterpart to the col_used column pruning
+    // above. Rows outside the band stay uninitialized but are never read,
+    // mirroring that pruning. A full canvas spans all hh rows, so it does the
+    // same work either way.
     const int cy_lo = y_lo / ds;
     int cy_hi = ((y_hi - 1) / ds) + 1;
     if (cy_hi > hh - 1) cy_hi = hh - 1;
@@ -986,8 +987,8 @@ public:
           ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
           ::Pixel p = style_->color_fn(sample, fade, *style_);
 
-          // x is already in [0,W) and y is within the render band, so the old
-          // fast_wrap(x,W) and y-bounds guard here were both no-ops.
+          // x is already in [0,W) and y is within the render band, so no
+          // x-wrap or y-bounds guard is needed before the write.
           if (p.r | p.g | p.b)
             cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
         }
@@ -1008,9 +1009,9 @@ private:
   /// True if the previous frame has any non-black pixel. Returns on the first
   /// lit pixel, so a non-empty frame (the common warm case) costs ~one read;
   /// only a fully black frame — exactly when the expensive flush below is
-  /// skipped anyway — pays a full scan. Per-row culling was dropped: a warped
-  /// trail lights at least one pixel in nearly every row, so the row mask
-  /// saturated and never saved a sample while costing a full-height pre-scan.
+  /// skipped anyway — pays a full scan. A whole-frame test rather than per-row
+  /// culling: a warped trail lights at least one pixel in nearly every row, so
+  /// a row mask would saturate without ever saving a sample.
   static bool any_pixel_lit(const Canvas &cv) {
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {

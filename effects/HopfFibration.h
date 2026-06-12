@@ -8,6 +8,9 @@
 #include "core/effects_engine.h"
 #include <array>
 
+/// Animated Hopf fibration: a grid of S2 base points lifted to S3 fibers,
+/// folded/twisted/tumbled in 4D, stereographically projected to R3, and drawn
+/// as fading palette-colored trail polylines.
 template <int W, int H> class HopfFibration : public Effect {
 public:
   static constexpr int TRAIL_LEN = 40;
@@ -17,6 +20,9 @@ public:
     persist_pixels = false;
   }
 
+  /// Register tuning params, bake the trail palette, allocate the fiber and
+  /// trail arrays from the persistent arena, seed fibers, and wire the ambient
+  /// spin plus the phase-driver animations onto the timeline.
   void init() override {
     registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
@@ -57,6 +63,8 @@ public:
 
   bool show_bg() const override { return false; }
 
+  /// Step the timeline, refresh cached tumble/phase values, record each fiber's
+  /// projected world-space point into its trail, then render all trails.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -133,6 +141,8 @@ private:
   // render_trails before rasterizing, so no Orient filter is needed.
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> trail_pipeline;
 
+  /// Seed the base fibers as a RINGS x PER_RING lattice of unit vectors,
+  /// evenly spaced in polar bands and azimuth around each band.
   void init_fibers() {
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
@@ -144,6 +154,9 @@ private:
     }
   }
 
+  /// Refresh the per-frame cache from the wrapped phase accumulators: the
+  /// tumble rotation sines/cosines, the fold_base offset, and the radian-scaled
+  /// flow and tumble-y phases shared across all fibers.
   void advance_tumble() {
     // Scale the wrapped [0,1)-turn phases back to radians at use; the arguments
     // are now bounded (ax < 4pi, ty_rad < 2pi) instead of growing without limit.
@@ -155,7 +168,7 @@ private:
     cy = fast_cosf(ty_rad);
     sy = fast_sinf(ty_rad);
     // fold_base needs sin(ax/2): ax = tumble_angle_x*4pi, so ax*0.5 spans [0,2pi)
-    // continuously across the 4pi wrap — matching the original sin(x*0.5).
+    // continuously across the 4pi wrap.
     fold_base = fast_sinf(ax * 0.5f) * 0.5f;
   }
 
@@ -198,6 +211,9 @@ private:
                          Vector(1, 0, 0));
   }
 
+  /// Draw each fiber's trail as an anti-aliased polyline, orienting its stored
+  /// world-space points into the current view and shading them with the sunset
+  /// palette so the tail fades from newest (opaque) to oldest (transparent).
   void render_trails(Canvas &canvas) {
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
@@ -218,6 +234,8 @@ private:
         points.push_back(f);
       }
 
+      // Shade each trail point by its normalized age: sunset palette lookup
+      // plus an alpha ramp that fades the tail from opaque (newest) to clear.
       auto shader = [this](const Vector &, Fragment &f) {
         float t = f.v0; // 0 = oldest, 1 = newest
         Color4 c = baked_sunset.get(1.0f - t);

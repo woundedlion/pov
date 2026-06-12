@@ -5,8 +5,8 @@
  * Host unit tests for the WASM parameter-marshaling layer
  * (targets/wasm/param_marshal.h). The bridge exposes two parallel streams to
  * JS — parameter definitions and per-frame values — and the GUI binds them
- * positionally, so a single order mismatch mis-binds every slider (the P2-12
- * class). These tests run the marshaling against every registered effect and
+ * positionally, so a single order mismatch mis-binds every slider. These tests
+ * run the marshaling against every registered effect and
  * assert the value stream stays index-aligned with the definition stream, the
  * bool/float distinction is preserved, and a write-by-name round-trips to the
  * same index. The emscripten::val translation in wasm.cpp is a thin shell over
@@ -28,6 +28,10 @@ namespace param_marshal_tests {
 constexpr int kW = 288;
 constexpr int kH = 144;
 
+// Marshal one effect through the WASM bridge and assert the two streams stay
+// consistent with the source params: equal length, index-aligned name/value/
+// type, and a write-by-name that round-trips to the same index without
+// disturbing order. This is the core correctness check per effect.
 template <template <int, int> class E>
 inline void check_one(const char *) {
   configure_arenas_default();
@@ -64,9 +68,9 @@ inline void check_one(const char *) {
   }
 
   // Write an editable float param BY NAME and confirm it reappears at the same
-  // index with the rest of the order untouched — the exact mis-binding P2-12
-  // warned about (a value pushed back through setParameter landing on the wrong
-  // slider). Skip effects with no editable float param.
+  // index with the rest of the order untouched — guards against a value pushed
+  // back through setParameter landing on the wrong slider. Skip effects with no
+  // editable float param.
   int target = -1;
   for (size_t k = 0; k < views.size(); ++k) {
     const auto &v = views[k];
@@ -146,6 +150,9 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
   HS_EXPECT_EQ(values.capacity(), value_cap);
 }
 
+// Module entry point: run the per-effect stream-consistency check across the
+// whole roster, then the cross-effect memory-stability check. Returns the
+// module's failure count.
 inline int run_param_marshal_tests() {
   auto scope = hs_test::begin_module("param_marshal");
 #define HS_PARAM_ONE(name) check_one<name>(#name);

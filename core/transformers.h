@@ -69,9 +69,9 @@ private:
   // Compact, ascending list of the slots currently active. transform() and
   // prepare_frame() are hot (transform runs per pixel), so they iterate only
   // the active slots — O(active) instead of O(CAPACITY). Kept sorted so the
-  // transform composition order is identical to the former full-array scan
-  // (the warps are not all commutative). Maintenance is O(active) but cold:
-  // once per spawn and once per finished animation, never per pixel.
+  // transform composition order matches a low-to-high slot scan; the warps are
+  // not all commutative, so the order is load-bearing. Maintenance is O(active)
+  // but cold: once per spawn and once per finished animation, never per pixel.
   std::array<int, CAPACITY> active_slots_{};
   int active_count_ = 0;
 
@@ -141,9 +141,8 @@ public:
       }
       // Symmetric to prepare_thresholds for RippleParams: NoiseParams::sync()
       // pushes the (possibly live-updated) frequency into the embedded
-      // FastNoiseLite. Handling it here means a noise effect no longer has to
-      // hand-roll a per-entity sync loop and silently render stale frequency if
-      // it forgets.
+      // FastNoiseLite. Centralizing it here means a noise effect cannot render a
+      // stale frequency by forgetting a per-entity sync loop.
       if constexpr (requires { e.params.sync(); }) {
         e.params.sync();
       }
@@ -237,6 +236,16 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
 
   return v;
 }
+/**
+ * @brief Slides a point along the sphere surface by a 3D-noise field.
+ * Samples three decorrelated noise channels (offset by 100/200) to build a
+ * displacement, projects it onto the tangent plane at v so the point stays on
+ * the sphere, soft-caps the slide to avoid cross-hemisphere jumps, then
+ * renormalizes. No-op when amplitude is negligible.
+ * @param v The unit vector to transform.
+ * @param params Noise field, scale, amplitude, speed and time.
+ * @return The displaced unit vector.
+ */
 inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   if (params.amplitude <= 0.001f)
     return v;

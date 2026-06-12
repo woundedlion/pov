@@ -168,8 +168,11 @@ constexpr Config phantasm_config(uint32_t cpu_hz, uint32_t rpm, int32_t w,
 
 // ── Symbol alphabet (spec §5.2, §7) ─────────────────────────────────────────
 
+/// The two half-rev boundaries (ZERO at column 0, HALF at W/2); NONE = neither.
 enum class Boundary : uint8_t { NONE, ZERO, HALF };
 
+/// Decoded sync symbol. ZERO and ZERO_EPOCH both mark the ZERO boundary; only
+/// ZERO_EPOCH additionally carries an epoch (content-commit) mark.
 enum class Symbol : uint8_t { INVALID, HALF, ZERO, ZERO_EPOCH };
 
 /// Count-coded classification: odd-only, distance-2 alphabet. Any other count
@@ -188,6 +191,7 @@ constexpr Symbol classify_count(uint32_t rising_edges) {
   }
 }
 
+/// Pulse count the master emits for @p s (inverse of classify_count); 0 for INVALID.
 constexpr uint32_t symbol_pulse_count(Symbol s) {
   switch (s) {
   case Symbol::HALF:
@@ -201,6 +205,7 @@ constexpr uint32_t symbol_pulse_count(Symbol s) {
   }
 }
 
+/// Which boundary @p s marks (both ZERO symbols mark ZERO); NONE for INVALID.
 constexpr Boundary symbol_boundary(Symbol s) {
   switch (s) {
   case Symbol::HALF:
@@ -213,10 +218,12 @@ constexpr Boundary symbol_boundary(Symbol s) {
   }
 }
 
+/// The other half-rev boundary (boundaries strictly alternate ZERO/HALF).
 constexpr Boundary opposite(Boundary b) {
   return b == Boundary::ZERO ? Boundary::HALF : Boundary::ZERO;
 }
 
+/// Column index of boundary @p b on a ring of width @p w (ZERO→0, HALF→w/2).
 constexpr int32_t boundary_column(Boundary b, int32_t w) {
   return b == Boundary::HALF ? w / 2 : 0;
 }
@@ -567,8 +574,8 @@ struct ContentTracker {
   /// instead of the primary cannot skew the commit (§6.3.1). A board whose
   /// revolution count is not absolute (it beacon-joined mid-effect, §6.4)
   /// lands outside the train window and falls back to j = 0 — it commits up
-  /// to j revolutions late, the pre-existing epoch-bounded degradation, now
-  /// confined to that case. The resulting counter slip is then resynced from
+  /// to j revolutions late, an epoch-bounded degradation confined to that
+  /// case. The resulting counter slip is then resynced from
   /// the next beacon's rev cross-check (handle_beacon_burst), so every
   /// subsequent epoch is lockstep.
   bool on_epoch_symbol(const Config &cfg) {

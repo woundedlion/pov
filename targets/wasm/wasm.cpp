@@ -61,11 +61,11 @@ static_assert(MAX_PARAMS ==
 // scratch). These are used ONLY by MeshOpsWrapper, so they are malloc'd lazily
 // on first MeshOps use rather than reserved as 16 MB of file-scope BSS: the
 // render engine and every segment worker instantiate this same module but never
-// touch MeshOps, and forcing them to carry 16 MB of unusable linear memory
-// inflated the baseline (and the INITIAL_MEMORY/growth headroom) of every
-// instance (finding 143). The arenas start empty (capacity 0) and are rebound to
-// a single malloc'd block on first use; the block lives for the module's
-// lifetime (reclamation within it is via clearToolingMemory()).
+// touch MeshOps, so reserving 16 MB of unusable linear memory in every instance
+// would inflate the baseline (and the INITIAL_MEMORY/growth headroom) for no
+// benefit. The arenas start empty (capacity 0) and are rebound to a single
+// malloc'd block on first use; the block lives for the module's lifetime
+// (reclamation within it is via clearToolingMemory()).
 static constexpr size_t kToolingArenaBytes = 8 * 1024 * 1024;
 static constexpr size_t kToolingScratchBytes = 4 * 1024 * 1024;
 Arena tooling_arena(nullptr, 0);
@@ -137,6 +137,8 @@ template <int W, int H> bool factory_has_effect(std::string_view name) {
   return false;
 }
 
+// Instantiate the named effect from the (W,H) factory, or null if the name is
+// unknown (a typo'd/stale UI string).
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(std::string_view name) {
   const auto &factory = get_factory<W, H>();
@@ -172,6 +174,7 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
 HS_WASM_RESOLUTIONS(X)
 #undef X
 
+// True iff (w,h) is one of the HS_WASM_RESOLUTIONS rows the factory can build.
 static bool wasm_resolution_supported(int w, int h) {
 #define X(W, H)                                                                 \
   if (w == (W) && h == (H))                                                     \
@@ -181,6 +184,9 @@ static bool wasm_resolution_supported(int w, int h) {
   return false;
 }
 
+// JS-facing render engine: owns the current effect and the stable readback
+// buffers, and drives one resolution/effect at a time. Every public method is
+// exported to JavaScript via EMSCRIPTEN_BINDINGS below.
 class HolosphereEngine {
 public:
   HolosphereEngine() {
@@ -225,9 +231,9 @@ public:
       return true; // already at this (valid) resolution
 
     // Reject sizes the factory can't build rather than switching to them and
-    // nulling currentEffect — that previously left the engine rendering blank
-    // with no signal to JS. Keep the prior valid resolution/effect alive and
-    // report the failure so the caller can surface it.
+    // nulling currentEffect (which would leave the engine rendering blank with
+    // no signal to JS). Keep the prior valid resolution/effect alive and report
+    // the failure so the caller can surface it.
     if (!wasm_resolution_supported(w, h)) {
       hs::log("WASM: Unsupported resolution %dx%d — ignored", w, h);
       return false;
@@ -258,9 +264,9 @@ public:
     hs::log("WASM: setEffect called with %s", name.c_str());
 
     // Validate the name against the factory for the CURRENT resolution BEFORE
-    // tearing anything down. setResolution() already keeps the prior valid state
-    // alive on a bad request; setEffect must match — resetting currentEffect and
-    // the arenas first (as it used to) left the engine rendering nothing on a
+    // tearing anything down. setResolution() keeps the prior valid state alive
+    // on a bad request; setEffect matches that — resetting currentEffect and the
+    // arenas before validating would leave the engine rendering nothing on a
     // typo'd/stale UI string. This is the same cheap scan create_effect() does.
     bool name_valid = false;
 #define X(W, H)                                                                \
@@ -327,6 +333,9 @@ public:
     return true;
   }
 
+  // Render one frame of the current effect and copy its full canvas into the
+  // JS-facing pixelBuffer as 16-bit linear RGB triples. No-op if no effect is
+  // set.
   void drawFrame() {
     if (!currentEffect)
       return;
@@ -390,6 +399,8 @@ public:
 
   int getBufferLength() { return pixel_width * pixel_height * 3; }
 
+  // Update one named effect parameter. Returns false if no effect is set or the
+  // name is unknown to the effect.
   bool setParameter(std::string name, float value) {
     if (!currentEffect)
       return false;
@@ -402,13 +413,16 @@ public:
     }
   }
 
+  // Build the GUI's parameter descriptor list: one {name, value, animated,
+  // readonly, (+min/max for floats)} object per param, in the effect's
+  // declaration order. Empty array when no effect is set.
   val getParameterDefinitions() {
     if (!currentEffect)
       return val::array();
 
     val result = val::array();
     // Single source of order shared with getParamValues() (param_marshal.h), so
-    // the value stream cannot index-drift from these definitions (P2-12).
+    // the value stream cannot index-drift from these definitions.
     hs_wasm::collect_param_views(*currentEffect, paramViews);
 
     int i = 0;
@@ -437,6 +451,8 @@ public:
     return result;
   }
 
+  // Per-frame value stream for the GUI: a zero-copy Float32Array view over the
+  // current param values, in the same order as getParameterDefinitions().
   val getParamValues() {
     if (!currentEffect)
       return val::array();
@@ -451,6 +467,8 @@ public:
     return val(typed_memory_view(paramValues.size(), paramValues.data()));
   }
 
+  // Engine arena metrics plus a "stack" entry in the same {usage,
+  // high_water_mark, capacity} shape, for the JS memory HUD.
   val getArenaMetrics() {
     val metrics = collect_arena_metrics();
 
@@ -469,6 +487,7 @@ public:
     return metrics;
   }
 
+  // Map of {effect name -> hint size} for the (W,H) factory, for the GUI.
   template <int W, int H> val get_effect_sizes_helper() {
     val s = val::object();
     const auto &factory = get_factory<W, H>();
@@ -477,6 +496,7 @@ public:
     return s;
   }
 
+  // Effect-size map for the active resolution; empty if uninitialized.
   val getEffectSizes() {
 #define X(W, H)                                                                \
   if (pixel_width == (W) && pixel_height == (H))                               \
@@ -541,7 +561,9 @@ struct MeshOpsWrapper {
              "MeshOps wrapper used after clearToolingMemory()");
   }
 
-  // Call this from JS whenever you want to wipe the UI memory clean!
+  // Reset all tooling arenas to empty, reclaiming the storage behind every live
+  // wrapper, and bump the generation so any wrapper built before this wipe traps
+  // on next use (check_live). JS-callable.
   static void clearToolingMemory() {
     tooling_arena.reset();
     tooling_arena.reset_high_water_mark();
@@ -553,7 +575,8 @@ struct MeshOpsWrapper {
     ++tooling_generation;
   }
 
-  // Factory
+  // Factory: build a wrapper for the named base solid. Returns null for an
+  // unknown name.
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
     // Untrusted JS boundary: a typo'd/stale name would trip get_by_name()'s
     // fail-fast HS_CHECK and abort the module. Reject unknown names instead.
@@ -568,7 +591,7 @@ struct MeshOpsWrapper {
         tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
   }
 
-  // Accessors for JS
+  // Vertices as a JS Float32Array of flattened [x,y,z] triples (copied out).
   val getVertices() const {
     check_live();
     std::vector<float> data;
@@ -583,6 +606,8 @@ struct MeshOpsWrapper {
         .new_(val(typed_memory_view(data.size(), data.data())));
   }
 
+  // Faces as a JS array of arrays, each holding one face's vertex indices.
+  // Unflattens the mesh's parallel faces/face_counts storage.
   val getFaces() const {
     check_live();
     val faces_arr = val::array();
@@ -598,6 +623,8 @@ struct MeshOpsWrapper {
     return faces_arr;
   }
 
+  // Classify faces by topology and return the per-face topology codes as a JS
+  // Int32Array view over the mesh's (now-populated) topology buffer.
   val classifyFaces() {
     check_live();
     ensure_tooling_arenas();
@@ -697,6 +724,8 @@ struct MeshOpsWrapper {
       return MeshOps::hankin(m, a, b, radians);
     });
   }
+  // List of all available solids as {name, category} objects, for the editor's
+  // solid picker.
   static val getRegistry() {
     val registry = val::array();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
@@ -819,7 +848,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("bevel", &MeshOpsWrapper::bevel)
       .function("relax", &MeshOpsWrapper::relax);
 
-  // Spline evaluation — thin wrappers returning val {x,y,z}
+  // Spline evaluation — thin wrappers returning val {x,y,z}.
+  // Cubic Bézier point at parameter t over control points p0..p3.
   function("spline_cubic_fast",
            optional_override([](float p0x, float p0y, float p0z, float p1x,
                                 float p1y, float p1z, float p2x, float p2y,
@@ -833,6 +863,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              v.set("z", r.z);
              return v;
            }));
+  // Spherically-interpolated cubic at parameter t over control points p0..p3.
   function("spline_cubic_slerp",
            optional_override([](float p0x, float p0y, float p0z, float p1x,
                                 float p1y, float p1z, float p2x, float p2y,

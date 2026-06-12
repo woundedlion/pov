@@ -12,6 +12,9 @@
 // Legacy effects built before this engine
 ///////////////////////////////////////////////////////////////////////////////
 
+// Age a pixel one step along a fading rainbow trail: advance its hue by
+// hue_falloff and dim its value by dim_falloff (saturating). Forces full
+// saturation so already-trailing pixels keep vivid color as they decay.
 void trail_rainbow(Pixel &c, uint8_t hue_falloff = 32,
                    uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
@@ -21,6 +24,8 @@ void trail_rainbow(Pixel &c, uint8_t hue_falloff = 32,
   c = p;
 }
 
+// Like trail_rainbow but halves the hue/dim step for dim pixels (value < 128),
+// stretching the tail so faint trail ends fade and rotate more slowly.
 void trail_rainbow_lin(Pixel &c, uint8_t hue_falloff = 32,
                        uint8_t dim_falloff = 32) {
   auto p = rgb2hsv_approximate(c);
@@ -35,12 +40,16 @@ void trail_rainbow_lin(Pixel &c, uint8_t hue_falloff = 32,
   c = p;
 }
 
+// With probability prob/255, zero a pixel's value (kill it) while keeping its
+// hue/saturation, producing a sparse dissolve.
 void disintegrate(CHSV &p, int prob) {
   if (random8() <= prob) {
     p = CHSV(p.h, p.s, 0);
   }
 }
 
+// Return a saturating linear-blend functor: blend(a)(c1, c2) mixes c1 and c2
+// per channel with weight (1-a) and a respectively.
 auto blend(float a) {
   return [a](const CRGB &c1, const CRGB &c2) {
     return CRGB(qadd8(c1.r * (1 - a), c2.r * a),
@@ -49,6 +58,9 @@ auto blend(float a) {
   };
 }
 
+// Plot color c at fractional position (x, y) with anti-aliasing: distribute it
+// over the four surrounding pixels weighted by sub-pixel coverage. Wraps in x
+// (cylinder) but clamps in y so the top row never bleeds past the last row.
 void plot_aa(Canvas &cv, const float &x, const float &y, const CHSV &c) {
   int x_i = floorf(x);
   int y_i = floorf(y);
@@ -74,6 +86,7 @@ void plot_aa(Canvas &cv, const float &x, const float &y, const CHSV &c) {
   }
 }
 
+// Fires at randomized intervals in [min_ms, max_ms); poll elapsed() each frame.
 class PollingRandomTimer {
 public:
   PollingRandomTimer(uint32_t min_ms, uint32_t max_ms)
@@ -82,6 +95,7 @@ public:
     next = millis() + random(min_ms, max_ms);
   }
 
+  // True once per random interval; rearms with a fresh interval on each fire.
   bool elapsed() {
     if (millis() >= next) {
       next = millis() + random(min_ms, max_ms);
@@ -96,10 +110,13 @@ private:
   uint32_t next;
 };
 
+// Random-walk color generator: mostly returns the complement (hue + 64) of the
+// previous color, occasionally nudging the hue +/- a small step instead.
 class ComplementaryColorSequence {
 public:
   ComplementaryColorSequence() : last(0, random(128, 255), 255) {}
 
+  // Next color in the sequence; updates internal state.
   CHSV get() {
     CHSV r;
     if (random8() < 32) {
@@ -120,12 +137,15 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Integer triangle-wave counter bouncing between [min, max], optionally pausing
+// end_delay polls at each endpoint before reversing direction.
 class Oscillator {
 public:
   Oscillator(int min, int max, int end_delay = 0)
       : t_(min), min_(min), max_(max), end_delay_(end_delay), end_count_(0),
         dir_(1) {}
 
+  // Current value, then advance one step (honoring endpoint delay).
   int get() {
     int r = t_;
     if ((t_ == max_ && dir_ == 1) || (t_ == min_ && dir_ == -1)) {
@@ -152,6 +172,9 @@ private:
   int dir_;
 };
 
+// One dot per row chained together: the driven row's motion drags the others
+// like a string of beads, each lagging within a varying gap, leaving rainbow
+// trails. Replicated around the ring for symmetry.
 template <int W, int H> class ChainWiggle : public Effect {
 public:
   FLASHMEM ChainWiggle() : Effect(W, H), osc(1, 4) {
@@ -163,6 +186,8 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Age all trails, then periodically flip/randomize speed and gap before
+  // pulling the chain one step.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -182,6 +207,7 @@ public:
   };
 
 private:
+  // One chain bead: ring position x on row y, signed velocity v, draw hue.
   struct Dot {
     Dot() : x(0), y(0), v(0), hue(HUE_RED) {}
 
@@ -195,12 +221,15 @@ private:
     uint8_t hue;
   };
 
+  // Draw color at x and at n-1 evenly spaced copies around the ring.
   void replicate(Canvas &c, int x, int y, const CHSV &color, int n) {
     for (int i = 0; i < W; i += W / n) {
       c(wrap(x + i, W), y) = color;
     }
   }
 
+  // Signed shortest ring distance from a to b on a width-m circle: positive
+  // means b is reached going forward (+x), negative going backward.
   int distance(int a, int b, int m) {
     int fwd = wrap(b - a, m);
     int rev = wrap(a - b, m);
@@ -210,10 +239,12 @@ private:
     return -rev;
   }
 
+  // Sign of v (treats 0 as +1).
   int dir(int v) { return v < 0 ? -1 : 1; }
 
   void reverse(Dot *dots, int y) { dots[y].v *= -1; }
 
+  // Drive row y at velocity v, then drag every other row toward it row by row.
   void pull(Canvas &c, Dot *dots, int y, int v) {
     dots[y].v = v;
     move(c, dots[y]);
@@ -225,24 +256,28 @@ private:
     }
   }
 
+  // Advance follower toward leader. If keeping its own velocity would let it
+  // drift more than gap behind, snap it onto the leader's path and lock its
+  // speed to the leader's so the chain stays taut.
   void drag(Canvas &c, Dot &leader, Dot &follower) {
     int dest = wrap(follower.x + follower.v, W);
     if (abs(distance(dest, leader.x, W)) > gap) {
-      // Move to furthest extent based on leader's prior path
+      // Sweep out to the far end of the leader's just-traveled path...
       dest = wrap(leader.x - dir(leader.v) * (abs(leader.v) - 1 + gap), W);
       follower.v = distance(follower.x, dest, W);
       move(c, follower);
-      // Move to gap's length behind leader
+      // ...then settle one gap-length behind the leader.
       dest = wrap(leader.x - dir(leader.v) * gap, W);
       follower.v = distance(follower.x, dest, W);
       move(c, follower);
-      // Adjust speed to match leader
       follower.v = leader.v;
     } else {
       move(c, follower);
     }
   }
 
+  // Step dot from its current x to x+v, drawing replicated copies along the
+  // whole swept path so no gaps appear between frames.
   void move(Canvas &c, Dot &dot) {
     int dest = wrap(dot.x + dot.v, W);
     for (int i = dot.x;; i = wrap(i + dir(dot.v), W)) {
@@ -260,6 +295,9 @@ private:
   int replicas = 2;
 };
 
+// COUNT_ seed spokes that each row twists around the ring at its own offset; a
+// leader row drives the twist and drags the rest, with recursive trails filling
+// the swept arcs. Periodically halts, then re-randomizes direction and leader.
 template <int W, int H> class RingTwist : public Effect {
 public:
   FLASHMEM RingTwist() : Effect(W, H), seed_(CHSV(104, 0, 255)) {
@@ -275,14 +313,17 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Sample with each row scrolled by its own offset pos_[y].
   const Pixel &get_pixel(int x, int y) const override {
     return Effect::get_pixel(wrap(x - pos_[y], W), y);
   }
 
-  // Per-row scroll offset above: display_buffer() does not reflect it, so ISR
-  // fast paths must fall back to virtual get_pixel dispatch for this effect.
+  // The per-row scroll offset above lives only here, not in display_buffer(), so
+  // ISR fast paths must fall back to virtual get_pixel dispatch for this effect.
   bool overrides_get_pixel() const override { return true; }
 
+  // Decay all non-seed pixels, drive the leader row, and latch a stop position
+  // periodically so the twist eventually parks.
   void draw_frame() {
     Canvas c(*this);
     canvas_ = &c;
@@ -303,6 +344,8 @@ public:
   }
 
 private:
+  // Age one pixel: a still-seed pixel takes a small first step off the seed
+  // color; an already-decaying one rides the rainbow trail.
   void decay(Pixel &p) {
     if (p == seed_) {
       auto c = rgb2hsv_approximate(p);
@@ -315,6 +358,9 @@ private:
     }
   }
 
+  // Advance leader row y one step, then pull each other row toward its
+  // neighbor, never letting the lag exceed lead_length_. Hands off to block()
+  // once the leader reaches a latched stop position.
   void pull(int y) {
     if (stop_ != -1 && pos_[y] == stop_) {
       block(y);
@@ -333,6 +379,9 @@ private:
     }
   }
 
+  // Leader has stopped at the latch: keep advancing every row still trailing it
+  // until all align, then release and re-randomize direction, leader, and lead
+  // length for the next twist.
   void block(int y) {
     bool all_stop = true;
     for (int i = 0; i < H; ++i) {
@@ -350,10 +399,13 @@ private:
     }
   }
 
+  // Unsigned ring distance from a to b measured in direction dir.
   int distance(int a, int b, int dir) {
     return dir > 0 ? wrap(b - a, W) : wrap(a - b, W);
   }
 
+  // Set row y's offset to x1 and paint a fresh trail behind each spoke for every
+  // step swept from x0 to x1.
   void move(int y, int x0, int x1, int dir) {
     pos_[y] = x1;
     for (int x = 0; x < W; x += W / COUNT_) {
@@ -363,6 +415,8 @@ private:
     }
   }
 
+  // Recursively copy the pixel ahead (in dir) backward into x and decay it,
+  // extending a trail until it hits a black pixel or the seed.
   void add_trail(Canvas &c, int y, int x, int dir) {
     if (c(wrap(x + dir, W), y) == CRGB(0, 0, 0) || c(x, y) == seed_) {
       return;
@@ -385,6 +439,8 @@ private:
   Canvas *canvas_ = NULL;
 };
 
+// Falling "digital rain" columns: each pixel holds an intensity that scrolls
+// down, mapped to a HUE-based gradient (bright head, dim tail).
 template <int W, int H, uint8_t HUE> class TheMatrix : public Effect {
 public:
   FLASHMEM TheMatrix() : Effect(W, H) {
@@ -394,6 +450,7 @@ public:
 
   bool show_bg() const { return true; }
 
+  // Every 125 ms scroll each column down, seed new drops, and render.
   void draw_frame() {
     Canvas c(*this);
     EVERY_N_MILLIS(125) {
@@ -410,11 +467,13 @@ public:
   }
 
 private:
+  // Shift column x down one row, clearing the top.
   void fall(int x) {
     memmove8(&pixels_[x][1], &pixels_[x][0], H - 1);
     pixels_[x][0] = 0;
   }
 
+  // Randomly spawn a new drop (bright head fading over three rows) at column x.
   void generate(int x) {
     if (random8() < 15) {
       pixels_[x][2] = 255;
@@ -427,6 +486,9 @@ private:
   NoColorCorrection _;
 };
 
+// Mirror-paired curved strokes sweeping the ring, recolored by mapping each
+// pixel's brightness through a warm gradient palette so the fading trails shift
+// hue with their decay.
 template <int W, int H> class Curves : public Effect {
 public:
   FLASHMEM Curves() : Effect(W, H) {
@@ -439,6 +501,8 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Fade trails and remap their hue by brightness, then draw COUNT mirrored
+  // stroke pairs and advance the slope, color, and ring offset.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -462,6 +526,8 @@ public:
   }
 
 private:
+  // Draw a straight stroke of slope n/d anchored at column c: column advances
+  // y*n/d per row, wrapping around the ring.
   void plot(Canvas &cv, int n, int d, int c, const CHSV &color) {
     for (int y = 0; y < H; ++y) {
       cv(wrap(y * n / d + c, W), y) = color;
@@ -477,6 +543,8 @@ private:
   NoTempCorrection _;
 };
 
+// Sparse stars wink on at the current hue and fade out along rainbow trails;
+// the spawn hue drifts one step per frame.
 template <int W, int H> class StarsFade : public Effect {
 private:
   uint8_t hue_;
@@ -486,6 +554,7 @@ public:
 
   bool show_bg() const { return true; }
 
+  // Fade lit pixels; rarely light a dark pixel with a fresh star.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -501,6 +570,8 @@ public:
   }
 };
 
+// Static rainbow spiral: lights every (SPREAD+1)th cell along the x+y diagonal,
+// coloring it by position so the lit cells form diagonal spiral arms.
 template <int W, int H, int SPREAD> class Spiral : public Effect {
 private:
   CHSVPalette16 palette_;
@@ -514,6 +585,7 @@ public:
 
   bool show_bg() const { return true; }
 
+  // Paint the diagonal spiral pattern; output is identical every frame.
   FASTRUN void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -528,12 +600,15 @@ public:
   }
 };
 
+// Three sine-wave traces (blue, green, aqua) sweeping up/down each column at
+// phase offsets set per column, leaving rainbow trails behind them.
 template <int W, int H> class WaveTrails : public Effect {
 public:
   FLASHMEM WaveTrails() : Effect(W, H) { persist_pixels = true; }
 
   bool show_bg() const { return false; }
 
+  // Fade trails, then plot each column's three wave samples.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -550,6 +625,9 @@ public:
   }
 };
 
+// A horizontal ring at mid-height, projected through a tumbling 3D rotation and
+// drawn anti-aliased so it sweeps across the cylinder leaving rainbow trails;
+// the rotation rates beat on three independent sine cycles.
 template <int W, int H> class RingTrails : public Effect {
 public:
   FLASHMEM RingTrails() : Effect(W, H), dot(0) {
@@ -567,6 +645,7 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Fade trails, plot the projected ring, then advance the rotation one step.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -577,7 +656,6 @@ public:
 
     for (float x = 0; x < W; x += 1) {
       if (static_cast<int>(x) % 2 == 0) {
-        //        return;
       }
       Point p = projection.project(x, H / 2);
       CHSV color;
@@ -602,6 +680,10 @@ private:
   NoColorCorrection _;
 };
 
+// Point-symmetric kaleidoscope: each frame dims the canvas, then stamps a
+// palette-colored point and its central-symmetry mirror, scanning the stamp
+// position across the ring (x) and bouncing it up and down (y). The number of
+// symmetric arms cycles every few seconds.
 template <int W, int H> class Kaleidoscope : public Effect {
 public:
   FLASHMEM Kaleidoscope() : Effect(W, H) {
@@ -611,6 +693,8 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Fade the canvas, draw the symmetric arms, then step the scan position and
+  // (at the vertical turnaround) advance the arm count and palette.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -655,6 +739,9 @@ private:
   NoTempCorrection _;
 };
 
+// Three rainbow rings stacked up the cylinder, each tumbled through one of two
+// 3D projections (alternating rings counter-rotate) and drawn anti-aliased. The
+// rotation rates swap every 10 s; the rainbow also scrolls around each ring.
 template <int W, int H> class RingRotate : public Effect {
 public:
   FLASHMEM RingRotate() : Effect(W, H) {
@@ -662,6 +749,8 @@ public:
   }
   bool show_bg() const { return false; }
 
+  // Clear, draw the three projected rings, advance the rotations and the rainbow
+  // scroll offset, and cycle the rotation-rate set every 10 s.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -719,6 +808,9 @@ private:
   uint8_t r_off = 0;
 };
 
+// Pixels ignite one at a time in a random order; each lit pixel glows bright at
+// hue HUE, then its "ember" falls down its column row by row until it drops off
+// the bottom, leaving the field dark behind it.
 template <int W, int H, uint8_t HUE, uint8_t BURNRATE>
 class Burnout : public Effect {
 public:
@@ -729,6 +821,8 @@ public:
     shuffle(burn_, W * H);
   }
 
+  // Render each pixel by state (burning bright, unlit dim, or burnt-out dark),
+  // let embers fall, and ignite the next pixel in the shuffled order.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -751,18 +845,21 @@ public:
   bool show_bg() const { return true; }
 
 private:
+  // Per-pixel state: unlit (INIT) or currently burning (BURN high bit).
   enum State {
     NONE,
     INIT,
     BURN = 0x80,
   };
 
+  // Ignite the next pixel in the shuffled burn order.
   void burnout() {
     if (burn_idx_ < W * H) {
       *((uint8_t *)pixels_ + burn_[burn_idx_++]) = BURN;
     }
   }
 
+  // Drop every burning ember in column x down one row (off the bottom clears it).
   void fall(int x) {
     for (int y = 0; y < H; ++y) {
       if (pixels_[x][y] & BURN) {
@@ -775,12 +872,14 @@ private:
     }
   }
 
+  // Fill arr with 0..len-1 (the flat pixel indices to be burned).
   void fill_seq(short *arr, int len) {
     for (int i = 0; i < len; ++i) {
       arr[i] = i;
     }
   }
 
+  // In-place Fisher-Yates shuffle so pixels ignite in random order.
   void shuffle(short *arr, int len) {
     for (int i = 0; i < len - 1; ++i) {
       short j = random(i, len);
@@ -797,6 +896,9 @@ private:
   int burn_idx_;
 };
 
+// Classic per-column heat-diffusion fire: each column cools, heat rises by
+// averaging the cells below, sparks randomly ignite the base, and the heat map
+// is rendered through FastLED's HeatColor palette. COOL/SPARK tune the look.
 template <int W, int H, uint8_t COOL, uint8_t SPARK>
 class Fire : public Effect {
 public:
@@ -804,6 +906,7 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Every 125 ms cool, rise, spark each column and map heat to color.
   void draw_frame() {
     EVERY_N_MILLIS(125) {
       Canvas c(*this);
@@ -819,12 +922,14 @@ public:
   }
 
 private:
+  // Subtract a small random amount of heat from every cell in column x.
   inline void cool(uint8_t x) {
     for (uint8_t y = 0; y < H; ++y) {
       heat_[x][y] = qsub8(heat_[x][y], random(0, ((COOL * 10) / H) + 2));
     }
   }
 
+  // Propagate heat upward by averaging each cell with the two below it.
   inline void rise(uint8_t x) {
     for (uint8_t y = H - 1; y >= 2; --y) {
       heat_[x][H - 1 - y] = (heat_[x][H - 1 - y + 1] + heat_[x][H - 1 - y + 2] +
@@ -833,6 +938,7 @@ private:
     }
   }
 
+  // With probability SPARK/255, inject a hot spark into one of the bottom rows.
   inline void spark(uint8_t x) {
     if (random8() < SPARK) {
       uint8_t y = random8(3);
@@ -843,6 +949,9 @@ private:
   uint8_t heat_[W][H];
 };
 
+// One white dot per row circling the ring (alternating rows run in opposite
+// directions), each leaving a fading rainbow trail and teleporting to a new
+// random spot once its time-to-live expires.
 template <int W, int H> class DotTrails : public Effect {
 public:
   FLASHMEM DotTrails() : Effect(W, H) {
@@ -857,6 +966,7 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Draw each row's dot and advance it; age every other cell along its trail.
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
@@ -876,6 +986,8 @@ public:
   }
 
 private:
+  // A moving dot: ring position x, direction (rev), frames-to-live ttl, and a
+  // drawn flag that defers one frame so a freshly painted cell isn't re-trailed.
   struct Dot {
     Dot() : x(0), rev(0), ttl(0), drawn(0) {}
 
@@ -887,6 +999,8 @@ private:
     bool drawn;
   };
 
+  // Step the dot one cell (respecting direction); when ttl hits 0, respawn it at
+  // a random position with a fresh lifetime.
   void move(Dot &dot) {
     if (dot.ttl == 0) {
       dot.x = random8() % W;
@@ -906,6 +1020,9 @@ private:
   NoTempCorrection _;
 };
 
+// Horizontal bands striped into two two-color palettes (red/yellow vs
+// aqua/blue) that scroll oppositely around the ring; the band thickness cycles
+// through p[] every few seconds and the two palettes periodically swap rows.
 template <int W, int H> class Spinner : public Effect {
 public:
   FLASHMEM Spinner() : Effect(W, H), spin_timer_(62), pos_(0) {
@@ -919,6 +1036,8 @@ public:
 
   bool show_bg() const { return false; }
 
+  // Paint the two scrolling band sets, advance the scroll, and every 5 s step
+  // the band-thickness index (reversing and swapping palettes at the ends).
   void draw_frame() {
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {

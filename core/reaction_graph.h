@@ -46,7 +46,7 @@ struct CubemapLUT {
   // generation tracking (use-after-free if the arena is reset out from under the
   // LUT) and bound-check (lookup() before build() traps via operator[]'s
   // check_bound, instead of a silent null/garbage read). On device (NDEBUG) the
-  // checks compile out, so lookup() is the same single load as before.
+  // checks compile out, so lookup() is a single load.
   ArenaVector<uint16_t> data;
 
   /** Allocate and populate the LUT from the given arena (48 KB). */
@@ -124,6 +124,8 @@ private:
    *  which the round-trip test cannot catch because it seeds at the answer. Do
    *  not convert this to best-of-neighbors without also raising the cap. */
   static int find_nearest_node(const Vector &p) {
+    // Squared Euclidean distance between two points (avoids the sqrt; only the
+    // ordering matters for the nearest-node comparison).
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
       return dx * dx + dy * dy + dz * dz;

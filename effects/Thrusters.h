@@ -6,6 +6,9 @@
 #pragma once
 #include "core/effects_engine.h"
 
+// A rotating, palette-shaded distorted ring that periodically "fires":
+// each fire warps the ring, spins the global orientation about a derived axis,
+// and spawns a pair of opposed expanding thruster rings that grow and fade.
 template <int W, int H> class Thrusters : public Effect {
 public:
   FLASHMEM Thrusters()
@@ -18,6 +21,8 @@ public:
         amplitude(0), warp_phase(0), t_global(0),
         warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid) {}
 
+  // Register tunable params and seed the timeline: a persistent ring sprite
+  // plus a random timer that fires thrusters every 16-48 frames.
   void init() override {
     registerParam("Radius", &params.radius, 0.1f, 2.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -33,8 +38,11 @@ public:
                         16, 48, [this](auto &) { on_fire_thruster(); }, true));
   }
 
+  // No background clear: thrusters draw over the persistent ring.
   bool show_bg() const override { return false; }
 
+  // Step the timeline and warp animation, expire dead thrusters, then advance
+  // and draw each live thruster.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -70,6 +78,8 @@ public:
   }
 
 private:
+  // One spawned thruster ring: a point on the unit sphere with its own
+  // orientation snapshot, aged frame-by-frame to drive growth and fade.
   struct ThrusterContext {
     // Visible lifetime in frames.
     static constexpr int LIFE = 16;
@@ -103,6 +113,9 @@ private:
 
   StaticCircularBuffer<ThrusterContext, 16> thrusters;
 
+  // Fire event: pick a random warp phase, compute an opposed pair of thrust
+  // points on the ring, restart the warp decay, spin the orientation about the
+  // axis derived from the thrust point, and spawn both thrusters.
   void on_fire_thruster() {
     warp_phase = hs::rand_f() * 2 * PI_F;
 
@@ -141,6 +154,7 @@ private:
     spawn_thruster(thrust_opp);
   }
 
+  // Push a fresh thruster at `point`, evicting the oldest if the ring is full.
   void spawn_thruster(const Vector &point) {
     if (thrusters.is_full())
       thrusters.pop();
@@ -151,18 +165,22 @@ private:
     // (see draw_frame()).
   }
 
+  // Radial distortion of the ring at parameter t: product of a spatial warp
+  // wave (phase from warp_phase) and a slow temporal wave (period 32 frames),
+  // scaled by the current warp amplitude.
   float ring_fn(float t) {
-    // warp_phase is a radian-domain value (rand_f()*2*PI_F, shared with the
-    // DistortedRing calls above); sin_wave's phase is in cycles. The true
-    // radians->cycles factor is 1/(2*PI_F); dividing by PI_F here yields a phase
-    // in [0,2) cycles instead — a doubled offset that stays uniform because
-    // warp_phase is itself uniform random, so it is benign today. (Switch to
-    // 1/(2*PI_F) when finding 277 reworks the warp phase.)
+    // warp_phase is in radians (rand_f()*2*PI_F, shared with the DistortedRing
+    // calls above); sin_wave's phase is in cycles. The exact radians->cycles
+    // factor is 1/(2*PI_F); dividing by PI_F gives a phase in [0,2) cycles, a
+    // doubled offset that stays uniform because warp_phase is itself uniform
+    // random.
     return sin_wave(-1, 1, 2, warp_phase / PI_F)(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(t_global % 32) / 32.0f) *
            amplitude;
   }
 
+  // Draw one thruster as a white ring at the given radius, faded by `opacity`
+  // (and the global alpha param).
   void draw_thruster(Canvas &c, const ThrusterContext &ctx, float radius,
                      float opacity) {
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
@@ -174,6 +192,8 @@ private:
     Plot::Ring::draw<W, H>(filters, c, basis, radius, fragment_shader);
   }
 
+  // Draw the main warped ring, palette-shaded by fragment angle and faded by
+  // `opacity` (and the global alpha param).
   void draw_ring(Canvas &c, float opacity) {
     Basis basis = make_basis(orientation.get(), ring_vec);
 

@@ -36,8 +36,9 @@ inline void reset_correction() {
   Frame::setBrightness(255);
 }
 
+// Pin the spec-derived buffer-sizing formulas and that size()/sizeWithBg()
+// agree with the compile-time constants.
 inline void test_layout_constants() {
-  // The end-frame latch and buffer sizing are spec-derived; pin the formulas.
   HS_EXPECT_EQ(Frame::END_FRAME_BYTES, (N + 15) / 16);
   HS_EXPECT_EQ(Frame::BUFFER_SIZE, 4 + N * 4 + (N + 15) / 16);
   HS_EXPECT_EQ(Frame::COMPOSITE_SIZE, Frame::BUFFER_SIZE * 2);
@@ -47,6 +48,9 @@ inline void test_layout_constants() {
   HS_EXPECT_EQ(static_cast<int>(f.sizeWithBg()), Frame::COMPOSITE_SIZE);
 }
 
+// A default-constructed frame must hold a valid all-black wire image: start
+// frame, per-pixel 0xFF brightness byte with zero color, zero end-frame latch,
+// and a matching trailing black frame.
 inline void test_fresh_frame_skeleton() {
   Frame f;
   const uint8_t *d = f.data();
@@ -76,6 +80,8 @@ inline void test_fresh_frame_skeleton() {
   }
 }
 
+// Exercise correct(): zero passes through, unity factors are exact identity at
+// full scale, and brightness scales monotonically (0 zeroes the channel).
 inline void test_correct_pipeline() {
   reset_correction();
   Frame f;
@@ -87,10 +93,9 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(g, 0u);
   HS_EXPECT_EQ(b, 0u);
 
-  // Unity factors (255) now resolve to ×256/256 = exact identity at every
-  // stage, so full brightness is preserved bit-for-bit (finding 229): a bare
-  // ×255/256 per stage would have lost ~1.2% compounded and capped the peak
-  // below 65535. Output never exceeds input, so the clamp is never reached.
+  // Unity factors (255) resolve to ×256/256 = exact identity at every stage,
+  // so full brightness is preserved bit-for-bit. Output never exceeds input,
+  // so the clamp is never reached.
   r = g = b = 65535;
   f.correct(r, g, b);
   HS_EXPECT_EQ(r, 65535u);
@@ -112,6 +117,8 @@ inline void test_correct_pipeline() {
   reset_correction();
 }
 
+// packPixel() must emit the [0xFF][B][G][R] channel order and write only the
+// targeted pixel slot (each primary lights its own byte, neighbors untouched).
 inline void test_packpixel_wire_order() {
   reset_correction();
   Frame f;
@@ -143,12 +150,13 @@ inline void test_packpixel_wire_order() {
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);
 }
 
+// load() and packPixel() share correct() and must yield identical wire bytes
+// for equivalent inputs; load() also preserves CRGB channel identity.
 inline void test_load_matches_packpixel() {
   reset_correction();
 
-  // load() (sRGB CRGB → linear → correct → sRGB) and packPixel() (linear
-  // Pixel16 → correct → sRGB) share correct() and must produce identical wire
-  // bytes for equivalent inputs — the "cannot drift" contract.
+  // load(): sRGB CRGB → linear → correct → sRGB; packPixel(): linear Pixel16 →
+  // correct → sRGB. Same correct() core, so equivalent inputs cannot drift.
   const CRGB src[3] = {CRGB(200, 100, 50), CRGB(0, 0, 0), CRGB(255, 255, 255)};
 
   Frame fl;
@@ -171,10 +179,11 @@ inline void test_load_matches_packpixel() {
   HS_EXPECT_EQ(pixel(fr, 0)[1], 0); // B
 }
 
+// load() with count > N must clamp rather than overrun the buffer.
 inline void test_load_clamps_count() {
   reset_correction();
   Frame f;
-  // count > N must clamp, not overrun the buffer (the end frame stays zero).
+  // Verified via the end frame staying zero past the clamped pixel region.
   CRGB big[N + 8];
   for (int i = 0; i < N + 8; ++i)
     big[i] = CRGB(255, 255, 255);
@@ -183,6 +192,7 @@ inline void test_load_clamps_count() {
     HS_EXPECT_EQ(f.data()[4 + N * 4 + i], 0);
 }
 
+// Run the full hd107s_frame suite; returns the module's failure count.
 inline int run_hd107s_tests() {
   auto scope = hs_test::begin_module("hd107s_frame");
   test_layout_constants();

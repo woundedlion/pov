@@ -3,11 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
  * Functional output tests for mesh rasterization — the backbone of the
- * Conway/Hankin/IslamicStars effect family, which previously had only indirect
- * coverage (Plot::Mesh::draw was exercised solely by a death case that traps
- * before drawing, and SDF::Face only at the distance()-oracle level in
- * test_sdf.h). These draw a known Platonic solid all the way into a live Canvas
- * and assert on the lit pixels:
+ * Conway/Hankin/IslamicStars effect family. These draw a known Platonic solid
+ * all the way into a live Canvas and assert on the lit pixels:
  *
  *   - Plot::Mesh::draw (wireframe): every unique edge's projected geodesic
  *     midpoint is lit, so a dropped face-walk edge or a broken dedup surfaces
@@ -15,8 +12,7 @@
  *   - Scan::Mesh::draw / SDF::Face (solid fill): each face's interior (centroid)
  *     is lit and a closed convex solid's faces tile the whole sphere with no
  *     holes — i.e. the per-face row/column bounding cull is conservative and
- *     never clips a row the face actually covers (the SDF::Line latitude-bulge
- *     bug class, but for faces).
+ *     never clips a row the face actually covers.
  */
 #pragma once
 
@@ -43,6 +39,8 @@ inline uint8_t mr_seed_b[256 * 1024];
 inline uint8_t mr_geom[256 * 1024];
 inline uint8_t mr_scratch[256 * 1024];
 
+// Minimal Effect that owns a Canvas to draw into; no background, no per-frame
+// work, so the lit pixels come solely from the mesh draw under test.
 struct MeshFx : public Effect {
   MeshFx(int W, int H) : Effect(W, H) {}
   void draw_frame() override {}
@@ -51,6 +49,8 @@ struct MeshFx : public Effect {
 
 inline bool is_black(const Pixel &p) { return p.r == 0 && p.g == 0 && p.b == 0; }
 
+// Fragment shader that paints a fixed near-white; used as the draw color so any
+// covered pixel becomes non-black and thus detectable.
 inline void white(const Vector &, Fragment &f) {
   f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
 }
@@ -75,6 +75,7 @@ inline bool lit_near(const MeshFx &fx, float px, float py, int r) {
   return false;
 }
 
+// Count of non-black pixels across the whole canvas.
 template <int W, int H>
 inline size_t count_lit(const MeshFx &fx) {
   size_t lit = 0;
@@ -89,6 +90,9 @@ inline size_t count_lit(const MeshFx &fx) {
 // Plot::Mesh::draw — wireframe: every unique edge actually drawn
 // ============================================================================
 
+// Wireframe draw lights every unique edge: extract the octahedron's 12 edges,
+// draw, and assert each edge's projected geodesic midpoint is lit. Also checks
+// the wireframe covers some but well under half the canvas.
 inline void test_wireframe_draws_every_edge() {
   constexpr int W = 288, H = 144;
   configure_arenas_default(); // Plot::Mesh::draw samples edges via scratch_arena_a
@@ -134,6 +138,9 @@ inline void test_wireframe_draws_every_edge() {
 // Scan::Mesh::draw / SDF::Face — solid fill: interior lit, tiling has no holes
 // ============================================================================
 
+// Solid fill lights every face interior and tiles the whole sphere: each of the
+// octahedron's 8 face centroids is lit, the fill covers far more than the
+// wireframe, and a closed convex solid leaves essentially no holes.
 inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   constexpr int W = 288, H = 144;
   configure_arenas_default();
@@ -199,6 +206,8 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   HS_EXPECT_GT(fill_lit, total * 99 / 100);
 }
 
+// Runs every mesh-rasterization test in this module and returns the failure
+// count from end_module.
 inline int run_mesh_raster_tests() {
   auto scope = begin_module("mesh_raster");
 

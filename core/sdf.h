@@ -61,8 +61,8 @@ inline void push_interval(IntervalBuffer &buf, float start, float end) {
  * @brief Insertion-sort an interval buffer in place by start coordinate.
  *
  * Raw-pointer indexing (the buffer is freshly built, head == 0, so it is
- * contiguous from index 0) — same codegen as the inlined copies it replaces, no
- * per-access modulo. Shared by merge_intervals and the Subtract set-difference.
+ * contiguous from index 0), avoiding the per-access modulo. Shared by
+ * merge_intervals and the Subtract set-difference.
  */
 inline void sort_intervals_by_start(IntervalBuffer &buf) {
   auto *data = &buf[0];
@@ -82,9 +82,8 @@ inline void sort_intervals_by_start(IntervalBuffer &buf) {
  * @brief Sort an interval buffer by start, then emit the union of overlapping
  * intervals via out(start, end). Shared by Union/SmoothUnion.
  *
- * Precondition: `merged` is non-empty (callers guard with is_empty()). Zero-cost
- * inline replacement for the byte-identical sort+merge that was copy-pasted in
- * both ops; templated on the output sink so it inlines at -O3.
+ * Precondition: `merged` is non-empty (callers guard with is_empty()).
+ * Templated on the output sink so it inlines at -O3.
  */
 template <typename OutputIt>
 inline void merge_intervals(IntervalBuffer &merged, OutputIt out) {
@@ -677,7 +676,7 @@ template <typename A, typename B> struct SmoothUnion {
     auto b2 = b.template get_vertical_bounds<H>();
     // Expand bounds by the blending radius (k, in radians) converted to rows:
     // phi spans [0,π] over (H_VIRT-1) rows, mirroring the horizontal pad (k→px).
-    // A fixed ±1 clipped the blend top/bottom for large k.
+    // The pad scales with k so large blends are not clipped top/bottom.
     int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
     return {std::max(0, std::min(b1.y_min, b2.y_min) - pad),
             std::min(H - 1, std::max(b1.y_max, b2.y_max) + pad)};
@@ -1173,8 +1172,8 @@ struct Face {
 
   // ---------------------------------------------------------------------------
   // Construction phases. Each is a single-call-site helper factored out of the
-  // constructor for readability; all are force-inlined so codegen (and the
-  // per-frame Mesh::draw face-setup cost) is identical to the original monolith.
+  // constructor for readability; all are force-inlined so the per-frame
+  // Mesh::draw face-setup cost stays free of call overhead.
   // ---------------------------------------------------------------------------
 
   /// Latitude-band reject. Returns true when the face's phi extent (plus
@@ -1346,9 +1345,8 @@ struct Face {
     // the cell. The plane SDF is 1-Lipschitz in (px,py), so a zero anywhere in a
     // cell forces every corner to lie within one cell diagonal of it; requiring
     // the smallest corner magnitude to exceed the diagonal therefore guarantees
-    // a sign-pure cell. This is a true per-face bound (it scales with the face's
-    // own LUT cell size) — unlike the old canvas-width azimuth heuristic, which
-    // under-bounded large faces and mis-signed their edges.
+    // a sign-pure cell. This is a true per-face bound: it scales with the face's
+    // own LUT cell size, so it stays correct (sign-pure edges) for large faces.
     lut_safe_dist = sqrtf(step_x * step_x + step_y * step_y);
     for (int gy = 0; gy < LUT_N; ++gy) {
       float qy = (lut_cy - lut_Ry) + gy * step_y;
@@ -2067,6 +2065,12 @@ struct Flower {
   }
 };
 
+/**
+ * @brief Signed distance to a great-circle arc segment of given thickness.
+ * Returns:
+ *  dist: Signed distance to the segment minus thickness (negative inside)
+ *  raw_dist: Unsigned angular distance to the segment
+ */
 struct Line {
   Vector a, b;
   float thickness;
@@ -2289,12 +2293,10 @@ struct Twist {
     if (twist == 0)
       return 1.0f;
     // The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and |g| = γ; its
-    // exact operator norm (largest singular value) is γ/2 + √(1 + γ²/4). The
-    // old 1 + γ/2 understates it (~8% at γ=1, ~41% at γ=4), over-estimating the
-    // safe step and letting Raymarch's sphere tracing march through thin
-    // surfaces at high Twist. γ uses |twist·amplitude| so the bound stays
-    // conservative regardless of sign. One sqrtf, and the tighter bound is also
-    // the fewest-steps correct choice.
+    // exact operator norm (largest singular value) is γ/2 + √(1 + γ²/4). This
+    // exact bound prevents Raymarch's sphere tracing from over-estimating the
+    // safe step and marching through thin surfaces at high Twist. γ uses
+    // |twist·amplitude| so the bound stays conservative regardless of sign.
     const float gamma =
         fabsf(static_cast<float>(twist) * amplitude) / std::max(s, R * 0.5f);
     return 0.5f * gamma + sqrtf(1.0f + 0.25f * gamma * gamma);

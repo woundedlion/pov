@@ -17,8 +17,8 @@
 #include "FastNoiseLite.h"
 #include "generators.h"
 #include "geometry.h"
-#include "concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn (was transitive via geometry->mesh)
-#include "mesh.h"     // MeshOps (was transitive via geometry->mesh)
+#include "concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn
+#include "mesh.h"     // MeshOps
 #include "memory.h"
 #include "spatial.h"
 #include "static_circular_buffer.h"
@@ -79,11 +79,11 @@ public:
     return p1 * (1.0f - f) + p2 * f;
   }
 
+  /// Collapse the path to its newest point only.
   void collapse() {
-    // Keep only the newest point. The old `points = {points.back()}` built a
-    // full StaticCircularBuffer<Vector, RESOLUTION> temporary (~12.3 KB at the
-    // default RESOLUTION=1024) on the stack just to hold one Vector — over the
-    // WASM build's 8 KB stack. Clear in place and re-push the single survivor.
+    // Clear in place and re-push the single survivor rather than assigning a
+    // fresh buffer: a StaticCircularBuffer<Vector, RESOLUTION> temporary is
+    // ~12.3 KB at the default RESOLUTION=1024, over the WASM build's 8 KB stack.
     if (points.size() > 1) {
       Vector last = points.back();
       points.clear();
@@ -331,6 +331,8 @@ template <int TRAIL_LEN = 8> struct Particle {
 
   VectorTrail<TRAIL_LEN> history; /**< Trail of world-space positions. */
 
+  /// (Re)initialize the particle and clear its trail. `l` (life, in frames) is
+  /// clamped into uint16_t range.
   void init(const Vector &p, const Vector &v, uint16_t seed, float l) {
     position = p;
     velocity = v;
@@ -376,6 +378,8 @@ public:
             ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>>(
             -1, false) {}
 
+  /// Bind the particle pool, attractor, and emitter vectors to `arena` and
+  /// pre-construct CAPACITY inactive particles. max_life is in frames.
   void init(Arena &arena, float friction = 0.85f, float gravity = 0.001f,
             float max_life = 600.0f) {
     this->friction = friction;
@@ -390,8 +394,7 @@ public:
     active_count = 0;
     pool.bind(arena, CAPACITY);
     // No is_bound() guard: bind() routes through Arena::allocate, which traps on
-    // OOM and never leaves the vector unbound for CAPACITY > 0. The old early
-    // return was dead code that masked a (non-existent) inert-system fallback.
+    // OOM and never leaves the vector unbound for CAPACITY > 0.
     for (size_t i = 0; i < CAPACITY; ++i) {
       pool.emplace_back();
     }
@@ -418,6 +421,8 @@ public:
     }
   }
 
+  /// Runs all emitters, then advances each active particle's physics, swap-
+  /// removing any that died (compacting the live prefix of the pool).
   void step(Canvas &canvas) override {
     AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
                                  ATTRACTOR_CAP>>::step(canvas);
@@ -443,6 +448,10 @@ public:
   }
 
 private:
+  /// Advance one particle on the sphere surface: age it, apply attractor
+  /// gravity/steering and drag, rotate position+velocity along the surface, and
+  /// update its trail. Returns true once the particle is dead AND its trail has
+  /// fully drained (so the caller can remove it).
   bool step_particle(Particle<TRAIL_LEN> &p, float) {
     bool active = p.life > 0;
     if (active) {
@@ -767,9 +776,7 @@ public:
          const bool *paused = nullptr)
       : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap_(wrap),
         paused_(paused), speed_src_(speed_src), scale_(scale) {
-    // Guard the live source before dereferencing it — the old member-init list
-    // computed `*speed_src * scale` first, so a null source was deref'd before
-    // any check.
+    // Guard the live source before dereferencing it.
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
     speed = *speed_src * scale;
   }
@@ -789,9 +796,8 @@ public:
       speed = *speed_src_ * scale_;
     mutant.get() += speed;
     if (wrap_) {
-      // wrap_t (fract) folds the phase back into [0,1) for any magnitude. The
-      // old single ±1 correction only undid one period, so |speed| >= 1 or a
-      // resume-jump that set mutant far outside the range would escape it.
+      // wrap_t (fract) folds the phase back into [0,1) for any magnitude, so
+      // |speed| >= 1 or a resume-jump far outside the range still wraps cleanly.
       mutant.get() = wrap_t(mutant.get());
     }
   }
@@ -934,7 +940,7 @@ public:
     // degrading smoothly to a triangle instead of jumping at the handoff —
     // duration and fade are independent GUI sliders, so the overlap is
     // user-reachable. In the non-overlapping case only one ramp is ever below
-    // 1.0 at a time, so the result is identical to the prior branch logic.
+    // 1.0 at a time, so the MIN reduces to a plain trapezoid.
     float fade_in = 1.0f;
     if (fade_in_duration > 0 && t < fade_in_duration) {
       float progress = static_cast<float>(t) / fade_in_duration;
@@ -1187,8 +1193,7 @@ public:
       return;
     }
 
-    // Same tight substep count as Motion (was `1 + ceil(...)`, one subdivision
-    // more than needed — now unified via rotation_substeps).
+    // Same tight substep count as Motion (shared rotation_substeps).
     int num_steps = rotation_substeps(std::abs(delta), MAX_ANGLE);
     // Past CAP this soft-clamps and the smear sub-samples (graceful
     // degradation, never a trap) — see Orientation::upsample.
@@ -1726,6 +1731,8 @@ struct RippleParams {
   float cos_threshold_min = 1.0f;
   float cos_threshold_max = -1.0f;
 
+  /// Recompute the cos(angle) fast-reject bounds for the wavelet's current
+  /// phase and thickness, so the renderer can skip points outside the ring.
   void prepare_thresholds() {
     float hw = thickness * 0.5f;
     if (hw < 0.001f)
@@ -2065,13 +2072,12 @@ public:
                                  // potentially add more
 
     // Collapse each distinct Orientation exactly once, before any animation
-    // steps it. Collapsing per-animation (the old behavior) discarded the
-    // sub-frame motion-blur history an earlier animation sharing the same
-    // Orientation had already built this frame — silently breaking the
-    // multi-animation motion blur the engine advertises. An Orientation is
-    // collapsed only by the first started animation that references it (no
-    // extra storage: O(active) per orientation-owning event, and most events
-    // own none).
+    // steps it. Collapsing per-animation would discard the sub-frame
+    // motion-blur history an earlier animation sharing the same Orientation had
+    // already built this frame, breaking the multi-animation motion blur the
+    // engine advertises. An Orientation is collapsed only by the first started
+    // animation that references it (no extra storage: O(active) per
+    // orientation-owning event, and most events own none).
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
       if (global_timeline_t < e.start)
@@ -2114,8 +2120,7 @@ public:
       // A started event always carries a live animation: add() sets
       // manager/iface, and compaction only nulls a slot the loop has already
       // passed (write_idx <= i). A null here is an upstream invariant
-      // violation — trap rather than the old write_idx++, which silently
-      // counted the moved-out husk as live and left a stale slot behind.
+      // violation — trap rather than silently counting a moved-out husk as live.
       HS_CHECK(anim);
       anim->step(canvas);
 

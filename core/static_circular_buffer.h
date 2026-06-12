@@ -41,11 +41,12 @@ public:
 
   StaticCircularBuffer() : head(0), tail(0), count(0) {}
 
+  /// Fills from the list in order; on overflow keeps the LAST N items.
   StaticCircularBuffer(std::initializer_list<T> items)
       : head(0), tail(0), count(0) {
     if (items.size() > N) {
       // push_back evicts the oldest on overflow, so the buffer keeps the LAST
-      // N items — say so rather than implying the leading items were kept.
+      // N items of the list.
       hs::log("Buffer Warning: Initializer list exceeds capacity. Keeping last "
               "N items.");
     }
@@ -54,9 +55,9 @@ public:
     }
   }
 
+  /// Insert at the front; when full, evict the back (oldest for front-pushes).
   void push_front(const T &item) {
     if (is_full()) {
-      // Drop the tail (oldest in this context) to make room
       pop_back_internal();
     }
     head = (head + N - 1) % N; // + N first: never underflows (head is uint32_t)
@@ -73,6 +74,8 @@ public:
     count++;
   }
 
+  /// Construct an element in place at the front; evicts the back when full.
+  /// Returns a reference to the new element.
   template <typename... Args> T &emplace_front(Args &&...args) {
     if (is_full()) {
       pop_back_internal();
@@ -86,9 +89,9 @@ public:
     return ref;
   }
 
+  /// Insert at the back; when full, evict the front (oldest for back-pushes).
   void push_back(const T &item) {
     if (is_full()) {
-      // Drop the head (oldest in this context) to make room
       pop_front_internal();
     }
     buffer[tail] = item;
@@ -105,6 +108,8 @@ public:
     count++;
   }
 
+  /// Construct an element in place at the back; evicts the front when full.
+  /// Returns a reference to the new element.
   template <typename... Args> T &emplace_back(Args &&...args) {
     if (is_full()) {
       pop_front_internal();
@@ -118,18 +123,21 @@ public:
     return ref;
   }
 
+  /// Remove the back element; no-op when empty.
   void pop_back() {
     if (is_empty())
       return;
     pop_back_internal();
   }
 
+  /// Remove the front element; no-op when empty.
   void pop() {
     if (is_empty())
       return;
     pop_front_internal();
   }
 
+  /// Remove all elements, running each destructor.
   void clear() {
     while (!is_empty()) {
       pop_front_internal();
@@ -281,6 +289,7 @@ private:
     Derived &self() { return static_cast<Derived &>(*this); }
   };
 
+  /// Mutable random-access iterator over the buffer in front-to-back order.
   class Iterator
       : public CircularIterBase<Iterator, StaticCircularBuffer *, T &, T *> {
     using Base = CircularIterBase<Iterator, StaticCircularBuffer *, T &, T *>;
@@ -289,6 +298,7 @@ private:
     using Base::Base;
   };
 
+  /// Read-only counterpart of Iterator; implicitly constructible from one.
   class ConstIterator
       : public CircularIterBase<ConstIterator, const StaticCircularBuffer *,
                                 const T &, const T *> {

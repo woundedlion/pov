@@ -41,6 +41,9 @@ static_assert(MAX_INDICES <= UINT16_MAX,
 static_assert(MAX_VERTS <= UINT16_MAX,
               "MAX_VERTS must fit KDNode::original_index (uint16_t)");
 
+// Copy a freshly-generated mesh out of the scratch arena pair into the
+// long-lived geometry arena, so the scratch arenas can be reused for the next
+// solid without clobbering the result.
 FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
   final_mesh.vertices.bind(geom, temp.vertices.size());
@@ -176,7 +179,9 @@ struct Dodecahedron {
       7, 15, 5,  18, 19, 7,  11, 6,  14, 15, 7,  19, 3,  10, 11};
 };
 
-// Helper to convert Static Mesh Data to Dynamic PolyMesh
+// Materialize a compile-time StaticMeshT (constexpr vertex/face arrays) into a
+// runtime PolyMesh backed by `target`. Face indices widen to the uint16_t the
+// topology path expects.
 template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   PolyMesh mesh;
   mesh.vertices.bind(target, StaticMeshT::vertices.size());
@@ -608,16 +613,20 @@ dodecahedron_ambo_bevel33_relax_hk66(Arena &a, Arena &b) {
 }
 } // namespace IslamicStarPatterns
 
+// Complex marks solids whose generator runs a long operator/relax pipeline,
+// letting callers gate the heavier shapes (e.g. skip on constrained hardware).
 enum class Category { Simple, Complex };
 
+// One named solid in a registry: its name, the generator that builds it into an
+// arena pair, and its cost category.
 struct Entry {
   const char *name;
   PolyMesh (*generate)(Arena &a, Arena &b);
   Category category;
 };
 
-// Centralized Registry
-// Order: Platonic (0-4), Archimedean (5-15)
+// Order is load-bearing: Collections::get_platonic/archimedean_solids() slice
+// this array by fixed offsets (Platonic 0-4, Archimedean 5-15).
 inline constexpr Entry simple_registry[] = {
 
     // Platonic

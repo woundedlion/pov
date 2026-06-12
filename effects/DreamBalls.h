@@ -9,8 +9,11 @@
 
 #include <array>
 
+// Orbiting copies of a polyhedral wireframe, displaced in each vertex's
+// tangent plane and Mobius-warped, cycling through four solid presets.
 template <int W, int H> class DreamBalls : public Effect {
 public:
+  // Live, slider-bound render parameters; also the per-preset value set.
   struct Params {
     const char *solid_name;
     float num_copies;
@@ -21,10 +24,14 @@ public:
     float alpha;
   };
 
+  // Construct with the anti-alias screen filter; the Mobius generator hangs off
+  // the timeline so its warps animate in step.
   FLASHMEM DreamBalls()
       : Effect(W, H), filters(Filter::Screen::AntiAlias<W, H>()),
         mobius_gen(timeline) {}
 
+  // Build mesh data, bake palette LUTs, register live sliders, and start the
+  // spawn/spin/orbit animation chain.
   void init() override {
     setup_presets();
 
@@ -55,18 +62,18 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     spawn_sprite(0);
-    // Accumulate the orbit phase by integrating the live Speed slider each frame
-    // (wrapped to [0,1)) rather than scaling an ever-growing frame counter by
-    // speed. The old `angle = t * speed` form retroactively rescaled all elapsed
-    // time whenever Speed changed, teleporting every orbit; integrating speed
-    // makes a slider/preset change alter the rate going forward only, and the
-    // wrap keeps fast trig in precise range over multi-day runs.
+    // Accumulate orbit phase by integrating the live Speed slider each frame
+    // (wrapped to [0,1)) so a Speed change alters the rate going forward only
+    // rather than retroactively rescaling all elapsed phase. The wrap keeps fast
+    // trig in precise range over multi-day runs.
     timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
                                       /*wrap=*/true));
   }
 
+  // No background clear; sprites fade over the prior frame.
   bool show_bg() const override { return false; }
 
+  // Advance the timeline, which drives all spawning and rendering.
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -83,16 +90,18 @@ private:
   // the next by this much so the surface ripples instead of pulsing in unison.
   static constexpr float VERTEX_PHASE_STAGGER = 0.1f;
 
+  // Orthonormal tangent-plane basis (u, v) at a vertex; the orbit displacement
+  // is spanned by this frame before re-projecting to the sphere.
   struct Tangent {
     Vector u;
     Vector v;
   };
 
+  // Precomputed, static per-preset geometry baked into the persistent arena.
   struct PresetData {
-    // Base Mesh Data
     MeshState mesh_state;
     ArenaVector<Tangent> tangents;
-    ArenaVector<Plot::Mesh::Edge> edges;
+    ArenaVector<Plot::Mesh::Edge> edges; // unique edge list (topology is static)
   };
 
   std::array<PresetData, 4> loaded_presets;
@@ -108,8 +117,8 @@ private:
   // sprites overlap (the outgoing fade-out and the incoming fade-in); each
   // sprite captures its own slot so the outgoing one keeps the palette it was
   // spawned with through its fade instead of hard-cutting to the freshly
-  // rebaked colors (finding 317). The non-color live params stay shared on
-  // purpose (Copies/Radius/Speed/Alpha slider liveness).
+  // rebaked colors. The non-color live params stay shared on purpose
+  // (Copies/Radius/Speed/Alpha slider liveness).
   BakedPalette baked_palettes_[2];
   int active_bake_ = 0;
 
@@ -135,6 +144,8 @@ private:
                      &Palettes::lavenderLake, 0.3f}}}},
       .current_idx = 0};
 
+  // Generate each preset's solid and bake its vertices, faces, tangent frames,
+  // and unique edge list into the persistent arena once at init.
   FLASHMEM void setup_presets() {
     const auto &entries = preset_manager.get_entries();
 
@@ -146,13 +157,13 @@ private:
       PolyMesh m = generate(persistent_arena, Solids::get_by_name,
                             std::string_view(p.solid_name));
 
-      // Store Verts (Deep Copy)
+      // Deep-copy vertices into the persistent arena (the generator's scratch
+      // mesh does not outlive this loop).
       data.mesh_state.vertices.bind(persistent_arena, m.vertices.size());
       for (const auto &v : m.vertices) {
         data.mesh_state.vertices.push_back(v);
       }
 
-      // Store Faces
       data.mesh_state.faces.bind(persistent_arena, m.faces.size());
       data.mesh_state.face_counts.bind(persistent_arena, m.face_counts.size());
 
@@ -165,7 +176,8 @@ private:
         }
       }
 
-      // Compute Tangents
+      // Build a tangent frame per vertex; pick X_AXIS as the seed near the poles
+      // to avoid a degenerate cross product with the near-parallel Y_AXIS.
       data.tangents.bind(persistent_arena, data.mesh_state.vertices.size());
       for (const auto &v : data.mesh_state.vertices) {
         Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
@@ -183,6 +195,9 @@ private:
     }
   }
 
+  // Spawn one fading sprite for preset idx (mod count) and schedule the next
+  // spawn one period later. Rebakes the inactive palette slot, arms a Mobius
+  // warp, and reseeds the live params only when the preset actually changes.
   void spawn_sprite(int idx) {
     auto entries = preset_manager.get_entries();
     int safe_idx = idx % entries.size();
@@ -266,6 +281,10 @@ private:
     }
   }
 
+  // Draw num_copies orbiting wireframe shells of the preset's solid. Each copy
+  // displaces vertices in their tangent frames (staggered in phase by an even
+  // 2*PI/num_copies offset), Mobius-warps and orients them, then plots the
+  // edges shaded from the baked palette at p.alpha * opacity.
   void draw_scene(Canvas &canvas, const Params &p, float opacity,
                   const MeshState &base, MeshState &target,
                   const ArenaVector<Tangent> &tangents,
@@ -297,6 +316,8 @@ private:
     }
   }
 
+  // Kick off a full-turn rotation of the global orientation about a fresh random
+  // axis; scheduled periodically to keep the whole cluster slowly tumbling.
   void spin_slices() {
     Vector axis = random_vector();
     timeline.add(0, Animation::Rotation<W>(global_orientation, axis, 2 * PI_F,

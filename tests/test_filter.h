@@ -51,6 +51,7 @@ namespace filter_tests {
 // Trait structs — direct member values
 // ============================================================================
 
+// Each trait tag exposes the expected is_2d / has_history member constants.
 inline void test_trait_member_values() {
   HS_EXPECT_TRUE(Is2D::is_2d);
   HS_EXPECT_FALSE(Is2D::has_history);
@@ -69,6 +70,8 @@ inline void test_trait_member_values() {
 // Trait inheritance on representative filters
 // ============================================================================
 
+// Representative filters inherit the right is_2d / has_history traits, at both
+// runtime and compile time.
 inline void test_filter_trait_inheritance() {
   constexpr int W = 32, H = 32;
 
@@ -109,10 +112,13 @@ inline void test_filter_trait_inheritance() {
 // Pipeline sink + get<T>()
 // ============================================================================
 
+// The bare (filter-free) pipeline sink is 2D.
 inline void test_pipeline_sink_is_2d() {
   HS_EXPECT_TRUE((Pipeline<32, 32>::is_2d));
 }
 
+// get<T>() resolves each composed filter to the correctly-typed base subobject,
+// for both the head node and tail nodes, in const and non-const pipelines.
 inline void test_pipeline_get_returns_correct_filter() {
   constexpr int W = 32, H = 32;
   using AA = Filter::Screen::AntiAlias<W, H>;
@@ -162,13 +168,14 @@ inline void test_pipeline_get_returns_correct_filter() {
 // Screen::AntiAlias::plot — pure bilinear weight partition
 // ============================================================================
 
+// A fractional interior sample splits into 1..4 taps whose alphas sum back to
+// the input alpha (partition of unity).
 inline void test_antialias_weights_partition() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  // Interior, non-pole sample with a clear fractional offset.
-  // The 4 distributed alphas must sum back to the input alpha (partition of
-  // unity), because v00+v10+v01+v11 == 1 by construction.
+  // Interior, non-pole sample with a clear fractional offset; the four bilinear
+  // weights v00+v10+v01+v11 == 1 by construction.
   float sum = 0.0f;
   int count = 0;
   const float in_alpha = 0.8f;
@@ -182,6 +189,8 @@ inline void test_antialias_weights_partition() {
   HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
 }
 
+// Integer coordinates collapse AntiAlias to a single full-weight tap at the
+// input pixel.
 inline void test_antialias_integer_coord_single_tap() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
@@ -204,15 +213,14 @@ inline void test_antialias_integer_coord_single_tap() {
   HS_EXPECT_NEAR(kept_y, 24.0f, 1e-5f);
 }
 
+// A sub-pixel sample across the theta=0 seam wraps its X taps onto columns
+// W-1 and 0 rather than collapsing onto one unwrapped column.
 inline void test_antialias_seam_wraps_left_column() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  // A sub-pixel coordinate just left of the theta=0 seam (x = -0.3) must
-  // distribute across the wrapped columns W-1 and 0, not collapse onto a single
-  // unwrapped column. y at the equator (y_m = 0) isolates the two X taps.
-  // Regression: the old truncating modf put a negative fraction onto column 0
-  // only and left the left neighbor unwrapped.
+  // x = -0.3 sits just left of the seam; y at the equator (y_m = 0) isolates
+  // the two X taps so only the wrap behaviour is under test.
   const float in_alpha = 1.0f;
   float sum = 0.0f;
   bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
@@ -235,9 +243,10 @@ inline void test_antialias_seam_wraps_left_column() {
 // Screen::Blur::plot — kernel passthrough
 // ============================================================================
 
+// factor=0 makes Blur an identity: a single full-weight tap at the input pixel.
 inline void test_blur_factor_zero_is_identity() {
   constexpr int W = 32, H = 32;
-  // factor=0 → center weight c = 1.0, edge/corner weights 0 → single tap.
+  // center weight c = 1.0, edge/corner weights 0 → single tap.
   Filter::Screen::Blur<W, H> blur(0.0f);
 
   int count = 0;
@@ -256,11 +265,11 @@ inline void test_blur_factor_zero_is_identity() {
   HS_EXPECT_NEAR(kept_y, 16.0f, 1e-5f);
 }
 
+// factor=1 gives the full 3x3 Gaussian: all 9 taps land in-bounds for an
+// interior pixel and their alphas sum to the input alpha.
 inline void test_blur_full_kernel_sums_to_alpha() {
   constexpr int W = 32, H = 32;
-  // factor=1 → full Gaussian (center 0.25, edge 0.125, corner 0.0625).
-  // For an interior pixel all 9 taps are in-bounds; weights sum to 1, so the
-  // distributed alpha sums to the input alpha.
+  // Gaussian weights: center 0.25, edge 0.125, corner 0.0625 (sum to 1).
   Filter::Screen::Blur<W, H> blur(1.0f);
 
   float sum = 0.0f;
@@ -275,6 +284,7 @@ inline void test_blur_full_kernel_sums_to_alpha() {
   HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
 }
 
+// update() rebuilds the kernel: update(0) collapses a full blur back to identity.
 inline void test_blur_update_changes_kernel() {
   constexpr int W = 32, H = 32;
   Filter::Screen::Blur<W, H> blur(1.0f);
@@ -291,6 +301,8 @@ inline void test_blur_update_changes_kernel() {
 // Pixel::ChromaticShift::plot — channel-split fan-out
 // ============================================================================
 
+// ChromaticShift emits the original colour plus three single-channel copies
+// shifted to x+1/x+2/x+3 (R, G, B respectively).
 inline void test_chromatic_shift_fanout() {
   constexpr int W = 64;
   Filter::Pixel::ChromaticShift<W> cs;
@@ -342,6 +354,8 @@ inline void test_chromatic_shift_fanout() {
 // Pixel::Feedback — Style binding + enable flag (no flush / no Canvas)
 // ============================================================================
 
+// style() returns a live reference to the bound Style (reads, mutation, and the
+// const overload all alias the original); set_enabled is callable.
 inline void test_feedback_style_binding() {
   constexpr int W = 32, H = 32;
   ::Feedback::Style style = ::Feedback::Style::Smoke();
@@ -366,12 +380,13 @@ inline void test_feedback_style_binding() {
   fb.set_enabled(true);
 }
 
+// Feedback::plot() forwards its input unchanged (the effect lives in flush, not
+// plot): one tap with the original coord and alpha, no Canvas touched.
 inline void test_feedback_plot_is_passthrough() {
   constexpr int W = 32, H = 32;
   ::Feedback::Style style = ::Feedback::Style::Smoke();
   Filter::Pixel::Feedback<W, H> fb(style);
 
-  // plot() is a pure pass-through (no Canvas touched): one tap, unchanged.
   int count = 0;
   float kx = -1, ky = -1, ka = -1;
   Pixel src(7, 8, 9);
@@ -527,8 +542,8 @@ inline void test_world_orient_slice_selects_by_projection() {
 
 // VertexReplicate fans a point onto N copies via rotations from vertices[0] to
 // each vertex; every copy carries the SAME source age (replication is spatial,
-// not temporal — the P3-4 contract). Probing with vertices[0] maps copy i back
-// to vertices[i] exactly.
+// not temporal). Probing with vertices[0] maps copy i back to vertices[i]
+// exactly.
 inline void test_world_vertex_replicate_fanout_and_age() {
   constexpr int W = 32, N = 3;
   std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
@@ -599,14 +614,17 @@ struct PipeFx : public Effect {
   bool show_bg() const override { return false; }
 };
 
+// True when the pixel is exactly black (all channels zero).
 inline bool px_black(const Pixel &p) {
   return p.r == 0 && p.g == 0 && p.b == 0;
 }
 
+// True when the pixel matches the given RGB triple exactly.
 inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
   return p.r == r && p.g == g && p.b == b;
 }
 
+// Number of non-black pixels in the effect's framebuffer.
 inline size_t count_lit(const PipeFx &fx) {
   size_t n = 0;
   for (int y = 0; y < fx.height(); ++y)
@@ -819,10 +837,12 @@ inline void test_feedback_flush_respects_clip() {
 // World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
 //
 // Trails are history-bearing filters: plot() encodes the world position into a
-// quantized int16 ring entry, flush() ages, evicts, decodes and re-emits. The
-// quantization round-trip and ring mechanics had no direct coverage.
+// quantized int16 ring entry, flush() ages, evicts, decodes and re-emits. These
+// tests cover the quantization round-trip and the ring mechanics directly.
 // ============================================================================
 
+// plot() passes the frame through and stores it; flush() ages, decodes the
+// int16 entry and re-emits it within the quantization error bound (< 1/32767).
 inline void test_world_trails_int16_quantization_roundtrip() {
   constexpr int W = 32, Cap = 8;
   static uint8_t buf[Cap * 16];
@@ -857,9 +877,9 @@ inline void test_world_trails_int16_quantization_roundtrip() {
   HS_EXPECT_NEAR(decoded.z, v0.z, 1e-4f);
 }
 
-// Regression: a component pushed past the unit cube by an upstream warp must
-// SATURATE, not overflow int16 and wrap to a garbage point on the far side of
-// the sphere. encode() clamps to [-1, 1] before quantizing.
+// A component pushed past the unit cube by an upstream warp must SATURATE, not
+// overflow int16 and wrap to a garbage point on the far side of the sphere.
+// encode() clamps to [-1, 1] before quantizing.
 inline void test_world_trails_clamps_out_of_range() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
@@ -867,8 +887,8 @@ inline void test_world_trails_clamps_out_of_range() {
   Filter::World::Trails<W, Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
-  // x = 1.8 > 1: 1.8*32767 = 58980 overflows int16 and (before the fix) wrapped
-  // to ~-0.2 on decode. z = -1.5 likewise. Both must saturate to +/-1.
+  // x = 1.8 > 1: 1.8*32767 = 58980 would overflow int16 and wrap to ~-0.2 on
+  // decode without the clamp. z = -1.5 likewise. Both must saturate to +/-1.
   const Vector v = Vector(1.8f, 0.5f, -1.5f);
   trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
               [](const Vector &, const Pixel &, float, float) {});
@@ -886,6 +906,8 @@ inline void test_world_trails_clamps_out_of_range() {
   HS_EXPECT_NEAR(decoded.z, -1.0f, 1e-3f);  // saturated
 }
 
+// The ring is a hard-bounded buffer: pushing past Cap evicts the oldest entries
+// so size() saturates at Cap.
 inline void test_world_trails_ring_evicts_oldest() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
@@ -902,6 +924,7 @@ inline void test_world_trails_ring_evicts_oldest() {
   HS_EXPECT_EQ(trails.size(), (size_t)Cap);
 }
 
+// Each flush decrements an entry's ttl; the entry is popped once ttl reaches 0.
 inline void test_world_trails_ttl_expiry() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
@@ -965,10 +988,10 @@ inline void test_screen_trails_store_emit_decay() {
   HS_EXPECT_EQ(emitted, 0);
 }
 
-// Regression: Screen::Trails must forward an already-aged emission, matching
-// World::Trails. Before the alignment a point with 0 < age < lifetime was
-// seeded but never passed, so it silently vanished from the current frame. A
-// point at/past lifetime is still forwarded, but ttl<=0 keeps it out of storage.
+// Screen::Trails must forward an already-aged emission, matching World::Trails:
+// a point with 0 < age < lifetime is both passed through the current frame and
+// seeded into storage. A point at/past lifetime is still forwarded, but ttl<=0
+// keeps it out of storage.
 inline void test_screen_trails_forwards_aged_emission() {
   constexpr int W = 32, MAXP = 16;
   static uint8_t buf[MAXP * 32];
@@ -980,7 +1003,7 @@ inline void test_screen_trails_forwards_aged_emission() {
   Canvas c(fx);
   auto trail = [](float, float, float) { return Color4(Pixel(9, 9, 9), 1.0f); };
 
-  // 0 < age < lifetime: forwarded this frame (the regression) and seeded.
+  // 0 < age < lifetime: forwarded this frame and seeded.
   int fwd = 0;
   trails.plot(3.0f, 4.0f, Pixel(1, 2, 3), 2.0f, 1.0f,
               [&](float, float, const Pixel &, float, float) { ++fwd; });
@@ -1003,6 +1026,8 @@ inline void test_screen_trails_forwards_aged_emission() {
 // Runner
 // ============================================================================
 
+// Runs every filter test case under the "filter" module scope; returns the
+// module's failure count.
 inline int run_filter_tests() {
   auto scope = hs_test::begin_module("filter");
 
