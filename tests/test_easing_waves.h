@@ -23,10 +23,22 @@ namespace easing_waves_tests {
 
 constexpr int N = 64; // sample count over [0,1]
 
-// Sample index i mapped to its exact rational fraction i/N of [0,1].
+/**
+ * @brief Maps a sample index to its exact rational fraction of [0,1].
+ * @param i Sample index in [0, N].
+ * @return The fraction i/N as a float; exact at the rationals to avoid float
+ *         drift past 1.0 (where circular easings would go NaN).
+ */
 static inline float frac(int i) { return static_cast<float>(i) / N; }
 
-// Assert a function is finite over [0,1] and (optionally) monotone non-decreasing.
+/**
+ * @brief Asserts a curve is finite over [0,1] and optionally monotone.
+ * @tparam Fn Callable taking a float t and returning a float.
+ * @param f Curve to sample at frac(0)..frac(N).
+ * @param monotone If true, also require each sample to be non-decreasing
+ *        (within a 1e-4 tolerance) relative to the previous one.
+ * @param name Label forwarded to HS_EXPECT for failure reporting.
+ */
 template <typename Fn>
 static inline void check_curve(Fn f, bool monotone, const char *name) {
   float prev = f(0.0f);
@@ -44,8 +56,12 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
 // easing.h — endpoints
 // ---------------------------------------------------------------------------
 
-// Each easing curve anchors its endpoints: "in" curves at f(0)=0, "out" curves
-// at f(1)=1, "in-out" curves at both; ease_mid is the linear identity.
+/**
+ * @brief Verifies each easing curve anchors its endpoints.
+ * @details "in" curves satisfy f(0)=0, "out" curves f(1)=1, "in-out" curves
+ *          both; ease_mid is the linear identity. Expo/elastic endpoints are
+ *          special-cased to avoid powf domain issues at the boundary.
+ */
 inline void test_easing_endpoints() {
   HS_EXPECT_NEAR(ease_in_out_cubic(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_in_out_cubic(1.0f), 1.0f, 1e-5f);
@@ -71,8 +87,11 @@ inline void test_easing_endpoints() {
   HS_EXPECT_NEAR(ease_mid(1.0f), 1.0f, 1e-6f);
 }
 
-// Every easing curve stays finite over [0,1]; the non-overshooting ones are also
-// monotone non-decreasing. Expo/elastic overshoot, so they get finiteness only.
+/**
+ * @brief Verifies every easing curve stays finite, and monotone where expected.
+ * @details Non-overshooting curves are checked for monotone non-decreasing
+ *          behavior; expo/elastic overshoot, so they get finiteness only.
+ */
 inline void test_easing_finite_and_monotone() {
   // Monotone non-decreasing curves.
   check_curve(ease_in_out_cubic, true, "ease_in_out_cubic");
@@ -89,7 +108,10 @@ inline void test_easing_finite_and_monotone() {
   check_curve(ease_out_elastic, false, "ease_out_elastic");
 }
 
-// In-out curves are symmetric about the midpoint, passing through 0.5 at t=0.5.
+/**
+ * @brief Verifies in-out curves are symmetric about the midpoint.
+ * @details Each in-out curve passes through 0.5 at t=0.5.
+ */
 inline void test_easing_in_out_symmetry_midpoint() {
   HS_EXPECT_NEAR(ease_in_out_sin(0.5f), 0.5f, 1e-4f);
   HS_EXPECT_NEAR(ease_in_out_cubic(0.5f), 0.5f, 1e-4f);
@@ -99,8 +121,13 @@ inline void test_easing_in_out_symmetry_midpoint() {
 // waves.h — sin / tri / square generators
 // ---------------------------------------------------------------------------
 
-// sin_wave stays within [from,to] and starts at the `from` end at t=0. Phase
-// advances forward (+phase) consistently with tri_wave/square_wave.
+/**
+ * @brief Verifies sin_wave bounds and its forward phase convention.
+ * @details The wave stays within [from,to] and starts at the `from` end at t=0.
+ *          Phase advances forward (+phase) consistently with
+ *          tri_wave/square_wave, so a quarter-cycle phase puts t=0 at the rising
+ *          midpoint, matching tri_wave's direction at the same value.
+ */
 inline void test_sin_wave_bounds_and_phase() {
   auto w = sin_wave(2.0f, 5.0f, 1.0f, 0.0f);
   for (int i = 0; i <= N; ++i) {
@@ -119,8 +146,11 @@ inline void test_sin_wave_bounds_and_phase() {
   HS_EXPECT_NEAR(wp(0.0f), tri_wave(0.0f, 1.0f, 1.0f, 0.25f)(0.0f), 1e-3f);
 }
 
-// tri_wave traces a symmetric triangle from trough to peak and back, staying
-// within [from,to] across multiple periods.
+/**
+ * @brief Verifies tri_wave traces a symmetric triangle within bounds.
+ * @details The wave runs trough to peak and back, staying within [from,to]
+ *          across multiple periods.
+ */
 inline void test_tri_wave_shape() {
   auto w = tri_wave(0.0f, 1.0f, 1.0f, 0.0f);
   HS_EXPECT_NEAR(w(0.0f), 0.0f, 1e-4f);   // trough at start
@@ -134,8 +164,11 @@ inline void test_tri_wave_shape() {
   }
 }
 
-// square_wave emits only `from` or `to`, switching at the duty-cycle boundary
-// (here 0.5: first half of the period high, second half low).
+/**
+ * @brief Verifies square_wave emits only its two levels at the duty boundary.
+ * @details The wave emits only `from` or `to`, switching at the duty-cycle
+ *          boundary (here 0.5: first half of the period high, second half low).
+ */
 inline void test_square_wave_binary() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   // Only ever emits `from` or `to`.
@@ -152,9 +185,13 @@ inline void test_square_wave_binary() {
   HS_EXPECT_NEAR(w(0.9f), 0.0f, 1e-5f);
 }
 
-// A negative t*freq+phase must fold into [0,1) so the wave stays periodic across
-// the sign boundary. wrap() (unlike sign-preserving fmod, which would leave a
-// negative argument < dutyCycle and latch the wave permanently "on") achieves this.
+/**
+ * @brief Verifies square_wave stays periodic across the sign boundary.
+ * @details A negative t*freq+phase must fold into [0,1) via wrap() so the wave
+ *          stays periodic; a sign-preserving fold would leave a negative
+ *          argument below the duty cycle and latch the wave permanently "on".
+ *          Checks w(t-1) == w(t) over a full sweep.
+ */
 inline void test_square_wave_negative_phase() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.0f, 1e-5f); // wrap(-0.25)=0.75 -> low, not latched
@@ -170,7 +207,10 @@ inline void test_square_wave_negative_phase() {
 // Runner
 // ---------------------------------------------------------------------------
 
-// Run the full easing/waves suite under its own module scope; returns failures.
+/**
+ * @brief Runs the full easing/waves suite under its own module scope.
+ * @return Number of failures reported by the module.
+ */
 inline int run_easing_waves_tests() {
   auto scope = hs_test::begin_module("easing_waves");
 

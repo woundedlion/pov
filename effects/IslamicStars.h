@@ -8,16 +8,25 @@
 #include "core/effects_engine.h"
 #include <algorithm>
 
-// Effect that displays a sequence of Islamic-geometry polyhedra (HankinSolids),
-// cross-fading one shape into the next while ripples distort the mesh. W/H are
-// the target canvas dimensions in pixels.
+/**
+ * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
+ *        cross-fading one shape into the next while ripples distort the mesh.
+ * @tparam W Target canvas width in pixels.
+ * @tparam H Target canvas height in pixels.
+ */
 template <int W, int H> class IslamicStars : public Effect {
 
 public:
+  /**
+   * @brief Constructs the effect, binding the ripple generator to the timeline.
+   */
   FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
 
-  // Bake palettes, register the UI sliders, and seed the timeline with the
-  // orientation walk, the recurring ripple bursts, and the first shape.
+  /**
+   * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
+   *        with the orientation walk, the recurring ripple bursts, and the
+   *        first shape.
+   */
   void init() override {
     // scratch arenas + room for BakedPaletteBank (~15KB) in persistent
     configure_arenas(GLOBAL_ARENA_SIZE - (120 + 120) * 1024, 120 * 1024,
@@ -56,10 +65,15 @@ public:
     spawn_shape();
   }
 
-  // Draw on a transparent background; the mesh supplies all the color.
+  /**
+   * @brief Reports that the effect draws on a transparent background.
+   * @return Always false; the mesh supplies all the color.
+   */
   bool show_bg() const override { return false; }
 
-  // Advance ripple state once and run the timeline for this frame.
+  /**
+   * @brief Advances ripple state once and runs the timeline for this frame.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     ripple_gen.prepare_frame();
@@ -80,8 +94,12 @@ private:
   MeshPaletteBank palette_bank_;
   std::array<int, NUM_PALETTES> palettes_slots[2];
 
-  // Spawn one burst of burst_size ripples from a random origin, staggered 16
-  // frames apart, each expanding over ripple_duration frames.
+  /**
+   * @brief Spawns one burst of burst_size ripples from a random origin,
+   *        staggered 16 frames apart, each expanding over ripple_duration
+   *        frames.
+   * @param canvas Unused render target for the timer callback signature.
+   */
   void ripple(Canvas &) {
     Vector origin = random_vector();
     for (int i = 0; i < (int)params.burst_size; i++) {
@@ -90,9 +108,15 @@ private:
     }
   }
 
-  // Orient and ripple-distort base_state, then rasterize it with a per-face
-  // palette lookup. opacity is the sprite's current fade alpha; faceIndices maps
-  // each face to its topology class, and palette_idx assigns a palette per class.
+  /**
+   * @brief Orients and ripple-distorts base_state, then rasterizes it with a
+   *        per-face palette lookup.
+   * @param canvas Render target receiving the rasterized mesh.
+   * @param opacity Sprite's current fade alpha in [0, 1].
+   * @param base_state Undistorted source mesh to transform and draw.
+   * @param faceIndices Maps each face to its topology class.
+   * @param palette_idx Assigns a palette per topology class.
+   */
   void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
                   const std::array<int, NUM_PALETTES> &palette_idx) {
@@ -126,9 +150,11 @@ private:
                            scratch_arena_a, params.debug_bb);
   }
 
-  // Advance to the next solid, generate it into the carousel's back slot with a
-  // freshly shuffled palette, make it the front, and schedule a cross-fading
-  // sprite plus the next spawn_shape call.
+  /**
+   * @brief Advances to the next solid, generates it into the carousel's back
+   *        slot with a freshly shuffled palette, makes it the front, and
+   *        schedules a cross-fading sprite plus the next spawn_shape call.
+   */
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
@@ -193,11 +219,14 @@ private:
                      0, [this](Canvas &) { this->spawn_shape(); }, false));
   }
 
+  /**
+   * @brief Slider-backed runtime parameters for the effect.
+   */
   struct Params {
-    float duration = 160.0f; // shape display period, in frames
-    float fade = 32.0f;
-    float burst_size = 4.0f; // ripples per burst; float-backed for registerParam
-    bool debug_bb = false;
+    float duration = 160.0f; /**< Shape display period, in frames. */
+    float fade = 32.0f; /**< Cross-fade window length, in frames. */
+    float burst_size = 4.0f; /**< Ripples per burst; float-backed for registerParam. */
+    bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
 };
 

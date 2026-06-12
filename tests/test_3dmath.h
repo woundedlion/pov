@@ -21,21 +21,42 @@
 namespace hs_test {
 namespace math3d {
 
-// True if every component of a and b agrees within tol.
+/**
+ * @brief Tests whether two vectors agree componentwise within a tolerance.
+ * @param a First vector operand.
+ * @param b Second vector operand.
+ * @param tol Per-component absolute tolerance.
+ * @return True if every component of a and b agrees within tol.
+ */
 inline bool approx_vec(const Vector &a, const Vector &b, float tol) {
   return approx(a.x, b.x, tol) && approx(a.y, b.y, tol) &&
          approx(a.z, b.z, tol);
 }
-// True if scalar and vector parts of a and b agree within tol.
+/**
+ * @brief Tests whether two quaternions agree within a tolerance.
+ * @param a First quaternion operand.
+ * @param b Second quaternion operand.
+ * @param tol Per-component absolute tolerance.
+ * @return True if the scalar and vector parts of a and b agree within tol.
+ */
 inline bool approx_quat(const Quaternion &a, const Quaternion &b, float tol) {
   return approx(a.r, b.r, tol) && approx_vec(a.v, b.v, tol);
 }
-// True if real and imaginary parts of a and b agree within tol.
+/**
+ * @brief Tests whether two complex numbers agree within a tolerance.
+ * @param a First complex operand.
+ * @param b Second complex operand.
+ * @param tol Per-component absolute tolerance.
+ * @return True if the real and imaginary parts of a and b agree within tol.
+ */
 inline bool approx_complex(const Complex &a, const Complex &b, float tol) {
   return approx(a.re, b.re, tol) && approx(a.im, b.im, tol);
 }
 
-// Tolerant equality assertions; the message stringizes the two expressions.
+/**
+ * @brief Tolerant equality assertions for vectors, quaternions, and complex
+ *        values; the failure message stringizes the two compared expressions.
+ */
 #define HS_EXPECT_VEC(a, b, tol)                                               \
   HS_EXPECT(hs_test::math3d::approx_vec((a), (b), (tol)),                      \
             #a " ~= " #b " (tol=" #tol ")")
@@ -50,7 +71,10 @@ inline bool approx_complex(const Complex &a, const Complex &b, float tol) {
 // Constants
 // ============================================================================
 
-// Pins the math constants (golden ratio, tolerance, pi, stereo sentinel).
+/**
+ * @brief Pins the math constants (golden ratio, tolerance, pi, stereo
+ *        sentinel) to their expected values.
+ */
 inline void test_constants() {
   HS_EXPECT_NEAR(PHI, 1.61803398f, 1e-6f);
   HS_EXPECT_NEAR(G, 1.0f / PHI, 1e-6f);
@@ -65,8 +89,10 @@ inline void test_constants() {
 // quintic_kernel
 // ============================================================================
 
-// Smootherstep kernel: fixed points, clamping outside [0,1], monotonicity, and
-// flat (C2) endpoints.
+/**
+ * @brief Verifies the smootherstep kernel: fixed points, clamping outside
+ *        [0,1], monotonicity, and flat (C2) endpoints.
+ */
 inline void test_quintic_kernel() {
   HS_EXPECT_NEAR(quintic_kernel(0.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(quintic_kernel(1.0f), 1.0f, 1e-6f);
@@ -96,7 +122,10 @@ inline void test_quintic_kernel() {
 // (measured peak errors: atan2 ~3.8e-3 rad, acos ~1.3e-4 rad, sin ~1.6e-3)
 // ============================================================================
 
-// fast_atan2: cardinal directions and a full-circle sweep against std::atan2.
+/**
+ * @brief Verifies fast_atan2 at cardinal directions and across a full-circle
+ *        sweep against std::atan2.
+ */
 inline void test_fast_atan2() {
   HS_EXPECT_NEAR(fast_atan2(0.0f, 1.0f), 0.0f, 5e-3f);
   HS_EXPECT_NEAR(fast_atan2(1.0f, 0.0f), PI_F * 0.5f, 5e-3f);
@@ -112,7 +141,10 @@ inline void test_fast_atan2() {
   }
 }
 
-// fast_acos: endpoints, out-of-range clamping to [0,pi], and a sweep vs std.
+/**
+ * @brief Verifies fast_acos at endpoints, out-of-range clamping to [0,pi], and
+ *        across a sweep against std::acos.
+ */
 inline void test_fast_acos() {
   HS_EXPECT_NEAR(fast_acos(1.0f), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(fast_acos(-1.0f), PI_F, 1e-3f);
@@ -130,8 +162,11 @@ inline void test_fast_acos() {
   }
 }
 
-// fast_sinf/fast_cosf: key angles, the Pythagorean identity, and periodicity
-// (exercises range reduction beyond ±2π).
+/**
+ * @brief Verifies fast_sinf/fast_cosf at key angles, the Pythagorean identity,
+ *        and periodicity.
+ * @details The periodicity check exercises range reduction beyond ±2π.
+ */
 inline void test_fast_sinf_cosf() {
   HS_EXPECT_NEAR(fast_sinf(0.0f), 0.0f, 2e-3f);
   HS_EXPECT_NEAR(fast_sinf(PI_F * 0.5f), 1.0f, 2e-3f);
@@ -162,7 +197,10 @@ inline void test_fast_sinf_cosf() {
 // Vector — construction
 // ============================================================================
 
-// Vector constructors (default-zero, scalar, component, copy) and assignment.
+/**
+ * @brief Verifies Vector constructors (default-zero, scalar, component, copy)
+ *        and assignment.
+ */
 inline void test_vector_construction() {
   Vector v0;
   HS_EXPECT_NEAR(v0.x, 0.0f, 1e-7f);
@@ -185,7 +223,10 @@ inline void test_vector_construction() {
   HS_EXPECT_VEC(vassigned, v, 0.0f);
 }
 
-// Vector::from_spherical: axis mappings, poles, and unit-length preservation.
+/**
+ * @brief Verifies Vector::from_spherical axis mappings, poles, and unit-length
+ *        preservation.
+ */
 inline void test_vector_spherical_construction() {
   // theta=0, phi=π/2 → +X axis
   HS_EXPECT_VEC(Vector::from_spherical(0.0f, PI_F * 0.5f), Vector(1, 0, 0),
@@ -203,7 +244,10 @@ inline void test_vector_spherical_construction() {
   HS_EXPECT_NEAR(u.length(), 1.0f, 2e-3f);
 }
 
-// Vector ==/!=: tolerant comparison (equal within TOLERANCE, unequal beyond).
+/**
+ * @brief Verifies Vector ==/!= tolerant comparison (equal within TOLERANCE,
+ *        unequal beyond).
+ */
 inline void test_vector_equality() {
   Vector a(1, 2, 3), b(1, 2, 3), c(1.001f, 2, 3);
   HS_EXPECT_TRUE(a == b);
@@ -220,7 +264,10 @@ inline void test_vector_equality() {
 // Vector — arithmetic
 // ============================================================================
 
-// Vector +,-,negate, scalar */,/ (both orders) and compound assignment.
+/**
+ * @brief Verifies Vector +, -, negate, scalar * and / (both orders), and
+ *        compound assignment.
+ */
 inline void test_vector_arithmetic() {
   Vector a(1, 2, 3), b(4, 5, 6);
   HS_EXPECT_VEC(a + b, Vector(5, 7, 9), 1e-6f);
@@ -241,15 +288,21 @@ inline void test_vector_arithmetic() {
   HS_EXPECT_VEC(c, Vector(1, 2, 3), 1e-6f);
 }
 
-// Vector length()/magnitude() Euclidean norm.
+/**
+ * @brief Verifies Vector length()/magnitude() Euclidean norm.
+ */
 inline void test_vector_length() {
   HS_EXPECT_NEAR(Vector(3, 4, 0).length(), 5.0f, 1e-6f);
   HS_EXPECT_NEAR(Vector(0, 0, 0).length(), 0.0f, 1e-7f);
   HS_EXPECT_NEAR(Vector(1, 2, 2).magnitude(), 3.0f, 1e-6f);
 }
 
-// Vector normalize()/normalized(); zero vector is rejected by the strict path,
-// so normalized_or() is used to supply a fallback for the degenerate case.
+/**
+ * @brief Verifies Vector normalize()/normalized() and the normalized_or()
+ *        fallback.
+ * @details The zero vector is rejected by the strict normalize() path, so
+ *          normalized_or() supplies a fallback for the degenerate case.
+ */
 inline void test_vector_normalize() {
   Vector v(3, 0, 4);
   v.normalize();
@@ -275,8 +328,10 @@ inline void test_vector_normalize() {
 // Vector — free functions (dot, cross, distance, angle_between)
 // ============================================================================
 
-// dot and cross: orthogonality, right-handed basis, anticommutativity, and
-// that a×b is perpendicular to both operands.
+/**
+ * @brief Verifies dot and cross: orthogonality, the right-handed basis,
+ *        anticommutativity, and that a×b is perpendicular to both operands.
+ */
 inline void test_dot_cross() {
   Vector x(1, 0, 0), y(0, 1, 0), z(0, 0, 1);
 
@@ -301,7 +356,10 @@ inline void test_dot_cross() {
   HS_EXPECT_NEAR(dot(c, b), 0.0f, 1e-4f);
 }
 
-// distance_between / distance_squared, including the coincident-point zero.
+/**
+ * @brief Verifies distance_between/distance_squared, including the
+ *        coincident-point zero.
+ */
 inline void test_distance() {
   Vector a(1, 2, 3), b(4, 6, 3);
   HS_EXPECT_NEAR(distance_between(a, b), 5.0f, 1e-6f);
@@ -310,7 +368,10 @@ inline void test_distance() {
   HS_EXPECT_NEAR(distance_squared(a, a), 0.0f, 1e-6f);
 }
 
-// angle_between for vectors: cardinal angles and magnitude-independence.
+/**
+ * @brief Verifies angle_between for vectors: cardinal angles and
+ *        magnitude-independence.
+ */
 inline void test_angle_between_vectors() {
   Vector x(1, 0, 0), y(0, 1, 0);
   HS_EXPECT_NEAR(angle_between(x, y), PI_F * 0.5f, 1e-3f);
@@ -326,7 +387,10 @@ inline void test_angle_between_vectors() {
 // Spherical
 // ============================================================================
 
-// Spherical accessors and Vector<->Spherical roundtrips (on- and off-equator).
+/**
+ * @brief Verifies Spherical accessors and Vector<->Spherical roundtrips (on-
+ *        and off-equator).
+ */
 inline void test_spherical() {
   Spherical s(0.5f, 1.2f);
   HS_EXPECT_NEAR(s.theta, 0.5f, 1e-6f);
@@ -349,8 +413,10 @@ inline void test_spherical() {
 // Quaternion
 // ============================================================================
 
-// Quaternion constructors (identity default, scalar+components, scalar+Vector,
-// copy) and assignment.
+/**
+ * @brief Verifies Quaternion constructors (identity default, scalar+components,
+ *        scalar+Vector, copy) and assignment.
+ */
 inline void test_quaternion_construction() {
   Quaternion id;
   HS_EXPECT_NEAR(id.r, 1.0f, 1e-7f);
@@ -372,7 +438,10 @@ inline void test_quaternion_construction() {
   HS_EXPECT_QUAT(qa, q, 1e-7f);
 }
 
-// Quaternion +,-, scalar */,/, negate, and compound assignment (componentwise).
+/**
+ * @brief Verifies Quaternion +, -, scalar * and /, negate, and componentwise
+ *        compound assignment.
+ */
 inline void test_quaternion_arithmetic() {
   Quaternion a(1, 2, 3, 4), b(0.5f, 1, 1.5f, 2);
   HS_EXPECT_QUAT(a + b, Quaternion(1.5f, 3, 4.5f, 6), 1e-6f);
@@ -391,7 +460,9 @@ inline void test_quaternion_arithmetic() {
   HS_EXPECT_QUAT(c, Quaternion(0.5f, 1, 1.5f, 2), 1e-6f);
 }
 
-// Quaternion squared_magnitude()/magnitude().
+/**
+ * @brief Verifies Quaternion squared_magnitude()/magnitude().
+ */
 inline void test_quaternion_magnitude() {
   Quaternion q(0.5f, 0.5f, 0.5f, 0.5f);
   HS_EXPECT_NEAR(q.squared_magnitude(), 1.0f, 1e-6f);
@@ -402,8 +473,11 @@ inline void test_quaternion_magnitude() {
   HS_EXPECT_NEAR(p.magnitude(), 3.0f, 1e-6f);
 }
 
-// conjugate(), inverse(), unit_inverse(): for unit q all coincide; q*q^-1=id
-// holds for unit and non-unit quaternions alike.
+/**
+ * @brief Verifies conjugate(), inverse(), and unit_inverse().
+ * @details For a unit q all three coincide; q*q^-1 = identity holds for unit
+ *          and non-unit quaternions alike.
+ */
 inline void test_quaternion_conjugate_inverse() {
   Quaternion q(0.5f, 0.5f, 0.5f, 0.5f); // unit
   Quaternion conj = q.conjugate();
@@ -421,7 +495,10 @@ inline void test_quaternion_conjugate_inverse() {
   HS_EXPECT_QUAT(p * p.inverse(), Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
-// Quaternion normalize() (in place) and normalized() (non-mutating).
+/**
+ * @brief Verifies Quaternion normalize() (in place) and normalized()
+ *        (non-mutating).
+ */
 inline void test_quaternion_normalize() {
   Quaternion p(2, 0, 0, 0);
   p.normalize();
@@ -437,8 +514,11 @@ inline void test_quaternion_normalize() {
   HS_EXPECT_QUAT(n, Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
-// Hamilton product: identity laws, basis relations (i²=j²=k²=ijk=-1, cyclic
-// products), non-commutativity, and *= consistency.
+/**
+ * @brief Verifies the Hamilton product: identity laws, basis relations
+ *        (i²=j²=k²=ijk=-1, cyclic products), non-commutativity, and *=
+ *        consistency.
+ */
 inline void test_quaternion_multiplication() {
   Quaternion id;
   Quaternion q(0.5f, 0.5f, 0.5f, 0.5f);
@@ -468,7 +548,9 @@ inline void test_quaternion_multiplication() {
   HS_EXPECT_QUAT(qa, qb * qb, 1e-6f);
 }
 
-// Quaternion ==: tolerant comparison around TOLERANCE.
+/**
+ * @brief Verifies Quaternion == tolerant comparison around TOLERANCE.
+ */
 inline void test_quaternion_equality() {
   Quaternion a(1, 2, 3, 4), b(1, 2, 3, 4);
   HS_EXPECT_TRUE(a == b);
@@ -478,7 +560,10 @@ inline void test_quaternion_equality() {
   HS_EXPECT_TRUE(a == d);
 }
 
-// 4-component dot product on quaternions; self-dot equals squared magnitude.
+/**
+ * @brief Verifies the 4-component dot product on quaternions; self-dot equals
+ *        squared magnitude.
+ */
 inline void test_dot_quaternion() {
   Quaternion a(1, 2, 3, 4), b(2, 3, 4, 5);
   HS_EXPECT_NEAR(dot(a, b), 1 * 2 + 2 * 3 + 3 * 4 + 4 * 5, 1e-5f);
@@ -486,7 +571,10 @@ inline void test_dot_quaternion() {
   HS_EXPECT_NEAR(dot(a, a), a.squared_magnitude(), 1e-5f);
 }
 
-// angle_between for quaternions (the 4D angle between unit quaternions).
+/**
+ * @brief Verifies angle_between for quaternions (the 4D angle between unit
+ *        quaternions).
+ */
 inline void test_angle_between_quaternions() {
   Quaternion id(1, 0, 0, 0);
   HS_EXPECT_NEAR(angle_between(id, id), 0.0f, 1e-4f);
@@ -498,8 +586,10 @@ inline void test_angle_between_quaternions() {
 // make_rotation / rotate
 // ============================================================================
 
-// make_rotation(axis, angle): identity at angle 0, unit-length result, and
-// correct right-handed rotation of test vectors.
+/**
+ * @brief Verifies make_rotation(axis, angle): identity at angle 0, unit-length
+ *        result, and correct right-handed rotation of test vectors.
+ */
 inline void test_make_rotation_axis_angle() {
   // Identity (angle = 0): real part = ±1, vector = 0
   Quaternion id = make_rotation(Vector(0, 1, 0), 0.0f);
@@ -518,8 +608,11 @@ inline void test_make_rotation_axis_angle() {
   HS_EXPECT_VEC(rotate(Vector(1, 0, 0), qz180), Vector(-1, 0, 0), 5e-3f);
 }
 
-// make_rotation(from, to): parallel (identity), perpendicular, the antiparallel
-// degenerate case (180°), and a generic direction-to-direction rotation.
+/**
+ * @brief Verifies make_rotation(from, to): parallel (identity), perpendicular,
+ *        the antiparallel degenerate case (180°), and a generic
+ *        direction-to-direction rotation.
+ */
 inline void test_make_rotation_from_to() {
   // Parallel → identity
   Quaternion id = make_rotation(Vector(1, 0, 0), Vector(1, 0, 0));
@@ -543,8 +636,10 @@ inline void test_make_rotation_from_to() {
   HS_EXPECT_NEAR(qg.magnitude(), 1.0f, 1e-3f);
 }
 
-// rotate(v, q): identity, length preservation, and composition law
-// rotate(rotate(v,q1),q2) == rotate(v, q2*q1).
+/**
+ * @brief Verifies rotate(v, q): identity, length preservation, and the
+ *        composition law rotate(rotate(v,q1),q2) == rotate(v, q2*q1).
+ */
 inline void test_rotate() {
   // Identity rotation leaves vectors unchanged
   Vector v(1, 2, 3);
@@ -568,8 +663,10 @@ inline void test_rotate() {
 // slerp
 // ============================================================================
 
-// Vector slerp: endpoints, the unit-sphere midpoint, the near-identical lerp
-// fallback, and the antipodal degenerate case.
+/**
+ * @brief Verifies Vector slerp: endpoints, the unit-sphere midpoint, the
+ *        near-identical lerp fallback, and the antipodal degenerate case.
+ */
 inline void test_vector_slerp() {
   Vector a(1, 0, 0), b(0, 1, 0);
   HS_EXPECT_VEC(slerp(a, b, 0.0f), a, 5e-3f);
@@ -598,9 +695,11 @@ inline void test_vector_slerp() {
   HS_EXPECT_NEAR(anti_mid.length(), 1.0f, 1e-3f);
 }
 
-// Quaternion slerp: endpoints (q and -q are the same orientation), unit-length
-// interpolants, the q^0.5-squared==q property, and the long_way (long-arc)
-// variant.
+/**
+ * @brief Verifies Quaternion slerp: endpoints (q and -q are the same
+ *        orientation), unit-length interpolants, the q^0.5-squared==q property,
+ *        and the long_way (long-arc) variant.
+ */
 inline void test_quaternion_slerp() {
   Quaternion id(1, 0, 0, 0);
   Quaternion q = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
@@ -637,9 +736,12 @@ inline void test_quaternion_slerp() {
 // Stereographic projection
 // ============================================================================
 
-// stereo/inv_stereo roundtrips plus the pole handling: north pole maps to the
-// STEREO_INF sentinel, the pole cap preserves azimuth at that magnitude, and the
-// south pole / plane origin correspondence.
+/**
+ * @brief Verifies stereo/inv_stereo roundtrips plus the pole handling.
+ * @details The north pole maps to the STEREO_INF sentinel, the pole cap
+ *          preserves azimuth at that magnitude, and the south pole corresponds
+ *          to the plane origin.
+ */
 inline void test_stereo_roundtrip() {
   Vector samples[] = {
       Vector(1, 0, 0),
@@ -682,8 +784,10 @@ inline void test_stereo_roundtrip() {
 // Complex
 // ============================================================================
 
-// Complex +,-,*,/ including the division-by-zero conventions (0/0->0,
-// nonzero/0->large magnitude).
+/**
+ * @brief Verifies Complex +, -, *, / including the division-by-zero
+ *        conventions (0/0 -> 0, nonzero/0 -> large magnitude).
+ */
 inline void test_complex_arithmetic() {
   Complex a(1, 2), b(3, 4);
 
@@ -711,8 +815,10 @@ inline void test_complex_arithmetic() {
 // Mobius
 // ============================================================================
 
-// MobiusParams constructors (8-float, 4-Complex, identity default) and that the
-// a,b,c,d coefficients land in order.
+/**
+ * @brief Verifies MobiusParams constructors (8-float, 4-Complex, identity
+ *        default) and that the a,b,c,d coefficients land in order.
+ */
 inline void test_mobius_params_accessors() {
   // The eight-float constructor fills the four Complex coefficients in order.
   MobiusParams p(1, 2, 3, 4, 5, 6, 7, 8);
@@ -734,7 +840,10 @@ inline void test_mobius_params_accessors() {
   HS_EXPECT_COMPLEX(id.d, Complex(1, 0), 0.0f);
 }
 
-// mobius(z, params): identity, pure translation, and pure scaling cases.
+/**
+ * @brief Verifies mobius(z, params): identity, pure translation, and pure
+ *        scaling cases.
+ */
 inline void test_mobius_transform() {
   Complex z(0.3f, 0.7f);
 
@@ -755,8 +864,11 @@ inline void test_mobius_transform() {
 // Gnomonic
 // ============================================================================
 
-// gnomonic/inv_gnomonic roundtrips (hemisphere sign passed explicitly), the
-// pole pre-image, saturated-input pole return, and near-equator clamping.
+/**
+ * @brief Verifies gnomonic/inv_gnomonic roundtrips (hemisphere sign passed
+ *        explicitly), the pole pre-image, saturated-input pole return, and
+ *        near-equator clamping.
+ */
 inline void test_gnomonic_roundtrip() {
   // Generic upper-hemisphere point
   Vector vUp = Vector(0.3f, 0.8f, 0.4f).normalized();
@@ -789,8 +901,11 @@ inline void test_gnomonic_roundtrip() {
 // Spline
 // ============================================================================
 
-// Spline::cubic_fast and cubic_slerp: hit the endpoints, give unit-length
-// midpoints, and the cubic() dispatcher routes to the right variant by mode.
+/**
+ * @brief Verifies Spline::cubic_fast and cubic_slerp hit the endpoints, give
+ *        unit-length midpoints, and that the cubic() dispatcher routes to the
+ *        right variant by mode.
+ */
 inline void test_spline_cubic_endpoints() {
   const Vector p0(1, 0, 0);
   const Vector p1 = Vector(0.7f, 0.7f, 0).normalized();
@@ -818,9 +933,11 @@ inline void test_spline_cubic_endpoints() {
                 mSlerp, 1e-4f);
 }
 
-// cubic_fast degenerate case: control points whose t=0.5 Bezier blend cancels
-// to the zero vector must degrade gracefully to p1 rather than trap in the
-// strict normalized().
+/**
+ * @brief Verifies the cubic_fast degenerate case: control points whose t=0.5
+ *        Bezier blend cancels to the zero vector must degrade gracefully to p1
+ *        rather than trap in the strict normalized().
+ */
 inline void test_spline_cubic_fast_degenerate_fallback() {
   // Bezier weights at t=0.5 are 0.125/0.375/0.375/0.125, so for these antipodal
   // control points 0.125*p0 + 0.375*p1 + 0.375*p2 + 0.125*p3 cancels to (0,0,0).
@@ -828,9 +945,11 @@ inline void test_spline_cubic_fast_degenerate_fallback() {
   HS_EXPECT_VEC(Spline::cubic_fast(p0, p1, p2, p3, 0.5f), p1, 1e-6f);
 }
 
-// Spline::catmull_rom_tangents: tension 0 gives a geodesic segment (tangents at
-// the endpoints), tension 1 gives full smoothing (slerp midpoints), and the
-// emitted control points stay unit-length.
+/**
+ * @brief Verifies Spline::catmull_rom_tangents: tension 0 gives a geodesic
+ *        segment (tangents at the endpoints), tension 1 gives full smoothing
+ *        (slerp midpoints), and the emitted control points stay unit-length.
+ */
 inline void test_spline_catmull_rom() {
   const Vector prev(1, 0, 0);
   Vector start(0.7f, 0.7f, 0);
@@ -862,8 +981,11 @@ inline void test_spline_catmull_rom() {
 // wrap_index (core/rotate.h) — folds a float index into [0, m)
 // ============================================================================
 
-// wrap_index folds a float index into [0, m): preserves in-range values, wraps
-// at/above the period, folds negatives, and stays in range over many periods.
+/**
+ * @brief Verifies wrap_index folds a float index into [0, m): preserves
+ *        in-range values, wraps at/above the period, folds negatives, and
+ *        stays in range over many periods.
+ */
 inline void test_wrap_index() {
   const int m = 288;
 
@@ -893,8 +1015,11 @@ inline void test_wrap_index() {
 // Runner
 // ============================================================================
 
-// Runs every 3dmath test case and returns the accumulated failure count (0 on
-// success), suitable for use as a process exit code.
+/**
+ * @brief Runs every 3dmath test case.
+ * @return Accumulated failure count (0 on success), suitable for use as a
+ *         process exit code.
+ */
 inline int run_3dmath_tests() {
   auto scope = hs_test::begin_module("3dmath");
 

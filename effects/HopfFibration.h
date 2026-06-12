@@ -8,21 +8,34 @@
 #include "core/effects_engine.h"
 #include <array>
 
-/// Animated Hopf fibration: a grid of S2 base points lifted to S3 fibers,
-/// folded/twisted/tumbled in 4D, stereographically projected to R3, and drawn
-/// as fading palette-colored trail polylines.
+/**
+ * @brief Animated Hopf fibration effect.
+ * @tparam W Render width in pixels.
+ * @tparam H Render height in pixels.
+ * @details A grid of S2 base points is lifted to S3 fibers, folded/twisted/
+ * tumbled in 4D, stereographically projected to R3, and drawn as fading
+ * palette-colored trail polylines.
+ */
 template <int W, int H> class HopfFibration : public Effect {
 public:
-  static constexpr int TRAIL_LEN = 40;
+  static constexpr int TRAIL_LEN = 40; /**< Number of points retained per fiber trail. */
 
+  /**
+   * @brief Constructs the effect and configures the trail pipeline.
+   * @details Disables pixel persistence and seeds the trail pipeline with a
+   * screen-space anti-alias filter sized to W x H.
+   */
   FLASHMEM HopfFibration()
       : Effect(W, H), trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {
     persist_pixels = false;
   }
 
-  /// Register tuning params, bake the trail palette, allocate the fiber and
-  /// trail arrays from the persistent arena, seed fibers, and wire the ambient
-  /// spin plus the phase-driver animations onto the timeline.
+  /**
+   * @brief Initializes params, buffers, fibers, and timeline animations.
+   * @details Registers tuning params, bakes the trail palette, allocates the
+   * fiber and trail arrays from the persistent arena, seeds fibers, and wires
+   * the ambient spin plus the phase-driver animations onto the timeline.
+   */
   void init() override {
     registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
@@ -61,10 +74,18 @@ public:
                                       TUMBLE_Y_RATE, true, &anims_paused_));
   }
 
+  /**
+   * @brief Reports whether the effect wants the background drawn.
+   * @return Always false; trails are drawn over a cleared frame.
+   */
   bool show_bg() const override { return false; }
 
-  /// Step the timeline, refresh cached tumble/phase values, record each fiber's
-  /// projected world-space point into its trail, then render all trails.
+  /**
+   * @brief Advances one frame: steps animations, records and renders trails.
+   * @details Steps the timeline, refreshes cached tumble/phase values, records
+   * each fiber's projected world-space point into its trail, then renders all
+   * trails.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -81,13 +102,15 @@ public:
     render_trails(canvas);
   }
 
-  // Params
+  /**
+   * @brief User-tunable parameters controlling fiber motion and shading.
+   */
   struct Params {
-    float flow_speed = 10.0f;
-    float folding = 0.2f;
-    float tumble_speed = 2.0f;
-    float twist = 4.0f;
-    float alpha = 1.0f;
+    float flow_speed = 10.0f;  /**< Flow phase advance rate, in tuning units. */
+    float folding = 0.2f;      /**< Fold modulation depth, dimensionless. */
+    float tumble_speed = 2.0f; /**< 4D tumble rate, in tuning units. */
+    float twist = 4.0f;        /**< Twist applied to azimuth per fold, dimensionless. */
+    float alpha = 1.0f;        /**< Global trail opacity multiplier in [0, 1]. */
   } params;
 
 private:
@@ -141,8 +164,11 @@ private:
   // render_trails before rasterizing, so no Orient filter is needed.
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> trail_pipeline;
 
-  /// Seed the base fibers as a RINGS x PER_RING lattice of unit vectors,
-  /// evenly spaced in polar bands and azimuth around each band.
+  /**
+   * @brief Seeds the base fibers as a spherical lattice of unit vectors.
+   * @details Lays out a RINGS x PER_RING grid of unit vectors, evenly spaced in
+   * polar bands and azimuth around each band.
+   */
   void init_fibers() {
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
@@ -154,9 +180,11 @@ private:
     }
   }
 
-  /// Refresh the per-frame cache from the wrapped phase accumulators: the
-  /// tumble rotation sines/cosines, the fold_base offset, and the radian-scaled
-  /// flow and tumble-y phases shared across all fibers.
+  /**
+   * @brief Refreshes the per-frame cache from the wrapped phase accumulators.
+   * @details Recomputes the tumble rotation sines/cosines, the fold_base offset,
+   * and the radian-scaled flow and tumble-y phases shared across all fibers.
+   */
   void advance_tumble() {
     // Scale the wrapped [0,1)-turn phases back to radians at use; the arguments
     // are now bounded (ax < 4pi, ty_rad < 2pi) instead of growing without limit.
@@ -172,7 +200,13 @@ private:
     fold_base = fast_sinf(ax * 0.5f) * 0.5f;
   }
 
-  /// Project a base fiber through: folding → twist → S3 → tumble → stereo
+  /**
+   * @brief Projects a base fiber into oriented world space.
+   * @param i Fiber index in [0, ACTUAL_FIBERS).
+   * @return World-space point after folding, twist, S3 lift, tumble, and
+   * stereographic projection; falls back to (1, 0, 0) at a degenerate pole.
+   * @details Pipeline: folding -> twist -> S3 -> tumble -> stereographic R3.
+   */
   Vector hopf_project(size_t i) const {
     const Vector &base = fibers[i];
     Spherical sph(base);
@@ -211,9 +245,13 @@ private:
                          Vector(1, 0, 0));
   }
 
-  /// Draw each fiber's trail as an anti-aliased polyline, orienting its stored
-  /// world-space points into the current view and shading them with the sunset
-  /// palette so the tail fades from newest (opaque) to oldest (transparent).
+  /**
+   * @brief Renders all fiber trails as anti-aliased polylines.
+   * @param canvas Target canvas to rasterize the trail polylines onto.
+   * @details Orients each trail's stored world-space points into the current
+   * view and shades them with the sunset palette so the tail fades from newest
+   * (opaque) to oldest (transparent).
+   */
   void render_trails(Canvas &canvas) {
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];

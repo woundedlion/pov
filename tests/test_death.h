@@ -53,10 +53,15 @@
 #endif
 
 #if defined(_WIN32)
-// Declared locally (no <windows.h>) to suppress the WER "stopped working" box
-// for the children we intentionally crash. kernel32 is linked by default for a
-// Windows-Clang console build. 0x0001|0x0002 = SEM_FAILCRITICALERRORS |
-// SEM_NOGPFAULTERRORBOX.
+/**
+ * @brief Local declaration of the Win32 SetErrorMode (no <windows.h>).
+ * @param uMode Bitmask of error-mode flags; 0x0001|0x0002 =
+ *              SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX.
+ * @return The previous error-mode bitmask.
+ * @details Declared locally to suppress the WER "stopped working" box for the
+ *          children we intentionally crash. kernel32 is linked by default for a
+ *          Windows-Clang console build.
+ */
 extern "C" __declspec(dllimport) unsigned int __stdcall
 SetErrorMode(unsigned int uMode);
 #endif
@@ -64,14 +69,23 @@ SetErrorMode(unsigned int uMode);
 namespace hs_test {
 namespace death {
 
-// argv[0] of the running test binary, captured in main(); used to re-exec self.
+/**
+ * @brief Accessor for argv[0] of the running test binary, used to re-exec self.
+ * @return Reference to the static char-pointer slot; captured in main().
+ */
 inline const char *&self_exe() {
   static const char *s = nullptr;
   return s;
 }
 
-// Defeat constant-folding so the optimizer can't prove a trap is taken at
-// compile time and reshape the case (each case must trap at *run* time).
+/**
+ * @brief Launders a value through a volatile to defeat constant-folding.
+ * @tparam T Value type to pass through opaquely.
+ * @param v Value to make opaque to the optimizer.
+ * @return A copy of @p v the optimizer cannot prove constant.
+ * @details Keeps the compiler from proving a trap is taken at compile time and
+ *          reshaping the case; each case must trap at run time.
+ */
 template <typename T> inline T opaque(T v) {
   volatile T x = v;
   return x;
@@ -79,7 +93,11 @@ template <typename T> inline T opaque(T v) {
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Memory surface: arena over-allocation.
+/**
+ * @brief Death case: arena over-allocation must trap.
+ * @details Memory surface — requests more than the arena's capacity so
+ *          allocate() fires HS_CHECK.
+ */
 inline void case_arena_oom() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
@@ -88,16 +106,22 @@ inline void case_arena_oom() {
     std::printf("x"); // keep the call live
 }
 
-// Memory surface: rewinding the arena past its capacity. set_offset is the one
-// seam that can break the offset <= capacity invariant the no-wrap bounds math
-// in allocate() depends on, so an out-of-range rewind traps at the source.
+/**
+ * @brief Death case: rewinding the arena past its capacity must trap.
+ * @details Memory surface — set_offset is the one seam that can break the
+ *          offset <= capacity invariant the no-wrap bounds math in allocate()
+ *          depends on, so an out-of-range rewind traps at the source.
+ */
 inline void case_arena_set_offset_overflow() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
   a.set_offset(opaque<size_t>(sizeof(buf) + 1)); // > capacity -> HS_CHECK
 }
 
-// Arena-container surface: fixed-capacity overflow.
+/**
+ * @brief Death case: ArenaVector fixed-capacity push_back overflow must trap.
+ * @details Arena-container surface — a push_back past capacity fires HS_CHECK.
+ */
 inline void case_arena_vector_overflow() {
   static uint8_t buf[256];
   Arena a(buf, sizeof(buf));
@@ -107,7 +131,10 @@ inline void case_arena_vector_overflow() {
   v.push_back(opaque(3)); // exceeds capacity -> HS_CHECK
 }
 
-// Math-core surface: normalize a degenerate (zero-length) vector.
+/**
+ * @brief Death case: normalizing a degenerate (zero-length) vector must trap.
+ * @details Math-core surface — length below epsilon fires the normalize guard.
+ */
 inline void case_normalize_zero() {
   Vector z{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
   Vector n = z.normalized(); // length < eps -> HS_CHECK
@@ -115,10 +142,13 @@ inline void case_normalize_zero() {
     std::printf("x");
 }
 
-// Math-core surface: normalize a NaN vector. A NaN coordinate poisons the
-// length to NaN, and `NaN >= epsilon` is false, so the normalize guard fires.
-// This is the suite's NaN/Inf fault case: it proves a non-finite producer is
-// trapped at the math seam rather than silently propagating NaN into geometry.
+/**
+ * @brief Death case: normalizing a NaN vector must trap.
+ * @details Math-core surface — a NaN coordinate poisons the length to NaN, and
+ *          `NaN >= epsilon` is false, so the normalize guard fires. The suite's
+ *          NaN/Inf fault case: proves a non-finite producer is trapped at the
+ *          math seam rather than silently propagating NaN into geometry.
+ */
 inline void case_normalize_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector bad{nan, opaque(0.0f), opaque(0.0f)};
@@ -127,14 +157,20 @@ inline void case_normalize_nan() {
     std::printf("x");
 }
 
-// Lookup/registry surface: out-of-range solids index.
+/**
+ * @brief Death case: an out-of-range solids index must trap.
+ * @details Lookup/registry surface — get_entry past NUM_ENTRIES fires HS_CHECK.
+ */
 inline void case_solids_index_oob() {
   const auto &e = Solids::get_entry(opaque<size_t>(Solids::NUM_ENTRIES));
   if (e.name == nullptr)
     std::printf("x");
 }
 
-// Registry surface (by name): an unknown solid name has no valid fallback.
+/**
+ * @brief Death case: looking up an unknown solid name must trap.
+ * @details Registry-by-name surface — an unknown name has no valid fallback.
+ */
 inline void case_solids_unknown_name() {
   configure_arenas_default();
   PolyMesh m = Solids::get_by_name(persistent_arena, scratch_arena_a,
@@ -143,7 +179,10 @@ inline void case_solids_unknown_name() {
     std::printf("x");
 }
 
-// Container surface: StaticCircularBuffer index past the live count.
+/**
+ * @brief Death case: a StaticCircularBuffer index past the live count must trap.
+ * @details Container surface — index >= count fires HS_CHECK.
+ */
 inline void case_circular_buffer_oob() {
   StaticCircularBuffer<int, 4> cb;
   cb.push_back(10);
@@ -153,9 +192,12 @@ inline void case_circular_buffer_oob() {
     std::printf("x");
 }
 
-// Container surface: front() on an empty StaticCircularBuffer. The
-// never-taken opaque(false) push keeps the optimizer from proving the buffer
-// is empty and folding the trap at compile time.
+/**
+ * @brief Death case: front() on an empty StaticCircularBuffer must trap.
+ * @details Container surface — the never-taken opaque(false) push keeps the
+ *          optimizer from proving the buffer empty and folding the trap at
+ *          compile time; is_empty() fires HS_CHECK.
+ */
 inline void case_circular_buffer_front_empty() {
   StaticCircularBuffer<int, 4> cb;
   if (opaque(false))
@@ -165,9 +207,11 @@ inline void case_circular_buffer_front_empty() {
     std::printf("x");
 }
 
-// Memory surface: ArenaVector::append_bulk past its fixed capacity. This is a
-// distinct seam from the element-at-a-time push_back overflow above — the bulk
-// memcpy path has its own size_+count guard.
+/**
+ * @brief Death case: ArenaVector::append_bulk past its fixed capacity must trap.
+ * @details Memory surface — a distinct seam from element-at-a-time push_back;
+ *          the bulk memcpy path has its own size_+count guard.
+ */
 inline void case_arena_vector_append_bulk_overflow() {
   static uint8_t buf[256];
   Arena a(buf, sizeof(buf));
@@ -178,9 +222,12 @@ inline void case_arena_vector_append_bulk_overflow() {
     std::printf("x");
 }
 
-// Spatial surface: requesting more neighbors than the KDTree's MAX_K-sized
-// result/heap buffers can hold. nearest() traps rather than silently capping
-// the result and masking the caller's sizing mistake.
+/**
+ * @brief Death case: requesting more KDTree neighbors than MAX_K must trap.
+ * @details Spatial surface — k beyond the MAX_K-sized result/heap buffers makes
+ *          nearest() trap rather than silently capping the result and masking
+ *          the caller's sizing mistake.
+ */
 inline void case_spatial_knn_over_max() {
   static uint8_t buf[512];
   Arena a(buf, sizeof(buf));
@@ -193,17 +240,24 @@ inline void case_spatial_knn_over_max() {
     std::printf("x");
 }
 
-// Config surface: an over-subscribed arena partition.
+/**
+ * @brief Death case: an over-subscribed arena partition must trap.
+ * @details Config surface — each request alone fits but the sum exceeds
+ *          GLOBAL_ARENA_SIZE, so configure_arenas fires HS_CHECK.
+ */
 inline void case_arena_oversubscribed() {
   // Each request alone fits, but the sum exceeds GLOBAL_ARENA_SIZE -> HS_CHECK.
   configure_arenas(opaque(GLOBAL_ARENA_SIZE), opaque<size_t>(1024),
                    opaque<size_t>(1024));
 }
 
-// Animation surface: relocating a retained (pinned) add_get() handle. step()'s
-// compaction routes every relocation through TimelineEvent::move_into, which
-// traps when the event was handed out via add_get(pin=true) — converting the
-// dangling-handle hazard into a fail-fast crash instead of silent corruption.
+/**
+ * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
+ * @details Animation surface — step()'s compaction routes every relocation
+ *          through TimelineEvent::move_into, which traps when the event was
+ *          handed out via add_get(pin=true), converting the dangling-handle
+ *          hazard into a fail-fast crash instead of silent corruption.
+ */
 inline void case_timeline_handled_relocation() {
   TimelineEvent src;
   src.handled = opaque(true); // as if handed out by add_get(pin=true)
@@ -211,10 +265,13 @@ inline void case_timeline_handled_relocation() {
   src.move_into(dst); // HS_CHECK(!handled) -> trap
 }
 
-// Animation surface: two simultaneously-live Timelines. Every Timeline shares
-// the single global event array, so a second live instance would silently stomp
-// the first's events; the construction guard traps instead. The real app holds
-// exactly one (the old effect is destroyed before the next is built).
+/**
+ * @brief Death case: a second simultaneously-live Timeline must trap.
+ * @details Animation surface — every Timeline shares the single global event
+ *          array, so a second live instance would silently stomp the first's
+ *          events; the construction guard traps instead. The real app holds
+ *          exactly one (the old effect is destroyed before the next is built).
+ */
 inline void case_timeline_double_construct() {
   Timeline a;
   Timeline b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
@@ -222,10 +279,13 @@ inline void case_timeline_double_construct() {
     std::printf("x");
 }
 
-// Mesh-topology surface: an output index past the int16 topology range. Both
-// conway.h and hankin.h route every output vertex/face-index narrowing through
-// this shared MeshOps guard, so a future MAX_VERTS bump traps at the bench
-// instead of silently wrapping an index and corrupting topology.
+/**
+ * @brief Death case: narrowing an index past the int16 topology range must trap.
+ * @details Mesh-topology surface — both conway.h and hankin.h route every output
+ *          vertex/face-index narrowing through this shared MeshOps guard, so a
+ *          future MAX_VERTS bump traps at the bench instead of silently wrapping
+ *          an index and corrupting topology.
+ */
 inline void case_mesh_narrow_index() {
   size_t over = static_cast<size_t>(INT16_MAX) + 1;
   uint16_t i = MeshOps::narrow_index(opaque(over)); // > INT16_MAX -> HS_CHECK
@@ -233,10 +293,13 @@ inline void case_mesh_narrow_index() {
     std::printf("x");
 }
 
-// Math-core surface: a NaN endpoint poisons slerp's interpolation through both
-// branches into the final strict normalized(), which traps rather than emitting
-// a NaN direction into geometry. Proves the non-finite input is caught at the
-// slerp seam, not just at bare normalize().
+/**
+ * @brief Death case: a NaN endpoint fed to slerp must trap.
+ * @details Math-core surface — the NaN poisons interpolation through both
+ *          branches into the final strict normalized(), which traps rather than
+ *          emitting a NaN direction into geometry. Proves the non-finite input
+ *          is caught at the slerp seam, not just at bare normalize().
+ */
 inline void case_slerp_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector bad{nan, opaque(0.0f), opaque(0.0f)};
@@ -246,9 +309,12 @@ inline void case_slerp_nan() {
     std::printf("x");
 }
 
-// Math-core surface: make_rotation(from, to) with a NaN source. The d-based
-// parallel/antiparallel guards are NaN-false, so it falls through to
-// cross(from,to).normalized(), which traps on the NaN-poisoned axis.
+/**
+ * @brief Death case: make_rotation(from, to) with a NaN source must trap.
+ * @details Math-core surface — the d-based parallel/antiparallel guards are
+ *          NaN-false, so it falls through to cross(from,to).normalized(), which
+ *          traps on the NaN-poisoned axis.
+ */
 inline void case_make_rotation_vectors_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector from{nan, opaque(0.0f), opaque(0.0f)};
@@ -258,8 +324,11 @@ inline void case_make_rotation_vectors_nan() {
     std::printf("x");
 }
 
-// Math-core surface: make_rotation(axis, theta) with a NaN angle. cos/sin of a
-// NaN poison the quaternion, and its normalized() traps on the NaN magnitude.
+/**
+ * @brief Death case: make_rotation(axis, theta) with a NaN angle must trap.
+ * @details Math-core surface — cos/sin of a NaN poison the quaternion, and its
+ *          normalized() traps on the NaN magnitude.
+ */
 inline void case_make_rotation_angle_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector axis{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
@@ -268,9 +337,12 @@ inline void case_make_rotation_angle_nan() {
     std::printf("x");
 }
 
-// Geometry surface: make_basis with a NaN normal. rotate(normal,·).normalized()
-// is the first strict normalize in the basis construction and traps on the
-// NaN-poisoned vector rather than returning a garbage frame.
+/**
+ * @brief Death case: make_basis with a NaN normal must trap.
+ * @details Geometry surface — rotate(normal,.).normalized() is the first strict
+ *          normalize in the basis construction and traps on the NaN-poisoned
+ *          vector rather than returning a garbage frame.
+ */
 inline void case_make_basis_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector normal{nan, opaque(0.0f), opaque(0.0f)};
@@ -279,10 +351,12 @@ inline void case_make_basis_nan() {
     std::printf("x");
 }
 
-// Math-core surface: make_rotation(from, to) with a finite but non-unit source.
-// The d-based parallel/antiparallel branches assume |from| = |to| = 1, so a
-// non-unit input must trap at the unit-vector guard rather than silently
-// skewing the rotation angle.
+/**
+ * @brief Death case: make_rotation(from, to) with a non-unit source must trap.
+ * @details Math-core surface — the d-based parallel/antiparallel branches assume
+ *          |from| = |to| = 1, so a finite but non-unit input must trap at the
+ *          unit-vector guard rather than silently skewing the rotation angle.
+ */
 inline void case_make_rotation_nonunit() {
   Vector from{opaque(2.0f), opaque(0.0f), opaque(0.0f)}; // |from| = 2
   Vector to{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
@@ -291,8 +365,11 @@ inline void case_make_rotation_nonunit() {
     std::printf("x");
 }
 
-// Animation surface: a live-source Driver built with a null speed pointer must
-// trap at the guard rather than dereferencing it in the member-init list.
+/**
+ * @brief Death case: a live-source Driver built with a null speed pointer must trap.
+ * @details Animation surface — the guard traps rather than dereferencing the
+ *          null pointer in the member-init list.
+ */
 inline void case_driver_null_speed_src() {
   static float mutant = 0.0f;
   Animation::Driver d(mutant, opaque<const float *>(nullptr), 1.0f); // -> HS_CHECK
@@ -301,18 +378,39 @@ inline void case_driver_null_speed_src() {
     std::printf("x");
 }
 
-// Concrete Effect for the canvas/scan death cases — fixed 32×16 so its trig LUTs
-// match the well-exercised host config. Exposes registerParam and set_clip.
+/**
+ * @brief Concrete Effect for the canvas/scan death cases.
+ * @details Fixed 32x16 so its trig LUTs match the well-exercised host config;
+ *          exposes registerParam (via reg) and set_clip.
+ */
 struct DeathEffect : public Effect {
+  /**
+   * @brief Constructs the effect at the fixed 32x16 resolution.
+   */
   DeathEffect() : Effect(32, 16) {}
+  /**
+   * @brief Draws one frame (no-op; the death cases never render).
+   */
   void draw_frame() override {}
+  /**
+   * @brief Reports whether the effect paints a background.
+   * @return Always false; no background is drawn.
+   */
   bool show_bg() const override { return false; }
+  /**
+   * @brief Registers a parameter over the unit range, exposing registerParam.
+   * @param n Parameter name.
+   * @param p Pointer to the backing float storage.
+   */
   void reg(const char *n, float *p) { registerParam(n, p, 0.0f, 1.0f); }
 };
 
-// Canvas surface: overflowing the fixed 32-slot ParamList. registerParam traps
-// rather than silently dropping a registration (which would desync the GUI and,
-// on WASM, break the no-realloc memory-view invariant).
+/**
+ * @brief Death case: overflowing the fixed 32-slot ParamList must trap.
+ * @details Canvas surface — registerParam traps rather than silently dropping a
+ *          registration, which would desync the GUI and, on WASM, break the
+ *          no-realloc memory-view invariant.
+ */
 inline void case_register_param_overflow() {
   DeathEffect fx;
   static float slot = 0.0f;
@@ -320,9 +418,12 @@ inline void case_register_param_overflow() {
     fx.reg("p", &slot);
 }
 
-// Scan surface: the per-draw LUT-domain invariant. A clip whose x_end exceeds W
-// would index the trig LUTs out of bounds; Scan::Shader::draw traps once per
-// draw (not per pixel) before the loop runs.
+/**
+ * @brief Death case: a scan clip whose x_end exceeds W must trap.
+ * @details Scan surface — such a clip would index the trig LUTs out of bounds;
+ *          Scan::Shader::draw enforces the LUT-domain invariant once per draw
+ *          (not per pixel) before the loop runs.
+ */
 inline void case_scan_clip_out_of_bounds() {
   constexpr int W = 32, H = 16;
   DeathEffect fx;
@@ -332,27 +433,60 @@ inline void case_scan_clip_out_of_bounds() {
       c, [](const Vector &) { return Color4(Pixel(0, 0, 0), 1.0f); });
 }
 
-// Plot surface: a mesh face referencing a vertex index past the edge-dedup
-// bitset's capacity (TriangularBitset<128>). The face-walk overload traps on
-// the cold per-edge setup path instead of silently dropping the edge, which
-// would leave a wireframe with missing lines and mask the mesh-sizing bug.
+/**
+ * @brief Death case: a face vertex index past the edge-dedup bitset must trap.
+ * @details Plot surface — a vertex index beyond the TriangularBitset<128>
+ *          capacity makes the face-walk draw() overload trap on the cold
+ *          per-edge setup path instead of silently dropping the edge, which
+ *          would leave a wireframe with missing lines and mask the sizing bug.
+ */
 inline void case_plot_mesh_vertex_over_capacity() {
   constexpr int W = 32, H = 16;
-  // Minimal duck-typed mesh: one 2-gon face whose second index (130) exceeds
-  // the bitset capacity. The trap fires before any vertex or pipeline access,
-  // so the vertex store only needs to satisfy the interface.
+  /**
+   * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
+   *        exceeds the bitset capacity.
+   * @details The trap fires before any vertex or pipeline access, so the vertex
+   *          store only needs to satisfy the interface.
+   */
   struct MockMesh {
+    /**
+     * @brief Stand-in vertex store satisfying the mesh interface.
+     */
     struct Verts {
+      /**
+       * @brief Returns a fixed vertex for any index.
+       * @param Unused vertex index.
+       * @return A constant Vector{0,1,0}.
+       */
       Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
+      /**
+       * @brief Reports the vertex count.
+       * @return Always 1.
+       */
       size_t size() const { return 1; }
     } vertices;
-    uint8_t fc[1];
-    uint16_t fi[2];
-    // Store the over-capacity index at runtime so the optimizer can't prove the
-    // trap at compile time and reshape the case (see opaque()).
+    uint8_t fc[1];  /**< Face-counts data: a single 2-gon face. */
+    uint16_t fi[2]; /**< Face-index data; second entry is over-capacity. */
+    /**
+     * @brief Builds the mock mesh with one over-capacity 2-gon face.
+     * @details Stores the over-capacity index at runtime so the optimizer can't
+     *          prove the trap at compile time and reshape the case (see opaque).
+     */
     MockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
+    /**
+     * @brief Returns the face-counts array.
+     * @return Pointer to the face-counts data.
+     */
     const uint8_t *get_face_counts_data() const { return fc; }
+    /**
+     * @brief Returns the number of faces.
+     * @return Always 1.
+     */
     size_t get_face_counts_size() const { return 1; }
+    /**
+     * @brief Returns the flat face-index array.
+     * @return Pointer to the face-index data.
+     */
     const uint16_t *get_faces_data() const { return fi; }
   } mesh;
   DeathEffect fx;
@@ -362,22 +496,55 @@ inline void case_plot_mesh_vertex_over_capacity() {
                          [](const Vector &, Fragment &) {}); // index 130 -> trap
 }
 
-// Plot surface: the precomputed-edge path. extract_edges() traps on an
-// over-capacity vertex index on the same cold setup path as the face-walk
-// draw() overload, rather than silently filtering the edge out (which would
-// produce an edge list with missing lines and mask the sizing bug).
+/**
+ * @brief Death case: extract_edges with an over-capacity vertex index must trap.
+ * @details Plot surface — the precomputed-edge path traps on the same cold setup
+ *          path as the face-walk draw() overload, rather than silently filtering
+ *          the edge out (which would produce an edge list with missing lines and
+ *          mask the sizing bug).
+ */
 inline void case_plot_extract_edges_vertex_over_capacity() {
-  // Same over-capacity 2-gon face as the draw() case (second index 130 > 128).
+  /**
+   * @brief Minimal duck-typed mesh with one over-capacity 2-gon face.
+   * @details Same shape as the draw() case (second index 130 > 128).
+   */
   struct MockMesh {
+    /**
+     * @brief Stand-in vertex store satisfying the mesh interface.
+     */
     struct Verts {
+      /**
+       * @brief Returns a fixed vertex for any index.
+       * @param Unused vertex index.
+       * @return A constant Vector{0,1,0}.
+       */
       Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
+      /**
+       * @brief Reports the vertex count.
+       * @return Always 1.
+       */
       size_t size() const { return 1; }
     } vertices;
-    uint8_t fc[1];
-    uint16_t fi[2];
+    uint8_t fc[1];  /**< Face-counts data: a single 2-gon face. */
+    uint16_t fi[2]; /**< Face-index data; second entry is over-capacity. */
+    /**
+     * @brief Builds the mock mesh with one over-capacity 2-gon face.
+     */
     MockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
+    /**
+     * @brief Returns the face-counts array.
+     * @return Pointer to the face-counts data.
+     */
     const uint8_t *get_face_counts_data() const { return fc; }
+    /**
+     * @brief Returns the number of faces.
+     * @return Always 1.
+     */
     size_t get_face_counts_size() const { return 1; }
+    /**
+     * @brief Returns the flat face-index array.
+     * @return Pointer to the face-index data.
+     */
     const uint16_t *get_faces_data() const { return fi; }
   } mesh;
   ArenaVector<Plot::Mesh::Edge> edges;
@@ -385,11 +552,14 @@ inline void case_plot_extract_edges_vertex_over_capacity() {
   Plot::Mesh::extract_edges(mesh, edges); // index 130 -> trap
 }
 
-// Filter surface: Pixel::Feedback::flush traps on a downsample factor that does
-// not divide the resolution, rather than silently turning the whole feedback
-// effect into a no-op — a cold authoring/config error the project routes to
-// HS_CHECK (enabled_ remains the supported way to switch feedback off). The
-// trap fires before any_pixel_lit / scratch allocation, so no buffers needed.
+/**
+ * @brief Death case: a feedback downsample that doesn't divide the resolution must trap.
+ * @details Filter surface — Pixel::Feedback::flush traps rather than silently
+ *          turning the whole feedback effect into a no-op; a cold
+ *          authoring/config error the project routes to HS_CHECK (enabled_
+ *          remains the supported way to switch feedback off). The trap fires
+ *          before any_pixel_lit / scratch allocation, so no buffers needed.
+ */
 inline void case_feedback_downsample_indivisible() {
   constexpr int W = 32, H = 16;
   DeathEffect fx;
@@ -404,10 +574,13 @@ inline void case_feedback_downsample_indivisible() {
       1.0f, [](float, float, const ::Pixel &, float, float) {});
 }
 
-// Animation surface: Path::append_segment with zero samples. The t / samples
-// term divides by zero (easing(0/0) = NaN) and the loop would silently append a
-// garbage point; the samples >= 1 guard traps the authoring error on the cold
-// path-construction seam instead.
+/**
+ * @brief Death case: Path::append_segment with zero samples must trap.
+ * @details Animation surface — the t / samples term divides by zero
+ *          (easing(0/0) = NaN) and the loop would silently append a garbage
+ *          point; the samples >= 1 guard traps the authoring error on the cold
+ *          path-construction seam instead.
+ */
 inline void case_path_append_zero_samples() {
   Path<32> path;
   path.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f,
@@ -415,14 +588,21 @@ inline void case_path_append_zero_samples() {
                       [](float t) { return t; }); // samples < 1 -> HS_CHECK
 }
 
-// A named death case: HS_DEATH_CASE selects one by `name` in the child.
+/**
+ * @brief A named death case selected by HS_DEATH_CASE in the child process.
+ */
 struct Case {
-  const char *name;
-  void (*fn)();
+  const char *name; /**< Case selector matched against HS_DEATH_CASE. */
+  void (*fn)();     /**< The trap-triggering case body to run. */
 };
 
-// The full death-case table; sets `n` to its length. Single source of truth
-// shared by the child dispatcher and the parent's per-case spawn loop.
+/**
+ * @brief Returns the full death-case table.
+ * @param n Out-param set to the number of cases in the table.
+ * @return Pointer to the static case array.
+ * @details Single source of truth shared by the child dispatcher and the
+ *          parent's per-case spawn loop.
+ */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
       {"arena_oom", case_arena_oom},
@@ -460,10 +640,14 @@ inline const Case *all_cases(int &n) {
   return cases;
 }
 
-// CHILD entry (called from main when HS_DEATH_CASE is set): run exactly one
-// case, then return. The case is expected to trap before returning; returning
-// means it did NOT trap, so the child exits 0 and the parent flags it. An
-// unknown name (the "__spawn_check__" control) also just returns -> exit 0.
+/**
+ * @brief Child entry point: runs exactly one named death case, then returns.
+ * @param name Case selector; an unknown name (e.g. the "__spawn_check__"
+ *             control) simply returns, so the child exits 0.
+ * @details Called from main() when HS_DEATH_CASE is set. The case is expected to
+ *          trap before returning; returning means it did NOT trap, so the child
+ *          exits 0 and the parent flags it.
+ */
 inline void run_child_case(const char *name) {
 #if defined(_WIN32)
   SetErrorMode(0x0001u | 0x0002u);
@@ -477,7 +661,10 @@ inline void run_child_case(const char *name) {
     }
 }
 
-// Set HS_DEATH_CASE in this process's env; children inherit it via system().
+/**
+ * @brief Sets HS_DEATH_CASE in this process's environment.
+ * @param name Case selector to publish; children inherit it via system().
+ */
 inline void set_case_env(const char *name) {
 #if defined(_WIN32)
   _putenv_s("HS_DEATH_CASE", name);
@@ -486,8 +673,12 @@ inline void set_case_env(const char *name) {
 #endif
 }
 
-// Spawn the test binary as a child running `name`; return its raw system()
-// status. Child stdout/stderr are discarded — we care only about the exit code.
+/**
+ * @brief Spawns the test binary as a child running the given death case.
+ * @param name Case selector passed to the child via HS_DEATH_CASE.
+ * @return The raw std::system() status of the child.
+ * @details Child stdout/stderr are discarded; only the exit code matters.
+ */
 inline int spawn_child(const char *name) {
   set_case_env(name);
   std::string cmd;
@@ -504,18 +695,25 @@ inline int spawn_child(const char *name) {
   return std::system(cmd.c_str());
 }
 
-// Interpret a std::system() return value as "the child died by the SPECIFIC
-// trap status". clang lowers __builtin_trap() to an illegal instruction, so a
-// fired HS_CHECK kills the child with SIGILL (POSIX) / STATUS_ILLEGAL_INSTRUCTION
-// (Windows). Requiring that exact status — rather than any nonzero exit —
-// prevents an unrelated crash or an ordinary nonzero return from being misread
-// as a passing death test.
 #if defined(_WIN32)
-// EXCEPTION_ILLEGAL_INSTRUCTION; an unhandled trap sets it as the process exit
-// code, which std::system() returns through cmd.exe.
+/**
+ * @brief The Windows EXCEPTION_ILLEGAL_INSTRUCTION process exit code.
+ * @details An unhandled trap sets it as the process exit code, which
+ *          std::system() returns through cmd.exe.
+ */
 inline constexpr int kTrapStatus = static_cast<int>(0xC000001D);
 #endif
 
+/**
+ * @brief Tests whether a std::system() status means the child died by the trap.
+ * @param rc The raw std::system() return value to interpret.
+ * @return True iff the child died by the specific illegal-instruction trap.
+ * @details clang lowers __builtin_trap() to an illegal instruction, so a fired
+ *          HS_CHECK kills the child with SIGILL (POSIX) /
+ *          STATUS_ILLEGAL_INSTRUCTION (Windows). Requiring that exact status,
+ *          rather than any nonzero exit, prevents an unrelated crash or an
+ *          ordinary nonzero return from being misread as a passing death test.
+ */
 inline bool child_trapped(int rc) {
 #if defined(_WIN32)
   return rc == kTrapStatus;
@@ -532,7 +730,12 @@ inline bool child_trapped(int rc) {
 #endif
 }
 
-// "Child exited cleanly" (exit 0) — used by the control spawn check.
+/**
+ * @brief Tests whether the child exited cleanly (exit code 0).
+ * @param rc The raw std::system() return value to interpret.
+ * @return True iff the child exited normally with status 0.
+ * @details Used by the control spawn check.
+ */
 inline bool child_exited_clean(int rc) {
 #if defined(_WIN32)
   return rc == 0;
@@ -541,8 +744,12 @@ inline bool child_exited_clean(int rc) {
 #endif
 }
 
-// Are we running under CI? GitHub Actions (and most CI providers) set CI=true.
-// Under CI a death suite that cannot run must FAIL loudly, not skip silently.
+/**
+ * @brief Reports whether the suite is running under CI.
+ * @return True iff the CI environment variable is set and non-empty.
+ * @details GitHub Actions (and most CI providers) set CI=true. Under CI a death
+ *          suite that cannot run must FAIL loudly, not skip silently.
+ */
 inline bool in_ci() {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -551,8 +758,12 @@ inline bool in_ci() {
   return ci && ci[0] != '\0';
 }
 
-// Report an inability to run the death suite. Loud (counts as a failure) under
-// CI, quiet skip otherwise.
+/**
+ * @brief Reports that the death suite could not run.
+ * @param why Human-readable reason the suite is unrunnable.
+ * @param rc The associated child return code, for diagnostics.
+ * @details Loud (counts as a failure) under CI, quiet skip otherwise.
+ */
 inline void report_unrunnable(const char *why, int rc) {
   if (in_ci()) {
     std::printf("  [FAIL] death tests: %s (rc=%d, CI=on)\n", why, rc);
@@ -562,9 +773,12 @@ inline void report_unrunnable(const char *why, int rc) {
   }
 }
 
-// PARENT entry point for the death module: spawn-check the harness, then run
-// every case in a child and assert each died by the exact trap status. Returns
-// the module's failure count.
+/**
+ * @brief Parent entry point for the death module.
+ * @return The module's failure count.
+ * @details Spawn-checks the harness, then runs every case in a child and asserts
+ *          each died by the exact trap status.
+ */
 inline int run_death_tests() {
   auto scope = hs_test::begin_module("death");
 

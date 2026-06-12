@@ -24,20 +24,31 @@ constexpr int N = 40; // small strip: END_FRAME_BYTES=3, COMPOSITE=334 bytes
 
 using Frame = HD107SFrame<N>;
 
-// Pointer to pixel i's 4-byte record [0xFF][B][G][R] in the image frame.
+/**
+ * @brief Returns a pointer to pixel i's 4-byte wire record in the image frame.
+ * @param f Frame whose image buffer is inspected.
+ * @param i Pixel index in [0, N); offset is 4-byte start frame plus i records.
+ * @return Pointer to the [0xFF][B][G][R] record for pixel i.
+ */
 inline const uint8_t *pixel(const Frame &f, int i) {
   return f.data() + 4 + i * 4;
 }
 
-// Restore the shared static correction state to unity (255 = exact ×1.0).
+/**
+ * @brief Restores the shared static correction state to unity (255 = exact ×1.0).
+ * @details Resets the per-channel correction, temperature, and brightness so a
+ * test starts from an identity color pipeline; these are static frame settings.
+ */
 inline void reset_correction() {
   Frame::setCorrection(255, 255, 255);
   Frame::setTemperature(255, 255, 255);
   Frame::setBrightness(255);
 }
 
-// Pin the spec-derived buffer-sizing formulas and that size()/sizeWithBg()
-// agree with the compile-time constants.
+/**
+ * @brief Verifies the spec-derived buffer-sizing formulas and that size()/
+ * sizeWithBg() agree with the compile-time layout constants.
+ */
 inline void test_layout_constants() {
   HS_EXPECT_EQ(Frame::END_FRAME_BYTES, (N + 15) / 16);
   HS_EXPECT_EQ(Frame::BUFFER_SIZE, 4 + N * 4 + (N + 15) / 16);
@@ -48,9 +59,11 @@ inline void test_layout_constants() {
   HS_EXPECT_EQ(static_cast<int>(f.sizeWithBg()), Frame::COMPOSITE_SIZE);
 }
 
-// A default-constructed frame must hold a valid all-black wire image: start
-// frame, per-pixel 0xFF brightness byte with zero color, zero end-frame latch,
-// and a matching trailing black frame.
+/**
+ * @brief Verifies a default-constructed frame holds a valid all-black wire image.
+ * @details Checks the start frame, per-pixel 0xFF brightness byte with zero
+ * color, the zero end-frame latch, and a matching trailing black frame.
+ */
 inline void test_fresh_frame_skeleton() {
   Frame f;
   const uint8_t *d = f.data();
@@ -80,8 +93,10 @@ inline void test_fresh_frame_skeleton() {
   }
 }
 
-// Exercise correct(): zero passes through, unity factors are exact identity at
-// full scale, and brightness scales monotonically (0 zeroes the channel).
+/**
+ * @brief Exercises correct(): zero pass-through, exact unity identity at full
+ * scale, and monotonic brightness scaling (0 zeroes the channel).
+ */
 inline void test_correct_pipeline() {
   reset_correction();
   Frame f;
@@ -117,8 +132,10 @@ inline void test_correct_pipeline() {
   reset_correction();
 }
 
-// packPixel() must emit the [0xFF][B][G][R] channel order and write only the
-// targeted pixel slot (each primary lights its own byte, neighbors untouched).
+/**
+ * @brief Verifies packPixel() emits [0xFF][B][G][R] order and writes only the
+ * targeted pixel slot (each primary lights its own byte, neighbors untouched).
+ */
 inline void test_packpixel_wire_order() {
   reset_correction();
   Frame f;
@@ -150,8 +167,12 @@ inline void test_packpixel_wire_order() {
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);
 }
 
-// load() and packPixel() share correct() and must yield identical wire bytes
-// for equivalent inputs; load() also preserves CRGB channel identity.
+/**
+ * @brief Verifies load() and packPixel() yield identical wire bytes for
+ * equivalent inputs and that load() preserves CRGB channel identity.
+ * @details Both paths share the same correct() core, so equivalent inputs
+ * cannot drift; pure red must light only the R wire slot.
+ */
 inline void test_load_matches_packpixel() {
   reset_correction();
 
@@ -179,7 +200,9 @@ inline void test_load_matches_packpixel() {
   HS_EXPECT_EQ(pixel(fr, 0)[1], 0); // B
 }
 
-// load() with count > N must clamp rather than overrun the buffer.
+/**
+ * @brief Verifies load() with count > N clamps rather than overrunning the buffer.
+ */
 inline void test_load_clamps_count() {
   reset_correction();
   Frame f;
@@ -192,7 +215,10 @@ inline void test_load_clamps_count() {
     HS_EXPECT_EQ(f.data()[4 + N * 4 + i], 0);
 }
 
-// Run the full hd107s_frame suite; returns the module's failure count.
+/**
+ * @brief Runs the full hd107s_frame test suite.
+ * @return The module's failure count from end_module().
+ */
 inline int run_hd107s_tests() {
   auto scope = hs_test::begin_module("hd107s_frame");
   test_layout_constants();

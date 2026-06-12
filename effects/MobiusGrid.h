@@ -6,16 +6,24 @@
 #pragma once
 #include "core/effects_engine.h"
 
-// Renders a rotating sphere of latitude rings and longitude lines, then warps
-// every sampled point through a Möbius transform so the grid continuously
-// inflates/deflates between two "holes" on the sphere. W/H are the cubemap face
-// resolution.
+/**
+ * @brief Renders a rotating sphere of latitude rings and longitude lines warped
+ *        through a Möbius transform.
+ * @tparam W Cubemap face width in pixels.
+ * @tparam H Cubemap face height in pixels.
+ * @details Every sampled point is pushed through a Möbius transform so the grid
+ *          continuously inflates/deflates between two "holes" on the sphere.
+ */
 template <int W, int H> class MobiusGrid : public Effect {
 
 public:
-  // Builds the palettes, Möbius generator, and the render filter pipeline. The
-  // two HoleRef filters fade geometry near the rotated north/south holes; Orient
-  // applies the spinning orientation; AntiAlias smooths the rasterized lines.
+  /**
+   * @brief Builds the palettes, Möbius generator, and the render filter
+   *        pipeline.
+   * @details The two HoleRef filters fade geometry near the rotated north/south
+   *          holes; Orient applies the spinning orientation; AntiAlias smooths
+   *          the rasterized lines.
+   */
   FLASHMEM MobiusGrid()
       : Effect(W, H),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -28,11 +36,18 @@ public:
                 Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
+  /**
+   * @brief Reports whether the effect wants a background pass.
+   * @return Always false; this effect draws no background.
+   */
   bool show_bg() const override { return false; }
 
-  // Sizes the arenas, exposes the user params, and arms the timeline animations:
-  // a steady Y-axis spin, a periodic palette wipe, and out-of-phase sine
-  // mutations driving the ring/line counts.
+  /**
+   * @brief Sizes the arenas, exposes the user params, and arms the timeline
+   *        animations.
+   * @details Arms a steady Y-axis spin, a periodic palette wipe, and
+   *          out-of-phase sine mutations driving the ring/line counts.
+   */
   void init() override {
     // MobiusGrid requires very little persistent memory.
     // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle
@@ -62,8 +77,11 @@ public:
                                       320, ease_mid, true, &anims_paused_));
   }
 
-  // Advances the phase, recomputes the counter-rotation that keeps the two holes
-  // diametrically opposed under the Möbius warp, and draws the rings/longitudes.
+  /**
+   * @brief Advances the phase and draws one frame of rings and longitudes.
+   * @details Recomputes the counter-rotation that keeps the two holes
+   *          diametrically opposed under the Möbius warp before drawing.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -97,7 +115,10 @@ public:
   }
 
 private:
-  // Generates a fresh palette and schedules a 60-frame cross-fade into it.
+  /**
+   * @brief Generates a fresh palette and schedules a 60-frame cross-fade into
+   *        it.
+   */
   void wipe_palette() {
     next_palette = GenerativePalette(GradientShape::CIRCULAR,
                                      HarmonyType::SPLIT_COMPLEMENTARY,
@@ -105,19 +126,33 @@ private:
     timeline.add(0, Animation::ColorWipe(palette, next_palette, 60, ease_mid));
   }
 
-  // A single Möbius-warped curve to draw: the spherical-polygon basis and the
-  // sampling radius for ring/line `i`.
+  /**
+   * @brief A single Möbius-warped curve to draw.
+   * @details Holds the spherical-polygon basis and the sampling radius for a
+   *          given ring/line index.
+   */
   struct Curve {
-    Basis basis;
-    float radius;
+    Basis basis;  /**< Orthonormal basis of the spherical polygon. */
+    float radius; /**< Sampling radius of the curve, in unit-sphere coords. */
   };
 
-  // Shared body for both grid passes. For each of ceil(num) curves it asks
-  // `curve_fn(i)` for the {basis, radius}, samples a spherical polygon, warps
-  // every point through the Möbius transform + counter-rotation `q`, then
-  // rasterizes with `shade(i, opacity, fragment)` coloring each fragment. The
-  // two callbacks are all that differs between the ring and longitude passes;
-  // templating on them keeps the helper fully inlined.
+  /**
+   * @brief Shared body for both grid passes: samples, warps, and rasterizes
+   *        ceil(num) curves.
+   * @tparam CurveFn Callable (int i) -> Curve yielding the {basis, radius}.
+   * @tparam ShadeFn Callable (int i, float opacity, Fragment&) coloring a
+   *         fragment.
+   * @param canvas Render target for this frame.
+   * @param num Fractional curve count; ceil(num) curves are drawn.
+   * @param q Counter-rotation applied after the Möbius warp.
+   * @param curve_fn Supplies the {basis, radius} for curve i.
+   * @param shade Colors each fragment for curve i.
+   * @details For each curve it asks curve_fn(i) for the {basis, radius}, samples
+   *          a spherical polygon, warps every point through the Möbius transform
+   *          plus counter-rotation q, then rasterizes via shade. The two
+   *          callbacks are all that differs between the ring and longitude
+   *          passes; templating on them keeps the helper fully inlined.
+   */
   template <typename CurveFn, typename ShadeFn>
   void draw_curves(Canvas &canvas, float num, const Quaternion &q,
                    CurveFn curve_fn, ShadeFn shade) {
@@ -154,9 +189,17 @@ private:
     }
   }
 
-  // Draws `num` latitude rings around `normal`. Each ring's radius is spaced
-  // logarithmically (log_min..log_max) and scrolled by `phase`, mapped through
-  // an atan so spacing matches the stereographic projection.
+  /**
+   * @brief Draws num latitude rings around normal.
+   * @param canvas Render target for this frame.
+   * @param normal Axis the rings encircle, a unit vector.
+   * @param num Fractional ring count; ceil(num) rings are drawn.
+   * @param phase Scroll offset in [0, 1) advancing the ring radii.
+   * @param q Counter-rotation applied after the Möbius warp.
+   * @details Each ring's radius is spaced logarithmically (log_min..log_max) and
+   *          scrolled by phase, mapped through an atan so spacing matches the
+   *          stereographic projection.
+   */
   void draw_axis_rings(Canvas &canvas, const Vector &normal, float num,
                        float phase, const Quaternion &q) {
     const float log_min = -2.5f;
@@ -186,9 +229,16 @@ private:
         });
   }
 
-  // Draws `num` longitude lines (great circles through the poles). The per-line
-  // color comes from each fragment's stereographic conformal radius, so the hue
-  // gradient runs pole-to-pole and scrolls with `phase`.
+  /**
+   * @brief Draws num longitude lines (great circles through the poles).
+   * @param canvas Render target for this frame.
+   * @param num Fractional line count; ceil(num) lines are drawn.
+   * @param phase Scroll offset in [0, 1) advancing the hue gradient.
+   * @param q Counter-rotation applied after the Möbius warp.
+   * @details The per-line color comes from each fragment's stereographic
+   *          conformal radius, so the hue gradient runs pole-to-pole and
+   *          scrolls with phase.
+   */
   void draw_longitudes(Canvas &canvas, float num, float phase,
                        const Quaternion &q) {
     draw_curves(
@@ -226,27 +276,31 @@ private:
         });
   }
 
-  GenerativePalette palette;
-  GenerativePalette next_palette;
-  MobiusWarpCircularTransformer<1> mobius_gen;
+  GenerativePalette palette;      /**< Currently displayed palette. */
+  GenerativePalette next_palette; /**< Palette being cross-faded toward. */
+  MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
 
-  // User-tunable parameters. num_rings/num_lines are animated counts (driven by
-  // the Mutation timelines); alpha is the overall opacity multiplier.
+  /**
+   * @brief User-tunable parameters.
+   * @details num_rings/num_lines are animated counts driven by the Mutation
+   *          timelines; alpha is the overall opacity multiplier.
+   */
   struct Params {
-    float num_rings = 0.0f;
-    float num_lines = 0.0f;
-    float alpha = 0.2f;
+    float num_rings = 0.0f; /**< Animated latitude-ring count. */
+    float num_lines = 0.0f; /**< Animated longitude-line count. */
+    float alpha = 0.2f;     /**< Overall opacity multiplier in [0, 1]. */
   } params;
 
-  Orientation<> orientation;
-  Timeline timeline;
+  Orientation<> orientation; /**< Spinning render orientation. */
+  Timeline timeline;         /**< Drives spin, palette wipe, and mutations. */
 
-  Vector holeN;
-  Vector holeS;
+  Vector holeN; /**< North hole origin, tracking the rotated geometry. */
+  Vector holeS; /**< South hole origin, tracking the rotated geometry. */
 
-  // Effect-local frame counter wrapped to the ring/line phase period.
+  /** @brief Effect-local frame counter wrapped to the ring/line phase period. */
   int phase_frame_ = 0;
 
+  /** @brief Render filter pipeline: two hole fades, orientation, anti-alias. */
   Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,
            Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;

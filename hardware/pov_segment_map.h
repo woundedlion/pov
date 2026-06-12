@@ -22,11 +22,13 @@
 
 namespace pov {
 
-/// Precomputed vertical mapping for one physical segment.
+/**
+ * @brief Precomputed vertical mapping for one physical segment.
+ */
 struct SegmentMap {
-  bool arm_b;  ///< Samples canvas column (x + W/2) instead of x.
-  int y_base;  ///< Canvas row of this segment's LED 0.
-  int y_step;  ///< +1 (top, toward junction) or -1 (bottom strip, reversed).
+  bool arm_b;  /**< Samples canvas column (x + W/2) instead of x. */
+  int y_base;  /**< Canvas row of this segment's LED 0. */
+  int y_step;  /**< +1 (top, toward junction) or -1 (bottom strip, reversed). */
 };
 
 /**
@@ -34,11 +36,11 @@ struct SegmentMap {
  * @param segment_id  Hardware-strapped ID in [0, N).
  * @param S  Total LEDs across both arms (ROWS = S/2).
  * @param N  Segment count (even, power of two, <= 4; SEGS_PER_ARM = N/2).
- *
- * Segments [0, N/2) are arm A; [N/2, N) are arm B. Within an arm, arm-segment 0
- * is the top strip (LED 0 at the N pole, y=0, counting toward the junction) and
- * arm-segment 1 is the bottom strip (LED 0 at the S pole, y=ROWS-1, counting
- * toward the junction — physically reversed).
+ * @return SegmentMap with arm_b, y_base (canvas row of LED 0), and y_step (+1/-1).
+ * @details Segments [0, N/2) are arm A; [N/2, N) are arm B. Within an arm,
+ * arm-segment 0 is the top strip (LED 0 at the N pole, y=0, counting toward the
+ * junction) and arm-segment 1 is the bottom strip (LED 0 at the S pole,
+ * y=ROWS-1, counting toward the junction — physically reversed).
  */
 constexpr SegmentMap segment_map(int segment_id, int S, int N) {
   const int segs_per_arm = N / 2;
@@ -58,13 +60,23 @@ constexpr SegmentMap segment_map(int segment_id, int S, int N) {
   return m;
 }
 
-/// Canvas column this segment samples at rotation column @p x (canvas width
-/// @p w). Arm B reads the opposite half of the image.
+/**
+ * @brief Canvas column this segment samples at a given rotation column.
+ * @param arm_b True if this segment reads the opposite half of the image.
+ * @param x Rotation column (canvas column index for arm A).
+ * @param w Canvas width in columns.
+ * @return Canvas column index; arm B returns (x + w/2) % w, arm A returns x.
+ */
 constexpr int segment_x_col(bool arm_b, int x, int w) {
   return arm_b ? (x + w / 2) % w : x;
 }
 
-/// Canvas row of this segment's i-th LED (i in [0, PPS)).
+/**
+ * @brief Canvas row of this segment's i-th LED.
+ * @param m Segment mapping providing y_base and y_step.
+ * @param i LED index along the segment, in [0, PPS).
+ * @return Canvas row index, computed as m.y_base + i * m.y_step.
+ */
 constexpr int segment_y(const SegmentMap &m, int i) {
   return m.y_base + i * m.y_step;
 }

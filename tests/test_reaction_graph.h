@@ -26,8 +26,14 @@ using ReactionGraph::RD_K;
 using ReactionGraph::neighbors;
 using ReactionGraph::node;
 
-// Squared chord (Euclidean) distance between two points; monotone in arc length
-// for points on the unit sphere, so it orders neighbors without a sqrt.
+/**
+ * @brief Squared chord (Euclidean) distance between two points.
+ * @param a First point (unit-sphere coordinates).
+ * @param b Second point (unit-sphere coordinates).
+ * @return Squared chord distance |a - b|^2 (dimensionless).
+ * @details Monotone in arc length for points on the unit sphere, so it orders
+ *          neighbors without a sqrt.
+ */
 static inline float chord2(const Vector &a, const Vector &b) {
   float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
   return dx * dx + dy * dy + dz * dz;
@@ -37,8 +43,12 @@ static inline float chord2(const Vector &a, const Vector &b) {
 // node() generator
 // ---------------------------------------------------------------------------
 
-// node() must place every lattice point on the unit sphere, with index 0/RD_N-1
-// at the poles (the Fibonacci-lattice generator's contract).
+/**
+ * @brief Verifies node() places every lattice point on the unit sphere with
+ *        the endpoints at the poles.
+ * @details Index 0 and RD_N-1 must sit at the poles, per the Fibonacci-lattice
+ *          generator's contract.
+ */
 inline void test_nodes_on_unit_sphere() {
   // Sample across the whole lattice; every node must lie on the unit sphere.
   for (int i = 0; i < RD_N; i += 17) {
@@ -50,8 +60,11 @@ inline void test_nodes_on_unit_sphere() {
   HS_EXPECT_LT(node(RD_N - 1).y, -0.999f);
 }
 
-// node() is a pure function (same index -> identical point) and never collapses
-// adjacent indices onto the same point.
+/**
+ * @brief Verifies node() is deterministic and yields distinct adjacent points.
+ * @details node() is a pure function (same index -> identical point) and never
+ *          collapses adjacent indices onto the same point.
+ */
 inline void test_node_deterministic_and_distinct() {
   HS_EXPECT_VEC(node(1234), node(1234), 0.0f);
   // Adjacent lattice indices are distinct points.
@@ -64,8 +77,12 @@ inline void test_node_deterministic_and_distinct() {
 // Table structural invariants
 // ---------------------------------------------------------------------------
 
-// Every table entry must be in bounds: either the -1 sentinel or a valid node
-// index. An out-of-range index would index past the lattice in consumers.
+/**
+ * @brief Verifies every table entry is the -1 sentinel or a valid node index.
+ * @details An out-of-range index would index past the lattice in consumers. The
+ *          shipped table contains no sentinels, but the format permits them and
+ *          consumers guard `ni < 0`, so both are accepted here.
+ */
 inline void test_indices_in_range() {
   // Every entry is either the -1 sentinel or a valid node index. (The shipped
   // table contains no sentinels, but the format permits them and consumers
@@ -80,8 +97,11 @@ inline void test_indices_in_range() {
   HS_EXPECT_EQ(bad, 0);
 }
 
-// No node lists itself as a neighbor (self-loops would waste a slot and break
-// consumers that assume distinct adjacency).
+/**
+ * @brief Verifies no node lists itself as a neighbor.
+ * @details Self-loops would waste a slot and break consumers that assume
+ *          distinct adjacency.
+ */
 inline void test_no_self_loops() {
   int loops = 0;
   for (int i = 0; i < RD_N; ++i)
@@ -91,8 +111,11 @@ inline void test_no_self_loops() {
   HS_EXPECT_EQ(loops, 0);
 }
 
-// Within a row, each non-sentinel neighbor index appears at most once; a
-// duplicate would shrink the effective fan-out and hint at a corrupt table.
+/**
+ * @brief Verifies each non-sentinel neighbor index appears at most once per row.
+ * @details A duplicate would shrink the effective fan-out and hint at a corrupt
+ *          table.
+ */
 inline void test_no_duplicate_neighbors_in_row() {
   int dupes = 0;
   for (int i = 0; i < RD_N; ++i)
@@ -110,6 +133,11 @@ inline void test_no_duplicate_neighbors_in_row() {
 // Geometric sanity: listed neighbors must actually be nearby
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies every listed neighbor is geometrically nearby its node.
+ * @details A shuffled or corrupted table would place neighbors far apart, well
+ *          past the expected ~11 deg upper bound.
+ */
 inline void test_neighbors_are_local() {
   // Mean nearest-neighbor spacing on a 7680-point sphere is ~1.3 deg; even the
   // farthest of the 6 listed neighbors should be well within ~11 deg
@@ -128,8 +156,12 @@ inline void test_neighbors_are_local() {
   HS_EXPECT_EQ(far, 0);
 }
 
+/**
+ * @brief Verifies each listed neighbor is far closer than the lattice's far side.
+ * @details Compares each neighbor's chord distance against the antipode's, which
+ *          must be strictly larger.
+ */
 inline void test_neighbors_closer_than_antipode() {
-  // Each listed neighbor must be far closer than the lattice's far side.
   int violations = 0;
   for (int i = 0; i < RD_N; i += 13) {
     Vector p = node(i);
@@ -149,7 +181,13 @@ inline void test_neighbors_closer_than_antipode() {
 // Edge reciprocity (gross-corruption tripwire, not a hard symmetry requirement)
 // ---------------------------------------------------------------------------
 
-// Measure what fraction of directed edges i->ni have a return edge ni->i.
+/**
+ * @brief Verifies the fraction of reciprocated directed edges stays high.
+ * @details Measures what fraction of directed edges i->ni have a return edge
+ *          ni->i. A clean Fibonacci-lattice K-NN graph reciprocates the large
+ *          majority of edges; the >50% threshold is a conservative tripwire that
+ *          tolerates legitimate K-NN asymmetry while catching a scrambled table.
+ */
 inline void test_edge_reciprocity_high() {
   long total = 0, reciprocated = 0;
   for (int i = 0; i < RD_N; ++i) {
@@ -175,6 +213,13 @@ inline void test_edge_reciprocity_high() {
 // CubemapLUT round-trip
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies CubemapLUT maps a node's own direction back to that node.
+ * @details Looking up a node's own direction should return that node, or at
+ *          worst a direct neighbor (cubemap texel quantization can land one cell
+ *          over); the overwhelming majority must be exact or an immediate
+ *          neighbor.
+ */
 inline void test_cubemap_lut_roundtrip() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
                          ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
@@ -203,7 +248,10 @@ inline void test_cubemap_lut_roundtrip() {
 // Runner
 // ---------------------------------------------------------------------------
 
-// Run the full reaction_graph suite; returns the module's failure count.
+/**
+ * @brief Runs the full reaction_graph test suite.
+ * @return The module's failure count.
+ */
 inline int run_reaction_graph_tests() {
   auto scope = hs_test::begin_module("reaction_graph");
 

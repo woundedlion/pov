@@ -15,7 +15,13 @@
 
 namespace hs_test {
 
-// Build a PolyMesh from a Solids::* descriptor into the given arena.
+/**
+ * @brief Builds a PolyMesh from a Solids::* descriptor into the given arena.
+ * @tparam Solid Solids::* descriptor type providing NUM_VERTS, NUM_FACES,
+ *               vertices, face_counts, and faces.
+ * @param mesh Destination mesh; its vertex/face arrays are bound and filled.
+ * @param arena Arena from which the mesh arrays are allocated.
+ */
 template <typename Solid>
 inline void build_solid(PolyMesh &mesh, Arena &arena) {
   mesh.vertices.bind(arena, Solid::NUM_VERTS);
@@ -27,7 +33,11 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
     mesh.faces.push_back(static_cast<uint16_t>(fi));
 }
 
-// Verify every vertex lies on the unit sphere to within `tol`.
+/**
+ * @brief Verifies every vertex lies on the unit sphere to within tol.
+ * @param m Mesh whose vertices are checked.
+ * @param tol Absolute tolerance on the deviation of each vertex length from 1.0.
+ */
 inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
   for (size_t i = 0; i < m.vertices.size(); ++i) {
     float len = m.vertices[i].length();
@@ -35,7 +45,12 @@ inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
   }
 }
 
-// Σ face_counts must equal the flat face-index array length.
+/**
+ * @brief Verifies the sum of face_counts equals the flat face-index array length.
+ * @param m Mesh whose face_counts and faces arrays are checked.
+ * @details Σ face_counts must equal m.faces.size() for the flat index layout to
+ *          be self-consistent.
+ */
 inline void check_face_counts_consistent(const PolyMesh &m) {
   size_t total = 0;
   for (size_t i = 0; i < m.face_counts.size(); ++i)
@@ -43,7 +58,11 @@ inline void check_face_counts_consistent(const PolyMesh &m) {
   HS_EXPECT_EQ(total, m.faces.size());
 }
 
-// Every face index must reference a valid vertex.
+/**
+ * @brief Verifies every face index references a valid vertex.
+ * @param m Mesh whose face indices are checked against the vertex count.
+ * @details Each entry of m.faces must be strictly less than m.vertices.size().
+ */
 inline void check_indices_in_range(const PolyMesh &m) {
   size_t V = m.vertices.size();
   for (size_t i = 0; i < m.faces.size(); ++i)

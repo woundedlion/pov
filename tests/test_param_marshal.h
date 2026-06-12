@@ -28,10 +28,16 @@ namespace param_marshal_tests {
 constexpr int kW = 288;
 constexpr int kH = 144;
 
-// Marshal one effect through the WASM bridge and assert the two streams stay
-// consistent with the source params: equal length, index-aligned name/value/
-// type, and a write-by-name that round-trips to the same index without
-// disturbing order. This is the core correctness check per effect.
+/**
+ * @brief Marshals one effect through the WASM bridge and asserts the definition
+ *        and value streams stay consistent with the source params.
+ * @tparam E Effect template, instantiated at the test canvas size kW x kH.
+ * @param unnamed Effect name (unused; kept for call-site symmetry with the
+ *        HS_EFFECT_LIST macro expansion).
+ * @details Checks equal length, index-aligned name/value/type, and a
+ *          write-by-name that round-trips to the same index without disturbing
+ *          order. This is the core correctness check per effect.
+ */
 template <template <int, int> class E>
 inline void check_one(const char *) {
   configure_arenas_default();
@@ -97,8 +103,13 @@ inline void check_one(const char *) {
   }
 }
 
-// Tally an effect's parameter count so the stability pass below can size its
-// reserve to the roster's worst case.
+/**
+ * @brief Tallies an effect's parameter count, tracking the roster maximum.
+ * @tparam E Effect template, instantiated at the test canvas size kW x kH.
+ * @param max_count In/out running maximum; updated if this effect has more
+ *        parameters, so the stability pass can size its reserve to the worst
+ *        case.
+ */
 template <template <int, int> class E>
 inline void count_one(size_t &max_count) {
   configure_arenas_default();
@@ -117,15 +128,28 @@ inline void count_one(size_t &max_count) {
     max_count = n;
 }
 
-// Memory-stability contract. wasm.cpp exposes the value stream to JS as a raw
-// pointer into WASM linear memory (`paramValues.data()`), read every frame, and
-// reuses a single vector across frames AND effect switches. collect_param_views
-// / fill_param_values promise that — given a caller that reserves capacity once
-// up front — clear()+push_back never reallocates, so the exported address stays
-// valid. A regression that dropped the reserve or pushed past it would silently
-// hand JS a dangling pointer with no crash on the C++ side. Refill the SAME
-// reserved vector and assert its backing storage (.data()) and capacity never
-// move.
+/**
+ * @brief Verifies the per-frame memory-view stability contract: refilling the
+ *        reserved stream vectors never reallocates their backing storage.
+ * @tparam E Effect template, instantiated at the test canvas size kW x kH.
+ * @param views Reusable definition-stream vector, pre-reserved by the caller.
+ * @param values Reusable value-stream vector, pre-reserved by the caller.
+ * @param view_data Expected backing pointer of @p views (its .data() before
+ *        refill).
+ * @param view_cap Expected capacity of @p views.
+ * @param value_data Expected backing pointer of @p values (its .data() before
+ *        refill).
+ * @param value_cap Expected capacity of @p values.
+ * @details wasm.cpp exposes the value stream to JS as a raw pointer into WASM
+ *          linear memory (`paramValues.data()`), read every frame, reusing a
+ *          single vector across frames and effect switches. collect_param_views
+ *          / fill_param_values promise that — given a caller that reserves
+ *          capacity once up front — clear()+push_back never reallocates, so the
+ *          exported address stays valid. Dropping the reserve or pushing past it
+ *          would silently hand JS a dangling pointer with no crash on the C++
+ *          side. This refills the SAME reserved vectors and asserts backing
+ *          storage (.data()) and capacity never move.
+ */
 template <template <int, int> class E>
 inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
                                 std::vector<float> &values,
@@ -150,9 +174,11 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
   HS_EXPECT_EQ(values.capacity(), value_cap);
 }
 
-// Module entry point: run the per-effect stream-consistency check across the
-// whole roster, then the cross-effect memory-stability check. Returns the
-// module's failure count.
+/**
+ * @brief Module entry point: runs the per-effect stream-consistency check
+ *        across the whole roster, then the cross-effect memory-stability check.
+ * @return The module's failure count.
+ */
 inline int run_param_marshal_tests() {
   auto scope = hs_test::begin_module("param_marshal");
 #define HS_PARAM_ONE(name) check_one<name>(#name);

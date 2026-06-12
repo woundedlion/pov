@@ -9,11 +9,23 @@
 // violation — flush the log and trap (fail-fast), never spin in while(1), which
 // freezes the display with no breadcrumb and is the hardest failure to diagnose.
 #ifdef ARDUINO
+/**
+ * @brief Fail-fast handler for a pure-virtual call on the device.
+ * @details Flushes the log then traps; never spins in while(1), which would
+ * freeze the display with no breadcrumb. Arduino/Teensy-only override so the
+ * host toolchain's real handlers stay in effect on native/WASM builds.
+ */
 extern "C" void __cxa_pure_virtual() {
   hs::flush_log();
   __builtin_trap();
 }
 namespace __gnu_cxx {
+/**
+ * @brief Fail-fast terminate handler for the device.
+ * @details Flushes the log then traps instead of pulling in the C++ demangler
+ * (~15KB). A terminate is a fatal invariant violation, so it must leave a
+ * breadcrumb and stop, not spin.
+ */
 void __verbose_terminate_handler() {
   hs::flush_log();
   __builtin_trap();
@@ -21,33 +33,43 @@ void __verbose_terminate_handler() {
 } // namespace __gnu_cxx
 #endif
 
-// Single contiguous memory block — all arenas partition this. alignas keeps
-// the block's base (and thus persistent_arena's base) maximally aligned, so
-// Arena::allocate's first allocation in each arena needs no leading padding;
-// configure_arenas() likewise aligns the inter-arena boundaries.
+/**
+ * @brief Single contiguous memory block that all arenas partition.
+ * @details alignas keeps the block's base (and thus persistent_arena's base)
+ * maximally aligned, so Arena::allocate's first allocation in each arena needs
+ * no leading padding; configure_arenas() likewise aligns the inter-arena
+ * boundaries.
+ */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
+/** @brief Persistent arena: storage that lives for the whole program run. */
 Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
+/** @brief First scratch arena: transient per-frame/per-effect storage. */
 Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE,
                       DEFAULT_SCRATCH_A_SIZE);
+/** @brief Second scratch arena: transient per-frame/per-effect storage. */
 Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
                           DEFAULT_SCRATCH_A_SIZE,
                       DEFAULT_SCRATCH_B_SIZE);
 
-// Re-partition the single global block into persistent + two scratch arenas of
-// the requested byte sizes, called once at init() so an effect can tune the
-// split to the device budget.
+/**
+ * @brief Re-partitions the single global block into persistent plus two scratch
+ * arenas of the requested byte sizes.
+ * @param persistent Size of the persistent arena, in bytes.
+ * @param scratch_a Size of the first scratch arena, in bytes.
+ * @param scratch_b Size of the second scratch arena, in bytes.
+ * @details Called once at init() so an effect can tune the split to the device
+ * budget. Each inter-arena boundary is aligned up to max_align_t so every arena
+ * base is maximally aligned (the block base already is, via alignas); for the
+ * real callers all sizes are multiples of 1 KiB, so these rounds are no-ops and
+ * the layout is byte-identical. The budget check uses the aligned end so
+ * rounding cannot silently overrun. An over-subscribed partition is a
+ * sizing/config bug, not a recoverable condition, so it traps at init() rather
+ * than silently scaling down (which would relocate the corruption into the
+ * rendered output); the log preserves the numbers for diagnosis before the trap.
+ */
 void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
-  // An over-subscribed partition is a sizing/config bug, not a recoverable
-  // condition. Silently scaling it down hands the effect a smaller layout than
-  // it requested, which then over-runs later — relocating the corruption into
-  // the rendered output. Trap at init() so the bad request is caught on the
-  // bench; the log preserves the numbers for diagnosis before the trap.
-  // Align each inter-arena boundary up to max_align_t so every arena base is
-  // maximally aligned (the block base already is, via alignas). For the real
-  // callers — all sizes are multiples of 1 KiB — these rounds are no-ops, so
-  // the layout is byte-identical; they only matter for arbitrary sizes. The
-  // budget check uses the ALIGNED end so rounding can't silently overrun.
+  // Align each inter-arena boundary up to max_align_t (see @details above).
   constexpr size_t A = alignof(std::max_align_t);
   auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
   size_t a_base = align_up(persistent);
@@ -63,26 +85,43 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
   scratch_arena_b.rebind(global_arena_block + b_base, scratch_b);
 }
 
-// Partition the global block using the compiled-in DEFAULT_* sizes.
+/**
+ * @brief Partitions the global block using the compiled-in DEFAULT_* sizes.
+ * @details Convenience wrapper over configure_arenas() with the default split.
+ */
 void configure_arenas_default() {
   configure_arenas(DEFAULT_PERSISTENT_SIZE, DEFAULT_SCRATCH_A_SIZE,
                    DEFAULT_SCRATCH_B_SIZE);
 }
 
-// These definitions live here, not next to their declarations, on purpose:
-// memory.cpp is the one TU compiled into every target, and these are the
-// program's large statically-allocated buffers. Co-locating them with the
-// arena block keeps every DMAMEM/large-static placement decision in one file
-// the linker map points at — at the cost of this TU pulling in the animation
-// and effect headers. Look here, not in animation.h / effect.h, for where the
-// storage actually lands.
+// The large statically-allocated buffers below are defined here, not next to
+// their declarations, on purpose: memory.cpp is the one TU compiled into every
+// target, so co-locating them with the arena block keeps every DMAMEM/large-
+// static placement decision in one file the linker map points at — at the cost
+// of this TU pulling in the animation and effect headers. Look here, not in
+// animation.h / effect.h, for where the storage actually lands.
+
+/** @brief Shared event array backing every Timeline instance. */
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
-// Single live-Timeline guard: the event array above is shared by every Timeline
-// instance, so the "only one alive" invariant is one global flag.
+/**
+ * @brief Single live-Timeline guard.
+ * @details The event array above is shared by every Timeline instance, so the
+ * "only one alive" invariant is one global flag.
+ */
 bool global_timeline_live = false;
-// Shared singleton cursors into global_timeline_events (see animation.h):
-// free globals so every Timeline instance reads/writes the same count.
+/**
+ * @brief Shared singleton playhead cursor into global_timeline_events.
+ * @details Free global so every Timeline instance reads/writes the same cursor
+ * (see animation.h).
+ */
 int global_timeline_t = 0;
+/**
+ * @brief Shared singleton event count for global_timeline_events.
+ * @details Free global so every Timeline instance reads/writes the same count
+ * (see animation.h).
+ */
 int global_timeline_num_events = 0;
+/** @brief Front pixel buffer for the double-buffered effect framebuffer. */
 DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
+/** @brief Back pixel buffer for the double-buffered effect framebuffer. */
 DMAMEM Pixel Effect::buffer_b[MAX_W * MAX_H];

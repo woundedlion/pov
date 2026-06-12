@@ -32,20 +32,21 @@
 #include "effects/Thrusters.h"
 #include "effects/Voronoi.h"
 
-// ---------------------------------------------------------------------------
-// Single source of truth for the registered effect roster.
-//
-// The #include list above and this X-macro list must stay in lock-step. The
-// coupling is enforced from both build modes so the roster can never silently
-// drift from what actually ships or gets tested:
-//   * WASM:   the self-registering EffectRegistry size is checked against
-//             HS_EFFECT_COUNT at engine startup (targets/wasm/wasm.cpp).
-//   * Native: the effect smoke suite generates exactly one case per entry, so
-//             its coverage is derived from this list, not hand-maintained
-//             (tests/test_effects.h).
-// Adding an effect therefore means: add the #include above, the REGISTER_EFFECT
-// in its header, and one X() row here — miss any and a build/startup check fires.
-// ---------------------------------------------------------------------------
+/**
+ * @brief Single source of truth for the registered effect roster, as an X-macro.
+ * @param X Function-like macro applied to each effect type name in the roster.
+ * @details The #include list above and this X-macro list must stay in lock-step.
+ *   The coupling is enforced from both build modes so the roster can never
+ *   silently drift from what actually ships or gets tested:
+ *     * WASM:   the self-registering EffectRegistry size is checked against
+ *               HS_EFFECT_COUNT at engine startup (targets/wasm/wasm.cpp).
+ *     * Native: the effect smoke suite generates exactly one case per entry, so
+ *               its coverage is derived from this list, not hand-maintained
+ *               (tests/test_effects.h).
+ *   Adding an effect therefore means: add the #include above, the
+ *   REGISTER_EFFECT in its header, and one X() row here — miss any and a
+ *   build/startup check fires.
+ */
 #define HS_EFFECT_LIST(X)                                                       \
   X(BZReactionDiffusion)                                                        \
   X(ChaoticStrings)                                                             \
@@ -75,8 +76,14 @@
   X(Thrusters)                                                                  \
   X(Voronoi)
 
-// Count of entries in HS_EFFECT_LIST (derived, never hand-counted).
+/**
+ * @brief Expands to +1 so HS_EFFECT_LIST can be summed into an entry count.
+ * @param name Effect type name supplied by HS_EFFECT_LIST (unused).
+ */
 #define HS_EFFECT_COUNT_ADD(name) +1
+/**
+ * @brief Number of entries in HS_EFFECT_LIST, derived rather than hand-counted.
+ */
 constexpr int HS_EFFECT_COUNT = 0 HS_EFFECT_LIST(HS_EFFECT_COUNT_ADD);
 #undef HS_EFFECT_COUNT_ADD
 

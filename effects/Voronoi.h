@@ -11,23 +11,34 @@
 #include <cmath>
 #include <span>
 
-// Spherical Voronoi effect: scatters sites on the unit sphere, animates them,
-// and shades each pixel by its nearest site with edge-sharpening and optional
-// cell borders. W/H are the framebuffer dimensions.
+/**
+ * @brief Spherical Voronoi effect: scatters sites on the unit sphere, animates
+ *        them, and shades each pixel by its nearest site with edge-sharpening
+ *        and optional cell borders.
+ * @tparam W Framebuffer width in pixels.
+ * @tparam H Framebuffer height in pixels.
+ */
 template <int W, int H> class Voronoi : public Effect {
 public:
-  // One Voronoi seed: position on the unit sphere, the rotation axis it spins
-  // about, and the cell fill color.
+  /**
+   * @brief One Voronoi seed: position on the unit sphere, the rotation axis it
+   *        spins about, and the cell fill color.
+   */
   struct Site {
-    Vector pos;
-    Vector axis;
-    Color4 color;
+    Vector pos;   /**< Position on the unit sphere. */
+    Vector axis;  /**< Unit rotation axis the site spins about. */
+    Color4 color; /**< Cell fill color (16-bit linear channels). */
   };
 
+  /**
+   * @brief Constructs the effect with the templated framebuffer dimensions.
+   */
   FLASHMEM Voronoi() : Effect(W, H) {}
 
-  // Configure arenas, register GUI params, allocate the sites buffer, and seed
-  // the initial sites.
+  /**
+   * @brief Configures arenas, registers GUI params, allocates the sites buffer,
+   *        and seeds the initial sites.
+   */
   void init() override {
     // Persistent holds the sites buffer; scratch_arena_a holds the per-frame
     // KD-tree (positions + nodes + build indices, ~15KB at MAX_SITES). Give it
@@ -48,11 +59,18 @@ public:
     seed_sites();
   }
 
-  // Opaque effect: fills every pixel, so no background pass is needed.
+  /**
+   * @brief Reports whether the engine should run a background pass first.
+   * @return Always false: this effect is opaque and fills every pixel, so no
+   *         background pass is needed.
+   */
   bool show_bg() const override { return false; }
 
-  // Animate the sites, build a per-frame KD-tree, and shade each pixel by its
-  // nearest site (with edge sharpening and optional borders).
+  /**
+   * @brief Animates the sites, builds a per-frame KD-tree, and shades each
+   *        pixel by its nearest site (with edge sharpening and optional
+   *        borders).
+   */
   void draw_frame() override {
     Canvas canvas(*this);
 
@@ -140,29 +158,37 @@ public:
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
+  /**
+   * @brief Live-tunable GUI parameters for the Voronoi effect.
+   */
   struct Params {
-    float num_sites = 200.0f; // live-tunable (GUI slider), see init/draw_frame
-    float speed = 20.0f;
-    float borderThickness = 0.0f;
-    float sharpness = 100.0f;
+    float num_sites = 200.0f;     /**< Live-tunable site count (GUI slider). */
+    float speed = 20.0f;          /**< Site spin rate (GUI slider). */
+    float borderThickness = 0.0f; /**< Cell-seam border width; 0 disables. */
+    float sharpness = 100.0f;     /**< Edge sharpening; larger narrows the
+                                       border blend band. */
   } params;
 
-  // The sites buffer is allocated once at MAX_SITES; the active count varies
-  // with the "Num Sites" slider and is re-seeded (clear + refill, no realloc)
-  // when it changes. current_num_sites tracks the count currently seeded.
-  static constexpr int MAX_SITES = 400;
-  int current_num_sites = 0;
-  ArenaVector<Site> sites_buffer;
+  static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
+                                             is allocated once at this size. */
+  int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
+                                  refill, no realloc) when the slider changes. */
+  ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
 
-  // Slider value rounded to an integer and clamped to [1, MAX_SITES].
+  /**
+   * @brief Returns the active site count from the "Num Sites" slider.
+   * @return Slider value rounded to an integer and clamped to [1, MAX_SITES].
+   */
   int active_site_count() const {
     return std::clamp(static_cast<int>(params.num_sites), 1, MAX_SITES);
   }
 
-  // (Re)seed the active sites for the current "Num Sites" slider value: clear +
-  // refill up to the active count (no re-allocation). Sites are placed via the
-  // Fibonacci-sphere distribution for an even spread, each with a random spin
-  // axis and a palette color.
+  /**
+   * @brief (Re)seeds the active sites for the current "Num Sites" slider value.
+   * @details Clears and refills up to the active count (no re-allocation). Sites
+   *          are placed via the Fibonacci-sphere distribution for an even
+   *          spread, each with a random spin axis and a palette color.
+   */
   void seed_sites() {
     const int n = active_site_count();
     sites_buffer.clear();

@@ -43,6 +43,9 @@ struct CompiledHankin {
   ArenaVector<uint16_t> faces;      /**< Flat vertex indices for all faces. */
   int static_offset = 0; /**< static_vertices.size(); base for dynamic indices in faces. */
 
+  /**
+   * @brief Resets all owned vectors to empty, releasing their contents.
+   */
   void clear() {
     base_vertices.clear();
     static_vertices.clear();
@@ -52,7 +55,14 @@ struct CompiledHankin {
     faces.clear();
   }
 
-  /// Deep-copy all owned data into a target arena. Required by Cloneable.
+  /**
+   * @brief Deep-copies all owned data into a target arena.
+   * @param src Source instance to copy from.
+   * @param dst Destination instance whose vectors are bound and filled.
+   * @param arena Arena backing the destination's freshly bound vectors.
+   * @details Required by Cloneable; each vector is rebound from @p arena and
+   * its elements copied one by one.
+   */
   static void clone(const CompiledHankin &src, CompiledHankin &dst,
                     Arena &arena) {
     // Bind a fresh arena-backed vector and deep-copy a source vector into it.
@@ -75,11 +85,14 @@ namespace MeshOps {
 
 /**
  * @brief Bakes the angle-independent Hankin topology for a mesh.
- *
- * Builds a half-edge mesh, emits one shared midpoint per edge into
+ * @tparam MeshT Mesh type exposing vertices plus the unified topology accessors.
+ * @param mesh Input closed-manifold mesh to derive the pattern from.
+ * @param compiled Output topology, allocated from @p target_arena.
+ * @param target_arena Arena that backs the persistent compiled vectors.
+ * @param temp_arena Arena holding the transient half-edge structures.
+ * @details Builds a half-edge mesh, emits one shared midpoint per edge into
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
- * records the star and rosette faces. @p compiled is allocated from
- * @p target_arena; @p temp_arena holds the transient half-edge structures.
+ * records the star and rosette faces.
  */
 template <typename MeshT>
 FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
@@ -258,11 +271,13 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
 
 /**
  * @brief Positions the angle-dependent vertices and writes the final mesh.
- *
+ * @tparam MeshT Output mesh type; may optionally provide face_offsets.
+ * @param compiled Baked topology whose dynamic_vertices are recomputed in place.
+ * @param out_mesh Output mesh, allocated from @p target_arena.
+ * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
  * @param angle Contact angle in radians. At ~0 the star points collapse onto
  *   their corners (flat tiling); larger angles push the rays out so the rays
- *   from adjacent edges intersect to form sharper star points. @p out_mesh is
- *   allocated from @p target_arena.
+ *   from adjacent edges intersect to form sharper star points.
  */
 template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
@@ -351,11 +366,13 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
 /**
  * @brief One-shot Hankin pattern: compile then update, returning the new mesh.
- *
- * Convenience wrapper for callers that do not vary the angle. The compiled
- * topology is built in @p temp and discarded; only @p out is allocated from
- * @p target. To animate the angle, keep a CompiledHankin and call
- * update_hankin repeatedly instead.
+ * @param mesh Input closed-manifold mesh to derive the pattern from.
+ * @param target Arena that backs the returned mesh's persistent data.
+ * @param temp Arena for the transient compiled topology, discarded on return.
+ * @param angle Contact angle in radians (see update_hankin).
+ * @return The generated Hankin PolyMesh, allocated from @p target.
+ * @details Convenience wrapper for callers that do not vary the angle. To
+ * animate the angle, keep a CompiledHankin and call update_hankin repeatedly.
  */
 FLASHMEM static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
                                 float angle) {

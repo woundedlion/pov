@@ -99,46 +99,73 @@ static constexpr ProceduralPalette peachPop({1.000f, 0.144f, 0.175f},
 
 } // namespace Palettes
 
-/// Shared 5-palette "mesh effect" bank used by HankinSolids / IslamicStars (and
-/// any future mesh effect). Bundles the standard source-palette set, the
-/// bake-all step, and the per-shape index shuffle these effects share.
-/// Zero-overhead: the source list is constexpr and every accessor is a thin
-/// inline wrapper over BakedPaletteBank, so the per-pixel lookup remains
-/// BakedPalette::get() with no added indirection.
+/**
+ * @brief Shared 5-palette "mesh effect" bank used by HankinSolids / IslamicStars
+ *        and any future mesh effect.
+ * @details Bundles the standard source-palette set, the bake-all step, and the
+ *          per-shape index shuffle these effects share. Zero-overhead: the
+ *          source list is constexpr and every accessor is a thin inline wrapper
+ *          over BakedPaletteBank, so the per-pixel lookup remains
+ *          BakedPalette::get() with no added indirection.
+ */
 struct MeshPaletteBank {
   static constexpr int N = BakedPaletteBank::N; // 5
 
-  /// Standard source palettes, in slot order.
+  /**
+   * @brief Standard source palettes, in slot order.
+   * @return Array of N pointers to the constexpr source palettes.
+   */
   static constexpr std::array<const ProceduralPalette *, N> sources() {
     return {&Palettes::embers, &Palettes::richSunset, &Palettes::brightSunrise,
             &Palettes::bruisedMoss, &Palettes::lavenderLake};
   }
 
-  /// (Re)bake every source palette into `arena` (N × 256-entry Color4 LUTs).
+  /**
+   * @brief (Re)bakes every source palette into the arena.
+   * @param arena Destination arena receiving N x 256-entry Color4 LUTs.
+   */
   void bake_all(Arena &arena) {
     constexpr auto src = sources();
     for (int i = 0; i < N; ++i)
       bank.entries[i].bake(arena, *src[i]);
   }
 
-  /// Fill out[0..N) with a random permutation of [0, N) — the per-shape
-  /// palette-slot assignment.
+  /**
+   * @brief Fills out[0..N) with a random permutation of [0, N).
+   * @param out Receives the per-shape palette-slot assignment.
+   */
   static void shuffle_indices(std::array<int, N> &out) {
     for (int i = 0; i < N; ++i)
       out[i] = i;
     std::shuffle(out.begin(), out.end(), hs::random());
   }
 
-  /// Baked LUT for a slot index. Hot-path lookup is bank[slot].get(t).
+  /**
+   * @brief Returns the baked LUT for a slot index.
+   * @param i Slot index in [0, N).
+   * @return Const reference to the baked palette; hot-path lookup is
+   *         bank[slot].get(t).
+   */
   const BakedPalette &operator[](int i) const { return bank.entries[i]; }
+  /**
+   * @brief Returns the baked LUT for a slot index.
+   * @param i Slot index in [0, N).
+   * @return Mutable reference to the baked palette.
+   */
   BakedPalette &operator[](int i) { return bank.entries[i]; }
 
-  /// Cloneable hook so effects can Persist<MeshPaletteBank> across compaction.
+  /**
+   * @brief Cloneable hook so effects can Persist<MeshPaletteBank> across
+   *        compaction.
+   * @param src Source bank to copy from.
+   * @param dst Destination bank to populate.
+   * @param arena Arena receiving the cloned baked LUTs.
+   */
   static void clone(const MeshPaletteBank &src, MeshPaletteBank &dst,
                     Arena &arena) {
     BakedPaletteBank::clone(src.bank, dst.bank, arena);
   }
 
-  BakedPaletteBank bank;
+  BakedPaletteBank bank; /**< Underlying baked-palette bank holding N LUTs. */
 };
 

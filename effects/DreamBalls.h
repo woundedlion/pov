@@ -9,11 +9,19 @@
 
 #include <array>
 
-// Orbiting copies of a polyhedral wireframe, displaced in each vertex's
-// tangent plane and Mobius-warped, cycling through four solid presets.
+/**
+ * @brief Orbiting copies of a polyhedral wireframe, cycling through four
+ *        solid presets.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Each vertex is displaced in its own tangent plane and
+ *          Mobius-warped before being re-projected onto the sphere.
+ */
 template <int W, int H> class DreamBalls : public Effect {
 public:
-  // Live, slider-bound render parameters; also the per-preset value set.
+  /**
+   * @brief Live, slider-bound render parameters; also the per-preset value set.
+   */
   struct Params {
     const char *solid_name;
     float num_copies;
@@ -24,14 +32,19 @@ public:
     float alpha;
   };
 
-  // Construct with the anti-alias screen filter; the Mobius generator hangs off
-  // the timeline so its warps animate in step.
+  /**
+   * @brief Constructs the effect with the anti-alias screen filter.
+   * @details The Mobius generator hangs off the timeline so its warps animate
+   *          in step.
+   */
   FLASHMEM DreamBalls()
       : Effect(W, H), filters(Filter::Screen::AntiAlias<W, H>()),
         mobius_gen(timeline) {}
 
-  // Build mesh data, bake palette LUTs, register live sliders, and start the
-  // spawn/spin/orbit animation chain.
+  /**
+   * @brief Builds mesh data, bakes palette LUTs, registers live sliders, and
+   *        starts the spawn/spin/orbit animation chain.
+   */
   void init() override {
     setup_presets();
 
@@ -70,38 +83,51 @@ public:
                                       /*wrap=*/true));
   }
 
-  // No background clear; sprites fade over the prior frame.
+  /**
+   * @brief Reports whether the engine should clear the background each frame.
+   * @return Always false; sprites fade over the prior frame instead.
+   */
   bool show_bg() const override { return false; }
 
-  // Advance the timeline, which drives all spawning and rendering.
+  /**
+   * @brief Advances the timeline, which drives all spawning and rendering.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
   }
 
+  /** @brief Live, slider-bound render parameters for the active preset. */
   Params params;
 
 private:
-  // Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below.
+  /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
-  int last_preset_idx_ = -1; // last preset whose values were copied into params
+  int last_preset_idx_ = -1; /**< Last preset whose values were copied into params. */
 
-  // Per-vertex phase increment (radians) for the orbit stagger: vertex i leads
-  // the next by this much so the surface ripples instead of pulsing in unison.
+  /** Per-vertex phase increment (radians) for the orbit stagger: vertex i
+       leads the next by this much so the surface ripples instead of pulsing in
+       unison. */
   static constexpr float VERTEX_PHASE_STAGGER = 0.1f;
 
-  // Orthonormal tangent-plane basis (u, v) at a vertex; the orbit displacement
-  // is spanned by this frame before re-projecting to the sphere.
+  /**
+   * @brief Orthonormal tangent-plane basis (u, v) at a vertex.
+   * @details The orbit displacement is spanned by this frame before
+   *          re-projecting to the sphere.
+   */
   struct Tangent {
-    Vector u;
-    Vector v;
+    Vector u; /**< First tangent basis vector. */
+    Vector v; /**< Second tangent basis vector, orthogonal to u. */
   };
 
-  // Precomputed, static per-preset geometry baked into the persistent arena.
+  /**
+   * @brief Precomputed, static per-preset geometry baked into the persistent
+   *        arena.
+   */
   struct PresetData {
-    MeshState mesh_state;
-    ArenaVector<Tangent> tangents;
-    ArenaVector<Plot::Mesh::Edge> edges; // unique edge list (topology is static)
+    MeshState mesh_state;          /**< Baked vertices and faces. */
+    ArenaVector<Tangent> tangents; /**< Per-vertex tangent frames. */
+    ArenaVector<Plot::Mesh::Edge> edges; /**< Unique edge list (topology is static). */
   };
 
   std::array<PresetData, 4> loaded_presets;
@@ -113,20 +139,28 @@ private:
 
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   MobiusWarpTransformer<1> mobius_gen;
-  // Two baked LUTs, ping-ponged per spawn. On a preset change at most two
-  // sprites overlap (the outgoing fade-out and the incoming fade-in); each
-  // sprite captures its own slot so the outgoing one keeps the palette it was
-  // spawned with through its fade instead of hard-cutting to the freshly
-  // rebaked colors. The non-color live params stay shared on purpose
-  // (Copies/Radius/Speed/Alpha slider liveness).
+  /**
+   * @brief Two baked LUTs, ping-ponged per spawn.
+   * @details On a preset change at most two sprites overlap (the outgoing
+   *          fade-out and the incoming fade-in); each sprite captures its own
+   *          slot so the outgoing one keeps the palette it was spawned with
+   *          through its fade instead of hard-cutting to the freshly rebaked
+   *          colors. The non-color live params stay shared on purpose
+   *          (Copies/Radius/Speed/Alpha slider liveness).
+   */
   BakedPalette baked_palettes_[2];
-  int active_bake_ = 0;
+  int active_bake_ = 0; /**< Index of the slot the next spawn rebakes into. */
 
   ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
   AlphaFalloffShade bloodStreamFade{[](float t) { return 1.0f - t; }};
-  // Wrap=false samples the source at the raw coordinate (the falloff curve owns
-  // the [0,1] domain, so no wrap). The facade lets the composition sit in the
-  // polymorphic preset table beside plain palettes; it is only ever baked.
+  /**
+   * @brief Composition of the bloodStream palette under the alpha falloff
+   *        shade.
+   * @details Wrap=false samples the source at the raw coordinate (the falloff
+   *          curve owns the [0,1] domain, so no wrap). The facade lets the
+   *          composition sit in the polymorphic preset table beside plain
+   *          palettes; it is only ever baked.
+   */
   StaticPalette<ProceduralPalette, Coords<>, Colors<AlphaFalloffShade>,
                 /*Wrap=*/false>
       bloodStreamComposition;
@@ -144,8 +178,12 @@ private:
                      &Palettes::lavenderLake, 0.3f}}}},
       .current_idx = 0};
 
-  // Generate each preset's solid and bake its vertices, faces, tangent frames,
-  // and unique edge list into the persistent arena once at init.
+  /**
+   * @brief Generates each preset's solid and bakes its geometry into the
+   *        persistent arena once at init.
+   * @details Bakes vertices, faces, tangent frames, and the unique edge list
+   *          for every entry in the preset table.
+   */
   FLASHMEM void setup_presets() {
     const auto &entries = preset_manager.get_entries();
 
@@ -195,9 +233,13 @@ private:
     }
   }
 
-  // Spawn one fading sprite for preset idx (mod count) and schedule the next
-  // spawn one period later. Rebakes the inactive palette slot, arms a Mobius
-  // warp, and reseeds the live params only when the preset actually changes.
+  /**
+   * @brief Spawns one fading sprite for the given preset and schedules the next
+   *        spawn one period later.
+   * @param idx Preset index; taken modulo the preset count.
+   * @details Rebakes the inactive palette slot, arms a Mobius warp, and reseeds
+   *          the live params only when the preset actually changes.
+   */
   void spawn_sprite(int idx) {
     auto entries = preset_manager.get_entries();
     int safe_idx = idx % entries.size();
@@ -254,9 +296,17 @@ private:
                  false));
   }
 
-  // Orbit each vertex in a small circle of radius r within its own tangent
-  // plane (u,v frame), then re-project onto the unit sphere. The per-vertex
-  // phase (i * VERTEX_PHASE_STAGGER) staggers the orbits so the surface ripples.
+  /**
+   * @brief Orbits each vertex in a small circle within its own tangent plane,
+   *        then re-projects onto the unit sphere.
+   * @param base Source mesh whose vertices are orbited.
+   * @param target Destination mesh receiving the displaced vertices.
+   * @param tangents Per-vertex (u, v) tangent frames spanning the orbit plane.
+   * @param p Render params; p.offset_radius is the orbit radius.
+   * @param angle_offset Per-copy phase offset in radians.
+   * @details The per-vertex phase (i * VERTEX_PHASE_STAGGER) staggers the
+   *          orbits so the surface ripples.
+   */
   void update_displaced_mesh(const MeshState &base, MeshState &target,
                              const ArenaVector<Tangent> &tangents,
                              const Params &p, float angle_offset) {
@@ -281,10 +331,21 @@ private:
     }
   }
 
-  // Draw num_copies orbiting wireframe shells of the preset's solid. Each copy
-  // displaces vertices in their tangent frames (staggered in phase by an even
-  // 2*PI/num_copies offset), Mobius-warps and orients them, then plots the
-  // edges shaded from the baked palette at p.alpha * opacity.
+  /**
+   * @brief Draws p.num_copies orbiting wireframe shells of the preset's solid.
+   * @param canvas Render target.
+   * @param p Live render params (copy count, radius, alpha, etc.).
+   * @param opacity Sprite fade factor in [0,1]; multiplies p.alpha.
+   * @param base Source mesh supplying the undisplaced vertices.
+   * @param target Scratch mesh reused for each copy's displaced vertices.
+   * @param tangents Per-vertex tangent frames for the displacement.
+   * @param edges Unique edge list defining the wireframe topology.
+   * @param baked Baked palette LUT supplying edge colors.
+   * @details Each copy displaces vertices in their tangent frames (staggered in
+   *          phase by an even 2*PI/num_copies offset), Mobius-warps and orients
+   *          them, then plots the edges shaded from the baked palette at
+   *          p.alpha * opacity.
+   */
   void draw_scene(Canvas &canvas, const Params &p, float opacity,
                   const MeshState &base, MeshState &target,
                   const ArenaVector<Tangent> &tangents,
@@ -316,8 +377,11 @@ private:
     }
   }
 
-  // Kick off a full-turn rotation of the global orientation about a fresh random
-  // axis; scheduled periodically to keep the whole cluster slowly tumbling.
+  /**
+   * @brief Kicks off a full-turn rotation of the global orientation about a
+   *        fresh random axis.
+   * @details Scheduled periodically to keep the whole cluster slowly tumbling.
+   */
   void spin_slices() {
     Vector axis = random_vector();
     timeline.add(0, Animation::Rotation<W>(global_orientation, axis, 2 * PI_F,

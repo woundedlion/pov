@@ -7,14 +7,25 @@
 
 #include "core/effects_engine.h"
 
-/// Stereographic fly-through: noise-warped Cartesian grid on a sphere,
-/// rotating around Y, blending continuously between camera/warp presets.
+/**
+ * @brief Stereographic fly-through effect.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Projects a noise-warped Cartesian grid onto a sphere, rotating
+ * around Y, blending continuously between camera/warp presets.
+ */
 template <int W, int H> class Flyby : public Effect {
 public:
+  /**
+   * @brief Constructs the effect at W x H and disables pixel persistence.
+   */
   FLASHMEM Flyby() : Effect(W, H) { persist_pixels = false; }
 
-  /// Register animated params, seed orientation and rotation, bake the
-  /// palette LUT, and kick off the looping preset blend.
+  /**
+   * @brief Initializes animated params, orientation, palette, and preset loop.
+   * @details Registers animated params, seeds orientation and rotation, bakes
+   * the palette LUT, and kicks off the looping preset blend.
+   */
   void init() override {
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -48,8 +59,11 @@ public:
     next_preset();
   }
 
-  /// Advance to the next preset and schedule a LERP_FRAMES blend into it,
-  /// re-arming itself on completion to loop forever.
+  /**
+   * @brief Advances to the next preset and schedules a blend into it.
+   * @details Schedules a LERP_FRAMES blend into the next preset, re-arming
+   * itself on completion to loop forever.
+   */
   void next_preset() {
     constexpr int LERP_FRAMES = 480;
     presets.next();
@@ -58,12 +72,19 @@ public:
                         .then([this]() { next_preset(); }));
   }
 
-  /// Draw atop the persistent background buffer (this effect is translucent).
+  /**
+   * @brief Reports that this effect draws atop the persistent background.
+   * @return true; this effect is translucent and composites over the
+   * persistent background buffer.
+   */
   bool show_bg() const override { return true; }
 
-  /// Advance phases, then shade each pixel: project to stereographic space,
-  /// warp by noise, sample the grid pattern, attenuate near the pole, and
-  /// color via the palette with hue rotated by the local warp displacement.
+  /**
+   * @brief Advances animation phases and shades every pixel for one frame.
+   * @details Projects to stereographic space, warps by noise, samples the grid
+   * pattern, attenuates near the pole, and colors via the palette with hue
+   * rotated by the local warp displacement.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -97,25 +118,47 @@ public:
   }
 
 private:
-  /// Stereographic projection with animated orientation.
+  /**
+   * @brief Projects a sphere point to stereographic space.
+   * @param v World-space unit vector on the sphere.
+   * @return Stereographic image of @p v under the animated orientation.
+   * @details Applies the animated orientation before stereographic projection.
+   */
   Complex project(const Vector &v) const {
     return stereo(orientation.unorient(v));
   }
 
-  /// Noise-based warp in stereographic space, attenuated near pole.
+  /**
+   * @brief Applies a noise-based warp in stereographic space.
+   * @param z Stereographic coordinate to warp.
+   * @param r_sq Squared radius z.re^2 + z.im^2, used for pole attenuation.
+   * @param t Noise time axis; scaled by 0.3 before sampling.
+   * @return Warped coordinate and warp displacement.
+   * @details The warp is attenuated near the pole.
+   */
   StereoWarpResult warp(const Complex &z, float r_sq, float t) const {
     return stereo_noise_warp(z, r_sq, noise, params.warp_scale,
                              params.warp_strength, params.pole_fade, t * 0.3f);
   }
 
-  /// Cartesian grid pattern from warped coordinates. `sin_phase` is the wrapped
-  /// `+t` term; `drift_phase` is the wrapped `drift*t` term (see draw_frame).
+  /**
+   * @brief Samples the Cartesian grid pattern from warped coordinates.
+   * @param w Warped stereographic coordinate.
+   * @param sin_phase Wrapped +t term in [0, 2pi) (see draw_frame).
+   * @param drift_phase Wrapped drift*t term in [0, 2pi) (see draw_frame).
+   * @return Product of two sinusoids in [-1, 1] forming the grid pattern.
+   */
   float sample(const Complex &w, float sin_phase, float drift_phase) const {
     return fast_sinf(w.re * params.pattern_freq + sin_phase) *
            fast_cosf(w.im * params.pattern_freq - drift_phase);
   }
 
-  /// Pole attenuation applied to pattern, normalized to [0,1].
+  /**
+   * @brief Applies pole attenuation and normalizes the pattern to [0, 1].
+   * @param pattern Raw grid pattern value in [-1, 1].
+   * @param r_sq Squared stereographic radius driving pole attenuation.
+   * @return Attenuated, normalized value in [0, 1].
+   */
   float attenuate(float pattern, float r_sq) const {
     float fade = pole_attenuation(r_sq, params.pole_fade);
     return (pattern * fade + 1.0f) * 0.5f;
@@ -124,13 +167,15 @@ private:
   Timeline timeline;
   Orientation<> orientation;
   FastNoiseLite noise;
-  float noise_time = 0.0f;   // unbounded noise-time axis (see draw_frame)
-  float sin_phase = 0.0f;    // wrapped to [0, 2pi): the pattern's +t term
-  float drift_phase = 0.0f;  // wrapped to [0, 2pi): the pattern's drift*t term
+  float noise_time = 0.0f;   /**< Unbounded noise-time axis (see draw_frame). */
+  float sin_phase = 0.0f;    /**< Wrapped to [0, 2pi): the pattern's +t term. */
+  float drift_phase = 0.0f;  /**< Wrapped to [0, 2pi): pattern's drift*t term. */
 
   BakedPalette palette;
 
-  /// Tunable warp/pattern/color state, one snapshot per preset.
+  /**
+   * @brief Tunable warp/pattern/color state, one snapshot per preset.
+   */
   struct Params {
     float warp_scale = 1.5f;
     float warp_strength = 0.5f;
@@ -140,11 +185,16 @@ private:
     float drift = 0.7f;
     float hue_shift = 0.15f;
 
-    /// Parallel interpolation: every field morphs simultaneously over t.
-    /// Deliberately unlike Liquid2D's staggered, one-field-at-a-time slicing —
-    /// Flyby's presets read as a single coherent camera/warp pose, so a
-    /// straight simultaneous blend keeps the fly-through fluid, whereas
-    /// sequencing the fields would make the motion stutter field by field.
+    /**
+     * @brief Interpolates every field in parallel from a to b.
+     * @param a Source params (t = 0).
+     * @param b Destination params (t = 1).
+     * @param t Blend factor in [0, 1].
+     * @details Every field morphs simultaneously over t. A straight
+     * simultaneous blend keeps the fly-through fluid, because each preset reads
+     * as a single coherent camera/warp pose; sequencing the fields one at a
+     * time would make the motion stutter field by field.
+     */
     void lerp(const Params &a, const Params &b, float t) {
       warp_scale = hs::lerp(a.warp_scale, b.warp_scale, t);
       warp_strength = hs::lerp(a.warp_strength, b.warp_strength, t);

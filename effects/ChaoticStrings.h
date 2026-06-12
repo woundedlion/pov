@@ -7,9 +7,14 @@
 
 #include "core/effects_engine.h"
 
-// Undulating string of orientation trails: a single node random-walks and
-// follows a Lissajous path while a noise transformer warps its trail each
-// frame, drawn as an anti-aliased multiline colored by trail position.
+/**
+ * @brief Undulating string of orientation trails drawn as an anti-aliased
+ *        multiline colored by trail position.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details A single node random-walks and follows a Lissajous path while a
+ *          noise transformer warps its trail each frame.
+ */
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
@@ -20,31 +25,41 @@ public:
   static constexpr int ORIENTATION_SUBSTEPS = 16;
   static constexpr int MAX_FRAGMENTS = TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
-  // Live-tunable parameters exposed as sliders.
+  /**
+   * @brief Live-tunable parameters exposed as sliders.
+   */
   struct Params {
-    float alpha = 1.0f;
-    float cycle_duration = 80.0f;
-    float jitterAmp = 1.7f;
-    float speed = 0.04f;
-    float noiseFreq = 0.32f;
-    float scaleFactor = 200.0f;
-    float cycleSpeed = 0.1f;
+    float alpha = 1.0f;          /**< Overall trail opacity in [0, 1]. */
+    float cycle_duration = 80.0f; /**< Motion cycle duration in frames. */
+    float jitterAmp = 1.7f;      /**< Noise displacement amplitude. */
+    float speed = 0.04f;         /**< Noise field evolution speed. */
+    float noiseFreq = 0.32f;     /**< Noise spatial frequency. */
+    float scaleFactor = 200.0f;  /**< Palette coordinate scale factor. */
+    float cycleSpeed = 0.1f;     /**< Palette cycle phase advance per step. */
   } params;
 
-  // The single animated body: its orientation, the rolling history of
-  // orientations that forms the drawn trail, and its base direction vector.
+  /**
+   * @brief The single animated body: orientation, rolling trail history, and
+   *        base direction vector.
+   */
   struct Node {
-    Orientation<ORIENTATION_SUBSTEPS> orientation;
+    Orientation<ORIENTATION_SUBSTEPS> orientation; /**< Current node orientation. */
     Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>,
                                 TRAIL_LENGTH>
-        trail;
-    Vector v;
+        trail; /**< Rolling history of orientations forming the drawn trail. */
+    Vector v;  /**< Base direction vector, seeded to +Y. */
 
+    /**
+     * @brief Constructs a Node with its base direction set to the Y axis.
+     */
     Node() : v(Y_AXIS) {}
   };
 
-  // Construct members; the path seeds to +Y until update_path() installs the
-  // Lissajous curve in init().
+  /**
+   * @brief Constructs the effect and its members.
+   * @details The path seeds to +Y until update_path() installs the Lissajous
+   *          curve in init().
+   */
   FLASHMEM ChaoticStrings()
       : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),
@@ -57,8 +72,11 @@ public:
   static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(Fragment),
                 "scratch arena A must fit the worst-case fragment buffer");
 
-  // Carve arenas, allocate the node, bind the palette, register sliders, and
-  // wire up the timeline animations (random walk, path motion, cycle driver).
+  /**
+   * @brief Carves arenas, allocates the node, binds the palette, registers
+   *        sliders, and wires up the timeline animations.
+   * @details Sets up the random walk, path motion, and cycle driver animations.
+   */
   void init() override {
 
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
@@ -106,12 +124,19 @@ public:
     last_cycle_duration_ = params.cycle_duration;
   }
 
-  // Skip the engine's background fill so the trail draws on a black field.
+  /**
+   * @brief Skips the engine's background fill so the trail draws on black.
+   * @return Always false to suppress the background.
+   */
   bool show_bg() const override { return false; }
 
-  // Step the timeline, push live slider values into the noise entities, record
-  // the latest orientation into the trail, tween it into per-vertex fragments
-  // warped by noise, and draw the colored multiline.
+  /**
+   * @brief Advances and renders one frame of the effect.
+   * @details Steps the timeline, pushes live slider values into the noise
+   *          entities, records the latest orientation into the trail, tweens it
+   *          into per-vertex fragments warped by noise, and draws the colored
+   *          multiline.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     ScratchScope _(scratch_arena_a);
@@ -163,8 +188,10 @@ public:
   }
 
 private:
-  // Install the procedural path as a fixed Lissajous curve sampled over its full
-  // domain.
+  /**
+   * @brief Installs the procedural path as a fixed Lissajous curve.
+   * @details Samples the curve over its full domain.
+   */
   void update_path() {
     static constexpr LissajousParams config{12.0f, 5.0f, 0, 2 * PI_F};
     path.f = [](float t) {
@@ -172,21 +199,21 @@ private:
     };
   }
 
-  FastNoiseLite noise;
-  Timeline timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  ProceduralPath path;
-  Orientation<> orientation;
-  ScaleModifier scale_mod{200.0f, &params.scaleFactor};
-  CycleModifier cycle_mod{&cycle_phase};
-  ProceduralPalette palette_variant;
+  FastNoiseLite noise; /**< Noise source for the random walk. */
+  Timeline timeline;   /**< Drives all per-frame animations. */
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Anti-aliasing render pipeline. */
+  ProceduralPath path;    /**< Lissajous path the node follows. */
+  Orientation<> orientation; /**< Random-walk orientation reference frame. */
+  ScaleModifier scale_mod{200.0f, &params.scaleFactor}; /**< Palette scale coordinate modifier. */
+  CycleModifier cycle_mod{&cycle_phase}; /**< Palette cycle coordinate modifier. */
+  ProceduralPalette palette_variant; /**< Active palette variant. */
   StaticPalette<ProceduralPalette, Coords<ScaleModifier, CycleModifier>>
-      static_palette;
-  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ = nullptr;
-  float last_cycle_duration_ = -1.0f;
-  float cycle_phase = 0.0f;
-  Node *node = nullptr;
-  NoiseTransformer<1> noise_xform;
+      static_palette; /**< Bound palette sampled per fragment. */
+  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ = nullptr; /**< Retained motion handle for live Cycle Dur updates. */
+  float last_cycle_duration_ = -1.0f; /**< Last applied cycle duration, for change detection. */
+  float cycle_phase = 0.0f; /**< Current palette cycle phase. */
+  Node *node = nullptr;     /**< The single animated body, arena-allocated. */
+  NoiseTransformer<1> noise_xform; /**< Warps the trail with noise each frame. */
 };
 
 #include "core/effect_registry.h"

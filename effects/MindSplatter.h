@@ -7,12 +7,19 @@
 
 #include "core/effects_engine.h"
 
-// Particle effect: emitters on a cube's vertices spray particles that are
-// pulled toward attractors on an octahedron's vertices, drawn through a
-// Mobius warp. Presets cyclically lerp friction/well-strength/speed params,
-// and the whole field is randomly re-warped on a timer.
+/**
+ * @brief Particle effect spraying from cube-vertex emitters toward
+ *        octahedron-vertex attractors through a Mobius warp.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Presets cyclically lerp friction/well-strength/speed params, and
+ *          the whole field is randomly re-warped on a timer.
+ */
 template <int W, int H> class MindSplatter : public Effect {
 public:
+  /**
+   * @brief Constructs the effect, seeding the preset table and filters.
+   */
   FLASHMEM MindSplatter()
       : Effect(W, H), presets{{{{{0.85f, 1.0f, 0.025f, 0.2f}},
                                 {{0.85f, 1.0f, 0.025f, 0.52f}},
@@ -22,8 +29,10 @@ public:
         filters(Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
-  // Register params, build the particle system + presets timeline, bake the
-  // palette, and kick off the warp scheduler.
+  /**
+   * @brief Registers params, builds the particle system and presets timeline,
+   *        bakes the palette, and kicks off the warp scheduler.
+   */
   void init() override {
     // The particle pool needs the bulk of the arena, so leave the persistent
     // arena large: carve only a small scratch_a (11 KiB) and no scratch_b.
@@ -66,10 +75,16 @@ public:
     start_warp();
   }
 
+  /**
+   * @brief Reports whether the engine should clear to a background each frame.
+   * @return Always false; this effect manages its own canvas contents.
+   */
   bool show_bg() const override { return false; }
 
-  // Step the timeline, push live params into the particle system, advance it,
-  // then render the particles.
+  /**
+   * @brief Steps the timeline, pushes live params into the particle system,
+   *        advances it, then renders the particles.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -85,14 +100,16 @@ public:
   }
 
 private:
-  // Pool footprint (identical on the 32-bit device and the 64-bit native build,
-  // since VectorTrail's circular-buffer indices are uint32_t — see
-  // static_circular_buffer.h):
-  //   Particle<23> = pos(12) + vel(12) + seed(2) + life(2) + VectorTrail<23>(288)
-  //              = 316 B; pool = 1024 * 316 = 316 KB.
-  // That leaves ~19 KB under the 335 KB arena to cover the 11 KB scratch carve
-  // (see init()) plus the baked palette + attractors/emitters, so the device
-  // fits with headroom.
+  /**
+   * @brief Fixed particle pool capacity.
+   * @details Pool footprint is identical on the 32-bit device and the 64-bit
+   *          native build, since VectorTrail's circular-buffer indices are
+   *          uint32_t. Particle<23> = pos(12) + vel(12) + seed(2) + life(2) +
+   *          VectorTrail<23>(288) = 316 B; pool = 1024 * 316 = 316 KB. That
+   *          leaves ~19 KB under the 335 KB arena to cover the 11 KB scratch
+   *          carve plus the baked palette and attractors/emitters, so the
+   *          device fits with headroom.
+   */
   static const int NUM_PARTICLES = 1024;
 
   typedef Solids::Cube EmitSolid;
@@ -102,15 +119,24 @@ private:
                                     AttractSolid::NUM_VERTS>
       ParticleSystem;
 
-  // Animated effect parameters; active_count is engine-written (read-only).
+  /**
+   * @brief Animated effect parameters snapshot.
+   * @details active_count is engine-written (read-only); the remaining fields
+   *          are driven by the preset Lerp or by user input when paused.
+   */
   struct Params {
-    float friction = 0.85f;
-    float well_strength = 1.0f;
-    float initial_speed = 0.025f;
-    float angular_speed = 0.2f;
-    float active_count = 0.0f;
+    float friction = 0.85f;       /**< Velocity retention per step in [0.5, 1]. */
+    float well_strength = 1.0f;   /**< Attractor pull strength in [0, 20]. */
+    float initial_speed = 0.025f; /**< Spawn speed in [0, 0.1] (units/step). */
+    float angular_speed = 0.2f;   /**< Emission phase rate in [0, 1] (rad/emit). */
+    float active_count = 0.0f;    /**< Live particle count (engine-written). */
 
-    // Linearly interpolate each field between two preset snapshots (t in [0,1]).
+    /**
+     * @brief Linearly interpolates each field between two preset snapshots.
+     * @param start Source snapshot (interpolation parameter t = 0).
+     * @param target Destination snapshot (interpolation parameter t = 1).
+     * @param t Interpolation factor in [0, 1].
+     */
     void lerp(const Params &start, const Params &target, float t) {
       friction = start.friction + (target.friction - start.friction) * t;
       well_strength = start.well_strength +
@@ -134,18 +160,23 @@ private:
       BrightnessProfile::FLAT, SaturationProfile::MID};
   BakedPalette baked_palette_;
   std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
-  // Per-emitter accumulated emission angle (radians, wrapped to [0,2pi)). Driven
-  // by integrating Ang Spd each emission, so a live speed change alters the
-  // emission rate going forward only.
+  /**
+   * @brief Per-emitter accumulated emission angle (radians, wrapped to
+   *        [0, 2pi)).
+   * @details Driven by integrating Ang Spd each emission, so a live speed
+   *          change alters the emission rate going forward only.
+   */
   std::array<float, EmitSolid::NUM_VERTS> emit_phases;
 
-  // Warp params
-  MobiusParams mobius;
-  float warp_scale = 0.6f;
+  MobiusParams mobius;      /**< Current Mobius warp parameters. */
+  float warp_scale = 0.6f;  /**< Magnitude of each warp animation. */
 
-  // (Re)build the particle system: init the pool, place attractors on the
-  // octahedron vertices, seed emitter hues/phases, and install an emitter at
-  // each cube vertex.
+  /**
+   * @brief (Re)builds the particle system from scratch.
+   * @details Inits the pool, places attractors on the octahedron vertices,
+   *          seeds emitter hues/phases, and installs an emitter at each cube
+   *          vertex.
+   */
   FLASHMEM void rebuild() {
     particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);
 
@@ -186,8 +217,13 @@ private:
     }
   }
 
-  // Render all particles through the Mobius warp, dimming each fragment by the
-  // attractor "event horizon" kernels and coloring it from the baked palette.
+  /**
+   * @brief Renders all particles through the Mobius warp, dimming each fragment
+   *        by the attractor event-horizon kernels and coloring from the baked
+   *        palette.
+   * @param canvas Target canvas to draw the particle system into.
+   * @param opacity Global opacity multiplier in [0, 1] applied to each fragment.
+   */
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
     // Precompute cos(event_horizon) per attractor for a dot-product fast-reject:
     // points with dot < this threshold lie beyond the horizon (no influence)
@@ -240,17 +276,23 @@ private:
                                      fragment_shader, vertex_shader);
   }
 
-  // Begin the self-rescheduling warp cycle.
+  /**
+   * @brief Begins the self-rescheduling warp cycle.
+   */
   void start_warp() { schedule_warp(); }
 
-  // Arm a one-shot timer (180-300 steps) that triggers the next warp.
+  /**
+   * @brief Arms a one-shot timer (180-300 steps) that triggers the next warp.
+   */
   void schedule_warp() {
     auto timer =
         Animation::RandomTimer(180, 300, [this](Canvas &) { perform_warp(); });
     timeline.add(0, timer);
   }
 
-  // Run one Mobius warp animation, then re-arm the timer for the next.
+  /**
+   * @brief Runs one Mobius warp animation, then re-arms the timer for the next.
+   */
   void perform_warp() {
     auto warp = Animation::MobiusWarp(mobius, warp_scale, 160, false);
     warp.then([this]() { schedule_warp(); });

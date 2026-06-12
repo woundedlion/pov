@@ -27,20 +27,60 @@ struct Fragment;
 struct Color4;
 template <typename Signature> class FunctionRef;
 
+/**
+ * @brief Non-owning, type-erased reference to any callable matching Ret(Args...).
+ * @tparam Ret Return type of the wrapped callable.
+ * @tparam Args Argument types of the wrapped callable.
+ * @details Borrows the callable via a void* context plus a thunk pointer; zero
+ * heap allocation. The referenced callable must outlive the FunctionRef.
+ */
 template <typename Ret, typename... Args> class FunctionRef<Ret(Args...)> {
   void *ctx_ = nullptr;
   Ret (*thunk_)(void *, Args...) = nullptr;
 
 public:
+  /**
+   * @brief Constructs an empty FunctionRef that refers to no callable.
+   */
   FunctionRef() = default;
+
+  /**
+   * @brief Constructs an empty FunctionRef from a null pointer literal.
+   */
   FunctionRef(std::nullptr_t) {}
 
-  // Explicit copy/move — prevent the generic Callable template from matching
+  // Explicit copy/move — prevent the generic Callable template from matching.
+
+  /**
+   * @brief Copy-constructs a reference to the same callable.
+   * @param other Source FunctionRef to copy.
+   */
   FunctionRef(const FunctionRef &other) noexcept = default;
+
+  /**
+   * @brief Move-constructs a reference to the same callable.
+   * @param other Source FunctionRef to move from.
+   */
   FunctionRef(FunctionRef &&other) noexcept = default;
+
+  /**
+   * @brief Copy-assigns to refer to the same callable as other.
+   * @param other Source FunctionRef to copy.
+   * @return Reference to this FunctionRef.
+   */
   FunctionRef &operator=(const FunctionRef &other) noexcept = default;
+
+  /**
+   * @brief Move-assigns to refer to the same callable as other.
+   * @param other Source FunctionRef to move from.
+   * @return Reference to this FunctionRef.
+   */
   FunctionRef &operator=(FunctionRef &&other) noexcept = default;
 
+  /**
+   * @brief Wraps a plain function pointer.
+   * @param func Function pointer with signature Ret(Args...); stored in ctx_.
+   */
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx_(reinterpret_cast<void *>(func)) {
     thunk_ = [](void *ptr, Args... args) -> Ret {
@@ -49,6 +89,12 @@ public:
     };
   }
 
+  /**
+   * @brief Wraps a non-const lvalue callable (functor or lambda).
+   * @tparam Callable Type of the callable; must be invocable with Args... and
+   * not itself a FunctionRef.
+   * @param callable Callable whose address is stored; must outlive this ref.
+   */
   template <typename Callable>
     requires std::invocable<Callable, Args...> &&
              (!std::same_as<std::decay_t<Callable>, FunctionRef>)
@@ -58,6 +104,13 @@ public:
     };
   }
 
+  /**
+   * @brief Wraps a const lvalue callable (functor or lambda).
+   * @tparam Callable Type of the callable; must be invocable with Args... and
+   * not itself a FunctionRef.
+   * @param callable Const callable whose address is stored; must outlive this
+   * ref. The const is cast away into ctx_ and restored in the thunk.
+   */
   template <typename Callable>
     requires std::invocable<Callable, Args...> &&
              (!std::same_as<std::decay_t<Callable>, FunctionRef>)
@@ -69,13 +122,23 @@ public:
     };
   }
 
+  /**
+   * @brief Invokes the wrapped callable.
+   * @param args Arguments forwarded to the callable.
+   * @return Result of the wrapped callable.
+   * @details Per-pixel hot path (trail/transform callbacks): the null check is a
+   * debug-only assert, deliberately NOT HS_CHECK to avoid an always-on per-call
+   * branch on-device.
+   */
   inline Ret operator()(Args... args) const {
-    // Per-pixel hot path (trail/transform callbacks): debug-only guard,
-    // deliberately NOT HS_CHECK to avoid an always-on per-call branch on-device.
     assert(thunk_ != nullptr && "FunctionRef called on null/default-constructed ref");
     return thunk_(ctx_, std::forward<Args>(args)...);
   }
 
+  /**
+   * @brief Tests whether this FunctionRef refers to a callable.
+   * @return True if a callable is bound, false if empty.
+   */
   [[nodiscard]] explicit operator bool() const { return thunk_ != nullptr; }
 };
 
@@ -90,27 +153,34 @@ using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 
-// Non-owning, type-erased handle to a rasterizer pipeline. Forwards plot()
-// calls (2D screen-space or 3D world-space) to the wrapped object's plot()
-// methods. Like FunctionRef, it borrows the target and must not outlive it.
-// Used by Plot::*/Scan::*::draw() so call sites can pass any pipeline without
-// templating. This erasure is a deliberate code-size choice: erasing the
-// pipeline here (and the shader, via FragmentShaderFn) at the draw() boundary
-// costs one indirect plot() call per pixel, but instantiates the whole scanline
-// machine once per <W,H> instead of once per (shape x shader-lambda x
-// filter-stack) — the latter would explode device flash / wasm size across the
-// 27 effects' distinct shader closures and variadic filter-stack types.
-// Per-pixel inlining is intentionally traded for a bounded binary.
+/**
+ * @brief Non-owning, type-erased handle to a rasterizer pipeline.
+ * @details Forwards plot() calls (2D screen-space or 3D world-space) to the
+ * wrapped object's plot() methods. Like FunctionRef, it borrows the target and
+ * must not outlive it. Used by the Plot and Scan draw() entry points so call
+ * sites can pass any pipeline without templating. This erasure is a deliberate code-size
+ * choice: erasing the pipeline here (and the shader, via FragmentShaderFn) at
+ * the draw() boundary costs one indirect plot() call per pixel, but instantiates
+ * the whole scanline machine once per <W,H> instead of once per (shape x
+ * shader-lambda x filter-stack) — the latter would explode device flash / wasm
+ * size across the 27 effects' distinct shader closures and variadic filter-stack
+ * types. Per-pixel inlining is intentionally traded for a bounded binary.
+ */
 class PipelineRef {
   void *ctx_;
   void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);
   void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float);
 
 public:
-  // Exclude PipelineRef itself (mirroring FunctionRef): without this, copying
-  // from a non-const lvalue binds this template (exact T& match) instead of the
-  // implicit copy ctor, wrapping a ref-to-a-ref — an extra plot() indirection
-  // per pixel and a dangling ctx_ if the source dies first.
+  /**
+   * @brief Wraps any object exposing 2D and 3D plot() methods.
+   * @tparam T Pipeline type; excluded from being PipelineRef itself.
+   * @param t Pipeline object whose address is stored; must outlive this ref.
+   * @details Excludes PipelineRef itself (mirroring FunctionRef): without this,
+   * copying from a non-const lvalue binds this template (exact T& match) instead
+   * of the implicit copy ctor, wrapping a ref-to-a-ref — an extra plot()
+   * indirection per pixel and a dangling ctx_ if the source dies first.
+   */
   template <typename T>
     requires(!std::same_as<std::decay_t<T>, PipelineRef>)
   PipelineRef(T &t) : ctx_(std::addressof(t)) {
@@ -124,15 +194,43 @@ public:
     };
   }
 
+  /**
+   * @brief Plots a pixel at floating-point screen coordinates.
+   * @param cv Target canvas to draw into.
+   * @param x Column position in pixels (screen space).
+   * @param y Row position in pixels (screen space).
+   * @param c Source color to plot.
+   * @param age Normalized trail age in [0, 1].
+   * @param alpha Coverage/opacity in [0, 1].
+   */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) const {
     plot2d_(ctx_, cv, x, y, c, age, alpha);
   }
+  /**
+   * @brief Plots a pixel at integer screen coordinates.
+   * @param cv Target canvas to draw into.
+   * @param x Column position in pixels (screen space).
+   * @param y Row position in pixels (screen space).
+   * @param c Source color to plot.
+   * @param age Normalized trail age in [0, 1].
+   * @param alpha Coverage/opacity in [0, 1].
+   * @details Promotes the integer coordinates to float and forwards to the 2D
+   * plot thunk.
+   */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age,
             float alpha) const {
     plot2d_(ctx_, cv, static_cast<float>(x), static_cast<float>(y), c, age,
             alpha);
   }
+  /**
+   * @brief Plots a pixel at a 3D world-space position.
+   * @param cv Target canvas to draw into.
+   * @param v World-space position to project and plot.
+   * @param c Source color to plot.
+   * @param age Normalized trail age in [0, 1].
+   * @param alpha Coverage/opacity in [0, 1].
+   */
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
             float alpha) const {
     plot3d_(ctx_, cv, v, c, age, alpha);
@@ -147,8 +245,10 @@ using EasingFn = float (*)(float);
 
 /**
  * @brief Concept for any object that maintains a history or sequence accessible
- * by index. Matches Orientation (get -> Quaternion) and OrientationTrail (get
- * -> Orientation).
+ * by index.
+ * @tparam T Candidate type; must expose length() and get(index).
+ * @details Matches Orientation (get -> Quaternion) and OrientationTrail (get ->
+ * Orientation). The return type of get() is left deduced.
  */
 template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {

@@ -29,7 +29,9 @@ namespace color_tests {
 // lerp16
 // ============================================================================
 
-// frac=0 and frac=65535 must recover the two endpoints exactly.
+/**
+ * @brief Verifies frac=0 and frac=65535 recover the two endpoints exactly.
+ */
 inline void test_lerp16_endpoints() {
   Pixel16 a(1000, 2000, 3000);
   Pixel16 b(40000, 50000, 60000);
@@ -46,8 +48,11 @@ inline void test_lerp16_endpoints() {
   HS_EXPECT_EQ(at1.b, b.b);
 }
 
-// At frac~0.5 each channel lands on (a+b)/2 within the /65535 rounding error;
-// equal endpoints stay put.
+/**
+ * @brief Verifies frac~0.5 lands each channel on (a+b)/2 within rounding error.
+ * @details Each channel lands on (a+b)/2 within the /65535 rounding error;
+ *          equal endpoints stay put.
+ */
 inline void test_lerp16_midpoint() {
   Pixel16 a(0, 100, 65535);
   Pixel16 b(65535, 300, 65535);
@@ -58,10 +63,13 @@ inline void test_lerp16_midpoint() {
   HS_EXPECT_EQ(mid.b, 65535); // both endpoints equal -> stays put
 }
 
-// lerp16 must round to nearest, not floor. The reconstruction tail
-// (x + (x>>16) + 32768) >> 16 adds half a quantum so the divide rounds; at
-// frac = 49152 (~0.75) round-to-nearest and floor disagree on every channel,
-// pinning the rounding behavior for both the portable and smlad paths.
+/**
+ * @brief Verifies lerp16 rounds to nearest, not floor.
+ * @details The reconstruction tail (x + (x>>16) + 32768) >> 16 adds half a
+ *          quantum so the divide rounds; at frac = 49152 (~0.75) round-to-nearest
+ *          and floor disagree on every channel, pinning the rounding behavior for
+ *          both the portable and smlad paths.
+ */
 inline void test_lerp16_rounds_to_nearest() {
   Pixel16 a(0, 0, 0);
   Pixel16 b(1, 2, 4);
@@ -72,8 +80,11 @@ inline void test_lerp16_rounds_to_nearest() {
   HS_EXPECT_EQ(m.b, 3);
 }
 
-// Every interpolated channel must lie within the [min,max] envelope of the two
-// endpoints (allowing +/- 1 LSB of rounding slack).
+/**
+ * @brief Verifies every interpolated channel lies within the endpoint envelope.
+ * @details Each channel must lie within the [min,max] envelope of the two
+ *          endpoints (allowing +/- 1 LSB of rounding slack).
+ */
 inline void test_lerp16_bounded() {
   Pixel16 a(123, 45678, 65535);
   Pixel16 b(65535, 0, 12345);
@@ -86,18 +97,27 @@ inline void test_lerp16_bounded() {
   }
 }
 
-// Round-to-nearest div-by-65535 reference, in double.
+/**
+ * @brief Round-to-nearest div-by-65535 lerp reference computed in double.
+ * @param a First endpoint channel value in [0, 65535].
+ * @param b Second endpoint channel value in [0, 65535].
+ * @param frac Interpolation fraction in [0, 65535] mapping to [0, 1].
+ * @return Interpolated channel value in [0, 65535], rounded to nearest.
+ */
 inline uint16_t lerp16_reference(uint16_t a, uint16_t b, uint16_t frac) {
   double t = static_cast<double>(frac) / 65535.0;
   return static_cast<uint16_t>(a * (1.0 - t) + b * t + 0.5);
 }
 
-// lerp16 must be correct across the FULL 0..65535 operand range, not just the
-// lower half. A signed 16x16 multiply would misread any operand >= 32768 (a
-// frac, an inverse-frac, or a bright channel) as negative and corrupt the whole
-// upper half by up to a full 65535; this pins unsigned-correct results so the
-// device's MAC path stays bit-exact with the double reference. (The native build
-// can't run the ARM asm, so this guards the behavior, not the instruction.)
+/**
+ * @brief Verifies lerp16 is correct across the full 0..65535 operand range.
+ * @details A signed 16x16 multiply would misread any operand >= 32768 (a frac,
+ *          an inverse-frac, or a bright channel) as negative and corrupt the
+ *          whole upper half by up to a full 65535; this pins unsigned-correct
+ *          results so the device's MAC path stays bit-exact with the double
+ *          reference. The native build can't run the ARM asm, so this guards the
+ *          behavior, not the instruction.
+ */
 inline void test_lerp16_full_range_correct() {
   // Midpoint of two maximal channels stays maximal — the canonical case a signed
   // multiply collapses (65535 read as -1 -> product ~0).
@@ -128,7 +148,9 @@ inline void test_lerp16_full_range_correct() {
 // Blend modes
 // ============================================================================
 
-// over picks the source, under picks the destination.
+/**
+ * @brief Verifies blend_over picks the source and blend_under the destination.
+ */
 inline void test_blend_over_under() {
   Pixel16 dst(100, 200, 300);
   Pixel16 src(4000, 5000, 6000);
@@ -136,7 +158,9 @@ inline void test_blend_over_under() {
   HS_EXPECT_TRUE(blend_under(dst, src) == dst);
 }
 
-// blend_max takes the per-channel maximum.
+/**
+ * @brief Verifies blend_max takes the per-channel maximum.
+ */
 inline void test_blend_max() {
   Pixel16 a(100, 5000, 300);
   Pixel16 b(4000, 200, 6000);
@@ -146,7 +170,9 @@ inline void test_blend_max() {
   HS_EXPECT_EQ(m.b, 6000);
 }
 
-// blend_mean averages the two pixels per channel.
+/**
+ * @brief Verifies blend_mean averages the two pixels per channel.
+ */
 inline void test_blend_mean() {
   Pixel16 a(0, 100, 65534);
   Pixel16 b(65534, 300, 0);
@@ -156,7 +182,9 @@ inline void test_blend_mean() {
   HS_EXPECT_EQ(m.b, 32767);
 }
 
-// Adding black is the identity in either order.
+/**
+ * @brief Verifies blend_add with black is the identity in either order.
+ */
 inline void test_blend_add_identity_with_black() {
   Pixel16 c(1234, 5678, 9012);
   Pixel16 black(0, 0, 0);
@@ -166,7 +194,9 @@ inline void test_blend_add_identity_with_black() {
   HS_EXPECT_TRUE(r2 == c);
 }
 
-// blend_add sums per channel and clamps at 65535 instead of wrapping.
+/**
+ * @brief Verifies blend_add sums per channel and clamps at 65535, not wrapping.
+ */
 inline void test_blend_add_saturates() {
   Pixel16 a(60000, 60000, 100);
   Pixel16 b(60000, 1000, 50);
@@ -178,16 +208,21 @@ inline void test_blend_add_saturates() {
   HS_EXPECT_LE(r.r, 65535);
 }
 
-// max against black is the identity.
+/**
+ * @brief Verifies blend_max against black is the identity.
+ */
 inline void test_blend_max_with_black_identity() {
   Pixel16 c(111, 222, 333);
   Pixel16 black(0, 0, 0);
   HS_EXPECT_TRUE(blend_max(c, black) == c);
 }
 
-// blend_alpha clamps its alpha to [0,1] before the float->int cast: in-range
-// values interpolate (truncating quantization) and out-of-range/overflowing/NaN
-// alphas saturate to an endpoint instead of invoking cast UB.
+/**
+ * @brief Verifies blend_alpha clamps its alpha to [0,1] before the float->int cast.
+ * @details In-range values interpolate (truncating quantization) and
+ *          out-of-range/overflowing/NaN alphas saturate to an endpoint instead
+ *          of invoking cast UB.
+ */
 inline void test_blend_alpha_clamps_before_cast() {
   Pixel16 a(0, 0, 0);
   Pixel16 b(60000, 40000, 20000);
@@ -205,9 +240,12 @@ inline void test_blend_alpha_clamps_before_cast() {
   HS_EXPECT_TRUE(nan_res == b);
 }
 
-// Pixel16 * float clamps each scaled channel into [0,65535] before the cast:
-// overflowing scales saturate, negatives clamp to 0, and NaN folds to the hi
-// bound (matching blend_alpha) rather than invoking cast UB.
+/**
+ * @brief Verifies Pixel16 * float clamps each scaled channel into [0,65535]
+ *        before the cast.
+ * @details Overflowing scales saturate, negatives clamp to 0, and NaN folds to
+ *          the hi bound (matching blend_alpha) rather than invoking cast UB.
+ */
 inline void test_pixel16_scale_clamps_before_cast() {
   Pixel16 c(100, 2000, 30000);
 
@@ -230,7 +268,15 @@ inline void test_pixel16_scale_clamps_before_cast() {
 // OKLab / OKLCH round-trips
 // ============================================================================
 
-// sRGB[0-255] -> linear float -> OKLab -> linear float -> sRGB[0-255]
+/**
+ * @brief Round-trips one sRGB color through OKLab and asserts recovery.
+ * @param r Source red channel in [0, 255].
+ * @param g Source green channel in [0, 255].
+ * @param b Source blue channel in [0, 255].
+ * @param tol255 Allowed absolute error in 8-bit sRGB levels.
+ * @details Path: sRGB[0-255] -> linear float -> OKLab -> linear float ->
+ *          sRGB[0-255].
+ */
 inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b, float tol255) {
   float rf = srgb_to_linear_float(r / 255.0f);
   float gf = srgb_to_linear_float(g / 255.0f);
@@ -249,8 +295,11 @@ inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b, float tol255) {
   HS_EXPECT_NEAR(bs, static_cast<float>(b), tol255);
 }
 
-// sRGB -> OKLab -> sRGB recovers grays, primaries/secondaries, and an arbitrary
-// color to within tol255 of the original 8-bit value.
+/**
+ * @brief Verifies sRGB -> OKLab -> sRGB recovers a spread of colors.
+ * @details Recovers grays, primaries/secondaries, and an arbitrary color to
+ *          within tol255 of the original 8-bit value.
+ */
 inline void test_oklab_roundtrip() {
   // Grays
   roundtrip_oklab(0, 0, 0, 1.0f);
@@ -267,7 +316,14 @@ inline void test_oklab_roundtrip() {
   roundtrip_oklab(37, 142, 211, 1.0f);
 }
 
-// sRGB[0-255] -> OKLCH -> OKLab -> linear -> sRGB[0-255]
+/**
+ * @brief Round-trips one sRGB color through OKLCH and asserts recovery.
+ * @param r Source red channel in [0, 255].
+ * @param g Source green channel in [0, 255].
+ * @param b Source blue channel in [0, 255].
+ * @param tol255 Allowed absolute error in 8-bit sRGB levels.
+ * @details Path: sRGB[0-255] -> OKLCH -> OKLab -> linear -> sRGB[0-255].
+ */
 inline void roundtrip_oklch(uint8_t r, uint8_t g, uint8_t b, float tol255) {
   OKLCH lch = srgb_to_oklch(r, g, b);
   float r2, g2, b2;
@@ -280,7 +336,9 @@ inline void roundtrip_oklch(uint8_t r, uint8_t g, uint8_t b, float tol255) {
   HS_EXPECT_NEAR(bs, static_cast<float>(b), tol255);
 }
 
-// sRGB -> OKLCH -> sRGB recovers grays, primaries, and a sample color.
+/**
+ * @brief Verifies sRGB -> OKLCH -> sRGB recovers grays, primaries, and a sample.
+ */
 inline void test_oklch_roundtrip() {
   roundtrip_oklch(0, 0, 0, 1.0f);
   roundtrip_oklch(128, 128, 128, 1.0f);
@@ -291,7 +349,9 @@ inline void test_oklch_roundtrip() {
   roundtrip_oklch(64, 180, 75, 1.0f);
 }
 
-// Pure grays must have ~zero chroma in OKLCH.
+/**
+ * @brief Verifies pure grays have ~zero chroma in OKLCH.
+ */
 inline void test_oklch_gray_is_achromatic() {
   OKLCH g0 = srgb_to_oklch(0, 0, 0);
   OKLCH g1 = srgb_to_oklch(128, 128, 128);
@@ -301,8 +361,11 @@ inline void test_oklch_gray_is_achromatic() {
   HS_EXPECT_NEAR(g2.C, 0.0f, 1e-3f);
 }
 
-// lerp_oklch hue handling for achromatic endpoints: two grays force hue to 0,
-// and a gray/chromatic pair adopts the chromatic side's hue.
+/**
+ * @brief Verifies lerp_oklch hue handling for achromatic endpoints.
+ * @details Two grays force hue to 0, and a gray/chromatic pair adopts the
+ *          chromatic side's hue.
+ */
 inline void test_lerp_oklch_achromatic_hue() {
   // Both achromatic -> hue forced to 0, endpoints recovered in L.
   OKLCH a = srgb_to_oklch(0, 0, 0);
@@ -319,12 +382,14 @@ inline void test_lerp_oklch_achromatic_hue() {
   HS_EXPECT_NEAR(from_gray.h, red.h, 1e-6f);
 }
 
-// The marquee color feature: hue interpolates along the SHORT arc, wrapping
-// across the +/-PI seam rather than sweeping the long way around the wheel.
-// atan2f puts h in [-PI, PI], so two hues straddling that seam are only a small
-// arc apart even though their numeric difference is ~2*PI. A naive linear lerp
-// would pass through h=0 (the opposite side of the wheel); the shortest-arc lerp
-// must pass through the seam at +/-PI instead.
+/**
+ * @brief Verifies lerp_oklch interpolates hue along the short arc across the seam.
+ * @details atan2f puts h in [-PI, PI], so two hues straddling that seam are only
+ *          a small arc apart even though their numeric difference is ~2*PI. A
+ *          naive linear lerp would pass through h=0 (the opposite side of the
+ *          wheel); the shortest-arc lerp must pass through the seam at +/-PI
+ *          instead. This underpins the marquee color feature.
+ */
 inline void test_lerp_oklch_shortest_arc_midpoint() {
   const float L = 0.6f, C = 0.15f;
 
@@ -354,7 +419,9 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   HS_EXPECT_NEAR(mid.C, C, 1e-5f);
 }
 
-// lerp_oklch at amount 0/1 reproduces the endpoints' L and C.
+/**
+ * @brief Verifies lerp_oklch at amount 0/1 reproduces the endpoints' L and C.
+ */
 inline void test_lerp_oklch_endpoints() {
   OKLCH a = srgb_to_oklch(200, 30, 30);
   OKLCH b = srgb_to_oklch(30, 30, 200);
@@ -366,9 +433,13 @@ inline void test_lerp_oklch_endpoints() {
   HS_EXPECT_NEAR(at1.C, b.C, 1e-5f);
 }
 
-// Extrapolating amounts (reachable via unbounded GenerativePalette::lerp /
-// ColorWipe paths) must still yield a valid OKLCH: L clamped to [0,1] and C
-// non-negative, so an overshoot can't flip the hue 180deg or render near-black.
+/**
+ * @brief Verifies extrapolating amounts still yield a valid OKLCH.
+ * @details Extrapolating amounts (reachable via unbounded
+ *          GenerativePalette::lerp / ColorWipe paths) must clamp L to [0,1] and
+ *          keep C non-negative, so an overshoot can't flip the hue 180deg or
+ *          render near-black.
+ */
 inline void test_lerp_oklch_extrapolation_clamped() {
   OKLCH dark{0.1f, 0.05f, 0.0f};
   OKLCH bright{0.9f, 0.20f, 1.0f};
@@ -385,7 +456,9 @@ inline void test_lerp_oklch_extrapolation_clamped() {
   HS_EXPECT_LE(high.L, 1.0f);
 }
 
-// An out-of-gamut OKLCH must clamp into [0,65535] per channel.
+/**
+ * @brief Verifies an out-of-gamut OKLCH clamps into [0,65535] per channel.
+ */
 inline void test_oklch_to_pixel_bounded() {
   OKLCH vivid{0.7f, 0.4f, 1.0f};
   Pixel p = oklch_to_pixel(vivid);
@@ -398,8 +471,11 @@ inline void test_oklch_to_pixel_bounded() {
 // fast_cbrt + perceptual hue_rotate (OKLab)
 // ============================================================================
 
-// fast_cbrt matches cbrtf to ~1e-4 relative error over the linear-RGB range,
-// is exact at 0, and the negative/zero-domain guard returns 0.
+/**
+ * @brief Verifies fast_cbrt accuracy against cbrtf and its domain guard.
+ * @details Matches cbrtf to ~1e-4 relative error over the linear-RGB range, is
+ *          exact at 0, and the negative/zero-domain guard returns 0.
+ */
 inline void test_fast_cbrt_accuracy() {
   // Exact at the easy points.
   HS_EXPECT_EQ(fast_cbrt(0.0f), 0.0f);
@@ -416,8 +492,11 @@ inline void test_fast_cbrt_accuracy() {
   }
 }
 
-// A gray (achromatic) color has zero chroma in OKLab, so a perceptual hue
-// rotation must leave it unchanged for any amount — and preserve alpha.
+/**
+ * @brief Verifies a perceptual hue rotation leaves a gray unchanged.
+ * @details A gray (achromatic) color has zero chroma in OKLab, so a hue rotation
+ *          must leave it unchanged for any amount and preserve alpha.
+ */
 inline void test_hue_rotate_preserves_gray() {
   Color4 gray(128, 128, 128, 0.5f);
   for (float amt : {0.1f, 0.25f, 0.5f, 0.8f}) {
@@ -433,8 +512,11 @@ inline void test_hue_rotate_preserves_gray() {
   }
 }
 
-// A full-turn rotation (amount = 1.0) returns to the original color within the
-// fast_cbrt round-trip error.
+/**
+ * @brief Verifies a full-turn rotation returns to the original color.
+ * @details A full-turn rotation (amount = 1.0) returns to the original color
+ *          within the fast_cbrt round-trip error.
+ */
 inline void test_hue_rotate_full_turn_identity() {
   Color4 c(200, 60, 30, 1.0f);
   Color4 out = hue_rotate(c, 1.0f);
@@ -450,21 +532,28 @@ inline void test_hue_rotate_full_turn_identity() {
 // sRGB <-> linear LUTs vs. float reference
 // ============================================================================
 
-// sRGB 0 maps to linear 0 and sRGB 255 to (near) max linear.
+/**
+ * @brief Verifies sRGB 0 maps to linear 0 and sRGB 255 to (near) max linear.
+ */
 inline void test_srgb_to_linear_endpoints() {
   HS_EXPECT_EQ(srgb_to_linear(0), 0);
   // Max sRGB maps to (near) max linear.
   HS_EXPECT_EQ(srgb_to_linear(255), 65535);
 }
 
-// The inverse LUT maps linear 0 to sRGB 0 and linear max to sRGB 255.
+/**
+ * @brief Verifies the inverse LUT maps linear 0 to sRGB 0 and max to sRGB 255.
+ */
 inline void test_linear_to_srgb_endpoints() {
   HS_EXPECT_EQ(linear_to_srgb_lut[0], 0);
   HS_EXPECT_EQ(linear_to_srgb_lut[65535], 255);
 }
 
-// The 8-bit -> 16-bit linear LUT matches the float reference (scaled to 16-bit)
-// across all 256 entries within rounding tolerance.
+/**
+ * @brief Verifies the 8-bit -> 16-bit linear LUT matches the float reference.
+ * @details Matches the float reference (scaled to 16-bit) across all 256 entries
+ *          within rounding tolerance.
+ */
 inline void test_srgb_linear_lut_vs_float_reference() {
   for (int s = 0; s <= 255; ++s) {
     float ref = srgb_to_linear_float(s / 255.0f) * 65535.0f;
@@ -473,7 +562,9 @@ inline void test_srgb_linear_lut_vs_float_reference() {
   }
 }
 
-// sRGB -> linear (LUT) -> sRGB (LUT) recovers the original 8-bit value exactly.
+/**
+ * @brief Verifies sRGB -> linear (LUT) -> sRGB (LUT) recovers the 8-bit value.
+ */
 inline void test_srgb_linear_roundtrip_lut() {
   for (int s = 0; s <= 255; ++s) {
     uint16_t lin = srgb_to_linear(static_cast<uint8_t>(s));
@@ -482,9 +573,12 @@ inline void test_srgb_linear_roundtrip_lut() {
   }
 }
 
-// srgb_to_linear_interp interpolates between LUT entries so sub-8-bit fractions
-// resolve to distinct, ordered, monotonic 16-bit values rather than collapsing
-// to one bucket. Endpoints and 1/255 steps still match the integer LUT.
+/**
+ * @brief Verifies srgb_to_linear_interp recovers sub-pixel precision.
+ * @details Interpolates between LUT entries so sub-8-bit fractions resolve to
+ *          distinct, ordered, monotonic 16-bit values rather than collapsing to
+ *          one bucket. Endpoints and 1/255 steps still match the integer LUT.
+ */
 inline void test_srgb_to_linear_interp_recovers_subpixel_precision() {
   // Endpoints match the integer LUT.
   HS_EXPECT_EQ(srgb_to_linear_interp(0.0f), 0);
@@ -517,8 +611,11 @@ inline void test_srgb_to_linear_interp_recovers_subpixel_precision() {
   }
 }
 
-// sRGB -> linear -> sRGB through the float reference functions recovers the
-// original 8-bit value within half a level.
+/**
+ * @brief Verifies the float reference sRGB<->linear round-trip recovers values.
+ * @details sRGB -> linear -> sRGB through the float reference functions recovers
+ *          the original 8-bit value within half a level.
+ */
 inline void test_srgb_linear_roundtrip_float() {
   for (int s = 0; s <= 255; ++s) {
     float f = s / 255.0f;
@@ -532,7 +629,9 @@ inline void test_srgb_linear_roundtrip_float() {
 // Gradient::get
 // ============================================================================
 
-// A black->white gradient yields black at t=0 and (near) white at t~1.
+/**
+ * @brief Verifies a black->white gradient yields black at t=0 and white at t~1.
+ */
 inline void test_gradient_endpoints() {
   // Black at t=0, white at t=1, linear sRGB ramp between.
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
@@ -548,8 +647,12 @@ inline void test_gradient_endpoints() {
   HS_EXPECT_EQ(c1.alpha, 1.0f);
 }
 
-// Walking the in-range ramp of a black->white gradient yields a non-decreasing
-// red channel. (Out-of-range clamping is covered by the *_clamps_* test.)
+/**
+ * @brief Verifies the in-range ramp yields a non-decreasing red channel.
+ * @details Walking the in-range ramp of a black->white gradient yields a
+ *          non-decreasing red channel. Out-of-range clamping is covered by the
+ *          *_clamps_* test.
+ */
 inline void test_gradient_in_range_valid_and_monotone() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
   uint16_t prev = 0;
@@ -563,7 +666,9 @@ inline void test_gradient_in_range_valid_and_monotone() {
   }
 }
 
-// A gradient with identical stops returns the same color for any t.
+/**
+ * @brief Verifies a gradient with identical stops returns one color for any t.
+ */
 inline void test_gradient_solid_color() {
   Gradient grad{{0.0f, CPixel(10u, 20u, 30u)}, {1.0f, CPixel(10u, 20u, 30u)}};
   Color4 a = grad.get(0.0f);
@@ -573,9 +678,12 @@ inline void test_gradient_solid_color() {
   HS_EXPECT_EQ(a.color.b, b.color.b);
 }
 
-// Gradient::get interpolates between LUT entries: two t values inside the same
-// cell (both truncate to index 200) yield DISTINCT colors, each bracketed by its
-// neighbouring entries. A nearest-index lookup would band them together.
+/**
+ * @brief Verifies Gradient::get interpolates between LUT entries.
+ * @details Two t values inside the same cell (both truncate to index 200) yield
+ *          distinct colors, each bracketed by its neighbouring entries. A
+ *          nearest-index lookup would band them together.
+ */
 inline void test_gradient_interpolates_between_entries() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
   Color4 lo = grad.get(200.25f / 255.0f);
@@ -588,9 +696,12 @@ inline void test_gradient_interpolates_between_entries() {
   HS_EXPECT_LE(hi.color.r, e_hi.color.r);
 }
 
-// Gradient::get clamps t to [0,1] so out-of-range input saturates to an endpoint
-// and never indexes past the 256-entry table (GenerativePalette::lerp can pass t
-// slightly outside the unit interval). NaN folds to the hi bound.
+/**
+ * @brief Verifies Gradient::get clamps t to [0,1] for out-of-range input.
+ * @details Out-of-range input saturates to an endpoint and never indexes past
+ *          the 256-entry table (GenerativePalette::lerp can pass t slightly
+ *          outside the unit interval). NaN folds to the hi bound.
+ */
 inline void test_gradient_get_clamps_out_of_range() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
 
@@ -619,7 +730,11 @@ inline void test_gradient_get_clamps_out_of_range() {
 // BakedPalette::get  (requires an Arena)
 // ============================================================================
 
-// Baking a solid-color source reproduces that color (and alpha) at every sample.
+/**
+ * @brief Verifies baking a solid-color source reproduces it at every sample.
+ * @details Baking a solid-color source reproduces that color (and alpha) at
+ *          every sample.
+ */
 inline void test_baked_palette_matches_source_endpoints() {
   // Source: solid color palette so every entry is identical.
   Color4 target(Pixel(1000, 2000, 3000), 1.0f);
@@ -641,8 +756,11 @@ inline void test_baked_palette_matches_source_endpoints() {
   HS_EXPECT_NEAR(c0.alpha, 1.0f, 1e-6f);
 }
 
-// Baking a black->white gradient preserves the endpoints and keeps interior
-// samples within the [black,white] envelope at full alpha.
+/**
+ * @brief Verifies baking a black->white gradient preserves the envelope.
+ * @details Preserves the endpoints and keeps interior samples within the
+ *          [black,white] envelope at full alpha.
+ */
 inline void test_baked_palette_in_range() {
   // Ramp source via Gradient (black->white), bake, then sample.
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
@@ -674,8 +792,12 @@ inline void test_baked_palette_in_range() {
 // Palette layer: source palettes, modifiers, compositions, and wrappers
 // ============================================================================
 
-// ProceduralPalette: C(t) = a + b*cos(2*PI*(c*t + d)) in sRGB, then to linear.
-// A {a=.5,b=.5,c=1,d=0} channel is cos-driven: t=0 -> 1.0 (full), t=0.5 -> 0.0.
+/**
+ * @brief Verifies ProceduralPalette evaluates its cosine color formula.
+ * @details C(t) = a + b*cos(2*PI*(c*t + d)) in sRGB, then to linear. A
+ *          {a=.5,b=.5,c=1,d=0} channel is cos-driven: t=0 -> 1.0 (full),
+ *          t=0.5 -> 0.0.
+ */
 inline void test_procedural_palette_cosine() {
   ProceduralPalette pp({0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f},
                        {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f});
@@ -686,8 +808,11 @@ inline void test_procedural_palette_cosine() {
   HS_EXPECT_NEAR(c0.alpha, 1.0f, 1e-6f);
 }
 
-// MutatingPalette: mutate(0) reproduces palette #1, mutate(1) reproduces #2,
-// and an interior amount lands between them.
+/**
+ * @brief Verifies MutatingPalette blends between its two endpoint palettes.
+ * @details mutate(0) reproduces palette #1, mutate(1) reproduces #2, and an
+ *          interior amount lands between them.
+ */
 inline void test_mutating_palette_blends_endpoints() {
   // #1 -> white at t=0 ; #2 -> black everywhere.
   MutatingPalette m({0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f},
@@ -703,8 +828,11 @@ inline void test_mutating_palette_blends_endpoints() {
   HS_EXPECT_LT(mid, 65535);
 }
 
-// GenerativePalette with a manual seed and rand-free profiles
-// (FLAT/VIBRANT/TRIADIC use no RNG) is fully deterministic.
+/**
+ * @brief Verifies GenerativePalette is deterministic for a manual seed.
+ * @details With a manual seed and rand-free profiles (FLAT/VIBRANT/TRIADIC use
+ *          no RNG) the palette is fully deterministic.
+ */
 inline void test_generative_palette_deterministic() {
   auto make = [](int seed) {
     return GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
@@ -725,9 +853,12 @@ inline void test_generative_palette_deterministic() {
   HS_EXPECT_TRUE(g3_differs); // a different seed must change the palette
 }
 
-// GenerativePalette::get clamps t to [0,1] like the other palettes: t < 0
-// saturates to the first stop and t > 1 to the last, with no discontinuity at
-// the ends. A NaN t folds to 1.0 (house clamp contract) -> last stop.
+/**
+ * @brief Verifies GenerativePalette::get clamps t to [0,1].
+ * @details t < 0 saturates to the first stop and t > 1 to the last, with no
+ *          discontinuity at the ends. A NaN t folds to 1.0 (house clamp
+ *          contract) -> last stop.
+ */
 inline void test_generative_palette_get_clamps_out_of_range() {
   GenerativePalette g(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                       BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 0);
@@ -744,15 +875,19 @@ inline void test_generative_palette_get_clamps_out_of_range() {
   HS_EXPECT_EQ(nan.color.b, last.color.b);
 }
 
-// Pins the load-bearing NaN propagation in MobiusGrid::draw_longitudes
-// (effects/MobiusGrid.h): at the stereographic singularity z = +/-1 the
-// conformal radius R = sqrtf((1+z)/(1-z)) blows up to +inf, logf carries the
-// inf through, and wrap() folds it to NaN, which palette.get clamps to a palette
-// endpoint so the longitude saturates to its terminal color rather than
-// misbehaving. The behavior is deliberate (the WASM release build keeps
-// -fno-finite-math-only specifically to preserve it; see CMakeLists.txt). Lock
-// the whole inf -> NaN -> endpoint chain so a future math nudge or a stray
-// -ffinite-math-only that quietly breaks it fails here instead of on the sphere.
+/**
+ * @brief Verifies the Mobius longitude singularity saturates to a palette endpoint.
+ * @details Pins the load-bearing NaN propagation in MobiusGrid::draw_longitudes
+ *          (effects/MobiusGrid.h): at the stereographic singularity z = +/-1 the
+ *          conformal radius R = sqrtf((1+z)/(1-z)) blows up to +inf, logf carries
+ *          the inf through, and wrap() folds it to NaN, which palette.get clamps
+ *          to a palette endpoint so the longitude saturates to its terminal color
+ *          rather than misbehaving. The behavior is deliberate (the WASM release
+ *          build keeps -fno-finite-math-only specifically to preserve it; see
+ *          CMakeLists.txt). Locks the whole inf -> NaN -> endpoint chain so a
+ *          future math nudge or a stray -ffinite-math-only that quietly breaks it
+ *          fails here instead of on the sphere.
+ */
 inline void test_mobius_longitude_singularity_saturates_to_endpoint() {
   const float z = 1.0f; // sinf(0.25 * 2*PI) at the t_line = 0.25 singularity
   float R = std::sqrt((1.0f + z) / (1.0f - z));
@@ -775,8 +910,12 @@ inline void test_mobius_longitude_singularity_saturates_to_endpoint() {
   HS_EXPECT_EQ(singular.color.b, endpoint.color.b);
 }
 
-// The auto-seed cursor advances per construction, so two consecutive auto-seeded
-// palettes differ; reset_hue_seed restores the cursor for reproducibility.
+/**
+ * @brief Verifies the auto-seed cursor advances and reset_hue_seed restores it.
+ * @details The auto-seed cursor advances per construction, so two consecutive
+ *          auto-seeded palettes differ; reset_hue_seed restores the cursor for
+ *          reproducibility.
+ */
 inline void test_generative_palette_auto_seed_advances() {
   GenerativePalette::reset_hue_seed(0);
   GenerativePalette a(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
@@ -794,8 +933,11 @@ inline void test_generative_palette_auto_seed_advances() {
   HS_EXPECT_EQ(a.get(0.3f).color.g, a2.get(0.3f).color.g);
 }
 
-// GenerativePalette::lerp(snapshot, snapshot, amount) drives a cross-fade: at
-// amount 0/1 it reproduces the endpoint palettes (within the OKLCH round-trip).
+/**
+ * @brief Verifies GenerativePalette::lerp cross-fades between two snapshots.
+ * @details lerp(snapshot, snapshot, amount) drives a cross-fade: at amount 0/1
+ *          it reproduces the endpoint palettes (within the OKLCH round-trip).
+ */
 inline void test_generative_palette_snapshot_lerp() {
   GenerativePalette from(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                          BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 0);
@@ -819,7 +961,11 @@ inline void test_generative_palette_snapshot_lerp() {
                  static_cast<float>(to.get(0.0f).color.r), tol);
 }
 
-// Modifiers transform the palette coordinate; test each modify() in isolation.
+/**
+ * @brief Verifies each coordinate modifier's modify() in isolation.
+ * @details Modifiers transform the palette coordinate; this exercises Scale,
+ *          Cycle, Quantize, Fold, Breathe, Ripple, and Pinch one at a time.
+ */
 inline void test_palette_modifiers() {
   // Scale multiplies the coordinate.
   HS_EXPECT_NEAR(ScaleModifier(2.0f).modify(0.3f), 0.6f, 1e-5f);
@@ -857,7 +1003,10 @@ inline void test_palette_modifiers() {
   HS_EXPECT_NEAR(PinchModifier(nullptr).modify(0.3f), 0.3f, 1e-5f);
 }
 
-// StaticPalette folds its modifier chain (in order) then queries the source.
+/**
+ * @brief Verifies StaticPalette folds its modifier chain then queries the source.
+ * @details Applies the modifier chain in order before sampling the source.
+ */
 inline void test_static_palette_composition() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
 
@@ -875,12 +1024,21 @@ inline void test_static_palette_composition() {
   HS_EXPECT_EQ(sp2.get(0.2f).color.r, grad.get(0.5f).color.r);
 }
 
-// Falloff function for AlphaFalloffShade (must be a plain function pointer).
+/**
+ * @brief Constant 0.5 falloff function for AlphaFalloffShade.
+ * @param Unused normalized coordinate (the falloff is constant).
+ * @return Constant falloff factor 0.5.
+ * @details Must be a plain function pointer to bind to AlphaFalloffShade.
+ */
 inline float test_half_falloff(float) { return 0.5f; }
 
-// Each coordinate/color modifier composed around a source via StaticPalette
-// produces its expected remap. Bounded remaps use Wrap=false so a coordinate
-// landing exactly on 1.0 reaches the source's last stop rather than wrapping to 0.
+/**
+ * @brief Verifies each modifier composed via StaticPalette produces its remap.
+ * @details Exercises Reverse, Mirror, Inset+EdgeFade, Inset+EdgeAlpha,
+ *          AlphaFalloff, PaletteFacade, and SolidColor. Bounded remaps use
+ *          Wrap=false so a coordinate landing exactly on 1.0 reaches the source's
+ *          last stop rather than wrapping to 0.
+ */
 inline void test_palette_wrappers() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
 
@@ -946,6 +1104,11 @@ inline void test_palette_wrappers() {
 // Runner
 // ============================================================================
 
+/**
+ * @brief Runs every color-module test and reports the aggregate result.
+ * @return Process exit code from hs_test::end_module: 0 on success, non-zero on
+ *         any failure.
+ */
 inline int run_color_tests() {
   auto scope = hs_test::begin_module("color");
 

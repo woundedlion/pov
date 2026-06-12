@@ -16,6 +16,12 @@ namespace MeshOps {
 
 /**
  * @brief Compute the centroid of a face by walking its half-edge loop.
+ * @tparam MeshT Mesh type exposing a `vertices` indexable by topology index.
+ * @param he_mesh Half-edge connectivity describing the face loops.
+ * @param mesh Source mesh supplying the vertex positions.
+ * @param face_index Index of the face whose centroid is computed.
+ * @param out_count Out-param set to the number of vertices walked (sides).
+ * @return Average of the face's vertex positions, or origin for an empty face.
  */
 template <typename MeshT>
 inline Vector face_centroid(const HalfEdgeMesh &he_mesh,
@@ -45,10 +51,16 @@ inline Vector face_centroid(const HalfEdgeMesh &he_mesh,
 }
 
 /**
- * @brief Newell's method face normal — robust to non-planar faces and
- * collinear vertex triplets. Walks the half-edge loop, summing the Newell
- * contribution of each edge (consecutive vertex pair). Returns the
- * unnormalized normal; caller normalizes if needed.
+ * @brief Newell's method face normal, robust to non-planar faces and collinear
+ *   vertex triplets.
+ * @tparam MeshT Mesh type exposing a `vertices` indexable by topology index.
+ * @param he_mesh Half-edge connectivity describing the face loops.
+ * @param mesh Source mesh supplying the vertex positions.
+ * @param face_index Index of the face whose normal is computed.
+ * @return Unnormalized Newell normal (the caller normalizes if needed); the
+ *   origin vector for an empty face.
+ * @details Walks the half-edge loop, summing the Newell contribution of each
+ *   edge (consecutive vertex pair).
  */
 template <typename MeshT>
 inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
@@ -77,12 +89,15 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
 }
 
 /**
- * @brief Walk all half-edges orbiting a vertex, calling visitor(curr_idx)
- *        for each. Returns the number of visited half-edges.
- *
- * OrbitMode selects the traversal direction:
- *   'P' = prev->pair (dual, ambo, truncate)
- *   'N' = pair->next  (expand, snub)
+ * @brief Walk all half-edges orbiting a vertex, invoking visitor(curr_idx) for
+ *   each.
+ * @tparam OrbitMode Traversal direction: 'P' = prev->pair (dual, ambo,
+ *   truncate); 'N' = pair->next (expand, snub).
+ * @tparam VisitorFn Callable accepting the current half-edge index (uint16_t).
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param start_idx Half-edge index at which the orbit begins.
+ * @param visitor Invoked once per visited half-edge with its index.
+ * @return Number of half-edges visited in the orbit.
  */
 template <char OrbitMode, typename VisitorFn>
 inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
@@ -121,16 +136,22 @@ inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
 
 /**
  * @brief Emit one output face per source-vertex orbit (the shared dual/ambo/
- *        expand/snub scaffold).
- *
- * Walks every half-edge once, and for each not-yet-visited origin vertex builds
- * its orbit via vertex_orbit<DIR>, mapping each visited half-edge to an output
- * vertex index through `value_of(idx)`, then emits the collected indices as one
- * face (skipping degenerate <3-gons). `reverse` flips the winding for the
- * pair->next ('N') orbits whose natural order is opposite the desired front.
- *
- * @param visited_verts caller-allocated bool[V] scratch (filled here).
- * @param orbit_buf      caller-allocated uint16_t[I] scratch.
+ *   expand/snub scaffold).
+ * @tparam DIR Orbit direction passed through to vertex_orbit ('P' or 'N').
+ * @tparam ValueFn Callable mapping a half-edge index to an output vertex index.
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param out_mesh Destination mesh; one face is appended per source vertex.
+ * @param visited_verts Caller-allocated bool[V] scratch (filled here).
+ * @param orbit_buf Caller-allocated uint16_t[I] scratch for the current orbit.
+ * @param V Vertex count (size of visited_verts).
+ * @param I Half-edge/index count (size of orbit_buf).
+ * @param reverse Flip the winding for pair->next ('N') orbits whose natural
+ *   order is opposite the desired front.
+ * @param value_of Maps each visited half-edge index to its output vertex index.
+ * @details Walks every half-edge once, and for each not-yet-visited origin
+ *   vertex builds its orbit via vertex_orbit<DIR>, mapping each visited
+ *   half-edge through value_of, then emits the collected indices as one face
+ *   (skipping degenerate <3-gons).
  */
 template <char DIR, typename ValueFn>
 inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
@@ -168,10 +189,12 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 
 /**
  * @brief Count the sides of a face by walking its half-edge loop.
- *
- * Returns 0 for an empty face (half_edge == HE_NONE). The shared "how many
- * sides does this face have" walk used by ambo/truncate before they re-walk to
- * emit; matches the counting half of face_centroid without the accumulation.
+ * @param he_mesh Half-edge connectivity describing the face loop.
+ * @param start_he First half-edge of the face, or HE_NONE for an empty face.
+ * @return Number of sides; 0 for an empty face (start_he == HE_NONE).
+ * @details The shared "how many sides does this face have" walk used by ambo/
+ *   truncate before they re-walk to emit; matches the counting half of
+ *   face_centroid without the position accumulation.
  */
 inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
   int count = 0;
@@ -191,15 +214,17 @@ inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
 }
 
 /**
- * @brief Walk every undirected edge once, invoking visitor(he_idx, he) for each
- *        interior edge (one with a pair).
- *
- * The shared edge-dedup scaffold behind expand/chamfer/snub's "new face per
- * edge" pass: each half-edge and its pair are marked visited so an undirected
- * edge is emitted exactly once, and boundary edges (no pair) are skipped — the
- * callers never produced an edge face for them either.
- *
- * @param visited_edges caller-allocated bool[I] scratch (filled here).
+ * @brief Walk every undirected interior edge once, invoking visitor(he_idx, he)
+ *   for each edge that has a pair.
+ * @tparam VisitorFn Callable accepting (uint16_t he_idx, const HalfEdge &he).
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param visited_edges Caller-allocated bool[I] scratch (filled here).
+ * @param I Half-edge count (size of visited_edges).
+ * @param visitor Invoked once per undirected interior edge.
+ * @details The shared edge-dedup scaffold behind expand/chamfer/snub's "new
+ *   face per edge" pass: each half-edge and its pair are marked visited so an
+ *   undirected edge is emitted exactly once, and boundary edges (no pair) are
+ *   skipped, matching the callers that never produced an edge face for them.
  */
 template <typename VisitorFn>
 inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
@@ -222,12 +247,12 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
 }
 
 /**
- * @brief Copies a mesh's topology (views) and vertices into a target mesh.
- * Base case of the variadic overload below: no transformers, so vertices are
- * copied verbatim.
+ * @brief Copies a mesh's topology (as views) and vertices into a target mesh.
  * @param local_state The source mesh state (centered around origin).
  * @param world_state The destination mesh state to populate.
- * @param arena The memory arena to allocate vertices.
+ * @param arena The memory arena from which to allocate vertices.
+ * @details Base case of the variadic overload below: with no transformers,
+ *   vertices are copied verbatim.
  */
 inline void transform(const MeshState &local_state, MeshState &world_state,
                       Arena& arena) {
@@ -256,13 +281,16 @@ inline void transform(const MeshState &local_state, MeshState &world_state,
 }
 
 /**
- * @brief Copies a mesh's topology (views) and vertices into a target mesh,
- * applying each transformer to every vertex in order.
+ * @brief Copies a mesh's topology (as views) and vertices into a target mesh,
+ *   applying each transformer to every vertex in order.
+ * @tparam T1 Type of the first vertex transformer.
+ * @tparam Transformers Types of the remaining vertex transformers.
  * @param mesh The source mesh state.
  * @param transformed The destination mesh state to populate.
- * @param arena The memory arena to allocate vertices.
- * @param first_transformer,transformers Vertex transformers applied left to
- *   right; the remaining ones are unrolled at compile time via a fold.
+ * @param arena The memory arena from which to allocate vertices.
+ * @param first_transformer First vertex transformer, applied first.
+ * @param transformers Remaining vertex transformers, applied left to right and
+ *   unrolled at compile time via a fold.
  */
 template <typename T1, typename... Transformers>
 inline void transform(const MeshState &mesh, MeshState &transformed, Arena& arena,
@@ -344,6 +372,8 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 
 /**
  * @brief Normalizes all vertices in the mesh to the unit sphere.
+ * @tparam MeshT Mesh type exposing an iterable `vertices` of Vector.
+ * @param mesh Mesh whose vertices are normalized in place.
  */
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
@@ -352,7 +382,13 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 }
 
 /**
- * @brief Computes the dual of a mesh.
+ * @brief Computes the dual of a mesh (each face becomes a vertex and vice
+ *   versa).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh.
+ * @return Fresh dual PolyMesh allocated in `target`.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
@@ -394,7 +430,13 @@ FLASHMEM static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
 }
 
 /**
- * @brief Kis operator: Raises a pyramid on each face.
+ * @brief Kis operator: raises a pyramid on each face (apex at the face
+ *   centroid).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the transient scratch.
+ * @return Fresh kis PolyMesh allocated in `target`.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
@@ -445,7 +487,8 @@ FLASHMEM static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
 
 /**
  * @brief Trap if the mesh has a boundary (any unpaired half-edge).
- *
+ * @param he_mesh Half-edge connectivity to validate.
+ * @param op Operator name, interpolated into the trap message on failure.
  * @details The edge-based operators below size their output pools assuming a
  * closed manifold — E = I/2 undirected edges — and walk complete edge orbits.
  * An unpaired half-edge undersizes those pools and the operator overruns them,
@@ -463,7 +506,12 @@ static void require_closed_manifold(const HalfEdgeMesh &he_mesh,
 }
 
 /**
- * @brief Ambo operator: Truncates vertices to edge midpoints.
+ * @brief Ambo operator: truncates vertices to edge midpoints (rectification).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh.
+ * @return Fresh ambo PolyMesh allocated in `target`.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
@@ -539,12 +587,14 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
 
 /**
  * @brief Recover a truncate edge's two cut vertices in half-edge walk order.
- *
- * `edge_to_vert` stores each edge's pair canonically as {near-k1, near-k2} with
- * `k1 = min(endpoint indices)`. A half-edge runs tail->head; when the tail is
- * the canonical k1 the stored order already matches the walk, otherwise it is
- * reversed. Returns {tail-side cut, head-side cut} so every caller emits a
- * consistent winding from one place instead of re-deriving `vi==k1` inline.
+ * @param he_mesh Half-edge connectivity describing the edge.
+ * @param edge_to_vert Per-half-edge table of the edge's two cut-vertex indices,
+ *   stored canonically as {near-k1, near-k2} with k1 = min(endpoint indices).
+ * @param he_idx Half-edge (tail->head) whose oriented cut pair is recovered.
+ * @return {tail-side cut, head-side cut}; the stored order is reversed when the
+ *   tail is not the canonical k1.
+ * @details Centralizes winding so every caller emits a consistent order instead
+ *   of re-deriving the `vi==k1` test inline.
  */
 inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
     const HalfEdgeMesh &he_mesh,
@@ -561,7 +611,11 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
 }
 
 /**
- * @brief Truncate operator: Cuts corners off the polyhedron.
+ * @brief Truncate operator: cuts corners off the polyhedron.
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh.
  * @param t Truncation depth, the fraction along each edge at which the two cut
  *   points sit, in [0..1]. Each edge `(k1,k2)` yields `k1+(k2-k1)*t` and
  *   `k2+(k1-k2)*t`. For `t<0.5` the cut points stay on their own half; at
@@ -570,6 +624,8 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
  *   self-intersecting cut faces (used by the `*_truncate50d_*` solids). `t`
  *   outside `[0..1]` would place a cut point beyond the edge endpoints, so it
  *   traps per the fail-fast doctrine.
+ * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
+ *   when t == 0.5).
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
@@ -666,8 +722,13 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
 }
 
 /**
- * @brief Expand operator: Separates faces (e = aa).
+ * @brief Expand operator: separates faces (e = aa).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh.
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
+ * @return Fresh expanded PolyMesh allocated in `target`.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
@@ -755,8 +816,13 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
 }
 
 /**
- * @brief Chamfer operator: Replaces edges with hexagonal faces.
+ * @brief Chamfer operator: replaces edges with hexagonal faces.
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
  * @param t Thickness factor for the new hexagons [0..1].
+ * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
@@ -849,6 +915,13 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
 
 /**
  * @brief Edge-length relaxation by spring forces on the unit sphere.
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh, copied into the output before relaxing.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the transient movement buffer and HalfEdgeMesh.
+ * @param iterations Maximum spring-relaxation passes; stops early on
+ *   convergence.
+ * @return Fresh relaxed PolyMesh allocated in `target`.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
@@ -957,9 +1030,17 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
 }
 
 /**
- * @brief Snub operator: Creates a chiral semi-regular polyhedron.
- * Uses Newell's method for face normals — robust to non-planar faces
- * on the unit sphere and to collinear vertex triplets.
+ * @brief Snub operator: creates a chiral semi-regular polyhedron.
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
+ * @param t Inset factor of each face toward its centroid [0..1].
+ * @param twist Per-face rotation about the face normal, in radians; 0 disables
+ *   the twist pass.
+ * @return Fresh snub PolyMesh allocated in `target`.
+ * @details Uses Newell's method for face normals, robust to non-planar faces on
+ *   the unit sphere and to collinear vertex triplets.
  */
 template <typename MeshT>
 FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
@@ -1070,8 +1151,15 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
   return out_mesh;
 }
 
-/// gyro = dual of snub. Composition: returns its output in `temp`, not
-/// `target` — see COMPOSITION POLARITY at the top of the operator block.
+/**
+ * @brief Gyro operator: dual of snub.
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh.
+ * @param target Arena used as the ping-pong source for the composition.
+ * @param temp Arena used as the ping-pong destination for the composition.
+ * @return Composed PolyMesh; the output lands in `temp`, not `target` (see
+ *   COMPOSITION POLARITY at the top of the operator block).
+ */
 template <typename MeshT>
 FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
   return dual(snub(mesh, target, temp), temp, target);
@@ -1091,25 +1179,58 @@ FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
 //   bevel  b = ta = truncate of ambo (rectify-then-truncate)
 // ---------------------------------------------------------------------------
 
-/// meta = kj. Hart's `m` operator. (j = a; kj = kis-of-ambo.)
+/**
+ * @brief Meta operator (Hart's `m`): kis of ambo (m = kj, j = a).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh.
+ * @param target Arena used as the ping-pong source for the composition.
+ * @param temp Arena used as the ping-pong destination for the composition.
+ * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
+ *   POLARITY at the top of the operator block).
+ */
 template <typename MeshT>
 FLASHMEM static PolyMesh meta(const MeshT &mesh, Arena &target, Arena &temp) {
   return kis(ambo(mesh, target, temp), temp, target);
 }
 
-/// needle = kd. Kis of the dual.
+/**
+ * @brief Needle operator: kis of the dual (n = kd).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh.
+ * @param target Arena used as the ping-pong source for the composition.
+ * @param temp Arena used as the ping-pong destination for the composition.
+ * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
+ *   POLARITY at the top of the operator block).
+ */
 template <typename MeshT>
 FLASHMEM static PolyMesh needle(const MeshT &mesh, Arena &target, Arena &temp) {
   return kis(dual(mesh, target, temp), temp, target);
 }
 
-/// zip = dk. Dual of kis (truncated dual).
+/**
+ * @brief Zip operator: dual of kis, i.e. the truncated dual (z = dk).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh.
+ * @param target Arena used as the ping-pong source for the composition.
+ * @param temp Arena used as the ping-pong destination for the composition.
+ * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
+ *   POLARITY at the top of the operator block).
+ */
 template <typename MeshT>
 FLASHMEM static PolyMesh zip(const MeshT &mesh, Arena &target, Arena &temp) {
   return dual(kis(mesh, target, temp), temp, target);
 }
 
-/// bevel = ta. Truncate of ambo.
+/**
+ * @brief Bevel operator: truncate of ambo (b = ta).
+ * @tparam MeshT Source mesh type (PolyMesh or MeshState).
+ * @param mesh Source mesh.
+ * @param target Arena used as the ping-pong source for the composition.
+ * @param temp Arena used as the ping-pong destination for the composition.
+ * @param t Truncation depth forwarded to the truncate step, in [0..1].
+ * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
+ *   POLARITY at the top of the operator block).
+ */
 template <typename MeshT>
 FLASHMEM static PolyMesh bevel(const MeshT &mesh, Arena &target, Arena &temp,
                                float t = 0.25f) {

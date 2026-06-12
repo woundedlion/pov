@@ -15,41 +15,65 @@
 
 namespace hs_test {
 
-// Single-threaded by contract: the counters are plain ints, so every
-// HS_EXPECT_* must be evaluated on the test's main thread. This keeps the hot
-// assertion path free of atomic RMWs across the whole suite. The one test that
-// spawns a helper thread (test_ctor_spin_waits_for_buffer_free) honours this by
-// capturing its cross-thread observation into a std::atomic and asserting on the
-// main thread after join() — it never calls HS_EXPECT_* from the helper.
+/**
+ * @brief Process-wide pass/fail tally shared by every test suite.
+ * @details Single-threaded by contract: the counters are plain ints, so every
+ * HS_EXPECT_* must be evaluated on the test's main thread. This keeps the hot
+ * assertion path free of atomic RMWs across the whole suite. A test that spawns
+ * a helper thread must capture its cross-thread observation into a std::atomic
+ * and assert on the main thread after join() — never calling HS_EXPECT_* from
+ * the helper.
+ */
 struct Stats {
-  int passed = 0;
-  int failed = 0;
+  int passed = 0; /**< Count of comparisons that succeeded. */
+  int failed = 0; /**< Count of comparisons that failed. */
 };
 
-// The single process-wide pass/fail counter shared by all suites.
+/**
+ * @brief Accessor for the single process-wide pass/fail counter.
+ * @return Reference to the function-local static Stats shared by all suites.
+ */
 inline Stats &stats() {
   static Stats s;
   return s;
 }
 
-// True iff both values are finite and within tol of each other.
+/**
+ * @brief Tests whether two floats are finite and close enough to be equal.
+ * @param a First value.
+ * @param b Second value.
+ * @param tol Maximum allowed absolute difference, in the same units as a and b.
+ * @return True iff both values are finite and within tol of each other.
+ */
 inline bool approx(float a, float b, float tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
 }
 
-// Double-domain overload. HS_EXPECT_NEAR captures its operands as double, so the
-// comparison must stay in double — downcasting to float would round both sides
-// to ~1e-7 resolution and silently mask a sub-float-epsilon regression in a
-// double-valued expression. Float call sites bind the float overload above by
-// exact match, so this is additive.
+/**
+ * @brief Tests whether two doubles are finite and close enough to be equal.
+ * @param a First value.
+ * @param b Second value.
+ * @param tol Maximum allowed absolute difference, in the same units as a and b.
+ * @return True iff both values are finite and within tol of each other.
+ * @details Double-domain overload. HS_EXPECT_NEAR captures its operands as
+ * double, so the comparison must stay in double — downcasting to float would
+ * round both sides to ~1e-7 resolution and silently mask a sub-float-epsilon
+ * regression in a double-valued expression. Float call sites bind the float
+ * overload above by exact match, so this is additive.
+ */
 inline bool approx(double a, double b, double tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
 }
 
-// Print a single comparison operand in a type-appropriate format, so a failing
-// HS_EXPECT_* line shows the actual values (not just the stringified expr).
-// Non-arithmetic operands fall back to "?" — every comparison-macro call site
-// in the suite passes arithmetic/enum values.
+/**
+ * @brief Prints a single comparison operand in a type-appropriate format.
+ * @tparam T Operand type; bool, floating-point, enum, integral, and pointer are
+ * formatted specially.
+ * @param v The operand value to print.
+ * @details Lets a failing HS_EXPECT_* line show the actual values, not just the
+ * stringified expr. Non-arithmetic operands fall back to "?" — every
+ * comparison-macro call site in the suite passes arithmetic/enum values.
+ */
 template <class T> inline void print_operand(const T &v) {
   if constexpr (std::is_same_v<T, bool>) {
     std::printf("%s", v ? "true" : "false");
@@ -71,7 +95,17 @@ template <class T> inline void print_operand(const T &v) {
   }
 }
 
-// Record the result of a comparison and, on failure, print both operands.
+/**
+ * @brief Records the result of a comparison and, on failure, prints operands.
+ * @tparam A Type of the first operand.
+ * @tparam B Type of the second operand.
+ * @param ok Whether the comparison succeeded.
+ * @param a First operand, printed on failure.
+ * @param b Second operand, printed on failure.
+ * @param expr Stringified comparison expression for the failure message.
+ * @param file Source file name of the call site.
+ * @param line Source line number of the call site.
+ */
 template <class A, class B>
 inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
                        const char *file, int line) {
@@ -87,7 +121,16 @@ inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
   std::printf(")\n");
 }
 
-// Record a near-equality result and, on failure, print operands and delta.
+/**
+ * @brief Records a near-equality result and, on failure, prints operands and
+ * delta.
+ * @param a First value.
+ * @param b Second value.
+ * @param tol Maximum allowed absolute difference, in the same units as a and b.
+ * @param expr Stringified comparison expression for the failure message.
+ * @param file Source file name of the call site.
+ * @param line Source line number of the call site.
+ */
 inline void report_near(double a, double b, double tol, const char *expr,
                         const char *file, int line) {
   if (approx(a, b, tol)) {
@@ -99,21 +142,32 @@ inline void report_near(double a, double b, double tol, const char *expr,
               b, std::fabs(a - b));
 }
 
-// Snapshot of the global counter taken when a module starts, so end_module
-// can report that module's tally as a delta.
+/**
+ * @brief Snapshot of the global counter taken when a module starts.
+ * @details Lets end_module report that module's tally as a delta from the
+ * shared process-wide counter.
+ */
 struct ModuleScope {
-  const char *name;
-  int passed_before;
-  int failed_before;
+  const char *name;    /**< Module name, echoed in the header and footer. */
+  int passed_before;   /**< Global passed count captured at begin_module. */
+  int failed_before;   /**< Global failed count captured at begin_module. */
 };
 
-// Print a module header and capture the current counter baseline.
+/**
+ * @brief Prints a module header and captures the current counter baseline.
+ * @param name Module name to print and store in the scope.
+ * @return A ModuleScope holding the name and the baseline pass/fail counts.
+ */
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
   return {name, stats().passed, stats().failed};
 }
 
-// Print the module's pass/fail delta since begin_module; return its fail count.
+/**
+ * @brief Prints the module's pass/fail delta since begin_module.
+ * @param m The scope returned by begin_module for this module.
+ * @return The module's failure count (delta since begin_module).
+ */
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
   int failed = stats().failed - m.failed_before;

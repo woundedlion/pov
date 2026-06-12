@@ -41,20 +41,36 @@ namespace sync {
 
 // ── Small integer helpers (signed-correct division/modulo) ─────────────────
 
-/// Floor division (rounds toward -inf, unlike C++ truncation).
+/**
+ * @brief Floor division: rounds toward -inf, unlike C++ truncation.
+ * @param a Dividend.
+ * @param b Divisor (nonzero).
+ * @return floor(a / b).
+ */
 constexpr int64_t floor_div(int64_t a, int64_t b) {
   const int64_t q = a / b;
   const int64_t r = a % b;
   return (r != 0 && ((r < 0) != (b < 0))) ? q - 1 : q;
 }
 
-/// Non-negative modulo in [0, m).
+/**
+ * @brief Non-negative modulo.
+ * @param a Value to reduce.
+ * @param m Modulus (positive).
+ * @return a mod m in [0, m).
+ */
 constexpr int32_t floor_mod(int64_t a, int32_t m) {
   const int32_t r = static_cast<int32_t>(a % m);
   return r < 0 ? r + m : r;
 }
 
-/// Circular distance between two columns on a ring of width w (in [0, w/2]).
+/**
+ * @brief Circular distance between two columns on a ring.
+ * @param a First column index.
+ * @param b Second column index.
+ * @param w Ring width (columns per revolution).
+ * @return Shortest distance around the ring, in columns, in [0, w/2].
+ */
 constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
   int32_t d = (a - b) % w;
   if (d < 0)
@@ -73,73 +89,114 @@ constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
  * keeps every difference far below the wrap period.
  */
 struct Config {
-  int32_t W = 288;                         ///< Columns per revolution.
-  uint32_t cycles_per_half_rev = 37500000; ///< Timebase constant (spec §4.1).
-  uint32_t glitch_filter_cycles = 60000;   ///< Min edge spacing (~100 µs).
+  int32_t W = 288;                         /**< Columns per revolution. */
+  uint32_t cycles_per_half_rev = 37500000; /**< Timebase constant (spec §4.1). */
+  uint32_t glitch_filter_cycles = 60000;   /**< Min edge spacing (~100 µs). */
 
   // Symbol wire (spec §5.2): pitches/timeouts in columns.
-  int32_t pulse_pitch_cols = 2;  ///< Boundary-burst pulse pitch (> mask M).
-  int32_t beacon_pitch_cols = 1; ///< Beacon digit pulse pitch (checksummed).
-  int32_t gap_timeout_cols = 4;  ///< Quiet time that terminates a burst.
+  int32_t pulse_pitch_cols = 2;  /**< Boundary-burst pulse pitch (> mask M). */
+  int32_t beacon_pitch_cols = 1; /**< Beacon digit pulse pitch (checksummed). */
+  int32_t gap_timeout_cols = 4;  /**< Quiet time that terminates a burst. */
 
   // Acceptance gate (spec §5.3).
-  int32_t gate_cols = 4;       ///< G: max plausible snap correction (LOCKED).
-  int32_t reject_fallback = 4; ///< R: consecutive rejections before ACQUIRE.
-  int32_t acquire_quiet_cols = 16; ///< Quiet-before guard for ACQUIRE snaps.
+  int32_t gate_cols = 4;       /**< G: max plausible snap correction (LOCKED). */
+  int32_t reject_fallback = 4; /**< R: consecutive rejections before ACQUIRE. */
+  int32_t acquire_quiet_cols = 16; /**< Quiet-before guard for ACQUIRE snaps. */
 
   // Content layer (spec §6).
-  uint32_t revs_per_effect = 960; ///< Effect duration in revolutions (120 s).
-  int32_t epoch_repeats = 3;      ///< EPOCH redundancy repeats (spec §6.3).
-  uint32_t refractory_revs = 16;  ///< EPOCH dedup window (spec §6.1).
-  /// K: the construction window, the last K revolutions before the commit.
-  /// The commit boundary itself is B + epoch_repeats + commit_revs from the
-  /// train's primary copy at B, so a board hearing any repeat still commits
-  /// in lockstep with the full K-rev construction budget (spec §6.1, §6.3.1).
+  uint32_t revs_per_effect = 960; /**< Effect duration in revolutions (120 s). */
+  int32_t epoch_repeats = 3;      /**< EPOCH redundancy repeats (spec §6.3). */
+  uint32_t refractory_revs = 16;  /**< EPOCH dedup window (spec §6.1). */
+  /**
+   * @brief K: the construction window, the last K revolutions before the
+   * commit.
+   * @details The commit boundary itself is B + epoch_repeats + commit_revs from
+   * the train's primary copy at B, so a board hearing any repeat still commits
+   * in lockstep with the full K-rev construction budget (spec §6.1, §6.3.1).
+   */
   uint32_t commit_revs = 2;
-  uint32_t beacon_period_revs = 16;            ///< Beacon cadence (spec §6.4).
-  int32_t beacon_interdigit_timeout_cols = 24; ///< Stale-frame reset bound.
-  int32_t effect_count = 1; ///< Roster length (epoch wraps mod this).
-  /// Boards take a constructed effect live only at revolutions ≡ 0 mod this
-  /// grid. At boot every board (master included) therefore goes live at the
-  /// SAME crossing with frame counters aligned, instead of master leading by
-  /// however long downstream identity took. Must divide 64 so a beacon's
-  /// mod-64 revolution count lands on the same grid as the master's true
-  /// count. Mid-show rejoins wait ≤ grid revolutions (well inside the ~2 s
-  /// rejoin budget, spec §9.1).
+  uint32_t beacon_period_revs = 16;            /**< Beacon cadence (spec §6.4). */
+  int32_t beacon_interdigit_timeout_cols = 24; /**< Stale-frame reset bound. */
+  int32_t effect_count = 1; /**< Roster length (epoch wraps mod this). */
+  /**
+   * @brief Live-takeover grid: boards take a constructed effect live only at
+   * revolutions ≡ 0 mod this.
+   * @details At boot every board (master included) therefore goes live at the
+   * SAME crossing with frame counters aligned, instead of master leading by
+   * however long downstream identity took. Must divide 64 so a beacon's
+   * mod-64 revolution count lands on the same grid as the master's true
+   * count. Mid-show rejoins wait ≤ grid revolutions (well inside the ~2 s
+   * rejoin budget, spec §9.1).
+   */
   uint32_t join_grid_revs = 4;
 
-  // Derived cycle quantities. cycles_per_column truncates (~2.6 ppm); it is
-  // used only for pitches/thresholds — position math divides by the exact
-  // cycles_per_half_rev (spec §4.1, "stored period is per-half-rev").
+  /**
+   * @brief Cycles per column of rotation.
+   * @return Cycle-counter cycles spanning one column.
+   * @details Truncates (~2.6 ppm); used only for pitches/thresholds — position
+   * math divides by the exact cycles_per_half_rev (spec §4.1, "stored period is
+   * per-half-rev").
+   */
   constexpr uint32_t cycles_per_column() const {
     return cycles_per_half_rev / static_cast<uint32_t>(W / 2);
   }
+  /**
+   * @brief Cycles spanning a span of columns.
+   * @param cols Column count.
+   * @return cols · cycles_per_column(), in cycles.
+   */
   constexpr uint32_t col_cycles(int32_t cols) const {
     return cycles_per_column() * static_cast<uint32_t>(cols);
   }
+  /**
+   * @brief Burst-terminating gap, in cycles.
+   * @return Quiet time that terminates a burst, in cycles.
+   */
   constexpr uint32_t gap_timeout_cycles() const {
     return col_cycles(gap_timeout_cols);
   }
+  /**
+   * @brief Boundary-burst pulse pitch, in cycles.
+   * @return Spacing between boundary-burst pulses, in cycles.
+   */
   constexpr uint32_t pulse_pitch_cycles() const {
     return col_cycles(pulse_pitch_cols);
   }
+  /**
+   * @brief Beacon-digit pulse pitch, in cycles.
+   * @return Spacing between beacon-digit pulses, in cycles.
+   */
   constexpr uint32_t beacon_pitch_cycles() const {
     return col_cycles(beacon_pitch_cols);
   }
-  /// Emission lateness budget (spec §5.2: self-censor past ~½ column).
+  /**
+   * @brief Emission lateness budget (spec §5.2: self-censor past ~½ column).
+   * @return Half a column, in cycles.
+   */
   constexpr uint32_t late_censor_cycles() const {
     return cycles_per_column() / 2;
   }
+  /**
+   * @brief Quiet-before guard for ACQUIRE snaps, in cycles.
+   * @return acquire_quiet_cols converted to cycles.
+   */
   constexpr uint32_t acquire_quiet_cycles() const {
     return col_cycles(acquire_quiet_cols);
   }
+  /**
+   * @brief Beacon interdigit stale-frame reset bound, in cycles.
+   * @return beacon_interdigit_timeout_cols converted to cycles.
+   */
   constexpr uint32_t interdigit_timeout_cycles() const {
     return col_cycles(beacon_interdigit_timeout_cols);
   }
 
-  /// Boot-time sanity for the driver's HS_CHECK (e.g. gate_cols < W/4 is what
-  /// lets the gate's distance check subsume the boundary-identity check; see
-  /// Flywheel::snap).
+  /**
+   * @brief Boot-time sanity check for the driver's HS_CHECK.
+   * @return True if every protocol constant is self-consistent.
+   * @details gate_cols < W/4 is what lets the gate's distance check subsume the
+   * boundary-identity check; see Flywheel::snap.
+   */
   constexpr bool valid() const {
     return W > 0 && W % 2 == 0 && cycles_per_half_rev > 0 && gate_cols > 0 &&
            gate_cols < W / 4 && reject_fallback > 0 && pulse_pitch_cols > 0 &&
@@ -153,8 +210,16 @@ struct Config {
   }
 };
 
-/// Phantasm constants: cycles_per_half_rev = cpu_hz · 30 / rpm (exact for
-/// 600 MHz / 480 RPM → 37,500,000), glitch filter 100 µs.
+/**
+ * @brief Builds the Phantasm Config for given hardware parameters.
+ * @param cpu_hz CPU clock frequency, in Hz.
+ * @param rpm Spindle speed, in revolutions per minute.
+ * @param w Columns per revolution.
+ * @param effect_count Effect roster length.
+ * @return A populated Config.
+ * @details cycles_per_half_rev = cpu_hz · 30 / rpm (exact for 600 MHz /
+ * 480 RPM → 37,500,000); glitch filter is 100 µs.
+ */
 constexpr Config phantasm_config(uint32_t cpu_hz, uint32_t rpm, int32_t w,
                                  int32_t effect_count) {
   Config c{};
@@ -168,16 +233,27 @@ constexpr Config phantasm_config(uint32_t cpu_hz, uint32_t rpm, int32_t w,
 
 // ── Symbol alphabet (spec §5.2, §7) ─────────────────────────────────────────
 
-/// The two half-rev boundaries (ZERO at column 0, HALF at W/2); NONE = neither.
+/**
+ * @brief The two half-rev boundaries (ZERO at column 0, HALF at W/2).
+ * @details NONE means neither boundary.
+ */
 enum class Boundary : uint8_t { NONE, ZERO, HALF };
 
-/// Decoded sync symbol. ZERO and ZERO_EPOCH both mark the ZERO boundary; only
-/// ZERO_EPOCH additionally carries an epoch (content-commit) mark.
+/**
+ * @brief Decoded sync symbol.
+ * @details ZERO and ZERO_EPOCH both mark the ZERO boundary; only ZERO_EPOCH
+ * additionally carries an epoch (content-commit) mark.
+ */
 enum class Symbol : uint8_t { INVALID, HALF, ZERO, ZERO_EPOCH };
 
-/// Count-coded classification: odd-only, distance-2 alphabet. Any other count
-/// (a lost or spurious edge lands on an even value) is INVALID and the whole
-/// burst is discarded — fail to "missed", never to "wrong".
+/**
+ * @brief Count-coded classification: odd-only, distance-2 alphabet.
+ * @param rising_edges Number of rising edges in the burst.
+ * @return The decoded Symbol, or INVALID.
+ * @details Any other count (a lost or spurious edge lands on an even value) is
+ * INVALID and the whole burst is discarded — fail to "missed", never to
+ * "wrong".
+ */
 constexpr Symbol classify_count(uint32_t rising_edges) {
   switch (rising_edges) {
   case 1:
@@ -191,7 +267,11 @@ constexpr Symbol classify_count(uint32_t rising_edges) {
   }
 }
 
-/// Pulse count the master emits for @p s (inverse of classify_count); 0 for INVALID.
+/**
+ * @brief Pulse count the master emits for a symbol (inverse of classify_count).
+ * @param s Symbol to encode.
+ * @return Number of pulses, or 0 for INVALID.
+ */
 constexpr uint32_t symbol_pulse_count(Symbol s) {
   switch (s) {
   case Symbol::HALF:
@@ -205,7 +285,11 @@ constexpr uint32_t symbol_pulse_count(Symbol s) {
   }
 }
 
-/// Which boundary @p s marks (both ZERO symbols mark ZERO); NONE for INVALID.
+/**
+ * @brief Which boundary a symbol marks.
+ * @param s Symbol to inspect.
+ * @return The marked Boundary (both ZERO symbols mark ZERO); NONE for INVALID.
+ */
 constexpr Boundary symbol_boundary(Symbol s) {
   switch (s) {
   case Symbol::HALF:
@@ -218,12 +302,21 @@ constexpr Boundary symbol_boundary(Symbol s) {
   }
 }
 
-/// The other half-rev boundary (boundaries strictly alternate ZERO/HALF).
+/**
+ * @brief The other half-rev boundary (boundaries strictly alternate ZERO/HALF).
+ * @param b Current boundary.
+ * @return HALF if b is ZERO, otherwise ZERO.
+ */
 constexpr Boundary opposite(Boundary b) {
   return b == Boundary::ZERO ? Boundary::HALF : Boundary::ZERO;
 }
 
-/// Column index of boundary @p b on a ring of width @p w (ZERO→0, HALF→w/2).
+/**
+ * @brief Column index of a boundary on a ring of given width.
+ * @param b Boundary to locate.
+ * @param w Ring width (columns per revolution).
+ * @return Column index (ZERO→0, HALF→w/2).
+ */
 constexpr int32_t boundary_column(Boundary b, int32_t w) {
   return b == Boundary::HALF ? w / 2 : 0;
 }
@@ -237,9 +330,13 @@ constexpr int32_t boundary_column(Boundary b, int32_t w) {
  * already fired for it.
  */
 struct FlipGate {
-  Boundary last_flipped = Boundary::NONE;
+  Boundary last_flipped = Boundary::NONE; /**< Boundary of the last flip. */
 
-  /// True exactly once per distinct boundary, across both paths.
+  /**
+   * @brief Attempts a flip for boundary @p b, deduped across both paths.
+   * @param b Boundary being crossed.
+   * @return True exactly once per distinct boundary, across both paths.
+   */
   bool try_flip(Boundary b) {
     if (b == Boundary::NONE || b == last_flipped)
       return false;
@@ -250,11 +347,13 @@ struct FlipGate {
 
 // ── Sync-wire edge mailbox (spec §8: single-writer handoff) ─────────────────
 
-/// Consumer's copy of a terminated burst.
+/**
+ * @brief Consumer's copy of a terminated burst.
+ */
 struct BurstSnapshot {
-  uint32_t count = 0;        ///< Rising edges (after glitch filter).
-  uint32_t first_cycles = 0; ///< Timestamp of the burst's first edge.
-  uint32_t last_cycles = 0;  ///< Timestamp of the burst's last edge.
+  uint32_t count = 0;        /**< Rising edges (after glitch filter). */
+  uint32_t first_cycles = 0; /**< Timestamp of the burst's first edge. */
+  uint32_t last_cycles = 0;  /**< Timestamp of the burst's last edge. */
 };
 
 /**
@@ -267,7 +366,12 @@ struct BurstSnapshot {
  */
 class EdgeMailbox {
 public:
-  /// Publisher (edge ISR): record one rising edge at @p now.
+  /**
+   * @brief Publisher (edge ISR): record one rising edge.
+   * @param now Edge timestamp, in cycles.
+   * @param glitch_filter_cycles Minimum spacing below which an edge is rejected
+   * as an EMI spike, in cycles.
+   */
   void on_edge(uint32_t now, uint32_t glitch_filter_cycles) {
     if (have_prior_ && (now - prior_cycles_) < glitch_filter_cycles)
       return; // EMI spike: too close to the previous accepted edge
@@ -280,30 +384,43 @@ public:
       ++count_; // saturate; anything > 8 is invalid everywhere downstream
   }
 
-  /// Consumer: a burst exists and the wire has been quiet past the timeout.
+  /**
+   * @brief Consumer: has a burst terminated?
+   * @param now Current timestamp, in cycles.
+   * @param gap_timeout_cycles Quiet time that terminates a burst, in cycles.
+   * @return True if a burst exists and the wire has been quiet past the timeout.
+   */
   bool burst_complete(uint32_t now, uint32_t gap_timeout_cycles) const {
     return count_ > 0 && (now - last_cycles_) >= gap_timeout_cycles;
   }
 
-  /// Consumer: take the burst and reset for the next one.
+  /**
+   * @brief Consumer: take the burst and reset for the next one.
+   * @return A snapshot of the terminated burst.
+   */
   BurstSnapshot claim() {
     const BurstSnapshot s{count_, first_cycles_, last_cycles_};
     count_ = 0;
     return s;
   }
 
-  /// Consumer: retire the glitch-filter reference once the wire has been quiet
-  /// longer than the filter window. The prior accepted edge only suppresses an
-  /// EMI spike within @p glitch_filter_cycles of it; any later edge is accepted
-  /// regardless, so dropping the reference here is behaviourally identical for
-  /// glitch suppression. Its purpose is to keep `now - prior_cycles_` bounded:
-  /// `prior_cycles_` otherwise persists indefinitely, and after ~7.16 s of wire
-  /// silence the cycle counter wraps, making that modular difference
-  /// pseudo-random — with p ≈ glitch/2³² it lands inside the reject window and
-  /// falsely rejects a real edge. The flywheel poll calls this every column, so
-  /// a stale reference is cleared within one column of silence, long before the
-  /// counter can wrap. Must run under the same single-writer discipline as
-  /// claim() (it writes have_prior_, which the edge ISR also writes).
+  /**
+   * @brief Consumer: retire the glitch-filter reference once the wire has been
+   * quiet longer than the filter window.
+   * @param now Current timestamp, in cycles.
+   * @param glitch_filter_cycles Filter window, in cycles.
+   * @details The prior accepted edge only suppresses an EMI spike within
+   * glitch_filter_cycles of it; any later edge is accepted regardless, so
+   * dropping the reference here is behaviourally identical for glitch
+   * suppression. Its purpose is to keep `now - prior_cycles_` bounded:
+   * `prior_cycles_` otherwise persists indefinitely, and after ~7.16 s of wire
+   * silence the cycle counter wraps, making that modular difference
+   * pseudo-random — with p ≈ glitch/2³² it lands inside the reject window and
+   * falsely rejects a real edge. The flywheel poll calls this every column, so
+   * a stale reference is cleared within one column of silence, long before the
+   * counter can wrap. Must run under the same single-writer discipline as
+   * claim() (it writes have_prior_, which the edge ISR also writes).
+   */
   void age_prior(uint32_t now, uint32_t glitch_filter_cycles) {
     if (have_prior_ && (now - prior_cycles_) >= glitch_filter_cycles)
       have_prior_ = false;
@@ -313,40 +430,48 @@ private:
   uint32_t count_ = 0;
   uint32_t first_cycles_ = 0;
   uint32_t last_cycles_ = 0;
-  uint32_t prior_cycles_ = 0; ///< Last accepted edge ever (glitch filter ref).
+  uint32_t prior_cycles_ = 0; /**< Last accepted edge ever (glitch filter ref). */
   bool have_prior_ = false;
 };
 
 // ── Telemetry (spec §8.6) ───────────────────────────────────────────────────
 
-/// Counters maintained by the flywheel ISR, polled by the foreground behind
-/// hs::debug. Degradation the protocol absorbs silently must still be
-/// visible in one glance of debug output.
+/**
+ * @brief Counters maintained by the flywheel ISR, polled by the foreground
+ * behind hs::debug.
+ * @details Degradation the protocol absorbs silently must still be visible in
+ * one glance of debug output.
+ */
 struct Telemetry {
   uint32_t symbols_accepted = 0;
-  uint32_t symbols_rejected_gate = 0;     ///< §5.3 plausibility rejections.
-  uint32_t symbols_discarded_invalid = 0; ///< Invalid pulse counts (§5.2).
+  uint32_t symbols_rejected_gate = 0;     /**< §5.3 plausibility rejections. */
+  uint32_t symbols_discarded_invalid = 0; /**< Invalid pulse counts (§5.2). */
   uint32_t beacons_ok = 0;
-  uint32_t beacons_rejected = 0;          ///< Checksum/digit-count failures.
-  uint32_t beacon_index_corrections = 0;  ///< Missed-epoch fixes (§6.3.2).
+  uint32_t beacons_rejected = 0;          /**< Checksum/digit-count failures. */
+  uint32_t beacon_index_corrections = 0;  /**< Missed-epoch fixes (§6.3.2). */
   uint32_t beacon_rev_mismatches = 0;
   uint32_t epochs_refractory_ignored = 0;
-  uint32_t lock_transitions = 0; ///< ACQUIRE↔LOCKED edges.
+  uint32_t lock_transitions = 0; /**< ACQUIRE↔LOCKED edges. */
   uint32_t flips = 0;
-  uint32_t emit_censored = 0;    ///< Master skipped a late boundary symbol.
-  uint32_t emit_aborted = 0;     ///< Master stopped emitting mid-burst.
-  uint32_t max_coast_halves = 0; ///< Longest run of half-revs without a snap.
+  uint32_t emit_censored = 0;    /**< Master skipped a late boundary symbol. */
+  uint32_t emit_aborted = 0;     /**< Master stopped emitting mid-burst. */
+  uint32_t max_coast_halves = 0; /**< Longest run of half-revs without a snap. */
 };
 
 // ── Layer 1: the flywheel timebase (spec §4) ────────────────────────────────
 
+/**
+ * @brief Flywheel lock state: ACQUIRE (hunting) or LOCKED (disciplined).
+ */
 enum class LockState : uint8_t { ACQUIRE, LOCKED };
 
-/// A locally-crossed boundary, reported by Flywheel::fold().
+/**
+ * @brief A locally-crossed boundary, reported by Flywheel::fold().
+ */
 struct Crossing {
-  bool crossed = false;
-  Boundary boundary = Boundary::NONE;
-  uint32_t at_cycles = 0; ///< The exact (timebase) instant of the boundary.
+  bool crossed = false;              /**< True if a boundary was crossed. */
+  Boundary boundary = Boundary::NONE; /**< Which boundary was crossed. */
+  uint32_t at_cycles = 0; /**< The exact (timebase) instant of the boundary. */
 };
 
 /**
@@ -367,11 +492,18 @@ struct Crossing {
  */
 class Flywheel {
 public:
+  /**
+   * @brief Constructs a flywheel from protocol config.
+   * @param cfg Protocol configuration.
+   */
   explicit Flywheel(const Config &cfg)
       : period_(cfg.cycles_per_half_rev), w_(cfg.W), gate_cols_(cfg.gate_cols),
         reject_fallback_(cfg.reject_fallback) {}
 
-  /// Boot seeding (spec §8.5): epoch = now, boundary ZERO, ACQUIRE.
+  /**
+   * @brief Boot seeding (spec §8.5): epoch = now, boundary ZERO, ACQUIRE.
+   * @param now Current timestamp, in cycles.
+   */
   void seed(uint32_t now) {
     epoch_cycles_ = now;
     boundary_ = Boundary::ZERO;
@@ -379,12 +511,20 @@ public:
     consecutive_rejects_ = 0;
   }
 
-  /// Master is the reference by definition — it never snaps and is born
-  /// locked (spec §2: "Master's flywheel IS the reference").
+  /**
+   * @brief Forces the flywheel LOCKED.
+   * @details Master is the reference by definition — it never snaps and is born
+   * locked (spec §2: "Master's flywheel IS the reference").
+   */
   void force_lock() { lock_ = LockState::LOCKED; }
 
-  /// Current column at time @p at. Signed-safe for timestamps up to ~±3.5 s
-  /// around the epoch (snap evaluation may look slightly into the past).
+  /**
+   * @brief Current column at a given time.
+   * @param at Timestamp to evaluate, in cycles.
+   * @return Column index in [0, W).
+   * @details Signed-safe for timestamps up to ~±3.5 s around the epoch (snap
+   * evaluation may look slightly into the past).
+   */
   int32_t position(uint32_t at) const {
     const int64_t delta =
         static_cast<int32_t>(at - epoch_cycles_); // modular → signed
@@ -393,10 +533,14 @@ public:
   }
 
   /**
-   * @brief The rebase rule: if @p now has passed the next boundary, fold the
-   * epoch forward by exactly one half-rev (integer add — no drift) and report
-   * the crossing. Call in a loop until it returns crossed=false; a long coast
-   * (masked window) yields several crossings, each at its exact instant.
+   * @brief The rebase rule: fold the epoch forward by one half-rev if a
+   * boundary has been passed.
+   * @param now Current timestamp, in cycles.
+   * @return A Crossing; crossed=false when no boundary was passed.
+   * @details If @p now has passed the next boundary, fold the epoch forward by
+   * exactly one half-rev (integer add — no drift) and report the crossing.
+   * Call in a loop until it returns crossed=false; a long coast (masked window)
+   * yields several crossings, each at its exact instant.
    */
   Crossing fold(uint32_t now) {
     const int32_t delta = static_cast<int32_t>(now - epoch_cycles_);
@@ -407,19 +551,24 @@ public:
     return {true, boundary_, epoch_cycles_};
   }
 
+  /**
+   * @brief Outcome of a snap attempt.
+   */
   enum class SnapOutcome : uint8_t { ACCEPTED, REJECTED, REJECTED_FELL_BACK };
 
   /**
    * @brief Acceptance gate + re-base (spec §4.2, §5.3).
-   *
-   * LOCKED: accept only if the implied correction is ≤ G columns. Because
-   * G < W/4 (Config::valid), passing the distance gate also proves the named
-   * boundary is the flywheel's nearest predicted boundary — the identity
+   * @param b Boundary the incoming symbol marks.
+   * @param edge_cycles First-edge timestamp to re-base onto, in cycles.
+   * @param error_cols Out: implied correction distance, in columns (may be
+   * null).
+   * @return ACCEPTED, REJECTED, or REJECTED_FELL_BACK.
+   * @details LOCKED: accept only if the implied correction is ≤ G columns.
+   * Because G < W/4 (Config::valid), passing the distance gate also proves the
+   * named boundary is the flywheel's nearest predicted boundary — the identity
    * check is subsumed. R consecutive rejections fall back to ACQUIRE so the
-   * gate can never deadlock a genuinely-lost board.
-   *
-   * ACQUIRE: hard snap, no gate (the SyncBoard applies the quiet-before
-   * routing guard before calling this).
+   * gate can never deadlock a genuinely-lost board. ACQUIRE: hard snap, no gate
+   * (the SyncBoard applies the quiet-before routing guard before calling this).
    */
   SnapOutcome snap(Boundary b, uint32_t edge_cycles, int32_t *error_cols) {
     const int32_t target = boundary_column(b, w_);
@@ -438,12 +587,12 @@ public:
   }
 
   /**
-   * @brief Count one implausible-symbol rejection toward the ACQUIRE
-   * fallback (shared by the snap gate and the SyncBoard's suspect-burst
-   * timeout). Returns true when R consecutive rejections concluded this
-   * board's own timebase — not the wire — is at fault (spec §5.3: the
-   * fallback is mandatory; a gate without an escape deadlocks a lost board
-   * into rejecting good symbols forever).
+   * @brief Count one implausible-symbol rejection toward the ACQUIRE fallback.
+   * @return True when R consecutive rejections concluded this board's own
+   * timebase — not the wire — is at fault.
+   * @details Shared by the snap gate and the SyncBoard's suspect-burst timeout
+   * (spec §5.3: the fallback is mandatory; a gate without an escape deadlocks a
+   * lost board into rejecting good symbols forever).
    */
   bool note_rejection() {
     if (lock_ != LockState::LOCKED)
@@ -456,34 +605,61 @@ public:
     return false;
   }
 
+  /**
+   * @brief Current lock state.
+   * @return ACQUIRE or LOCKED.
+   */
   LockState lock() const { return lock_; }
+  /**
+   * @brief Boundary identity at the current epoch.
+   * @return The boundary at epoch_cycles_.
+   */
   Boundary current_boundary() const { return boundary_; }
+  /**
+   * @brief Current epoch timestamp.
+   * @return epoch_cycles_, in cycles.
+   */
   uint32_t epoch_cycles() const { return epoch_cycles_; }
+  /**
+   * @brief Current half-rev period.
+   * @return period_, in cycles.
+   */
   uint32_t cycles_per_half_rev() const { return period_; }
-  /// §4.3 frequency trim hook (snap-only ships; tests exercise extremes).
+  /**
+   * @brief §4.3 frequency trim hook (snap-only ships; tests exercise extremes).
+   * @param c New half-rev period, in cycles.
+   */
   void set_cycles_per_half_rev(uint32_t c) { period_ = c; }
 
 private:
-  uint32_t period_;       ///< cycles_per_half_rev (optionally trimmed).
+  uint32_t period_;       /**< cycles_per_half_rev (optionally trimmed). */
   int32_t w_;
   int32_t gate_cols_;
   int32_t reject_fallback_;
   uint32_t epoch_cycles_ = 0;
-  Boundary boundary_ = Boundary::ZERO; ///< Column identity at epoch_cycles_.
+  Boundary boundary_ = Boundary::ZERO; /**< Column identity at epoch_cycles_. */
   LockState lock_ = LockState::ACQUIRE;
   int32_t consecutive_rejects_ = 0;
 };
 
 // ── Layer 3: beacon codec (spec §6.4) ───────────────────────────────────────
 
-/// Decoded index beacon: absolute effect index + revolution count (mod 64).
+/**
+ * @brief Decoded index beacon: absolute effect index + revolution count
+ * (mod 64).
+ */
 struct BeaconFrame {
-  int32_t effect_index = 0; ///< 0–63.
-  uint32_t rev_count = 0;   ///< Revolution within the effect, mod 64.
+  int32_t effect_index = 0; /**< Effect index, 0–63. */
+  uint32_t rev_count = 0;   /**< Revolution within the effect, mod 64. */
 };
 
-/// Five base-8 digits [index_hi, index_lo, rev_hi, rev_lo, checksum], each
-/// transmitted as a burst of (digit+1) pulses.
+/**
+ * @brief Encodes a beacon as five base-8 digits.
+ * @param effect_index Effect index (low 6 bits used).
+ * @param rev_count Revolution count (low 6 bits used).
+ * @param out Out: five digits [index_hi, index_lo, rev_hi, rev_lo, checksum].
+ * @details Each digit is transmitted as a burst of (digit+1) pulses.
+ */
 constexpr void encode_beacon_digits(int32_t effect_index, uint32_t rev_count,
                                     uint8_t out[5]) {
   const uint32_t idx = static_cast<uint32_t>(effect_index) & 63u;
@@ -502,9 +678,14 @@ constexpr void encode_beacon_digits(int32_t effect_index, uint32_t rev_count,
  */
 class BeaconParser {
 public:
-  /// Feed one data burst. Returns true when a complete, checksum-valid frame
-  /// was parsed into @p out. @p rejected is set when a frame (not merely a
-  /// digit) was discarded.
+  /**
+   * @brief Feed one data burst into the frame assembler.
+   * @param s The data burst.
+   * @param cfg Protocol configuration.
+   * @param out Out: the parsed frame, valid only when the return is true.
+   * @param rejected Out: set when a frame (not merely a digit) was discarded.
+   * @return True when a complete, checksum-valid frame was parsed into @p out.
+   */
   bool feed(const BurstSnapshot &s, const Config &cfg, BeaconFrame *out,
             bool *rejected) {
     *rejected = false;
@@ -534,7 +715,14 @@ public:
     return true;
   }
 
+  /**
+   * @brief Discards any partial frame in progress.
+   */
   void reset() { n_ = 0; }
+  /**
+   * @brief Whether a partial frame is being assembled.
+   * @return True if at least one digit has been buffered.
+   */
   bool active() const { return n_ > 0; }
 
 private:
@@ -550,34 +738,39 @@ private:
  * deadline-scheduled epoch commit. Owned by the flywheel ISR via SyncBoard.
  */
 struct ContentTracker {
-  bool identity_known = false; ///< False until an epoch/beacon names the index.
-  int32_t effect_index = 0;
-  uint32_t rev_in_effect = 0; ///< ZERO crossings since effect start. For a
-                              ///< beacon-joined board this starts from the
-                              ///< beacon's mod-64 value — it only feeds the
-                              ///< master's schedule and cross-check telemetry.
-  bool commit_pending = false;
-  uint32_t commit_in_revs = 0;    ///< ZERO crossings until the B+R+K commit.
-  uint32_t refractory_revs_left = 0; ///< EPOCH dedup window (spec §6.1).
+  bool identity_known = false; /**< False until an epoch/beacon names the index. */
+  int32_t effect_index = 0;    /**< Currently displayed effect index. */
+  /**
+   * @brief ZERO crossings since effect start.
+   * @details For a beacon-joined board this starts from the beacon's mod-64
+   * value — it only feeds the master's schedule and cross-check telemetry.
+   */
+  uint32_t rev_in_effect = 0;
+  bool commit_pending = false;       /**< An epoch commit is scheduled. */
+  uint32_t commit_in_revs = 0;       /**< ZERO crossings until the B+R+K commit. */
+  uint32_t refractory_revs_left = 0; /**< EPOCH dedup window (spec §6.1). */
 
-  /// Accepted EPOCH symbol. Returns true if it opened a commit window (false
-  /// inside the refractory window — the §6.3 redundancy repeats land here).
-  ///
-  /// The commit boundary is ABSOLUTE: B + R + K, where B is the primary
-  /// copy's boundary (R = epoch_repeats, K = commit_revs). Which copy of the
-  /// train this is (j, 0 = primary) is inferred from the shared revolution
-  /// count — the master starts the train exactly when rev_in_effect reaches
-  /// revs_per_effect, and by the time a symbol is consumed the local crossing
-  /// for its boundary has already incremented rev_in_effect (classification
-  /// completes ~13 columns after the boundary instant). So every board that
-  /// hears ANY copy counts down to the same boundary, and hearing a repeat
-  /// instead of the primary cannot skew the commit (§6.3.1). A board whose
-  /// revolution count is not absolute (it beacon-joined mid-effect, §6.4)
-  /// lands outside the train window and falls back to j = 0 — it commits up
-  /// to j revolutions late, an epoch-bounded degradation confined to that
-  /// case. The resulting counter slip is then resynced from
-  /// the next beacon's rev cross-check (handle_beacon_burst), so every
-  /// subsequent epoch is lockstep.
+  /**
+   * @brief Accepts an EPOCH symbol and may open a commit window.
+   * @param cfg Protocol configuration.
+   * @return True if it opened a commit window (false inside the refractory
+   * window — the §6.3 redundancy repeats land here).
+   * @details The commit boundary is ABSOLUTE: B + R + K, where B is the primary
+   * copy's boundary (R = epoch_repeats, K = commit_revs). Which copy of the
+   * train this is (j, 0 = primary) is inferred from the shared revolution
+   * count — the master starts the train exactly when rev_in_effect reaches
+   * revs_per_effect, and by the time a symbol is consumed the local crossing
+   * for its boundary has already incremented rev_in_effect (classification
+   * completes ~13 columns after the boundary instant). So every board that
+   * hears ANY copy counts down to the same boundary, and hearing a repeat
+   * instead of the primary cannot skew the commit (§6.3.1). A board whose
+   * revolution count is not absolute (it beacon-joined mid-effect, §6.4)
+   * lands outside the train window and falls back to j = 0 — it commits up
+   * to j revolutions late, an epoch-bounded degradation confined to that
+   * case. The resulting counter slip is then resynced from the next beacon's
+   * rev cross-check (handle_beacon_burst), so every subsequent epoch is
+   * lockstep.
+   */
   bool on_epoch_symbol(const Config &cfg) {
     if (refractory_revs_left > 0)
       return false;
@@ -593,24 +786,35 @@ struct ContentTracker {
     return true;
   }
 
-  /// True at the single crossing/accept where the construction window — the
-  /// last K revolutions before the commit boundary — opens (commit_in_revs
-  /// strictly decreases, so == fires exactly once per window). The announce
-  /// phase before it is what gives a board that hears only the last repeat
-  /// the full K-revolution construction budget; the outgoing effect keeps
-  /// playing through it, so the dark window stays K revolutions.
+  /**
+   * @brief Whether the construction window opens at this crossing/accept.
+   * @param cfg Protocol configuration.
+   * @return True at the single crossing/accept where the construction window —
+   * the last K revolutions before the commit boundary — opens.
+   * @details commit_in_revs strictly decreases, so == fires exactly once per
+   * window. The announce phase before it is what gives a board that hears only
+   * the last repeat the full K-revolution construction budget; the outgoing
+   * effect keeps playing through it, so the dark window stays K revolutions.
+   */
   bool construction_opens(const Config &cfg) const {
     return commit_pending && commit_in_revs == cfg.commit_revs;
   }
 
-  /// True throughout the construction window (fail-dark, spec §6.1).
+  /**
+   * @brief Whether the board is in the construction window.
+   * @param cfg Protocol configuration.
+   * @return True throughout the construction window (fail-dark, spec §6.1).
+   */
   bool constructing(const Config &cfg) const {
     return commit_pending && commit_in_revs <= cfg.commit_revs;
   }
 
-  /// A ZERO boundary flip happened. Returns true when the commit deadline is
-  /// reached — the board must swap to the (already constructed) next effect
-  /// at exactly this boundary.
+  /**
+   * @brief Advances revolution bookkeeping on a ZERO boundary flip.
+   * @param cfg Protocol configuration.
+   * @return True when the commit deadline is reached — the board must swap to
+   * the (already constructed) next effect at exactly this boundary.
+   */
   bool on_zero_crossing(const Config &cfg) {
     ++rev_in_effect;
     if (refractory_revs_left > 0)
@@ -639,8 +843,14 @@ struct ContentTracker {
  */
 class SymbolEmitter {
 public:
-  /// Master crossed boundary @p at_cycles and wants to emit @p symbol.
-  /// @returns false if the symbol was self-censored (caller counts it).
+  /**
+   * @brief Schedules a boundary symbol for emission.
+   * @param symbol Symbol to emit (INVALID is rejected).
+   * @param at_cycles Boundary instant the burst should start at, in cycles.
+   * @param now Current timestamp, in cycles.
+   * @param cfg Protocol configuration.
+   * @return False if the symbol was self-censored (caller counts it).
+   */
   bool schedule_boundary(Symbol symbol, uint32_t at_cycles, uint32_t now,
                          const Config &cfg) {
     if (symbol == Symbol::INVALID)
@@ -658,7 +868,13 @@ public:
     return true;
   }
 
-  /// Master reached the beacon point (x ≈ W/4): queue the five digit bursts.
+  /**
+   * @brief Queues the five digit bursts of a beacon frame.
+   * @param digits The five base-8 beacon digits.
+   * @param now Current timestamp (frame start), in cycles.
+   * @param cfg Protocol configuration.
+   * @details Called when the master reaches the beacon point (x ≈ W/4).
+   */
   void schedule_beacon(const uint8_t digits[5], uint32_t now,
                        const Config &cfg) {
     if (pulses_left_ > 0 || queue_pos_ < queue_len_)
@@ -676,8 +892,13 @@ public:
     queue_pos_ = 0;
   }
 
-  /// Per-tick: should the ISR emit one pulse right now? @p aborted reports a
-  /// mid-burst self-censor (telemetry).
+  /**
+   * @brief Per-tick: should the ISR emit one pulse right now?
+   * @param now Current timestamp, in cycles.
+   * @param cfg Protocol configuration.
+   * @param aborted Out: reports a mid-burst self-censor (telemetry).
+   * @return True if a pulse should be emitted this tick.
+   */
   bool tick(uint32_t now, const Config &cfg, bool *aborted) {
     *aborted = false;
     if (pulses_left_ == 0 && queue_pos_ >= queue_len_ && queue_len_ != 0)
@@ -708,12 +929,19 @@ public:
     return true;
   }
 
+  /**
+   * @brief Whether the emitter has nothing queued or in flight.
+   * @return True if no pulses or beacon bursts remain.
+   */
   bool idle() const { return pulses_left_ == 0 && queue_pos_ >= queue_len_; }
 
 private:
+  /**
+   * @brief A queued beacon-digit burst awaiting its start time.
+   */
   struct PendingBurst {
-    uint32_t start_cycles = 0;
-    uint32_t pulses = 0;
+    uint32_t start_cycles = 0; /**< When the burst should begin, in cycles. */
+    uint32_t pulses = 0;       /**< Number of pulses in the burst. */
   };
   PendingBurst queue_[5] = {};
   int32_t queue_len_ = 0;
@@ -725,20 +953,36 @@ private:
 
 // ── The per-board engine ────────────────────────────────────────────────────
 
-/// What the device ISR (or host sim) must do after one flywheel tick.
+/**
+ * @brief What the device ISR (or host sim) must do after one flywheel tick.
+ */
 struct TickActions {
-  int32_t render_column = -1; ///< Column to pack/display, or -1 (unchanged
-                              ///< since last tick, or display is dark).
-  bool dark = false;          ///< Display black (ACQUIRE / no identity /
-                              ///< epoch construction window, spec §6.1).
-  bool flip = false;          ///< Call advance_display() on the live effect.
-  bool zero_crossing = false; ///< A ZERO boundary flip happened this tick.
-  bool join_boundary = false; ///< ZERO crossing on the join grid: a board
-                              ///< with no live effect takes its pending one
-                              ///< here (Config::join_grid_revs).
-  bool commit = false;        ///< B+R+K deadline: swap to the pending effect
-                              ///< at this boundary (trap if it is not ready).
-  bool pulse = false;         ///< Master: emit one sync pulse (pin-first).
+  /**
+   * @brief Column to pack/display, or -1.
+   * @details -1 means unchanged since last tick, or display is dark.
+   */
+  int32_t render_column = -1;
+  /**
+   * @brief Display black.
+   * @details Set for ACQUIRE, no identity, or the epoch construction window
+   * (spec §6.1).
+   */
+  bool dark = false;
+  bool flip = false;          /**< Call advance_display() on the live effect. */
+  bool zero_crossing = false; /**< A ZERO boundary flip happened this tick. */
+  /**
+   * @brief ZERO crossing on the join grid.
+   * @details A board with no live effect takes its pending one here
+   * (Config::join_grid_revs).
+   */
+  bool join_boundary = false;
+  /**
+   * @brief B+R+K deadline reached.
+   * @details Swap to the pending effect at this boundary (trap if it is not
+   * ready).
+   */
+  bool commit = false;
+  bool pulse = false; /**< Master: emit one sync pulse (pin-first). */
 };
 
 /**
@@ -752,12 +996,21 @@ struct TickActions {
  */
 class SyncBoard {
 public:
+  /**
+   * @brief Constructs a board from protocol config.
+   * @param cfg Protocol configuration.
+   */
   explicit SyncBoard(const Config &cfg)
       : cfg_(cfg), fly_(cfg) {}
 
-  /// Boot/reboot seeding (spec §8.5). Master is born locked with identity
-  /// (effect 0, rev 0) — it is the reference. Downstream boards start in
-  /// ACQUIRE, dark, and join via boundary symbols + beacon.
+  /**
+   * @brief Boot/reboot seeding (spec §8.5).
+   * @param now Current timestamp, in cycles.
+   * @param is_master True for the reference board.
+   * @details Master is born locked with identity (effect 0, rev 0) — it is the
+   * reference. Downstream boards start in ACQUIRE, dark, and join via boundary
+   * symbols + beacon.
+   */
   void seed(uint32_t now, bool is_master) {
     is_master_ = is_master;
     fly_.seed(now);
@@ -785,19 +1038,36 @@ public:
     }
   }
 
-  /// Sync-wire edge ISR entry point (publisher; downstream boards only).
+  /**
+   * @brief Sync-wire edge ISR entry point (publisher; downstream boards only).
+   * @param now Edge timestamp, in cycles.
+   */
   void on_sync_edge(uint32_t now) {
     mailbox_.on_edge(now, cfg_.glitch_filter_cycles);
   }
 
-  /// Device-side helper for the IRQ-off mailbox handoff.
+  /**
+   * @brief Device-side accessor for the IRQ-off mailbox handoff.
+   * @return Reference to the edge mailbox.
+   */
   EdgeMailbox &mailbox() { return mailbox_; }
+  /**
+   * @brief Burst-terminating gap.
+   * @return Quiet time that terminates a burst, in cycles.
+   */
   uint32_t gap_timeout_cycles() const { return cfg_.gap_timeout_cycles(); }
+  /**
+   * @brief Glitch-filter window.
+   * @return Minimum accepted edge spacing, in cycles.
+   */
   uint32_t glitch_filter_cycles() const { return cfg_.glitch_filter_cycles; }
 
   /**
-   * @brief One flywheel wake-up. @p burst is the claimed mailbox burst if one
-   * completed (see EdgeMailbox), else nullptr.
+   * @brief One flywheel wake-up.
+   * @param now Current timestamp, in cycles.
+   * @param burst The claimed mailbox burst if one completed (see EdgeMailbox),
+   * else nullptr.
+   * @return The actions the caller must perform after this tick.
    */
   TickActions tick(uint32_t now, const BurstSnapshot *burst) {
     TickActions a{};
@@ -865,26 +1135,73 @@ public:
 
   // ── Foreground interface (read-only; single aligned-word reads) ──────────
 
-  /// Build request: (generation << 8) | effect_index. The foreground
-  /// constructs the named effect whenever the generation changes, then
-  /// publishes it to the driver's pending slot.
+  /**
+   * @brief Current build request.
+   * @return (generation << 8) | effect_index.
+   * @details The foreground constructs the named effect whenever the generation
+   * changes, then publishes it to the driver's pending slot.
+   */
   uint32_t build_word() const { return build_word_; }
+  /**
+   * @brief Extracts the effect index from a build word.
+   * @param word A build word.
+   * @return The effect index (low 8 bits).
+   */
   static int32_t build_index_of(uint32_t word) {
     return static_cast<int32_t>(word & 0xFF);
   }
+  /**
+   * @brief Extracts the generation from a build word.
+   * @param word A build word.
+   * @return The generation counter (high bits).
+   */
   static uint32_t build_gen_of(uint32_t word) { return word >> 8; }
 
+  /**
+   * @brief Telemetry counters.
+   * @return Const reference to the telemetry block.
+   */
   const Telemetry &telemetry() const { return telemetry_; }
+  /**
+   * @brief Content-layer state.
+   * @return Const reference to the content tracker.
+   */
   const ContentTracker &content() const { return content_; }
+  /**
+   * @brief Current lock state.
+   * @return ACQUIRE or LOCKED.
+   */
   LockState lock() const { return fly_.lock(); }
+  /**
+   * @brief The flywheel timebase.
+   * @return Const reference to the flywheel.
+   */
   const Flywheel &flywheel() const { return fly_; }
-  Flywheel &flywheel_mut() { return fly_; }        // tests only
-  ContentTracker &content_mut() { return content_; } // tests only
+  /**
+   * @brief Mutable flywheel access (tests only).
+   * @return Mutable reference to the flywheel.
+   */
+  Flywheel &flywheel_mut() { return fly_; }
+  /**
+   * @brief Mutable content-tracker access (tests only).
+   * @return Mutable reference to the content tracker.
+   */
+  ContentTracker &content_mut() { return content_; }
+  /**
+   * @brief Protocol configuration.
+   * @return Const reference to the config.
+   */
   const Config &config() const { return cfg_; }
 
 private:
   // ── Flip + content events (both paths funnel here) ───────────────────────
 
+  /**
+   * @brief Funnels both flip paths (local crossing and symbol backstop) through
+   * the dedup gate and runs the per-boundary content events.
+   * @param b Boundary being crossed.
+   * @param a In/out: tick actions updated with flip/commit/join effects.
+   */
   void apply_flip(Boundary b, TickActions &a) {
     if (!gate_.try_flip(b))
       return;
@@ -909,6 +1226,12 @@ private:
 
   // ── Receive path (downstream) ─────────────────────────────────────────────
 
+  /**
+   * @brief Routes a claimed burst to the boundary-symbol or beacon path and
+   * runs the acceptance gate.
+   * @param s The terminated burst.
+   * @param a In/out: tick actions updated with any resulting flip.
+   */
   void handle_burst(const BurstSnapshot &s, TickActions &a) {
     const bool had_prev = have_prev_burst_;
     const uint32_t prev_end = prev_burst_end_;
@@ -991,6 +1314,11 @@ private:
     }
   }
 
+  /**
+   * @brief Feeds a data burst to the beacon parser and applies a completed
+   * frame (join, missed-epoch correction, or rev-counter resync).
+   * @param s The data burst.
+   */
   void handle_beacon_burst(const BurstSnapshot &s) {
     BeaconFrame f{};
     bool rejected = false;
@@ -1044,6 +1372,14 @@ private:
 
   // ── Conduct + emit path (master) ──────────────────────────────────────────
 
+  /**
+   * @brief Master conductor: emit the boundary symbol for a crossing and run
+   * the epoch-train schedule.
+   * @param c The crossing just folded.
+   * @param now Current timestamp, in cycles.
+   * @details The unnamed TickActions parameter is reserved for symmetry with
+   * the receive path.
+   */
   void master_on_crossing(const Crossing &c, uint32_t now, TickActions &) {
     Symbol sym = Symbol::HALF;
     if (c.boundary == Boundary::ZERO) {
@@ -1071,6 +1407,11 @@ private:
       ++telemetry_.emit_censored;
   }
 
+  /**
+   * @brief Master: queue a beacon frame once per revolution at the beacon point
+   * when one is due.
+   * @param now Current timestamp, in cycles.
+   */
   void maybe_schedule_beacon(uint32_t now) {
     // Beacon point: x ≈ W/4, i.e. mid-way through the ZERO→HALF half-rev,
     // where the wire is otherwise quiet (spec §6.4). Emitted on rev 1 of
@@ -1098,6 +1439,10 @@ private:
     emitter_.schedule_beacon(digits, now, cfg_);
   }
 
+  /**
+   * @brief Publishes a build request for @p index, bumping the generation.
+   * @param index Effect index the foreground should construct.
+   */
   void publish_build(int32_t index) {
     ++build_gen_;
     build_word_ = (build_gen_ << 8) | static_cast<uint32_t>(index & 0xFF);
@@ -1119,7 +1464,7 @@ private:
   uint32_t halves_since_snap_ = 0;
   bool have_prev_burst_ = false;
   uint32_t prev_burst_end_ = 0;
-  bool suspect_pending_ = false;     ///< Lone far burst awaiting train/timeout.
+  bool suspect_pending_ = false;     /**< Lone far burst awaiting train/timeout. */
   uint32_t suspect_last_cycles_ = 0;
   uint32_t epoch_emits_left_ = 0;
   bool beacon_done_this_rev_ = false;
@@ -1129,7 +1474,7 @@ private:
   // POVSegmented — so the foreground re-loads it each poll. Without it the
   // pre-first-build run_show loop (no other volatile/opaque access on that
   // path) may hoist the load and never observe the ISR's first publish.
-  volatile uint32_t build_word_ = 0; ///< (gen << 8) | index; foreground-read.
+  volatile uint32_t build_word_ = 0; /**< (gen << 8) | index; foreground-read. */
 };
 
 } // namespace sync

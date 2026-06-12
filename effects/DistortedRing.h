@@ -7,14 +7,23 @@
 
 #include "core/effects_engine.h"
 
-// Concentric rings drawn in ring-space and warped by a sinusoidal radial
-// displacement whose amplitude is animated. Orientation random-walks over time
-// and each ring is shaded from a circular split-complementary palette.
+/**
+ * @brief Concentric rings warped by an animated sinusoidal radial displacement.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Rings are drawn in ring-space and warped by a sinusoidal radial
+ * displacement whose amplitude is animated. Orientation random-walks over time
+ * and each ring is shaded from a circular split-complementary palette.
+ */
 template <int W, int H> class DistortedRing : public Effect {
 public:
-  // Build the effect: circular split-complementary palette, X-axis ring normal,
-  // and an amplitude mutation that sweeps amplitude over [-max_amplitude,
-  // +max_amplitude] as a unit sine wave (32 steps, eased, looping).
+  /**
+   * @brief Builds the effect with palette, ring normal, and amplitude mutation.
+   * @details Configures a circular split-complementary palette, an X-axis ring
+   * normal, and an amplitude mutation that sweeps amplitude over
+   * [-max_amplitude, +max_amplitude] as a unit sine wave (32 steps, eased,
+   * looping).
+   */
   FLASHMEM DistortedRing()
       : Effect(W, H),
         ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -28,8 +37,11 @@ public:
             },
             32, ease_mid, true) {}
 
-  // Register params and build the timeline (ring sprite, orientation random
-  // walk, amplitude mutation).
+  /**
+   * @brief Registers params and builds the timeline.
+   * @details Adds the ring sprite, orientation random walk, and amplitude
+   * mutation animations to the timeline.
+   */
   void init() override {
     // One pixel of azimuth in ring-space. Default stroke is 4 px and the
     // Thickness slider floor is 2 px, both scaled by resolution so the default
@@ -54,18 +66,28 @@ public:
     timeline.add(0, amplitude_mut);
   }
 
-  // Rings draw over the prior frame; no background clear.
+  /**
+   * @brief Reports whether the engine should clear the background each frame.
+   * @return false; rings draw over the prior frame with no background clear.
+   */
   bool show_bg() const override { return false; }
 
-  // Advance and render the timeline for one frame.
+  /**
+   * @brief Advances and renders the timeline for one frame.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
   }
 
-  // Draw all rings for this frame. opacity is the sprite's animated fade [0,1],
-  // multiplied into each fragment's alpha. Ring radii are evenly spaced and the
-  // displacement wave amplitude tracks the animated `amplitude` field.
+  /**
+   * @brief Draws all rings for this frame.
+   * @param canvas Render target for the ring fragments.
+   * @param opacity Sprite's animated fade in [0, 1], multiplied into each
+   * fragment's alpha.
+   * @details Ring radii are evenly spaced and the displacement wave amplitude
+   * tracks the animated `amplitude` field.
+   */
   void drawFn(Canvas &canvas, float opacity) {
     int nRings = static_cast<int>(params.numRings);
 
@@ -101,7 +123,10 @@ private:
   Timeline timeline;
   Pipeline<W, H> filters;
 
-  // Slider-backed parameters; defaults are pre-registration starting values.
+  /**
+   * @brief Slider-backed parameters.
+   * @details Defaults are pre-registration starting values.
+   */
   struct Params {
     float alpha = 0.3f;
     float max_amplitude = 0.3f;

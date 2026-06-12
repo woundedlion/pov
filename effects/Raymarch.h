@@ -7,15 +7,24 @@
 
 #include "core/effects_engine.h"
 
-/// Ray-marches a twisted torus SDF once per dodecahedron vertex, shading each
-/// with a metallic headlight model and a baked OKLCH palette. W/H are the
-/// effect's render dimensions.
+/**
+ * @brief Ray-marches a twisted torus SDF once per dodecahedron vertex, shading
+ *        each with a metallic headlight model and a baked OKLCH palette.
+ * @tparam W Effect render width in pixels.
+ * @tparam H Effect render height in pixels.
+ */
 template <int W, int H> class Raymarch : public Effect {
 public:
+  /**
+   * @brief Constructs the effect at the templated render dimensions.
+   */
   FLASHMEM Raymarch() : Effect(W, H) {}
 
-  /// Register tunable params, precompute per-vertex quaternions, bake the
-  /// palette LUT, and install the camera walk and per-frame draw on the timeline.
+  /**
+   * @brief Registers tunable params, precomputes per-vertex quaternions, bakes
+   *        the palette LUT, and installs the camera walk and per-frame draw on
+   *        the timeline.
+   */
   void init() override {
     registerParam("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
     registerParam("Core Size", &params.core_size, 0.1f, 0.8f);
@@ -46,9 +55,17 @@ public:
                         -1));
   }
 
+  /**
+   * @brief Reports whether the engine should render its background behind this
+   *        effect.
+   * @return Always false; the ray march fills the frame itself.
+   */
   bool show_bg() const override { return false; }
 
-  /// Step the timeline against a fresh canvas, driving the per-frame ray march.
+  /**
+   * @brief Steps the timeline against a fresh canvas, driving the per-frame ray
+   *        march.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -57,14 +74,22 @@ public:
 private:
   // --- Helper functions ---
 
-  /// Metallic Blinn-Phong: half-Lambert diffuse, tight specular, Fresnel rim.
-  /// Returns a scalar shade factor (ambient base + weighted terms); the caller
-  /// multiplies it by the surface color for the metallic look.
-  ///
-  /// The sole caller uses a *headlight* model — the light and the viewer
-  /// coincide, so it passes the same view vector for both `light_dir` and
-  /// `view_dir`. The two parameters are kept distinct to preserve the standard
-  /// Blinn-Phong signature should the light ever decouple from the camera.
+  /**
+   * @brief Metallic Blinn-Phong shade factor: half-Lambert diffuse, tight
+   *        specular, Fresnel rim.
+   * @param normal_w Surface normal in world space (unit length).
+   * @param light_dir Direction toward the light in world space (unit length).
+   * @param view_dir Direction toward the viewer in world space (unit length).
+   * @param tangent Surface tangent used to tilt the specular highlight off-axis.
+   * @return Scalar shade factor (ambient base plus weighted diffuse/specular/
+   *         Fresnel terms); the caller multiplies it by the surface color for
+   *         the metallic look.
+   * @details The sole caller uses a headlight model — the light and the viewer
+   *          coincide, so it passes the same view vector for both light_dir and
+   *          view_dir. The two parameters are kept distinct to preserve the
+   *          standard Blinn-Phong signature should the light ever decouple from
+   *          the camera.
+   */
   float shadeBlinnPhong(const Vector &normal_w, const Vector &light_dir,
                         const Vector &view_dir, const Vector &tangent) {
     // Diffuse: half-Lambert wrap using light direction
@@ -100,9 +125,13 @@ private:
 
   static constexpr int NUM_VERTS = Solids::Dodecahedron::NUM_VERTS;
 
-  /// Ray-march and shade the twisted torus at every dodecahedron vertex for the
-  /// current frame. `opacity` is the sprite's fade alpha, written into each
-  /// fragment's color.
+  /**
+   * @brief Ray-marches and shades the twisted torus at every dodecahedron
+   *        vertex for the current frame.
+   * @param canvas Render target for this frame's fragments.
+   * @param opacity Sprite fade alpha in [0, 1], written into each fragment's
+   *                color.
+   */
   void drawFn(Canvas &canvas, float opacity) {
     float t = static_cast<float>(global_timeline_t) / 60.0f;
     float anim_t = t * params.pulse_speed;
@@ -155,6 +184,9 @@ private:
     }
   }
 
+  /**
+   * @brief Tunable shader and animation parameters exposed via registerParam.
+   */
   struct Params {
     float pulse_speed = 5.0f;
     float core_size = 0.4f;

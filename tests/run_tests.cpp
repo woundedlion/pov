@@ -42,15 +42,18 @@
 #include "tests/test_styles.h"
 #include "tests/test_death.h"
 
-// Test-module roster: short name -> entry point. An unfiltered run executes
-// every module in array order; passing one or more names on argv runs ONLY
-// those modules, in the order given — the iteration-speed counterpart to the
-// HS_DEATH_CASE single-case dispatch below. Modules are independent (each owns
-// its own fixtures; the only cross-cutting state, self_exe(), is set
-// unconditionally in main), so any subset is safe to run in isolation.
+/**
+ * @brief One entry in the test-module roster: a short name plus its entry point.
+ * @details An unfiltered run executes every module in array order; passing one
+ * or more names on argv runs ONLY those modules, in the order given — the
+ * iteration-speed counterpart to the HS_DEATH_CASE single-case dispatch below.
+ * Modules are independent (each owns its own fixtures; the only cross-cutting
+ * state, self_exe(), is set unconditionally in main), so any subset is safe to
+ * run in isolation.
+ */
 struct TestModule {
-  const char *name;
-  int (*run)();
+  const char *name; /**< Short module name matched against argv. */
+  int (*run)();     /**< Entry point; returns the module's failure count. */
 };
 
 static const TestModule kModules[] = {
@@ -88,15 +91,24 @@ static const TestModule kModules[] = {
     {"death", hs_test::death::run_death_tests},
 };
 
-// Print the roster's module names, one indented per line, to `out`.
+/**
+ * @brief Prints the roster's module names, one indented per line.
+ * @param out Destination stream (e.g. stdout for --list, stderr on error).
+ */
 static void print_modules(std::FILE *out) {
   for (const TestModule &m : kModules)
     std::fprintf(out, "  %s\n", m.name);
 }
 
-// Test-suite entry point. Dispatches the HS_DEATH_CASE child case if set, else
-// runs the full roster or the modules named on argv. Returns 0 on success, 1 if
-// any test failed, 2 on an unknown module name.
+/**
+ * @brief Test-suite entry point.
+ * @param argc Argument count from the C runtime.
+ * @param argv Argument vector; argv[0] is the self path used by death tests,
+ * remaining args (if any) name the modules to run, or --list/-h/--help.
+ * @return 0 on success, 1 if any test failed, 2 on an unknown module name.
+ * @details Dispatches the HS_DEATH_CASE child case if set, else runs the full
+ * roster or only the modules named on argv.
+ */
 int main(int argc, char **argv) {
   // Unbuffered stdout so progress survives a trap/abort in a death-case child.
   std::setvbuf(stdout, nullptr, _IONBF, 0);

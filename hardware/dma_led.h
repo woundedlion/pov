@@ -113,7 +113,10 @@ public:
     dma_.enable();
   }
 
-  /// True once the in-flight transfer's completion ISR has fired.
+  /**
+   * @brief Reports whether the in-flight transfer has finished.
+   * @return true once the in-flight transfer's completion ISR has fired.
+   */
   bool isComplete() const {
     return transferComplete_.load(std::memory_order_relaxed);
   }
@@ -168,12 +171,18 @@ public:
   }
 
 private:
-  // Watchdog bound for waitComplete() (µs). A full-frame DMA is single-digit
-  // ms even for the largest strips at 12 MHz; 100 ms is far above any real
-  // transfer, so only a wedged DMA channel trips it.
+  /**
+   * @brief Watchdog bound for waitComplete() and checkStaleTransfer(), in µs.
+   * @details A full-frame DMA is single-digit ms even for the largest strips at
+   *          12 MHz; 100 ms is far above any real transfer, so only a wedged DMA
+   *          channel trips it.
+   */
   static constexpr unsigned long kTransferWatchdogUs = 100000UL;
 
-  // DMA completion ISR: clears the interrupt and marks the transfer done.
+  /**
+   * @brief DMA completion ISR: clears the interrupt and marks the transfer done.
+   * @details Dispatched via the singleton instance_; runs in interrupt context.
+   */
   static void FASTRUN dmaISR() {
     if (instance_) {
       instance_->dma_.clearInterrupt();
@@ -181,28 +190,39 @@ private:
     }
   }
 
-  DMAChannel dma_;
-  // Completion flag handed between the DMA-completion ISR (writes true) and the
-  // main/column thread (reads, and writes false to start a transfer). relaxed
-  // ordering is intentional and correct on this single-core Cortex-M7: the ISR
-  // and the thread are the SAME observer (the ISR preempts), so there is no
-  // multi-core reordering for acquire/release to constrain — same rationale as
-  // the instance_ note below. Crucially, this flag does NOT order the buffer
-  // for the DMA engine: that buffer→DMA coherence is provided by
-  // arm_dcache_flush_delete() (cache flush + DSB) before dma_.enable(), which
-  // the atomic's memory_order has no effect on. Do not "upgrade" to
-  // acquire/release expecting a visibility fix — it only adds DMB cost here.
+  DMAChannel dma_; /**< eDMA channel wired to LPSPI4 TX for async transmission. */
+  /**
+   * @brief Completion flag handed between the DMA-completion ISR and the
+   *        main/column thread.
+   * @details The ISR writes true; the main/column thread reads, and writes
+   *          false to start a transfer. relaxed ordering is intentional and
+   *          correct on this single-core Cortex-M7: the ISR and the thread are
+   *          the SAME observer (the ISR preempts), so there is no multi-core
+   *          reordering for acquire/release to constrain — same rationale as
+   *          the instance_ note below. Crucially, this flag does NOT order the
+   *          buffer for the DMA engine: that buffer→DMA coherence is provided by
+   *          arm_dcache_flush_delete() (cache flush + DSB) before dma_.enable(),
+   *          which the atomic's memory_order has no effect on. Do not "upgrade"
+   *          to acquire/release expecting a visibility fix — it only adds DMB
+   *          cost here.
+   */
   std::atomic<bool> transferComplete_;
-  // micros() at which the in-flight transfer was enabled. Written and read only
-  // in the column-ISR context (transmitAsync / checkStaleTransfer, both reached
-  // from submitFrame) — the DMA-completion ISR never touches it — so a plain
-  // scalar is correct, same single-observer model as DMALEDController's
-  // activeBuffer_. Only meaningful while transferComplete_ is false.
+  /**
+   * @brief micros() at which the in-flight transfer was enabled.
+   * @details Written and read only in the column-ISR context (transmitAsync /
+   *          checkStaleTransfer, both reached from submitFrame) — the
+   *          DMA-completion ISR never touches it — so a plain scalar is correct,
+   *          same single-observer model as DMALEDController's activeBuffer_.
+   *          Only meaningful while transferComplete_ is false.
+   */
   unsigned long transferStartUs_ = 0;
-  SPISettings spiSettings_;
+  SPISettings spiSettings_; /**< Cached SPI clock/bit-order/mode for this driver. */
 
-  // Single-init guard: init() touches global SPI/DMA peripheral state that is
-  // not safe to re-run. Set once on the first (setup-time) init() call.
+  /**
+   * @brief Single-init guard set once on the first (setup-time) init() call.
+   * @details init() touches global SPI/DMA peripheral state that is not safe to
+   *          re-run.
+   */
   bool initialized_ = false;
 
   /**
@@ -253,7 +273,8 @@ public:
 
   /**
    * @brief Returns the back frame (not currently being DMA'd).
-   * Pack pixels via packPixel(), then call submitFrame().
+   * @return Reference to the back-buffer frame; pack pixels via packPixel(),
+   *         then call submitFrame().
    */
   HD107SFrame<N>& backFrame() {
     return frames_[1 - activeBuffer_];
@@ -302,45 +323,78 @@ public:
   // is absent from this ARDUINO-only build, and Phantasm.ino has no param
   // reader. A caller that wants them (e.g. a future serial telemetry path) reads
   // them here.
+  /**
+   * @brief Returns the count of frames handed to the DMA engine since start.
+   * @return Monotonic transfer counter (number of successful submitFrame()s).
+   */
   uint32_t getTransferCount() const {
     return transferCount_.load(std::memory_order_relaxed);
   }
+  /**
+   * @brief Returns the count of frames dropped on overrun since start.
+   * @return Monotonic overrun counter (frames dropped because a prior transfer
+   *         was still in flight).
+   */
   uint32_t getOverrunCount() const {
     return overrunCount_.load(std::memory_order_relaxed);
   }
 
   // --- Configuration pass-throughs ---
 
+  /**
+   * @brief Sets the global brightness applied to every packed pixel.
+   * @param brightness Global brightness scale in [0, 255].
+   */
   void setBrightness(uint8_t brightness) {
     HD107SFrame<N>::setBrightness(brightness);
   }
 
+  /**
+   * @brief Sets the white-point temperature gains applied per channel.
+   * @param r Red temperature gain in [0, 255].
+   * @param g Green temperature gain in [0, 255].
+   * @param b Blue temperature gain in [0, 255].
+   */
   void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
     HD107SFrame<N>::setTemperature(r, g, b);
   }
 
+  /**
+   * @brief Sets the per-channel color-correction gains applied per pixel.
+   * @param r Red correction gain in [0, 255].
+   * @param g Green correction gain in [0, 255].
+   * @param b Blue correction gain in [0, 255].
+   */
   void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
     HD107SFrame<N>::setCorrection(r, g, b);
   }
 
 private:
-  HD107SFrame<N> frames_[2];
-  TeensySPIDMA spi_;
-  // Plain int, no atomic/volatile needed: every access lives in the single
-  // column-ISR context — the reads in backFrame()/submitFrame() and the write in
-  // submitFrame() all run from show_col(). The DMA-completion ISR
-  // touches only transferComplete_, never this index, so there is no
-  // cross-context reader to synchronize and a barrier here would be pure cost
-  // (same single-observer model as the transferComplete_/instance_ notes). The
-  // frames_[] buffer it selects is made coherent for the DMA engine by the
-  // cache flush in transmitAsync() (see above), not by this index.
+  HD107SFrame<N> frames_[2]; /**< Double-buffered protocol frames (front/back). */
+  TeensySPIDMA spi_; /**< Low-level async DMA+SPI driver for this strip. */
+  /**
+   * @brief Index (0/1) of the front buffer currently being DMA'd.
+   * @details Plain int, no atomic/volatile needed: every access lives in the
+   *          single column-ISR context — the reads in backFrame()/submitFrame()
+   *          and the write in submitFrame() all run from show_col(). The
+   *          DMA-completion ISR touches only transferComplete_, never this
+   *          index, so there is no cross-context reader to synchronize and a
+   *          barrier here would be pure cost (same single-observer model as the
+   *          transferComplete_/instance_ notes). The frames_[] buffer it selects
+   *          is made coherent for the DMA engine by the cache flush in
+   *          transmitAsync() (see above), not by this index.
+   */
   int activeBuffer_;
-  // Atomic, not volatile: incremented in the column-ISR context (show/
-  // submitFrame) and read elsewhere; volatile makes neither the RMW nor the
-  // cross-context read well-defined. Relaxed ordering suffices — these are
-  // independent monotonic counters, not a happens-before signal.
+  /**
+   * @brief Monotonic count of frames successfully handed to the DMA engine.
+   * @details Atomic, not volatile: incremented in the column-ISR context (show/
+   *          submitFrame) and read elsewhere; volatile makes neither the RMW nor
+   *          the cross-context read well-defined. Relaxed ordering suffices —
+   *          these are independent monotonic counters, not a happens-before
+   *          signal.
+   */
   std::atomic<uint32_t> transferCount_;
-  std::atomic<uint32_t> overrunCount_;
+  std::atomic<uint32_t> overrunCount_; /**< Monotonic count of frames dropped on overrun. */
 };
 
 #endif // ARDUINO

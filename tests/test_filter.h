@@ -51,7 +51,10 @@ namespace filter_tests {
 // Trait structs — direct member values
 // ============================================================================
 
-// Each trait tag exposes the expected is_2d / has_history member constants.
+/**
+ * @brief Verifies each trait tag exposes the expected is_2d / has_history member
+ *        constants.
+ */
 inline void test_trait_member_values() {
   HS_EXPECT_TRUE(Is2D::is_2d);
   HS_EXPECT_FALSE(Is2D::has_history);
@@ -70,8 +73,10 @@ inline void test_trait_member_values() {
 // Trait inheritance on representative filters
 // ============================================================================
 
-// Representative filters inherit the right is_2d / has_history traits, at both
-// runtime and compile time.
+/**
+ * @brief Verifies representative filters inherit the right is_2d / has_history
+ *        traits, at both runtime and compile time.
+ */
 inline void test_filter_trait_inheritance() {
   constexpr int W = 32, H = 32;
 
@@ -112,13 +117,18 @@ inline void test_filter_trait_inheritance() {
 // Pipeline sink + get<T>()
 // ============================================================================
 
-// The bare (filter-free) pipeline sink is 2D.
+/**
+ * @brief Verifies the bare (filter-free) pipeline sink is 2D.
+ */
 inline void test_pipeline_sink_is_2d() {
   HS_EXPECT_TRUE((Pipeline<32, 32>::is_2d));
 }
 
-// get<T>() resolves each composed filter to the correctly-typed base subobject,
-// for both the head node and tail nodes, in const and non-const pipelines.
+/**
+ * @brief Verifies get<T>() resolves each composed filter to the correctly-typed
+ *        base subobject, for both the head node and tail nodes, in const and
+ *        non-const pipelines.
+ */
 inline void test_pipeline_get_returns_correct_filter() {
   constexpr int W = 32, H = 32;
   using AA = Filter::Screen::AntiAlias<W, H>;
@@ -168,8 +178,12 @@ inline void test_pipeline_get_returns_correct_filter() {
 // Screen::AntiAlias::plot — pure bilinear weight partition
 // ============================================================================
 
-// A fractional interior sample splits into 1..4 taps whose alphas sum back to
-// the input alpha (partition of unity).
+/**
+ * @brief Verifies a fractional interior sample splits into 1..4 taps whose
+ *        alphas sum back to the input alpha.
+ * @details Partition of unity: the four bilinear weights sum to 1, so the per-tap
+ *          alphas sum to the input alpha.
+ */
 inline void test_antialias_weights_partition() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
@@ -189,8 +203,10 @@ inline void test_antialias_weights_partition() {
   HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
 }
 
-// Integer coordinates collapse AntiAlias to a single full-weight tap at the
-// input pixel.
+/**
+ * @brief Verifies integer coordinates collapse AntiAlias to a single full-weight
+ *        tap at the input pixel.
+ */
 inline void test_antialias_integer_coord_single_tap() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
@@ -213,8 +229,10 @@ inline void test_antialias_integer_coord_single_tap() {
   HS_EXPECT_NEAR(kept_y, 24.0f, 1e-5f);
 }
 
-// A sub-pixel sample across the theta=0 seam wraps its X taps onto columns
-// W-1 and 0 rather than collapsing onto one unwrapped column.
+/**
+ * @brief Verifies a sub-pixel sample across the theta=0 seam wraps its X taps
+ *        onto columns W-1 and 0 rather than collapsing onto one unwrapped column.
+ */
 inline void test_antialias_seam_wraps_left_column() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
@@ -243,7 +261,10 @@ inline void test_antialias_seam_wraps_left_column() {
 // Screen::Blur::plot — kernel passthrough
 // ============================================================================
 
-// factor=0 makes Blur an identity: a single full-weight tap at the input pixel.
+/**
+ * @brief Verifies factor=0 makes Blur an identity: a single full-weight tap at
+ *        the input pixel.
+ */
 inline void test_blur_factor_zero_is_identity() {
   constexpr int W = 32, H = 32;
   // center weight c = 1.0, edge/corner weights 0 → single tap.
@@ -265,8 +286,10 @@ inline void test_blur_factor_zero_is_identity() {
   HS_EXPECT_NEAR(kept_y, 16.0f, 1e-5f);
 }
 
-// factor=1 gives the full 3x3 Gaussian: all 9 taps land in-bounds for an
-// interior pixel and their alphas sum to the input alpha.
+/**
+ * @brief Verifies factor=1 gives the full 3x3 Gaussian: all 9 taps land
+ *        in-bounds for an interior pixel and their alphas sum to the input alpha.
+ */
 inline void test_blur_full_kernel_sums_to_alpha() {
   constexpr int W = 32, H = 32;
   // Gaussian weights: center 0.25, edge 0.125, corner 0.0625 (sum to 1).
@@ -284,7 +307,10 @@ inline void test_blur_full_kernel_sums_to_alpha() {
   HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
 }
 
-// update() rebuilds the kernel: update(0) collapses a full blur back to identity.
+/**
+ * @brief Verifies update() rebuilds the kernel: update(0) collapses a full blur
+ *        back to identity.
+ */
 inline void test_blur_update_changes_kernel() {
   constexpr int W = 32, H = 32;
   Filter::Screen::Blur<W, H> blur(1.0f);
@@ -301,16 +327,21 @@ inline void test_blur_update_changes_kernel() {
 // Pixel::ChromaticShift::plot — channel-split fan-out
 // ============================================================================
 
-// ChromaticShift emits the original colour plus three single-channel copies
-// shifted to x+1/x+2/x+3 (R, G, B respectively).
+/**
+ * @brief Verifies ChromaticShift emits the original colour plus three
+ *        single-channel copies shifted to x+1/x+2/x+3 (R, G, B respectively).
+ */
 inline void test_chromatic_shift_fanout() {
   constexpr int W = 64;
   Filter::Pixel::ChromaticShift<W> cs;
 
+  /**
+   * @brief One recorded fan-out tap: position, colour, and alpha.
+   */
   struct Tap {
-    float x, y;
-    Pixel c;
-    float alpha;
+    float x, y;       /**< Emitted pixel coordinate. */
+    Pixel c;          /**< Emitted colour. */
+    float alpha;      /**< Emitted alpha. */
   };
   Tap taps[8];
   int count = 0;
@@ -354,8 +385,11 @@ inline void test_chromatic_shift_fanout() {
 // Pixel::Feedback — Style binding + enable flag (no flush / no Canvas)
 // ============================================================================
 
-// style() returns a live reference to the bound Style (reads, mutation, and the
-// const overload all alias the original); set_enabled is callable.
+/**
+ * @brief Verifies style() returns a live reference to the bound Style (reads,
+ *        mutation, and the const overload all alias the original); set_enabled
+ *        is callable.
+ */
 inline void test_feedback_style_binding() {
   constexpr int W = 32, H = 32;
   ::Feedback::Style style = ::Feedback::Style::Smoke();
@@ -380,8 +414,11 @@ inline void test_feedback_style_binding() {
   fb.set_enabled(true);
 }
 
-// Feedback::plot() forwards its input unchanged (the effect lives in flush, not
-// plot): one tap with the original coord and alpha, no Canvas touched.
+/**
+ * @brief Verifies Feedback::plot() forwards its input unchanged: one tap with
+ *        the original coord and alpha, no Canvas touched.
+ * @details The feedback effect lives in flush, not plot.
+ */
 inline void test_feedback_plot_is_passthrough() {
   constexpr int W = 32, H = 32;
   ::Feedback::Style style = ::Feedback::Style::Smoke();
@@ -407,16 +444,21 @@ inline void test_feedback_plot_is_passthrough() {
 // World filters — direct plot() coverage (no Canvas; capture the PassFn3D taps)
 // ============================================================================
 
-// A small recorder for the (vector,color,age,alpha) tuples a World filter emits.
+/**
+ * @brief A small recorder for the (vector, color, age, alpha) tuples a World
+ *        filter emits.
+ */
 struct Tap3D {
-  Vector v;
-  Pixel c;
-  float age, alpha;
+  Vector v;            /**< Emitted world-space position. */
+  Pixel c;             /**< Emitted colour. */
+  float age, alpha;    /**< Emitted age and alpha. */
 };
 
-// Hole masks a spherical cap centered on `origin`: outside the radius the point
-// passes through untouched; inside, the color is scaled by quintic_kernel(d/r),
-// so the very center is fully extinguished.
+/**
+ * @brief Verifies Hole masks a spherical cap: outside the radius the point
+ *        passes through untouched; inside, the colour is scaled by
+ *        quintic_kernel(d/r) so the very center is fully extinguished.
+ */
 inline void test_world_hole_masks_cap() {
   constexpr int W = 32;
   Filter::World::Hole<W> hole(Vector(0, 1, 0), 0.5f); // cap at +Y, radius 0.5 rad
@@ -451,11 +493,13 @@ inline void test_world_hole_masks_cap() {
   HS_EXPECT_NEAR((float)got.c.g, 10000.0f, 50.0f);
 }
 
-// Orient rotates by the bound Orientation. For a single-frame (stationary)
-// orientation the motion-blur tween emits one tap, rotated by the current
-// quaternion, with age left untouched: a lone snapshot is the newest
-// sub-position (t = 1), so the (1 - t) age offset is zero. A static orientation
-// must not drift the temporal channel frame over frame.
+/**
+ * @brief Verifies Orient rotates by the bound Orientation, and a single-frame
+ *        (stationary) orientation emits one tap with age left untouched.
+ * @details A lone snapshot is the newest sub-position (t = 1), so the (1 - t)
+ *          age offset is zero. A static orientation must not drift the temporal
+ *          channel frame over frame.
+ */
 inline void test_world_orient_rotates_and_offsets_age() {
   constexpr int W = 32;
   Quaternion q = make_rotation(Y_AXIS, PI_F / 2); // 90 deg about +Y
@@ -477,8 +521,11 @@ inline void test_world_orient_rotates_and_offsets_age() {
   HS_EXPECT_NEAR(got.age, 5.0f, 1e-4f); // age + (1 - t), t = 1 (age-neutral)
 }
 
-// With a 3-frame history the tween sweeps the trailing sub-positions (i = 1..n-1)
-// and spreads age across one frame: offsets (1 - t) for t in {0.5, 1.0}.
+/**
+ * @brief Verifies that with a 3-frame history the tween sweeps the trailing
+ *        sub-positions (i = 1..n-1) and spreads age across one frame.
+ * @details Age offsets are (1 - t) for t in {0.5, 1.0}.
+ */
 inline void test_world_orient_motion_blur_sweep_ages() {
   constexpr int W = 32;
   Orientation<> ori; // identity, 1 frame
@@ -499,9 +546,12 @@ inline void test_world_orient_motion_blur_sweep_ages() {
   HS_EXPECT_NEAR(ages[1], 10.0f, 1e-4f);
 }
 
-// OrientSlice picks an orientation from a list by the point's projection onto an
-// axis, then rotates by it. Two distinct orientations: a point near +axis
-// selects the last, near -axis selects the first; disabled is a passthrough.
+/**
+ * @brief Verifies OrientSlice picks an orientation from a list by the point's
+ *        projection onto an axis, then rotates by it.
+ * @details With two distinct orientations a point near +axis selects the last,
+ *          near -axis selects the first; disabled is a passthrough.
+ */
 inline void test_world_orient_slice_selects_by_projection() {
   constexpr int W = 32;
   Orientation<> oris[2];
@@ -540,10 +590,12 @@ inline void test_world_orient_slice_selects_by_projection() {
   HS_EXPECT_NEAR(pass.z, near_pos.z, 1e-6f);
 }
 
-// VertexReplicate fans a point onto N copies via rotations from vertices[0] to
-// each vertex; every copy carries the SAME source age (replication is spatial,
-// not temporal). Probing with vertices[0] maps copy i back to vertices[i]
-// exactly.
+/**
+ * @brief Verifies VertexReplicate fans a point onto N copies via rotations from
+ *        vertices[0] to each vertex, every copy carrying the same source age.
+ * @details Replication is spatial, not temporal. Probing with vertices[0] maps
+ *          copy i back to vertices[i] exactly.
+ */
 inline void test_world_vertex_replicate_fanout_and_age() {
   constexpr int W = 32, N = 3;
   std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
@@ -567,9 +619,13 @@ inline void test_world_vertex_replicate_fanout_and_age() {
   }
 }
 
-// Mobius warps via stereographic -> Mobius -> inverse stereographic. The default
-// MobiusParams is the identity map (a=1,b=0,c=0,d=1), so an interior point round
-// trips back to itself; a non-identity map actually moves it.
+/**
+ * @brief Verifies Mobius warps via stereographic -> Mobius -> inverse
+ *        stereographic, with the default identity map and a non-identity map.
+ * @details The default MobiusParams is the identity (a=1,b=0,c=0,d=1), so an
+ *          interior point round-trips back to itself; a non-identity map
+ *          actually moves it.
+ */
 inline void test_world_mobius_identity_and_transform() {
   constexpr int W = 32;
   MobiusParams identity; // a=1,b=0,c=0,d=1
@@ -607,24 +663,53 @@ inline void test_world_mobius_identity_and_transform() {
 // (which the per-call helper tests above cannot reach) is exercisable.
 // ============================================================================
 
-// Minimal concrete Effect for binding a live Canvas.
+/**
+ * @brief Minimal concrete Effect for binding a live Canvas.
+ */
 struct PipeFx : public Effect {
+  /**
+   * @brief Constructs the effect at the given framebuffer dimensions.
+   * @param W Framebuffer width in pixels.
+   * @param H Framebuffer height in pixels.
+   */
   PipeFx(int W, int H) : Effect(W, H) {}
+  /**
+   * @brief Draws one frame (no-op; the tests populate the Canvas directly).
+   */
   void draw_frame() override {}
+  /**
+   * @brief Reports whether the effect paints a background.
+   * @return Always false (tests rely on a black backdrop).
+   */
   bool show_bg() const override { return false; }
 };
 
-// True when the pixel is exactly black (all channels zero).
+/**
+ * @brief Tests whether a pixel is exactly black (all channels zero).
+ * @param p Pixel to test.
+ * @return True when r, g, and b are all zero.
+ */
 inline bool px_black(const Pixel &p) {
   return p.r == 0 && p.g == 0 && p.b == 0;
 }
 
-// True when the pixel matches the given RGB triple exactly.
+/**
+ * @brief Tests whether a pixel matches the given RGB triple exactly.
+ * @param p Pixel to test.
+ * @param r Expected red channel value.
+ * @param g Expected green channel value.
+ * @param b Expected blue channel value.
+ * @return True when every channel equals its expected value.
+ */
 inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
   return p.r == r && p.g == g && p.b == b;
 }
 
-// Number of non-black pixels in the effect's framebuffer.
+/**
+ * @brief Counts the non-black pixels in the effect's framebuffer.
+ * @param fx Effect whose framebuffer is scanned.
+ * @return Number of lit (non-black) pixels.
+ */
 inline size_t count_lit(const PipeFx &fx) {
   size_t n = 0;
   for (int y = 0; y < fx.height(); ++y)
@@ -633,7 +718,10 @@ inline size_t count_lit(const PipeFx &fx) {
   return n;
 }
 
-// Bare 2D sink: int + float overloads, exact (alpha=1) write, x-wrap, clip.
+/**
+ * @brief Verifies the bare 2D sink: int + float overloads, exact (alpha=1)
+ *        write, x-wrap, and clip.
+ */
 inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   constexpr int W = 16, H = 8;
   PipeFx fx(W, H);
@@ -666,7 +754,10 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   HS_EXPECT_TRUE(pix_eq(fx2.get_pixel(8, 3), 0, 500, 0));
 }
 
-// 3D sink overload: a unit vector is routed via vector_to_pixel and written.
+/**
+ * @brief Verifies the 3D sink overload routes a unit vector via vector_to_pixel
+ *        and writes it.
+ */
 inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
   constexpr int W = 32, H = 16;
   PipeFx fx(W, H);
@@ -687,7 +778,10 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(ex, ey), 40000, 20000, 10000));
 }
 
-// World filter (3D) head fans out through the 3D->2D sink conversion.
+/**
+ * @brief Verifies a World filter (3D) head fans out through the 3D->2D sink
+ *        conversion.
+ */
 inline void test_pipeline_world_replicate_fans_out() {
   constexpr int W = 32, H = 16;
   PipeFx fx(W, H);
@@ -703,8 +797,12 @@ inline void test_pipeline_world_replicate_fans_out() {
   HS_EXPECT_EQ(count_lit(fx), (size_t)2);
 }
 
-// 2D coordinate into a 3D-headed pipeline: the float-plot mismatch branch maps
-// pixel_to_vector, the identity filter passes it, and the sink maps it back.
+/**
+ * @brief Verifies a 2D coordinate into a 3D-headed pipeline round-trips through
+ *        the float-plot mismatch branch.
+ * @details The mismatch branch maps pixel_to_vector, the identity filter passes
+ *          it, and the sink maps it back.
+ */
 inline void test_pipeline_2d_into_3d_head_roundtrips() {
   constexpr int W = 32, H = 16;
   PipeFx fx(W, H);
@@ -728,8 +826,11 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
   HS_EXPECT_TRUE(near_input);
 }
 
-// Screen filter (2D) head forwards to the sink. An integer coordinate collapses
-// AntiAlias to a single tap, so the routed result is one exact pixel.
+/**
+ * @brief Verifies a Screen filter (2D) head forwards to the sink.
+ * @details An integer coordinate collapses AntiAlias to a single tap, so the
+ *          routed result is one exact pixel.
+ */
 inline void test_pipeline_screen_antialias_routes_to_sink() {
   constexpr int W = 32, H = 16;
   PipeFx fx(W, H);
@@ -743,9 +844,12 @@ inline void test_pipeline_screen_antialias_routes_to_sink() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 50000, 0, 25000));
 }
 
-// Pixel::Feedback::flush warp-field path. A Smoke style with no bound
-// NoiseParams makes noise_warp an identity map, so the flush blends the previous
-// frame back at the same location, faded by style.fade — deterministic.
+/**
+ * @brief Verifies the Pixel::Feedback::flush warp-field path.
+ * @details A Smoke style with no bound NoiseParams makes noise_warp an identity
+ *          map, so the flush blends the previous frame back at the same location,
+ *          faded by style.fade — deterministic.
+ */
 inline void test_feedback_flush_blends_prev_frame() {
   constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
   PipeFx fx(W, H);
@@ -790,12 +894,14 @@ inline void test_feedback_flush_blends_prev_frame() {
   HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 8)));
 }
 
-// flush() must honor the segment clip like every other rasterizer: on
-// segmented hardware each board owns a Y-band, and a feedback flush that
-// iterated the full canvas would composite the whole sphere into every board's
-// buffer (wrong output + wasted work). Here the prev frame is bright at every
-// row but the clip restricts rendering to a sub-band; rows outside the
-// margin-expanded render band must stay untouched.
+/**
+ * @brief Verifies flush() honors the segment clip like every other rasterizer.
+ * @details On segmented hardware each board owns a Y-band, and a feedback flush
+ *          that iterated the full canvas would composite the whole sphere into
+ *          every board's buffer (wrong output + wasted work). Here the prev frame
+ *          is bright at every row but the clip restricts rendering to a sub-band;
+ *          rows outside the margin-expanded render band must stay untouched.
+ */
 inline void test_feedback_flush_respects_clip() {
   constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
   PipeFx fx(W, H);
@@ -841,8 +947,11 @@ inline void test_feedback_flush_respects_clip() {
 // tests cover the quantization round-trip and the ring mechanics directly.
 // ============================================================================
 
-// plot() passes the frame through and stores it; flush() ages, decodes the
-// int16 entry and re-emits it within the quantization error bound (< 1/32767).
+/**
+ * @brief Verifies plot() passes the frame through and stores it, and flush()
+ *        ages, decodes the int16 entry and re-emits it within the quantization
+ *        error bound (< 1/32767).
+ */
 inline void test_world_trails_int16_quantization_roundtrip() {
   constexpr int W = 32, Cap = 8;
   static uint8_t buf[Cap * 16];
@@ -877,9 +986,12 @@ inline void test_world_trails_int16_quantization_roundtrip() {
   HS_EXPECT_NEAR(decoded.z, v0.z, 1e-4f);
 }
 
-// A component pushed past the unit cube by an upstream warp must SATURATE, not
-// overflow int16 and wrap to a garbage point on the far side of the sphere.
-// encode() clamps to [-1, 1] before quantizing.
+/**
+ * @brief Verifies a component pushed past the unit cube saturates rather than
+ *        overflowing int16 and wrapping to a garbage point on the far side of
+ *        the sphere.
+ * @details encode() clamps to [-1, 1] before quantizing.
+ */
 inline void test_world_trails_clamps_out_of_range() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
@@ -906,8 +1018,10 @@ inline void test_world_trails_clamps_out_of_range() {
   HS_EXPECT_NEAR(decoded.z, -1.0f, 1e-3f);  // saturated
 }
 
-// The ring is a hard-bounded buffer: pushing past Cap evicts the oldest entries
-// so size() saturates at Cap.
+/**
+ * @brief Verifies the ring is a hard-bounded buffer: pushing past Cap evicts the
+ *        oldest entries so size() saturates at Cap.
+ */
 inline void test_world_trails_ring_evicts_oldest() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
@@ -924,7 +1038,10 @@ inline void test_world_trails_ring_evicts_oldest() {
   HS_EXPECT_EQ(trails.size(), (size_t)Cap);
 }
 
-// Each flush decrements an entry's ttl; the entry is popped once ttl reaches 0.
+/**
+ * @brief Verifies each flush decrements an entry's ttl and the entry is popped
+ *        once ttl reaches 0.
+ */
 inline void test_world_trails_ttl_expiry() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
@@ -946,8 +1063,11 @@ inline void test_world_trails_ttl_expiry() {
   HS_EXPECT_EQ(trails.size(), (size_t)0);
 }
 
-// Screen::Trails stores float DecayPixels (no int16 quantization — that path is
-// World::Trails-specific); exercise its store / emit / decay lifecycle.
+/**
+ * @brief Verifies the Screen::Trails store / emit / decay lifecycle.
+ * @details Screen::Trails stores float DecayPixels with no int16 quantization
+ *          (that path is World::Trails-specific).
+ */
 inline void test_screen_trails_store_emit_decay() {
   constexpr int W = 32, MAXP = 16;
   static uint8_t buf[MAXP * 32];
@@ -988,10 +1108,13 @@ inline void test_screen_trails_store_emit_decay() {
   HS_EXPECT_EQ(emitted, 0);
 }
 
-// Screen::Trails must forward an already-aged emission, matching World::Trails:
-// a point with 0 < age < lifetime is both passed through the current frame and
-// seeded into storage. A point at/past lifetime is still forwarded, but ttl<=0
-// keeps it out of storage.
+/**
+ * @brief Verifies Screen::Trails forwards an already-aged emission, matching
+ *        World::Trails.
+ * @details A point with 0 < age < lifetime is both passed through the current
+ *          frame and seeded into storage. A point at/past lifetime is still
+ *          forwarded, but ttl<=0 keeps it out of storage.
+ */
 inline void test_screen_trails_forwards_aged_emission() {
   constexpr int W = 32, MAXP = 16;
   static uint8_t buf[MAXP * 32];
@@ -1026,8 +1149,10 @@ inline void test_screen_trails_forwards_aged_emission() {
 // Runner
 // ============================================================================
 
-// Runs every filter test case under the "filter" module scope; returns the
-// module's failure count.
+/**
+ * @brief Runs every filter test case under the "filter" module scope.
+ * @return The module's failure count.
+ */
 inline int run_filter_tests() {
   auto scope = hs_test::begin_module("filter");
 

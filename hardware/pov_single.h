@@ -54,8 +54,10 @@ template <int S, int RPM> class POVDisplay {
 
 public:
   /**
-   * @brief Initializes the LED strip and sets up hardware specific
-   * optimizations.
+   * @brief Constructs the driver, initializing the LED strip and hardware-
+   * specific optimizations (correction, temperature, brightness).
+   * @details Seeds FastLED's legacy LCG to 1337; modern effects draw from the
+   * separate hs::random() mt19937(1337) reproduced by the simulator.
    */
   POVDisplay() {
     // Seeds FastLED's LCG only — i.e. the bare random8()/random16()/random()
@@ -80,6 +82,9 @@ public:
    * @brief Runs a specific Effect for a given duration.
    * @tparam E The Effect class to run.
    * @param duration The time in seconds to run the effect.
+   * @details Eagerly fills the scanline LUTs for E's resolution before the
+   * first frame so the ISR never observes a half-filled table, then constructs,
+   * configures, runs, and deletes the effect.
    */
   template <typename E> void show(unsigned long duration) {
     // Eager-fill the scanline LUTs for this effect's resolution before the
@@ -94,9 +99,15 @@ public:
 
 private:
   /**
-   * @brief Non-template core of show(). Borrows e — the caller (show) retains
-   * ownership and deletes it. Publishes e to the ISR-visible effect_ only while
-   * the timer ISR is attached, then unpublishes it. Does not delete e.
+   * @brief Non-template core of show(): drives the column ISR for the effect's
+   * lifetime.
+   * @param e Effect to run; borrowed, not owned. The caller (show) retains
+   * ownership and deletes it.
+   * @param duration The time in seconds to run the effect.
+   * @details Publishes e to the ISR-visible effect_ only while the timer ISR is
+   * attached, then unpublishes it; does not delete e. Traps a driver/effect
+   * resolution mismatch and a failed timer start before either becomes a dark
+   * strip or an unguarded OOB read in the column ISR.
    */
   void run(Effect *e, unsigned long duration) {
     // Unsigned start + unsigned elapsed (millis() - start) is the overflow-safe

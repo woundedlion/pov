@@ -6,18 +6,33 @@
 #pragma once
 #include "core/effects_engine.h"
 
-// Continuously spawns randomly-oriented rings that grow and fade in over a
-// short lifetime, then recycle their fixed slot. A RandomTimer drives spawning;
-// each live ring is advanced and drawn purely from its `age` (see draw_frame).
+/**
+ * @brief Effect that continuously spawns randomly-oriented rings which grow and
+ *        fade in over a short lifetime, then recycle their fixed slot.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details A RandomTimer drives spawning; each live ring is advanced and drawn
+ *          purely from its `age` (see draw_frame).
+ */
 template <int W, int H> class RingShower : public Effect {
 public:
+  /**
+   * @brief Constructs the effect at the templated canvas dimensions.
+   */
   FLASHMEM RingShower() : Effect(W, H) {}
 
+  /**
+   * @brief Registers parameters, bakes per-slot palette LUTs, and arms the
+   *        spawn timer.
+   * @details Allocates each slot's palette LUT once up front; spawn_ring refills
+   *          it in place (rebake, no allocation). 16 * 256 entries amortizes
+   *          trivially.
+   */
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
     // Allocate each slot's palette LUT once up front; spawn_ring refills it in
-    // place (rebake, no allocation). 16 * 256 entries amortizes trivially.
+    // place.
     for (size_t i = 0; i < MAX_RINGS; ++i)
       rings[i].palette.bake(persistent_arena, make_palette());
 
@@ -25,18 +40,26 @@ public:
                         4, 48, [this](auto &) { this->spawn_ring(); }, true));
   }
 
+  /**
+   * @brief Reports whether the engine should clear to the background each frame.
+   * @return false; rings accumulate over the prior frame's contents.
+   */
   bool show_bg() const override { return false; }
 
+  /**
+   * @brief Advances and draws every live ring for the current frame.
+   * @details Steps the spawn timer, then advances and draws each live ring
+   *          directly from its slot. Radius growth, fade-in and lifetime are
+   *          pure functions of `age` computed here rather than by per-ring
+   *          Sprite/Transition animations capturing the slot: a slot is
+   *          recyclable, so an animation outliving its reuse would draw whatever
+   *          ring later lands in it. Driving everything from `age` makes the
+   *          slot's lifetime explicit and self-contained (mirrors Thrusters).
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas); // drives the spawn timer only
 
-    // Advance and draw each live ring directly from its slot. Radius growth,
-    // fade-in and lifetime are pure functions of `age` computed here rather
-    // than by per-ring Sprite/Transition animations capturing the slot: a slot
-    // is recyclable, so an animation outliving its reuse would draw whatever
-    // ring later lands in it. Driving everything from `age` makes the slot's
-    // lifetime explicit and self-contained (mirrors Thrusters).
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       Ring &ring = rings[i];
       if (ring.age >= ring.life)
@@ -47,34 +70,49 @@ public:
   }
 
 private:
-  // One ring slot: orientation, baked palette, and age/life timing. A slot is
-  // free when age >= life and is reused by spawn_ring without reallocating.
+  /**
+   * @brief One ring slot: orientation, baked palette, and age/life timing.
+   * @details A slot is free when age >= life and is reused by spawn_ring without
+   *          reallocating.
+   */
   struct Ring {
-    // Frames spent fading in from 0 to full opacity; opacity then holds (no
-    // fade-out).
-    static constexpr int FADE_IN_FRAMES = 4;
-    // Ring radius grows from 0 to RADIUS_MAX over its whole life.
-    static constexpr float RADIUS_MAX = 2.0f;
+    static constexpr int FADE_IN_FRAMES = 4; /**< Frames spent fading in from 0 to full opacity; opacity then holds (no fade-out). */
+    static constexpr float RADIUS_MAX = 2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
 
-    Vector normal;
-    // 256-entry LUT: allocated once in init(), rebaked in place each spawn. The
-    // per-fragment lookup is then a cheap LUT read rather than a full
-    // GenerativePalette OKLCH evaluation (the palette is immutable after spawn).
+    Vector normal; /**< Plane normal fixing the ring's orientation. */
+    /**
+     * @brief 256-entry palette LUT, allocated once in init() and rebaked in
+     *        place each spawn.
+     * @details The per-fragment lookup is then a cheap LUT read rather than a
+     *          full GenerativePalette OKLCH evaluation (the palette is immutable
+     *          after spawn).
+     */
     BakedPalette palette;
-    int life = 0; // total visible frames
-    int age = 0;  // frames elapsed; age >= life marks the slot free
+    int life = 0; /**< Total visible frames. */
+    int age = 0;  /**< Frames elapsed; age >= life marks the slot free. */
 
+    /**
+     * @brief Constructs a free slot with a random orientation.
+     */
     Ring() : normal(random_vector()) {}
 
-    // Eased radius for the frame being drawn. age + 1 (not age) so the first
-    // draw renders one eased step in rather than radius 0, and the ring reaches
-    // RADIUS_MAX on its final visible frame (age + 1 == life).
+    /**
+     * @brief Eased radius for the frame currently being drawn.
+     * @return Radius in world units, in [0, RADIUS_MAX].
+     * @details Uses age + 1 (not age) so the first draw renders one eased step
+     *          in rather than radius 0, and the ring reaches RADIUS_MAX on its
+     *          final visible frame (age + 1 == life).
+     */
     float radius_at() const {
       float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
       return RADIUS_MAX * ease_mid(t);
     }
 
-    // Fade-in over the first FADE_IN_FRAMES frames, then hold full; no fade-out.
+    /**
+     * @brief Opacity multiplier for the frame currently being drawn.
+     * @return Opacity in [0, 1]: eased fade-in over the first FADE_IN_FRAMES
+     *         frames, then a held 1.0; no fade-out.
+     */
     float opacity_at() const {
       if (age + 1 < FADE_IN_FRAMES)
         return ease_mid(static_cast<float>(age + 1) / FADE_IN_FRAMES);
@@ -82,13 +120,24 @@ private:
     }
   };
 
-  // A fresh random palette for a spawning ring. Each construction reseeds, so
-  // every ring still draws from its own distinct palette.
+  /**
+   * @brief Builds a fresh random palette for a spawning ring.
+   * @return A circular, analogous, flat-brightness GenerativePalette.
+   * @details Each construction reseeds, so every ring draws from its own
+   *          distinct palette.
+   */
   static GenerativePalette make_palette() {
     return GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
                              BrightnessProfile::FLAT);
   }
 
+  /**
+   * @brief Reinitializes the first free ring slot with a new orientation, life,
+   *        and palette.
+   * @details Scans for a slot whose age has reached its life; if none is free,
+   *          the spawn is silently dropped. life is drawn uniformly in
+   *          [8, 80) frames.
+   */
   void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       if (rings[i].age >= rings[i].life) { // free slot
@@ -102,11 +151,18 @@ private:
     }
   }
 
+  /**
+   * @brief Draws one ring slot at its current eased radius and opacity.
+   * @param canvas Target canvas for this frame.
+   * @param opacity Per-frame opacity multiplier in [0, 1] from opacity_at().
+   * @param index Slot index into the rings array.
+   * @details Rings are never re-oriented after spawn, so the basis comes
+   *          straight from the ring's own normal (identity rotation) and the
+   *          palette's radial axis is the fixed X axis — both constant across
+   *          the ring's fragments.
+   */
   void draw_ring(Canvas &canvas, float opacity, size_t index) {
     Ring &ring = rings[index];
-    // Rings are never re-oriented after spawn, so the basis comes straight from
-    // the ring's own normal (identity rotation) and the palette's radial axis is
-    // the fixed X axis — both constant across the ring's fragments.
     Basis basis = make_basis(Quaternion(), ring.normal);
     const Vector z = X_AXIS;
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
@@ -117,13 +173,16 @@ private:
                            fragment_shader);
   }
 
-  static constexpr size_t MAX_RINGS = 16;
-  Ring rings[MAX_RINGS];
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  Timeline timeline;
+  static constexpr size_t MAX_RINGS = 16; /**< Fixed pool of ring slots. */
+  Ring rings[MAX_RINGS];                  /**< The recyclable ring slots. */
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Screen-space anti-alias pipeline. */
+  Timeline timeline;    /**< Drives the spawn timer. */
 
+  /**
+   * @brief User-tunable parameters for the effect.
+   */
   struct Params {
-    float alpha = 0.2f;
+    float alpha = 0.2f; /**< Global opacity scale in [0, 1]. */
   } params;
 };
 

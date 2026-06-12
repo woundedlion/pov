@@ -32,27 +32,30 @@ namespace sdf {
 
 using hs_test::math3d::approx_vec;
 
-// Canonical equator-facing basis: v = +Y, u = +X, w = +Z.
+/**
+ * @brief Builds the canonical equator-facing basis: v = +Y, u = +X, w = +Z.
+ * @return A Basis oriented so its pole points along +Y.
+ */
 inline Basis equator_basis() { return Basis{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)}; }
 
 // ============================================================================
 // clamp_phi
 // ============================================================================
 
-// phi already in [0, π] passes through unchanged.
+/** @brief Verifies phi already in [0, π] passes through clamp_phi unchanged. */
 inline void test_clamp_phi_in_range() {
   HS_EXPECT_NEAR(SDF::clamp_phi(0.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(SDF::clamp_phi(0.5f), 0.5f, 1e-6f);
   HS_EXPECT_NEAR(SDF::clamp_phi(PI_F), PI_F, 1e-6f);
 }
 
-// Negative phi reflects across the north pole (|phi|).
+/** @brief Verifies negative phi reflects across the north pole (|phi|). */
 inline void test_clamp_phi_negative_reflects() {
   HS_EXPECT_NEAR(SDF::clamp_phi(-0.3f), 0.3f, 1e-6f);
   HS_EXPECT_NEAR(SDF::clamp_phi(-1.2f), 1.2f, 1e-6f);
 }
 
-// phi above π reflects across the south pole (2π - phi).
+/** @brief Verifies phi above π reflects across the south pole (2π - phi). */
 inline void test_clamp_phi_above_pi_reflects() {
   HS_EXPECT_NEAR(SDF::clamp_phi(PI_F + 0.2f), PI_F - 0.2f, 1e-5f);
   HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * PI_F), 0.0f, 1e-5f);
@@ -62,7 +65,7 @@ inline void test_clamp_phi_above_pi_reflects() {
 // Ring
 // ============================================================================
 
-// A point on the ring centerline reads raw_dist 0 and dist = -thickness.
+/** @brief Verifies a point on the ring centerline reads raw_dist 0 and dist = -thickness. */
 inline void test_ring_on_centerline() {
   Basis b = equator_basis();
   // radius=1 → target_angle = π/2 (equator viewed from +Y)
@@ -74,7 +77,7 @@ inline void test_ring_on_centerline() {
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
 }
 
-// A point within the ring band reads negative dist.
+/** @brief Verifies a point within the ring band reads negative dist. */
 inline void test_ring_inside_band() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
@@ -87,7 +90,7 @@ inline void test_ring_inside_band() {
   HS_EXPECT_TRUE(r.raw_dist <= 0.1f + 1e-3f);
 }
 
-// A point far outside the band reads the cull sentinel rather than a real dist.
+/** @brief Verifies a point far outside the band reads the cull sentinel rather than a real dist. */
 inline void test_ring_outside_band_returns_sentinel() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
@@ -97,7 +100,7 @@ inline void test_ring_outside_band_returns_sentinel() {
   HS_EXPECT_TRUE(r.dist > 50.0f); // sentinel: 100.0f
 }
 
-// Just past the band edge still trips the sentinel (band edge is exclusive).
+/** @brief Verifies just past the band edge still trips the sentinel (band edge is exclusive). */
 inline void test_ring_just_outside_band() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.05f);
@@ -114,7 +117,7 @@ inline void test_ring_just_outside_band() {
 // PlanarPolygon  (Basis at top of sphere; distance to nearest edge)
 // ============================================================================
 
-// The polygon center is inside, with dist equal to the negated apothem.
+/** @brief Verifies the polygon center is inside, with dist equal to the negated apothem. */
 inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
   // 6-gon, thickness=0.5 (radians), phase=0
@@ -128,7 +131,7 @@ inline void test_polygon_at_center_inside() {
   HS_EXPECT_NEAR(r.dist, -apothem, 1e-3f);
 }
 
-// The antipode of the polygon center is outside (positive dist).
+/** @brief Verifies the antipode of the polygon center is outside (positive dist). */
 inline void test_polygon_far_point_outside() {
   Basis b = equator_basis();
   SDF::PlanarPolygon poly(b, 0.3f, 6, 0.0f);
@@ -142,7 +145,7 @@ inline void test_polygon_far_point_outside() {
 // SphericalPolygon — great-circle edges
 // ============================================================================
 
-// The spherical-polygon center is strictly inside.
+/** @brief Verifies the spherical-polygon center is strictly inside. */
 inline void test_spherical_polygon_center_inside() {
   Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, /*radius*/ 0.5f, /*sides*/ 5, /*phase*/ 0.0f);
@@ -151,7 +154,7 @@ inline void test_spherical_polygon_center_inside() {
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
-// The antipode of the spherical-polygon center is outside.
+/** @brief Verifies the antipode of the spherical-polygon center is outside. */
 inline void test_spherical_polygon_far_outside() {
   Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, 0.3f, 6, 0.0f);
@@ -163,7 +166,7 @@ inline void test_spherical_polygon_far_outside() {
 // Star
 // ============================================================================
 
-// The star center is interior (negative dist).
+/** @brief Verifies the star center is interior (negative dist). */
 inline void test_star_center_inside() {
   Basis b = equator_basis();
   SDF::Star star(b, /*radius*/ 0.6f, /*sides*/ 5, /*phase*/ 0.0f);
@@ -171,7 +174,7 @@ inline void test_star_center_inside() {
   HS_EXPECT_TRUE(r.dist < 0.0f); // center is interior
 }
 
-// The antipode of the star center is outside.
+/** @brief Verifies the antipode of the star center is outside. */
 inline void test_star_far_outside() {
   Basis b = equator_basis();
   SDF::Star star(b, 0.4f, 5, 0.0f);
@@ -183,7 +186,7 @@ inline void test_star_far_outside() {
 // Line
 // ============================================================================
 
-// A point on the line's arc reads raw_dist 0 and dist = -thickness.
+/** @brief Verifies a point on the line's arc reads raw_dist 0 and dist = -thickness. */
 inline void test_line_on_arc_is_inside() {
   Vector a(1, 0, 0);
   Vector bv(0, 0, 1);
@@ -196,7 +199,7 @@ inline void test_line_on_arc_is_inside() {
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-2f);
 }
 
-// An endpoint counts as on the line (raw_dist 0, dist = -thickness).
+/** @brief Verifies an endpoint counts as on the line (raw_dist 0, dist = -thickness). */
 inline void test_line_endpoint_is_on_line() {
   Vector a(1, 0, 0);
   Vector b(0, 0, 1);
@@ -206,7 +209,7 @@ inline void test_line_endpoint_is_on_line() {
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
 }
 
-// A point off the line's great-circle plane reads positive dist.
+/** @brief Verifies a point off the line's great-circle plane reads positive dist. */
 inline void test_line_perpendicular_off() {
   Vector a(1, 0, 0);
   Vector b(0, 0, 1);
@@ -219,8 +222,11 @@ inline void test_line_perpendicular_off() {
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
-// A zero-length line degenerates to a point: on it reads -thickness, and a
-// quarter-turn away reads raw_dist π/2 (positive dist).
+/**
+ * @brief Verifies a zero-length line degenerates to a point.
+ * @details On the point reads dist = -thickness; a quarter-turn away reads
+ *   raw_dist π/2 (positive dist).
+ */
 inline void test_line_degenerate_zero_length() {
   Vector a(1, 0, 0);
   SDF::Line ln(a, a, 0.1f);
@@ -237,7 +243,7 @@ inline void test_line_degenerate_zero_length() {
 // Torus (3D volumetric)
 // ============================================================================
 
-// On the ring centerline the torus is maximally inside: dist = -minor radius.
+/** @brief Verifies on the ring centerline the torus is maximally inside: dist = -minor radius. */
 inline void test_torus_on_centerline_is_inside() {
   SDF::Torus t{2.0f, 0.5f};
   // Point on the ring centerline → distance = -r (inside, equal to minor radius).
@@ -246,7 +252,7 @@ inline void test_torus_on_centerline_is_inside() {
   HS_EXPECT_NEAR(t.distance(Vector(-2, 0, 0)), -0.5f, 1e-5f);
 }
 
-// Inner/outer rim and top-of-tube points all read dist 0 (on the surface).
+/** @brief Verifies inner/outer rim and top-of-tube points all read dist 0 (on the surface). */
 inline void test_torus_on_surface() {
   SDF::Torus t{2.0f, 0.5f};
   // Outer rim point (xz_radius = R + r).
@@ -257,14 +263,14 @@ inline void test_torus_on_surface() {
   HS_EXPECT_NEAR(t.distance(Vector(2.0f, 0.5f, 0)), 0.0f, 1e-5f);
 }
 
-// The donut-hole center is outside, at distance R - r from the tube.
+/** @brief Verifies the donut-hole center is outside, at distance R - r from the tube. */
 inline void test_torus_origin_is_outside_hole() {
   SDF::Torus t{2.0f, 0.5f};
   // Origin is in the centre of the donut hole — distance equals R - r = 1.5.
   HS_EXPECT_NEAR(t.distance(Vector(0, 0, 0)), 1.5f, 1e-5f);
 }
 
-// The surface normal on the outer rim points radially outward (+X here).
+/** @brief Verifies the surface normal on the outer rim points radially outward (+X here). */
 inline void test_torus_normal_points_outward_on_outer_rim() {
   SDF::Torus t{2.0f, 0.5f};
   // Outer rim — normal should point radially outward in XZ.
@@ -272,7 +278,7 @@ inline void test_torus_normal_points_outward_on_outer_rim() {
   HS_EXPECT_VEC(n, Vector(1, 0, 0), 1e-4f);
 }
 
-// The surface normal at the top of the tube points +Y.
+/** @brief Verifies the surface normal at the top of the tube points +Y. */
 inline void test_torus_normal_points_outward_on_top() {
   SDF::Torus t{2.0f, 0.5f};
   // Top of tube — normal points +Y.
@@ -284,6 +290,7 @@ inline void test_torus_normal_points_outward_on_top() {
 // Union — min of distances
 // ============================================================================
 
+/** @brief Verifies Union returns the min of member distances, picking the closest shape. */
 inline void test_union_picks_closest_shape() {
   // Union distance is the min of member distances. Torus has no .thickness field,
   // which Union<> requires, so the algebra is exercised with Line shapes.
@@ -304,7 +311,7 @@ inline void test_union_picks_closest_shape() {
   HS_EXPECT_NEAR(r2.dist, -0.1f, 1e-2f);
 }
 
-// Union exposes the max of its children's thicknesses.
+/** @brief Verifies Union exposes the max of its children's thicknesses. */
 inline void test_union_thickness_is_max() {
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
   SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.3f);
@@ -316,7 +323,7 @@ inline void test_union_thickness_is_max() {
 // Subtract — max(A, -B)
 // ============================================================================
 
-// A point inside A but outside B stays inside the difference A - B.
+/** @brief Verifies a point inside A but outside B stays inside the difference A - B. */
 inline void test_subtract_inside_a_outside_b_remains_inside() {
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.2f);
   SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
@@ -328,6 +335,7 @@ inline void test_subtract_inside_a_outside_b_remains_inside() {
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
+/** @brief Verifies a point inside both A and B becomes outside the difference A - B. */
 inline void test_subtract_inside_both_becomes_outside() {
   // Same line for A and B → A - A is empty everywhere.
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
@@ -338,15 +346,25 @@ inline void test_subtract_inside_both_becomes_outside() {
   HS_EXPECT_NEAR(r.dist, 0.1f, 1e-3f);
 }
 
-// Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list,
-// to exercise Subtract's scanline set-difference independently of any real
-// shape. Minimal surface: only thickness, is_solid, and get_horizontal_intervals
-// are touched by Subtract's ctor + interval path.
 namespace sdf_subtract_detail {
+/**
+ * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
+ * @details Exercises Subtract's scanline set-difference independently of any real
+ *   shape. Minimal surface: only thickness, is_solid, and get_horizontal_intervals
+ *   are touched by Subtract's ctor + interval path.
+ */
 struct MockIntervalShape {
-  const std::vector<std::pair<float, float>> *ivs;
-  float thickness = 0.1f;
-  static constexpr bool is_solid = true;
+  const std::vector<std::pair<float, float>> *ivs; /**< Interval list this mock replays. */
+  float thickness = 0.1f;                          /**< Stroke half-width the parent reads. */
+  static constexpr bool is_solid = true;           /**< Marks the mock as a solid fill shape. */
+  /**
+   * @brief Emits the stored intervals to the scanline sink.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Out Interval-sink callable type taking (start, end).
+   * @param out Sink invoked once per stored interval.
+   * @return Always true: this mock definitively produces intervals.
+   */
   template <int W, int H, typename Out>
   bool get_horizontal_intervals(int, Out out) const {
     for (const auto &p : *ivs)
@@ -355,12 +373,21 @@ struct MockIntervalShape {
   }
 };
 
-// Mock that falls back to a full-row scan: returning false means "I cannot
-// produce intervals — caller must scan the whole row with distance()", NOT
-// that the shape covers the row.
+/**
+ * @brief Mock that falls back to a full-row scan.
+ * @details Returning false means "I cannot produce intervals — caller must scan
+ *   the whole row with distance()", NOT that the shape covers the row.
+ */
 struct MockFullWidthShape {
-  float thickness = 0.1f;
-  static constexpr bool is_solid = true;
+  float thickness = 0.1f;                /**< Stroke half-width the parent reads. */
+  static constexpr bool is_solid = true; /**< Marks the mock as a solid fill shape. */
+  /**
+   * @brief Declines to emit intervals, forcing a full-row distance scan.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Out Interval-sink callable type (unused).
+   * @return Always false: caller must scan the whole row with distance().
+   */
   template <int W, int H, typename Out>
   bool get_horizontal_intervals(int, Out) const {
     return false;
@@ -368,9 +395,11 @@ struct MockFullWidthShape {
 };
 } // namespace sdf_subtract_detail
 
-// A child emitting UNSORTED, multi-piece B intervals must still yield the
-// correct set difference, emitted in start-sorted order (scan_region's coalescer
-// silently drops any out-of-order interval).
+/**
+ * @brief Verifies UNSORTED, multi-piece B intervals still yield the correct set difference.
+ * @details The result must be emitted in start-sorted order; scan_region's
+ *   coalescer silently drops any out-of-order interval.
+ */
 inline void test_subtract_unsorted_b_yields_sorted_set_difference() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
@@ -396,8 +425,10 @@ inline void test_subtract_unsorted_b_yields_sorted_set_difference() {
     HS_EXPECT_TRUE(out[i].first >= out[i - 1].first);
 }
 
-// When B removes nothing (empty), unsorted A intervals must pass through in
-// start-sorted order so the coalescer doesn't drop the earlier one.
+/**
+ * @brief Verifies that when B removes nothing, unsorted A intervals pass through start-sorted.
+ * @details Sorted passthrough keeps the coalescer from dropping the earlier interval.
+ */
 inline void test_subtract_unsorted_a_passthrough_is_sorted() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
@@ -414,11 +445,13 @@ inline void test_subtract_unsorted_a_passthrough_is_sorted() {
   HS_EXPECT_NEAR(out[1].first, 50.0f, 1e-4f);
 }
 
-// When B cannot produce intervals (returns false), Subtract cannot compute the
-// set difference, so it must request a full-row scan (return false) — like
-// Union/SmoothUnion — letting scan_region evaluate distance()=max(A,-B) per
-// pixel. Returning true while emitting nothing would make scan_region SKIP the
-// row and silently erase all of A.
+/**
+ * @brief Verifies that when B cannot produce intervals, Subtract requests a full-row scan.
+ * @details B returning false means Subtract cannot compute the set difference, so
+ *   it must return false — like Union/SmoothUnion — letting scan_region evaluate
+ *   distance()=max(A,-B) per pixel. Returning true while emitting nothing would
+ *   make scan_region SKIP the row and silently erase all of A.
+ */
 inline void test_subtract_full_width_b_requests_full_row_scan() {
   using P = std::pair<float, float>;
   using MockA = sdf_subtract_detail::MockIntervalShape;
@@ -439,7 +472,7 @@ inline void test_subtract_full_width_b_requests_full_row_scan() {
 // Intersection — max(A, B)
 // ============================================================================
 
-// Intersection is inside only where both children are inside.
+/** @brief Verifies Intersection is inside only where both children are inside. */
 inline void test_intersection_requires_both_inside() {
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.3f);
   SDF::Line lb(Vector(1, 0, 0), Vector(0, 1, 0), 0.3f);
@@ -456,7 +489,7 @@ inline void test_intersection_requires_both_inside() {
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 }
 
-// Intersection exposes the min of its children's thicknesses.
+/** @brief Verifies Intersection exposes the min of its children's thicknesses. */
 inline void test_intersection_thickness_is_min() {
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
   SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.3f);
@@ -464,10 +497,11 @@ inline void test_intersection_thickness_is_min() {
   HS_EXPECT_NEAR(inter.thickness, 0.1f, 1e-6f);
 }
 
-// Intersection's merge-sweep assumes both child interval lists are start-sorted.
-// With an UNSORTED multi-interval child it must still produce the correct,
-// start-sorted intersection (out-of-order output would be dropped by
-// scan_region's coalescer).
+/**
+ * @brief Verifies an UNSORTED multi-interval child still yields a start-sorted intersection.
+ * @details Intersection's merge-sweep assumes both child interval lists are
+ *   start-sorted; out-of-order output would be dropped by scan_region's coalescer.
+ */
 inline void test_intersection_unsorted_child_yields_sorted_result() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
@@ -489,10 +523,12 @@ inline void test_intersection_unsorted_child_yields_sorted_result() {
   HS_EXPECT_NEAR(out[1].second, 80.0f, 1e-4f);
 }
 
-// When one child falls back to a full-width scan, intersecting it with the other
-// is just the other child's intervals (replayed from the buffer already
-// collected). Pins the equivalence in both orientations and the both-fall-back
-// full-scan case.
+/**
+ * @brief Verifies a full-width child intersected with the other replays the other's intervals.
+ * @details When one child falls back to a full-width scan, the intersection is
+ *   just the other child's intervals (replayed from the buffer already collected).
+ *   Pins the equivalence in both orientations and the both-fall-back full-scan case.
+ */
 inline void test_intersection_full_width_child_replays_other() {
   using P = std::pair<float, float>;
   using MockI = sdf_subtract_detail::MockIntervalShape;
@@ -540,7 +576,7 @@ inline void test_intersection_full_width_child_replays_other() {
 // SmoothUnion — blends at the boundary
 // ============================================================================
 
-// Away from the blend zone, SmoothUnion's distance equals the hard Union's.
+/** @brief Verifies that away from the blend zone, SmoothUnion's distance equals the hard Union's. */
 inline void test_smooth_union_matches_union_far_from_boundary() {
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
   SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
@@ -555,9 +591,11 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
   HS_EXPECT_NEAR(r_hard.dist, r_soft.dist, 1e-3f);
 }
 
-// SmoothUnion derives its solidity from its children (like Union/Subtract/
-// Intersection): a stroke child keeps its soft falloff instead of collapsing
-// to a hard 1-px silhouette in process_pixel.
+/**
+ * @brief Verifies SmoothUnion derives its solidity from its children.
+ * @details Like Union/Subtract/Intersection, a stroke child keeps its soft falloff
+ *   instead of collapsing to a hard 1-px silhouette in process_pixel.
+ */
 inline void test_smooth_union_solidity_follows_children() {
   // Ring is a stroke (is_solid == false); PlanarPolygon is solid.
   static_assert(!SDF::SmoothUnion<SDF::Ring, SDF::Ring>::is_solid,
@@ -573,6 +611,7 @@ inline void test_smooth_union_solidity_follows_children() {
 // AngularRepeat — folds azimuth into N sectors
 // ============================================================================
 
+/** @brief Verifies AngularRepeat agrees with the base shape in the canonical (zero-angle) sector. */
 inline void test_angular_repeat_matches_base_at_zero_angle() {
   SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps*/ 4, Vector(0, 1, 0));
@@ -588,6 +627,7 @@ inline void test_angular_repeat_matches_base_at_zero_angle() {
   HS_EXPECT_NEAR(r_rep.dist, r_base.dist, 1e-3f);
 }
 
+/** @brief Verifies AngularRepeat folds a line in the canonical sector into a folded copy. */
 inline void test_angular_repeat_creates_copies() {
   // A line in the canonical sector should also be inside in a folded sector.
   SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
@@ -626,8 +666,15 @@ inline void test_angular_repeat_creates_copies() {
 // by test_line_arc_bulge_cull_covers_interior.
 // ============================================================================
 
-// Record every pixel scan_region visits for `shape`, exactly as rasterize()
-// drives it (full canvas, no clip).
+/**
+ * @brief Records every pixel scan_region visits for a shape, as rasterize() drives it.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Shape SDF shape type providing the cull and interval interface.
+ * @param shape Shape whose culled coverage is being captured.
+ * @param visited Output flag grid (W*H), set to 1 for each visited pixel.
+ * @details Drives the full canvas with no clip, mirroring the rasterizer.
+ */
 template <int W, int H, typename Shape>
 inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
   visited.assign(static_cast<size_t>(W) * H, 0);
@@ -647,9 +694,16 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
       });
 }
 
-// Assert no pixel clearly inside the shape (dist < -pixel_width) is dropped by
-// the cull, by a brute-force full-canvas exact distance scan. Returns the
-// interior-pixel count so the caller can confirm the case was non-trivial.
+/**
+ * @brief Asserts no pixel clearly inside the shape is dropped by the cull.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Shape SDF shape type providing the cull and distance interface.
+ * @param shape Shape under test.
+ * @return Count of interior pixels (dist < -pixel_width) found, so the caller can
+ *   confirm the case was non-trivial.
+ * @details Interior pixels are found by a brute-force full-canvas exact distance scan.
+ */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_interior(const Shape &shape) {
   if (!TrigLUT<W, H>::initialized)
@@ -675,6 +729,7 @@ inline int expect_cull_covers_interior(const Shape &shape) {
   return interior;
 }
 
+/** @brief Verifies the interval cull covers every interior pixel across an orientation/radius grid. */
 inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
 
@@ -710,11 +765,13 @@ inline void test_cull_covers_interior_over_orientation_grid() {
   HS_EXPECT_GT(total_interior, 1000);
 }
 
-// AngularRepeat around a non-Y axis sweeps the folded copies through latitudes
-// the un-repeated child never occupies, so the child's vertical band no longer
-// bounds them. get_vertical_bounds must fall back to the full canvas for a
-// non-Y axis; forwarding the child's narrow band would row-clip every off-band
-// copy out of the scan and silently drop it.
+/**
+ * @brief Verifies AngularRepeat around a non-Y axis culls in the full canvas, covering all copies.
+ * @details A non-Y axis sweeps the folded copies through latitudes the un-repeated
+ *   child never occupies, so the child's vertical band no longer bounds them.
+ *   get_vertical_bounds must fall back to the full canvas; forwarding the child's
+ *   narrow band would row-clip every off-band copy out of the scan and drop it.
+ */
 inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   constexpr int W = 96, H = 48;
   // A short stroke arc near the north pole (+Y), folded into 4 sectors around
@@ -728,9 +785,12 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   HS_EXPECT_GT(interior, 0);
 }
 
-// A bare Line whose two endpoints share a latitude but whose great-circle arc
-// bulges to a pole between them. Endpoint-only vertical bounds clip the polar
-// portion of the stroke; the arc-extrema test must widen phi to the bulge.
+/**
+ * @brief Verifies the arc-extrema cull widens phi to a Line's great-circle bulge.
+ * @details The Line's two endpoints share a latitude but its great-circle arc
+ *   bulges to a pole between them. Endpoint-only vertical bounds clip the polar
+ *   portion of the stroke; the arc-extrema test must widen phi to the bulge.
+ */
 inline void test_line_arc_bulge_cull_covers_interior() {
   constexpr int W = 96, H = 48;
   // Endpoints at phi≈0.4 either side of +Y; the shorter arc passes through the
@@ -771,8 +831,14 @@ inline void test_line_arc_bulge_cull_covers_interior() {
 // The exact fallback path must reproduce the oracle to float precision.
 // ============================================================================
 
-// Build one tilted N-gon face and scan its gnomonic box; assert sign agreement
-// and bounded magnitude error on the LUT path. Returns the LUT-path sample count.
+/**
+ * @brief Builds one tilted N-gon face and scans its gnomonic box against an exact oracle.
+ * @param sides Number of polygon sides (must be <= 8).
+ * @param rho Angular circumradius of the face, in radians.
+ * @param axis Pole direction the face's basis is built around.
+ * @return The number of samples that took the LUT path.
+ * @details Asserts sign agreement and bounded magnitude error on the LUT path.
+ */
 inline int check_face_lut(int sides, float rho, const Vector &axis) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
@@ -868,8 +934,11 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
   return lut_samples;
 }
 
-// Drive check_face_lut across a spread of polygons and tilts, confirming the
-// LUT path never mis-signs and never serves a near-boundary magnitude.
+/**
+ * @brief Verifies Face's distance LUT never mis-signs and never serves a near-boundary magnitude.
+ * @details Drives check_face_lut across a spread of polygons (triangle, pentagon,
+ *   hexagon) and tilts.
+ */
 inline void test_face_lut_matches_exact_within_cell_diagonal() {
   // A spread of polygons (triangle, pentagon, hexagon) and tilts.
   int lut_samples = 0;
@@ -884,7 +953,10 @@ inline void test_face_lut_matches_exact_within_cell_diagonal() {
 // Runner
 // ============================================================================
 
-// Run every sdf test case; returns the module's failure count.
+/**
+ * @brief Runs every sdf test case.
+ * @return The module's failure count.
+ */
 inline int run_sdf_tests() {
   auto scope = hs_test::begin_module("sdf");
 

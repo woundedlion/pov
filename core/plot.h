@@ -20,32 +20,44 @@
 
 namespace Plot {
 
-/** Inner/outer radius ratio for star shapes (1/φ² ≈ 0.382; mirrors
- *  SDF::STAR_INNER_RATIO). */
+/**
+ * @brief Inner/outer radius ratio for star shapes.
+ * @details 1/φ² ≈ 0.382; mirrors SDF::STAR_INNER_RATIO.
+ */
 static constexpr float STAR_INNER_RATIO = 0.382f;
 
-/** Geodesic segment shorter than this (radians) collapses to a point.
- *  Deliberately ~10× math::EPS_GEOMETRIC — a looser threshold for slerp-axis
- *  stability, not positional near-equality. */
+/**
+ * @brief Geodesic segment shorter than this (radians) collapses to a point.
+ * @details Deliberately ~10× math::EPS_GEOMETRIC — a looser threshold for
+ * slerp-axis stability, not positional near-equality.
+ */
 static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 
-/** Floor on the sin(φ) step-density scale near the poles, capping sub-steps per
- *  segment so polar curves don't oversample. A clamp, not a tolerance. */
+/**
+ * @brief Floor on the sin(φ) step-density scale near the poles.
+ * @details Caps sub-steps per segment so polar curves don't oversample. A
+ * clamp, not a tolerance.
+ */
 static constexpr float MIN_POLE_SCALE = 0.05f;
 
-/** Planar (azimuthal-equidistant) projection is singular at the basis antipode
- *  (R→π: azimuth undefined). A control point whose dot with the basis center is
- *  below this (≈ within 2.6° of the antipode) projects to an unstable azimuth,
- *  so its segment falls back to a geodesic edge. cos(π − 0.045). */
+/**
+ * @brief Antipode cutoff for the planar projection's stable-azimuth region.
+ * @details The planar (azimuthal-equidistant) projection is singular at the
+ * basis antipode (R→π: azimuth undefined). A control point whose dot with the
+ * basis center is below this (≈ within 2.6° of the antipode) projects to an
+ * unstable azimuth, so its segment falls back to a geodesic edge. cos(π − 0.045).
+ */
 static constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 
 /**
  * @brief Apply an optional per-control-point vertex shader to every fragment.
- *
- * Zero-cost inline replacement for the identical
+ * @tparam Fragments Fragment container type.
+ * @param vertex_shader Vertex shader to run on each fragment; no-op if null.
+ * @param pts Fragment container mutated in place.
+ * @details Zero-cost inline replacement for the identical
  * `if (vertex_shader) for (auto &p : pts) vertex_shader(p);` block repeated
- * across the primitives. Templated on the fragment container; the FunctionRef
- * is passed by value (two pointers) and the whole thing inlines away at -O3.
+ * across the primitives. The FunctionRef is passed by value (two pointers) and
+ * the whole thing inlines away at -O3.
  */
 template <typename Fragments>
 inline void apply_vertex_shader(VertexShaderRef vertex_shader, Fragments &pts) {
@@ -62,6 +74,10 @@ inline void apply_vertex_shader(VertexShaderRef vertex_shader, Fragments &pts) {
 struct Point {
   /**
    * @brief Draws a single point.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param f Fragment to plot.
+   * @param fragment_shader Shader function applied before plotting.
    */
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f,
                    FragmentShaderFn fragment_shader) {
@@ -73,16 +89,19 @@ struct Point {
   }
 };
 
-/**
- * @brief Core rasterization logic for 3D lines and curves.
- * Adapts step size based on screen-space density to avoid aliasing.
- */
 // --- Strategy Helpers ---
+// Core rasterization logic for 3D lines and curves adapts step size based on
+// screen-space density to avoid aliasing.
 
-// Azimuthal-equidistant projection, shared by the planar rasterization strategy
-// and the clip-cull arc-extent sampler. The forward map sends a sphere point to
-// plane coordinates whose radius is the great-circle angle from the basis center
-// and whose azimuth follows the basis u/w axes; the inverse map reverses it.
+/**
+ * @brief Forward azimuthal-equidistant projection of a sphere point to the plane.
+ * @param p Unit sphere point to project.
+ * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
+ * @return Plane coordinates whose radius is the great-circle angle from the
+ *         basis center (radians) and whose azimuth follows the basis u/w axes.
+ * @details Shared by the planar rasterization strategy and the clip-cull
+ * arc-extent sampler; azimuthal_unproject is the inverse map.
+ */
 static inline std::pair<float, float> azimuthal_project(const Vector &p,
                                                         const Basis &basis) {
   float R = angle_between(p, basis.v);
@@ -92,6 +111,13 @@ static inline std::pair<float, float> azimuthal_project(const Vector &p,
   return {R * fast_cosf(theta), R * fast_sinf(theta)};
 }
 
+/**
+ * @brief Inverse azimuthal-equidistant projection from the plane to the sphere.
+ * @param Px Plane x-coordinate (azimuthal-equidistant).
+ * @param Py Plane y-coordinate (azimuthal-equidistant).
+ * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
+ * @return Unit sphere point at great-circle angle sqrt(Px²+Py²) from basis.v.
+ */
 static inline Vector azimuthal_unproject(float Px, float Py,
                                          const Basis &basis) {
   float R = sqrtf(Px * Px + Py * Py);
@@ -102,7 +128,21 @@ static inline Vector azimuthal_unproject(float Px, float Py,
   return (basis.v * fast_cosf(R)) + (axis * fast_sinf(R));
 }
 
-// Planar Strategy
+/**
+ * @brief Planar interpolation strategy: builds an arc-uniform map for one edge.
+ * @tparam ProcessSegmentFn Callable (map, curr, next, dist, isLast) -> void.
+ * @param curr Start fragment of the edge.
+ * @param next End fragment of the edge.
+ * @param planar_basis Azimuthal-equidistant projection basis.
+ * @param isLastSegment True if this is the final edge of the polyline.
+ * @param process_segment Receives the arc-length map, endpoints, on-sphere
+ *                        length (radians), and the last-segment flag.
+ * @details The path is a straight line in the azimuthal-equidistant projection.
+ * Projection-uniform stepping is NOT arc-uniform under the anisotropic
+ * azimuthal metric, so a short cumulative-arc table (LEN_SAMPLES samples) is
+ * inverted to turn an arc-length fraction into a projection parameter, making
+ * planar sampling arc-uniform (matching the geodesic strategy) with no new trig.
+ */
 template <typename ProcessSegmentFn>
 static void
 rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
@@ -164,7 +204,18 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   process_segment(map_planar, curr, next, dist, isLastSegment);
 }
 
-// Geodesic Strategy
+/**
+ * @brief Geodesic interpolation strategy: builds a great-circle map for one edge.
+ * @tparam ProcessSegmentFn Callable (map, curr, next, dist, isLast) -> void.
+ * @param curr Start fragment of the edge.
+ * @param next End fragment of the edge.
+ * @param isLastSegment True if this is the final edge of the polyline.
+ * @param process_segment Receives the arc-length map, endpoints, on-sphere
+ *                        length (radians), and the last-segment flag.
+ * @details Picks a stable perpendicular axis for antipodal/degenerate endpoints
+ * and slerps along the great circle; a coincident-endpoint edge collapses to a
+ * constant map.
+ */
 template <typename ProcessSegmentFn>
 static void rasterize_geodesic_strategy(const Fragment &curr,
                                         const Fragment &next,
@@ -199,14 +250,23 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   }
 }
 
-// Conservative screen-row span of a rendered edge, including the arc's interior
-// latitude bulge. The clip cull must not test endpoints alone: a great-circle
-// (or planar-projected) edge between two points outside a clip band can still
-// bulge through it, and an endpoint-only test silently drops the arc — a gap at
-// a segment boundary on Phantasm hardware, where each board renders a Y-band.
-// Rows are computed via the canvas mapping row = phi_to_y(acos(y)); we extend
-// the endpoint rows by the arc's interior latitude extremum. Runs once per
-// coarse edge on the clip-only path.
+/**
+ * @brief Conservative screen-row span of a rendered edge, arc bulge included.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param planar_basis Non-null: edge is azimuthal-equidistant; null: geodesic.
+ * @param row_lo Output: minimum screen row touched by the edge.
+ * @param row_hi Output: maximum screen row touched by the edge.
+ * @details The clip cull must not test endpoints alone: a great-circle (or
+ * planar-projected) edge between two points outside a clip band can still bulge
+ * through it, and an endpoint-only test silently drops the arc — a gap at a
+ * segment boundary on Phantasm hardware, where each board renders a Y-band.
+ * Rows are computed via the canvas mapping row = phi_to_y(acos(y)); the endpoint
+ * rows are extended by the arc's interior latitude extremum (closed-form for the
+ * geodesic case, sampled with a Lipschitz margin for the planar case). Runs once
+ * per coarse edge on the clip-only path.
+ */
 template <int W, int H>
 static inline void edge_row_span(const Vector &a, const Vector &b,
                                  const Basis *planar_basis, float &row_lo,
@@ -282,10 +342,15 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
  * whose full screen-row span lies outside the active clip band are culled.
  *
  * @tparam W,H Rasterization resolution (pixel grid).
- * @param close_loop  Also draw the last→first edge.
+ * @tparam PipelineT Pipeline type (defaults to PipelineRef).
+ * @param pipeline Render pipeline that plots fragments.
+ * @param canvas Target canvas (supplies the active clip band).
+ * @param points Fragment polyline to rasterize.
+ * @param fragment_shader Per-fragment shader applied before plotting.
+ * @param close_loop Also draw the last→first edge.
  * @param planar_basis Non-null selects azimuthal-equidistant interpolation
  *                     (straight in the projection); null uses geodesic edges.
- * The unused float param is an unnamed, ignored slot in the signature.
+ * @details The unnamed float parameter is an ignored slot in the signature.
  */
 template <int W, int H, typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
@@ -479,9 +544,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
  * primitives only spell out `.capacity`.
  */
 struct FragmentDrawParams {
-  size_t capacity;            ///< Fragment buffer reservation (per-primitive).
-  bool close_loop = false;    ///< Passed to rasterize (closes last→first edge).
-  const Basis *planar_basis = nullptr; ///< Planar projection basis (null = geodesic).
+  size_t capacity;            /**< Fragment buffer reservation (per-primitive). */
+  bool close_loop = false;    /**< Passed to rasterize (closes last→first edge). */
+  const Basis *planar_basis = nullptr; /**< Planar projection basis (null = geodesic). */
 };
 
 /**
@@ -490,11 +555,17 @@ struct FragmentDrawParams {
  * Every Plot primitive opens a ScratchScope, binds a Fragments buffer, fills it,
  * applies the optional vertex shader, and rasterizes. The ScratchScope must
  * outlive the rasterize call (the arena backs the fragments), so the whole
- * sequence lives in one helper rather than being split. `fill` is a callable
- * (Fragments &) -> void carrying each primitive's own sampling; it inlines at
- * -O3, so this is a zero-cost replacement for the per-primitive copies.
+ * sequence lives in one helper rather than being split.
  *
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam FillFn Callable (Fragments &) -> void supplying the primitive's
+ *                sampling; inlines at -O3 for a zero-cost per-primitive copy.
+ * @param pipeline Render pipeline.
+ * @param canvas Target canvas.
+ * @param vertex_shader Optional per-vertex shader.
+ * @param fragment_shader Per-fragment shader.
  * @param params Per-primitive capacity / close-loop / planar-basis options.
+ * @param fill Fills the bound Fragments buffer with the primitive's samples.
  */
 template <int W, int H, typename FillFn>
 inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
@@ -571,7 +642,7 @@ struct Line {
 
   /**
    * @brief Draws a geodesic line.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param f1 Start fragment.
@@ -588,6 +659,15 @@ struct Line {
                          [&](Fragments &points) { sample(points, f1, f2); });
   }
 
+  /**
+   * @brief Draws a geodesic line without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param f1 Start fragment.
+   * @param f2 End fragment.
+   * @param fragment_shader Shader function.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader) {
@@ -700,7 +780,7 @@ struct Multiline {
 
   /**
    * @brief Draws a multiline path.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param vertices Iterable container of Fragment.
@@ -720,6 +800,15 @@ struct Multiline {
         [&](Fragments &points) { sample(points, vertices, closed); });
   }
 
+  /**
+   * @brief Draws a multiline path without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param vertices Iterable container of Fragment.
+   * @param fragment_shader Shader function.
+   * @param closed If true, connects the last point to the first.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader, bool closed = false) {
@@ -730,16 +819,18 @@ struct Multiline {
 /**
  * @brief Samples a closed parametric ring of `num_verts` vertices and appends
  * the overlap-close vertex.
- *
- * `pos_fn(i)` returns the unit-sphere position of vertex `i` (i in
- * [0, num_verts)). Each vertex carries the standard ring registers — v0:
- * perimeter progress (i / num_verts), v1: accumulated great-circle arc length
- * from vertex 0, v2: vertex index, age: 0. The trailing close vertex duplicates
- * vertex 0's position with v0 = 1, the arc length continued across the wrap edge,
- * and v2 = num_verts, so a `close_loop` rasterize draws the final edge back to
- * the start without a UV seam. This is the shared skeleton for the
- * accumulated-arc closed rings (Star, Flower, DistortedRing); Ring itself uses
- * an analytic arc length and keeps its own loop.
+ * @tparam PosFn Callable (int i) -> Vector giving vertex i's unit-sphere position.
+ * @param points Output fragment list; num_verts+1 fragments are appended.
+ * @param num_verts Number of ring vertices (i in [0, num_verts)).
+ * @param pos_fn Returns the unit-sphere position of vertex i.
+ * @details Each vertex carries the standard ring registers — v0: perimeter
+ * progress (i / num_verts), v1: accumulated great-circle arc length from vertex
+ * 0, v2: vertex index, age: 0. The trailing close vertex duplicates vertex 0's
+ * position with v0 = 1, the arc length continued across the wrap edge, and
+ * v2 = num_verts, so a `close_loop` rasterize draws the final edge back to the
+ * start without a UV seam. This is the shared skeleton for the accumulated-arc
+ * closed rings (Star, Flower, DistortedRing); Ring itself uses an analytic arc
+ * length and keeps its own loop.
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
@@ -778,6 +869,12 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
 struct Ring {
   /**
    * @brief Calculates a 3D point on a ring given basis and progress.
+   * @param a Angular progress around the ring (radians).
+   * @param radius Ring radius (fraction of the hemisphere).
+   * @param u Basis u-axis (in-plane).
+   * @param v Basis center axis.
+   * @param w Basis w-axis (in-plane).
+   * @return Normalized unit sphere point on the ring.
    */
   static Vector calcPoint(float a, float radius, const Vector &u,
                           const Vector &v, const Vector &w) {
@@ -790,10 +887,14 @@ struct Ring {
 
   /**
    * @brief Samples a closed ring at `num_samples` evenly-spaced angles.
-   *
-   * Runtime sample count for the polygon samplers, whose vertex counts do not
-   * match the TrigLUT grid; appends an overlap-close vertex. v1 is the analytic
-   * arc length (theta·sin(radius)).
+   * @param points Output fragment list; num_samples+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Ring radius (radians).
+   * @param num_samples Number of evenly-spaced samples around the ring.
+   * @param phase Rotation phase (radians).
+   * @details Runtime sample count for the polygon samplers, whose vertex counts
+   * do not match the TrigLUT grid; appends an overlap-close vertex. v1 is the
+   * analytic arc length (theta·sin(radius)).
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_samples, float phase = 0) {
@@ -845,16 +946,20 @@ struct Ring {
 
   /**
    * @brief Full-resolution closed ring (W samples) — LUT-optimized.
-   *
-   * Ring::draw's only sampling configuration is num_samples == W, whose angle
-   * grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta/sin_theta. Replace the
-   * per-sample libm cosf(θ+φ)/sinf(θ+φ) with the precomputed θ-grid and one
-   * angle-addition against cos/sin(φ) — the same optimization DistortedRing::
-   * sample already applies, saving ~2*(W+1) libm trig calls per ring per frame.
-   * Keeps Ring's analytic arc length (θ*arc_scale) and its own overlap close;
-   * see sample_closed_ring's note on why Ring is not folded into that helper.
-   * The runtime int-num_samples overload above stays for the polygon samplers,
-   * whose vertex counts (num_sides, W/4, …) do not match the LUT grid.
+   * @tparam W,H Rasterization resolution; W is the sample count and LUT grid.
+   * @param points Output fragment list; W+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Ring radius (radians).
+   * @param phase Rotation phase (radians).
+   * @details Ring::draw's only sampling configuration is num_samples == W, whose
+   * angle grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta/sin_theta, so the
+   * per-sample libm cosf(θ+φ)/sinf(θ+φ) becomes the precomputed θ-grid plus one
+   * angle-addition against cos/sin(φ) — saving ~2*(W+1) libm trig calls per ring
+   * per frame. Keeps Ring's analytic arc length (θ*arc_scale) and its own
+   * overlap close; see sample_closed_ring's note on why Ring is not folded into
+   * that helper. The runtime int-num_samples overload above stays for the
+   * polygon samplers, whose vertex counts (num_sides, W/4, …) do not match the
+   * LUT grid.
    */
   template <int W, int H>
   static void sample(Fragments &points, const Basis &basis, float radius,
@@ -910,7 +1015,7 @@ struct Ring {
 
   /**
    * @brief Draws a ring.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -930,6 +1035,16 @@ struct Ring {
         [&](Fragments &points) { sample<W, H>(points, basis, radius, phase); });
   }
 
+  /**
+   * @brief Draws a ring without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Ring radius (radians).
+   * @param fragment_shader Shader function.
+   * @param phase Rotation phase.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
@@ -948,6 +1063,11 @@ struct Ring {
 struct PlanarPolygon {
   /**
    * @brief Samples a planar polygon.
+   * @param points Output fragment list; num_sides+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Polygon radius.
+   * @param num_sides Number of sides.
+   * @param phase Rotation phase (radians).
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
@@ -964,7 +1084,7 @@ struct PlanarPolygon {
 
   /**
    * @brief Draws a planar polygon.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1002,6 +1122,17 @@ struct PlanarPolygon {
                          });
   }
 
+  /**
+   * @brief Draws a planar polygon without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Polygon radius.
+   * @param num_sides Number of sides.
+   * @param fragment_shader Shader function.
+   * @param phase Rotation phase.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
@@ -1021,6 +1152,11 @@ struct PlanarPolygon {
 struct SphericalPolygon {
   /**
    * @brief Samples a spherical polygon.
+   * @param points Output fragment list; num_sides+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Polygon radius.
+   * @param num_sides Number of sides.
+   * @param phase Rotation phase (radians).
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
@@ -1041,7 +1177,7 @@ struct SphericalPolygon {
 
   /**
    * @brief Draws a spherical polygon.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1064,6 +1200,17 @@ struct SphericalPolygon {
                          });
   }
 
+  /**
+   * @brief Draws a spherical polygon without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Polygon radius.
+   * @param num_sides Number of sides.
+   * @param fragment_shader Shader function.
+   * @param phase Rotation phase.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
@@ -1083,6 +1230,14 @@ struct SphericalPolygon {
 struct DistortedRing {
   /**
    * @brief Calculates a single point on a distorted ring.
+   * @param shift_fn Radial distortion sampled at angle/(2π).
+   * @param basis Orientation basis.
+   * @param radius Base radius.
+   * @param angle Angular position around the ring (radians).
+   * @return Normalized unit sphere point on the distorted ring.
+   * @details Mirrors sample() exactly (at phase 0) so the returned point lands
+   * on the drawn ring; any divergence would detach callers' sampled points from
+   * the visible ring off Radius=1.
    */
   static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
                          float angle) {
@@ -1108,6 +1263,12 @@ struct DistortedRing {
   template <int W, int H>
   /**
    * @brief Samples a distorted ring.
+   * @tparam W,H Rasterization resolution (drives the W-sample count and LUT).
+   * @param points Output fragment list; W+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Base radius.
+   * @param shift_fn Radial distortion sampled per vertex.
+   * @param phase Rotation phase (radians).
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      ScalarFn shift_fn, float phase = 0) {
@@ -1156,7 +1317,7 @@ struct DistortedRing {
 
   /**
    * @brief Draws a distorted ring.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1178,6 +1339,17 @@ struct DistortedRing {
                          });
   }
 
+  /**
+   * @brief Draws a distorted ring without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Base radius.
+   * @param shift_fn Distortion function.
+   * @param fragment_shader Shader function.
+   * @param phase Rotation phase.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, ScalarFn shift_fn,
@@ -1193,6 +1365,9 @@ struct DistortedRing {
 struct Spiral {
   /**
    * @brief Samples a Fibonacci spiral.
+   * @param fragments Output fragment list; n fragments are appended.
+   * @param n Number of points.
+   * @param eps Epsilon offset shifting points off the poles.
    */
   static void sample(Fragments &fragments, int n, float eps) {
     float cumulative_len = 0.0f;
@@ -1217,7 +1392,7 @@ struct Spiral {
 
   /**
    * @brief Draws a Fibonacci spiral.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param n Number of points.
@@ -1234,6 +1409,15 @@ struct Spiral {
                          [&](Fragments &frags) { sample(frags, n, eps); });
   }
 
+  /**
+   * @brief Draws a Fibonacci spiral without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param n Number of points.
+   * @param eps Epsilon offset shifting points off the poles.
+   * @param fragment_shader Shader function.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
                    FragmentShaderFn fragment_shader) {
@@ -1251,6 +1435,11 @@ struct Spiral {
 struct Star {
   /**
    * @brief Samples a star shape.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of points.
+   * @param phase Rotation phase (radians).
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
@@ -1283,7 +1472,7 @@ struct Star {
 
   /**
    * @brief Draws a star.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1317,6 +1506,17 @@ struct Star {
                          });
   }
 
+  /**
+   * @brief Draws a star without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of points.
+   * @param fragment_shader Shader function.
+   * @param phase Rotation phase.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
@@ -1336,6 +1536,11 @@ struct Star {
 struct Flower {
   /**
    * @brief Samples a flower shape.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of petals.
+   * @param phase Rotation phase (radians).
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
@@ -1369,7 +1574,7 @@ struct Flower {
 
   /**
    * @brief Draws a flower.
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1412,6 +1617,17 @@ struct Flower {
                          });
   }
 
+  /**
+   * @brief Draws a flower without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of petals.
+   * @param fragment_shader Shader function.
+   * @param phase Rotation phase.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
@@ -1429,14 +1645,17 @@ struct Flower {
  *  v2: Edge index
  */
 struct Mesh {
-  /// Max distinct vertices the edge-dedup bitset can track. A mesh exceeding
-  /// this is a sizing bug (traps on the cold setup path), not a recoverable
-  /// case. Sized for a TriangularBitset of 128*127/2 bits = 1016 bytes.
+  /**
+   * @brief Max distinct vertices the edge-dedup bitset can track.
+   * @details A mesh exceeding this is a sizing bug (traps on the cold setup
+   * path), not a recoverable case. Sized for a TriangularBitset of 128*127/2
+   * bits = 1016 bytes.
+   */
   static constexpr int kDedupCapacity = 128;
 
   /**
    * @brief Draws a mesh (wireframe).
-   * @tparam W Rasterization resolution.
+   * @tparam W,H Rasterization resolution.
    * @tparam MeshT Mesh type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
@@ -1515,18 +1734,35 @@ struct Mesh {
     }
   }
 
+  /**
+   * @brief Draws a mesh (wireframe) without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @tparam MeshT Mesh type.
+   * @tparam PipelineT Pipeline type (defaults to PipelineRef).
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param mesh The mesh to draw.
+   * @param fragment_shader Shader function.
+   */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                    FragmentShaderFn fragment_shader) {
     draw<W, H>(pipeline, canvas, mesh, fragment_shader, {});
   }
 
-  /// Precomputed edge pair for static-topology meshes.
+  /**
+   * @brief Precomputed edge pair for static-topology meshes.
+   */
   struct Edge {
-    uint16_t u, v;
+    uint16_t u, v; /**< Endpoint vertex indices into the mesh's vertex array. */
   };
 
-  /// Extract unique edges from a mesh (call once at setup time).
+  /**
+   * @brief Extract unique edges from a mesh (call once at setup time).
+   * @tparam MeshT Mesh type.
+   * @param mesh Mesh whose faces are walked for unique edges.
+   * @param edges Output edge list; deduplicated edges are appended.
+   */
   template <typename MeshT>
   static void extract_edges(const MeshT &mesh, ArenaVector<Edge> &edges) {
     TriangularBitset<kDedupCapacity> visited;
@@ -1557,7 +1793,18 @@ struct Mesh {
     }
   }
 
-  /// Draw using precomputed edge list (skips face walk + dedup).
+  /**
+   * @brief Draw using a precomputed edge list (skips face walk + dedup).
+   * @tparam W,H Rasterization resolution.
+   * @tparam MeshT Mesh type.
+   * @tparam PipelineT Pipeline type (defaults to PipelineRef).
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param mesh Mesh supplying vertex positions.
+   * @param edges Precomputed unique edge list.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Optional vertex shader.
+   */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                    const ArenaVector<Edge> &edges,
@@ -1606,7 +1853,14 @@ struct Mesh {
  */
 struct ParticleSystem {
   /**
-   * @brief Samples particle trails.
+   * @brief Draws each active particle's history as a rasterized trail.
+   * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Pipeline type (defaults to PipelineRef).
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param system Particle system supplying the active pool and trail history.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Optional vertex shader.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
@@ -1649,6 +1903,15 @@ struct ParticleSystem {
     }
   }
 
+  /**
+   * @brief Draws particle trails without a vertex shader.
+   * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Pipeline type (defaults to PipelineRef).
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param system Particle system supplying the active pool and trail history.
+   * @param fragment_shader Shader function.
+   */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader) {
@@ -1664,8 +1927,17 @@ struct ParticleSystem {
  *  v2: 0 (single segment)
  */
 struct Bezier {
-  /// Samples num_samples+1 points along a cubic Bézier (control points
-  /// p0..p3); v1 accumulates great-circle arc length between samples.
+  /**
+   * @brief Samples num_samples+1 points along a cubic Bézier.
+   * @param points Output fragment list; num_samples+1 fragments are appended.
+   * @param p0 First control point.
+   * @param p1 Second control point.
+   * @param p2 Third control point.
+   * @param p3 Fourth control point.
+   * @param num_samples Sub-segment count (>0); t = i / num_samples.
+   * @param mode Spline interpolation mode (geodesic by default).
+   * @details v1 accumulates great-circle arc length (radians) between samples.
+   */
   static void sample(Fragments &points, const Vector &p0, const Vector &p1,
                      const Vector &p2, const Vector &p3, int num_samples,
                      SplineMode mode = SplineMode::Geodesic) {
@@ -1691,7 +1963,20 @@ struct Bezier {
     }
   }
 
-  /// Draws a cubic Bézier from raw control vectors p0..p3.
+  /**
+   * @brief Draws a cubic Bézier from raw control vectors p0..p3.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param p0 First control point.
+   * @param p1 Second control point.
+   * @param p2 Third control point.
+   * @param p3 Fourth control point.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Optional vertex shader.
+   * @param num_samples Sub-segment count (>0).
+   * @param mode Spline interpolation mode (geodesic by default).
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p0,
                    const Vector &p1, const Vector &p2, const Vector &p3,
@@ -1705,7 +1990,20 @@ struct Bezier {
                          });
   }
 
-  /// Convenience overload taking Fragment references (uses .pos).
+  /**
+   * @brief Convenience overload taking Fragment references (uses .pos).
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param f0 First control fragment.
+   * @param f1 Second control fragment.
+   * @param f2 Third control fragment.
+   * @param f3 Fourth control fragment.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Optional vertex shader.
+   * @param num_samples Sub-segment count (>0).
+   * @param mode Spline interpolation mode (geodesic by default).
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f0,
                    const Fragment &f1, const Fragment &f2, const Fragment &f3,
@@ -1727,10 +2025,19 @@ struct Bezier {
 struct SplineChain {
   /**
    * @brief Draws a Catmull-Rom spline through `control_points`.
-   *
-   * Converts each span to a cubic Bézier via Catmull-Rom tangents and samples
-   * it; `tension` shapes the tangents, `closed` wraps the chain. Endpoints of a
-   * closed/open chain reuse phantom/clamped neighbors for the end tangents.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param control_points Spline control points (>=2).
+   * @param tension Tangent shaping factor for the Catmull-Rom spans.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Optional vertex shader.
+   * @param closed If true, wraps the chain into a loop.
+   * @param samples_per_segment Sub-samples per span (>0).
+   * @param mode Spline interpolation mode (geodesic by default).
+   * @details Converts each span to a cubic Bézier via Catmull-Rom tangents and
+   * samples it; endpoints of a closed/open chain reuse phantom/clamped neighbors
+   * for the end tangents.
    */
   template <int W, int H>
   static void

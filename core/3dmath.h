@@ -42,13 +42,18 @@ static constexpr float EPS_GEOMETRIC  = 1e-5f;
 static constexpr float EPS_LEN_SQ     = 1e-6f;
 static constexpr float EPS_CROSS_SQ   = 1e-8f;
 static constexpr float EPS_NORMAL_SQ  = 1e-9f;
-// Cosine above which a vector is treated as parallel to a reference axis: too
-// aligned to cross with it safely, so callers pick an alternate axis to avoid a
-// near-zero (degenerate) cross when building a frame. Switches only when truly
-// near-parallel (~0.8°) — the minimal-necessary guard.
+/**
+ * @brief Cosine above which a vector is treated as parallel to a reference axis.
+ * @details Too aligned to cross with it safely, so callers pick an alternate
+ * axis to avoid a near-zero (degenerate) cross when building a frame. Switches
+ * only when truly near-parallel (~0.8°) — the minimal-necessary guard.
+ */
 static constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
 }
-// Global alias for math::TOLERANCE; prefer the namespaced name in new code.
+/**
+ * @brief Global alias for math::TOLERANCE; prefer the namespaced name in new
+ * code.
+ */
 static constexpr float TOLERANCE = math::TOLERANCE;
 /**
  * @brief Floating-point representation of PI.
@@ -95,6 +100,11 @@ struct Vector {
    * @brief Default constructor (initializes to zero vector).
    */
   constexpr Vector() {}
+  /**
+   * @brief Constructs a zero vector; the int argument is a tag for
+   * inplace_function compatibility and is ignored.
+   * @param unused Ignored tag parameter (inplace_function compat).
+   */
   explicit constexpr Vector(int)
       : x(0), y(0), z(0) {} // inplace_function compat
   /**
@@ -105,10 +115,11 @@ struct Vector {
    */
   constexpr Vector(float x, float y, float z) : x(x), y(y), z(z) {}
   /**
-   * @brief Copy constructor. Defaulted (trivial) so Vector is trivially
-   * copyable — required for the memcpy fast paths (ArenaVector::append_bulk,
-   * MeshState bulk copies) to be well-defined, and lets the optimizer
-   * vectorize bulk copies.
+   * @brief Copy constructor (defaulted, trivial).
+   * @param v The vector to copy.
+   * @details Defaulted so Vector stays trivially copyable — required for the
+   * memcpy fast paths (ArenaVector::append_bulk, MeshState bulk copies) to be
+   * well-defined, and lets the optimizer vectorize bulk copies.
    */
   constexpr Vector(const Vector &v) = default;
   /**
@@ -134,8 +145,11 @@ struct Vector {
   }
 
   /**
-   * @brief Copy assignment. Defaulted (trivial) — see the copy constructor;
-   * keeps Vector trivially copyable.
+   * @brief Copy assignment (defaulted, trivial).
+   * @param v The vector to copy from.
+   * @return Reference to this vector.
+   * @details Defaulted so Vector stays trivially copyable, keeping the memcpy
+   * fast paths well-defined.
    */
   constexpr Vector &operator=(const Vector &v) = default;
 
@@ -162,24 +176,44 @@ struct Vector {
    */
   constexpr Vector operator-() const { return Vector(-x, -y, -z); }
 
+  /**
+   * @brief Adds another vector component-wise into this vector.
+   * @param v_other The vector to add.
+   * @return Reference to this vector.
+   */
   Vector &operator+=(const Vector &v_other) {
     x += v_other.x;
     y += v_other.y;
     z += v_other.z;
     return *this;
   }
+  /**
+   * @brief Subtracts another vector component-wise from this vector.
+   * @param v_other The vector to subtract.
+   * @return Reference to this vector.
+   */
   Vector &operator-=(const Vector &v_other) {
     x -= v_other.x;
     y -= v_other.y;
     z -= v_other.z;
     return *this;
   }
+  /**
+   * @brief Scales this vector by a scalar in place.
+   * @param s Scalar multiplier.
+   * @return Reference to this vector.
+   */
   Vector &operator*=(float s) {
     x *= s;
     y *= s;
     z *= s;
     return *this;
   }
+  /**
+   * @brief Divides this vector by a scalar in place.
+   * @param s Scalar divisor (must be non-zero; traps otherwise).
+   * @return Reference to this vector.
+   */
   Vector &operator/=(float s) {
     HS_CHECK(s != 0.0f);
     x /= s;
@@ -196,6 +230,7 @@ struct Vector {
 
   /**
    * @brief Alias for length().
+   * @return The magnitude (length) of the vector.
    */
   [[nodiscard]] float magnitude() const { return length(); }
 
@@ -210,10 +245,14 @@ struct Vector {
     z = z / m;
   }
 
-  /// Return a unit-length copy without mutating `this`.
-  /// Traps on a zero-length vector — a degenerate input is a logic bug. Sites
-  /// where a zero vector is a legitimate geometric edge (antipodal/coincident/
-  /// pole/singularity) must use normalized_or() with an explicit fallback.
+  /**
+   * @brief Returns a unit-length copy without mutating `this`.
+   * @return A unit-length vector in the same direction.
+   * @details Traps on a zero-length vector — a degenerate input is a logic bug.
+   * Sites where a zero vector is a legitimate geometric edge (antipodal/
+   * coincident/pole/singularity) must use normalized_or() with an explicit
+   * fallback.
+   */
   [[nodiscard]] Vector normalized() const {
     float m = length();
     HS_CHECK(m >= std::numeric_limits<float>::epsilon());
@@ -226,14 +265,16 @@ struct Vector {
 };
 
 /**
- * @brief Normalize, returning `fallback` when the vector is degenerate (zero
+ * @brief Normalizes, returning `fallback` when the vector is degenerate (zero
  * length) instead of trapping.
- *
- * The strict Vector::normalized() traps on a zero-length input so that an
- * unexpected zero surfaces as a bug. Use this variant at the handful of sites
- * where a zero vector is a *legitimate* geometric edge that arises during
- * normal animation — antipodal endpoints, a Hopf-fiber pole, a Möbius
- * singularity — so the degeneracy degrades gracefully to a stable direction.
+ * @param v The vector to normalize.
+ * @param fallback Direction returned when `v` has near-zero length.
+ * @return A unit-length copy of `v`, or `fallback` if `v` is degenerate.
+ * @details The strict Vector::normalized() traps on a zero-length input so that
+ * an unexpected zero surfaces as a bug. Use this variant at the handful of sites
+ * where a zero vector is a *legitimate* geometric edge that arises during normal
+ * animation — antipodal endpoints, a Hopf-fiber pole, a Möbius singularity — so
+ * the degeneracy degrades gracefully to a stable direction.
  */
 [[nodiscard]] inline Vector normalized_or(const Vector &v,
                                           const Vector &fallback) {
@@ -244,8 +285,14 @@ struct Vector {
   return Vector(v.x / m, v.y / m, v.z / m);
 }
 
-// Fast atan2: 0.273-Hastings polynomial. Peak abs error ~0.0038 rad (~0.22°)
-// measured over a dense sweep; worst near r ~= 0.7 in each octant.
+/**
+ * @brief Fast atan2 using the 0.273-Hastings polynomial.
+ * @param y Y (numerator) coordinate.
+ * @param x X (denominator) coordinate.
+ * @return The angle in radians in (-π, π].
+ * @details Peak abs error ~0.0038 rad (~0.22°) measured over a dense sweep;
+ * worst near r ~= 0.7 in each octant.
+ */
 inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (x==0,y==0) origin yields a
   // finite 0/abs_y ratio instead of a 0/0 NaN; it is far below the ~0.0038 rad
@@ -270,12 +317,17 @@ inline float fast_atan2(float y, float x) {
   return angle;
 }
 
-// Fast cube root for x >= 0. Bit-hack initial guess (divide the float exponent
-// by three) refined by ONE Halley step (cubic convergence). Peak relative error
-// ~2.3e-5 measured against cbrtf over [0,8] — vs ~1e-3 for a single Newton step
-// — for ~2 extra multiplies and the same single division. Avoids the
-// ~100-200-cycle soft-float cbrtf in the per-pixel OKLab hue path (see
-// hue_rotate). Domain is x >= 0 (cbrt(0)=0); negative inputs return 0.
+/**
+ * @brief Fast cube root for x >= 0.
+ * @param x Input value; the domain is x >= 0 (cbrt(0)=0), negative inputs
+ * return 0.
+ * @return An approximation of the cube root of `x`.
+ * @details Bit-hack initial guess (divide the float exponent by three) refined
+ * by ONE Halley step (cubic convergence). Peak relative error ~2.3e-5 measured
+ * against cbrtf over [0,8] — vs ~1e-3 for a single Newton step — for ~2 extra
+ * multiplies and the same single division. Avoids the ~100-200-cycle soft-float
+ * cbrtf in the per-pixel OKLab hue path (see hue_rotate).
+ */
 inline float fast_cbrt(float x) {
   if (x <= 0.0f)
     return 0.0f;
@@ -305,7 +357,7 @@ struct Quaternion;
 constexpr Quaternion operator*(const Quaternion &q1, const Quaternion &q2);
 constexpr Quaternion operator/(const Quaternion &q, float s);
 /**
- * @brief Scalar division decl.
+ * @brief Scalar division of a vector (forward declaration).
  * @param v Vector.
  * @param s Scalar.
  * @return The resulting vector.
@@ -363,21 +415,37 @@ struct Quaternion {
   /**
    * @brief Quaternion multiplication compound assignment.
    * @param q The quaternion to multiply by.
+   * @return Reference to this quaternion.
    */
   Quaternion &operator*=(const Quaternion &q) {
     *this = *this * q;
     return *this;
   }
+  /**
+   * @brief Component-wise addition compound assignment.
+   * @param q The quaternion to add.
+   * @return Reference to this quaternion.
+   */
   Quaternion &operator+=(const Quaternion &q) {
     r += q.r;
     v += q.v;
     return *this;
   }
+  /**
+   * @brief Component-wise subtraction compound assignment.
+   * @param q The quaternion to subtract.
+   * @return Reference to this quaternion.
+   */
   Quaternion &operator-=(const Quaternion &q) {
     r -= q.r;
     v -= q.v;
     return *this;
   }
+  /**
+   * @brief Scales this quaternion by a scalar in place.
+   * @param s Scalar multiplier.
+   * @return Reference to this quaternion.
+   */
   Quaternion &operator*=(float s) {
     r *= s;
     v *= s;
@@ -407,7 +475,7 @@ struct Quaternion {
 
   /**
    * @brief Fast inverse for unit quaternions (avoids division).
-   * Equivalent to conjugate() when |q| == 1.
+   * @return The inverse quaternion, equivalent to conjugate() when |q| == 1.
    */
   [[nodiscard]] Quaternion unit_inverse() const {
     HS_CHECK(std::abs(squared_magnitude() - 1.0f) < 0.01f);
@@ -444,8 +512,12 @@ struct Quaternion {
     v = v / m;
   }
 
-  /// Return a unit-magnitude copy without mutating `this`.
-  /// Traps on a zero-magnitude quaternion — a degenerate input is a logic bug.
+  /**
+   * @brief Returns a unit-magnitude copy without mutating `this`.
+   * @return A unit-magnitude quaternion.
+   * @details Traps on a zero-magnitude quaternion — a degenerate input is a
+   * logic bug.
+   */
   [[nodiscard]] Quaternion normalized() const {
     float m = magnitude();
     HS_CHECK(m > std::numeric_limits<float>::epsilon());
@@ -456,24 +528,32 @@ struct Quaternion {
   Vector v;    /**< Vector part (x, y, z). */
 };
 
-/// Conventional representation of the point at infinity on the complex plane.
-/// Single source of truth for the pole sentinel: every forward projection that
-/// hits a singularity (stereo() at the north pole, gnomonic() at the equator,
-/// Complex::operator/ on a near-zero denominator) emits a value of this
-/// magnitude, and every inverse projection recognizes it (see the two
-/// thresholds below).
+/**
+ * @brief Conventional representation of the point at infinity on the complex
+ * plane.
+ * @details Single source of truth for the pole sentinel: every forward
+ * projection that hits a singularity (stereo() at the north pole, gnomonic() at
+ * the equator, Complex::operator/ on a near-zero denominator) emits a value of
+ * this magnitude, and every inverse projection recognizes it (see the two
+ * thresholds below).
+ */
 static constexpr float STEREO_INF = 1e4f;
 
-/// |z| at/above which inv_stereo() treats its input as the infinity sentinel.
-/// Half of STEREO_INF on purpose: stereo() and Complex::operator/ emit exactly
-/// STEREO_INF, but an intervening Mobius map can scale that toward (but not
-/// past) zero, so the inverse needs margin below the emitted magnitude to still
-/// snap a Mobius-shrunk sentinel back to the pole. (Squared in the comparison
-/// to avoid a sqrt on the hot path.)
+/**
+ * @brief |z| at/above which inv_stereo() treats its input as the infinity
+ * sentinel.
+ * @details Half of STEREO_INF on purpose: stereo() and Complex::operator/ emit
+ * exactly STEREO_INF, but an intervening Mobius map can scale that toward (but
+ * not past) zero, so the inverse needs margin below the emitted magnitude to
+ * still snap a Mobius-shrunk sentinel back to the pole. (Squared in the
+ * comparison to avoid a sqrt on the hot path.)
+ */
 static constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 
-/// 1 - v.y below which stereo() is inside the north-pole cap and emits the
-/// sentinel magnitude instead of the raw (and numerically explosive) quotient.
+/**
+ * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
+ * sentinel magnitude instead of the raw (and numerically explosive) quotient.
+ */
 static constexpr float STEREO_POLE_EPS = 1e-4f;
 
 /**
@@ -496,18 +576,24 @@ struct Complex {
 
   /**
    * @brief Complex addition.
+   * @param b The right-hand operand.
+   * @return The sum of this and `b`.
    */
   constexpr Complex operator+(const Complex &b) const {
     return Complex(re + b.re, im + b.im);
   }
   /**
    * @brief Complex subtraction.
+   * @param b The right-hand operand.
+   * @return The difference of this and `b`.
    */
   constexpr Complex operator-(const Complex &b) const {
     return Complex(re - b.re, im - b.im);
   }
   /**
    * @brief Complex multiplication.
+   * @param b The right-hand operand.
+   * @return The product of this and `b`.
    */
   constexpr Complex operator*(const Complex &b) const {
     return Complex(re * b.re - im * b.im, re * b.im + im * b.re);
@@ -515,6 +601,9 @@ struct Complex {
 
   /**
    * @brief Complex division.
+   * @param b The divisor.
+   * @return The quotient of this and `b`; a near-zero divisor yields the
+   * infinity sentinel scaled along the numerator's direction.
    */
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
@@ -534,17 +623,37 @@ struct Complex {
 
 /**
  * @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d).
- *
- * Stores the four coefficients as first-class `Complex` values; animators mutate
- * the `.re`/`.im` components in place. The eight-float constructor is retained
- * for terse literal initialization.
+ * @details Stores the four coefficients as first-class `Complex` values;
+ * animators mutate the `.re`/`.im` components in place. The eight-float
+ * constructor is retained for terse literal initialization.
  */
 struct MobiusParams {
-  Complex a, b, c, d;
+  Complex a, b, c, d; /**< The four transform coefficients. */
 
+  /**
+   * @brief Default constructor producing the identity transform (a=d=1, b=c=0).
+   */
   constexpr MobiusParams() : a(1, 0), b(0, 0), c(0, 0), d(1, 0) {}
+  /**
+   * @brief Constructs from four Complex coefficients.
+   * @param a_ Coefficient a.
+   * @param b_ Coefficient b.
+   * @param c_ Coefficient c.
+   * @param d_ Coefficient d.
+   */
   constexpr MobiusParams(Complex a_, Complex b_, Complex c_, Complex d_)
       : a(a_), b(b_), c(c_), d(d_) {}
+  /**
+   * @brief Constructs from eight floats (real/imaginary pairs per coefficient).
+   * @param ar Real part of a.
+   * @param ai Imaginary part of a.
+   * @param br Real part of b.
+   * @param bi Imaginary part of b.
+   * @param cr Real part of c.
+   * @param ci Imaginary part of c.
+   * @param dr Real part of d.
+   * @param di Imaginary part of d.
+   */
   constexpr MobiusParams(float ar, float ai, float br, float bi, float cr,
                          float ci, float dr, float di)
       : a(ar, ai), b(br, bi), c(cr, ci), d(dr, di) {}
@@ -552,7 +661,9 @@ struct MobiusParams {
 
 /**
  * @brief Stereographic Projection: Sphere -> Complex Plane.
- * North pole (v.y ≈ 1) maps to the point at infinity on the real axis.
+ * @param v Point on the unit sphere.
+ * @return The projected complex-plane coordinate.
+ * @details North pole (v.y ≈ 1) maps to the point at infinity on the real axis.
  */
 inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.y;
@@ -573,6 +684,8 @@ inline Complex stereo(const Vector &v) {
 
 /**
  * @brief Inverse Stereographic Projection: Complex Plane -> Sphere.
+ * @param z Complex-plane coordinate (the infinity sentinel maps to the pole).
+ * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_stereo(const Complex &z) {
   // Recognize the infinity sentinel (|z| >= STEREO_INF_RECOGNIZE) → exact North
@@ -585,6 +698,9 @@ inline Vector inv_stereo(const Complex &z) {
 
 /**
  * @brief Mobius Transformation: f(z) = (az + b) / (cz + d).
+ * @param z The complex input point.
+ * @param params The four transform coefficients.
+ * @return The transformed complex point.
  */
 inline Complex mobius(const Complex &z, const MobiusParams &params) {
   Complex num = (params.a * z) + params.b;
@@ -594,8 +710,10 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
 
 /**
  * @brief Gnomonic Projection: Sphere -> Plane (Equator at Infinity).
- * Projects from center (0,0,0) to the plane y=1 (tangent at the North Pole
- * (0,1,0), i.e. j=1).
+ * @param v Point on the unit sphere.
+ * @return The projected plane coordinate (equator points clamp to the sentinel).
+ * @details Projects from center (0,0,0) to the plane y=1 (tangent at the North
+ * Pole (0,1,0), i.e. j=1).
  */
 inline Complex gnomonic(const Vector &v) {
   // Equator handling is two-stage and round-trips consistently with
@@ -621,6 +739,7 @@ inline Complex gnomonic(const Vector &v) {
  * @param z Complex point on the plane.
  * @param original_sign Sign of the y-component (j) of the original vector, used
  * to restore the hemisphere the forward projection collapsed.
+ * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
   // Recognize clamped-to-infinity → return the pole. gnomonic() clamps each
@@ -924,8 +1043,12 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   return make_rotation(axis, angle);
 }
 
-// Abramowitz & Stegun polynomial approximation for acos(x), x in [-1, 1].
-// Peak abs error ~1.3e-4 rad (~0.0072°) measured over a dense sweep.
+/**
+ * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.
+ * @param x Input value, expected in [-1, 1] (clamped internally).
+ * @return The arc cosine in radians.
+ * @details Peak abs error ~1.3e-4 rad (~0.0072°) measured over a dense sweep.
+ */
 inline float fast_acos(float x) {
   float ax = std::abs(x);
   if (ax > 1.0f)
@@ -936,8 +1059,13 @@ inline float fast_acos(float x) {
   return x < 0.0f ? PI_F - result : result;
 }
 
-// Bhaskara I sine approximation. Max error ~0.17% (~0.1 degrees).
-// ~8 FPU ops vs ~80-120 cycles for newlib sinf.
+/**
+ * @brief Fast sine using the Bhaskara I approximation.
+ * @param x Angle in radians (range-reduced internally).
+ * @return The approximate sine of `x`.
+ * @details Max error ~0.17% (~0.1 degrees); ~8 FPU ops vs ~80-120 cycles for
+ * newlib sinf.
+ */
 inline float fast_sinf(float x) {
   // Range reduce to [0, 2π)
   constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
@@ -953,6 +1081,11 @@ inline float fast_sinf(float x) {
   return sign * (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
 }
 
+/**
+ * @brief Fast cosine, computed as fast_sinf(x + π/2).
+ * @param x Angle in radians.
+ * @return The approximate cosine of `x`.
+ */
 inline float fast_cosf(float x) { return fast_sinf(x + PI_F * 0.5f); }
 
 /**
@@ -1027,8 +1160,17 @@ enum class SplineMode { Fast, Geodesic };
 
 namespace Spline {
 
-/// Fast: polynomial interpolation + normalize. O(1) sqrtf per sample.
-/// Accurate within ~30° control-point separation; distorts on long arcs.
+/**
+ * @brief Fast cubic spline sample: polynomial interpolation + normalize.
+ * @param p0 First control point.
+ * @param p1 Second control point.
+ * @param p2 Third control point.
+ * @param p3 Fourth control point.
+ * @param t Interpolation factor in [0, 1].
+ * @return The interpolated unit vector (falls back to p1 if degenerate).
+ * @details O(1) sqrtf per sample. Accurate within ~30° control-point
+ * separation; distorts on long arcs.
+ */
 inline Vector cubic_fast(const Vector &p0, const Vector &p1, const Vector &p2,
                          const Vector &p3, float t) {
   float u = 1.0f - t;
@@ -1043,8 +1185,16 @@ inline Vector cubic_fast(const Vector &p0, const Vector &p1, const Vector &p2,
   return normalized_or(blended, p1);
 }
 
-/// Accurate: de Casteljau with SLERP. 6 SLERPs per sample.
-/// Shape-faithful at any arc length.
+/**
+ * @brief Accurate cubic spline sample: de Casteljau with SLERP.
+ * @param p0 First control point.
+ * @param p1 Second control point.
+ * @param p2 Third control point.
+ * @param p3 Fourth control point.
+ * @param t Interpolation factor in [0, 1].
+ * @return The interpolated unit vector.
+ * @details 6 SLERPs per sample. Shape-faithful at any arc length.
+ */
 inline Vector cubic_slerp(const Vector &p0, const Vector &p1, const Vector &p2,
                           const Vector &p3, float t) {
   Vector b01 = slerp(p0, p1, t);
@@ -1055,18 +1205,36 @@ inline Vector cubic_slerp(const Vector &p0, const Vector &p1, const Vector &p2,
   return slerp(b012, b123, t);
 }
 
-/// Unified dispatch — selects evaluation strategy once per sample point.
+/**
+ * @brief Unified cubic spline dispatch — selects the evaluation strategy once
+ * per sample point.
+ * @param p0 First control point.
+ * @param p1 Second control point.
+ * @param p2 Third control point.
+ * @param p3 Fourth control point.
+ * @param t Interpolation factor in [0, 1].
+ * @param mode Evaluation strategy (Fast or Geodesic).
+ * @return The interpolated unit vector.
+ */
 inline Vector cubic(const Vector &p0, const Vector &p1, const Vector &p2,
                     const Vector &p3, float t, SplineMode mode) {
   return (mode == SplineMode::Fast) ? cubic_fast(p0, p1, p2, p3, t)
                                     : cubic_slerp(p0, p1, p2, p3, t);
 }
 
-/// Catmull-Rom tangent estimation on the sphere.
-/// Returns two Bézier control points for the segment from `start` to `end`.
-/// @note tension=0 produces geodesic (linear) segments; tension=1 produces
-/// full Catmull-Rom smoothing. This is inverted from the conventional
-/// Catmull-Rom tension parameter where τ=0 is the standard cardinal spline.
+/**
+ * @brief Catmull-Rom tangent estimation on the sphere.
+ * @param prev Control point before the segment.
+ * @param start Segment start point.
+ * @param end Segment end point.
+ * @param next Control point after the segment.
+ * @param tension Smoothing amount in [0, 1] (see @details for convention).
+ * @param cp1 Output: first Bézier control point for the start→end segment.
+ * @param cp2 Output: second Bézier control point for the start→end segment.
+ * @details tension=0 produces geodesic (linear) segments; tension=1 produces
+ * full Catmull-Rom smoothing. This is inverted from the conventional
+ * Catmull-Rom tension parameter where τ=0 is the standard cardinal spline.
+ */
 inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
                                  const Vector &end, const Vector &next,
                                  float tension, Vector &cp1, Vector &cp2) {

@@ -6,13 +6,22 @@
 #pragma once
 #include "core/effects_engine.h"
 
-// A rotating, palette-shaded distorted ring that periodically "fires":
-// each fire warps the ring, spins the global orientation about a derived axis,
-// and spawns a pair of opposed expanding thruster rings that grow and fade.
+/**
+ * @brief Rotating, palette-shaded distorted ring that periodically "fires".
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Each fire warps the ring, spins the global orientation about a
+ *          derived axis, and spawns a pair of opposed expanding thruster rings
+ *          that grow and fade.
+ */
 template <int W, int H> class Thrusters : public Effect {
 public:
+  /**
+   * @brief Constructs the effect, seeding the palette, filters and warp state.
+   * @details The Inigo Quilez cosine palette is color(t) = bias +
+   *          amp*cos(2π(freq*t + phase)).
+   */
   FLASHMEM Thrusters()
-      // Inigo Quilez cosine palette: color(t) = bias + amp*cos(2π(freq*t + phase)).
       : Effect(W, H), palette(/*bias*/ {0.5f, 0.5f, 0.5f},
                               /*amp*/ {0.5f, 0.5f, 0.5f},
                               /*freq*/ {0.3f, 0.3f, 0.3f},
@@ -21,8 +30,11 @@ public:
         amplitude(0), warp_phase(0), t_global(0),
         warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid) {}
 
-  // Register tunable params and seed the timeline: a persistent ring sprite
-  // plus a random timer that fires thrusters every 16-48 frames.
+  /**
+   * @brief Registers tunable params and seeds the timeline.
+   * @details Adds a persistent ring sprite plus a random timer that fires
+   *          thrusters every 16-48 frames.
+   */
   void init() override {
     registerParam("Radius", &params.radius, 0.1f, 2.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -38,11 +50,17 @@ public:
                         16, 48, [this](auto &) { on_fire_thruster(); }, true));
   }
 
-  // No background clear: thrusters draw over the persistent ring.
+  /**
+   * @brief Reports whether the engine should clear the background each frame.
+   * @return Always false: thrusters draw over the persistent ring.
+   */
   bool show_bg() const override { return false; }
 
-  // Step the timeline and warp animation, expire dead thrusters, then advance
-  // and draw each live thruster.
+  /**
+   * @brief Advances one frame of the effect.
+   * @details Steps the timeline and warp animation, expires dead thrusters,
+   *          then advances and draws each live thruster.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -78,32 +96,45 @@ public:
   }
 
 private:
-  // One spawned thruster ring: a point on the unit sphere with its own
-  // orientation snapshot, aged frame-by-frame to drive growth and fade.
+  /**
+   * @brief One spawned thruster ring aged frame-by-frame to drive growth/fade.
+   * @details A point on the unit sphere with its own orientation snapshot.
+   */
   struct ThrusterContext {
-    // Visible lifetime in frames.
-    static constexpr int LIFE = 16;
-    // Ring radius grows from 0 to RADIUS_MAX over the first RADIUS_GROW_FRAMES
-    // frames, then holds. Derived from `age` in draw_frame() (see radius_at()).
+    static constexpr int LIFE = 16; /**< Visible lifetime in frames. */
+    /**
+     * @brief Frames over which the ring radius grows from 0 to RADIUS_MAX.
+     * @details After this many frames the radius holds. Derived from `age` in
+     *          draw_frame() (see radius_at()).
+     */
     static constexpr int RADIUS_GROW_FRAMES = 8;
-    static constexpr float RADIUS_MAX = 0.3f;
+    static constexpr float RADIUS_MAX = 0.3f; /**< Peak ring radius. */
 
-    Orientation<> orientation;
-    Vector point;
-    int age = 0;
+    Orientation<> orientation; /**< Orientation snapshot at spawn time. */
+    Vector point;              /**< Thrust point on the unit sphere. */
+    int age = 0;               /**< Frames elapsed since spawn. */
 
-    // Trivially copyable: the circular buffer relocates slots by plain
-    // memberwise copy. No member holds a reference into this slot, so a copy
-    // never has to be rebound.
+    /**
+     * @brief Reinitializes this slot for a freshly spawned thruster.
+     * @param o Orientation snapshot to copy in.
+     * @param p Thrust point on the unit sphere.
+     * @details Trivially copyable: the circular buffer relocates slots by plain
+     *          memberwise copy. No member holds a reference into this slot, so a
+     *          copy never has to be rebound.
+     */
     void reset(const Orientation<> &o, const Vector &p) {
       orientation = o;
       point = p;
       age = 0;
     }
 
-    // Eased ring radius for the frame being drawn. age + 1 (not age) so the
-    // first draw renders one eased step in rather than radius 0, reaching
-    // RADIUS_MAX after RADIUS_GROW_FRAMES frames.
+    /**
+     * @brief Eased ring radius for the frame being drawn.
+     * @return Radius in unit-sphere units, in [0, RADIUS_MAX].
+     * @details Uses age + 1 (not age) so the first draw renders one eased step
+     *          in rather than radius 0, reaching RADIUS_MAX after
+     *          RADIUS_GROW_FRAMES frames.
+     */
     float radius_at() const {
       float t = hs::clamp(static_cast<float>(age + 1) / RADIUS_GROW_FRAMES,
                           0.0f, 1.0f);
@@ -111,11 +142,15 @@ private:
     }
   };
 
-  StaticCircularBuffer<ThrusterContext, 16> thrusters;
+  StaticCircularBuffer<ThrusterContext, 16> thrusters; /**< Live thruster ring slots (FIFO). */
 
-  // Fire event: pick a random warp phase, compute an opposed pair of thrust
-  // points on the ring, restart the warp decay, spin the orientation about the
-  // axis derived from the thrust point, and spawn both thrusters.
+  /**
+   * @brief Handles a fire event.
+   * @details Picks a random warp phase, computes an opposed pair of thrust
+   *          points on the ring, restarts the warp decay, spins the orientation
+   *          about the axis derived from the thrust point, and spawns both
+   *          thrusters.
+   */
   void on_fire_thruster() {
     warp_phase = hs::rand_f() * 2 * PI_F;
 
@@ -154,7 +189,10 @@ private:
     spawn_thruster(thrust_opp);
   }
 
-  // Push a fresh thruster at `point`, evicting the oldest if the ring is full.
+  /**
+   * @brief Pushes a fresh thruster at `point`, evicting the oldest if full.
+   * @param point Thrust point on the unit sphere where the ring spawns.
+   */
   void spawn_thruster(const Vector &point) {
     if (thrusters.is_full())
       thrusters.pop();
@@ -165,9 +203,14 @@ private:
     // (see draw_frame()).
   }
 
-  // Radial distortion of the ring at parameter t: product of a spatial warp
-  // wave (phase from warp_phase) and a slow temporal wave (period 32 frames),
-  // scaled by the current warp amplitude.
+  /**
+   * @brief Radial distortion of the ring at parameter t.
+   * @param t Ring parameter in [0, 1) around the circumference.
+   * @return Signed radial offset, in unit-sphere units.
+   * @details Product of a spatial warp wave (phase from warp_phase) and a slow
+   *          temporal wave (period 32 frames), scaled by the current warp
+   *          amplitude.
+   */
   float ring_fn(float t) {
     // warp_phase is in radians (rand_f()*2*PI_F, shared with the DistortedRing
     // calls above); sin_wave's phase is in cycles. The exact radians->cycles
@@ -179,8 +222,13 @@ private:
            amplitude;
   }
 
-  // Draw one thruster as a white ring at the given radius, faded by `opacity`
-  // (and the global alpha param).
+  /**
+   * @brief Draws one thruster as a white ring at the given radius.
+   * @param c Canvas to render into.
+   * @param ctx Thruster slot supplying orientation and thrust point.
+   * @param radius Ring radius in unit-sphere units.
+   * @param opacity Fade factor in [0, 1]; multiplied by the global alpha param.
+   */
   void draw_thruster(Canvas &c, const ThrusterContext &ctx, float radius,
                      float opacity) {
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
@@ -192,8 +240,11 @@ private:
     Plot::Ring::draw<W, H>(filters, c, basis, radius, fragment_shader);
   }
 
-  // Draw the main warped ring, palette-shaded by fragment angle and faded by
-  // `opacity` (and the global alpha param).
+  /**
+   * @brief Draws the main warped ring, palette-shaded by fragment angle.
+   * @param c Canvas to render into.
+   * @param opacity Fade factor in [0, 1]; multiplied by the global alpha param.
+   */
   void draw_ring(Canvas &c, float opacity) {
     Basis basis = make_basis(orientation.get(), ring_vec);
 
@@ -212,21 +263,24 @@ private:
         [this](float t) { return ring_fn(t); }, fragment_shader);
   }
 
-  ProceduralPalette palette;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  ProceduralPalette palette;                          /**< Cosine palette for ring shading. */
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Anti-aliasing render pipeline. */
 
-  Vector ring_vec;
-  float amplitude;
-  float warp_phase;
-  int t_global;
+  Vector ring_vec;   /**< Unit normal of the main ring's plane. */
+  float amplitude;   /**< Current warp amplitude driven by warp_anim. */
+  float warp_phase;  /**< Spatial warp phase in radians, randomized per fire. */
+  int t_global;      /**< Global frame counter. */
 
-  Timeline timeline;
-  Animation::Mutation warp_anim;
-  Orientation<> orientation;
+  Timeline timeline;                /**< Animation timeline for sprite/timer/spin. */
+  Animation::Mutation warp_anim;    /**< Restartable warp-amplitude decay animation. */
+  Orientation<> orientation;        /**< Global orientation, spun by each fire. */
 
+  /**
+   * @brief User-tunable parameters exposed via registerParam.
+   */
   struct Params {
-    float radius = 1.0f;
-    float alpha = 0.2f;
+    float radius = 1.0f; /**< Ring radius in unit-sphere units. */
+    float alpha = 0.2f;  /**< Global opacity multiplier in [0, 1]. */
   } params;
 };
 

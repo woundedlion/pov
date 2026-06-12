@@ -35,9 +35,13 @@ static constexpr int PIN_CLOCK = 13;
 
 // When using DMA LEDs, correction is done in the DMA pipeline — stubs only.
 #ifdef USE_DMA_LEDS
-/// No-op stub: the DMA pipeline applies no color/temperature correction.
+/**
+ * @brief No-op stub: the DMA pipeline applies no color/temperature correction.
+ */
 struct NoColorCorrection {};
-/// No-op stub: the DMA pipeline applies no temperature correction.
+/**
+ * @brief No-op stub: the DMA pipeline applies no temperature correction.
+ */
 struct NoTempCorrection {};
 #else
 // CONTRACT — restore-to-baseline, NOT save/restore. The destructors below
@@ -59,10 +63,17 @@ struct NoTempCorrection {};
  * restore-to-baseline contract above).
  */
 struct NoColorCorrection {
+  /**
+   * @brief Disables both color and temperature correction for the guard's scope.
+   */
   NoColorCorrection() {
     FastLED.setCorrection(UncorrectedColor);
     FastLED.setTemperature(UncorrectedTemperature);
   }
+  /**
+   * @brief Restores the TypicalLEDStrip/Candle baseline (restore-to-baseline,
+   * not the correction active at construction).
+   */
   ~NoColorCorrection() {
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
@@ -75,10 +86,18 @@ struct NoColorCorrection {
  * (see the restore-to-baseline contract above).
  */
 struct NoTempCorrection {
+  /**
+   * @brief Disables temperature correction while keeping TypicalLEDStrip color
+   * correction for the guard's scope.
+   */
   NoTempCorrection() {
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(UncorrectedTemperature);
   }
+  /**
+   * @brief Restores the TypicalLEDStrip/Candle baseline (restore-to-baseline,
+   * not the correction active at construction).
+   */
   ~NoTempCorrection() {
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);

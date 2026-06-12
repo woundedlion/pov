@@ -55,12 +55,12 @@ static inline void arm_dcache_flush_delete(void *, size_t) {}
 template <int N>
 class HD107SFrame {
 public:
-  /// End-frame latch per the SK9822/HD107S spec: ceil(N/2) extra clocks to
-  /// push data through the chain → ceil(N/16) = (N+15)/16 bytes of 0x00.
+  /** End-frame latch per the SK9822/HD107S spec: ceil(N/2) extra clocks to
+       push data through the chain → ceil(N/16) = (N+15)/16 bytes of 0x00. */
   static constexpr int END_FRAME_BYTES = (N + 15) / 16;
-  /// Single-frame buffer size in bytes.
+  /** Single-frame buffer size in bytes. */
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
-  /// Composite size: image frame + trailing black frame (for show_bg).
+  /** Composite size: image frame + trailing black frame (for show_bg). */
   static constexpr int COMPOSITE_SIZE = BUFFER_SIZE * 2;
 
   // The whole composite buffer can be handed to a single DMA transfer
@@ -73,9 +73,13 @@ public:
       "HD107SFrame composite buffer exceeds the 15-bit eDMA single-transfer "
       "limit (CITER/BITER); split the transfer or reduce N");
 
-  /// Zero the composite buffer, then prime every pixel's brightness byte to
-  /// 0xFF (max) in both the image frame and the trailing black frame. Only the
-  /// B/G/R color bytes change at runtime; start/end frames stay zero.
+  /**
+   * @brief Constructs the frame: zeroes the composite buffer, then primes every
+   *        pixel's brightness byte to 0xFF (max).
+   * @details Primes brightness bytes in both the image frame and the trailing
+   *          black frame. Only the B/G/R color bytes change at runtime;
+   *          start/end frames stay zero.
+   */
   HD107SFrame() {
     memset(buffer_, 0, COMPOSITE_SIZE);
     // Image frame: set brightness bytes
@@ -89,13 +93,15 @@ public:
   }
 
   /**
-   * @brief Apply color → temperature → brightness correction in linear 16-bit
-   * space, in place, then clamp to [0, 65535].
-   *
-   * Shared by load() (CRGB path) and packPixel() (Pixel16 path) so the two
-   * cannot drift. r/g/b are already-linear channels. FASTRUN/inline because
-   * packPixel() calls it on the per-column ISR hot path; with scale-down-only
-   * factors the clamp never triggers but is kept for safety.
+   * @brief Applies color → temperature → brightness correction in linear 16-bit
+   *        space, in place, then clamps to [0, 65535].
+   * @param r In/out red channel, already-linear 16-bit (0..65535).
+   * @param g In/out green channel, already-linear 16-bit (0..65535).
+   * @param b In/out blue channel, already-linear 16-bit (0..65535).
+   * @details Shared by load() (CRGB path) and packPixel() (Pixel16 path) so the
+   *          two cannot drift. FASTRUN/inline because packPixel() calls it on
+   *          the per-column ISR hot path; with scale-down-only factors the clamp
+   *          never triggers but is kept for safety.
    */
   FASTRUN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
     // Color correction
@@ -122,9 +128,9 @@ public:
    * @brief Loads pixel data into the buffer with full color correction.
    * @param pixels Source CRGB array (sRGB 8-bit).
    * @param count  Number of pixels to load (clamped to N).
-   *
-   * All corrections are applied in linear 16-bit space using the PROGMEM
-   * sRGB↔Linear LUTs. Result is written in HD107S byte order: [0xFF][B][G][R].
+   * @details All corrections are applied in linear 16-bit space using the
+   *          PROGMEM sRGB↔Linear LUTs. Result is written in HD107S byte order:
+   *          [0xFF][B][G][R].
    */
   void load(const CRGB* pixels, int count) {
     if (count > N) count = N;
@@ -162,9 +168,9 @@ public:
    * @brief Packs a single Pixel16 directly into the buffer with corrections.
    * @param index LED index (0-based).
    * @param p     Linear 16-bit pixel.
-   *
-   * Applies color/temperature/brightness corrections in linear 16-bit space
-   * then converts to sRGB 8-bit in a single pass (no intermediate CRGB).
+   * @details Applies color/temperature/brightness corrections in linear 16-bit
+   *          space then converts to sRGB 8-bit in a single pass (no intermediate
+   *          CRGB).
    */
   FASTRUN inline void packPixel(int index, const Pixel16& p) {
     uint8_t* dest = buffer_ + 4 + index * 4;
@@ -190,26 +196,48 @@ public:
     arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
   }
 
-  /// Pointer to the start of the composite DMA buffer.
+  /**
+   * @brief Returns a pointer to the start of the composite DMA buffer.
+   * @return Read-only pointer to the first byte of the composite buffer.
+   */
   const uint8_t* data() const { return buffer_; }
-  /// Size of a single image frame in bytes (excludes the trailing black frame).
+  /**
+   * @brief Returns the size of a single image frame in bytes.
+   * @return Image-frame size in bytes (excludes the trailing black frame).
+   */
   constexpr size_t size() const { return BUFFER_SIZE; }
-  /// Size including trailing black frame (for show_bg composite DMA).
+  /**
+   * @brief Returns the composite size including the trailing black frame.
+   * @return Composite size in bytes (image frame + black frame, for show_bg DMA).
+   */
   constexpr size_t sizeWithBg() const { return COMPOSITE_SIZE; }
 
   // --- Static correction configuration (shared across all frames) -----------
 
-  /// Set the white-balance temperature factors (per-channel 8-bit scale).
+  /**
+   * @brief Sets the white-balance temperature factors (shared across frames).
+   * @param r Red temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
+   * @param g Green temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
+   * @param b Blue temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
+   */
   static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
     tempR_ = factor(r); tempG_ = factor(g); tempB_ = factor(b);
   }
 
-  /// Set the per-channel color-correction factors (8-bit scale).
+  /**
+   * @brief Sets the per-channel color-correction factors (shared across frames).
+   * @param r Red correction factor, 8-bit scale (255 = ×1.0, 0 = off).
+   * @param g Green correction factor, 8-bit scale (255 = ×1.0, 0 = off).
+   * @param b Blue correction factor, 8-bit scale (255 = ×1.0, 0 = off).
+   */
   static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
     corrR_ = factor(r); corrG_ = factor(g); corrB_ = factor(b);
   }
 
-  /// Set the global brightness factor (8-bit scale, 255 = full).
+  /**
+   * @brief Sets the global brightness factor (shared across frames).
+   * @param brightness Brightness factor, 8-bit scale (255 = full, 0 = off).
+   */
   static void setBrightness(uint8_t brightness) {
     brightness_ = factor(brightness);
   }
@@ -217,13 +245,18 @@ public:
 private:
   uint8_t buffer_[COMPOSITE_SIZE] __attribute__((aligned(32)));
 
-  // Convert a public 8-bit scale factor (255 = ×1.0, 0 = off) into the internal
-  // multiplier used by correct()'s `(v * f) >> 8`. Storing factor+1 makes 255
-  // resolve to ×256/256 = exact unity (a bare `(v*255)>>8` loses ~0.4% per
-  // stage, ~1.2% compounded over the three stages — full brightness would be
-  // unreachable in a pipeline whose selling point is exact 16-bit fidelity).
-  // 0 is kept at 0 so it still zeroes the channel exactly (256-scale unity and
-  // 0-scale off both stay exact; the cost lives here, off the ISR hot path).
+  /**
+   * @brief Converts a public 8-bit scale factor into the internal multiplier
+   *        used by correct()'s `(v * f) >> 8`.
+   * @param f Public 8-bit scale factor (255 = ×1.0, 0 = off).
+   * @return Internal multiplier (256 = exact unity, 0 = off).
+   * @details Storing factor+1 makes 255 resolve to ×256/256 = exact unity (a
+   *          bare `(v*255)>>8` loses ~0.4% per stage, ~1.2% compounded over the
+   *          three stages — full brightness would be unreachable in a pipeline
+   *          whose selling point is exact 16-bit fidelity). 0 is kept at 0 so it
+   *          still zeroes the channel exactly; the cost lives here, off the ISR
+   *          hot path.
+   */
   static constexpr uint16_t factor(uint8_t f) {
     return f == 0 ? 0u : static_cast<uint16_t>(f) + 1u;
   }

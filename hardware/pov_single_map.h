@@ -23,17 +23,33 @@
 
 namespace pov {
 
-/// Physical LED index of the top-half strip pixel sampling canvas row @p y.
-/// Top half spans LEDs [0, S/2) and is wired reversed: row y -> LED S/2-1-y.
-/// (i.e. y=0 is the last top-half LED, y=S/2-1 the first.)
+/**
+ * @brief Physical LED index of the top-half strip pixel sampling canvas row y.
+ * @param y Canvas row index in [0, S/2).
+ * @param S Total LED count on the strip; top half spans LEDs [0, S/2).
+ * @return Strip LED index in [0, S/2) sampling row y.
+ * @details Top half is wired reversed: row y -> LED S/2-1-y, so y=0 is the last
+ *          top-half LED and y=S/2-1 the first.
+ */
 constexpr int strip_top_led(int y, int S) { return S / 2 - 1 - y; }
 
-/// Physical LED index of the bottom-half strip pixel sampling canvas row @p y.
-/// Bottom half spans LEDs [S/2, S) straight: row y -> LED S/2 + y.
+/**
+ * @brief Physical LED index of the bottom-half strip pixel sampling canvas row y.
+ * @param y Canvas row index in [0, S/2).
+ * @param S Total LED count on the strip; bottom half spans LEDs [S/2, S).
+ * @return Strip LED index in [S/2, S) sampling row y.
+ * @details Bottom half is wired straight: row y -> LED S/2 + y.
+ */
 constexpr int strip_bottom_led(int y, int S) { return S / 2 + y; }
 
-/// Canvas column the bottom half samples at rotation column @p x (canvas width
-/// @p w): the opposite half of the image. The top half samples @p x directly.
+/**
+ * @brief Canvas column the bottom half samples at rotation column x.
+ * @param x Rotation (top-half) canvas column index in [0, w).
+ * @param w Canvas width in columns.
+ * @return Opposite-half canvas column (x + w/2) % w in [0, w).
+ * @details The bottom half paints the opposite half of the image; the top half
+ *          samples column x directly.
+ */
 constexpr int strip_opposite_col(int x, int w) { return (x + w / 2) % w; }
 
 } // namespace pov

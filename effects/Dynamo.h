@@ -7,21 +7,34 @@
 
 #include "core/effects_engine.h"
 
-// A snaking strand of nodes pulled across the sphere, leaving fading trails,
-// with palettes that sweep in via angular color wipes. Speed, gap, trail
-// length, and wipe duration are live sliders; direction, rotation, and wipes
-// are driven by random timers.
+/**
+ * @brief A snaking strand of nodes pulled across the sphere, leaving fading
+ *        trails, with palettes that sweep in via angular color wipes.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Speed, gap, trail length, and wipe duration are live sliders;
+ *          direction, rotation, and wipes are driven by random timers.
+ */
 template <int W, int H> class Dynamo : public Effect {
 public:
-  // One point on the strand: grid position (x,y) and per-step velocity v.
+  /**
+   * @brief One point on the strand: grid position (x,y) and per-step velocity.
+   */
   struct Node {
+    /**
+     * @brief Constructs a node at the origin with zero velocity.
+     */
     Node() : x(0), y(0), v(0) {}
 
-    int x;
-    int y;
-    int v;
+    int x; /**< Grid column. */
+    int y; /**< Grid row. */
+    int v; /**< Per-step velocity along x. */
   };
 
+  /**
+   * @brief Constructs the effect, seeding the initial palette, palette normal,
+   *        and filter pipeline.
+   */
   FLASHMEM Dynamo()
       : Effect(W, H),
         palettes(
@@ -34,10 +47,16 @@ public:
                 Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
+  /**
+   * @brief Reports whether the engine should clear to a background each frame.
+   * @return False; the effect manages its own trail-based persistence.
+   */
   bool show_bg() const override { return false; }
 
-  // Register sliders, seed node rows, prime the baked-palette LUT pool, and
-  // schedule the random reverse/wipe/rotate timers.
+  /**
+   * @brief Registers sliders, seeds node rows, primes the baked-palette LUT
+   *        pool, and schedules the random reverse/wipe/rotate timers.
+   */
   void init() override {
     filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
         .init_storage(persistent_arena);
@@ -68,20 +87,28 @@ public:
                     48, 160, [this](auto &) { rotate(); }, true));
   }
 
-  // Flip travel direction via a private sign rather than mutating the
-  // registered "Speed" slider, so animation never overwrites the user's value.
-  // Effective speed is params.speed * speed_direction_ (applied in draw_frame).
+  /**
+   * @brief Flips travel direction via a private sign.
+   * @details Toggles speed_direction_ rather than mutating the registered
+   *          "Speed" slider, so animation never overwrites the user's value.
+   *          Effective speed is params.speed * speed_direction_ (applied in
+   *          draw_frame).
+   */
   void reverse() { speed_direction_ *= -1; }
 
-  // Schedule a half-turn rotation about a random axis, eased in/out.
+  /**
+   * @brief Schedules a half-turn rotation about a random axis, eased in/out.
+   */
   void rotate() {
     timeline.add(0, Animation::Rotation<W>(orientation, random_vector(), PI_F,
                                            40, ease_in_out_sin, false));
   }
 
-  // Push a fresh palette at the front and animate its boundary angle from 0 up
-  // to PI, sweeping the new colors across the sphere. Drops the wipe if the
-  // palette buffer is full.
+  /**
+   * @brief Pushes a fresh palette at the front and animates its boundary angle
+   *        from 0 up to PI, sweeping the new colors across the sphere.
+   * @details Drops the wipe if the palette buffer is full.
+   */
   void color_wipe() {
     if (palettes.is_full()) {
       hs::log("Palettes full, dropping color wipe!");
@@ -111,12 +138,15 @@ public:
                         .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
   }
 
-  // Collapse color wipes whose Transition has finished (boundary stamped with
-  // WIPE_COMPLETE). Pop only from the back (oldest first), so a wipe that
-  // finished early while an older one is still animating waits its FIFO turn and
-  // no live boundary is ever evicted. pop_back removes the highest logical
-  // index, leaving the front-indexed palettes and their baked LUTs in place, so
-  // no rebake is needed.
+  /**
+   * @brief Collapses color wipes whose Transition has finished (boundary
+   *        stamped with WIPE_COMPLETE).
+   * @details Pops only from the back (oldest first), so a wipe that finished
+   *          early while an older one is still animating waits its FIFO turn
+   *          and no live boundary is ever evicted. pop_back removes the highest
+   *          logical index, leaving the front-indexed palettes and their baked
+   *          LUTs in place, so no rebake is needed.
+   */
   void reap_completed_wipes() {
     while (!palette_boundaries.is_empty() &&
            palette_boundaries.back() >= WIPE_COMPLETE) {
@@ -125,18 +155,28 @@ public:
     }
   }
 
-  // Refill the baked LUT pool from the live GenerativePalettes so the hot
-  // per-pixel color() path is a table lookup instead of a per-call OKLCH lerp.
-  // Called only when the palette set changes (a wipe push/pop) — never per
-  // frame and never per pixel.
+  /**
+   * @brief Refills the baked LUT pool from the live GenerativePalettes so the
+   *        hot per-pixel color() path is a table lookup instead of a per-call
+   *        OKLCH lerp.
+   * @details Called only when the palette set changes (a wipe push/pop) — never
+   *          per frame and never per pixel.
+   */
   void rebake_active_palettes() {
     for (size_t i = 0; i < palettes.size(); ++i)
       baked_palettes_[i].rebake(palettes[i]);
   }
 
-  // Pick the color for direction v at palette parameter t by walking the active
-  // palette boundaries: the angle between v and palette_normal selects a palette
-  // band, with a blend_width-wide crossfade across each boundary.
+  /**
+   * @brief Picks the color for a direction at a palette parameter.
+   * @param v Sample direction; the angle between it and palette_normal selects
+   *          a palette band.
+   * @param t Palette parameter in [0, 1] indexing into the baked LUT.
+   * @return The blended Color4 for the sampled band, with a blend_width-wide
+   *         crossfade across each boundary.
+   * @details Walks the active palette boundaries from the newest (front) to the
+   *          oldest to find the band containing the angle.
+   */
   Color4 color(const Vector &v, float t) {
     constexpr float blend_width = PI_F / 4;
     // +inf sentinel for "no next boundary": `a` is an angle in [0, PI], so any
@@ -198,9 +238,12 @@ public:
     return baked_palettes_[0].get(t);
   }
 
-  // Per-frame: sync the live trail length, step the timeline, advance the
-  // strand by the accumulated whole steps, plot it, then flush the filter
-  // pipeline through color().
+  /**
+   * @brief Renders one frame.
+   * @details Syncs the live trail length, steps the timeline, advances the
+   *          strand by the accumulated whole steps, plots it, then flushes the
+   *          filter pipeline through color().
+   */
   void draw_frame() override {
     Canvas canvas(*this);
 
@@ -246,9 +289,13 @@ public:
   }
 
 private:
-  // Plot the strand for this sub-step: the head node as a single half-alpha
-  // point, each following node as a half-alpha line back to its predecessor.
-  // `age` is the trail age fed to the Trails filter (0 = newest).
+  /**
+   * @brief Plots the strand for this sub-step.
+   * @param canvas Target canvas to plot into.
+   * @param age Trail age fed to the Trails filter (0 = newest).
+   * @details The head node is a single half-alpha point; each following node is
+   *          a half-alpha line back to its predecessor.
+   */
   void draw_nodes(Canvas &canvas, float age) {
     for (size_t i = 0; i < nodes.size(); ++i) {
       if (i == 0) {
@@ -271,9 +318,14 @@ private:
     }
   }
 
-  // Advance the strand one whole step: move the leader node in the signed
-  // direction of effective_speed, then drag every other node toward it from
-  // both sides so the chain follows, keeping each link within `gap`.
+  /**
+   * @brief Advances the strand one whole step.
+   * @param leader Index of the leader node to move first.
+   * @param effective_speed Signed speed whose direction the leader moves in.
+   * @details Moves the leader node in the signed direction of effective_speed,
+   *          then drags every other node toward it from both sides so the chain
+   *          follows, keeping each link within `gap`.
+   */
   void pull(int leader, float effective_speed) {
     nodes[leader].v = dir(effective_speed);
     move(nodes[leader]);
@@ -285,9 +337,14 @@ private:
     }
   }
 
-  // Pull `follower` toward `leader`: if moving one step would leave the gap too
-  // wide, adopt the leader's velocity and close the slack until within `gap`;
-  // otherwise just step once.
+  /**
+   * @brief Pulls `follower` toward `leader`.
+   * @param leader Node the follower chases.
+   * @param follower Node moved this step.
+   * @details If moving one step would leave the gap too wide, the follower
+   *          adopts the leader's velocity and closes the slack until within
+   *          `gap`; otherwise it just steps once.
+   */
   void drag(Node &leader, Node &follower) {
     int dest = wrap(follower.x + follower.v, W);
     if (shortest_distance(dest, leader.x, W) > (int)params.gap) {
@@ -300,54 +357,81 @@ private:
     }
   }
 
-  // Advance a node by its velocity, wrapping x into [0, W).
+  /**
+   * @brief Advances a node by its velocity, wrapping x into [0, W).
+   * @param node Node to move in place.
+   */
   void move(Node &node) { node.x = wrap(node.x + node.v, W); }
 
-  // Unit travel direction (-1 or +1) for a signed speed.
+  /**
+   * @brief Computes the unit travel direction for a signed speed.
+   * @param speed Signed speed value.
+   * @return -1 for negative speed, otherwise +1.
+   */
   int dir(float speed) const { return speed < 0 ? -1 : 1; }
 
-  Timeline timeline;
+  Timeline timeline; /**< Drives reverse/wipe/rotate animations and timers. */
 
-  static constexpr size_t MAX_PALETTES = 16;
-  // Sentinel a completed wipe writes into its boundary slot so
-  // reap_completed_wipes() can collapse it. Set well above the live boundary
-  // range [0, PI] so it can never collide with an in-flight value.
+  static constexpr size_t MAX_PALETTES = 16; /**< Max live palettes. */
+  /**
+   * @brief Sentinel a completed wipe writes into its boundary slot so
+   *        reap_completed_wipes() can collapse it.
+   * @details Set well above the live boundary range [0, PI] so it can never
+   *          collide with an in-flight value.
+   */
   static constexpr float WIPE_COMPLETE = 100.0f;
-  static constexpr int H_VIRT = H + hs::H_OFFSET;
-  static constexpr size_t NUM_NODES = H_VIRT;
-  // Compile-time Trails storage capacity (max trail points). The active trail
-  // length is the runtime "Trail Len" slider, pushed into the Trails filter
-  // each frame via set_lifetime() in draw_frame(); this bound is only the
-  // fixed upper limit on buffered points.
+  static constexpr int H_VIRT = H + hs::H_OFFSET; /**< Virtual row count. */
+  static constexpr size_t NUM_NODES = H_VIRT; /**< Strand node count. */
+  /**
+   * @brief Compile-time Trails storage capacity (max trail points).
+   * @details The active trail length is the runtime "Trail Len" slider, pushed
+   *          into the Trails filter each frame via set_lifetime() in
+   *          draw_frame(); this bound is only the fixed upper limit on buffered
+   *          points.
+   */
   static constexpr int TRAIL_CAPACITY = 10000;
-  StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes;
-  StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries;
-  // Baked 256-entry LUTs mirroring palettes[] in logical order. The per-pixel
-  // color() path reads these (fast lerp16 table lookup) instead of evaluating
-  // GenerativePalette's per-call OKLCH lerp thousands of times per frame.
-  // Kept in sync by rebake_active_palettes() on every wipe push/pop; one slot
-  // per possible live palette so churn never reallocates.
+  StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes; /**< Live palettes. */
+  StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries; /**< Wipe boundary angles. */
+  /**
+   * @brief Baked 256-entry LUTs mirroring palettes[] in logical order.
+   * @details The per-pixel color() path reads these (fast lerp16 table lookup)
+   *          instead of evaluating GenerativePalette's per-call OKLCH lerp
+   *          thousands of times per frame. Kept in sync by
+   *          rebake_active_palettes() on every wipe push/pop; one slot per
+   *          possible live palette so churn never reallocates.
+   */
   std::array<BakedPalette, MAX_PALETTES> baked_palettes_;
 
-  Vector palette_normal;
-  std::array<Node, NUM_NODES> nodes;
+  Vector palette_normal; /**< Reference axis for band angle selection. */
+  std::array<Node, NUM_NODES> nodes; /**< The strand nodes. */
 
-  // Travel direction toggled by reverse(); kept separate from the registered
-  // "Speed" slider so animation never clobbers the user's value.
+  /**
+   * @brief Travel direction toggled by reverse().
+   * @details Kept separate from the registered "Speed" slider so animation
+   *          never clobbers the user's value.
+   */
   int speed_direction_ = 1;
-  // Fractional-step carry so |speed| < 1 still advances the strand over
-  // multiple frames instead of truncating to zero.
+  /**
+   * @brief Fractional-step carry so |speed| < 1 still advances the strand over
+   *        multiple frames instead of truncating to zero.
+   */
   float speed_accumulator_ = 0.0f;
 
+  /**
+   * @brief Live slider-backed parameters for the effect.
+   */
   struct Params {
-    float speed = 2.0f;
-    float gap = 5.0f;
-    float trail_length = 8.0f;
-    float wipe_duration = 20.0f;
+    float speed = 2.0f; /**< Strand travel speed. */
+    float gap = 5.0f; /**< Target spacing between adjacent nodes. */
+    float trail_length = 8.0f; /**< Active trail length. */
+    float wipe_duration = 20.0f; /**< Color-wipe transition duration. */
   } params;
 
-  Orientation<> orientation;
+  Orientation<> orientation; /**< Current sphere orientation. */
 
+  /**
+   * @brief Filter pipeline applied to plotted points before color resolution.
+   */
   Pipeline<W, H, Filter::World::Trails<W, TRAIL_CAPACITY>,
            Filter::World::Replicate<W>,
            Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>

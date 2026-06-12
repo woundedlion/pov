@@ -6,14 +6,23 @@
 #pragma once
 #include "core/effects_engine.h"
 
-// Moire interference effect: two counter-rotating stacks of concentric
-// DistortedRing layers beat against each other to produce a shimmering moire
-// pattern, tinted by two wipe-animated generative palettes.
+/**
+ * @brief Moire interference effect: two counter-rotating stacks of concentric
+ *        DistortedRing layers beating against each other.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details The two stacks produce a shimmering moire pattern, tinted by two
+ *          wipe-animated generative palettes.
+ */
 template <int W, int H> class Moire : public Effect {
 public:
-  // Builds the two palette pairs with deliberately contrasting brightness
-  // profiles (BELL base vs CUP interference) so the layers stay visually
-  // distinct, and wires the world-orient + screen anti-alias filter pipeline.
+  /**
+   * @brief Constructs the effect, building the two palette pairs and the
+   *        filter pipeline.
+   * @details Uses deliberately contrasting brightness profiles (BELL base vs
+   *          CUP interference) so the layers stay visually distinct, and wires
+   *          the world-orient + screen anti-alias filter pipeline.
+   */
   FLASHMEM Moire()
       : Effect(W, H),
         base_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -29,11 +38,17 @@ public:
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
-  // Rings are drawn over a transparent background.
+  /**
+   * @brief Reports whether the effect draws an opaque background.
+   * @return false; the rings are drawn over a transparent background.
+   */
   bool show_bg() const override { return false; }
 
-  // One-time setup: size the scratch arenas, bake the palette LUTs, register
-  // the user params, and arm the rotation / wipe / amplitude animations.
+  /**
+   * @brief One-time setup of arenas, palette LUTs, params, and animations.
+   * @details Sizes the scratch arenas, bakes the palette LUTs, registers the
+   *          user params, and arms the rotation / wipe / amplitude animations.
+   */
   void init() override {
     // Each frame draws many concentric DistortedRing layers, each of which
     // binds W+2 ring points and rasterization buffers into Scratch A. Give it
@@ -65,8 +80,11 @@ public:
                                  160, ease_mid, true, &anims_paused_));
   }
 
-  // Per-frame: advance animations, refresh the palette LUTs, then draw the two
-  // counter-rotating ring layers so they interfere.
+  /**
+   * @brief Renders one frame of the moire effect.
+   * @details Advances animations, refreshes the palette LUTs, then draws the
+   *          two counter-rotating ring layers so they interfere.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -88,8 +106,10 @@ public:
   }
 
 private:
-  // Picks fresh target palettes and schedules a wipe to them; called
-  // periodically to keep the colors drifting.
+  /**
+   * @brief Picks fresh target palettes and schedules a wipe to them.
+   * @details Called periodically to keep the colors drifting.
+   */
   void color_wipe() {
     // The two counter-rotating layers are deliberately contrasting: the base
     // layer starts BELL, the interference layer CUP (see the constructor). Keep
@@ -109,9 +129,14 @@ private:
         0, Animation::ColorWipe(int_palette, int_next_palette, 80, ease_mid));
   }
 
-  // Draws one stack of `density` concentric DistortedRings under the given
-  // layer rotation, radius stepping from 0 to 2, shaded by `pal`. The rings are
-  // wobbled by a sine wave whose amplitude is the animated `amp` param.
+  /**
+   * @brief Draws one stack of concentric DistortedRings for a layer.
+   * @param canvas Render target for this layer's rings.
+   * @param layer_rotation Quaternion rotation applied to this stack.
+   * @param pal Baked palette LUT used to shade the rings.
+   * @details Draws `density` rings with radius stepping from 0 to 2, each
+   *          wobbled by a sine wave whose amplitude is the animated `amp` param.
+   */
   void draw_layer(Canvas &canvas, Quaternion layer_rotation,
                   const BakedPalette &pal) {
     int count = static_cast<int>(std::ceil(params.density));
@@ -132,29 +157,37 @@ private:
     }
   }
 
-  // User-tunable params: per-ring opacity, ring count, and wobble amplitude.
+  /**
+   * @brief User-tunable parameters for the effect.
+   */
   struct Params {
-    float alpha = 0.2f;
-    float density = 10.0f;
-    float amp = 0.0f;
+    float alpha = 0.2f;   /**< Per-ring opacity in [0, 1]. */
+    float density = 10.0f; /**< Ring count per layer in [1, 100]. */
+    float amp = 0.0f;     /**< Wobble amplitude in [0, 1]. */
   } params;
 
-  float rotation = 0.0f;
+  float rotation = 0.0f; /**< Current layer rotation angle in radians. */
 
-  GenerativePalette base_palette;
-  GenerativePalette base_next_palette;
-  GenerativePalette int_palette;
-  GenerativePalette int_next_palette;
+  GenerativePalette base_palette;      /**< Live source palette for the base layer. */
+  GenerativePalette base_next_palette; /**< Wipe target palette for the base layer. */
+  GenerativePalette int_palette;       /**< Live source palette for the interference layer. */
+  GenerativePalette int_next_palette;  /**< Wipe target palette for the interference layer. */
 
-  // 256-entry LUTs rebaked from the two source palettes once per frame (cheap:
-  // 2 x 256 OKLCH evaluations) so the per-fragment shader does a LUT lookup
-  // instead of a full sRGB->OKLCH interpolation on every ring fragment.
+  /**
+   * @brief 256-entry LUT rebaked from base_palette once per frame.
+   * @details Cheap (256 OKLCH evaluations) so the per-fragment shader does a
+   *          LUT lookup instead of a full sRGB->OKLCH interpolation on every
+   *          ring fragment.
+   */
   BakedPalette base_baked;
-  BakedPalette int_baked;
+  BakedPalette int_baked; /**< 256-entry LUT rebaked from int_palette once per frame. */
 
-  Orientation<> orientation;
-  Timeline timeline;
+  Orientation<> orientation; /**< World-space orientation shared with the Orient filter. */
+  Timeline timeline;         /**< Drives the rotation, wipe, and amplitude animations. */
 
+  /**
+   * @brief World-orient + screen anti-alias filter pipeline applied to rings.
+   */
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 };

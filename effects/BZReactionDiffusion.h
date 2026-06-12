@@ -13,6 +13,10 @@
 /**
  * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice sphere.
  *
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ *
+ * @details
  * Three competing chemical species (A, B, C) evolve via Lotka-Volterra dynamics
  * on a 7680-node Fibonacci lattice with K=6 nearest neighbors. The cyclic
  * competition (A→B→C→A) creates self-sustaining spiral waves that persist
@@ -48,9 +52,15 @@ class BZReactionDiffusion
   using Base::registerParam;
 
 public:
+  /**
+   * @brief Default-constructs the effect; all setup is deferred to init().
+   */
   FLASHMEM BZReactionDiffusion() = default;
 
-  /** Carve the arenas, register tunable params, build the lattice, and seed. */
+  /**
+   * @brief Carves the arenas, registers tunable params, builds the lattice,
+   *        and seeds the initial spiral nuclei.
+   */
   void init() override {
     // 165KB persistent: 48KB Cubemap LUT + 23KB State + 90KB node positions. The
     // node array (7680 × Vector) is the fixed Fibonacci lattice and does not
@@ -78,12 +88,22 @@ private:
   // Q8 fixed-point helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * @brief Converts a Q8 fixed-point byte to a normalized float.
+   * @param v Q8 value in [0, 255].
+   * @return Concentration in [0.0, 1.0].
+   */
   static inline float from_q8(uint8_t v) { return v * (1.0f / 255.0f); }
+  /**
+   * @brief Converts a normalized concentration to a Q8 fixed-point byte.
+   * @param v Concentration; clamped to [0.0, 1.0] before scaling.
+   * @return Q8 value in [0, 255], rounded to nearest.
+   * @details Rounds to nearest (+0.5f) rather than truncating: truncation loses
+   *          every sub-LSB positive update while negatives still decrement,
+   *          biasing the dynamics downward. clamp bounds the product to
+   *          [0, 255], so +0.5f tops out at 255.5 -> 255 with no overflow.
+   */
   static inline uint8_t to_q8(float v) {
-    // Round to nearest (+0.5f), not truncate: truncation loses every sub-LSB
-    // positive update while negatives still decrement, biasing the dynamics
-    // downward. clamp bounds the product to [0, 255], so +0.5f tops out at
-    // 255.5 -> 255 with no overflow.
     return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
   }
 
@@ -97,6 +117,9 @@ private:
   // Initialization helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * @brief Allocates the three persistent Q8 species arrays and zeroes them.
+   */
   void allocate_state() {
     state.A = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
     state.B = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
@@ -110,8 +133,12 @@ private:
   // Seeding
   // ---------------------------------------------------------------------------
 
-  /** Seed CLUSTERS_PER_SPECIES clusters per species to ensure all 3 are always
-   *  present. */
+  /**
+   * @brief Seeds CLUSTERS_PER_SPECIES clusters per species at random nodes.
+   * @details Saturates each cluster center and its neighbors to Q8 255,
+   *          ensuring all three species are present so the cyclic competition
+   *          can sustain spiral waves.
+   */
   void seed_spiral_nuclei() {
     uint8_t *species[] = {state.A, state.B, state.C};
     for (int s = 0; s < 3; s++) {
@@ -129,14 +156,31 @@ private:
   // Physics: Lotka-Volterra reaction + graph Laplacian diffusion
   // ---------------------------------------------------------------------------
 
-  /** Advance one species: diffusion + Lotka-Volterra competition step. */
+  /**
+   * @brief Advances one species by a single diffusion + competition step.
+   * @param conc Current concentration of this species in [0.0, 1.0].
+   * @param predator Concentration of the species that preys on this one,
+   *                 in [0.0, 1.0].
+   * @param laplacian Graph-Laplacian of this species over its neighbors.
+   * @return Updated concentration as a Q8 byte in [0, 255].
+   * @details Combines Fickian diffusion (D * laplacian) with Lotka-Volterra
+   *          competition (conc * (1 - conc - alpha * predator)), scaled by the
+   *          timestep dt.
+   */
   uint8_t advance_species(float conc, float predator, float laplacian) const {
     return to_q8(conc + (params.D * laplacian +
                          conc * (1 - conc - params.alpha * predator)) *
                             params.dt);
   }
 
-  /** Apply stochastic perturbation to prevent convergence on closed manifold.
+  /**
+   * @brief Applies stochastic perturbations to prevent convergence.
+   * @param nA Species A buffer to nudge (Q8, modified in place).
+   * @param nB Species B buffer to nudge (Q8, modified in place).
+   * @param nC Species C buffer to nudge (Q8, modified in place).
+   * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q8),
+   *          saturating at 255, to keep the dynamics from settling on the
+   *          closed manifold.
    */
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
@@ -148,11 +192,19 @@ private:
     }
   }
 
-  /** Full physics step: reaction-diffusion + perturbation.
-   *
-   * Pure double-buffered (Jacobi): reads the current buffers, writes the next
-   * ones. The caller owns the ping-pong so the result can be landed back in the
-   * persistent state regardless of substep parity (see render()). */
+  /**
+   * @brief Runs one full physics step: reaction-diffusion plus perturbation.
+   * @param cA Current species A buffer (Q8, read-only).
+   * @param cB Current species B buffer (Q8, read-only).
+   * @param cC Current species C buffer (Q8, read-only).
+   * @param nA Next species A buffer (Q8, written).
+   * @param nB Next species B buffer (Q8, written).
+   * @param nC Next species C buffer (Q8, written).
+   * @details Pure double-buffered (Jacobi): reads the current buffers, writes
+   *          the next ones. The caller owns the ping-pong so the result can be
+   *          landed back in the persistent state regardless of substep parity
+   *          (see render()).
+   */
   void step_physics(const uint8_t *cA, const uint8_t *cB, const uint8_t *cC,
                     uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int i = 0; i < RD_N; i++) {
@@ -183,7 +235,18 @@ private:
   // Rendering: Wendland C2 kernel interpolation
   // ---------------------------------------------------------------------------
 
-  /** Blend three species concentrations into a single pixel via palette. */
+  /**
+   * @brief Blends three species concentrations into a single pixel.
+   * @param a Species A concentration in [0.0, 1.0].
+   * @param b Species B concentration in [0.0, 1.0].
+   * @param c Species C concentration in [0.0, 1.0].
+   * @param ca Palette color for species A.
+   * @param cb Palette color for species B.
+   * @param cc Palette color for species C.
+   * @return Composited RGB pixel (16-bit channels clamped to [0, 65535]).
+   * @details Starts from A's weighted color, then alpha-over-composites B and C
+   *          using (1 - concentration) as the keep factor for the prior layer.
+   */
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {
     float r = ca.color.r * a, g = ca.color.g * a, bl = ca.color.b * a;
@@ -203,7 +266,19 @@ private:
                  static_cast<uint16_t>(hs::clamp(bl, 0.0f, 65535.0f)));
   }
 
-  /** Sample the kernel-interpolated color at a world-space point. */
+  /**
+   * @brief Samples the kernel-interpolated color at a world-space point.
+   * @param rv World-space query direction (un-oriented onto the lattice).
+   * @param nodes Fixed Fibonacci-lattice node positions.
+   * @param best_node Index of the nearest lattice node to rv.
+   * @param ca Palette color for species A.
+   * @param cb Palette color for species B.
+   * @param cc Palette color for species C.
+   * @return Opaque blended Color4, or transparent black if no kernel weight
+   *         accumulates.
+   * @details Accumulates Wendland C2 kernel weights over the neighborhood of
+   *          best_node, normalizes by total weight, and blends the species.
+   */
   Color4 sample_kernel(const Vector &rv, const Vector *nodes, int best_node,
                        const Color4 &ca, const Color4 &cb,
                        const Color4 &cc) const {
@@ -223,7 +298,14 @@ private:
                   1.0f);
   }
 
-  /** Allocate scratch, run physics steps, then rasterize with 4× SSAA. */
+  /**
+   * @brief Allocates scratch, advances the simulation, then rasterizes a frame.
+   * @param canvas Destination canvas to draw into.
+   * @details Runs STEPS_PER_FRAME ping-ponged physics substeps between the
+   *          persistent state and scratch buffers, lands the final generation
+   *          back in the persistent buffers, then rasterizes with 4x SSAA using
+   *          a cubemap-LUT vertex shader and a kernel-sampling fragment shader.
+   */
   void render(Canvas &canvas) {
     ScratchScope _frame(scratch_arena_a);
 
@@ -276,21 +358,31 @@ private:
   // Member data
   // ---------------------------------------------------------------------------
 
+  /**
+   * @brief Persistent Q8 concentration buffers for the three species.
+   * @details A, B, and C each point to RD_N bytes; values are Q8 in [0, 255].
+   */
   struct {
     uint8_t *A = nullptr, *B = nullptr, *C = nullptr;
   } state;
 
-  // Fixed Fibonacci-lattice node positions, built once in init() (persistent).
+  /**
+   * @brief Fixed Fibonacci-lattice node positions, built once in init().
+   * @details Lives in the persistent arena; independent of the per-frame view
+   *          orientation.
+   */
   Vector *nodes = nullptr;
 
+  /** @brief Triadic generative palette mapping species concentration to color. */
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                             BrightnessProfile::DESCENDING,
                             SaturationProfile::VIBRANT, 42};
 
+  /** @brief User-tunable Lotka-Volterra and diffusion parameters. */
   struct Params {
-    float alpha = 3.0f;
-    float D = 0.05f;
-    float dt = 0.35f;
+    float alpha = 3.0f; /**< Competition (predation) coefficient. */
+    float D = 0.05f;    /**< Diffusion coefficient. */
+    float dt = 0.35f;   /**< Integration timestep per substep. */
   } params;
 };
 

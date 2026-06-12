@@ -14,10 +14,13 @@
 #include <span>
 
 // --- Constants for Procedural Generation ---
+/** Square root of 2. */
 static constexpr float SQRT2 = 1.414213562373095f;
-// Tribonacci constant t, the real root of t^3 - t^2 - t - 1 = 0 (~1.83928676).
+/** Tribonacci constant t, the real root of t^3 - t^2 - t - 1 = 0 (~1.83928676). */
 static constexpr float TRIBONACCI_CONST = 1.839286755214161f;
+/** Snub-cube truncation parameter. */
 static constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
+/** Truncated-dodecahedron/icosahedron truncation parameter. */
 static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 
 namespace Solids {
@@ -41,9 +44,14 @@ static_assert(MAX_INDICES <= UINT16_MAX,
 static_assert(MAX_VERTS <= UINT16_MAX,
               "MAX_VERTS must fit KDNode::original_index (uint16_t)");
 
-// Copy a freshly-generated mesh out of the scratch arena pair into the
-// long-lived geometry arena, so the scratch arenas can be reused for the next
-// solid without clobbering the result.
+/**
+ * @brief Copies a freshly-generated mesh into the long-lived geometry arena.
+ * @param temp Mesh built in the scratch arena pair.
+ * @param geom Long-lived arena that backs the returned mesh.
+ * @return A PolyMesh owning copies of temp's vertex/face data in geom.
+ * @details Frees the scratch arenas for reuse by the next solid without
+ * clobbering the result.
+ */
 FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
   final_mesh.vertices.bind(geom, temp.vertices.size());
@@ -179,9 +187,13 @@ struct Dodecahedron {
       7, 15, 5,  18, 19, 7,  11, 6,  14, 15, 7,  19, 3,  10, 11};
 };
 
-// Materialize a compile-time StaticMeshT (constexpr vertex/face arrays) into a
-// runtime PolyMesh backed by `target`. Face indices widen to the uint16_t the
-// topology path expects.
+/**
+ * @brief Materializes a compile-time static mesh into a runtime PolyMesh.
+ * @tparam StaticMeshT Type exposing constexpr vertices/face_counts/faces arrays.
+ * @param target Arena that backs the returned mesh's storage.
+ * @return A PolyMesh holding copies of the static mesh's data in target.
+ * @details Face indices widen to the uint16_t the topology path expects.
+ */
 template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   PolyMesh mesh;
   mesh.vertices.bind(target, StaticMeshT::vertices.size());
@@ -196,97 +208,173 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   return mesh;
 }
 
-/// Fluent builder for chaining Conway operators with automatic arena swapping.
-///
-/// Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_) — a single
-/// swap per call that assumes the PRIMITIVE polarity (output lands in `target`).
-/// The composed ops (gyro, meta, needle, zip, bevel) return their
-/// output in `temp` instead (see COMPOSITION POLARITY in conway.h), so the op
-/// immediately following a composed op runs with its input and output on the
-/// same arena — no asymmetric split for that one step — before alternation
-/// self-restores. This is measured to fit the tuned arena pair; skipping the
-/// swap after a composed op would re-balance it but relocates every downstream
-/// allocation and must be re-measured before adopting.
+/**
+ * @brief Fluent builder for chaining Conway operators with automatic arena
+ * swapping.
+ * @details Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_) —
+ * a single swap per call that assumes the PRIMITIVE polarity (output lands in
+ * `target`). The composed ops (gyro, meta, needle, zip, bevel) return their
+ * output in `temp` instead (see COMPOSITION POLARITY in conway.h), so the op
+ * immediately following a composed op runs with its input and output on the
+ * same arena — no asymmetric split for that one step — before alternation
+ * self-restores. This is measured to fit the tuned arena pair; skipping the
+ * swap after a composed op would re-balance it but relocates every downstream
+ * allocation and must be re-measured before adopting.
+ */
 class SolidBuilder {
-  PolyMesh mesh_;
-  Arena *a_;
-  Arena *b_;
+  PolyMesh mesh_;     /**< Mesh being built; updated in place by each operator. */
+  Arena *a_;          /**< Current output arena (swapped with b_ per op). */
+  Arena *b_;          /**< Current scratch arena (swapped with a_ per op). */
 
 public:
+  /**
+   * @brief Constructs a builder seeded with an initial mesh and arena pair.
+   * @param seed Starting mesh, moved into the builder.
+   * @param a Initial output arena.
+   * @param b Initial scratch arena.
+   */
   SolidBuilder(PolyMesh seed, Arena &a, Arena &b)
       : mesh_(std::move(seed)), a_(&a), b_(&b) {}
 
+  /**
+   * @brief Applies the dual operator (faces become vertices and vice versa).
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &dual() {
     mesh_ = MeshOps::dual(mesh_, *a_, *b_);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the kis operator (raise a pyramid on every face).
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &kis() {
     mesh_ = MeshOps::kis(mesh_, *a_, *b_);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the ambo operator (rectification: new vertex per edge).
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &ambo() {
     mesh_ = MeshOps::ambo(mesh_, *a_, *b_);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the truncate operator (cut corners off each vertex).
+   * @param t Truncation depth in [0, 0.5] along each edge.
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &truncate(float t = 0.25f) {
     mesh_ = MeshOps::truncate(mesh_, *a_, *b_, t);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the expand operator (cantellation: push faces outward).
+   * @param t Expansion amount; default places square faces at the canonical gap.
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &expand(float t = 2.0f - 1.414213562373095f) {
     mesh_ = MeshOps::expand(mesh_, *a_, *b_, t);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the chamfer operator (replace edges with hexagons).
+   * @param t Chamfer width as a fraction of the edge.
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &chamfer(float t = 0.5f) {
     mesh_ = MeshOps::chamfer(mesh_, *a_, *b_, t);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the snub operator (chiral expansion with a twist).
+   * @param t Expansion amount.
+   * @param twist Rotation applied to each face, in radians.
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &snub(float t = 0.5f, float twist = 0.0f) {
     mesh_ = MeshOps::snub(mesh_, *a_, *b_, t, twist);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the gyro operator (pentagonal chiral subdivision).
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &gyro() {
     mesh_ = MeshOps::gyro(mesh_, *a_, *b_);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Relaxes vertex positions toward a regular configuration.
+   * @param iterations Number of smoothing iterations to run.
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &relax(int iterations = 8) {
     mesh_ = MeshOps::relax(mesh_, *a_, *b_, iterations);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the meta operator (kis composed with join).
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &meta() {
     mesh_ = MeshOps::meta(mesh_, *a_, *b_);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the needle operator (dual of truncate).
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &needle() {
     mesh_ = MeshOps::needle(mesh_, *a_, *b_);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the zip operator (dual of kis).
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &zip() {
     mesh_ = MeshOps::zip(mesh_, *a_, *b_);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the bevel operator (truncate composed with ambo).
+   * @param t Bevel depth along each edge.
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &bevel(float t = 0.25f) {
     mesh_ = MeshOps::bevel(mesh_, *a_, *b_, t);
     std::swap(a_, b_);
     return *this;
   }
+  /**
+   * @brief Applies the Hankin star-pattern operator to each face.
+   * @param angle Contact angle of the star pattern, in radians.
+   * @return Reference to this builder for chaining.
+   */
   SolidBuilder &hankin(float angle) {
     mesh_ = MeshOps::hankin(mesh_, *a_, *b_, angle);
     std::swap(a_, b_);
     return *this;
   }
 
+  /**
+   * @brief Finalizes the chain and yields the built mesh.
+   * @return The accumulated PolyMesh, moved out of the builder.
+   */
   PolyMesh build() { return std::move(mesh_); }
 };
 
@@ -295,23 +383,43 @@ public:
 // ==========================================================================================
 
 namespace Platonic {
-// V=4, F=4, I=12
+/**
+ * @brief Builds a tetrahedron (V=4, F=4, I=12).
+ * @param a Arena that backs the returned mesh.
+ * @return The tetrahedron mesh.
+ */
 FLASHMEM static PolyMesh tetrahedron(Arena &a, Arena &) {
   return to_polymesh<Tetrahedron>(a);
 }
-// V=8, F=6, I=24
+/**
+ * @brief Builds a cube (V=8, F=6, I=24).
+ * @param a Arena that backs the returned mesh.
+ * @return The cube mesh.
+ */
 FLASHMEM static PolyMesh cube(Arena &a, Arena &) {
   return to_polymesh<Cube>(a);
 }
-// V=6, F=8, I=24
+/**
+ * @brief Builds an octahedron (V=6, F=8, I=24).
+ * @param a Arena that backs the returned mesh.
+ * @return The octahedron mesh.
+ */
 FLASHMEM static PolyMesh octahedron(Arena &a, Arena &) {
   return to_polymesh<Octahedron>(a);
 }
-// V=20, F=12, I=60
+/**
+ * @brief Builds a dodecahedron (V=20, F=12, I=60).
+ * @param a Arena that backs the returned mesh.
+ * @return The dodecahedron mesh.
+ */
 FLASHMEM static PolyMesh dodecahedron(Arena &a, Arena &) {
   return to_polymesh<Dodecahedron>(a);
 }
-// V=12, F=20, I=60
+/**
+ * @brief Builds an icosahedron (V=12, F=20, I=60).
+ * @param a Arena that backs the returned mesh.
+ * @return The icosahedron mesh.
+ */
 FLASHMEM static PolyMesh icosahedron(Arena &a, Arena &) {
   return to_polymesh<Icosahedron>(a);
 }
@@ -320,54 +428,132 @@ FLASHMEM static PolyMesh icosahedron(Arena &a, Arena &) {
 namespace Archimedean {
 using namespace Platonic;
 
+/**
+ * @brief Builds a truncated tetrahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The truncated tetrahedron mesh.
+ */
 FLASHMEM static PolyMesh truncatedTetrahedron(Arena &a, Arena &b) {
   return SolidBuilder(tetrahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
 }
+/**
+ * @brief Builds a cuboctahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The cuboctahedron mesh.
+ */
 FLASHMEM static PolyMesh cuboctahedron(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b).ambo().build();
 }
+/**
+ * @brief Builds a truncated cube.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The truncated cube mesh.
+ */
 FLASHMEM static PolyMesh truncatedCube(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b).truncate(1.0f / (2.0f + SQRT2)).build();
 }
+/**
+ * @brief Builds a truncated octahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The truncated octahedron mesh.
+ */
 FLASHMEM static PolyMesh truncatedOctahedron(Arena &a, Arena &b) {
   return SolidBuilder(octahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
 }
+/**
+ * @brief Builds a rhombicuboctahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The rhombicuboctahedron mesh.
+ */
 FLASHMEM static PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b).expand().build();
 }
+/**
+ * @brief Builds a truncated cuboctahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The truncated cuboctahedron mesh.
+ */
 FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
       .bevel(1.0f / (2.0f + SQRT2))
       .relax(50)
       .build();
 }
+/**
+ * @brief Builds a snub cube.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The snub cube mesh.
+ */
 FLASHMEM static PolyMesh snubCube(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
       .snub(T_SNUB_CUBE, 0.28f)
       .relax(50)
       .build();
 }
+/**
+ * @brief Builds an icosidodecahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The icosidodecahedron mesh.
+ */
 FLASHMEM static PolyMesh icosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b).ambo().build();
 }
+/**
+ * @brief Builds a truncated dodecahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The truncated dodecahedron mesh.
+ */
 FLASHMEM static PolyMesh truncatedDodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b).truncate(T_TRUNC_ICOS).build();
 }
+/**
+ * @brief Builds a truncated icosahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The truncated icosahedron mesh.
+ */
 FLASHMEM static PolyMesh truncatedIcosahedron(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
 }
+/**
+ * @brief Builds a rhombicosidodecahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The rhombicosidodecahedron mesh.
+ */
 FLASHMEM static PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .expand()
       .relax(50)
       .build();
 }
+/**
+ * @brief Builds a truncated icosidodecahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The truncated icosidodecahedron mesh.
+ */
 FLASHMEM static PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .bevel(1.0f / (2.0f + PHI))
       .relax(50)
       .build();
 }
+/**
+ * @brief Builds a snub dodecahedron.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The snub dodecahedron mesh.
+ */
 FLASHMEM static PolyMesh snubDodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .snub(0.5f)
@@ -379,42 +565,121 @@ FLASHMEM static PolyMesh snubDodecahedron(Arena &a, Arena &b) {
 namespace Catalan {
 using namespace Archimedean;
 
+/**
+ * @brief Builds a triakis tetrahedron (dual of the truncated tetrahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The triakis tetrahedron mesh.
+ */
 FLASHMEM static PolyMesh triakisTetrahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncatedTetrahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a rhombic dodecahedron (dual of the cuboctahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The rhombic dodecahedron mesh.
+ */
 FLASHMEM static PolyMesh rhombicDodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(cuboctahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a triakis octahedron (dual of the truncated cube).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The triakis octahedron mesh.
+ */
 FLASHMEM static PolyMesh triakisOctahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncatedCube(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a tetrakis hexahedron (dual of the truncated octahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The tetrakis hexahedron mesh.
+ */
 FLASHMEM static PolyMesh tetrakisHexahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncatedOctahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a deltoidal icositetrahedron (dual of the rhombicuboctahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The deltoidal icositetrahedron mesh.
+ */
 FLASHMEM static PolyMesh deltoidalIcositetrahedron(Arena &a, Arena &b) {
   return SolidBuilder(rhombicuboctahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a disdyakis dodecahedron (dual of the truncated cuboctahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The disdyakis dodecahedron mesh.
+ */
 FLASHMEM static PolyMesh disdyakisDodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncatedCuboctahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a pentagonal icositetrahedron (dual of the snub cube).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The pentagonal icositetrahedron mesh.
+ */
 FLASHMEM static PolyMesh pentagonalIcositetrahedron(Arena &a, Arena &b) {
   return SolidBuilder(snubCube(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a rhombic triacontahedron (dual of the icosidodecahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The rhombic triacontahedron mesh.
+ */
 FLASHMEM static PolyMesh rhombicTriacontahedron(Arena &a, Arena &b) {
   return SolidBuilder(icosidodecahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a triakis icosahedron (dual of the truncated dodecahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The triakis icosahedron mesh.
+ */
 FLASHMEM static PolyMesh triakisIcosahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncatedDodecahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a pentakis dodecahedron (dual of the truncated icosahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The pentakis dodecahedron mesh.
+ */
 FLASHMEM static PolyMesh pentakisDodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncatedIcosahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a deltoidal hexecontahedron (dual of the rhombicosidodecahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The deltoidal hexecontahedron mesh.
+ */
 FLASHMEM static PolyMesh deltoidalHexecontahedron(Arena &a, Arena &b) {
   return SolidBuilder(rhombicosidodecahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a disdyakis triacontahedron (dual of the truncated
+ * icosidodecahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The disdyakis triacontahedron mesh.
+ */
 FLASHMEM static PolyMesh disdyakisTriacontahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b).dual().build();
 }
+/**
+ * @brief Builds a pentagonal hexecontahedron (dual of the snub dodecahedron).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The pentagonal hexecontahedron mesh.
+ */
 FLASHMEM static PolyMesh pentagonalHexecontahedron(Arena &a, Arena &b) {
   return SolidBuilder(snubDodecahedron(a, b), a, b).dual().build();
 }
@@ -424,8 +689,15 @@ namespace IslamicStarPatterns {
 using namespace Platonic;
 using namespace Archimedean;
 
+/** Degrees-to-radians conversion factor. */
 static constexpr float D2R = PI_F / 180.0f;
 
+/**
+ * @brief Builds the cube_relax_bevel33_relax_hk68_expand5 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 cube_relax_bevel33_relax_hk68_expand5(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
@@ -436,12 +708,24 @@ cube_relax_bevel33_relax_hk68_expand5(Arena &a, Arena &b) {
       .expand(0.5f)
       .build();
 }
+/**
+ * @brief Builds the icosahedron_bevel033_hk59 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh icosahedron_bevel033_hk59(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b)
       .bevel(0.33f)
       .hankin(59.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the octahedron_hk17_ambo_hk73 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
   return SolidBuilder(octahedron(a, b), a, b)
       .hankin(17.0f * D2R)
@@ -449,9 +733,21 @@ FLASHMEM static PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
       .hankin(73.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the icosahedron_kis_gyro star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b).kis().gyro().build();
 }
+/**
+ * @brief Builds the truncatedIcosidodecahedron_truncate50d_ambo_dual star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
   return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b)
@@ -460,6 +756,12 @@ truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
       .dual()
       .build();
 }
+/**
+ * @brief Builds the icosidodecahedron_truncate5d_ambo_dual star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                 Arena &b) {
   return SolidBuilder(icosidodecahedron(a, b), a, b)
@@ -468,6 +770,12 @@ FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
       .dual()
       .build();
 }
+/**
+ * @brief Builds the snubDodecahedron_truncate5d_ambo_dual star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                Arena &b) {
   return SolidBuilder(snubDodecahedron(a, b), a, b)
@@ -476,6 +784,12 @@ FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
       .dual()
       .build();
 }
+/**
+ * @brief Builds the octahedron_hk34_ambo_hk72 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
   return SolidBuilder(octahedron(a, b), a, b)
       .hankin(34.0f * D2R)
@@ -483,6 +797,12 @@ FLASHMEM static PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
       .hankin(72.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the rhombicuboctahedron_hk63_ambo_hk63 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
                                                             Arena &b) {
   return SolidBuilder(rhombicuboctahedron(a, b), a, b)
@@ -491,6 +811,12 @@ FLASHMEM static PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
       .hankin(63.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the truncatedIcosahedron_hk54_ambo_hk72 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &a,
                                                              Arena &b) {
   return SolidBuilder(truncatedIcosahedron(a, b), a, b)
@@ -499,6 +825,12 @@ FLASHMEM static PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &a,
       .hankin(72.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the dodecahedron_hk54_ambo_hk72 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .hankin(54.0f * D2R)
@@ -506,6 +838,12 @@ FLASHMEM static PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
       .hankin(72.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the dodecahedron_hk72_ambo_dual_hk20 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .hankin(72.0f * D2R)
@@ -514,6 +852,12 @@ FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
       .hankin(20.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the truncatedIcosahedron_truncate50d_ambo_dual star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
                                                                    Arena &b) {
   return SolidBuilder(truncatedIcosahedron(a, b), a, b)
@@ -522,6 +866,12 @@ FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
       .dual()
       .build();
 }
+/**
+ * @brief Builds the icosahedron_snub_relax_truncate033_hankin62 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 icosahedron_snub_relax_truncate033_hankin62(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b)
@@ -531,6 +881,12 @@ icosahedron_snub_relax_truncate033_hankin62(Arena &a, Arena &b) {
       .hankin(62.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the dodecahedron_hk35_ambo_hk62_ambo_relax_hk43 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 dodecahedron_hk35_ambo_hk62_ambo_relax_hk43(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
@@ -542,6 +898,12 @@ dodecahedron_hk35_ambo_hk62_ambo_relax_hk43(Arena &a, Arena &b) {
       .hankin(43.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the icosahedron_ambo_truncate033_hankin59 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
                                                                Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b)
@@ -550,6 +912,12 @@ FLASHMEM static PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
       .hankin(59.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the truncatedIcosahedron_ambo_relax_truncate001_hankin59 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate001_hankin59(Arena &a,
                                                             Arena &b) {
@@ -560,6 +928,12 @@ truncatedIcosahedron_ambo_relax_truncate001_hankin59(Arena &a,
       .hankin(59.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the truncatedIcosahedron_ambo_relax_truncate001_hankin73 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate001_hankin73(Arena &a,
                                                             Arena &b) {
@@ -570,6 +944,12 @@ truncatedIcosahedron_ambo_relax_truncate001_hankin73(Arena &a,
       .hankin(73.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the truncatedOctahedron_gyro_kis_hk17 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
   return SolidBuilder(truncatedOctahedron(a, b), a, b)
       .gyro()
@@ -577,6 +957,12 @@ FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
       .hankin(17.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the truncatedIcosidodecahedron_bevel5_relax_hk77 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
   return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b)
@@ -585,6 +971,12 @@ truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
       .hankin(77.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the dodecahedron_bevel2_relax_gyro star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a,
                                                                     Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
@@ -593,6 +985,12 @@ FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a,
       .gyro()
       .build();
 }
+/**
+ * @brief Builds the truncatedIcosahedron_ambo_relax_truncate33_hk64 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
   return SolidBuilder(truncatedIcosahedron(a, b), a, b)
@@ -602,6 +1000,12 @@ truncatedIcosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
       .hankin(64.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the dodecahedron_ambo_bevel33_relax_hk66 star pattern.
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
 FLASHMEM static PolyMesh
 dodecahedron_ambo_bevel33_relax_hk66(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
@@ -613,20 +1017,31 @@ dodecahedron_ambo_bevel33_relax_hk66(Arena &a, Arena &b) {
 }
 } // namespace IslamicStarPatterns
 
-// Complex marks solids whose generator runs a long operator/relax pipeline,
-// letting callers gate the heavier shapes (e.g. skip on constrained hardware).
+/**
+ * @brief Cost class of a solid's generator.
+ * @details Complex marks solids whose generator runs a long operator/relax
+ * pipeline, letting callers gate the heavier shapes (e.g. skip on constrained
+ * hardware).
+ */
 enum class Category { Simple, Complex };
 
-// One named solid in a registry: its name, the generator that builds it into an
-// arena pair, and its cost category.
+/**
+ * @brief One named solid in a registry.
+ * @details Holds its name, the generator that builds it into an arena pair, and
+ * its cost category.
+ */
 struct Entry {
-  const char *name;
-  PolyMesh (*generate)(Arena &a, Arena &b);
-  Category category;
+  const char *name;                        /**< Registry key / display name. */
+  PolyMesh (*generate)(Arena &a, Arena &b); /**< Generator building into arena pair (a, b). */
+  Category category;                       /**< Simple or Complex cost class. */
 };
 
-// Order is load-bearing: Collections::get_platonic/archimedean_solids() slice
-// this array by fixed offsets (Platonic 0-4, Archimedean 5-15).
+/**
+ * @brief Registry of Platonic and Archimedean solids.
+ * @details Order is load-bearing:
+ * Collections::get_platonic/archimedean_solids() slice this array by fixed
+ * offsets (Platonic 0-4, Archimedean 5-15).
+ */
 inline constexpr Entry simple_registry[] = {
 
     // Platonic
@@ -654,6 +1069,9 @@ inline constexpr Entry simple_registry[] = {
     {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
      Category::Simple}};
 
+/**
+ * @brief Registry of Catalan solids (duals of the Archimedean solids).
+ */
 inline constexpr Entry catalan_registry[] = {
     // Catalan
     {"triakisTetrahedron", Catalan::triakisTetrahedron, Category::Simple},
@@ -676,7 +1094,9 @@ inline constexpr Entry catalan_registry[] = {
     {"pentagonalHexecontahedron", Catalan::pentagonalHexecontahedron,
      Category::Simple}};
 
-// Islamic Star Patterns
+/**
+ * @brief Registry of Islamic star-pattern solids.
+ */
 inline constexpr Entry islamic_registry[] = {
     {"cube_relax_bevel33_relax_hk68_expand5",
      IslamicStarPatterns::
@@ -746,29 +1166,57 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::icosahedron_snub_relax_truncate033_hankin62,
      Category::Complex}};
 
+/** Total number of solids across all three registries. */
 inline constexpr int NUM_ENTRIES =
     sizeof(simple_registry) / sizeof(simple_registry[0]) +
     sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
 namespace Collections {
+/**
+ * @brief Returns the five Platonic solids.
+ * @return Span over the Platonic entries (offset 0, count 5) of simple_registry.
+ */
 inline std::span<const Entry> get_platonic_solids() {
   return std::span<const Entry>(simple_registry, 5);
 }
+/**
+ * @brief Returns the Archimedean solids.
+ * @return Span over the Archimedean entries (offset 5, count 11) of simple_registry.
+ */
 inline std::span<const Entry> get_archimedean_solids() {
   return std::span<const Entry>(simple_registry + 5, 11);
 }
+/**
+ * @brief Returns all simple (Platonic and Archimedean) solids.
+ * @return Span over the entire simple_registry.
+ */
 inline std::span<const Entry> get_simple_solids() {
   return std::span<const Entry>(simple_registry);
 }
+/**
+ * @brief Returns all Catalan solids.
+ * @return Span over the entire catalan_registry.
+ */
 inline std::span<const Entry> get_catalan_solids() {
   return std::span<const Entry>(catalan_registry);
 }
+/**
+ * @brief Returns all Islamic star-pattern solids.
+ * @return Span over the entire islamic_registry.
+ */
 inline std::span<const Entry> get_islamic_solids() {
   return std::span<const Entry>(islamic_registry);
 }
 } // namespace Collections
 
+/**
+ * @brief Looks up a registry entry by global index across all three registries.
+ * @param index Zero-based index in [0, NUM_ENTRIES); traps if out of range.
+ * @return Reference to the entry at that index.
+ * @details Maps the flat index onto the simple/catalan/islamic registries in
+ * order.
+ */
 inline const Entry &get_entry(size_t index) {
   // An out-of-range index is a caller/sizing bug, not a recoverable condition:
   // silently substituting a different solid hides the bug and renders the wrong
@@ -787,11 +1235,28 @@ inline const Entry &get_entry(size_t index) {
 }
 
 #ifdef EMSCRIPTEN
+/**
+ * @brief Builds the solid at the given registry index into the geometry arena.
+ * @param geom Long-lived arena that backs the returned mesh.
+ * @param a Output arena for even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @param index Registry index in [0, NUM_ENTRIES).
+ * @return The finalized solid mesh owned by geom.
+ */
 FLASHMEM static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) {
   return finalize_solid(get_entry(index).generate(a, b), geom);
 }
 #endif
 
+/**
+ * @brief Builds the solid with the given name into the geometry arena.
+ * @param geom Long-lived arena that backs the returned mesh.
+ * @param a Output arena for even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @param name Registry name of the solid to build; traps if unknown.
+ * @return The finalized solid mesh owned by geom.
+ * @details For trusted (firmware) callers; an unknown name fails fast.
+ */
 FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
                                      std::string_view name) {
   for (const auto &entry : simple_registry) {
@@ -812,9 +1277,14 @@ FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
   return finalize_solid(Platonic::cube(a, b), geom); // unreachable (trap above)
 }
 
-// Non-trapping name lookup. Trusted (firmware) callers use get_by_name() with
-// its fail-fast contract; untrusted boundaries (e.g. the WASM/JS mesh editor)
-// must validate with this first and reject unknown names rather than abort.
+/**
+ * @brief Tests whether a solid name exists in any registry, without trapping.
+ * @param name Candidate registry name to look up.
+ * @return True if the name matches a registered solid, false otherwise.
+ * @details Trusted (firmware) callers use get_by_name() with its fail-fast
+ * contract; untrusted boundaries (e.g. the WASM/JS mesh editor) must validate
+ * with this first and reject unknown names rather than abort.
+ */
 inline bool has_name(std::string_view name) {
   for (const auto &entry : simple_registry)
     if (name == entry.name)

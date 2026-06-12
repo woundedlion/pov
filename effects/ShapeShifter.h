@@ -7,21 +7,40 @@
 
 #include "core/effects_engine.h"
 
-// Renders concentric rings of a morphing shape (polygon/flower/star) in both
-// Plot and Scan render modes, cycling the shape type and tumbling the camera.
+/**
+ * @brief Renders concentric rings of a morphing shape in Plot and Scan modes.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Draws nested rings of a polygon/flower/star shape in both the Plot
+ * and Scan render modes, cycling the shape type and tumbling the camera.
+ */
 template <int W, int H> class ShapeShifter : public Effect {
 public:
+  /**
+   * @brief Shape primitives this effect can morph between.
+   */
   enum class ShapeType { PlanarPolygon, SphericalPolygon, Flower, Star };
+  /**
+   * @brief Rasterization paths a ring can be drawn through.
+   */
   enum class RenderMode { Plot, Scan };
 
-  // Construct on a WxH canvas, starting on the planar polygon shape.
+  /**
+   * @brief Constructs the effect on a WxH canvas.
+   * @details Starts on the planar polygon shape.
+   */
   FLASHMEM ShapeShifter()
       : Effect(W, H), current_shape(ShapeType::PlanarPolygon) {}
 
-  // Rings are drawn over a cleared frame; no background pass needed.
+  /**
+   * @brief Reports whether the effect needs a background pass.
+   * @return Always false; rings are drawn over a cleared frame.
+   */
   bool show_bg() const override { return false; }
 
-  // Register tunable params and build the animation timeline.
+  /**
+   * @brief Registers tunable params and builds the animation timeline.
+   */
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
@@ -36,7 +55,9 @@ public:
     build();
   }
 
-  // Advance the shape type every 48 frames, then step the timeline.
+  /**
+   * @brief Advances the shape type every 48 frames, then steps the timeline.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
 
@@ -49,11 +70,14 @@ public:
     timeline.step(canvas);
   }
 
-  // Build a *fixed* five-slot timeline regardless of Count: the camera tumble,
-  // the twist Mutation, two shared orientation tumbles (one per render mode),
-  // and a single draw event that walks the live Count each frame. All rings of
-  // a mode share one orientation, so Count scales to the raster budget rather
-  // than the 64-slot timeline budget.
+  /**
+   * @brief Builds a fixed five-slot timeline independent of the Count param.
+   * @details The slots are the camera tumble, the twist Mutation, two shared
+   * orientation tumbles (one per render mode), and a single draw event that
+   * walks the live Count each frame. All rings of a mode share one orientation,
+   * so Count scales to the raster budget rather than the 64-slot timeline
+   * budget.
+   */
   FLASHMEM void build() {
     timeline.clear();
 
@@ -84,7 +108,12 @@ public:
                         0, ease_mid, 0, ease_mid));
   }
 
-  // Draw all Count rings, outermost first, in both Plot and Scan modes.
+  /**
+   * @brief Draws all Count rings, outermost first, in both Plot and Scan modes.
+   * @param canvas Target canvas the rings are rasterized onto.
+   * @details Computes the shared per-mode basis once per frame (all rings of a
+   * mode share orientation and a fixed normal) instead of once per ring.
+   */
   void drawAll(Canvas &canvas) {
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
@@ -108,8 +137,17 @@ public:
     }
   }
 
-  // Draw one ring: scales radius by `scale`, twists by layer, and dispatches to
-  // the current shape's Plot or Scan renderer with a per-fragment alpha shader.
+  /**
+   * @brief Draws one ring through the current shape's Plot or Scan renderer.
+   * @param canvas Target canvas the ring is rasterized onto.
+   * @param basis Shared orientation basis for this render mode.
+   * @param mode Whether to dispatch to the Plot or Scan renderer.
+   * @param scale Radius scale factor in [0, 1] for this layer.
+   * @param color Base palette color for the ring, before alpha modulation.
+   * @param layer_index Layer ordinal; scales the per-layer twist phase.
+   * @details Scales the radius by `scale`, twists the ring by its layer index,
+   * and applies a per-fragment alpha shader.
+   */
   void drawRing(Canvas &canvas, const Basis &basis, RenderMode mode, float scale,
                 const Color4 &color, int layer_index) {
     auto fragment_shader = [&](const Vector &, Fragment &f) {
@@ -129,8 +167,18 @@ public:
   }
 
 private:
-  // Plot-rasterize the current shape type. noinline to curb code bloat from the
-  // per-shape template instantiation.
+  /**
+   * @brief Plot-rasterizes the current shape type.
+   * @tparam F Fragment-shader callable type.
+   * @param canvas Target canvas the shape is rasterized onto.
+   * @param basis Orientation basis for the shape.
+   * @param r Ring radius in world units.
+   * @param sides_int Polygon/flower/star side count.
+   * @param fragment_shader Per-fragment shader callable.
+   * @param phase Per-layer twist phase in radians.
+   * @details Marked noinline to curb code bloat from the per-shape template
+   * instantiation.
+   */
   template <typename F>
   __attribute__((noinline)) void
   dispatchPlot(Canvas &canvas, const Basis &basis, float r, int sides_int,
@@ -155,8 +203,18 @@ private:
     }
   }
 
-  // Scan-rasterize the current shape type. noinline to curb code bloat from the
-  // per-shape template instantiation.
+  /**
+   * @brief Scan-rasterizes the current shape type.
+   * @tparam F Fragment-shader callable type.
+   * @param canvas Target canvas the shape is rasterized onto.
+   * @param basis Orientation basis for the shape.
+   * @param r Ring radius in world units.
+   * @param sides_int Polygon/flower/star side count.
+   * @param fragment_shader Per-fragment shader callable.
+   * @param phase Per-layer twist phase in radians.
+   * @details Marked noinline to curb code bloat from the per-shape template
+   * instantiation.
+   */
   template <typename F>
   __attribute__((noinline)) void
   dispatchScan(Canvas &canvas, const Basis &basis, float r, int sides_int,
@@ -182,27 +240,38 @@ private:
     }
   }
 
-  FastNoiseLite noise;
-  Timeline timeline;
-  Orientation<> camera;
-  // Shared tumbles — one per render mode. Declared after `timeline` so they
-  // outlive it: ~Timeline clears the Rotations that point here on teardown.
+  FastNoiseLite noise; /**< Noise source driving the camera RandomWalk. */
+  Timeline timeline;   /**< Fixed five-slot animation timeline. */
+  Orientation<> camera; /**< Global camera orientation, tumbled each frame. */
+  /**
+   * @brief Shared Plot-mode tumble orientation; every Plot ring rides it.
+   * @details Declared after `timeline` so it outlives the Rotations that point
+   * here, which ~Timeline clears on teardown.
+   */
   Orientation<> plot_orient_;
+  /**
+   * @brief Shared Scan-mode tumble orientation; every Scan ring rides it.
+   * @details Declared after `timeline` so it outlives the Rotations that point
+   * here, which ~Timeline clears on teardown.
+   */
   Orientation<> scan_orient_;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
-  Pipeline<W, H> scan_filters;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters; /**< Anti-aliased filter pipeline for Plot mode. */
+  Pipeline<W, H> scan_filters; /**< Filter pipeline for Scan mode. */
 
+  /**
+   * @brief Tunable rendering parameters exposed to the GUI.
+   */
   struct Params {
-    float alpha = 0.5f;
-    float num_shapes = 7.0f;
-    float radius = 1.0f;
-    float sides = 5.0f;
-    float twist = 0.0f;
-    bool debug_bb = false;
+    float alpha = 0.5f;     /**< Global alpha multiplier in [0, 1]. */
+    float num_shapes = 7.0f; /**< Ring count; read live each frame. */
+    float radius = 1.0f;     /**< Outermost ring radius in world units. */
+    float sides = 5.0f;      /**< Polygon/flower/star side count. */
+    float twist = 0.0f;      /**< Per-layer twist phase in radians. */
+    bool debug_bb = false;   /**< Draw Scan bounding boxes when true. */
   } params;
 
-  ShapeType current_shape;
-  int frame_count_ = 0;
+  ShapeType current_shape; /**< Shape currently being rendered. */
+  int frame_count_ = 0;    /**< Frames drawn so far; gates shape cycling. */
 };
 
 #include "core/effect_registry.h"

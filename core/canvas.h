@@ -47,6 +47,9 @@ public:
     clip.x_end = W;
   }
 
+  /**
+   * @brief Destroys the Effect instance.
+   */
   virtual ~Effect() {};
 
   /**
@@ -72,7 +75,13 @@ public:
   /** @brief Accumulated rasterization time for the current frame (µs, WASM only). */
   double render_us = 0.0;
 
-  /** @brief Driver sets display bounds (which segment this Teensy owns). */
+  /**
+   * @brief Driver sets display bounds (which segment this Teensy owns).
+   * @param y0 Inclusive start row of the owned segment.
+   * @param y1 Exclusive end row of the owned segment.
+   * @param x0 Inclusive start column of the owned segment.
+   * @param x1 Exclusive end column of the owned segment.
+   */
   void set_clip(int y0, int y1, int x0, int x1) {
     clip.y_start = y0;
     clip.y_end = y1;
@@ -86,12 +95,17 @@ public:
    * set_clip(). It exists for callers that retune just the x-band (the web
    * simulator's segment-mode bridge writes the clip through set_clip(); the
    * canvas unit tests exercise this narrowing path directly).
+   * @param x0 Inclusive start column of the horizontal clip band.
+   * @param x1 Exclusive end column of the horizontal clip band.
    */
   void set_clip_x(int x0, int x1) {
     clip.x_start = x0;
     clip.x_end = x1;
   }
-  /** @brief Effect sets render margin for stateful filters. */
+  /**
+   * @brief Effect sets render margin for stateful filters.
+   * @param m Render margin width in pixels.
+   */
   void set_margin(int m) { clip.margin = m; }
 
   /**
@@ -196,7 +210,10 @@ public:
     bool readonly = false;  /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
 
-    /** @brief Read the current value as float (bool maps to 0/1). */
+    /**
+     * @brief Read the current value as float (bool maps to 0/1).
+     * @return The target's value as a float; a bool target yields 1.0 or 0.0.
+     */
     float get() const {
       return std::visit(
           [](auto *p) -> float {
@@ -209,7 +226,10 @@ public:
           target);
     }
 
-    /** @brief Write a float value (bool threshold at 0.5). */
+    /**
+     * @brief Write a float value (bool threshold at 0.5).
+     * @param v Value to store; a bool target is set true when v > 0.5.
+     */
     void set(float v) {
       std::visit(
           [v](auto *p) {
@@ -222,7 +242,10 @@ public:
           target);
     }
 
-    /** @brief Check if this parameter targets a bool. */
+    /**
+     * @brief Check if this parameter targets a bool.
+     * @return True if the target is a bool pointer, false if a float pointer.
+     */
     bool is_bool() const { return std::holds_alternative<bool *>(target); }
   };
 
@@ -232,14 +255,35 @@ public:
    * memory-view invariant; capacity 32 is enforced at registration time.
    */
   struct ParamList {
-    std::array<ParamDef, 32> elements;
-    size_t count = 0;
+    std::array<ParamDef, 32> elements; /**< Fixed-capacity backing storage. */
+    size_t count = 0;                  /**< Number of registered parameters. */
 
+    /**
+     * @brief Const iterator to the first registered parameter.
+     * @return Pointer to the first element.
+     */
     const ParamDef *begin() const { return elements.data(); }
+    /**
+     * @brief Const one-past-the-end iterator over registered parameters.
+     * @return Pointer just past the last registered element.
+     */
     const ParamDef *end() const { return elements.data() + count; }
+    /**
+     * @brief Mutable iterator to the first registered parameter.
+     * @return Pointer to the first element.
+     */
     ParamDef *begin() { return elements.data(); }
+    /**
+     * @brief Mutable one-past-the-end iterator over registered parameters.
+     * @return Pointer just past the last registered element.
+     */
     ParamDef *end() { return elements.data() + count; }
 
+    /**
+     * @brief Looks up a registered parameter by name.
+     * @param name Parameter name to match (exact string compare).
+     * @return Pointer to the matching parameter, or nullptr if not found.
+     */
     ParamDef *find(const char *name) {
       for (size_t i = 0; i < count; ++i) {
         if (std::strcmp(elements[i].name, name) == 0)
@@ -247,6 +291,11 @@ public:
       }
       return nullptr;
     }
+    /**
+     * @brief Looks up a registered parameter by name (const overload).
+     * @param name Parameter name to match (exact string compare).
+     * @return Const pointer to the matching parameter, or nullptr if not found.
+     */
     const ParamDef *find(const char *name) const {
       for (size_t i = 0; i < count; ++i) {
         if (std::strcmp(elements[i].name, name) == 0)
@@ -254,6 +303,10 @@ public:
       }
       return nullptr;
     }
+    /**
+     * @brief Number of registered parameters.
+     * @return The count of registered parameters.
+     */
     size_t size() const { return count; }
   };
 
@@ -303,8 +356,13 @@ public:
    * sole writer, so a user edit holds; resuming hands the member back to the
    * animation. Ambient motion (rotation/camera/palette) is not gated and keeps
    * running. The GUI surfaces this as the standard "Pause Animation" toggle.
+   * @param paused True to freeze parameter-driving animations, false to resume.
    */
   void setAnimationsPaused(bool paused) { anims_paused_ = paused; }
+  /**
+   * @brief Reports whether parameter-driving animations are paused.
+   * @return True if those animations are currently frozen.
+   */
   bool animationsPaused() const { return anims_paused_; }
 
 protected:
@@ -496,12 +554,35 @@ public:
                 Pixel(0, 0, 0));
   }
 
+  /**
+   * @brief Gets the width of the underlying effect.
+   * @return The width in pixels.
+   */
   [[nodiscard]] inline int width() const { return effect_.width(); }
+  /**
+   * @brief Gets the height of the underlying effect.
+   * @return The height in pixels.
+   */
   [[nodiscard]] inline int height() const { return effect_.height(); }
+  /**
+   * @brief Gets the effect's current clip region.
+   * @return Const reference to the clip region (display + render margin).
+   */
   [[nodiscard]] inline const ClipRegion &clip() const { return effect_.clip; }
 
+  /**
+   * @brief Resets the accumulated rasterization time for the current frame.
+   */
   inline void reset_render_us() { effect_.render_us = 0.0; }
+  /**
+   * @brief Adds to the accumulated rasterization time for the current frame.
+   * @param us Elapsed time to add, in microseconds.
+   */
   inline void add_render_us(double us) { effect_.render_us += us; }
+  /**
+   * @brief Gets the accumulated rasterization time for the current frame.
+   * @return The accumulated render time, in microseconds.
+   */
   [[nodiscard]] inline double get_render_us() const { return effect_.render_us; }
   /**
    * @brief Checks if debug visuals are enabled.

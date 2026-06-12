@@ -10,7 +10,12 @@
 #include <utility>
 
 namespace SHMath {
-/// Factorial of n as a float (n small; large n would overflow float precision).
+/**
+ * @brief Factorial of n as a float.
+ * @param n Non-negative integer whose factorial is computed; kept small.
+ * @return n! as a float.
+ * @details Float precision; large n would overflow float precision.
+ */
 inline float factorial(int n) {
   if (n <= 1)
     return 1.0f;
@@ -20,8 +25,15 @@ inline float factorial(int n) {
   return result;
 }
 
-/// Associated Legendre polynomial P_l^m(x) via the standard upward recurrence:
-/// seed P_m^m, then P_{m+1}^m, then recur in l. x is cos(phi), |x| <= 1.
+/**
+ * @brief Associated Legendre polynomial P_l^m(x).
+ * @param l Degree (l >= 0).
+ * @param m Order (0 <= m <= l).
+ * @param x Argument, equal to cos(phi) with |x| <= 1.
+ * @return Value of P_l^m(x).
+ * @details Uses the standard upward recurrence: seed P_m^m, then P_{m+1}^m,
+ * then recur in l.
+ */
 inline float associatedLegendre(int l, int m, float x) {
   float pmm = 1.0f;
   if (m > 0) {
@@ -48,7 +60,12 @@ inline float associatedLegendre(int l, int m, float x) {
   return pll;
 }
 
-/// Precompute normalization factor for given (l, m) — constant per shape.
+/**
+ * @brief Precompute the spherical-harmonic normalization factor for (l, m).
+ * @param l Degree (l >= 0).
+ * @param m Order in [-l, l].
+ * @return Normalization factor N, constant per shape.
+ */
 inline float normalization(int l, int m) {
   int absM = std::abs(m);
   float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * PI_F)) *
@@ -56,20 +73,33 @@ inline float normalization(int l, int m) {
   return (m != 0) ? sqrtf(2.0f) * N : N;
 }
 
-/// Evaluate SH with precomputed norm and cos_phi (avoids cosf(acos(x)) roundtrip).
+/**
+ * @brief Evaluate a real spherical harmonic with a precomputed norm.
+ * @param l Degree (l >= 0).
+ * @param m Order in [-l, l]; sign selects cos/sin azimuthal factor.
+ * @param theta Azimuthal angle in radians.
+ * @param cos_phi Cosine of the polar angle, in [-1, 1].
+ * @param N Precomputed normalization factor for (l, m).
+ * @return The harmonic value.
+ * @details Takes cos_phi directly to avoid a cosf(acos(x)) roundtrip.
+ */
 inline float sphericalHarmonic(int l, int m, float theta, float cos_phi, float N) {
   int absM = std::abs(m);
   float P = associatedLegendre(l, absM, cos_phi);
   return N * P * ((m > 0) ? fast_cosf(m * theta) : (m < 0) ? fast_sinf(absM * theta) : 1.0f);
 }
 
-// Flat harmonic index -> (l, m): idx = l*l + l + m, so l = floor(sqrt(idx)) and
-// m = idx - l*l - l lands in [-l, l]. Seed l from a float sqrt, then snap it to
-// the exact integer floor: sqrtf at (or just below) a perfect square can round
-// to l-epsilon and truncate to l-1, which would push m to +l — outside the
-// level's valid [-l, l] band and into the next level's order. The correction
-// loops make l provably exact (l*l <= idx < (l+1)*(l+1)), so the returned order
-// is always valid. Cold path (a few calls per frame).
+/**
+ * @brief Decode a flat harmonic index into its (l, m) pair.
+ * @param idx Flat index where idx = l*l + l + m.
+ * @return Pair {l, m} with l = floor(sqrt(idx)) and m in [-l, l].
+ * @details Seeds l from a float sqrt, then snaps it to the exact integer floor:
+ * sqrtf at (or just below) a perfect square can round to l-epsilon and truncate
+ * to l-1, which would push m to +l — outside the level's valid [-l, l] band and
+ * into the next level's order. The correction loops make l provably exact
+ * (l*l <= idx < (l+1)*(l+1)), so the returned order is always valid. Cold path
+ * (a few calls per frame).
+ */
 inline std::pair<int, int> decode_lm(int idx) {
   int l = static_cast<int>(sqrtf(static_cast<float>(idx)));
   while ((l + 1) * (l + 1) <= idx)
@@ -80,47 +110,85 @@ inline std::pair<int, int> decode_lm(int idx) {
 }
 } // namespace SHMath
 
-/// Visualizer that paints real spherical harmonics on the unit sphere,
-/// continuously morphing between randomly chosen modes.
+/**
+ * @brief Visualizer that paints real spherical harmonics on the unit sphere.
+ * @tparam W Display width in pixels.
+ * @tparam H Display height in pixels.
+ * @details Continuously morphs between randomly chosen modes.
+ */
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
-  // Field sampler for the visualizer. Intentionally NOT a deforming SDF: on the
-  // unit-sphere display every pixel samples r=1, so a lobe-radius distance would
-  // only modulate coverage near the harmonic's nodes. We want full coverage and
-  // let the shader paint the harmonic value, so distance() reports a constant
-  // "fully inside" and the field value rides out through raw_dist (frag.v1).
+  /**
+   * @brief Field sampler that evaluates the (blended) harmonic at a world point.
+   * @details Intentionally NOT a deforming SDF: on the unit-sphere display every
+   * pixel samples r=1, so a lobe-radius distance would only modulate coverage
+   * near the harmonic's nodes. We want full coverage and let the shader paint
+   * the harmonic value, so distance() reports a constant "fully inside" and the
+   * field value rides out through raw_dist (frag.v1).
+   */
   struct HarmonicField {
     int l1, m1;
     int l2, m2;
     float blend;
     Quaternion orientation;
-    float N1, N2; // Normalization factors, precomputed once per shape.
+    float N1, N2; /**< Normalization factors, precomputed once per shape. */
     static constexpr bool is_solid = true;
 
+    /**
+     * @brief Construct a field for blending mode (l1, m1) into (l2, m2).
+     * @param l1 Degree of the first harmonic.
+     * @param m1 Order of the first harmonic.
+     * @param l2 Degree of the second harmonic.
+     * @param m2 Order of the second harmonic.
+     * @param blend Morph fraction in [0, 1] from the first toward the second.
+     * @param q Orientation quaternion of the shape.
+     */
     HarmonicField(int l1, int m1, int l2, int m2, float blend, Quaternion q)
         : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend), orientation(q),
           N1(SHMath::normalization(l1, m1)),
           N2(SHMath::normalization(l2, m2)) {}
 
-    // Full-sphere scan: lobes can occupy any region, so no static bounding.
+    /**
+     * @brief Vertical scan bounds for the field.
+     * @tparam H_ Display height in pixels.
+     * @return Full-height bounds; lobes can occupy any region, so no static
+     * bounding.
+     */
     template <int H_> SDF::Bounds get_vertical_bounds() const {
       return {0, H_ - 1};
     }
+    /**
+     * @brief Horizontal scan intervals for a given row.
+     * @tparam W_scan Display width in pixels.
+     * @tparam H_ Display height in pixels.
+     * @tparam OutputIt Output iterator type for emitted intervals.
+     * @return Always false: no horizontal interval narrowing (full-sphere scan).
+     */
     template <int W_scan, int H_, typename OutputIt>
     bool get_horizontal_intervals(int, OutputIt) const {
       return false;
     }
 
-    /// Convenience wrapper returning a fresh DistanceResult.
+    /**
+     * @brief Convenience wrapper returning a fresh DistanceResult.
+     * @param p World-space sample point.
+     * @return The sampled DistanceResult for p.
+     */
     SDF::DistanceResult distance(const Vector &p) const {
       SDF::DistanceResult res;
       distance<true>(p, res);
       return res;
     }
 
-    /// Sample the (possibly blended) harmonic at world point p. Rotates p into
-    /// the shape's local frame, evaluates both modes in spherical coords, and
-    /// emits the field value through frag.v1 with a constant "inside" distance.
+    /**
+     * @brief Sample the (possibly blended) harmonic at world point p.
+     * @tparam ComputeUVs Whether to compute UV coordinates (unused here).
+     * @param p World-space sample point.
+     * @param res Output DistanceResult; carries the field value in v1 with a
+     * constant "inside" distance.
+     * @details Rotates p into the shape's local frame, evaluates both modes in
+     * spherical coords, and emits the field value through frag.v1.
+     */
     template <bool ComputeUVs = true>
     void distance(const Vector &p, SDF::DistanceResult &res) const {
       Vector local = rotate(p, orientation.conjugate());
@@ -145,10 +213,16 @@ public:
     }
   };
 
+  /**
+   * @brief Construct the visualizer with the display dimensions.
+   */
   FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {}
 
-  /// One-time setup: register params, bake the palette, seed the shape and the
-  /// continuous spin, and kick off the first morph.
+  /**
+   * @brief One-time setup of params, palette, shape, spin, and first morph.
+   * @details Registers params, bakes the palette, seeds the shape and the
+   * continuous spin, and kicks off the first morph.
+   */
   void init() override {
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
     registerParam("Debug BB", &params.debug_bb);
@@ -169,10 +243,17 @@ public:
     start_morph();
   }
 
+  /**
+   * @brief Whether the effect draws a background.
+   * @return Always false; the sphere is painted directly.
+   */
   bool show_bg() const override { return false; }
 
-  /// Decode the current and target modes, build the field for this frame's
-  /// morph state, and rasterize with the harmonic-coloring shader.
+  /**
+   * @brief Render one frame of the morphing harmonic.
+   * @details Decodes the current and target modes, builds the field for this
+   * frame's morph state, and rasterizes with the harmonic-coloring shader.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -216,15 +297,21 @@ public:
   }
 
 private:
-  // Ambient-occlusion shaping (see draw_frame shader): field magnitude at which
-  // shading saturates, the ambient floor, and the range above it (AMBIENT +
-  // RANGE = 1.0 → full brightness at saturation).
+  /**
+   * @brief Ambient-occlusion shaping constants for the draw_frame shader.
+   * @details AO_FALLOFF is the field magnitude at which shading saturates,
+   * AO_AMBIENT is the ambient floor, and AO_RANGE is the range above it
+   * (AMBIENT + RANGE = 1.0 → full brightness at saturation).
+   */
   static constexpr float AO_FALLOFF = 0.4f;
   static constexpr float AO_AMBIENT = 0.15f;
   static constexpr float AO_RANGE = 0.85f;
 
-  /// Choose the next harmonic and animate the morph toward it; on completion
-  /// commit it as current and recurse, yielding an endless morph chain.
+  /**
+   * @brief Choose the next harmonic and animate the morph toward it.
+   * @details On completion commits it as current and recurses, yielding an
+   * endless morph chain.
+   */
   void start_morph() {
     // Pick a random new harmonic (low modes 1..23 look the best). Re-roll on a
     // match with the current harmonic: blending a mode into itself leaves the
@@ -244,20 +331,22 @@ private:
                }));
   }
 
-  // Params
+  /**
+   * @brief User-tunable parameters for the visualizer.
+   */
   struct Params {
-    float amplitude = 3.2f;
-    bool debug_bb = false;
+    float amplitude = 3.2f; /**< Field-value gain applied before coloring. */
+    bool debug_bb = false;  /**< Whether to draw bounding-box debug overlay. */
   } params;
 
-  Orientation<> orientation;
-  Timeline timeline;
-  Pipeline<W, H> filters;
-  BakedPalette baked_palette;
+  Orientation<> orientation;  /**< Current sphere orientation. */
+  Timeline timeline;          /**< Drives spin and morph animations. */
+  Pipeline<W, H> filters;     /**< Post-process filter pipeline. */
+  BakedPalette baked_palette; /**< Precomputed color LUT for the shader. */
 
-  int current_idx;
-  int next_idx;
-  float morph_alpha = 0.0f;
+  int current_idx;            /**< Flat index of the currently displayed mode. */
+  int next_idx;               /**< Flat index of the mode being morphed toward. */
+  float morph_alpha = 0.0f;   /**< Morph progress in [0, 1] from current to next. */
 };
 
 #include "core/effect_registry.h"

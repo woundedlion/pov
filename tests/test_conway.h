@@ -25,9 +25,10 @@
 namespace hs_test {
 namespace conway_tests {
 
-// Large scratch buffers — Conway ops on a cube need a comfortable budget.
-inline uint8_t conway_target_buf[256 * 1024];
-inline uint8_t conway_temp_buf[256 * 1024];
+/** @brief Scratch arena for the Conway operator's primary output mesh. */
+inline uint8_t conway_target_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
+/** @brief Scratch arena for the Conway operator's temporary/intermediate mesh. */
+inline uint8_t conway_temp_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
 
 // build_solid(), check_all_unit_vertices(), check_face_counts_consistent(),
 // and check_indices_in_range() live in tests/mesh_test_util.h.
@@ -36,8 +37,15 @@ inline uint8_t conway_temp_buf[256 * 1024];
 // Structural invariants — used by every Conway-op test
 // ---------------------------------------------------------------------------
 
-// Newell's method face normal — robust for non-planar faces (curved faces
-// on the unit sphere). Returns the unnormalised normal vector.
+/**
+ * @brief Computes a face normal via Newell's method.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset into m.faces where this face's indices begin.
+ * @param count Number of vertices (sides) in the face.
+ * @return Unnormalised normal vector for the face.
+ * @details Newell's method is robust for non-planar faces (e.g. curved faces
+ *          on the unit sphere) where a simple cross product would be ambiguous.
+ */
 inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
                                  int count) {
   Vector n(0, 0, 0);
@@ -52,7 +60,13 @@ inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
   return n;
 }
 
-// Arithmetic mean of a face's vertex positions (unweighted centroid).
+/**
+ * @brief Computes the unweighted centroid of a face's vertex positions.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset into m.faces where this face's indices begin.
+ * @param count Number of vertices (sides) in the face.
+ * @return Arithmetic mean of the face's vertex positions.
+ */
 inline Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
                                 int count) {
   Vector c(0, 0, 0);
@@ -61,10 +75,14 @@ inline Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
   return c * (1.0f / static_cast<float>(count));
 }
 
-// Returns the number of faces whose winding produces an INWARD-pointing
-// normal (relative to the mesh origin). On a unit-sphere mesh, correct
-// CCW-from-outside winding gives a normal that agrees in direction with
-// the face centroid.
+/**
+ * @brief Counts faces whose winding produces an inward-pointing normal.
+ * @param m Mesh to inspect; normals are taken relative to the mesh origin.
+ * @return Number of faces whose normal disagrees with the centroid direction.
+ * @details On a unit-sphere mesh, correct CCW-from-outside winding gives a
+ *          normal that agrees in direction with the face centroid; a face
+ *          failing this is wound backwards. Degenerate normals are ignored.
+ */
 inline int count_inward_winding(const PolyMesh &m) {
   int bad = 0;
   size_t offset = 0;
@@ -81,12 +99,17 @@ inline int count_inward_winding(const PolyMesh &m) {
   return bad;
 }
 
-// Verifies that no two faces share an oriented edge in the same direction.
-// In a manifold mesh with consistent winding, each undirected edge appears
-// in two faces with OPPOSITE orientations. Same-direction reuse means at
-// least one of the two faces is wound backwards.
+/**
+ * @brief Counts directed edges reused in the same direction by two faces.
+ * @param m Mesh to inspect.
+ * @return Number of duplicate same-direction directed edges.
+ * @details In a manifold mesh with consistent winding, each undirected edge
+ *          appears in two faces with OPPOSITE orientations. Same-direction
+ *          reuse means at least one of the two faces is wound backwards.
+ */
 inline int count_same_direction_edge_violations(const PolyMesh &m) {
   // Collect every directed edge (u -> v) from every face.
+  /** @brief A single directed edge from source vertex u to destination v. */
   struct DirEdge { uint16_t u, v; };
   size_t total_edges = 0;
   for (size_t i = 0; i < m.face_counts.size(); ++i)
@@ -120,8 +143,12 @@ inline int count_same_direction_edge_violations(const PolyMesh &m) {
   return dup;
 }
 
-// Asserts the mesh is wound consistently: every face faces outward and no
-// directed edge is reused in the same direction.
+/**
+ * @brief Asserts the mesh is wound consistently.
+ * @param m Mesh to validate.
+ * @details Requires every face to point outward and no directed edge to be
+ *          reused in the same direction; reports counts before each assertion.
+ */
 inline void check_consistent_winding(const PolyMesh &m) {
   int inward = count_inward_winding(m);
   if (inward != 0)
@@ -136,9 +163,13 @@ inline void check_consistent_winding(const PolyMesh &m) {
   HS_EXPECT_EQ(dups, 0);
 }
 
-// Bundles the structural checks shared by every Conway-op test: non-empty
-// arrays, internally consistent face_counts/faces, in-range indices, vertices
-// on the unit sphere, and consistent winding.
+/**
+ * @brief Asserts the structural invariants shared by every Conway-op test.
+ * @param m Mesh to validate.
+ * @details Checks non-empty arrays, internally consistent face_counts/faces,
+ *          in-range indices, vertices on the unit sphere, and consistent
+ *          winding.
+ */
 inline void check_basic_invariants(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.vertices.size() > 0);
   HS_EXPECT_TRUE(m.face_counts.size() > 0);
@@ -149,11 +180,15 @@ inline void check_basic_invariants(const PolyMesh &m) {
   check_consistent_winding(m);
 }
 
-// Euler / manifold invariant. Conway operators map a genus-0 seed to another
-// genus-0 closed polyhedron, so the result must be a closed 2-manifold
-// (every undirected edge shared by exactly two faces) satisfying Euler's
-// formula V - E + F == 2. A boundary edge (shared once) or a non-manifold edge
-// (shared >2) breaks the topology the renderer assumes; this catches both.
+/**
+ * @brief Asserts the mesh is a closed genus-0 2-manifold (V - E + F == 2).
+ * @param m Mesh to validate.
+ * @details Conway operators map a genus-0 seed to another genus-0 closed
+ *          polyhedron, so every undirected edge must be shared by exactly two
+ *          faces. A boundary edge (shared once) or a non-manifold edge
+ *          (shared >2) breaks the topology the renderer assumes; this catches
+ *          both, then verifies Euler's formula.
+ */
 inline void check_euler_genus0(const PolyMesh &m) {
   // Undirected edges (min,max) gathered from every face.
   std::vector<std::pair<uint16_t, uint16_t>> edges;
@@ -186,9 +221,14 @@ inline void check_euler_genus0(const PolyMesh &m) {
   HS_EXPECT_EQ(V - E + F, 2);
 }
 
-// Run every primitive Conway operator on one seed and assert the result is a
-// closed genus-0 manifold. Templated on the seed so it covers triangle-, quad-,
-// and pentagon-faced Platonic solids from one body.
+/**
+ * @brief Runs every primitive Conway operator on one seed and checks Euler.
+ * @tparam Solid Platonic seed solid (e.g. Solids::Cube) to build and operate on.
+ * @details Asserts each operator's result is a closed genus-0 manifold.
+ *          Templated on the seed so one body covers triangle-, quad-, and
+ *          pentagon-faced Platonic solids. Each op gets a fresh target/temp
+ *          pair with the seed rebuilt into temp, mirroring the per-op tests.
+ */
 template <typename Solid>
 inline void check_euler_for_seed() {
   // Each op gets a fresh target/temp pair; the seed is rebuilt into temp (the
@@ -224,6 +264,11 @@ inline void check_euler_for_seed() {
 #undef HS_EULER_OP
 }
 
+/**
+ * @brief Verifies every Conway operator preserves the Euler characteristic.
+ * @details Exercises check_euler_for_seed across triangle-, quad-, and
+ *          pentagon-faced Platonic seeds.
+ */
 inline void test_conway_ops_preserve_euler_characteristic() {
   check_euler_for_seed<Solids::Tetrahedron>();
   check_euler_for_seed<Solids::Cube>();
@@ -236,6 +281,11 @@ inline void test_conway_ops_preserve_euler_characteristic() {
 // |v|=1 — confirms our cube data is correctly normalised.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies the cube seed fixture is well formed and on the unit sphere.
+ * @details Checks 8 vertices, 6 quad faces, 24 indices, consistent face_counts,
+ *          in-range indices, unit-sphere magnitudes, and consistent winding.
+ */
 inline void test_input_cube_is_well_formed() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
   PolyMesh cube;
@@ -250,6 +300,7 @@ inline void test_input_cube_is_well_formed() {
   check_consistent_winding(cube);
 }
 
+/** @brief Verifies the tetrahedron seed fixture is wound consistently. */
 inline void test_input_tetrahedron_winding() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
   PolyMesh tet;
@@ -261,6 +312,11 @@ inline void test_input_tetrahedron_winding() {
 // normalize — exposed helper inside MeshOps namespace.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies MeshOps::normalize projects all vertices onto the unit sphere.
+ * @details Builds a mesh with off-sphere vertices (lengths 5, 7, √12) and
+ *          asserts they land at |v|=1 after normalization.
+ */
 inline void test_normalize_pushes_to_unit_sphere() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
   PolyMesh m;
@@ -283,6 +339,11 @@ inline void test_normalize_pushes_to_unit_sphere() {
 // dual(cube) → octahedron-topology (6 vertices, 8 faces, 24 face indices)
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies dual(cube) yields octahedral topology.
+ * @details Each cube face becomes a dual vertex (6) and each cube vertex
+ *          becomes a triangular dual face (8 faces, 24 indices).
+ */
 inline void test_dual_cube_has_octahedral_topology() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -306,6 +367,11 @@ inline void test_dual_cube_has_octahedral_topology() {
 // each n-gon face becomes n triangles.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies kis(cube) pyramidalizes every face into triangles.
+ * @details Adds one center vertex per face (8 + 6 vertices) and turns each
+ *          quad into 4 triangles (24 triangular faces, 72 indices).
+ */
 inline void test_kis_cube_pyramidalizes() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -330,6 +396,11 @@ inline void test_kis_cube_pyramidalizes() {
 // Cube has 12 edges → 12 vertices, 6+8 = 14 faces.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies ambo(cube) yields cuboctahedral topology.
+ * @details Each cube edge becomes a vertex (12) and the result has 6 squares
+ *          plus 8 triangles (14 faces).
+ */
 inline void test_ambo_cube_has_cuboctahedral_topology() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -349,6 +420,11 @@ inline void test_ambo_cube_has_cuboctahedral_topology() {
 // 6 octagons + 8 triangles = 14 faces.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies truncate(cube) cuts each corner into the expected topology.
+ * @details Yields 24 vertices (2 per edge) and 14 faces (6 octagons + 8
+ *          triangles, 72 indices).
+ */
 inline void test_truncate_cube_has_truncated_topology() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -366,7 +442,11 @@ inline void test_truncate_cube_has_truncated_topology() {
   HS_EXPECT_EQ(tr.faces.size(), (size_t)(6 * 8 + 8 * 3));
 }
 
-// truncate(t = 0.5) is equivalent to ambo().
+/**
+ * @brief Verifies truncate(t = 0.5) reproduces ambo() topology.
+ * @details At t = 0.5 the truncation midpoints coincide, collapsing to 12
+ *          vertices and 14 faces — the cuboctahedron ambo() also produces.
+ */
 inline void test_truncate_t_half_is_ambo() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -385,6 +465,11 @@ inline void test_truncate_t_half_is_ambo() {
 // becomes a quad, each vertex becomes a triangle.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies expand(cube) yields rhombicuboctahedral topology.
+ * @details One vertex per (face, vertex) pair (24) and 26 faces: 6 shrunken
+ *          squares, 12 edge quads, and 8 vertex triangles.
+ */
 inline void test_expand_cube() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -406,6 +491,10 @@ inline void test_expand_cube() {
 // = 8 + 24 = 32, F + E faces = 6 + 12 = 18.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies chamfer(cube) replaces each edge with a hexagon.
+ * @details Yields V + 2E = 8 + 24 = 32 vertices and F + E = 6 + 12 = 18 faces.
+ */
 inline void test_chamfer_cube() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -425,6 +514,12 @@ inline void test_chamfer_cube() {
 // must keep the same topology and all vertices must remain on the sphere.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies relax preserves topology and keeps vertices on the sphere.
+ * @details Spring-based edge-length relaxation must not change vertex/face/
+ *          index counts and must leave every vertex at |v|=1 with consistent
+ *          winding.
+ */
 inline void test_relax_preserves_topology() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -448,6 +543,7 @@ inline void test_relax_preserves_topology() {
 // for the primitives.
 // ---------------------------------------------------------------------------
 
+/** @brief Verifies meta(cube) satisfies the basic structural invariants. */
 inline void test_meta_cube() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -457,6 +553,7 @@ inline void test_meta_cube() {
   check_basic_invariants(m);
 }
 
+/** @brief Verifies needle(cube) satisfies the basic structural invariants. */
 inline void test_needle_cube() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -466,6 +563,7 @@ inline void test_needle_cube() {
   check_basic_invariants(n);
 }
 
+/** @brief Verifies zip(cube) satisfies the basic structural invariants. */
 inline void test_zip_cube() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -475,6 +573,7 @@ inline void test_zip_cube() {
   check_basic_invariants(z);
 }
 
+/** @brief Verifies bevel(cube) satisfies the basic structural invariants. */
 inline void test_bevel_cube() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -488,6 +587,7 @@ inline void test_bevel_cube() {
 // snub(cube) — chiral operator; structural sanity only.
 // ---------------------------------------------------------------------------
 
+/** @brief Verifies snub(cube), a chiral operator, satisfies basic invariants. */
 inline void test_snub_cube_is_well_formed() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -505,6 +605,12 @@ inline void test_snub_cube_is_well_formed() {
 // (which has the face_counts_view / faces_view borrowed members).
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies transform applies a variadic vertex-transformer chain.
+ * @details Runs a scale-then-shift pipeline over a MeshState and checks each
+ *          vertex equals v*2 + (1,0,0); also confirms the destination borrows
+ *          the source topology via the unified accessors.
+ */
 inline void test_transform_applies_translation_chain() {
   Arena src_arena(conway_target_buf, sizeof(conway_target_buf) / 2);
   Arena dst_arena(conway_target_buf + sizeof(conway_target_buf) / 2,
@@ -542,12 +648,15 @@ inline void test_transform_applies_translation_chain() {
   HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
 }
 
-// transform() yields a BORROWED-mode mesh (owned vertices, topology via
-// *_view). Accessors discriminate on is_bound() and clear() does not unbind, so
-// a destination reused from a prior owned-mode life carries still-bound owned
-// topology that would shadow the freshly set views. Pins that transform() resets
-// the owned topology, so the source views (sizes 1 / 3) win over the stale owned
-// sizes (2 / 9).
+/**
+ * @brief Verifies transform resets stale owned topology when reusing a dst.
+ * @details transform() yields a BORROWED-mode mesh (owned vertices, topology
+ *          via *_view). Accessors discriminate on is_bound() and clear() does
+ *          not unbind, so a destination reused from a prior owned-mode life
+ *          carries still-bound owned topology that would shadow the freshly set
+ *          views. This pins that transform() resets the owned topology, so the
+ *          source views (sizes 1 / 3) win over the stale owned sizes (2 / 9).
+ */
 inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
   Arena src_arena(conway_target_buf, sizeof(conway_target_buf) / 2);
   Arena dst_arena(conway_target_buf + sizeof(conway_target_buf) / 2,
@@ -591,6 +700,11 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
 // face_centroid + vertex_orbit (low-level half-edge helpers)
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Verifies face_centroid reports a quad and a bounded centroid.
+ * @details Builds a HalfEdgeMesh over the cube and checks face 0 has 4 sides
+ *          and a centroid magnitude bounded by 1 (mean of unit vectors).
+ */
 inline void test_face_centroid_for_cube_top_face() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
   PolyMesh cube;
@@ -609,15 +723,22 @@ inline void test_face_centroid_for_cube_top_face() {
 // with fewer than 3 sides.
 // ---------------------------------------------------------------------------
 
-// Asserts every face has at least 3 sides.
+/**
+ * @brief Asserts every face in the mesh has at least 3 sides.
+ * @param m Mesh to validate.
+ */
 inline void check_no_degenerate_faces(const PolyMesh &m) {
   for (size_t i = 0; i < m.face_counts.size(); ++i)
     HS_EXPECT_TRUE(m.face_counts[i] >= 3);
 }
 
-// A minimal malformed input: 2 vertices forming a single 2-gon face.
-// HalfEdgeMesh accepts it (it has no <3-sided guard), so it reaches the
-// primary-face loop of expand/chamfer/snub with count == 2.
+/**
+ * @brief Builds a minimal malformed digon: 2 vertices forming one 2-gon face.
+ * @param m Mesh to populate (its arrays are bound from arena).
+ * @param arena Arena providing backing storage for the mesh arrays.
+ * @details HalfEdgeMesh accepts this (it has no <3-sided guard), so it reaches
+ *          the primary-face loop of expand/chamfer/snub with count == 2.
+ */
 inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
   m.vertices.bind(arena, 2);
   m.face_counts.bind(arena, 1);
@@ -629,9 +750,13 @@ inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
   m.faces.push_back(1);
 }
 
-// Feeding expand/chamfer/snub a digon must not leak a sub-triangular primary
-// face: each operator drops a degenerate primary face (matching ambo/truncate
-// and the vertex-orbit emitter) so no output face has fewer than 3 sides.
+/**
+ * @brief Verifies expand/chamfer/snub drop degenerate primary faces.
+ * @details Feeding each operator a digon must not leak a sub-triangular primary
+ *          face: each drops the degenerate primary face (matching ambo/truncate
+ *          and the vertex-orbit emitter) so no output face has fewer than 3
+ *          sides.
+ */
 inline void test_conway_ops_drop_degenerate_primary_faces() {
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -658,8 +783,10 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
 
 // ---------------------------------------------------------------------------
 
-// Runs every Conway test under a "conway" module scope; returns the failure
-// count from end_module.
+/**
+ * @brief Runs every Conway test under a "conway" module scope.
+ * @return Failure count reported by end_module for the "conway" module.
+ */
 inline int run_conway_tests() {
   auto scope = hs_test::begin_module("conway");
 

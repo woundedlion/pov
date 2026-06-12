@@ -17,22 +17,26 @@
 
 /**
  * @brief Axis-Aligned Bounding Box.
- *
- * @note Speculative: the implementation (union_with, ray-slab intersect) is
+ * @details Speculative: the implementation (union_with, ray-slab intersect) is
  * sound and exercised by test_spatial.h, but it has no production consumer yet —
  * nothing in the engine constructs or queries an AABB. Wire it to a broad-phase
  * / culling consumer before relying on it as core spatial machinery.
  */
 struct AABB {
-  Vector min_val;
-  Vector max_val;
+  Vector min_val; /**< Minimum corner (per-axis lower bound). */
+  Vector max_val; /**< Maximum corner (per-axis upper bound). */
 
-  // Construct an inverted/empty box (min > max) so the first expand() seeds it.
+  /**
+   * @brief Constructs an inverted/empty box (min > max) so the first expand() seeds it.
+   */
   AABB()
       : min_val(FLT_MAX, FLT_MAX, FLT_MAX),
         max_val(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
 
-  // Grow this box to also enclose point p.
+  /**
+   * @brief Grows this box to also enclose point p.
+   * @param p Point to include, in world units.
+   */
   void expand(const Vector &p) {
     if (p.x < min_val.x)
       min_val.x = p.x;
@@ -49,7 +53,10 @@ struct AABB {
       max_val.z = p.z;
   }
 
-  // Grow this box to also enclose box.
+  /**
+   * @brief Grows this box to also enclose another box.
+   * @param box Box to merge into this one.
+   */
   void union_with(const AABB &box) {
     if (box.min_val.x < min_val.x)
       min_val.x = box.min_val.x;
@@ -66,8 +73,13 @@ struct AABB {
       max_val.z = box.max_val.z;
   }
 
-  // Test whether the ray from origin along direction hits this box. direction
-  // need not be normalized. Returns false for an inverted/empty box.
+  /**
+   * @brief Tests whether the ray from origin along direction hits this box.
+   * @param origin Ray start point, in world units.
+   * @param direction Ray direction, in world units; need not be normalized.
+   * @return True if the ray intersects the box; false for an inverted/empty box
+   * or a box entirely behind the origin.
+   */
   bool intersect_ray(const Vector &origin, const Vector &direction) const {
     float tmin = -FLT_MAX;
     float tmax = FLT_MAX;
@@ -110,13 +122,15 @@ struct AABB {
  * @brief A single node of the KDTree.
  */
 struct KDNode {
-  // Stores a copy of the point (not an index into the source array) to avoid
-  // lifetime dependence on that array.
+  /**
+   * @brief Copy of the split point (not an index into the source array) to
+   * avoid lifetime dependence on that array.
+   */
   Vector point;
-  uint16_t original_index = 0; // Index in the source array
-  int16_t axis = 0;           // 0=x, 1=y, 2=z
-  int16_t left = -1;
-  int16_t right = -1;
+  uint16_t original_index = 0; /**< Index of this point in the source array. */
+  int16_t axis = 0;            /**< Splitting axis: 0=x, 1=y, 2=z. */
+  int16_t left = -1;           /**< Left child node index, or -1 if none. */
+  int16_t right = -1;          /**< Right child node index, or -1 if none. */
 };
 
 /**
@@ -125,16 +139,24 @@ struct KDNode {
  */
 class KDTree {
 public:
-  static constexpr int MAX_K = 5;
+  static constexpr int MAX_K = 5; /**< Maximum number of neighbors a query may request. */
 
-  ArenaVector<KDNode> nodes;
-  int root_index = -1;
+  ArenaVector<KDNode> nodes; /**< Arena-backed node pool, one entry per point. */
+  int root_index = -1;       /**< Index of the root node, or -1 if empty. */
 
+  /**
+   * @brief Constructs an empty tree with no nodes.
+   */
   KDTree() = default;
 
-  // Build from a Span of vectors, using arena for node storage and temporary
-  // index sorting. Accepts std::span<const Vector> so callers don't have to
-  // const_cast read-only vertex arrays.
+  /**
+   * @brief Builds the tree from a span of points using arena storage.
+   * @param arena Arena used for node storage and temporary index sorting.
+   * @param points Source points; std::span<const Vector> so callers need not
+   * const_cast read-only vertex arrays.
+   * @details Allocates one node per point in the arena. The scratch index array
+   * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
+   */
   KDTree(Arena &arena, std::span<const Vector> points) {
     clear();
     if (points.empty())
@@ -156,10 +178,17 @@ public:
     root_index = build(points, indices, count, 0);
   }
 
+  /**
+   * @brief Resets the tree to empty by dropping the root reference.
+   */
   void clear() { root_index = -1; }
 
-  // Find the k nearest neighbors of target, sorted closest-first. Returns whole
-  // nodes (index + point), up to k (capped at MAX_K, and at the point count).
+  /**
+   * @brief Finds the k nearest neighbors of target, sorted closest-first.
+   * @param target Query point, in world units.
+   * @param k Number of neighbors to return; capped at MAX_K and at the point count.
+   * @return Buffer of whole nodes (index + point), closest first.
+   */
   StaticCircularBuffer<KDNode, MAX_K> nearest(const Vector &target,
                                               size_t k = 1) const {
     StaticCircularBuffer<KDNode, MAX_K> result;
@@ -229,9 +258,16 @@ public:
   }
 
 private:
-  // Recursively build a balanced subtree over indices[0..count) and return its
-  // root node index (-1 if empty). Cycles the split axis by depth%3,
-  // partitioning around the median along that axis. Reorders indices in place.
+  /**
+   * @brief Recursively builds a balanced subtree over indices[0..count).
+   * @param points Source points indexed by entries of `indices`.
+   * @param indices Scratch index array, partitioned in place by this call.
+   * @param count Number of indices in this subtree.
+   * @param depth Recursion depth; selects the split axis as depth % 3.
+   * @return Root node index of the built subtree, or -1 if empty.
+   * @details Cycles the split axis by depth%3, partitioning around the median
+   * along that axis and reordering `indices` in place.
+   */
   int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
@@ -287,10 +323,19 @@ private:
     return new_node_idx;
   }
 
-  // Recursive k-NN traversal: descends the near child first, then prunes the
-  // far child when the splitting plane is farther than the current worst hit.
-  // The k-best set and k itself are reached only through the push_heap /
-  // get_worst_dist callbacks, which capture them by reference in nearest().
+  /**
+   * @brief Recursive k-NN traversal of the subtree rooted at node_idx.
+   * @tparam PushFn Callable offering a (d_sq, idx) candidate to the k-best set.
+   * @tparam MaxDistFn Callable returning the current worst squared distance bound.
+   * @param node_idx Subtree root node index, or -1 to terminate.
+   * @param target Query point, in world units.
+   * @param push_heap Callback that records a candidate in the k-best set.
+   * @param get_worst_dist Callback returning the current pruning bound (squared distance).
+   * @details Descends the near child first, then prunes the far child when the
+   * splitting plane is farther than the current worst hit. The k-best set and k
+   * itself are reached only through the callbacks, which capture them by
+   * reference in nearest().
+   */
   template <typename PushFn, typename MaxDistFn>
   void search_k(int node_idx, const Vector &target, PushFn &&push_heap,
                 MaxDistFn &&get_worst_dist) const {
@@ -325,20 +370,26 @@ private:
  * allocations.
  */
 struct MeshState {
-  ArenaVector<Vector> vertices;
-  ArenaVector<uint8_t> face_counts;
-  ArenaVector<uint16_t> faces;
-  ArenaVector<uint16_t> face_offsets;
-  ArenaVector<int> topology;
+  ArenaVector<Vector> vertices;        /**< Owned vertex positions, in world units. */
+  ArenaVector<uint8_t> face_counts;    /**< Owned per-face vertex counts. */
+  ArenaVector<uint16_t> faces;         /**< Owned flattened face vertex indices. */
+  ArenaVector<uint16_t> face_offsets;  /**< Owned start offset of each face into faces. */
+  ArenaVector<int> topology;           /**< Owned adjacency/topology data. */
 
-  // Borrowed (non-owning) views — populated by MeshOps::transform
-  ArenaSpan<uint8_t> face_counts_view;
-  ArenaSpan<uint16_t> faces_view;
-  ArenaSpan<uint16_t> face_offsets_view;
+  ArenaSpan<uint8_t> face_counts_view;   /**< Borrowed face-counts view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t> faces_view;        /**< Borrowed faces view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t> face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
 
+  /**
+   * @brief Constructs an empty, unbound mesh.
+   */
   MeshState() = default;
 
-  // Explicit move semantics to ensure source is invalidated
+  /**
+   * @brief Move-constructs, transferring owned buffers and views.
+   * @param other Source mesh; its borrowed views are cleared so it holds no
+   * dangling borrows.
+   */
   MeshState(MeshState &&other) noexcept
       : vertices(std::move(other.vertices)),
         face_counts(std::move(other.face_counts)),
@@ -353,8 +404,12 @@ struct MeshState {
     other.face_offsets_view = {};
   }
 
-  // Move-assign, transferring owned buffers and views and clearing the source
-  // views so the moved-from mesh holds no dangling borrows.
+  /**
+   * @brief Move-assigns, transferring owned buffers and views.
+   * @param other Source mesh; its borrowed views are cleared so the moved-from
+   * mesh holds no dangling borrows.
+   * @return Reference to this mesh.
+   */
   MeshState &operator=(MeshState &&other) noexcept {
     if (this != &other) {
       vertices = std::move(other.vertices);
@@ -372,7 +427,9 @@ struct MeshState {
     return *this;
   }
 
-  // Reset to empty: clear owned buffers and drop the borrowed views.
+  /**
+   * @brief Resets to empty: clears owned buffers and drops the borrowed views.
+   */
   void clear() {
     vertices.clear();
     face_counts.clear();
@@ -384,40 +441,81 @@ struct MeshState {
     face_offsets_view = {};
   }
 
-  /// Check if any member vector is bound (has been allocated).
+  /**
+   * @brief Checks whether any member vector is bound (has been allocated).
+   * @return True if the mesh owns allocated storage.
+   */
   bool is_bound() const { return vertices.is_bound(); }
 
-  // Unified accessors: return owned data in owned mode, the borrowed view in
-  // borrowed mode. Discriminate on is_bound() (which mode this is), NOT on
-  // empty(): an owned-but-legitimately-empty mesh is bound with size 0, and
-  // gating on empty() would wrongly fall through to a stale/unset borrowed view.
+  /**
+   * @brief Returns the face-counts pointer for the active mode.
+   * @return Owned data in owned mode, otherwise the borrowed view pointer.
+   * @details Discriminates on is_bound() (which mode this is), NOT on empty():
+   * an owned-but-legitimately-empty mesh is bound with size 0, and gating on
+   * empty() would wrongly fall through to a stale/unset borrowed view. The same
+   * rationale applies to the sibling accessors below.
+   */
   const uint8_t *get_face_counts_data() const {
     return face_counts.is_bound() ? face_counts.data() : face_counts_view.data();
   }
+  /**
+   * @brief Returns the number of face counts for the active mode.
+   * @return Owned size in owned mode, otherwise the borrowed view size.
+   */
   size_t get_face_counts_size() const {
     return face_counts.is_bound() ? face_counts.size() : face_counts_view.size();
   }
 
+  /**
+   * @brief Returns the faces pointer for the active mode.
+   * @return Owned data in owned mode, otherwise the borrowed view pointer.
+   */
   const uint16_t *get_faces_data() const {
     return faces.is_bound() ? faces.data() : faces_view.data();
   }
+  /**
+   * @brief Returns the number of face indices for the active mode.
+   * @return Owned size in owned mode, otherwise the borrowed view size.
+   */
   size_t get_faces_size() const {
     return faces.is_bound() ? faces.size() : faces_view.size();
   }
 
+  /**
+   * @brief Returns the face-offsets pointer for the active mode.
+   * @return Owned data in owned mode, otherwise the borrowed view pointer.
+   */
   const uint16_t *get_face_offsets_data() const {
     return face_offsets.is_bound() ? face_offsets.data()
                                    : face_offsets_view.data();
   }
+  /**
+   * @brief Returns the number of face offsets for the active mode.
+   * @return Owned size in owned mode, otherwise the borrowed view size.
+   */
   size_t get_face_offsets_size() const {
     return face_offsets.is_bound() ? face_offsets.size()
                                    : face_offsets_view.size();
   }
 
+  /**
+   * @brief Returns the number of vertices in the mesh.
+   * @return Vertex count.
+   */
   size_t num_vertices() const { return vertices.size(); }
+  /**
+   * @brief Returns the number of faces in the mesh.
+   * @return Face count (equal to the active face-counts size).
+   */
   size_t num_faces() const { return get_face_counts_size(); }
 
-  /// Deep-copy all owned data into a target arena. Required by Cloneable.
+  /**
+   * @brief Deep-copies all owned data from src into dst using a target arena.
+   * @param src Source mesh to copy from.
+   * @param dst Destination mesh to populate.
+   * @param arena Arena providing storage for the destination buffers.
+   * @details Required by Cloneable.
+   */
   static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
     dst.vertices.bind(arena, src.vertices.size());
     for (size_t i = 0; i < src.vertices.size(); ++i)

@@ -12,11 +12,13 @@
 
 /**
  * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
- *
- * Two species (A, B) evolve via Gray-Scott dynamics (A·B² autocatalysis with
- * feed/kill) on the shared 7680-node lattice, producing spots/stripes/mazes.
- * State is Q16 (uint16_t) for the cubic reaction-term precision. Shared
- * lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Two species (A, B) evolve via Gray-Scott dynamics (A·B²
+ * autocatalysis with feed/kill) on the shared 7680-node lattice, producing
+ * spots/stripes/mazes. State is Q16 (uint16_t) for the cubic reaction-term
+ * precision. Shared lattice/orientation/kernel scaffolding lives in
+ * ReactionDiffusionBase.
  */
 template <int W, int H>
 class GSReactionDiffusion
@@ -36,10 +38,16 @@ class GSReactionDiffusion
   using Base::registerParam;
 
 public:
+  /**
+   * @brief Default-constructs the effect; all setup is deferred to init().
+   */
   FLASHMEM GSReactionDiffusion() = default;
 
-  // Carve the persistent arena, register the GUI params, allocate and seed the
-  // A/B state, and build the cubemap LUT and lattice nodes one-time.
+  /**
+   * @brief One-time setup: arenas, GUI params, A/B state, cubemap LUT, lattice.
+   * @details Carves the persistent arena, registers the GUI params, allocates
+   * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
+   */
   void init() override {
     // 170KB holds the 48KB Cubemap LUT + 30KB State + 90KB node positions. The
     // node array (7680 × Vector) is the fixed Fibonacci lattice — queries are
@@ -76,35 +84,57 @@ public:
   }
 
 private:
-  // Q16: 16-bit fixed point needed for GS cubic reaction term precision
+  /**
+   * @brief Q16 full-scale factor: maps 1.0 to 65535 for the 16-bit fixed-point
+   * state needed by the GS cubic reaction term.
+   */
   static constexpr float Q16_SCALE = 65535.0f;
-  static constexpr float Q16_INV = 1.0f / Q16_SCALE;
+  static constexpr float Q16_INV = 1.0f / Q16_SCALE; /**< Reciprocal of
+                                                          Q16_SCALE. */
 
-  // Simulation tuning.
-  static constexpr int NUM_SEED_CLUSTERS = 30; // initial B blobs at init
-  static constexpr int STEPS_PER_FRAME = 16;   // physics substeps per render
-  // Render mapping for the B concentration: pixels below the floor are
-  // transparent; [B_COLOR_FLOOR, B_COLOR_FLOOR + 1/B_COLOR_SCALE] maps to the
-  // full palette range [0,1].
+  static constexpr int NUM_SEED_CLUSTERS = 30; /**< Initial B blobs seeded at
+                                                    init. */
+  static constexpr int STEPS_PER_FRAME = 16;   /**< Physics substeps per render. */
+  /**
+   * @brief Lower bound of the B render band: below this, pixels are transparent;
+   * [B_COLOR_FLOOR, B_COLOR_FLOOR + 1/B_COLOR_SCALE] maps to the full palette
+   * range [0,1].
+   */
   static constexpr float B_COLOR_FLOOR = 0.1f;
-  static constexpr float B_COLOR_SCALE = 4.0f;
-  // Cull threshold coincides with the color floor: there is no band between the
-  // two, so a pixel is either fully transparent or somewhere on the gradient. A
-  // cull below the floor would map b in [cull, floor) to t==0, rendering an
-  // opaque flat plateau of the lowest palette color.
+  static constexpr float B_COLOR_SCALE = 4.0f; /**< Slope mapping B above the
+                                                    floor into palette t. */
+  /**
+   * @brief Cull threshold; coincides with the color floor so there is no band
+   * between the two: a pixel is either fully transparent or on the gradient.
+   * @details A cull below the floor would map b in [cull, floor) to t==0,
+   * rendering an opaque flat plateau of the lowest palette color.
+   */
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
+  /**
+   * @brief Converts a Q16 fixed-point value to a float in [0, 1].
+   * @param v Q16 value, where 65535 represents 1.0.
+   * @return Concentration as a float in [0, 1].
+   */
   static inline float from_q16(uint16_t v) { return v * Q16_INV; }
+  /**
+   * @brief Converts a float concentration to a clamped, rounded Q16 value.
+   * @param v Concentration as a float (clamped to [0, 1]).
+   * @return Q16 value in [0, 65535].
+   * @details Rounds to nearest (+0.5f), not truncate: plain truncation drops
+   * every sub-LSB positive update while still applying negative ones, biasing
+   * the RD dynamics downward into a diffusion dead-zone. clamp keeps the product
+   * in [0, 65535], so +0.5f tops out at 65535.5 -> 65535 with no overflow.
+   */
   static inline uint16_t to_q16(float v) {
-    // Round to nearest (+0.5f), not truncate: plain truncation drops every
-    // sub-LSB positive update while still applying negative ones, biasing the
-    // RD dynamics downward into a diffusion dead-zone. clamp keeps the product
-    // in [0, 65535], so +0.5f tops out at 65535.5 -> 65535 with no overflow.
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
   }
 
-  // Seed the initial pattern: drop NUM_SEED_CLUSTERS blobs of fully-saturated B
-  // (a random node plus its immediate neighbors) so the otherwise-uniform A=1/B=0
-  // field has nucleation sites for the GS instability to grow from.
+  /**
+   * @brief Seeds NUM_SEED_CLUSTERS fully-saturated B blobs as nucleation sites.
+   * @details Drops blobs of fully-saturated B (a random node plus its immediate
+   * neighbors) so the otherwise-uniform A=1/B=0 field has nucleation sites for
+   * the GS instability to grow from.
+   */
   void seed_clusters() {
     for (int i = 0; i < NUM_SEED_CLUSTERS; i++) {
       int idx = hs::rand_int(0, RD_N);
@@ -115,11 +145,18 @@ private:
     }
   }
 
-  // Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A)
-  //             dB/dt = dB·∇²B + A·B² - (k+feed)·B
-  // Pure double-buffered (Jacobi) step: reads the current buffers, writes the
-  // next ones. The caller owns the ping-pong so the result can be landed back
-  // in the persistent state regardless of substep parity (see render()).
+  /**
+   * @brief Advances one Gray-Scott substep into the next buffers (Jacobi).
+   * @param cA Current A field (read-only), Q16 per node.
+   * @param cB Current B field (read-only), Q16 per node.
+   * @param nA Next A field (write target), Q16 per node.
+   * @param nB Next B field (write target), Q16 per node.
+   * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
+   * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Pure double-buffered (Jacobi) step:
+   * reads the current buffers, writes the next ones. The caller owns the
+   * ping-pong so the result can be landed back in the persistent state
+   * regardless of substep parity (see render()).
+   */
   void step_physics(const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
                     uint16_t *nB) {
     for (int i = 0; i < RD_N; i++) {
@@ -142,8 +179,14 @@ private:
     }
   }
 
-  // Kernel-weighted sample of the B concentration at point `p`, seeded from the
-  // precomputed `nearest` node. Returns the support-radius weighted average of B.
+  /**
+   * @brief Kernel-weighted sample of the B concentration at a point.
+   * @param p Query point on the sphere (unoriented lattice space).
+   * @param nearest Precomputed index of the nearest lattice node to seed from.
+   * @param nodes Fixed lattice node-position array.
+   * @return Support-radius weighted average of B in [0, 1]; 0 if no node is
+   * within the support radius.
+   */
   float interpolate_b(const Vector &p, int nearest, const Vector *nodes) const {
     float tw = 0, wb = 0;
     kernel_accumulate(p, nodes, nearest, [&](int i, float w) {
@@ -158,8 +201,12 @@ private:
     return wb / tw;
   }
 
-  // Advance the simulation STEPS_PER_FRAME substeps, then rasterize the B field
-  // onto the sphere via the orientation-aware SSAA shader pipeline.
+  /**
+   * @brief Advances the sim STEPS_PER_FRAME substeps and rasterizes the B field.
+   * @param canvas Destination canvas to draw the sphere into.
+   * @details Rasterizes the B field onto the sphere via the orientation-aware
+   * SSAA shader pipeline after advancing the simulation.
+   */
   void render(Canvas &canvas) {
     ScratchScope _frame(scratch_arena_a);
     uint16_t *sA = static_cast<uint16_t *>(
@@ -222,23 +269,30 @@ private:
     Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
   }
 
+  /**
+   * @brief Persistent Q16 state buffers for the two species.
+   */
   struct {
-    uint16_t *A = nullptr, *B = nullptr;
+    uint16_t *A = nullptr, *B = nullptr; /**< Per-node A/B concentrations, Q16. */
   } state;
 
-  // Fixed Fibonacci-lattice node positions, built once in init().
-  Vector *nodes = nullptr;
+  Vector *nodes = nullptr; /**< Fixed Fibonacci-lattice node positions, built
+                                once in init(). */
 
+  /** @brief Color palette mapping the B gradient to RGB. */
   GenerativePalette palette{
       GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
       BrightnessProfile::ASCENDING, SaturationProfile::VIBRANT};
 
+  /**
+   * @brief GUI-tunable Gray-Scott parameters.
+   */
   struct Params {
-    float feed = 0.04f;
-    float k = 0.06f;
-    float dA = 0.02f;
-    float dB = 0.01f;
-    float dt = 2.5f;
+    float feed = 0.04f; /**< Feed rate of A. */
+    float k = 0.06f;    /**< Kill rate of B. */
+    float dA = 0.02f;   /**< Diffusion coefficient of A. */
+    float dB = 0.01f;   /**< Diffusion coefficient of B. */
+    float dt = 2.5f;    /**< Integration timestep (Speed slider). */
   } params;
 };
 

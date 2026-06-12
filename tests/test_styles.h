@@ -18,8 +18,13 @@ namespace styles_tests {
 
 // --- Named presets ----------------------------------------------------------
 
-// Spot-check that the constexpr preset factories carry their documented scalar
-// values and wire up the expected space/color transforms.
+/**
+ * @brief Verifies the constexpr preset factories carry their documented scalar
+ *        values and wire up the expected space/color transforms.
+ * @details Spot-checks Smoke's fade/frequency and noise/hue transforms, and
+ *          confirms both melt-based presets use melt_warp while Swirling drops
+ *          the hue shift.
+ */
 inline void test_named_presets() {
   Feedback::Style smoke = Feedback::Style::Smoke();
   HS_EXPECT_NEAR(smoke.fade, 0.9f, 1e-6f);
@@ -35,9 +40,14 @@ inline void test_named_presets() {
 
 // --- lerp -------------------------------------------------------------------
 
-// Style::lerp interpolates scalar fields linearly but snaps discrete fields
-// (transform pointers, downsample) to b at t >= 0.5, and never overwrites the
-// subject's own bound noise state.
+/**
+ * @brief Verifies Style::lerp interpolates scalar fields linearly, snaps
+ *        discrete fields, and preserves the subject's bound noise state.
+ * @details Scalar fields (fade, hue_shift, scale, ...) interpolate linearly;
+ *          discrete fields (transform pointers, downsample) snap to b at
+ *          t >= 0.5 and stay on a below the midpoint. The subject's bound
+ *          noise pointer must never be overwritten by a's or b's noise.
+ */
 inline void test_lerp_scalars_and_snapping() {
   NoiseParams na;
   Feedback::Style a{};
@@ -90,7 +100,9 @@ inline void test_lerp_scalars_and_snapping() {
 
 // --- Transform functions ----------------------------------------------------
 
-// identity_warp returns its input direction unchanged.
+/**
+ * @brief Verifies identity_warp returns its input direction unchanged.
+ */
 inline void test_identity_warp() {
   Feedback::Style s{};
   Vector v(0.3f, -0.4f, 0.866f);
@@ -100,8 +112,11 @@ inline void test_identity_warp() {
   HS_EXPECT_NEAR(out.z, v.z, 1e-6f);
 }
 
-// With no NoiseParams bound, noise_warp has nothing to sample and must pass the
-// direction through unchanged.
+/**
+ * @brief Verifies noise_warp passes the direction through unchanged when no
+ *        NoiseParams is bound.
+ * @details With nothing to sample, the warp must be the identity.
+ */
 inline void test_noise_warp_null_is_identity() {
   Feedback::Style s{};
   s.noise = nullptr; // unbound → no distortion
@@ -112,8 +127,12 @@ inline void test_noise_warp_null_is_identity() {
   HS_EXPECT_NEAR(out.z, v.z, 1e-6f);
 }
 
-// melt_warp slerps a direction toward the north pole at a rate set by speed,
-// preserving unit length. With noise disabled, an equator point should rise.
+/**
+ * @brief Verifies melt_warp slerps a direction toward the north pole at a rate
+ *        set by speed while preserving unit length.
+ * @details With noise disabled, an equator point should rise: y increases, x
+ *          shrinks, and the result stays unit length.
+ */
 inline void test_melt_warp_drifts_toward_north() {
   Feedback::Style s{};
   s.speed = 1.0f;     // positive drip rate
@@ -127,7 +146,10 @@ inline void test_melt_warp_drifts_toward_north() {
   HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f); // slerp preserves unit length
 }
 
-// plain_fade scales each channel by the fade factor with no hue change.
+/**
+ * @brief Verifies plain_fade scales each channel by the fade factor with no
+ *        hue change.
+ */
 inline void test_plain_fade_scales_linearly() {
   Pixel p(10000, 20000, 30000);
   Feedback::Style s{};
@@ -137,9 +159,13 @@ inline void test_plain_fade_scales_linearly() {
   HS_EXPECT_EQ(out.b, 15000);
 }
 
-// With a zero hue shift, hue_fade dims a gray pixel while keeping it gray. Gray
-// has no chroma to rotate, so this avoids depending on OKLCH round-trip
-// precision.
+/**
+ * @brief Verifies hue_fade with a zero hue shift dims a gray pixel while
+ *        keeping it gray.
+ * @details Gray has no chroma to rotate, so this avoids depending on OKLCH
+ *          round-trip precision; the channels stay equal within a small
+ *          tolerance.
+ */
 inline void test_hue_fade_zero_shift_preserves_gray() {
   Pixel gray(20000, 20000, 20000);
   Feedback::Style s{};
@@ -154,8 +180,12 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
 
 // --- sync_noise -------------------------------------------------------------
 
-// sync_noise copies the Style's noise-related scalars into its bound
-// NoiseParams, and is a safe no-op when no NoiseParams is bound.
+/**
+ * @brief Verifies sync_noise copies the Style's noise-related scalars into its
+ *        bound NoiseParams and is a safe no-op when none is bound.
+ * @details Pushes amplitude/frequency/speed/scale into the bound NoiseParams;
+ *          an unbound sync must not dereference null.
+ */
 inline void test_sync_noise_pushes_scalars() {
   NoiseParams np;
   Feedback::Style s{};
@@ -177,7 +207,10 @@ inline void test_sync_noise_pushes_scalars() {
   HS_EXPECT_TRUE(true);
 }
 
-// Run every styles test case; returns the module's failure count.
+/**
+ * @brief Runs every styles test case.
+ * @return The module's failure count.
+ */
 inline int run_styles_tests() {
   auto scope = hs_test::begin_module("styles");
 

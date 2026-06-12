@@ -31,9 +31,14 @@ namespace pov_sync_tests {
 
 using namespace pov::sync;
 
-// Full-rate Phantasm timing (600 MHz, 480 RPM, W=288) with a shortened
-// content cadence so epoch/beacon scenarios run in milliseconds of host time:
-// 40-rev effects, beacons every 8 revs, commit K=2, repeats R=3, grid 4.
+/**
+ * @brief Builds full-rate Phantasm timing (600 MHz, 480 RPM, W=288) with a
+ *        shortened content cadence so epoch/beacon scenarios run in
+ *        milliseconds of host time.
+ * @param effects Number of effects in the test playlist.
+ * @return A valid Config with 40-rev effects, beacons every 8 revs, commit
+ *         K=2, repeats R=3, grid 4.
+ */
 inline Config test_config(int effects = 4) {
   Config c = phantasm_config(600000000u, 480u, 288, effects);
   c.revs_per_effect = 40;
@@ -42,13 +47,16 @@ inline Config test_config(int effects = 4) {
   return c;
 }
 
-constexpr uint32_t kPeriod = 37500000u; // cycles per half-rev at full rate
-constexpr uint32_t kCol = kPeriod / 144u;
+constexpr uint32_t kPeriod = 37500000u; /**< Cycles per half-rev at full rate. */
+constexpr uint32_t kCol = kPeriod / 144u; /**< Cycles per column at full rate. */
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
-// Integer floor-div/mod and circular column distance, plus the derived Config
-// timing fields (half-rev/column cycle counts, glitch window) at full rate.
+/**
+ * @brief Verifies integer floor-div/mod and circular column distance, plus the
+ *        derived Config timing fields (half-rev/column cycle counts, glitch
+ *        window) at full rate.
+ */
 inline void test_helpers() {
   HS_EXPECT_EQ(floor_div(7, 2), 3);
   HS_EXPECT_EQ(floor_div(-7, 2), -4);
@@ -66,9 +74,11 @@ inline void test_helpers() {
   HS_EXPECT_EQ(c.glitch_filter_cycles, 60000u); // 100 µs
 }
 
-// Symbol/boundary mapping: odd pulse counts classify to HALF/ZERO/ZERO_EPOCH,
-// even or out-of-range counts are INVALID, and each symbol maps to its
-// boundary column.
+/**
+ * @brief Verifies symbol/boundary mapping: odd pulse counts classify to
+ *        HALF/ZERO/ZERO_EPOCH, even or out-of-range counts are INVALID, and
+ *        each symbol maps to its boundary column.
+ */
 inline void test_alphabet() {
   HS_EXPECT_TRUE(classify_count(1) == Symbol::HALF);
   HS_EXPECT_TRUE(classify_count(3) == Symbol::ZERO);
@@ -84,7 +94,10 @@ inline void test_alphabet() {
   HS_EXPECT_EQ(boundary_column(Boundary::ZERO, 288), 0);
 }
 
-// §5.1: exactly-once across interleaved crossing/symbol arrivals.
+/**
+ * @brief Verifies §5.1 exactly-once flipping across interleaved
+ *        crossing/symbol arrivals.
+ */
 inline void test_flip_gate() {
   FlipGate g;
   HS_EXPECT_FALSE(g.try_flip(Boundary::NONE));
@@ -106,9 +119,12 @@ inline void test_flip_gate() {
   HS_EXPECT_EQ(flips, 10);
 }
 
-// Edge mailbox burst accumulation and the 100 µs glitch filter: sub-window
-// spikes are rejected without resetting the filter reference, burst_complete
-// fires only after the gap, and claim() snapshots count + first/last edge.
+/**
+ * @brief Verifies edge mailbox burst accumulation and the 100 µs glitch
+ *        filter: sub-window spikes are rejected without resetting the filter
+ *        reference, burst_complete fires only after the gap, and claim()
+ *        snapshots count + first/last edge.
+ */
 inline void test_mailbox() {
   const uint32_t kGlitch = 60000u;
   EdgeMailbox m;
@@ -132,10 +148,13 @@ inline void test_mailbox() {
   HS_EXPECT_FALSE(m.burst_complete(1000 + 20 * kCol, 4 * kCol));
 }
 
-// The glitch-filter reference must not survive a counter wrap. age_prior()
-// (called every column by the flywheel poll) retires the prior once the wire
-// is quiet past the filter window, so a real edge after wrap is never falsely
-// rejected by a pseudo-random modular difference.
+/**
+ * @brief Verifies the glitch-filter reference does not survive a counter wrap.
+ * @details age_prior() (called every column by the flywheel poll) retires the
+ *          prior once the wire is quiet past the filter window, so a real edge
+ *          after wrap is never falsely rejected by a pseudo-random modular
+ *          difference.
+ */
 inline void test_mailbox_prior_staleness() {
   const uint32_t kGlitch = 60000u;
 
@@ -171,9 +190,12 @@ inline void test_mailbox_prior_staleness() {
   }
 }
 
-// Reboot seeding must clear the wire mailbox so a re-seeded board cannot
-// consume a stale pre-reboot burst (which feeds ACQUIRE's unconditional
-// hard-snap). The emitter is reset by the same code path.
+/**
+ * @brief Verifies reboot seeding clears the wire mailbox so a re-seeded board
+ *        cannot consume a stale pre-reboot burst.
+ * @details The stale burst would otherwise feed ACQUIRE's unconditional
+ *          hard-snap. The emitter is reset by the same code path.
+ */
 inline void test_seed_clears_mailbox() {
   const Config cfg = test_config();
   const uint32_t col = cfg.cycles_per_column();
@@ -191,7 +213,10 @@ inline void test_seed_clears_mailbox() {
   HS_EXPECT_EQ(board.mailbox().claim().count, 0u);
 }
 
-// §6.4: corrupted beacon frames are dropped whole, never partially applied.
+/**
+ * @brief Verifies §6.4 beacon codec: frames round-trip, and corrupted frames
+ *        are dropped whole, never partially applied.
+ */
 inline void test_beacon_codec() {
   const Config cfg = test_config();
   uint8_t d[5];
@@ -202,9 +227,15 @@ inline void test_beacon_codec() {
   HS_EXPECT_EQ(d[3], 5);
   HS_EXPECT_EQ(d[4], (3 + 3 + 5 + 5) & 7);
 
-  // Feed all five digit bursts through a fresh parser, optionally corrupting
-  // digit 1 or the checksum; returns true iff the frame decoded with no
-  // rejection.
+  /**
+   * @brief Feeds all five digit bursts through a fresh parser, optionally
+   *        corrupting digit 1 or the checksum.
+   * @param digits The five encoded beacon digits.
+   * @param corrupt_digit If true, flip digit 1 before feeding.
+   * @param corrupt_checksum If true, flip the checksum digit before feeding.
+   * @param out Receives the decoded frame on success.
+   * @return True iff the frame decoded with no rejection.
+   */
   auto feed_frame = [&cfg](const uint8_t digits[5], bool corrupt_digit,
                            bool corrupt_checksum, BeaconFrame *out) {
     BeaconParser p;
@@ -280,14 +311,22 @@ inline void test_beacon_codec() {
 
 // ── Flywheel position math (§4.1): 64-bit, rebase rule, wrap, trim ─────────
 
-// Flywheel column position and fold cadence: zero truncation drift vs a
-// long-double reference at nominal and ±40 ppm trim, correct signed-past
-// folding, one crossing per half-rev, and exactness preserved across thousands
-// of 32-bit counter wraps via the rebase rule.
+/**
+ * @brief Verifies flywheel column position and fold cadence: zero truncation
+ *        drift vs a long-double reference at nominal and ±40 ppm trim, correct
+ *        signed-past folding, one crossing per half-rev, and exactness
+ *        preserved across thousands of 32-bit counter wraps via the rebase
+ *        rule.
+ */
 inline void test_flywheel_position() {
   const Config cfg = test_config();
 
-  // Reference: x = floor(delta · (W/2) / period), computed in long double.
+  /**
+   * @brief Reference column position x = floor(delta · (W/2) / period).
+   * @param delta Cycles elapsed since the epoch.
+   * @param period Cycles per half-rev.
+   * @return The signed column index (unfolded), computed via floor-division.
+   */
   auto ref_cols = [](int64_t delta, uint32_t period) {
     return static_cast<int64_t>(
         floor_div(delta * 144, static_cast<int64_t>(period)));
@@ -366,10 +405,14 @@ inline void test_flywheel_position() {
 
 // ── Acceptance gate + acquisition states (§5.3) ─────────────────────────────
 
-// Snap acceptance gate and ACQUIRE/LOCKED transitions: small corrections
-// accepted, an implied W/2 correction rejected, R consecutive rejections fall
-// back to ACQUIRE (no deadlock), and a hard snap relocks — exercised for both
-// a forged boundary and a fully corrupted timebase.
+/**
+ * @brief Verifies the snap acceptance gate and ACQUIRE/LOCKED transitions:
+ *        small corrections accepted, an implied W/2 correction rejected, R
+ *        consecutive rejections fall back to ACQUIRE (no deadlock), and a hard
+ *        snap relocks.
+ * @details Exercised for both a forged boundary and a fully corrupted
+ *          timebase.
+ */
 inline void test_snap_gate() {
   const Config cfg = test_config();
 
@@ -436,10 +479,12 @@ inline void test_snap_gate() {
 
 // ── Master emission self-censor (§5.2) ──────────────────────────────────────
 
-// Master symbol/beacon emission: on-time bursts pulse at 2-column pitch on the
-// oversampled grid, a late boundary is censored whole, a mid-burst mask past
-// the budget aborts the remaining pulses, and the emitter→mailbox→parser loop
-// round-trips a beacon frame.
+/**
+ * @brief Verifies master symbol/beacon emission (§5.2): on-time bursts pulse
+ *        at 2-column pitch on the oversampled grid, a late boundary is censored
+ *        whole, a mid-burst mask past the budget aborts the remaining pulses,
+ *        and the emitter→mailbox→parser loop round-trips a beacon frame.
+ */
 inline void test_emitter() {
   const Config cfg = test_config();
   bool aborted = false;
@@ -518,55 +563,72 @@ inline void test_emitter() {
 
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
-// One simulated board: its SyncBoard engine plus the host-side state the
-// simulator models around it — crystal offset/phase, the masked-IRQ latch,
-// symbol-drop and EMI windows, the foreground build/commit model, and probes.
+/**
+ * @brief One simulated board: its SyncBoard engine plus the host-side state the
+ *        simulator models around it.
+ * @details The modeled state covers crystal offset/phase, the masked-IRQ latch,
+ *          symbol-drop and EMI windows, the foreground build/commit model, and
+ *          probes.
+ */
 struct SimBoard {
   SyncBoard board;
   bool master = false;
-  int32_t ppm = 0;       // crystal offset, parts per million
-  uint64_t phase0 = 0;   // local cycle-counter offset at g = 0
-  double next_tick = 0;  // next flywheel wake, in global cycles
-  double tick_step = 0;  // wake period in global cycles
-  // Masked-IRQ model: while g < mask_until, wakes coalesce and edges latch
-  // into a single delayed delivery (one latched flag per pin).
+  int32_t ppm = 0;       /**< Crystal offset, parts per million. */
+  uint64_t phase0 = 0;   /**< Local cycle-counter offset at g = 0. */
+  double next_tick = 0;  /**< Next flywheel wake, in global cycles. */
+  double tick_step = 0;  /**< Wake period in global cycles. */
+  /** Masked-IRQ model: while g < mask_until, wakes coalesce and edges latch
+      into a single delayed delivery (one latched flag per pin). */
   uint64_t mask_until = 0;
   bool edge_latched = false;
-  std::vector<std::pair<uint64_t, uint64_t>> masks; // [from, to) global
-  uint64_t drop_from = 0, drop_to = 0;              // symbol drop window
+  std::vector<std::pair<uint64_t, uint64_t>> masks; /**< [from, to) global. */
+  uint64_t drop_from = 0, drop_to = 0;              /**< Symbol drop window. */
   // Foreground model.
   uint32_t seen_gen = 0;
   int32_t pending_index = -1;
   uint32_t pending_gen = 0;
   uint64_t pending_ready_g = 0;
   bool have_pending = false;
-  uint64_t init_delay = 1000000; // ~1.7 ms construction time
+  uint64_t init_delay = 1000000; /**< ~1.7 ms construction time. */
   bool live = false;
   int32_t live_index = -1;
-  uint64_t t = 0; // frames shown: flips since this effect went live
+  uint64_t t = 0; /**< Frames shown: flips since this effect went live. */
   uint64_t swap_g = 0;
-  bool trapped = false; // commit deadline missed (device would HS_CHECK)
+  bool trapped = false; /**< Commit deadline missed (device would HS_CHECK). */
   // Probes.
   uint64_t flips = 0;
   bool dark_now = true;
 
+  /**
+   * @brief Constructs a board wrapping a SyncBoard engine for config @p c.
+   * @param c Sync configuration passed to the embedded SyncBoard.
+   */
   explicit SimBoard(const Config &c) : board(c) {}
 };
 
-// Event-driven multi-board simulator: advances the earliest-due flywheel wake
-// across all boards, routes master pulses and injected EMI to downstream edge
-// ISRs through the masked-IRQ model, and drives each board's foreground state.
+/**
+ * @brief Event-driven multi-board simulator.
+ * @details Advances the earliest-due flywheel wake across all boards, routes
+ *          master pulses and injected EMI to downstream edge ISRs through the
+ *          masked-IRQ model, and drives each board's foreground state.
+ */
 class Sim {
 public:
   Config cfg;
   std::vector<SimBoard> boards;
-  uint64_t g = 0;                                  // global time, cycles
-  std::vector<std::pair<uint64_t, int>> emi;       // (g, target) sorted
+  uint64_t g = 0;                                  /**< Global time, cycles. */
+  std::vector<std::pair<uint64_t, int>> emi;       /**< (g, target), sorted. */
   size_t emi_pos = 0;
 
-  /// Build @p n boards (index 0 is the master) with per-board crystal offset
-  /// @p ppm and a common starting clock @p phase0; each flywheel polls on a
-  /// ⅛-column grid scaled by its ppm, with a small per-board boot stagger.
+  /**
+   * @brief Builds @p n boards (index 0 is the master) and seeds each flywheel.
+   * @param c Shared sync configuration.
+   * @param n Number of boards to construct.
+   * @param ppm Per-board crystal offsets, parts per million (length @p n).
+   * @param phase0 Common starting clock offset, cycles, at global time 0.
+   * @details Each flywheel polls on a ⅛-column grid scaled by its ppm, with a
+   *          small per-board boot stagger.
+   */
   Sim(const Config &c, int n, const int32_t *ppm, uint64_t phase0 = 0)
       : cfg(c) {
     const double step0 = double(c.cycles_per_half_rev) / (c.W / 2) / 8.0;
@@ -583,15 +645,26 @@ public:
     }
   }
 
-  /// Board @p b's local 32-bit cycle counter at global cycle @p gg: phase
-  /// offset plus crystal skew (ppm), truncated to 32 bits to model CYCCNT wrap.
+  /**
+   * @brief Computes board @p b's local 32-bit cycle counter at global cycle
+   *        @p gg: phase offset plus crystal skew (ppm).
+   * @param b The board whose local clock is evaluated.
+   * @param gg Global time, cycles.
+   * @return The board-local cycle count, truncated to 32 bits to model CYCCNT
+   *         wrap.
+   */
   static uint32_t local_now(const SimBoard &b, uint64_t gg) {
     const int64_t skew = static_cast<int64_t>(gg) * b.ppm / 1000000;
     return static_cast<uint32_t>(gg + b.phase0 + static_cast<uint64_t>(skew));
   }
 
-  /// If global cycle @p at falls inside one of @p b's IRQ-mask windows, the
-  /// window's end (when delivery resumes); 0 if unmasked.
+  /**
+   * @brief Tests whether global cycle @p at falls inside an IRQ-mask window.
+   * @param b The board whose mask windows are checked.
+   * @param at Global time, cycles.
+   * @return The window's end cycle (when delivery resumes) if masked; 0 if
+   *         unmasked.
+   */
   uint64_t masked_until(const SimBoard &b, uint64_t at) const {
     for (const auto &w : b.masks)
       if (at >= w.first && at < w.second)
@@ -599,9 +672,14 @@ public:
     return 0;
   }
 
-  /// Route a sync-wire edge at global cycle @p at to downstream board
-  /// @p target: dropped if in its deafen window, latched/merged if masked,
-  /// otherwise fed to its edge ISR at the board-local timestamp.
+  /**
+   * @brief Routes a sync-wire edge at global cycle @p at to downstream board
+   *        @p target.
+   * @param target Index of the downstream board receiving the edge.
+   * @param at Global time of the edge, cycles.
+   * @details Dropped if in the board's deafen window, latched/merged if masked,
+   *          otherwise fed to its edge ISR at the board-local timestamp.
+   */
   void deliver_edge(int target, uint64_t at) {
     SimBoard &b = boards[target];
     if (b.master)
@@ -616,15 +694,21 @@ public:
     b.board.on_sync_edge(local_now(b, at));
   }
 
-  /// Board @p b's next wake in global cycles, pushed to the mask end if its
-  /// scheduled slot lands inside a mask (coalesced wakes).
+  /**
+   * @brief Computes board @p b's next wake in global cycles.
+   * @param b The board whose next wake is evaluated.
+   * @return The scheduled wake, pushed to the mask end if its slot lands inside
+   *         a mask (coalesced wakes).
+   */
   double effective_tick(const SimBoard &b) const {
     const uint64_t m = masked_until(b, static_cast<uint64_t>(b.next_tick));
     return m ? double(m) : b.next_tick;
   }
 
-  /// Advance global time to the earliest-due board wake, delivering any EMI
-  /// edges before it, then run that board's tick.
+  /**
+   * @brief Advances global time to the earliest-due board wake, delivering any
+   *        EMI edges before it, then runs that board's tick.
+   */
   void step() {
     int bi = 0;
     double best = effective_tick(boards[0]);
@@ -645,7 +729,11 @@ public:
     g = tg;
   }
 
-  /// Step until @p revs revolutions of global time have elapsed.
+  /**
+   * @brief Steps the simulation until @p revs revolutions of global time have
+   *        elapsed.
+   * @param revs Number of revolutions to advance.
+   */
   void run_revs(double revs) {
     const uint64_t until =
         g + static_cast<uint64_t>(revs * 2 * cfg.cycles_per_half_rev);
@@ -653,7 +741,13 @@ public:
       step();
   }
 
-  /// Step until @p pred holds (returns true) or @p max_revs elapse (false).
+  /**
+   * @brief Steps the simulation until @p pred holds or @p max_revs elapse.
+   * @tparam Pred Callable taking `Sim &` and returning bool.
+   * @param pred Predicate evaluated after each step.
+   * @param max_revs Maximum revolutions to advance before giving up.
+   * @return True if @p pred returned true within the budget, false on timeout.
+   */
   template <typename Pred> bool run_until(Pred pred, double max_revs) {
     const uint64_t until =
         g + static_cast<uint64_t>(max_revs * 2 * cfg.cycles_per_half_rev);
@@ -665,13 +759,22 @@ public:
     return false;
   }
 
-  /// Board @p i's current flywheel column position, evaluated at its own
-  /// local clock at the present global time.
+  /**
+   * @brief Computes board @p i's current flywheel column position.
+   * @param i Index of the board to sample.
+   * @return The column position, evaluated at the board's own local clock at
+   *         the present global time.
+   */
   int32_t board_pos(int i) const {
     return boards[i].board.flywheel().position(local_now(boards[i], g));
   }
 
-  /// Largest circular column distance of any locked board from the master.
+  /**
+   * @brief Computes the largest circular column distance of any locked board
+   *        from the master.
+   * @return The worst-case phase error in columns; 0 if no downstream board is
+   *         locked.
+   */
   int32_t max_phase_err() const {
     const int32_t mp = board_pos(0);
     int32_t worst = 0;
@@ -686,10 +789,14 @@ public:
   }
 
 private:
-  /// Run one flywheel wake for board @p b at global cycle @p tg: advance its
-  /// poll grid, deliver any latched edge, drive board.tick(), fan master
-  /// pulses to downstream boards, then step the foreground build/commit/pacing
-  /// model and update probes.
+  /**
+   * @brief Runs one flywheel wake for board @p b at global cycle @p tg.
+   * @param b The board being woken.
+   * @param tg Global time of this wake, cycles.
+   * @details Advances the poll grid, delivers any latched edge, drives
+   *          board.tick(), fans master pulses to downstream boards, then steps
+   *          the foreground build/commit/pacing model and updates probes.
+   */
   void run_tick(SimBoard &b, uint64_t tg) {
     // This wake is consumed: the grid resumes at the next slot strictly
     // after it (a mask may have swallowed several slots — they coalesced
@@ -755,10 +862,13 @@ private:
 
 // ── Scenario: clean 4-board run (boot join, phase, flips, wrap) ─────────────
 
-// Clean 4-board run: every board locks within a revolution, joins live at the
-// same boundary with the same effect and frame counter, and holds sub-2-column
-// phase, equal frame counters, and ~2 flips/rev through a 32-bit clock wrap —
-// with no gate rejections, invalid symbols, or traps.
+/**
+ * @brief Verifies a clean 4-board run: every board locks within a revolution,
+ *        joins live at the same boundary with the same effect and frame
+ *        counter, and holds sub-2-column phase, equal frame counters, and ~2
+ *        flips/rev through a 32-bit clock wrap — with no gate rejections,
+ *        invalid symbols, or traps.
+ */
 inline void test_sim_boot_and_phase() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -20, 40};
@@ -825,10 +935,13 @@ inline void test_sim_boot_and_phase() {
 
 // ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
 
-// Epoch commit lockstep: all four boards play through the announce phase, go
-// dark together for the K-rev construction window, then swap to the next
-// effect at the same boundary with frame counters re-zeroed together; the
-// cadence holds across a second epoch (roster wraps mod effect_count).
+/**
+ * @brief Verifies epoch commit lockstep: all four boards play through the
+ *        announce phase, go dark together for the K-rev construction window,
+ *        then swap to the next effect at the same boundary with frame counters
+ *        re-zeroed together; the cadence holds across a second epoch (roster
+ *        wraps mod effect_count).
+ */
 inline void test_sim_epoch_commit() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 30, -25, 10};
@@ -902,8 +1015,11 @@ inline void test_sim_epoch_commit() {
       double(cfg.revs_per_effect) + 6));
 }
 
-// An effect whose construction outruns the K-revolution window must trap
-// (HS_CHECK on the device), never silently skew the show (§6.1).
+/**
+ * @brief Verifies an effect whose construction outruns the K-revolution window
+ *        traps (HS_CHECK on the device) and never silently skews the show
+ *        (§6.1).
+ */
 inline void test_sim_commit_deadline_trap() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 0, 0, 0};
@@ -925,10 +1041,13 @@ inline void test_sim_commit_deadline_trap() {
 
 // ── Scenario: masked-IRQ windows (§4.1, §5.2) ───────────────────────────────
 
-// Masked-IRQ windows: boundary masks truncate burst counts (symbol degrades to
-// missed, never misclassified), mid-rev masks coalesce wakes harmlessly, and a
-// master masked across its own boundary self-censors rather than emitting late
-// — phase and content stay coherent throughout.
+/**
+ * @brief Verifies masked-IRQ windows (§4.1, §5.2): boundary masks truncate
+ *        burst counts (symbol degrades to missed, never misclassified), mid-rev
+ *        masks coalesce wakes harmlessly, and a master masked across its own
+ *        boundary self-censors rather than emitting late — phase and content
+ *        stay coherent throughout.
+ */
 inline void test_sim_masked_windows() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 25, -25, 15};
@@ -982,10 +1101,13 @@ inline void test_sim_masked_windows() {
 
 // ── Scenario: EMI on the sync wire (§5.2, §5.3, §9.1) ───────────────────────
 
-// EMI on the sync wire: isolated spurious edges form valid HALF symbols the
-// LOCKED gate rejects, edges injected inside real bursts corrupt the count to
-// invalid (discarded whole), and a single edge within G of a predicted
-// boundary is the bounded accepted case — none unlock or desync the show.
+/**
+ * @brief Verifies EMI on the sync wire (§5.2, §5.3, §9.1): isolated spurious
+ *        edges form valid HALF symbols the LOCKED gate rejects, edges injected
+ *        inside real bursts corrupt the count to invalid (discarded whole), and
+ *        a single edge within G of a predicted boundary is the bounded accepted
+ *        case — none unlock or desync the show.
+ */
 inline void test_sim_emi() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -30, 5};
@@ -1030,10 +1152,13 @@ inline void test_sim_emi() {
 
 // ── Scenario: dropped symbols → coast; dropped epoch → beacon fix (§6.3) ───
 
-// Dropped-symbol recovery: a multi-rev symbol gap is a coast on the crystal
-// that silently re-snaps, and a board that misses an entire EPOCH train stays
-// visibly stale on the old effect until the next index beacon corrects it and
-// it rejoins on the join grid — never a wrong frame, never a trap.
+/**
+ * @brief Verifies dropped-symbol recovery (§6.3): a multi-rev symbol gap is a
+ *        coast on the crystal that silently re-snaps, and a board that misses
+ *        an entire EPOCH train stays visibly stale on the old effect until the
+ *        next index beacon corrects it and it rejoins on the join grid — never
+ *        a wrong frame, never a trap.
+ */
 inline void test_sim_drops_and_missed_epoch() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 35, -35, 20};
@@ -1088,10 +1213,12 @@ inline void test_sim_drops_and_missed_epoch() {
 
 // ── Scenario: mid-show reboot — fail-dark, rejoin at correct effect ─────────
 
-// Mid-show reboot: a board reseeded with fresh engine state re-acquires phase
-// within ~one boundary symbol, stays dark through ACQUIRE, then rejoins at the
-// master's current effect from the next beacon + join-grid boundary — never a
-// wrong frame in between.
+/**
+ * @brief Verifies mid-show reboot: a board reseeded with fresh engine state
+ *        re-acquires phase within ~one boundary symbol, stays dark through
+ *        ACQUIRE, then rejoins at the master's current effect from the next
+ *        beacon + join-grid boundary — never a wrong frame in between.
+ */
 inline void test_sim_reboot() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 15, -15, 30};
@@ -1129,9 +1256,12 @@ inline void test_sim_reboot() {
 
 // ── Scenario: forged plausible burst (§8.4 spurious-flip hole, closed) ──────
 
-// Forged plausible burst: the strongest cheap spurious-flip attack is held as
-// a suspect and rejected, never snapped or flipped; flip cadence and content
-// stay intact (attack construction detailed below).
+/**
+ * @brief Verifies the forged-plausible-burst defense (§8.4): the strongest
+ *        cheap spurious-flip attack is held as a suspect and rejected, never
+ *        snapped or flipped; flip cadence and content stay intact (attack
+ *        construction detailed in the body).
+ */
 inline void test_sim_forged_burst() {
   const Config cfg = test_config();
   const int32_t ppm[2] = {0, 10};
@@ -1166,18 +1296,26 @@ inline void test_sim_forged_burst() {
 
 // ── Scenario: epoch-repeat lockstep (§6.3.1) ────────────────────────────────
 
-// The EPOCH redundancy repeats are a reliability mechanism, not a per-board
-// reschedule: a board that misses the primary copy at boundary B but accepts
-// a repeat at B+j must still commit at the SAME absolute boundary as its
-// peers, with a frame counter that stays equal afterwards. Two sub-scenarios:
-// one downstream board deafened for exactly the primary copy, and the master
-// masked across B so it self-censors the primary — every downstream board
-// then first hears the B+1 repeat while the master heard "itself" at B.
+/**
+ * @brief Verifies the EPOCH redundancy repeats are a reliability mechanism, not
+ *        a per-board reschedule (§6.3.1): a board that misses the primary copy
+ *        at boundary B but accepts a repeat at B+j must still commit at the
+ *        SAME absolute boundary as its peers, with a frame counter that stays
+ *        equal afterwards.
+ * @details Two sub-scenarios: one downstream board deafened for exactly the
+ *          primary copy, and the master masked across B so it self-censors the
+ *          primary — every downstream board then first hears the B+1 repeat
+ *          while the master heard "itself" at B.
+ */
 inline void test_sim_epoch_repeat_lockstep() {
   const Config cfg = test_config();
   const uint64_t rev = 2ull * kPeriod;
 
-  // Run until every board has gone live (boot join complete).
+  /**
+   * @brief Runs the sim until every board has gone live (boot join complete).
+   * @param sim The simulation to advance.
+   * @return True if all boards went live within the join budget.
+   */
   auto boot_join = [&cfg](Sim &sim) {
     return sim.run_until(
         [](Sim &s) {
@@ -1188,9 +1326,14 @@ inline void test_sim_epoch_repeat_lockstep() {
         },
         double(cfg.join_grid_revs) + 2);
   };
-  // Park one revolution before the train start: master (ppm 0) crosses ZERO
-  // on exact rev multiples, so the primary copy rides the crossing ≈ one rev
-  // from the moment this predicate fires.
+  /**
+   * @brief Runs the sim to one revolution before the train start.
+   * @param sim The simulation to advance.
+   * @return True if the pre-train point was reached within budget.
+   * @details The master (ppm 0) crosses ZERO on exact rev multiples, so the
+   *          primary copy rides the crossing ≈ one rev from the moment this
+   *          predicate fires.
+   */
   auto to_pre_train = [&cfg](Sim &sim) {
     return sim.run_until(
         [](Sim &s) {
@@ -1199,15 +1342,23 @@ inline void test_sim_epoch_repeat_lockstep() {
         },
         double(cfg.revs_per_effect) + 4);
   };
-  // Predicate: all boards have committed to effect 1.
+  /**
+   * @brief Predicate: all boards have committed to effect 1.
+   * @param s The simulation to inspect.
+   * @return True iff every board's live_index is 1.
+   */
   auto all_on_effect_1 = [](Sim &s) {
     for (auto &b : s.boards)
       if (b.live_index != 1)
         return false;
     return true;
   };
-  // Assert every downstream board committed at the same boundary as the master
-  // (≤3 columns apart, no trap) and holds an equal frame counter afterward.
+  /**
+   * @brief Asserts every downstream board committed at the same boundary as the
+   *        master (≤3 columns apart, no trap) and holds an equal frame counter
+   *        afterward.
+   * @param sim The simulation to inspect (advanced two revs while checking).
+   */
   auto expect_lockstep = [&](Sim &sim) {
     for (int i = 1; i < 4; ++i) {
       // Commits land at each board's own crossing of the same boundary —
@@ -1256,15 +1407,19 @@ inline void test_sim_epoch_repeat_lockstep() {
 
 // ── Scenario: schedule-counter resync from the beacon rev cross-check ───────
 
-// §6.4: a board whose rev_in_effect slipped against the master — a late
-// commit through the §6.3.1 j-fallback, or a crossing hiccup while a
-// corrupted timebase recovered — would infer j wrongly at every later epoch
-// train and commit out of lockstep by the slip, in either direction,
-// indefinitely (its own commit re-zeros the counter at its own, offset
-// boundary, so the slip is self-sustaining). The beacon rev cross-check must
-// therefore RESYNC the counter (signed mod-64 difference, content t
-// untouched) within one beacon period, restoring exact j-inference before
-// the next train.
+/**
+ * @brief Verifies the §6.4 beacon rev cross-check resyncs a slipped
+ *        schedule counter within one beacon period, restoring exact
+ *        j-inference before the next train.
+ * @details A board whose rev_in_effect slipped against the master — a late
+ *          commit through the §6.3.1 j-fallback, or a crossing hiccup while a
+ *          corrupted timebase recovered — would infer j wrongly at every later
+ *          epoch train and commit out of lockstep by the slip, in either
+ *          direction, indefinitely (its own commit re-zeros the counter at its
+ *          own, offset boundary, so the slip is self-sustaining). The
+ *          cross-check corrects via the signed mod-64 difference, leaving
+ *          content t untouched.
+ */
 inline void test_sim_rev_resync() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -20, 10};
@@ -1352,8 +1507,13 @@ inline void test_sim_rev_resync() {
 //   commit deadline (HS_CHECK trap)   → test_sim_commit_deadline_trap
 //   sync wire dead / master dead      → test_budget_wire_dead
 
-/// Step the sim for @p revs, returning the worst locked-board phase error
-/// (columns vs the master) observed at any step — the §9.1 artifact probe.
+/**
+ * @brief Steps the sim for @p revs, the §9.1 artifact probe.
+ * @param sim The simulation to advance.
+ * @param revs Number of revolutions to step.
+ * @return The worst locked-board phase error (columns vs the master) observed
+ *         at any step.
+ */
 inline int32_t max_err_over(Sim &sim, double revs) {
   const uint64_t until =
       sim.g + static_cast<uint64_t>(revs * 2 * sim.cfg.cycles_per_half_rev);
@@ -1365,10 +1525,13 @@ inline int32_t max_err_over(Sim &sim, double revs) {
   return worst;
 }
 
-// Row "lost boundary symbol": one dropped symbol costs a ≤1-revolution coast
-// at crystal drift (~0.01 col at 40 ppm — sub-integer on this probe),
-// re-snapped by the very next symbol. The crossing flip covers the missed
-// backstop; nothing is rejected or misclassified — missed, never wrong.
+/**
+ * @brief Verifies the §9.1 "lost boundary symbol" budget row: one dropped
+ *        symbol costs a ≤1-revolution coast at crystal drift (~0.01 col at 40
+ *        ppm — sub-integer on this probe), re-snapped by the very next symbol.
+ * @details The crossing flip covers the missed backstop; nothing is rejected
+ *          or misclassified — missed, never wrong.
+ */
 inline void test_budget_lost_symbol() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 40, -40, 25}; // worst-case datasheet spread
@@ -1391,13 +1554,17 @@ inline void test_budget_lost_symbol() {
   HS_EXPECT_EQ(tm.symbols_discarded_invalid, 0u);
 }
 
-// Row "EMI on the sync wire", the binding ACCEPTED case: an isolated
-// valid-count burst within G of a predicted boundary, accepted through the
-// gate. Note it requires the real symbol to be absent at that boundary —
-// with the real burst present, a nearby forged edge merges inside the gap
-// timeout into an invalid count and is discarded whole, so the shipped
-// decoder is stricter than the budget's λ·2G/288 estimate. Artifact: a ≤G
-// column seam on one board; recovery: the next real symbol, ≤½ rev later.
+/**
+ * @brief Verifies the §9.1 "EMI on the sync wire" budget row, the binding
+ *        ACCEPTED case: an isolated valid-count burst within G of a predicted
+ *        boundary, accepted through the gate.
+ * @details Requires the real symbol to be absent at that boundary — with the
+ *          real burst present, a nearby forged edge merges inside the gap
+ *          timeout into an invalid count and is discarded whole, so the shipped
+ *          decoder is stricter than the budget's λ·2G/288 estimate. Artifact: a
+ *          ≤G column seam on one board; recovery: the next real symbol, ≤½ rev
+ *          later.
+ */
 inline void test_budget_emi_accepted_seam() {
   const Config cfg = test_config();
   const int32_t ppm[2] = {0, 20};
@@ -1438,13 +1605,16 @@ inline void test_budget_emi_accepted_seam() {
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
-// Row "mis-snap despite the gate / corrupted timebase": reachable only via a
-// two-coincident-error forge during ACQUIRE or a firmware bug; the fallback
-// bounds it either way. On a corrupted timebase every REAL boundary symbol
-// lands far from a predicted boundary, so each is first held as a suspect
-// and registers as a gate rejection only after the 24-column interdigit
-// window (the §5.3 fallback path): R rejections at ½-rev pace → ACQUIRE →
-// hard re-snap at the next symbol ≈ 2.8 revolutions ≈ 350 ms at speed.
+/**
+ * @brief Verifies the §9.1 "mis-snap despite the gate / corrupted timebase"
+ *        budget row: reachable only via a two-coincident-error forge during
+ *        ACQUIRE or a firmware bug; the fallback bounds it either way.
+ * @details On a corrupted timebase every REAL boundary symbol lands far from a
+ *          predicted boundary, so each is first held as a suspect and registers
+ *          as a gate rejection only after the 24-column interdigit window (the
+ *          §5.3 fallback path): R rejections at ½-rev pace → ACQUIRE → hard
+ *          re-snap at the next symbol ≈ 2.8 revolutions ≈ 350 ms at speed.
+ */
 inline void test_budget_corrupted_timebase() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -20, 10};
@@ -1509,10 +1679,13 @@ inline void test_budget_corrupted_timebase() {
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
 
-// Row "corrupted beacon frame": integrity is by rejection — a corrupted
-// digit fails the checksum, the frame drops whole with no partial
-// application, and the next beacon (≤ one period away) cross-checks clean.
-// A rejected beacon alone is consequence-free redundancy.
+/**
+ * @brief Verifies the §9.1 "corrupted beacon frame" budget row: integrity is by
+ *        rejection — a corrupted digit fails the checksum, the frame drops
+ *        whole with no partial application, and the next beacon (≤ one period
+ *        away) cross-checks clean.
+ * @details A rejected beacon alone is consequence-free redundancy.
+ */
 inline void test_budget_beacon_corruption() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 15, -20, 30};
@@ -1559,13 +1732,17 @@ inline void test_budget_beacon_corruption() {
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
-// Rows "sync wire dead" and "master dead" (identical for downstream — the
-// master is only the symbol source): flywheels free-run and keep flipping
-// 2/rev, the playlist freezes on the current effect (visibly stale, never
-// wrong), boards precess apart at the §4.5 crystal rate (τ = T0/δ_rel ≈ one
-// column per 87 revs at 40 ppm — a slow smear, never a break), and the §4.1
-// rebase rule keeps the arithmetic valid across a 32-bit cycle-counter wrap
-// with no snaps at all.
+/**
+ * @brief Verifies the §9.1 "sync wire dead" and "master dead" budget rows
+ *        (identical for downstream — the master is only the symbol source):
+ *        flywheels free-run and keep flipping 2/rev, the playlist freezes on
+ *        the current effect (visibly stale, never wrong), and boards precess
+ *        apart at the §4.5 crystal rate.
+ * @details The precession constant τ = T0/δ_rel ≈ one column per 87 revs at 40
+ *          ppm — a slow smear, never a break — and the §4.1 rebase rule keeps
+ *          the arithmetic valid across a 32-bit cycle-counter wrap with no snaps
+ *          at all.
+ */
 inline void test_budget_wire_dead() {
   const Config cfg = test_config();
   const int32_t ppm[3] = {0, 40, -25};
@@ -1625,7 +1802,10 @@ inline void test_budget_wire_dead() {
 
 // ── Runner ──────────────────────────────────────────────────────────────────
 
-// Run every pov_sync test in order; returns the module's failure count.
+/**
+ * @brief Runs every pov_sync test in order.
+ * @return The module's failure count.
+ */
 inline int run_pov_sync_tests() {
   auto scope = begin_module("pov_sync");
 

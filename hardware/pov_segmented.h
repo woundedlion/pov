@@ -192,6 +192,8 @@ public:
    * especially a rising — value means the per-column ISR/transfer budget is
    * being exceeded. Always 0 on the FastLED build, which has no DMA
    * controller.
+   * @return Cumulative count of DMA frames dropped on overrun since boot; 0 on
+   *         the FastLED build.
    */
   uint32_t overrun_count() const {
 #if defined(USE_DMA_LEDS)
@@ -551,10 +553,12 @@ private:
 
   /**
    * @brief Packs this segment's pixels for canvas column @p x and submits.
-   *
-   * The loop is branchless — all per-segment decisions are resolved at boot
-   * in configure_segment().  Arm B segments read from x + W/2 (opposite half
-   * of the image).
+   * @param e Live effect supplying the display buffer to sample.
+   * @param x Canvas column index in [0, CANVAS_W); arm-B segments sample
+   *          column x + W/2.
+   * @details The loop is branchless — all per-segment decisions are resolved at
+   *          boot in configure_segment().  Arm B segments read from x + W/2
+   *          (opposite half of the image).
    */
   static FASTRUN void render_column(Effect *e, int x) {
     const int w = e->width();
@@ -608,37 +612,43 @@ private:
   // ── Static state ────────────────────────────────────────────────────
 
 #ifndef USE_DMA_LEDS
-  static CRGB leds_[PPS];
+  static CRGB leds_[PPS]; /**< FastLED output buffer, one CRGB per segment pixel. */
 #endif
 
-  // The sync engine: written ONLY by the flywheel ISR (tick()) and the edge
-  // ISR (mailbox publisher) per the spec §8 single-writer model. Foreground
-  // reads are single aligned words (build_word) or debug telemetry.
+  /**
+   * @brief The sync engine: sole owner of all sync/flywheel state.
+   * @details Written ONLY by the flywheel ISR (tick()) and the edge ISR
+   *          (mailbox publisher) per the spec §8 single-writer model. Foreground
+   *          reads are single aligned words (build_word) or debug telemetry.
+   */
   static pov::sync::SyncBoard sync_;
-  static IntervalTimer timer_;
-  static const EffectFactory *factories_;
+  static IntervalTimer timer_;             /**< Flywheel wake-up timer (PIT channel).   */
+  static const EffectFactory *factories_;  /**< Roster of effect constructors (HS_EFFECT_LIST order). */
 
-  // Effect handoff. Ownership: the foreground constructs and deletes; the
-  // ISR only ever dereferences the instance it has been handed. live_effect_
-  // is ISR-written only; pending_* are foreground-written only (published
-  // under a brief interrupts-off bracket); the release_req_/release_ack_
-  // pair is the teardown handshake (foreground bumps req, ISR drops the live
-  // pointer and copies req to ack).
-  static Effect *live_effect_;             // ISR-owned
-  static Effect *volatile pending_effect_; // foreground-owned
-  static volatile uint32_t pending_gen_;   // foreground-owned
-  static volatile uint32_t consumed_gen_;  // ISR-owned
-  static volatile uint32_t release_req_;   // foreground-owned
-  static volatile uint32_t release_ack_;   // ISR-owned
-  static bool dark_latched_;               // ISR-owned
-  static bool sync_low_pending_;           // ISR-owned: dark-path pulse drop deferred to next wake
+  /**
+   * @brief Effect handoff state between the foreground and the ISR.
+   * @details Ownership: the foreground constructs and deletes; the ISR only ever
+   *          dereferences the instance it has been handed. live_effect_ is
+   *          ISR-written only; pending_* are foreground-written only (published
+   *          under a brief interrupts-off bracket); the release_req_/release_ack_
+   *          pair is the teardown handshake (foreground bumps req, ISR drops the
+   *          live pointer and copies req to ack).
+   */
+  static Effect *live_effect_;             /**< Effect the ISR renders; ISR-owned.       */
+  static Effect *volatile pending_effect_; /**< Next effect awaiting commit; foreground-owned. */
+  static volatile uint32_t pending_gen_;   /**< Build generation of pending_effect_; foreground-owned. */
+  static volatile uint32_t consumed_gen_;  /**< Build generation taken live; ISR-owned.  */
+  static volatile uint32_t release_req_;   /**< Teardown request counter; foreground-owned. */
+  static volatile uint32_t release_ack_;   /**< Teardown acknowledge counter; ISR-owned.  */
+  static bool dark_latched_;               /**< True once the black frame has latched; ISR-owned. */
+  static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
 
-  static int segment_id_;
-  static bool arm_b_;
-  static int y_base_;
-  static int y_step_;
+  static int segment_id_;                  /**< Decoded 2-bit hardware segment ID.       */
+  static bool arm_b_;                      /**< True if this segment lives on arm B (x + W/2). */
+  static int y_base_;                      /**< Canvas row of this segment's LED 0.      */
+  static int y_step_;                      /**< Row stride per LED: +1 (top) or -1 (bottom, reversed). */
 #if defined(USE_DMA_LEDS)
-  static DMALEDController<PPS> ledController_;
+  static DMALEDController<PPS> ledController_; /**< DMA SPI LED controller for the segment strip. */
 #endif
 };
 

@@ -22,28 +22,71 @@
 namespace hs_test {
 namespace canvas_tests {
 
-// Minimal concrete Effect for exercising the base-class machinery. Exposes the
-// protected hooks (registerParam / persist_pixels) needed by the tests.
+/**
+ * @brief Minimal concrete Effect for exercising the base-class machinery.
+ * @details Exposes the protected hooks (registerParam / persist_pixels) needed
+ * by the tests.
+ */
 struct TestEffect : public Effect {
-  float speed = 1.5f;
-  bool flag = false;
+  float speed = 1.5f; /**< Sample float param backing store. */
+  bool flag = false;  /**< Sample bool param backing store. */
 
+  /**
+   * @brief Constructs the test effect with the given canvas dimensions.
+   * @param W Canvas width in pixels.
+   * @param H Canvas height in pixels.
+   */
   TestEffect(int W, int H) : Effect(W, H) {}
+  /**
+   * @brief Per-frame draw hook; intentionally a no-op for these tests.
+   */
   void draw_frame() override {}
+  /**
+   * @brief Whether the effect requests a background fill.
+   * @return Always false (tests drive buffers directly).
+   */
   bool show_bg() const override { return false; }
 
+  /**
+   * @brief Toggles frame-to-frame pixel persistence.
+   * @param b True to copy the previous frame into each new buffer.
+   */
   void set_persist(bool b) { persist_pixels = b; }
+  /**
+   * @brief Registers a float parameter with the base Effect.
+   * @param n Parameter name.
+   * @param p Pointer to the float backing store (current value is the default).
+   * @param mn Minimum allowed value.
+   * @param mx Maximum allowed value.
+   */
   void add_float(const char *n, float *p, float mn, float mx) {
     registerParam(n, p, mn, mx);
   }
+  /**
+   * @brief Registers a bool parameter, seeding its default first.
+   * @param n Parameter name.
+   * @param p Pointer to the bool backing store.
+   * @param d Default value written into *p before registration.
+   */
   void add_bool(const char *n, bool *p, bool d) {
     *p = d; // registerParam(bool) captures *ptr as the default; set it first
     registerParam(n, p);
   }
+  /**
+   * @brief Marks a registered parameter as readonly (engine-written).
+   * @param n Parameter name to mark.
+   */
   void mark_readonly(const char *n) { markReadonly(n); }
 };
 
-// True if pixel p has exactly the given r/g/b channel values.
+/**
+ * @brief Tests whether a pixel has exactly the given channel values.
+ * @param p Pixel to inspect.
+ * @param r Expected red channel value.
+ * @param g Expected green channel value.
+ * @param b Expected blue channel value.
+ * @return True if all three channels match exactly.
+ */
 inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
   return p.r == r && p.g == g && p.b == b;
 }
@@ -52,8 +95,11 @@ inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
 // Construction
 // ============================================================================
 
-// A freshly constructed Effect reports its dimensions, starts fully black with a
-// free display buffer, and has its clip set to the whole canvas.
+/**
+ * @brief Verifies a freshly constructed Effect reports its dimensions, starts
+ * fully black with a free display buffer, and has its clip set to the whole
+ * canvas.
+ */
 inline void test_construction_dims_and_clear() {
   TestEffect fx(96, 20);
   HS_EXPECT_EQ(fx.width(), 96);
@@ -71,8 +117,12 @@ inline void test_construction_dims_and_clear() {
 // Double-buffer state machine
 // ============================================================================
 
-// A drawn frame stays invisible until advance_display() promotes it: the display
-// shows the old buffer while drawing and while the frame is merely queued.
+/**
+ * @brief Verifies a drawn frame stays invisible until advance_display()
+ * promotes it.
+ * @details The display shows the old buffer while drawing and while the frame
+ * is merely queued.
+ */
 inline void test_frame_visible_only_after_advance_display() {
   TestEffect fx(8, 8);
 
@@ -93,8 +143,10 @@ inline void test_frame_visible_only_after_advance_display() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 100, 200, 300));
 }
 
-// Without persist, each frame draws into a freshly cleared buffer, so pixels from
-// the previous frame do not survive into the next.
+/**
+ * @brief Verifies that without persist, each frame draws into a freshly cleared
+ * buffer, so pixels from the previous frame do not survive into the next.
+ */
 inline void test_consecutive_frames_alternate_buffers() {
   TestEffect fx(8, 8);
 
@@ -110,8 +162,10 @@ inline void test_consecutive_frames_alternate_buffers() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 0, 0, 0)); // cleared
 }
 
-// With persist_pixels set, each new frame inherits the previous frame's contents,
-// so undrawn pixels retain their prior color.
+/**
+ * @brief Verifies that with persist_pixels set, each new frame inherits the
+ * previous frame's contents, so undrawn pixels retain their prior color.
+ */
 inline void test_persist_pixels_copies_previous_frame() {
   TestEffect fx(8, 8);
   fx.set_persist(true);
@@ -126,13 +180,16 @@ inline void test_persist_pixels_copies_previous_frame() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
 }
 
-// The relaxed-atomic double-buffer hand-off (canvas.h ctor reasoning): the
-// writer (main loop, cur_) must never claim the buffer the display side (ISR,
-// prev_) is reading, and a queued-but-not-displayed frame must not disturb the
-// live frame. True ISR concurrency isn't deterministically unit-testable, but
-// the single-threaded state machine that the relaxed atomics implement is —
-// drive many cycles and assert the non-aliasing / no-torn-read guarantee
-// observably.
+/**
+ * @brief Verifies the relaxed-atomic double-buffer hand-off via its
+ * single-threaded state machine.
+ * @details The writer (main loop, cur_) must never claim the buffer the display
+ * side (ISR, prev_) is reading, and a queued-but-not-displayed frame must not
+ * disturb the live frame. True ISR concurrency isn't deterministically
+ * unit-testable, but the single-threaded state machine that the relaxed atomics
+ * implement is — drive many cycles and assert the non-aliasing / no-torn-read
+ * guarantee observably.
+ */
 inline void test_double_buffer_handoff_no_aliasing() {
   TestEffect fx(8, 4);
   const int N = 8 * 4;
@@ -184,19 +241,21 @@ inline void test_double_buffer_handoff_no_aliasing() {
   HS_EXPECT_EQ(distinct, 2);
 }
 
-// Directly exercises the Canvas ctor's buffer_free() spin-wait — the one
-// synchronization gate the rest of the suite deliberately steps around by
-// calling advance_display() before every ctor. On real hardware the display
-// ISR consumes frames asynchronously; here a helper thread plays that ISR.
-//
-// With a frame queued-but-not-displayed the buffer is busy, so the ctor MUST
-// block. The release is deterministic, not timing-based: the ctor can only
-// return once prev_ == next_, and the sole writer of prev_ is advance_display()
-// — which only the helper runs. So the helper's "ctor has not returned yet"
-// assertion holds by construction (it checks before advancing), and an inverted
-// gate (spin while buffer_free()) would let the ctor return early and fail it.
-// The ctor's 2 s watchdog bounds the spin, so a logic break traps loudly here
-// rather than hanging the suite.
+/**
+ * @brief Verifies the Canvas ctor's buffer_free() spin-wait blocks until the
+ * display side frees the buffer.
+ * @details Directly exercises the one synchronization gate the rest of the
+ * suite deliberately steps around by calling advance_display() before every
+ * ctor. On real hardware the display ISR consumes frames asynchronously; here a
+ * helper thread plays that ISR. With a frame queued-but-not-displayed the
+ * buffer is busy, so the ctor MUST block. The release is deterministic, not
+ * timing-based: the ctor can only return once prev_ == next_, and the sole
+ * writer of prev_ is advance_display() — which only the helper runs. So the
+ * helper's "ctor has not returned yet" assertion holds by construction (it
+ * checks before advancing), and an inverted gate (spin while buffer_free())
+ * would let the ctor return early and fail it. The ctor's 2 s watchdog bounds
+ * the spin, so a logic break traps loudly here rather than hanging the suite.
+ */
 inline void test_ctor_spin_waits_for_buffer_free() {
   hs::clear_mock_time(); // use the real wall clock so the spin/watchdog are live
   TestEffect fx(8, 8);
@@ -246,8 +305,10 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 // Canvas access
 // ============================================================================
 
-// Canvas exposes 2D (x,y) and 1D (row-major index) writes that target the same
-// buffer, and prev() reads the previously displayed frame.
+/**
+ * @brief Verifies Canvas exposes 2D (x,y) and 1D (row-major index) writes that
+ * target the same buffer, and that prev() reads the previously displayed frame.
+ */
 inline void test_canvas_2d_and_1d_access_and_prev() {
   TestEffect fx(8, 8);
   {
@@ -268,9 +329,11 @@ inline void test_canvas_2d_and_1d_access_and_prev() {
 // Parameter system
 // ============================================================================
 
-// registerParam captures each param's current pointee as its default and exposes
-// type (float vs bool), value, and min/max through getParameters(); find() of an
-// unregistered name returns null.
+/**
+ * @brief Verifies registerParam captures each param's current pointee as its
+ * default and exposes type, value, and min/max through getParameters().
+ * @details Also checks that find() of an unregistered name returns null.
+ */
 inline void test_register_float_and_bool_params() {
   TestEffect fx(4, 4);
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
@@ -295,9 +358,11 @@ inline void test_register_float_and_bool_params() {
   HS_EXPECT_TRUE(params.find("Missing") == nullptr);
 }
 
-// updateParameter writes a float param by name, thresholds at 0.5 for bool
-// params, and returns false (leaving values untouched) for unknown names or
-// non-finite inputs.
+/**
+ * @brief Verifies updateParameter writes a float param by name, thresholds at
+ * 0.5 for bool params, and returns false (leaving values untouched) for unknown
+ * names or non-finite inputs.
+ */
 inline void test_update_parameter_by_name() {
   TestEffect fx(4, 4);
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
@@ -321,8 +386,11 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 
-// The untrusted JS boundary must not write readonly (engine-written telemetry)
-// params, even though the GUI already disables their editing.
+/**
+ * @brief Verifies the untrusted JS boundary cannot write readonly
+ * (engine-written telemetry) params, even though the GUI already disables their
+ * editing.
+ */
 inline void test_update_parameter_rejects_readonly() {
   TestEffect fx(4, 4);
   float telemetry = 1.0f;
@@ -338,7 +406,9 @@ inline void test_update_parameter_rejects_readonly() {
   HS_EXPECT_NEAR(fx.speed, 4.0f, 1e-6f);
 }
 
-// ParamList holds its full capacity of registered params.
+/**
+ * @brief Verifies ParamList holds its full capacity of registered params.
+ */
 inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
   static float vals[32];
@@ -356,8 +426,11 @@ inline void test_paramlist_fills_to_capacity() {
 // Clip setters
 // ============================================================================
 
-// The clip setters write the expected fields: set_clip sets all four bounds (and
-// clears is_full), set_clip_x touches only x bounds, and set_margin sets margin.
+/**
+ * @brief Verifies the clip setters write the expected fields.
+ * @details set_clip sets all four bounds (and clears is_full), set_clip_x
+ * touches only x bounds, and set_margin sets margin.
+ */
 inline void test_clip_setters() {
   TestEffect fx(96, 20);
   fx.set_clip(2, 10, 5, 40);
@@ -376,24 +449,47 @@ inline void test_clip_setters() {
   HS_EXPECT_EQ(fx.clip.margin, 3);
 }
 
-// Stand-in pipeline target whose plot() overloads record their id into a shared
-// counter, so a PipelineRef's routing destination is observable.
+/**
+ * @brief Stand-in pipeline target whose plot() overloads record their id.
+ * @details Writes its id into a shared counter so a PipelineRef's routing
+ * destination is observable.
+ */
 struct StubPipe {
-  int id;
-  int *last_hit;
+  int id;        /**< Identifier written to *last_hit when plotted. */
+  int *last_hit; /**< Shared sink recording which pipe was last invoked. */
+  /**
+   * @brief Records this pipe's id (scalar-coordinate plot overload).
+   * @param Canvas& Drawing context (unused).
+   * @param float X coordinate (unused).
+   * @param float Y coordinate (unused).
+   * @param Pixel& Color (unused).
+   * @param float First scalar attribute (unused).
+   * @param float Second scalar attribute (unused).
+   */
   void plot(Canvas &, float, float, const Pixel &, float, float) {
     *last_hit = id;
   }
+  /**
+   * @brief Records this pipe's id (vector-coordinate plot overload).
+   * @param Canvas& Drawing context (unused).
+   * @param Vector& Position (unused).
+   * @param Pixel& Color (unused).
+   * @param float First scalar attribute (unused).
+   * @param float Second scalar attribute (unused).
+   */
   void plot(Canvas &, const Vector &, const Pixel &, float, float) {
     *last_hit = id;
   }
 };
 
-// PipelineRef copy must be a real copy, not a ref-to-a-ref. Copying from a
-// non-const lvalue must select the implicit copy ctor (member-wise: same ctx_),
-// not the templated converting ctor (which would wrap the source). Observable
-// without UB: re-point the source after copying; a true copy keeps routing to
-// the original target, a wrapper would follow the source to the new one.
+/**
+ * @brief Verifies a PipelineRef copy is a real copy, not a ref-to-a-ref.
+ * @details Copying from a non-const lvalue must select the implicit copy ctor
+ * (member-wise: same ctx_), not the templated converting ctor (which would wrap
+ * the source). Observable without UB: re-point the source after copying; a true
+ * copy keeps routing to the original target, a wrapper would follow the source
+ * to the new one.
+ */
 inline void test_pipeline_ref_copy_is_independent_of_source() {
   int hit = 0;
   StubPipe s1{1, &hit}, s2{2, &hit};
@@ -413,7 +509,10 @@ inline void test_pipeline_ref_copy_is_independent_of_source() {
 // Runner
 // ============================================================================
 
-// Runs every canvas test in order and returns the module's failure count.
+/**
+ * @brief Runs every canvas test in order.
+ * @return The module's failure count reported by end_module().
+ */
 inline int run_canvas_tests() {
   auto scope = hs_test::begin_module("canvas");
 

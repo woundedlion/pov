@@ -7,14 +7,23 @@
 #include <array>
 #include <span>
 
-// Standalone entry type so CTAD deduction guides avoid dependent-name issues.
+/**
+ * @brief Standalone entry wrapping a single Params preset.
+ * @tparam Params The preset parameter type stored in each entry.
+ * @details A dedicated entry type lets the CTAD deduction guides avoid
+ * dependent-name issues when deducing the preset count.
+ */
 template <typename Params> struct PresetEntry {
-  Params params;
+  Params params; /**< The stored preset parameters. */
 };
 
-// Fixed-size, cyclic selector over a set of Params presets. Tracks the current
-// entry plus the one active before the last move, so callers can crossfade
-// between the outgoing and incoming presets.
+/**
+ * @brief Fixed-size, cyclic selector over a set of Params presets.
+ * @tparam Params The preset parameter type held by each entry.
+ * @tparam Size The number of entries; must be greater than zero.
+ * @details Tracks the current entry plus the one active before the last move,
+ * so callers can crossfade between the outgoing and incoming presets.
+ */
 template <typename Params, size_t Size> class Presets {
   // An empty preset set is meaningless for a selector and would make get()/
   // apply()/prev_get() index a zero-length array (UB). Reject it up front so
@@ -24,44 +33,76 @@ template <typename Params, size_t Size> class Presets {
 public:
   using Entry = PresetEntry<Params>;
 
-  // Params of the currently selected entry.
+  /**
+   * @brief Returns the params of the currently selected entry.
+   * @return Const reference to the current entry's params.
+   */
   const Params &get() const { return entries[current_idx].params; }
 
-  // Advance to the next entry, wrapping past the end.
+  /**
+   * @brief Advances to the next entry, wrapping past the end.
+   * @details Records the outgoing index in prev_idx before advancing.
+   */
   void next() {
     prev_idx = current_idx;
     current_idx = (current_idx + 1) % Size;
   }
 
-  // Step back to the previous entry, wrapping past the front.
+  /**
+   * @brief Steps back to the previous entry, wrapping past the front.
+   * @details Records the outgoing index in prev_idx before stepping back.
+   */
   void prev() {
     prev_idx = current_idx;
     current_idx = (current_idx - 1 + Size) % Size;
   }
 
-  // Copy the current entry's params into target.
+  /**
+   * @brief Copies the current entry's params into target.
+   * @param target Destination params, overwritten with the current entry.
+   */
   void apply(Params &target) const { target = get(); }
 
-  // Read-only view over all entries.
+  /**
+   * @brief Returns a read-only view over all entries.
+   * @return Span covering all Size entries in order.
+   */
   std::span<const Entry> get_entries() const {
     return std::span<const Entry>(entries);
   }
 
-  std::array<Entry, Size> entries;
-  int current_idx = 0;
-  int prev_idx = 0; // index active before the last next()/prev(); for crossfades.
+  std::array<Entry, Size> entries; /**< The backing store of preset entries. */
+  int current_idx = 0;             /**< Index of the currently selected entry. */
+  int prev_idx = 0; /**< Index active before the last next()/prev(); for crossfades. */
 
-  // Params of the entry active before the last next()/prev(); for crossfades.
+  /**
+   * @brief Returns the params of the entry active before the last move.
+   * @return Const reference to the previous entry's params; for crossfades.
+   */
   const Params &prev_get() const { return entries[prev_idx].params; }
 };
 
-// CTAD: deduce Size from the number of entries in the initializer.
-// Presets presets = {{...}}  →  Size = N, deduced from std::array.
+/**
+ * @brief CTAD guide deducing Size from a brace-initialized entry array.
+ * @tparam Params The preset parameter type held by each entry.
+ * @tparam N The deduced number of entries.
+ * @details Lets `Presets presets = {{...}}` deduce Size = N from the array.
+ */
 template <typename Params, size_t N>
 Presets(std::array<PresetEntry<Params>, N>) -> Presets<Params, N>;
 
+/**
+ * @brief CTAD guide deducing Size when an extra index argument is supplied.
+ * @tparam Params The preset parameter type held by each entry.
+ * @tparam N The deduced number of entries.
+ */
 template <typename Params, size_t N>
 Presets(std::array<PresetEntry<Params>, N>, int) -> Presets<Params, N>;
 
+/**
+ * @brief CTAD guide deducing Size when two extra index arguments are supplied.
+ * @tparam Params The preset parameter type held by each entry.
+ * @tparam N The deduced number of entries.
+ */
 template <typename Params, size_t N>
 Presets(std::array<PresetEntry<Params>, N>, int, int) -> Presets<Params, N>;

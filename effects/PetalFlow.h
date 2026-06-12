@@ -9,22 +9,32 @@
 #include <algorithm>
 #include "core/effects_engine.h"
 
-// Concentric rings advance along a log-radial path and are projected onto the
-// sphere via inverse stereographic projection. A per-ring radial wobble shapes
-// each ring into petals, and a rho-dependent twist swirls the whole flow.
+/**
+ * @brief Flowing petal effect built from concentric rings on the sphere.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Concentric rings advance along a log-radial path and are projected
+ * onto the sphere via inverse stereographic projection. A per-ring radial
+ * wobble shapes each ring into petals, and a rho-dependent twist swirls the
+ * whole flow.
+ */
 template <int W, int H> class PetalFlow : public Effect {
 public:
-  // User-tunable controls (registered as sliders in init()).
-  //   twist_factor: swirl strength applied per unit of rho spacing.
-  //   speed:        unitless flow rate; scaled by RHO_PER_SPEED into per-frame motion.
-  //   alpha:        global opacity multiplier.
+  /**
+   * @brief User-tunable controls, registered as sliders in init().
+   */
   struct Params {
-    float twist_factor = 0.35f;
-    float speed = 2.5f;
-    float alpha = 0.2f;
+    float twist_factor = 0.35f; /**< Swirl strength applied per unit of rho spacing. */
+    float speed = 2.5f;         /**< Unitless flow rate; scaled by RHO_PER_SPEED into per-frame motion. */
+    float alpha = 0.2f;         /**< Global opacity multiplier. */
   } params;
 
-  // Wire up the palette, orientation filters, and the per-frame ring spawner.
+  /**
+   * @brief Constructs the effect, wiring up palette, orientation filters, and
+   * the per-frame ring spawner.
+   * @details The spawner fires every frame to emit new rings as the flow
+   * accumulates gap.
+   */
   FLASHMEM PetalFlow()
       : Effect(W, H),
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
@@ -34,8 +44,11 @@ public:
         // Fires every frame to spawn new rings as the flow accumulates gap.
         spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {}
 
-  // Register sliders, clear all rings, and seed the timeline. next_hue resets
-  // here so hue assignment is deterministic on every (re)init.
+  /**
+   * @brief Registers sliders, clears all rings, and seeds the timeline.
+   * @details next_hue resets here so hue assignment is deterministic on every
+   * (re)init.
+   */
   void init() override {
     registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);
     registerParam("Speed", &params.speed, 0.0f, 20.0f);
@@ -49,9 +62,16 @@ public:
     init_timeline();
   }
 
+  /**
+   * @brief Reports whether the engine should draw its background first.
+   * @return false; this effect paints over a cleared frame.
+   */
   bool show_bg() const override { return false; }
 
-  // Step the timeline (rotation + spawner) then advance and render all rings.
+  /**
+   * @brief Steps the timeline (rotation + spawner), then advances and renders
+   * all rings.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -59,41 +79,48 @@ public:
   }
 
 private:
-  static constexpr int MAX_RINGS = 64;
-  static constexpr float START_RHO = -3.75f;
-  static constexpr float END_RHO = 3.75f;
-  static constexpr float SPACING = 0.3f; // Spacing in rho units
-  // Rho advanced per frame per unit of the Speed slider — the conversion from
-  // the (unitless) Speed control to per-frame motion along the path.
+  static constexpr int MAX_RINGS = 64;        /**< Maximum number of concurrent rings. */
+  static constexpr float START_RHO = -3.75f;  /**< Rho at which rings are spawned (path start). */
+  static constexpr float END_RHO = 3.75f;     /**< Rho past which rings are retired (path end). */
+  static constexpr float SPACING = 0.3f;      /**< Inter-ring spacing in rho units. */
+  /**
+   * @brief Rho advanced per frame per unit of the Speed slider.
+   * @details Converts the unitless Speed control to per-frame motion along the
+   * path.
+   */
   static constexpr float RHO_PER_SPEED = 0.009375f;
-  // Petal shaping for the per-ring radial wobble: lobe count per revolution and
-  // wobble depth in rho units.
-  static constexpr float PETAL_LOBES = 3.0f;
-  static constexpr float PETAL_DEPTH = 0.6f;
+  static constexpr float PETAL_LOBES = 3.0f;  /**< Petal lobe count per revolution for the radial wobble. */
+  static constexpr float PETAL_DEPTH = 0.6f;  /**< Petal wobble depth in rho units. */
 
-  // One ring on the flow. rho is its position along the log-radial path;
-  // hue selects its palette color; inactive slots are free for reuse.
+  /**
+   * @brief One ring on the flow.
+   * @details Inactive slots are free for reuse.
+   */
   struct Ring {
-    float rho;
-    float hue;
-    bool active;
+    float rho;    /**< Position along the log-radial path, in rho units. */
+    float hue;    /**< Palette hue selector in [0, 1). */
+    bool active;  /**< Whether this slot holds a live ring. */
   };
 
-  Ring rings[MAX_RINGS];
-  float gap_accumulator = 0.0f;
+  Ring rings[MAX_RINGS];          /**< Fixed pool of ring slots, active or free. */
+  float gap_accumulator = 0.0f;   /**< Accumulated path travel awaiting the next spawn, in rho units. */
 
-  ProceduralPalette palette;
-  Orientation<> orientation;
+  ProceduralPalette palette;      /**< Color palette sampled by ring hue. */
+  Orientation<> orientation;      /**< Shared orientation driven by the timeline rotation. */
 
+  /** @brief Render pipeline: world-space orientation then screen-space anti-aliasing. */
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 
-  Timeline timeline;
-  Animation::PeriodicTimer spawner;
+  Timeline timeline;                  /**< Schedules the orientation rotation and the spawner. */
+  Animation::PeriodicTimer spawner;   /**< Per-frame timer that triggers check_spawn(). */
 
-  // Seed the timeline with the looping orientation rotation and the spawner,
-  // then pre-fill the entire path with evenly spaced rings so the flow is full
-  // from frame zero rather than filling in over time.
+  /**
+   * @brief Seeds the timeline and pre-fills the path with rings.
+   * @details Adds the looping orientation rotation and the spawner, then
+   * pre-fills the entire path with evenly spaced rings so the flow is full from
+   * frame zero rather than filling in over time.
+   */
   FLASHMEM void init_timeline() {
     timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
                                            ease_mid, true));
@@ -105,8 +132,11 @@ private:
     }
   }
 
-  // Accumulate this frame's travel and emit a ring each time a full SPACING of
-  // gap opens up at the start of the path, keeping ring density constant.
+  /**
+   * @brief Accumulates this frame's travel and spawns rings as gap opens up.
+   * @details Emits a ring each time a full SPACING of gap opens up at the start
+   * of the path, keeping ring density constant.
+   */
   void check_spawn() {
     float move_dist = params.speed * RHO_PER_SPEED;
     gap_accumulator += move_dist;
@@ -117,12 +147,20 @@ private:
     }
   }
 
-  // Per-instance hue cursor, reset in init() so hue assignment stays
-  // deterministic for the fixed-seed segmented driver. Advanced per spawn.
+  /**
+   * @brief Per-instance hue cursor, advanced per spawn.
+   * @details Reset in init() so hue assignment stays deterministic for the
+   * fixed-seed segmented driver.
+   */
   float next_hue = 0.0f;
 
-  // Claim the first inactive ring slot, place it at initial_rho, assign the
-  // next hue, and advance the hue cursor. No-op if all slots are in use.
+  /**
+   * @brief Claims the first inactive ring slot and initializes it.
+   * @param initial_rho Position along the path at which to place the ring, in
+   * rho units.
+   * @details Assigns the next hue and advances the hue cursor. No-op if all
+   * slots are in use.
+   */
   void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active) {
@@ -135,8 +173,11 @@ private:
     }
   }
 
-  // Advance every active ring along rho; retire rings that pass END_RHO,
-  // otherwise draw them.
+  /**
+   * @brief Advances every active ring along rho and draws it.
+   * @param canvas Target canvas to render into.
+   * @details Retires rings that pass END_RHO; otherwise draws them.
+   */
   void update_and_draw_rings(Canvas &canvas) {
     float move_dist = params.speed * RHO_PER_SPEED;
     for (int i = 0; i < MAX_RINGS; ++i) {
@@ -151,9 +192,14 @@ private:
     }
   }
 
-  // Build and rasterize one ring: fade by distance from the equator (rho=0),
-  // shape it into petals via a radial wobble, twist it by rho, and project each
-  // sample onto the sphere. Skipped entirely when its opacity is negligible.
+  /**
+   * @brief Builds and rasterizes one ring.
+   * @param canvas Target canvas to render into.
+   * @param ring Ring to draw, supplying its rho position and hue.
+   * @details Fades the ring by distance from the equator (rho=0), shapes it
+   * into petals via a radial wobble, twists it by rho, and projects each sample
+   * onto the sphere. Skipped entirely when its opacity is negligible.
+   */
   void draw_ring(Canvas &canvas, const Ring &ring) {
 
     // Fade rings out past |rho|=2.5 over a window of 1.0 rho unit (near the poles).

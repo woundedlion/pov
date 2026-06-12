@@ -16,22 +16,36 @@
 #include "platform.h"
 
 /**
- * @brief The Scan struct contains volumetric (raster) drawing primitives.
- *
- * General Register Mapping for Scan Primitives:
+ * @brief The Scan namespace contains volumetric (raster) drawing primitives.
+ * @details General register mapping for Scan primitives:
  *  v0: Normalized parameter t (0-1) or angle
- *  v1: Raw Distance or Supplementary Value
+ *  v1: Raw distance or supplementary value
  */
 namespace Scan {
 
 /**
- * @brief Processes a single pixel for rasterization.
- *
- * The shader and pipeline are intentionally type-erased (FragmentShaderFn /
- * PipelineRef), so the two per-pixel indirect calls below — the shader at
- * fragment_shader() and the plot at pipeline.plot() — do not inline. This is a
- * deliberate code-size tradeoff (one scanline instantiation per <W,H> rather
- * than per shader/pipeline combination); see the PipelineRef note in concepts.h.
+ * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
+ *        computes anti-aliased coverage, runs the fragment shader, and plots.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+ * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+ * @param x Column index in [0, W).
+ * @param y Row index in [0, H).
+ * @param p World-space unit vector for the pixel center.
+ * @param pipeline Plotting pipeline receiving the final color.
+ * @param canvas Destination canvas.
+ * @param shape SDF shape providing distance<ComputeUVs>().
+ * @param fragment_shader Shader invoked to color the fragment.
+ * @param debug_bb When true, forces plotting and tints the bounding box.
+ * @param result_scratch Reused DistanceResult scratch (avoids per-pixel alloc).
+ * @param frag_scratch Reused Fragment scratch (avoids per-pixel alloc).
+ * @details The shader and pipeline are intentionally type-erased
+ * (FragmentShaderFn / PipelineRef), so the two per-pixel indirect calls below —
+ * the shader at fragment_shader() and the plot at pipeline.plot() — do not
+ * inline. This is a deliberate code-size tradeoff (one scanline instantiation
+ * per <W,H> rather than per shader/pipeline combination); see the PipelineRef
+ * note in concepts.h.
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
@@ -105,13 +119,18 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
 
 /**
  * @brief Shared pixel iteration utility for bounded spherical regions.
- * Iterates y in [y_min, y_max], collects float intervals per row via
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam IntervalFn Callable producing per-row longitude intervals.
+ * @tparam PixelFn Callable invoked per visited pixel.
+ * @param y_min First row to scan (inclusive).
+ * @param y_max Last row to scan (inclusive).
+ * @param get_intervals (int y, auto &out) -> bool. Pushes {float,float}
+ *                      intervals via out(start, end). Returns true if intervals
+ *                      were produced, false for full-row scan.
+ * @param pixel_fn (int wx, int y, const Vector &p) -> void, called per pixel.
+ * @details Iterates y in [y_min, y_max], collects float intervals per row via
  * get_intervals, wraps x coordinates, and calls pixel_fn(wx, y, p) per pixel.
- *
- * @param get_intervals  (int y, auto &out) -> bool. Pushes {float,float}
- *                       intervals via out(start, end). Returns true if
- *                       intervals were produced, false for full-row scan.
- * @param pixel_fn       (int wx, int y, const Vector &p) -> void.
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
@@ -217,12 +236,19 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
 
 /**
  * @brief Computes bounding sphere y-range and per-row x intervals.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
  */
 template <int W, int H> struct BoundingSphere {
   int y_min, y_max;
-  float center_theta; // longitude of center in pixel units
+  float center_theta; /**< Longitude of center in pixel units. */
   float angular_radius;
 
+  /**
+   * @brief Constructs the bounding sphere clamped to the canvas rows.
+   * @param center World-space unit vector at the sphere center.
+   * @param bounds_radius Bounding radius in world units (sin of angular extent).
+   */
   BoundingSphere(const Vector &center, float bounds_radius)
       : angular_radius(asinf(std::min(bounds_radius, 1.0f))) {
     PixelCoords center_px = vector_to_pixel<W, H>(center);
@@ -235,7 +261,14 @@ template <int W, int H> struct BoundingSphere {
                                 phi_to_y<H>(center_phi + angular_radius))));
   }
 
-  /// Push a single interval for row y based on longitude span at that latitude.
+  /**
+   * @brief Pushes a single longitude interval for row y based on the span at
+   *        that latitude.
+   * @tparam OutFn Callable accepting (float start, float end) in pixel units.
+   * @param y Row index in [0, H).
+   * @param out Sink receiving the interval for this row.
+   * @return Always true (an interval is always produced).
+   */
   template <typename OutFn> bool get_intervals(int y, OutFn &&out) const {
     float phi = y_to_phi<H>(y);
     float sin_phi = sinf(phi);
@@ -254,8 +287,18 @@ template <int W, int H> struct BoundingSphere {
 
 /**
  * @brief Main rasterization routine for SDF shapes.
- * Scans the bounding box, computes intervals, and executes the shader for valid
- * pixels.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+ * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+ * @param pipeline Plotting pipeline receiving the final colors.
+ * @param canvas Destination canvas.
+ * @param shape SDF shape providing vertical bounds, horizontal intervals, and
+ *              distance().
+ * @param fragment_shader Shader invoked per covered pixel.
+ * @param debug_bb When true, renders the bounding box for debugging.
+ * @details Scans the bounding box, computes intervals, and executes the shader
+ * for valid pixels.
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
@@ -296,8 +339,27 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   #endif
 }
 
-/// Draws a ring whose radius is modulated around the circumference by shift_fn.
+/**
+ * @brief Draws a ring whose radius is modulated around the circumference by
+ *        shift_fn.
+ */
 struct DistortedRing {
+  /**
+   * @brief Rasterizes a circumference-modulated ring.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the ring plane.
+   * @param radius Ring radius in world units.
+   * @param thickness Ring stroke thickness in world units.
+   * @param shift_fn Scalar modulation function over the circumference.
+   * @param amplitude Modulation amplitude in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness, ScalarFn shift_fn,
@@ -310,8 +372,25 @@ struct DistortedRing {
   }
 };
 
-/// Draws a flat (tangent-plane) regular polygon projected onto the sphere.
+/**
+ * @brief Draws a flat (tangent-plane) regular polygon projected onto the
+ *        sphere.
+ */
 struct PlanarPolygon {
+  /**
+   * @brief Rasterizes a tangent-plane regular polygon.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the polygon plane.
+   * @param radius Polygon circumradius in world units.
+   * @param sides Number of polygon sides.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides, FragmentShaderFn fragment_shader,
@@ -325,8 +404,23 @@ struct PlanarPolygon {
   }
 };
 
-/// Draws a great-circle line segment of given thickness between two vectors.
+/**
+ * @brief Draws a great-circle line segment of given thickness between two
+ *        vectors.
+ */
 struct Line {
+  /**
+   * @brief Rasterizes a great-circle segment between two unit vectors.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param v1 First endpoint as a world-space unit vector.
+   * @param v2 Second endpoint as a world-space unit vector.
+   * @param thickness Stroke thickness in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &v1,
                    const Vector &v2, float thickness,
@@ -336,9 +430,24 @@ struct Line {
   }
 };
 
+/**
+ * @brief Draws a solid ring using SDF rasterization.
+ */
 struct Ring {
   /**
-   * @brief Draws a solid ring using SDF rasterization.
+   * @brief Draws a solid ring from an orientation basis.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the ring plane.
+   * @param radius Ring radius in world units.
+   * @param thickness Ring stroke thickness in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true,
             typename PipelineT = PipelineRef>
@@ -352,7 +461,21 @@ struct Ring {
                                       debug_bb);
   }
 
-  // Overload for Vector normal inputs
+  /**
+   * @brief Draws a solid ring from a plane-normal vector.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param normal Plane normal as a world-space vector.
+   * @param radius Ring radius in world units.
+   * @param thickness Ring stroke thickness in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H, bool ComputeUVs = true,
             typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const Vector &normal,
@@ -365,9 +488,21 @@ struct Ring {
   }
 };
 
+/**
+ * @brief Draws a solid circle (filled ring).
+ */
 struct Circle {
   /**
-   * @brief Draws a solid circle (filled ring).
+   * @brief Draws a solid circle from an orientation basis.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the circle plane.
+   * @param radius Circle radius in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
@@ -379,6 +514,18 @@ struct Circle {
                                  fragment_shader, 0, debug_bb);
   }
 
+  /**
+   * @brief Draws a solid circle from a plane-normal vector.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param normal Plane normal as a world-space vector.
+   * @param radius Circle radius in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &normal,
                    float radius, FragmentShaderFn fragment_shader,
@@ -389,9 +536,20 @@ struct Circle {
   }
 };
 
+/**
+ * @brief Draws a solid point (thick circle).
+ */
 struct Point {
   /**
-   * @brief Draws a solid point (thick circle).
+   * @brief Draws a solid point centered on a unit vector.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param p Point center as a world-space unit vector.
+   * @param thickness Point radius (ring thickness) in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p,
@@ -404,9 +562,23 @@ struct Point {
   }
 };
 
+/**
+ * @brief Draws a solid star shape.
+ */
 struct Star {
   /**
-   * @brief Draws a solid star shape.
+   * @brief Rasterizes a solid star.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the star plane.
+   * @param radius Star circumradius in world units.
+   * @param sides Number of star points.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
@@ -419,9 +591,23 @@ struct Star {
   }
 };
 
+/**
+ * @brief Draws a solid flower shape.
+ */
 struct Flower {
   /**
-   * @brief Draws a solid flower shape.
+   * @brief Rasterizes a solid flower.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the flower plane.
+   * @param radius Flower circumradius in world units.
+   * @param sides Number of flower petals.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
@@ -434,9 +620,22 @@ struct Flower {
   }
 };
 
+/**
+ * @brief Draws a solid spherical polygon.
+ */
 struct SphericalPolygon {
   /**
-   * @brief Draws a solid spherical polygon.
+   * @brief Rasterizes a solid spherical polygon.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the polygon.
+   * @param radius Polygon circumradius in world units.
+   * @param sides Number of polygon sides.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
@@ -450,9 +649,25 @@ struct SphericalPolygon {
   }
 };
 
-/// Rasterizes a polygonal mesh by drawing each face as an SDF::Face, threading
-/// the face index through register v2 so the shader can vary color per face.
+/**
+ * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face,
+ *        threading the face index through register v2 so the shader can vary
+ *        color per face.
+ */
 struct Mesh {
+  /**
+   * @brief Rasterizes every face of a mesh.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param mesh Mesh providing vertices, face counts, indices, and offsets.
+   * @param fragment_shader Shader invoked per covered pixel; receives the face
+   *                        index in register v2.
+   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
@@ -503,13 +718,22 @@ struct Mesh {
  */
 struct Shader {
   // --- Shared SSAA helpers (used by both draw() overloads) -------------------
-  // Sub-pixel sample offsets: the four pixel corners (±0.5, ±0.5), selected by
-  // the low two bits of the sample index. SAMPLES > 4 reuses the same four
-  // corners. Fully compile-time, so it costs nothing at runtime.
+  /**
+   * @brief Compile-time table of sub-pixel sample offsets.
+   * @tparam SAMPLES Number of sub-pixel samples per pixel.
+   * @details Holds the four pixel corners (±0.5, ±0.5), selected by the low two
+   * bits of the sample index. SAMPLES > 4 reuses the same four corners.
+   */
   template <int SAMPLES> struct SampleOffsets {
-    float x[SAMPLES];
-    float y[SAMPLES];
+    float x[SAMPLES]; /**< Per-sample x offsets in pixel units. */
+    float y[SAMPLES]; /**< Per-sample y offsets in pixel units. */
   };
+  /**
+   * @brief Builds the sub-pixel sample offset table at compile time.
+   * @tparam SAMPLES Number of sub-pixel samples per pixel.
+   * @return Offset table with each sample placed at a (±0.5, ±0.5) corner.
+   * @details Fully compile-time, so it costs nothing at runtime.
+   */
   template <int SAMPLES>
   static constexpr SampleOffsets<SAMPLES> make_sample_offsets() {
     constexpr float eps = 0.5f;
@@ -523,9 +747,16 @@ struct Shader {
     return o;
   }
 
-  // Project a sub-pixel coordinate (pixel index + corner offset) to its
-  // world-space unit vector via explicit theta/phi trig (matching the
-  // non-SSAA pixel_to_vector path so SSAA output stays byte-for-byte stable).
+  /**
+   * @brief Projects a sub-pixel coordinate to its world-space unit vector.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param px Sub-pixel column (pixel index + corner offset).
+   * @param py Sub-pixel row (pixel index + corner offset).
+   * @return World-space unit vector for the sub-pixel sample.
+   * @details Uses explicit theta/phi trig (matching the non-SSAA
+   * pixel_to_vector path so SSAA output stays byte-for-byte stable).
+   */
   template <int W, int H>
   static inline Vector ssaa_sample_vector(float px, float py) {
     constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
@@ -536,9 +767,14 @@ struct Shader {
     return Vector(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
   }
 
-  // LUT-domain invariant shared by both overloads (checked once per draw, not
-  // per pixel): every (x,y) the loops feed to pixel_to_vector indexes the trig
-  // LUTs within bounds.
+  /**
+   * @brief Validates the LUT-domain invariant shared by both draw overloads.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param cr Clip region whose bounds are checked against the LUT extents.
+   * @details Checked once per draw, not per pixel: every (x,y) the loops feed to
+   * pixel_to_vector indexes the trig LUTs within bounds.
+   */
   template <int W, int H>
   static void check_lut_domain(const ClipRegion &cr) {
     HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
@@ -546,6 +782,17 @@ struct Shader {
   }
   // --------------------------------------------------------------------------
 
+  /**
+   * @brief Full-screen per-pixel shader with SAMPLES× SSAA from a single
+   *        callable.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
+   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4.
+   * @param canvas Destination canvas.
+   * @param shader Maps a world-space unit vector to a final color; invoked
+   *               SAMPLES× per pixel at sub-pixel offsets and averaged.
+   */
   template <int W, int H, int SAMPLES = 1, typename ShaderFn>
   static void draw(Canvas &canvas, ShaderFn &&shader) {
     const auto &cr = canvas.clip();
@@ -597,10 +844,17 @@ struct Shader {
   }
 
   /**
-   * @brief Full-screen per-pixel shader with SAMPLES× SSAA.
-   *
-   * Separates expensive per-pixel work (vertex_shader, called once at pixel
-   * center) from per-sub-sample evaluation (fragment_shader, called SAMPLES×).
+   * @brief Full-screen per-pixel shader with SAMPLES× SSAA and a split
+   *        vertex/fragment shader.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
+   * @param canvas Destination canvas.
+   * @param fragment_shader Per-sub-sample shader, called SAMPLES× per pixel.
+   * @param vertex_shader Per-pixel shader, called once at the pixel center.
+   * @details Separates expensive per-pixel work (vertex_shader, called once at
+   * pixel center) from per-sub-sample evaluation (fragment_shader, called
+   * SAMPLES×).
    */
   template <int W, int H, int SAMPLES = 4>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
@@ -678,37 +932,51 @@ struct Shader {
 };
 
 /**
- * @brief Generic wrapper that places an SDF in world space via a center
- * point and a rotation quaternion. Satisfies the Volume::draw shape concept.
- *
- * The quaternion q maps local→world: world_p = center + rotate(local_p, q)
- * ray_to_local uses q.inverse() to map world→local.
+ * @brief Generic wrapper that places an SDF in world space via a center point
+ *        and a rotation quaternion. Satisfies the Volume::draw shape concept.
+ * @tparam SDF Underlying signed-distance shape type.
+ * @details The quaternion q maps local→world: world_p = center +
+ * rotate(local_p, q). ray_to_local uses q.inverse() to map world→local.
  */
 template <typename SDF> struct TransformedVolume {
-  const SDF &sdf;
-  Vector center;
-  Quaternion q_inv; // precomputed inverse (world→local)
+  const SDF &sdf;     /**< Underlying SDF evaluated in local space. */
+  Vector center;      /**< World-space origin of the local frame. */
+  Quaternion q_inv;   /**< Precomputed inverse rotation (world→local). */
 
+  /**
+   * @brief Constructs the transform from a center and a local→world rotation.
+   * @param sdf Underlying SDF, stored by reference.
+   * @param center World-space origin of the local frame.
+   * @param q Local→world rotation; its inverse is precomputed.
+   */
   TransformedVolume(const SDF &sdf, const Vector &center, const Quaternion &q)
       : sdf(sdf), center(center), q_inv(q.inverse()) {}
 
-  /// Transform ray origin and direction from world space to local space.
+  /**
+   * @brief Transforms a ray origin and direction from world to local space.
+   * @param ro Ray origin in world space.
+   * @param vd Ray direction in world space.
+   * @return Pair of {local origin, local direction}.
+   */
   std::pair<Vector, Vector> ray_to_local(const Vector &ro,
                                          const Vector &vd) const {
     return {rotate(ro - center, q_inv), rotate(vd, q_inv)};
   }
 
-  /// Delegate to the underlying SDF in local space.
+  /**
+   * @brief Evaluates the underlying SDF at a local-space point.
+   * @param local_p Query point in local space.
+   * @return Signed distance to the surface in local units.
+   */
   float distance(const Vector &local_p) const { return sdf.distance(local_p); }
 };
 
 /**
  * @brief Raymarch volume renderer with orthographic projection.
- *
- * The render loop is internal: callers provide a Shape with a
- * `float distance(const Vector&) const` method (evaluated per march step)
- * and a fragment shader (evaluated once per hit to populate Fragment
- * registers for shading).
+ * @details The render loop is internal: callers provide a Shape with a
+ * `float distance(const Vector&) const` method (evaluated per march step) and a
+ * fragment shader (evaluated once per hit to populate Fragment registers for
+ * shading).
  *
  * Coordinate-space contract:
  *   - `view_dir` is the normalized direction all rays travel (camera → scene).
@@ -721,9 +989,22 @@ template <typename SDF> struct TransformedVolume {
  */
 struct Volume {
   /**
-   * Shape concept:
+   * @brief Raymarches and shades a volume shape over its bounding sphere.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Shape Volume shape satisfying the concept below.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param bounds_center Bounding sphere center in physical LED space.
+   * @param bounds_radius Bounding sphere radius in world units.
+   * @param view_dir Normalized ray direction (camera → scene) in LED space.
+   * @param shape Volume shape providing ray_to_local() and distance().
+   * @param frag_fn Fragment shader invoked once per hit.
+   * @param max_steps Maximum sphere-tracing steps per ray.
+   * @param aa_width Anti-aliasing band half-width in world units.
+   * @details Shape concept:
    *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector
-   * &vd) const; float distance(const Vector &local_point) const;
+   *   &vd) const; float distance(const Vector &local_point) const;
    */
   template <int W, int H, typename Shape>
   static void

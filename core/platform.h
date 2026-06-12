@@ -5,37 +5,42 @@
 #pragma once
 
 // Canvas resolution — override per target via -D flags if needed
+/** @brief Canvas width in pixels (override via -DCANVAS_W). */
 #ifndef CANVAS_W
 #define CANVAS_W 288
 #endif
+/** @brief Canvas height in pixels (override via -DCANVAS_H). */
 #ifndef CANVAS_H
 #define CANVAS_H 144
 #endif
 
 // ---------------------------------------------------------------------------
-// HS_CHECK — always-on invariant trap (survives NDEBUG, pulls in no stdio)
-//
-// Unlike assert(), HS_CHECK is NOT stripped by NDEBUG, so it still fires in the
-// optimized device build — where platform.h defines NDEBUG to keep newlib's
-// __assert_func → fprintf out of the image. Use it on COLD paths only
-// (container growth, arena OOM, capacity guards), where an invariant violation
-// is a logic/sizing bug with no valid recovery: trapping at the violation site
-// is strictly better than silently writing out of bounds, and a corrupted
-// arena that ships garbage is the worst outcome. It compiles to a single
-// predicted-not-taken branch — never place it in the per-pixel hot loop.
-//
-// Reserve bounded/soft handling for genuine *transient* conditions (DMA
-// overrun, dropped frame); those are not invariant violations.
-//
-// On failure it logs "HS_CHECK failed: <file>:<line>: (<cond>) <msg>" and
-// flushes the log *before* trapping, so a release/device build leaves a
-// breadcrumb identifying exactly which check fired. The message is an optional
-// printf-style format + args:
-//   HS_CHECK(i < n);
-//   HS_CHECK(i < n, "index out of range");
-//   HS_CHECK(i < n, "i=%d n=%d", i, n);
-// hs::check_fail is defined later in this header; the macro only expands in
-// translation units that include the whole file, so the forward use is fine.
+/**
+ * @brief Always-on invariant trap that survives NDEBUG and pulls in no stdio.
+ * @param cond Condition that must hold; the macro traps when it is false.
+ * @param ... Optional printf-style format string and arguments for the message.
+ * @details Unlike assert(), HS_CHECK is NOT stripped by NDEBUG, so it still
+ *          fires in the optimized device build — where platform.h defines
+ *          NDEBUG to keep newlib's __assert_func -> fprintf out of the image.
+ *          Use it on COLD paths only (container growth, arena OOM, capacity
+ *          guards), where an invariant violation is a logic/sizing bug with no
+ *          valid recovery: trapping at the violation site is strictly better
+ *          than silently writing out of bounds, and a corrupted arena that ships
+ *          garbage is the worst outcome. It compiles to a single
+ *          predicted-not-taken branch — never place it in the per-pixel hot
+ *          loop. Reserve bounded/soft handling for genuine transient conditions
+ *          (DMA overrun, dropped frame); those are not invariant violations.
+ *
+ *          On failure it logs "HS_CHECK failed: <file>:<line>: (<cond>) <msg>"
+ *          and flushes the log before trapping, so a release/device build leaves
+ *          a breadcrumb identifying exactly which check fired. Usage:
+ *            HS_CHECK(i < n);
+ *            HS_CHECK(i < n, "index out of range");
+ *            HS_CHECK(i < n, "i=%d n=%d", i, n);
+ *          hs::check_fail is defined later in this header; the macro only
+ *          expands in translation units that include the whole file, so the
+ *          forward use is fine.
+ */
 #define HS_CHECK(cond, ...)                                                     \
   do {                                                                          \
     if (!(cond))                                                                \
@@ -55,10 +60,12 @@
 
 namespace hs {
 /**
- * @brief On-device logging to Serial: formats into a fixed 256-byte stack
- *        buffer with vsnprintf (no heap), then writes one line. Sized to hold a
- *        full check_fail() breadcrumb ("HS_CHECK failed: file:line: (cond) msg")
- *        without truncating the message tail.
+ * @brief Logs one formatted line to Serial on the device.
+ * @param msg printf-style format string; trailing args supply the values.
+ * @details Formats into a fixed 256-byte stack buffer with vsnprintf (no heap),
+ *          then writes one line. Sized to hold a full check_fail() breadcrumb
+ *          ("HS_CHECK failed: file:line: (cond) msg") without truncating the
+ *          message tail.
  */
 inline void log(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *msg, ...) {
@@ -75,30 +82,38 @@ inline void flush_log() { Serial.flush(); }
 
 /**
  * @brief Returns the global deterministic random number generator.
+ * @return Reference to the process-wide mt19937 seeded with 1337.
+ * @details DETERMINISM CONTRACT: this `mt19937(1337)` is the only RNG that is
+ *          bit-identical device-vs-simulator — the host build (see the `#else`
+ *          branch below) returns the same seeded `mt19937`. Effects that must
+ *          render identically on hardware and in the byte-deterministic
+ *          simulator therefore draw through this generator: `hs::random()`,
+ *          `hs::rand_f`, `hs::rand_int`.
  *
- * DETERMINISM CONTRACT: this `mt19937(1337)` is the *only* RNG that is
- * bit-identical device-vs-simulator — the host build (see the `#else` branch
- * below) returns the same seeded `mt19937`. Effects that must render
- * identically on hardware and in the byte-deterministic simulator therefore
- * draw through this generator: `hs::random()`, `hs::rand_f`, `hs::rand_int`.
- *
- * The bare FastLED `random8()`/`random16()`/Arduino `random()` are NOT covered
- * by this contract: on device they resolve to FastLED's LCG (seeded by
- * `randomSeed(1337)` in pov_single.h), but the host mocks route them through
- * this `mt19937` — a *different* algorithm, so the two diverge. Only legacy
- * effects (`effects_legacy.h`) use that path; modern effects must not, and the
- * cheap LCG is deliberately not adopted on the hot path because it would break
- * this contract for no measurable gain (RNG is spawn/setup-time, never
- * per-pixel). A future per-pixel RNG need should add a fast *deterministic*
- * PRNG here (xorshift/PCG), not reach for the platform LCG.
+ *          The bare FastLED `random8()`/`random16()`/Arduino `random()` are NOT
+ *          covered by this contract: on device they resolve to FastLED's LCG
+ *          (seeded by `randomSeed(1337)` in pov_single.h), but the host mocks
+ *          route them through this `mt19937` — a different algorithm, so the two
+ *          diverge. Only legacy effects (`effects_legacy.h`) use that path;
+ *          modern effects must not, and the cheap LCG is deliberately not
+ *          adopted on the hot path because it would break this contract for no
+ *          measurable gain (RNG is spawn/setup-time, never per-pixel). A future
+ *          per-pixel RNG need should add a fast deterministic PRNG here
+ *          (xorshift/PCG), not reach for the platform LCG.
  */
 inline std::mt19937& random() {
   static std::mt19937 gen(1337);
   return gen;
 }
-/** @brief Wrapped millis() for namespace consistency. */
+/**
+ * @brief Wrapped millis() for namespace consistency.
+ * @return Milliseconds since boot from the Arduino runtime.
+ */
 inline unsigned long millis() { return ::millis(); }
-/** @brief Wrapped micros() for namespace consistency. */
+/**
+ * @brief Wrapped micros() for namespace consistency.
+ * @return Microseconds since boot from the Arduino runtime.
+ */
 inline unsigned long micros() { return ::micros(); }
 /** @brief Disables interrupts (Arduino). */
 inline void disable_interrupts() { noInterrupts(); }
@@ -106,6 +121,7 @@ inline void disable_interrupts() { noInterrupts(); }
 inline void enable_interrupts() { interrupts(); }
 
 // Global state
+/** @brief Global debug-logging toggle. */
 inline bool debug = false;
 // rand_f/rand_int and ScanMetrics are platform-agnostic — defined once in the
 // shared hs namespace after the #endif below.
@@ -116,17 +132,19 @@ inline bool debug = false;
 #define HS_OS_CYCLES() 0
 #endif
 
-// Virtual rows appended below the physical LED ring. The latitude mapping is
-// phi = y * PI / (H + H_OFFSET - 1), so the bottom physical row y = H-1 lands
-// SHORT of PI: the image is clipped (not stretched) where the LEDs stop short
-// of the south pole. The device has 3 such virtual rows. The host/sim build
-// deliberately sets H_OFFSET = 0 (see the other definition in the non-Arduino
-// branch below), so the simulator maps the full sphere and does NOT reproduce
-// this bottom clipping — an intentional device/host divergence. Because the
-// native build cannot observe a non-zero offset, the regression tests inject
-// the hardware value explicitly (see tests/test_geometry.h). Callers pass H
-// (not H + H_OFFSET) to y_to_phi<H>(), which adds the offset internally;
-// double-applying it is the bug that test guards against.
+/**
+ * @brief Virtual rows appended below the physical LED ring (device value 3).
+ * @details The latitude mapping is phi = y * PI / (H + H_OFFSET - 1), so the
+ *          bottom physical row y = H-1 lands short of PI: the image is clipped
+ *          (not stretched) where the LEDs stop short of the south pole. The
+ *          host/sim build deliberately sets H_OFFSET = 0 (see the other
+ *          definition in the non-Arduino branch below), so the simulator maps
+ *          the full sphere and does not reproduce this bottom clipping — an
+ *          intentional device/host divergence. Because the native build cannot
+ *          observe a non-zero offset, the regression tests inject the hardware
+ *          value explicitly (see tests/test_geometry.h). Callers pass H (not
+ *          H + H_OFFSET) to y_to_phi<H>(), which adds the offset internally.
+ */
 static constexpr int H_OFFSET = 3;
 } // namespace hs
 
@@ -174,42 +192,82 @@ static constexpr int H_OFFSET = 3;
 // The single predicted-not-taken branch lives only in millis/micros, which are
 // per-frame calls — never the per-pixel hot loop.
 namespace hs {
-inline bool use_mock_time = false;
-inline unsigned long mock_millis_value = 0;
-inline unsigned long mock_micros_value = 0;
+inline bool use_mock_time = false;        /**< When true, millis/micros return mock values. */
+inline unsigned long mock_millis_value = 0; /**< Pinned millisecond time when mocking. */
+inline unsigned long mock_micros_value = 0; /**< Pinned microsecond time when mocking. */
+/**
+ * @brief Pins time to a fixed value for deterministic tests.
+ * @param ms Millisecond value millis() should return.
+ * @param us Microsecond value micros() should return.
+ */
 inline void set_mock_time(unsigned long ms, unsigned long us) {
   use_mock_time = true;
   mock_millis_value = ms;
   mock_micros_value = us;
 }
+/** @brief Restores the real wall clock after set_mock_time(). */
 inline void clear_mock_time() { use_mock_time = false; }
-inline unsigned long millis(); // defined below; beatsin* route through it
+/**
+ * @brief Returns milliseconds since an arbitrary epoch (defined below).
+ * @return Monotonic millisecond count; the beat/beatsin helpers route through it.
+ */
+inline unsigned long millis(); // defined below
 } // namespace hs
 
 /**
- * @brief HSV Color structure for non-Arduino platforms.
+ * @brief HSV color structure for non-Arduino platforms.
+ * @details Mirrors FastLED's CHSV so host effects compile unchanged.
  */
 struct CHSV {
+  /** @brief Hue, saturation and value, each in [0, 255]. */
   uint8_t h, s, v;
+  /**
+   * @brief Constructs a zero-initialised (black) color.
+   */
   constexpr CHSV() : h(0), s(0), v(0) {}
+  /**
+   * @brief Constructs a color from explicit hue, saturation and value.
+   * @param h Hue in [0, 255].
+   * @param s Saturation in [0, 255].
+   * @param v Value/brightness in [0, 255].
+   */
   constexpr CHSV(uint8_t h, uint8_t s, uint8_t v) : h(h), s(s), v(v) {}
 };
 
 // --- Mock FastLED Types ---
 /**
- * @brief RGB Color structure mimicking FastLED's CRGB.
+ * @brief RGB color structure mimicking FastLED's CRGB.
+ * @details Reproduces FastLED's constructors, operators and helpers so host
+ *          effects compile and behave identically to the device.
  */
 struct CRGB {
+  /** @brief Red, green and blue channels, each in [0, 255]. */
   uint8_t r, g, b;
+  /**
+   * @brief Constructs a zero-initialised (black) color.
+   */
   constexpr CRGB() : r(0), g(0), b(0) {}
+  /**
+   * @brief Constructs a color from explicit channel values.
+   * @param r Red channel in [0, 255].
+   * @param g Green channel in [0, 255].
+   * @param b Blue channel in [0, 255].
+   */
   constexpr CRGB(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
-  // FastLED's single-argument constructor is CRGB(uint32_t colorcode), decoding
-  // 0xRRGGBB — a packed color, not a grayscale fill.
+  /**
+   * @brief Constructs a color from a packed 0xRRGGBB code.
+   * @param colorcode Packed color; the low 24 bits decode as red, green, blue.
+   *        This is a packed color, not a grayscale fill.
+   */
   constexpr CRGB(uint32_t colorcode)
       : r((colorcode >> 16) & 0xFF), g((colorcode >> 8) & 0xFF),
         b(colorcode & 0xFF) {}
 
-  // Convert HSV to RGB (Basic implementation)
+  /**
+   * @brief Constructs an RGB color by converting from HSV.
+   * @param hsv Source color in HSV space.
+   * @details Basic integer HSV-to-RGB conversion over six hue sectors.
+   */
   constexpr CRGB(const CHSV &hsv) {
     unsigned char region, remainder, p, q, t;
 
@@ -261,21 +319,39 @@ struct CRGB {
     }
   }
 
-  // Operators
+  /**
+   * @brief Tests two colors for exact channel equality.
+   * @param rhs Color to compare against.
+   * @return true if all three channels match.
+   */
   bool operator==(const CRGB &rhs) const {
     return r == rhs.r && g == rhs.g && b == rhs.b;
   }
+  /**
+   * @brief Tests two colors for channel inequality.
+   * @param rhs Color to compare against.
+   * @return true if any channel differs.
+   */
   bool operator!=(const CRGB &rhs) const { return !(*this == rhs); }
 
+  /**
+   * @brief Adds another color into this one with per-channel saturation.
+   * @param rhs Color to add; each channel clamps to [0, 255].
+   * @return Reference to this color after the saturated add.
+   */
   CRGB &operator+=(const CRGB &rhs) {
-    // Saturated add
     r = (r + rhs.r > 255) ? 255 : r + rhs.r;
     g = (g + rhs.g > 255) ? 255 : g + rhs.g;
     b = (b + rhs.b > 255) ? 255 : b + rhs.b;
     return *this;
   }
 
-  // Methods matching FastLED
+  /**
+   * @brief Linearly interpolates toward another color (FastLED lerp16).
+   * @param other Target color at frac == 65535.
+   * @param frac Interpolation fraction in [0, 65535], where 0 yields *this.
+   * @return The interpolated color.
+   */
   CRGB lerp16(const CRGB &other, uint16_t frac) const {
     CRGB ret;
     // frac is 0..65535
@@ -293,7 +369,12 @@ struct CRGB {
 };
 
 // --- Mock FastLED Functions ---
-// qadd8: saturated addition for 8-bit integers
+/**
+ * @brief Saturated 8-bit addition (FastLED qadd8).
+ * @param i First addend in [0, 255].
+ * @param j Second addend in [0, 255].
+ * @return i + j clamped to a maximum of 255.
+ */
 inline uint8_t qadd8(uint8_t i, uint8_t j) {
   int t = i + j;
   if (t > 255)
@@ -301,7 +382,12 @@ inline uint8_t qadd8(uint8_t i, uint8_t j) {
   return t;
 }
 
-// qsub8: saturated subtraction
+/**
+ * @brief Saturated 8-bit subtraction (FastLED qsub8).
+ * @param i Minuend in [0, 255].
+ * @param j Subtrahend in [0, 255].
+ * @return i - j clamped to a minimum of 0.
+ */
 inline uint8_t qsub8(uint8_t i, uint8_t j) {
   int t = i - j;
   if (t < 0)
@@ -314,6 +400,10 @@ inline uint8_t qsub8(uint8_t i, uint8_t j) {
 #endif
 
 namespace hs {
+/**
+ * @brief Logs one formatted line to stdout on the host.
+ * @param fmt printf-style format string; trailing args supply the values.
+ */
 inline void log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *fmt, ...) {
   va_list args;
@@ -328,10 +418,11 @@ inline void flush_log() { fflush(stdout); }
 
 /**
  * @brief Returns the global deterministic random number generator.
- *
- * Mirrors the device `mt19937(1337)` so that `hs::random()`/`hs::rand_*`
- * reproduce hardware bit-for-bit — see the determinism contract on the ARDUINO
- * branch's `hs::random()` for which paths are (and are not) covered.
+ * @return Reference to the process-wide mt19937 seeded with 1337.
+ * @details Mirrors the device `mt19937(1337)` so that `hs::random()`/`hs::rand_*`
+ *          reproduce hardware bit-for-bit — see the determinism contract on the
+ *          ARDUINO branch's `hs::random()` for which paths are (and are not)
+ *          covered.
  */
 inline std::mt19937& random() {
   static std::mt19937 gen(1337);
@@ -340,10 +431,13 @@ inline std::mt19937& random() {
 } // namespace hs
 
 // --- Mock Arduino Constants/Types ---
+/** @brief Arduino-style alias for an unsigned 8-bit byte. */
 using byte = uint8_t;
+/** @brief Arduino-style alias for a boolean. */
 using boolean = bool;
 
 // --- Mock FastLED Constants ---
+/** @brief Mock FastLED color/temperature correction selectors. */
 enum FastLEDCheck {
   UncorrectedColor,
   TypicalLEDStrip,
@@ -352,20 +446,48 @@ enum FastLEDCheck {
 };
 
 /**
- * @brief Mock implementation of FastLED controller for simulation.
+ * @brief Mock implementation of the FastLED controller for simulation.
+ * @details Every method is a no-op; the simulator renders into its own
+ *          framebuffer rather than driving real LEDs.
  */
 struct FastLEDMock {
+  /**
+   * @brief Sets the color-correction profile (no-op on host).
+   * @param i Correction selector; ignored.
+   */
   void setCorrection(int) {}
+  /**
+   * @brief Sets the color-temperature profile (no-op on host).
+   * @param i Temperature selector; ignored.
+   */
   void setTemperature(int) {}
+  /**
+   * @brief Registers an LED strip (no-op on host).
+   * @tparam T LED chipset type.
+   * @tparam P1 First chipset template parameter.
+   * @tparam P2 Second chipset template parameter.
+   * @tparam P3 Third chipset template parameter.
+   * @tparam P4 Fourth chipset template parameter.
+   * @param leds Pointer to the LED array; ignored.
+   * @param count Number of LEDs; ignored.
+   */
   template <typename T, int P1, int P2, int P3, int P4>
   void addLeds(CRGB *, int) {}
+  /**
+   * @brief Pushes the framebuffer to the strip (no-op on host).
+   */
   void show() {}
+  /**
+   * @brief Fills the whole strip with a single color (no-op on host).
+   * @param c Fill color; ignored.
+   */
   void showColor(const CRGB &) {}
 };
 inline FastLEDMock FastLED;
 
-// Helper for addLeds template args
+/** @brief Mock LED chipset selector for addLeds template arguments. */
 enum LEDType { WS2801 };
+/** @brief Mock LED color-order selector for addLeds template arguments. */
 enum ColorOrder { RGB };
 #define DATA_RATE_MHZ(x) x
 
@@ -373,41 +495,101 @@ enum ColorOrder { RGB };
 // These are deliberately at global scope to mirror Arduino/FastLED, which
 // expose random()/map() as free globals; unqualified callers (e.g. the legacy
 // effects) must resolve identically on host and device.
-// Degenerate-range guards mirror map() below: Arduino's random() returns 0 for
-// random(0) and `min` for random(min,max) when min>=max, so the device never
-// divides by zero. The host modulo would SIGFPE on a zero divisor — match the
-// device instead of crashing only in the simulator.
+/**
+ * @brief Returns a pseudo-random integer in [0, max) (Arduino random()).
+ * @param max Exclusive upper bound.
+ * @return A value in [0, max), or 0 when max <= 0.
+ * @details Guards a degenerate range like the device: Arduino's random(0)
+ *          returns 0, so the host avoids a modulo-by-zero SIGFPE and matches.
+ */
 inline int random(int max) {
   if (max <= 0) return 0;
   return hs::random()() % max;
 }
+/**
+ * @brief Returns a pseudo-random integer in [min, max) (Arduino random()).
+ * @param min Inclusive lower bound.
+ * @param max Exclusive upper bound.
+ * @return A value in [min, max), or min when max <= min.
+ * @details Mirrors the device: random(min, max) with min >= max returns min,
+ *          so the host avoids a modulo-by-zero SIGFPE.
+ */
 inline int random(int min, int max) {
   if (max <= min) return min;
   return min + (hs::random()() % (max - min));
 }
+/**
+ * @brief Re-maps a value from one integer range to another (Arduino map()).
+ * @param x Value to map.
+ * @param in_min Lower bound of the input range.
+ * @param in_max Upper bound of the input range.
+ * @param out_min Lower bound of the output range.
+ * @param out_max Upper bound of the output range.
+ * @return x scaled from [in_min, in_max] onto [out_min, out_max]; out_min when
+ *         the input range is degenerate (in_max == in_min).
+ * @details Arduino's map() divides by (in_max - in_min) with no guard. A
+ *          degenerate input range raises SIGFPE on the host (x86 integer
+ *          div-by-zero) while the Cortex-M7 device returns 0 from the divide
+ *          (SDIV-by-zero traps are off), so map() there yields out_min. Match
+ *          the device rather than crashing only in the simulator.
+ */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  // Arduino's map() divides by (in_max - in_min) with no guard. A degenerate
-  // input range raises SIGFPE on the host (x86 integer div-by-zero) while the
-  // Cortex-M7 device returns 0 from the divide (SDIV-by-zero traps are off), so
-  // map() there yields out_min. Match the device — return out_min — rather than
-  // crashing only in the simulator.
   if (in_max == in_min) return out_min;
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 // --- System Mock ---
+/**
+ * @brief Mock of Arduino's Serial that writes to std::cout on the host.
+ */
 struct SerialMock {
+  /**
+   * @brief Initialises the port (no-op on host).
+   * @param baud Baud rate; ignored.
+   */
   void begin(int) {}
+  /**
+   * @brief Writes a C string without a trailing newline.
+   * @param msg Text to write.
+   */
   void print(const char *msg) { std::cout << msg; }
+  /**
+   * @brief Writes a signed integer without a trailing newline.
+   * @param val Value to write.
+   */
   void print(int val) { std::cout << val; }
+  /**
+   * @brief Writes an unsigned long without a trailing newline.
+   * @param val Value to write.
+   */
   void print(unsigned long val) { std::cout << val; }
+  /**
+   * @brief Writes a float without a trailing newline.
+   * @param val Value to write.
+   */
   void print(float val) { std::cout << val; }
+  /**
+   * @brief Writes a C string followed by a newline.
+   * @param msg Text to write.
+   */
   void println(const char *msg) { std::cout << msg << std::endl; }
+  /**
+   * @brief Writes a signed integer followed by a newline.
+   * @param val Value to write.
+   */
   void println(int val) { std::cout << val << std::endl; }
+  /**
+   * @brief Writes an unsigned long followed by a newline.
+   * @param val Value to write.
+   */
   void println(unsigned long val) { std::cout << val << std::endl; }
+  /**
+   * @brief Formats and writes a printf-style message (Arduino Serial.printf).
+   * @param fmt printf-style format string.
+   * @details Expands into a fixed 256-byte stack buffer (no heap) and emits,
+   *          mirroring hs::log's vsnprintf path.
+   */
   void printf(const char *fmt, ...) {
-    // Match Arduino's Serial.printf: expand the format into a stack buffer (no
-    // heap) and emit, mirroring hs::log's vsnprintf path.
     char buf[256];
     va_list args;
     va_start(args, fmt);
@@ -424,14 +606,32 @@ inline SerialMock Serial;
 // are FastLED's LCG. This path is therefore per-platform and used only by
 // legacy effects; modern effects use hs::rand_* (see the determinism contract
 // on the ARDUINO branch's hs::random()).
+/**
+ * @brief Returns a pseudo-random 8-bit value (FastLED random8).
+ * @return A value in [0, 255].
+ */
 inline uint8_t random8() { return hs::random()() % 256; }
-// FastLED's random8(lim) is a scaled multiply ((r*lim)>>8), so random8(0)==0 on
-// the device; the host modulo would SIGFPE. Guard to match (not crash).
+/**
+ * @brief Returns a pseudo-random 8-bit value below a limit (FastLED random8).
+ * @param top Exclusive upper bound.
+ * @return A value in [0, top), or 0 when top == 0.
+ * @details FastLED's random8(lim) is a scaled multiply ((r*lim)>>8), so
+ *          random8(0)==0 on the device; the host modulo would SIGFPE, so guard
+ *          to match rather than crash.
+ */
 inline uint8_t random8(uint8_t top) {
   if (top == 0) return 0;
   return hs::random()() % top;
 }
+/**
+ * @brief Returns a pseudo-random 16-bit value (FastLED random16).
+ * @return A value in [0, 65535].
+ */
 inline uint16_t random16() { return hs::random()() % 65536; }
+/**
+ * @brief Mixes additional entropy into the RNG (no-op on host).
+ * @param entropy Entropy to mix in; ignored.
+ */
 inline void random16_add_entropy(uint16_t) {}
 
 // FastLED fixed-point sine + scaling primitives. The device build pulls these
@@ -440,21 +640,35 @@ inline void random16_add_entropy(uint16_t) {}
 // device instead of approximating it with a smooth float sine of a different
 // shape, phase convention, and parameter order.
 
-// scale8(i, sc) = i * (1 + sc) / 256 — FastLED's unsigned 8-bit fractional
-// scale. The (1 + sc) is FastLED's SCALE8_FIXED form (default in modern
-// releases): it makes scale8(x, 255) == x, so a full-scale fade is the
-// identity. The device pulls the FIXED variant from <FastLED.h>; matching it
-// here keeps the simulator bit-exact rather than 1 LSB low on every fade.
+/**
+ * @brief Unsigned 8-bit fractional scale, scale8(i, sc) = i * (1 + sc) / 256.
+ * @param i Value to scale, in [0, 255].
+ * @param sc Scale factor, in [0, 255].
+ * @return i scaled by sc/256 in the SCALE8_FIXED sense, in [0, 255].
+ * @details The (1 + sc) is FastLED's SCALE8_FIXED form (default in modern
+ *          releases): it makes scale8(x, 255) == x, so a full-scale fade is the
+ *          identity. The device pulls the FIXED variant from <FastLED.h>;
+ *          matching it here keeps the simulator bit-exact rather than 1 LSB low
+ *          on every fade.
+ */
 inline uint8_t scale8(uint8_t i, uint8_t sc) {
   return (static_cast<uint16_t>(i) * (1 + static_cast<uint16_t>(sc))) >> 8;
 }
-// scale16(i, sc) = i * (1 + sc) / 65536 — the 16-bit SCALE8_FIXED counterpart.
+/**
+ * @brief 16-bit SCALE8_FIXED counterpart, scale16(i, sc) = i * (1 + sc) / 65536.
+ * @param i Value to scale, in [0, 65535].
+ * @param sc Scale factor, in [0, 65535].
+ * @return i scaled by sc/65536 in the SCALE8_FIXED sense, in [0, 65535].
+ */
 inline uint16_t scale16(uint16_t i, uint16_t sc) {
   return (static_cast<uint32_t>(i) * (1 + static_cast<uint32_t>(sc))) >> 16;
 }
 
-// sin8: FastLED's 8-bit LUT sine (sin8_C); 0..255 output centred on 128, so
-// sin8(0)=128 and sin8(64)=255. Bit-exact with the device.
+/**
+ * @brief FastLED's 8-bit LUT sine (sin8_C), bit-exact with the device.
+ * @param theta Phase in [0, 255], one full turn.
+ * @return Sine in [0, 255] centred on 128 (sin8(0)==128, sin8(64)==255).
+ */
 inline uint8_t sin8(uint8_t theta) {
   static const uint8_t b_m16_interleave[] = {0, 49, 49, 41, 90, 27, 117, 10};
   uint8_t offset = theta;
@@ -472,7 +686,11 @@ inline uint8_t sin8(uint8_t theta) {
   return static_cast<uint8_t>(y + 128);
 }
 
-// sin16: FastLED's 16-bit LUT sine (sin16_C); signed, -32767..32767.
+/**
+ * @brief FastLED's 16-bit LUT sine (sin16_C), bit-exact with the device.
+ * @param theta Phase in [0, 65535], one full turn.
+ * @return Signed sine in [-32767, 32767].
+ */
 inline int16_t sin16(uint16_t theta) {
   static const uint16_t base[] = {0,     6393,  12539, 18204,
                                   23170, 27245, 30273, 32137};
@@ -488,24 +706,47 @@ inline int16_t sin16(uint16_t theta) {
   return y;
 }
 
-// beat88/16/8: a free-running 16-bit sawtooth phase at the given BPM, sourced
-// from hs::millis() so the test time-injection seam keeps beats deterministic.
-// The * 280 constant is FastLED's (≈ 65536 * 1000 / 60000) ms→phase scale.
+/**
+ * @brief Free-running 16-bit sawtooth phase at the given 8.8 fixed-point BPM.
+ * @param bpm88 Tempo as an 8.8 fixed-point beats-per-minute value.
+ * @param timebase Millisecond offset for the zero of time.
+ * @return The current phase in [0, 65535].
+ * @details Sourced from hs::millis() so the test time-injection seam keeps
+ *          beats deterministic. The * 280 constant is FastLED's
+ *          (≈ 65536 * 1000 / 60000) ms→phase scale.
+ */
 inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
   return ((hs::millis() - timebase) * bpm88 * 280) >> 16;
 }
+/**
+ * @brief Free-running 16-bit sawtooth phase at the given whole BPM.
+ * @param bpm Tempo in beats per minute.
+ * @param timebase Millisecond offset for the zero of time.
+ * @return The current phase in [0, 65535].
+ */
 inline uint16_t beat16(uint16_t bpm, uint32_t timebase = 0) {
   return beat88(static_cast<uint16_t>(bpm << 8), timebase);
 }
+/**
+ * @brief Free-running 8-bit sawtooth phase at the given whole BPM.
+ * @param bpm Tempo in beats per minute.
+ * @param timebase Millisecond offset for the zero of time.
+ * @return The current phase in [0, 255].
+ */
 inline uint8_t beat8(uint16_t bpm, uint32_t timebase = 0) {
   return beat16(bpm, timebase) >> 8;
 }
 
 /**
- * @brief FastLED-faithful beatsin8: a sin8 oscillation between lowest and
- * highest at the given BPM. `timebase` shifts the zero of time; `phase_offset`
- * shifts the wave — the parameter order and LUT match <FastLED.h>, and the
- * scale8 range fit keeps the result within [lowest, highest].
+ * @brief FastLED-faithful beatsin8: a sin8 oscillation at the given BPM.
+ * @param bpm Tempo in beats per minute.
+ * @param lowest Lower bound of the output, in [0, 255].
+ * @param highest Upper bound of the output, in [0, 255].
+ * @param timebase Millisecond offset for the zero of time.
+ * @param phase_offset Phase shift added to the wave, in [0, 255].
+ * @return An 8-bit value oscillating within [lowest, highest].
+ * @details The parameter order and LUT match <FastLED.h>, and the scale8 range
+ *          fit keeps the result within [lowest, highest].
  */
 inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
                         uint32_t timebase = 0, uint8_t phase_offset = 0) {
@@ -515,6 +756,12 @@ inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
 
 /**
  * @brief FastLED-faithful beatsin16: the 16-bit counterpart (sin16 + scale16).
+ * @param bpm Tempo in beats per minute.
+ * @param lowest Lower bound of the output, in [0, 65535].
+ * @param highest Upper bound of the output, in [0, 65535].
+ * @param timebase Millisecond offset for the zero of time.
+ * @param phase_offset Phase shift added to the wave, in [0, 65535].
+ * @return A 16-bit value oscillating within [lowest, highest].
  */
 inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
                           uint16_t highest = 65535, uint32_t timebase = 0,
@@ -524,16 +771,32 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
   return lowest + scale16(s, highest - lowest);
 }
 
-// FastLED addmod8: (a + b) mod m.
+/**
+ * @brief Modular 8-bit addition (FastLED addmod8).
+ * @param a First addend.
+ * @param b Second addend.
+ * @param m Modulus.
+ * @return (a + b) mod m.
+ */
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) { return (a + b) % m; }
 
-// FastLED map8(in, rangeStart, rangeEnd): maps the full 0..255 input onto
-// [rangeStart, rangeEnd] via scale8 — not a remap of an arbitrary input range.
+/**
+ * @brief Maps the full 0..255 input onto [rangeStart, rangeEnd] (FastLED map8).
+ * @param in Input value in [0, 255].
+ * @param rangeStart Lower bound of the output range.
+ * @param rangeEnd Upper bound of the output range.
+ * @return in scaled via scale8 onto [rangeStart, rangeEnd].
+ * @details Maps the fixed 0..255 input, not a remap of an arbitrary input range.
+ */
 inline uint8_t map8(uint8_t in, uint8_t rangeStart, uint8_t rangeEnd) {
   return rangeStart + scale8(in, rangeEnd - rangeStart);
 }
 
-// FastLED triwave8: 0..255 input to a symmetric triangle wave (0->0, 128->254).
+/**
+ * @brief Symmetric triangle wave over an 8-bit input (FastLED triwave8).
+ * @param in Input value in [0, 255].
+ * @return A triangle wave value (0->0, 128->254).
+ */
 inline uint8_t triwave8(uint8_t in) {
   if (in & 0x80) {
     in = 255 - in;
@@ -543,59 +806,101 @@ inline uint8_t triwave8(uint8_t in) {
 
 #define FASTRUN
 
-// Mock EVERY_N_MILLIS using a simple static checker
+// Mock EVERY_N_MILLIS using a simple static checker.
+// Two-level macro for proper __LINE__ token pasting.
 /**
- * @brief Macro to execute a block of code periodically.
- * @param N Interval in milliseconds.
+ * @brief Pastes two tokens after expanding them (inner stage).
+ * @param a Left token.
+ * @param b Right token.
  */
-// Two-level macro for proper __LINE__ token pasting
 #define HS_CONCAT_(a, b) a##b
+/**
+ * @brief Pastes two tokens, expanding macros such as __LINE__ first.
+ * @param a Left token.
+ * @param b Right token.
+ */
 #define HS_CONCAT(a, b) HS_CONCAT_(a, b)
 
+/**
+ * @brief Executes the guarded block at most once every N milliseconds.
+ * @param N Interval in milliseconds.
+ */
 #define EVERY_N_MILLIS(N)                                                      \
   static unsigned long HS_CONCAT(__last_, __LINE__) = 0;                       \
   unsigned long HS_CONCAT(__now_, __LINE__) = hs::millis();                     \
   if (HS_CONCAT(__now_, __LINE__) - HS_CONCAT(__last_, __LINE__) >= (N) &&      \
       (HS_CONCAT(__last_, __LINE__) = HS_CONCAT(__now_, __LINE__)))
 
+/**
+ * @brief Executes the guarded block at most once every N seconds.
+ * @param N Interval in seconds.
+ */
 #define EVERY_N_SECONDS(N) EVERY_N_MILLIS((N) * 1000)
+/**
+ * @brief Executes the guarded block at most once every N milliseconds (alias).
+ * @param N Interval in milliseconds.
+ */
 #define EVERY_N_MILLISECONDS(N) EVERY_N_MILLIS(N)
 
 namespace hs {
+/**
+ * @brief Returns milliseconds since an arbitrary epoch (host millis()).
+ * @return Monotonic millisecond count, or the injected mock time when enabled.
+ * @details Uses steady_clock (monotonic), matching micros(): a wall-clock
+ *          source would let an NTP step or manual clock change make millis()
+ *          jump or go backward, so the unsigned `now - last` in EVERY_N_MILLIS
+ *          wraps huge and the beat/beatsin phases jump. The device millis() is
+ *          monotonic; the simulator must match.
+ */
 inline unsigned long millis() {
   if (use_mock_time) return mock_millis_value;
   using namespace std::chrono;
-  // steady_clock (monotonic), matching micros(): a wall-clock source would let
-  // an NTP step or manual clock change make millis() jump or go backward, so the
-  // unsigned `now - last` in EVERY_N_MILLIS wraps huge and beat*/beatsin* phases
-  // jump. The device millis() is monotonic; the simulator must match.
   return duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
       .count();
 }
+/**
+ * @brief Returns microseconds since an arbitrary epoch (host micros()).
+ * @return Monotonic microsecond count, or the injected mock time when enabled.
+ */
 inline unsigned long micros() {
   if (use_mock_time) return mock_micros_value;
   using namespace std::chrono;
   return (unsigned long)duration_cast<microseconds>(
       steady_clock::now().time_since_epoch()).count();
 }
+/** @brief Disables interrupts (no-op on host). */
 inline void disable_interrupts() {}
+/** @brief Enables interrupts (no-op on host). */
 inline void enable_interrupts() {}
 
 // Global state
+/** @brief Global debug-logging toggle. */
 inline bool debug = false;
 // rand_f/rand_int and ScanMetrics are platform-agnostic — defined once in the
 // shared hs namespace after the #endif below.
 #define HS_OS_CYCLES() 0
 
-// 0 on the host/sim build: the simulator has no physical LED ring to clip
-// against, so it maps the full sphere. This intentionally diverges from the
-// device's H_OFFSET = 3 (see the CORE_TEENSY definition above for the full
-// rationale), so vertical sphere coverage is NOT bit-identical to hardware.
+/**
+ * @brief Virtual rows appended below the physical LED ring; 0 on host/sim.
+ * @details The simulator has no physical LED ring to clip against, so it maps
+ *          the full sphere. This intentionally diverges from the device's
+ *          H_OFFSET = 3 (see the CORE_TEENSY definition above for the full
+ *          rationale), so vertical sphere coverage is not bit-identical to
+ *          hardware.
+ */
 static constexpr int H_OFFSET = 0;
 } // namespace hs
 
 // Global millis/micros if needed, though prefer namespaced
+/**
+ * @brief Global millis() alias forwarding to hs::millis().
+ * @return Monotonic millisecond count.
+ */
 inline unsigned long millis() { return hs::millis(); }
+/**
+ * @brief Global micros() alias forwarding to hs::micros().
+ * @return Monotonic microsecond count.
+ */
 inline unsigned long micros() { return hs::micros(); }
 
 #endif
@@ -606,13 +911,19 @@ inline unsigned long micros() { return hs::micros(); }
 // ---------------------------------------------------------------------------
 namespace hs {
 
-// Maps a raw RNG draw in [0, max] onto the half-open unit interval [0.0, 1.0).
-// The naive value/max can land on exactly 1.0f for the top band of draws (both
-// operands round to 2^32 in float), so (int)(u * N) would occasionally index N —
-// one past the end. Clamp only those top draws to the float just below 1.0f; no
-// float is representable between that constant and 1.0f, so every other draw is
-// byte-for-byte unchanged and the stream stays deterministic. Pure so the
-// boundary is unit-testable without driving the global RNG to its (rare) max.
+/**
+ * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
+ * @param value Raw RNG draw, in [0, max].
+ * @param max Maximum possible draw value.
+ * @return A float in [0.0, 1.0), clamped just below 1.0f at the top band.
+ * @details The naive value/max can land on exactly 1.0f for the top band of
+ *          draws (both operands round to 2^32 in float), so (int)(u * N) would
+ *          occasionally index N — one past the end. Clamp only those top draws
+ *          to the float just below 1.0f; no float is representable between that
+ *          constant and 1.0f, so every other draw is byte-for-byte unchanged and
+ *          the stream stays deterministic. Pure so the boundary is unit-testable
+ *          without driving the global RNG to its (rare) max.
+ */
 inline float random_to_unit(uint32_t value, uint32_t max) {
   float r = static_cast<float>(value) / static_cast<float>(max);
   constexpr float kJustBelowOne = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
@@ -628,7 +939,12 @@ inline float rand_f() {
                         static_cast<uint32_t>(hs::random().max()));
 }
 
-/** @brief Pseudo-random float in [min, max). */
+/**
+ * @brief Generates a pseudo-random float in [min, max).
+ * @param min Lower bound (inclusive).
+ * @param max Upper bound (exclusive).
+ * @return A random float in the half-open range [min, max).
+ */
 inline float rand_f(float min, float max) {
   return min + rand_f() * (max - min);
 }
@@ -647,10 +963,15 @@ inline int rand_int(int min, int max) {
 }
 
 /**
- * @brief Backing routine for HS_CHECK: logs a located breadcrumb and flushes
- *        the log before trapping, so a release/device build records which
- *        invariant fired and where. Formats msg into a fixed stack buffer (no
- *        heap) so it is safe to call from a corrupted-arena / OOM context.
+ * @brief Backing routine for HS_CHECK: logs a located breadcrumb then traps.
+ * @param file Source file of the failed check (typically __FILE__).
+ * @param line Source line of the failed check (typically __LINE__).
+ * @param cond Stringified failed condition.
+ * @param fmt printf-style message format; trailing args supply the values.
+ * @details Flushes the log before trapping, so a release/device build records
+ *          which invariant fired and where. Formats msg into a fixed stack
+ *          buffer (no heap) so it is safe to call from a corrupted-arena / OOM
+ *          context. Never returns.
  */
 [[noreturn]] inline void check_fail(const char *file, int line,
                                     const char *cond, const char *fmt, ...)
@@ -686,18 +1007,20 @@ inline int rand_int(int min, int max) {
 
 /** @brief Scanline profiling counters (platform-agnostic). */
 struct ScanMetrics {
-  uint32_t plot = 0;
-  uint32_t sdf_dist = 0;
-  uint32_t frag_shader = 0;
-  uint32_t bounds = 0;
-  uint32_t face_setup = 0;
-  uint32_t scan_loop = 0;
-  uint32_t pixels_tested = 0;
-  uint32_t pixels_culled = 0;
-  uint32_t lut_hits = 0;
-  uint32_t exact_hits = 0;
+  uint32_t plot = 0;          /**< Cycles spent plotting pixels. */
+  uint32_t sdf_dist = 0;      /**< Cycles spent evaluating SDF distances. */
+  uint32_t frag_shader = 0;   /**< Cycles spent in the fragment shader. */
+  uint32_t bounds = 0;        /**< Cycles spent computing bounds. */
+  uint32_t face_setup = 0;    /**< Cycles spent on per-face setup. */
+  uint32_t scan_loop = 0;     /**< Cycles spent in the scanline loop. */
+  uint32_t pixels_tested = 0; /**< Count of pixels tested. */
+  uint32_t pixels_culled = 0; /**< Count of pixels culled before shading. */
+  uint32_t lut_hits = 0;      /**< Count of lookup-table hits. */
+  uint32_t exact_hits = 0;    /**< Count of exact (non-LUT) computations. */
+  /** @brief Zeroes every counter. */
   void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = lut_hits = exact_hits = 0; }
 };
+/** @brief Global scanline profiling counters. */
 inline ScanMetrics g_scan_metrics;
 
 } // namespace hs
@@ -710,9 +1033,19 @@ inline ScanMetrics g_scan_metrics;
 #include <functional>
 #ifdef ARDUINO
 #include <inplace_function.h>
+/**
+ * @brief Platform-aware callable wrapper (Teensy: heap-free inplace_function).
+ * @tparam Sig Call signature, e.g. void(int).
+ * @tparam Cap Inline storage capacity in bytes for the captured state.
+ */
 template <typename Sig, size_t Cap = 16>
 using Fn = teensy::inplace_function<Sig, Cap>;
 #else
+/**
+ * @brief Platform-aware callable wrapper (host/WASM: std::function, Cap ignored).
+ * @tparam Sig Call signature, e.g. void(int).
+ * @tparam Cap Inline storage capacity; ignored on this backend.
+ */
 template <typename Sig, size_t Cap = 16> using Fn = std::function<Sig>;
 #endif
 
@@ -725,16 +1058,24 @@ template <typename Sig, size_t Cap = 16> using Fn = std::function<Sig>;
 
 namespace hs {
 
-// Float clamp to [lo, hi]. CONTRACT (load-bearing): a NaN `v` maps to `hi`, not
-// to lo or NaN. Both backends compute max(lo, min(v, hi)) with `v` as the FIRST
-// operand to the inner min: hardware minss / __builtin_fminf return the SECOND
-// operand when either input is NaN, so min(NaN, hi) == hi, and then
-// max(lo, hi) == hi. Callers that feed a possibly-NaN value through this as a
-// saturating guard before a float->int cast rely on this (e.g. blend_alpha and
-// Gradient::get; see test_blend_alpha_clamps_before_cast and
-// test_gradient_get_clamps_out_of_range). Do not reorder the min operands.
 #ifdef HS_ARCH_X86
 // --- x86 / x64 EXPLICIT HARDWARE CLAMP ---
+/**
+ * @brief Clamps a float to [lo, hi] (x86 SSE backend).
+ * @param v Value to clamp; a NaN maps to hi (load-bearing contract).
+ * @param lo Lower bound.
+ * @param hi Upper bound.
+ * @return v clamped to [lo, hi]; hi when v is NaN.
+ * @details CONTRACT (load-bearing): both backends compute max(lo, min(v, hi))
+ *          with v as the FIRST operand to the inner min: hardware minss /
+ *          __builtin_fminf return the SECOND operand when either input is NaN,
+ *          so min(NaN, hi) == hi, and then max(lo, hi) == hi. Callers that feed
+ *          a possibly-NaN value through this as a saturating guard before a
+ *          float->int cast rely on this (e.g. blend_alpha and Gradient::get; see
+ *          test_blend_alpha_clamps_before_cast and
+ *          test_gradient_get_clamps_out_of_range). Do not reorder the min
+ *          operands.
+ */
 inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
   // Load floats into the 128-bit SSE registers
   __m128 mv = _mm_set_ss(v);
@@ -750,22 +1091,43 @@ inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
 
 #else
 // --- NON-X86 CLAMP (Teensy Cortex-M7, WASM) ---
+/**
+ * @brief Clamps a float to [lo, hi] (Cortex-M7 / WASM backend).
+ * @param v Value to clamp; a NaN maps to hi (same contract as the x86 backend).
+ * @param lo Lower bound.
+ * @param hi Upper bound.
+ * @return v clamped to [lo, hi]; hi when v is NaN.
+ * @details On Cortex-M7 compiles directly to VMIN.F32 / VMAX.F32. See the x86
+ *          overload for the NaN contract and the do-not-reorder note.
+ */
 inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
                                                             float hi) {
-  // On Cortex-M7 compiles directly to VMIN.F32 / VMAX.F32
   return __builtin_fmaxf(lo, __builtin_fminf(v, hi));
 }
 #endif
 
-// Standard integer fallback
+/**
+ * @brief Clamps an integer to [lo, hi].
+ * @param v Value to clamp.
+ * @param lo Lower bound.
+ * @param hi Upper bound.
+ * @return v clamped to [lo, hi].
+ */
 inline __attribute__((always_inline)) int clamp(int v, int lo, int hi) {
   return (v < lo) ? lo : ((v > hi) ? hi : v);
 }
 
-// Branch-free scalar lerp. Qualify calls as hs::lerp instead of an unqualified
-// `lerp`: the latter resolves to a platform-specific global overload (only the
-// non-Arduino branch of this header defines one) or a std::lerp global leak,
-// neither guaranteed on every build.
+/**
+ * @brief Branch-free scalar linear interpolation.
+ * @param a Value at t == 0.
+ * @param b Value at t == 1.
+ * @param t Interpolation parameter (typically in [0, 1]).
+ * @return a + (b - a) * t.
+ * @details Qualify calls as hs::lerp instead of an unqualified `lerp`: the
+ *          latter resolves to a platform-specific global overload (only the
+ *          non-Arduino branch of this header defines one) or a std::lerp global
+ *          leak, neither guaranteed on every build.
+ */
 inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
                                                            float t) {
   return a + (b - a) * t;
@@ -789,16 +1151,21 @@ namespace hs {
  *        started, giving log_all() a call tree with per-parent percentages.
  */
 struct CycleCounter {
-  static constexpr uint32_t CYCLES_PER_US = 600; // Teensy 4 @ 600 MHz
+  static constexpr uint32_t CYCLES_PER_US = 600; /**< Core clock: Teensy 4 @ 600 MHz. */
 
-  const char* name;
-  uint32_t cycles = 0;
-  uint32_t count = 0;
-  CycleCounter* parent = nullptr;
-  CycleCounter* next = nullptr;
+  const char* name;                /**< Counter label used in log output. */
+  uint32_t cycles = 0;             /**< Accumulated cycle count. */
+  uint32_t count = 0;              /**< Number of timed invocations. */
+  CycleCounter* parent = nullptr;  /**< Enclosing counter for tree nesting. */
+  CycleCounter* next = nullptr;    /**< Next link in the intrusive registry list. */
 
+  /**
+   * @brief Constructs a named counter and self-registers it for bulk logging.
+   * @param n Counter label (must outlive the counter; typically a literal).
+   */
   explicit CycleCounter(const char* n) : name(n), next(head_) { head_ = this; }
 
+  /** @brief Zeroes this counter's accumulated cycles and call count. */
   void reset() { cycles = 0; count = 0; }
 
   /** @brief Logs every root counter (no parent) and its subtree as a tree. */
@@ -815,13 +1182,18 @@ struct CycleCounter {
   }
 
 private:
-  static inline CycleCounter* head_ = nullptr;
-  static inline CycleCounter* active_ = nullptr;
+  static inline CycleCounter* head_ = nullptr;   /**< Head of the intrusive registry list. */
+  static inline CycleCounter* active_ = nullptr; /**< Currently active counter (for nesting). */
   friend struct CycleScope;
 
-  // Recursively logs one node and its children. `depth` drives indentation;
-  // the reported percentage is this node's cycles over its parent's (or 100%
-  // for a root), and cycles are converted to microseconds via CYCLES_PER_US.
+  /**
+   * @brief Recursively logs one counter node and its children as a tree.
+   * @param node Counter node to log.
+   * @param depth Tree depth; drives indentation.
+   * @details The reported percentage is this node's cycles over its parent's
+   *          (or 100% for a root), and cycles are converted to microseconds via
+   *          CYCLES_PER_US.
+   */
   static void log_node(const CycleCounter* node, int depth) {
     if (!node->count) return;
     uint32_t ref = node->parent ? node->parent->cycles : node->cycles;
@@ -846,28 +1218,51 @@ private:
  *        restores the previous active counter, rebuilding the nesting tree.
  */
 struct CycleScope {
-  CycleCounter& counter;
-  CycleCounter* prev_active;
-  uint32_t start;
+  CycleCounter& counter;       /**< Counter this scope accumulates into. */
+  CycleCounter* prev_active;   /**< Counter to restore as active on destruction. */
+  uint32_t start;              /**< Cycle snapshot taken at construction. */
 
+  /**
+   * @brief Begins timing the enclosing scope into the given counter.
+   * @param c Counter that receives the elapsed cycles.
+   * @details Makes c the active counter (recording the previously-active
+   *          counter as its parent on first use) and snapshots the cycle
+   *          counter.
+   */
   explicit CycleScope(CycleCounter& c) : counter(c), start(HS_OS_CYCLES()) {
     prev_active = CycleCounter::active_;
     if (!counter.parent && prev_active)
       counter.parent = prev_active;
     CycleCounter::active_ = &counter;
   }
+  /**
+   * @brief Adds the elapsed cycles to the counter and restores the previous one.
+   */
   ~CycleScope() {
     counter.cycles += (HS_OS_CYCLES() - start);
     counter.count++;
     CycleCounter::active_ = prev_active;
   }
 
+  /**
+   * @brief Deleted copy constructor; a scope guard must not be copied.
+   * @param other Source scope (unused).
+   */
   CycleScope(const CycleScope&) = delete;
+  /**
+   * @brief Deleted copy assignment; a scope guard must not be copied.
+   * @param other Source scope (unused).
+   * @return Never returns; deleted.
+   */
   CycleScope& operator=(const CycleScope&) = delete;
 };
 
 } // namespace hs
 
+/**
+ * @brief Times the enclosing scope into a named cycle counter.
+ * @param label Counter name (used both as the identifier suffix and log label).
+ */
 #define HS_PROFILE(label) \
   static hs::CycleCounter hs_ctr_##label(#label); \
   hs::CycleScope hs_scope_##label(hs_ctr_##label)

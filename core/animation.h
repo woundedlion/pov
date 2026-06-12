@@ -30,10 +30,15 @@ class Noise;
 
 /**
  * @brief Represents a customizable path.
- * Retains internal buffer for state, but draws to pipeline.
+ * @tparam W Display width (carried for downstream sizing).
+ * @tparam RESOLUTION Capacity of the internal point ring buffer.
+ * @details Retains an internal buffer for state, but draws to the pipeline.
  */
 template <int W, int RESOLUTION = 1024> class Path {
 public:
+  /**
+   * @brief Constructs an empty path.
+   */
   Path() {}
 
   /**
@@ -79,7 +84,9 @@ public:
     return p1 * (1.0f - f) + p2 * f;
   }
 
-  /// Collapse the path to its newest point only.
+  /**
+   * @brief Collapses the path to its newest point only.
+   */
   void collapse() {
     // Clear in place and re-push the single survivor rather than assigning a
     // fresh buffer: a StaticCircularBuffer<Vector, RESOLUTION> temporary is
@@ -97,35 +104,84 @@ private:
 
 /**
  * @brief Represents a path defined by a single procedural function.
- * Matches interface of Path for use in Motion animations.
+ * @details Matches the interface of Path for use in Motion animations.
  */
 struct ProceduralPath {
-  PlotFn f;
+  PlotFn f; /**< The procedural function mapping t to a point. */
 
+  /**
+   * @brief Constructs an empty procedural path.
+   */
   ProceduralPath() = default;
+
+  /**
+   * @brief Constructs a procedural path from a plotting function.
+   * @param path_fn Function mapping a parameter to a point on the path.
+   */
   ProceduralPath(PlotFn path_fn) : f(std::move(path_fn)) {}
 
+  /**
+   * @brief Evaluates the path at a given parameter.
+   * @param t Path parameter.
+   * @return The point produced by the procedural function at t.
+   */
   Vector get_point(float t) const { return f(t); }
 };
 
 #include "easing.h"
 
-/// Non-templated interface for all animations.
-/// Enables virtual dispatch in Timeline without std::visit.
+/**
+ * @brief Non-templated interface for all animations.
+ * @details Enables virtual dispatch in Timeline without std::visit.
+ */
 class IAnimation {
 public:
+  /**
+   * @brief Virtual destructor for safe polymorphic deletion.
+   */
   virtual ~IAnimation() = default;
+
+  /**
+   * @brief Advances the animation by one frame.
+   * @param canvas The canvas buffer to draw into.
+   */
   virtual void step(Canvas &canvas) = 0;
+
+  /**
+   * @brief Reports whether the animation has finished.
+   * @return True if the animation is done.
+   */
   virtual bool done() const = 0;
+
+  /**
+   * @brief Reports whether the animation repeats after finishing.
+   * @return True if the animation repeats.
+   */
   virtual bool repeats() const = 0;
+
+  /**
+   * @brief Resets the animation to its start.
+   */
   virtual void rewind() = 0;
+
+  /**
+   * @brief Fires the registered completion callback.
+   */
   virtual void post_callback() = 0;
-  /// Override in types that own an Orientation to collapse it.
+
+  /**
+   * @brief Collapses the owned Orientation's motion-blur history.
+   * @details Override in types that own an Orientation to collapse it.
+   */
   virtual void collapse_orientation() {}
-  /// Identity of the owned Orientation (nullptr if none). Used by Timeline to
-  /// collapse each distinct Orientation exactly once per frame, so animations
-  /// sharing one Orientation compose their motion-blur history instead of
-  /// clobbering it.
+
+  /**
+   * @brief Identity of the owned Orientation.
+   * @return Pointer identifying the owned Orientation, or nullptr if none.
+   * @details Used by Timeline to collapse each distinct Orientation exactly
+   * once per frame, so animations sharing one Orientation compose their
+   * motion-blur history instead of clobbering it.
+   */
   virtual const void *orientation_id() const { return nullptr; }
 };
 
@@ -163,13 +219,13 @@ public:
   /**
    * @brief Checks if the animation should repeat after finishing.
    * @return True if repeating.
+   * @details A canceled animation must not repeat: done() is permanently true
+   * once canceled, so without the !canceled guard Timeline::step would see
+   * done()&&repeats(), rewind it, fire its .then() every frame, and never remove
+   * it — a per-frame zombie. Dropping repeat here routes cancel through the
+   * removal branch (fires post_callback once, then erased), exactly as a
+   * canceled one-shot already behaves.
    */
-  // A canceled animation must not repeat: done() is permanently true once
-  // canceled, so without the !canceled guard Timeline::step would see
-  // done()&&repeats(), rewind it, fire its .then() every frame, and never
-  // remove it — a per-frame zombie. Dropping repeat here routes cancel through
-  // the removal branch (fires post_callback once, then erased), exactly as a
-  // canceled one-shot already behaves.
   bool repeats() const override { return repeat && !canceled; }
   /**
    * @brief Advances the animation state by one frame.
@@ -247,6 +303,9 @@ protected:
       : duration(duration == 0 ? 1 : duration), repeat(repeat),
         canceled(false) {}
 
+  /**
+   * @brief Default constructor: an indefinite, non-repeating animation.
+   */
   AnimationBase() : duration(-1), repeat(false), canceled(false) {}
 
   int duration; /**< Total length of the animation in frames. */
@@ -260,6 +319,7 @@ private:
 
 /**
  * @brief Manages a history of Orientation states.
+ * @tparam OrientationType The orientation snapshot type stored in the trail.
  * @tparam CAPACITY The maximum number of snapshots to keep.
  */
 template <typename OrientationType, int CAPACITY> class OrientationTrail {
@@ -272,6 +332,7 @@ public:
 
   /**
    * @brief Gets the number of recorded snapshots.
+   * @return Count of live snapshots in the trail.
    */
   size_t length() const { return snapshots.size(); }
 
@@ -281,11 +342,14 @@ public:
    *          newest. (record() appends the newest at the end of the underlying
    *          ring buffer, whose operator[](0) is the oldest live element.)
    *          Matches the JS simulator's trail ordering.
+   * @return Const reference to the requested snapshot.
    */
   const OrientationType &get(size_t i) const { return snapshots[i]; }
 
   /**
    * @brief Gets a specific snapshot (mutable). 0 is oldest, length()-1 newest.
+   * @param i Index into the history (0 oldest, length()-1 newest).
+   * @return Mutable reference to the requested snapshot.
    */
   OrientationType &get(size_t i) { return snapshots[i]; }
 
@@ -309,11 +373,40 @@ private:
  */
 template <int CAPACITY> class VectorTrail {
 public:
+  /**
+   * @brief Records a world-space position snapshot.
+   * @param source The position to copy into the trail.
+   */
   void record(const Vector &source) { snapshots.push_back(source); }
+
+  /**
+   * @brief Gets the number of recorded snapshots.
+   * @return Count of live positions in the trail.
+   */
   size_t length() const { return snapshots.size(); }
+
+  /**
+   * @brief Gets a specific position snapshot.
+   * @param i Index into the history (0 oldest, length()-1 newest).
+   * @return Const reference to the requested position.
+   */
   const Vector &get(size_t i) const { return snapshots[i]; }
+
+  /**
+   * @brief Gets a specific position snapshot (mutable).
+   * @param i Index into the history (0 oldest, length()-1 newest).
+   * @return Mutable reference to the requested position.
+   */
   Vector &get(size_t i) { return snapshots[i]; }
+
+  /**
+   * @brief Clears the history.
+   */
   void clear() { snapshots.clear(); }
+
+  /**
+   * @brief Removes the oldest snapshot.
+   */
   void expire() { snapshots.pop(); }
 
 private:
@@ -322,6 +415,7 @@ private:
 
 /**
  * @brief Represents a single particle in a system.
+ * @tparam TRAIL_LEN Maximum number of trail positions retained.
  */
 template <int TRAIL_LEN = 8> struct Particle {
   Vector position;         /**< Current 3D position. */
@@ -331,8 +425,13 @@ template <int TRAIL_LEN = 8> struct Particle {
 
   VectorTrail<TRAIL_LEN> history; /**< Trail of world-space positions. */
 
-  /// (Re)initialize the particle and clear its trail. `l` (life, in frames) is
-  /// clamped into uint16_t range.
+  /**
+   * @brief (Re)initializes the particle and clears its trail.
+   * @param p Initial world-space position.
+   * @param v Initial velocity vector.
+   * @param seed Hue seed for palette offset.
+   * @param l Life in frames; clamped into uint16_t range.
+   */
   void init(const Vector &p, const Vector &v, uint16_t seed, float l) {
     position = p;
     velocity = v;
@@ -341,12 +440,20 @@ template <int TRAIL_LEN = 8> struct Particle {
     history.clear();
   }
 
+  /**
+   * @brief Gets the current trail length.
+   * @return Number of recorded trail positions.
+   */
   size_t history_length() const { return history.length(); }
 };
 
 /**
  * @brief A physics-based particle system with emitters and attractors.
  * @tparam W Width of the display (for Orientation).
+ * @tparam CAPACITY Maximum number of particles in the pool.
+ * @tparam TRAIL_LEN Trail length per particle.
+ * @tparam EMITTER_CAP Maximum number of emitters.
+ * @tparam ATTRACTOR_CAP Maximum number of attractors.
  */
 template <int W, int CAPACITY, int TRAIL_LEN = 8, int EMITTER_CAP = 8,
           int ATTRACTOR_CAP = 8>
@@ -354,32 +461,45 @@ class ParticleSystem
     : public AnimationBase<
           ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>> {
 public:
-  ArenaVector<Particle<TRAIL_LEN>> pool;
-  uint16_t active_count = 0;
+  ArenaVector<Particle<TRAIL_LEN>> pool; /**< Backing pool of particles. */
+  uint16_t active_count = 0; /**< Number of live particles in the pool prefix. */
 
-  float friction = 0.85f;
-  float gravity = 0.001f;
-  uint16_t max_life = 600;
+  float friction = 0.85f;  /**< Per-frame velocity damping factor. */
+  float gravity = 0.001f;  /**< Base gravitational constant for attractors. */
+  uint16_t max_life = 600; /**< Default particle lifetime in frames. */
 
+  /**
+   * @brief A point attractor influencing nearby particles.
+   */
   struct Attractor {
-    Vector position;
-    float strength;
-    float kill_radius;
-    float event_horizon;
+    Vector position;     /**< World-space center of the attractor. */
+    float strength;      /**< Attractive force multiplier. */
+    float kill_radius;   /**< Radius within which particles are killed. */
+    float event_horizon; /**< Radius within which steering becomes radial. */
   };
 
-  using EmitterFn = Fn<void(ParticleSystem &), 32>;
+  using EmitterFn = Fn<void(ParticleSystem &), 32>; /**< Per-frame emitter functor. */
 
-  ArenaVector<Attractor> attractors;
-  ArenaVector<EmitterFn> emitters;
+  ArenaVector<Attractor> attractors; /**< Active attractors. */
+  ArenaVector<EmitterFn> emitters;   /**< Active emitters. */
 
+  /**
+   * @brief Constructs an indefinite, non-repeating particle system.
+   */
   ParticleSystem()
       : AnimationBase<
             ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>>(
             -1, false) {}
 
-  /// Bind the particle pool, attractor, and emitter vectors to `arena` and
-  /// pre-construct CAPACITY inactive particles. max_life is in frames.
+  /**
+   * @brief Binds the pool, attractor, and emitter vectors and pre-constructs
+   * inactive particles.
+   * @param arena Arena providing backing storage for all vectors.
+   * @param friction Per-frame velocity damping factor.
+   * @param gravity Base gravitational constant for attractors.
+   * @param max_life Default particle lifetime in frames; clamped into uint16_t.
+   * @details Pre-constructs CAPACITY inactive particles in the pool.
+   */
   void init(Arena &arena, float friction = 0.85f, float gravity = 0.001f,
             float max_life = 600.0f) {
     this->friction = friction;
@@ -402,8 +522,19 @@ public:
     emitters.bind(arena, EMITTER_CAP);
   }
 
+  /**
+   * @brief Registers a per-frame emitter functor.
+   * @param fn The emitter to add.
+   */
   void add_emitter(EmitterFn fn) { emitters.push_back(fn); }
 
+  /**
+   * @brief Adds a point attractor to the system.
+   * @param pos World-space center of the attractor.
+   * @param str Attractive force multiplier.
+   * @param kill Kill radius (particles within it die).
+   * @param horizon Event-horizon radius (steering becomes radial within it).
+   */
   void add_attractor(const Vector &pos, float str, float kill, float horizon) {
     attractors.push_back({pos, str, kill, horizon});
   }
@@ -421,8 +552,12 @@ public:
     }
   }
 
-  /// Runs all emitters, then advances each active particle's physics, swap-
-  /// removing any that died (compacting the live prefix of the pool).
+  /**
+   * @brief Advances the particle system by one frame.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   * @details Runs all emitters, then advances each active particle's physics,
+   * swap-removing any that died (compacting the live prefix of the pool).
+   */
   void step(Canvas &canvas) override {
     AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
                                  ATTRACTOR_CAP>>::step(canvas);
@@ -448,10 +583,14 @@ public:
   }
 
 private:
-  /// Advance one particle on the sphere surface: age it, apply attractor
-  /// gravity/steering and drag, rotate position+velocity along the surface, and
-  /// update its trail. Returns true once the particle is dead AND its trail has
-  /// fully drained (so the caller can remove it).
+  /**
+   * @brief Advances one particle on the sphere surface for one frame.
+   * @param p The particle to advance (modified in place).
+   * @return True once the particle is dead AND its trail has fully drained (so
+   * the caller can remove it).
+   * @details Ages it, applies attractor gravity/steering and drag, rotates
+   * position+velocity along the surface, and updates its trail.
+   */
   bool step_particle(Particle<TRAIL_LEN> &p, float) {
     bool active = p.life > 0;
     if (active) {
@@ -552,6 +691,7 @@ public:
 
   /**
    * @brief Steps the timer, calling the function if the delay has elapsed.
+   * @param canvas The canvas buffer (forwarded to the timer callback).
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
@@ -600,9 +740,13 @@ public:
    */
   void reset() { next = t + period; }
 
-  /// Live-update the trigger interval; reschedules the next trigger from now.
-  /// Clamps to >= 1: a 0/negative period makes `next = t + period <= t`, which
-  /// fires the callback every frame (and re-triggers on its own reset).
+  /**
+   * @brief Live-updates the trigger interval; reschedules the next trigger from
+   * now.
+   * @param new_period New interval in frames; clamped to >= 1.
+   * @details Clamps to >= 1: a 0/negative period makes `next = t + period <= t`,
+   * which fires the callback every frame (and re-triggers on its own reset).
+   */
   void set_period(int new_period) {
     period = (new_period < 1 ? 1 : new_period);
     reset();
@@ -610,6 +754,7 @@ public:
 
   /**
    * @brief Steps the timer, calling the function if the period has elapsed.
+   * @param canvas The canvas buffer (forwarded to the timer callback).
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
@@ -654,6 +799,7 @@ public:
 
   /**
    * @brief Performs one step of the transition.
+   * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
     // Snapshot the start value once, on the first step — not every time t hits
@@ -704,6 +850,7 @@ public:
    * @param duration The duration in frames.
    * @param easing_fn The easing function to apply to the time factor.
    * @param repeat If true, the mutation repeats indefinitely.
+   * @param paused Optional pause gate; null = always runs.
    */
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            bool repeat = false, const bool *paused = nullptr)
@@ -712,11 +859,11 @@ public:
 
   /**
    * @brief Performs one step of the mutation.
-   *
-   * When wired to a pause flag (an effect's `anims_paused_`), the mutation
-   * freezes while paused: it neither advances its timer nor writes the mutant,
-   * so a GUI slider bound to the same member is the sole writer and the user's
-   * value holds. Resuming hands the member back to the curve.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   * @details When wired to a pause flag (an effect's `anims_paused_`), the
+   * mutation freezes while paused: it neither advances its timer nor writes the
+   * mutant, so a GUI slider bound to the same member is the sole writer and the
+   * user's value holds. Resuming hands the member back to the curve.
    */
   void step(Canvas &canvas) override {
     if (paused_ && *paused_)
@@ -756,6 +903,8 @@ public:
    * @brief Constructs a Driver animation for continuous progression.
    * @param mutant The float variable to modify.
    * @param speed The amount to add per frame.
+   * @param wrap If true, wraps the value back into the [0,1) range each step.
+   * @param paused Optional pause gate; null = always runs.
    */
   Driver(float &mutant, float speed, bool wrap = true,
          const bool *paused = nullptr)
@@ -768,9 +917,11 @@ public:
    * @param speed_src Pointer to a live value (e.g. a registered slider); the
    *   effective speed is `*speed_src * scale`, re-read each step.
    * @param scale Per-unit multiplier applied to *speed_src.
-   * @details Replaces the "retain the Driver handle and re-sync it with
-   *   set_speed(scale * params.x) every frame" idiom: the Driver pulls the
-   *   slider itself, so callers can `timeline.add(...)` and drop the handle.
+   * @param wrap If true, wraps the value back into the [0,1) range each step.
+   * @param paused Optional pause gate; null = always runs.
+   * @details The Driver pulls the slider itself each step, so callers can
+   *   `timeline.add(...)` and drop the handle rather than re-syncing the speed
+   *   via set_speed() every frame.
    */
   Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
          const bool *paused = nullptr)
@@ -783,8 +934,8 @@ public:
 
   /**
    * @brief Performs one step by adding the speed to the mutant.
-   *
-   * Freezes while a wired pause flag is set (see Mutation::step).
+   * @param canvas The canvas buffer (forwarded to the base step).
+   * @details Freezes while a wired pause flag is set (see Mutation::step).
    */
   void step(Canvas &canvas) override {
     if (paused_ && *paused_)
@@ -804,19 +955,26 @@ public:
 
   /**
    * @brief Rebinds the reference to the float variable being mutated.
+   * @param new_mutant The new float variable to modify.
    */
   void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
 
   /**
-   * @brief Gets current speed.
+   * @brief Gets the current speed.
+   * @return The amount added to the mutant per frame.
    */
   float get_speed() const { return speed; }
 
   /**
-   * @brief Sets current speed.
+   * @brief Sets the current speed.
+   * @param new_speed The new amount to add to the mutant per frame.
    */
   void set_speed(float new_speed) { speed = new_speed; }
 
+  /**
+   * @brief Gets the current mutant value.
+   * @return Const reference to the driven float variable.
+   */
   const float &get_mutant() const { return mutant.get(); }
 
 private:
@@ -831,12 +989,24 @@ private:
 };
 
 /**
- * @brief An animation that interpolates between states. The caller owns the
- * start, subject, and target data. Lerp just holds pointers and a type-erased
- * lerp function. Supports any type T that implements lerp(start, target, t).
+ * @brief An animation that interpolates between states.
+ * @details The caller owns the start, subject, and target data. Lerp just holds
+ * pointers and a type-erased lerp function. Supports any type T that implements
+ * lerp(start, target, t).
  */
 class Lerp : public AnimationBase<Lerp> {
 public:
+  /**
+   * @brief Constructs a Lerp animation.
+   * @tparam T Interpolated type implementing lerp(start, target, t).
+   * @tparam Easing Easing-function type.
+   * @param subject The caller-owned object to write each frame.
+   * @param start The caller-owned start state.
+   * @param target The caller-owned target state.
+   * @param duration The duration in frames.
+   * @param easing_fn The easing function applied to progress.
+   * @param paused Optional pause gate; null = always runs.
+   */
   template <typename T, typename Easing>
   Lerp(T &subject, const T &start, const T &target, int duration,
        Easing easing_fn, const bool *paused = nullptr)
@@ -868,10 +1038,15 @@ public:
   Lerp(T &subject, const T &&start, const T &&target, int duration,
        Easing easing_fn, const bool *paused = nullptr) = delete;
 
-  // Freezes while a wired pause flag is set (see Mutation::step). Preset-cycling
-  // effects pass an Effect's `anims_paused_` so a paused lerp neither advances
-  // nor writes its subject, and (for `.then`-chained lerps) never completes — so
-  // the whole preset chain halts and the slider-bound subject holds.
+  /**
+   * @brief Performs one step of the interpolation.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   * @details Freezes while a wired pause flag is set (see Mutation::step).
+   * Preset-cycling effects pass an Effect's `anims_paused_` so a paused lerp
+   * neither advances nor writes its subject, and (for `.then`-chained lerps)
+   * never completes — so the whole preset chain halts and the slider-bound
+   * subject holds.
+   */
   void step(Canvas &canvas) override {
     if (paused_ && *paused_)
       return;
@@ -881,17 +1056,19 @@ public:
   }
 
 private:
-  void *subject_ptr;
-  const void *start_ptr;
-  const void *target_ptr;
-  EasingFn easing;
+  void *subject_ptr;       /**< Pointer to the caller-owned subject. */
+  const void *start_ptr;   /**< Pointer to the caller-owned start state. */
+  const void *target_ptr;  /**< Pointer to the caller-owned target state. */
+  EasingFn easing;         /**< Easing curve applied to progress. */
+  /** @brief Type-erased lerp thunk. */
   void (*do_lerp)(void *, const void *, const void *, float);
-  const bool *paused_ = nullptr;
+  const bool *paused_ = nullptr; /**< Optional pause gate; null = always runs. */
 };
 
 /**
  * @brief An animation that draws a sprite while managing its fade-in/out
- * effects. Computes opacity inline rather than embedding Transition objects.
+ * effects.
+ * @details Computes opacity inline rather than embedding Transition objects.
  */
 class Sprite : public AnimationBase<Sprite> {
 public:
@@ -905,6 +1082,7 @@ public:
    * @param fade_in_easing_fn Easing for fade-in.
    * @param fade_out_duration Frames for fading out.
    * @param fade_out_easing_fn Easing for fade-out.
+   * @param paused Optional pause gate; null = always runs.
    */
   Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
          EasingFn fade_in_easing_fn = ease_mid, int fade_out_duration = 0,
@@ -917,12 +1095,14 @@ public:
 
   /**
    * @brief Updates the drawing function used by the sprite.
+   * @param new_draw_fn The new per-frame drawing functor.
    */
   void rebind_draw(SpriteFn new_draw_fn) { draw_fn = std::move(new_draw_fn); }
 
   /**
    * @brief Steps the animation, computes the current opacity inline, and calls
    * the draw function.
+   * @param canvas The canvas buffer passed to the draw function.
    */
   void step(Canvas &canvas) override {
     // Paused: hold the frame — don't advance the timer (so the sprite neither
@@ -968,12 +1148,16 @@ private:
                                     timer advance, still draws) when set. */
 };
 
-/// Sub-rotation count needed to keep each interpolated step within `max_angle`
-/// (the per-column smoothness threshold) over a total sweep of `angle` radians.
-/// The caller upsamples the orientation trail to (result + 1) frames, so the
-/// loop's (len-1) sub-intervals each stay <= max_angle. Always >= 1. Shared by
-/// Motion and Rotation so both size the trail identically for the same angle —
-/// this is the tight count (ceil), with no extra subdivision.
+/**
+ * @brief Sub-rotation count needed to keep each interpolated step within
+ * `max_angle` over a total sweep of `angle` radians.
+ * @param angle Total sweep angle in radians.
+ * @param max_angle Per-column smoothness threshold in radians.
+ * @return Sub-step count, always >= 1 (tight ceil, no extra subdivision).
+ * @details The caller upsamples the orientation trail to (result + 1) frames,
+ * so the loop's (len-1) sub-intervals each stay <= max_angle. Shared by Motion
+ * and Rotation so both size the trail identically for the same angle.
+ */
 inline int rotation_substeps(float angle, float max_angle) {
   return static_cast<int>(std::ceil(std::max(1.0f, angle / max_angle)));
 }
@@ -982,16 +1166,19 @@ inline int rotation_substeps(float angle, float max_angle) {
  * @brief An animation that moves an Orientation along a defined Path.
  * @tparam W The width of the LED display (used for calculating maximum rotation
  * step).
+ * @tparam CAP Orientation sub-frame capacity.
  */
 template <int W, int CAP = 4>
 class Motion : public AnimationBase<Motion<W, CAP>> {
 public:
   /**
    * @brief Constructs a Motion animation.
+   * @tparam P Path type exposing get_point(float t).
    * @param orientation The Orientation object to update.
    * @param path_obj The path to follow (must have get_point(float t)).
    * @param duration The duration in frames.
    * @param repeat If true, the motion repeats.
+   * @param space Coordinate space for the applied rotations.
    */
   template <typename P>
   Motion(Orientation<CAP> &orientation, const P &path_obj, int duration,
@@ -1012,20 +1199,35 @@ public:
          bool repeat = false, Space space = Space::World) = delete;
 
   /**
-   * @brief Access the associated Orientation.
+   * @brief Accesses the associated Orientation.
+   * @return Reference to the bound Orientation.
    */
   Orientation<CAP> &get_orientation() const { return orientation.get(); }
+
+  /**
+   * @brief Collapses the bound Orientation's motion-blur history.
+   */
   void collapse_orientation() override { get_orientation().collapse(); }
+
+  /**
+   * @brief Identity of the bound Orientation.
+   * @return Pointer identifying the bound Orientation.
+   */
   const void *orientation_id() const override { return &get_orientation(); }
 
-  /// Live-update the traversal duration (frames per path loop). Guards against
-  /// 0 (which would divide-by-zero in step()'s `t / duration`), matching the
-  /// base ctor's `duration == 0 ? 1` rule that this direct write would bypass.
+  /**
+   * @brief Live-updates the traversal duration (frames per path loop).
+   * @param frames New duration in frames; 0 is clamped to 1.
+   * @details Guards against 0 (which would divide-by-zero in step()'s
+   * `t / duration`), matching the base ctor's `duration == 0 ? 1` rule that
+   * this direct write would bypass.
+   */
   void set_duration(int frames) { this->duration = (frames == 0 ? 1 : frames); }
 
   /**
    * @brief Steps the animation, calculates intermediate rotation steps along
    * the path, and pushes them to the Orientation.
+   * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
     AnimationBase<Motion<W, CAP>>::step(canvas);
@@ -1130,6 +1332,7 @@ private:
  * @brief An animation that applies a fixed, time-eased rotation.
  * @tparam W The width of the LED display (used for calculating maximum rotation
  * step).
+ * @tparam CAP Orientation sub-frame capacity.
  */
 template <int W, int CAP = 4>
 class Rotation : public AnimationBase<Rotation<W, CAP>> {
@@ -1160,20 +1363,32 @@ public:
         easing_fn(std::move(easing_fn)), last_angle(0), space(space) {}
 
   /**
-   * @brief Access the associated Orientation.
+   * @brief Accesses the associated Orientation.
+   * @return Reference to the bound Orientation.
    */
   Orientation<CAP> &get_orientation() const { return *orientation; }
+
+  /**
+   * @brief Collapses the bound Orientation's motion-blur history.
+   */
   void collapse_orientation() override { get_orientation().collapse(); }
+
+  /**
+   * @brief Identity of the bound Orientation.
+   * @return Pointer identifying the bound Orientation (nullptr if unbound).
+   */
   const void *orientation_id() const override { return orientation; }
 
   /**
-   * @brief Check if the rotation has a valid orientation bound.
+   * @brief Checks if the rotation has a valid orientation bound.
+   * @return True if an Orientation is bound.
    */
   bool has_orientation() const { return orientation != nullptr; }
 
   /**
    * @brief Steps the animation, calculates the incremental rotation delta, and
    * pushes it to the Orientation.
+   * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
     if (this->t == 0) {
@@ -1255,10 +1470,14 @@ private:
  * across the sphere's surface.
  * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
  * @tparam W The width of the LED display.
+ * @tparam CAP Orientation sub-frame capacity.
  */
 template <int W, int CAP = 4>
 class RandomWalk : public AnimationBase<RandomWalk<W, CAP>> {
 public:
+  /**
+   * @brief Tunable parameters for the random walk.
+   */
   struct Options {
     float speed = 0.02f; /**< Movement speed per frame. */
     float pivot_strength =
@@ -1267,7 +1486,16 @@ public:
     float smoothing = 0.85f;    /**< Angular momentum (0 = none, 0.95 = very sluggish). */
     float drift = 0.5f;         /**< Temporal drift speed for spatial noise. */
 
+    /**
+     * @brief Preset for slow, gentle motion.
+     * @return Options tuned for a languid walk.
+     */
     static Options Languid() { return {0.02f, 0.1f, 0.02f, 0.85f, 0.5f}; }
+
+    /**
+     * @brief Preset for fast, lively motion.
+     * @return Options tuned for an energetic walk.
+     */
     static Options Energetic() { return {0.05f, 0.4f, 0.08f, 0.7f, 1.0f}; }
   };
 
@@ -1277,6 +1505,7 @@ public:
    * @param v_start The starting direction vector.
    * @param noise External noise generator (caller owns lifetime).
    * @param options Configuration options.
+   * @param seed Noise seed; 0 selects a random seed.
    */
   RandomWalk(Orientation<CAP> &orientation, const Vector &v_start,
              FastNoiseLite &noise, Options options = Options(),
@@ -1298,19 +1527,33 @@ public:
     }
   }
 
-  /// Live-update the per-frame movement speed (e.g. from a GUI slider).
+  /**
+   * @brief Live-updates the per-frame movement speed (e.g. from a GUI slider).
+   * @param new_speed The new per-frame movement speed.
+   */
   void set_speed(float new_speed) { options.speed = new_speed; }
 
   /**
-   * @brief Access the associated Orientation.
+   * @brief Accesses the associated Orientation.
+   * @return Reference to the bound Orientation.
    */
   Orientation<CAP> &get_orientation() const { return orientation.get(); }
+
+  /**
+   * @brief Collapses the bound Orientation's motion-blur history.
+   */
   void collapse_orientation() override { get_orientation().collapse(); }
+
+  /**
+   * @brief Identity of the bound Orientation.
+   * @return Pointer identifying the bound Orientation.
+   */
   const void *orientation_id() const override { return &get_orientation(); }
 
   /**
    * @brief Steps the walk: pivots direction based on noise, then rotates the
    * view along the calculated axis.
+   * @param canvas The canvas buffer (forwarded to the base step and rotation).
    */
   void step(Canvas &canvas) override {
     AnimationBase<RandomWalk<W, CAP>>::step(canvas);
@@ -1343,7 +1586,7 @@ private:
       noiseGenerator; /**< External noise generator. */
 };
 
-///////////////////////////////////////////////////////////////////////////////
+// ---------------------------------------------------------------------------
 
 /**
  * @brief An animation that smoothly interpolates a GenerativePalette toward a
@@ -1368,6 +1611,7 @@ public:
   /**
    * @brief Steps the animation, blending the palette's colors based on the time
    * factor.
+   * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
     if (t == 0) {
@@ -1419,6 +1663,7 @@ public:
 
   /**
    * @brief Steps the animation, updating params a and d.
+   * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
@@ -1442,8 +1687,10 @@ public:
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params;
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
+  /** @brief Live ring count driving the log period. */
   std::reference_wrapper<const float> num_rings;
+  /** @brief Live line count driving the angular step. */
   std::reference_wrapper<const float> num_lines;
 };
 
@@ -1468,6 +1715,7 @@ public:
 
   /**
    * @brief Binds the warp magnitude to a live external float.
+   * @param live_scale The external float to read each frame as the magnitude.
    * @details By default the magnitude is the `scale` captured at construction.
    * Binding makes step() read the referent every frame instead, so a GUI slider
    * wired to that float takes effect immediately rather than only at the next
@@ -1479,6 +1727,7 @@ public:
 
   /**
    * @brief Steps the animation, updating param b.
+   * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
@@ -1490,12 +1739,12 @@ public:
     params.get().b.im = s * sinf(angle);
   }
 
-  std::reference_wrapper<MobiusParams> params;
-  float scale;       // Public: effects need direct read/write access
-  EasingFn easing;   // Public: effects need direct read/write access
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
+  float scale;     /**< Warp magnitude (public: effects read/write directly). */
+  EasingFn easing; /**< Easing curve (public: effects read/write directly). */
 
 private:
-  const float *scale_ref_ = nullptr; // optional live magnitude source
+  const float *scale_ref_ = nullptr; /**< Optional live magnitude source. */
 };
 
 /**
@@ -1518,6 +1767,7 @@ public:
 
   /**
    * @brief Steps the animation, updating param b.
+   * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
@@ -1529,43 +1779,54 @@ public:
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params;
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
 
 public:
-  float scale;
-  EasingFn easing;
+  float scale;     /**< Warp magnitude. */
+  EasingFn easing; /**< Easing curve. */
 };
 
 
 
 /**
  * @brief Animates a vertex-interpolated crossfade between two meshes.
+ * @details Owns its transient state (cloned meshes + SLERP buffers) via a
+ * pointer to arena-allocated storage — keeps inline size small for
+ * TimelineEvent. The caller provides source/dest MeshState references and an
+ * Arena; MeshMorph clones both, builds nearest-vertex correspondence, and
+ * interpolates each frame. Transients are released when the animation completes
+ * and the TimelineEvent is destroyed; call compact on the arena afterward to
+ * reclaim the space.
  *
- * Owns its transient state (cloned meshes + SLERP buffers) via a pointer
- * to arena-allocated storage — keeps inline size small for TimelineEvent.
- * The caller provides source/dest MeshState references and an Arena;
- * MeshMorph clones both, builds nearest-vertex correspondence, and
- * interpolates each frame. Transients are released when the animation
- * completes and the TimelineEvent is destroyed; call compact on the
- * arena afterward to reclaim the space.
- *
- * Crossfade contract (intentional, not a bug): only the incoming mesh
- * (mesh_B, carrying dest topology) morphs — each frame its vertices SLERP
- * from their nearest source vertex toward their dest position. The outgoing
- * mesh (mesh_A, a clone of source) holds its geometry and fades out via
- * opacity (op_A = 1 - alpha) while the incoming fades in; the opacities sum
- * to 1 for constant total brightness across the topology swap. The source is
- * cloned (not borrowed) so the animation is self-contained against the
- * caller recycling/mutating source mid-morph, consistent with the borrow
- * contract enforced on the draw callbacks below. The separate
- * draw_outgoing/draw_incoming callbacks exist precisely to shade the two
- * halves independently (see HankinSolids).
+ * Crossfade contract (intentional): only the incoming mesh (mesh_B, carrying
+ * dest topology) morphs — each frame its vertices SLERP from their nearest
+ * source vertex toward their dest position. The outgoing mesh (mesh_A, a clone
+ * of source) holds its geometry and fades out via opacity (op_A = 1 - alpha)
+ * while the incoming fades in; the opacities sum to 1 for constant total
+ * brightness across the topology swap. The source is cloned (not borrowed) so
+ * the animation is self-contained against the caller recycling/mutating source
+ * mid-morph, consistent with the borrow contract enforced on the draw callbacks
+ * below. The separate draw_outgoing/draw_incoming callbacks exist precisely to
+ * shade the two halves independently (see HankinSolids).
  */
 class MeshMorph : public AnimationBase<MeshMorph> {
 public:
+  /**
+   * @brief Non-owning per-half draw callback: `void(Canvas&, const MeshState&,
+   * float opacity)`.
+   */
   using MorphDrawFn = FunctionRef<void(Canvas &, const MeshState &, float)>;
 
-  /// Two-callback constructor: separate shading for outgoing and incoming.
+  /**
+   * @brief Constructs a MeshMorph with separate shading for the two halves.
+   * @param source The outgoing mesh (cloned, not borrowed).
+   * @param dest The incoming mesh whose topology the morph targets.
+   * @param arena Arena providing backing storage for cloned meshes and buffers.
+   * @param draw_outgoing Draw callback for the fading-out source clone.
+   * @param draw_incoming Draw callback for the fading-in morphing mesh.
+   * @param duration The crossfade duration in frames.
+   * @param easing_fn The easing function applied to crossfade progress.
+   */
   MeshMorph(const MeshState &source, const MeshState &dest, Arena &arena,
             MorphDrawFn draw_outgoing, MorphDrawFn draw_incoming, int duration,
             EasingFn easing_fn = ease_in_out_sin)
@@ -1630,6 +1891,10 @@ public:
             FOut &&draw_outgoing, FIn &&draw_incoming, int duration,
             EasingFn easing_fn = ease_in_out_sin) = delete;
 
+  /**
+   * @brief Steps the crossfade: interpolates vertices and renders both halves.
+   * @param canvas The canvas buffer passed to the draw callbacks.
+   */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
 
@@ -1651,23 +1916,25 @@ public:
   }
 
 private:
-  /// Arena-allocated transient data — keeps MeshMorph inline size small.
+  /**
+   * @brief Arena-allocated transient data — keeps MeshMorph inline size small.
+   */
   struct Transients {
-    MeshState mesh_A;
-    MeshState mesh_B;
-    ArenaVector<Vector> start_pos;
-    ArenaVector<Vector> end_pos;
+    MeshState mesh_A;            /**< Outgoing mesh clone. */
+    MeshState mesh_B;           /**< Incoming morphing mesh clone. */
+    ArenaVector<Vector> start_pos; /**< Per-vertex nearest-source start points. */
+    ArenaVector<Vector> end_pos;   /**< Per-vertex dest end points. */
   };
 
-  Transients *buf_;
-  EasingFn easing_fn;
-  MorphDrawFn draw_outgoing;
-  MorphDrawFn draw_incoming;
+  Transients *buf_;          /**< Pointer to arena-allocated transient state. */
+  EasingFn easing_fn;        /**< Easing curve applied to crossfade progress. */
+  MorphDrawFn draw_outgoing; /**< Draw callback for the outgoing half. */
+  MorphDrawFn draw_incoming; /**< Draw callback for the incoming half. */
 };
 
 /**
- * @brief Continuously modulates Mobius parameters to create an evolving
- * warp. Uses multiple frequencies for non-repeating chaos.
+ * @brief Continuously modulates Mobius parameters to create an evolving warp.
+ * @details Uses multiple frequencies for non-repeating chaos.
  */
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
 public:
@@ -1682,12 +1949,20 @@ public:
       : speed(speed), scale(scale), params(params), base(params),
         seed(hs::random()()) {}
 
-  /// Derive a per-channel phase offset from the seed and channel index.
+  /**
+   * @brief Derives a per-channel phase offset from the seed and channel index.
+   * @param i Channel index.
+   * @return Phase offset in [0, 100) for that channel.
+   */
   float phase(int i) const {
     uint32_t h = seed ^ (static_cast<uint32_t>(i) * 2654435761u);
     return (h & 0xFFFF) * (100.0f / 65535.0f);
   }
 
+  /**
+   * @brief Steps the animation, modulating all eight Mobius params.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float time = t * speed;
@@ -1707,13 +1982,13 @@ public:
     params.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
   }
 
-  float speed;
-  float scale;
+  float speed; /**< Animation speed (radians of phase per frame unit). */
+  float scale; /**< Magnitude of the per-channel modulation. */
 
 private:
-  std::reference_wrapper<MobiusParams> params;
-  MobiusParams base;
-  uint32_t seed;
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
+  MobiusParams base; /**< Baseline params captured at construction. */
+  uint32_t seed;     /**< Seed for the per-channel phase offsets. */
 };
 
 /**
@@ -1727,12 +2002,16 @@ struct RippleParams {
   float decay{5.0};      /**< Spatial decay rate. */
   float thickness{1.0f}; /**< Thickness of the ripple. */
 
-  // Cached dot-product thresholds for fast rejection
+  /** @brief Cached cos(angle) lower fast-reject bound. */
   float cos_threshold_min = 1.0f;
+  /** @brief Cached cos(angle) upper fast-reject bound. */
   float cos_threshold_max = -1.0f;
 
-  /// Recompute the cos(angle) fast-reject bounds for the wavelet's current
-  /// phase and thickness, so the renderer can skip points outside the ring.
+  /**
+   * @brief Recomputes the cos(angle) fast-reject bounds for the wavelet's
+   * current phase and thickness, so the renderer can skip points outside the
+   * ring.
+   */
   void prepare_thresholds() {
     float hw = thickness * 0.5f;
     if (hw < 0.001f)
@@ -1766,6 +2045,10 @@ public:
     this->params.get().amplitude = 0.0f;
   }
 
+  /**
+   * @brief Steps the ripple: advances the wave and updates its envelope.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
 
@@ -1803,25 +2086,31 @@ public:
   }
 
 private:
-  std::reference_wrapper<RippleParams> params;
-  float speed;
-  float peak_amplitude;
+  std::reference_wrapper<RippleParams> params; /**< Ripple params to animate. */
+  float speed;          /**< Wave travel speed (phase increment per frame). */
+  float peak_amplitude; /**< Peak wave height captured at construction. */
 };
 
 /**
  * @brief Parameters for noise transformation.
  */
 struct NoiseParams {
-  float amplitude = 0.5f;
-  float speed = 1.0f;
-  float frequency = 0.125f;
-  float time = 0.0f;
-  float scale = 4.0f;
-  mutable FastNoiseLite noise; // Mutable to allow lazy init/updates
+  float amplitude = 0.5f;   /**< Noise output amplitude. */
+  float speed = 1.0f;       /**< Temporal evolution speed. */
+  float frequency = 0.125f; /**< Spatial frequency of the noise. */
+  float time = 0.0f;        /**< Current animation time. */
+  float scale = 4.0f;       /**< Spatial scale factor. */
+  mutable FastNoiseLite noise; /**< Backing generator; mutable for lazy
+                                  init/updates. */
 
+  /**
+   * @brief Constructs noise params with an OpenSimplex2 generator.
+   */
   NoiseParams() { noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2); }
 
-  // Helper to ensure frequency is synced
+  /**
+   * @brief Syncs the generator's frequency with the `frequency` field.
+   */
   void sync() const { noise.SetFrequency(frequency); }
 };
 
@@ -1830,23 +2119,33 @@ struct NoiseParams {
  */
 class Noise : public AnimationBase<Noise> {
 public:
+  /**
+   * @brief Constructs a Noise animation.
+   * @param params Reference to the NoiseParams to animate.
+   * @param duration Duration in frames (-1 for indefinite).
+   */
   Noise(NoiseParams &params, int duration = -1)
       : AnimationBase(duration, true), params(params) {}
 
+  /**
+   * @brief Steps the animation, advancing the noise time field.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     params.get().time = static_cast<float>(t);
   }
 
 private:
-  std::reference_wrapper<NoiseParams> params;
+  std::reference_wrapper<NoiseParams> params; /**< Noise params to animate. */
 };
 
 } // namespace Animation
 
 /**
  * @brief Structure linking an animation with its starting time.
- * Stores the animation inline to avoid arena allocation (survives compaction).
+ * @details Stores the animation inline to avoid arena allocation (survives
+ * compaction).
  */
 struct TimelineEvent {
   // Inline storage budget for a type-erased animation. Tuned to 112 B for the
@@ -1862,29 +2161,47 @@ struct TimelineEvent {
   static constexpr size_t MAX_ANIM_SIZE = 112;
 #endif
 
-  int start = 0;
-  // Set when this event's inline animation pointer was handed out via
-  // Timeline::add_get(). Compaction must never relocate such an event — doing so
-  // dangles the caller's cached pointer. (Occupies existing alignment padding
-  // before `storage`, so it costs no extra bytes.)
+  int start = 0; /**< Global frame at which the animation begins stepping. */
+  /**
+   * @brief Whether this event's inline animation pointer was handed out via
+   * Timeline::add_get().
+   * @details Compaction must never relocate such an event — doing so dangles the
+   * caller's cached pointer. (Occupies existing alignment padding before
+   * `storage`, so it costs no extra bytes.)
+   */
   bool handled = false;
-  alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE];
+  alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
+                                  type-erased animation storage. */
 
-  /// Type-erased operation: dst != nullptr → move src into dst and destroy src.
-  ///                        dst == nullptr → just destroy src.
+  /**
+   * @brief Type-erased move/destroy operation for the stored animation.
+   * @details dst != nullptr → move src into dst and destroy src.
+   *          dst == nullptr → just destroy src.
+   */
   void (*manager)(TimelineEvent &src, TimelineEvent *dst) = nullptr;
 
-  // The animation's IAnimation* view, captured by static_cast at construction
-  // (and re-captured by the manager on every move). reinterpret_cast<IAnimation*>
-  // on the raw storage would be formally UB: animation types are
-  // non-standard-layout (virtual functions), so the standard does not guarantee
-  // the IAnimation base subobject sits at offset 0 — only a properly-typed
-  // upcast performs the (here-zero, but not portably-zero) base adjustment.
-  // Trails `manager` so it lands in the existing tail padding (no extra bytes).
+  /**
+   * @brief The animation's IAnimation* view, captured by static_cast at
+   * construction (and re-captured by the manager on every move).
+   * @details reinterpret_cast<IAnimation*> on the raw storage would be formally
+   * UB: animation types are non-standard-layout (virtual functions), so the
+   * standard does not guarantee the IAnimation base subobject sits at offset 0
+   * — only a properly-typed upcast performs the (here-zero, but not
+   * portably-zero) base adjustment. Trails `manager` so it lands in the existing
+   * tail padding (no extra bytes).
+   */
   IAnimation *iface = nullptr;
 
+  /**
+   * @brief Gets the live animation interface for this slot.
+   * @return The IAnimation* view, or nullptr if the slot is empty.
+   */
   IAnimation *animation() { return manager ? iface : nullptr; }
 
+  /**
+   * @brief Relocates this event's animation into a destination slot.
+   * @param dst The destination slot to move into.
+   */
   void move_into(TimelineEvent &dst) {
     // Fail-fast on the add_get() dangling-handle hazard: relocating a handled
     // event invalidates the caller's cached animation pointer. Today's callers
@@ -1903,6 +2220,9 @@ struct TimelineEvent {
     }
   }
 
+  /**
+   * @brief Destroys the stored animation and empties the slot.
+   */
   void destroy() {
     if (manager) {
       manager(*this, nullptr);
@@ -1967,6 +2287,9 @@ public:
   Timeline(Timeline &&) = delete;
   Timeline &operator=(Timeline &&) = delete;
 
+  /**
+   * @brief Destroys all events and resets the global frame counter.
+   */
   void clear() {
     for (int i = 0; i < global_timeline_num_events; ++i) {
       global_timeline_events[i].destroy();
@@ -2018,6 +2341,9 @@ public:
   /**
    * @brief Like add(), but returns the typed pointer to the inline-stored
    * animation. Use when you need to hold a reference for later mutation.
+   * @tparam A The animation type.
+   * @param in_frames The number of frames to delay before starting.
+   * @param animation The animation object.
    * @param pin If true (default), the caller intends to RETAIN this pointer
    * across frames, so the event is marked handled and step()'s compaction traps
    * (move_into) rather than relocating it out from under the cached pointer.
@@ -2027,6 +2353,7 @@ public:
    * `pin=false` for a TRANSIENT pointer used only at the call site and not kept
    * across frames (e.g. TransformerPool::spawn, whose finite animations are
    * compacted normally and whose return is typically discarded).
+   * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
   template <typename A> A *add_get(float in_frames, A animation, bool pin = true) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
@@ -2178,16 +2505,15 @@ public:
 /**
  * @brief A double-buffered pair of persistent MeshState slots plus the
  *        arena-compaction primitives effects need to swap between them.
- *
- * Holds two MeshState slots in `persistent_arena` and a front/back index.
- * Effects own the transition policy themselves — they generate into a slot,
- * schedule whatever animation they want (an opacity-crossfade `Sprite`, a
- * geometric `MeshMorph`, ...), flip the front index, and reclaim the old
- * slot's space. This class only provides the slot storage, index management,
- * and the two compaction helpers (`compact`, `compact_keep_front`) that those
- * policies share; it intentionally does not encode any single transition shape,
- * because the real clients (IslamicStars, HankinSolids, MeshFeedback) diverge
- * on animation type and on the per-slot side-band state they carry.
+ * @details Holds two MeshState slots in `persistent_arena` and a front/back
+ * index. Effects own the transition policy themselves — they generate into a
+ * slot, schedule whatever animation they want (an opacity-crossfade `Sprite`, a
+ * geometric `MeshMorph`, ...), flip the front index, and reclaim the old slot's
+ * space. This class only provides the slot storage, index management, and the
+ * two compaction helpers (`compact`, `compact_keep_front`) that those policies
+ * share; it intentionally does not encode any single transition shape, because
+ * the real clients (IslamicStars, HankinSolids, MeshFeedback) diverge on
+ * animation type and on the per-slot side-band state they carry.
  *
  * Usage:
  *   MeshCarousel carousel;  // in effect members
@@ -2201,25 +2527,55 @@ public:
  */
 class MeshCarousel {
 public:
+  /**
+   * @brief Constructs an empty carousel with front slot index 0.
+   */
   MeshCarousel() {}
 
-  /// The currently visible (front) mesh.
+  /**
+   * @brief Gets the currently visible (front) mesh.
+   * @return Const reference to the front MeshState slot.
+   */
   const MeshState &current() const { return slots_[front_]; }
+
+  /**
+   * @brief Gets the currently visible (front) mesh (mutable).
+   * @return Mutable reference to the front MeshState slot.
+   */
   MeshState &current() { return slots_[front_]; }
 
-  /// Direct slot access by index (for effects that need both).
+  /**
+   * @brief Direct slot access by index (for effects that need both).
+   * @param i Slot index (0 or 1).
+   * @return Const reference to the requested MeshState slot.
+   */
   const MeshState &slot(int i) const { return slots_[i]; }
+
+  /**
+   * @brief Direct slot access by index (mutable).
+   * @param i Slot index (0 or 1).
+   * @return Mutable reference to the requested MeshState slot.
+   */
   MeshState &slot(int i) { return slots_[i]; }
 
-  /// Which index is front (for capture in lambdas).
+  /**
+   * @brief Gets the front slot index (for capture in lambdas).
+   * @return The index (0 or 1) of the front slot.
+   */
   int front_index() const { return front_; }
 
-  /// Manually set the front index (for effects that manage transitions
-  /// themselves).
+  /**
+   * @brief Manually sets the front index (for effects that manage transitions
+   * themselves).
+   * @param idx The new front slot index (0 or 1).
+   */
   void set_front(int idx) { front_ = idx; }
 
-  /// Compact the persistent arena (evacuates tracked MeshStates, reclaims
-  /// fragmented space). Call before allocating new persistent data.
+  /**
+   * @brief Compacts the persistent arena, reclaiming fragmented space.
+   * @details Evacuates tracked MeshStates and resets the arena. Call before
+   * allocating new persistent data.
+   */
   void compact() {
     // NOTE: Both evacuations share scratch_arena_a. If both slots are
     // populated, scratch_arena_a must have room for both. An OOM here
@@ -2229,12 +2585,17 @@ public:
     persistent_arena.reset();
   }
 
-  /// Free the back slot and compact, preserving only the front slot. Runs
-  /// `after_reset(persistent_arena)` immediately after the reset — while the
-  /// front slot is still evacuated — so the caller can re-bake effect-owned
-  /// persistent data (e.g. a palette bank) into the fresh arena *before* the
-  /// front mesh is restored on top of it. Use when only the visible (front)
-  /// shape must survive a regeneration of the back slot.
+  /**
+   * @brief Frees the back slot and compacts, preserving only the front slot.
+   * @tparam AfterReset Callable type invoked as `void(Arena&)`.
+   * @param after_reset Callback run immediately after the reset, while the front
+   * slot is still evacuated.
+   * @details Runs `after_reset(persistent_arena)` immediately after the reset —
+   * while the front slot is still evacuated — so the caller can re-bake
+   * effect-owned persistent data (e.g. a palette bank) into the fresh arena
+   * *before* the front mesh is restored on top of it. Use when only the visible
+   * (front) shape must survive a regeneration of the back slot.
+   */
   template <typename AfterReset> void compact_keep_front(AfterReset after_reset) {
     int back = 1 - front_;
     slots_[back] = MeshState();
@@ -2244,12 +2605,13 @@ public:
   }
 
 private:
-  MeshState slots_[2];
-  int front_ = 0;
+  MeshState slots_[2]; /**< Front/back double-buffered mesh slots. */
+  int front_ = 0;      /**< Index (0 or 1) of the visible front slot. */
 };
 
 /**
  * @brief Helper to iterate over an Orientation's historical frames.
+ * @tparam CAP Orientation sub-frame capacity.
  * @param o The orientation to iterate.
  * @param callback The function to call for each frame: `void(const Quaternion&,
  * float t)`.
@@ -2269,6 +2631,7 @@ void tween(const Orientation<CAP> &o, TweenFn callback) {
 
 /**
  * @brief Helper to iterate over a VectorTrail's historical frames.
+ * @tparam CAPACITY Trail capacity.
  * @param trail The trail to iterate.
  * @param callback The function to call for each frame: `void(const Vector&,
  * float t)`.
@@ -2293,7 +2656,7 @@ void tween(const Animation::VectorTrail<CAPACITY> &trail,
 /**
  * @brief Helper to iterate over any Tweenable object (Orientation or
  * Animation::OrientationTrail).
- * @param o The object to iterate.
+ * @param trail The Tweenable object to iterate.
  * @param callback The function to call for each step: `void(const T&, float
  * t)`.
  */

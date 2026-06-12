@@ -8,28 +8,48 @@
 #include <array>
 #include "core/effects_engine.h"
 
-// A comet whose head traces a spherical Lissajous curve, dragging a fading
-// trail behind it. The path function and color palette periodically roll over
-// to the next entry in the function table, cross-fading via a ColorWipe.
+/**
+ * @brief Comet whose head traces a spherical Lissajous curve, dragging a
+ *        fading trail behind it.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details The path function and color palette periodically roll over to the
+ *          next entry in the function table, cross-fading via a ColorWipe.
+ */
 template <int W, int H> class Comets : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 115;
+  static constexpr int TRAIL_LENGTH = 115; /**< Number of past orientations retained in the comet trail. */
 
-  // The comet head: its world orientation, the recorded trail of past
-  // orientations, and the local direction vector being drawn (the body axis).
+  /**
+   * @brief Comet head state: world orientation, recorded trail, and body axis.
+   * @details Holds the head's world orientation, the recorded trail of past
+   *          orientations, and the local direction vector being drawn (the
+   *          body axis).
+   */
   struct Node {
-    Orientation<16> orientation;
-    Animation::OrientationTrail<Orientation<16>, TRAIL_LENGTH> trail;
-    Vector v;
+    Orientation<16> orientation; /**< Current world orientation of the comet head. */
+    Animation::OrientationTrail<Orientation<16>, TRAIL_LENGTH> trail; /**< Recorded trail of past orientations. */
+    Vector v; /**< Local direction vector drawn as the comet body axis. */
 
+    /**
+     * @brief Constructs a node with its body axis aligned to the Y axis.
+     */
     Node() : v(Y_AXIS) {}
   };
 
+  /**
+   * @brief Constructs the effect at the templated canvas resolution.
+   * @details Initializes the base Effect with the W x H dimensions and selects
+   *          the first path/palette function table entry.
+   */
   FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {}
 
-  // Allocate the node, bake the palette LUT, register params, and wire up the
-  // timeline: an infinite RandomWalk + Motion + cycle timer, plus the periodic
-  // palette/path rollover.
+  /**
+   * @brief Allocates state and wires up the animation timeline.
+   * @details Allocates the node, bakes the palette LUT, registers params, and
+   *          builds the timeline: an infinite RandomWalk + Motion + cycle
+   *          timer, plus the periodic palette/path rollover.
+   */
   void init() override {
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
@@ -65,10 +85,18 @@ public:
                true));
   }
 
+  /**
+   * @brief Reports whether the engine should clear to the background each frame.
+   * @return Always false; this effect manages its own framebuffer contents.
+   */
   bool show_bg() const override { return false; }
 
-  // Step the timeline, live-apply Cycle Dur, rebake the palette while a wipe is
-  // in flight, record the trail, and draw the comet body along the trail.
+  /**
+   * @brief Advances and renders one frame of the comet.
+   * @details Steps the timeline, live-applies Cycle Dur, rebakes the palette
+   *          while a wipe is in flight, records the trail, and draws the comet
+   *          body along the trail.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -106,8 +134,12 @@ public:
   }
 
 private:
-  // Rebuild the path function from the current table entry, snapping its
-  // traversal length so the spherical Lissajous curve closes exactly.
+  /**
+   * @brief Rebuilds the path function from the current function table entry.
+   * @details Snaps the traversal length so the spherical Lissajous curve
+   *          closes exactly, keeping the trace continuous across loops and
+   *          function switches.
+   */
   void update_path() {
     LissajousParams config = functions[cur_function_idx];
     // Snap the traversal length so the curve closes exactly. A spherical
@@ -142,8 +174,11 @@ private:
     };
   }
 
-  // Roll the palette over to a freshly generated one via a ColorWipe, arming
-  // the rebake gate for the wipe's duration.
+  /**
+   * @brief Rolls the palette over to a freshly generated one via a ColorWipe.
+   * @details Arms the rebake gate for the wipe's duration and skips the
+   *          rollover while a previous wipe is still in flight.
+   */
   void update_palette() {
     // Skip the rollover while a wipe is still in flight. The ColorWipe reads
     // `next_palette_` as its target and mutates `palette` for WIPE_FRAMES frames;
@@ -167,15 +202,16 @@ private:
     wipe_frames_remaining_ = WIPE_FRAMES + 1;
   }
 
-  static constexpr int WIPE_FRAMES = 48;
+  static constexpr int WIPE_FRAMES = 48; /**< Duration of a palette cross-fade ColorWipe, in frames. */
 
-  FastNoiseLite noise;
-  Timeline timeline;
-  Pipeline<W, H> filters;
-  ProceduralPath path;
-  Orientation<> orientation;
-  GenerativePalette palette;
-  BakedPalette baked_palette;
+  FastNoiseLite noise; /**< Noise source driving the head's RandomWalk. */
+  Timeline timeline; /**< Animation timeline owning all scheduled animations. */
+  Pipeline<W, H> filters; /**< Render filter pipeline applied to drawn fragments. */
+  ProceduralPath path; /**< Current path function the comet head traces. */
+  Orientation<> orientation; /**< World orientation walked by the RandomWalk. */
+  GenerativePalette palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
+  BakedPalette baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
+  /** @brief Function table of Lissajous parameters cycled through over time. */
   std::array<LissajousParams, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},
                                                 {6.06f, 1.0f, 0, 2 * PI_F},
                                                 {6.02f, 4.01f, 0, 3.132f},
@@ -188,20 +224,23 @@ private:
                                                 {11.67f, 14.58f, 0, 2.154f},
                                                 {11.67f, 8.75f, 0, 2.154f},
                                                 {10.94f, 8.75f, 0, 2.872f}}};
-  int cur_function_idx;
-  Node *node = nullptr;
-  GenerativePalette next_palette_;
-  Animation::Motion<W, 16> *motion_ = nullptr;
-  Animation::PeriodicTimer *cycle_timer_ = nullptr;
-  int last_cycle_dur_ = -1;
-  int wipe_frames_remaining_ = 0;
+  int cur_function_idx; /**< Index into `functions` of the active path/palette entry. */
+  Node *node = nullptr; /**< Arena-allocated comet head state. */
+  GenerativePalette next_palette_; /**< Target palette a ColorWipe fades toward. */
+  Animation::Motion<W, 16> *motion_ = nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
+  Animation::PeriodicTimer *cycle_timer_ = nullptr; /**< Handle to the timer that rolls path/palette over. */
+  int last_cycle_dur_ = -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
+  int wipe_frames_remaining_ = 0; /**< Frames left to rebake `palette` for the in-flight wipe. */
 
+  /**
+   * @brief User-tunable parameters exposed as effect sliders.
+   */
   struct Params {
-    float alpha = 1.0f;
-    float thickness = 2.1f * 2 * PI_F / W;
-    float cycle_duration = 80.0f;
-    bool debug_bb = false;
-  } params;
+    float alpha = 1.0f; /**< Overall trail opacity multiplier in [0, 1]. */
+    float thickness = 2.1f * 2 * PI_F / W; /**< Comet body half-width, in radians. */
+    float cycle_duration = 80.0f; /**< Duration of one motion cycle, in frames. */
+    bool debug_bb = false; /**< When true, draws the fragment bounding box for debugging. */
+  } params; /**< Live parameter block bound to the registered sliders. */
 };
 
 #include "core/effect_registry.h"

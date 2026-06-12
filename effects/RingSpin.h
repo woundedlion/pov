@@ -8,30 +8,53 @@
 #include <array>
 #include "core/effects_engine.h"
 
-// Spinning great-circle rings that wander the sphere via random-walk
-// orientation, each leaving a motion-blur trail that fades along its length.
+/**
+ * @brief Spinning great-circle rings that wander the sphere.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Each ring's orientation follows a random-walk over the sphere and
+ * leaves a motion-blur trail that fades in color and alpha along its length.
+ */
 template <int W, int H> class RingSpin : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 19; // trail samples per ring
   static constexpr int NUM_RINGS = 4;
 
-  // One ring: its great-circle plane, palette, current orientation, and the
-  // history trail used to render the fading motion blur.
+  /**
+   * @brief One ring: great-circle plane, palette, orientation, and trail.
+   * @details Bundles the ring's great-circle plane normal, palette, current
+   * orientation, and the history trail used to render the fading motion blur.
+   */
   struct Ring {
     Vector normal;
     BakedPalette *palette;
     Orientation<> orientation;
     Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
     FastNoiseLite noise;
+    /**
+     * @brief Constructs a default ring on the X axis with no palette.
+     */
     Ring() : normal(X_AXIS), palette(nullptr) {}
 
+    /**
+     * @brief Constructs a ring with the given plane normal and palette.
+     * @param n Unit normal of the ring's great-circle plane.
+     * @param p Baked palette used to color the ring's trail.
+     */
     Ring(const Vector &n, BakedPalette *p) : normal(n), palette(p) {}
   };
 
+  /**
+   * @brief Constructs the effect at the W x H canvas resolution.
+   */
   FLASHMEM RingSpin() : Effect(W, H) {}
 
-  // Allocate rings, register params, bake the vignette palettes, and spawn the
-  // initial set of rings.
+  /**
+   * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
+   * @details Allocates the ring storage from the persistent arena, registers the
+   * tunable parameters, bakes the vignette palettes into fast LUTs, and spawns
+   * the initial set of rings.
+   */
   void init() override {
     rings = static_cast<Ring *>(
         persistent_arena.allocate(NUM_RINGS * sizeof(Ring), alignof(Ring)));
@@ -59,10 +82,17 @@ public:
     }
   }
 
+  /**
+   * @brief Reports whether the effect draws over a background.
+   * @return false; the effect renders on a clear background.
+   */
   bool show_bg() const override { return false; }
 
-  // Advance the timeline and draw each ring's trail back-to-front, fading color
-  // and alpha along the trail.
+  /**
+   * @brief Advances the timeline and draws each ring's trail.
+   * @details Steps the timeline, then draws each ring's trail back-to-front,
+   * fading color and alpha along the trail.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -93,8 +123,13 @@ public:
   }
 
 private:
-  // Construct one more ring and start its energetic random-walk on the timeline;
-  // no-op once NUM_RINGS are live.
+  /**
+   * @brief Constructs one more ring and starts its energetic random-walk.
+   * @param normal Unit normal of the new ring's great-circle plane.
+   * @param palette Baked palette used to color the new ring's trail.
+   * @details Adds the ring to the timeline with an energetic random-walk
+   * orientation; no-op once NUM_RINGS rings are already live.
+   */
   void spawn_ring(const Vector &normal, BakedPalette *palette) {
     if (num_rings >= NUM_RINGS)
       return;
@@ -116,10 +151,13 @@ private:
       Palettes::richSunset};
   std::array<BakedPalette, 4> baked_palettes;
 
+  /**
+   * @brief Tunable rendering parameters for the effect.
+   */
   struct Params {
-    float alpha = 0.5f;
-    float thickness = 0.8f;
-    bool show_bounding_box = false;
+    float alpha = 0.5f;          /**< Global trail opacity multiplier in [0, 1]. */
+    float thickness = 0.8f;      /**< Ring line thickness multiplier (unitless). */
+    bool show_bounding_box = false; /**< Whether to draw each ring's bounding box. */
   } params;
 };
 

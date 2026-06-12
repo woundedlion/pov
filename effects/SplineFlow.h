@@ -8,30 +8,45 @@
 #include <array>
 #include "core/effects_engine.h"
 
-// Closed geodesic spline whose control points drift over the sphere via
-// independent random walks, drawn as a fading trail that sweeps around a moving
-// draw head. Colored from a baked palette by spline progress.
+/**
+ * @brief Closed geodesic spline whose control points drift over the sphere,
+ *        drawn as a fading trail that sweeps around a moving draw head.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Control points follow independent random walks across the sphere.
+ *          The spline is colored from a baked palette by spline progress.
+ */
 template <int W, int H> class SplineFlow : public Effect {
 public:
   static constexpr int MAX_TRAILS = 30000;
   static constexpr int MAX_POINTS = 12;
   static constexpr int lifetime = 60;
 
+  /**
+   * @brief Tunable parameters exposed to the UI sliders.
+   */
   struct Params {
-    float tension = 0.3f;
-    float speed = 0.05f;
-    float drift = 0.5f;
-    float num_points = 6.0f;
-    float alpha = 0.6f;
+    float tension = 0.3f;   /**< Catmull-Rom spline tension in [0, 1]. */
+    float speed = 0.05f;    /**< Draw-head phase rate per step. */
+    float drift = 0.5f;     /**< Control-point random-walk speed scale in [0, 1]. */
+    float num_points = 6.0f; /**< Number of active control points in [4, 12]. */
+    float alpha = 0.6f;     /**< Peak trail opacity in [0.1, 1]. */
   } params;
 
+  /**
+   * @brief Constructs the effect and wires up the trail/orient/anti-alias filters.
+   */
   FLASHMEM SplineFlow()
       : Effect(W, H), filters(Filter::World::Trails<W, MAX_TRAILS>(lifetime),
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {}
 
-  // Allocate trail storage, bake the palette, register sliders, and seed the
-  // control-point/orientation/draw-head animations on the timeline.
+  /**
+   * @brief Allocates trail storage, bakes the palette, registers sliders, and
+   *        seeds the control-point/orientation/draw-head animations.
+   * @details Runs once before the first frame; sets up persistent state on the
+   *          arena and the timeline.
+   */
   void init() override {
     filters.template get<Filter::World::Trails<W, MAX_TRAILS>>().init_storage(
         persistent_arena);
@@ -69,10 +84,18 @@ public:
     timeline.add(0, Animation::Driver(draw_head, &params.speed, 1.0f, true));
   }
 
+  /**
+   * @brief Reports whether the engine should clear to a background each frame.
+   * @return Always false; trails accumulate against a persistent buffer.
+   */
   bool show_bg() const override { return false; }
 
-  // Advance animations, rebuild the closed spline from the drifting control
-  // points, draw it through the trail pipeline, and flush faded trails.
+  /**
+   * @brief Advances animations, rebuilds the closed spline from the drifting
+   *        control points, draws it, and flushes faded trails.
+   * @details Called once per frame; also live-applies the Drift slider to the
+   *          control-point walk speeds.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -123,19 +146,23 @@ public:
   }
 
 private:
-  float draw_head = 0.0f;
-  Orientation<> orientation;
-  Orientation<> point_orientations[MAX_POINTS];
-  Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {};
-  float last_drift_ = -1.0f;
-  // One noise generator per control-point walk. The RandomWalk ctor stamps its
-  // frequency and seed onto the generator it is handed, so each walk needs its
-  // own to keep its intended frequency and an independent noise field.
+  float draw_head = 0.0f; /**< Spline progress phase of the draw head in [0, 1). */
+  Orientation<> orientation; /**< Global orientation animated by a languid walk. */
+  Orientation<> point_orientations[MAX_POINTS]; /**< Per-control-point orientations. */
+  Animation::RandomWalk<W> *point_walks_[MAX_POINTS] = {}; /**< Handles for live Drift updates. */
+  float last_drift_ = -1.0f; /**< Last applied Drift value for change detection. */
+  /**
+   * @brief One noise generator per control-point walk.
+   * @details The RandomWalk ctor stamps its frequency and seed onto the
+   *          generator it is handed, so each walk needs its own to keep its
+   *          intended frequency and an independent noise field.
+   */
   std::array<FastNoiseLite, MAX_POINTS> point_noises_;
-  FastNoiseLite orient_noise_;
-  Timeline timeline;
-  BakedPalette baked_palette_;
+  FastNoiseLite orient_noise_; /**< Noise field for the global orientation walk. */
+  Timeline timeline; /**< Drives all animations each frame. */
+  BakedPalette baked_palette_; /**< 256-entry palette LUT for coloring. */
 
+  /** @brief Render pipeline chaining the trail, orient, and anti-alias filters. */
   Pipeline<W, H, Filter::World::Trails<W, MAX_TRAILS>, Filter::World::Orient<W>,
            Filter::Screen::AntiAlias<W, H>>
       filters;

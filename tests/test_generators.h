@@ -22,10 +22,13 @@ namespace generators_tests {
 
 inline uint8_t gen_target_buf[8 * 1024];
 
-// Verifies the full generate() contract in one pass: scratch arenas are reset
-// before fn runs, fn receives the two globals plus the caller's target, scratch
-// allocations roll back on return, target allocations persist, and the extra
-// arg and return value are forwarded.
+/**
+ * @brief Verifies the full generate() contract in one pass.
+ * @details Asserts the scratch arenas are reset before fn runs, fn receives the
+ * two global scratch arenas plus the caller's target, scratch allocations roll
+ * back on return, target allocations persist, and the extra arg and return
+ * value are forwarded.
+ */
 inline void test_generate_lifecycle_and_forwarding() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
@@ -77,8 +80,12 @@ inline void test_generate_lifecycle_and_forwarding() {
   HS_EXPECT_EQ(target.get_offset(), (size_t)32);
 }
 
-// A generator can write into target while using scratch; only scratch is rolled
-// back. Confirms two sequential generate() calls accumulate in target.
+/**
+ * @brief Confirms target allocations persist while scratch is rolled back.
+ * @details A generator can write into target while using scratch; only scratch
+ * is rolled back. Verifies that two sequential generate() calls accumulate
+ * their target allocations.
+ */
 inline void test_generate_nested_target_persists() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
@@ -103,9 +110,13 @@ inline void test_generate_nested_target_persists() {
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 }
 
-// generate() is reentrant: a callback may call generate() again. The inner call
-// must stack its scratch above the outer frame's live allocations rather than
-// resetting the arena out from under it. Checks the outer sentinel survives.
+/**
+ * @brief Verifies reentrant generate() does not clobber the outer frame.
+ * @details generate() is reentrant: a callback may call generate() again. The
+ * inner call must stack its scratch above the outer frame's live allocations
+ * rather than resetting the arena out from under it. Checks that the outer
+ * sentinel survives the nested call.
+ */
 inline void test_generate_reentrant_nesting_does_not_clobber() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
@@ -151,7 +162,10 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
 // Runner
 // ============================================================================
 
-// Runs every generators test case and returns the module's failure count.
+/**
+ * @brief Runs every generators test case.
+ * @return The module's failure count.
+ */
 inline int run_generators_tests() {
   auto scope = hs_test::begin_module("generators");
 

@@ -51,7 +51,10 @@ inline uint8_t solids_scratch_b[4 * 1024 * 1024];
 // tests/mesh_test_util.h; the rest are specific to the registry path here.
 // ---------------------------------------------------------------------------
 
-// Assert every vertex coordinate is finite (no NaN/Inf from the generators).
+/**
+ * @brief Asserts every vertex coordinate is finite (no NaN/Inf from the generators).
+ * @param m Mesh whose vertex coordinates are checked.
+ */
 inline void check_all_finite(const PolyMesh &m) {
   for (size_t i = 0; i < m.vertices.size(); ++i) {
     const Vector &v = m.vertices[i];
@@ -60,15 +63,22 @@ inline void check_all_finite(const PolyMesh &m) {
   }
 }
 
-// Assert the mesh has at least one vertex, face count, and face index.
+/**
+ * @brief Asserts the mesh has at least one vertex, face count, and face index.
+ * @param m Mesh to check for non-emptiness.
+ */
 inline void check_nonempty(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.vertices.size() > 0);
   HS_EXPECT_TRUE(m.face_counts.size() > 0);
   HS_EXPECT_TRUE(m.faces.size() > 0);
 }
 
-// Structural validity bundle applied to every registered solid: non-empty,
-// consistent face_counts/faces, in-range face indices, and finite coordinates.
+/**
+ * @brief Structural validity bundle applied to every registered solid.
+ * @param m Mesh to validate.
+ * @details Asserts non-empty, consistent face_counts/faces, in-range face
+ *          indices, and finite coordinates.
+ */
 inline void check_basic(const PolyMesh &m) {
   check_nonempty(m);
   check_face_counts_consistent(m);
@@ -76,8 +86,13 @@ inline void check_basic(const PolyMesh &m) {
   check_all_finite(m);
 }
 
-// Build a registry entry by index into fresh scratch arenas (reset each call),
-// finalizing into the supplied geometry arena.
+/**
+ * @brief Builds a registry entry by index, finalizing into the supplied geometry arena.
+ * @param index Registry entry index to build.
+ * @param geom Geometry arena that holds the finalized mesh.
+ * @return The finalized PolyMesh for the entry.
+ * @details Uses fresh scratch arenas (reset each call) for the generation pass.
+ */
 inline PolyMesh build_index(size_t index, Arena &geom) {
   Arena a(solids_scratch_a, sizeof(solids_scratch_a));
   Arena b(solids_scratch_b, sizeof(solids_scratch_b));
@@ -90,8 +105,10 @@ inline PolyMesh build_index(size_t index, Arena &geom) {
 // unit magnitude.
 // ---------------------------------------------------------------------------
 
-// Every simple (Platonic/Archimedean) entry builds to a valid mesh whose
-// vertices sit on the unit sphere within 1e-3.
+/**
+ * @brief Verifies every simple (Platonic/Archimedean) entry builds to a valid
+ *        mesh whose vertices sit on the unit sphere within 1e-3.
+ */
 inline void test_simple_registry_solids_are_spherical_and_valid() {
   for (size_t i = 0; i < Solids::Collections::get_simple_solids().size(); ++i) {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
@@ -101,8 +118,11 @@ inline void test_simple_registry_solids_are_spherical_and_valid() {
   }
 }
 
-// Every Catalan entry builds to a valid mesh whose vertices sit on the unit
-// sphere within 1e-3. Catalan indices follow the simple-solid block.
+/**
+ * @brief Verifies every Catalan entry builds to a valid mesh whose vertices sit
+ *        on the unit sphere within 1e-3.
+ * @details Catalan indices follow the simple-solid block in the registry.
+ */
 inline void test_catalan_registry_solids_are_spherical_and_valid() {
   const size_t base = Solids::Collections::get_simple_solids().size();
   for (size_t k = 0; k < Solids::Collections::get_catalan_solids().size();
@@ -120,8 +140,11 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
 // and may yield open meshes, so magnitude/closure are NOT asserted here.
 // ---------------------------------------------------------------------------
 
-// Every Islamic-pattern entry builds to a structurally valid mesh. No sphere
-// assertion (see section banner). Islamic indices follow simple + Catalan.
+/**
+ * @brief Verifies every Islamic-pattern entry builds to a structurally valid mesh.
+ * @details No sphere assertion (hankin/expand may move points off the sphere).
+ *          Islamic indices follow the simple + Catalan blocks in the registry.
+ */
 inline void test_islamic_registry_solids_are_valid() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
                       Solids::Collections::get_catalan_solids().size();
@@ -133,8 +156,11 @@ inline void test_islamic_registry_solids_are_valid() {
   }
 }
 
-// Sanity: NUM_ENTRIES equals the sum of the three registries, and indexing
-// the full range never crashes.
+/**
+ * @brief Verifies NUM_ENTRIES equals the sum of the three registries.
+ * @details Confirms indexing the full range corresponds to the combined
+ *          simple + Catalan + Islamic collection sizes.
+ */
 inline void test_registry_count_matches_collections() {
   size_t sum = Solids::Collections::get_simple_solids().size() +
                Solids::Collections::get_catalan_solids().size() +
@@ -148,8 +174,12 @@ inline void test_registry_count_matches_collections() {
 // as test_mesh.h does.
 // ---------------------------------------------------------------------------
 
-// Build the registry entry at `index`, derive its half-edge mesh, and assert
-// V - E + F == 2 (edges counted as half_edges/2).
+/**
+ * @brief Builds the registry entry at `index`, derives its half-edge mesh, and
+ *        asserts the Euler characteristic V - E + F == 2.
+ * @param index Registry entry index to check.
+ * @details Edges are counted as half_edges/2, matching test_mesh.h.
+ */
 inline void check_euler_for_index(size_t index) {
   Arena geom(solids_geom_a, sizeof(solids_geom_a));
   PolyMesh m = build_index(index, geom);
@@ -164,7 +194,9 @@ inline void check_euler_for_index(size_t index) {
   HS_EXPECT_EQ(V - E + F, 2);
 }
 
-// Assert V - E + F == 2 for each Platonic solid (closed manifolds).
+/**
+ * @brief Verifies V - E + F == 2 for each Platonic solid (closed manifolds).
+ */
 inline void test_euler_platonic_solids() {
   // simple_registry indices 0-4 are the Platonic solids (closed manifolds).
   for (size_t i = 0; i < Solids::Collections::get_platonic_solids().size(); ++i)
@@ -175,9 +207,12 @@ inline void test_euler_platonic_solids() {
 // Fallbacks (read directly from solids.h).
 // ---------------------------------------------------------------------------
 
-// Out-of-range get_entry() and unknown get_by_name() TRAP (fail-fast), so those
-// error paths can't be exercised here without death-test infrastructure.
-// Instead verify the last valid index builds correctly (boundary of the range).
+/**
+ * @brief Verifies the last valid registry index builds correctly (range boundary).
+ * @details Out-of-range get_entry() and unknown get_by_name() TRAP (fail-fast),
+ *          so those error paths can't be exercised without death-test
+ *          infrastructure; only the valid boundary is checked here.
+ */
 inline void test_get_entry_last_valid_index_builds() {
   const Solids::Entry &e = Solids::get_entry(Solids::NUM_ENTRIES - 1);
   HS_EXPECT_TRUE(e.name != nullptr);
@@ -190,8 +225,11 @@ inline void test_get_entry_last_valid_index_builds() {
   check_all_unit_vertices(m, 1e-3f);
 }
 
-// get_by_name("octahedron") returns that specific solid: valid, on the unit
-// sphere, with the octahedron's 6 vertices and 8 faces.
+/**
+ * @brief Verifies get_by_name("octahedron") returns that specific solid.
+ * @details Asserts the result is valid, on the unit sphere, and has the
+ *          octahedron's 6 vertices and 8 faces.
+ */
 inline void test_get_by_name_known_returns_that_solid() {
   Arena geom(solids_geom_a, sizeof(solids_geom_a));
   Arena a(solids_scratch_a, sizeof(solids_scratch_a));
@@ -208,8 +246,11 @@ inline void test_get_by_name_known_returns_that_solid() {
 // two distinct geometry arenas so the two results coexist for comparison.
 // ---------------------------------------------------------------------------
 
-// Build the entry at `index` twice into separate arenas and assert the two
-// meshes match in counts, vertex positions (1e-6), and face indices.
+/**
+ * @brief Builds the entry at `index` twice into separate arenas and asserts the
+ *        two meshes match in counts, vertex positions (1e-6), and face indices.
+ * @param index Registry entry index to build twice.
+ */
 inline void check_determinism_for_index(size_t index) {
   Arena geom1(solids_geom_a, sizeof(solids_geom_a));
   PolyMesh m1 = build_index(index, geom1);
@@ -234,22 +275,29 @@ inline void check_determinism_for_index(size_t index) {
   }
 }
 
-// Determinism on a hardcoded solid: the cube is pure data with no procedural
-// ops, so two builds must be bit-identical.
+/**
+ * @brief Verifies determinism on a hardcoded solid (the cube).
+ * @details The cube is pure data with no procedural ops, so two builds must be
+ *          bit-identical.
+ */
 inline void test_determinism_hardcoded_platonic() {
   // index 1 = cube (pure data, no procedural ops).
   check_determinism_for_index(1);
 }
 
-// Determinism through a Conway op pipeline (cube -> ambo): the procedural path
-// must reproduce identical geometry across builds.
+/**
+ * @brief Verifies determinism through a Conway op pipeline (cube -> ambo).
+ * @details The procedural path must reproduce identical geometry across builds.
+ */
 inline void test_determinism_archimedean_with_conway_ops() {
   // index 6 = cuboctahedron (cube -> ambo): exercises a Conway op pipeline.
   check_determinism_for_index(6);
 }
 
-// Determinism on the longest path: a deeply chained Islamic-pattern generator
-// must also be reproducible.
+/**
+ * @brief Verifies determinism on the longest path (a deeply chained
+ *        Islamic-pattern generator), which must also be reproducible.
+ */
 inline void test_determinism_complex_islamic() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
                       Solids::Collections::get_catalan_solids().size();
@@ -260,7 +308,10 @@ inline void test_determinism_complex_islamic() {
 // Runner
 // ---------------------------------------------------------------------------
 
-// Run all solids tests; returns the module's failure count.
+/**
+ * @brief Runs all solids tests.
+ * @return The module's failure count.
+ */
 inline int run_solids_tests() {
   auto scope = hs_test::begin_module("solids");
 

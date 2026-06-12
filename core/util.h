@@ -45,11 +45,13 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
 
 /**
  * @brief Fast floating point modulo for 1.0.
- * Safely wraps any float (positive or negative) into the [0.0, 1.0) range.
- * For tiny negative t in (-2.98e-8, 0), `t - floorf(t)` rounds up to exactly
- * 1.0f, violating the half-open [0,1) contract; the guard folds that boundary
- * back to 0, mirroring the sibling `wrap()` template above. The compare lowers
- * to a branchless select, so the per-call cost is negligible.
+ * @param t The value to wrap.
+ * @return The wrapped value in the range [0.0, 1.0).
+ * @details Safely wraps any float (positive or negative) into the [0.0, 1.0)
+ *   range. For tiny negative t in (-2.98e-8, 0), `t - floorf(t)` rounds up to
+ *   exactly 1.0f, violating the half-open [0,1) contract; the guard folds that
+ *   boundary back to 0, mirroring the sibling `wrap()` template above. The
+ *   compare lowers to a branchless select, so the per-call cost is negligible.
  */
 inline float wrap_t(float t) {
   float r = t - floorf(t);
@@ -71,6 +73,9 @@ inline int wrap(int x, int m) {
 /**
  * @brief Single-step integer wrap into [0, W), assuming x is at most one period
  * out of range (i.e. x is in [-W, 2*W)).
+ * @param x The value to wrap; must lie in [-W, 2*W).
+ * @param W The modulo base (period length).
+ * @return The wrapped value in the range [0, W).
  */
 inline int fast_wrap(int x, int W) {
   // Single-step correction only: a value more than one period out of range is

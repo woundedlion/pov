@@ -44,35 +44,54 @@
 namespace hs_test {
 namespace effects_tests {
 
-// Render at the primary production resolution (the daydream simulator default
-// and the device's full sphere). This is the configuration effects are
-// exercised at in deployment, so it is the representative smoke target.
+/**
+ * @brief Primary production render width in pixels.
+ * @details The daydream simulator default and the device's full sphere; the
+ * configuration effects are exercised at in deployment, so it is the
+ * representative smoke target.
+ */
 constexpr int kW = 288;
+/**
+ * @brief Primary production render height in pixels.
+ * @details Paired with kW for the full-sphere production resolution.
+ */
 constexpr int kH = 144;
 
-// The Holosphere hardware target instantiates every effect at <96,20>. The
-// native suite is the only place that specialization runs under asserts (the
-// device forces NDEBUG; the CI WASM smoke runs assert-free), so a second roster
-// pass at this resolution exercises height-20-specific paths (PhiLUT<20>
-// indexing, small-aspect arena sizing, H_OFFSET interactions) that bypass every
-// assert-enabled layer otherwise. Both are in HS_WASM_RESOLUTIONS (wasm.cpp).
+/**
+ * @brief Holosphere device render width in pixels.
+ * @details The hardware target instantiates every effect at <96,20>. The native
+ * suite is the only place that specialization runs under asserts (the device
+ * forces NDEBUG; the CI WASM smoke runs assert-free), so a second roster pass at
+ * this resolution exercises height-20-specific paths (PhiLUT<20> indexing,
+ * small-aspect arena sizing, H_OFFSET interactions) that bypass every
+ * assert-enabled layer otherwise. Both are in HS_WASM_RESOLUTIONS (wasm.cpp).
+ */
 constexpr int kDeviceW = 96;
+/**
+ * @brief Holosphere device render height in pixels.
+ * @details Paired with kDeviceW for the <96,20> device specialization.
+ */
 constexpr int kDeviceH = 20;
 
-// Default smoke frame count — kept small so the effects smoke pass itself stays
-// quick. (The full pre-commit suite still runs ~25 s, dominated by the
-// death-test subprocess spawns and the multi-board sync simulator, not these
-// smoke frames.) Set HS_SMOKE_FRAMES=<n> to
-// drive long, cyclic code paths (effect morph cycles, particle/trail wraps,
-// arena compaction, and the effect-lifecycle transitions — RingShower slot
-// reuse, Thrusters fire/FIFO expiry, ShapeShifter's 48-frame cut) that only
-// surface over many frames. 8 frames never reaches those windows, so CI sets
-// HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to exercise them on every
-// push/PR while local commits keep the fast 8-frame path.
+/**
+ * @brief Default per-effect smoke frame count.
+ * @details Kept small so the effects smoke pass itself stays quick. (The full
+ * pre-commit suite still runs ~25 s, dominated by the death-test subprocess
+ * spawns and the multi-board sync simulator, not these smoke frames.) Set
+ * HS_SMOKE_FRAMES=<n> to drive long, cyclic code paths (effect morph cycles,
+ * particle/trail wraps, arena compaction, and the effect-lifecycle transitions
+ * — RingShower slot reuse, Thrusters fire/FIFO expiry, ShapeShifter's 48-frame
+ * cut) that only surface over many frames. 8 frames never reaches those
+ * windows, so CI sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to
+ * exercise them on every push/PR while local commits keep the fast 8-frame
+ * path.
+ */
 constexpr int kDefaultFrames = 8;
 
-// Frames to render per effect: HS_SMOKE_FRAMES if set to a positive int, else
-// kDefaultFrames.
+/**
+ * @brief Resolves the per-effect frame count from the environment.
+ * @return HS_SMOKE_FRAMES if set to a positive int, else kDefaultFrames.
+ */
 inline int smoke_frames() {
   // getenv is the simplest way to parameterize a test binary; the MSVC CRT
   // flags it deprecated in favor of _dupenv_s, but the standard call is fine
@@ -87,9 +106,24 @@ inline int smoke_frames() {
   return kDefaultFrames;
 }
 
+/**
+ * @brief Forward declaration of the registered-but-unread param lint.
+ * @param effect Effect instance whose editable params are probed.
+ * @param name Effect name used in diagnostic output.
+ */
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
-// Drive one effect type through construct -> init -> render -> read-back.
+/**
+ * @brief Drives one effect type through construct -> init -> render -> read-back.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels (defaults to kW).
+ * @tparam H Render height in pixels (defaults to kH).
+ * @param name Effect name used in the [ok] / diagnostic output.
+ * @details Verifies the effect constructs, init's, renders smoke_frames()
+ * frames, and reads back every pixel without tripping an assert/OOB/hang, and
+ * that get_pixel is a stable pure accessor. Runs the dead-slider lint once on
+ * the primary <kW,kH> pass.
+ */
 template <template <int, int> class E, int W = kW, int H = kH>
 inline void smoke_one(const char *name) {
   // Deterministic RNG so a given effect takes the same code path each run.
@@ -148,18 +182,22 @@ inline void smoke_one(const char *name) {
     lint_dead_sliders(effect, name);
 }
 
-// Build-time "registered-but-unread" lint for the live-art param system.
-//
-// Contract: a registered, editable param — one NOT flagged markAnimated() and
-// NOT flagged markReadonly() — must be genuinely user-controllable, i.e. a value
-// written through updateParameter() must persist across frames. If the engine
-// overwrites it every frame (a Mutation/Driver/Lerp bound to the same member, or
-// output-only telemetry), the slider is dead: the author must drive a private
-// member and markAnimated() it, or markReadonly() pure telemetry. This is the
-// build-time gate for the theme-4 dead-slider class (it catches the per-frame
-// overwrite mechanism behind MobiusGrid/ShapeShifter/the preset-lerp group; a
-// value that merely has no rendered effect can't be detected without flaky
-// golden-image diffing and is out of scope).
+/**
+ * @brief Build-time "registered-but-unread" lint for the live-art param system.
+ * @param effect Effect instance whose editable params are probed.
+ * @param name Effect name used in DEAD SLIDER diagnostic output.
+ * @details Contract: a registered, editable param — one NOT flagged
+ * markAnimated() and NOT flagged markReadonly() — must be genuinely
+ * user-controllable, i.e. a value written through updateParameter() must persist
+ * across frames. If the engine overwrites it every frame (a Mutation/Driver/Lerp
+ * bound to the same member, or output-only telemetry), the slider is dead: the
+ * author must drive a private member and markAnimated() it, or markReadonly()
+ * pure telemetry. This is the build-time gate for the theme-4 dead-slider class
+ * (it catches the per-frame overwrite mechanism behind
+ * MobiusGrid/ShapeShifter/the preset-lerp group; a value that merely has no
+ * rendered effect can't be detected without flaky golden-image diffing and is
+ * out of scope).
+ */
 inline void lint_dead_sliders(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
     if (def.is_bool() || def.animated || def.readonly)
@@ -188,15 +226,29 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
   }
 }
 
-// Fixed per-frame clock schedule for the determinism pass (~30fps). Identical
-// across both runs, so any frame-to-frame animation driven by hs::millis/micros
-// or beatsin* is reproduced exactly rather than tracking the wall clock.
+/**
+ * @brief Per-frame clock advance in milliseconds for the determinism pass (~30fps).
+ * @details Identical across both runs, so any frame-to-frame animation driven by
+ * hs::millis/micros or beatsin* is reproduced exactly rather than tracking the
+ * wall clock.
+ */
 constexpr unsigned long kFrameMs = 33;
+/**
+ * @brief Per-frame clock advance in microseconds, paired with kFrameMs.
+ */
 constexpr unsigned long kFrameUs = 33000;
 
-// Render one effect for `frames` frames under the injected clock and copy the
-// final displayed buffer out. Resets every shared global the smoke path does
-// (RNG seed, arenas, Timeline) so two calls start from an identical state.
+/**
+ * @brief Renders one effect under the injected clock and copies the final buffer out.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels (defaults to kW).
+ * @tparam H Render height in pixels (defaults to kH).
+ * @param out Receives the final displayed frame, sized W*H pixels (row-major).
+ * @param frames Number of frames to render before capture.
+ * @details Resets every shared global the smoke path does (RNG seed, arenas,
+ * Timeline) plus the generative-hue cursor and mock clock, so two calls start
+ * from an identical state.
+ */
 template <template <int, int> class E, int W = kW, int H = kH>
 inline void render_capture(std::vector<Pixel> &out, int frames) {
   hs::random().seed(1337u);
@@ -224,10 +276,16 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
       out[static_cast<size_t>(y) * W + x] = effect.get_pixel(x, y);
 }
 
-// Cross-run determinism: render the same effect twice under the fixed clock and
-// require byte-identical final frames. The clock seam neutralizes wall-time, so
-// a divergence here is real nondeterminism (uninitialized read, stale global,
-// address-dependent path) — the defect class smoke coverage cannot see.
+/**
+ * @brief Cross-run determinism test: renders an effect twice and requires byte-identical frames.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels (defaults to kW).
+ * @tparam H Render height in pixels (defaults to kH).
+ * @param name Effect name used in the NONDETERMINISTIC diagnostic output.
+ * @details The clock seam neutralizes wall-time, so a divergence here is real
+ * nondeterminism (uninitialized read, stale global, address-dependent path) —
+ * the defect class smoke coverage cannot see.
+ */
 template <template <int, int> class E, int W = kW, int H = kH>
 inline void determinism_one(const char *name) {
   const int frames = smoke_frames();
@@ -258,12 +316,14 @@ inline void determinism_one(const char *name) {
             "effect must render identically across runs under a fixed clock");
 }
 
-// SHMath::decode_lm must return a valid spherical-harmonic order for every flat
-// index: l = floor(sqrt(idx)) and m in [-l, l], with idx == l*l + l + m. The
-// risk is float sqrtf rounding at perfect squares truncating l low and pushing m
-// out of band; sweep a wide range (well past the effect's idx<=23) so every
-// perfect square and its neighbours — including the large ones where sqrtf
-// actually misrounds — are exercised.
+/**
+ * @brief Verifies SHMath::decode_lm yields a valid spherical-harmonic order for every flat index.
+ * @details Requires l = floor(sqrt(idx)) and m in [-l, l], with idx == l*l + l +
+ * m. The risk is float sqrtf rounding at perfect squares truncating l low and
+ * pushing m out of band; sweeps a wide range (well past the effect's idx<=23) so
+ * every perfect square and its neighbours — including the large ones where sqrtf
+ * actually misrounds — are exercised.
+ */
 inline void test_sh_decode_lm_valid_order() {
   auto check = [](int idx) {
     auto [l, m] = SHMath::decode_lm(idx);
@@ -288,8 +348,12 @@ inline void test_sh_decode_lm_valid_order() {
   }
 }
 
-// Module entry point: runs the SH-decode check, then both smoke and determinism
-// passes over the full effect roster at the production and device resolutions.
+/**
+ * @brief Module entry point for the effects test suite.
+ * @return Module result code from hs_test::end_module (0 on success).
+ * @details Runs the SH-decode check, then both smoke and determinism passes over
+ * the full effect roster at the production and device resolutions.
+ */
 inline int run_effects_tests() {
   auto scope = hs_test::begin_module("effects");
 

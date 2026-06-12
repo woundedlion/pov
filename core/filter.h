@@ -20,19 +20,21 @@
 #include "memory.h"
 #include "styles.h"
 
+/** @brief Callback that forwards a 2D plot (x, y, pixel, age, alpha) downstream. */
 using PassFn2D =
     FunctionRef<void(float, float, const Pixel &, float, float)>;
+/** @brief Callback that forwards a 3D plot (vector, pixel, age, alpha) downstream. */
 using PassFn3D =
     FunctionRef<void(const Vector &, const Pixel &, float, float)>;
 
-// Filter Traits
-//
-// `is_terminal` marks a filter that writes the Canvas directly during flush()
-// and ignores its downstream `pass` callback (e.g. Pixel::Feedback). Such a
-// filter swallows the stream, so anything chained after it would silently never
-// run — the Pipeline static-asserts a terminal filter is the last stage. Almost
-// all filters forward via `pass` and leave this false.
-/** @brief Trait indicating a filter operates in 2D screen space. */
+/**
+ * @brief Trait indicating a filter operates in 2D screen space.
+ * @details `is_terminal` marks a filter that writes the Canvas directly during
+ * flush() and ignores its downstream `pass` callback (e.g. Pixel::Feedback).
+ * Such a filter swallows the stream, so anything chained after it would
+ * silently never run — the Pipeline static-asserts a terminal filter is the
+ * last stage. Almost all filters forward via `pass` and leave this false.
+ */
 struct Is2D {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
@@ -61,13 +63,19 @@ struct Is3DWithHistory {
 
 /**
  * @brief Recursive template pipeline for processing render commands.
- * Chains filters together, routing 2D and 3D plot commands.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Filters Ordered list of filter stages to chain.
+ * @details Chains filters together, routing 2D and 3D plot commands.
  */
 template <int W, int H, typename... Filters> struct Pipeline;
 
 /**
- * @brief Plots a color to the canvas, ensuring the y-coordinate is within
- * bounds (0 to H-1).
+ * @brief Plots a color to the canvas, clipping the y-coordinate to bounds.
+ * @param canvas Target canvas to write into.
+ * @param x Column index (assumed already wrapped into range).
+ * @param y Row index; the write is skipped unless y is in [0, height).
+ * @param c Color to store at (x, y).
  */
 inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
   if (y >= 0 && y < canvas.height()) {
@@ -75,26 +83,46 @@ inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
   }
 }
 
-// Base Case: Canvas Sink
 /**
- * @brief Terminal node of the pipeline. Writes final pixels to the Canvas.
+ * @brief Terminal node of the pipeline (base case). Writes final pixels to the
+ * Canvas.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
  */
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
 
-  // Type-safe filter accessor (base case: T not found). The guard is a
-  // dependent-false: !sizeof(T*) is always false but cannot be proven so until
-  // the template is instantiated, so it fires only when get<T>() is actually
-  // named on a pipeline lacking T. (sizeof(T*) — not sizeof(T) — so the intended
-  // "not found" diagnostic also wins for an incomplete T.)
+  /**
+   * @brief Type-safe filter accessor (base case: T not found).
+   * @tparam T Filter type being looked up.
+   * @return Never returns; instantiation is a hard error.
+   * @details The guard is a dependent-false: !sizeof(T*) is always false but
+   * cannot be proven so until the template is instantiated, so it fires only
+   * when get<T>() is actually named on a pipeline lacking T. (sizeof(T*) — not
+   * sizeof(T) — so the intended "not found" diagnostic also wins for an
+   * incomplete T.)
+   */
   template <typename T> T &get() {
     static_assert(!sizeof(T *), "Filter type T not found in Pipeline");
   }
+  /**
+   * @brief Type-safe const filter accessor (base case: T not found).
+   * @tparam T Filter type being looked up.
+   * @return Never returns; instantiation is a hard error.
+   */
   template <typename T> const T &get() const {
     static_assert(!sizeof(T *), "Filter type T not found in Pipeline");
   }
 
-  // 2D Sink
+  /**
+   * @brief Writes an integer-coordinate 2D sample to the canvas (sink).
+   * @param cv Target canvas.
+   * @param x Column in [-W, 2W); wrapped into [0, W) before writing.
+   * @param y Row index in pixels.
+   * @param c Source color to blend in.
+   * @param alpha Blend alpha in [0, 1].
+   * @details The unnamed float parameter is the unused age channel.
+   */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float, float alpha) {
     HS_PROFILE(filter_blend);
     // fast_wrap() only corrects a single +/-W offset, so the sink relies on the
@@ -111,6 +139,15 @@ template <int W, int H> struct Pipeline<W, H> {
     plot_virtual(cv, xi, y, p);
   }
 
+  /**
+   * @brief Writes a float-coordinate 2D sample to the canvas (sink).
+   * @param cv Target canvas.
+   * @param x Column; rounded then required to land in [-W, 2W) and wrapped.
+   * @param y Row; rounded to nearest pixel.
+   * @param c Source color to blend in.
+   * @param alpha Blend alpha in [0, 1].
+   * @details The unnamed float parameter is the unused age channel.
+   */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float,
             float alpha) {
     // Non-finite coords would make the int casts below UB and bypass the wrap,
@@ -128,43 +165,80 @@ template <int W, int H> struct Pipeline<W, H> {
     plot_virtual(cv, xi, yi, p);
   }
 
-  // 3D Sink
+  /**
+   * @brief Projects a 3D point to screen space and writes it (sink).
+   * @param cv Target canvas.
+   * @param v World-space point on the unit sphere.
+   * @param c Source color to blend in.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha) {
     auto p = vector_to_pixel<W, H>(v);
     plot(cv, p.x, p.y, c, age, alpha);
   }
 
-  // History
+  /**
+   * @brief Screen-trail flush no-op (sink has no history).
+   * @details Unused Canvas, ScreenTrailFn and alpha parameters.
+   */
   void flush(Canvas &, const ScreenTrailFn &, float) {}
+  /**
+   * @brief World-trail flush no-op (sink has no history).
+   * @details Unused Canvas, WorldTrailFn and alpha parameters.
+   */
   void flush(Canvas &, const WorldTrailFn &, float) {}
 };
 
-// Recursive Case
+/**
+ * @brief Recursive pipeline case: applies Head, then forwards to the Tail.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Head Filter stage applied at this level.
+ * @tparam Tail Remaining filter stages.
+ */
 template <int W, int H, typename Head, typename... Tail>
 struct Pipeline<W, H, Head, Tail...> : public Head {
   using Next = Pipeline<W, H, Tail...>;
   Next next;
 
-  // Forwarding Reference Constructor. The requires guard stops it from hijacking
-  // copy construction: copying from a non-const Pipeline lvalue would otherwise
-  // prefer this template (an exact Pipeline& match) over the implicit copy ctor
-  // (which adds const) and try to construct Head(Pipeline&). Excluding Pipeline
-  // lets the copy ctor win.
+  /**
+   * @brief Forwarding-reference constructor: builds Head and the Tail in place.
+   * @tparam HArg Argument type forwarded to Head's constructor.
+   * @tparam TArgs Argument types forwarded to the remaining stages.
+   * @param h Argument forwarded to Head's constructor.
+   * @param t Arguments forwarded to the Tail pipeline's constructors.
+   * @details The requires guard stops it from hijacking copy construction:
+   * copying from a non-const Pipeline lvalue would otherwise prefer this
+   * template (an exact Pipeline& match) over the implicit copy ctor (which adds
+   * const) and try to construct Head(Pipeline&). Excluding Pipeline lets the
+   * copy ctor win.
+   */
   template <typename HArg, typename... TArgs>
     requires(!std::is_same_v<std::remove_cvref_t<HArg>, Pipeline>)
   Pipeline(HArg &&h, TArgs &&...t)
       : Head(std::forward<HArg>(h)), next(std::forward<TArgs>(t)...) {}
 
-  // Partial Constructor (Head only, Tail default constructed). Same guard: as an
-  // explicit single-arg forwarding ctor it would hijack direct copy construction
-  // the same way.
+  /**
+   * @brief Partial constructor: builds Head only, default-constructing the Tail.
+   * @tparam HArg Argument type forwarded to Head's constructor.
+   * @param h Argument forwarded to Head's constructor.
+   * @details Same guard as the variadic ctor: as an explicit single-arg
+   * forwarding ctor it would hijack direct copy construction the same way.
+   */
   template <typename HArg>
     requires(!std::is_same_v<std::remove_cvref_t<HArg>, Pipeline>)
   explicit Pipeline(HArg &&h) : Head(std::forward<HArg>(h)) {}
 
+  /** @brief Default-constructs every stage in the pipeline. */
   Pipeline() = default;
 
-  // Type-safe filter accessor
+  /**
+   * @brief Type-safe filter accessor: finds the stage of type T.
+   * @tparam T Filter type to retrieve.
+   * @return Reference to the stage of type T (recurses into the Tail if Head is
+   * not T).
+   */
   template <typename T> T &get() {
     if constexpr (std::is_same_v<Head, T>) {
       return static_cast<T &>(*this);
@@ -172,6 +246,11 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       return next.template get<T>();
     }
   }
+  /**
+   * @brief Type-safe const filter accessor: finds the stage of type T.
+   * @tparam T Filter type to retrieve.
+   * @return Const reference to the stage of type T.
+   */
   template <typename T> const T &get() const {
     if constexpr (std::is_same_v<Head, T>) {
       return static_cast<const T &>(*this);
@@ -180,7 +259,17 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
     }
   }
 
-  // 2D Plot (Float)
+  /**
+   * @brief Routes a float-coordinate 2D plot through Head, else converts to 3D.
+   * @param cv Target canvas.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   * @details If Head is 2D it processes directly; otherwise the point is lifted
+   * to a world vector and dispatched to the 3D path.
+   */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) {
     if constexpr (Head::is_2d) {
@@ -188,25 +277,42 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
                  [&](float x, float y, const Pixel &c, float age, float alpha) {
                    next.plot(cv, x, y, c, age, alpha);
                  });
-    } else { // 2D -> 3D Mismatch
+    } else { // 2D -> 3D mismatch: lift to world space
       Vector v = pixel_to_vector<W, H>(x, y);
       plot(cv, v, c, age, alpha);
     }
   }
 
-  // 2D Plot (Int)
+  /**
+   * @brief Integer-coordinate 2D plot overload; forwards to the float path.
+   * @param cv Target canvas.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
     plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
   }
 
-  // 3D Plot
+  /**
+   * @brief Routes a 3D plot through Head, else projects to 2D.
+   * @param cv Target canvas.
+   * @param v World-space point on the unit sphere.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   * @details If Head is 3D it processes directly; otherwise the point is
+   * projected to screen space and dispatched to the 2D path.
+   */
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha) {
     if constexpr (!Head::is_2d) {
       Head::plot(v, c, age, alpha,
                  [&](const Vector &v, const Pixel &c, float age, float alpha) {
                    next.plot(cv, v, c, age, alpha);
                  });
-    } else { // 3D -> 2D Mismatch
+    } else { // 3D -> 2D mismatch: project to screen space
       auto p = vector_to_pixel<W, H>(v);
       plot(cv, p.x, p.y, c, age, alpha);
     }
@@ -241,6 +347,13 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       "A terminal filter (e.g. Pixel::Feedback) writes the Canvas directly and "
       "ignores downstream filters — it must be the last stage in the Pipeline.");
 
+  /**
+   * @brief Flushes 2D history for this stage, then recurses into the Tail.
+   * @param cv Target canvas.
+   * @param trailFn Callback producing trail color/alpha per screen point.
+   * @param alpha Global blend alpha in [0, 1].
+   * @details Only a 2D history-bearing Head emits; other Heads pass through.
+   */
   void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (Head::is_2d) {
@@ -251,6 +364,13 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
     next.flush(cv, trailFn, alpha);
   }
 
+  /**
+   * @brief Flushes 3D history for this stage, then recurses into the Tail.
+   * @param cv Target canvas.
+   * @param trailFn Callback producing trail color/alpha per world point.
+   * @param alpha Global blend alpha in [0, 1].
+   * @details Only a 3D history-bearing Head emits; other Heads pass through.
+   */
   void flush(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (!Head::is_2d) {
@@ -262,9 +382,9 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   }
 };
 
-///////////////////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------------------
 // Namespace: Filter
-///////////////////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------------------
 
 namespace Filter {
 
@@ -286,8 +406,20 @@ namespace World {
  */
 template <int W> class Orient : public Is3D {
 public:
+  /**
+   * @brief Binds the filter to a live orientation source.
+   * @param orientation Orientation whose SLERP history drives the rotation.
+   */
   Orient(Orientation<> &orientation) : orientation(orientation) {}
 
+  /**
+   * @brief Rotates and re-emits the point across the orientation's tween sweep.
+   * @param v World-space point to rotate.
+   * @param color Source color, forwarded unchanged.
+   * @param age Incoming age (frames); offset by the fractional (1 - t) per tween step.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 3D callback.
+   */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     tween(orientation, [&](const Quaternion &q, float t) {
@@ -296,7 +428,7 @@ public:
   }
 
 private:
-  Orientation<> &orientation;
+  Orientation<> &orientation; /**< Live orientation source driving the rotation. */
 };
 
 /**
@@ -305,9 +437,23 @@ private:
  */
 template <int W> class OrientSlice : public Is3D {
 public:
+  /**
+   * @brief Binds the slice selector to an orientation list and a slicing axis.
+   * @param orientations Candidate orientations, indexed by axis projection.
+   * @param axis Unit axis the point is projected onto to pick an orientation.
+   */
   OrientSlice(std::span<const Orientation<>> orientations, const Vector &axis)
       : enabled(true), axis(axis), orientations(orientations) {}
 
+  /**
+   * @brief Selects an orientation by axis projection and re-emits the point.
+   * @param v World-space point to rotate.
+   * @param color Source color, forwarded unchanged.
+   * @param age Incoming age (frames); offset by fractional (1 - t) per tween step.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 3D callback.
+   * @details Passes through untouched when disabled or the orientation list is empty.
+   */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     if (!enabled) {
@@ -337,21 +483,35 @@ public:
     });
   }
 
-  bool enabled;
-  Vector axis;
+  bool enabled;  /**< When false, the filter passes points through unrotated. */
+  Vector axis;   /**< Unit axis points are projected onto to select a slice. */
 
 private:
-  std::span<const Orientation<>> orientations;
+  std::span<const Orientation<>> orientations; /**< Candidate orientations indexed by projection. */
 };
 
 /**
  * @brief Creates a spherical hole by masking points within a radius.
- * Parameterized on OriginT to allow storage by value (Vector) or reference
- * (std::reference_wrapper).
+ * @tparam W Canvas width in pixels.
+ * @tparam OriginT Storage type for the hole center: by value (Vector) or by
+ * reference (std::reference_wrapper).
  */
 template <int W, typename OriginT = Vector> class Hole : public Is3D {
 public:
+  /**
+   * @brief Constructs a hole centered at @p origin with angular @p radius.
+   * @param origin Center of the hole (unit vector).
+   * @param radius Angular radius of the hole in radians.
+   */
   Hole(OriginT origin, float radius) : origin(origin), radius(radius) {}
+  /**
+   * @brief Attenuates points near the hole center, leaving others unchanged.
+   * @param v World-space point to test.
+   * @param color Source color; scaled by a quintic falloff inside the radius.
+   * @param age Temporal age channel (frames), forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 3D callback.
+   */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     const Vector &o = origin;
@@ -365,12 +525,13 @@ public:
   }
 
 private:
-  OriginT origin;
-  float radius;
+  OriginT origin; /**< Center of the hole (unit vector), stored by value or ref. */
+  float radius;   /**< Angular radius of the hole in radians. */
 };
 
 /**
- * @brief Alias for Hole with reference storage.
+ * @brief Alias for Hole with reference (std::reference_wrapper) center storage.
+ * @tparam W Canvas width in pixels.
  */
 template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
 
@@ -384,13 +545,25 @@ template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
  */
 template <int W> class Replicate : public Is3D {
 public:
+  /**
+   * @brief Builds a replicator emitting @p count evenly-spaced Y-axis copies.
+   * @param count Desired copy count; clamped to [1, W].
+   * @details Uses the clamped member, not the parameter: unqualified `count`
+   * here resolves to the ctor parameter, so a raw count > W would span only a
+   * fraction of the circle and count == 0 would feed inf into make_rotation.
+   * `this->count` is initialized first (declared first).
+   */
   Replicate(int count)
       : count(hs::clamp(count, 1, W)),
-        // Use the clamped member, not the parameter: unqualified `count` here
-        // resolves to the ctor parameter, so a raw count > W would span only a
-        // fraction of the circle and count == 0 would feed inf into
-        // make_rotation. `this->count` is initialized first (declared first).
         step(make_rotation(Y_AXIS, 2 * PI_F / this->count)) {}
+  /**
+   * @brief Emits the point plus count-1 rotated copies around the Y axis.
+   * @param v World-space point to replicate.
+   * @param color Source color, forwarded unchanged to every copy.
+   * @param age Temporal age channel (frames), shared by every copy.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 3D callback.
+   */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     Vector r = v;
@@ -402,8 +575,8 @@ public:
   }
 
 private:
-  int count;
-  Quaternion step;
+  int count;        /**< Number of copies emitted, in [1, W]. */
+  Quaternion step;  /**< Per-copy Y-axis rotation (2*pi / count). */
 };
 
 /**
@@ -416,13 +589,25 @@ private:
  */
 template <int W, int N> class VertexReplicate : public Is3D {
 public:
-  /// Build from a vertex array. Computes rotations from vertices[0] → each.
+  /**
+   * @brief Builds from a vertex array, precomputing rotations vertices[0] → each.
+   * @tparam VertexArray Indexable container of N unit vectors.
+   * @param vertices Vertex positions; rotations map vertices[0] onto each vertex.
+   */
   template <typename VertexArray>
   VertexReplicate(const VertexArray &vertices) {
     for (int i = 0; i < N; ++i)
       rotations[i] = make_rotation(vertices[0], vertices[i]);
   }
 
+  /**
+   * @brief Emits one rotated copy of the point per stored vertex rotation.
+   * @param v World-space point to replicate.
+   * @param color Source color, forwarded unchanged to every copy.
+   * @param age Temporal age channel (frames), shared by every copy.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 3D callback.
+   */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     for (int i = 0; i < N; ++i) {
@@ -430,7 +615,7 @@ public:
     }
   }
 
-  std::array<Quaternion, N> rotations;
+  std::array<Quaternion, N> rotations; /**< Rotation from vertices[0] to each vertex. */
 };
 
 /**
@@ -438,14 +623,26 @@ public:
  */
 template <int W> class Mobius : public Is3D {
 public:
+  /**
+   * @brief Binds the filter to a live Mobius parameter set.
+   * @param params Mobius transform parameters applied per point.
+   */
   Mobius(MobiusParams &params) : params(params) {}
+  /**
+   * @brief Stereographically projects, applies the Mobius map, and re-emits.
+   * @param v World-space point on the unit sphere.
+   * @param color Source color, forwarded unchanged.
+   * @param age Temporal age channel (frames), forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 3D callback.
+   */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha);
   }
 
 private:
-  MobiusParams &params;
+  MobiusParams &params; /**< Live Mobius transform parameters. */
 };
 
 /**
@@ -453,41 +650,60 @@ private:
  */
 template <int W, int Capacity> class Trails : public Is3DWithHistory {
 public:
+  /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
-    int16_t x, y, z; // Quantized unit vector (6 bytes)
-    uint8_t ttl;     // Remaining lifetime in frames (1 byte)
-    uint8_t pad_;    // Alignment (1 byte) — total 8 bytes
+    int16_t x, y, z; /**< Quantized unit vector components (6 bytes). */
+    uint8_t ttl;     /**< Remaining lifetime in frames (1 byte). */
+    uint8_t pad_;    /**< Padding for 8-byte alignment (1 byte). */
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
-  // lifetime is a per-frame divisor (fade alpha); a zero/negative trail length
-  // is a cold authoring error that would feed inf/NaN into blend_alpha. The
-  // upper bound is structural: ttl is stored as uint8_t and encode() truncates,
-  // so lifetime > 255 would silently wrap the trail length. Trap both at
-  // construction (cold path) rather than producing garbage per pixel.
+  /**
+   * @brief Constructs a world trail buffer with the given fade lifetime.
+   * @param lifetime Per-frame fade divisor in frames; must be in [1, 255].
+   * @details lifetime is a per-frame divisor (fade alpha); a zero/negative
+   * trail length is a cold authoring error that would feed inf/NaN into
+   * blend_alpha. The upper bound is structural: ttl is stored as uint8_t and
+   * encode() truncates, so lifetime > 255 would silently wrap the trail length.
+   * Trap both at construction (cold path) rather than producing garbage per pixel.
+   */
   Trails(int lifetime) : lifetime(lifetime) {
     HS_CHECK(lifetime > 0 && lifetime <= 255);
   }
 
-  // Retune the trail length at runtime (e.g. from a live "Trail Len" slider).
-  // Same bounds as the constructor; a per-frame caller is expected to clamp
-  // into [1,255] first, so this trap fires only on a genuine authoring error,
-  // not on slider motion. Already-buffered points keep their encoded ttl and
-  // age out under the new length within a few frames.
+  /**
+   * @brief Retunes the trail length at runtime (e.g. from a "Trail Len" slider).
+   * @param new_lifetime New fade divisor in frames; must be in [1, 255].
+   * @details Same bounds as the constructor; a per-frame caller is expected to
+   * clamp into [1,255] first, so this trap fires only on a genuine authoring
+   * error, not on slider motion. Already-buffered points keep their encoded ttl
+   * and age out under the new length within a few frames.
+   */
   void set_lifetime(int new_lifetime) {
     HS_CHECK(new_lifetime > 0 && new_lifetime <= 255);
     lifetime = new_lifetime;
   }
 
-  /// Allocate ring buffer storage from persistent arena.
-  /// Must be called from effect init(), not constructor (arenas aren't ready
-  /// yet).
+  /**
+   * @brief Allocates ring-buffer storage from the persistent arena.
+   * @param arena Persistent arena supplying Capacity Item slots.
+   * @details Must be called from effect init(), not the constructor (arenas
+   * aren't ready yet).
+   */
   void init_storage(Arena &arena) {
     items_ = static_cast<Item *>(
         arena.allocate(Capacity * sizeof(Item), alignof(Item)));
     head_ = tail_ = count_ = 0;
   }
 
+  /**
+   * @brief Forwards the current sample and seeds a fading trail point.
+   * @param v World-space point on the unit sphere.
+   * @param color Source color, forwarded unchanged this frame.
+   * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 3D callback.
+   */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
     pass(v, color, age, alpha); // Pass through current frame
@@ -498,6 +714,12 @@ public:
     }
   }
 
+  /**
+   * @brief Ages every buffered point one frame and re-emits the survivors.
+   * @param trailFn Callback producing trail color/alpha from (point, t).
+   * @param alpha Global blend alpha in [0, 1].
+   * @param pass Downstream 3D callback.
+   */
   void flush(const WorldTrailFn &trailFn, float alpha, PassFn3D pass) {
     // Age
     for (size_t i = 0; i < count_; ++i) {
@@ -537,14 +759,24 @@ public:
     }
   }
 
+  /**
+   * @brief Returns the number of live trail points currently buffered.
+   * @return Count of buffered Item entries.
+   */
   size_t size() const { return count_; }
 
 private:
-  Item *items_ = nullptr;
-  size_t head_ = 0, tail_ = 0, count_ = 0;
-  int lifetime;
+  Item *items_ = nullptr;                 /**< Ring-buffer storage (arena-owned). */
+  size_t head_ = 0, tail_ = 0, count_ = 0; /**< Ring-buffer head, tail, and live count. */
+  int lifetime;                           /**< Per-frame fade divisor in frames. */
 
-  static constexpr float Q = 32767.0f;
+  static constexpr float Q = 32767.0f;    /**< Quantization scale for unit-vector components. */
+  /**
+   * @brief Encodes a unit vector and ttl into a quantized Item.
+   * @param v World-space point; each component is clamped to [-1, 1] before scaling.
+   * @param ttl Remaining lifetime in frames.
+   * @return Packed Item with quantized coordinates.
+   */
   static Item encode(const Vector &v, uint8_t ttl) {
     // Saturate each component to the unit cube before quantizing. An upstream
     // World filter (Mobius warp, ripple) can transiently push a component past
@@ -555,14 +787,33 @@ private:
             static_cast<int16_t>(hs::clamp(v.y, -1.0f, 1.0f) * Q),
             static_cast<int16_t>(hs::clamp(v.z, -1.0f, 1.0f) * Q), ttl, 0};
   }
+  /**
+   * @brief Decodes a quantized Item back into a unit vector.
+   * @param item Packed trail sample.
+   * @return Reconstructed world-space point.
+   */
   static Vector decode(const Item &item) {
     constexpr float INV_Q = 1.0f / Q;
     return Vector(item.x * INV_Q, item.y * INV_Q, item.z * INV_Q);
   }
 
+  /**
+   * @brief Returns the i-th live item by age (0 = oldest).
+   * @param i Index into the live range [0, count_).
+   * @return Mutable reference to the buffered Item.
+   */
   Item &at(size_t i) { return items_[(head_ + i) % Capacity]; }
+  /**
+   * @brief Returns the i-th live item by age (0 = oldest).
+   * @param i Index into the live range [0, count_).
+   * @return Const reference to the buffered Item.
+   */
   const Item &at(size_t i) const { return items_[(head_ + i) % Capacity]; }
 
+  /**
+   * @brief Appends an item, evicting the oldest when at capacity.
+   * @param item Encoded trail sample to push.
+   */
   void push_back(const Item &item) {
     if (count_ == Capacity) {
       pop_front(); // Drop oldest on overflow
@@ -572,6 +823,7 @@ private:
     count_++;
   }
 
+  /** @brief Drops the oldest buffered item. */
   void pop_front() {
     head_ = (head_ + 1) % Capacity;
     count_--;
@@ -598,6 +850,18 @@ public:
   AntiAlias() {
     if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
   }
+  /**
+   * @brief Splats a sub-pixel sample across its four nearest pixel neighbors.
+   * @tparam PassFnT Downstream 2D callback type.
+   * @param x Sub-pixel column coordinate.
+   * @param y Sub-pixel row coordinate.
+   * @param c Source color, forwarded to each tap.
+   * @param age Temporal age channel (frames), forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1]; scaled per tap by its bilinear weight.
+   * @param pass Downstream 2D callback receiving each weighted tap.
+   * @details X fractional weight is scaled by sin(phi) for spherical density
+   * compensation; both axes are eased with a quintic kernel.
+   */
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
@@ -678,16 +942,33 @@ public:
  */
 template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
-  // See World::Trails: lifetime divides per-frame; trap a zero/negative trail
-  // length at construction (cold) rather than feeding inf/NaN into the fade.
+  /**
+   * @brief Constructs a screen trail buffer with the given fade lifetime.
+   * @param lifetime Per-frame fade divisor in frames; must be positive.
+   * @details lifetime divides per-frame; trap a zero/negative trail length at
+   * construction (cold) rather than feeding inf/NaN into the fade.
+   */
   Trails(int lifetime) : lifetime(lifetime) { HS_CHECK(lifetime > 0); }
 
+  /**
+   * @brief Allocates the decay-pixel storage from the persistent arena.
+   * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
+   */
   void init_storage(Arena &arena) {
     ttls_ = static_cast<DecayPixel *>(
         arena.allocate(MAX_PIXELS * sizeof(DecayPixel), alignof(DecayPixel)));
     num_pixels = 0;
   }
 
+  /**
+   * @brief Forwards the current sample and seeds a fading screen trail point.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param color Source color, forwarded unchanged this frame.
+   * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
+   * @param alpha Blend alpha in [0, 1]; samples with alpha <= 0.001 are dropped.
+   * @param pass Downstream 2D callback.
+   */
   void plot(float x, float y, const Pixel &color, float age, float alpha,
             PassFn2D pass) {
     if (alpha <= 0.001f)
@@ -714,6 +995,14 @@ public:
     }
   }
 
+  /**
+   * @brief Re-emits each buffered trail point colored by @p trailFn.
+   * @param trailFn Callback producing trail color/alpha from (x, y, t).
+   * @param alpha Global blend alpha in [0, 1].
+   * @param pass Downstream 2D callback.
+   * @details The unused Canvas parameter satisfies the 2D flush signature; ages
+   * all points one frame via decay() after emission.
+   */
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
              PassFn2D pass) {
     for (int i = 0; i < num_pixels; ++i) {
@@ -727,7 +1016,11 @@ public:
     decay();
   }
 
-  // Age every point one frame and swap-remove dead slots (unordered compaction).
+  /**
+   * @brief Ages every point one frame and swap-removes dead slots.
+   * @details Unordered compaction: a dead slot is overwritten by the last live
+   * point and the count shrinks.
+   */
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
       if (--ttls_[i].ttl <= 0.0f) {
@@ -738,21 +1031,32 @@ public:
   }
 
 private:
+  /** @brief One screen trail point: position plus remaining lifetime. */
   struct DecayPixel {
-    float x, y, ttl;
+    float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
   };
-  int lifetime;
-  DecayPixel *ttls_ = nullptr;
-  int num_pixels = 0;
+  int lifetime;               /**< Per-frame fade divisor in frames. */
+  DecayPixel *ttls_ = nullptr; /**< Arena-owned array of live trail points. */
+  int num_pixels = 0;          /**< Number of live points in ttls_. */
 };
 
 /**
- * @brief Applies a variable 3x3 Gaussian Blur.
+ * @brief Applies a variable 3x3 Gaussian blur.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
  */
 template <int W, int H> class Blur : public Is2D {
 public:
+  /**
+   * @brief Constructs a blur with the given initial strength.
+   * @param factor Blur strength in [0, 1] (0 = identity, 1 = full Gaussian).
+   */
   Blur(float factor = 1.0f) { update(factor); }
 
+  /**
+   * @brief Rebuilds the 3x3 kernel for a new blur strength.
+   * @param factor Blur strength; clamped to [0, 1].
+   */
   void update(float factor) {
     float f = hs::clamp(factor, 0.0f, 1.0f);
     // Gaussian reference: Corner=1/16, Edge=2/16, Center=4/16
@@ -763,6 +1067,15 @@ public:
     kernel = {d, e, d, e, c, e, d, e, d};
   }
 
+  /**
+   * @brief Splats the sample across its 3x3 neighborhood weighted by the kernel.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param color Source color, forwarded to each tap.
+   * @param age Temporal age channel (frames), forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1]; scaled per tap by its kernel weight.
+   * @param pass Downstream 2D callback.
+   */
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFn2D pass) {
     int cx = static_cast<int>(std::round(x));
@@ -787,7 +1100,7 @@ public:
   }
 
 private:
-  std::array<float, 9> kernel;
+  std::array<float, 9> kernel; /**< Row-major 3x3 blur weights, summing to 1. */
 };
 
 } // namespace Screen
@@ -798,11 +1111,14 @@ private:
 namespace Pixel {
 
 /**
- * @brief Style-aware feedback filter. Takes a `::Feedback::Style&` directly —
- * drop-in pipeline filter. The Style's spatial transform (noise, melt, etc.)
- * is smooth and expensive (noise + atan2 + acos per call), so the warp field
- * is computed on a coarse W/DS x H/DS grid (allocated from scratch_arena_a
- * per flush) and bilinearly upsampled. DS is read from style.downsample.
+ * @brief Style-aware terminal feedback filter that warps the previous frame.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Takes a `::Feedback::Style&` directly — drop-in pipeline filter. The
+ * Style's spatial transform (noise, melt, etc.) is smooth and expensive (noise
+ * + atan2 + acos per call), so the warp field is computed on a coarse
+ * W/DS x H/DS grid (allocated from scratch_arena_a per flush) and bilinearly
+ * upsampled. DS is read from style.downsample.
  *
  * Operates on the full canvas during flush() (integer coordinates, reads
  * cv.prev) — this is a pixel-space filter despite the 2D trait.
@@ -821,18 +1137,38 @@ namespace Pixel {
 template <int W, int H>
 class Feedback : public Is2DWithHistory {
 public:
-  // Writes the Canvas directly in flush() and ignores `pass` — must be last.
+  /** @brief Marks this as terminal: flush() writes the Canvas and ignores `pass`. */
   static constexpr bool is_terminal = true;
 
+  /**
+   * @brief Binds the filter to a live feedback Style.
+   * @param style Style supplying the spatial warp and color transforms.
+   */
   explicit Feedback(::Feedback::Style &style) : style_(&style) {}
 
-  /// Pass-through: current-frame pixels go straight to next filter.
+  /**
+   * @brief Pass-through: current-frame pixels go straight to the next filter.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param color Source color, forwarded unchanged.
+   * @param age Temporal age channel (frames), forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 2D callback.
+   */
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFn2D pass) {
     pass(x, y, color, age, alpha);
   }
 
-  /// Blend distorted previous frame into current frame via the Style's transforms.
+  /**
+   * @brief Blends the distorted previous frame into the current frame.
+   * @param cv Target canvas (reads cv.prev, writes the front buffer).
+   * @param alpha Global blend alpha in [0, 1].
+   * @details Computes a coarse warp field via the Style's space_fn, bilinearly
+   * upsamples it, then composites the warped previous frame. Honors the
+   * segment's cylindrical clip and ignores the unused ScreenTrailFn / PassFn2D
+   * parameters (terminal stage). No-op when disabled.
+   */
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
     if (!enabled_) return;
 
@@ -998,20 +1334,34 @@ public:
     }
   }
 
-  /// Enable/disable feedback (disabled = skip flush entirely).
+  /**
+   * @brief Enables or disables feedback.
+   * @param e When false, flush() is skipped entirely.
+   */
   void set_enabled(bool e) { enabled_ = e; }
 
-  /// Access the bound Style.
+  /**
+   * @brief Accesses the bound Style.
+   * @return Mutable reference to the bound feedback Style.
+   */
   ::Feedback::Style &style() { return *style_; }
+  /**
+   * @brief Accesses the bound Style.
+   * @return Const reference to the bound feedback Style.
+   */
   const ::Feedback::Style &style() const { return *style_; }
 
 private:
-  /// True if the previous frame has any non-black pixel. Returns on the first
-  /// lit pixel, so a non-empty frame (the common warm case) costs ~one read;
-  /// only a fully black frame — exactly when the expensive flush below is
-  /// skipped anyway — pays a full scan. A whole-frame test rather than per-row
-  /// culling: a warped trail lights at least one pixel in nearly every row, so
-  /// a row mask would saturate without ever saving a sample.
+  /**
+   * @brief Tests whether the previous frame has any non-black pixel.
+   * @param cv Canvas whose previous-frame buffer is scanned.
+   * @return True on the first lit pixel found, false if the frame is all black.
+   * @details Returns on the first lit pixel, so a non-empty frame (the common
+   * warm case) costs ~one read; only a fully black frame — exactly when the
+   * expensive flush is skipped anyway — pays a full scan. A whole-frame test
+   * rather than per-row culling: a warped trail lights at least one pixel in
+   * nearly every row, so a row mask would saturate without ever saving a sample.
+   */
   static bool any_pixel_lit(const Canvas &cv) {
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
@@ -1021,7 +1371,13 @@ private:
     return false;
   }
 
-  /// Bilinear sample from the Canvas front buffer (previous frame).
+  /**
+   * @brief Bilinearly samples the Canvas front buffer (previous frame).
+   * @param cv Canvas whose previous-frame buffer is sampled.
+   * @param bx Fractional column; wrapped across the longitude seam.
+   * @param by Fractional row; out-of-range rows contribute black.
+   * @return Bilinearly interpolated pixel color.
+   */
   ::Pixel sample_bilinear_prev(const Canvas &cv, float bx, float by) const {
     float fy0 = std::floor(by);
     int y0 = static_cast<int>(fy0);
@@ -1055,8 +1411,8 @@ private:
     return result;
   }
 
-  ::Feedback::Style *style_;
-  bool enabled_ = true;
+  ::Feedback::Style *style_;  /**< Bound feedback Style (non-owning). */
+  bool enabled_ = true;       /**< When false, flush() is skipped entirely. */
 };
 
 /**
@@ -1065,8 +1421,18 @@ private:
  */
 template <int W> class ChromaticShift : public Is2D {
 public:
+  /** @brief Constructs the chromatic-shift filter (stateless). */
   ChromaticShift() {}
 
+  /**
+   * @brief Emits the source pixel plus R/G/B copies offset by 1/2/3 columns.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color; split into single-channel copies.
+   * @param age Temporal age channel (frames), forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param pass Downstream 2D callback.
+   */
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
             PassFn2D pass) {
     // age/alpha are non-negative by contract. Debug-only trap — stripped on

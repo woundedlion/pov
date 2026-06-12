@@ -43,13 +43,15 @@ using IntervalBuffer = StaticCircularBuffer<std::pair<float, float>, 32>;
 
 /**
  * @brief Append a scanline interval, trapping on overflow.
- *
- * The CSG ops and scan_region accumulate per-row intervals into a fixed-capacity
- * buffer. StaticCircularBuffer::push_back evicts the OLDEST entry when full
- * (correct for trails, wrong here) — so an overflow would silently drop
- * geometry. A row exceeding the capacity is a sizing bug (e.g. a deeply nested
- * CSG producing more disjoint spans than budgeted), so trap at the violation
- * site instead of dropping coverage (fail-fast).
+ * @param buf Per-row interval buffer to append to.
+ * @param start Interval start column (float).
+ * @param end Interval end column (float).
+ * @details The CSG ops and scan_region accumulate per-row intervals into a
+ * fixed-capacity buffer. StaticCircularBuffer::push_back evicts the OLDEST entry
+ * when full (correct for trails, wrong here) — so an overflow would silently
+ * drop geometry. A row exceeding the capacity is a sizing bug (e.g. a deeply
+ * nested CSG producing more disjoint spans than budgeted), so trap at the
+ * violation site instead of dropping coverage (fail-fast).
  */
 inline void push_interval(IntervalBuffer &buf, float start, float end) {
   HS_CHECK(!buf.is_full(),
@@ -59,9 +61,9 @@ inline void push_interval(IntervalBuffer &buf, float start, float end) {
 
 /**
  * @brief Insertion-sort an interval buffer in place by start coordinate.
- *
- * Raw-pointer indexing (the buffer is freshly built, head == 0, so it is
- * contiguous from index 0), avoiding the per-access modulo. Shared by
+ * @param buf Per-row interval buffer to sort in place.
+ * @details Uses raw-pointer indexing (the buffer is freshly built, head == 0, so
+ * it is contiguous from index 0), avoiding the per-access modulo. Shared by
  * merge_intervals and the Subtract set-difference.
  */
 inline void sort_intervals_by_start(IntervalBuffer &buf) {
@@ -81,8 +83,10 @@ inline void sort_intervals_by_start(IntervalBuffer &buf) {
 /**
  * @brief Sort an interval buffer by start, then emit the union of overlapping
  * intervals via out(start, end). Shared by Union/SmoothUnion.
- *
- * Precondition: `merged` is non-empty (callers guard with is_empty()).
+ * @tparam OutputIt Sink type invoked as out(float start, float end).
+ * @param merged Per-row interval buffer (sorted and merged in place).
+ * @param out Sink receiving each merged interval.
+ * @details Precondition: `merged` is non-empty (callers guard with is_empty()).
  * Templated on the output sink so it inlines at -O3.
  */
 template <typename OutputIt>
@@ -104,7 +108,11 @@ inline void merge_intervals(IntervalBuffer &merged, OutputIt out) {
   out(cur_start, cur_end);
 }
 
-/** Fold an angle into [0, π] (equivalent to acosf(cosf(x)) without trig). */
+/**
+ * @brief Fold an angle into [0, π], equivalent to acosf(cosf(x)) without trig.
+ * @param x Angle in radians.
+ * @return Folded angle in [0, π].
+ */
 inline float clamp_phi(float x) {
   if (x < 0.0f)
     return -x;
@@ -112,13 +120,17 @@ inline float clamp_phi(float x) {
     return 2.0f * PI_F - x;
   return x;
 }
-/** @brief Vertical scanline bounds (min/max Y). */
+/**
+ * @brief Vertical scanline bounds (inclusive min/max row index).
+ */
 struct Bounds {
-  int y_min, y_max;
+  int y_min, y_max; /**< Inclusive first/last row covered. */
 };
-/** @brief Horizontal scanline interval (start/end X). */
+/**
+ * @brief Horizontal scanline interval (start/end column index).
+ */
 struct Interval {
-  int start, end;
+  int start, end; /**< Half-open column range [start, end). */
 };
 /**
  * @brief Result of a signed distance query.
@@ -136,13 +148,24 @@ struct Interval {
  * (Fragment::v2 is reserved and always 0.)
  */
 struct DistanceResult {
-  float dist;        // Signed distance (negative inside); always this meaning.
-  float t;           // Per-shape: normalized parameter (0-1) or angle.
-  float raw_dist;    // Per-shape: unsigned or supplementary distance.
-  float aux;         // Per-shape: auxiliary value (e.g. barycentric coordinate).
-  float size = 1.0f; // Size metric for AA-falloff normalization.
+  float dist;        /**< Signed distance (negative inside); always this meaning. */
+  float t;           /**< Per-shape: normalized parameter (0-1) or angle. */
+  float raw_dist;    /**< Per-shape: unsigned or supplementary distance. */
+  float aux;         /**< Per-shape: auxiliary value (e.g. barycentric coordinate). */
+  float size = 1.0f; /**< Size metric for AA-falloff normalization. */
 
+  /**
+   * @brief Default-constructs an uninitialized result.
+   */
   DistanceResult() = default;
+  /**
+   * @brief Packs the five per-pixel SDF outputs into a result.
+   * @param d Signed distance (negative inside).
+   * @param t_val Per-shape normalized parameter (0-1) or angle.
+   * @param rd Per-shape unsigned or supplementary distance.
+   * @param ax Per-shape auxiliary value.
+   * @param sz Size metric for AA-falloff normalization.
+   */
   DistanceResult(float d, float t_val, float rd, float ax, float sz)
       : dist(d), t(t_val), raw_dist(rd), aux(ax), size(sz) {}
 };
@@ -153,9 +176,17 @@ struct DistanceResult {
  * the scan plane is (ny, R_val, alpha_angle). Shared by PlanarPolygon /
  * SphericalPolygon / Star, whose scanline math is otherwise identical.
  *
- * @param cos_cap    cos of the cap's angular radius (cosf(thickness) etc.).
- * @param reject_full_width  Star-only: drop the row to a full scan when the
+ * @tparam W Canvas width in columns.
+ * @tparam OutputIt Sink type invoked as out(float start, float end).
+ * @param cos_cap cos of the cap's angular radius (cosf(thickness) etc.).
+ * @param ny y-component of the cap axis.
+ * @param R_val Horizontal projection length of the cap axis.
+ * @param alpha_angle Azimuth of the cap axis (radians).
+ * @param cos_phi Cosine of the row's polar angle.
+ * @param sin_phi Sine of the row's polar angle.
+ * @param reject_full_width Star-only: drop the row to a full scan when the
  *        interval would span the whole width (the others never set this).
+ * @param out Sink accepting (float start, float end).
  * @return false to request a full-width fallback scan, true if the (possibly
  *         empty) interval was handled.
  */
@@ -191,14 +222,18 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
 /**
  * @brief Map an angular band [phi_min, phi_max] (radians, polar angle) to the
  * inclusive scanline row range it covers, clamped to [0, height-1].
- *
- * phi spans [0,π] over (h_virt-1) virtual rows; the lower edge floors and the
- * upper edge ceils so a partially-covered row is never dropped. Out-of-range
- * phi needs no pre-clamp: the row clamps fold a sub-0 lower edge to 0 and a
- * past-π upper edge to height-1. This runtime form is the single source for the
- * floor/ceil conversion — the templated `phi_bounds_to_rows<H>` and the Face's
- * construction-time bounds (which only know `h_virt`/`height` at runtime) both
- * route through it.
+ * @param phi_min Lower polar-angle edge of the band (radians).
+ * @param phi_max Upper polar-angle edge of the band (radians).
+ * @param h_virt Virtual row count (height plus pole offset).
+ * @param height Canvas height in rows.
+ * @return Inclusive row bounds covering the band.
+ * @details phi spans [0,π] over (h_virt-1) virtual rows; the lower edge floors
+ * and the upper edge ceils so a partially-covered row is never dropped.
+ * Out-of-range phi needs no pre-clamp: the row clamps fold a sub-0 lower edge to
+ * 0 and a past-π upper edge to height-1. This runtime form is the single source
+ * for the floor/ceil conversion — the templated `phi_bounds_to_rows<H>` and the
+ * Face's construction-time bounds (which only know `h_virt`/`height` at runtime)
+ * both route through it.
  */
 inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
                                  int height) {
@@ -210,9 +245,13 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
 }
 
 /**
- * @brief Compile-time-H wrapper over the runtime conversion above; the leaf
- * shapes' get_vertical_bounds all close with this. phi spans [0,π] over
- * (H+H_OFFSET-1) virtual rows.
+ * @brief Compile-time-H wrapper over the runtime phi-to-row conversion.
+ * @tparam H Canvas height in rows.
+ * @param phi_min Lower polar-angle edge of the band (radians).
+ * @param phi_max Upper polar-angle edge of the band (radians).
+ * @return Inclusive row bounds covering the band.
+ * @details The leaf shapes' get_vertical_bounds all close with this; phi spans
+ * [0,π] over (H+H_OFFSET-1) virtual rows.
  */
 template <int H> inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) {
   return phi_bounds_to_rows(phi_min, phi_max, H + hs::H_OFFSET, H);
@@ -220,13 +259,17 @@ template <int H> inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) 
 
 /**
  * @brief Clamp an annular band's edge cosines to the visible scan range and
- * return its angular half-extents [angle_min, angle_max] (radians from the
- * shape's azimuth), or false if the band misses this row.
- *
- * cos_outer/cos_inner are the great-circle cosines of the band's far/near
- * edges; (ny, cos_phi, denom = R·sinφ) describe the row. cos decreases with
- * angle, so the larger cosine (cos_inner) yields the smaller angle. Shared by
- * the annular scanline emitters.
+ * return its angular half-extents.
+ * @param cos_outer Great-circle cosine of the band's far edge.
+ * @param cos_inner Great-circle cosine of the band's near edge.
+ * @param ny y-component of the band axis.
+ * @param cos_phi Cosine of the row's polar angle.
+ * @param denom Row scale factor R·sinφ.
+ * @param angle_min Output: smaller angular half-extent (radians from azimuth).
+ * @param angle_max Output: larger angular half-extent (radians from azimuth).
+ * @return False if the band misses this row; true with angles written otherwise.
+ * @details cos decreases with angle, so the larger cosine (cos_inner) yields the
+ * smaller angle. Shared by the annular scanline emitters.
  */
 inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
                                 float cos_phi, float denom, float &angle_min,
@@ -244,13 +287,20 @@ inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
 
 /**
  * @brief Emit the horizontal scanline interval(s) where a row crosses an
- * annular band, handling the two pole-wraparound degeneracies (a band touching
- * the near/far pole collapses its two arcs into a single span).
- *
- * Centred on an axis with azimuth `alpha_angle`; band edges and row described
- * as in annular_band_angles. Shared by Ring and DistortedRing, whose annular
- * scanline math is otherwise byte-identical. Emits nothing for a missed row;
- * the caller reports the row handled either way.
+ * annular band, handling the two pole-wraparound degeneracies.
+ * @tparam W Canvas width in columns.
+ * @tparam OutputIt Sink type invoked as out(float start, float end).
+ * @param cos_outer Great-circle cosine of the band's far edge.
+ * @param cos_inner Great-circle cosine of the band's near edge.
+ * @param ny y-component of the band axis.
+ * @param cos_phi Cosine of the row's polar angle.
+ * @param denom Row scale factor R·sinφ.
+ * @param alpha_angle Azimuth of the band axis (radians).
+ * @param out Sink accepting (float start, float end).
+ * @details A band touching the near/far pole collapses its two arcs into a
+ * single span. Shared by Ring and DistortedRing, whose annular scanline math is
+ * otherwise byte-identical. Emits nothing for a missed row; the caller reports
+ * the row handled either way.
  */
 template <int W, typename OutputIt>
 inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
@@ -280,28 +330,32 @@ inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
 
 /**
  * @brief Calculates signed distance to a ring.
- * Returns:
- *  dist: Signed distance (negative inside)
- *  t: Normalized parameter (0-1) corresponding to angle/2PI
- *  raw_dist: Unsigned distance to centerline
+ * @details DistanceResult fields: dist = signed distance (negative inside);
+ * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist = unsigned
+ * distance to centerline.
  */
 struct Ring {
-  const Basis &basis;
-  float radius;
-  float thickness;
-  float phase;
+  const Basis &basis; /**< Orientation frame (v = ring axis). */
+  float radius;       /**< Ring radius as a fraction of the hemisphere. */
+  float thickness;    /**< Half-width of the stroke (radians). */
+  float phase;        /**< Azimuth phase offset (radians). */
 
-  Vector normal, u, w;
-  float nx, ny, nz;
-  float target_angle, center_phi;
-  float cos_max, cos_min, cos_target, inv_sin_target, sin_target;
+  Vector normal, u, w; /**< Ring axis and the two in-plane basis vectors. */
+  float nx, ny, nz;    /**< Components of the ring axis. */
+  float target_angle, center_phi; /**< Centerline polar angle and axis colatitude. */
+  float cos_max, cos_min, cos_target, inv_sin_target, sin_target; /**< Precomputed band trig. */
 
-  // Optional optimization for "Scan Full Row" check
-  float r_val;
-  float alpha_angle; /**< The azimuth angle of the normal vector in the XZ
-                        plane. */
-  static constexpr bool is_solid = false;
+  float r_val;       /**< Horizontal projection length of the axis (for full-row check). */
+  float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
+  static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
 
+  /**
+   * @brief Builds a ring from its basis, radius, thickness, and phase.
+   * @param b Orientation frame (v = ring axis).
+   * @param r Ring radius as a fraction of the hemisphere.
+   * @param th Half-width of the stroke (radians).
+   * @param ph Azimuth phase offset (radians).
+   */
   Ring(const Basis &b, float r, float th, float ph = 0)
       : basis(b), radius(r), thickness(th), phase(ph) {
     normal = basis.v;
@@ -334,6 +388,11 @@ struct Ring {
     alpha_angle = atan2f(nz, nx);
   }
 
+  /**
+   * @brief Maps the ring's latitude band to its inclusive scanline row range.
+   * @tparam H Canvas height in rows.
+   * @return Row bounds covering the ring plus its AA falloff.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     float a1 = center_phi - target_angle;
     float a2 = center_phi + target_angle;
@@ -360,9 +419,12 @@ struct Ring {
   /**
    * @brief Computes the horizontal scanline intervals for this shape at a given
    * y-coordinate.
-   * @param y The vertical pixel coordinate.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The vertical pixel coordinate (row index).
    * @param out Output iterator or callback accepting (float start, float end).
-   * @return True if intervals were found and reported.
+   * @return True if intervals were found and reported; false requests a full scan.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -410,7 +472,7 @@ struct Ring {
   /**
    * @brief Computes signed distance to the ring.
    * @param p Point on sphere (normalized).
-   * @return DistanceResult {dist, t, raw_dist}.
+   * @return DistanceResult with dist, t, and raw_dist populated.
    */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -418,6 +480,13 @@ struct Ring {
     return res;
   }
 
+  /**
+   * @brief Computes signed distance to the ring, writing into res.
+   * @tparam ComputeUVs When true, also computes the azimuthal t parameter.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = signed distance, raw_dist = unsigned
+   *        centerline distance, t = azimuth in [0,1) when ComputeUVs.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     float d = dot(p, normal);
@@ -451,30 +520,37 @@ struct Ring {
 
 /**
  * @brief Calculates signed distance to a distorted ring.
- * Returns:
- *  dist: Signed distance - thickness
- *  t: Normalized parameter (0-1) corresponding to angle/2PI
- *  raw_dist: Unsigned distance to centerline
+ * @details DistanceResult fields: dist = signed distance minus thickness;
+ * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist = unsigned
+ * distance to centerline.
  */
 struct DistortedRing {
-  const Basis &basis;
-  float radius;
-  float thickness;
-  ScalarFn shift_fn;
-  float max_distortion;
-  float phase;
+  const Basis &basis;     /**< Orientation frame (v = ring axis). */
+  float radius;           /**< Ring radius as a fraction of the hemisphere. */
+  float thickness;        /**< Half-width of the stroke (radians). */
+  ScalarFn shift_fn;      /**< Per-azimuth centerline shift, t in [0,1) -> radians. */
+  float max_distortion;   /**< Maximum magnitude of shift_fn (radians). */
+  float phase;            /**< Azimuth phase offset (radians). */
 
-  Vector normal, u, w;
-  float nx, ny, nz;
-  float target_angle, center_phi;
-  float max_thickness;
+  Vector normal, u, w;            /**< Ring axis and the two in-plane basis vectors. */
+  float nx, ny, nz;               /**< Components of the ring axis. */
+  float target_angle, center_phi; /**< Centerline polar angle and axis colatitude. */
+  float max_thickness;            /**< thickness + max_distortion (radians). */
 
-  // Optimization
-  float r_val;
-  float alpha_angle;
-  float cos_max_limit, cos_min_limit;
-  static constexpr bool is_solid = false;
+  float r_val;                    /**< Horizontal projection length of the axis. */
+  float alpha_angle;              /**< Azimuth of the normal in the XZ plane. */
+  float cos_max_limit, cos_min_limit; /**< Cosines of the widened band edges. */
+  static constexpr bool is_solid = false; /**< Distorted ring renders as a stroke. */
 
+  /**
+   * @brief Builds a distorted ring with a per-azimuth centerline shift.
+   * @param b Orientation frame (v = ring axis).
+   * @param r Ring radius as a fraction of the hemisphere.
+   * @param th Half-width of the stroke (radians).
+   * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
+   * @param md Maximum magnitude of sf (radians), used to widen the band.
+   * @param ph Azimuth phase offset (radians).
+   */
   DistortedRing(const Basis &b, float r, float th, ScalarFn sf, float md,
                 float ph)
       : basis(b), radius(r), thickness(th), shift_fn(sf), max_distortion(md),
@@ -500,6 +576,11 @@ struct DistortedRing {
     cos_min_limit = cosf(ang_max);
   }
 
+  /**
+   * @brief Maps the distorted ring's widened latitude band to its row range.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds covering the ring plus distortion margin.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     float a1 = center_phi - target_angle;
     float a2 = center_phi + target_angle;
@@ -523,6 +604,15 @@ struct DistortedRing {
     return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
   }
 
+  /**
+   * @brief Emits the widened annular-band intervals for one scanline row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan.
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
@@ -545,7 +635,7 @@ struct DistortedRing {
   /**
    * @brief Computes signed distance to the distorted ring.
    * @param p Point on sphere (normalized).
-   * @return DistanceResult {dist, t, raw_dist}.
+   * @return DistanceResult with dist, t, and raw_dist populated.
    */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -553,6 +643,13 @@ struct DistortedRing {
     return res;
   }
 
+  /**
+   * @brief Computes signed distance to the distorted ring, writing into res.
+   * @tparam ComputeUVs When true, also computes the azimuthal t parameter.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = signed distance minus thickness, raw_dist =
+   *        unsigned centerline distance, t = azimuth in [0,1) when ComputeUVs.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     float d = dot(p, normal);
@@ -583,29 +680,50 @@ struct DistortedRing {
 };
 
 /**
- * @brief CSG Union operation (A + B).
- * Takes the minimum distance of two shapes.
+ * @brief CSG Union operation (A + B), taking the minimum distance of two shapes.
+ * @tparam A First child shape type.
+ * @tparam B Second child shape type.
  */
 template <typename A, typename B> struct Union {
-  const A &a;
-  const B &b;
-  float thickness;
+  const A &a;         /**< First child shape. */
+  const B &b;         /**< Second child shape. */
+  float thickness;    /**< Max child thickness (drives AA falloff). */
   // A composite renders solid (1px silhouette AA) only if every child is solid.
   // If any child is a stroke, the result is a stroke so the rasterizer takes
   // the thickness-falloff AA path and each child keeps its own soft edge —
   // matching how that child looks drawn on its own.
-  static constexpr bool is_solid = A::is_solid && B::is_solid;
+  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
+  /**
+   * @brief Builds a union of two child shapes.
+   * @param shape_a First child shape.
+   * @param shape_b Second child shape.
+   */
   Union(const A &shape_a, const B &shape_b)
       : a(shape_a), b(shape_b),
         thickness(std::max(shape_a.thickness, shape_b.thickness)) {}
 
+  /**
+   * @brief Row bounds spanning the union of the children's bands.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds covering either child.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
     return {std::min(b1.y_min, b2.y_min), std::max(b1.y_max, b2.y_max)};
   }
 
+  /**
+   * @brief Emits the merged union of both children's intervals for one row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan (whenever
+   *         either child falls back).
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     StaticCircularBuffer<std::pair<float, float>, 32> merged;
@@ -633,7 +751,9 @@ template <typename A, typename B> struct Union {
   }
 
   /**
-   * @brief Signed distance to Union.
+   * @brief Signed distance to the union (minimum of the two children).
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult of the nearer child.
    */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -641,6 +761,12 @@ template <typename A, typename B> struct Union {
     return res;
   }
 
+  /**
+   * @brief Signed distance to the union, writing the nearer child into res.
+   * @tparam ComputeUVs Forwarded to each child's distance().
+   * @param p Point on sphere (normalized).
+   * @param res Output result; the nearer child's full result is kept.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
@@ -653,23 +779,36 @@ template <typename A, typename B> struct Union {
 };
 
 /**
- * @brief Smooth CSG Union operation using polynomial smooth minimum.
- * Shapes organically blend together within radius k (Inigo Quilez smin).
+ * @brief Smooth CSG Union using a polynomial smooth minimum (Inigo Quilez smin).
+ * @tparam A First child shape type.
+ * @tparam B Second child shape type.
+ * @details Shapes organically blend together within radius k (radians).
  */
 template <typename A, typename B> struct SmoothUnion {
-  const A &a;
-  const B &b;
-  float k; // Smoothing factor (e.g., 0.1)
-  float thickness;
+  const A &a;         /**< First child shape. */
+  const B &b;         /**< Second child shape. */
+  float k;            /**< Smoothing radius in radians (e.g. 0.1). */
+  float thickness;    /**< Max child thickness (drives AA falloff). */
   // Solid only if every child is solid (see Union); a stroke child routes the
   // composite through the thickness-falloff AA path, so smin-blended strokes
   // keep their own soft edge instead of collapsing to a hard 1-px silhouette.
-  static constexpr bool is_solid = A::is_solid && B::is_solid;
+  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
+  /**
+   * @brief Builds a smooth union of two child shapes.
+   * @param shape_a First child shape.
+   * @param shape_b Second child shape.
+   * @param smoothness Blend radius k in radians.
+   */
   SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
       : a(shape_a), b(shape_b), k(smoothness),
         thickness(std::max(shape_a.thickness, shape_b.thickness)) {}
 
+  /**
+   * @brief Row bounds spanning both children's bands, padded by the blend radius.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds expanded by k (converted to rows).
+   */
   template <int H> Bounds get_vertical_bounds() const {
     constexpr int H_VIRT = H + hs::H_OFFSET;
     auto b1 = a.template get_vertical_bounds<H>();
@@ -682,7 +821,16 @@ template <typename A, typename B> struct SmoothUnion {
             std::min(H - 1, std::max(b1.y_max, b2.y_max) + pad)};
   }
 
-  // Conservative union of children's intervals, padded by k (in radians)
+  /**
+   * @brief Conservative union of the children's intervals, padded by k.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false (full scan) if either child
+   *         falls back to full width.
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     StaticCircularBuffer<std::pair<float, float>, 32> merged;
@@ -709,12 +857,24 @@ template <typename A, typename B> struct SmoothUnion {
     return true;
   }
 
+  /**
+   * @brief Signed distance to the smooth union.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult of the nearer child with the smin blend applied.
+   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
     return res;
   }
 
+  /**
+   * @brief Signed distance to the smooth union, writing into res.
+   * @tparam ComputeUVs Forwarded to each child's distance().
+   * @param p Point on sphere (normalized).
+   * @param res Output result; the nearer child's result with its dist reduced by
+   *        the cubic smin blend term.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
@@ -735,24 +895,45 @@ template <typename A, typename B> struct SmoothUnion {
 };
 
 /**
- * @brief CSG Subtraction operation (A - B).
- * Takes Max(A, -B).
+ * @brief CSG Subtraction operation (A - B), computing max(A, -B).
+ * @tparam A Minuend shape type (the shape carved into).
+ * @tparam B Subtrahend shape type (the shape removed).
  */
 template <typename A, typename B> struct Subtract {
-  const A &a;
-  const B &b;
-  float thickness;
+  const A &a;      /**< Minuend shape. */
+  const B &b;      /**< Subtrahend shape (removed from A). */
+  float thickness; /**< Inherited from the minuend A. */
   // Solid only if every child is solid (see Union); a stroke child routes the
   // composite through the thickness-falloff AA path.
-  static constexpr bool is_solid = A::is_solid && B::is_solid;
+  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
+  /**
+   * @brief Builds a subtraction (shape_a minus shape_b).
+   * @param shape_a Minuend shape.
+   * @param shape_b Subtrahend shape.
+   */
   Subtract(const A &shape_a, const B &shape_b)
       : a(shape_a), b(shape_b), thickness(shape_a.thickness) {}
 
+  /**
+   * @brief Row bounds of the minuend (subtraction never grows the band).
+   * @tparam H Canvas height in rows.
+   * @return The minuend's inclusive row bounds.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     return a.template get_vertical_bounds<H>();
   }
 
+  /**
+   * @brief Emits A's intervals with B's overlapping intervals removed.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan whenever A
+   *         or B falls back (B's fallback cannot be treated as full coverage).
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     StaticCircularBuffer<std::pair<float, float>, 32> intervals_a;
@@ -844,7 +1025,9 @@ template <typename A, typename B> struct Subtract {
   }
 
   /**
-   * @brief Signed distance to Subtraction (A - B).
+   * @brief Signed distance to the subtraction (A - B).
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult of max(A, -B).
    */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -852,6 +1035,12 @@ template <typename A, typename B> struct Subtract {
     return res;
   }
 
+  /**
+   * @brief Signed distance to the subtraction, writing into res.
+   * @tparam ComputeUVs Forwarded to each child's distance().
+   * @param p Point on sphere (normalized).
+   * @param res Output result; max(A, -B) with B's distance negated when it wins.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
@@ -866,27 +1055,48 @@ template <typename A, typename B> struct Subtract {
 };
 
 /**
- * @brief CSG Intersection operation (A & B).
- * Takes the maximum distance of two shapes.
+ * @brief CSG Intersection operation (A & B), taking the maximum distance.
+ * @tparam A First child shape type.
+ * @tparam B Second child shape type.
  */
 template <typename A, typename B> struct Intersection {
-  const A &a;
-  const B &b;
-  float thickness;
+  const A &a;      /**< First child shape. */
+  const B &b;      /**< Second child shape. */
+  float thickness; /**< Min child thickness (drives AA falloff). */
   // Solid only if every child is solid (see Union); a stroke child routes the
   // composite through the thickness-falloff AA path.
-  static constexpr bool is_solid = A::is_solid && B::is_solid;
+  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
+  /**
+   * @brief Builds an intersection of two child shapes.
+   * @param shape_a First child shape.
+   * @param shape_b Second child shape.
+   */
   Intersection(const A &shape_a, const B &shape_b)
       : a(shape_a), b(shape_b),
         thickness(std::min(shape_a.thickness, shape_b.thickness)) {}
 
+  /**
+   * @brief Row bounds of the overlap of the children's bands.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds covered by both children.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
     return {std::max(b1.y_min, b2.y_min), std::min(b1.y_max, b2.y_max)};
   }
 
+  /**
+   * @brief Emits the per-row intersection of both children's intervals.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false (full scan) only when both
+   *         children fall back to full width.
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     StaticCircularBuffer<std::pair<float, float>, 32> intervals_a;
@@ -951,7 +1161,9 @@ template <typename A, typename B> struct Intersection {
   }
 
   /**
-   * @brief Signed distance to Intersection.
+   * @brief Signed distance to the intersection (maximum of the two children).
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult of the farther child.
    */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -959,6 +1171,12 @@ template <typename A, typename B> struct Intersection {
     return res;
   }
 
+  /**
+   * @brief Signed distance to the intersection, writing the farther child.
+   * @tparam ComputeUVs Forwarded to each child's distance().
+   * @param p Point on sphere (normalized).
+   * @param res Output result; the farther child's full result is kept.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
@@ -973,17 +1191,23 @@ template <typename A, typename B> struct Intersection {
 
 /**
  * @brief Angular domain repetition modifier.
- * Folds azimuthal angle to create N copies of a shape around an arbitrary axis
- * for constant cost (single distance evaluation).
+ * @tparam Shape The child shape type being repeated.
+ * @details Folds the azimuthal angle to create N copies of a shape around an
+ * arbitrary axis for constant cost (a single distance evaluation).
  */
 template <typename Shape> struct AngularRepeat {
-  const Shape &shape;
-  Vector axis, u, w; // axis = rotation axis, u/w = derived perpendicular plane
-  int repetitions;
-  float thickness;
-  static constexpr bool is_solid = Shape::is_solid;
+  const Shape &shape; /**< Child shape being repeated. */
+  Vector axis, u, w;  /**< Rotation axis and the derived perpendicular plane (u, w). */
+  int repetitions;    /**< Number of copies around the axis. */
+  float thickness;    /**< Inherited from the child shape. */
+  static constexpr bool is_solid = Shape::is_solid; /**< Matches the child's solidity. */
 
-  /// Repeat around an arbitrary axis.
+  /**
+   * @brief Repeats the shape around an arbitrary axis.
+   * @param s Child shape to repeat.
+   * @param reps Number of copies (must be > 0).
+   * @param ax Rotation axis (unit length).
+   */
   AngularRepeat(const Shape &s, int reps, const Vector &ax)
       : shape(s), axis(ax), repetitions(reps), thickness(s.thickness) {
     HS_CHECK(reps > 0); // sector folding divides by repetitions
@@ -998,10 +1222,19 @@ template <typename Shape> struct AngularRepeat {
                ax.x * u.y - ax.y * u.x);
   }
 
-  /// Repeat around the Y-axis.
+  /**
+   * @brief Repeats the shape around the Y-axis.
+   * @param s Child shape to repeat.
+   * @param reps Number of copies (must be > 0).
+   */
   AngularRepeat(const Shape &s, int reps)
       : AngularRepeat(s, reps, Vector(0, 1, 0)) {}
 
+  /**
+   * @brief Row bounds for the repeated shape.
+   * @tparam H Canvas height in rows.
+   * @return The child's band for a Y-axis fold; the full canvas otherwise.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     // Only a fold about the Y axis preserves latitude (the axis component, which
     // becomes a copy's invariant, is then the row axis), so the un-repeated
@@ -1016,18 +1249,36 @@ template <typename Shape> struct AngularRepeat {
     return shape.template get_vertical_bounds<H>();
   }
 
+  /**
+   * @brief Always requests a full-width scan (copies cover the full azimuth).
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type (unused).
+   * @return Always false (full scan).
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int, OutputIt) const {
     // Full scan: repetitions cover the full azimuth
     return false;
   }
 
+  /**
+   * @brief Signed distance to the nearest repeated copy.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult of the child evaluated in the folded sector.
+   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
     return res;
   }
 
+  /**
+   * @brief Folds p into one sector and evaluates the child, writing into res.
+   * @tparam ComputeUVs Forwarded to the child's distance().
+   * @param p Point on sphere (normalized).
+   * @param res Output result of the child at the folded point.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     // Project p into local coordinate system
@@ -1061,67 +1312,79 @@ template <typename Shape> struct AngularRepeat {
  * @brief Scratch buffer for Face computations to avoid allocations.
  */
 struct FaceScratchBuffer {
-  static constexpr int MAX_VERTS = 64;
-  static constexpr int LUT_N = 32;
-  std::array<Vector, MAX_VERTS + 1> poly_2d; // +1 to avoid modulo
-  std::array<Vector, MAX_VERTS> edge_vectors;
-  std::array<float, MAX_VERTS> edge_lengths_sq;
-  std::array<Vector, MAX_VERTS> planes;
-  std::array<std::pair<float, float>, 4> intervals;
-  std::array<float, MAX_VERTS> thetas;
-  std::array<float, MAX_VERTS> inv_edge_lengths_sq;
-  std::array<float, MAX_VERTS> inv_edge_j;
-  std::array<Vector, MAX_VERTS + 1> verts_3d;
-  std::array<Vector, MAX_VERTS> edge_normals;
-  std::array<float, LUT_N * LUT_N> dist_lut;
+  static constexpr int MAX_VERTS = 64; /**< Maximum vertices per face. */
+  static constexpr int LUT_N = 32;     /**< Distance-LUT grid resolution per axis. */
+  std::array<Vector, MAX_VERTS + 1> poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
+  std::array<Vector, MAX_VERTS> edge_vectors;       /**< Per-edge 2D vectors. */
+  std::array<float, MAX_VERTS> edge_lengths_sq;     /**< Per-edge squared lengths. */
+  std::array<Vector, MAX_VERTS> planes;             /**< Per-edge great-circle normals. */
+  std::array<std::pair<float, float>, 4> intervals; /**< Azimuth coverage intervals. */
+  std::array<float, MAX_VERTS> thetas;              /**< Per-vertex azimuth angles. */
+  std::array<float, MAX_VERTS> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
+  std::array<float, MAX_VERTS> inv_edge_j;          /**< Reciprocal of each edge's y-component. */
+  std::array<Vector, MAX_VERTS + 1> verts_3d;       /**< 3D vertices (+1 wrap entry). */
+  std::array<Vector, MAX_VERTS> edge_normals;       /**< Per-edge normalized 3D normals. */
+  std::array<float, LUT_N * LUT_N> dist_lut;        /**< Precomputed signed-distance LUT. */
 
-  // Packed per-edge data for cache-friendly fallback in distance()
+  /**
+   * @brief Packed per-edge data for the cache-friendly distance() fallback.
+   */
   struct EdgePacked {
-    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy, _pad;
+    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy, _pad; /**< Edge origin, vector, reciprocals, next-vertex y, padding. */
   };
-  std::array<EdgePacked, MAX_VERTS> packed_edges;
+  std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
 };
 
 /**
  * @brief Represents a planar face for SDF rendering.
- * Computes 2D projection and vertical/horizontal bounds for optimization.
+ * @details Computes the 2D projection and vertical/horizontal bounds used to
+ * accelerate rasterization.
  */
 struct Face {
-  Vector center;
-  Vector basis_v, basis_u, basis_w;
-  int count;
-  float thickness;
-  float size;
-  float max_r2 = 0.0f;
-  float radius = 0.0f;
-  float max_dist = 0.0f;
-  float max_dist_sq = 0.0f;
+  Vector center;                    /**< Normalized face centroid (projection axis). */
+  Vector basis_v, basis_u, basis_w; /**< Local tangent frame (v = center). */
+  int count;                        /**< Vertex/edge count. */
+  float thickness;                  /**< Edge half-width (radians). */
+  float size;                       /**< Inradius metric for AA normalization. */
+  float max_r2 = 0.0f;              /**< Max squared 2D vertex radius. */
+  float radius = 0.0f;              /**< Circumradius in the 2D projection. */
+  float max_dist = 0.0f;            /**< Cull radius (circumradius plus margin). */
+  float max_dist_sq = 0.0f;         /**< Squared cull radius. */
 
-  std::span<Vector> poly_2d;
-  std::span<Vector> edge_vectors;
-  std::span<float> edge_lengths_sq;
-  std::span<Vector> planes;
-  std::span<float> inv_edge_lengths_sq;
-  std::span<float> inv_edge_j;
-  std::span<Vector> verts_3d;
-  std::span<Vector> edge_normals;
+  std::span<Vector> poly_2d;            /**< Projected 2D polygon (+1 wrap entry). */
+  std::span<Vector> edge_vectors;       /**< Per-edge 2D vectors. */
+  std::span<float> edge_lengths_sq;     /**< Per-edge squared lengths. */
+  std::span<Vector> planes;             /**< Per-edge great-circle normals. */
+  std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
+  std::span<float> inv_edge_j;          /**< Reciprocal of each edge's y-component. */
+  std::span<Vector> verts_3d;           /**< 3D vertices (+1 wrap entry). */
+  std::span<Vector> edge_normals;       /**< Per-edge normalized 3D normals. */
 
-  int y_min, y_max;
-  std::span<std::pair<float, float>> intervals;
-  bool full_width;
-  static constexpr bool is_solid = true;
+  int y_min, y_max;                            /**< Inclusive vertical row bounds. */
+  std::span<std::pair<float, float>> intervals; /**< Azimuth coverage intervals (radians). */
+  bool full_width;                             /**< True when the face spans all columns. */
+  static constexpr bool is_solid = true;       /**< Face renders as a filled region. */
 
   // Packed edge data + LUT for distance computation
-  using EdgePacked = FaceScratchBuffer::EdgePacked;
-  std::span<EdgePacked> packed_edges;
-  static constexpr int LUT_N = FaceScratchBuffer::LUT_N;
-  const float *dist_lut = nullptr;
-  float lut_cx = 0.0f, lut_cy = 0.0f;
-  float lut_Rx = 0.0f, lut_Ry = 0.0f;
-  float lut_inv_step_x = 0.0f;
-  float lut_inv_step_y = 0.0f;
-  float lut_safe_dist = 0.0f; // per-face: cell diagonal
+  using EdgePacked = FaceScratchBuffer::EdgePacked; /**< Packed per-edge record type. */
+  std::span<EdgePacked> packed_edges;               /**< Packed per-edge data. */
+  static constexpr int LUT_N = FaceScratchBuffer::LUT_N; /**< Distance-LUT resolution per axis. */
+  const float *dist_lut = nullptr;     /**< Pointer into the scratch distance LUT. */
+  float lut_cx = 0.0f, lut_cy = 0.0f;  /**< LUT bounding-box center. */
+  float lut_Rx = 0.0f, lut_Ry = 0.0f;  /**< LUT bounding-box half-extents. */
+  float lut_inv_step_x = 0.0f;         /**< Reciprocal LUT cell width. */
+  float lut_inv_step_y = 0.0f;         /**< Reciprocal LUT cell height. */
+  float lut_safe_dist = 0.0f;          /**< Per-face cell diagonal (sign-pure bound). */
 
+  /**
+   * @brief Builds a face's projection, bounds, edge data, and distance LUT.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices from the pool.
+   * @param th Edge half-width (radians).
+   * @param scratch Reusable scratch storage backing the spans.
+   * @param h_virt Virtual row count (height plus pole offset).
+   * @param height Canvas height in rows.
+   */
   Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
        float th, FaceScratchBuffer &scratch, int h_virt, int height)
       : thickness(th), full_width(true) {
@@ -1176,9 +1439,17 @@ struct Face {
   // Mesh::draw face-setup cost stays free of call overhead.
   // ---------------------------------------------------------------------------
 
-  /// Latitude-band reject. Returns true when the face's phi extent (plus
-  /// thickness margin) maps to an empty canvas-row range. Always outputs the
-  /// raw phi extent, which the bounds computation below reuses.
+  /**
+   * @brief Latitude-band reject for the face.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices.
+   * @param h_virt Virtual row count (height plus pole offset).
+   * @param height Canvas height in rows.
+   * @param min_phi_check Output: minimum polar angle of the face (radians).
+   * @param max_phi_check Output: maximum polar angle of the face (radians).
+   * @return True when the phi extent plus thickness margin maps to an empty
+   *         canvas-row range; the raw phi extent is always written out for reuse.
+   */
   __attribute__((always_inline)) bool
   compute_phi_extent(std::span<const Vector> vertices,
                      std::span<const uint16_t> indices, int h_virt, int height,
@@ -1205,8 +1476,14 @@ struct Face {
     return rows.y_min > rows.y_max;
   }
 
-  /// Build the local tangent frame (basis_u/v/w), the gnomonic 2D projection
-  /// (poly_2d) with its circumradius, and the 3D vertex/edge-normal arrays.
+  /**
+   * @brief Builds the local tangent frame, gnomonic 2D projection, and 3D arrays.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices.
+   * @param scratch Scratch storage receiving poly_2d, verts_3d, edge_normals.
+   * @details Sets basis_u/v/w, poly_2d (with circumradius), and the 3D
+   * vertex/edge-normal arrays.
+   */
   __attribute__((always_inline)) void
   setup_frame_and_polygon(std::span<const Vector> vertices,
                           std::span<const uint16_t> indices,
@@ -1268,8 +1545,12 @@ struct Face {
     edge_normals = std::span<Vector>(scratch.edge_normals.data(), count);
   }
 
-  /// Face "size" = inradius (min distance from the projected centroid to any
-  /// edge), floored to a fraction of the circumradius for degenerate slivers.
+  /**
+   * @brief Computes the face "size" (inradius) from the projected polygon.
+   * @param scratch Scratch storage holding poly_2d.
+   * @details size = minimum distance from the projected centroid to any edge,
+   * floored to a fraction of the circumradius for degenerate slivers.
+   */
   __attribute__((always_inline)) void
   compute_inradius(FaceScratchBuffer &scratch) {
     float min_edge_dist = 1e9f;
@@ -1296,7 +1577,10 @@ struct Face {
       size = radius * MIN_SIZE_RADIUS_RATIO;
   }
 
-  /// Pack per-edge data contiguously for the cache-friendly distance() fallback.
+  /**
+   * @brief Packs per-edge data contiguously for the distance() fallback.
+   * @param scratch Scratch storage receiving packed_edges.
+   */
   __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
     for (int i = 0; i < count; ++i) {
       auto &ep = scratch.packed_edges[i];
@@ -1311,7 +1595,10 @@ struct Face {
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
   }
 
-  /// Precompute the anisotropic signed-distance LUT over the face bounding box.
+  /**
+   * @brief Precomputes the anisotropic signed-distance LUT over the bounding box.
+   * @param scratch Scratch storage receiving dist_lut.
+   */
   __attribute__((always_inline)) void
   build_distance_lut(FaceScratchBuffer &scratch) {
     float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
@@ -1375,9 +1662,13 @@ struct Face {
     }
   }
 
-  /// Azimuth coverage: find the largest angular gap between vertices; if it
-  /// exceeds pi the face does not wrap, so emit the complementary horizontal
-  /// interval(s). Otherwise the face spans the full width.
+  /**
+   * @brief Computes the face's azimuth coverage intervals.
+   * @param scratch Scratch storage holding thetas and receiving intervals.
+   * @details Finds the largest angular gap between vertices; if it exceeds pi the
+   * face does not wrap, so the complementary horizontal interval(s) are emitted.
+   * Otherwise the face spans the full width.
+   */
   __attribute__((always_inline)) void
   compute_azimuth_intervals(FaceScratchBuffer &scratch) {
     std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
@@ -1412,8 +1703,12 @@ struct Face {
                                                    interval_count);
   }
 
-  /// Pole containment: if the face encircles the north or south pole, extend the
-  /// vertical bounds to it and force full-width azimuth coverage.
+  /**
+   * @brief Extends the vertical bounds when the face encircles a pole.
+   * @param height Canvas height in rows.
+   * @details If the face encircles the north or south pole, the vertical bounds
+   * are extended to it and full-width azimuth coverage is forced.
+   */
   __attribute__((always_inline)) void apply_pole_containment(int height) {
     if (center.y > 0.01f) {
       float inv_c = 1.0f / center.y;
@@ -1455,7 +1750,20 @@ struct Face {
     }
   }
 
-  /// Fast-path bounds: uses vertex-based phi for small faces.
+  /**
+   * @brief Fast-path vertical bounds using vertex-based phi for small faces.
+   * @param scratch Scratch storage receiving edge data and thetas.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices.
+   * @param count Vertex/edge count.
+   * @param thickness Edge half-width (radians).
+   * @param min_phi_check Minimum face polar angle (radians).
+   * @param max_phi_check Maximum face polar angle (radians).
+   * @param h_virt Virtual row count (height plus pole offset).
+   * @param height Canvas height in rows.
+   * @param y_min_out Output: first covered row.
+   * @param y_max_out Output: last covered row.
+   */
   static void compute_fast_bounds(FaceScratchBuffer &scratch,
                                   std::span<const Vector> vertices,
                                   std::span<const uint16_t> indices, int count,
@@ -1483,8 +1791,20 @@ struct Face {
     y_max_out = rows.y_max;
   }
 
-  /// Full-path bounds: arc extrema + pole containment for large faces.
-  /// Returns the number of planes computed.
+  /**
+   * @brief Full-path vertical bounds (arc extrema + pole containment) for large faces.
+   * @param scratch Scratch storage receiving edge data, planes, and thetas.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices.
+   * @param count Vertex/edge count.
+   * @param center Normalized face centroid.
+   * @param thickness Edge half-width (radians).
+   * @param h_virt Virtual row count (height plus pole offset).
+   * @param height Canvas height in rows.
+   * @param y_min_out Output: first covered row.
+   * @param y_max_out Output: last covered row.
+   * @return The number of great-circle planes computed.
+   */
   static int compute_full_bounds(FaceScratchBuffer &scratch,
                                  std::span<const Vector> vertices,
                                  std::span<const uint16_t> indices, int count,
@@ -1577,8 +1897,21 @@ struct Face {
     return planes_count;
   }
 
+  /**
+   * @brief Returns the face's precomputed inclusive row bounds.
+   * @tparam H Canvas height in rows.
+   * @return The stored {y_min, y_max} bounds.
+   */
   template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
 
+  /**
+   * @brief Emits the face's azimuth-coverage intervals for a row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param out Sink accepting (float start, float end).
+   * @return True if intervals were emitted; false (full scan) for full-width faces.
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int, OutputIt out) const {
     if (full_width)
@@ -1591,12 +1924,24 @@ struct Face {
     return true;
   }
 
+  /**
+   * @brief Computes signed distance to the face.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult with the signed angular distance and size metric.
+   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
     return res;
   }
 
+  /**
+   * @brief Computes signed distance to the face, writing into res.
+   * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = signed angular distance to the edge minus
+   *        thickness, raw_dist = unsigned angular distance, size = inradius.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     hs::g_scan_metrics.pixels_tested++;
@@ -1673,21 +2018,27 @@ struct Face {
 
 /**
  * @brief Calculates signed distance to a planar polygon.
- * Returns:
- *  dist: Signed distance from edge (negative inside)
- *  t: Normalized polar distance (polar / thickness)
- *  raw_dist: Polar distance from center
+ * @details DistanceResult fields: dist = signed distance from edge (negative
+ * inside); t = normalized polar distance (polar / thickness); raw_dist = polar
+ * distance from center.
  */
 struct PlanarPolygon {
-  const Basis &basis;
-  float thickness;
-  int sides;
-  float phase;
-  float apothem;
-  float nx, ny, nz, R_val, alpha_angle;
-  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
-  static constexpr bool is_solid = true;
+  const Basis &basis;                  /**< Orientation frame (v = polygon axis). */
+  float thickness;                     /**< Polygon radius / apothem scale (radians). */
+  int sides;                           /**< Number of polygon sides. */
+  float phase;                         /**< Azimuth phase offset (radians). */
+  float apothem;                       /**< Precomputed inradius (radians). */
+  float nx, ny, nz, R_val, alpha_angle; /**< Axis components, XZ projection length and azimuth. */
+  float phi_min, phi_max;              /**< Vertical bounds as an angular band (radians). */
+  static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
 
+  /**
+   * @brief Builds a planar polygon from its basis, thickness, side count, phase.
+   * @param b Orientation frame (v = polygon axis).
+   * @param th Polygon radius / apothem scale (radians).
+   * @param s Number of polygon sides (must be > 0).
+   * @param ph Azimuth phase offset (radians).
+   */
   PlanarPolygon(const Basis &b, float th, int s, float ph)
       : basis(b), thickness(th), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
@@ -1704,10 +2055,24 @@ struct PlanarPolygon {
     phi_max = std::min(PI_F, center_phi + margin);
   }
 
+  /**
+   * @brief Maps the polygon's latitude band to its inclusive row range.
+   * @tparam H Canvas height in rows.
+   * @return Row bounds covering the polygon plus margin.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(phi_min, phi_max);
   }
 
+  /**
+   * @brief Emits the bounding-cap interval for one scanline row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan.
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
@@ -1722,10 +2087,12 @@ struct PlanarPolygon {
 
   /**
    * @brief Signed distance to the planar polygon edge.
-   *
-   * Treats the polar angle as a flat radius (tangent-plane approximation), so
-   * it is accurate for small caps and diverges from the true geodesic distance
-   * as the radius grows. Use SphericalPolygon for geodesic great-circle edges.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult with dist, t, and raw_dist populated.
+   * @details Treats the polar angle as a flat radius (tangent-plane
+   * approximation), so it is accurate for small caps and diverges from the true
+   * geodesic distance as the radius grows. Use SphericalPolygon for geodesic
+   * great-circle edges.
    */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
@@ -1733,6 +2100,13 @@ struct PlanarPolygon {
     return res;
   }
 
+  /**
+   * @brief Signed distance to the planar polygon edge, writing into res.
+   * @tparam ComputeUVs When true, also computes the normalized radial t.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = polar*cos(local) - apothem, raw_dist =
+   *        polar angle from center, t = polar/thickness when ComputeUVs.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     float polar = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
@@ -1757,26 +2131,31 @@ struct PlanarPolygon {
 };
 
 /**
- * @brief Calculates signed distance to a spherical polygon (great circle
- * edges). Uses sector folding + precomputed great circle plane normal for
+ * @brief Calculates signed distance to a spherical polygon (great-circle edges).
+ * @details Uses sector folding plus a precomputed great-circle plane normal for
  * O(1) per-pixel distance, with exact angular distances for smooth AA.
- * Returns:
- *  dist: Signed angular distance to the nearest great-circle edge (negative
- *        inside)
- *  t: Normalized radial position (polar / circumradius)
- *  raw_dist: Polar angle from the polygon center
+ * DistanceResult fields: dist = signed angular distance to the nearest
+ * great-circle edge (negative inside); t = normalized radial position (polar /
+ * circumradius); raw_dist = polar angle from the polygon center.
  */
 struct SphericalPolygon {
-  const Basis &basis;
-  int sides;
-  float phase;
-  float circumradius; // angular distance from center to vertex
-  float edge_nv;      // edge normal · center
-  float edge_nu;      // edge normal · u-axis
-  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
-  float nx, ny, nz, R_val, alpha_angle;
-  static constexpr bool is_solid = true;
+  const Basis &basis;     /**< Orientation frame (v = polygon axis). */
+  int sides;              /**< Number of polygon sides. */
+  float phase;            /**< Azimuth phase offset (radians). */
+  float circumradius;     /**< Angular distance from center to vertex (radians). */
+  float edge_nv;          /**< Edge normal dotted with the center axis. */
+  float edge_nu;          /**< Edge normal dotted with the u-axis. */
+  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  float nx, ny, nz, R_val, alpha_angle; /**< Axis components, XZ projection length and azimuth. */
+  static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
 
+  /**
+   * @brief Builds a spherical polygon from its basis, radius, side count, phase.
+   * @param b Orientation frame (v = polygon axis).
+   * @param radius Polygon radius as a fraction of the hemisphere.
+   * @param s Number of polygon sides (must be > 0).
+   * @param ph Azimuth phase offset (radians).
+   */
   SphericalPolygon(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
@@ -1818,10 +2197,24 @@ struct SphericalPolygon {
     phi_max = std::min(PI_F, center_phi + margin);
   }
 
+  /**
+   * @brief Maps the polygon's latitude band to its inclusive row range.
+   * @tparam H Canvas height in rows.
+   * @return Row bounds covering the polygon plus margin.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(phi_min, phi_max);
   }
 
+  /**
+   * @brief Emits the bounding-cap interval for one scanline row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan.
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
@@ -1834,12 +2227,25 @@ struct SphericalPolygon {
                                 TrigLUT<W, H>::sin_phi[y], false, out);
   }
 
+  /**
+   * @brief Signed distance to the spherical polygon.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult with dist, t, and raw_dist populated.
+   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
     return res;
   }
 
+  /**
+   * @brief Signed distance to the spherical polygon, writing into res.
+   * @tparam ComputeUVs When true, also computes the normalized radial t.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = signed angular distance to the nearest
+   *        great-circle edge, raw_dist = polar angle, t = polar/circumradius
+   *        when ComputeUVs.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     float polar = angle_between(p, basis.v);
@@ -1870,24 +2276,29 @@ struct SphericalPolygon {
 
 /**
  * @brief Calculates signed distance to a star shape.
- * Returns:
- *  dist: Signed distance from edge (negative inside)
- *  t: Normalized azimuth (azimuth / 2PI)
- *  raw_dist: Polar distance from center
+ * @details DistanceResult fields: dist = signed distance from edge (negative
+ * inside); t = normalized azimuth (azimuth / 2PI); raw_dist = polar distance
+ * from center.
  */
 struct Star {
-  const Basis &basis;
-  int sides;
-  float phase;
-  static constexpr bool is_solid = true;
+  const Basis &basis;                    /**< Orientation frame (v = star axis). */
+  int sides;                             /**< Number of star points. */
+  float phase;                           /**< Azimuth phase offset (radians). */
+  static constexpr bool is_solid = true; /**< Star renders as a filled region. */
 
-  float nx, ny, plane_d;
-  float thickness;
+  float nx, ny, plane_d; /**< 2D edge plane (normal and offset) for one point. */
+  float thickness;       /**< Outer radius / AA scale (radians). */
 
-  // Scan
-  float scan_ny, scan_nx, scan_nz, scan_r, scan_alpha;
-  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
+  float scan_ny, scan_nx, scan_nz, scan_r, scan_alpha; /**< Axis components, XZ projection length and azimuth. */
+  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
 
+  /**
+   * @brief Builds a star from its basis, radius, point count, and phase.
+   * @param b Orientation frame (v = star axis).
+   * @param radius Outer radius as a fraction of the hemisphere.
+   * @param s Number of star points (must be > 0).
+   * @param ph Azimuth phase offset (radians).
+   */
   Star(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
@@ -1919,10 +2330,25 @@ struct Star {
     phi_max = std::min(PI_F, center_phi + margin);
   }
 
+  /**
+   * @brief Maps the star's latitude band to its inclusive row range.
+   * @tparam H Canvas height in rows.
+   * @return Row bounds covering the star plus margin.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(phi_min, phi_max);
   }
 
+  /**
+   * @brief Emits the bounding-circle interval for one scanline row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan (also when
+   *         the cap would span the whole width).
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     // Bounding circle; pad the cap by one pixel and reject full-width rows.
@@ -1934,12 +2360,24 @@ struct Star {
                                 TrigLUT<W, H>::sin_phi[y], true, out);
   }
 
+  /**
+   * @brief Signed distance to the star.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult with dist, t, and raw_dist populated.
+   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
     return res;
   }
 
+  /**
+   * @brief Signed distance to the star, writing into res.
+   * @tparam ComputeUVs Accepted for interface parity; t is always computed.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = signed distance to the nearest point edge,
+   *        raw_dist = polar distance from center, t = normalized azimuth.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     float scan_dist = angle_between(p, basis.v);
@@ -1968,22 +2406,28 @@ struct Star {
 
 /**
  * @brief Calculates signed distance to a flower shape.
- * Returns:
- *  dist: Signed distance from flower edge
- *  t: Normalized scan distance (scan_dist / thickness)
- *  raw_dist: Scan distance from antipode
+ * @details DistanceResult fields: dist = signed distance from the flower edge;
+ * t = normalized scan distance (scan_dist / thickness); raw_dist = scan distance
+ * from the antipode.
  */
 struct Flower {
-  const Basis &basis;
-  int sides;
-  float phase;
-  float thickness;
-  float apothem;
-  Vector antipode;
-  float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha;
-  float phi_min, phi_max; // Vertical bounds as an angular band (radians)
-  static constexpr bool is_solid = true;
+  const Basis &basis; /**< Orientation frame (v = flower axis). */
+  int sides;          /**< Number of petals. */
+  float phase;        /**< Azimuth phase offset (radians). */
+  float thickness;    /**< Outer radius / AA scale (radians). */
+  float apothem;      /**< Petal inradius offset (PI - outer radius). */
+  Vector antipode;    /**< Antipode of the flower axis (scan origin). */
+  float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha; /**< Antipode components, XZ projection length and azimuth. */
+  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  static constexpr bool is_solid = true; /**< Flower renders as a filled region. */
 
+  /**
+   * @brief Builds a flower from its basis, radius, petal count, and phase.
+   * @param b Orientation frame (v = flower axis).
+   * @param radius Outer radius as a fraction of the hemisphere.
+   * @param s Number of petals (must be > 0).
+   * @param ph Azimuth phase offset (radians).
+   */
   Flower(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
@@ -2004,10 +2448,24 @@ struct Flower {
     phi_max = std::min(PI_F, center_phi + margin);
   }
 
+  /**
+   * @brief Maps the flower's latitude band to its inclusive row range.
+   * @tparam H Canvas height in rows.
+   * @return Row bounds covering the flower plus margin.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(phi_min, phi_max);
   }
 
+  /**
+   * @brief Emits the annular-band interval(s) for one scanline row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan.
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     // Phi trig from the static LUT (bit-identical to cosf(y_to_phi(y))) and
@@ -2035,12 +2493,25 @@ struct Flower {
     return true;
   }
 
+  /**
+   * @brief Signed distance to the flower.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult with dist, t, and raw_dist populated.
+   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
     return res;
   }
 
+  /**
+   * @brief Signed distance to the flower, writing into res.
+   * @tparam ComputeUVs When true, also computes the normalized scan-distance t.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = signed distance from the petal edge,
+   *        raw_dist = scan distance from the antipode, t = scan_dist/thickness
+   *        when ComputeUVs.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     float scan_dist = angle_between(p, antipode);
@@ -2067,28 +2538,34 @@ struct Flower {
 
 /**
  * @brief Signed distance to a great-circle arc segment of given thickness.
- * Returns:
- *  dist: Signed distance to the segment minus thickness (negative inside)
- *  raw_dist: Unsigned angular distance to the segment
+ * @details DistanceResult fields: dist = signed distance to the segment minus
+ * thickness (negative inside); raw_dist = unsigned angular distance to the
+ * segment.
  */
 struct Line {
-  Vector a, b;
-  float thickness;
+  Vector a, b;     /**< Arc endpoints (unit vectors). */
+  float thickness; /**< Half-width of the stroke (radians). */
 
-  Vector n;
-  float len;
-  float phi_min, phi_max; // Precomputed vertical bounds (radians)
+  Vector n;               /**< Great-circle plane normal of the arc. */
+  float len;              /**< Arc length (radians). */
+  float phi_min, phi_max; /**< Precomputed vertical bounds (radians). */
 
   // Bounding-cap geometry, loop-invariant across scanlines — hoisted out of
   // get_horizontal_intervals (every other shape precomputes its cap in the
   // constructor and reads the TrigLUT for per-row phi). cap_horiz_valid is
   // false when the cap has no horizontal projection (its axis is ~vertical).
-  Vector mid;
-  float mid_ny = 0.0f, mid_r = 0.0f, mid_alpha = 0.0f;
-  float cap_D_min = 0.0f; // cosf(cap_radius)
-  bool cap_horiz_valid = false;
-  static constexpr bool is_solid = false;
+  Vector mid; /**< Arc midpoint axis (bounding-cap center). */
+  float mid_ny = 0.0f, mid_r = 0.0f, mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
+  float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
+  bool cap_horiz_valid = false; /**< False when the cap axis is ~vertical (no horizontal projection). */
+  static constexpr bool is_solid = false; /**< Line renders as a stroke. */
 
+  /**
+   * @brief Builds a great-circle arc segment from two endpoints.
+   * @param start First endpoint (unit vector).
+   * @param end Second endpoint (unit vector).
+   * @param th Half-width of the stroke (radians).
+   */
   Line(const Vector &start, const Vector &end, float th)
       : a(start), b(end), thickness(th) {
     len = angle_between(a, b);
@@ -2137,16 +2614,33 @@ struct Line {
     cap_horiz_valid = mid_r >= MIN_HORIZONTAL_PROJ;
   }
 
+  /**
+   * @brief Maps the arc's latitude band to its inclusive row range.
+   * @tparam H Canvas height in rows.
+   * @return Row bounds covering the arc plus thickness margin.
+   */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(phi_min, phi_max);
   }
 
+  /**
+   * @brief Signed distance to the arc segment.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult with dist and raw_dist populated.
+   */
   DistanceResult distance(const Vector &p) const {
     DistanceResult res;
     distance<true>(p, res);
     return res;
   }
 
+  /**
+   * @brief Signed distance to the arc segment, writing into res.
+   * @tparam ComputeUVs Accepted for interface parity; the arc stores no UVs.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = unsigned segment distance minus thickness,
+   *        raw_dist = unsigned angular distance to the segment.
+   */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     if (len < 1e-6f) {
@@ -2183,6 +2677,16 @@ struct Line {
     res = DistanceResult(dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness);
   }
 
+  /**
+   * @brief Emits the bounding-cap interval for one scanline row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan (also when
+   *         the cap has no horizontal projection).
+   */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!cap_horiz_valid)
@@ -2230,26 +2734,36 @@ struct Line {
  * Cartesian ray-space.
  */
 struct Torus {
-  float R; ///< Major radius (ring centerline)
-  float r; ///< Minor radius (tube cross-section)
+  float R; /**< Major radius (ring centerline). */
+  float r; /**< Minor radius (tube cross-section). */
 
-  /// Signed distance from point p to the torus surface.
-  /// Negative = inside, positive = outside.
+  /**
+   * @brief Signed distance from a point to the torus surface.
+   * @param p Query point in Cartesian ray-space.
+   * @return Signed distance (negative inside, positive outside).
+   */
   float distance(const Vector &p) const {
     float q = sqrtf(p.x * p.x + p.z * p.z) - R;
     return sqrtf(q * q + p.y * p.y) - r;
   }
 
-  /// Surface normal at a point near the torus surface.
+  /**
+   * @brief Surface normal at a point near the torus surface.
+   * @param p Query point in Cartesian ray-space.
+   * @return Unit outward normal.
+   */
   Vector normal(const Vector &p) const {
     float xz_len = sqrtf(p.x * p.x + p.z * p.z);
     float scale = (xz_len > TOLERANCE) ? R / xz_len : 0.0f;
     return (p - Vector(p.x * scale, 0.0f, p.z * scale)).normalized();
   }
 
-  /// Populate a Fragment's registers for shading.
-  /// v0 = ring angle (0-1, for palette lookup)
-  /// v1,v2,v3 = surface normal (x,y,z)
+  /**
+   * @brief Populates a Fragment's registers for shading.
+   * @param p Query point in Cartesian ray-space.
+   * @param frag Output fragment; v0 = ring angle (0-1, for palette lookup),
+   *        v1/v2/v3 = surface normal (x, y, z).
+   */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
     frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / (2.0f * PI_F);
@@ -2272,23 +2786,36 @@ namespace Warp {
  * Provides an analytical Lipschitz bound for safe sphere tracing.
  */
 struct Twist {
-  int twist;       ///< Number of oscillations around the ring
-  float amplitude; ///< Vertical displacement magnitude
-  float R;         ///< Major radius (needed for Lipschitz bound)
+  int twist;       /**< Number of oscillations around the ring. */
+  float amplitude; /**< Vertical displacement magnitude. */
+  float R;         /**< Major radius (needed for the Lipschitz bound). */
 
-  /// Precomputed context: s = sqrtf(x² + z²), shared across apply/lipschitz.
+  /** @brief Precomputed context: s = sqrtf(x² + z²), shared across apply/lipschitz. */
   using Ctx = float;
 
+  /**
+   * @brief Precomputes the shared per-point context s = sqrtf(x² + z²).
+   * @param p Query point.
+   * @return The radial distance s in the XZ plane.
+   */
   Ctx make_ctx(const Vector &p) const { return sqrtf(p.x * p.x + p.z * p.z); }
 
-  /// Warp the domain: displace Y by amplitude * sin(twist * θ).
+  /**
+   * @brief Warps the domain by displacing Y by amplitude * sin(twist * θ).
+   * @param p Query point.
+   * @return The warped point.
+   */
   Vector apply(const Vector &p, Ctx /*s*/) const {
     float theta = fast_atan2(p.z, p.x);
     return Vector(
         p.x, p.y - amplitude * fast_sinf(static_cast<float>(twist) * theta), p.z);
   }
 
-  /// Analytical Lipschitz constant at point p.
+  /**
+   * @brief Analytical Lipschitz constant of the warp at a point.
+   * @param s Precomputed context (radial distance in the XZ plane).
+   * @return The exact operator norm of the warp Jacobian (>= 1).
+   */
   float lipschitz(const Vector & /*p*/, Ctx s) const {
     if (twist == 0)
       return 1.0f;
@@ -2302,10 +2829,19 @@ struct Twist {
     return 0.5f * gamma + sqrtf(1.0f + 0.25f * gamma * gamma);
   }
 
-  /// Maximum possible inflation of the bounding volume.
+  /**
+   * @brief Maximum possible inflation of the bounding volume.
+   * @return The displacement amplitude (radians of XYZ space).
+   */
   float bounding_inflation() const { return amplitude; }
 
-  /// Analytical normal correction via chain rule (called once per hit).
+  /**
+   * @brief Analytical normal correction via the chain rule (once per hit).
+   * @param p Query point.
+   * @param base_n Unwarped surface normal.
+   * @param s Precomputed context (radial distance in the XZ plane).
+   * @return The corrected unit normal accounting for the warp.
+   */
   Vector correct_normal(const Vector &p, const Vector &base_n, Ctx s) const {
     if (twist == 0 || amplitude < TOLERANCE)
       return base_n;
@@ -2343,21 +2879,33 @@ struct Twist {
  *   Vector correct_normal(const Vector &p, const Vector &n, const Ctx&) const;
  */
 template <typename SDF, typename Warp> struct WarpedVolume {
-  SDF base;
-  Warp warp;
+  SDF base;  /**< The underlying volume SDF being warped. */
+  Warp warp; /**< The domain warp applied before the base SDF. */
 
-  /// Cheap lower-bound: base distance minus warp's maximum displacement.
+  /**
+   * @brief Cheap lower bound: base distance minus the warp's max displacement.
+   * @param p Query point in Cartesian ray-space.
+   * @return A conservative lower bound on the warped distance.
+   */
   float bounding_distance(const Vector &p) const {
     return base.distance(p) - warp.bounding_inflation();
   }
 
-  /// Raw SDF distance (no Lipschitz correction). Use for surface projection.
+  /**
+   * @brief Raw warped SDF distance with no Lipschitz correction.
+   * @param p Query point in Cartesian ray-space.
+   * @return The base SDF evaluated at the warped point (use for surface projection).
+   */
   float raw_distance(const Vector &p) const {
     auto ctx = warp.make_ctx(p);
     return base.distance(warp.apply(p, ctx));
   }
 
-  /// March-safe distance with bounding fast-path and Lipschitz correction.
+  /**
+   * @brief March-safe distance with bounding fast-path and Lipschitz correction.
+   * @param p Query point in Cartesian ray-space.
+   * @return A sphere-tracing-safe (under-estimated) distance to the surface.
+   */
   float distance(const Vector &p) const {
     float bd = bounding_distance(p);
     if (bd > warp.bounding_inflation())
@@ -2374,7 +2922,11 @@ template <typename SDF, typename Warp> struct WarpedVolume {
     return d;
   }
 
-  /// Surface normal with warp chain-rule correction.
+  /**
+   * @brief Surface normal with the warp's chain-rule correction.
+   * @param p Query point in Cartesian ray-space.
+   * @return The corrected unit surface normal.
+   */
   Vector normal(const Vector &p) const {
     auto ctx = warp.make_ctx(p);
     Vector base_n = base.normal(warp.apply(p, ctx));
@@ -2384,7 +2936,11 @@ template <typename SDF, typename Warp> struct WarpedVolume {
     return base_n;
   }
 
-  /// Populate a Fragment's registers for shading.
+  /**
+   * @brief Populates a Fragment's registers for shading.
+   * @param p Query point in Cartesian ray-space.
+   * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface normal.
+   */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
     frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / (2.0f * PI_F);

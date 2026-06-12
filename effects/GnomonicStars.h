@@ -7,27 +7,43 @@
 
 #include "core/effects_engine.h"
 
-// Scatters polygon "stars" over a Fibonacci spiral on the sphere, then pushes
-// every point through an evolving Möbius warp so the field drifts and inflates.
-// A Languid RandomWalk slowly reorients the whole field. W/H are the cubemap
-// face resolution.
+/**
+ * @brief Scatters polygon "stars" over a Fibonacci spiral on the sphere and
+ *        warps the field with an evolving Möbius transform.
+ * @tparam W Cubemap face width in pixels.
+ * @tparam H Cubemap face height in pixels.
+ * @details Every spiral point is pushed through an evolving Möbius warp so the
+ *          field drifts and inflates, while a Languid RandomWalk slowly
+ *          reorients the whole field.
+ */
 template <int W, int H> class GnomonicStars : public Effect {
 public:
-  // Live-tunable controls: star count, per-star radius, polygon side count, and
-  // a toggle that draws each star's bounding box for debugging.
+  /**
+   * @brief Live-tunable controls for the star field.
+   * @details Star count, per-star radius, polygon side count, and a toggle that
+   *          draws each star's bounding box for debugging.
+   */
   struct Params {
-    float points = 600.0f;
-    float star_radius = 0.02f;
-    float star_sides = 4.0f;
-    bool debug_bb = false;
+    float points = 600.0f;    /**< Number of stars scattered on the spiral. */
+    float star_radius = 0.02f; /**< Per-star radius in normalized sphere units. */
+    float star_sides = 4.0f;  /**< Polygon side count per star. */
+    bool debug_bb = false;    /**< When true, draws each star's bounding box. */
   } params;
 
+  /**
+   * @brief Constructs the effect at face resolution W x H.
+   * @details Default-initializes the orientation and timeline and binds the
+   *          Möbius transformer to the timeline.
+   */
   FLASHMEM GnomonicStars()
       : Effect(W, H), orientation(), timeline(), transformer(timeline) {}
 
-  // Exposes the user params and arms the timeline: an infinite Möbius warp whose
-  // speed is bound to a slider, plus a Languid RandomWalk that reorients the
-  // field.
+  /**
+   * @brief Registers the user params and arms the timeline.
+   * @details Exposes the user params and arms the timeline with an infinite
+   *          Möbius warp whose speed is bound to a slider, plus a Languid
+   *          RandomWalk that reorients the field.
+   */
   void init() override {
     registerParam("Points", &params.points, 100.0f, 2000.0f);
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
@@ -51,10 +67,17 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
   }
 
+  /**
+   * @brief Reports whether the effect wants the background drawn.
+   * @return Always true; this effect renders over a background.
+   */
   bool show_bg() const override { return true; }
 
-  // Advances the timeline, then draws each spiral point as a star whose color is
-  // a Y-based gradient and whose basis carries the current orientation and warp.
+  /**
+   * @brief Advances the timeline and renders the warped star field.
+   * @details Draws each spiral point as a star whose color is a Y-based gradient
+   *          and whose basis carries the current orientation and warp.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
 
@@ -88,12 +111,12 @@ public:
   }
 
 private:
-  Orientation<> orientation;
-  FastNoiseLite noise;
-  Timeline timeline;
-  Pipeline<W, H> filters;
+  Orientation<> orientation;        /**< Current field orientation quaternion. */
+  FastNoiseLite noise;              /**< Noise source driving the RandomWalk. */
+  Timeline timeline;                /**< Animation timeline for warp and walk. */
+  Pipeline<W, H> filters;           /**< Render filter pipeline for star scan. */
 
-  MobiusWarpGnomonicTransformer<1> transformer;
+  MobiusWarpGnomonicTransformer<1> transformer; /**< Evolving Möbius warp applied per point. */
 };
 
 #include "core/effect_registry.h"

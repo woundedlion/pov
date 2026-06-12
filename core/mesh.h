@@ -24,14 +24,19 @@ struct MeshState;
  * @brief A simple dynamic mesh structure compatible with MeshOps templates.
  */
 struct PolyMesh {
-  ArenaVector<Vector> vertices;
-  ArenaVector<uint8_t> face_counts;
-  ArenaVector<uint16_t> faces;
-  ArenaVector<int> topology;
+  ArenaVector<Vector> vertices;     /**< Vertex positions. */
+  ArenaVector<uint8_t> face_counts; /**< Number of sides for each face. */
+  ArenaVector<uint16_t> faces;      /**< Flat per-face vertex index list. */
+  ArenaVector<int> topology;        /**< Per-face topology class id. */
 
+  /**
+   * @brief Constructs an empty mesh with no allocated storage.
+   */
   PolyMesh() = default;
 
-  // Resets all arrays to empty without releasing arena storage.
+  /**
+   * @brief Resets all arrays to empty without releasing arena storage.
+   */
   inline void clear() {
     vertices.clear();
     face_counts.clear();
@@ -39,11 +44,30 @@ struct PolyMesh {
     topology.clear();
   }
 
-  // Unified accessors (PolyMesh always owns, so these just forward)
+  /**
+   * @brief Returns a pointer to the face side-count array.
+   * @return Pointer to the contiguous uint8_t per-face side counts.
+   * @details Unified accessor; PolyMesh always owns its data, so this forwards.
+   */
   const uint8_t *get_face_counts_data() const { return face_counts.data(); }
+
+  /**
+   * @brief Returns the number of faces.
+   * @return Count of entries in the face side-count array.
+   */
   size_t get_face_counts_size() const { return face_counts.size(); }
 
+  /**
+   * @brief Returns a pointer to the flat face index array.
+   * @return Pointer to the contiguous uint16_t per-face vertex indices.
+   * @details Unified accessor; PolyMesh always owns its data, so this forwards.
+   */
   const uint16_t *get_faces_data() const { return faces.data(); }
+
+  /**
+   * @brief Returns the total number of face vertex indices.
+   * @return Count of entries in the flat face index array.
+   */
   size_t get_faces_size() const { return faces.size(); }
 };
 
@@ -81,15 +105,20 @@ struct HEFace {
  * (min_v, max_v) vertex key.
  */
 struct HalfEdgePairRecord {
-  uint16_t min_v, max_v, he;
+  uint16_t min_v, max_v, he; /**< Lower vertex index, upper vertex index, and the half-edge index. */
 };
 
 /**
  * @brief Sorts half-edge records by (min_v, max_v) and calls set_pair(heA, heB)
- * once per matched opposite-edge pair. Templated + inline, so it lowers to the
- * same code as a hand-inlined sort/scan — no call overhead on the (cold)
- * mesh-build path; this only removes the copy-paste between build_from_flat and
- * classify_faces_by_topology.
+ * once per matched opposite-edge pair.
+ * @tparam SetPairFn Callable invoked as set_pair(heA, heB) to link a matched pair.
+ * @param records Array of half-edge pair records; sorted in place by edge key.
+ * @param n Number of records in the array.
+ * @param set_pair Callback linking the two half-edges of each interior edge.
+ * @details Templated + inline, so it lowers to the same code as a hand-inlined
+ * sort/scan — no call overhead on the cold mesh-build path; this only removes
+ * the copy-paste between build_from_flat and classify_faces_by_topology. Traps
+ * on a non-manifold edge (>2 half-edges sharing one undirected edge).
  */
 template <typename SetPairFn>
 inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
@@ -121,16 +150,31 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
   }
 }
 
-// Non-owning (pointer + size) view exposing just the size()/operator[] surface
-// build_from_flat needs. Lets the MeshState ctor feed topology through the
-// unified get_*_data()/get_*_size() accessors: a borrowed-mode MeshState serves
-// its topology through the *_view spans with the owned face_counts/faces left
-// empty, so reading the owned vectors directly would silently build an empty
-// half-edge mesh. POD by value — inlines away, no per-element cost.
+/**
+ * @brief Non-owning (pointer + size) view exposing just the size()/operator[]
+ * surface build_from_flat needs.
+ * @tparam T Element type of the viewed array.
+ * @details Lets the MeshState ctor feed topology through the unified
+ * get_*_data()/get_*_size() accessors: a borrowed-mode MeshState serves its
+ * topology through the view spans with the owned face_counts/faces left empty,
+ * so reading the owned vectors directly would silently build an empty half-edge
+ * mesh. POD by value — inlines away, no per-element cost.
+ */
 template <typename T> struct FlatView {
-  const T *ptr;
-  size_t n;
+  const T *ptr; /**< Pointer to the first viewed element. */
+  size_t n;     /**< Number of viewed elements. */
+
+  /**
+   * @brief Returns the number of viewed elements.
+   * @return Element count of the view.
+   */
   size_t size() const { return n; }
+
+  /**
+   * @brief Returns the element at the given index.
+   * @param i Index in [0, size()).
+   * @return Const reference to the viewed element.
+   */
   const T &operator[](size_t i) const { return ptr[i]; }
 };
 
@@ -140,16 +184,27 @@ template <typename T> struct FlatView {
  */
 class HalfEdgeMesh {
 public:
-  ArenaVector<HEVertex> vertices;
-  ArenaVector<HEFace> faces;
-  ArenaVector<HalfEdge> half_edges;
+  ArenaVector<HEVertex> vertices;   /**< Per-vertex half-edge ring entry points. */
+  ArenaVector<HEFace> faces;        /**< Per-face half-edge loop entry points. */
+  ArenaVector<HalfEdge> half_edges; /**< Directed half-edges with next/prev/pair links. */
 
+  /**
+   * @brief Builds the half-edge connectivity from a PolyMesh.
+   * @param arena Arena supplying storage for the half-edge arrays.
+   * @param mesh Source mesh whose owned vertices/face_counts/faces are read.
+   */
   explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
     build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
   }
 
-  // MeshState's vertices are always owned, but its topology may be borrowed
-  // (view spans); route it through the unified accessors so both modes work.
+  /**
+   * @brief Builds the half-edge connectivity from a MeshState.
+   * @param arena Arena supplying storage for the half-edge arrays.
+   * @param mesh Source mesh; vertices are owned but topology may be borrowed.
+   * @details MeshState's vertices are always owned, but its topology may be
+   * borrowed (view spans); route it through the unified accessors so both
+   * owned and borrowed modes work.
+   */
   explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
     build_from_flat(
         arena, mesh.vertices,
@@ -161,10 +216,18 @@ public:
 private:
   /**
    * @brief Builds the half-edge structure from a flat (vertices, per-face side
-   * counts, face index list) representation: emits one half-edge per face index,
-   * links each face's next/prev loop, then pairs opposite half-edges by
-   * undirected vertex key. Templated over the container types so it accepts both
-   * owned ArenaVectors and borrowed FlatViews.
+   * counts, face index list) representation.
+   * @tparam Verts Container of vertex positions (size()/operator[]).
+   * @tparam Counts Container of per-face side counts (size()/operator[]).
+   * @tparam Faces Container of the flat face vertex indices (size()/operator[]).
+   * @param arena Arena supplying storage for the half-edge arrays and scratch.
+   * @param verts Vertex positions; only its size() is used here.
+   * @param counts Per-face side counts.
+   * @param faces_arr Flat per-face vertex index list.
+   * @details Emits one half-edge per face index, links each face's next/prev
+   * loop, then pairs opposite half-edges by undirected vertex key. Templated
+   * over the container types so it accepts both owned ArenaVectors and borrowed
+   * FlatViews. Traps on a 16-bit index overflow or a zero-side face.
    */
   template <typename Verts, typename Counts, typename Faces>
   void build_from_flat(Arena &arena, const Verts &verts, const Counts &counts,
@@ -257,16 +320,18 @@ namespace MeshOps {
 /**
  * @brief Narrow a freshly-appended container index to the mesh topology index
  * type, trapping on a budget bump that pushes it past the representable range.
- *
- * Vertex/face indices are stored as uint16_t (faces, with HE_NONE=0xFFFF as the
- * sentinel) and, in some operators' scratch, as int16_t (-1 sentinel). The input
- * range is checked at mesh build, but each operator's OUTPUT index is captured
- * via `static_cast<...>(vertices.size() - 1)`, which silently wraps if a future
- * MAX_VERTS bump makes the count exceed the index type. Routing those casts
- * through here converts that silent geometry corruption into a bench-time trap.
- * Bound is INT16_MAX — the narrowest type these indices land in (matches the
- * `MAX_VERTS <= INT16_MAX` static_assert in solids.h). Cold path: once per
- * emitted vertex during a rebuild, never per pixel.
+ * @param i Container index to narrow.
+ * @return The index as a uint16_t.
+ * @details Vertex/face indices are stored as uint16_t (faces, with
+ * HE_NONE=0xFFFF as the sentinel) and, in some operators' scratch, as int16_t
+ * (-1 sentinel). The input range is checked at mesh build, but each operator's
+ * OUTPUT index is captured via static_cast<...>(vertices.size() - 1), which
+ * silently wraps if a future MAX_VERTS bump makes the count exceed the index
+ * type. Routing those casts through here converts that silent geometry
+ * corruption into a bench-time trap. Bound is INT16_MAX — the narrowest type
+ * these indices land in (matches the MAX_VERTS <= INT16_MAX static_assert in
+ * solids.h). Cold path: once per emitted vertex during a rebuild, never per
+ * pixel.
  */
 inline uint16_t narrow_index(size_t i) {
   HS_CHECK(i <= static_cast<size_t>(INT16_MAX),
@@ -276,17 +341,18 @@ inline uint16_t narrow_index(size_t i) {
 
 /**
  * @brief Trapping int -> uint8_t cast for a face's side count.
- *
- * The Conway/Hankin operators accumulate a face's vertex count in an `int`, then
- * push it into the `uint8_t face_counts` array. A face wider than 255 sides —
- * reachable as a high-valence vertex orbit (`orbit_count`), a doubled edge count
- * (`count * 2` in snub), or a long Hankin rosette walk (bounded only by 2*I) —
- * would silently wrap, corrupting the face topology. Parallel to `narrow_index`
- * in intent — route the cast through here so an over-wide value traps at the
- * bench instead of emitting garbage geometry — but a distinct guard: this takes
- * an `int` and bounds it to `[0, UINT8_MAX]` (side count), where `narrow_index`
- * takes a `size_t` and bounds it to `INT16_MAX` (vertex index). Cold path: once
- * per emitted face during a rebuild, never per pixel.
+ * @param count Face side count to narrow.
+ * @return The side count as a uint8_t.
+ * @details The Conway/Hankin operators accumulate a face's vertex count in an
+ * int, then push it into the uint8_t face_counts array. A face wider than 255
+ * sides — reachable as a high-valence vertex orbit (orbit_count), a doubled
+ * edge count (count * 2 in snub), or a long Hankin rosette walk (bounded only
+ * by 2*I) — would silently wrap, corrupting the face topology. Parallel to
+ * narrow_index in intent — route the cast through here so an over-wide value
+ * traps at the bench instead of emitting garbage geometry — but a distinct
+ * guard: this takes an int and bounds it to [0, UINT8_MAX] (side count), where
+ * narrow_index takes a size_t and bounds it to INT16_MAX (vertex index). Cold
+ * path: once per emitted face during a rebuild, never per pixel.
  */
 inline uint8_t narrow_face_count(int count) {
   HS_CHECK(count >= 0 && count <= UINT8_MAX,
@@ -296,8 +362,11 @@ inline uint8_t narrow_face_count(int count) {
 
 /**
  * @brief Compiles a PolyMesh into a static MeshState.
- * Removes degenerate faces (faces with < 3 vertices) during
- * the process.
+ * @param src Source dynamic mesh to compile.
+ * @param dst Destination MeshState, cleared and populated in place.
+ * @param geom_arena Arena supplying storage for the destination arrays.
+ * @details Removes degenerate faces (faces with < 3 vertices) during the
+ * process. Traps if the cumulative face offset exceeds the 16-bit range.
  */
 FLASHMEM static inline void compile(const PolyMesh &src, MeshState &dst,
                                     Arena &geom_arena) {
@@ -346,11 +415,14 @@ FLASHMEM static inline void compile(const PolyMesh &src, MeshState &dst,
 
 /**
  * @brief Performs a strict deep copy of a mesh into a target arena.
- * Safe for memory compaction and bouncing between arenas.
- *
- * For MeshState this delegates to MeshState::clone (the Cloneable interface
- * used by Persist) so the two implementations can't drift; the generic body
- * below handles PolyMesh (which has no face_offsets).
+ * @tparam MeshT Mesh type (PolyMesh or MeshState).
+ * @param src Source mesh to copy from.
+ * @param dst Destination mesh, populated in place from the given arena.
+ * @param arena Arena supplying storage for the destination arrays.
+ * @details Safe for memory compaction and bouncing between arenas. For
+ * MeshState this delegates to MeshState::clone (the Cloneable interface used by
+ * Persist) so the two implementations can't drift; the generic body below
+ * handles PolyMesh (which has no face_offsets).
  */
 template <typename MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
@@ -397,6 +469,8 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
 /**
  * @brief MurmurHash3 32-bit finalizer: avalanches the bits of an accumulated
  * hash so small input differences spread across the whole word.
+ * @param h Accumulated 32-bit hash value to finalize.
+ * @return The avalanched 32-bit hash.
  */
 static inline uint32_t fmix32(uint32_t h) {
   h ^= h >> 16;
@@ -407,13 +481,26 @@ static inline uint32_t fmix32(uint32_t h) {
   return h;
 }
 
-// Mixes a value into a running hash seed.
+/**
+ * @brief Mixes a value into a running hash seed.
+ * @param seed Running hash seed, updated in place.
+ * @param v Value to fold into the seed.
+ */
 static inline void hash_combine(uint32_t &seed, uint32_t v) {
   seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
 /**
  * @brief Colors faces based on their vertex count and neighbor topology.
+ * @tparam MeshT Mesh type exposing the unified accessors and a topology array.
+ * @param mesh Mesh to classify; its topology array is filled with class ids.
+ * @param scratch_a Scratch arena for hashes, per-face data, and the node sort.
+ * @param scratch_b Scratch arena for the half-edge pairing records.
+ * @param persistent Arena backing the mesh topology array when it must grow.
+ * @details Hashes each face by side count and interior angles, folds in
+ * neighbor hashes via the half-edge pairing, then sorts and assigns a dense
+ * topology id per distinct hash. Traps if the half-edge or face count exceeds
+ * the 16-bit index range.
  */
 template <typename MeshT>
 FLASHMEM __attribute__((noinline)) static void
@@ -551,9 +638,12 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     }
   }
 
+  /**
+   * @brief Sortable pairing of a face's final topology hash with its index.
+   */
   struct HashNode {
-    uint32_t hash;
-    int original_face;
+    uint32_t hash;    /**< Final topology hash for the face. */
+    int original_face; /**< Index of the face in the original mesh order. */
   };
   HashNode *nodes = static_cast<HashNode *>(
       scratch_a.allocate(F * sizeof(HashNode), alignof(HashNode)));

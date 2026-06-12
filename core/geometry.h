@@ -19,7 +19,7 @@
  * data registers. Mirrors the JS Fragment structure for shader compatibility.
  */
 struct Fragment {
-  Vector pos;
+  Vector pos;        /**< Position (typically a unit vector on the sphere). */
   float v0 = 0.0f;   /**< Register 0 (usually normalized progress t) */
   float v1 = 0.0f;   /**< Register 1 (usually arc length/distance) */
   float v2 = 0.0f;   /**< Register 2 (usually index/id) */
@@ -51,12 +51,14 @@ struct Fragment {
 };
 
 /**
- * @brief Normalized distance from the nearest face edge for a rasterized
- * fragment. The mesh rasterizer packs the signed edge distance into
- * Fragment::v1 (negative inside the face) and the face's reference size into
- * Fragment::size, so `-v1 / size` is the inward depth in face-relative units.
- * Returns 0 for degenerate (near-zero-size) faces. Shared by the topology
- * shaders (HankinSolids/IslamicStars) which both gradient-map this depth.
+ * @brief Normalized inward depth from the nearest face edge for a rasterized
+ * fragment, in face-relative units.
+ * @param f Rasterized fragment; v1 holds the signed edge distance (negative
+ * inside the face) and size holds the face's reference size.
+ * @return `-v1 / size` (inward depth in face-relative units), or 0 for
+ * degenerate (near-zero-size) faces.
+ * @details Shared by the topology shaders (HankinSolids/IslamicStars) which
+ * both gradient-map this depth.
  */
 inline float fragment_edge_dist(const Fragment &f) {
   return (f.size > 0.0001f) ? (-f.v1 / f.size) : 0.0f;
@@ -69,16 +71,27 @@ inline float fragment_edge_dist(const Fragment &f) {
 using Fragments = ArenaVector<Fragment>;
 
 /**
- * @brief Logic for no-op vertex shader.
+ * @brief No-op vertex shader; leaves every fragment unchanged.
  */
 struct NullVertexShader {
+  /**
+   * @brief Does nothing to the fragment.
+   * @param Fragment to (not) transform; ignored.
+   */
   void operator()(Fragment &) const {}
 };
 
 /**
- * @brief Logic for no-op fragment shader.
+ * @brief No-op fragment shader; emits a fully transparent color.
+ * @details Used where a shader slot is required but no shading is wanted.
  */
 struct NullFragmentShader {
+  /**
+   * @brief Returns a transparent color regardless of input.
+   * @param Sample position; ignored.
+   * @param Source fragment; ignored.
+   * @return Transparent black Color4(0, 0, 0, 0).
+   */
   Color4 operator()(const Vector &, const Fragment &) const {
     return Color4(0, 0, 0, 0);
   }
@@ -150,8 +163,8 @@ using Points = StaticCircularBuffer<Vector, 1024>;
  * @brief Struct to hold Log-Polar coordinates.
  */
 struct LogPolar {
-  float rho;
-  float theta;
+  float rho;   /**< Log-radius (natural log of the complex-plane radius). */
+  float theta; /**< Angle in radians. */
 };
 
 /**
@@ -173,8 +186,12 @@ inline float phi_to_y(float phi, int h_virt) {
 }
 
 /**
- * @brief phi -> pixel-y for a compile-time height H. Derives H_VIRT from H plus
- * hs::H_OFFSET so callers pass the logical height, not the virtual one.
+ * @brief phi -> pixel-y for a compile-time logical height H.
+ * @tparam H Logical (not virtual) height; H_VIRT is derived as H + hs::H_OFFSET.
+ * @param phi The spherical phi angle in radians.
+ * @return The pixel y-coordinate.
+ * @details Derives H_VIRT from H plus hs::H_OFFSET so callers pass the logical
+ * height, not the virtual one.
  */
 template <int H> inline float phi_to_y(float phi) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
@@ -184,10 +201,11 @@ template <int H> inline float phi_to_y(float phi) {
 
 /**
  * @brief Precomputed lookup table for scanline phi angles.
+ * @tparam H Logical height; the table has H_VIRT = H + hs::H_OFFSET entries.
  */
 template <int H> struct PhiLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
-  static std::array<float, H_VIRT> data;
+  static std::array<float, H_VIRT> data; /**< phi per virtual row, radians. */
   // Lazy-init guard. THREAD-SAFETY CONTRACT: the `if (!initialized) init()`
   // pattern at the call sites is a non-atomic check-then-set and is safe ONLY
   // because rendering is single-threaded — every consumer (the scanline
@@ -195,7 +213,10 @@ template <int H> struct PhiLUT {
   // init_geometry_luts() eagerly before the first frame, so on hardware the
   // column-sweep ISR never observes a half-filled table. It is NOT a
   // concurrency safeguard; a second writer would race. See init_geometry_luts.
-  static bool initialized;
+  static bool initialized; /**< Lazy-init guard; true once data is filled. */
+  /**
+   * @brief Fills the phi table for every virtual row and marks it initialized.
+   */
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {
       data[y] = y_to_phi(static_cast<float>(y), H_VIRT);
@@ -209,7 +230,11 @@ template <int H> bool PhiLUT<H>::initialized = false;
 
 /**
  * @brief LUT-backed pixel-y -> phi for integer rows at compile-time height H.
- * Lazily fills PhiLUT on first touch; traps an out-of-range row via HS_CHECK.
+ * @tparam H Logical height selecting the PhiLUT<H> table.
+ * @param y Integer pixel row in [0, H_VIRT).
+ * @return The spherical phi angle in radians for that row.
+ * @details Lazily fills PhiLUT on first touch; traps an out-of-range row via
+ * HS_CHECK.
  */
 template <int H> inline float y_to_phi(int y) {
   if (!PhiLUT<H>::initialized) {
@@ -220,8 +245,12 @@ template <int H> inline float y_to_phi(int y) {
 }
 
 /**
- * @brief Pixel-y -> phi for fractional rows at compile-time height H. Snaps to
- * the LUT for near-integer y; otherwise computes the angle analytically.
+ * @brief Pixel-y -> phi for fractional rows at compile-time height H.
+ * @tparam H Logical height; H_VIRT is H + hs::H_OFFSET.
+ * @param y Fractional pixel row.
+ * @return The spherical phi angle in radians.
+ * @details Snaps to the LUT for near-integer y; otherwise computes the angle
+ * analytically.
  */
 template <int H> inline float y_to_phi(float y) {
   if (std::abs(y - std::floor(y)) < TOLERANCE) {
@@ -237,20 +266,26 @@ template <int H> inline float y_to_phi(float y) {
 
 /**
  * @brief Split trig lookup tables for efficient vector reconstruction.
+ * @tparam W Width (column count).
+ * @tparam H Logical height; phi tables have H_VIRT = H + hs::H_OFFSET entries.
  * @details Caches sin/cos for theta (per column) and phi (per row) separately.
  * Reconstructs vectors with 3 multiplies instead of storing full Vectors.
  * Memory: ~(4*W + 4*H_VIRT) floats vs W*H_VIRT Vectors — a ~145x reduction.
  */
 template <int W, int H> struct TrigLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
-  static std::array<float, W> sin_theta;
-  static std::array<float, W> cos_theta;
-  static std::array<float, H_VIRT> sin_phi;
-  static std::array<float, H_VIRT> cos_phi;
+  static std::array<float, W> sin_theta;     /**< sin(theta) per column. */
+  static std::array<float, W> cos_theta;     /**< cos(theta) per column. */
+  static std::array<float, H_VIRT> sin_phi;  /**< sin(phi) per virtual row. */
+  static std::array<float, H_VIRT> cos_phi;  /**< cos(phi) per virtual row. */
   // Lazy-init guard. Same non-atomic check-then-set thread-safety contract as
   // PhiLUT::initialized above: single-render-thread only, with eager
   // init_geometry_luts() at engine setup as the production first-touch.
-  static bool initialized;
+  static bool initialized; /**< Lazy-init guard; true once tables are filled. */
+  /**
+   * @brief Fills the theta and phi sin/cos tables and marks them initialized.
+   * @details Ensures PhiLUT<H> is populated first to source the phi angles.
+   */
   static void init() {
     if (!PhiLUT<H>::initialized) {
       PhiLUT<H>::init();
@@ -279,6 +314,8 @@ template <int W, int H> bool TrigLUT<W, H>::initialized = false;
 
 /**
  * @brief Eagerly fill the scanline LUTs for resolution <W, H>.
+ * @tparam W Width (column count).
+ * @tparam H Logical height.
  * @details Engine setup calls this once, before the first frame, so the tables
  * are fully populated before any rendering — and, on hardware, before the
  * column-sweep ISR could ever observe a partially-filled table. With eager
@@ -299,12 +336,23 @@ template <int W, int H> inline void init_geometry_luts() {
 /**
  * @brief Recovers an effect's compile-time <W, H> from its type so a driver's
  * `show<E>()` can eager-init the LUTs without the caller restating the
- * resolution. Every effect is `template <int W, int H> class E`, so the
- * partial specialization matches them all.
+ * resolution.
+ * @tparam E The effect type, of the form `Eff<W, H>`.
+ * @details Every effect is `template <int W, int H> class E`, so the partial
+ * specialization matches them all.
  */
 template <typename E> struct GeometryResolution;
+/**
+ * @brief Partial specialization that destructures an effect's <W, H>.
+ * @tparam Eff The effect class template.
+ * @tparam W Width recovered from the effect type.
+ * @tparam H Height recovered from the effect type.
+ */
 template <template <int, int> class Eff, int W, int H>
 struct GeometryResolution<Eff<W, H>> {
+  /**
+   * @brief Eager-inits the geometry LUTs for the recovered <W, H>.
+   */
   static void init() { init_geometry_luts<W, H>(); }
 };
 
@@ -332,9 +380,14 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
 }
 
 /**
- * @brief Reconstruct a unit vector from fractional pixel coordinates. Snaps to
- * the integer LUT path when both coordinates are near-integer; otherwise builds
- * the vector analytically from spherical angles.
+ * @brief Reconstruct a unit vector from fractional pixel coordinates.
+ * @tparam W Width.
+ * @tparam H Height.
+ * @param x Fractional X coordinate (column).
+ * @param y Fractional Y coordinate (row).
+ * @return Unit vector on the sphere.
+ * @details Snaps to the integer LUT path when both coordinates are
+ * near-integer; otherwise builds the vector analytically from spherical angles.
  */
 template <int W, int H> Vector pixel_to_vector(float x, float y) {
   if (std::abs(x - floor(x)) < TOLERANCE &&
@@ -422,6 +475,7 @@ inline Vector fib_spiral(int n, float eps, int i) {
 /**
  * @brief Class managing the current rotation state of an object, maintaining
  * history for interpolation.
+ * @tparam CAP Maximum number of orientation frames retained in history.
  * @details Stores a list of Quaternions (`orientations`) generated during the
  * current frame step.
  */
@@ -657,7 +711,7 @@ inline Vector lissajous(float m1, float m2, float a, float t) {
  * @brief An orthonormal basis { u, v, w }.
  */
 struct Basis {
-  Vector u, v, w;
+  Vector u, v, w; /**< Orthonormal axes; v is the normal, u and w span the plane. */
 };
 
 /**

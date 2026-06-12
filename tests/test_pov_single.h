@@ -35,10 +35,15 @@ static_assert(strip_opposite_col(0, 96) == 48);
 static_assert(strip_opposite_col(48, 96) == 0); // wraps back at the seam
 
 /**
- * @brief At a fixed rotation column @p x, assert the strip's per-LED writes tile
- * exactly the two canvas columns the arms sample (x for the top half,
- * (x+w/2)%w for the bottom), each row covered once, with every physical LED in
- * [0, S) written exactly once. S LED writes must map onto 2*ROWS canvas pixels.
+ * @brief At a fixed rotation column x, assert the strip's per-LED writes tile
+ * exactly the two canvas columns the arms sample, each row covered once.
+ * @param S Total physical LED count on the strip (S = 2*ROWS).
+ * @param w Canvas width in columns; the bottom half samples column (x+w/2)%w.
+ * @param x Rotation column in [0, w); top half samples this column directly.
+ * @details Checks that S LED writes map onto 2*ROWS canvas pixels (top half at
+ * column x, bottom half at (x+w/2)%w), every physical LED in [0, S) is written
+ * exactly once with no gap or double-drive, and both sampled columns are fully
+ * covered row for row.
  */
 inline void check_strip_tiling(int S, int w, int x) {
   const int ROWS = S / 2;
@@ -134,10 +139,11 @@ inline void test_opposite_col_offset() {
 }
 
 /**
- * @brief Run the single-board POV index-math suite and return the failure count.
- * Exercises the strip split and column offset directly, then the full tiling
- * invariant across the two production configs and a small config swept over
- * every rotation column.
+ * @brief Run the single-board POV index-math suite.
+ * @return Number of failed expectations in the suite (0 on full pass).
+ * @details Exercises the strip split and column offset directly, then the full
+ * tiling invariant across the two production configs and a small config swept
+ * over every rotation column.
  */
 inline int run_pov_single_tests() {
   auto scope = begin_module("pov_single");

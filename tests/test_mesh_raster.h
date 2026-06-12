@@ -30,34 +30,71 @@
 namespace hs_test {
 namespace mesh_raster_tests {
 
-// Dedicated arenas, kept alive for the whole test so the built mesh's
-// ArenaVectors stay valid while it is drawn. The global scratch_arena_a that
-// Plot::Mesh::draw uses internally for per-edge line sampling is a *different*
-// arena (configure_arenas_default()), so the source mesh is never clobbered.
+/**
+ * @brief Dedicated test arenas, kept alive for the whole test so the built
+ *        mesh's ArenaVectors stay valid while it is drawn.
+ * @details The global scratch_arena_a that Plot::Mesh::draw uses internally for
+ *          per-edge line sampling is a different arena
+ *          (configure_arenas_default()), so the source mesh is never clobbered.
+ */
 inline uint8_t mr_seed_a[256 * 1024];
 inline uint8_t mr_seed_b[256 * 1024];
 inline uint8_t mr_geom[256 * 1024];
 inline uint8_t mr_scratch[256 * 1024];
 
-// Minimal Effect that owns a Canvas to draw into; no background, no per-frame
-// work, so the lit pixels come solely from the mesh draw under test.
+/**
+ * @brief Minimal Effect that owns a Canvas to draw into.
+ * @details No background and no per-frame work, so the lit pixels come solely
+ *          from the mesh draw under test.
+ */
 struct MeshFx : public Effect {
+  /**
+   * @brief Constructs the effect with a canvas of the given size.
+   * @param W Canvas width in pixels.
+   * @param H Canvas height in pixels.
+   */
   MeshFx(int W, int H) : Effect(W, H) {}
+  /**
+   * @brief Per-frame draw hook; intentionally a no-op for this test fixture.
+   */
   void draw_frame() override {}
+  /**
+   * @brief Reports whether the effect paints a background.
+   * @return Always false, so only the mesh draw produces lit pixels.
+   */
   bool show_bg() const override { return false; }
 };
 
+/**
+ * @brief Tests whether a pixel is fully black.
+ * @param p Pixel to inspect.
+ * @return True when all of the pixel's RGB channels are zero.
+ */
 inline bool is_black(const Pixel &p) { return p.r == 0 && p.g == 0 && p.b == 0; }
 
-// Fragment shader that paints a fixed near-white; used as the draw color so any
-// covered pixel becomes non-black and thus detectable.
+/**
+ * @brief Fragment shader that paints a fixed near-white.
+ * @param f Fragment whose color is overwritten; used as the draw color so any
+ *          covered pixel becomes non-black and thus detectable.
+ * @details The unnamed Vector parameter (surface position) is ignored.
+ */
 inline void white(const Vector &, Fragment &f) {
   f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
 }
 
-// A lit pixel within radius r of (px, py), wrapping in x (the canvas is a
-// cylinder in longitude) and clamping in y. Tolerance absorbs sampling
-// granularity, AA spread, and projection rounding.
+/**
+ * @brief Reports whether any lit pixel lies within radius r of (px, py).
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param fx Effect whose canvas is sampled.
+ * @param px Target column in pixels.
+ * @param py Target row in pixels.
+ * @param r Search radius in pixels.
+ * @return True if a non-black pixel is found in the neighborhood.
+ * @details Wraps in x (the canvas is a cylinder in longitude) and clamps in y.
+ *          Tolerance absorbs sampling granularity, AA spread, and projection
+ *          rounding.
+ */
 template <int W, int H>
 inline bool lit_near(const MeshFx &fx, float px, float py, int r) {
   const int cx = static_cast<int>(std::lround(px));
@@ -75,7 +112,13 @@ inline bool lit_near(const MeshFx &fx, float px, float py, int r) {
   return false;
 }
 
-// Count of non-black pixels across the whole canvas.
+/**
+ * @brief Counts the non-black pixels across the whole canvas.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param fx Effect whose canvas is scanned.
+ * @return Number of lit (non-black) pixels.
+ */
 template <int W, int H>
 inline size_t count_lit(const MeshFx &fx) {
   size_t lit = 0;
@@ -90,9 +133,12 @@ inline size_t count_lit(const MeshFx &fx) {
 // Plot::Mesh::draw — wireframe: every unique edge actually drawn
 // ============================================================================
 
-// Wireframe draw lights every unique edge: extract the octahedron's 12 edges,
-// draw, and assert each edge's projected geodesic midpoint is lit. Also checks
-// the wireframe covers some but well under half the canvas.
+/**
+ * @brief Verifies the wireframe draw lights every unique edge.
+ * @details Extracts the octahedron's 12 edges, draws, and asserts each edge's
+ *          projected geodesic midpoint is lit. Also checks the wireframe covers
+ *          some but well under half the canvas.
+ */
 inline void test_wireframe_draws_every_edge() {
   constexpr int W = 288, H = 144;
   configure_arenas_default(); // Plot::Mesh::draw samples edges via scratch_arena_a
@@ -138,9 +184,13 @@ inline void test_wireframe_draws_every_edge() {
 // Scan::Mesh::draw / SDF::Face — solid fill: interior lit, tiling has no holes
 // ============================================================================
 
-// Solid fill lights every face interior and tiles the whole sphere: each of the
-// octahedron's 8 face centroids is lit, the fill covers far more than the
-// wireframe, and a closed convex solid leaves essentially no holes.
+/**
+ * @brief Verifies the solid fill lights every face interior and tiles the whole
+ *        sphere.
+ * @details Each of the octahedron's 8 face centroids is lit, the fill covers
+ *          far more than the wireframe, and a closed convex solid leaves
+ *          essentially no holes.
+ */
 inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   constexpr int W = 288, H = 144;
   configure_arenas_default();
@@ -206,8 +256,10 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   HS_EXPECT_GT(fill_lit, total * 99 / 100);
 }
 
-// Runs every mesh-rasterization test in this module and returns the failure
-// count from end_module.
+/**
+ * @brief Runs every mesh-rasterization test in this module.
+ * @return Failure count reported by end_module.
+ */
 inline int run_mesh_raster_tests() {
   auto scope = begin_module("mesh_raster");
 

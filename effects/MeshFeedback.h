@@ -7,10 +7,15 @@
 
 #include "core/effects_engine.h"
 
-/// Feedback effect over a morphing carousel of Platonic solids: draws the
-/// current mesh, cycles style presets on a hard-cut timer, and cross-morphs to
-/// the next solid on a separate timer. The two cycle periods are kept coprime
-/// so preset cuts and shape morphs drift out of phase rather than locking.
+/**
+ * @brief Feedback effect over a morphing carousel of Platonic solids.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Draws the current mesh, cycles style presets on a hard-cut timer,
+ * and cross-morphs to the next solid on a separate timer. The two cycle periods
+ * are kept coprime so preset cuts and shape morphs drift out of phase rather
+ * than locking.
+ */
 template <int W, int H> class MeshFeedback : public Effect {
 public:
   using Style = Feedback::Style;
@@ -25,8 +30,11 @@ public:
   static constexpr int SHAPE_FRAMES = 240; // shape-cycle period, coprime with PRESET_FRAMES
   static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES; // 80-frame hold
 
-  /// Wire up palette, noise, orientation, and the World/Screen/Pixel filter
-  /// pipeline; the Feedback pixel filter reads `style` by reference.
+  /**
+   * @brief Wires up palette, noise, orientation, and the filter pipeline.
+   * @details Constructs the World/Screen/Pixel filter stack; the Feedback pixel
+   * filter reads `style` by reference.
+   */
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
         palette(Palettes::peachPop),
@@ -34,8 +42,11 @@ public:
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H>(style)) {}
 
-  /// One-time setup: bind shared noise into presets, build the first solid,
-  /// register tunable params, and schedule the noise/walk/preset/shape timers.
+  /**
+   * @brief One-time effect setup.
+   * @details Binds shared noise into presets, builds the first solid, registers
+   * tunable params, and schedules the noise/walk/preset/shape timers.
+   */
   void init() override {
     // Bind mutable state into all presets
     for (auto &e : presets.entries) {
@@ -99,12 +110,19 @@ public:
                NO_MORPH_FRAMES, [this](Canvas &) { start_morph(); }, false));
   }
 
-  /// Suppress the engine background clear; the feedback flush owns the frame.
+  /**
+   * @brief Suppresses the engine background clear; the feedback flush owns the
+   * frame.
+   * @return Always false to disable the background clear.
+   */
   bool show_bg() const override { return false; }
 
-  /// Per-frame: apply params, run the feedback decay flush, draw the current
-  /// mesh (skipped while morphing — the morph animation draws instead), then
-  /// advance the timeline.
+  /**
+   * @brief Renders one frame.
+   * @details Applies params, runs the feedback decay flush, draws the current
+   * mesh (skipped while morphing — the morph animation draws instead), then
+   * advances the timeline.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     apply_params();
@@ -126,9 +144,12 @@ public:
   }
 
 private:
-  /// Advance to the next solid: compile it into the carousel's back slot, run a
-  /// MeshMorph from front to back over MORPH_FRAMES, and on completion swap the
-  /// front, compact, and re-arm the hold timer for the following morph.
+  /**
+   * @brief Advances to the next solid and starts the cross-morph.
+   * @details Compiles the incoming solid into the carousel's back slot, runs a
+   * MeshMorph from front to back over MORPH_FRAMES, and on completion swaps the
+   * front, compacts, and re-arms the hold timer for the following morph.
+   */
   void start_morph() {
     auto solids = Solids::Collections::get_platonic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
@@ -160,8 +181,11 @@ private:
                }));
   }
 
-  /// Push UI-tunable state into the live style/filters each frame: refresh the
-  /// noise binding and toggle the feedback filter from `feedback_enabled`.
+  /**
+   * @brief Pushes UI-tunable state into the live style/filters each frame.
+   * @details Refreshes the noise binding and toggles the feedback filter from
+   * `feedback_enabled`.
+   */
   void apply_params() {
     style.sync_noise();
     filters.template get<Filter::Pixel::Feedback<W, H>>().set_enabled(
@@ -190,7 +214,7 @@ private:
   int solid_idx = 0;
   bool morphing = false;
 
-  /// Morph draw callback - Fn member gives FunctionRef a stable lifetime
+  /** @brief Morph draw callback; Fn member gives FunctionRef a stable lifetime. */
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_fn_{
       [this](Canvas &c, const MeshState &m, float opacity) {
         Plot::Mesh::draw<W, H>(filters, c, m,

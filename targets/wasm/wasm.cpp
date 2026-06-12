@@ -19,9 +19,13 @@
 // ---- Stack canary painting for high water mark tracking ----
 static constexpr uint8_t STACK_CANARY = 0xCD;
 
-/// Paint the unused portion of the stack (current SP down to stack end) with a
-/// canary byte. Safe to call at any time — only touches memory below the
-/// current stack pointer.
+/**
+ * @brief Paints the unused portion of the stack with a canary byte for high
+ *        water mark tracking.
+ * @details Writes STACK_CANARY from the current stack pointer down to the stack
+ *          end. Safe to call at any time — only touches memory below the current
+ *          stack pointer.
+ */
 static void stack_paint_canary() {
   uintptr_t sp = emscripten_stack_get_current();
   uintptr_t end = emscripten_stack_get_end();
@@ -30,8 +34,12 @@ static void stack_paint_canary() {
   }
 }
 
-/// Scan from the stack end upward to find the first overwritten canary byte.
-/// Returns the number of bytes that have been touched (high water mark).
+/**
+ * @brief Computes the stack high water mark by scanning the canary region.
+ * @return Number of stack bytes that have been touched, in bytes (the high
+ *         water mark), found by scanning from the stack end upward to the first
+ *         overwritten canary byte.
+ */
 static size_t stack_high_water_mark() {
   uintptr_t base = emscripten_stack_get_base();
   uintptr_t end = emscripten_stack_get_end();
@@ -80,10 +88,13 @@ Arena tooling_scratch_b(nullptr, 0);
 // matches (MeshOpsWrapper::check_live), making stale use loud in every build.
 static uint32_t tooling_generation = 0;
 
-// Allocate and bind the tooling arenas on first MeshOps use. A no-op once bound,
-// so it is cheap to call at the head of every MeshOps entry point. Reading an
-// unbound arena's metrics (collect_arena_metrics) is safe and reports 0/0/0, so
-// engine instances that never call MeshOps never trigger this allocation.
+/**
+ * @brief Allocates and binds the tooling arenas on first MeshOps use.
+ * @details A no-op once bound, so it is cheap to call at the head of every
+ *          MeshOps entry point. Reading an unbound arena's metrics
+ *          (collect_arena_metrics) is safe and reports 0/0/0, so engine
+ *          instances that never call MeshOps never trigger this allocation.
+ */
 static void ensure_tooling_arenas() {
   if (tooling_arena.get_capacity() != 0)
     return; // already allocated
@@ -96,9 +107,14 @@ static void ensure_tooling_arenas() {
                            kToolingScratchBytes);
 }
 
-// Shared by HolosphereEngine and MeshOpsWrapper: build a {usage, high_water_mark,
-// capacity} report for the four engine arenas. Callers that also want stack
-// metrics append them to the returned object.
+/**
+ * @brief Builds a {usage, high_water_mark, capacity} report for the four engine
+ *        arenas.
+ * @return JS object mapping each arena name to its {usage, high_water_mark,
+ *         capacity} metrics, in bytes.
+ * @details Shared by HolosphereEngine and MeshOpsWrapper. Callers that also want
+ *          stack metrics append them to the returned object.
+ */
 static val collect_arena_metrics() {
   val metrics = val::object();
   auto add_metrics = [&](const char *name, Arena &arena) {
@@ -115,7 +131,12 @@ static val collect_arena_metrics() {
   return metrics;
 }
 
-// Build a concrete factory table from the self-registering entries
+/**
+ * @brief Builds a concrete factory table from the self-registering entries.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @return Reference to the lazily-built, static per-(W,H) factory table.
+ */
 template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
   static std::vector<FactoryEntry> table = []() {
     const auto &regs = EffectRegistry::entries();
@@ -127,9 +148,17 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
   return table;
 }
 
-// Cheap linear scan of the (W,H) factory for a name — used by setEffect() to
-// validate a stale/typo'd UI string BEFORE it tears down the running effect, so
-// an unknown name is a transactional no-op rather than a blanked engine.
+/**
+ * @brief Reports whether the (W,H) factory contains an effect with the given
+ *        name.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param name Effect name to look up.
+ * @return true if an effect with this name is registered for (W,H).
+ * @details Cheap linear scan used by setEffect() to validate a stale/typo'd UI
+ *          string BEFORE it tears down the running effect, so an unknown name is
+ *          a transactional no-op rather than a blanked engine.
+ */
 template <int W, int H> bool factory_has_effect(std::string_view name) {
   for (const auto &entry : get_factory<W, H>())
     if (name == entry.name)
@@ -137,8 +166,14 @@ template <int W, int H> bool factory_has_effect(std::string_view name) {
   return false;
 }
 
-// Instantiate the named effect from the (W,H) factory, or null if the name is
-// unknown (a typo'd/stale UI string).
+/**
+ * @brief Instantiates the named effect from the (W,H) factory.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param name Effect name to instantiate.
+ * @return Owning pointer to the new effect, or null if the name is unknown (a
+ *         typo'd/stale UI string).
+ */
 template <int W, int H>
 std::unique_ptr<Effect> create_effect(std::string_view name) {
   const auto &factory = get_factory<W, H>();
@@ -174,7 +209,12 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
 HS_WASM_RESOLUTIONS(X)
 #undef X
 
-// True iff (w,h) is one of the HS_WASM_RESOLUTIONS rows the factory can build.
+/**
+ * @brief Reports whether (w,h) is a resolution the factory can build.
+ * @param w Candidate canvas width in pixels.
+ * @param h Candidate canvas height in pixels.
+ * @return true iff (w,h) is one of the HS_WASM_RESOLUTIONS rows.
+ */
 static bool wasm_resolution_supported(int w, int h) {
 #define X(W, H)                                                                 \
   if (w == (W) && h == (H))                                                     \
@@ -184,11 +224,21 @@ static bool wasm_resolution_supported(int w, int h) {
   return false;
 }
 
-// JS-facing render engine: owns the current effect and the stable readback
-// buffers, and drives one resolution/effect at a time. Every public method is
-// exported to JavaScript via EMSCRIPTEN_BINDINGS below.
+/**
+ * @brief JS-facing render engine driving one resolution/effect at a time.
+ * @details Owns the current effect and the stable readback buffers. Every public
+ *          method is exported to JavaScript via EMSCRIPTEN_BINDINGS below.
+ */
 class HolosphereEngine {
 public:
+  /**
+   * @brief Constructs the engine with a valid default resolution and effect.
+   * @details Pre-sizes the JS-facing readback buffers to their maximum extent so
+   *          their backing storage never moves (the WASM memory-view contract),
+   *          verifies the self-registering effect count against the static
+   *          roster, and installs a default effect that JS overrides almost
+   *          immediately.
+   */
   HolosphereEngine() {
     // Paint stack canary for HWM tracking
     stack_paint_canary();
@@ -224,8 +274,13 @@ public:
     HS_CHECK(setEffect("DistortedRing"));
   }
 
-  // Returns true if the resolution is now active, false if the request was
-  // rejected (unsupported size) and the previous valid state was kept.
+  /**
+   * @brief Switches the active canvas resolution.
+   * @param w Requested canvas width in pixels.
+   * @param h Requested canvas height in pixels.
+   * @return true if the resolution is now active; false if the request was
+   *         rejected (unsupported size) and the previous valid state was kept.
+   */
   bool setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
       return true; // already at this (valid) resolution
@@ -255,9 +310,17 @@ public:
     return true;
   }
 
-  // Returns true iff an effect was actually instantiated. Returns false for an
-  // unknown/stale effect name or an unsupported resolution, so the frontend can
-  // detect a no-op instead of believing the switch took.
+  /**
+   * @brief Tears down the current effect and instantiates the named one at the
+   *        active resolution.
+   * @param name Effect name to instantiate.
+   * @return true iff an effect was actually instantiated; false for an
+   *         unknown/stale effect name or an unsupported resolution, so the
+   *         frontend can detect a no-op instead of believing the switch took.
+   * @details Validates the name against the factory for the current resolution
+   *          BEFORE tearing anything down, so a typo'd/stale UI string keeps the
+   *          prior valid state alive rather than blanking the engine.
+   */
   bool setEffect(std::string name) {
     // hs::log is printf-style: pass name as an arg, never as the format string
     // (an effect name containing '%' would otherwise read nonexistent varargs).
@@ -313,6 +376,18 @@ public:
     return true;
   }
 
+  /**
+   * @brief Restricts rendering to a clip band for the current effect.
+   * @param y0 Inclusive top row of the clip band in [0, pixel_height].
+   * @param y1 Exclusive bottom row of the clip band, with y0 <= y1 <= pixel_height.
+   * @param x0 Inclusive left column of the clip band in [0, pixel_width].
+   * @param x1 Exclusive right column, with x0 <= x1 <= pixel_width.
+   * @return true if the clip was applied; false if no effect is set or the
+   *         bounds are malformed/out of range (then ignored).
+   * @details Rejects malformed input at the untyped JS boundary rather than
+   *          trapping, since a trap there aborts the whole WASM module. Segment
+   *          workers always pass valid, ordered, in-range bounds.
+   */
   bool setClip(int y0, int y1, int x0, int x1) {
     if (!currentEffect)
       return false;
@@ -333,9 +408,13 @@ public:
     return true;
   }
 
-  // Render one frame of the current effect and copy its full canvas into the
-  // JS-facing pixelBuffer as 16-bit linear RGB triples. No-op if no effect is
-  // set.
+  /**
+   * @brief Renders one frame of the current effect into the JS-facing buffer.
+   * @details Copies the effect's full canvas into pixelBuffer as 16-bit linear
+   *          RGB triples; no-op if no effect is set. The readback copies the
+   *          FULL canvas regardless of any active clip region — a clip restricts
+   *          rendering, not this readback.
+   */
   void drawFrame() {
     if (!currentEffect)
       return;
@@ -376,20 +455,29 @@ public:
     }
   }
 
+  /**
+   * @brief Returns the last frame's render time.
+   * @return Render duration of the most recent drawFrame() in microseconds, or
+   *         0.0 if no effect is set.
+   */
   double getRenderUs() {
     return currentEffect ? currentEffect->render_us : 0.0;
   }
 
-  // Expose the raw pixel buffer to JS as a zero-copy Uint16Array view.
-  //
-  // WASM memory-view contract: the returned view aliases WASM linear memory, it
-  // is NOT a copy. With ALLOW_MEMORY_GROWTH=1, any subsequent heap growth
-  // detaches the underlying ArrayBuffer and leaves this view zero-length
-  // (buffer.byteLength === 0). Callers MUST therefore re-fetch the view after
-  // anything that may allocate (resolution/effect change) and may only cache it
-  // across frames while guarding for detachment. The backing vector is pre-sized
-  // once and never reallocated, so the only possible detachment source is heap
-  // growth elsewhere. daydream.js::refreshPixelView mirrors this expectation.
+  /**
+   * @brief Exposes the raw pixel buffer to JS as a zero-copy Uint16Array view.
+   * @return Typed memory view over the active resolution's R,G,B pixels within
+   *         the stable MAX_W*MAX_H*3 backing buffer.
+   * @details WASM memory-view contract: the returned view aliases WASM linear
+   *          memory, it is NOT a copy. With ALLOW_MEMORY_GROWTH=1, any subsequent
+   *          heap growth detaches the underlying ArrayBuffer and leaves this view
+   *          zero-length (buffer.byteLength === 0). Callers MUST re-fetch the
+   *          view after anything that may allocate (resolution/effect change) and
+   *          may only cache it across frames while guarding for detachment. The
+   *          backing vector is pre-sized once and never reallocated, so the only
+   *          possible detachment source is heap growth elsewhere.
+   *          daydream.js::refreshPixelView mirrors this expectation.
+   */
   val getPixels() {
     // View spans only the active resolution's pixels (R,G,B per pixel) within
     // the stable MAX_W*MAX_H*3 backing buffer.
@@ -397,25 +485,43 @@ public:
                                  pixelBuffer.data()));
   }
 
+  /**
+   * @brief Returns the length of the active pixel buffer view.
+   * @return Number of uint16 elements in the active view (pixel_width *
+   *         pixel_height * 3, three channels per pixel).
+   */
   int getBufferLength() { return pixel_width * pixel_height * 3; }
 
-  // Update one named effect parameter. Returns false if no effect is set or the
-  // name is unknown to the effect.
+  /**
+   * @brief Updates one named effect parameter.
+   * @param name Parameter name to update.
+   * @param value New parameter value, in the parameter's native units.
+   * @return true on success; false if no effect is set or the name is unknown to
+   *         the effect.
+   */
   bool setParameter(std::string name, float value) {
     if (!currentEffect)
       return false;
     return currentEffect->updateParameter(name.c_str(), value);
   }
 
+  /**
+   * @brief Pauses or resumes the current effect's parameter animations.
+   * @param paused true to pause animations, false to resume. No-op if no effect
+   *        is set.
+   */
   void setAnimationsPaused(bool paused) {
     if (currentEffect) {
       currentEffect->setAnimationsPaused(paused);
     }
   }
 
-  // Build the GUI's parameter descriptor list: one {name, value, animated,
-  // readonly, (+min/max for floats)} object per param, in the effect's
-  // declaration order. Empty array when no effect is set.
+  /**
+   * @brief Builds the GUI's parameter descriptor list.
+   * @return JS array with one {name, value, animated, readonly, (+min/max for
+   *         floats)} object per param in the effect's declaration order; empty
+   *         array when no effect is set.
+   */
   val getParameterDefinitions() {
     if (!currentEffect)
       return val::array();
@@ -451,8 +557,16 @@ public:
     return result;
   }
 
-  // Per-frame value stream for the GUI: a zero-copy Float32Array view over the
-  // current param values, in the same order as getParameterDefinitions().
+  /**
+   * @brief Streams the current param values to the GUI per frame.
+   * @return Zero-copy Float32Array view over the current param values, in the
+   *         same order as getParameterDefinitions(); empty array if no effect is
+   *         set.
+   * @details Same memory-view contract as getPixels(): the view aliases WASM
+   *          memory and must be consumed before the next allocation. paramValues
+   *          never reallocates here (size <= MAX_PARAMS), so emitting it triggers
+   *          no heap growth that could detach other outstanding views.
+   */
   val getParamValues() {
     if (!currentEffect)
       return val::array();
@@ -467,8 +581,11 @@ public:
     return val(typed_memory_view(paramValues.size(), paramValues.data()));
   }
 
-  // Engine arena metrics plus a "stack" entry in the same {usage,
-  // high_water_mark, capacity} shape, for the JS memory HUD.
+  /**
+   * @brief Reports engine arena and stack metrics for the JS memory HUD.
+   * @return JS object of arena metrics plus a "stack" entry, each in the
+   *         {usage, high_water_mark, capacity} shape, all in bytes.
+   */
   val getArenaMetrics() {
     val metrics = collect_arena_metrics();
 
@@ -487,7 +604,12 @@ public:
     return metrics;
   }
 
-  // Map of {effect name -> hint size} for the (W,H) factory, for the GUI.
+  /**
+   * @brief Builds the {effect name -> hint size} map for the (W,H) factory.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @return JS object mapping each effect name to its hint size, for the GUI.
+   */
   template <int W, int H> val get_effect_sizes_helper() {
     val s = val::object();
     const auto &factory = get_factory<W, H>();
@@ -496,7 +618,11 @@ public:
     return s;
   }
 
-  // Effect-size map for the active resolution; empty if uninitialized.
+  /**
+   * @brief Returns the effect-size map for the active resolution.
+   * @return JS object mapping each effect name to its hint size at the current
+   *         resolution; empty map if unsupported/uninitialized.
+   */
   val getEffectSizes() {
 #define X(W, H)                                                                \
   if (pixel_width == (W) && pixel_height == (H))                               \
@@ -506,11 +632,15 @@ public:
     return val::object(); // unsupported/uninitialized — empty map
   }
 
-  // The [W, H] resolutions the factory can build, generated from the same
-  // HS_WASM_RESOLUTIONS list that setResolution()/getEffectSizes() dispatch
-  // through. Callers (e.g. the CI smoke test) can enumerate this instead of
-  // hand-mirroring the list, so the supported set can never silently drift —
-  // the same guarantee getEffectSizes() gives the effect roster.
+  /**
+   * @brief Enumerates the resolutions the factory can build.
+   * @return JS array of [W, H] pairs, generated from the same
+   *         HS_WASM_RESOLUTIONS list that setResolution()/getEffectSizes()
+   *         dispatch through.
+   * @details Callers (e.g. the CI smoke test) can enumerate this instead of
+   *          hand-mirroring the list, so the supported set can never silently
+   *          drift.
+   */
   static val getSupportedResolutions() {
     val out = val::array();
     int i = 0;
@@ -527,12 +657,12 @@ public:
   }
 
 private:
-  std::unique_ptr<Effect> currentEffect;
-  std::vector<uint16_t> pixelBuffer; // 16-bit
-  std::vector<float> paramValues;    // Backing store for getParamValues
-  std::vector<hs_wasm::ParamView> paramViews; // Scratch for getParameterDefinitions
-  int pixel_width = 0;
-  int pixel_height = 0;
+  std::unique_ptr<Effect> currentEffect; /**< Currently active effect, or null. */
+  std::vector<uint16_t> pixelBuffer; /**< 16-bit linear RGB readback buffer. */
+  std::vector<float> paramValues;    /**< Backing store for getParamValues. */
+  std::vector<hs_wasm::ParamView> paramViews; /**< Scratch for getParameterDefinitions. */
+  int pixel_width = 0;  /**< Active canvas width in pixels. */
+  int pixel_height = 0; /**< Active canvas height in pixels. */
 };
 
 // ==========================================================================================
@@ -541,29 +671,49 @@ private:
 
 #include "solids.h"
 
-// Wrapper to avoid collision with MeshOps namespace
+/**
+ * @brief JS-facing wrapper around a PolyMesh and the Conway/Goldberg operators.
+ * @details Named to avoid collision with the MeshOps namespace. Each wrapper's
+ *          mesh is built into the tooling arena and records the generation it was
+ *          built under, so a wipe via clearToolingMemory() is detected by
+ *          check_live().
+ */
 struct MeshOpsWrapper {
-  PolyMesh mesh;
-  // Generation of the tooling arena this wrapper's mesh was built into. Compared
-  // against the live counter on every use; see check_live().
+  PolyMesh mesh; /**< The wrapped mesh, stored in the tooling arena. */
+  /**
+   * Generation of the tooling arena this mesh was built into; compared against
+   * the live counter on every use (see check_live()).
+   */
   uint32_t generation_ = tooling_generation;
 
+  /**
+   * @brief Constructs an empty wrapper recording the current tooling generation.
+   */
   MeshOpsWrapper() {}
+  /**
+   * @brief Constructs a wrapper taking ownership of an existing mesh.
+   * @param m Mesh to move into this wrapper.
+   */
   MeshOpsWrapper(PolyMesh &&m) : mesh(std::move(m)) {}
 
-  // Trap if this wrapper outlived a clearToolingMemory() wipe: its mesh now
-  // aliases reclaimed arena storage, which release builds would otherwise read
-  // back as silently wrong geometry. Called at every entry point that touches
-  // `mesh`. This is JS-editor tooling, never the render loop, so the compare is
-  // free.
+  /**
+   * @brief Traps if this wrapper outlived a clearToolingMemory() wipe.
+   * @details Its mesh would alias reclaimed arena storage, which release builds
+   *          would otherwise read back as silently wrong geometry. Called at
+   *          every entry point that touches `mesh`. This is JS-editor tooling,
+   *          never the render loop, so the compare is free.
+   */
   void check_live() const {
     HS_CHECK(generation_ == tooling_generation &&
              "MeshOps wrapper used after clearToolingMemory()");
   }
 
-  // Reset all tooling arenas to empty, reclaiming the storage behind every live
-  // wrapper, and bump the generation so any wrapper built before this wipe traps
-  // on next use (check_live). JS-callable.
+  /**
+   * @brief Resets all tooling arenas to empty and invalidates live wrappers.
+   * @details Reclaims the storage behind every live wrapper and bumps the
+   *          generation so any wrapper built before this wipe traps on next use
+   *          (check_live). JS-callable.
+   */
   static void clearToolingMemory() {
     tooling_arena.reset();
     tooling_arena.reset_high_water_mark();
@@ -575,8 +725,13 @@ struct MeshOpsWrapper {
     ++tooling_generation;
   }
 
-  // Factory: build a wrapper for the named base solid. Returns null for an
-  // unknown name.
+  /**
+   * @brief Builds a wrapper for the named base solid.
+   * @param name Solid name to look up in the Solids registry.
+   * @return Owning pointer to the new wrapper, or null for an unknown name.
+   * @details Rejects an unknown name at the untrusted JS boundary rather than
+   *          tripping get_by_name()'s fail-fast HS_CHECK and aborting the module.
+   */
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
     // Untrusted JS boundary: a typo'd/stale name would trip get_by_name()'s
     // fail-fast HS_CHECK and abort the module. Reject unknown names instead.
@@ -591,7 +746,10 @@ struct MeshOpsWrapper {
         tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
   }
 
-  // Vertices as a JS Float32Array of flattened [x,y,z] triples (copied out).
+  /**
+   * @brief Returns the mesh vertices as a JS Float32Array.
+   * @return Float32Array of flattened [x,y,z] triples, copied out of the mesh.
+   */
   val getVertices() const {
     check_live();
     std::vector<float> data;
@@ -606,8 +764,11 @@ struct MeshOpsWrapper {
         .new_(val(typed_memory_view(data.size(), data.data())));
   }
 
-  // Faces as a JS array of arrays, each holding one face's vertex indices.
-  // Unflattens the mesh's parallel faces/face_counts storage.
+  /**
+   * @brief Returns the mesh faces as a JS array of arrays.
+   * @return JS array where each element is an array of one face's vertex
+   *         indices, unflattening the mesh's parallel faces/face_counts storage.
+   */
   val getFaces() const {
     check_live();
     val faces_arr = val::array();
@@ -623,8 +784,11 @@ struct MeshOpsWrapper {
     return faces_arr;
   }
 
-  // Classify faces by topology and return the per-face topology codes as a JS
-  // Int32Array view over the mesh's (now-populated) topology buffer.
+  /**
+   * @brief Classifies faces by topology and returns the per-face codes.
+   * @return JS Int32Array view over the mesh's now-populated topology buffer,
+   *         one topology code per face.
+   */
   val classifyFaces() {
     check_live();
     ensure_tooling_arenas();
@@ -638,12 +802,18 @@ struct MeshOpsWrapper {
   }
 
   // --- Conway/Goldberg operators -------------------------------------------
-  // Every operator has the same shape: reset both tooling scratch arenas, run
-  // the op into a fresh PolyMesh, finalize it into tooling_arena, and hand back
-  // a new wrapper. apply() captures that boilerplate so each operator is just
-  // its MeshOps call; the MESHOP_* macros remove the remaining stutter. This is
-  // tooling — invoked from the JS mesh editor, never the render loop — and
-  // every lambda inlines, so there is no added cost.
+
+  /**
+   * @brief Runs a mesh operator and wraps the result.
+   * @tparam Op Callable of signature (const PolyMesh&, Arena&, Arena&) ->
+   *         PolyMesh.
+   * @param op Operator to run against this wrapper's mesh.
+   * @return Owning pointer to a new wrapper holding the finalized result mesh.
+   * @details Captures the shared operator boilerplate: reset both tooling scratch
+   *          arenas, run the op into a fresh PolyMesh, finalize it into
+   *          tooling_arena, and hand back a new wrapper. This is tooling, never
+   *          the render loop, and every lambda inlines, so there is no added cost.
+   */
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
     check_live();
@@ -654,10 +824,15 @@ struct MeshOpsWrapper {
         op(mesh, tooling_scratch_a, tooling_scratch_b), tooling_arena));
   }
 
-  // Untrusted JS boundary: a non-finite fraction would flow straight into the
-  // geometry math and silently corrupt the mesh — expand/chamfer don't HS_CHECK
-  // their domain the way truncate/bevel do. Reject it the way fromSolidName
-  // rejects an unknown name (log + null) rather than producing NaN geometry.
+  /**
+   * @brief Validates that an operator argument is finite.
+   * @param arg Operator argument crossing the untrusted JS boundary.
+   * @param op Operator name, for the rejection log message.
+   * @return true if arg is finite; false (after logging) otherwise.
+   * @details A non-finite fraction would flow straight into the geometry math and
+   *          silently corrupt the mesh, so it is rejected (log + null) rather than
+   *          producing NaN geometry.
+   */
   bool finite_arg(float arg, const char *op) const {
     if (std::isfinite(arg))
       return true;
@@ -665,11 +840,24 @@ struct MeshOpsWrapper {
     return false;
   }
 
+/**
+ * @brief Defines a zero-argument Conway/Goldberg operator method.
+ * @param name MeshOps operator name; becomes the generated method name.
+ * @details The generated method runs MeshOps::name(mesh) via apply() and returns
+ *          a new wrapper holding the result.
+ */
 #define MESHOP_0(name)                                                         \
   std::unique_ptr<MeshOpsWrapper> name() const {                              \
     return apply(                                                              \
         [](const PolyMesh &m, Arena &a, Arena &b) { return MeshOps::name(m, a, b); });           \
   }
+/**
+ * @brief Defines a one-float-argument Conway/Goldberg operator method.
+ * @param name MeshOps operator name; becomes the generated method name.
+ * @details The generated method rejects a non-finite arg (finite_arg) before
+ *          running MeshOps::name(mesh, arg) via apply(), returning a new wrapper
+ *          or null.
+ */
 #define MESHOP_1F(name)                                                        \
   std::unique_ptr<MeshOpsWrapper> name(float arg) const {                     \
     if (!finite_arg(arg, #name))                                              \
@@ -695,12 +883,19 @@ struct MeshOpsWrapper {
 #undef MESHOP_0
 #undef MESHOP_1F
 
-  // Upper bound on relax smoothing passes (the editor caps the slider at 500).
+  /** Upper bound on relax smoothing passes (the editor caps the slider at 500). */
   static constexpr int kMaxRelaxIterations = 1000;
 
-  // relax is explicit because its int iteration count crosses the JS boundary
-  // unbounded: relax(1e9) would freeze the main thread for billions of passes.
-  // Floor at 0 and clamp to a generous ceiling rather than trusting the caller.
+  /**
+   * @brief Applies relax smoothing passes to the mesh.
+   * @param iterations Number of smoothing passes; floored at 0 and clamped to
+   *        kMaxRelaxIterations.
+   * @return Owning pointer to a new wrapper holding the relaxed mesh.
+   * @details Explicit (not a MESHOP_* macro) because its int iteration count
+   *          crosses the JS boundary unbounded: relax(1e9) would freeze the main
+   *          thread for billions of passes, so the count is clamped rather than
+   *          trusted.
+   */
   std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
     if (iterations < 0)
       iterations = 0;
@@ -714,9 +909,14 @@ struct MeshOpsWrapper {
     });
   }
 
-  // Hankin takes its angle in radians (the unit MeshOps::hankin expects), so it
-  // stays explicit rather than fitting the MESHOP_* shape — the comment carries
-  // the unit contract the JS caller relies on.
+  /**
+   * @brief Applies the Hankin interlace operator to the mesh.
+   * @param radians Interlace angle in radians (the unit MeshOps::hankin expects).
+   * @return Owning pointer to a new wrapper holding the result, or null if the
+   *         angle is non-finite.
+   * @details Explicit (not a MESHOP_* macro) so the radians unit contract the JS
+   *          caller relies on is carried here.
+   */
   std::unique_ptr<MeshOpsWrapper> hankin(float radians) const {
     if (!finite_arg(radians, "hankin"))
       return nullptr;
@@ -724,8 +924,10 @@ struct MeshOpsWrapper {
       return MeshOps::hankin(m, a, b, radians);
     });
   }
-  // List of all available solids as {name, category} objects, for the editor's
-  // solid picker.
+  /**
+   * @brief Lists all available solids for the editor's solid picker.
+   * @return JS array of {name, category} objects, one per registered solid.
+   */
   static val getRegistry() {
     val registry = val::array();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
@@ -740,9 +942,16 @@ struct MeshOpsWrapper {
     return registry;
   }
 
-  // Dev-only roster measurement (sizing MAX_VERTS-style constants); no UI
-  // consumer. Compile with -DHS_WASM_DEV_BINDINGS to re-export it.
 #ifdef HS_WASM_DEV_BINDINGS
+  /**
+   * @brief Measures the maximum vertex/face/index counts across all solids.
+   * @return JS object with {max_v, v_name, max_f, f_name, max_i, i_name} giving
+   *         the largest counts and the solids that produce them.
+   * @details Dev-only roster measurement for sizing MAX_VERTS-style constants;
+   *          no UI consumer. Compile with -DHS_WASM_DEV_BINDINGS to re-export it.
+   *          Measures each solid in the scratch arenas only — never
+   *          tooling_arena, which backs live wrappers the JS side still holds.
+   */
   static val getMaxBounds() {
     int max_v = 0;
     int max_f = 0;
@@ -797,10 +1006,18 @@ struct MeshOpsWrapper {
   }
 #endif
 
+  /**
+   * @brief Reports the engine arena metrics for the mesh tooling HUD.
+   * @return JS object of {usage, high_water_mark, capacity} metrics per arena,
+   *         in bytes.
+   */
   static val getArenaMetrics() { return collect_arena_metrics(); }
 };
 
-// Expose to JavaScript
+/**
+ * @brief Registers the HolosphereEngine, MeshOps, and spline bindings with
+ *        Embind so JavaScript can construct and call them.
+ */
 EMSCRIPTEN_BINDINGS(holosphere_engine) {
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
@@ -849,7 +1066,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("relax", &MeshOpsWrapper::relax);
 
   // Spline evaluation — thin wrappers returning val {x,y,z}.
-  // Cubic Bézier point at parameter t over control points p0..p3.
+  /**
+   * @brief Registers spline_cubic_fast: cubic Bézier point at parameter t over
+   *        control points p0..p3.
+   * @return JS {x,y,z} object for the evaluated point.
+   */
   function("spline_cubic_fast",
            optional_override([](float p0x, float p0y, float p0z, float p1x,
                                 float p1y, float p1z, float p2x, float p2y,
@@ -863,7 +1084,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              v.set("z", r.z);
              return v;
            }));
-  // Spherically-interpolated cubic at parameter t over control points p0..p3.
+  /**
+   * @brief Registers spline_cubic_slerp: spherically-interpolated cubic at
+   *        parameter t over control points p0..p3.
+   * @return JS {x,y,z} object for the evaluated point.
+   */
   function("spline_cubic_slerp",
            optional_override([](float p0x, float p0y, float p0z, float p1x,
                                 float p1y, float p1z, float p2x, float p2y,
@@ -878,8 +1103,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              v.set("z", r.z);
              return v;
            }));
-  // Catmull-Rom tangent estimation — returns the two Bézier control points
-  // {cp1:{x,y,z}, cp2:{x,y,z}} for the segment start->end.
+  /**
+   * @brief Registers spline_catmull_rom_tangents: Catmull-Rom tangent estimation.
+   * @return JS {cp1:{x,y,z}, cp2:{x,y,z}} giving the two Bézier control points
+   *         for the segment start->end.
+   */
   function("spline_catmull_rom_tangents",
            optional_override([](float prevx, float prevy, float prevz,
                                 float startx, float starty, float startz,

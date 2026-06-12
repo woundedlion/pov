@@ -33,7 +33,9 @@ inline uint8_t mesh_arena_b[256 * 1024];
 // PolyMesh API
 // ---------------------------------------------------------------------------
 
-// A freshly constructed PolyMesh owns no storage: all arrays are empty.
+/**
+ * @brief Verifies a freshly constructed PolyMesh owns no storage (all arrays empty).
+ */
 inline void test_polymesh_default_state() {
   PolyMesh m;
   HS_EXPECT_EQ(m.vertices.size(), (size_t)0);
@@ -41,8 +43,10 @@ inline void test_polymesh_default_state() {
   HS_EXPECT_EQ(m.faces.size(), (size_t)0);
 }
 
-// Binding each array to an arena reserves the requested capacity and marks
-// the array bound.
+/**
+ * @brief Verifies binding each array to an arena reserves the requested
+ *        capacity and marks the array bound.
+ */
 inline void test_polymesh_bind_arrays() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh m;
@@ -57,7 +61,10 @@ inline void test_polymesh_bind_arrays() {
   HS_EXPECT_EQ(m.faces.capacity(), (size_t)24);
 }
 
-// clear() empties all arrays (sizes return to zero) without unbinding them.
+/**
+ * @brief Verifies clear() empties all arrays (sizes return to zero) without
+ *        unbinding them.
+ */
 inline void test_polymesh_clear_resets_data() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh m;
@@ -70,8 +77,10 @@ inline void test_polymesh_clear_resets_data() {
   HS_EXPECT_EQ(m.faces.size(), (size_t)0);
 }
 
-// The get_*_size()/get_*_data() accessors are thin views onto the underlying
-// arrays and must agree with direct member access.
+/**
+ * @brief Verifies the get_*_size()/get_*_data() accessors are thin views onto
+ *        the underlying arrays and agree with direct member access.
+ */
 inline void test_polymesh_unified_accessors() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh m;
@@ -87,8 +96,10 @@ inline void test_polymesh_unified_accessors() {
 // HalfEdgeMesh
 // ---------------------------------------------------------------------------
 
-// HalfEdgeMesh derived counts track the source PolyMesh: one vertex per
-// vertex, one face per face, and one half-edge per face index.
+/**
+ * @brief Verifies HalfEdgeMesh derived counts track the source PolyMesh: one
+ *        vertex per vertex, one face per face, and one half-edge per face index.
+ */
 inline void test_half_edge_mesh_size_matches_input() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh cube;
@@ -101,9 +112,12 @@ inline void test_half_edge_mesh_size_matches_input() {
   HS_EXPECT_EQ(he.half_edges.size(), cube.faces.size());
 }
 
-// Each face's next-pointer ring is closed and consistent: following next from
-// the face's start half-edge returns to it in exactly face_counts[fi] steps,
-// and every half-edge on the ring reports that same face.
+/**
+ * @brief Verifies each face's next-pointer ring is closed and consistent.
+ * @details Following next from the face's start half-edge returns to it in
+ *          exactly face_counts[fi] steps, and every half-edge on the ring
+ *          reports that same face.
+ */
 inline void test_half_edge_mesh_face_loop_closes() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh cube;
@@ -125,8 +139,10 @@ inline void test_half_edge_mesh_face_loop_closes() {
   }
 }
 
-// For a closed manifold (cube), every half-edge has a pair and the pairing is
-// reciprocal: pair(pair(i)) == i.
+/**
+ * @brief Verifies that for a closed manifold (cube), every half-edge has a pair
+ *        and the pairing is reciprocal: pair(pair(i)) == i.
+ */
 inline void test_half_edge_mesh_pairs_are_symmetric() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh cube;
@@ -140,9 +156,11 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
   }
 }
 
-// Euler characteristic V - E + F = 2 holds for the cube (a topological sphere),
-// with the expected V=8, E=12, F=6. E = half_edges/2 since each edge is two
-// half-edges.
+/**
+ * @brief Verifies the Euler characteristic V - E + F = 2 holds for the cube (a
+ *        topological sphere), with the expected V=8, E=12, F=6.
+ * @details E = half_edges/2 since each edge is two half-edges.
+ */
 inline void test_half_edge_mesh_euler_invariant() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh cube;
@@ -158,7 +176,10 @@ inline void test_half_edge_mesh_euler_invariant() {
   HS_EXPECT_EQ(F, 6);
 }
 
-// Same Euler check on a tetrahedron: V=4, E=6, F=4 satisfy V - E + F = 2.
+/**
+ * @brief Verifies the Euler check on a tetrahedron: V=4, E=6, F=4 satisfy
+ *        V - E + F = 2.
+ */
 inline void test_half_edge_mesh_euler_tetrahedron() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh tet;
@@ -174,8 +195,10 @@ inline void test_half_edge_mesh_euler_tetrahedron() {
   HS_EXPECT_EQ(V - E + F, 2);
 }
 
-// HalfEdgeMesh can also be built from a compiled MeshState; the derived counts
-// must track that MeshState just as they do for the PolyMesh constructor.
+/**
+ * @brief Verifies HalfEdgeMesh can be built from a compiled MeshState, with the
+ *        derived counts tracking that MeshState as for the PolyMesh constructor.
+ */
 inline void test_half_edge_mesh_built_from_meshstate() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
   PolyMesh cube;
@@ -194,8 +217,10 @@ inline void test_half_edge_mesh_built_from_meshstate() {
 // MeshOps::compile (PolyMesh → MeshState)
 // ---------------------------------------------------------------------------
 
-// compile() copies a clean PolyMesh into a MeshState verbatim and additionally
-// fills face_offsets with the running prefix sum of face_counts.
+/**
+ * @brief Verifies compile() copies a clean PolyMesh into a MeshState verbatim
+ *        and fills face_offsets with the running prefix sum of face_counts.
+ */
 inline void test_compile_polymesh_to_meshstate_basic() {
   Arena src(mesh_arena_a, sizeof(mesh_arena_a));
   Arena dst(mesh_arena_b, sizeof(mesh_arena_b));
@@ -217,8 +242,11 @@ inline void test_compile_polymesh_to_meshstate_basic() {
   }
 }
 
-// compile() discards faces with fewer than three vertices: of one triangle and
-// two 2-vertex faces, only the triangle survives into the MeshState.
+/**
+ * @brief Verifies compile() discards faces with fewer than three vertices.
+ * @details Of one triangle and two 2-vertex faces, only the triangle survives
+ *          into the MeshState.
+ */
 inline void test_compile_drops_degenerate_faces() {
   Arena src(mesh_arena_a, sizeof(mesh_arena_a));
   Arena dst(mesh_arena_b, sizeof(mesh_arena_b));
@@ -254,8 +282,10 @@ inline void test_compile_drops_degenerate_faces() {
 // MeshOps::clone — deep copy
 // ---------------------------------------------------------------------------
 
-// clone() of a MeshState yields equal sizes and values but independent storage
-// in the destination arena (no aliasing of the source buffers).
+/**
+ * @brief Verifies clone() of a MeshState yields equal sizes and values but
+ *        independent storage in the destination arena (no aliasing of source).
+ */
 inline void test_clone_meshstate_deep_copies() {
   Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
   Arena dst_arena(mesh_arena_b, sizeof(mesh_arena_b));
@@ -285,7 +315,10 @@ inline void test_clone_meshstate_deep_copies() {
     HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
 }
 
-// clone() of a PolyMesh likewise copies all arrays into independent storage.
+/**
+ * @brief Verifies clone() of a PolyMesh likewise copies all arrays into
+ *        independent storage.
+ */
 inline void test_clone_polymesh_deep_copies() {
   Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
   Arena dst_arena(mesh_arena_b, sizeof(mesh_arena_b));
@@ -306,9 +339,12 @@ inline void test_clone_polymesh_deep_copies() {
 // MeshOps::classify_faces_by_topology
 // ---------------------------------------------------------------------------
 
-// All 6 cube faces are topologically equivalent (square, 4 right angles, same
-// neighbor signature), so classify_faces_by_topology must assign them all the
-// same class (0). scratch_a/scratch_b are working arenas for the classifier.
+/**
+ * @brief Verifies all 6 cube faces classify into the same class (0).
+ * @details The faces are topologically equivalent (square, 4 right angles, same
+ *          neighbor signature). scratch_a/scratch_b are working arenas for the
+ *          classifier.
+ */
 inline void test_classify_faces_cube_uniform_topology() {
   Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
   Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
@@ -324,8 +360,10 @@ inline void test_classify_faces_cube_uniform_topology() {
     HS_EXPECT_EQ(cube.topology[i], 0);
 }
 
-// A tetrahedron's 4 faces are also mutually equivalent triangles, so they too
-// must all classify into the same class (0).
+/**
+ * @brief Verifies a tetrahedron's 4 faces, being mutually equivalent triangles,
+ *        all classify into the same class (0).
+ */
 inline void test_classify_faces_tetrahedron_uniform_topology() {
   Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
   Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
@@ -345,7 +383,10 @@ inline void test_classify_faces_tetrahedron_uniform_topology() {
 // Runner
 // ---------------------------------------------------------------------------
 
-// Run every mesh test case in order; returns the module's failure count.
+/**
+ * @brief Runs every mesh test case in order.
+ * @return The module's failure count.
+ */
 inline int run_mesh_tests() {
   auto scope = hs_test::begin_module("mesh");
 

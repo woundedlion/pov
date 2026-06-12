@@ -7,16 +7,28 @@
 
 #include "core/effects_engine.h"
 
-/// Full-sphere liquid effect: domain-warped OpenSimplex noise feeds a
-/// cross-coupled sinusoidal pattern, stereographically projected and colored
-/// through a breathing generative palette. Presets cycle on a random timer.
+/**
+ * @brief Full-sphere liquid effect over a breathing generative palette.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Domain-warped OpenSimplex noise feeds a cross-coupled sinusoidal
+ * pattern, stereographically projected and colored through a breathing
+ * generative palette. Presets cycle on a random timer.
+ */
 template <int W, int H> class Liquid2D : public Effect {
 public:
-  /// Shader writes every pixel each frame, so no inter-frame persistence.
+  /**
+   * @brief Constructs the effect and disables inter-frame pixel persistence.
+   * @details The shader writes every pixel each frame, so no persistence is
+   * needed.
+   */
   FLASHMEM Liquid2D() : Effect(W, H) { persist_pixels = false; }
 
-  /// Register sliders, seed the timeline drivers/orientations, bake the palette,
-  /// and arm the preset-cycling timer; then load the first preset.
+  /**
+   * @brief Initializes sliders, timeline drivers, palette, and preset cycling.
+   * @details Registers sliders, seeds the timeline drivers/orientations, bakes
+   * the palette, and arms the preset-cycling timer; then loads the first preset.
+   */
   void init() override {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
@@ -68,12 +80,20 @@ public:
     params = presets.get();
   }
 
-  /// Shader fills every pixel, so request the background pass.
+  /**
+   * @brief Reports that the effect fills every pixel via the background pass.
+   * @return Always true; the shader fills every pixel, so the background pass is
+   * requested.
+   */
   bool show_bg() const override { return true; }
 
-  /// Advance the timeline, maintain the wrapped trig phases, then shade every
-  /// pixel: project to the sphere, warp in stereographic space, sample the
-  /// pattern, attenuate near the poles, and map through the palette.
+  /**
+   * @brief Advances the timeline and shades every pixel for one frame.
+   * @details Advances the timeline, maintains the wrapped trig phases, then
+   * shades every pixel: projects to the sphere, warps in stereographic space,
+   * samples the pattern, attenuates near the poles, and maps through the
+   * palette.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -108,22 +128,37 @@ public:
   }
 
 private:
-  /// Stereographic projection with glitch lens and dual orientation.
+  /**
+   * @brief Projects a sphere direction to the stereographic plane.
+   * @param v Unit direction vector on the sphere.
+   * @return Complex stereographic coordinate after glitch lens and dual
+   * orientation are applied.
+   */
   Complex project(const Vector &v) const {
     Vector rv = global_orientation.unorient(v);
     Vector sv = apply_glitch_lens(rv);
     return stereo(orientation.orient(sv));
   }
 
-  /// Noise-based warp in stereographic space, attenuated near pole.
+  /**
+   * @brief Warps a stereographic coordinate using noise, faded near the pole.
+   * @param z Stereographic coordinate to warp.
+   * @param r_sq Squared radius |z|^2, used for pole fading.
+   * @param t Noise-time axis (seconds); halved internally for the noise sample.
+   * @return Warp result whose coords are the displaced stereographic position.
+   */
   StereoWarpResult warp(const Complex &z, float r_sq, float t) const {
     return stereo_noise_warp(z, r_sq, noise, params.warp_scale,
                              params.warp_strength, params.pole_fade, t * 0.5f);
   }
 
-  /// Cross-coupled sinusoidal pattern with complexity modulation. `sin_phase`
-  /// is the wrapped `+t` term, `cos_phase` the wrapped `0.8*t` term (see
-  /// draw_frame).
+  /**
+   * @brief Evaluates the cross-coupled sinusoidal pattern at a warped point.
+   * @param w Warped stereographic coordinate to sample.
+   * @param sin_phase Wrapped +t time term in [0, 2pi) radians.
+   * @param cos_phase Wrapped 0.8*t time term in [0, 2pi) radians.
+   * @return Pattern value in [-1, 1], modulated by params.complexity.
+   */
   float sample(const Complex &w, float sin_phase, float cos_phase) const {
     float pu = w.re * params.pattern_freq;
     float pv = w.im * params.pattern_freq;
@@ -131,13 +166,23 @@ private:
            fast_cosf(pv + params.complexity * fast_cosf(pu - cos_phase));
   }
 
-  /// Pole attenuation applied to pattern, normalized to [0,1].
+  /**
+   * @brief Applies pole attenuation to a pattern value and normalizes it.
+   * @param pattern Raw pattern value in [-1, 1].
+   * @param r_sq Squared radius |z|^2 driving the pole fade.
+   * @return Attenuated value normalized to [0, 1].
+   */
   float attenuate(float pattern, float r_sq) const {
     float fade = pole_attenuation(r_sq, params.pole_fade);
     return (pattern * fade + 1.0f) * 0.5f;
   }
 
-  /// Trig-free glitch lens: mirror + squish + triple theta.
+  /**
+   * @brief Applies a trig-free glitch lens to a sphere direction.
+   * @param v Unit direction vector on the sphere.
+   * @return Transformed direction after mirror, squish, and triple-theta steps;
+   * returns the up vector when near the lens axis (R^2 < 1e-6).
+   */
   static Vector apply_glitch_lens(Vector v) {
     if (v.y < 0.0f) {
       v.y = -v.y;
@@ -158,17 +203,20 @@ private:
                   y2 * v.z * (3.0f - 4.0f * z2 * inv_R2));
   }
 
-  Timeline timeline;
-  Orientation<> orientation;
-  Orientation<> global_orientation;
-  FastNoiseLite noise;
+  Timeline timeline; /**< Drives orientations, time/cycle drivers, and presets. */
+  Orientation<> orientation;        /**< Inner per-pixel sphere orientation. */
+  Orientation<> global_orientation; /**< Outer whole-sphere orientation. */
+  FastNoiseLite noise;              /**< OpenSimplex2 source for warp and walks. */
 
-  BakedPalette palette;
-  BreatheModifier breathe_mod{&cycle_phase, 0.15f};
-  StaticPalette<BakedPalette, Coords<BreatheModifier>> static_palette;
+  BakedPalette palette; /**< 16-bit LUT baked from the generative palette. */
+  BreatheModifier breathe_mod{&cycle_phase, 0.15f}; /**< Cycle-phase breathing modulator. */
+  StaticPalette<BakedPalette, Coords<BreatheModifier>> static_palette; /**< Palette plus breathe modulation used for shading. */
 
-  /// Tunable per-frame parameters, exposed as sliders and interpolated between
-  /// presets. Defaults double as preset 0.
+  /**
+   * @brief Tunable per-frame parameters exposed as sliders and lerped between
+   * presets.
+   * @details The default member initializers double as preset 0.
+   */
   struct Params {
     float warp_scale = 1.5f;
     float warp_strength = 0.5f;
@@ -178,9 +226,15 @@ private:
     float pole_fade = 1.4f;
     float cycle_speed = 0.05f;
 
-    /// Staggered interpolation from a to b over t in [0,1]: only the fields
-    /// that actually change are animated, each in its own equal time slice so
-    /// they transition one after another rather than all at once.
+    /**
+     * @brief Staggered interpolation of this Params from a to b.
+     * @param a Source parameter set (value at t = 0).
+     * @param b Target parameter set (value at t = 1).
+     * @param t Normalized progress in [0, 1].
+     * @details Only the fields that actually change are animated, each in its
+     * own equal time slice, so they transition one after another rather than
+     * all at once.
+     */
     void lerp(const Params &a, const Params &b, float t) {
       constexpr int N = 7;
       float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq, &time_speed,
@@ -210,16 +264,19 @@ private:
       }
     }
   };
-  Params params;
-  float accumulated_time = 0.0f; // unbounded noise-time axis (see draw_frame)
-  float cycle_phase = 0.0f;      // wrapped to [0, 2pi) each frame for breathe
-  float prev_time = 0.0f;   // last frame's accumulated_time (for the trig phases)
-  float sin_phase = 0.0f;   // wrapped to [0, 2pi): pattern's +t term
-  float cos_phase = 0.0f;   // wrapped to [0, 2pi): pattern's 0.8*t term
+  Params params; /**< Live per-frame parameters, lerped between presets. */
+  float accumulated_time = 0.0f; /**< Unbounded noise-time axis (see draw_frame). */
+  float cycle_phase = 0.0f;      /**< Wrapped to [0, 2pi) each frame for breathe. */
+  float prev_time = 0.0f;   /**< Last frame's accumulated_time (for the trig phases). */
+  float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's +t term. */
+  float cos_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's 0.8*t term. */
 
-  // All 7 Params fields are listed explicitly per preset. Omitting the
-  // trailing cycle_speed would silently fall back to its default member
-  // initializer rather than the preset's intent.
+  /**
+   * @brief Preset bank cycled by the timeline timer.
+   * @details All 7 Params fields are listed explicitly per preset. Omitting the
+   * trailing cycle_speed would silently fall back to its default member
+   * initializer rather than the preset's intent.
+   */
   Presets<Params, 2> presets = {{{
       {{1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.4f, 0.05f}},
       {{1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 1.4f, 0.05f}},

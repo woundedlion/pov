@@ -7,23 +7,34 @@
 
 #include "core/effects_engine.h"
 
-// Particle flow field over the sphere: particles advect along a 3D OpenSimplex2
-// noise field (time-evolving via `t`), leaving SLERP-blurred trails. The whole
-// field slowly drifts via a RandomWalk on `orientation`, applied by the
-// Filter::World::Orient pipeline stage. W/H are the equirectangular canvas dims.
+/**
+ * @brief Particle flow field over the sphere: particles advect along a 3D
+ *        OpenSimplex2 noise field, leaving SLERP-blurred trails.
+ * @tparam W Equirectangular canvas width in pixels.
+ * @tparam H Equirectangular canvas height in pixels.
+ * @details The noise field evolves over time via `t`. The whole field slowly
+ *          drifts via a RandomWalk on `orientation`, applied by the
+ *          Filter::World::Orient pipeline stage.
+ */
 template <int W, int H> class FlowField : public Effect {
 public:
-  // Build the analogous-harmony palette and the Orient + AntiAlias filter
-  // pipeline; noise seeding and emitter setup happen in init().
+  /**
+   * @brief Constructs the effect, building the palette and filter pipeline.
+   * @details Builds the analogous-harmony palette and the Orient + AntiAlias
+   *          filter pipeline; noise seeding and emitter setup happen in init().
+   */
   FLASHMEM FlowField()
       : Effect(W, H), palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                               BrightnessProfile::ASCENDING),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
-  // Register UI params, seed the noise generators, start the orientation drift,
-  // and install the emitter that keeps the pool full and advances particles
-  // along the noise force field each step.
+  /**
+   * @brief Registers UI params, seeds noise, and installs the particle emitter.
+   * @details Registers UI params, seeds the noise generators, starts the
+   *          orientation drift, and installs the emitter that keeps the pool
+   *          full and advances particles along the noise force field each step.
+   */
   void init() override {
     registerParam("Scale", &params.noise_scale, 0.1f, 10.0f);
     registerParam("Force", &params.force_scale, 0.001f, 0.05f);
@@ -90,11 +101,19 @@ public:
     });
   }
 
-  // Trails fully render the frame; no background fill is needed behind them.
+  /**
+   * @brief Reports whether a background fill is drawn behind the effect.
+   * @return False; trails fully render the frame, so no background fill is
+   *         needed behind them.
+   */
   bool show_bg() const override { return false; }
 
-  // Advance noise time, step the orientation drift and particles, then plot the
-  // particle trails with a latitude-mapped palette through the orient/AA filters.
+  /**
+   * @brief Advances the simulation and plots the particle trails for one frame.
+   * @details Advances noise time, steps the orientation drift and particles,
+   *          then plots the particle trails with a latitude-mapped palette
+   *          through the orient/AA filters.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     // Wrap the noise-time accumulator so it never grows large enough for the
@@ -126,32 +145,37 @@ public:
   }
 
 private:
-  static constexpr int k_num_particles = 600;
-  static constexpr int k_trail_length = 14;
-  // Wrap period for the noise-time accumulator (see draw_frame): large enough
-  // that pops are far apart, small enough that the ULP never swallows the
-  // increment.
+  static constexpr int k_num_particles = 600; /**< Particle pool capacity. */
+  static constexpr int k_trail_length = 14; /**< Per-particle trail length. */
+  /**
+   * @brief Wrap period for the noise-time accumulator (see draw_frame).
+   * @details Large enough that flow-field pops are far apart, small enough that
+   *          the float ULP never swallows the per-step time increment.
+   */
   static constexpr float TIME_PERIOD = 2048.0f;
 
+  /** @brief Particle system specialization for this effect's pool and trails. */
   typedef Animation::ParticleSystem<W, k_num_particles, k_trail_length, 1, 0>
       ParticleSystem;
 
+  /** @brief User-tunable parameters exposed through the effect UI. */
   struct Params {
-    float noise_scale = 2.0f;
-    float force_scale = 0.005f;
-    float max_speed = 0.03f;
-    float alpha = 0.8f;
-    float time_scale = 0.005f;
-  } params;
+    float noise_scale = 2.0f; /**< Noise sampling frequency over the sphere. */
+    float force_scale = 0.005f; /**< Scales noise samples into a force vector. */
+    float max_speed = 0.03f; /**< Per-step velocity clamp magnitude. */
+    float alpha = 0.8f; /**< Global trail opacity multiplier in [0,1]. */
+    float time_scale = 0.005f; /**< Per-step noise-time increment. */
+  } params; /**< User-tunable parameter values. */
 
-  float t = 0;
-  FastNoiseLite noise_generator;
-  FastNoiseLite orient_noise;
-  GenerativePalette palette;
-  ParticleSystem particle_system;
-  Orientation<> orientation;
-  Timeline timeline;
+  float t = 0; /**< Noise-time accumulator, wrapped to TIME_PERIOD. */
+  FastNoiseLite noise_generator; /**< Generator for the flow-field force noise. */
+  FastNoiseLite orient_noise; /**< Dedicated generator for the orientation drift. */
+  GenerativePalette palette; /**< Latitude-mapped trail color palette. */
+  ParticleSystem particle_system; /**< Pool of advected particles and trails. */
+  Orientation<> orientation; /**< Whole-sphere drift consumed by the Orient stage. */
+  Timeline timeline; /**< Drives the orientation RandomWalk animation. */
 
+  /** @brief World-orient then screen anti-alias filter pipeline. */
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 };

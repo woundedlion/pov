@@ -22,22 +22,43 @@
 namespace hs_test {
 namespace scan_tests {
 
-// Minimal Effect backing a Canvas for these tests: no per-frame drawing and no
-// background, so the canvas starts black and shows only what the test plots.
+/**
+ * @brief Minimal Effect backing a Canvas for these tests.
+ * @details Performs no per-frame drawing and shows no background, so the canvas
+ * starts black and displays only what the test explicitly plots.
+ */
 struct ScanFx : public Effect {
+  /**
+   * @brief Constructs the test effect at the given canvas resolution.
+   * @param W Canvas width in pixels.
+   * @param H Canvas height in pixels.
+   */
   ScanFx(int W, int H) : Effect(W, H) {}
+  /**
+   * @brief Per-frame draw hook; intentionally does nothing for these tests.
+   */
   void draw_frame() override {}
+  /**
+   * @brief Reports whether the effect renders a background.
+   * @return Always false, so the canvas starts black.
+   */
   bool show_bg() const override { return false; }
 };
 
-// True when a pixel is fully unwritten (cleared-frame black).
+/**
+ * @brief Tests whether a pixel is fully unwritten (cleared-frame black).
+ * @param p Pixel to inspect.
+ * @return True when all RGB channels are zero.
+ */
 inline bool is_black(const Pixel &p) { return p.r == 0 && p.g == 0 && p.b == 0; }
 
 // ============================================================================
 // Scan::Shader::draw — full-sphere per-pixel shader
 // ============================================================================
 
-// A constant-color shader fills every pixel of the full sphere with that color.
+/**
+ * @brief Verifies a constant-color shader fills every pixel of the full sphere.
+ */
 inline void test_shader_constant_fills_canvas() {
   constexpr int W = 32, H = 16;
   ScanFx fx(W, H);
@@ -59,8 +80,11 @@ inline void test_shader_constant_fills_canvas() {
   }
 }
 
-// A shader reading the surface position sees the sphere's latitude: the +Y pole
-// (top row) maps brighter than the -Y pole (bottom row).
+/**
+ * @brief Verifies a position-reading shader maps the sphere's latitude.
+ * @details The +Y pole (top row) must render brighter than the -Y pole (bottom
+ * row), confirming the shader receives the correct surface position.
+ */
 inline void test_shader_positional_maps_latitude() {
   constexpr int W = 32, H = 32;
   ScanFx fx(W, H);
@@ -80,7 +104,10 @@ inline void test_shader_positional_maps_latitude() {
   HS_EXPECT_LT((int)fx.get_pixel(0, H - 1).g, 20000);
 }
 
-// The shader writes only inside the active clip band; rows outside it stay black.
+/**
+ * @brief Verifies the shader writes only inside the active clip band.
+ * @details Rows outside the clip band must stay black (untouched by the clear).
+ */
 inline void test_shader_respects_clip_band() {
   constexpr int W = 32, H = 16;
   ScanFx fx(W, H);
@@ -104,8 +131,11 @@ inline void test_shader_respects_clip_band() {
 // Scan::Ring::draw — SDF rasterize() path through a Pipeline sink
 // ============================================================================
 
-// The SDF rasterize() path plots a ring: a nonempty subset of the canvas, never
-// the whole thing.
+/**
+ * @brief Verifies the SDF rasterize() path plots a bounded ring.
+ * @details The ring must cover a nonempty subset of the canvas, but never the
+ * whole canvas.
+ */
 inline void test_ring_rasterize_produces_bounded_output() {
   constexpr int W = 64, H = 48;
   ScanFx fx(W, H);
@@ -133,8 +163,11 @@ inline void test_ring_rasterize_produces_bounded_output() {
   HS_EXPECT_LT(plotted, (size_t)(W * H));
 }
 
-// A degenerate clip band (y_start == y_end) makes rasterize early-out and plot
-// nothing.
+/**
+ * @brief Verifies a degenerate clip band makes rasterize plot nothing.
+ * @details With y_start == y_end the rasterizer must early-out and leave the
+ * canvas black.
+ */
 inline void test_ring_rasterize_empty_clip_draws_nothing() {
   constexpr int W = 64, H = 48;
   ScanFx fx(W, H);
@@ -162,10 +195,13 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
   HS_EXPECT_EQ(plotted, (size_t)0);
 }
 
-// scan_region seam coalescer: a span crossing x=0 must not double-plot the
-// wrapped overlap with another span. Drives scan_region directly with a sorted
-// two-span row (a low span + a seam-crosser, as a shape's sorted output emits)
-// so the wrapped columns shared by both spans are plotted exactly once.
+/**
+ * @brief Verifies the scan_region seam coalescer avoids double-plotting.
+ * @details A span crossing x=0 must not double-plot the wrapped overlap shared
+ * with another span. Drives scan_region with a sorted two-span row (a low span
+ * plus a seam-crosser, as a shape's sorted output emits) so the wrapped columns
+ * shared by both spans are plotted exactly once.
+ */
 inline void test_scan_region_seam_no_double_plot() {
   constexpr int W = 96, H = 20;
   int counts[W];
@@ -197,11 +233,14 @@ inline void test_scan_region_seam_no_double_plot() {
   HS_EXPECT_EQ(counts[W - 3], 0);
 }
 
-// scan_region forward coalescer: two abutting spans whose shared boundary falls
-// fractionally inside one pixel column must not both plot that column. Float
-// span merging alone would let prev end 5.4 (ceil -> paints x=5) and next start
-// 5.6 (floor -> 5) each touch x=5, doubling process_pixel / alpha; integer-space
-// clamping (last_x2) keeps x=5 single.
+/**
+ * @brief Verifies the scan_region forward coalescer handles fractional bounds.
+ * @details Two abutting spans whose shared boundary falls fractionally inside
+ * one pixel column must not both plot that column. Float span merging alone
+ * would let prev end 5.4 (ceil paints x=5) and next start 5.6 (floor gives 5)
+ * each touch x=5, doubling process_pixel / alpha; integer-space clamping
+ * (last_x2) keeps x=5 single.
+ */
 inline void test_scan_region_fractional_boundary_no_double_plot() {
   constexpr int W = 96, H = 20;
   int counts[W];
@@ -232,13 +271,15 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
   HS_EXPECT_EQ(counts[8], 0);
 }
 
-// A Plot geodesic line passing through the north pole must actually plot the
-// pole row (row 0). map_geodesic/map_planar build interpolated points with
-// fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel takes
-// phi = acos(v.y) directly, and acos's infinite slope at y=1 amplifies that
-// tiny error into a multi-row shift unless interpolated positions are
-// re-normalized before mapping — which the drawing phase does, so the pole
-// lands on row 0.
+/**
+ * @brief Verifies a geodesic line through the north pole plots the pole row.
+ * @details map_geodesic/map_planar build interpolated points with
+ * fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel takes
+ * phi = acos(v.y) directly, and acos's infinite slope at y=1 amplifies that
+ * tiny error into a multi-row shift unless interpolated positions are
+ * re-normalized before mapping. The drawing phase re-normalizes, so the pole
+ * lands on row 0.
+ */
 inline void test_plot_line_over_pole_reaches_row0() {
   constexpr int W = 288, H = 144;
   ScanFx fx(W, H);
@@ -265,21 +306,35 @@ inline void test_plot_line_over_pole_reaches_row0() {
   HS_EXPECT_GT(row0, (size_t)0);
 }
 
-// Capturing plot sink that records the AA alpha process_pixel forwards, bypassing
-// the canvas-blend round trip. plot()'s last arg is frag.alpha (=1) * the AA
-// alpha; count tracks whether the pixel was drawn at all.
+/**
+ * @brief Capturing plot sink that records the AA alpha process_pixel forwards.
+ * @details Bypasses the canvas-blend round trip. The recorded alpha is
+ * frag.alpha (=1) times the AA alpha; count tracks whether the pixel was drawn
+ * at all.
+ */
 struct AlphaSink {
-  float last_alpha = -1.0f;
-  int count = 0;
+  float last_alpha = -1.0f; /**< AA alpha from the most recent plot, -1 if none. */
+  int count = 0;            /**< Number of times plot() was invoked. */
+  /**
+   * @brief Records the forwarded AA alpha and increments the plot count.
+   * @param a Anti-aliasing alpha forwarded by process_pixel.
+   */
   void plot(Canvas &, int, int, const Pixel &, float, float a) {
     last_alpha = a;
     ++count;
   }
 };
 
-// Runs process_pixel for `shape` at surface point `p` and returns the AA alpha
-// it forwarded (-1 if the pixel was not drawn). If `count` is non-null, writes
-// how many times the pixel was plotted (0 or 1).
+/**
+ * @brief Runs process_pixel for a shape at a surface point and returns its AA alpha.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param shape SDF shape to rasterize at the sample point.
+ * @param p Surface point on the unit sphere to evaluate.
+ * @param c Canvas providing clip and projection context.
+ * @param count Optional out-param; receives how many times the pixel was plotted (0 or 1).
+ * @return The forwarded AA alpha, or -1 if the pixel was not drawn.
+ */
 template <int W, int H>
 inline float scan_alpha_at(const auto &shape, const Vector &p, Canvas &c,
                            int *count = nullptr) {
@@ -297,11 +352,14 @@ inline float scan_alpha_at(const auto &shape, const Vector &p, Canvas &c,
   return sink.last_alpha;
 }
 
-// A CSG composite of strokes must render each stroke with its OWN thickness
-// (not as a hard solid band, and not scaled by a sibling's thickness). The
-// formula-independent invariant: a Union<thin, thick> evaluated at a point
-// inside the thin stroke yields the SAME AA alpha as the bare thin Line, and a
-// DIFFERENT alpha from the bare thick Line.
+/**
+ * @brief Verifies a CSG composite renders each stroke with its own thickness.
+ * @details Each stroke must render with its OWN thickness, not as a hard solid
+ * band and not scaled by a sibling's thickness. The formula-independent
+ * invariant: a Union<thin, thick> evaluated at a point inside the thin stroke
+ * yields the SAME AA alpha as the bare thin Line, and a DIFFERENT alpha from
+ * the bare thick Line.
+ */
 inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   constexpr int W = 288, H = 144;
   ScanFx fx(W, H);
@@ -341,11 +399,14 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   HS_EXPECT_GT(fabsf(a_thin - a_thick), 0.1f);
 }
 
-// A ring of normalized radius r is centered on the basis axis at polar angle
-// target = r*(PI/2), so it lights a single latitude band whose center row is
-// phi_to_y(target). Assert the rasterizer output actually lands there (an
-// analytic position check, not just "some pixels, not all") and that rows well
-// away from the band stay dark.
+/**
+ * @brief Verifies the rasterized ring lights the analytically predicted row.
+ * @details A ring of normalized radius r is centered on the basis axis at polar
+ * angle target = r*(PI/2), lighting a single latitude band whose center row is
+ * phi_to_y(target). Asserts the rasterizer output lands there (an analytic
+ * position check, not just "some pixels, not all") and that rows well away from
+ * the band stay dark.
+ */
 inline void test_ring_rasterize_lights_expected_row() {
   constexpr int W = 96, H = 48;
 
@@ -372,6 +433,7 @@ inline void test_ring_rasterize_lights_expected_row() {
           total++;
           weighted += y;
         }
+    /** @brief Per-radius result: lit-pixel centroid row, total lit count, and per-row lit counts. */
     struct R { float centroid; int total; int lit[H]; };
     R r;
     r.centroid = total ? static_cast<float>(weighted) / total : -1.0f;
@@ -397,10 +459,13 @@ inline void test_ring_rasterize_lights_expected_row() {
   }
 }
 
-// The stroke anti-aliasing alpha is a monotone ramp from ~1 at the ring
-// centerline to 0 at its outer surface — not a hard binary edge. Sample the AA
-// alpha process_pixel produces while marching a point radially outward across
-// the band and assert it decreases monotonically through intermediate values.
+/**
+ * @brief Verifies the stroke anti-aliasing alpha is a monotone ramp.
+ * @details The alpha falls from ~1 at the ring centerline to 0 at its outer
+ * surface, not a hard binary edge. Samples the AA alpha process_pixel produces
+ * while marching a point radially outward across the band and asserts it
+ * decreases monotonically through intermediate values.
+ */
 inline void test_stroke_aa_is_monotone_ramp() {
   constexpr int W = 288, H = 144;
   ScanFx fx(W, H);
@@ -446,7 +511,10 @@ inline void test_stroke_aa_is_monotone_ramp() {
 // Runner
 // ============================================================================
 
-// Runs every scan test under the "scan" module scope; returns the failure count.
+/**
+ * @brief Runs every scan test under the "scan" module scope.
+ * @return The number of test failures recorded by the module.
+ */
 inline int run_scan_tests() {
   auto scope = hs_test::begin_module("scan");
 

@@ -23,6 +23,11 @@ __attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a,
 }
 #endif
 
+/**
+ * @brief Maps an 8-bit sRGB channel value to its 16-bit linear equivalent.
+ * @param srgb sRGB channel value in [0, 255].
+ * @return 16-bit linear channel value.
+ */
 inline uint16_t srgb_to_linear(uint8_t srgb);
 
 /**
@@ -33,11 +38,23 @@ inline uint16_t srgb_to_linear(uint8_t srgb);
 struct Pixel16 {
   uint16_t r, g, b;
 
+  /**
+   * @brief Constructs a black pixel (all channels zero).
+   */
   constexpr Pixel16() : r(0), g(0), b(0) {}
+  /**
+   * @brief Constructs a pixel from explicit 16-bit linear channels.
+   * @param _r Red channel in [0, 65535].
+   * @param _g Green channel in [0, 65535].
+   * @param _b Blue channel in [0, 65535].
+   */
   constexpr Pixel16(uint16_t _r, uint16_t _g, uint16_t _b)
       : r(_r), g(_g), b(_b) {}
 
-  // Construct from HSV (converts to sRGB then Linear)
+  /**
+   * @brief Constructs a pixel from HSV (converts to sRGB then Linear).
+   * @param hsv Source color in HSV space.
+   */
   Pixel16(const CHSV &hsv) {
     CRGB srgb(hsv);
     r = srgb_to_linear(srgb.r);
@@ -45,27 +62,38 @@ struct Pixel16 {
     b = srgb_to_linear(srgb.b);
   }
 
-  // Construct from CRGB (converts to Linear)
+  /**
+   * @brief Constructs a pixel from CRGB (converts to Linear).
+   * @param c Source color in 8-bit sRGB space.
+   */
   Pixel16(const CRGB &c) {
     r = srgb_to_linear(c.r);
     g = srgb_to_linear(c.g);
     b = srgb_to_linear(c.b);
   }
 
-  // Lossy 16-bit-linear -> 8-bit-sRGB downcast (forward-declared; defined once
-  // CRGB is complete). Explicit so a stray Pixel16 in a CRGB context is a
-  // compile error rather than a silent round-trip through 8-bit gamma — the
-  // FastLED sink call sites that genuinely need the cast spell it out.
+  /**
+   * @brief Lossy 16-bit-linear -> 8-bit-sRGB downcast.
+   * @return The color quantized to an 8-bit sRGB CRGB.
+   * @details Forward-declared; defined once CRGB is complete. Explicit so a
+   * stray Pixel16 in a CRGB context is a compile error rather than a silent
+   * round-trip through 8-bit gamma — sink call sites that genuinely need the
+   * cast spell it out.
+   */
   explicit operator CRGB() const;
 
-  // Basic arithmetic
+  /**
+   * @brief Saturated per-channel addition into this pixel.
+   * @param rhs Pixel to add.
+   * @return Reference to this pixel after the clamped add.
+   */
   Pixel16 &operator+=(const Pixel16 &rhs) {
 #if defined(__ARM_FEATURE_DSP)
     uint32_t bg1 = ((uint32_t)g << 16) | b;
     uint32_t bg2 = ((uint32_t)rhs.g << 16) | rhs.b;
     uint32_t sum_bg = inline_uqadd16(bg1, bg2);
     
-    uint32_t zero_r1 = r; // Lower 16 bits
+    uint32_t zero_r1 = r; // Lower 16 bits.
     uint32_t zero_r2 = rhs.r;
     uint32_t sum_r = inline_uqadd16(zero_r1, zero_r2);
     
@@ -80,6 +108,14 @@ struct Pixel16 {
     return *this;
   }
 
+  /**
+   * @brief Scales every channel by a float factor (saturated).
+   * @param s Scale factor; may be any finite float (NaN maps to the hi bound).
+   * @return A new pixel with each channel clamped to [0, 65535].
+   * @details Clamps in float before the cast because r*s can exceed INT_MAX,
+   * and float->int conversion is UB out of range; hs::clamp also maps a NaN
+   * scale to the hi bound instead of letting NaN reach the cast.
+   */
   Pixel16 operator*(float s) const {
     // Clamp in float before the cast: r*s can exceed INT_MAX for large s, and
     // float->int conversion is UB out of range, so an int clamp would fire too
@@ -90,25 +126,26 @@ struct Pixel16 {
                    (uint16_t)hs::clamp(b * s, 0.0f, 65535.0f));
   }
 
-  // Lerp (Linear interpolation 16-bit)
+  /**
+   * @brief Linearly interpolates 16-bit between this pixel and another.
+   * @param other Target pixel at frac == 65535.
+   * @param frac Blend weight in [0, 65535]; 0 yields this pixel, 65535 yields other.
+   * @return The interpolated pixel, round-to-nearest per channel.
+   * @details Round-to-nearest div-by-65535 via shifts:
+   *   round(x/65535) == (x + (x>>16) + 32768) >> 16. The (x + (x>>16)) term
+   * reconstructs x*65536/65535 to within <1 LSB; adding half the divisor
+   * (32768) before the >>16 rounds instead of truncating, matching the +0.5f
+   * round-to-nearest parity used by the rest of this file. Still exact at the
+   * endpoints (frac 0/65535 -> a/b) because the bias stays strictly below one
+   * output quantum. The two channel products use plain 32-bit MACs on every
+   * target rather than a packed `smlad`: `smlad` is a *signed* 16x16 dual-MAC,
+   * so any operand >= 32768 reads as negative and the product is wrong across
+   * the upper half of the range. On a Cortex-M7 a `mul` + `mla` per channel is
+   * single-cycle and dual-issuable, so the portable form costs at most a cycle
+   * or two. (The unsigned `uqadd16` in operator+= is fine — only signed
+   * multiply is unsound for unsigned operands.)
+   */
   Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
-    // frac 0..65535
-    // Round-to-nearest div-by-65535 via shifts:
-    //   round(x/65535) == (x + (x>>16) + 32768) >> 16
-    // The (x + (x>>16)) term reconstructs x*65536/65535 to within <1 LSB;
-    // adding half the divisor (32768) before the >>16 rounds instead of
-    // truncating, matching the +0.5f round-to-nearest parity used by the rest
-    // of this file. Still exact at the endpoints (frac 0/65535 -> a/b) because
-    // the bias stays strictly below one output quantum.
-    //
-    // The two channel products use plain 32-bit MACs on every target rather
-    // than a packed `smlad`: `smlad` is a *signed* 16x16 dual-MAC, so any
-    // operand >= 32768 (a frac, an inverse-frac, or a bright channel) reads as
-    // negative and the product is wrong across the upper half of the range. On a
-    // Cortex-M7 a `mul` + `mla` per channel is single-cycle and dual-issuable,
-    // so the portable form costs at most a cycle or two. (The unsigned `uqadd16`
-    // in operator+= is fine — only signed multiply is unsound for unsigned
-    // operands.)
     uint16_t inv = 65535 - frac;
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
@@ -119,18 +156,48 @@ struct Pixel16 {
     return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
   }
 
+  /**
+   * @brief Tests two pixels for exact channel equality.
+   * @param rhs Pixel to compare against.
+   * @return True if all three channels match.
+   */
   bool operator==(const Pixel16 &rhs) const {
     return r == rhs.r && g == rhs.g && b == rhs.b;
   }
 
+  /**
+   * @brief Tests two pixels for channel inequality.
+   * @param rhs Pixel to compare against.
+   * @return True if any channel differs.
+   */
   bool operator!=(const Pixel16 &rhs) const { return !(*this == rhs); }
 
+  /**
+   * @brief Tests equality against an HSV color (converted to Pixel16).
+   * @param rhs Color in HSV space.
+   * @return True if this pixel equals the converted color.
+   */
   bool operator==(const CHSV &rhs) const { return *this == Pixel16(rhs); }
 
+  /**
+   * @brief Tests inequality against an HSV color (converted to Pixel16).
+   * @param rhs Color in HSV space.
+   * @return True if this pixel differs from the converted color.
+   */
   bool operator!=(const CHSV &rhs) const { return !(*this == rhs); }
 
+  /**
+   * @brief Tests equality against a CRGB color (converted to Pixel16).
+   * @param rhs Color in 8-bit sRGB space.
+   * @return True if this pixel equals the converted color.
+   */
   bool operator==(const CRGB &rhs) const { return *this == Pixel16(rhs); }
 
+  /**
+   * @brief Tests inequality against a CRGB color (converted to Pixel16).
+   * @param rhs Color in 8-bit sRGB space.
+   * @return True if this pixel differs from the converted color.
+   */
   bool operator!=(const CRGB &rhs) const { return !(*this == rhs); }
 };
 
@@ -143,16 +210,42 @@ struct Color4 {
   Pixel color;
   float alpha;
 
+  /**
+   * @brief Constructs an opaque black color (alpha 1.0).
+   */
   Color4() : color(Pixel(0, 0, 0)), alpha(1.0f) {}
+  /**
+   * @brief Constructs a color from a Pixel and alpha.
+   * @param p Linear-space pixel color.
+   * @param a Alpha in [0, 1]; defaults to fully opaque.
+   */
   Color4(Pixel p, float a = 1.0f) : color(p), alpha(a) {}
+  /**
+   * @brief Constructs a color from 8-bit sRGB channels and alpha.
+   * @param r Red channel in [0, 255].
+   * @param g Green channel in [0, 255].
+   * @param b Blue channel in [0, 255].
+   * @param a Alpha in [0, 1]; defaults to fully opaque.
+   */
   Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f)
       : color(Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b))),
         alpha(a) {}
+  /**
+   * @brief Constructs a color reusing another's pixel with a new alpha.
+   * @param c Source color whose pixel is copied.
+   * @param a Alpha in [0, 1] to apply.
+   */
   Color4(const Color4 &c, float a) : color(c.color), alpha(a) {}
 
-  /// Interpolate color (16-bit linear) and alpha by t, clamped to [0,1] so an
-  /// out-of-range t saturates both channels at an endpoint rather than letting
-  /// alpha extrapolate while color stays clamped.
+  /**
+   * @brief Interpolates color (16-bit linear) and alpha by t.
+   * @param other Target color at t == 1.
+   * @param t Blend weight; clamped to [0, 1].
+   * @return The interpolated color.
+   * @details t is clamped to [0,1] so an out-of-range t saturates both channels
+   * at an endpoint rather than letting alpha extrapolate while color stays
+   * clamped.
+   */
   Color4 lerp(const Color4 &other, float t) const {
     const float ct = hs::clamp(t, 0.0f, 1.0f);
     uint16_t frac = static_cast<uint16_t>(ct * 65535.0f);
@@ -161,37 +254,73 @@ struct Color4 {
     return Color4(blended, blended_a);
   }
 
+  /**
+   * @brief Adds another color's pixel and alpha into this one.
+   * @param rhs Color to add.
+   * @return Reference to this color after the add.
+   */
   Color4 &operator+=(const Color4 &rhs) {
     color += rhs.color;
     alpha += rhs.alpha;
     return *this;
   }
 
+  /**
+   * @brief Scales both pixel and alpha by a float factor.
+   * @param s Scale factor.
+   * @return Reference to this color after scaling.
+   */
   Color4 &operator*=(float s) {
     color = color * s;
     alpha *= s;
     return *this;
   }
 
+  /**
+   * @brief Converts to 8-bit sRGB CRGB, discarding alpha.
+   * @return The pixel downcast to CRGB.
+   */
   operator CRGB() const { return static_cast<CRGB>(color); }
 };
 
-// hue_rotate is a perceptual (OKLab) rotation; defined after the OKLab
-// conversion helpers below. The (ca, sa) overload takes a precomputed rotation
-// so frame-constant callers can hoist the sin/cos out of the per-pixel loop.
+/**
+ * @brief Perceptual (OKLab) hue rotation with a precomputed rotation.
+ * @param c Source color.
+ * @param ca Cosine of the rotation angle.
+ * @param sa Sine of the rotation angle.
+ * @return The hue-rotated color.
+ * @details Defined after the OKLab conversion helpers below. The (ca, sa)
+ * overload takes a precomputed rotation so frame-constant callers can hoist the
+ * sin/cos out of the per-pixel loop.
+ */
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa);
+/**
+ * @brief Perceptual (OKLab) hue rotation by a turn amount.
+ * @param c Source color.
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color.
+ */
 inline Color4 hue_rotate(const Color4 &c, float amount);
 
 #include "color_luts.h"
 
+/**
+ * @brief Maps an 8-bit sRGB channel value to its 16-bit linear equivalent.
+ * @param srgb sRGB channel value in [0, 255].
+ * @return 16-bit linear channel value from the LUT.
+ */
 inline uint16_t srgb_to_linear(uint8_t srgb) {
   return srgb_to_linear_lut[srgb];
 }
 
-/// sRGB float [0,1] -> 16-bit linear, interpolating the 256-entry LUT.
-/// Lerps between the two bracketing LUT entries by the fractional part of
-/// s*255, so the sRGB->linear step keeps sub-8-bit precision at the cost of a
-/// LUT lookup + lerp (no powf). Input must be in [0,1] (callers clamp).
+/**
+ * @brief sRGB float [0,1] -> 16-bit linear, interpolating the 256-entry LUT.
+ * @param s_srgb sRGB value in [0, 1]; callers must clamp before calling.
+ * @return 16-bit linear channel value.
+ * @details Lerps between the two bracketing LUT entries by the fractional part
+ * of s*255, so the sRGB->linear step keeps sub-8-bit precision at the cost of a
+ * LUT lookup + lerp (no powf).
+ */
 inline uint16_t srgb_to_linear_interp(float s_srgb) {
   float f = s_srgb * 255.0f; // [0, 255]
   // The contract is [0,1], but a negative input would make (int)f negative — an
@@ -208,6 +337,10 @@ inline uint16_t srgb_to_linear_interp(float s_srgb) {
   return static_cast<uint16_t>(lo + (hi - lo) * frac + 0.5f);
 }
 
+/**
+ * @brief Lossy 16-bit-linear -> 8-bit-sRGB downcast via the LUT.
+ * @return The color quantized to an 8-bit sRGB CRGB.
+ */
 inline Pixel16::operator CRGB() const {
   return CRGB(linear_to_srgb_lut[r], linear_to_srgb_lut[g],
               linear_to_srgb_lut[b]);
@@ -272,12 +405,16 @@ inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
 #endif
 }
 
-/// Returns a blend functor that lerps c1->c2 by alpha `a` (0..1).
+/**
+ * @brief Returns a blend functor that lerps c1->c2 by alpha.
+ * @param a Blend weight in [0, 1]; NaN maps to the hi bound.
+ * @return A functor taking (c1, c2) Pixels and returning the lerped Pixel.
+ * @details Clamps in float before the cast, mirroring Pixel16::operator*:
+ * casting an unclamped a*65535 to int is UB when a is NaN or overflows int.
+ * Truncation (no rounding bias) is intentional here.
+ */
 inline auto blend_alpha(float a) {
-  // Clamp in float before the cast, mirroring Pixel16::operator*: casting an
-  // unclamped a*65535 to int is UB when a is NaN or overflows int. hs::clamp is
-  // a hardware min/max that also maps NaN to the hi bound. Truncation (no
-  // rounding bias) is intentional here.
+  // hs::clamp is a hardware min/max that also maps NaN to the hi bound.
   uint16_t ai = (uint16_t)hs::clamp(a * 65535.0f, 0.0f, 65535.0f);
   return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
@@ -330,24 +467,53 @@ enum class SaturationProfile { PASTEL, MID, VIBRANT };
  */
 struct CPixel {
   uint8_t r, g, b;
+  /**
+   * @brief Constructs a black CPixel (all channels zero).
+   */
   constexpr CPixel() : r(0), g(0), b(0) {}
+  /**
+   * @brief Constructs a CPixel from explicit 8-bit channels.
+   * @param r Red channel in [0, 255].
+   * @param g Green channel in [0, 255].
+   * @param b Blue channel in [0, 255].
+   */
   constexpr CPixel(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
+  /**
+   * @brief Constructs a CPixel from a packed 0xRRGGBB hex value.
+   * @param hex Packed color; bits 16-23 red, 8-15 green, 0-7 blue.
+   */
   constexpr CPixel(uint32_t hex)
       : r((hex >> 16) & 0xFF), g((hex >> 8) & 0xFF), b(hex & 0xFF) {}
+  /**
+   * @brief Constructs a CPixel from a FastLED CRGB.
+   * @param c Source color in 8-bit sRGB space.
+   */
   CPixel(const CRGB &c) : r(c.r), g(c.g), b(c.b) {}
 
-  // Convert to FastLED CRGB (Pixel)
+  /**
+   * @brief Converts to a 16-bit linear Pixel via CRGB.
+   * @return The color promoted to linear-space Pixel.
+   */
   operator Pixel() const { return CRGB(r, g, b); }
 };
 
-// Helper for high-precision conversion (sRGB float 0-1 -> Linear float 0-1)
-// Not constexpr: powf is not a constant expression, so a constexpr marking here
-// could never be evaluated at compile time (ill-formed NDR). inline for ODR.
+/**
+ * @brief High-precision sRGB float [0,1] -> linear float [0,1].
+ * @param s sRGB value in [0, 1].
+ * @return Linear value in [0, 1].
+ * @details Not constexpr: powf is not a constant expression, so a constexpr
+ * marking here could never be evaluated at compile time (ill-formed NDR).
+ * inline for ODR.
+ */
 inline float srgb_to_linear_float(float s) {
   return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
 }
 
-// Inverse: Linear float 0-1 -> sRGB float 0-1
+/**
+ * @brief Inverse: linear float [0,1] -> sRGB float [0,1].
+ * @param l Linear value in [0, 1].
+ * @return sRGB value in [0, 1].
+ */
 inline float linear_to_srgb_float(float l) {
   return (l <= 0.0031308f) ? l * 12.92f : 1.055f * powf(l, 1.0f / 2.4f) - 0.055f;
 }
@@ -356,10 +522,22 @@ inline float linear_to_srgb_float(float l) {
 // OKLab / OKLCH Color Space (Björn Ottosson, 2020)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+/**
+ * @brief OKLab perceptual color: lightness L and chroma axes a, b.
+ */
 struct OKLab { float L, a, b; };
+/**
+ * @brief OKLCH polar color: lightness L, chroma C, hue h (radians).
+ */
 struct OKLCH { float L, C, h; };
 
-/// Linear RGB [0,1] -> OKLab
+/**
+ * @brief Converts linear RGB [0,1] to OKLab.
+ * @param r Linear red in [0, 1].
+ * @param g Linear green in [0, 1].
+ * @param b Linear blue in [0, 1].
+ * @return The color in OKLab space.
+ */
 inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
   float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
   float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
@@ -372,7 +550,13 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
           0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_};
 }
 
-/// OKLab -> Linear RGB [0,1]
+/**
+ * @brief Converts OKLab to linear RGB [0,1].
+ * @param lab Source color in OKLab space.
+ * @param r Out: linear red in [0, 1] (may exit gamut before clamping).
+ * @param g Out: linear green in [0, 1].
+ * @param b Out: linear blue in [0, 1].
+ */
 inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
   float l_ = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
   float m_ = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
@@ -385,27 +569,33 @@ inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
   b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
 }
 
-/// Quantize a [0,1] linear channel to a 16-bit Pixel component. Clamps, then
-/// rounds (+0.5f) rather than truncating — truncation would bias every channel
-/// down by up to ~1/65535. Shared by the float->Pixel helpers below
-/// (oklch_to_pixel, srgb_to_linear_interp).
+/**
+ * @brief Quantizes a [0,1] linear channel to a 16-bit Pixel component.
+ * @param v Linear channel value; clamped to [0, 1].
+ * @return The channel as a 16-bit value in [0, 65535].
+ * @details Clamps, then rounds (+0.5f) rather than truncating — truncation
+ * would bias every channel down by up to ~1/65535. Shared by the float->Pixel
+ * helpers below (oklch_to_pixel, srgb_to_linear_interp).
+ */
 inline uint16_t float_to_pixel16(float v) {
   return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
 /**
- * @brief Perceptual hue rotation of a Color4 (amount: 0..1 = full turn).
- *
- * Rotates the (a,b) chroma plane in the OKLab perceptual color space, which
- * preserves perceived lightness (L) and chroma (sqrt(a^2+b^2)) across the
+ * @brief Perceptual hue rotation of a Color4 with a precomputed rotation.
+ * @param c Source color.
+ * @param ca Cosine of the rotation angle.
+ * @param sa Sine of the rotation angle.
+ * @return The hue-rotated color, gamut-clamped to 16-bit linear.
+ * @details Rotates the (a,b) chroma plane in the OKLab perceptual color space,
+ * which preserves perceived lightness (L) and chroma (sqrt(a^2+b^2)) across the
  * shift. A linear-RGB rotation cannot: its equal angular steps are not
- * perceptually uniform and its perceived brightness drifts with hue.
- *
- * Hot path: this is the default feedback color transform (Feedback::hue_fade,
- * run per pixel every frame) and Flyby's per-pixel shader. To stay affordable,
- * the forward linear->OKLab nonlinearity uses fast_cbrt (~2e-5 rel error)
- * while the inverse is exact cubes, and the shift is a direct 2D rotation of
- * (a,b) — no atan2/sqrt of a full OKLCH polar round-trip.
+ * perceptually uniform and its perceived brightness drifts with hue. Hot path:
+ * this is the default feedback color transform (Feedback::hue_fade, run per
+ * pixel every frame) and Flyby's per-pixel shader. To stay affordable, the
+ * forward linear->OKLab nonlinearity uses fast_cbrt (~2e-5 rel error) while the
+ * inverse is exact cubes, and the shift is a direct 2D rotation of (a,b) — no
+ * atan2/sqrt of a full OKLCH polar round-trip.
  */
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   constexpr float INV16 = 1.0f / 65535.0f;
@@ -440,29 +630,49 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   return result;
 }
 
-// Convenience overload: rotate by `amount` turns, computing the rotation per
-// call. On hot paths where `amount` is constant across the frame (the default
-// Feedback::hue_fade) call the (ca, sa) overload with values hoisted out of the
-// per-pixel loop instead (Style::sync_hue populates Style::hue_ca / hue_sa).
-// Callers with a genuinely per-fragment amount (Flyby) use this overload.
+/**
+ * @brief Convenience overload: hue-rotate by `amount` turns.
+ * @param c Source color.
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color.
+ * @details Computes the rotation per call. On hot paths where `amount` is
+ * constant across the frame (the default Feedback::hue_fade) call the (ca, sa)
+ * overload with values hoisted out of the per-pixel loop instead
+ * (Style::sync_hue populates Style::hue_ca / hue_sa). Callers with a genuinely
+ * per-fragment amount (Flyby) use this overload.
+ */
 inline Color4 hue_rotate(const Color4 &c, float amount) {
   float angle = amount * (2.0f * PI_F);
   return hue_rotate(c, fast_cosf(angle), fast_sinf(angle));
 }
 
-/// OKLab (Cartesian a,b) -> OKLCH (polar chroma C, hue h in radians).
+/**
+ * @brief Converts OKLab (Cartesian a,b) to OKLCH (polar C, h).
+ * @param lab Source color in OKLab space.
+ * @return The color in OKLCH space; hue h in radians.
+ */
 inline OKLCH oklab_to_oklch(OKLab lab) {
   float C = sqrtf(lab.a * lab.a + lab.b * lab.b);
   float h = atan2f(lab.b, lab.a);
   return {lab.L, C, h};
 }
 
-/// OKLCH (polar) -> OKLab (Cartesian).
+/**
+ * @brief Converts OKLCH (polar) to OKLab (Cartesian).
+ * @param lch Source color in OKLCH space.
+ * @return The color in OKLab space.
+ */
 inline OKLab oklch_to_oklab(OKLCH lch) {
   return {lch.L, lch.C * cosf(lch.h), lch.C * sinf(lch.h)};
 }
 
-/// sRGB [0-255] -> OKLCH (convenience)
+/**
+ * @brief Convenience: sRGB [0-255] channels to OKLCH.
+ * @param r Red channel in [0, 255].
+ * @param g Green channel in [0, 255].
+ * @param b Blue channel in [0, 255].
+ * @return The color in OKLCH space.
+ */
 inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
   float rf = srgb_to_linear_float(r / 255.0f);
   float gf = srgb_to_linear_float(g / 255.0f);
@@ -470,14 +680,29 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
   return oklab_to_oklch(linear_rgb_to_oklab(rf, gf, bf));
 }
 
-/// OKLCH -> 16-bit linear Pixel (gamut-clamped)
+/**
+ * @brief Converts OKLCH to a 16-bit linear Pixel (gamut-clamped).
+ * @param lch Source color in OKLCH space.
+ * @return The color as a linear-space Pixel.
+ */
 inline Pixel oklch_to_pixel(OKLCH lch) {
   float r, g, b;
   oklab_to_linear_rgb(oklch_to_oklab(lch), r, g, b);
   return Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
 }
 
-/// Interpolate two OKLCH colors (shortest-arc hue)
+/**
+ * @brief Interpolates two OKLCH colors along the shortest-arc hue.
+ * @param a Start color at t == 0.
+ * @param b End color at t == 1.
+ * @param t Blend weight; may extrapolate outside [0, 1].
+ * @return The interpolated OKLCH color with L and C clamped valid.
+ * @details An extrapolated t (reachable via the unbounded
+ * GenerativePalette::lerp / ColorWipe paths) can overshoot a valid endpoint
+ * into an invalid OKLCH: negative L renders near-black, negative C flips the
+ * hue 180°. In-range t is unaffected since both endpoints are already valid.
+ * Hue is left free to wrap.
+ */
 inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
   // Handle achromatic cases (near-zero chroma)
   float h;
@@ -494,24 +719,32 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
     if (dh < -PI_F) dh += 2.0f * PI_F;
     h = a.h + dh * t;
   }
-  // Clamp the magnitude channels. An extrapolated t (amount outside [0,1],
-  // reachable via the unbounded GenerativePalette::lerp / ColorWipe paths) can
-  // overshoot a valid endpoint into an invalid OKLCH: negative L renders
-  // near-black, negative C flips the hue 180°. In-range t is unaffected since
-  // both endpoints are already valid. Hue is left free to wrap.
+  // Clamp the magnitude channels (see @details); hue is left free to wrap.
   float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
   float C = __builtin_fmaxf(0.0f, a.C + (b.C - a.C) * t);
   return {L, C, h};
 }
 
-/// Interpolate two sRGB CPixels in OKLCH space -> 16-bit linear Pixel
+/**
+ * @brief Interpolates two sRGB CPixels in OKLCH space to a 16-bit linear Pixel.
+ * @param c1 Start color at t == 0.
+ * @param c2 End color at t == 1.
+ * @param t Blend weight.
+ * @return The interpolated color as a linear-space Pixel.
+ */
 inline Pixel lerp_oklch(const CPixel &c1, const CPixel &c2, float t) {
   OKLCH a = srgb_to_oklch(c1.r, c1.g, c1.b);
   OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
   return oklch_to_pixel(lerp_oklch(a, b, t));
 }
 
-/// Interpolate two sRGB CPixels in OKLCH space -> sRGB CPixel
+/**
+ * @brief Interpolates two sRGB CPixels in OKLCH space to an sRGB CPixel.
+ * @param c1 Start color at t == 0.
+ * @param c2 End color at t == 1.
+ * @param t Blend weight.
+ * @return The interpolated color as an 8-bit sRGB CPixel.
+ */
 inline CPixel lerp_oklch_srgb(const CPixel &c1, const CPixel &c2, float t) {
   OKLCH a = srgb_to_oklch(c1.r, c1.g, c1.b);
   OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
@@ -524,11 +757,22 @@ inline CPixel lerp_oklch_srgb(const CPixel &c1, const CPixel &c2, float t) {
     static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(b_val, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)));
 }
 
-/// Abstract base for all palettes. Provides a uniform interface for color
-/// lookup, replacing std::variant + std::visit with a single vtable pointer.
+/**
+ * @brief Abstract base for all palettes.
+ * @details Provides a uniform interface for color lookup, replacing
+ * std::variant + std::visit with a single vtable pointer.
+ */
 class Palette {
 public:
+  /**
+   * @brief Samples the palette at a coordinate.
+   * @param t Lookup coordinate, conventionally in [0, 1].
+   * @return The color at t.
+   */
   virtual Color4 get(float t) const = 0;
+  /**
+   * @brief Virtual destructor for polymorphic deletion.
+   */
   virtual ~Palette() = default;
 };
 
@@ -541,6 +785,16 @@ class Gradient : public Palette {
 public:
   Pixel entries[256];
 
+  /**
+   * @brief Builds the 256-entry LUT by interpolating between color stops.
+   * @param points Sorted-ascending (position in [0,1], color) stops.
+   * @details Stop positions index entries[256] via static_cast<int>(pos * 255);
+   * a pos outside [0,1] is an out-of-bounds write into the table, and segments
+   * are only filled when end > start, so a transposed/unsorted pair would
+   * silently degenerate. Gradient literals are authored once at construction
+   * (cold), so the bounds and ordering are trapped always-on rather than
+   * corrupting adjacent memory or rendering wrong under NDEBUG on-device.
+   */
   Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
     Pixel black(0, 0, 0);
     for (int i = 0; i < 256; i++)
@@ -549,14 +803,8 @@ public:
     if (points.size() == 0)
       return;
 
-    // Stop positions index entries[256] via static_cast<int>(pos * 255); a pos
-    // outside [0,1] is an out-of-bounds write into the table. Gradient literals
-    // are authored once at construction (cold), so trap always-on rather than
-    // corrupt adjacent memory under NDEBUG on-device.
-    // Segments are only filled when end > start (see below), so a descending or
-    // unsorted list silently degenerates to fill-start abutting fill-end. The
-    // table is authored as "a sorted list of (position, color) stops", so trap a
-    // transposed pair at construction rather than rendering wrong.
+    // Trap out-of-range or unsorted stops always-on at construction (see
+    // @details) rather than corrupting the table or rendering wrong.
     float prevCheck = -1.0f;
     for (const auto &stop : points) {
       HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f,
@@ -617,9 +865,13 @@ public:
       entries[i] = lastLinear;
   }
 
-  /// LUT lookup with linear interpolation between adjacent entries, mirroring
-  /// BakedPalette::get — the engine's premise is smooth 16-bit gradients, so a
-  /// nearest-index lookup would band visibly at low t resolution.
+  /**
+   * @brief LUT lookup with linear interpolation between adjacent entries.
+   * @param t Lookup coordinate; clamped to [0, 1].
+   * @return The interpolated color (alpha 1.0).
+   * @details The engine's premise is smooth 16-bit gradients, so a
+   * nearest-index lookup would band visibly at low t resolution.
+   */
   Color4 get(float t) const override {
     // Clamp before scaling: t > 1 would index past the table and t < 0 is UB for
     // the float->int conversion. After the clamp idx is in [0,255], so lo is a
@@ -635,6 +887,9 @@ public:
                   1.0f);
   }
 
+  /**
+   * @brief Destroys the gradient (LUT is an inline member; nothing to free).
+   */
   ~Gradient() {}
 };
 
@@ -644,13 +899,23 @@ public:
  */
 class GenerativePalette : public Palette {
 public:
+  /**
+   * @brief Default-constructs a straight, analogous, flat-brightness palette.
+   */
   GenerativePalette()
       : GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                           BrightnessProfile::FLAT) {}
 
-  /// Build a 3-key palette from a base hue, a harmony rule, and brightness/
-  /// saturation profiles. The base hue comes from manual_seed when >= 0, else
-  /// from the global golden-ratio hue cursor (which is then advanced).
+  /**
+   * @brief Builds a 3-key palette from a base hue, harmony, and profiles.
+   * @param gradient_shape Shape/distribution of colors across the domain.
+   * @param harmony_type Harmony rule deriving the two companion hues.
+   * @param profile Brightness profile across the domain.
+   * @param sat_profile Saturation profile; defaults to MID.
+   * @param manual_seed Base hue in [0, 255] when >= 0, else -1 to auto-seed.
+   * @details The base hue comes from manual_seed when >= 0, else from the global
+   * golden-ratio hue cursor (which is then advanced).
+   */
   GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
                     BrightnessProfile profile,
                     SaturationProfile sat_profile = SaturationProfile::MID,
@@ -721,9 +986,11 @@ public:
     update_stops();
   }
 
-  /// Rebuild the stop positions/colors for the current gradient_shape from the
-  /// three keys a/b/c, then cache their OKLCH forms for get(). Call after any
-  /// change to a/b/c or gradient_shape.
+  /**
+   * @brief Rebuilds stop positions/colors for the current gradient_shape.
+   * @details Derives the stops from the three keys a/b/c, then caches their
+   * OKLCH forms for get(). Call after any change to a/b/c or gradient_shape.
+   */
   void update_stops() {
     const CPixel vignette_color(0, 0, 0);
     switch (gradient_shape) {
@@ -752,21 +1019,37 @@ public:
       colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
   }
 
-  /// Lightweight snapshot of just the 3 color keys (9 bytes).
+  /**
+   * @brief Lightweight snapshot of just the 3 color keys (9 bytes).
+   */
   struct Snapshot {
     CPixel a, b, c;
   };
 
+  /**
+   * @brief Captures the current three color keys.
+   * @return A Snapshot of keys a, b, c.
+   */
   Snapshot snapshot() const { return {a, b, c}; }
 
-  /// Set this palette's keys to the OKLCH interpolation between two palettes.
+  /**
+   * @brief Sets this palette's keys to the OKLCH interpolation of two palettes.
+   * @param from Source palette at amount == 0.
+   * @param to Source palette at amount == 1.
+   * @param amount Blend weight.
+   */
   void lerp(const GenerativePalette &from, const GenerativePalette &to,
             float amount) {
     lerp(from.snapshot(), to.snapshot(), amount);
   }
 
-  /// Set this palette's keys to the per-key OKLCH interpolation between two
-  /// snapshots, then rebuild the stops.
+  /**
+   * @brief Sets keys to the per-key OKLCH interpolation of two snapshots.
+   * @param from Source snapshot at amount == 0.
+   * @param to Source snapshot at amount == 1.
+   * @param amount Blend weight.
+   * @details Rebuilds the stops after interpolating.
+   */
   void lerp(const Snapshot &from, const Snapshot &to, float amount) {
     a = lerp_oklch_srgb(from.a, to.a, amount);
     b = lerp_oklch_srgb(from.b, to.b, amount);
@@ -774,6 +1057,11 @@ public:
     update_stops();
   }
 
+  /**
+   * @brief Samples the generated palette at a coordinate.
+   * @param t Lookup coordinate; clamped to [0, 1] (NaN folds to 1.0).
+   * @return The color at t (alpha 1.0).
+   */
   Color4 get(float t) const override {
     // Clamp to [0,1] like Gradient::get / BakedPalette::get. Without this a
     // t < shape[0] (=0) matches no segment and falls through to the size-2
@@ -810,11 +1098,21 @@ public:
   }
 
 private:
-  /// Wrap an integer hue into [0,255], correct for negative inputs.
+  /**
+   * @brief Wraps an integer hue into [0,255], correct for negative inputs.
+   * @param hue Hue value to wrap; may be negative.
+   * @return The hue reduced to [0, 255].
+   */
   uint8_t wrap_hue(int hue) const { return (hue % 256 + 256) % 256; }
 
-  /// Derive the two companion hues (h2, h3) from base hue h1 per the chosen
-  /// harmony. Some harmonies add randomized jitter, so output is not pure.
+  /**
+   * @brief Derives the two companion hues from base hue h1 per a harmony.
+   * @param h1 Base hue in [0, 255].
+   * @param h2 Out: first companion hue.
+   * @param h3 Out: second companion hue.
+   * @param harmony_type Harmony rule selecting the offsets.
+   * @details Some harmonies add randomized jitter, so output is not pure.
+   */
   void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
                  HarmonyType harmony_type) const {
     const int h1_int = h1;
@@ -854,22 +1152,28 @@ private:
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<CPixel, 5> colors;
-  // OKLCH forms of `colors`, cached by update_stops() so the per-sample get()
-  // hot path skips the sRGB->OKLCH conversion (6 powf + 6 cbrtf + 2 atan2f per
-  // stop). The stops change only on construction and in lerp(), both of which
-  // route through update_stops(), so this stays in sync.
+  /**
+   * @brief OKLCH forms of `colors`, cached by update_stops().
+   * @details Lets the per-sample get() hot path skip the sRGB->OKLCH conversion
+   * (6 powf + 6 cbrtf + 2 atan2f per stop). The stops change only on
+   * construction and in lerp(), both of which route through update_stops(), so
+   * this stays in sync.
+   */
   std::array<OKLCH, 5> colors_oklch;
   int size = 0;
 
 public:
+  /**
+   * @brief Trivial constexpr destructor.
+   */
   constexpr ~GenerativePalette() {}
 
   /**
-   * @brief Pin the global generative-hue cursor.
-   *
-   * Auto-seeded palettes draw their base hue from `g_hue_seed` and advance it
-   * (golden-ratio step) so successive palettes across the live show keep
-   * evolving — deliberately stateful, never reset in production. The test
+   * @brief Pins the global generative-hue cursor.
+   * @param seed Hue value in [0, 255] to set the cursor to; defaults to 0.
+   * @details Auto-seeded palettes draw their base hue from `g_hue_seed` and
+   * advance it (golden-ratio step) so successive palettes across the live show
+   * keep evolving — deliberately stateful, never reset in production. The test
    * harness calls this to restore identical global state before re-rendering an
    * effect, so a cross-run determinism check is not defeated by the drift. Does
    * not affect production, which never invokes it.
@@ -883,12 +1187,31 @@ public:
  */
 class ProceduralPalette : public Palette {
 public:
+  /**
+   * @brief Default-constructs a palette with all-zero cosine coefficients.
+   */
   constexpr ProceduralPalette()
       : a{0, 0, 0}, b{0, 0, 0}, c{0, 0, 0}, d{0, 0, 0} {}
+  /**
+   * @brief Constructs from the four cosine coefficient vectors.
+   * @param a Bias term per RGB channel.
+   * @param b Amplitude per RGB channel.
+   * @param c Frequency per RGB channel.
+   * @param d Phase per RGB channel.
+   */
   constexpr ProceduralPalette(std::array<float, 3> a, std::array<float, 3> b,
                               std::array<float, 3> c, std::array<float, 3> d)
       : a(a), b(b), c(c), d(d) {}
 
+  /**
+   * @brief Evaluates the cosine palette at a coordinate.
+   * @param t Lookup coordinate.
+   * @return The color at t (alpha 1.0).
+   * @details Determines color in high-precision float sRGB space first, then
+   * converts to 16-bit linear via the interpolated LUT — avoids the 8-bit
+   * quantization a plain srgb_to_linear(uint8_t) lookup would impose, without a
+   * per-channel powf.
+   */
   Color4 get(float t) const override {
     // Determine color in high-precision float sRGB space first, then convert to
     // 16-bit linear via the interpolated LUT — avoids the 8-bit quantization a
@@ -910,6 +1233,9 @@ protected:
   std::array<float, 3> a, b, c, d;
 
 public:
+  /**
+   * @brief Trivial constexpr destructor.
+   */
   constexpr ~ProceduralPalette() {}
 };
 
@@ -919,6 +1245,18 @@ public:
  */
 class MutatingPalette : public ProceduralPalette {
 public:
+  /**
+   * @brief Constructs from two endpoint cosine parameter sets.
+   * @param a1 Start bias per channel.
+   * @param b1 Start amplitude per channel.
+   * @param c1 Start frequency per channel.
+   * @param d1 Start phase per channel.
+   * @param a2 End bias per channel.
+   * @param b2 End amplitude per channel.
+   * @param c2 End frequency per channel.
+   * @param d2 End phase per channel.
+   * @details Initializes the active parameters to the start set (mutate(0)).
+   */
   MutatingPalette(std::array<float, 3> a1, std::array<float, 3> b1,
                   std::array<float, 3> c1, std::array<float, 3> d1,
                   std::array<float, 3> a2, std::array<float, 3> b2,
@@ -928,8 +1266,10 @@ public:
     mutate(0.0f);
   }
 
-  /// Set the active cosine parameters to the t-interpolation (t in [0,1])
-  /// between the two endpoint parameter sets, blending one palette into another.
+  /**
+   * @brief Sets the active cosine parameters to the endpoint interpolation.
+   * @param t Blend weight in [0, 1] between the start and end parameter sets.
+   */
   void mutate(float t) {
     for (int i = 0; i < 3; ++i) {
       a[i] = lerp(a1[i], a2[i], t);
@@ -940,11 +1280,21 @@ public:
   }
 
 private:
+  /**
+   * @brief Linearly interpolates between two scalars.
+   * @param x Value at t == 0.
+   * @param y Value at t == 1.
+   * @param t Blend weight.
+   * @return The interpolated value.
+   */
   float lerp(float x, float y, float t) { return x * (1.0f - t) + y * t; }
   std::array<float, 3> a1, b1, c1, d1;
   std::array<float, 3> a2, b2, c2, d2;
 
 public:
+  /**
+   * @brief Trivial constexpr destructor.
+   */
   constexpr ~MutatingPalette() {}
 };
 
@@ -963,8 +1313,17 @@ public:
 struct CycleModifier {
   const float *offset;
 
+  /**
+   * @brief Constructs with an optional offset driver.
+   * @param driver_offset Pointer to the per-frame offset, or null for static.
+   */
   CycleModifier(const float *driver_offset = nullptr) : offset(driver_offset) {}
 
+  /**
+   * @brief Shifts the coordinate by the driver offset (pass-through if null).
+   * @param t Input coordinate.
+   * @return t plus the offset, or t unchanged when no driver is bound.
+   */
   float modify(float t) const { return offset ? t + *offset : t; }
 };
 
@@ -974,22 +1333,35 @@ struct CycleModifier {
 struct BreatheModifier {
   const float *phase;
   float amplitude;
-  // Per-instance memo of fast_sinf(*phase). *phase is a frame-constant driver,
-  // so the sine is recomputed only when it advances (once per frame) rather
-  // than for every pixel. mutable: modify() is const but the memo is not part
-  // of the modifier's observable value.
+  /**
+   * @brief Per-instance memo of fast_sinf(*phase).
+   * @details *phase is a frame-constant driver, so the sine is recomputed only
+   * when it advances (once per frame) rather than for every pixel. mutable:
+   * modify() is const but the memo is not part of the modifier's observable
+   * value.
+   */
   mutable float cached_phase_ = 0.0f;
-  mutable float cached_sin_ = 0.0f;
-  mutable bool primed_ = false;
+  mutable float cached_sin_ = 0.0f;   /**< Memoized sine of cached_phase_. */
+  mutable bool primed_ = false;       /**< Whether the memo has been populated. */
 
+  /**
+   * @brief Constructs with a mandatory phase driver and amplitude.
+   * @param driver_phase Pointer to the per-frame phase; must not be null.
+   * @param amp Oscillation amplitude; defaults to 0.1.
+   * @details The phase driver is mandatory (no default): a null one would
+   * silently freeze the breathe with no diagnostic. Trap at construction (cold
+   * path) so the per-pixel modify() can dereference unconditionally.
+   */
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
       : phase(driver_phase), amplitude(amp) {
-    // The phase driver is mandatory (no default): a null one would silently
-    // freeze the breathe with no diagnostic. Trap at construction (cold path)
-    // so the per-pixel modify() can dereference unconditionally.
     HS_CHECK(phase, "BreatheModifier: phase driver must not be null");
   }
 
+  /**
+   * @brief Oscillates the coordinate by amplitude * sin(phase).
+   * @param t Input coordinate.
+   * @return t plus the memoized oscillation term.
+   */
   float modify(float t) const {
     if (!primed_ || *phase != cached_phase_) {
       cached_phase_ = *phase;
@@ -1010,15 +1382,26 @@ struct RippleModifier {
   float frequency;
   float amplitude;
 
+  /**
+   * @brief Constructs with a mandatory phase driver, frequency, and amplitude.
+   * @param phase Pointer to the per-frame phase; must not be null.
+   * @param freq Spatial frequency of the ripple; defaults to 3.0.
+   * @param amp Distortion amplitude; defaults to 0.1.
+   * @details Mandatory phase driver (no default) — trap a null one at
+   * construction rather than silently passing t through on every pixel.
+   */
   RippleModifier(const float *phase, float freq = 3.0f, float amp = 0.1f)
       : phase(phase), frequency(freq), amplitude(amp) {
-    // Mandatory phase driver (no default) — trap a null one at construction
-    // rather than silently passing t through on every pixel.
     HS_CHECK(phase, "RippleModifier: phase driver must not be null");
   }
 
+  /**
+   * @brief Distorts the coordinate with a sine wave of the given frequency.
+   * @param t Input coordinate.
+   * @return t plus the local sine distortion.
+   */
   float modify(float t) const {
-    // Calculate a local distortion based on the current t position
+    // Calculate a local distortion based on the current t position.
     return t + sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
   }
 };
@@ -1035,9 +1418,19 @@ struct FoldModifier {
   const float *phase;
   float folds;
 
+  /**
+   * @brief Constructs with a fold count and optional phase driver.
+   * @param folds Number of bounces; defaults to 2.0 (one full bounce).
+   * @param phase Pointer to an optional phase offset, or null for none.
+   */
   FoldModifier(float folds = 2.0f, const float *phase = nullptr)
       : phase(phase), folds(folds) {}
 
+  /**
+   * @brief Folds the coordinate back and forth via a triangle wave.
+   * @param t Input coordinate.
+   * @return The folded coordinate in [0, 1].
+   */
   float modify(float t) const {
     float shift = phase ? *phase : 0.0f;
     float scaled = (t * folds) + shift;
@@ -1062,10 +1455,19 @@ struct FoldModifier {
  * CycleModifier/FoldModifier).
  */
 struct PinchModifier {
-  const float *tension; // Expects roughly -0.9 to 0.9
+  const float *tension; /**< Pinch tension driver; expects roughly -0.9 to 0.9. */
 
+  /**
+   * @brief Constructs with an optional tension driver.
+   * @param t Pointer to the tension value, or null for pass-through.
+   */
   PinchModifier(const float *t = nullptr) : tension(t) {}
 
+  /**
+   * @brief Pinches or expands the coordinate around the domain center.
+   * @param t Input coordinate.
+   * @return The reshaped coordinate, or t unchanged when no driver is bound.
+   */
   float modify(float t) const {
     if (!tension)
       return t;
@@ -1096,15 +1498,25 @@ struct QuantizeModifier {
   const float *dynamic_steps;
   float base_steps;
 
+  /**
+   * @brief Constructs with a base step count and optional dynamic driver.
+   * @param steps Base number of quantization steps.
+   * @param d_steps Pointer to an animated step count, or null to use base.
+   */
   QuantizeModifier(float steps, const float *d_steps = nullptr)
       : dynamic_steps(d_steps), base_steps(steps) {}
 
+  /**
+   * @brief Snaps the coordinate to the nearest of N steps.
+   * @param t Input coordinate.
+   * @return The quantized coordinate.
+   */
   float modify(float t) const {
     float s = dynamic_steps ? *dynamic_steps : base_steps;
     if (s < 1.0f)
       s = 1.0f;
 
-    // Round to nearest step in the infinite domain
+    // Round to nearest step in the infinite domain.
     return roundf(t * s) / s;
   }
 };
@@ -1117,31 +1529,67 @@ struct ScaleModifier {
   const float *dynamic_scale;
   float base_scale;
 
+  /**
+   * @brief Constructs with a base scale and optional dynamic driver.
+   * @param s Base scale factor; defaults to 1.0.
+   * @param d_scale Pointer to an animated scale, or null to use base.
+   */
   ScaleModifier(float s = 1.0f, const float *d_scale = nullptr)
       : dynamic_scale(d_scale), base_scale(s) {}
 
+  /**
+   * @brief Multiplies the coordinate by the active scale.
+   * @param t Input coordinate.
+   * @return The scaled coordinate.
+   */
   float modify(float t) const {
     return t * (dynamic_scale ? *dynamic_scale : base_scale);
   }
 };
 
-/// @brief Reverses the palette coordinate (t -> 1 - t).
+/**
+ * @brief Reverses the palette coordinate (t -> 1 - t).
+ */
 struct ReverseModifier {
+  /**
+   * @brief Reverses the coordinate.
+   * @param t Input coordinate.
+   * @return 1 - t.
+   */
   float modify(float t) const { return 1.0f - t; }
 };
 
-/// @brief Mirrors the coordinate so [0,1] maps to [0,1,0] — one symmetric
-/// bounce, for a seamless loop.
+/**
+ * @brief Mirrors the coordinate so [0,1] maps to [0,1,0].
+ * @details One symmetric bounce, for a seamless loop.
+ */
 struct MirrorModifier {
+  /**
+   * @brief Mirrors the coordinate into a symmetric bounce.
+   * @param t Input coordinate.
+   * @return The mirrored coordinate in [0, 1].
+   */
   float modify(float t) const { return 1.0f - fabsf(2.0f * t - 1.0f); }
 };
 
-/// @brief Compresses the source domain into an inset window [lo, hi] -> [0, 1],
-/// clamping outside so t below lo samples the first stop and t above hi the
-/// last. Pairs with EdgeFadeShade / EdgeAlphaShade to build vignettes.
+/**
+ * @brief Compresses the source domain into an inset window [lo, hi] -> [0, 1].
+ * @details Clamps outside so t below lo samples the first stop and t above hi
+ * the last. Pairs with EdgeFadeShade / EdgeAlphaShade to build vignettes.
+ */
 struct InsetModifier {
   float lo, hi;
+  /**
+   * @brief Constructs the inset window bounds.
+   * @param lo Lower domain bound mapped to 0; defaults to 0.2.
+   * @param hi Upper domain bound mapped to 1; defaults to 0.8.
+   */
   InsetModifier(float lo = 0.2f, float hi = 0.8f) : lo(lo), hi(hi) {}
+  /**
+   * @brief Remaps the coordinate from [lo, hi] into [0, 1], clamping outside.
+   * @param t Input coordinate.
+   * @return The remapped coordinate in [0, 1].
+   */
   float modify(float t) const {
     return hs::clamp((t - lo) / (hi - lo), 0.0f, 1.0f);
   }
@@ -1151,23 +1599,47 @@ struct InsetModifier {
 // Color Modifiers — reshape the sample after the source lookup.
 ///////////////////////////////////////////////////////////////////////////////
 
-/// @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
+/**
+ * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
+ */
 struct AlphaFalloffShade {
   using FalloffFunction = float (*)(float);
   FalloffFunction fn;
+  /**
+   * @brief Constructs with the falloff function.
+   * @param fn Function mapping a coordinate to an alpha multiplier.
+   */
   AlphaFalloffShade(FalloffFunction fn) : fn(fn) {}
+  /**
+   * @brief Scales the sample's alpha by the falloff curve at t.
+   * @param c Sample color to reshape.
+   * @param t Coordinate passed to the falloff function.
+   * @return The sample with alpha scaled.
+   */
   Color4 shade(Color4 c, float t) const {
     c.alpha *= fn(t);
     return c;
   }
 };
 
-/// @brief Fades the sample color to black near the coordinate edges (opaque
-/// vignette). Pair with InsetModifier so the edge bands resolve to the source's
-/// first/last stop before fading.
+/**
+ * @brief Fades the sample color to black near the coordinate edges.
+ * @details Opaque vignette. Pair with InsetModifier so the edge bands resolve
+ * to the source's first/last stop before fading.
+ */
 struct EdgeFadeShade {
   float edge;
+  /**
+   * @brief Constructs with the edge fade width.
+   * @param edge Fraction of the domain over which each edge fades; default 0.2.
+   */
   EdgeFadeShade(float edge = 0.2f) : edge(edge) {}
+  /**
+   * @brief Fades the sample color toward black within the edge bands.
+   * @param c Sample color to reshape.
+   * @param t Coordinate in [0, 1].
+   * @return The sample with its color faded near the edges.
+   */
   Color4 shade(Color4 c, float t) const {
     // Pixel (16-bit linear) black, not CRGB: a CRGB temporary here would bind
     // the low-edge blend to CRGB::lerp16 (quantize -> sRGB lerp -> re-expand),
@@ -1185,11 +1657,23 @@ struct EdgeFadeShade {
   }
 };
 
-/// @brief Fades the sample alpha (not color) near the coordinate edges
-/// (transparent vignette). Pair with InsetModifier as with EdgeFadeShade.
+/**
+ * @brief Fades the sample alpha (not color) near the coordinate edges.
+ * @details Transparent vignette. Pair with InsetModifier as with EdgeFadeShade.
+ */
 struct EdgeAlphaShade {
   float edge;
+  /**
+   * @brief Constructs with the edge fade width.
+   * @param edge Fraction of the domain over which each edge fades; default 0.2.
+   */
   EdgeAlphaShade(float edge = 0.2f) : edge(edge) {}
+  /**
+   * @brief Fades the sample alpha within the edge bands.
+   * @param c Sample color to reshape.
+   * @param t Coordinate in [0, 1].
+   * @return The sample with its alpha faded near the edges.
+   */
   Color4 shade(Color4 c, float t) const {
     if (t < edge)
       c.alpha *= quintic_kernel(t / edge);
@@ -1203,27 +1687,45 @@ struct EdgeAlphaShade {
 // Compile-Time Palette Composition
 ///////////////////////////////////////////////////////////////////////////////
 
-/// Coordinate modifier: any type with a const modify(float)->float method.
-/// Remaps the lookup coordinate before the source is sampled.
+/**
+ * @brief Concept for a coordinate modifier.
+ * @tparam T Type required to expose a const modify(float)->float method.
+ * @details Remaps the lookup coordinate before the source is sampled.
+ */
 template <typename T>
 concept CoordMod = requires(const T m, float t) {
   { m.modify(t) } -> std::convertible_to<float>;
 };
 
-/// Color modifier: any type with a const shade(Color4, float)->Color4 method.
-/// Reshapes the sample after the lookup, with the original coordinate in hand.
+/**
+ * @brief Concept for a color modifier.
+ * @tparam T Type required to expose a const shade(Color4, float)->Color4 method.
+ * @details Reshapes the sample after the lookup, with the original coordinate
+ * in hand.
+ */
 template <typename T>
 concept ColorMod = requires(const T m, Color4 c, float t) {
   { m.shade(c, t) } -> std::convertible_to<Color4>;
 };
 
-/// Type-list tags that separate the two modifier axes in a StaticPalette.
+/**
+ * @brief Type-list tag for the coordinate-modifier axis of a StaticPalette.
+ * @tparam M Coordinate modifier types.
+ */
 template <typename... M> struct Coords {};
+/**
+ * @brief Type-list tag for the color-modifier axis of a StaticPalette.
+ * @tparam M Color modifier types.
+ */
 template <typename... M> struct Colors {};
 
 /**
  * @brief A compile-time composition of a Source palette, a coordinate-modifier
  * chain, and a color-modifier chain.
+ * @tparam Source Source palette type exposing Color4 get(float) const.
+ * @tparam CoordList Coords<> type-list of coordinate modifiers.
+ * @tparam ColorList Colors<> type-list of color modifiers.
+ * @tparam Wrap Whether to wrap the coordinate before sampling the source.
  * @details Default constructible to allow safe wiring in init(). Both chains are
  * inlined by fold expression with zero runtime overhead, following the
  * ArenaVector idiom: default construct, then bind(). get() applies the coord
@@ -1236,25 +1738,36 @@ template <typename Source, typename CoordList = Coords<>,
           typename ColorList = Colors<>, bool Wrap = true>
 class StaticPalette;
 
+/**
+ * @brief Partial specialization splitting the two modifier type-lists.
+ * @tparam Source Source palette type exposing Color4 get(float) const.
+ * @tparam CMods Coordinate modifier types.
+ * @tparam XMods Color modifier types.
+ * @tparam Wrap Whether to wrap the coordinate before sampling the source.
+ */
 template <typename Source, typename... CMods, typename... XMods, bool Wrap>
 class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
   static_assert((CoordMod<CMods> && ...), "Coords<> entries must be CoordMods");
   static_assert((ColorMod<XMods> && ...), "Colors<> entries must be ColorMods");
 
 public:
+  /**
+   * @brief Default-constructs an unbound composition (bind() before use).
+   */
   StaticPalette() = default;
 
+  /**
+   * @brief Binds the source and modifier chains by pointer.
+   * @param src Source palette; must not be null.
+   * @param cms Coordinate-modifier pointers, one per CMods entry; none null.
+   * @param xms Color-modifier pointers, one per XMods entry; none null.
+   * @details Cold wiring (init only): get() guards source_ with a debug-only
+   * assert (stripped on-device), and a null member read does not fault on
+   * Teensy 4.x, so the whole chain is trapped always-on here at the cold seam
+   * (empty packs fold to true) for zero hot-path cost.
+   */
   void bind(const Source *src, const CMods *...cms, const XMods *...xms) {
-    // Cold wiring (init only): the per-pixel get() guards source_ with a
-    // debug-only assert (stripped on-device), so without a trap here a null
-    // source silently dereferences null on hardware. Trap always-on at this
-    // cold seam so the wiring bug faults at the bench, not in the show.
     HS_CHECK(src != nullptr, "StaticPalette bound to null source");
-    // A null modifier is the same wiring-bug class as a null source: get()
-    // dereferences each one per pixel, and a null member read does not fault on
-    // Teensy 4.x (address 0 is readable), so the failure is silent garbage on
-    // the device. Trap the whole chain here at the cold seam (empty packs fold
-    // to true) for zero hot-path cost.
     HS_CHECK(((cms != nullptr) && ...), "StaticPalette bound to null coord modifier");
     HS_CHECK(((xms != nullptr) && ...), "StaticPalette bound to null color modifier");
     source_ = src;
@@ -1262,6 +1775,14 @@ public:
     colors_ = std::make_tuple(xms...);
   }
 
+  /**
+   * @brief Applies the coord chain, samples the source, then the color chain.
+   * @param t Lookup coordinate.
+   * @return The fully modified color.
+   * @details The coord mods remap t in order; the source is sampled (wrapping
+   * the coordinate unless Wrap is false); then the color mods reshape the
+   * sample with the *original* coordinate.
+   */
   Color4 get(float t) const {
     // Per-pixel hot path: debug-only guard, deliberately NOT HS_CHECK (an
     // always-on branch here costs on every pixel on-device).
@@ -1287,6 +1808,7 @@ private:
 
 /**
  * @brief Runtime Palette facade over a compile-time StaticPalette composition.
+ * @tparam SP StaticPalette composition type exposing Color4 get(float) const.
  * @details Bridges a zero-overhead StaticPalette into the polymorphic
  * `const Palette*` world (preset tables, BakedPalette::bake). The virtual call
  * is paid only where a Palette* is required — at bake time (cold) — never on the
@@ -1294,12 +1816,28 @@ private:
  */
 template <typename SP> class PaletteFacade : public Palette {
 public:
+  /**
+   * @brief Default-constructs an unbound facade (bind() before use).
+   */
   PaletteFacade() = default;
+  /**
+   * @brief Constructs a facade bound to a composition.
+   * @param sp Composition to forward get() to.
+   */
   explicit PaletteFacade(const SP *sp) : sp_(sp) {}
+  /**
+   * @brief Binds the facade to a composition.
+   * @param sp Composition to forward get() to; must not be null.
+   */
   void bind(const SP *sp) {
     HS_CHECK(sp != nullptr, "PaletteFacade bound to null composition");
     sp_ = sp;
   }
+  /**
+   * @brief Forwards the lookup to the bound composition.
+   * @param t Lookup coordinate.
+   * @return The composition's color at t.
+   */
   Color4 get(float t) const override {
     assert(sp_ != nullptr && "PaletteFacade used before bind()!");
     return sp_->get(t);
@@ -1309,32 +1847,57 @@ private:
   const SP *sp_ = nullptr;
 };
 
-/// Palette that returns one fixed color for every coordinate.
+/**
+ * @brief Palette that returns one fixed color for every coordinate.
+ */
 class SolidColorPalette : public Palette {
 public:
+  /**
+   * @brief Constructs with the fixed color.
+   * @param color Color returned for every lookup.
+   */
   SolidColorPalette(const Color4 &color) : color(color) {}
+  /**
+   * @brief Returns the fixed color.
+   * @return The stored color, regardless of coordinate.
+   */
   Color4 get(float) const override { return color; }
   Color4 color;
 };
 
-/// Pre-baked 256-entry Pixel16 LUT allocated in an arena.
-/// Converts any Palette into a fast table lookup with lerp interpolation.
-/// Not a Palette subclass — call get(t) directly for zero-overhead lookups.
+/**
+ * @brief Pre-baked 256-entry Pixel16 LUT allocated in an arena.
+ * @details Converts any Palette into a fast table lookup with lerp
+ * interpolation. Not a Palette subclass — call get(t) directly for
+ * zero-overhead lookups.
+ */
 class BakedPalette {
 public:
   static constexpr int LUT_SIZE = 256;
 
+  /**
+   * @brief Default-constructs an unbaked palette (bake() before use).
+   */
   BakedPalette() = default;
 
-  /// Bake any source with a `Color4 get(float) const` into a 256-entry LUT in
-  /// the given arena — a runtime Palette or a compile-time StaticPalette alike.
+  /**
+   * @brief Bakes any source into a 256-entry LUT in the given arena.
+   * @tparam Source Type exposing Color4 get(float) const.
+   * @param arena Arena to allocate the LUT from.
+   * @param source Source palette or composition to sample.
+   * @details Works for a runtime Palette or a compile-time StaticPalette alike.
+   */
   template <typename Source> void bake(Arena &arena, const Source &source) {
     lut_ = static_cast<Color4 *>(
         arena.allocate(LUT_SIZE * sizeof(Color4), alignof(Color4)));
     rebake(source);
   }
 
-  /// Refill existing LUT without allocating. Use for animated palettes.
+  /**
+   * @brief Refills the existing LUT without allocating. Use for animated palettes.
+   * @tparam Source Type exposing Color4 get(float) const.
+   * @param source Source palette or composition to sample.
+   */
   template <typename Source> void rebake(const Source &source) {
     // Cold (per-frame at most, never per-pixel): a null lut_ here means rebake()
     // was called before bake() — a wiring bug with no valid recovery. Trap
@@ -1346,7 +1909,11 @@ public:
     }
   }
 
-  /// Fast lookup with linear interpolation between adjacent entries.
+  /**
+   * @brief Fast lookup with linear interpolation between adjacent entries.
+   * @param t Lookup coordinate; clamped to [0, 1] (NaN folds to the last entry).
+   * @return The interpolated color.
+   */
   Color4 get(float t) const {
     // Per-pixel hot path: debug-only guard (parity with StaticPalette::get),
     // deliberately NOT HS_CHECK — a branch here costs on every pixel on-device.
@@ -1376,8 +1943,12 @@ public:
                   a.alpha + (b.alpha - a.alpha) * frac);
   }
 
-  /// Deep-copy LUT from another BakedPalette into the given arena.
-  /// Used by Persist for arena compaction.
+  /**
+   * @brief Deep-copies the LUT from another BakedPalette into the given arena.
+   * @param src Source palette to copy; must already be baked.
+   * @param arena Arena to allocate the new LUT from.
+   * @details Used by Persist for arena compaction.
+   */
   void clone_from(const BakedPalette &src, Arena &arena) {
     // Cold path (Persist arena compaction): cloning a never-baked source would
     // memcpy from null (UB). Trap always-on like rebake() rather than corrupt.
@@ -1391,12 +1962,20 @@ private:
   Color4 *lut_ = nullptr;
 };
 
-/// Bank of N baked palettes for bulk Persist/clone operations.
+/**
+ * @brief Bank of N baked palettes for bulk Persist/clone operations.
+ */
 struct BakedPaletteBank {
   static constexpr int N = 5;
   BakedPalette entries[N];
 
-  /// Deep-copy all entries into a target arena. Required by Cloneable.
+  /**
+   * @brief Deep-copies all entries into a target arena.
+   * @param src Source bank to copy from.
+   * @param dst Destination bank to fill.
+   * @param arena Arena to allocate the cloned LUTs from.
+   * @details Required by Cloneable.
+   */
   static void clone(const BakedPaletteBank &src, BakedPaletteBank &dst,
                     Arena &arena) {
     for (int i = 0; i < N; ++i)

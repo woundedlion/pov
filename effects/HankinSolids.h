@@ -9,13 +9,25 @@
 
 #include <algorithm>
 
-/// Renders Hankin interlace patterns over Platonic/Archimedean solids, with a
-/// continuously sweeping interlace angle and periodic morphs between solids.
-/// Faces are colored by topology class via shuffled mesh palettes.
+/**
+ * @brief Renders Hankin interlace patterns over Platonic/Archimedean solids.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Sweeps the interlace angle continuously and periodically morphs
+ * between solids. Faces are colored by topology class via shuffled mesh
+ * palettes.
+ */
 template <int W, int H> class HankinSolids : public Effect {
 public:
+  /**
+   * @brief Constructs the effect with a W x H canvas and empty filter pipeline.
+   */
   FLASHMEM HankinSolids() : Effect(W, H), filters() {}
 
+  /**
+   * @brief Sizes arenas, registers params, loads the first solid, and starts
+   * the interlace sweep/morph cycle.
+   */
   void init() override {
     // scratch_b must hold CompiledHankin (~10KB) + BakedPaletteBank (~15KB)
     configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
@@ -42,7 +54,14 @@ public:
     start_hankin_cycle();
   }
 
+  /**
+   * @brief Reports whether the engine should clear the background each frame.
+   * @return false; this effect manages its own backdrop.
+   */
   bool show_bg() const override { return false; }
+  /**
+   * @brief Advances the timeline by one frame and renders into the canvas.
+   */
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -52,15 +71,28 @@ private:
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
 
-
-  /// Build and finalize the idx-th base solid from the simple-solids collection.
+  /**
+   * @brief Builds and finalizes the idx-th base solid from the simple-solids
+   * collection.
+   * @param idx Index into the simple-solids collection.
+   * @param a Scratch arena used during generation.
+   * @param b Secondary scratch arena used during generation.
+   * @return The finalized polygon mesh.
+   */
   PolyMesh generate_base_solid(int idx, Arena &a, Arena &b) {
     auto solids = Solids::Collections::get_simple_solids();
     hs::log("Loading shape: '%s'", solids[idx].name);
     return Solids::finalize_solid(solids[idx].generate(a, b), a);
   }
 
-  /// Classify mesh faces into topology groups (result stored in persistent_arena).
+  /**
+   * @brief Classifies mesh faces into topology groups.
+   * @param mesh Mesh whose faces are classified; the result is stored in
+   * persistent_arena.
+   * @details Saves/restores the scratch high-water marks rather than hard-
+   * resetting to base, so a caller's prior allocations in the shared scratch
+   * arenas survive.
+   */
   void classify_mesh_topology(MeshState &mesh) {
     // Save/restore the scratch high-water marks instead of hard-resetting to
     // base. classify_faces_by_topology uses both arenas as transient workspace
@@ -74,7 +106,15 @@ private:
                                         persistent_arena);
   }
 
-  /// Full pipeline: generate → compile → evaluate → classify → palette indices.
+  /**
+   * @brief Runs the full load pipeline: generate, compile, evaluate, classify,
+   * and assign palette indices.
+   * @param out_mesh Receives the evaluated and classified mesh.
+   * @param out_hankin Receives the compiled Hankin pattern.
+   * @param out_palette_idx Receives the shuffled palette indices.
+   * @param idx Index of the solid to load.
+   * @param angle Interlace angle in radians.
+   */
   void load_shape(MeshState &out_mesh, CompiledHankin &out_hankin,
                   std::array<int, NUM_PALETTES> &out_palette_idx, int idx,
                   float angle) {
@@ -92,8 +132,15 @@ private:
     MeshPaletteBank::shuffle_indices(out_palette_idx);
   }
 
-  /// Camera-rotate and rasterize one mesh, coloring each face by its topology
-  /// class through palette_idx and shading edges by distance. opacity 0..1.
+  /**
+   * @brief Camera-rotates and rasterizes one mesh, coloring each face by its
+   * topology class and shading edges by distance.
+   * @param canvas Target canvas to draw into.
+   * @param mesh Source mesh in model space.
+   * @param topology Per-face topology-class indices.
+   * @param palette_idx Maps topology class to a palette in the mesh bank.
+   * @param opacity Output alpha in [0, 1].
+   */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const std::array<int, NUM_PALETTES> &palette_idx,
@@ -109,7 +156,7 @@ private:
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
-      // v2 carries an exact integer face index, so a truncating cast recovers it.
+        // v2 carries an exact integer face index, so a truncating cast recovers it.
       int faceIdx = static_cast<int>(f.v2);
       int topoIdx = (faceIdx >= 0 && faceIdx < (int)topology.size())
                         ? topology[faceIdx]
@@ -125,14 +172,22 @@ private:
                            scratch_arena_a, params.debug_bb);
   }
 
-  /// Make the staged (morph-target) compiled mesh the active one and clear staging.
+  /**
+   * @brief Makes the staged (morph-target) compiled mesh active and clears
+   * staging.
+   */
   void promote_staged_hankin() {
     compiled_hankin = std::move(compiled_hankin_staging);
     compiled_hankin_staging = CompiledHankin();
   }
 
-  /// Schedule one interlace-angle sweep plus the sprite that re-evaluates and
-  /// draws the front mesh each frame; chains into a morph when the sweep ends.
+  /**
+   * @brief Schedules one interlace-angle sweep plus the sprite that re-evaluates
+   * and draws the front mesh each frame.
+   * @details Chains into a morph cycle when the sweep ends. Both the sweep and
+   * the render sprite are gated on the same pause flag so grabbing the slider
+   * holds the frame instead of blanking it.
+   */
   void start_hankin_cycle() {
     constexpr int DURATION = 64;
     timeline.add(0, Animation::Mutation(params.hankin_angle,
@@ -157,9 +212,11 @@ private:
                DURATION, 0, ease_mid, 0, ease_mid, &anims_paused_));
   }
 
-  /// Build the next solid into the back slot, schedule a MeshMorph from the
-  /// current to the next, and on completion swap slots, compact arenas, and
-  /// restart the hankin cycle.
+  /**
+   * @brief Builds the next solid into the back slot and schedules a morph to it.
+   * @details On completion swaps slots, compacts arenas, and restarts the
+   * hankin cycle.
+   */
   FLASHMEM void start_morph_cycle() {
     constexpr int MORPH_FRAMES = 16;
     auto solids = Solids::Collections::get_simple_solids();
@@ -212,37 +269,46 @@ private:
                }));
   }
 
-  MeshCarousel carousel;
-  CompiledHankin compiled_hankin;         // Active during hankin cycle
-  CompiledHankin compiled_hankin_staging; // Built during morph cycle
-  std::array<int, NUM_PALETTES> palettes_slots[2];
+  MeshCarousel carousel; /**< Double-slot mesh store for front/back solids. */
+  CompiledHankin compiled_hankin;         /**< Active during the hankin cycle. */
+  CompiledHankin compiled_hankin_staging; /**< Built during the morph cycle. */
+  std::array<int, NUM_PALETTES> palettes_slots[2]; /**< Per-slot palette indices. */
 
-  // Slot indices for morph draw callbacks (set before each morph)
-  int morph_old_slot_ = 0;
-  int morph_new_slot_ = 1;
+  int morph_old_slot_ = 0; /**< Outgoing slot index for morph draw callbacks. */
+  int morph_new_slot_ = 1; /**< Incoming slot index for morph draw callbacks. */
 
-  /// Morph draw callbacks — members for stable FunctionRef lifetime
+  /**
+   * @brief Draw callback for the outgoing mesh during a morph.
+   * @details Held as a member for stable FunctionRef lifetime.
+   */
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_outgoing_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
         draw_mesh(c, m, carousel.slot(morph_old_slot_).topology,
                   palettes_slots[morph_old_slot_], o);
       }};
+  /**
+   * @brief Draw callback for the incoming mesh during a morph.
+   * @details Held as a member for stable FunctionRef lifetime.
+   */
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_incoming_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
         draw_mesh(c, m, carousel.slot(morph_new_slot_).topology,
                   palettes_slots[morph_new_slot_], o);
       }};
 
-  Orientation<> orientation;
-  FastNoiseLite noise;
-  Timeline timeline;
-  Pipeline<W, H> filters;
-  int solid_idx = 0;
+  Orientation<> orientation; /**< Current camera orientation. */
+  FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
+  Timeline timeline;         /**< Schedules sweeps, sprites, and morphs. */
+  Pipeline<W, H> filters;    /**< Per-pixel filter pipeline applied on draw. */
+  int solid_idx = 0;         /**< Index of the currently displayed solid. */
 
+  /**
+   * @brief User-adjustable rendering parameters.
+   */
   struct Params {
-    float intensity = 1.2f;
-    float hankin_angle = PI_F / 4.0f;
-    bool debug_bb = false;
+    float intensity = 1.2f;        /**< Edge-distance shading gain. */
+    float hankin_angle = PI_F / 4.0f; /**< Interlace angle in radians. */
+    bool debug_bb = false;            /**< Draw face bounding boxes when true. */
   } params;
 };
 
