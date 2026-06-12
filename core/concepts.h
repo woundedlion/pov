@@ -238,11 +238,18 @@ public:
 };
 
 using PlotFn = Fn<Vector(float), 16>;
-// SpriteFn closures capture [this, slot] — one pointer + one int — which is 8 B
-// on a 32-bit target (device, WASM) but 16 B on a 64-bit host. Size Cap by
-// pointer width so the device/WASM stay tight at 8 while the host gets the 16 it
-// needs (still under the old std::function footprint, so anim size budgets hold).
-inline constexpr size_t kSpriteFnCap = sizeof(void *) == 8 ? 16 : 8;
+// The richer simulator effects (DreamBalls, IslamicStars, HankinSolids) register
+// sprite draw closures capturing [this, idx, slot] — up to 16 B on a 64-bit host,
+// 12 B on 32-bit. The device firmware builds only effects whose sprite captures
+// fit its tuned 8 B budget, so gate on ARDUINO (not pointer width — WASM is
+// 32-bit like the device but DOES build those effects): keep Cap=8 on device
+// (tuned, do not change), widen to 16 for the host/WASM simulator. inplace_function
+// hard-enforces Cap, so an undersized budget is a compile error, not a heap spill.
+#ifdef ARDUINO
+inline constexpr size_t kSpriteFnCap = 8;
+#else
+inline constexpr size_t kSpriteFnCap = 16;
+#endif
 using SpriteFn = Fn<void(Canvas &, float), kSpriteFnCap>;
 using TimerFn = Fn<void(Canvas &), 16>;
 using ScalarFn = Fn<float(float), 32>;
