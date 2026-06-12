@@ -4,10 +4,10 @@
 // build. A drop-in replacement for the std::function fallback behind Fn<Sig,Cap>
 // (see platform.h), modeled on SG14 stdext::inplace_function.
 //
-// The Capacity passed here is the platform Fn alias's *host* budget (2*Cap — see
-// platform.h: the host's 64-bit pointers are twice the device's 32-bit ones).
-// The buffer is fixed: a closure that overflows it is a hard *compile error*, not
-// a silent heap allocation. Device-side capacity remains the source of truth.
+// The buffer is fixed at Capacity bytes: a closure that overflows it is a hard
+// *compile error*, not a silent heap allocation. Because Capacity counts bytes,
+// a pointer-capturing closure is wider on the 64-bit host than on the 32-bit
+// device; callsites tune Cap accordingly (see SpriteFn in concepts.h).
 //
 // Included only from platform.h's non-ARDUINO branch, after hs::check_fail is
 // declared.
@@ -20,8 +20,14 @@
 
 namespace hs {
 
+// Alignment defaults to a pointer, not max_align_t: the captures here are
+// pointers/ints/floats/small PODs (max align == a pointer), so pointer alignment
+// keeps the object to one pointer of overhead (e.g. a 16 B capture is 24 B total,
+// matching teensy's footprint) instead of rounding every Fn up to 16 B and
+// inflating Fn-bearing animation types past TimelineEvent::MAX_ANIM_SIZE. A
+// rare over-aligned capture trips the alignof(D) <= Alignment static_assert below.
 template <typename Signature, size_t Capacity = 16,
-          size_t Alignment = alignof(std::max_align_t)>
+          size_t Alignment = alignof(void *)>
 class inplace_function; // primary template intentionally undefined
 
 namespace detail {

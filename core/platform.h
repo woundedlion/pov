@@ -1022,14 +1022,16 @@ inline ScanMetrics g_scan_metrics;
 // Fn<Sig, Cap> — platform-aware callable wrapper. BOTH backends use heap-free
 // inline storage, so a captured closure is never heap-allocated (which, stored in
 // an ArenaVector that never destroys its elements, would leak under LSan).
-//   Teensy:     teensy::inplace_function   (32-bit pointers)
-//   Host/WASM:  hs::inplace_function       (64-bit pointers)
+//   Teensy:     teensy::inplace_function
+//   Host/WASM:  hs::inplace_function
 //
-// Cap is sized for the 32-bit device, where each captured pointer is 4 bytes.
-// On the 64-bit host those pointers are 8 bytes, so the SAME closure can be up to
-// 2*Cap bytes here. The host buffer is widened to 2*Cap so it never false-rejects
-// a capture the device accepts (host RAM is not the constraint); the device build
-// stays the source of truth for the real, tight capacity budget.
+// Cap is a hard inline byte budget on both backends: a capture that overflows it
+// is a compile error, not a heap allocation. Because Cap counts bytes, a closure
+// that captures pointers is wider on the 64-bit host than on the 32-bit
+// device/WASM. The rare callsite whose device-tuned Cap is too tight for 64-bit
+// pointers sizes its Cap by sizeof(void*) rather than inflating every Fn here
+// (which would push Fn-bearing types past TimelineEvent::MAX_ANIM_SIZE). See
+// SpriteFn in concepts.h.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>
@@ -1045,11 +1047,10 @@ using Fn = teensy::inplace_function<Sig, Cap>;
 /**
  * @brief Platform-aware callable wrapper (host/WASM: heap-free inplace_function).
  * @tparam Sig Call signature, e.g. void(int).
- * @tparam Cap Device (32-bit) capacity; the host buffer is widened to 2*Cap to
- *             absorb 64-bit pointer widening. See the note above.
+ * @tparam Cap Inline storage capacity in bytes for the captured state.
  */
 template <typename Sig, size_t Cap = 16>
-using Fn = hs::inplace_function<Sig, 2 * Cap>;
+using Fn = hs::inplace_function<Sig, Cap>;
 #endif
 
 // Detect x86 / x64 architecture (Desktop/Simulator)

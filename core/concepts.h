@@ -238,7 +238,12 @@ public:
 };
 
 using PlotFn = Fn<Vector(float), 16>;
-using SpriteFn = Fn<void(Canvas &, float), 8>;
+// SpriteFn closures capture [this, slot] — one pointer + one int — which is 8 B
+// on a 32-bit target (device, WASM) but 16 B on a 64-bit host. Size Cap by
+// pointer width so the device/WASM stay tight at 8 while the host gets the 16 it
+// needs (still under the old std::function footprint, so anim size budgets hold).
+inline constexpr size_t kSpriteFnCap = sizeof(void *) == 8 ? 16 : 8;
+using SpriteFn = Fn<void(Canvas &, float), kSpriteFnCap>;
 using TimerFn = Fn<void(Canvas &), 16>;
 using ScalarFn = Fn<float(float), 32>;
 using EasingFn = float (*)(float);
