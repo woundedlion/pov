@@ -19,12 +19,15 @@ span.tt {
     overflow: visible;
 }
 
-/* Fix 2b: doxygen-awesome sets overflow:hidden on the nav menu containers so
-   the search box's bottom edge is clipped. Apply only to the nav bar and its
-   list — NOT to #top, which is a positioning context for the sidebar and must
-   not change overflow (that caused the middle panel to shift right). */
+/* Fix 2b: doxygen-awesome sets overflow:hidden on the nav/menu containers so
+   the search box's bottom edge is clipped. Omit #top — it is a positioning
+   context for the sidebar and must keep overflow:hidden (changing it shifts the
+   middle panel). The search box lives in #main-nav-mobile > div on desktop
+   with the sidebar-only layout, so all four inner containers need the fix. */
 #main-nav,
-#main-nav ul {
+#main-nav ul,
+#main-nav-mobile,
+#main-nav-mobile > div {
     overflow: visible;
 }
 
