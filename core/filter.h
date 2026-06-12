@@ -1333,10 +1333,18 @@ public:
           ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
           ::Pixel p = style_->color_fn(sample, fade, *style_);
 
-          // x is already in [0,W) and y is within the render band, so no
-          // x-wrap or y-bounds guard is needed before the write.
-          if (p.r | p.g | p.b)
-            cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
+          // Write unconditionally — including black. The sole Feedback user,
+          // MeshFeedback, sets show_bg()=false, so this flush OWNS the frame:
+          // the draw buffer is never cleared and, under double-buffering, still
+          // holds the frame-before-last's pixels. The old `if (p.r|p.g|p.b)`
+          // guard skipped the write where the warped sample decayed to black,
+          // leaving those stale two-frame-old pixels intact — so dark trail gaps
+          // showed a flickering ghost of an earlier frame: "pixels from
+          // elsewhere" anchored to the buffer, not the rotating image. Writing
+          // black (with alpha=1, blend_alpha is an exact replace) clears them.
+          // x is in [0,W) and y is within the render band, so no x-wrap or
+          // y-bounds guard is needed before the write.
+          cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
         }
 
         if (++sub == ds) { sub = 0; ++cx0; }
