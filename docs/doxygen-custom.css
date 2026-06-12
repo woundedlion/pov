@@ -1,0 +1,21 @@
+/* Fix 1: remove the dark pill background from span.tt inline code/filenames.
+   doxygen.css gives span.tt `background-color: var(--fragment-background-color)`,
+   which renders as near-black in dark mode and is visually inconsistent with
+   plain `code` and `tt` elements that have no background. */
+span.tt {
+    background-color: transparent;
+}
+
+/* Fix 2: allow the search results dropdown to overflow the container.
+   navtree.css sets `overflow: hidden` on #container, which clips the
+   absolutely-positioned #MSearchResultsWindow when it extends past the header. */
+#container {
+    overflow: visible;
+}
+
+/* Fix 3: the right page-nav panel (page outline / member list) falls back to
+   the page background (black in dark mode) instead of the nav background.
+   Explicitly match the left sidebar color. */
+#page-nav {
+    background-color: var(--nav-background-color);
+}
