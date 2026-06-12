@@ -19,6 +19,16 @@ span.tt {
     overflow: visible;
 }
 
+/* Fix 2b: doxygen-awesome sets overflow:hidden on the top nav/menu so the
+   search box's bottom edge is clipped. Allow the nav containers to show it. */
+#top,
+#main-nav,
+#main-nav ul,
+#main-nav-mobile,
+#main-nav-mobile > div {
+    overflow: visible;
+}
+
 /* Fix 3: the right page-nav panel (page outline / member list) falls back to
    the page background (black in dark mode) instead of the nav background.
    Explicitly match the left sidebar color. */
@@ -37,6 +47,14 @@ td.ititle,
 td.mdescLeft,
 td.mdescRight {
     background-color: var(--memdecl-background-color);
+}
+
+/* Fix 5b: member declaration/definition border colors are #233250 in dark mode,
+   essentially indistinguishable from the dark backgrounds and perceived as solid
+   black boxes. Lighten them to a visible mid-gray. */
+:root {
+    --memdecl-border-color: #4a5568;
+    --memdef-border-color:  #4a5568;
 }
 
 /* Fix 5: the h2.groupheader inside tr.heading td uses box-shadow with

@@ -15,6 +15,7 @@ CMakeUserPresets.json
 
 # Dependencies / generated
 /node_modules/
+/.doxygen-awesome/
 
 # IDE / tooling
 .vs/

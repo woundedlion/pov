@@ -26,6 +26,14 @@ test:
     cmake --build --preset tests
     ctest --preset tests
 
+# Build Doxygen API reference locally into build/docs/html/.
+# Clones doxygen-awesome theme into .doxygen-awesome/ on first run.
+# Requires doxygen on PATH.
+docs:
+    if not exist .doxygen-awesome git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+    cmake -E make_directory build/docs
+    doxygen Doxyfile.local
+
 # WASM release build + install the module into ../daydream.
 install:
     cmake --preset wasm-release
