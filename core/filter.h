@@ -1325,8 +1325,26 @@ public:
           float w00 = wx0 * wy0, w10 = wx1 * wy0;
           float w01 = wx0 * wy1, w11 = wx1 * wy1;
 
-          float ddx = (dx[i00] * w00 + dx[i10] * w10
-                     + dx[i01] * w01 + dx[i11] * w11) * INV_Q;
+          // Wrap-aware horizontal blend of the X deltas. Each dx was
+          // canonicalized to [-W/2, W/2] about ITS OWN column (step 1), so where
+          // the displacement nears ±W/2 — e.g. the strong warp at the x=0 seam,
+          // where cx1 wraps hw-1 -> 0 — two adjacent taps that mean nearly the
+          // same target can land on opposite sides of the wrap (-143 vs +143). A
+          // plain lerp passes through 0 there and samples the UNDISPLACED pixel,
+          // drawing the swirly vertical seam line. Re-center the other three taps
+          // to within W/2 of d00 before blending so the interpolation takes the
+          // short way around; the result feeds sample_bilinear_prev, which wraps
+          // x. Taps that don't straddle (the common case) are left untouched, so
+          // interior cells are bit-identical to the plain blend. Y has no wrap.
+          constexpr float WQ = static_cast<float>(W) * Q;
+          constexpr float HALF_WQ = WQ * 0.5f;
+          float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];
+          d10 += (d10 - d00 > HALF_WQ) ? -WQ : (d10 - d00 < -HALF_WQ ? WQ : 0.0f);
+          d01 += (d01 - d00 > HALF_WQ) ? -WQ : (d01 - d00 < -HALF_WQ ? WQ : 0.0f);
+          d11 += (d11 - d00 > HALF_WQ) ? -WQ : (d11 - d00 < -HALF_WQ ? WQ : 0.0f);
+
+          float ddx = (d00 * w00 + d10 * w10
+                     + d01 * w01 + d11 * w11) * INV_Q;
           float ddy = (dy[i00] * w00 + dy[i10] * w10
                      + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
 
