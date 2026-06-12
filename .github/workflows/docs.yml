@@ -45,8 +45,9 @@ jobs:
           git clone --depth 1 --branch v2.3.4 \
             https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
           {
-            echo "HTML_EXTRA_STYLESHEET = .doxygen-awesome/doxygen-awesome.css"
-            echo "HTML_COLORSTYLE       = LIGHT"
+            echo "HTML_EXTRA_STYLESHEET = .doxygen-awesome/doxygen-awesome.css .doxygen-awesome/doxygen-awesome-sidebar-only.css"
+            echo "HTML_COLORSTYLE       = DARK"
+            echo "HTML_COLORSTYLE_GAMMA = 160"
           } >> Doxyfile
 
       - name: Generate docs
