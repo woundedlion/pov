@@ -1,0 +1,52 @@
+# Doxygen configuration for Holosphere. Only non-default keys are set here;
+# Doxygen supplies defaults for everything omitted. HTML output lands in
+# build/docs/html (gitignored). CI (.github/workflows/docs.yml) appends the
+# doxygen-awesome theme stylesheet before generating.
+
+PROJECT_NAME           = "Holosphere"
+PROJECT_BRIEF          = "Persistence-of-vision LED sphere engine and WebAssembly simulator"
+OUTPUT_DIRECTORY       = build/docs
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# Document the engine, effects, hardware drivers, and the WASM target. Tests are
+# omitted from the API reference on purpose.
+INPUT                  = README.md core effects hardware targets
+FILE_PATTERNS          = *.h *.cpp
+RECURSIVE              = YES
+# Vendored (FastNoiseLite) and generated (color LUTs) — never document these.
+EXCLUDE                = core/FastNoiseLite.h core/color_luts.h
+
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+EXTRACT_PRIV_VIRTUAL   = YES
+
+# Teensy section/placement macros expand to nothing off-device. Doxygen does not
+# take the platform preprocessor branch, so define them away here to keep the
+# parser seeing plain declarations.
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = FLASHMEM= \
+                         FASTRUN= \
+                         PROGMEM= \
+                         DMAMEM= \
+                         "__attribute__(x)=" \
+                         DOXYGEN=1
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+# Match the README's GitHub-style heading anchors so its in-page TOC links
+# (e.g. [Hardware](#1-hardware)) resolve on the generated mainpage.
+MARKDOWN_ID_STYLE      = GITHUB
+
+# Inheritance/collaboration graphs (the Effect hierarchy, filter Pipelines).
+# Requires Graphviz; CI installs it.
+HAVE_DOT               = YES
+COLLABORATION_GRAPH    = YES
+CALL_GRAPH             = NO
+
+QUIET                  = YES
+WARN_NO_PARAMDOC       = YES
+# Flip to FAIL_ON_WARNINGS once a clean run is confirmed, to enforce that every
+# function keeps an accurate @param/@return docstring on every push.
+WARN_AS_ERROR          = NO

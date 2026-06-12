@@ -84,4 +84,14 @@ if(HS_SANITIZE)
 endif()
 
 enable_testing()
-add_test(NAME unit_tests COMMAND run_tests)
+
+# One CTest test per module so CI shards (and local `ctest -R <name>`) can
+# target subsets without re-running everything.
+set(_hs_test_modules
+    3dmath memory spatial scb sdf conway hankin geometry mesh solids
+    reaction_graph color easing_waves platform filter plot_scan canvas
+    scan mesh_raster transformers generators animation effects hd107s
+    pov_segmented pov_single pov_sync param_marshal util presets styles death)
+foreach(_mod IN LISTS _hs_test_modules)
+    add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
+endforeach()

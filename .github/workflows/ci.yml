@@ -23,7 +23,21 @@ concurrency:
 
 jobs:
   tests:
-    name: Native unit tests (Clang)
+    name: Native unit tests (Clang) / shard ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Shards partition all 32 modules so every module runs in exactly one
+          # job. Adjust groupings here when modules are added or renamed.
+          - shard: 1
+            test_regex: "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
+          - shard: 2
+            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan)$"
+          - shard: 3
+            test_regex: "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
+          - shard: 4
+            test_regex: "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|util|presets|styles|death)$"
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
     runs-on: ubuntu-24.04
@@ -42,14 +56,14 @@ jobs:
           sudo apt-get install -y clang-18 ninja-build ccache
           # cmake is preinstalled on GitHub runners (>= 3.29 required).
 
-      # Persist the compile cache across runs. CMakeLists auto-detects ccache
-      # and wires it as the compiler launcher, so unchanged TUs skip recompile.
-      # A unique key per run + prefix restore-keys keeps the cache rolling.
+      # Each shard gets its own ccache slot so parallel saves don't collide.
+      # The shard-agnostic restore-key means any prior shard's warm cache is
+      # accepted on a cache miss (all shards compile the same TUs).
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-tests-${{ github.run_id }}
+          key: ccache-tests-${{ github.run_id }}-${{ matrix.shard }}
           restore-keys: ccache-tests-
 
       # Pass the versioned compiler explicitly so the build is reproducible; the
@@ -78,10 +92,22 @@ jobs:
         # regression in the slot-recycling defect class fails here, not on-device.
         env:
           HS_SMOKE_FRAMES: 120
-        run: ctest --preset tests --output-on-failure
+        run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
 
   sanitizers:
-    name: Native unit tests (Clang, ASan + UBSan)
+    name: Native unit tests (Clang, ASan + UBSan) / shard ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            test_regex: "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
+          - shard: 2
+            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan)$"
+          - shard: 3
+            test_regex: "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
+          - shard: 4
+            test_regex: "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|util|presets|styles|death)$"
     # The native suite is the only build where the arena guards compile in
     # (device/WASM strip them), so ASan+UBSan here is the sole automated cover
     # for the arena-lifetime UB the death harness can't reach. -DHS_SANITIZE=ON
@@ -99,13 +125,14 @@ jobs:
           # Same pinned clang-18 as the plain tests job (see its note).
           sudo apt-get install -y clang-18 ninja-build ccache
 
-      # Separate cache key from the non-sanitized job: ASan/UBSan flags change
-      # the compile command, so their object cache must not collide.
+      # Separate cache prefix from the non-sanitized job (ASan/UBSan flags
+      # change the compile command, so object caches must not collide).
+      # Per-shard slot for the same reason as the tests job above.
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-sanitizers-${{ github.run_id }}
+          key: ccache-sanitizers-${{ github.run_id }}-${{ matrix.shard }}
           restore-keys: ccache-sanitizers-
 
       - name: Configure
@@ -125,7 +152,7 @@ jobs:
         # the same effect-lifecycle transitions and exercises arena lifetimes.
         env:
           HS_SMOKE_FRAMES: 120
-        run: ctest --preset tests --output-on-failure
+        run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
 
   windows-tests:
     name: Native unit tests (Windows / Clang)

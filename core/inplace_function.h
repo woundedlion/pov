@@ -4,12 +4,6 @@
 // build. A drop-in replacement for the std::function fallback behind Fn<Sig,Cap>
 // (see platform.h), modeled on SG14 stdext::inplace_function.
 //
-// Why this exists: the old `using Fn = std::function` fallback ignored Cap and
-// heap-allocated any closure past libstdc++'s 16-byte SSO. Stored in an
-// ArenaVector (which never runs element destructors — arena storage is reclaimed
-// wholesale), those heap blocks were never freed, leaking under LSan. Inline
-// storage removes the allocation entirely, so there is nothing to leak.
-//
 // The Capacity passed here is the platform Fn alias's *host* budget (2*Cap — see
 // platform.h: the host's 64-bit pointers are twice the device's 32-bit ones).
 // The buffer is fixed: a closure that overflows it is a hard *compile error*, not
