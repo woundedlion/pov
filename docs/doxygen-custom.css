@@ -19,13 +19,12 @@ span.tt {
     overflow: visible;
 }
 
-/* Fix 2b: doxygen-awesome sets overflow:hidden on the top nav/menu so the
-   search box's bottom edge is clipped. Allow the nav containers to show it. */
-#top,
+/* Fix 2b: doxygen-awesome sets overflow:hidden on the nav menu containers so
+   the search box's bottom edge is clipped. Apply only to the nav bar and its
+   list — NOT to #top, which is a positioning context for the sidebar and must
+   not change overflow (that caused the middle panel to shift right). */
 #main-nav,
-#main-nav ul,
-#main-nav-mobile,
-#main-nav-mobile > div {
+#main-nav ul {
     overflow: visible;
 }
 
@@ -51,10 +50,23 @@ td.mdescRight {
 
 /* Fix 5b: member declaration/definition border colors are #233250 in dark mode,
    essentially indistinguishable from the dark backgrounds and perceived as solid
-   black boxes. Lighten them to a visible mid-gray. */
-:root {
+   black boxes. Lighten to a visible mid-gray.
+   doxygen-awesome sets these variables in an attribute selector
+   (e.g. html[data-theme="dark"], specificity 0-1-1) which beats :root (0-1-0).
+   Match that specificity pattern plus fall back to direct border-color on the
+   actual cells so the override is guaranteed regardless of which selector wins. */
+:root,
+html[data-theme="dark"],
+html[data-bs-theme="dark"],
+html[data-default-lang] {
     --memdecl-border-color: #4a5568;
     --memdef-border-color:  #4a5568;
+}
+
+td.memItemLeft, td.memItemRight, td.memTemplParams,
+td.mdescLeft, td.mdescRight, td.ititle,
+.memtitle, .memdoc, .memproto {
+    border-color: #4a5568;
 }
 
 /* Fix 5: the h2.groupheader inside tr.heading td uses box-shadow with
