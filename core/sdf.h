@@ -448,9 +448,14 @@ struct Ring {
     // over-estimates width (spikes), so we fall back to the exact annular
     // band arcs there.
     float clamp_bound = 1.0f - sin_target * thickness / denom;
-    if (C_target > -clamp_bound && C_target < clamp_bound &&
+    if (clamp_bound < 1.0f && C_target > -clamp_bound && C_target < clamp_bound &&
         sin_target > 1e-3f) {
-      float sin_cross = sqrtf(1.0f - C_target * C_target);
+      // Floor the radicand: at the upper edge of the guard band C_target nears 1
+      // and 1-C^2 nears 0 (and can go slightly negative under -ffast-math, which
+      // would yield sqrtf(NaN)). The floor both kills the NaN and caps half_width
+      // so a grazing row cannot emit a runaway interval; genuine near-tangent
+      // rows are handled by the annular fallback below.
+      float sin_cross = sqrtf(std::max(1.0f - C_target * C_target, 1e-6f));
       float acos_C = fast_acos(C_target);
       float eff_th = 0.95f * thickness;
       float half_width = eff_th * sin_target / (denom * sin_cross);
