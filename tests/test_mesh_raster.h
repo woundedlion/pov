@@ -129,6 +129,38 @@ inline size_t count_lit(const MeshFx &fx) {
   return lit;
 }
 
+/**
+ * @brief Angular distance (radians) from a unit vector to a great-circle arc.
+ * @param v Query unit vector.
+ * @param a Arc start (unit vector).
+ * @param b Arc end (unit vector).
+ * @return The smaller of the off-plane distance (when v projects onto the arc
+ *         interior) or the nearer endpoint distance (when it projects outside).
+ * @details Used as the analytic oracle for "is this lit pixel ON some edge?":
+ *          n = a×b is the arc's plane normal, asin(|v·n|) is the angle off the
+ *          great circle, and a+b-span test places the projection inside the arc.
+ */
+inline float arc_distance(const Vector &v, const Vector &a, const Vector &b) {
+  const auto ang = [](const Vector &p, const Vector &q) {
+    return acosf(hs::clamp(dot(p, q), -1.0f, 1.0f));
+  };
+  Vector n = cross(a, b);
+  float nlen = n.length();
+  const float endpoints = std::min(ang(v, a), ang(v, b));
+  if (nlen < 1e-6f)
+    return endpoints; // degenerate edge (a ∥ b): nearest endpoint
+  n = n * (1.0f / nlen);
+  float off = asinf(hs::clamp(std::abs(dot(v, n)), 0.0f, 1.0f));
+  Vector p = v - n * dot(v, n); // v projected onto the arc's plane
+  float plen = p.length();
+  if (plen > 1e-6f) {
+    p = p * (1.0f / plen);
+    if (ang(a, p) + ang(p, b) <= ang(a, b) + 1e-3f)
+      return off; // projection lands on the arc interior
+  }
+  return endpoints;
+}
+
 // ============================================================================
 // Plot::Mesh::draw — wireframe: every unique edge actually drawn
 // ============================================================================
@@ -178,6 +210,61 @@ inline void test_wireframe_draws_every_edge() {
   const size_t lit = count_lit<W, H>(fx);
   HS_EXPECT_GT(lit, (size_t)0);
   HS_EXPECT_LT(lit, (size_t)(W * H) / 2);
+}
+
+/**
+ * @brief Geometric oracle: every lit wireframe pixel lies ON an edge arc.
+ * @details The midpoint test above proves each edge IS drawn; this proves
+ *          nothing is drawn OFF the edges. Each lit pixel is mapped back to its
+ *          world direction and must fall within ~a few pixels (angular) of the
+ *          nearest edge's analytic great-circle arc. A misprojected sample, a
+ *          stray seam-wrap plot, or an edge routed to the wrong vertices would
+ *          leave lit pixels off every arc and fail here — exactly the off-by-one
+ *          / projection class the "nonempty subset" check (above) passes through.
+ */
+inline void test_wireframe_pixels_lie_on_edges() {
+  constexpr int W = 288, H = 144;
+  configure_arenas_default();
+
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+
+  PolyMesh mesh = Solids::Platonic::octahedron(seed_a, seed_b);
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(geom, 64);
+  Plot::Mesh::extract_edges(mesh, edges);
+
+  MeshFx fx(W, H);
+  {
+    Canvas c(fx);
+    Pipeline<W, H> pipe; // bare sink, no AA spread
+    Plot::Mesh::draw<W, H>(pipe, c, mesh, white);
+  }
+  fx.advance_display();
+
+  // Tolerance: a few rows of latitude to absorb single-pixel line width,
+  // geodesic-sampling granularity, and vector_to_pixel rounding.
+  const float tol = 4.0f * (PI_F / H);
+  size_t lit = 0, off_arc = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      if (is_black(fx.get_pixel(x, y)))
+        continue;
+      ++lit;
+      Vector v = pixel_to_vector<W, H>(x, y);
+      float best = PI_F;
+      for (size_t e = 0; e < edges.size(); ++e) {
+        float d = arc_distance(v, mesh.vertices[edges[e].u],
+                               mesh.vertices[edges[e].v]);
+        if (d < best)
+          best = d;
+      }
+      if (best > tol)
+        ++off_arc;
+    }
+  HS_EXPECT_GT(lit, (size_t)0);   // edges were drawn
+  HS_EXPECT_EQ(off_arc, (size_t)0); // and nothing was drawn off them
 }
 
 // ============================================================================
@@ -264,6 +351,7 @@ inline int run_mesh_raster_tests() {
   auto scope = begin_module("mesh_raster");
 
   test_wireframe_draws_every_edge();
+  test_wireframe_pixels_lie_on_edges();
   test_solid_fill_covers_faces_and_tiles_sphere();
 
   return end_module(scope);
