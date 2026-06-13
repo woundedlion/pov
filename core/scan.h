@@ -833,6 +833,12 @@ struct Shader {
    */
   template <int W, int H, int SAMPLES = 1, typename ShaderFn>
   static void draw(Canvas &canvas, ShaderFn &&shader) {
+    // The sample-offset table only defines four distinct sub-pixel positions, so
+    // SAMPLES > 4 would re-run the shader on duplicate points while still
+    // dividing the average by SAMPLES — wasted work and a wrong mean. Only 1
+    // (no SSAA) and 4 (the 2x2 grid) are supported.
+    static_assert(SAMPLES == 1 || SAMPLES == 4,
+                  "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
 
@@ -887,6 +893,10 @@ struct Shader {
   template <int W, int H, int SAMPLES = 4>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
+    // Only 1 and 4 are supported; see the single-callback overload for why
+    // SAMPLES > 4 would duplicate samples and skew the average.
+    static_assert(SAMPLES == 1 || SAMPLES == 4,
+                  "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
     // frag_base is declared per pixel below, not once for the whole draw: a
     // vertex shader that writes only some registers (v0-v3/size/age/color) must
     // not inherit the previous pixel's values — an order-dependent leak. Each
