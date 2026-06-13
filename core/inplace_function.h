@@ -132,6 +132,10 @@ public:
                   "callable over-aligned for inplace_function storage");
     static_assert(std::is_copy_constructible_v<D>,
                   "inplace_function requires a copy-constructible callable");
+    static_assert(std::is_nothrow_move_constructible_v<D>,
+                  "inplace_function's move ctor/assign are noexcept and forward "
+                  "to the stored type's move — a throwing move would "
+                  "std::terminate. Store only nothrow-movable callables.");
     ::new (storage_) D(std::forward<C>(c));
     vtable_ = &detail::ipf_ops<D, R, Args...>::value;
   }
