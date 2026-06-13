@@ -244,22 +244,23 @@ private:
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
    * @return Composited RGB pixel (16-bit channels clamped to [0, 65535]).
-   * @details Starts from A's weighted color, then alpha-over-composites B and C
-   *          using (1 - concentration) as the keep factor for the prior layer.
+   * @details Concentration-weighted average of the three species colors:
+   *          (ca·a + cb·b + cc·c) / (a + b + c). Each species contributes in
+   *          proportion to its local concentration with no order bias — unlike
+   *          a series alpha-over composite, which let whichever species was
+   *          composited last (C) dominate every region where species overlapped.
+   *          The normalization by total concentration makes the output a pure
+   *          mix of the palette colors (hue-driven), not concentration-dimmed.
    */
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {
-    float r = ca.color.r * a, g = ca.color.g * a, bl = ca.color.b * a;
-
-    float ib = 1.0f - b;
-    r = r * ib + cb.color.r * b;
-    g = g * ib + cb.color.g * b;
-    bl = bl * ib + cb.color.b * b;
-
-    float ic = 1.0f - c;
-    r = r * ic + cc.color.r * c;
-    g = g * ic + cc.color.g * c;
-    bl = bl * ic + cc.color.b * c;
+    float wsum = a + b + c;
+    if (wsum < 1e-6f)
+      return Pixel(0, 0, 0);
+    float inv = 1.0f / wsum;
+    float r = (ca.color.r * a + cb.color.r * b + cc.color.r * c) * inv;
+    float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
+    float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
 
     return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f)),
                  static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f)),
