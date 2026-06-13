@@ -1489,6 +1489,15 @@ private:
  * @brief An animation that simulates a particle/camera performing a random walk
  * across the sphere's surface.
  * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
+ *
+ * PERPETUAL — never completes: it runs with duration = -1 and does NOT repeat
+ * or self-reset, so it never reaches done(). A `.then()` callback attached to a
+ * RandomWalk therefore NEVER fires (unlike RandomTimer/PeriodicTimer, which are
+ * also indefinite but self-trigger their per-cycle hook from step()). Do not
+ * chain sequencing logic off a RandomWalk's `.then()`; drive follow-on behavior
+ * from a finite animation or cancel() the walk explicitly. (The Transformer's
+ * slot-recycling `.then()` likewise will not fire for a spawned RandomWalk — see
+ * finding 419 on the repeating-spawn slot leak.)
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
  */
