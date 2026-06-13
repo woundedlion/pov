@@ -207,7 +207,15 @@ struct Pixel16 {
 using Pixel = Pixel16;
 
 /**
- * @brief Represents a color with an alpha channel.
+ * @brief Represents a color with a STRAIGHT (non-premultiplied) alpha channel.
+ * @details Alpha is straight: `color` holds the un-premultiplied color and
+ * `alpha` its coverage/opacity. `lerp` interpolates the two independently,
+ * consistent with that convention. The arithmetic operators (`operator*=`,
+ * `operator+=`) are NOT alpha compositing — they treat (color, alpha) as a plain
+ * 4-vector for the SSAA "scale each sample by 1/N, then sum" averaging algebra,
+ * so `*=` deliberately scales alpha alongside color. Premultiplication happens
+ * once, at the final canvas write (`color * alpha`); do not read these operators
+ * as over/under compositing.
  */
 struct Color4 {
   Pixel color;
