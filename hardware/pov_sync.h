@@ -199,9 +199,13 @@ struct Config {
    */
   constexpr bool valid() const {
     return W > 0 && W % 2 == 0 && cycles_per_half_rev > 0 && gate_cols > 0 &&
-           gate_cols < W / 4 && reject_fallback > 0 && pulse_pitch_cols > 0 &&
-           gap_timeout_cols > pulse_pitch_cols && effect_count > 0 &&
-           effect_count <= 64 && commit_revs > 0 &&
+           gate_cols < W / 4 && reject_fallback > 0 && glitch_filter_cycles > 0 &&
+           pulse_pitch_cols > 0 && gap_timeout_cols > pulse_pitch_cols &&
+           // Beacon wire mirrors the boundary wire: digit pulses must be closer
+           // than the gap that terminates the burst, or every beacon digit would
+           // read as its own burst.
+           beacon_pitch_cols > 0 && gap_timeout_cols > beacon_pitch_cols &&
+           effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
            refractory_revs >
                commit_revs + static_cast<uint32_t>(epoch_repeats) &&
            revs_per_effect > refractory_revs &&
@@ -442,7 +446,9 @@ public:
    * falsely rejects a real edge. The flywheel poll calls this every column, so
    * a stale reference is cleared within one column of silence, long before the
    * counter can wrap. Must run under the same single-writer discipline as
-   * claim() (it writes have_prior_, which the edge ISR also writes).
+   * claim() (it writes have_prior_, which the edge ISR also writes); that
+   * concurrency is enforced by the device's IRQ-off discipline and is not
+   * exercised by the host tests (no concurrent ISR there).
    */
   void age_prior(uint32_t now, uint32_t glitch_filter_cycles) {
     if (have_prior_ && (now - prior_cycles_) >= glitch_filter_cycles)
@@ -1111,6 +1117,11 @@ public:
     // data — count it as a gate rejection so a board with a corrupted
     // timebase (whose REAL boundary symbols all land "far") still reaches
     // the §5.3 ACQUIRE fallback instead of deadlocking.
+    // The signed (now - suspect_last_cycles_) > 0 re-check rejects a modular
+    // difference that wrapped to look like a huge positive timeout. It assumes
+    // the tick cadence is far below 2^31 cycles, so a genuine elapsed interval
+    // never spans half the counter between ticks — true at any real spindle
+    // speed (ticks land every column, ~tens of thousands of cycles apart).
     if (suspect_pending_ &&
         (now - suspect_last_cycles_) > cfg_.interdigit_timeout_cycles() &&
         static_cast<int32_t>(now - suspect_last_cycles_) > 0) {
@@ -1251,6 +1262,10 @@ private:
         publish_build((content_.effect_index + 1) % cfg_.effect_count);
       else if (!content_.commit_pending &&
                (content_.rev_in_effect % cfg_.join_grid_revs) == 0)
+        // Raised on every join-grid boundary regardless of whether this board is
+        // already rendering: it only marks "a late joiner could snap in here".
+        // The driver shell is responsible for acting on it only when it has no
+        // live effect — a board mid-render ignores the flag.
         a.join_boundary = true;
     }
   }
