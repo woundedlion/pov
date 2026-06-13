@@ -350,12 +350,11 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
  * @param close_loop Also draw the last→first edge.
  * @param planar_basis Non-null selects azimuthal-equidistant interpolation
  *                     (straight in the projection); null uses geodesic edges.
- * @details The unnamed float parameter is an ignored slot in the signature.
  */
 template <int W, int H, typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
-                      bool close_loop = false, float = 0.0f,
+                      bool close_loop = false,
                       const Basis *planar_basis = nullptr) {
   size_t len = points.size();
   if (len < 2)
@@ -445,7 +444,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       }
     }
 
-    float scale = (sim_dist > 0.0f) ? (total_dist / sim_dist) : 0.0f;
+    // sim_dist > 0 always holds here (the loop runs at least once past the
+    // total_dist >= base_step fast-path guard above), so the fallback is dead;
+    // use 1.0f (identity, no stretch) rather than 0.0f, which would have zeroed
+    // every replayed step.
+    float scale = (sim_dist > 0.0f) ? (total_dist / sim_dist) : 1.0f;
     bool omitLast = (close_loop) ? true : !isLastSegment;
 
     if (omitLast && _steps_cache.is_empty())
@@ -578,7 +581,7 @@ inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
   fill(points);
   apply_vertex_shader(vertex_shader, points);
   rasterize<W, H>(pipeline, canvas, points, fragment_shader, params.close_loop,
-                  0.0f, params.planar_basis);
+                  params.planar_basis);
 }
 
 /**
@@ -737,8 +740,12 @@ struct Multiline {
       total_len += angle_between(prev.pos, first.pos);
     }
 
-    if (total_len < 1e-6f)
-      total_len = 1.0f; // Avoid divide by zero
+    if (total_len < math::EPS_GEOMETRIC) {
+      // Avoid divide-by-zero on a degenerate (sub-epsilon) path. v0 then
+      // collapses toward 0 for every vertex (current_len << total_len==1); the
+      // path is geometrically a point, so the lost progress parameter is moot.
+      total_len = 1.0f;
+    }
 
     // 2. Generate fragments
     float current_len = 0.0f;
@@ -913,6 +920,7 @@ struct Ring {
 
     const float step = 2.0f * PI_F / num_samples;
 
+    Vector first_pos; // Reused for the overlap-close vertex (i == 0 position).
     for (int i = 0; i < num_samples; i++) {
       float theta = i * step;
       float t = theta + phase;
@@ -920,6 +928,8 @@ struct Ring {
 
       Fragment f;
       f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
+      if (i == 0)
+        first_pos = f.pos;
       f.v0 = static_cast<float>(i) / num_samples;
       f.v1 = theta * arc_scale;
       f.v2 = static_cast<float>(i);
@@ -928,16 +938,15 @@ struct Ring {
       points.push_back(f);
     }
 
-    // Manual Close (Overlap)
+    // Manual Close (Overlap): the close vertex sits at theta == 2π, whose
+    // position is identical to the i == 0 vertex (cos/sin(2π+φ) == cos/sin(φ)).
+    // Reuse it instead of recomputing the trig + normalize — and it avoids the
+    // tiny float error a literal 2π+φ argument would introduce.
     if (num_samples > 0) {
       Fragment f;
-      float theta = 2.0f * PI_F;
-      float t = theta + phase;
-      Vector u_temp = (u * cosf(t)) + (w * sinf(t));
-      f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
-
+      f.pos = first_pos;
       f.v0 = 1.0f;
-      f.v1 = theta * arc_scale;
+      f.v1 = 2.0f * PI_F * arc_scale;
       f.v2 = static_cast<float>(num_samples);
       f.age = 0;
       points.push_back(f);
@@ -1700,6 +1709,12 @@ struct Mesh {
       ScratchScope _edge(scratch_arena_a);
       Fragments points;
       points.bind(scratch_arena_a, 16);
+      // Fixed 10-segment pre-sample: the adaptive rasterize() below further
+      // sub-steps each chord at ~1px, so this only sets the per-vertex shader
+      // granularity and the great-circle seed points. Left fixed (not arc-length
+      // adaptive) deliberately — lowering it would perturb the adaptive
+      // sub-step/normalization pattern and thus the rendered edges, a change
+      // that needs sign-off rather than a polish pass.
       Line::sample(points, fu, fv, 10);
 
       if (vertex_shader) {
@@ -1712,8 +1727,7 @@ struct Mesh {
           p.v2 = static_cast<float>(edge_index);
         }
       }
-      rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
-                      nullptr);
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
 
       edge_index++;
     };
@@ -1825,6 +1839,8 @@ struct Mesh {
       ScratchScope _edge(scratch_arena_a);
       Fragments points;
       points.bind(scratch_arena_a, 16);
+      // Fixed pre-sample; the adaptive rasterize() below refines to ~1px (see
+      // the matching note on the other edge-draw path). Left fixed deliberately.
       Line::sample(points, fu, fv, 10);
 
       if (vertex_shader) {
@@ -1837,8 +1853,7 @@ struct Mesh {
           p.v2 = static_cast<float>(ei);
         }
       }
-      rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, 0.0f,
-                      nullptr);
+      rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
     }
   }
 };
@@ -1897,7 +1912,7 @@ struct ParticleSystem {
 
       if (!trail.is_empty()) {
         apply_vertex_shader(vertex_shader, trail);
-        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false, 0.0f,
+        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
                         nullptr);
       }
     }
