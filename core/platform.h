@@ -354,7 +354,10 @@ struct CRGB {
    */
   CRGB lerp16(const CRGB &other, uint16_t frac) const {
     CRGB ret;
-    // frac is 0..65535
+    // frac is 0..65535. The >> 16 truncates (no +0x8000 round bias) to match
+    // FastLED's integer fixed-point lerp16by16/scale16, which also truncate — so
+    // the host mock and the device stay byte-identical. Add a +0x8000 round only
+    // if a future FastLED variant this mocks starts rounding.
     ret.r = static_cast<uint8_t>((static_cast<uint32_t>(r) * (65535 - frac) +
                                   static_cast<uint32_t>(other.r) * frac) >>
                                  16);
@@ -910,7 +913,9 @@ namespace hs {
  * @param max Maximum possible draw value.
  * @return A float in [0.0, 1.0), clamped just below 1.0f at the top band.
  * @details The naive value/max can land on exactly 1.0f for the top band of
- *          draws (both operands round to 2^32 in float), so (int)(u * N) would
+ *          draws because both operands — value and the divisor max, which is
+ *          2^32-1 (UINT32_MAX), not 2^32 — round UP to 2^32 in float32 (2^32-1
+ *          is not representable there), so (int)(u * N) would
  *          occasionally index N — one past the end. Clamp only those top draws
  *          to the float just below 1.0f; no float is representable between that
  *          constant and 1.0f, so every other draw is byte-for-byte unchanged and
