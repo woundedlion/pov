@@ -1070,12 +1070,16 @@ namespace hs {
  * @param lo Lower bound.
  * @param hi Upper bound.
  * @return v clamped to [lo, hi]; hi when v is NaN.
- * @details CONTRACT (load-bearing): both backends compute max(lo, min(v, hi))
- *          with v as the FIRST operand to the inner min: hardware minss /
- *          __builtin_fminf return the SECOND operand when either input is NaN,
- *          so min(NaN, hi) == hi, and then max(lo, hi) == hi. Callers that feed
- *          a possibly-NaN value through this as a saturating guard before a
- *          float->int cast rely on this (e.g. blend_alpha and Gradient::get; see
+ * @details CONTRACT (load-bearing): computes max(lo, min(v, hi)) with v as the
+ *          FIRST operand to the inner min. The x86 minss instruction returns its
+ *          SECOND source operand whenever either input is NaN, so min(NaN, hi)
+ *          == hi and then max(lo, hi) == hi. This backend is therefore
+ *          REORDER-SENSITIVE: swapping to min(hi, v) would make min(hi, NaN) ==
+ *          NaN and break the contract — hence the do-not-reorder note. (The
+ *          fminf backend below reaches the same hi by a different rule, IEEE
+ *          NaN-suppression, and is reorder-insensitive; see its note.) Callers
+ *          feed a possibly-NaN value through this as a saturating guard before a
+ *          float->int cast (e.g. blend_alpha and Gradient::get; see
  *          test_blend_alpha_clamps_before_cast and
  *          test_gradient_get_clamps_out_of_range). Do not reorder the min
  *          operands.
@@ -1101,8 +1105,15 @@ inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
  * @param lo Lower bound.
  * @param hi Upper bound.
  * @return v clamped to [lo, hi]; hi when v is NaN.
- * @details On Cortex-M7 compiles directly to VMIN.F32 / VMAX.F32. See the x86
- *          overload for the NaN contract and the do-not-reorder note.
+ * @details On Cortex-M7 compiles directly to VMIN.F32 / VMAX.F32. The NaN
+ *          contract holds for a DIFFERENT reason than the x86 backend: IEEE
+ *          __builtin_fminf/fmaxf are NaN-SUPPRESSING — they return the non-NaN
+ *          operand regardless of its position — so min(NaN, hi) == hi (and
+ *          min(hi, NaN) would too), then max(lo, hi) == hi. This backend is thus
+ *          REORDER-INSENSITIVE; the operand order is kept identical to the x86
+ *          overload only for parity, not for correctness here. See the x86
+ *          overload for the caller contract. (NaN-suppression relies on
+ *          -fno-finite-math-only surviving after -ffast-math; see finding 369.)
  */
 inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
                                                             float hi) {
