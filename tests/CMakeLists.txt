@@ -95,3 +95,26 @@ set(_hs_test_modules
 foreach(_mod IN LISTS _hs_test_modules)
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
 endforeach()
+
+# Finding 369: the run_tests build sets NO math flags, so its NaN-clamp
+# assertions run under default IEEE semantics where the hs::clamp NaN->hi
+# contract holds trivially — the at-risk codegen the WASM release build actually
+# ships (-ffast-math, which implies the contract-breaking -ffinite-math-only,
+# rescued only by re-applying -fno-finite-math-only) is never exercised. This
+# separate executable recompiles the same clamp-before-cast assertions under
+# those exact release math flags so the contract is verified against the shipping
+# codegen. It complements (does not replace) the compile-time #error guard in
+# core/platform.h that fails any build where -fno-finite-math-only is lost.
+add_executable(fastmath_clamp_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
+  ${HS_ROOT}/core/memory.cpp
+  ${HS_ROOT}/core/reaction_graph.cpp)
+target_compile_definitions(fastmath_clamp_check PRIVATE HS_TEST_BUILD)
+target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+# The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
+# -ffast-math: it re-enables the NaN/Inf semantics the contract needs. If a future
+# edit drops it, core/platform.h's #error makes this TU fail to compile — exactly
+# the regression signal we want.
+target_compile_options(fastmath_clamp_check PRIVATE
+  -O3 -ffast-math -fno-finite-math-only)
+add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)

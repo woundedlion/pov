@@ -1062,6 +1062,23 @@ using Fn = hs::inplace_function<Sig, Cap>;
 
 namespace hs {
 
+// The clamp NaN->hi contract below is load-bearing for engine-wide float->int
+// domain safety: Spherical, vector_to_pixel, blend_alpha, Gradient::get, and
+// every palette lookup feed a possibly-NaN value through clamp as a saturating
+// guard before a float->int cast. That guard survives only under real IEEE
+// (non-finite) semantics. -ffinite-math-only — which a bare -ffast-math implies
+// — licenses the compiler to assume no NaN/Inf exists and fold the guard away,
+// silently reintroducing the cast UB across the whole renderer. The WASM release
+// build keeps the contract solely by re-applying -fno-finite-math-only after
+// -ffast-math (see CMakeLists.txt). Trap at compile time, on every target, if
+// that protection is ever lost (flag reorder, toolchain default change, or an
+// -ffinite-math-only sub-target) so the regression is a build error here rather
+// than silent corruption on the sphere. See finding 369; the native fastmath
+// clamp test (tests/CMakeLists.txt) exercises the contract under the real flags.
+#if defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ != 0
+#error "hs::clamp NaN->hi contract requires -fno-finite-math-only: a bare -ffast-math (or -ffinite-math-only) makes the compiler assume no NaN and folds the saturating clamp guard away, reintroducing float->int cast UB engine-wide."
+#endif
+
 #ifdef HS_ARCH_X86
 // --- x86 / x64 EXPLICIT HARDWARE CLAMP ---
 /**

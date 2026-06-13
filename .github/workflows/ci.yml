@@ -28,12 +28,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Shards partition all 32 modules so every module runs in exactly one
-          # job. Adjust groupings here when modules are added or renamed.
+          # Shards partition all 32 modules (plus the fastmath_clamp release-flag
+          # check, finding 369) so every registered test runs in exactly one job.
+          # Adjust groupings here when modules are added or renamed.
           - shard: 1
             test_regex: "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
           - shard: 2
-            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan)$"
+            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
           - shard: 3
             test_regex: "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
           - shard: 4
@@ -103,7 +104,7 @@ jobs:
           - shard: 1
             test_regex: "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
           - shard: 2
-            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan)$"
+            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
           - shard: 3
             test_regex: "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
           - shard: 4
