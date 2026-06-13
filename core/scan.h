@@ -143,6 +143,10 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
 
+  // An inverted range (y_min > y_max) is a safe no-op: a disjoint CSG
+  // Intersection or a fully-culled Face reports y_min=1,y_max=0, and this loop
+  // simply never executes. A near/over-full-width interval is likewise handled
+  // below by the len >= W full-row clamp.
   for (int y = y_min; y <= y_max; ++y) {
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];

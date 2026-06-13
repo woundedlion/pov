@@ -1401,9 +1401,11 @@ struct Face {
 
     count = indices.size();
     // A face with more vertices than the scratch budget would build wrong
-    // geometry from a truncated index list — trap instead of silently masking.
-    HS_CHECK(count <= FaceScratchBuffer::MAX_VERTS,
-             "Face: vertex count exceeds MAX_VERTS");
+    // geometry from a truncated index list; an empty index list (count == 0)
+    // would build a degenerate zero-edge polygon. Trap both bounds instead of
+    // silently masking.
+    HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
+             "Face: vertex count must be in (0, MAX_VERTS]");
 
     setup_frame_and_polygon(vertices, indices, scratch);
     compute_inradius(scratch);
@@ -2373,10 +2375,13 @@ struct Star {
 
   /**
    * @brief Signed distance to the star, writing into res.
-   * @tparam ComputeUVs Accepted for interface parity; t is always computed.
+   * @tparam ComputeUVs When true, also stores the normalized azimuth t. The
+   *        azimuth itself is always computed (the petal-sector geometry needs
+   *        it); only the final t store is gated, matching Ring/Flower.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = signed distance to the nearest point edge,
-   *        raw_dist = polar distance from center, t = normalized azimuth.
+   *        raw_dist = polar distance from center, t = normalized azimuth when
+   *        ComputeUVs (0 otherwise).
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -2399,8 +2404,10 @@ struct Star {
 
     float dist_to_edge = px * nx + py * ny + plane_d;
 
-    res = DistanceResult(-dist_to_edge, wrap_t(azimuth / (2 * PI_F)), scan_dist,
-                         0.0f, thickness);
+    float t = 0.0f;
+    if constexpr (ComputeUVs)
+      t = wrap_t(azimuth / (2 * PI_F));
+    res = DistanceResult(-dist_to_edge, t, scan_dist, 0.0f, thickness);
   }
 };
 
@@ -2710,7 +2717,10 @@ struct Line {
     if (C_min < -1.0f)
       return false; // Cap covers full width
 
-    float d_alpha = acosf(C_min);
+    // fast_acos here matches every other scanline path (Ring/DistortedRing/
+    // Flower); C_min is already clamped to [-1,1] by the guards above, and the
+    // ~1.3e-4 rad approximation error is far under the floor/ceil pad below.
+    float d_alpha = fast_acos(C_min);
     float f_x1 = (mid_alpha - d_alpha) * W / (2 * PI_F);
     float f_x2 = (mid_alpha + d_alpha) * W / (2 * PI_F);
     out(floorf(f_x1), ceilf(f_x2));
