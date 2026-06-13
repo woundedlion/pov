@@ -1094,16 +1094,21 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
     return (v1 + (v2 - v1) * t).normalized();
   }
   float theta = fast_acos(d);
-  float sin_theta = fast_sinf(theta);
-  if (sin_theta < 0.0001f) {
+  if (theta > PI_F - 0.0001f) {
     // Antipodal endpoints: the lerp midpoint collapses to the zero vector for an
     // exact antipode at t≈0.5, where the great-circle path is undefined anyway.
     // Fall back to a stable endpoint direction rather than trapping in strict
     // normalized() — an antipodal pair is a legitimate geometric edge here.
     return normalized_or((v1 + (v2 - v1) * t), v1);
   }
-  float s1 = fast_sinf((1 - t) * theta) / sin_theta;
-  float s2 = fast_sinf(t * theta) / sin_theta;
+  // Classic slerp weights are sin((1-t)θ)/sinθ and sin(tθ)/sinθ. The common
+  // 1/sin(θ) factor cancels under the final normalize() — the result direction
+  // depends only on the ratio of the two numerator sines — so we omit it. That
+  // also avoids dividing an approximate fast_sinf by a small approximate sin(θ)
+  // near θ→π (the divisor never reaches the output anyway). The θ-vs-π guard
+  // above replaces the old sin_theta<1e-4 degeneracy check at the same boundary.
+  float s1 = fast_sinf((1 - t) * theta);
+  float s2 = fast_sinf(t * theta);
   return ((s1 * v1) + (s2 * v2)).normalized();
 }
 
