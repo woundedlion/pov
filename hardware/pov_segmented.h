@@ -59,6 +59,8 @@
 #include "geometry.h"
 #include "memory.h"
 
+#include <atomic>
+
 /**
  * @brief Multi-Teensy segmented POV display driver.
  * @tparam S   Total number of physical LEDs across the full strip (both arms).
@@ -285,8 +287,11 @@ public:
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
         cur->draw_frame(); // frame 0, queued; fresh buffers never block
         hs::disable_interrupts();
-        pending_effect_ = cur;
+        // Release store last so it publishes both the new generation and every
+        // constructor/draw_frame() write into *cur; the bracket keeps the
+        // (effect, gen) pair atomic against the ISR.
         pending_gen_ = gen;
+        pending_effect_.store(cur, std::memory_order_release);
         hs::enable_interrupts();
         built_gen = gen;
       }
@@ -481,14 +486,16 @@ private:
     //            all four boards go live at the SAME crossing at boot, frame
     //            counters aligned.
     if (a.commit) {
-      HS_CHECK(pending_effect_ &&
-                   pending_gen_ ==
-                       pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
+      // Acquire load pairs with the foreground's release store, ordering the
+      // pending instance's construction writes before any dereference below.
+      Effect *p = pending_effect_.load(std::memory_order_acquire);
+      HS_CHECK(p && pending_gen_ ==
+                        pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
                "epoch commit: effect init exceeded the K-revolution window");
-      live_effect_ = pending_effect_;
+      live_effect_ = p;
       consumed_gen_ = pending_gen_;
     } else if (a.join_boundary && !a.dark && live_effect_ == nullptr) {
-      Effect *p = pending_effect_;
+      Effect *p = pending_effect_.load(std::memory_order_acquire);
       const uint32_t pg = pending_gen_;
       if (p && pg != consumed_gen_ &&
           pg == pov::sync::SyncBoard::build_gen_of(sync_.build_word())) {
@@ -631,9 +638,20 @@ private:
    *          under a brief interrupts-off bracket); the release_req_/release_ack_
    *          pair is the teardown handshake (foreground bumps req, ISR drops the
    *          live pointer and copies req to ack).
+   *
+   *          pending_effect_ is published with a release store and consumed with
+   *          an acquire load: the release/acquire edge — not the IRQ bracket's
+   *          compiler barrier alone — is what orders the freshly-constructed
+   *          instance's member writes (vtable, buffers) before the ISR
+   *          dereferences it. The interrupts-off bracket still makes the
+   *          (effect, gen) publish atomic with respect to the ISR. The acquire
+   *          load runs only at a commit/join boundary, never on the per-column
+   *          hot path (which reads the plain, ISR-owned live_effect_), so the
+   *          ordering carries no hot-path cost. Mirrors Canvas's std::atomic
+   *          ISR handoff rather than the bare volatile it replaces.
    */
   static Effect *live_effect_;             /**< Effect the ISR renders; ISR-owned.       */
-  static Effect *volatile pending_effect_; /**< Next effect awaiting commit; foreground-owned. */
+  static std::atomic<Effect *> pending_effect_; /**< Next effect awaiting commit; foreground-written (release), ISR-read (acquire). */
   static volatile uint32_t pending_gen_;   /**< Build generation of pending_effect_; foreground-owned. */
   static volatile uint32_t consumed_gen_;  /**< Build generation taken live; ISR-owned.  */
   static volatile uint32_t release_req_;   /**< Teardown request counter; foreground-owned. */
@@ -666,7 +684,7 @@ template <int S, int N, int RPM>
 Effect *POVSegmented<S, N, RPM>::live_effect_ = nullptr;
 
 template <int S, int N, int RPM>
-Effect *volatile POVSegmented<S, N, RPM>::pending_effect_ = nullptr;
+std::atomic<Effect *> POVSegmented<S, N, RPM>::pending_effect_{nullptr};
 
 template <int S, int N, int RPM>
 volatile uint32_t POVSegmented<S, N, RPM>::pending_gen_ = 0;
