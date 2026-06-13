@@ -7,7 +7,7 @@
 ---
 
 <p align="center">
-  <img src="docs/screenshots/IslamicStars.png" alt="Holosphere — IslamicStars effect" width="640">
+  <a href="https://woundedlion.github.io/daydream/?effect=IslamicStars" target="_blank"><img src="docs/screenshots/IslamicStars.png" alt="Holosphere — IslamicStars effect" width="640"></a>
 </p>
 
 A persistence-of-vision (POV) LED sphere and its real-time simulator. The device spins a strip of LEDs at 480 RPM while a Teensy microcontroller fires pixels at microsecond intervals to paint full-color imagery on the surface of a virtual sphere. The simulator renders the same effects in a browser window at up to 288×144 resolution using the identical C++ code compiled to WebAssembly.
@@ -47,6 +47,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
    - [7.8 Generators](#78-generators-generatorsh)
    - [7.9 The Preset System](#79-the-preset-system-presetsh)
    - [7.10 Hardware Drivers](#710-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
+     - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
 8. [The Effect System](#8-the-effect-system)
 9. [Effects Reference](#9-effects-reference)
 10. [The Web Simulator (Daydream)](#10-the-web-simulator-daydream)
@@ -1226,7 +1227,40 @@ Arm A                               Arm B (x offset by W/2)
 
 **Hardware ID detection**: Each Teensy reads a 2-bit ID from GPIO pins 21–22 (active-low with pull-ups).  All-floating = ID 0 (sync master).  The ID determines which arm and which half this board owns.
 
-**Frame Sync Protocol (1-wire) — signal datasheet.** Phantasm's four boards stay coherent over **one wire**.  Segment 0 (the **master**) is the conductor; segments 1–3 (**downstream**) listen.  Each board generates its own columns from a local **flywheel timebase** and snaps that timebase to count-coded pulse bursts the master broadcasts on the wire.  Full design: `docs/phantasm_frame_sync_spec.md`; host-tested protocol core: `hardware/pov_sync.h`.
+**Branchless ISR**: All per-segment decisions are resolved at boot time into three precomputed values:
+
+| Value | Description |
+|---|---|
+| `y_base_` | Starting Y index for LED 0 (0 for top segments, ROWS-1 for bottom) |
+| `y_step_` | +1 (top, forward) or -1 (bottom, reversed) |
+| `arm_b_` | Whether this segment is on arm B (x offset by W/2) |
+
+The ISR loop has no branches:
+
+```cpp
+const Pixel* buf = effect_->display_buffer();   // fast path: no per-pixel virtual dispatch
+int y = y_base_;
+for (int i = 0; i < PPS; ++i, y += y_step_) {
+    frame.packPixel(i, buf[y * width + x_col]);
+}
+```
+
+**Effect transparency**: Effects render the full 288×144 canvas — segmentation is handled entirely in the ISR.  No changes to any effect code are needed.  All 4 boards share the same deterministic random seed (`std::mt19937(1337)` in `platform.h`), so identical effect sequences produce identical canvases.
+
+| Parameter | Value (Phantasm) |
+|---|---|
+| S (total pixels) | 288 |
+| N (segments) | 4 |
+| PPS (pixels per segment) | 72 |
+| RPM | 480 (8 rev/s, ~125 ms/rev) |
+| Frame rate | 16 FPS (2 frames/rev — one per side; each side draws W/2 = 144 cols per 62.5 ms frame) |
+| Column frequency | 2304 Hz |
+| Column interval | ~434 µs (= 125 ms / 288 = 62.5 ms / 144) |
+| ISR duration (72px pack + DMA trigger) | ~96 µs worst case |
+
+#### Frame Sync Protocol: 1-Wire Signal Datasheet
+
+Phantasm's four boards stay coherent over **one wire**.  Segment 0 (the **master**) is the conductor; segments 1–3 (**downstream**) listen.  Each board generates its own columns from a local **flywheel timebase** and snaps that timebase to count-coded pulse bursts the master broadcasts on the wire.  Full design: `docs/phantasm_frame_sync_spec.md`; host-tested protocol core: `hardware/pov_sync.h`.
 
 The flywheel derives the column index from the free-running CPU cycle counter, never from counting timer interrupts:
 
@@ -1389,37 +1423,6 @@ The dark window is identical (K revolutions) on every board because construction
 
 The flywheel ISR maintains telemetry counters (symbols accepted / gate-rejected / discarded, beacons ok / rejected, index corrections, epochs refractory-ignored, lock transitions, flips, emissions censored / aborted, longest coast) that the foreground reports behind `hs::debug` at ≤ 1 Hz — so any degradation the protocol absorbs silently is still visible at a glance.
 
-**Branchless ISR**: All per-segment decisions are resolved at boot time into three precomputed values:
-
-| Value | Description |
-|---|---|
-| `y_base_` | Starting Y index for LED 0 (0 for top segments, ROWS-1 for bottom) |
-| `y_step_` | +1 (top, forward) or -1 (bottom, reversed) |
-| `arm_b_` | Whether this segment is on arm B (x offset by W/2) |
-
-The ISR loop has no branches:
-
-```cpp
-const Pixel* buf = effect_->display_buffer();   // fast path: no per-pixel virtual dispatch
-int y = y_base_;
-for (int i = 0; i < PPS; ++i, y += y_step_) {
-    frame.packPixel(i, buf[y * width + x_col]);
-}
-```
-
-**Effect transparency**: Effects render the full 288×144 canvas — segmentation is handled entirely in the ISR.  No changes to any effect code are needed.  All 4 boards share the same deterministic random seed (`std::mt19937(1337)` in `platform.h`), so identical effect sequences produce identical canvases.
-
-| Parameter | Value (Phantasm) |
-|---|---|
-| S (total pixels) | 288 |
-| N (segments) | 4 |
-| PPS (pixels per segment) | 72 |
-| RPM | 480 (8 rev/s, ~125 ms/rev) |
-| Frame rate | 16 FPS (2 frames/rev — one per side; each side draws W/2 = 144 cols per 62.5 ms frame) |
-| Column frequency | 2304 Hz |
-| Column interval | ~434 µs (= 125 ms / 288 = 62.5 ms / 144) |
-| ISR duration (72px pack + DMA trigger) | ~96 µs worst case |
-
 ---
 
 ## 8. The Effect System
@@ -1483,7 +1486,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
 ### Core Effects (Modern Engine)
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/BZReactionDiffusion.png" alt="BZReactionDiffusion" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=BZReactionDiffusion" target="_blank"><img src="docs/screenshots/BZReactionDiffusion.png" alt="BZReactionDiffusion" width="280"></a></td>
 <td valign="top">
 
 #### BZReactionDiffusion
@@ -1495,7 +1498,7 @@ Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/GSReactionDiffusion.png" alt="GSReactionDiffusion" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=GSReactionDiffusion" target="_blank"><img src="docs/screenshots/GSReactionDiffusion.png" alt="GSReactionDiffusion" width="280"></a></td>
 <td valign="top">
 
 #### GSReactionDiffusion
@@ -1505,7 +1508,7 @@ Gray-Scott reaction-diffusion system (U + 2V → 3V, V → P) on a spherical mes
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/HopfFibration.png" alt="HopfFibration" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=HopfFibration" target="_blank"><img src="docs/screenshots/HopfFibration.png" alt="HopfFibration" width="280"></a></td>
 <td valign="top">
 
 #### HopfFibration
@@ -1517,7 +1520,7 @@ Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/IslamicStars.png" alt="IslamicStars" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=IslamicStars" target="_blank"><img src="docs/screenshots/IslamicStars.png" alt="IslamicStars" width="280"></a></td>
 <td valign="top">
 
 #### IslamicStars
@@ -1529,7 +1532,7 @@ Procedurally generates Islamic geometric patterns using Hankin's method (pentago
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/HankinSolids.png" alt="HankinSolids" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=HankinSolids" target="_blank"><img src="docs/screenshots/HankinSolids.png" alt="HankinSolids" width="280"></a></td>
 <td valign="top">
 
 #### HankinSolids
@@ -1541,7 +1544,7 @@ Similar to IslamicStars but sequences through the full Archimedean solid library
 
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/SphericalHarmonics.png" alt="SphericalHarmonics" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=SphericalHarmonics" target="_blank"><img src="docs/screenshots/SphericalHarmonics.png" alt="SphericalHarmonics" width="280"></a></td>
 <td valign="top">
 
 #### SphericalHarmonics
@@ -1551,7 +1554,7 @@ Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/MobiusGrid.png" alt="MobiusGrid" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=MobiusGrid" target="_blank"><img src="docs/screenshots/MobiusGrid.png" alt="MobiusGrid" width="280"></a></td>
 <td valign="top">
 
 #### MobiusGrid
@@ -1563,7 +1566,7 @@ A latitude-longitude grid that undergoes live Möbius transformation animation v
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Moire.png" alt="Moire" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Moire" target="_blank"><img src="docs/screenshots/Moire.png" alt="Moire" width="280"></a></td>
 <td valign="top">
 
 #### Moire
@@ -1573,7 +1576,7 @@ Two counter-rotating families of concentric rings that beat against each other i
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/FlowField.png" alt="FlowField" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=FlowField" target="_blank"><img src="docs/screenshots/FlowField.png" alt="FlowField" width="280"></a></td>
 <td valign="top">
 
 #### FlowField
@@ -1583,7 +1586,7 @@ FastNoiseLite-driven flow field. Three independently offset 3D-noise channels fo
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Voronoi.png" alt="Voronoi" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Voronoi" target="_blank"><img src="docs/screenshots/Voronoi.png" alt="Voronoi" width="280"></a></td>
 <td valign="top">
 
 #### Voronoi
@@ -1595,7 +1598,7 @@ Spherical Voronoi diagram with animated seed positions. Cells are always filled 
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/PetalFlow.png" alt="PetalFlow" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=PetalFlow" target="_blank"><img src="docs/screenshots/PetalFlow.png" alt="PetalFlow" width="280"></a></td>
 <td valign="top">
 
 #### PetalFlow
@@ -1605,7 +1608,7 @@ Polyline rings drift pole-to-pole through an inverse stereographic projection, e
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/DreamBalls.png" alt="DreamBalls" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DreamBalls" target="_blank"><img src="docs/screenshots/DreamBalls.png" alt="DreamBalls" width="280"></a></td>
 <td valign="top">
 
 #### DreamBalls
@@ -1617,7 +1620,7 @@ Draws twisting wireframe knotted structures derived from Archimedean solids. Mes
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Comets.png" alt="Comets" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Comets" target="_blank"><img src="docs/screenshots/Comets.png" alt="Comets" width="280"></a></td>
 <td valign="top">
 
 #### Comets
@@ -1627,7 +1630,7 @@ A single head traces spherical Lissajous curves, cycling through a dozen configu
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/RingSpin.png" alt="RingSpin" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=RingSpin" target="_blank"><img src="docs/screenshots/RingSpin.png" alt="RingSpin" width="280"></a></td>
 <td valign="top">
 
 #### RingSpin
@@ -1639,7 +1642,7 @@ Four great-circle rings tumble continuously under energetic random-walk rotation
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/RingShower.png" alt="RingShower" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=RingShower" target="_blank"><img src="docs/screenshots/RingShower.png" alt="RingShower" width="280"></a></td>
 <td valign="top">
 
 #### RingShower
@@ -1651,7 +1654,7 @@ Rings bloom at random orientations and grow their radius from zero, fading in ov
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/ChaoticStrings.png" alt="ChaoticStrings" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=ChaoticStrings" target="_blank"><img src="docs/screenshots/ChaoticStrings.png" alt="ChaoticStrings" width="280"></a></td>
 <td valign="top">
 
 #### ChaoticStrings
@@ -1661,7 +1664,7 @@ A head traces a fixed 12:5 spherical Lissajous figure whose long trail is contin
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/MeshFeedback.png" alt="MeshFeedback" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=MeshFeedback" target="_blank"><img src="docs/screenshots/MeshFeedback.png" alt="MeshFeedback" width="280"></a></td>
 <td valign="top">
 
 #### MeshFeedback
@@ -1671,7 +1674,7 @@ Platonic solid mesh faces rendered with `Plot::Mesh`, given a noise-distorted, f
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Liquid2D.png" alt="Liquid2D" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Liquid2D" target="_blank"><img src="docs/screenshots/Liquid2D.png" alt="Liquid2D" width="280"></a></td>
 <td valign="top">
 
 #### Liquid2D
@@ -1683,7 +1686,7 @@ Stereographic-projection shader (extends `Effect` directly) that samples world-s
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/MindSplatter.png" alt="MindSplatter" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=MindSplatter" target="_blank"><img src="docs/screenshots/MindSplatter.png" alt="MindSplatter" width="280"></a></td>
 <td valign="top">
 
 #### MindSplatter
@@ -1693,7 +1696,7 @@ Random-walk particle system with Möbius warp bursts.
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Dynamo.png" alt="Dynamo" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Dynamo" target="_blank"><img src="docs/screenshots/Dynamo.png" alt="Dynamo" width="280"></a></td>
 <td valign="top">
 
 #### Dynamo
@@ -1705,7 +1708,7 @@ A vertical strand of points — one per latitude row — drifts horizontally aro
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Thrusters.png" alt="Thrusters" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Thrusters" target="_blank"><img src="docs/screenshots/Thrusters.png" alt="Thrusters" width="280"></a></td>
 <td valign="top">
 
 #### Thrusters
@@ -1717,7 +1720,7 @@ A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic rando
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/GnomonicStars.png" alt="GnomonicStars" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=GnomonicStars" target="_blank"><img src="docs/screenshots/GnomonicStars.png" alt="GnomonicStars" width="280"></a></td>
 <td valign="top">
 
 #### GnomonicStars
@@ -1727,7 +1730,7 @@ Star polygon SDFs that rotate continuously. Uses gnomonic projection (straight l
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Raymarch.png" alt="Raymarch" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Raymarch" target="_blank"><img src="docs/screenshots/Raymarch.png" alt="Raymarch" width="280"></a></td>
 <td valign="top">
 
 #### Raymarch
@@ -1739,7 +1742,7 @@ Volumetric raymarcher that renders twisted tori at the 20 vertices of a dodecahe
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/Flyby.png" alt="Flyby" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Flyby" target="_blank"><img src="docs/screenshots/Flyby.png" alt="Flyby" width="280"></a></td>
 <td valign="top">
 
 #### Flyby
@@ -1751,7 +1754,7 @@ Stereographic-projection shader (extends `Effect` directly) with noise-driven wa
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><img src="docs/screenshots/SplineFlow.png" alt="SplineFlow" width="280"></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=SplineFlow" target="_blank"><img src="docs/screenshots/SplineFlow.png" alt="SplineFlow" width="280"></a></td>
 <td valign="top">
 
 #### SplineFlow

@@ -20,9 +20,11 @@ span.tt {
 }
 
 /* Fix 2b: doxygen-awesome caps #top at a fixed height that clips the search
-   box. Remove the fixed height so the bar sizes to its content. */
+   box. Remove the fixed height so the bar sizes to its content, and add a
+   small gap between the search box and the nav-tree list below. */
 #top {
     height: auto;
+    padding-bottom: 8px;
 }
 
 /* Fix 3: the right page-nav panel (page outline / member list) falls back to
