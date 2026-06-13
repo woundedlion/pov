@@ -36,6 +36,10 @@
 template <typename T, typename U>
 inline std::common_type_t<T, U> wrap(T x, U m) {
   using R = std::common_type_t<T, U>;
+  // Precondition: m > 0. A non-positive modulo base is a caller bug (the [0, m)
+  // result is undefined); trap it debug-only — stripped under NDEBUG on device
+  // (zero cost), fires in the native tests / WASM-debug.
+  assert(m > 0);
   R r = std::fmod(static_cast<R>(x), static_cast<R>(m));
   if (r < 0) {
     r += m;
@@ -100,6 +104,9 @@ inline int fast_wrap(int x, int W) {
  * @return The shortest distance in the range [0, m/2].
  */
 inline float shortest_distance(float a, float b, float m) {
+  // Precondition: m > 0 (the domain length). Trap a non-positive base debug-only
+  // — stripped under NDEBUG on device, fires in the native tests / WASM-debug.
+  assert(m > 0.0f);
   float d = std::fmod(std::fmod(a - b, m) + m, m);
   return std::min(d, m - d);
 }
