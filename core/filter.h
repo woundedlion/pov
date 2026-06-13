@@ -927,11 +927,6 @@ public:
     float xs = quintic_kernel(x_frac);
     float ys = quintic_kernel(y_m);
 
-    float v00 = (1 - xs) * (1 - ys);
-    float v10 = xs * (1 - ys);
-    float v01 = (1 - xs) * ys;
-    float v11 = xs * ys;
-
     // Clip Y neighbors to the physical row range rather than clamping them. With
     // H_OFFSET > 0 the LEDs stop short of the south pole, so a virtual sub-pole
     // row (y >= H) must be dropped — clamping it onto row H-1 would stretch the
@@ -947,6 +942,29 @@ public:
 
     bool y0_ok = y0 >= 0 && y0 < H;
     bool y1_ok = y1 >= 0 && y1 < H;
+
+    // Per-row Y weights. X wraps (its two weights always sum to 1), but a clipped
+    // Y tap would otherwise be dropped, depositing < alpha total and dimming the
+    // last visible row. When exactly one Y row survives, fold the clipped row's
+    // weight into it (renormalize the bilinear split to the surviving rows);
+    // with both rows in range this is the unchanged (1-ys, ys) split. On host
+    // (H_OFFSET=0) the south-pole row maps exactly to y=H-1, so ys=0 and the
+    // clipped y1 taps already carry zero weight — a no-op in practice; it bites
+    // on device, where virtual sub-pole rows carry real fractional Y weight.
+    float wy0 = 1.0f - ys;
+    float wy1 = ys;
+    if (y0_ok && !y1_ok) {
+      wy0 = 1.0f;
+      wy1 = 0.0f;
+    } else if (!y0_ok && y1_ok) {
+      wy0 = 0.0f;
+      wy1 = 1.0f;
+    }
+
+    float v00 = (1 - xs) * wy0;
+    float v10 = xs * wy0;
+    float v01 = (1 - xs) * wy1;
+    float v11 = xs * wy1;
 
     if (y0_ok && v00 > 1e-8f)
       pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00);
