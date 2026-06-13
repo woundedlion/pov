@@ -2251,6 +2251,33 @@ struct TimelineEvent {
   }
 };
 
+// Device inline-storage budget audit (finding 373). The per-type
+// static_assert(sizeof(A) <= MAX_ANIM_SIZE) in Timeline::add/add_get only fires
+// for types that are actually add()ed in the build being compiled — so if an
+// effect stops add()ing a heavy animation, that type can grow past the device
+// budget unnoticed. Pin the budget for the largest on-device animation type here
+// at namespace scope so it is checked in every build that includes this header,
+// independent of any callsite.
+//
+// MAX_ANIM_SIZE — not a hardcoded 112 — is deliberate. sizeof of an Fn-/vtable-
+// bearing animation is wider on the 64-bit native host (8-byte pointers) than on
+// the 32-bit device/WASM (4-byte), so a literal `<= 112` would FAIL on the host
+// even for a type that fits on device; that pointer-width gap is exactly why the
+// native test build widens MAX_ANIM_SIZE to 256 (see TimelineEvent). The
+// accurate device check is therefore the 32-bit WASM/device build, where
+// MAX_ANIM_SIZE == 112: this assert enforces the real device budget there and is
+// a no-op headroom check on the host. The WASM CI build, which compiles every
+// registered effect, is the comprehensive gate for all add()ed animation types;
+// this line additionally guards MobiusWarpEvolving — the heaviest type (it
+// embeds a full MobiusParams snapshot) and the one the finding named — even if
+// it ever becomes unreferenced. (Templated animations like Motion/Rotation<W,CAP>
+// cannot be sized at namespace scope and stay covered at their add() sites.)
+static_assert(sizeof(Animation::MobiusWarpEvolving) <=
+                  TimelineEvent::MAX_ANIM_SIZE,
+              "MobiusWarpEvolving exceeds the TimelineEvent inline-storage "
+              "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
+              "112-byte device budget); shrink the type or raise the budget.");
+
 /**
  * @brief Global storage for the timeline to prevent template instantiation
  * bloat.
