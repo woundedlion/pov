@@ -1356,7 +1356,7 @@ Boundary symbols (`ZERO`/`HALF`) serve **two** layers at once: they snap the fly
 
 ```
  Frame = [ idx_hi  idx_lo  rev_hi  rev_lo  checksum ]   (5 digits, base-8)
-           └── effect index 0–63 ──┘ └ rev mod 64 ┘  └ (Σ digits) mod 8
+           └── effect index 0–63 ──┘ └ rev mod 64 ┘  └ Σ(i+1)·dᵢ mod 8
 
  digit Dk transmitted as (Dk+1) pulses @ 1-col pitch, then a 5-col quiet gap:
 

@@ -700,7 +700,10 @@ separated *in time* on the same wire.
   1-column pitch, bursts separated by five quiet columns (one past the gap
   timeout, so the decoder reliably terminates each digit):
   `[index_hi, index_lo, rev_hi, rev_lo, checksum]` — effect index (0–63),
-  revolution-count-within-effect mod 64, and a mod-8 sum checksum. Fixed digit
+  revolution-count-within-effect mod 64, and a position-weighted
+  `Σ(i+1)·dᵢ mod 8` checksum (weighting the four data digits 1–4 so digit
+  transpositions and compensating miscounts — which a plain sum passes — are
+  rejected, at no extra wire cost). Fixed digit
   count = end-of-frame detection; total worst-case length ≈ 26 ms at 1-column
   pitch, comfortably inside the half-rev.
 - **Integrity model:** unlike boundary symbols (exactness via pitch > M, §5.2),

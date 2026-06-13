@@ -241,7 +241,7 @@ inline void test_beacon_codec() {
   HS_EXPECT_EQ(d[1], 3);
   HS_EXPECT_EQ(d[2], 5);
   HS_EXPECT_EQ(d[3], 5);
-  HS_EXPECT_EQ(d[4], (3 + 3 + 5 + 5) & 7);
+  HS_EXPECT_EQ(d[4], (1 * 3 + 2 * 3 + 3 * 5 + 4 * 5) & 7);
 
   /**
    * @brief Feeds all five digit bursts through a fresh parser, optionally
@@ -285,6 +285,18 @@ inline void test_beacon_codec() {
   encode_beacon_digits(27, 45, d);
   HS_EXPECT_FALSE(feed_frame(d, true, false, &f));
   HS_EXPECT_FALSE(feed_frame(d, false, true, &f));
+
+  // The position-weighted checksum rejects two corruption classes a plain
+  // digit-sum is blind to (both preserve the sum): a transposition of two
+  // distinct digits, and a compensating ±1 pair (a pulse miscounted from one
+  // burst into the next). d = {3,3,5,5,chk}.
+  encode_beacon_digits(27, 45, d);
+  const uint8_t transposed[5] = {d[2], d[1], d[0], d[3], d[4]}; // swap d0,d2
+  HS_EXPECT_FALSE(feed_frame(transposed, false, false, &f));
+  const uint8_t compensated[5] = {static_cast<uint8_t>(d[0] + 1),
+                                   static_cast<uint8_t>(d[1] - 1), d[2], d[3],
+                                   d[4]};
+  HS_EXPECT_FALSE(feed_frame(compensated, false, false, &f));
 
   // Out-of-range burst count aborts the frame.
   {
