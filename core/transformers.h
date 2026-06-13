@@ -142,15 +142,23 @@ private:
         // the Transformer is effect-owned and holds a Timeline& so it never
         // moves) to deactivate the slot and drop it from the active list.
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
-        bool repeats = anim.repeats();
-        return timeline.add_get(in_frames,
-                                std::move(anim).then([this, idx, repeats]() {
-                                  if (!repeats) {
-                                    entities[idx].active = false;
-                                    remove_active(idx);
-                                  }
-                                }),
-                                pin);
+        AnimT *p = timeline.add_get(in_frames, std::move(anim), pin);
+        if (p) {
+          // Attach the completion callback to the *stored* animation so it can
+          // capture its pointer and re-query repeats() at callback time, not at
+          // spawn time. A repeating animation that is later cancel()ed reports
+          // repeats()==false and is routed through the removal branch (firing
+          // this once); a spawn-time snapshot of repeats==true would skip the
+          // free and leak the pool slot forever. The handle p is stable —
+          // add_get traps on relocating a handled animation.
+          p->then([this, idx, p]() {
+            if (!p->repeats()) {
+              entities[idx].active = false;
+              remove_active(idx);
+            }
+          });
+        }
+        return p;
       }
     }
     // If we get here, no free slots. Drop the spawn (safe failure).

@@ -824,6 +824,12 @@ public:
   /**
    * @brief Rebinds the reference to the float variable being mutated.
    * @param new_mutant The new float variable to modify.
+   * @details Rebinds only the target reference; the `from` snapshot and the
+   * `captured` flag are deliberately retained. This is therefore safe for
+   * *relocating* the binding to a variable holding the same value (e.g. a moved
+   * params struct), but NOT for *retargeting* mid-flight to a variable with a
+   * different start value — the in-flight interpolation would still run from the
+   * original `from` toward `to`. Retargeting requires a fresh Transition.
    */
   void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
 
@@ -1127,6 +1133,10 @@ public:
       fade_in = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
 
+    // An indefinite sprite (duration < 0) has no end frame to fade toward, so
+    // fade_out_duration is intentionally ignored for it — the `duration >= 0`
+    // guard is load-bearing, not just overflow safety. Fade a sprite out by
+    // giving it a finite duration.
     float fade_out = 1.0f;
     if (duration >= 0 && fade_out_duration > 0 &&
         t >= (duration - fade_out_duration)) {
@@ -1170,6 +1180,12 @@ inline int rotation_substeps(float angle, float max_angle) {
  */
 template <int W, int CAP = 4>
 class Motion : public AnimationBase<Motion<W, CAP>> {
+  // Motion/Rotation interpolate across (len-1) sub-intervals of the bound
+  // Orientation, where len <= CAP. CAP == 1 collapses to len == 1, leaving the
+  // sweep with zero sub-intervals (Motion's loop never runs, Rotation divides by
+  // zero). At least two sub-frames are required for any motion to be applied.
+  static_assert(CAP >= 2, "Motion requires an Orientation capacity >= 2");
+
 public:
   /**
    * @brief Constructs a Motion animation.
@@ -1336,6 +1352,10 @@ private:
  */
 template <int W, int CAP = 4>
 class Rotation : public AnimationBase<Rotation<W, CAP>> {
+  // CAP == 1 collapses len to 1 and makes step_angle = delta / (len - 1) a
+  // divide-by-zero; at least two sub-frames are required (see Motion).
+  static_assert(CAP >= 2, "Rotation requires an Orientation capacity >= 2");
+
 public:
   /**
    * @brief Default constructor. Creates an inactive/identity rotation.
