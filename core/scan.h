@@ -264,8 +264,14 @@ template <int W, int H> struct BoundingSphere {
     center_theta = center_px.x;
     constexpr int H_VIRT = H + hs::H_OFFSET;
     float center_phi = (center_px.y * PI_F) / (H_VIRT - 1);
-    y_min =
-        std::max(0, static_cast<int>(phi_to_y<H>(center_phi - angular_radius)));
+    // Round the band outward on both ends (floor the top, ceil the bottom) so a
+    // fractional cap edge never clips the fringe row it touches. floorf is
+    // currently equivalent to the bare truncating cast — the only case they
+    // differ (a negative top phi when the cap straddles the north pole) clamps
+    // to 0 either way — but stating floorf keeps the intent explicit and robust
+    // if the max(0, ...) clamp is ever changed.
+    y_min = std::max(
+        0, static_cast<int>(floorf(phi_to_y<H>(center_phi - angular_radius))));
     y_max = std::min(H - 1, static_cast<int>(ceilf(
                                 phi_to_y<H>(center_phi + angular_radius))));
   }
