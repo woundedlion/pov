@@ -39,6 +39,10 @@ static void stack_paint_canary() {
  * @return Number of stack bytes that have been touched, in bytes (the high
  *         water mark), found by scanning from the stack end upward to the first
  *         overwritten canary byte.
+ * @details This is a LOWER bound, not an exact figure: a frame that wrote the
+ *          coincidental byte 0xCD, or that reserved space it never actually
+ *          stored to, reads back as still-canary and under-reports. Use it as a
+ *          conservative "at least this deep" signal, not a precise measurement.
  */
 static size_t stack_high_water_mark() {
   uintptr_t base = emscripten_stack_get_base();
@@ -280,6 +284,10 @@ public:
    * @param h Requested canvas height in pixels.
    * @return true if the resolution is now active; false if the request was
    *         rejected (unsupported size) and the previous valid state was kept.
+   * @details Callers that use a sub-canvas clip (segmented rendering) must
+   *          re-apply setClip() after a successful setResolution(): a prior clip
+   *          was expressed in the old resolution's pixel bounds and is not
+   *          rescaled here, so it must be recomputed for the new dimensions.
    */
   bool setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
@@ -777,6 +785,9 @@ struct MeshOpsWrapper {
       val face = val::array();
       int count = mesh.face_counts[i];
       for (int c = 0; c < count; ++c) {
+        // face_counts must sum to faces.size(); trap a corrupt/desynced pair
+        // instead of reading past the flat index buffer.
+        HS_CHECK(static_cast<size_t>(flat_idx) < mesh.faces.size());
         face.call<void>("push", mesh.faces[flat_idx++]);
       }
       faces_arr.set(i, face);
@@ -973,9 +984,12 @@ struct MeshOpsWrapper {
       PolyMesh temp =
           Solids::get_entry(i).generate(tooling_scratch_a, tooling_scratch_b);
 
-      int v = temp.vertices.size();
-      int f = temp.face_counts.size();
-      int idxs = temp.faces.size();
+      // Explicit narrowing: these roster counts are all well under INT16_MAX
+      // (bounded by MAX_VERTS/MAX_INDICES), so size_t -> int is lossless here.
+      // Dev-only measurement binding; not on any UI path.
+      int v = static_cast<int>(temp.vertices.size());
+      int f = static_cast<int>(temp.face_counts.size());
+      int idxs = static_cast<int>(temp.faces.size());
 
       if (v > max_v) {
         max_v = v;
