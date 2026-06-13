@@ -178,6 +178,11 @@ public:
    */
   inline void advance_buffer() {
     int c = cur_.load(std::memory_order_relaxed) ? 0 : 1;
+    // The new write buffer must not be the one the ISR is currently scanning out
+    // (prev_). With two physical buffers this holds only if buffer_free() gated
+    // the advance; a caller that skips that gate would aim writes at the live
+    // display buffer. Trap it here (once per frame, cold) instead of tearing.
+    HS_CHECK(c != prev_.load(std::memory_order_relaxed));
     cur_.store(c, std::memory_order_relaxed);
     if (persist_pixels) {
       memcpy(bufs_[c], bufs_[prev_.load(std::memory_order_relaxed)],
