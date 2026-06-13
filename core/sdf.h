@@ -964,6 +964,20 @@ template <typename A, typename B> struct Subtract {
     // the output (and the pass-through below) to stay start-ordered.
     sort_intervals_by_start(intervals_a);
 
+    // A stroke subtrahend (e.g. Ring, Line) emits intervals describing only its
+    // thin drawn band, and adjacent edge-bands can coalesce into a single chord
+    // interval that spans the stroke's hollow interior. Treating those as
+    // removable would carve A's interior between the stroke edges, and the
+    // skipped columns never get re-filled (scan_region only refines columns it
+    // scans). So for a non-solid B, do NOT do interval subtraction: pass A's
+    // intervals through unchanged and let scan_region's per-pixel max(A, -B)
+    // carve exactly the stroke band and leave A's interior intact.
+    if constexpr (!B::is_solid) {
+      for (size_t i = 0; i < intervals_a.size(); ++i)
+        out(intervals_a[i].first, intervals_a[i].second);
+      return true;
+    }
+
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
