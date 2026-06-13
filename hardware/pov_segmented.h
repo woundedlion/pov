@@ -370,6 +370,12 @@ private:
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     pinMode(PIN_ID1, INPUT_PULLUP);
+    // The 10 ms / 2 ms settle delays are heuristic, not derived: they assume the
+    // strap RC time constant (internal ~? kohm pull-up x the trace+pin
+    // capacitance) settles well within 10 ms, and that a bouncing/floating pin
+    // changes state within the 2 ms re-sample gap. Generous margins for the
+    // expected sub-millisecond RC; widen them if a future board adds long strap
+    // traces or external caps.
     delay(10);  // settle time for pull-ups
 
     const int raw0 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
@@ -495,6 +501,12 @@ private:
       live_effect_ = p;
       consumed_gen_ = pending_gen_;
     } else if (a.join_boundary && !a.dark && live_effect_ == nullptr) {
+      // Re-read pending_gen_ against the current build_word() so a late joiner
+      // only adopts an effect still matching the sync wire's advertised
+      // generation. A momentary visibility lag between the foreground's
+      // pending_gen_ publish and build_word() reflecting it can fail this match
+      // and skip the join — benign: join_boundary recurs on the next grid
+      // boundary, so the board simply joins one grid step later.
       Effect *p = pending_effect_.load(std::memory_order_acquire);
       const uint32_t pg = pending_gen_;
       if (p && pg != consumed_gen_ &&

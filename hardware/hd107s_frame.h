@@ -100,8 +100,12 @@ public:
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
    * @details Shared by load() (CRGB path) and packPixel() (Pixel16 path) so the
    *          two cannot drift. FASTRUN/inline because packPixel() calls it on
-   *          the per-column ISR hot path; with scale-down-only factors the clamp
-   *          never triggers but is kept for safety.
+   *          the per-column ISR hot path. The final clamp to 65535 is a hard
+   *          memory-safety bound, not a fidelity tweak: the result indexes
+   *          linear_to_srgb_lut[r] (a 65536-entry table), so an out-of-range r
+   *          would read past the LUT. With the shipped scale-down-only factors
+   *          it never triggers, but a >1.0 correction factor would, and the
+   *          clamp keeps the index in bounds rather than corrupting memory.
    */
   FASTRUN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
     // Color correction
@@ -160,7 +164,8 @@ public:
       dest += 4;
     }
 
-    // Flush data cache so DMA sees the updated buffer.
+    // Flush data cache so DMA sees the updated buffer. Full COMPOSITE_SIZE on
+    // purpose even for an image-only transfer — see flush()'s note.
     arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
   }
 
@@ -191,6 +196,12 @@ public:
 
   /**
    * @brief Flushes data cache so DMA sees the buffer. Call after packPixel().
+   * @details Flushes the full COMPOSITE_SIZE (image + trailing black frame)
+   *          even though a non-withBg submitFrame DMAs only the image half:
+   *          flush()/load() run before submitFrame and do not know which range
+   *          it will pick, so flushing the superset keeps the cache coherent for
+   *          either transfer. The extra cost is one dcache pass over the bg half;
+   *          under-flushing would instead risk DMAing a stale composite buffer.
    */
   void flush() {
     arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
