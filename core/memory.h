@@ -75,6 +75,11 @@ public:
    * Updates the high-water mark.
    */
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
+    // The padding math `(align - current % align) % align` is only correct for a
+    // power-of-two alignment (and `current % align` is UB for align == 0). Every
+    // caller passes `alignof(T)`, so this is a latent guard against a future
+    // explicit-align caller, placed on the cold allocation path.
+    HS_CHECK(align != 0 && (align & (align - 1)) == 0);
     // `padding` is a byte count derived from the TRUE address (buffer+offset),
     // which is the robust form (correct for any base alignment, including the
     // arbitrary bases configure_arenas() rebinds to). The bounds check adds that
