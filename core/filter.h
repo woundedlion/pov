@@ -347,6 +347,23 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       "A terminal filter (e.g. Pixel::Feedback) writes the Canvas directly and "
       "ignores downstream filters — it must be the last stage in the Pipeline.");
 
+  // World-before-Screen ordering: every world-space (3D) stage must precede
+  // every screen-space (2D) stage. The plot() dispatch above runs each Head in
+  // its own domain and converts on a mismatch — so a 2D Head ahead of a 3D Tail
+  // member would lift the already-splatted screen point back to a Vector
+  // (pixel_to_vector), run the World filter in the wrong space, and re-project
+  // it, silently destroying the 2D distribution (e.g. an AntiAlias splat) and
+  // rotating in screen space. The fold enforces the invariant locally at every
+  // node: if this stage is 2D, no later stage may be 3D. Composed across the
+  // recursion that means once the chain goes 2D it stays 2D. Filter::Pixel::*
+  // are 2D (Is2D / Is2DWithHistory), so they are correctly constrained to follow
+  // the World::* stages too. (Empty Tail folds to true.)
+  static_assert(
+      !Head::is_2d || (... && Tail::is_2d),
+      "Filter ordering: a screen-space (2D) filter (Screen::* / Pixel::*) must "
+      "not precede a world-space (3D) filter (World::*) — World filters operate "
+      "before screen projection. Reorder so every World::* stage comes first.");
+
   /**
    * @brief Flushes 2D history for this stage, then recurses into the Tail.
    * @param cv Target canvas.
