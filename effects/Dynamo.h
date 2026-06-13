@@ -392,11 +392,36 @@ private:
   static constexpr int H_VIRT = H + hs::H_OFFSET; /**< Virtual row count. */
   static constexpr size_t NUM_NODES = H_VIRT; /**< Strand node count. */
   /**
-   * @brief Compile-time Trails storage capacity (max trail points).
+   * @brief Compile-time Trails storage capacity (max buffered trail points).
    * @details The active trail length is the runtime "Trail Len" slider, pushed
    *          into the Trails filter each frame via set_lifetime() in
    *          draw_frame(); this bound is only the fixed upper limit on buffered
    *          points.
+   *
+   *          DELIBERATE MEMORY-BUDGET CAP (not sized to the worst case, by
+   *          design). The strict worst-case live-point count is far larger than
+   *          this and is NOT bounded by a small compile-time constant the way a
+   *          sibling like ChaoticStrings (TRAIL_LENGTH * ORIENTATION_SUBSTEPS)
+   *          is: emission is driven by runtime sliders. Each frame runs up to
+   *          floor(|Speed|) sub-steps (Speed tops out at 10), each plots the
+   *          full strand — one head point plus NUM_NODES-1 geodesic lines — and
+   *          Plot::Line rasterizes every line at ~one-pixel-column density (up to
+   *          ~Gap columns, hard-capped at 2*W substeps per segment in
+   *          scan/plot.h). Every emitted point is stored with ttl = Trail Len
+   *          (up to 100 frames) and accumulates across that many frames, so the
+   *          aggressive-slider steady state reaches hundreds of thousands of
+   *          points — orders of magnitude past anything the 335 KB arena budget
+   *          could hold (10000 Items * 8 B already = 80 KB).
+   *
+   *          Over-budget is handled gracefully and is memory-safe: World::Trails'
+   *          ring (filter.h push_back) drops the OLDEST point when full, so an
+   *          overrun only shortens the visible trail (the oldest tail fades a few
+   *          frames early) — it never traps, overruns the arena, or corrupts a
+   *          frame. 10000 is tuned to hold the trail at typical Speed/Gap/Trail
+   *          Len settings; the extreme-slider truncation is an accepted visual
+   *          trade, not a defect. A static_assert tying this to a worst case is
+   *          intentionally omitted because no truthful small bound exists. See
+   *          code-review finding 372.
    */
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes; /**< Live palettes. */
