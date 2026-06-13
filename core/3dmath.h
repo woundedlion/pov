@@ -290,7 +290,10 @@ struct Vector {
  * @param x X (denominator) coordinate.
  * @return The angle in radians in (-π, π].
  * @details Peak abs error ~0.0038 rad (~0.22°) measured over a dense sweep;
- * worst near r ~= 0.7 in each octant.
+ * worst near r ~= 0.7 in each octant. The two-branch split at |x|==|y| is C0 at
+ * the exact diagonal but the +1e-10f bias on abs_y makes the branches disagree
+ * by ~6e-7 rad right at the octant boundaries — far below the polynomial error
+ * and harmless for all callers (hue/azimuth lookups).
  */
 inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (x==0,y==0) origin yields a
@@ -348,6 +351,9 @@ inline float fast_cosf(float x);
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
+  // At the poles (n.y == ±1) n.x and n.z are both ~0, so fast_atan2 returns its
+  // 0/0 -> 0 fallback: theta is arbitrary there but harmless, because phi==0 or
+  // π collapses the azimuth (every theta maps to the same point on the sphere).
   theta = fast_atan2(n.z, n.x);
   phi = fast_acos(hs::clamp(n.y, -1.0f, 1.0f));
 }
