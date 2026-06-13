@@ -14,6 +14,12 @@
  * @tparam H Canvas height in pixels.
  * @details A single node random-walks and follows a Lissajous path while a
  *          noise transformer warps its trail each frame.
+ * @note Sibling trail effects — `Comets` and `RingSpin` — share the same
+ *       scaffolding (orientation random-walk → motion-blur/fading trail →
+ *       position-colored multiline) and are not unified into a shared base, so
+ *       propagate trail-rendering fixes across all three. Known divergence
+ *       (finding 407): `RingSpin` omits the `Screen::AntiAlias` filter this
+ *       effect and `Comets` apply.
  */
 template <int W, int H> class ChaoticStrings : public Effect {
 public:

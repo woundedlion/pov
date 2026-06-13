@@ -14,6 +14,11 @@
  * @tparam H Canvas height in pixels.
  * @details Each ring's orientation follows a random-walk over the sphere and
  * leaves a motion-blur trail that fades in color and alpha along its length.
+ * @note Sibling trail effects — `Comets` and `ChaoticStrings` — share the same
+ *       scaffolding (orientation random-walk → motion-blur/fading trail) and are
+ *       not unified into a shared base, so propagate trail-rendering fixes across
+ *       all three. Divergence to review (finding 407): this effect does NOT apply
+ *       the `Screen::AntiAlias` filter its two siblings use.
  */
 template <int W, int H> class RingSpin : public Effect {
 public:

@@ -13,6 +13,13 @@
  * @tparam H Canvas height in pixels.
  * @details Projects a noise-warped Cartesian grid onto a sphere, rotating
  * around Y, blending continuously between camera/warp presets.
+ * @note Sibling stereographic shader — `Liquid2D` — shares this pipeline
+ *       (stereo project → noise warp → sin/cos pattern → pole attenuate) and the
+ *       per-pixel `sample()` (kept in sync, finding 399). They are not unified
+ *       into a `StereoShaderBase`, so propagate shader fixes across both. Known
+ *       divergences (finding 407): the two `Params::lerp` use different
+ *       interpolation strategies and the warp time-scales differ by undocumented
+ *       factors.
  */
 template <int W, int H> class Flyby : public Effect {
 public:

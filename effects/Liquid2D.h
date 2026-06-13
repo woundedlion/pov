@@ -14,6 +14,13 @@
  * @details Domain-warped OpenSimplex noise feeds a cross-coupled sinusoidal
  * pattern, stereographically projected and colored through a breathing
  * generative palette. Presets cycle on a random timer.
+ * @note Sibling stereographic shader — `Flyby` — shares this pipeline
+ *       (stereo project → noise warp → sin/cos pattern → pole attenuate) and the
+ *       per-pixel `sample()` (kept in sync, finding 399). They are not unified
+ *       into a `StereoShaderBase`, so propagate shader fixes across both. Known
+ *       divergences (finding 407): the two `Params::lerp` use different
+ *       interpolation strategies and the warp time-scales differ by undocumented
+ *       factors.
  */
 template <int W, int H> class Liquid2D : public Effect {
 public:

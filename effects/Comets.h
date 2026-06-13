@@ -15,6 +15,12 @@
  * @tparam H Canvas height in pixels.
  * @details The path function and color palette periodically roll over to the
  *          next entry in the function table, cross-fading via a ColorWipe.
+ * @note Sibling trail effects — `ChaoticStrings` and `RingSpin` — share the same
+ *       scaffolding (orientation random-walk → motion-blur/fading trail →
+ *       position-colored multiline). They are deliberately NOT unified into a
+ *       shared base, so a trail-rendering fix must be propagated by hand across
+ *       all three. Known divergence (finding 407): `RingSpin` omits the
+ *       `Screen::AntiAlias` filter that this effect and `ChaoticStrings` apply.
  */
 template <int W, int H> class Comets : public Effect {
 public:
