@@ -381,6 +381,13 @@ FLASHMEM static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp
   {
     ScratchScope _(temp);
     CompiledHankin compiled;
+    // Arena polarity looks swapped versus compile_hankin's (target_arena,
+    // temp_arena) signature, and deliberately so: in the one-shot path the
+    // CompiledHankin is itself throwaway (only `out` survives), so it is
+    // allocated from `temp` (rewound by the ScratchScope above) while `target`
+    // serves as compile_hankin's working arena. update_hankin then builds the
+    // surviving `out` mesh into `target`. The persistent/scratch roles are thus
+    // the reverse of the streaming (compile-once, update-many) usage.
     compile_hankin(mesh, compiled, temp, target);
     update_hankin(compiled, out, target, angle);
   }

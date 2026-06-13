@@ -544,6 +544,13 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       verts.push_back(mesh.vertices[faces[offset + k]]);
     }
 
+    // The 32-bit hash (count + sorted rounded interior angles, mixed by fmix32)
+    // is used directly as the topology id, so two genuinely different face
+    // topologies that collide to the same hash would be merged into one class.
+    // No secondary tiebreak is kept: the inputs are the small fixed polyhedron
+    // roster (a handful of distinct face shapes per solid), not adversarial, so
+    // a 32-bit collision is not reachable in practice. Add a vertex-key tiebreak
+    // here if this is ever fed arbitrary user meshes.
     uint32_t h = 0x12345678;
     hash_combine(h, static_cast<uint32_t>(count));
 

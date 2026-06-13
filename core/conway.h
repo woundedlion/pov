@@ -171,7 +171,10 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
     int orbit_count = 0;
     vertex_orbit<DIR>(he_mesh, he_start_idx, [&](uint16_t idx) {
       HS_CHECK(orbit_count < (int)I);
-      orbit_buf[orbit_count++] = static_cast<uint16_t>(value_of(idx));
+      // Route the emitted index through narrow_index (bounds-checked to
+      // INT16_MAX) rather than a bare static_cast, matching every other
+      // index-narrowing site in this file.
+      orbit_buf[orbit_count++] = narrow_index(value_of(idx));
     });
 
     if (orbit_count >= 3) {
