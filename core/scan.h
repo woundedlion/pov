@@ -217,6 +217,11 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
 
           int x1 = static_cast<int>(floorf(start));
           int x2 = static_cast<int>(ceilf(end));
+          // A zero-width interval (x1 == x2) still owns its single pixel column,
+          // so widen to paint it. Combined with the last_x2 clamp below, a
+          // following interval that maps to that same column is then suppressed
+          // — correct, because it is the same physical pixel (re-painting it
+          // would double-process / double-alpha), not a lost distinct column.
           if (x1 == x2)
             x2++;
           if (x1 < 0)
@@ -283,10 +288,40 @@ template <int W, int H> struct BoundingSphere {
     } else {
       theta_span = angular_radius / sin_phi * W / (2.0f * PI_F);
     }
+    // The +1 is not redundant: theta_span is the first-order small-circle
+    // longitude half-width (angular_radius / sin_phi), which can slightly
+    // under-estimate the true extent, so ceilf alone could clip a column the
+    // sphere actually touches. The extra column is a conservative margin on this
+    // coarse cull bound — the per-pixel ray-sphere test downstream rejects any
+    // genuinely-outside column it admits.
     int x_half = std::min(W / 2, static_cast<int>(ceilf(theta_span)) + 1);
     out(center_theta - x_half, center_theta + x_half);
     return true;
   }
+};
+
+/**
+ * @brief Scoped accumulator for per-draw render time (telemetry only).
+ * @details Measures wall-clock over its lifetime and adds it to the canvas's
+ * render-time counter on destruction. Off-Emscripten there is no JS perf clock,
+ * so the type is empty and every use optimizes away to nothing. Replaces six
+ * identical `#ifdef __EMSCRIPTEN__ { _t0 = now() } ... { add_render_us(now()-_t0) }`
+ * blocks; place one at the point the old `_t0` was taken and it fires at scope
+ * end (where each old `add_render_us` already sat — the last statement in its
+ * block).
+ */
+struct ScopedRenderTimer {
+#ifdef __EMSCRIPTEN__
+  Canvas &canvas_;
+  double t0_;
+  explicit ScopedRenderTimer(Canvas &canvas)
+      : canvas_(canvas), t0_(emscripten_get_now()) {}
+  ~ScopedRenderTimer() { canvas_.add_render_us(emscripten_get_now() - t0_); }
+#else
+  explicit ScopedRenderTimer(Canvas &) {}
+#endif
+  ScopedRenderTimer(const ScopedRenderTimer &) = delete;
+  ScopedRenderTimer &operator=(const ScopedRenderTimer &) = delete;
 };
 
 /**
@@ -323,9 +358,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
 
-  #ifdef __EMSCRIPTEN__
-  double _t0 = emscripten_get_now();
-  #endif
+  ScopedRenderTimer _timer(canvas);
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
@@ -338,9 +371,6 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                                         fragment_shader, effective_debug,
                                         result_scratch, frag_scratch);
       });
-  #ifdef __EMSCRIPTEN__
-  canvas.add_render_us(emscripten_get_now() - _t0);
-  #endif
 }
 
 /**
@@ -804,9 +834,7 @@ struct Shader {
 
     if constexpr (SAMPLES == 1) {
       // 1× — single sample at pixel center (no SSAA)
-      #ifdef __EMSCRIPTEN__
-      double _t0 = emscripten_get_now();
-      #endif
+      ScopedRenderTimer _timer(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector v = pixel_to_vector<W, H>(x, y);
@@ -814,16 +842,11 @@ struct Shader {
           canvas(x, y) = sample.color * sample.alpha;
         }
       }
-      #ifdef __EMSCRIPTEN__
-      canvas.add_render_us(emscripten_get_now() - _t0);
-      #endif
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
       constexpr auto offsets = make_sample_offsets<SAMPLES>();
 
-      #ifdef __EMSCRIPTEN__
-      double _t0 = emscripten_get_now();
-      #endif
+      ScopedRenderTimer _timer(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Color4 accum(Pixel(0, 0, 0), 0.0f);
@@ -841,9 +864,6 @@ struct Shader {
           canvas(x, y) = accum.color * accum.alpha;
         }
       }
-      #ifdef __EMSCRIPTEN__
-      canvas.add_render_us(emscripten_get_now() - _t0);
-      #endif
     }
   }
 
@@ -870,9 +890,7 @@ struct Shader {
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
-      #ifdef __EMSCRIPTEN__
-      double _t0 = emscripten_get_now();
-      #endif
+      ScopedRenderTimer _timer(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
@@ -886,18 +904,13 @@ struct Shader {
           canvas(x, y) = frag_base.color.color * frag_base.color.alpha;
         }
       }
-      #ifdef __EMSCRIPTEN__
-      canvas.add_render_us(emscripten_get_now() - _t0);
-      #endif
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
       constexpr auto offsets = make_sample_offsets<SAMPLES>();
 
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
-      #ifdef __EMSCRIPTEN__
-      double _t0 = emscripten_get_now();
-      #endif
+      ScopedRenderTimer _timer(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
@@ -928,9 +941,6 @@ struct Shader {
           canvas(x, y) = accum.color * accum.alpha;
         }
       }
-      #ifdef __EMSCRIPTEN__
-      canvas.add_render_us(emscripten_get_now() - _t0);
-      #endif
     }
   }
 };
@@ -1059,9 +1069,7 @@ struct Volume {
     if (vol_y_lo > vol_y_hi)
       return;
 
-    #ifdef __EMSCRIPTEN__
-    double _vol_t0 = emscripten_get_now();
-    #endif
+    ScopedRenderTimer _timer(canvas);
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
@@ -1119,6 +1127,12 @@ struct Volume {
             if (d < -aa_width)
               break;
 
+            // The 1e-5 floor is a deliberate absolute stall-guard, distinct from
+            // the probe loop's bounds_radius-relative floor below: this is the
+            // precision trace (it wants fine steps near the surface) and is
+            // bounded by max_steps and the past-the-sphere early-out above, so a
+            // grazing ray cannot loop unboundedly. The probe is a coarse
+            // halo punch-through, so it scales its step to the shape size.
             float advance = std::max(d * 0.9f, 1e-5f);
             local_p = Vector(local_p.x + local_vd.x * advance,
                              local_p.y + local_vd.y * advance,
@@ -1175,9 +1189,6 @@ struct Volume {
                           frag.color.alpha * edge_alpha);
           }
         });
-    #ifdef __EMSCRIPTEN__
-    canvas.add_render_us(emscripten_get_now() - _vol_t0);
-    #endif
   }
 };
 
