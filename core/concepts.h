@@ -80,9 +80,18 @@ public:
   /**
    * @brief Wraps a plain function pointer.
    * @param func Function pointer with signature Ret(Args...); stored in ctx_.
+   * @details The function-pointer <-> void* round-trip is only
+   * *conditionally-supported* by the standard ([expr.reinterpret.cast]), but it
+   * holds on every target this engine builds for — ARM Cortex-M7, x86-64
+   * (native tests), and wasm32 all use a single pointer width. The static_assert
+   * turns any future target where that stops being true into a compile error
+   * instead of silent corruption.
    */
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx_(reinterpret_cast<void *>(func)) {
+    static_assert(sizeof(func) == sizeof(void *),
+                  "FunctionRef requires function and object pointers to share a "
+                  "width (true on all supported targets)");
     thunk_ = [](void *ptr, Args... args) -> Ret {
       return (reinterpret_cast<Ret (*)(Args...)>(ptr))(
           std::forward<Args>(args)...);
@@ -110,6 +119,12 @@ public:
    * not itself a FunctionRef.
    * @param callable Const callable whose address is stored; must outlive this
    * ref. The const is cast away into ctx_ and restored in the thunk.
+   * @details This overload deliberately binds rvalues (temporary lambdas) too,
+   * so the idiomatic immediate-use borrow — `take_callback([](...){ ... })` for
+   * a parameter invoked only during the call — keeps working. That is the whole
+   * purpose of a function_ref-style type; an `= delete`d rvalue overload would
+   * outlaw the safe common case to catch the rarer store-past-its-lifetime
+   * misuse, which the class-level lifetime contract already documents.
    */
   template <typename Callable>
     requires std::invocable<Callable, Args...> &&
