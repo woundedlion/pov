@@ -258,13 +258,18 @@ struct Color4 {
   }
 
   /**
-   * @brief Adds another color's pixel and alpha into this one.
+   * @brief Adds another color's pixel and alpha into this one (both saturating).
    * @param rhs Color to add.
    * @return Reference to this color after the add.
+   * @details The pixel add saturates at the channel max; alpha saturates at 1.0
+   * to match, so the sum's alpha stays a valid blend weight. The SSAA averaging
+   * path (scale each sample by 1/SAMPLES, then sum) keeps the running alpha <= 1
+   * regardless, so the clamp only ever trims floating-point spillover or a
+   * caller that sums un-normalized weights.
    */
   Color4 &operator+=(const Color4 &rhs) {
     color += rhs.color;
-    alpha += rhs.alpha;
+    alpha = hs::clamp(alpha + rhs.alpha, 0.0f, 1.0f);
     return *this;
   }
 
