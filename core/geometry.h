@@ -503,6 +503,7 @@ public:
    * @return The rotated vector.
    */
   Vector orient(const Vector &v) const {
+    HS_CHECK(num_frames >= 1);
     return rotate(v, orientations[num_frames - 1]);
   }
 
@@ -525,6 +526,7 @@ public:
    * @return The unrotated vector.
    */
   Vector unorient(const Vector &v) const {
+    HS_CHECK(num_frames >= 1);
     return rotate(v, orientations[num_frames - 1].conjugate());
   }
 
@@ -544,7 +546,10 @@ public:
    * @brief Gets the current (latest) quaternion.
    * @return The Quaternion reference.
    */
-  const Quaternion &get() const { return orientations[num_frames - 1]; }
+  const Quaternion &get() const {
+    HS_CHECK(num_frames >= 1);
+    return orientations[num_frames - 1];
+  }
 
   /**
    * @brief Gets the quaternion at a specific historical frame index.
