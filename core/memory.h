@@ -140,9 +140,10 @@ public:
    * @param bytes Length of the block in bytes.
    * @return True iff [ptr, ptr + bytes) lies within [buffer, buffer + offset).
    * @details Cheap pointer-range test (no generation stamp), available in every
-   * build. Used by ArenaVector::bind() to catch a stale reuse on the NDEBUG
-   * path, where the debug-only generation tracking is absent: a block left
-   * behind by a reset sits beyond the rewound offset and fails this check.
+   * build: a block left behind by a reset sits beyond the rewound offset and
+   * fails this check. (The eighth audit removed the call that used this from
+   * ArenaVector::bind(), which now relies on the debug-only generation contract;
+   * this predicate is retained as a general always-on ownership query.)
    */
   bool owns_live(const void *ptr, size_t bytes) const {
     auto p = static_cast<const uint8_t *>(ptr);
@@ -160,6 +161,9 @@ public:
    * bounds math in allocate() (capacity - offset) is only safe while it holds.
    * This is the one seam that can break it, so trap an out-of-range rewind at
    * the source rather than letting it silently corrupt a later allocation.
+   * Alignment is not re-checked here: allocate() recomputes leading padding from
+   * the true address on every call, so restoring an unaligned mark (e.g. a
+   * ScratchScope save) is safe — the next allocation realigns itself.
    */
   void set_offset(size_t new_offset) {
     HS_CHECK(new_offset <= capacity);
@@ -934,6 +938,12 @@ public:
 
   /**
    * @brief Restores the target by cloning the backup into the persistent arena.
+   * @details The restore clones into `persistent_` at its *current* offset, so
+   * it only reconstructs the object in place if the caller rewound the
+   * persistent arena during the scope (the canonical `persistent_arena.reset()`
+   * in the usage example). Without that reset the clone appends a second copy
+   * and grows the arena rather than restoring — this guard is the caller's
+   * responsibility, not Persist's.
    */
   ~Persist() {
     target_ = T();

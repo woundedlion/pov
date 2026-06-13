@@ -72,6 +72,10 @@ public:
   }
 
   std::array<Entry, Size> entries; /**< The backing store of preset entries. */
+  // Indices are int by design: Size is a compile-time entry count (a small
+  // registry, never near INT_MAX), so both indices always fit. The `% Size` and
+  // `- 1 + Size` arithmetic promotes int to size_t cleanly because the values
+  // stay in [0, Size).
   int current_idx = 0;             /**< Index of the currently selected entry. */
   int prev_idx = 0; /**< Index active before the last next()/prev(); for crossfades. */
 
