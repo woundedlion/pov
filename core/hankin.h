@@ -254,8 +254,12 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
         // start_orbit and never hits HE_NONE.
         uint16_t next_edge_idx = he_mesh.half_edges[curr_he.pair].next;
         HS_CHECK(count < (int)(2 * I));
-        face_indices[count++] =
-            compiled.static_offset + he_to_dynamic_idx[next_edge_idx];
+        // Route the dynamic-vertex index through narrow_index like the star
+        // path (and every other topology cast) so it traps if the
+        // static_offset + dynamic range ever exceeds int16_t, instead of
+        // silently truncating into face_indices.
+        face_indices[count++] = narrow_index(
+            compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
         curr_idx = next_edge_idx;
       } while (curr_idx != start_orbit);
 
