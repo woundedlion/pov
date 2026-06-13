@@ -125,12 +125,14 @@ template <int W, int H> struct Pipeline<W, H> {
    */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float, float alpha) {
     HS_PROFILE(filter_blend);
-    // fast_wrap() only corrects a single +/-W offset, so the sink relies on the
-    // producer keeping x within [-W, 2W). Every current producer does (3D path
-    // full-wraps via vector_to_pixel; AntiAlias/Blur/ChromaticShift wrap before
-    // forwarding). This precondition is enforced debug-only: it is stripped
-    // under NDEBUG on device (zero hot-loop cost) but fires in the native test
-    // suite / WASM-debug if a NaN coord or a future out-of-range filter slips in.
+    // fast_wrap() only corrects a single +/-W offset, so the sink requires the
+    // producer to keep x within [-W, 2W). The known producers honor this (3D
+    // path full-wraps via vector_to_pixel; AntiAlias/Blur/ChromaticShift wrap
+    // before forwarding), but that is the producers' contract, not a property
+    // this sink can prove — so the precondition is enforced by the debug assert
+    // below, stripped under NDEBUG on device (zero hot-loop cost) and firing in
+    // the native test suite / WASM-debug if a NaN coord or a future out-of-range
+    // filter slips in.
     assert(x >= -W && x < 2 * W);
     if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
@@ -481,7 +483,10 @@ public:
     float projection =
         v.x * axis.x + v.y * axis.y + v.z * axis.z; // dot product
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
-    float t = 1.0f - fast_acos(dot_val) / PI_F;
+    // fast_acos can overshoot [0,π] slightly even for in-range input, so t can
+    // land just outside [0,1]; clamp before the floor/size_t cast so a negative
+    // t never wraps to a huge index (the >= count guard below catches t == 1).
+    float t = hs::clamp(1.0f - fast_acos(dot_val) / PI_F, 0.0f, 1.0f);
 
     size_t count = orientations.size();
     if (count == 0) {
@@ -1050,6 +1055,11 @@ public:
 private:
   /** @brief One screen trail point: position plus remaining lifetime. */
   struct DecayPixel {
+    // ttl is float although it advances in whole frames (seeded lifetime - age,
+    // decremented by 1 per decay()): keeping it float lets the per-point hot
+    // loop compute the fade t = 1 - ttl/lifetime and the re-emitted age =
+    // lifetime - ttl with no int->float cast, and tolerates a fractional
+    // incoming age without a separate sub-frame accumulator.
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
   };
   int lifetime;               /**< Per-frame fade divisor in frames. */
@@ -1417,14 +1427,20 @@ private:
    * @param cv Canvas whose previous-frame buffer is scanned.
    * @return True on the first lit pixel found, false if the frame is all black.
    * @details Returns on the first lit pixel, so a non-empty frame (the common
-   * warm case) costs ~one read; only a fully black frame — exactly when the
-   * expensive flush is skipped anyway — pays a full scan. A whole-frame test
-   * rather than per-row culling: a warped trail lights at least one pixel in
-   * nearly every row, so a row mask would saturate without ever saving a sample.
+   * warm case) costs ~one read; only a fully black region — exactly when the
+   * expensive flush is skipped anyway — pays a full scan. Scans only this
+   * segment's clip band (rows render_y_start..render_y_end, columns past the
+   * x-clip): on segmented Phantasm another board's lit pixels must not gate this
+   * board's flush, and there is no point scanning rows/columns this flush will
+   * never composite. For the full-frame single-instance case the clip is the
+   * whole canvas, so this is identical to a whole-frame scan.
    */
   static bool any_pixel_lit(const Canvas &cv) {
-    for (int y = 0; y < H; ++y)
+    const auto &cr = cv.clip();
+    const auto xc = cr.x_clip();
+    for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y)
       for (int x = 0; x < W; ++x) {
+        if (xc.active && xc.clipped(x)) continue;
         ::Pixel p = cv.prev(x, y);
         if (p.r | p.g | p.b) return true;
       }
