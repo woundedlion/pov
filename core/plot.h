@@ -483,6 +483,12 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
       float t = (total_dist > 0.0f) ? (current_dist / total_dist) : 1.0f;
 
+      // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
+      // length — geodesic or planar, whichever this segment uses. The fragment
+      // registers, however, are linearly interpolated from the control points'
+      // values; for v1 (cumulative arc length) those were computed from geodesic
+      // chords, so under planar interpolation the interpolated v1 follows the
+      // chord polygon, not the longer rendered planar arc (finding 408).
       Vector p = map(t).normalized();
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
@@ -705,8 +711,16 @@ struct Vertices {
  * @brief Multiline primitive (Polyline).
  * Registers:
  *  v0: Path Progress (0.0 -> 1.0)
- *  v1: Cumulative Arc Length (radians)
+ *  v1: Cumulative Arc Length (radians) — GEODESIC chord-polygon length
  *  v2: Vertex Index
+ * @note v0/v1 accumulate the GEODESIC (great-circle) distance between
+ *       consecutive control points — the chord-polygon parameterization. That
+ *       equals the rendered arc length only under geodesic edge interpolation.
+ *       Under PLANAR interpolation (a `planar_basis` passed to the draw call)
+ *       the rendered edge is an azimuthal-equidistant straight line that is
+ *       LONGER than the great-circle chord, so v1 under-counts the actual drawn
+ *       arc length. A shader that needs an exact planar-arc parameterization must
+ *       not rely on v1 in planar mode (finding 408).
  */
 struct Multiline {
   /**
