@@ -1874,6 +1874,12 @@ public:
     MeshOps::clone(source, buf_->mesh_A, arena);
     MeshOps::clone(dest, buf_->mesh_B, arena);
 
+    // step() writes interpolated positions into mesh_B.vertices[i] for i in
+    // [0, dest.vertices.size()), which is in-bounds only if clone() preserved
+    // dest's vertex count one-to-one. If clone ever welds/dedups, trap at
+    // construction (cold) rather than writing OOB on the per-frame step.
+    HS_CHECK(buf_->mesh_B.vertices.size() == dest.vertices.size());
+
     // Allocate SLERP buffers
     buf_->start_pos.bind(arena, dest.vertices.size());
     buf_->end_pos.bind(arena, dest.vertices.size());
