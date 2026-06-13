@@ -146,6 +146,22 @@ inline void test_mailbox() {
   HS_EXPECT_FALSE(m.burst_complete(1000 + 10 * kCol + 2, 4 * kCol));
   m.on_edge(1000 + 6 * kCol + kGlitch - 1, kGlitch); // too close: rejected
   HS_EXPECT_FALSE(m.burst_complete(1000 + 20 * kCol, 4 * kCol));
+
+  // try_claim() is the atomic consumer primitive: it recomputes completion
+  // from the same count_ it then clears, so the test and the reset cannot be
+  // split. It declines an incomplete (or absent) burst and takes a complete
+  // one, leaving the same empty state claim() does.
+  EdgeMailbox tc;
+  BurstSnapshot out;
+  HS_EXPECT_FALSE(tc.try_claim(0, 4 * kCol, &out)); // no burst yet
+  tc.on_edge(1000, kGlitch);
+  tc.on_edge(1000 + 2 * kCol, kGlitch);
+  HS_EXPECT_FALSE(tc.try_claim(1000 + 3 * kCol, 4 * kCol, &out)); // gap too short
+  HS_EXPECT_TRUE(tc.try_claim(1000 + 6 * kCol + 1, 4 * kCol, &out));
+  HS_EXPECT_EQ(out.count, 2u);
+  HS_EXPECT_EQ(out.first_cycles, 1000u);
+  HS_EXPECT_EQ(out.last_cycles, 1000u + 2 * kCol);
+  HS_EXPECT_FALSE(tc.try_claim(1000 + 7 * kCol, 4 * kCol, &out)); // reset
 }
 
 /**
@@ -814,10 +830,8 @@ private:
     BurstSnapshot s;
     const BurstSnapshot *sp = nullptr;
     if (!b.master &&
-        b.board.mailbox().burst_complete(now, b.board.gap_timeout_cycles())) {
-      s = b.board.mailbox().claim();
+        b.board.mailbox().try_claim(now, b.board.gap_timeout_cycles(), &s))
       sp = &s;
-    }
     const TickActions a = b.board.tick(now, sp);
     if (a.pulse && b.master)
       for (size_t j = 1; j < boards.size(); ++j)

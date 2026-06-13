@@ -448,10 +448,8 @@ private:
     const pov::sync::BurstSnapshot *bp = nullptr;
     if (segment_id_ != 0) {
       __disable_irq();
-      if (sync_.mailbox().burst_complete(now, sync_.gap_timeout_cycles())) {
-        burst = sync_.mailbox().claim();
+      if (sync_.mailbox().try_claim(now, sync_.gap_timeout_cycles(), &burst))
         bp = &burst;
-      }
       // Retire a stale glitch-filter reference so the cycle counter cannot wrap
       // out from under it during a long wire silence (spec §8).
       sync_.mailbox().age_prior(now, sync_.glitch_filter_cycles());

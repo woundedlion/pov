@@ -360,9 +360,10 @@ struct BurstSnapshot {
  * @brief The only state the sync-wire edge ISR writes. The publisher applies
  * the glitch filter and accumulates edge count + first/last timestamps; the
  * consumer (flywheel ISR) detects burst termination by gap timeout and claims
- * the burst. On the device the burst_complete()+claim() pair runs under a
- * brief IRQ-off window (a two-instruction copy, spec §8.2); on the host the
- * calls are plain.
+ * the burst with try_claim(), which tests completion and takes the burst in one
+ * step so the two cannot be split around an edge. On the device that call runs
+ * under a brief IRQ-off window (a two-instruction copy, spec §8.2); on the host
+ * it is plain.
  */
 class EdgeMailbox {
 public:
@@ -402,6 +403,28 @@ public:
     const BurstSnapshot s{count_, first_cycles_, last_cycles_};
     count_ = 0;
     return s;
+  }
+
+  /**
+   * @brief Consumer: atomically test for a terminated burst and, if present,
+   * take it.
+   * @param now Current timestamp, in cycles.
+   * @param gap_timeout_cycles Quiet time that terminates a burst, in cycles.
+   * @param[out] out Burst snapshot, written only when true is returned.
+   * @return True if a burst had terminated and was claimed.
+   * @details The single consumer primitive: it recomputes completion from the
+   * same `count_` it then clears, so a split burst_complete()+claim() can never
+   * fold a freshly-arrived first edge into the terminated burst and then zero
+   * it. The edge ISR still must not run between the test and the reset; the
+   * device brackets this call in IRQ-off exactly as it did the split pair, but
+   * the window can no longer be opened by an undisciplined caller.
+   */
+  bool try_claim(uint32_t now, uint32_t gap_timeout_cycles, BurstSnapshot *out) {
+    if (count_ == 0 || (now - last_cycles_) < gap_timeout_cycles)
+      return false;
+    *out = BurstSnapshot{count_, first_cycles_, last_cycles_};
+    count_ = 0;
+    return true;
   }
 
   /**
