@@ -93,6 +93,9 @@ struct Pixel16 {
     uint32_t bg2 = ((uint32_t)rhs.g << 16) | rhs.b;
     uint32_t sum_bg = inline_uqadd16(bg1, bg2);
     
+    // r occupies only the low 16-bit lane; the high lane is zero on both
+    // operands, so uqadd16's upper saturating add is a harmless 0+0 and the
+    // low lane carries the true saturating r-sum.
     uint32_t zero_r1 = r; // Lower 16 bits.
     uint32_t zero_r2 = rhs.r;
     uint32_t sum_r = inline_uqadd16(zero_r1, zero_r2);
@@ -417,10 +420,12 @@ inline auto blend_alpha(float a) {
  * @brief Blends two pixels by averaging/mean.
  * @param c1 Destination pixel.
  * @param c2 Source pixel.
- * @return (c1 + c2) / 2.
+ * @return (c1 + c2) / 2, rounded to nearest (matching this file's +0.5f /
+ *   +32768 round-to-nearest parity rather than truncating downward).
  */
 inline Pixel blend_mean(const Pixel &c1, const Pixel &c2) {
-  return Pixel((c1.r + c2.r) / 2, (c1.g + c2.g) / 2, (c1.b + c2.b) / 2);
+  return Pixel((c1.r + c2.r + 1) / 2, (c1.g + c2.g + 1) / 2,
+               (c1.b + c2.b + 1) / 2);
 }
 
 
@@ -703,6 +708,10 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
     h = a.h + dh * t;
   }
   // Clamp the magnitude channels (see @details); hue is left free to wrap.
+  // C is floored at 0 but intentionally not capped above: for the interpolation
+  // contract (t in [0,1]) the result lies between two in-gamut endpoints, so no
+  // upper bound is needed; an out-of-[0,1] t could overshoot C and hue-shift
+  // after the downstream RGB clamp, but no caller extrapolates.
   float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
   float C = __builtin_fmaxf(0.0f, a.C + (b.C - a.C) * t);
   return {L, C, h};
@@ -815,6 +824,11 @@ public:
       int start = static_cast<int>(prevPos * 255);
       int end = static_cast<int>(nextPos * 255);
 
+      // Two stops that quantize to the same index (equal or near-equal
+      // positions) leave end == start and skip this segment: the later stop's
+      // color simply overwrites the index in a subsequent segment or the
+      // end-fill. This is the intended "hard stop" — an abrupt color boundary
+      // with no interpolation — not a dropped stop.
       if (end > start) {
         // Pre-convert stop colors to linear float
         float pr = srgb_to_linear_float(prevColor.r / 255.0f);
@@ -909,7 +923,11 @@ public:
       palette_hue = static_cast<uint8_t>(manual_seed);
     } else {
       palette_hue = g_hue_seed;
-      // Advance global seed for next generation (Golden Ratio distribution)
+      // Advance the global seed by a fixed integer step that approximates the
+      // golden-ratio low-discrepancy stride: static_cast truncates G * 255 to
+      // 157, so this is a constant 157-per-call cursor (a coprime-with-256
+      // integer that still distributes hues well), not the exact irrational
+      // stride. Kept as-is for output stability across generations.
       g_hue_seed = static_cast<uint8_t>((static_cast<uint32_t>(g_hue_seed) +
                                          static_cast<uint32_t>(G * 255.0f)) %
                                         256);
@@ -1384,8 +1402,11 @@ struct RippleModifier {
    * @return t plus the local sine distortion.
    */
   float modify(float t) const {
-    // Calculate a local distortion based on the current t position.
-    return t + sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
+    // Calculate a local distortion based on the current t position. The sine
+    // argument is per-pixel (depends on t), so unlike BreatheModifier it cannot
+    // be memoized; use fast_sinf for the per-pixel path, matching the rest of
+    // the per-pixel trig in this file.
+    return t + fast_sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
   }
 };
 
@@ -1467,7 +1488,10 @@ struct PinchModifier {
 
     centered = sign * powf(std::abs(centered), power);
 
-    // Map back to 0.0 to 1.0 and add to integer spatial frame
+    // Map back to 0.0 to 1.0 and add to integer spatial frame. floorf(t) pairs
+    // with wrap_t(t) (== t - floorf(t)), so the reshaped fraction is re-anchored
+    // to t's own integer cell — including for negative t, where both agree on
+    // the same floor (no truncation-toward-zero mismatch).
     return floorf(t) + ((centered + 1.0f) * 0.5f);
   }
 };
