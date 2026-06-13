@@ -556,6 +556,19 @@ static constexpr float STEREO_INF = 1e4f;
 static constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 
 /**
+ * @brief Soft-limit for a stereographic coordinate fed (times a pattern
+ * frequency) into fast_sinf/fast_cosf, beyond which range reduction bands.
+ * @details stereo() emits magnitudes up to STEREO_INF (1e4); multiplied by a
+ * shader's pattern frequency this drives trig arguments toward ~2e5, where a
+ * float's ULP (~0.02 rad) makes fast_sinf's range reduction visibly shimmer/band
+ * near the pole. Clamping the trig argument to ±this bound holds the reduction
+ * error to ~5e-4 rad. The clamped band is the pole cap, which the stereographic
+ * shaders pole-attenuate toward the background anyway, so freezing the pattern
+ * there is invisible; non-pole coordinates (|z| ~ O(10)) never reach the bound.
+ */
+static constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
+
+/**
  * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
  * sentinel magnitude instead of the raw (and numerically explosive) quotient.
  */

@@ -160,8 +160,14 @@ private:
    * @return Pattern value in [-1, 1], modulated by params.complexity.
    */
   float sample(const Complex &w, float sin_phase, float cos_phase) const {
-    float pu = w.re * params.pattern_freq;
-    float pv = w.im * params.pattern_freq;
+    // Soft-limit the trig argument: near the pole |w| -> STEREO_INF, so
+    // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. The
+    // pole cap is pole-attenuated anyway, so clamp rather than feed the trig a
+    // coordinate it cannot resolve (see STEREO_PATTERN_ARG_LIMIT).
+    float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                         STEREO_PATTERN_ARG_LIMIT);
+    float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                         STEREO_PATTERN_ARG_LIMIT);
     return fast_sinf(pu + params.complexity * fast_sinf(pv + sin_phase)) *
            fast_cosf(pv + params.complexity * fast_cosf(pu - cos_phase));
   }

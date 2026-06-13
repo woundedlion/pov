@@ -154,8 +154,16 @@ private:
    * @return Product of two sinusoids in [-1, 1] forming the grid pattern.
    */
   float sample(const Complex &w, float sin_phase, float drift_phase) const {
-    return fast_sinf(w.re * params.pattern_freq + sin_phase) *
-           fast_cosf(w.im * params.pattern_freq - drift_phase);
+    // Soft-limit the trig argument: near the pole |w| -> STEREO_INF, so
+    // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. The
+    // pole cap is pole-attenuated anyway, so clamp rather than feed the trig a
+    // coordinate it cannot resolve (see STEREO_PATTERN_ARG_LIMIT). Kept in sync
+    // with Liquid2D::sample (finding 407).
+    float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                         STEREO_PATTERN_ARG_LIMIT);
+    float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                         STEREO_PATTERN_ARG_LIMIT);
+    return fast_sinf(pu + sin_phase) * fast_cosf(pv - drift_phase);
   }
 
   /**
