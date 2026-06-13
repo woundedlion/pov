@@ -27,18 +27,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Shards partition all 32 modules (plus the fastmath_clamp release-flag
-          # check, finding 369) so every registered test runs in exactly one job.
-          # Adjust groupings here when modules are added or renamed.
+        # Shards partition all 32 modules (plus the fastmath_clamp release-flag
+        # check, finding 369) so every registered test runs in exactly one job.
+        # SINGLE SOURCE OF TRUTH: the sanitizers job references this same anchored
+        # list (*shard_matrix), and the shard-coverage job (which references the
+        # per-shard anchors) asserts the union covers every registered test — so a
+        # module added to CMake but to no shard fails CI instead of silently
+        # running in zero Linux/sanitizer jobs. Adjust groupings here only.
+        include: &shard_matrix
           - shard: 1
-            test_regex: "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
+            test_regex: &shard1_re "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
           - shard: 2
-            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
+            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
           - shard: 3
-            test_regex: "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
           - shard: 4
-            test_regex: "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|util|presets|styles|death)$"
+            test_regex: &shard4_re "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|util|presets|styles|death)$"
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
     runs-on: ubuntu-24.04
@@ -100,15 +104,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - shard: 1
-            test_regex: "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
-          - shard: 2
-            test_regex: "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
-          - shard: 3
-            test_regex: "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
-          - shard: 4
-            test_regex: "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|util|presets|styles|death)$"
+        # Same shard partition as the tests job — referenced by anchor, not
+        # re-typed, so the two jobs cannot drift (finding 404).
+        include: *shard_matrix
     # The native suite is the only build where the arena guards compile in
     # (device/WASM strip them), so ASan+UBSan here is the sole automated cover
     # for the arena-lifetime UB the death harness can't reach. -DHS_SANITIZE=ON
@@ -314,3 +312,56 @@ jobs:
             exit 1
           fi
           echo "LUT numeric tokens match the generator."
+
+  shard-coverage:
+    name: Shard coverage (every test in exactly one shard)
+    # Guards finding 404: the tests/sanitizers jobs run subsets of the suite via
+    # the shard regexes. A module registered in CMake but absent from every shard
+    # would run in no Linux/sanitizer job and silently lose that coverage. List
+    # the registered tests and assert each matches exactly one shard regex — the
+    # SAME anchored scalars the matrices use, so this check cannot drift from them.
+    runs-on: ubuntu-24.04
+    env:
+      SHARD1: *shard1_re
+      SHARD2: *shard2_re
+      SHARD3: *shard3_re
+      SHARD4: *shard4_re
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang + Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 ninja-build
+
+      # Configure only — ctest -N reads the generated test list; no build needed.
+      - name: Configure (register tests)
+        run: >
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Assert every registered test is in exactly one shard
+        run: |
+          # ctest right-aligns the index, so single-digit tests get extra spaces
+          # ("Test  #1:" vs "Test #10:"); match one-or-more spaces around it.
+          mapfile -t TESTS < <(ctest --preset tests -N \
+            | sed -n 's/^[[:space:]]*Test[[:space:]]\+#[0-9]\+:[[:space:]]*//p')
+          if [ "${#TESTS[@]}" -eq 0 ]; then
+            echo "::error::no tests parsed from 'ctest -N' — output format changed?"
+            exit 1
+          fi
+          fail=0
+          for t in "${TESTS[@]}"; do
+            n=0
+            for re in "$SHARD1" "$SHARD2" "$SHARD3" "$SHARD4"; do
+              if printf '%s\n' "$t" | grep -Eq "$re"; then n=$((n + 1)); fi
+            done
+            if [ "$n" -ne 1 ]; then
+              echo "::error::test '$t' is in $n shards (want exactly 1) — update the shard matrix in ci.yml"
+              fail=1
+            fi
+          done
+          if [ "$fail" -eq 0 ]; then
+            echo "All ${#TESTS[@]} registered tests are covered by exactly one shard."
+          fi
+          exit "$fail"
