@@ -198,6 +198,10 @@ private:
     // stays >= dur/2 — a larger fade piles up sprites and per-frame respawns.
     int dur = static_cast<int>(params.duration);
     int fade = std::min(static_cast<int>(params.fade), dur / 2);
+    // Make the comment's invariant checkable: fade never exceeds half the
+    // duration, so the respawn delay (dur - fade) stays >= dur/2 and sprites
+    // never pile up. Debug-only; the std::min above is what enforces it.
+    assert(fade <= dur / 2 && dur - fade >= dur / 2);
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_mid, fade,
                                       ease_mid));
 

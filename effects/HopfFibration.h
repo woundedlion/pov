@@ -253,6 +253,12 @@ private:
    * (opaque) to oldest (transparent).
    */
   void render_trails(Canvas &canvas) {
+    // Every fragment's alpha is scaled by params.alpha (see the shader below),
+    // so alpha == 0 paints nothing. Skip rasterizing all 210 fibers in that
+    // case — output-identical, just cheaper. Trails are still recorded in
+    // draw_frame(), so motion continues and resumes correctly when alpha > 0.
+    if (params.alpha <= 0.0f)
+      return;
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
       size_t len = trail.length();

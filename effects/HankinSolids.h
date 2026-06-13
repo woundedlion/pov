@@ -203,6 +203,14 @@ private:
     timeline.add(
         0, Animation::Sprite(
                [this, front](Canvas &c, float opacity) {
+                 // Per-frame persistent-bind invariant: update_hankin re-binds
+                 // carousel.slot(front)'s vectors against persistent_arena every
+                 // frame, but the angle never changes the vertex/face COUNTS
+                 // within a shape, so after the first frame ArenaVector::bind
+                 // reuses the already-allocated blocks in place (size reset, no
+                 // new allocation) instead of growing the arena. The same-arena/
+                 // same-generation requirement that makes that reuse sound is
+                 // itself enforced by ArenaVector::bind's debug contract assert.
                  MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
                                         persistent_arena, params.hankin_angle);
                  draw_mesh(c, carousel.slot(front),

@@ -33,7 +33,12 @@ public:
   /**
    * @brief Wires up palette, noise, orientation, and the filter pipeline.
    * @details Constructs the World/Screen/Pixel filter stack; the Feedback pixel
-   * filter reads `style` by reference.
+   * filter reads `style` by reference. The mem-initializer list below names
+   * `filters` (which captures &style) without naming `style`, which reads as if
+   * filters were built first — but C++ runs initializers in member-DECLARATION
+   * order, and `style` is declared well before `filters`, so style is fully
+   * constructed before filters binds its reference. Keep style declared ahead of
+   * filters.
    */
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
