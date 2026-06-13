@@ -271,11 +271,18 @@ public:
       // Positive palette (baked LUT — no cosf/powf per pixel)
       Color4 pos =
           baked_palette.get(std::min(1.0f, abs_val * params.amplitude));
-      // Negative palette (channel-swapped)
-      Color4 neg =
-          Color4(Pixel(pos.color.b, static_cast<uint16_t>(pos.color.g * 0.8f),
-                       pos.color.r),
-                 pos.alpha);
+      // Negative palette: a cheap channel recolor of the positive palette so
+      // negative SH lobes read as a distinct color, without a second baked LUT
+      // or a per-pixel perceptual rotate. Swap R<->B (the dominant hue flip) and
+      // dim green by NEG_LOBE_GREEN_SCALE so the result is a stylized complement
+      // rather than a literal RGB mirror. Deliberately NOT OKLCH-accurate — it
+      // is a lobe-polarity cue, kept to LUT-cheap integer ops on the hot path.
+      constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
+      Color4 neg = Color4(
+          Pixel(pos.color.b,
+                static_cast<uint16_t>(pos.color.g * NEG_LOBE_GREEN_SCALE),
+                pos.color.r),
+          pos.alpha);
 
       // Quintic-smoothed crossfade across the zero-crossing boundary
       constexpr float transition = 0.03f;
