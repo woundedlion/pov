@@ -257,6 +257,48 @@ inline void test_antialias_seam_wraps_left_column() {
   HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
 }
 
+/**
+ * @brief Verifies AntiAlias CLIPS a virtual sub-pole sample (y >= H) instead of
+ *        clamping it onto the last physical row — the device-only H_OFFSET path.
+ * @details On the device, H_OFFSET appends virtual rows below the LED ring so a
+ *          sample landing at y >= H must be dropped (the LEDs stop short of the
+ *          south pole) rather than stretched onto row H-1 at full weight — the
+ *          y0_ok/y1_ok clip in AntiAlias::plot (filter.h). The host/sim build
+ *          sets H_OFFSET == 0, so projected geometry never yields y >= H and that
+ *          branch is otherwise unreachable under the native asserts (finding
+ *          375). Rather than make the filter's compile-time offset injectable,
+ *          drive the branch directly with an out-of-range row coordinate: the
+ *          clip decision (y0 < H) is identical regardless of how y was produced.
+ *          A sub-pole y emits no tap; the bottom physical row keeps its y0 taps
+ *          and never emits onto a row >= H (its y1 == H neighbor is clipped, not
+ *          clamped back onto H-1).
+ */
+inline void test_antialias_clips_virtual_subpole_row() {
+  constexpr int W = 32, H = 16;
+  Filter::Screen::AntiAlias<W, H> aa;
+
+  // Virtual sub-pole sample: y0 = H and y1 = H+1 are both >= H, so every tap is
+  // clipped (clamping would have splatted it onto row H-1 instead).
+  int subpole_taps = 0;
+  aa.plot(10.5f, static_cast<float>(H) + 0.3f, Pixel(40000, 0, 0), 0.0f, 1.0f,
+          [&](float, float, const Pixel &, float, float) { ++subpole_taps; });
+  HS_EXPECT_EQ(subpole_taps, 0);
+
+  // Bottom physical row (y0 = H-1): its taps survive, but none lands on a row
+  // >= H — the y1 = H neighbor is clipped, confirming clip-not-clamp.
+  int row_taps = 0;
+  int max_row = -1;
+  aa.plot(10.5f, static_cast<float>(H - 1) + 0.3f, Pixel(40000, 0, 0), 0.0f,
+          1.0f, [&](float, float y, const Pixel &, float, float) {
+            ++row_taps;
+            int yi = static_cast<int>(y);
+            if (yi > max_row)
+              max_row = yi;
+          });
+  HS_EXPECT_TRUE(row_taps > 0);
+  HS_EXPECT_EQ(max_row, H - 1);
+}
+
 // ============================================================================
 // Screen::Blur::plot — kernel passthrough
 // ============================================================================
@@ -1165,6 +1207,7 @@ inline int run_filter_tests() {
   test_antialias_weights_partition();
   test_antialias_integer_coord_single_tap();
   test_antialias_seam_wraps_left_column();
+  test_antialias_clips_virtual_subpole_row();
 
   test_blur_factor_zero_is_identity();
   test_blur_full_kernel_sums_to_alpha();
