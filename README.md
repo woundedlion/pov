@@ -1725,7 +1725,7 @@ A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic rando
 
 #### GnomonicStars
 
-Star polygon SDFs that rotate continuously. Uses gnomonic projection (straight lines on sphere remain straight).
+A Fibonacci-spiral field of star-polygon SDFs, continuously deformed by an evolving Möbius warp (built on a gnomonic-projection transformer) and slowly tumbled by a Languid random walk.
 
 </td></tr></table>
 

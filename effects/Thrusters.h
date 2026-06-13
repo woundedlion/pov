@@ -216,7 +216,7 @@ private:
     // calls above); sin_wave's phase is in cycles. The exact radians->cycles
     // factor is 1/(2*PI_F); dividing by PI_F gives a phase in [0,2) cycles, a
     // doubled offset that stays uniform because warp_phase is itself uniform
-    // random.
+    // random — deliberate, not a missing 2 (see code-review finding 323).
     return sin_wave(-1, 1, 2, warp_phase / PI_F)(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(t_global % 32) / 32.0f) *
            amplitude;

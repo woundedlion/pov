@@ -43,6 +43,11 @@ public:
    */
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    // Count tops out at 128; each shape can dispatch up to two rasterizations
+    // per frame, so the worst case is ~256 SDF rasterizations/frame — left
+    // unbudgeted (no per-frame cap against device resolution). Acceptable on the
+    // WASM sim; if a device target ever runs this effect, cap Count by W*H or
+    // add a frame-time budget here.
     registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
