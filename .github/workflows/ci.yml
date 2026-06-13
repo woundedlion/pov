@@ -232,6 +232,15 @@ jobs:
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release
 
+      - name: Configure + build WASM debug (compile check)
+        # The wasm-debug preset (Debug: 64 KB stack, -sASSERTIONS=1) ships no
+        # runtime consumer, so without this it can bit-rot — an assertion or a
+        # debug-only branch that stops compiling would ride a green release build.
+        # Compile-only (no run); reuses the emsdk + ccache provisioned above.
+        run: |
+          cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
+          cmake --build --preset wasm-debug
+
       # Verify ccache actually fronts em++ here (the comment above claims it
       # does via CMAKE_CXX_COMPILER_LAUNCHER). Zero hits means the emcc launcher
       # integration is not engaging and this cache should be reworked or dropped.
