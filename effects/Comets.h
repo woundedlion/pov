@@ -206,6 +206,10 @@ private:
 
   FastNoiseLite noise; /**< Noise source driving the head's RandomWalk. */
   Timeline timeline; /**< Animation timeline owning all scheduled animations. */
+  // Empty pipeline by design: Comets deliberately omits Screen::AntiAlias. The
+  // comet points are drawn via Scan::Point with their own thickness/softness and
+  // overlapping trail alpha, so a screen-space AA pass would only blur the glow
+  // without improving the look. Add AntiAlias here if crisp edges are ever wanted.
   Pipeline<W, H> filters; /**< Render filter pipeline applied to drawn fragments. */
   ProceduralPath path; /**< Current path function the comet head traces. */
   Orientation<> orientation; /**< World orientation walked by the RandomWalk. */

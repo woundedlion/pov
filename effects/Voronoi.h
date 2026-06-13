@@ -75,7 +75,12 @@ public:
     Canvas canvas(*this);
 
     // Re-seed when the GUI changes the site count (integer change only, so
-    // dragging within a bucket doesn't thrash).
+    // dragging within a bucket doesn't thrash). Note: seed_sites() fully
+    // re-scatters — site positions are deterministic per index (golden-angle
+    // spiral) so they are stable, but each site's rotation axis is drawn fresh
+    // from the RNG, so a single-step count change reshuffles every cell's spin,
+    // not just the added/removed one. Intentional full re-scatter, not an
+    // incremental edit.
     if (active_site_count() != current_num_sites)
       seed_sites();
 

@@ -257,20 +257,27 @@ private:
           float z = sinf(t_line * 2.0f * PI_F);
 
           // Conformal radius of the stereographic longitude. Singular where
-          // z = ±1 (t_line = 0.25 and 0.75): the division by (1 - z) blows R up
-          // to ±inf, log_r follows, and wrap() turns the inf into NaN. This is
-          // intentional and visually acceptable — palette.get clamps the NaN
-          // (hardware min/max) to a palette endpoint, so the line just reaches
-          // its terminal color at the pole rather than misbehaving. Left
-          // unguarded so the saturation stays exact; do not "fix" by nudging
-          // (1 - z) off zero without checking the endpoint color is unchanged.
+          // z = ±1 (t_line = 0.25 and 0.75): the division by (1 - z) blows R to
+          // ±inf (or 0), log_r follows, and t goes non-finite. The intended
+          // visual is for the line to saturate to its terminal palette color at
+          // the pole. Do NOT "fix" by nudging (1 - z) off zero — that changes the
+          // endpoint color and splits the two poles to different ends.
           float R = sqrtf((1.0f + z) / (1.0f - z));
           float log_r = logf(R);
           const float log_min = -2.5f;
           const float log_max = 2.5f;
           float t = (log_r - log_min) / (log_max - log_min);
 
-          Color4 c = palette.get(wrap(t - phase, 1.0f));
+          // Make the pole saturation explicit instead of relying on palette.get
+          // clamping a NaN coordinate (fragile if the -fno-finite-math-only
+          // guard of finding 369 ever regressed): a non-finite t collapses to the
+          // hi endpoint, exactly matching the prior NaN->hi behavior (both poles
+          // reach the same terminal color). palette.get now always sees a finite
+          // coordinate.
+          float coord = wrap(t - phase, 1.0f);
+          if (!std::isfinite(t))
+            coord = 1.0f;
+          Color4 c = palette.get(coord);
           c.alpha *= opacity * params.alpha;
           f_val.color = c;
         });

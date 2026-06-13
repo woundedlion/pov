@@ -167,7 +167,11 @@ private:
         rings[i].active = true;
         rings[i].rho = initial_rho;
         rings[i].hue = next_hue;
-        next_hue = wrap(next_hue + 0.13f, 1.0f);
+        // Advance the hue cursor by a fixed step that is not a simple fraction
+        // of 1, so successive rings spread around the wheel instead of repeating
+        // a short cycle (0.13 -> ~7.7 rings per loop, no early alias).
+        constexpr float kHueStep = 0.13f;
+        next_hue = wrap(next_hue + kHueStep, 1.0f);
         return;
       }
     }

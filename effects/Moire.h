@@ -147,6 +147,8 @@ private:
       c.alpha *= params.alpha;
       f.color = c;
     };
+    // i runs 0..count inclusive on purpose: the i == count ring closes the
+    // pattern at r == 2.0 (the full radius), giving count+1 concentric rings.
     for (int i = 0; i <= count; ++i) {
       float r = static_cast<float>(i) / count * 2.0f;
 

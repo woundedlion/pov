@@ -66,7 +66,10 @@ public:
         auto &p = sys.pool[i];
 
         // Rare random respawn so particles caught in field sinks redistribute.
-        if (hs::rand_f() < 0.005f) {
+        // ~0.5% per particle per frame: long enough average dwell that motion
+        // reads as continuous, frequent enough to bleed off sink accumulation.
+        constexpr float kRespawnProb = 0.005f;
+        if (hs::rand_f() < kRespawnProb) {
           p.position = random_vector();
           p.velocity = Vector(0, 0, 0);
           p.history.clear();

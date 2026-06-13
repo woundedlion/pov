@@ -178,6 +178,10 @@ public:
    *          oldest to find the band containing the angle.
    */
   Color4 color(const Vector &v, float t) {
+    // Half-width of the cross-fade region on each side of a palette boundary, in
+    // radians. PI_F/4 (45 deg) gives a broad, soft seam between adjacent palette
+    // bands relative to the [0, PI] angular span — wide enough that boundaries
+    // read as gradients, not hard edges.
     constexpr float blend_width = PI_F / 4;
     // +inf sentinel for "no next boundary": `a` is an angle in [0, PI], so any
     // value well above PI makes the `a < next_boundary_lower_edge` test pass.
@@ -284,6 +288,11 @@ public:
       }
     }
 
+    // Trail re-draw: the Trails filter replays every buffered point and calls
+    // this trailFn with t = the point's age fraction (1 - ttl/lifetime). We feed
+    // that age straight in as color()'s palette parameter, so a trail fades
+    // ALONG the palette with age (newest at t=0, oldest at t=1) rather than just
+    // dimming — the trail's color sweep is its age axis.
     filters.flush(
         canvas, [this](const Vector &v, float t) { return color(v, t); }, 1.0f);
   }
