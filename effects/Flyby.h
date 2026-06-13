@@ -73,9 +73,14 @@ public:
   }
 
   /**
-   * @brief Reports that this effect draws atop the persistent background.
-   * @return true; this effect is translucent and composites over the
-   * persistent background buffer.
+   * @brief Requests a trailing black display frame (a hardware POV-background
+   * frame), not a software alpha-composite over a background buffer.
+   * @return true; the driver emits a black frame after this effect's image so
+   * the bright stereographic pattern stands against a dark POV background
+   * instead of smearing over the previous revolution. The shader itself
+   * OVERWRITES every pixel — `Scan::Shader::draw` writes `color * alpha`, and
+   * `c.alpha *= (1 - value)` only darkens toward black; no persistent background
+   * buffer is blended in or revealed.
    */
   bool show_bg() const override { return true; }
 
