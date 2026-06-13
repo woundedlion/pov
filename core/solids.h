@@ -265,7 +265,11 @@ public:
   }
   /**
    * @brief Applies the truncate operator (cut corners off each vertex).
-   * @param t Truncation depth in [0, 0.5] along each edge.
+   * @param t Truncation depth in [0, 1] along each edge (the fraction at which
+   *   each cut point sits). t < 0.5 keeps the cuts on their own half; t == 0.5
+   *   is rectification (short-circuits to ambo); t > 0.5 crosses the cuts past
+   *   each other for intentional self-intersecting faces (the *_truncate50d_*
+   *   recipes pass 50 deg ~= 0.873). See MeshOps::truncate.
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &truncate(float t = 0.25f) {
@@ -278,7 +282,7 @@ public:
    * @param t Expansion amount; default places square faces at the canonical gap.
    * @return Reference to this builder for chaining.
    */
-  SolidBuilder &expand(float t = 2.0f - 1.414213562373095f) {
+  SolidBuilder &expand(float t = 2.0f - SQRT2) {
     mesh_ = MeshOps::expand(mesh_, *a_, *b_, t);
     std::swap(a_, b_);
     return *this;
@@ -1171,6 +1175,13 @@ inline constexpr int NUM_ENTRIES =
     sizeof(simple_registry) / sizeof(simple_registry[0]) +
     sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
+
+// get_platonic_solids/get_archimedean_solids below slice simple_registry by the
+// fixed offsets [0,5) and [5,16); lock the count so adding or removing an entry
+// without updating the spans is a compile error rather than a silent mis-slice.
+static_assert(std::size(simple_registry) == 16,
+              "simple_registry must hold 5 Platonic + 11 Archimedean entries; "
+              "update the Collections spans if this changes");
 
 namespace Collections {
 /**

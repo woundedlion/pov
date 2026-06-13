@@ -192,7 +192,7 @@ public:
   StaticCircularBuffer<KDNode, MAX_K> nearest(const Vector &target,
                                               size_t k = 1) const {
     StaticCircularBuffer<KDNode, MAX_K> result;
-    if (root_index == -1 || k <= 0)
+    if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
       return result;
 
     // The result/heap buffers are sized MAX_K, so more than MAX_K neighbors
