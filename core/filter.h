@@ -1299,6 +1299,13 @@ public:
     for (int y = y_lo; y < y_hi; ++y) {
       int cy0 = y / ds;
       int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
+      // Step 1 populated coarse rows [cy_lo, cy_hi] as the exact superset of the
+      // rows sampled here. Trap if a future edit to either band formula lets this
+      // read past the populated top — bilerping uninitialized scratch is silent
+      // visual corruption, not a crash. Per-row (H checks/frame), never per-pixel.
+      HS_CHECK(cy0 >= cy_lo && cy1 <= cy_hi,
+               "feedback warp row %d outside populated band [%d,%d]", cy1, cy_lo,
+               cy_hi);
       float fy = (y - cy0 * ds) * inv_ds;
       float wy0 = 1.0f - fy, wy1 = fy;
       const int row0 = cy0 * hw, row1 = cy1 * hw;
