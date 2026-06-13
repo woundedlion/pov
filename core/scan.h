@@ -755,8 +755,8 @@ struct Shader {
   /**
    * @brief Compile-time table of sub-pixel sample offsets.
    * @tparam SAMPLES Number of sub-pixel samples per pixel.
-   * @details Holds the four pixel corners (±0.5, ±0.5), selected by the low two
-   * bits of the sample index. SAMPLES > 4 reuses the same four corners.
+   * @details Holds a centered 2×2 grid (±0.25, ±0.25), selected by the low two
+   * bits of the sample index.
    */
   template <int SAMPLES> struct SampleOffsets {
     float x[SAMPLES]; /**< Per-sample x offsets in pixel units. */
@@ -765,12 +765,16 @@ struct Shader {
   /**
    * @brief Builds the sub-pixel sample offset table at compile time.
    * @tparam SAMPLES Number of sub-pixel samples per pixel.
-   * @return Offset table with each sample placed at a (±0.5, ±0.5) corner.
-   * @details Fully compile-time, so it costs nothing at runtime.
+   * @return Offset table with each sample on a centered 2×2 grid (±0.25, ±0.25).
+   * @details Fully compile-time, so it costs nothing at runtime. The grid is
+   * centered at ±0.25 rather than the ±0.5 pixel corners so the four samples lie
+   * strictly inside the pixel: corner sampling lands on the shared pixel
+   * boundary, biasing coverage outward and making adjacent pixels evaluate the
+   * identical boundary point (correlated, not independent, samples).
    */
   template <int SAMPLES>
   static constexpr SampleOffsets<SAMPLES> make_sample_offsets() {
-    constexpr float eps = 0.5f;
+    constexpr float eps = 0.25f;
     SampleOffsets<SAMPLES> o{};
     for (int i = 0; i < SAMPLES; ++i) {
       int qx = (i & 1) ? -1 : 1;
