@@ -160,6 +160,16 @@ public:
   virtual bool repeats() const = 0;
 
   /**
+   * @brief Reports whether the animation was explicitly canceled.
+   * @return True if cancel() drove it to done(); false for a natural end.
+   * @details Lets Timeline distinguish a deliberate teardown (a held handle
+   * calling cancel()) from a natural completion. Only the latter is misuse for a
+   * pinned event, so the pin-completion guard exempts cancellation. Defaults to
+   * false for animations that have no cancel concept.
+   */
+  virtual bool is_canceled() const { return false; }
+
+  /**
    * @brief Resets the animation to its start.
    */
   virtual void rewind() = 0;
@@ -227,6 +237,11 @@ public:
    * canceled one-shot already behaves.
    */
   bool repeats() const override { return repeat && !canceled; }
+  /**
+   * @brief Reports whether this animation was canceled (vs. ran to its end).
+   * @return True once cancel() has been called.
+   */
+  bool is_canceled() const override { return canceled; }
   /**
    * @brief Advances the animation state by one frame.
    * @details The canvas buffer is unused by the base class and passed through
@@ -2535,6 +2550,16 @@ public:
         }
         write_idx++;
       } else {
+        // Symmetric with move_into's guard, closing the completion side of the
+        // pin invariant. The contract is pinned ⇒ infinite, so a pinned event
+        // should never reach natural completion; if one does — even as the last
+        // event, where no relocation runs and move_into's trap would not fire —
+        // destroying it dangles the caller's retained pointer silently. Trap so
+        // misuse crashes at the bench instead of live. A deliberate cancel() is
+        // exempt: that is the held handle's own sanctioned teardown (like
+        // clear()), not a silent dangle. (Cold path: once per completed event,
+        // never per pixel.)
+        HS_CHECK(!e.handled || anim->is_canceled());
         e.destroy();
       }
     }

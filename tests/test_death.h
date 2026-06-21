@@ -266,6 +266,37 @@ inline void case_timeline_handled_relocation() {
 }
 
 /**
+ * @brief Death case: a pinned (handled) animation that COMPLETES must trap.
+ * @details Animation surface — the symmetric companion to
+ *          case_timeline_handled_relocation, which guards the relocation path
+ *          (move_into). A pinned-but-finite animation that finishes as the
+ *          *last* event needs no relocation, so move_into never runs; step()'s
+ *          completion branch would otherwise e.destroy() it and dangle the
+ *          caller's retained pointer silently. The pin contract is
+ *          pinned => infinite, so a pinned animation that naturally completes is
+ *          misuse; the completion branch's HS_CHECK traps it. (A deliberate
+ *          cancel() is exempt — see is_canceled() — so this case completes
+ *          naturally rather than canceling.)
+ */
+inline void case_timeline_handled_completion() {
+  // A do-nothing 8x8 effect whose fresh buffer_free() is true, so the Canvas
+  // ctor does not spin. The animation never renders through it.
+  struct DeathEffect : public Effect {
+    DeathEffect() : Effect(8, 8) {}
+    void draw_frame() override {}
+    bool show_bg() const override { return false; }
+  };
+  static DeathEffect fx;
+  static Canvas canvas(fx);
+  Timeline tl;
+  float v = 0.0f;
+  // pin=true marks the event handled; a 1-frame Transition is finite and the
+  // sole event, so step() routes it through the completion/destroy branch.
+  tl.add_get(0, Animation::Transition(v, 1.0f, 1, ease_mid), /*pin=*/true);
+  tl.step(canvas); // t=1: done() && !repeats() && !canceled, keep=false -> trap
+}
+
+/**
  * @brief Death case: a second simultaneously-live Timeline must trap.
  * @details Animation surface — every Timeline shares the single global event
  *          array, so a second live instance would silently stomp the first's
@@ -619,6 +650,7 @@ inline const Case *all_cases(int &n) {
       {"spatial_knn_over_max", case_spatial_knn_over_max},
       {"arena_oversubscribed", case_arena_oversubscribed},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
+      {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_double_construct", case_timeline_double_construct},
       {"mesh_narrow_index", case_mesh_narrow_index},
       {"slerp_nan", case_slerp_nan},
