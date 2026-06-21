@@ -1835,12 +1835,9 @@ public:
     params.get().b.im = -scale * sinf(angle);
   }
 
-private:
   std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-
-public:
-  float scale;     /**< Warp magnitude. */
-  EasingFn easing; /**< Easing curve. */
+  float scale;     /**< Warp magnitude (public: effects read/write directly). */
+  EasingFn easing; /**< Easing curve (public: effects read/write directly). */
 };
 
 
