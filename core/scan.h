@@ -1008,6 +1008,19 @@ template <typename SDF> struct TransformedVolume {
   }
 
   /**
+   * @brief Transforms only a ray origin from world to local space.
+   * @param ro Ray origin in world space.
+   * @return Local-space origin.
+   * @details The per-pixel march needs a fresh local origin every pixel but the
+   * local direction is constant across the draw (vd is fixed), so the volume
+   * loop precomputes it once via ray_to_local() and calls this to skip the
+   * redundant per-pixel direction rotation.
+   */
+  Vector origin_to_local(const Vector &ro) const {
+    return rotate(ro - center, q_inv);
+  }
+
+  /**
    * @brief Evaluates the underlying SDF at a local-space point.
    * @param local_p Query point in local space.
    * @return Signed distance to the surface in local units.
@@ -1048,7 +1061,8 @@ struct Volume {
    * @param aa_width Anti-aliasing band half-width in world units.
    * @details Shape concept:
    *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector
-   *   &vd) const; float distance(const Vector &local_point) const;
+   *   &vd) const; Vector origin_to_local(const Vector &ro) const; float
+   *   distance(const Vector &local_point) const;
    */
   template <int W, int H, typename Shape>
   static void
@@ -1125,8 +1139,11 @@ struct Volume {
           Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
                     pp_z - vd.z * start_offset);
 
-          // Transform ray to local space once per pixel
-          auto [local_ro, unused_ld] = shape.ray_to_local(ro, vd);
+          // Transform the ray origin to local space once per pixel. The local
+          // direction is constant across the draw (vd is fixed) and was already
+          // computed once into local_vd above, so transform only the origin here
+          // instead of paying a second per-pixel quaternion rotation.
+          Vector local_ro = shape.origin_to_local(ro);
           Vector local_p = local_ro;
           Vector closest_local = local_ro;
           float closest_d = 999.0f;
