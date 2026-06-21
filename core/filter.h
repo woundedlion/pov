@@ -276,8 +276,9 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
             float alpha) {
     if constexpr (Head::is_2d) {
       Head::plot(x, y, c, age, alpha,
-                 [&](float x, float y, const Pixel &c, float age, float alpha) {
-                   next.plot(cv, x, y, c, age, alpha);
+                 [&](float nx, float ny, const Pixel &nc, float nage,
+                     float nalpha) {
+                   next.plot(cv, nx, ny, nc, nage, nalpha);
                  });
     } else { // 2D -> 3D mismatch: lift to world space
       Vector v = pixel_to_vector<W, H>(x, y);
@@ -311,8 +312,9 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha) {
     if constexpr (!Head::is_2d) {
       Head::plot(v, c, age, alpha,
-                 [&](const Vector &v, const Pixel &c, float age, float alpha) {
-                   next.plot(cv, v, c, age, alpha);
+                 [&](const Vector &nv, const Pixel &nc, float nage,
+                     float nalpha) {
+                   next.plot(cv, nv, nc, nage, nalpha);
                  });
     } else { // 3D -> 2D mismatch: project to screen space
       auto p = vector_to_pixel<W, H>(v);
