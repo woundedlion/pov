@@ -149,7 +149,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 35. ✅ `core/plot.h:919` — `Ring::calcPoint` is production-dead and uses libm trig with a divergent radius convention vs `sample()`. → delete or fold onto `sample()`. *Resolved by deletion: it had no production caller (only a self-test). Removed the method and its `test_ring_calc_point_unit_length` test/registration/doc bullet; `Ring::sample`'s own unit-length test still covers the live path.*
 36. ✅ `core/easing.h:65` — circular easings `sqrtf(1 - t·t)` return NaN for `t` slightly outside `[0,1]`, unlike the guarded expo/elastic easings. → clamp the radicand with `fmaxf(0,…)`. *Applied to both `ease_in_circ` and `ease_out_circ`.*
 37. ✅ `core/plot.h:1428` — `Spiral::sample` lacks the `n >= 1` count guard its sibling primitives carry. → assert or document the no-op.
-38. `core/color.h:1789` — `EdgeFadeShade`/`EdgeAlphaShade` divide by `edge` with no `edge > 0` guard (cold author-time). → `HS_CHECK(edge > 0)`.
+38. ✅ `core/color.h:1789` — `EdgeFadeShade`/`EdgeAlphaShade` divide by `edge` with no `edge > 0` guard (cold author-time). → `HS_CHECK(edge > 0)`.
 39. `core/color.h:1740` — `InsetModifier` divides by `(hi - lo)` with no guard; `hi == lo` collapses the palette to its last stop. → `HS_CHECK(hi > lo)`.
 40. `core/color.h:1299` — `GenerativePalette::g_hue_seed` is a non-atomic mutable static shared across instances (safe under current single-threaded construction). → document the single-threaded-construction assumption.
 41. ✅ `core/color.h:2096` — `BakedPalette::get` interpolates alpha with raw `frac` but color with rounded `frac` (negligible, noted for completeness). → document the split.

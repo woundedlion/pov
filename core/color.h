@@ -1786,7 +1786,9 @@ struct EdgeFadeShade {
    * @brief Constructs with the edge fade width.
    * @param edge Fraction of the domain over which each edge fades; default 0.2.
    */
-  EdgeFadeShade(float edge = 0.2f) : edge(edge) {}
+  EdgeFadeShade(float edge = 0.2f) : edge(edge) {
+    HS_CHECK(edge > 0.0f, "EdgeFadeShade: edge must be > 0 (shade divides by it)");
+  }
   /**
    * @brief Fades the sample color toward black within the edge bands.
    * @param c Sample color to reshape.
@@ -1820,7 +1822,9 @@ struct EdgeAlphaShade {
    * @brief Constructs with the edge fade width.
    * @param edge Fraction of the domain over which each edge fades; default 0.2.
    */
-  EdgeAlphaShade(float edge = 0.2f) : edge(edge) {}
+  EdgeAlphaShade(float edge = 0.2f) : edge(edge) {
+    HS_CHECK(edge > 0.0f, "EdgeAlphaShade: edge must be > 0 (shade divides by it)");
+  }
   /**
    * @brief Fades the sample alpha within the edge bands.
    * @param c Sample color to reshape.
