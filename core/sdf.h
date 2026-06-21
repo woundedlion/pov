@@ -1739,6 +1739,12 @@ struct Face {
     if (max_gap > PI_F) {
       full_width = false;
       float start_t = fmodf(gap_start + max_gap, 2 * PI_F);
+      // fmodf can leave start_t at ~2*PI (instead of ~0) when gap_start + max_gap
+      // lands just under an exact 2*PI multiple; without this fold the else-branch
+      // below emits a degenerate [~2*PI, 2*PI] sliver. Snap it to 0 so the wrap
+      // collapses into the single {0, end_t} interval.
+      if (start_t > 2 * PI_F - 1e-4f)
+        start_t = 0.0f;
       float end_t = gap_start;
 
       if (start_t <= end_t) {
