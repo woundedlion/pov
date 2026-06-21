@@ -295,8 +295,15 @@ private:
       return Color4(Pixel(0, 0, 0), 0.0f);
 
     float inv = (1.0f / 255.0f) / tw;
-    return Color4(blend_species(wa * inv, wb * inv, wc * inv, ca, cb, cc),
-                  1.0f);
+    float a = wa * inv, b = wb * inv, c = wc * inv;
+    // Cull a location where every species has decayed to ~0 to transparent,
+    // matching GSReactionDiffusion's B_CULL_THRESHOLD cull. Such a point is
+    // semantically empty, so it must not paint opaque black over a (possibly
+    // non-black) background. This is the same emptiness test blend_species
+    // applies internally; deciding it here lets the alpha follow suit.
+    if (a + b + c < 1e-6f)
+      return Color4(Pixel(0, 0, 0), 0.0f);
+    return Color4(blend_species(a, b, c, ca, cb, cc), 1.0f);
   }
 
   /**
