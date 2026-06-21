@@ -293,7 +293,12 @@ template <int W, int H> struct BoundingSphere {
     float phi = y_to_phi<H>(y);
     float sin_phi = sinf(phi);
     float theta_span;
-    if (sin_phi < angular_radius / PI_F) {
+    // sin_phi == 0 at the poles: with a degenerate angular_radius == 0 the else
+    // branch would compute 0/0 = NaN, and static_cast<int>(ceilf(NaN)) below is
+    // undefined behavior. Fold a zero/near-zero sin_phi into the full-row branch
+    // (the first test already catches sin_phi < angular_radius/PI_F whenever
+    // angular_radius > 0, so this only adds the angular_radius == 0 pole case).
+    if (sin_phi < angular_radius / PI_F || sin_phi <= 0.0f) {
       // Near pole: span exceeds half the row, scan all columns
       theta_span = static_cast<float>(W);
     } else {
