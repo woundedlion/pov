@@ -195,16 +195,20 @@ inline void test_neighbors_are_local() {
 }
 
 /**
- * @brief Verifies each listed neighbor is far closer than the lattice's far side.
- * @details Compares each neighbor's chord distance against the antipode's, which
- *          must be strictly larger.
+ * @brief Verifies each listed neighbor is far closer than a far-side reference.
+ * @details Compares each neighbor's chord distance against an opposite-hemisphere
+ *          reference point, which must be strictly larger. node(RD_N-1-i)'s y is
+ *          negated (opposite hemisphere) but its longitude is an unrelated
+ *          golden-angle value, not -theta, so it is a far point, not the exact
+ *          geometric antipode of node(i) — and a far reference is all this test
+ *          needs.
  */
-inline void test_neighbors_closer_than_antipode() {
+inline void test_neighbors_closer_than_far_point() {
   int violations = 0;
   for (int i = 0; i < RD_N; i += 13) {
     Vector p = node(i);
-    int antipode = RD_N - 1 - i;
-    float far2 = chord2(p, node(antipode));
+    int far_point = RD_N - 1 - i;
+    float far2 = chord2(p, node(far_point));
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
       if (ni < 0) continue;
@@ -359,7 +363,7 @@ inline int run_reaction_graph_tests() {
   test_max_degree_bounds_laplacian();
 
   test_neighbors_are_local();
-  test_neighbors_closer_than_antipode();
+  test_neighbors_closer_than_far_point();
   test_edge_reciprocity_high();
 
   test_cubemap_lut_roundtrip();
