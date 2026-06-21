@@ -263,16 +263,17 @@ private:
       f.v3 *= holeAlpha;
     };
 
-    // Color the fragment from the per-particle hue seed (skipping inactive
-    // particles), squaring alpha for a softer falloff.
+    // Color the fragment from the per-particle hue seed, squaring alpha for a
+    // softer falloff. Plot::ParticleSystem::draw emits fragments only for the
+    // active pool [0, active_count) and stamps the source index into v2 (held
+    // constant across each trail), so p_idx can never be out of range — the
+    // assert pins that register convention and is stripped on the device,
+    // leaving no per-fragment branch on this hot path.
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
-
-      if (p_idx >= particle_system.active_count) {
-        f.color = Color4(CRGB(0, 0, 0), 0.0f);
-        return;
-      }
+      assert(p_idx < particle_system.active_count &&
+             "ParticleSystem fragment carries an out-of-range particle index");
 
       const auto &p = particle_system.pool[p_idx];
       float seed_f = static_cast<float>(p.color_seed) / 65535.0f;
