@@ -570,6 +570,11 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
     }
 
     // 4. Reconstruct Original Faces (Shrunk)
+    // Unlike truncate (which needs truncate_oriented_cut to pick the right one of
+    // an edge's two directional cut vertices), ambo's edge_to_vert is symmetric:
+    // each half-edge and its pair map to the single shared midpoint vertex, so
+    // the loop can push edge_to_vert[he_idx] directly without an orientation
+    // helper.
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       uint16_t start = he_mesh.faces[fi].half_edge;
       int count = face_side_count(he_mesh, start);
