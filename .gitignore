@@ -16,6 +16,9 @@ CMakeUserPresets.json
 # Dependencies / generated
 /node_modules/
 /.doxygen-awesome/
+# Machine-local Doxygen config the justfile 'docs' recipe feeds to doxygen
+# (analogous to CMakeUserPresets.json / .doxygen-awesome above).
+/Doxyfile.local
 
 # IDE / tooling
 .vs/
