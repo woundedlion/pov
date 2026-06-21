@@ -1060,11 +1060,19 @@ public:
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
              PassFn2D pass) {
     for (int i = 0; i < num_pixels; ++i) {
-      Color4 color =
-          trailFn(ttls_[i].x, ttls_[i].y, 1 - (ttls_[i].ttl / lifetime));
+      // Mirror World::Trails: a point seeded from a negative incoming age
+      // carries ttl > lifetime, which drives t = 1 - ttl/lifetime below zero and
+      // the re-emitted age (lifetime - ttl) negative. ScreenTrailFn receives t as
+      // fade progress in [0,1] (it may index a palette/gradient) and the age
+      // channel is contracted non-negative, so clamp both for parity — the plot()
+      // seed gate keeps t in range for any non-negative age, this guards the rest.
+      float t = hs::clamp(1.0f - (ttls_[i].ttl / lifetime), 0.0f, 1.0f);
+      Color4 color = trailFn(ttls_[i].x, ttls_[i].y, t);
       if (color.alpha > 0.001f) {
-        pass(ttls_[i].x, ttls_[i].y, color.color, lifetime - ttls_[i].ttl,
-             alpha * color.alpha);
+        float age = lifetime - ttls_[i].ttl;
+        if (age < 0.0f)
+          age = 0.0f;
+        pass(ttls_[i].x, ttls_[i].y, color.color, age, alpha * color.alpha);
       }
     }
     decay();
