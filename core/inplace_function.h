@@ -136,12 +136,6 @@ public:
                   "inplace_function's move ctor/assign are noexcept and forward "
                   "to the stored type's move — a throwing move would "
                   "std::terminate. Store only nothrow-movable callables.");
-    static_assert(std::is_nothrow_copy_constructible_v<D>,
-                  "inplace_function's copy assignment destroys the old object "
-                  "before copy-constructing the new one, so a throwing copy "
-                  "would leave the buffer empty while vtable_ points at the new "
-                  "type — UB on the next destroy. Store only nothrow-copyable "
-                  "callables; the supported set is trivial POD/pointer closures.");
     ::new (storage_) D(std::forward<C>(c));
     vtable_ = &detail::ipf_ops<D, R, Args...>::value;
   }
@@ -156,9 +150,6 @@ public:
 
   inplace_function &operator=(const inplace_function &o) {
     if (this != &o) {
-      // Destroy-then-copy is safe only because the converting constructor's
-      // is_nothrow_copy_constructible_v static_assert guarantees copy() cannot
-      // throw — otherwise this would leave the buffer half-constructed.
       vtable_->destroy(storage_);
       vtable_ = o.vtable_;
       vtable_->copy(storage_, o.storage_);

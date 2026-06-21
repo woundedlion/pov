@@ -23,9 +23,9 @@ static constexpr float D_AVG = 0.04045f; // sqrt(4π / 7680)
  * @brief Computes Fibonacci-lattice node i as a unit vector on the sphere.
  * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward.
  * @return Unit-length direction for lattice point i.
- * @details Recomputed on demand to avoid storing 90KB in flash. Only ever called
- *          at init, so the body comment's double-precision folding is free per
- *          frame (see the implementation note for why the wider math is needed).
+ * @details Recomputed on demand to avoid storing 90KB in flash. node() runs only
+ *          at init (CubemapLUT::build, build_nodes), so the wider math costs
+ *          nothing per frame.
  */
 inline Vector node(int i) {
   // theta = golden_angle·i reaches ~18,400 rad at i=RD_N-1, where a float holds

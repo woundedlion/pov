@@ -135,6 +135,26 @@ public:
   size_t get_high_water_mark() const { return high_water_mark; }
 
   /**
+   * @brief Tests whether a block lies entirely within the live region.
+   * @param ptr Start of the block to test.
+   * @param bytes Length of the block in bytes.
+   * @return True iff [ptr, ptr + bytes) lies within [buffer, buffer + offset).
+   * @details Cheap pointer-range test (no generation stamp), available in every
+   * build: a block left behind by a reset sits beyond the rewound offset and
+   * fails this check. (The eighth audit removed the call that used this from
+   * ArenaVector::bind(), which now relies on the debug-only generation contract;
+   * this predicate is retained as a general always-on ownership query.)
+   */
+  bool owns_live(const void *ptr, size_t bytes) const {
+    auto p = static_cast<const uint8_t *>(ptr);
+    const uint8_t *end = buffer + offset;
+    // Subtractive bound (end - p) avoids a p + bytes pointer overflow; the
+    // p <= end guard keeps that difference non-negative so a block sitting
+    // beyond a rewound offset is rejected rather than wrapping to a huge size.
+    return p >= buffer && p <= end && bytes <= static_cast<size_t>(end - p);
+  }
+
+  /**
    * @brief Rewinds the offset to a previously saved mark.
    * @param new_offset Offset to rewind to; must be <= capacity.
    * @details The allocator's core invariant is offset <= capacity: the no-wrap
