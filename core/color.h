@@ -21,7 +21,30 @@ __attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a,
   __asm__ volatile("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
   return res;
 }
+#else
+// Portable software model of ARM `uqadd16`: two independent 16-bit unsigned
+// saturating adds, one per halfword lane. The host has no uqadd16 instruction,
+// so this lets the device's exact lane-packing (pixel16_blend_add_packed)
+// compile and be unit-tested natively, pinning the bit layout the asm path
+// can't run to verify. Not on any host hot path: the host add operators use
+// the plain per-channel std::min form below; this exists for the device-parity
+// test only.
+inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
+  uint32_t lo = (a & 0xFFFFu) + (b & 0xFFFFu);
+  uint32_t hi = (a >> 16) + (b >> 16);
+  if (lo > 0xFFFFu) lo = 0xFFFFu;
+  if (hi > 0xFFFFu) hi = 0xFFFFu;
+  return (hi << 16) | lo;
+}
 #endif
+
+struct Pixel16;
+// The device's saturating per-channel add, packed into two uqadd16 lanes
+// (g|b in one 32-bit word, r alone in another). Shared by Pixel16::operator+=
+// and blend_add on the device so the lane layout has a single definition, and
+// compiled on the host (via the software uqadd16 above) so a unit test can pin
+// that layout against an independent per-channel reference.
+inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2);
 
 /**
  * @brief Maps an 8-bit sRGB channel value to its 16-bit linear equivalent.
@@ -89,20 +112,7 @@ struct Pixel16 {
    */
   Pixel16 &operator+=(const Pixel16 &rhs) {
 #if defined(__ARM_FEATURE_DSP)
-    uint32_t bg1 = ((uint32_t)g << 16) | b;
-    uint32_t bg2 = ((uint32_t)rhs.g << 16) | rhs.b;
-    uint32_t sum_bg = inline_uqadd16(bg1, bg2);
-    
-    // r occupies only the low 16-bit lane; the high lane is zero on both
-    // operands, so uqadd16's upper saturating add is a harmless 0+0 and the
-    // low lane carries the true saturating r-sum.
-    uint32_t zero_r1 = r; // Lower 16 bits.
-    uint32_t zero_r2 = rhs.r;
-    uint32_t sum_r = inline_uqadd16(zero_r1, zero_r2);
-    
-    r = (uint16_t)sum_r;
-    g = (uint16_t)(sum_bg >> 16);
-    b = (uint16_t)sum_bg;
+    *this = pixel16_blend_add_packed(*this, rhs);
 #else
     r = (uint16_t)std::min((uint32_t)65535, (uint32_t)r + rhs.r);
     g = (uint16_t)std::min((uint32_t)65535, (uint32_t)g + rhs.g);
@@ -396,15 +406,7 @@ inline Pixel blend_under(const Pixel &c1, const Pixel &) { return c1; }
 inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
   // Saturated Add
 #if defined(__ARM_FEATURE_DSP)
-  uint32_t bg1 = ((uint32_t)c1.g << 16) | c1.b;
-  uint32_t bg2 = ((uint32_t)c2.g << 16) | c2.b;
-  uint32_t sum_bg = inline_uqadd16(bg1, bg2);
-  
-  uint32_t zero_r1 = c1.r;
-  uint32_t zero_r2 = c2.r;
-  uint32_t sum_r = inline_uqadd16(zero_r1, zero_r2);
-  
-  return Pixel((uint16_t)sum_r, (uint16_t)(sum_bg >> 16), (uint16_t)sum_bg);
+  return pixel16_blend_add_packed(c1, c2);
 #else
   uint32_t r = (uint32_t)c1.r + c2.r;
   uint32_t g = (uint32_t)c1.g + c2.g;
@@ -413,6 +415,21 @@ inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
                (g > 65535) ? 65535 : (uint16_t)g,
                (b > 65535) ? 65535 : (uint16_t)b);
 #endif
+}
+
+// Definition of the device packed-add helper declared above Pixel16. Packs g|b
+// into the low add lane and r into a separate lane (its high halfword stays 0,
+// so uqadd16's upper add is a harmless 0+0). Identical layout to the asm the
+// device runs; on the host the software inline_uqadd16 drives it so the test
+// suite can pin the lane assignment.
+inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2) {
+  uint32_t bg1 = ((uint32_t)c1.g << 16) | c1.b;
+  uint32_t bg2 = ((uint32_t)c2.g << 16) | c2.b;
+  uint32_t sum_bg = inline_uqadd16(bg1, bg2);
+
+  uint32_t sum_r = inline_uqadd16((uint32_t)c1.r, (uint32_t)c2.r);
+
+  return Pixel16((uint16_t)sum_r, (uint16_t)(sum_bg >> 16), (uint16_t)sum_bg);
 }
 
 /**

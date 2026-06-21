@@ -209,6 +209,43 @@ inline void test_blend_add_saturates() {
 }
 
 /**
+ * @brief Pins the device's packed (uqadd16) saturating-add lane layout.
+ * @details The device path of operator+= / blend_add packs g|b into one 32-bit
+ *          uqadd16 lane and r into another, then unpacks. That asm path never
+ *          runs on the host, so a transposed g/b lane or a wrong unpack shift
+ *          would ship silently (wrong colors, not a crash). pixel16_blend_add_packed
+ *          shares the exact lane layout with the device and compiles natively via
+ *          the software uqadd16, so this checks it against an independent
+ *          per-channel saturating reference across cases that stress each lane.
+ */
+inline void test_blend_add_packed_lane_layout() {
+  auto ref = [](uint32_t x, uint32_t y) -> uint16_t {
+    uint32_t s = x + y;
+    return (uint16_t)(s > 65535 ? 65535 : s);
+  };
+  // Distinct per-channel values so a swapped lane or wrong shift can't alias to
+  // the right answer; mixes saturating and non-saturating sums per channel.
+  const Pixel16 cases[][2] = {
+      {Pixel16(60000, 1000, 40000), Pixel16(10000, 200, 40000)}, // r,b sat; g not
+      {Pixel16(0, 65535, 0), Pixel16(65535, 0, 65535)},          // each lane to max
+      {Pixel16(123, 45678, 9000), Pixel16(40000, 30000, 50)},    // g sat only
+      {Pixel16(0, 0, 0), Pixel16(0, 0, 0)},                      // zero
+  };
+  for (const auto &c : cases) {
+    Pixel16 got = pixel16_blend_add_packed(c[0], c[1]);
+    HS_EXPECT_EQ(got.r, ref(c[0].r, c[1].r));
+    HS_EXPECT_EQ(got.g, ref(c[0].g, c[1].g));
+    HS_EXPECT_EQ(got.b, ref(c[0].b, c[1].b));
+    // The host add operators must agree with the packed device layout so the
+    // simulator and device composite identically.
+    Pixel16 acc = c[0];
+    acc += c[1];
+    HS_EXPECT_TRUE(acc == got);
+    HS_EXPECT_TRUE(blend_add(c[0], c[1]) == got);
+  }
+}
+
+/**
  * @brief Verifies blend_max against black is the identity.
  */
 inline void test_blend_max_with_black_identity() {
@@ -1191,6 +1228,7 @@ inline int run_color_tests() {
   test_blend_mean();
   test_blend_add_identity_with_black();
   test_blend_add_saturates();
+  test_blend_add_packed_lane_layout();
   test_blend_max_with_black_identity();
   test_blend_alpha_clamps_before_cast();
   test_pixel16_scale_clamps_before_cast();
