@@ -1029,6 +1029,34 @@ struct MeshOpsWrapper {
 };
 
 /**
+ * @brief Packs a Vector into a JS {x,y,z} object for the spline exports.
+ */
+static val vector_to_xyz(const Vector &r) {
+  val v = val::object();
+  v.set("x", r.x);
+  v.set("y", r.y);
+  v.set("z", r.z);
+  return v;
+}
+
+/**
+ * @brief Evaluates a four-control-point cubic spline (cubic_fast/cubic_slerp)
+ *        from the 13 flat floats Embind passes, returning the point as {x,y,z}.
+ *
+ * Centralizes the {p0..p3} pack and the {x,y,z} marshaling so each binding is
+ * a single call and a third interpolator never has to copy it again.
+ */
+static val eval_cubic_spline(Vector (*fn)(const Vector &, const Vector &,
+                                          const Vector &, const Vector &, float),
+                             float p0x, float p0y, float p0z, float p1x,
+                             float p1y, float p1z, float p2x, float p2y,
+                             float p2z, float p3x, float p3y, float p3z,
+                             float t) {
+  return vector_to_xyz(fn({p0x, p0y, p0z}, {p1x, p1y, p1z}, {p2x, p2y, p2z},
+                          {p3x, p3y, p3z}, t));
+}
+
+/**
  * @brief Registers the HolosphereEngine, MeshOps, and spline bindings with
  *        Embind so JavaScript can construct and call them.
  */
@@ -1090,13 +1118,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                 float p1y, float p1z, float p2x, float p2y,
                                 float p2z, float p3x, float p3y, float p3z,
                                 float t) -> val {
-             Vector r = Spline::cubic_fast({p0x, p0y, p0z}, {p1x, p1y, p1z},
-                                           {p2x, p2y, p2z}, {p3x, p3y, p3z}, t);
-             val v = val::object();
-             v.set("x", r.x);
-             v.set("y", r.y);
-             v.set("z", r.z);
-             return v;
+             return eval_cubic_spline(&Spline::cubic_fast, p0x, p0y, p0z, p1x,
+                                      p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z, t);
            }));
   /**
    * @brief Registers spline_cubic_slerp: spherically-interpolated cubic at
@@ -1108,14 +1131,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                 float p1y, float p1z, float p2x, float p2y,
                                 float p2z, float p3x, float p3y, float p3z,
                                 float t) -> val {
-             Vector r =
-                 Spline::cubic_slerp({p0x, p0y, p0z}, {p1x, p1y, p1z},
-                                     {p2x, p2y, p2z}, {p3x, p3y, p3z}, t);
-             val v = val::object();
-             v.set("x", r.x);
-             v.set("y", r.y);
-             v.set("z", r.z);
-             return v;
+             return eval_cubic_spline(&Spline::cubic_slerp, p0x, p0y, p0z, p1x,
+                                      p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z, t);
            }));
   /**
    * @brief Registers spline_catmull_rom_tangents: Catmull-Rom tangent estimation.
@@ -1133,17 +1150,9 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                           {endx, endy, endz},
                                           {nextx, nexty, nextz}, tension, cp1,
                                           cp2);
-             val c1 = val::object();
-             c1.set("x", cp1.x);
-             c1.set("y", cp1.y);
-             c1.set("z", cp1.z);
-             val c2 = val::object();
-             c2.set("x", cp2.x);
-             c2.set("y", cp2.y);
-             c2.set("z", cp2.z);
              val v = val::object();
-             v.set("cp1", c1);
-             v.set("cp2", c2);
+             v.set("cp1", vector_to_xyz(cp1));
+             v.set("cp2", vector_to_xyz(cp2));
              return v;
            }));
 }
