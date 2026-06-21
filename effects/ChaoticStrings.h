@@ -161,9 +161,11 @@ public:
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
-    // Push live parameter changes into the active noise entities. The
-    // FastNoiseLite re-sync is left to prepare_frame() (which calls
-    // NoiseParams::sync on every active entity) rather than hand-rolled here.
+    // Each entity holds its own value copy of the noise params (sliders bind to
+    // this effect's `params`, not to the spawned entities), so the live values
+    // must be pushed in by hand here. Only the embedded-FastNoiseLite re-sync is
+    // NOT hand-rolled: it is left to prepare_frame() below, which calls
+    // NoiseParams::sync() on every active entity after this push.
     for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;
