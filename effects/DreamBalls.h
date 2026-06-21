@@ -9,6 +9,17 @@
 
 #include <array>
 
+// Forward declaration of the unit-test accessor (tests/test_effects.h) that
+// reaches the private preset-cycle bookkeeping (spawn_sprite, active_bake_,
+// last_preset_idx_). The smoke/determinism harness only renders ~120 frames,
+// short of the 288-frame re-spawn period, so the preset advance / bake
+// ping-pong / reseed-guard paths are driven directly through this seam.
+namespace hs_test {
+namespace effects_tests {
+struct DreamBallsWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Orbiting copies of a polyhedral wireframe, cycling through four
  *        solid presets.
@@ -101,6 +112,8 @@ public:
   Params params;
 
 private:
+  friend struct ::hs_test::effects_tests::DreamBallsWhiteBox;
+
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
   int last_preset_idx_ = -1; /**< Last preset whose values were copied into params. */

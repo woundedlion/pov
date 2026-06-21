@@ -491,6 +491,121 @@ inline void test_gs_evolution_stays_bounded() {
   HS_EXPECT_LT(saturated, GSWhiteBox::N / 20);
 }
 
+// ---------------------------------------------------------------------------
+// DreamBalls: preset-cycle / re-spawn white-box coverage
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief White-box accessor for DreamBalls' private preset-cycle bookkeeping
+ *        (befriended in effects/DreamBalls.h).
+ * @details spawn_sprite schedules its successor 288 frames out (a PeriodicTimer),
+ *          but the smoke/determinism harness renders at most HS_SMOKE_FRAMES=120
+ *          frames in CI — short of one period — so the re-spawn never fires under
+ *          the generic passes: the preset advance, the active_bake_ ping-pong +
+ *          rebake, and the reseed-on-change guard all stay dead. This seam drives
+ *          spawn_sprite directly and reads the bake slot / preset index so those
+ *          paths are pinned. <96,20> is used arbitrarily — the bookkeeping is
+ *          resolution-independent.
+ */
+struct DreamBallsWhiteBox {
+  using DB = DreamBalls<kDeviceW, kDeviceH>;
+  static constexpr int kPresets = 4;
+
+  static int active_bake(const DB &db) { return db.active_bake_; }
+  static int last_preset_idx(const DB &db) { return db.last_preset_idx_; }
+  static void spawn(DB &db, int idx) { db.spawn_sprite(idx); }
+  // The literal solid-name pointer the given preset seeds into params on reseed.
+  static const char *preset_name(const DB &db, int idx) {
+    return db.preset_manager.entries[idx].params.solid_name;
+  }
+};
+
+/**
+ * @brief Drives spawn_sprite across a full preset cycle and asserts the bake-slot
+ *        ping-pong, the modulo preset advance, and the reseed-on-change guard.
+ * @details Calls spawn_sprite directly (no 288-frame wait) following the same idx
+ *          progression the periodic callback uses: idx grows unbounded and the
+ *          active preset is idx % 4. Each spawn must flip the bake slot (so a
+ *          fading-out sprite keeps its own LUT) and, when the preset actually
+ *          changes, reseed params to the new entry. A re-spawn of the SAME preset
+ *          (the paused branch) must instead hold params so a live slider edit
+ *          survives.
+ */
+inline void test_dreamballs_preset_cycle_bookkeeping() {
+  using WB = DreamBallsWhiteBox;
+  hs::random().seed(1337u);
+  configure_arenas_default();
+  Timeline().clear();
+  global_timeline_t = 0;
+
+  WB::DB db;
+  db.init(); // runs spawn_sprite(0)
+
+  // init() spawned preset 0: it reseeded params (last_preset_idx_ -1 -> 0) and
+  // flipped the bake slot once (0 -> 1).
+  HS_EXPECT_EQ(WB::last_preset_idx(db), 0);
+  HS_EXPECT_EQ(WB::active_bake(db), 1);
+  HS_EXPECT_EQ(db.params.solid_name, WB::preset_name(db, 0));
+
+  // Not-paused advance chain: the periodic callback re-invokes spawn_sprite(idx+1),
+  // so idx grows unbounded and the preset is idx % 4. Drive a full cycle plus a
+  // wrap; the bake slot must ping-pong every spawn and params must reseed to the
+  // wrapped index each step.
+  int expect_bake = WB::active_bake(db); // 1
+  for (int idx = 1; idx <= 8; ++idx) {
+    WB::spawn(db, idx);
+    expect_bake ^= 1;
+    const int safe = idx % WB::kPresets;
+    HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
+    HS_EXPECT_EQ(WB::last_preset_idx(db), safe);
+    HS_EXPECT_EQ(db.params.solid_name, WB::preset_name(db, safe));
+  }
+
+  // Paused-hold path: the callback re-spawns the SAME idx, so the reseed guard
+  // (safe_idx == last_preset_idx_) holds and a live slider edit must survive the
+  // re-spawn — while the bake slot still flips. last_preset_idx_ is now 0
+  // (idx 8 % 4); re-spawn idx 8 again with a sentinel edit in place.
+  const float sentinel = db.params.num_copies + 5.0f;
+  db.params.num_copies = sentinel;
+  const int held_idx = WB::last_preset_idx(db);
+  expect_bake ^= 1;
+  WB::spawn(db, 8); // 8 % 4 == held_idx: the paused re-spawn of the same preset
+  HS_EXPECT_EQ(WB::last_preset_idx(db), held_idx); // preset unchanged
+  HS_EXPECT_EQ(db.params.num_copies, sentinel);    // live edit preserved
+  HS_EXPECT_EQ(WB::active_bake(db), expect_bake);  // bake slot still flipped
+}
+
+/**
+ * @brief End-to-end check that the 288-frame re-spawn timer actually fires and
+ *        honors the pause gate, by rendering past one period.
+ * @details Covers the part the white-box driver cannot: the PeriodicTimer wiring
+ *          and the animationsPaused()?idx:idx+1 hold-vs-advance decision in the
+ *          scheduler lambda. Renders 300 frames (one period is 288; the next
+ *          re-spawn is another 288 away, so exactly one fires). Unpaused, the
+ *          preset advances 0 -> 1; paused, it re-spawns the same preset and holds.
+ */
+inline void test_dreamballs_respawn_fires_and_honors_pause() {
+  using WB = DreamBallsWhiteBox;
+  auto run = [](bool paused) {
+    hs::random().seed(1337u);
+    configure_arenas_default();
+    Timeline().clear();
+    global_timeline_t = 0;
+    WB::DB db;
+    db.init();
+    db.setAnimationsPaused(paused);
+    // The re-spawn timer is scheduled 288 frames out; render past it so exactly
+    // one re-spawn fires (the following one is another 288 frames away).
+    for (int f = 0; f < 300; ++f) {
+      db.draw_frame();
+      db.advance_display();
+    }
+    return WB::last_preset_idx(db);
+  };
+  HS_EXPECT_EQ(run(false), 1); // unpaused: re-spawn advanced preset 0 -> 1
+  HS_EXPECT_EQ(run(true), 0);  // paused: re-spawn fired but held preset 0
+}
+
 /**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -505,6 +620,8 @@ inline int run_effects_tests() {
   test_gs_rest_state_is_fixed_point();
   test_gs_substep_signs_and_clamp();
   test_gs_evolution_stays_bounded();
+  test_dreamballs_preset_cycle_bookkeeping();
+  test_dreamballs_respawn_fires_and_honors_pause();
 
   // Smoke every registered effect. The list is GENERATED from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
