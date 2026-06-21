@@ -671,6 +671,19 @@ inline void case_gradient_stops_unsorted() {
 }
 
 /**
+ * @brief Death case: a RandomTimer with min > max must trap.
+ * @details Animation surface — reset() draws hs::rand_int(min, max + 1), a
+ *          half-open range that is empty/inverted when min > max, giving an
+ *          implementation-defined garbage delay. The constructor traps the
+ *          inverted (or negative) range at the cold authoring seam.
+ */
+inline void case_random_timer_inverted_range() {
+  Animation::RandomTimer timer(opaque(5), opaque(2),
+                               [](Canvas &) {}); // min > max -> HS_CHECK
+  (void)timer;
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -721,6 +734,7 @@ inline const Case *all_cases(int &n) {
        case_feedback_downsample_indivisible},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
+      {"random_timer_inverted_range", case_random_timer_inverted_range},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;

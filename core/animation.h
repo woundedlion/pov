@@ -694,6 +694,11 @@ public:
   RandomTimer(int min, int max, TimerFn f, bool repeat = false)
       : AnimationBase(-1, repeat), min(min), max(max), f(std::move(f)),
         next(0) {
+    // Cold authoring seam: a negative or inverted range makes the half-open
+    // rand_int(min, max + 1) empty/inverted, yielding an implementation-defined
+    // garbage delay that would fire at a nondeterministic time. Trap it at
+    // construction like the file's other invariants rather than soft-fail later.
+    HS_CHECK(min >= 0 && min <= max);
     reset();
   }
 
