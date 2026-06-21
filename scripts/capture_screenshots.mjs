@@ -36,10 +36,14 @@ async function loadEffectRoster() {
   // continued line (the first line that does not end in a backslash).
   const block = src.match(/#define HS_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/);
   if (!block) throw new Error('Could not locate HS_EFFECT_LIST in core/effects.h');
-  // Strip // line comments before extracting names: a commented-out `X(Foo)` row
-  // is not in the registered roster, so capturing it would red the gallery run
-  // for an otherwise-correct build.
-  const body = block[1].replace(/\/\/[^\n]*/g, '');
+  // Strip /* */ block comments then // line comments before extracting names: a
+  // commented-out `X(Foo)` row is not in the registered roster, so capturing it
+  // would red the gallery run for an otherwise-correct build. Block comments are
+  // removed first (and span newlines) so a `/* X(Foo) */` row can't survive into
+  // the X() match the way a // row already cannot.
+  const body = block[1]
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
   const names = [...body.matchAll(/X\((\w+)\)/g)].map(m => m[1]);
   if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
   return names;
