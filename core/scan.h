@@ -731,9 +731,16 @@ struct Mesh {
     size_t num_f = mesh.get_face_counts_size();
     const uint16_t *fi = mesh.get_faces_data();
     const uint16_t *fo = mesh.get_face_offsets_data();
+    size_t fi_size = mesh.get_faces_size();
 
     for (size_t i = 0; i < num_f; ++i) {
       size_t count = fc[i];
+
+      // Trap malformed mesh data at the seam: an offset/count pair that
+      // disagrees with the flat index array would otherwise build an
+      // out-of-bounds span consumed by SDF::Face. Cold per-face check.
+      HS_CHECK(static_cast<size_t>(fo[i]) + count <= fi_size,
+               "mesh face span exceeds face index array");
 
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
