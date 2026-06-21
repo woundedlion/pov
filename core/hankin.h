@@ -61,15 +61,15 @@ struct CompiledHankin {
    * @param dst Destination instance whose vectors are bound and filled.
    * @param arena Arena backing the destination's freshly bound vectors.
    * @details Required by Cloneable; each vector is rebound from @p arena and
-   * its elements copied one by one.
+   * bulk-copied (all element types are trivially copyable).
    */
   static void clone(const CompiledHankin &src, CompiledHankin &dst,
                     Arena &arena) {
-    // Bind a fresh arena-backed vector and deep-copy a source vector into it.
+    // Bind a fresh arena-backed vector and deep-copy a source vector into it via
+    // a single memcpy, matching finalize_solid/to_polymesh's bulk-copy idiom.
     auto push = [&arena](const auto &s_vec, auto &d_vec) {
       d_vec.bind(arena, s_vec.size());
-      for (size_t i = 0; i < s_vec.size(); ++i)
-        d_vec.push_back(s_vec[i]);
+      d_vec.append_bulk(s_vec.data(), s_vec.size());
     };
     push(src.base_vertices, dst.base_vertices);
     push(src.static_vertices, dst.static_vertices);
