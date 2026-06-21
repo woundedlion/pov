@@ -206,7 +206,11 @@ private:
     float z2 = v.z * v.z;
     float R2 = x2 + z2;
 
-    if (R2 < 1e-6f)
+    // Pole guard: on the rotation axis (x≈z≈0) the lens map divides by R², so
+    // return the pole direction directly. The floor is squared-radius units, well
+    // below any off-axis point yet above float noise at the pole.
+    constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
+    if (R2 < MIN_AXIS_RADIUS2)
       return Vector(0.0f, 1.0f, 0.0f);
 
     float inv_R2 = 1.0f / R2;

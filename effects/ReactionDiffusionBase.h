@@ -59,6 +59,17 @@ protected:
   static constexpr float D_AVG = ReactionGraph::D_AVG; /**< Mean inter-node spacing, sqrt(4π / RD_N). */
   static constexpr float KERNEL_R = 1.5f * D_AVG;      /**< Kernel support radius. */
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R); /**< Reciprocal of the squared support radius. */
+  /**
+   * @brief Total-weight floor below which a sampled kernel is treated as empty.
+   * @details The center node alone contributes w = (1 - d²·INV_R2)² where d is
+   * the query-to-nearest-node distance. Since the nearest lattice node is always
+   * well within KERNEL_R (spacing ≈ D_AVG, radius = 1.5·D_AVG), that center
+   * weight stays near ~0.8 for every on-sphere query, so the real total weight is
+   * O(1) and never legitimately approaches this floor. The guard therefore only
+   * trips on a degenerate/empty walk; it sits far below the smallest legitimate
+   * total weight, not between two live values, so it cannot cull a real pixel.
+   */
+  static constexpr float KERNEL_MIN_TOTAL_WEIGHT = 1e-4f;
 
   /**
    * @brief Squared Euclidean distance between two points (no sqrt).

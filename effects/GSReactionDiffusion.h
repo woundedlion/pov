@@ -216,7 +216,7 @@ private:
     // Empty kernel (no node within the support radius): guard the division. A
     // 0/0 NaN would slip past the b < B_CULL_THRESHOLD cull in the shader (NaN
     // compares false) and silently poison palette.get().
-    if (tw <= 0.0001f)
+    if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return 0.0f;
     return wb / tw;
   }

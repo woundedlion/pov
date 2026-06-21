@@ -96,6 +96,17 @@ private:
   static constexpr float Q8_INV = 1.0f / Q8_SCALE; /**< Reciprocal of Q8_SCALE. */
 
   /**
+   * @brief Concentration-sum floor below which a location is treated as empty.
+   * @details The kernel-blended species concentrations are in [0, 1]; when their
+   * sum falls below this, every species has decayed to ~0 there, so blend_species
+   * has no hue to mix and sample_kernel culls to transparent. Distinct from
+   * KERNEL_MIN_TOTAL_WEIGHT (which guards the Wendland weight sum, not the
+   * concentrations): a kernel can carry full weight yet still average to ~0 if
+   * all three species are absent at the covered nodes.
+   */
+  static constexpr float SPECIES_EMPTY_EPS = 1e-6f;
+
+  /**
    * @brief Converts a Q8 fixed-point byte to a normalized float.
    * @param v Q8 value in [0, 255].
    * @return Concentration in [0.0, 1.0].
@@ -262,7 +273,7 @@ private:
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {
     float wsum = a + b + c;
-    if (wsum < 1e-6f)
+    if (wsum < SPECIES_EMPTY_EPS)
       return Pixel(0, 0, 0);
     float inv = 1.0f / wsum;
     float r = (ca.color.r * a + cb.color.r * b + cc.color.r * c) * inv;
@@ -304,7 +315,7 @@ private:
       tw += w;
     });
 
-    if (tw <= 0.0001f)
+    if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return Color4(Pixel(0, 0, 0), 0.0f);
 
     float inv = Q8_INV / tw;
@@ -314,7 +325,7 @@ private:
     // semantically empty, so it must not paint opaque black over a (possibly
     // non-black) background. This is the same emptiness test blend_species
     // applies internally; deciding it here lets the alpha follow suit.
-    if (a + b + c < 1e-6f)
+    if (a + b + c < SPECIES_EMPTY_EPS)
       return Color4(Pixel(0, 0, 0), 0.0f);
     return Color4(blend_species(a, b, c, ca, cb, cc), 1.0f);
   }
