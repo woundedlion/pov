@@ -562,20 +562,20 @@ public:
     // fail-fast doctrine says must trap, not hang. The bound is far above one
     // revolution at any sane RPM, so a slow spin-up never false-trips (the
     // first frame doesn't wait at all — prev_==next_==0 at construction). On
-    // timeout, name the site on Serial (the trap is a bare illegal instruction
-    // with no message) then trap; a truncated Serial write is harmless since we
-    // halt immediately. The outer buffer_free() guard skips the whole block —
-    // and thus every micros() read — on the common no-wait path, keeping this
-    // zero-cost when the buffer is already free. On the slow path, wait_start is
-    // sampled once at wait entry; the deadline is then re-evaluated via micros()
-    // inside the spin on every iteration, so the bound measures from wait entry.
+    // timeout, route through HS_CHECK so the failure flows through the project's
+    // single check_fail() trap path (log + flush + file:line breadcrumb +
+    // __builtin_trap) rather than open-coding it; check_fail's breadcrumb names
+    // the site, so the trap is no longer a bare illegal instruction with no
+    // message. The outer buffer_free() guard skips the whole block — and thus
+    // every micros() read — on the common no-wait path, keeping this zero-cost
+    // when the buffer is already free. On the slow path, wait_start is sampled
+    // once at wait entry; the deadline is then re-evaluated via micros() inside
+    // the spin on every iteration, so the bound measures from wait entry.
     if (!effect_.buffer_free()) {
       const unsigned long wait_start = micros();
       while (!effect_.buffer_free()) {
-        if (micros() - wait_start >= kBufferFreeWatchdogUs) {
-          hs::log("FATAL: buffer_free watchdog timeout — display ISR stalled");
-          __builtin_trap();
-        }
+        HS_CHECK(micros() - wait_start < kBufferFreeWatchdogUs,
+                 "buffer_free watchdog timeout — display ISR stalled");
       }
     }
     effect_.advance_buffer();
