@@ -1239,11 +1239,19 @@ public:
   /**
    * @brief Mutable flywheel access (tests only).
    * @return Mutable reference to the flywheel.
+   * @warning Host tests only. The flywheel is ISR-owned under the spec §8
+   * single-writer model, so this must NEVER be called from device or foreground
+   * code, and only before the ISRs are attached — mutating it once the ISRs are
+   * live races the single writer and breaks the invariant the design rests on.
    */
   Flywheel &flywheel_mut() { return fly_; }
   /**
    * @brief Mutable content-tracker access (tests only).
    * @return Mutable reference to the content tracker.
+   * @warning Host tests only. The content tracker is ISR-owned under the spec §8
+   * single-writer model, so this must NEVER be called from device or foreground
+   * code, and only before the ISRs are attached — mutating it once the ISRs are
+   * live races the single writer and breaks the invariant the design rests on.
    */
   ContentTracker &content_mut() { return content_; }
   /**
