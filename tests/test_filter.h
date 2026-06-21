@@ -894,7 +894,11 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
       if (!px_black(fx.get_pixel(x, y)))
-        near_input = (std::abs(x - px) <= 1 && std::abs(y - py) <= 1);
+        // OR-accumulate: the intent is "at least one lit pixel is within a pixel
+        // of the input". Plain assignment would record only the last lit pixel
+        // in scan order, so the check would stay green even if a regression lit
+        // a far-away pixel (caught only by the separate count_lit == 1 above).
+        near_input |= (std::abs(x - px) <= 1 && std::abs(y - py) <= 1);
   HS_EXPECT_TRUE(near_input);
 }
 
