@@ -178,6 +178,62 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
   HS_EXPECT_TRUE(std::abs((int)out.g - (int)out.b) < 64);
 }
 
+/**
+ * @brief Verifies sync_hue() caches cos/sin of the hue_shift turn angle into
+ *        hue_ca/hue_sa, leaving the struct at the identity rotation until called.
+ * @details hue_fade reads this frame-constant cache instead of recomputing the
+ *          rotation per pixel; sync_hue must write exactly fast_cosf/fast_sinf of
+ *          hue_shift*2*PI. A fresh Style defaults to the identity (1, 0).
+ */
+inline void test_sync_hue_caches_rotation() {
+  Feedback::Style s{};
+  // Until sync_hue() runs, the cache is the identity rotation (angle 0).
+  HS_EXPECT_NEAR(s.hue_ca, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(s.hue_sa, 0.0f, 1e-6f);
+
+  s.hue_shift = 0.25f; // a quarter turn around the hue circle
+  s.sync_hue();
+  const float angle = 0.25f * (2.0f * PI_F);
+  // sync_hue caches exactly fast_cosf/fast_sinf of the turn angle.
+  HS_EXPECT_NEAR(s.hue_ca, fast_cosf(angle), 1e-6f);
+  HS_EXPECT_NEAR(s.hue_sa, fast_sinf(angle), 1e-6f);
+  // A quarter turn lands near (cos, sin) = (0, 1).
+  HS_EXPECT_NEAR(s.hue_ca, 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(s.hue_sa, 1.0f, 1e-3f);
+}
+
+/**
+ * @brief Verifies hue_fade with a nonzero shift actually rotates a saturated
+ *        pixel's hue via the sync_hue cache.
+ * @details Unlike the gray-pixel zero-shift case, a saturated pixel has chroma to
+ *          rotate: the rotated result must diverge from the plain (hue-preserving)
+ *          fade, and must match an independent per-call rotation by the same
+ *          amount — pinning that hue_fade consumes hue_ca/hue_sa correctly.
+ */
+inline void test_hue_fade_nonzero_shift_rotates_saturated() {
+  Pixel red(50000, 2000, 2000); // saturated: real chroma to rotate
+  Feedback::Style s{};
+  s.hue_shift = 0.33f;
+  s.sync_hue();
+  const float fade = 0.8f;
+  Pixel rotated = Feedback::hue_fade(red, fade, s);
+
+  // A nonzero hue shift must move the color off the plain (hue-preserving) fade;
+  // otherwise the cache path would be a silent no-op.
+  Pixel plain = Feedback::plain_fade(red, fade, s);
+  const int delta = std::abs((int)rotated.r - (int)plain.r) +
+                    std::abs((int)rotated.g - (int)plain.g) +
+                    std::abs((int)rotated.b - (int)plain.b);
+  HS_EXPECT_TRUE(delta > 1000); // the hue genuinely rotated
+
+  // The cached (hue_ca, hue_sa) path must agree bit-for-bit with the per-call
+  // hue_rotate overload that recomputes the rotation from hue_shift.
+  Pixel ref = hue_rotate(Color4(red * fade, 1.0f), s.hue_shift).color;
+  HS_EXPECT_EQ(rotated.r, ref.r);
+  HS_EXPECT_EQ(rotated.g, ref.g);
+  HS_EXPECT_EQ(rotated.b, ref.b);
+}
+
 // --- sync_noise -------------------------------------------------------------
 
 /**
@@ -221,6 +277,8 @@ inline int run_styles_tests() {
   test_melt_warp_drifts_toward_north();
   test_plain_fade_scales_linearly();
   test_hue_fade_zero_shift_preserves_gray();
+  test_sync_hue_caches_rotation();
+  test_hue_fade_nonzero_shift_rotates_saturated();
   test_sync_noise_pushes_scalars();
 
   return hs_test::end_module(scope);
