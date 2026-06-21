@@ -64,7 +64,19 @@ public:
     // node array (7680 × Vector) is the fixed Fibonacci lattice — queries are
     // un-oriented onto it (not the reverse), so it does not depend on the
     // per-frame view orientation and is built ONCE here instead of every frame.
-    configure_arenas(170 * 1024, GLOBAL_ARENA_SIZE - 170 * 1024, 0);
+    //
+    // Derive the requirement from sizeof so a future type-size change (the Q16
+    // state element, Vector, RD_N, or the LUT resolution) trips a compile-time
+    // static_assert here rather than the runtime init trap on an undersize.
+    constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
+                                     ReactionGraph::CubemapLUT::RES *
+                                     sizeof(uint16_t); // cube_lut.build
+    constexpr size_t kStateBytes = 2u * RD_N * sizeof(uint16_t); // A + B, Q16
+    constexpr size_t kNodeBytes = RD_N * sizeof(Vector);         // build_nodes
+    constexpr size_t kPersistentBytes = 170 * 1024;
+    static_assert(kCubeLutBytes + kStateBytes + kNodeBytes <= kPersistentBytes,
+                  "GS persistent arena too small for LUT + state + nodes");
+    configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);

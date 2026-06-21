@@ -66,7 +66,19 @@ public:
     // node array (7680 × Vector) is the fixed Fibonacci lattice and does not
     // depend on the per-frame view orientation (queries are un-oriented onto it,
     // not the reverse), so it lives in the persistent arena and is built once.
-    configure_arenas(165 * 1024, GLOBAL_ARENA_SIZE - 165 * 1024, 0);
+    //
+    // Derive the requirement from sizeof so a future type-size change (Vector,
+    // RD_N, or the LUT resolution) trips a compile-time static_assert here
+    // rather than the runtime init trap when the literal silently undersizes.
+    constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
+                                     ReactionGraph::CubemapLUT::RES *
+                                     sizeof(uint16_t); // cube_lut.build
+    constexpr size_t kStateBytes = 3u * RD_N * sizeof(uint8_t); // allocate_state
+    constexpr size_t kNodeBytes = RD_N * sizeof(Vector);        // build_nodes
+    constexpr size_t kPersistentBytes = 165 * 1024;
+    static_assert(kCubeLutBytes + kStateBytes + kNodeBytes <= kPersistentBytes,
+                  "BZ persistent arena too small for LUT + state + nodes");
+    configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
 
     // "Compete" is the Lotka-Volterra predation coefficient, not an opacity;
     // the name avoids clashing with the engine-wide Alpha-as-opacity convention.
