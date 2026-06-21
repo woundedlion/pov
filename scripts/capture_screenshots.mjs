@@ -17,7 +17,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
-const RESOLUTION = 'Phantasm (144x288)';
 const OUT_DIR = 'docs/screenshots';
 const WAIT_MS = parseInt(process.env.WAIT_MS || '30000', 10);
 
@@ -88,11 +87,48 @@ page.on('console', msg => {
   if (t === 'error' || t === 'warning') console.log(`[${t}]`, msg.text());
 });
 
+// Resolve the capture resolution from the running app instead of hard-coding a
+// display label (the one hand-mirrored constant in an otherwise source-derived
+// script — same anti-drift goal as the effect roster above). The resolution
+// control's options are built from the app's supported resolutions, so read
+// them and pick the highest-detail (largest pixel area) one for the gallery. On
+// any failure, fall back to omitting the param so the app picks its own default
+// rather than breaking the run.
+async function resolveResolution() {
+  try {
+    await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
+    await page.waitForSelector('select', { timeout: 30000 });
+    const label = await page.evaluate(() => {
+      const re = /\((\d+)x(\d+)\)/; // resolution labels embed their dimensions
+      let best = null, bestArea = -1;
+      for (const opt of document.querySelectorAll('option')) {
+        const m = re.exec(opt.textContent || '');
+        if (!m) continue;
+        const area = Number(m[1]) * Number(m[2]);
+        if (area > bestArea) { bestArea = area; best = opt.textContent.trim(); }
+      }
+      return best;
+    });
+    if (label) return label;
+    console.warn('capture_screenshots: found no resolution options on the page; ' +
+      'using the app default resolution');
+  } catch (e) {
+    console.warn(`capture_screenshots: could not read resolutions from the page ` +
+      `(${e.message}); using the app default resolution`);
+  }
+  return null; // null → omit the param; daydream defaults to its hi-res preset
+}
+
+const RESOLUTION = await resolveResolution();
+console.log(`Capture resolution: ${RESOLUTION || '(app default)'}`);
+
 const targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
 
 let failures = 0;
 for (const effect of targets) {
-  const url = `${BASE_URL}?effect=${encodeURIComponent(effect)}&resolution=${encodeURIComponent(RESOLUTION)}`;
+  const params = new URLSearchParams({ effect });
+  if (RESOLUTION) params.set('resolution', RESOLUTION);
+  const url = `${BASE_URL}?${params.toString()}`;
   process.stdout.write(`Capturing ${effect}... `);
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 60000 });
