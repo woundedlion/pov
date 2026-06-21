@@ -1335,10 +1335,11 @@ public:
     // reads, for each in-band full-res x, coarse column cx0 = x/ds and its
     // seam-wrapping right neighbour cx1; mark exactly those (the clip test
     // mirrors step 2's below). Unmarked columns are never sampled, so leaving
-    // their dx/dy uninitialized is safe. Sized to W (>= hw, since ds >= 1).
-    bool col_used[W];
+    // their dx/dy uninitialized is safe. Sized to W (>= hw, since ds >= 1) and
+    // value-initialized so the :1378 read is safe on every path — not only by
+    // the short-circuit that currently skips it whenever xc is inactive.
+    bool col_used[W] = {};
     if (xc.active) {
-      for (int cx = 0; cx < hw; ++cx) col_used[cx] = false;
       for (int x = 0; x < W; ++x) {
         if (xc.clipped(x)) continue;
         int cx0 = x / ds;
