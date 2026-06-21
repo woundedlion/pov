@@ -77,10 +77,15 @@ struct Point {
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param f Fragment to plot.
-   * @param fragment_shader Shader function applied before plotting.
+   * @param fragment_shader Shader function applied before plotting; must be
+   *        non-null (a default-constructed FunctionRef would invoke a null
+   *        thunk under NDEBUG, where operator()'s assert is stripped).
    */
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f,
                    FragmentShaderFn fragment_shader) {
+    // Cold (once per point), not per-pixel: trap a null shader here so it fails
+    // deterministically instead of calling a null thunk under NDEBUG.
+    HS_CHECK(fragment_shader, "Point::draw requires a non-null fragment_shader");
     Fragment f_copy = f;
     f_copy.color = Color4(0, 0, 0, 0);
     fragment_shader(f_copy.pos, f_copy);
@@ -346,7 +351,10 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
  * @param pipeline Render pipeline that plots fragments.
  * @param canvas Target canvas (supplies the active clip band).
  * @param points Fragment polyline to rasterize.
- * @param fragment_shader Per-fragment shader applied before plotting.
+ * @param fragment_shader Per-fragment shader applied before plotting; must be
+ *                        non-null (the per-pixel call sites below do not guard
+ *                        it, and operator()'s null assert is stripped under
+ *                        NDEBUG on-device).
  * @param close_loop Also draw the last→first edge.
  * @param planar_basis Non-null selects azimuthal-equidistant interpolation
  *                     (straight in the projection); null uses geodesic edges.
@@ -359,6 +367,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t len = points.size();
   if (len < 2)
     return;
+  // Cold (once per polyline), not per-pixel: trap a null shader here so the
+  // many per-pixel fragment_shader() calls below can't invoke a null thunk.
+  HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
   #ifdef __EMSCRIPTEN__
   double _plot_t0 = emscripten_get_now();
   #endif
@@ -695,10 +706,14 @@ struct Vertices {
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param points List of points.
-   * @param fragment_shader Shader function.
+   * @param fragment_shader Shader function; must be non-null (the per-vertex
+   *        call below is unguarded and operator()'s assert is NDEBUG-stripped).
    */
   static void draw(PipelineRef pipeline, Canvas &canvas, const auto &points,
                    FragmentShaderFn fragment_shader) {
+    // Cold (once per call), not per-pixel: trap a null shader before the loop.
+    HS_CHECK(fragment_shader,
+             "Vertices::draw requires a non-null fragment_shader");
     for (const Fragment &p : points) {
       Fragment f = p;
       f.color = Color4(0, 0, 0, 0);
