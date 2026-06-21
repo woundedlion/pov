@@ -295,13 +295,18 @@ inline void test_determinism_archimedean_with_conway_ops() {
 }
 
 /**
- * @brief Verifies determinism on the longest path (a deeply chained
- *        Islamic-pattern generator), which must also be reproducible.
+ * @brief Verifies determinism across the whole Islamic-pattern family.
+ * @details The Islamic generators are the deepest Conway-op chains — the most
+ *          likely to introduce order/RNG-dependent nondeterminism — and a
+ *          nondeterministic op might be reached only by a later entry, not the
+ *          first. So this re-builds and diffs every islamic index (mirroring the
+ *          registry-integrity loops above), not just the first.
  */
 inline void test_determinism_complex_islamic() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
                       Solids::Collections::get_catalan_solids().size();
-  check_determinism_for_index(base); // first islamic entry
+  for (size_t k = 0; k < Solids::Collections::get_islamic_solids().size(); ++k)
+    check_determinism_for_index(base + k);
 }
 
 // ---------------------------------------------------------------------------
