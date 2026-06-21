@@ -77,6 +77,12 @@ public:
     // sub-dominant within the registered Feed/Kill/dt ranges below. If any of
     // those slider ranges are ever widened, the reaction Jacobian must be
     // re-checked — it is not bounded by the diffusion argument above.
+    //
+    // Backstop: the Euler bound above is a *visual-quality* guarantee, not the
+    // hard stability backstop. to_q16() clamps every written state to [0, 1]
+    // (Q16) each step, so even a range-widening or reaction-Jacobian overshoot
+    // that violates the Euler bound cannot make the simulation numerically blow
+    // up — it can only degrade visually (oscillation / saturation artifacts).
     registerParam("dA", &params.dA, 0.0f, 0.05f);
     registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);

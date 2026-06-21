@@ -71,6 +71,16 @@ public:
     // "Compete" is the Lotka-Volterra predation coefficient, not an opacity;
     // the name avoids clashing with the engine-wide Alpha-as-opacity convention.
     registerParam("Compete", &params.alpha, 0.0f, 4.0f);
+    // Explicit Euler, stable only while dt·D·λmax ≤ 2. The graph Laplacian's
+    // |λ|max ≤ 2·6 = 12 (6-NN Fibonacci lattice), so at the Diff/Speed sliders'
+    // joint top the worst case is 1.0·0.1·12 = 1.2 ≤ 2 — stable across the whole
+    // GUI. The Lotka-Volterra reaction term (conc·(1 − conc − α·predator)) is
+    // logistic in conc ∈ [0, 1], so its Jacobian stays bounded over the
+    // registered Compete range and does not threaten the diffusion bound above.
+    // Backstop: the Euler bound is a *visual-quality* guarantee, not the hard
+    // stability backstop — to_q8() clamps every written state to [0, 1] (Q8)
+    // each step, so a future range-widening that breaks the bound degrades
+    // visually rather than numerically blowing up. (Mirrors GSReactionDiffusion.)
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
 
