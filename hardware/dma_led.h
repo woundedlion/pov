@@ -201,7 +201,7 @@ private:
    *          reordering for acquire/release to constrain — same rationale as
    *          the instance_ note below. Crucially, this flag does NOT order the
    *          buffer for the DMA engine: that buffer→DMA coherence is provided by
-   *          arm_dcache_flush_delete() (cache flush + DSB) before dma_.enable(),
+   *          arm_dcache_flush() (cache clean + DSB) before dma_.enable(),
    *          which the atomic's memory_order has no effect on. Do not "upgrade"
    *          to acquire/release expecting a visibility fix — it only adds DMB
    *          cost here.

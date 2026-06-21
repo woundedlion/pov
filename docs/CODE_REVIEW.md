@@ -490,6 +490,8 @@ Sequential numbering continues the project's running sequence (1–432 prior); t
 
 600. **find_program(CCACHE_FOUND ccache) variable name reads as a boolean but holds the path** — `CMakeLists.txt:15-18`. CCACHE_FOUND is set by find_program to the ccache executable PATH (or CCACHE_FOUND-NOTFOUND), then used both as the if() truthiness test and as the launcher value. This works correctly, but the _FOUND suffix conventionally denotes a boolean, while this variable is the path. A reader could mistake it for a flag. Purely a readability nit in otherwise exemplary CMake. *Fix:* Rename to CCACHE_PROGRAM (CMake's own convention for find_program results) for clarity; behavior is unchanged.
 
+601. ✅ **HD107SFrame flushes a TX-only DMA buffer with clean+invalidate when a clean alone suffices** — `hardware/hd107s_frame.h:169,207`. load() and flush() call arm_dcache_flush_delete() (clean + invalidate) on buffer_, but the buffer is TX-only: the CPU writes it (constructor/load/packPixel) and the eDMA channel only reads it (wired to LPSPI4 TX; dma_led.h:204). For a CPU→DMA buffer only the clean (write-back) is required; the invalidate needlessly evicts cache lines the CPU re-reads and re-writes the very next frame, costing an extra read-allocate miss per line. Correctness is fine either way given the 32-byte alignment — purely a small efficiency note. *Fix:* Use arm_dcache_flush() (clean, no invalidate) at both call sites and update the host no-op stub accordingly; the lines stay resident for the next frame's packPixel/load. *(Resolved: renamed the intrinsic and host stub to arm_dcache_flush and switched both flush points to clean-only; docs in hd107s_frame.h, dma_led.h, and README updated to explain the TX-only rationale.)*
+
 
 ---
 

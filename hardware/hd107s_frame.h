@@ -22,11 +22,15 @@
 
 #include "color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
 
-// arm_dcache_flush_delete is a Teensy cache intrinsic (Arduino.h). It only
-// matters when a real DMA engine reads the buffer; on host builds (unit tests,
-// WASM sim) there is no DMA, so the flush is a no-op.
+// arm_dcache_flush is a Teensy cache intrinsic (Arduino.h) that cleans (writes
+// back) dirty D-cache lines without invalidating them. That is exactly what a
+// TX-only buffer needs: the CPU writes it and DMA only reads it, so the lines
+// must reach RAM (clean) but stay resident for the next frame's re-read/re-write
+// — the heavier flush_delete (clean+invalidate) would needlessly evict them. It
+// only matters when a real DMA engine reads the buffer; on host builds (unit
+// tests, WASM sim) there is no DMA, so the flush is a no-op.
 #ifndef ARDUINO
-static inline void arm_dcache_flush_delete(void *, size_t) {}
+static inline void arm_dcache_flush(void *, size_t) {}
 #endif
 
 // ============================================================================
@@ -166,7 +170,7 @@ public:
 
     // Flush data cache so DMA sees the updated buffer. Full COMPOSITE_SIZE on
     // purpose even for an image-only transfer — see flush()'s note.
-    arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
+    arm_dcache_flush(buffer_, COMPOSITE_SIZE);
   }
 
   /**
@@ -202,9 +206,13 @@ public:
    *          it will pick, so flushing the superset keeps the cache coherent for
    *          either transfer. The extra cost is one dcache pass over the bg half;
    *          under-flushing would instead risk DMAing a stale composite buffer.
+   *          Uses arm_dcache_flush (clean, no invalidate): the buffer is TX-only
+   *          (DMA reads, never writes it), so the lines need only be written back
+   *          to RAM, not evicted — keeping them resident saves the next frame's
+   *          re-read/re-write a cache miss.
    */
   void flush() {
-    arm_dcache_flush_delete(buffer_, COMPOSITE_SIZE);
+    arm_dcache_flush(buffer_, COMPOSITE_SIZE);
   }
 
   /**
