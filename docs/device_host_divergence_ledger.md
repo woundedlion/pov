@@ -27,7 +27,7 @@ exists; a red row is a real device-only path that no automated test currently re
 
 | # | Fork | Device vs host | Behavioral? | Device-value test reaches it? | Tracked by |
 |---|------|----------------|-------------|-------------------------------|------------|
-| 1 | **`beat88` phase arithmetic** (`core/platform.h:714`) | `(millis-timebase)*bpm88*280 >> 16` runs in **64-bit** on the LP64 host; the device (FastLED) wraps the product **mod 2³²** before the shift. At realistic run times the host product exceeds 2³², so phases diverge. | **Yes** — feeds `beat16`/`beat8`/`beatsin8`/`beatsin16`, i.e. every beat-driven effect. | ❌ **No.** No test pins a large mock `millis()` that forces the 32-bit wrap. | **Finding 446** (open). The single highest-risk uncovered entry — the lone breach of the determinism contract. |
+| 1 | **`beat88` phase arithmetic** (`core/platform.h:714`) | `(millis-timebase)*bpm88*280 >> 16` runs in 64-bit on the LP64 native test build; the device (FastLED) and wasm32 wrap the product mod 2³² before the shift. | **No** — the result is narrowed to `uint16_t`, i.e. bits [16,31] of the product. The device's mod-2³² wrap only discards bits ≥ 32, so bits [16,31] are identical to the 64-bit result; the host's larger `millis` enters only via its low 32 bits (`P mod 2³² = (low32(millis)·K) mod 2³²`), exactly what the device sees. | ⚪ **N/A** — no behavioral fork. Verified equal across many `millis` values; a non-vacuity guard confirmed no value makes the two paths differ. | **Finding 446** (resolved: false positive). |
 | 2 | **`H_OFFSET` latitude offset** (`core/platform.h:148` = 3 device / `:901-903` = 0 host) | Device appends 3 virtual sub-pole rows: `H_VIRT = H + H_OFFSET`. Threads through `geometry.h`, `scan.h`, `plot.h`, `sdf.h`, `Dynamo`. Marquee fork: `Screen::AntiAlias`'s south-pole Y-clip bilinear-tap renorm fold (`core/filter.h:931-951`), the device's most numerically subtle hot-loop path. | **Yes** — clips (does not stretch) the image where the LEDs stop short of the south pole, and renormalizes the bilinear tap. | ✅ **Yes.** `tests/h_offset_renorm_check.cpp` recompiles the whole engine with `-DHS_TEST_H_OFFSET=3` and runs the renorm fold against an energy-conservation oracle; `tests/test_geometry.h` injects `OFF=3` for the `y_to_phi`/`pixel_to_vector` mapping. | Closed by the device-value `h_offset_renorm` build. |
 | 3 | **Conway/SolidBuilder scratch budget** (`tests/test_solids.h:308`) | Device sizes `scratch_arena_a/b` at a 120 KB split (`IslamicStars` `configure_arenas`). An over-budget recipe traps as a **device-only OOM**. | **Yes** — an over-budget recipe edit OOM-traps only on the device. | ✅ **Yes.** `test_solids` asserts the host high-water mark against the **real 120 KB device budget**, and the 64-bit host figure is a conservative *upper* bound on the device's 32-bit-pointer footprint, so a host pass guarantees device fit. | Closed by the real-budget high-water guard. |
 | 4 | **Hardware I/O layer** (`hardware/dma_led.h`, `pov_single.h`, `pov_segmented.h`, `hd107s_frame.h`, all `#ifdef ARDUINO`) | eDMA setup, register pokes, and the DMA-wedge watchdog exist only on the device. | **Yes** for the device-side logic; the raw register I/O is not host-observable. | ✅/⚪ **Logic yes, I/O no.** The sync flywheel, segment/column mapping, and epoch scheduler are ported to host and exercised by the `pov_sync` multi-board simulator and `pov_segment` tests. The bare DMA/register writes are device-only by nature and not host-reachable. | Logic closed; register I/O is structurally untestable on host. |
@@ -40,12 +40,12 @@ Legend: ✅ reached by a device-value test · ❌ real device-only path with no 
 
 ## Standing risk
 
-**One behavioral fork ships without device-value coverage: row 1 (`beat88`, finding 446).**
-It is the only red row, and it is the most consequential, because it sits beneath every
-`beatsin`-using effect and silently breaks the sim-predicts-device determinism contract the
-rest of the engine upholds. The recommended close mirrors the other device-value builds: a test
-that pins a large mock `millis()` whose `*bpm88*280` product wraps a `uint32` on the device but
-not on the 64-bit host, asserting the host result matches the 32-bit-modular value.
+**No red rows.** The one previously-tracked breach, row 1 (`beat88`, finding 446), was validated
+and found to be a false positive: the `uint16_t` result extracts bits [16,31] of the phase
+product, which the device's mod-2³² wrap cannot change, so the 64-bit native build and the
+32-bit device/wasm builds produce bit-identical phases (see finding 446's resolution in
+`CODE_REVIEW.md`). Every behavioral fork now either has device-value coverage (rows 2–4) or is
+divergent by design / non-behavioral (rows 5–7).
 
 ## Maintenance rule
 
