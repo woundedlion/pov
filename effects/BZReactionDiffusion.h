@@ -221,6 +221,12 @@ private:
    * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q8),
    *          saturating at 255, to keep the dynamics from settling on the
    *          closed manifold.
+   * @note Draws from the global deterministic RNG (`hs::rand_int`), so each
+   *       substep advances the same shared stream every other effect uses.
+   *       This keeps the simulation byte-deterministic sim-vs-device (the
+   *       perturbation sequence is fixed by the seed), but it couples this
+   *       effect's stream position to the substep count — the draws here are
+   *       part of the global RNG ordering, not an independent generator.
    */
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
