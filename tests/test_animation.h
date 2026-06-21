@@ -48,18 +48,27 @@ namespace animation_tests {
 // ----------------------------------------------------------------------------
 // The animations under test (Transition/Mutation/Lerp/Driver) take a Canvas& in
 // step() but never dereference it. We construct ONE genuine Canvas over a tiny
-// static Effect and reuse it, so the reference is always valid. A fresh effect's
+// Effect and reuse it, so the reference is always valid. A fresh effect's
 // buffer_free() is true, so the ctor doesn't spin; the single dtor (queue_frame)
-// runs harmlessly at process exit.
+// runs harmlessly when the module ends.
+//
+// LIFETIME: the fixture is owned by run_animation_tests() (see bottom of file)
+// and reached through fake_canvas_ptr(), NOT a process-lifetime static. A static
+// FakeEffect would keep the single-live-Effect guard (canvas.h s_alive) set for
+// the rest of the process — its dtor only runs at exit — and trip that guard when
+// the NEXT module's first Effect is constructed in an all-modules run (the bare
+// `run_tests` binary; the ctest gate runs one module per process and never saw
+// it). Scoping the fixture to the module destroys its Effect at module end and
+// releases the guard cleanly.
 //
 // COUPLING (load-bearing): nothing a test does with this canvas may invoke
 // queue_frame() — i.e. no test may construct (and destruct) a *second* Canvas on
 // this shared FakeEffect during the run. queue_frame() advances next_, so a
 // second Canvas's ctor would then see buffer_free()==false and spin on a display
 // ISR that never runs in the host harness (a hang). The only queue_frame() that
-// may fire is the single static-dtor one at process exit, after all tests pass.
-// If a future animation test needs to actually queue a frame, give it its own
-// local Canvas/Effect rather than reusing fake_canvas().
+// may fire is the single dtor one at module end, after all tests pass. If a
+// future animation test needs to actually queue a frame, give it its own local
+// Canvas/Effect rather than reusing fake_canvas().
 // ============================================================================
 
 /**
@@ -84,15 +93,21 @@ struct FakeEffect : public Effect {
 };
 
 /**
- * @brief Returns the lazily-built shared Canvas reused across the tests.
- * @return Reference to a process-lifetime Canvas; valid but never dereferenced
- * by the animations under test.
+ * @brief Storage for the module-scoped fake-canvas pointer.
+ * @return Reference to the pointer run_animation_tests() sets to the shared
+ * fixture for the module's duration and clears (fixture destroyed) on exit.
  */
-inline Canvas &fake_canvas() {
-  static FakeEffect fx;
-  static Canvas canvas(fx);
-  return canvas;
+inline Canvas *&fake_canvas_ptr() {
+  static Canvas *p = nullptr;
+  return p;
 }
+
+/**
+ * @brief Returns the module-scoped shared Canvas reused across the tests.
+ * @return Reference to the fixture owned by run_animation_tests(); valid for the
+ * duration of the module but never dereferenced by the animations under test.
+ */
+inline Canvas &fake_canvas() { return *fake_canvas_ptr(); }
 
 // ============================================================================
 // Path::get_point
@@ -1343,6 +1358,15 @@ inline int run_animation_tests() {
 
   hs::random().seed(1337); // OrientationTrail/animations may touch global RNG
 
+  // Module-scoped fake-canvas fixture (see "Stand-in Canvas reference" above):
+  // one Effect + Canvas for the whole module, published via fake_canvas_ptr().
+  // Destroying it on return releases the single-live-Effect guard so a following
+  // module in an all-modules run starts clean, while preserving the single-Canvas
+  // (no second queue_frame) coupling within this module.
+  FakeEffect fake_fx;
+  Canvas fake_cv(fake_fx);
+  fake_canvas_ptr() = &fake_cv;
+
   test_path_empty_returns_origin();
   test_path_endpoints_and_clamp();
   test_path_collapse_keeps_last();
@@ -1399,7 +1423,11 @@ inline int run_animation_tests() {
 
   test_meshmorph_identity_self_map_and_crossfade();
 
-  return hs_test::end_module(scope);
+  const int result = hs_test::end_module(scope);
+  // Unpublish before fake_cv/fake_fx destruct below so the dangling pointer is
+  // never observable; the FakeEffect dtor then clears the single-live guard.
+  fake_canvas_ptr() = nullptr;
+  return result;
 }
 
 } // namespace animation_tests
