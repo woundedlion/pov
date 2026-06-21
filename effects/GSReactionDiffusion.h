@@ -10,6 +10,17 @@
 #include "core/effects_engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
+// Forward declaration of the unit-test accessor (tests/test_effects.h) that
+// reaches the private Q16 conversions and one Gray-Scott substep. The
+// smoke/determinism harness cannot see a fixed-point round-trip error or a
+// numerically-unstable-but-deterministic blow-up, so the dynamics are pinned
+// directly through this seam.
+namespace hs_test {
+namespace effects_tests {
+struct GSWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
  * @tparam W Canvas width in pixels.
@@ -84,6 +95,10 @@ public:
   }
 
 private:
+  // Test seam: lets the unit tests reach to_q16/from_q16, step_physics, and
+  // params without exposing them to production callers (zero runtime cost).
+  friend struct ::hs_test::effects_tests::GSWhiteBox;
+
   /**
    * @brief Q16 full-scale factor: maps 1.0 to 65535 for the 16-bit fixed-point
    * state needed by the GS cubic reaction term.

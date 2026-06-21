@@ -129,6 +129,29 @@ inline void test_no_duplicate_neighbors_in_row() {
   HS_EXPECT_EQ(dupes, 0);
 }
 
+/**
+ * @brief Verifies the lattice's maximum node degree stays ≤ 6, pinning the
+ *        graph-Laplacian spectral bound the Gray-Scott step relies on.
+ * @details GSReactionDiffusion's explicit-Euler stability margin (dt·D·|λ|max ≤
+ *          2) rests on the combinatorial Laplacian's spectral radius |λ|max ≤
+ *          2·deg_max, with deg_max ≤ 6 on this 6-NN lattice (hence |λ|max ≤ 12).
+ *          A denser regenerated table would lift |λ|max and silently invalidate
+ *          that stability comment, so assert the realized max degree directly.
+ */
+inline void test_max_degree_bounds_laplacian() {
+  static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
+  int max_deg = 0;
+  for (int i = 0; i < RD_N; ++i) {
+    int deg = 0;
+    for (int k = 0; k < RD_K; ++k)
+      if (neighbors[i][k] >= 0) ++deg;
+    if (deg > max_deg) max_deg = deg;
+  }
+  std::printf("  [info] reaction_graph max degree: %d (|lambda|max <= %d)\n",
+              max_deg, 2 * max_deg);
+  HS_EXPECT_LE(max_deg, 6); // hence |λ|max ≤ 12, the GS stability assumption
+}
+
 // ---------------------------------------------------------------------------
 // Geometric sanity: listed neighbors must actually be nearby
 // ---------------------------------------------------------------------------
@@ -261,6 +284,7 @@ inline int run_reaction_graph_tests() {
   test_indices_in_range();
   test_no_self_loops();
   test_no_duplicate_neighbors_in_row();
+  test_max_degree_bounds_laplacian();
 
   test_neighbors_are_local();
   test_neighbors_closer_than_antipode();

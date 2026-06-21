@@ -348,6 +348,149 @@ inline void test_sh_decode_lm_valid_order() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Gray-Scott reaction-diffusion: white-box dynamics coverage
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief White-box accessor for GSReactionDiffusion's private fixed-point and
+ *        physics internals (befriended in effects/GSReactionDiffusion.h).
+ * @details The generic smoke/determinism harness only proves the effect doesn't
+ *          crash and renders reproducibly — it cannot see a Q16 round-trip error
+ *          or a numerically-unstable-but-deterministic blow-up. This seam pins
+ *          the conversions and one Gray-Scott substep directly. The lattice is a
+ *          fixed 7680-node graph, independent of <W,H>, so the device resolution
+ *          is used arbitrarily.
+ */
+struct GSWhiteBox {
+  using GS = GSReactionDiffusion<kDeviceW, kDeviceH>;
+  static constexpr int N = GS::RD_N;
+
+  static uint16_t to_q16(float v) { return GS::to_q16(v); }
+  static float from_q16(uint16_t v) { return GS::from_q16(v); }
+  static void set_params(GS &gs, float feed, float k, float dA, float dB,
+                         float dt) {
+    gs.params.feed = feed;
+    gs.params.k = k;
+    gs.params.dA = dA;
+    gs.params.dB = dB;
+    gs.params.dt = dt;
+  }
+  static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
+                   uint16_t *nB) {
+    gs.step_physics(cA, cB, nA, nB);
+  }
+};
+
+/**
+ * @brief Verifies the Q16 fixed-point round-trip and the documented +0.5
+ *        rounding/clamp boundaries.
+ * @details to_q16(from_q16(v)) must be the identity over every representable
+ *          value, and to_q16 must clamp out-of-range floats and round to nearest
+ *          (so 1.0 tops out at 65535 with no overflow). A truncating or
+ *          unclamped regression — which would bias the RD dynamics — fails here.
+ */
+inline void test_gs_q16_roundtrip() {
+  HS_EXPECT_EQ(GSWhiteBox::to_q16(0.0f), (uint16_t)0);
+  HS_EXPECT_EQ(GSWhiteBox::to_q16(1.0f), (uint16_t)65535);
+  HS_EXPECT_EQ(GSWhiteBox::to_q16(2.0f), (uint16_t)65535);  // clamp high
+  HS_EXPECT_EQ(GSWhiteBox::to_q16(-0.5f), (uint16_t)0);     // clamp low
+  HS_EXPECT_NEAR(GSWhiteBox::from_q16(0), 0.0f, 1e-9f);
+  HS_EXPECT_NEAR(GSWhiteBox::from_q16(65535), 1.0f, 1e-9f);
+  // Round-trip is exact for every Q16 value (the +0.5 absorbs the float error).
+  int bad = 0;
+  for (int v = 0; v <= 65535; ++v)
+    if (GSWhiteBox::to_q16(GSWhiteBox::from_q16((uint16_t)v)) != (uint16_t)v)
+      ++bad;
+  HS_EXPECT_EQ(bad, 0);
+}
+
+/**
+ * @brief Verifies the homogeneous rest state (A=1, B=0) is a Gray-Scott fixed
+ *        point: one substep leaves it exactly unchanged.
+ * @details With B=0 the reaction term A·B² and both Laplacians vanish and the
+ *          feed term feed·(1-A) is zero at A=1, so the state must not move. A
+ *          sign error or stray term in the update assembly perturbs it here.
+ */
+inline void test_gs_rest_state_is_fixed_point() {
+  std::vector<uint16_t> cA(GSWhiteBox::N, 65535), cB(GSWhiteBox::N, 0),
+      nA(GSWhiteBox::N), nB(GSWhiteBox::N);
+  GSWhiteBox::GS gs;
+  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f); // defaults
+  GSWhiteBox::step(gs, cA.data(), cB.data(), nA.data(), nB.data());
+  int moved = 0;
+  for (int i = 0; i < GSWhiteBox::N; ++i)
+    if (nA[i] != 65535 || nB[i] != 0)
+      ++moved;
+  HS_EXPECT_EQ(moved, 0);
+}
+
+/**
+ * @brief Verifies one substep has the right reaction/diffusion signs and that
+ *        the Q16 clamp is actually applied.
+ * @details Seed a single saturated-B nucleus on the otherwise-rest field. After
+ *          one default-parameter step: A at the seed is fully consumed (the
+ *          1 - dt update underflows and must clamp to 0, not wrap), and B
+ *          diffuses into at least one neighbor that started empty.
+ */
+inline void test_gs_substep_signs_and_clamp() {
+  std::vector<uint16_t> cA(GSWhiteBox::N, 65535), cB(GSWhiteBox::N, 0),
+      nA(GSWhiteBox::N), nB(GSWhiteBox::N);
+  const int seed = 4000; // an interior lattice node with a full neighbor ring
+  cB[seed] = 65535;
+  GSWhiteBox::GS gs;
+  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f);
+  GSWhiteBox::step(gs, cA.data(), cB.data(), nA.data(), nB.data());
+
+  // a + (dA·0 - 1 + feed·0)·dt = 1 - 2.5 < 0 → clamps to 0 (not an unclamped
+  // negative-float-to-uint16 wrap).
+  HS_EXPECT_EQ((int)nA[seed], 0);
+  // B diffuses outward: at least one initially-empty neighbor is now lit.
+  int spread = 0;
+  for (int k = 0; k < ReactionGraph::RD_K; ++k) {
+    int nb = ReactionGraph::neighbors[seed][k];
+    if (nb >= 0 && nB[nb] > 0)
+      ++spread;
+  }
+  HS_EXPECT_GT(spread, 0);
+}
+
+/**
+ * @brief Verifies the explicit-Euler integrator does not diverge over many
+ *        substeps at the worst-case stable slider setting.
+ * @details At the Speed/dA/dB extremes the stability product dt·D·|λ|max =
+ *          3·0.05·12 = 1.8 ≤ 2, so the scheme must stay bounded. A genuine
+ *          instability (dt·D·|λ|max > 2) oscillates and the Q16 clamp pins the
+ *          oscillating nodes to the 0/65535 rails — a saturate/oscillate blow-up
+ *          that renders identically across runs and so slips past the
+ *          determinism pass. After 256 steps from seeded nuclei almost no node
+ *          should sit at the upper rail; assert that directly. (Whether B
+ *          ultimately persists or decays is regime-dependent and not asserted —
+ *          high diffusion legitimately dilutes the seeds toward the rest state.)
+ */
+inline void test_gs_evolution_stays_bounded() {
+  std::vector<uint16_t> a(GSWhiteBox::N, 65535), b(GSWhiteBox::N, 0),
+      sa(GSWhiteBox::N), sb(GSWhiteBox::N);
+  for (int s : {500, 2500, 4500, 6500})
+    b[s] = 65535;
+  GSWhiteBox::GS gs;
+  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.05f, 0.05f, 3.0f); // stable extreme
+  uint16_t *cA = a.data(), *cB = b.data(), *nA = sa.data(), *nB = sb.data();
+  for (int s = 0; s < 256; ++s) {
+    GSWhiteBox::step(gs, cA, cB, nA, nB);
+    std::swap(cA, nA);
+    std::swap(cB, nB);
+  }
+  // No blow-up: a stable run leaves at most a handful of nodes at the upper
+  // rail; an unstable oscillation would clamp a large fraction of the lattice
+  // there. (< 5% is a generous tripwire — the stable run sits near zero.)
+  int saturated = 0;
+  for (int i = 0; i < GSWhiteBox::N; ++i)
+    if (cB[i] == 65535)
+      ++saturated;
+  HS_EXPECT_LT(saturated, GSWhiteBox::N / 20);
+}
+
 /**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -358,6 +501,10 @@ inline int run_effects_tests() {
   auto scope = hs_test::begin_module("effects");
 
   test_sh_decode_lm_valid_order();
+  test_gs_q16_roundtrip();
+  test_gs_rest_state_is_fixed_point();
+  test_gs_substep_signs_and_clamp();
+  test_gs_evolution_stays_bounded();
 
   // Smoke every registered effect. The list is GENERATED from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
