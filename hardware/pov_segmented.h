@@ -316,7 +316,11 @@ public:
       // Health telemetry (spec §8.6): foreground-polled, never ISR-printed,
       // emitted only on change — the existing DMA-overrun pattern. The
       // snapshot read races the ISR's counter increments; for debug counters
-      // a torn read is benign.
+      // a torn read is benign — the worst case is a one-cycle-late or briefly
+      // inconsistent debug print (behind hs::debug), never anything that feeds
+      // control flow. This is a deliberate, documented data race. If telemetry
+      // is ever promoted beyond debug output, snapshot it under a brief IRQ-off
+      // bracket like the mailbox handoff.
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
         const pov::sync::Telemetry tm = sync_.telemetry();
