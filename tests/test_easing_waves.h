@@ -21,7 +21,11 @@
 namespace hs_test {
 namespace easing_waves_tests {
 
-constexpr int N = 64; // sample count over [0,1]
+// Sample count over [0,1]. Dense enough that the monotonicity sweep in
+// check_curve catches a dip occurring between adjacent samples, not just a
+// gross full-grid inversion (the 1e-4 tolerance there absorbs float noise on
+// the sin/circ curves, so density — not slack — is the real limiter).
+constexpr int N = 200;
 
 /**
  * @brief Maps a sample index to its exact rational fraction of [0,1].

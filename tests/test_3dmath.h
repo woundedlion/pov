@@ -102,11 +102,16 @@ inline void test_quintic_kernel() {
   HS_EXPECT_NEAR(quintic_kernel(-1.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(quintic_kernel(2.0f), 1.0f, 1e-6f);
 
-  // Monotone increasing on [0, 1]
+  // Strictly monotone increasing on [0, 1]. Smootherstep is exactly monotone
+  // and its smallest analytic per-step increment over 200 samples (~1.25e-6 at
+  // the flat endpoint) dwarfs the float evaluation noise (~1e-13 there), so a
+  // strict (zero-tolerance) compare is safe and pins true monotonicity rather
+  // than tolerating a sub-1e-6 dip. The dense 200-point sweep also closes the
+  // gap a coarse 21-sample grid left between samples.
   float prev = -1.0f;
-  for (int i = 0; i <= 20; ++i) {
-    float v = quintic_kernel(i / 20.0f);
-    HS_EXPECT_TRUE(v >= prev - 1e-6f);
+  for (int i = 0; i <= 200; ++i) {
+    float v = quintic_kernel(i / 200.0f);
+    HS_EXPECT_TRUE(v >= prev);
     prev = v;
   }
 
