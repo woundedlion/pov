@@ -436,7 +436,7 @@ template <int TRAIL_LEN = 8> struct Particle {
   Vector position;         /**< Current 3D position. */
   Vector velocity;         /**< Current velocity vector. */
   uint16_t color_seed = 0; /**< Hue seed for palette offset. */
-  uint16_t life;           /**< Remaining life (frames or arbitrary units). */
+  uint16_t life = 0;       /**< Remaining life (frames or arbitrary units). */
 
   VectorTrail<TRAIL_LEN> history; /**< Trail of world-space positions. */
 
