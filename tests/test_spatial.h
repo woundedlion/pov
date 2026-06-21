@@ -93,14 +93,16 @@ inline void test_aabb_union_with_empty_and_subset_is_noop() {
   AABB a;
   a.expand(Vector(0, 0, 0));
   a.expand(Vector(1, 1, 1));
-  AABB before = a;
 
   // Union with a default-constructed (empty) box is a true no-op: an empty box
-  // is min=+FLT_MAX, max=-FLT_MAX, so no component of `a` can be widened.
+  // is min=+FLT_MAX, max=-FLT_MAX, so no component of `a` can be widened. Pin
+  // the explicit pre-union bounds ({0,0,0}..{1,1,1}) as literals rather than
+  // snapshotting via an implicit AABB copy, so the no-op is verified against the
+  // known invariant and the test does not silently depend on the copy ctor.
   AABB empty;
   a.union_with(empty);
-  HS_EXPECT_VEC(a.min_val, before.min_val, 1e-6f);
-  HS_EXPECT_VEC(a.max_val, before.max_val, 1e-6f);
+  HS_EXPECT_VEC(a.min_val, Vector(0, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(a.max_val, Vector(1, 1, 1), 1e-6f);
 
   // Union with a more-permissive box should grow a to the superset.
   AABB superset;
