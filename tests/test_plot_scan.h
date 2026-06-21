@@ -33,6 +33,8 @@
 #include "core/canvas.h"
 #include "tests/test_harness.h"
 
+#include <vector>
+
 namespace hs_test {
 namespace plot_scan_tests {
 
@@ -53,6 +55,48 @@ inline uint8_t plot_scan_arena_buf[256 * 1024];
 inline Arena &plot_arena() {
   static Arena a(plot_scan_arena_buf, sizeof(plot_scan_arena_buf));
   return a;
+}
+
+// ---------------------------------------------------------------------------
+// Headless rasterize() harness. rasterize<W,H> is templated on the pipeline
+// type, so a stub that records the plotted world positions lets us drive the
+// rasterizer's control flow directly (fast path, drawing phase, strategy
+// selection) without a live pixel pipeline. A Canvas is still required for its
+// clip band; a no-op Effect supplies a full (unclipped) one so every segment
+// is processed.
+// ---------------------------------------------------------------------------
+
+/** @brief Pipeline stub: records each plotted position; ignores color/age. */
+struct CapturePipeline {
+  std::vector<Vector> plotted; /**< World positions handed to plot(), in order. */
+  void plot(Canvas &, const Vector &v, const Pixel &, float, float) {
+    plotted.push_back(v);
+  }
+};
+
+/** @brief Minimal Effect backing a Canvas (no per-frame draw, no background). */
+struct RasterFx : public Effect {
+  RasterFx(int W, int H) : Effect(W, H) {}
+  void draw_frame() override {}
+  bool show_bg() const override { return false; }
+};
+
+/** @brief Identity fragment shader (leaves the fragment untouched). */
+inline void noop_shader(const Vector &, Fragment &) {}
+
+/**
+ * @brief Largest angular gap (radians) between consecutive recorded positions.
+ * @param pts Plotted positions in plot order.
+ * @param wrap When true, also measures the gap from the last point back to the
+ *             first (closed-loop seam continuity).
+ */
+inline float max_consecutive_gap(const std::vector<Vector> &pts, bool wrap) {
+  float worst = 0.0f;
+  for (size_t i = 1; i < pts.size(); ++i)
+    worst = std::max(worst, angle_between(pts[i - 1], pts[i]));
+  if (wrap && pts.size() >= 2)
+    worst = std::max(worst, angle_between(pts.back(), pts.front()));
+  return worst;
 }
 
 // ============================================================================
@@ -750,6 +794,162 @@ inline void test_flower_sample_unit_length_closed() {
 }
 
 // ============================================================================
+// Plot::rasterize — control-flow coverage through a capturing pipeline
+// ============================================================================
+
+/**
+ * @brief A sub-base_step open segment takes the fast path and plots BOTH
+ *        endpoints (start, then the final vertex since the loop is open).
+ */
+inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
+  constexpr int W = 128, H = 64;
+  RasterFx fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 4);
+
+  Fragment a, b;
+  a.pos = Vector(1, 0, 0);
+  // ~0.02 rad apart, well under base_step (2*pi/W = ~0.049 rad).
+  b.pos = Vector(1.0f, 0.02f, 0.0f).normalized();
+  points.push_back(a);
+  points.push_back(b);
+
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false);
+  }
+  fx.advance_display();
+
+  // Fast path on an open last segment plots curr and next: exactly two dots.
+  HS_EXPECT_EQ(pipe.plotted.size(), (size_t)2);
+  HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-4f);
+  for (const Vector &p : pipe.plotted)
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+}
+
+/**
+ * @brief A normal-length open segment is sampled densely enough to be gap-free
+ *        (no inter-sample gap exceeds one pixel column) and lands on both
+ *        endpoints.
+ */
+inline void test_rasterize_open_segment_gap_free() {
+  constexpr int W = 128, H = 64;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  RasterFx fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 4);
+
+  Fragment a, b;
+  a.pos = Vector(1, 0, 0);
+  b.pos = Vector(0, 1, 0); // 90-degree arc
+  points.push_back(a);
+  points.push_back(b);
+
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false);
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
+  // Adaptive sub-stepping caps each advance at ~base_step (the replay scale is
+  // <= 1); allow a little slack for the arc-length quantization.
+  HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
+               1.5f * base_step);
+  HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-3f);
+  for (const Vector &p : pipe.plotted)
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+}
+
+/**
+ * @brief A closed loop omits each segment's terminal vertex, so the plotted
+ *        sequence wraps continuously (gap-free across the seam) with no shared
+ *        vertex plotted twice.
+ */
+inline void test_rasterize_closed_loop_gap_free_no_dup() {
+  constexpr int W = 128, H = 64;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  RasterFx fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 4);
+
+  // A spherical triangle with well-separated vertices.
+  Fragment v0, v1, v2;
+  v0.pos = Vector(1, 0, 0);
+  v1.pos = Vector(0, 1, 0);
+  v2.pos = Vector(0, 0, 1);
+  points.push_back(v0);
+  points.push_back(v1);
+  points.push_back(v2);
+
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/true);
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(pipe.plotted.size(), (size_t)20);
+  // Continuity all the way around, including the last->first seam.
+  HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/true),
+               1.5f * base_step);
+  // No vertex is plotted twice: consecutive samples are always distinct.
+  for (size_t i = 1; i < pipe.plotted.size(); ++i)
+    HS_EXPECT_GT(angle_between(pipe.plotted[i - 1], pipe.plotted[i]), 1e-5f);
+}
+
+/**
+ * @brief A planar segment whose endpoint sits at the basis antipode falls back
+ *        to the geodesic strategy: rasterizing with that planar_basis must
+ *        produce exactly the same samples as rasterizing geodesically.
+ */
+inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
+  constexpr int W = 128, H = 64;
+  RasterFx fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 4);
+
+  // planar basis centered on +Z; the second endpoint sits within the antipodal
+  // margin of -Z (dot < -COS_PLANAR_ANTIPODE), tripping the seam guard.
+  Basis basis = basis_from_normal(Vector(0, 0, 1));
+  Fragment a, b;
+  a.pos = Vector(1, 0, 0);
+  b.pos = Vector(0.02f, 0.0f, -1.0f).normalized();
+  HS_EXPECT_LT(dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  points.push_back(a);
+  points.push_back(b);
+
+  CapturePipeline planar_pipe, geo_pipe;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(planar_pipe, c, points, noop_shader,
+                          /*close_loop=*/false, &basis);
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(geo_pipe, c, points, noop_shader,
+                          /*close_loop=*/false, /*planar_basis=*/nullptr);
+  }
+  fx.advance_display();
+
+  // The fallback makes the planar call identical to the geodesic one.
+  HS_EXPECT_EQ(planar_pipe.plotted.size(), geo_pipe.plotted.size());
+  size_t n = std::min(planar_pipe.plotted.size(), geo_pipe.plotted.size());
+  for (size_t i = 0; i < n; ++i)
+    HS_EXPECT_NEAR(angle_between(planar_pipe.plotted[i], geo_pipe.plotted[i]),
+                   0.0f, 1e-5f);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -783,6 +983,16 @@ inline int run_plot_scan_tests() {
 
   test_star_sample_unit_length_closed();
   test_flower_sample_unit_length_closed();
+
+  // rasterize() control-flow coverage (fast path, drawing phase, closed-loop
+  // seam, planar antipodal-seam fallback). The 2*W _steps_cache backstop is a
+  // defensive path for pathological inputs and is not reachable through a
+  // single smooth segment (the step-count integral stays below the cap for any
+  // realistic arc), so it is documented here rather than asserted.
+  test_rasterize_subpixel_open_segment_plots_both_endpoints();
+  test_rasterize_open_segment_gap_free();
+  test_rasterize_closed_loop_gap_free_no_dup();
+  test_rasterize_antipodal_seam_planar_falls_back_geodesic();
 
   return hs_test::end_module(scope);
 }
