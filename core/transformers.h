@@ -323,7 +323,8 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
  * @param v The unit vector to transform.
  * @param params Noise field, scale, amplitude, speed and time.
  * @return The displaced unit vector.
- * @details Samples three decorrelated noise channels (offset by 100/200) to
+ * @details Samples three decorrelated noise channels (each offset by 100/200 on
+ * all three axes) to
  * build a displacement, projects it onto the tangent plane at v so the point
  * stays on the sphere, soft-caps the slide to avoid cross-hemisphere jumps,
  * then renormalizes. No-op when amplitude is negligible.
@@ -335,13 +336,16 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   float scale = params.scale;
   float time_val = params.time * params.speed;
 
-  // Sample 3D noise field
+  // Sample 3D noise field. Offset all three axes per channel (not just X/Y): a
+  // shared Z/time input would leave the three displacement components correlated
+  // along Z, so the slide direction is biased rather than isotropic. Distinct
+  // per-axis offsets decorrelate every component.
   float nx =
       params.noise.GetNoise(v.x * scale, v.y * scale, v.z * scale + time_val);
   float ny = params.noise.GetNoise(v.x * scale + 100.0f, v.y * scale + 100.0f,
-                                   v.z * scale + time_val);
+                                   v.z * scale + time_val + 100.0f);
   float nz = params.noise.GetNoise(v.x * scale + 200.0f, v.y * scale + 200.0f,
-                                   v.z * scale + time_val);
+                                   v.z * scale + time_val + 200.0f);
 
   Vector raw_noise = Vector(nx, ny, nz) * (params.amplitude * 0.05f);
 
