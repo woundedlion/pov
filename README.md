@@ -1180,9 +1180,11 @@ The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire w
 
 ```cpp
 // ISR path (per column): fetch the display buffer once, index it directly
-const Pixel* buf = effect_->display_buffer();   // 16-bit linear pixels
-frame.packPixel(i, buf[y * width + x]);          // Pixel16 → HD107S frame
-ledController_.submitFrame();                     // non-blocking DMA, drops on overrun
+const Pixel* buf = effect_->display_buffer();              // 16-bit linear pixels
+// Physical LED index comes from the single-source-of-truth map (pov_single_map.h),
+// which applies the top-arm reversal / bottom-arm offset — never the raw row index.
+frame.packPixel(pov::strip_top_led(y, S), buf[y * width + x]); // Pixel16 → HD107S frame
+ledController_.submitFrame();                               // non-blocking DMA, drops on overrun
 ```
 
 #### Single-Teensy POV Driver (`pov_single.h`)
@@ -1194,8 +1196,8 @@ Main Loop                              ISR (IntervalTimer)
 ──────────                             ───────────────────
 effect->draw_frame()                   show_col() fires every N µs
   Canvas canvas(*this)                   for y in 0..S/2:
-    render to bufs_[cur_]                  packPixel(S/2-y-1, get_pixel(x, y))    // top arm
-  ~Canvas → queue_frame()                  packPixel(S/2+y,   get_pixel(x+W/2, y)) // bottom arm
+    render to bufs_[cur_]                  packPixel(strip_top_led(y,S),    get_pixel(x, y))                      // top arm
+  ~Canvas → queue_frame()                  packPixel(strip_bottom_led(y,S), get_pixel(strip_opposite_col(x,W), y)) // bottom arm
                                          submitFrame() → async DMA
                                          x = (x+1) % width
                                          if x==0 || x==width/2: advance_display()
