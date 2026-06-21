@@ -30,6 +30,13 @@ const FRAMES_PER_EFFECT = 3;
 // otherwise pass the exact gate CI claims catches a stack overflow. Require the
 // stack to retain a real margin so a creeping regression trips long before the
 // cliff. Current peak across all effects is ~0.6 KB, so 75% is ample headroom.
+//
+// Note this gate is a tripwire, not a guaranteed bound: high_water_mark is a
+// LOWER bound that under-reports (a frame writing a coincidental canary byte, or
+// reserving space it never stores to, reads back as still-canary — see
+// stack_high_water_mark() in wasm.cpp). So a true stack usage above 75% can read
+// back below the gate and pass; the 75% number catches creeping regressions, it
+// does not certify the stack stayed under three-quarters full.
 const STACK_MAX_FILL = 0.75;
 
 await access(jsPath).catch(() => {
