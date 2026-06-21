@@ -208,7 +208,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 94. `segment_controller.js:588` (daydream) — `Math.max(...timings)` spreads an array and returns `-Infinity` on empty (safe today; array is pre-filled). → use a guarded reduce.
 95. ✅ `tools/lissajous_math.js:79` (daydream) — `snapToRationalRatio` divides by `passiveC` with no zero guard → NaN/Infinity periods. → guard `passiveC === 0`.
 96. ✅ `tools/lissajous_math.js:45` (daydream) — `findBestRationalRatio`'s "simplest form" is emergent from iteration order, not enforced (no gcd reduction). → reduce the returned `{M,N}` by gcd.
-97. `tools/palette_math.js:312` (daydream) — `GenerativePalette.get` boundary `t === 1.0`/`t > 1.0` is untested. → add the boundary test.
+97. ✅ `tools/palette_math.js:312` (daydream) — `GenerativePalette.get` boundary `t === 1.0`/`t > 1.0` is untested. → add the boundary test.
 98. `segment_layout.js` ↔ `hardware/pov_segment_map.h` — the two implementations are claimed to mirror each other only in prose; no shared fixture cross-checks them numerically. → add a cross-implementation equivalence test.
 99. `segment_worker.js` — has no unit test at all; the pure-ish row-extraction/metrics/queue-rethrow logic is testable with a mocked engine (and would catch finding 14). → add worker unit tests.
 100. `tests/test_spatial.h` — KDTree with coincident/duplicate points and at `k == MAX_K` is untested (the classic degenerate cases). → add a duplicate-point + `k==MAX_K` test vs brute force.
