@@ -1907,9 +1907,12 @@ class MeshMorph : public AnimationBase<MeshMorph> {
 public:
   /**
    * @brief Non-owning per-half draw callback: `void(Canvas&, const MeshState&,
-   * float opacity)`.
+   * float opacity)`. A StoredFunctionRef (not a plain FunctionRef) because it is
+   * held as a member and invoked across many frames: the type rejects rvalue
+   * temporaries so a dangling inline lambda is a compile error, not a silent
+   * use-after-free (see the borrow contract below).
    */
-  using MorphDrawFn = FunctionRef<void(Canvas &, const MeshState &, float)>;
+  using MorphDrawFn = StoredFunctionRef<void(Canvas &, const MeshState &, float)>;
 
   /**
    * @brief Constructs a MeshMorph with separate shading for the two halves.
@@ -1979,17 +1982,13 @@ public:
   }
 
   // Borrow contract: draw_outgoing/draw_incoming are stored as non-owning
-  // FunctionRefs (8 bytes each — deliberately not owning, to keep MeshMorph
-  // inside the Timeline inline-storage budget) and invoked in step() across
-  // many frames. The callables must be effect-owned lvalues that outlive the
-  // timeline — reject a temporary (e.g. an inline lambda) at compile time
-  // rather than dangle silently.
-  template <typename FOut, typename FIn,
-            typename = std::enable_if_t<!std::is_lvalue_reference_v<FOut> ||
-                                        !std::is_lvalue_reference_v<FIn>>>
-  MeshMorph(const MeshState &source, const MeshState &dest, Arena &arena,
-            FOut &&draw_outgoing, FIn &&draw_incoming, int duration,
-            EasingFn easing_fn = ease_in_out_sin) = delete;
+  // StoredFunctionRefs (8 bytes each — deliberately not owning, to keep
+  // MeshMorph inside the Timeline inline-storage budget) and invoked in step()
+  // across many frames. The callables must be effect-owned lvalues that outlive
+  // the timeline; StoredFunctionRef rejects a temporary (e.g. an inline lambda)
+  // at the MorphDrawFn parameter, turning a dangling bind into a compile error
+  // rather than a silent use-after-free. No per-ctor `= delete` overload is
+  // needed — the type carries the rule.
 
   /**
    * @brief Steps the crossfade: interpolates vertices and renders both halves.

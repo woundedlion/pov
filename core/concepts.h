@@ -157,6 +157,37 @@ public:
   [[nodiscard]] explicit operator bool() const { return thunk_ != nullptr; }
 };
 
+/**
+ * @brief A FunctionRef meant to be STORED past the call that builds it (e.g. a
+ * class member invoked across many frames), not just borrowed for one call.
+ * @tparam Signature The callable signature `Ret(Args...)`.
+ * @details Identical to FunctionRef except it refuses to bind an rvalue
+ * temporary. FunctionRef's const-lvalue ctor deliberately accepts temporaries so
+ * call-scoped parameter borrows stay ergonomic (see FunctionRef), but binding a
+ * temporary into something kept alive past the full expression is a dangling
+ * reference. Storing sites use this type so the lifetime contract is enforced by
+ * the type instead of a hand-rolled `= delete` at each site; plain FunctionRef
+ * stays the right choice for call-scoped parameters. Adds no data members, so it
+ * remains the same two-pointer trivially-copyable payload as FunctionRef.
+ */
+template <typename Signature> class StoredFunctionRef;
+
+template <typename Ret, typename... Args>
+class StoredFunctionRef<Ret(Args...)> : public FunctionRef<Ret(Args...)> {
+public:
+  using FunctionRef<Ret(Args...)>::FunctionRef;
+
+  // Reject rvalue temporaries the base would otherwise accept: a stored ref must
+  // outlive the call that builds it. The lvalue-reference and self-type guards
+  // keep lvalue callables and StoredFunctionRef copy/move binding to the
+  // inherited ctors instead of this deleted overload.
+  template <typename Callable,
+            typename = std::enable_if_t<
+                !std::is_lvalue_reference_v<Callable> &&
+                !std::is_same_v<std::decay_t<Callable>, StoredFunctionRef>>>
+  StoredFunctionRef(Callable &&) = delete;
+};
+
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const Vector &, float)>;
 using TransformFn = FunctionRef<Vector(const Vector &)>;

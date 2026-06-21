@@ -511,13 +511,14 @@ inline void test_easing_elastic_anchors() {
 // Borrow-contract guards (compile-time)
 // ----------------------------------------------------------------------------
 // Motion and MeshMorph store a non-owning borrow (Fn capturing &path_obj /
-// FunctionRef) of effect-owned state that must outlive the Timeline. Their
-// constructors have a `= delete` rvalue overload so binding to a temporary is
-// a compile error instead of a silent dangle. These static_asserts lock that
-// contract: an effect-owned lvalue must be accepted, a temporary must be
-// rejected. They live at namespace scope (checked at compile time; no runner
-// call needed). If a refactor turns the SFINAE guard into a no-op, this fails
-// to compile.
+// StoredFunctionRef) of effect-owned state that must outlive the Timeline.
+// Binding to a temporary is a compile error instead of a silent dangle: Motion
+// via a `= delete` rvalue ctor overload, MeshMorph via its StoredFunctionRef
+// draw-callback parameter type (which itself rejects rvalues). These
+// static_asserts lock that contract: an effect-owned lvalue must be accepted, a
+// temporary must be rejected. They live at namespace scope (checked at compile
+// time; no runner call needed). If a refactor turns the guard into a no-op,
+// this fails to compile.
 namespace borrow_guard {
 /** @brief Orientation alias used by the borrow-contract static_asserts. */
 using Ori = Orientation<16>;
