@@ -352,6 +352,114 @@ inline void test_torus_normal_points_outward_on_top() {
 }
 
 // ============================================================================
+// WarpedVolume + Warp::Twist (domain warp, Lipschitz bound, normal correction)
+// ============================================================================
+
+/** @brief Verifies Twist::apply displaces Y by amplitude·sin(twist·θ), θ=atan2(z,x). */
+inline void test_twist_apply_displaces_y() {
+  SDF::Warp::Twist tw{/*twist=*/1, /*amplitude=*/0.3f, /*R=*/1.0f};
+
+  // θ = atan2(0, 1) = 0 → sin(0) = 0 → no displacement.
+  Vector a(1.0f, 0.5f, 0.0f);
+  Vector ra = tw.apply(a, tw.make_ctx(a));
+  HS_EXPECT_VEC(ra, Vector(1.0f, 0.5f, 0.0f), 1e-3f);
+
+  // θ = atan2(1, 0) = π/2 → sin(twist·π/2) = sin(π/2) = 1 → Y drops by amplitude.
+  Vector b(0.0f, 0.5f, 1.0f);
+  Vector rb = tw.apply(b, tw.make_ctx(b));
+  HS_EXPECT_VEC(rb, Vector(0.0f, 0.5f - 0.3f, 1.0f), 1e-2f);
+}
+
+/** @brief Verifies Twist::lipschitz is 1 for twist 0 and matches the closed form otherwise. */
+inline void test_twist_lipschitz_identity_and_closed_form() {
+  // twist == 0: identity warp, Lipschitz constant exactly 1.
+  SDF::Warp::Twist flat{0, 0.5f, 1.0f};
+  HS_EXPECT_NEAR(flat.lipschitz(Vector(2, 0, 0), flat.make_ctx(Vector(2, 0, 0))),
+                 1.0f, 1e-6f);
+
+  // twist=2, amplitude=0.5 → |twist·amplitude| = 1; at s = 2 (> R/2 = 0.5),
+  // γ = 1/2 = 0.5 and the bound is γ/2 + √(1 + γ²/4).
+  SDF::Warp::Twist tw{2, 0.5f, 1.0f};
+  Vector p(2, 0, 0);
+  float s = tw.make_ctx(p); // sqrt(4) = 2
+  HS_EXPECT_NEAR(s, 2.0f, 1e-6f);
+  float gamma = 0.5f;
+  float expected = 0.5f * gamma + std::sqrt(1.0f + 0.25f * gamma * gamma);
+  HS_EXPECT_NEAR(tw.lipschitz(p, s), expected, 1e-5f);
+}
+
+/** @brief Verifies Twist::bounding_inflation returns the displacement amplitude. */
+inline void test_twist_bounding_inflation() {
+  SDF::Warp::Twist tw{3, 0.42f, 1.0f};
+  HS_EXPECT_NEAR(tw.bounding_inflation(), 0.42f, 1e-6f);
+}
+
+/**
+ * @brief Verifies WarpedVolume::distance never over-estimates the warped
+ *        distance (sphere-trace safety): on every sampled point the returned
+ *        march distance is <= the raw warped distance, on both the bounding
+ *        fast-path and the Lipschitz-corrected path.
+ */
+inline void test_warped_volume_distance_is_sphere_trace_safe() {
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
+      SDF::Torus{1.0f, 0.3f}, SDF::Warp::Twist{3, 0.2f, 1.0f}};
+
+  // Sweep a grid spanning far field (fast-path), near-surface, and interior.
+  for (float x = -2.0f; x <= 2.0f; x += 0.5f)
+    for (float y = -1.0f; y <= 1.0f; y += 0.5f)
+      for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
+        Vector p(x, y, z);
+        float d = wv.distance(p);
+        float raw = wv.raw_distance(p);
+        // A safe march distance must not exceed the true warped distance; raw
+        // is the un-discounted distance, so d <= raw (within fp slack).
+        HS_EXPECT_TRUE(d <= raw + 1e-4f);
+      }
+}
+
+/**
+ * @brief Verifies the Lipschitz-corrected path returns raw/lipschitz on a
+ *        near-surface outside point (not on the bounding fast-path).
+ */
+inline void test_warped_volume_distance_matches_lipschitz_correction() {
+  SDF::Torus torus{1.0f, 0.3f};
+  SDF::Warp::Twist tw{3, 0.2f, 1.0f};
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{torus, tw};
+
+  // Just outside the outer rim at θ=0 (no Y displacement there): base distance
+  // is small and positive, so bd = base - inflation <= inflation (off the
+  // fast-path) and d = base.distance(p) > 0 triggers the Lipschitz divide.
+  Vector p(1.4f, 0.1f, 0.0f);
+  float raw = wv.raw_distance(p);
+  HS_EXPECT_TRUE(raw > 0.0f);
+  auto ctx = tw.make_ctx(p);
+  float lip = tw.lipschitz(p, ctx);
+  HS_EXPECT_TRUE(lip > 1.0f);
+  HS_EXPECT_NEAR(wv.distance(p), raw / lip, 1e-4f);
+}
+
+/** @brief Verifies Twist::correct_normal returns a unit vector and is identity at twist 0. */
+inline void test_twist_correct_normal_unit_length() {
+  Vector base_n = Vector(0.6f, 0.8f, 0.0f); // already unit
+
+  // twist == 0: correction is the identity.
+  SDF::Warp::Twist flat{0, 0.3f, 1.0f};
+  Vector cf = flat.correct_normal(Vector(1, 0.2f, 0.5f), base_n,
+                                  flat.make_ctx(Vector(1, 0.2f, 0.5f)));
+  HS_EXPECT_VEC(cf, base_n, 1e-6f);
+
+  // Non-trivial twist: the corrected normal must remain unit length at points
+  // sampled around the ring.
+  SDF::Warp::Twist tw{4, 0.25f, 1.0f};
+  for (float x = -1.0f; x <= 1.0f; x += 0.5f)
+    for (float z = -1.0f; z <= 1.0f; z += 0.5f) {
+      Vector p(x, 0.3f, z);
+      Vector c = tw.correct_normal(p, base_n, tw.make_ctx(p));
+      HS_EXPECT_NEAR(c.length(), 1.0f, 1e-4f);
+    }
+}
+
+// ============================================================================
 // Union — min of distances
 // ============================================================================
 
@@ -1056,6 +1164,13 @@ inline int run_sdf_tests() {
   test_torus_origin_is_outside_hole();
   test_torus_normal_points_outward_on_outer_rim();
   test_torus_normal_points_outward_on_top();
+
+  test_twist_apply_displaces_y();
+  test_twist_lipschitz_identity_and_closed_form();
+  test_twist_bounding_inflation();
+  test_warped_volume_distance_is_sphere_trace_safe();
+  test_warped_volume_distance_matches_lipschitz_correction();
+  test_twist_correct_normal_unit_length();
 
   test_union_picks_closest_shape();
   test_union_thickness_is_max();
