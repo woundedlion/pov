@@ -1245,6 +1245,17 @@ struct Volume {
             // the loop can exit having stepped past the bounding sphere, and
             // probing forward from there never punches through a thin feature,
             // leaving the false halo it was meant to cull.
+            //
+            // Bounded best-effort: 4 iterations with a step floored at
+            // bounds_radius * 0.15 deliberately trade resolution for cost on
+            // this AA-border-only slow path. A solid feature thinner than the
+            // coarse step can be straddled — both samples land in empty space
+            // with pd >= hit_threshold — so the probe fails to punch through and
+            // a faint false halo survives. This is an accepted cosmetic limit,
+            // not a correctness defect: the coarseness keeps the per-edge-pixel
+            // shape.distance() count low on the Volume hot path. Raising the
+            // iteration count or shrinking the floor would sharpen thin-feature
+            // halos at a measurable per-frame cost.
             Vector probe = closest_local;
             float probed = 0.0f;
             for (int i = 0; i < 4; ++i) {
