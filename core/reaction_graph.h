@@ -183,6 +183,7 @@ private:
     int cur = hs::clamp(
         static_cast<int>((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f), 0, RD_N - 1);
     float best_d = dist2(p, node(cur));
+    bool converged = false;
     for (int iter = 0; iter < 64; ++iter) {
       bool improved = false;
       for (int k = 0; k < RD_K; ++k) {
@@ -193,8 +194,16 @@ private:
         // subsequent k read neighbors of `cur`, chaining multiple hops per iter.
         if (d < best_d) { best_d = d; cur = ni; improved = true; }
       }
-      if (!improved) break;
+      if (!improved) { converged = true; break; }
     }
+    // The 64-iteration cap is calibrated to the RD_N=7680 lattice (see the
+    // LOAD-BEARING note). Hitting it without `improved` going false means the
+    // descent was truncated and `cur` may be a wrong node — silently baking a
+    // biased LUT. Trap here so a future RD_N bump that outgrows the cap fails
+    // loudly at build/init instead. Cold path (CubemapLUT::build, init only),
+    // so the always-on check costs nothing on the render hot loop.
+    HS_CHECK(converged, "find_nearest_node hit the 64-iter cap without converging "
+                        "(RD_N grew past the calibrated hop bound)");
     return cur;
   }
 };
