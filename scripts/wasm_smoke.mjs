@@ -195,12 +195,34 @@ if (!MeshOps) {
   }
 }
 
-// Spline exports used by splines.html — assert finite {x,y,z} / control points.
+// Spline exports used by splines.html. Assert finite {x,y,z} AND pin numeric
+// behavior, so a transposed-argument or wrong-target embind binding fails — not
+// only a non-finite return.
 const isVec = (v) => v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
-const sf = Module.spline_cubic_fast(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
-if (!isVec(sf)) fail(`spline_cubic_fast returned non-finite ${JSON.stringify(sf)}`);
-const ss = Module.spline_cubic_slerp(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
-if (!isVec(ss)) fail(`spline_cubic_slerp returned non-finite ${JSON.stringify(ss)}`);
+const approxVec = (v, x, y, z, eps = 1e-4) =>
+  isVec(v) && Math.abs(v.x - x) <= eps && Math.abs(v.y - y) <= eps && Math.abs(v.z - z) <= eps;
+
+// p0..p3 control polygon (all unit vectors), shared by the cubic evaluators.
+const CTRL = [0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0];
+for (const name of ['spline_cubic_fast', 'spline_cubic_slerp']) {
+  const mid = Module[name](...CTRL, 0.5);
+  if (!isVec(mid)) fail(`${name} returned non-finite ${JSON.stringify(mid)}`);
+  // A cubic evaluator must interpolate its endpoints: p0 at t=0, p3 at t=1.
+  // Both control points are unit, so the normalized endpoints are p0/p3 exactly.
+  // Catches argument transposition and a binding wired to the wrong output.
+  const at0 = Module[name](...CTRL, 0);
+  const at1 = Module[name](...CTRL, 1);
+  if (!approxVec(at0, 0, 1, 0)) fail(`${name}(t=0) should be p0=(0,1,0), got ${JSON.stringify(at0)}`);
+  if (!approxVec(at1, -1, 0, 0)) fail(`${name}(t=1) should be p3=(-1,0,0), got ${JSON.stringify(at1)}`);
+}
+// cubic_fast (normalized Bézier) and cubic_slerp (spherical de Casteljau) are
+// genuinely different curves away from the endpoints; identical midpoints would
+// mean both bindings resolve to the same underlying function (embind drift).
+const fastMid = Module.spline_cubic_fast(...CTRL, 0.5);
+const slerpMid = Module.spline_cubic_slerp(...CTRL, 0.5);
+if (approxVec(slerpMid, fastMid.x, fastMid.y, fastMid.z)) {
+  fail(`cubic_fast and cubic_slerp produced identical midpoints ${JSON.stringify(fastMid)} — bindings may resolve to the same function`);
+}
 const tg = Module.spline_catmull_rom_tangents(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
 if (!tg || !isVec(tg.cp1) || !isVec(tg.cp2)) {
   fail(`spline_catmull_rom_tangents returned malformed ${JSON.stringify(tg)}`);
