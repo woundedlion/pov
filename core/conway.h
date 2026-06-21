@@ -70,14 +70,17 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
   uint16_t he_idx = face.half_edge;
   if (he_idx == HE_NONE) return n;
   uint16_t start = he_idx;
-  // Always-on anti-hang guard plus the per-iteration HE_NONE check that
-  // face_centroid carries: a corrupt .next chain could otherwise spin forever
-  // or dereference half_edges[HE_NONE]. Trap on the bench, never hang.
+  // Always-on anti-hang guard plus an explicit HE_NONE trap on he.next: unlike
+  // face_centroid (which reads only half_edges[he_idx], already known live),
+  // this loop dereferences half_edges[he.next] in-body, so a corrupt .next chain
+  // could otherwise spin forever or index half_edges[HE_NONE]. Trap on the
+  // bench, never hang.
   const int max_sides = static_cast<int>(he_mesh.half_edges.size());
   int sides = 0;
   do {
     HS_CHECK(sides++ < max_sides);
     const HalfEdge &he = he_mesh.half_edges[he_idx];
+    HS_CHECK(he.next != HE_NONE);
     const Vector &curr = mesh.vertices[he.vertex];
     const Vector &next = mesh.vertices[he_mesh.half_edges[he.next].vertex];
     n.x += (curr.y - next.y) * (curr.z + next.z);
