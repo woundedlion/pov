@@ -1737,7 +1737,9 @@ struct InsetModifier {
    * @param lo Lower domain bound mapped to 0; defaults to 0.2.
    * @param hi Upper domain bound mapped to 1; defaults to 0.8.
    */
-  InsetModifier(float lo = 0.2f, float hi = 0.8f) : lo(lo), hi(hi) {}
+  InsetModifier(float lo = 0.2f, float hi = 0.8f) : lo(lo), hi(hi) {
+    HS_CHECK(hi > lo, "InsetModifier: hi must be > lo (modify divides by hi - lo)");
+  }
   /**
    * @brief Remaps the coordinate from [lo, hi] into [0, 1], clamping outside.
    * @param t Input coordinate.
