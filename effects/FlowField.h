@@ -77,8 +77,13 @@ public:
           p.history.clear();
         }
 
-        // Sample three decorrelated noise channels (offset along x by 100/200)
-        // for the force vector's components.
+        // Sample three noise channels for the force vector's components. They
+        // are mutually decorrelated by sampling at large x-offsets (0/100/200),
+        // but all three share the same z input (p.z + t), so time evolution
+        // advances the field along the z axis: the temporal evolution is
+        // coupled to the z spatial structure, not a fully independent 4th axis.
+        // FastNoiseLite is only 3D here, so a genuine 4th time dimension isn't
+        // available; this shared-z animation is the accepted simplification.
         float fx =
             noise_generator.GetNoise(p.position.x * params.noise_scale,
                                      p.position.y * params.noise_scale,
