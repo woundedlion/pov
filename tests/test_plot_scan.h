@@ -641,7 +641,14 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
 
 /**
  * @brief Verifies Spiral::sample emits N unit-length fragments with
- *        non-decreasing cumulative arc length (v1) and v0 progress spanning 0..1.
+ *        non-decreasing cumulative arc length (v1) and v0 progress spanning 0..1,
+ *        and that the result is genuinely a pole-to-pole Fibonacci spiral.
+ * @details Shape-discriminating check: the latitude (y) sweeps strictly
+ *          monotonically from pole to pole while the azimuth winds many full
+ *          turns — neither holds for a ring (constant latitude, one turn) or a
+ *          meridian arc (no azimuthal winding), so this distinguishes the spiral
+ *          from the other closed/curve shapes rather than merely confirming the
+ *          points lie on the sphere.
  */
 inline void test_spiral_sample_unit_length_and_monotone_arc() {
   ScratchScope sc(plot_arena());
@@ -653,14 +660,35 @@ inline void test_spiral_sample_unit_length_and_monotone_arc() {
   HS_EXPECT_EQ(frags.size(), (size_t)N);
 
   float last_v1 = -1.0f;
+  float last_y = 2.0f;        // above any unit-sphere y, so the first compare passes
+  float last_theta = 0.0f;
+  float winding = 0.0f;       // total absolute azimuthal travel (radians)
   for (size_t i = 0; i < frags.size(); ++i) {
-    HS_EXPECT_NEAR(frags[i].pos.length(), 1.0f, 1e-3f);
+    const Vector &p = frags[i].pos;
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
     // Cumulative arc length is non-decreasing.
     HS_EXPECT_GE(frags[i].v1, last_v1);
     last_v1 = frags[i].v1;
+
+    // Latitude sweeps strictly downward, pole toward pole.
+    HS_EXPECT_LT(p.y, last_y);
+    last_y = p.y;
+
+    // Accumulate wrapped azimuth steps to measure the winding.
+    float theta = std::atan2(p.z, p.x);
+    if (i > 0) {
+      float d = theta - last_theta;
+      while (d > PI_F) d -= 2.0f * PI_F;
+      while (d < -PI_F) d += 2.0f * PI_F;
+      winding += std::fabs(d);
+    }
+    last_theta = theta;
   }
   HS_EXPECT_NEAR(frags[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(frags[N - 1].v0, 1.0f, 1e-6f);
+
+  // Many azimuthal turns — a single ring would wind only ~2π, an arc ~0.
+  HS_EXPECT_GT(winding, 4.0f * PI_F);
 }
 
 // ============================================================================
@@ -741,6 +769,17 @@ inline void test_bezier_sample_endpoints_and_monotone_arc() {
   }
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[N].v0, 1.0f, 1e-6f);
+
+  // Discriminating: the cubic bulges toward its interior control points and away
+  // from the plain p0->p3 geodesic. A straight geodesic — or a regression that
+  // ignored p1/p2 — would leave the mid-sample on the geodesic midpoint, in the
+  // p0/p3 plane.
+  const Vector geo_mid = (p0 + p3).normalized(); // minor-arc midpoint of p0,p3
+  const Vector &mid = points[N / 2].pos;
+  HS_EXPECT_GT(angle_between(mid, geo_mid), 0.15f); // genuinely curved
+  Vector nrm = cross(p0, p3).normalized();
+  if (dot(p1, nrm) < 0.0f) nrm = -nrm;              // orient toward the controls
+  HS_EXPECT_GT(dot(mid, nrm), 0.1f);                // bulges toward the controls
 }
 
 // ============================================================================
@@ -750,7 +789,12 @@ inline void test_bezier_sample_endpoints_and_monotone_arc() {
 /**
  * @brief Verifies Star::sample emits 2*sides unit-length vertices plus one
  *        closing fragment matching the first vertex (closed loop, v0 == 1 at
- *        close).
+ *        close), and that the vertices form a genuine star — not a flower.
+ * @details Shape-discriminating check: the colatitude (angle from the shape's
+ *          center axis) alternates between an outer and an inner radius, with
+ *          inner/outer == STAR_INNER_RATIO. The Flower test below pins the
+ *          opposite invariant (constant colatitude), so the pair would catch a
+ *          regression that swapped the two shapes or dropped the star's notches.
  */
 inline void test_star_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
@@ -770,11 +814,27 @@ inline void test_star_sample_unit_length_closed() {
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
+
+  // Discriminating: alternating outer/inner colatitude about the center axis.
+  const Vector axis = get_antipode(b, 0.5f).first.v;
+  const float outer = angle_between(points[0].pos, axis); // i=0 (even) -> outer
+  const float inner = angle_between(points[1].pos, axis); // i=1 (odd)  -> inner
+  HS_EXPECT_GT(outer, inner + 1e-3f);                      // genuinely notched
+  HS_EXPECT_NEAR(inner / outer, Plot::STAR_INNER_RATIO, 1e-2f);
+  for (int i = 0; i < sides * 2; ++i) {
+    const float colat = angle_between(points[i].pos, axis);
+    HS_EXPECT_NEAR(colat, (i % 2 == 0) ? outer : inner, 1e-3f);
+  }
 }
 
 /**
  * @brief Verifies Flower::sample emits 2*sides unit-length vertices plus one
- *        closing fragment matching the first vertex (closed loop).
+ *        closing fragment matching the first vertex (closed loop), and that the
+ *        vertices form a genuine flower — constant radius, not a star.
+ * @details Shape-discriminating check: every vertex sits at the SAME colatitude
+ *          about the center axis (a constant polar radius), the opposite of the
+ *          star's alternating outer/inner notches. The pair pins the two shapes
+ *          apart at the sample level.
  */
 inline void test_flower_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
@@ -791,6 +851,14 @@ inline void test_flower_sample_unit_length_closed() {
   }
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
+
+  // Discriminating: constant colatitude about the center axis (no star notches).
+  const Vector axis = get_antipode(b, 0.5f).first.v;
+  const float colat0 = angle_between(points[0].pos, axis);
+  for (int i = 0; i < sides * 2; ++i) {
+    const float colat = angle_between(points[i].pos, axis);
+    HS_EXPECT_NEAR(colat, colat0, 1e-3f);
+  }
 }
 
 // ============================================================================
