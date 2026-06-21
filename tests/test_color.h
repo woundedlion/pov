@@ -246,6 +246,59 @@ inline void test_blend_add_packed_lane_layout() {
 }
 
 /**
+ * @brief Verifies Color4::operator*= scales both pixel and alpha.
+ * @details The SSAA averaging algebra (scale each sample by 1/N, then sum)
+ *          relies on *= touching alpha alongside color; scaling color but not
+ *          alpha would silently corrupt the running average's weight.
+ */
+inline void test_color4_scale_affects_color_and_alpha() {
+  Color4 c(Pixel16(1000, 2000, 4000), 0.8f);
+  c *= 0.5f;
+  HS_EXPECT_EQ(c.color.r, 500);
+  HS_EXPECT_EQ(c.color.g, 1000);
+  HS_EXPECT_EQ(c.color.b, 2000);
+  HS_EXPECT_NEAR(c.alpha, 0.4f, 1e-6f);
+}
+
+/**
+ * @brief Verifies Color4::operator+= sums color and clamps alpha at 1.0.
+ * @details Alpha must saturate at 1.0 so the sum stays a valid blend weight; a
+ *          missing clamp would let summed coverage ride past 1. Also exercises
+ *          the SSAA pattern: N samples each pre-scaled by 1/N sum back to the
+ *          average with alpha <= 1.
+ */
+inline void test_color4_add_clamps_alpha_and_sums_color() {
+  // Direct clamp check: two near-opaque samples sum past 1.0 -> clamped to 1.0.
+  Color4 a(Pixel16(10000, 0, 0), 0.7f);
+  a += Color4(Pixel16(20000, 100, 0), 0.6f);
+  HS_EXPECT_EQ(a.color.r, 30000);
+  HS_EXPECT_EQ(a.color.g, 100);
+  HS_EXPECT_NEAR(a.alpha, 1.0f, 1e-6f); // 1.3 clamped
+
+  // SSAA averaging: sum of (sample * 1/N) reproduces the average, alpha <= 1.
+  // Distinct per-channel sums (all multiples of N, so the *0.25 scale is exact)
+  // so a channel mix-up can't pass: r->10000, g->14000, b->18000.
+  const int N = 4;
+  Color4 samples[N] = {
+      Color4(Pixel16(40000, 0, 0), 1.0f),
+      Color4(Pixel16(0, 40000, 8000), 1.0f),
+      Color4(Pixel16(0, 8000, 40000), 0.5f),
+      Color4(Pixel16(0, 8000, 24000), 0.5f),
+  };
+  Color4 acc(Pixel16(0, 0, 0), 0.0f);
+  for (int i = 0; i < N; ++i) {
+    Color4 s = samples[i];
+    s *= 1.0f / N;
+    acc += s;
+  }
+  HS_EXPECT_EQ(acc.color.r, 10000); // 40000/4
+  HS_EXPECT_EQ(acc.color.g, 14000); // 56000/4
+  HS_EXPECT_EQ(acc.color.b, 18000); // 72000/4
+  HS_EXPECT_NEAR(acc.alpha, 0.75f, 1e-6f); // (1+1+0.5+0.5)/4
+  HS_EXPECT_LE(acc.alpha, 1.0f);
+}
+
+/**
  * @brief Verifies blend_max against black is the identity.
  */
 inline void test_blend_max_with_black_identity() {
@@ -1229,6 +1282,8 @@ inline int run_color_tests() {
   test_blend_add_identity_with_black();
   test_blend_add_saturates();
   test_blend_add_packed_lane_layout();
+  test_color4_scale_affects_color_and_alpha();
+  test_color4_add_clamps_alpha_and_sums_color();
   test_blend_max_with_black_identity();
   test_blend_alpha_clamps_before_cast();
   test_pixel16_scale_clamps_before_cast();
