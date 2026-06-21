@@ -1729,7 +1729,11 @@ struct Mesh {
       // mesh.vertices[] only asserts in bounds (stripped under NDEBUG on the
       // device), so a malformed face index would read OOB silently on hardware.
       // This is the per-edge setup boundary, not a per-pixel path, so an
-      // always-on HS_CHECK is contract-appropriate (platform.h).
+      // always-on HS_CHECK is contract-appropriate (platform.h). Checking only
+      // `large` covers both endpoints: u and v are read from uint16_t face data
+      // (call site below), so they are non-negative — large = max(u,v) in bounds
+      // implies 0 <= small <= large < size(), hence vertices[u] and vertices[v]
+      // are both valid.
       HS_CHECK(static_cast<size_t>(large) < mesh.vertices.size());
 
       Fragment fu;
