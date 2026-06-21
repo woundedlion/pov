@@ -58,6 +58,10 @@ inline auto tri_wave(float from, float to, float freq, float phase) {
  */
 inline auto square_wave(float from, float to, float freq, float dutyCycle,
                         float phase) {
+  // dutyCycle is a build-time configuration param; out of [0,1] it silently
+  // latches the wave to a constant level. Trap the misuse at the cold seam.
+  HS_CHECK(dutyCycle >= 0.0f && dutyCycle <= 1.0f,
+           "square_wave: dutyCycle must be in [0,1]");
   return [=](float t) -> float {
     // wrap() (not raw fmod) so a negative t*freq+phase folds into [0,1) like
     // tri_wave; fmod keeps the dividend's sign, leaving a negative phase always
