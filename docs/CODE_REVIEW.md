@@ -151,7 +151,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 37. ✅ `core/plot.h:1428` — `Spiral::sample` lacks the `n >= 1` count guard its sibling primitives carry. → assert or document the no-op.
 38. ✅ `core/color.h:1789` — `EdgeFadeShade`/`EdgeAlphaShade` divide by `edge` with no `edge > 0` guard (cold author-time). → `HS_CHECK(edge > 0)`.
 39. ✅ `core/color.h:1740` — `InsetModifier` divides by `(hi - lo)` with no guard; `hi == lo` collapses the palette to its last stop. → `HS_CHECK(hi > lo)`.
-40. `core/color.h:1299` — `GenerativePalette::g_hue_seed` is a non-atomic mutable static shared across instances (safe under current single-threaded construction). → document the single-threaded-construction assumption.
+40. ✅ `core/color.h:1299` — `GenerativePalette::g_hue_seed` is a non-atomic mutable static shared across instances (safe under current single-threaded construction). → document the single-threaded-construction assumption.
 41. ✅ `core/color.h:2096` — `BakedPalette::get` interpolates alpha with raw `frac` but color with rounded `frac` (negligible, noted for completeness). → document the split.
 42. ✅ `core/led.h:65` — `NoColorCorrection`/`NoTempCorrection` restore-to-baseline guards don't nest and have no compile-time protection. → optional depth counter + `HS_CHECK`.
 43. ✅ `core/animation.h:62` — `Path::append_segment` capacity check is over-conservative by one (rejects a final point that fits). → subtract the popped element.

@@ -1296,6 +1296,11 @@ private:
   GradientShape gradient_shape;
   CPixel a, b, c;
 
+  // Mutable static cursor shared across all GenerativePalette instances: each
+  // auto-seeded construction reads it and advances it so successive palettes get
+  // distinct base hues. Non-atomic by design — safe only because palette
+  // construction is single-threaded (engine setup / the render thread); it is
+  // NOT a concurrency guard and a second constructing thread would race it.
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<CPixel, 5> colors;
