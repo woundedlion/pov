@@ -79,6 +79,17 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       // rather than shape.thickness: for a CSG composite of strokes the wrapper
       // carries a min/max thickness, which would scale a thin child's falloff by
       // a thicker sibling's width and blow out the AA ramp at the boundary.
+      //
+      // The ramp is intentionally inward-only, and intentionally asymmetric with
+      // the solid path above. A stroke's `d` is centerline_dist - half_width, so
+      // d=0 is the geometric tube edge (alpha=quintic_kernel(0)=0) and d=-size is
+      // the centerline (alpha=1). Coverage therefore already feathers to zero AT
+      // the boundary with a C2-flat (zero-slope) tangent, so the outer edge is
+      // intrinsically anti-aliased — the whole half-width IS the AA ramp. The
+      // solid path needs an outward straddle only because its interior is opaque
+      // up to the edge; a stroke has no such interior, so there is nothing to
+      // fringe. Pushing the ramp outward (alpha=0.5 at d=0) would bleed the
+      // stroke half a thickness past its true geometry.
       float aa_thickness = result_scratch.size;
       if (aa_thickness > 0) {
         alpha = quintic_kernel(-d / aa_thickness);
