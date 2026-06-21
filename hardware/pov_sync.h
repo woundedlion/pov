@@ -1411,7 +1411,17 @@ private:
       publish_build(idx);
     } else if (content_.commit_pending) {
       // Inside the epoch window the displayed index is in flux; the next
-      // post-commit beacon re-verifies.
+      // post-commit beacon re-verifies. Deliberately do NOT publish_build here:
+      // suppressing the index-correction publish while a commit is pending is
+      // what keeps pending_gen_ stable from the moment construction opens to the
+      // commit. That stability is the precondition the commit-time HS_CHECK in
+      // the segmented/single foreground relies on — pending_gen_ must still
+      // equal the wire's advertised build_gen when `a.commit` fires; bumping it
+      // mid-window would either trap a fully-built effect on a non-bug or commit
+      // a half-built one. (The join branch above also cannot fire mid-window: it
+      // requires !identity_known, and a board in its commit window joined long
+      // ago. The master's own epoch publish is likewise gated on
+      // !commit_pending in master_on_crossing.)
     } else if (idx != content_.effect_index) {
       // Missed epoch (all repeats): correct within ≤16 revs (spec §6.3.2).
       content_.effect_index = idx;

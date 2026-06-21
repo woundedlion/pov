@@ -520,6 +520,14 @@ private:
       // Acquire load pairs with the foreground's release store, ordering the
       // pending instance's construction writes before any dereference below.
       Effect *p = pending_effect_.load(std::memory_order_acquire);
+      // This equality check is sound only because pending_gen_ is stable across
+      // the construction window: it is set once when the window opens (the
+      // foreground's publish_build) and no beacon/symbol path bumps it again
+      // while a commit is pending — SyncBoard::handle_beacon_burst suppresses
+      // beacon index-corrections during commit_pending, and the master gates its
+      // epoch publish on !commit_pending. So a mismatch here means only the
+      // genuine fault in the message — init outran the K-revolution window — and
+      // never a mid-window generation bump from a beacon correction.
       HS_CHECK(p && pending_gen_ ==
                         pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
                "epoch commit: effect init exceeded the K-revolution window");
