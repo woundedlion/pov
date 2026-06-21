@@ -23,6 +23,7 @@ namespace reaction_graph_tests {
 
 using ReactionGraph::RD_N;
 using ReactionGraph::RD_K;
+using ReactionGraph::D_AVG;
 using ReactionGraph::neighbors;
 using ReactionGraph::node;
 
@@ -71,6 +72,20 @@ inline void test_node_deterministic_and_distinct() {
   for (int i = 0; i < 500; ++i) {
     HS_EXPECT_GT(chord2(node(i), node(i + 1)), 0.0f);
   }
+}
+
+/**
+ * @brief Pins the frozen D_AVG literal to its analytic value sqrt(4π / RD_N).
+ * @details D_AVG is a hand-pasted constant (std::sqrt isn't constexpr here) that
+ *          KERNEL_R / INV_R2 in ReactionDiffusionBase derive from, so a stale
+ *          value silently mistunes the Wendland kernel support radius. Nothing
+ *          else links it to RD_N: bumping RD_N (which also requires regenerating
+ *          neighbors[]) would leave D_AVG quietly wrong. This recomputes the
+ *          spacing and fails loudly if the literal and RD_N ever diverge.
+ */
+inline void test_d_avg_matches_rd_n() {
+  float expected = static_cast<float>(std::sqrt(4.0 * PI / RD_N));
+  HS_EXPECT_NEAR(D_AVG, expected, 1e-4f);
 }
 
 // ---------------------------------------------------------------------------
@@ -280,6 +295,7 @@ inline int run_reaction_graph_tests() {
 
   test_nodes_on_unit_sphere();
   test_node_deterministic_and_distinct();
+  test_d_avg_matches_rd_n();
 
   test_indices_in_range();
   test_no_self_loops();
