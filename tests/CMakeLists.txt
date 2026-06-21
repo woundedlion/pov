@@ -118,3 +118,25 @@ target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/co
 target_compile_options(fastmath_clamp_check PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
+
+# The south-pole Y-clip renormalization in the rasterizer (Screen::AntiAlias's
+# bilinear-tap fold, and the H_VIRT handling threaded through geometry/scan/plot/
+# sdf) only does real work when hs::H_OFFSET > 0 — the hardware value, fixed to 0
+# on every host/WASM build, so the device's most subtle hot-loop path otherwise
+# ships with zero automated coverage on the one platform with no debugger or
+# console. This executable recompiles the same engine with HS_TEST_H_OFFSET=3 so
+# the whole pipeline carries the device offset and the renorm runs against an
+# energy-conservation oracle. It MUST be its own TU: an offset-3 and an offset-0
+# PhiLUT<H>/TrigLUT<W,H> instantiation would clash under ODR (see core/platform.h
+# and tests/test_h_offset_renorm.h).
+add_executable(h_offset_renorm_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
+  ${HS_ROOT}/core/memory.cpp
+  ${HS_ROOT}/core/reaction_graph.cpp)
+target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_BUILD HS_TEST_H_OFFSET=3)
+target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+# No -Werror here (matching fastmath_clamp_check): this single-purpose TU pulls in
+# the full engine barrel but uses only the AntiAlias/TrigLUT slice, so the barrel's
+# many static helpers would trip -Wunused-function. Engine-header hygiene is
+# enforced by the main run_tests target, which compiles the same headers -Werror.
+add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)

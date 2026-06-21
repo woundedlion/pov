@@ -883,8 +883,25 @@ inline bool debug = false;
  *          H_OFFSET = 3 (see the CORE_TEENSY definition above for the full
  *          rationale), so vertical sphere coverage is not bit-identical to
  *          hardware.
+ *
+ *          HS_TEST_H_OFFSET override: the south-pole Y-clip renormalization in
+ *          the rasterizer (the bilinear-tap fold in Screen::AntiAlias::plot, and
+ *          the H_VIRT handling threaded through geometry/scan/plot/sdf) only does
+ *          real work when H_OFFSET > 0, which never happens on a normal host
+ *          build. A dedicated host test executable defines HS_TEST_H_OFFSET=3 so
+ *          the WHOLE pipeline compiles with the hardware offset and the renorm
+ *          path runs against an energy-conservation oracle (see
+ *          tests/test_h_offset_renorm.h, tests/CMakeLists.txt). This is the same
+ *          recompile-under-device-config tactic as the fastmath_clamp_check TU.
+ *          It MUST live in its own translation unit/executable: an offset-3 and
+ *          an offset-0 instantiation of the same PhiLUT<H>/TrigLUT<W,H> would
+ *          otherwise have different static-array sizes and clash under ODR.
  */
+#if defined(HS_TEST_H_OFFSET)
+static constexpr int H_OFFSET = HS_TEST_H_OFFSET;
+#else
 static constexpr int H_OFFSET = 0;
+#endif
 } // namespace hs
 
 // Global millis/micros if needed, though prefer namespaced
