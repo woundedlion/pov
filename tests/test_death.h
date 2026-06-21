@@ -318,7 +318,7 @@ inline void case_timeline_handled_completion() {
   float v = 0.0f;
   // pin=true marks the event handled; a 1-frame Transition is finite and the
   // sole event, so step() routes it through the completion/destroy branch.
-  tl.add_get(0, Animation::Transition(v, 1.0f, 1, ease_mid), /*pin=*/true);
+  tl.add_get(0, Animation::Transition(v, 1.0f, 1, ease_linear), /*pin=*/true);
   tl.step(canvas); // t=1: done() && !repeats() && !canceled, keep=false -> trap
 }
 

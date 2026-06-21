@@ -117,7 +117,7 @@ private:
      */
     float radius_at() const {
       float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
-      return RADIUS_MAX * ease_mid(t);
+      return RADIUS_MAX * ease_linear(t);
     }
 
     /**
@@ -127,7 +127,7 @@ private:
      */
     float opacity_at() const {
       if (age + 1 < FADE_IN_FRAMES)
-        return ease_mid(static_cast<float>(age + 1) / FADE_IN_FRAMES);
+        return ease_linear(static_cast<float>(age + 1) / FADE_IN_FRAMES);
       return 1.0f;
     }
   };

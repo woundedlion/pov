@@ -93,23 +93,23 @@ public:
     timeline.add(0, Animation::Mutation(
                         params.twist,
                         [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
-                        480, ease_mid, true, &anims_paused_));
+                        480, ease_linear, true, &anims_paused_));
 
     // Two shared tumbles: every Plot ring rides plot_orient_ (+X), every Scan
     // ring rides scan_orient_ (-X). These also drive the once-per-frame
     // orientation collapse (motion blur) before the draw event runs below.
     timeline.add(0, Animation::Rotation<W>(plot_orient_, X_AXIS, 2 * PI_F, 160,
-                                           ease_mid, true,
+                                           ease_linear, true,
                                            Animation::Space::Local));
     timeline.add(0, Animation::Rotation<W>(scan_orient_, -X_AXIS, 2 * PI_F, 160,
-                                           ease_mid, true,
+                                           ease_linear, true,
                                            Animation::Space::Local));
 
     // One draw event for every shape. Reads Count live, so a GUI change needs no
     // rebuild. Added last so it steps after the rotations have collapsed.
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float) { drawAll(canvas); }, -1,
-                        0, ease_mid, 0, ease_mid));
+                        0, ease_linear, 0, ease_linear));
   }
 
   /**

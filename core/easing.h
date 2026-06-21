@@ -74,7 +74,7 @@ inline float ease_in_circ(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_mid(float t) {
+inline float ease_linear(float t) {
   return t;
 }
 

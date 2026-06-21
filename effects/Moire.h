@@ -70,13 +70,13 @@ public:
     timeline
         .add(0, Animation::PeriodicTimer(80, [this](auto &) { color_wipe(); }))
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
-                                       ease_mid, true))
-        .add(0, Animation::Transition(rotation, 2 * PI_F, 160, ease_mid, false,
+                                       ease_linear, true))
+        .add(0, Animation::Transition(rotation, 2 * PI_F, 160, ease_linear, false,
                                       true)
                     .then([this]() { rotation = 0.0f; }))
         .add(0,
              Animation::Mutation(params.amp, sin_wave(0.1f, 0.5f, 1.0f, 0.0f),
-                                 160, ease_mid, true, &anims_paused_));
+                                 160, ease_linear, true, &anims_paused_));
   }
 
   /**
@@ -123,9 +123,9 @@ private:
                           BrightnessProfile::DESCENDING);
 
     timeline.add(
-        0, Animation::ColorWipe(base_palette, base_next_palette, 80, ease_mid));
+        0, Animation::ColorWipe(base_palette, base_next_palette, 80, ease_linear));
     timeline.add(
-        0, Animation::ColorWipe(int_palette, int_next_palette, 80, ease_mid));
+        0, Animation::ColorWipe(int_palette, int_next_palette, 80, ease_linear));
   }
 
   /**

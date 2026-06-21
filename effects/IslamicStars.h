@@ -195,8 +195,8 @@ private:
     // never pile up. Cold setup-time seam (once per shape cycle), so trap on
     // device too with HS_CHECK rather than a debug-stripped assert.
     HS_CHECK(fade <= dur / 2 && dur - fade >= dur / 2);
-    timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_mid, fade,
-                                      ease_mid));
+    timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_linear, fade,
+                                      ease_linear));
 
     // Topology indices are left un-reduced: draw_shape applies
     // `topoIdx % NUM_PALETTES` at render time, so reducing the stored topology

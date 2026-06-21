@@ -1134,8 +1134,8 @@ public:
    * @param paused Optional pause gate; null = always runs.
    */
   Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
-         EasingFn fade_in_easing_fn = ease_mid, int fade_out_duration = 0,
-         EasingFn fade_out_easing_fn = ease_mid, const bool *paused = nullptr)
+         EasingFn fade_in_easing_fn = ease_linear, int fade_out_duration = 0,
+         EasingFn fade_out_easing_fn = ease_linear, const bool *paused = nullptr)
       : AnimationBase(duration, false), draw_fn(std::move(draw_fn)),
         fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
@@ -1424,7 +1424,7 @@ public:
    */
   Rotation()
       : AnimationBase<Rotation<W, CAP>>(0, false), orientation(nullptr),
-        axis(X_AXIS), total_angle(0), easing_fn(ease_mid), last_angle(0),
+        axis(X_AXIS), total_angle(0), easing_fn(ease_linear), last_angle(0),
         space(Space::World) {}
 
   /**
@@ -1663,7 +1663,7 @@ public:
     direction =
         rotate(direction, make_rotation(walk_axis, options.speed)).normalized();
     Rotation<W, CAP>::animate(canvas, orientation, walk_axis, options.speed,
-                              ease_mid);
+                              ease_linear);
   }
 
 private:

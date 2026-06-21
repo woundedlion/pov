@@ -56,7 +56,7 @@ public:
     // Start with tangent plane at -Z, then rotate around Y
     orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
-                                           ease_mid, true));
+                                           ease_linear, true));
 
     // Bake the generative palette into a fast 16-bit LUT
     palette.bake(persistent_arena,

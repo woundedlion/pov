@@ -37,7 +37,7 @@ public:
                               /*phase*/ {0.0f, 0.2f, 0.6f}),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
-        warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_mid) {}
+        warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_linear) {}
 
   /**
    * @brief Registers tunable params and seeds the timeline.
@@ -147,7 +147,7 @@ private:
     float radius_at() const {
       float t = hs::clamp(static_cast<float>(age + 1) / RADIUS_GROW_FRAMES,
                           0.0f, 1.0f);
-      return RADIUS_MAX * ease_mid(t);
+      return RADIUS_MAX * ease_linear(t);
     }
   };
 
@@ -203,7 +203,7 @@ private:
 
     // warp: decay from peak (0.7) to exactly 0 over the mutation's life so the
     // ring fully relaxes between fires (warp_decay carries the rationale).
-    warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_mid);
+    warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_linear);
 
     // spin
     // Under a large warp the two oriented vectors can become near-parallel, so

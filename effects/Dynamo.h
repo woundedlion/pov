@@ -143,7 +143,7 @@ public:
     // order without ever touching a live boundary.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
-                                          (int)params.wipe_duration, ease_mid)
+                                          (int)params.wipe_duration, ease_linear)
                         .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
   }
 

@@ -71,7 +71,7 @@ public:
     // paused, per the setAnimationsPaused contract). The flow/tumble Drivers
     // ARE gated so "Pause Animation" actually freezes the fiber motion.
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
-                                           ease_mid, true));
+                                           ease_linear, true));
     // Bound Drivers: each pulls its tuning slider (× per-unit rate) every step,
     // so the flow/tumble speeds stay live without a per-frame set_speed re-sync.
     timeline.add(0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE,

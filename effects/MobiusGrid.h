@@ -66,15 +66,15 @@ public:
 
     timeline
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400,
-                                       ease_mid, true))
+                                       ease_linear, true))
         .add(0, Animation::PeriodicTimer(
                     120, [this](auto &) { wipe_palette(); }, true))
         .add(0, Animation::Mutation(params.num_rings,
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
-                                    ease_mid, true, &anims_paused_))
+                                    ease_linear, true, &anims_paused_))
         .add(160, Animation::Mutation(params.num_lines,
                                       sin_wave(12.0f, 1.0f, 1.0f, 0.5f),
-                                      320, ease_mid, true, &anims_paused_));
+                                      320, ease_linear, true, &anims_paused_));
   }
 
   /**
@@ -123,7 +123,7 @@ private:
     next_palette = GenerativePalette(GradientShape::CIRCULAR,
                                      HarmonyType::SPLIT_COMPLEMENTARY,
                                      BrightnessProfile::FLAT);
-    timeline.add(0, Animation::ColorWipe(palette, next_palette, 60, ease_mid));
+    timeline.add(0, Animation::ColorWipe(palette, next_palette, 60, ease_linear));
   }
 
   /**

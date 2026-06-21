@@ -66,7 +66,7 @@ public:
             return;
           presets.next();
           timeline.add(0, Animation::Lerp(params, presets.prev_get(),
-                                          presets.get(), 48, ease_mid,
+                                          presets.get(), 48, ease_linear,
                                           &anims_paused_));
         },
         true);

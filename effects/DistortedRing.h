@@ -35,7 +35,7 @@ public:
               return sin_wave(-params.max_amplitude, params.max_amplitude, 1.0f,
                               0.0f)(t);
             },
-            32, ease_mid, true) {}
+            32, ease_linear, true) {}
 
   /**
    * @brief Registers params and builds the timeline.
@@ -59,7 +59,7 @@ public:
                         [this](Canvas &canvas, float opacity) {
                           this->drawFn(canvas, opacity);
                         },
-                        -1, 48, ease_mid, 0, ease_mid));
+                        -1, 48, ease_linear, 0, ease_linear));
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, normal, noise));
 

@@ -63,7 +63,7 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
 /**
  * @brief Verifies each easing curve anchors its endpoints.
  * @details "in" curves satisfy f(0)=0, "out" curves f(1)=1, "in-out" curves
- *          both; ease_mid is the linear identity. Expo/elastic endpoints are
+ *          both; ease_linear is the linear identity. Expo/elastic endpoints are
  *          special-cased to avoid powf domain issues at the boundary.
  */
 inline void test_easing_endpoints() {
@@ -86,9 +86,9 @@ inline void test_easing_endpoints() {
   HS_EXPECT_NEAR(ease_out_elastic(1.0f), 1.0f, 1e-5f);
 
   // Linear is the identity.
-  HS_EXPECT_NEAR(ease_mid(0.0f), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(ease_mid(0.5f), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(ease_mid(1.0f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(ease_linear(0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(ease_linear(0.5f), 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(ease_linear(1.0f), 1.0f, 1e-6f);
 }
 
 /**
@@ -106,7 +106,7 @@ inline void test_easing_finite_and_monotone() {
   check_curve(ease_out_cubic, true, "ease_out_cubic");
   check_curve(ease_in_circ, true, "ease_in_circ");
   check_curve(ease_out_circ, true, "ease_out_circ");
-  check_curve(ease_mid, true, "ease_mid");
+  check_curve(ease_linear, true, "ease_linear");
   // Overshooting / non-monotone curves: finiteness only.
   check_curve(ease_out_expo, false, "ease_out_expo");
   check_curve(ease_out_elastic, false, "ease_out_elastic");

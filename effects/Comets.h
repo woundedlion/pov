@@ -242,7 +242,7 @@ private:
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::ASCENDING);
     timeline.add(0, Animation::ColorWipe(palette, next_palette_, WIPE_FRAMES,
-                                         ease_mid));
+                                         ease_linear));
     // Arm the rebake gate for the life of the wipe. The wipe is scheduled inside
     // timeline.step() and first steps next frame, mutating `palette` for
     // WIPE_FRAMES frames; +1 covers the arming frame so the count safely spans

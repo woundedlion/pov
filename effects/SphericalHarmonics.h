@@ -247,7 +247,7 @@ public:
     // Spin
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
     timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100,
-                                           10000, ease_mid, true));
+                                           10000, ease_linear, true));
 
     // Start morphing immediately
     start_morph();
@@ -339,7 +339,7 @@ private:
 
     // Animate morph_alpha 0->1 over 64 frames with linear easing
     timeline.add(
-        0, Animation::Transition(morph_alpha, 1.0f, 64, ease_mid, false, false)
+        0, Animation::Transition(morph_alpha, 1.0f, 64, ease_linear, false, false)
                .then([this]() {
                  // Commit the morph and start next one immediately
                  current_idx = next_idx;

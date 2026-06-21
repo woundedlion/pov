@@ -189,7 +189,7 @@ private:
     constexpr int DURATION = 64;
     timeline.add(0, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
-                                        DURATION, ease_mid, false, &anims_paused_)
+                                        DURATION, ease_linear, false, &anims_paused_)
                         .then([this]() {
                           this->start_morph_cycle();
                         }));
@@ -227,7 +227,7 @@ private:
                           "persistent re-bind would grow the arena");
                  draw_mesh(c, s, s.topology, palettes_slots[front], opacity);
                },
-               DURATION, 0, ease_mid, 0, ease_mid, &anims_paused_));
+               DURATION, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
 
   /**
