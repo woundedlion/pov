@@ -943,10 +943,15 @@ public:
     float prevPos = it->first;
     CPixel prevColor = it->second;
 
-    // Fill start
+    // Fill start. Convert via the same srgb_to_linear_float + float_to_pixel16
+    // path the interpolated segment body uses (below), not the 8-bit
+    // srgb_to_linear() LUT, so a stop's flat-region entry is bit-identical to
+    // the value an adjacent interpolated segment computes at that stop — no
+    // ~1-LSB precision seam at flat/interpolated boundaries. Cold path.
     int firstStop = static_cast<int>(prevPos * 255);
-    Pixel prevLinear(srgb_to_linear(prevColor.r), srgb_to_linear(prevColor.g),
-                     srgb_to_linear(prevColor.b));
+    Pixel prevLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
+                     float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
+                     float_to_pixel16(srgb_to_linear_float(prevColor.b / 255.0f)));
     for (int i = 0; i <= firstStop; i++)
       entries[i] = prevLinear;
 
@@ -988,10 +993,12 @@ public:
       it++;
     }
 
-    // Fill end
+    // Fill end. Same float conversion path as the start-fill and segment body
+    // (see the start-fill note) for bit-identical flat/interpolated parity.
     int lastStop = static_cast<int>(prevPos * 255);
-    Pixel lastLinear(srgb_to_linear(prevColor.r), srgb_to_linear(prevColor.g),
-                     srgb_to_linear(prevColor.b));
+    Pixel lastLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
+                     float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
+                     float_to_pixel16(srgb_to_linear_float(prevColor.b / 255.0f)));
     for (int i = lastStop; i < 256; i++)
       entries[i] = lastLinear;
   }
