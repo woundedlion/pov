@@ -1404,6 +1404,7 @@ struct Spiral {
    * @param eps Epsilon offset shifting points off the poles.
    */
   static void sample(Fragments &fragments, int n, float eps) {
+    HS_CHECK(n >= 1); // matches the count guard the SplineChain samplers carry
     float cumulative_len = 0.0f;
     Vector last_pos;
 
