@@ -916,8 +916,12 @@ struct Shader {
    * @details Separates expensive per-pixel work (vertex_shader, called once at
    * pixel center) from per-sub-sample evaluation (fragment_shader, called
    * SAMPLES×).
+   *
+   * @note SAMPLES defaults to 1 (no SSAA) to match the single-callback overload
+   * above; switching a shader between the two overloads must not silently change
+   * antialiasing cost. Every call site passes SAMPLES explicitly regardless.
    */
-  template <int W, int H, int SAMPLES = 4>
+  template <int W, int H, int SAMPLES = 1>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
     // Only 1 and 4 are supported; see the single-callback overload for why
