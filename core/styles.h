@@ -247,11 +247,18 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   // Shift sample toward north pole → image appears to drip south.
   // speed controls drip rate; amplitude controls noise wobble.
   static constexpr Vector NORTH = {0.0f, 1.0f, 0.0f};
-  float drip = s.speed * 0.04f;
+  // Slerp fraction toward the pole per frame at speed=1; the registered preset
+  // speeds (e.g. Melting 1.005, Swirling 1.465) scale this, so at speed=1 each
+  // frame drifts the sample ~4% of the arc to NORTH.
+  static constexpr float kMeltStepPerFrame = 0.04f;
+  // Amplitude floor below which the noise wobble is skipped (drip stays smooth);
+  // also avoids paying for noise_transform on a negligible perturbation.
+  static constexpr float kMeltNoiseAmpFloor = 0.001f;
+  float drip = s.speed * kMeltStepPerFrame;
   Vector drifted = slerp(v, NORTH, drip);
 
   // Add noise perturbation for organic, uneven drip widths
-  if (s.noise && s.amplitude > 0.001f) {
+  if (s.noise && s.amplitude > kMeltNoiseAmpFloor) {
     return noise_transform(drifted, *s.noise);
   }
   return drifted;
