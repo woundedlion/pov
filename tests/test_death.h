@@ -491,6 +491,56 @@ inline void case_scan_clip_out_of_bounds() {
 }
 
 /**
+ * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
+ *        exceeds the TriangularBitset<128> capacity. Shared by both the
+ *        face-walk draw() and the extract_edges over-capacity death cases so the
+ *        mock interface is defined once, not kept in sync across two copies.
+ * @details The trap fires before any vertex or pipeline access, so the vertex
+ *          store only needs to satisfy the interface.
+ */
+struct OverCapacityMockMesh {
+  /**
+   * @brief Stand-in vertex store satisfying the mesh interface.
+   */
+  struct Verts {
+    /**
+     * @brief Returns a fixed vertex for any index.
+     * @param Unused vertex index.
+     * @return A constant Vector{0,1,0}.
+     */
+    Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
+    /**
+     * @brief Reports the vertex count.
+     * @return Always 1.
+     */
+    size_t size() const { return 1; }
+  } vertices;
+  uint8_t fc[1];  /**< Face-counts data: a single 2-gon face. */
+  uint16_t fi[2]; /**< Face-index data; second entry is over-capacity. */
+  /**
+   * @brief Builds the mock mesh with one over-capacity 2-gon face.
+   * @details Stores the over-capacity index at runtime so the optimizer can't
+   *          prove the trap at compile time and reshape the case (see opaque).
+   */
+  OverCapacityMockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
+  /**
+   * @brief Returns the face-counts array.
+   * @return Pointer to the face-counts data.
+   */
+  const uint8_t *get_face_counts_data() const { return fc; }
+  /**
+   * @brief Returns the number of faces.
+   * @return Always 1.
+   */
+  size_t get_face_counts_size() const { return 1; }
+  /**
+   * @brief Returns the flat face-index array.
+   * @return Pointer to the face-index data.
+   */
+  const uint16_t *get_faces_data() const { return fi; }
+};
+
+/**
  * @brief Death case: a face vertex index past the edge-dedup bitset must trap.
  * @details Plot surface — a vertex index beyond the TriangularBitset<128>
  *          capacity makes the face-walk draw() overload trap on the cold
@@ -499,53 +549,7 @@ inline void case_scan_clip_out_of_bounds() {
  */
 inline void case_plot_mesh_vertex_over_capacity() {
   constexpr int W = 32, H = 16;
-  /**
-   * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
-   *        exceeds the bitset capacity.
-   * @details The trap fires before any vertex or pipeline access, so the vertex
-   *          store only needs to satisfy the interface.
-   */
-  struct MockMesh {
-    /**
-     * @brief Stand-in vertex store satisfying the mesh interface.
-     */
-    struct Verts {
-      /**
-       * @brief Returns a fixed vertex for any index.
-       * @param Unused vertex index.
-       * @return A constant Vector{0,1,0}.
-       */
-      Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
-      /**
-       * @brief Reports the vertex count.
-       * @return Always 1.
-       */
-      size_t size() const { return 1; }
-    } vertices;
-    uint8_t fc[1];  /**< Face-counts data: a single 2-gon face. */
-    uint16_t fi[2]; /**< Face-index data; second entry is over-capacity. */
-    /**
-     * @brief Builds the mock mesh with one over-capacity 2-gon face.
-     * @details Stores the over-capacity index at runtime so the optimizer can't
-     *          prove the trap at compile time and reshape the case (see opaque).
-     */
-    MockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
-    /**
-     * @brief Returns the face-counts array.
-     * @return Pointer to the face-counts data.
-     */
-    const uint8_t *get_face_counts_data() const { return fc; }
-    /**
-     * @brief Returns the number of faces.
-     * @return Always 1.
-     */
-    size_t get_face_counts_size() const { return 1; }
-    /**
-     * @brief Returns the flat face-index array.
-     * @return Pointer to the face-index data.
-     */
-    const uint16_t *get_faces_data() const { return fi; }
-  } mesh;
+  OverCapacityMockMesh mesh;
   DeathEffect fx;
   Canvas c(fx);
   Pipeline<W, H> pipe;
@@ -561,49 +565,7 @@ inline void case_plot_mesh_vertex_over_capacity() {
  *          mask the sizing bug).
  */
 inline void case_plot_extract_edges_vertex_over_capacity() {
-  /**
-   * @brief Minimal duck-typed mesh with one over-capacity 2-gon face.
-   * @details Same shape as the draw() case (second index 130 > 128).
-   */
-  struct MockMesh {
-    /**
-     * @brief Stand-in vertex store satisfying the mesh interface.
-     */
-    struct Verts {
-      /**
-       * @brief Returns a fixed vertex for any index.
-       * @param Unused vertex index.
-       * @return A constant Vector{0,1,0}.
-       */
-      Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
-      /**
-       * @brief Reports the vertex count.
-       * @return Always 1.
-       */
-      size_t size() const { return 1; }
-    } vertices;
-    uint8_t fc[1];  /**< Face-counts data: a single 2-gon face. */
-    uint16_t fi[2]; /**< Face-index data; second entry is over-capacity. */
-    /**
-     * @brief Builds the mock mesh with one over-capacity 2-gon face.
-     */
-    MockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
-    /**
-     * @brief Returns the face-counts array.
-     * @return Pointer to the face-counts data.
-     */
-    const uint8_t *get_face_counts_data() const { return fc; }
-    /**
-     * @brief Returns the number of faces.
-     * @return Always 1.
-     */
-    size_t get_face_counts_size() const { return 1; }
-    /**
-     * @brief Returns the flat face-index array.
-     * @return Pointer to the face-index data.
-     */
-    const uint16_t *get_faces_data() const { return fi; }
-  } mesh;
+  OverCapacityMockMesh mesh;
   ArenaVector<Plot::Mesh::Edge> edges;
   edges.bind(scratch_arena_a, 8);
   Plot::Mesh::extract_edges(mesh, edges); // index 130 -> trap
