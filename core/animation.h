@@ -2227,6 +2227,14 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
+    // Accepted divergence: t is an integer frame counter, so once it exceeds
+    // 2^24 (~16.7M frames, ~77 h at 60 fps) float can no longer represent
+    // consecutive values and the noise time axis quantizes — the field appears
+    // to slow then freeze on a permanent install. A modulo-before-cast would
+    // hold float precision but OpenSimplex2 is aperiodic, so every wrap injects
+    // a visible discontinuity; a float accumulator quantizes the same way once
+    // it passes 2^24. Both fixes trade a gradual, barely-perceptible drift for a
+    // sharp artifact, so the raw cast is kept and the limit documented.
     params.get().time = static_cast<float>(t);
   }
 
