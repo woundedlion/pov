@@ -882,7 +882,12 @@ struct Shader {
       ScopedRenderTimer _timer(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
-          Color4 accum(Pixel(0, 0, 0), 0.0f);
+          // Premultiplied SSAA: accumulate each sample's coverage-weighted color
+          // (color * alpha * 1/N) and write it directly. Averaging straight
+          // color and alpha separately and re-multiplying applies coverage
+          // twice, darkening multi-color antialiased edges. Matches the
+          // SAMPLES==1 path, which writes sample.color * sample.alpha.
+          Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
             Vector v = ssaa_sample_vector<W, H>(
@@ -890,11 +895,10 @@ struct Shader {
                 static_cast<float>(y) + offsets.y[i]);
 
             Color4 sample = shader(v);
-            sample *= inv_samples;
-            accum += sample;
+            accum += sample.color * (sample.alpha * inv_samples);
           }
 
-          canvas(x, y) = accum.color * accum.alpha;
+          canvas(x, y) = accum;
         }
       }
     }
@@ -956,7 +960,10 @@ struct Shader {
           frag_base.pos = center_v;
           vertex_shader(frag_base);
 
-          Color4 accum(Pixel(0, 0, 0), 0.0f);
+          // Premultiplied SSAA: accumulate coverage-weighted color directly
+          // (see the single-callback overload). Both overloads must write
+          // identical pixels for a shader that fades via Color4::alpha.
+          Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
             Vector v = ssaa_sample_vector<W, H>(
@@ -969,13 +976,10 @@ struct Shader {
             fragment_shader(v, sub_frag);
 
             Color4 sample = sub_frag.color;
-            sample *= inv_samples;
-            accum += sample;
+            accum += sample.color * (sample.alpha * inv_samples);
           }
 
-          // Premultiply by accumulated alpha, matching the single-callback
-          // SSAA path (canvas = accum.color * accum.alpha).
-          canvas(x, y) = accum.color * accum.alpha;
+          canvas(x, y) = accum;
         }
       }
     }

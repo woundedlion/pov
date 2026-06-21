@@ -81,6 +81,44 @@ inline void test_shader_constant_fills_canvas() {
 }
 
 /**
+ * @brief Verifies SAMPLES==4 SSAA premultiplies each sub-sample before averaging.
+ * @details On a partial-coverage pixel whose sub-samples vary in BOTH color and
+ * alpha (here: two opaque red, two transparent black per pixel), correct
+ * premultiplied SSAA writes (sum of color*alpha) / N. The old straight-alpha
+ * model — average color and alpha separately, then re-multiply — would apply
+ * coverage twice and darken the result (red/4 instead of red/2). This pins the
+ * premultiplied result.
+ */
+inline void test_shader_ssaa_premultiplies_partial_coverage() {
+  constexpr int W = 16, H = 8;
+  ScanFx fx(W, H);
+  {
+    Canvas c(fx);
+    // The 2x2 grid calls the shader 4× per pixel; alternating opaque/transparent
+    // by call index yields exactly two opaque red + two transparent samples per
+    // pixel (4 is even, so the phase realigns at every pixel).
+    int call = 0;
+    Scan::Shader::draw<W, H, 4>(c, [&call](const Vector &) -> Color4 {
+      bool opaque = (call++ % 2) == 0;
+      return opaque ? Color4(Pixel(60000, 0, 0), 1.0f)
+                    : Color4(Pixel(0, 0, 0), 0.0f);
+    });
+  }
+  fx.advance_display();
+
+  // Premultiplied: (60000*1 + 60000*1 + 0 + 0) / 4 = 30000.
+  // Straight-alpha (old, wrong) would have been (60000/2) * 0.5 = 15000.
+  for (int y = 0; y < H; ++y) {
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = fx.get_pixel(x, y);
+      HS_EXPECT_NEAR((int)p.r, 30000, 2);
+      HS_EXPECT_EQ((int)p.g, 0);
+      HS_EXPECT_EQ((int)p.b, 0);
+    }
+  }
+}
+
+/**
  * @brief Verifies a position-reading shader maps the sphere's latitude.
  * @details The +Y pole (top row) must render brighter than the -Y pole (bottom
  * row), confirming the shader receives the correct surface position.
@@ -563,6 +601,7 @@ inline int run_scan_tests() {
   auto scope = hs_test::begin_module("scan");
 
   test_shader_constant_fills_canvas();
+  test_shader_ssaa_premultiplies_partial_coverage();
   test_shader_positional_maps_latitude();
   test_shader_respects_clip_band();
   test_ring_rasterize_produces_bounded_output();
