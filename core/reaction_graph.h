@@ -100,9 +100,15 @@ struct CubemapLUT {
   }
 
   /**
-   * @brief O(1) cubemap lookup projecting a unit vector to the nearest node.
+   * @brief O(1) cubemap lookup projecting a unit vector to an approximately
+   *        nearest lattice node.
    * @param p Query direction (expected unit-length) on the sphere.
-   * @return Lattice node index in [0, RD_N) nearest to p.
+   * @return A seed lattice node index in [0, RD_N) close to p — the texel's
+   *         precomputed node. Two approximations stack: the table is built from
+   *         find_nearest_node (a hill-climb local minimum, not a global argmin)
+   *         and the query is quantized to a face cell, so the result can be off
+   *         by a neighbor. Callers needing the true nearest node must refine
+   *         among the seed and its neighbors (see refine_nearest_node).
    */
   int lookup(const Vector &p) const {
     float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
