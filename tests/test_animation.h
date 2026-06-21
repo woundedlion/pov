@@ -121,7 +121,7 @@ inline void test_path_endpoints_and_clamp() {
   Path<32> p;
   // Plot a straight ramp along X: f(s) = (s, 0, 0), domain 1, 4 samples,
   // linear easing. append_segment samples t/samples in [0,1] -> x in [0,1].
-  p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4.0f,
+  p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
                    ease_mid);
 
   Vector start = p.get_point(0.0f);
@@ -145,7 +145,7 @@ inline void test_path_endpoints_and_clamp() {
  */
 inline void test_path_collapse_keeps_last() {
   Path<32> p;
-  p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4.0f,
+  p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
                    ease_mid);
   Vector last_before = p.get_point(1.0f);
   p.collapse();

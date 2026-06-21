@@ -633,15 +633,15 @@ inline void case_feedback_downsample_indivisible() {
 
 /**
  * @brief Death case: Path::append_segment with zero samples must trap.
- * @details Animation surface — the t / samples term divides by zero
- *          (easing(0/0) = NaN) and the loop would silently append a garbage
- *          point; the samples >= 1 guard traps the authoring error on the cold
- *          path-construction seam instead.
+ * @details Animation surface — a zero sample count divides by zero in the
+ *          t / samples term (easing(0/0) = NaN) and the loop would silently
+ *          append a garbage point; the samples >= 1 guard traps the authoring
+ *          error on the cold path-construction seam instead.
  */
 inline void case_path_append_zero_samples() {
   Path<32> path;
   path.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f,
-                      opaque(0.0f),
+                      opaque(0),
                       [](float t) { return t; }); // samples < 1 -> HS_CHECK
 }
 

@@ -45,23 +45,25 @@ public:
    * @brief Appends a procedurally generated segment to the path.
    * @param plot The function generating points.
    * @param domain The input domain scale.
-   * @param samples The number of samples to take.
+   * @param samples The number of sample intervals to take (>= 1); the loop
+   *        emits samples + 1 points so the endpoint easing(1.0) is always hit.
    * @param easing The easing function for sample distribution.
    * @return Reference to self for chaining.
    */
-  Path &append_segment(PlotFn plot, float domain, float samples,
+  Path &append_segment(PlotFn plot, float domain, int samples,
                        ScalarFn easing) {
     // points is a fixed-capacity ring buffer: overflowing it silently
     // overwrites the oldest points and corrupts the path. A sizing bug should
     // trap on the bench, not degrade. (Cold path — path construction.)
     // samples >= 1 also keeps the t / samples below from dividing by zero:
-    // easing(0/0) = NaN would silently append a garbage point.
+    // easing(0/0) = NaN would silently append a garbage point. samples is an
+    // integer count, so the final t == samples lands exactly on easing(1.0).
     HS_CHECK(samples >= 1);
     HS_CHECK(points.size() + static_cast<size_t>(samples) + 1 <= RESOLUTION);
     if (!points.is_empty())
       points.pop_back();
-    for (float t = 0; t <= samples; t++) {
-      points.push_back(plot(easing(t / samples) * domain));
+    for (int t = 0; t <= samples; t++) {
+      points.push_back(plot(easing(static_cast<float>(t) / samples) * domain));
     }
     return *this;
   }
