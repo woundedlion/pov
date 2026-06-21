@@ -16,6 +16,7 @@
  * corrections are applied in linear 16-bit space.
  */
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -175,13 +176,20 @@ public:
 
   /**
    * @brief Packs a single Pixel16 directly into the buffer with corrections.
-   * @param index LED index (0-based).
+   * @param index LED index, must be in [0, N). Unchecked on the device hot path:
+   *              the write is `buffer_ + 4 + index*4` with no clamp, so an
+   *              out-of-range index corrupts the trailing black frame or runs off
+   *              the composite buffer (UB). Callers own the bound; the cold
+   *              effect-height HS_CHECK at the bind site backstops the shipped
+   *              caller. The assert below is a host-build trip-wire for future
+   *              callers — stripped on the device by NDEBUG (zero ISR cost).
    * @param p     Linear 16-bit pixel.
    * @details Applies color/temperature/brightness corrections in linear 16-bit
    *          space then converts to sRGB 8-bit in a single pass (no intermediate
    *          CRGB).
    */
   FASTRUN inline void packPixel(int index, const Pixel16& p) {
+    assert(index >= 0 && index < N);
     uint8_t* dest = buffer_ + 4 + index * 4;
 
     uint32_t r = p.r;
