@@ -1965,11 +1965,11 @@ struct Face {
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    hs::g_scan_metrics.pixels_tested++;
+    HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
 
     float cos_angle = dot(p, center);
     if (cos_angle <= 0.01f) {
-      hs::g_scan_metrics.pixels_culled++;
+      HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
@@ -1980,7 +1980,7 @@ struct Face {
 
     float p_r2 = px * px + py * py;
     if (p_r2 > max_dist_sq) {
-      hs::g_scan_metrics.pixels_culled++;
+      HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
@@ -2006,11 +2006,11 @@ struct Face {
         std::min({std::abs(d00), std::abs(d10), std::abs(d01), std::abs(d11)});
     float plane_dist;
     if (same_sign && min_abs > lut_safe_dist) {
-      hs::g_scan_metrics.lut_hits++;
+      HS_SCAN_METRIC(hs::g_scan_metrics.lut_hits++);
       plane_dist = d00 * (1.0f - tx) * (1.0f - ty) + d10 * tx * (1.0f - ty) +
                    d01 * (1.0f - tx) * ty + d11 * tx * ty;
     } else {
-      hs::g_scan_metrics.exact_hits++;
+      HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
       float d = FLT_MAX;
       bool inside = false;
       for (int i = 0; i < count; ++i) {

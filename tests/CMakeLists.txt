@@ -42,7 +42,13 @@ add_executable(run_tests
 # HS_TEST_BUILD widens the test-only inline/arena budgets (MSVC STL's
 # std::function is larger than libc++/inplace_function on the device); the
 # device footprint is unchanged. See core/animation.h and core/memory.h.
-target_compile_definitions(run_tests PRIVATE HS_TEST_BUILD)
+#
+# HS_SCAN_METRICS compiles the per-pixel g_scan_metrics counters back in (off in
+# the device/WASM release build, where they would be a per-pixel global store on
+# the hot loop). The Face LUT test reads lut_hits/exact_hits to decide which
+# code path each sample exercised, so the suite needs them live. See
+# core/platform.h (HS_SCAN_METRIC) and core/sdf.h Face::distance.
+target_compile_definitions(run_tests PRIVATE HS_TEST_BUILD HS_SCAN_METRICS)
 
 # Headers are included as "tests/..." and "core/..." from the repo root.
 target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core)

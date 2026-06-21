@@ -1040,6 +1040,19 @@ inline ScanMetrics g_scan_metrics;
 
 } // namespace hs
 
+// Per-pixel scan instrumentation is OFF by default. The README's engineering
+// philosophy requires the per-pixel hot loop to stay lean, and a g_scan_metrics
+// increment is a non-atomic global load-modify-store on a shared cache line for
+// every pixel. Define HS_SCAN_METRICS to compile the counters back in — the
+// native test build does, to assert which Face::distance path each sample took;
+// the device/WASM release build leaves it undefined so HS_SCAN_METRIC(...)
+// expands to nothing and the hot loop pays nothing.
+#ifdef HS_SCAN_METRICS
+#define HS_SCAN_METRIC(stmt) do { (stmt); } while (0)
+#else
+#define HS_SCAN_METRIC(stmt) ((void)0)
+#endif
+
 // ---------------------------------------------------------------------------
 // Fn<Sig, Cap> — platform-aware callable wrapper. BOTH backends use heap-free
 // inline storage, so a captured closure is never heap-allocated (which, stored in
