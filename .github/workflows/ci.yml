@@ -221,6 +221,12 @@ jobs:
           key: ccache-wasm-${{ github.run_id }}
           restore-keys: ccache-wasm-
 
+      # Zero only the statistics counters (not the cached objects, so hits still
+      # work) so the ccache-stats gate below measures THIS run's compilations,
+      # not the cumulative counts restored from a prior run.
+      - name: Zero ccache stats
+        run: ccache -z
+
       - name: Configure + build WASM (compile check)
         run: |
           # Create a throwaway daydream checkout so the install() rules are active
@@ -240,11 +246,22 @@ jobs:
           cmake --build --preset wasm-debug
 
       # Verify ccache actually fronts em++ here (the comment above claims it
-      # does via CMAKE_CXX_COMPILER_LAUNCHER). Zero hits means the emcc launcher
-      # integration is not engaging and this cache should be reworked or dropped.
+      # does via CMAKE_CXX_COMPILER_LAUNCHER). Stats were zeroed before the
+      # builds, so a nonzero cacheable-call count (hits + misses) proves ccache
+      # saw the em++ compilations this run; zero means the emcc launcher
+      # integration silently disengaged and the cache is dead weight. Fail loudly
+      # rather than leaving the documented check to eyeballing.
       - name: ccache stats
         if: always()
-        run: ccache -sv
+        run: |
+          ccache -sv
+          stat() { ccache --print-stats | awk -F'\t' -v k="$1" '$1==k{v=$2} END{print v+0}'; }
+          calls=$(( $(stat direct_cache_hit) + $(stat preprocessed_cache_hit) + $(stat cache_miss) ))
+          echo "Cacheable em++ calls this run: $calls"
+          if [ "$calls" -eq 0 ]; then
+            echo "::error::ccache recorded zero cacheable calls — the em++ launcher integration is not engaging."
+            exit 1
+          fi
 
       - name: Smoke-test the WASM module at runtime
         # The build above only proves the module compiles and links. Instantiate
