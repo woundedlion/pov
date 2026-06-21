@@ -87,6 +87,12 @@ public:
     baked_palette.bake(persistent_arena, palette);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    // Thickness is an absolute angular half-width in radians, so this [0, 0.5]
+    // rad range is intentionally resolution-independent: the slider maximum is a
+    // fixed fraction (~0.5/2π ≈ 8%) of the full 2π ring at any W. (The *default*
+    // below is instead tuned to a fixed pixel size for legibility; the two need
+    // not share a W-dependence — one fixes the body's pixel look, the other fixes
+    // its maximum angular share of the circle.)
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Debug BB", &params.debug_bb);
@@ -287,7 +293,7 @@ private:
    */
   struct Params {
     float alpha = 1.0f; /**< Overall trail opacity multiplier in [0, 1]. */
-    float thickness = 2.1f * 2 * PI_F / W; /**< Comet body half-width, in radians. */
+    float thickness = 2.1f * 2 * PI_F / W; /**< Comet body half-width, in radians; default scaled to ≈2.1 px at this build's W for legibility (the Thickness slider's [0,0.5] rad range is, by contrast, an absolute angular span — see registerParam). */
     float cycle_duration = 80.0f; /**< Duration of one motion cycle, in frames. */
     bool debug_bb = false; /**< When true, draws the fragment bounding box for debugging. */
   } params; /**< Live parameter block bound to the registered sliders. */
