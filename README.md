@@ -365,7 +365,7 @@ Three `std::atomic<int>` indices manage the double buffer:
 
 The ISR never touches `cur_`. The main loop atomically updates `next_` inside `queue_frame()` with interrupts disabled. `advance_display()` is called by the ISR at every half-revolution to flip `prev_` to `next_`.
 
-Buffer storage is placed in Teensy DMAMEM for DMA-accessible SPI throughput:
+The two framebuffers are placed in Teensy DMAMEM (OCRAM) for capacity — at `MAX_W * MAX_H` 16-bit pixels they are far too large for the tightly-coupled DTCM that holds the stack and hot data. They are software render targets, read by the ISR and packed into the LED controller's protocol frame; they are never DMA'd themselves (the eDMA TX buffer is `HD107SFrame::buffer_`, in the controller, which is the buffer that actually clocks out over SPI):
 
 ```cpp
 static DMAMEM Pixel buffer_a[MAX_W * MAX_H];

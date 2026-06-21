@@ -231,8 +231,12 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
 #endif
 
 #if defined(USE_DMA_LEDS)
+// DMAMEM (OCRAM): the controller's HD107SFrame buffers are the actual eDMA TX
+// source, so they must live in DMA-reachable, cached OCRAM — which is exactly
+// what HD107SFrame's arm_dcache_flush() assumes. Default placement is DTCM,
+// where that flush is a dead no-op; here it does the required write-back.
 template <int S, int RPM>
-DMALEDController<S>
+DMAMEM DMALEDController<S>
     POVDisplay<S, RPM>::ledController_{POVDisplay<S, RPM>::SPI_CLOCK_HZ};
 #endif
 

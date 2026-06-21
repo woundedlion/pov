@@ -739,8 +739,12 @@ CRGB POVSegmented<S, N, RPM>::leds_[POVSegmented<S, N, RPM>::PPS];
 #endif
 
 #if defined(USE_DMA_LEDS)
+// DMAMEM (OCRAM): the controller's HD107SFrame buffers are the actual eDMA TX
+// source, so they must live in DMA-reachable, cached OCRAM — which is exactly
+// what HD107SFrame's arm_dcache_flush() assumes. Default placement is DTCM,
+// where that flush is a dead no-op; here it does the required write-back.
 template <int S, int N, int RPM>
-DMALEDController<POVSegmented<S, N, RPM>::PPS>
+DMAMEM DMALEDController<POVSegmented<S, N, RPM>::PPS>
     POVSegmented<S, N, RPM>::ledController_{POVSegmented<S, N, RPM>::SPI_CLOCK_HZ};
 #endif
 
