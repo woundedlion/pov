@@ -235,6 +235,14 @@ private:
 
     // Accumulate per-attractor alpha falloff from the pre-warp position, then
     // apply the Mobius warp and orientation to the fragment position.
+    //
+    // This inner loop runs per emitted fragment, so the shader is O(fragments x
+    // attractors). That is accepted, not overlooked: AttractSolid::NUM_VERTS is a
+    // small compile-time constant (6 for the octahedron) and the cos_eh dot-
+    // product reject above skips most of those iterations, so the constant stays
+    // tiny — no spatial cull is warranted at this attractor count. If the
+    // attractor solid ever grows, bucket the pre-warp position (already in hand
+    // here, before the warp) to cull distant attractors before the loop.
     auto vertex_shader = [&](Fragment &f) {
       Vector original_pos = f.pos;
       float holeAlpha = 1.0f;
