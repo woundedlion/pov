@@ -21,11 +21,18 @@ public:
    * @brief Constructs the effect, seeding the preset table and filters.
    */
   FLASHMEM MindSplatter()
-      : Effect(W, H), presets{{{{{0.85f, 1.0f, 0.025f, 0.2f}},
-                                {{0.85f, 1.0f, 0.025f, 0.52f}},
-                                {{0.85f, 1.0f, 0.025f, 0.92f}},
-                                {{0.85f, 2.0f, 0.094f, 0.2f}},
-                                {{0.85f, 3.0f, 0.035f, 1.0f}}}}},
+      : Effect(W, H),
+        // Each row is one preset the cycle lerps between; designated initializers
+        // name the columns so the magic numbers can't be silently scrambled by a
+        // Params field reorder. active_count is engine-written telemetry and is
+        // left at its default (not part of a preset).
+        presets{.entries = {{
+                    {{.friction = 0.85f, .well_strength = 1.0f, .initial_speed = 0.025f, .angular_speed = 0.2f}},
+                    {{.friction = 0.85f, .well_strength = 1.0f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
+                    {{.friction = 0.85f, .well_strength = 1.0f, .initial_speed = 0.025f, .angular_speed = 0.92f}},
+                    {{.friction = 0.85f, .well_strength = 2.0f, .initial_speed = 0.094f, .angular_speed = 0.2f}},
+                    {{.friction = 0.85f, .well_strength = 3.0f, .initial_speed = 0.035f, .angular_speed = 1.0f}},
+                }}},
         filters(Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
