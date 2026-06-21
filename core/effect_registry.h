@@ -80,12 +80,19 @@ public:
  *          turns that coupling into a COMPILE error instead of silently
  *          mis-instantiating an unrecognised <W,H>.
  */
+// Dependent-false constant so a static_assert in a discarded `if constexpr`
+// branch only fires when that branch is actually instantiated. A bare
+// `static_assert(false)` would be ill-formed even in the taken branches.
+template <int> constexpr bool unsupported_resolution = false;
+
 template <int W, int H>
 constexpr auto get_fill_fn(const EffectRegistration& reg) {
   if constexpr (W == 96 && H == 20) return reg.fill_96_20;
   else if constexpr (W == 288 && H == 144) return reg.fill_288_144;
   else {
-    static_assert(W == 96 && H == 20,
+    // Reached only for an <W,H> with no branch above — the predicate reads as
+    // "this resolution is unsupported", not as a check for a specific size.
+    static_assert(unsupported_resolution<W>,
                   "get_fill_fn: unsupported <W,H> — add a fill_* field to "
                   "EffectRegistration and a branch here");
     return reg.fill_288_144; // unreachable (static_assert fires)
