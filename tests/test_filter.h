@@ -1145,6 +1145,41 @@ inline void test_world_trails_ttl_expiry() {
 }
 
 /**
+ * @brief Verifies a mid-run set_lifetime() shrink keeps the t fed to trailFn in
+ *        [0,1] for points still carrying a ttl from the longer lifetime.
+ * @details When lifetime drops below a buffered point's encoded ttl,
+ *          ttl/lifetime exceeds 1 and t = 1 - ttl/lifetime goes negative. A
+ *          WorldTrailFn receives t as fade progress and may index a
+ *          palette/gradient with it, so flush must clamp — mirroring the age >= 0
+ *          clamp on the same race. Without the clamp t here is ~ -3.5.
+ */
+inline void test_world_trails_set_lifetime_shrink_clamps_t() {
+  constexpr int W = 32, Cap = 8;
+  static uint8_t buf[Cap * 16];
+  Arena arena(buf, sizeof(buf));
+  Filter::World::Trails<W, Cap> trails(/*lifetime=*/10);
+  trails.init_storage(arena);
+
+  const Vector v0 = Vector(0.3f, -0.6f, 0.74f).normalized();
+  trails.plot(v0, Pixel(100, 100, 100), 0.0f, 1.0f,
+              [](const Vector &, const Pixel &, float, float) {}); // ttl = 10
+
+  // Shrink lifetime below the buffered ttl: t = 1 - ttl/lifetime would go < 0.
+  trails.set_lifetime(2);
+
+  float captured_t = -999.0f;
+  auto trail = [&](const Vector &, float t) {
+    captured_t = t;
+    return Color4(Pixel(60000, 60000, 60000), 1.0f);
+  };
+  trails.flush(WorldTrailFn(trail), 1.0f,
+               [](const Vector &, const Pixel &, float, float) {});
+
+  HS_EXPECT_GE(captured_t, 0.0f); // clamped, not the raw negative value
+  HS_EXPECT_LE(captured_t, 1.0f);
+}
+
+/**
  * @brief Verifies the Screen::Trails store / emit / decay lifecycle.
  * @details Screen::Trails stores float DecayPixels with no int16 quantization
  *          (that path is World::Trails-specific).
@@ -1277,6 +1312,7 @@ inline int run_filter_tests() {
   test_world_trails_clamps_out_of_range();
   test_world_trails_ring_evicts_oldest();
   test_world_trails_ttl_expiry();
+  test_world_trails_set_lifetime_shrink_clamps_t();
   test_screen_trails_store_emit_decay();
   test_screen_trails_forwards_aged_emission();
 
