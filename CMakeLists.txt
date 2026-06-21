@@ -11,11 +11,13 @@ project(Holosphere CXX)
 #   * Native clang toolchain -> unit-test executable + CTest      [else]
 # Use the presets in CMakePresets.json (cmake --preset wasm-release / tests).
 
-# Enable ccache if available (both modes benefit).
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})
-  message(STATUS "ccache enabled: ${CCACHE_FOUND}")
+# Enable ccache if available (both modes benefit). find_program stores the
+# resolved executable PATH (or <var>-NOTFOUND), so use CMake's CCACHE_PROGRAM
+# convention rather than a _FOUND name that reads as a boolean but holds a path.
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+  message(STATUS "ccache enabled: ${CCACHE_PROGRAM}")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
