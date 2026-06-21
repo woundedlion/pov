@@ -1184,8 +1184,12 @@ public:
         for (int dx = -1; dx <= 1; dx++) {
           float weight = kernel[k++] * inv;
           if (weight > 1e-5f) {
-            pass(static_cast<float>(wrap(cx + dx, W)), static_cast<float>(ny),
-                 color, age, alpha * weight);
+            // cx is round(x) with x in [0, W], so cx + dx stays within
+            // fast_wrap's single-step [-W, 2W) window — matching AntiAlias and
+            // the sink. A malformed out-of-window coord now trips fast_wrap's
+            // debug assert rather than being silently full-modulo wrapped.
+            pass(static_cast<float>(fast_wrap(cx + dx, W)),
+                 static_cast<float>(ny), color, age, alpha * weight);
           }
         }
       } else {
