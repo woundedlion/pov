@@ -1099,8 +1099,13 @@ struct Ring {
  * @brief Planar Polygon.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians)
+ *  v1: Arc Length (radians) — GEODESIC chord length
  *  v2: Vertex index
+ * @note v1 accumulates the GEODESIC (great-circle) distance between vertices, but
+ *       this shape always renders with PLANAR (azimuthal-equidistant) edges, which
+ *       are LONGER than the great-circle chord — so v1 under-counts the actual drawn
+ *       arc length. A shader needing an exact planar-arc parameterization must not
+ *       rely on v1. (Same hazard Multiline documents.)
  */
 struct PlanarPolygon {
   /**
@@ -1471,8 +1476,13 @@ struct Spiral {
  * @brief Star shape.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians)
+ *  v1: Arc Length (radians) — GEODESIC chord length
  *  v2: Vertex index
+ * @note v1 accumulates the GEODESIC (great-circle) distance between vertices, but
+ *       this shape always renders with PLANAR (azimuthal-equidistant) edges, which
+ *       are LONGER than the great-circle chord — so v1 under-counts the actual drawn
+ *       arc length. A shader needing an exact planar-arc parameterization must not
+ *       rely on v1. (Same hazard Multiline documents.)
  */
 struct Star {
   /**
@@ -1572,8 +1582,13 @@ struct Star {
  * @brief Flower shape.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians)
+ *  v1: Arc Length (radians) — GEODESIC chord length
  *  v2: Vertex index
+ * @note v1 accumulates the GEODESIC (great-circle) distance between vertices, but
+ *       this shape always renders with PLANAR (azimuthal-equidistant) edges, which
+ *       are LONGER than the great-circle chord — so v1 under-counts the actual drawn
+ *       arc length. A shader needing an exact planar-arc parameterization must not
+ *       rely on v1. (Same hazard Multiline documents.)
  */
 struct Flower {
   /**
