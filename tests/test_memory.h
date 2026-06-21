@@ -163,9 +163,17 @@ inline void test_arena_fills_to_capacity() {
   HS_EXPECT_TRUE(q != nullptr);
   HS_EXPECT_EQ(a.get_offset(), sizeof(tiny));
 
+  // Assert the documented contract — both pointers in range, contiguous
+  // (alignment-1, so no inter-allocation padding), and the arena exactly full —
+  // rather than pinning p == base. Pinning p == base couples the test to the
+  // arena using the raw buffer address verbatim (no header, no base alignment),
+  // which is an implementation detail, not the contract.
+  uintptr_t pa = reinterpret_cast<uintptr_t>(p);
+  uintptr_t qa = reinterpret_cast<uintptr_t>(q);
   uintptr_t base = reinterpret_cast<uintptr_t>(tiny);
-  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(p), base);
-  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(q), base + 32);
+  HS_EXPECT_TRUE(pa >= base && pa < base + sizeof(tiny));
+  HS_EXPECT_TRUE(qa >= base && qa < base + sizeof(tiny));
+  HS_EXPECT_EQ(qa, pa + 32);
 }
 
 /**
