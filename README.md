@@ -590,7 +590,7 @@ A `Fragment` (`geometry.h`) is the data packet exchanged between rasterizers and
 
 ```cpp
 struct Fragment {
-  Vector pos;              // World-space position (unit vector on sphere)
+  Vector pos;              // Position (typically a unit vector on the sphere)
   float v0 = 0.0f;        // Register 0: normalized progress t (0–1)
   float v1 = 0.0f;        // Register 1: arc length / distance
   float v2 = 0.0f;        // Register 2: index / face ID
