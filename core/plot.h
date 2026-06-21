@@ -297,6 +297,9 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
       float t0 = cross(n, a).y; // forward tangent y at a
       float t1 = cross(n, b).y; // forward tangent y at b
       if ((t0 > 0.0f) != (t1 > 0.0f)) {
+        // std::max(0, ...) absorbs the tiny negative that fast-math
+        // renormalization of n can produce when |n.y| ≈ 1 (a near-polar
+        // arc pole), keeping the sqrt domain-safe.
         float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
         float rp = y_to_row(t0 > 0.0f ? peak : -peak);
         row_lo = std::min(row_lo, rp);
