@@ -204,7 +204,7 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
                                StaticMeshT::face_counts.size());
   mesh.faces.bind(target, StaticMeshT::faces.size());
   for (const auto &f : StaticMeshT::faces)
-    mesh.faces.push_back(static_cast<uint16_t>(f));
+    mesh.faces.push_back(MeshOps::narrow_index(static_cast<size_t>(f)));
   return mesh;
 }
 
