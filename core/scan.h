@@ -278,8 +278,10 @@ template <int W, int H> struct BoundingSphere {
       : angular_radius(asinf(std::min(bounds_radius, 1.0f))) {
     PixelCoords center_px = vector_to_pixel<W, H>(center);
     center_theta = center_px.x;
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    float center_phi = (center_px.y * PI_F) / (H_VIRT - 1);
+    // phi straight from the world y (phi = acos(y)) rather than round-tripping
+    // center_px.y back through the y->phi formula, which would compound the
+    // forward rounding already baked into vector_to_pixel's phi_to_y.
+    float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
     // Round the band outward on both ends (floor the top, ceil the bottom) so a
     // fractional cap edge never clips the fringe row it touches. floorf is
     // currently equivalent to the bare truncating cast — the only case they
