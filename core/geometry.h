@@ -429,14 +429,16 @@ template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
  * @param rho The log-radius (natural logarithm of the radius on the complex
  * plane).
  * @param theta The angle in radians.
- * @return Normalized vector on the unit sphere.
+ * @return Unit vector on the sphere (unit by construction).
  */
 inline Vector logPolarToVector(float rho, float theta) {
   const float R = expf(rho);
   const float R2 = R * R;
   const float y = (R2 - 1.0f) / (R2 + 1.0f);
   const float r_xz = sqrtf(std::max(0.0f, 1.0f - y * y));
-  return Vector(r_xz * cosf(theta), y, r_xz * sinf(theta)).normalized();
+  // Already unit-length: r_xz^2 + y^2 = (1 - y^2) + y^2 = 1 (the cos/sin fold the
+  // xz components back to r_xz^2), so no normalize() is needed.
+  return Vector(r_xz * cosf(theta), y, r_xz * sinf(theta));
 }
 
 /**
