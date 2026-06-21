@@ -33,8 +33,10 @@ struct Fragment {
    * @param a Start fragment.
    * @param b End fragment.
    * @param t Interpolation factor (0.0 to 1.0).
-   * @return The interpolated fragment. Interpolates pos, v0-v3, and age;
-   * size and color are left at their defaults.
+   * @return The interpolated fragment. Interpolates pos, v0-v3, age, size, and
+   * color, so a sample between two control points carries every register rather
+   * than resetting size (the fragment_edge_dist denominator) and color to their
+   * struct defaults.
    */
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
     Fragment f;
@@ -46,6 +48,8 @@ struct Fragment {
     f.v2 = a.v2 + (b.v2 - a.v2) * t;
     f.v3 = a.v3 + (b.v3 - a.v3) * t;
     f.age = a.age + (b.age - a.age) * t;
+    f.size = a.size + (b.size - a.size) * t;
+    f.color = a.color.lerp(b.color, t);
     return f;
   }
 };
