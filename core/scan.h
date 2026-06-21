@@ -49,7 +49,7 @@ namespace Scan {
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
-static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
+inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
                           Canvas &canvas, const auto &shape,
                           FragmentShaderFn fragment_shader, bool debug_bb,
                           SDF::DistanceResult &result_scratch,
@@ -133,7 +133,7 @@ static void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
  * get_intervals, wraps x coordinates, and calls pixel_fn(wx, y, p) per pixel.
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
-static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
+inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
                         PixelFn &&pixel_fn) {
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
@@ -357,7 +357,7 @@ struct ScopedRenderTimer {
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
-static void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
+inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
   bool effective_debug = debug_bb || canvas.debug();
 
