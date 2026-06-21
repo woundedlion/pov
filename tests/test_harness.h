@@ -65,14 +65,37 @@ inline bool approx(double a, double b, double tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
 }
 
+namespace detail {
+/**
+ * @brief Structural detection for the engine's small value types so
+ * print_operand can show components without test_harness.h depending on the
+ * engine headers. Pixel/Pixel16 expose r/g/b; Vector exposes x/y/z.
+ */
+template <class T, class = void> struct has_rgb : std::false_type {};
+template <class T>
+struct has_rgb<T, std::void_t<decltype(std::declval<const T &>().r),
+                              decltype(std::declval<const T &>().g),
+                              decltype(std::declval<const T &>().b)>>
+    : std::true_type {};
+
+template <class T, class = void> struct has_xyz : std::false_type {};
+template <class T>
+struct has_xyz<T, std::void_t<decltype(std::declval<const T &>().x),
+                              decltype(std::declval<const T &>().y),
+                              decltype(std::declval<const T &>().z)>>
+    : std::true_type {};
+} // namespace detail
+
 /**
  * @brief Prints a single comparison operand in a type-appropriate format.
- * @tparam T Operand type; bool, floating-point, enum, integral, and pointer are
- * formatted specially.
+ * @tparam T Operand type; bool, floating-point, enum, integral, pointer, and the
+ * engine's r/g/b and x/y/z value types are formatted specially.
  * @param v The operand value to print.
  * @details Lets a failing HS_EXPECT_* line show the actual values, not just the
- * stringified expr. Non-arithmetic operands fall back to "?" — every
- * comparison-macro call site in the suite passes arithmetic/enum values.
+ * stringified expr. Pixel/Pixel16 (r,g,b) and Vector (x,y,z) are detected
+ * structurally — so an HS_EXPECT_EQ/CMP on those prints components rather than
+ * "?" — and their fields recurse through this same printer. Any other
+ * non-arithmetic operand still falls back to "?".
  */
 template <class T> inline void print_operand(const T &v) {
   if constexpr (std::is_same_v<T, bool>) {
@@ -90,6 +113,22 @@ template <class T> inline void print_operand(const T &v) {
       std::printf("%llu", static_cast<unsigned long long>(v));
   } else if constexpr (std::is_pointer_v<T>) {
     std::printf("%p", static_cast<const void *>(v));
+  } else if constexpr (detail::has_rgb<T>::value) {
+    std::printf("(r=");
+    print_operand(v.r);
+    std::printf(" g=");
+    print_operand(v.g);
+    std::printf(" b=");
+    print_operand(v.b);
+    std::printf(")");
+  } else if constexpr (detail::has_xyz<T>::value) {
+    std::printf("(x=");
+    print_operand(v.x);
+    std::printf(" y=");
+    print_operand(v.y);
+    std::printf(" z=");
+    print_operand(v.z);
+    std::printf(")");
   } else {
     std::printf("?");
   }
