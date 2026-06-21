@@ -816,9 +816,17 @@ private:
             static_cast<int16_t>(hs::clamp(v.z, -1.0f, 1.0f) * Q), ttl, 0};
   }
   /**
-   * @brief Decodes a quantized Item back into a unit vector.
+   * @brief Decodes a quantized Item back into a near-unit vector.
    * @param item Packed trail sample.
    * @return Reconstructed world-space point.
+   * @note The result is only *near* unit length: int16 quantization leaves each
+   * component off by up to ~1/Q, so the decoded point sits slightly off the
+   * sphere. It is intentionally NOT renormalized — flush() feeds it straight to
+   * the sink (vector_to_pixel), which tolerates the deviation, and skipping the
+   * per-item sqrt keeps the draw loop cheap. A World::Trails must therefore not
+   * be placed before another World filter that assumes strict unit length
+   * (e.g. Mobius stereo projection, or angle_between in Hole); renormalize here
+   * first if that ordering is ever introduced.
    */
   static Vector decode(const Item &item) {
     constexpr float INV_Q = 1.0f / Q;
