@@ -268,6 +268,12 @@ public:
         ++release_req_;
         const unsigned long t0 = micros();
         while (release_ack_ != release_req_) {
+          // 100 ms is a deliberately loose liveness bound, not a tight timing
+          // budget: the flywheel ISR acks within one wake interval
+          // (kColumnUs / kOversample ≈ 54 µs at 480 RPM × 288), so 100 ms is
+          // ~1800 wake intervals of slack. It absorbs any plausible transient
+          // (a long `__disable_irq` window, a stalled wake) and traps only a
+          // genuinely wedged ISR — never a momentary handshake delay.
           HS_CHECK(micros() - t0 < 100000UL,
                    "flywheel ISR failed to release the live effect");
         }
