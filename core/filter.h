@@ -776,7 +776,12 @@ public:
             PassFn3D pass) {
     pass(v, color, age, alpha); // Pass through current frame
 
-    int ttl = lifetime - static_cast<int>(age);
+    // Round (+0.5f) the age rather than truncating: a preceding Orient can hand
+    // us a fractional age, and bare truncation collapses every fraction within a
+    // frame onto the same TTL bucket (1.0 and 1.9 both lose a full frame). age is
+    // non-negative by contract, so +0.5f is a correct round-to-nearest; ttl <= 0
+    // is dropped below regardless.
+    int ttl = lifetime - static_cast<int>(age + 0.5f);
     if (ttl > 0 && items_) {
       push_back(encode(v, static_cast<uint8_t>(ttl)));
     }
