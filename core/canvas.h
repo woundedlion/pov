@@ -476,6 +476,32 @@ protected:
                                                (float)*ptr};
   }
 
+  /**
+   * @brief Registers a float param and flags it animation-driven in one call.
+   * @details Convenience for the registerParam + markAnimated pair, so the name
+   * literal is written once instead of twice (a typo in the second copy would
+   * silently leave the param un-flagged — a dead-slider lint failure rather than
+   * a compile error). Flags the just-registered element directly, skipping the
+   * name lookup markAnimated would redo.
+   */
+  void registerAnimatedParam(const char *name, float *ptr, float min = 0.0f,
+                             float max = 1.0f) {
+    registerParam(name, ptr, min, max);
+    parameters.elements[parameters.count - 1].animated = true;
+  }
+
+  /**
+   * @brief Registers a float param and flags it engine-written telemetry in one
+   * call.
+   * @details Convenience for the registerParam + markReadonly pair; see
+   * registerAnimatedParam for the single-source-the-literal rationale.
+   */
+  void registerReadonlyParam(const char *name, float *ptr, float min = 0.0f,
+                             float max = 1.0f) {
+    registerParam(name, ptr, min, max);
+    parameters.elements[parameters.count - 1].readonly = true;
+  }
+
 private:
   std::atomic<int> prev_{0}; /**< Buffer the ISR is currently reading. */
   std::atomic<int> cur_{0};  /**< Buffer the main loop is currently writing. */

@@ -39,21 +39,16 @@ public:
     static constexpr size_t SCRATCH_BYTES = 11 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
-    registerParam("Friction", &params.friction, 0.5f, 1.0f);
-    registerParam("Well Str", &params.well_strength, 0.0f, 20.0f);
-    registerParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
-    registerParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
-    registerParam("Particles", &params.active_count, 0.0f,
-                  (float)NUM_PARTICLES);
-    // The preset Lerp drives these four every cycle; flag them animated so the
+    // The preset Lerp drives these four every cycle; flagged animated so the
     // "Pause Animation" toggle governs them (touching one pauses the presets
     // and hands the value to the user).
-    markAnimated("Friction");
-    markAnimated("Well Str");
-    markAnimated("Init Spd");
-    markAnimated("Ang Spd");
+    registerAnimatedParam("Friction", &params.friction, 0.5f, 1.0f);
+    registerAnimatedParam("Well Str", &params.well_strength, 0.0f, 20.0f);
+    registerAnimatedParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
+    registerAnimatedParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
     // Particles is an engine-written active count, not an input.
-    markReadonly("Particles");
+    registerReadonlyParam("Particles", &params.active_count, 0.0f,
+                          (float)NUM_PARTICLES);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
 

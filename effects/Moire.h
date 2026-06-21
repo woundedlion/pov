@@ -63,10 +63,9 @@ public:
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Density", &params.density, 1.0f, 100.0f);
-    registerParam("Amp", &params.amp, 0.0f, 1.0f);
-    // Amp is driven by the Mutation below; flag it so the GUI auto-pauses the
-    // animation when the user grabs the slider.
-    markAnimated("Amp");
+    // Amp is driven by the Mutation below; flagged animated so the GUI
+    // auto-pauses the animation when the user grabs the slider.
+    registerAnimatedParam("Amp", &params.amp, 0.0f, 1.0f);
 
     timeline
         .add(0, Animation::PeriodicTimer(80, [this](auto &) { color_wipe(); }))

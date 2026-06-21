@@ -51,11 +51,10 @@ public:
     registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
-    registerParam("Twist", &params.twist, -5.0f, 5.0f);
-    registerParam("Debug BB", &params.debug_bb);
-    // Twist is driven by the Mutation in build(); flag it so the GUI
+    // Twist is driven by the Mutation in build(); flagged animated so the GUI
     // auto-pauses the animation when the user grabs the slider.
-    markAnimated("Twist");
+    registerAnimatedParam("Twist", &params.twist, -5.0f, 5.0f);
+    registerParam("Debug BB", &params.debug_bb);
 
     build();
   }
