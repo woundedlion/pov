@@ -414,7 +414,7 @@ struct Quaternion {
    * @return True if components are within TOLERANCE.
    */
   bool operator==(const Quaternion &q) const {
-    return std::abs(q.r - r) < TOLERANCE && q.v == v;
+    return std::abs(q.r - r) <= TOLERANCE && q.v == v;
   }
 
   /**
