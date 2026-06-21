@@ -39,6 +39,16 @@ void __verbose_terminate_handler() {
  * maximally aligned, so Arena::allocate's first allocation in each arena needs
  * no leading padding; configure_arenas() likewise aligns the inter-arena
  * boundaries.
+ *
+ * Placement: this block carries NO DMAMEM qualifier, which is deliberate. The
+ * arena is the engine's hot per-frame render memory (every effect's persistent
+ * and scratch allocations live inside it) and is never a DMA target, so on the
+ * device it lands in the default .bss — DTCM, the Cortex-M7's zero-wait tightly-
+ * coupled RAM, the fastest memory available. This is the single largest RAM
+ * decision in the engine (GLOBAL_ARENA_SIZE ≈ 335 KB). The buffers below that
+ * the LED-output DMA must reach (buffer_a/buffer_b, the timeline events) instead
+ * carry DMAMEM precisely because the DMA engine cannot access DTCM; the arena,
+ * touched only by the CPU, has the opposite requirement and stays in DTCM.
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
