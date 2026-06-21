@@ -862,6 +862,27 @@ inline Pixel lerp_oklch(const CPixel &c1, const CPixel &c2, float t) {
 }
 
 /**
+ * @brief Converts an OKLCH color to an 8-bit sRGB CPixel, chroma-reducing
+ *        out-of-gamut colors to hold hue and lightness (Ottosson clip).
+ * @param lch Source color in OKLCH space.
+ * @return The gamut-mapped color as an 8-bit sRGB CPixel.
+ * @details Shares the gamut-mapped OKLab->linear->sRGB tail with
+ *          lerp_oklch_srgb (which now calls this) and the OKLCH palette-key
+ *          authoring path: a vivid color past the sRGB cusp gets its chroma
+ *          pulled to the boundary, holding hue and lightness, rather than the
+ *          per-channel clip that twists hue toward a primary. In-gamut colors
+ *          pay only the gate test.
+ */
+inline CPixel oklch_to_cpixel(OKLCH lch) {
+  float r, g, b;
+  oklab_to_linear_rgb_gamut(oklch_to_oklab(lch), r, g, b);
+  return CPixel(
+    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(r, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
+    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(g, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
+    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(b, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)));
+}
+
+/**
  * @brief Interpolates two sRGB CPixels in OKLCH space to an sRGB CPixel.
  * @param c1 Start color at t == 0.
  * @param c2 End color at t == 1.
@@ -871,16 +892,7 @@ inline Pixel lerp_oklch(const CPixel &c1, const CPixel &c2, float t) {
 inline CPixel lerp_oklch_srgb(const CPixel &c1, const CPixel &c2, float t) {
   OKLCH a = srgb_to_oklch(c1.r, c1.g, c1.b);
   OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
-  OKLCH result = lerp_oklch(a, b, t);
-  float r, g, b_val;
-  // Chroma-reduce out-of-gamut interpolants (off the fast path) so the blend
-  // holds hue/lightness rather than clipping toward a primary; in-gamut blends
-  // pay only the gate test.
-  oklab_to_linear_rgb_gamut(oklch_to_oklab(result), r, g, b_val);
-  return CPixel(
-    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(r, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
-    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(g, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
-    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(b_val, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)));
+  return oklch_to_cpixel(lerp_oklch(a, b, t));
 }
 
 /**
@@ -1121,9 +1133,32 @@ public:
       break;
     }
 
-    a = CPixel(CRGB(CHSV(h1, s1, v1)));
-    b = CPixel(CRGB(CHSV(h2, s2, v2)));
-    c = CPixel(CRGB(CHSV(h3, s3, v3)));
+    // Author the three keys directly in OKLCH so each profile means what its
+    // name says perceptually. HSV "value" is not perceptual lightness (a V=255
+    // yellow blazes while a V=255 blue sinks), so the old CHSV keys made FLAT
+    // non-isoluminant and BELL a non-uniform lightness arc even though the
+    // downstream interpolation already runs in OKLCH. The (h,s,v) integer draws
+    // above are kept untouched -- the global RNG stream, and every other
+    // effect's randomness, are unperturbed -- and only reinterpreted as OKLCH
+    // coordinates here, then baked to the 8-bit sRGB key (gamut-mapped) to
+    // preserve the 9-byte snapshot and the existing lerp machinery.
+    auto key_oklch = [](uint8_t hue, uint8_t sat, uint8_t val) -> OKLCH {
+      // Hue: even perceptual spacing -- the integer harmony offsets from
+      // calc_hues become true OKLCH-hue offsets (triadic is a real 120deg).
+      float h = (hue / 256.0f) * (2.0f * PI_F);
+      // Chroma: scale into OKLCH C. The cusp varies per hue/lightness, so
+      // oklch_to_cpixel's gamut map pulls each key to its in-gamut maximum --
+      // VIBRANT authors at the boundary, PASTEL stays comfortably inside.
+      float C = (sat / 255.0f) * 0.20f;
+      // Lightness: compress HSV value into a perceptual L band. Pure L=1 is
+      // white-only (no chroma headroom) and L=0 is black, so map [0,255] into
+      // [0.10, 0.85]: peaks keep chroma, floors aren't crushed, and FLAT
+      // (v=255) becomes a genuinely isoluminant shimmer.
+      return {0.10f + (val / 255.0f) * 0.75f, C, h};
+    };
+    a = oklch_to_cpixel(key_oklch(h1, s1, v1));
+    b = oklch_to_cpixel(key_oklch(h2, s2, v2));
+    c = oklch_to_cpixel(key_oklch(h3, s3, v3));
 
     update_stops();
   }
