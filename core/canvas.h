@@ -105,8 +105,17 @@ public:
   /**
    * @brief Effect sets render margin for stateful filters.
    * @param m Render margin width in pixels.
+   * @details Cold setup-time guard: ClipRegion's cylindrical wrap
+   *          (render_x_start/render_x_end) only corrects a single period of
+   *          underflow, so its documented [0, w) contract holds only while
+   *          margin < w. Trap a margin that would wrap past the seam here, at
+   *          configuration time, rather than letting a negative column leak into
+   *          the per-fragment clip predicates on the hot path.
    */
-  void set_margin(int m) { clip.margin = m; }
+  void set_margin(int m) {
+    HS_CHECK(m < clip.w, "render margin must be < canvas width");
+    clip.margin = m;
+  }
 
   /**
    * @brief Retrieves the color of a pixel from the currently displayed buffer.

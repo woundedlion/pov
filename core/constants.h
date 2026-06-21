@@ -42,11 +42,17 @@ struct ClipRegion {
   /**
    * @brief Render-region left edge: display left expanded by `margin`, wrapped mod w (cylindrical).
    * @return First render column, in pixels, in [0, w).
+   * @pre margin < w. The single `+ w` corrects only one period of underflow, so
+   *      the [0, w) result holds only while margin <= x_start + w;
+   *      Canvas::set_margin traps a margin >= w at configuration time. Kept
+   *      single-period (not a double-mod) to avoid extra work on the
+   *      per-fragment contains_x() path.
    */
   int render_x_start() const { return (x_start - margin + w) % w; }
   /**
    * @brief Render-region right edge: display right expanded by `margin`, wrapped mod w (cylindrical).
    * @return One-past-last render column, in pixels, in [0, w).
+   * @pre margin < w (see render_x_start).
    */
   int render_x_end()   const { return (x_end + margin) % w; }
 
