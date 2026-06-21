@@ -111,6 +111,65 @@ inline void test_compile_hankin_instruction_indices_in_range() {
   }
 }
 
+/**
+ * @brief Exercises compile_hankin on the icosahedron (triangular faces,
+ *        5-valent vertices) so the star-face and rosette-orbit arithmetic is
+ *        covered on non-quad geometry, not just the cube's 4-valent faces.
+ * @details Icosahedron: 12 vertices, 30 edges, 20 triangular faces, 60
+ *          half-edges. static_vertices == edge count (30), dynamic_vertices ==
+ *          half-edge count (60), and the same self-consistency invariants hold.
+ */
+inline void test_compile_hankin_icosahedron_triangular_faces() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh ico;
+  build_solid<Solids::Icosahedron>(ico, temp);
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(ico, compiled, target, temp);
+
+  // base_vertices mirrors the 12 input vertices.
+  HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)12);
+
+  // static_vertices: one per unique edge. Icosahedron has 30 edges.
+  HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)30);
+  for (size_t i = 0; i < compiled.static_vertices.size(); ++i)
+    HS_EXPECT_NEAR(compiled.static_vertices[i].length(), 1.0f, 1e-3f);
+
+  // dynamic_vertices: one per half-edge (= twice the edge count = 60).
+  HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)60);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
+               compiled.dynamic_vertices.size());
+
+  // static_offset == |static_vertices|.
+  HS_EXPECT_EQ((size_t)compiled.static_offset,
+               compiled.static_vertices.size());
+
+  // Face data is internally consistent and every index is in range.
+  size_t total = 0;
+  for (size_t i = 0; i < compiled.face_counts.size(); ++i)
+    total += compiled.face_counts[i];
+  HS_EXPECT_EQ(total, compiled.faces.size());
+
+  size_t max_v =
+      compiled.static_vertices.size() + compiled.dynamic_vertices.size();
+  for (size_t i = 0; i < compiled.faces.size(); ++i)
+    HS_EXPECT_TRUE(compiled.faces[i] < max_v);
+
+  // Every dynamic instruction references in-range base/static indices.
+  size_t V = ico.vertices.size();
+  size_t S = compiled.static_vertices.size();
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const auto &ins = compiled.dynamic_instructions[i];
+    HS_EXPECT_TRUE(ins.v_corner < V);
+    HS_EXPECT_TRUE(ins.v_prev < V);
+    HS_EXPECT_TRUE(ins.v_next < V);
+    HS_EXPECT_TRUE(ins.idx_m1 < S);
+    HS_EXPECT_TRUE(ins.idx_m2 < S);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // update_hankin — flat (angle = 0) collapses dynamic verts to the
 // normalised corner positions.
@@ -317,6 +376,7 @@ inline int run_hankin_tests() {
 
   test_compile_hankin_populates_arrays();
   test_compile_hankin_instruction_indices_in_range();
+  test_compile_hankin_icosahedron_triangular_faces();
 
   test_update_hankin_flat_collapses_to_corners();
   test_update_hankin_populates_output_mesh();
