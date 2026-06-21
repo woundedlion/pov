@@ -281,7 +281,9 @@ private:
         Fragment f;
         // Orient from world space to current view at render time
         f.pos = orientation.orient(trail.get(j));
-        f.v0 = (len > 1) ? static_cast<float>(j) / (len - 1) : 0.0f;
+        // The len < 2 guard above guarantees len >= 2, so len - 1 >= 1 — no
+        // divide-by-zero and no need for a len > 1 ternary.
+        f.v0 = static_cast<float>(j) / (len - 1);
         f.age = 0;
         points.push_back(f);
       }
