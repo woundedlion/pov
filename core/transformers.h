@@ -144,6 +144,20 @@ private:
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         AnimT *p = timeline.add_get(in_frames, std::move(anim), pin);
         if (p) {
+          // A non-pinned spawn returns a transient handle the caller does not
+          // retain, so the slot is reclaimed only when the animation reaches
+          // done() (the then() callback below fires once and frees it) or a
+          // later cancel() routes it through the same path. A perpetual,
+          // non-repeating animation (duration<0, repeat=false) reaches neither
+          // and has no retained handle to cancel it, so its slot would leak;
+          // after CAPACITY such spawns the pool silently returns nullptr. That
+          // combination must instead use spawn_pinned and retain the handle.
+          // Trap the misuse here rather than leak. (Pinned perpetual handles —
+          // the documented retained-handle path — are exempt.)
+          if (!pin)
+            HS_CHECK(p->is_finite() || p->repeats(),
+                     "Transformer::spawn of a perpetual non-repeating "
+                     "animation leaks its pool slot; use spawn_pinned");
           // Attach the completion callback to the *stored* animation so it can
           // capture its pointer and re-query repeats() at callback time, not at
           // spawn time. A repeating animation that is later cancel()ed reports

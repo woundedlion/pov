@@ -245,6 +245,12 @@ public:
    */
   bool is_canceled() const override { return canceled; }
   /**
+   * @brief Reports whether the animation has a finite duration.
+   * @return True if it can reach done() on its own (duration >= 0); false for an
+   * indefinite (perpetual) animation that only ends via cancel().
+   */
+  bool is_finite() const { return duration >= 0; }
+  /**
    * @brief Advances the animation state by one frame.
    * @details The canvas buffer is unused by the base class and passed through
    * to derived classes.
