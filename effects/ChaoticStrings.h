@@ -97,6 +97,14 @@ public:
    */
   void init() override {
 
+    // Hand the whole block to persistent + scratch A; this effect never uses
+    // scratch B, so it is carved to 0. configure_arenas() fully repartitions
+    // the single global block on every call, so this 0 also zeroes scratch B
+    // globally for the duration of this effect. That is safe because every
+    // effect-construction site (wasm.cpp, pov_single, pov_segmented, Phantasm)
+    // calls configure_arenas_default() before the next effect's init(), which
+    // restores the full default scratch-B size before it can be touched — the
+    // 0 here never leaks across the effect switch.
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     node = static_cast<Node *>(
