@@ -87,13 +87,15 @@ public:
    */
   HD107SFrame() {
     memset(buffer_, 0, COMPOSITE_SIZE);
-    // Image frame: set brightness bytes
-    for (int i = 0; i < N; ++i) {
-      buffer_[4 + i * 4] = 0xFF;
-    }
-    // Trailing black frame: set brightness bytes (colors stay zero)
-    for (int i = 0; i < N; ++i) {
-      buffer_[BUFFER_SIZE + 4 + i * 4] = 0xFF;
+    // Prime the 0xFF brightness byte of every pixel slot in both the image frame
+    // (base 4) and the trailing black frame (base BUFFER_SIZE+4); only the B/G/R
+    // color bytes change at runtime. One construction-time loop over the two
+    // half-base offsets keeps the two frames from drifting out of sync.
+    const int bases[2] = {4, BUFFER_SIZE + 4};
+    for (int base : bases) {
+      for (int i = 0; i < N; ++i) {
+        buffer_[base + i * 4] = 0xFF;
+      }
     }
   }
 
