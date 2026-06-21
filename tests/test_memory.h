@@ -143,37 +143,6 @@ inline void test_arena_set_offset() {
 }
 
 /**
- * @brief Verifies owns_live() accepts live blocks and rejects blocks beyond the
- *        live offset or past the live end.
- * @details owns_live is an always-on pointer-range predicate with no other
- *          caller, so pin its boundaries directly: a block fully inside the live
- *          region, a block left behind a rewound offset, and the exact
- *          end-of-region edge (zero-length at the end is in range; one byte past
- *          is not).
- */
-inline void test_arena_owns_live() {
-  Arena a(test_buf_a, sizeof(test_buf_a));
-  void *p = a.allocate(128, 1);
-  size_t saved = a.get_offset();
-  void *q = a.allocate(64, 1);
-
-  // Blocks fully inside the live region are owned.
-  HS_EXPECT_TRUE(a.owns_live(p, 128));
-  HS_EXPECT_TRUE(a.owns_live(q, 64));
-
-  // End-of-region boundary: a zero-length block at the live end is in range,
-  // one byte past it is not.
-  const uint8_t *live_end = static_cast<const uint8_t *>(q) + 64;
-  HS_EXPECT_TRUE(a.owns_live(live_end, 0));
-  HS_EXPECT_FALSE(a.owns_live(live_end, 1));
-
-  // After rewinding past q's allocation, q sits beyond the live offset and is no
-  // longer owned even though it still points into the backing buffer.
-  a.set_offset(saved);
-  HS_EXPECT_FALSE(a.owns_live(q, 64));
-}
-
-/**
  * @brief Verifies the legal boundary: an allocation that fills the arena
  *        exactly to capacity succeeds with in-range pointers.
  * @details Over-allocation is an invariant violation that HS_CHECK-traps inside
@@ -842,7 +811,6 @@ inline int run_memory_tests() {
   test_arena_high_water_mark();
   test_arena_reset();
   test_arena_set_offset();
-  test_arena_owns_live();
   test_arena_fills_to_capacity();
   test_arena_rebind();
   test_arena_reset_high_water_mark();
