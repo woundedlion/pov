@@ -417,12 +417,20 @@ inline void test_update_parameter_rejects_readonly() {
 inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
   static float vals[32];
+  // Distinct names "pNN": registerParam traps on a duplicate name, so the
+  // capacity fill must use unique names (the ParamDef stores the char* by
+  // pointer, hence the static name storage so it outlives the registration).
+  static char names[32][4];
   // Registering exactly ParamList's capacity (std::array<ParamDef, 32>) is
   // valid. A 33rd registration TRAPS (an effect-authoring bug, fail-fast), so
   // the overflow path can't be exercised here without death-test infra.
   for (int i = 0; i < 32; ++i) {
     vals[i] = static_cast<float>(i);
-    fx.add_float("p", &vals[i], 0.0f, 100.0f);
+    names[i][0] = 'p';
+    names[i][1] = static_cast<char>('0' + i / 10);
+    names[i][2] = static_cast<char>('0' + i % 10);
+    names[i][3] = '\0';
+    fx.add_float(names[i], &vals[i], 0.0f, 100.0f);
   }
   HS_EXPECT_EQ(fx.getParameters().size(), (size_t)32);
 }

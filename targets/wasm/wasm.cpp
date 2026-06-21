@@ -154,6 +154,16 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
     std::vector<FactoryEntry> t(regs.size());
     for (size_t i = 0; i < regs.size(); ++i)
       get_fill_fn<W, H>(regs[i])(t[i]);
+    // Duplicate effect names silently shadow: create_effect/factory_has_effect
+    // both return the FIRST name match, so a second REGISTER_EFFECT of the same
+    // class name would make its entry unreachable. The name isn't known until
+    // the fill functions above run, so this is the materialization seam at which
+    // to detect it. Cold one-time table build; trap rather than ship a hidden
+    // unreachable effect.
+    for (size_t i = 0; i < t.size(); ++i)
+      for (size_t j = i + 1; j < t.size(); ++j)
+        HS_CHECK(t[i].name != t[j].name,
+                 "get_factory: duplicate effect name in registry");
     return t;
   }();
   return table;

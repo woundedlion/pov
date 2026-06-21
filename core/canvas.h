@@ -459,6 +459,11 @@ protected:
     // Trap instead. (Also upholds the WASM no-realloc memory-view invariant.)
     HS_CHECK(parameters.count < parameters.elements.size(),
              "registerParam: exceeded ParamList capacity");
+    // A duplicate name is an authoring bug: find() returns the FIRST match, so a
+    // second registration silently shadows (its slot is unreachable by name and
+    // any UI/animation write lands on the first). Trap at this cold init seam.
+    HS_CHECK(parameters.find(name) == nullptr,
+             "registerParam: duplicate parameter name");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
   }
 
@@ -472,6 +477,9 @@ protected:
   void registerParam(const char *name, bool *ptr) {
     HS_CHECK(parameters.count < parameters.elements.size(),
              "registerParam: exceeded ParamList capacity");
+    // Duplicate name guard, see the float overload.
+    HS_CHECK(parameters.find(name) == nullptr,
+             "registerParam: duplicate parameter name");
     parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
                                                (float)*ptr};
   }
