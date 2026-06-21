@@ -301,8 +301,9 @@ template <int W, int H> struct BoundingSphere {
    * @return Always true (an interval is always produced).
    */
   template <typename OutFn> bool get_intervals(int y, OutFn &&out) const {
-    float phi = y_to_phi<H>(y);
-    float sin_phi = sinf(phi);
+    // Phi trig from the static LUT (bit-identical to sinf(y_to_phi(y))), matching
+    // every other shape on the Volume hot path rather than recomputing sinf.
+    float sin_phi = TrigLUT<W, H>::sin_phi[y];
     float theta_span;
     // sin_phi == 0 at the poles: with a degenerate angular_radius == 0 the else
     // branch would compute 0/0 = NaN, and static_cast<int>(ceilf(NaN)) below is
