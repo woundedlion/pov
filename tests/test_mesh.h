@@ -379,6 +379,57 @@ inline void test_classify_faces_tetrahedron_uniform_topology() {
     HS_EXPECT_EQ(tet.topology[i], 0);
 }
 
+/**
+ * @brief Verifies the classifier separates genuinely distinct face classes.
+ * @details truncate(cube) is a mixed-face solid: 6 octagons + 8 triangles. The
+ *          cube/tetrahedron tests above are all-equivalent faces, so the
+ *          expected output is trivially all-zeros and would pass even if the
+ *          neighbor-hash folding, HashNode sort, and dense-id assignment were
+ *          broken. This exercises that discriminating logic: it must yield
+ *          exactly two classes, group all octagons under one id and all
+ *          triangles under another, and assign dense ids {0, 1}.
+ */
+inline void test_classify_faces_truncated_cube_distinct_topology() {
+  Arena target(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena temp(mesh_arena_b, sizeof(mesh_arena_b));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  PolyMesh tr = MeshOps::truncate(cube, target, temp, 0.25f);
+  HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14); // 6 octagons + 8 triangles
+
+  // truncate's temp working set is no longer referenced; reuse mesh_arena_b for
+  // the classifier scratch. topology is grown into `target`, where tr lives.
+  Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
+  Arena scratch_b(mesh_arena_b + sizeof(mesh_arena_b) / 2,
+                  sizeof(mesh_arena_b) / 2);
+  MeshOps::classify_faces_by_topology(tr, scratch_a, scratch_b, target);
+
+  HS_EXPECT_EQ(tr.topology.size(), tr.face_counts.size());
+
+  // Faces of the same side count must share an id; the two shapes must differ.
+  int octagon_id = -1, triangle_id = -1, max_id = 0;
+  for (size_t i = 0; i < tr.face_counts.size(); ++i) {
+    int sides = tr.face_counts[i];
+    int id = tr.topology[i];
+    if (id > max_id)
+      max_id = id;
+    if (sides == 8) {
+      if (octagon_id < 0)
+        octagon_id = id;
+      HS_EXPECT_EQ(id, octagon_id);
+    } else if (sides == 3) {
+      if (triangle_id < 0)
+        triangle_id = id;
+      HS_EXPECT_EQ(id, triangle_id);
+    }
+  }
+  HS_EXPECT_TRUE(octagon_id >= 0 && triangle_id >= 0);
+  HS_EXPECT_TRUE(octagon_id != triangle_id);
+  // Dense assignment: exactly two distinct classes -> ids {0, 1}.
+  HS_EXPECT_EQ(max_id, 1);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -410,6 +461,7 @@ inline int run_mesh_tests() {
 
   test_classify_faces_cube_uniform_topology();
   test_classify_faces_tetrahedron_uniform_topology();
+  test_classify_faces_truncated_cube_distinct_topology();
 
   return hs_test::end_module(scope);
 }
