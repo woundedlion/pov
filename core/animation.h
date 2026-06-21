@@ -1996,6 +1996,12 @@ public:
    * @param canvas The canvas buffer passed to the draw callbacks.
    */
   void step(Canvas &canvas) override {
+    // Increment-first (same ordering as Transition/Mutation) is deliberate: the
+    // rendered progress runs 1/duration .. duration/duration, so the final frame
+    // lands exactly on the destination mesh (alpha == 1) — the correct terminal
+    // state for a morph. The skipped pure-source frame (progress == 0) is
+    // immaterial: at progress == 1/duration the easing is still ~0, so the first
+    // rendered frame already draws the source at op_A ~= 1.
     AnimationBase::step(canvas);
 
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
