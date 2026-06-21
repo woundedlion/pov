@@ -549,8 +549,11 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     // topologies that collide to the same hash would be merged into one class.
     // No secondary tiebreak is kept: the inputs are the small fixed polyhedron
     // roster (a handful of distinct face shapes per solid), not adversarial, so
-    // a 32-bit collision is not reachable in practice. Add a vertex-key tiebreak
-    // here if this is ever fed arbitrary user meshes.
+    // a 32-bit collision is not reachable in practice. Note the angles below are
+    // rounded to whole degrees, which widens the collision target for near-but-
+    // distinct angle sets — so the safety margin rests on the fixed roster, not
+    // on hash strength. If this is ever fed arbitrary user meshes, add a vertex-
+    // key tiebreak here and hash the angles at finer than 1-degree resolution.
     uint32_t h = 0x12345678;
     hash_combine(h, static_cast<uint32_t>(count));
 
