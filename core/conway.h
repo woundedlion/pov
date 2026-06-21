@@ -954,8 +954,15 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
 
   for (size_t i = 0; i < V; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
-  for (size_t i = 0; i < F; ++i)
+  for (size_t i = 0; i < F; ++i) {
+    // Spring relaxation averages edge lengths over the whole mesh; a degenerate
+    // face (< 3 sides) contributes spurious zero/duplicate-vertex edges that
+    // bias `target_len` and the per-vertex forces. Shipped recipes only relax
+    // well-formed closed meshes, so a degenerate face is a caller/pipeline bug —
+    // trap it up front (fail-fast) rather than silently skewing the result.
+    HS_CHECK(face_counts[i] >= 3, "relax: degenerate face (< 3 sides)");
     out_mesh.face_counts.push_back(face_counts[i]);
+  }
   for (size_t i = 0; i < I; ++i)
     out_mesh.faces.push_back(faces[i]);
 
