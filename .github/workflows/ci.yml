@@ -82,6 +82,24 @@ jobs:
       - name: Build
         run: cmake --build --preset tests
 
+      # Reverse-direction roster guard (finding 596): every module in the
+      # run_tests roster must map to a unit_<name> CTest registration, else it
+      # runs in no ctest test and is silently uncovered. (The forward direction
+      # already fails — an unknown argv module exits run_tests with status 2.)
+      # Runs once, on shard 1, against the binary just built above.
+      - name: Assert run_tests roster is registered in CTest
+        if: matrix.shard == 1
+        run: |
+          roster=$(build/tests/tests/run_tests --list | sed -n 's/^  //p' | sort)
+          registered=$(ctest --preset tests -N \
+            | sed -n 's/.*[[:space:]]unit_\([A-Za-z0-9_]*\)$/\1/p' | sort)
+          missing=$(comm -23 <(printf '%s\n' "$roster") <(printf '%s\n' "$registered"))
+          if [ -n "$missing" ]; then
+            echo "::error::run_tests modules with no CTest registration (add them to _hs_test_modules in tests/CMakeLists.txt): $missing"
+            exit 1
+          fi
+          echo "All run_tests roster modules are registered in CTest."
+
       # Surface the cache hit rate so the ccache wiring above is verified to
       # actually fire, not just assumed. A run showing zero hits means the
       # compiler-launcher integration regressed and the cache is dead weight.
