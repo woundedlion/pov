@@ -29,10 +29,21 @@ test:
 # Build Doxygen API reference locally into build/docs/html/.
 # Clones doxygen-awesome theme into .doxygen-awesome/ on first run.
 # Requires doxygen on PATH.
-docs:
-    if not exist .doxygen-awesome git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+docs: _doxygen-theme
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
+
+# Clone the doxygen-awesome theme on first run. The clone guard is the one
+# shell-specific step, so it's split per-OS: the rest of `docs` (cmake/doxygen)
+# is shell-agnostic. Without this the cmd.exe `if not exist` form made `just
+# docs` a syntax error under sh on the Linux/macOS CI the file otherwise targets.
+[unix]
+_doxygen-theme:
+    test -d .doxygen-awesome || git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+
+[windows]
+_doxygen-theme:
+    if not exist .doxygen-awesome git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
 
 # WASM release build + install the module into ../daydream.
 install:
