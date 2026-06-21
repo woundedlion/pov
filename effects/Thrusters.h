@@ -206,9 +206,14 @@ private:
     warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_mid);
 
     // spin
-    Vector thrust_axis =
-        cross(orientation.orient(thrust_point), orientation.orient(ring_vec))
-            .normalized();
+    // Under a large warp the two oriented vectors can become near-parallel, so
+    // their cross product collapses toward zero and a strict normalize() would
+    // trap on NaN/inf that then seeds Rotation. Fall back to a fixed axis on the
+    // degenerate case (the spin axis is arbitrary when the pair is parallel),
+    // mirroring make_rotation's perpendicular-axis fallback.
+    Vector thrust_axis = normalized_or(
+        cross(orientation.orient(thrust_point), orientation.orient(ring_vec)),
+        Y_AXIS);
     timeline.add(0, Animation::Rotation<W>(orientation, thrust_axis, 2 * PI_F,
                                            8 * 16, ease_out_expo));
 
