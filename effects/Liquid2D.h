@@ -14,13 +14,15 @@
  * @details Domain-warped OpenSimplex noise feeds a cross-coupled sinusoidal
  * pattern, stereographically projected and colored through a breathing
  * generative palette. Presets cycle on a random timer.
- * @note Sibling stereographic shader — `Flyby` — shares this pipeline
- *       (stereo project → noise warp → sin/cos pattern → pole attenuate) and the
- *       per-pixel `sample()`, which is kept in sync by hand: each effect keeps
- *       its own copy rather than a shared `StereoShaderBase`, so propagate shader
- *       fixes across both. The copies differ in two ways: the two `Params::lerp`
- *       use different interpolation strategies and the warp time-scales differ by
- *       undocumented factors.
+ * @note `Flyby` is the sibling stereographic effect. Both build on the same
+ *       core primitives — `stereo()`, `stereo_noise_warp()`, `pole_attenuation()`
+ *       — but the per-effect `project()`, the `sample()` pattern, and
+ *       `Params::lerp` are intentionally different (here: dual orientation + a
+ *       glitch lens, a cross-coupled pattern, and a staggered per-field lerp).
+ *       They are independent effects, NOT hand-synced copies of one shader: a
+ *       change here is not expected to propagate to Flyby. The only genuinely
+ *       common per-pixel code is the `STEREO_PATTERN_ARG_LIMIT` clamp guarding
+ *       fast_sinf range reduction; the shared math already lives in core.
  */
 template <int W, int H> class Liquid2D : public Effect {
 public:

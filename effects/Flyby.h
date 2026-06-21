@@ -13,13 +13,15 @@
  * @tparam H Canvas height in pixels.
  * @details Projects a noise-warped Cartesian grid onto a sphere, rotating
  * around Y, blending continuously between camera/warp presets.
- * @note Sibling stereographic shader — `Liquid2D` — shares this pipeline
- *       (stereo project → noise warp → sin/cos pattern → pole attenuate) and the
- *       per-pixel `sample()`, which is kept in sync by hand: each effect keeps
- *       its own copy rather than a shared `StereoShaderBase`, so propagate shader
- *       fixes across both. The copies differ in two ways: the two `Params::lerp`
- *       use different interpolation strategies and the warp time-scales differ by
- *       undocumented factors.
+ * @note `Liquid2D` is the sibling stereographic effect. Both build on the same
+ *       core primitives — `stereo()`, `stereo_noise_warp()`, `pole_attenuation()`
+ *       — but the per-effect `project()`, the `sample()` pattern, and
+ *       `Params::lerp` are intentionally different (here: single orientation, a
+ *       plain grid pattern, a parallel lerp, plus a per-pixel hue rotation).
+ *       They are independent effects, NOT hand-synced copies of one shader: a
+ *       change here is not expected to propagate to Liquid2D. The only genuinely
+ *       common per-pixel code is the `STEREO_PATTERN_ARG_LIMIT` clamp guarding
+ *       fast_sinf range reduction; the shared math already lives in core.
  */
 template <int W, int H> class Flyby : public Effect {
 public:
@@ -164,8 +166,9 @@ private:
     // Soft-limit the trig argument: near the pole |w| -> STEREO_INF, so
     // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. The
     // pole cap is pole-attenuated anyway, so clamp rather than feed the trig a
-    // coordinate it cannot resolve (see STEREO_PATTERN_ARG_LIMIT). Kept in sync
-    // with Liquid2D::sample.
+    // coordinate it cannot resolve (see STEREO_PATTERN_ARG_LIMIT). This clamp
+    // guard is the one piece shared with Liquid2D::sample; the pattern below is
+    // this effect's own.
     float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                          STEREO_PATTERN_ARG_LIMIT);
     float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
