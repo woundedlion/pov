@@ -94,6 +94,15 @@ public:
     const float radius = params.star_radius;
     const int sides = (int)params.star_sides;
 
+    // The base spiral is recomputed from scratch every frame (fib_spiral is
+    // trig-heavy and runs up to 2000 times here). That redundancy is deliberate,
+    // not an oversight: only the warp + orientation animate, so the raw lattice
+    // could be cached and refreshed only when "Points" changes — but the cache is
+    // a fixed 2000-Vector (~24 KB) buffer in the RAM-constrained arena, and every
+    // base point depends on `points` (so it invalidates on each slider move). This
+    // effect is sim-targeted, where the per-frame trig is cheap, so the CPU work
+    // is not worth that standing RAM cost. Add the cache here if it ever ships on
+    // a device that runs it hot.
     for (int i = 0; i < points; i++) {
       Vector v = fib_spiral(points, 0.0f, i);
 
