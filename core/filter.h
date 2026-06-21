@@ -962,8 +962,12 @@ public:
     // drop all four taps (alpha*weight < 1e-8f). Debug-only trap — stripped on
     // device, fires in the native tests / WASM-debug.
     assert(age >= 0.0f && alpha >= 0.0f);
-    float y_i;
-    float y_m = std::modf(y, &y_i);
+    // Floor-based split for Y too, matching the X split below: std::modf
+    // truncates toward zero, the exact asymmetry the X comment warns against.
+    // Y is non-negative today, so this is behavior-preserving — but floorf keeps
+    // a future negative y robust and gives both axes one truncation convention.
+    float y_i = floorf(y);
+    float y_m = y - y_i; // always in [0, 1)
 
     // Floor-based integer/fraction split for X so a sub-pixel coordinate just
     // left of the theta=0 seam (x < 0, or x >= W) wraps to the correct columns
@@ -981,8 +985,8 @@ public:
     // At equator, sin(phi)=1 so behavior is unchanged.
     // (LUT init hoisted to the constructor — see above.)
     // Derive the integer row once so the clamped LUT index and the clipped tap
-    // row (y0/y1 below) share one rounding convention; std::modf truncates toward
-    // zero, and splitting this into two static_cast<int>(y_i) sites would let a
+    // row (y0/y1 below) share one rounding convention; y_i is the floorf result
+    // above, and splitting this into two static_cast<int>(y_i) sites would let a
     // future edit to one desync the density-compensation row from the deposited
     // row.
     int yi = static_cast<int>(y_i);
