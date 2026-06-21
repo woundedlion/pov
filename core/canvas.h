@@ -138,6 +138,12 @@ public:
    * @return The Pixel color reference.
    */
   virtual const Pixel &get_pixel(int x, int y) const {
+    // Debug-only bounds guard, matching the write-path accessors
+    // (operator()/prev): stripped on the device (NDEBUG, "No bounds checking"),
+    // so it adds nothing to the ISR/WASM readback in release, but catches an
+    // out-of-range display read in the test/sim build the same way the sibling
+    // paths do.
+    assert(x >= 0 && x < width_ && y >= 0 && y < height_);
     return bufs_[prev_.load(std::memory_order_relaxed)][y * width_ + x];
   }
 
