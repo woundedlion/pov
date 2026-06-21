@@ -135,7 +135,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 21. ✅ `core/3dmath.h:357` — `Spherical(const Vector&)` traps on a zero-length input via `normalize()`, undocumented. → note the trap in the convention comment.
 22. ✅ `core/geometry.h:96` — `shade_mesh_topology` trusts a raw (possibly negative) topology value before `% NumPalettes`. → `HS_CHECK(topoIdx >= 0)` or use floored-mod.
 23. ✅ `core/util.h:106` — `shortest_distance` double-`fmod`s where the sibling `fwd_distance` uses one branch (strategy asymmetry). → cross-reference or unify.
-24. `core/spatial.h:200` — `KDTree::nearest()` returns full `KDNode`s and discards the already-computed distance. → return a `{index, point, d_sq}` struct.
+24. ✅ `core/spatial.h:200` — `KDTree::nearest()` returns full `KDNode`s and discards the already-computed distance. → return a `{index, point, d_sq}` struct. *Resolved: added a slim `Neighbor {point, original_index, d_sq}` result struct; `nearest()` now returns `StaticCircularBuffer<Neighbor, MAX_K>`, surfacing the squared distance the search already computes and no longer leaking KDNode's internal `axis`/`left`/`right` links. Field names kept caller-compatible (Voronoi and the spatial/death tests unchanged).*
 25. `core/scan.h:880` vs `:857` — the two `Shader::draw` overloads default to different SAMPLES (1 vs 4), silently changing AA cost on a switch. → align the defaults.
 26. `core/sdf.h:1206` — `Volume` occlusion probe's coarse step floor (0.15·R, 4 iters) can miss a thin feature, leaving a false AA halo. → scale the iteration count or document the bounded best-effort.
 27. `core/scan.h:62` — stroke path has no outward AA fringe (inward-only falloff), asymmetric with the solid path. → document or symmetrize.

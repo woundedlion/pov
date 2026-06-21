@@ -134,6 +134,19 @@ struct KDNode {
 };
 
 /**
+ * @brief A single neighbor returned by KDTree::nearest().
+ * @details A slim result view: the point and its source index plus the squared
+ * distance the search already computed (callers needing distance would otherwise
+ * recompute it). Deliberately excludes KDNode's internal tree links
+ * (`axis`/`left`/`right`), which are meaningless outside the tree.
+ */
+struct Neighbor {
+  Vector point;                /**< Copy of the neighbor's position. */
+  uint16_t original_index = 0; /**< Index of this point in the source array. */
+  float d_sq = 0.0f;           /**< Squared distance from the query point. */
+};
+
+/**
  * @brief k-d Tree over 3D points using arena storage; supports k-nearest
  * neighbor search.
  */
@@ -195,11 +208,11 @@ public:
    * @brief Finds the k nearest neighbors of target, sorted closest-first.
    * @param target Query point, in world units.
    * @param k Number of neighbors to return; capped at MAX_K and at the point count.
-   * @return Buffer of whole nodes (index + point), closest first.
+   * @return Buffer of neighbors (point + source index + squared distance), closest first.
    */
-  StaticCircularBuffer<KDNode, MAX_K> nearest(const Vector &target,
-                                              size_t k = 1) const {
-    StaticCircularBuffer<KDNode, MAX_K> result;
+  StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
+                                                size_t k = 1) const {
+    StaticCircularBuffer<Neighbor, MAX_K> result;
     if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
       return result;
 
@@ -262,7 +275,8 @@ public:
         [](const Candidate &a, const Candidate &b) { return a.d_sq < b.d_sq; });
 
     for (const auto &c : best) {
-      result.push_back(nodes[c.idx]);
+      const KDNode &n = nodes[c.idx];
+      result.push_back({n.point, n.original_index, c.d_sq});
     }
     return result;
   }
