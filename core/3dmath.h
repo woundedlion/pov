@@ -356,6 +356,8 @@ inline float fast_cosf(float x);
 
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
+  // Traps on a zero-length input (via normalize()): a degenerate direction has
+  // no spherical coordinate, so it is treated as a logic bug, not a soft edge.
   n.normalize();
   // At the poles (n.y == ±1) n.x and n.z are both ~0, so fast_atan2 returns its
   // 0/0 -> 0 fallback: theta is arbitrary there but harmless, because phi==0 or
