@@ -446,6 +446,16 @@ public:
     if (!currentEffect)
       return;
 
+    // Both readback paths below assume the effect's coordinate domain is exactly
+    // <pixel_width, pixel_height>: the fast path indexes display_buffer() with a
+    // pixel_width stride, and the slow path iterates [0,pixel_height)x[0,pixel_width)
+    // calling get_pixel(x,y). That holds because the effect is instantiated at this
+    // resolution. Assert it once per frame — cold relative to the per-pixel copy
+    // below — so the instantiation invariant is enforced for both paths, not left
+    // implicit in a comment.
+    HS_CHECK(currentEffect->width() == pixel_width &&
+             currentEffect->height() == pixel_height);
+
     currentEffect->render_us = 0.0;
     currentEffect->draw_frame();
     currentEffect->advance_display();
