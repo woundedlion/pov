@@ -31,6 +31,25 @@ namespace pov_sync_tests {
 
 using namespace pov::sync;
 
+// EdgeMailbox::burst_complete() and claim() are the pre-consolidation split
+// consumer path, now private behind a test friend (see hardware/pov_sync.h):
+// production goes through the fused try_claim(), and the split path is reachable
+// only here. EdgeMailboxTestAccess is the friend; the burst_complete()/claim()
+// free wrappers below let the tests exercise the two halves try_claim() merged.
+struct EdgeMailboxTestAccess {
+  static bool burst_complete(const EdgeMailbox &m, uint32_t now, uint32_t gap) {
+    return m.burst_complete(now, gap);
+  }
+  static BurstSnapshot claim(EdgeMailbox &m) { return m.claim(); }
+};
+
+inline bool burst_complete(const EdgeMailbox &m, uint32_t now, uint32_t gap) {
+  return EdgeMailboxTestAccess::burst_complete(m, now, gap);
+}
+inline BurstSnapshot claim(EdgeMailbox &m) {
+  return EdgeMailboxTestAccess::claim(m);
+}
+
 /**
  * @brief Builds full-rate Phantasm timing (600 MHz, 480 RPM, W=288) with a
  *        shortened content cadence so epoch/beacon scenarios run in
@@ -128,7 +147,7 @@ inline void test_flip_gate() {
 inline void test_mailbox() {
   const uint32_t kGlitch = 60000u;
   EdgeMailbox m;
-  HS_EXPECT_FALSE(m.burst_complete(0, 4 * kCol));
+  HS_EXPECT_FALSE(burst_complete(m, 0, 4 * kCol));
   m.on_edge(1000, kGlitch);
   m.on_edge(1000 + 2 * kCol, kGlitch);
   m.on_edge(1000 + 4 * kCol, kGlitch);
@@ -136,16 +155,16 @@ inline void test_mailbox() {
   m.on_edge(1000 + 4 * kCol + kGlitch / 2, kGlitch);
   // …and does not reset the filter reference (a spike train can't suppress).
   m.on_edge(1000 + 6 * kCol, kGlitch);
-  HS_EXPECT_FALSE(m.burst_complete(1000 + 7 * kCol, 4 * kCol));
-  HS_EXPECT_TRUE(m.burst_complete(1000 + 10 * kCol + 1, 4 * kCol));
-  const BurstSnapshot s = m.claim();
+  HS_EXPECT_FALSE(burst_complete(m, 1000 + 7 * kCol, 4 * kCol));
+  HS_EXPECT_TRUE(burst_complete(m, 1000 + 10 * kCol + 1, 4 * kCol));
+  const BurstSnapshot s = claim(m);
   HS_EXPECT_EQ(s.count, 4u);
   HS_EXPECT_EQ(s.first_cycles, 1000u);
   HS_EXPECT_EQ(s.last_cycles, 1000u + 6 * kCol);
   // Claim resets; the glitch filter still applies across bursts.
-  HS_EXPECT_FALSE(m.burst_complete(1000 + 10 * kCol + 2, 4 * kCol));
+  HS_EXPECT_FALSE(burst_complete(m, 1000 + 10 * kCol + 2, 4 * kCol));
   m.on_edge(1000 + 6 * kCol + kGlitch - 1, kGlitch); // too close: rejected
-  HS_EXPECT_FALSE(m.burst_complete(1000 + 20 * kCol, 4 * kCol));
+  HS_EXPECT_FALSE(burst_complete(m, 1000 + 20 * kCol, 4 * kCol));
 
   // try_claim() is the atomic consumer primitive: it recomputes completion
   // from the same count_ it then clears, so the test and the reset cannot be
@@ -181,8 +200,8 @@ inline void test_mailbox_prior_staleness() {
     m.on_edge(1000, kGlitch);
     m.age_prior(1000 + kGlitch / 2, kGlitch); // still within the window: kept
     m.on_edge(1000 + kGlitch / 2 + 1, kGlitch); // too close to 1000: rejected
-    HS_EXPECT_TRUE(m.burst_complete(1000 + 100 * kGlitch, 1));
-    HS_EXPECT_EQ(m.claim().count, 1u);
+    HS_EXPECT_TRUE(burst_complete(m, 1000 + 100 * kGlitch, 1));
+    HS_EXPECT_EQ(claim(m).count, 1u);
   }
 
   // After the wire goes quiet the prior is retired, so a later edge whose
@@ -192,8 +211,8 @@ inline void test_mailbox_prior_staleness() {
     EdgeMailbox m;
     const uint32_t prior = 1000u;
     m.on_edge(prior, kGlitch); // a one-edge burst…
-    HS_EXPECT_TRUE(m.burst_complete(prior + 10 * kCol, kCol));
-    HS_EXPECT_EQ(m.claim().count, 1u); // …claimed; the prior persists across it.
+    HS_EXPECT_TRUE(burst_complete(m, prior + 10 * kCol, kCol));
+    HS_EXPECT_EQ(claim(m).count, 1u); // …claimed; the prior persists across it.
     // The flywheel keeps polling during the silence and retires the stale
     // reference within a column (kCol > kGlitch), long before the counter wraps.
     m.age_prior(prior + 11 * kCol, kGlitch);
@@ -201,8 +220,8 @@ inline void test_mailbox_prior_staleness() {
     // old prior is only kGlitch/2, which the un-aged filter would reject.
     const uint32_t wrapped = prior + kGlitch / 2;
     m.on_edge(wrapped, kGlitch);
-    HS_EXPECT_TRUE(m.burst_complete(wrapped + 10 * kCol, kCol));
-    HS_EXPECT_EQ(m.claim().count, 1u); // accepted as a fresh one-edge burst.
+    HS_EXPECT_TRUE(burst_complete(m, wrapped + 10 * kCol, kCol));
+    HS_EXPECT_EQ(claim(m).count, 1u); // accepted as a fresh one-edge burst.
   }
 }
 
@@ -220,13 +239,13 @@ inline void test_seed_clears_mailbox() {
   // A burst accumulates on the sync wire before the reboot.
   board.on_sync_edge(2000u);
   board.on_sync_edge(2000u + 4 * col);
-  HS_EXPECT_TRUE(board.mailbox().burst_complete(2000u + 100 * col,
-                                                cfg.gap_timeout_cycles()));
+  HS_EXPECT_TRUE(burst_complete(board.mailbox(), 2000u + 100 * col,
+                                cfg.gap_timeout_cycles()));
   // Reboot: reseed. The stale burst must be gone.
   board.seed(3000u, false);
-  HS_EXPECT_FALSE(board.mailbox().burst_complete(3000u + 100 * col,
-                                                 cfg.gap_timeout_cycles()));
-  HS_EXPECT_EQ(board.mailbox().claim().count, 0u);
+  HS_EXPECT_FALSE(burst_complete(board.mailbox(), 3000u + 100 * col,
+                                 cfg.gap_timeout_cycles()));
+  HS_EXPECT_EQ(claim(board.mailbox()).count, 0u);
 }
 
 /**
@@ -575,9 +594,9 @@ inline void test_emitter() {
     for (uint32_t t = t0; t < t0 + 100 * kCol; t += kCol / 8) {
       if (e.tick(t, cfg, &aborted))
         m.on_edge(t, cfg.glitch_filter_cycles);
-      if (m.burst_complete(t, cfg.gap_timeout_cycles())) {
+      if (burst_complete(m, t, cfg.gap_timeout_cycles())) {
         bool r = false;
-        if (p.feed(m.claim(), cfg, &f, &r))
+        if (p.feed(claim(m), cfg, &f, &r))
           got = true;
         rejected = rejected || r;
       }

@@ -36,6 +36,14 @@
 
 #include <cstdint>
 
+// Forward declaration of the unit-test accessor that reaches EdgeMailbox's
+// private split consumer path (burst_complete()/claim()); see EdgeMailbox.
+namespace hs_test {
+namespace pov_sync_tests {
+struct EdgeMailboxTestAccess;
+} // namespace pov_sync_tests
+} // namespace hs_test
+
 namespace pov {
 namespace sync {
 
@@ -390,26 +398,6 @@ public:
   }
 
   /**
-   * @brief Consumer: has a burst terminated?
-   * @param now Current timestamp, in cycles.
-   * @param gap_timeout_cycles Quiet time that terminates a burst, in cycles.
-   * @return True if a burst exists and the wire has been quiet past the timeout.
-   */
-  bool burst_complete(uint32_t now, uint32_t gap_timeout_cycles) const {
-    return count_ > 0 && (now - last_cycles_) >= gap_timeout_cycles;
-  }
-
-  /**
-   * @brief Consumer: take the burst and reset for the next one.
-   * @return A snapshot of the terminated burst.
-   */
-  BurstSnapshot claim() {
-    const BurstSnapshot s{count_, first_cycles_, last_cycles_};
-    count_ = 0;
-    return s;
-  }
-
-  /**
    * @brief Consumer: atomically test for a terminated burst and, if present,
    * take it.
    * @param now Current timestamp, in cycles.
@@ -456,6 +444,35 @@ public:
   }
 
 private:
+  // burst_complete() + claim() are the pre-consolidation split consumer path:
+  // a separate completion test and a separate take. try_claim() fused them so
+  // the test and the reset cannot be split around an incoming edge (see its
+  // @details). They survive only because the unit tests exercise the two halves
+  // in isolation; production must use try_claim(). Kept private behind a test
+  // friend so the split-then-reset race cannot be reintroduced at a real call
+  // site by accident.
+  friend struct ::hs_test::pov_sync_tests::EdgeMailboxTestAccess;
+
+  /**
+   * @brief Consumer (test-only): has a burst terminated?
+   * @param now Current timestamp, in cycles.
+   * @param gap_timeout_cycles Quiet time that terminates a burst, in cycles.
+   * @return True if a burst exists and the wire has been quiet past the timeout.
+   */
+  bool burst_complete(uint32_t now, uint32_t gap_timeout_cycles) const {
+    return count_ > 0 && (now - last_cycles_) >= gap_timeout_cycles;
+  }
+
+  /**
+   * @brief Consumer (test-only): take the burst and reset for the next one.
+   * @return A snapshot of the terminated burst.
+   */
+  BurstSnapshot claim() {
+    const BurstSnapshot s{count_, first_cycles_, last_cycles_};
+    count_ = 0;
+    return s;
+  }
+
   uint32_t count_ = 0;
   uint32_t first_cycles_ = 0;
   uint32_t last_cycles_ = 0;
