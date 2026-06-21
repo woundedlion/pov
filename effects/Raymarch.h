@@ -154,6 +154,15 @@ private:
     float spin_angle = anim_t * 1.5f;
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
+    // Per-frame cost is O(NUM_VERTS * max_steps * W * H): one volumetric
+    // ray-march per dodecahedron vertex (NUM_VERTS = 20), each marching up to
+    // max_steps (slider 4..30) shape.distance() evaluations at every covered
+    // pixel. The Scan::Volume bounds_radius cull below trims pixels outside
+    // each torus's screen disc, but the sphere covers a large fraction of the
+    // frame, so this is the heaviest effect in the set alongside Voronoi.
+    // Left unbudgeted (no per-frame cap against W*H); acceptable on the WASM
+    // sim. If a device target ever runs this effect, lower max_steps or cap the
+    // marched pixel count against the frame budget here.
     for (int vi = 0; vi < NUM_VERTS; ++vi) {
       Vector vertex = camera.orient(Solids::Dodecahedron::vertices[vi]);
       Vector view_dir(-vertex.x, -vertex.y, -vertex.z);
