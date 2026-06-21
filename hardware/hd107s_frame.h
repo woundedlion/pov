@@ -99,18 +99,19 @@ public:
 
   /**
    * @brief Applies color → temperature → brightness correction in linear 16-bit
-   *        space, in place, then clamps to [0, 65535].
+   *        space, in place.
    * @param r In/out red channel, already-linear 16-bit (0..65535).
    * @param g In/out green channel, already-linear 16-bit (0..65535).
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
    * @details Shared by load() (CRGB path) and packPixel() (Pixel16 path) so the
    *          two cannot drift. FASTRUN/inline because packPixel() calls it on
-   *          the per-column ISR hot path. The final clamp to 65535 is a hard
-   *          memory-safety bound, not a fidelity tweak: the result indexes
-   *          linear_to_srgb_lut[r] (a 65536-entry table), so an out-of-range r
-   *          would read past the LUT. With the shipped scale-down-only factors
-   *          it never triggers, but a >1.0 correction factor would, and the
-   *          clamp keeps the index in bounds rather than corrupting memory.
+   *          the per-column ISR hot path. No output clamp is needed: factor()
+   *          caps every multiplier at 256 (×1.0), so each (v * f) >> 8 stage with
+   *          v ≤ 65535 yields ≤ v. The result therefore never grows past the
+   *          16-bit input and stays a valid index into linear_to_srgb_lut (a
+   *          65536-entry table). The public API cannot express a >1.0 factor; if
+   *          one were ever added (by widening factor()'s domain), a clamp to
+   *          65535 would become live here and must be reinstated.
    */
   FASTRUN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
     // Color correction
@@ -127,10 +128,6 @@ public:
     r = (r * brightness_) >> 8;
     g = (g * brightness_) >> 8;
     b = (b * brightness_) >> 8;
-
-    if (r > 65535) r = 65535;
-    if (g > 65535) g = 65535;
-    if (b > 65535) b = 65535;
   }
 
   /**
@@ -153,7 +150,7 @@ public:
       uint32_t g = srgb_to_linear_lut[c.g];
       uint32_t b = srgb_to_linear_lut[c.b];
 
-      // 2-4. Color + temperature + brightness correction (linear), clamped.
+      // 2-4. Color + temperature + brightness correction (linear).
       correct(r, g, b);
 
       // 5. Linear 16-bit → sRGB 8-bit (PROGMEM LUT)
@@ -196,7 +193,7 @@ public:
     uint32_t g = p.g;
     uint32_t b = p.b;
 
-    // Color + temperature + brightness correction (all linear 16-bit), clamped.
+    // Color + temperature + brightness correction (all linear 16-bit).
     correct(r, g, b);
 
     // Single linear 16-bit → sRGB 8-bit conversion, packed in wire order
