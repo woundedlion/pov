@@ -89,9 +89,15 @@ public:
 
     for (size_t i = 0; i < sites_buffer.size(); ++i) {
       auto &site = sites_buffer[i];
-      // Rotate pos around axis
+      // Rotate pos around axis. rotate() is length-preserving only in exact
+      // arithmetic; over the unbounded frame count of a long-running art piece
+      // float rounding makes |pos| drift off the unit sphere. Renormalize so the
+      // invariants that rest on unit sites hold indefinitely: nearest-by-
+      // Euclidean == nearest-by-max-dot (|p−s|²=2−2p·s only for unit p,s) and the
+      // border acosf(dot(...)) staying in range. One normalize per site per frame
+      // is negligible against the per-pixel KD-tree query.
       Quaternion q = make_rotation(site.axis, s);
-      site.pos = rotate(site.pos, q);
+      site.pos = rotate(site.pos, q).normalized();
     }
 
     // 2. Render Pixels (KD-tree nearest + second-nearest)
