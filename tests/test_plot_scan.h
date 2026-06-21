@@ -14,6 +14,8 @@
  *   - Plot::Line::sample        : geodesic endpoints unit-length, span, v0/v1;
  *                                 degenerate (zero-length) segment handled.
  *   - ClipRegion::could_intersect_y : y-range cull (constants.h).
+ *   - ClipRegion x-clip (render_x_*, contains_x, x_clip/XClip) : cylindrical
+ *                                 band topologies + contains_x/XClip parity.
  *   - Plot::Ring::calcPoint / Ring::sample : unit-length, angular progress.
  *   - Plot::DistortedRing::sample : angle-addition identity (LUT) matches
  *                                   direct cos/sin within tolerance.
@@ -226,6 +228,108 @@ inline void test_clip_could_intersect_y() {
   // Order independence: arguments swapped give the same answer.
   HS_EXPECT_TRUE(cr.could_intersect_y(60.0f, 50.0f));
   HS_EXPECT_FALSE(cr.could_intersect_y(120.0f, 80.0f));
+}
+
+/**
+ * @brief Asserts contains_x() and !XClip::clipped() agree on every column.
+ * @details The runtime hot loops pick one predicate or the other (filters query
+ *          contains_x() per fragment; the scanline rasterizer precomputes XClip
+ *          once per draw), so any divergence would blank or leak pixels on one
+ *          path but not the other. Parity over [0, w) pins them together.
+ */
+inline void expect_xclip_parity(const ClipRegion &cr) {
+  const ClipRegion::XClip xc = cr.x_clip();
+  for (int x = 0; x < cr.w; ++x) {
+    HS_EXPECT_EQ(cr.contains_x(x), !xc.clipped(x));
+  }
+}
+
+/**
+ * @brief Exercises the cylindrical x-clip predicates (render_x_*, contains_x,
+ *        x_clip/XClip) across every documented band topology.
+ * @details Covers a non-wrapping sub-band, a seam-crossing band (rs > re), the
+ *          wrap-to-full fold (rs == re forcing active == false), and the
+ *          explicit full-width band (x_end - x_start >= w). Each case checks the
+ *          XClip flags and membership at the band edges, then asserts
+ *          contains_x()/XClip parity over all columns. Uses the hardware-like
+ *          w = 96 from the finding so margin (<= 8) exercises a real seam cross.
+ */
+inline void test_clip_x_band_topologies() {
+  constexpr int W = 96;
+
+  auto make = [](int x0, int x1, int margin) {
+    ClipRegion cr;
+    cr.y_start = 0;
+    cr.y_end = MAX_H;
+    cr.x_start = x0;
+    cr.x_end = x1;
+    cr.margin = margin;
+    cr.w = W;
+    cr.h = MAX_H;
+    return cr;
+  };
+
+  // 1) Non-wrapping sub-band: [20,60) expanded by 2 -> render band [18,62).
+  {
+    ClipRegion cr = make(20, 60, 2);
+    HS_EXPECT_EQ(cr.render_x_start(), 18);
+    HS_EXPECT_EQ(cr.render_x_end(), 62);
+    const ClipRegion::XClip xc = cr.x_clip();
+    HS_EXPECT_TRUE(xc.active);
+    HS_EXPECT_FALSE(xc.wrap);
+    HS_EXPECT_EQ(xc.rs, 18);
+    HS_EXPECT_EQ(xc.re, 62);
+    HS_EXPECT_FALSE(cr.contains_x(17)); // just left of band
+    HS_EXPECT_TRUE(cr.contains_x(18));  // first in-band column
+    HS_EXPECT_TRUE(cr.contains_x(61));  // last in-band column
+    HS_EXPECT_FALSE(cr.contains_x(62)); // exclusive right edge
+    expect_xclip_parity(cr);
+  }
+
+  // 2) Seam-crossing band: [2,90) expanded by 8 -> render band wraps to
+  //    [90, w) U [0, 2), i.e. rs (90) > re (2).
+  {
+    ClipRegion cr = make(2, 90, 8);
+    HS_EXPECT_EQ(cr.render_x_start(), 90);
+    HS_EXPECT_EQ(cr.render_x_end(), 2);
+    const ClipRegion::XClip xc = cr.x_clip();
+    HS_EXPECT_TRUE(xc.active);
+    HS_EXPECT_TRUE(xc.wrap);
+    HS_EXPECT_TRUE(cr.contains_x(0));   // past the seam, in-band
+    HS_EXPECT_TRUE(cr.contains_x(1));
+    HS_EXPECT_FALSE(cr.contains_x(2));  // re is exclusive
+    HS_EXPECT_FALSE(cr.contains_x(89)); // interior, clipped
+    HS_EXPECT_TRUE(cr.contains_x(90));  // rs inclusive
+    HS_EXPECT_TRUE(cr.contains_x(95));  // last column before seam
+    expect_xclip_parity(cr);
+  }
+
+  // 3) Wrap-to-full fold: [10,50) with margin 28 makes both edges land on the
+  //    same column (rs == re == 78), so the margin expansion has wrapped to
+  //    cover the full width and XClip must deactivate rather than read as empty.
+  {
+    ClipRegion cr = make(10, 50, 28);
+    HS_EXPECT_EQ(cr.render_x_start(), 78);
+    HS_EXPECT_EQ(cr.render_x_end(), 78);
+    const ClipRegion::XClip xc = cr.x_clip();
+    HS_EXPECT_FALSE(xc.active); // rs == re folds to "no clipping", not empty band
+    HS_EXPECT_TRUE(cr.contains_x(0));
+    HS_EXPECT_TRUE(cr.contains_x(78));
+    HS_EXPECT_TRUE(cr.contains_x(95));
+    expect_xclip_parity(cr);
+  }
+
+  // 4) Explicit full-width band: x_end - x_start >= w short-circuits to "covers
+  //    everything" regardless of margin.
+  {
+    ClipRegion cr = make(0, W, 0);
+    HS_EXPECT_TRUE(cr.is_full());
+    const ClipRegion::XClip xc = cr.x_clip();
+    HS_EXPECT_FALSE(xc.active);
+    HS_EXPECT_TRUE(cr.contains_x(0));
+    HS_EXPECT_TRUE(cr.contains_x(W - 1));
+    expect_xclip_parity(cr);
+  }
 }
 
 // ============================================================================
@@ -664,6 +768,7 @@ inline int run_plot_scan_tests() {
   test_line_sample_antipodal_stable_axis();
 
   test_clip_could_intersect_y();
+  test_clip_x_band_topologies();
   test_edge_row_span_covers_arc_bulge();
 
   test_ring_calc_point_unit_length();
