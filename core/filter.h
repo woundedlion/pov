@@ -923,10 +923,14 @@ public:
     // x0 — a floor-snap, NOT a round-to-nearest (x_m=0.9 still lands on x0).
     // At equator, sin(phi)=1 so behavior is unchanged.
     // (LUT init hoisted to the constructor — see above.)
-    int yi0 = hs::clamp(static_cast<int>(y_i), 0,
-                        TrigLUT<W, H>::H_VIRT - 1);
-    int yi1 = hs::clamp(static_cast<int>(y_i) + 1, 0,
-                        TrigLUT<W, H>::H_VIRT - 1);
+    // Derive the integer row once so the clamped LUT index and the clipped tap
+    // row (y0/y1 below) share one rounding convention; std::modf truncates toward
+    // zero, and splitting this into two static_cast<int>(y_i) sites would let a
+    // future edit to one desync the density-compensation row from the deposited
+    // row.
+    int yi = static_cast<int>(y_i);
+    int yi0 = hs::clamp(yi, 0, TrigLUT<W, H>::H_VIRT - 1);
+    int yi1 = hs::clamp(yi + 1, 0, TrigLUT<W, H>::H_VIRT - 1);
     float sin_phi = TrigLUT<W, H>::sin_phi[yi0]
         + (TrigLUT<W, H>::sin_phi[yi1] - TrigLUT<W, H>::sin_phi[yi0]) * y_m;
     float x_frac = hs::clamp(x_m * sin_phi, 0.0f, 1.0f);
@@ -949,7 +953,7 @@ public:
     // it here stops a clamped tap from defeating it. (Host builds set
     // H_OFFSET = 0, so no out-of-range row is produced and behavior is unchanged
     // — which is why this device-only divergence is invisible to the host suite.)
-    int y0 = static_cast<int>(y_i);
+    int y0 = yi; // same integer row as the LUT index above
     int y1 = y0 + 1;
     int x0 = fast_wrap(static_cast<int>(x_floor), W);
     int x1 = fast_wrap(static_cast<int>(x_floor) + 1, W);
