@@ -133,6 +133,64 @@ inline void test_correct_pipeline() {
 }
 
 /**
+ * @brief Exercises the multi-factor compounding that actually ships and locks in
+ * the dead saturation clamp.
+ * @details test_correct_pipeline only varies brightness with every other factor
+ * at unity, so the non-unity correction + temperature gains the production config
+ * sets (pov_single.h: correction 255,176,240; temperature 255,147,41) are never
+ * asserted together. This case applies those shipped gains and checks both that
+ * the two factors compound (temperature attenuates on top of correction, not
+ * instead of it) and the exact per-channel result, then documents that the
+ * clamp branch in correct() is unreachable for any public factor combination.
+ */
+inline void test_correct_multifactor() {
+  Frame f;
+
+  // Temperature compounds ON TOP of correction, it does not replace it: green
+  // attenuated by correction alone must be brighter than green attenuated by
+  // correction *and* the candle temperature.
+  Frame::setCorrection(255, 176, 240);
+  Frame::setTemperature(255, 255, 255);
+  Frame::setBrightness(255);
+  uint32_t gr = 0, gg = 65535, gb = 0;
+  f.correct(gr, gg, gb);
+  const uint32_t g_corr_only = gg;
+
+  Frame::setTemperature(255, 147, 41);
+  uint32_t r = 65535, g = 65535, b = 65535;
+  f.correct(r, g, b);
+  HS_EXPECT_LT(g, g_corr_only); // temperature further dims green: factors compound
+
+  // Exact shipped scaling. factor(f) stores f+1, so each stage is (v * (f+1)) >> 8;
+  // red (255,255 → ×256/256) passes through, while the warm-white correction plus
+  // candle temperature drive green and especially blue far down (R > G > B).
+  //   R: 65535                                                     = 65535
+  //   G: ((65535*177>>8)=45311 *148>>8)=26195  *256>>8             = 26195
+  //   B: ((65535*241>>8)=61695 * 42>>8)=10121  *256>>8             = 10121
+  HS_EXPECT_EQ(r, 65535u);
+  HS_EXPECT_EQ(g, 26195u);
+  HS_EXPECT_EQ(b, 10121u);
+  HS_EXPECT_LT(b, g); // blue is the most attenuated channel under candle white
+
+  // Dead-clamp invariant: the largest public factor is 255, which factor() maps
+  // to the internal multiplier 256 = exact unity, so every stage multiplies by at
+  // most 256 before the >>8 — output can never exceed the input, hence never
+  // exceeds 65535. Drive all six gains and brightness to their max with the
+  // brightest input and confirm the result lands exactly at the ceiling without
+  // the clamp ever having to fire.
+  Frame::setCorrection(255, 255, 255);
+  Frame::setTemperature(255, 255, 255);
+  Frame::setBrightness(255);
+  uint32_t mr = 65535, mg = 65535, mb = 65535;
+  f.correct(mr, mg, mb);
+  HS_EXPECT_EQ(mr, 65535u); // max factors reach but never breach 65535
+  HS_EXPECT_EQ(mg, 65535u);
+  HS_EXPECT_EQ(mb, 65535u);
+
+  reset_correction();
+}
+
+/**
  * @brief Verifies packPixel() emits [0xFF][B][G][R] order and writes only the
  * targeted pixel slot (each primary lights its own byte, neighbors untouched).
  */
