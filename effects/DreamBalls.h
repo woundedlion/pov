@@ -374,8 +374,12 @@ private:
     // num_copies is a float param (slider/preset), but it is a count: hoist it
     // to an int bound so the loop compares int-to-int instead of promoting the
     // counter to float each iteration. Identical for the integer values it ever
-    // holds (presets and the slider's whole-number stops).
-    const int num_copies = static_cast<int>(p.num_copies);
+    // holds (presets and the slider's whole-number stops). Clamp to >= 1 so the
+    // "at least one shell" contract and the i/num_copies divisor hold even if the
+    // registered min (currently 1.0) is ever lowered into [0, 1) — without it a
+    // sub-1 value would truncate the bound to 0 and silently draw nothing.
+    const int num_copies_raw = static_cast<int>(p.num_copies);
+    const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
     for (int i = 0; i < num_copies; ++i) {
       float offset = (static_cast<float>(i) / num_copies) * 2 * PI_F;
       update_displaced_mesh(base, target, tangents, p, offset);
