@@ -856,6 +856,43 @@ inline void test_angular_repeat_creates_copies() {
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
+/**
+ * @brief Verifies AngularRepeat's child UV (t) is sector-local, not global.
+ * @details distance() folds p into one sector before evaluating the child, so
+ *   the child's azimuthal t resets every sector. A point and its copy one full
+ *   sector away fold to the same point and thus share a t, even though the
+ *   un-repeated ring reports two distinct global azimuths for them. This pins
+ *   the documented sector-local convention so a future change is caught.
+ */
+inline void test_angular_repeat_t_is_sector_local() {
+  Basis b = equator_basis(); // ring axis +Y, azimuth measured in the XZ plane
+  SDF::Ring ring(b, 1.0f, 0.1f);
+  const int reps = 4;
+  SDF::AngularRepeat<SDF::Ring> rep(ring, reps, Vector(0, 1, 0));
+
+  // A point on the equatorial ring at 30° azimuth (inside sector 0, away from a
+  // boundary), and the same point rotated by exactly one sector (2π/reps).
+  float az = PI_F / 6.0f;
+  Vector p(cosf(az), 0.0f, sinf(az));
+  Quaternion q_sector = make_rotation(Vector(0, 1, 0), 2 * PI_F / reps);
+  Vector p2 = rotate(p, q_sector);
+
+  // The un-repeated ring sees two distinct global azimuths exactly one sector
+  // apart (sign depends on rotation handedness, so compare the wrapped gap).
+  float t_global_1 = ring.distance(p).t;
+  float t_global_2 = ring.distance(p2).t;
+  float dg = t_global_2 - t_global_1;
+  dg -= floorf(dg); // fractional part in [0,1)
+  HS_EXPECT_NEAR(std::min(dg, 1.0f - dg), 1.0f / reps, 1e-3f);
+
+  // The repeated shape folds both into the same sector → identical, sector-local
+  // t (and it equals the sector-0 azimuth, not p2's global azimuth).
+  float t_rep_1 = rep.distance(p).t;
+  float t_rep_2 = rep.distance(p2).t;
+  HS_EXPECT_NEAR(t_rep_1, t_rep_2, 1e-3f);
+  HS_EXPECT_NEAR(t_rep_1, t_global_1, 1e-3f);
+}
+
 // ============================================================================
 // Interval-cull conservativeness  ("interval cull == full-row scan")
 //
@@ -1232,6 +1269,7 @@ inline int run_sdf_tests() {
 
   test_angular_repeat_matches_base_at_zero_angle();
   test_angular_repeat_creates_copies();
+  test_angular_repeat_t_is_sector_local();
 
   test_cull_covers_interior_over_orientation_grid();
   test_angular_repeat_non_y_axis_cull_covers_copies();

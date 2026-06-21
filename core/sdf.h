@@ -1219,6 +1219,13 @@ template <typename A, typename B> struct Intersection {
  * @tparam Shape The child shape type being repeated.
  * @details Folds the azimuthal angle to create N copies of a shape around an
  * arbitrary axis for constant cost (a single distance evaluation).
+ *
+ * UV semantics: because distance() evaluates the child at the *folded* point,
+ * the child's UV registers (DistanceResult.t / Fragment::v0, the azimuth for
+ * rings) are sector-local, not global — t measures azimuth within one sector
+ * and resets discontinuously at every sector boundary. This is intentional
+ * (each copy reuses the child's full UV range); shaders keying off t see the
+ * per-copy azimuth, not the global one.
  */
 template <typename Shape> struct AngularRepeat {
   const Shape &shape; /**< Child shape being repeated. */
@@ -1302,7 +1309,9 @@ template <typename Shape> struct AngularRepeat {
    * @brief Folds p into one sector and evaluates the child, writing into res.
    * @tparam ComputeUVs Forwarded to the child's distance().
    * @param p Point on sphere (normalized).
-   * @param res Output result of the child at the folded point.
+   * @param res Output result of the child at the folded point. Note res's UV
+   *        registers (t / azimuth) are sector-local: the child sees the folded
+   *        point, so t spans one sector and resets at each sector boundary.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
