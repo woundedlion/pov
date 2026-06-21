@@ -227,6 +227,61 @@ inline void test_arena_generation_bumps() {
 }
 #endif
 
+/**
+ * @brief Verifies configure_arenas() repartitions the global block into three
+ *        arenas of exactly the requested sizes, packed contiguously and
+ *        non-overlapping within the block.
+ * @details The death harness covers only the OVER-SUBSCRIPTION trap
+ *          (case_arena_oversubscribed); a SUCCESSFUL repartition — the mechanism
+ *          the README markets for an effect to claim its own memory split — was
+ *          otherwise unexercised. Sizes are multiples of max_align_t so the
+ *          inter-arena align_up() boundaries are no-ops and the three arenas tile
+ *          the block exactly, which lets the bases be checked by exact arithmetic.
+ *          Each base is recovered via a 1-byte, align-1 allocation (padding 0, so
+ *          it returns buffer+0). Restores the default split on exit so later tests
+ *          (and the effect smoke passes) see the canonical partition.
+ */
+inline void test_configure_arenas_repartition() {
+  constexpr size_t P = 60 * 1024; // multiples of alignof(max_align_t) so the
+  constexpr size_t A = 8 * 1024;  // boundary align_up()s are no-ops and the
+  constexpr size_t B = 4 * 1024;  // three arenas pack contiguously, no gaps.
+  static_assert(P % alignof(std::max_align_t) == 0 &&
+                    A % alignof(std::max_align_t) == 0 &&
+                    B % alignof(std::max_align_t) == 0,
+                "test sizes must be max_align multiples for the contiguity check");
+  static_assert(P + A + B <= GLOBAL_ARENA_SIZE, "test split must fit the block");
+
+  configure_arenas(P, A, B);
+
+  // Each arena reports exactly the requested capacity and starts empty.
+  HS_EXPECT_EQ(persistent_arena.get_capacity(), P);
+  HS_EXPECT_EQ(scratch_arena_a.get_capacity(), A);
+  HS_EXPECT_EQ(scratch_arena_b.get_capacity(), B);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), (size_t)0);
+  HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
+  HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
+
+  // Recover each base via a 1-byte align-1 allocation (zero padding -> buffer+0).
+  auto *pbase = static_cast<uint8_t *>(persistent_arena.allocate(1, 1));
+  auto *abase = static_cast<uint8_t *>(scratch_arena_a.allocate(1, 1));
+  auto *bbase = static_cast<uint8_t *>(scratch_arena_b.allocate(1, 1));
+
+  // Strictly ordered and contiguous: each arena's [base, base+cap) ends exactly
+  // where the next begins, so the partitions tile the block with no overlap and
+  // no gap. (All three bases live in the one global block, so the pointer
+  // comparisons are well-defined.)
+  HS_EXPECT_EQ(abase, pbase + P);
+  HS_EXPECT_EQ(bbase, abase + A);
+  // The whole partition fits inside the global block.
+  HS_EXPECT_TRUE(bbase + B <= pbase + GLOBAL_ARENA_SIZE);
+
+  // Leave the canonical split in place for subsequent tests.
+  configure_arenas_default();
+  HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
+  HS_EXPECT_EQ(scratch_arena_a.get_capacity(), DEFAULT_SCRATCH_A_SIZE);
+  HS_EXPECT_EQ(scratch_arena_b.get_capacity(), DEFAULT_SCRATCH_B_SIZE);
+}
+
 // ============================================================================
 // TriangularBitset
 // ============================================================================
@@ -830,6 +885,7 @@ inline int run_memory_tests() {
 #ifndef NDEBUG
   test_arena_generation_bumps();
 #endif
+  test_configure_arenas_repartition();
 
   test_tribitset_sizes();
   test_tribitset_clear_and_test();
