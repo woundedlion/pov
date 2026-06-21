@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <numeric>
+
 #include "core/effects_engine.h"
 
 /**
@@ -29,6 +31,14 @@ public:
   // (= PRESET_FRAMES - 1) is coprime and maximises the beat between the cycles.
   static constexpr int SHAPE_FRAMES = 240; // shape-cycle period, coprime with PRESET_FRAMES
   static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES; // 80-frame hold
+
+  // Lock the coprimality the comment above relies on: if a future edit to either
+  // period reintroduces a common factor, the two cycles re-lock and the drift is
+  // lost. Trap that at compile time rather than shipping a silently re-phased
+  // carousel (the smoke harness cannot observe the lost beat).
+  static_assert(std::gcd(SHAPE_FRAMES, PRESET_FRAMES) == 1,
+                "SHAPE_FRAMES and PRESET_FRAMES must stay coprime so the shape "
+                "and preset cycles drift out of phase instead of locking");
 
   /**
    * @brief Wires up palette, noise, orientation, and the filter pipeline.

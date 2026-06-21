@@ -8,6 +8,15 @@
 #include <array>
 #include "core/effects_engine.h"
 
+// Forward declaration of the unit-test accessor (tests/test_effects.h) that
+// reaches closing_domain and the function table to verify each authored
+// Lissajous entry closes (path_fn(domain) == path_fn(0)).
+namespace hs_test {
+namespace effects_tests {
+struct CometsWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Comet whose head traces a spherical Lissajous curve, dragging a
  *        fading trail behind it.
@@ -140,6 +149,34 @@ public:
   }
 
 private:
+  // Test seam: reaches the closing_domain snap and the function table so the
+  // unit test can assert path_fn(domain) == path_fn(0) for every entry — the
+  // closing-loop invariant the smoke harness cannot observe.
+  friend struct ::hs_test::effects_tests::CometsWhiteBox;
+
+  /**
+   * @brief Snaps an authored domain to the nearest length that closes the curve.
+   * @param config The Lissajous parameters whose domain is being snapped.
+   * @return The closing domain: lissajous(m1, m2, a, closed_domain) equals the
+   *         t=0 start (0,1,0) up to float error.
+   * @details A spherical Lissajous point is (sin(m2 t)*cos(...), cos(m2 t),
+   *          sin(m2 t)*sin(...)), so it returns to the t=0 start (0,1,0) only when
+   *          sin(m2 t)=0 and cos(m2 t)=1, i.e. when m2*domain is an exact multiple
+   *          of 2*PI (the m1/phase terms drop out once sin(m2 t)=0). The authored
+   *          domains miss that by up to ~1.4 deg. Snapping to the nearest closing
+   *          length is a <0.3% domain nudge, invisible to the shape. Floor the
+   *          cycle count at 1: when m2*domain < PI the round() collapses to 0,
+   *          which would zero the result and freeze the head at path_fn(0). All 12
+   *          current entries clear the threshold, but the table is authored data
+   *          that gets extended.
+   */
+  static float closing_domain(const LissajousParams &config) {
+    float closing_cycles = std::round(config.m2 * config.domain / (2 * PI_F));
+    if (closing_cycles < 1.0f)
+      closing_cycles = 1.0f;
+    return 2 * PI_F * closing_cycles / config.m2;
+  }
+
   /**
    * @brief Rebuilds the path function from the current function table entry.
    * @details Snaps the traversal length so the spherical Lissajous curve
@@ -148,27 +185,15 @@ private:
    */
   void update_path() {
     LissajousParams config = functions[cur_function_idx];
-    // Snap the traversal length so the curve closes exactly. A spherical
-    // Lissajous point is (sin(m2 t)*cos(...), cos(m2 t), sin(m2 t)*sin(...)), so
-    // it returns to the t=0 start (0,1,0) only when sin(m2 t)=0 and cos(m2 t)=1,
-    // i.e. when m2*domain is an exact multiple of 2*PI (the m1/phase terms drop
-    // out once sin(m2 t)=0). The authored domains miss that by up to ~1.4 deg.
-    // Motion advances the head from path_fn(0) and then hard-resets to the start
-    // anchor every cycle (drift correction); when the endpoint doesn't coincide
-    // with the start, that reset teleports the head by the gap — a small jump
-    // that reads as a path discontinuity, most visibly right when the function
-    // switches. Snapping to the nearest closing length (a <0.3% domain nudge,
-    // invisible to the shape) makes path_fn(domain) == path_fn(0) so the reset
-    // is a no-op and the trace stays continuous across loops and switches.
-    // Number of whole m2-cycles spanned by the authored domain. Floor at 1: when
-    // m2*domain < PI the round() collapses to 0, which would zero closed_domain
-    // and freeze the head at path_fn(0). All 12 current entries clear the
-    // threshold, but the table is authored data that gets extended.
-    float closing_cycles =
-        std::round(config.m2 * config.domain / (2 * PI_F));
-    if (closing_cycles < 1.0f)
-      closing_cycles = 1.0f;
-    float closed_domain = 2 * PI_F * closing_cycles / config.m2;
+    // Snap the traversal length so the curve closes exactly (closing_domain
+    // carries the geometry). Motion advances the head from path_fn(0) and then
+    // hard-resets to the start anchor every cycle (drift correction); when the
+    // endpoint doesn't coincide with the start, that reset teleports the head by
+    // the gap — a small jump that reads as a path discontinuity, most visibly
+    // right when the function switches. The snap makes path_fn(domain) ==
+    // path_fn(0) so the reset is a no-op and the trace stays continuous across
+    // loops and switches.
+    float closed_domain = closing_domain(config);
     // Capture only the three scalars lissajous() needs plus closed_domain (16 B
     // total). Capturing the whole LissajousParams (16 B) + closed_domain (4 B)
     // is 20 B, overflowing PlotFn's Fn<Vector(float), 16> inline capacity — a
@@ -221,8 +246,11 @@ private:
   Orientation<> orientation; /**< World orientation walked by the RandomWalk. */
   GenerativePalette palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
   BakedPalette baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
-  /** @brief Function table of Lissajous parameters cycled through over time. */
-  std::array<LissajousParams, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},
+  /** @brief Function table of Lissajous parameters cycled through over time.
+   *  @details Immutable authored data, so it is `static constexpr` — shared
+   *           across instances (no per-effect copy) and readable without an
+   *           instance (the closing-loop unit test reads it directly). */
+  static constexpr std::array<LissajousParams, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},
                                                 {6.06f, 1.0f, 0, 2 * PI_F},
                                                 {6.02f, 4.01f, 0, 3.132f},
                                                 {46.62f, 62.16f, 0, 0.404f},

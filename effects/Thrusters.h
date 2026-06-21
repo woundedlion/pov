@@ -6,6 +6,15 @@
 #pragma once
 #include "core/effects_engine.h"
 
+// Forward declaration of the unit-test accessor (tests/test_effects.h) that
+// pins warp_decay's endpoint invariants; the smoke harness only proves the
+// effect renders, not that the warp relaxes to exactly 0 at t=1.
+namespace hs_test {
+namespace effects_tests {
+struct ThrustersWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Rotating, palette-shaded distorted ring that periodically "fires".
  * @tparam W Canvas width in pixels.
@@ -144,6 +153,25 @@ private:
 
   StaticCircularBuffer<ThrusterContext, 16> thrusters; /**< Live thruster ring slots (FIFO). */
 
+  // Test seam: reaches the private warp_decay endpoint invariants.
+  friend struct ::hs_test::effects_tests::ThrustersWhiteBox;
+
+  /**
+   * @brief Warp amplitude decay curve over a fire's life, t in [0, 1].
+   * @param t Normalized progress through the warp Mutation, 0 at fire, 1 at end.
+   * @return Warp amplitude: exactly 0.7 at t=0, decaying to exactly 0 at t=1.
+   * @details A bare 0.7*exp(-2t) bottoms out at 0.7*e^-2 ~= 0.095 and, once
+   *          done() freezes it, leaves a residual wobble until the next fire; the
+   *          shift-and-renormalize below lands it on zero at t=1 so the ring
+   *          fully relaxes between fires. Exposed as a named static (rather than
+   *          an inline lambda) so the t=0/t=1 endpoint invariants can be pinned
+   *          by a unit test the smoke harness cannot see.
+   */
+  static float warp_decay(float t) {
+    constexpr float kFloor = 0.1353352832f; // expf(-2)
+    return 0.7f * (expf(-2.0f * t) - kFloor) / (1.0f - kFloor);
+  }
+
   /**
    * @brief Handles a fire event.
    * @details Picks a random warp phase, computes an opposed pair of thrust
@@ -166,16 +194,8 @@ private:
                                       warp_phase + PI_F);
 
     // warp: decay from peak (0.7) to exactly 0 over the mutation's life so the
-    // ring fully relaxes between fires. A bare 0.7*exp(-2t) bottoms out at
-    // 0.7*e^-2 ~= 0.095 and, once done() freezes it, leaves a residual wobble
-    // until the next fire; the shift-and-renormalize lands it on zero at t=1.
-    warp_anim = Animation::Mutation(
-        amplitude,
-        [](float t) {
-          constexpr float kFloor = 0.1353352832f; // expf(-2)
-          return 0.7f * (expf(-2.0f * t) - kFloor) / (1.0f - kFloor);
-        },
-        32, ease_mid);
+    // ring fully relaxes between fires (warp_decay carries the rationale).
+    warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_mid);
 
     // spin
     Vector thrust_axis =

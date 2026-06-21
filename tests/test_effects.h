@@ -606,6 +606,95 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
   HS_EXPECT_EQ(run(true), 0);  // paused: re-spawn fired but held preset 0
 }
 
+// ---------------------------------------------------------------------------
+// In-code-flagged numeric invariants with no oracle in the smoke harness
+// ---------------------------------------------------------------------------
+//
+// The smoke/determinism passes only prove each effect renders something
+// reproducibly; they cannot detect a wrong-but-still-non-black result. These
+// white-box seams pin the fragile numeric invariants the effects flag in-code:
+// a regression in any of them renders fine and slips past the generic harness.
+//
+// (MeshFeedback's SHAPE_FRAMES/PRESET_FRAMES coprimality — the fourth such
+// invariant — is locked at compile time by a static_assert in the effect, so
+// it needs no runtime case here: instantiating the effect in the smoke pass
+// already checks it.)
+
+/**
+ * @brief White-box accessor for Comets' Lissajous-loop closing snap.
+ * @details Befriended in effects/Comets.h. Reaches the private closing_domain()
+ *          snap and the authored function table to verify every entry closes —
+ *          path_fn(domain) == path_fn(0) — so the per-cycle drift reset never
+ *          teleports the head. A wrong snap still renders a (discontinuous)
+ *          curve, invisible to the smoke harness.
+ */
+struct CometsWhiteBox {
+  /**
+   * @brief Verifies every authored function table entry closes its loop.
+   * @details For each entry the snapped endpoint must coincide with the t=0
+   *          start (0,1,0), and the snap must stay positive (the floor-at-1
+   *          guard keeps the head moving rather than freezing at path_fn(0)).
+   */
+  static void check_paths_close() {
+    using C = Comets<kW, kH>;
+    int idx = 0;
+    for (const LissajousParams &cfg : C::functions) {
+      const float cd = C::closing_domain(cfg);
+      HS_EXPECT_GT(cd, 0.0f); // floor-at-1 keeps the head moving
+      const Vector start = lissajous(cfg.m1, cfg.m2, cfg.a, 0.0f);
+      const Vector end = lissajous(cfg.m1, cfg.m2, cfg.a, cd);
+      const float gap = (end - start).magnitude();
+      if (gap > 1e-3f)
+        std::printf("  COMETS entry %d does not close: gap=%.6f\n", idx,
+                    static_cast<double>(gap));
+      HS_EXPECT_LT(gap, 1e-3f);
+      ++idx;
+    }
+  }
+};
+
+/**
+ * @brief White-box accessor for the Thrusters warp-decay endpoints.
+ * @details Befriended in effects/Thrusters.h. Reaches the private warp_decay()
+ *          curve to pin its shift-and-renormalized endpoints: a bare
+ *          0.7*exp(-2t) would bottom out at ~0.095 and leave a residual wobble,
+ *          which still renders and so passes the smoke harness.
+ */
+struct ThrustersWhiteBox {
+  /**
+   * @brief Verifies warp_decay peaks at 0.7 at t=0 and relaxes to exactly 0 at t=1.
+   */
+  static void check_warp_endpoints() {
+    using T = Thrusters<kW, kH>;
+    HS_EXPECT_NEAR(T::warp_decay(0.0f), 0.7f, 1e-6f); // peak at fire
+    HS_EXPECT_NEAR(T::warp_decay(1.0f), 0.0f, 1e-6f); // full relaxation by end
+  }
+};
+
+/**
+ * @brief White-box accessor for RingShower's radius easing endpoints.
+ * @details Befriended in effects/RingShower.h. Reaches the private Ring type to
+ *          pin its age+1 convention: the ring must reach RADIUS_MAX on its final
+ *          visible frame (age+1 == life) and render a non-zero first step rather
+ *          than radius 0. An off-by-one in the convention still renders a ring.
+ */
+struct RingShowerWhiteBox {
+  /**
+   * @brief Verifies radius_at hits RADIUS_MAX on the final frame and is non-zero
+   *        on the first.
+   */
+  static void check_radius_endpoints() {
+    using RS = RingShower<kW, kH>;
+    typename RS::Ring ring;
+    ring.life = 50;
+    ring.age = ring.life - 1; // final visible frame: age+1 == life -> t == 1
+    HS_EXPECT_NEAR(ring.radius_at(), RS::Ring::RADIUS_MAX, 1e-5f);
+    ring.age = 0; // first frame: one eased step in, not radius 0
+    HS_EXPECT_GT(ring.radius_at(), 0.0f);
+    HS_EXPECT_LT(ring.radius_at(), RS::Ring::RADIUS_MAX);
+  }
+};
+
 /**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -622,6 +711,9 @@ inline int run_effects_tests() {
   test_gs_evolution_stays_bounded();
   test_dreamballs_preset_cycle_bookkeeping();
   test_dreamballs_respawn_fires_and_honors_pause();
+  CometsWhiteBox::check_paths_close();
+  ThrustersWhiteBox::check_warp_endpoints();
+  RingShowerWhiteBox::check_radius_endpoints();
 
   // Smoke every registered effect. The list is GENERATED from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
