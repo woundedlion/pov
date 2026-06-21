@@ -468,6 +468,74 @@ inline void test_oklch_to_pixel_bounded() {
 }
 
 // ============================================================================
+// Chroma-reduction gamut mapping
+// ============================================================================
+
+/**
+ * @brief Wraps a hue difference into (-PI, PI] for circular comparison.
+ * @param dh Raw hue difference in radians.
+ * @return The equivalent difference in (-PI, PI].
+ */
+inline float wrap_hue_delta(float dh) {
+  while (dh > PI_F) dh -= 2.0f * PI_F;
+  while (dh < -PI_F) dh += 2.0f * PI_F;
+  return dh;
+}
+
+/**
+ * @brief Verifies the chroma-reduction map holds hue and lightness in-gamut.
+ * @details A deeply out-of-gamut OKLCH (chroma far past the sRGB cusp at this L)
+ *          must map back inside the cube by SHRINKING chroma — not by the
+ *          per-channel RGB clip that twists hue on saturated colors. For a spread
+ *          of hues: assert the direct conversion really is out of gamut (so the
+ *          map is exercised), then assert the mapped color is in gamut, its L and
+ *          hue match the input within tolerance, and its chroma is strictly
+ *          smaller but still positive.
+ */
+inline void test_gamut_clip_preserves_hue() {
+  const float L = 0.65f, C = 0.40f;
+  for (float h : {0.3f, 1.2f, 2.5f, -1.0f, -2.6f}) {
+    OKLab lab = oklch_to_oklab({L, C, h});
+
+    // Precondition: this chroma is unreachable in sRGB at this L, so the search
+    // actually runs.
+    float r0, g0, b0;
+    oklab_to_linear_rgb(lab, r0, g0, b0);
+    HS_EXPECT_FALSE(linear_rgb_in_gamut(r0, g0, b0));
+
+    OKLab mapped = gamut_clip_preserve_chroma(lab);
+    float r, g, b;
+    oklab_to_linear_rgb(mapped, r, g, b);
+    HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+
+    OKLCH out = oklab_to_oklch(mapped);
+    HS_EXPECT_NEAR(out.L, L, 1e-4f);                       // lightness untouched
+    HS_EXPECT_NEAR(wrap_hue_delta(out.h - h), 0.0f, 1e-3f); // hue held
+    HS_EXPECT_LT(out.C, C);                                 // chroma reduced
+    HS_EXPECT_GT(out.C, 0.0f);                              // ...but not crushed
+  }
+}
+
+/**
+ * @brief Verifies oklch_to_pixel routes out-of-gamut colors through the
+ *        chroma-reduction map, holding hue where a per-channel clip would not.
+ * @details Realizes a past-cusp OKLCH as a Pixel, reads the realized color back
+ *          through the exact forward transform, and checks the hue survived the
+ *          16-bit quantization. A per-channel clip on this color would swing the
+ *          hue well past the tolerance toward the nearest primary.
+ */
+inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
+  const float L = 0.62f, C = 0.42f, h = 0.9f;
+  Pixel p = oklch_to_pixel({L, C, h});
+
+  float r = p.r / 65535.0f, g = p.g / 65535.0f, b = p.b / 65535.0f;
+  OKLCH got = oklab_to_oklch(linear_rgb_to_oklab(r, g, b));
+  // Loose tol: 16-bit quantization plus the search epsilon perturb the realized
+  // hue slightly, but nowhere near a clip's primary-ward swing.
+  HS_EXPECT_NEAR(wrap_hue_delta(got.h - h), 0.0f, 2e-2f);
+}
+
+// ============================================================================
 // fast_cbrt + perceptual hue_rotate (OKLab)
 // ============================================================================
 
@@ -1135,6 +1203,8 @@ inline int run_color_tests() {
   test_lerp_oklch_endpoints();
   test_lerp_oklch_extrapolation_clamped();
   test_oklch_to_pixel_bounded();
+  test_gamut_clip_preserves_hue();
+  test_oklch_to_pixel_holds_hue_out_of_gamut();
 
   test_fast_cbrt_accuracy();
   test_hue_rotate_preserves_gray();

@@ -582,6 +582,74 @@ inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
 }
 
 /**
+ * @brief Tests whether a linear-RGB triple lies inside the [0,1] display cube.
+ * @param r Linear red.
+ * @param g Linear green.
+ * @param b Linear blue.
+ * @return True if every channel is within [0,1] (with a small epsilon slack).
+ * @details The slack absorbs the float rounding that can leave an in-gamut color
+ * a hair past 1.0 after the OKLab inverse, so a color in gamut up to ULP noise
+ * takes the cheap clamp path rather than spending a chroma search.
+ */
+inline bool linear_rgb_in_gamut(float r, float g, float b) {
+  constexpr float lo = -1e-4f, hi = 1.0f + 1e-4f;
+  return r >= lo && r <= hi && g >= lo && g <= hi && b >= lo && b <= hi;
+}
+
+/**
+ * @brief Maps an out-of-gamut OKLab color into the sRGB cube by reducing chroma,
+ * holding hue and lightness fixed (Ottosson's preserve-chroma projection).
+ * @param lab Source color, assumed out of gamut (callers gate on
+ * linear_rgb_in_gamut) and with L in [0,1].
+ * @return An OKLab color with the same L and hue but chroma scaled down until it
+ * is just inside the display cube.
+ * @details Binary-searches a uniform scale s in [0,1] on the (a,b) chroma axes.
+ * Scaling (a,b) uniformly leaves hue = atan2(b,a) and L untouched and shrinks
+ * chroma C = hypot(a,b) by s, so this is a pure chroma reduction. s = 0 is the
+ * achromatic color at L — always in gamut for L in [0,1], since the gray axis
+ * maps to r=g=b=L^3 — which gives the search a guaranteed in-gamut floor; s = 1
+ * is the out-of-gamut input. 16 bisections pin s to < 2^-16, below one 16-bit
+ * output quantum. This is the chroma-preserving alternative to a per-channel RGB
+ * clip, which twists hue on saturated colors — the drift that accumulates in the
+ * hue-rotate feedback loop. Cold path only: the per-pixel hot path reaches it
+ * solely for the rare pixel that leaves gamut.
+ */
+inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
+  float lo = 0.0f, hi = 1.0f;
+  for (int i = 0; i < 16; ++i) {
+    float mid = 0.5f * (lo + hi);
+    float r, g, b;
+    oklab_to_linear_rgb({lab.L, lab.a * mid, lab.b * mid}, r, g, b);
+    if (linear_rgb_in_gamut(r, g, b))
+      lo = mid; // still inside: push the scale up
+    else
+      hi = mid; // outside: pull it back
+  }
+  // Return the largest known-in-gamut scale (lo), never hi.
+  return {lab.L, lab.a * lo, lab.b * lo};
+}
+
+/**
+ * @brief OKLab -> linear RGB with chroma-reduction gamut mapping off the fast
+ * path.
+ * @param lab Source color in OKLab space.
+ * @param r Out: linear red in [0,1] (may sit a hair past the bound; callers
+ * still clamp).
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ * @details Converts directly first; only when the result leaves the [0,1] cube
+ * does it pay for gamut_clip_preserve_chroma and re-convert. In-gamut colors (the
+ * overwhelming majority) cost one matrix mul plus the gate test — no search — so
+ * this is a drop-in for oklab_to_linear_rgb on paths that want hue held under
+ * clipping without taxing the common case.
+ */
+inline void oklab_to_linear_rgb_gamut(OKLab lab, float &r, float &g, float &b) {
+  oklab_to_linear_rgb(lab, r, g, b);
+  if (!linear_rgb_in_gamut(r, g, b))
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
+}
+
+/**
  * @brief Quantizes a [0,1] linear channel to a 16-bit Pixel component.
  * @param v Linear channel value; clamped to [0, 1].
  * @return The channel as a 16-bit value in [0, 65535].
@@ -622,9 +690,14 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   float A2 = A * ca - B * sa;
   float B2 = A * sa + B * ca;
 
-  // OKLab -> linear RGB (exact inverse) -> 16-bit linear, gamut-clamped.
+  // OKLab -> linear RGB (exact inverse) -> 16-bit linear. Off the hot path
+  // (only the rare pixel that leaves gamut), reduce chroma to hold hue and L
+  // instead of letting the per-channel clamp below twist the hue — this is what
+  // keeps the hue-rotate feedback loop from drifting saturated colors frame over
+  // frame. In-gamut pixels (the common case) skip the search and fall straight
+  // through to the clamp.
   float nr, ng, nb;
-  oklab_to_linear_rgb({L, A2, B2}, nr, ng, nb);
+  oklab_to_linear_rgb_gamut({L, A2, B2}, nr, ng, nb);
 
   Color4 result = c;
   // Round, don't truncate: float_to_pixel16 applies the +0.5f rule (and the
@@ -688,7 +761,11 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
  */
 inline Pixel oklch_to_pixel(OKLCH lch) {
   float r, g, b;
-  oklab_to_linear_rgb(oklch_to_oklab(lch), r, g, b);
+  // Chroma-reduce rather than per-channel clip when the OKLCH color is past the
+  // sRGB cusp (off the fast path: in-gamut stops skip the search), so a vivid
+  // palette color keeps its hue and lightness instead of clipping toward a
+  // primary.
+  oklab_to_linear_rgb_gamut(oklch_to_oklab(lch), r, g, b);
   return Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
 }
 
@@ -755,7 +832,10 @@ inline CPixel lerp_oklch_srgb(const CPixel &c1, const CPixel &c2, float t) {
   OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
   OKLCH result = lerp_oklch(a, b, t);
   float r, g, b_val;
-  oklab_to_linear_rgb(oklch_to_oklab(result), r, g, b_val);
+  // Chroma-reduce out-of-gamut interpolants (off the fast path) so the blend
+  // holds hue/lightness rather than clipping toward a primary; in-gamut blends
+  // pay only the gate test.
+  oklab_to_linear_rgb_gamut(oklch_to_oklab(result), r, g, b_val);
   return CPixel(
     static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(r, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
     static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(g, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
