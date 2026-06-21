@@ -314,7 +314,7 @@ inline void test_determinism_complex_islamic() {
 // resetting between ops (see the SCRATCH ARENA CONTRACT in core/conway.h), so a
 // whole recipe chain accumulates into that pair and its peak is the recipe's
 // high-water mark. The COMPOSITION POLARITY note in core/conway.h calls out
-// cube_relax_bevel33_relax_hk68_expand5 as the one recipe whose relax()-after-
+// cube_relax_bevel33_relax_hk675_expand5 as the one recipe whose relax()-after-
 // bevel() runs input and output on the same arena; that "measured to fit" was a
 // comment, and this test makes it an automated guard. A recipe edit or a Conway
 // operator-table change that pushes peak scratch over budget would otherwise
@@ -358,7 +358,7 @@ inline void check_high_water_for_recipe(const Solids::Entry &entry) {
 /**
  * @brief Verifies every Islamic-pattern recipe fits IslamicStars' 120 KB scratch
  *        split — the configuration these recipes actually ship through.
- * @details cube_relax_bevel33_relax_hk68_expand5 (the recipe the polarity note
+ * @details cube_relax_bevel33_relax_hk675_expand5 (the recipe the polarity note
  *          flags as the one running an op on a non-alternating arena) is the
  *          first Islamic entry and so is covered by this sweep.
  */

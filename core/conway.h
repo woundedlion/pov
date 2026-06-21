@@ -365,7 +365,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // FOLLOWING a composed op runs with its input and output on the same arena
 // (no asymmetric split) for that one step before alternation self-restores. In
 // the shipping recipes this happens once — the relax() after bevel() in
-// IslamicStarPatterns::cube_relax_bevel33_relax_hk68_expand5 — and is
+// IslamicStarPatterns::cube_relax_bevel33_relax_hk675_expand5 — and is
 // covered by a high-water regression test
 // (test_islamic_recipes_fit_islamicstars_budget in tests/test_solids.h) that
 // asserts every Islamic recipe fits the 120 KB / 120 KB scratch split

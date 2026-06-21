@@ -697,13 +697,13 @@ using namespace Archimedean;
 static constexpr float D2R = PI_F / 180.0f;
 
 /**
- * @brief Builds the cube_relax_bevel33_relax_hk68_expand5 star pattern.
+ * @brief Builds the cube_relax_bevel33_relax_hk675_expand5 star pattern.
  * @param a Output arena for the result and even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh
-cube_relax_bevel33_relax_hk68_expand5(Arena &a, Arena &b) {
+cube_relax_bevel33_relax_hk675_expand5(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
       .relax(100)
       .bevel(0.33f)
@@ -1102,9 +1102,9 @@ inline constexpr Entry catalan_registry[] = {
  * @brief Registry of Islamic star-pattern solids.
  */
 inline constexpr Entry islamic_registry[] = {
-    {"cube_relax_bevel33_relax_hk68_expand5",
+    {"cube_relax_bevel33_relax_hk675_expand5",
      IslamicStarPatterns::
-         cube_relax_bevel33_relax_hk68_expand5,
+         cube_relax_bevel33_relax_hk675_expand5,
      Category::Complex},
     {"dodecahedron_ambo_bevel33_relax_hk66",
      IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66,
