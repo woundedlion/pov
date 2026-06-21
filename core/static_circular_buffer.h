@@ -486,7 +486,7 @@ private:
      * @return Signed number of positions from b to a.
      */
     friend difference_type operator-(const Derived &a, const Derived &b) {
-      return a.m_index - b.m_index;
+      return (difference_type)a.m_index - (difference_type)b.m_index;
     }
 
     /**
