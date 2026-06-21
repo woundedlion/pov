@@ -2329,6 +2329,12 @@ struct Star {
   Star(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
+    // A zero radius collapses the inner/outer points onto the origin, so the
+    // edge vector (dx,dy) below is zero-length and nx/ny = -dy/len, dx/len
+    // become NaN, poisoning plane_d and every distance() result. Trap the
+    // sizing bug here (cold path, like the sides>0 trap) rather than shipping
+    // NaN to the LEDs. Both production consumers keep radius structurally > 0.
+    HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
     float outer_radius = radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
     float angle_step = PI_F / sides;
