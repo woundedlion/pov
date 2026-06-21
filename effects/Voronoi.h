@@ -119,24 +119,23 @@ public:
     KDTree tree(scratch_arena_a,
                 std::span<const Vector>(positions, sites_buffer.size()));
 
-    // Render via the shared full-screen shader path (clip-aware, instrumented).
-    // SAMPLES=1: one sample at pixel center — the per-pixel KD-tree query is too
-    // heavy to supersample.
-    auto shader = [&](const Vector &p) -> Color4 {
-      auto knn = tree.nearest(p, 2);
-      // Tree is non-empty (sites_buffer.size() > 0), so there is always a
-      // nearest; a second neighbor exists iff there are ≥ 2 sites.
-      const auto &bestSite = sites_buffer[knn[0].original_index];
-      bool hasSecond = knn.size() > 1;
-      float maxDot1 = dot(p, knn[0].point);
-      float maxDot2 = hasSecond ? dot(p, knn[1].point) : -2.0f;
+    // Resolves the final color from the already-identified nearest pair: the
+    // nearest site index i0 and its dot d0 (the larger), and — when a second
+    // neighbor exists — the second site index i1 and its dot d1. Factored out so
+    // the full-query and coarse-coherent paths below share one exact shading
+    // body (the query may be elided, the per-pixel dots and shading never are).
+    auto shade = [&](int i0, float d0, bool hasSecond, int i1,
+                     float d1) -> Color4 {
+      const Site &bestSite = sites_buffer[i0];
+      float maxDot1 = d0;
+      float maxDot2 = hasSecond ? d1 : -2.0f;
 
       Color4 c = bestSite.color;
 
       // Border sharpening: a larger sharpness saturates `factor` for smaller
       // nearest/second-nearest gaps, shrinking the cross-cell blend band.
       if (hasSecond && params.sharpness > 0.0f) {
-        const auto &secSite = sites_buffer[knn[1].original_index];
+        const Site &secSite = sites_buffer[i1];
         float diff = maxDot1 - maxDot2;
         float factor = std::min(1.0f, diff * params.sharpness);
         factor = quintic_kernel(factor);
@@ -153,9 +152,8 @@ public:
 
       // Borders — driven entirely by the "Border Thick" slider: a thickness of
       // 0 disables them (and skips the two acosf calls below), any positive
-      // value paints the seam between the nearest two sites. knn[0] is the
-      // nearest, so maxDot1 >= maxDot2 → dist1 <= dist2 and the cell gap is
-      // non-negative.
+      // value paints the seam between the nearest two sites. d0 is the nearest,
+      // so maxDot1 >= maxDot2 → dist1 <= dist2 and the cell gap is non-negative.
       if (params.borderThickness > 0.0f && hasSecond) {
         float dist1 = acosf(std::min(1.0f, maxDot1));
         float dist2 = acosf(std::min(1.0f, maxDot2));
@@ -166,7 +164,106 @@ public:
 
       return c;
     };
-    Scan::Shader::draw<W, H, 1>(canvas, shader);
+
+    // Canonical (order-independent) nearest-pair identity at a sample point.
+    // The two query orders along a cell seam (best/second swap) map to the same
+    // {lo, hi} set so corner comparisons below are seam-stable.
+    struct CellId {
+      uint16_t lo;     /**< min(nearest, second) site index. */
+      uint16_t hi;     /**< max(nearest, second) site index. */
+      bool hasSecond;  /**< Whether a second neighbor exists (≥ 2 sites). */
+    };
+    auto classify = [&](const Vector &p) -> CellId {
+      auto knn = tree.nearest(p, 2);
+      uint16_t a = knn[0].original_index;
+      bool hasSecond = knn.size() > 1;
+      uint16_t b = hasSecond ? knn[1].original_index : a;
+      return {std::min(a, b), std::max(a, b), hasSecond};
+    };
+    auto same_cell = [](const CellId &x, const CellId &y) {
+      return x.lo == y.lo && x.hi == y.hi && x.hasSecond == y.hasSecond;
+    };
+
+    // Coarse-grid coherence (finding 6). The k=2 KD-tree query is the dominant
+    // per-pixel cost, but the *identity* of the nearest two sites is piecewise-
+    // constant over each Voronoi cell. Classify the pair once per coarse-grid
+    // corner; an interior pixel whose four surrounding corners agree on the same
+    // pair skips the tree query and shades from just two exact dot products. The
+    // shading stays per-pixel and exact (the color blend and border test are
+    // continuous in the dot gap — only the discrete query is elided). A pixel
+    // whose corners disagree (a cell seam, or the dense sub-block region near a
+    // pole) falls back to the full query, so the scheme self-corrects exactly
+    // where cells shrink below a block. Residual approximation: a cell entirely
+    // contained between four agreeing corners (smaller than kCoherenceBlock,
+    // missed by all of them) is not sampled — acceptable atop the existing
+    // SAMPLES=1 point sampling, and the failure mode is a dropped speck, never a
+    // wrong frame on the rest of the image.
+    auto &cr = canvas.clip();
+    Scan::Shader::check_lut_domain<W, H>(cr);
+    const int x0 = cr.x_start;
+    const int x1 = cr.x_end;
+    const int y0 = cr.render_y_start();
+    const int y1 = cr.render_y_end();
+    if (x1 <= x0 || y1 <= y0)
+      return;
+
+    constexpr int B = kCoherenceBlock;
+    const int nbx = (x1 - x0 - 1) / B + 2; // corner columns spanning [x0, x1)
+    const int nby = (y1 - y0 - 1) / B + 2; // corner rows spanning    [y0, y1)
+    CellId *cells = static_cast<CellId *>(
+        scratch_arena_a.allocate(nbx * nby * sizeof(CellId), alignof(CellId)));
+    // Corner k/j map to the block-aligned pixel, clamped to the last valid pixel
+    // (x1/y1 are exclusive) so every classified point indexes the trig LUT.
+    auto corner_x = [&](int j) { return std::min(x0 + j * B, x1 - 1); };
+    auto corner_y = [&](int k) { return std::min(y0 + k * B, y1 - 1); };
+    for (int k = 0; k < nby; ++k)
+      for (int j = 0; j < nbx; ++j)
+        cells[k * nbx + j] =
+            classify(pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
+
+    // SAMPLES=1: one sample at pixel center — the per-pixel KD query is too
+    // heavy to supersample. Mirrors Scan::Shader::draw<W, H, 1>'s clip iteration
+    // and telemetry (open-coded only because the coarse grid needs the integer
+    // pixel coordinates the generic shader callback does not expose).
+    Scan::ScopedRenderTimer _timer(canvas);
+    for (int y = y0; y < y1; ++y) {
+      const int ky = (y - y0) / B;
+      for (int x = x0; x < x1; ++x) {
+        const int jx = (x - x0) / B;
+        const CellId &c00 = cells[ky * nbx + jx];
+        const CellId &c10 = cells[ky * nbx + (jx + 1)];
+        const CellId &c01 = cells[(ky + 1) * nbx + jx];
+        const CellId &c11 = cells[(ky + 1) * nbx + (jx + 1)];
+
+        Vector p = pixel_to_vector<W, H>(x, y);
+        Color4 sample;
+        if (same_cell(c00, c10) && same_cell(c00, c01) &&
+            same_cell(c00, c11)) {
+          // Corners agree: reuse the pair identity, recompute the two exact
+          // dots and order them (nearest = larger dot) — bit-identical to the
+          // full query whenever no third site is actually nearest here.
+          float da = dot(p, sites_buffer[c00.lo].pos);
+          if (c00.hasSecond) {
+            float db = dot(p, sites_buffer[c00.hi].pos);
+            sample = (da >= db) ? shade(c00.lo, da, true, c00.hi, db)
+                                : shade(c00.hi, db, true, c00.lo, da);
+          } else {
+            sample = shade(c00.lo, da, false, c00.lo, da);
+          }
+        } else {
+          // Cell seam / dense block: full k=2 query.
+          auto knn = tree.nearest(p, 2);
+          int i0 = knn[0].original_index;
+          float d0 = dot(p, knn[0].point);
+          if (knn.size() > 1)
+            sample = shade(i0, d0, true, knn[1].original_index,
+                           dot(p, knn[1].point));
+          else
+            sample = shade(i0, d0, false, i0, d0);
+        }
+        canvas(x, y) = sample.color * sample.alpha;
+      }
+    }
   }
 
   /**
@@ -182,6 +279,10 @@ public:
 
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
                                              is allocated once at this size. */
+  static constexpr int kCoherenceBlock = 8; /**< Coarse-coherence block edge in
+      pixels: a pixel whose surrounding block corners agree on the nearest pair
+      skips the per-pixel KD query (finding 6). Smaller is safer (fewer missed
+      sub-block cells) but skips fewer queries. */
   int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
                                   refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
