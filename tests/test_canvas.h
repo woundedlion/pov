@@ -194,12 +194,17 @@ inline void test_double_buffer_handoff_no_aliasing() {
   TestEffect fx(8, 4);
   const int N = 8 * 4;
 
-  const Pixel *seen[2] = {nullptr, nullptr};
+  // Capacity intentionally exceeds the 2 buffers we expect: the load-bearing
+  // direction of this test's invariant is that no THIRD physical buffer ever
+  // appears, so record_ptr must be able to count past 2. A cap of 2 would make
+  // the final distinct == 2 assertion blind to a third-buffer regression.
+  const Pixel *seen[4] = {nullptr, nullptr, nullptr, nullptr};
   int distinct = 0;
   auto record_ptr = [&](const Pixel *p) {
     for (int i = 0; i < distinct; ++i)
       if (seen[i] == p) return;
-    if (distinct < 2) seen[distinct++] = p;
+    HS_EXPECT_TRUE(distinct < 4); // bounds seen[]; trips on a >=4-buffer regression
+    if (distinct < 4) seen[distinct++] = p;
   };
 
   const Pixel colors[6] = {Pixel(10, 0, 0), Pixel(0, 20, 0), Pixel(0, 0, 30),
