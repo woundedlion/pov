@@ -69,6 +69,36 @@ inline float fragment_edge_dist(const Fragment &f) {
 }
 
 /**
+ * @brief Shared face-topology fragment shading for the mesh effects.
+ * @tparam PaletteBank Indexable bank of palettes exposing `bank[i].get(t)`.
+ * @tparam NumPalettes Palette count (deduced from `palette_idx`).
+ * @param f Rasterized fragment; v2 carries the integer face index.
+ * @param topology Per-face topology-class indices.
+ * @param num_faces Length of `topology`; an out-of-range face index falls back
+ * to class 0 rather than reading out of bounds.
+ * @param palette_bank Bank of per-class palettes.
+ * @param palette_idx Maps a topology class to a palette slot in the bank.
+ * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
+ * @param opacity Output alpha.
+ * @return The face's palette color shaded by edge distance, at `opacity`.
+ * @details Single home for the face-color/edge-shade policy shared by
+ * IslamicStars (gain 1.0) and HankinSolids (gain = intensity), so the two
+ * cannot drift. The class index wraps modulo NumPalettes.
+ */
+template <typename PaletteBank, size_t NumPalettes>
+inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
+                                  int num_faces, PaletteBank &palette_bank,
+                                  const std::array<int, NumPalettes> &palette_idx,
+                                  float gain, float opacity) {
+  int faceIdx = static_cast<int>(f.v2);
+  int topoIdx = (faceIdx >= 0 && faceIdx < num_faces) ? topology[faceIdx] : 0;
+  float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
+  Color4 c = palette_bank[palette_idx[topoIdx % static_cast<int>(NumPalettes)]].get(t);
+  c.alpha = opacity;
+  return c;
+}
+
+/**
  * @brief A list of fragments, equivalent to 'Points' in the JS context but with
  * full register support.
  */

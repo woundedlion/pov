@@ -155,17 +155,14 @@ private:
     OrientTransformer<W> camera(orientation);
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
 
+    // Color each fragment by its face's topology class, shaded by edge distance
+    // scaled by the intensity slider. Shared with IslamicStars via
+    // shade_mesh_topology.
     auto fragment_shader = [&](const Vector &, Fragment &f) {
-        // v2 carries an exact integer face index, so a truncating cast recovers it.
-      int faceIdx = static_cast<int>(f.v2);
-      int topoIdx = (faceIdx >= 0 && faceIdx < (int)topology.size())
-                        ? topology[faceIdx]
-                        : 0;
-
-      float t = hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
-
-      f.color = palette_bank_[palette_idx[topoIdx % NUM_PALETTES]].get(t);
-      f.color.alpha = opacity;
+      f.color = shade_mesh_topology(f, topology.data(),
+                                    static_cast<int>(topology.size()),
+                                    palette_bank_, palette_idx, params.intensity,
+                                    opacity);
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,

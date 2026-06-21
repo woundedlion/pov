@@ -131,19 +131,11 @@ private:
     const int *raw_indices = faceIndices.data();
 
     const int num_faces = static_cast<int>(faceIndices.size());
-    // Color each fragment by its face's topology class, shaded by edge distance.
+    // Color each fragment by its face's topology class, shaded by edge distance
+    // (gain 1.0). Shared with HankinSolids via shade_mesh_topology.
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      int faceIdx = static_cast<int>(frag.v2);
-      // Fall back to face 0 on an out-of-range face index rather than reading
-      // raw_indices out of bounds.
-      int topoIdx =
-          (faceIdx >= 0 && faceIdx < num_faces) ? raw_indices[faceIdx] : 0;
-
-      float intensity = hs::clamp(fragment_edge_dist(frag), 0.0f, 1.0f);
-
-      frag.color =
-          palette_bank_[palette_idx[topoIdx % NUM_PALETTES]].get(intensity);
-      frag.color.alpha = opacity;
+      frag.color = shade_mesh_topology(frag, raw_indices, num_faces,
+                                       palette_bank_, palette_idx, 1.0f, opacity);
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
