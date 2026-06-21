@@ -899,6 +899,17 @@ public:
    * @param pass Downstream 2D callback receiving each weighted tap.
    * @details X fractional weight is scaled by sin(phi) for spherical density
    * compensation; both axes are eased with a quintic kernel.
+   *
+   * AntiAlias deliberately takes @p pass as a forwarding-reference template
+   * (PassFnT&&) rather than the type-erased PassFn2D/PassFn3D FunctionRef the
+   * other filters accept. This is the densest per-sample fan-out in the family
+   * (up to four taps emitted per plot on the hot path), so the downstream
+   * callback is fully inlined here, avoiding an indirect call per tap. The
+   * history-bearing/world filters (Trails, Feedback, ChromaticShift, the World
+   * filters) instead take the concrete FunctionRef by value: each forwards at
+   * most once per sample and several share the same flush() call site, so the
+   * one indirect call costs little and the type erasure bounds template-driven
+   * code-size growth. Keep the template form confined to the hot splat filters.
    */
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
