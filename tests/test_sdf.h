@@ -114,6 +114,71 @@ inline void test_ring_just_outside_band() {
 }
 
 // ============================================================================
+// DistortedRing  (per-azimuth centerline shift)
+// ============================================================================
+
+/**
+ * @brief Verifies a constant shift_fn moves the centerline by exactly that
+ *        offset, and that max_distortion widens the early-reject band so the
+ *        shifted on-centerline point is not falsely culled.
+ */
+inline void test_distorted_ring_constant_shift_moves_centerline() {
+  Basis b = equator_basis(); // v=+Y, u=+X, w=+Z; radius=1 → target_angle = π/2
+  const float shift = 0.2f;
+  const float thickness = 0.05f;
+
+  // A point at azimuth 0 (along +X) on the *shifted* centerline: its polar angle
+  // from +Y is π/2 + shift, so p.y = cos(π/2+shift) and p.x = sin(π/2+shift).
+  Vector p(std::sin(PI_F / 2 + shift), std::cos(PI_F / 2 + shift), 0.0f);
+
+  // Same shift baked in: the point lands on the centerline (raw_dist ≈ 0). The
+  // band is widened by max_distortion = shift so d = p.y is inside the cull
+  // limits — a shifted on-centerline point must survive the early reject.
+  SDF::DistortedRing shifted(b, 1.0f, thickness,
+                             [shift](float) { return shift; },
+                             /*max_distortion=*/shift, /*phase=*/0.0f);
+  auto rs = shifted.distance(p);
+  HS_EXPECT_TRUE(rs.dist < 50.0f); // not the cull sentinel
+  HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(rs.dist, -thickness, 1e-2f);
+  HS_EXPECT_NEAR(rs.t, 0.0f, 1e-2f); // azimuth 0 → t = 0
+
+  // No shift but the same widened band, same point: the centerline stays at π/2,
+  // so the point now sits `shift` radians off it (raw_dist ≈ shift), proving the
+  // shift moved the centerline rather than the point.
+  SDF::DistortedRing plain(b, 1.0f, thickness, [](float) { return 0.0f; },
+                           /*max_distortion=*/shift, /*phase=*/0.0f);
+  auto rp = plain.distance(p);
+  HS_EXPECT_NEAR(rp.raw_dist, shift, 1e-2f);
+}
+
+/**
+ * @brief Verifies a sinusoidal shift_fn moves the centerline by a per-azimuth
+ *        amount, so the t parameter feeding shift_fn is wired correctly.
+ */
+inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
+  Basis b = equator_basis();
+  const float amp = 0.2f;
+  // shift(t) = amp·sin(2πt); with phase 0, t = azimuth/(2π) ⇒ shift = amp·sin(azimuth).
+  SDF::DistortedRing ring(
+      b, 1.0f, 0.05f, [amp](float t) { return amp * std::sin(2 * PI_F * t); },
+      amp, 0.0f);
+
+  // Azimuth π/2 (along +Z) → t = 0.25 → shift = amp. The local centerline polar
+  // angle is π/2 + amp; a point placed there reads raw_dist ≈ 0.
+  Vector on(0.0f, std::cos(PI_F / 2 + amp), std::sin(PI_F / 2 + amp));
+  auto r_on = ring.distance(on);
+  HS_EXPECT_NEAR(r_on.t, 0.25f, 1e-2f);
+  HS_EXPECT_NEAR(r_on.raw_dist, 0.0f, 1e-2f);
+
+  // Same azimuth, on the *unshifted* equator (+Z): the centerline has moved by
+  // amp here, so this point now reads raw_dist ≈ amp.
+  auto r_off = ring.distance(Vector(0, 0, 1));
+  HS_EXPECT_NEAR(r_off.t, 0.25f, 1e-2f);
+  HS_EXPECT_NEAR(r_off.raw_dist, amp, 1e-2f);
+}
+
+// ============================================================================
 // PlanarPolygon  (Basis at top of sphere; distance to nearest edge)
 // ============================================================================
 
@@ -968,6 +1033,9 @@ inline int run_sdf_tests() {
   test_ring_inside_band();
   test_ring_outside_band_returns_sentinel();
   test_ring_just_outside_band();
+
+  test_distorted_ring_constant_shift_moves_centerline();
+  test_distorted_ring_sin_shift_varies_by_azimuth();
 
   test_polygon_at_center_inside();
   test_polygon_far_point_outside();
