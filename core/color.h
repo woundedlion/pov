@@ -1150,11 +1150,15 @@ public:
       // oklch_to_cpixel's gamut map pulls each key to its in-gamut maximum --
       // VIBRANT authors at the boundary, PASTEL stays comfortably inside.
       float C = (sat / 255.0f) * 0.20f;
-      // Lightness: compress HSV value into a perceptual L band. Pure L=1 is
-      // white-only (no chroma headroom) and L=0 is black, so map [0,255] into
-      // [0.10, 0.85]: peaks keep chroma, floors aren't crushed, and FLAT
-      // (v=255) becomes a genuinely isoluminant shimmer.
-      return {0.10f + (val / 255.0f) * 0.75f, C, h};
+      // Lightness: compress HSV value into a perceptual L band. The ceiling is
+      // deliberately well below L=1: perceptual lightness near white starves the
+      // sRGB gamut of chroma, so a high-value key (e.g. FLAT, v=255) would clip
+      // to a washed-out pastel. Mapping [0,255] into [0.12, 0.67] lands full
+      // value in the chroma-rich mid-high zone where the gamut bulges -- keys
+      // stay saturated rather than bright-and-gray -- while the floor keeps dark
+      // stops off pure black. FLAT is still a genuinely isoluminant shimmer, now
+      // at a lightness the LEDs can actually render with saturation.
+      return {0.12f + (val / 255.0f) * 0.55f, C, h};
     };
     a = oklch_to_cpixel(key_oklch(h1, s1, v1));
     b = oklch_to_cpixel(key_oklch(h2, s2, v2));
