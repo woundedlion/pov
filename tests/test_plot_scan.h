@@ -949,6 +949,64 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
                    0.0f, 1e-5f);
 }
 
+/**
+ * @brief A non-seam planar segment renders gap-free in ARC length: the
+ *        arc-length parameterization (map_planar's cumulative-arc inversion)
+ *        keeps every plotted step near one pixel column and lands on both
+ *        endpoints, with no clustering or gaps the projection-linear chord would
+ *        otherwise leave.
+ * @details Exercises the planar strategy path (rasterize_planar_strategy +
+ *          map_planar), which the other rasterize tests do not reach — the
+ *          antipodal-seam case falls back to geodesic. This locks in the
+ *          end-to-end arc-uniform sampling the LEN_SAMPLES table provides; it
+ *          does not isolate the table's contribution from the rasterizer's
+ *          adaptive (sin-phi) sub-stepping, which also shapes local density.
+ */
+inline void test_rasterize_planar_segment_gap_free_arclength() {
+  constexpr int W = 128, H = 64;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  RasterFx fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 4);
+
+  // Planar disk about +Y; endpoints sweep colatitude 0.3 -> 1.3 across azimuths
+  // so the chord crosses regions of differing azimuthal stretch (r / sin r).
+  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  auto on_disk = [&](float colat, float az) {
+    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
+  };
+  Fragment a, b;
+  a.pos = on_disk(0.3f, 0.0f);
+  b.pos = on_disk(1.3f, 1.0f);
+  // Stays out of the antipodal-seam fallback so the planar strategy is used.
+  HS_EXPECT_GT(dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_GT(dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  points.push_back(a);
+  points.push_back(b);
+
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false,
+                          &basis);
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
+  // Gap-free in arc length: the worst step stays near one pixel column.
+  HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
+               1.5f * base_step);
+  // Endpoints land within the azimuthal-projection round-trip error (sub-pixel:
+  // map_planar(0/1) re-projects then unprojects the vertex rather than echoing
+  // it, unlike the exact geodesic endpoints).
+  HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);
+  for (const Vector &p : pipe.plotted)
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -993,6 +1051,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_open_segment_gap_free();
   test_rasterize_closed_loop_gap_free_no_dup();
   test_rasterize_antipodal_seam_planar_falls_back_geodesic();
+  test_rasterize_planar_segment_gap_free_arclength();
 
   return hs_test::end_module(scope);
 }
