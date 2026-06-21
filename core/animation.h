@@ -1712,7 +1712,13 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float progress = static_cast<float>(t) / duration;
-    float logPeriod = 5.0f / (num_rings + 1);
+    // num_rings is live-bound; if it ever reaches -1 the divisor num_rings + 1
+    // hits 0 and logPeriod blows up to inf, poisoning a/d with inf/NaN. Floor
+    // at 0 so num_rings + 1 stays >= 1, mirroring the num_lines guard below.
+    float rings = num_rings;
+    if (rings < 0.0f)
+      rings = 0.0f;
+    float logPeriod = 5.0f / (rings + 1);
     float flowParam = progress * logPeriod;
     float scale = expf(flowParam);
     float s = sqrtf(scale);
