@@ -256,27 +256,28 @@ private:
           float t_line = f_val.v0;
           float z = sinf(t_line * 2.0f * PI_F);
 
-          // Conformal radius of the stereographic longitude. Singular where
-          // z = ±1 (t_line = 0.25 and 0.75): the division by (1 - z) blows R to
-          // ±inf (or 0), log_r follows, and t goes non-finite. The intended
-          // visual is for the line to saturate to its terminal palette color at
-          // the pole. Do NOT "fix" by nudging (1 - z) off zero — that changes the
-          // endpoint color and splits the two poles to different ends.
-          float R = sqrtf((1.0f + z) / (1.0f - z));
-          float log_r = logf(R);
-          const float log_min = -2.5f;
-          const float log_max = 2.5f;
-          float t = (log_r - log_min) / (log_max - log_min);
-
-          // Make the pole saturation explicit instead of relying on palette.get
-          // clamping a NaN coordinate (fragile if the -fno-finite-math-only
-          // guard of finding 369 ever regressed): a non-finite t collapses to the
-          // hi endpoint, exactly matching the prior NaN->hi behavior (both poles
-          // reach the same terminal color). palette.get now always sees a finite
-          // coordinate.
-          float coord = wrap(t - phase, 1.0f);
-          if (!std::isfinite(t))
+          // Conformal radius of the stereographic longitude, R = sqrt((1+z)/(1-z)),
+          // is singular at the poles z = ±1 (t_line = 0.25 and 0.75). Branch on the
+          // pole BEFORE the division so no non-finite intermediate (inf R / inf
+          // log_r / NaN t) is ever produced — this keeps the math valid without
+          // depending on the project's -fno-finite-math-only build flag, which a
+          // fast-math sub-target could drop. The line saturates to its terminal
+          // palette color (coord = 1.0) at both poles, matching the prior
+          // NaN->hi behavior. Do NOT instead nudge (1 - z) off zero — that changes
+          // the endpoint color and splits the two poles to different ends.
+          // 1 - |z| >= POLE_EPS bounds R <= ~1414, so the else branch stays finite.
+          constexpr float POLE_EPS = 1e-6f;
+          float coord;
+          if (1.0f - fabsf(z) < POLE_EPS) {
             coord = 1.0f;
+          } else {
+            float R = sqrtf((1.0f + z) / (1.0f - z));
+            float log_r = logf(R);
+            const float log_min = -2.5f;
+            const float log_max = 2.5f;
+            float t = (log_r - log_min) / (log_max - log_min);
+            coord = wrap(t - phase, 1.0f);
+          }
           Color4 c = palette.get(coord);
           c.alpha *= opacity * params.alpha;
           f_val.color = c;
