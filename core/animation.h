@@ -850,7 +850,11 @@ public:
       captured = true;
     }
     AnimationBase::step(canvas);
-    auto t_norm = std::min(1.0f, static_cast<float>(this->t) / duration);
+    // Clamp both ends (not just std::min on the top): a negative duration would
+    // make t/duration negative and feed easing a negative arg. The lower bound
+    // pins it to 0, matching Lerp/MeshMorph. The base ctor maps duration 0 -> 1,
+    // so the divide is never by zero.
+    auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
     auto n = easing_fn(t_norm) * (to - from) + from;
     if (quantized) {
       n = std::floor(n);
@@ -912,7 +916,9 @@ public:
     if (paused_ && *paused_)
       return;
     AnimationBase::step(canvas);
-    auto t_norm = std::min(1.0f, static_cast<float>(this->t) / duration);
+    // Clamp both ends like Transition: a negative duration must not feed easing a
+    // negative arg. Base ctor maps duration 0 -> 1, so the divide is safe.
+    auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
     mutant.get() = f(easing_fn(t_norm));
   }
 
