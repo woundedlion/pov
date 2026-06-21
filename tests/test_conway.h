@@ -536,6 +536,86 @@ inline void test_relax_preserves_topology() {
   check_consistent_winding(c);
 }
 
+/**
+ * @brief Population variance of a mesh's edge lengths.
+ * @details Sums every per-face edge (each shared edge of a closed mesh is
+ *          counted exactly twice, so the uniform double-count leaves the variance
+ *          unchanged). Doubles accumulate to keep the two-pass mean/variance
+ *          stable. This is the quantity relax() drives down by pulling every edge
+ *          toward the mesh-wide mean length.
+ */
+template <typename MeshT>
+inline float edge_length_variance(const MeshT &m) {
+  const auto *fc = m.get_face_counts_data();
+  const auto *faces = m.get_faces_data();
+  const size_t F = m.get_face_counts_size();
+
+  double sum = 0.0;
+  int n = 0;
+  size_t idx = 0;
+  for (size_t f = 0; f < F; ++f) {
+    const int c = fc[f];
+    for (int k = 0; k < c; ++k) {
+      const int a = faces[idx + k];
+      const int b = faces[idx + (k + 1) % c];
+      sum += distance_between(m.vertices[a], m.vertices[b]);
+      ++n;
+    }
+    idx += c;
+  }
+  const float mean = static_cast<float>(sum / n);
+
+  double var = 0.0;
+  idx = 0;
+  for (size_t f = 0; f < F; ++f) {
+    const int c = fc[f];
+    for (int k = 0; k < c; ++k) {
+      const int a = faces[idx + k];
+      const int b = faces[idx + (k + 1) % c];
+      const float d = distance_between(m.vertices[a], m.vertices[b]) - mean;
+      var += static_cast<double>(d) * d;
+    }
+    idx += c;
+  }
+  return static_cast<float>(var / n);
+}
+
+/**
+ * @brief Verifies relax actually reduces edge-length variance — its purpose.
+ * @details A cube has uniform edges, so it cannot show relax working. Truncating
+ *          a cube yields corner triangles and face octagons whose edges differ in
+ *          length; relax's spring system pulls every edge toward the mesh mean, so
+ *          the post-relax edge-length variance must be strictly below the input's.
+ */
+inline void test_relax_reduces_edge_variance() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+
+  // Build the uneven-edge source in `target`; free the cube + truncation scratch
+  // from `temp` once the truncated output (which lives in `target`) is built.
+  PolyMesh uneven;
+  {
+    ScratchScope tscope(temp);
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    uneven = MeshOps::truncate(cube, target, temp);
+  }
+
+  const float var_before = edge_length_variance(uneven);
+  HS_EXPECT_GT(var_before, 1e-5f); // the truncated mesh is genuinely uneven
+
+  // Relax the uneven mesh. `target` still holds `uneven`, so relax writes its
+  // output and scratch into the two halves of the now-free `temp` buffer.
+  Arena relax_out(conway_temp_buf, sizeof(conway_temp_buf) / 2);
+  Arena relax_scratch(conway_temp_buf + sizeof(conway_temp_buf) / 2,
+                      sizeof(conway_temp_buf) / 2);
+  PolyMesh relaxed = MeshOps::relax(uneven, relax_out, relax_scratch,
+                                    /*iterations*/ 12);
+
+  const float var_after = edge_length_variance(relaxed);
+  HS_EXPECT_LT(var_after, var_before); // relax evens the edges out
+}
+
 // ---------------------------------------------------------------------------
 // Compositional + standalone operators. We only check structural invariants —
 // exact topology counts for compositions like meta/needle/zip/bevel are
@@ -801,6 +881,7 @@ inline int run_conway_tests() {
   test_expand_cube();
   test_chamfer_cube();
   test_relax_preserves_topology();
+  test_relax_reduces_edge_variance();
   test_meta_cube();
   test_needle_cube();
   test_zip_cube();
