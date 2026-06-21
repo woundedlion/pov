@@ -317,12 +317,15 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     }
 
     Vector n_edge1 = cross1.normalized();
-    // Inline make_rotation using precomputed half-angle trig
+    // Inline make_rotation using precomputed half-angle trig. Precondition: m1/m2
+    // are unit (static_vertices midpoints are normalized at compile time), so
+    // (cos_ha, sin_ha*axis) is already a unit quaternion — rotate() requires
+    // that, which is why we can omit make_rotation's .normalized() here.
     Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
     Vector n_hankin1 = rotate(n_edge1, q1);
 
     Vector n_edge2 = cross2.normalized();
-    // cos(-x) = cos(x), sin(-x) = -sin(x)
+    // cos(-x) = cos(x), sin(-x) = -sin(x); m2 unit per the precondition above.
     Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
     Vector n_hankin2 = rotate(n_edge2, q2);
 
