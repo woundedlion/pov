@@ -163,6 +163,32 @@ inline void test_fast_acos() {
 }
 
 /**
+ * @brief Verifies fast_cbrt anchors, the x<=0 -> 0 clamp, and the documented
+ *        ~2.3e-5 peak relative error over [0,8] (plus a few values past 8).
+ */
+inline void test_fast_cbrt() {
+  // Clamp branch and exact anchors.
+  HS_EXPECT_NEAR(fast_cbrt(-1.0f), 0.0f, 1e-7f);
+  HS_EXPECT_NEAR(fast_cbrt(0.0f), 0.0f, 1e-7f);
+  HS_EXPECT_NEAR(fast_cbrt(1.0f), 1.0f, 2.3e-5f);
+  HS_EXPECT_NEAR(fast_cbrt(8.0f), 2.0f, 2.3e-5f * 2.0f);
+
+  // Relative-error sweep over the documented [0,8] domain.
+  for (int i = 1; i <= 256; ++i) {
+    float x = (8.0f * i) / 256.0f;
+    float rel = std::abs(fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
+    HS_EXPECT_TRUE(rel <= 2.3e-5f);
+  }
+
+  // A few values past the documented domain: the bit-hack + Halley step keeps a
+  // bounded relative error across the exponent range, not just within [0,8].
+  for (float x : {27.0f, 100.0f, 1000.0f}) {
+    float rel = std::abs(fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
+    HS_EXPECT_TRUE(rel <= 2.3e-5f);
+  }
+}
+
+/**
  * @brief Verifies fast_sinf/fast_cosf at key angles, the Pythagorean identity,
  *        and periodicity.
  * @details The periodicity check exercises range reduction beyond ±2π.
@@ -1029,6 +1055,7 @@ inline int run_3dmath_tests() {
   test_fast_atan2();
   test_fast_acos();
   test_fast_sinf_cosf();
+  test_fast_cbrt();
 
   test_vector_construction();
   test_vector_spherical_construction();
