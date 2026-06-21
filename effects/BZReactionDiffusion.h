@@ -7,7 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
-#include "core/effects_engine.h"
+#include "core/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
 /**

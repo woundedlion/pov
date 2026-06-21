@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Renders concentric rings of a morphing shape in Plot and Scan modes.

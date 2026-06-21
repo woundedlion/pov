@@ -11,7 +11,7 @@
 // core/platform.h, which fails the build if -fno-finite-math-only is ever lost.
 #include <cstdio>
 
-#include "core/effects_engine.h"
+#include "core/engine.h"
 #include "tests/test_color.h"
 
 int main() {

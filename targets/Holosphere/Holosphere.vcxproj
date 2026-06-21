@@ -92,7 +92,7 @@
     <ClInclude Include="..\..\core\conway.h" />
     <ClInclude Include="..\..\core\easing.h" />
     <ClInclude Include="..\..\core\effects.h" />
-    <ClInclude Include="..\..\core\effects_engine.h" />
+    <ClInclude Include="..\..\core\engine.h" />
     <ClInclude Include="..\..\core\effects_legacy.h" />
     <ClInclude Include="..\..\core\effect_registry.h" />
     <ClInclude Include="..\..\core\FastNoiseLite.h" />

@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
 // reaches closing_domain and the function table to verify each authored

@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Spinning great-circle rings that wander the sphere.

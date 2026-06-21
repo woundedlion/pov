@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Closed geodesic spline whose control points drift over the sphere,

@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief A snaking strand of nodes pulled across the sphere, leaving fading

@@ -7,7 +7,7 @@
 // Orientation<>. Including it here (rather than letting individual test headers
 // include geometry.h directly) guarantees correct ordering for the whole
 // translation unit.
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 #include "tests/test_3dmath.h"
 #include "tests/test_memory.h"

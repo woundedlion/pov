@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
 // pins warp_decay's endpoint invariants; the smoke harness only proves the

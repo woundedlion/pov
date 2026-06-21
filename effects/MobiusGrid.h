@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Renders a rotating sphere of latitude rings and longitude lines warped

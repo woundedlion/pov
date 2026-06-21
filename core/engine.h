@@ -4,9 +4,11 @@
  */
 #pragma once
 
-// Umbrella header for the effects engine: pulls in the full public API
-// (geometry, color, animation, plotting, palettes, presets, ...) that every
-// effect in effects/ includes via this one file.
+// Engine API umbrella: pulls in the full public API (geometry, color,
+// animation, plotting, palettes, presets, ...) that every effect in effects/
+// includes via this one file. Distinct from core/effects.h, which is the effect
+// *roster* (it pulls in all 27 effect headers); include this from an effect,
+// never that.
 
 // platform.h first: on device it defines NDEBUG, which must be set before
 // <cassert> expands the assert macro — otherwise assert-stripping would depend

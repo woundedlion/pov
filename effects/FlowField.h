@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Particle flow field over the sphere: particles advect along a 3D

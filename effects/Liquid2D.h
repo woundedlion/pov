@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Full-sphere liquid effect over a breathing generative palette.

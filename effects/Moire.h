@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Moire interference effect: two counter-rotating stacks of concentric

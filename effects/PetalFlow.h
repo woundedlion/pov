@@ -7,7 +7,7 @@
 
 #include <cmath>
 #include <algorithm>
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Flowing petal effect built from concentric rings on the sphere.

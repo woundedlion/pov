@@ -4,6 +4,11 @@
  */
 #pragma once
 
+// Effect roster: pulls in every effect header plus the HS_EFFECT_LIST X-macro.
+// Include this only from a build target (run_tests, the firmware entry point).
+// An effect must NOT include it — that would pull in all the other effects and
+// recurse. Effects include core/engine.h (the API umbrella) instead.
+
 #include "effects/BZReactionDiffusion.h"
 #include "effects/ChaoticStrings.h"
 #include "effects/Comets.h"

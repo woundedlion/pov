@@ -54,7 +54,7 @@
     <ClInclude Include="..\..\core\effects.h">
       <Filter>core</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\core\effects_engine.h">
+    <ClInclude Include="..\..\core\engine.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="..\..\core\effects_legacy.h">

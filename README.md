@@ -162,8 +162,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
 │   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
 │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
-│   ├── effects_engine.h        Master include for the full engine
-│   ├── effects.h               Include list for all effects
+│   ├── engine.h                Engine API umbrella — included by every effect
+│   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
 │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
 │   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
 │   ├── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)

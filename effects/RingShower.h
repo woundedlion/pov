@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
 // pins Ring::radius_at's age+1 endpoint convention (reaches RADIUS_MAX on the

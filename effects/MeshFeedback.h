@@ -7,7 +7,7 @@
 
 #include <numeric>
 
-#include "core/effects_engine.h"
+#include "core/engine.h"
 
 /**
  * @brief Feedback effect over a morphing carousel of Platonic solids.
