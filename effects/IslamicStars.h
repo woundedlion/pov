@@ -200,8 +200,9 @@ private:
     int fade = std::min(static_cast<int>(params.fade), dur / 2);
     // Make the comment's invariant checkable: fade never exceeds half the
     // duration, so the respawn delay (dur - fade) stays >= dur/2 and sprites
-    // never pile up. Debug-only; the std::min above is what enforces it.
-    assert(fade <= dur / 2 && dur - fade >= dur / 2);
+    // never pile up. Cold setup-time seam (once per shape cycle), so trap on
+    // device too with HS_CHECK rather than a debug-stripped assert.
+    HS_CHECK(fade <= dur / 2 && dur - fade >= dur / 2);
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_mid, fade,
                                       ease_mid));
 
