@@ -1560,7 +1560,7 @@ struct Face {
         max_r2 = r2;
     }
     radius = sqrtf(max_r2);
-    max_dist = radius + 0.1f;
+    max_dist = radius + BOUNDS_MARGIN_WIDE;
     max_dist_sq = max_dist * max_dist;
 
     scratch.poly_2d[count] = scratch.poly_2d[0];
@@ -1650,7 +1650,7 @@ struct Face {
       if (vy > bb_max_y)
         bb_max_y = vy;
     }
-    float margin = 0.1f;
+    float margin = BOUNDS_MARGIN_WIDE;
     lut_cx = (bb_min_x + bb_max_x) * 0.5f;
     lut_cy = (bb_min_y + bb_max_y) * 0.5f;
     lut_Rx = (bb_max_x - bb_min_x) * 0.5f + margin;
