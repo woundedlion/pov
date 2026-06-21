@@ -469,12 +469,16 @@ FLASHMEM static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
     size_t offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
       int count = face_counts[fi];
+      // kis reads face_counts/faces directly, bypassing the HE builder's
+      // count==0 trap. A zero-vertex face would push an apex at the origin (the
+      // centroid never leaves 0,0,0) and emit no surrounding triangles — silent
+      // garbage geometry. Trap it up front (fail-fast), matching the builder.
+      HS_CHECK(count > 0, "kis: zero-vertex face");
       Vector centroid(0, 0, 0);
       for (int i = 0; i < count; ++i) {
         centroid = centroid + mesh.vertices[faces[offset + i]];
       }
-      if (count > 0)
-        centroid = centroid / static_cast<float>(count);
+      centroid = centroid / static_cast<float>(count);
 
       out_mesh.vertices.push_back(centroid);
       int center_idx = narrow_index(out_mesh.vertices.size() - 1);
