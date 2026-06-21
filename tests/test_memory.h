@@ -37,6 +37,12 @@ namespace mem {
 /**
  * @brief Backing storage for arenas used in these tests.
  * @details Sized generously so OOM tests can be exercised explicitly.
+ *
+ *   Reset boundary: these buffers are module-scope and reused by every test.
+ *   Each test re-bases the bump pointer by constructing (or rebind()-ing) a
+ *   fresh Arena over the buffer at entry, which is the per-test reset; no
+ *   allocation persists across that construction. Do not retain an ArenaVector
+ *   pointing into a buffer past its own test scope.
  */
 inline uint8_t test_buf_a[64 * 1024]; /**< 64 KiB primary test arena buffer. */
 inline uint8_t test_buf_b[16 * 1024]; /**< 16 KiB secondary test arena buffer. */
