@@ -214,18 +214,36 @@ HS_WASM_RESOLUTIONS(X)
 #undef X
 
 /**
+ * @brief Invokes f.operator()<W,H>() for the single HS_WASM_RESOLUTIONS row
+ *        matching the runtime (w,h).
+ * @param f A C++20 templated callable (e.g. `[]<int W, int H>(){...}`) run with
+ *          the matching row's dimensions as compile-time template arguments.
+ * @return true iff a row matched and f was invoked; false otherwise.
+ * @details One shared expansion of the resolution list for every runtime
+ *          dispatch site (setEffect validate/create, resolution checks), so they
+ *          can never drift and a new per-resolution step lands in exactly one
+ *          place. Fully inlined at -O2 — identical codegen to an open-coded
+ *          X-macro, no runtime cost.
+ */
+template <typename F> static bool dispatch_resolution(int w, int h, F &&f) {
+#define X(W, H)                                                                 \
+  if (w == (W) && h == (H)) {                                                   \
+    f.template operator()<(W), (H)>();                                          \
+    return true;                                                                \
+  }
+  HS_WASM_RESOLUTIONS(X)
+#undef X
+  return false;
+}
+
+/**
  * @brief Reports whether (w,h) is a resolution the factory can build.
  * @param w Candidate canvas width in pixels.
  * @param h Candidate canvas height in pixels.
  * @return true iff (w,h) is one of the HS_WASM_RESOLUTIONS rows.
  */
 static bool wasm_resolution_supported(int w, int h) {
-#define X(W, H)                                                                 \
-  if (w == (W) && h == (H))                                                     \
-    return true;
-  HS_WASM_RESOLUTIONS(X)
-#undef X
-  return false;
+  return dispatch_resolution(w, h, []<int W, int H>() {});
 }
 
 /**
@@ -340,11 +358,9 @@ public:
     // arenas before validating would leave the engine rendering nothing on a
     // typo'd/stale UI string. This is the same cheap scan create_effect() does.
     bool name_valid = false;
-#define X(W, H)                                                                \
-  if (pixel_width == (W) && pixel_height == (H))                               \
-    name_valid = factory_has_effect<W, H>(name);
-    HS_WASM_RESOLUTIONS(X)
-#undef X
+    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+      name_valid = factory_has_effect<W, H>(name);
+    });
     if (!name_valid) {
       hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
               name.c_str());
@@ -357,15 +373,11 @@ public:
     // Reset stack HWM by repainting unused region
     stack_paint_canary();
 
-    bool created = false;
-#define X(W, H)                                                                \
-  if (pixel_width == (W) && pixel_height == (H)) {                             \
-    init_geometry_luts<W, H>(); /* eager-fill LUTs before the first frame */   \
-    currentEffect = create_effect<W, H>(name);                                 \
-    created = true;                                                            \
-  }
-    HS_WASM_RESOLUTIONS(X)
-#undef X
+    bool created = dispatch_resolution(
+        pixel_width, pixel_height, [&]<int W, int H>() {
+          init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
+          currentEffect = create_effect<W, H>(name);
+        });
     if (!created) {
       // Unreachable in practice: setResolution() only admits supported sizes.
       hs::log("WASM: Unsupported resolution for factory!");
@@ -632,12 +644,11 @@ public:
    *         resolution; empty map if unsupported/uninitialized.
    */
   val getEffectSizes() {
-#define X(W, H)                                                                \
-  if (pixel_width == (W) && pixel_height == (H))                               \
-    return get_effect_sizes_helper<W, H>();
-    HS_WASM_RESOLUTIONS(X)
-#undef X
-    return val::object(); // unsupported/uninitialized — empty map
+    val sizes = val::object(); // unsupported/uninitialized — empty map
+    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+      sizes = get_effect_sizes_helper<W, H>();
+    });
+    return sizes;
   }
 
   /**
