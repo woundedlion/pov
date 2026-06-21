@@ -40,6 +40,14 @@
  * Used by Holosphere (96x20 / 288x144 with one Teensy owning the full strip).
  */
 template <int S, int RPM> class POVDisplay {
+  // The whole driver tiles the strip as two equal arms of S/2 rows: rows = S/2
+  // truncates, show_col() loops y in [0, S/2), and the resolution HS_CHECK only
+  // validates effect height == S/2. An odd S would silently drop the middle LED
+  // (S=41 -> writes 40) and mis-tile the strip with no runtime trap. Guard the
+  // precondition at compile time, in keeping with the fail-fast doctrine.
+  static_assert(S > 0 && S % 2 == 0,
+                "POVDisplay requires an even, positive segment count S");
+
   /**
    * @brief HD107S SPI clock for the single-board Holosphere DMA path, in Hz.
    *
