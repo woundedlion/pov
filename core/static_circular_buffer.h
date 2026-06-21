@@ -39,6 +39,10 @@ public:
   using reference = T &;
   using const_reference = const T &;
 
+  /** @brief Compile-time fixed capacity, for static_asserts binding two buffers'
+   *  sizes (e.g. scan_region's seam-split `norm` == 2x its input span buffer). */
+  static constexpr size_t kCapacity = N;
+
   /**
    * @brief Constructs an empty buffer.
    */

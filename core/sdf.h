@@ -38,8 +38,14 @@ static constexpr float FAST_BOUNDS_PHI_THRESHOLD = 0.3f;
  *  preventing degenerate near-zero inradii from collapsing AA. */
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 
+/** Maximum disjoint scanline spans budgeted per row. scan_region's seam-split
+ *  `norm` buffer is bound to exactly 2x this (one span can split in two at the
+ *  x=0 seam); see the static_assert there. */
+inline constexpr size_t kIntervalSpanCap = 32;
+
 /** Per-row scanline interval buffer. Fixed capacity, accumulate-only. */
-using IntervalBuffer = StaticCircularBuffer<std::pair<float, float>, 32>;
+using IntervalBuffer =
+    StaticCircularBuffer<std::pair<float, float>, kIntervalSpanCap>;
 
 /**
  * @brief Append a scanline interval, trapping on overflow.

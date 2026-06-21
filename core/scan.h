@@ -138,7 +138,7 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
 
-  StaticCircularBuffer<std::pair<float, float>, 32> intervals;
+  StaticCircularBuffer<std::pair<float, float>, SDF::kIntervalSpanCap> intervals;
 
   const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
@@ -162,9 +162,14 @@ static void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       // unwrapped space could otherwise skip distinct pixels or double-plot the
       // wrapped overlap. For the common in-[0,W) sorted case this is a no-op
       // (no wrap, no split, sort already ordered) — identical output. The norm
-      // buffer is 2× the 32-span input cap, so splitting can never overflow it.
+      // buffer is exactly 2× the input span cap (one span splits into at most
+      // two at the seam), so splitting can never overflow it — bound at compile
+      // time below rather than left to a hand-maintained literal.
       bool full_row = false;
-      StaticCircularBuffer<std::pair<float, float>, 64> norm;
+      StaticCircularBuffer<std::pair<float, float>, 2 * SDF::kIntervalSpanCap>
+          norm;
+      static_assert(decltype(norm)::kCapacity == 2 * decltype(intervals)::kCapacity,
+                    "norm must hold 2 spans per input interval (seam split)");
       for (const auto &iv : intervals) {
         float len = iv.second - iv.first;
         if (len >= W) {
