@@ -14,6 +14,8 @@
  */
 #pragma once
 
+#include <algorithm> // for std::min
+
 #include "core/reaction_graph.h"
 #include "tests/test_3dmath.h" // for HS_EXPECT_VEC
 #include "tests/test_harness.h"
@@ -68,8 +70,11 @@ inline void test_nodes_on_unit_sphere() {
  */
 inline void test_node_deterministic_and_distinct() {
   HS_EXPECT_VEC(node(1234), node(1234), 0.0f);
-  // Adjacent lattice indices are distinct points.
-  for (int i = 0; i < 500; ++i) {
+  // Adjacent lattice indices are distinct points. Cap the sample budget at
+  // RD_N-1 so the node(i+1) read can never run past the lattice [0, RD_N),
+  // regardless of RD_N (the 500 is just a budget, not tied to the lattice size).
+  const int samples = std::min(500, RD_N - 1);
+  for (int i = 0; i < samples; ++i) {
     HS_EXPECT_GT(chord2(node(i), node(i + 1)), 0.0f);
   }
 }
