@@ -52,7 +52,17 @@
 #ifdef USE_DMA_LEDS
   #include "dma_led.h"
 #else
-  #include <FastLED.h>
+  // A segmented build ships one uniform firmware to every board; the master
+  // (segment 0) is elected at runtime from the ID pins, so ANY board may become
+  // the conductor that drives the sync wire. The master's pulse-width contract
+  // (spec §5.2: a "tens of µs" HIGH bracketing the LED work, dropped right after)
+  // cannot be honored over the blocking FastLED transport — FastLED.show() stalls
+  // the flywheel ISR for the full strip transfer, widening the pulse far past spec
+  // and skewing column timing. That combination is untested and unshippable, so
+  // fail the build rather than silently degrade the only multi-board transport.
+  // (No real target hits this: targets/Phantasm defines USE_DMA_LEDS; the host
+  // unit test never includes this Arduino-only driver.)
+  #error "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): the FastLED fallback cannot honor the master sync pulse-width contract (spec §5.2)."
 #endif
 
 #include "canvas.h"
