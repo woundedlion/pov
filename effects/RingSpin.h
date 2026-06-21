@@ -15,9 +15,15 @@
  * @details Each ring's orientation follows a random-walk over the sphere and
  * leaves a motion-blur trail that fades in color and alpha along its length.
  * @note Sibling trail effects — `Comets` and `ChaoticStrings` — share the same
- *       scaffolding (orientation random-walk → motion-blur/fading trail) and are
- *       not unified into a shared base, so propagate trail-rendering fixes across
- *       all three. Known divergences from the two siblings:
+ *       scaffolding (orientation random-walk → motion-blur/fading trail). Only
+ *       the record + deep_tween skeleton is genuinely common, and that already
+ *       lives in the engine (`OrientationTrail::record` + the `deep_tween` free
+ *       function); the per-effect bodies diverge in draw primitive, transform
+ *       chain, color/fade, and accumulate-vs-draw model, so a unifying base would
+ *       have to parameterize all of those — a worse abstraction than the two-line
+ *       idiom and a fresh coupling across three independently-tuned effects.
+ *       They are therefore deliberately not unified; propagate trail-rendering
+ *       fixes by hand across all three. Known divergences from the two siblings:
  *         - This effect does not apply the `Screen::AntiAlias` filter the
  *           siblings use.
  *         - This effect uses `Orientation<>` (CAP 4) for the ring orientation and

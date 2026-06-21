@@ -16,8 +16,15 @@
  *          noise transformer warps its trail each frame.
  * @note Sibling trail effects — `Comets` and `RingSpin` — share the same
  *       scaffolding (orientation random-walk → motion-blur/fading trail →
- *       position-colored multiline) and are not unified into a shared base, so
- *       propagate trail-rendering fixes across all three. Known divergences:
+ *       position-colored multiline). Only the record + deep_tween skeleton is
+ *       genuinely common, and it already lives in the engine
+ *       (`OrientationTrail::record` + the `deep_tween` free function); the
+ *       per-effect bodies diverge in draw primitive, transform chain, color/fade,
+ *       and accumulate-vs-draw model, so a unifying base would have to
+ *       parameterize all of those — a worse abstraction than the two-line idiom
+ *       and a fresh coupling across three independently-tuned effects. They are
+ *       therefore deliberately not unified; propagate trail-rendering fixes by
+ *       hand across all three. Known divergences:
  *         - `RingSpin` omits the `Screen::AntiAlias` filter this effect and
  *           `Comets` apply.
  *         - `RingSpin` uses `Orientation<>` (CAP 4) where this effect and
