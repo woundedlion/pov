@@ -17,8 +17,16 @@
  * @note Sibling trail effects — `Comets` and `ChaoticStrings` — share the same
  *       scaffolding (orientation random-walk → motion-blur/fading trail) and are
  *       not unified into a shared base, so propagate trail-rendering fixes across
- *       all three. Divergence to review (finding 407): this effect does NOT apply
- *       the `Screen::AntiAlias` filter its two siblings use.
+ *       all three. Known divergences from the two siblings:
+ *         - This effect does not apply the `Screen::AntiAlias` filter the
+ *           siblings use.
+ *         - This effect uses `Orientation<>` (CAP 4) for the ring orientation and
+ *           trail, where the siblings use `Orientation<16>` — i.e. up to 4
+ *           motion-blur sub-frames per recorded frame versus 16. Intentional: a
+ *           full great-circle ring is a spatially huge shape whose successive
+ *           trail frames overlap almost completely, so 4 interpolated sub-frames
+ *           read identically to 16; the siblings smear a single fast-moving
+ *           point/string where the sub-frame count sets the blur smoothness.
  */
 template <int W, int H> class RingSpin : public Effect {
 public:

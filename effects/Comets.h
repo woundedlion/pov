@@ -26,10 +26,16 @@ struct CometsWhiteBox;
  *          next entry in the function table, cross-fading via a ColorWipe.
  * @note Sibling trail effects — `ChaoticStrings` and `RingSpin` — share the same
  *       scaffolding (orientation random-walk → motion-blur/fading trail →
- *       position-colored multiline). They are deliberately NOT unified into a
+ *       position-colored multiline). They are deliberately not unified into a
  *       shared base, so a trail-rendering fix must be propagated by hand across
- *       all three. Known divergence (finding 407): `RingSpin` omits the
- *       `Screen::AntiAlias` filter that this effect and `ChaoticStrings` apply.
+ *       all three. Known divergences:
+ *         - `RingSpin` omits the `Screen::AntiAlias` filter this effect and
+ *           `ChaoticStrings` apply.
+ *         - `RingSpin` uses `Orientation<>` (CAP 4) where this effect and
+ *           `ChaoticStrings` use `Orientation<16>` (up to 4 motion-blur
+ *           sub-frames versus 16). Intentional: its full great-circle rings
+ *           overlap heavily frame-to-frame, so 4 sub-frames read identically to
+ *           16, while a single fast-moving point/string needs the finer fidelity.
  */
 template <int W, int H> class Comets : public Effect {
 public:
