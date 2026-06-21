@@ -718,6 +718,18 @@ inline int16_t sin16(uint16_t theta) {
  * @details Sourced from hs::millis() so the test time-injection seam keeps
  *          beats deterministic. The * 280 constant is FastLED's
  *          (≈ 65536 * 1000 / 60000) ms→phase scale.
+ *
+ *          Sim/device wrap: the intermediate `(millis-timebase)*bpm88*280` is
+ *          `unsigned long`, which is 32-bit on the device (and Win32 host) but
+ *          64-bit on a LP64 host, so the device wraps it mod 2^32 while a LP64
+ *          host does not. This does NOT diverge: the function returns only the
+ *          uint16_t formed by `>>16`, i.e. bits 16..31 of the product, and by
+ *          the modular-multiply identity those bits are identical whether the
+ *          product is taken mod 2^32 (device) or in full (LP64) — the high bits
+ *          a 64-bit intermediate keeps are exactly the ones the uint16_t cast
+ *          discards. Verified exhaustively over random millis/timebase/bpm88
+ *          (incl. the timebase>millis underflow case). Hence no uint32_t cast is
+ *          needed; the host beat/beatsin phases match the device bit-for-bit.
  */
 inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
   return ((hs::millis() - timebase) * bpm88 * 280) >> 16;
