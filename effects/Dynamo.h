@@ -7,6 +7,15 @@
 
 #include "core/engine.h"
 
+// Forward declaration of the unit-test accessor (tests/test_effects.h) that
+// reaches palette_boundaries to stage the documented overlapping-wipe band
+// inversion and assert color() stays memory-safe and in-range.
+namespace hs_test {
+namespace effects_tests {
+struct DynamoWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief A snaking strand of nodes pulled across the sphere, leaving fading
  *        trails, with palettes that sweep in via angular color wipes.
@@ -298,6 +307,10 @@ public:
   }
 
 private:
+  // White-box test reaches palette_boundaries to stage the documented
+  // overlapping-wipe band inversion and assert color() stays in-range.
+  friend struct ::hs_test::effects_tests::DynamoWhiteBox;
+
   /**
    * @brief Plots the strand for this sub-step.
    * @param canvas Target canvas to plot into.

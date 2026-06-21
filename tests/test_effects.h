@@ -696,6 +696,64 @@ struct RingShowerWhiteBox {
 };
 
 /**
+ * @brief White-box accessor for Dynamo's overlapping-wipe band ordering.
+ * @details Befriended in effects/Dynamo.h. color() documents that a live Wipe-Dur
+ *          change between two overlapping wipes can let the newer (front, index 0)
+ *          boundary overtake the older one, transiently inverting band order — an
+ *          acknowledged cosmetic gap the author asserts stays memory-safe and
+ *          in-range. This pins that safety claim: it stages exactly that
+ *          non-monotonic boundary order and sweeps the full angular span,
+ *          asserting every color() call stays in bounds (every baked_palettes_
+ *          access is HS_CHECK-guarded, so an OOB aborts here) and returns a finite
+ *          alpha in [0, 1]. The smoke pass never reaches the inverted state.
+ */
+struct DynamoWhiteBox {
+  /**
+   * @brief Verifies color() is memory-safe and in-range under inverted bands.
+   */
+  static void check_overlapping_wipes_stay_in_range() {
+    // Mirror smoke_one's global-state reset: Dynamo::init() bakes the LUT pool
+    // from persistent_arena and schedules timers on the shared global timeline.
+    hs::random().seed(1337u);
+    configure_arenas_default();
+    Timeline().clear();
+    global_timeline_t = 0;
+
+    Dynamo<kW, kH> effect;
+    effect.init();
+
+    // Two overlapping wipes -> two live boundaries (each pushed at the front at
+    // angle 0; their Transitions are never stepped here, so they stay put until
+    // we overwrite them below).
+    effect.color_wipe();
+    effect.color_wipe();
+    HS_EXPECT_EQ(effect.palette_boundaries.size(), static_cast<size_t>(2));
+
+    // Force the documented worst case: the newer band (index 0) has overtaken
+    // the older (index 1) -> non-monotonic order. The chosen magnitudes also push
+    // the scan past the first iteration into the second boundary and the
+    // baked_palettes_[i+1] access for part of the sweep, exercising the bounds
+    // path the safety claim rests on.
+    effect.palette_boundaries[0] = 1.5f; // newer, overtaken ahead of the older
+    effect.palette_boundaries[1] = 0.5f; // older, left behind
+    HS_EXPECT_GT(effect.palette_boundaries[0], effect.palette_boundaries[1]);
+
+    // palette_normal is Z_AXIS (set in the ctor, untouched since the timeline is
+    // not stepped), so v = (sin theta, 0, cos theta) sweeps angle_between(v,
+    // normal) across the full [0, PI] band span.
+    constexpr int kSteps = 256;
+    for (int i = 0; i <= kSteps; ++i) {
+      float theta = PI_F * static_cast<float>(i) / static_cast<float>(kSteps);
+      Vector v(std::sin(theta), 0.0f, std::cos(theta));
+      Color4 c = effect.color(v, 0.5f);
+      HS_EXPECT_TRUE(std::isfinite(c.alpha));
+      HS_EXPECT_GE(c.alpha, 0.0f);
+      HS_EXPECT_LE(c.alpha, 1.0f);
+    }
+  }
+};
+
+/**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
@@ -714,6 +772,7 @@ inline int run_effects_tests() {
   CometsWhiteBox::check_paths_close();
   ThrustersWhiteBox::check_warp_endpoints();
   RingShowerWhiteBox::check_radius_endpoints();
+  DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
 
   // Smoke every registered effect. The list is GENERATED from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
