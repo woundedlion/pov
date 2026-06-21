@@ -695,6 +695,39 @@ inline void test_make_rotation_from_to() {
 }
 
 /**
+ * @brief Verifies quaternion_from_basis recovers the rotation whose columns are
+ *        the given orthonormal axes, for an identity frame and a generic one.
+ * @details Build an orthonormal frame by rotating the standard axes through a
+ *        known quaternion, reconstruct a quaternion from that frame, and confirm
+ *        it maps the body axes back onto the frame columns. Also checks the
+ *        trace<=0 branch (a 180° frame) the Shepperd selection must handle.
+ */
+inline void test_quaternion_from_basis() {
+  // Identity frame → identity quaternion.
+  Quaternion id =
+      quaternion_from_basis(Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1));
+  HS_EXPECT_VEC(rotate(Vector(1, 0, 0), id), Vector(1, 0, 0), 1e-5f);
+  HS_EXPECT_VEC(rotate(Vector(0, 0, 1), id), Vector(0, 0, 1), 1e-5f);
+
+  // Generic frame: rotate the standard axes by a known quaternion, then recover.
+  Quaternion q0 = make_rotation(Vector(0.3f, 0.5f, 0.8f).normalized(), 1.1f);
+  Vector cx = rotate(Vector(1, 0, 0), q0);
+  Vector cy = rotate(Vector(0, 1, 0), q0);
+  Vector cz = rotate(Vector(0, 0, 1), q0);
+  Quaternion q = quaternion_from_basis(cx, cy, cz);
+  HS_EXPECT_VEC(rotate(Vector(1, 0, 0), q), cx, 5e-3f);
+  HS_EXPECT_VEC(rotate(Vector(0, 1, 0), q), cy, 5e-3f);
+  HS_EXPECT_VEC(rotate(Vector(0, 0, 1), q), cz, 5e-3f);
+  HS_EXPECT_NEAR(q.magnitude(), 1.0f, 1e-3f);
+
+  // trace <= 0 branch: a 180° rotation about Z (diagonal = (-1,-1,1)).
+  Quaternion qz = quaternion_from_basis(Vector(-1, 0, 0), Vector(0, -1, 0),
+                                        Vector(0, 0, 1));
+  HS_EXPECT_VEC(rotate(Vector(1, 0, 0), qz), Vector(-1, 0, 0), 5e-3f);
+  HS_EXPECT_VEC(rotate(Vector(0, 0, 1), qz), Vector(0, 0, 1), 5e-3f);
+}
+
+/**
  * @brief Verifies rotate(v, q): identity, length preservation, and the
  *        composition law rotate(rotate(v,q1),q2) == rotate(v, q2*q1).
  */
@@ -1114,6 +1147,7 @@ inline int run_3dmath_tests() {
 
   test_make_rotation_axis_angle();
   test_make_rotation_from_to();
+  test_quaternion_from_basis();
   test_rotate();
 
   test_vector_slerp();

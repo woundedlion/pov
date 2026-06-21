@@ -1064,6 +1064,56 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
 }
 
 /**
+ * @brief Builds the unit rotation quaternion whose columns are the given
+ * orthonormal axes.
+ * @param cx Image of the body +X axis (must be unit).
+ * @param cy Image of the body +Y axis (must be unit, orthogonal to cx).
+ * @param cz Image of the body +Z axis (must be unit, = cross(cx, cy)).
+ * @return The unit quaternion q with rotate(X_AXIS, q) == cx, etc.
+ * @details Shepperd's method: pick the largest of the four (1 ± trace terms) so
+ * the divisor is never near zero. Unlike composing two shortest-arc rotations,
+ * this is singular-free for every orientation — there is no antipodal axis to
+ * guard. An orientation-level op (per object per frame, never per pixel), so the
+ * one sqrt + branch is immaterial. Inputs are assumed orthonormal; a skewed
+ * basis silently yields a non-rotation, so callers must hand it a true frame.
+ */
+inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
+                                        const Vector &cz) {
+  // m[col] = image of that body axis; mIJ is row I, col J of the rotation matrix.
+  const float m00 = cx.x, m10 = cx.y, m20 = cx.z;
+  const float m01 = cy.x, m11 = cy.y, m21 = cy.z;
+  const float m02 = cz.x, m12 = cz.y, m22 = cz.z;
+  const float trace = m00 + m11 + m22;
+  Quaternion q;
+  if (trace > 0.0f) {
+    float s = std::sqrt(trace + 1.0f) * 2.0f; // s = 4 * q.r
+    q.r = 0.25f * s;
+    q.v.x = (m21 - m12) / s;
+    q.v.y = (m02 - m20) / s;
+    q.v.z = (m10 - m01) / s;
+  } else if (m00 > m11 && m00 > m22) {
+    float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f; // s = 4 * q.v.x
+    q.r = (m21 - m12) / s;
+    q.v.x = 0.25f * s;
+    q.v.y = (m01 + m10) / s;
+    q.v.z = (m02 + m20) / s;
+  } else if (m11 > m22) {
+    float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f; // s = 4 * q.v.y
+    q.r = (m02 - m20) / s;
+    q.v.x = (m01 + m10) / s;
+    q.v.y = 0.25f * s;
+    q.v.z = (m12 + m21) / s;
+  } else {
+    float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f; // s = 4 * q.v.z
+    q.r = (m10 - m01) / s;
+    q.v.x = (m02 + m20) / s;
+    q.v.y = (m12 + m21) / s;
+    q.v.z = 0.25f * s;
+  }
+  return q.normalized();
+}
+
+/**
  * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.
  * @param x Input value, expected in [-1, 1] (clamped internally).
  * @return The arc cosine in radians.

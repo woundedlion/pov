@@ -1280,41 +1280,25 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase<Motion<W, CAP>>::step(canvas);
 
-    // Drift correction. Motion advances the orientation by dead reckoning:
-    // each frame multiplies a delta rotation onto the previous orientation and
-    // never re-derives it from the path. Across thousands of repeated cycles
-    // the float error in that quaternion chain accumulates without bound,
-    // warping the traced curve into a progressively "squiggly", corrupted
-    // shape. Anchor the integration: capture the start orientation on the first
-    // step, and at the top of every repeated cycle reset to it, so each cycle
-    // integrates from an identical, drift-free base (each cycle then behaves
-    // exactly like the first — the accumulation is gone). The reset discards
-    // the per-cycle holonomy twist the dead reckoning would otherwise pile up;
-    // for a path-following point head that twist is about the head's own axis
-    // and invisible, whereas the unbounded warp it caused is removed. Cost is
-    // one quaternion copy per cycle on the once-per-frame timeline path, never
-    // per pixel.
-    //
-    // SOLE-OWNERSHIP INVARIANT: the reset overwrites the *entire* Orientation
-    // with Motion's own absolute anchor, so a repeating Motion must be the only
-    // animation driving its Orientation. This is incompatible with the
-    // multi-animation motion blur the collapse pre-pass (Timeline::step)
-    // supports: a co-driving animation's accumulated rotation would be clobbered
-    // here at every cycle boundary. A delta-from-anchor reset that preserved the
-    // other contributors is not well-defined — both World rotations (pre-mult)
-    // and Local rotations (post-mult) from two co-drivers do not commute, so the
-    // shared quaternion is an interleaved product with no single factor that is
-    // "Motion's share" to subtract. Composing a repeating Motion with another
-    // contributor on one Orientation would require Motion to track its own
-    // per-cycle contribution separately and re-derive the reset from that — a
-    // redesign. No current effect combines them.
-    if (!anchor_captured_) {
-      anchor_ = orientation.get().get();
-      anchor_captured_ = true;
-    } else if (this->repeat && this->t == 1) {
-      orientation.get().set(anchor_);
-    }
-
+    // Drift-free, composable integration. Motion advances the bound Orientation
+    // by RELATIVE deltas only — it never writes the Orientation's absolute state
+    // — so it composes with any other animation driving the same Orientation
+    // (the multi-animation motion blur the collapse pre-pass in Timeline::step
+    // supports). Each delta is the rotation carrying the path's own orientation
+    // frame from one (sub)frame to the next, where that frame is a *pure
+    // function* of the path parameter: the point path(s) plus the travel-tangent
+    // pin a full orthonormal frame (see path_frame()). Drift-freedom comes from
+    // that purity: the baseline frame is always a fresh path-derived value, never
+    // an accumulating quaternion chain, so the per-frame deltas telescope and no
+    // float error builds up — across unbounded cycles each cycle re-derives the
+    // same frames. (A two-vector frame is also a global section with no holonomy,
+    // so a closed path loops seamlessly.) That is why no per-cycle re-anchor (and
+    // so no sole-ownership invariant) is needed: the old design dead-reckoned
+    // parallel-transport deltas whose product drifted, and reset the whole
+    // Orientation to an absolute anchor each cycle — which clobbered any
+    // co-driver. The roll this frame pins is about the head's own axis, invisible
+    // for a path-following point head, so the visible motion matches the prior
+    // parallel-transport behavior.
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -1327,53 +1311,88 @@ public:
     orientation.get().upsample(num_steps + 1);
     int len = orientation.get().length();
 
-    // lambda to apply rotation based on space
-    auto apply_rotation = [&](Quaternion &target, const Quaternion &source) {
-      if (space == Space::Local) {
-        target = target * source;
-      } else {
-        target = source * target;
-      }
-    };
-
-    Vector prev_v = current_v;
-    Quaternion accumulated_q; // Identity by default
+    // Baseline = the frame Motion last drove the Orientation to (carried across
+    // frames, NOT recomputed from t-1). Within a cycle these coincide, but at a
+    // repeat seam the phase rewinds to 0 while the Orientation still sits at the
+    // end-of-cycle frame; using the carried baseline makes the first delta of
+    // the new cycle carry the head from where it actually is (end of path) back
+    // to the start, re-seating it for the next traversal. For a closed path the
+    // start and end frames coincide and that delta is identity (a seamless
+    // loop); for an open arc it is the jump-back the old absolute reset did —
+    // but expressed as a *relative* delta, so a co-driver's contribution rides
+    // along instead of being clobbered. At i==0 the delta is identity, so the
+    // loop starts at i==1 and at(0) is left as the collapsed/co-driven seed.
+    if (!have_prev_frame_) {
+      prev_frame_ = path_frame(t_prev / this->duration);
+      have_prev_frame_ = true;
+    }
+    Quaternion base_inv = prev_frame_.conjugate();
+    Quaternion frame = prev_frame_;
 
     for (int i = 1; i < len; ++i) {
-      // Calculate sub-t to sample path
-      // t goes from (t-1) to t.
-      // i goes from 0 to len-1. i=0 is t-1, i=len-1 is t.
+      // i maps the sub-interval [t-1, t]: i=0 is t-1, i=len-1 is t.
       float sub_t = t_prev + (static_cast<float>(i) / (len - 1));
+      frame = path_frame(sub_t / this->duration);
 
-      Vector next_v = path_fn(sub_t / this->duration);
-      float step_angle = angle_between(prev_v, next_v);
-
-      if (step_angle > TOLERANCE) {
-        Vector step_axis = cross(prev_v, next_v).normalized();
-        Quaternion q_step = make_rotation(step_axis, step_angle);
-        apply_rotation(accumulated_q, q_step);
-      }
-
-      // Apply the accumulated rotation to the existing orientation frame
+      // The advance from the baseline frame to this substep's frame, applied as
+      // a relative delta onto the existing orientation: World pre-multiplies
+      // (frame * base_inv), Local post-multiplies (base_inv * frame).
       Quaternion &current_q = orientation.get().at(i);
-      apply_rotation(current_q, accumulated_q);
+      if (space == Space::Local) {
+        current_q = current_q * (base_inv * frame);
+      } else {
+        current_q = (frame * base_inv) * current_q;
+      }
       current_q.normalize();
-
-      prev_v = next_v;
     }
+    // Carry the final substep's frame (= F at the current phase) as the next
+    // frame's baseline. A pure path-derived value, never an accumulating chain,
+    // so the per-frame deltas telescope and no float drift builds up.
+    prev_frame_ = frame;
+  }
+
+  /**
+   * @brief The path's own orientation frame at path parameter s.
+   * @param s Normalized path parameter (the value passed to path_fn).
+   * @return A unit quaternion mapping body +X to the point path(s), body +Y to
+   * the travel direction tangent to the sphere, and body +Z to their cross.
+   * @details A pure function of s, so consecutive-frame deltas telescope over a
+   * cycle (no drift). The tangent is a forward finite difference with a fixed
+   * step, so it depends only on s — not on the per-frame substep spacing. A
+   * degenerate tangent (a momentarily stationary path point) falls back to a
+   * deterministic perpendicular of the point, keeping path_frame a pure function
+   * of s rather than reaching for prior state.
+   */
+  Quaternion path_frame(float s) const {
+    Vector point = path_fn(s).normalized();
+    Vector ahead = path_fn(s + FRAME_TANGENT_H).normalized();
+    Vector travel = ahead - point;
+    Vector tangent = travel - dot(travel, point) * point;
+    // Fallback when the tangent vanishes: a cross with the body axis least
+    // parallel to the point (mirrors make_rotation/RandomWalk's reference pick).
+    Vector seed =
+        std::abs(dot(point, X_AXIS)) < math::COS_AXIS_PARALLEL ? X_AXIS : Y_AXIS;
+    Vector b1 = normalized_or(tangent, cross(seed, point).normalized());
+    Vector b2 = cross(point, b1);
+    return quaternion_from_basis(point, b1, b2);
   }
 
 private:
   static constexpr float MAX_ANGLE =
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
+  /** Forward step (in path-parameter space) used to finite-difference the
+   * travel tangent in path_frame(). Fixed so the frame is a pure function of s;
+   * small enough to track curvature, large enough to clear float cancellation on
+   * unit-vector differences. */
+  static constexpr float FRAME_TANGENT_H = 1e-3f;
   std::reference_wrapper<Orientation<CAP>>
       orientation;               /**< Reference to the Orientation state. */
   Fn<Vector(float), 16> path_fn; /**< Function to retrieve path points. */
   Space space;                   /**< The coordinate space for rotation. */
-  Quaternion anchor_;            /**< Start orientation, captured on first step;
-                                      restored at each cycle to bound drift. */
-  bool anchor_captured_ = false; /**< Whether anchor_ has been captured yet. */
+  Quaternion prev_frame_;        /**< Path frame Motion last drove to; the
+                                      baseline carried across the repeat seam. */
+  bool have_prev_frame_ = false; /**< Whether prev_frame_ has been seeded. */
 };
 
 /**

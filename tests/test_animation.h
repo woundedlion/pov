@@ -917,15 +917,16 @@ inline void test_orientation_upsample_then_collapse() {
 
 /**
  * @brief Verifies a repeating Motion does not drift across many cycles.
- * @details A repeating Motion integrates its Orientation by dead reckoning. To
- * stop unbounded float error in that per-frame quaternion chain from warping
- * the traced curve, the orientation is snapped back to its captured start at
- * every cycle boundary, so each cycle integrates from an identical base. The
- * decisive, precession-immune signature is the set of rotation-INVARIANT
- * internal angles between heads sampled at fixed phases within a cycle: a rigid
- * drift (holonomy) leaves them unchanged, so any growth is genuine warp. A late
- * cycle is compared against the ideal Lissajous internal angles; they must stay
- * at the first cycle's tiny discretization residual.
+ * @details A repeating Motion advances its Orientation by relative deltas taken
+ * between consecutive path frames, where each frame is a pure function of the
+ * path parameter (point + tangent). Because the frame depends only on the phase,
+ * the per-cycle product of deltas telescopes — there is no accumulating
+ * quaternion chain to warp the traced curve. The decisive, precession-immune
+ * signature is the set of rotation-INVARIANT internal angles between heads
+ * sampled at fixed phases within a cycle: a rigid drift (holonomy) leaves them
+ * unchanged, so any growth is genuine warp. A late cycle is compared against the
+ * ideal Lissajous internal angles; they must stay at the first cycle's tiny
+ * discretization residual.
  */
 inline void test_motion_repeating_does_not_drift() {
   using Ori = Orientation<16>;
@@ -971,6 +972,68 @@ inline void test_motion_repeating_does_not_drift() {
   HS_EXPECT_NEAR(angle_between(Pa, Pb), ideal_ab, 0.1f);
   HS_EXPECT_NEAR(angle_between(Pa, Pc), ideal_ac, 0.1f);
   HS_EXPECT_NEAR(angle_between(Pb, Pc), ideal_bc, 0.1f);
+
+  global_timeline_num_events = 0;
+  global_timeline_t = 0;
+}
+
+/**
+ * @brief A co-driver sharing a repeating Motion's Orientation survives the
+ * repeat seam (finding 3 / sole-ownership removal).
+ * @details The old drift fix snapped the entire Orientation back to Motion's
+ * captured anchor at every cycle boundary, which clobbered any other animation
+ * driving the same Orientation. Motion now re-seats via a *relative* delta, so a
+ * co-driver's accumulated rotation rides across the seam instead of being
+ * discarded. With a CLOSED path Motion's per-cycle contribution telescopes to
+ * identity, so the only thing that should move the shared orientation at a seam
+ * is the co-driver's own small step — never a large snap-back. Assert the
+ * probe's per-frame angular step stays bounded across many seams while its
+ * cumulative travel is large (so the co-driver is provably active, not a no-op).
+ */
+inline void test_motion_codriven_survives_repeat_seam() {
+  using Ori = Orientation<16>;
+  global_timeline_num_events = 0;
+  global_timeline_t = 0;
+
+  const int duration = 30;
+  ProceduralPath path;
+  // A closed great circle: path(0) == path(1) with a matching tangent, so
+  // Motion's path frame is periodic and its per-cycle delta product is identity.
+  path.f = [](float t) {
+    float a = 2.0f * PI_F * t;
+    return Vector(std::cos(a), std::sin(a), 0.0f);
+  };
+
+  Ori o; // identity
+  Timeline tl;
+  // Repeating Motion + a repeating co-driver rotation about Y, both driving `o`.
+  tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
+  tl.add(0, Animation::Rotation<288, 16>(o, Y_AXIS, 2.0f * PI_F, duration,
+                                         ease_mid, /*repeat=*/true));
+
+  const Vector probe = Z_AXIS;
+  Vector prev = o.orient(probe);
+  float max_step = 0.0f;
+  float total_travel = 0.0f;
+  const int cycles = 8;
+  for (int c = 0; c < cycles; ++c) {
+    for (int fr = 1; fr <= duration; ++fr) {
+      tl.step(fake_canvas());
+      Vector cur = o.orient(probe);
+      float step = angle_between(prev, cur);
+      max_step = std::max(max_step, step);
+      total_travel += step;
+      prev = cur;
+    }
+  }
+
+  // No single frame — seams included — snaps the orientation: the co-driver was
+  // preserved, not clobbered. The bound clears the largest legitimate one-frame
+  // step (Motion ~2pi/duration plus the co-driver's share) yet sits far below
+  // the multi-radian snap the old absolute reset produced.
+  HS_EXPECT_LT(max_step, 0.8f);
+  // Non-vacuous: the co-driver actually moved the probe a long way over 8 cycles.
+  HS_EXPECT_GT(total_travel, 5.0f);
 
   global_timeline_num_events = 0;
   global_timeline_t = 0;
@@ -1407,6 +1470,7 @@ inline int run_animation_tests() {
   test_timeline_full_guard_rejects_overflow();
   test_orientation_upsample_then_collapse();
   test_motion_repeating_does_not_drift();
+  test_motion_codriven_survives_repeat_seam();
 
   test_particle_system_spawn_and_capacity_guard();
   test_particle_system_expires_after_life_and_trail_drain();
