@@ -1126,13 +1126,35 @@ public:
     int cx = static_cast<int>(std::round(x));
     int cy = static_cast<int>(std::round(y));
 
+    // Pole-clip renormalization. A 3x3 tap straddling a pole row loses that row
+    // (poles don't wrap), so the surviving kernel weights sum to < 1 and the
+    // edge rows deposit < alpha and darken. Mirror AntiAlias's Y-clip handling:
+    // fold the clipped row's weight back into the survivors by scaling every
+    // surviving tap by 1/(sum of surviving-row weights). Interior rows clip
+    // nothing, so the sum is the full kernel (1) and inv is exactly 1.0f — the
+    // per-tap multiply is then a no-op (x * 1.0f is exact), keeping the common
+    // path bit-identical. The branch gates the renorm work to the two pole rows.
+    float inv = 1.0f;
+    if (cy - 1 < 0 || cy + 1 >= H) {
+      float wsum = 0.0f;
+      for (int dy = -1; dy <= 1; dy++) {
+        int ny = cy + dy;
+        if (ny >= 0 && ny < H) {
+          int r = (dy + 1) * 3;
+          wsum += kernel[r] + kernel[r + 1] + kernel[r + 2];
+        }
+      }
+      if (wsum > 1e-5f)
+        inv = 1.0f / wsum;
+    }
+
     int k = 0;
     for (int dy = -1; dy <= 1; dy++) {
       int ny = cy + dy;
 
       if (ny >= 0 && ny < H) {
         for (int dx = -1; dx <= 1; dx++) {
-          float weight = kernel[k++];
+          float weight = kernel[k++] * inv;
           if (weight > 1e-5f) {
             pass(static_cast<float>(wrap(cx + dx, W)), static_cast<float>(ny),
                  color, age, alpha * weight);

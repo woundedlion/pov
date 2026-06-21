@@ -17,7 +17,7 @@
  *   - Screen::AntiAlias::plot — bilinear weight partition (sums to alpha),
  *     pole snap behaviour
  *   - Screen::Blur::plot — kernel passthrough (factor=0 → identity center,
- *     factor=1 → 3x3 weights sum to alpha)
+ *     factor=1 → 3x3 weights sum to alpha), pole-row clip renormalization
  *   - Pixel::ChromaticShift::plot — channel-split fan-out
  *   - Pixel::Feedback — Style binding accessor, set_enabled
  *
@@ -363,6 +363,36 @@ inline void test_blur_update_changes_kernel() {
   blur.plot(15.0f, 16.0f, Pixel(1, 1, 1), 0.0f, 1.0f,
             [&](float, float, const Pixel &, float, float) { ++count; });
   HS_EXPECT_EQ(count, 1);
+}
+
+/**
+ * @brief Verifies the pole-clip renormalization: a full-blur tap on a pole row
+ *        drops the off-pole neighbor row (poles don't wrap) yet still deposits
+ *        the full input alpha, with no tap landing outside [0, H).
+ * @details Mirrors AntiAlias's Y-clip renorm. Without it the surviving 6 taps
+ *          sum to 1 - (2*corner + edge) < alpha and the pole rows darken.
+ */
+inline void test_blur_pole_row_renormalizes() {
+  constexpr int W = 32, H = 32;
+  Filter::Screen::Blur<W, H> blur(1.0f);
+
+  const float in_alpha = 0.6f;
+  for (float py : {0.0f, static_cast<float>(H - 1)}) {
+    float sum = 0.0f;
+    int count = 0;
+    bool all_in_bounds = true;
+    blur.plot(15.0f, py, Pixel(1, 1, 1), 0.0f, in_alpha,
+              [&](float, float yy, const Pixel &, float, float a) {
+                sum += a;
+                ++count;
+                if (yy < 0.0f || yy >= static_cast<float>(H))
+                  all_in_bounds = false;
+              });
+    // Top/bottom row clipped → only the 2 surviving rows (6 taps) emit.
+    HS_EXPECT_EQ(count, 6);
+    HS_EXPECT_TRUE(all_in_bounds);
+    HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+  }
 }
 
 // ============================================================================
@@ -1212,6 +1242,7 @@ inline int run_filter_tests() {
   test_blur_factor_zero_is_identity();
   test_blur_full_kernel_sums_to_alpha();
   test_blur_update_changes_kernel();
+  test_blur_pole_row_renormalizes();
 
   test_chromatic_shift_fanout();
 
