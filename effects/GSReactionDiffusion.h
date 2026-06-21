@@ -71,7 +71,12 @@ public:
     // dA/dB cap at 0.05: this is explicit Euler, stable only while
     // dt·D·λmax ≤ 2. The graph Laplacian's |λ|max ≤ 2·6 = 12 (6-NN lattice), so
     // at the Speed slider's top (dt = 3.0) the joint worst case is 3·0.05·12 =
-    // 1.8 ≤ 2 — stable across the whole GUI.
+    // 1.8 ≤ 2 — stable across the whole GUI. This bound covers only the diffusion
+    // term; the full forward-Euler stability region also depends on the reaction
+    // Jacobian (the A·B² autocatalysis and the feed/kill terms), which is assumed
+    // sub-dominant within the registered Feed/Kill/dt ranges below. If any of
+    // those slider ranges are ever widened, the reaction Jacobian must be
+    // re-checked — it is not bounded by the diffusion argument above.
     registerParam("dA", &params.dA, 0.0f, 0.05f);
     registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);
