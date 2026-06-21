@@ -607,16 +607,13 @@ FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
  */
 inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
     const HalfEdgeMesh &he_mesh,
-    const std::pair<int16_t, int16_t> *edge_to_vert, uint16_t he_idx) {
+    const std::pair<uint16_t, uint16_t> *edge_to_vert, uint16_t he_idx) {
   const HalfEdge &he = he_mesh.half_edges[he_idx];
   uint16_t tail = he_mesh.half_edges[he.prev].vertex;
   uint16_t head = he.vertex;
-  const std::pair<int16_t, int16_t> &cut = edge_to_vert[he_idx];
-  return (tail <= head)
-             ? std::pair<uint16_t, uint16_t>{static_cast<uint16_t>(cut.first),
-                                             static_cast<uint16_t>(cut.second)}
-             : std::pair<uint16_t, uint16_t>{static_cast<uint16_t>(cut.second),
-                                             static_cast<uint16_t>(cut.first)};
+  const std::pair<uint16_t, uint16_t> &cut = edge_to_vert[he_idx];
+  return (tail <= head) ? std::pair<uint16_t, uint16_t>{cut.first, cut.second}
+                        : std::pair<uint16_t, uint16_t>{cut.second, cut.first};
 }
 
 /**
@@ -661,12 +658,14 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "truncate");
 
-    std::pair<int16_t, int16_t> *edge_to_vert =
-        static_cast<std::pair<int16_t, int16_t> *>(
+    // Per-edge cut-vertex pair, unset = {HE_NONE, HE_NONE} (matches the other
+    // operators' he->new-vertex maps so the unset test reads identically).
+    std::pair<uint16_t, uint16_t> *edge_to_vert =
+        static_cast<std::pair<uint16_t, uint16_t> *>(
             target.allocate(
-                I * sizeof(std::pair<int16_t, int16_t>),
-                alignof(std::pair<int16_t, int16_t>)));
-    std::fill_n(edge_to_vert, I, std::make_pair<int16_t, int16_t>(-1, -1));
+                I * sizeof(std::pair<uint16_t, uint16_t>),
+                alignof(std::pair<uint16_t, uint16_t>)));
+    std::fill_n(edge_to_vert, I, std::pair<uint16_t, uint16_t>(HE_NONE, HE_NONE));
 
     bool *visited_verts = static_cast<bool *>(
         target.allocate(V * sizeof(bool), alignof(bool)));
@@ -675,7 +674,7 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
         target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      if (edge_to_vert[i].first == -1) {
+      if (edge_to_vert[i].first == HE_NONE) {
         const HalfEdge &he = he_mesh.half_edges[i];
         uint16_t vi = he_mesh.half_edges[he.prev].vertex;
         uint16_t vj = he.vertex;
@@ -758,9 +757,11 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
 
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "expand");
-    int16_t *he_to_vert_idx = static_cast<int16_t *>(
-        target.allocate(I * sizeof(int16_t), alignof(int16_t)));
-    std::fill_n(he_to_vert_idx, I, -1);
+    // he->new-vertex map, unset = HE_NONE (matches ambo/snub/chamfer so the
+    // unset test reads identically across every operator).
+    uint16_t *he_to_vert_idx = static_cast<uint16_t *>(
+        target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    std::fill_n(he_to_vert_idx, I, HE_NONE);
 
     bool *visited_verts = static_cast<bool *>(
         target.allocate(V * sizeof(bool), alignof(bool)));
