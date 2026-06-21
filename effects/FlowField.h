@@ -43,7 +43,9 @@ public:
     registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
 
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    noise_generator.SetSeed(hs::rand_int(0, 65535));
+    // rand_int is half-open [min, max), so use 65536 to make the full 16-bit
+    // seed range [0, 65535] reachable rather than stopping one short at 65534.
+    noise_generator.SetSeed(hs::rand_int(0, 65536));
 
     // Drive the whole-sphere drift consumed by the Filter::World::Orient stage.
     // Without an animation the orientation stays at identity and the filter
