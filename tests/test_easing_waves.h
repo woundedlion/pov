@@ -113,6 +113,30 @@ inline void test_easing_finite_and_monotone() {
 }
 
 /**
+ * @brief Pins reference interior values for the expo/elastic curves.
+ * @details The finite-only interior check (test_easing_finite_and_monotone) would
+ *          pass for any finite curve, so it cannot catch a shape regression in
+ *          the two overshooting/non-monotone curves. Lock independently-derived
+ *          analytic values at interior points:
+ *            ease_out_expo(t)    = 1 - 2^(-10t)
+ *              t=0.25 -> 1 - 2^-2.5  = 0.8232233
+ *              t=0.5  -> 1 - 2^-5    = 0.96875
+ *            ease_out_elastic(x) = 2^(-10x)·sin((10x-0.75)·2π/3) + 1
+ *              x=0.25 -> 2^-2.5·sin(210°) + 1 = 0.9116117
+ *              x=0.5  -> 2^-5·sin(150°)  + 1 = 1.015625  (overshoots past 1)
+ *          The elastic x=0.5 value also pins the defining overshoot (> 1).
+ */
+inline void test_easing_expo_elastic_interior_reference() {
+  HS_EXPECT_NEAR(ease_out_expo(0.25f), 0.8232233f, 1e-4f);
+  HS_EXPECT_NEAR(ease_out_expo(0.5f), 0.96875f, 1e-5f);
+
+  HS_EXPECT_NEAR(ease_out_elastic(0.25f), 0.9116117f, 1e-4f);
+  HS_EXPECT_NEAR(ease_out_elastic(0.5f), 1.015625f, 1e-4f);
+  // Defining feature: the elastic curve overshoots past its end value mid-travel.
+  HS_EXPECT_GT(ease_out_elastic(0.5f), 1.0f);
+}
+
+/**
  * @brief Verifies in-out curves are symmetric about the midpoint.
  * @details Each in-out curve passes through 0.5 at t=0.5.
  */
@@ -220,6 +244,7 @@ inline int run_easing_waves_tests() {
 
   test_easing_endpoints();
   test_easing_finite_and_monotone();
+  test_easing_expo_elastic_interior_reference();
   test_easing_in_out_symmetry_midpoint();
 
   test_sin_wave_bounds_and_phase();
