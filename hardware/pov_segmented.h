@@ -281,10 +281,15 @@ public:
         // ISR seam (project doctrine: trap at the cold construction site, not
         // the hot ISR): render_column() walks PPS pixels over canvas rows in
         // [0, ROWS) and indexes buf[y * width + x_col], in-bounds only when the
-        // effect's canvas height equals ROWS (S/2). Trap a resolution mismatch
-        // here, before the flywheel ISR can take this instance live.
+        // effect's canvas height equals ROWS (S/2) AND its width equals the
+        // CANVAS_W the sync engine sweeps x over — x_col derives from x in
+        // [0, CANVAS_W) but is bounds-checked against the row stride w =
+        // width(). Trap a resolution mismatch on either axis here, before the
+        // flywheel ISR can take this instance live.
         HS_CHECK(cur->height() == ROWS,
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
+        HS_CHECK(cur->width() == CANVAS_W,
+                 "POVSegmented: effect canvas width must equal CANVAS_W");
         cur->draw_frame(); // frame 0, queued; fresh buffers never block
         hs::disable_interrupts();
         // Release store last so it publishes both the new generation and every
