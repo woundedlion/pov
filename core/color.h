@@ -560,41 +560,6 @@ struct OKLab { float L, a, b; };
  */
 struct OKLCH { float L, C, h; };
 
-/** @brief Cone-response (LMS) triple, the OKLab intermediate before the cube-root
- *  nonlinearity. */
-struct LMS { float l, m, s; };
-
-/**
- * @brief Linear-RGB -> LMS cone response (the first OKLab matrix).
- * @param r Linear red in [0, 1].
- * @param g Linear green in [0, 1].
- * @param b Linear blue in [0, 1].
- * @return The (l, m, s) cone responses, before the cube-root nonlinearity.
- * @details Shared by linear_rgb_to_oklab and hue_rotate so the matrix lives in
- * one place; both then apply their own cube-root (exact cbrtf vs fast_cbrt) and
- * call lms_to_oklab. Inline — zero runtime cost.
- */
-inline LMS linear_rgb_to_lms(float r, float g, float b) {
-  return {0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b,
-          0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b,
-          0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b};
-}
-
-/**
- * @brief Cube-rooted LMS -> OKLab (the second OKLab matrix).
- * @param l_ Cube-rooted l cone response.
- * @param m_ Cube-rooted m cone response.
- * @param s_ Cube-rooted s cone response.
- * @return The color in OKLab space.
- * @details Takes the already-nonlinearized (cube-rooted) triple so the caller
- * picks the cube-root flavour. Shared with hue_rotate; inline, zero runtime cost.
- */
-inline OKLab lms_to_oklab(float l_, float m_, float s_) {
-  return {0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_,
-          1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_,
-          0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_};
-}
-
 /**
  * @brief Converts linear RGB [0,1] to OKLab.
  * @param r Linear red in [0, 1].
@@ -603,8 +568,15 @@ inline OKLab lms_to_oklab(float l_, float m_, float s_) {
  * @return The color in OKLab space.
  */
 inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
-  LMS lms = linear_rgb_to_lms(r, g, b);
-  return lms_to_oklab(cbrtf(lms.l), cbrtf(lms.m), cbrtf(lms.s));
+  float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
+  float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
+  float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
+
+  float l_ = cbrtf(l), m_ = cbrtf(m), s_ = cbrtf(s);
+
+  return {0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_,
+          1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_,
+          0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_};
 }
 
 /**
@@ -720,11 +692,15 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   constexpr float INV16 = 1.0f / 65535.0f;
   float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
 
-  // linear RGB -> OKLab, sharing the two matrices with linear_rgb_to_oklab but
-  // substituting fast_cbrt for the forward nonlinearity (the hot-path cost cut).
-  LMS lms = linear_rgb_to_lms(r, g, b);
-  OKLab lab = lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
-  float L = lab.L, A = lab.a, B = lab.b;
+  // linear RGB -> OKLab (forward nonlinearity via fast_cbrt)
+  float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
+  float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
+  float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
+  float l_ = fast_cbrt(l), m_ = fast_cbrt(m), s_ = fast_cbrt(s);
+
+  float L = 0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_;
+  float A = 1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_;
+  float B = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
 
   // Rotate the chroma plane by the precomputed (ca, sa) = (cos, sin) of the
   // turn angle — preserves L and |(A,B)|.

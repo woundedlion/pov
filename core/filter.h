@@ -765,14 +765,8 @@ public:
       if (item.ttl == 0)
         continue;
       Vector v = decode(item);
-      // lifetime can shrink mid-run via set_lifetime() while older points still
-      // carry a ttl encoded under the previous (larger) lifetime, making
-      // ttl/lifetime > 1 and t negative. WorldTrailFn receives t as fade
-      // progress in [0,1] (it may index a palette/gradient), so clamp — mirroring
-      // the age >= 0 clamp below, which already guards the same race.
-      float t = hs::clamp(
-          1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime)),
-          0.0f, 1.0f);
+      float t =
+          1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime));
       Color4 c = trailFn(v, t);
 
       if (c.alpha > 0.001f) {

@@ -46,6 +46,13 @@ inline Vector node(int i) {
  * @details neighbors[i][k] is the node index of the k-th nearest neighbor of
  *          node i, or negative when fewer than RD_K neighbors exist. Total size
  *          92160 bytes (RD_N × RD_K × 2B).
+ *
+ *          The definition carries a PROGMEM marker, but every consumer indexes
+ *          this table directly (no pgm_read_word). That is valid only because
+ *          PROGMEM is a no-op on all supported targets — the flat-address
+ *          Cortex-M7 Teensy and the host/WASM sim (see platform.h). On a true
+ *          Harvard target (e.g. AVR) the direct reads would return garbage; the
+ *          marker is dead/advisory here, not a load instruction.
  */
 extern const int16_t neighbors[RD_N][RD_K];
 
