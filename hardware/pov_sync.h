@@ -801,7 +801,10 @@ struct ContentTracker {
    */
   uint32_t rev_in_effect = 0;
   bool commit_pending = false;       /**< An epoch commit is scheduled. */
-  uint32_t commit_in_revs = 0;       /**< ZERO crossings until the B+R+K commit. */
+  uint32_t commit_in_revs = 0;       /**< ZERO crossings remaining until the
+                                        absolute B+R+K boundary, with j already
+                                        subtracted for the repeat this board
+                                        heard (NOT the announce-phase length). */
   uint32_t refractory_revs_left = 0; /**< EPOCH dedup window (spec §6.1). */
 
   /**
