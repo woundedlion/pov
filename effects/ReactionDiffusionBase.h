@@ -129,6 +129,16 @@ protected:
    * systems needing several fields per node fuse them into one walk here rather
    * than calling a single-field helper per field, which would re-read the
    * neighbor list once per species.
+   *
+   * Negative entries are the K-NN sentinel for an unfilled slot and are skipped,
+   * so the effective Laplacian degree is the count of *valid* neighbors (≤ RD_K).
+   * A node with fewer than RD_K valid neighbors therefore sums its Laplacian over
+   * fewer terms and diffuses correspondingly slower — a position-dependent
+   * inhomogeneity, but a benign one: the explicit-Euler stability bound assumes
+   * the full degree RD_K, so a deficient node is strictly on the stable side.
+   * The shipped Fibonacci lattice is in fact full-degree (no sentinels; pinned by
+   * test_indices_in_range), so this is a robustness path rather than an active
+   * inhomogeneity today.
    */
   template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
     for (int k = 0; k < RD_K; ++k) {
