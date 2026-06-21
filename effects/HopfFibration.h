@@ -46,6 +46,14 @@ public:
     // Bake palette for trail coloring
     baked_sunset.bake(persistent_arena, Palettes::richSunset);
 
+    // Persistent footprint ~105 KB: ACTUAL_FIBERS(210) Vectors (~2.5 KB) plus
+    // ACTUAL_FIBERS VectorTrail<TRAIL_LEN=40> (~210 × 40 × 12 B ≈ 100 KB), plus
+    // the baked palette. This fits the default persistent partition
+    // (DEFAULT_PERSISTENT_SIZE ≈ 303 KB on device) with wide headroom, and the
+    // effect allocates no per-frame scratch, so it deliberately keeps the default
+    // split rather than calling configure_arenas(). If the default were ever
+    // retuned below this footprint, allocate() traps (fail-fast) — the dependency
+    // is the default split, documented here.
     fibers = static_cast<Vector *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));
 
