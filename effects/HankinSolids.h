@@ -195,6 +195,11 @@ private:
                         }));
 
     int front = carousel.front_index();
+    // Snapshot the angle-independent counts for this cycle so the per-frame
+    // sprite can prove they never change (see the HS_CHECK below).
+    hankin_vertex_count_ = compiled_hankin.static_vertices.size() +
+                           compiled_hankin.dynamic_vertices.size();
+    hankin_face_count_ = compiled_hankin.face_counts.size();
     // Gate the render sprite on the same pause flag (holds the frame instead of
     // expiring) so a paused angle keeps rendering rather than going blank.
     timeline.add(
@@ -210,9 +215,17 @@ private:
                  // itself enforced by ArenaVector::bind's debug contract assert.
                  MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
                                         persistent_arena, params.hankin_angle);
-                 draw_mesh(c, carousel.slot(front),
-                           carousel.slot(front).topology, palettes_slots[front],
-                           opacity);
+                 // That ArenaVector::bind contract is debug-only (NDEBUG strips
+                 // it on the device), so back it with an always-on guard: if the
+                 // counts ever grew, the re-bind would silently consume more of
+                 // persistent_arena every frame, leaking it unboundedly on a
+                 // permanent install. Trap instead.
+                 const MeshState &s = carousel.slot(front);
+                 HS_CHECK(s.vertices.size() == hankin_vertex_count_ &&
+                              s.face_counts.size() == hankin_face_count_,
+                          "HankinSolids: per-frame mesh counts changed; the "
+                          "persistent re-bind would grow the arena");
+                 draw_mesh(c, s, s.topology, palettes_slots[front], opacity);
                },
                DURATION, 0, ease_mid, 0, ease_mid, &anims_paused_));
   }
@@ -281,6 +294,9 @@ private:
 
   int morph_old_slot_ = 0; /**< Outgoing slot index for morph draw callbacks. */
   int morph_new_slot_ = 1; /**< Incoming slot index for morph draw callbacks. */
+
+  size_t hankin_vertex_count_ = 0; /**< Expected per-frame vertex count for the active cycle. */
+  size_t hankin_face_count_ = 0;   /**< Expected per-frame face count for the active cycle. */
 
   /**
    * @brief Draw callback for the outgoing mesh during a morph.
