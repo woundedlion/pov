@@ -38,6 +38,7 @@
 #include "core/3dmath.h"
 #include "core/animation.h"
 #include "core/canvas.h"
+#include "core/color.h"
 #include "core/geometry.h"
 #include "core/filter.h"
 #include "core/memory.h"
@@ -645,6 +646,31 @@ inline void case_path_append_zero_samples() {
 }
 
 /**
+ * @brief Death case: a Gradient stop position outside [0,1] must trap.
+ * @details Color surface — a stop position indexes entries[256] via
+ *          static_cast<int>(pos * 255); pos > 1 (or < 0) is an out-of-bounds
+ *          table write. The constructor traps the authoring error always-on at
+ *          the cold literal-construction seam rather than corrupting memory.
+ */
+inline void case_gradient_stop_out_of_range() {
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)},
+                {1.5f, CPixel(255u, 255u, 255u)}}; // pos > 1 -> HS_CHECK
+  (void)grad;
+}
+
+/**
+ * @brief Death case: descending (unsorted) Gradient stops must trap.
+ * @details Color surface — segments are only filled when end > start, so a
+ *          transposed/unsorted pair would silently degenerate to wrong output.
+ *          The constructor requires ascending positions and traps otherwise.
+ */
+inline void case_gradient_stops_unsorted() {
+  Gradient grad{{0.6f, CPixel(0u, 0u, 0u)},
+                {0.3f, CPixel(255u, 255u, 255u)}}; // descending -> HS_CHECK
+  (void)grad;
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -693,6 +719,8 @@ inline const Case *all_cases(int &n) {
        case_plot_extract_edges_vertex_over_capacity},
       {"feedback_downsample_indivisible",
        case_feedback_downsample_indivisible},
+      {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
+      {"gradient_stops_unsorted", case_gradient_stops_unsorted},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;

@@ -884,6 +884,88 @@ inline void test_gradient_get_clamps_out_of_range() {
   HS_EXPECT_EQ(nan_res.color.r, hi_end.color.r);
 }
 
+/**
+ * @brief Verifies a first stop at pos>0 flat-fills the LUT prefix with its color.
+ * @details The constructor fills entries[0..firstStop] with the first stop's
+ *          color, so a gradient whose first stop sits at 0.25 returns that color
+ *          for all t in [0, 0.25]; only past the stop do the flanks interpolate.
+ */
+inline void test_gradient_first_stop_offset_flat_fills_prefix() {
+  // First stop (pure red) at 0.25; second (pure blue) at 1.0.
+  Gradient grad{{0.25f, CPixel(255u, 0u, 0u)}, {1.0f, CPixel(0u, 0u, 255u)}};
+
+  Color4 at0 = grad.get(0.0f);
+  Color4 flat = grad.get(0.1f); // still inside the [0,0.25] flat prefix
+  // Pure red, exact (flat fill uses srgb_to_linear directly, no interpolation).
+  HS_EXPECT_GT(at0.color.r, 60000);
+  HS_EXPECT_EQ(at0.color.g, 0);
+  HS_EXPECT_EQ(at0.color.b, 0);
+  // The whole prefix is one color.
+  HS_EXPECT_EQ(flat.color.r, at0.color.r);
+  HS_EXPECT_EQ(flat.color.b, at0.color.b);
+  // Past the first stop the flank interpolates toward blue (red falls, blue rises).
+  Color4 ramp = grad.get(0.7f);
+  HS_EXPECT_LT(ramp.color.r, at0.color.r);
+  HS_EXPECT_GT(ramp.color.b, at0.color.b);
+}
+
+/**
+ * @brief Verifies a >=3-stop gradient places the interior stop and interpolates flanks.
+ * @details An interior stop not at 0/1 is the segment-join the 2-stop tests never
+ *          exercise: the interior color must appear near its position and each
+ *          flanking segment must blend between its bracketing stops.
+ */
+inline void test_gradient_three_stops_interior_and_flanks() {
+  // red -> green (interior, 0.5) -> blue.
+  Gradient grad{{0.0f, CPixel(255u, 0u, 0u)},
+                {0.5f, CPixel(0u, 255u, 0u)},
+                {1.0f, CPixel(0u, 0u, 255u)}};
+  // Endpoints are the pure stops.
+  Color4 a = grad.get(0.0f);
+  Color4 b = grad.get(1.0f);
+  HS_EXPECT_GT(a.color.r, 60000);
+  HS_EXPECT_EQ(a.color.g, 0);
+  HS_EXPECT_GT(b.color.b, 60000);
+  HS_EXPECT_EQ(b.color.r, 0);
+  // Interior green dominates at its stop.
+  Color4 mid = grad.get(0.5f);
+  HS_EXPECT_GT(mid.color.g, mid.color.r);
+  HS_EXPECT_GT(mid.color.g, mid.color.b);
+  // First flank (red->green): both red and green present, blue absent.
+  Color4 f1 = grad.get(0.25f);
+  HS_EXPECT_GT(f1.color.r, 0);
+  HS_EXPECT_GT(f1.color.g, 0);
+  HS_EXPECT_EQ(f1.color.b, 0);
+  // Second flank (green->blue): green and blue present, red absent.
+  Color4 f2 = grad.get(0.75f);
+  HS_EXPECT_GT(f2.color.g, 0);
+  HS_EXPECT_GT(f2.color.b, 0);
+  HS_EXPECT_EQ(f2.color.r, 0);
+}
+
+/**
+ * @brief Verifies two stops at the same quantized index produce a hard stop.
+ * @details Coincident stop positions leave end==start, so the segment is skipped
+ *          and the LUT jumps abruptly rather than interpolating. A smooth two-stop
+ *          red->blue ramp would read as a red/blue mix on both sides of 0.5; the
+ *          hard stop instead stays near-pure red below the boundary and near-pure
+ *          blue above it.
+ */
+inline void test_gradient_hard_stop_is_abrupt() {
+  Gradient grad{{0.0f, CPixel(255u, 0u, 0u)},
+                {0.5f, CPixel(255u, 0u, 0u)},
+                {0.5f, CPixel(0u, 0u, 255u)},
+                {1.0f, CPixel(0u, 0u, 255u)}};
+  // Below the boundary: essentially pure red.
+  Color4 lo = grad.get(0.4f);
+  HS_EXPECT_GT(lo.color.r, 60000);
+  HS_EXPECT_LT(lo.color.b, 100);
+  // Above the boundary: essentially pure blue. No red/blue blend in between.
+  Color4 hi = grad.get(0.6f);
+  HS_EXPECT_GT(hi.color.b, 60000);
+  HS_EXPECT_LT(hi.color.r, 100);
+}
+
 // ============================================================================
 // BakedPalette::get  (requires an Arena)
 // ============================================================================
@@ -1315,6 +1397,9 @@ inline int run_color_tests() {
   test_gradient_get_clamps_out_of_range();
   test_gradient_solid_color();
   test_gradient_interpolates_between_entries();
+  test_gradient_first_stop_offset_flat_fills_prefix();
+  test_gradient_three_stops_interior_and_flanks();
+  test_gradient_hard_stop_is_abrupt();
 
   test_baked_palette_matches_source_endpoints();
   test_baked_palette_in_range();
