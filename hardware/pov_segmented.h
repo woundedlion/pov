@@ -381,6 +381,14 @@ private:
     // changes state within the 2 ms re-sample gap. Generous margins for the
     // expected sub-millisecond RC; widen them if a future board adds long strap
     // traces or external caps.
+    //
+    // Residual risk: the resample only catches bounces whose period is shorter
+    // than the 2 ms gap. A strap that settles slower than 2 ms (long traces /
+    // added caps) could read identically at raw0 and raw1 and pass the check
+    // while still mid-transition, mis-ID'ing the board into bus contention. The
+    // current hardware's sub-ms RC keeps this comfortably out of range; if that
+    // ever changes, derive the delays from the worst-case RC or sample three
+    // times spread over a longer window.
     delay(10);  // settle time for pull-ups
 
     const int raw0 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
