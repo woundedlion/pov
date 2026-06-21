@@ -69,7 +69,13 @@ inline void test_shader_constant_fills_canvas() {
   }
   fx.advance_display();
 
-  // Every pixel in the full canvas got the constant color.
+  // Every pixel in the full canvas got the constant color. The readback is
+  // asserted bit-exact intentionally: at alpha = 1.0 the compositing path is the
+  // identity (src*1 + dst*0, no rounding term), so the written channels must
+  // survive verbatim. That alpha=1 blend identity is itself guaranteed by
+  // test_blend_alpha (blend_alpha(1.0f)(a, b) == b); if a future blend change
+  // breaks it (a rounding/premultiply/dither term), expect this to fail too,
+  // which is the intended coupling, not an over-tight tolerance.
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const Pixel &p = fx.get_pixel(x, y);
