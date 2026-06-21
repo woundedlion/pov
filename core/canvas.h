@@ -257,6 +257,11 @@ public:
     /**
      * @brief Write a float value (bool threshold at 0.5).
      * @param v Value to store; a bool target is set true when v > 0.5.
+     * @warning Raw write: applies no readonly/finite/[min,max] gate. The
+     * readonly-reject, non-finite-reject and range-clamp contract lives solely
+     * in Effect::updateParameter — any value write originating outside trusted
+     * engine code (UI bridge, animation driver) must route through there, not
+     * call set() on a handle from ParamList::find().
      */
     void set(float v) {
       std::visit(
@@ -311,6 +316,12 @@ public:
      * @brief Looks up a registered parameter by name.
      * @param name Parameter name to match (exact string compare).
      * @return Pointer to the matching parameter, or nullptr if not found.
+     * @warning Returns a mutable handle that bypasses Effect::updateParameter's
+     * write gate (readonly-reject / non-finite-reject / [min,max] clamp).
+     * Intended only for trusted cold setup that flips ParamDef flags
+     * (markAnimated/markReadonly). Do not use it to write a param value from a
+     * UI or animation source — go through updateParameter so the value contract
+     * stays single-sourced. See ParamDef::set().
      */
     ParamDef *find(const char *name) {
       for (size_t i = 0; i < count; ++i) {
