@@ -52,8 +52,8 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
     registerParam("Thickness", &params.thickness, 2.0f * px, 0.75f);
-    registerParam("Rings", &params.numRings, 1.0f, 10.0f);
-    registerParam("Show Bounding", &params.debugBB);
+    registerParam("Rings", &params.num_rings, 1.0f, 10.0f);
+    registerParam("Show Bounding", &params.debug_bb);
 
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
@@ -89,7 +89,7 @@ public:
    * tracks the animated `amplitude` field.
    */
   void drawFn(Canvas &canvas, float opacity) {
-    int nRings = static_cast<int>(params.numRings);
+    int nRings = static_cast<int>(params.num_rings);
 
     for (int i = 0; i < nRings; ++i) {
       float radius = 2.0f / (nRings + 1) * (i + 1);
@@ -114,7 +114,7 @@ public:
 
       Scan::DistortedRing::draw<W, H>(
           filters, canvas, basis, radius, params.thickness, shiftFn,
-          std::abs(amplitude), fragment_shader, 0.0f, params.debugBB);
+          std::abs(amplitude), fragment_shader, 0.0f, params.debug_bb);
     }
   }
 
@@ -128,11 +128,11 @@ private:
    * @details Defaults are pre-registration starting values.
    */
   struct Params {
-    float alpha = 0.3f;
-    float max_amplitude = 0.3f;
-    float thickness = 1.0f;
-    float numRings = 1.0f;
-    bool debugBB = false;
+    float alpha = 0.3f;         /**< Overall ring opacity multiplier in [0, 1]. */
+    float max_amplitude = 0.3f; /**< Peak radial displacement; the animated wave sweeps [-max_amplitude, +max_amplitude]. */
+    float thickness = 1.0f;     /**< Ring stroke width, in radians of azimuth; init() reseeds it to 4 px scaled by resolution. */
+    float num_rings = 1.0f;     /**< Number of evenly spaced concentric rings (truncated to int when drawn). */
+    bool debug_bb = false;      /**< When true, draws each fragment's bounding box for debugging. */
   } params;
 
   float amplitude = 0;
