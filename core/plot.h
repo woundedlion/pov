@@ -403,6 +403,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   auto process_segment = [&](auto &&map, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool isLastSegment) {
+    // The degenerate and fast paths below plot curr.pos/next.pos directly, without
+    // the renormalize the DRAWING PHASE applies further down: these are the
+    // original sampled vertices (already unit), not the fast_sinf/cosf-interpolated
+    // map() outputs that drift ~0.04% off the unit sphere. Precondition: callers
+    // pass unit fragment positions.
     // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool shouldOmit = (close_loop) ? true : !isLastSegment;
