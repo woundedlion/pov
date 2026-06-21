@@ -860,8 +860,23 @@ struct ScratchScope {
   ScratchScope(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
   /**
    * @brief Destroys the scope, rewinding the arena to the saved offset.
+   * @details Enforces LIFO scope discipline before rewinding. A bump allocator
+   * makes stack-nested scopes on the SAME arena always safe: an inner scope
+   * saves a mark above the outer's allocations and rewinds to exactly where they
+   * end, so nesting never clobbers a live allocation. That safety holds for ALL
+   * stack-nested uses (e.g. the multiple scratch_arena_a scopes Plot::rasterize
+   * and Pixel::Feedback::flush hold) — the ONE way to break it is non-LIFO
+   * teardown: a scope rewinding while a still-live inner allocation, or an outer
+   * scope, sits above it. That shows up here as the arena offset having dropped
+   * BELOW saved_offset (an outer rewind or reset() ran while this scope was
+   * live). Trap it instead of letting set_offset() resurrect freed bytes. This
+   * is the structural enforcement of the scratch-arena temporal-overlap contract
+   * documented at Pixel::Feedback::flush (filter.h) and Plot::rasterize.
    */
-  ~ScratchScope() { arena.set_offset(saved_offset); }
+  ~ScratchScope() {
+    HS_CHECK(arena.get_offset() >= saved_offset);
+    arena.set_offset(saved_offset);
+  }
 
   /**
    * @brief Creates a temporary ArenaVector scoped to this ScratchScope.

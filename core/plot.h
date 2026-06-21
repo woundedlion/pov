@@ -365,11 +365,13 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
   size_t count = close_loop ? len : len - 1;
   // SCRATCH ARENA CONTRACT (load-bearing): this rasterizer and
-  // Pixel::Feedback::flush (filter.h) both checkpoint scratch_arena_a. That is
-  // safe ONLY because plot() and flush() are temporally disjoint phases within
-  // a frame — neither runs while the other holds a live allocation here. Keep
-  // it that way: do not call into a feedback flush from inside a plot, and do
-  // not allocate from scratch_arena_a across a plot/flush boundary.
+  // Pixel::Feedback::flush (filter.h) both checkpoint scratch_arena_a. Sharing
+  // it is safe by construction — scratch_arena_a is a LIFO bump allocator, so
+  // stack-nested scopes (whether plot-inside-flush or flush-inside-plot) rewind
+  // in order and never clobber a live allocation; ~ScratchScope HS_CHECKs that
+  // LIFO discipline (memory.h). The residual rule the allocator can't enforce:
+  // do not let a raw scratch_arena_a pointer outlive the scope that produced it
+  // (e.g. across a plot/flush boundary) — read it only within its scope.
   ScratchScope _sc(scratch_arena_a);
   ArenaVector<float> _steps_cache;
   // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each

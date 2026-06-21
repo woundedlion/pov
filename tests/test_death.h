@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <string>
 
 #include "tests/test_harness.h"
@@ -116,6 +117,30 @@ inline void case_arena_set_offset_overflow() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
   a.set_offset(opaque<size_t>(sizeof(buf) + 1)); // > capacity -> HS_CHECK
+}
+
+/**
+ * @brief Death case: non-LIFO ScratchScope teardown must trap.
+ * @details The scratch-arena sharing contract between Pixel::Feedback::flush and
+ *          Plot::rasterize is safe because scratch_arena_a is a LIFO bump
+ *          allocator — but only while scopes are torn down in stack order.
+ *          ~ScratchScope enforces that: an outer scope rewinding while an inner
+ *          one is still live leaves the arena offset below the inner's saved
+ *          mark, and the inner's destructor HS_CHECKs offset >= saved_offset.
+ *          Here the outer scope is destroyed first (std::optional::reset),
+ *          rewinding to 0; destroying the inner then sees offset 0 < its saved
+ *          mark and traps.
+ */
+inline void case_scratch_scope_non_lifo() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  std::optional<ScratchScope> outer;
+  outer.emplace(a);                  // saves offset 0
+  a.allocate(opaque<size_t>(8));     // offset -> 8
+  std::optional<ScratchScope> inner;
+  inner.emplace(a);                  // saves offset 8
+  outer.reset();                     // non-LIFO: rewinds offset to 0
+  inner.reset();                     // offset 0 < saved 8 -> HS_CHECK
 }
 
 /**
@@ -638,6 +663,7 @@ inline const Case *all_cases(int &n) {
   static const Case cases[] = {
       {"arena_oom", case_arena_oom},
       {"arena_set_offset_overflow", case_arena_set_offset_overflow},
+      {"scratch_scope_non_lifo", case_scratch_scope_non_lifo},
       {"arena_vector_overflow", case_arena_vector_overflow},
       {"normalize_zero", case_normalize_zero},
       {"normalize_nan", case_normalize_nan},

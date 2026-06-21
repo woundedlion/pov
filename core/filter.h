@@ -1254,18 +1254,18 @@ public:
     // Allocate coarse warp deltas (signed 8.8 fixed-point) from scratch.
     //
     // SCRATCH ARENA CONTRACT (load-bearing): this flush and Plot::rasterize
-    // both checkpoint scratch_arena_a TODAY — Plot::rasterize opens its own
-    // reciprocal ScratchScope on it (see the matching contract note at
-    // plot.h rasterize). They share it safely ONLY because plot() and flush()
-    // never overlap in time — every effect runs them as separate phases (see
-    // MeshFeedback::draw_frame: flush() fully returns, closing this
-    // ScratchScope, before any Plot::Mesh::draw opens its own).
-    // The dx/dy below stay live for the whole flush, so nothing that also draws
-    // from scratch_arena_a may run between here and the end of this function.
-    // If a future filter ever allocates from scratch_arena_a inside its own
-    // plot() path AND interleaves with a feedback flush, move one of the two to
-    // scratch_arena_b. (scratch_arena_b is not used here because it would then
-    // share with the mesh-generation path, which is no safer.)
+    // both checkpoint scratch_arena_a (Plot::rasterize opens its own reciprocal
+    // ScratchScope on it — see the matching contract note at plot.h rasterize).
+    // Sharing one arena across both is SAFE BY CONSTRUCTION: scratch_arena_a is
+    // a LIFO bump allocator, so any scope opened while this flush's frame is
+    // live saves a mark above dx/dy and rewinds to exactly where they end —
+    // nesting cannot clobber a live allocation. The single rule is LIFO scope
+    // discipline (no ScratchScope on this arena may outlive an enclosing one),
+    // which ScratchScope's destructor now traps directly (HS_CHECK in
+    // ~ScratchScope, memory.h). The one hazard the allocator does NOT cover is a
+    // raw pointer outliving its scope: dx/dy below must not be read after this
+    // function returns (they point into reclaimed arena bytes once `scope`
+    // closes). Both are honored today.
     ScratchScope scope(scratch_arena_a);
     auto *dx = static_cast<int16_t *>(scope.get_arena().allocate(
         hh * hw * sizeof(int16_t), alignof(int16_t)));
