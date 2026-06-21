@@ -320,14 +320,22 @@ private:
 
     float inv = Q8_INV / tw;
     float a = wa * inv, b = wb * inv, c = wc * inv;
-    // Cull a location where every species has decayed to ~0 to transparent,
-    // matching GSReactionDiffusion's B_CULL_THRESHOLD cull. Such a point is
-    // semantically empty, so it must not paint opaque black over a (possibly
-    // non-black) background. This is the same emptiness test blend_species
-    // applies internally; deciding it here lets the alpha follow suit.
-    if (a + b + c < SPECIES_EMPTY_EPS)
+    // Drive opacity by the total concentration so a growing front dissolves
+    // smoothly into the background instead of snapping on at full opacity.
+    // blend_species normalizes the three concentrations into a pure hue with no
+    // concentration-driven dimming (finding 396), so a faint single-species
+    // front still renders at full brightness; without an alpha ramp the edge
+    // collapses to a hard binary step that traces the lattice cells — the
+    // "jagged front" artifact. The sum clamps to 1, so the interior of any
+    // saturated blob stays fully opaque. Below SPECIES_EMPTY_EPS every species
+    // has decayed to ~0, so the location culls to transparent rather than
+    // painting opaque black over a (possibly non-black) background — the same
+    // emptiness test blend_species applies internally.
+    float total = a + b + c;
+    if (total < SPECIES_EMPTY_EPS)
       return Color4(Pixel(0, 0, 0), 0.0f);
-    return Color4(blend_species(a, b, c, ca, cb, cc), 1.0f);
+    return Color4(blend_species(a, b, c, ca, cb, cc),
+                  hs::clamp(total, 0.0f, 1.0f));
   }
 
   /**
