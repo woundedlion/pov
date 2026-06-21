@@ -411,7 +411,7 @@ FLASHMEM static inline void compile(const PolyMesh &src, MeshState &dst,
   for (size_t i = 0; i < src.face_counts.size(); ++i) {
     int count = src.face_counts[i];
     if (count >= 3) {
-      dst.face_counts.push_back(static_cast<uint8_t>(count));
+      dst.face_counts.push_back(narrow_face_count(count));
       // face_offsets is uint16_t; current_offset is the cumulative index count
       // and wraps silently past 65535. Trap instead, matching build_from_flat's
       // total_indices <= UINT16_MAX gate (not narrow_index's INT16_MAX bound:
