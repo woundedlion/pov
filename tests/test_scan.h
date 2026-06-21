@@ -19,6 +19,8 @@
 #include "core/geometry.h"
 #include "tests/test_harness.h"
 
+#include <vector>
+
 namespace hs_test {
 namespace scan_tests {
 
@@ -596,6 +598,144 @@ inline void test_stroke_aa_is_monotone_ramp() {
 }
 
 // ============================================================================
+// Scan::Volume / TransformedVolume — orthographic ray-march
+// ============================================================================
+
+/**
+ * @brief Minimal analytic SDF: a sphere of `radius` centred at the local origin.
+ * @details Supplies the distance() half of the Volume shape concept; wrapped in a
+ * TransformedVolume to gain ray_to_local()/origin_to_local().
+ */
+struct SphereSDF {
+  float radius; /**< Sphere radius in local units. */
+  /**
+   * @brief Signed distance to the sphere surface.
+   * @param p Query point in local space.
+   * @return |p| - radius (negative inside, zero on the surface).
+   */
+  float distance(const Vector &p) const { return p.length() - radius; }
+};
+
+/**
+ * @brief Capturing volume sink: records every plotted world position and its
+ *        composited alpha.
+ * @details Provides BOTH plot() overloads so it can back the type-erased
+ * PipelineRef that Volume::draw takes; the 2D overload is never reached by the
+ * volume path (it plots 3D world points) and is a no-op.
+ */
+struct VolumeSink {
+  std::vector<Vector> plotted; /**< World positions handed to the 3D plot(). */
+  std::vector<float> alpha;    /**< Composited alpha per plotted pixel. */
+  void plot(Canvas &, const Vector &v, const Pixel &, float, float a) {
+    plotted.push_back(v);
+    alpha.push_back(a);
+  }
+  void plot(Canvas &, float, float, const Pixel &, float, float) {}
+};
+
+/**
+ * @brief Verifies TransformedVolume's world<->local contract: the round trip is
+ *        the identity, the mapped ray direction stays unit length, and distance()
+ *        delegates to the wrapped SDF.
+ * @details Volume::draw's per-step bounding-sphere cull is only correct when
+ * ray_to_local is a rigid (length-preserving) map and bounds_center lands at the
+ * local origin — both HS_CHECKed once per draw. This pins the transform math
+ * those asserts rely on, independent of the rasterizer.
+ */
+inline void test_transformed_volume_world_local_roundtrip() {
+  SphereSDF sphere{0.3f};
+  const Vector center(0.2f, -0.5f, 0.8f);
+  const Quaternion q =
+      make_rotation(Vector(0.3f, 1.0f, -0.2f).normalized(), 0.7f);
+  Scan::TransformedVolume vol(sphere, center, q);
+
+  // bounds_center maps to the local origin (the cull precondition).
+  Vector local_bc = vol.origin_to_local(center);
+  HS_EXPECT_NEAR(local_bc.length(), 0.0f, 1e-5f);
+
+  // A local point pushed out to world and back is recovered exactly.
+  const Vector lp(0.1f, 0.2f, -0.25f);
+  Vector world = center + rotate(lp, q);
+  Vector back = vol.origin_to_local(world);
+  HS_EXPECT_NEAR(back.x, lp.x, 1e-5f);
+  HS_EXPECT_NEAR(back.y, lp.y, 1e-5f);
+  HS_EXPECT_NEAR(back.z, lp.z, 1e-5f);
+
+  // ray_to_local maps the origin like origin_to_local and keeps a unit direction
+  // unit (rigid map, no scale) — the |local_vd| == 1 precondition.
+  const Vector vd(0.0f, 0.0f, -1.0f);
+  auto [lro, lvd] = vol.ray_to_local(world, vd);
+  HS_EXPECT_NEAR(lro.x, lp.x, 1e-5f);
+  HS_EXPECT_NEAR(lro.y, lp.y, 1e-5f);
+  HS_EXPECT_NEAR(lro.z, lp.z, 1e-5f);
+  HS_EXPECT_NEAR(lvd.length(), 1.0f, 1e-5f);
+
+  // distance() forwards straight to the wrapped SDF.
+  HS_EXPECT_NEAR(vol.distance(lp), sphere.distance(lp), 1e-6f);
+}
+
+/**
+ * @brief Verifies Volume::draw ray-marches a sphere SDF into a bounded silhouette
+ *        whose every shaded fragment's hit registers land on the surface, on the
+ *        camera-facing cap.
+ * @details Pins what the smoke loop never checks: (1) the rendered silhouette is
+ * non-empty and strictly smaller than the canvas (a real hit set, not a full
+ * clear or an empty frame), and the plotted set is a subset of the shaded set;
+ * (2) each hit's frag.pos (closest_local) sits within the AA band of the sphere
+ * surface (|pos| ≈ radius) and frag.size (closest_d) is inside the AA width — the
+ * registers handed to the shader are genuine surface hits; (3) the hit centroid
+ * lies on the +Z hemisphere, i.e. the visible cap faces the camera (rays travel
+ * along -Z), so a projection/back-face sign flip would be caught.
+ */
+inline void test_volume_raymarch_silhouette_and_registers() {
+  constexpr int W = 96, H = 64;
+  const Vector center(0.0f, 0.0f, 1.0f);    // bounds centre in LED space
+  const Vector view_dir(0.0f, 0.0f, -1.0f); // camera -> scene
+  const float bounds_radius = 0.35f;
+  const float sphere_r = 0.28f; // < bounds so the SDF fits the cull sphere
+  const float aa_width = 0.01f;
+
+  SphereSDF sphere{sphere_r};
+  Scan::TransformedVolume vol(sphere, center, Quaternion());
+
+  ScanFx fx(W, H);
+  VolumeSink sink;
+
+  int hits = 0;
+  float max_surf_err = 0.0f; // worst |‖pos‖ - radius| over all hits
+  float max_reg_d = 0.0f;    // worst |frag.size| (closest_d) over all hits
+  Vector centroid_sum(0.0f, 0.0f, 0.0f);
+  {
+    Canvas c(fx);
+    Scan::Volume::draw<W, H>(
+        sink, c, center, bounds_radius, view_dir, vol,
+        [&](const Vector &loc, Fragment &frag) {
+          ++hits;
+          max_surf_err =
+              std::max(max_surf_err, std::fabs(loc.length() - sphere_r));
+          max_reg_d = std::max(max_reg_d, std::fabs(frag.size));
+          centroid_sum = centroid_sum + loc;
+          frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+        },
+        /*max_steps=*/24, aa_width);
+  }
+
+  // (1) Real silhouette: some fragments, never the whole canvas; plotted ⊆ shaded.
+  HS_EXPECT_GT(hits, 0);
+  HS_EXPECT_LT((size_t)hits, (size_t)(W * H));
+  HS_EXPECT_GT(sink.plotted.size(), (size_t)0);
+  HS_EXPECT_LE(sink.plotted.size(), (size_t)hits);
+
+  // (2) Every shaded fragment is a genuine surface hit inside the AA band.
+  HS_EXPECT_LE(max_surf_err, aa_width + 1e-3f);
+  HS_EXPECT_LE(max_reg_d, aa_width);
+
+  // (3) The hit centroid is on the camera-facing (+Z) cap.
+  Vector centroid = centroid_sum * (1.0f / static_cast<float>(hits));
+  HS_EXPECT_GT(centroid.z, 0.1f);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -619,6 +759,9 @@ inline int run_scan_tests() {
   test_scan_region_fractional_boundary_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
+
+  test_transformed_volume_world_local_roundtrip();
+  test_volume_raymarch_silhouette_and_registers();
 
   return hs_test::end_module(scope);
 }

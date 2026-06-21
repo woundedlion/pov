@@ -66,12 +66,19 @@ inline Arena &plot_arena() {
 // is processed.
 // ---------------------------------------------------------------------------
 
-/** @brief Pipeline stub: records each plotted position; ignores color/age. */
+/**
+ * @brief Pipeline stub: records each plotted position; ignores color/age.
+ * @details Carries both plot() overloads so it can also back a type-erased
+ * PipelineRef (the Plot::SplineChain / Plot::ParticleSystem draw() entry points
+ * take one); only the 3D world-space overload records — the 2D screen-space form
+ * is unused by these paths.
+ */
 struct CapturePipeline {
   std::vector<Vector> plotted; /**< World positions handed to plot(), in order. */
   void plot(Canvas &, const Vector &v, const Pixel &, float, float) {
     plotted.push_back(v);
   }
+  void plot(Canvas &, float, float, const Pixel &, float, float) {}
 };
 
 /** @brief Minimal Effect backing a Canvas (no per-frame draw, no background). */
@@ -1064,6 +1071,228 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
 }
 
 // ============================================================================
+// Plot::SplineChain / Plot::ParticleSystem — chain + trail rasterization
+// ============================================================================
+
+/**
+ * @brief Minimum angular distance from any plotted point to a target direction.
+ * @param pts Plotted positions.
+ * @param target Direction to measure against.
+ * @return The smallest angle_between(p, target) over pts (PI if empty).
+ */
+inline float min_angle_to(const std::vector<Vector> &pts, const Vector &target) {
+  float best = PI_F;
+  for (const Vector &p : pts)
+    best = std::min(best, angle_between(p, target));
+  return best;
+}
+
+/**
+ * @brief Angular distance from a unit point to a geodesic ARC a→b (not the full
+ *        great circle).
+ * @param p Query point (unit length).
+ * @param a Arc start (unit length).
+ * @param b Arc end (unit length).
+ * @return Perpendicular distance to the arc when the foot of the perpendicular
+ *         falls within it, else the nearer endpoint distance.
+ * @details Arc-clamped (not plane-clamped) so a point bulging off its own segment
+ *          is not scored as "near" a different segment whose infinite great circle
+ *          it happens to pass close to.
+ */
+inline float dist_to_arc(const Vector &p, const Vector &a, const Vector &b) {
+  Vector n = cross(a, b);
+  float nlen = n.length();
+  if (nlen < 1e-6f) // degenerate (coincident/antipodal) arc
+    return angle_between(p, a);
+  n = n * (1.0f / nlen);
+  Vector foot = p - n * dot(p, n); // project onto the great-circle plane
+  float flen = foot.length();
+  if (flen > 1e-6f) {
+    foot = foot * (1.0f / flen);
+    float ab = angle_between(a, b);
+    if (angle_between(a, foot) <= ab + 1e-4f &&
+        angle_between(b, foot) <= ab + 1e-4f)
+      return std::fabs(std::asin(hs::clamp(dot(p, n), -1.0f, 1.0f)));
+  }
+  return std::min(angle_between(p, a), angle_between(p, b));
+}
+
+/**
+ * @brief Largest deflection of any plotted point off the piecewise-geodesic path
+ *        through the control points.
+ * @param pts Plotted positions.
+ * @param cp Control points.
+ * @param n Control-point count.
+ * @return max over pts of min over segments of dist_to_arc(p, cp[k], cp[k+1]).
+ */
+inline float max_chain_deflection(const std::vector<Vector> &pts,
+                                  const Vector *cp, int n) {
+  float worst = 0.0f;
+  for (const Vector &p : pts) {
+    float nearest = PI_F;
+    for (int k = 0; k + 1 < n; ++k)
+      nearest = std::min(nearest, dist_to_arc(p, cp[k], cp[k + 1]));
+    worst = std::max(worst, nearest);
+  }
+  return worst;
+}
+
+/** @brief Four non-coplanar control points shared by the SplineChain tests. */
+inline const Vector kChainCps[4] = {Vector(1, 0, 0), Vector(0, 1, 0),
+                                    Vector(0, 0, 1), Vector(-1, 0, 0)};
+
+/**
+ * @brief Verifies a Catmull-Rom SplineChain passes through every control point.
+ * @details Catmull-Rom interpolates its control points — each span runs from
+ * control_points[i] at local_t=0 to control_points[i+1] at local_t=1 — so the
+ * rasterized curve must come within ~one sample step of each control vertex. A
+ * regression to an approximating spline (uniform B-spline) would miss them.
+ */
+inline void test_spline_chain_passes_through_control_points() {
+  constexpr int W = 288, H = 144;
+  RasterFx fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments cps;
+  cps.bind(plot_arena(), 8);
+  for (const Vector &v : kChainCps) {
+    Fragment f;
+    f.pos = v;
+    cps.push_back(f);
+  }
+
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::SplineChain::draw<W, H>(pipe, c, cps, /*tension=*/0.5f, noop_shader,
+                                  {}, /*closed=*/false,
+                                  /*samples_per_segment=*/24);
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(pipe.plotted.size(), (size_t)20);
+  for (const Vector &v : kChainCps)
+    HS_EXPECT_LE(min_angle_to(pipe.plotted, v), 0.06f);
+}
+
+/**
+ * @brief Verifies SplineChain tension actually shapes the curve: tension 0 yields
+ *        piecewise-geodesic spans (no off-path bulge) while positive tension
+ *        deflects the interior off the chord arcs.
+ * @details catmull_rom_tangents collapses to the segment endpoints at tension 0
+ * (cp1==start, cp2==end → a geodesic), so the whole chain lies on its segment
+ * arcs; raising tension pulls the tangents toward neighbour midpoints, bulging
+ * the curve away. Pins that the tension argument is wired through and changes
+ * geometry, not merely that *a* curve is drawn.
+ */
+inline void test_spline_chain_tension_deflects() {
+  constexpr int W = 288, H = 144;
+  RasterFx fx(W, H);
+
+  auto run = [&](float tension) {
+    ScratchScope sc(plot_arena());
+    Fragments cps;
+    cps.bind(plot_arena(), 8);
+    for (const Vector &v : kChainCps) {
+      Fragment f;
+      f.pos = v;
+      cps.push_back(f);
+    }
+    CapturePipeline pipe;
+    {
+      Canvas c(fx);
+      Plot::SplineChain::draw<W, H>(pipe, c, cps, tension, noop_shader, {},
+                                    /*closed=*/false,
+                                    /*samples_per_segment=*/24);
+    }
+    fx.advance_display();
+    return max_chain_deflection(pipe.plotted, kChainCps, 4);
+  };
+
+  const float geo_defl = run(0.0f);
+  const float taut_defl = run(0.9f);
+
+  // Tension 0 is piecewise-geodesic: every point sits on a segment arc.
+  HS_EXPECT_LE(geo_defl, 0.02f);
+  // Positive tension bulges the curve off those arcs by a clear margin.
+  HS_EXPECT_GT(taut_defl, 0.08f);
+  HS_EXPECT_GT(taut_defl, geo_defl + 0.05f);
+}
+
+/** @brief Minimal particle for the ParticleSystem draw concept: trail + life. */
+struct StubParticle {
+  Animation::VectorTrail<16> history; /**< World-space trail positions. */
+  uint16_t life = 0;                  /**< Remaining life (drives v3). */
+};
+
+/** @brief Minimal pool/active_count/max_life triple the draw concept reads. */
+struct StubSystem {
+  std::vector<StubParticle> pool; /**< Pool; pool[i] read for i < active_count. */
+  int active_count = 0;           /**< Live prefix length. */
+  uint16_t max_life = 0;          /**< Life normaliser for v3. */
+};
+
+/**
+ * @brief Verifies ParticleSystem::draw rasterizes only the active prefix's trails
+ *        and stamps the per-particle registers (v2 source index, v3 life ratio).
+ * @details Pins three things the smoke loop never checks: (1) only particles in
+ * [0, active_count) are drawn — an inactive particle parked on the ±Y poles never
+ * contributes a point; (2) the drawn trail follows the particle's recorded
+ * history (an equatorial +X→+Z arc); (3) every emitted fragment carries the
+ * source index in v2 and life/max_life in v3, constant across the trail (the
+ * register convention MindSplatter's invariant assert depends on).
+ */
+inline void test_particle_system_draws_active_trails_with_registers() {
+  constexpr int W = 288, H = 144;
+  RasterFx fx(W, H);
+
+  StubSystem sys;
+  sys.max_life = 100;
+  sys.active_count = 1; // pool holds 2; only particle 0 is active
+
+  StubParticle p0;
+  p0.life = 60;
+  const Vector t0[3] = {Vector(1, 0, 0), Vector(0.7071f, 0.0f, 0.7071f),
+                        Vector(0, 0, 1)}; // equatorial +X -> +Z arc
+  for (const Vector &v : t0)
+    p0.history.record(v);
+
+  StubParticle p1; // inactive: parked on the poles, must NOT be drawn
+  p1.life = 99;
+  p1.history.record(Vector(0, 1, 0));
+  p1.history.record(Vector(0, -1, 0));
+
+  sys.pool.push_back(p0);
+  sys.pool.push_back(p1);
+
+  CapturePipeline pipe;
+  float v2_lo = 1e9f, v2_hi = -1e9f, v3_lo = 1e9f, v3_hi = -1e9f;
+  {
+    Canvas c(fx);
+    Plot::ParticleSystem::draw<W, H>(
+        pipe, c, sys, [&](const Vector &, Fragment &f) {
+          v2_lo = std::min(v2_lo, f.v2);
+          v2_hi = std::max(v2_hi, f.v2);
+          v3_lo = std::min(v3_lo, f.v3);
+          v3_hi = std::max(v3_hi, f.v3);
+        });
+  }
+  fx.advance_display();
+
+  // (1)+(2) The active trail was rasterized along its recorded arc; nothing from
+  // the inactive ±Y particle leaked in.
+  HS_EXPECT_GT(pipe.plotted.size(), (size_t)2);
+  for (const Vector &v : pipe.plotted) {
+    HS_EXPECT_LE(dist_to_arc(v, t0[0], t0[2]), 0.05f);
+    HS_EXPECT_LT(std::fabs(v.y), 0.1f);
+  }
+  // (3) Registers: v2 == source index 0; v3 == life/max_life == 0.6, constant.
+  HS_EXPECT_NEAR(v2_lo, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(v2_hi, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(v3_lo, 0.6f, 1e-3f);
+  HS_EXPECT_NEAR(v3_hi, 0.6f, 1e-3f);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -1107,6 +1336,10 @@ inline int run_plot_scan_tests() {
   test_rasterize_closed_loop_gap_free_no_dup();
   test_rasterize_antipodal_seam_planar_falls_back_geodesic();
   test_rasterize_planar_segment_gap_free_arclength();
+
+  test_spline_chain_passes_through_control_points();
+  test_spline_chain_tension_deflects();
+  test_particle_system_draws_active_trails_with_registers();
 
   return hs_test::end_module(scope);
 }
