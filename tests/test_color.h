@@ -172,14 +172,27 @@ inline void test_blend_max() {
 
 /**
  * @brief Verifies blend_mean averages the two pixels per channel.
+ * @details blend_mean rounds to nearest ((a+b+1)/2), matching this file's
+ *          +0.5f / +32768 round-to-nearest parity, not floor. The even-sum
+ *          cases below can't tell the two modes apart, so an explicit odd-sum
+ *          case pins the rounding contract (mirroring test_lerp16_rounds_to_nearest).
  */
 inline void test_blend_mean() {
   Pixel16 a(0, 100, 65534);
   Pixel16 b(65534, 300, 0);
   Pixel16 m = blend_mean(a, b);
+  // Even sums: floor and round-to-nearest agree (e.g. (0+65534)/2 == 32767
+  // either way), so these alone do not constrain the rounding mode.
   HS_EXPECT_EQ(m.r, 32767);
   HS_EXPECT_EQ(m.g, 200);
   HS_EXPECT_EQ(m.b, 32767);
+
+  // Odd sums: floor and round-to-nearest differ by one. blend_mean rounds up,
+  // so each channel is (a+b+1)/2, not (a+b)/2.
+  Pixel16 odd = blend_mean(Pixel16(1, 3, 5), Pixel16(2, 4, 6));
+  HS_EXPECT_EQ(odd.r, 2); // (1+2+1)/2 = 2  (floor would give 1)
+  HS_EXPECT_EQ(odd.g, 4); // (3+4+1)/2 = 4  (floor would give 3)
+  HS_EXPECT_EQ(odd.b, 6); // (5+6+1)/2 = 6  (floor would give 5)
 }
 
 /**
