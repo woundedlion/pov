@@ -33,8 +33,12 @@ fi
 # Include D (deletions) and R (renames): removing or renaming a C++/build file is
 # exactly the change class most likely to break other checkouts, so it must run
 # the suite too. (A renamed/deleted path still matches the extension grep below.)
+# tests/ubsan-ignorelist.txt is included because it directly changes what the
+# sanitizer build suppresses, so a local edit should re-run the suite. The
+# justfile / .github/workflows/ci.yml / .githooks cases are intentionally left to
+# CI (which rebuilds from the committed tree and is the authoritative gate).
 CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
-if ! printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/'; then
+if ! printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$'; then
   echo "[pre-commit] No C++/build changes staged — skipping unit tests."
   exit 0
 fi
