@@ -251,11 +251,15 @@ private:
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
     // phase is in radians (rand_f()*2*PI_F, shared with the DistortedRing
-    // calls); sin_wave's phase is in cycles. The exact radians->cycles factor is
-    // 1/(2*PI_F); dividing by PI_F gives a phase in [0,2) cycles, a doubled
-    // offset that stays uniform because phase is itself uniform random —
-    // deliberate, not a missing 2.
-    return sin_wave(-1, 1, 2, phase / PI_F)(t) *
+    // calls); sin_wave's phase is in cycles. The exact radians->cycles divisor
+    // is 2*PI_F; dividing by half of it (PI_F) instead gives a phase in [0,2)
+    // cycles — a deliberate 2x offset that stays uniform because `phase` is
+    // itself uniform random. The divisor is named so the halving reads as
+    // intent (a non-random caller would get silently doubled frequency), not
+    // as PI_F mistyped for 2*PI_F. Keep the divide form so the value is
+    // bit-identical to the original.
+    constexpr float kDoubledCycleDivisor = PI_F; // = (2*PI_F) / 2
+    return sin_wave(-1, 1, 2, phase / kDoubledCycleDivisor)(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(frame % 32) / 32.0f) *
            amp;
   }
