@@ -10,8 +10,8 @@
 /**
  * @brief Scatters polygon "stars" over a Fibonacci spiral on the sphere and
  *        warps the field with an evolving Möbius transform.
- * @tparam W Cubemap face width in pixels.
- * @tparam H Cubemap face height in pixels.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
  * @details Every spiral point is pushed through an evolving Möbius warp so the
  *          field drifts and inflates, while a Languid RandomWalk slowly
  *          reorients the whole field.
