@@ -33,6 +33,7 @@
 
 #include <FastLED.h>
 #include <SPI.h>
+#include <new> // std::nothrow — fail-fast OOM check on the POV allocation below
 
 #include "pov_segmented.h"
 #include "effects.h"
@@ -76,7 +77,14 @@ const POV::EffectFactory kEffectFactories[] = {
 void setup() {
   Serial.begin(9600);
   delay(1000);
-  pov = new POV();
+  // Fail fast at the allocation site if the heap can't hold the driver, matching
+  // the project's crash-on-violation rule (see HS_CHECK on the wasm tooling
+  // malloc and the arena OOM traps). nothrow new is used so the guard fires
+  // regardless of whether the build compiles exceptions: a thrown bad_alloc has
+  // no handler on Teensy, and a silently-null pov would be dereferenced by the
+  // first run_show() call below — a null deref away from the violation site.
+  pov = new (std::nothrow) POV();
+  HS_CHECK(pov != nullptr, "POV allocation failed (OOM)");
 }
 
 void loop() {
