@@ -765,6 +765,46 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
 }
 
 /**
+ * @brief Verifies the cubic smin blend term inside the blend band.
+ * @details The far-from-boundary test only re-checks the hard-union min (the
+ *   blend term m is zero there). This exercises the smin core: at a point
+ *   roughly equidistant from both children (|dA - dB| < k) the smooth distance
+ *   must dip strictly below min(dA, dB) by the expected m, and outside the band
+ *   it must collapse back to the hard min (m == 0).
+ */
+inline void test_smooth_union_blends_inside_band() {
+  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
+  SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
+  const float k = 0.5f;
+  SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, k);
+
+  // Both arcs lie in the y=0 plane, so the north pole is equidistant from both:
+  // |dA - dB| ≈ 0, putting the cubic blend at its maximum (h == 1, m == k/6).
+  Vector p(0, 1, 0);
+  float dA = la.distance(p).dist;
+  float dB = lb.distance(p).dist;
+  HS_EXPECT_TRUE(std::abs(dA - dB) < k); // inside the blend band
+
+  float h = std::max(k - std::abs(dA - dB), 0.0f) / k;
+  float m = h * h * h * k * (1.0f / 6.0f);
+  float soft = su.distance(p).dist;
+  // Smooth distance is the nearer child reduced by the blend term m.
+  HS_EXPECT_NEAR(soft, std::min(dA, dB) - m, 1e-4f);
+  // The blend strictly deepens the field relative to the hard min.
+  HS_EXPECT_LT(soft, std::min(dA, dB) - 1e-4f);
+  // The carved depth matches the expected m (≈ k/6 at full overlap).
+  HS_EXPECT_NEAR(std::min(dA, dB) - soft, m, 1e-4f);
+
+  // Outside the band (clearly inside la, far from lb) the blend term vanishes
+  // and the smooth union collapses to the hard min.
+  Vector q = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
+  float qA = la.distance(q).dist;
+  float qB = lb.distance(q).dist;
+  HS_EXPECT_TRUE(std::abs(qA - qB) >= k); // outside the blend band
+  HS_EXPECT_NEAR(su.distance(q).dist, std::min(qA, qB), 1e-5f);
+}
+
+/**
  * @brief Verifies SmoothUnion derives its solidity from its children.
  * @details Like Union/Subtract/Intersection, a stroke child keeps its soft falloff
  *   instead of collapsing to a hard 1-px silhouette in process_pixel.
@@ -1187,6 +1227,7 @@ inline int run_sdf_tests() {
   test_intersection_full_width_child_replays_other();
 
   test_smooth_union_matches_union_far_from_boundary();
+  test_smooth_union_blends_inside_band();
   test_smooth_union_solidity_follows_children();
 
   test_angular_repeat_matches_base_at_zero_angle();
