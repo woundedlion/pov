@@ -405,7 +405,6 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       bool shouldOmit = (close_loop) ? true : !isLastSegment;
       if (!shouldOmit) {
         Fragment f_copy = curr;
-        f_copy.pos = curr.pos;
         f_copy.color = Color4(0, 0, 0, 0);
 
         fragment_shader(curr.pos, f_copy);
