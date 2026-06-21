@@ -389,6 +389,14 @@ private:
    * @brief Computes the unit travel direction for a signed speed.
    * @param speed Signed speed value.
    * @return -1 for negative speed, otherwise +1.
+   * @note `speed == 0` maps to +1 (the `< 0` test treats zero as forward), not
+   *       to a zero "stand still" direction. This is unobservable as used: the
+   *       sole caller, pull(), runs only on frames with at least one whole step
+   *       to take (|effective_speed| accumulated to >= 1), so a zero effective
+   *       speed re-emits the strand in place and never reaches dir(). The +1
+   *       tie-break is therefore a harmless default, not an intended behavior —
+   *       a future caller that passes exactly 0 should decide its own
+   *       stationary handling rather than rely on this.
    */
   int dir(float speed) const { return speed < 0 ? -1 : 1; }
 
