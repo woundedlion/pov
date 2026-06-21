@@ -2202,8 +2202,18 @@ struct SphericalPolygon {
     // Normal pointing outward (away from polygon interior)
     Vector en = cross(v2, v1);
     float len = en.magnitude();
-    if (len > 1e-9f)
+    if (len > 1e-9f) {
       en = en * (1.0f / len);
+    } else {
+      // Degenerate canonical edge: circumradius near 0 or near PI (both
+      // reachable — ShapeShifter's radius slider drives circumradius up to PI,
+      // where v1==v2==-v so cross()==0), or a near-collinear low-sides polygon.
+      // Both degenerate limits drive en toward ±u, so substitute the sector
+      // bisector axis as a defined unit normal (edge_nv=0, edge_nu=1) instead of
+      // an indeterminate near-zero vector — the polygon then collapses
+      // deterministically to its center rather than producing garbage edges.
+      en = basis.u;
+    }
     // Ensure outward: dot(center, n) should be negative
     if (dot(en, basis.v) > 0)
       en = -en;
