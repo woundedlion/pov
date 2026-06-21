@@ -85,8 +85,11 @@ struct Spherical {
   /**
    * @brief Constructs a Spherical coordinate from a 3D Vector.
    * @param v The Cartesian vector.
+   * @details explicit: a coordinate-space change must be spelled out
+   * (`Spherical{v}`) so a Cartesian vector cannot silently bind where a
+   * Spherical is expected, and vice versa.
    */
-  Spherical(const Vector &v);
+  explicit Spherical(const Vector &v);
 
   float theta; /**< Azimuthal angle (usually longitude). */
   float phi;   /**< Polar angle (usually co-latitude). */
@@ -124,8 +127,11 @@ struct Vector {
   /**
    * @brief Constructs a vector from Spherical coordinates.
    * @param s The spherical coordinate.
+   * @details explicit: callers use the named from_spherical() factory for the
+   * intended spherical->unit-vector path, so block any implicit conversion that
+   * would let a Spherical silently bind where a Cartesian Vector is expected.
    */
-  Vector(const Spherical &s)
+  explicit Vector(const Spherical &s)
       : x(sinf(s.phi) * cosf(s.theta)), y(cosf(s.phi)),
         z(sinf(s.phi) * sinf(s.theta)) {}
   /**
