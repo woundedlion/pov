@@ -182,7 +182,15 @@ private:
   void on_fire_thruster() {
     warp_phase = hs::rand_f() * 2 * PI_F;
 
-    auto r_fn = [this](float t) { return ring_fn(t); };
+    // Snapshot the warp state into the closure so the thrust-point geometry can't
+    // depend on member-mutation order: warp_phase was just set; amplitude is the
+    // residual from the previous fire (warp_anim restarts below, after the
+    // fn_point calls); t_global is this frame's counter (it advances at the end
+    // of draw_frame, so it lags rendering by one frame — an invisible offset).
+    const float phase = warp_phase;
+    const float amp = amplitude;
+    const int frame = t_global;
+    auto r_fn = [phase, amp, frame](float t) { return ring_fn(t, phase, amp, frame); };
     Basis basis = make_basis(Quaternion(), ring_vec);
     // Same radius as the visible ring (draw_ring uses params.radius); a
     // hardcoded 1.0 detaches the thrust pairs and the derived spin axis from the
@@ -226,20 +234,25 @@ private:
   /**
    * @brief Radial distortion of the ring at parameter t.
    * @param t Ring parameter in [0, 1) around the circumference.
+   * @param phase Spatial warp phase in radians.
+   * @param amp Warp amplitude (unit-sphere units).
+   * @param frame Frame counter driving the slow temporal wave.
    * @return Signed radial offset, in unit-sphere units.
-   * @details Product of a spatial warp wave (phase from warp_phase) and a slow
-   *          temporal wave (period 32 frames), scaled by the current warp
-   *          amplitude.
+   * @details Product of a spatial warp wave (from `phase`) and a slow temporal
+   *          wave (period 32 frames, from `frame`), scaled by `amp`. Pure in its
+   *          arguments: callers pass an explicit snapshot of the warp state so
+   *          the result can never depend on the order in which warp_phase /
+   *          amplitude / t_global are mutated relative to the call.
    */
-  float ring_fn(float t) {
-    // warp_phase is in radians (rand_f()*2*PI_F, shared with the DistortedRing
-    // calls above); sin_wave's phase is in cycles. The exact radians->cycles
-    // factor is 1/(2*PI_F); dividing by PI_F gives a phase in [0,2) cycles, a
-    // doubled offset that stays uniform because warp_phase is itself uniform
-    // random — deliberate, not a missing 2.
-    return sin_wave(-1, 1, 2, warp_phase / PI_F)(t) *
-           sin_wave(-1, 1, 3, 0)(static_cast<float>(t_global % 32) / 32.0f) *
-           amplitude;
+  static float ring_fn(float t, float phase, float amp, int frame) {
+    // phase is in radians (rand_f()*2*PI_F, shared with the DistortedRing
+    // calls); sin_wave's phase is in cycles. The exact radians->cycles factor is
+    // 1/(2*PI_F); dividing by PI_F gives a phase in [0,2) cycles, a doubled
+    // offset that stays uniform because phase is itself uniform random —
+    // deliberate, not a missing 2.
+    return sin_wave(-1, 1, 2, phase / PI_F)(t) *
+           sin_wave(-1, 1, 3, 0)(static_cast<float>(frame % 32) / 32.0f) *
+           amp;
   }
 
   /**
@@ -278,9 +291,15 @@ private:
       f.color.alpha *= params.alpha * opacity;
     };
 
+    // Snapshot the warp state once per frame; ring_fn is pure in these, so every
+    // fragment along the ring sees a consistent warp.
+    const float phase = warp_phase;
+    const float amp = amplitude;
+    const int frame = t_global;
     Plot::DistortedRing::draw<W, H>(
         filters, c, basis, params.radius,
-        [this](float t) { return ring_fn(t); }, fragment_shader);
+        [phase, amp, frame](float t) { return ring_fn(t, phase, amp, frame); },
+        fragment_shader);
   }
 
   ProceduralPalette palette;                          /**< Cosine palette for ring shading. */
