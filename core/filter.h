@@ -34,17 +34,31 @@ using PassFn3D =
  * Such a filter swallows the stream, so anything chained after it would
  * silently never run — the Pipeline static-asserts a terminal filter is the
  * last stage. Almost all filters forward via `pass` and leave this false.
+ *
+ * `emits_nonunit_world` marks a world-space (3D) stage that can forward points
+ * that are not strictly unit length (e.g. World::Trails, whose re-emitted trail
+ * samples are int16-quantized and deliberately not renormalized).
+ * `requires_unit_world_input` marks a world-space stage whose math assumes a
+ * unit-length input (e.g. World::Mobius's stereographic projection, the
+ * `angle_between` in World::Hole). The Pipeline static-asserts that no
+ * `emits_nonunit_world` stage precedes a `requires_unit_world_input` stage —
+ * the intra-World analogue of the World-before-Screen ordering rule. Both
+ * default false; only the few stages above flip them.
  */
 struct Is2D {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
   static constexpr bool is_terminal = false;
+  static constexpr bool emits_nonunit_world = false;
+  static constexpr bool requires_unit_world_input = false;
 };
 /** @brief Trait indicating a filter operates in 3D world space. */
 struct Is3D {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = false;
   static constexpr bool is_terminal = false;
+  static constexpr bool emits_nonunit_world = false;
+  static constexpr bool requires_unit_world_input = false;
 };
 
 /** @brief Trait indicating a 2D filter that maintains state/history. */
@@ -52,6 +66,8 @@ struct Is2DWithHistory {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = true;
   static constexpr bool is_terminal = false;
+  static constexpr bool emits_nonunit_world = false;
+  static constexpr bool requires_unit_world_input = false;
 };
 
 /** @brief Trait indicating a 3D filter that maintains state/history. */
@@ -59,6 +75,8 @@ struct Is3DWithHistory {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = true;
   static constexpr bool is_terminal = false;
+  static constexpr bool emits_nonunit_world = false;
+  static constexpr bool requires_unit_world_input = false;
 };
 
 /**
@@ -368,6 +386,21 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       "not precede a world-space (3D) filter (World::*) — World filters operate "
       "before screen projection. Reorder so every World::* stage comes first.");
 
+  // Intra-World unit-length ordering: a stage that emits non-unit world points
+  // (emits_nonunit_world, i.e. World::Trails, whose flush re-emits int16-
+  // quantized, deliberately-unnormalized samples downstream) must not precede a
+  // stage that assumes unit-length input (requires_unit_world_input, i.e.
+  // World::Mobius's stereographic projection or the angle_between in
+  // World::Hole). Such an ordering would feed an off-sphere point into math that
+  // assumes unit length, silently warping the result. The fold enforces it
+  // locally at every node, the same shape as the World-before-Screen rule above.
+  static_assert(
+      !Head::emits_nonunit_world || (... && !Tail::requires_unit_world_input),
+      "Filter ordering: a World stage that emits non-unit-length points "
+      "(World::Trails) must not precede a World stage that requires unit-length "
+      "input (World::Mobius / World::Hole). Reorder so the unit-assuming stage "
+      "runs first, or renormalize the trail re-emission.");
+
   /**
    * @brief Flushes 2D history for this stage, then recurses into the Tail.
    * @param cv Target canvas.
@@ -522,6 +555,9 @@ private:
  */
 template <int W, typename OriginT = Vector> class Hole : public Is3D {
 public:
+  // angle_between(v, origin) assumes a unit-length v; see the Pipeline
+  // intra-World unit-length ordering static_assert.
+  static constexpr bool requires_unit_world_input = true;
   /**
    * @brief Constructs a hole centered at @p origin with angular @p radius.
    * @param origin Center of the hole (unit vector).
@@ -647,6 +683,9 @@ public:
  */
 template <int W> class Mobius : public Is3D {
 public:
+  // stereo(v) assumes a unit-length v; see the Pipeline intra-World
+  // unit-length ordering static_assert.
+  static constexpr bool requires_unit_world_input = true;
   /**
    * @brief Binds the filter to a live Mobius parameter set.
    * @param params Mobius transform parameters applied per point.
@@ -674,6 +713,11 @@ private:
  */
 template <int W, int Capacity> class Trails : public Is3DWithHistory {
 public:
+  // flush() re-emits decode()'d samples downstream, which are int16-quantized
+  // and intentionally NOT renormalized (see decode()'s @note). This stage must
+  // therefore precede any World filter that assumes unit-length input; the
+  // Pipeline static_assert enforces it.
+  static constexpr bool emits_nonunit_world = true;
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
     int16_t x, y, z; /**< Quantized unit vector components (6 bytes). */
