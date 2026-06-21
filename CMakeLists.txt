@@ -126,7 +126,11 @@ if(EMSCRIPTEN)
         file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\" \"\${HS_ENGINE_SHA}\\n\")
         message(STATUS \"Wrote engine provenance ${TARGET_NAME}.sha: \${HS_ENGINE_SHA}\")
       else()
-        message(WARNING \"git rev-parse failed; ${TARGET_NAME}.sha not written (deploy gate will fail without it)\")
+        # Fail-fast at the violation site: a missing .sha but a written .wasm.sha256
+        # is a half-written provenance trio that the deploy gate rejects anyway, so
+        # abort the install here rather than returning success with an incomplete
+        # set (the .wasm.sha256 write below is never reached).
+        message(FATAL_ERROR \"git rev-parse failed (rc=\${HS_GIT_RC}); aborting install so ${TARGET_NAME} provenance is not left half-written (the deploy gate needs the .sha)\")
       endif()
 
       # sha256sum -c format ('<hash>  <filename>'), checked from the daydream root.
