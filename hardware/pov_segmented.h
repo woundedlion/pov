@@ -411,8 +411,10 @@ private:
    *                         y_base = 0, y_step = +1  →  y ∈ [0, PPS-1]
    *
    *     arm_seg 1 (bottom): LED 0 at S pole (y=ROWS-1), strip runs toward junction.
-   *                         y_base = ROWS-1, y_step = -1  →  y ∈ [ROWS-1, PPS]
-   *                         (strip physically reversed)
+   *                         y_base = ROWS-1, y_step = -1, descending over the PPS
+   *                         rows  →  y ∈ [ROWS-PPS, ROWS-1] (strip physically
+   *                         reversed). The lower bound is ROWS-PPS for any S/N;
+   *                         it only coincides with PPS in the N=4 case (ROWS=2*PPS).
    */
   void configure_segment() {
     const pov::SegmentMap m = pov::segment_map(segment_id_, S, N);
