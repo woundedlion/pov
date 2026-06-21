@@ -908,6 +908,9 @@ concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
 template <Cloneable T> class Persist {
   T &target_;         /**< Object being evacuated and restored. */
   Arena &persistent_; /**< Arena the object is restored into. */
+  size_t persistent_offset_at_ctor_; /**< persistent_ offset at construction; the
+                                          dtor traps unless the caller rewound
+                                          below this watermark. */
 
   // Declaration order matters! scratch_ must be declared BEFORE backup_
   // so that backup_ is destroyed before the scratch arena is rolled back.
@@ -922,22 +925,39 @@ public:
    * @param persistent Persistent arena the target is restored into.
    */
   Persist(T &target, Arena &scratch, Arena &persistent)
-      : target_(target), persistent_(persistent), scratch_(scratch) {
+      : target_(target), persistent_(persistent),
+        persistent_offset_at_ctor_(persistent.get_offset()), scratch_(scratch) {
     T::clone(target_, backup_, scratch_.get_arena());
   }
 
   /**
    * @brief Restores the target by cloning the backup into the persistent arena.
    * @details The restore clones into `persistent_` at its *current* offset, so
-   * it only reconstructs the object in place if the caller rewound the
+   * it only reconstructs the object usefully if the caller rewound the
    * persistent arena during the scope (the canonical `persistent_arena.reset()`
    * in the usage example). Without that reset the clone appends a second copy
-   * and grows the arena rather than restoring — this guard is the caller's
-   * responsibility, not Persist's.
+   * and grows the arena rather than restoring. That precondition used to be
+   * unenforced; now the dtor traps *after* the restore unless the persistent
+   * arena ends no larger than it was at construction.
+   *
+   * The check is post-restore and uses `<=` (not a pre-restore `<`) on purpose:
+   * (1) the Persist ctor allocates only in *scratch*, so the captured watermark
+   * is the persistent high-water mark when the block was entered, and a correct
+   * reset+restore — even one that compacts and relocates the object — must end
+   * at or below it; (2) callers legitimately STACK several Persists over one
+   * `reset()` (e.g. HankinSolids' mesh compaction), and their reverse-order
+   * restores append onto the compacted base, so an individual restore's offset
+   * is only meaningful against the entry watermark, post-clone. A forgot-to-
+   * reset restore instead appends beyond the live original, pushing the offset
+   * past the watermark — exactly what this traps.
    */
   ~Persist() {
     target_ = T();
     T::clone(backup_, target_, persistent_);
+    HS_CHECK(persistent_.get_offset() <= persistent_offset_at_ctor_,
+             "Persist: restore grew the persistent arena past its construction "
+             "watermark — the caller did not rewind/reset it during the scope, "
+             "so the restore appended a duplicate instead of reconstructing");
   }
 
   /**
