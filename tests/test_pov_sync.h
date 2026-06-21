@@ -565,6 +565,21 @@ inline void test_emitter() {
                                         cfg));
   }
 
+  // Boundary scheduled in the FUTURE (now before at_cycles): not late — it must
+  // be accepted and then emitted once `now` reaches the boundary. Regression
+  // guard for the signed late-censor: an unsigned `now - at_cycles` wraps a
+  // future boundary to a huge positive lateness and would wrongly censor it.
+  {
+    SymbolEmitter e;
+    const uint32_t at = 1000000u;
+    const uint32_t early = at - 2u * cfg.late_censor_cycles(); // well before
+    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, at, early, cfg));
+    HS_EXPECT_FALSE(e.tick(early, cfg, &aborted)); // not due yet, no pulse
+    HS_EXPECT_FALSE(aborted);
+    HS_EXPECT_TRUE(e.tick(at, cfg, &aborted)); // first pulse at the boundary
+    HS_EXPECT_FALSE(aborted);
+  }
+
   // Masked mid-burst past the budget: remaining pulses are aborted, the
   // truncated count degrades to a missed/invalid symbol downstream.
   {

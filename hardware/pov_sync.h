@@ -912,7 +912,15 @@ public:
                          const Config &cfg) {
     if (symbol == Symbol::INVALID)
       return false;
-    if ((now - at_cycles) > cfg.late_censor_cycles())
+    // A boundary scheduled in the future (now before at_cycles) is not late:
+    // take the lateness as a SIGNED difference so the unsigned wrap of
+    // now - at_cycles isn't read as a huge positive lateness and censored.
+    // Mirrors the signed now-vs-due tests in tick() — a future boundary is
+    // simply scheduled and waits there. (Current callers always pass a past
+    // boundary, so this is defensive, but it keeps the censor consistent with
+    // the rest of the emitter.)
+    const int32_t lateness = static_cast<int32_t>(now - at_cycles);
+    if (lateness > static_cast<int32_t>(cfg.late_censor_cycles()))
       return false; // late at the boundary: skip the whole symbol
     // The wire must be idle: a still-running beacon frame here means the
     // schedule violated its own spacing — drop the boundary symbol rather
