@@ -2744,6 +2744,15 @@ struct Line {
     float ang_b = angle_between(b, p_proj);
 
     float dist_seg = 0.0f;
+    // Two geodesic metrics meet here, C0-continuous at the join: in-segment the
+    // closest point of the great circle lies on the arc, so the perpendicular
+    // distance asinf(|d_plane|) is exact; past an endpoint the closest point is
+    // that endpoint, so the distance is the geodesic to the cap. They agree at the
+    // boundary (where the perpendicular foot reaches the endpoint); only the first
+    // derivative differs — the C1 kink is inherent to a *capped* segment. The
+    // branches cannot be unified onto asinf(|d_plane|) alone: that is the distance
+    // to the whole great circle, which would stretch the segment past its caps
+    // into an infinite line.
     if (ang_a + ang_b <= len + 1e-4f) {
       dist_seg = asinf(std::abs(d_plane));
     } else {
