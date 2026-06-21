@@ -1107,6 +1107,10 @@ struct Volume {
                    local_vd.z * local_vd.z - 1.0f) < TOLERANCE);
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
              local_bc.z * local_bc.z < TOLERANCE);
+    // The slow-path AA divides edge_alpha by (aa_width - hit_threshold) ==
+    // 0.9*aa_width; a zero band-width would make that 0/0 -> NaN and ride
+    // through quintic_kernel into clamp(). aa_width > 0 is the contract.
+    HS_CHECK(aa_width > 0.0f);
 
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
 
