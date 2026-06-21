@@ -131,7 +131,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 ### Low
 
 19. ✅ `core/3dmath.h:632` — `Complex::operator/` takes `std::abs()` of a guaranteed-non-negative sum of squares (dead computation). → drop the `abs`.
-20. `core/3dmath.h:484` — `Quaternion::inverse()` reconstructs the conjugate inline instead of calling `conjugate()`. → call it.
+20. ✅ `core/3dmath.h:484` — `Quaternion::inverse()` reconstructs the conjugate inline instead of calling `conjugate()`. → call it.
 21. `core/3dmath.h:357` — `Spherical(const Vector&)` traps on a zero-length input via `normalize()`, undocumented. → note the trap in the convention comment.
 22. `core/geometry.h:96` — `shade_mesh_topology` trusts a raw (possibly negative) topology value before `% NumPalettes`. → `HS_CHECK(topoIdx >= 0)` or use floored-mod.
 23. `core/util.h:106` — `shortest_distance` double-`fmod`s where the sibling `fwd_distance` uses one branch (strategy asymmetry). → cross-reference or unify.

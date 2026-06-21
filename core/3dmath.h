@@ -481,7 +481,7 @@ struct Quaternion {
     // silently yield NaN/Inf. Trap instead — inverse() is computed per-frame
     // and cached (never per-pixel), so this guard is off the hot path.
     HS_CHECK(sq_mag > std::numeric_limits<float>::epsilon());
-    return Quaternion(r, -v) / sq_mag;
+    return conjugate() / sq_mag;
   }
 
   /**
