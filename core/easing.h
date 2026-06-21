@@ -63,7 +63,10 @@ inline float ease_in_cubic(float t) {
  * @return The eased factor.
  */
 inline float ease_in_circ(float t) {
-  return 1 - sqrtf(1 - t * t);
+  // Clamp the radicand: callers may pass t slightly outside [0,1] at sequence
+  // ends, and 1 - t*t goes negative there -> sqrtf(NaN). Matches the guarded
+  // expo/elastic easings below.
+  return 1 - sqrtf(fmaxf(0.0f, 1 - t * t));
 }
 
 /**
@@ -93,7 +96,8 @@ inline float ease_out_expo(float t) {
  * @return The eased factor.
  */
 inline float ease_out_circ(float t) {
-  return sqrtf(1 - (t - 1) * (t - 1));
+  // Clamp the radicand; see ease_in_circ (NaN for t just outside [0,1]).
+  return sqrtf(fmaxf(0.0f, 1 - (t - 1) * (t - 1)));
 }
 
 /**
