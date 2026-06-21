@@ -124,6 +124,44 @@ try {
           `${stack.capacity} bytes leaves under ${Math.round((1 - STACK_MAX_FILL) * 100)}% ` +
           `margin — approaching overflow`);
       }
+
+      // The embind param-marshalling layer — getParameterDefinitions() and the
+      // per-frame getParamValues() stream — is the JS↔C++ order seam the GUI
+      // rides every frame, and nothing else in this script exercises it. A
+      // transposed binding, a wrong embind signature, or a length/order split
+      // between the two would ride a green build straight to a desynced param
+      // panel. Drive both here and assert they stay zippable and well-formed.
+      const defs = engine.getParameterDefinitions();
+      const values = engine.getParamValues();
+      if (!Array.isArray(defs)) {
+        fail(`${name}: getParameterDefinitions() did not return an array`);
+      } else {
+        // param_marshal.h is the single source of order shared by both calls,
+        // so a length split means the value view can no longer be zipped onto
+        // the definitions — the exact index-drift this seam risks.
+        if (values.length !== defs.length) {
+          fail(`${name}: getParamValues() length ${values.length} != ` +
+            `getParameterDefinitions() length ${defs.length} (param order seam drifted)`);
+        }
+        for (let i = 0; i < defs.length; i++) {
+          const d = defs[i];
+          if (typeof d.name !== 'string' || d.name.length === 0) {
+            fail(`${name}: param ${i} has no name`);
+          }
+          if (typeof d.value === 'boolean') continue; // bools omit min/max (wasm.cpp)
+          // Float params carry a finite, ordered range bracketing their value.
+          const eps = 1e-4 * (1 + Math.abs(d.max - d.min));
+          if (!Number.isFinite(d.min) || !Number.isFinite(d.max) || d.min > d.max) {
+            fail(`${name}: param "${d.name}" has a non-finite/inverted range [${d.min}, ${d.max}]`);
+          } else if (!Number.isFinite(d.value) || d.value < d.min - eps || d.value > d.max + eps) {
+            fail(`${name}: param "${d.name}" value ${d.value} outside [${d.min}, ${d.max}]`);
+          }
+          // Its aligned entry in the value stream must be a real number too.
+          if (i < values.length && !Number.isFinite(values[i])) {
+            fail(`${name}: param "${d.name}" value-stream entry ${values[i]} is not finite`);
+          }
+        }
+      }
     }
   }
 
