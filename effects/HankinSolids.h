@@ -145,7 +145,7 @@ private:
                  const ArenaVector<int> &topology,
                  const std::array<int, NUM_PALETTES> &palette_idx,
                  float opacity) {
-    if (mesh.vertices.empty() || opacity < 0.01f)
+    if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
 
     ScratchScope _(scratch_arena_a);

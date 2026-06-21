@@ -303,7 +303,7 @@ inline void test_arenavec_default_unbound() {
   HS_EXPECT_FALSE(v.is_bound());
   HS_EXPECT_EQ(v.size(), (size_t)0);
   HS_EXPECT_EQ(v.capacity(), (size_t)0);
-  HS_EXPECT_TRUE(v.empty());
+  HS_EXPECT_TRUE(v.is_empty());
 }
 
 /**
@@ -403,7 +403,6 @@ inline void test_arenavec_clear() {
   HS_EXPECT_EQ(v.size(), (size_t)0);
   HS_EXPECT_EQ(v.capacity(), cap);
   HS_EXPECT_TRUE(v.is_bound());
-  HS_EXPECT_TRUE(v.empty());
   HS_EXPECT_TRUE(v.is_empty());
 
   // Can refill after clear
@@ -540,7 +539,7 @@ inline void test_arenavec_zero_capacity() {
   ArenaVector<int> v(a, 0);
   HS_EXPECT_TRUE(v.is_bound());
   HS_EXPECT_EQ(v.capacity(), (size_t)0);
-  HS_EXPECT_TRUE(v.empty());
+  HS_EXPECT_TRUE(v.is_empty());
 }
 
 // ============================================================================

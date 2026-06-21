@@ -1893,7 +1893,7 @@ public:
     // ArenaVector when building the correspondence below — an OOB read under
     // NDEBUG. The nearest-vertex map is meaningless without source vertices;
     // trap at construction (house style).
-    HS_CHECK(!source.vertices.empty());
+    HS_CHECK(!source.vertices.is_empty());
     // Allocate transient storage on the arena
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();

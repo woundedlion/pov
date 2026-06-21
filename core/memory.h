@@ -600,11 +600,6 @@ public:
    * @brief Reports whether the vector is empty.
    * @return True iff size() == 0.
    */
-  bool empty() const { return size_ == 0; }
-  /**
-   * @brief Reports whether the vector is empty.
-   * @return True iff size() == 0.
-   */
   bool is_empty() const { return size_ == 0; }
 
   /**

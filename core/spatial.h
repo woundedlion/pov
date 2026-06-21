@@ -551,7 +551,7 @@ struct MeshState {
         dst.face_offsets.push_back(fo_data[i]);
     }
 
-    if (!src.topology.empty()) {
+    if (!src.topology.is_empty()) {
       dst.topology.bind(arena, src.topology.size());
       for (size_t i = 0; i < src.topology.size(); ++i)
         dst.topology.push_back(src.topology[i]);
