@@ -150,15 +150,21 @@ inline void test_map_degenerate_range() {
 /**
  * @brief Verifies random()/random8() do not divide by zero on a degenerate
  *        range and that a normal range stays in bounds.
- * @details The device (Arduino random / FastLED random8) returns the floor on a
- *          degenerate range, so the host must match rather than SIGFPE on the
- *          modulo.
+ * @details Two cases with different provenance:
+ *          - random(0) / random(<=0) / random(min, min) are device-faithful: the
+ *            empty range reduces to Arduino's random(0) -> 0 (i.e. min), which is
+ *            well-defined on the device.
+ *          - random(min, max) with min > max is NOT something the Arduino runtime
+ *            guarantees (its long-range modulo of a negative span is effectively
+ *            unspecified). The host mock defines "inverted -> min" purely to dodge
+ *            the modulo-by-zero/UB; this test pins that mock contract, not a
+ *            cross-device behavior.
  */
 inline void test_random_degenerate_range() {
-  HS_EXPECT_EQ(random(0), 0);      // Arduino random(0) -> 0
-  HS_EXPECT_EQ(random(-3), 0);     // non-positive bound -> 0
-  HS_EXPECT_EQ(random(5, 5), 5);   // empty range -> min
-  HS_EXPECT_EQ(random(9, 4), 9);   // inverted range -> min
+  HS_EXPECT_EQ(random(0), 0);      // Arduino random(0) -> 0 (device-faithful)
+  HS_EXPECT_EQ(random(-3), 0);     // non-positive bound -> 0 (device-faithful)
+  HS_EXPECT_EQ(random(5, 5), 5);   // empty range -> min (device-faithful)
+  HS_EXPECT_EQ(random(9, 4), 9);   // inverted range -> min (host-mock contract)
   HS_EXPECT_EQ(random8(0), 0);     // FastLED random8(0) -> 0
   // A normal range still falls inside [min, max).
   for (int i = 0; i < 64; ++i) {
