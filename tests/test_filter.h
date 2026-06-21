@@ -1020,6 +1020,108 @@ inline void test_feedback_flush_respects_clip() {
   HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 15)));
 }
 
+/**
+ * @brief Verifies the Pixel::Feedback::flush warp path under a NON-identity warp,
+ *        end to end through the coarse-grid + bilinear-upsample pipeline.
+ * @details The two flush tests above both use the Smoke style with no bound
+ *          NoiseParams, so space_fn collapses to the identity map: the coarse warp
+ *          field is all-zero and the bilinear upsample is exercised only on a
+ *          degenerate (constant-zero) field — exactly the most bug-prone part left
+ *          uncovered. This drives melt_warp instead, a deterministic-without-noise
+ *          transform that slerps every sample direction toward the north pole by
+ *          drip = speed * 0.04, so the previous frame "drips" south by a known
+ *          amount. With downsample = 4 the warp field is computed on a 16x16 coarse
+ *          grid and bilinearly upsampled to 64x64, so a correct displacement here
+ *          proves the whole path (space_fn -> coarse deltas -> bilerp -> sample).
+ *
+ *          The displacement is predicted with the SAME production helpers the
+ *          flush uses as its oracle: for output row y the warp samples source row
+ *          by(y) = phi_to_y(Spherical(slerp(pixel_to_vector(0,y), +Y, drip)).phi),
+ *          which is < y (north of y) and independent of x (slerp toward a pole
+ *          preserves longitude). A bright source band at row R therefore re-appears
+ *          at the output row y* where by(y*) == R, strictly south of R. The test
+ *          asserts the output band's brightest row matches y* (within the 1px the
+ *          coarse-grid bilerp can shift it) and that the band's original row went
+ *          dark — i.e. the content actually moved, ruling out an identity warp.
+ */
+inline void test_feedback_flush_melt_warp_displaces_south() {
+  constexpr int W = 64, H = 64; // both divisible by the downsample (4)
+  PipeFx fx(W, H);
+
+  // melt_warp + plain_fade isolates the SPATIAL warp under test from any hue
+  // rotation; noise stays nullptr so melt_warp is fully deterministic (the noise
+  // wobble branch is gated on a bound NoiseParams). speed=6 -> drip=0.24 gives a
+  // clearly multi-pixel southward shift.
+  ::Feedback::Style style{};
+  style.space_fn = &::Feedback::melt_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.noise = nullptr;
+  style.speed = 6.0f;
+  style.fade = 0.9f;
+  style.downsample = 4;
+  const float drip = style.speed * 0.04f;
+
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  // Frame 1: a full-width bright band (3 rows thick) becomes the "previous" frame.
+  constexpr int R = 40;                 // band center, southern hemisphere
+  {
+    Canvas c(fx);
+    for (int y = R - 1; y <= R + 1; ++y)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(40000, 40000, 40000);
+  }
+  fx.advance_display();
+
+  // Frame 2: empty buffer; the melt flush warps + blends the band into it.
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  // Oracle: the output row that samples source row R. by(y) = warped source row
+  // for output row y, computed with the production helpers (x-independent, so use
+  // column 0). Pick the y whose source row is closest to the band center.
+  const Vector NORTH(0.0f, 1.0f, 0.0f);
+  auto by = [&](int y) {
+    Vector v = pixel_to_vector<W, H>(0, y);
+    return phi_to_y<H>(Spherical(slerp(v, NORTH, drip)).phi);
+  };
+  int oracle_y = R, best = H;
+  for (int y = 0; y < H; ++y) {
+    int d = static_cast<int>(std::abs(by(y) - static_cast<float>(R)));
+    if (d < best) { best = d; oracle_y = y; }
+  }
+
+  // Find the output band by per-row brightness (band is full width, so summing
+  // each row is robust to the bilerp's small per-pixel spread).
+  auto row_sum = [&](int y) {
+    uint64_t s = 0;
+    for (int x = 0; x < W; ++x) s += fx.get_pixel(x, y).r;
+    return s;
+  };
+  int peak_y = 0;
+  uint64_t peak = 0;
+  for (int y = 0; y < H; ++y) {
+    uint64_t s = row_sum(y);
+    if (s > peak) { peak = s; peak_y = y; }
+  }
+
+  // The band drifted south to the predicted row (within the coarse bilerp's 1px),
+  // strictly past where an identity warp would have left it.
+  HS_EXPECT_GT(peak, (uint64_t)0);          // the warped band actually rendered
+  HS_EXPECT_TRUE(std::abs(peak_y - oracle_y) <= 1);
+  HS_EXPECT_GT(oracle_y, R);                 // melt drifts south (y increases)
+  HS_EXPECT_GT(peak_y, R + 2);               // a real, multi-pixel displacement
+  // The band's original location is now dark: its source row is north of the band,
+  // so nothing bright maps back onto row R — confirming the content moved, not an
+  // identity passthrough that would have left the band in place.
+  HS_EXPECT_LT(row_sum(R), peak / 4);
+}
+
 // ============================================================================
 // World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
 //
@@ -1307,6 +1409,7 @@ inline int run_filter_tests() {
   test_pipeline_screen_antialias_routes_to_sink();
   test_feedback_flush_blends_prev_frame();
   test_feedback_flush_respects_clip();
+  test_feedback_flush_melt_warp_displaces_south();
 
   test_world_trails_int16_quantization_roundtrip();
   test_world_trails_clamps_out_of_range();
