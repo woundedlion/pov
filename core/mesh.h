@@ -109,6 +109,23 @@ struct HalfEdgePairRecord {
 };
 
 /**
+ * @brief Fills one half-edge record with the canonical undirected edge key.
+ * @param rec Record to populate.
+ * @param u One edge endpoint vertex index.
+ * @param v The other edge endpoint vertex index.
+ * @param he The half-edge index this record represents.
+ * @details Centralizes the (min_v, max_v) key construction so the two record-
+ * building loops (HalfEdgeMesh::build_from_flat and classify_faces_by_topology)
+ * cannot drift if the key convention ever changes. Inline — no call overhead.
+ */
+inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
+                             uint16_t he) {
+  rec.min_v = std::min(u, v);
+  rec.max_v = std::max(u, v);
+  rec.he = he;
+}
+
+/**
  * @brief Sorts half-edge records by (min_v, max_v) and calls set_pair(heA, heB)
  * once per matched opposite-edge pair.
  * @tparam SetPairFn Callable invoked as set_pair(heA, heB) to link a matched pair.
@@ -293,9 +310,7 @@ private:
 
           vertices[v].half_edge = he_index;
 
-          records[he_idx].min_v = std::min(u, v);
-          records[he_idx].max_v = std::max(u, v);
-          records[he_idx].he = he_index;
+          fill_edge_record(records[he_idx], u, v, he_index);
 
           he_idx++;
         }
@@ -614,9 +629,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         for (int k = 0; k < count; ++k) {
           uint16_t u = faces[face_offset + k];
           uint16_t v = faces[face_offset + (k + 1) % count];
-          records[he_idx].min_v = std::min(u, v);
-          records[he_idx].max_v = std::max(u, v);
-          records[he_idx].he = static_cast<uint16_t>(he_idx);
+          fill_edge_record(records[he_idx], u, v, static_cast<uint16_t>(he_idx));
           he_to_face[he_idx] = static_cast<uint16_t>(fi);
           he_idx++;
         }
