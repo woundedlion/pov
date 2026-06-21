@@ -1153,7 +1153,9 @@ struct Volume {
           Vector local_ro = shape.origin_to_local(ro);
           Vector local_p = local_ro;
           Vector closest_local = local_ro;
-          float closest_d = 999.0f;
+          // Sentinel for "no surface seen yet": any real signed distance the
+          // trace reports is smaller, so the first sample always wins.
+          float closest_d = FLT_MAX;
 
           // --- Sphere tracing in local space ---
           for (int i = 0; i < max_steps; ++i) {
