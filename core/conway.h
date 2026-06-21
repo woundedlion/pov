@@ -363,10 +363,13 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // (no asymmetric split) for that one step before alternation self-restores. In
 // the shipping recipes this happens once — the relax() after bevel() in
 // IslamicStarPatterns::cube_relax_bevel33_relax_hk68_expand5 — and is
-// measured to fit the 16/32 KB pair. Making SolidBuilder skip the swap after a
-// composed op would restore healthy alternation but RELOCATES every downstream
-// allocation across the asymmetric arenas, so it must be re-measured against the
-// high-water mark before adopting, not applied blindly.
+// covered by a high-water regression test
+// (test_islamic_recipes_fit_islamicstars_budget in tests/test_solids.h) that
+// asserts every Islamic recipe fits the 120 KB / 120 KB scratch split
+// IslamicStars actually ships them through. Making SolidBuilder skip the swap
+// after a composed op would restore healthy alternation but RELOCATES every
+// downstream allocation between the two arenas, so re-run that test before
+// adopting, not applied blindly.
 //
 // Per-vertex orbit construction uses an arena scratch buffer sized to the
 // maximum possible valence (= total half-edges), so high-valence vertices

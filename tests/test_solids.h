@@ -305,6 +305,69 @@ inline void test_determinism_complex_islamic() {
 }
 
 // ---------------------------------------------------------------------------
+// High-water regression at the real shipping arena configuration.
+//
+// The IslamicStars effect is the one that ships these recipes: spawn_shape()
+// builds get_islamic_solids()[idx].generate(a, b) through scratch_arena_a /
+// scratch_arena_b, which init() sizes via configure_arenas(..., 120 KB, 120 KB)
+// (effects/IslamicStars.h). SolidBuilder ping-pongs the two arenas WITHOUT
+// resetting between ops (see the SCRATCH ARENA CONTRACT in core/conway.h), so a
+// whole recipe chain accumulates into that pair and its peak is the recipe's
+// high-water mark. The COMPOSITION POLARITY note in core/conway.h calls out
+// cube_relax_bevel33_relax_hk68_expand5 as the one recipe whose relax()-after-
+// bevel() runs input and output on the same arena; that "measured to fit" was a
+// comment, and this test makes it an automated guard. A recipe edit or a Conway
+// operator-table change that pushes peak scratch over budget would otherwise
+// surface only as a device-only OOM trap, invisible to the host suite.
+//
+// 64-bit host vs 32-bit device: a recipe's scratch is flat POD arrays (PolyMesh
+// is ArenaVector<Vector/uint8_t/uint16_t/int>, the half-edge build uses POD
+// records) whose element sizes are identical on both builds, so these arena
+// footprints do NOT carry the host/device pointer delta core/memory.h warns
+// about for pointer-bearing pooled structs. Where any delta exists at all it can
+// only make the 64-bit host figure LARGER (8-byte vs 4-byte pointers), never
+// smaller, so a host high-water mark is a conservative UPPER bound on the device
+// figure: passing here guarantees the recipe fits the device's 120 KB split.
+//
+// The backing buffers (solids_scratch_a/b, multi-MB) are deliberately larger
+// than the asserted budget so a regression yields a precise high-water assertion
+// — the actual byte count vs 120 KB — instead of an opaque mid-build OOM trap;
+// the HS_EXPECT_LE against the real 120 KB budget is the guard.
+// ---------------------------------------------------------------------------
+
+constexpr size_t kIslamicScratchBudget =
+    120 * 1024; /**< IslamicStars' per-arena scratch split (symmetric). */
+
+/**
+ * @brief Runs one Islamic recipe through a real-budget arena pair and asserts
+ *        each arena's peak usage stays within IslamicStars' 120 KB split.
+ * @param entry Registry entry whose generator is exercised.
+ * @details A fresh arena pair per recipe isolates each measurement; the recipe
+ *          builds through (a, b) exactly as IslamicStars::spawn_shape does.
+ */
+inline void check_high_water_for_recipe(const Solids::Entry &entry) {
+  Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+  Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+  PolyMesh m = entry.generate(a, b);
+  check_nonempty(m); // the build actually produced geometry through this pair
+
+  HS_EXPECT_LE(a.get_high_water_mark(), kIslamicScratchBudget);
+  HS_EXPECT_LE(b.get_high_water_mark(), kIslamicScratchBudget);
+}
+
+/**
+ * @brief Verifies every Islamic-pattern recipe fits IslamicStars' 120 KB scratch
+ *        split — the configuration these recipes actually ship through.
+ * @details cube_relax_bevel33_relax_hk68_expand5 (the recipe the polarity note
+ *          flags as the one running an op on a non-alternating arena) is the
+ *          first Islamic entry and so is covered by this sweep.
+ */
+inline void test_islamic_recipes_fit_islamicstars_budget() {
+  for (const Solids::Entry &e : Solids::islamic_registry)
+    check_high_water_for_recipe(e);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -329,6 +392,8 @@ inline int run_solids_tests() {
   test_determinism_hardcoded_platonic();
   test_determinism_archimedean_with_conway_ops();
   test_determinism_complex_islamic();
+
+  test_islamic_recipes_fit_islamicstars_budget();
 
   return hs_test::end_module(scope);
 }
