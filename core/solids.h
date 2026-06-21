@@ -1253,10 +1253,20 @@ inline const Entry &get_entry(size_t index) {
  * @param b Scratch arena for odd pipeline stages.
  * @param index Registry index in [0, NUM_ENTRIES).
  * @return The finalized solid mesh owned by geom.
+ * @details EMSCRIPTEN-only: the JS/WASM bridge enumerates the registry by
+ *   index. Firmware is name-driven and must use `get_by_name` instead — the
+ *   `#else` branch below makes an index call on the device a clear "use of
+ *   deleted function" error rather than a confusing "no such function".
  */
 FLASHMEM static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) {
   return finalize_solid(get_entry(index).generate(a, b), geom);
 }
+#else
+// Index-based get() is the WASM bridge's enumeration path and is not compiled
+// on the device; firmware builds solids by name. Declaring it deleted here
+// makes a stray firmware index call fail with "use of deleted function 'get'"
+// (pointing the reader straight to get_by_name) instead of "no such function".
+static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) = delete;
 #endif
 
 /**
