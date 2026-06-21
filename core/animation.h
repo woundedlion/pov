@@ -2490,8 +2490,17 @@ public:
     // motion-blur history an earlier animation sharing the same Orientation had
     // already built this frame, breaking the multi-animation motion blur the
     // engine advertises. An Orientation is collapsed only by the first started
-    // animation that references it (no extra storage: O(active) per
-    // orientation-owning event, and most events own none).
+    // animation that references it.
+    //
+    // Track the orientations already collapsed this frame in a fixed-size
+    // scratch set (at most MAX_EVENTS distinct ids, so it lives on the stack
+    // with no allocation). The earlier form rescanned every prior event for
+    // each orientation-owning one — O(active^2), and it paid that cost even
+    // though most events own no orientation. Membership is now checked only
+    // against the handful of distinct collapsed ids, so the common case (a few
+    // orientations shared across many events) is effectively O(active).
+    const void *collapsed_ids[MAX_EVENTS];
+    int collapsed_n = 0;
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
       if (global_timeline_t < e.start)
@@ -2503,18 +2512,16 @@ public:
       if (!id)
         continue;
       bool already_collapsed = false;
-      for (int j = 0; j < i; ++j) {
-        auto &prev = global_timeline_events[j];
-        if (global_timeline_t < prev.start)
-          continue;
-        IAnimation *prev_anim = prev.animation();
-        if (prev_anim && prev_anim->orientation_id() == id) {
+      for (int j = 0; j < collapsed_n; ++j) {
+        if (collapsed_ids[j] == id) {
           already_collapsed = true;
           break;
         }
       }
-      if (!already_collapsed)
+      if (!already_collapsed) {
         anim->collapse_orientation();
+        collapsed_ids[collapsed_n++] = id;
+      }
     }
 
     for (int i = 0; i < active_cnt; ++i) {
