@@ -1099,6 +1099,15 @@ public:
    * @brief Ages every point one frame and swap-removes dead slots.
    * @details Unordered compaction: a dead slot is overwritten by the last live
    * point and the count shrinks.
+   *
+   * ttl is decremented by exactly 1 per frame, i.e. a whole-frame model: a
+   * point survives ceil(ttl) frames. `lifetime` is contracted >= 1 (trapped in
+   * the constructor and set_lifetime), so a point seeded with an integer age
+   * lives the expected lifetime-age frames. A *fractional* seed ttl < 1 — which
+   * arises only from a fractional incoming age within one frame of `lifetime`
+   * (e.g. an upstream Orient motion-blur tween) — dies after this single decay
+   * regardless of its fractional part; there is no sub-frame accumulator. That
+   * is acceptable: such a point was already at the very end of its fade.
    */
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
