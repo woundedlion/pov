@@ -107,6 +107,10 @@ inline float shortest_distance(float a, float b, float m) {
   // Precondition: m > 0 (the domain length). Trap a non-positive base debug-only
   // — stripped under NDEBUG on device, fires in the native tests / WASM-debug.
   assert(m > 0.0f);
+  // Double-fmod (not the single-branch wrap fwd_distance uses): this entry takes
+  // an arbitrary a - b of any magnitude, so it needs full range reduction — the
+  // inner fmod lands in (-m, m), the +m and outer fmod fold that into [0, m).
+  // fwd_distance can use one branch because it assumes b - a already in (-m, m).
   float d = std::fmod(std::fmod(a - b, m) + m, m);
   return std::min(d, m - d);
 }
