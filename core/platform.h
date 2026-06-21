@@ -100,6 +100,14 @@ inline void flush_log() { Serial.flush(); }
  *          measurable gain (RNG is spawn/setup-time, never per-pixel). A future
  *          per-pixel RNG need should add a fast deterministic PRNG here
  *          (xorshift/PCG), not reach for the platform LCG.
+ *
+ *          REENTRANCY CONTRACT: the generator is a function-local `static`, so
+ *          advancing it mutates shared state with no lock. It is therefore
+ *          main-loop-only — never call `hs::random()`/`rand_f`/`rand_int` from an
+ *          ISR or any preemptive context. Interleaving a draw from an interrupt
+ *          would both corrupt the mt19937 internal state (a torn multi-word
+ *          update) and desync the deterministic stream from the simulator. Safe
+ *          today only because every caller runs on the render/setup path.
  */
 inline std::mt19937& random() {
   static std::mt19937 gen(1337);
