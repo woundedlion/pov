@@ -796,21 +796,26 @@ inline size_t count_lit(const PipeFx &fx) {
  */
 inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   constexpr int W = 16, H = 8;
-  PipeFx fx(W, H);
   Pipeline<W, H> pipe;
+  // fx and fx2 alias the same static double buffer, so only one may be live at
+  // a time (Effect's single-live guard) — scope the first frame's effect closed
+  // before constructing the second.
   {
-    Canvas c(fx);
-    // Integer overload, full alpha over a black buffer -> exact source colour.
-    pipe.plot(c, 4, 3, Pixel(100, 200, 300), 0.0f, 1.0f);
-    // x = W+2 is in the sink's [-W, 2W) contract window and wraps to column 2.
-    pipe.plot(c, W + 2, 5, Pixel(10, 20, 30), 0.0f, 1.0f);
-    // Float overload rounds to the nearest pixel.
-    pipe.plot(c, 7.4f, 1.6f, Pixel(1, 2, 3), 0.0f, 1.0f);
+    PipeFx fx(W, H);
+    {
+      Canvas c(fx);
+      // Integer overload, full alpha over a black buffer -> exact source colour.
+      pipe.plot(c, 4, 3, Pixel(100, 200, 300), 0.0f, 1.0f);
+      // x = W+2 is in the sink's [-W, 2W) contract window and wraps to column 2.
+      pipe.plot(c, W + 2, 5, Pixel(10, 20, 30), 0.0f, 1.0f);
+      // Float overload rounds to the nearest pixel.
+      pipe.plot(c, 7.4f, 1.6f, Pixel(1, 2, 3), 0.0f, 1.0f);
+    }
+    fx.advance_display();
+    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(4, 3), 100, 200, 300));
+    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 5), 10, 20, 30)); // wrapped
+    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(7, 2), 1, 2, 3));    // rounded
   }
-  fx.advance_display();
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(4, 3), 100, 200, 300));
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 5), 10, 20, 30)); // wrapped
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(7, 2), 1, 2, 3));    // rounded
 
   // A second frame: a plot outside the clip band is dropped.
   PipeFx fx2(W, H);

@@ -37,6 +37,17 @@ public:
    * @param H The height (resolution) of the effect.
    */
   Effect(int W, int H) : persist_pixels(false), width_(W), height_(H) {
+    // Single-live-Effect precondition (see buffer_a/buffer_b): every Effect
+    // aliases the same two static buffers, so two simultaneously-live instances
+    // would scribble over each other's frames. The contract holds everywhere
+    // today — WASM resets currentEffect before constructing the next, the device
+    // driver deletes the old effect before building its successor, and the test
+    // harness constructs effects one at a time — so this traps a future overlap
+    // loudly at the cold construction site instead of silently tearing frames.
+    HS_CHECK(!s_alive,
+             "Effect: a second Effect was constructed while one is still alive; "
+             "buffer_a/buffer_b are shared static storage (one live Effect only)");
+    s_alive = true;
     bufs_[0] = buffer_a;
     std::fill_n(bufs_[0], MAX_W * MAX_H, Pixel(0, 0, 0));
     bufs_[1] = buffer_b;
@@ -49,8 +60,11 @@ public:
 
   /**
    * @brief Destroys the Effect instance.
+   * @details Clears the single-live-Effect guard so the next construction
+   * (effect switch) is admitted. Ordering is safe because every effect-swap
+   * path destroys the outgoing instance before building its replacement.
    */
-  virtual ~Effect() {};
+  virtual ~Effect() { s_alive = false; };
 
   /**
    * @brief Post-construction initialization. Override to move heavy
@@ -451,11 +465,22 @@ private:
   std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
   int width_;                /**< The width of the effect. */
   int height_;               /**< The height of the effect. */
+  // Shared static storage for the double buffer. PRECONDITION: at most one
+  // Effect may be live at a time — every instance points bufs_ at these same two
+  // arrays, so a second concurrent Effect would corrupt both frames and the
+  // prev_/cur_/next_ indices would alias a shared buffer. The Effect ctor/dtor
+  // enforce this with the s_alive guard below; there is no RAM for per-instance
+  // buffers (or a third buffer — see Canvas).
   static DMAMEM Pixel
-      buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A. */
+      buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A (shared). */
   static DMAMEM Pixel
-      buffer_b[MAX_W * MAX_H]; /**< Static storage for buffer B. */
+      buffer_b[MAX_W * MAX_H]; /**< Static storage for buffer B (shared). */
   Pixel *bufs_[2]; /**< Pointers to the two buffer storage locations. */
+  // True while an Effect is constructed-but-not-destroyed. Guards the
+  // single-live-Effect precondition on the shared buffer_a/buffer_b: the ctor
+  // traps if it is already set, the dtor clears it. Cold path (effect switch
+  // only), so the load/store is free.
+  static bool s_alive;
 };
 
 /**

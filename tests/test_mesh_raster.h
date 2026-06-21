@@ -290,15 +290,20 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   PolyMesh poly = Solids::Platonic::octahedron(seed_a, seed_b);
 
   // Wireframe lit count, for the "fill covers far more than the wireframe"
-  // contrast.
-  MeshFx wire(W, H);
+  // contrast. `wire` and the `fx` fill below alias the same static double
+  // buffer, so the wireframe effect must be torn down (its lit count captured)
+  // before the fill effect is constructed — only one Effect may be live at once.
+  size_t wire_lit;
   {
-    Canvas c(wire);
-    Pipeline<W, H> pipe;
-    Plot::Mesh::draw<W, H>(pipe, c, poly, white);
+    MeshFx wire(W, H);
+    {
+      Canvas c(wire);
+      Pipeline<W, H> pipe;
+      Plot::Mesh::draw<W, H>(pipe, c, poly, white);
+    }
+    wire.advance_display();
+    wire_lit = count_lit<W, H>(wire);
   }
-  wire.advance_display();
-  const size_t wire_lit = count_lit<W, H>(wire);
 
   // Compile to a MeshState (the solid scan path needs face_offsets) and fill.
   MeshState mesh;

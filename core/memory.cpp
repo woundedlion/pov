@@ -129,3 +129,5 @@ int global_timeline_num_events = 0;
 DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
 /** @brief Back pixel buffer for the double-buffered effect framebuffer. */
 DMAMEM Pixel Effect::buffer_b[MAX_W * MAX_H];
+/** @brief Single-live-Effect guard for the shared buffer_a/buffer_b (see Effect). */
+bool Effect::s_alive = false;
