@@ -203,6 +203,52 @@ inline void test_update_hankin_flat_collapses_to_corners() {
 }
 
 /**
+ * @brief Verifies update_hankin's degenerate-edge fallback (hankin.h:316-320):
+ *        a zero-length corner edge at a NON-zero angle still collapses the
+ *        dynamic vertex onto the normalised corner and stays finite/unit-length.
+ * @details The clean platonic solids never produce a degenerate edge, so the
+ *          `dot(cross,cross) < EPS_CROSS_SQ` branch is otherwise uncovered. Here
+ *          we compile a normal cube, then force one instruction's previous corner
+ *          to coincide with its corner so cross(p_prev, p_corner) == 0, emulating
+ *          a malformed mesh. Without the guard this path would feed a zero vector
+ *          into normalized() and emit NaN.
+ */
+inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(cube, compiled, target, temp);
+  HS_EXPECT_TRUE(compiled.dynamic_instructions.size() > 0);
+
+  // Force a zero-length edge for instruction 0: make its previous corner
+  // coincide with its corner, so cross(p_prev, p_corner) == 0.
+  const size_t idx = 0;
+  const auto ins = compiled.dynamic_instructions[idx];
+  HS_EXPECT_TRUE(ins.v_prev != ins.v_corner); // distinct before the overwrite
+  compiled.base_vertices[ins.v_prev] = compiled.base_vertices[ins.v_corner];
+
+  // Non-zero angle so we take the twisted path, not the flat short-circuit.
+  PolyMesh out;
+  MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.5f);
+
+  // The degenerate edge collapses the dynamic vertex onto the normalised corner.
+  const Vector corner = compiled.base_vertices[ins.v_corner].normalized();
+  const Vector got = compiled.dynamic_vertices[idx];
+  HS_EXPECT_NEAR(got.x, corner.x, 1e-4f);
+  HS_EXPECT_NEAR(got.y, corner.y, 1e-4f);
+  HS_EXPECT_NEAR(got.z, corner.z, 1e-4f);
+
+  // It must stay finite and unit-length — never NaN from normalising a zero.
+  HS_EXPECT_TRUE(std::isfinite(got.x) && std::isfinite(got.y) &&
+                 std::isfinite(got.z));
+  HS_EXPECT_NEAR(got.length(), 1.0f, 1e-4f);
+}
+
+/**
  * @brief Verifies update_hankin at a non-zero angle emits an output mesh whose
  *        vertex, face-count, and face arrays match the compiled sizes and stay
  *        consistent.
@@ -379,6 +425,7 @@ inline int run_hankin_tests() {
   test_compile_hankin_icosahedron_triangular_faces();
 
   test_update_hankin_flat_collapses_to_corners();
+  test_update_hankin_degenerate_edge_collapses_to_corner();
   test_update_hankin_populates_output_mesh();
 
   test_hankin_one_shot_produces_valid_mesh();
