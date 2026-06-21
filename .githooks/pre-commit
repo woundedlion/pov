@@ -20,6 +20,15 @@
 # the suite then validates unstaged content, so a split commit can pass here while
 # its staged hunks alone do not compile. CI rebuilds from the committed tree and
 # is the authoritative gate for that case; this hook is a fast local pre-filter.
+#
+# COVERAGE GAP (frame-cyclic paths): this hook runs the suite with the default
+# HS_SMOKE_FRAMES (8 — see kDefaultFrames in tests/test_effects.h), which never
+# reaches the long cyclic windows: effect morph cycles, particle/trail wraps,
+# FIFO/slot expiry (Thrusters, RingShower), ShapeShifter's 48-frame cut, and
+# arena compaction. CI sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to
+# exercise them on every push/PR, so a green pre-commit is NOT authoritative for
+# those paths — a regression there fails only in CI, by design (the hook stays
+# fast). To reproduce CI locally: HS_SMOKE_FRAMES=120 ctest --preset tests.
 
 set -e
 
