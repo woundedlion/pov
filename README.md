@@ -2083,8 +2083,10 @@ After populating them, run `npm run importmap:local` to point [`vendor-importmap
 
 ## License
 
-Core infrastructure files: [Polyform Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/)
+This project is split-licensed: the rendering engine and the visual effects carry different terms.
 
-New effect files: Copyright 2025 Gabriel Levy. All rights reserved.
+**Engine — non-commercial.** The core infrastructure (the rendering engine, math, scan/raster, hardware drivers, and test harness — everything outside `effects/`) is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [`LICENSE`](LICENSE)). You may use, modify, and distribute it for any non-commercial purpose; commercial use is not granted.
 
-`FastNoiseLite.h`: MIT License (Auburn / Jordan Peck)
+**Effects — proprietary.** The visual effects in `effects/` are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
+
+**Third-party.** `FastNoiseLite.h` is under the MIT License (Auburn / Jordan Peck).
