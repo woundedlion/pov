@@ -154,7 +154,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 40. `core/color.h:1299` — `GenerativePalette::g_hue_seed` is a non-atomic mutable static shared across instances (safe under current single-threaded construction). → document the single-threaded-construction assumption.
 41. ✅ `core/color.h:2096` — `BakedPalette::get` interpolates alpha with raw `frac` but color with rounded `frac` (negligible, noted for completeness). → document the split.
 42. ✅ `core/led.h:65` — `NoColorCorrection`/`NoTempCorrection` restore-to-baseline guards don't nest and have no compile-time protection. → optional depth counter + `HS_CHECK`.
-43. `core/animation.h:62` — `Path::append_segment` capacity check is over-conservative by one (rejects a final point that fits). → subtract the popped element.
+43. ✅ `core/animation.h:62` — `Path::append_segment` capacity check is over-conservative by one (rejects a final point that fits). → subtract the popped element.
 44. `core/animation.h:2194` — `Noise::step` casts the frame counter to `float` with no wrap; the noise time axis quantizes after ~16.7M frames (reachable on a permanent install). → keep a float accumulator or modulo before the cast.
 45. `core/animation.h:817` — `Transition` (and the other finite-duration types) divide by `duration` with only a `std::min` upper bound; a negative duration is never "done" and feeds the easing a negative arg. → clamp `duration >= 1` in `AnimationBase`.
 46. `core/transformers.h:317` — `noise_transform`'s three "decorrelated" channels share the same Z/time input, so the displacement isn't isotropic. → offset the Z input per channel.

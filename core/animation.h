@@ -59,7 +59,12 @@ public:
     // easing(0/0) = NaN would silently append a garbage point. samples is an
     // integer count, so the final t == samples lands exactly on easing(1.0).
     HS_CHECK(samples >= 1);
-    HS_CHECK(points.size() + static_cast<size_t>(samples) + 1 <= RESOLUTION);
+    // Capacity check accounts for the pop_back below: a non-empty path drops its
+    // last point before appending samples + 1 new ones, so the final size is
+    // (size - 1) + samples + 1. Counting the popped point as still-present would
+    // reject a final segment that actually fits (over-conservative by one).
+    size_t retained = points.is_empty() ? points.size() : points.size() - 1;
+    HS_CHECK(retained + static_cast<size_t>(samples) + 1 <= RESOLUTION);
     if (!points.is_empty())
       points.pop_back();
     for (int t = 0; t <= samples; t++) {
