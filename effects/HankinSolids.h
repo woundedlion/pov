@@ -290,7 +290,7 @@ private:
   MeshCarousel carousel; /**< Double-slot mesh store for front/back solids. */
   CompiledHankin compiled_hankin;         /**< Active during the hankin cycle. */
   CompiledHankin compiled_hankin_staging; /**< Built during the morph cycle. */
-  std::array<int, NUM_PALETTES> palettes_slots[2]; /**< Per-slot palette indices. */
+  std::array<int, NUM_PALETTES> palettes_slots[2] = {}; /**< Per-slot palette indices; value-init so a missed shuffle reads 0, not garbage. */
 
   int morph_old_slot_ = 0; /**< Outgoing slot index for morph draw callbacks. */
   int morph_new_slot_ = 1; /**< Incoming slot index for morph draw callbacks. */

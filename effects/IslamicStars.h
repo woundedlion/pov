@@ -92,7 +92,7 @@ private:
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
-  std::array<int, NUM_PALETTES> palettes_slots[2];
+  std::array<int, NUM_PALETTES> palettes_slots[2] = {}; // value-init: every path must shuffle before draw
 
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
