@@ -1193,6 +1193,11 @@ public:
    * @details Rebuilds the stops after interpolating.
    */
   void lerp(const Snapshot &from, const Snapshot &to, float amount) {
+    // Enforce the [0,1] blend contract here rather than leaning on the
+    // downstream RGB clamp: lerp_oklch can overshoot an extrapolated amount
+    // into an invalid OKLCH (L>1 or C past gamut). Cold path (per-frame at
+    // most); hs::clamp also folds NaN to 1.0 (house contract).
+    amount = hs::clamp(amount, 0.0f, 1.0f);
     a = lerp_oklch_srgb(from.a, to.a, amount);
     b = lerp_oklch_srgb(from.b, to.b, amount);
     c = lerp_oklch_srgb(from.c, to.c, amount);
