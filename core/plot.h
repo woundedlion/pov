@@ -913,24 +913,6 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
  */
 struct Ring {
   /**
-   * @brief Calculates a 3D point on a ring given basis and progress.
-   * @param a Angular progress around the ring (radians).
-   * @param radius Ring radius (fraction of the hemisphere).
-   * @param u Basis u-axis (in-plane).
-   * @param v Basis center axis.
-   * @param w Basis w-axis (in-plane).
-   * @return Normalized unit sphere point on the ring.
-   */
-  static Vector calcPoint(float a, float radius, const Vector &u,
-                          const Vector &v, const Vector &w) {
-    auto d = fabsf(1 - radius); // sqrtf((1-radius)^2) == |1-radius|
-    return Vector(d * v.x + radius * u.x * cosf(a) + radius * w.x * sinf(a),
-                  d * v.y + radius * u.y * cosf(a) + radius * w.y * sinf(a),
-                  d * v.z + radius * u.z * cosf(a) + radius * w.z * sinf(a))
-        .normalized();
-  }
-
-  /**
    * @brief Samples a closed ring at `num_samples` evenly-spaced angles.
    * @param points Output fragment list; num_samples+1 fragments are appended.
    * @param basis Orientation basis.

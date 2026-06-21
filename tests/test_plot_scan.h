@@ -16,7 +16,7 @@
  *   - ClipRegion::could_intersect_y : y-range cull (constants.h).
  *   - ClipRegion x-clip (render_x_*, contains_x, x_clip/XClip) : cylindrical
  *                                 band topologies + contains_x/XClip parity.
- *   - Plot::Ring::calcPoint / Ring::sample : unit-length, angular progress.
+ *   - Plot::Ring::sample : unit-length, angular progress.
  *   - Plot::DistortedRing::sample : angle-addition identity (LUT) matches
  *                                   direct cos/sin within tolerance.
  *   - Plot::Spiral::sample      : unit-length, monotone arc length.
@@ -492,20 +492,8 @@ inline void test_edge_row_span_covers_arc_bulge() {
 }
 
 // ============================================================================
-// Plot::Ring::calcPoint / Ring::sample
+// Plot::Ring::sample
 // ============================================================================
-
-/**
- * @brief Verifies Ring::calcPoint returns a unit-length point on the sphere for
- *        every sampled angle.
- */
-inline void test_ring_calc_point_unit_length() {
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
-  for (float a = 0.0f; a < 6.28f; a += 0.4f) {
-    Vector p = Plot::Ring::calcPoint(a, 0.5f, b.u, b.v, b.w);
-    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-4f);
-  }
-}
 
 /**
  * @brief Verifies Ring::sample emits N unit-length fragments plus one closing
@@ -1097,7 +1085,6 @@ inline int run_plot_scan_tests() {
   test_clip_x_band_topologies();
   test_edge_row_span_covers_arc_bulge();
 
-  test_ring_calc_point_unit_length();
   test_ring_sample_unit_length_and_progress();
   test_ring_sample_lut_matches_direct();
 
