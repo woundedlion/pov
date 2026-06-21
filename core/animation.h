@@ -76,6 +76,10 @@ public:
   Vector get_point(float t) const {
     if (points.is_empty())
       return Vector(0, 0, 0);
+    // Clamp like every other interpolator here: an out-of-[0,1] t would make
+    // raw_index negative, and static_cast<size_t> of a negative float is UB
+    // (t > 1 is caught by the i >= size-1 guard below, but t < 0 is not).
+    t = hs::clamp(t, 0.0f, 1.0f);
     float raw_index = t * (points.size() - 1);
     size_t i = static_cast<size_t>(raw_index);
     float f = raw_index - i;
