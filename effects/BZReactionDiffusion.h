@@ -89,11 +89,18 @@ private:
   // ---------------------------------------------------------------------------
 
   /**
+   * @brief Q8 full-scale factor: maps the [0, 255] byte state to [0.0, 1.0],
+   * mirroring GSReactionDiffusion's Q16_SCALE/Q16_INV naming.
+   */
+  static constexpr float Q8_SCALE = 255.0f;
+  static constexpr float Q8_INV = 1.0f / Q8_SCALE; /**< Reciprocal of Q8_SCALE. */
+
+  /**
    * @brief Converts a Q8 fixed-point byte to a normalized float.
    * @param v Q8 value in [0, 255].
    * @return Concentration in [0.0, 1.0].
    */
-  static inline float from_q8(uint8_t v) { return v * (1.0f / 255.0f); }
+  static inline float from_q8(uint8_t v) { return v * Q8_INV; }
   /**
    * @brief Converts a normalized concentration to a Q8 fixed-point byte.
    * @param v Concentration; clamped to [0.0, 1.0] before scaling.
@@ -283,6 +290,12 @@ private:
   Color4 sample_kernel(const Vector &rv, const Vector *nodes, int best_node,
                        const Color4 &ca, const Color4 &cb,
                        const Color4 &cc) const {
+    // Accumulate the raw Q8 bytes weighted by the kernel and defer the single
+    // Q8_INV scale to one multiply after the walk (folded into `inv` below).
+    // GSReactionDiffusion converts per term with from_q16 because it walks one
+    // field; BZ fuses three species into a single walk, so converting per term
+    // would cost three extra multiplies per node. Deferring the constant scale
+    // is the mathematically identical, cheaper form for the fused walk.
     float tw = 0, wa = 0, wb = 0, wc = 0;
     kernel_accumulate(rv, nodes, best_node, [&](int i, float w) {
       wa += state.A[i] * w;
@@ -294,7 +307,7 @@ private:
     if (tw <= 0.0001f)
       return Color4(Pixel(0, 0, 0), 0.0f);
 
-    float inv = (1.0f / 255.0f) / tw;
+    float inv = Q8_INV / tw;
     float a = wa * inv, b = wb * inv, c = wc * inv;
     // Cull a location where every species has decayed to ~0 to transparent,
     // matching GSReactionDiffusion's B_CULL_THRESHOLD cull. Such a point is
