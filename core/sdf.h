@@ -2823,6 +2823,9 @@ struct Torus {
    * @param p Query point in Cartesian ray-space.
    * @param frag Output fragment; v0 = ring angle (0-1, for palette lookup),
    *        v1/v2/v3 = surface normal (x, y, z).
+   * @note This is the volumetric register convention (README "Volumetric
+   *        Path"), distinct from the SDF-scanline register table — writing the
+   *        normal into v2 here does not violate that path's "v2 reserved" rule.
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
@@ -3000,6 +3003,9 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @brief Populates a Fragment's registers for shading.
    * @param p Query point in Cartesian ray-space.
    * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface normal.
+   * @note This is the volumetric register convention (README "Volumetric
+   *        Path"), distinct from the SDF-scanline register table — writing the
+   *        normal into v2 here does not violate that path's "v2 reserved" rule.
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
