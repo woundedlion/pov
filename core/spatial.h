@@ -195,7 +195,7 @@ public:
     if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
       return result;
 
-    // The result/heap buffers are sized MAX_K, so more than MAX_K neighbors
+    // The result/candidate buffers are sized MAX_K, so more than MAX_K neighbors
     // cannot be honored. Silently returning fewer than requested would mask the
     // caller's mistake; trap so a k > MAX_K bug surfaces instead. (Requesting
     // more neighbors than points exist is fine — that legitimately caps below.)
@@ -207,27 +207,29 @@ public:
       float d_sq;
       int idx;
     };
-    StaticCircularBuffer<Candidate, MAX_K> heap;
+    // Named `best`, not `heap`: this is a deliberately unsorted linear array of
+    // the k best candidates, not a heap-ordered structure. With small K (1-5) a
+    // linear scan for the max is cheaper than maintaining heap order, so there
+    // is no O(log k) push / O(1) peek-max invariant to rely on.
+    StaticCircularBuffer<Candidate, MAX_K> best;
 
     // Offer a candidate to the k-best set: append while under k, otherwise
     // displace the current worst entry if this one is closer.
-    auto push_heap = [&](float d_sq, int idx) {
-      if (heap.size() < static_cast<size_t>(k)) {
-        // Kept unsorted: with small K (1-5) a linear scan for the max is
-        // cheaper than maintaining real heap order.
-        heap.push_back({d_sq, idx});
+    auto offer_candidate = [&](float d_sq, int idx) {
+      if (best.size() < static_cast<size_t>(k)) {
+        best.push_back({d_sq, idx});
       } else {
-        // Heap full: replace the current worst candidate only if d_sq beats it.
+        // Full: replace the current worst candidate only if d_sq beats it.
         float max_d = -1.0f;
         int max_i = -1;
-        for (size_t i = 0; i < heap.size(); ++i) {
-          if (heap[i].d_sq > max_d) {
-            max_d = heap[i].d_sq;
+        for (size_t i = 0; i < best.size(); ++i) {
+          if (best[i].d_sq > max_d) {
+            max_d = best[i].d_sq;
             max_i = i;
           }
         }
         if (d_sq < max_d) {
-          heap[max_i] = {d_sq, idx};
+          best[max_i] = {d_sq, idx};
         }
       }
     };
@@ -235,23 +237,23 @@ public:
     // Pruning bound: largest squared distance currently held. Returns FLT_MAX
     // until the set holds k entries so nothing is pruned before it fills.
     auto get_worst_dist = [&]() -> float {
-      if (heap.size() < k)
+      if (best.size() < k)
         return FLT_MAX;
       float max_d = -1.0f;
-      for (size_t i = 0; i < heap.size(); ++i) {
-        if (heap[i].d_sq > max_d)
-          max_d = heap[i].d_sq;
+      for (size_t i = 0; i < best.size(); ++i) {
+        if (best[i].d_sq > max_d)
+          max_d = best[i].d_sq;
       }
       return max_d;
     };
 
-    search_k(root_index, target, push_heap, get_worst_dist);
+    search_k(root_index, target, offer_candidate, get_worst_dist);
 
     std::sort(
-        heap.begin(), heap.end(),
+        best.begin(), best.end(),
         [](const Candidate &a, const Candidate &b) { return a.d_sq < b.d_sq; });
 
-    for (const auto &c : heap) {
+    for (const auto &c : best) {
       result.push_back(nodes[c.idx]);
     }
     return result;
@@ -329,7 +331,7 @@ private:
    * @tparam MaxDistFn Callable returning the current worst squared distance bound.
    * @param node_idx Subtree root node index, or -1 to terminate.
    * @param target Query point, in world units.
-   * @param push_heap Callback that records a candidate in the k-best set.
+   * @param offer_candidate Callback that records a candidate in the k-best set.
    * @param get_worst_dist Callback returning the current pruning bound (squared distance).
    * @details Descends the near child first, then prunes the far child when the
    * splitting plane is farther than the current worst hit. The k-best set and k
@@ -337,7 +339,7 @@ private:
    * reference in nearest().
    */
   template <typename PushFn, typename MaxDistFn>
-  void search_k(int node_idx, const Vector &target, PushFn &&push_heap,
+  void search_k(int node_idx, const Vector &target, PushFn &&offer_candidate,
                 MaxDistFn &&get_worst_dist) const {
     if (node_idx == -1)
       return;
@@ -346,7 +348,7 @@ private:
     float d_sq = distance_squared(node.point, target);
 
     if (d_sq < get_worst_dist())
-      push_heap(d_sq, node_idx);
+      offer_candidate(d_sq, node_idx);
 
     float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
                      : (node.axis == 1) ? (target.y - node.point.y)
@@ -355,12 +357,12 @@ private:
     int near = axis_dist < 0 ? node.left : node.right;
     int far = axis_dist < 0 ? node.right : node.left;
 
-    search_k(near, target, push_heap, get_worst_dist);
+    search_k(near, target, offer_candidate, get_worst_dist);
 
-    // Re-query the worst bound: the near subtree may have filled the heap and
-    // tightened it, so the far side can be pruned.
+    // Re-query the worst bound: the near subtree may have filled the k-best set
+    // and tightened it, so the far side can be pruned.
     if ((axis_dist * axis_dist) < get_worst_dist()) {
-      search_k(far, target, push_heap, get_worst_dist);
+      search_k(far, target, offer_candidate, get_worst_dist);
     }
   }
 };
