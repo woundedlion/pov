@@ -1108,8 +1108,8 @@ namespace hs {
 // -ffast-math (see CMakeLists.txt). Trap at compile time, on every target, if
 // that protection is ever lost (flag reorder, toolchain default change, or an
 // -ffinite-math-only sub-target) so the regression is a build error here rather
-// than silent corruption on the sphere. See finding 369; the native fastmath
-// clamp test (tests/CMakeLists.txt) exercises the contract under the real flags.
+// than silent corruption on the sphere. The native fastmath clamp test
+// (tests/CMakeLists.txt) exercises the contract under the real flags.
 #if defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ != 0
 #error "hs::clamp NaN->hi contract requires -fno-finite-math-only: a bare -ffast-math (or -ffinite-math-only) makes the compiler assume no NaN and folds the saturating clamp guard away, reintroducing float->int cast UB engine-wide."
 #endif
@@ -1165,7 +1165,8 @@ inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
  *          REORDER-INSENSITIVE; the operand order is kept identical to the x86
  *          overload only for parity, not for correctness here. See the x86
  *          overload for the caller contract. (NaN-suppression relies on
- *          -fno-finite-math-only surviving after -ffast-math; see finding 369.)
+ *          -fno-finite-math-only surviving after -ffast-math; the compile-time
+ *          __FINITE_MATH_ONLY__ #error above guards exactly that.)
  */
 inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
                                                             float hi) {
