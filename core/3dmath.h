@@ -631,7 +631,8 @@ struct Complex {
    */
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
-    if (std::abs(denom) < 1e-6f) {
+    // denom is a sum of squares, so it is always non-negative — no std::abs.
+    if (denom < 1e-6f) {
       // Near-zero denominator → point at infinity.
       // Preserve direction of the numerator.
       float num_mag = re * re + im * im;
