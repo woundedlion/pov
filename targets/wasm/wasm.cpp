@@ -81,6 +81,13 @@ static_assert(MAX_PARAMS ==
 static constexpr size_t kToolingArenaBytes = 8 * 1024 * 1024;
 static constexpr size_t kToolingScratchBytes = 4 * 1024 * 1024;
 Arena tooling_arena(nullptr, 0);
+// Transient single-op scratch, shared module-globally across every
+// MeshOpsWrapper. Every MeshOps entry point reset()s both at its head, so their
+// contents are valid only within one synchronous MeshOps call — relying on WASM
+// single-threading, each op runs to completion before JS regains control. Unlike
+// tooling_arena, these are NOT covered by the generation trap, so the
+// "scratch outlives its op" contract is enforced purely by single-threading; a
+// future async/worker-shared refactor must re-establish it (e.g. per-op scratch).
 Arena tooling_scratch_a(nullptr, 0);
 Arena tooling_scratch_b(nullptr, 0);
 
