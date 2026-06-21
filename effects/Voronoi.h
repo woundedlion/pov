@@ -158,7 +158,10 @@ public:
         float dist1 = acosf(std::min(1.0f, maxDot1));
         float dist2 = acosf(std::min(1.0f, maxDot2));
         if (dist2 - dist1 < params.borderThickness) {
-          c = Color4(0, 0, 0, 0); // Black/Transparent
+          // Opaque black via premultiplied overwrite: Scan::Shader writes this
+          // fragment (premultiplied) over the pixel without compositing, so the
+          // alpha=0 never blends — the premultiplied RGB (0,0,0) paints black.
+          c = Color4(0, 0, 0, 0);
         }
       }
 
