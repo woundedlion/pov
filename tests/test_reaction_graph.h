@@ -282,6 +282,62 @@ inline void test_cubemap_lut_roundtrip() {
   HS_EXPECT_LE(miss, (exact + near) / 4);
 }
 
+/**
+ * @brief Verifies lookup() on off-lattice query directions against a brute-force
+ *        nearest-node oracle.
+ * @details test_cubemap_lut_roundtrip only seeds at exact lattice points, which
+ *          find_nearest_node's note warns "cannot catch" the equatorial long-hop
+ *          or a face-boundary miss "because it seeds at the answer." This samples
+ *          random unit directions (no lattice point sits exactly there), finds
+ *          the true nearest node by an exhaustive O(RD_N) scan, and requires
+ *          lookup() to return that node or one of its direct neighbors for the
+ *          overwhelming majority — the same one-cell tolerance the round-trip
+ *          test allows. The mt19937 is locally seeded so the sample set is fixed.
+ */
+inline void test_cubemap_lut_offlattice() {
+  static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
+                         ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
+                     64];
+  Arena arena(buf, sizeof(buf));
+  ReactionGraph::CubemapLUT lut;
+  lut.build(arena);
+
+  std::mt19937 rng(20240607u);
+  std::uniform_real_distribution<float> uni(-1.0f, 1.0f);
+  const int kSamples = 400;
+  int exact = 0, near = 0, miss = 0;
+  for (int s = 0; s < kSamples; ++s) {
+    // Draw a uniformly-random direction; reject near-origin draws that
+    // normalize unstably so the query is a well-defined off-lattice direction.
+    Vector q;
+    float len2;
+    do {
+      q = Vector(uni(rng), uni(rng), uni(rng));
+      len2 = q.x * q.x + q.y * q.y + q.z * q.z;
+    } while (len2 < 0.01f);
+    q = q.normalized();
+
+    // Brute-force argmin over the whole lattice = the true nearest node.
+    int best = 0;
+    float best_d = chord2(q, node(0));
+    for (int i = 1; i < RD_N; ++i) {
+      float d = chord2(q, node(i));
+      if (d < best_d) { best_d = d; best = i; }
+    }
+
+    int found = lut.lookup(q);
+    if (found == best) { ++exact; continue; }
+    bool adjacent = false;
+    for (int k = 0; k < RD_K; ++k)
+      if (neighbors[best][k] == found) { adjacent = true; break; }
+    if (adjacent) ++near; else ++miss;
+  }
+  std::printf("  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
+              exact, near, miss, kSamples);
+  HS_EXPECT_GT(exact + near, 0);
+  HS_EXPECT_LE(miss, kSamples / 4);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -307,6 +363,7 @@ inline int run_reaction_graph_tests() {
   test_edge_reciprocity_high();
 
   test_cubemap_lut_roundtrip();
+  test_cubemap_lut_offlattice();
 
   return hs_test::end_module(scope);
 }
