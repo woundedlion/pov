@@ -420,8 +420,7 @@ private:
    *          frame. 10000 is tuned to hold the trail at typical Speed/Gap/Trail
    *          Len settings; the extreme-slider truncation is an accepted visual
    *          trade, not a defect. A static_assert tying this to a worst case is
-   *          intentionally omitted because no truthful small bound exists. See
-   *          code-review finding 372.
+   *          intentionally omitted because no truthful small bound exists.
    */
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes; /**< Live palettes. */

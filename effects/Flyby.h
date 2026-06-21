@@ -15,9 +15,9 @@
  * around Y, blending continuously between camera/warp presets.
  * @note Sibling stereographic shader — `Liquid2D` — shares this pipeline
  *       (stereo project → noise warp → sin/cos pattern → pole attenuate) and the
- *       per-pixel `sample()` (kept in sync, finding 399). They are not unified
+ *       per-pixel `sample()` (kept in sync). They are not unified
  *       into a `StereoShaderBase`, so propagate shader fixes across both. Known
- *       divergences (finding 407): the two `Params::lerp` use different
+ *       divergences: the two `Params::lerp` use different
  *       interpolation strategies and the warp time-scales differ by undocumented
  *       factors.
  */
@@ -165,7 +165,7 @@ private:
     // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. The
     // pole cap is pole-attenuated anyway, so clamp rather than feed the trig a
     // coordinate it cannot resolve (see STEREO_PATTERN_ARG_LIMIT). Kept in sync
-    // with Liquid2D::sample (finding 407).
+    // with Liquid2D::sample.
     float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                          STEREO_PATTERN_ARG_LIMIT);
     float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
