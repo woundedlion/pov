@@ -43,12 +43,21 @@ static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
  *  x=0 seam); see the static_assert there. */
 inline constexpr size_t kIntervalSpanCap = 32;
 
-/** Per-row scanline interval buffer. Fixed capacity, accumulate-only. */
+/** Per-row scanline interval buffer for a single shape. Fixed capacity,
+ *  accumulate-only. */
 using IntervalBuffer =
     StaticCircularBuffer<std::pair<float, float>, kIntervalSpanCap>;
 
+/** Per-row accumulator for a binary CSG op that merges BOTH children's spans
+ *  into one buffer (Union/SmoothUnion). Each child can contribute up to
+ *  kIntervalSpanCap spans, so the union accumulator is sized to hold both. */
+using MergedIntervalBuffer =
+    StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap>;
+
 /**
  * @brief Append a scanline interval, trapping on overflow.
+ * @tparam N Buffer capacity (deduced); supports both the per-shape and the
+ * two-child union accumulators.
  * @param buf Per-row interval buffer to append to.
  * @param start Interval start column (float).
  * @param end Interval end column (float).
@@ -59,9 +68,10 @@ using IntervalBuffer =
  * nested CSG producing more disjoint spans than budgeted), so trap at the
  * violation site instead of dropping coverage (fail-fast).
  */
-inline void push_interval(IntervalBuffer &buf, float start, float end) {
-  HS_CHECK(!buf.is_full(),
-           "SDF scanline interval buffer overflow (>32 spans in one row)");
+template <size_t N>
+inline void push_interval(StaticCircularBuffer<std::pair<float, float>, N> &buf,
+                          float start, float end) {
+  HS_CHECK(!buf.is_full(), "SDF scanline interval buffer overflow in one row");
   buf.push_back({start, end});
 }
 
@@ -72,7 +82,9 @@ inline void push_interval(IntervalBuffer &buf, float start, float end) {
  * it is contiguous from index 0), avoiding the per-access modulo. Shared by
  * merge_intervals and the Subtract set-difference.
  */
-inline void sort_intervals_by_start(IntervalBuffer &buf) {
+template <size_t N>
+inline void
+sort_intervals_by_start(StaticCircularBuffer<std::pair<float, float>, N> &buf) {
   auto *data = &buf[0];
   size_t n = buf.size();
   for (size_t i = 1; i < n; ++i) {
@@ -89,14 +101,17 @@ inline void sort_intervals_by_start(IntervalBuffer &buf) {
 /**
  * @brief Sort an interval buffer by start, then emit the union of overlapping
  * intervals via out(start, end). Shared by Union/SmoothUnion.
+ * @tparam N Buffer capacity (deduced).
  * @tparam OutputIt Sink type invoked as out(float start, float end).
  * @param merged Per-row interval buffer (sorted and merged in place).
  * @param out Sink receiving each merged interval.
  * @details Precondition: `merged` is non-empty (callers guard with is_empty()).
  * Templated on the output sink so it inlines at -O3.
  */
-template <typename OutputIt>
-inline void merge_intervals(IntervalBuffer &merged, OutputIt out) {
+template <size_t N, typename OutputIt>
+inline void
+merge_intervals(StaticCircularBuffer<std::pair<float, float>, N> &merged,
+                OutputIt out) {
   sort_intervals_by_start(merged);
   auto *data = &merged[0];
   size_t n = merged.size();
@@ -737,7 +752,7 @@ template <typename A, typename B> struct Union {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    StaticCircularBuffer<std::pair<float, float>, 32> merged;
+    MergedIntervalBuffer merged;
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
@@ -844,7 +859,7 @@ template <typename A, typename B> struct SmoothUnion {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    StaticCircularBuffer<std::pair<float, float>, 32> merged;
+    MergedIntervalBuffer merged;
     float pad_px = k * W / (2 * PI_F);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
@@ -947,8 +962,8 @@ template <typename A, typename B> struct Subtract {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    StaticCircularBuffer<std::pair<float, float>, 32> intervals_a;
-    StaticCircularBuffer<std::pair<float, float>, 32> intervals_b;
+    IntervalBuffer intervals_a;
+    IntervalBuffer intervals_b;
 
     // The set-difference loop below and scan_region's coalescer both assume
     // intervals arrive in non-decreasing start order; a multi-interval child
@@ -1124,8 +1139,8 @@ template <typename A, typename B> struct Intersection {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    StaticCircularBuffer<std::pair<float, float>, 32> intervals_a;
-    StaticCircularBuffer<std::pair<float, float>, 32> intervals_b;
+    IntervalBuffer intervals_a;
+    IntervalBuffer intervals_b;
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_a, start, end); });
