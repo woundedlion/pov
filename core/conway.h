@@ -986,7 +986,9 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
 
       if (edge_count == 0)
         break;
-      float target_len = static_cast<float>(total_len / edge_count);
+      // total_len is float, so total_len / edge_count already divides in float;
+      // no cast needed (edge_count promotes to float, no integer truncation).
+      float target_len = total_len / edge_count;
 
       for (size_t i = 0; i < V; ++i) {
         Vector force(0, 0, 0);
