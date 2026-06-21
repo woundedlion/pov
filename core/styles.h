@@ -264,12 +264,10 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   return drifted;
 }
 
-// Uses the rotation precomputed once per frame by Style::sync_hue rather than
-// recomputing sin/cos of the frame-constant hue_shift per pixel.
+// Uses the rotation precomputed once per frame by Style::sync_hue (called from
+// Feedback::flush) rather than recomputing sin/cos of the frame-constant
+// hue_shift for every pixel.
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
-  // Uses the rotation precomputed once per frame by Style::sync_hue (called
-  // from Feedback::flush) rather than recomputing sin/cos of the frame-constant
-  // hue_shift for every pixel.
   return hue_rotate(Color4(p * fade, 1.0f), s.hue_ca, s.hue_sa).color;
 }
 
