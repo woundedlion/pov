@@ -22,10 +22,10 @@
  *       chain, color/fade, and accumulate-vs-draw model, so a unifying base would
  *       have to parameterize all of those — a worse abstraction than the two-line
  *       idiom and a fresh coupling across three independently-tuned effects.
- *       They are therefore deliberately not unified; propagate trail-rendering
- *       fixes by hand across all three. Known divergences from the two siblings:
- *         - This effect does not apply the `Screen::AntiAlias` filter the
- *           siblings use.
+ *       Each therefore renders independently; propagate trail-rendering
+ *       fixes by hand across all three. Differences from the two siblings:
+ *         - This effect renders without the `Screen::AntiAlias` filter the
+ *           siblings apply.
  *         - This effect uses `Orientation<>` (CAP 4) for the ring orientation and
  *           trail, where the siblings use `Orientation<16>` — i.e. up to 4
  *           motion-blur sub-frames per recorded frame versus 16. Intentional: a

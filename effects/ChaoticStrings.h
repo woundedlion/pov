@@ -22,11 +22,11 @@
  *       per-effect bodies diverge in draw primitive, transform chain, color/fade,
  *       and accumulate-vs-draw model, so a unifying base would have to
  *       parameterize all of those — a worse abstraction than the two-line idiom
- *       and a fresh coupling across three independently-tuned effects. They are
- *       therefore deliberately not unified; propagate trail-rendering fixes by
- *       hand across all three. Known divergences:
- *         - `RingSpin` omits the `Screen::AntiAlias` filter this effect and
- *           `Comets` apply.
+ *       and a fresh coupling across three independently-tuned effects. Each
+ *       therefore renders independently; propagate trail-rendering fixes by
+ *       hand across all three. Per-effect differences:
+ *         - `RingSpin` renders without the `Screen::AntiAlias` filter that this
+ *           effect and `Comets` apply.
  *         - `RingSpin` uses `Orientation<>` (CAP 4) where this effect and
  *           `Comets` use `Orientation<16>` (up to 4 motion-blur sub-frames versus
  *           16). Intentional: its full great-circle rings overlap heavily

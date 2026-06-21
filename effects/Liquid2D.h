@@ -16,11 +16,11 @@
  * generative palette. Presets cycle on a random timer.
  * @note Sibling stereographic shader — `Flyby` — shares this pipeline
  *       (stereo project → noise warp → sin/cos pattern → pole attenuate) and the
- *       per-pixel `sample()` (kept in sync). They are not unified
- *       into a `StereoShaderBase`, so propagate shader fixes across both. Known
- *       divergences: the two `Params::lerp` use different
- *       interpolation strategies and the warp time-scales differ by undocumented
- *       factors.
+ *       per-pixel `sample()`, which is kept in sync by hand: each effect keeps
+ *       its own copy rather than a shared `StereoShaderBase`, so propagate shader
+ *       fixes across both. The copies differ in two ways: the two `Params::lerp`
+ *       use different interpolation strategies and the warp time-scales differ by
+ *       undocumented factors.
  */
 template <int W, int H> class Liquid2D : public Effect {
 public:
