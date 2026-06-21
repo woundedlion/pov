@@ -17,6 +17,12 @@
  *   Per arm: the top segment runs y = 0 -> PPS-1 (N pole -> junction),
  *            the bottom segment runs y = ROWS-1 -> ROWS-PPS (S pole ->
  *            junction, strip physically reversed).
+ *
+ * NOTE: the top-arm wiring convention deliberately differs from the single-board
+ * rig (pov_single_map.h). Here the top segment wires LED 0 at the N pole, NOT
+ * reversed (y_step = +1); the single-board rig reverses its top arm with LED 0
+ * at the junction (strip_top_led = S/2-1-y). The two are separate physical
+ * builds — do not assume one map's top-arm direction carries over.
  */
 #pragma once
 

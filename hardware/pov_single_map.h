@@ -18,6 +18,12 @@
  *   the opposite half of the image (column (x + W/2) % W). At rotation column x
  *   the two halves together paint exactly the two canvas columns x and
  *   (x + W/2) % W, one LED per (column, row).
+ *
+ * NOTE: the top-arm wiring convention deliberately differs from the segmented
+ * rig (pov_segment_map.h). Here the top arm is reversed with LED 0 at the
+ * junction (strip_top_led = S/2-1-y); the segmented rig wires its top segment
+ * with LED 0 at the N pole, NOT reversed (y_step = +1). The two are separate
+ * physical builds — do not assume one map's top-arm direction carries over.
  */
 #pragma once
 
