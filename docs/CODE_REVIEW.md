@@ -211,7 +211,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 97. ✅ `tools/palette_math.js:312` (daydream) — `GenerativePalette.get` boundary `t === 1.0`/`t > 1.0` is untested. → add the boundary test.
 98. ✅ `segment_layout.js` ↔ `hardware/pov_segment_map.h` — the two implementations are claimed to mirror each other only in prose; no shared fixture cross-checks them numerically. → add a cross-implementation equivalence test.
 99. ✅ `segment_worker.js` — has no unit test at all; the pure-ish row-extraction/metrics/queue-rethrow logic is testable with a mocked engine (and would catch finding 14). → add worker unit tests.
-100. `tests/test_spatial.h` — KDTree with coincident/duplicate points and at `k == MAX_K` is untested (the classic degenerate cases). → add a duplicate-point + `k==MAX_K` test vs brute force.
+100. ✅ `tests/test_spatial.h` — KDTree with coincident/duplicate points and at `k == MAX_K` is untested (the classic degenerate cases). → add a duplicate-point + `k==MAX_K` test vs brute force.
 101. `tests/test_plot_scan.h` — Spiral/Star/Flower/Bezier `sample()` assertions are shape-blind (unit-length + monotone only; Star and Flower share identical assertions). → add a discriminating per-shape check.
 102. `tests/test_easing_waves.h` — expo/elastic easings are checked finiteness-only in the interior; one-sided curves miss the opposite endpoint. → pin a reference interior value per curve.
 103. `tests/test_conway.h` — `relax` is verified not to break the mesh but not to reduce edge-length variance (its entire purpose). → assert post-relax variance < pre-relax.

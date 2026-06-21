@@ -12,7 +12,9 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <cstdint>
 #include "core/spatial.h"
 #include "tests/test_3dmath.h" // re-uses approx_vec / HS_EXPECT_VEC
@@ -382,6 +384,61 @@ inline void test_kdtree_matches_brute_force() {
   HS_EXPECT_VEC(r[0].point, pts[best_i], 1e-6f);
 }
 
+/**
+ * @brief Verifies nearest() handles coincident (duplicate) points and a full
+ *        k == MAX_K request, the classic degenerate cases.
+ * @details Three points share a location, so a k-nearest query produces distance
+ *          ties — including at the k boundary, where only some of the equidistant
+ *          points fit. Tie order is unspecified, so the result is checked as a
+ *          sorted multiset of squared distances against a brute-force k-smallest
+ *          scan, and every returned neighbor is cross-checked against its source
+ *          point and recomputed distance.
+ */
+inline void test_kdtree_duplicates_and_max_k() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+  Vector pts[8] = {
+      Vector(1, 1, 1),     // 0  coincident cluster (d²=0 from query)
+      Vector(1, 1, 1),     // 1  coincident
+      Vector(1, 1, 1),     // 2  coincident
+      Vector(2, 0, 0),     // 3  d²=3
+      Vector(0, 2, 0),     // 4  d²=3  (boundary tie: only one of 3/4/5 fits k=5)
+      Vector(0, 0, 2),     // 5  d²=3
+      Vector(-1, -1, -1),  // 6  d²=12
+      Vector(5, 5, 5),     // 7  d²=48
+  };
+  std::span<Vector> sp(pts, 8);
+  KDTree tree(arena, sp);
+
+  constexpr int K = KDTree::MAX_K; // 5 — the maximum a query may request
+  const Vector query(1, 1, 1);     // lands exactly on the coincident cluster
+
+  auto r = tree.nearest(query, K);
+  HS_EXPECT_EQ(r.size(), (size_t)K);
+
+  // Brute-force the K smallest squared distances (sorted ascending).
+  float all_d2[8];
+  for (int i = 0; i < 8; ++i) all_d2[i] = distance_squared(pts[i], query);
+  std::sort(all_d2, all_d2 + 8);
+
+  // Result is nearest-first; its squared distances must equal the K smallest as
+  // a sorted sequence (boundary ties make the index order arbitrary).
+  float prev = -1.0f;
+  for (int i = 0; i < K; ++i) {
+    HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-6f); // non-decreasing (sorted)
+    prev = r[i].d_sq;
+    HS_EXPECT_TRUE(std::fabs(r[i].d_sq - all_d2[i]) < 1e-5f);
+    // Stored point and distance are self-consistent with the source array.
+    HS_EXPECT_VEC(r[i].point, pts[r[i].original_index], 1e-6f);
+    HS_EXPECT_TRUE(std::fabs(distance_squared(r[i].point, query) - r[i].d_sq) <
+                   1e-5f);
+  }
+
+  // All three coincident points come back at distance 0.
+  HS_EXPECT_TRUE(std::fabs(r[0].d_sq) < 1e-6f);
+  HS_EXPECT_TRUE(std::fabs(r[1].d_sq) < 1e-6f);
+  HS_EXPECT_TRUE(std::fabs(r[2].d_sq) < 1e-6f);
+}
+
 // ============================================================================
 // MeshState
 // ============================================================================
@@ -526,6 +583,7 @@ inline int run_spatial_tests() {
   test_kdtree_default_unbuilt();
   test_kdtree_clear();
   test_kdtree_matches_brute_force();
+  test_kdtree_duplicates_and_max_k();
 
   test_meshstate_default_unbound();
   test_meshstate_clone_deep_copies();
