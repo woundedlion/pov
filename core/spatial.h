@@ -171,9 +171,17 @@ public:
     // build() returns — otherwise ~count*4 bytes (≈34 KB at MAX_VERTS) leak into
     // the arena for the rest of its lifetime.
     ScratchScope scratch(arena);
+    // count is narrowed to int here (indices is int*, build() takes int count,
+    // and indices[i]=i folds the source index into int). The per-node build()
+    // guards bound the *stored* index range (uint16_t original_index), which
+    // requires every source index 0..count-1 to fit uint16_t; trap that bound
+    // at the seam so an over-large point set fails loud here instead of deep in
+    // the recursion. Cold path (once per build).
+    HS_CHECK(count <= static_cast<size_t>(UINT16_MAX) + 1,
+             "KDTree source point count exceeds uint16_t index range");
     int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
     for (size_t i = 0; i < count; ++i)
-      indices[i] = i;
+      indices[i] = (int)i;
 
     root_index = build(points, indices, count, 0);
   }
