@@ -171,7 +171,14 @@ struct LogPolar {
  * @param h_virt The virtual height.
  * @return The spherical phi angle in radians.
  */
-inline float y_to_phi(float y, int h_virt) { return (y * PI_F) / (h_virt - 1); }
+inline float y_to_phi(float y, int h_virt) {
+  // Mirrors the templated y_to_phi<H>'s static_assert(H_VIRT > 1): the mapping
+  // degenerates (divide-by-zero at h_virt == 1, garbage for h_virt <= 0). Cold
+  // setup/conversion helper, not the per-pixel loop; every real caller passes a
+  // compile-time H_VIRT, so the check constant-folds away under optimization.
+  HS_CHECK(h_virt > 1, "y_to_phi: h_virt must be > 1");
+  return (y * PI_F) / (h_virt - 1);
+}
 
 /**
  * @brief Converts a spherical phi angle to a pixel y-coordinate.
@@ -180,6 +187,9 @@ inline float y_to_phi(float y, int h_virt) { return (y * PI_F) / (h_virt - 1); }
  * @return The pixel y-coordinate [0, h_virt - 1].
  */
 inline float phi_to_y(float phi, int h_virt) {
+  // See y_to_phi(float,int): same h_virt > 1 precondition as the templated
+  // overload's static_assert. Constant-folds away for compile-time H_VIRT.
+  HS_CHECK(h_virt > 1, "phi_to_y: h_virt must be > 1");
   return (phi * (h_virt - 1)) / PI_F;
 }
 
