@@ -86,12 +86,12 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Effect-local frame counter wrapped to the 120-frame phase period: an int
-    // accumulator stays exact and bounded forever, where a float derived from
-    // the global frame count would lose integer precision past 2^24 (~77 h).
-    // timeline.step() above advanced one frame, so advance in lockstep here.
-    phase_frame_ = (phase_frame_ + 1) % 120;
-    float phase = static_cast<float>(phase_frame_) / 120.0f;
+    // Derive the ring/line phase from the timeline's own frame counter, which
+    // step() above just advanced — no parallel per-effect accumulator to keep
+    // in lockstep (an extra/missing step can't silently desync the phase). The
+    // int % 120 stays exact and bounded, where a float from the global frame
+    // count would lose integer precision past 2^24 (~77 h).
+    float phase = static_cast<float>(timeline.frame() % 120) / 120.0f;
 
     // Calculate Stabilizing Counter-Rotation
     Vector n_in = Y_AXIS;
@@ -304,9 +304,6 @@ private:
 
   Vector holeN; /**< North hole origin, tracking the rotated geometry. */
   Vector holeS; /**< South hole origin, tracking the rotated geometry. */
-
-  /** @brief Effect-local frame counter wrapped to the ring/line phase period. */
-  int phase_frame_ = 0;
 
   /** @brief Render filter pipeline: two hole fades, orientation, anti-alias. */
   Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,

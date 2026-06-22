@@ -2686,6 +2686,15 @@ public:
     global_timeline_num_events = write_idx + new_vals_count;
   }
 
+  /**
+   * @brief Current global frame count (number of step() calls since clear()).
+   * @return The shared timeline frame counter, advanced once per step().
+   * @details Lets an effect derive a phase from the timeline's own clock rather
+   *          than a parallel per-effect counter that can silently desync if it
+   *          isn't advanced in exact lockstep with step().
+   */
+  int frame() const { return global_timeline_t; }
+
   // Frame counter (`global_timeline_t`) and active-event count
   // (`global_timeline_num_events`) live as free globals, not statics here, so
   // they stay one shared singleton with global_timeline_events.
