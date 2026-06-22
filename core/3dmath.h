@@ -584,6 +584,16 @@ static constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 static constexpr float STEREO_POLE_EPS = 1e-4f;
 
 /**
+ * @brief Squared numerator magnitude below which Complex::operator/ treats a
+ * near-zero-divided-by-near-zero quotient as the indeterminate 0/0 form and
+ * returns zero, rather than scaling the numerator's direction by the infinity
+ * sentinel. Tighter than math::EPS_LEN_SQ (the divisor-degeneracy threshold)
+ * on purpose: only a numerator that is essentially exactly zero should lose its
+ * direction.
+ */
+static constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
+
+/**
  * @brief Represents a Complex number.
  */
 struct Complex {
@@ -635,11 +645,11 @@ struct Complex {
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
     // denom is a sum of squares, so it is always non-negative — no std::abs.
-    if (denom < 1e-6f) {
+    if (denom < math::EPS_LEN_SQ) {
       // Near-zero denominator → point at infinity.
       // Preserve direction of the numerator.
       float num_mag = re * re + im * im;
-      if (num_mag < 1e-12f)
+      if (num_mag < STEREO_DIV_NUM_EPS_SQ)
         return Complex(0, 0); // 0/0 → indeterminate, keep zero
       float scale = STEREO_INF / sqrtf(num_mag);
       return Complex(re * scale, im * scale);
