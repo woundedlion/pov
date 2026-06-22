@@ -792,9 +792,17 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
  * @param a First addend.
  * @param b Second addend.
  * @param m Modulus.
- * @return (a + b) mod m.
+ * @return (a + b) mod m, or (a + b) when m == 0.
+ * @details A zero modulus SIGFPEs on the host (x86 integer div-by-zero) while
+ *          the Cortex-M7 device returns the unreduced sum: UDIV-by-zero yields a
+ *          0 quotient (traps off), so the remainder reduces to (a + b). Match the
+ *          device rather than crashing only in the simulator, mirroring the
+ *          m == 0 guards in map()/random8().
  */
-inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) { return (a + b) % m; }
+inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
+  if (m == 0) return static_cast<uint8_t>(a + b);
+  return (a + b) % m;
+}
 
 /**
  * @brief Maps the full 0..255 input onto [rangeStart, rangeEnd] (FastLED map8).
