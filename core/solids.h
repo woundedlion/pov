@@ -1174,12 +1174,16 @@ inline constexpr int NUM_ENTRIES =
     sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
-// get_platonic_solids/get_archimedean_solids below slice simple_registry by the
-// fixed offsets [0,5) and [5,16); lock the count so adding or removing an entry
-// without updating the spans is a compile error rather than a silent mis-slice.
-static_assert(std::size(simple_registry) == 16,
-              "simple_registry must hold 5 Platonic + 11 Archimedean entries; "
-              "update the Collections spans if this changes");
+// simple_registry is laid out as [Platonic | Archimedean]. The Collections
+// slices below derive their offsets/counts from these named constants, and the
+// static_assert cross-checks that the two spans exactly tile the registry — so a
+// boundary move that keeps the total at 16 is a compile error, not a silent
+// mis-slice.
+inline constexpr size_t PLATONIC_COUNT = 5;
+inline constexpr size_t ARCHIMEDEAN_COUNT = 11;
+static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
+              "PLATONIC_COUNT + ARCHIMEDEAN_COUNT must equal simple_registry "
+              "size; update the counts if the registry layout changes");
 
 namespace Collections {
 /**
@@ -1187,14 +1191,15 @@ namespace Collections {
  * @return Span over the Platonic entries (offset 0, count 5) of simple_registry.
  */
 inline std::span<const Entry> get_platonic_solids() {
-  return std::span<const Entry>(simple_registry, 5);
+  return std::span<const Entry>(simple_registry, PLATONIC_COUNT);
 }
 /**
  * @brief Returns the Archimedean solids.
  * @return Span over the Archimedean entries (offset 5, count 11) of simple_registry.
  */
 inline std::span<const Entry> get_archimedean_solids() {
-  return std::span<const Entry>(simple_registry + 5, 11);
+  return std::span<const Entry>(simple_registry + PLATONIC_COUNT,
+                                ARCHIMEDEAN_COUNT);
 }
 /**
  * @brief Returns all simple (Platonic and Archimedean) solids.
