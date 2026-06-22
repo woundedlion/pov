@@ -135,13 +135,15 @@ public:
   /**
    * @brief Loads pixel data into the buffer with full color correction.
    * @param pixels Source CRGB array (sRGB 8-bit).
-   * @param count  Number of pixels to load (clamped to N).
+   * @param count  Number of pixels to load; must be in [0, N].
    * @details All corrections are applied in linear 16-bit space using the
    *          PROGMEM sRGB↔Linear LUTs. Result is written in HD107S byte order:
-   *          [0xFF][B][G][R].
+   *          [0xFF][B][G][R]. This cold bind seam traps an out-of-range count
+   *          rather than silently clamping (count > N) or no-op'ing (count < 0),
+   *          mirroring packPixel()'s index guard.
    */
   void load(const CRGB* pixels, int count) {
-    if (count > N) count = N;
+    HS_CHECK(count >= 0 && count <= N, "load count out of range");
 
     uint8_t* dest = buffer_ + 4; // skip start frame
     for (int i = 0; i < count; ++i) {

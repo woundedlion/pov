@@ -48,6 +48,7 @@
 #include "core/solids.h"
 #include "core/spatial.h"
 #include "core/static_circular_buffer.h"
+#include "hardware/hd107s_frame.h"
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
@@ -646,6 +647,20 @@ inline void case_random_timer_inverted_range() {
 }
 
 /**
+ * @brief Death case: an out-of-range load() count must trap.
+ * @details Hardware wire-format surface — HD107SFrame::load formerly clamped a
+ *          count > N (and no-op'd a negative count), masking a caller sizing
+ *          bug at this cold bind seam; it now HS_CHECKs count in [0, N].
+ */
+inline void case_hd107s_load_count_over_range() {
+  static HD107SFrame<40> frame;
+  static CRGB src[40] = {};
+  frame.load(src, opaque(40 + 8)); // count > N -> HS_CHECK
+  if (frame.data()[0] == 0x42)
+    std::printf("x");
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -697,6 +712,7 @@ inline const Case *all_cases(int &n) {
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
       {"random_timer_inverted_range", case_random_timer_inverted_range},
+      {"hd107s_load_count_over_range", case_hd107s_load_count_over_range},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;

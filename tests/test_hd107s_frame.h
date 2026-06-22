@@ -259,16 +259,17 @@ inline void test_load_matches_packpixel() {
 }
 
 /**
- * @brief Verifies load() with count > N clamps rather than overrunning the buffer.
+ * @brief Verifies a full count==N load fills every pixel and leaves the end
+ * frame zero (the upper in-range bound; an over-N count now traps — see the
+ * load_count_over_range death case).
  */
-inline void test_load_clamps_count() {
+inline void test_load_full_count() {
   reset_correction();
   Frame f;
-  // Verified via the end frame staying zero past the clamped pixel region.
-  CRGB big[N + 8];
-  for (int i = 0; i < N + 8; ++i)
-    big[i] = CRGB(255, 255, 255);
-  f.load(big, N + 8);
+  CRGB full[N];
+  for (int i = 0; i < N; ++i)
+    full[i] = CRGB(255, 255, 255);
+  f.load(full, N);
   for (int i = 0; i < Frame::END_FRAME_BYTES; ++i)
     HS_EXPECT_EQ(f.data()[4 + N * 4 + i], 0);
 }
@@ -284,7 +285,7 @@ inline int run_hd107s_tests() {
   test_correct_pipeline();
   test_packpixel_wire_order();
   test_load_matches_packpixel();
-  test_load_clamps_count();
+  test_load_full_count();
   reset_correction(); // leave shared static state clean for any later module
   return hs_test::end_module(scope);
 }
