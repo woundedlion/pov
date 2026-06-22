@@ -1051,10 +1051,15 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
             (out_mesh.vertices[i] + movements[i]).normalized();
       }
 
-      // Converged: the largest per-vertex move this pass is below ~1e-4 rad
-      // (sub-pixel on the unit sphere), so the remaining iterations would be
-      // visual no-ops — stop early. The guard only fires once the spring system
-      // has settled; a still-moving mesh runs the full iteration budget.
+      // Converged: the largest per-vertex spring force this pass has magnitude
+      // below ~1e-4. Note this tests the raw PRE-normalize force (movements[i]),
+      // not the post-normalize geodesic move on the sphere — but the force is
+      // applied as (vertex + force).normalized(), and for a small, near-tangential
+      // force the resulting angular step is ~|force| rad, so |force| is a tight,
+      // conservative proxy: when it falls below ~1e-4 rad (sub-pixel on the unit
+      // sphere) the remaining iterations are visual no-ops, so stop early. The
+      // guard only fires once the spring system has settled; a still-moving mesh
+      // runs the full iteration budget.
       constexpr float RELAX_CONVERGE_EPS_SQ = 1e-8f;
       if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
         break;
