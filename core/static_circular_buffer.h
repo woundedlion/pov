@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <iterator>
 #include <new>
+#include <type_traits>
 #include <utility>
 #include "platform.h"
 
@@ -49,22 +50,27 @@ public:
   StaticCircularBuffer() : head(0), tail(0), count(0) {}
 
   /**
-   * @brief Constructs a buffer from an initializer list, filling in order.
-   * @param items Elements to insert, front-to-back.
-   * @details On overflow keeps the LAST N items, since push_back evicts the
-   * oldest element when full.
+   * @brief Constructs a buffer from a braced element list, filling front-to-back.
+   * @tparam Args Element types, each constructible into T.
+   * @param args Elements to insert, in order.
+   * @details Taking the elements as a parameter pack (rather than a runtime
+   * std::initializer_list) makes the count a compile-time constant, so an
+   * over-capacity list is rejected by static_assert instead of being silently
+   * truncated: a literal initializer that exceeds N is always a programmer error,
+   * unlike a runtime push_back stream where overflow is the designed non-fatal
+   * condition. The is_constructible guard keeps this from shadowing the copy,
+   * move, and default constructors — a StaticCircularBuffer is not constructible
+   * into a T, and the zero-argument case routes to the default constructor.
+   * Elements are built with T{...} so narrowing conversions stay diagnosed, as
+   * they were under brace list-initialization.
    */
-  StaticCircularBuffer(std::initializer_list<T> items)
-      : head(0), tail(0), count(0) {
-    if (items.size() > N) {
-      // push_back evicts the oldest on overflow, so the buffer keeps the LAST
-      // N items of the list.
-      hs::log("Buffer Warning: Initializer list exceeds capacity. Keeping last "
-              "N items.");
-    }
-    for (const T &item : items) {
-      push_back(item);
-    }
+  template <typename... Args,
+            typename = std::enable_if_t<(sizeof...(Args) > 0) &&
+                                        (std::is_constructible_v<T, Args &&> && ...)>>
+  StaticCircularBuffer(Args &&...args) : head(0), tail(0), count(0) {
+    static_assert(sizeof...(Args) <= N,
+                  "StaticCircularBuffer initializer list exceeds capacity N");
+    (push_back(T{std::forward<Args>(args)}), ...);
   }
 
   /**

@@ -52,18 +52,21 @@ inline void test_initializer_list_within_capacity() {
 }
 
 /**
- * @brief Verifies an initializer list larger than capacity evicts the oldest
- *        entries (FIFO) so only the last N items survive.
+ * @brief Verifies an initializer list filling the buffer exactly to capacity.
+ * @details An over-capacity list (e.g. `StaticCircularBuffer<int, 3>{1,2,3,4}`)
+ *          is now a compile-time error via static_assert in the variadic
+ *          constructor, so the former runtime "keep last N" overflow behavior
+ *          can no longer be exercised at runtime — only the at-capacity fill is.
  */
-inline void test_initializer_list_overflow() {
-  StaticCircularBuffer<int, 3> buf{1, 2, 3, 4, 5};
+inline void test_initializer_list_at_capacity() {
+  StaticCircularBuffer<int, 3> buf{1, 2, 3};
   HS_EXPECT_EQ(buf.size(), (size_t)3);
   HS_EXPECT_TRUE(buf.is_full());
-  HS_EXPECT_EQ(buf[0], 3);
-  HS_EXPECT_EQ(buf[1], 4);
-  HS_EXPECT_EQ(buf[2], 5);
-  HS_EXPECT_EQ(buf.front(), 3);
-  HS_EXPECT_EQ(buf.back(), 5);
+  HS_EXPECT_EQ(buf[0], 1);
+  HS_EXPECT_EQ(buf[1], 2);
+  HS_EXPECT_EQ(buf[2], 3);
+  HS_EXPECT_EQ(buf.front(), 1);
+  HS_EXPECT_EQ(buf.back(), 3);
 }
 
 // ============================================================================
@@ -508,7 +511,7 @@ inline int run_static_circular_buffer_tests() {
 
   test_default_state();
   test_initializer_list_within_capacity();
-  test_initializer_list_overflow();
+  test_initializer_list_at_capacity();
 
   test_push_back_order();
   test_push_back_fills_to_capacity();
