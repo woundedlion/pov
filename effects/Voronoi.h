@@ -307,8 +307,10 @@ public:
     const int n = active_site_count();
     sites_buffer.clear();
 
+    // Loop-invariant; hoisted out of the per-site loop below.
+    const float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
+
     for (int i = 0; i < n; i++) {
-      float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
       // Guard n == 1: the denominator would be 0 → NaN y (which then poisons
       // pos/axis). A single site sits at the pole (y = 1). Mirrors the same
       // guard applied to `t` below.
