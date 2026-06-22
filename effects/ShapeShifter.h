@@ -60,15 +60,22 @@ public:
   }
 
   /**
-   * @brief Advances the shape type every 48 frames, then steps the timeline.
+   * @brief Advances the shape type every 48 frames (unless paused), then steps
+   *        the timeline.
+   * @details The shape cycle honors anims_paused_ so "Pause Animation" freezes
+   *        it alongside the twist/rotation timers (which already carry the
+   *        flag). The frame counter is held too, so the cycle resumes mid-phase
+   *        rather than jumping on unpause.
    */
   void draw_frame() override {
     Canvas canvas(*this);
 
-    frame_count_++;
-    if (frame_count_ % 48 == 0) {
-      int next = (static_cast<int>(current_shape) + 1) % 4;
-      current_shape = static_cast<ShapeType>(next);
+    if (!anims_paused_) {
+      frame_count_++;
+      if (frame_count_ % 48 == 0) {
+        int next = (static_cast<int>(current_shape) + 1) % 4;
+        current_shape = static_cast<ShapeType>(next);
+      }
     }
 
     timeline.step(canvas);
