@@ -348,6 +348,30 @@ jobs:
           fi
           echo "LUT numeric tokens match the generator."
 
+  reaction-graph-provenance:
+    name: Generated reaction-graph table matches committed file
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate reaction-graph table and diff numeric tokens
+        # core/reaction_graph.cpp is the 92 KB Fibonacci-lattice K-NN table,
+        # emitted by scripts/generate_reaction_graph.py (pure Python, no deps).
+        # Re-run the generator and compare only the NUMERIC TOKENS in order: that
+        # is the neighbor-index data that matters, ignoring banner/whitespace. The
+        # table reproduces bit-for-bit only in double precision, so silent drift
+        # (a script edit, a hand-edit of the table, or a node()-formula change that
+        # diverges from the generator) is plausible — this fails loudly on it.
+        run: |
+          python3 scripts/generate_reaction_graph.py > /tmp/reaction_graph.generated.cpp
+          if ! diff <(grep -oE '\-?[0-9]+' /tmp/reaction_graph.generated.cpp) \
+                    <(grep -oE '\-?[0-9]+' core/reaction_graph.cpp); then
+            echo "::error::core/reaction_graph.cpp is out of sync with scripts/generate_reaction_graph.py"
+            echo "Regenerate with: python scripts/generate_reaction_graph.py > core/reaction_graph.cpp"
+            exit 1
+          fi
+          echo "Reaction-graph numeric tokens match the generator."
+
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
     # Guards finding 404: the tests/sanitizers jobs run subsets of the suite via

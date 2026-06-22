@@ -5,8 +5,10 @@
  * Integrity tests for core/reaction_graph.{h,cpp}.
  *
  * The neighbor table (core/reaction_graph.cpp) is a 92 KB machine-generated
- * K-NN adjacency array with no in-repo regeneration check. These tests guard it
- * as a trusted black box: structural invariants (range, no self-loops, no
+ * K-NN adjacency array; scripts/generate_reaction_graph.py is its generator of
+ * record and CI (reaction-graph-provenance) diffs the two, so regeneration is
+ * checked. These tests additionally guard the in-tree table's content:
+ * structural invariants (range, no self-loops, no
  * duplicate rows), geometric sanity (listed neighbors are actually nearby), an
  * edge-reciprocity measurement (gross-corruption tripwire — a raw K-NN graph is
  * not required to be perfectly symmetric), and the analytic node() generator.

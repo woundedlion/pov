@@ -1,5 +1,7 @@
-// Auto-generated -- do not edit
 // Fibonacci lattice K-NN graph: RD_N=7680, RD_K=6
+// The neighbors[] table (reaction_graph.cpp) is emitted by
+// scripts/generate_reaction_graph.py; node() below MUST stay in lockstep with
+// that generator's lattice math (CI: reaction-graph-provenance). Hand-maintained.
 #pragma once
 #include "platform.h"
 #include "3dmath.h"
@@ -24,21 +26,26 @@ static constexpr float D_AVG = 0.04045f; // sqrt(4π / 7680)
  * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward.
  * @return Unit-length direction for lattice point i.
  * @details Recomputed on demand to avoid storing 90KB in flash. Only ever called
- *          at init, so the body comment's double-precision folding is free per
- *          frame (see the implementation note for why the wider math is needed).
+ *          at init, so the double-precision folding below is free per frame (see
+ *          the implementation note for why the wider math is needed).
  */
 inline Vector node(int i) {
-  // theta = golden_angle·i reaches ~18,400 rad at i=RD_N-1, where a float holds
-  // only ~1e-3 rad of azimuth — enough to disagree with the offline
-  // double-precision generator that built neighbors[]. Accumulate and fold to
-  // [0, 2π) in double, then narrow once for the trig. node() runs only at init
-  // (CubemapLUT::build, build_nodes), so the wider math costs nothing per frame.
+  // scripts/generate_reaction_graph.py builds neighbors[] from DOUBLE-precision
+  // lattice positions, and the table reproduces bit-for-bit ONLY in double: a
+  // float32 y/radius flips the sort order of a few near-tie rows, and at
+  // i=RD_N-1 theta = golden_angle·i reaches ~18,400 rad where a float holds only
+  // ~1e-3 rad of azimuth. So fold y, radius, AND theta in double — symmetric, so
+  // node() agrees with the generator rather than approximating it — and narrow
+  // once into the float Vector. node() runs only at init (CubemapLUT::build,
+  // build_nodes), so the wider math costs nothing per frame.
   constexpr double golden_angle = 2.399963229728653;
   constexpr double two_pi = 6.283185307179586;
-  float y = 1.0f - (static_cast<float>(i) / (RD_N - 1)) * 2.0f;
-  float radius = sqrtf(1.0f - y * y);
-  float theta = static_cast<float>(std::fmod(golden_angle * i, two_pi));
-  return Vector(cosf(theta) * radius, y, sinf(theta) * radius);
+  double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
+  double radius = std::sqrt(1.0 - y * y);
+  double theta = std::fmod(golden_angle * i, two_pi);
+  return Vector(static_cast<float>(std::cos(theta) * radius),
+                static_cast<float>(y),
+                static_cast<float>(std::sin(theta) * radius));
 }
 
 /**
