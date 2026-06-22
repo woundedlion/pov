@@ -544,8 +544,17 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     // a 32-bit collision is not reachable in practice. Note the angles below are
     // rounded to whole degrees, which widens the collision target for near-but-
     // distinct angle sets — so the safety margin rests on the fixed roster, not
-    // on hash strength. If this is ever fed arbitrary user meshes, add a vertex-
-    // key tiebreak here and hash the angles at finer than 1-degree resolution.
+    // on hash strength.
+    //
+    // The one untrusted caller is the WASM/JS mesh editor (wasm.cpp's
+    // Mesh::classifyFaces over an editor-built mesh). A collision there is still
+    // not a memory-safety or invariant breach — it only mis-merges two face
+    // *palette* classes (a cosmetic grouping in the tool), and the birthday
+    // bound needs ~77k DISTINCT face topologies before a collision is even
+    // likely, which no displayable mesh approaches. If this is ever fed meshes
+    // dense enough in distinct face classes to matter, add a vertex-key tiebreak
+    // here and hash the angles at finer than 1-degree resolution, gated to the
+    // untrusted path so the firmware roster keeps its current cheap hashing.
     uint32_t h = 0x12345678;
     hash_combine(h, static_cast<uint32_t>(count));
 
