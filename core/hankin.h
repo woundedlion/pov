@@ -211,6 +211,10 @@ FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
                                                 narrow_index(idx_m1),
                                                 narrow_index(idx_m2)});
 
+        // Pre-push capture is deliberate: size() BEFORE emplace_back is exactly
+        // the index the new dynamic vertex will occupy, so dyn_idx names the
+        // element created on the next line — not an off-by-one against the
+        // size()-1-after-push idiom used elsewhere.
         uint16_t dyn_idx = narrow_index(compiled.dynamic_vertices.size());
         he_to_dynamic_idx[he_idx] = dyn_idx;
         compiled.dynamic_vertices.emplace_back();
