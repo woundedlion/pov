@@ -131,7 +131,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 12. ✅ `core/color.h:251` — `Color4(uint8_t,uint8_t,uint8_t,float)` is an implicit sRGB-input ctor coexisting with `Color4(Pixel, float)`; `Color4(255,0,0)` silently takes the sRGB→linear path, surprising a caller who models `Color4` as already-linear. → Mark `explicit`, or note the sRGB-input convention at the declaration. *(Already satisfied in the tree: the declaration at `core/color.h:254` is `explicit` and carries the sRGB-input rationale.)*
 
-13. `core/memory.h:223-231` — `TriangularBitset::index()`/`BITS` compute `small*(2*MAX_V-small-1)/2` in `int`; an instantiation with `MAX_V ≳ 46341` overflows `int32` and silently corrupts indices (no current instantiation is near this). → `static_assert` the product fits, or compute in `size_t`.
+13. ✅ `core/memory.h:223-231` — `TriangularBitset::index()`/`BITS` compute `small*(2*MAX_V-small-1)/2` in `int`; an instantiation with `MAX_V ≳ 46341` overflows `int32` and silently corrupts indices (no current instantiation is near this). → `static_assert` the product fits, or compute in `size_t`.
 
 14. `core/memory.h:695-799` — `ArenaSpan` deletes construction from `ArenaVector&&` but leaves copy-assignment implicit, so `span = ArenaSpan(temporary)` is not caught (latent — no such caller). → `= default` the copy ops for documentation or add a re-validating `rebind`.
 

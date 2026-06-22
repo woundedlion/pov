@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <climits>
 #include <cstring>
 #include <new>
 #include <cassert>
@@ -205,6 +206,13 @@ public:
  * Total storage: MAX_V * (MAX_V - 1) / 2 bits.
  */
 template <int MAX_V> struct TriangularBitset {
+  // BITS (here) and index() below both form an intermediate product on the
+  // order of MAX_V^2 in `int` before halving. For MAX_V >= ~46341 that product
+  // overflows int32 and silently corrupts the bit layout. No current
+  // instantiation is anywhere near this; the static_assert pins the ceiling so
+  // a future large-mesh instantiation fails at compile time, not at runtime.
+  static_assert(static_cast<long long>(MAX_V) * MAX_V <= INT_MAX,
+                "TriangularBitset: MAX_V too large; index() product overflows int");
   static constexpr int BITS = MAX_V * (MAX_V - 1) / 2;
   static constexpr int BYTES = (BITS + 7) / 8;
   uint8_t data[BYTES]; /**< Packed bit storage for all unique pairs. */
