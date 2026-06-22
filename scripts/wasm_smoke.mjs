@@ -216,6 +216,36 @@ if (!MeshOps) {
         if (dual.classifyFaces().length === 0) fail('dual classifyFaces() empty');
         dual.delete();
       }
+
+      // The parameterized embind operators — the float-arg MESHOP_1F path, the
+      // int-arg relax with its kMaxRelaxIterations clamp, and the finite-arg
+      // hankin reject — are exactly the arg-marshaling/signature seams this
+      // script exists to catch, and none are exercised above. Drive a
+      // representative of each on the live solid.
+      const isValidMesh = (w) =>
+        w && w.getVertices().length > 0 && w.getVertices().length % 3 === 0 &&
+        w.getFaces().length > 0;
+
+      // MESHOP_1F(truncate): marshals a float arg and finalizes a new mesh.
+      const trunc = solid.truncate(0.3);
+      if (!isValidMesh(trunc)) fail(`${solidName}.truncate(0.3) did not produce a valid mesh`);
+      if (trunc) trunc.delete();
+
+      // relax(int): the int-arg path plus its clamp. relax(1) is the nominal
+      // case; relax(1e9) must clamp to kMaxRelaxIterations (not loop unbounded
+      // across the JS boundary) and still return a valid mesh.
+      const relaxed = solid.relax(1);
+      if (!isValidMesh(relaxed)) fail(`${solidName}.relax(1) did not produce a valid mesh`);
+      if (relaxed) relaxed.delete();
+      const relaxedCap = solid.relax(1e9);
+      if (!isValidMesh(relaxedCap)) fail(`${solidName}.relax(1e9) did not clamp to a valid mesh`);
+      if (relaxedCap) relaxedCap.delete();
+
+      // hankin(float): a non-finite arg must be rejected at the boundary
+      // (finite_arg → null) rather than abort the module.
+      const hankinBad = solid.hankin(NaN);
+      if (hankinBad) { fail(`${solidName}.hankin(NaN) should return null`); hankinBad.delete(); }
+
       solid.delete();
     }
 
@@ -236,7 +266,7 @@ if (!MeshOps) {
       if (post.getVertices().length === 0) fail('post-wipe getVertices() empty');
       post.delete();
     }
-    console.log(`  MeshOps: ${solidName} + dual, classifyFaces, clearToolingMemory OK`);
+    console.log(`  MeshOps: ${solidName} + dual, truncate, relax(+clamp), hankin reject, classifyFaces, clearToolingMemory OK`);
   }
 }
 
