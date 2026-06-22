@@ -453,8 +453,18 @@ public:
    *          rendering, not this readback.
    */
   void drawFrame() {
-    if (!currentEffect)
+    if (!currentEffect) {
+      // No active effect (e.g. between setResolution() clearing currentEffect
+      // and the next selectEffect()): clear the active prefix so getPixels()
+      // hands JS a blank frame at the CURRENT resolution rather than the prior
+      // frame still laid out for the old one (wrong aspect / stale content).
+      // pixelBuffer is pre-sized to MAX_W*MAX_H*3 and never resized, so writing
+      // the active prefix is always in-bounds.
+      const int count = pixel_width * pixel_height * 3;
+      for (int i = 0; i < count; i++)
+        pixelBuffer[i] = 0;
       return;
+    }
 
     // Both readback paths below assume the effect's coordinate domain is exactly
     // <pixel_width, pixel_height>: the fast path indexes display_buffer() with a
@@ -506,6 +516,12 @@ public:
    * @brief Returns the last frame's render time.
    * @return Render duration of the most recent drawFrame() in microseconds, or
    *         0.0 if no effect is set.
+   * @note render_us is accumulated by the scan/plot ScopedRenderTimer, so
+   *       full-screen shader effects that bypass that path (e.g. Raymarch,
+   *       Liquid2D, Flyby — they shade every pixel directly rather than via
+   *       Scan/Plot) report 0.0 even while actively rendering. A 0 here means
+   *       "not instrumented," not "free"; it is not a reliable cross-effect cost
+   *       metric for those effects.
    */
   double getRenderUs() {
     return currentEffect ? currentEffect->render_us : 0.0;
