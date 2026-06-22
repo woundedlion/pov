@@ -165,7 +165,7 @@ private:
    */
   struct Params {
     float alpha = 0.2f;   /**< Per-ring opacity in [0, 1]. */
-    float density = 10.0f; /**< Ring count per layer in [1, 100]. */
+    float density = 10.0f; /**< Ring count per layer in [1, 100]. Overridden per-resolution in init() (10 at W<=96, else 45), so this default never reaches a live frame. */
     float amp = 0.0f;     /**< Wobble amplitude in [0, 1]. */
   } params;
 
