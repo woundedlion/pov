@@ -618,12 +618,15 @@ private:
   /**
    * @brief Advances one particle on the sphere surface for one frame.
    * @param p The particle to advance (modified in place).
+   * @param max_delta Per-frame surface-rotation cap (radians), one display
+   * column wide; the move below clamps to it so a fast particle never jumps more
+   * than one column per frame (trail/motion-blur aliasing).
    * @return True once the particle is dead AND its trail has fully drained (so
    * the caller can remove it).
    * @details Ages it, applies attractor gravity/steering and drag, rotates
    * position+velocity along the surface, and updates its trail.
    */
-  bool step_particle(Particle<TRAIL_LEN> &p, float) {
+  bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
     bool active = p.life > 0;
     if (active) {
       p.life--;
@@ -674,6 +677,10 @@ private:
         float speed = p.velocity.magnitude();
         Vector axis = cross(pos, p.velocity);
         if (speed > 0.000001f && axis.magnitude() > 0.000001f) {
+          // Cap the surface advance at one display column/frame so a high-speed
+          // particle can't skip columns (trail/motion-blur aliasing). Velocity
+          // keeps its full magnitude; only the per-frame step is clamped.
+          speed = std::min(speed, max_delta);
           Quaternion dq = make_rotation(axis.normalized(), speed);
           p.position = rotate(p.position, dq);
           p.velocity = rotate(p.velocity, dq);
