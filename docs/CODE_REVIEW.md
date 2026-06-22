@@ -133,7 +133,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 13. ✅ `core/memory.h:223-231` — `TriangularBitset::index()`/`BITS` compute `small*(2*MAX_V-small-1)/2` in `int`; an instantiation with `MAX_V ≳ 46341` overflows `int32` and silently corrupts indices (no current instantiation is near this). → `static_assert` the product fits, or compute in `size_t`.
 
-14. `core/memory.h:695-799` — `ArenaSpan` deletes construction from `ArenaVector&&` but leaves copy-assignment implicit, so `span = ArenaSpan(temporary)` is not caught (latent — no such caller). → `= default` the copy ops for documentation or add a re-validating `rebind`.
+14. ✅ `core/memory.h:695-799` — `ArenaSpan` deletes construction from `ArenaVector&&` but leaves copy-assignment implicit, so `span = ArenaSpan(temporary)` is not caught (latent — no such caller). → `= default` the copy ops for documentation or add a re-validating `rebind`.
 
 15. `effects/Raymarch.h:136` — Raymarch drives its animation from the process-global `global_timeline_t` rather than an effect-local accumulator, so `spin_angle`/`anim_t` grow unbounded (progressive trig precision loss) and the pulse phase couples to the global counter at effect-switch time — unlike the sibling shader effects, which wrap their trig phase. → Drive `anim_t` from an effect-owned `Driver` and wrap the spin phase to `2π`.
 

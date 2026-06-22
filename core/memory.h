@@ -761,6 +761,18 @@ public:
   explicit ArenaSpan(const ArenaVector<T> &&) = delete;
 
   /**
+   * @brief Copy and copy-assignment duplicate the borrow verbatim.
+   * @details Explicitly defaulted (not left implicit) to document intent: a span
+   * copy carries the same data pointer, size, and — in debug — the source's
+   * lifetime stamps, so the copy trips the same staleness check as the original.
+   * "Re-take the same view" is the supported pattern; only construction from a
+   * temporary ArenaVector (above) is forbidden, since copying an existing,
+   * already-validated span borrows nothing new.
+   */
+  ArenaSpan(const ArenaSpan &) = default;
+  ArenaSpan &operator=(const ArenaSpan &) = default;
+
+  /**
    * @brief Element access by index.
    * @param i Index in [0, size()).
    * @return Const reference to the element at index i.
