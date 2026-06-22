@@ -46,6 +46,23 @@ public:
     static constexpr size_t SCRATCH_BYTES = 11 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
+    // Compile-time device-budget guard for the particle pool (the dominant
+    // persistent tenant). GLOBAL_ARENA_SIZE is inflated to 8 MiB on the host
+    // test build, so this checks against the real 335 KiB device arena literal --
+    // otherwise an overflow would never trip on the host where the suite runs.
+    // The pool size is derived from sizeof() so a future Particle/VectorTrail
+    // layout or NUM_PARTICLES change re-checks here. The reserve covers the other
+    // persistent tenants (baked palette ~3 KiB LUT, attractor/emitter vectors
+    // <1 KiB) with margin.
+    static constexpr size_t kDeviceArenaBytes = 335 * 1024;
+    static constexpr size_t kPoolBytes =
+        sizeof(Animation::Particle<kTrailLen>) * NUM_PARTICLES;
+    static constexpr size_t kAuxReserveBytes = 6 * 1024;
+    static_assert(kPoolBytes + kAuxReserveBytes <=
+                      kDeviceArenaBytes - SCRATCH_BYTES,
+                  "MindSplatter particle pool + palette/aux overflow the device "
+                  "persistent arena");
+
     // The preset Lerp drives these four every cycle; flagged animated so the
     // "Pause Animation" toggle governs them (touching one pauses the presets
     // and hands the value to the user).
@@ -102,23 +119,29 @@ public:
   }
 
 private:
+  /** @brief Per-particle trail length (feeds the pool footprint below). */
+  static constexpr int kTrailLen = 23;
+
   /**
    * @brief Fixed particle pool capacity.
    * @details Pool footprint is identical on the 32-bit device and the 64-bit
    *          native build, since VectorTrail's circular-buffer indices are
-   *          uint32_t. Particle<23> = pos(12) + vel(12) + seed(2) + life(2) +
-   *          VectorTrail<23>(288) = 316 B; pool = 1024 * 316 = 316 KB. That
-   *          leaves ~19 KB under the 335 KB arena to cover the 11 KB scratch
-   *          carve plus the baked palette and attractors/emitters, so the
-   *          device fits with headroom.
+   *          uint32_t. sizeof(Particle<kTrailLen>) = pos(12) + vel(12) +
+   *          seed(2) + life(2) + VectorTrail<23>(276 + 3*uint32 = 288) = 316 B;
+   *          pool = 1024 * 316 = 316 KiB of the 335 KiB device arena. After the
+   *          11 KiB scratch carve that leaves ~8 KiB of persistent for the baked
+   *          palette (256-entry Color4 LUT, ~3 KiB) and the attractor/emitter
+   *          vectors (<1 KiB). The static_assert in init() enforces this budget
+   *          at compile time (against the device arena literal, since
+   *          GLOBAL_ARENA_SIZE is inflated on the host test build).
    */
   static const int NUM_PARTICLES = 1024;
 
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
 
-  typedef Animation::ParticleSystem<W, NUM_PARTICLES, 23, EmitSolid::NUM_VERTS,
-                                    AttractSolid::NUM_VERTS>
+  typedef Animation::ParticleSystem<W, NUM_PARTICLES, kTrailLen,
+                                    EmitSolid::NUM_VERTS, AttractSolid::NUM_VERTS>
       ParticleSystem;
 
   /**
