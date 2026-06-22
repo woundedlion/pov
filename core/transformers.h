@@ -183,7 +183,17 @@ public:
 
   /**
    * @brief Prepares per-frame cached state for all active entities.
-   * @details Call once per frame before any transform calls.
+   * @details ORDERING CONTRACT: call once per frame, before transform(), in any
+   * frame where an active entity's params were *live-updated* since they were
+   * last prepared (e.g. a GUI slider moved this frame). It refreshes each active
+   * entity's derived state (RippleParams::prepare_thresholds /
+   * NoiseParams::sync). transform() reads that state but cannot verify it is
+   * current: the dependency is value-dependent (did the params change?), not
+   * structural, so it is a caller contract, not a compile-time/assert invariant.
+   * It is intentionally NOT required when there are no active entities (transform
+   * is then the identity) or when an entity's params have not changed since spawn
+   * (the spawn-time copy already prepared them) — both are exercised by the unit
+   * tests, so a blanket "prepared this frame" assert would be a false positive.
    */
   void prepare_frame() {
     for (int k = 0; k < active_count_; ++k) {
@@ -205,6 +215,9 @@ public:
    * @brief Applies all active transformations to a vector, in slot order.
    * @param v Vector to transform.
    * @return The vector after every active transform has been composed onto it.
+   * @note Reads each active entity's prepared state; see prepare_frame() for the
+   * ordering contract (must run first in any frame whose params were live-updated
+   * since last prepared). Per-pixel hot path — no guard here by design.
    */
   Vector transform(Vector v) const {
     for (int k = 0; k < active_count_; ++k) {
