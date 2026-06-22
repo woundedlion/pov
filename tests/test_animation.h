@@ -33,6 +33,7 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <vector>
 #include "core/animation.h"
 #include "core/canvas.h"
@@ -328,6 +329,27 @@ inline void test_driver_no_wrap_accumulates() {
   for (int i = 0; i < 5; ++i)
     d.step(fake_canvas());
   HS_EXPECT_NEAR(v, 2.5f, 1e-5f);
+}
+
+/**
+ * @brief Verifies a live-bound Driver ignores a non-finite slider frame instead
+ * of permanently poisoning the wrapped mutant via wrap_t(NaN).
+ */
+inline void test_driver_nan_source_does_not_poison() {
+  float v = 0.0f;
+  float slider = 0.25f;
+  Animation::Driver d(v, &slider, /*scale=*/1.0f, /*wrap=*/true);
+  d.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 0.25f, 1e-5f); // finite source advances normally
+
+  slider = std::numeric_limits<float>::quiet_NaN();
+  d.step(fake_canvas());
+  HS_EXPECT_TRUE(std::isfinite(v)); // NaN frame kept the last good speed
+  HS_EXPECT_NEAR(v, 0.5f, 1e-5f);
+
+  slider = 0.25f; // a recovered slider resumes cleanly
+  d.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 0.75f, 1e-5f);
 }
 
 // ============================================================================
@@ -1446,6 +1468,7 @@ inline int run_animation_tests() {
 
   test_driver_increments_and_wraps();
   test_driver_no_wrap_accumulates();
+  test_driver_nan_source_does_not_poison();
 
   test_lerp_drives_subject_to_target();
   test_lerp_midpoint();

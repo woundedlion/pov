@@ -985,7 +985,11 @@ public:
         paused_(paused), speed_src_(speed_src), scale_(scale) {
     // Guard the live source before dereferencing it.
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
-    speed = *speed_src * scale;
+    // Never seed a non-finite speed: see step() for why a NaN/Inf source must
+    // not reach `mutant`. On a non-finite initial read keep the 0.0f seed.
+    float s = *speed_src * scale;
+    if (std::isfinite(s))
+      speed = s;
   }
 
   /**
@@ -999,8 +1003,15 @@ public:
     AnimationBase::step(canvas);
     // A bound Driver re-reads its live speed source each step (one load +
     // multiply on the once-per-frame timeline path, not the pixel loop).
-    if (speed_src_)
-      speed = *speed_src_ * scale_;
+    // A slider glitching to NaN/Inf for even one frame would otherwise poison
+    // `mutant` permanently: speed goes non-finite, `mutant += speed` is NaN, and
+    // wrap_t(NaN) stays NaN forever. Keep the last good speed on a non-finite
+    // read (isfinite is on the once-per-frame path, not the pixel loop).
+    if (speed_src_) {
+      float s = *speed_src_ * scale_;
+      if (std::isfinite(s))
+        speed = s;
+    }
     mutant.get() += speed;
     if (wrap_) {
       // wrap_t (fract) folds the phase back into [0,1) for any magnitude, so
