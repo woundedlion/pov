@@ -25,6 +25,13 @@
  *   below is preferred only for two `int` arguments. A mixed call such as
  *   `wrap(int_x, float_m)` therefore resolves here (float math), not to the
  *   integer overload. Precondition: m > 0 (m <= 0 yields NaN/garbage).
+ *   Exactness: the body wraps via `std::fmod`, which is floating-point even when
+ *   the common type is integral (integer args promote to `double`), then casts
+ *   back. So the result is exact only within the working mantissa — ~2^24 when
+ *   the common type is `float`, ~2^53 otherwise (the `double` fmod path). Large
+ *   integer pairs such as `wrap(long, long)` therefore lose precision past 2^53;
+ *   only the dedicated `wrap(int, int)` overload below, which uses integer `%`,
+ *   is exact across its full range.
  * @tparam T The type of the value being wrapped (e.g., float).
  * @tparam U The type of the modulo base.
  * @param x The value to wrap.
