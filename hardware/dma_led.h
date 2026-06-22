@@ -291,7 +291,7 @@ public:
    *         may not hold a stale bright column — gate on this; the steady-state
    *         column path ignores it (a dropped image column self-heals next tick).
    */
-  bool submitFrame(bool withBg = false) {
+  [[nodiscard]] bool submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
       // Drop on overrun — never enter transmitAsync()'s waitComplete() spin from
       // the column ISR. That spin can deadlock: transferComplete_ is only set by

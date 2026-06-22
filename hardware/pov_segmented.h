@@ -656,7 +656,10 @@ private:
     for (int i = 0; i < PPS; ++i, y += y_step_) {
       frame.packPixel(i, buf[y * w + x_col]);
     }
-    ledController_.submitFrame(e->show_bg());
+    // Steady-state column path intentionally drops the accept/overrun result:
+    // a dropped image column self-heals next tick (see submitFrame's doc and
+    // render_black, which DOES gate on the return for the fail-dark latch).
+    (void)ledController_.submitFrame(e->show_bg());
 #else
     int y = y_base_;
     for (int i = 0; i < PPS; ++i, y += y_step_) {
