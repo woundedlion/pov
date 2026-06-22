@@ -21,7 +21,8 @@
  * on a 7680-node Fibonacci lattice with K=6 nearest neighbors. The cyclic
  * competition (A→B→C→A) creates self-sustaining spiral waves that persist
  * indefinitely. State is stored as Q8 (uint8_t). Per-pixel rendering uses
- * Wendland C2 kernel interpolation for smooth Voronoi boundaries.
+ * Wendland C2 kernel interpolation for smooth cell boundaries between lattice
+ * nodes.
  *
  * Shared lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
  *
