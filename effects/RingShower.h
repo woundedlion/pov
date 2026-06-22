@@ -46,7 +46,7 @@ public:
       rings[i].palette.bake(persistent_arena, make_palette());
 
     timeline.add(0, Animation::RandomTimer(
-                        4, 48, [this](auto &) { this->spawn_ring(); }, true));
+                        4, 48, [this](Canvas &) { this->spawn_ring(); }, true));
   }
 
   /**

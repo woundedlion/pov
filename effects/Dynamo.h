@@ -89,11 +89,11 @@ public:
 
     timeline
         .add(0, Animation::RandomTimer(
-                    4, 64, [this](auto &) { reverse(); }, true))
+                    4, 64, [this](Canvas &) { reverse(); }, true))
         .add(0, Animation::RandomTimer(
-                    20, 64, [this](auto &) { color_wipe(); }, true))
+                    20, 64, [this](Canvas &) { color_wipe(); }, true))
         .add(0, Animation::RandomTimer(
-                    48, 160, [this](auto &) { rotate(); }, true));
+                    48, 160, [this](Canvas &) { rotate(); }, true));
   }
 
   /**

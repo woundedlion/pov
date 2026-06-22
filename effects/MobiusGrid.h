@@ -66,7 +66,7 @@ public:
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400,
                                        ease_linear, true))
         .add(0, Animation::PeriodicTimer(
-                    120, [this](auto &) { wipe_palette(); }, true))
+                    120, [this](Canvas &) { wipe_palette(); }, true))
         .add(0, Animation::Mutation(params.num_rings,
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
                                     ease_linear, true, &anims_paused_))

@@ -56,7 +56,7 @@ public:
                16, ease_in_sin, 16, ease_out_sin));
 
     timeline.add(0, Animation::RandomTimer(
-                        16, 48, [this](auto &) { on_fire_thruster(); }, true));
+                        16, 48, [this](Canvas &) { on_fire_thruster(); }, true));
   }
 
   /**

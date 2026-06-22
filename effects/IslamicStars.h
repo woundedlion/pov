@@ -57,9 +57,9 @@ public:
 
     // One immediate ripple burst, then a recurring one every 96 frames.
     timeline.add(0, Animation::PeriodicTimer(
-                        0, [this](auto &canvas) { ripple(canvas); }, false));
+                        0, [this](Canvas &canvas) { ripple(canvas); }, false));
     timeline.add(0, Animation::PeriodicTimer(
-                        96, [this](auto &canvas) { ripple(canvas); }, true));
+                        96, [this](Canvas &canvas) { ripple(canvas); }, true));
     spawn_shape();
   }
 
