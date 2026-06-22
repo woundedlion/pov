@@ -1269,7 +1269,10 @@ struct CycleCounter {
   static constexpr uint32_t CYCLES_PER_US = 600; /**< Core clock: Teensy 4 @ 600 MHz. */
 
   const char* name;                /**< Counter label used in log output. */
-  uint32_t cycles = 0;             /**< Accumulated cycle count. */
+  uint64_t cycles = 0;             /**< Accumulated cycle count. 64-bit because a
+                                        32-bit accumulator overflows after only
+                                        ~7 s of summed time at 600 MHz, which a
+                                        multi-frame profiling run easily exceeds. */
   uint32_t count = 0;              /**< Number of timed invocations. */
   CycleCounter* parent = nullptr;  /**< Enclosing counter for tree nesting. */
   CycleCounter* next = nullptr;    /**< Next link in the intrusive registry list. */
@@ -1311,9 +1314,9 @@ private:
    */
   static void log_node(const CycleCounter* node, int depth) {
     if (!node->count) return;
-    uint32_t ref = node->parent ? node->parent->cycles : node->cycles;
-    uint32_t pct = ref ? (uint32_t)((uint64_t)node->cycles * 100 / ref) : 100;
-    uint32_t us = node->cycles / CYCLES_PER_US;
+    uint64_t ref = node->parent ? node->parent->cycles : node->cycles;
+    uint32_t pct = ref ? (uint32_t)(node->cycles * 100 / ref) : 100;
+    uint64_t us = node->cycles / CYCLES_PER_US;
     int indent = depth * 2;
     int name_w = 22 - indent;
     if (name_w < 1) name_w = 1;
@@ -1335,7 +1338,8 @@ private:
 struct CycleScope {
   CycleCounter& counter;       /**< Counter this scope accumulates into. */
   CycleCounter* prev_active;   /**< Counter to restore as active on destruction. */
-  uint32_t start;              /**< Cycle snapshot taken at construction. */
+  uint32_t start;              /**< Cycle snapshot taken at construction (32-bit,
+                                    matching the hardware DWT CYCCNT register). */
 
   /**
    * @brief Begins timing the enclosing scope into the given counter.
@@ -1352,9 +1356,14 @@ struct CycleScope {
   }
   /**
    * @brief Adds the elapsed cycles to the counter and restores the previous one.
+   * @pre The scope must not span a full CYCCNT wrap (~7 s at 600 MHz). The delta
+   *      below is a 32-bit subtraction (matching the hardware register width),
+   *      correct modulo 2^32, so a single scope longer than one wrap reads short
+   *      by a multiple of 2^32. Accumulation across scopes is wrap-safe: the
+   *      32-bit delta widens into the 64-bit `cycles` accumulator.
    */
   ~CycleScope() {
-    counter.cycles += (HS_OS_CYCLES() - start);
+    counter.cycles += (uint32_t)(HS_OS_CYCLES() - start);
     counter.count++;
     CycleCounter::active_ = prev_active;
   }
