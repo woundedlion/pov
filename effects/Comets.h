@@ -35,8 +35,11 @@ struct CometsWhiteBox;
  *       and a fresh coupling across three independently-tuned effects. Each
  *       therefore renders independently, so a trail-rendering fix must be
  *       propagated by hand across all three. Per-effect differences:
- *         - `RingSpin` renders without the `Screen::AntiAlias` filter that this
- *           effect and `ChaoticStrings` apply.
+ *         - This effect and `RingSpin` render without the `Screen::AntiAlias`
+ *           filter that `ChaoticStrings` applies; Comets uses an empty pipeline
+ *           by design (see the `filters` member), drawing glowing points via
+ *           Scan::Point with their own softness, so a screen-space AA pass would
+ *           only blur the glow.
  *         - `RingSpin` uses `Orientation<>` (CAP 4) where this effect and
  *           `ChaoticStrings` use `Orientation<16>` (up to 4 motion-blur
  *           sub-frames versus 16). Intentional: its full great-circle rings
