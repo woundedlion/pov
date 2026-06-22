@@ -1771,7 +1771,11 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    float progress = static_cast<float>(t) / duration;
+    // Clamp to [0,1] like every sibling animation (Transition/Mutation/
+    // MobiusWarp): repeat=true rewinds t in practice, but a non-repeating or
+    // overshooting duration would otherwise feed out-of-range progress to the
+    // warp.
+    float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     // num_rings is live-bound; if it ever reaches -1 the divisor num_rings + 1
     // hits 0 and logPeriod blows up to inf, poisoning a/d with inf/NaN. Floor
     // at 0 so num_rings + 1 stays >= 1, mirroring the num_lines guard below.
