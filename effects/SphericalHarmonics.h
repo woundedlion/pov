@@ -294,7 +294,13 @@ public:
                 pos.color.r),
           pos.alpha);
 
-      // Quintic-smoothed crossfade across the zero-crossing boundary
+      // Quintic-smoothed crossfade across the zero-crossing boundary. blend_t
+      // rides 0..1 with the field's *positiveness* (0 deep in the negative lobe,
+      // 1 deep in the positive lobe). lerp(other, t) returns `this` (pos) at
+      // t=0 and `other` (neg) at t=1, so invert with 1 - blend_t to map a
+      // positive field to the positive palette and a negative field to neg —
+      // the blend is otherwise symmetric, so this inversion is the only thing
+      // keeping the lobes from swapping colors.
       constexpr float transition = 0.03f;
       float blend_t =
           quintic_kernel(hs::clamp(val / transition * 0.5f + 0.5f, 0.0f, 1.0f));
@@ -330,9 +336,11 @@ private:
    * endless morph chain.
    */
   void start_morph() {
-    // Pick a random new harmonic (low modes 1..23 look the best). Re-roll on a
-    // match with the current harmonic: blending a mode into itself leaves the
-    // field unchanged, freezing the sphere for the full 64-frame transition.
+    // Pick a random new harmonic. next_idx is a *flat* index into the SH basis
+    // (1..23), not an SH mode number: decode_lm() maps each value to one (l, m)
+    // basis function, and the low end of the table reads best. Re-roll on a
+    // match with the current index: blending a basis function into itself leaves
+    // the field unchanged, freezing the sphere for the full 64-frame transition.
     do {
       next_idx = static_cast<int>(hs::rand_int(1, 24));
     } while (next_idx == current_idx);
