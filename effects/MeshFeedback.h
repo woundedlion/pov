@@ -148,7 +148,11 @@ public:
         canvas, [](float, float, float) { return Color4(0, 0, 0, 0); },
         1.0f);
 
-    if (!morphing && carousel.current().is_bound()) {
+    // The front slot is always bound while not morphing: init() compiles into
+    // it, and the only front-flip (start_morph's completion) targets a slot
+    // just compiled in the same call. No is_bound() guard needed — and an
+    // unbound mesh would draw as a no-op (empty face loop) regardless.
+    if (!morphing) {
       Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
                              [&](const Vector &v, Fragment &f) {
                                float t_val = (v.y + 1.0f) * 0.5f;
