@@ -247,8 +247,11 @@ struct Color4 {
    * @param g Green channel in [0, 255].
    * @param b Blue channel in [0, 255].
    * @param a Alpha in [0, 1]; defaults to fully opaque.
+   * @details `explicit` so the sRGB→linear convention is opt-in: a caller that
+   *          models Color4 as already-linear must spell out `Color4(r,g,b)`
+   *          rather than have a braced `{r,g,b}` silently take the sRGB path.
    */
-  Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f)
+  explicit Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f)
       : color(Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b))),
         alpha(a) {}
   /**
