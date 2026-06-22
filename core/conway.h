@@ -344,8 +344,10 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // expose the same vertices/face_counts/faces shape). PRIMITIVE operators (dual,
 // kis, ambo, truncate, expand, chamfer, snub, relax) return a fresh PolyMesh in
 // `target`. Both arenas are checkpointed via ScratchScope, so all scratch (the
-// HalfEdgeMesh build plus the per-orbit index/flag buffers) is reclaimed when
-// the operator returns — only the output mesh persists. COMPOSED operators
+// HalfEdgeMesh build plus, for most primitives, the per-orbit index/flag buffers
+// — kis and relax allocate none; see the SCRATCH ARENA CONTRACT below) is
+// reclaimed when the operator returns — only the output mesh persists. COMPOSED
+// operators
 // return in `temp`, not `target`; see COMPOSITION POLARITY below.
 //
 // SCRATCH ARENA CONTRACT (load-bearing — do not "standardize" blindly):
