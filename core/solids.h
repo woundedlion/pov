@@ -690,8 +690,6 @@ FLASHMEM static PolyMesh pentagonalHexecontahedron(Arena &a, Arena &b) {
 } // namespace Catalan
 
 namespace IslamicStarPatterns {
-using namespace Platonic;
-using namespace Archimedean;
 
 /** Degrees-to-radians conversion factor. */
 static constexpr float D2R = PI_F / 180.0f;
@@ -704,7 +702,7 @@ static constexpr float D2R = PI_F / 180.0f;
  */
 FLASHMEM static PolyMesh
 cube_relax_bevel33_relax_hk675_expand5(Arena &a, Arena &b) {
-  return SolidBuilder(cube(a, b), a, b)
+  return SolidBuilder(Platonic::cube(a, b), a, b)
       .relax(100)
       .bevel(0.33f)
       .relax(100)
@@ -719,7 +717,7 @@ cube_relax_bevel33_relax_hk675_expand5(Arena &a, Arena &b) {
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh icosahedron_bevel033_hk59(Arena &a, Arena &b) {
-  return SolidBuilder(icosahedron(a, b), a, b)
+  return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .bevel(0.33f)
       .hankin(59.0f * D2R)
       .build();
@@ -731,7 +729,7 @@ FLASHMEM static PolyMesh icosahedron_bevel033_hk59(Arena &a, Arena &b) {
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
-  return SolidBuilder(octahedron(a, b), a, b)
+  return SolidBuilder(Platonic::octahedron(a, b), a, b)
       .hankin(17.0f * D2R)
       .ambo()
       .hankin(73.0f * D2R)
@@ -744,7 +742,7 @@ FLASHMEM static PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
-  return SolidBuilder(icosahedron(a, b), a, b).kis().gyro().build();
+  return SolidBuilder(Platonic::icosahedron(a, b), a, b).kis().gyro().build();
 }
 /**
  * @brief Builds the truncatedIcosidodecahedron_truncate50d_ambo_dual star pattern.
@@ -754,7 +752,7 @@ FLASHMEM static PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh
 truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
-  return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedIcosidodecahedron(a, b), a, b)
       .truncate(50.0f * D2R)
       .ambo()
       .dual()
@@ -768,7 +766,7 @@ truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                 Arena &b) {
-  return SolidBuilder(icosidodecahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::icosidodecahedron(a, b), a, b)
       .truncate(5.0f * D2R)
       .ambo()
       .dual()
@@ -782,7 +780,7 @@ FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
  */
 FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                Arena &b) {
-  return SolidBuilder(snubDodecahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::snubDodecahedron(a, b), a, b)
       .truncate(5.0f * D2R)
       .ambo()
       .dual()
@@ -795,7 +793,7 @@ FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
-  return SolidBuilder(octahedron(a, b), a, b)
+  return SolidBuilder(Platonic::octahedron(a, b), a, b)
       .hankin(34.0f * D2R)
       .ambo()
       .hankin(72.0f * D2R)
@@ -809,7 +807,7 @@ FLASHMEM static PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
                                                             Arena &b) {
-  return SolidBuilder(rhombicuboctahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::rhombicuboctahedron(a, b), a, b)
       .hankin(63.0f * D2R)
       .ambo()
       .hankin(63.0f * D2R)
@@ -823,7 +821,7 @@ FLASHMEM static PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
  */
 FLASHMEM static PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &a,
                                                              Arena &b) {
-  return SolidBuilder(truncatedIcosahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .hankin(54.0f * D2R)
       .ambo()
       .hankin(72.0f * D2R)
@@ -836,7 +834,7 @@ FLASHMEM static PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &a,
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
-  return SolidBuilder(dodecahedron(a, b), a, b)
+  return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(54.0f * D2R)
       .ambo()
       .hankin(72.0f * D2R)
@@ -849,7 +847,7 @@ FLASHMEM static PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
-  return SolidBuilder(dodecahedron(a, b), a, b)
+  return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(72.0f * D2R)
       .ambo()
       .dual()
@@ -864,7 +862,7 @@ FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
                                                                    Arena &b) {
-  return SolidBuilder(truncatedIcosahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .truncate(50.0f * D2R)
       .ambo()
       .dual()
@@ -878,7 +876,7 @@ FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
  */
 FLASHMEM static PolyMesh
 icosahedron_snub_relax_truncate033_hankin62(Arena &a, Arena &b) {
-  return SolidBuilder(icosahedron(a, b), a, b)
+  return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .snub()
       .relax()
       .truncate(0.33f)
@@ -893,7 +891,7 @@ icosahedron_snub_relax_truncate033_hankin62(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh
 dodecahedron_hk35_ambo_hk62_ambo_relax_hk43(Arena &a, Arena &b) {
-  return SolidBuilder(dodecahedron(a, b), a, b)
+  return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(35.0f * D2R)
       .ambo()
       .hankin(62.0f * D2R)
@@ -910,7 +908,7 @@ dodecahedron_hk35_ambo_hk62_ambo_relax_hk43(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
                                                                Arena &b) {
-  return SolidBuilder(icosahedron(a, b), a, b)
+  return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .ambo()
       .truncate(0.33f)
       .hankin(59.0f * D2R)
@@ -925,7 +923,7 @@ FLASHMEM static PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
 FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate001_hankin59(Arena &a,
                                                             Arena &b) {
-  return SolidBuilder(truncatedIcosahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .ambo()
       .relax()
       .truncate(0.01f)
@@ -941,7 +939,7 @@ truncatedIcosahedron_ambo_relax_truncate001_hankin59(Arena &a,
 FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate001_hankin73(Arena &a,
                                                             Arena &b) {
-  return SolidBuilder(truncatedIcosahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .ambo()
       .relax()
       .truncate(0.01f)
@@ -955,7 +953,7 @@ truncatedIcosahedron_ambo_relax_truncate001_hankin73(Arena &a,
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
-  return SolidBuilder(truncatedOctahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedOctahedron(a, b), a, b)
       .gyro()
       .kis()
       .hankin(17.0f * D2R)
@@ -969,7 +967,7 @@ FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh
 truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
-  return SolidBuilder(truncatedIcosidodecahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedIcosidodecahedron(a, b), a, b)
       .bevel(0.5f)
       .relax(100)
       .hankin(77.0f * D2R)
@@ -983,7 +981,7 @@ truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a,
                                                                     Arena &b) {
-  return SolidBuilder(dodecahedron(a, b), a, b)
+  return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .bevel(0.2f)
       .relax(100)
       .gyro()
@@ -997,7 +995,7 @@ FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a,
  */
 FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
-  return SolidBuilder(truncatedIcosahedron(a, b), a, b)
+  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .ambo()
       .relax(217)
       .truncate(0.33f)
@@ -1012,7 +1010,7 @@ truncatedIcosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh
 dodecahedron_ambo_bevel33_relax_hk66(Arena &a, Arena &b) {
-  return SolidBuilder(dodecahedron(a, b), a, b)
+  return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .ambo()
       .bevel(0.33f)
       .relax(100)
