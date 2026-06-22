@@ -785,6 +785,23 @@ inline OKLab oklch_to_oklab(OKLCH lch) {
 }
 
 /**
+ * @brief Maximum in-gamut OKLCH chroma at a hue and lightness (the sRGB cusp).
+ * @param L Lightness in [0,1].
+ * @param h Hue in radians.
+ * @return The largest chroma C for which OKLCH(L, C, h) is inside the sRGB cube.
+ * @details Starts at a chroma past every sRGB cusp (0.5 — the most saturated
+ * sRGB color is ~0.37) and runs the chroma-reduction search, which scales chroma
+ * down to the gamut boundary holding L and h fixed, so the result is exactly the
+ * cusp. Cold path only (palette-key authoring), never the per-pixel render — the
+ * 16-iteration search would be far too costly per sample.
+ */
+inline float oklch_cusp_chroma(float L, float h) {
+  OKLab beyond = oklch_to_oklab({L, 0.5f, h});
+  OKLab at_cusp = gamut_clip_preserve_chroma(beyond);
+  return sqrtf(at_cusp.a * at_cusp.a + at_cusp.b * at_cusp.b);
+}
+
+/**
  * @brief Convenience: sRGB [0-255] channels to OKLCH.
  * @param r Red channel in [0, 255].
  * @param g Green channel in [0, 255].
@@ -1224,14 +1241,19 @@ public:
     // off pure black. FLAT is still a genuinely isoluminant shimmer, now at a
     // lightness the LEDs can actually render with saturation.
     float L = 0.12f + (val / 255.0f) * 0.55f;
-    // Chroma co-varies with lightness: the saturation profile sets the ceiling
-    // (kChromaPeak), and a sin(pi*L) envelope tapers it toward both ends, where
-    // the gamut narrows. So a dark or near-white key can't also be fully
-    // saturated -- the garish dark+saturated failure mode -- and chroma peaks at
-    // mid-L where the gamut bulges. kChromaPeak is tuned so a typical key (FLAT
-    // sits at L=0.67) keeps roughly its previous chroma. get() re-applies the
-    // same envelope at the interpolated L so midpoints stay on this curve.
-    float C = (sat / 255.0f) * kChromaPeak * sinf(PI_F * L);
+    // Chroma co-varies with lightness. Full saturation (VIBRANT, sat==255) is
+    // authored at the *exact* per-hue in-gamut cusp -- maximum physical
+    // vividness, and since the cusp itself narrows toward the lightness extremes
+    // and varies per hue it is a truer envelope than the fixed sin proxy. Below
+    // full saturation (PASTEL/MID) chroma is a fraction of kChromaPeak tapered by
+    // a sin(pi*L) envelope: peaks at mid-L where the gamut bulges, tapers toward
+    // both ends so a dark or near-white key can't also be vivid (the garish
+    // dark+saturated failure mode). kChromaPeak is tuned so a typical key (FLAT
+    // at L=0.67) keeps roughly its previous chroma. get() re-applies the same
+    // envelope at the interpolated L so midpoints stay on the curve. The cusp
+    // search is cold (key authoring), never per-pixel.
+    float C = (sat == 255) ? oklch_cusp_chroma(L, h)
+                           : (sat / 255.0f) * kChromaPeak * sinf(PI_F * L);
     return {L, C, h};
   }
 
