@@ -2925,6 +2925,21 @@ struct Twist {
   float amplitude; /**< Vertical displacement magnitude. */
   float R;         /**< Major radius (needed for the Lipschitz bound). */
 
+  /**
+   * @brief Constructs a twist warp around a torus of major radius R.
+   * @param twist_ Number of oscillations around the ring.
+   * @param amplitude_ Vertical displacement magnitude.
+   * @param R_ Major radius; must be > 0. lipschitz() divides by
+   *        std::max(s, R*0.5f), so a degenerate R == 0 floors the divisor to 0
+   *        on the XZ axis and yields a div-by-zero gamma. Guarded at the
+   *        (cold) construction site like Star/AngularRepeat's sides>0 checks,
+   *        not per-call on the sphere-tracing hot path.
+   */
+  Twist(int twist_, float amplitude_, float R_)
+      : twist(twist_), amplitude(amplitude_), R(R_) {
+    HS_CHECK(R > 0.0f); // R==0 -> lipschitz divisor floors to 0 -> NaN/inf gamma
+  }
+
   /** @brief Precomputed context: s = sqrtf(x² + z²), shared across apply/lipschitz. */
   using Ctx = float;
 
