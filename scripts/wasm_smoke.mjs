@@ -298,9 +298,18 @@ const slerpMid = Module.spline_cubic_slerp(...CTRL, 0.5);
 if (approxVec(slerpMid, fastMid.x, fastMid.y, fastMid.z)) {
   fail(`cubic_fast and cubic_slerp produced identical midpoints ${JSON.stringify(fastMid)} — bindings may resolve to the same function`);
 }
+// prev=(0,1,0) start=(1,0,0) end=(0,0,1) next=(-1,0,0), tension=0.5.
 const tg = Module.spline_catmull_rom_tangents(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
 if (!tg || !isVec(tg.cp1) || !isVec(tg.cp2)) {
   fail(`spline_catmull_rom_tangents returned malformed ${JSON.stringify(tg)}`);
+}
+// Pin cp1 so an argument transposition or a wrong-output binding fails here, not
+// only a non-finite return. cp1 = slerp(start, slerp(prev,end,.5), .5); both
+// slerps join orthonormal vectors at t=0.5, where the equal weights cancel under
+// the final normalize, so cp1 = normalize(start + normalize(prev+end)) =
+// (√½, ½, ½) exactly — independent of the fast-trig approximation.
+else if (!approxVec(tg.cp1, Math.SQRT1_2, 0.5, 0.5)) {
+  fail(`spline_catmull_rom_tangents cp1 should be (0.7071, 0.5, 0.5), got ${JSON.stringify(tg.cp1)}`);
 }
 console.log('  splines: cubic_fast, cubic_slerp, catmull_rom_tangents OK');
 
