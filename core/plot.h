@@ -1420,6 +1420,8 @@ struct Spiral {
       f.pos = pos;
       f.v0 = (n > 1) ? static_cast<float>(i) / (n - 1) : 0.0f;
       f.v1 = cumulative_len;
+      f.v2 = static_cast<float>(i); // vertex index, matching the ring/star/flower
+                                    // samplers' v2 convention
       f.age = 0;
       fragments.push_back(f);
     }
