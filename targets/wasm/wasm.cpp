@@ -296,10 +296,16 @@ public:
     // performs no allocation. This is the core of the WASM memory-view contract
     // (see getPixels()): under ALLOW_MEMORY_GROWTH=1 any heap reallocation
     // detaches the ArrayBuffer behind a typed_memory_view, so the buffers
-    // exposed to JS must be stable for the lifetime of the engine.
+    // exposed to JS must be stable for the lifetime of the engine. pixelBuffer
+    // (getPixels) and paramValues (getParamValues) are both returned AS views,
+    // so they are bound by that contract.
     pixelBuffer.assign(MAX_W * MAX_H * 3, 0); // 16-bit linear RGB; never resized
-    paramValues.reserve(MAX_PARAMS);          // never reallocated past this
-    paramViews.reserve(MAX_PARAMS);           // definition-stream scratch
+    paramValues.reserve(MAX_PARAMS);          // view-backed: never reallocated past this
+    // paramViews is NOT view-backed: getParameterDefinitions() iterates it to
+    // build a fresh val::array (no typed_memory_view aliases its storage), so
+    // this reserve is pure call-to-call amortization, not part of the contract
+    // above — a reallocation here would be harmless.
+    paramViews.reserve(MAX_PARAMS);
 
     // Initialize with a valid default effect. The C++ bootstrap default
     // (DistortedRing, installed below) and the JS frontend default differ by
