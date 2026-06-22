@@ -44,6 +44,13 @@ public:
    *  sizes (e.g. scan_region's seam-split `norm` == 2x its input span buffer). */
   static constexpr size_t kCapacity = N;
 
+  // back() and the iterators form `head + count - 1` (intermediate up to 2N-2)
+  // before the `% N` fold. Cap N so that sum can never overflow size_t. No real
+  // buffer comes within many orders of magnitude of this bound; the assert just
+  // documents and pins it.
+  static_assert(N <= (SIZE_MAX / 2),
+                "StaticCircularBuffer N too large: head+count could overflow");
+
   /**
    * @brief Constructs an empty buffer.
    */
