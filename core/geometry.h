@@ -788,7 +788,8 @@ struct Basis {
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
   // rotate() is only a pure rotation for a unit quaternion; assert it rather
   // than silently scale/shear the basis (fail-fast doctrine).
-  HS_CHECK(std::abs(orientation.squared_magnitude() - 1.0f) < 0.01f);
+  HS_CHECK(std::abs(orientation.squared_magnitude() - 1.0f) <
+           math::EPS_UNIT_QUAT_SQ);
   Vector v = rotate(normal, orientation).normalized();
   // Pick the reference axis least parallel to v, testing the *rotated* vectors
   // that are actually crossed below.
