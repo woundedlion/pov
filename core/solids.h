@@ -1298,7 +1298,11 @@ FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
   // An unknown name is a typo'd/stale caller bug: a wrong solid rendered with no
   // signal is worse than a bench-time crash. Trap rather than fall back to cube.
   HS_CHECK(false, "Solids::get_by_name: unknown solid name");
-  return finalize_solid(Platonic::cube(a, b), geom); // unreachable (trap above)
+  // No live fallback: the "no silent wrong solid" guarantee must not rest on
+  // HS_CHECK being [[noreturn]]. check_fail() always traps (it is [[noreturn]]
+  // and survives NDEBUG), so control never reaches here; mark it unreachable so
+  // a returned cube can never be the result of a missed/altered trap.
+  __builtin_unreachable();
 }
 
 /**
