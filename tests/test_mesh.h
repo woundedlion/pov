@@ -157,6 +157,48 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
 }
 
 /**
+ * @brief Verifies the half-edge builder's boundary path: an open mesh leaves its
+ *        outer edges unpaired (pair == HE_NONE).
+ * @details Every closed-solid fixture above pairs *every* half-edge, so the
+ *          boundary branch of pair_half_edges (a run of one half-edge on an
+ *          undirected edge) is otherwise unexercised. Two triangles (0,1,2) and
+ *          (0,2,3) share edge 0-2: that single interior edge pairs reciprocally;
+ *          the other four half-edges border the open boundary and stay HE_NONE.
+ */
+inline void test_half_edge_mesh_open_boundary_edges() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+  PolyMesh open;
+  open.vertices.bind(arena, 4);
+  open.face_counts.bind(arena, 2);
+  open.faces.bind(arena, 6);
+  // Positions are irrelevant to half-edge topology; any distinct points work.
+  open.vertices.push_back(Vector(0, 0, 1));
+  open.vertices.push_back(Vector(1, 0, 0));
+  open.vertices.push_back(Vector(0, 1, 0));
+  open.vertices.push_back(Vector(-1, 0, 0));
+  open.face_counts.push_back(3);
+  open.face_counts.push_back(3);
+  const uint16_t idx[] = {0, 1, 2, 0, 2, 3}; // tri A: 0->1->2, tri B: 0->2->3
+  for (uint16_t i : idx) open.faces.push_back(i);
+
+  HalfEdgeMesh he(arena, open);
+
+  HS_EXPECT_EQ(he.half_edges.size(), (size_t)6);
+  int paired = 0, boundary = 0;
+  for (size_t i = 0; i < he.half_edges.size(); ++i) {
+    uint16_t pair = he.half_edges[i].pair;
+    if (pair == HE_NONE) {
+      boundary++;
+    } else {
+      paired++;
+      HS_EXPECT_EQ(he.half_edges[pair].pair, (uint16_t)i); // reciprocal pairing
+    }
+  }
+  HS_EXPECT_EQ(paired, 2);   // the shared edge 0-2, both directions
+  HS_EXPECT_EQ(boundary, 4); // the four outer edges have no twin
+}
+
+/**
  * @brief Verifies the Euler characteristic V - E + F = 2 holds for the cube (a
  *        topological sphere), with the expected V=8, E=12, F=6.
  * @details E = half_edges/2 since each edge is two half-edges.
@@ -449,6 +491,7 @@ inline int run_mesh_tests() {
   test_half_edge_mesh_size_matches_input();
   test_half_edge_mesh_face_loop_closes();
   test_half_edge_mesh_pairs_are_symmetric();
+  test_half_edge_mesh_open_boundary_edges();
   test_half_edge_mesh_euler_invariant();
   test_half_edge_mesh_euler_tetrahedron();
   test_half_edge_mesh_built_from_meshstate();
