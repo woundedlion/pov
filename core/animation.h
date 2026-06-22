@@ -2275,6 +2275,11 @@ public:
     // a visible discontinuity; a float accumulator quantizes the same way once
     // it passes 2^24. Both fixes trade a gradual, barely-perceptible drift for a
     // sharp artifact, so the raw cast is kept and the limit documented.
+    //
+    // The ~77 h figure is for the default speed==1. noise_transform samples the
+    // time axis at time*speed, so each float quantization step is magnified by
+    // `speed`: the visible onset scales inversely, ~2^24/speed frames — sooner
+    // above 1, later below.
     params.get().time = static_cast<float>(t);
   }
 
