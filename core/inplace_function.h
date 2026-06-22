@@ -141,7 +141,8 @@ public:
                   "before copy-constructing the new one, so a throwing copy "
                   "would leave the buffer empty while vtable_ points at the new "
                   "type — UB on the next destroy. Store only nothrow-copyable "
-                  "callables; the supported set is trivial POD/pointer closures.");
+                  "callables — any qualifying type is accepted (in practice "
+                  "lambdas capturing PODs/pointers, which are trivially so).");
     ::new (storage_) D(std::forward<C>(c));
     vtable_ = &detail::ipf_ops<D, R, Args...>::value;
   }
