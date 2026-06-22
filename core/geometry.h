@@ -814,6 +814,11 @@ inline std::pair<Basis, float> get_antipode(const Basis &basis, float radius) {
     new_basis.u = -basis.u; // Flip U to maintain chirality
     new_basis.v = -basis.v; // Flip V (Antipode)
     new_basis.w = basis.w;  // W stays (Rotation axis)
+    // make_basis's relationship w == cross(v, u) survives this flip untouched:
+    // cross(-v, -u) == cross(v, u), so the kept w stays consistent with the
+    // negated u/v (and handedness is preserved — two axes flip). A consumer that
+    // recomputed w from the returned u/v would get the same vector back, so it is
+    // safe to keep the original w rather than recompute it.
     return {new_basis, 2.0f - radius};
   }
   return {basis, radius};
