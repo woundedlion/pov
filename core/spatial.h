@@ -258,7 +258,7 @@ public:
     // Pruning bound: largest squared distance currently held. Returns FLT_MAX
     // until the set holds k entries so nothing is pruned before it fills.
     auto get_worst_dist = [&]() -> float {
-      if (best.size() < k)
+      if (best.size() < static_cast<size_t>(k))
         return FLT_MAX;
       float max_d = -1.0f;
       for (size_t i = 0; i < best.size(); ++i) {
