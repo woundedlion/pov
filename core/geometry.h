@@ -456,13 +456,18 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @brief Converts a 3D unit vector back to 2D pixel coordinates.
  * @tparam W The width.
  * @tparam H The height.
- * @param v The input unit vector.
+ * @param v The input vector; MUST be unit length. This is an unenforced caller
+ *   contract: `phi = acos(v.y)` is only the true latitude when |v| == 1, so a
+ *   non-unit `v` returns a silently-wrong row (the `clamp(v.y)` only keeps the
+ *   `acos` in-domain, it does not correct the angle). Left unguarded on purpose
+ *   — this runs in the per-pixel hot loop, from which `HS_CHECK` is withheld by
+ *   the engine's fail-fast doctrine; callers normalize before projecting.
  * @return The 2D PixelCoords.
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
   // Skip normalize: fast_atan2 is scale-invariant, and inputs from
-  // the rasterizer are already unit vectors.
+  // the rasterizer are already unit vectors (see the unit precondition above).
   float theta = fast_atan2(v.z, v.x);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
   PixelCoords p({wrap((theta * W) / (2 * PI_F), W), phi_to_y(phi, H_VIRT)});
@@ -781,8 +786,13 @@ struct Basis {
 
 /**
  * @brief Creates a basis { u, v, w } from an orientation and normal.
- * @param orientation The orientation quaternion.
- * @param normal The normal vector; after rotation it becomes the 'v' axis.
+ * @param orientation The orientation quaternion; MUST be unit length
+ *   (HS_CHECK-trapped below — a non-unit quaternion would scale/shear the frame).
+ * @param normal The normal vector; after rotation it becomes the 'v' axis. MUST
+ *   be non-zero: a zero (or rotation-collapsed) normal is trap-enforced by the
+ *   `normalized()` of `v` below, deliberately fail-fast rather than soft-degraded
+ *   to `normalized_or` — a degenerate frame here is a caller bug, not a
+ *   legitimate geometric edge.
  * @return The constructed Basis.
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
