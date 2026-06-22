@@ -301,10 +301,12 @@ public:
     paramValues.reserve(MAX_PARAMS);          // never reallocated past this
     paramViews.reserve(MAX_PARAMS);           // definition-stream scratch
 
-    // Initialize with a valid default effect. JS overrides this almost
-    // immediately (daydream defaults to IslamicStars / the URL ?effect=), but a
-    // real registered name keeps the engine valid for that first instant and for
-    // any headless/tool use.
+    // Initialize with a valid default effect. The C++ bootstrap default
+    // (DistortedRing, installed below) and the JS frontend default differ by
+    // design: the bootstrap only needs *any* real registered name to keep the
+    // engine valid for the first instant and for any headless/tool use, while
+    // daydream overrides it almost immediately with its own default
+    // (IslamicStars) or the URL ?effect=.
     setResolution(96, 20);
     // Trap if the default name no longer resolves: setEffect returns false on an
     // unknown name and leaves currentEffect null, so a roster rename would
