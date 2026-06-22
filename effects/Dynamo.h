@@ -141,6 +141,15 @@ public:
     // (circular-buffer storage never moves and a live slot is never reused), so
     // reap_completed_wipes() collapses finished wipes from the back in FIFO
     // order without ever touching a live boundary.
+    //
+    // "A live slot is never reused" rests on the palettes.is_full() guard above:
+    // palette_boundaries' capacity is MAX_PALETTES-1 (one fewer than palettes),
+    // and the invariant palettes.size() == palette_boundaries.size()+1 holds
+    // because each wipe pushes one of each together. The guard drops a wipe once
+    // palettes hits MAX_PALETTES, so palette_boundaries tops out at exactly its
+    // capacity and the circular buffer never wraps to overwrite a front (live)
+    // slot the captured pointer below still aliases. Loosen that guard and this
+    // capture becomes a dangling write.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
                                           (int)params.wipe_duration, ease_linear)
