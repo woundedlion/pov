@@ -73,9 +73,15 @@ public:
    * @param align Required alignment in bytes; defaults to max_align_t.
    * @return Pointer into the buffer for the allocated block.
    * @details Traps (HS_CHECK) on over-allocation rather than returning null.
-   * Updates the high-water mark.
+   * Updates the high-water mark. `size` must be > 0: a zero-size request would
+   * return a valid bump pointer that reserves no storage (it aliases the next
+   * allocation's address), so a caller treating it as ownable would silently
+   * overlap. Every real caller passes a positive byte count (ArenaVector::bind
+   * guards `exact_capacity > 0` before calling), so trap a zero request as the
+   * misuse it is rather than hand back a non-owning pointer.
    */
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
+    HS_CHECK(size > 0, "Arena::allocate: zero-size request");
     // The padding math `(align - current % align) % align` is only correct for a
     // power-of-two alignment (and `current % align` is UB for align == 0). Every
     // caller passes `alignof(T)`, so this is a latent guard against a future
