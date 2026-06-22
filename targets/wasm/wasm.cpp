@@ -1249,6 +1249,84 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              v.set("cp2", vector_to_xyz(cp2));
              return v;
            }));
+
+  // ── Color / palette / lissajous exports ────────────────────────────────────
+  // tools/color.js, tools/palette_math.js and tools/lissajous_math.js hand-port
+  // this engine math (the sRGB transfer, the Ottosson OKLab matrices, the
+  // integer HSV sextant split, the ProceduralPalette cosine formula, the
+  // lissajous curve). Exporting the real engine functions lets the JS tools
+  // cross-check their ports, so an engine-side change fails a JS test instead of
+  // silently drifting from the device.
+
+  // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
+  function("srgb_to_linear_float",
+           optional_override([](float s) -> float { return srgb_to_linear_float(s); }));
+  function("linear_to_srgb_float",
+           optional_override([](float l) -> float { return linear_to_srgb_float(l); }));
+
+  // The interpolated sRGB->16-bit-linear LUT the cosine palette path uses, so a
+  // JS test can reproduce ProceduralPalette::get's exact quantization.
+  function("srgb_to_linear_interp",
+           optional_override([](float s) -> int {
+             return static_cast<int>(srgb_to_linear_interp(s));
+           }));
+
+  // OKLab matrices (color.js linearRgbToOklab / oklabToLinearRgb).
+  function("linear_rgb_to_oklab",
+           optional_override([](float r, float g, float b) -> val {
+             OKLab lab = linear_rgb_to_oklab(r, g, b);
+             val v = val::object();
+             v.set("L", lab.L);
+             v.set("a", lab.a);
+             v.set("b", lab.b);
+             return v;
+           }));
+  function("oklab_to_linear_rgb",
+           optional_override([](float L, float a, float b) -> val {
+             float r, g, bb;
+             oklab_to_linear_rgb({L, a, b}, r, g, bb);
+             val v = val::object();
+             v.set("r", r);
+             v.set("g", g);
+             v.set("b", bb);
+             return v;
+           }));
+
+  // HSV -> sRGB integer sextant path (palette_math.js hsvToRgb), via the engine's
+  // CRGB(CHSV) constructor. Returns sRGB bytes.
+  function("hsv_to_rgb",
+           optional_override([](int h, int s, int v) -> val {
+             CRGB c = CRGB(CHSV(static_cast<uint8_t>(h), static_cast<uint8_t>(s),
+                                static_cast<uint8_t>(v)));
+             val o = val::object();
+             o.set("r", static_cast<int>(c.r));
+             o.set("g", static_cast<int>(c.g));
+             o.set("b", static_cast<int>(c.b));
+             return o;
+           }));
+
+  // ProceduralPalette cosine formula (palette_math.js ProceduralPalette). Returns
+  // the engine's 16-bit linear color so the JS test can pin both the cosine
+  // formula and the sRGB->linear interp (paired with srgb_to_linear_interp).
+  function("procedural_palette_linear",
+           optional_override([](float a0, float a1, float a2, float b0, float b1,
+                                float b2, float c0, float c1, float c2, float d0,
+                                float d1, float d2, float t) -> val {
+             ProceduralPalette pal({a0, a1, a2}, {b0, b1, b2}, {c0, c1, c2},
+                                   {d0, d1, d2});
+             Color4 col = pal.get(t);
+             val o = val::object();
+             o.set("r", static_cast<int>(col.color.r));
+             o.set("g", static_cast<int>(col.color.g));
+             o.set("b", static_cast<int>(col.color.b));
+             return o;
+           }));
+
+  // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
+  function("lissajous",
+           optional_override([](float m1, float m2, float a, float t) -> val {
+             return vector_to_xyz(lissajous(m1, m2, a, t));
+           }));
 }
 
 #endif
