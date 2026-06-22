@@ -45,6 +45,14 @@ public:
    *          RandomWalk that reorients the field.
    */
   void init() override {
+    // Carve the base-lattice cache once from the persistent arena (only the
+    // active effect uses it). Sized to MAX_POINTS so a live "Points" change never
+    // reallocates a bump arena. draw_frame() fills slot [0, points) before
+    // reading it, so the uninitialized Vector storage here is always overwritten
+    // before use. allocate() traps on OOM, so a non-null return needs no check.
+    spiral_cache_ = static_cast<Vector *>(persistent_arena.allocate(
+        MAX_POINTS * sizeof(Vector), alignof(Vector)));
+
     registerParam("Points", &params.points, 100.0f, 2000.0f);
     registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
@@ -94,19 +102,24 @@ public:
     const float radius = params.star_radius;
     const int sides = (int)params.star_sides;
 
-    // The base spiral is recomputed from scratch every frame (fib_spiral is
-    // trig-heavy and runs up to 2000 times here). That redundancy is deliberate,
-    // not an oversight: only the warp + orientation animate, so the raw lattice
-    // could be cached and refreshed only when "Points" changes — but the cache is
-    // a fixed 2000-Vector (~24 KB) buffer in the RAM-constrained arena, and every
-    // base point depends on `points` (so it invalidates on each slider move). This
-    // effect is sim-targeted, where the per-frame trig is cheap, so the CPU work
-    // is not worth that standing RAM cost. Add the cache here if it ever ships on
-    // a device that runs it hot.
-    for (int i = 0; i < points; i++) {
-      Vector v = fib_spiral(points, 0.0f, i);
+    // The base spiral depends only on (points, i): `eps` is fixed at 0 and only
+    // the warp + orientation animate, so the raw lattice is identical every frame
+    // until "Points" moves. Rebuild it (trig-heavy fib_spiral, up to MAX_POINTS
+    // calls) only on a points change and cache it in the persistent arena; the
+    // steady state then just reads each base point back before warping it. The
+    // cache is a fixed MAX_POINTS-Vector buffer carved once in init() from the
+    // persistent arena, which only the active effect uses.
+    HS_CHECK(points <= MAX_POINTS,
+             "GnomonicStars: Points exceeds spiral-cache capacity");
+    if (points != cached_points_) {
+      for (int i = 0; i < points; i++) {
+        spiral_cache_[i] = fib_spiral(points, 0.0f, i);
+      }
+      cached_points_ = points;
+    }
 
-      v = transformer.transform(v);
+    for (int i = 0; i < points; i++) {
+      Vector v = transformer.transform(spiral_cache_[i]);
 
       // Build the basis at the star position. make_basis() rotates its normal
       // by the orientation, so passing the raw warp output applies the latest
@@ -120,10 +133,16 @@ public:
   }
 
 private:
+  /** @brief Spiral-cache capacity; equals the "Points" slider's upper bound. */
+  static constexpr int MAX_POINTS = 2000;
+
   Orientation<> orientation;        /**< Current field orientation quaternion. */
   FastNoiseLite noise;              /**< Noise source driving the RandomWalk. */
   Timeline timeline;                /**< Animation timeline for warp and walk. */
   Pipeline<W, H> filters;           /**< Render filter pipeline for star scan. */
+
+  Vector *spiral_cache_ = nullptr;  /**< Persistent base lattice, MAX_POINTS slots. */
+  int cached_points_ = 0;           /**< Point count the cache holds (0 = unbuilt). */
 
   MobiusWarpGnomonicTransformer<1> transformer; /**< Evolving Möbius warp applied per point. */
 };
