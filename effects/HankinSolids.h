@@ -29,7 +29,17 @@ public:
    * the interlace sweep/morph cycle.
    */
   void init() override {
-    // scratch_b must hold CompiledHankin (~10KB) + BakedPaletteBank (~15KB)
+    // Arena split: persistent = GLOBAL - 16 KB (scratch_a) - 32 KB (scratch_b).
+    // scratch_b carries TWO non-overlapping peaks (each in its own ScratchScope,
+    // at a different time); the 32 KB must cover the LARGER of:
+    //   (1) generation — generate_base_solid()'s Conway-operator intermediates
+    //       (the solid's .generate(a,b) writes its `b` chain here) plus
+    //       classify_faces_by_topology()'s pairing scratch.
+    //   (2) compaction — the morph-cycle Persist set: CompiledHankin (~10 KB) +
+    //       MeshPaletteBank (~15 KB) ≈ 25 KB.
+    // The ~25 KB compaction set is the documented driver, leaving ~7 KB headroom
+    // for the generation workspace. Device-only path: the H=144 high-water is not
+    // exercised in CI (no automated Teensy build) — confirm the peak on hardware.
     configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
                      32 * 1024);
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
