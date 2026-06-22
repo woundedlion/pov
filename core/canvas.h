@@ -464,6 +464,10 @@ protected:
     // any UI/animation write lands on the first). Trap at this cold init seam.
     HS_CHECK(parameters.find(name) == nullptr,
              "registerParam: duplicate parameter name");
+    // An inverted range feeds hs::clamp(value, min, max) with lo > hi
+    // (implementation-defined), pinning the slider to garbage. Trap the
+    // authoring bug at this cold init seam, like the capacity/duplicate guards.
+    HS_CHECK(min <= max, "registerParam: min must be <= max");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
   }
 
