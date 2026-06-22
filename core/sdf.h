@@ -928,6 +928,15 @@ template <typename A, typename B> struct SmoothUnion {
    * @param p Point on sphere (normalized).
    * @param res Output result; the nearer child's result with its dist reduced by
    *        the cubic smin blend term.
+   * @note Only `dist` is blended across the weld; the surviving auxiliary
+   *       registers (`t`/`raw_dist`/`size` and any UV in `v0…`) snap to whichever
+   *       child is nearer, so they step discontinuously through the seam even
+   *       where the visible surface is smooth. A shader keying off those
+   *       registers (not just `dist`) sees a hard edge through the weld. This is
+   *       intentional — blending every register would cost a second set of lerps
+   *       on the SDF hot path for a feature no shipped geometry reads — but, like
+   *       the AngularRepeat UV note, it is called out here so a future consumer
+   *       does not mistake the register seam for a bug.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -935,7 +944,8 @@ template <typename A, typename B> struct SmoothUnion {
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
 
-    // Polynomial smooth min (cubic)
+    // Polynomial smooth min (cubic). Only dist gets the smin blend; the rest of
+    // the surviving DistanceResult snaps to the nearer child (see @note).
     float h = std::max(k - std::abs(res.dist - res_b.dist), 0.0f) / k;
     float m = h * h * h * k * (1.0f / 6.0f);
 
