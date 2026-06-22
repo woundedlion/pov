@@ -61,26 +61,45 @@ def run_gate(source, target, env):
     size_tool = _tool(cc, "size")
     readelf = _tool(cc, "readelf")
 
-    # Region totals: prefer teensy_size (correct flash-LMA accounting, §7.3),
-    # fall back to `size -A` VMA bucketing (undercounts flash — see teensy_gate).
-    teensy_size = _find_teensy_size()
-    if teensy_size:
-        sizes = teensy_gate.parse_teensy_size(_run([teensy_size, elf], check=False))
-    else:
-        totals = teensy_gate.region_totals_from_size_a(_run([size_tool, "-A", "-x", elf]))
-        ram1 = totals.get("ITCM", 0) + totals.get("DTCM", 0)
-        sizes = {
-            "flash": {"used": totals.get("FLASH", 0), "free": 0},
-            "ram1": {"used": ram1, "free": 0x80000 - ram1},
-            "ram2": {"used": totals.get("OCRAM", 0),
-                     "free": 0x80000 - totals.get("OCRAM", 0)},
-        }
-        print("::warning::teensy_size not found; using `size -A` fallback "
-              "(flash total undercounts; calibrate the flash ceiling against "
-              "teensy_size, not this).")
+    # Capturing the ARM-tool output is the one part of the gate that can fail for
+    # reasons unrelated to firmware size: a missing/renamed tool (OSError), a
+    # non-zero tool exit (CalledProcessError), or output the parser no longer
+    # recognizes (empty regions). Attribute those to a DISTINCT ::error:: so a
+    # toolchain/parser break never masquerades as a size-budget "region-missing"
+    # violation or an opaque SCons traceback.
+    try:
+        # Region totals: prefer teensy_size (correct flash-LMA accounting, §7.3),
+        # fall back to `size -A` VMA bucketing (undercounts flash — see teensy_gate).
+        teensy_size = _find_teensy_size()
+        if teensy_size:
+            sizes = teensy_gate.parse_teensy_size(_run([teensy_size, elf], check=False))
+        else:
+            totals = teensy_gate.region_totals_from_size_a(_run([size_tool, "-A", "-x", elf]))
+            ram1 = totals.get("ITCM", 0) + totals.get("DTCM", 0)
+            sizes = {
+                "flash": {"used": totals.get("FLASH", 0), "free": 0},
+                "ram1": {"used": ram1, "free": 0x80000 - ram1},
+                "ram2": {"used": totals.get("OCRAM", 0),
+                         "free": 0x80000 - totals.get("OCRAM", 0)},
+            }
+            print("::warning::teensy_size not found; using `size -A` fallback "
+                  "(flash total undercounts; calibrate the flash ceiling against "
+                  "teensy_size, not this).")
 
-    symbols = teensy_gate.parse_readelf_symbols(_run([readelf, "-sW", elf]))
-    sections = teensy_gate.parse_readelf_sections(_run([readelf, "-SW", elf]))
+        symbols = teensy_gate.parse_readelf_symbols(_run([readelf, "-sW", elf]))
+        sections = teensy_gate.parse_readelf_sections(_run([readelf, "-SW", elf]))
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(f"::error::teensy-gate: a toolchain step failed before evaluation "
+              f"({type(exc).__name__}: {exc}). This is a build/tooling break "
+              f"(missing/renamed ARM tool or a non-zero tool exit), NOT a "
+              f"size-budget violation — fix the toolchain, do not adjust budgets.")
+        sys.exit(2)
+
+    if not any(r in sizes for r in ("flash", "ram1", "ram2")):
+        print("::error::teensy-gate: parsed no FLASH/RAM1/RAM2 regions from the "
+              "size output. This is a toolchain/format break (the size tool's "
+              "output shape changed), NOT a size-budget violation.")
+        sys.exit(2)
 
     budgets = teensy_gate.load_budgets(BUDGETS)
     if pioenv not in budgets:
