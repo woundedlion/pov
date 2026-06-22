@@ -149,7 +149,20 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
 
-  StaticCircularBuffer<std::pair<float, float>, SDF::kIntervalSpanCap> intervals;
+  // The interval scratch (~768 B) lives in scratch_arena_b, not on the stack:
+  // Phantasm's DTCM stack is tight and scan_region is on the deepest render
+  // chain. Per-call bump scope; norm is cleared per row below.
+  ScratchScope scratch(scratch_arena_b);
+  using IntervalBuf =
+      StaticCircularBuffer<std::pair<float, float>, SDF::kIntervalSpanCap>;
+  using NormBuf =
+      StaticCircularBuffer<std::pair<float, float>, 2 * SDF::kIntervalSpanCap>;
+  static_assert(NormBuf::kCapacity == 2 * IntervalBuf::kCapacity,
+                "norm must hold 2 spans per input interval (seam split)");
+  auto &intervals = *new (scratch_arena_b.allocate(
+      sizeof(IntervalBuf), alignof(IntervalBuf))) IntervalBuf();
+  auto &norm = *new (scratch_arena_b.allocate(sizeof(NormBuf),
+                                              alignof(NormBuf))) NormBuf();
 
   const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
@@ -177,10 +190,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       // two at the seam), so splitting can never overflow it — bound at compile
       // time below rather than left to a hand-maintained literal.
       bool full_row = false;
-      StaticCircularBuffer<std::pair<float, float>, 2 * SDF::kIntervalSpanCap>
-          norm;
-      static_assert(decltype(norm)::kCapacity == 2 * decltype(intervals)::kCapacity,
-                    "norm must hold 2 spans per input interval (seam split)");
+      norm.clear();
       for (const auto &iv : intervals) {
         float len = iv.second - iv.first;
         if (len >= W) {
