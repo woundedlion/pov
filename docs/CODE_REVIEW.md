@@ -135,7 +135,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 14. ✅ `core/memory.h:695-799` — `ArenaSpan` deletes construction from `ArenaVector&&` but leaves copy-assignment implicit, so `span = ArenaSpan(temporary)` is not caught (latent — no such caller). → `= default` the copy ops for documentation or add a re-validating `rebind`.
 
-15. `effects/Raymarch.h:136` — Raymarch drives its animation from the process-global `global_timeline_t` rather than an effect-local accumulator, so `spin_angle`/`anim_t` grow unbounded (progressive trig precision loss) and the pulse phase couples to the global counter at effect-switch time — unlike the sibling shader effects, which wrap their trig phase. → Drive `anim_t` from an effect-owned `Driver` and wrap the spin phase to `2π`.
+15. ✅ `effects/Raymarch.h:136` — Raymarch drives its animation from the process-global `global_timeline_t` rather than an effect-local accumulator, so `spin_angle`/`anim_t` grow unbounded (progressive trig precision loss) and the pulse phase couples to the global counter at effect-switch time — unlike the sibling shader effects, which wrap their trig phase. → Drive `anim_t` from an effect-owned `Driver` and wrap the spin phase to `2π`.
 
 16. `core/filter.h:1686-1691` — `ChromaticShift::plot` uses full `wrap()` while every sibling filter uses single-step `fast_wrap()` and documents the `[-W,2W)` producer contract; the divergence silently tolerates an out-of-window `x` that would trip the debug assert elsewhere. → Use `fast_wrap`, or document why this filter differs.
 

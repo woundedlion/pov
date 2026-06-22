@@ -48,6 +48,20 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(camera, normal, noise));
 
+    // Drive the tumble and palette-scroll phases from the live Pulse Speed
+    // slider instead of reading the unbounded global frame clock: each is an
+    // effect-owned accumulator wrapped to [0,1) every step, so the trig
+    // argument never grows (stable precision over long runs) and the phase no
+    // longer couples to the global counter at effect-switch time. The scales
+    // reproduce the prior per-animation-second increments (1.5 rad of spin and
+    // 0.05 cycle of palette scroll at 60 fps); spin_phase is scaled to radians
+    // by *2pi where it is consumed.
+    constexpr float TWO_PI = 2.0f * PI_F;
+    timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
+                                      1.5f / (60.0f * TWO_PI), true));
+    timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
+                                      0.05f / 60.0f, true));
+
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
                           this->drawFn(canvas, opacity);
@@ -133,8 +147,7 @@ private:
    *                color.
    */
   void drawFn(Canvas &canvas, float opacity) {
-    float t = static_cast<float>(global_timeline_t) / 60.0f;
-    float anim_t = t * params.pulse_speed;
+    constexpr float TWO_PI = 2.0f * PI_F;
 
     float major_r = params.core_size * 0.45f;
     float minor_r = params.core_size * 0.14f;
@@ -150,8 +163,9 @@ private:
     float aa_width = minor_r * params.aa_mult;
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
-    // Tumble rotation around local X-axis (tangent)
-    float spin_angle = anim_t * 1.5f;
+    // Tumble rotation around local X-axis (tangent). spin_phase rides in [0,1);
+    // scale to radians for make_rotation (2pi-periodic, so the wrap is exact).
+    float spin_angle = spin_phase * TWO_PI;
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
     // Per-frame cost is O(NUM_VERTS * max_steps * W * H): one volumetric
@@ -181,7 +195,7 @@ private:
 
         float ring_angle = (atan2f(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
         float palette_t = fmodf(
-            ring_angle + anim_t * 0.05f + static_cast<float>(vi) / NUM_VERTS,
+            ring_angle + palette_phase + static_cast<float>(vi) / NUM_VERTS,
             1.0f);
         Color4 c = baked_palette.get(palette_t);
         frag.color = Color4(c.color * shade, opacity);
@@ -210,6 +224,8 @@ private:
   FastNoiseLite noise;
   Vector normal = Y_AXIS;
   Orientation<> camera;
+  float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
+  float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
   std::array<Quaternion, NUM_VERTS> raw_quats;
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
