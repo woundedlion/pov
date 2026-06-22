@@ -368,8 +368,8 @@ private:
   Pipeline<W, H> filters;     /**< Post-process filter pipeline. */
   BakedPalette baked_palette; /**< Precomputed color LUT for the shader. */
 
-  int current_idx;            /**< Flat index of the currently displayed mode. */
-  int next_idx;               /**< Flat index of the mode being morphed toward. */
+  int current_idx = 0;        /**< Flat index of the currently displayed mode. */
+  int next_idx = 0;           /**< Flat index of the mode being morphed toward. */
   float morph_alpha = 0.0f;   /**< Morph progress in [0, 1] from current to next. */
 };
 
