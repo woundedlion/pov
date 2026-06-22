@@ -132,7 +132,17 @@ private:
 
   static constexpr int NUM_SEED_CLUSTERS = 30; /**< Initial B blobs seeded at
                                                     init. */
-  static constexpr int STEPS_PER_FRAME = 16;   /**< Physics substeps per render. */
+  /**
+   * @brief Physics substeps advanced per rendered frame.
+   * @details GS morphogenesis is slow per step: the feed/kill reaction (feed
+   * ~0.04, kill ~0.06) and the small diffusion rates move the field only
+   * fractionally each substep, so 16 substeps/frame are needed for the pattern to
+   * grow and drift at a visible rate. BZ's oscillatory dynamics move far faster
+   * per step and read visibly in 2. Every substep stays inside the explicit-Euler
+   * stability bound documented at the "Speed" (dt) param, so the higher count is
+   * pure evolution throughput, not a stability risk.
+   */
+  static constexpr int STEPS_PER_FRAME = 16;
   /**
    * @brief Lower bound of the B render band: below this, pixels are transparent;
    * [B_COLOR_FLOOR, B_COLOR_FLOOR + 1/B_COLOR_SCALE] maps to the full palette
