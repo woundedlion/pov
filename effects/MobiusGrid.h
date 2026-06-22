@@ -54,13 +54,11 @@ public:
     // rasterization arrays.
     configure_arenas(GLOBAL_ARENA_SIZE - 128 * 1024, 64 * 1024, 64 * 1024);
 
-    registerParam("Rings", &params.num_rings, 0.0f, 20.0f);
-    registerParam("Lines", &params.num_lines, 0.0f, 20.0f);
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    // Rings/Lines are driven by the Mutations below; flag them so the GUI
+    // Rings/Lines are driven by the Mutations below; flagged animated so the GUI
     // auto-pauses the animation when the user grabs the slider.
-    markAnimated("Rings");
-    markAnimated("Lines");
+    registerAnimatedParam("Rings", &params.num_rings, 0.0f, 20.0f);
+    registerAnimatedParam("Lines", &params.num_lines, 0.0f, 20.0f);
+    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
     mobius_gen.spawn(0, 1.0f, 160, true);
 

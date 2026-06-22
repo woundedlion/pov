@@ -39,11 +39,11 @@ public:
     configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
                      32 * 1024);
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
-    registerParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
+    // Angle is swept by the Mutation in start_hankin_cycle(); flagged animated
+    // so the GUI auto-pauses the sweep (and its morph cycle) when the user grabs
+    // the slider.
+    registerAnimatedParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
     registerParam("Debug BB", &params.debug_bb);
-    // Angle is swept by the Mutation in start_hankin_cycle(); flag it so the GUI
-    // auto-pauses the sweep (and its morph cycle) when the user grabs the slider.
-    markAnimated("Angle");
 
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS, noise,
