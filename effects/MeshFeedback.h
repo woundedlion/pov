@@ -234,7 +234,8 @@ private:
 
   Style style;
 
-  Presets<Style, 7> presets = {.entries = {{{Style::Melting()},
+  Presets<Style, 8> presets = {.entries = {{{Style::SlowTwist()},
+                                            {Style::Melting()},
                                             {Style::Swirling()},
                                             {Style::Churn()},
                                             {Style::Smoke()},

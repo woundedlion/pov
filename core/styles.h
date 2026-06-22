@@ -176,6 +176,15 @@ struct Style {
   // Params: fade, hue_shift, amplitude, frequency, speed, scale, space_fn, color_fn
 
   /**
+   * @brief Static fine-grained turbulence: high amplitude over a tight scale with
+   * no temporal drift, giving a frozen, twisted distortion.
+   * @return The SlowTwist preset Style.
+   */
+  static constexpr Style SlowTwist() {
+    return {0.8158f, 0.041f, 6.36f, 0.21f, 0.0f, 2.1459f, &noise_warp, &hue_fade};
+  }
+
+  /**
    * @brief Dense fine-grain turbulence with strong hue shift; tight scale, slow drift.
    * @return The Churn preset Style.
    */
