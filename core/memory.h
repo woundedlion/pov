@@ -927,6 +927,10 @@ public:
   Persist(T &target, Arena &scratch, Arena &persistent)
       : target_(target), persistent_(persistent),
         persistent_offset_at_ctor_(persistent.get_offset()), scratch_(scratch) {
+    HS_CHECK(&scratch != &persistent,
+             "Persist: scratch and persistent must be distinct arenas — the "
+             "dtor's watermark restore assumes the backup lives in a different "
+             "arena than the one it restores into");
     T::clone(target_, backup_, scratch_.get_arena());
   }
 
