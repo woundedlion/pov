@@ -113,11 +113,15 @@ struct MeshPaletteBank {
 
   /**
    * @brief Standard source palettes, in slot order.
-   * @return Array of N pointers to the constexpr source palettes.
+   * @return Array of pointers to the constexpr source palettes. The size is
+   *         deduced from the list (CTAD) — not fixed to N — so a list that
+   *         drifts out of sync with N trips the static_assert below instead of
+   *         silently nullptr-padding or reading past the bank.
    */
-  static constexpr std::array<const ProceduralPalette *, N> sources() {
-    return {&Palettes::embers, &Palettes::richSunset, &Palettes::brightSunrise,
-            &Palettes::bruisedMoss, &Palettes::lavenderLake};
+  static constexpr auto sources() {
+    return std::array{&Palettes::embers, &Palettes::richSunset,
+                      &Palettes::brightSunrise, &Palettes::bruisedMoss,
+                      &Palettes::lavenderLake};
   }
 
   /**
@@ -168,4 +172,10 @@ struct MeshPaletteBank {
 
   BakedPaletteBank bank; /**< Underlying baked-palette bank holding N LUTs. */
 };
+
+// Ties the source-palette list length to N (== BakedPaletteBank::N). Editing N
+// or the sources() list without the other now fails to compile rather than
+// silently desyncing the bake_all()/shuffle_indices() loops.
+static_assert(MeshPaletteBank::sources().size() == MeshPaletteBank::N,
+              "MeshPaletteBank::sources() count must equal N");
 
