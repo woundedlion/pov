@@ -298,13 +298,52 @@ def evaluate(
 # ---------------------------------------------------------------------------
 # CLI (standalone / local debugging on captured toolchain output)
 # ---------------------------------------------------------------------------
+def _strip_jsonc_comments(text: str) -> str:
+    """Remove // line and /* */ block comments from JSONC text, leaving any such
+    sequences that occur INSIDE a JSON string value untouched.
+
+    A character scanner is used rather than a regex on purpose: the naive
+    ``re.sub`` this replaced would corrupt a ``//`` or ``/*`` that appears inside
+    a string (a path, URL, or note), silently mangling a future budgets entry.
+    """
+    out = []
+    i, n = 0, len(text)
+    in_string = False
+    while i < n:
+        c = text[i]
+        if in_string:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                # Escaped char: copy verbatim; it can't terminate the string.
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                in_string = False
+            i += 1
+        elif c == '"':
+            in_string = True
+            out.append(c)
+            i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "/":
+            i += 2  # // line comment: drop through end of line (keep the \n)
+            while i < n and text[i] != "\n":
+                i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2  # /* */ block comment: drop through the closing */
+            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
+                i += 1
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 def load_budgets(path: str | Path) -> dict:
     """Load tools/teensy_budgets.json, tolerating // and /* */ comments."""
     raw = Path(path).read_text(encoding="utf-8")
-    # Strip // line comments and /* */ block comments so the file may be JSONC.
-    raw = re.sub(r"/\*.*?\*/", "", raw, flags=re.S)
-    raw = re.sub(r"(^|\s)//.*$", "", raw, flags=re.M)
-    return json.loads(raw)
+    return json.loads(_strip_jsonc_comments(raw))
 
 
 def render_report(result: GateResult, *, github: bool = False) -> str:
