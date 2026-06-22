@@ -1056,7 +1056,7 @@ The mesh system is split across several files:
 - **`mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
 - **`hankin.h`** — Hankin pattern compilation and dynamic update
-- **`spatial.h`** — `MeshState` (flat-array renderer format), `KDTree`, and a speculative `AABB` (test-only — no production consumer yet)
+- **`spatial.h`** — `MeshState` (flat-array renderer format) and `KDTree`
 - **`solids.h`** — Platonic + Archimedean + Catalan + Islamic Star Pattern solid geometry data and registry
 
 `PolyMesh` stores vertices and face connectivity via `ArenaVector` arrays. `MeshState` (in `spatial.h`) is the flat compiled format consumed by the renderer. `HalfEdgeMesh` provides a half-edge traversal structure built from either a `PolyMesh` or `MeshState`.
