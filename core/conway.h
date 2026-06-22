@@ -1005,19 +1005,18 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
         Vector force(0, 0, 0);
 
         HEVertex &hev = he_mesh.vertices[i];
-        uint16_t he_idx = hev.half_edge;
-        if (he_idx != HE_NONE) {
-          uint16_t start = he_idx;
-          // A manifold vertex orbit visits at most every half-edge once.
-          // Exceeding that means the twin graph is corrupt and this hand-rolled
-          // walk would spin forever — trap so it's caught on the bench instead
-          // of hanging the device (mirrors vertex_orbit's always-on guard).
-          int orbit_count = 0;
-          const int max_orbit = static_cast<int>(he_mesh.half_edges.size());
-          do {
-            HS_CHECK(orbit_count++ < max_orbit);
-            const HalfEdge &curr_he = he_mesh.half_edges[he_idx];
-            int ni = he_mesh.half_edges[curr_he.prev].vertex;
+        uint16_t he_idx = hev.half_edge; // an incoming half-edge (head == i)
+        // hev.half_edge points *into* i; its pair points *out of* i, the
+        // outgoing half-edge that vertex_orbit<'N'> (pair->next) walks. Starting
+        // the orbit there visits i's 1-ring in the same order the old hand-rolled
+        // next->pair loop did, so the force accumulation is byte-identical — and
+        // it reuses vertex_orbit's own always-on anti-hang guard instead of a
+        // duplicate one. The pair!=HE_NONE guard skips a boundary vertex with no
+        // outgoing twin (shipped recipes relax only closed meshes).
+        if (he_idx != HE_NONE && he_mesh.half_edges[he_idx].pair != HE_NONE) {
+          uint16_t start_out = he_mesh.half_edges[he_idx].pair;
+          vertex_orbit<'N'>(he_mesh, start_out, [&](uint16_t idx) {
+            int ni = he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
             Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
             // Compare SQUARED length against the squared tolerance (the
             // codebase idiom), so near-zero edges are skipped before 1/dist
@@ -1029,11 +1028,7 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
               float diff = dist - target_len;
               force = force + (vec * (1.0f / dist)) * (diff * 0.1f);
             }
-
-            if (he_mesh.half_edges[curr_he.next].pair == HE_NONE)
-              break;
-            he_idx = he_mesh.half_edges[curr_he.next].pair;
-          } while (he_idx != HE_NONE && he_idx != start);
+          });
         }
         movements[i] = force;
       }
