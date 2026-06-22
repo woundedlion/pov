@@ -9,7 +9,9 @@
  *   - both scratch arenas are reset to offset 0 BEFORE fn runs;
  *   - scratch allocations made by fn are rolled back after generate() returns;
  *   - the target arena is left untouched (its allocations persist);
- *   - extra args and the return value are forwarded.
+ *   - extra args and the return value are forwarded;
+ *   - reentrancy: a nested generate() stacks above the caller's live frame
+ *     rather than resetting it, across both a single nest and a deep stack.
  */
 #pragma once
 
@@ -158,6 +160,78 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 }
 
+// --- Deep (multi-level) reentrant nesting -----------------------------------
+
+// Number of stacked generate() frames the deep-nesting stress drives. Five is
+// well past the single-nest case above and exercises a non-trivial stack of
+// ScratchScope save/restore pairs in both arenas.
+inline constexpr int kDeepLevels = 5;
+// Per-level scratch_a entry offset, captured during recursion and checked for
+// strictly-monotonic stacking after the outermost frame returns.
+inline size_t g_deep_a_entry[kDeepLevels];
+
+/**
+ * @brief Recursive generate() body for the deep-nesting stress.
+ * @details Each level claims distinct, level-sized scratch in BOTH arenas,
+ * stamps a per-level sentinel into the first and last byte of each block,
+ * recurses through generate() (which must stack above this frame, never reset
+ * it), then on the way back asserts its own offsets and sentinels are exactly as
+ * it left them — proving no deeper frame rewound or overwrote a shallower one.
+ */
+inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
+                          int max_level) {
+  const size_t a_sz = 16 * static_cast<size_t>(level + 1);
+  const size_t b_sz = 8 * static_cast<size_t>(level + 1);
+  g_deep_a_entry[level] = a.get_offset();
+
+  uint8_t *am = static_cast<uint8_t *>(a.allocate(a_sz));
+  uint8_t *bm = static_cast<uint8_t *>(b.allocate(b_sz));
+  const uint8_t sentinel = static_cast<uint8_t>(0xA0 + level);
+  am[0] = am[a_sz - 1] = sentinel;
+  bm[0] = bm[b_sz - 1] = sentinel;
+  const size_t a_after = a.get_offset();
+  const size_t b_after = b.get_offset();
+
+  if (level + 1 < max_level)
+    (void)generate(t, gen_deep_level, level + 1, max_level);
+
+  // The nested call stacked above this frame and rolled fully back: our offsets
+  // and sentinels survive unchanged.
+  HS_EXPECT_EQ(a.get_offset(), a_after);
+  HS_EXPECT_EQ(b.get_offset(), b_after);
+  HS_EXPECT_EQ((int)am[0], (int)sentinel);
+  HS_EXPECT_EQ((int)am[a_sz - 1], (int)sentinel);
+  HS_EXPECT_EQ((int)bm[0], (int)sentinel);
+  HS_EXPECT_EQ((int)bm[b_sz - 1], (int)sentinel);
+  return level;
+}
+
+/**
+ * @brief Stress-tests the reentrant scratch protocol across many nested levels.
+ * @details The single-nest test proves one inner call does not clobber its
+ * caller; this drives kDeepLevels stacked frames and verifies each one stacked
+ * strictly above the previous level's live high-water (the reset fires only at
+ * the outermost call) and that the outermost scope rolled both arenas back to
+ * empty. Per-level sentinel survival is asserted inside gen_deep_level.
+ */
+inline void test_generate_deep_nesting_stacks_and_unwinds() {
+  Arena target(gen_target_buf, sizeof(gen_target_buf));
+  for (int i = 0; i < kDeepLevels; ++i)
+    g_deep_a_entry[i] = 999;
+
+  (void)generate(target, gen_deep_level, 0, kDeepLevels);
+
+  // Level 0 began on a freshly reset arena; every deeper level entered strictly
+  // above the previous level's allocations — never resetting an outer frame.
+  HS_EXPECT_EQ(g_deep_a_entry[0], (size_t)0);
+  for (int level = 1; level < kDeepLevels; ++level)
+    HS_EXPECT_GT(g_deep_a_entry[level], g_deep_a_entry[level - 1]);
+
+  // The outermost scope rolled both scratch arenas fully back.
+  HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
+  HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -172,6 +246,7 @@ inline int run_generators_tests() {
   test_generate_lifecycle_and_forwarding();
   test_generate_nested_target_persists();
   test_generate_reentrant_nesting_does_not_clobber();
+  test_generate_deep_nesting_stacks_and_unwinds();
 
   return hs_test::end_module(scope);
 }

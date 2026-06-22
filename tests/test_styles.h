@@ -4,7 +4,8 @@
  *
  * Direct unit tests for core/styles.h — the Feedback::Style POD: named presets,
  * scalar lerp with function-pointer/discrete snapping, the transform functions
- * (identity/noise/melt warp, plain/hue fade), and sync_noise().
+ * (identity/noise/melt warp — both the unbound identity path and the bound-noise
+ * production branch — plain/hue fade), and sync_noise().
  *
  * Self-contained header. run_styles_tests() returns the module failure count.
  */
@@ -147,6 +148,73 @@ inline void test_melt_warp_drifts_toward_north() {
 }
 
 /**
+ * @brief Verifies noise_warp actually distorts when a NoiseParams is bound.
+ * @details The null-noise test above only covers the identity early-out. Here a
+ *          real NoiseParams is bound and primed via the production sync_noise()
+ *          path (which pushes the Style's amplitude/frequency/speed/scale into
+ *          it); noise_warp must then take the bound branch — delegating to
+ *          noise_transform — and displace the direction off the input while
+ *          keeping it on the unit sphere. Displacement is summed across samples
+ *          so a single noise zero-crossing can't make the test flaky.
+ */
+inline void test_noise_warp_bound_distorts() {
+  NoiseParams np;
+  Feedback::Style s{};
+  s.amplitude = 0.6f;
+  s.frequency = 0.5f;
+  s.speed = 0.0f;
+  s.scale = 4.0f;
+  s.noise = &np;
+  s.sync_noise(); // production path: push scalars into the bound NoiseParams
+
+  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
+                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  float total_moved = 0.0f;
+  for (const Vector &v : samples) {
+    Vector out = Feedback::noise_warp(v, s);
+    HS_EXPECT_NEAR(out.length(), 1.0f, 1e-3f); // stays on the sphere (and finite)
+    total_moved +=
+        std::abs(out.x - v.x) + std::abs(out.y - v.y) + std::abs(out.z - v.z);
+  }
+  HS_EXPECT_GT(total_moved, 1e-2f);
+}
+
+/**
+ * @brief Verifies melt_warp's bound-noise branch perturbs the drip.
+ * @details test_melt_warp_drifts_toward_north exercises only the noise-disabled
+ *          drip. With a NoiseParams bound and amplitude above the wobble floor,
+ *          melt_warp must take the `s.noise && s.amplitude > floor` branch and
+ *          perturb the drifted point, so its output diverges from the same Style
+ *          with noise unbound (the pure-drip result), while staying unit length.
+ */
+inline void test_melt_warp_bound_noise_perturbs() {
+  NoiseParams np;
+  Feedback::Style s{};
+  s.speed = 1.0f;
+  s.amplitude = 0.6f; // above the melt noise-wobble floor → noise branch runs
+  s.frequency = 0.5f;
+  s.scale = 4.0f;
+  s.noise = &np;
+  s.sync_noise();
+
+  Feedback::Style drip_only = s;
+  drip_only.noise = nullptr; // same drip, no noise perturbation
+
+  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
+                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  float total_divergence = 0.0f;
+  for (const Vector &v : samples) {
+    Vector with_noise = Feedback::melt_warp(v, s);
+    Vector pure_drip = Feedback::melt_warp(v, drip_only);
+    HS_EXPECT_NEAR(with_noise.length(), 1.0f, 1e-3f);
+    total_divergence += std::abs(with_noise.x - pure_drip.x) +
+                        std::abs(with_noise.y - pure_drip.y) +
+                        std::abs(with_noise.z - pure_drip.z);
+  }
+  HS_EXPECT_GT(total_divergence, 1e-3f);
+}
+
+/**
  * @brief Verifies plain_fade scales each channel by the fade factor with no
  *        hue change.
  */
@@ -274,7 +342,9 @@ inline int run_styles_tests() {
   test_lerp_scalars_and_snapping();
   test_identity_warp();
   test_noise_warp_null_is_identity();
+  test_noise_warp_bound_distorts();
   test_melt_warp_drifts_toward_north();
+  test_melt_warp_bound_noise_perturbs();
   test_plain_fade_scales_linearly();
   test_hue_fade_zero_shift_preserves_gray();
   test_sync_hue_caches_rotation();
