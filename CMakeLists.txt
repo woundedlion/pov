@@ -77,6 +77,17 @@ if(EMSCRIPTEN)
     target_link_options(${TARGET_NAME} PRIVATE "-O3" "-msimd128" "-flto")
   endif()
 
+  # Optional dev-only WASM bindings (off by default, so a normal build is
+  # unchanged). Enables MeshOps::getMaxBounds() — a roster measurement tool for
+  # sizing MAX_VERTS-style constants, with no UI/runtime consumer (see
+  # HS_WASM_DEV_BINDINGS in targets/wasm/wasm.cpp). Enable with:
+  #   cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=ON
+  option(HS_WASM_DEV_BINDINGS "Re-export dev-only WASM bindings (getMaxBounds)" OFF)
+  if(HS_WASM_DEV_BINDINGS)
+    target_compile_definitions(${TARGET_NAME} PRIVATE HS_WASM_DEV_BINDINGS)
+    message(STATUS "WASM dev bindings enabled (HS_WASM_DEV_BINDINGS): getMaxBounds re-exported")
+  endif()
+
   # Emscripten emits a .js loader as the "executable".
   set_target_properties(${TARGET_NAME} PROPERTIES SUFFIX ".js")
 

@@ -1075,9 +1075,11 @@ struct MeshOpsWrapper {
    * @return JS object with {max_v, v_name, max_f, f_name, max_i, i_name} giving
    *         the largest counts and the solids that produce them.
    * @details Dev-only roster measurement for sizing MAX_VERTS-style constants;
-   *          no UI consumer. Compile with -DHS_WASM_DEV_BINDINGS to re-export it.
-   *          Measures each solid in the scratch arenas only — never
-   *          tooling_arena, which backs live wrappers the JS side still holds.
+   *          no UI consumer. Off by default; enable the HS_WASM_DEV_BINDINGS
+   *          CMake option to compile + re-export it
+   *          (`cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=ON`; see
+   *          CMakeLists.txt). Measures each solid in the scratch arenas only —
+   *          never tooling_arena, which backs live wrappers the JS side holds.
    */
   static val getMaxBounds() {
     int max_v = 0;
