@@ -185,6 +185,10 @@ public:
    *              effect-height HS_CHECK at the bind site backstops the shipped
    *              caller. The assert below is a host-build trip-wire for future
    *              callers — stripped on the device by NDEBUG (zero ISR cost).
+   *              Deliberately a stripped `assert`, NOT the always-on `HS_CHECK`
+   *              that `load()` uses for its cold one-shot bind: this is the
+   *              per-pixel ISR hot path, where an always-on trap would cost
+   *              cycles on every LED. Do not "harmonize" the two onto HS_CHECK.
    * @param p     Linear 16-bit pixel.
    * @details Applies color/temperature/brightness corrections in linear 16-bit
    *          space then converts to sRGB 8-bit in a single pass (no intermediate
