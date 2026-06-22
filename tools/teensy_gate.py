@@ -254,7 +254,14 @@ def evaluate(
     # --- Layout invariants: symbol -> region (+ magnitude) (§7.4 #1-#3) ---
     for key, spec in budget.get("symbols", {}).items():
         name = spec["name"]
-        matches = [s for s in symbols if s.name == name]
+        # Consider only DEFINED symbol-table rows (real section + non-zero size).
+        # readelf -s can also carry a same-named UND reference row (size 0, ndx
+        # UND, null value); including it would spuriously trip "symbol-too-small"
+        # on its 0 size and mis-derive a region from address 0. The definition is
+        # the row that carries the object, so a name present ONLY as UND means the
+        # definition was removed/renamed -> still a hard "symbol-not-found" below.
+        matches = [s for s in symbols
+                   if s.name == name and s.ndx != "UND" and s.size > 0]
         if not matches:
             # Fail loud: a never-matching name silently disables its invariant.
             v.append(Violation(

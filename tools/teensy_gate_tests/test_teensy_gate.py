@@ -147,6 +147,22 @@ class TestLayoutInvariantsFail(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertIn("symbol-not-found", _codes(result))
 
+    def test_und_reference_row_does_not_trip_magnitude_or_region(self):
+        # A same-named UND reference row (size 0, ndx UND, null address) alongside
+        # the real definition must NOT spuriously fire symbol-too-small (0 < floor)
+        # or symbol-wrong-region (addr 0 -> ITCM, not DTCM). Only defined rows count.
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        symbols.append(tg.Symbol(
+            num=9999, value=0, size=0, type="NOTYPE", bind="GLOBAL",
+            ndx="UND", name="_ZL18global_arena_block"))
+        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+                             symbols, sections)
+        self.assertTrue(result.passed, msg=_codes(result))
+        self.assertNotIn("symbol-too-small", _codes(result))
+        self.assertNotIn("symbol-wrong-region", _codes(result))
+
 
 class TestRegionCeilingsFail(unittest.TestCase):
     def test_over_cap_trips_every_region(self):
