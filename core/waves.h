@@ -18,11 +18,15 @@
  * @return A lambda mapping time t to the wave value.
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
+  // 2π·phase is loop-invariant across the returned lambda's calls, so hoist that
+  // exact subterm into the capture — computed once at build, not per sample. Only
+  // this term is hoisted: reassociating the freq·t·2π product could shift the
+  // last bit, and the wave must stay bit-identical between sim and device.
+  const float phase_term = 2 * PI_F * phase;
   return [=](float t) -> float {
     // +2π·phase advances the wave in the same direction as tri_wave/
     // square_wave's +phase. The −π/2 anchors t=0, phase=0 at the trough.
-    auto w =
-        (sinf(freq * t * 2 * PI_F - (PI_F / 2) + (2 * PI_F * phase)) + 1) / 2;
+    auto w = (sinf(freq * t * 2 * PI_F - (PI_F / 2) + phase_term) + 1) / 2;
     return hs::lerp(from, to, w);
   };
 }
