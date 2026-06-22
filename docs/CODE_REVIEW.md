@@ -153,7 +153,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 23. ✅ `targets/wasm/wasm.cpp:455-503,531` — when `currentEffect` is null (e.g. after `setResolution`), `drawFrame()` early-returns leaving `pixelBuffer` stale, and `getPixels()` hands JS the prior frame sized to the new resolution; `getRenderUs()` additionally always reads 0 for effects that bypass the scan/plot instrumentation (Raymarch/Liquid2D/Flyby). → Clear the active prefix when no effect is set; wrap full-screen shaders in a `ScopedRenderTimer` (or document the 0).
 
-24. `daydream.js:614` / `daydream.js` `disposeApp` — the global-GUI `getElementById('gui-container').appendChild(...)` is unguarded (will throw on a page lacking the container, white-screening before the graceful-degrade doctrine engages), and `disposeApp()` does not stop an in-progress recording (the `MediaRecorder`/stream/offscreen leak and the partial recording is never finalized). → Guard the container lookup; add `recorder?.stop()` to `disposeApp`.
+24. ✅ `daydream.js:614` / `daydream.js` `disposeApp` — the global-GUI `getElementById('gui-container').appendChild(...)` is unguarded (will throw on a page lacking the container, white-screening before the graceful-degrade doctrine engages), and `disposeApp()` does not stop an in-progress recording (the `MediaRecorder`/stream/offscreen leak and the partial recording is never finalized). → Guard the container lookup; add `recorder?.stop()` to `disposeApp`.
 
 25. `recorder.js:221-224` — `captureFrame()` can blit from a source canvas mid-resize to a transient 0×0, injecting a stale/wrong-aspect frame into a "byte-perfect" recording. → Guard `canvas.width > 0 && canvas.height > 0` before the offscreen `drawImage`.
 
