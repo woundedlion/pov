@@ -86,8 +86,13 @@ Arena tooling_arena(nullptr, 0);
 // contents are valid only within one synchronous MeshOps call — relying on WASM
 // single-threading, each op runs to completion before JS regains control. Unlike
 // tooling_arena, these are NOT covered by the generation trap, so the
-// "scratch outlives its op" contract is enforced purely by single-threading; a
-// future async/worker-shared refactor must re-establish it (e.g. per-op scratch).
+// "scratch outlives its op" contract is enforced purely by single-threading —
+// there is no runtime guard, because under single-threading there is nothing an
+// assert could ever catch (no op can observe another's scratch).
+// TODO(workers): if/when a worker or async refactor lets two ops interleave,
+// re-establish the contract explicitly (e.g. per-op scratch arenas, or a
+// reentrancy assert at each MeshOps entry point) — single-threading no longer
+// holds it.
 Arena tooling_scratch_a(nullptr, 0);
 Arena tooling_scratch_b(nullptr, 0);
 
