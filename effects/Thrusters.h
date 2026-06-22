@@ -200,10 +200,10 @@ private:
     // hardcoded 1.0 detaches the thrust pairs and the derived spin axis from the
     // ring whenever the Radius slider is moved off its default.
     Vector thrust_point =
-        Plot::DistortedRing::fn_point(r_fn, basis, params.radius, warp_phase);
+        Plot::DistortedRing::fn_point(r_fn, basis, params.radius, phase);
     Vector thrust_opp =
         Plot::DistortedRing::fn_point(r_fn, basis, params.radius,
-                                      warp_phase + PI_F);
+                                      phase + PI_F);
 
     // warp: decay from peak (0.7) to exactly 0 over the mutation's life so the
     // ring fully relaxes between fires (warp_decay carries the rationale).
