@@ -468,6 +468,13 @@ protected:
     // (implementation-defined), pinning the slider to garbage. Trap the
     // authoring bug at this cold init seam, like the capacity/duplicate guards.
     HS_CHECK(min <= max, "registerParam: min must be <= max");
+    // The captured default is *ptr verbatim — registration never clamps it. Every
+    // later updateParameter clamps into [min,max], so a default authored outside
+    // the range would advertise an out-of-range value that snaps on the first GUI
+    // edit. Trap that authoring mismatch at this cold init seam rather than ship a
+    // self-inconsistent default. (NaN fails the comparison and traps too.)
+    HS_CHECK(*ptr >= min && *ptr <= max,
+             "registerParam: default *ptr outside [min,max]");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
   }
 
