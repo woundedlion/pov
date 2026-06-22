@@ -90,8 +90,14 @@ class Violation:
 #   teensy_size: FLASH: code:62788, data:13684, headers:8460   free for files: 1979136
 #   teensy_size: RAM1: variables:343040, code:62240, padding:30496   free for local variables: 88512
 #   teensy_size: RAM2: variables:497920   free for malloc/new: 26368
+# The component blob and the "free for ..." figure are separated by run(s) of
+# whitespace whose width is not contractual — teensy_size has used 2+ spaces but
+# a single-space variant is a valid format the parser must not silently miss
+# (yielding a "region-missing" gate failure). `.*?` is lazy and "free for" is a
+# unique literal on the line, so `\s+` cannot over-consume the blob's own single
+# spaces (e.g. ", data:").
 _TS_REGION_RE = re.compile(
-    r"\bteensy_size:\s*(FLASH|RAM1|RAM2):\s*(.*?)\s{2,}free for [^:]+:\s*(\d+)",
+    r"\bteensy_size:\s*(FLASH|RAM1|RAM2):\s*(.*?)\s+free for [^:]+:\s*(\d+)",
     re.IGNORECASE,
 )
 _TS_PAIR_RE = re.compile(r"(\w+)\s*:\s*(\d+)")

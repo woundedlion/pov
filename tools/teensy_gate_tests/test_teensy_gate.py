@@ -70,6 +70,25 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(sizes["ram2"]["used"], 497920)
         self.assertEqual(sizes["ram2"]["free"], 26368)
 
+    def test_parse_teensy_size_single_space_before_free(self):
+        # The "free for ..." separator width is not contractual; a single-space
+        # variant must still parse all three regions, not silently yield
+        # "region-missing". Internal single spaces in the component blob (", data:")
+        # must NOT be mistaken for the separator.
+        text = (
+            "teensy_size: FLASH: code:62788, data:13684, headers:8460 free for files: 1979136\n"
+            "teensy_size: RAM1: variables:343040, code:62240, padding:30496 free for local variables: 88512\n"
+            "teensy_size: RAM2: variables:497920 free for malloc/new: 26368\n"
+        )
+        sizes = tg.parse_teensy_size(text)
+        self.assertEqual(set(sizes), {"flash", "ram1", "ram2"})
+        self.assertEqual(sizes["flash"]["used"], 62788 + 13684 + 8460)
+        self.assertEqual(sizes["flash"]["free"], 1979136)
+        self.assertEqual(sizes["ram1"]["used"], 343040 + 62240 + 30496)
+        self.assertEqual(sizes["ram1"]["free"], 88512)
+        self.assertEqual(sizes["ram2"]["used"], 497920)
+        self.assertEqual(sizes["ram2"]["free"], 26368)
+
     def test_parse_readelf_symbols_uses_real_mangled_names(self):
         syms = {s.name: s for s in tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))}
         self.assertIn("_ZN6Effect8buffer_aE", syms)              # class static, mangled
