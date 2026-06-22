@@ -161,3 +161,14 @@ target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 add_test(NAME unit_stack_budget COMMAND stack_measure)
+
+# Render micro-benchmark, built at two opt levels to bracket the size config's
+# per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy.
+foreach(_opt Os O3)
+  add_executable(perf_bench_${_opt}
+    ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
+    ${HS_ROOT}/core/memory.cpp ${HS_ROOT}/core/reaction_graph.cpp)
+  target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
+  target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+  target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
+endforeach()
