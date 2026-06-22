@@ -48,10 +48,13 @@ public:
              "Effect: a second Effect was constructed while one is still alive; "
              "buffer_a/buffer_b are shared static storage (one live Effect only)");
     s_alive = true;
-    bufs_[0] = buffer_a;
-    std::fill_n(bufs_[0], MAX_W * MAX_H, Pixel(0, 0, 0));
-    bufs_[1] = buffer_b;
-    std::fill_n(bufs_[1], MAX_W * MAX_H, Pixel(0, 0, 0));
+    // Point bufs_ at the shared static storage and clear both buffers. Factored
+    // into a noinline helper so the two MAX_W*MAX_H fills are emitted once rather
+    // than duplicated into both GCC constructor variants (C1 complete + C2 base)
+    // — the same code-size concern init() exists to address. They stay in
+    // construction rather than moving to init() because the clear must run for
+    // every Effect and derived init() overrides do not chain to a base init().
+    clear_buffers();
     clip.w = W;
     clip.h = H;
     clip.y_end = H;
@@ -523,6 +526,20 @@ protected:
   }
 
 private:
+  /**
+   * @brief Points bufs_ at the shared static storage and zeroes both buffers.
+   * @details noinline so the two full-frame fills are emitted once instead of
+   * being inlined into both GCC constructor variants (C1/C2). Invoked from the
+   * ctor rather than init() because the clear must run for every Effect and
+   * derived init() overrides do not chain to a base Effect::init().
+   */
+  void __attribute__((noinline)) clear_buffers() {
+    bufs_[0] = buffer_a;
+    std::fill_n(bufs_[0], MAX_W * MAX_H, Pixel(0, 0, 0));
+    bufs_[1] = buffer_b;
+    std::fill_n(bufs_[1], MAX_W * MAX_H, Pixel(0, 0, 0));
+  }
+
   std::atomic<int> prev_{0}; /**< Buffer the ISR is currently reading. */
   std::atomic<int> cur_{0};  /**< Buffer the main loop is currently writing. */
   std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
