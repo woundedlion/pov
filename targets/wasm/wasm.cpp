@@ -1184,6 +1184,18 @@ struct PaletteOps {
    */
   val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
               int h3, int s3, int v3) {
+    // gradientShape crosses the untyped JS boundary; an out-of-range int is UB
+    // when static_cast into the 4-value GradientShape enum. Clamp to STRAIGHT
+    // and log rather than trap (a trap at the JS boundary aborts the whole WASM
+    // module), mirroring setClip's reject-and-continue. This keeps the 256*3-byte
+    // return contract intact for the caller. The h/s/v ints are documented [0,255]
+    // and intentionally truncated to uint8_t below.
+    if (gradientShape < 0 ||
+        gradientShape > static_cast<int>(GradientShape::FALLOFF)) {
+      hs::log("WASM: bakeLut gradientShape %d out of range — using STRAIGHT",
+              gradientShape);
+      gradientShape = static_cast<int>(GradientShape::STRAIGHT);
+    }
     GenerativePalette pal = GenerativePalette::from_hsv_keys(
         static_cast<GradientShape>(gradientShape), (uint8_t)h1, (uint8_t)s1,
         (uint8_t)v1, (uint8_t)h2, (uint8_t)s2, (uint8_t)v2, (uint8_t)h3,
