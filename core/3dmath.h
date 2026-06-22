@@ -20,7 +20,7 @@ static constexpr float PHI = 1.6180339887498948482045868343656f;
 /**
  * @brief The inverse of the Golden Ratio (1/Phi).
  */
-static constexpr float G = 1 / PHI;
+static constexpr float INV_PHI = 1 / PHI;
 /**
  * @brief Named tolerances for floating-point geometry comparisons.
  *

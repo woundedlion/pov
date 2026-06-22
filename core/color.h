@@ -1111,14 +1111,14 @@ public:
       palette_hue = g_hue_seed;
       // Advance the global seed by a fixed integer step: this is an R1 additive
       // recurrence (Weyl sequence) mod 256, x' = (x + s) mod 256. static_cast
-      // truncates G * 255 to s = 157, the golden-ratio increment rounded to an
+      // truncates INV_PHI * 255 to s = 157, the golden-ratio increment rounded to an
       // integer; 157 is coprime with 256 so the cursor visits every residue
       // before repeating. Calling it "low-discrepancy" overstates it — the true
       // low-discrepancy property of an R1 sequence needs the exact irrational
       // increment, which the truncation to 157 discards; equidistribution here
       // is only approximate. Kept as-is for output stability across generations.
       g_hue_seed = static_cast<uint8_t>((static_cast<uint32_t>(g_hue_seed) +
-                                         static_cast<uint32_t>(G * 255.0f)) %
+                                         static_cast<uint32_t>(INV_PHI * 255.0f)) %
                                         256);
     }
 

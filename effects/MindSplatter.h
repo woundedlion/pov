@@ -209,7 +209,7 @@ private:
                      params.initial_speed;
 
         // Advance hue by the golden ratio for an even spread across emissions.
-        emitter_hues[i] = fmodf(emitter_hues[i] + G * 0.1f, 1.0f);
+        emitter_hues[i] = fmodf(emitter_hues[i] + INV_PHI * 0.1f, 1.0f);
 
         if (particle_system.active_count < particle_system.pool.capacity()) {
           uint16_t seed_u16 = static_cast<uint16_t>(emitter_hues[i] * 65535.0f);

@@ -521,7 +521,7 @@ inline Vector fib_spiral(int n, float eps, int i) {
   float phi = acosf(hs::clamp(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
                                          static_cast<float>(n),
                               -1.0f, 1.0f));
-  float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * G), (2.0f * PI_F));
+  float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * INV_PHI), (2.0f * PI_F));
   // Y-up convention
   return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta))
       .normalized();
