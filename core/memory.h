@@ -531,7 +531,10 @@ public:
                   "append_bulk memcpy's the source; T must be trivially copyable");
     check_alive();
     check_bound();
-    HS_CHECK(size_ + count <= capacity_,
+    // Subtractive, wrap-proof form (capacity_ >= size_ is an invariant, so the
+    // difference never underflows): `size_ + count` could wrap for a colossal
+    // count and slip an overflowed sum under capacity_. Matches Arena::allocate.
+    HS_CHECK(count <= capacity_ - size_,
              "ArenaVector bulk append exceeds capacity!");
     // An empty append must not reach memcpy: a null src (e.g. an empty source
     // vector's data()) with count 0 is formal UB that UBSan flags, even though
