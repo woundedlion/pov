@@ -1093,6 +1093,9 @@ public:
    * @param profile Brightness profile across the domain.
    * @param sat_profile Saturation profile; defaults to MID.
    * @param manual_seed Base hue in [0, 255] when >= 0, else -1 to auto-seed.
+   *        Supplying it is the opt-out from the shared `g_hue_seed` cursor: the
+   *        global is then neither read nor advanced, giving an instance-local,
+   *        deterministic base hue.
    * @details The base hue comes from manual_seed when >= 0, else from the global
    * golden-ratio hue cursor (which is then advanced).
    */
@@ -1458,6 +1461,10 @@ private:
   // distinct base hues. Non-atomic by design — safe only because palette
   // construction is single-threaded (engine setup / the render thread); it is
   // NOT a concurrency guard and a second constructing thread would race it.
+  // OPT-OUT: the global is engaged only on the auto-seed path. Passing an
+  // explicit `manual_seed >= 0` to the constructor neither reads nor advances
+  // this cursor, so a caller wanting a deterministic, instance-local base hue
+  // (or isolation from the shared cursor) seeds through the constructor instead.
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<CPixel, 5> colors;
