@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cfloat>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -114,11 +115,15 @@ struct Vector {
    */
   constexpr Vector() {}
   /**
-   * @brief Constructs a zero vector; the int argument is a tag for
-   * inplace_function compatibility and is ignored.
+   * @brief Constructs a zero vector from a null-pointer tag.
+   * @details Exists only for the device `teensy::inplace_function`, whose empty
+   * state synthesizes a return value as `Vector(0)`. Taking `std::nullptr_t`
+   * still accepts that literal `0` (a null-pointer constant) while rejecting the
+   * `Vector(5)` footgun the old `Vector(int)` allowed — a literal int that
+   * silently collapsed to the zero vector, discarding its value.
    */
-  explicit constexpr Vector(int)
-      : x(0), y(0), z(0) {} // inplace_function compat
+  explicit constexpr Vector(std::nullptr_t)
+      : x(0), y(0), z(0) {} // inplace_function empty-state compat
   /**
    * @brief Constructs a vector with explicit components.
    * @param x X-component.
