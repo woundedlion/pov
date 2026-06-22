@@ -1087,6 +1087,76 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
   HS_EXPECT_GT(total_interior, 1000);
 }
 
+/**
+ * @brief Verifies the Face azimuth-interval cull covers every paintable pixel
+ *        (including the outer AA fringe column at a silhouette edge).
+ * @return The paintable-pixel count, so the caller confirms the case is non-trivial.
+ * @details A pixel is paintable when its exact distance < pixel_width — the AA
+ *   reach the polygon family's one-pixel cap pad is sized for. The pre-fix Face
+ *   cull floor/ceil'd its azimuth intervals with no pad, so an edge falling near
+ *   an integer column lost its outer AA column. Brute-forces the full canvas and
+ *   asserts each paintable pixel is among those scan_region visits.
+ */
+template <int W, int H>
+inline int expect_face_cull_covers_fringe(int sides, float rho,
+                                          const Vector &axis) {
+  constexpr int HV = H + hs::H_OFFSET;
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+  Basis basis = make_basis(Quaternion(), axis);
+  Vector verts3d[8];
+  uint16_t idx[8];
+  for (int i = 0; i < sides; ++i) {
+    float a = (2.0f * PI_F * i) / sides + 0.37f;
+    verts3d[i] = (basis.v * cosf(rho) +
+                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
+                     .normalized();
+    idx[i] = static_cast<uint16_t>(i);
+  }
+  SDF::FaceScratchBuffer scratch;
+  SDF::Face face(std::span<const Vector>(verts3d, sides),
+                 std::span<const uint16_t>(idx, sides), /*thickness=*/0.0f,
+                 scratch, HV, H);
+
+  std::vector<uint8_t> visited;
+  cull_visited<W, H>(face, visited);
+
+  const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+  const float pixel_width = 2.0f * PI_F / W;
+  int paintable = 0;
+  for (int y = 0; y < H; ++y) {
+    float sp = TrigLUT<W, H>::sin_phi[y];
+    float cp = TrigLUT<W, H>::cos_phi[y];
+    for (int x = 0; x < W; ++x) {
+      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      if (face.distance(p).dist < pixel_width) {
+        ++paintable;
+        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
+      }
+    }
+  }
+  return paintable;
+}
+
+/** @brief Regresses the Face AA-fringe pad over configs whose edges fall near a column. */
+inline void test_face_cull_covers_aa_fringe() {
+  // 256x128 — at coarser resolutions the dropped fringe can fall below a pixel.
+  // The (sides, rho, axis) triples were found by differential search to drop
+  // 3-6 paintable AA-fringe pixels with the un-padded floor/ceil and zero once
+  // the intervals are padded by one pixel.
+  constexpr int W = 256, H = 128;
+  struct Cfg { int sides; float rho; Vector axis; };
+  const Cfg cfgs[] = {
+      {3, 0.15f, Vector(0, 0, 1)}, {3, 0.30f, Vector(0, 0, 1)},
+      {3, 0.48f, Vector(0, 0, 1)}, {3, 0.18f, Vector(1, 0, 0)},
+  };
+  int total_paintable = 0;
+  for (const Cfg &c : cfgs)
+    total_paintable += expect_face_cull_covers_fringe<W, H>(c.sides, c.rho, c.axis);
+  HS_EXPECT_GT(total_paintable, 1000);
+}
+
 // ============================================================================
 // Face distance LUT vs exact  (LUT bilinear vs an independent exact oracle)
 //
@@ -1311,6 +1381,7 @@ inline int run_sdf_tests() {
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
   test_ring_pole_wrap_cull_covers_interior();
+  test_face_cull_covers_aa_fringe();
   test_face_lut_matches_exact_within_cell_diagonal();
 
   return hs_test::end_module(scope);

@@ -1986,9 +1986,13 @@ struct Face {
   bool get_horizontal_intervals(int, OutputIt out) const {
     if (full_width)
       return false;
+    // Pad each azimuth interval by one pixel before floor/ceil so the outer AA
+    // fringe at a silhouette edge is scanned, matching the polygon family's cap
+    // pad (process_pixel draws up to d < +pixel_width).
+    float pixel_width = 2.0f * PI_F / W;
     for (const auto &iv : intervals) {
-      float f_x1 = iv.first * W / (2 * PI_F);
-      float f_x2 = iv.second * W / (2 * PI_F);
+      float f_x1 = (iv.first - pixel_width) * W / (2 * PI_F);
+      float f_x2 = (iv.second + pixel_width) * W / (2 * PI_F);
       out(floorf(f_x1), ceilf(f_x2));
     }
     return true;
