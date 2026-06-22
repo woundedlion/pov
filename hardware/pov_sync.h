@@ -214,6 +214,12 @@ struct Config {
            // read as its own burst.
            beacon_pitch_cols > 0 && gap_timeout_cols > beacon_pitch_cols &&
            effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
+           // epoch_repeats is signed: a negative value would cast to a huge
+           // uint32_t below, spuriously satisfying the refractory bound while
+           // wrapping commit_in_revs into an astronomical refractory window.
+           // Gate >= 0 first so the cast (and the bound it feeds) is well-defined;
+           // the refractory inequality then also caps it from above.
+           epoch_repeats >= 0 &&
            refractory_revs >
                commit_revs + static_cast<uint32_t>(epoch_repeats) &&
            revs_per_effect > refractory_revs &&
