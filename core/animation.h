@@ -1565,8 +1565,9 @@ private:
  * also indefinite but self-trigger their per-cycle hook from step()). Do not
  * chain sequencing logic off a RandomWalk's `.then()`; drive follow-on behavior
  * from a finite animation or cancel() the walk explicitly. (The Transformer's
- * slot-recycling `.then()` likewise will not fire for a spawned RandomWalk — see
- * finding 419 on the repeating-spawn slot leak.)
+ * slot-recycling `.then()` likewise will not fire for a spawned RandomWalk, so
+ * its slot is never reclaimed — a repeating spawn of RandomWalks leaks slots
+ * until the pool is exhausted; cancel() each walk or spawn finite animations.)
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
  */
