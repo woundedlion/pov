@@ -71,6 +71,15 @@ public:
    *          then advances and draws each live thruster.
    */
   void draw_frame() override {
+    // Advance the frame counter first, before anything reads it. Its consumers
+    // (on_fire_thruster and draw_ring, both driven from the timeline stepped
+    // just below) then see this frame's counter rather than the previous
+    // frame's. The absolute value has no external reference (it only drives a
+    // periodic temporal wave in ring_fn), so the one-frame phase shift versus
+    // the old end-of-frame increment is invisible; doing it here removes the
+    // foot-gun of a future top-of-frame consumer reading a stale counter.
+    t_global++;
+
     Canvas canvas(*this);
     timeline.step(canvas);
     // Stepped manually rather than via the timeline: each fire reassigns
@@ -100,8 +109,6 @@ public:
       draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
       ++ctx.age;
     }
-
-    t_global++;
   }
 
 private:
@@ -185,8 +192,8 @@ private:
     // Snapshot the warp state into the closure so the thrust-point geometry can't
     // depend on member-mutation order: warp_phase was just set; amplitude is the
     // residual from the previous fire (warp_anim restarts below, after the
-    // fn_point calls); t_global is this frame's counter (it advances at the end
-    // of draw_frame, so it lags rendering by one frame — an invisible offset).
+    // fn_point calls); t_global is this frame's counter (advanced at the top of
+    // draw_frame, so it already reflects the current frame).
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;
